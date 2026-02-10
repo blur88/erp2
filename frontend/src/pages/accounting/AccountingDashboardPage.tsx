@@ -1,0 +1,566 @@
+import React, { useEffect, useMemo } from 'react';
+import {
+  Box,
+  Grid,
+  Typography,
+  Paper,
+  Button,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Chip,
+  Card,
+  CardContent,
+  CardActionArea,
+  Skeleton,
+  Alert,
+  Stack,
+} from '@mui/material';
+import {
+  AccountBalance as AccountBalanceIcon,
+  Receipt as ReceiptIcon,
+  PieChart as PieChartIcon,
+  TrendingUp as TrendingUpIcon,
+  TrendingDown as TrendingDownIcon,
+  Add as AddIcon,
+  Dashboard as DashboardIcon,
+  AccountBalanceWallet as AccountBalanceWalletIcon,
+} from '@mui/icons-material';
+import { useNavigate } from 'react-router-dom';
+import { useAppDispatch, useAppSelector } from '@/store';
+import {
+  fetchBalanceSheet,
+  fetchProfitAndLoss,
+  selectBalanceSheet,
+  selectProfitAndLoss,
+} from '@/store/slices/accountingReportsSlice';
+import {
+  fetchJournalEntries,
+  selectJournalEntries,
+  selectJournalEntriesLoading,
+  selectJournalEntriesError,
+} from '@/store/slices/journalEntriesSlice';
+import {
+  fetchCurrentPeriod,
+  selectCurrentPeriod,
+  selectFiscalPeriodsLoading,
+} from '@/store/slices/fiscalPeriodsSlice';
+import { formatCurrency, formatDate, getCurrentDate } from '@/utils/formatters';
+import { TYPOGRAPHY_STYLES } from '@/constants/typography';
+import type { JournalEntry } from '@/types';
+
+// Summary Card Component
+interface SummaryCardProps {
+  title: string;
+  value: string | number;
+  subtitle: string;
+  icon: React.ReactNode;
+  color: 'primary' | 'success' | 'warning' | 'error';
+  onClick: () => void;
+  loading?: boolean;
+}
+
+const SummaryCard: React.FC<SummaryCardProps> = ({
+  title,
+  value,
+  subtitle,
+  icon,
+  color,
+  onClick,
+  loading,
+}) => {
+  return (
+    <Card
+      sx={{
+        height: '100%',
+        transition: 'all 0.3s ease',
+        '&:hover': {
+          boxShadow: 6,
+          transform: 'translateY(-4px)',
+        },
+      }}
+    >
+      <CardActionArea onClick={onClick} sx={{ height: '100%', p: 3 }}>
+        <Box>
+          <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: 56,
+                height: 56,
+                borderRadius: 2,
+                bgcolor: `${color}.light`,
+                color: `${color}.main`,
+                mr: 2,
+              }}
+            >
+              {icon}
+            </Box>
+            <Box sx={{ flex: 1 }}>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                {title}
+              </Typography>
+              {loading ? (
+                <Skeleton width={120} height={40} />
+              ) : (
+                <Typography
+                  variant="h4"
+                  sx={{
+                    fontWeight: 700,
+                    color: `${color}.main`,
+                    lineHeight: 1.2,
+                  }}
+                >
+                  {typeof value === 'number' ? formatCurrency(value) : value}
+                </Typography>
+              )}
+            </Box>
+          </Box>
+          <Typography variant="caption" color="text.secondary">
+            {subtitle}
+          </Typography>
+        </Box>
+      </CardActionArea>
+    </Card>
+  );
+};
+
+// Status chip helper
+const getStatusChip = (status: string) => {
+  const statusMap: Record<string, { color: 'default' | 'success' | 'warning' | 'error', label: string }> = {
+    draft: { color: 'default', label: 'Draft' },
+    posted: { color: 'success', label: 'Posted' },
+    reversed: { color: 'error', label: 'Reversed' },
+  };
+
+  const config = statusMap[status.toLowerCase()] || { color: 'default', label: status };
+  return <Chip label={config.label} color={config.color} size="small" />;
+};
+
+// Entry type chip helper
+const getEntryTypeChip = (type: string) => {
+  const typeMap: Record<string, { color: 'default' | 'primary' | 'secondary' | 'info' | 'warning', label: string }> = {
+    manual: { color: 'primary', label: 'Manual' },
+    system: { color: 'secondary', label: 'System' },
+    adjustment: { color: 'warning', label: 'Adjustment' },
+    closing: { color: 'info', label: 'Closing' },
+    opening: { color: 'info', label: 'Opening' },
+  };
+
+  const config = typeMap[type.toLowerCase()] || { color: 'default', label: type };
+  return <Chip label={config.label} color={config.color} size="small" variant="outlined" />;
+};
+
+const AccountingDashboardPage: React.FC = () => {
+  const navigate = useNavigate();
+  const dispatch = useAppDispatch();
+
+  // Selectors
+  const balanceSheetState = useAppSelector(selectBalanceSheet);
+  const profitAndLossState = useAppSelector(selectProfitAndLoss);
+  const journalEntries = useAppSelector(selectJournalEntries);
+  const journalEntriesLoading = useAppSelector(selectJournalEntriesLoading);
+  const journalEntriesError = useAppSelector(selectJournalEntriesError);
+  const currentPeriod = useAppSelector(selectCurrentPeriod);
+  const fiscalPeriodsLoading = useAppSelector(selectFiscalPeriodsLoading);
+
+  // Calculate YTD date range
+  const today = getCurrentDate();
+  const ytdStartDate = useMemo(() => {
+    const currentYear = new Date().getFullYear();
+    return `${currentYear}-01-01`;
+  }, []);
+
+  // Fetch data on mount
+  useEffect(() => {
+    dispatch(fetchBalanceSheet({ asOfDate: today, includeInactive: false }));
+    dispatch(fetchProfitAndLoss({ startDate: ytdStartDate, endDate: today, includeInactive: false }));
+    dispatch(fetchJournalEntries({ page: 1, limit: 10, sortBy: 'entryDate', sortOrder: 'DESC' }));
+    dispatch(fetchCurrentPeriod());
+  }, [dispatch, today, ytdStartDate]);
+
+  // Extract data from reports
+  const balanceSheet = balanceSheetState.data;
+  const profitAndLoss = profitAndLossState.data;
+
+  const totalAssets = balanceSheet?.totalAssets || 0;
+  const totalLiabilities = balanceSheet?.liabilities?.subtotal || 0;
+  const totalEquity = balanceSheet?.equity?.subtotal || 0;
+  const netIncome = profitAndLoss?.netIncome || 0;
+
+  const isLoading =
+    balanceSheetState.loading || profitAndLossState.loading || journalEntriesLoading || fiscalPeriodsLoading;
+
+  const hasError = balanceSheetState.error || profitAndLossState.error || journalEntriesError;
+
+  // Recent journal entries (limit to 10)
+  const recentEntries = useMemo(() => {
+    return (journalEntries || []).slice(0, 10);
+  }, [journalEntries]);
+
+  // Calculate days remaining in fiscal period
+  const daysRemaining = useMemo(() => {
+    if (!currentPeriod?.endDate) return null;
+    const endDate = new Date(currentPeriod.endDate);
+    const now = new Date();
+    const diffTime = endDate.getTime() - now.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays > 0 ? diffDays : 0;
+  }, [currentPeriod]);
+
+  return (
+    <Box>
+      {/* Header */}
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
+        <Box>
+          <Typography
+            variant={TYPOGRAPHY_STYLES.pageHeader.variant}
+            sx={{
+              fontWeight: TYPOGRAPHY_STYLES.pageHeader.fontWeight,
+              mb: 1,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 2,
+            }}
+          >
+            <DashboardIcon
+              sx={{
+                fontSize: TYPOGRAPHY_STYLES.pageHeader.icon.fontSize,
+                color: TYPOGRAPHY_STYLES.pageHeader.icon.color,
+              }}
+            />
+            Accounting Dashboard
+          </Typography>
+          <Typography variant={TYPOGRAPHY_STYLES.pageSubtitle.variant} color={TYPOGRAPHY_STYLES.pageSubtitle.color}>
+            Overview of your financial position and accounting activity
+          </Typography>
+        </Box>
+      </Box>
+
+      {/* Error Alert */}
+      {hasError && (
+        <Alert severity="error" sx={{ mb: 4 }}>
+          {balanceSheetState.error || profitAndLossState.error || journalEntriesError}
+        </Alert>
+      )}
+
+      {/* Section 1: Financial Summary Cards */}
+      <Grid container spacing={3} sx={{ mb: 4 }}>
+        <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
+          <SummaryCard
+            title="Total Assets"
+            value={totalAssets}
+            subtitle={`As of: ${formatDate(today)}`}
+            icon={<AccountBalanceIcon sx={{ fontSize: 32 }} />}
+            color="primary"
+            onClick={() => navigate('/accounting/reports/balance-sheet')}
+            loading={balanceSheetState.loading}
+          />
+        </Grid>
+        <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
+          <SummaryCard
+            title="Total Liabilities"
+            value={totalLiabilities}
+            subtitle={`As of: ${formatDate(today)}`}
+            icon={<ReceiptIcon sx={{ fontSize: 32 }} />}
+            color="warning"
+            onClick={() => navigate('/accounting/reports/balance-sheet')}
+            loading={balanceSheetState.loading}
+          />
+        </Grid>
+        <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
+          <SummaryCard
+            title="Total Equity"
+            value={totalEquity}
+            subtitle={`As of: ${formatDate(today)}`}
+            icon={<AccountBalanceWalletIcon sx={{ fontSize: 32 }} />}
+            color="success"
+            onClick={() => navigate('/accounting/reports/balance-sheet')}
+            loading={balanceSheetState.loading}
+          />
+        </Grid>
+        <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
+          <SummaryCard
+            title="YTD Net Income"
+            value={netIncome}
+            subtitle={`YTD: Jan 1 - ${formatDate(today)}`}
+            icon={
+              netIncome >= 0 ? (
+                <TrendingUpIcon sx={{ fontSize: 32 }} />
+              ) : (
+                <TrendingDownIcon sx={{ fontSize: 32 }} />
+              )
+            }
+            color={netIncome >= 0 ? 'success' : 'error'}
+            onClick={() => navigate('/accounting/reports/profit-loss')}
+            loading={profitAndLossState.loading}
+          />
+        </Grid>
+      </Grid>
+
+      {/* Section 2: Quick Actions */}
+      <Paper sx={{ p: 3, mb: 4 }}>
+        <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>
+          Quick Actions
+        </Typography>
+        <Grid container spacing={2}>
+          <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+            <Button
+              variant="contained"
+              color="primary"
+              fullWidth
+              startIcon={<AddIcon />}
+              onClick={() => navigate('/accounting/journal-entries/new')}
+              sx={{ py: 1.5 }}
+            >
+              New Journal Entry
+            </Button>
+          </Grid>
+          <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+            <Button
+              variant="outlined"
+              fullWidth
+              onClick={() => navigate('/accounting/reports/trial-balance')}
+              sx={{ py: 1.5 }}
+            >
+              View Trial Balance
+            </Button>
+          </Grid>
+          <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+            <Button
+              variant="outlined"
+              fullWidth
+              onClick={() => navigate('/accounting/reports/balance-sheet')}
+              sx={{ py: 1.5 }}
+            >
+              View Balance Sheet
+            </Button>
+          </Grid>
+          <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+            <Button
+              variant="outlined"
+              fullWidth
+              onClick={() => navigate('/accounting/reports/profit-loss')}
+              sx={{ py: 1.5 }}
+            >
+              View Profit & Loss
+            </Button>
+          </Grid>
+          <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+            <Button
+              variant="outlined"
+              fullWidth
+              onClick={() => navigate('/accounting/chart-of-accounts')}
+              sx={{ py: 1.5 }}
+            >
+              View Chart of Accounts
+            </Button>
+          </Grid>
+          <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+            <Button
+              variant="outlined"
+              fullWidth
+              onClick={() => navigate('/accounting/fiscal-periods')}
+              sx={{ py: 1.5 }}
+            >
+              Manage Fiscal Periods
+            </Button>
+          </Grid>
+        </Grid>
+      </Paper>
+
+      <Grid container spacing={3}>
+        {/* Section 3: Recent Journal Entries */}
+        <Grid size={{ xs: 12, lg: 8 }}>
+          <Paper sx={{ p: 3 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+              <Box>
+                <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                  Recent Journal Entries
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  Last 10 entries
+                </Typography>
+              </Box>
+              <Button
+                variant="outlined"
+                size="small"
+                onClick={() => navigate('/accounting/journal-entries')}
+              >
+                View All
+              </Button>
+            </Box>
+
+            {journalEntriesLoading ? (
+              <Box>
+                {[1, 2, 3, 4, 5].map((i) => (
+                  <Skeleton key={i} height={50} sx={{ mb: 1 }} />
+                ))}
+              </Box>
+            ) : recentEntries.length === 0 ? (
+              <Box sx={{ textAlign: 'center', py: 4 }}>
+                <Typography variant="body2" color="text.secondary">
+                  No journal entries found
+                </Typography>
+              </Box>
+            ) : (
+              <TableContainer>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Date</TableCell>
+                      <TableCell>Entry #</TableCell>
+                      <TableCell>Type</TableCell>
+                      <TableCell>Status</TableCell>
+                      <TableCell>Description</TableCell>
+                      <TableCell align="right">Amount</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {recentEntries.map((entry: JournalEntry) => {
+                      const totalAmount = entry.lineItems?.reduce(
+                        (sum, item) => sum + (item.debitAmount || 0),
+                        0
+                      ) || 0;
+
+                      return (
+                        <TableRow
+                          key={entry.id}
+                          hover
+                          sx={{ cursor: 'pointer' }}
+                          onClick={() => navigate(`/accounting/journal-entries/${entry.id}`)}
+                        >
+                          <TableCell>{formatDate(entry.entryDate)}</TableCell>
+                          <TableCell>
+                            <Typography
+                              variant="body2"
+                              sx={{ fontFamily: 'monospace', fontWeight: 600 }}
+                            >
+                              {entry.entryNumber}
+                            </Typography>
+                          </TableCell>
+                          <TableCell>{getEntryTypeChip(entry.entryType)}</TableCell>
+                          <TableCell>{getStatusChip(entry.status)}</TableCell>
+                          <TableCell>
+                            <Typography
+                              variant="body2"
+                              sx={{
+                                maxWidth: 250,
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap',
+                              }}
+                            >
+                              {entry.description || '-'}
+                            </Typography>
+                          </TableCell>
+                          <TableCell align="right">
+                            <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                              {formatCurrency(totalAmount)}
+                            </Typography>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            )}
+          </Paper>
+        </Grid>
+
+        {/* Section 4: Current Fiscal Period Status */}
+        <Grid size={{ xs: 12, lg: 4 }}>
+          <Paper sx={{ p: 3 }}>
+            <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>
+              Current Fiscal Period
+            </Typography>
+
+            {fiscalPeriodsLoading ? (
+              <Box>
+                <Skeleton height={40} sx={{ mb: 1 }} />
+                <Skeleton height={30} sx={{ mb: 1 }} />
+                <Skeleton height={30} sx={{ mb: 1 }} />
+              </Box>
+            ) : !currentPeriod ? (
+              <Box sx={{ textAlign: 'center', py: 2 }}>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                  No active fiscal period
+                </Typography>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  onClick={() => navigate('/accounting/fiscal-periods')}
+                >
+                  Create Period
+                </Button>
+              </Box>
+            ) : (
+              <Box>
+                <Typography variant="h5" sx={{ fontWeight: 700, mb: 1 }}>
+                  {currentPeriod.name}
+                </Typography>
+                <Box sx={{ mb: 2 }}>
+                  <Chip
+                    label={currentPeriod.status === 'open' ? 'Open' : 'Closed'}
+                    color={currentPeriod.status === 'open' ? 'success' : 'error'}
+                    size="small"
+                  />
+                </Box>
+                <Stack spacing={1.5} sx={{ mb: 2 }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <Typography variant="body2" color="text.secondary">
+                      Start Date:
+                    </Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                      {formatDate(currentPeriod.startDate)}
+                    </Typography>
+                  </Box>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <Typography variant="body2" color="text.secondary">
+                      End Date:
+                    </Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                      {formatDate(currentPeriod.endDate)}
+                    </Typography>
+                  </Box>
+                  {currentPeriod.status === 'open' && daysRemaining !== null && (
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <Typography variant="body2" color="text.secondary">
+                        Days Remaining:
+                      </Typography>
+                      <Typography
+                        variant="body2"
+                        sx={{
+                          fontWeight: 700,
+                          color: daysRemaining < 7 ? 'error.main' : 'success.main',
+                        }}
+                      >
+                        {daysRemaining} days
+                      </Typography>
+                    </Box>
+                  )}
+                </Stack>
+                <Button
+                  variant="outlined"
+                  fullWidth
+                  size="small"
+                  onClick={() => navigate('/accounting/fiscal-periods')}
+                >
+                  Manage Periods
+                </Button>
+              </Box>
+            )}
+          </Paper>
+        </Grid>
+      </Grid>
+    </Box>
+  );
+};
+
+export default AccountingDashboardPage;

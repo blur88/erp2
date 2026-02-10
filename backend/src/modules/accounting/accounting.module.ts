@@ -14,12 +14,14 @@ import { ChartOfAccountsService } from './services/chart-of-accounts.service';
 import { FiscalPeriodService } from './services/fiscal-period.service';
 import { JournalEntryService } from './services/journal-entry.service';
 import { AccountMappingService } from './services/account-mapping.service';
+import { AccountingReportsService } from './services/accounting-reports.service';
 
 // Controllers
 import { ChartOfAccountsController } from './controllers/chart-of-accounts.controller';
 import { FiscalPeriodController } from './controllers/fiscal-period.controller';
 import { JournalEntryController } from './controllers/journal-entry.controller';
 import { AccountMappingController } from './controllers/account-mapping.controller';
+import { AccountingReportsController } from './controllers/accounting-reports.controller';
 
 @Module({
   imports: [
@@ -36,6 +38,7 @@ import { AccountMappingController } from './controllers/account-mapping.controll
     FiscalPeriodController,
     JournalEntryController,
     AccountMappingController,
+    AccountingReportsController,
   ],
   providers: [
     AccountingService,
@@ -43,6 +46,7 @@ import { AccountMappingController } from './controllers/account-mapping.controll
     FiscalPeriodService,
     JournalEntryService,
     AccountMappingService,
+    AccountingReportsService,
   ],
   exports: [
     AccountingService,
@@ -50,6 +54,7 @@ import { AccountMappingController } from './controllers/account-mapping.controll
     FiscalPeriodService,
     JournalEntryService,
     AccountMappingService,
+    AccountingReportsService,
   ],
 })
 export class AccountingModule {}

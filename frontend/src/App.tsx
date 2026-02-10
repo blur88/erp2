@@ -71,6 +71,12 @@ const JournalEntriesPage = React.lazy(() => import('./pages/accounting/JournalEn
 const JournalEntryFormPage = React.lazy(() => import('./pages/accounting/JournalEntryFormPage'))
 const JournalEntryDetailsPage = React.lazy(() => import('./pages/accounting/JournalEntryDetailsPage'))
 const AccountMappingsPage = React.lazy(() => import('./pages/accounting/AccountMappingsPage'))
+const AccountingDashboardPage = React.lazy(() => import('./pages/accounting/AccountingDashboardPage'))
+const TrialBalancePage = React.lazy(() => import('./pages/accounting/reports/TrialBalancePage'))
+const BalanceSheetPage = React.lazy(() => import('./pages/accounting/reports/BalanceSheetPage'))
+const ProfitAndLossPage = React.lazy(() => import('./pages/accounting/reports/ProfitAndLossPage'))
+const GeneralLedgerPage = React.lazy(() => import('./pages/accounting/reports/GeneralLedgerPage'))
+const AccountActivityPage = React.lazy(() => import('./pages/accounting/reports/AccountActivityPage'))
 const NotFoundPage = React.lazy(() => import('./pages/NotFoundPage'))
 
 // Loading component
@@ -266,6 +272,8 @@ function App() {
                     <Route path="/audit-logs" element={<AuditLogsPage />} />
 
                     {/* Accounting */}
+                    <Route path="/accounting" element={<Navigate to="/accounting/dashboard" replace />} />
+                    <Route path="/accounting/dashboard" element={<AccountingDashboardPage />} />
                     <Route path="/accounting/chart-of-accounts" element={<ChartOfAccountsPage />} />
                     <Route path="/accounting/fiscal-periods" element={<FiscalPeriodsPage />} />
                     <Route path="/accounting/journal-entries" element={<JournalEntriesPage />} />
@@ -273,6 +281,11 @@ function App() {
                     <Route path="/accounting/journal-entries/:id/edit" element={<JournalEntryFormPage />} />
                     <Route path="/accounting/journal-entries/:id" element={<JournalEntryDetailsPage />} />
                     <Route path="/accounting/account-mappings" element={<AccountMappingsPage />} />
+                    <Route path="/accounting/reports/trial-balance" element={<TrialBalancePage />} />
+                    <Route path="/accounting/reports/balance-sheet" element={<BalanceSheetPage />} />
+                    <Route path="/accounting/reports/profit-loss" element={<ProfitAndLossPage />} />
+                    <Route path="/accounting/reports/general-ledger" element={<GeneralLedgerPage />} />
+                    <Route path="/accounting/reports/account-activity" element={<AccountActivityPage />} />
 
                     {/* Default redirect */}
                     <Route path="/" element={<Navigate to="/dashboard" replace />} />
