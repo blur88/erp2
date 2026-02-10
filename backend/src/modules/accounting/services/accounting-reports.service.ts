@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
+import * as ExcelJS from 'exceljs';
 import {
   ChartOfAccount,
   AccountType,
@@ -1183,6 +1184,683 @@ export class AccountingReportsService {
       },
       netIncome,
     };
+  }
+
+  /**
+   * Export Trial Balance to Excel
+   *
+   * @param data - Trial Balance report data
+   * @param filename - Output filename (without extension)
+   * @returns Excel file as Buffer
+   */
+  async exportTrialBalanceToExcel(
+    data: TrialBalanceResponse,
+    filename: string = 'trial-balance',
+  ): Promise<Buffer> {
+    this.logger.log(`Exporting Trial Balance to Excel: ${filename}`);
+
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('Trial Balance');
+
+    // Header section
+    worksheet.addRow(['Company Name']);
+    worksheet.addRow(['Trial Balance']);
+    worksheet.addRow([`As of ${new Date().toISOString().split('T')[0]}`]);
+    worksheet.addRow([]); // Blank row
+
+    // Column headers
+    const headerRow = worksheet.addRow([
+      'Account Code',
+      'Account Name',
+      'Account Type',
+      'Debit',
+      'Credit',
+    ]);
+    headerRow.font = { bold: true };
+    headerRow.fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FFD3D3D3' },
+    };
+
+    // Data rows
+    data.accounts.forEach(account => {
+      const row = worksheet.addRow([
+        account.accountCode,
+        account.accountName,
+        account.accountType,
+        account.debit || 0,
+        account.credit || 0,
+      ]);
+
+      // Number formatting for currency columns
+      row.getCell(4).numFmt = '#,##0.00';
+      row.getCell(5).numFmt = '#,##0.00';
+    });
+
+    // Blank row before grand total
+    worksheet.addRow([]);
+
+    // Grand total row
+    const totalRow = worksheet.addRow([
+      '',
+      '',
+      'Total',
+      data.totalDebit,
+      data.totalCredit,
+    ]);
+    totalRow.font = { bold: true, size: 12 };
+    totalRow.fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FFD0D0D0' },
+    };
+    totalRow.getCell(4).numFmt = '#,##0.00';
+    totalRow.getCell(5).numFmt = '#,##0.00';
+
+    // Add balance status row
+    const balanceRow = worksheet.addRow([
+      '',
+      '',
+      data.isBalanced ? 'BALANCED' : 'UNBALANCED',
+      '',
+      '',
+    ]);
+    balanceRow.font = { bold: true, color: { argb: data.isBalanced ? 'FF008000' : 'FFFF0000' } };
+
+    // Auto-fit columns
+    worksheet.columns = [
+      { width: 15 }, // Account Code
+      { width: 30 }, // Account Name
+      { width: 15 }, // Account Type
+      { width: 15 }, // Debit
+      { width: 15 }, // Credit
+    ];
+
+    // Generate buffer
+    const buffer = await workbook.xlsx.writeBuffer();
+    return Buffer.from(buffer);
+  }
+
+  /**
+   * Export Balance Sheet to Excel
+   *
+   * @param data - Balance Sheet report data
+   * @param filename - Output filename (without extension)
+   * @returns Excel file as Buffer
+   */
+  async exportBalanceSheetToExcel(
+    data: BalanceSheetResponse,
+    filename: string = 'balance-sheet',
+  ): Promise<Buffer> {
+    this.logger.log(`Exporting Balance Sheet to Excel: ${filename}`);
+
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('Balance Sheet');
+
+    // Header section
+    worksheet.addRow(['Company Name']);
+    worksheet.addRow(['Balance Sheet']);
+    worksheet.addRow([`As of ${new Date().toISOString().split('T')[0]}`]);
+    worksheet.addRow([]); // Blank row
+
+    // Column headers
+    const headerRow = worksheet.addRow(['Account Code', 'Account Name', 'Balance']);
+    headerRow.font = { bold: true };
+    headerRow.fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FFD3D3D3' },
+    };
+
+    // ASSETS SECTION
+    const assetsSectionRow = worksheet.addRow(['ASSETS', '', '']);
+    assetsSectionRow.font = { bold: true, size: 12 };
+    assetsSectionRow.fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FFE8E8E8' },
+    };
+
+    // Current Assets
+    worksheet.addRow(['Current Assets', '', '']);
+    data.assets.current.forEach(account => {
+      const row = worksheet.addRow([account.accountCode, account.accountName, account.balance]);
+      row.getCell(3).numFmt = '#,##0.00';
+    });
+
+    worksheet.addRow([]); // Blank row before subtotal
+    const currentAssetsTotalRow = worksheet.addRow(['', 'Total Current Assets', data.assets.totalCurrent]);
+    currentAssetsTotalRow.font = { bold: true };
+    currentAssetsTotalRow.fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FFE0E0E0' },
+    };
+    currentAssetsTotalRow.getCell(3).numFmt = '#,##0.00';
+
+    worksheet.addRow([]); // Blank row
+
+    // Fixed Assets
+    worksheet.addRow(['Fixed Assets', '', '']);
+    data.assets.fixed.forEach(account => {
+      const row = worksheet.addRow([account.accountCode, account.accountName, account.balance]);
+      row.getCell(3).numFmt = '#,##0.00';
+    });
+
+    worksheet.addRow([]); // Blank row before subtotal
+    const fixedAssetsTotalRow = worksheet.addRow(['', 'Total Fixed Assets', data.assets.totalFixed]);
+    fixedAssetsTotalRow.font = { bold: true };
+    fixedAssetsTotalRow.fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FFE0E0E0' },
+    };
+    fixedAssetsTotalRow.getCell(3).numFmt = '#,##0.00';
+
+    worksheet.addRow([]); // Blank row
+    const totalAssetsRow = worksheet.addRow(['', 'TOTAL ASSETS', data.assets.total]);
+    totalAssetsRow.font = { bold: true, size: 12 };
+    totalAssetsRow.fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FFD0D0D0' },
+    };
+    totalAssetsRow.getCell(3).numFmt = '#,##0.00';
+
+    worksheet.addRow([]); // Blank row
+
+    // LIABILITIES SECTION
+    const liabilitiesSectionRow = worksheet.addRow(['LIABILITIES', '', '']);
+    liabilitiesSectionRow.font = { bold: true, size: 12 };
+    liabilitiesSectionRow.fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FFE8E8E8' },
+    };
+
+    // Current Liabilities
+    worksheet.addRow(['Current Liabilities', '', '']);
+    data.liabilities.current.forEach(account => {
+      const row = worksheet.addRow([account.accountCode, account.accountName, account.balance]);
+      row.getCell(3).numFmt = '#,##0.00';
+    });
+
+    worksheet.addRow([]); // Blank row before subtotal
+    const currentLiabilitiesTotalRow = worksheet.addRow(['', 'Total Current Liabilities', data.liabilities.totalCurrent]);
+    currentLiabilitiesTotalRow.font = { bold: true };
+    currentLiabilitiesTotalRow.fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FFE0E0E0' },
+    };
+    currentLiabilitiesTotalRow.getCell(3).numFmt = '#,##0.00';
+
+    worksheet.addRow([]); // Blank row
+
+    // Long-term Liabilities
+    worksheet.addRow(['Long-term Liabilities', '', '']);
+    data.liabilities.longTerm.forEach(account => {
+      const row = worksheet.addRow([account.accountCode, account.accountName, account.balance]);
+      row.getCell(3).numFmt = '#,##0.00';
+    });
+
+    worksheet.addRow([]); // Blank row before subtotal
+    const longTermLiabilitiesTotalRow = worksheet.addRow(['', 'Total Long-term Liabilities', data.liabilities.totalLongTerm]);
+    longTermLiabilitiesTotalRow.font = { bold: true };
+    longTermLiabilitiesTotalRow.fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FFE0E0E0' },
+    };
+    longTermLiabilitiesTotalRow.getCell(3).numFmt = '#,##0.00';
+
+    worksheet.addRow([]); // Blank row
+    const totalLiabilitiesRow = worksheet.addRow(['', 'TOTAL LIABILITIES', data.liabilities.total]);
+    totalLiabilitiesRow.font = { bold: true, size: 12 };
+    totalLiabilitiesRow.fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FFD0D0D0' },
+    };
+    totalLiabilitiesRow.getCell(3).numFmt = '#,##0.00';
+
+    worksheet.addRow([]); // Blank row
+
+    // EQUITY SECTION
+    const equitySectionRow = worksheet.addRow(['EQUITY', '', '']);
+    equitySectionRow.font = { bold: true, size: 12 };
+    equitySectionRow.fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FFE8E8E8' },
+    };
+
+    data.equity.accounts.forEach(account => {
+      const row = worksheet.addRow([account.accountCode, account.accountName, account.balance]);
+      row.getCell(3).numFmt = '#,##0.00';
+    });
+
+    worksheet.addRow([]); // Blank row before total
+    const totalEquityRow = worksheet.addRow(['', 'TOTAL EQUITY', data.equity.total]);
+    totalEquityRow.font = { bold: true, size: 12 };
+    totalEquityRow.fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FFD0D0D0' },
+    };
+    totalEquityRow.getCell(3).numFmt = '#,##0.00';
+
+    worksheet.addRow([]); // Blank row
+
+    // Grand total: Total Liabilities + Equity
+    const totalLiabilitiesAndEquity = data.liabilities.total + data.equity.total;
+    const grandTotalRow = worksheet.addRow(['', 'TOTAL LIABILITIES & EQUITY', totalLiabilitiesAndEquity]);
+    grandTotalRow.font = { bold: true, size: 12 };
+    grandTotalRow.fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FFC0C0C0' },
+    };
+    grandTotalRow.getCell(3).numFmt = '#,##0.00';
+
+    // Balance verification row
+    const balanceRow = worksheet.addRow([
+      '',
+      data.isBalanced ? 'BALANCED' : 'UNBALANCED',
+      '',
+    ]);
+    balanceRow.font = { bold: true, color: { argb: data.isBalanced ? 'FF008000' : 'FFFF0000' } };
+
+    // Auto-fit columns
+    worksheet.columns = [
+      { width: 15 }, // Account Code
+      { width: 35 }, // Account Name
+      { width: 18 }, // Balance
+    ];
+
+    // Generate buffer
+    const buffer = await workbook.xlsx.writeBuffer();
+    return Buffer.from(buffer);
+  }
+
+  /**
+   * Export Profit and Loss (Income Statement) to Excel
+   *
+   * @param data - Profit and Loss report data
+   * @param filename - Output filename (without extension)
+   * @returns Excel file as Buffer
+   */
+  async exportProfitAndLossToExcel(
+    data: ProfitAndLossResponse,
+    filename: string = 'profit-and-loss',
+  ): Promise<Buffer> {
+    this.logger.log(`Exporting Profit and Loss to Excel: ${filename}`);
+
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('Profit and Loss');
+
+    // Header section
+    worksheet.addRow(['Company Name']);
+    worksheet.addRow(['Profit and Loss Statement']);
+    worksheet.addRow([`Period: ${new Date().toISOString().split('T')[0]}`]);
+    worksheet.addRow([]); // Blank row
+
+    // Column headers
+    const headerRow = worksheet.addRow(['Account Code', 'Account Name', 'Amount']);
+    headerRow.font = { bold: true };
+    headerRow.fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FFD3D3D3' },
+    };
+
+    // REVENUE SECTION
+    const revenueSectionRow = worksheet.addRow(['REVENUE', '', '']);
+    revenueSectionRow.font = { bold: true, size: 12 };
+    revenueSectionRow.fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FFE8E8E8' },
+    };
+
+    data.revenue.accounts.forEach(account => {
+      const row = worksheet.addRow([account.accountCode, account.accountName, account.balance]);
+      row.getCell(3).numFmt = '#,##0.00';
+    });
+
+    worksheet.addRow([]); // Blank row before subtotal
+    const totalRevenueRow = worksheet.addRow(['', 'Total Revenue', data.revenue.total]);
+    totalRevenueRow.font = { bold: true };
+    totalRevenueRow.fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FFE0E0E0' },
+    };
+    totalRevenueRow.getCell(3).numFmt = '#,##0.00';
+
+    worksheet.addRow([]); // Blank row
+
+    // COST OF GOODS SOLD SECTION
+    const cogsSectionRow = worksheet.addRow(['COST OF GOODS SOLD', '', '']);
+    cogsSectionRow.font = { bold: true, size: 12 };
+    cogsSectionRow.fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FFE8E8E8' },
+    };
+
+    data.costOfGoodsSold.accounts.forEach(account => {
+      const row = worksheet.addRow([account.accountCode, account.accountName, account.balance]);
+      row.getCell(3).numFmt = '#,##0.00';
+    });
+
+    worksheet.addRow([]); // Blank row before subtotal
+    const totalCogsRow = worksheet.addRow(['', 'Total Cost of Goods Sold', data.costOfGoodsSold.total]);
+    totalCogsRow.font = { bold: true };
+    totalCogsRow.fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FFE0E0E0' },
+    };
+    totalCogsRow.getCell(3).numFmt = '#,##0.00';
+
+    worksheet.addRow([]); // Blank row
+
+    // GROSS PROFIT
+    const grossProfitRow = worksheet.addRow(['', 'GROSS PROFIT', data.grossProfit]);
+    grossProfitRow.font = { bold: true, size: 12 };
+    grossProfitRow.fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FFD0D0D0' },
+    };
+    grossProfitRow.getCell(3).numFmt = '#,##0.00';
+
+    worksheet.addRow([]); // Blank row
+
+    // EXPENSES SECTION
+    const expensesSectionRow = worksheet.addRow(['OPERATING EXPENSES', '', '']);
+    expensesSectionRow.font = { bold: true, size: 12 };
+    expensesSectionRow.fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FFE8E8E8' },
+    };
+
+    data.expenses.accounts.forEach(account => {
+      const row = worksheet.addRow([account.accountCode, account.accountName, account.balance]);
+      row.getCell(3).numFmt = '#,##0.00';
+    });
+
+    worksheet.addRow([]); // Blank row before subtotal
+    const totalExpensesRow = worksheet.addRow(['', 'Total Operating Expenses', data.expenses.total]);
+    totalExpensesRow.font = { bold: true };
+    totalExpensesRow.fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FFE0E0E0' },
+    };
+    totalExpensesRow.getCell(3).numFmt = '#,##0.00';
+
+    worksheet.addRow([]); // Blank row
+
+    // NET INCOME (Grand Total)
+    const netIncomeRow = worksheet.addRow(['', 'NET INCOME', data.netIncome]);
+    netIncomeRow.font = { bold: true, size: 12 };
+    netIncomeRow.fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FFC0C0C0' },
+    };
+    netIncomeRow.getCell(3).numFmt = '#,##0.00';
+
+    // Auto-fit columns
+    worksheet.columns = [
+      { width: 15 }, // Account Code
+      { width: 35 }, // Account Name
+      { width: 18 }, // Amount
+    ];
+
+    // Generate buffer
+    const buffer = await workbook.xlsx.writeBuffer();
+    return Buffer.from(buffer);
+  }
+
+  /**
+   * Export General Ledger to Excel
+   *
+   * @param data - General Ledger report data
+   * @param filename - Output filename (without extension)
+   * @returns Excel file as Buffer
+   */
+  async exportGeneralLedgerToExcel(
+    data: GeneralLedgerResponse,
+    filename: string = 'general-ledger',
+  ): Promise<Buffer> {
+    this.logger.log(`Exporting General Ledger to Excel: ${filename}`);
+
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('General Ledger');
+
+    // Header section
+    worksheet.addRow(['Company Name']);
+    worksheet.addRow(['General Ledger']);
+    worksheet.addRow([`Account: ${data.account.code} - ${data.account.name}`]);
+    worksheet.addRow([`Account Type: ${data.account.type}`]);
+    worksheet.addRow([]); // Blank row
+
+    // Column headers
+    const headerRow = worksheet.addRow([
+      'Date',
+      'Entry Number',
+      'Description',
+      'Debit',
+      'Credit',
+      'Balance',
+    ]);
+    headerRow.font = { bold: true };
+    headerRow.fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FFD3D3D3' },
+    };
+
+    // Opening balance row
+    const openingRow = worksheet.addRow([
+      '',
+      '',
+      'Opening Balance',
+      '',
+      '',
+      data.openingBalance,
+    ]);
+    openingRow.font = { bold: true };
+    openingRow.fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FFEFEFEF' },
+    };
+    openingRow.getCell(6).numFmt = '#,##0.00';
+
+    // Transaction rows
+    data.transactions.forEach(transaction => {
+      const row = worksheet.addRow([
+        transaction.date.toISOString().split('T')[0],
+        transaction.entryNumber,
+        transaction.description,
+        transaction.debit || '',
+        transaction.credit || '',
+        transaction.balance,
+      ]);
+      row.getCell(4).numFmt = '#,##0.00';
+      row.getCell(5).numFmt = '#,##0.00';
+      row.getCell(6).numFmt = '#,##0.00';
+    });
+
+    // Blank row before closing balance
+    worksheet.addRow([]);
+
+    // Closing balance row
+    const closingRow = worksheet.addRow([
+      '',
+      '',
+      'Closing Balance',
+      '',
+      '',
+      data.closingBalance,
+    ]);
+    closingRow.font = { bold: true, size: 12 };
+    closingRow.fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FFD0D0D0' },
+    };
+    closingRow.getCell(6).numFmt = '#,##0.00';
+
+    // Auto-fit columns
+    worksheet.columns = [
+      { width: 12 }, // Date
+      { width: 15 }, // Entry Number
+      { width: 35 }, // Description
+      { width: 15 }, // Debit
+      { width: 15 }, // Credit
+      { width: 15 }, // Balance
+    ];
+
+    // Generate buffer
+    const buffer = await workbook.xlsx.writeBuffer();
+    return Buffer.from(buffer);
+  }
+
+  /**
+   * Export Account Activity to Excel
+   *
+   * @param data - Account Activity report data
+   * @param filename - Output filename (without extension)
+   * @returns Excel file as Buffer
+   */
+  async exportAccountActivityToExcel(
+    data: AccountActivityResponse,
+    filename: string = 'account-activity',
+  ): Promise<Buffer> {
+    this.logger.log(`Exporting Account Activity to Excel: ${filename}`);
+
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('Account Activity');
+
+    // Header section
+    worksheet.addRow(['Company Name']);
+    worksheet.addRow(['Account Activity Report']);
+    worksheet.addRow([`Account: ${data.account.code} - ${data.account.name}`]);
+    worksheet.addRow([`Account Type: ${data.account.type}`]);
+    worksheet.addRow([]); // Blank row
+
+    // Column headers
+    const headerRow = worksheet.addRow([
+      'Date',
+      'Entry Number',
+      'Description',
+      'Reference Type',
+      'Reference ID',
+      'Status',
+      'Debit',
+      'Credit',
+      'Balance',
+    ]);
+    headerRow.font = { bold: true };
+    headerRow.fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FFD3D3D3' },
+    };
+
+    // Opening balance row
+    const openingRow = worksheet.addRow([
+      '',
+      '',
+      'Opening Balance',
+      '',
+      '',
+      '',
+      '',
+      '',
+      data.openingBalance,
+    ]);
+    openingRow.font = { bold: true };
+    openingRow.fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FFEFEFEF' },
+    };
+    openingRow.getCell(9).numFmt = '#,##0.00';
+
+    // Activity rows
+    data.activity.forEach(transaction => {
+      const row = worksheet.addRow([
+        transaction.date.toISOString().split('T')[0],
+        transaction.entryNumber,
+        transaction.description,
+        transaction.referenceType || '',
+        transaction.referenceId || '',
+        transaction.status,
+        transaction.debit || '',
+        transaction.credit || '',
+        transaction.balance,
+      ]);
+      row.getCell(7).numFmt = '#,##0.00';
+      row.getCell(8).numFmt = '#,##0.00';
+      row.getCell(9).numFmt = '#,##0.00';
+
+      // Color-code by status
+      if (transaction.status === 'DRAFT') {
+        row.getCell(6).font = { color: { argb: 'FFFFA500' } }; // Orange for draft
+      } else if (transaction.status === 'REVERSED') {
+        row.getCell(6).font = { color: { argb: 'FFFF0000' } }; // Red for reversed
+      } else if (transaction.status === 'POSTED') {
+        row.getCell(6).font = { color: { argb: 'FF008000' } }; // Green for posted
+      }
+    });
+
+    // Blank row before closing balance
+    worksheet.addRow([]);
+
+    // Closing balance row
+    const closingRow = worksheet.addRow([
+      '',
+      '',
+      'Closing Balance',
+      '',
+      '',
+      '',
+      '',
+      '',
+      data.closingBalance,
+    ]);
+    closingRow.font = { bold: true, size: 12 };
+    closingRow.fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FFD0D0D0' },
+    };
+    closingRow.getCell(9).numFmt = '#,##0.00';
+
+    // Auto-fit columns
+    worksheet.columns = [
+      { width: 12 }, // Date
+      { width: 15 }, // Entry Number
+      { width: 30 }, // Description
+      { width: 15 }, // Reference Type
+      { width: 20 }, // Reference ID
+      { width: 10 }, // Status
+      { width: 13 }, // Debit
+      { width: 13 }, // Credit
+      { width: 15 }, // Balance
+    ];
+
+    // Generate buffer
+    const buffer = await workbook.xlsx.writeBuffer();
+    return Buffer.from(buffer);
   }
 
   /**

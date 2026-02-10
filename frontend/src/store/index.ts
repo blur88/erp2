@@ -20,6 +20,7 @@ import chartOfAccountsSlice from './slices/chartOfAccountsSlice'
 import journalEntriesSlice from './slices/journalEntriesSlice'
 import fiscalPeriodsSlice from './slices/fiscalPeriodsSlice'
 import accountMappingsSlice from './slices/accountMappingsSlice'
+import accountingReportsSlice from './slices/accountingReportsSlice'
 
 const rootReducer = combineReducers({
   theme: themeSlice,
@@ -38,6 +39,7 @@ const rootReducer = combineReducers({
   journalEntries: journalEntriesSlice,
   fiscalPeriods: fiscalPeriodsSlice,
   accountMappings: accountMappingsSlice,
+  accountingReports: accountingReportsSlice,
 })
 
 // Persist configuration

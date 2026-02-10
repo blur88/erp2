@@ -1,0 +1,570 @@
+import React, { useState, useEffect } from 'react';
+import {
+  Box,
+  Typography,
+  Paper,
+  Button,
+  TextField,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  FormControlLabel,
+  Checkbox,
+  Alert,
+  CircularProgress,
+  Stack,
+  Divider,
+  Chip,
+} from '@mui/material';
+import {
+  Download as DownloadIcon,
+  TrendingUp as TrendingUpIcon,
+  TrendingDown as TrendingDownIcon,
+} from '@mui/icons-material';
+import { useAppDispatch, useAppSelector } from '@/store';
+import {
+  fetchProfitAndLoss,
+  downloadProfitAndLossExcel,
+  selectProfitAndLoss,
+  selectDownloading,
+  clearProfitAndLossError,
+} from '@/store/slices/accountingReportsSlice';
+
+// Format currency helper
+const formatCurrency = (amount: number): string => {
+  const absAmount = Math.abs(amount);
+  const formatted = absAmount.toLocaleString('en-US', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+  // Use parentheses for negative amounts
+  return amount < 0 ? `(${formatted})` : formatted;
+};
+
+// Format date to YYYY-MM-DD
+const formatDateForInput = (date: Date): string => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+// Get first day of current month
+const getFirstDayOfMonth = (): string => {
+  const date = new Date();
+  date.setDate(1);
+  return formatDateForInput(date);
+};
+
+// Section component for Revenue, COGS, and Expenses
+interface SectionProps {
+  title: string;
+  accounts: Array<{
+    id: string;
+    code: string;
+    name: string;
+    amount: number;
+  }>;
+  subtotal: number;
+  color?: 'primary' | 'warning' | 'error';
+}
+
+const ProfitAndLossSection: React.FC<SectionProps> = ({ title, accounts, subtotal, color = 'primary' }) => {
+  return (
+    <Box sx={{ mb: 3 }}>
+      {/* Section Title */}
+      <Box sx={{ mb: 2, backgroundColor: `${color}.main`, p: 1.5, borderRadius: 1 }}>
+        <Typography variant="h6" sx={{ fontWeight: 700, color: 'white' }}>
+          {title}
+        </Typography>
+      </Box>
+
+      {/* Accounts Table */}
+      <TableContainer>
+        <Table size="small">
+          <TableHead>
+            <TableRow>
+              <TableCell sx={{ fontWeight: 600, backgroundColor: 'grey.50', width: '20%' }}>
+                Code
+              </TableCell>
+              <TableCell sx={{ fontWeight: 600, backgroundColor: 'grey.50', width: '55%' }}>
+                Account Name
+              </TableCell>
+              <TableCell align="right" sx={{ fontWeight: 600, backgroundColor: 'grey.50', width: '25%' }}>
+                Amount
+              </TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {accounts.length > 0 ? (
+              <>
+                {accounts.map((account) => (
+                  <TableRow key={account.id} hover>
+                    <TableCell>
+                      <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
+                        {account.code}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2">{account.name}</Typography>
+                    </TableCell>
+                    <TableCell align="right">
+                      <Typography
+                        variant="body2"
+                        sx={{
+                          fontFamily: 'monospace',
+                          fontWeight: account.amount !== 0 ? 600 : 400,
+                          color: account.amount !== 0 ? 'text.primary' : 'text.secondary',
+                        }}
+                      >
+                        {account.amount !== 0 ? formatCurrency(account.amount) : '-'}
+                      </Typography>
+                    </TableCell>
+                  </TableRow>
+                ))}
+
+                {/* Subtotal Row */}
+                <TableRow
+                  sx={{
+                    backgroundColor: 'grey.100',
+                    '& td': { borderTop: 2, borderColor: 'divider' },
+                  }}
+                >
+                  <TableCell colSpan={2}>
+                    <Typography variant="body1" sx={{ fontWeight: 700 }}>
+                      Total {title}
+                    </Typography>
+                  </TableCell>
+                  <TableCell align="right">
+                    <Typography
+                      variant="body1"
+                      sx={{ fontFamily: 'monospace', fontWeight: 700 }}
+                    >
+                      {formatCurrency(subtotal)}
+                    </Typography>
+                  </TableCell>
+                </TableRow>
+              </>
+            ) : (
+              <TableRow>
+                <TableCell colSpan={3} align="center" sx={{ py: 2 }}>
+                  <Typography variant="body2" color="text.secondary">
+                    No accounts in this section
+                  </Typography>
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </TableContainer>
+    </Box>
+  );
+};
+
+const ProfitAndLossPage: React.FC = () => {
+  const dispatch = useAppDispatch();
+
+  // Redux state
+  const profitAndLossState = useAppSelector(selectProfitAndLoss);
+  const downloading = useAppSelector(selectDownloading);
+
+  const { data, loading, error } = profitAndLossState || {
+    data: null,
+    loading: false,
+    error: null,
+  };
+
+  // Local state for filters
+  const [startDate, setStartDate] = useState<string>(getFirstDayOfMonth());
+  const [endDate, setEndDate] = useState<string>(formatDateForInput(new Date()));
+  const [includeInactive, setIncludeInactive] = useState<boolean>(false);
+  const [dateError, setDateError] = useState<string>('');
+
+  // Load report on mount with default parameters
+  useEffect(() => {
+    handleGenerateReport();
+  }, []);
+
+  // Clear error on mount
+  useEffect(() => {
+    return () => {
+      dispatch(clearProfitAndLossError());
+    };
+  }, [dispatch]);
+
+  // Validate date range
+  const validateDates = (): boolean => {
+    if (!startDate || !endDate) {
+      setDateError('Both start date and end date are required');
+      return false;
+    }
+
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+
+    if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+      setDateError('Invalid date format');
+      return false;
+    }
+
+    if (start > end) {
+      setDateError('Start date must be before or equal to end date');
+      return false;
+    }
+
+    setDateError('');
+    return true;
+  };
+
+  // Handle generate report
+  const handleGenerateReport = () => {
+    if (!validateDates()) {
+      return;
+    }
+
+    dispatch(
+      fetchProfitAndLoss({
+        startDate,
+        endDate,
+        includeInactive,
+      })
+    );
+  };
+
+  // Handle export to Excel
+  const handleExportToExcel = () => {
+    if (!validateDates()) {
+      return;
+    }
+
+    dispatch(
+      downloadProfitAndLossExcel({
+        startDate,
+        endDate,
+        includeInactive,
+      })
+    );
+  };
+
+  return (
+    <Box sx={{ p: 3 }}>
+      {/* Header */}
+      <Box sx={{ mb: 3 }}>
+        <Typography variant="h4" sx={{ fontWeight: 600, mb: 1 }}>
+          Profit & Loss Statement
+        </Typography>
+        <Typography variant="body2" color="text.secondary">
+          View your Income Statement showing Revenue - COGS - Expenses = Net Income for a period
+        </Typography>
+      </Box>
+
+      {/* Filters Section */}
+      <Paper sx={{ p: 3, mb: 3 }}>
+        <Stack spacing={2}>
+          <Stack direction="row" spacing={2} alignItems="center" flexWrap="wrap">
+            <TextField
+              label="Start Date"
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              size="small"
+              InputLabelProps={{ shrink: true }}
+              sx={{ minWidth: 200 }}
+            />
+            <TextField
+              label="End Date"
+              type="date"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              size="small"
+              InputLabelProps={{ shrink: true }}
+              sx={{ minWidth: 200 }}
+            />
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={includeInactive}
+                  onChange={(e) => setIncludeInactive(e.target.checked)}
+                />
+              }
+              label="Include Inactive Accounts"
+            />
+          </Stack>
+          <Stack direction="row" spacing={2} justifyContent="flex-end">
+            <Button
+              variant="contained"
+              color="primary"
+              onClick={handleGenerateReport}
+              disabled={loading}
+              sx={{ minWidth: 150 }}
+            >
+              {loading ? <CircularProgress size={24} /> : 'Generate Report'}
+            </Button>
+            <Button
+              variant="outlined"
+              color="secondary"
+              startIcon={downloading ? <CircularProgress size={20} /> : <DownloadIcon />}
+              onClick={handleExportToExcel}
+              disabled={!data || loading || downloading}
+              sx={{ minWidth: 150 }}
+            >
+              Export to Excel
+            </Button>
+          </Stack>
+        </Stack>
+      </Paper>
+
+      {/* Date Validation Error */}
+      {dateError && (
+        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setDateError('')}>
+          {dateError}
+        </Alert>
+      )}
+
+      {/* API Error Alert */}
+      {error && (
+        <Alert
+          severity="error"
+          sx={{ mb: 2 }}
+          onClose={() => dispatch(clearProfitAndLossError())}
+        >
+          {error}
+        </Alert>
+      )}
+
+      {/* Loading State */}
+      {loading && !data && (
+        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 8 }}>
+          <CircularProgress />
+        </Box>
+      )}
+
+      {/* Profit & Loss Report */}
+      {!loading && data && (
+        <Paper>
+          {/* Report Header */}
+          <Box sx={{ p: 3, borderBottom: 1, borderColor: 'divider' }}>
+            <Typography variant="h6" sx={{ fontWeight: 600, mb: 1 }}>
+              Profit & Loss Statement
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              For the period from{' '}
+              {new Date(data.startDate).toLocaleDateString('en-US', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+              })}{' '}
+              to{' '}
+              {new Date(data.endDate).toLocaleDateString('en-US', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+              })}
+            </Typography>
+            {/* Net Income Status Indicator */}
+            <Box sx={{ mt: 2 }}>
+              {data.netIncome >= 0 ? (
+                <Chip
+                  icon={<TrendingUpIcon />}
+                  label={`Net Profit: ${formatCurrency(data.netIncome)}`}
+                  color="success"
+                  size="small"
+                  sx={{ fontWeight: 600 }}
+                />
+              ) : (
+                <Chip
+                  icon={<TrendingDownIcon />}
+                  label={`Net Loss: ${formatCurrency(data.netIncome)}`}
+                  color="error"
+                  size="small"
+                  sx={{ fontWeight: 600 }}
+                />
+              )}
+            </Box>
+          </Box>
+
+          {/* Report Content */}
+          <Box sx={{ p: 3 }}>
+            {/* Revenue Section */}
+            <ProfitAndLossSection
+              title="REVENUE"
+              accounts={data.revenue.accounts}
+              subtotal={data.revenue.subtotal}
+              color="primary"
+            />
+
+            {/* Cost of Goods Sold Section */}
+            <ProfitAndLossSection
+              title="COST OF GOODS SOLD"
+              accounts={data.cogs.accounts}
+              subtotal={data.cogs.subtotal}
+              color="warning"
+            />
+
+            {/* Gross Profit Calculation */}
+            <Box sx={{ mb: 3 }}>
+              <Divider sx={{ mb: 2 }} />
+              <Paper
+                variant="outlined"
+                sx={{
+                  p: 2,
+                  backgroundColor: 'info.light',
+                  borderColor: 'info.main',
+                  borderWidth: 2,
+                }}
+              >
+                <Stack direction="row" justifyContent="space-between" alignItems="center">
+                  <Typography variant="h6" sx={{ fontWeight: 700, color: 'info.dark' }}>
+                    Gross Profit (Revenue - COGS)
+                  </Typography>
+                  <Typography
+                    variant="h6"
+                    sx={{
+                      fontFamily: 'monospace',
+                      fontWeight: 700,
+                      color: 'info.dark',
+                    }}
+                  >
+                    {formatCurrency(data.grossProfit)}
+                  </Typography>
+                </Stack>
+              </Paper>
+            </Box>
+
+            {/* Operating Expenses Section */}
+            <ProfitAndLossSection
+              title="OPERATING EXPENSES"
+              accounts={data.expenses.accounts}
+              subtotal={data.expenses.subtotal}
+              color="error"
+            />
+
+            {/* Operating Income Calculation */}
+            <Box sx={{ mb: 3 }}>
+              <Divider sx={{ mb: 2 }} />
+              <Paper
+                variant="outlined"
+                sx={{
+                  p: 2,
+                  backgroundColor: 'success.light',
+                  borderColor: 'success.main',
+                  borderWidth: 2,
+                }}
+              >
+                <Stack direction="row" justifyContent="space-between" alignItems="center">
+                  <Typography variant="h6" sx={{ fontWeight: 700, color: 'success.dark' }}>
+                    Operating Income (Gross Profit - Expenses)
+                  </Typography>
+                  <Typography
+                    variant="h6"
+                    sx={{
+                      fontFamily: 'monospace',
+                      fontWeight: 700,
+                      color: 'success.dark',
+                    }}
+                  >
+                    {formatCurrency(data.operatingIncome)}
+                  </Typography>
+                </Stack>
+              </Paper>
+            </Box>
+
+            {/* Net Income Footer */}
+            <Box sx={{ mt: 4 }}>
+              <Divider sx={{ mb: 3, borderWidth: 2, borderColor: 'divider' }} />
+              <Paper
+                variant="outlined"
+                sx={{
+                  p: 3,
+                  backgroundColor: data.netIncome >= 0 ? 'success.main' : 'error.main',
+                  borderColor: data.netIncome >= 0 ? 'success.dark' : 'error.dark',
+                  borderWidth: 3,
+                }}
+              >
+                <Stack direction="row" justifyContent="space-between" alignItems="center">
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                    {data.netIncome >= 0 ? (
+                      <TrendingUpIcon sx={{ fontSize: 40, color: 'white' }} />
+                    ) : (
+                      <TrendingDownIcon sx={{ fontSize: 40, color: 'white' }} />
+                    )}
+                    <Typography
+                      variant="h4"
+                      sx={{
+                        fontWeight: 700,
+                        color: 'white',
+                      }}
+                    >
+                      NET {data.netIncome >= 0 ? 'INCOME' : 'LOSS'}
+                    </Typography>
+                  </Box>
+                  <Typography
+                    variant="h3"
+                    sx={{
+                      fontFamily: 'monospace',
+                      fontWeight: 700,
+                      color: 'white',
+                    }}
+                  >
+                    {formatCurrency(data.netIncome)}
+                  </Typography>
+                </Stack>
+              </Paper>
+            </Box>
+          </Box>
+
+          {/* Summary Footer */}
+          <Box
+            sx={{
+              p: 2,
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              borderTop: 1,
+              borderColor: 'divider',
+              backgroundColor: 'grey.50',
+            }}
+          >
+            <Typography variant="body2" color="text.secondary">
+              Total Accounts:{' '}
+              {data.revenue.accounts.length +
+                data.cogs.accounts.length +
+                data.expenses.accounts.length}
+            </Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+              {data.netIncome >= 0 ? (
+                <Chip
+                  icon={<TrendingUpIcon />}
+                  label={`Profitable: ${formatCurrency(data.netIncome)}`}
+                  color="success"
+                  size="small"
+                />
+              ) : (
+                <Chip
+                  icon={<TrendingDownIcon />}
+                  label={`Loss: ${formatCurrency(data.netIncome)}`}
+                  color="error"
+                  size="small"
+                />
+              )}
+            </Box>
+          </Box>
+        </Paper>
+      )}
+
+      {/* Empty State - No Data Loaded */}
+      {!loading && !data && !error && (
+        <Paper sx={{ p: 6, textAlign: 'center' }}>
+          <Typography variant="body1" color="text.secondary">
+            Click "Generate Report" to view the Profit & Loss Statement
+          </Typography>
+        </Paper>
+      )}
+    </Box>
+  );
+};
+
+export default ProfitAndLossPage;

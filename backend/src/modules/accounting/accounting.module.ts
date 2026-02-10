@@ -21,6 +21,7 @@ import { ChartOfAccountsController } from './controllers/chart-of-accounts.contr
 import { FiscalPeriodController } from './controllers/fiscal-period.controller';
 import { JournalEntryController } from './controllers/journal-entry.controller';
 import { AccountMappingController } from './controllers/account-mapping.controller';
+import { AccountingReportsController } from './controllers/accounting-reports.controller';
 
 @Module({
   imports: [
@@ -37,6 +38,7 @@ import { AccountMappingController } from './controllers/account-mapping.controll
     FiscalPeriodController,
     JournalEntryController,
     AccountMappingController,
+    AccountingReportsController,
   ],
   providers: [
     AccountingService,

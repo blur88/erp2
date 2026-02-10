@@ -1739,4 +1739,353 @@ describe('AccountingReportsService', () => {
       ).rejects.toThrow('Start date must be before or equal to end date');
     });
   });
+
+  describe('Excel Export Methods', () => {
+    describe('exportTrialBalanceToExcel', () => {
+      it('should generate Excel buffer for trial balance report', async () => {
+        const mockTrialBalance = {
+          accounts: [
+            {
+              accountCode: '1000',
+              accountName: 'Cash',
+              accountType: 'ASSET',
+              debit: 5000,
+              credit: 0,
+            },
+            {
+              accountCode: '2000',
+              accountName: 'Accounts Payable',
+              accountType: 'LIABILITY',
+              debit: 0,
+              credit: 3000,
+            },
+            {
+              accountCode: '3000',
+              accountName: 'Common Stock',
+              accountType: 'EQUITY',
+              debit: 0,
+              credit: 2000,
+            },
+          ],
+          totalDebit: 5000,
+          totalCredit: 5000,
+          isBalanced: true,
+        };
+
+        const buffer = await service.exportTrialBalanceToExcel(mockTrialBalance);
+
+        expect(buffer).toBeDefined();
+        expect(buffer).toBeInstanceOf(Buffer);
+        expect(buffer.length).toBeGreaterThan(0);
+      });
+
+      it('should include balanced status in export', async () => {
+        const mockUnbalancedTrialBalance = {
+          accounts: [
+            {
+              accountCode: '1000',
+              accountName: 'Cash',
+              accountType: 'ASSET',
+              debit: 5000,
+              credit: 0,
+            },
+          ],
+          totalDebit: 5000,
+          totalCredit: 3000,
+          isBalanced: false,
+        };
+
+        const buffer = await service.exportTrialBalanceToExcel(mockUnbalancedTrialBalance);
+
+        expect(buffer).toBeDefined();
+        expect(buffer).toBeInstanceOf(Buffer);
+        expect(buffer.length).toBeGreaterThan(0);
+      });
+    });
+
+    describe('exportBalanceSheetToExcel', () => {
+      it('should generate Excel buffer for balance sheet report', async () => {
+        const mockBalanceSheet = {
+          assets: {
+            current: [
+              { accountCode: '1000', accountName: 'Cash', balance: 10000 },
+              { accountCode: '1200', accountName: 'Accounts Receivable', balance: 5000 },
+            ],
+            fixed: [
+              { accountCode: '1500', accountName: 'Equipment', balance: 20000 },
+            ],
+            totalCurrent: 15000,
+            totalFixed: 20000,
+            total: 35000,
+          },
+          liabilities: {
+            current: [
+              { accountCode: '2000', accountName: 'Accounts Payable', balance: 5000 },
+            ],
+            longTerm: [
+              { accountCode: '2500', accountName: 'Long-term Debt', balance: 10000 },
+            ],
+            totalCurrent: 5000,
+            totalLongTerm: 10000,
+            total: 15000,
+          },
+          equity: {
+            accounts: [
+              { accountCode: '3000', accountName: 'Common Stock', balance: 15000 },
+              { accountCode: '3100', accountName: 'Retained Earnings', balance: 5000 },
+            ],
+            total: 20000,
+          },
+          isBalanced: true,
+        };
+
+        const buffer = await service.exportBalanceSheetToExcel(mockBalanceSheet);
+
+        expect(buffer).toBeDefined();
+        expect(buffer).toBeInstanceOf(Buffer);
+        expect(buffer.length).toBeGreaterThan(0);
+      });
+
+      it('should handle empty balance sheet sections', async () => {
+        const mockEmptyBalanceSheet = {
+          assets: {
+            current: [],
+            fixed: [],
+            totalCurrent: 0,
+            totalFixed: 0,
+            total: 0,
+          },
+          liabilities: {
+            current: [],
+            longTerm: [],
+            totalCurrent: 0,
+            totalLongTerm: 0,
+            total: 0,
+          },
+          equity: {
+            accounts: [],
+            total: 0,
+          },
+          isBalanced: true,
+        };
+
+        const buffer = await service.exportBalanceSheetToExcel(mockEmptyBalanceSheet);
+
+        expect(buffer).toBeDefined();
+        expect(buffer).toBeInstanceOf(Buffer);
+        expect(buffer.length).toBeGreaterThan(0);
+      });
+    });
+
+    describe('exportProfitAndLossToExcel', () => {
+      it('should generate Excel buffer for profit and loss report', async () => {
+        const mockProfitAndLoss = {
+          revenue: {
+            accounts: [
+              { accountCode: '4000', accountName: 'Sales Revenue', balance: 100000 },
+              { accountCode: '4100', accountName: 'Service Revenue', balance: 20000 },
+            ],
+            total: 120000,
+          },
+          costOfGoodsSold: {
+            accounts: [
+              { accountCode: '5000', accountName: 'Cost of Goods Sold', balance: 60000 },
+            ],
+            total: 60000,
+          },
+          grossProfit: 60000,
+          expenses: {
+            accounts: [
+              { accountCode: '6000', accountName: 'Rent Expense', balance: 10000 },
+              { accountCode: '6100', accountName: 'Utilities', balance: 5000 },
+            ],
+            total: 15000,
+          },
+          netIncome: 45000,
+        };
+
+        const buffer = await service.exportProfitAndLossToExcel(mockProfitAndLoss);
+
+        expect(buffer).toBeDefined();
+        expect(buffer).toBeInstanceOf(Buffer);
+        expect(buffer.length).toBeGreaterThan(0);
+      });
+
+      it('should handle negative net income (loss)', async () => {
+        const mockLoss = {
+          revenue: {
+            accounts: [
+              { accountCode: '4000', accountName: 'Sales Revenue', balance: 50000 },
+            ],
+            total: 50000,
+          },
+          costOfGoodsSold: {
+            accounts: [
+              { accountCode: '5000', accountName: 'COGS', balance: 30000 },
+            ],
+            total: 30000,
+          },
+          grossProfit: 20000,
+          expenses: {
+            accounts: [
+              { accountCode: '6000', accountName: 'Operating Expenses', balance: 40000 },
+            ],
+            total: 40000,
+          },
+          netIncome: -20000,
+        };
+
+        const buffer = await service.exportProfitAndLossToExcel(mockLoss);
+
+        expect(buffer).toBeDefined();
+        expect(buffer).toBeInstanceOf(Buffer);
+        expect(buffer.length).toBeGreaterThan(0);
+      });
+    });
+
+    describe('exportGeneralLedgerToExcel', () => {
+      it('should generate Excel buffer for general ledger report', async () => {
+        const mockGeneralLedger = {
+          account: {
+            id: '123e4567-e89b-12d3-a456-426614174000',
+            code: '1000',
+            name: 'Cash',
+            type: 'ASSET',
+          },
+          openingBalance: 50000,
+          transactions: [
+            {
+              date: new Date('2026-01-02'),
+              entryNumber: 'JE-001',
+              description: 'Sales Payment',
+              debit: 1000,
+              credit: 0,
+              balance: 51000,
+            },
+            {
+              date: new Date('2026-01-03'),
+              entryNumber: 'JE-002',
+              description: 'Vendor Payment',
+              debit: 0,
+              credit: 500,
+              balance: 50500,
+            },
+          ],
+          closingBalance: 50500,
+        };
+
+        const buffer = await service.exportGeneralLedgerToExcel(mockGeneralLedger);
+
+        expect(buffer).toBeDefined();
+        expect(buffer).toBeInstanceOf(Buffer);
+        expect(buffer.length).toBeGreaterThan(0);
+      });
+
+      it('should handle account with no transactions', async () => {
+        const mockEmptyLedger = {
+          account: {
+            id: '123e4567-e89b-12d3-a456-426614174000',
+            code: '1000',
+            name: 'Cash',
+            type: 'ASSET',
+          },
+          openingBalance: 0,
+          transactions: [],
+          closingBalance: 0,
+        };
+
+        const buffer = await service.exportGeneralLedgerToExcel(mockEmptyLedger);
+
+        expect(buffer).toBeDefined();
+        expect(buffer).toBeInstanceOf(Buffer);
+        expect(buffer.length).toBeGreaterThan(0);
+      });
+    });
+
+    describe('exportAccountActivityToExcel', () => {
+      it('should generate Excel buffer for account activity report', async () => {
+        const mockAccountActivity = {
+          account: {
+            id: '123e4567-e89b-12d3-a456-426614174000',
+            code: '1200',
+            name: 'Accounts Receivable',
+            type: 'ASSET',
+          },
+          openingBalance: 10000,
+          activity: [
+            {
+              date: new Date('2026-01-02'),
+              entryNumber: 'JE-001',
+              description: 'Sales Order',
+              referenceType: 'SALES_ORDER',
+              referenceId: 'SO-001',
+              status: 'POSTED',
+              debit: 1000,
+              credit: 0,
+              balance: 11000,
+            },
+            {
+              date: new Date('2026-01-03'),
+              entryNumber: 'JE-002',
+              description: 'Draft Invoice',
+              referenceType: 'INVOICE',
+              referenceId: 'INV-001',
+              status: 'DRAFT',
+              debit: 500,
+              credit: 0,
+              balance: 11500,
+            },
+            {
+              date: new Date('2026-01-04'),
+              entryNumber: 'JE-003',
+              description: 'Reversed Entry',
+              referenceType: undefined,
+              referenceId: undefined,
+              status: 'REVERSED',
+              debit: 0,
+              credit: 200,
+              balance: 11300,
+            },
+          ],
+          closingBalance: 11300,
+        };
+
+        const buffer = await service.exportAccountActivityToExcel(mockAccountActivity);
+
+        expect(buffer).toBeDefined();
+        expect(buffer).toBeInstanceOf(Buffer);
+        expect(buffer.length).toBeGreaterThan(0);
+      });
+
+      it('should handle activity with missing reference metadata', async () => {
+        const mockActivityNoRefs = {
+          account: {
+            id: '123e4567-e89b-12d3-a456-426614174000',
+            code: '1000',
+            name: 'Cash',
+            type: 'ASSET',
+          },
+          openingBalance: 5000,
+          activity: [
+            {
+              date: new Date('2026-01-10'),
+              entryNumber: 'JE-010',
+              description: 'Manual Adjustment',
+              status: 'POSTED',
+              debit: 500,
+              credit: 0,
+              balance: 5500,
+            },
+          ],
+          closingBalance: 5500,
+        };
+
+        const buffer = await service.exportAccountActivityToExcel(mockActivityNoRefs);
+
+        expect(buffer).toBeDefined();
+        expect(buffer).toBeInstanceOf(Buffer);
+        expect(buffer.length).toBeGreaterThan(0);
+      });
+    });
+  });
 });

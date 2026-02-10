@@ -58,6 +58,10 @@ import {
   AccountTree as AccountTreeIcon,
   Description as DescriptionIcon,
   DateRange as DateRangeIcon,
+  Assessment as AssessmentIcon,
+  ShowChart as ShowChartIcon,
+  ReceiptLong as ReceiptLongIcon,
+  Timeline as TimelineIcon,
 } from '@mui/icons-material'
 
 interface SidebarProps {
@@ -207,6 +211,12 @@ const menuSections: MenuSection[] = [
         icon: <AccountBalanceIcon />,
         children: [
           {
+            id: 'accounting-dashboard',
+            title: 'Dashboard',
+            icon: <DashboardIcon />,
+            path: '/accounting/dashboard',
+          },
+          {
             id: 'chart-of-accounts',
             title: 'Chart of Accounts',
             icon: <AccountTreeIcon />,
@@ -229,6 +239,43 @@ const menuSections: MenuSection[] = [
             title: 'Account Mappings',
             icon: <SettingsIcon />,
             path: '/accounting/account-mappings',
+          },
+          {
+            id: 'accounting-reports',
+            title: 'Reports',
+            icon: <AssessmentIcon />,
+            children: [
+              {
+                id: 'trial-balance',
+                title: 'Trial Balance',
+                icon: <AccountBalanceIcon />,
+                path: '/accounting/reports/trial-balance',
+              },
+              {
+                id: 'balance-sheet',
+                title: 'Balance Sheet',
+                icon: <ReceiptLongIcon />,
+                path: '/accounting/reports/balance-sheet',
+              },
+              {
+                id: 'profit-loss',
+                title: 'Profit & Loss',
+                icon: <ShowChartIcon />,
+                path: '/accounting/reports/profit-loss',
+              },
+              {
+                id: 'general-ledger',
+                title: 'General Ledger',
+                icon: <DescriptionIcon />,
+                path: '/accounting/reports/general-ledger',
+              },
+              {
+                id: 'account-activity',
+                title: 'Account Activity',
+                icon: <TimelineIcon />,
+                path: '/accounting/reports/account-activity',
+              },
+            ],
           },
         ],
       },
@@ -459,33 +506,33 @@ const Sidebar: React.FC<SidebarProps> = ({ onItemClick }) => {
     return stored ? JSON.parse(stored) : []
   })
 
-  // Auto-expand parent items based on current route
+  // Auto-expand parent items based on current route (supports nested children)
   useEffect(() => {
     const currentPath = location.pathname
     const parentItems: string[] = []
 
-    // Find which parent menu item contains the current path
-    menuSections.forEach(section => {
-      section.items.forEach(item => {
-        if (item.children) {
-          const hasActivePath = item.children.some(child => child.path === currentPath)
-          if (hasActivePath) {
-            parentItems.push(item.id)
-          }
+    // Recursive function to find all parent items that contain the current path
+    const findParentItems = (items: MenuItem[], parents: string[] = []): void => {
+      items.forEach(item => {
+        if (item.path === currentPath) {
+          parentItems.push(...parents)
+        } else if (item.children) {
+          findParentItems(item.children, [...parents, item.id])
         }
       })
+    }
+
+    // Find which parent menu items contain the current path
+    menuSections.forEach(section => {
+      findParentItems(section.items)
     })
 
-    // Only update if the parent has changed
+    // Only update if we found parent items and they're not all already expanded
     if (parentItems.length > 0) {
-      const currentParent = parentItems[0]
-      const isAlreadyExpanded = expandedItems.includes(currentParent)
-      const hasOtherParentsExpanded = expandedItems.some(id => !parentItems.includes(id))
-
-      // If navigating to a different parent, close others and open the new one
-      if (!isAlreadyExpanded || hasOtherParentsExpanded) {
-        setExpandedItems([currentParent])
-        localStorage.setItem('sidebar-expanded', JSON.stringify([currentParent]))
+      const allExpanded = parentItems.every(id => expandedItems.includes(id))
+      if (!allExpanded) {
+        setExpandedItems(parentItems)
+        localStorage.setItem('sidebar-expanded', JSON.stringify(parentItems))
       }
     }
   }, [location.pathname])
@@ -508,7 +555,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onItemClick }) => {
     setExpandedItems(prev => {
       const newExpanded = prev.includes(itemId)
         ? prev.filter(id => id !== itemId)
-        : [itemId] // Only keep the newly clicked item expanded
+        : [...prev, itemId] // Add to existing expanded items to support nested menus
 
       // Save to localStorage
       localStorage.setItem('sidebar-expanded', JSON.stringify(newExpanded))
