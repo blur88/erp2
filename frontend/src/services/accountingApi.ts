@@ -116,6 +116,16 @@ export const journalEntriesApi = {
       reverseDate,
     });
   },
+
+  // Bulk post entries
+  bulkPostEntries: (ids: string[]): Promise<any> => {
+    return ApiService.post(`${BASE_URL}/journal-entries/bulk-post`, { ids });
+  },
+
+  // Bulk delete entries
+  bulkDeleteEntries: (ids: string[]): Promise<any> => {
+    return ApiService.post(`${BASE_URL}/journal-entries/bulk-delete`, { ids });
+  },
 };
 
 // Fiscal Periods API

@@ -125,6 +125,30 @@ export const reverseEntry = createAsyncThunk(
   }
 );
 
+export const bulkPostEntries = createAsyncThunk(
+  'journalEntries/bulkPost',
+  async (ids: string[], { rejectWithValue }) => {
+    try {
+      const response = await journalEntriesApi.bulkPostEntries(ids);
+      return response;
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data?.message || 'Bulk post failed');
+    }
+  },
+);
+
+export const bulkDeleteEntries = createAsyncThunk(
+  'journalEntries/bulkDelete',
+  async (ids: string[], { rejectWithValue }) => {
+    try {
+      const response = await journalEntriesApi.bulkDeleteEntries(ids);
+      return response;
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data?.message || 'Bulk delete failed');
+    }
+  },
+);
+
 const journalEntriesSlice = createSlice({
   name: 'journalEntries',
   initialState,
@@ -262,6 +286,31 @@ const journalEntriesSlice = createSlice({
         }
       })
       .addCase(reverseEntry.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload as string;
+      });
+
+    // Bulk operations
+    builder
+      .addCase(bulkPostEntries.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(bulkPostEntries.fulfilled, (state) => {
+        state.loading = false;
+      })
+      .addCase(bulkPostEntries.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload as string;
+      })
+      .addCase(bulkDeleteEntries.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(bulkDeleteEntries.fulfilled, (state) => {
+        state.loading = false;
+      })
+      .addCase(bulkDeleteEntries.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload as string;
       });

@@ -93,6 +93,10 @@ const renderWithRouter = (component: React.ReactElement, initialState = {}) => {
   )
 }
 
+const createUser = () => {
+  return (userEvent as any).setup ? (userEvent as any).setup() : userEvent
+}
+
 describe('Accounting Auto-Posting Integration Tests', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -113,11 +117,11 @@ describe('Accounting Auto-Posting Integration Tests', () => {
 
       // Wait for page to load
       await waitFor(() => {
-        expect(screen.getByText('Account Mappings')).toBeInTheDocument()
+        expect(screen.getByText('Account Mappings Configuration')).toBeInTheDocument()
       })
 
       // Page renders successfully
-      expect(screen.getByText('Account Mappings')).toBeInTheDocument()
+      expect(screen.getByText('Account Mappings Configuration')).toBeInTheDocument()
     })
 
     it('shows account mappings when configured', async () => {
@@ -137,8 +141,8 @@ describe('Accounting Auto-Posting Integration Tests', () => {
         },
       ]
 
-      (accountMappingsApi.getAll as any).mockResolvedValue({ data: configuredMappings, meta: {} })
-      (accountMappingsApi.validate as any).mockResolvedValue({
+      ;(accountMappingsApi.getAll as any).mockResolvedValue({ data: configuredMappings, meta: {} })
+      ;(accountMappingsApi.validate as any).mockResolvedValue({
         isComplete: true,
         missingMappings: [],
         configuredMappings: configuredMappings.map((m) => m.mappingType),
@@ -147,7 +151,7 @@ describe('Accounting Auto-Posting Integration Tests', () => {
       renderWithRouter(<AccountMappingsPage />)
 
       await waitFor(() => {
-        expect(screen.getByText('Account Mappings')).toBeInTheDocument()
+        expect(screen.getByText('Account Mappings Configuration')).toBeInTheDocument()
       })
 
       // Page loads successfully with mappings
@@ -155,8 +159,8 @@ describe('Accounting Auto-Posting Integration Tests', () => {
     })
 
     it('renders account mappings page without errors', async () => {
-      (accountMappingsApi.getAll as any).mockResolvedValue({ data: [], meta: {} })
-      (accountMappingsApi.validate as any).mockResolvedValue({
+      ;(accountMappingsApi.getAll as any).mockResolvedValue({ data: [], meta: {} })
+      ;(accountMappingsApi.validate as any).mockResolvedValue({
         isComplete: false,
         missingMappings: [],
         configuredMappings: [],
@@ -165,7 +169,7 @@ describe('Accounting Auto-Posting Integration Tests', () => {
       renderWithRouter(<AccountMappingsPage />)
 
       await waitFor(() => {
-        expect(screen.getByText('Account Mappings')).toBeInTheDocument()
+        expect(screen.getByText('Account Mappings Configuration')).toBeInTheDocument()
       })
 
       // Page renders without errors
@@ -176,7 +180,7 @@ describe('Accounting Auto-Posting Integration Tests', () => {
 
   describe('Transaction to Journal Entry Navigation Flow', () => {
     it('navigates from AccountingEntryLink to Journal Entries page with filters', async () => {
-      const user = userEvent.setup()
+      const user = createUser()
 
       render(
         <BrowserRouter>
@@ -259,12 +263,12 @@ describe('Accounting Auto-Posting Integration Tests', () => {
     ]
 
     it('displays both manual and auto-posted entries with correct type labels', async () => {
-      (journalEntriesApi.getAll as any).mockResolvedValue({
+      ;(journalEntriesApi.getAll as any).mockResolvedValue({
         data: mockJournalEntries,
         meta: { page: 1, limit: 50, total: 3, totalPages: 1 },
       })
 
-      (accountMappingsApi.validate as any).mockResolvedValue({
+      ;(accountMappingsApi.validate as any).mockResolvedValue({
         isComplete: true,
         missingMappings: [],
         configuredMappings: [],
@@ -285,12 +289,12 @@ describe('Accounting Auto-Posting Integration Tests', () => {
     })
 
     it('shows "View Transaction" link only for auto-posted entries', async () => {
-      (journalEntriesApi.getAll as any).mockResolvedValue({
+      ;(journalEntriesApi.getAll as any).mockResolvedValue({
         data: mockJournalEntries,
         meta: { page: 1, limit: 50, total: 3, totalPages: 1 },
       })
 
-      (accountMappingsApi.validate as any).mockResolvedValue({
+      ;(accountMappingsApi.validate as any).mockResolvedValue({
         isComplete: true,
         missingMappings: [],
         configuredMappings: [],
@@ -308,14 +312,14 @@ describe('Accounting Auto-Posting Integration Tests', () => {
     })
 
     it('navigates to source transaction when clicking View Transaction', async () => {
-      const user = userEvent.setup()
+      const user = createUser()
 
-      (journalEntriesApi.getAll as any).mockResolvedValue({
+      ;(journalEntriesApi.getAll as any).mockResolvedValue({
         data: mockJournalEntries,
         meta: { page: 1, limit: 50, total: 3, totalPages: 1 },
       })
 
-      (accountMappingsApi.validate as any).mockResolvedValue({
+      ;(accountMappingsApi.validate as any).mockResolvedValue({
         isComplete: true,
         missingMappings: [],
         configuredMappings: [],
@@ -337,7 +341,7 @@ describe('Accounting Auto-Posting Integration Tests', () => {
 
   describe('Validation Warning Component', () => {
     it('renders AccountMappingWarning component without errors', () => {
-      (accountMappingsApi.validate as any).mockResolvedValue({
+      ;(accountMappingsApi.validate as any).mockResolvedValue({
         isComplete: true,
         missingMappings: [],
         configuredMappings: ['sales_revenue', 'sales_ar'],
@@ -356,7 +360,7 @@ describe('Accounting Auto-Posting Integration Tests', () => {
     })
 
     it('can render transaction-specific warning component', () => {
-      (accountMappingsApi.validate as any).mockResolvedValue({
+      ;(accountMappingsApi.validate as any).mockResolvedValue({
         isComplete: true,
         missingMappings: [],
         configuredMappings: [],
@@ -377,7 +381,7 @@ describe('Accounting Auto-Posting Integration Tests', () => {
 
   describe('Journal Entry Filtering', () => {
     it('filters journal entries by source type', async () => {
-      (journalEntriesApi.getAll as any).mockResolvedValue({
+      ;(journalEntriesApi.getAll as any).mockResolvedValue({
         data: [
           {
             id: 'je-1',
@@ -394,7 +398,7 @@ describe('Accounting Auto-Posting Integration Tests', () => {
         meta: { page: 1, limit: 50, total: 1, totalPages: 1 },
       })
 
-      (accountMappingsApi.validate as any).mockResolvedValue({
+      ;(accountMappingsApi.validate as any).mockResolvedValue({
         isComplete: true,
         missingMappings: [],
         configuredMappings: [],
@@ -411,12 +415,12 @@ describe('Accounting Auto-Posting Integration Tests', () => {
     })
 
     it('handles URL query parameters for filtering (sourceType and sourceId)', async () => {
-      (journalEntriesApi.getAll as any).mockResolvedValue({
+      ;(journalEntriesApi.getAll as any).mockResolvedValue({
         data: [],
         meta: { page: 1, limit: 50, total: 0, totalPages: 0 },
       })
 
-      (accountMappingsApi.validate as any).mockResolvedValue({
+      ;(accountMappingsApi.validate as any).mockResolvedValue({
         isComplete: true,
         missingMappings: [],
         configuredMappings: [],
@@ -448,7 +452,7 @@ describe('Accounting Auto-Posting Integration Tests', () => {
 
   describe('Account Mapping CRUD Operations', () => {
     it('successfully creates a new account mapping', async () => {
-      (accountMappingsApi.create as any).mockResolvedValue({
+      ;(accountMappingsApi.create as any).mockResolvedValue({
         id: 'map-new',
         transactionType: 'sales_order_fulfillment',
         description: 'Sales Order Fulfillment',
@@ -467,7 +471,7 @@ describe('Accounting Auto-Posting Integration Tests', () => {
     })
 
     it('successfully updates an existing account mapping', async () => {
-      (accountMappingsApi.update as any).mockResolvedValue({
+      ;(accountMappingsApi.update as any).mockResolvedValue({
         id: 'map-1',
         transactionType: 'sales_order_fulfillment',
         description: 'Updated Description',
@@ -482,7 +486,7 @@ describe('Accounting Auto-Posting Integration Tests', () => {
     })
 
     it('successfully deletes an account mapping', async () => {
-      (accountMappingsApi.delete as any).mockResolvedValue(undefined)
+      ;(accountMappingsApi.delete as any).mockResolvedValue(undefined)
 
       await accountMappingsApi.delete('map-1')
 

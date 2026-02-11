@@ -12,6 +12,8 @@ import {
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiParam } from '@nestjs/swagger';
 import { FiscalPeriodService } from '../services/fiscal-period.service';
+import { Auth } from '../../auth/decorators/auth.decorator';
+import { UserRole } from '../../../database/entities/user.entity';
 import {
   CreateFiscalPeriodDto,
   UpdateFiscalPeriodDto,
@@ -25,6 +27,7 @@ import {
 
 @ApiTags('Fiscal Periods')
 @Controller('accounting/fiscal-periods')
+@Auth()
 export class FiscalPeriodController {
   constructor(private readonly fiscalPeriodService: FiscalPeriodService) {}
 
@@ -67,6 +70,7 @@ export class FiscalPeriodController {
   }
 
   @Post()
+  @Auth(UserRole.ADMIN)
   @ApiOperation({ summary: 'Create a new fiscal period' })
   @ApiResponse({
     status: 201,
@@ -88,6 +92,7 @@ export class FiscalPeriodController {
   }
 
   @Patch(':id')
+  @Auth(UserRole.ADMIN)
   @ApiOperation({ summary: 'Update a fiscal period' })
   @ApiParam({ name: 'id', description: 'Fiscal period ID' })
   @ApiResponse({
@@ -109,6 +114,7 @@ export class FiscalPeriodController {
   }
 
   @Delete(':id')
+  @Auth(UserRole.ADMIN)
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Delete a fiscal period' })
   @ApiParam({ name: 'id', description: 'Fiscal period ID' })
@@ -123,6 +129,7 @@ export class FiscalPeriodController {
   }
 
   @Post(':id/restore')
+  @Auth(UserRole.ADMIN)
   @ApiOperation({ summary: 'Restore a soft-deleted fiscal period' })
   @ApiParam({ name: 'id', description: 'Fiscal period ID' })
   @ApiResponse({
@@ -138,6 +145,7 @@ export class FiscalPeriodController {
   }
 
   @Post('generate')
+  @Auth(UserRole.ADMIN)
   @ApiOperation({ summary: 'Generate fiscal periods for a year' })
   @ApiResponse({
     status: 201,
@@ -155,6 +163,7 @@ export class FiscalPeriodController {
   }
 
   @Post(':id/close')
+  @Auth(UserRole.ADMIN)
   @ApiOperation({ summary: 'Close a fiscal period' })
   @ApiParam({ name: 'id', description: 'Fiscal period ID' })
   @ApiResponse({
@@ -172,6 +181,7 @@ export class FiscalPeriodController {
   }
 
   @Post(':id/reopen')
+  @Auth(UserRole.ADMIN)
   @ApiOperation({ summary: 'Reopen a closed fiscal period' })
   @ApiParam({ name: 'id', description: 'Fiscal period ID' })
   @ApiResponse({

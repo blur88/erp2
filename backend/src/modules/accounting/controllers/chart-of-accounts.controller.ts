@@ -12,6 +12,8 @@ import {
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiParam } from '@nestjs/swagger';
 import { ChartOfAccountsService } from '../services/chart-of-accounts.service';
+import { Auth } from '../../auth/decorators/auth.decorator';
+import { UserRole } from '../../../database/entities/user.entity';
 import {
   CreateChartOfAccountDto,
   UpdateChartOfAccountDto,
@@ -23,6 +25,7 @@ import {
 
 @ApiTags('Chart of Accounts')
 @Controller('accounting/chart-of-accounts')
+@Auth()
 export class ChartOfAccountsController {
   constructor(
     private readonly chartOfAccountsService: ChartOfAccountsService,
@@ -81,6 +84,7 @@ export class ChartOfAccountsController {
   }
 
   @Post()
+  @Auth(UserRole.ADMIN, UserRole.MANAGER)
   @ApiOperation({ summary: 'Create a new chart of account' })
   @ApiResponse({
     status: 201,
@@ -97,6 +101,7 @@ export class ChartOfAccountsController {
   }
 
   @Patch(':id')
+  @Auth(UserRole.ADMIN, UserRole.MANAGER)
   @ApiOperation({ summary: 'Update a chart of account' })
   @ApiParam({ name: 'id', description: 'Account ID' })
   @ApiResponse({
@@ -118,6 +123,7 @@ export class ChartOfAccountsController {
   }
 
   @Delete(':id')
+  @Auth(UserRole.ADMIN)
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Delete a chart of account' })
   @ApiParam({ name: 'id', description: 'Account ID' })
@@ -132,6 +138,7 @@ export class ChartOfAccountsController {
   }
 
   @Post(':id/restore')
+  @Auth(UserRole.ADMIN, UserRole.MANAGER)
   @ApiOperation({ summary: 'Restore a soft-deleted account' })
   @ApiParam({ name: 'id', description: 'Account ID' })
   @ApiResponse({
@@ -147,6 +154,7 @@ export class ChartOfAccountsController {
   }
 
   @Post('seed')
+  @Auth(UserRole.ADMIN)
   @ApiOperation({ summary: 'Seed default chart of accounts' })
   @ApiResponse({
     status: 201,

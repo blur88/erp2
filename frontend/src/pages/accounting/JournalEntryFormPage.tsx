@@ -57,6 +57,7 @@ import {
 } from '@/store/slices/fiscalPeriodsSlice'
 import { formatCurrency, getCurrentDate } from '@/utils/formatters'
 import { JournalEntryStatus, FiscalPeriodStatus } from '@/types'
+import { useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
 
 interface JournalEntryLineForm {
   accountId: string
@@ -145,6 +146,10 @@ const JournalEntryFormPage: React.FC = () => {
   // Local state
   const [submitting, setSubmitting] = useState(false)
   const [shouldPost, setShouldPost] = useState(false)
+
+  useKeyboardShortcuts({
+    onEscape: () => navigate('/accounting/journal-entries'),
+  })
 
   // Form setup
   const {
@@ -376,6 +381,13 @@ const JournalEntryFormPage: React.FC = () => {
       {error && (
         <Alert severity="error" sx={{ mb: 2 }} onClose={() => dispatch(clearError())}>
           {error}
+        </Alert>
+      )}
+
+      {Math.abs(totalDebits - totalCredits) > 0.01 && (totalDebits > 0 || totalCredits > 0) && (
+        <Alert severity="warning" sx={{ mb: 2 }}>
+          Entry is out of balance by {formatCurrency(Math.abs(totalDebits - totalCredits))}. Total Debits:{' '}
+          {formatCurrency(totalDebits)}, Total Credits: {formatCurrency(totalCredits)}
         </Alert>
       )}
 

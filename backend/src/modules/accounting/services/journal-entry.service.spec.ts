@@ -548,6 +548,61 @@ describe('JournalEntryService', () => {
     });
   });
 
+  describe('bulkPost', () => {
+    it('should post multiple draft entries', async () => {
+      const ids = ['id1', 'id2', 'id3'];
+      jest.spyOn(service, 'postEntry')
+        .mockResolvedValueOnce({ id: 'id1', status: 'POSTED' } as any)
+        .mockResolvedValueOnce({ id: 'id2', status: 'POSTED' } as any)
+        .mockResolvedValueOnce({ id: 'id3', status: 'POSTED' } as any);
+
+      const result = await service.bulkPost(ids);
+
+      expect(result.succeeded).toHaveLength(3);
+      expect(result.failed).toHaveLength(0);
+    });
+
+    it('should return partial results when some entries fail', async () => {
+      const ids = ['id1', 'id2'];
+      jest.spyOn(service, 'postEntry')
+        .mockResolvedValueOnce({ id: 'id1', status: 'POSTED' } as any)
+        .mockRejectedValueOnce(new BadRequestException('Not balanced'));
+
+      const result = await service.bulkPost(ids);
+
+      expect(result.succeeded).toHaveLength(1);
+      expect(result.failed).toHaveLength(1);
+      expect(result.failed[0].id).toBe('id2');
+      expect(result.failed[0].error).toContain('Not balanced');
+    });
+  });
+
+  describe('bulkDelete', () => {
+    it('should delete multiple draft entries', async () => {
+      const ids = ['id1', 'id2'];
+      jest.spyOn(service, 'remove')
+        .mockResolvedValueOnce(undefined)
+        .mockResolvedValueOnce(undefined);
+
+      const result = await service.bulkDelete(ids);
+
+      expect(result.succeeded).toHaveLength(2);
+      expect(result.failed).toHaveLength(0);
+    });
+
+    it('should return failures for non-draft entries', async () => {
+      const ids = ['id1', 'id2'];
+      jest.spyOn(service, 'remove')
+        .mockResolvedValueOnce(undefined)
+        .mockRejectedValueOnce(new BadRequestException('Cannot delete posted entry'));
+
+      const result = await service.bulkDelete(ids);
+
+      expect(result.succeeded).toHaveLength(1);
+      expect(result.failed).toHaveLength(1);
+    });
+  });
+
   describe('reverseEntry', () => {
     it('should reverse a POSTED entry', async () => {
       const postedEntry = {
