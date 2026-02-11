@@ -186,8 +186,7 @@ const SuppliersPage: React.FC = () => {
           selectedSupplier?.id
         )
 
-        // ApiResponse wraps the data in a data property
-        const result = response.data || response as any
+        const result = response as any
 
         if (result?.exists) {
           const errorMsg = result.message || 'This company name already exists'

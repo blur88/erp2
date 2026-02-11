@@ -1,0 +1,245 @@
+import React, { useState, useEffect, useMemo } from 'react';
+import {
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Button,
+  TextField,
+  Box,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+} from '@mui/material';
+import { useDispatch, useSelector } from 'react-redux';
+import { format } from 'date-fns';
+import { useNotification } from '@/hooks/useNotification';
+import {
+  createBankReconciliation,
+  updateBankReconciliation,
+} from '@/store/slices/bankReconciliationsSlice';
+import {
+  fetchChartOfAccounts,
+  selectChartOfAccounts,
+} from '@/store/slices/chartOfAccountsSlice';
+import {
+  fetchFiscalPeriods,
+  selectFiscalPeriods,
+} from '@/store/slices/fiscalPeriodsSlice';
+import { BankReconciliation, FiscalPeriodStatus } from '@/types';
+
+interface BankReconciliationFormDialogProps {
+  open: boolean;
+  reconciliation: BankReconciliation | null;
+  onClose: () => void;
+  onSuccess: () => void;
+}
+
+interface FormData {
+  accountId: string;
+  fiscalPeriodId: string;
+  reconciliationDate: string;
+  statementBalance: string;
+}
+
+const BankReconciliationFormDialog: React.FC<BankReconciliationFormDialogProps> = ({
+  open,
+  reconciliation,
+  onClose,
+  onSuccess,
+}) => {
+  const dispatch = useDispatch() as any;
+  const { showError } = useNotification();
+
+  const accounts = useSelector(selectChartOfAccounts) || [];
+  const periods = useSelector(selectFiscalPeriods) || [];
+
+  const [formData, setFormData] = useState<FormData>({
+    accountId: '',
+    fiscalPeriodId: '',
+    reconciliationDate: format(new Date(), 'yyyy-MM-dd'),
+    statementBalance: '',
+  });
+  const [errors, setErrors] = useState<Partial<Record<keyof FormData, string>>>({});
+  const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+
+    dispatch(fetchChartOfAccounts({ page: 1, limit: 1000, isActive: true }));
+    dispatch(fetchFiscalPeriods({ page: 1, limit: 1000, status: FiscalPeriodStatus.OPEN }));
+  }, [dispatch, open]);
+
+  useEffect(() => {
+    if (reconciliation) {
+      setFormData({
+        accountId: reconciliation.accountId,
+        fiscalPeriodId: reconciliation.fiscalPeriodId,
+        reconciliationDate: format(new Date(reconciliation.reconciliationDate), 'yyyy-MM-dd'),
+        statementBalance: String(reconciliation.statementBalance),
+      });
+    } else {
+      setFormData({
+        accountId: '',
+        fiscalPeriodId: '',
+        reconciliationDate: format(new Date(), 'yyyy-MM-dd'),
+        statementBalance: '',
+      });
+    }
+    setErrors({});
+  }, [reconciliation, open]);
+
+  const assetAccounts = useMemo(
+    () => accounts.filter((account: any) => String(account.type).toUpperCase() === 'ASSET'),
+    [accounts],
+  );
+
+  const openPeriods = useMemo(
+    () => periods.filter((period: any) => period.status === FiscalPeriodStatus.OPEN),
+    [periods],
+  );
+
+  const validateForm = (): boolean => {
+    const newErrors: Partial<Record<keyof FormData, string>> = {};
+
+    if (!formData.accountId) {
+      newErrors.accountId = 'Account is required';
+    }
+    if (!formData.fiscalPeriodId) {
+      newErrors.fiscalPeriodId = 'Fiscal period is required';
+    }
+    if (!formData.reconciliationDate) {
+      newErrors.reconciliationDate = 'Reconciliation date is required';
+    }
+    if (!formData.statementBalance || Number.isNaN(Number(formData.statementBalance))) {
+      newErrors.statementBalance = 'Valid statement balance is required';
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleChange = (field: keyof FormData, value: string) => {
+    setFormData((prev) => ({ ...prev, [field]: value }));
+    setErrors((prev) => ({ ...prev, [field]: undefined }));
+  };
+
+  const handleSubmit = async () => {
+    if (!validateForm()) {
+      return;
+    }
+
+    setSubmitting(true);
+
+    try {
+      if (reconciliation) {
+        await dispatch(
+          updateBankReconciliation({
+            id: reconciliation.id,
+            data: {
+              reconciliationDate: formData.reconciliationDate,
+              statementBalance: Number(formData.statementBalance),
+            },
+          }),
+        ).unwrap();
+      } else {
+        await dispatch(
+          createBankReconciliation({
+            accountId: formData.accountId,
+            fiscalPeriodId: formData.fiscalPeriodId,
+            reconciliationDate: formData.reconciliationDate,
+            statementBalance: Number(formData.statementBalance),
+          }),
+        ).unwrap();
+      }
+
+      onSuccess();
+    } catch (error: any) {
+      showError(error || `Failed to ${reconciliation ? 'update' : 'create'} reconciliation`);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleClose = () => {
+    if (!submitting) {
+      onClose();
+    }
+  };
+
+  return (
+    <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
+      <DialogTitle>{reconciliation ? 'Edit Reconciliation' : 'New Reconciliation'}</DialogTitle>
+      <DialogContent>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 2 }}>
+          <FormControl fullWidth required error={!!errors.accountId} disabled={submitting || !!reconciliation}>
+            <InputLabel>Account</InputLabel>
+            <Select
+              value={formData.accountId}
+              label="Account"
+              onChange={(e) => handleChange('accountId', e.target.value)}
+            >
+              {assetAccounts.map((account: any) => (
+                <MenuItem key={account.id} value={account.id}>
+                  {account.code} - {account.name}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+
+          <FormControl fullWidth required error={!!errors.fiscalPeriodId} disabled={submitting || !!reconciliation}>
+            <InputLabel>Fiscal Period</InputLabel>
+            <Select
+              value={formData.fiscalPeriodId}
+              label="Fiscal Period"
+              onChange={(e) => handleChange('fiscalPeriodId', e.target.value)}
+            >
+              {openPeriods.map((period: any) => (
+                <MenuItem key={period.id} value={period.id}>
+                  {period.code} - {period.name}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+
+          <TextField
+            label="Reconciliation Date"
+            type="date"
+            value={formData.reconciliationDate}
+            onChange={(e) => handleChange('reconciliationDate', e.target.value)}
+            error={!!errors.reconciliationDate}
+            helperText={errors.reconciliationDate}
+            fullWidth
+            required
+            disabled={submitting}
+            InputLabelProps={{ shrink: true }}
+          />
+
+          <TextField
+            label="Statement Balance"
+            type="number"
+            value={formData.statementBalance}
+            onChange={(e) => handleChange('statementBalance', e.target.value)}
+            error={!!errors.statementBalance}
+            helperText={errors.statementBalance}
+            fullWidth
+            required
+            disabled={submitting}
+            inputProps={{ step: '0.0001' }}
+          />
+        </Box>
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={handleClose} color="inherit" disabled={submitting}>
+          Cancel
+        </Button>
+        <Button onClick={handleSubmit} variant="contained" disabled={submitting}>
+          {reconciliation ? 'Update' : 'Create'}
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+};
+
+export default BankReconciliationFormDialog;

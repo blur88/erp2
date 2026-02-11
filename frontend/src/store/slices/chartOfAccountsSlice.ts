@@ -105,7 +105,7 @@ export const fetchAccountById = createAsyncThunk(
 
 export const fetchAccountHierarchy = createAsyncThunk(
   'chartOfAccounts/fetchHierarchy',
-  async (type?: string, { rejectWithValue }) => {
+  async (type: string | undefined = undefined, { rejectWithValue }) => {
     try {
       const url = type
         ? `/accounting/chart-of-accounts/hierarchy?type=${type}`

@@ -22,8 +22,8 @@ import {
   DialogContent,
   DialogActions,
   TextField,
-  Grid,
 } from '@mui/material'
+import GridLegacy from '@mui/material/GridLegacy'
 import {
   ArrowBack as ArrowBackIcon,
   Edit as EditIcon,
@@ -266,24 +266,24 @@ const JournalEntryDetailsPage: React.FC = () => {
       {/* Entry Header Card */}
       <Card sx={{ mb: 3 }}>
         <CardContent>
-          <Grid container spacing={3}>
-            <Grid item xs={12} md={3}>
+          <GridLegacy container spacing={3}>
+            <GridLegacy item xs={12} md={3}>
               <Typography variant="body2" color="text.secondary" gutterBottom>
                 Reference Number
               </Typography>
               <Typography variant="h6" sx={{ fontWeight: 600 }}>
                 {entry.referenceNumber}
               </Typography>
-            </Grid>
-            <Grid item xs={12} md={3}>
+            </GridLegacy>
+            <GridLegacy item xs={12} md={3}>
               <Typography variant="body2" color="text.secondary" gutterBottom>
                 Date
               </Typography>
               <Typography variant="body1">
                 {formatDate(entry.entryDate)}
               </Typography>
-            </Grid>
-            <Grid item xs={12} md={3}>
+            </GridLegacy>
+            <GridLegacy item xs={12} md={3}>
               <Typography variant="body2" color="text.secondary" gutterBottom>
                 Status
               </Typography>
@@ -292,8 +292,8 @@ const JournalEntryDetailsPage: React.FC = () => {
                 color={getStatusColor(entry.status)}
                 size="small"
               />
-            </Grid>
-            <Grid item xs={12} md={3}>
+            </GridLegacy>
+            <GridLegacy item xs={12} md={3}>
               <Typography variant="body2" color="text.secondary" gutterBottom>
                 Fiscal Period
               </Typography>
@@ -302,15 +302,15 @@ const JournalEntryDetailsPage: React.FC = () => {
                   ? `${entry.fiscalPeriod.code} - ${entry.fiscalPeriod.name}`
                   : 'N/A'}
               </Typography>
-            </Grid>
-            <Grid item xs={12}>
+            </GridLegacy>
+            <GridLegacy item xs={12}>
               <Typography variant="body2" color="text.secondary" gutterBottom>
                 Description
               </Typography>
               <Typography variant="body1">{entry.description}</Typography>
-            </Grid>
+            </GridLegacy>
             {entry.sourceType && (
-              <Grid item xs={12} md={6}>
+              <GridLegacy item xs={12} md={6}>
                 <Typography variant="body2" color="text.secondary" gutterBottom>
                   Source
                 </Typography>
@@ -318,10 +318,10 @@ const JournalEntryDetailsPage: React.FC = () => {
                   {entry.sourceType}
                   {entry.sourceId && ` (${entry.sourceId})`}
                 </Typography>
-              </Grid>
+              </GridLegacy>
             )}
             {entry.reversalOf && (
-              <Grid item xs={12} md={6}>
+              <GridLegacy item xs={12} md={6}>
                 <Typography variant="body2" color="text.secondary" gutterBottom>
                   Reverses Entry
                 </Typography>
@@ -332,10 +332,10 @@ const JournalEntryDetailsPage: React.FC = () => {
                 >
                   {entry.reversalOf.referenceNumber}
                 </Typography>
-              </Grid>
+              </GridLegacy>
             )}
             {entry.reversedBy && (
-              <Grid item xs={12} md={6}>
+              <GridLegacy item xs={12} md={6}>
                 <Typography variant="body2" color="text.secondary" gutterBottom>
                   Reversed By
                 </Typography>
@@ -346,9 +346,9 @@ const JournalEntryDetailsPage: React.FC = () => {
                 >
                   {entry.reversedBy.referenceNumber}
                 </Typography>
-              </Grid>
+              </GridLegacy>
             )}
-          </Grid>
+          </GridLegacy>
         </CardContent>
       </Card>
 

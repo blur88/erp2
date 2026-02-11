@@ -694,3 +694,52 @@ export interface FiscalPeriod {
   updatedAt: Date | string;
   deletedAt?: Date | string;
 }
+
+// Bank Reconciliation types
+export enum BankReconciliationStatus {
+  IN_PROGRESS = 'IN_PROGRESS',
+  COMPLETED = 'COMPLETED',
+}
+
+export interface ReconciledTransaction {
+  id: string;
+  reconciliationId: string;
+  journalEntryLineId: string;
+  cleared: boolean;
+  journalEntryLine?: {
+    id: string;
+    journalEntryId: string;
+    accountId: string;
+    debitAmount: number;
+    creditAmount: number;
+    memo: string;
+    account?: { id: string; code: string; name: string; type: string };
+    journalEntry?: {
+      id: string;
+      referenceNumber: string;
+      entryDate: Date | string;
+      description: string;
+    };
+  };
+  createdAt: Date | string;
+  updatedAt: Date | string;
+}
+
+export interface BankReconciliation {
+  id: string;
+  accountId: string;
+  fiscalPeriodId: string;
+  reconciliationDate: Date | string;
+  statementBalance: number;
+  bookBalance: number;
+  difference: number;
+  status: BankReconciliationStatus;
+  isCompleted: boolean;
+  isInProgress: boolean;
+  isBalanced: boolean;
+  account?: { id: string; code: string; name: string; type: string };
+  fiscalPeriod?: { id: string; code: string; name: string; status: string };
+  reconciledTransactions?: ReconciledTransaction[];
+  createdAt: Date | string;
+  updatedAt: Date | string;
+}

@@ -423,7 +423,7 @@ const AccountingDashboardPage: React.FC = () => {
                   </TableHead>
                   <TableBody>
                     {recentEntries.map((entry: JournalEntry) => {
-                      const totalAmount = entry.lineItems?.reduce(
+                      const totalAmount = entry.lines?.reduce(
                         (sum, item) => sum + (item.debitAmount || 0),
                         0
                       ) || 0;
@@ -441,10 +441,10 @@ const AccountingDashboardPage: React.FC = () => {
                               variant="body2"
                               sx={{ fontFamily: 'monospace', fontWeight: 600 }}
                             >
-                              {entry.entryNumber}
+                              {entry.referenceNumber}
                             </Typography>
                           </TableCell>
-                          <TableCell>{getEntryTypeChip(entry.entryType)}</TableCell>
+                          <TableCell>{getEntryTypeChip(entry.sourceType || 'manual')}</TableCell>
                           <TableCell>{getStatusChip(entry.status)}</TableCell>
                           <TableCell>
                             <Typography

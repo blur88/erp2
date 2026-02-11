@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react'
-import { useNavigate, useLocation, Link } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import {
   Box,
   Typography,
@@ -23,8 +23,9 @@ import {
   Stack,
   Tooltip,
   InputAdornment,
-  Grid,
+  Link,
 } from '@mui/material'
+import GridLegacy from '@mui/material/GridLegacy'
 import {
   Add as AddIcon,
   Search as SearchIcon,
@@ -285,8 +286,8 @@ const JournalEntriesPage: React.FC = () => {
 
       {/* Filters */}
       <Paper sx={{ p: 2, mb: 3 }}>
-        <Grid container spacing={2} alignItems="center">
-          <Grid item xs={12} md={3}>
+        <GridLegacy container spacing={2} alignItems="center">
+          <GridLegacy item xs={12} md={3}>
             <TextField
               fullWidth
               placeholder="Search by reference or description..."
@@ -301,8 +302,8 @@ const JournalEntriesPage: React.FC = () => {
                 ),
               }}
             />
-          </Grid>
-          <Grid item xs={12} md={2}>
+          </GridLegacy>
+          <GridLegacy item xs={12} md={2}>
             <FormControl fullWidth size="small">
               <InputLabel>Status</InputLabel>
               <Select
@@ -316,8 +317,8 @@ const JournalEntriesPage: React.FC = () => {
                 <MenuItem value={JournalEntryStatus.REVERSED}>Reversed</MenuItem>
               </Select>
             </FormControl>
-          </Grid>
-          <Grid item xs={12} md={2}>
+          </GridLegacy>
+          <GridLegacy item xs={12} md={2}>
             <FormControl fullWidth size="small">
               <InputLabel>Entry Type</InputLabel>
               <Select
@@ -334,8 +335,8 @@ const JournalEntriesPage: React.FC = () => {
                 <MenuItem value="stock_adjustment">Stock Adjustments</MenuItem>
               </Select>
             </FormControl>
-          </Grid>
-          <Grid item xs={12} md={2.5}>
+          </GridLegacy>
+          <GridLegacy item xs={12} md={2.5}>
             <TextField
               fullWidth
               label="Start Date"
@@ -345,8 +346,8 @@ const JournalEntriesPage: React.FC = () => {
               size="small"
               InputLabelProps={{ shrink: true }}
             />
-          </Grid>
-          <Grid item xs={12} md={2.5}>
+          </GridLegacy>
+          <GridLegacy item xs={12} md={2.5}>
             <TextField
               fullWidth
               label="End Date"
@@ -356,8 +357,8 @@ const JournalEntriesPage: React.FC = () => {
               size="small"
               InputLabelProps={{ shrink: true }}
             />
-          </Grid>
-        </Grid>
+          </GridLegacy>
+        </GridLegacy>
       </Paper>
 
       {/* Error Alert */}

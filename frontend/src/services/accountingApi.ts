@@ -3,6 +3,7 @@ import {
   ChartOfAccount,
   JournalEntry,
   FiscalPeriod,
+  BankReconciliation,
   PaginatedResponse,
 } from '@/types';
 import {
@@ -218,9 +219,69 @@ export const accountMappingsApi = {
   },
 };
 
+// Bank Reconciliations API
+export const bankReconciliationsApi = {
+  getAll: (params?: {
+    page?: number;
+    limit?: number;
+    accountId?: string;
+    fiscalPeriodId?: string;
+    status?: string;
+    sortBy?: string;
+    sortOrder?: 'ASC' | 'DESC';
+  }): Promise<PaginatedResponse<BankReconciliation>> => {
+    return ApiService.get(`${BASE_URL}/bank-reconciliations`, { params });
+  },
+
+  getById: (id: string): Promise<BankReconciliation> => {
+    return ApiService.get(`${BASE_URL}/bank-reconciliations/${id}`);
+  },
+
+  create: (data: {
+    accountId: string;
+    fiscalPeriodId: string;
+    reconciliationDate: string;
+    statementBalance: number;
+  }): Promise<BankReconciliation> => {
+    return ApiService.post(`${BASE_URL}/bank-reconciliations`, data);
+  },
+
+  update: (id: string, data: {
+    reconciliationDate?: string;
+    statementBalance?: number;
+  }): Promise<BankReconciliation> => {
+    return ApiService.patch(`${BASE_URL}/bank-reconciliations/${id}`, data);
+  },
+
+  delete: (id: string): Promise<void> => {
+    return ApiService.delete(`${BASE_URL}/bank-reconciliations/${id}`);
+  },
+
+  markCleared: (id: string, journalEntryLineIds: string[]): Promise<BankReconciliation> => {
+    return ApiService.post(`${BASE_URL}/bank-reconciliations/${id}/mark-cleared`, {
+      journalEntryLineIds,
+    });
+  },
+
+  unmarkCleared: (id: string, journalEntryLineIds: string[]): Promise<BankReconciliation> => {
+    return ApiService.post(`${BASE_URL}/bank-reconciliations/${id}/unmark-cleared`, {
+      journalEntryLineIds,
+    });
+  },
+
+  complete: (id: string): Promise<BankReconciliation> => {
+    return ApiService.post(`${BASE_URL}/bank-reconciliations/${id}/complete`);
+  },
+
+  reopen: (id: string): Promise<BankReconciliation> => {
+    return ApiService.post(`${BASE_URL}/bank-reconciliations/${id}/reopen`);
+  },
+};
+
 export const accountingApi = {
   chartOfAccounts: chartOfAccountsApi,
   journalEntries: journalEntriesApi,
   fiscalPeriods: fiscalPeriodsApi,
   accountMappings: accountMappingsApi,
+  bankReconciliations: bankReconciliationsApi,
 };

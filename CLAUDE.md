@@ -258,6 +258,45 @@ docker compose logs backend # Check specific service logs
 - `/api/price-lists/:id/adjust` - Apply percentage adjustment
 - `/api/price-lists/:id/set-default` - Set as default
 
+### Bank Reconciliation Module ✅
+**Full reconciliation workflow implemented (February 2026)**
+
+**Feature Overview:**
+- Bank/cash account reconciliation against fiscal periods and statement balances.
+- Tracks transaction-level cleared/uncleared status using reconciled transaction records.
+- Supports in-progress workflow, balance recalculation, completion, and reopen flow.
+- Frontend includes list view, create dialog, and detailed transaction-matching page.
+
+**API Endpoints:**
+- `GET /api/accounting/bank-reconciliations`
+- `POST /api/accounting/bank-reconciliations`
+- `GET /api/accounting/bank-reconciliations/:id`
+- `PATCH /api/accounting/bank-reconciliations/:id`
+- `DELETE /api/accounting/bank-reconciliations/:id`
+- `POST /api/accounting/bank-reconciliations/:id/mark-cleared`
+- `POST /api/accounting/bank-reconciliations/:id/unmark-cleared`
+- `POST /api/accounting/bank-reconciliations/:id/complete`
+- `POST /api/accounting/bank-reconciliations/:id/reopen`
+
+**Frontend Routes:**
+- `/accounting/bank-reconciliations`
+- `/accounting/bank-reconciliations/:id`
+
+**Key Files Added/Updated:**
+- `backend/src/modules/accounting/services/reconciliation.service.ts`
+- `backend/src/modules/accounting/controllers/reconciliation.controller.ts`
+- `backend/src/modules/accounting/dto/reconciliation.dto.ts`
+- `backend/src/modules/accounting/services/reconciliation.service.spec.ts`
+- `backend/src/modules/accounting/accounting.module.ts`
+- `frontend/src/store/slices/bankReconciliationsSlice.ts`
+- `frontend/src/pages/accounting/BankReconciliationsPage.tsx`
+- `frontend/src/pages/accounting/BankReconciliationDetailsPage.tsx`
+- `frontend/src/components/accounting/BankReconciliationFormDialog.tsx`
+- `frontend/src/services/accountingApi.ts`
+- `frontend/src/types/index.ts`
+- `frontend/src/App.tsx`
+- `frontend/src/components/common/Sidebar.tsx`
+
 **Data Migration:**
 - ✅ Automated migration from JSONB to normalized tables (completed)
 - ✅ Zero data loss migration (100% success rate)

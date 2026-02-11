@@ -241,6 +241,12 @@ const menuSections: MenuSection[] = [
             path: '/accounting/account-mappings',
           },
           {
+            id: 'bank-reconciliation',
+            title: 'Bank Reconciliation',
+            icon: <AccountBalanceIcon />,
+            path: '/accounting/bank-reconciliations',
+          },
+          {
             id: 'accounting-reports',
             title: 'Reports',
             icon: <AssessmentIcon />,
