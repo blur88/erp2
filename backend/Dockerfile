@@ -6,6 +6,9 @@ RUN apk update && apk upgrade && \
     apk add --no-cache curl postgresql-client mongodb-tools dumb-init && \
     rm -rf /var/cache/apk/*
 
+# Update npm to get patched bundled dependencies (tar)
+RUN npm install -g npm@11.9.0
+
 # Create non-root user
 RUN addgroup -g 1001 -S nodejs && \
     adduser -S nestjs -u 1001 -G nodejs
