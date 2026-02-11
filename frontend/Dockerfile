@@ -28,7 +28,7 @@ ENV VITE_APP_VERSION=$VITE_APP_VERSION
 RUN npm run build
 
 # Production stage
-FROM nginx:alpine AS production
+FROM nginx:1-alpine-slim AS production
 
 # Update Alpine packages and install curl for health checks
 RUN apk update && \
