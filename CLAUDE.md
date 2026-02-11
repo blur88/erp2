@@ -282,6 +282,56 @@ docker compose logs backend # Check specific service logs
 - `/accounting/bank-reconciliations`
 - `/accounting/bank-reconciliations/:id`
 
+### Accounting Module ✅
+**Full double-entry accounting system implemented (February 2026)**
+
+**Phases Completed:**
+- Phase 1: Foundation (entities, COA, fiscal periods, manual journal entries)
+- Phase 2: Auto-posting integration (sales, purchasing, payments, inventory)
+- Phase 3: Financial reports (Trial Balance, Balance Sheet, P&L, GL, Account Activity)
+- Phase 4: Bank reconciliation workflow
+- Phase 5: Polish (RBAC, opening balances, bulk operations, keyboard shortcuts)
+
+**Backend Architecture:**
+- 7 entities: ChartOfAccount, FiscalPeriod, JournalEntry, JournalEntryLine, AccountMapping, BankReconciliation, ReconciledTransaction
+- 7 services with comprehensive business logic
+- 6 controllers with full Swagger documentation and RBAC
+- 250+ backend unit tests
+
+**Role-Based Access Control:**
+- View reports/data: All authenticated users
+- Create/edit journal entries: Admin, Manager
+- Delete entries/accounts: Admin only
+- Manage fiscal periods (close/reopen/generate): Admin only
+- Configure account mappings: Admin only
+- Complete/reopen reconciliation: Admin, Manager
+
+**API Endpoints:**
+- `/api/accounting/chart-of-accounts` - COA management with hierarchy and seed
+- `/api/accounting/journal-entries` - CRUD, post, reverse, bulk-post, bulk-delete, opening-balances
+- `/api/accounting/fiscal-periods` - CRUD, generate, close, reopen, validate
+- `/api/accounting/account-mappings` - CRUD, validate
+- `/api/accounting/bank-reconciliations` - CRUD, mark-cleared, unmark-cleared, complete, reopen
+- `/api/accounting/reports/*` - Trial Balance, Balance Sheet, P&L, General Ledger, Account Activity (with Excel/PDF export)
+
+**Frontend Routes:**
+- `/accounting/dashboard` - Summary cards, recent entries, quick actions
+- `/accounting/chart-of-accounts` - CRUD with hierarchy, seed, search
+- `/accounting/journal-entries` - List with bulk post/delete, filters, keyboard shortcuts
+- `/accounting/journal-entries/new` - Create/edit with line item management
+- `/accounting/journal-entries/:id` - Entry details with lines
+- `/accounting/fiscal-periods` - Generate, close, reopen
+- `/accounting/account-mappings` - Configure auto-posting accounts
+- `/accounting/bank-reconciliations` - List and create
+- `/accounting/bank-reconciliations/:id` - Transaction matching workflow
+- `/accounting/reports/*` - 5 financial reports with export
+
+**Keyboard Shortcuts (all accounting pages):**
+- Ctrl+F: Focus search
+- N or +: Add new item
+- Ctrl+R: Refresh data
+- Escape: Cancel/go back
+
 **Key Files Added/Updated:**
 - `backend/src/modules/accounting/services/reconciliation.service.ts`
 - `backend/src/modules/accounting/controllers/reconciliation.controller.ts`
