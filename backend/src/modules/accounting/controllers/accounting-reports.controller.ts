@@ -5,7 +5,6 @@ import {
   Res,
   HttpStatus,
   BadRequestException,
-  UseGuards,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -14,13 +13,13 @@ import {
   ApiResponse,
 } from '@nestjs/swagger';
 import { Response } from 'express';
-import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { AccountingReportsService } from '../services/accounting-reports.service';
 import { JournalEntryStatus } from '../../../database/entities/journal-entry.entity';
+import { Auth } from '../../auth/decorators/auth.decorator';
 
 @ApiTags('Accounting Reports')
 @Controller('accounting/reports')
-@UseGuards(JwtAuthGuard)
+@Auth()
 export class AccountingReportsController {
   constructor(
     private readonly accountingReportsService: AccountingReportsService,

@@ -11,9 +11,11 @@ import {
   Min,
   Max,
   IsDecimal,
+  IsDateString,
+  ArrayMinSize,
 } from 'class-validator';
 import { Type } from 'class-transformer';
-import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional, OmitType, PartialType } from '@nestjs/swagger';
 import { JournalEntryStatus } from '../../../database/entities/journal-entry.entity';
 
 // Journal Entry Line DTO
@@ -46,6 +48,56 @@ export class UpdateJournalEntryLineDto extends PartialType(CreateJournalEntryLin
   @IsOptional()
   @IsUUID()
   id?: string;
+}
+
+export class OpeningBalanceLineDto {
+  @ApiProperty({ description: 'Account ID' })
+  @IsUUID()
+  accountId: string;
+
+  @ApiProperty({
+    description: 'Positive = debit, negative = credit',
+  })
+  @Type(() => Number)
+  @IsNumber({ maxDecimalPlaces: 4 })
+  amount: number;
+}
+
+export class PostOpeningBalancesDto {
+  @ApiProperty({
+    description: 'Opening balance date (typically first day of fiscal year)',
+  })
+  @IsDateString()
+  asOfDate: string;
+
+  @ApiProperty({ description: 'Account balances', type: [OpeningBalanceLineDto] })
+  @IsArray()
+  @ArrayMinSize(1)
+  @ValidateNested({ each: true })
+  @Type(() => OpeningBalanceLineDto)
+  balances: OpeningBalanceLineDto[];
+
+  @ApiProperty({
+    description: 'Equity account to use for balancing (e.g., Opening Balance Equity)',
+  })
+  @IsUUID()
+  equityAccountId: string;
+}
+
+export class BulkOperationDto {
+  @ApiProperty({ description: 'Array of journal entry IDs' })
+  @IsArray()
+  @ArrayMinSize(1)
+  @IsUUID(undefined, { each: true })
+  ids: string[];
+}
+
+export class BulkOperationResultDto {
+  @ApiProperty({ description: 'Successfully processed entry IDs' })
+  succeeded: string[];
+
+  @ApiProperty({ description: 'Failed entries with error messages' })
+  failed: { id: string; error: string }[];
 }
 
 export class JournalEntryLineResponseDto {
@@ -122,7 +174,9 @@ export class CreateJournalEntryDto {
   lines: CreateJournalEntryLineDto[];
 }
 
-export class UpdateJournalEntryDto extends PartialType(CreateJournalEntryDto) {
+export class UpdateJournalEntryDto extends PartialType(
+  OmitType(CreateJournalEntryDto, ['lines'] as const),
+) {
   @ApiPropertyOptional({ description: 'Transaction entry date', type: Date })
   @IsOptional()
   @Type(() => Date)

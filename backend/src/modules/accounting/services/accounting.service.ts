@@ -16,7 +16,11 @@ import { GoodsReceivedNote } from '../../../database/entities/goods-received-not
 import { GoodsReceivedNoteItem } from '../../../database/entities/goods-received-note-item.entity';
 import { VendorPayment } from '../../../database/entities/vendor-payment.entity';
 import { StockAdjustment, StockAdjustmentItem } from '../../../database/entities/stock-adjustment.entity';
-import { CreateJournalEntryDto, CreateJournalEntryLineDto } from '../dto/journal-entry.dto';
+import {
+  CreateJournalEntryDto,
+  CreateJournalEntryLineDto,
+  PostOpeningBalancesDto,
+} from '../dto/journal-entry.dto';
 
 @Injectable()
 export class AccountingService {
@@ -423,6 +427,97 @@ export class AccountingService {
     this.logger.log(
       `Stock adjustment entry posted successfully: ${postedEntry.referenceNumber}`,
     );
+    return postedEntry as any;
+  }
+
+  /**
+   * Post opening balances as a single balanced journal entry.
+   * Positive amounts become debits, negative amounts become credits.
+   */
+  async postOpeningBalances(dto: PostOpeningBalancesDto): Promise<JournalEntry> {
+    this.logger.log(`Posting opening balances as of ${dto.asOfDate}`);
+
+    const asOfDate = new Date(dto.asOfDate);
+    const periodValidation = await this.fiscalPeriodService.validatePeriod({
+      date: asOfDate,
+    });
+
+    if (!periodValidation.isValid || !periodValidation.period) {
+      throw new BadRequestException(
+        `No open fiscal period found for date ${dto.asOfDate}`,
+      );
+    }
+
+    const lines: CreateJournalEntryLineDto[] = [];
+    let totalDebits = 0;
+    let totalCredits = 0;
+
+    for (const balance of dto.balances) {
+      if (balance.amount === 0) {
+        continue;
+      }
+
+      if (balance.amount > 0) {
+        lines.push({
+          accountId: balance.accountId,
+          debitAmount: Math.abs(balance.amount),
+          creditAmount: 0,
+          memo: 'Opening balance',
+        });
+        totalDebits += Math.abs(balance.amount);
+      } else {
+        lines.push({
+          accountId: balance.accountId,
+          debitAmount: 0,
+          creditAmount: Math.abs(balance.amount),
+          memo: 'Opening balance',
+        });
+        totalCredits += Math.abs(balance.amount);
+      }
+    }
+
+    if (lines.length === 0) {
+      throw new BadRequestException('At least one non-zero opening balance is required');
+    }
+
+    const difference = totalDebits - totalCredits;
+
+    if (Math.abs(difference) > 0.01) {
+      if (difference > 0) {
+        lines.push({
+          accountId: dto.equityAccountId,
+          debitAmount: 0,
+          creditAmount: difference,
+          memo: 'Opening balance equity',
+        });
+      } else {
+        lines.push({
+          accountId: dto.equityAccountId,
+          debitAmount: Math.abs(difference),
+          creditAmount: 0,
+          memo: 'Opening balance equity',
+        });
+      }
+    }
+
+    const finalDebits = lines.reduce((sum, line) => sum + Number(line.debitAmount || 0), 0);
+    const finalCredits = lines.reduce((sum, line) => sum + Number(line.creditAmount || 0), 0);
+
+    if (Math.abs(finalDebits - finalCredits) > 0.01) {
+      throw new BadRequestException(
+        `Opening balances are not balanced (debits: ${finalDebits}, credits: ${finalCredits})`,
+      );
+    }
+
+    const entry = await this.journalEntryService.create({
+      entryDate: asOfDate,
+      description: `Opening Balance Entry as of ${dto.asOfDate}`,
+      fiscalPeriodId: periodValidation.period.id,
+      sourceType: 'opening_balance',
+      lines,
+    });
+
+    const postedEntry = await this.journalEntryService.postEntry(entry.id);
     return postedEntry as any;
   }
 

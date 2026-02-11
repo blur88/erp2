@@ -617,6 +617,74 @@ describe('AccountingService', () => {
     });
   });
 
+  describe('postOpeningBalances', () => {
+    it('should create a balanced journal entry with opening balances', async () => {
+      const dto = {
+        asOfDate: '2026-01-01',
+        balances: [
+          { accountId: 'cash-id', amount: 50000 },
+          { accountId: 'ar-id', amount: 25000 },
+          { accountId: 'ap-id', amount: -15000 },
+          { accountId: 'equity-id', amount: -60000 },
+        ],
+        equityAccountId: 'equity-id',
+      };
+
+      fiscalPeriodService.validatePeriod.mockResolvedValue({
+        isValid: true,
+        message: 'Period is open',
+        period: mockOpenPeriod as any,
+      });
+      journalEntryService.create.mockResolvedValue({ id: 'je-id' } as any);
+      journalEntryService.postEntry.mockResolvedValue({
+        id: 'je-id',
+        status: 'POSTED',
+      } as any);
+
+      const result = await service.postOpeningBalances(dto);
+
+      expect(journalEntryService.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          description: expect.stringContaining('Opening Balance'),
+          sourceType: 'opening_balance',
+        }),
+      );
+      expect(journalEntryService.postEntry).toHaveBeenCalledWith('je-id');
+      expect(result).toEqual({ id: 'je-id', status: 'POSTED' });
+    });
+
+    it('should reject if no open fiscal period exists for the date', async () => {
+      const dto = {
+        asOfDate: '2025-01-01',
+        balances: [{ accountId: 'cash-id', amount: 50000 }],
+        equityAccountId: 'equity-id',
+      };
+
+      fiscalPeriodService.validatePeriod.mockResolvedValue({
+        isValid: false,
+        period: null,
+      } as any);
+
+      await expect(service.postOpeningBalances(dto)).rejects.toThrow(BadRequestException);
+    });
+
+    it('should reject when all balances are zero', async () => {
+      const dto = {
+        asOfDate: '2026-01-01',
+        balances: [{ accountId: 'cash-id', amount: 0 }],
+        equityAccountId: 'equity-id',
+      };
+
+      fiscalPeriodService.validatePeriod.mockResolvedValue({
+        isValid: true,
+        message: 'Period is open',
+        period: mockOpenPeriod as any,
+      });
+
+      await expect(service.postOpeningBalances(dto)).rejects.toThrow(BadRequestException);
+    });
+  });
+
   describe('Helper Methods', () => {
     describe('calculateCOGS', () => {
       it('should calculate COGS correctly', () => {

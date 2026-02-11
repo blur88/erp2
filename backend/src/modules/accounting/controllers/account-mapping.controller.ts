@@ -12,6 +12,8 @@ import {
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiParam } from '@nestjs/swagger';
 import { AccountMappingService } from '../services/account-mapping.service';
+import { Auth } from '../../auth/decorators/auth.decorator';
+import { UserRole } from '../../../database/entities/user.entity';
 import {
   CreateAccountMappingDto,
   UpdateAccountMappingDto,
@@ -23,6 +25,7 @@ import {
 
 @ApiTags('Account Mappings')
 @Controller('accounting/account-mappings')
+@Auth()
 export class AccountMappingController {
   constructor(
     private readonly accountMappingService: AccountMappingService,
@@ -66,6 +69,7 @@ export class AccountMappingController {
   }
 
   @Post()
+  @Auth(UserRole.ADMIN)
   @ApiOperation({ summary: 'Create a new account mapping' })
   @ApiResponse({
     status: 201,
@@ -81,6 +85,7 @@ export class AccountMappingController {
   }
 
   @Patch(':id')
+  @Auth(UserRole.ADMIN)
   @ApiOperation({ summary: 'Update an account mapping' })
   @ApiParam({ name: 'id', description: 'Mapping ID' })
   @ApiResponse({
@@ -97,6 +102,7 @@ export class AccountMappingController {
   }
 
   @Delete(':id')
+  @Auth(UserRole.ADMIN)
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Delete an account mapping' })
   @ApiParam({ name: 'id', description: 'Mapping ID' })

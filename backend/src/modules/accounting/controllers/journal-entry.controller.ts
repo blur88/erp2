@@ -12,18 +12,28 @@ import {
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiParam } from '@nestjs/swagger';
 import { JournalEntryService } from '../services/journal-entry.service';
+import { AccountingService } from '../services/accounting.service';
+import { Auth } from '../../auth/decorators/auth.decorator';
+import { UserRole } from '../../../database/entities/user.entity';
 import {
   CreateJournalEntryDto,
   UpdateJournalEntryDto,
   QueryJournalEntriesDto,
   JournalEntryResponseDto,
   JournalEntryListResponseDto,
+  PostOpeningBalancesDto,
+  BulkOperationDto,
+  BulkOperationResultDto,
 } from '../dto/journal-entry.dto';
 
 @ApiTags('Journal Entries')
 @Controller('accounting/journal-entries')
+@Auth()
 export class JournalEntryController {
-  constructor(private readonly journalEntryService: JournalEntryService) {}
+  constructor(
+    private readonly journalEntryService: JournalEntryService,
+    private readonly accountingService: AccountingService,
+  ) {}
 
   @Get()
   @ApiOperation({ summary: 'Get all journal entries' })
@@ -36,6 +46,45 @@ export class JournalEntryController {
     @Query() query: QueryJournalEntriesDto,
   ): Promise<JournalEntryListResponseDto> {
     return this.journalEntryService.findAll(query);
+  }
+
+  @Post('opening-balances')
+  @Auth(UserRole.ADMIN)
+  @ApiOperation({ summary: 'Post opening balances' })
+  @ApiResponse({
+    status: 201,
+    description: 'Opening balance entry created and posted',
+    type: JournalEntryResponseDto,
+  })
+  @ApiResponse({ status: 400, description: 'Invalid balances or no open period' })
+  async postOpeningBalances(
+    @Body() dto: PostOpeningBalancesDto,
+  ): Promise<JournalEntryResponseDto> {
+    return this.accountingService.postOpeningBalances(dto) as any;
+  }
+
+  @Post('bulk-post')
+  @Auth(UserRole.ADMIN, UserRole.MANAGER)
+  @ApiOperation({ summary: 'Post multiple draft journal entries' })
+  @ApiResponse({
+    status: 200,
+    description: 'Bulk post results',
+    type: BulkOperationResultDto,
+  })
+  async bulkPost(@Body() dto: BulkOperationDto): Promise<BulkOperationResultDto> {
+    return this.journalEntryService.bulkPost(dto.ids);
+  }
+
+  @Post('bulk-delete')
+  @Auth(UserRole.ADMIN)
+  @ApiOperation({ summary: 'Delete multiple draft journal entries' })
+  @ApiResponse({
+    status: 200,
+    description: 'Bulk delete results',
+    type: BulkOperationResultDto,
+  })
+  async bulkDelete(@Body() dto: BulkOperationDto): Promise<BulkOperationResultDto> {
+    return this.journalEntryService.bulkDelete(dto.ids);
   }
 
   @Get(':id')
@@ -52,6 +101,7 @@ export class JournalEntryController {
   }
 
   @Post()
+  @Auth(UserRole.ADMIN, UserRole.MANAGER)
   @ApiOperation({ summary: 'Create a new journal entry' })
   @ApiResponse({
     status: 201,
@@ -68,6 +118,7 @@ export class JournalEntryController {
   }
 
   @Patch(':id')
+  @Auth(UserRole.ADMIN, UserRole.MANAGER)
   @ApiOperation({ summary: 'Update a journal entry' })
   @ApiParam({ name: 'id', description: 'Journal entry ID' })
   @ApiResponse({
@@ -88,6 +139,7 @@ export class JournalEntryController {
   }
 
   @Delete(':id')
+  @Auth(UserRole.ADMIN)
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Delete a journal entry' })
   @ApiParam({ name: 'id', description: 'Journal entry ID' })
@@ -102,6 +154,7 @@ export class JournalEntryController {
   }
 
   @Post(':id/post')
+  @Auth(UserRole.ADMIN, UserRole.MANAGER)
   @ApiOperation({ summary: 'Post a draft journal entry' })
   @ApiParam({ name: 'id', description: 'Journal entry ID' })
   @ApiResponse({
@@ -119,6 +172,7 @@ export class JournalEntryController {
   }
 
   @Post(':id/reverse')
+  @Auth(UserRole.ADMIN, UserRole.MANAGER)
   @ApiOperation({ summary: 'Reverse a posted journal entry' })
   @ApiParam({ name: 'id', description: 'Journal entry ID to reverse' })
   @ApiResponse({

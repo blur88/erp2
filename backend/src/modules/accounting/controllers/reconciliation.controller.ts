@@ -12,6 +12,8 @@ import {
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiParam } from '@nestjs/swagger';
 import { ReconciliationService } from '../services/reconciliation.service';
+import { Auth } from '../../auth/decorators/auth.decorator';
+import { UserRole } from '../../../database/entities/user.entity';
 import {
   CreateBankReconciliationDto,
   UpdateBankReconciliationDto,
@@ -23,6 +25,7 @@ import {
 
 @ApiTags('Bank Reconciliation')
 @Controller('accounting/bank-reconciliations')
+@Auth()
 export class ReconciliationController {
   constructor(private readonly reconciliationService: ReconciliationService) {}
 
@@ -53,6 +56,7 @@ export class ReconciliationController {
   }
 
   @Post()
+  @Auth(UserRole.ADMIN, UserRole.MANAGER)
   @ApiOperation({ summary: 'Start a new bank reconciliation' })
   @ApiResponse({
     status: 201,
@@ -71,6 +75,7 @@ export class ReconciliationController {
   }
 
   @Patch(':id')
+  @Auth(UserRole.ADMIN, UserRole.MANAGER)
   @ApiOperation({ summary: 'Update bank reconciliation (statement balance, date)' })
   @ApiParam({ name: 'id', description: 'Bank reconciliation ID' })
   @ApiResponse({
@@ -88,6 +93,7 @@ export class ReconciliationController {
   }
 
   @Delete(':id')
+  @Auth(UserRole.ADMIN)
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Delete bank reconciliation (only in-progress)' })
   @ApiParam({ name: 'id', description: 'Bank reconciliation ID' })
@@ -99,6 +105,7 @@ export class ReconciliationController {
   }
 
   @Post(':id/mark-cleared')
+  @Auth(UserRole.ADMIN, UserRole.MANAGER)
   @ApiOperation({ summary: 'Mark journal entry lines as cleared' })
   @ApiParam({ name: 'id', description: 'Bank reconciliation ID' })
   @ApiResponse({
@@ -115,6 +122,7 @@ export class ReconciliationController {
   }
 
   @Post(':id/unmark-cleared')
+  @Auth(UserRole.ADMIN, UserRole.MANAGER)
   @ApiOperation({ summary: 'Unmark journal entry lines (set cleared = false)' })
   @ApiParam({ name: 'id', description: 'Bank reconciliation ID' })
   @ApiResponse({
@@ -131,6 +139,7 @@ export class ReconciliationController {
   }
 
   @Post(':id/complete')
+  @Auth(UserRole.ADMIN, UserRole.MANAGER)
   @ApiOperation({ summary: 'Complete bank reconciliation (must be balanced)' })
   @ApiParam({ name: 'id', description: 'Bank reconciliation ID' })
   @ApiResponse({
@@ -147,6 +156,7 @@ export class ReconciliationController {
   }
 
   @Post(':id/reopen')
+  @Auth(UserRole.ADMIN)
   @ApiOperation({ summary: 'Reopen a completed bank reconciliation' })
   @ApiParam({ name: 'id', description: 'Bank reconciliation ID' })
   @ApiResponse({

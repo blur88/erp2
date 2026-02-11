@@ -463,6 +463,44 @@ export class JournalEntryService {
     return this.findOne(savedReversalEntry.id);
   }
 
+  async bulkPost(ids: string[]): Promise<{
+    succeeded: string[];
+    failed: { id: string; error: string }[];
+  }> {
+    const succeeded: string[] = [];
+    const failed: { id: string; error: string }[] = [];
+
+    for (const id of ids) {
+      try {
+        await this.postEntry(id);
+        succeeded.push(id);
+      } catch (error: any) {
+        failed.push({ id, error: error?.message || 'Unknown error' });
+      }
+    }
+
+    return { succeeded, failed };
+  }
+
+  async bulkDelete(ids: string[]): Promise<{
+    succeeded: string[];
+    failed: { id: string; error: string }[];
+  }> {
+    const succeeded: string[] = [];
+    const failed: { id: string; error: string }[] = [];
+
+    for (const id of ids) {
+      try {
+        await this.remove(id);
+        succeeded.push(id);
+      } catch (error: any) {
+        failed.push({ id, error: error?.message || 'Unknown error' });
+      }
+    }
+
+    return { succeeded, failed };
+  }
+
   /**
    * Validate fiscal period exists and is open
    */
