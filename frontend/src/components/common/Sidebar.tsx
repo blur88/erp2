@@ -533,14 +533,19 @@ const Sidebar: React.FC<SidebarProps> = ({ onItemClick }) => {
       findParentItems(section.items)
     })
 
-    // Only update if we found parent items and they're not all already expanded
-    if (parentItems.length > 0) {
-      const allExpanded = parentItems.every(id => expandedItems.includes(id))
-      if (!allExpanded) {
-        setExpandedItems(parentItems)
-        localStorage.setItem('sidebar-expanded', JSON.stringify(parentItems))
+    // Keep expansion state aligned with current route, including routes without parents.
+    setExpandedItems(prev => {
+      const isSame =
+        prev.length === parentItems.length &&
+        prev.every((id, index) => id === parentItems[index])
+
+      if (isSame) {
+        return prev
       }
-    }
+
+      localStorage.setItem('sidebar-expanded', JSON.stringify(parentItems))
+      return parentItems
+    })
   }, [location.pathname])
 
   // Show all modules - no filtering based on backend availability
