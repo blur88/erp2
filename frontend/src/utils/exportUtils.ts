@@ -1,14 +1,7 @@
 import * as XLSX from 'xlsx'
 import jsPDF from 'jspdf'
-import 'jspdf-autotable'
+import { autoTable } from 'jspdf-autotable'
 import type { Product } from '../types'
-
-// Extend jsPDF type to include autoTable
-declare module 'jspdf' {
-  interface jsPDF {
-    autoTable: (options: any) => jsPDF
-  }
-}
 
 export interface ExportData {
   products: Product[]
@@ -79,14 +72,14 @@ const prepareExportData = (products: Product[]) => {
 const generateFilename = (format: string, filters?: ExportData['filters']): string => {
   const timestamp = new Date().toISOString().slice(0, 19).replace(/[:-]/g, '')
   let filename = `products_export_${timestamp}`
-  
+
   if (filters?.search) {
     filename += `_search_${filters.search.replace(/[^a-zA-Z0-9]/g, '_')}`
   }
   if (filters?.category) {
     filename += `_category_filtered`
   }
-  
+
   return `${filename}.${format}`
 }
 
@@ -94,7 +87,7 @@ const generateFilename = (format: string, filters?: ExportData['filters']): stri
 export const exportToCSV = ({ products, filters }: ExportData): void => {
   try {
     const exportData = prepareExportData(products)
-    
+
     if (exportData.length === 0) {
       throw new Error('No data to export')
     }
@@ -103,7 +96,7 @@ export const exportToCSV = ({ products, filters }: ExportData): void => {
     const headers = Object.keys(exportData[0])
     const csvContent = [
       headers.join(','),
-      ...exportData.map(row => 
+      ...exportData.map(row =>
         headers.map(header => {
           const value = row[header as keyof typeof row]
           // Escape commas and quotes in CSV
@@ -119,15 +112,15 @@ export const exportToCSV = ({ products, filters }: ExportData): void => {
     const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' })
     const link = document.createElement('a')
     const url = URL.createObjectURL(blob)
-    
+
     link.setAttribute('href', url)
     link.setAttribute('download', generateFilename('csv', filters))
     link.style.visibility = 'hidden'
-    
+
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)
-    
+
     URL.revokeObjectURL(url)
   } catch (error) {
     console.error('CSV Export Error:', error)
@@ -139,17 +132,17 @@ export const exportToCSV = ({ products, filters }: ExportData): void => {
 export const exportToExcel = ({ products, filters }: ExportData): void => {
   try {
     const exportData = prepareExportData(products)
-    
+
     if (exportData.length === 0) {
       throw new Error('No data to export')
     }
 
     // Create workbook
     const wb = XLSX.utils.book_new()
-    
+
     // Main products sheet
     const ws = XLSX.utils.json_to_sheet(exportData)
-    
+
     // Set column widths
     const columnWidths = [
       { wch: 5 },   // #
@@ -173,9 +166,9 @@ export const exportToExcel = ({ products, filters }: ExportData): void => {
       { wch: 12 }   // Updated Date
     ]
     ws['!cols'] = columnWidths
-    
+
     XLSX.utils.book_append_sheet(wb, ws, 'Products')
-    
+
     // Add summary sheet
     const summaryData = [
       { Metric: 'Total Products', Value: products.length },
@@ -184,25 +177,27 @@ export const exportToExcel = ({ products, filters }: ExportData): void => {
       { Metric: 'Stocked Products', Value: products.filter(p => p.type === 'Stocked Product').length },
       { Metric: 'Services', Value: products.filter(p => p.type === 'Service').length },
       { Metric: 'Out of Stock Items', Value: products.filter(p => (p.stockQuantity || 0) <= 0).length },
-      { Metric: 'Low Stock Items', Value: products.filter(p => {
-        const stock = p.stockQuantity || 0
-        return stock > 0 && stock <= 10
-      }).length },
+      {
+        Metric: 'Low Stock Items', Value: products.filter(p => {
+          const stock = p.stockQuantity || 0
+          return stock > 0 && stock <= 10
+        }).length
+      },
       { Metric: 'Export Date', Value: formatDateForExport(new Date()) },
       { Metric: 'Export Time', Value: new Date().toLocaleTimeString() }
     ]
-    
+
     if (filters?.search) {
       summaryData.push({ Metric: 'Search Filter', Value: filters.search })
     }
     if (filters?.category) {
       summaryData.push({ Metric: 'Category Filter', Value: 'Applied' })
     }
-    
+
     const summaryWs = XLSX.utils.json_to_sheet(summaryData)
     summaryWs['!cols'] = [{ wch: 20 }, { wch: 20 }]
     XLSX.utils.book_append_sheet(wb, summaryWs, 'Summary')
-    
+
     // Write file
     XLSX.writeFile(wb, generateFilename('xlsx', filters))
   } catch (error) {
@@ -219,35 +214,35 @@ export const exportToPDF = ({ products, filters }: ExportData): void => {
     }
 
     const doc = new jsPDF('l', 'mm', 'a4') // Landscape orientation
-    
+
     // Header
     doc.setFontSize(20)
     doc.setTextColor(40, 40, 40)
     doc.text('Products Inventory Report', 20, 20)
-    
+
     // Sub header with filters
     doc.setFontSize(10)
     doc.setTextColor(80, 80, 80)
     let yPos = 30
-    
+
     doc.text(`Export Date: ${formatDateForExport(new Date())} ${new Date().toLocaleTimeString()}`, 20, yPos)
     yPos += 5
-    
+
     doc.text(`Total Products: ${products.length}`, 20, yPos)
     yPos += 5
-    
+
     if (filters?.search) {
       doc.text(`Search Filter: "${filters.search}"`, 20, yPos)
       yPos += 5
     }
-    
+
     if (filters?.category) {
       doc.text(`Category Filter: Applied`, 20, yPos)
       yPos += 5
     }
-    
+
     yPos += 5
-    
+
     // Prepare table data - simplified for PDF
     const tableData = products.map((product, index) => [
       index + 1,
@@ -262,15 +257,15 @@ export const exportToPDF = ({ products, filters }: ExportData): void => {
     ])
 
     // Table
-    doc.autoTable({
+    autoTable(doc, {
       head: [['#', 'Name', 'Barcode', 'Type', 'Category', 'Cost', 'Stock', 'Status', 'Active']],
       body: tableData,
       startY: yPos,
-      styles: { 
+      styles: {
         fontSize: 8,
         cellPadding: 2
       },
-      headStyles: { 
+      headStyles: {
         fillColor: [66, 139, 202],
         textColor: 255,
         fontStyle: 'bold'
@@ -303,27 +298,27 @@ export const exportToPDF = ({ products, filters }: ExportData): void => {
         )
       }
     })
-    
+
     // Summary section on last page or new page if needed
     const finalY = (doc as any).lastAutoTable.finalY + 10
     const pageHeight = doc.internal.pageSize.height
-    
+
     if (finalY > pageHeight - 60) {
       doc.addPage()
       yPos = 20
     } else {
       yPos = finalY
     }
-    
+
     // Summary statistics
     doc.setFontSize(12)
     doc.setTextColor(40, 40, 40)
     doc.text('Summary Statistics', 20, yPos)
-    
+
     yPos += 10
     doc.setFontSize(9)
     doc.setTextColor(60, 60, 60)
-    
+
     const summaryStats = [
       `Active Products: ${products.filter(p => p.isActive).length}`,
       `Inactive Products: ${products.filter(p => !p.isActive).length}`,
@@ -335,7 +330,7 @@ export const exportToPDF = ({ products, filters }: ExportData): void => {
         return stock > 0 && stock <= 10
       }).length}`
     ]
-    
+
     summaryStats.forEach((stat, index) => {
       if (index % 2 === 0) {
         doc.text(stat, 20, yPos)
@@ -344,7 +339,7 @@ export const exportToPDF = ({ products, filters }: ExportData): void => {
         yPos += 6
       }
     })
-    
+
     // Save PDF
     doc.save(generateFilename('pdf', filters))
   } catch (error) {
