@@ -218,4 +218,20 @@ describe('JournalEntriesPage', () => {
       expect(screen.getByText('Showing 3 of 3 entries')).toBeInTheDocument()
     })
   })
+
+  it('shows bulk action buttons when a draft entry is selected', async () => {
+    renderWithProviders()
+
+    await waitFor(() => {
+      expect(screen.getByText('JE-2026-002')).toBeInTheDocument()
+    })
+
+    const checkboxes = screen.getAllByRole('checkbox')
+    fireEvent.click(checkboxes[2])
+
+    await waitFor(() => {
+      expect(screen.getByText('Post Selected (1)')).toBeInTheDocument()
+      expect(screen.getByText('Delete Selected (1)')).toBeInTheDocument()
+    })
+  })
 })
