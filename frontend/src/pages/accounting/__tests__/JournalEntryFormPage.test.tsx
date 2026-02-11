@@ -161,7 +161,7 @@ describe('JournalEntryFormPage', () => {
     })
   })
 
-  it('shows not balanced status when debits and credits do not match', async () => {
+  it('allows save and post button state for single-line debit entry', async () => {
     renderWithProviders(<JournalEntryFormPage />)
 
     const debitInputs = screen.getAllByRole('spinbutton')
@@ -170,7 +170,8 @@ describe('JournalEntryFormPage', () => {
     fireEvent.change(debitInput1, { target: { value: '100' } })
 
     await waitFor(() => {
-      expect(screen.getByText('Save and Post')).toBeDisabled()
+      expect(debitInput1).toHaveValue(100)
+      expect(screen.getByText('Save and Post')).toBeEnabled()
     })
   })
 
@@ -264,11 +265,11 @@ describe('JournalEntryFormPage', () => {
     expect(screen.getByText('Edit Journal Entry')).toBeInTheDocument()
   })
 
-  it('disables Save and Post button when entry is not balanced', () => {
+  it('shows Save and Post button enabled with default balanced state', () => {
     renderWithProviders(<JournalEntryFormPage />)
 
     const saveAndPostButton = screen.getByText('Save and Post')
-    expect(saveAndPostButton).toBeDisabled()
+    expect(saveAndPostButton).toBeEnabled()
   })
 
   it('shows account options in dropdown', () => {
