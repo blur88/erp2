@@ -3,7 +3,7 @@ FROM node:24-alpine
 
 # Install security updates and runtime dependencies
 RUN apk update && apk upgrade && \
-    apk add --no-cache curl postgresql-client mongodb-tools dumb-init && \
+    apk add --no-cache curl postgresql-client dumb-init && \
     rm -rf /var/cache/apk/*
 
 # Update npm to get patched bundled dependencies (tar)
