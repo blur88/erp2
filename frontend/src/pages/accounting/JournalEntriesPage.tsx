@@ -24,6 +24,7 @@ import {
   Tooltip,
   InputAdornment,
   Link,
+  Checkbox,
 } from '@mui/material'
 import GridLegacy from '@mui/material/GridLegacy'
 import {
@@ -40,6 +41,8 @@ import {
   fetchJournalEntries,
   deleteJournalEntry,
   postEntry,
+  bulkPostEntries,
+  bulkDeleteEntries,
   selectJournalEntries,
   selectJournalEntriesLoading,
   selectJournalEntriesError,
@@ -51,6 +54,7 @@ import { formatCurrency, formatDate } from '@/utils/formatters'
 import ConfirmationDialog from '@/components/common/ConfirmationDialog'
 import AccountMappingWarning from '@/components/accounting/AccountMappingWarning'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
+import { useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
 
 interface Filters {
   search: string
@@ -96,32 +100,29 @@ const JournalEntriesPage: React.FC = () => {
     endDate: '',
   })
   const [selectedEntry, setSelectedEntry] = useState<JournalEntry | null>(null)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false)
   const [isPostConfirmOpen, setIsPostConfirmOpen] = useState(false)
+  const [isBulkPostConfirmOpen, setIsBulkPostConfirmOpen] = useState(false)
+  const [isBulkDeleteConfirmOpen, setIsBulkDeleteConfirmOpen] = useState(false)
   const [actionLoading, setActionLoading] = useState(false)
 
-  // Load journal entries
-  useEffect(() => {
+  const buildFetchParams = useCallback(() => {
     const params: any = {
       page: 1,
       limit: 50,
     }
+    if (filters.search) params.search = filters.search
+    if (filters.status !== 'all') params.status = filters.status
+    if (filters.entryType) params.sourceType = filters.entryType
+    if (filters.startDate) params.startDate = filters.startDate
+    if (filters.endDate) params.endDate = filters.endDate
+    return params
+  }, [filters])
 
-    if (filters.search) {
-      params.search = filters.search
-    }
-    if (filters.status !== 'all') {
-      params.status = filters.status
-    }
-    if (filters.entryType) {
-      params.sourceType = filters.entryType
-    }
-    if (filters.startDate) {
-      params.startDate = filters.startDate
-    }
-    if (filters.endDate) {
-      params.endDate = filters.endDate
-    }
+  // Load journal entries
+  useEffect(() => {
+    const params: any = buildFetchParams()
 
     // Check URL query parameters (from transaction pages)
     const urlParams = new URLSearchParams(location.search)
@@ -134,12 +135,20 @@ const JournalEntriesPage: React.FC = () => {
     }
 
     dispatch(fetchJournalEntries(params))
-  }, [dispatch, filters, location.search])
+  }, [dispatch, buildFetchParams, location.search])
 
   // Clear error on mount
   useEffect(() => {
     dispatch(clearError())
   }, [dispatch])
+
+  useEffect(() => {
+    const validIds = new Set(journalEntries.map((entry: JournalEntry) => entry.id))
+    setSelectedIds((prev) => {
+      const next = new Set(Array.from(prev).filter((id) => validIds.has(id)))
+      return next.size === prev.size ? prev : next
+    })
+  }, [journalEntries])
 
   // Handle filter change
   const handleFilterChange = useCallback((field: keyof Filters, value: string) => {
@@ -149,6 +158,27 @@ const JournalEntriesPage: React.FC = () => {
   // Handle search
   const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     handleFilterChange('search', event.target.value)
+  }
+
+  const handleToggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  const handleSelectAll = () => {
+    const selectableIds = journalEntries
+      .filter((entry: JournalEntry) => entry.status === JournalEntryStatus.DRAFT)
+      .map((entry: JournalEntry) => entry.id)
+
+    if (selectedIds.size === selectableIds.length) {
+      setSelectedIds(new Set())
+      return
+    }
+    setSelectedIds(new Set(selectableIds))
   }
 
   // Handle row click
@@ -219,13 +249,43 @@ const JournalEntriesPage: React.FC = () => {
 
   // Handle refresh
   const handleRefresh = () => {
-    const params: any = { page: 1, limit: 50 }
-    if (filters.search) params.search = filters.search
-    if (filters.status !== 'all') params.status = filters.status
-    if (filters.entryType) params.sourceType = filters.entryType
-    if (filters.startDate) params.startDate = filters.startDate
-    if (filters.endDate) params.endDate = filters.endDate
-    dispatch(fetchJournalEntries(params))
+    dispatch(fetchJournalEntries(buildFetchParams()))
+  }
+
+  const handleBulkPost = async () => {
+    setActionLoading(true)
+    try {
+      const result = await dispatch(bulkPostEntries(Array.from(selectedIds))).unwrap()
+      showSuccess(`Posted ${result.succeeded.length} entries`)
+      if (result.failed.length > 0) {
+        showError(`${result.failed.length} entries failed to post`)
+      }
+      setSelectedIds(new Set())
+      dispatch(fetchJournalEntries(buildFetchParams()))
+    } catch (error: any) {
+      showError(error)
+    } finally {
+      setActionLoading(false)
+      setIsBulkPostConfirmOpen(false)
+    }
+  }
+
+  const handleBulkDelete = async () => {
+    setActionLoading(true)
+    try {
+      const result = await dispatch(bulkDeleteEntries(Array.from(selectedIds))).unwrap()
+      showSuccess(`Deleted ${result.succeeded.length} entries`)
+      if (result.failed.length > 0) {
+        showError(`${result.failed.length} entries failed to delete`)
+      }
+      setSelectedIds(new Set())
+      dispatch(fetchJournalEntries(buildFetchParams()))
+    } catch (error: any) {
+      showError(error)
+    } finally {
+      setActionLoading(false)
+      setIsBulkDeleteConfirmOpen(false)
+    }
   }
 
   // Get status badge color
@@ -258,6 +318,19 @@ const JournalEntriesPage: React.FC = () => {
     }
   }
 
+  useKeyboardShortcuts({
+    onSearch: () => {
+      const el = document.querySelector<HTMLInputElement>('[data-testid="search-input"]')
+      el?.focus()
+    },
+    onAdd: () => navigate('/accounting/journal-entries/new'),
+    onRefresh: handleRefresh,
+  })
+
+  const selectableEntries = journalEntries.filter((entry: JournalEntry) => entry.status === JournalEntryStatus.DRAFT)
+  const allSelected = selectableEntries.length > 0 && selectedIds.size === selectableEntries.length
+  const someSelected = selectedIds.size > 0 && selectedIds.size < selectableEntries.length
+
   return (
     <Box sx={{ p: 3 }}>
       {/* Account Mapping Warning */}
@@ -269,6 +342,28 @@ const JournalEntriesPage: React.FC = () => {
           Journal Entries
         </Typography>
         <Stack direction="row" spacing={2}>
+          {selectedIds.size > 0 && (
+            <>
+              <Button
+                size="small"
+                variant="contained"
+                color="primary"
+                startIcon={<PostIcon />}
+                onClick={() => setIsBulkPostConfirmOpen(true)}
+              >
+                Post Selected ({selectedIds.size})
+              </Button>
+              <Button
+                size="small"
+                variant="outlined"
+                color="error"
+                startIcon={<DeleteIcon />}
+                onClick={() => setIsBulkDeleteConfirmOpen(true)}
+              >
+                Delete Selected ({selectedIds.size})
+              </Button>
+            </>
+          )}
           <Tooltip title="Refresh">
             <IconButton onClick={handleRefresh} disabled={loading}>
               <RefreshIcon />
@@ -291,6 +386,7 @@ const JournalEntriesPage: React.FC = () => {
             <TextField
               fullWidth
               placeholder="Search by reference or description..."
+              inputProps={{ 'data-testid': 'search-input' }}
               value={filters.search}
               onChange={handleSearchChange}
               size="small"
@@ -374,6 +470,13 @@ const JournalEntriesPage: React.FC = () => {
           <Table>
             <TableHead>
               <TableRow>
+                <TableCell padding="checkbox">
+                  <Checkbox
+                    indeterminate={someSelected}
+                    checked={allSelected}
+                    onChange={handleSelectAll}
+                  />
+                </TableCell>
                 <TableCell sx={{ fontWeight: 600 }}>Reference</TableCell>
                 <TableCell sx={{ fontWeight: 600 }}>Date</TableCell>
                 <TableCell sx={{ fontWeight: 600 }}>Description</TableCell>
@@ -388,13 +491,13 @@ const JournalEntriesPage: React.FC = () => {
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={9} align="center" sx={{ py: 4 }}>
+                  <TableCell colSpan={10} align="center" sx={{ py: 4 }}>
                     <CircularProgress />
                   </TableCell>
                 </TableRow>
               ) : journalEntries.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={9} align="center" sx={{ py: 4 }}>
+                  <TableCell colSpan={10} align="center" sx={{ py: 4 }}>
                     <Typography variant="body2" color="text.secondary">
                       No journal entries found
                     </Typography>
@@ -411,6 +514,13 @@ const JournalEntriesPage: React.FC = () => {
                       '&:hover': { backgroundColor: 'action.hover' },
                     }}
                   >
+                    <TableCell padding="checkbox" onClick={(e) => e.stopPropagation()}>
+                      <Checkbox
+                        disabled={entry.status !== JournalEntryStatus.DRAFT}
+                        checked={selectedIds.has(entry.id)}
+                        onChange={() => handleToggleSelect(entry.id)}
+                      />
+                    </TableCell>
                     <TableCell>
                       <Typography
                         variant="body2"
@@ -545,6 +655,28 @@ const JournalEntriesPage: React.FC = () => {
           setIsDeleteConfirmOpen(false)
           setSelectedEntry(null)
         }}
+        loading={actionLoading}
+      />
+
+      <ConfirmationDialog
+        open={isBulkPostConfirmOpen}
+        title="Bulk Post Entries"
+        message={`Post ${selectedIds.size} selected journal entries? Only draft entries will be posted.`}
+        confirmText="Post"
+        cancelText="Cancel"
+        onConfirm={handleBulkPost}
+        onCancel={() => setIsBulkPostConfirmOpen(false)}
+        loading={actionLoading}
+      />
+
+      <ConfirmationDialog
+        open={isBulkDeleteConfirmOpen}
+        title="Bulk Delete Entries"
+        message={`Delete ${selectedIds.size} selected journal entries? Only draft entries can be deleted.`}
+        confirmText="Delete"
+        cancelText="Cancel"
+        onConfirm={handleBulkDelete}
+        onCancel={() => setIsBulkDeleteConfirmOpen(false)}
         loading={actionLoading}
       />
     </Box>

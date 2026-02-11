@@ -37,6 +37,7 @@ import { MappingType } from '@/types/accountMapping'
 import type { AccountMapping } from '@/types/accountMapping'
 import AccountMappingDialog from '@/components/accounting/AccountMappingDialog'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
+import { useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
 
 // Mapping type labels with category grouping
 const MAPPING_TYPE_LABELS: Record<MappingType, { label: string; category: string; description: string }> = {
@@ -122,6 +123,10 @@ const AccountMappingsPage: React.FC = () => {
   const [dialogOpen, setDialogOpen] = useState(false)
   const [selectedMapping, setSelectedMapping] = useState<AccountMapping | null>(null)
   const [selectedMappingType, setSelectedMappingType] = useState<MappingType | null>(null)
+
+  useKeyboardShortcuts({
+    onRefresh: () => dispatch(fetchAccountMappings()),
+  })
 
   // Load mappings and validate on mount
   useEffect(() => {
@@ -248,7 +253,15 @@ const AccountMappingsPage: React.FC = () => {
 
       {/* Error Alert */}
       {error && (
-        <Alert severity="error" sx={{ mb: 3 }}>
+        <Alert
+          severity="error"
+          action={
+            <Button color="inherit" size="small" onClick={() => dispatch(fetchAccountMappings())}>
+              Retry
+            </Button>
+          }
+          sx={{ mb: 3 }}
+        >
           {error}
         </Alert>
       )}

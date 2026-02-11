@@ -51,6 +51,7 @@ import {
 import { formatCurrency, formatDate, getCurrentDate } from '@/utils/formatters';
 import { TYPOGRAPHY_STYLES } from '@/constants/typography';
 import type { JournalEntry } from '@/types';
+import { useKeyboardShortcuts } from '@/hooks/useSearchAndFilter';
 
 // Summary Card Component
 interface SummaryCardProps {
@@ -212,6 +213,15 @@ const AccountingDashboardPage: React.FC = () => {
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     return diffDays > 0 ? diffDays : 0;
   }, [currentPeriod]);
+
+  useKeyboardShortcuts({
+    onAdd: () => navigate('/accounting/journal-entries/new'),
+    onRefresh: () => {
+      dispatch(fetchBalanceSheet({ asOfDate: getCurrentDate() }));
+      dispatch(fetchProfitAndLoss({ startDate: '', endDate: getCurrentDate() }));
+      dispatch(fetchJournalEntries({ limit: 10 }));
+    },
+  });
 
   return (
     <Box>

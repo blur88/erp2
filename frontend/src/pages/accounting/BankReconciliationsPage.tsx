@@ -50,6 +50,7 @@ import {
 } from '@/store/slices/fiscalPeriodsSlice';
 import { BankReconciliation, BankReconciliationStatus } from '@/types';
 import { formatCurrency } from '@/utils/formatters';
+import { useKeyboardShortcuts } from '@/hooks/useSearchAndFilter';
 
 const BankReconciliationsPage: React.FC = () => {
   const dispatch = useDispatch() as any;
@@ -72,6 +73,15 @@ const BankReconciliationsPage: React.FC = () => {
   const [formDialogOpen, setFormDialogOpen] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [selectedReconciliation, setSelectedReconciliation] = useState<BankReconciliation | null>(null);
+
+  useKeyboardShortcuts({
+    onSearch: () => {
+      const el = document.querySelector<HTMLInputElement>('[data-testid="search-input"]');
+      el?.focus();
+    },
+    onAdd: () => setFormDialogOpen(true),
+    onRefresh: () => dispatch(fetchBankReconciliations({})),
+  });
 
   useEffect(() => {
     dispatch(fetchChartOfAccounts({ page: 1, limit: 1000, isActive: true }));
