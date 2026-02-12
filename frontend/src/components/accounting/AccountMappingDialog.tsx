@@ -77,7 +77,7 @@ const AccountMappingDialog: React.FC<AccountMappingDialogProps> = ({
         setLoadingAccounts(true)
         const response = await chartOfAccountsApi.getAll({
           page: 1,
-          limit: 1000,
+          limit: 100,
           isActive: true,
           sortBy: 'code',
           sortOrder: 'ASC',

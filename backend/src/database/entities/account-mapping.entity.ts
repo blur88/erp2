@@ -40,13 +40,14 @@ export enum MappingType {
 @Index(['accountId'])
 export class AccountMapping extends BaseEntity {
   @Column({
-    type: 'enum',
-    enum: MappingType,
+    name: 'mappingKey',
+    type: 'varchar',
+    length: 100,
     unique: true,
     comment: 'Mapping type (e.g., SALES_REVENUE, SALES_AR)',
   })
-  @IsEnum(MappingType)
-  mappingType: MappingType;
+  @IsString()
+  mappingType: string;
 
   @Column({
     type: 'uuid',
