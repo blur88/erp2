@@ -251,6 +251,7 @@ const BalanceSheetPage: React.FC = () => {
     ]
   );
   const equityAccounts = normalizeAccounts(data?.equity?.accounts);
+  const netIncome = data?.equity?.netIncome ?? 0;
 
   const assetsSubtotal = data?.assets?.subtotal ?? data?.assets?.total ?? 0;
   const liabilitiesSubtotal = data?.liabilities?.subtotal ?? data?.liabilities?.total ?? 0;
@@ -413,6 +414,27 @@ const BalanceSheetPage: React.FC = () => {
                     subtotal={equitySubtotal}
                     color="success"
                   />
+                  {netIncome !== 0 && (
+                    <Box sx={{ mt: 1, px: 1, py: 0.5, borderTop: 1, borderColor: 'divider' }}>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <Typography variant="body2" sx={{ fontStyle: 'italic', fontWeight: 600 }}>
+                          {netIncome >= 0 ? 'Net Income' : 'Net Loss'}
+                        </Typography>
+                        <Typography
+                          variant="body2"
+                          sx={{
+                            fontFamily: 'monospace',
+                            fontWeight: 600,
+                            fontStyle: 'italic',
+                            color: netIncome >= 0 ? 'success.main' : 'error.main',
+                          }}
+                        >
+                          {formatCurrency(Math.abs(netIncome))}
+                          {netIncome < 0 && ' (Loss)'}
+                        </Typography>
+                      </Box>
+                    </Box>
+                  )}
                 </Paper>
               </Grid>
             </Grid>
