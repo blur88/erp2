@@ -20,6 +20,7 @@ import {
   Divider,
   GridLegacy as Grid,
 } from '@mui/material';
+import { alpha, useTheme } from '@mui/material/styles';
 import {
   Download as DownloadIcon,
   CheckCircle as CheckCircleIcon,
@@ -70,7 +71,16 @@ interface NormalizedBalanceAccount {
   balance: number;
 }
 
+export const getBalanceSheetTone = (mode: 'light' | 'dark') => ({
+  surfaceSoft: mode === 'dark' ? 'rgba(255, 255, 255, 0.06)' : 'grey.50',
+  surfaceStrong: mode === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'grey.100',
+  sectionAccent: mode === 'dark' ? 'rgba(255, 255, 255, 0.08)' : 'grey.100',
+});
+
 const BalanceSheetSection: React.FC<SectionProps> = ({ title, accounts, subtotal, color = 'primary' }) => {
+  const theme = useTheme();
+  const tone = getBalanceSheetTone(theme.palette.mode);
+
   return (
     <Box>
       {/* Section Title */}
@@ -86,13 +96,13 @@ const BalanceSheetSection: React.FC<SectionProps> = ({ title, accounts, subtotal
         <Table size="small">
           <TableHead>
             <TableRow>
-              <TableCell sx={{ fontWeight: 600, backgroundColor: 'grey.50', width: '20%' }}>
+              <TableCell sx={{ fontWeight: 600, backgroundColor: tone.surfaceSoft, width: '20%' }}>
                 Code
               </TableCell>
-              <TableCell sx={{ fontWeight: 600, backgroundColor: 'grey.50', width: '55%' }}>
+              <TableCell sx={{ fontWeight: 600, backgroundColor: tone.surfaceSoft, width: '55%' }}>
                 Account Name
               </TableCell>
-              <TableCell align="right" sx={{ fontWeight: 600, backgroundColor: 'grey.50', width: '25%' }}>
+              <TableCell align="right" sx={{ fontWeight: 600, backgroundColor: tone.surfaceSoft, width: '25%' }}>
                 Balance
               </TableCell>
             </TableRow>
@@ -128,7 +138,7 @@ const BalanceSheetSection: React.FC<SectionProps> = ({ title, accounts, subtotal
                 {/* Subtotal Row */}
                 <TableRow
                   sx={{
-                    backgroundColor: 'grey.100',
+                    backgroundColor: tone.sectionAccent,
                     '& td': { borderTop: 2, borderColor: 'divider' },
                   }}
                 >
@@ -165,6 +175,8 @@ const BalanceSheetSection: React.FC<SectionProps> = ({ title, accounts, subtotal
 
 const BalanceSheetPage: React.FC = () => {
   const dispatch = useAppDispatch();
+  const theme = useTheme();
+  const tone = getBalanceSheetTone(theme.palette.mode);
 
   // Redux state
   const balanceSheetState = useAppSelector(selectBalanceSheet);
@@ -412,7 +424,7 @@ const BalanceSheetPage: React.FC = () => {
               p: 3,
               borderTop: 2,
               borderColor: 'divider',
-              backgroundColor: 'grey.50',
+              backgroundColor: tone.surfaceSoft,
             }}
           >
             <Grid container spacing={2}>
@@ -422,7 +434,10 @@ const BalanceSheetPage: React.FC = () => {
                   variant="outlined"
                   sx={{
                     p: 2,
-                    backgroundColor: 'primary.light',
+                    backgroundColor:
+                      theme.palette.mode === 'dark'
+                        ? alpha(theme.palette.primary.main, 0.2)
+                        : theme.palette.primary.light,
                     borderColor: 'primary.main',
                   }}
                 >
@@ -444,7 +459,10 @@ const BalanceSheetPage: React.FC = () => {
                   variant="outlined"
                   sx={{
                     p: 2,
-                    backgroundColor: 'success.light',
+                    backgroundColor:
+                      theme.palette.mode === 'dark'
+                        ? alpha(theme.palette.success.main, 0.2)
+                        : theme.palette.success.light,
                     borderColor: 'success.main',
                   }}
                 >
@@ -466,7 +484,13 @@ const BalanceSheetPage: React.FC = () => {
                   variant="outlined"
                   sx={{
                     p: 2,
-                    backgroundColor: isBalanced ? 'success.light' : 'error.light',
+                    backgroundColor: isBalanced
+                      ? theme.palette.mode === 'dark'
+                        ? alpha(theme.palette.success.main, 0.2)
+                        : theme.palette.success.light
+                      : theme.palette.mode === 'dark'
+                        ? alpha(theme.palette.error.main, 0.2)
+                        : theme.palette.error.light,
                     borderColor: isBalanced ? 'success.main' : 'error.main',
                   }}
                 >
@@ -496,7 +520,7 @@ const BalanceSheetPage: React.FC = () => {
                           </Typography>
                           <Typography
                             variant="body2"
-                            sx={{ fontFamily: 'monospace', color: 'error.dark' }}
+                            sx={{ fontFamily: 'monospace', color: 'error.main' }}
                           >
                             Difference: {formatCurrency(Math.abs(totalAssets - totalLiabilitiesAndEquity))}
                           </Typography>
@@ -518,7 +542,7 @@ const BalanceSheetPage: React.FC = () => {
               alignItems: 'center',
               borderTop: 1,
               borderColor: 'divider',
-              backgroundColor: 'grey.100',
+              backgroundColor: tone.surfaceStrong,
             }}
           >
             <Typography variant="body2" color="text.secondary">

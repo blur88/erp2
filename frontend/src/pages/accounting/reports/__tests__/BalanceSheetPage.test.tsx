@@ -3,7 +3,7 @@ import { render, screen } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { BrowserRouter } from 'react-router-dom';
 import { configureStore } from '@reduxjs/toolkit';
-import BalanceSheetPage from '../BalanceSheetPage';
+import BalanceSheetPage, { getBalanceSheetTone } from '../BalanceSheetPage';
 import accountingReportsReducer from '@/store/slices/accountingReportsSlice';
 
 // Mock API
@@ -117,5 +117,17 @@ describe('BalanceSheetPage', () => {
     ).not.toThrow();
 
     expect(screen.getByText('Balance Sheet')).toBeInTheDocument();
+  });
+
+  it('uses dark-mode specific tones for report surfaces', () => {
+    const darkTone = getBalanceSheetTone('dark');
+    const lightTone = getBalanceSheetTone('light');
+
+    expect(darkTone.surfaceSoft).toBe('rgba(255, 255, 255, 0.06)');
+    expect(darkTone.surfaceStrong).toBe('rgba(255, 255, 255, 0.1)');
+    expect(darkTone.sectionAccent).toBe('rgba(255, 255, 255, 0.08)');
+    expect(lightTone.surfaceSoft).toBe('grey.50');
+    expect(lightTone.surfaceStrong).toBe('grey.100');
+    expect(lightTone.sectionAccent).toBe('grey.100');
   });
 });
