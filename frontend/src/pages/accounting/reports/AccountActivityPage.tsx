@@ -168,6 +168,7 @@ const AccountActivityPage: React.FC = () => {
     loading: false,
     error: null,
   };
+  const entries = data?.entries ?? [];
 
   // Local state for filters
   const [selectedAccount, setSelectedAccount] = useState<ChartOfAccount | null>(null);
@@ -234,8 +235,8 @@ const AccountActivityPage: React.FC = () => {
 
   // Calculate total amount (net of debits and credits)
   const calculateTotalAmount = (): number => {
-    if (!data || !data.entries) return 0;
-    return data.entries.reduce((sum, entry) => {
+    if (!data) return 0;
+    return entries.reduce((sum, entry) => {
       return sum + entry.debitAmount - entry.creditAmount;
     }, 0);
   };
@@ -421,7 +422,7 @@ const AccountActivityPage: React.FC = () => {
 
           {/* Entry Table */}
           <Box sx={{ p: 3 }}>
-            {data.entries.length > 0 ? (
+            {entries.length > 0 ? (
               <TableContainer sx={{ maxHeight: 600 }}>
                 <Table stickyHeader size="small">
                   <TableHead>
@@ -493,7 +494,7 @@ const AccountActivityPage: React.FC = () => {
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {data.entries.map((entry, index) => {
+                    {entries.map((entry, index) => {
                       const referenceLink = getReferenceLink(entry.referenceType, entry.referenceId);
                       const referenceText = formatReferenceText(entry.referenceType, entry.referenceNumber);
                       const amount = entry.debitAmount > 0 ? entry.debitAmount : -entry.creditAmount;
@@ -606,7 +607,7 @@ const AccountActivityPage: React.FC = () => {
           </Box>
 
           {/* Summary Footer Card */}
-          {data.entries.length > 0 && (
+          {entries.length > 0 && (
             <Box
               sx={{
                 p: 3,
@@ -696,7 +697,7 @@ const AccountActivityPage: React.FC = () => {
             }}
           >
             <Typography variant="body2" color="text.secondary">
-              Total Entries: {data.entries.length}
+              Total Entries: {entries.length}
             </Typography>
             <Typography variant="body2" color="text.secondary">
               Generated on: {new Date().toLocaleString('en-US', {

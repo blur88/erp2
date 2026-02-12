@@ -14,17 +14,18 @@ vi.mock('@/services/api', () => ({
   },
 }));
 
-const createMockStore = () => {
+const createMockStore = (preloadedState?: any) => {
   return configureStore({
     reducer: {
       accountingReports: accountingReportsReducer,
       chartOfAccounts: chartOfAccountsReducer,
     },
+    preloadedState,
   });
 };
 
-const renderWithProviders = () => {
-  const store = createMockStore();
+const renderWithProviders = (preloadedState?: any) => {
+  const store = createMockStore(preloadedState);
   return render(
     <Provider store={store}>
       <BrowserRouter>
@@ -72,5 +73,46 @@ describe('AccountActivityPage', () => {
     // Check that buttons are rendered (they may show loading spinner on mount)
     const buttons = screen.getAllByRole('button');
     expect(buttons.length).toBeGreaterThan(0);
+  });
+
+  it('renders safely when account activity response has no entries array', () => {
+    renderWithProviders({
+      accountingReports: {
+        trialBalance: { data: null, loading: false, error: null },
+        balanceSheet: { data: null, loading: false, error: null },
+        profitAndLoss: { data: null, loading: false, error: null },
+        generalLedger: { data: null, loading: false, error: null },
+        accountActivity: {
+          loading: false,
+          error: null,
+          data: {
+            account: {
+              id: 'acc-1',
+              code: '1000',
+              name: 'Cash',
+              type: 'ASSET',
+            },
+            startDate: '2026-01-01',
+            endDate: '2026-01-31',
+            totalEntries: 0,
+          },
+        },
+        downloading: false,
+      },
+      chartOfAccounts: {
+        accounts: [],
+        selectedAccount: null,
+        loading: false,
+        error: null,
+        pagination: {
+          total: 0,
+          page: 1,
+          limit: 10,
+          totalPages: 0,
+        },
+      },
+    });
+
+    expect(screen.getByText('No entries found for the selected period')).toBeInTheDocument();
   });
 });
