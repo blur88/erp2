@@ -3,7 +3,9 @@ import { render, screen } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { BrowserRouter } from 'react-router-dom';
 import { configureStore } from '@reduxjs/toolkit';
-import ProfitAndLossPage from '../ProfitAndLossPage';
+import { ThemeProvider } from '@mui/material/styles';
+import { darkTheme } from '@/styles/theme';
+import ProfitAndLossPage, { ProfitAndLossSection } from '../ProfitAndLossPage';
 import accountingReportsReducer from '@/store/slices/accountingReportsSlice';
 
 // Mock API
@@ -69,5 +71,40 @@ describe('ProfitAndLossPage', () => {
     // Check that buttons are rendered (they may show loading spinner on mount)
     const buttons = screen.getAllByRole('button');
     expect(buttons.length).toBeGreaterThan(0);
+  });
+
+  it('uses dark-mode contrast text for colored section headers', () => {
+    render(
+      <ThemeProvider theme={darkTheme}>
+        <ProfitAndLossSection
+          title="REVENUE"
+          accounts={[
+            { id: '1', code: '4000', name: 'Sales Revenue', amount: 1000 },
+          ]}
+          subtotal={1000}
+          color="primary"
+        />
+      </ThemeProvider>
+    );
+
+    expect(screen.getByText('REVENUE')).toHaveStyle({ color: '#000' });
+  });
+
+  it('avoids light grey subtotal rows in dark mode', () => {
+    render(
+      <ThemeProvider theme={darkTheme}>
+        <ProfitAndLossSection
+          title="REVENUE"
+          accounts={[
+            { id: '1', code: '4000', name: 'Sales Revenue', amount: 1000 },
+          ]}
+          subtotal={1000}
+          color="primary"
+        />
+      </ThemeProvider>
+    );
+
+    const subtotalRow = screen.getByText('Total REVENUE').closest('tr');
+    expect(subtotalRow).not.toHaveStyle({ backgroundColor: 'rgb(245, 245, 245)' });
   });
 });

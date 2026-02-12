@@ -19,6 +19,7 @@ import {
   Divider,
   Chip,
 } from '@mui/material';
+import { alpha } from '@mui/material/styles';
 import {
   Download as DownloadIcon,
   TrendingUp as TrendingUpIcon,
@@ -72,12 +73,12 @@ interface SectionProps {
   color?: 'primary' | 'warning' | 'error';
 }
 
-const ProfitAndLossSection: React.FC<SectionProps> = ({ title, accounts, subtotal, color = 'primary' }) => {
+export const ProfitAndLossSection: React.FC<SectionProps> = ({ title, accounts, subtotal, color = 'primary' }) => {
   return (
     <Box sx={{ mb: 3 }}>
       {/* Section Title */}
       <Box sx={{ mb: 2, backgroundColor: `${color}.main`, p: 1.5, borderRadius: 1 }}>
-        <Typography variant="h6" sx={{ fontWeight: 700, color: 'white' }}>
+        <Typography variant="h6" sx={{ fontWeight: 700, color: `${color}.contrastText` }}>
           {title}
         </Typography>
       </Box>
@@ -129,19 +130,23 @@ const ProfitAndLossSection: React.FC<SectionProps> = ({ title, accounts, subtota
                 {/* Subtotal Row */}
                 <TableRow
                   sx={{
-                    backgroundColor: 'grey.100',
-                    '& td': { borderTop: 2, borderColor: 'divider' },
+                    backgroundColor: (theme) =>
+                      alpha(theme.palette[color].main, theme.palette.mode === 'dark' ? 0.24 : 0.1),
+                    '& td': {
+                      borderTop: 2,
+                      borderColor: `${color}.main`,
+                    },
                   }}
                 >
                   <TableCell colSpan={2}>
-                    <Typography variant="body1" sx={{ fontWeight: 700 }}>
+                    <Typography variant="body1" sx={{ fontWeight: 700, color: `${color}.main` }}>
                       Total {title}
                     </Typography>
                   </TableCell>
                   <TableCell align="right">
                     <Typography
                       variant="body1"
-                      sx={{ fontFamily: 'monospace', fontWeight: 700 }}
+                      sx={{ fontFamily: 'monospace', fontWeight: 700, color: `${color}.main` }}
                     >
                       {formatCurrency(subtotal)}
                     </Typography>
@@ -415,13 +420,14 @@ const ProfitAndLossPage: React.FC = () => {
                 variant="outlined"
                 sx={{
                   p: 2,
-                  backgroundColor: 'info.light',
+                  backgroundColor: (theme) =>
+                    alpha(theme.palette.info.main, theme.palette.mode === 'dark' ? 0.25 : 0.12),
                   borderColor: 'info.main',
                   borderWidth: 2,
                 }}
               >
                 <Stack direction="row" justifyContent="space-between" alignItems="center">
-                  <Typography variant="h6" sx={{ fontWeight: 700, color: 'info.dark' }}>
+                  <Typography variant="h6" sx={{ fontWeight: 700, color: 'info.main' }}>
                     Gross Profit (Revenue - COGS)
                   </Typography>
                   <Typography
@@ -429,7 +435,7 @@ const ProfitAndLossPage: React.FC = () => {
                     sx={{
                       fontFamily: 'monospace',
                       fontWeight: 700,
-                      color: 'info.dark',
+                      color: 'info.main',
                     }}
                   >
                     {formatCurrency(data.grossProfit)}
@@ -453,13 +459,14 @@ const ProfitAndLossPage: React.FC = () => {
                 variant="outlined"
                 sx={{
                   p: 2,
-                  backgroundColor: 'success.light',
+                  backgroundColor: (theme) =>
+                    alpha(theme.palette.success.main, theme.palette.mode === 'dark' ? 0.25 : 0.12),
                   borderColor: 'success.main',
                   borderWidth: 2,
                 }}
               >
                 <Stack direction="row" justifyContent="space-between" alignItems="center">
-                  <Typography variant="h6" sx={{ fontWeight: 700, color: 'success.dark' }}>
+                  <Typography variant="h6" sx={{ fontWeight: 700, color: 'success.main' }}>
                     Operating Income (Gross Profit - Expenses)
                   </Typography>
                   <Typography
@@ -467,7 +474,7 @@ const ProfitAndLossPage: React.FC = () => {
                     sx={{
                       fontFamily: 'monospace',
                       fontWeight: 700,
-                      color: 'success.dark',
+                      color: 'success.main',
                     }}
                   >
                     {formatCurrency(data.operatingIncome)}
@@ -486,20 +493,21 @@ const ProfitAndLossPage: React.FC = () => {
                   backgroundColor: data.netIncome >= 0 ? 'success.main' : 'error.main',
                   borderColor: data.netIncome >= 0 ? 'success.dark' : 'error.dark',
                   borderWidth: 3,
+                  color: data.netIncome >= 0 ? 'success.contrastText' : 'error.contrastText',
                 }}
               >
                 <Stack direction="row" justifyContent="space-between" alignItems="center">
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                     {data.netIncome >= 0 ? (
-                      <TrendingUpIcon sx={{ fontSize: 40, color: 'white' }} />
+                      <TrendingUpIcon sx={{ fontSize: 40, color: 'inherit' }} />
                     ) : (
-                      <TrendingDownIcon sx={{ fontSize: 40, color: 'white' }} />
+                      <TrendingDownIcon sx={{ fontSize: 40, color: 'inherit' }} />
                     )}
                     <Typography
                       variant="h4"
                       sx={{
                         fontWeight: 700,
-                        color: 'white',
+                        color: 'inherit',
                       }}
                     >
                       NET {data.netIncome >= 0 ? 'INCOME' : 'LOSS'}
@@ -510,7 +518,7 @@ const ProfitAndLossPage: React.FC = () => {
                     sx={{
                       fontFamily: 'monospace',
                       fontWeight: 700,
-                      color: 'white',
+                      color: 'inherit',
                     }}
                   >
                     {formatCurrency(data.netIncome)}
