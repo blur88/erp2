@@ -649,7 +649,12 @@ describe('AccountingReportsService', () => {
       ];
 
       accountRepository.createQueryBuilder.mockReturnValue(mockQueryBuilder);
-      mockQueryBuilder.getMany.mockResolvedValue(mockAccounts);
+      let getManyCalls = 0;
+      mockQueryBuilder.getMany.mockImplementation(() => {
+        getManyCalls++;
+        if (getManyCalls === 1) return Promise.resolve(mockAccounts);
+        return Promise.resolve([]);
+      });
 
       // Mock transaction data for balanced balance sheet
       // Current Assets: Cash 5000 + AR 3000 = 8000
@@ -693,6 +698,7 @@ describe('AccountingReportsService', () => {
 
       // Verify Equity section
       expect(result.equity.accounts).toHaveLength(2);
+      expect(result.equity.netIncome).toBe(0);
       expect(result.equity.total).toBe(20000);
 
       // Verify balance sheet equation: Assets = Liabilities + Equity
@@ -709,7 +715,12 @@ describe('AccountingReportsService', () => {
       ];
 
       accountRepository.createQueryBuilder.mockReturnValue(mockQueryBuilder);
-      mockQueryBuilder.getMany.mockResolvedValue(mockAccounts);
+      let getManyCalls = 0;
+      mockQueryBuilder.getMany.mockImplementation(() => {
+        getManyCalls++;
+        if (getManyCalls === 1) return Promise.resolve(mockAccounts);
+        return Promise.resolve([]);
+      });
 
       // Unbalanced data: Assets 5000, Liabilities 3000, Equity 0 = UNBALANCED
       mockQueryBuilder.getRawMany.mockResolvedValue([
@@ -733,7 +744,12 @@ describe('AccountingReportsService', () => {
       ];
 
       accountRepository.createQueryBuilder.mockReturnValue(mockQueryBuilder);
-      mockQueryBuilder.getMany.mockResolvedValue(mockAccounts);
+      let getManyCalls = 0;
+      mockQueryBuilder.getMany.mockImplementation(() => {
+        getManyCalls++;
+        if (getManyCalls === 1) return Promise.resolve(mockAccounts);
+        return Promise.resolve([]);
+      });
 
       // Small rounding difference (within 0.01 tolerance): Assets 1000.00, Liabilities + Equity 1000.005
       mockQueryBuilder.getRawMany.mockResolvedValue([
@@ -756,7 +772,12 @@ describe('AccountingReportsService', () => {
       ];
 
       accountRepository.createQueryBuilder.mockReturnValue(mockQueryBuilder);
-      mockQueryBuilder.getMany.mockResolvedValue(mockAccounts);
+      let getManyCalls = 0;
+      mockQueryBuilder.getMany.mockImplementation(() => {
+        getManyCalls++;
+        if (getManyCalls === 1) return Promise.resolve(mockAccounts);
+        return Promise.resolve([]);
+      });
 
       mockQueryBuilder.getRawMany.mockResolvedValue([
         { accountId: '1', totalDebit: '1000', totalCredit: '0' },
@@ -780,7 +801,12 @@ describe('AccountingReportsService', () => {
       ];
 
       accountRepository.createQueryBuilder.mockReturnValue(mockQueryBuilder);
-      mockQueryBuilder.getMany.mockResolvedValue(mockAccounts);
+      let getManyCalls = 0;
+      mockQueryBuilder.getMany.mockImplementation(() => {
+        getManyCalls++;
+        if (getManyCalls === 1) return Promise.resolve(mockAccounts);
+        return Promise.resolve([]);
+      });
 
       mockQueryBuilder.getRawMany.mockResolvedValue([
         { accountId: '1', totalDebit: '1000', totalCredit: '0' },
@@ -805,7 +831,12 @@ describe('AccountingReportsService', () => {
       ];
 
       accountRepository.createQueryBuilder.mockReturnValue(mockQueryBuilder);
-      mockQueryBuilder.getMany.mockResolvedValue(mockAccounts);
+      let getManyCalls = 0;
+      mockQueryBuilder.getMany.mockImplementation(() => {
+        getManyCalls++;
+        if (getManyCalls === 1) return Promise.resolve(mockAccounts);
+        return Promise.resolve([]);
+      });
 
       mockQueryBuilder.getRawMany.mockResolvedValue([
         { accountId: '1', totalDebit: '1000', totalCredit: '0' },
@@ -835,7 +866,12 @@ describe('AccountingReportsService', () => {
       ];
 
       accountRepository.createQueryBuilder.mockReturnValue(mockQueryBuilder);
-      mockQueryBuilder.getMany.mockResolvedValue(mockAccounts);
+      let getManyCalls = 0;
+      mockQueryBuilder.getMany.mockImplementation(() => {
+        getManyCalls++;
+        if (getManyCalls === 1) return Promise.resolve(mockAccounts);
+        return Promise.resolve([]);
+      });
 
       mockQueryBuilder.getRawMany.mockResolvedValue([
         { accountId: '1', totalDebit: '0', totalCredit: '1000' },
@@ -850,6 +886,132 @@ describe('AccountingReportsService', () => {
       expect(result.liabilities.longTerm).toHaveLength(2);
       expect(result.liabilities.totalCurrent).toBe(1500);
       expect(result.liabilities.totalLongTerm).toBe(7000);
+    });
+
+    it('should include net income in equity section for balanced sheet', async () => {
+      const asOfDate = new Date('2026-02-01');
+
+      const balanceSheetAccounts = [
+        { id: '1', code: '1000', name: 'Cash', type: AccountType.ASSET, isActive: true },
+        { id: '2', code: '1200', name: 'Accounts Receivable', type: AccountType.ASSET, isActive: true },
+        { id: '3', code: '2000', name: 'Accounts Payable', type: AccountType.LIABILITY, isActive: true },
+        { id: '4', code: '3000', name: "Owner's Equity", type: AccountType.EQUITY, isActive: true },
+        { id: '5', code: '3100', name: 'Retained Earnings', type: AccountType.EQUITY, isActive: true },
+      ];
+
+      const incomeStatementAccounts = [
+        { id: '6', code: '4000', name: 'Sales Revenue', type: AccountType.REVENUE, isActive: true },
+        { id: '7', code: '5000', name: 'Cost of Goods Sold', type: AccountType.EXPENSE, isActive: true },
+        { id: '8', code: '6000', name: 'Rent Expense', type: AccountType.EXPENSE, isActive: true },
+      ];
+
+      accountRepository.createQueryBuilder.mockReturnValue(mockQueryBuilder);
+      let getManyCalls = 0;
+      mockQueryBuilder.getMany.mockImplementation(() => {
+        getManyCalls++;
+        if (getManyCalls === 1) return Promise.resolve(balanceSheetAccounts);
+        return Promise.resolve(incomeStatementAccounts);
+      });
+
+      let getRawManyCalls = 0;
+      mockQueryBuilder.getRawMany.mockImplementation(() => {
+        getRawManyCalls++;
+        if (getRawManyCalls === 1) {
+          return Promise.resolve([
+            { accountId: '1', totalDebit: '6000', totalCredit: '0' },
+            { accountId: '2', totalDebit: '4000', totalCredit: '0' },
+            { accountId: '3', totalDebit: '0', totalCredit: '3000' },
+            { accountId: '4', totalDebit: '0', totalCredit: '1000' },
+            { accountId: '5', totalDebit: '0', totalCredit: '1000' },
+          ]);
+        }
+
+        return Promise.resolve([
+          { accountId: '6', totalDebit: '0', totalCredit: '8000' },
+          { accountId: '7', totalDebit: '2000', totalCredit: '0' },
+          { accountId: '8', totalDebit: '1000', totalCredit: '0' },
+        ]);
+      });
+
+      const result = await service.generateBalanceSheet(asOfDate);
+
+      expect(result.equity.netIncome).toBe(5000);
+      expect(result.equity.total).toBe(7000);
+      expect(result.assets.total).toBe(10000);
+      expect(result.liabilities.total).toBe(3000);
+      expect(result.isBalanced).toBe(true);
+    });
+
+    it('should handle negative net income (net loss)', async () => {
+      const asOfDate = new Date('2026-02-01');
+
+      const balanceSheetAccounts = [
+        { id: '1', code: '1000', name: 'Cash', type: AccountType.ASSET, isActive: true },
+        { id: '2', code: '3100', name: 'Retained Earnings', type: AccountType.EQUITY, isActive: true },
+      ];
+
+      const incomeStatementAccounts = [
+        { id: '3', code: '4000', name: 'Sales Revenue', type: AccountType.REVENUE, isActive: true },
+        { id: '4', code: '6000', name: 'Rent Expense', type: AccountType.EXPENSE, isActive: true },
+      ];
+
+      accountRepository.createQueryBuilder.mockReturnValue(mockQueryBuilder);
+      let getManyCalls = 0;
+      mockQueryBuilder.getMany.mockImplementation(() => {
+        getManyCalls++;
+        if (getManyCalls === 1) return Promise.resolve(balanceSheetAccounts);
+        return Promise.resolve(incomeStatementAccounts);
+      });
+
+      let getRawManyCalls = 0;
+      mockQueryBuilder.getRawMany.mockImplementation(() => {
+        getRawManyCalls++;
+        if (getRawManyCalls === 1) {
+          return Promise.resolve([
+            { accountId: '1', totalDebit: '5000', totalCredit: '0' },
+            { accountId: '2', totalDebit: '0', totalCredit: '8000' },
+          ]);
+        }
+
+        return Promise.resolve([
+          { accountId: '3', totalDebit: '0', totalCredit: '1000' },
+          { accountId: '4', totalDebit: '4000', totalCredit: '0' },
+        ]);
+      });
+
+      const result = await service.generateBalanceSheet(asOfDate);
+
+      expect(result.equity.netIncome).toBe(-3000);
+      expect(result.equity.total).toBe(5000);
+      expect(result.isBalanced).toBe(true);
+    });
+
+    it('should handle zero net income when no revenue or expenses exist', async () => {
+      const asOfDate = new Date('2026-02-01');
+
+      const balanceSheetAccounts = [
+        { id: '1', code: '1000', name: 'Cash', type: AccountType.ASSET, isActive: true },
+        { id: '2', code: '3000', name: "Owner's Equity", type: AccountType.EQUITY, isActive: true },
+      ];
+
+      accountRepository.createQueryBuilder.mockReturnValue(mockQueryBuilder);
+      let getManyCalls = 0;
+      mockQueryBuilder.getMany.mockImplementation(() => {
+        getManyCalls++;
+        if (getManyCalls === 1) return Promise.resolve(balanceSheetAccounts);
+        return Promise.resolve([]);
+      });
+
+      mockQueryBuilder.getRawMany.mockResolvedValue([
+        { accountId: '1', totalDebit: '5000', totalCredit: '0' },
+        { accountId: '2', totalDebit: '0', totalCredit: '5000' },
+      ]);
+
+      const result = await service.generateBalanceSheet(asOfDate);
+
+      expect(result.equity.netIncome).toBe(0);
+      expect(result.equity.total).toBe(5000);
+      expect(result.isBalanced).toBe(true);
     });
   });
 
@@ -1834,6 +1996,7 @@ describe('AccountingReportsService', () => {
               { accountCode: '3000', accountName: 'Common Stock', balance: 15000 },
               { accountCode: '3100', accountName: 'Retained Earnings', balance: 5000 },
             ],
+            netIncome: 0,
             total: 20000,
           },
           isBalanced: true,
@@ -1864,6 +2027,7 @@ describe('AccountingReportsService', () => {
           },
           equity: {
             accounts: [],
+            netIncome: 0,
             total: 0,
           },
           isBalanced: true,

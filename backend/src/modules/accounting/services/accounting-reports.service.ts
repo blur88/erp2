@@ -667,17 +667,80 @@ export class AccountingReportsService {
       totalCurrentLiabilities + totalLongTermLiabilities,
     );
 
-    const totalEquity = this.roundTo2Decimals(
+    const equityAccountsTotal = this.roundTo2Decimals(
       equityAccounts.reduce((sum, acc) => sum + acc.balance, 0),
     );
 
-    // Validate balance sheet equation: Assets = Liabilities + Equity
+    // Calculate current-period net income from REVENUE and EXPENSE accounts.
+    const incomeQueryBuilder = this.accountRepository.createQueryBuilder('account');
+    incomeQueryBuilder.where('account.type IN (:...types)', {
+      types: [AccountType.REVENUE, AccountType.EXPENSE],
+    });
+    if (!includeInactive) {
+      incomeQueryBuilder.andWhere('account.isActive = :isActive', { isActive: true });
+    }
+
+    const incomeAccounts = await incomeQueryBuilder
+      .orderBy('account.code', 'ASC')
+      .getMany();
+
+    let netIncome = 0;
+
+    if (incomeAccounts.length > 0) {
+      const incomeAccountIds = incomeAccounts.map(account => account.id);
+      const incomeTransactionData = await this.journalEntryLineRepository
+        .createQueryBuilder('jel')
+        .leftJoin('jel.journalEntry', 'je')
+        .select('jel.accountId', 'accountId')
+        .addSelect('SUM(jel.debitAmount)', 'totalDebit')
+        .addSelect('SUM(jel.creditAmount)', 'totalCredit')
+        .where('jel.accountId IN (:...accountIds)', { accountIds: incomeAccountIds })
+        .andWhere('je.entryDate <= :asOfDate', { asOfDate })
+        .andWhere('je.status = :status', { status: JournalEntryStatus.POSTED })
+        .groupBy('jel.accountId')
+        .getRawMany();
+
+      const incomeTransactionMap = new Map<string, { totalDebit: number; totalCredit: number }>();
+      incomeTransactionData.forEach(row => {
+        incomeTransactionMap.set(row.accountId, {
+          totalDebit: parseFloat(row.totalDebit || '0'),
+          totalCredit: parseFloat(row.totalCredit || '0'),
+        });
+      });
+
+      let totalRevenue = 0;
+      let totalExpenses = 0;
+
+      incomeAccounts.forEach(account => {
+        const txn = incomeTransactionMap.get(account.id) || { totalDebit: 0, totalCredit: 0 };
+        const balance = this.calculateBalanceByAccountType(
+          account.type,
+          txn.totalDebit,
+          txn.totalCredit,
+        );
+
+        if (account.type === AccountType.REVENUE) {
+          totalRevenue += balance;
+        } else {
+          totalExpenses += balance;
+        }
+      });
+
+      netIncome = this.roundTo2Decimals(totalRevenue - totalExpenses);
+    }
+
+    this.logger.log(`Net income calculated: ${netIncome}`);
+
+    const totalEquity = this.roundTo2Decimals(equityAccountsTotal + netIncome);
+
+    // Validate balance sheet equation: Assets = Liabilities + Equity (including net income)
     const totalLiabilitiesAndEquity = this.roundTo2Decimals(totalLiabilities + totalEquity);
     const isBalanced = Math.abs(totalAssets - totalLiabilitiesAndEquity) < 0.01;
 
     this.logger.log(
       `Balance sheet generated: Assets=${totalAssets}, ` +
-      `Liabilities=${totalLiabilities}, Equity=${totalEquity}, ` +
+      `Liabilities=${totalLiabilities}, Equity=${totalEquity} ` +
+      `(Accounts=${equityAccountsTotal}, Net Income=${netIncome}), ` +
       `Balanced=${isBalanced}`,
     );
 
@@ -705,6 +768,7 @@ export class AccountingReportsService {
       },
       equity: {
         accounts: equityAccounts,
+        netIncome,
         total: totalEquity,
       },
       isBalanced,
@@ -1907,6 +1971,7 @@ export class AccountingReportsService {
       },
       equity: {
         accounts: [],
+        netIncome: 0,
         total: 0,
       },
       isBalanced: true,
