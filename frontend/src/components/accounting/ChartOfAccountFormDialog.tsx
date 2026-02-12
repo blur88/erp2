@@ -40,7 +40,6 @@ interface FormData {
   name: string
   type: 'asset' | 'liability' | 'equity' | 'revenue' | 'expense'
   parentId?: string | null
-  description?: string
   isActive: boolean
 }
 
@@ -49,7 +48,6 @@ const accountSchema = yup.object({
   name: yup.string().required('Account name is required').min(2, 'Name must be at least 2 characters'),
   type: yup.string().required('Account type is required').oneOf(['asset', 'liability', 'equity', 'revenue', 'expense'], 'Invalid account type'),
   parentId: yup.string().optional().nullable(),
-  description: yup.string().optional(),
   isActive: yup.boolean().required(),
 })
 
@@ -77,7 +75,6 @@ const ChartOfAccountFormDialog: React.FC<ChartOfAccountFormDialogProps> = ({
       name: '',
       type: 'asset',
       parentId: null,
-      description: '',
       isActive: true,
     },
   })
@@ -93,7 +90,6 @@ const ChartOfAccountFormDialog: React.FC<ChartOfAccountFormDialogProps> = ({
           name: account.name,
           type: account.type,
           parentId: account.parentId || null,
-          description: account.description || '',
           isActive: account.isActive,
         })
       } else {
@@ -102,7 +98,6 @@ const ChartOfAccountFormDialog: React.FC<ChartOfAccountFormDialogProps> = ({
           name: '',
           type: 'asset',
           parentId: null,
-          description: '',
           isActive: true,
         })
       }
@@ -114,9 +109,11 @@ const ChartOfAccountFormDialog: React.FC<ChartOfAccountFormDialogProps> = ({
       setSubmitting(true)
 
       const accountData = {
-        ...data,
-        parentId: data.parentId || null,
-        description: data.description || '',
+        code: data.code,
+        name: data.name,
+        type: data.type.toUpperCase(),
+        parentId: data.parentId || undefined,
+        isActive: data.isActive,
       }
 
       if (account) {
@@ -296,23 +293,6 @@ const ChartOfAccountFormDialog: React.FC<ChartOfAccountFormDialogProps> = ({
                       ))}
                     </Select>
                   </FormControl>
-                )}
-              />
-            </Grid>
-
-            <Grid size={12}>
-              <Controller
-                name="description"
-                control={control}
-                render={({ field }) => (
-                  <TextField
-                    {...field}
-                    fullWidth
-                    label="Description (Optional)"
-                    multiline
-                    rows={3}
-                    placeholder="Add a description for this account"
-                  />
                 )}
               />
             </Grid>
