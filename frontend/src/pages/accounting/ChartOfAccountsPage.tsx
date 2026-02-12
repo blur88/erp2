@@ -85,7 +85,7 @@ const ChartOfAccountsPage: React.FC = () => {
   useEffect(() => {
     const params: any = {
       page: 1,
-      limit: 1000,
+      limit: 100,
     }
 
     if (searchTerm) {
