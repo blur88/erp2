@@ -222,6 +222,8 @@ export class ProductService {
     const queryBuilder = this.productRepository
       .createQueryBuilder('product')
       .leftJoinAndSelect('product.category', 'category')
+      .leftJoinAndSelect('product.priceListItems', 'priceListItems', 'priceListItems.isActive = :isActiveItem', { isActiveItem: true })
+      .leftJoinAndSelect('priceListItems.priceList', 'priceList', 'priceList.isActive = :isActiveList AND priceList.deletedAt IS NULL', { isActiveList: true })
       .where('product.deletedAt IS NULL');
 
     // Apply filters
