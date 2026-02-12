@@ -310,7 +310,7 @@ const TrialBalancePage: React.FC = () => {
                     {/* Footer Row - Totals */}
                     <TableRow
                       sx={{
-                        backgroundColor: 'grey.100',
+                        backgroundColor: 'action.hover',
                         '& td': { borderTop: 2, borderColor: 'divider' },
                       }}
                     >
