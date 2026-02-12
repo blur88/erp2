@@ -270,6 +270,74 @@ interface AccountActivityReport {
   totalEntries: number;
 }
 
+type AccountActivityApiEntry = {
+  id?: string;
+  entryDate?: string;
+  date?: string;
+  entryNumber?: string;
+  referenceNumber?: string;
+  entryType?: string;
+  status?: string;
+  description?: string;
+  debitAmount?: number;
+  creditAmount?: number;
+  debit?: number;
+  credit?: number;
+  referenceType?: string;
+  referenceId?: string;
+};
+
+type AccountActivityApiResponse = {
+  account?: {
+    id?: string;
+    code?: string;
+    name?: string;
+    type?: string;
+  };
+  startDate?: string;
+  endDate?: string;
+  entries?: AccountActivityApiEntry[];
+  activity?: AccountActivityApiEntry[];
+  totalEntries?: number;
+};
+
+const normalizeAccountActivityReport = (
+  response: AccountActivityApiResponse,
+  params: { accountId: string; startDate: string; endDate: string },
+): AccountActivityReport => {
+  const rawEntries = response.entries ?? response.activity ?? [];
+  const entries = rawEntries.map((entry, index) => {
+    const entryNumber = entry.entryNumber ?? entry.referenceNumber ?? '';
+
+    return {
+      id: entry.id ?? `${entryNumber || 'entry'}-${index}`,
+      entryDate: entry.entryDate ?? entry.date ?? '',
+      entryNumber,
+      entryType: entry.entryType ?? entry.referenceType ?? 'MANUAL',
+      status: entry.status ?? '',
+      description: entry.description ?? '',
+      debitAmount: toNumber(entry.debitAmount ?? entry.debit),
+      creditAmount: toNumber(entry.creditAmount ?? entry.credit),
+      referenceType: entry.referenceType,
+      referenceId: entry.referenceId,
+      referenceNumber: entry.referenceNumber,
+    };
+  });
+
+  return {
+    account: {
+      id: response.account?.id ?? params.accountId,
+      code: response.account?.code ?? '',
+      name: response.account?.name ?? '',
+      type: response.account?.type ?? '',
+    },
+    startDate: response.startDate ?? params.startDate,
+    endDate: response.endDate ?? params.endDate,
+    entries,
+    totalEntries: toNumber(response.totalEntries, entries.length),
+  };
+};
+
 // State interface
 interface AccountingReportsState {
   trialBalance: {
@@ -443,11 +511,11 @@ export const fetchAccountActivity = createAsyncThunk(
     { rejectWithValue }
   ) => {
     try {
-      const response = await ApiService.get<AccountActivityReport>(
+      const response = await ApiService.get<AccountActivityApiResponse>(
         `${BASE_URL}/account-activity`,
         { params }
       );
-      return response;
+      return normalizeAccountActivityReport(response, params);
     } catch (error: any) {
       console.error('Failed to fetch account activity:', error);
       return rejectWithValue(

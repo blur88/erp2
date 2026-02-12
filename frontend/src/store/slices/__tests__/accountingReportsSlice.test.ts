@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { configureStore } from '@reduxjs/toolkit';
 import accountingReportsReducer, {
+  fetchAccountActivity,
   fetchGeneralLedger,
   fetchProfitAndLoss,
 } from '../accountingReportsSlice';
@@ -97,5 +98,47 @@ describe('accountingReportsSlice', () => {
     });
     expect(report?.totalDebits).toBe(250);
     expect(report?.totalCredits).toBe(0);
+  });
+
+  it('normalizes account activity response and preserves requested period', async () => {
+    (ApiService.get as any).mockResolvedValue({
+      account: { id: 'acc-1', code: '1100', name: 'Cash', type: 'ASSET' },
+      openingBalance: 100,
+      activity: [
+        {
+          date: '2026-01-10',
+          entryNumber: 'JE-001',
+          description: 'Sample entry',
+          status: 'POSTED',
+          referenceType: 'SALES_ORDER',
+          referenceId: 'so-1',
+          debit: 250,
+          credit: 0,
+        },
+      ],
+      closingBalance: 350,
+    });
+
+    await store.dispatch(
+      fetchAccountActivity({
+        accountId: 'acc-1',
+        startDate: '2026-01-01',
+        endDate: '2026-01-31',
+      }) as any,
+    );
+
+    const report = store.getState().accountingReports.accountActivity.data;
+    expect(report?.startDate).toBe('2026-01-01');
+    expect(report?.endDate).toBe('2026-01-31');
+    expect(report?.totalEntries).toBe(1);
+    expect(report?.entries[0]).toMatchObject({
+      entryDate: '2026-01-10',
+      entryNumber: 'JE-001',
+      status: 'POSTED',
+      debitAmount: 250,
+      creditAmount: 0,
+      referenceType: 'SALES_ORDER',
+      referenceId: 'so-1',
+    });
   });
 });
