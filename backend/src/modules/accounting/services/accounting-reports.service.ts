@@ -1506,6 +1506,16 @@ export class AccountingReportsService {
       row.getCell(3).numFmt = '#,##0.00';
     });
 
+    if (data.equity.netIncome !== 0) {
+      const netIncomeRow = worksheet.addRow([
+        '',
+        data.equity.netIncome >= 0 ? 'Net Income (Current Period)' : 'Net Loss (Current Period)',
+        data.equity.netIncome,
+      ]);
+      netIncomeRow.font = { bold: true, italic: true };
+      netIncomeRow.getCell(3).numFmt = '#,##0.00';
+    }
+
     worksheet.addRow([]); // Blank row before total
     const totalEquityRow = worksheet.addRow(['', 'TOTAL EQUITY', data.equity.total]);
     totalEquityRow.font = { bold: true, size: 12 };
