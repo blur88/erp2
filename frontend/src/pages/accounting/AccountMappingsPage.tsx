@@ -301,7 +301,13 @@ const AccountMappingsPage: React.FC = () => {
               }}
             >
               <TableHead>
-                <TableRow sx={{ '& .MuiTableCell-head': { fontWeight: 600, backgroundColor: 'grey.50', py: 1 } }}>
+                <TableRow sx={{
+                  '& .MuiTableCell-head': {
+                    fontWeight: 600,
+                    backgroundColor: theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'grey.50',
+                    py: 1
+                  }
+                }}>
                   <TableCell>
                     <Typography variant="caption" sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                       Category
@@ -348,8 +354,12 @@ const AccountMappingsPage: React.FC = () => {
                           },
                           transition: 'background-color 0.2s ease',
                           height: TABLE_STYLES.row.height,
-                          backgroundColor: !mapping ? 'warning.light' : 'inherit',
-                          opacity: !mapping ? 0.7 : 1,
+                          backgroundColor: !mapping
+                            ? theme.palette.mode === 'dark'
+                              ? 'rgba(255, 152, 0, 0.15)'
+                              : 'warning.light'
+                            : 'inherit',
+                          opacity: !mapping ? 0.85 : 1,
                         }}
                       >
                         <TableCell>
