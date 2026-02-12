@@ -21,6 +21,7 @@ import {
   CardContent,
   GridLegacy as Grid,
 } from '@mui/material';
+import { alpha, useTheme } from '@mui/material/styles';
 import {
   Download as DownloadIcon,
   Receipt as ReceiptIcon,
@@ -86,8 +87,16 @@ const getAccountTypeColor = (type: string): 'primary' | 'success' | 'warning' | 
   return 'primary';
 };
 
+export const getGeneralLedgerTone = (mode: 'light' | 'dark') => ({
+  surfaceSoft: mode === 'dark' ? 'rgba(255, 255, 255, 0.06)' : 'grey.50',
+  surfaceStrong: mode === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'grey.100',
+  tableHeader: mode === 'dark' ? 'rgba(255, 255, 255, 0.08)' : 'grey.200',
+});
+
 const GeneralLedgerPage: React.FC = () => {
   const dispatch = useAppDispatch();
+  const theme = useTheme();
+  const tone = getGeneralLedgerTone(theme.palette.mode);
 
   // Redux state
   const generalLedgerState = useAppSelector(selectGeneralLedger);
@@ -270,7 +279,7 @@ const GeneralLedgerPage: React.FC = () => {
       {!loading && data && (
         <Paper>
           {/* Account Header Card */}
-          <Box sx={{ p: 3, borderBottom: 1, borderColor: 'divider', backgroundColor: 'grey.50' }}>
+          <Box sx={{ p: 3, borderBottom: 1, borderColor: 'divider', backgroundColor: tone.surfaceSoft }}>
             <Grid container spacing={2}>
               <Grid item xs={12} md={3}>
                 <Card variant="outlined">
@@ -315,7 +324,15 @@ const GeneralLedgerPage: React.FC = () => {
                 </Card>
               </Grid>
               <Grid item xs={12} md={2}>
-                <Card variant="outlined" sx={{ backgroundColor: 'primary.light' }}>
+                <Card
+                  variant="outlined"
+                  sx={{
+                    backgroundColor:
+                      theme.palette.mode === 'dark'
+                        ? alpha(theme.palette.primary.main, 0.2)
+                        : 'primary.light',
+                  }}
+                >
                   <CardContent>
                     <Typography variant="body2" color="text.secondary" gutterBottom>
                       Opening Balance
@@ -353,7 +370,7 @@ const GeneralLedgerPage: React.FC = () => {
                       <TableCell
                         sx={{
                           fontWeight: 600,
-                          backgroundColor: 'grey.200',
+                          backgroundColor: tone.tableHeader,
                           width: '12%',
                         }}
                       >
@@ -362,7 +379,7 @@ const GeneralLedgerPage: React.FC = () => {
                       <TableCell
                         sx={{
                           fontWeight: 600,
-                          backgroundColor: 'grey.200',
+                          backgroundColor: tone.tableHeader,
                           width: '12%',
                         }}
                       >
@@ -371,7 +388,7 @@ const GeneralLedgerPage: React.FC = () => {
                       <TableCell
                         sx={{
                           fontWeight: 600,
-                          backgroundColor: 'grey.200',
+                          backgroundColor: tone.tableHeader,
                           width: '36%',
                         }}
                       >
@@ -381,7 +398,7 @@ const GeneralLedgerPage: React.FC = () => {
                         align="right"
                         sx={{
                           fontWeight: 600,
-                          backgroundColor: 'grey.200',
+                          backgroundColor: tone.tableHeader,
                           width: '13%',
                         }}
                       >
@@ -391,7 +408,7 @@ const GeneralLedgerPage: React.FC = () => {
                         align="right"
                         sx={{
                           fontWeight: 600,
-                          backgroundColor: 'grey.200',
+                          backgroundColor: tone.tableHeader,
                           width: '13%',
                         }}
                       >
@@ -401,7 +418,7 @@ const GeneralLedgerPage: React.FC = () => {
                         align="right"
                         sx={{
                           fontWeight: 600,
-                          backgroundColor: 'grey.200',
+                          backgroundColor: tone.tableHeader,
                           width: '14%',
                         }}
                       >
@@ -416,7 +433,7 @@ const GeneralLedgerPage: React.FC = () => {
                         hover
                         sx={{
                           '&:nth-of-type(odd)': {
-                            backgroundColor: 'grey.50',
+                            backgroundColor: tone.surfaceSoft,
                           },
                         }}
                       >
@@ -517,7 +534,7 @@ const GeneralLedgerPage: React.FC = () => {
                 p: 3,
                 borderTop: 2,
                 borderColor: 'divider',
-                backgroundColor: 'grey.50',
+                backgroundColor: tone.surfaceSoft,
               }}
             >
               <Grid container spacing={2}>
@@ -582,7 +599,10 @@ const GeneralLedgerPage: React.FC = () => {
                   <Card
                     variant="outlined"
                     sx={{
-                      backgroundColor: 'primary.light',
+                      backgroundColor:
+                        theme.palette.mode === 'dark'
+                          ? alpha(theme.palette.primary.main, 0.2)
+                          : 'primary.light',
                       borderColor: 'primary.main',
                       borderWidth: 2,
                     }}
@@ -617,7 +637,7 @@ const GeneralLedgerPage: React.FC = () => {
               alignItems: 'center',
               borderTop: 1,
               borderColor: 'divider',
-              backgroundColor: 'grey.100',
+              backgroundColor: tone.surfaceStrong,
             }}
           >
             <Typography variant="body2" color="text.secondary">

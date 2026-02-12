@@ -3,7 +3,7 @@ import { render, screen } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { BrowserRouter } from 'react-router-dom';
 import { configureStore } from '@reduxjs/toolkit';
-import GeneralLedgerPage from '../GeneralLedgerPage';
+import GeneralLedgerPage, { getGeneralLedgerTone } from '../GeneralLedgerPage';
 import accountingReportsReducer from '@/store/slices/accountingReportsSlice';
 import chartOfAccountsReducer from '@/store/slices/chartOfAccountsSlice';
 
@@ -72,5 +72,17 @@ describe('GeneralLedgerPage', () => {
     // Check that buttons are rendered (they may show loading spinner on mount)
     const buttons = screen.getAllByRole('button');
     expect(buttons.length).toBeGreaterThan(0);
+  });
+
+  it('uses dark-mode specific tones for report surfaces', () => {
+    const darkTone = getGeneralLedgerTone('dark');
+    const lightTone = getGeneralLedgerTone('light');
+
+    expect(darkTone.surfaceSoft).toBe('rgba(255, 255, 255, 0.06)');
+    expect(darkTone.surfaceStrong).toBe('rgba(255, 255, 255, 0.1)');
+    expect(darkTone.tableHeader).toBe('rgba(255, 255, 255, 0.08)');
+    expect(lightTone.surfaceSoft).toBe('grey.50');
+    expect(lightTone.surfaceStrong).toBe('grey.100');
+    expect(lightTone.tableHeader).toBe('grey.200');
   });
 });
