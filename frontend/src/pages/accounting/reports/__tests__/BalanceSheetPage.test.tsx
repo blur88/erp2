@@ -5,6 +5,7 @@ import { BrowserRouter } from 'react-router-dom';
 import { configureStore } from '@reduxjs/toolkit';
 import BalanceSheetPage, { getBalanceSheetTone } from '../BalanceSheetPage';
 import accountingReportsReducer from '@/store/slices/accountingReportsSlice';
+import { ApiService } from '@/services/api';
 
 // Mock API
 vi.mock('@/services/api', () => ({
@@ -94,6 +95,7 @@ describe('BalanceSheetPage', () => {
             },
             equity: {
               accounts: [{ accountCode: '3100', accountName: 'Capital', balance: 1300 }],
+              netIncome: 0,
               total: 1300,
             },
             isBalanced: true,
@@ -129,5 +131,34 @@ describe('BalanceSheetPage', () => {
     expect(lightTone.surfaceSoft).toBe('grey.50');
     expect(lightTone.surfaceStrong).toBe('grey.100');
     expect(lightTone.sectionAccent).toBe('grey.100');
+  });
+
+  it('renders net income in equity section when present', async () => {
+    vi.mocked(ApiService.get).mockResolvedValueOnce({
+      assets: {
+        current: [{ accountCode: '1000', accountName: 'Cash', balance: 5000 }],
+        fixed: [],
+        totalCurrent: 5000,
+        totalFixed: 0,
+        total: 5000,
+      },
+      liabilities: {
+        current: [],
+        longTerm: [],
+        totalCurrent: 0,
+        totalLongTerm: 0,
+        total: 0,
+      },
+      equity: {
+        accounts: [{ accountCode: '3000', accountName: "Owner's Equity", balance: 2000 }],
+        netIncome: 3000,
+        total: 5000,
+      },
+      isBalanced: true,
+    });
+
+    renderWithProviders();
+
+    expect(await screen.findByText('Net Income')).toBeInTheDocument();
   });
 });
