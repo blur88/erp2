@@ -6,18 +6,16 @@ export interface ChartOfAccount {
   id: string
   code: string
   name: string
-  type: 'asset' | 'liability' | 'equity' | 'revenue' | 'expense'
-  subType?: string
-  normalBalance: 'debit' | 'credit'
+  type: 'ASSET' | 'LIABILITY' | 'EQUITY' | 'REVENUE' | 'EXPENSE'
   parentId?: string
-  description?: string
   isActive: boolean
-  isSystemAccount: boolean
-  currentBalance: number
+  fullCode: string
+  isParent: boolean
+  parent?: Partial<ChartOfAccount>
+  children?: ChartOfAccount[]
   createdAt: string
   updatedAt: string
   deletedAt?: string
-  children?: ChartOfAccount[]
 }
 
 interface PaginatedResponse<T> {
@@ -160,17 +158,43 @@ export const deleteAccount = createAsyncThunk(
   }
 )
 
+export const fetchDeletedAccounts = createAsyncThunk(
+  'chartOfAccounts/fetchDeleted',
+  async (_, { rejectWithValue }) => {
+    try {
+      const response = await ApiService.get<ChartOfAccount[]>(
+        '/accounting/chart-of-accounts/deleted'
+      )
+      return response
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data?.message || 'Failed to fetch deleted accounts')
+    }
+  }
+)
+
 export const restoreAccount = createAsyncThunk(
   'chartOfAccounts/restore',
   async (id: string, { rejectWithValue }) => {
     try {
-      const response = await ApiService.patch<ChartOfAccount>(
+      const response = await ApiService.post<ChartOfAccount>(
         `/accounting/chart-of-accounts/${id}/restore`,
         {}
       )
       return response
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.message || 'Failed to restore account')
+    }
+  }
+)
+
+export const permanentDeleteAccount = createAsyncThunk(
+  'chartOfAccounts/permanentDelete',
+  async (id: string, { rejectWithValue }) => {
+    try {
+      await ApiService.delete(`/accounting/chart-of-accounts/${id}/permanent`)
+      return id
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data?.message || 'Failed to permanently delete account')
     }
   }
 )
@@ -316,6 +340,21 @@ const chartOfAccountsSlice = createSlice({
         state.error = action.payload as string
       })
 
+    // Fetch Deleted Accounts
+    builder
+      .addCase(fetchDeletedAccounts.pending, (state) => {
+        state.loading = true
+        state.error = null
+      })
+      .addCase(fetchDeletedAccounts.fulfilled, (state, action) => {
+        state.loading = false
+        // Deleted accounts are handled separately, not stored in main data
+      })
+      .addCase(fetchDeletedAccounts.rejected, (state, action) => {
+        state.loading = false
+        state.error = action.payload as string
+      })
+
     // Restore Account
     builder
       .addCase(restoreAccount.pending, (state) => {
@@ -330,6 +369,21 @@ const chartOfAccountsSlice = createSlice({
         }
       })
       .addCase(restoreAccount.rejected, (state, action) => {
+        state.loading = false
+        state.error = action.payload as string
+      })
+
+    // Permanent Delete Account
+    builder
+      .addCase(permanentDeleteAccount.pending, (state) => {
+        state.loading = true
+        state.error = null
+      })
+      .addCase(permanentDeleteAccount.fulfilled, (state, action) => {
+        state.loading = false
+        // Account is permanently deleted, no need to update state
+      })
+      .addCase(permanentDeleteAccount.rejected, (state, action) => {
         state.loading = false
         state.error = action.payload as string
       })

@@ -311,6 +311,26 @@ export class ChartOfAccountsService {
   }
 
   /**
+   * Get all soft-deleted accounts
+   */
+  async findDeleted(): Promise<ChartOfAccountResponseDto[]> {
+    this.logger.log('Fetching all soft-deleted accounts');
+
+    const deletedAccounts = await this.accountRepository.find({
+      where: {},
+      relations: ['parent'],
+      withDeleted: true,
+      order: { code: 'ASC' },
+    });
+
+    // Filter only deleted accounts
+    const deleted = deletedAccounts.filter(account => account.deletedAt !== null);
+
+    this.logger.log(`Found ${deleted.length} soft-deleted accounts`);
+    return deleted.map(account => this.toResponseDto(account));
+  }
+
+  /**
    * Restore a soft-deleted account
    */
   async restore(id: string, userId: string = 'system'): Promise<ChartOfAccountResponseDto> {
@@ -415,6 +435,55 @@ export class ChartOfAccountsService {
     });
 
     return children.map((child) => this.toResponseDto(child));
+  }
+
+  /**
+   * Permanently delete an account (hard delete)
+   * Only soft-deleted accounts can be permanently deleted
+   */
+  async permanentDelete(id: string, userId: string = 'system'): Promise<void> {
+    this.logger.log(`Permanently deleting account with ID: ${id}`);
+
+    const account = await this.accountRepository.findOne({
+      where: { id },
+      relations: ['children'],
+      withDeleted: true,
+    });
+
+    if (!account) {
+      throw new NotFoundException(`Account with ID '${id}' not found`);
+    }
+
+    // Only allow permanent delete of soft-deleted accounts
+    if (!account.deletedAt) {
+      throw new BadRequestException(
+        `Account '${account.name}' must be soft-deleted first before permanent deletion`,
+      );
+    }
+
+    // Check if account has children
+    if (account.children && account.children.length > 0) {
+      throw new BadRequestException(
+        `Cannot permanently delete account '${account.name}' - it has ${account.children.length} child account(s)`,
+      );
+    }
+
+    // Check if account has journal entry lines
+    const journalEntryLineCount = await this.journalEntryLineRepository.count({
+      where: { accountId: id },
+    });
+
+    if (journalEntryLineCount > 0) {
+      throw new BadRequestException(
+        `Cannot permanently delete account '${account.name}' - it has ${journalEntryLineCount} journal entry line(s). ` +
+        `Accounts with transactions cannot be permanently deleted.`,
+      );
+    }
+
+    // Hard delete the account
+    await this.accountRepository.remove(account);
+
+    this.logger.log(`Account permanently deleted: ${id}`);
   }
 
   /**

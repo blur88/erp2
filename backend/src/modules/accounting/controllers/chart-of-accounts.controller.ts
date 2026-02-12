@@ -44,6 +44,17 @@ export class ChartOfAccountsController {
     return this.chartOfAccountsService.findAll(query);
   }
 
+  @Get('deleted')
+  @ApiOperation({ summary: 'Get all soft-deleted accounts' })
+  @ApiResponse({
+    status: 200,
+    description: 'Returns all soft-deleted accounts',
+    type: [ChartOfAccountResponseDto],
+  })
+  async findDeleted(): Promise<ChartOfAccountResponseDto[]> {
+    return this.chartOfAccountsService.findDeleted();
+  }
+
   @Get('hierarchy')
   @ApiOperation({ summary: 'Get account hierarchy tree' })
   @ApiResponse({
@@ -125,9 +136,9 @@ export class ChartOfAccountsController {
   @Delete(':id')
   @Auth(UserRole.ADMIN)
   @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({ summary: 'Delete a chart of account' })
+  @ApiOperation({ summary: 'Soft delete a chart of account' })
   @ApiParam({ name: 'id', description: 'Account ID' })
-  @ApiResponse({ status: 204, description: 'Account deleted successfully' })
+  @ApiResponse({ status: 204, description: 'Account soft deleted successfully' })
   @ApiResponse({
     status: 400,
     description: 'Account has children or journal entry lines',
@@ -135,6 +146,21 @@ export class ChartOfAccountsController {
   @ApiResponse({ status: 404, description: 'Account not found' })
   async remove(@Param('id') id: string): Promise<void> {
     await this.chartOfAccountsService.remove(id);
+  }
+
+  @Delete(':id/permanent')
+  @Auth(UserRole.ADMIN)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Permanently delete a chart of account' })
+  @ApiParam({ name: 'id', description: 'Account ID' })
+  @ApiResponse({ status: 204, description: 'Account permanently deleted' })
+  @ApiResponse({
+    status: 400,
+    description: 'Account has children, journal entry lines, or is not soft-deleted',
+  })
+  @ApiResponse({ status: 404, description: 'Account not found' })
+  async permanentDelete(@Param('id') id: string): Promise<void> {
+    await this.chartOfAccountsService.permanentDelete(id);
   }
 
   @Post(':id/restore')

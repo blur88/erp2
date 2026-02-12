@@ -29,6 +29,7 @@ import {
   Search as SearchIcon,
   AccountBalance as AccountIcon,
   CloudUpload as SeedIcon,
+  Restore as RestoreIcon,
 } from '@mui/icons-material'
 import { useDispatch, useSelector } from 'react-redux'
 import { useNotification } from '@/hooks/useNotification'
@@ -36,6 +37,7 @@ import { useSearchAndFilter, useKeyboardShortcuts } from '@/hooks/useSearchAndFi
 import ConfirmationDialog from '@/components/common/ConfirmationDialog'
 import ChartOfAccountFormDialog from '@/components/accounting/ChartOfAccountFormDialog'
 import AccountMappingWarning from '@/components/accounting/AccountMappingWarning'
+import DeletedAccountsDialog from '@/components/accounting/DeletedAccountsDialog'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
 import {
   fetchChartOfAccounts,
@@ -64,6 +66,7 @@ const ChartOfAccountsPage: React.FC = () => {
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
   const [accountToDelete, setAccountToDelete] = useState<ChartOfAccount | null>(null)
   const [seedConfirmOpen, setSeedConfirmOpen] = useState(false)
+  const [deletedDialogOpen, setDeletedDialogOpen] = useState(false)
 
   // Filters
   const [searchTerm, setSearchTerm] = useState('')
@@ -137,7 +140,7 @@ const ChartOfAccountsPage: React.FC = () => {
       setAccountToDelete(null)
 
       // Refresh list
-      dispatch(fetchChartOfAccounts({ page: 1, limit: 1000 }))
+      dispatch(fetchChartOfAccounts({ page: 1, limit: 100 }))
     } catch (error: any) {
       showError(error || 'Failed to delete account')
     }
@@ -158,7 +161,7 @@ const ChartOfAccountsPage: React.FC = () => {
     setSelectedAccount(null)
 
     // Refresh list
-    dispatch(fetchChartOfAccounts({ page: 1, limit: 1000 }))
+    dispatch(fetchChartOfAccounts({ page: 1, limit: 100 }))
   }
 
   const handleSeedAccounts = () => {
@@ -172,7 +175,7 @@ const ChartOfAccountsPage: React.FC = () => {
       setSeedConfirmOpen(false)
 
       // Refresh list
-      dispatch(fetchChartOfAccounts({ page: 1, limit: 1000 }))
+      dispatch(fetchChartOfAccounts({ page: 1, limit: 100 }))
     } catch (error: any) {
       showError(error || 'Failed to seed default accounts')
       setSeedConfirmOpen(false)
@@ -276,6 +279,23 @@ const ChartOfAccountsPage: React.FC = () => {
               {isMobile ? "Seed Default Accounts" : "Seed Defaults"}
             </Button>
           )}
+          <Button
+            variant="outlined"
+            startIcon={!isMobile ? <RestoreIcon /> : undefined}
+            onClick={() => setDeletedDialogOpen(true)}
+            size="medium"
+            fullWidth={isMobile}
+            sx={{
+              color: 'warning.main',
+              borderColor: 'warning.main',
+              '&:hover': {
+                borderColor: 'warning.dark',
+                backgroundColor: 'warning.lighter'
+              }
+            }}
+          >
+            {isMobile ? "View Deleted" : "View Deleted"}
+          </Button>
           <Button
             variant="contained"
             startIcon={!isMobile ? <AddIcon /> : undefined}
@@ -666,6 +686,12 @@ const ChartOfAccountsPage: React.FC = () => {
         onConfirm={handleConfirmSeed}
         onCancel={handleCancelSeed}
         severity="info"
+      />
+
+      {/* Deleted Accounts Dialog */}
+      <DeletedAccountsDialog
+        open={deletedDialogOpen}
+        onClose={() => setDeletedDialogOpen(false)}
       />
     </Box>
   )

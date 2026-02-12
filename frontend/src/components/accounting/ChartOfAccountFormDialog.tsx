@@ -88,7 +88,7 @@ const ChartOfAccountFormDialog: React.FC<ChartOfAccountFormDialogProps> = ({
         reset({
           code: account.code,
           name: account.name,
-          type: account.type,
+          type: account.type.toLowerCase() as any,
           parentId: account.parentId || null,
           isActive: account.isActive,
         })
@@ -141,8 +141,8 @@ const ChartOfAccountFormDialog: React.FC<ChartOfAccountFormDialogProps> = ({
   const getAvailableParentAccounts = () => {
     // Filter accounts of the same type and exclude the current account (for edit mode)
     return accounts.filter(acc => {
-      // Same type as selected
-      if (acc.type !== watchedType) return false
+      // Same type as selected (compare uppercase)
+      if (acc.type.toUpperCase() !== watchedType.toUpperCase()) return false
 
       // Exclude current account in edit mode
       if (account && acc.id === account.id) return false
