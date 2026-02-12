@@ -100,23 +100,23 @@ const TrialBalancePage: React.FC = () => {
   // Calculate totals from accounts (fallback if not provided by API)
   const calculateTotals = () => {
     if (!data?.accounts || data.accounts.length === 0) {
-      return { totalDebits: 0, totalCredits: 0 };
+      return { totalDebit: 0, totalCredit: 0 };
     }
 
-    const totalDebits = data.accounts.reduce(
-      (sum, account) => sum + (account.debitBalance || 0),
+    const totalDebit = data.accounts.reduce(
+      (sum, account) => sum + (account.debit || 0),
       0
     );
-    const totalCredits = data.accounts.reduce(
-      (sum, account) => sum + (account.creditBalance || 0),
+    const totalCredit = data.accounts.reduce(
+      (sum, account) => sum + (account.credit || 0),
       0
     );
 
-    return { totalDebits, totalCredits };
+    return { totalDebit, totalCredit };
   };
 
-  const { totalDebits, totalCredits } = data
-    ? { totalDebits: data.totalDebits, totalCredits: data.totalCredits }
+  const { totalDebit, totalCredit } = data
+    ? { totalDebit: data.totalDebit, totalCredit: data.totalCredit }
     : calculateTotals();
 
   return (
@@ -205,11 +205,11 @@ const TrialBalancePage: React.FC = () => {
               Trial Balance Report
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              As of: {new Date(asOfDate).toLocaleDateString('en-US', {
+              As of: {asOfDate ? new Date(asOfDate).toLocaleDateString('en-US', {
                 year: 'numeric',
                 month: 'long',
                 day: 'numeric',
-              })}
+              }) : 'N/A'}
             </Typography>
             {/* Balance Status Indicator */}
             <Box sx={{ mt: 2 }}>
@@ -264,29 +264,29 @@ const TrialBalancePage: React.FC = () => {
               <TableBody>
                 {data.accounts && data.accounts.length > 0 ? (
                   <>
-                    {data.accounts.map((account) => (
-                      <TableRow key={account.id} hover>
+                    {data.accounts.map((account, index) => (
+                      <TableRow key={`${account.accountCode}-${index}`} hover>
                         <TableCell>
                           <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
-                            {account.code}
+                            {account.accountCode}
                           </Typography>
                         </TableCell>
                         <TableCell>
-                          <Typography variant="body2">{account.name}</Typography>
+                          <Typography variant="body2">{account.accountName}</Typography>
                         </TableCell>
                         <TableCell>
-                          <Chip label={account.type} size="small" variant="outlined" />
+                          <Chip label={account.accountType} size="small" variant="outlined" />
                         </TableCell>
                         <TableCell align="right">
                           <Typography
                             variant="body2"
                             sx={{
                               fontFamily: 'monospace',
-                              fontWeight: account.debitBalance > 0 ? 600 : 400,
-                              color: account.debitBalance > 0 ? 'text.primary' : 'text.secondary',
+                              fontWeight: account.debit > 0 ? 600 : 400,
+                              color: account.debit > 0 ? 'text.primary' : 'text.secondary',
                             }}
                           >
-                            {account.debitBalance > 0 ? formatCurrency(account.debitBalance) : '-'}
+                            {account.debit > 0 ? formatCurrency(account.debit) : '-'}
                           </Typography>
                         </TableCell>
                         <TableCell align="right">
@@ -294,13 +294,13 @@ const TrialBalancePage: React.FC = () => {
                             variant="body2"
                             sx={{
                               fontFamily: 'monospace',
-                              fontWeight: account.creditBalance > 0 ? 600 : 400,
+                              fontWeight: account.credit > 0 ? 600 : 400,
                               color:
-                                account.creditBalance > 0 ? 'text.primary' : 'text.secondary',
+                                account.credit > 0 ? 'text.primary' : 'text.secondary',
                             }}
                           >
-                            {account.creditBalance > 0
-                              ? formatCurrency(account.creditBalance)
+                            {account.credit > 0
+                              ? formatCurrency(account.credit)
                               : '-'}
                           </Typography>
                         </TableCell>
@@ -324,7 +324,7 @@ const TrialBalancePage: React.FC = () => {
                           variant="body1"
                           sx={{ fontFamily: 'monospace', fontWeight: 700 }}
                         >
-                          {formatCurrency(totalDebits)}
+                          {formatCurrency(totalDebit)}
                         </Typography>
                       </TableCell>
                       <TableCell align="right">
@@ -332,7 +332,7 @@ const TrialBalancePage: React.FC = () => {
                           variant="body1"
                           sx={{ fontFamily: 'monospace', fontWeight: 700 }}
                         >
-                          {formatCurrency(totalCredits)}
+                          {formatCurrency(totalCredit)}
                         </Typography>
                       </TableCell>
                     </TableRow>
@@ -377,7 +377,7 @@ const TrialBalancePage: React.FC = () => {
                 ) : (
                   <Chip
                     icon={<CancelIcon />}
-                    label={`Difference: ${formatCurrency(Math.abs(totalDebits - totalCredits))}`}
+                    label={`Difference: ${formatCurrency(Math.abs(totalDebit - totalCredit))}`}
                     color="error"
                     size="small"
                   />

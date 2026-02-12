@@ -4,39 +4,45 @@ import { ApiService } from '@/services/api';
 // TypeScript interfaces for all 5 report types
 
 interface TrialBalanceAccount {
-  id: string;
-  code: string;
-  name: string;
-  type: string;
-  debitBalance: number;
-  creditBalance: number;
+  accountCode: string;
+  accountName: string;
+  accountType: string;
+  debit: number;
+  credit: number;
 }
 
 interface TrialBalanceReport {
-  asOfDate: string;
   accounts: TrialBalanceAccount[];
-  totalDebits: number;
-  totalCredits: number;
+  totalDebit: number;
+  totalCredit: number;
   isBalanced: boolean;
 }
 
-interface BalanceSheetSection {
-  accounts: Array<{
-    id: string;
-    code: string;
-    name: string;
-    balance: number;
-  }>;
-  subtotal: number;
+interface AccountBalance {
+  accountCode: string;
+  accountName: string;
+  balance: number;
 }
 
 interface BalanceSheetReport {
-  asOfDate: string;
-  assets: BalanceSheetSection;
-  liabilities: BalanceSheetSection;
-  equity: BalanceSheetSection;
-  totalAssets: number;
-  totalLiabilitiesAndEquity: number;
+  assets: {
+    current: AccountBalance[];
+    fixed: AccountBalance[];
+    totalCurrent: number;
+    totalFixed: number;
+    total: number;
+  };
+  liabilities: {
+    current: AccountBalance[];
+    longTerm: AccountBalance[];
+    totalCurrent: number;
+    totalLongTerm: number;
+    total: number;
+  };
+  equity: {
+    accounts: AccountBalance[];
+    total: number;
+  };
   isBalanced: boolean;
 }
 
