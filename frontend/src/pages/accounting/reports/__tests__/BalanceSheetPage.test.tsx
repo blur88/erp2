@@ -13,11 +13,12 @@ vi.mock('@/services/api', () => ({
   },
 }));
 
-const createMockStore = () => {
+const createMockStore = (preloadedState?: unknown) => {
   return configureStore({
     reducer: {
       accountingReports: accountingReportsReducer,
     },
+    preloadedState: preloadedState as any,
   });
 };
 
@@ -64,5 +65,57 @@ describe('BalanceSheetPage', () => {
     // Check that buttons are rendered (they may show loading spinner on mount)
     const buttons = screen.getAllByRole('button');
     expect(buttons.length).toBeGreaterThan(0);
+  });
+
+  it('renders balance sheet data from backend response shape', () => {
+    const store = createMockStore({
+      accountingReports: {
+        trialBalance: { data: null, loading: false, error: null },
+        balanceSheet: {
+          loading: false,
+          error: null,
+          data: {
+            assets: {
+              current: [
+                { accountCode: '1100', accountName: 'Cash', balance: 1000 },
+                { accountCode: '1200', accountName: 'Inventory', balance: 500 },
+              ],
+              fixed: [{ accountCode: '1500', accountName: 'Equipment', balance: 4000 }],
+              totalCurrent: 1500,
+              totalFixed: 4000,
+              total: 5500,
+            },
+            liabilities: {
+              current: [{ accountCode: '2100', accountName: 'Accounts Payable', balance: 1200 }],
+              longTerm: [{ accountCode: '2300', accountName: 'Loan', balance: 3000 }],
+              totalCurrent: 1200,
+              totalLongTerm: 3000,
+              total: 4200,
+            },
+            equity: {
+              accounts: [{ accountCode: '3100', accountName: 'Capital', balance: 1300 }],
+              total: 1300,
+            },
+            isBalanced: true,
+          },
+        },
+        profitAndLoss: { data: null, loading: false, error: null },
+        generalLedger: { data: null, loading: false, error: null },
+        accountActivity: { data: null, loading: false, error: null },
+        downloading: false,
+      },
+    });
+
+    expect(() =>
+      render(
+        <Provider store={store}>
+          <BrowserRouter>
+            <BalanceSheetPage />
+          </BrowserRouter>
+        </Provider>
+      )
+    ).not.toThrow();
+
+    expect(screen.getByText('Balance Sheet')).toBeInTheDocument();
   });
 });

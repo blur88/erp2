@@ -63,6 +63,13 @@ interface SectionProps {
   color?: 'primary' | 'warning' | 'success' | 'info';
 }
 
+interface NormalizedBalanceAccount {
+  id: string;
+  code: string;
+  name: string;
+  balance: number;
+}
+
 const BalanceSheetSection: React.FC<SectionProps> = ({ title, accounts, subtotal, color = 'primary' }) => {
   return (
     <Box>
@@ -205,6 +212,45 @@ const BalanceSheetPage: React.FC = () => {
     );
   };
 
+  const normalizeAccounts = (accounts: any[] | undefined): NormalizedBalanceAccount[] => {
+    if (!Array.isArray(accounts)) {
+      return [];
+    }
+
+    return accounts.map((account, index) => {
+      const code = account.code ?? account.accountCode ?? '';
+      const name = account.name ?? account.accountName ?? '';
+      return {
+        id: account.id ?? `${code || 'account'}-${index}`,
+        code,
+        name,
+        balance: typeof account.balance === 'number' ? account.balance : 0,
+      };
+    });
+  };
+
+  const assetAccounts = normalizeAccounts(
+    data?.assets?.accounts ?? [...(data?.assets?.current ?? []), ...(data?.assets?.fixed ?? [])]
+  );
+  const liabilityAccounts = normalizeAccounts(
+    data?.liabilities?.accounts ?? [
+      ...(data?.liabilities?.current ?? []),
+      ...(data?.liabilities?.longTerm ?? []),
+    ]
+  );
+  const equityAccounts = normalizeAccounts(data?.equity?.accounts);
+
+  const assetsSubtotal = data?.assets?.subtotal ?? data?.assets?.total ?? 0;
+  const liabilitiesSubtotal = data?.liabilities?.subtotal ?? data?.liabilities?.total ?? 0;
+  const equitySubtotal = data?.equity?.subtotal ?? data?.equity?.total ?? 0;
+  const totalAssets = data?.totalAssets ?? assetsSubtotal;
+  const totalLiabilitiesAndEquity =
+    data?.totalLiabilitiesAndEquity ?? liabilitiesSubtotal + equitySubtotal;
+  const isBalanced =
+    typeof data?.isBalanced === 'boolean'
+      ? data.isBalanced
+      : Math.abs(totalAssets - totalLiabilitiesAndEquity) < 0.01;
+
   return (
     <Box sx={{ p: 3 }}>
       {/* Header */}
@@ -299,7 +345,7 @@ const BalanceSheetPage: React.FC = () => {
             </Typography>
             {/* Balance Status Indicator */}
             <Box sx={{ mt: 2 }}>
-              {data.isBalanced ? (
+              {isBalanced ? (
                 <Chip
                   icon={<CheckCircleIcon />}
                   label="Balanced"
@@ -327,8 +373,8 @@ const BalanceSheetPage: React.FC = () => {
                 <Paper variant="outlined" sx={{ p: 2 }}>
                   <BalanceSheetSection
                     title="ASSETS"
-                    accounts={data.assets.accounts}
-                    subtotal={data.assets.subtotal}
+                    accounts={assetAccounts}
+                    subtotal={assetsSubtotal}
                     color="primary"
                   />
                 </Paper>
@@ -339,8 +385,8 @@ const BalanceSheetPage: React.FC = () => {
                 <Paper variant="outlined" sx={{ p: 2 }}>
                   <BalanceSheetSection
                     title="LIABILITIES"
-                    accounts={data.liabilities.accounts}
-                    subtotal={data.liabilities.subtotal}
+                    accounts={liabilityAccounts}
+                    subtotal={liabilitiesSubtotal}
                     color="warning"
                   />
                 </Paper>
@@ -351,8 +397,8 @@ const BalanceSheetPage: React.FC = () => {
                 <Paper variant="outlined" sx={{ p: 2 }}>
                   <BalanceSheetSection
                     title="EQUITY"
-                    accounts={data.equity.accounts}
-                    subtotal={data.equity.subtotal}
+                    accounts={equityAccounts}
+                    subtotal={equitySubtotal}
                     color="success"
                   />
                 </Paper>
@@ -387,7 +433,7 @@ const BalanceSheetPage: React.FC = () => {
                     variant="h5"
                     sx={{ fontFamily: 'monospace', fontWeight: 700, color: 'primary.main' }}
                   >
-                    {formatCurrency(Math.abs(data.totalAssets))}
+                    {formatCurrency(Math.abs(totalAssets))}
                   </Typography>
                 </Paper>
               </Grid>
@@ -409,7 +455,7 @@ const BalanceSheetPage: React.FC = () => {
                     variant="h5"
                     sx={{ fontFamily: 'monospace', fontWeight: 700, color: 'success.main' }}
                   >
-                    {formatCurrency(Math.abs(data.totalLiabilitiesAndEquity))}
+                    {formatCurrency(Math.abs(totalLiabilitiesAndEquity))}
                   </Typography>
                 </Paper>
               </Grid>
@@ -420,15 +466,15 @@ const BalanceSheetPage: React.FC = () => {
                   variant="outlined"
                   sx={{
                     p: 2,
-                    backgroundColor: data.isBalanced ? 'success.light' : 'error.light',
-                    borderColor: data.isBalanced ? 'success.main' : 'error.main',
+                    backgroundColor: isBalanced ? 'success.light' : 'error.light',
+                    borderColor: isBalanced ? 'success.main' : 'error.main',
                   }}
                 >
                   <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
                     Balance Check
                   </Typography>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    {data.isBalanced ? (
+                    {isBalanced ? (
                       <>
                         <CheckCircleIcon color="success" />
                         <Typography
@@ -452,7 +498,7 @@ const BalanceSheetPage: React.FC = () => {
                             variant="body2"
                             sx={{ fontFamily: 'monospace', color: 'error.dark' }}
                           >
-                            Difference: {formatCurrency(Math.abs(data.totalAssets - data.totalLiabilitiesAndEquity))}
+                            Difference: {formatCurrency(Math.abs(totalAssets - totalLiabilitiesAndEquity))}
                           </Typography>
                         </Box>
                       </>
@@ -477,13 +523,11 @@ const BalanceSheetPage: React.FC = () => {
           >
             <Typography variant="body2" color="text.secondary">
               Total Accounts: {
-                data.assets.accounts.length +
-                data.liabilities.accounts.length +
-                data.equity.accounts.length
+                assetAccounts.length + liabilityAccounts.length + equityAccounts.length
               }
             </Typography>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-              {data.isBalanced ? (
+              {isBalanced ? (
                 <Chip
                   icon={<CheckCircleIcon />}
                   label="Balance Sheet is Balanced"
@@ -493,7 +537,7 @@ const BalanceSheetPage: React.FC = () => {
               ) : (
                 <Chip
                   icon={<CancelIcon />}
-                  label={`Out of Balance by ${formatCurrency(Math.abs(data.totalAssets - data.totalLiabilitiesAndEquity))}`}
+                  label={`Out of Balance by ${formatCurrency(Math.abs(totalAssets - totalLiabilitiesAndEquity))}`}
                   color="error"
                   size="small"
                 />
