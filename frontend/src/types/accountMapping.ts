@@ -43,7 +43,9 @@ export interface UpdateAccountMappingDto {
 }
 
 export interface AccountMappingValidationResult {
-  isComplete: boolean;
+  isValid: boolean;
   missingMappings: string[];
   configuredMappings: string[];
+  totalRequired: number;
+  totalConfigured: number;
 }

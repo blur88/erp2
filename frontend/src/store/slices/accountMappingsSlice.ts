@@ -121,7 +121,7 @@ const accountMappingsSlice = createSlice({
         state.loading = false;
         if (action.payload) {
           state.validationResult = action.payload;
-          state.isValid = action.payload.isComplete;
+          state.isValid = action.payload.isValid;
         }
       })
       .addCase(validateAccountMappings.rejected, (state, action) => {
