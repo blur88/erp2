@@ -41,6 +41,7 @@ interface BalanceSheetReport {
   };
   equity: {
     accounts: AccountBalance[];
+    netIncome: number;
     total: number;
   };
   isBalanced: boolean;
