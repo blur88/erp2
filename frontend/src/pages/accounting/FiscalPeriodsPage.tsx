@@ -95,7 +95,7 @@ const FiscalPeriodsPage: React.FC = () => {
   useEffect(() => {
     const params: any = {
       page: 1,
-      limit: 1000,
+      limit: 100,
       sortBy: 'startDate',
       sortOrder: 'DESC' as const,
     }
@@ -147,7 +147,7 @@ const FiscalPeriodsPage: React.FC = () => {
       setPeriodToDelete(null)
 
       // Refresh list
-      dispatch(fetchFiscalPeriods({ page: 1, limit: 1000, sortBy: 'startDate', sortOrder: 'DESC' }))
+      dispatch(fetchFiscalPeriods({ page: 1, limit: 100, sortBy: 'startDate', sortOrder: 'DESC' }))
     } catch (error: any) {
       showError(error || 'Failed to delete period')
     }
@@ -182,7 +182,7 @@ const FiscalPeriodsPage: React.FC = () => {
       setGenerateDialogOpen(false)
 
       // Refresh list
-      dispatch(fetchFiscalPeriods({ page: 1, limit: 1000, sortBy: 'startDate', sortOrder: 'DESC' }))
+      dispatch(fetchFiscalPeriods({ page: 1, limit: 100, sortBy: 'startDate', sortOrder: 'DESC' }))
     } catch (error: any) {
       showError(error || 'Failed to generate periods')
     }
@@ -203,7 +203,7 @@ const FiscalPeriodsPage: React.FC = () => {
       setPeriodToClose(null)
 
       // Refresh list
-      dispatch(fetchFiscalPeriods({ page: 1, limit: 1000, sortBy: 'startDate', sortOrder: 'DESC' }))
+      dispatch(fetchFiscalPeriods({ page: 1, limit: 100, sortBy: 'startDate', sortOrder: 'DESC' }))
     } catch (error: any) {
       showError(error || 'Failed to close period')
       setCloseConfirmOpen(false)
@@ -231,7 +231,7 @@ const FiscalPeriodsPage: React.FC = () => {
       setPeriodToReopen(null)
 
       // Refresh list
-      dispatch(fetchFiscalPeriods({ page: 1, limit: 1000, sortBy: 'startDate', sortOrder: 'DESC' }))
+      dispatch(fetchFiscalPeriods({ page: 1, limit: 100, sortBy: 'startDate', sortOrder: 'DESC' }))
     } catch (error: any) {
       showError(error || 'Failed to reopen period')
       setReopenConfirmOpen(false)
