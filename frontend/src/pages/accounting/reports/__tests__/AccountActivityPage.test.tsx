@@ -3,6 +3,7 @@ import { render, screen } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { BrowserRouter } from 'react-router-dom';
 import { configureStore } from '@reduxjs/toolkit';
+import { ThemeProvider, createTheme } from '@mui/material/styles';
 import AccountActivityPage from '../AccountActivityPage';
 import accountingReportsReducer from '@/store/slices/accountingReportsSlice';
 import chartOfAccountsReducer from '@/store/slices/chartOfAccountsSlice';
@@ -24,14 +25,22 @@ const createMockStore = (preloadedState?: any) => {
   });
 };
 
-const renderWithProviders = (preloadedState?: any) => {
+const renderWithProviders = (preloadedState?: any, mode: 'light' | 'dark' = 'light') => {
   const store = createMockStore(preloadedState);
+  const theme = createTheme({
+    palette: {
+      mode,
+    },
+  });
+
   return render(
-    <Provider store={store}>
-      <BrowserRouter>
-        <AccountActivityPage />
-      </BrowserRouter>
-    </Provider>
+    <ThemeProvider theme={theme}>
+      <Provider store={store}>
+        <BrowserRouter>
+          <AccountActivityPage />
+        </BrowserRouter>
+      </Provider>
+    </ThemeProvider>
   );
 };
 
@@ -114,5 +123,62 @@ describe('AccountActivityPage', () => {
     });
 
     expect(screen.getByText('No entries found for the selected period')).toBeInTheDocument();
+  });
+
+  it('uses dark-friendly table header colors in dark mode', () => {
+    renderWithProviders(
+      {
+        accountingReports: {
+          trialBalance: { data: null, loading: false, error: null },
+          balanceSheet: { data: null, loading: false, error: null },
+          profitAndLoss: { data: null, loading: false, error: null },
+          generalLedger: { data: null, loading: false, error: null },
+          accountActivity: {
+            loading: false,
+            error: null,
+            data: {
+              account: {
+                id: 'acc-1',
+                code: '1000',
+                name: 'Cash',
+                type: 'ASSET',
+              },
+              startDate: '2026-01-01',
+              endDate: '2026-01-31',
+              totalEntries: 1,
+              entries: [
+                {
+                  id: 'entry-1',
+                  entryDate: '2026-01-15',
+                  entryNumber: 'JE-0001',
+                  entryType: 'MANUAL',
+                  status: 'POSTED',
+                  description: 'Opening balance',
+                  debitAmount: 1000,
+                  creditAmount: 0,
+                },
+              ],
+            },
+          },
+          downloading: false,
+        },
+        chartOfAccounts: {
+          accounts: [],
+          selectedAccount: null,
+          loading: false,
+          error: null,
+          pagination: {
+            total: 0,
+            page: 1,
+            limit: 10,
+            totalPages: 0,
+          },
+        },
+      },
+      'dark'
+    );
+
+    const headerCell = screen.getByText('Entry Date').closest('th');
+    expect(headerCell).not.toHaveStyle({ backgroundColor: 'rgb(238, 238, 238)' });
   });
 });
