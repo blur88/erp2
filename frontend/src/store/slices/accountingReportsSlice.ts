@@ -66,6 +66,85 @@ interface ProfitAndLossReport {
   netIncome: number;
 }
 
+type ProfitAndLossApiAccount = {
+  id?: string;
+  code?: string;
+  name?: string;
+  amount?: number;
+  accountCode?: string;
+  accountName?: string;
+  balance?: number;
+};
+
+type ProfitAndLossApiSection = {
+  accounts?: ProfitAndLossApiAccount[];
+  subtotal?: number;
+  total?: number;
+};
+
+type ProfitAndLossApiResponse = {
+  startDate?: string;
+  endDate?: string;
+  revenue?: ProfitAndLossApiSection;
+  cogs?: ProfitAndLossApiSection;
+  costOfGoodsSold?: ProfitAndLossApiSection;
+  expenses?: ProfitAndLossApiSection;
+  grossProfit?: number;
+  operatingIncome?: number;
+  netIncome?: number;
+};
+
+const toNumber = (value: unknown, fallback = 0): number => {
+  const parsed = typeof value === 'number' ? value : Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+};
+
+const normalizeProfitAndLossSection = (
+  section?: ProfitAndLossApiSection,
+): { accounts: Array<{ id: string; code: string; name: string; amount: number }>; subtotal: number } => {
+  const accounts = (section?.accounts ?? []).map((account, index) => {
+    const code = account.code ?? account.accountCode ?? '';
+    const name = account.name ?? account.accountName ?? '';
+    const amount = toNumber(account.amount ?? account.balance);
+
+    return {
+      id: account.id ?? `${code || 'account'}-${index}`,
+      code,
+      name,
+      amount,
+    };
+  });
+
+  const computedSubtotal = accounts.reduce((sum, account) => sum + account.amount, 0);
+  const subtotal = toNumber(section?.subtotal ?? section?.total, computedSubtotal);
+
+  return { accounts, subtotal };
+};
+
+const normalizeProfitAndLossReport = (
+  response: ProfitAndLossApiResponse,
+  params: { startDate: string; endDate: string },
+): ProfitAndLossReport => {
+  const revenue = normalizeProfitAndLossSection(response.revenue);
+  const cogs = normalizeProfitAndLossSection(response.cogs ?? response.costOfGoodsSold);
+  const expenses = normalizeProfitAndLossSection(response.expenses);
+
+  const grossProfit = toNumber(response.grossProfit, revenue.subtotal - cogs.subtotal);
+  const operatingIncome = toNumber(response.operatingIncome, grossProfit - expenses.subtotal);
+  const netIncome = toNumber(response.netIncome, operatingIncome);
+
+  return {
+    startDate: response.startDate ?? params.startDate,
+    endDate: response.endDate ?? params.endDate,
+    revenue,
+    cogs,
+    expenses,
+    grossProfit,
+    operatingIncome,
+    netIncome,
+  };
+};
+
 interface GeneralLedgerTransaction {
   date: string;
   entryNumber: string;
@@ -240,11 +319,11 @@ export const fetchProfitAndLoss = createAsyncThunk(
     { rejectWithValue }
   ) => {
     try {
-      const response = await ApiService.get<ProfitAndLossReport>(
+      const response = await ApiService.get<ProfitAndLossApiResponse>(
         `${BASE_URL}/profit-loss`,
         { params }
       );
-      return response;
+      return normalizeProfitAndLossReport(response, params);
     } catch (error: any) {
       console.error('Failed to fetch profit and loss:', error);
       return rejectWithValue(

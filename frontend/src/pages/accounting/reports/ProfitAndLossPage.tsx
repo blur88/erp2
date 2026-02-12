@@ -177,6 +177,10 @@ const ProfitAndLossPage: React.FC = () => {
     error: null,
   };
 
+  const revenueSection = data?.revenue ?? { accounts: [], subtotal: 0 };
+  const cogsSection = data?.cogs ?? { accounts: [], subtotal: 0 };
+  const expensesSection = data?.expenses ?? { accounts: [], subtotal: 0 };
+
   // Local state for filters
   const [startDate, setStartDate] = useState<string>(getFirstDayOfMonth());
   const [endDate, setEndDate] = useState<string>(formatDateForInput(new Date()));
@@ -352,13 +356,13 @@ const ProfitAndLossPage: React.FC = () => {
             </Typography>
             <Typography variant="body2" color="text.secondary">
               For the period from{' '}
-              {new Date(data.startDate).toLocaleDateString('en-US', {
+              {new Date(data.startDate || startDate).toLocaleDateString('en-US', {
                 year: 'numeric',
                 month: 'long',
                 day: 'numeric',
               })}{' '}
               to{' '}
-              {new Date(data.endDate).toLocaleDateString('en-US', {
+              {new Date(data.endDate || endDate).toLocaleDateString('en-US', {
                 year: 'numeric',
                 month: 'long',
                 day: 'numeric',
@@ -391,16 +395,16 @@ const ProfitAndLossPage: React.FC = () => {
             {/* Revenue Section */}
             <ProfitAndLossSection
               title="REVENUE"
-              accounts={data.revenue.accounts}
-              subtotal={data.revenue.subtotal}
+              accounts={revenueSection.accounts}
+              subtotal={revenueSection.subtotal}
               color="primary"
             />
 
             {/* Cost of Goods Sold Section */}
             <ProfitAndLossSection
               title="COST OF GOODS SOLD"
-              accounts={data.cogs.accounts}
-              subtotal={data.cogs.subtotal}
+              accounts={cogsSection.accounts}
+              subtotal={cogsSection.subtotal}
               color="warning"
             />
 
@@ -437,8 +441,8 @@ const ProfitAndLossPage: React.FC = () => {
             {/* Operating Expenses Section */}
             <ProfitAndLossSection
               title="OPERATING EXPENSES"
-              accounts={data.expenses.accounts}
-              subtotal={data.expenses.subtotal}
+              accounts={expensesSection.accounts}
+              subtotal={expensesSection.subtotal}
               color="error"
             />
 
