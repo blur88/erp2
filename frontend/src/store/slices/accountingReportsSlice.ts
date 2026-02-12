@@ -170,6 +170,79 @@ interface GeneralLedgerReport {
   closingBalance: number;
 }
 
+type GeneralLedgerApiTransaction = {
+  date?: string;
+  entryNumber?: string;
+  description?: string;
+  debitAmount?: number;
+  creditAmount?: number;
+  runningBalance?: number;
+  debit?: number;
+  credit?: number;
+  balance?: number;
+};
+
+type GeneralLedgerApiResponse = {
+  account?: {
+    id?: string;
+    code?: string;
+    name?: string;
+    type?: string;
+  };
+  startDate?: string;
+  endDate?: string;
+  openingBalance?: number;
+  transactions?: GeneralLedgerApiTransaction[];
+  totalDebits?: number;
+  totalCredits?: number;
+  closingBalance?: number;
+};
+
+const normalizeGeneralLedgerReport = (
+  response: GeneralLedgerApiResponse,
+  params: { accountId: string; startDate: string; endDate: string },
+): GeneralLedgerReport => {
+  const transactions = (response.transactions ?? []).map((transaction) => {
+    const debitAmount = toNumber(transaction.debitAmount ?? transaction.debit);
+    const creditAmount = toNumber(transaction.creditAmount ?? transaction.credit);
+
+    return {
+      date: transaction.date ?? '',
+      entryNumber: transaction.entryNumber ?? '',
+      description: transaction.description ?? '',
+      debitAmount,
+      creditAmount,
+      runningBalance: toNumber(transaction.runningBalance ?? transaction.balance),
+    };
+  });
+
+  const computedTotalDebits = transactions.reduce((sum, transaction) => sum + transaction.debitAmount, 0);
+  const computedTotalCredits = transactions.reduce((sum, transaction) => sum + transaction.creditAmount, 0);
+  const openingBalance = toNumber(response.openingBalance);
+  const closingBalance = toNumber(
+    response.closingBalance,
+    transactions.length > 0
+      ? transactions[transactions.length - 1].runningBalance
+      : openingBalance,
+  );
+
+  return {
+    account: {
+      id: response.account?.id ?? params.accountId,
+      code: response.account?.code ?? '',
+      name: response.account?.name ?? '',
+      type: response.account?.type ?? '',
+    },
+    startDate: response.startDate ?? params.startDate,
+    endDate: response.endDate ?? params.endDate,
+    openingBalance,
+    transactions,
+    totalDebits: toNumber(response.totalDebits, computedTotalDebits),
+    totalCredits: toNumber(response.totalCredits, computedTotalCredits),
+    closingBalance,
+  };
+};
+
 interface AccountActivityEntry {
   id: string;
   entryDate: string;
@@ -344,11 +417,11 @@ export const fetchGeneralLedger = createAsyncThunk(
     { rejectWithValue }
   ) => {
     try {
-      const response = await ApiService.get<GeneralLedgerReport>(
+      const response = await ApiService.get<GeneralLedgerApiResponse>(
         `${BASE_URL}/general-ledger`,
         { params }
       );
-      return response;
+      return normalizeGeneralLedgerReport(response, params);
     } catch (error: any) {
       console.error('Failed to fetch general ledger:', error);
       return rejectWithValue(

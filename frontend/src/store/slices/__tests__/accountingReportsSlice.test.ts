@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { configureStore } from '@reduxjs/toolkit';
 import accountingReportsReducer, {
+  fetchGeneralLedger,
   fetchProfitAndLoss,
 } from '../accountingReportsSlice';
 import { ApiService } from '../../../services/api';
@@ -59,5 +60,42 @@ describe('accountingReportsSlice', () => {
       name: 'COGS',
       amount: 300,
     });
+  });
+
+  it('normalizes general ledger transaction fields to prevent NaN in UI', async () => {
+    (ApiService.get as any).mockResolvedValue({
+      account: { id: 'acc-1', code: '1100', name: 'Cash', type: 'ASSET' },
+      openingBalance: 100,
+      transactions: [
+        {
+          date: '2026-01-10',
+          entryNumber: 'JE-001',
+          description: 'Sample',
+          debit: 250,
+          credit: 0,
+          balance: 350,
+        },
+      ],
+      closingBalance: 350,
+    });
+
+    await store.dispatch(
+      fetchGeneralLedger({
+        accountId: 'acc-1',
+        startDate: '2026-01-01',
+        endDate: '2026-01-31',
+      }) as any,
+    );
+
+    const report = store.getState().accountingReports.generalLedger.data;
+    expect(report?.startDate).toBe('2026-01-01');
+    expect(report?.endDate).toBe('2026-01-31');
+    expect(report?.transactions[0]).toMatchObject({
+      debitAmount: 250,
+      creditAmount: 0,
+      runningBalance: 350,
+    });
+    expect(report?.totalDebits).toBe(250);
+    expect(report?.totalCredits).toBe(0);
   });
 });
