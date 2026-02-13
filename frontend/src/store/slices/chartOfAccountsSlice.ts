@@ -38,6 +38,7 @@ interface BulkDeleteResponse {
   message: string
   deletedCount: number
   failedIds: string[]
+  failedItems?: Array<{ id: string; reason: string }>
 }
 
 interface ChartOfAccountsState {

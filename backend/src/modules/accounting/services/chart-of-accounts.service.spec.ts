@@ -12,6 +12,8 @@ import {
   AccountType,
 } from '../../../database/entities/chart-of-account.entity';
 import { JournalEntryLine } from '../../../database/entities/journal-entry-line.entity';
+import { AccountMapping } from '../../../database/entities/account-mapping.entity';
+import { BankReconciliation } from '../../../database/entities/bank-reconciliation.entity';
 import {
   CreateChartOfAccountDto,
   UpdateChartOfAccountDto,
@@ -22,6 +24,8 @@ describe('ChartOfAccountsService', () => {
   let service: ChartOfAccountsService;
   let accountRepository: jest.Mocked<Repository<ChartOfAccount>>;
   let journalEntryLineRepository: jest.Mocked<Repository<JournalEntryLine>>;
+  let accountMappingRepository: jest.Mocked<Repository<AccountMapping>>;
+  let bankReconciliationRepository: jest.Mocked<Repository<BankReconciliation>>;
 
   const mockAccount: Partial<ChartOfAccount> = {
     id: '123e4567-e89b-12d3-a456-426614174000',
@@ -73,6 +77,19 @@ describe('ChartOfAccountsService', () => {
             count: jest.fn(),
           },
         },
+        {
+          provide: getRepositoryToken(AccountMapping),
+          useValue: {
+            count: jest.fn(),
+            find: jest.fn(),
+          },
+        },
+        {
+          provide: getRepositoryToken(BankReconciliation),
+          useValue: {
+            count: jest.fn(),
+          },
+        },
       ],
     }).compile();
 
@@ -80,6 +97,10 @@ describe('ChartOfAccountsService', () => {
     accountRepository = module.get(getRepositoryToken(ChartOfAccount));
     journalEntryLineRepository = module.get(
       getRepositoryToken(JournalEntryLine),
+    );
+    accountMappingRepository = module.get(getRepositoryToken(AccountMapping));
+    bankReconciliationRepository = module.get(
+      getRepositoryToken(BankReconciliation),
     );
   });
 
@@ -457,7 +478,54 @@ describe('ChartOfAccountsService', () => {
       expect(result).toEqual({
         deletedCount: 1,
         failedIds: ['bad-id'],
+        failedItems: [
+          {
+            id: 'bad-id',
+            reason: 'invalid',
+          },
+        ],
       });
+    });
+  });
+
+  describe('permanentDelete', () => {
+    it('should throw clear error when account is used by active mappings', async () => {
+      const deletedAccount = {
+        ...mockAccount,
+        deletedAt: new Date(),
+        children: [],
+      };
+
+      accountRepository.findOne.mockResolvedValue(deletedAccount as ChartOfAccount);
+      journalEntryLineRepository.count.mockResolvedValue(0);
+      accountMappingRepository.count.mockResolvedValue(2);
+      accountMappingRepository.find.mockResolvedValue([
+        { mappingType: 'sales_revenue' },
+        { mappingType: 'payment_cash' },
+      ] as AccountMapping[]);
+
+      await expect(service.permanentDelete(mockAccount.id!)).rejects.toThrow(
+        'used in account mapping(s): payment_cash, sales_revenue. Clear those mappings first.',
+      );
+      expect(accountRepository.remove).not.toHaveBeenCalled();
+    });
+
+    it('should throw clear error when account is used by bank reconciliations', async () => {
+      const deletedAccount = {
+        ...mockAccount,
+        deletedAt: new Date(),
+        children: [],
+      };
+
+      accountRepository.findOne.mockResolvedValue(deletedAccount as ChartOfAccount);
+      journalEntryLineRepository.count.mockResolvedValue(0);
+      accountMappingRepository.count.mockResolvedValue(0);
+      bankReconciliationRepository.count.mockResolvedValue(3);
+
+      await expect(service.permanentDelete(mockAccount.id!)).rejects.toThrow(
+        'it has 3 bank reconciliation(s).',
+      );
+      expect(accountRepository.remove).not.toHaveBeenCalled();
     });
   });
 

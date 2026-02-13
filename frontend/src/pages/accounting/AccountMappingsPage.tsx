@@ -14,6 +14,7 @@ import {
   CircularProgress,
   IconButton,
   Chip,
+  Tooltip,
   useTheme,
   useMediaQuery,
 } from '@mui/material'
@@ -21,12 +22,14 @@ import {
   Edit as EditIcon,
   Add as AddIcon,
   Settings as SettingsIcon,
+  Clear as ClearIcon,
 } from '@mui/icons-material'
 import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
 import { useNotification } from '@/hooks/useNotification'
 import {
   fetchAccountMappings,
   validateAccountMappings,
+  deleteAccountMapping,
   selectAccountMappings,
   selectAccountMappingsLoading,
   selectAccountMappingsError,
@@ -36,6 +39,7 @@ import {
 import { MappingType } from '@/types/accountMapping'
 import type { AccountMapping } from '@/types/accountMapping'
 import AccountMappingDialog from '@/components/accounting/AccountMappingDialog'
+import ConfirmationDialog from '@/components/common/ConfirmationDialog'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
 import { useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
 
@@ -123,6 +127,8 @@ const AccountMappingsPage: React.FC = () => {
   const [dialogOpen, setDialogOpen] = useState(false)
   const [selectedMapping, setSelectedMapping] = useState<AccountMapping | null>(null)
   const [selectedMappingType, setSelectedMappingType] = useState<MappingType | null>(null)
+  const [mappingToClear, setMappingToClear] = useState<AccountMapping | null>(null)
+  const [clearing, setClearing] = useState(false)
 
   useKeyboardShortcuts({
     onRefresh: () => dispatch(fetchAccountMappings()),
@@ -161,6 +167,27 @@ const AccountMappingsPage: React.FC = () => {
     dispatch(fetchAccountMappings())
     dispatch(validateAccountMappings())
     showSuccess('Account mapping saved successfully')
+  }
+
+  const handleClearClick = (mapping: AccountMapping) => {
+    setMappingToClear(mapping)
+  }
+
+  const handleClearConfirm = async () => {
+    if (!mappingToClear) return
+
+    try {
+      setClearing(true)
+      await dispatch(deleteAccountMapping(mappingToClear.id)).unwrap()
+      await dispatch(fetchAccountMappings()).unwrap()
+      await dispatch(validateAccountMappings()).unwrap()
+      showSuccess(`Mapping "${MAPPING_TYPE_LABELS[mappingToClear.mappingType].label}" cleared successfully`)
+    } catch (err: any) {
+      showError(err || 'Failed to clear mapping')
+    } finally {
+      setClearing(false)
+      setMappingToClear(null)
+    }
   }
 
   // Get all mapping types in category order
@@ -411,21 +438,43 @@ const AccountMappingsPage: React.FC = () => {
                         )}
                         <TableCell align="right">
                           {mapping ? (
-                            <IconButton
-                              size="small"
-                              onClick={() => handleEdit(mapping)}
-                              sx={{
-                                height: `${TABLE_STYLES.row.height * 0.75}px`,
-                                width: `${TABLE_STYLES.row.height * 0.75}px`,
-                                color: 'primary.main',
-                                '&:hover': {
-                                  backgroundColor: 'primary.light',
-                                  color: 'primary.dark'
-                                }
-                              }}
-                            >
-                              <EditIcon sx={{ fontSize: `${TABLE_STYLES.row.height * 0.5}px` }} />
-                            </IconButton>
+                            <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 0.5 }}>
+                              <Tooltip title="Edit mapping">
+                                <IconButton
+                                  size="small"
+                                  onClick={() => handleEdit(mapping)}
+                                  sx={{
+                                    height: `${TABLE_STYLES.row.height * 0.75}px`,
+                                    width: `${TABLE_STYLES.row.height * 0.75}px`,
+                                    color: 'primary.main',
+                                    '&:hover': {
+                                      backgroundColor: 'primary.light',
+                                      color: 'primary.dark'
+                                    }
+                                  }}
+                                >
+                                  <EditIcon sx={{ fontSize: `${TABLE_STYLES.row.height * 0.5}px` }} />
+                                </IconButton>
+                              </Tooltip>
+                              <Tooltip title="Clear mapping">
+                                <IconButton
+                                  size="small"
+                                  aria-label="clear"
+                                  onClick={() => handleClearClick(mapping)}
+                                  sx={{
+                                    height: `${TABLE_STYLES.row.height * 0.75}px`,
+                                    width: `${TABLE_STYLES.row.height * 0.75}px`,
+                                    color: 'error.main',
+                                    '&:hover': {
+                                      backgroundColor: 'error.light',
+                                      color: 'error.dark'
+                                    }
+                                  }}
+                                >
+                                  <ClearIcon sx={{ fontSize: `${TABLE_STYLES.row.height * 0.5}px` }} />
+                                </IconButton>
+                              </Tooltip>
+                            </Box>
                           ) : (
                             <Button
                               variant="outlined"
@@ -455,6 +504,21 @@ const AccountMappingsPage: React.FC = () => {
         mapping={selectedMapping || undefined}
         mappingType={selectedMappingType || undefined}
         onSaveSuccess={handleSaveSuccess}
+      />
+
+      <ConfirmationDialog
+        open={!!mappingToClear}
+        title="Clear Account Mapping"
+        message={
+          mappingToClear
+            ? `Are you sure you want to clear "${MAPPING_TYPE_LABELS[mappingToClear.mappingType].label}"? Auto-posting for this mapping will remain disabled until reconfigured.`
+            : ''
+        }
+        confirmText={clearing ? 'Clearing...' : 'Clear'}
+        onConfirm={handleClearConfirm}
+        onCancel={() => !clearing && setMappingToClear(null)}
+        severity="warning"
+        loading={clearing}
       />
     </Box>
   )

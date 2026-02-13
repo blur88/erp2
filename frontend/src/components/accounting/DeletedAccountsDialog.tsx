@@ -188,7 +188,13 @@ const DeletedAccountsDialog: React.FC<DeletedAccountsDialogProps> = ({ open, onC
         showSuccess(`Successfully permanently deleted ${result.deletedCount} account${result.deletedCount !== 1 ? 's' : ''}`)
       }
       if (result.failedIds?.length > 0) {
-        showError(`Failed to delete ${result.failedIds.length} account${result.failedIds.length !== 1 ? 's' : ''}`)
+        const detailedFailures = (result.failedItems || [])
+          .slice(0, 3)
+          .map((item: { reason: string }) => item.reason)
+        const detailsSuffix = detailedFailures.length > 0
+          ? ` ${detailedFailures.join(' | ')}`
+          : ''
+        showError(`Failed to delete ${result.failedIds.length} account${result.failedIds.length !== 1 ? 's' : ''}.${detailsSuffix}`)
       }
 
       await loadDeletedAccounts()

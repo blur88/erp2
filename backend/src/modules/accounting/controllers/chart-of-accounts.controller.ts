@@ -144,7 +144,12 @@ export class ChartOfAccountsController {
   })
   async bulkPermanentDelete(
     @Body() body: BulkChartOfAccountsDto,
-  ): Promise<{ message: string; deletedCount: number; failedIds: string[] }> {
+  ): Promise<{
+    message: string;
+    deletedCount: number;
+    failedIds: string[];
+    failedItems: Array<{ id: string; reason: string }>;
+  }> {
     const result = await this.chartOfAccountsService.bulkPermanentDelete(
       body.accountIds,
     );
@@ -152,6 +157,7 @@ export class ChartOfAccountsController {
       message: `Successfully deleted ${result.deletedCount} of ${body.accountIds.length} accounts`,
       deletedCount: result.deletedCount,
       failedIds: result.failedIds,
+      failedItems: result.failedItems,
     };
   }
 

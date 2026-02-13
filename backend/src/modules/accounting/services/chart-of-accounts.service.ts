@@ -12,6 +12,8 @@ import {
   AccountType,
 } from '../../../database/entities/chart-of-account.entity';
 import { JournalEntryLine } from '../../../database/entities/journal-entry-line.entity';
+import { AccountMapping } from '../../../database/entities/account-mapping.entity';
+import { BankReconciliation } from '../../../database/entities/bank-reconciliation.entity';
 import {
   CreateChartOfAccountDto,
   UpdateChartOfAccountDto,
@@ -30,6 +32,10 @@ export class ChartOfAccountsService {
     private readonly accountRepository: Repository<ChartOfAccount>,
     @InjectRepository(JournalEntryLine)
     private readonly journalEntryLineRepository: Repository<JournalEntryLine>,
+    @InjectRepository(AccountMapping)
+    private readonly accountMappingRepository: Repository<AccountMapping>,
+    @InjectRepository(BankReconciliation)
+    private readonly bankReconciliationRepository: Repository<BankReconciliation>,
   ) {}
 
   /**
@@ -508,6 +514,30 @@ export class ChartOfAccountsService {
       );
     }
 
+    // Check if account is still used by account mappings
+    const mappingCount = await this.accountMappingRepository.count({
+      where: { accountId: id },
+    });
+    if (mappingCount > 0) {
+      const mappings = await this.accountMappingRepository.find({
+        where: { accountId: id },
+      });
+      const mappingTypes = [...new Set(mappings.map((m) => m.mappingType))].sort();
+      throw new BadRequestException(
+        `Cannot permanently delete account '${account.name}' - it is used in account mapping(s): ${mappingTypes.join(', ')}. Clear those mappings first.`,
+      );
+    }
+
+    // Check if account is used by bank reconciliations
+    const reconciliationCount = await this.bankReconciliationRepository.count({
+      where: { accountId: id },
+    });
+    if (reconciliationCount > 0) {
+      throw new BadRequestException(
+        `Cannot permanently delete account '${account.name}' - it has ${reconciliationCount} bank reconciliation(s).`,
+      );
+    }
+
     // Hard delete the account
     await this.accountRepository.remove(account);
 
@@ -519,12 +549,17 @@ export class ChartOfAccountsService {
    */
   async bulkPermanentDelete(
     accountIds: string[],
-  ): Promise<{ deletedCount: number; failedIds: string[] }> {
+  ): Promise<{
+    deletedCount: number;
+    failedIds: string[];
+    failedItems: Array<{ id: string; reason: string }>;
+  }> {
     if (!accountIds?.length) {
-      return { deletedCount: 0, failedIds: [] };
+      return { deletedCount: 0, failedIds: [], failedItems: [] };
     }
 
     const failedIds: string[] = [];
+    const failedItems: Array<{ id: string; reason: string }> = [];
     let deletedCount = 0;
 
     for (const accountId of accountIds) {
@@ -532,14 +567,16 @@ export class ChartOfAccountsService {
         await this.permanentDelete(accountId);
         deletedCount += 1;
       } catch (error: any) {
+        const reason = error?.response?.message || error?.message || 'Unknown error';
         failedIds.push(accountId);
+        failedItems.push({ id: accountId, reason });
         this.logger.warn(
-          `Failed to permanently delete account '${accountId}': ${error.message}`,
+          `Failed to permanently delete account '${accountId}': ${reason}`,
         );
       }
     }
 
-    return { deletedCount, failedIds };
+    return { deletedCount, failedIds, failedItems };
   }
 
   /**

@@ -181,6 +181,17 @@ describe('AccountMappingsPage', () => {
     // The component functionality is verified by other tests
   })
 
+  it('renders clear action for configured mappings', async () => {
+    const store = createMockStore({ mappings: mockMappings, loading: false })
+    renderWithProviders(<AccountMappingsPage />, store)
+
+    await waitFor(() => {
+      expect(screen.getByText('Account Mappings Configuration')).toBeInTheDocument()
+    })
+
+    expect(screen.getAllByRole('button', { name: /clear/i }).length).toBeGreaterThan(0)
+  })
+
   it('displays configured mappings with account details', async () => {
     const store = createMockStore({ mappings: mockMappings })
     renderWithProviders(<AccountMappingsPage />, store)
