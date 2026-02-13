@@ -4,7 +4,7 @@ import { Provider } from 'react-redux';
 import { BrowserRouter } from 'react-router-dom';
 import { configureStore } from '@reduxjs/toolkit';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
-import AccountActivityPage from '../AccountActivityPage';
+import AccountActivityPage, { getAccountActivityMetricCardSx } from '../AccountActivityPage';
 import accountingReportsReducer from '@/store/slices/accountingReportsSlice';
 import chartOfAccountsReducer from '@/store/slices/chartOfAccountsSlice';
 
@@ -191,5 +191,22 @@ describe('AccountActivityPage', () => {
 
     const headerCell = screen.getByText('Entry Date').closest('th');
     expect(headerCell).not.toHaveStyle({ backgroundColor: 'rgb(238, 238, 238)' });
+  });
+
+  it('uses compact shared metric card sizing for consistent box heights', () => {
+    const metricCardSx = getAccountActivityMetricCardSx();
+
+    expect(metricCardSx.height).toBe('100%');
+    expect(metricCardSx.minHeight).toBe(88);
+    expect(metricCardSx.display).toBe('flex');
+    expect(metricCardSx['& .MuiCardContent-root']).toEqual(
+      expect.objectContaining({
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'space-between',
+        height: '100%',
+        padding: 1.5,
+      })
+    );
   });
 });

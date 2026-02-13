@@ -154,6 +154,23 @@ const formatReferenceText = (referenceType?: string, referenceNumber?: string): 
   return `${displayType} #${referenceNumber}`;
 };
 
+export const getAccountActivityMetricCardSx = () => ({
+  height: '100%',
+  minHeight: 88,
+  display: 'flex',
+  '& .MuiCardContent-root': {
+    display: 'flex',
+    flexDirection: 'column',
+    justifyContent: 'space-between',
+    gap: 4,
+    height: '100%',
+    padding: 1.5,
+    '&:last-child': {
+      paddingBottom: 1.5,
+    },
+  },
+});
+
 const AccountActivityPage: React.FC = () => {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
@@ -394,7 +411,7 @@ const AccountActivityPage: React.FC = () => {
           >
             <Grid container spacing={2}>
               <Grid item xs={12} md={3}>
-                <Card variant="outlined">
+                <Card variant="outlined" sx={getAccountActivityMetricCardSx()}>
                   <CardContent>
                     <Typography variant="body2" color="text.secondary" gutterBottom>
                       Account Code
@@ -409,7 +426,7 @@ const AccountActivityPage: React.FC = () => {
                 </Card>
               </Grid>
               <Grid item xs={12} md={6}>
-                <Card variant="outlined">
+                <Card variant="outlined" sx={getAccountActivityMetricCardSx()}>
                   <CardContent>
                     <Typography variant="body2" color="text.secondary" gutterBottom>
                       Account Name
@@ -421,7 +438,7 @@ const AccountActivityPage: React.FC = () => {
                 </Card>
               </Grid>
               <Grid item xs={12} md={3}>
-                <Card variant="outlined">
+                <Card variant="outlined" sx={getAccountActivityMetricCardSx()}>
                   <CardContent>
                     <Typography variant="body2" color="text.secondary" gutterBottom>
                       Account Type
@@ -653,7 +670,7 @@ const AccountActivityPage: React.FC = () => {
             >
               <Grid container spacing={2}>
                 <Grid item xs={12} md={4}>
-                  <Card variant="outlined">
+                  <Card variant="outlined" sx={getAccountActivityMetricCardSx()}>
                     <CardContent>
                       <Typography variant="body2" color="text.secondary" gutterBottom>
                         Total Entries
@@ -675,6 +692,7 @@ const AccountActivityPage: React.FC = () => {
                   <Card
                     variant="outlined"
                     sx={{
+                      ...getAccountActivityMetricCardSx(),
                       backgroundColor: (theme) =>
                         theme.palette.mode === 'dark' ? 'rgba(33, 150, 243, 0.16)' : 'primary.light',
                       borderColor: 'primary.main',
@@ -699,7 +717,7 @@ const AccountActivityPage: React.FC = () => {
                   </Card>
                 </Grid>
                 <Grid item xs={12} md={4}>
-                  <Card variant="outlined">
+                  <Card variant="outlined" sx={getAccountActivityMetricCardSx()}>
                     <CardContent>
                       <Typography variant="body2" color="text.secondary" gutterBottom>
                         Filter Applied
