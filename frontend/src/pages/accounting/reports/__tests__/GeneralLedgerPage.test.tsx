@@ -3,7 +3,7 @@ import { render, screen } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { BrowserRouter } from 'react-router-dom';
 import { configureStore } from '@reduxjs/toolkit';
-import GeneralLedgerPage, { getGeneralLedgerTone } from '../GeneralLedgerPage';
+import GeneralLedgerPage, { getGeneralLedgerTone, getLedgerMetricCardSx } from '../GeneralLedgerPage';
 import accountingReportsReducer from '@/store/slices/accountingReportsSlice';
 import chartOfAccountsReducer from '@/store/slices/chartOfAccountsSlice';
 
@@ -95,5 +95,21 @@ describe('GeneralLedgerPage', () => {
     expect(lightTone.surfaceSoft).toBe('grey.50');
     expect(lightTone.surfaceStrong).toBe('grey.100');
     expect(lightTone.tableHeader).toBe('grey.200');
+  });
+
+  it('uses a shared metric card layout so all summary boxes have consistent height', () => {
+    const metricCardSx = getLedgerMetricCardSx();
+
+    expect(metricCardSx.height).toBe('100%');
+    expect(metricCardSx.minHeight).toBe(88);
+    expect(metricCardSx.display).toBe('flex');
+    expect(metricCardSx['& .MuiCardContent-root']).toEqual(
+      expect.objectContaining({
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'space-between',
+        height: '100%',
+      })
+    );
   });
 });

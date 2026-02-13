@@ -93,6 +93,23 @@ export const getGeneralLedgerTone = (mode: 'light' | 'dark') => ({
   tableHeader: mode === 'dark' ? 'rgba(255, 255, 255, 0.08)' : 'grey.200',
 });
 
+export const getLedgerMetricCardSx = () => ({
+  height: '100%',
+  minHeight: 88,
+  display: 'flex',
+  '& .MuiCardContent-root': {
+    display: 'flex',
+    flexDirection: 'column',
+    justifyContent: 'space-between',
+    gap: 4,
+    height: '100%',
+    padding: 1.5,
+    '&:last-child': {
+      paddingBottom: 1.5,
+    },
+  },
+});
+
 const GeneralLedgerPage: React.FC = () => {
   const dispatch = useAppDispatch();
   const theme = useTheme();
@@ -300,7 +317,7 @@ const GeneralLedgerPage: React.FC = () => {
           <Box sx={{ p: 3, borderBottom: 1, borderColor: 'divider', backgroundColor: tone.surfaceSoft }}>
             <Grid container spacing={2}>
               <Grid item xs={12} md={3}>
-                <Card variant="outlined">
+                <Card variant="outlined" sx={getLedgerMetricCardSx()}>
                   <CardContent>
                     <Typography variant="body2" color="text.secondary" gutterBottom>
                       Account Code
@@ -315,7 +332,7 @@ const GeneralLedgerPage: React.FC = () => {
                 </Card>
               </Grid>
               <Grid item xs={12} md={5}>
-                <Card variant="outlined">
+                <Card variant="outlined" sx={getLedgerMetricCardSx()}>
                   <CardContent>
                     <Typography variant="body2" color="text.secondary" gutterBottom>
                       Account Name
@@ -327,7 +344,7 @@ const GeneralLedgerPage: React.FC = () => {
                 </Card>
               </Grid>
               <Grid item xs={12} md={2}>
-                <Card variant="outlined">
+                <Card variant="outlined" sx={getLedgerMetricCardSx()}>
                   <CardContent>
                     <Typography variant="body2" color="text.secondary" gutterBottom>
                       Account Type
@@ -345,6 +362,7 @@ const GeneralLedgerPage: React.FC = () => {
                 <Card
                   variant="outlined"
                   sx={{
+                    ...getLedgerMetricCardSx(),
                     backgroundColor:
                       theme.palette.mode === 'dark'
                         ? alpha(theme.palette.primary.main, 0.2)
@@ -557,7 +575,7 @@ const GeneralLedgerPage: React.FC = () => {
             >
               <Grid container spacing={2}>
                 <Grid item xs={12} md={3}>
-                  <Card variant="outlined">
+                  <Card variant="outlined" sx={getLedgerMetricCardSx()}>
                     <CardContent>
                       <Typography variant="body2" color="text.secondary" gutterBottom>
                         Opening Balance
@@ -576,7 +594,7 @@ const GeneralLedgerPage: React.FC = () => {
                   </Card>
                 </Grid>
                 <Grid item xs={12} md={3}>
-                  <Card variant="outlined">
+                  <Card variant="outlined" sx={getLedgerMetricCardSx()}>
                     <CardContent>
                       <Typography variant="body2" color="text.secondary" gutterBottom>
                         Total Debits
@@ -595,7 +613,7 @@ const GeneralLedgerPage: React.FC = () => {
                   </Card>
                 </Grid>
                 <Grid item xs={12} md={3}>
-                  <Card variant="outlined">
+                  <Card variant="outlined" sx={getLedgerMetricCardSx()}>
                     <CardContent>
                       <Typography variant="body2" color="text.secondary" gutterBottom>
                         Total Credits
@@ -617,6 +635,7 @@ const GeneralLedgerPage: React.FC = () => {
                   <Card
                     variant="outlined"
                     sx={{
+                      ...getLedgerMetricCardSx(),
                       backgroundColor:
                         theme.palette.mode === 'dark'
                           ? alpha(theme.palette.primary.main, 0.2)
