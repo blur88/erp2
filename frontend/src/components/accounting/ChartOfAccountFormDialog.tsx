@@ -43,6 +43,14 @@ interface FormData {
   isActive: boolean
 }
 
+const accountTypeMap: Record<FormData['type'], ChartOfAccount['type']> = {
+  asset: 'ASSET',
+  liability: 'LIABILITY',
+  equity: 'EQUITY',
+  revenue: 'REVENUE',
+  expense: 'EXPENSE',
+}
+
 const accountSchema = yup.object({
   code: yup.string().required('Account code is required').min(2, 'Code must be at least 2 characters'),
   name: yup.string().required('Account name is required').min(2, 'Name must be at least 2 characters'),
@@ -111,7 +119,7 @@ const ChartOfAccountFormDialog: React.FC<ChartOfAccountFormDialogProps> = ({
       const accountData = {
         code: data.code,
         name: data.name,
-        type: data.type.toUpperCase(),
+        type: accountTypeMap[data.type],
         parentId: data.parentId || undefined,
         isActive: data.isActive,
       }
