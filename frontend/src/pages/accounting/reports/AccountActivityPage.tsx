@@ -177,7 +177,7 @@ const accountActivityToolbarLayout = {
   filtersWrap: { xs: 'wrap', md: 'nowrap' } as const,
   dateStatusDirection: { xs: 'row', sm: 'row' } as const,
   dateStatusWrap: 'nowrap' as const,
-  actionsJustify: { xs: 'flex-start', md: 'flex-start' } as const,
+  actionsJustify: { xs: 'stretch', md: 'flex-end' } as const,
 };
 
 export const getAccountActivityToolbarLayout = () => accountActivityToolbarLayout;
@@ -371,7 +371,6 @@ const AccountActivityPage: React.FC = () => {
             spacing={2}
             justifyContent={accountActivityToolbarLayout.actionsJustify}
             flexWrap="wrap"
-            sx={{ width: '100%' }}
           >
             <Button
               variant="contained"

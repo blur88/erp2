@@ -220,6 +220,6 @@ describe('AccountActivityPage', () => {
     expect(toolbarLayout.filtersWrap).toEqual({ xs: 'wrap', md: 'nowrap' });
     expect(toolbarLayout.dateStatusDirection).toEqual({ xs: 'row', sm: 'row' });
     expect(toolbarLayout.dateStatusWrap).toBe('nowrap');
-    expect(toolbarLayout.actionsJustify).toEqual({ xs: 'flex-start', md: 'flex-start' });
+    expect(toolbarLayout.actionsJustify).toEqual({ xs: 'stretch', md: 'flex-end' });
   });
 });
