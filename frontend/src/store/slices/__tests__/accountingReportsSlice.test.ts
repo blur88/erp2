@@ -1,6 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { configureStore } from '@reduxjs/toolkit';
 import accountingReportsReducer, {
+  downloadAccountActivityExcel,
+  downloadBalanceSheetExcel,
+  downloadGeneralLedgerExcel,
   downloadTrialBalanceExcel,
   fetchAccountActivity,
   fetchGeneralLedger,
@@ -171,6 +174,109 @@ describe('accountingReportsSlice', () => {
 
     expect(ApiService.get).toHaveBeenCalledWith('/accounting/reports/trial-balance/export', {
       params: { asOfDate: '2026-02-10', includeInactive: false },
+      responseType: 'blob',
+    });
+
+    createElementSpy.mockRestore();
+  });
+
+  it('uses export endpoint for balance sheet excel download', async () => {
+    (ApiService.get as any).mockResolvedValue(new Blob(['excel']));
+    Object.defineProperty(URL, 'createObjectURL', {
+      value: vi.fn(() => 'blob:mock-url'),
+      writable: true,
+      configurable: true,
+    });
+    Object.defineProperty(URL, 'revokeObjectURL', {
+      value: vi.fn(),
+      writable: true,
+      configurable: true,
+    });
+    const createElementSpy = vi
+      .spyOn(document, 'createElement')
+      .mockReturnValue({ click: vi.fn() } as any);
+
+    await store.dispatch(
+      downloadBalanceSheetExcel({
+        asOfDate: '2026-02-10',
+        includeInactive: false,
+      }) as any,
+    );
+
+    expect(ApiService.get).toHaveBeenCalledWith('/accounting/reports/balance-sheet/export', {
+      params: { asOfDate: '2026-02-10', includeInactive: false },
+      responseType: 'blob',
+    });
+
+    createElementSpy.mockRestore();
+  });
+
+  it('uses export endpoint for general ledger excel download', async () => {
+    (ApiService.get as any).mockResolvedValue(new Blob(['excel']));
+    Object.defineProperty(URL, 'createObjectURL', {
+      value: vi.fn(() => 'blob:mock-url'),
+      writable: true,
+      configurable: true,
+    });
+    Object.defineProperty(URL, 'revokeObjectURL', {
+      value: vi.fn(),
+      writable: true,
+      configurable: true,
+    });
+    const createElementSpy = vi
+      .spyOn(document, 'createElement')
+      .mockReturnValue({ click: vi.fn() } as any);
+
+    await store.dispatch(
+      downloadGeneralLedgerExcel({
+        accountId: 'acc-1',
+        startDate: '2026-01-01',
+        endDate: '2026-01-31',
+      }) as any,
+    );
+
+    expect(ApiService.get).toHaveBeenCalledWith('/accounting/reports/general-ledger/export', {
+      params: {
+        accountId: 'acc-1',
+        startDate: '2026-01-01',
+        endDate: '2026-01-31',
+      },
+      responseType: 'blob',
+    });
+
+    createElementSpy.mockRestore();
+  });
+
+  it('uses export endpoint for account activity excel download', async () => {
+    (ApiService.get as any).mockResolvedValue(new Blob(['excel']));
+    Object.defineProperty(URL, 'createObjectURL', {
+      value: vi.fn(() => 'blob:mock-url'),
+      writable: true,
+      configurable: true,
+    });
+    Object.defineProperty(URL, 'revokeObjectURL', {
+      value: vi.fn(),
+      writable: true,
+      configurable: true,
+    });
+    const createElementSpy = vi
+      .spyOn(document, 'createElement')
+      .mockReturnValue({ click: vi.fn() } as any);
+
+    await store.dispatch(
+      downloadAccountActivityExcel({
+        accountId: 'acc-1',
+        startDate: '2026-01-01',
+        endDate: '2026-01-31',
+      }) as any,
+    );
+
+    expect(ApiService.get).toHaveBeenCalledWith('/accounting/reports/account-activity/export', {
+      params: {
+        accountId: 'acc-1',
+        startDate: '2026-01-01',
+        endDate: '2026-01-31',
+      },
       responseType: 'blob',
     });
 

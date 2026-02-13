@@ -573,7 +573,7 @@ export const downloadBalanceSheetExcel = createAsyncThunk(
     { rejectWithValue }
   ) => {
     try {
-      const response = await ApiService.get(`${BASE_URL}/balance-sheet/excel`, {
+      const response = await ApiService.get(`${BASE_URL}/balance-sheet/export`, {
         params,
         responseType: 'blob',
       });
@@ -645,7 +645,7 @@ export const downloadGeneralLedgerExcel = createAsyncThunk(
     { rejectWithValue }
   ) => {
     try {
-      const response = await ApiService.get(`${BASE_URL}/general-ledger/excel`, {
+      const response = await ApiService.get(`${BASE_URL}/general-ledger/export`, {
         params,
         responseType: 'blob',
       });
@@ -682,7 +682,7 @@ export const downloadAccountActivityExcel = createAsyncThunk(
     { rejectWithValue }
   ) => {
     try {
-      const response = await ApiService.get(`${BASE_URL}/account-activity/excel`, {
+      const response = await ApiService.get(`${BASE_URL}/account-activity/export`, {
         params,
         responseType: 'blob',
       });
