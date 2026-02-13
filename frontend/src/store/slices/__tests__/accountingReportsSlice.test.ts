@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { configureStore } from '@reduxjs/toolkit';
 import accountingReportsReducer, {
+  downloadTrialBalanceExcel,
   fetchAccountActivity,
   fetchGeneralLedger,
   fetchProfitAndLoss,
@@ -140,5 +141,39 @@ describe('accountingReportsSlice', () => {
       referenceType: 'SALES_ORDER',
       referenceId: 'so-1',
     });
+  });
+
+  it('uses export endpoint for trial balance excel download', async () => {
+    (ApiService.get as any).mockResolvedValue(new Blob(['excel']));
+    const createObjectURLMock = vi.fn(() => 'blob:mock-url');
+    const revokeObjectURLMock = vi.fn();
+    Object.defineProperty(URL, 'createObjectURL', {
+      value: createObjectURLMock,
+      writable: true,
+      configurable: true,
+    });
+    Object.defineProperty(URL, 'revokeObjectURL', {
+      value: revokeObjectURLMock,
+      writable: true,
+      configurable: true,
+    });
+    const clickMock = vi.fn();
+    const createElementSpy = vi
+      .spyOn(document, 'createElement')
+      .mockReturnValue({ click: clickMock } as any);
+
+    await store.dispatch(
+      downloadTrialBalanceExcel({
+        asOfDate: '2026-02-10',
+        includeInactive: false,
+      }) as any,
+    );
+
+    expect(ApiService.get).toHaveBeenCalledWith('/accounting/reports/trial-balance/export', {
+      params: { asOfDate: '2026-02-10', includeInactive: false },
+      responseType: 'blob',
+    });
+
+    createElementSpy.mockRestore();
   });
 });

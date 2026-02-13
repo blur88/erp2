@@ -538,7 +538,7 @@ export const downloadTrialBalanceExcel = createAsyncThunk(
     { rejectWithValue }
   ) => {
     try {
-      const response = await ApiService.get(`${BASE_URL}/trial-balance/excel`, {
+      const response = await ApiService.get(`${BASE_URL}/trial-balance/export`, {
         params,
         responseType: 'blob',
       });
