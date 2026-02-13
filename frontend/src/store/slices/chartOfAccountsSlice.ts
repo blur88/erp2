@@ -28,6 +28,18 @@ interface PaginatedResponse<T> {
   }
 }
 
+interface BulkRestoreResponse {
+  message: string
+  restoredCount: number
+  failedIds: string[]
+}
+
+interface BulkDeleteResponse {
+  message: string
+  deletedCount: number
+  failedIds: string[]
+}
+
 interface ChartOfAccountsState {
   data: ChartOfAccount[]
   hierarchy: ChartOfAccount[]
@@ -195,6 +207,36 @@ export const permanentDeleteAccount = createAsyncThunk(
       return id
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.message || 'Failed to permanently delete account')
+    }
+  }
+)
+
+export const bulkRestoreAccounts = createAsyncThunk(
+  'chartOfAccounts/bulkRestore',
+  async (accountIds: string[], { rejectWithValue }) => {
+    try {
+      const response = await ApiService.post<BulkRestoreResponse>(
+        '/accounting/chart-of-accounts/bulk-restore',
+        { accountIds }
+      )
+      return response
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data?.message || 'Failed to bulk restore accounts')
+    }
+  }
+)
+
+export const bulkPermanentDeleteAccounts = createAsyncThunk(
+  'chartOfAccounts/bulkPermanentDelete',
+  async (accountIds: string[], { rejectWithValue }) => {
+    try {
+      const response = await ApiService.delete<BulkDeleteResponse>(
+        '/accounting/chart-of-accounts/bulk-permanent',
+        { data: { accountIds } }
+      )
+      return response
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data?.message || 'Failed to bulk permanently delete accounts')
     }
   }
 )
@@ -384,6 +426,34 @@ const chartOfAccountsSlice = createSlice({
         // Account is permanently deleted, no need to update state
       })
       .addCase(permanentDeleteAccount.rejected, (state, action) => {
+        state.loading = false
+        state.error = action.payload as string
+      })
+
+    // Bulk Restore Accounts
+    builder
+      .addCase(bulkRestoreAccounts.pending, (state) => {
+        state.loading = true
+        state.error = null
+      })
+      .addCase(bulkRestoreAccounts.fulfilled, (state) => {
+        state.loading = false
+      })
+      .addCase(bulkRestoreAccounts.rejected, (state, action) => {
+        state.loading = false
+        state.error = action.payload as string
+      })
+
+    // Bulk Permanent Delete Accounts
+    builder
+      .addCase(bulkPermanentDeleteAccounts.pending, (state) => {
+        state.loading = true
+        state.error = null
+      })
+      .addCase(bulkPermanentDeleteAccounts.fulfilled, (state) => {
+        state.loading = false
+      })
+      .addCase(bulkPermanentDeleteAccounts.rejected, (state, action) => {
         state.loading = false
         state.error = action.payload as string
       })

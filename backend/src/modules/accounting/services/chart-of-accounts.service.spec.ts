@@ -62,6 +62,7 @@ describe('ChartOfAccountsService', () => {
             update: jest.fn(),
             softDelete: jest.fn(),
             restore: jest.fn(),
+            remove: jest.fn(),
             count: jest.fn(),
             createQueryBuilder: jest.fn(() => mockQueryBuilder),
           },
@@ -423,6 +424,40 @@ describe('ChartOfAccountsService', () => {
       await expect(service.restore(mockAccount.id!)).rejects.toThrow(
         ConflictException,
       );
+    });
+  });
+
+  describe('bulkRestore', () => {
+    it('should restore valid accounts and return failed IDs', async () => {
+      const restoreSpy = jest
+        .spyOn(service, 'restore')
+        .mockResolvedValue(mockAccount as any)
+        .mockRejectedValueOnce(new NotFoundException('not found'));
+
+      const result = await service.bulkRestore(['missing-id', 'valid-id']);
+
+      expect(restoreSpy).toHaveBeenCalledTimes(2);
+      expect(result).toEqual({
+        restoredCount: 1,
+        failedIds: ['missing-id'],
+      });
+    });
+  });
+
+  describe('bulkPermanentDelete', () => {
+    it('should permanently delete valid accounts and return failed IDs', async () => {
+      const deleteSpy = jest
+        .spyOn(service, 'permanentDelete')
+        .mockResolvedValue(undefined)
+        .mockRejectedValueOnce(new BadRequestException('invalid'));
+
+      const result = await service.bulkPermanentDelete(['bad-id', 'valid-id']);
+
+      expect(deleteSpy).toHaveBeenCalledTimes(2);
+      expect(result).toEqual({
+        deletedCount: 1,
+        failedIds: ['bad-id'],
+      });
     });
   });
 

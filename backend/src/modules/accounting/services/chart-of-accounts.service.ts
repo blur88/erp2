@@ -375,6 +375,34 @@ export class ChartOfAccountsService {
   }
 
   /**
+   * Bulk restore soft-deleted accounts
+   */
+  async bulkRestore(
+    accountIds: string[],
+  ): Promise<{ restoredCount: number; failedIds: string[] }> {
+    if (!accountIds?.length) {
+      return { restoredCount: 0, failedIds: [] };
+    }
+
+    const failedIds: string[] = [];
+    let restoredCount = 0;
+
+    for (const accountId of accountIds) {
+      try {
+        await this.restore(accountId);
+        restoredCount += 1;
+      } catch (error: any) {
+        failedIds.push(accountId);
+        this.logger.warn(
+          `Failed to restore account '${accountId}': ${error.message}`,
+        );
+      }
+    }
+
+    return { restoredCount, failedIds };
+  }
+
+  /**
    * Get full account hierarchy as a tree structure
    */
   async getAccountHierarchy(): Promise<ChartOfAccountHierarchyDto> {
@@ -484,6 +512,34 @@ export class ChartOfAccountsService {
     await this.accountRepository.remove(account);
 
     this.logger.log(`Account permanently deleted: ${id}`);
+  }
+
+  /**
+   * Bulk permanently delete soft-deleted accounts
+   */
+  async bulkPermanentDelete(
+    accountIds: string[],
+  ): Promise<{ deletedCount: number; failedIds: string[] }> {
+    if (!accountIds?.length) {
+      return { deletedCount: 0, failedIds: [] };
+    }
+
+    const failedIds: string[] = [];
+    let deletedCount = 0;
+
+    for (const accountId of accountIds) {
+      try {
+        await this.permanentDelete(accountId);
+        deletedCount += 1;
+      } catch (error: any) {
+        failedIds.push(accountId);
+        this.logger.warn(
+          `Failed to permanently delete account '${accountId}': ${error.message}`,
+        );
+      }
+    }
+
+    return { deletedCount, failedIds };
   }
 
   /**

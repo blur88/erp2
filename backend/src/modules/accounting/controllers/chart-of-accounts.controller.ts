@@ -21,6 +21,7 @@ import {
   ChartOfAccountResponseDto,
   ChartOfAccountListResponseDto,
   ChartOfAccountHierarchyDto,
+  BulkChartOfAccountsDto,
 } from '../dto/chart-of-account.dto';
 
 @ApiTags('Chart of Accounts')
@@ -133,6 +134,27 @@ export class ChartOfAccountsController {
     return this.chartOfAccountsService.update(id, updateDto);
   }
 
+  @Delete('bulk-permanent')
+  @Auth(UserRole.ADMIN)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Bulk permanently delete soft-deleted accounts' })
+  @ApiResponse({
+    status: 200,
+    description: 'Bulk permanent delete completed',
+  })
+  async bulkPermanentDelete(
+    @Body() body: BulkChartOfAccountsDto,
+  ): Promise<{ message: string; deletedCount: number; failedIds: string[] }> {
+    const result = await this.chartOfAccountsService.bulkPermanentDelete(
+      body.accountIds,
+    );
+    return {
+      message: `Successfully deleted ${result.deletedCount} of ${body.accountIds.length} accounts`,
+      deletedCount: result.deletedCount,
+      failedIds: result.failedIds,
+    };
+  }
+
   @Delete(':id')
   @Auth(UserRole.ADMIN)
   @HttpCode(HttpStatus.NO_CONTENT)
@@ -177,6 +199,26 @@ export class ChartOfAccountsController {
   @ApiResponse({ status: 409, description: 'Account code now used by another account' })
   async restore(@Param('id') id: string): Promise<ChartOfAccountResponseDto> {
     return this.chartOfAccountsService.restore(id);
+  }
+
+  @Post('bulk-restore')
+  @Auth(UserRole.ADMIN, UserRole.MANAGER)
+  @ApiOperation({ summary: 'Bulk restore soft-deleted accounts' })
+  @ApiResponse({
+    status: 200,
+    description: 'Bulk restore completed',
+  })
+  async bulkRestore(
+    @Body() body: BulkChartOfAccountsDto,
+  ): Promise<{ message: string; restoredCount: number; failedIds: string[] }> {
+    const result = await this.chartOfAccountsService.bulkRestore(
+      body.accountIds,
+    );
+    return {
+      message: `Successfully restored ${result.restoredCount} of ${body.accountIds.length} accounts`,
+      restoredCount: result.restoredCount,
+      failedIds: result.failedIds,
+    };
   }
 
   @Post('seed')

@@ -5,6 +5,8 @@ import {
   IsUUID,
   IsNumber,
   IsBoolean,
+  IsArray,
+  ArrayNotEmpty,
   MaxLength,
   Min,
   Max,
@@ -177,4 +179,16 @@ export class ChartOfAccountHierarchyDto {
     accountsByType: Record<AccountType, number>;
     maxDepth: number;
   };
+}
+
+export class BulkChartOfAccountsDto {
+  @ApiProperty({
+    description: 'Array of account IDs for bulk operations',
+    type: [String],
+    example: ['123e4567-e89b-12d3-a456-426614174000'],
+  })
+  @IsArray()
+  @ArrayNotEmpty()
+  @IsUUID(4, { each: true })
+  accountIds: string[];
 }

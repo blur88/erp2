@@ -21,6 +21,7 @@ import {
   Tooltip,
   Alert,
   CircularProgress,
+  Checkbox,
   useTheme,
   useMediaQuery,
 } from '@mui/material'
@@ -36,7 +37,9 @@ import {
   fetchDeletedAccounts,
   restoreAccount,
   permanentDeleteAccount,
-  fetchChartOfAccounts
+  fetchChartOfAccounts,
+  bulkRestoreAccounts,
+  bulkPermanentDeleteAccounts,
 } from '@/store/slices/chartOfAccountsSlice'
 import ConfirmationDialog from '@/components/common/ConfirmationDialog'
 import { useNotification } from '@/hooks/useNotification'
@@ -60,10 +63,16 @@ const DeletedAccountsDialog: React.FC<DeletedAccountsDialogProps> = ({ open, onC
   const [restoringId, setRestoringId] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [confirmDeleteAccount, setConfirmDeleteAccount] = useState<ChartOfAccount | null>(null)
+  const [selectedAccounts, setSelectedAccounts] = useState<Set<string>>(new Set())
+  const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false)
+  const [showBulkRestoreConfirm, setShowBulkRestoreConfirm] = useState(false)
+  const [bulkDeleting, setBulkDeleting] = useState(false)
+  const [bulkRestoring, setBulkRestoring] = useState(false)
 
   useEffect(() => {
     if (open) {
       loadDeletedAccounts()
+      setSelectedAccounts(new Set())
     }
   }, [open])
 
@@ -85,6 +94,11 @@ const DeletedAccountsDialog: React.FC<DeletedAccountsDialogProps> = ({ open, onC
     account.code?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     account.name?.toLowerCase().includes(searchTerm.toLowerCase())
   )
+  const selectedCount = selectedAccounts.size
+  const allSelected =
+    filteredAccounts.length > 0 && selectedCount === filteredAccounts.length
+  const partiallySelected =
+    selectedCount > 0 && selectedCount < filteredAccounts.length
 
   const handleRestore = async (account: ChartOfAccount) => {
     setRestoringId(account.id)
@@ -117,6 +131,73 @@ const DeletedAccountsDialog: React.FC<DeletedAccountsDialogProps> = ({ open, onC
     } finally {
       setDeletingId(null)
       setConfirmDeleteAccount(null)
+    }
+  }
+
+  const handleSelectAccount = (accountId: string, checked: boolean) => {
+    setSelectedAccounts((prev) => {
+      const updated = new Set(prev)
+      if (checked) {
+        updated.add(accountId)
+      } else {
+        updated.delete(accountId)
+      }
+      return updated
+    })
+  }
+
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedAccounts(new Set(filteredAccounts.map((account) => account.id)))
+      return
+    }
+    setSelectedAccounts(new Set())
+  }
+
+  const handleBulkRestore = async () => {
+    setBulkRestoring(true)
+    try {
+      const accountIds = Array.from(selectedAccounts)
+      const result = await dispatch(bulkRestoreAccounts(accountIds)).unwrap()
+
+      if (result.restoredCount > 0) {
+        showSuccess(`Successfully restored ${result.restoredCount} account${result.restoredCount !== 1 ? 's' : ''}`)
+      }
+      if (result.failedIds?.length > 0) {
+        showError(`Failed to restore ${result.failedIds.length} account${result.failedIds.length !== 1 ? 's' : ''}`)
+      }
+
+      await loadDeletedAccounts()
+      dispatch(fetchChartOfAccounts({ page: 1, limit: 100 }))
+      setSelectedAccounts(new Set())
+    } catch (error: any) {
+      showError(error || 'Failed to bulk restore accounts')
+    } finally {
+      setBulkRestoring(false)
+      setShowBulkRestoreConfirm(false)
+    }
+  }
+
+  const handleBulkPermanentDelete = async () => {
+    setBulkDeleting(true)
+    try {
+      const accountIds = Array.from(selectedAccounts)
+      const result = await dispatch(bulkPermanentDeleteAccounts(accountIds)).unwrap()
+
+      if (result.deletedCount > 0) {
+        showSuccess(`Successfully permanently deleted ${result.deletedCount} account${result.deletedCount !== 1 ? 's' : ''}`)
+      }
+      if (result.failedIds?.length > 0) {
+        showError(`Failed to delete ${result.failedIds.length} account${result.failedIds.length !== 1 ? 's' : ''}`)
+      }
+
+      await loadDeletedAccounts()
+      setSelectedAccounts(new Set())
+    } catch (error: any) {
+      showError(error || 'Failed to bulk delete accounts')
+    } finally {
+      setBulkDeleting(false)
+      setShowBulkDeleteConfirm(false)
     }
   }
 
@@ -163,20 +244,45 @@ const DeletedAccountsDialog: React.FC<DeletedAccountsDialogProps> = ({ open, onC
       <DialogContent dividers>
         {/* Search */}
         <Box sx={{ mb: 3 }}>
-          <TextField
-            fullWidth
-            size="small"
-            placeholder="Search by code or name..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon fontSize="small" />
-                </InputAdornment>
-              ),
-            }}
-          />
+          <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
+            <TextField
+              fullWidth
+              size="small"
+              placeholder="Search by code or name..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon fontSize="small" />
+                  </InputAdornment>
+                ),
+              }}
+              sx={{ flex: 1, minWidth: 280 }}
+            />
+            {selectedCount > 0 && (
+              <>
+                <Button
+                  variant="contained"
+                  color="success"
+                  startIcon={<RestoreIcon />}
+                  disabled={bulkRestoring || bulkDeleting}
+                  onClick={() => setShowBulkRestoreConfirm(true)}
+                >
+                  Restore Selected ({selectedCount})
+                </Button>
+                <Button
+                  variant="contained"
+                  color="error"
+                  startIcon={<DeleteForeverIcon />}
+                  disabled={bulkDeleting || bulkRestoring}
+                  onClick={() => setShowBulkDeleteConfirm(true)}
+                >
+                  Delete Selected ({selectedCount})
+                </Button>
+              </>
+            )}
+          </Box>
         </Box>
 
         {/* Info Alert */}
@@ -220,6 +326,15 @@ const DeletedAccountsDialog: React.FC<DeletedAccountsDialogProps> = ({ open, onC
             <Table size="small">
               <TableHead>
                 <TableRow sx={{ bgcolor: 'action.hover' }}>
+                  <TableCell padding="checkbox">
+                    <Checkbox
+                      size="small"
+                      checked={allSelected}
+                      indeterminate={partiallySelected}
+                      onChange={(e) => handleSelectAll(e.target.checked)}
+                      inputProps={{ 'aria-label': 'Select all deleted accounts' }}
+                    />
+                  </TableCell>
                   <TableCell sx={{ fontWeight: 600 }}>Code</TableCell>
                   <TableCell sx={{ fontWeight: 600 }}>Name</TableCell>
                   <TableCell sx={{ fontWeight: 600 }}>Type</TableCell>
@@ -236,6 +351,15 @@ const DeletedAccountsDialog: React.FC<DeletedAccountsDialogProps> = ({ open, onC
                       opacity: restoringId === account.id ? 0.5 : 1
                     }}
                   >
+                    <TableCell padding="checkbox">
+                      <Checkbox
+                        size="small"
+                        checked={selectedAccounts.has(account.id)}
+                        onChange={(e) => handleSelectAccount(account.id, e.target.checked)}
+                        inputProps={{ 'aria-label': `Select account ${account.code}` }}
+                        disabled={bulkRestoring || bulkDeleting}
+                      />
+                    </TableCell>
                     <TableCell>
                       <Typography variant="body2" fontWeight={500}>
                         {account.code}
@@ -323,6 +447,30 @@ const DeletedAccountsDialog: React.FC<DeletedAccountsDialogProps> = ({ open, onC
         onConfirm={handlePermanentDelete}
         onCancel={() => setConfirmDeleteAccount(null)}
         severity="error"
+      />
+
+      <ConfirmationDialog
+        open={showBulkRestoreConfirm}
+        title="Restore Selected Accounts"
+        message={`Are you sure you want to restore ${selectedCount} selected account${selectedCount !== 1 ? 's' : ''}?`}
+        confirmText={bulkRestoring ? 'Restoring...' : 'Restore Selected'}
+        cancelText="Cancel"
+        onConfirm={handleBulkRestore}
+        onCancel={() => setShowBulkRestoreConfirm(false)}
+        severity="info"
+        loading={bulkRestoring}
+      />
+
+      <ConfirmationDialog
+        open={showBulkDeleteConfirm}
+        title="Permanently Delete Selected Accounts"
+        message={`Are you sure you want to permanently delete ${selectedCount} selected account${selectedCount !== 1 ? 's' : ''}? This action cannot be undone.`}
+        confirmText={bulkDeleting ? 'Deleting...' : 'Delete Selected'}
+        cancelText="Cancel"
+        onConfirm={handleBulkPermanentDelete}
+        onCancel={() => setShowBulkDeleteConfirm(false)}
+        severity="error"
+        loading={bulkDeleting}
       />
     </Dialog>
   )
