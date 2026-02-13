@@ -638,7 +638,8 @@ export class InvoiceService {
         paymentNumber: payment.paymentNumber,
         paymentDate: payment.paymentDate,
         amount: Number(payment.amount),
-        paymentMethod: payment.paymentMethod,
+        paymentMethodId: payment.paymentMethodId,
+        paymentMethod: payment.paymentMethodEntity?.code?.toLowerCase() || 'cash',
         status: payment.status,
       })),
     };
@@ -691,7 +692,7 @@ export class InvoiceService {
           history.push({
             date: payment.paymentDate,
             event: 'payment',
-            description: `Payment received: ${payment.paymentMethod}`,
+            description: `Payment received: ${payment.paymentMethodEntity?.name || payment.paymentMethodEntity?.code || 'Cash'}`,
             amount: Number(payment.amount),
             reference: payment.paymentNumber,
           });
@@ -947,7 +948,8 @@ export class InvoiceService {
         paymentNumber: payment.paymentNumber,
         paymentDate: payment.paymentDate,
         amount: Number(payment.amount),
-        paymentMethod: payment.paymentMethod,
+        paymentMethodId: payment.paymentMethodId,
+        paymentMethod: payment.paymentMethodEntity?.code?.toLowerCase() || 'cash',
         status: payment.status,
       })) : undefined,
       items: invoice.items ? invoice.items.map(item => ({

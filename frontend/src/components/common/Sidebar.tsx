@@ -37,6 +37,7 @@ import {
   ListAlt as DetailIcon,
   TrendingUp as ProfitIcon,
   AccountBalanceWallet as PaymentSummaryIcon,
+  AccountBalanceWallet as AccountBalanceWalletIcon,
   ReceiptLongOutlined as PaymentOrderIcon,
   MonetizationOn as PaymentDetailIcon,
   History as HistoryIcon,
@@ -239,6 +240,12 @@ const menuSections: MenuSection[] = [
             title: 'Account Mappings',
             icon: <SettingsIcon />,
             path: '/accounting/account-mappings',
+          },
+          {
+            id: 'settlements',
+            title: 'Settlements',
+            icon: <AccountBalanceWalletIcon />,
+            path: '/accounting/settlements',
           },
           {
             id: 'bank-reconciliation',
@@ -454,6 +461,12 @@ const menuSections: MenuSection[] = [
             title: 'Price Lists',
             icon: <PriceTagIcon />,
             path: '/settings/price-lists',
+          },
+          {
+            id: 'payment-methods',
+            title: 'Payment Methods',
+            icon: <PaymentsIcon />,
+            path: '/settings/payment-methods',
           },
           {
             id: 'print-settings',

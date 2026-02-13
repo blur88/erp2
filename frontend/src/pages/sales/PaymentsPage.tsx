@@ -62,7 +62,13 @@ interface Payment {
   customerName: string
   amount: number
   paymentDate: string
-  paymentMethod: 'cash'
+  paymentMethodId?: string
+  paymentMethod?: string
+  paymentMethodEntity?: {
+    id: string
+    code: string
+    name: string
+  }
   status: 'completed'
   notes?: string
   reference?: string
@@ -497,11 +503,10 @@ const PaymentsPage: React.FC = () => {
     }
   }
 
-  const getPaymentMethodLabel = (method: string) => {
-    switch (method) {
-      case 'cash': return 'Cash'
-      default: return method
-    }
+  const getPaymentMethodLabel = (payment: Payment) => {
+    if (payment.paymentMethodEntity?.name) return payment.paymentMethodEntity.name
+    if (payment.paymentMethod) return payment.paymentMethod
+    return 'Unknown'
   }
 
 
@@ -917,7 +922,7 @@ const PaymentsPage: React.FC = () => {
                               Method
                             </TableCell>
                             <TableCell sx={{ fontSize: '0.8rem' }}>
-                              {getPaymentMethodLabel(selectedPayment.paymentMethod)}
+                              {getPaymentMethodLabel(selectedPayment)}
                             </TableCell>
                           </TableRow>
                           {selectedPayment.reference && (

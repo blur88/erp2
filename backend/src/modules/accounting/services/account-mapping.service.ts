@@ -35,7 +35,7 @@ export class AccountMappingService {
    * Get all active mappings as an object for easy access during auto-posting
    * Returns: { SALES_REVENUE: 'uuid', SALES_AR: 'uuid', ... }
    */
-  async getMappings(): Promise<Record<MappingType, string>> {
+  async getMappings(): Promise<Record<string, string>> {
     this.logger.log('Fetching active account mappings');
 
     const mappings = await this.mappingRepository.find({
@@ -47,7 +47,7 @@ export class AccountMappingService {
       result[mapping.mappingType] = mapping.accountId;
     });
 
-    return result as Record<MappingType, string>;
+    return result;
   }
 
   /**

@@ -9,6 +9,7 @@ import { Product } from '../../database/entities/product.entity';
 import { Invoice } from '../../database/entities/invoice.entity';
 import { InvoiceItem } from '../../database/entities/invoice-item.entity';
 import { Payment } from '../../database/entities/payment.entity';
+import { PaymentMethodEntity } from '../../database/entities/payment-method.entity';
 import { User } from '../../database/entities/user.entity';
 import { StockMovement } from '../../database/entities/stock-movement.entity';
 import { PurchaseOrderItem } from '../../database/entities/purchase-order-item.entity';
@@ -43,6 +44,7 @@ import { TransactionManager } from '../../common/utils/transaction.util';
       Invoice,
       InvoiceItem,
       Payment,
+      PaymentMethodEntity,
       User,
       StockMovement,
       PurchaseOrderItem,

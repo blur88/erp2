@@ -1,0 +1,93 @@
+import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
+import {
+  IsString,
+  IsBoolean,
+  IsOptional,
+  IsInt,
+  MaxLength,
+  Min,
+  Max,
+  IsNumber,
+} from 'class-validator';
+import { Type } from 'class-transformer';
+
+export class CreatePaymentMethodDto {
+  @ApiProperty({ description: 'Unique code', example: 'TNG' })
+  @IsString()
+  @MaxLength(20)
+  code: string;
+
+  @ApiProperty({ description: 'Display name', example: 'Touch n Go' })
+  @IsString()
+  @MaxLength(100)
+  name: string;
+
+  @ApiProperty({ description: 'Whether this method requires third-party settlement', default: false })
+  @IsBoolean()
+  requiresSettlement: boolean;
+
+  @ApiPropertyOptional({ description: 'Display order', default: 0 })
+  @IsOptional()
+  @IsInt()
+  sortOrder?: number;
+}
+
+export class UpdatePaymentMethodDto extends PartialType(CreatePaymentMethodDto) {
+  @ApiPropertyOptional({ description: 'Whether the method is active' })
+  @IsOptional()
+  @IsBoolean()
+  isActive?: boolean;
+}
+
+export class QueryPaymentMethodsDto {
+  @ApiPropertyOptional({ minimum: 1, default: 1 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(1)
+  page?: number = 1;
+
+  @ApiPropertyOptional({ minimum: 1, maximum: 100, default: 50 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(1)
+  @Max(100)
+  limit?: number = 50;
+
+  @ApiPropertyOptional({ description: 'Filter by active status' })
+  @IsOptional()
+  @Type(() => Boolean)
+  @IsBoolean()
+  isActive?: boolean;
+
+  @ApiPropertyOptional({ description: 'Filter by requiresSettlement' })
+  @IsOptional()
+  @Type(() => Boolean)
+  @IsBoolean()
+  requiresSettlement?: boolean;
+}
+
+export class PaymentMethodResponseDto {
+  @ApiProperty() id: string;
+  @ApiProperty() code: string;
+  @ApiProperty() name: string;
+  @ApiProperty() requiresSettlement: boolean;
+  @ApiProperty() sortOrder: number;
+  @ApiProperty() isActive: boolean;
+  @ApiProperty() createdAt: Date;
+  @ApiProperty() updatedAt: Date;
+}
+
+export class PaymentMethodListResponseDto {
+  @ApiProperty({ type: [PaymentMethodResponseDto] })
+  data: PaymentMethodResponseDto[];
+
+  @ApiProperty()
+  meta: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+}

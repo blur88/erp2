@@ -64,6 +64,7 @@ const RoleManagementPage = React.lazy(() => import('./pages/settings/RoleManagem
 const SecuritySettingsPage = React.lazy(() => import('./pages/settings/SecuritySettingsPage'))
 const PriceListsPage = React.lazy(() => import('./pages/settings/PriceListsPage'))
 const PriceListDetailsPage = React.lazy(() => import('./pages/settings/PriceListDetailsPage'))
+const PaymentMethodsPage = React.lazy(() => import('./pages/settings/PaymentMethodsPage'))
 const AuditLogsPage = React.lazy(() => import('./pages/audit-logs/AuditLogsPage'))
 const ChartOfAccountsPage = React.lazy(() => import('./pages/accounting/ChartOfAccountsPage'))
 const FiscalPeriodsPage = React.lazy(() => import('./pages/accounting/FiscalPeriodsPage'))
@@ -74,6 +75,7 @@ const AccountMappingsPage = React.lazy(() => import('./pages/accounting/AccountM
 const BankReconciliationsPage = React.lazy(() => import('./pages/accounting/BankReconciliationsPage'))
 const BankReconciliationDetailsPage = React.lazy(() => import('./pages/accounting/BankReconciliationDetailsPage'))
 const AccountingDashboardPage = React.lazy(() => import('./pages/accounting/AccountingDashboardPage'))
+const SettlementsPage = React.lazy(() => import('./pages/accounting/SettlementsPage'))
 const TrialBalancePage = React.lazy(() => import('./pages/accounting/reports/TrialBalancePage'))
 const BalanceSheetPage = React.lazy(() => import('./pages/accounting/reports/BalanceSheetPage'))
 const ProfitAndLossPage = React.lazy(() => import('./pages/accounting/reports/ProfitAndLossPage'))
@@ -263,6 +265,7 @@ function App() {
                     <Route path="/settings/price-costing" element={<PriceCostingPage />} />
                     <Route path="/settings/price-lists" element={<PriceListsPage />} />
                     <Route path="/settings/price-lists/:id" element={<PriceListDetailsPage />} />
+                    <Route path="/settings/payment-methods" element={<PaymentMethodsPage />} />
                     <Route path="/settings/print" element={<PrintSettingsPage />} />
                     <Route path="/settings/document-numbers" element={<DocumentNumbersPage />} />
                     <Route path="/settings/users" element={<UserManagementPage />} />
@@ -283,6 +286,7 @@ function App() {
                     <Route path="/accounting/journal-entries/:id/edit" element={<JournalEntryFormPage />} />
                     <Route path="/accounting/journal-entries/:id" element={<JournalEntryDetailsPage />} />
                     <Route path="/accounting/account-mappings" element={<AccountMappingsPage />} />
+                    <Route path="/accounting/settlements" element={<SettlementsPage />} />
                     <Route path="/accounting/bank-reconciliations" element={<BankReconciliationsPage />} />
                     <Route path="/accounting/bank-reconciliations/new" element={<BankReconciliationsPage />} />
                     <Route path="/accounting/bank-reconciliations/:id" element={<BankReconciliationDetailsPage />} />

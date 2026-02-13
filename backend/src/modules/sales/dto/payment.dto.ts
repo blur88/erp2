@@ -12,8 +12,8 @@ import {
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform, Type } from 'class-transformer';
 import {
-  PaymentMethod,
   PaymentStatus,
+  SettlementStatusEnum,
 } from '../../../database/entities/payment.entity';
 
 export class CreatePaymentDto {
@@ -31,6 +31,13 @@ export class CreatePaymentDto {
   @IsOptional()
   @IsUUID()
   invoiceId?: string;
+
+  @ApiProperty({
+    description: 'Payment method ID',
+    example: 'uuid-string',
+  })
+  @IsUUID()
+  paymentMethodId: string;
 
   @ApiProperty({
     description: 'Payment date',
@@ -159,8 +166,25 @@ export class PaymentResponseDto {
   @ApiProperty({ enum: PaymentStatus, example: PaymentStatus.COMPLETED })
   status: PaymentStatus;
 
-  @ApiProperty({ enum: PaymentMethod, example: PaymentMethod.CASH })
-  paymentMethod: PaymentMethod;
+  @ApiProperty({ example: 'uuid-string' })
+  paymentMethodId: string;
+
+  @ApiProperty({ enum: SettlementStatusEnum, example: SettlementStatusEnum.NOT_APPLICABLE })
+  settlementStatus: SettlementStatusEnum;
+
+  @ApiProperty({ example: 'uuid-string', nullable: true })
+  settlementId?: string;
+
+  @ApiProperty({
+    type: () => Object,
+    nullable: true,
+    example: { id: 'uuid-string', code: 'CASH', name: 'Cash' },
+  })
+  paymentMethodEntity?: {
+    id: string;
+    code: string;
+    name: string;
+  };
 
   @ApiProperty({ example: '2023-12-01T00:00:00Z' })
   paymentDate: Date;
@@ -261,6 +285,13 @@ export class ProcessPaymentDto {
   invoiceId?: string;
 
   @ApiProperty({
+    description: 'Payment method ID',
+    example: 'uuid-string',
+  })
+  @IsUUID()
+  paymentMethodId: string;
+
+  @ApiProperty({
     description: 'Payment amount',
     example: 1500.50,
   })
@@ -329,8 +360,8 @@ export class PaymentSummaryDto {
   @ApiProperty({ example: 1500.50 })
   amount: number;
 
-  @ApiProperty({ enum: PaymentMethod, example: PaymentMethod.CASH })
-  paymentMethod: PaymentMethod;
+  @ApiProperty({ example: 'uuid-string' })
+  paymentMethodId: string;
 
   @ApiProperty({ enum: PaymentStatus, example: PaymentStatus.COMPLETED })
   status: PaymentStatus;

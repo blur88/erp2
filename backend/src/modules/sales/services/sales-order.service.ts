@@ -1923,6 +1923,9 @@ export class SalesOrderService {
       if (!selectedMethod) {
         selectedMethod = await paymentMethodRepository.findOne({ where: { code: 'CASH', isActive: true } });
       }
+      if (!selectedMethod) {
+        console.warn(`[recordPayment] No payment method found (requested: ${paymentMethodId || 'none'}, CASH fallback also missing). Payment will proceed without a payment method.`);
+      }
       const methodSettlementStatus = selectedMethod?.requiresSettlement
         ? SettlementStatusEnum.PENDING
         : SettlementStatusEnum.NOT_APPLICABLE;

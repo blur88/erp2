@@ -314,6 +314,10 @@ export interface Payment {
   customerName?: string;
   amount: number;
   method?: 'cash' | 'card' | 'bank_transfer' | 'cheque';
+  paymentMethodId?: string;
+  paymentMethodEntity?: PaymentMethodConfig;
+  settlementStatus?: 'not_applicable' | 'pending' | 'settled';
+  settlementId?: string;
   paymentMethod?: 'cash' | 'card' | 'bank_transfer' | 'check' | 'credit_card' | 'debit_card' | 'online_payment' | 'mobile_payment' | 'other';
   reference?: string;
   referenceNumber?: string;
@@ -427,6 +431,44 @@ export interface VendorPayment {
   deletedAt?: Date | string;
   createdBy?: string;
   updatedBy?: string;
+}
+
+export interface PaymentMethodConfig {
+  id: string;
+  code: string;
+  name: string;
+  requiresSettlement: boolean;
+  sortOrder: number;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Settlement {
+  id: string;
+  settlementNumber: string;
+  paymentMethodId: string;
+  paymentMethod?: {
+    id: string;
+    code: string;
+    name: string;
+  };
+  settlementDate: string;
+  totalAmount: number;
+  reference?: string;
+  notes?: string;
+  status: 'pending' | 'completed' | 'cancelled';
+  paymentCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PendingSettlementSummary {
+  paymentMethodId: string;
+  paymentMethodCode: string;
+  paymentMethodName: string;
+  pendingCount: number;
+  pendingAmount: number;
 }
 
 // Common types

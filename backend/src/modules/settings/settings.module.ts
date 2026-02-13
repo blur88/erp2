@@ -14,6 +14,11 @@ import { PurchaseOrder } from '../../database/entities/purchase-order.entity';
 import { GoodsReceivedNote } from '../../database/entities/goods-received-note.entity';
 import { VendorPayment } from '../../database/entities/vendor-payment.entity';
 import { StockAdjustment } from '../../database/entities/stock-adjustment.entity';
+import { PaymentMethodEntity } from '../../database/entities/payment-method.entity';
+import { AccountMapping } from '../../database/entities/account-mapping.entity';
+import { ChartOfAccount } from '../../database/entities/chart-of-account.entity';
+import { PaymentMethodController } from './controllers/payment-method.controller';
+import { PaymentMethodService } from './services/payment-method.service';
 
 /**
  * Settings Module
@@ -33,6 +38,9 @@ import { StockAdjustment } from '../../database/entities/stock-adjustment.entity
       GoodsReceivedNote,
       VendorPayment,
       StockAdjustment,
+      PaymentMethodEntity,
+      AccountMapping,
+      ChartOfAccount,
     ]),
 
     // Multer for file upload
@@ -40,10 +48,11 @@ import { StockAdjustment } from '../../database/entities/stock-adjustment.entity
       dest: './uploads/logos',
     }),
   ],
-  controllers: [SettingsController],
-  providers: [SettingsService],
+  controllers: [SettingsController, PaymentMethodController],
+  providers: [SettingsService, PaymentMethodService],
   exports: [
     SettingsService,
+    PaymentMethodService,
     TypeOrmModule,
   ],
 })

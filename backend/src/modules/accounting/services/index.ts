@@ -4,3 +4,4 @@ export * from './fiscal-period.service';
 export * from './journal-entry.service';
 export * from './account-mapping.service';
 export * from './accounting-reports.service';
+export * from './settlement.service';

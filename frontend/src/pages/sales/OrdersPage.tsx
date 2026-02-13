@@ -1890,6 +1890,9 @@ const OrdersPage: React.FC = () => {
                                           }
                                         }}
                                       >
+                                        <MenuItem value="" disabled sx={{ fontSize: '0.75rem' }}>
+                                          Method
+                                        </MenuItem>
                                         {paymentMethods.map((pm) => (
                                           <MenuItem key={pm.id} value={pm.id} sx={{ fontSize: '0.75rem' }}>
                                             {pm.name}

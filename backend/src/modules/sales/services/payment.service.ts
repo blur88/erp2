@@ -7,10 +7,11 @@ import {
   Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, FindManyOptions, FindOptionsWhere, Between } from 'typeorm';
-import { Payment, PaymentStatus, PaymentMethod } from '../../../database/entities/payment.entity';
+import { Repository, FindOptionsWhere, Between } from 'typeorm';
+import { Payment, PaymentStatus, SettlementStatusEnum } from '../../../database/entities/payment.entity';
 import { Customer } from '../../../database/entities/customer.entity';
 import { Invoice, InvoiceStatus } from '../../../database/entities/invoice.entity';
+import { PaymentMethodEntity } from '../../../database/entities/payment-method.entity';
 import {
   CreatePaymentDto,
   UpdatePaymentDto,
@@ -33,6 +34,8 @@ export class PaymentService {
     private readonly customerRepository: Repository<Customer>,
     @InjectRepository(Invoice)
     private readonly invoiceRepository: Repository<Invoice>,
+    @InjectRepository(PaymentMethodEntity)
+    private readonly paymentMethodRepository: Repository<PaymentMethodEntity>,
     private readonly auditLogService: AuditLogService,
     private readonly accountingService: AccountingService,
   ) {}
@@ -60,11 +63,21 @@ export class PaymentService {
       }
     }
 
+    const paymentMethod = await this.paymentMethodRepository.findOne({
+      where: { id: createPaymentDto.paymentMethodId, isActive: true },
+    });
+    if (!paymentMethod || paymentMethod.deletedAt) {
+      throw new NotFoundException('Payment method not found');
+    }
+
     // Create payment
     const payment = this.paymentRepository.create({
       ...createPaymentDto,
       status: PaymentStatus.COMPLETED,
-      paymentMethod: PaymentMethod.CASH,
+      paymentMethodId: paymentMethod.id,
+      settlementStatus: paymentMethod.requiresSettlement
+        ? SettlementStatusEnum.PENDING
+        : SettlementStatusEnum.NOT_APPLICABLE,
     });
 
     const savedPayment = await this.paymentRepository.save(payment);
@@ -89,7 +102,8 @@ export class PaymentService {
         userId: 'system',
         newValues: {
           amount: savedPayment.amount,
-          paymentMethod: savedPayment.paymentMethod,
+          paymentMethodId: savedPayment.paymentMethodId,
+          settlementStatus: savedPayment.settlementStatus,
           status: savedPayment.status,
         },
       }
@@ -188,6 +202,7 @@ export class PaymentService {
     return this.create({
       customerId: processPaymentDto.customerId,
       invoiceId: processPaymentDto.invoiceId,
+      paymentMethodId: processPaymentDto.paymentMethodId,
       paymentDate: new Date(),
       amount: processPaymentDto.amount,
       notes: processPaymentDto.notes,
@@ -248,7 +263,7 @@ export class PaymentService {
       paymentNumber: payment.paymentNumber,
       paymentDate: payment.paymentDate,
       amount: Number(payment.amount),
-      paymentMethod: payment.paymentMethod,
+      paymentMethodId: payment.paymentMethodId,
       status: payment.status,
     }));
   }
@@ -264,7 +279,7 @@ export class PaymentService {
       paymentNumber: payment.paymentNumber,
       paymentDate: payment.paymentDate,
       amount: Number(payment.amount),
-      paymentMethod: payment.paymentMethod,
+      paymentMethodId: payment.paymentMethodId,
       status: payment.status,
     }));
   }
@@ -402,7 +417,8 @@ export class PaymentService {
       paymentDate: new Date(),
       amount: -refundDto.amount,
       status: PaymentStatus.REFUNDED,
-      paymentMethod: originalPayment.paymentMethod,
+      paymentMethodId: originalPayment.paymentMethodId,
+      settlementStatus: originalPayment.settlementStatus,
       notes: refundDto.reason ? `Refund: ${refundDto.reason}` : `Refund of ${originalPayment.paymentNumber}`,
     });
 
@@ -442,7 +458,7 @@ export class PaymentService {
   private async findPaymentWithRelations(id: string): Promise<Payment> {
     const payment = await this.paymentRepository.findOne({
       where: { id },
-      relations: ['customer', 'invoice', 'invoice.salesOrder', 'invoice.items', 'invoice.items.product'],
+      relations: ['customer', 'invoice', 'invoice.salesOrder', 'invoice.items', 'invoice.items.product', 'paymentMethodEntity'],
     });
 
     if (!payment) {
@@ -577,7 +593,16 @@ export class PaymentService {
       id: payment.id,
       paymentNumber: payment.paymentNumber,
       status: payment.status,
-      paymentMethod: payment.paymentMethod,
+      paymentMethodId: payment.paymentMethodId,
+      settlementStatus: payment.settlementStatus,
+      settlementId: payment.settlementId,
+      paymentMethodEntity: payment.paymentMethodEntity
+        ? {
+            id: payment.paymentMethodEntity.id,
+            code: payment.paymentMethodEntity.code,
+            name: payment.paymentMethodEntity.name,
+          }
+        : undefined,
       paymentDate: payment.paymentDate,
       amount: Number(payment.amount),
       notes: payment.notes,

@@ -1215,7 +1215,7 @@ export class SalesAnalyticsService {
         paymentNumber: payment.paymentNumber,
         paymentDate: payment.paymentDate,
         paymentAmount: Number(payment.amount || 0),
-        paymentMethod: payment.paymentMethod || 'cash',
+        paymentMethod: payment.paymentMethodEntity?.code?.toLowerCase() || 'cash',
         customerId: customer?.id || '',
         customerName: customer?.name || 'Unknown',
         orderNumber: salesOrder?.orderNumber || '',

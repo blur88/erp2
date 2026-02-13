@@ -9,6 +9,9 @@ import { JournalEntryLine } from '../../database/entities/journal-entry-line.ent
 import { AccountMapping } from '../../database/entities/account-mapping.entity';
 import { BankReconciliation } from '../../database/entities/bank-reconciliation.entity';
 import { ReconciledTransaction } from '../../database/entities/reconciled-transaction.entity';
+import { Settlement } from '../../database/entities/settlement.entity';
+import { PaymentMethodEntity } from '../../database/entities/payment-method.entity';
+import { Payment } from '../../database/entities/payment.entity';
 
 // Services
 import { AccountingService } from './services/accounting.service';
@@ -18,6 +21,7 @@ import { JournalEntryService } from './services/journal-entry.service';
 import { AccountMappingService } from './services/account-mapping.service';
 import { AccountingReportsService } from './services/accounting-reports.service';
 import { ReconciliationService } from './services/reconciliation.service';
+import { SettlementService } from './services/settlement.service';
 
 // Controllers
 import { ChartOfAccountsController } from './controllers/chart-of-accounts.controller';
@@ -26,6 +30,7 @@ import { JournalEntryController } from './controllers/journal-entry.controller';
 import { AccountMappingController } from './controllers/account-mapping.controller';
 import { AccountingReportsController } from './controllers/accounting-reports.controller';
 import { ReconciliationController } from './controllers/reconciliation.controller';
+import { SettlementController } from './controllers/settlement.controller';
 
 @Module({
   imports: [
@@ -37,6 +42,9 @@ import { ReconciliationController } from './controllers/reconciliation.controlle
       AccountMapping,
       BankReconciliation,
       ReconciledTransaction,
+      Settlement,
+      PaymentMethodEntity,
+      Payment,
     ]),
   ],
   controllers: [
@@ -46,6 +54,7 @@ import { ReconciliationController } from './controllers/reconciliation.controlle
     AccountMappingController,
     AccountingReportsController,
     ReconciliationController,
+    SettlementController,
   ],
   providers: [
     AccountingService,
@@ -55,6 +64,7 @@ import { ReconciliationController } from './controllers/reconciliation.controlle
     AccountMappingService,
     AccountingReportsService,
     ReconciliationService,
+    SettlementService,
   ],
   exports: [
     AccountingService,
@@ -64,6 +74,7 @@ import { ReconciliationController } from './controllers/reconciliation.controlle
     AccountMappingService,
     AccountingReportsService,
     ReconciliationService,
+    SettlementService,
   ],
 })
 export class AccountingModule {}

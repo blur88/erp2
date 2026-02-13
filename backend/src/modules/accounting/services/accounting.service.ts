@@ -12,10 +12,12 @@ import { JournalEntry } from '../../../database/entities/journal-entry.entity';
 import { SalesOrder } from '../../../database/entities/sales-order.entity';
 import { SalesOrderItem } from '../../../database/entities/sales-order-item.entity';
 import { Payment } from '../../../database/entities/payment.entity';
+import { PaymentMethodEntity } from '../../../database/entities/payment-method.entity';
 import { GoodsReceivedNote } from '../../../database/entities/goods-received-note.entity';
 import { GoodsReceivedNoteItem } from '../../../database/entities/goods-received-note-item.entity';
 import { VendorPayment } from '../../../database/entities/vendor-payment.entity';
 import { StockAdjustment, StockAdjustmentItem } from '../../../database/entities/stock-adjustment.entity';
+import { Settlement } from '../../../database/entities/settlement.entity';
 import {
   CreateJournalEntryDto,
   CreateJournalEntryLineDto,
@@ -134,7 +136,14 @@ export class AccountingService {
     const mappings = await this.accountMappingService.getMappings();
 
     // Validate required mappings exist
-    this.validateMapping(mappings, MappingType.PAYMENT_CASH, 'Cash');
+    const paymentMethodCode = payment.paymentMethodEntity?.code || 'CASH';
+    const debitMappingKey = `payment_${paymentMethodCode.toLowerCase()}`;
+
+    this.validateMappingByKey(
+      mappings,
+      debitMappingKey,
+      `payment method "${paymentMethodCode}"`,
+    );
     this.validateMapping(mappings, MappingType.PAYMENT_AR, 'Accounts Receivable');
 
     // Validate period is open
@@ -155,7 +164,7 @@ export class AccountingService {
     const lines: CreateJournalEntryLineDto[] = [
       // DR Cash in Hand
       {
-        accountId: mappings[MappingType.PAYMENT_CASH],
+        accountId: mappings[debitMappingKey],
         debitAmount: Number(payment.amount),
         creditAmount: 0,
         memo: 'Cash received',
@@ -185,6 +194,79 @@ export class AccountingService {
 
     this.logger.log(
       `Payment entry posted successfully: ${postedEntry.referenceNumber}`,
+    );
+    return postedEntry as any;
+  }
+
+  /**
+   * Post journal entry for settlement
+   * DR settlement account (bank), CR payment receivable account
+   */
+  async postSettlementEntry(
+    settlement: Settlement,
+    paymentMethod: PaymentMethodEntity,
+    amount: number,
+    userId: string,
+  ): Promise<JournalEntry> {
+    this.logger.log(`Posting settlement entry for ${settlement.settlementNumber}`);
+
+    const mappings = await this.accountMappingService.getMappings();
+
+    const paymentMappingKey = `payment_${paymentMethod.code.toLowerCase()}`;
+    const settlementMappingKey = `payment_${paymentMethod.code.toLowerCase()}_settlement`;
+
+    this.validateMappingByKey(
+      mappings,
+      paymentMappingKey,
+      `${paymentMethod.name} payment account`,
+    );
+    this.validateMappingByKey(
+      mappings,
+      settlementMappingKey,
+      `${paymentMethod.name} settlement account`,
+    );
+
+    await this.validatePeriodOpen(settlement.settlementDate);
+    const periodValidation = await this.fiscalPeriodService.validatePeriod({
+      date: settlement.settlementDate,
+    });
+
+    if (!periodValidation.period) {
+      throw new BadRequestException(
+        `No fiscal period found for date ${settlement.settlementDate}`,
+      );
+    }
+
+    const lines: CreateJournalEntryLineDto[] = [
+      {
+        accountId: mappings[settlementMappingKey],
+        debitAmount: Number(amount),
+        creditAmount: 0,
+        memo: `${paymentMethod.name} settlement to bank`,
+      },
+      {
+        accountId: mappings[paymentMappingKey],
+        debitAmount: 0,
+        creditAmount: Number(amount),
+        memo: `${paymentMethod.name} receivable settled`,
+      },
+    ];
+
+    const entry = await this.journalEntryService.create(
+      {
+        entryDate: settlement.settlementDate,
+        description: `Settlement ${settlement.settlementNumber} - ${paymentMethod.name}`,
+        fiscalPeriodId: periodValidation.period.id,
+        sourceType: 'settlement',
+        sourceId: settlement.id,
+        lines,
+      },
+      userId,
+    );
+
+    const postedEntry = await this.journalEntryService.postEntry(entry.id, userId);
+    this.logger.log(
+      `Settlement entry posted successfully: ${postedEntry.referenceNumber}`,
     );
     return postedEntry as any;
   }
@@ -538,7 +620,7 @@ export class AccountingService {
    * Validate that a required mapping exists
    */
   private validateMapping(
-    mappings: Record<MappingType, string>,
+    mappings: Record<string, string>,
     mappingType: MappingType,
     displayName: string,
   ): void {
@@ -546,6 +628,19 @@ export class AccountingService {
       throw new NotFoundException(
         `Account mapping not configured for ${displayName} (${mappingType}). ` +
         `Please configure account mappings before posting transactions.`,
+      );
+    }
+  }
+
+  private validateMappingByKey(
+    mappings: Record<string, string>,
+    key: string,
+    displayName: string,
+  ): void {
+    if (!mappings[key]) {
+      throw new NotFoundException(
+        `Account mapping not configured for ${displayName} (${key}). ` +
+          `Please configure account mappings before posting transactions.`,
       );
     }
   }

@@ -55,6 +55,8 @@ export { JournalEntryLine } from './journal-entry-line.entity';
 export { AccountMapping, MappingType } from './account-mapping.entity';
 export { BankReconciliation, BankReconciliationStatus } from './bank-reconciliation.entity';
 export { ReconciledTransaction } from './reconciled-transaction.entity';
+export { PaymentMethodEntity } from './payment-method.entity';
+export { Settlement, SettlementStatus } from './settlement.entity';
 
 // Settings (SettingsModule)
 export { CompanySettings } from './company-settings.entity';
@@ -78,6 +80,8 @@ import { PriceListItem } from './price-list-item.entity';
 // import { Invoice } from './invoice.entity'; // Temporarily disabled for startup
 // import { Payment } from './payment.entity'; // Temporarily disabled for startup
 import { StockMovement } from './stock-movement.entity';
+import { PaymentMethodEntity } from './payment-method.entity';
+import { Settlement } from './settlement.entity';
 
 /**
  * Array of active entity classes for TypeORM configuration
@@ -106,6 +110,10 @@ export const ACTIVE_ENTITIES = [
 
   // Inventory entities
   StockMovement,
+
+  // Payment method and settlements
+  PaymentMethodEntity,
+  Settlement,
 ] as const;
 
 /**

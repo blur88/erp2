@@ -12,6 +12,7 @@ import {
   HttpStatus,
   Request,
   Res,
+  BadRequestException,
 } from '@nestjs/common';
 import { Response } from 'express';
 import {
@@ -319,6 +320,9 @@ export class SalesOrderController {
     @Param('id', ParseUUIDPipe) id: string,
     @Body() body: { amount: number; paymentMethodId?: string }
   ) {
+    if (body.paymentMethodId && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(body.paymentMethodId)) {
+      throw new BadRequestException('Invalid paymentMethodId format');
+    }
     const data = await this.salesOrderService.recordPayment(id, body.amount, body.paymentMethodId);
     return { data };
   }

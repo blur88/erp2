@@ -49,6 +49,10 @@ import {
   selectCurrentPeriod,
   selectFiscalPeriodsLoading,
 } from '@/store/slices/fiscalPeriodsSlice';
+import {
+  fetchPendingSummary,
+  selectPendingSummary,
+} from '@/store/slices/settlementsSlice';
 import { formatCurrency, formatDate, getCurrentDate } from '@/utils/formatters';
 import { TYPOGRAPHY_STYLES } from '@/constants/typography';
 import type { JournalEntry } from '@/types';
@@ -182,6 +186,7 @@ const AccountingDashboardPage: React.FC = () => {
   const journalEntriesError = useAppSelector(selectJournalEntriesError);
   const currentPeriod = useAppSelector(selectCurrentPeriod);
   const fiscalPeriodsLoading = useAppSelector(selectFiscalPeriodsLoading);
+  const pendingSummary = useAppSelector(selectPendingSummary);
   const isCurrentPeriodOpen =
     currentPeriod?.isOpen ?? currentPeriod?.status === 'OPEN';
 
@@ -198,6 +203,7 @@ const AccountingDashboardPage: React.FC = () => {
     dispatch(fetchProfitAndLoss({ startDate: ytdStartDate, endDate: today, includeInactive: false }));
     dispatch(fetchJournalEntries({ page: 1, limit: 10, sortBy: 'entryDate', sortOrder: 'DESC' }));
     dispatch(fetchCurrentPeriod());
+    dispatch(fetchPendingSummary());
   }, [dispatch, today, ytdStartDate]);
 
   // Extract data from reports
@@ -327,6 +333,33 @@ const AccountingDashboardPage: React.FC = () => {
           />
         </Grid>
       </Grid>
+
+      {pendingSummary.length > 0 && (
+        <Box sx={{ mt: 1, mb: 4 }}>
+          <Typography variant="h6" sx={{ mb: 2 }}>
+            Pending Settlements
+          </Typography>
+          <Grid container spacing={2}>
+            {pendingSummary.map((item: any) => (
+              <Grid size={{ xs: 12, sm: 6, md: 4 }} key={item.paymentMethodId}>
+                <Card>
+                  <CardContent>
+                    <Typography variant="subtitle2" color="text.secondary">
+                      {item.paymentMethodName}
+                    </Typography>
+                    <Typography variant="h5" sx={{ fontWeight: 700 }}>
+                      {formatCurrency(item.pendingAmount)}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      {item.pendingCount} payment{item.pendingCount !== 1 ? 's' : ''} pending
+                    </Typography>
+                  </CardContent>
+                </Card>
+              </Grid>
+            ))}
+          </Grid>
+        </Box>
+      )}
 
       {/* Section 2: Quick Actions */}
       <Paper sx={{ p: 3, mb: 4 }}>

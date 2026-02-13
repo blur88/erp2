@@ -1,0 +1,137 @@
+import { Test, TestingModule } from '@nestjs/testing';
+import { getRepositoryToken } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { NotFoundException, ConflictException } from '@nestjs/common';
+import { PaymentMethodService } from './payment-method.service';
+import { PaymentMethodEntity } from '../../../database/entities/payment-method.entity';
+import { AccountMapping } from '../../../database/entities/account-mapping.entity';
+import { ChartOfAccount, AccountType } from '../../../database/entities/chart-of-account.entity';
+
+describe('PaymentMethodService', () => {
+  let service: PaymentMethodService;
+  let paymentMethodRepository: jest.Mocked<Repository<PaymentMethodEntity>>;
+  let accountMappingRepository: jest.Mocked<Repository<AccountMapping>>;
+  let accountRepository: jest.Mocked<Repository<ChartOfAccount>>;
+
+  beforeEach(async () => {
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        PaymentMethodService,
+        {
+          provide: getRepositoryToken(PaymentMethodEntity),
+          useValue: {
+            createQueryBuilder: jest.fn(),
+            findOne: jest.fn(),
+            find: jest.fn(),
+            create: jest.fn(),
+            save: jest.fn(),
+            softDelete: jest.fn(),
+          },
+        },
+        {
+          provide: getRepositoryToken(AccountMapping),
+          useValue: {
+            findOne: jest.fn(),
+            create: jest.fn(),
+            save: jest.fn(),
+          },
+        },
+        {
+          provide: getRepositoryToken(ChartOfAccount),
+          useValue: {
+            findOne: jest.fn(),
+          },
+        },
+      ],
+    }).compile();
+
+    service = module.get<PaymentMethodService>(PaymentMethodService);
+    paymentMethodRepository = module.get(getRepositoryToken(PaymentMethodEntity));
+    accountMappingRepository = module.get(getRepositoryToken(AccountMapping));
+    accountRepository = module.get(getRepositoryToken(ChartOfAccount));
+  });
+
+  it('should be defined', () => {
+    expect(service).toBeDefined();
+  });
+
+  it('findOne should throw NotFoundException when item is missing', async () => {
+    paymentMethodRepository.findOne.mockResolvedValue(null);
+
+    await expect(service.findOne('missing-id')).rejects.toThrow(NotFoundException);
+  });
+
+  it('create should reject duplicate code', async () => {
+    paymentMethodRepository.findOne.mockResolvedValue({
+      id: '1',
+      code: 'TNG',
+      deletedAt: null,
+    } as any);
+
+    await expect(
+      service.create({ code: 'TNG', name: 'Touch n Go', requiresSettlement: true }),
+    ).rejects.toThrow(ConflictException);
+  });
+
+  it('getActiveList should return active methods sorted by repository order', async () => {
+    paymentMethodRepository.find.mockResolvedValue([
+      {
+        id: '1',
+        code: 'CASH',
+        name: 'Cash',
+        requiresSettlement: false,
+        sortOrder: 1,
+        isActive: true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        deletedAt: null,
+      },
+    ] as any);
+
+    const result = await service.getActiveList();
+
+    expect(result).toHaveLength(1);
+    expect(result[0].code).toBe('CASH');
+  });
+
+  it('remove should throw NotFoundException when method is missing', async () => {
+    paymentMethodRepository.findOne.mockResolvedValue(null);
+
+    await expect(service.remove('missing-id')).rejects.toThrow(NotFoundException);
+  });
+
+  it('create should create account mappings when matching account exists', async () => {
+    paymentMethodRepository.findOne.mockResolvedValueOnce(null);
+    paymentMethodRepository.create.mockReturnValue({
+      code: 'CASH',
+      name: 'Cash',
+      requiresSettlement: false,
+      sortOrder: 1,
+      isActive: true,
+    } as PaymentMethodEntity);
+    paymentMethodRepository.save.mockResolvedValue({
+      id: 'pm-1',
+      code: 'CASH',
+      name: 'Cash',
+      requiresSettlement: false,
+      sortOrder: 1,
+      isActive: true,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    } as any);
+
+    accountMappingRepository.findOne.mockResolvedValue(null);
+    accountRepository.findOne.mockResolvedValue({
+      id: 'acct-1',
+      code: '1000',
+      name: 'Cash',
+      type: AccountType.ASSET,
+    } as any);
+    accountMappingRepository.create.mockReturnValue({} as any);
+    accountMappingRepository.save.mockResolvedValue({} as any);
+
+    await service.create({ code: 'cash', name: 'Cash', requiresSettlement: false });
+
+    expect(accountMappingRepository.save).toHaveBeenCalled();
+  });
+});

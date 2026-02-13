@@ -5,6 +5,7 @@ import { PaymentService } from './payment.service';
 import { Payment, PaymentStatus } from '../../../database/entities/payment.entity';
 import { Customer } from '../../../database/entities/customer.entity';
 import { Invoice } from '../../../database/entities/invoice.entity';
+import { PaymentMethodEntity } from '../../../database/entities/payment-method.entity';
 import { AuditLogService } from '../../audit-logs/services';
 import { AccountingService } from '../../accounting/services/accounting.service';
 import { NotFoundException } from '@nestjs/common';
@@ -13,6 +14,7 @@ describe('PaymentService', () => {
   let service: PaymentService;
   let paymentRepository: jest.Mocked<Repository<Payment>>;
   let customerRepository: jest.Mocked<Repository<Customer>>;
+  let paymentMethodRepository: jest.Mocked<Repository<PaymentMethodEntity>>;
   let accountingService: jest.Mocked<AccountingService>;
   let auditLogService: jest.Mocked<AuditLogService>;
 
@@ -22,6 +24,7 @@ describe('PaymentService', () => {
     amount: 1000,
     paymentDate: new Date('2024-01-15'),
     status: PaymentStatus.COMPLETED,
+    paymentMethodId: 'pm-1',
     customerId: 'customer-1',
     customer: {
       id: 'customer-1',
@@ -58,6 +61,12 @@ describe('PaymentService', () => {
           useValue: {},
         },
         {
+          provide: getRepositoryToken(PaymentMethodEntity),
+          useValue: {
+            findOne: jest.fn(),
+          },
+        },
+        {
           provide: AuditLogService,
           useValue: {
             log: jest.fn(),
@@ -75,6 +84,7 @@ describe('PaymentService', () => {
     service = module.get<PaymentService>(PaymentService);
     paymentRepository = module.get(getRepositoryToken(Payment));
     customerRepository = module.get(getRepositoryToken(Customer));
+    paymentMethodRepository = module.get(getRepositoryToken(PaymentMethodEntity));
     accountingService = module.get(AccountingService);
     auditLogService = module.get(AuditLogService);
   });
@@ -88,6 +98,7 @@ describe('PaymentService', () => {
       // Arrange
       const createDto = {
         customerId: 'customer-1',
+        paymentMethodId: 'pm-1',
         amount: 1000,
         paymentDate: new Date('2024-01-15'),
       };
@@ -95,6 +106,11 @@ describe('PaymentService', () => {
       const mockPayment = createMockPayment();
 
       customerRepository.findOne.mockResolvedValue(mockCustomer as Customer);
+      paymentMethodRepository.findOne.mockResolvedValue({
+        id: 'pm-1',
+        code: 'CASH',
+        requiresSettlement: false,
+      } as any);
       customerRepository.save.mockResolvedValue(mockCustomer as Customer);
       paymentRepository.create.mockReturnValue(mockPayment as Payment);
       paymentRepository.save.mockResolvedValue(mockPayment as Payment);
@@ -131,6 +147,7 @@ describe('PaymentService', () => {
       // Arrange
       const createDto = {
         customerId: 'customer-1',
+        paymentMethodId: 'pm-1',
         amount: 1000,
         paymentDate: new Date('2024-01-15'),
       };
@@ -138,6 +155,11 @@ describe('PaymentService', () => {
       const mockPayment = createMockPayment();
 
       customerRepository.findOne.mockResolvedValue(mockCustomer as Customer);
+      paymentMethodRepository.findOne.mockResolvedValue({
+        id: 'pm-1',
+        code: 'CASH',
+        requiresSettlement: false,
+      } as any);
       customerRepository.save.mockResolvedValue(mockCustomer as Customer);
       paymentRepository.create.mockReturnValue(mockPayment as Payment);
       paymentRepository.save.mockResolvedValue(mockPayment as Payment);
@@ -164,6 +186,7 @@ describe('PaymentService', () => {
       // Arrange
       const createDto = {
         customerId: 'customer-1',
+        paymentMethodId: 'pm-1',
         amount: 1000,
         paymentDate: new Date('2024-01-15'),
       };
@@ -171,6 +194,11 @@ describe('PaymentService', () => {
       const mockPayment = createMockPayment();
 
       customerRepository.findOne.mockResolvedValue(mockCustomer as Customer);
+      paymentMethodRepository.findOne.mockResolvedValue({
+        id: 'pm-1',
+        code: 'CASH',
+        requiresSettlement: false,
+      } as any);
       customerRepository.save.mockResolvedValue(mockCustomer as Customer);
       paymentRepository.create.mockReturnValue(mockPayment as Payment);
       paymentRepository.save.mockResolvedValue(mockPayment as Payment);
@@ -190,7 +218,7 @@ describe('PaymentService', () => {
       // Verify findOne was called to get payment with relations before accounting post
       expect(paymentRepository.findOne).toHaveBeenCalledWith({
         where: { id: mockPayment.id },
-        relations: ['customer', 'invoice', 'invoice.salesOrder', 'invoice.items', 'invoice.items.product'],
+        relations: ['customer', 'invoice', 'invoice.salesOrder', 'invoice.items', 'invoice.items.product', 'paymentMethodEntity'],
       });
 
       // Verify the accounting service received the payment with customer relation
@@ -203,6 +231,7 @@ describe('PaymentService', () => {
       // Arrange
       const createDto = {
         customerId: 'non-existent-customer',
+        paymentMethodId: 'pm-1',
         amount: 1000,
         paymentDate: new Date('2024-01-15'),
       };
