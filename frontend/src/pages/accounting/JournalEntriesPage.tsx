@@ -304,17 +304,24 @@ const JournalEntriesPage: React.FC = () => {
 
   // Navigate to source transaction
   const navigateToSourceTransaction = (sourceType: string, sourceId: string) => {
-    const routes: Record<string, string> = {
-      sales_order: `/sales/orders/${sourceId}`,
-      payment: `/sales/payments/${sourceId}`,
-      goods_received_note: `/purchasing/goods-received/${sourceId}`,
-      vendor_payment: `/purchasing/vendor-payments/${sourceId}`,
-      stock_adjustment: `/inventory/stock-adjustments/${sourceId}`,
-    }
-
-    const route = routes[sourceType]
-    if (route) {
-      navigate(route)
+    switch (sourceType) {
+      case 'sales_order':
+        navigate('/sales/orders', { state: { highlightOrderId: sourceId } })
+        break
+      case 'payment':
+        navigate('/sales/payments', { state: { highlightPaymentId: sourceId } })
+        break
+      case 'goods_received_note':
+        navigate(`/purchasing/goods-received?grnId=${sourceId}`)
+        break
+      case 'vendor_payment':
+        navigate(`/purchasing/vendor-payments?vpId=${sourceId}`)
+        break
+      case 'stock_adjustment':
+        navigate(`/inventory/stock-adjustments/${sourceId}/edit`)
+        break
+      default:
+        break
     }
   }
 

@@ -334,8 +334,10 @@ describe('Accounting Auto-Posting Integration Tests', () => {
       const viewLinks = screen.getAllByText('View Transaction')
       await user.click(viewLinks[0])
 
-      // Should navigate to sales order
-      expect(mockNavigate).toHaveBeenCalledWith('/sales/orders/so-123')
+      // Should navigate to sales orders page and highlight the source order
+      expect(mockNavigate).toHaveBeenCalledWith('/sales/orders', {
+        state: { highlightOrderId: 'so-123' },
+      })
     })
   })
 

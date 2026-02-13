@@ -248,7 +248,23 @@ describe('JournalEntriesPage', () => {
     await user.click(viewLinks[0])
 
     await waitFor(() => {
-      expect(mockNavigate).toHaveBeenCalledWith('/sales/orders/so-123')
+      expect(mockNavigate).toHaveBeenCalledWith('/sales/orders', {
+        state: { highlightOrderId: 'so-123' },
+      })
+    })
+  })
+
+  it('navigates to sales payments with highlight state for payment entries', async () => {
+    const user = userEvent.setup()
+    renderWithStore(<JournalEntriesPage />, defaultState)
+
+    const viewLinks = await screen.findAllByText('View Transaction')
+    await user.click(viewLinks[1])
+
+    await waitFor(() => {
+      expect(mockNavigate).toHaveBeenCalledWith('/sales/payments', {
+        state: { highlightPaymentId: 'pay-456' },
+      })
     })
   })
 
