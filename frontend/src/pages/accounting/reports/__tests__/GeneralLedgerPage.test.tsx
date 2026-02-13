@@ -74,6 +74,17 @@ describe('GeneralLedgerPage', () => {
     expect(buttons.length).toBeGreaterThan(0);
   });
 
+  it('renders generate and export buttons in the report actions area', () => {
+    renderWithProviders();
+
+    const actions = screen.getByTestId('general-ledger-actions');
+    const generateButton = screen.getByRole('button', { name: /generate report/i });
+    const exportButton = screen.getByRole('button', { name: /export to excel/i });
+
+    expect(actions).toContainElement(generateButton);
+    expect(actions).toContainElement(exportButton);
+  });
+
   it('uses dark-mode specific tones for report surfaces', () => {
     const darkTone = getGeneralLedgerTone('dark');
     const lightTone = getGeneralLedgerTone('light');
