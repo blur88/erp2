@@ -49,6 +49,7 @@ import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
 import { fetchOrders, fetchOrderById, deleteOrder, selectOrders, selectSalesLoading, selectSalesError, selectSalesPagination, selectSelectedOrder, selectOrderFilters, setSelectedOrder, setOrderFilters, updateOrderInPlace, fetchInvoices, clearError } from '@/store/slices/salesSlice'
 import { fetchCustomers } from '@/store/slices/customerSlice'
 import { salesApi } from '@/services/salesApi'
+import { paymentMethodsApi } from '@/services/paymentMethodsApi'
 import { SalesOrder } from '@/types'
 import { formatCurrency, formatDate } from '@/utils/formatters'
 import DeletedOrdersDialog from '@/components/sales/DeletedOrdersDialog'
@@ -160,6 +161,8 @@ const OrdersPage: React.FC = () => {
   const [printDialogOpen, setPrintDialogOpen] = useState(false)
   const [shouldPreserveSearchFocus, setShouldPreserveSearchFocus] = useState(false)
   const [paymentAmount, setPaymentAmount] = useState('')
+  const [selectedPaymentMethodId, setSelectedPaymentMethodId] = useState<string>('')
+  const [paymentMethods, setPaymentMethods] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const orderListRef = useRef<HTMLDivElement>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
@@ -255,6 +258,19 @@ const OrdersPage: React.FC = () => {
       loadOrders()
     }
   }, []) // Only run once on mount
+
+  // Load active payment methods for the payment dropdown
+  useEffect(() => {
+    paymentMethodsApi.getActive().then((methods: any) => {
+      const list = Array.isArray(methods) ? methods : (methods as any)?.data || []
+      setPaymentMethods(list)
+      // Default to CASH method
+      const cash = list.find((m: any) => m.code === 'CASH')
+      if (cash) setSelectedPaymentMethodId(cash.id)
+    }).catch(() => {
+      // Silently fail - payment method selection will just be empty
+    })
+  }, [])
 
   // Load orders when filters change (but not on initial mount)
   useEffect(() => {
@@ -495,7 +511,7 @@ const OrdersPage: React.FC = () => {
       dispatch(updateOrderInPlace(optimisticUpdate))
       setPaymentAmount('')
 
-      const response = await salesApi.recordOrderPayment(selectedOrder.id, newPaidAmount)
+      const response = await salesApi.recordOrderPayment(selectedOrder.id, newPaidAmount, selectedPaymentMethodId || undefined)
       dispatch(updateOrderInPlace(response.data))
       // Fetch full order details to get updated invoices and payments
       dispatch(fetchOrderById(selectedOrder.id) as any)
@@ -558,7 +574,7 @@ const OrdersPage: React.FC = () => {
       }
       dispatch(updateOrderInPlace(optimisticUpdate))
 
-      const response = await salesApi.recordOrderPayment(selectedOrder.id, newPaidAmount)
+      const response = await salesApi.recordOrderPayment(selectedOrder.id, newPaidAmount, selectedPaymentMethodId || undefined)
       dispatch(updateOrderInPlace(response.data))
       // Refresh invoices to show updated payment amounts
       dispatch(fetchInvoices({ page: 1, limit: 20 }))
@@ -1860,6 +1876,27 @@ const OrdersPage: React.FC = () => {
                                 </Typography>
                                 {!selectedOrder.isFulfilled && (
                                   <>
+                                    <FormControl size="small" sx={{ minWidth: '90px' }}>
+                                      <Select
+                                        value={selectedPaymentMethodId}
+                                        onChange={(e) => setSelectedPaymentMethodId(e.target.value)}
+                                        displayEmpty
+                                        sx={{
+                                          height: '24px',
+                                          fontSize: '0.75rem',
+                                          '& .MuiSelect-select': {
+                                            padding: '4px 6px',
+                                            fontSize: '0.75rem'
+                                          }
+                                        }}
+                                      >
+                                        {paymentMethods.map((pm) => (
+                                          <MenuItem key={pm.id} value={pm.id} sx={{ fontSize: '0.75rem' }}>
+                                            {pm.name}
+                                          </MenuItem>
+                                        ))}
+                                      </Select>
+                                    </FormControl>
                                     <Typography sx={{ color: 'text.secondary', fontSize: '0.75rem' }}>
                                       +
                                     </Typography>

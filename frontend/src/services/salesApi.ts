@@ -132,8 +132,8 @@ export const salesApi = {
     return ApiService.post<SalesOrder>(`sales-orders/${id}/duplicate`)
   },
 
-  async recordOrderPayment(id: string, amount: number) {
-    return ApiService.post<{ data: SalesOrder }>(`sales-orders/${id}/record-payment`, { amount })
+  async recordOrderPayment(id: string, amount: number, paymentMethodId?: string) {
+    return ApiService.post<{ data: SalesOrder }>(`sales-orders/${id}/record-payment`, { amount, paymentMethodId })
   },
 
   async unpayOrder(id: string) {

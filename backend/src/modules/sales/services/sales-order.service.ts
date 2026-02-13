@@ -1880,7 +1880,7 @@ export class SalesOrderService {
     }
   }
 
-  async recordPayment(id: string, amount: number): Promise<SalesOrderResponseDto> {
+  async recordPayment(id: string, amount: number, paymentMethodId?: string): Promise<SalesOrderResponseDto> {
     if (amount < 0) {
       throw new BadRequestException('Payment amount must be positive');
     }
@@ -1905,14 +1905,27 @@ export class SalesOrderService {
     try {
       console.log(`[recordPayment] Starting payment creation/update for order ${order.orderNumber}, amount: ${amount}`);
       const Payment = (await import('../../../database/entities/payment.entity')).Payment;
-      const PaymentMethod = (await import('../../../database/entities/payment.entity')).PaymentMethod;
+      const SettlementStatusEnum = (await import('../../../database/entities/payment.entity')).SettlementStatusEnum;
       const PaymentStatus = (await import('../../../database/entities/payment.entity')).PaymentStatus;
       const Invoice = (await import('../../../database/entities/invoice.entity')).Invoice;
+      const PaymentMethodEntity = (await import('../../../database/entities/payment-method.entity')).PaymentMethodEntity;
 
       // Get or create a user repository import
       const paymentRepository = this.salesOrderRepository.manager.getRepository(Payment);
       const invoiceRepository = this.salesOrderRepository.manager.getRepository(Invoice);
+      const paymentMethodRepository = this.salesOrderRepository.manager.getRepository(PaymentMethodEntity);
       console.log(`[recordPayment] Repositories acquired successfully`);
+      // Look up the selected payment method, or fall back to CASH
+      let selectedMethod = null;
+      if (paymentMethodId) {
+        selectedMethod = await paymentMethodRepository.findOne({ where: { id: paymentMethodId, isActive: true } });
+      }
+      if (!selectedMethod) {
+        selectedMethod = await paymentMethodRepository.findOne({ where: { code: 'CASH', isActive: true } });
+      }
+      const methodSettlementStatus = selectedMethod?.requiresSettlement
+        ? SettlementStatusEnum.PENDING
+        : SettlementStatusEnum.NOT_APPLICABLE;
 
       // Find invoice for this sales order if it exists
       let invoice = await invoiceRepository.findOne({
@@ -1985,6 +1998,8 @@ export class SalesOrderService {
         existingPayment.paymentDate = new Date();
         existingPayment.notes = `Payment recorded for sales order ${order.orderNumber}${invoice ? ` (Invoice: ${invoice.invoiceNumber})` : ''}`;
         existingPayment.invoiceId = invoice ? invoice.id : null; // Update invoice link
+        existingPayment.paymentMethodId = selectedMethod?.id || existingPayment.paymentMethodId;
+        existingPayment.settlementStatus = selectedMethod ? methodSettlementStatus : existingPayment.settlementStatus;
         await paymentRepository.save(existingPayment);
         console.log(`✅ Updated payment ${existingPayment.paymentNumber} for sales order ${order.orderNumber}${invoice ? ` and invoice ${invoice.invoiceNumber}` : ''}`);
 
@@ -2034,7 +2049,8 @@ export class SalesOrderService {
         const payment = paymentRepository.create({
           paymentNumber,
           status: PaymentStatus.COMPLETED,
-          paymentMethod: PaymentMethod.CASH, // Default method, can be changed later
+          paymentMethodId: selectedMethod?.id,
+          settlementStatus: methodSettlementStatus,
           paymentDate: new Date(),
           amount: Number(amount),
           customerId: order.customerId,
@@ -2058,7 +2074,7 @@ export class SalesOrderService {
               paymentNumber: payment.paymentNumber,
               amount: payment.amount,
               status: payment.status,
-              method: payment.paymentMethod,
+              paymentMethodId: payment.paymentMethodId,
             },
           }
         );
@@ -2356,7 +2372,8 @@ export class SalesOrderService {
           paymentNumber: payment.paymentNumber,
           paymentDate: payment.paymentDate,
           amount: Number(payment.amount),
-          paymentMethod: payment.paymentMethod,
+          paymentMethodId: payment.paymentMethodId,
+          paymentMethod: payment.paymentMethodEntity?.code?.toLowerCase() || 'cash',
           status: payment.status,
         })) || [],
         items: invoice.items?.map(item => ({

@@ -298,6 +298,11 @@ export class SalesOrderController {
           type: 'number',
           minimum: 0,
           description: 'Payment amount received'
+        },
+        paymentMethodId: {
+          type: 'string',
+          format: 'uuid',
+          description: 'Optional payment method ID. Defaults to CASH if not provided.'
         }
       },
       required: ['amount']
@@ -312,9 +317,9 @@ export class SalesOrderController {
   @ApiResponse({ status: 400, description: 'Invalid payment amount' })
   async recordPayment(
     @Param('id', ParseUUIDPipe) id: string,
-    @Body() body: { amount: number }
+    @Body() body: { amount: number; paymentMethodId?: string }
   ) {
-    const data = await this.salesOrderService.recordPayment(id, body.amount);
+    const data = await this.salesOrderService.recordPayment(id, body.amount, body.paymentMethodId);
     return { data };
   }
 
