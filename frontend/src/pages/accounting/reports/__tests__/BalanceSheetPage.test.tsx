@@ -68,6 +68,17 @@ describe('BalanceSheetPage', () => {
     expect(buttons.length).toBeGreaterThan(0);
   });
 
+  it('renders generate and export buttons in the report actions area', () => {
+    renderWithProviders();
+
+    const actions = screen.getByTestId('balance-sheet-actions');
+    const generateButton = screen.getByRole('button', { name: /generate report/i });
+    const exportButton = screen.getByRole('button', { name: /export to excel/i });
+
+    expect(actions).toContainElement(generateButton);
+    expect(actions).toContainElement(exportButton);
+  });
+
   it('renders balance sheet data from backend response shape', () => {
     const store = createMockStore({
       accountingReports: {
