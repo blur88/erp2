@@ -528,6 +528,10 @@ export class ChartOfAccountsService {
       );
     }
 
+    // "Clear mapping" currently soft-deletes rows, which can still hold FK references.
+    // Remove any lingering mapping rows to avoid DB-level RESTRICT failures.
+    await this.accountMappingRepository.delete({ accountId: id });
+
     // Check if account is used by bank reconciliations
     const reconciliationCount = await this.bankReconciliationRepository.count({
       where: { accountId: id },

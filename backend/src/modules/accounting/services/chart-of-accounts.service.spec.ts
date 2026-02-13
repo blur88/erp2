@@ -82,6 +82,7 @@ describe('ChartOfAccountsService', () => {
           useValue: {
             count: jest.fn(),
             find: jest.fn(),
+            delete: jest.fn(),
           },
         },
         {
@@ -489,6 +490,28 @@ describe('ChartOfAccountsService', () => {
   });
 
   describe('permanentDelete', () => {
+    it('should remove cleared (soft-deleted) mappings before permanent account delete', async () => {
+      const deletedAccount = {
+        ...mockAccount,
+        deletedAt: new Date(),
+        children: [],
+      };
+
+      accountRepository.findOne.mockResolvedValue(deletedAccount as ChartOfAccount);
+      journalEntryLineRepository.count.mockResolvedValue(0);
+      accountMappingRepository.count.mockResolvedValue(0);
+      accountMappingRepository.delete.mockResolvedValue({ affected: 1 } as any);
+      bankReconciliationRepository.count.mockResolvedValue(0);
+      accountRepository.remove.mockResolvedValue(deletedAccount as ChartOfAccount);
+
+      await service.permanentDelete(mockAccount.id!);
+
+      expect(accountMappingRepository.delete).toHaveBeenCalledWith({
+        accountId: mockAccount.id,
+      });
+      expect(accountRepository.remove).toHaveBeenCalledWith(deletedAccount);
+    });
+
     it('should throw clear error when account is used by active mappings', async () => {
       const deletedAccount = {
         ...mockAccount,
