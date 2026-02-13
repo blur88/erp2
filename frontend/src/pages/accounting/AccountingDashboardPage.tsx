@@ -182,6 +182,8 @@ const AccountingDashboardPage: React.FC = () => {
   const journalEntriesError = useAppSelector(selectJournalEntriesError);
   const currentPeriod = useAppSelector(selectCurrentPeriod);
   const fiscalPeriodsLoading = useAppSelector(selectFiscalPeriodsLoading);
+  const isCurrentPeriodOpen =
+    currentPeriod?.isOpen ?? currentPeriod?.status === 'OPEN';
 
   // Calculate YTD date range
   const today = getCurrentDate();
@@ -530,8 +532,8 @@ const AccountingDashboardPage: React.FC = () => {
                 </Typography>
                 <Box sx={{ mb: 2 }}>
                   <Chip
-                    label={currentPeriod.status === 'open' ? 'Open' : 'Closed'}
-                    color={currentPeriod.status === 'open' ? 'success' : 'error'}
+                    label={isCurrentPeriodOpen ? 'Open' : 'Closed'}
+                    color={isCurrentPeriodOpen ? 'success' : 'error'}
                     size="small"
                   />
                 </Box>
@@ -552,7 +554,7 @@ const AccountingDashboardPage: React.FC = () => {
                       {formatDate(currentPeriod.endDate)}
                     </Typography>
                   </Box>
-                  {currentPeriod.status === 'open' && daysRemaining !== null && (
+                  {isCurrentPeriodOpen && daysRemaining !== null && (
                     <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                       <Typography variant="body2" color="text.secondary">
                         Days Remaining:

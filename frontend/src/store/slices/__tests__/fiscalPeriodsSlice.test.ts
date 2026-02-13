@@ -191,6 +191,18 @@ describe('fiscalPeriodsSlice', () => {
       expect(state.loading).toBe(false);
       expect(state.currentPeriod).toEqual(currentPeriod);
     });
+
+    it('should clear currentPeriod when API returns null', async () => {
+      (fiscalPeriodsApi.getCurrent as any).mockResolvedValue(currentPeriod);
+      await store.dispatch(fetchCurrentPeriod());
+
+      (fiscalPeriodsApi.getCurrent as any).mockResolvedValue(null);
+      await store.dispatch(fetchCurrentPeriod());
+
+      const state = store.getState().fiscalPeriods;
+      expect(state.loading).toBe(false);
+      expect(state.currentPeriod).toBeNull();
+    });
   });
 
   describe('createFiscalPeriod', () => {

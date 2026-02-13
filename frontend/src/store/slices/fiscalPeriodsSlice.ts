@@ -215,9 +215,7 @@ const fiscalPeriodsSlice = createSlice({
       })
       .addCase(fetchCurrentPeriod.fulfilled, (state, action) => {
         state.loading = false;
-        if (action.payload) {
-          state.currentPeriod = action.payload;
-        }
+        state.currentPeriod = action.payload ?? null;
       })
       .addCase(fetchCurrentPeriod.rejected, (state, action) => {
         state.loading = false;
