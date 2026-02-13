@@ -500,11 +500,14 @@ const BalanceSheetPage: React.FC = () => {
           >
             <Grid container spacing={2}>
               {/* Total Assets */}
-              <Grid item xs={12} md={4}>
+              <Grid item xs={12} md={4} sx={{ display: 'flex' }}>
                 <Paper
                   variant="outlined"
+                  data-testid="balance-sheet-total-assets"
                   sx={{
                     p: 2,
+                    height: '100%',
+                    flex: 1,
                     backgroundColor:
                       theme.palette.mode === 'dark'
                         ? alpha(theme.palette.primary.main, 0.2)
@@ -525,11 +528,14 @@ const BalanceSheetPage: React.FC = () => {
               </Grid>
 
               {/* Total Liabilities & Equity */}
-              <Grid item xs={12} md={4}>
+              <Grid item xs={12} md={4} sx={{ display: 'flex' }}>
                 <Paper
                   variant="outlined"
+                  data-testid="balance-sheet-total-liabilities-equity"
                   sx={{
                     p: 2,
+                    height: '100%',
+                    flex: 1,
                     backgroundColor:
                       theme.palette.mode === 'dark'
                         ? alpha(theme.palette.success.main, 0.2)
@@ -550,11 +556,14 @@ const BalanceSheetPage: React.FC = () => {
               </Grid>
 
               {/* Balance Check */}
-              <Grid item xs={12} md={4}>
+              <Grid item xs={12} md={4} sx={{ display: 'flex' }}>
                 <Paper
                   variant="outlined"
+                  data-testid="balance-sheet-balance-check"
                   sx={{
                     p: 2,
+                    height: '100%',
+                    flex: 1,
                     backgroundColor: isBalanced
                       ? theme.palette.mode === 'dark'
                         ? alpha(theme.palette.success.main, 0.2)
