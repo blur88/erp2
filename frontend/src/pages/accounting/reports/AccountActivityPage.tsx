@@ -171,6 +171,17 @@ export const getAccountActivityMetricCardSx = () => ({
   },
 });
 
+const accountActivityToolbarLayout = {
+  containerDirection: { xs: 'column', lg: 'row' } as const,
+  containerAlignItems: { xs: 'stretch', lg: 'center' } as const,
+  filtersWrap: { xs: 'wrap', md: 'nowrap' } as const,
+  dateStatusDirection: { xs: 'row', sm: 'row' } as const,
+  dateStatusWrap: 'nowrap' as const,
+  actionsJustify: { xs: 'flex-start', md: 'flex-start' } as const,
+};
+
+export const getAccountActivityToolbarLayout = () => accountActivityToolbarLayout;
+
 const AccountActivityPage: React.FC = () => {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
@@ -273,17 +284,17 @@ const AccountActivityPage: React.FC = () => {
       {/* Filters Section */}
       <Paper sx={{ p: 3, mb: 3 }}>
         <Stack
-          direction={{ xs: 'column', md: 'row' }}
+          direction={accountActivityToolbarLayout.containerDirection}
           spacing={2}
           justifyContent="space-between"
-          alignItems={{ xs: 'stretch', md: 'center' }}
+          alignItems={accountActivityToolbarLayout.containerAlignItems}
         >
           <Stack
             data-testid="account-activity-filters"
             direction="row"
             spacing={2}
             alignItems="flex-start"
-            flexWrap="wrap"
+            flexWrap={accountActivityToolbarLayout.filtersWrap}
           >
             {/* Account Selector */}
             <Autocomplete
@@ -304,55 +315,63 @@ const AccountActivityPage: React.FC = () => {
                   helperText={validationError}
                 />
               )}
-              sx={{ minWidth: 350, flexGrow: 1 }}
+              sx={{ minWidth: { xs: 280, md: 220 }, flexGrow: 1 }}
               size="small"
             />
 
-            {/* Start Date */}
-            <TextField
-              label="Start Date"
-              type="date"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              size="small"
-              InputLabelProps={{ shrink: true }}
-              sx={{ minWidth: 180 }}
-            />
+            <Stack
+              direction={accountActivityToolbarLayout.dateStatusDirection}
+              spacing={2}
+              flexWrap={accountActivityToolbarLayout.dateStatusWrap}
+              sx={{ width: { xs: '100%', sm: 'auto' } }}
+            >
+              {/* Start Date */}
+              <TextField
+                label="Start Date"
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                size="small"
+                InputLabelProps={{ shrink: true }}
+                sx={{ minWidth: { xs: 140, sm: 160 } }}
+              />
 
-            {/* End Date */}
-            <TextField
-              label="End Date"
-              type="date"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-              size="small"
-              InputLabelProps={{ shrink: true }}
-              sx={{ minWidth: 180 }}
-            />
+              {/* End Date */}
+              <TextField
+                label="End Date"
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                size="small"
+                InputLabelProps={{ shrink: true }}
+                sx={{ minWidth: { xs: 140, sm: 160 } }}
+              />
 
-            {/* Status Filter */}
-            <FormControl size="small" sx={{ minWidth: 120 }}>
-              <InputLabel id="status-filter-label">Status</InputLabel>
-              <Select
-                labelId="status-filter-label"
-                label="Status"
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-              >
-                <MenuItem value="ALL">All Statuses</MenuItem>
-                <MenuItem value="DRAFT">Draft</MenuItem>
-                <MenuItem value="POSTED">Posted</MenuItem>
-                <MenuItem value="REVERSED">Reversed</MenuItem>
-              </Select>
-            </FormControl>
+              {/* Status Filter */}
+              <FormControl size="small" sx={{ minWidth: { xs: 110, sm: 120 } }}>
+                <InputLabel id="status-filter-label">Status</InputLabel>
+                <Select
+                  labelId="status-filter-label"
+                  label="Status"
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                >
+                  <MenuItem value="ALL">All Statuses</MenuItem>
+                  <MenuItem value="DRAFT">Draft</MenuItem>
+                  <MenuItem value="POSTED">Posted</MenuItem>
+                  <MenuItem value="REVERSED">Reversed</MenuItem>
+                </Select>
+              </FormControl>
+            </Stack>
           </Stack>
 
           <Stack
             data-testid="account-activity-actions"
             direction="row"
             spacing={2}
-            justifyContent={{ xs: 'stretch', md: 'flex-end' }}
+            justifyContent={accountActivityToolbarLayout.actionsJustify}
             flexWrap="wrap"
+            sx={{ width: '100%' }}
           >
             <Button
               variant="contained"

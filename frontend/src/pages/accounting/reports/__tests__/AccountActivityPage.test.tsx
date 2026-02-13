@@ -4,7 +4,10 @@ import { Provider } from 'react-redux';
 import { BrowserRouter } from 'react-router-dom';
 import { configureStore } from '@reduxjs/toolkit';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
-import AccountActivityPage, { getAccountActivityMetricCardSx } from '../AccountActivityPage';
+import AccountActivityPage, {
+  getAccountActivityMetricCardSx,
+  getAccountActivityToolbarLayout,
+} from '../AccountActivityPage';
 import accountingReportsReducer from '@/store/slices/accountingReportsSlice';
 import chartOfAccountsReducer from '@/store/slices/chartOfAccountsSlice';
 
@@ -208,5 +211,15 @@ describe('AccountActivityPage', () => {
         padding: 1.5,
       })
     );
+  });
+
+  it('keeps date and status filters together and moves actions to next row on reduced widths', () => {
+    const toolbarLayout = getAccountActivityToolbarLayout();
+
+    expect(toolbarLayout.containerDirection).toEqual({ xs: 'column', lg: 'row' });
+    expect(toolbarLayout.filtersWrap).toEqual({ xs: 'wrap', md: 'nowrap' });
+    expect(toolbarLayout.dateStatusDirection).toEqual({ xs: 'row', sm: 'row' });
+    expect(toolbarLayout.dateStatusWrap).toBe('nowrap');
+    expect(toolbarLayout.actionsJustify).toEqual({ xs: 'flex-start', md: 'flex-start' });
   });
 });
