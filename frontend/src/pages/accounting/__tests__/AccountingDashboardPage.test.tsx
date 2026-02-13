@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { BrowserRouter } from 'react-router-dom';
 import { configureStore } from '@reduxjs/toolkit';
@@ -9,6 +9,7 @@ import accountingReportsReducer from '@/store/slices/accountingReportsSlice';
 import journalEntriesReducer from '@/store/slices/journalEntriesSlice';
 import fiscalPeriodsReducer from '@/store/slices/fiscalPeriodsSlice';
 import { darkTheme } from '@/styles/theme';
+import { ApiService } from '@/services/api';
 
 // Mock API Service
 vi.mock('@/services/api', () => ({
@@ -120,5 +121,57 @@ describe('AccountingDashboardPage', () => {
     const totalAssetsIconBadge = screen.getByTestId('summary-card-icon-total-assets');
     expect(totalAssetsIconBadge).toHaveStyle({ backgroundColor: 'rgba(66, 165, 245, 0.16)' });
     expect(totalAssetsIconBadge).toHaveStyle({ color: darkTheme.palette.primary.light });
+  });
+
+  it('displays balance sheet totals from report response', async () => {
+    vi.mocked(ApiService.get).mockImplementation((url: string) => {
+      if (url.includes('/balance-sheet')) {
+        return Promise.resolve({
+          assets: { current: [], fixed: [], totalCurrent: 0, totalFixed: 0, total: 1111.11 },
+          liabilities: { current: [], longTerm: [], totalCurrent: 0, totalLongTerm: 0, total: 2222.22 },
+          equity: { accounts: [], netIncome: 0, total: 3333.33 },
+          isBalanced: true,
+        } as any);
+      }
+
+      if (url.includes('/profit-loss')) {
+        return Promise.resolve({
+          startDate: '2026-01-01',
+          endDate: '2026-02-11',
+          revenue: { accounts: [], subtotal: 0 },
+          cogs: { accounts: [], subtotal: 0 },
+          expenses: { accounts: [], subtotal: 0 },
+          grossProfit: 0,
+          operatingIncome: 0,
+          netIncome: 4444.44,
+        } as any);
+      }
+
+      if (url.includes('/journal-entries')) {
+        return Promise.resolve({ data: [], meta: {} } as any);
+      }
+
+      if (url.includes('/fiscal-periods/current')) {
+        return Promise.resolve({
+          id: 'period-1',
+          name: 'February 2026',
+          startDate: '2026-02-01',
+          endDate: '2026-02-28',
+          status: 'OPEN',
+          isOpen: true,
+        } as any);
+      }
+
+      return Promise.resolve({ data: [], meta: {} } as any);
+    });
+
+    renderWithProviders();
+
+    await waitFor(() => {
+      expect(screen.getByText('$1111.11')).toBeInTheDocument();
+      expect(screen.getByText('$2222.22')).toBeInTheDocument();
+      expect(screen.getByText('$3333.33')).toBeInTheDocument();
+      expect(screen.getByText('$4444.44')).toBeInTheDocument();
+    });
   });
 });

@@ -204,9 +204,9 @@ const AccountingDashboardPage: React.FC = () => {
   const balanceSheet = balanceSheetState.data;
   const profitAndLoss = profitAndLossState.data;
 
-  const totalAssets = balanceSheet?.totalAssets || 0;
-  const totalLiabilities = balanceSheet?.liabilities?.subtotal || 0;
-  const totalEquity = balanceSheet?.equity?.subtotal || 0;
+  const totalAssets = balanceSheet?.assets?.total || 0;
+  const totalLiabilities = balanceSheet?.liabilities?.total || 0;
+  const totalEquity = balanceSheet?.equity?.total || 0;
   const netIncome = profitAndLoss?.netIncome || 0;
 
   const isLoading =
