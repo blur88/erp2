@@ -398,10 +398,14 @@ const BalanceSheetPage: React.FC = () => {
 
           {/* Three Sections in Grid Layout */}
           <Box sx={{ p: 3 }}>
-            <Grid container spacing={3}>
+            <Grid container spacing={3} alignItems="stretch">
               {/* Assets Section */}
-              <Grid item xs={12} md={4}>
-                <Paper variant="outlined" sx={{ p: 2 }}>
+              <Grid item xs={12} md={4} sx={{ display: 'flex' }}>
+                <Paper
+                  variant="outlined"
+                  data-testid="balance-sheet-section-assets"
+                  sx={{ p: 2, height: '100%', display: 'flex', flexDirection: 'column', flex: 1 }}
+                >
                   <BalanceSheetSection
                     title="ASSETS"
                     accounts={assetAccounts}
@@ -412,8 +416,12 @@ const BalanceSheetPage: React.FC = () => {
               </Grid>
 
               {/* Liabilities Section */}
-              <Grid item xs={12} md={4}>
-                <Paper variant="outlined" sx={{ p: 2 }}>
+              <Grid item xs={12} md={4} sx={{ display: 'flex' }}>
+                <Paper
+                  variant="outlined"
+                  data-testid="balance-sheet-section-liabilities"
+                  sx={{ p: 2, height: '100%', display: 'flex', flexDirection: 'column', flex: 1 }}
+                >
                   <BalanceSheetSection
                     title="LIABILITIES"
                     accounts={liabilityAccounts}
@@ -424,26 +432,49 @@ const BalanceSheetPage: React.FC = () => {
               </Grid>
 
               {/* Equity Section */}
-              <Grid item xs={12} md={4}>
-                <Paper variant="outlined" sx={{ p: 2 }}>
-                  <BalanceSheetSection
-                    title="EQUITY"
-                    accounts={equityAccounts}
-                    subtotal={equitySubtotal}
-                    color="success"
-                  />
+              <Grid item xs={12} md={4} sx={{ display: 'flex' }}>
+                <Paper
+                  variant="outlined"
+                  data-testid="balance-sheet-section-equity"
+                  sx={{ p: 2, height: '100%', display: 'flex', flexDirection: 'column', flex: 1 }}
+                >
+                  <Box sx={{ flexGrow: 1 }}>
+                    <BalanceSheetSection
+                      title="EQUITY"
+                      accounts={equityAccounts}
+                      subtotal={equitySubtotal}
+                      color="success"
+                    />
+                  </Box>
                   {netIncome !== 0 && (
-                    <Box sx={{ mt: 1, px: 1, py: 0.5, borderTop: 1, borderColor: 'divider' }}>
+                    <Box
+                      data-testid="balance-sheet-net-income"
+                      sx={{
+                        mt: 2,
+                        p: 1.5,
+                        borderRadius: 1,
+                        border: 1,
+                        borderColor: netIncome >= 0 ? 'success.main' : 'error.main',
+                        backgroundColor:
+                          netIncome >= 0
+                            ? alpha(theme.palette.success.main, theme.palette.mode === 'dark' ? 0.2 : 0.08)
+                            : alpha(theme.palette.error.main, theme.palette.mode === 'dark' ? 0.2 : 0.08),
+                      }}
+                    >
                       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <Typography variant="body2" sx={{ fontStyle: 'italic', fontWeight: 600 }}>
+                        <Typography
+                          data-testid="balance-sheet-net-income-label"
+                          variant="subtitle2"
+                          sx={{ fontWeight: 700, letterSpacing: 0.3 }}
+                        >
                           {netIncome >= 0 ? 'Net Income' : 'Net Loss'}
                         </Typography>
                         <Typography
-                          variant="body2"
+                          data-testid="balance-sheet-net-income-value"
+                          variant="h6"
                           sx={{
                             fontFamily: 'monospace',
-                            fontWeight: 600,
-                            fontStyle: 'italic',
+                            fontWeight: 800,
                             color: netIncome >= 0 ? 'success.main' : 'error.main',
                           }}
                         >
