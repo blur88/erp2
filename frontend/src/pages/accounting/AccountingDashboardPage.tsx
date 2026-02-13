@@ -19,6 +19,7 @@ import {
   Alert,
   Stack,
 } from '@mui/material';
+import { alpha } from '@mui/material/styles';
 import {
   AccountBalance as AccountBalanceIcon,
   Receipt as ReceiptIcon,
@@ -73,6 +74,11 @@ const SummaryCard: React.FC<SummaryCardProps> = ({
   onClick,
   loading,
 }) => {
+  const summaryIconTestId = `summary-card-icon-${title
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/(^-|-$)/g, '')}`;
+
   return (
     <Card
       sx={{
@@ -88,6 +94,7 @@ const SummaryCard: React.FC<SummaryCardProps> = ({
         <Box>
           <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
             <Box
+              data-testid={summaryIconTestId}
               sx={{
                 display: 'flex',
                 alignItems: 'center',
@@ -95,8 +102,14 @@ const SummaryCard: React.FC<SummaryCardProps> = ({
                 width: 56,
                 height: 56,
                 borderRadius: 2,
-                bgcolor: `${color}.light`,
-                color: `${color}.main`,
+                bgcolor: (theme) =>
+                  theme.palette.mode === 'dark'
+                    ? alpha(theme.palette[color].main, 0.16)
+                    : theme.palette[color].light,
+                color: (theme) =>
+                  theme.palette.mode === 'dark'
+                    ? theme.palette[color].light
+                    : theme.palette[color].main,
                 mr: 2,
               }}
             >

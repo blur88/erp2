@@ -3,10 +3,12 @@ import { render, screen } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { BrowserRouter } from 'react-router-dom';
 import { configureStore } from '@reduxjs/toolkit';
+import { ThemeProvider } from '@mui/material/styles';
 import AccountingDashboardPage from '../AccountingDashboardPage';
 import accountingReportsReducer from '@/store/slices/accountingReportsSlice';
 import journalEntriesReducer from '@/store/slices/journalEntriesSlice';
 import fiscalPeriodsReducer from '@/store/slices/fiscalPeriodsSlice';
+import { darkTheme } from '@/styles/theme';
 
 // Mock API Service
 vi.mock('@/services/api', () => ({
@@ -35,15 +37,21 @@ const createMockStore = () => {
   });
 };
 
-const renderWithProviders = () => {
+const renderWithProviders = (useDarkTheme = false) => {
   const store = createMockStore();
-  return render(
+  const content = (
     <Provider store={store}>
       <BrowserRouter>
         <AccountingDashboardPage />
       </BrowserRouter>
     </Provider>
   );
+
+  if (useDarkTheme) {
+    return render(<ThemeProvider theme={darkTheme}>{content}</ThemeProvider>);
+  }
+
+  return render(content);
 };
 
 describe('AccountingDashboardPage', () => {
@@ -104,5 +112,13 @@ describe('AccountingDashboardPage', () => {
   it('displays current fiscal period section', () => {
     renderWithProviders();
     expect(screen.getByText('Current Fiscal Period')).toBeInTheDocument();
+  });
+
+  it('uses dark-mode friendly summary icon colors', () => {
+    renderWithProviders(true);
+
+    const totalAssetsIconBadge = screen.getByTestId('summary-card-icon-total-assets');
+    expect(totalAssetsIconBadge).toHaveStyle({ backgroundColor: 'rgba(66, 165, 245, 0.16)' });
+    expect(totalAssetsIconBadge).toHaveStyle({ color: darkTheme.palette.primary.light });
   });
 });
