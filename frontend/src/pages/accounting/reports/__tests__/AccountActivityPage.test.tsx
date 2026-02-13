@@ -84,6 +84,17 @@ describe('AccountActivityPage', () => {
     expect(buttons.length).toBeGreaterThan(0);
   });
 
+  it('renders generate and export buttons in the report actions area', () => {
+    renderWithProviders();
+
+    const actions = screen.getByTestId('account-activity-actions');
+    const generateButton = screen.getByRole('button', { name: /generate report/i });
+    const exportButton = screen.getByRole('button', { name: /export to excel/i });
+
+    expect(actions).toContainElement(generateButton);
+    expect(actions).toContainElement(exportButton);
+  });
+
   it('renders safely when account activity response has no entries array', () => {
     renderWithProviders({
       accountingReports: {

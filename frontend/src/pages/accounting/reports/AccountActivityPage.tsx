@@ -255,8 +255,19 @@ const AccountActivityPage: React.FC = () => {
 
       {/* Filters Section */}
       <Paper sx={{ p: 3, mb: 3 }}>
-        <Stack spacing={2}>
-          <Stack direction="row" spacing={2} alignItems="flex-start" flexWrap="wrap">
+        <Stack
+          direction={{ xs: 'column', md: 'row' }}
+          spacing={2}
+          justifyContent="space-between"
+          alignItems={{ xs: 'stretch', md: 'center' }}
+        >
+          <Stack
+            data-testid="account-activity-filters"
+            direction="row"
+            spacing={2}
+            alignItems="flex-start"
+            flexWrap="wrap"
+          >
             {/* Account Selector */}
             <Autocomplete
               options={accounts}
@@ -319,13 +330,20 @@ const AccountActivityPage: React.FC = () => {
             </FormControl>
           </Stack>
 
-          <Stack direction="row" spacing={2} justifyContent="flex-end">
+          <Stack
+            data-testid="account-activity-actions"
+            direction="row"
+            spacing={2}
+            justifyContent={{ xs: 'stretch', md: 'flex-end' }}
+            flexWrap="wrap"
+          >
             <Button
               variant="contained"
               color="primary"
               onClick={handleGenerateReport}
               disabled={loading}
-              sx={{ minWidth: 150 }}
+              aria-label="Generate Report"
+              sx={{ minWidth: 150, flex: { xs: 1, sm: 'initial' } }}
             >
               {loading ? <CircularProgress size={24} /> : 'Generate Report'}
             </Button>
@@ -335,7 +353,7 @@ const AccountActivityPage: React.FC = () => {
               startIcon={downloading ? <CircularProgress size={20} /> : <DownloadIcon />}
               onClick={handleExportToExcel}
               disabled={!data || loading || downloading}
-              sx={{ minWidth: 150 }}
+              sx={{ minWidth: 150, flex: { xs: 1, sm: 'initial' } }}
             >
               Export to Excel
             </Button>
