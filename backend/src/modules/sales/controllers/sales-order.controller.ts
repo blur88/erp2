@@ -30,6 +30,7 @@ import {
   QuerySalesOrdersDto,
   SalesOrderResponseDto,
   SalesOrderSummaryDto,
+  RecordPaymentsDto,
 } from '../dto/sales-order.dto';
 
 @ApiTags('Sales Orders')
@@ -286,6 +287,24 @@ export class SalesOrderController {
   @ApiResponse({ status: 409, description: 'Cannot create invoice for order in current status' })
   async createInvoiceFromOrder(@Param('id', ParseUUIDPipe) id: string) {
     return this.salesOrderService.createInvoiceFromOrder(id);
+  }
+
+  @Post(':id/record-payments')
+  @ApiOperation({ summary: 'Record multiple split payments for a sales order (atomic)' })
+  @ApiParam({ name: 'id', description: 'Sales order ID', type: 'string' })
+  @ApiResponse({
+    status: 200,
+    description: 'Payments recorded successfully',
+    type: SalesOrderResponseDto,
+  })
+  @ApiResponse({ status: 404, description: 'Sales order not found' })
+  @ApiResponse({ status: 400, description: 'Invalid payment data' })
+  async recordPayments(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: RecordPaymentsDto,
+  ) {
+    const data = await this.salesOrderService.recordPayments(id, body.payments);
+    return { data };
   }
 
   @Post(':id/record-payment')
