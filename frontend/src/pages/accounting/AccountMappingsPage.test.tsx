@@ -55,6 +55,22 @@ const mockMappings = [
   },
 ]
 
+const dynamicPaymentMapping = {
+  id: 'dyn-1',
+  mappingType: 'payment_custom',
+  accountId: 'acc-9',
+  description: 'Custom payment method mapping',
+  isActive: true,
+  account: {
+    id: 'acc-9',
+    code: '1170',
+    name: 'Custom Receivable',
+    accountType: 'Asset',
+  },
+  createdAt: '2024-01-01',
+  updatedAt: '2024-01-01',
+}
+
 const createMockStore = (initialState = {}) => {
   return configureStore({
     reducer: {
@@ -248,6 +264,16 @@ describe('AccountMappingsPage', () => {
     expect(screen.getByText('Purchasing')).toBeInTheDocument()
     expect(screen.getByText('Payments')).toBeInTheDocument()
     expect(screen.getByText('Inventory')).toBeInTheDocument()
+  })
+
+  it('shows dynamic payment mappings returned by API', async () => {
+    const store = createMockStore({ mappings: [...mockMappings, dynamicPaymentMapping] })
+    renderWithProviders(<AccountMappingsPage />, store)
+
+    await waitFor(() => {
+      expect(screen.getByText('payment_custom')).toBeInTheDocument()
+    })
+    expect(screen.getByText(/1170 - Custom Receivable/i)).toBeInTheDocument()
   })
 
   it('displays info alert about account mappings', async () => {

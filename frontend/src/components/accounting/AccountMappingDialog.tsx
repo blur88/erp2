@@ -29,7 +29,7 @@ interface AccountMappingDialogProps {
   open: boolean
   onClose: () => void
   mapping?: AccountMapping
-  mappingType?: MappingType
+  mappingType?: string
   onSaveSuccess?: () => void
 }
 
@@ -48,6 +48,11 @@ const MAPPING_TYPE_LABELS: Record<MappingType, string> = {
   inventory_asset: 'Inventory Asset',
   inventory_adjustment_gain: 'Inventory Adjustment Gain',
   inventory_adjustment_loss: 'Inventory Adjustment Loss',
+}
+
+const getMappingTypeLabel = (mappingType?: string): string => {
+  if (!mappingType) return 'Unknown mapping'
+  return MAPPING_TYPE_LABELS[mappingType as MappingType] || mappingType
 }
 
 const AccountMappingDialog: React.FC<AccountMappingDialogProps> = ({
@@ -166,10 +171,10 @@ const AccountMappingDialog: React.FC<AccountMappingDialogProps> = ({
   // Get dialog title
   const getDialogTitle = () => {
     if (mapping) {
-      return `Edit Account Mapping: ${MAPPING_TYPE_LABELS[mapping.mappingType]}`
+      return `Edit Account Mapping: ${getMappingTypeLabel(mapping.mappingType)}`
     }
     if (mappingType) {
-      return `Configure Account Mapping: ${MAPPING_TYPE_LABELS[mappingType]}`
+      return `Configure Account Mapping: ${getMappingTypeLabel(mappingType)}`
     }
     return 'Account Mapping'
   }
@@ -198,7 +203,7 @@ const AccountMappingDialog: React.FC<AccountMappingDialogProps> = ({
               {/* Mapping Type (read-only) */}
               <TextField
                 label="Mapping Type"
-                value={MAPPING_TYPE_LABELS[mapping?.mappingType || mappingType || 'sales_revenue']}
+                value={getMappingTypeLabel(mapping?.mappingType || mappingType)}
                 disabled
                 fullWidth
               />

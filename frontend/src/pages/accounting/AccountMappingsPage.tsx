@@ -112,6 +112,12 @@ const MAPPING_TYPE_LABELS: Record<MappingType, { label: string; category: string
   },
 }
 
+const getMappingLabel = (mappingType: string): string =>
+  MAPPING_TYPE_LABELS[mappingType as MappingType]?.label || mappingType
+
+const getMappingDescription = (mappingType: string): string =>
+  MAPPING_TYPE_LABELS[mappingType as MappingType]?.description || 'Custom payment mapping'
+
 const AccountMappingsPage: React.FC = () => {
   const dispatch = useAppDispatch()
   const { showSuccess, showError } = useNotification()
@@ -126,7 +132,7 @@ const AccountMappingsPage: React.FC = () => {
 
   const [dialogOpen, setDialogOpen] = useState(false)
   const [selectedMapping, setSelectedMapping] = useState<AccountMapping | null>(null)
-  const [selectedMappingType, setSelectedMappingType] = useState<MappingType | null>(null)
+  const [selectedMappingType, setSelectedMappingType] = useState<string | null>(null)
   const [mappingToClear, setMappingToClear] = useState<AccountMapping | null>(null)
   const [clearing, setClearing] = useState(false)
 
@@ -148,7 +154,7 @@ const AccountMappingsPage: React.FC = () => {
   }
 
   // Handle create mapping
-  const handleCreate = (mappingType: MappingType) => {
+  const handleCreate = (mappingType: string) => {
     setSelectedMapping(null)
     setSelectedMappingType(mappingType)
     setDialogOpen(true)
@@ -181,7 +187,7 @@ const AccountMappingsPage: React.FC = () => {
       await dispatch(deleteAccountMapping(mappingToClear.id)).unwrap()
       await dispatch(fetchAccountMappings()).unwrap()
       await dispatch(validateAccountMappings()).unwrap()
-      showSuccess(`Mapping "${MAPPING_TYPE_LABELS[mappingToClear.mappingType].label}" cleared successfully`)
+      showSuccess(`Mapping "${getMappingLabel(mappingToClear.mappingType)}" cleared successfully`)
     } catch (err: any) {
       showError(err || 'Failed to clear mapping')
     } finally {
@@ -200,6 +206,8 @@ const AccountMappingsPage: React.FC = () => {
 
   // Group by category for better organization
   const categories = ['Sales', 'Purchasing', 'Payments', 'Vendor Payments', 'Inventory']
+  const knownMappingTypes = new Set(Object.values(MappingType))
+  const dynamicMappings = mappings.filter((mapping) => !knownMappingTypes.has(mapping.mappingType as MappingType))
 
   if (loading && mappings.length === 0) {
     return (
@@ -491,6 +499,97 @@ const AccountMappingsPage: React.FC = () => {
                     )
                   })
                 })}
+                {dynamicMappings.map((mapping, index) => (
+                  <TableRow
+                    key={mapping.id}
+                    hover
+                    sx={{
+                      '&:hover': {
+                        backgroundColor: 'action.hover',
+                      },
+                      transition: 'background-color 0.2s ease',
+                      height: TABLE_STYLES.row.height,
+                    }}
+                  >
+                    <TableCell>
+                      {index === 0 && (
+                        <Chip
+                          label="Dynamic"
+                          size="small"
+                          color="secondary"
+                          variant="outlined"
+                          sx={{ fontSize: '0.7rem', fontWeight: 500 }}
+                        />
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2" sx={{ fontSize: '0.8rem', fontWeight: 500 }}>
+                        {getMappingLabel(mapping.mappingType)}
+                      </Typography>
+                      {isMobile && (
+                        <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem', display: 'block', mt: 0.5 }}>
+                          {mapping.description || getMappingDescription(mapping.mappingType)}
+                        </Typography>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <Box>
+                        <Typography variant="body2" sx={{ fontSize: '0.8rem', fontWeight: 400 }}>
+                          {mapping.account?.code} - {mapping.account?.name}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
+                          {mapping.account?.accountType}
+                        </Typography>
+                      </Box>
+                    </TableCell>
+                    {!isMobile && (
+                      <TableCell>
+                        <Typography variant="body2" sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>
+                          {mapping.description || getMappingDescription(mapping.mappingType)}
+                        </Typography>
+                      </TableCell>
+                    )}
+                    <TableCell align="right">
+                      <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 0.5 }}>
+                        <Tooltip title="Edit mapping">
+                          <IconButton
+                            size="small"
+                            onClick={() => handleEdit(mapping)}
+                            sx={{
+                              height: `${TABLE_STYLES.row.height * 0.75}px`,
+                              width: `${TABLE_STYLES.row.height * 0.75}px`,
+                              color: 'primary.main',
+                              '&:hover': {
+                                backgroundColor: 'primary.light',
+                                color: 'primary.dark'
+                              }
+                            }}
+                          >
+                            <EditIcon sx={{ fontSize: `${TABLE_STYLES.row.height * 0.5}px` }} />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Clear mapping">
+                          <IconButton
+                            size="small"
+                            aria-label="clear"
+                            onClick={() => handleClearClick(mapping)}
+                            sx={{
+                              height: `${TABLE_STYLES.row.height * 0.75}px`,
+                              width: `${TABLE_STYLES.row.height * 0.75}px`,
+                              color: 'error.main',
+                              '&:hover': {
+                                backgroundColor: 'error.light',
+                                color: 'error.dark'
+                              }
+                            }}
+                          >
+                            <ClearIcon sx={{ fontSize: `${TABLE_STYLES.row.height * 0.5}px` }} />
+                          </IconButton>
+                        </Tooltip>
+                      </Box>
+                    </TableCell>
+                  </TableRow>
+                ))}
               </TableBody>
             </Table>
           </TableContainer>
@@ -511,7 +610,7 @@ const AccountMappingsPage: React.FC = () => {
         title="Clear Account Mapping"
         message={
           mappingToClear
-            ? `Are you sure you want to clear "${MAPPING_TYPE_LABELS[mappingToClear.mappingType].label}"? Auto-posting for this mapping will remain disabled until reconfigured.`
+            ? `Are you sure you want to clear "${getMappingLabel(mappingToClear.mappingType)}"? Auto-posting for this mapping will remain disabled until reconfigured.`
             : ''
         }
         confirmText={clearing ? 'Clearing...' : 'Clear'}

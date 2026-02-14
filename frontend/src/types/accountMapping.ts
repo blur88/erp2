@@ -1,6 +1,6 @@
 export interface AccountMapping {
   id: string;
-  mappingType: MappingType;
+  mappingType: string;
   accountId: string;
   description?: string;
   isActive: boolean;
@@ -31,7 +31,7 @@ export enum MappingType {
 }
 
 export interface CreateAccountMappingDto {
-  mappingType: MappingType;
+  mappingType: string;
   accountId: string;
   description?: string;
 }
