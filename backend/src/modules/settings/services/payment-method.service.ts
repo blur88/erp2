@@ -209,19 +209,18 @@ export class PaymentMethodService {
 
     if (!existingMapping) {
       const account = await this.findMatchingAccount(pm);
-      if (account) {
-        const mapping = this.accountMappingRepository.create({
-          mappingType: mappingKey,
-          accountId: account.id,
-          description: `${pm.name} payment received account`,
-          isActive: true,
-        });
-        await this.accountMappingRepository.save(mapping);
-      } else {
+      if (!account) {
         this.logger.warn(
-          `Skipped creating ${mappingKey} mapping for ${pm.code}: no matching account found`,
+          `No matching GL account found for ${pm.code} — mapping created with null accountId`,
         );
       }
+      const mapping = this.accountMappingRepository.create({
+        mappingType: mappingKey,
+        accountId: account ? account.id : null,
+        description: `${pm.name} payment received account`,
+        isActive: true,
+      });
+      await this.accountMappingRepository.save(mapping);
     }
 
     if (pm.requiresSettlement) {
@@ -235,19 +234,18 @@ export class PaymentMethodService {
           where: { code: '1100', isActive: true },
         });
 
-        if (bankAccount) {
-          const mapping = this.accountMappingRepository.create({
-            mappingType: settlementKey,
-            accountId: bankAccount.id,
-            description: `${pm.name} settlement to bank account`,
-            isActive: true,
-          });
-          await this.accountMappingRepository.save(mapping);
-        } else {
+        if (!bankAccount) {
           this.logger.warn(
-            `Skipped creating ${settlementKey} mapping for ${pm.code}: bank account 1100 not found`,
+            `Bank account 1100 not found for ${pm.code} — settlement mapping created with null accountId`,
           );
         }
+        const mapping = this.accountMappingRepository.create({
+          mappingType: settlementKey,
+          accountId: bankAccount ? bankAccount.id : null,
+          description: `${pm.name} settlement to bank account`,
+          isActive: true,
+        });
+        await this.accountMappingRepository.save(mapping);
       }
     }
   }

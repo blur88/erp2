@@ -51,10 +51,11 @@ export class AccountMapping extends BaseEntity {
 
   @Column({
     type: 'uuid',
+    nullable: true,
     comment: 'Chart of account ID to post to',
   })
   @IsUUID()
-  accountId: string;
+  accountId: string | null;
 
   @Column({
     type: 'text',
@@ -76,6 +77,7 @@ export class AccountMapping extends BaseEntity {
   @ManyToOne(() => ChartOfAccount, (account) => account.accountMappings, {
     onDelete: 'RESTRICT',
     eager: false,
+    nullable: true,
   })
   @JoinColumn({ name: 'accountId' })
   account: ChartOfAccount;
