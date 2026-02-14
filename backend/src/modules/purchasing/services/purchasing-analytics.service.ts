@@ -56,7 +56,7 @@ export interface VendorPaymentDetailsItem {
   orderDate: string | null;
   grnNumber: string | null;
   paymentAmount: number;
-  paymentMethod: string;
+  paymentMethodId: string | null;
   referenceNumber: string | null;
   status: string;
   notes: string;
@@ -401,7 +401,7 @@ export class PurchasingAnalyticsService {
         orderDate: orderDateStr,
         grnNumber: vp.grn?.grnNumber || null,
         paymentAmount: parseFloat(vp.amount?.toString() || '0'),
-        paymentMethod: vp.paymentMethod,
+        paymentMethodId: vp.paymentMethodId || null,
         referenceNumber: vp.referenceNumber || null,
         status: vp.status,
         notes: vp.notes || '',

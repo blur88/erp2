@@ -13,20 +13,20 @@ describe('AccountingService', () => {
   let accountMappingService: jest.Mocked<AccountMappingService>;
   let fiscalPeriodService: jest.Mocked<FiscalPeriodService>;
 
-  const mockMappings: Record<MappingType, string> = {
+  const mockMappings: Record<string, string> = {
     [MappingType.SALES_REVENUE]: 'revenue-account-id',
     [MappingType.SALES_AR]: 'ar-account-id',
     [MappingType.SALES_COGS]: 'cogs-account-id',
     [MappingType.SALES_INVENTORY]: 'inventory-account-id',
     [MappingType.PURCHASE_INVENTORY]: 'purchase-inventory-id',
     [MappingType.PURCHASE_AP]: 'ap-account-id',
-    [MappingType.PAYMENT_CASH]: 'cash-account-id',
     [MappingType.PAYMENT_AR]: 'payment-ar-id',
-    [MappingType.VENDOR_PAYMENT_CASH]: 'vendor-cash-id',
     [MappingType.VENDOR_PAYMENT_AP]: 'vendor-ap-id',
     [MappingType.INVENTORY_ASSET]: 'inventory-asset-id',
     [MappingType.INVENTORY_ADJUSTMENT_GAIN]: 'adjustment-gain-id',
     [MappingType.INVENTORY_ADJUSTMENT_LOSS]: 'adjustment-loss-id',
+    payment_cash: 'cash-account-id',
+    vendor_payment_cash: 'vendor-cash-id',
   };
 
   const mockOpenPeriod = {
@@ -246,6 +246,9 @@ describe('AccountingService', () => {
         id: 'customer-123',
         name: 'Test Customer',
       },
+      paymentMethodEntity: {
+        code: 'CASH',
+      },
     } as any;
 
     beforeEach(() => {
@@ -401,6 +404,9 @@ describe('AccountingService', () => {
       supplier: {
         id: 'supplier-123',
         companyName: 'Test Supplier',
+      },
+      paymentMethodEntity: {
+        code: 'CASH',
       },
     } as any;
 

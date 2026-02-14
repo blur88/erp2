@@ -358,7 +358,13 @@ export class AccountingService {
 
     // Validate required mappings exist
     this.validateMapping(mappings, MappingType.VENDOR_PAYMENT_AP, 'Accounts Payable');
-    this.validateMapping(mappings, MappingType.VENDOR_PAYMENT_CASH, 'Cash');
+    const paymentMethodCode = vendorPayment.paymentMethodEntity?.code || 'CASH';
+    const creditMappingKey = `vendor_payment_${paymentMethodCode.toLowerCase()}`;
+    this.validateMappingByKey(
+      mappings,
+      creditMappingKey,
+      `vendor payment method "${paymentMethodCode}"`,
+    );
 
     // Validate period is open
     await this.validatePeriodOpen(vendorPayment.paymentDate);
@@ -385,7 +391,7 @@ export class AccountingService {
       },
       // CR Cash in Hand
       {
-        accountId: mappings[MappingType.VENDOR_PAYMENT_CASH],
+        accountId: mappings[creditMappingKey],
         debitAmount: 0,
         creditAmount: Number(vendorPayment.amount),
         memo: 'Cash paid',

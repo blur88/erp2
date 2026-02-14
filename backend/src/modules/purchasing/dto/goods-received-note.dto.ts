@@ -151,7 +151,7 @@ export class GoodsReceivedNoteResponseDto {
       paymentNumber: string;
       amount: number;
       paymentDate: Date;
-      paymentMethod?: string;
+      paymentMethodId?: string;
       status: string;
     }>;
   };

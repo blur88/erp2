@@ -149,10 +149,10 @@ export class MappingValidationResponseDto {
   isValid: boolean;
 
   @ApiProperty({ description: 'List of missing mapping types', type: [String] })
-  missingMappings: MappingType[];
+  missingMappings: string[];
 
   @ApiProperty({ description: 'List of configured mapping types', type: [String] })
-  configuredMappings: MappingType[];
+  configuredMappings: string[];
 
   @ApiProperty({ description: 'Total required mappings' })
   totalRequired: number;

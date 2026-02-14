@@ -203,7 +203,7 @@ export const purchasingApi = {
   },
 
   // Vendor Payments
-  async getVendorPayments(params?: QueryParams & { supplierId?: string; status?: string; paymentMethod?: string; startDate?: string; endDate?: string }) {
+  async getVendorPayments(params?: QueryParams & { supplierId?: string; status?: string; paymentMethodId?: string; startDate?: string; endDate?: string }) {
     return ApiService.get<PaginatedResponse<VendorPayment>>('/purchasing/vendor-payments', { params })
   },
 

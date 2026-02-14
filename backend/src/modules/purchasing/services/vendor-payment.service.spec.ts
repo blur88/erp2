@@ -8,6 +8,7 @@ import {
   PurchaseOrder,
   GoodsReceivedNote,
   Supplier,
+  PaymentMethodEntity,
 } from '../../../database/entities';
 import { AuditLogService } from '../../audit-logs/services';
 import { AccountingService } from '../../accounting/services/accounting.service';
@@ -18,6 +19,7 @@ describe('VendorPaymentService', () => {
   let vendorPaymentRepository: jest.Mocked<Repository<VendorPayment>>;
   let purchaseOrderRepository: jest.Mocked<Repository<PurchaseOrder>>;
   let grnRepository: jest.Mocked<Repository<GoodsReceivedNote>>;
+  let paymentMethodRepository: jest.Mocked<Repository<PaymentMethodEntity>>;
   let accountingService: jest.Mocked<AccountingService>;
   let auditLogService: jest.Mocked<AuditLogService>;
 
@@ -47,7 +49,7 @@ describe('VendorPaymentService', () => {
     grnId: 'grn-123',
     amount: 1000,
     paymentDate: new Date('2024-01-15'),
-    paymentMethod: 'bank_transfer',
+    paymentMethodId: 'pm-bank-id',
     status: 'completed',
   };
 
@@ -82,6 +84,12 @@ describe('VendorPaymentService', () => {
           },
         },
         {
+          provide: getRepositoryToken(PaymentMethodEntity),
+          useValue: {
+            findOne: jest.fn(),
+          },
+        },
+        {
           provide: AuditLogService,
           useValue: {
             log: jest.fn(),
@@ -100,6 +108,7 @@ describe('VendorPaymentService', () => {
     vendorPaymentRepository = module.get(getRepositoryToken(VendorPayment));
     purchaseOrderRepository = module.get(getRepositoryToken(PurchaseOrder));
     grnRepository = module.get(getRepositoryToken(GoodsReceivedNote));
+    paymentMethodRepository = module.get(getRepositoryToken(PaymentMethodEntity));
     accountingService = module.get(AccountingService);
     auditLogService = module.get(AuditLogService);
 
@@ -119,13 +128,16 @@ describe('VendorPaymentService', () => {
       purchaseOrderId: 'po-123',
       amount: 1000,
       paymentDate: '2024-01-15',
-      paymentMethod: 'bank_transfer',
+      paymentMethodId: 'pm-bank-id',
       status: 'completed',
     };
 
     beforeEach(() => {
       // Mock the repository methods
       grnRepository.findOne.mockResolvedValue(mockGrn as GoodsReceivedNote);
+      paymentMethodRepository.findOne.mockResolvedValue({
+        id: 'pm-bank-id',
+      } as PaymentMethodEntity);
       vendorPaymentRepository.create.mockReturnValue(mockVendorPayment as VendorPayment);
       vendorPaymentRepository.save.mockResolvedValue(mockVendorPayment as VendorPayment);
       purchaseOrderRepository.update.mockResolvedValue({} as any);

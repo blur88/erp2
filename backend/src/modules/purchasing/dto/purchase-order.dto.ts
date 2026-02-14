@@ -256,7 +256,7 @@ export class PurchaseOrderResponseDto {
     paymentNumber: string;
     amount: number;
     paymentDate: Date;
-    paymentMethod: string;
+    paymentMethodId?: string;
     status: string;
   }>;
 

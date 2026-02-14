@@ -1392,7 +1392,7 @@ export class PurchaseOrderService {
       purchaseOrderId: id,
       amount: paymentAmount,
       paymentDate: new Date().toISOString().split('T')[0], // Format as YYYY-MM-DD
-      paymentMethod: 'cash',
+      paymentMethodId: undefined,
       status: 'completed',
       notes: 'Payment recorded via system',
     });
@@ -1508,7 +1508,7 @@ export class PurchaseOrderService {
         paymentNumber: payment.paymentNumber,
         amount: Number(payment.amount),
         paymentDate: payment.paymentDate,
-        paymentMethod: payment.paymentMethod,
+        paymentMethodId: payment.paymentMethodId,
         status: payment.status,
       } : undefined,
     };
@@ -1575,7 +1575,7 @@ export class PurchaseOrderService {
         paymentNumber: payment.paymentNumber,
         amount: Number(payment.amount),
         paymentDate: payment.paymentDate,
-        paymentMethod: payment.paymentMethod,
+        paymentMethodId: payment.paymentMethodId,
         status: payment.status,
       })) || [],
       createdAt: purchaseOrder.createdAt,

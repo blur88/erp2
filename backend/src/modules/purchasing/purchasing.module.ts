@@ -9,6 +9,7 @@ import {
   GoodsReceivedNote,
   GoodsReceivedNoteItem,
   VendorPayment,
+  PaymentMethodEntity,
   Product,
   User,
 } from '../../database/entities';
@@ -43,6 +44,7 @@ import { AccountingModule } from '../accounting/accounting.module';
       GoodsReceivedNote,
       GoodsReceivedNoteItem,
       VendorPayment,
+      PaymentMethodEntity,
       Product,
       User,
     ]),

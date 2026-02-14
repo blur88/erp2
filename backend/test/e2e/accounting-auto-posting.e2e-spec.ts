@@ -127,26 +127,7 @@ describe('Accounting Auto-Posting Integration (E2E)', () => {
 
   // Helper: Clean database
   async function cleanDatabase() {
-    await journalEntryLineRepo.delete({});
-    await journalEntryRepo.delete({});
-    await vendorPaymentRepo.delete({});
-    await grnRepo.query('DELETE FROM goods_received_note_items');
-    await grnRepo.delete({});
-    await purchaseOrderRepo.query('DELETE FROM purchase_order_items');
-    await purchaseOrderRepo.delete({});
-    await paymentRepo.delete({});
-    await salesOrderRepo.query('DELETE FROM sales_order_items');
-    await salesOrderRepo.delete({});
-    await stockAdjustmentRepo.query('DELETE FROM stock_adjustment_items');
-    await stockAdjustmentRepo.delete({});
-    await productRepo.delete({});
-    await categoryRepo.delete({});
-    await customerRepo.delete({});
-    await supplierRepo.delete({});
-    await accountMappingRepo.delete({});
-    await paymentMethodRepo.query('DELETE FROM payment_methods');
-    await chartOfAccountRepo.delete({});
-    await fiscalPeriodRepo.delete({});
+    await dataSource.query('TRUNCATE TABLE journal_entry_lines, journal_entries, vendor_payments, goods_received_note_items, goods_received_notes, purchase_order_items, purchase_orders, payments, settlements, invoice_items, invoices, sales_order_items, sales_orders, stock_adjustment_items, stock_adjustments, products, categories, customers, suppliers, account_mappings, payment_methods, chart_of_accounts, fiscal_periods, reconciled_transactions, bank_reconciliations CASCADE');
   }
 
   // Helper: Setup fiscal periods
@@ -396,7 +377,7 @@ describe('Accounting Auto-Posting Integration (E2E)', () => {
 
     it('should continue fulfillment when accounting mapping missing', async () => {
       // Delete COGS mapping
-      await accountMappingRepo.delete({ mappingType: MappingType.SALES_COGS });
+      await dataSource.query(`DELETE FROM account_mappings WHERE "mappingKey" = $1`, [MappingType.SALES_COGS]);
 
       const salesOrder = salesOrderRepo.create({
         customerId: testCustomer.id,
@@ -668,7 +649,7 @@ describe('Accounting Auto-Posting Integration (E2E)', () => {
 
     it('should continue GRN creation when accounting fails', async () => {
       // Delete inventory mapping
-      await accountMappingRepo.delete({ mappingType: MappingType.PURCHASE_INVENTORY });
+      await dataSource.query(`DELETE FROM account_mappings WHERE "mappingKey" = $1`, [MappingType.PURCHASE_INVENTORY]);
 
       const po = purchaseOrderRepo.create({
         supplierId: testSupplier.id,
@@ -1135,10 +1116,10 @@ describe('Accounting Auto-Posting Integration (E2E)', () => {
   describe('Account Mapping Validation', () => {
     it('should fail when required sales mappings are missing', async () => {
       // Delete all sales-related mappings
-      await accountMappingRepo.delete({ mappingType: MappingType.SALES_REVENUE });
-      await accountMappingRepo.delete({ mappingType: MappingType.SALES_AR });
-      await accountMappingRepo.delete({ mappingType: MappingType.SALES_COGS });
-      await accountMappingRepo.delete({ mappingType: MappingType.SALES_INVENTORY });
+      await dataSource.query(`DELETE FROM account_mappings WHERE "mappingKey" = $1`, [MappingType.SALES_REVENUE]);
+      await dataSource.query(`DELETE FROM account_mappings WHERE "mappingKey" = $1`, [MappingType.SALES_AR]);
+      await dataSource.query(`DELETE FROM account_mappings WHERE "mappingKey" = $1`, [MappingType.SALES_COGS]);
+      await dataSource.query(`DELETE FROM account_mappings WHERE "mappingKey" = $1`, [MappingType.SALES_INVENTORY]);
 
       const salesOrder = salesOrderRepo.create({
         customerId: testCustomer.id,
@@ -1168,7 +1149,7 @@ describe('Accounting Auto-Posting Integration (E2E)', () => {
     });
 
     it('should fail when required payment mappings are missing', async () => {
-      await accountMappingRepo.delete({ mappingType: 'payment_cash' });
+      await dataSource.query(`DELETE FROM account_mappings WHERE "mappingKey" = $1`, ['payment_cash']);
 
       const payment = await paymentService.create({
         customerId: testCustomer.id,

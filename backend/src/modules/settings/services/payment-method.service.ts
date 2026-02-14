@@ -112,6 +112,7 @@ export class PaymentMethodService {
     if (!pm || pm.deletedAt) {
       throw new NotFoundException(`Payment method ${id} not found`);
     }
+    const oldPm = { ...pm } as PaymentMethodEntity;
 
     if (dto.code) {
       dto.code = dto.code.toUpperCase().trim();
@@ -125,6 +126,7 @@ export class PaymentMethodService {
 
     Object.assign(pm, dto);
     const saved = await this.paymentMethodRepository.save(pm);
+    await this.syncAccountMappings(oldPm, saved);
 
     return this.toResponseDto(saved);
   }
@@ -160,6 +162,7 @@ export class PaymentMethodService {
     }
 
     await this.paymentMethodRepository.restore(id);
+    await this.createAccountMappings(pm);
   }
 
   async permanentDelete(id: string): Promise<void> {
@@ -191,7 +194,10 @@ export class PaymentMethodService {
       );
     }
 
-    const mappingKeys = [`payment_${pm.code.toLowerCase()}`];
+    const mappingKeys = [
+      `payment_${pm.code.toLowerCase()}`,
+      `vendor_payment_${pm.code.toLowerCase()}`,
+    ];
     if (pm.requiresSettlement) {
       mappingKeys.push(`payment_${pm.code.toLowerCase()}_settlement`);
     }
@@ -260,6 +266,100 @@ export class PaymentMethodService {
         });
         await this.accountMappingRepository.save(mapping);
       }
+    }
+
+    const vendorKey = `vendor_payment_${pm.code.toLowerCase()}`;
+    const existingVendorMapping = await this.accountMappingRepository.findOne({
+      where: { mappingType: vendorKey },
+    });
+
+    if (!existingVendorMapping) {
+      const account = await this.findMatchingAccount(pm);
+      if (!account) {
+        this.logger.warn(
+          `No matching GL account found for vendor ${pm.code} — mapping created with null accountId`,
+        );
+      }
+      const mapping = this.accountMappingRepository.create({
+        mappingType: vendorKey,
+        accountId: account ? account.id : null,
+        description: `${pm.name} vendor payment account`,
+        isActive: true,
+      });
+      await this.accountMappingRepository.save(mapping);
+    }
+  }
+
+  private async syncAccountMappings(
+    oldPm: PaymentMethodEntity,
+    newPm: PaymentMethodEntity,
+  ): Promise<void> {
+    const oldCode = oldPm.code.toLowerCase();
+    const newCode = newPm.code.toLowerCase();
+
+    if (oldCode !== newCode) {
+      const renamePairs: Array<[string, string]> = [
+        [`payment_${oldCode}`, `payment_${newCode}`],
+        [`vendor_payment_${oldCode}`, `vendor_payment_${newCode}`],
+        [`payment_${oldCode}_settlement`, `payment_${newCode}_settlement`],
+      ];
+
+      for (const [oldKey, newKey] of renamePairs) {
+        const mapping = await this.accountMappingRepository.findOne({
+          where: { mappingType: oldKey },
+        });
+        if (mapping) {
+          mapping.mappingType = newKey;
+          await this.accountMappingRepository.save(mapping);
+        }
+      }
+    }
+
+    if (oldPm.name !== newPm.name) {
+      const code = newCode;
+      const descriptionUpdates: Array<[string, string]> = [
+        [`payment_${code}`, `${newPm.name} payment received account`],
+        [`vendor_payment_${code}`, `${newPm.name} vendor payment account`],
+        [`payment_${code}_settlement`, `${newPm.name} settlement to bank account`],
+      ];
+
+      for (const [key, description] of descriptionUpdates) {
+        const mapping = await this.accountMappingRepository.findOne({
+          where: { mappingType: key },
+        });
+        if (mapping) {
+          mapping.description = description;
+          await this.accountMappingRepository.save(mapping);
+        }
+      }
+    }
+
+    const code = newCode;
+    if (newPm.requiresSettlement && !oldPm.requiresSettlement) {
+      const settlementKey = `payment_${code}_settlement`;
+      const existing = await this.accountMappingRepository.findOne({
+        where: { mappingType: settlementKey },
+      });
+      if (!existing) {
+        const bankAccount = await this.accountRepository.findOne({
+          where: { code: '1100', isActive: true },
+        });
+        if (!bankAccount) {
+          this.logger.warn(
+            `Bank account 1100 not found for ${newPm.code} — settlement mapping created with null accountId`,
+          );
+        }
+        const mapping = this.accountMappingRepository.create({
+          mappingType: settlementKey,
+          accountId: bankAccount ? bankAccount.id : null,
+          description: `${newPm.name} settlement to bank account`,
+          isActive: true,
+        });
+        await this.accountMappingRepository.save(mapping);
+      }
+    } else if (!newPm.requiresSettlement && oldPm.requiresSettlement) {
+      const settlementKey = `payment_${code}_settlement`;
+      await this.accountMappingRepository.delete({ mappingType: settlementKey });
     }
   }
 

@@ -1,7 +1,12 @@
 import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Between, LessThanOrEqual, MoreThanOrEqual } from 'typeorm';
-import { VendorPayment, PurchaseOrder, GoodsReceivedNote } from '../../../database/entities';
+import {
+  VendorPayment,
+  PurchaseOrder,
+  GoodsReceivedNote,
+  PaymentMethodEntity,
+} from '../../../database/entities';
 import {
   CreateVendorPaymentDto,
   UpdateVendorPaymentDto,
@@ -22,6 +27,8 @@ export class VendorPaymentService {
     private purchaseOrderRepository: Repository<PurchaseOrder>,
     @InjectRepository(GoodsReceivedNote)
     private grnRepository: Repository<GoodsReceivedNote>,
+    @InjectRepository(PaymentMethodEntity)
+    private paymentMethodRepository: Repository<PaymentMethodEntity>,
     private readonly auditLogService: AuditLogService,
     private readonly accountingService: AccountingService,
   ) {}
@@ -34,6 +41,14 @@ export class VendorPaymentService {
     user: string = 'system',
   ): Promise<VendorPayment> {
     const paymentNumber = await this.generatePaymentNumber();
+    let paymentMethodId = createDto.paymentMethodId;
+
+    if (!paymentMethodId) {
+      const defaultPaymentMethod = await this.paymentMethodRepository.findOne({
+        where: { code: 'BANK', isActive: true },
+      });
+      paymentMethodId = defaultPaymentMethod?.id || null;
+    }
 
     // Automatically link GRN if purchaseOrderId is provided but grnId is not
     let grnId = createDto.grnId;
@@ -48,6 +63,7 @@ export class VendorPaymentService {
 
     const vendorPayment = this.vendorPaymentRepository.create({
       ...createDto,
+      paymentMethodId,
       paymentNumber,
       grnId,
     });
@@ -101,7 +117,7 @@ export class VendorPaymentService {
     const {
       supplierId,
       status,
-      paymentMethod,
+      paymentMethodId,
       startDate,
       endDate,
       sortBy = 'paymentDate',
@@ -116,6 +132,7 @@ export class VendorPaymentService {
       .leftJoinAndSelect('purchaseOrder.items', 'purchaseOrderItems')
       .leftJoinAndSelect('purchaseOrderItems.product', 'product')
       .leftJoinAndSelect('vendorPayment.grn', 'grn')
+      .leftJoinAndSelect('vendorPayment.paymentMethodEntity', 'paymentMethodEntity')
       .where('vendorPayment.isActive = :isActive', { isActive: true });
 
     // Apply search
@@ -137,9 +154,9 @@ export class VendorPaymentService {
       queryBuilder.andWhere('vendorPayment.status = :status', { status });
     }
 
-    if (paymentMethod) {
-      queryBuilder.andWhere('vendorPayment.paymentMethod = :paymentMethod', {
-        paymentMethod,
+    if (paymentMethodId) {
+      queryBuilder.andWhere('vendorPayment.paymentMethodId = :paymentMethodId', {
+        paymentMethodId,
       });
     }
 
@@ -182,7 +199,14 @@ export class VendorPaymentService {
   async findOne(id: string): Promise<VendorPayment> {
     const vendorPayment = await this.vendorPaymentRepository.findOne({
       where: { id, isActive: true },
-      relations: ['supplier', 'purchaseOrder', 'purchaseOrder.items', 'purchaseOrder.items.product', 'grn'],
+      relations: [
+        'supplier',
+        'purchaseOrder',
+        'purchaseOrder.items',
+        'purchaseOrder.items.product',
+        'grn',
+        'paymentMethodEntity',
+      ],
     });
 
     if (!vendorPayment) {
@@ -243,7 +267,7 @@ export class VendorPaymentService {
     const {
       supplierId,
       status,
-      paymentMethod,
+      paymentMethodId,
       startDate,
       endDate,
     } = query;
@@ -253,6 +277,7 @@ export class VendorPaymentService {
       .leftJoinAndSelect('vendorPayment.supplier', 'supplier')
       .leftJoinAndSelect('vendorPayment.purchaseOrder', 'purchaseOrder')
       .leftJoinAndSelect('vendorPayment.grn', 'grn')
+      .leftJoinAndSelect('vendorPayment.paymentMethodEntity', 'paymentMethodEntity')
       .where('vendorPayment.isActive = :isActive', { isActive: false });
 
     // Apply filters
@@ -266,9 +291,9 @@ export class VendorPaymentService {
       queryBuilder.andWhere('vendorPayment.status = :status', { status });
     }
 
-    if (paymentMethod) {
-      queryBuilder.andWhere('vendorPayment.paymentMethod = :paymentMethod', {
-        paymentMethod,
+    if (paymentMethodId) {
+      queryBuilder.andWhere('vendorPayment.paymentMethodId = :paymentMethodId', {
+        paymentMethodId,
       });
     }
 
@@ -430,6 +455,9 @@ export class VendorPaymentService {
 
     // Create vendor payment
     const paymentNumber = await this.generatePaymentNumber();
+    const defaultPaymentMethod = await this.paymentMethodRepository.findOne({
+      where: { code: 'BANK', isActive: true },
+    });
 
     const vendorPayment = this.vendorPaymentRepository.create({
       paymentNumber,
@@ -438,7 +466,7 @@ export class VendorPaymentService {
       grnId: grn?.id,
       amount: Number(purchaseOrder.totalAmount),
       paymentDate: new Date(),
-      paymentMethod: 'bank_transfer', // Default payment method
+      paymentMethodId: defaultPaymentMethod?.id || null,
       status: 'completed',
       notes: `Auto-generated payment for PO ${purchaseOrder.orderNumber}`,
     });
@@ -472,9 +500,9 @@ export class VendorPaymentService {
     return this.vendorPaymentRepository.findOne({
       where: {
         purchaseOrderId: poId,
-        isActive: true
+        isActive: true,
       },
-      relations: ['supplier', 'purchaseOrder', 'grn'],
+      relations: ['supplier', 'purchaseOrder', 'grn', 'paymentMethodEntity'],
     });
   }
 
@@ -503,7 +531,7 @@ export class VendorPaymentService {
           paymentNumber: vendorPayment.paymentNumber,
           amount: vendorPayment.amount,
           status: vendorPayment.status,
-          paymentMethod: vendorPayment.paymentMethod,
+          paymentMethodId: vendorPayment.paymentMethodId,
         },
       }
     );

@@ -11,6 +11,7 @@ import {
   MappingType,
 } from '../../../database/entities/account-mapping.entity';
 import { ChartOfAccount } from '../../../database/entities/chart-of-account.entity';
+import { PaymentMethodEntity } from '../../../database/entities/payment-method.entity';
 import {
   CreateAccountMappingDto,
   UpdateAccountMappingDto,
@@ -29,6 +30,8 @@ export class AccountMappingService {
     private readonly mappingRepository: Repository<AccountMapping>,
     @InjectRepository(ChartOfAccount)
     private readonly accountRepository: Repository<ChartOfAccount>,
+    @InjectRepository(PaymentMethodEntity)
+    private readonly paymentMethodRepository: Repository<PaymentMethodEntity>,
   ) {}
 
   /**
@@ -56,12 +59,27 @@ export class AccountMappingService {
   async validateMappings(): Promise<MappingValidationResponseDto> {
     this.logger.log('Validating account mappings');
 
-    const allRequiredTypes = Object.values(MappingType);
+    const allRequiredTypes: string[] = Object.values(MappingType);
+    const paymentMethods = await this.paymentMethodRepository.find({
+      where: { isActive: true },
+    });
+
+    for (const pm of paymentMethods) {
+      const code = pm.code.toLowerCase();
+      allRequiredTypes.push(`payment_${code}`);
+      allRequiredTypes.push(`vendor_payment_${code}`);
+      if (pm.requiresSettlement) {
+        allRequiredTypes.push(`payment_${code}_settlement`);
+      }
+    }
+
     const configuredMappings = await this.mappingRepository.find({
       where: { isActive: true },
     });
 
-    const configuredTypes = configuredMappings.map((m) => m.mappingType);
+    const configuredTypes = configuredMappings
+      .filter((m) => m.accountId !== null)
+      .map((m) => m.mappingType);
     const missingTypes = allRequiredTypes.filter(
       (type) => !configuredTypes.includes(type),
     );

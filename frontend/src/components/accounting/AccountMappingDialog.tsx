@@ -22,7 +22,7 @@ import {
   updateAccountMapping,
 } from '@/store/slices/accountMappingsSlice'
 import { chartOfAccountsApi } from '@/services/accountingApi'
-import type { AccountMapping, MappingType, CreateAccountMappingDto, UpdateAccountMappingDto } from '@/types/accountMapping'
+import type { AccountMapping, CreateAccountMappingDto, UpdateAccountMappingDto } from '@/types/accountMapping'
 import type { ChartOfAccount } from '@/types'
 
 interface AccountMappingDialogProps {
@@ -34,16 +34,14 @@ interface AccountMappingDialogProps {
 }
 
 // Mapping type labels
-const MAPPING_TYPE_LABELS: Record<MappingType, string> = {
+const MAPPING_TYPE_LABELS: Record<string, string> = {
   sales_revenue: 'Sales Revenue',
   sales_ar: 'Accounts Receivable (Sales)',
   sales_cogs: 'Cost of Goods Sold',
   sales_inventory: 'Inventory (Sales)',
   purchase_inventory: 'Inventory (Purchases)',
   purchase_ap: 'Accounts Payable (Purchases)',
-  payment_cash: 'Cash (Customer Payments)',
   payment_ar: 'Accounts Receivable (Payments)',
-  vendor_payment_cash: 'Cash (Vendor Payments)',
   vendor_payment_ap: 'Accounts Payable (Vendor Payments)',
   inventory_asset: 'Inventory Asset',
   inventory_adjustment_gain: 'Inventory Adjustment Gain',
@@ -52,7 +50,7 @@ const MAPPING_TYPE_LABELS: Record<MappingType, string> = {
 
 const getMappingTypeLabel = (mappingType?: string): string => {
   if (!mappingType) return 'Unknown mapping'
-  return MAPPING_TYPE_LABELS[mappingType as MappingType] || mappingType
+  return MAPPING_TYPE_LABELS[mappingType] || mappingType
 }
 
 const AccountMappingDialog: React.FC<AccountMappingDialogProps> = ({

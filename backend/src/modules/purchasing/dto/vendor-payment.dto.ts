@@ -35,14 +35,10 @@ export class CreateVendorPaymentDto {
   @IsDateString()
   paymentDate: string;
 
-  @ApiProperty({
-    description: 'Payment method',
-    enum: ['cash', 'bank_transfer', 'check', 'card'],
-    example: 'bank_transfer'
-  })
-  @IsString()
-  @IsIn(['cash', 'bank_transfer', 'check', 'card'])
-  paymentMethod: string;
+  @ApiProperty({ description: 'Payment method ID', example: 'uuid' })
+  @IsOptional()
+  @IsUUID()
+  paymentMethodId?: string;
 
   @ApiPropertyOptional({ description: 'Reference number', example: 'REF-001' })
   @IsOptional()
@@ -94,15 +90,10 @@ export class UpdateVendorPaymentDto {
   @IsDateString()
   paymentDate?: string;
 
-  @ApiPropertyOptional({
-    description: 'Payment method',
-    enum: ['cash', 'bank_transfer', 'check', 'card'],
-    example: 'bank_transfer'
-  })
+  @ApiPropertyOptional({ description: 'Payment method ID', example: 'uuid' })
   @IsOptional()
-  @IsString()
-  @IsIn(['cash', 'bank_transfer', 'check', 'card'])
-  paymentMethod?: string;
+  @IsUUID()
+  paymentMethodId?: string;
 
   @ApiPropertyOptional({ description: 'Reference number', example: 'REF-001' })
   @IsOptional()
@@ -138,11 +129,10 @@ export class QueryVendorPaymentsDto {
   @IsIn(['pending', 'completed', 'cancelled'])
   status?: string;
 
-  @ApiPropertyOptional({ description: 'Payment method filter', example: 'bank_transfer' })
+  @ApiPropertyOptional({ description: 'Payment method ID filter', example: 'uuid' })
   @IsOptional()
-  @IsString()
-  @IsIn(['cash', 'bank_transfer', 'check', 'card'])
-  paymentMethod?: string;
+  @IsUUID()
+  paymentMethodId?: string;
 
   @ApiPropertyOptional({ description: 'Start date filter', example: '2025-10-01' })
   @IsOptional()

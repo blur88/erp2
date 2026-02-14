@@ -422,7 +422,8 @@ export interface VendorPayment {
   purchaseOrderId?: string;
   amount: number;
   paymentDate: Date | string;
-  paymentMethod: 'cash' | 'bank_transfer' | 'check' | 'card';
+  paymentMethodId?: string;
+  paymentMethodEntity?: PaymentMethodConfig;
   referenceNumber?: string;
   notes?: string;
   status: 'pending' | 'completed' | 'cancelled';

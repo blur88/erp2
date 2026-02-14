@@ -22,9 +22,7 @@ const MAPPING_TYPE_LABELS: Record<string, { label: string; description: string }
   [MappingType.SALES_INVENTORY]: { label: 'Sales - Inventory', description: 'Inventory reduction' },
   [MappingType.PURCHASE_INVENTORY]: { label: 'Purchase - Inventory', description: 'Inventory increase' },
   [MappingType.PURCHASE_AP]: { label: 'Purchase - Accounts Payable', description: 'Supplier payables' },
-  [MappingType.PAYMENT_CASH]: { label: 'Payment - Cash', description: 'Cash receipts' },
   [MappingType.PAYMENT_AR]: { label: 'Payment - Accounts Receivable', description: 'AR reduction' },
-  [MappingType.VENDOR_PAYMENT_CASH]: { label: 'Vendor Payment - Cash', description: 'Cash disbursements' },
   [MappingType.VENDOR_PAYMENT_AP]: { label: 'Vendor Payment - Accounts Payable', description: 'AP reduction' },
   [MappingType.INVENTORY_ASSET]: { label: 'Inventory - Asset', description: 'Inventory asset account' },
   [MappingType.INVENTORY_ADJUSTMENT_GAIN]: {

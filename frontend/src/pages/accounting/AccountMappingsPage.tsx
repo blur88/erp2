@@ -42,6 +42,7 @@ import AccountMappingDialog from '@/components/accounting/AccountMappingDialog'
 import ConfirmationDialog from '@/components/common/ConfirmationDialog'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
 import { useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
+import { paymentMethodsApi } from '@/services/paymentMethodsApi'
 
 // Mapping type labels with category grouping
 const MAPPING_TYPE_LABELS: Record<MappingType, { label: string; category: string; description: string }> = {
@@ -75,20 +76,10 @@ const MAPPING_TYPE_LABELS: Record<MappingType, { label: string; category: string
     category: 'Purchasing',
     description: 'Liability account credited when goods are received'
   },
-  [MappingType.PAYMENT_CASH]: {
-    label: 'Cash (Customer Payments)',
-    category: 'Payments',
-    description: 'Asset account debited when customer payments are received'
-  },
   [MappingType.PAYMENT_AR]: {
     label: 'Accounts Receivable (Payments)',
     category: 'Payments',
     description: 'Asset account credited when customer payments are received'
-  },
-  [MappingType.VENDOR_PAYMENT_CASH]: {
-    label: 'Cash (Vendor Payments)',
-    category: 'Vendor Payments',
-    description: 'Asset account credited when vendor payments are made'
   },
   [MappingType.VENDOR_PAYMENT_AP]: {
     label: 'Accounts Payable (Vendor Payments)',
@@ -115,9 +106,6 @@ const MAPPING_TYPE_LABELS: Record<MappingType, { label: string; category: string
 const getMappingLabel = (mappingType: string): string =>
   MAPPING_TYPE_LABELS[mappingType as MappingType]?.label || mappingType
 
-const getMappingDescription = (mappingType: string): string =>
-  MAPPING_TYPE_LABELS[mappingType as MappingType]?.description || 'Custom payment mapping'
-
 const AccountMappingsPage: React.FC = () => {
   const dispatch = useAppDispatch()
   const { showSuccess, showError } = useNotification()
@@ -135,6 +123,9 @@ const AccountMappingsPage: React.FC = () => {
   const [selectedMappingType, setSelectedMappingType] = useState<string | null>(null)
   const [mappingToClear, setMappingToClear] = useState<AccountMapping | null>(null)
   const [clearing, setClearing] = useState(false)
+  const [paymentMethods, setPaymentMethods] = useState<
+    Array<{ code: string; name: string; requiresSettlement: boolean }>
+  >([])
 
   useKeyboardShortcuts({
     onRefresh: () => dispatch(fetchAccountMappings()),
@@ -145,6 +136,18 @@ const AccountMappingsPage: React.FC = () => {
     dispatch(fetchAccountMappings())
     dispatch(validateAccountMappings())
   }, [dispatch])
+
+  useEffect(() => {
+    paymentMethodsApi
+      .getActive()
+      .then((response: any) => {
+        const methods = response?.data?.data || response?.data || response || []
+        setPaymentMethods(Array.isArray(methods) ? methods : [])
+      })
+      .catch(() => {
+        setPaymentMethods([])
+      })
+  }, [])
 
   // Handle edit mapping
   const handleEdit = (mapping: AccountMapping) => {
@@ -197,17 +200,76 @@ const AccountMappingsPage: React.FC = () => {
   }
 
   // Get all mapping types in category order
-  const getAllMappingTypes = (): Array<{ type: MappingType; label: string; category: string; description: string }> => {
+  const getAllMappingTypes = (): Array<{ type: string; label: string; category: string; description: string }> => {
     return Object.values(MappingType).map(type => ({
       type,
       ...MAPPING_TYPE_LABELS[type]
     }))
   }
 
-  // Group by category for better organization
-  const categories = ['Sales', 'Purchasing', 'Payments', 'Vendor Payments', 'Inventory']
-  const knownMappingTypes = new Set(Object.values(MappingType))
-  const dynamicMappings = mappings.filter((mapping) => !knownMappingTypes.has(mapping.mappingType as MappingType))
+  const getPaymentMappingTypes = (): Array<{ type: string; label: string; category: string; description: string }> => {
+    const items: Array<{ type: string; label: string; category: string; description: string }> = [
+      {
+        type: MappingType.PAYMENT_AR,
+        label: 'Accounts Receivable (Payments)',
+        category: 'Payments',
+        description: 'Asset account credited when customer payments are received',
+      },
+    ]
+
+    for (const pm of paymentMethods) {
+      const code = pm.code.toLowerCase()
+      items.push({
+        type: `payment_${code}`,
+        label: `${pm.name} Payment Account`,
+        category: 'Payments',
+        description: `Account debited when ${pm.name} payments are received`,
+      })
+      if (pm.requiresSettlement) {
+        items.push({
+          type: `payment_${code}_settlement`,
+          label: `${pm.name} Settlement Account`,
+          category: 'Payments',
+          description: `Bank account debited when ${pm.name} payments are settled`,
+        })
+      }
+    }
+
+    return items
+  }
+
+  const getVendorPaymentMappingTypes = (): Array<{ type: string; label: string; category: string; description: string }> => {
+    const items: Array<{ type: string; label: string; category: string; description: string }> = [
+      {
+        type: MappingType.VENDOR_PAYMENT_AP,
+        label: 'Accounts Payable (Vendor Payments)',
+        category: 'Vendor Payments',
+        description: 'Liability account debited when vendor payments are made',
+      },
+    ]
+
+    for (const pm of paymentMethods) {
+      const code = pm.code.toLowerCase()
+      items.push({
+        type: `vendor_payment_${code}`,
+        label: `${pm.name} Vendor Payment Account`,
+        category: 'Vendor Payments',
+        description: `Account credited when ${pm.name} vendor payments are made`,
+      })
+    }
+
+    return items
+  }
+
+  const staticCategories = ['Sales', 'Purchasing', 'Inventory']
+  const allSections = [
+    ...staticCategories.map((category) => ({
+      category,
+      items: getAllMappingTypes().filter((m) => m.category === category),
+    })),
+    { category: 'Payments', items: getPaymentMappingTypes() },
+    { category: 'Vendor Payments', items: getVendorPaymentMappingTypes() },
+  ]
 
   if (loading && mappings.length === 0) {
     return (
@@ -373,9 +435,8 @@ const AccountMappingsPage: React.FC = () => {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {categories.map(category => {
-                  const categoryMappings = getAllMappingTypes().filter(m => m.category === category)
-                  return categoryMappings.map((mappingInfo, index) => {
+                {allSections.map(({ category, items }) => {
+                  return items.map((mappingInfo, index) => {
                     const mapping = mappings.find(m => m.mappingType === mappingInfo.type)
                     const isFirstInCategory = index === 0
 
@@ -499,97 +560,6 @@ const AccountMappingsPage: React.FC = () => {
                     )
                   })
                 })}
-                {dynamicMappings.map((mapping, index) => (
-                  <TableRow
-                    key={mapping.id}
-                    hover
-                    sx={{
-                      '&:hover': {
-                        backgroundColor: 'action.hover',
-                      },
-                      transition: 'background-color 0.2s ease',
-                      height: TABLE_STYLES.row.height,
-                    }}
-                  >
-                    <TableCell>
-                      {index === 0 && (
-                        <Chip
-                          label="Dynamic"
-                          size="small"
-                          color="secondary"
-                          variant="outlined"
-                          sx={{ fontSize: '0.7rem', fontWeight: 500 }}
-                        />
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body2" sx={{ fontSize: '0.8rem', fontWeight: 500 }}>
-                        {getMappingLabel(mapping.mappingType)}
-                      </Typography>
-                      {isMobile && (
-                        <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem', display: 'block', mt: 0.5 }}>
-                          {mapping.description || getMappingDescription(mapping.mappingType)}
-                        </Typography>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <Box>
-                        <Typography variant="body2" sx={{ fontSize: '0.8rem', fontWeight: 400 }}>
-                          {mapping.account?.code} - {mapping.account?.name}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
-                          {mapping.account?.accountType}
-                        </Typography>
-                      </Box>
-                    </TableCell>
-                    {!isMobile && (
-                      <TableCell>
-                        <Typography variant="body2" sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>
-                          {mapping.description || getMappingDescription(mapping.mappingType)}
-                        </Typography>
-                      </TableCell>
-                    )}
-                    <TableCell align="right">
-                      <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 0.5 }}>
-                        <Tooltip title="Edit mapping">
-                          <IconButton
-                            size="small"
-                            onClick={() => handleEdit(mapping)}
-                            sx={{
-                              height: `${TABLE_STYLES.row.height * 0.75}px`,
-                              width: `${TABLE_STYLES.row.height * 0.75}px`,
-                              color: 'primary.main',
-                              '&:hover': {
-                                backgroundColor: 'primary.light',
-                                color: 'primary.dark'
-                              }
-                            }}
-                          >
-                            <EditIcon sx={{ fontSize: `${TABLE_STYLES.row.height * 0.5}px` }} />
-                          </IconButton>
-                        </Tooltip>
-                        <Tooltip title="Clear mapping">
-                          <IconButton
-                            size="small"
-                            aria-label="clear"
-                            onClick={() => handleClearClick(mapping)}
-                            sx={{
-                              height: `${TABLE_STYLES.row.height * 0.75}px`,
-                              width: `${TABLE_STYLES.row.height * 0.75}px`,
-                              color: 'error.main',
-                              '&:hover': {
-                                backgroundColor: 'error.light',
-                                color: 'error.dark'
-                              }
-                            }}
-                          >
-                            <ClearIcon sx={{ fontSize: `${TABLE_STYLES.row.height * 0.5}px` }} />
-                          </IconButton>
-                        </Tooltip>
-                      </Box>
-                    </TableCell>
-                  </TableRow>
-                ))}
               </TableBody>
             </Table>
           </TableContainer>

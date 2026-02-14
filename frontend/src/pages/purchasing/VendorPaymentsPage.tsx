@@ -48,13 +48,14 @@ import { useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
 import DeletedVendorPaymentsDialog from '@/components/purchasing/DeletedVendorPaymentsDialog'
 import { VendorPaymentPrint } from '@/components/print'
 import AccountingEntryLink from '@/components/accounting/AccountingEntryLink'
+import { paymentMethodsApi } from '@/services/paymentMethodsApi'
 
 interface VendorPaymentFilters {
   search: string
   sortBy: string
   sortOrder: 'asc' | 'desc'
   status: string
-  paymentMethod: string
+  paymentMethodId: string
   dateFilter: string
   customFromDate: string
   customToDate: string
@@ -128,7 +129,7 @@ const VendorPaymentsPage: React.FC = () => {
     sortBy: 'paymentNumber',
     sortOrder: 'asc',
     status: 'all',
-    paymentMethod: 'all',
+    paymentMethodId: 'all',
     dateFilter: 'all',
     customFromDate: '',
     customToDate: '',
@@ -139,6 +140,7 @@ const VendorPaymentsPage: React.FC = () => {
   const [focusedPaymentIndex, setFocusedPaymentIndex] = useState(-1)
   const paymentListRef = useRef<HTMLDivElement>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
+  const [paymentMethods, setPaymentMethods] = useState<Array<{ id: string; name: string }>>([])
 
   // Helper function to calculate date ranges
   const getDateRange = useCallback((filter: string) => {
@@ -180,7 +182,7 @@ const VendorPaymentsPage: React.FC = () => {
       sortBy: filters.sortBy,
       sortOrder: filters.sortOrder,
       status: filters.status !== 'all' ? filters.status : undefined,
-      paymentMethod: filters.paymentMethod !== 'all' ? filters.paymentMethod : undefined,
+      paymentMethodId: filters.paymentMethodId !== 'all' ? filters.paymentMethodId : undefined,
       startDate: dateRange.startDate,
       endDate: dateRange.endDate,
     } as any))
@@ -214,7 +216,7 @@ const VendorPaymentsPage: React.FC = () => {
         sortBy: filters.sortBy,
         sortOrder: filters.sortOrder,
         status: filters.status !== 'all' ? filters.status : undefined,
-        paymentMethod: filters.paymentMethod !== 'all' ? filters.paymentMethod : undefined,
+        paymentMethodId: filters.paymentMethodId !== 'all' ? filters.paymentMethodId : undefined,
         startDate: dateRange.startDate,
         endDate: dateRange.endDate,
       } as any)).then((result: any) => {
@@ -231,7 +233,23 @@ const VendorPaymentsPage: React.FC = () => {
         }
       })
     }
-  }, [searchParams.get('vpId')]) // Only run when vpId changes
+  }, [filters.dateFilter, filters.paymentMethodId, filters.search, filters.sortBy, filters.sortOrder, filters.status, getDateRange, searchParams, setSearchParams, dispatch, handlePaymentSelect]) // Only run when vpId changes
+
+  useEffect(() => {
+    paymentMethodsApi
+      .getActive()
+      .then((response: any) => {
+        const methods = response?.data?.data || response?.data || response || []
+        setPaymentMethods(
+          Array.isArray(methods)
+            ? methods.map((pm: any) => ({ id: pm.id, name: pm.name }))
+            : [],
+        )
+      })
+      .catch(() => {
+        setPaymentMethods([])
+      })
+  }, [])
 
   // Auto-refresh selected payment when the list updates
   useEffect(() => {
@@ -300,16 +318,6 @@ const VendorPaymentsPage: React.FC = () => {
       default:
         return 'default'
     }
-  }
-
-  const getPaymentMethodLabel = (method: string) => {
-    const labels: Record<string, string> = {
-      'cash': 'Cash',
-      'bank_transfer': 'Bank Transfer',
-      'check': 'Check',
-      'card': 'Card'
-    }
-    return labels[method] || method
   }
 
   // Keyboard navigation handlers
@@ -539,9 +547,9 @@ const VendorPaymentsPage: React.FC = () => {
         >
           <InputLabel>Payment Method</InputLabel>
           <Select
-            value={filters.paymentMethod}
+            value={filters.paymentMethodId}
             label="Payment Method"
-            onChange={(e) => setFilters((prev) => ({ ...prev, paymentMethod: e.target.value }))}
+            onChange={(e) => setFilters((prev) => ({ ...prev, paymentMethodId: e.target.value }))}
             sx={{
               fontSize: '0.875rem',
               '& .MuiSelect-select': {
@@ -551,14 +559,15 @@ const VendorPaymentsPage: React.FC = () => {
             }}
           >
             <MenuItem value="all">All</MenuItem>
-            <MenuItem value="cash">Cash</MenuItem>
-            <MenuItem value="bank_transfer">Bank Transfer</MenuItem>
-            <MenuItem value="check">Check</MenuItem>
-            <MenuItem value="card">Card</MenuItem>
+            {paymentMethods.map((method) => (
+              <MenuItem key={method.id} value={method.id}>
+                {method.name}
+              </MenuItem>
+            ))}
           </Select>
         </FormControl>
 
-        {(filters.dateFilter !== 'all' || filters.status !== 'all' || filters.paymentMethod !== 'all' || filters.search) && (
+        {(filters.dateFilter !== 'all' || filters.status !== 'all' || filters.paymentMethodId !== 'all' || filters.search) && (
           <Button
             variant="outlined"
             size="medium"
@@ -568,7 +577,7 @@ const VendorPaymentsPage: React.FC = () => {
                 sortBy: 'paymentNumber',
                 sortOrder: 'asc',
                 status: 'all',
-                paymentMethod: 'all',
+                paymentMethodId: 'all',
                 dateFilter: 'all',
                 customFromDate: '',
                 customToDate: '',

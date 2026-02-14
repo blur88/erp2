@@ -3,6 +3,7 @@ import { BaseEntity } from './base.entity';
 import { Supplier } from './supplier.entity';
 import { PurchaseOrder } from './purchase-order.entity';
 import { GoodsReceivedNote } from './goods-received-note.entity';
+import { PaymentMethodEntity } from './payment-method.entity';
 
 @Entity('vendor_payments')
 @Index(['supplierId', 'status'])
@@ -27,8 +28,8 @@ export class VendorPayment extends BaseEntity {
   @Column({ type: 'date' })
   paymentDate: Date;
 
-  @Column({ length: 50 })
-  paymentMethod: string; // 'cash', 'bank_transfer', 'check', 'card'
+  @Column({ type: 'uuid', nullable: true })
+  paymentMethodId: string | null;
 
   @Column({ length: 100, nullable: true })
   referenceNumber: string;
@@ -51,4 +52,8 @@ export class VendorPayment extends BaseEntity {
   @ManyToOne(() => GoodsReceivedNote, { nullable: true, eager: true })
   @JoinColumn({ name: 'grnId' })
   grn: GoodsReceivedNote;
+
+  @ManyToOne(() => PaymentMethodEntity, { nullable: true, eager: true })
+  @JoinColumn({ name: 'paymentMethodId' })
+  paymentMethodEntity: PaymentMethodEntity;
 }

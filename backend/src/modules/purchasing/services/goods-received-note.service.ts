@@ -672,7 +672,7 @@ export class GoodsReceivedNoteService {
           paymentNumber: payment.paymentNumber,
           amount: Number(payment.amount),
           paymentDate: payment.paymentDate,
-          paymentMethod: payment.paymentMethod,
+          paymentMethodId: payment.paymentMethodId,
           status: payment.status,
         })) || [],
       } : undefined,
