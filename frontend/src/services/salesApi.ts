@@ -136,6 +136,10 @@ export const salesApi = {
     return ApiService.post<{ data: SalesOrder }>(`sales-orders/${id}/record-payment`, { amount, paymentMethodId })
   },
 
+  async recordOrderPayments(id: string, payments: { paymentMethodId: string; amount: number; reference?: string }[]) {
+    return ApiService.post<{ data: SalesOrder }>(`sales-orders/${id}/record-payments`, { payments })
+  },
+
   async unpayOrder(id: string) {
     return ApiService.post<{ data: SalesOrder }>(`sales-orders/${id}/unpay`)
   },
