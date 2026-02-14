@@ -181,24 +181,6 @@ export class AccountMappingService {
       `Creating account mapping for type: ${createDto.mappingType}`,
     );
 
-    // Check if mapping type already exists
-    const existingMapping = await this.mappingRepository.findOne({
-      where: { mappingType: createDto.mappingType },
-      withDeleted: true,
-    });
-
-    if (existingMapping) {
-      if (existingMapping.deletedAt) {
-        throw new ConflictException(
-          `Mapping type '${createDto.mappingType}' was previously deleted. ` +
-            `Please restore it or use a different type.`,
-        );
-      }
-      throw new ConflictException(
-        `Mapping type '${createDto.mappingType}' already exists`,
-      );
-    }
-
     // Validate account exists and is active
     const account = await this.accountRepository.findOne({
       where: { id: createDto.accountId, isActive: true },
@@ -207,6 +189,40 @@ export class AccountMappingService {
     if (!account) {
       throw new NotFoundException(
         `Account with ID '${createDto.accountId}' not found or inactive`,
+      );
+    }
+
+    // Check if mapping type already exists
+    const existingMapping = await this.mappingRepository.findOne({
+      where: { mappingType: createDto.mappingType },
+      withDeleted: true,
+    });
+
+    if (existingMapping) {
+      if (existingMapping.deletedAt) {
+        // Revive previously cleared mapping to keep mapping keys reusable.
+        const restoredMapping = Object.assign(existingMapping, {
+          accountId: createDto.accountId,
+          description: createDto.description,
+          isActive: true,
+          deletedAt: null,
+        });
+
+        await this.mappingRepository.recover(restoredMapping);
+        const savedRestoredMapping =
+          await this.mappingRepository.save(restoredMapping);
+        const mappingWithRelations = await this.mappingRepository.findOne({
+          where: { id: savedRestoredMapping.id },
+          relations: ['account'],
+        });
+
+        this.logger.log(
+          `Account mapping restored successfully with ID: ${savedRestoredMapping.id}`,
+        );
+        return this.toResponseDto(mappingWithRelations!);
+      }
+      throw new ConflictException(
+        `Mapping type '${createDto.mappingType}' already exists`,
       );
     }
 

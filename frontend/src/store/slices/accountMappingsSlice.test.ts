@@ -121,7 +121,7 @@ describe('accountMappingsSlice', () => {
 
   describe('validateAccountMappings', () => {
     const validationResult = {
-      isComplete: true,
+      isValid: true,
       missingMappings: [],
       configuredMappings: ['sales_revenue', 'sales_ar'],
     };
@@ -150,7 +150,7 @@ describe('accountMappingsSlice', () => {
 
     it('should set isValid to false when mappings incomplete', async () => {
       const incompleteResult = {
-        isComplete: false,
+        isValid: false,
         missingMappings: ['sales_revenue', 'sales_ar'],
         configuredMappings: [],
       };
@@ -236,6 +236,23 @@ describe('accountMappingsSlice', () => {
       const state = store.getState().accountMappings;
       expect(state.loading).toBe(false);
       expect(state.error).toBe(errorMessage);
+    });
+
+    it('should normalize array error messages on rejected', async () => {
+      vi.mocked(accountMappingsApi.create).mockRejectedValue({
+        response: {
+          data: {
+            message: ['mappingType is invalid', 'accountId must be UUID'],
+          },
+        },
+      });
+
+      await store.dispatch(createAccountMapping(newMappingDto));
+      const state = store.getState().accountMappings;
+      expect(state.loading).toBe(false);
+      expect(state.error).toBe(
+        'mappingType is invalid, accountId must be UUID',
+      );
     });
   });
 
@@ -412,7 +429,7 @@ describe('accountMappingsSlice', () => {
         error: 'Test error',
         isValid: true,
         validationResult: {
-          isComplete: true,
+          isValid: true,
           missingMappings: [],
           configuredMappings: ['sales_revenue'],
         },

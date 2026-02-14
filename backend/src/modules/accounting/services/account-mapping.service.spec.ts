@@ -64,6 +64,7 @@ describe('AccountMappingService', () => {
             find: jest.fn(),
             create: jest.fn(),
             save: jest.fn(),
+            recover: jest.fn(),
             softDelete: jest.fn(),
             createQueryBuilder: jest.fn(() => mockQueryBuilder),
           },
@@ -205,11 +206,51 @@ describe('AccountMappingService', () => {
     });
 
     it('should throw ConflictException if mappingType already exists', async () => {
+      accountRepository.findOne.mockResolvedValue(mockAccount as ChartOfAccount);
       mappingRepository.findOne.mockResolvedValue(mockMapping as AccountMapping);
 
       await expect(service.create(createDto, 'test-user')).rejects.toThrow(
         ConflictException,
       );
+    });
+
+    it('should restore soft-deleted mapping type and update account', async () => {
+      const deletedMapping = {
+        ...mockMapping,
+        deletedAt: new Date('2026-02-10T00:00:00.000Z'),
+      };
+      const restoredMapping = {
+        ...deletedMapping,
+        accountId: createDto.accountId,
+        description: createDto.description,
+        isActive: true,
+        deletedAt: null,
+      };
+
+      mappingRepository.findOne.mockResolvedValueOnce(
+        deletedMapping as AccountMapping,
+      );
+      accountRepository.findOne.mockResolvedValue(mockAccount as ChartOfAccount);
+      mappingRepository.recover.mockResolvedValue(
+        restoredMapping as AccountMapping,
+      );
+      mappingRepository.save.mockResolvedValue(restoredMapping as AccountMapping);
+      mappingRepository.findOne.mockResolvedValueOnce(
+        restoredMapping as AccountMapping,
+      );
+
+      const result = await service.create(createDto, 'test-user');
+
+      expect(mappingRepository.recover).toHaveBeenCalled();
+      expect(mappingRepository.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          accountId: createDto.accountId,
+          description: createDto.description,
+          isActive: true,
+          deletedAt: null,
+        }),
+      );
+      expect(result.mappingType).toBe(createDto.mappingType);
     });
 
     it('should throw NotFoundException if account does not exist', async () => {

@@ -6,6 +6,7 @@ import {
   AccountMappingValidationResult,
 } from '@/types/accountMapping';
 import { accountMappingsApi } from '@/services/accountingApi';
+import { getErrorMessage } from '@/utils/errorMessage';
 
 interface AccountMappingsState {
   mappings: AccountMapping[];
@@ -31,7 +32,9 @@ export const fetchAccountMappings = createAsyncThunk(
       const response = await accountMappingsApi.getAll();
       return response;
     } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || 'Failed to fetch account mappings');
+      return rejectWithValue(
+        getErrorMessage(error, 'Failed to fetch account mappings'),
+      );
     }
   }
 );
@@ -43,7 +46,9 @@ export const validateAccountMappings = createAsyncThunk(
       const response = await accountMappingsApi.validate();
       return response;
     } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || 'Failed to validate mappings');
+      return rejectWithValue(
+        getErrorMessage(error, 'Failed to validate mappings'),
+      );
     }
   }
 );
@@ -55,7 +60,7 @@ export const createAccountMapping = createAsyncThunk(
       const response = await accountMappingsApi.create(data);
       return response;
     } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || 'Failed to create mapping');
+      return rejectWithValue(getErrorMessage(error, 'Failed to create mapping'));
     }
   }
 );
@@ -67,7 +72,7 @@ export const updateAccountMapping = createAsyncThunk(
       const response = await accountMappingsApi.update(id, data);
       return response;
     } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || 'Failed to update mapping');
+      return rejectWithValue(getErrorMessage(error, 'Failed to update mapping'));
     }
   }
 );
@@ -79,7 +84,7 @@ export const deleteAccountMapping = createAsyncThunk(
       await accountMappingsApi.delete(id);
       return id;
     } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || 'Failed to delete mapping');
+      return rejectWithValue(getErrorMessage(error, 'Failed to delete mapping'));
     }
   }
 );

@@ -22,6 +22,7 @@ import {
   updateAccountMapping,
 } from '@/store/slices/accountMappingsSlice'
 import { chartOfAccountsApi } from '@/services/accountingApi'
+import { getErrorMessage } from '@/utils/errorMessage'
 import type { AccountMapping, CreateAccountMappingDto, UpdateAccountMappingDto } from '@/types/accountMapping'
 import type { ChartOfAccount } from '@/types'
 
@@ -158,7 +159,7 @@ const AccountMappingDialog: React.FC<AccountMappingDialogProps> = ({
         onSaveSuccess()
       }
     } catch (err: any) {
-      const errorMessage = err.response?.data?.message || err.message || 'Failed to save mapping'
+      const errorMessage = getErrorMessage(err, 'Failed to save mapping')
       setError(errorMessage)
       showError(errorMessage)
     } finally {
