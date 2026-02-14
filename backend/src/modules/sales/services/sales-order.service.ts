@@ -6,7 +6,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, FindOptionsWhere, FindManyOptions, MoreThanOrEqual, LessThanOrEqual, Between, ILike } from 'typeorm';
+import { Repository, FindOptionsWhere, FindManyOptions, MoreThanOrEqual, LessThanOrEqual, Between, ILike, DataSource } from 'typeorm';
 import { SalesOrder } from '../../../database/entities/sales-order.entity';
 import { SalesOrderItem, DiscountType } from '../../../database/entities/sales-order-item.entity';
 import { Customer } from '../../../database/entities/customer.entity';
@@ -59,6 +59,7 @@ export class SalesOrderService {
     private readonly settingsService: SettingsService,
     private readonly auditLogService: AuditLogService,
     private readonly accountingService: AccountingService,
+    private readonly dataSource: DataSource,
   ) { }
 
   private async generateSequentialOrderNumber(): Promise<string> {
@@ -2091,6 +2092,125 @@ export class SalesOrderService {
     }
 
     return this.findById(savedOrder.id);
+  }
+
+  async recordPayments(id: string, payments: { paymentMethodId: string; amount: number; reference?: string }[]): Promise<SalesOrderResponseDto> {
+    // Validate all amounts are positive
+    for (const line of payments) {
+      if (line.amount <= 0) {
+        throw new BadRequestException('All payment amounts must be positive');
+      }
+    }
+
+    const order = await this.salesOrderRepository.findOne({
+      where: { id },
+      relations: ['customer', 'items', 'items.product'],
+    });
+
+    if (!order) {
+      throw new NotFoundException('Sales order not found');
+    }
+
+    if (order.isFulfilled) {
+      throw new ConflictException('Cannot modify payment for fulfilled order');
+    }
+
+    const totalPayment = payments.reduce((sum, p) => sum + p.amount, 0);
+    const newPaidAmount = Number(order.paidAmount || 0) + totalPayment;
+
+    // Run everything in a transaction
+    await this.dataSource.transaction(async (manager) => {
+      const Payment = (await import('../../../database/entities/payment.entity')).Payment;
+      const PaymentStatus = (await import('../../../database/entities/payment.entity')).PaymentStatus;
+      const SettlementStatusEnum = (await import('../../../database/entities/payment.entity')).SettlementStatusEnum;
+      const Invoice = (await import('../../../database/entities/invoice.entity')).Invoice;
+      const PaymentMethodEntity = (await import('../../../database/entities/payment-method.entity')).PaymentMethodEntity;
+
+      const paymentRepo = manager.getRepository(Payment);
+      const invoiceRepo = manager.getRepository(Invoice);
+      const paymentMethodRepo = manager.getRepository(PaymentMethodEntity);
+      const orderRepo = manager.getRepository(SalesOrder);
+
+      // Find invoice for this order
+      const invoice = await invoiceRepo.findOne({ where: { salesOrderId: order.id } });
+
+      for (const line of payments) {
+        // Validate payment method
+        const method = await paymentMethodRepo.findOne({ where: { id: line.paymentMethodId, isActive: true } });
+        if (!method) {
+          throw new BadRequestException(`Payment method ${line.paymentMethodId} not found or inactive`);
+        }
+
+        // Generate payment number
+        let paymentNumber: string;
+        try {
+          paymentNumber = await this.settingsService.generateDocumentNumber('Payments');
+        } catch {
+          const allPayments = await paymentRepo.find({ select: ['paymentNumber'], withDeleted: true });
+          let maxNum = 0;
+          for (const p of allPayments) {
+            const match = p.paymentNumber.match(/^PAY-(\d+)$/);
+            if (match) maxNum = Math.max(maxNum, parseInt(match[1]));
+          }
+          paymentNumber = `PAY-${(maxNum + 1).toString().padStart(6, '0')}`;
+        }
+
+        const settlementStatus = method.requiresSettlement
+          ? SettlementStatusEnum.PENDING
+          : SettlementStatusEnum.NOT_APPLICABLE;
+
+        const notes = line.reference
+          ? `${line.reference} - Payment for ${order.orderNumber}${invoice ? ` (${invoice.invoiceNumber})` : ''}`
+          : `Payment for ${order.orderNumber}${invoice ? ` (${invoice.invoiceNumber})` : ''}`;
+
+        const payment = paymentRepo.create({
+          paymentNumber,
+          status: PaymentStatus.COMPLETED,
+          paymentMethodId: method.id,
+          settlementStatus,
+          paymentDate: new Date(),
+          amount: Number(line.amount),
+          customerId: order.customerId,
+          invoiceId: invoice ? invoice.id : null,
+          notes,
+        });
+
+        const savedPayment = await paymentRepo.save(payment);
+
+        // Post to accounting (don't fail the whole transaction on accounting errors)
+        try {
+          const fullPayment = await paymentRepo.findOne({
+            where: { id: savedPayment.id },
+            relations: ['customer', 'paymentMethodEntity'],
+          });
+          if (fullPayment) {
+            await this.accountingService.postCustomerPaymentEntry(fullPayment, 'system');
+          }
+        } catch (error) {
+          this.logger.error(`Failed to post accounting entry for payment ${savedPayment.paymentNumber}: ${error.message}`);
+        }
+
+        // Audit log
+        await this.auditLogService.log('CREATE', 'Payment', `Created payment: ${paymentNumber} for ${order.orderNumber}`, {
+          entityId: savedPayment.id,
+          userId: 'system',
+          newValues: { paymentNumber, amount: line.amount, paymentMethodId: method.id },
+        });
+      }
+
+      // Update order paid amount
+      await orderRepo.update(order.id, { paidAmount: newPaidAmount });
+
+      // Update invoice if exists
+      if (invoice) {
+        invoice.paidAmount = newPaidAmount;
+        invoice.calculateTotals();
+        invoice.updateStatus();
+        await invoiceRepo.save(invoice);
+      }
+    });
+
+    return this.findById(id);
   }
 
   async unpayOrder(id: string): Promise<SalesOrderResponseDto> {
