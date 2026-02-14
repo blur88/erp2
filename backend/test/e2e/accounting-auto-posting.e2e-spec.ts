@@ -19,6 +19,7 @@ import { PurchaseOrder } from '../../src/database/entities/purchase-order.entity
 import { PurchaseOrderItem } from '../../src/database/entities/purchase-order-item.entity';
 import { GoodsReceivedNote } from '../../src/database/entities/goods-received-note.entity';
 import { VendorPayment } from '../../src/database/entities/vendor-payment.entity';
+import { PaymentMethodEntity } from '../../src/database/entities/payment-method.entity';
 import { StockAdjustment } from '../../src/database/entities/stock-adjustment.entity';
 import { SalesOrderService } from '../../src/modules/sales/services/sales-order.service';
 import { PaymentService } from '../../src/modules/sales/services/payment.service';
@@ -46,6 +47,7 @@ describe('Accounting Auto-Posting Integration (E2E)', () => {
   let purchaseOrderRepo: Repository<PurchaseOrder>;
   let grnRepo: Repository<GoodsReceivedNote>;
   let vendorPaymentRepo: Repository<VendorPayment>;
+  let paymentMethodRepo: Repository<PaymentMethodEntity>;
   let stockAdjustmentRepo: Repository<StockAdjustment>;
 
   // Services
@@ -64,6 +66,8 @@ describe('Accounting Auto-Posting Integration (E2E)', () => {
   let testSupplier: Supplier;
   let testCategory: Category;
   let testProduct: Product;
+  let testPaymentMethodCash: PaymentMethodEntity;
+  let testPaymentMethodBank: PaymentMethodEntity;
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -90,6 +94,7 @@ describe('Accounting Auto-Posting Integration (E2E)', () => {
     purchaseOrderRepo = app.get(getRepositoryToken(PurchaseOrder));
     grnRepo = app.get(getRepositoryToken(GoodsReceivedNote));
     vendorPaymentRepo = app.get(getRepositoryToken(VendorPayment));
+    paymentMethodRepo = app.get(getRepositoryToken(PaymentMethodEntity));
     stockAdjustmentRepo = app.get(getRepositoryToken(StockAdjustment));
 
     // Get services
@@ -139,6 +144,7 @@ describe('Accounting Auto-Posting Integration (E2E)', () => {
     await customerRepo.delete({});
     await supplierRepo.delete({});
     await accountMappingRepo.delete({});
+    await paymentMethodRepo.query('DELETE FROM payment_methods');
     await chartOfAccountRepo.delete({});
     await fiscalPeriodRepo.delete({});
   }
@@ -190,7 +196,7 @@ describe('Accounting Auto-Posting Integration (E2E)', () => {
         type: data.type as any,
         isActive: true,
       } as any);
-      const saved: ChartOfAccount = await chartOfAccountRepo.save(account);
+      const saved = await chartOfAccountRepo.save(account) as unknown as ChartOfAccount;
       accounts[data.code] = saved;
     }
   }
@@ -204,17 +210,19 @@ describe('Accounting Auto-Posting Integration (E2E)', () => {
       { type: MappingType.SALES_COGS, accountId: accounts['5000'].id },
       { type: MappingType.SALES_INVENTORY, accountId: accounts['1300'].id },
 
-      // Payment mappings
-      { type: MappingType.PAYMENT_CASH, accountId: accounts['1100'].id },
+      // Payment mappings (dynamic per payment method + global AR)
+      { type: 'payment_cash' as any, accountId: accounts['1100'].id },
+      { type: 'payment_bank' as any, accountId: accounts['1100'].id },
       { type: MappingType.PAYMENT_AR, accountId: accounts['1200'].id },
 
       // Purchase mappings
       { type: MappingType.PURCHASE_INVENTORY, accountId: accounts['1300'].id },
       { type: MappingType.PURCHASE_AP, accountId: accounts['2100'].id },
 
-      // Vendor payment mappings
+      // Vendor payment mappings (dynamic per payment method + global AP)
       { type: MappingType.VENDOR_PAYMENT_AP, accountId: accounts['2100'].id },
-      { type: MappingType.VENDOR_PAYMENT_CASH, accountId: accounts['1100'].id },
+      { type: 'vendor_payment_cash' as any, accountId: accounts['1100'].id },
+      { type: 'vendor_payment_bank' as any, accountId: accounts['1100'].id },
 
       // Inventory adjustment mappings
       { type: MappingType.INVENTORY_ASSET, accountId: accounts['1300'].id },
@@ -233,8 +241,32 @@ describe('Accounting Auto-Posting Integration (E2E)', () => {
     }
   }
 
+  // Helper: Setup payment methods
+  async function setupPaymentMethods() {
+    const cashMethod = paymentMethodRepo.create({
+      code: 'CASH',
+      name: 'Cash',
+      requiresSettlement: false,
+      sortOrder: 0,
+      isActive: true,
+    } as any);
+    testPaymentMethodCash = await paymentMethodRepo.save(cashMethod) as unknown as PaymentMethodEntity;
+
+    const bankMethod = paymentMethodRepo.create({
+      code: 'BANK',
+      name: 'Bank Transfer',
+      requiresSettlement: false,
+      sortOrder: 1,
+      isActive: true,
+    } as any);
+    testPaymentMethodBank = await paymentMethodRepo.save(bankMethod) as unknown as PaymentMethodEntity;
+  }
+
   // Helper: Setup test data
   async function setupTestData() {
+    // Create payment methods first (needed for account mappings and payments)
+    await setupPaymentMethods();
+
     // Create customer
     const customer = customerRepo.create({
       name: 'Test Customer',
@@ -427,6 +459,7 @@ describe('Accounting Auto-Posting Integration (E2E)', () => {
       // Create payment
       const payment = await paymentService.create({
         customerId: testCustomer.id,
+        paymentMethodId: testPaymentMethodCash.id,
         paymentDate: new Date('2026-02-15'),
         amount: 500.00,
       });
@@ -457,6 +490,7 @@ describe('Accounting Auto-Posting Integration (E2E)', () => {
     it('should link payment to journal entry', async () => {
       const payment = await paymentService.create({
         customerId: testCustomer.id,
+        paymentMethodId: testPaymentMethodCash.id,
         paymentDate: new Date('2026-02-15'),
         amount: 500.00,
       });
@@ -472,12 +506,14 @@ describe('Accounting Auto-Posting Integration (E2E)', () => {
     it('should handle multiple payments for same customer', async () => {
       const payment1 = await paymentService.create({
         customerId: testCustomer.id,
+        paymentMethodId: testPaymentMethodCash.id,
         paymentDate: new Date('2026-02-15'),
         amount: 300.00,
       });
 
       const payment2 = await paymentService.create({
         customerId: testCustomer.id,
+        paymentMethodId: testPaymentMethodCash.id,
         paymentDate: new Date('2026-02-16'),
         amount: 200.00,
       });
@@ -703,7 +739,7 @@ describe('Accounting Auto-Posting Integration (E2E)', () => {
         purchaseOrderId: savedPo.id,
         amount: 1000.00,
         paymentDate: '2026-02-20',
-        paymentMethod: 'bank_transfer',
+        paymentMethodId: testPaymentMethodBank.id,
         status: 'completed',
       });
 
@@ -769,7 +805,7 @@ describe('Accounting Auto-Posting Integration (E2E)', () => {
         purchaseOrderId: savedPo.id,
         amount: 1000.00,
         paymentDate: '2026-02-20',
-        paymentMethod: 'bank_transfer',
+        paymentMethodId: testPaymentMethodBank.id,
         status: 'completed',
       });
 
@@ -820,26 +856,26 @@ describe('Accounting Auto-Posting Integration (E2E)', () => {
         purchaseOrderId: savedPo.id,
         amount: 400.00,
         paymentDate: '2026-02-20',
-        paymentMethod: 'bank_transfer',
+        paymentMethodId: testPaymentMethodBank.id,
         status: 'completed',
       });
 
       // Second partial payment (manual creation since service prevents duplicates)
-      const payment2 = vendorPaymentRepo.create({
+      const payment2Data = vendorPaymentRepo.create({
         supplierId: testSupplier.id,
         purchaseOrderId: savedPo.id,
         amount: 600.00,
         paymentDate: '2026-02-25',
-        paymentMethod: 'bank_transfer',
+        paymentMethodId: testPaymentMethodBank.id,
         status: 'completed',
         paymentNumber: 'VP-000002',
       } as any);
-      await vendorPaymentRepo.save(payment2);
+      const payment2 = await vendorPaymentRepo.save(payment2Data) as unknown as VendorPayment;
 
       // Manually trigger accounting for second payment
       const fullPayment2 = await vendorPaymentRepo.findOne({
         where: { id: payment2.id },
-        relations: ['supplier', 'purchaseOrder'],
+        relations: ['supplier', 'purchaseOrder', 'paymentMethodEntity'],
       });
       const accountingService = app.get('AccountingService');
       await accountingService.postVendorPaymentEntry(fullPayment2, 'system');
@@ -1132,10 +1168,11 @@ describe('Accounting Auto-Posting Integration (E2E)', () => {
     });
 
     it('should fail when required payment mappings are missing', async () => {
-      await accountMappingRepo.delete({ mappingType: MappingType.PAYMENT_CASH });
+      await accountMappingRepo.delete({ mappingType: 'payment_cash' });
 
       const payment = await paymentService.create({
         customerId: testCustomer.id,
+        paymentMethodId: testPaymentMethodCash.id,
         paymentDate: new Date('2026-02-15'),
         amount: 500.00,
       });
