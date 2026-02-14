@@ -4,9 +4,11 @@ import {
   IsUUID,
   MaxLength,
   Min,
+  IsNumber,
   IsArray,
   ValidateNested,
   IsInt,
+  ArrayMinSize,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform, Type } from 'class-transformer';
@@ -365,4 +367,29 @@ export class SalesOrderSummaryDto {
 
   @ApiProperty({ example: 3 })
   itemsCount: number;
+}
+
+export class PaymentLineDto {
+  @ApiProperty({ description: 'Payment method ID' })
+  @IsUUID()
+  paymentMethodId: string;
+
+  @ApiProperty({ description: 'Payment amount', example: 500.00 })
+  @IsNumber({ maxDecimalPlaces: 4 })
+  @Min(0.01)
+  @Transform(({ value }) => parseFloat(value))
+  amount: number;
+
+  @ApiPropertyOptional({ description: 'Payment reference (check number, transaction ID, etc.)' })
+  @IsOptional()
+  @IsString()
+  reference?: string;
+}
+
+export class RecordPaymentsDto {
+  @ApiProperty({ description: 'Array of payment lines', type: [PaymentLineDto] })
+  @ValidateNested({ each: true })
+  @Type(() => PaymentLineDto)
+  @ArrayMinSize(1)
+  payments: PaymentLineDto[];
 }
