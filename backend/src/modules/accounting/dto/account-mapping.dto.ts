@@ -1,5 +1,4 @@
 import {
-  IsEnum,
   IsUUID,
   IsString,
   IsOptional,
@@ -7,19 +6,33 @@ import {
   IsNumber,
   Min,
   Max,
+  registerDecorator,
+  ValidationArguments,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 import { MappingType } from '../../../database/entities/account-mapping.entity';
 
+const DYNAMIC_PAYMENT_MAPPING_TYPE_PATTERN =
+  /^(payment_[a-z0-9]+(?:_settlement)?|vendor_payment_[a-z0-9]+)$/;
+
+const isValidMappingType = (value: string): boolean => {
+  return (
+    Object.values(MappingType).includes(value as MappingType) ||
+    DYNAMIC_PAYMENT_MAPPING_TYPE_PATTERN.test(value)
+  );
+};
+
 export class CreateAccountMappingDto {
   @ApiProperty({
-    description: 'Mapping type (e.g., SALES_REVENUE, SALES_AR)',
-    enum: MappingType,
-    example: MappingType.SALES_REVENUE,
+    description:
+      'Mapping type. Supports fixed keys (e.g. sales_revenue) and dynamic payment keys (e.g. payment_cash, payment_cimb, payment_cimb_settlement, vendor_payment_cimb).',
+    type: String,
+    example: 'payment_cimb',
   })
-  @IsEnum(MappingType)
-  mappingType: MappingType;
+  @IsString()
+  @IsValidMappingType()
+  mappingType: string;
 
   @ApiProperty({
     description: 'Chart of account ID to map to',
@@ -76,10 +89,16 @@ export class QueryAccountMappingsDto {
   @Max(100)
   limit?: number = 20;
 
-  @ApiPropertyOptional({ description: 'Filter by mapping type', enum: MappingType })
+  @ApiPropertyOptional({
+    description:
+      'Filter by mapping type. Supports fixed and dynamic payment mapping keys.',
+    type: String,
+    example: 'payment_cimb',
+  })
   @IsOptional()
-  @IsEnum(MappingType)
-  mappingType?: MappingType;
+  @IsString()
+  @IsValidMappingType()
+  mappingType?: string;
 
   @ApiPropertyOptional({ description: 'Filter by active status' })
   @IsOptional()
@@ -102,8 +121,8 @@ export class AccountMappingResponseDto {
   @ApiProperty({ description: 'Mapping ID' })
   id: string;
 
-  @ApiProperty({ description: 'Mapping type', enum: MappingType })
-  mappingType: MappingType;
+  @ApiProperty({ description: 'Mapping type' })
+  mappingType: string;
 
   @ApiProperty({ description: 'Account ID' })
   accountId: string;
@@ -159,4 +178,22 @@ export class MappingValidationResponseDto {
 
   @ApiProperty({ description: 'Total configured mappings' })
   totalConfigured: number;
+}
+
+function IsValidMappingType() {
+  return function (object: object, propertyName: string) {
+    registerDecorator({
+      name: 'isValidMappingType',
+      target: object.constructor,
+      propertyName,
+      validator: {
+        validate(value: unknown) {
+          return typeof value === 'string' && isValidMappingType(value);
+        },
+        defaultMessage(_args: ValidationArguments) {
+          return 'mappingType must be a valid fixed mapping or payment mapping key';
+        },
+      },
+    });
+  };
 }

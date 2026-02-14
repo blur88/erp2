@@ -89,7 +89,7 @@ export class AccountMappingService {
     return {
       isValid,
       missingMappings: missingTypes,
-      configuredMappings: configuredTypes as MappingType[],
+      configuredMappings: configuredTypes,
       totalRequired: allRequiredTypes.length,
       totalConfigured: configuredTypes.length,
     };
@@ -303,7 +303,7 @@ export class AccountMappingService {
   private toResponseDto(mapping: AccountMapping): AccountMappingResponseDto {
     return {
       id: mapping.id,
-      mappingType: mapping.mappingType as MappingType,
+      mappingType: mapping.mappingType,
       accountId: mapping.accountId,
       description: mapping.description,
       isActive: mapping.isActive,
