@@ -9,6 +9,7 @@ import {
 import { AccountMappingService } from './account-mapping.service';
 import { AccountMapping, MappingType } from '../../../database/entities/account-mapping.entity';
 import { ChartOfAccount } from '../../../database/entities/chart-of-account.entity';
+import { PaymentMethodEntity } from '../../../database/entities/payment-method.entity';
 import {
   CreateAccountMappingDto,
   UpdateAccountMappingDto,
@@ -71,6 +72,12 @@ describe('AccountMappingService', () => {
           provide: getRepositoryToken(ChartOfAccount),
           useValue: {
             findOne: jest.fn(),
+          },
+        },
+        {
+          provide: getRepositoryToken(PaymentMethodEntity),
+          useValue: {
+            find: jest.fn().mockResolvedValue([]),
           },
         },
       ],

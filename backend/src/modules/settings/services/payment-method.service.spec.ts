@@ -53,12 +53,22 @@ describe('PaymentMethodService', () => {
           provide: getRepositoryToken(Payment),
           useValue: {
             count: jest.fn(),
+            createQueryBuilder: jest.fn().mockReturnValue({
+              delete: jest.fn().mockReturnThis(),
+              where: jest.fn().mockReturnThis(),
+              execute: jest.fn().mockResolvedValue({}),
+            }),
           },
         },
         {
           provide: getRepositoryToken(Settlement),
           useValue: {
             count: jest.fn(),
+            createQueryBuilder: jest.fn().mockReturnValue({
+              delete: jest.fn().mockReturnThis(),
+              where: jest.fn().mockReturnThis(),
+              execute: jest.fn().mockResolvedValue({}),
+            }),
           },
         },
       ],
