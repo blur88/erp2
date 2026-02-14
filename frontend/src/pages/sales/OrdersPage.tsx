@@ -49,11 +49,11 @@ import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
 import { fetchOrders, fetchOrderById, deleteOrder, selectOrders, selectSalesLoading, selectSalesError, selectSalesPagination, selectSelectedOrder, selectOrderFilters, setSelectedOrder, setOrderFilters, updateOrderInPlace, fetchInvoices, clearError } from '@/store/slices/salesSlice'
 import { fetchCustomers } from '@/store/slices/customerSlice'
 import { salesApi } from '@/services/salesApi'
-import { paymentMethodsApi } from '@/services/paymentMethodsApi'
 import { SalesOrder } from '@/types'
 import { formatCurrency, formatDate } from '@/utils/formatters'
 import DeletedOrdersDialog from '@/components/sales/DeletedOrdersDialog'
 import BlockedSalesOrderDialog from '@/components/sales/BlockedSalesOrderDialog'
+import PaymentDialog from '@/components/sales/PaymentDialog'
 import ConfirmationDialog from '@/components/common/ConfirmationDialog'
 import { SalesOrderPrint } from '@/components/print'
 import AccountingEntryLink from '@/components/accounting/AccountingEntryLink'
@@ -160,9 +160,7 @@ const OrdersPage: React.FC = () => {
   const [pendingOrderToSelect, setPendingOrderToSelect] = useState<string | null>(null)
   const [printDialogOpen, setPrintDialogOpen] = useState(false)
   const [shouldPreserveSearchFocus, setShouldPreserveSearchFocus] = useState(false)
-  const [paymentAmount, setPaymentAmount] = useState('')
-  const [selectedPaymentMethodId, setSelectedPaymentMethodId] = useState<string>('')
-  const [paymentMethods, setPaymentMethods] = useState<any[]>([])
+  const [paymentDialogOpen, setPaymentDialogOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const orderListRef = useRef<HTMLDivElement>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
@@ -258,19 +256,6 @@ const OrdersPage: React.FC = () => {
       loadOrders()
     }
   }, []) // Only run once on mount
-
-  // Load active payment methods for the payment dropdown
-  useEffect(() => {
-    paymentMethodsApi.getActive().then((methods: any) => {
-      const list = Array.isArray(methods) ? methods : (methods as any)?.data || []
-      setPaymentMethods(list)
-      // Default to CASH method
-      const cash = list.find((m: any) => m.code === 'CASH')
-      if (cash) setSelectedPaymentMethodId(cash.id)
-    }).catch(() => {
-      // Silently fail - payment method selection will just be empty
-    })
-  }, [])
 
   // Load orders when filters change (but not on initial mount)
   useEffect(() => {
@@ -481,50 +466,25 @@ const OrdersPage: React.FC = () => {
   }
 
 
-  const handleRecordPayment = async () => {
+  const handleRecordPayments = async (payments: { paymentMethodId: string; amount: number; reference?: string }[]) => {
     if (!selectedOrder) return
 
-    // Calculate the new total paid amount
-    let newPaidAmount: number
-    let paymentToAdd = 0
-
-    if (paymentAmount) {
-      // If user entered an amount, add it to existing paid amount
-      paymentToAdd = parseFloat(paymentAmount)
-      newPaidAmount = (selectedOrder.paidAmount || 0) + paymentToAdd
-    } else {
-      // Auto-fill behavior: if payment field is blank, pay the remaining balance
-      const remainingBalance = Math.max(0, (selectedOrder.totalAmount || 0) - (selectedOrder.paidAmount || 0))
-      paymentToAdd = remainingBalance
-      newPaidAmount = (selectedOrder.paidAmount || 0) + remainingBalance
-    }
-
-    if (paymentToAdd <= 0) return
+    const totalAdding = payments.reduce((sum, p) => sum + p.amount, 0)
+    const newPaidAmount = (selectedOrder.paidAmount || 0) + totalAdding
 
     setIsLoading(true)
     try {
-      // First, optimistically update the UI to show the new payment amount immediately
-      const optimisticUpdate = {
-        ...selectedOrder,
-        paidAmount: newPaidAmount
-      }
-      dispatch(updateOrderInPlace(optimisticUpdate))
-      setPaymentAmount('')
+      // Optimistic update
+      dispatch(updateOrderInPlace({ ...selectedOrder, paidAmount: newPaidAmount }))
 
-      const response = await salesApi.recordOrderPayment(selectedOrder.id, newPaidAmount, selectedPaymentMethodId || undefined)
+      const response = await salesApi.recordOrderPayments(selectedOrder.id, payments)
       dispatch(updateOrderInPlace(response.data))
-      // Fetch full order details to get updated invoices and payments
       dispatch(fetchOrderById(selectedOrder.id) as any)
-      // Refresh invoices to show updated payment amounts
       dispatch(fetchInvoices({ page: 1, limit: 20 }))
-      showSuccess(`Payment of ${formatCurrency(paymentToAdd)} recorded successfully. Total paid: ${formatCurrency(newPaidAmount)}`)
+      showSuccess(`Payment of ${formatCurrency(totalAdding)} recorded successfully.`)
     } catch (error: any) {
-      // Revert optimistic update on error
       dispatch(updateOrderInPlace(selectedOrder))
-      setPaymentAmount(paymentToAdd.toString())
-      console.error('Error recording payment:', error)
-      const errorMessage = error?.response?.data?.message || 'Error recording payment. Please try again.'
-      showError(errorMessage)
+      throw error
     } finally {
       setIsLoading(false)
     }
@@ -574,7 +534,7 @@ const OrdersPage: React.FC = () => {
       }
       dispatch(updateOrderInPlace(optimisticUpdate))
 
-      const response = await salesApi.recordOrderPayment(selectedOrder.id, newPaidAmount, selectedPaymentMethodId || undefined)
+      const response = await salesApi.recordOrderPayment(selectedOrder.id, newPaidAmount)
       dispatch(updateOrderInPlace(response.data))
       // Refresh invoices to show updated payment amounts
       dispatch(fetchInvoices({ page: 1, limit: 20 }))
@@ -1868,74 +1828,9 @@ const OrdersPage: React.FC = () => {
                               Paid
                             </TableCell>
                             <TableCell sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
-                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                <Typography sx={{
-                                  fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize
-                                }}>
-                                  {formatCurrency(selectedOrder.paidAmount || 0)}
-                                </Typography>
-                                {!selectedOrder.isFulfilled && (
-                                  <>
-                                    <FormControl size="small" sx={{ minWidth: '90px' }}>
-                                      <Select
-                                        value={selectedPaymentMethodId}
-                                        onChange={(e) => setSelectedPaymentMethodId(e.target.value)}
-                                        displayEmpty
-                                        sx={{
-                                          height: '24px',
-                                          fontSize: '0.75rem',
-                                          '& .MuiSelect-select': {
-                                            padding: '4px 6px',
-                                            fontSize: '0.75rem'
-                                          }
-                                        }}
-                                      >
-                                        <MenuItem value="" disabled sx={{ fontSize: '0.75rem' }}>
-                                          Method
-                                        </MenuItem>
-                                        {paymentMethods.map((pm) => (
-                                          <MenuItem key={pm.id} value={pm.id} sx={{ fontSize: '0.75rem' }}>
-                                            {pm.name}
-                                          </MenuItem>
-                                        ))}
-                                      </Select>
-                                    </FormControl>
-                                    <Typography sx={{ color: 'text.secondary', fontSize: '0.75rem' }}>
-                                      +
-                                    </Typography>
-                                    <TextField
-                                      size="small"
-                                      type="number"
-                                      placeholder={`Add: ${formatCurrency(Math.max(0, (selectedOrder.totalAmount || 0) - (selectedOrder.paidAmount || 0)))}`}
-                                      slotProps={{ htmlInput: { min: 0, step: 0.01 } }}
-                                      sx={{
-                                        width: '120px',
-                                        '& .MuiInputBase-root': {
-                                          height: '24px',
-                                          fontSize: '0.75rem'
-                                        },
-                                        '& .MuiInputBase-input': {
-                                          padding: '4px 6px',
-                                          fontSize: '0.75rem'
-                                        },
-                                        '& input[type=number]': {
-                                          MozAppearance: 'textfield'
-                                        },
-                                        '& input[type=number]::-webkit-outer-spin-button': {
-                                          WebkitAppearance: 'none',
-                                          margin: 0
-                                        },
-                                        '& input[type=number]::-webkit-inner-spin-button': {
-                                          WebkitAppearance: 'none',
-                                          margin: 0
-                                        }
-                                      }}
-                                      value={paymentAmount}
-                                      onChange={(e) => setPaymentAmount(e.target.value)}
-                                    />
-                                  </>
-                                )}
-                              </Box>
+                              <Typography sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
+                                {formatCurrency(selectedOrder.paidAmount || 0)}
+                              </Typography>
                             </TableCell>
                           </TableRow>
                           <TableRow sx={{ backgroundColor: 'grey.50' }}>
@@ -1945,23 +1840,10 @@ const OrdersPage: React.FC = () => {
                             <TableCell sx={{
                               fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize
                             }}>
-                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                {(() => {
-                                  const additionalPayment = paymentAmount && !isNaN(parseFloat(paymentAmount)) ? parseFloat(paymentAmount) : 0
-                                  const currentPaid = (selectedOrder.paidAmount || 0) + additionalPayment
-                                  const balance = (selectedOrder.totalAmount || 0) - currentPaid
-                                  return balance < 0 ? `-${formatCurrency(Math.abs(balance))}` : formatCurrency(balance)
-                                })()}
-                                {paymentAmount && !isNaN(parseFloat(paymentAmount)) && parseFloat(paymentAmount) > 0 && (
-                                  <Typography sx={{
-                                    fontSize: '0.75rem',
-                                    color: 'text.secondary',
-                                    fontStyle: 'italic'
-                                  }}>
-                                    (after payment)
-                                  </Typography>
-                                )}
-                              </Box>
+                              {(() => {
+                                const balance = (selectedOrder.totalAmount || 0) - (selectedOrder.paidAmount || 0)
+                                return balance < 0 ? `-${formatCurrency(Math.abs(balance))}` : formatCurrency(balance)
+                              })()}
                             </TableCell>
                           </TableRow>
                           <TableRow>
@@ -1978,7 +1860,7 @@ const OrdersPage: React.FC = () => {
                                   onClick={(() => {
                                     const isOverpaid = (selectedOrder.paidAmount || 0) > (selectedOrder.totalAmount || 0)
                                     if (isOverpaid) return handleRefundOrder
-                                    return selectedOrder.isPaidInFull ? handleUnpayOrder : handleRecordPayment
+                                    return selectedOrder.isPaidInFull ? handleUnpayOrder : () => setPaymentDialogOpen(true)
                                   })()}
                                   disabled={isLoading || selectedOrder.isFulfilled}
                                   sx={{ minWidth: 110 }}
@@ -1990,7 +1872,7 @@ const OrdersPage: React.FC = () => {
                                     }
                                     return selectedOrder.isPaidInFull
                                       ? "Unpay"
-                                      : (selectedOrder.paidAmount > 0 ? "Pay Remaining" : "Pay")
+                                      : (selectedOrder.paidAmount > 0 ? "Pay More" : "Pay")
                                   })()}
                                 </Button>
                                 <Button
@@ -2501,6 +2383,16 @@ const OrdersPage: React.FC = () => {
           open={printDialogOpen}
           onClose={() => setPrintDialogOpen(false)}
           salesOrder={selectedOrder}
+        />
+      )}
+      {selectedOrder && (
+        <PaymentDialog
+          open={paymentDialogOpen}
+          onClose={() => setPaymentDialogOpen(false)}
+          onSubmit={handleRecordPayments}
+          orderNumber={selectedOrder.orderNumber}
+          totalAmount={selectedOrder.totalAmount || 0}
+          paidAmount={selectedOrder.paidAmount || 0}
         />
       )}
     </Box>
