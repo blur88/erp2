@@ -21,4 +21,13 @@ export const paymentMethodsApi = {
 
   delete: (id: string): Promise<void> =>
     ApiService.delete(`${BASE_URL}/${id}`),
+
+  getDeleted: (): Promise<PaymentMethodConfig[]> =>
+    ApiService.get(`${BASE_URL}/deleted`),
+
+  restore: (id: string): Promise<void> =>
+    ApiService.post(`${BASE_URL}/${id}/restore`, {}),
+
+  permanentDelete: (id: string): Promise<void> =>
+    ApiService.delete(`${BASE_URL}/${id}/permanent`),
 };

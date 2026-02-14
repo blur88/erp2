@@ -5,10 +5,12 @@ import {
   Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { IsNull, Not, Repository } from 'typeorm';
 import { PaymentMethodEntity } from '../../../database/entities/payment-method.entity';
 import { AccountMapping } from '../../../database/entities/account-mapping.entity';
 import { ChartOfAccount } from '../../../database/entities/chart-of-account.entity';
+import { Payment } from '../../../database/entities/payment.entity';
+import { Settlement } from '../../../database/entities/settlement.entity';
 import {
   CreatePaymentMethodDto,
   UpdatePaymentMethodDto,
@@ -28,6 +30,10 @@ export class PaymentMethodService {
     private readonly accountMappingRepository: Repository<AccountMapping>,
     @InjectRepository(ChartOfAccount)
     private readonly accountRepository: Repository<ChartOfAccount>,
+    @InjectRepository(Payment)
+    private readonly paymentRepository: Repository<Payment>,
+    @InjectRepository(Settlement)
+    private readonly settlementRepository: Repository<Settlement>,
   ) {}
 
   async findAll(query: QueryPaymentMethodsDto): Promise<PaymentMethodListResponseDto> {
@@ -129,6 +135,69 @@ export class PaymentMethodService {
       throw new NotFoundException(`Payment method ${id} not found`);
     }
     await this.paymentMethodRepository.softDelete(id);
+  }
+
+  async getDeletedList(): Promise<PaymentMethodResponseDto[]> {
+    const methods = await this.paymentMethodRepository.find({
+      withDeleted: true,
+      where: {
+        deletedAt: Not(IsNull()),
+      },
+      order: { sortOrder: 'ASC', name: 'ASC' },
+    });
+
+    return methods.map((pm) => this.toResponseDto(pm));
+  }
+
+  async restore(id: string): Promise<void> {
+    const pm = await this.paymentMethodRepository.findOne({
+      where: { id },
+      withDeleted: true,
+    });
+
+    if (!pm || !pm.deletedAt) {
+      throw new NotFoundException(`Deleted payment method ${id} not found`);
+    }
+
+    await this.paymentMethodRepository.restore(id);
+  }
+
+  async permanentDelete(id: string): Promise<void> {
+    const pm = await this.paymentMethodRepository.findOne({
+      where: { id },
+      withDeleted: true,
+    });
+
+    if (!pm || !pm.deletedAt) {
+      throw new NotFoundException(
+        `Deleted payment method ${id} not found for permanent deletion`,
+      );
+    }
+
+    const [paymentCount, settlementCount] = await Promise.all([
+      this.paymentRepository.count({
+        where: { paymentMethodId: id, deletedAt: IsNull() as any },
+        withDeleted: true,
+      }),
+      this.settlementRepository.count({
+        where: { paymentMethodId: id, deletedAt: IsNull() as any },
+        withDeleted: true,
+      }),
+    ]);
+
+    if (paymentCount > 0 || settlementCount > 0) {
+      throw new ConflictException(
+        `Cannot permanently delete payment method "${pm.code}" because it is referenced by ${paymentCount} payment(s) and ${settlementCount} settlement(s).`,
+      );
+    }
+
+    const mappingKeys = [`payment_${pm.code.toLowerCase()}`];
+    if (pm.requiresSettlement) {
+      mappingKeys.push(`payment_${pm.code.toLowerCase()}_settlement`);
+    }
+
+    await this.accountMappingRepository.delete(mappingKeys.map((mappingType) => ({ mappingType })));
+    await this.paymentMethodRepository.delete(id);
   }
 
   private async createAccountMappings(pm: PaymentMethodEntity): Promise<void> {

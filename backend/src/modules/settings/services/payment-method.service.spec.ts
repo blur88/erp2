@@ -6,12 +6,16 @@ import { PaymentMethodService } from './payment-method.service';
 import { PaymentMethodEntity } from '../../../database/entities/payment-method.entity';
 import { AccountMapping } from '../../../database/entities/account-mapping.entity';
 import { ChartOfAccount, AccountType } from '../../../database/entities/chart-of-account.entity';
+import { Payment } from '../../../database/entities/payment.entity';
+import { Settlement } from '../../../database/entities/settlement.entity';
 
 describe('PaymentMethodService', () => {
   let service: PaymentMethodService;
   let paymentMethodRepository: jest.Mocked<Repository<PaymentMethodEntity>>;
   let accountMappingRepository: jest.Mocked<Repository<AccountMapping>>;
   let accountRepository: jest.Mocked<Repository<ChartOfAccount>>;
+  let paymentRepository: jest.Mocked<Repository<Payment>>;
+  let settlementRepository: jest.Mocked<Repository<Settlement>>;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -26,6 +30,8 @@ describe('PaymentMethodService', () => {
             create: jest.fn(),
             save: jest.fn(),
             softDelete: jest.fn(),
+            restore: jest.fn(),
+            delete: jest.fn(),
           },
         },
         {
@@ -34,12 +40,25 @@ describe('PaymentMethodService', () => {
             findOne: jest.fn(),
             create: jest.fn(),
             save: jest.fn(),
+            delete: jest.fn(),
           },
         },
         {
           provide: getRepositoryToken(ChartOfAccount),
           useValue: {
             findOne: jest.fn(),
+          },
+        },
+        {
+          provide: getRepositoryToken(Payment),
+          useValue: {
+            count: jest.fn(),
+          },
+        },
+        {
+          provide: getRepositoryToken(Settlement),
+          useValue: {
+            count: jest.fn(),
           },
         },
       ],
@@ -49,6 +68,8 @@ describe('PaymentMethodService', () => {
     paymentMethodRepository = module.get(getRepositoryToken(PaymentMethodEntity));
     accountMappingRepository = module.get(getRepositoryToken(AccountMapping));
     accountRepository = module.get(getRepositoryToken(ChartOfAccount));
+    paymentRepository = module.get(getRepositoryToken(Payment));
+    settlementRepository = module.get(getRepositoryToken(Settlement));
   });
 
   it('should be defined', () => {
@@ -133,5 +154,80 @@ describe('PaymentMethodService', () => {
     await service.create({ code: 'cash', name: 'Cash', requiresSettlement: false });
 
     expect(accountMappingRepository.save).toHaveBeenCalled();
+  });
+
+  it('getDeletedList should return soft-deleted payment methods', async () => {
+    paymentMethodRepository.find.mockResolvedValue([
+      {
+        id: 'pm-deleted',
+        code: 'TNG',
+        name: 'Touch n Go',
+        requiresSettlement: true,
+        sortOrder: 3,
+        isActive: false,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        deletedAt: new Date(),
+      },
+    ] as any);
+
+    const result = await service.getDeletedList();
+
+    expect(result).toHaveLength(1);
+    expect(result[0].code).toBe('TNG');
+  });
+
+  it('restore should restore a soft-deleted payment method', async () => {
+    paymentMethodRepository.findOne.mockResolvedValue({
+      id: 'pm-deleted',
+      code: 'TNG',
+      name: 'Touch n Go',
+      requiresSettlement: true,
+      sortOrder: 3,
+      isActive: false,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      deletedAt: new Date(),
+    } as any);
+
+    paymentMethodRepository.restore.mockResolvedValue({} as any);
+
+    await service.restore('pm-deleted');
+
+    expect(paymentMethodRepository.restore).toHaveBeenCalledWith('pm-deleted');
+  });
+
+  it('permanentDelete should throw ConflictException when payment method has payments', async () => {
+    paymentMethodRepository.findOne.mockResolvedValue({
+      id: 'pm-1',
+      code: 'SHOPEE',
+      name: 'Shopee',
+      requiresSettlement: true,
+      deletedAt: new Date(),
+    } as any);
+    paymentRepository.count.mockResolvedValue(2);
+    settlementRepository.count.mockResolvedValue(0);
+
+    await expect(service.permanentDelete('pm-1')).rejects.toThrow(ConflictException);
+    expect(paymentMethodRepository.delete).not.toHaveBeenCalled();
+  });
+
+  it('permanentDelete should delete soft-deleted method when no references exist', async () => {
+    paymentMethodRepository.findOne.mockResolvedValue({
+      id: 'pm-1',
+      code: 'SHOPEE',
+      name: 'Shopee',
+      requiresSettlement: true,
+      deletedAt: new Date(),
+    } as any);
+    paymentRepository.count.mockResolvedValue(0);
+    settlementRepository.count.mockResolvedValue(0);
+    accountMappingRepository.delete.mockResolvedValue({} as any);
+    paymentMethodRepository.delete.mockResolvedValue({} as any);
+
+    await service.permanentDelete('pm-1');
+
+    expect(accountMappingRepository.delete).toHaveBeenCalled();
+    expect(paymentMethodRepository.delete).toHaveBeenCalledWith('pm-1');
   });
 });

@@ -17,6 +17,7 @@ import { StockAdjustment } from '../../database/entities/stock-adjustment.entity
 import { PaymentMethodEntity } from '../../database/entities/payment-method.entity';
 import { AccountMapping } from '../../database/entities/account-mapping.entity';
 import { ChartOfAccount } from '../../database/entities/chart-of-account.entity';
+import { Settlement } from '../../database/entities/settlement.entity';
 import { PaymentMethodController } from './controllers/payment-method.controller';
 import { PaymentMethodService } from './services/payment-method.service';
 
@@ -39,6 +40,7 @@ import { PaymentMethodService } from './services/payment-method.service';
       VendorPayment,
       StockAdjustment,
       PaymentMethodEntity,
+      Settlement,
       AccountMapping,
       ChartOfAccount,
     ]),

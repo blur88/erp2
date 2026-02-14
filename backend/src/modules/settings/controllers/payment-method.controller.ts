@@ -42,6 +42,14 @@ export class PaymentMethodController {
     return this.paymentMethodService.getActiveList();
   }
 
+  @Get('deleted')
+  @Auth(UserRole.ADMIN, UserRole.MANAGER)
+  @ApiOperation({ summary: 'Get soft-deleted payment methods' })
+  @ApiResponse({ status: 200, type: [PaymentMethodResponseDto] })
+  async getDeletedList(): Promise<PaymentMethodResponseDto[]> {
+    return this.paymentMethodService.getDeletedList();
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Get payment method by ID' })
   @ApiParam({ name: 'id', description: 'Payment method ID' })
@@ -77,5 +85,26 @@ export class PaymentMethodController {
   @ApiParam({ name: 'id', description: 'Payment method ID' })
   async remove(@Param('id') id: string): Promise<void> {
     return this.paymentMethodService.remove(id);
+  }
+
+  @Post(':id/restore')
+  @Auth(UserRole.ADMIN)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Restore a soft-deleted payment method' })
+  @ApiParam({ name: 'id', description: 'Payment method ID' })
+  async restore(@Param('id') id: string): Promise<void> {
+    return this.paymentMethodService.restore(id);
+  }
+
+  @Delete(':id/permanent')
+  @Auth(UserRole.ADMIN)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({
+    summary:
+      'Permanently delete a soft-deleted payment method (blocked when referenced by payments/settlements)',
+  })
+  @ApiParam({ name: 'id', description: 'Payment method ID' })
+  async permanentDelete(@Param('id') id: string): Promise<void> {
+    return this.paymentMethodService.permanentDelete(id);
   }
 }
