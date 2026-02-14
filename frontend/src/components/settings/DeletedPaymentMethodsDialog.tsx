@@ -66,7 +66,7 @@ const DeletedPaymentMethodsDialog: React.FC<DeletedPaymentMethodsDialogProps> = 
       setRows(data || [])
     } catch (error: any) {
       setRows([])
-      showError(error || 'Failed to load deleted payment methods')
+      showError(error?.response?.data?.message || error?.message || 'Failed to load deleted payment methods')
     } finally {
       setLoading(false)
     }
@@ -96,7 +96,7 @@ const DeletedPaymentMethodsDialog: React.FC<DeletedPaymentMethodsDialogProps> = 
       await onChanged()
       showSuccess(`Payment method "${row.code}" restored successfully`)
     } catch (error: any) {
-      showError(error || 'Failed to restore payment method')
+      showError(error?.response?.data?.message || error?.message || 'Failed to restore payment method')
     } finally {
       setRestoringId(null)
     }
@@ -113,7 +113,8 @@ const DeletedPaymentMethodsDialog: React.FC<DeletedPaymentMethodsDialogProps> = 
       showSuccess(`Payment method "${showDeleteConfirm.code}" permanently deleted`)
       setShowDeleteConfirm(null)
     } catch (error: any) {
-      showError(error || 'Failed to permanently delete payment method')
+      const msg = error?.response?.data?.message || error?.message || 'Failed to permanently delete payment method'
+      showError(msg)
     } finally {
       setDeletingId(null)
     }
@@ -158,7 +159,7 @@ const DeletedPaymentMethodsDialog: React.FC<DeletedPaymentMethodsDialogProps> = 
       await onChanged()
       setSelectedMethods(new Set())
     } catch (error: any) {
-      showError(error || 'Failed to bulk restore payment methods')
+      showError(error?.response?.data?.message || error?.message || 'Failed to bulk restore payment methods')
     } finally {
       setBulkRestoring(false)
       setShowBulkRestoreConfirm(false)
@@ -184,7 +185,7 @@ const DeletedPaymentMethodsDialog: React.FC<DeletedPaymentMethodsDialogProps> = 
       await onChanged()
       setSelectedMethods(new Set())
     } catch (error: any) {
-      showError(error || 'Failed to bulk delete payment methods')
+      showError(error?.response?.data?.message || error?.message || 'Failed to bulk delete payment methods')
     } finally {
       setBulkDeleting(false)
       setShowBulkDeleteConfirm(false)

@@ -5,7 +5,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { IsNull, Not, Repository } from 'typeorm';
+import { In, IsNull, Not, Repository } from 'typeorm';
 import { PaymentMethodEntity } from '../../../database/entities/payment-method.entity';
 import { AccountMapping } from '../../../database/entities/account-mapping.entity';
 import { ChartOfAccount } from '../../../database/entities/chart-of-account.entity';
@@ -196,7 +196,20 @@ export class PaymentMethodService {
       mappingKeys.push(`payment_${pm.code.toLowerCase()}_settlement`);
     }
 
-    await this.accountMappingRepository.delete(mappingKeys.map((mappingType) => ({ mappingType })));
+    // Hard-delete any soft-deleted payments/settlements referencing this method so FK doesn't block
+    await this.paymentRepository
+      .createQueryBuilder()
+      .delete()
+      .where('"paymentMethodId" = :id AND "deletedAt" IS NOT NULL', { id })
+      .execute();
+
+    await this.settlementRepository
+      .createQueryBuilder()
+      .delete()
+      .where('"paymentMethodId" = :id AND "deletedAt" IS NOT NULL', { id })
+      .execute();
+
+    await this.accountMappingRepository.delete({ mappingType: In(mappingKeys) });
     await this.paymentMethodRepository.delete(id);
   }
 
