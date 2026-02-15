@@ -511,6 +511,18 @@ export class VendorPaymentService {
   }
 
   /**
+   * Find all vendor payments for a purchase order
+   */
+  async findAllByPurchaseOrder(poId: string): Promise<VendorPayment[]> {
+    return this.vendorPaymentRepository.find({
+      where: {
+        purchaseOrderId: poId,
+        isActive: true,
+      },
+    });
+  }
+
+  /**
    * Hard delete vendor payment
    */
   async permanentDelete(id: string): Promise<{ message: string }> {

@@ -1387,30 +1387,19 @@ const PurchaseOrdersPage: React.FC = () => {
                                 <Button
                                   variant="contained"
                                   size="small"
-                                  color={(() => {
-                                    const isPaidInFull = (selectedOrder.paidAmount || 0) >= (selectedOrder.totalAmount || 0) && (selectedOrder.paidAmount || 0) > 0
-                                    return isPaidInFull ? 'warning' : 'primary'
-                                  })()}
-                                  onClick={(() => {
-                                    const isPaidInFull = (selectedOrder.paidAmount || 0) >= (selectedOrder.totalAmount || 0) && (selectedOrder.paidAmount || 0) > 0
-                                    return isPaidInFull ? handleUnpay : () => handleOpenPaymentDialog(selectedOrder)
-                                  })()}
+                                  color={selectedOrder.vendorPayments && selectedOrder.vendorPayments.length > 0 ? 'warning' : 'primary'}
+                                  onClick={selectedOrder.vendorPayments && selectedOrder.vendorPayments.length > 0 ? handleUnpay : () => handleOpenPaymentDialog(selectedOrder)}
                                   disabled={(() => {
                                     const isReceived = selectedOrder.goodsReceivedNotes &&
                                       selectedOrder.goodsReceivedNotes.length > 0 &&
                                       selectedOrder.goodsReceivedNotes[0].status === 'received'
-                                    const isPaidInFull = (selectedOrder.paidAmount || 0) >= (selectedOrder.totalAmount || 0) && (selectedOrder.paidAmount || 0) > 0
+                                    const hasPayment = selectedOrder.vendorPayments && selectedOrder.vendorPayments.length > 0
                                     // Disable unpay button if order is received, or if loading
-                                    return (isPaidInFull && isReceived) || isLoading
+                                    return (hasPayment && isReceived) || isLoading
                                   })()}
                                   sx={{ minWidth: 110 }}
                                 >
-                                  {(() => {
-                                    const isPaidInFull = (selectedOrder.paidAmount || 0) >= (selectedOrder.totalAmount || 0) && (selectedOrder.paidAmount || 0) > 0
-                                    return isPaidInFull
-                                      ? 'Unpay'
-                                      : 'Pay'
-                                  })()}
+                                  {selectedOrder.vendorPayments && selectedOrder.vendorPayments.length > 0 ? 'Unpay' : 'Pay'}
                                 </Button>
                                 {selectedOrder.goodsReceivedNotes &&
                                  selectedOrder.goodsReceivedNotes.length > 0 &&

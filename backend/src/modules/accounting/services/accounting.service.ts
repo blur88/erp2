@@ -400,7 +400,7 @@ export class AccountingService {
 
     // Create journal entry DTO
     const entryDto: CreateJournalEntryDto = {
-      entryDate: vendorPayment.paymentDate,
+      entryDate: new Date(vendorPayment.paymentDate),
       description: `Vendor Payment ${vendorPayment.paymentNumber} to ${vendorPayment.supplier.companyName}`,
       fiscalPeriodId: periodValidation.period.id,
       sourceType: 'vendor_payment',

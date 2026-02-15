@@ -1447,8 +1447,8 @@ export class PurchaseOrderService {
       });
     }
 
-    // Update paidAmount on the order
-    const newPaidAmount = (purchaseOrder.paidAmount || 0) + totalNewPayment;
+    // Update paidAmount on the order (use Number() to avoid string concatenation with decimal columns)
+    const newPaidAmount = Number(purchaseOrder.paidAmount || 0) + totalNewPayment;
     purchaseOrder.paidAmount = newPaidAmount;
     await this.purchaseOrderRepository.save(purchaseOrder);
 
@@ -1513,14 +1513,16 @@ export class PurchaseOrderService {
       );
     }
 
-    // Find existing payment
-    const existingPayment = await this.vendorPaymentService.findByPurchaseOrder(id);
-    if (!existingPayment) {
+    // Find all existing payments
+    const existingPayments = await this.vendorPaymentService.findAllByPurchaseOrder(id);
+    if (!existingPayments || existingPayments.length === 0) {
       throw new NotFoundException('No payment found for this purchase order');
     }
 
-    // Hard delete the vendor payment
-    await this.vendorPaymentService.permanentDelete(existingPayment.id);
+    // Hard delete all vendor payments
+    for (const payment of existingPayments) {
+      await this.vendorPaymentService.permanentDelete(payment.id);
+    }
 
     // Reset paidAmount to 0
     purchaseOrder.paidAmount = 0;
