@@ -1,5 +1,6 @@
 import {
   IsString,
+  IsNotEmpty,
   IsBoolean,
   IsOptional,
   IsEnum,
@@ -365,4 +366,25 @@ export class PurchaseOrderSummaryDto {
     orderCount: number;
     totalAmount: number;
   }>;
+}
+
+export class RecordOrderPaymentLineDto {
+  @IsString()
+  @IsNotEmpty()
+  paymentMethodId: string;
+
+  @IsNumber()
+  @Min(0.01)
+  amount: number;
+
+  @IsOptional()
+  @IsString()
+  reference?: string;
+}
+
+export class RecordOrderPaymentsDto {
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => RecordOrderPaymentLineDto)
+  payments: RecordOrderPaymentLineDto[];
 }
