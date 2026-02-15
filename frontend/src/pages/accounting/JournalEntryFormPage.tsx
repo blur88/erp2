@@ -32,7 +32,7 @@ import {
   Save as SaveIcon,
   PostAdd as PostIcon,
 } from '@mui/icons-material'
-import { useForm, useFieldArray, Controller } from 'react-hook-form'
+import { useForm, useFieldArray, Controller, useWatch } from 'react-hook-form'
 import { yupResolver } from '@hookform/resolvers/yup'
 import * as yup from 'yup'
 import { useNotification } from '@/hooks/useNotification'
@@ -177,7 +177,11 @@ const JournalEntryFormPage: React.FC = () => {
     name: 'lines',
   })
 
-  const watchedLines = watch('lines')
+  const watchedLines = useWatch({
+    control,
+    name: 'lines',
+    defaultValue: [],
+  })
   const watchedDate = watch('entryDate')
 
   // Calculate totals with real-time balance validation

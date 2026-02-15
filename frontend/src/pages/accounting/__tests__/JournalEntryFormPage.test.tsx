@@ -161,7 +161,7 @@ describe('JournalEntryFormPage', () => {
     })
   })
 
-  it('allows save and post button state for single-line debit entry', async () => {
+  it('updates totals and balance status for single-line debit entry', async () => {
     renderWithProviders(<JournalEntryFormPage />)
 
     const debitInputs = screen.getAllByRole('spinbutton')
@@ -171,7 +171,9 @@ describe('JournalEntryFormPage', () => {
 
     await waitFor(() => {
       expect(debitInput1).toHaveValue(100)
-      expect(screen.getByText('Save and Post')).toBeEnabled()
+      expect(screen.getByText(/Entry is out of balance by \$100\.00/i)).toBeInTheDocument()
+      expect(screen.getByText('Not Balanced')).toBeInTheDocument()
+      expect(screen.getByText('Save and Post')).toBeDisabled()
     })
   })
 
