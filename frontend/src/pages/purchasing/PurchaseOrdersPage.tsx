@@ -60,6 +60,7 @@ import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
 import ConfirmationDialog from '@/components/common/ConfirmationDialog'
 import DeletedPurchaseOrdersDialog from '@/components/purchasing/DeletedPurchaseOrdersDialog'
 import BlockedPurchaseOrderDialog from '@/components/purchasing/BlockedPurchaseOrderDialog'
+import VendorPaymentDialog from '@/components/purchasing/VendorPaymentDialog'
 import { PurchaseOrderPrint } from '@/components/print'
 
 interface PurchaseOrdersPageState {
@@ -159,7 +160,8 @@ const PurchaseOrdersPage: React.FC = () => {
   const [printDialogOpen, setPrintDialogOpen] = useState(false)
   const [blockedDialogType, setBlockedDialogType] = useState<'edit' | 'delete'>('edit')
   const [isLoading, setIsLoading] = useState(false)
-  const [paymentAmount, setPaymentAmount] = useState('')
+  const [paymentDialogOpen, setPaymentDialogOpen] = useState(false)
+  const [paymentDialogOrder, setPaymentDialogOrder] = useState<any>(null)
   const orderListRef = useRef<HTMLDivElement>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
   const processedHighlightRef = useRef<string | null>(null)
@@ -601,58 +603,26 @@ const PurchaseOrdersPage: React.FC = () => {
     }
   }
 
-  const handleRecordPayment = async () => {
-    if (!selectedOrder) return
+  const handleOpenPaymentDialog = useCallback((order: any) => {
+    setPaymentDialogOrder(order)
+    setPaymentDialogOpen(true)
+  }, [])
 
-    // Calculate the new total paid amount
-    let newPaidAmount: number
-    let paymentToAdd = 0
+  const handleRecordPayments = useCallback(async (payments: { paymentMethodId: string; amount: number; reference?: string }[]) => {
+    if (!paymentDialogOrder) return
 
-    if (paymentAmount) {
-      // If user entered an amount, add it to existing paid amount
-      paymentToAdd = parseFloat(paymentAmount)
-      newPaidAmount = (selectedOrder.paidAmount || 0) + paymentToAdd
-    } else {
-      // Auto-fill behavior: if payment field is blank, pay the remaining balance
-      const remainingBalance = Math.max(0, (selectedOrder.totalAmount || 0) - (selectedOrder.paidAmount || 0))
-      paymentToAdd = remainingBalance
-      newPaidAmount = (selectedOrder.paidAmount || 0) + remainingBalance
-    }
+    const response = await purchasingApi.recordOrderPayments(paymentDialogOrder.id, payments)
+    const responseData: any = (response as any).data || response
+    const updatedOrder = responseData.data || responseData
 
-    if (paymentToAdd <= 0) return
-
-    setIsLoading(true)
-    try {
-      // Optimistically update the UI
-      const optimisticUpdate = {
-        ...selectedOrder,
-        paidAmount: newPaidAmount
-      }
-      dispatch(setSelectedPurchaseOrder(optimisticUpdate))
-      setPaymentAmount('')
-
-      const response = await purchasingApi.recordPurchaseOrderPayment(selectedOrder.id, newPaidAmount)
-
-      // Handle the response data structure
-      const responseData: any = (response as any).data || response
-      const updatedOrder = responseData.data || responseData
-
+    if (updatedOrder && updatedOrder.id) {
+      dispatch(updatePurchaseOrderInPlace(updatedOrder))
       dispatch(setSelectedPurchaseOrder(updatedOrder))
-      showSuccess(`Payment of ${formatCurrency(paymentToAdd)} recorded successfully. Total paid: ${formatCurrency(newPaidAmount)}`)
-
-      // Reload orders to update the list with new vendor payments
-      loadOrders()
-    } catch (error: any) {
-      // Revert optimistic update on error
-      dispatch(setSelectedPurchaseOrder(selectedOrder))
-      setPaymentAmount(paymentToAdd.toString())
-      console.error('Error recording payment:', error)
-      const errorMessage = error?.response?.data?.message || 'Failed to record payment'
-      showError(errorMessage)
-    } finally {
-      setIsLoading(false)
     }
-  }
+
+    loadOrders()
+    showSuccess('Payment recorded successfully.')
+  }, [paymentDialogOrder, dispatch, loadOrders, showSuccess])
 
   const handleDeleteClick = () => {
     if (!selectedOrder) return
@@ -1388,46 +1358,11 @@ const PurchaseOrdersPage: React.FC = () => {
                               Paid
                             </TableCell>
                             <TableCell sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
-                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                <Typography sx={{
-                                  fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize
-                                }}>
-                                  {formatCurrency(selectedOrder.paidAmount || 0)}
-                                </Typography>
-                                <Typography sx={{ color: 'text.secondary', fontSize: '0.75rem' }}>
-                                  +
-                                </Typography>
-                                <TextField
-                                  size="small"
-                                  type="number"
-                                  value={paymentAmount}
-                                  onChange={(e) => setPaymentAmount(e.target.value)}
-                                  placeholder={`Add: ${formatCurrency(Math.max(0, (selectedOrder.totalAmount || 0) - (selectedOrder.paidAmount || 0)))}`}
-                                  inputProps={{ min: 0, step: 0.01 }}
-                                  sx={{
-                                    width: '120px',
-                                    '& .MuiInputBase-root': {
-                                      height: '24px',
-                                      fontSize: '0.75rem'
-                                    },
-                                    '& .MuiInputBase-input': {
-                                      padding: '4px 6px',
-                                      fontSize: '0.75rem'
-                                    },
-                                    '& input[type=number]': {
-                                      MozAppearance: 'textfield'
-                                    },
-                                    '& input[type=number]::-webkit-outer-spin-button': {
-                                      WebkitAppearance: 'none',
-                                      margin: 0
-                                    },
-                                    '& input[type=number]::-webkit-inner-spin-button': {
-                                      WebkitAppearance: 'none',
-                                      margin: 0
-                                    }
-                                  }}
-                                />
-                              </Box>
+                              <Typography sx={{
+                                fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize
+                              }}>
+                                {formatCurrency(selectedOrder.paidAmount || 0)}
+                              </Typography>
                             </TableCell>
                           </TableRow>
                           <TableRow sx={{ backgroundColor: 'grey.50' }}>
@@ -1439,33 +1374,11 @@ const PurchaseOrdersPage: React.FC = () => {
                               Balance
                             </TableCell>
                             <TableCell sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
-                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                <Typography sx={{
-                                  fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
-                                  color: (() => {
-                                    const additionalPayment = paymentAmount && !isNaN(parseFloat(paymentAmount)) ? parseFloat(paymentAmount) : 0
-                                    const currentPaid = (selectedOrder.paidAmount || 0) + additionalPayment
-                                    const balance = (selectedOrder.totalAmount || 0) - currentPaid
-                                    return balance < 0 ? 'error.main' : 'inherit'
-                                  })()
-                                }}>
-                                  {(() => {
-                                    const additionalPayment = paymentAmount && !isNaN(parseFloat(paymentAmount)) ? parseFloat(paymentAmount) : 0
-                                    const currentPaid = (selectedOrder.paidAmount || 0) + additionalPayment
-                                    const balance = (selectedOrder.totalAmount || 0) - currentPaid
-                                    return balance < 0 ? `-${formatCurrency(Math.abs(balance))}` : formatCurrency(balance)
-                                  })()}
-                                </Typography>
-                                {paymentAmount && !isNaN(parseFloat(paymentAmount)) && parseFloat(paymentAmount) > 0 && (
-                                  <Typography sx={{
-                                    fontSize: '0.75rem',
-                                    color: 'text.secondary',
-                                    fontStyle: 'italic'
-                                  }}>
-                                    (after payment)
-                                  </Typography>
-                                )}
-                              </Box>
+                              <Typography sx={{
+                                fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize
+                              }}>
+                                {formatCurrency(Math.max(0, (selectedOrder.totalAmount || 0) - (selectedOrder.paidAmount || 0)))}
+                              </Typography>
                             </TableCell>
                           </TableRow>
                           <TableRow>
@@ -1476,11 +1389,11 @@ const PurchaseOrdersPage: React.FC = () => {
                                   size="small"
                                   color={(() => {
                                     const isPaidInFull = (selectedOrder.paidAmount || 0) >= (selectedOrder.totalAmount || 0) && (selectedOrder.paidAmount || 0) > 0
-                                    return isPaidInFull ? "warning" : "primary"
+                                    return isPaidInFull ? 'warning' : 'primary'
                                   })()}
                                   onClick={(() => {
                                     const isPaidInFull = (selectedOrder.paidAmount || 0) >= (selectedOrder.totalAmount || 0) && (selectedOrder.paidAmount || 0) > 0
-                                    return isPaidInFull ? handleUnpay : handleRecordPayment
+                                    return isPaidInFull ? handleUnpay : () => handleOpenPaymentDialog(selectedOrder)
                                   })()}
                                   disabled={(() => {
                                     const isReceived = selectedOrder.goodsReceivedNotes &&
@@ -1495,8 +1408,8 @@ const PurchaseOrdersPage: React.FC = () => {
                                   {(() => {
                                     const isPaidInFull = (selectedOrder.paidAmount || 0) >= (selectedOrder.totalAmount || 0) && (selectedOrder.paidAmount || 0) > 0
                                     return isPaidInFull
-                                      ? "Unpay"
-                                      : (selectedOrder.paidAmount > 0 ? "Pay Remaining" : "Pay")
+                                      ? 'Unpay'
+                                      : 'Pay'
                                   })()}
                                 </Button>
                                 {selectedOrder.goodsReceivedNotes &&
@@ -1717,6 +1630,16 @@ const PurchaseOrdersPage: React.FC = () => {
           open={printDialogOpen}
           onClose={() => setPrintDialogOpen(false)}
           purchaseOrder={selectedOrder}
+        />
+      )}
+      {paymentDialogOrder && (
+        <VendorPaymentDialog
+          open={paymentDialogOpen}
+          onClose={() => setPaymentDialogOpen(false)}
+          onSubmit={handleRecordPayments}
+          orderNumber={paymentDialogOrder.orderNumber || ''}
+          totalAmount={parseFloat(paymentDialogOrder.totalAmount) || 0}
+          paidAmount={parseFloat(paymentDialogOrder.paidAmount) || 0}
         />
       )}
     </Box>
