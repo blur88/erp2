@@ -473,6 +473,10 @@ export class VendorPaymentService {
 
     const savedPayment = await this.vendorPaymentRepository.save(vendorPayment);
 
+    // Keep PO payment aggregates in sync for UI totals and actions.
+    purchaseOrder.paidAmount = Number(purchaseOrder.totalAmount);
+    await this.purchaseOrderRepository.save(purchaseOrder);
+
     // Log audit trail for create
     await this.auditLogService.log(
       'CREATE',

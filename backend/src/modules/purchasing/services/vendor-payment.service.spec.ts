@@ -75,6 +75,7 @@ describe('VendorPaymentService', () => {
           useValue: {
             findOne: jest.fn(),
             update: jest.fn(),
+            save: jest.fn(),
           },
         },
         {
@@ -342,6 +343,41 @@ describe('VendorPaymentService', () => {
 
       // Verify accounting entry was still posted
       expect(accountingService.postVendorPaymentEntry).toHaveBeenCalled();
+    });
+  });
+
+  describe('createForPurchaseOrder', () => {
+    beforeEach(() => {
+      const mockQueryBuilder = {
+        where: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        getOne: jest.fn().mockResolvedValue(null),
+      };
+      vendorPaymentRepository.createQueryBuilder.mockReturnValue(mockQueryBuilder as any);
+
+      purchaseOrderRepository.findOne.mockResolvedValue({
+        ...mockPurchaseOrder,
+        supplier: mockSupplier,
+      } as PurchaseOrder);
+      paymentMethodRepository.findOne.mockResolvedValue({
+        id: 'pm-bank-id',
+      } as PaymentMethodEntity);
+      grnRepository.findOne.mockResolvedValue(mockGrn as GoodsReceivedNote);
+      vendorPaymentRepository.findOne.mockResolvedValue(null);
+      vendorPaymentRepository.create.mockReturnValue(mockVendorPayment as VendorPayment);
+      vendorPaymentRepository.save.mockResolvedValue(mockVendorPayment as VendorPayment);
+      auditLogService.log.mockResolvedValue(undefined);
+    });
+
+    it('should update purchase order paidAmount to total amount when paying in full', async () => {
+      await service.createForPurchaseOrder('po-123', 'test-user');
+
+      expect(purchaseOrderRepository.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: 'po-123',
+          paidAmount: 1000,
+        }),
+      );
     });
   });
 });
