@@ -339,7 +339,7 @@ const CreateProductPage: React.FC = () => {
       if (productId && Object.keys(priceListPrices).length > 0) {
         // Update prices for each price list
         for (const [priceListId, price] of Object.entries(priceListPrices)) {
-          if (price > 0) {
+          if (price >= 0) {
             try {
               await priceListApi.bulkUpdatePrices(priceListId, [{
                 productId,
