@@ -38,6 +38,21 @@ Primary language is TypeScript.
 
 Add or update tests for any behavior change.
 
+## Change-Scoped Verification (Required Before PR)
+Run checks based on files touched (not just a default test set):
+- Backend changes (`backend/src/**`):
+  - `cd backend && npm run lint && npm run test`
+- Backend DB changes (entities/migrations):
+  - `cd backend && npm run migration:run && npm run test:e2e`
+- Frontend changes (`frontend/src/**`):
+  - `cd frontend && npm run lint && npm run type-check && npm run test`
+- Cross-app contract changes (API DTOs/interfaces used by both apps):
+  - `cd backend && npm run test`
+  - `cd frontend && npm run test && npm run test:coverage`
+
+If multiple areas are changed, run all relevant checks.
+PRs must include the exact verification commands run and whether they passed.
+
 ## Commit & Pull Request Guidelines
 Git history follows Conventional Commit style:
 - Examples: `feat(accounting): ...`, `fix(accounting): ...`, `test(price-lists): ...`, `chore: ...`.
