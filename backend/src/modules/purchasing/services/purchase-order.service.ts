@@ -1410,6 +1410,54 @@ export class PurchaseOrderService {
   }
 
   /**
+   * Record multiple payment lines for a purchase order
+   * Each line creates a separate VendorPayment with journal posting
+   */
+  async recordOrderPayments(
+    id: string,
+    payments: { paymentMethodId: string; amount: number; reference?: string }[],
+  ): Promise<PurchaseOrderResponseDto> {
+    this.logger.log(`Recording ${payments.length} payment lines for purchase order: ${id}`);
+
+    const purchaseOrder = await this.purchaseOrderRepository.findOne({
+      where: { id },
+      relations: ['supplier'],
+    });
+
+    if (!purchaseOrder) {
+      throw new NotFoundException('Purchase order not found');
+    }
+
+    if (!payments || payments.length === 0) {
+      throw new BadRequestException('At least one payment line is required');
+    }
+
+    const totalNewPayment = payments.reduce((sum, p) => sum + p.amount, 0);
+
+    // Create a vendor payment for each line
+    for (const line of payments) {
+      await this.vendorPaymentService.create({
+        supplierId: purchaseOrder.supplierId,
+        purchaseOrderId: id,
+        amount: line.amount,
+        paymentDate: new Date().toISOString().split('T')[0],
+        paymentMethodId: line.paymentMethodId,
+        status: 'completed',
+        notes: line.reference || undefined,
+      });
+    }
+
+    // Update paidAmount on the order
+    const newPaidAmount = (purchaseOrder.paidAmount || 0) + totalNewPayment;
+    purchaseOrder.paidAmount = newPaidAmount;
+    await this.purchaseOrderRepository.save(purchaseOrder);
+
+    this.logger.log(`Purchase order ${purchaseOrder.orderNumber} paid amount updated to ${newPaidAmount}`);
+
+    return this.findOne(id);
+  }
+
+  /**
    * Mark purchase order as paid by creating a vendor payment
    */
   async markAsPaid(id: string): Promise<{ order: PurchaseOrderResponseDto; payment: VendorPayment }> {
