@@ -1,7 +1,7 @@
 services:
   # PostgreSQL Database
   postgres:
-    image: postgres:18.1-alpine3.23
+    image: postgres:18.2-alpine3.23
     container_name: erp_postgres
     restart: unless-stopped
     environment:
@@ -41,7 +41,7 @@ services:
 
   # Redis for caching and sessions
   redis:
-    image: redis:8.4.0-alpine3.22
+    image: redis:8.6.0-alpine3.23
     container_name: erp_redis
     restart: unless-stopped
     environment:
@@ -226,7 +226,7 @@ services:
 
   # NGINX Reverse Proxy
   nginx:
-    image: nginx:1.29.5-alpine-slim
+    image: nginx:1.29.5-alpine3.23
     container_name: erp_nginx
     restart: unless-stopped
     environment:
