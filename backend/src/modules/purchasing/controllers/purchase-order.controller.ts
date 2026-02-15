@@ -28,6 +28,7 @@ import {
   PurchaseOrderResponseDto,
   PurchaseOrderListResponseDto,
   PurchaseOrderSummaryDto,
+  RecordOrderPaymentsDto,
 } from '../dto';
 
 @ApiTags('Purchase Orders')
@@ -273,6 +274,17 @@ export class PurchaseOrderController {
   ): Promise<{ data: PurchaseOrderResponseDto }> {
     const result = await this.purchaseOrderService.recordPayment(id, body.amount);
     return { data: result };
+  }
+
+  @Post(':id/record-payments')
+  @ApiOperation({ summary: 'Record multiple payment lines for a purchase order' })
+  @ApiParam({ name: 'id', description: 'Purchase Order ID' })
+  @HttpCode(HttpStatus.OK)
+  async recordOrderPayments(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: RecordOrderPaymentsDto,
+  ): Promise<PurchaseOrderResponseDto> {
+    return this.purchaseOrderService.recordOrderPayments(id, dto.payments);
   }
 
   @Post(':id/unpay')
