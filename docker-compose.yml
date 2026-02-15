@@ -1,6 +1,9 @@
 services:
   # PostgreSQL Database
   postgres:
+    build:
+      context: .
+      dockerfile: docker/postgres/Dockerfile
     image: postgres:18.2-alpine3.23
     container_name: erp_postgres
     restart: unless-stopped
