@@ -194,6 +194,13 @@ export const purchasingApi = {
     return ApiService.post<{ data: PurchaseOrder }>(`/purchasing/orders/${purchaseOrderId}/record-payment`, { amount })
   },
 
+  async recordOrderPayments(
+    purchaseOrderId: string,
+    payments: { paymentMethodId: string; amount: number; reference?: string }[],
+  ) {
+    return ApiService.post<PurchaseOrder>(`/purchasing/orders/${purchaseOrderId}/record-payments`, { payments })
+  },
+
   async getPurchaseOrderPaymentStatus(purchaseOrderId: string) {
     return ApiService.get<{ isPaid: boolean; payment?: any }>(`/purchasing/orders/${purchaseOrderId}/payment-status`)
   },
