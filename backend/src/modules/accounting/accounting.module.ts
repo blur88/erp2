@@ -12,6 +12,8 @@ import { ReconciledTransaction } from '../../database/entities/reconciled-transa
 import { Settlement } from '../../database/entities/settlement.entity';
 import { PaymentMethodEntity } from '../../database/entities/payment-method.entity';
 import { Payment } from '../../database/entities/payment.entity';
+import { OwnerEquityTransaction } from '../../database/entities/owner-equity-transaction.entity';
+import { Expense } from '../../database/entities/expense.entity';
 
 // Services
 import { AccountingService } from './services/accounting.service';
@@ -22,6 +24,8 @@ import { AccountMappingService } from './services/account-mapping.service';
 import { AccountingReportsService } from './services/accounting-reports.service';
 import { ReconciliationService } from './services/reconciliation.service';
 import { SettlementService } from './services/settlement.service';
+import { OwnerEquityService } from './services/owner-equity.service';
+import { ExpenseService } from './services/expense.service';
 
 // Controllers
 import { ChartOfAccountsController } from './controllers/chart-of-accounts.controller';
@@ -31,6 +35,8 @@ import { AccountMappingController } from './controllers/account-mapping.controll
 import { AccountingReportsController } from './controllers/accounting-reports.controller';
 import { ReconciliationController } from './controllers/reconciliation.controller';
 import { SettlementController } from './controllers/settlement.controller';
+import { OwnerEquityController } from './controllers/owner-equity.controller';
+import { ExpenseController } from './controllers/expense.controller';
 
 @Module({
   imports: [
@@ -45,6 +51,8 @@ import { SettlementController } from './controllers/settlement.controller';
       Settlement,
       PaymentMethodEntity,
       Payment,
+      OwnerEquityTransaction,
+      Expense,
     ]),
   ],
   controllers: [
@@ -55,6 +63,8 @@ import { SettlementController } from './controllers/settlement.controller';
     AccountingReportsController,
     ReconciliationController,
     SettlementController,
+    OwnerEquityController,
+    ExpenseController,
   ],
   providers: [
     AccountingService,
@@ -65,6 +75,8 @@ import { SettlementController } from './controllers/settlement.controller';
     AccountingReportsService,
     ReconciliationService,
     SettlementService,
+    OwnerEquityService,
+    ExpenseService,
   ],
   exports: [
     AccountingService,
@@ -75,6 +87,8 @@ import { SettlementController } from './controllers/settlement.controller';
     AccountingReportsService,
     ReconciliationService,
     SettlementService,
+    OwnerEquityService,
+    ExpenseService,
   ],
 })
 export class AccountingModule {}
