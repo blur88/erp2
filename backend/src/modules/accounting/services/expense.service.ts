@@ -133,7 +133,7 @@ export class ExpenseService {
       throw new NotFoundException(`Account ${dto.expenseAccountId} not found`);
     }
 
-    if (account.accountType !== AccountType.EXPENSE) {
+    if (account.type !== AccountType.EXPENSE) {
       throw new BadRequestException(
         `Account ${account.code} (${account.name}) is not an expense account`,
       );
@@ -187,7 +187,7 @@ export class ExpenseService {
       if (!account || account.deletedAt) {
         throw new NotFoundException(`Account ${dto.expenseAccountId} not found`);
       }
-      if (account.accountType !== AccountType.EXPENSE) {
+      if (account.type !== AccountType.EXPENSE) {
         throw new BadRequestException(
           `Account ${account.code} (${account.name}) is not an expense account`,
         );
