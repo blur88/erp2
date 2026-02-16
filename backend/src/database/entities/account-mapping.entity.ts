@@ -26,6 +26,8 @@ export enum MappingType {
   INVENTORY_ASSET = 'inventory_asset',
   INVENTORY_ADJUSTMENT_GAIN = 'inventory_adjustment_gain',
   INVENTORY_ADJUSTMENT_LOSS = 'inventory_adjustment_loss',
+  EQUITY_OWNERS_EQUITY = 'equity_owners_equity',
+  EQUITY_DRAWINGS = 'equity_drawings',
 }
 
 /**
