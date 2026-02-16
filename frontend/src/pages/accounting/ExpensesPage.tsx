@@ -6,6 +6,7 @@ import {
   CardContent,
   Checkbox,
   Chip,
+  CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
@@ -370,6 +371,11 @@ const ExpensesPage: React.FC = () => {
 
       <Paper>
         <TableContainer>
+          {loading && (
+            <Box sx={{ display: 'flex', justifyContent: 'center', p: 2 }}>
+              <CircularProgress size={24} />
+            </Box>
+          )}
           <Table>
             <TableHead>
               <TableRow>

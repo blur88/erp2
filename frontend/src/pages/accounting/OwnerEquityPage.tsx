@@ -3,6 +3,7 @@ import {
   Box,
   Button,
   Chip,
+  CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
@@ -322,6 +323,11 @@ const OwnerEquityPage: React.FC = () => {
 
       <Paper>
         <TableContainer>
+          {loading && (
+            <Box sx={{ display: 'flex', justifyContent: 'center', p: 2 }}>
+              <CircularProgress size={24} />
+            </Box>
+          )}
           <Table>
             <TableHead>
               <TableRow>
