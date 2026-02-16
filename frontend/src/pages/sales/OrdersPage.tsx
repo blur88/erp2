@@ -282,7 +282,8 @@ const OrdersPage: React.FC = () => {
     if (previousPathnameRef.current !== '/sales/orders' && location.pathname === '/sales/orders') {
       loadOrders()
       // Also refresh the selected order to get updated customer data
-      if (selectedOrder) {
+      // But skip if we have a pendingOrderToSelect (navigating from create page) - don't overwrite it
+      if (selectedOrder && !pendingOrderToSelect) {
         dispatch(fetchOrderById(selectedOrder.id) as any)
           .then((result: any) => {
             if (result.payload) {
@@ -293,7 +294,7 @@ const OrdersPage: React.FC = () => {
       }
     }
     previousPathnameRef.current = location.pathname
-  }, [location.pathname, loadOrders, selectedOrder, dispatch])
+  }, [location.pathname, loadOrders, selectedOrder, dispatch, pendingOrderToSelect])
 
   // Sync selected order with fresh data from orders list (but don't overwrite during refresh)
   useEffect(() => {
