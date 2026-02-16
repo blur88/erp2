@@ -208,7 +208,7 @@ export class AccountingReportsService {
       .addSelect('SUM(jel.creditAmount)', 'totalCredit')
       .where('jel.accountId = :accountId', { accountId })
       .andWhere('je.entryDate <= :asOfDate', { asOfDate })
-      .andWhere('je.status = :status', { status: JournalEntryStatus.POSTED })
+      .andWhere('je.status IN (:...statuses)', { statuses: [JournalEntryStatus.POSTED, JournalEntryStatus.REVERSED] })
       .getRawMany();
 
     // Extract totals (default to 0 if no transactions)
@@ -271,7 +271,7 @@ export class AccountingReportsService {
       .addSelect('SUM(jel.creditAmount)', 'totalCredit')
       .where('jel.accountId IN (:...accountIds)', { accountIds })
       .andWhere('je.entryDate <= :asOfDate', { asOfDate })
-      .andWhere('je.status = :status', { status: JournalEntryStatus.POSTED })
+      .andWhere('je.status IN (:...statuses)', { statuses: [JournalEntryStatus.POSTED, JournalEntryStatus.REVERSED] })
       .groupBy('jel.accountId')
       .getRawMany();
 
@@ -442,7 +442,7 @@ export class AccountingReportsService {
       .addSelect('SUM(jel.creditAmount)', 'totalCredit')
       .where('jel.accountId IN (:...accountIds)', { accountIds })
       .andWhere('je.entryDate <= :asOfDate', { asOfDate })
-      .andWhere('je.status = :status', { status: JournalEntryStatus.POSTED })
+      .andWhere('je.status IN (:...statuses)', { statuses: [JournalEntryStatus.POSTED, JournalEntryStatus.REVERSED] })
       .groupBy('jel.accountId')
       .getRawMany();
 
@@ -578,7 +578,7 @@ export class AccountingReportsService {
       .addSelect('SUM(jel.creditAmount)', 'totalCredit')
       .where('jel.accountId IN (:...accountIds)', { accountIds })
       .andWhere('je.entryDate <= :asOfDate', { asOfDate })
-      .andWhere('je.status = :status', { status: JournalEntryStatus.POSTED })
+      .andWhere('je.status IN (:...statuses)', { statuses: [JournalEntryStatus.POSTED, JournalEntryStatus.REVERSED] })
       .groupBy('jel.accountId')
       .getRawMany();
 
@@ -696,7 +696,7 @@ export class AccountingReportsService {
         .addSelect('SUM(jel.creditAmount)', 'totalCredit')
         .where('jel.accountId IN (:...accountIds)', { accountIds: incomeAccountIds })
         .andWhere('je.entryDate <= :asOfDate', { asOfDate })
-        .andWhere('je.status = :status', { status: JournalEntryStatus.POSTED })
+        .andWhere('je.status IN (:...statuses)', { statuses: [JournalEntryStatus.POSTED, JournalEntryStatus.REVERSED] })
         .groupBy('jel.accountId')
         .getRawMany();
 
@@ -832,7 +832,7 @@ export class AccountingReportsService {
       .addSelect('SUM(jel.creditAmount)', 'totalCredit')
       .where('jel.accountId = :accountId', { accountId })
       .andWhere('je.entryDate < :startDate', { startDate })
-      .andWhere('je.status = :status', { status: JournalEntryStatus.POSTED })
+      .andWhere('je.status IN (:...statuses)', { statuses: [JournalEntryStatus.POSTED, JournalEntryStatus.REVERSED] })
       .getRawMany();
 
     const openingDebit = openingBalanceData.length > 0 && openingBalanceData[0].totalDebit
@@ -862,7 +862,7 @@ export class AccountingReportsService {
       .where('jel.accountId = :accountId', { accountId })
       .andWhere('je.entryDate >= :startDate', { startDate })
       .andWhere('je.entryDate <= :endDate', { endDate })
-      .andWhere('je.status = :status', { status: JournalEntryStatus.POSTED })
+      .andWhere('je.status IN (:...statuses)', { statuses: [JournalEntryStatus.POSTED, JournalEntryStatus.REVERSED] })
       .orderBy('je.entryDate', 'ASC')
       .addOrderBy('je.referenceNumber', 'ASC')
       .getRawMany();
@@ -981,7 +981,7 @@ export class AccountingReportsService {
       .addSelect('SUM(jel.creditAmount)', 'totalCredit')
       .where('jel.accountId = :accountId', { accountId })
       .andWhere('je.entryDate < :startDate', { startDate })
-      .andWhere('je.status = :status', { status: JournalEntryStatus.POSTED })
+      .andWhere('je.status IN (:...statuses)', { statuses: [JournalEntryStatus.POSTED, JournalEntryStatus.REVERSED] })
       .getRawMany();
 
     const openingDebit = openingBalanceData.length > 0 && openingBalanceData[0].totalDebit
@@ -1158,7 +1158,7 @@ export class AccountingReportsService {
       .where('jel.accountId IN (:...accountIds)', { accountIds })
       .andWhere('je.entryDate >= :startDate', { startDate })
       .andWhere('je.entryDate <= :endDate', { endDate })
-      .andWhere('je.status = :status', { status: JournalEntryStatus.POSTED })
+      .andWhere('je.status IN (:...statuses)', { statuses: [JournalEntryStatus.POSTED, JournalEntryStatus.REVERSED] })
       .groupBy('jel.accountId')
       .getRawMany();
 
