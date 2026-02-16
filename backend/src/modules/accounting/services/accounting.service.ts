@@ -19,6 +19,11 @@ import { VendorPayment } from '../../../database/entities/vendor-payment.entity'
 import { StockAdjustment, StockAdjustmentItem } from '../../../database/entities/stock-adjustment.entity';
 import { Settlement } from '../../../database/entities/settlement.entity';
 import {
+  OwnerEquityTransaction,
+  OwnerEquityTransactionType,
+} from '../../../database/entities/owner-equity-transaction.entity';
+import { Expense } from '../../../database/entities/expense.entity';
+import {
   CreateJournalEntryDto,
   CreateJournalEntryLineDto,
   PostOpeningBalancesDto,
@@ -515,6 +520,180 @@ export class AccountingService {
     this.logger.log(
       `Stock adjustment entry posted successfully: ${postedEntry.referenceNumber}`,
     );
+    return postedEntry as any;
+  }
+
+  /**
+   * Post journal entry for owner equity transaction
+   * Capital injection: DR Payment Method, CR Owner's Equity
+   * Owner drawing: DR Drawings, CR Payment Method
+   */
+  async postOwnerEquityEntry(
+    transaction: OwnerEquityTransaction,
+    userId: string,
+  ): Promise<JournalEntry> {
+    this.logger.log(`Posting owner equity entry for ${transaction.referenceNumber}`);
+
+    const mappings = await this.accountMappingService.getMappings();
+
+    const paymentMethodCode = transaction.paymentMethod?.code || 'CASH';
+    const paymentMappingKey = `payment_${paymentMethodCode.toLowerCase()}`;
+
+    this.validateMappingByKey(
+      mappings,
+      paymentMappingKey,
+      `payment method "${paymentMethodCode}"`,
+    );
+    this.validateMappingByKey(mappings, 'equity_owners_equity', "Owner's Equity");
+    this.validateMappingByKey(mappings, 'equity_drawings', 'Drawings');
+
+    await this.validatePeriodOpen(transaction.transactionDate);
+
+    const periodValidation = await this.fiscalPeriodService.validatePeriod({
+      date: transaction.transactionDate,
+    });
+
+    if (!periodValidation.period) {
+      throw new BadRequestException(
+        `No fiscal period found for date ${transaction.transactionDate}`,
+      );
+    }
+
+    const lines: CreateJournalEntryLineDto[] = [];
+
+    if (transaction.type === OwnerEquityTransactionType.CAPITAL_INJECTION) {
+      // Owner puts money in: DR Cash, CR Owner's Equity
+      lines.push(
+        {
+          accountId: mappings[paymentMappingKey],
+          debitAmount: Number(transaction.amount),
+          creditAmount: 0,
+          memo: 'Capital injection received',
+        },
+        {
+          accountId: mappings.equity_owners_equity,
+          debitAmount: 0,
+          creditAmount: Number(transaction.amount),
+          memo: "Owner's equity increase",
+        },
+      );
+    } else {
+      // Owner draws money out: DR Drawings, CR Cash
+      lines.push(
+        {
+          accountId: mappings.equity_drawings,
+          debitAmount: Number(transaction.amount),
+          creditAmount: 0,
+          memo: 'Owner drawing',
+        },
+        {
+          accountId: mappings[paymentMappingKey],
+          debitAmount: 0,
+          creditAmount: Number(transaction.amount),
+          memo: 'Cash paid for owner drawing',
+        },
+      );
+    }
+
+    const typeLabel =
+      transaction.type === OwnerEquityTransactionType.CAPITAL_INJECTION
+        ? 'Capital Injection'
+        : 'Owner Drawing';
+
+    const entry = await this.journalEntryService.create(
+      {
+        entryDate: new Date(transaction.transactionDate),
+        description: `${typeLabel} ${transaction.referenceNumber}${
+          transaction.description ? ` - ${transaction.description}` : ''
+        }`,
+        fiscalPeriodId: periodValidation.period.id,
+        sourceType: 'owner_equity_transaction',
+        sourceId: transaction.id,
+        lines,
+      },
+      userId,
+    );
+
+    const postedEntry = await this.journalEntryService.postEntry(entry.id, userId);
+    this.logger.log(
+      `Owner equity entry posted successfully: ${postedEntry.referenceNumber}`,
+    );
+    return postedEntry as any;
+  }
+
+  /**
+   * Post journal entry for expense
+   * DR Expense Account, CR Payment Method Account
+   */
+  async postExpenseEntry(expense: Expense, userId: string): Promise<JournalEntry> {
+    this.logger.log(`Posting expense entry for ${expense.referenceNumber}`);
+
+    const mappings = await this.accountMappingService.getMappings();
+
+    const paymentMethodCode = expense.paymentMethod?.code || 'CASH';
+    const paymentMappingKey = `payment_${paymentMethodCode.toLowerCase()}`;
+
+    this.validateMappingByKey(
+      mappings,
+      paymentMappingKey,
+      `payment method "${paymentMethodCode}"`,
+    );
+
+    // Expense account is directly selected by user, no mapping needed
+    // Just validate it exists
+    if (!expense.expenseAccountId) {
+      throw new BadRequestException('Expense account is required');
+    }
+
+    await this.validatePeriodOpen(expense.expenseDate);
+
+    const periodValidation = await this.fiscalPeriodService.validatePeriod({
+      date: expense.expenseDate,
+    });
+
+    if (!periodValidation.period) {
+      throw new BadRequestException(
+        `No fiscal period found for date ${expense.expenseDate}`,
+      );
+    }
+
+    const accountName = expense.expenseAccount?.name || 'Expense';
+
+    const lines: CreateJournalEntryLineDto[] = [
+      // DR Expense Account
+      {
+        accountId: expense.expenseAccountId,
+        debitAmount: Number(expense.amount),
+        creditAmount: 0,
+        memo: accountName,
+      },
+      // CR Payment Method Account
+      {
+        accountId: mappings[paymentMappingKey],
+        debitAmount: 0,
+        creditAmount: Number(expense.amount),
+        memo: 'Payment for expense',
+      },
+    ];
+
+    const description = `Expense ${expense.referenceNumber}${
+      expense.vendor ? ` - ${expense.vendor}` : ''
+    }${expense.description ? ` - ${expense.description}` : ''}`;
+
+    const entry = await this.journalEntryService.create(
+      {
+        entryDate: new Date(expense.expenseDate),
+        description,
+        fiscalPeriodId: periodValidation.period.id,
+        sourceType: 'expense',
+        sourceId: expense.id,
+        lines,
+      },
+      userId,
+    );
+
+    const postedEntry = await this.journalEntryService.postEntry(entry.id, userId);
+    this.logger.log(`Expense entry posted successfully: ${postedEntry.referenceNumber}`);
     return postedEntry as any;
   }
 
