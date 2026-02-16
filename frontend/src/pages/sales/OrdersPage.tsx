@@ -231,7 +231,8 @@ const OrdersPage: React.FC = () => {
 
   useEffect(() => {
     // If we have a persisted selected order on mount, fetch it first, then load the list
-    if (!hasRefreshedPersistedOrder.current && selectedOrder?.id) {
+    // But skip if we have a pendingOrderToSelect (navigating from create page) - don't overwrite it
+    if (!hasRefreshedPersistedOrder.current && selectedOrder?.id && !pendingOrderToSelect) {
       console.log('Refreshing persisted selectedOrder:', selectedOrder.id)
       isRefreshingPersistedOrder.current = true
       hasRefreshedPersistedOrder.current = true

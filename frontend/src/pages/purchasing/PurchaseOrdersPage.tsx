@@ -693,8 +693,8 @@ const PurchaseOrdersPage: React.FC = () => {
     const hasHighlightOrderId = !!pendingHighlightId || !!processedHighlightRef.current
 
     if (purchaseOrders.length > 0 && focusedOrderIndex === -1) {
-      if (selectedOrder) {
-        // We have a selected order - find its index and focus it
+      if (selectedOrder && !pendingHighlightId) {
+        // We have a selected order - find its index and focus it (skip if pending highlight will handle it)
         const orderIndex = purchaseOrders.findIndex((o: any) => o.id === selectedOrder.id)
         if (orderIndex >= 0) {
           setFocusedOrderIndex(orderIndex)
