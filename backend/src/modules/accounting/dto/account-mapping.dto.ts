@@ -14,7 +14,7 @@ import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 import { MappingType } from '../../../database/entities/account-mapping.entity';
 
 const DYNAMIC_PAYMENT_MAPPING_TYPE_PATTERN =
-  /^(payment_[a-z0-9]+(?:_settlement)?|vendor_payment_[a-z0-9]+)$/;
+  /^(payment_[a-z0-9][a-z0-9 _-]*(?:_settlement)?|vendor_payment_[a-z0-9][a-z0-9 _-]*)$/;
 
 const isValidMappingType = (value: string): boolean => {
   return (
@@ -26,7 +26,7 @@ const isValidMappingType = (value: string): boolean => {
 export class CreateAccountMappingDto {
   @ApiProperty({
     description:
-      'Mapping type. Supports fixed keys (e.g. sales_revenue) and dynamic payment keys (e.g. payment_cash, payment_cimb, payment_cimb_settlement, vendor_payment_cimb).',
+      'Mapping type. Supports fixed keys (e.g. sales_revenue) and dynamic payment keys (e.g. payment_cash, payment_shopee_pay, payment_maybank-qr_settlement, vendor_payment_shopee_pay).',
     type: String,
     example: 'payment_cimb',
   })

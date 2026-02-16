@@ -221,6 +221,29 @@ export class AccountMappingService {
         );
         return this.toResponseDto(mappingWithRelations!);
       }
+
+      if (!existingMapping.isActive) {
+        // Reactivate inactive mapping key and update assignment instead of rejecting as duplicate.
+        const reactivatedMapping = Object.assign(existingMapping, {
+          accountId: createDto.accountId,
+          description: createDto.description,
+          isActive: true,
+          deletedAt: null,
+        });
+
+        const savedReactivatedMapping =
+          await this.mappingRepository.save(reactivatedMapping);
+        const mappingWithRelations = await this.mappingRepository.findOne({
+          where: { id: savedReactivatedMapping.id },
+          relations: ['account'],
+        });
+
+        this.logger.log(
+          `Account mapping reactivated successfully with ID: ${savedReactivatedMapping.id}`,
+        );
+        return this.toResponseDto(mappingWithRelations!);
+      }
+
       throw new ConflictException(
         `Mapping type '${createDto.mappingType}' already exists`,
       );

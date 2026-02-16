@@ -253,6 +253,43 @@ describe('AccountMappingService', () => {
       expect(result.mappingType).toBe(createDto.mappingType);
     });
 
+    it('should reactivate inactive mapping type and update account', async () => {
+      const inactiveMapping = {
+        ...mockMapping,
+        isActive: false,
+        deletedAt: null,
+      };
+      const reactivatedMapping = {
+        ...inactiveMapping,
+        accountId: createDto.accountId,
+        description: createDto.description,
+        isActive: true,
+      };
+
+      mappingRepository.findOne.mockResolvedValueOnce(
+        inactiveMapping as AccountMapping,
+      );
+      accountRepository.findOne.mockResolvedValue(mockAccount as ChartOfAccount);
+      mappingRepository.save.mockResolvedValue(
+        reactivatedMapping as AccountMapping,
+      );
+      mappingRepository.findOne.mockResolvedValueOnce(
+        reactivatedMapping as AccountMapping,
+      );
+
+      const result = await service.create(createDto, 'test-user');
+
+      expect(mappingRepository.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          accountId: createDto.accountId,
+          description: createDto.description,
+          isActive: true,
+          deletedAt: null,
+        }),
+      );
+      expect(result.mappingType).toBe(createDto.mappingType);
+    });
+
     it('should throw NotFoundException if account does not exist', async () => {
       mappingRepository.findOne.mockResolvedValue(null);
       accountRepository.findOne.mockResolvedValue(null);

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useMemo } from 'react'
 import {
   Box,
   Typography,
@@ -271,15 +271,18 @@ const AccountMappingsPage: React.FC = () => {
     return items
   }
 
+  // Memoize mapping generation to avoid unnecessary recalculations
   const staticCategories = ['Sales', 'Purchasing', 'Equity', 'Inventory']
-  const allSections = [
+
+  // Recalculate sections whenever paymentMethods changes
+  const allSections = useMemo(() => [
     ...staticCategories.map((category) => ({
       category,
       items: getAllMappingTypes().filter((m) => m.category === category),
     })),
     { category: 'Payments', items: getPaymentMappingTypes() },
     { category: 'Vendor Payments', items: getVendorPaymentMappingTypes() },
-  ]
+  ], [paymentMethods])
 
   if (loading && mappings.length === 0) {
     return (

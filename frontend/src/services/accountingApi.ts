@@ -200,7 +200,7 @@ export const fiscalPeriodsApi = {
 export const accountMappingsApi = {
   // Get all mappings
   getAll: (): Promise<{ data: AccountMapping[] }> => {
-    return ApiService.get(`${BASE_URL}/account-mappings`);
+    return ApiService.get(`${BASE_URL}/account-mappings`, { params: { limit: 100 } });
   },
 
   // Validate mappings

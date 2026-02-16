@@ -25,6 +25,26 @@ describe('CreateAccountMappingDto', () => {
     expect(errors).toHaveLength(0);
   });
 
+  it('accepts dynamic mapping types with underscore in payment method codes', async () => {
+    const dto = new CreateAccountMappingDto();
+    dto.mappingType = 'vendor_payment_shopee_pay';
+    dto.accountId = accountId;
+
+    const errors = await validate(dto);
+
+    expect(errors).toHaveLength(0);
+  });
+
+  it('accepts dynamic mapping types with spaces and hyphens in payment method codes', async () => {
+    const dto = new CreateAccountMappingDto();
+    dto.mappingType = 'vendor_payment_maybank-qr';
+    dto.accountId = accountId;
+
+    const errors = await validate(dto);
+
+    expect(errors).toHaveLength(0);
+  });
+
   it('rejects unknown mapping types', async () => {
     const dto = new CreateAccountMappingDto();
     dto.mappingType = 'invalid_type';
