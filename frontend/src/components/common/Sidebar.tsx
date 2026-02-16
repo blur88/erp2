@@ -254,6 +254,18 @@ const menuSections: MenuSection[] = [
             path: '/accounting/settlements',
           },
           {
+            id: 'owner-equity',
+            title: "Owner's Equity",
+            icon: <AccountBalanceWalletIcon />,
+            path: '/accounting/owner-equity',
+          },
+          {
+            id: 'expenses',
+            title: 'Expenses',
+            icon: <OrdersIcon />,
+            path: '/accounting/expenses',
+          },
+          {
             id: 'bank-reconciliation',
             title: 'Bank Reconciliation',
             icon: <AccountBalanceIcon />,

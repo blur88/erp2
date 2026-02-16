@@ -76,6 +76,8 @@ const BankReconciliationsPage = React.lazy(() => import('./pages/accounting/Bank
 const BankReconciliationDetailsPage = React.lazy(() => import('./pages/accounting/BankReconciliationDetailsPage'))
 const AccountingDashboardPage = React.lazy(() => import('./pages/accounting/AccountingDashboardPage'))
 const SettlementsPage = React.lazy(() => import('./pages/accounting/SettlementsPage'))
+const OwnerEquityPage = React.lazy(() => import('./pages/accounting/OwnerEquityPage'))
+const ExpensesPage = React.lazy(() => import('./pages/accounting/ExpensesPage'))
 const TrialBalancePage = React.lazy(() => import('./pages/accounting/reports/TrialBalancePage'))
 const BalanceSheetPage = React.lazy(() => import('./pages/accounting/reports/BalanceSheetPage'))
 const ProfitAndLossPage = React.lazy(() => import('./pages/accounting/reports/ProfitAndLossPage'))
@@ -287,6 +289,8 @@ function App() {
                     <Route path="/accounting/journal-entries/:id" element={<JournalEntryDetailsPage />} />
                     <Route path="/accounting/account-mappings" element={<AccountMappingsPage />} />
                     <Route path="/accounting/settlements" element={<SettlementsPage />} />
+                    <Route path="/accounting/owner-equity" element={<OwnerEquityPage />} />
+                    <Route path="/accounting/expenses" element={<ExpensesPage />} />
                     <Route path="/accounting/bank-reconciliations" element={<BankReconciliationsPage />} />
                     <Route path="/accounting/bank-reconciliations/new" element={<BankReconciliationsPage />} />
                     <Route path="/accounting/bank-reconciliations/:id" element={<BankReconciliationDetailsPage />} />
