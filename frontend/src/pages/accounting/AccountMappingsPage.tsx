@@ -86,6 +86,16 @@ const MAPPING_TYPE_LABELS: Record<MappingType, { label: string; category: string
     category: 'Vendor Payments',
     description: 'Liability account debited when vendor payments are made'
   },
+  [MappingType.EQUITY_OWNERS_EQUITY]: {
+    label: "Owner's Equity",
+    category: 'Equity',
+    description: "Equity account credited for owner capital contributions"
+  },
+  [MappingType.EQUITY_DRAWINGS]: {
+    label: 'Owner Drawings',
+    category: 'Equity',
+    description: 'Equity contra account debited for owner withdrawals'
+  },
   [MappingType.INVENTORY_ASSET]: {
     label: 'Inventory Asset',
     category: 'Inventory',
@@ -261,7 +271,7 @@ const AccountMappingsPage: React.FC = () => {
     return items
   }
 
-  const staticCategories = ['Sales', 'Purchasing', 'Inventory']
+  const staticCategories = ['Sales', 'Purchasing', 'Equity', 'Inventory']
   const allSections = [
     ...staticCategories.map((category) => ({
       category,

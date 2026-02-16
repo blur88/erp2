@@ -44,6 +44,8 @@ const MAPPING_TYPE_LABELS: Record<string, string> = {
   purchase_ap: 'Accounts Payable (Purchases)',
   payment_ar: 'Accounts Receivable (Payments)',
   vendor_payment_ap: 'Accounts Payable (Vendor Payments)',
+  equity_owners_equity: "Owner's Equity",
+  equity_drawings: 'Owner Drawings',
   inventory_asset: 'Inventory Asset',
   inventory_adjustment_gain: 'Inventory Adjustment Gain',
   inventory_adjustment_loss: 'Inventory Adjustment Loss',

@@ -147,7 +147,7 @@ describe('AccountMappingsPage', () => {
     expect(screen.getByText(/All required account mappings are configured/i)).toBeInTheDocument()
   })
 
-  it('shows all 13 mapping types in table', async () => {
+  it('shows all fixed mapping types in table including equity mappings', async () => {
     const store = createMockStore({ mappings: mockMappings })
     renderWithProviders(<AccountMappingsPage />, store)
 
@@ -157,6 +157,8 @@ describe('AccountMappingsPage', () => {
     })
     expect(screen.getByText('Accounts Receivable (Sales)')).toBeInTheDocument()
     expect(screen.getByText('Cost of Goods Sold')).toBeInTheDocument()
+    expect(screen.getByText("Owner's Equity")).toBeInTheDocument()
+    expect(screen.getByText('Owner Drawings')).toBeInTheDocument()
     expect(screen.getByText('Inventory Asset')).toBeInTheDocument()
   })
 
@@ -263,6 +265,7 @@ describe('AccountMappingsPage', () => {
     })
     expect(screen.getByText('Purchasing')).toBeInTheDocument()
     expect(screen.getByText('Payments')).toBeInTheDocument()
+    expect(screen.getByText('Equity')).toBeInTheDocument()
     expect(screen.getByText('Inventory')).toBeInTheDocument()
   })
 

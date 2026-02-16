@@ -23,6 +23,8 @@ export enum MappingType {
   PURCHASE_AP = 'purchase_ap',
   PAYMENT_AR = 'payment_ar',
   VENDOR_PAYMENT_AP = 'vendor_payment_ap',
+  EQUITY_OWNERS_EQUITY = 'equity_owners_equity',
+  EQUITY_DRAWINGS = 'equity_drawings',
   INVENTORY_ASSET = 'inventory_asset',
   INVENTORY_ADJUSTMENT_GAIN = 'inventory_adjustment_gain',
   INVENTORY_ADJUSTMENT_LOSS = 'inventory_adjustment_loss',
