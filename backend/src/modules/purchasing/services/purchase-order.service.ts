@@ -27,6 +27,7 @@ import { CreateStockMovementDto } from '../../inventory/dto/stock.dto';
 import { StockMovementType } from '../../../database/entities/stock-movement.entity';
 import { SettingsService } from '../../settings/settings.service';
 import { AuditLogService } from '../../audit-logs/services';
+import { AccountingService } from '../../accounting/services/accounting.service';
 
 @Injectable()
 export class PurchaseOrderService {
@@ -52,6 +53,7 @@ export class PurchaseOrderService {
     private readonly stockMovementService: StockMovementService,
     private readonly settingsService: SettingsService,
     private readonly auditLogService: AuditLogService,
+    private readonly accountingService: AccountingService,
   ) {}
 
   /**
@@ -1224,6 +1226,26 @@ export class PurchaseOrderService {
 
       // Update base costs for all received products
       await this.updateBaseCostsForGrn(updatedGrn, purchaseOrder);
+
+      // Auto-post to accounting (don't fail goods receipt on error)
+      try {
+        const fullGrn = await this.grnRepository.findOne({
+          where: { id: updatedGrn.id },
+          relations: ['supplier', 'purchaseOrder', 'items', 'items.product', 'items.purchaseOrderItem'],
+        });
+
+        if (fullGrn) {
+          await this.accountingService.postGoodsReceivedEntry(fullGrn, 'system');
+          this.logger.log(`Posted accounting entry for GRN ${fullGrn.grnNumber}`);
+        }
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        const errorStack = error instanceof Error ? error.stack : undefined;
+        this.logger.error(
+          `Failed to post accounting entry for PO ${purchaseOrder.orderNumber} receipt: ${errorMessage}`,
+          errorStack,
+        );
+      }
 
       // Touch the purchase order to update its updatedAt timestamp
       // Force TypeORM to update by using the update query

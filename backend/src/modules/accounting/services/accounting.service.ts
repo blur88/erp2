@@ -104,7 +104,7 @@ export class AccountingService {
 
     // Create journal entry DTO
     const entryDto: CreateJournalEntryDto = {
-      entryDate: salesOrder.fulfilledDate,
+      entryDate: new Date(salesOrder.fulfilledDate),
       description: `Sales Order ${salesOrder.orderNumber} - ${salesOrder.customer.name}`,
       fiscalPeriodId: periodValidation.period.id,
       sourceType: 'sales_order',
@@ -180,7 +180,7 @@ export class AccountingService {
 
     // Create journal entry DTO
     const entryDto: CreateJournalEntryDto = {
-      entryDate: payment.paymentDate,
+      entryDate: new Date(payment.paymentDate),
       description: `Payment ${payment.paymentNumber} from ${payment.customer.name}`,
       fiscalPeriodId: periodValidation.period.id,
       sourceType: 'payment',
@@ -254,7 +254,7 @@ export class AccountingService {
 
     const entry = await this.journalEntryService.create(
       {
-        entryDate: settlement.settlementDate,
+        entryDate: new Date(settlement.settlementDate),
         description: `Settlement ${settlement.settlementNumber} - ${paymentMethod.name}`,
         fiscalPeriodId: periodValidation.period.id,
         sourceType: 'settlement',
@@ -325,7 +325,7 @@ export class AccountingService {
 
     // Create journal entry DTO
     const entryDto: CreateJournalEntryDto = {
-      entryDate: grn.receivedDate,
+      entryDate: new Date(grn.receivedDate),
       description: `GRN ${grn.grnNumber} from ${grn.supplier.companyName}`,
       fiscalPeriodId: periodValidation.period.id,
       sourceType: 'goods_received_note',
@@ -500,7 +500,7 @@ export class AccountingService {
 
     // Create journal entry DTO
     const entryDto: CreateJournalEntryDto = {
-      entryDate: adjustment.adjustmentDate,
+      entryDate: new Date(adjustment.adjustmentDate),
       description: `Stock Adjustment ${adjustment.adjustmentNumber}`,
       fiscalPeriodId: periodValidation.period.id,
       sourceType: 'stock_adjustment',
