@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, memo } from 'react'
-import { useLocation, useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import {
   Box,
   Typography,
@@ -130,6 +130,7 @@ const OrdersPage: React.FC = () => {
   const isMobile = useMediaQuery(theme.breakpoints.down('md'))
   const location = useLocation()
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
   const dispatch = useAppDispatch()
   const { showSuccess, showError } = useNotification()
   const orders = useAppSelector(selectOrders) || []
@@ -157,9 +158,11 @@ const OrdersPage: React.FC = () => {
   const [orderToDelete, setOrderToDelete] = useState<string | null>(null)
   const [orderToDeleteName, setOrderToDeleteName] = useState<string>('')
   const [focusedOrderIndex, setFocusedOrderIndex] = useState(-1)
-  const [pendingOrderToSelect, setPendingOrderToSelect] = useState<string | null>(
-    (location.state as { highlightOrderId?: string })?.highlightOrderId ?? null
-  )
+  const [pendingOrderToSelect, setPendingOrderToSelect] = useState<string | null>(() => {
+    const id = new URLSearchParams(window.location.search).get('highlight')
+    console.log('[HIGHLIGHT] Init pendingOrderToSelect:', id)
+    return id
+  })
   const [printDialogOpen, setPrintDialogOpen] = useState(false)
   const [shouldPreserveSearchFocus, setShouldPreserveSearchFocus] = useState(false)
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false)
@@ -217,10 +220,10 @@ const OrdersPage: React.FC = () => {
     }))
   }, [dispatch, orderFilters.sortBy, orderFilters.sortOrder, orderFilters.dateFilter, orderFilters.customFromDate, orderFilters.customToDate, orderFilters.customerId, orderFilters.search, orderFilters.paymentStatus, orderFilters.fulfillmentStatus])
 
-  // Clear location.state so browser back/forward doesn't re-trigger highlight
+  // Clear ?highlight= query param so browser back/forward doesn't re-trigger highlight
   useEffect(() => {
-    if ((location.state as { highlightOrderId?: string })?.highlightOrderId) {
-      navigate(location.pathname, { replace: true, state: {} })
+    if (new URLSearchParams(window.location.search).get('highlight')) {
+      setSearchParams(prev => { prev.delete('highlight'); return prev }, { replace: true })
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -233,7 +236,7 @@ const OrdersPage: React.FC = () => {
     // If we have a persisted selected order on mount, fetch it first, then load the list
     // But skip if we have a pendingOrderToSelect (navigating from create page) - don't overwrite it
     if (!hasRefreshedPersistedOrder.current && selectedOrder?.id && !pendingOrderToSelect) {
-      console.log('Refreshing persisted selectedOrder:', selectedOrder.id)
+      console.log('[HIGHLIGHT] Mount effect: refreshing persisted order', selectedOrder.orderNumber)
       isRefreshingPersistedOrder.current = true
       hasRefreshedPersistedOrder.current = true
 
@@ -263,6 +266,7 @@ const OrdersPage: React.FC = () => {
       loadOrders()
     } else if (!hasRefreshedPersistedOrder.current) {
       // No persisted selection - just load orders normally
+      console.log('[HIGHLIGHT] Mount effect: no persisted order, loading normally. pendingOrderToSelect:', pendingOrderToSelect)
       hasRefreshedPersistedOrder.current = true
       loadOrders()
     }
@@ -280,10 +284,12 @@ const OrdersPage: React.FC = () => {
   useEffect(() => {
     // Only refresh if we navigated TO orders page FROM somewhere else
     if (previousPathnameRef.current !== '/sales/orders' && location.pathname === '/sales/orders') {
+      console.log('[HIGHLIGHT] Route nav effect fired. prev:', previousPathnameRef.current, '| pendingOrderToSelect:', pendingOrderToSelect, '| selectedOrder:', (selectedOrder as any)?.orderNumber)
       loadOrders()
       // Also refresh the selected order to get updated customer data
       // But skip if we have a pendingOrderToSelect (navigating from create page) - don't overwrite it
       if (selectedOrder && !pendingOrderToSelect) {
+        console.log('[HIGHLIGHT] Route nav: refreshing old selected order', (selectedOrder as any)?.orderNumber)
         dispatch(fetchOrderById(selectedOrder.id) as any)
           .then((result: any) => {
             if (result.payload) {
@@ -858,11 +864,13 @@ const OrdersPage: React.FC = () => {
   useEffect(() => {
     // Check if there's a highlightOrderId in location.state OR if we recently processed one
     const hasHighlightOrderId = !!pendingOrderToSelect || !!processedHighlightRef.current
+    console.log('[HIGHLIGHT] Auto-focus effect. focusedIdx:', focusedOrderIndex, '| selectedOrder:', (selectedOrder as any)?.orderNumber, '| pendingOrderToSelect:', pendingOrderToSelect, '| hasHighlightOrderId:', hasHighlightOrderId)
 
     if (orders.length > 0 && focusedOrderIndex === -1 && !isRefreshingPersistedOrder.current) {
       if (selectedOrder) {
         // We have a selected order - find its index and focus it
         const orderIndex = orders.findIndex((o: any) => o.id === selectedOrder.id)
+        console.log('[HIGHLIGHT] Auto-focus: focusing selectedOrder', (selectedOrder as any)?.orderNumber, 'at index', orderIndex)
         if (orderIndex >= 0) {
           setFocusedOrderIndex(orderIndex)
         } else {
@@ -885,8 +893,10 @@ const OrdersPage: React.FC = () => {
 
   // Handle pending order selection after orders load
   useEffect(() => {
+    console.log('[HIGHLIGHT] pendingOrderToSelect effect. pending:', pendingOrderToSelect, '| orders.length:', orders.length)
     if (pendingOrderToSelect && orders.length > 0) {
       const orderIndex = orders.findIndex((o: SalesOrder) => o.id === pendingOrderToSelect)
+      console.log('[HIGHLIGHT] Found pending order at index:', orderIndex, '| order:', orderIndex >= 0 ? (orders[orderIndex] as any)?.orderNumber : 'NOT FOUND')
       if (orderIndex >= 0) {
         dispatch(setSelectedOrder(orders[orderIndex]))
         setFocusedOrderIndex(orderIndex)

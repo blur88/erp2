@@ -165,7 +165,7 @@ const PurchaseOrdersPage: React.FC = () => {
   const orderListRef = useRef<HTMLDivElement>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
   const [pendingHighlightId, setPendingHighlightId] = useState<string | null>(
-    (location.state as { highlightOrderId?: string })?.highlightOrderId ?? null
+    new URLSearchParams(window.location.search).get('highlight')
   )
   const processedHighlightRef = useRef<string | null>(null)
   const userHasNavigatedRef = useRef(false)
@@ -175,10 +175,10 @@ const PurchaseOrdersPage: React.FC = () => {
     dispatch(fetchSuppliers({ limit: 1000 }))
   }, [dispatch])
 
-  // Clear location.state so browser back/forward doesn't re-trigger highlight
+  // Clear ?highlight= query param so browser back/forward doesn't re-trigger highlight
   useEffect(() => {
-    if ((location.state as { highlightOrderId?: string })?.highlightOrderId) {
-      navigate(location.pathname, { replace: true, state: {} })
+    if (new URLSearchParams(window.location.search).get('highlight')) {
+      setSearchParams(prev => { prev.delete('highlight'); return prev }, { replace: true })
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])

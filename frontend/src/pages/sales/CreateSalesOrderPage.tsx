@@ -367,13 +367,13 @@ const CreateSalesOrderPage: React.FC = () => {
 
         showSuccess('Sales order updated successfully')
         // Navigate to orders page with the updated order selected
-        navigate('/sales/orders', { state: { highlightOrderId: id } })
+        navigate(`/sales/orders?highlight=${id}`)
       } else {
         // Use Redux action to create order - this will auto-add it to the list
         const result = await dispatch(createOrderAction(orderData as any)).unwrap()
         showSuccess('Sales order created successfully')
         // Navigate to orders page with the new order selected
-        navigate('/sales/orders', { state: { highlightOrderId: result.id } })
+        navigate(`/sales/orders?highlight=${result.id}`)
       }
     } catch (err: any) {
       console.error('Error creating sales order:', err)
