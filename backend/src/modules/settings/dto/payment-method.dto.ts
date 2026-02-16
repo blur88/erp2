@@ -47,12 +47,12 @@ export class QueryPaymentMethodsDto {
   @Min(1)
   page?: number = 1;
 
-  @ApiPropertyOptional({ minimum: 1, maximum: 100, default: 50 })
+  @ApiPropertyOptional({ minimum: 1, maximum: 500, default: 50 })
   @IsOptional()
   @Type(() => Number)
   @IsNumber()
   @Min(1)
-  @Max(100)
+  @Max(500)
   limit?: number = 50;
 
   @ApiPropertyOptional({ description: 'Filter by active status' })
