@@ -314,9 +314,10 @@ const CreatePurchaseOrderPage: React.FC = () => {
       } else {
         // Use Redux action to create order - this will auto-select it
         const result = await dispatch(createPurchaseOrderAction(orderData as any)).unwrap()
+        const newOrderId = (result as any).data?.id || (result as any).id
         showSuccess('Purchase order created successfully')
         // Navigate to orders page with the new order selected
-        navigate(`/purchasing/orders?highlight=${result.id}`)
+        navigate(`/purchasing/orders?highlight=${newOrderId}`)
       }
     } catch (err: any) {
       console.error('Error creating purchase order:', err)
