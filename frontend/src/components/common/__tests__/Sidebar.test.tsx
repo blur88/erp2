@@ -44,4 +44,43 @@ describe('Sidebar', () => {
     expect(sectionHeaders.indexOf('Operations')).toBeLessThan(sectionHeaders.indexOf('Accounting'))
     expect(sectionHeaders.indexOf('Accounting')).toBeLessThan(sectionHeaders.indexOf('Analytics'))
   })
+
+  it('renders reports as a parent group in analytics section', async () => {
+    const user = userEvent.setup()
+
+    render(
+      <MemoryRouter initialEntries={['/dashboard']}>
+        <Sidebar />
+      </MemoryRouter>
+    )
+
+    expect(screen.getByRole('button', { name: 'Reports' })).toBeInTheDocument()
+    expect(screen.queryByText('Sales Reports')).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Reports' }))
+
+    expect(screen.getByText('Sales Reports')).toBeInTheDocument()
+  })
+
+  it('renders accounting reports as a parent group after accounting', async () => {
+    const user = userEvent.setup()
+
+    render(
+      <MemoryRouter initialEntries={['/dashboard']}>
+        <Sidebar />
+      </MemoryRouter>
+    )
+
+    const accountingButton = screen.getByRole('button', { name: 'Accounting' })
+    const accountingReportsButton = screen.getByRole('button', { name: 'Accounting Reports' })
+
+    expect(
+      accountingButton.compareDocumentPosition(accountingReportsButton) &
+        Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy()
+
+    expect(screen.queryByText('Trial Balance')).not.toBeInTheDocument()
+    await user.click(accountingReportsButton)
+    expect(screen.getByText('Trial Balance')).toBeInTheDocument()
+  })
 })
