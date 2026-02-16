@@ -26,4 +26,22 @@ describe('Sidebar', () => {
       expect(screen.queryByText('Customers')).not.toBeInTheDocument()
     })
   })
+
+  it('renders accounting as its own top-level section', () => {
+    render(
+      <MemoryRouter initialEntries={['/dashboard']}>
+        <Sidebar />
+      </MemoryRouter>
+    )
+
+    const sectionHeaders = Array.from(document.querySelectorAll('.MuiTypography-overline')).map(
+      element => element.textContent
+    )
+
+    expect(sectionHeaders).toContain('Operations')
+    expect(sectionHeaders).toContain('Accounting')
+    expect(sectionHeaders).toContain('Analytics')
+    expect(sectionHeaders.indexOf('Operations')).toBeLessThan(sectionHeaders.indexOf('Accounting'))
+    expect(sectionHeaders.indexOf('Accounting')).toBeLessThan(sectionHeaders.indexOf('Analytics'))
+  })
 })

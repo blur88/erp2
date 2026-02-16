@@ -206,6 +206,12 @@ const menuSections: MenuSection[] = [
           },
         ],
       },
+    ],
+  },
+  {
+    id: 'accounting',
+    title: 'Accounting',
+    items: [
       {
         id: 'accounting',
         title: 'Accounting',
