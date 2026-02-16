@@ -24,6 +24,7 @@ import accountingReportsSlice from './slices/accountingReportsSlice'
 import bankReconciliationsSlice from './slices/bankReconciliationsSlice'
 import paymentMethodsSlice from './slices/paymentMethodsSlice'
 import settlementsSlice from './slices/settlementsSlice'
+import ownerEquitySlice from './slices/ownerEquitySlice'
 
 const rootReducer = combineReducers({
   theme: themeSlice,
@@ -46,6 +47,7 @@ const rootReducer = combineReducers({
   bankReconciliations: bankReconciliationsSlice,
   paymentMethods: paymentMethodsSlice,
   settlements: settlementsSlice,
+  ownerEquity: ownerEquitySlice,
 })
 
 // Persist configuration
