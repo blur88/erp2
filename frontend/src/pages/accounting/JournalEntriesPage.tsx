@@ -73,6 +73,8 @@ const ENTRY_TYPE_LABELS: Record<string, string> = {
   goods_received_note: 'Goods Receipt',
   vendor_payment: 'Vendor Payment',
   stock_adjustment: 'Stock Adjustment',
+  owner_equity_transaction: 'Owner Equity',
+  expense: 'Expense',
   opening_balance: 'Opening Balance',
 }
 
@@ -438,6 +440,8 @@ const JournalEntriesPage: React.FC = () => {
                 <MenuItem value="goods_received_note">Goods Receipts</MenuItem>
                 <MenuItem value="vendor_payment">Vendor Payments</MenuItem>
                 <MenuItem value="stock_adjustment">Stock Adjustments</MenuItem>
+                <MenuItem value="owner_equity_transaction">Owner Equity</MenuItem>
+                <MenuItem value="expense">Expense</MenuItem>
               </Select>
             </FormControl>
           </GridLegacy>
