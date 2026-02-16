@@ -157,7 +157,9 @@ const OrdersPage: React.FC = () => {
   const [orderToDelete, setOrderToDelete] = useState<string | null>(null)
   const [orderToDeleteName, setOrderToDeleteName] = useState<string>('')
   const [focusedOrderIndex, setFocusedOrderIndex] = useState(-1)
-  const [pendingOrderToSelect, setPendingOrderToSelect] = useState<string | null>(null)
+  const [pendingOrderToSelect, setPendingOrderToSelect] = useState<string | null>(
+    (location.state as { highlightOrderId?: string })?.highlightOrderId ?? null
+  )
   const [printDialogOpen, setPrintDialogOpen] = useState(false)
   const [shouldPreserveSearchFocus, setShouldPreserveSearchFocus] = useState(false)
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false)
@@ -214,6 +216,14 @@ const OrdersPage: React.FC = () => {
       fulfillmentStatus: orderFilters.fulfillmentStatus,
     }))
   }, [dispatch, orderFilters.sortBy, orderFilters.sortOrder, orderFilters.dateFilter, orderFilters.customFromDate, orderFilters.customToDate, orderFilters.customerId, orderFilters.search, orderFilters.paymentStatus, orderFilters.fulfillmentStatus])
+
+  // Clear location.state so browser back/forward doesn't re-trigger highlight
+  useEffect(() => {
+    if ((location.state as { highlightOrderId?: string })?.highlightOrderId) {
+      navigate(location.pathname, { replace: true, state: {} })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // Track if we're on initial mount with persisted selection
   const hasRefreshedPersistedOrder = useRef(false)
@@ -845,8 +855,7 @@ const OrdersPage: React.FC = () => {
   // Auto-focus order when orders load
   useEffect(() => {
     // Check if there's a highlightOrderId in location.state OR if we recently processed one
-    const state = location.state as { highlightOrderId?: string }
-    const hasHighlightOrderId = !!state?.highlightOrderId || !!processedHighlightRef.current
+    const hasHighlightOrderId = !!pendingOrderToSelect || !!processedHighlightRef.current
 
     if (orders.length > 0 && focusedOrderIndex === -1 && !isRefreshingPersistedOrder.current) {
       if (selectedOrder) {
@@ -870,7 +879,7 @@ const OrdersPage: React.FC = () => {
       dispatch(clearError())
       setFocusedOrderIndex(-1)
     }
-  }, [orders, focusedOrderIndex, selectedOrder, dispatch, location.state])
+  }, [orders, focusedOrderIndex, selectedOrder, dispatch, pendingOrderToSelect])
 
   // Handle pending order selection after orders load
   useEffect(() => {
@@ -885,34 +894,6 @@ const OrdersPage: React.FC = () => {
       }
     }
   }, [orders, pendingOrderToSelect])
-
-  // Handle navigation from invoice page with highlightOrderId
-  useEffect(() => {
-    const state = location.state as { highlightOrderId?: string }
-    if (state?.highlightOrderId && orders.length > 0) {
-      const orderIndex = orders.findIndex((o: SalesOrder) => o.id === state.highlightOrderId)
-      if (orderIndex >= 0) {
-        // Only process if we haven't already processed this highlight ID
-        if (processedHighlightRef.current !== state.highlightOrderId) {
-          dispatch(setSelectedOrder(orders[orderIndex]))
-          setFocusedOrderIndex(orderIndex)
-          // Fetch full order details with invoices and payments
-          dispatch(fetchOrderById(orders[orderIndex].id) as any)
-          // Mark this ID as processed and reset navigation flag
-          processedHighlightRef.current = state.highlightOrderId
-          userHasNavigatedRef.current = false
-        } else if (!userHasNavigatedRef.current) {
-          // Already processed, but update focusedOrderIndex if order position changed
-          // ONLY if user hasn't manually navigated away yet
-          setFocusedOrderIndex(orderIndex)
-        }
-      }
-    } else if (!state?.highlightOrderId) {
-      // Reset when there's no highlightOrderId (e.g., normal navigation)
-      processedHighlightRef.current = null
-      userHasNavigatedRef.current = false
-    }
-  }, [orders, location.state, dispatch])
 
   // Auto-scroll to keep focused item visible
   useEffect(() => {
