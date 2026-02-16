@@ -69,9 +69,11 @@ const ENTRY_TYPE_LABELS: Record<string, string> = {
   manual: 'Manual Entry',
   sales_order: 'Sales Order',
   payment: 'Customer Payment',
+  settlement: 'Settlement',
   goods_received_note: 'Goods Receipt',
   vendor_payment: 'Vendor Payment',
   stock_adjustment: 'Stock Adjustment',
+  opening_balance: 'Opening Balance',
 }
 
 const getEntryTypeLabel = (sourceType?: string): string => {
