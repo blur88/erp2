@@ -464,6 +464,50 @@ export interface Settlement {
   updatedAt: string;
 }
 
+export interface OwnerEquityTransaction {
+  id: string;
+  referenceNumber: string;
+  transactionDate: string;
+  type: 'capital_injection' | 'owner_drawing';
+  amount: number;
+  paymentMethodId: string;
+  paymentMethod?: {
+    id: string;
+    code: string;
+    name: string;
+  };
+  description?: string;
+  status: 'draft' | 'posted';
+  journalEntryId?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ExpenseRecord {
+  id: string;
+  referenceNumber: string;
+  expenseDate: string;
+  expenseAccountId: string;
+  expenseAccount?: {
+    id: string;
+    code: string;
+    name: string;
+  };
+  amount: number;
+  paymentMethodId: string;
+  paymentMethod?: {
+    id: string;
+    code: string;
+    name: string;
+  };
+  description?: string;
+  vendor?: string;
+  status: 'draft' | 'posted';
+  journalEntryId?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface PendingSettlementSummary {
   paymentMethodId: string;
   paymentMethodCode: string;
