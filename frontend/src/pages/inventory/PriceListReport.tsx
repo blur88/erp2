@@ -523,7 +523,6 @@ const PriceListReport: React.FC = () => {
       </html>
     `
 
-    // eslint-disable-next-line deprecation/deprecation
     printWindow.document.write(html)
     printWindow.document.close()
   }
