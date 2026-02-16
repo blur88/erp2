@@ -18,6 +18,7 @@ describe('OwnerEquityService', () => {
   let accountingService: jest.Mocked<AccountingService>;
 
   const mockQueryBuilder = {
+    withDeleted: jest.fn().mockReturnThis(),
     leftJoinAndSelect: jest.fn().mockReturnThis(),
     where: jest.fn().mockReturnThis(),
     andWhere: jest.fn().mockReturnThis(),
@@ -87,6 +88,27 @@ describe('OwnerEquityService', () => {
 
     expect(result.data).toHaveLength(1);
     expect(result.meta.total).toBe(1);
+    expect(mockQueryBuilder.withDeleted).toHaveBeenCalled();
+  });
+
+  it('findAll ignores invalid query filters and sanitizes pagination', async () => {
+    mockQueryBuilder.getManyAndCount.mockResolvedValue([[], 0]);
+
+    await service.findAll({
+      page: '1' as any,
+      limit: '100' as any,
+      type: 'invalid_type' as any,
+      status: 'invalid_status',
+    });
+
+    expect(mockQueryBuilder.andWhere).not.toHaveBeenCalledWith('oet.type = :type', {
+      type: 'invalid_type',
+    });
+    expect(mockQueryBuilder.andWhere).not.toHaveBeenCalledWith('oet.status = :status', {
+      status: 'invalid_status',
+    });
+    expect(mockQueryBuilder.skip).toHaveBeenCalledWith(0);
+    expect(mockQueryBuilder.take).toHaveBeenCalledWith(100);
   });
 
   it('findOne returns a single transaction', async () => {
@@ -105,6 +127,11 @@ describe('OwnerEquityService', () => {
 
     const result = await service.findOne('tx-1');
     expect(result.id).toBe('tx-1');
+    expect(ownerEquityRepository.findOne).toHaveBeenCalledWith({
+      where: { id: 'tx-1' },
+      relations: ['paymentMethod'],
+      withDeleted: true,
+    });
   });
 
   it('findOne throws NotFoundException for missing id', async () => {
@@ -255,6 +282,11 @@ describe('OwnerEquityService', () => {
     expect(accountingService.postOwnerEquityEntry).toHaveBeenCalled();
     expect(result.status).toBe(OwnerEquityTransactionStatus.POSTED);
     expect(result.journalEntryId).toBe('je-1');
+    expect(ownerEquityRepository.findOne).toHaveBeenCalledWith({
+      where: { id: 'tx-1' },
+      relations: ['paymentMethod'],
+      withDeleted: true,
+    });
   });
 
   it('post throws BadRequestException if already posted', async () => {

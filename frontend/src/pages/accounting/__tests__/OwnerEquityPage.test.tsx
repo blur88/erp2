@@ -55,6 +55,12 @@ describe('OwnerEquityPage', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.mocked(ApiService.get).mockImplementation((url: string) => {
+      if (url.includes('/settings/payment-methods/active')) {
+        return Promise.resolve([
+          { id: 'pm-1', code: 'CASH', name: 'Cash', isActive: true },
+        ] as any)
+      }
+
       if (url.includes('/accounting/owner-equity')) {
         return Promise.resolve({
           data: [
@@ -121,5 +127,16 @@ describe('OwnerEquityPage', () => {
     expect(screen.getAllByText('Status').length).toBeGreaterThan(0)
     expect(screen.getByLabelText('Start Date')).toBeInTheDocument()
     expect(screen.getByLabelText('End Date')).toBeInTheDocument()
+  })
+
+  it('loads active payment methods for dropdown', async () => {
+    renderPage()
+
+    await waitFor(() => {
+      expect(vi.mocked(ApiService.get)).toHaveBeenCalled()
+    })
+
+    const calls = vi.mocked(ApiService.get).mock.calls.map((call) => call[0])
+    expect(calls).toContain('/settings/payment-methods/active')
   })
 })

@@ -9,6 +9,7 @@ import { Repository } from 'typeorm';
 import {
   OwnerEquityTransaction,
   OwnerEquityTransactionStatus,
+  OwnerEquityTransactionType,
 } from '../../../database/entities/owner-equity-transaction.entity';
 import { PaymentMethodEntity } from '../../../database/entities/payment-method.entity';
 import { AccountingService } from './accounting.service';
@@ -35,8 +36,8 @@ export class OwnerEquityService {
 
   async findAll(query: QueryOwnerEquityDto): Promise<OwnerEquityListResponseDto> {
     const {
-      page = 1,
-      limit = 20,
+      page: rawPage = 1,
+      limit: rawLimit = 20,
       type,
       status,
       startDate,
@@ -44,17 +45,25 @@ export class OwnerEquityService {
       sortBy = 'transactionDate',
       sortOrder = 'DESC',
     } = query;
+    const parsedPage = Number(rawPage);
+    const parsedLimit = Number(rawLimit);
+    const page = Number.isFinite(parsedPage) && parsedPage > 0 ? Math.floor(parsedPage) : 1;
+    const limit =
+      Number.isFinite(parsedLimit) && parsedLimit > 0 ? Math.min(Math.floor(parsedLimit), 500) : 20;
+    const validTypes = Object.values(OwnerEquityTransactionType);
+    const validStatuses = Object.values(OwnerEquityTransactionStatus);
 
     const qb = this.ownerEquityRepository
       .createQueryBuilder('oet')
+      .withDeleted()
       .leftJoinAndSelect('oet.paymentMethod', 'paymentMethod')
       .where('oet.deletedAt IS NULL');
 
-    if (type) {
+    if (type && validTypes.includes(type)) {
       qb.andWhere('oet.type = :type', { type });
     }
 
-    if (status) {
+    if (status && validStatuses.includes(status as OwnerEquityTransactionStatus)) {
       qb.andWhere('oet.status = :status', { status });
     }
 
@@ -89,6 +98,7 @@ export class OwnerEquityService {
     const transaction = await this.ownerEquityRepository.findOne({
       where: { id },
       relations: ['paymentMethod'],
+      withDeleted: true,
     });
 
     if (!transaction || transaction.deletedAt) {
@@ -181,6 +191,7 @@ export class OwnerEquityService {
     const transaction = await this.ownerEquityRepository.findOne({
       where: { id },
       relations: ['paymentMethod'],
+      withDeleted: true,
     });
 
     if (!transaction || transaction.deletedAt) {

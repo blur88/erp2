@@ -47,12 +47,9 @@ import {
   selectOwnerEquityLoading,
   updateOwnerEquity,
 } from '@/store/slices/ownerEquitySlice'
-import {
-  fetchPaymentMethods,
-  selectPaymentMethods,
-} from '@/store/slices/paymentMethodsSlice'
 import { useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
-import type { OwnerEquityTransaction } from '@/types'
+import { paymentMethodsApi } from '@/services/paymentMethodsApi'
+import type { OwnerEquityTransaction, PaymentMethodConfig } from '@/types'
 import { formatCurrency, formatDate } from '@/utils/formatters'
 
 const typeLabel: Record<OwnerEquityTransaction['type'], string> = {
@@ -74,7 +71,7 @@ const OwnerEquityPage: React.FC = () => {
   const { showError, showSuccess } = useNotification()
   const rows = useAppSelector(selectOwnerEquity)
   const loading = useAppSelector(selectOwnerEquityLoading)
-  const paymentMethods = useAppSelector(selectPaymentMethods)
+  const [paymentMethods, setPaymentMethods] = useState<PaymentMethodConfig[]>([])
 
   const searchRef = useRef<HTMLInputElement | null>(null)
 
@@ -111,8 +108,18 @@ const OwnerEquityPage: React.FC = () => {
   }, [dispatch, typeFilter, statusFilter, startDate, endDate])
 
   useEffect(() => {
-    dispatch(fetchPaymentMethods({ page: 1, limit: 200, isActive: true }))
-  }, [dispatch])
+    const loadPaymentMethods = async () => {
+      try {
+        const rows = await paymentMethodsApi.getActive()
+        const list = Array.isArray(rows) ? rows : ((rows as any)?.data || [])
+        setPaymentMethods(list)
+      } catch {
+        setPaymentMethods([])
+      }
+    }
+
+    void loadPaymentMethods()
+  }, [])
 
   const filteredRows = useMemo(() => {
     if (!search) return rows
