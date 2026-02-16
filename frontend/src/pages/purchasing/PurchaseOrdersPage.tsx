@@ -164,6 +164,9 @@ const PurchaseOrdersPage: React.FC = () => {
   const [paymentDialogOrder, setPaymentDialogOrder] = useState<any>(null)
   const orderListRef = useRef<HTMLDivElement>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
+  const [pendingHighlightId, setPendingHighlightId] = useState<string | null>(
+    (location.state as { highlightOrderId?: string })?.highlightOrderId ?? null
+  )
   const processedHighlightRef = useRef<string | null>(null)
   const userHasNavigatedRef = useRef(false)
 
@@ -171,6 +174,14 @@ const PurchaseOrdersPage: React.FC = () => {
   useEffect(() => {
     dispatch(fetchSuppliers({ limit: 1000 }))
   }, [dispatch])
+
+  // Clear location.state so browser back/forward doesn't re-trigger highlight
+  useEffect(() => {
+    if ((location.state as { highlightOrderId?: string })?.highlightOrderId) {
+      navigate(location.pathname, { replace: true, state: {} })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // Helper function to calculate date ranges
   const getDateRange = useCallback((filter: string) => {
@@ -679,8 +690,7 @@ const PurchaseOrdersPage: React.FC = () => {
   // Auto-focus first order when orders load
   useEffect(() => {
     // Check if there's a highlightOrderId in location.state OR if we recently processed one
-    const state = location.state as { highlightOrderId?: string }
-    const hasHighlightOrderId = !!state?.highlightOrderId || !!processedHighlightRef.current
+    const hasHighlightOrderId = !!pendingHighlightId || !!processedHighlightRef.current
 
     if (purchaseOrders.length > 0 && focusedOrderIndex === -1) {
       if (selectedOrder) {
@@ -702,7 +712,7 @@ const PurchaseOrdersPage: React.FC = () => {
         }
       }
     }
-  }, [purchaseOrders, focusedOrderIndex, selectedOrder, dispatch, searchParams, location.state])
+  }, [purchaseOrders, focusedOrderIndex, selectedOrder, dispatch, searchParams, pendingHighlightId])
 
   // Clear selection when no orders exist
   useEffect(() => {
@@ -712,31 +722,20 @@ const PurchaseOrdersPage: React.FC = () => {
     }
   }, [purchaseOrders.length, selectedOrder, dispatch])
 
-  // Handle navigation from create/edit page with highlightOrderId
+  // Handle pending highlight after orders load (set from location.state on mount)
   useEffect(() => {
-    const state = location.state as { highlightOrderId?: string }
-    if (state?.highlightOrderId && purchaseOrders.length > 0) {
-      const orderIndex = purchaseOrders.findIndex((o: any) => o.id === state.highlightOrderId)
-      if (orderIndex >= 0) {
-        // Only process if we haven't already processed this highlight ID
-        if (processedHighlightRef.current !== state.highlightOrderId) {
-          dispatch(setSelectedPurchaseOrder(purchaseOrders[orderIndex]))
-          setFocusedOrderIndex(orderIndex)
-          // Mark this ID as processed and reset navigation flag
-          processedHighlightRef.current = state.highlightOrderId
-          userHasNavigatedRef.current = false
-        } else if (!userHasNavigatedRef.current) {
-          // Already processed, but update focusedOrderIndex if order position changed
-          // ONLY if user hasn't manually navigated away yet
-          setFocusedOrderIndex(orderIndex)
-        }
-      }
-    } else if (!state?.highlightOrderId) {
-      // Reset when there's no highlightOrderId (e.g., normal navigation)
-      processedHighlightRef.current = null
+    if (!pendingHighlightId || purchaseOrders.length === 0) return
+    const orderIndex = purchaseOrders.findIndex((o: any) => o.id === pendingHighlightId)
+    if (orderIndex >= 0) {
+      dispatch(setSelectedPurchaseOrder(purchaseOrders[orderIndex]))
+      setFocusedOrderIndex(orderIndex)
+      processedHighlightRef.current = pendingHighlightId
       userHasNavigatedRef.current = false
+      setPendingHighlightId(null)
     }
-  }, [purchaseOrders, location.state, dispatch])
+  }, [purchaseOrders, pendingHighlightId, dispatch])
+
+
 
   // Auto-scroll to keep focused item visible
   useEffect(() => {
