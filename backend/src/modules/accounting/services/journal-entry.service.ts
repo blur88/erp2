@@ -121,7 +121,7 @@ export class JournalEntryService {
       startDate,
       endDate,
       sortBy = 'entryDate',
-      sortOrder = 'DESC',
+      sortOrder = 'ASC',
     } = query;
 
     const queryBuilder = this.journalEntryRepository
@@ -168,6 +168,9 @@ export class JournalEntryService {
     const safeSortOrder = sortOrder?.toUpperCase() === 'DESC' ? 'DESC' : 'ASC';
 
     queryBuilder.orderBy(`entry.${sortField}`, safeSortOrder);
+    if (sortField !== 'referenceNumber') {
+      queryBuilder.addOrderBy('entry.referenceNumber', 'ASC');
+    }
 
     // Apply pagination
     const offset = (page - 1) * limit;

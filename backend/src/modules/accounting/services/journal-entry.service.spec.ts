@@ -338,6 +338,31 @@ describe('JournalEntryService', () => {
   });
 
   describe('findAll', () => {
+    it('should default to sorting by entry date then reference number in ascending order', async () => {
+      const queryDto: QueryJournalEntriesDto = { page: 1, limit: 20 };
+
+      const queryBuilder = {
+        leftJoinAndSelect: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        addOrderBy: jest.fn().mockReturnThis(),
+        skip: jest.fn().mockReturnThis(),
+        take: jest.fn().mockReturnThis(),
+        getManyAndCount: jest.fn().mockResolvedValue([[], 0]),
+      };
+
+      journalEntryRepository.createQueryBuilder.mockReturnValue(queryBuilder as any);
+
+      await service.findAll(queryDto);
+
+      expect(queryBuilder.orderBy).toHaveBeenCalledWith('entry.entryDate', 'ASC');
+      expect(queryBuilder.addOrderBy).toHaveBeenCalledWith(
+        'entry.referenceNumber',
+        'ASC',
+      );
+    });
+
     it('should return paginated journal entries', async () => {
       const queryDto: QueryJournalEntriesDto = { page: 1, limit: 20 };
 
@@ -346,6 +371,7 @@ describe('JournalEntryService', () => {
         where: jest.fn().mockReturnThis(),
         andWhere: jest.fn().mockReturnThis(),
         orderBy: jest.fn().mockReturnThis(),
+        addOrderBy: jest.fn().mockReturnThis(),
         skip: jest.fn().mockReturnThis(),
         take: jest.fn().mockReturnThis(),
         getManyAndCount: jest.fn().mockResolvedValue([[mockJournalEntry], 1]),
@@ -372,6 +398,7 @@ describe('JournalEntryService', () => {
         where: jest.fn().mockReturnThis(),
         andWhere: jest.fn().mockReturnThis(),
         orderBy: jest.fn().mockReturnThis(),
+        addOrderBy: jest.fn().mockReturnThis(),
         skip: jest.fn().mockReturnThis(),
         take: jest.fn().mockReturnThis(),
         getManyAndCount: jest.fn().mockResolvedValue([[], 0]),
