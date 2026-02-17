@@ -187,6 +187,10 @@ const PaymentsPage: React.FC = () => {
     customerId: 'all'
   })
 
+  const [pendingPaymentToSelect, setPendingPaymentToSelect] = useState<string | null>(() => {
+    const id = new URLSearchParams(window.location.search).get('highlight')
+    return id
+  })
   const [editDialog, setEditDialog] = useState(false)
   const [focusedPaymentIndex, setFocusedPaymentIndex] = useState(-1)
   const [deletedPaymentsDialogOpen, setDeletedPaymentsDialogOpen] = useState(false)
@@ -393,6 +397,18 @@ const PaymentsPage: React.FC = () => {
       setFocusedPaymentIndex(-1)
     }
   }, [paginatedPayments, focusedPaymentIndex, selectedPayment, dispatch, loading])
+
+  // Handle pending payment selection from ?highlight query param (e.g. navigating from journal entries)
+  useEffect(() => {
+    if (!pendingPaymentToSelect || paginatedPayments.length === 0) return
+    const paymentIndex = paginatedPayments.findIndex(p => p.id === pendingPaymentToSelect)
+    if (paymentIndex >= 0) {
+      dispatch(setSelectedPayment(paginatedPayments[paymentIndex] as any))
+      setFocusedPaymentIndex(paymentIndex)
+      setPendingPaymentToSelect(null)
+      window.history.replaceState(null, '', window.location.pathname)
+    }
+  }, [paginatedPayments, pendingPaymentToSelect, dispatch])
 
   // Handle navigation from order page with highlightPaymentId
   useEffect(() => {

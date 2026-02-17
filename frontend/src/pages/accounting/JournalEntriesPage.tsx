@@ -310,16 +310,22 @@ const JournalEntriesPage: React.FC = () => {
   const navigateToSourceTransaction = (sourceType: string, sourceId: string) => {
     switch (sourceType) {
       case 'sales_order':
-        navigate('/sales/orders', { state: { highlightOrderId: sourceId } })
+        navigate(`/sales/orders?highlight=${sourceId}`)
         break
       case 'payment':
-        navigate('/sales/payments', { state: { highlightPaymentId: sourceId } })
+        navigate(`/sales/payments?highlight=${sourceId}`)
         break
       case 'goods_received_note':
         navigate(`/purchasing/goods-received?grnId=${sourceId}`)
         break
       case 'vendor_payment':
         navigate(`/purchasing/vendor-payments?vpId=${sourceId}`)
+        break
+      case 'expense':
+        navigate('/accounting/expenses')
+        break
+      case 'owner_equity_transaction':
+        navigate('/accounting/owner-equity')
         break
       case 'stock_adjustment':
         navigate(`/inventory/stock-adjustments/${sourceId}/edit`)
