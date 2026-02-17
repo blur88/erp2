@@ -151,11 +151,11 @@ export class SalesAnalyticsService {
     const [orderStats, paymentStats] = await Promise.all([
       ordersQuery
         .select([
-          'COUNT(*) as totalOrders',
-          'COALESCE(SUM(order.totalAmount), 0) as totalRevenue',
-          'COALESCE(AVG(order.totalAmount), 0) as averageOrderValue',
-          'MIN(order.orderDate) as firstOrderDate',
-          'MAX(order.orderDate) as lastOrderDate',
+          'COUNT(*) as "totalOrders"',
+          'COALESCE(SUM(order.totalAmount), 0) as "totalRevenue"',
+          'COALESCE(AVG(order.totalAmount), 0) as "averageOrderValue"',
+          'MIN(order.orderDate) as "firstOrderDate"',
+          'MAX(order.orderDate) as "lastOrderDate"',
         ])
         .getRawOne(),
       
@@ -219,8 +219,8 @@ export class SalesAnalyticsService {
         })
         // All invoice statuses are valid (no cancelled status anymore)
         .select([
-          'COALESCE(SUM(invoice.paidAmount), 0) as totalRevenue',
-          'COUNT(*) as totalOrders',
+          'COALESCE(SUM(invoice.paidAmount), 0) as "totalRevenue"',
+          'COUNT(*) as "totalOrders"',
         ])
         .getRawOne();
 
@@ -325,22 +325,22 @@ export class SalesAnalyticsService {
       // Order statistics (status column removed, using fulfillment status)
       orderQuery
         .select([
-          'COALESCE(SUM(order.totalAmount), 0) as totalRevenue',
-          'COUNT(*) as totalOrders',
-          'COALESCE(AVG(order.totalAmount), 0) as averageOrderValue',
-          'COUNT(CASE WHEN order.isFulfilled = true THEN 1 END) as completedOrders',
-          'COUNT(CASE WHEN order.isFulfilled = false THEN 1 END) as confirmedOrders',
-          '0 as draftOrders',
+          'COALESCE(SUM(order.totalAmount), 0) as "totalRevenue"',
+          'COUNT(*) as "totalOrders"',
+          'COALESCE(AVG(order.totalAmount), 0) as "averageOrderValue"',
+          'COUNT(CASE WHEN order.isFulfilled = true THEN 1 END) as "completedOrders"',
+          'COUNT(CASE WHEN order.isFulfilled = false THEN 1 END) as "confirmedOrders"',
+          '0 as "draftOrders"',
         ])
         .getRawOne(),
 
       // Invoice statistics
       invoiceQuery
         .select([
-          'COALESCE(SUM(CASE WHEN invoice.status = :paid THEN invoice.totalAmount ELSE 0 END), 0) as paidInvoicesAmount',
-          'COALESCE(SUM(CASE WHEN invoice.status IN (:...pending) THEN invoice.balanceDue ELSE 0 END), 0) as pendingInvoicesAmount',
+          'COALESCE(SUM(CASE WHEN invoice.status = :paid THEN invoice.totalAmount ELSE 0 END), 0) as "paidInvoicesAmount"',
+          'COALESCE(SUM(CASE WHEN invoice.status IN (:...pending) THEN invoice.balanceDue ELSE 0 END), 0) as "pendingInvoicesAmount"',
           // Overdue calculation removed as it depends on dueDate
-          '0 as overdueInvoicesAmount',
+          '0 as "overdueInvoicesAmount"',
         ])
         .setParameters({
           paid: InvoiceStatus.PAID,
@@ -388,23 +388,23 @@ export class SalesAnalyticsService {
 
     switch (groupBy) {
       case 'day':
-        dateFormat = '%Y-%m-%d';
+        dateFormat = 'YYYY-MM-DD';
         dateInterval = '1 day';
         break;
       case 'week':
-        dateFormat = '%Y-%u';
+        dateFormat = 'IYYY-IW';
         dateInterval = '1 week';
         break;
       case 'quarter':
-        dateFormat = '%Y-Q%q';
+        dateFormat = 'YYYY-"Q"Q';
         dateInterval = '3 months';
         break;
       case 'year':
-        dateFormat = '%Y';
+        dateFormat = 'YYYY';
         dateInterval = '1 year';
         break;
       default: // month
-        dateFormat = '%Y-%m';
+        dateFormat = 'YYYY-MM';
         dateInterval = '1 month';
         break;
     }
@@ -413,13 +413,13 @@ export class SalesAnalyticsService {
       .createQueryBuilder('order')
       .where('order.orderDate BETWEEN :startDate AND :endDate', { startDate, endDate })
       .select([
-        `DATE_FORMAT(order.orderDate, '${dateFormat}') as period`,
+        `TO_CHAR(order.orderDate, '${dateFormat}') as period`,
         'COUNT(*) as orders',
         'COALESCE(SUM(order.totalAmount), 0) as revenue',
-        'COALESCE(AVG(order.totalAmount), 0) as averageOrderValue',
+        'COALESCE(AVG(order.totalAmount), 0) as "averageOrderValue"',
       ])
-      .groupBy('period')
-      .orderBy('period', 'ASC')
+      .groupBy(`TO_CHAR(order.orderDate, '${dateFormat}')`)
+      .orderBy(`TO_CHAR(order.orderDate, '${dateFormat}')`, 'ASC')
       .getRawMany();
 
     // Also get new customers for each period
@@ -427,11 +427,11 @@ export class SalesAnalyticsService {
       .createQueryBuilder('customer')
       .where('customer.createdAt BETWEEN :startDate AND :endDate', { startDate, endDate })
       .select([
-        `DATE_FORMAT(customer.createdAt, '${dateFormat}') as period`,
-        'COUNT(*) as newCustomers',
+        `TO_CHAR(customer.createdAt, '${dateFormat}') as period`,
+        'COUNT(*) as "newCustomers"',
       ])
-      .groupBy('period')
-      .orderBy('period', 'ASC')
+      .groupBy(`TO_CHAR(customer.createdAt, '${dateFormat}')`)
+      .orderBy(`TO_CHAR(customer.createdAt, '${dateFormat}')`, 'ASC')
       .getRawMany();
 
     const customerMap = new Map(customerData.map(item => [item.period, parseInt(item.newCustomers)]));
@@ -448,19 +448,21 @@ export class SalesAnalyticsService {
   private async getTopCustomers(startDate: Date, endDate: Date, limit: number): Promise<TopCustomerDto[]> {
     const data = await this.salesOrderRepository
       .createQueryBuilder('order')
-      .leftJoinAndSelect('order.customer', 'customer')
+      .leftJoin('order.customer', 'customer')
       .where('order.orderDate BETWEEN :startDate AND :endDate', { startDate, endDate })
       .select([
-        'customer.id as customerId',
-        'customer.name as customerName',
-        'customer.phone as customerEmail',
-        'COUNT(*) as totalOrders',
-        'COALESCE(SUM(order.totalAmount), 0) as totalRevenue',
-        'COALESCE(AVG(order.totalAmount), 0) as averageOrderValue',
-        'MAX(order.orderDate) as lastOrderDate',
+        'customer.id as "customerId"',
+        'customer.name as "customerName"',
+        'customer.phone as "customerEmail"',
+        'COUNT(*) as "totalOrders"',
+        'COALESCE(SUM(order.totalAmount), 0) as "totalRevenue"',
+        'COALESCE(AVG(order.totalAmount), 0) as "averageOrderValue"',
+        'MAX(order.orderDate) as "lastOrderDate"',
       ])
       .groupBy('customer.id')
-      .orderBy('totalRevenue', 'DESC')
+      .addGroupBy('customer.name')
+      .addGroupBy('customer.phone')
+      .orderBy('"totalRevenue"', 'DESC')
       .limit(limit)
       .getRawMany();
 
@@ -478,20 +480,22 @@ export class SalesAnalyticsService {
   private async getTopProducts(startDate: Date, endDate: Date, limit: number): Promise<TopProductDto[]> {
     const data = await this.salesOrderItemRepository
       .createQueryBuilder('item')
-      .leftJoinAndSelect('item.product', 'product')
-      .leftJoinAndSelect('item.salesOrder', 'order')
+      .leftJoin('item.product', 'product')
+      .leftJoin('item.salesOrder', 'order')
       .where('order.orderDate BETWEEN :startDate AND :endDate', { startDate, endDate })
       .select([
-        'product.id as productId',
-        'product.barcode as productSku',
-        'product.name as productName',
-        'SUM(item.quantity) as quantitySold',
-        'COALESCE(SUM(item.totalAmount), 0) as totalRevenue',
-        'COALESCE(AVG(item.unitPrice), 0) as averagePrice',
-        'COUNT(DISTINCT order.id) as orderCount',
+        'product.id as "productId"',
+        'product.barcode as "productSku"',
+        'product.name as "productName"',
+        'SUM(item.quantity) as "quantitySold"',
+        'COALESCE(SUM(item.totalAmount), 0) as "totalRevenue"',
+        'COALESCE(AVG(item.unitPrice), 0) as "averagePrice"',
+        'COUNT(DISTINCT order.id) as "orderCount"',
       ])
       .groupBy('product.id')
-      .orderBy('quantitySold', 'DESC')
+      .addGroupBy('product.barcode')
+      .addGroupBy('product.name')
+      .orderBy('"quantitySold"', 'DESC')
       .limit(limit)
       .getRawMany();
 
@@ -515,13 +519,13 @@ export class SalesAnalyticsService {
 
     switch (groupBy) {
       case 'day':
-        dateFormat = '%Y-%m-%d';
+        dateFormat = 'YYYY-MM-DD';
         break;
       case 'week':
-        dateFormat = '%Y-%u';
+        dateFormat = 'IYYY-IW';
         break;
       default: // month
-        dateFormat = '%Y-%m';
+        dateFormat = 'YYYY-MM';
         break;
     }
 
@@ -529,13 +533,13 @@ export class SalesAnalyticsService {
       .createQueryBuilder('invoice')
       .where('invoice.invoiceDate BETWEEN :startDate AND :endDate', { startDate, endDate })
       .select([
-        `DATE_FORMAT(invoice.invoiceDate, '${dateFormat}') as period`,
+        `TO_CHAR(invoice.invoiceDate, '${dateFormat}') as period`,
         'COALESCE(SUM(invoice.paidAmount), 0) as revenue',
         'COUNT(*) as orders',
-        'COALESCE(AVG(invoice.totalAmount), 0) as averageOrderValue',
+        'COALESCE(AVG(invoice.totalAmount), 0) as "averageOrderValue"',
       ])
-      .groupBy('period')
-      .orderBy('period', 'ASC')
+      .groupBy(`TO_CHAR(invoice.invoiceDate, '${dateFormat}')`)
+      .orderBy(`TO_CHAR(invoice.invoiceDate, '${dateFormat}')`, 'ASC')
       .getRawMany();
 
     return data.map(item => ({

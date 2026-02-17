@@ -114,9 +114,29 @@ const SalesPage: React.FC = () => {
         }).catch(() => ({ data: [] })),
       ])
 
-      // Set analytics data
+      // Set analytics data - map backend response shape to frontend interface
       if (analyticsResult) {
-        setAnalytics(analyticsResult)
+        const result = analyticsResult as any
+        const metrics = result.metrics || result
+        const periodData: Array<{ period: string; revenue: number }> = result.periodData || []
+        const backendTopProducts: any[] = result.topProducts || []
+
+        setAnalytics({
+          totalRevenue: metrics.totalRevenue || 0,
+          totalOrders: metrics.totalOrders || 0,
+          averageOrderValue: metrics.averageOrderValue || 0,
+          conversionRate: metrics.conversionRate,
+          topProducts: backendTopProducts.map((p: any) => ({
+            productId: p.productId,
+            productName: p.productName,
+            revenue: p.totalRevenue ?? p.revenue ?? 0,
+            quantity: p.quantitySold ?? p.quantity ?? 0,
+          })),
+          revenueChart: {
+            labels: periodData.map((d) => d.period),
+            data: periodData.map((d) => d.revenue),
+          },
+        })
       } else {
         // Fallback: fetch orders and calculate on frontend (legacy behavior)
         const fallbackOrders = await salesApi.getOrders({
@@ -216,8 +236,8 @@ const SalesPage: React.FC = () => {
       // Set top customers from API response
       if (Array.isArray(customersResult) && customersResult.length > 0) {
         setTopCustomers(customersResult.map((c: any) => ({
-          customerId: c.customer?.id,
-          customerName: c.customer?.name,
+          customerId: c.customerId ?? c.customer?.id,
+          customerName: c.customerName ?? c.customer?.name,
           totalRevenue: c.totalRevenue,
           totalOrders: c.totalOrders,
         })))

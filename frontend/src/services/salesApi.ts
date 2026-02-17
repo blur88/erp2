@@ -316,7 +316,7 @@ export const salesApi = {
       totalOrders: number
       totalRevenue: number
       averageOrderValue: number
-    }>>('/sales/reports/top-customers', { params })
+    }>>('/sales/analytics/top-customers', { params })
   },
 
   async getProductPerformanceReport(params?: {
@@ -360,6 +360,6 @@ export const salesApi = {
         count: number
         percentage: number
       }>
-    }>('/sales/analytics', { params })
+    }>('/sales/analytics/dashboard', { params })
   },
 }

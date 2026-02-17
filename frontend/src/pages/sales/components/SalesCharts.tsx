@@ -17,6 +17,7 @@ import {
     Tooltip,
     Legend,
     ArcElement,
+    Filler,
 } from 'chart.js'
 import { Line, Doughnut } from 'react-chartjs-2'
 import { formatCurrency } from '@/utils/formatters'
@@ -31,7 +32,8 @@ ChartJS.register(
     Title,
     Tooltip,
     Legend,
-    ArcElement
+    ArcElement,
+    Filler
 )
 
 interface SalesTrendChartProps {
