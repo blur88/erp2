@@ -861,8 +861,8 @@ const OrdersPage: React.FC = () => {
     const hasHighlightOrderId = !!pendingOrderToSelect || !!processedHighlightRef.current
 
     if (orders.length > 0 && focusedOrderIndex === -1 && !isRefreshingPersistedOrder.current) {
-      if (selectedOrder) {
-        // We have a selected order - find its index and focus it
+      if (selectedOrder && !pendingOrderToSelect) {
+        // We have a selected order - find its index and focus it (skip if pending highlight will handle it)
         const orderIndex = orders.findIndex((o: any) => o.id === selectedOrder.id)
         if (orderIndex >= 0) {
           setFocusedOrderIndex(orderIndex)
@@ -884,17 +884,30 @@ const OrdersPage: React.FC = () => {
     }
   }, [orders, focusedOrderIndex, selectedOrder, dispatch, pendingOrderToSelect])
 
+  // Re-sync focusedOrderIndex when orders list reloads after a highlight was processed.
+  // The new order is unshifted to front of Redux array (index 0) before loadOrders fires,
+  // so the pending highlight sets focusedOrderIndex=0. When loadOrders returns the sorted
+  // list, the new order moves to a different index — this effect corrects the stale index.
+  useEffect(() => {
+    if (!processedHighlightRef.current || !selectedOrder || orders.length === 0) return
+    const correctIndex = orders.findIndex((o: any) => o.id === selectedOrder.id)
+    if (correctIndex >= 0 && correctIndex !== focusedOrderIndex) {
+      setFocusedOrderIndex(correctIndex)
+    }
+  }, [orders, selectedOrder, focusedOrderIndex])
+
   // Handle pending order selection after orders load
   useEffect(() => {
-    if (pendingOrderToSelect && orders.length > 0) {
-      const orderIndex = orders.findIndex((o: SalesOrder) => o.id === pendingOrderToSelect)
-      if (orderIndex >= 0) {
-        dispatch(setSelectedOrder(orders[orderIndex]))
-        setFocusedOrderIndex(orderIndex)
-        setPendingOrderToSelect(null)
-        // Fetch full order details with invoices and payments
-        dispatch(fetchOrderById(orders[orderIndex].id) as any)
-      }
+    if (!pendingOrderToSelect || orders.length === 0) return
+    const orderIndex = orders.findIndex((o: SalesOrder) => o.id === pendingOrderToSelect)
+    if (orderIndex >= 0) {
+      dispatch(setSelectedOrder(orders[orderIndex]))
+      setFocusedOrderIndex(orderIndex)
+      processedHighlightRef.current = pendingOrderToSelect
+      userHasNavigatedRef.current = false
+      setPendingOrderToSelect(null)
+      // Fetch full order details with invoices and payments
+      dispatch(fetchOrderById(orders[orderIndex].id) as any)
     }
   }, [orders, pendingOrderToSelect])
 
