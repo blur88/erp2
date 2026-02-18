@@ -3,6 +3,8 @@ import react from '@vitejs/plugin-react'
 import path from 'path'
 
 // https://vitejs.dev/config/
+const isVitest = Boolean(process.env.VITEST)
+
 export default defineConfig({
   plugins: [react()],
   resolve: {
@@ -19,22 +21,27 @@ export default defineConfig({
       '@/assets': path.resolve(__dirname, './src/assets'),
     },
   },
-  server: {
-    port: 3000,
-    host: true,
-    proxy: {
-      '/api': {
-        target: 'http://localhost:3001',
-        changeOrigin: true,
-        secure: false,
+  server: isVitest
+    ? {
+        host: '127.0.0.1',
+        hmr: false,
+      }
+    : {
+        port: 3000,
+        host: true,
+        proxy: {
+          '/api': {
+            target: 'http://localhost:3001',
+            changeOrigin: true,
+            secure: false,
+          },
+          '/socket.io': {
+            target: 'http://localhost:3001',
+            changeOrigin: true,
+            ws: true,
+          },
+        },
       },
-      '/socket.io': {
-        target: 'http://localhost:3001',
-        changeOrigin: true,
-        ws: true,
-      },
-    },
-  },
   root: '.',
   publicDir: 'public',
   build: {
@@ -56,5 +63,6 @@ export default defineConfig({
     globals: true,
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],
+    api: false,
   },
 })
