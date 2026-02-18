@@ -49,6 +49,7 @@ import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
 import { fetchOrders, fetchOrderById, deleteOrder, selectOrders, selectSalesLoading, selectSalesError, selectSalesPagination, selectSelectedOrder, selectOrderFilters, setSelectedOrder, setOrderFilters, updateOrderInPlace, fetchInvoices, clearError } from '@/store/slices/salesSlice'
 import { fetchCustomers } from '@/store/slices/customerSlice'
 import { salesApi } from '@/services/salesApi'
+import { journalEntriesApi } from '@/services/accountingApi'
 import { SalesOrder } from '@/types'
 import { formatCurrency, formatDate } from '@/utils/formatters'
 import DeletedOrdersDialog from '@/components/sales/DeletedOrdersDialog'
@@ -166,6 +167,8 @@ const OrdersPage: React.FC = () => {
   const [shouldPreserveSearchFocus, setShouldPreserveSearchFocus] = useState(false)
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const [journalEntryRef, setJournalEntryRef] = useState<{ id: string; referenceNumber: string } | null>(null)
+  const [journalEntryRefLoading, setJournalEntryRefLoading] = useState(false)
   const orderListRef = useRef<HTMLDivElement>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
   const processedHighlightRef = useRef<string | null>(null)
@@ -201,6 +204,35 @@ const OrdersPage: React.FC = () => {
       setShouldPreserveSearchFocus(false)
     }
   }, [shouldPreserveSearchFocus, loading])
+
+  useEffect(() => {
+    if (!selectedOrder?.isFulfilled || !selectedOrder?.id) {
+      setJournalEntryRef(null)
+      setJournalEntryRefLoading(false)
+      return
+    }
+
+    let cancelled = false
+    setJournalEntryRefLoading(true)
+
+    journalEntriesApi
+      .getAll({ sourceType: 'sales_order', sourceId: selectedOrder.id, limit: 1 })
+      .then((res) => {
+        if (cancelled) return
+        const entry = res.data?.[0]
+        setJournalEntryRef(entry ? { id: entry.id, referenceNumber: entry.referenceNumber } : null)
+      })
+      .catch(() => {
+        if (!cancelled) setJournalEntryRef(null)
+      })
+      .finally(() => {
+        if (!cancelled) setJournalEntryRefLoading(false)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [selectedOrder?.id, selectedOrder?.isFulfilled])
 
 
   // Memoize loadOrders function to prevent unnecessary re-renders
@@ -1742,6 +1774,58 @@ const OrdersPage: React.FC = () => {
                                   </Box>
                                 ));
                               })()}
+                            </TableCell>
+                          </TableRow>
+                          <TableRow sx={{ backgroundColor: 'grey.50' }}>
+                            <TableCell sx={{ fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight, color: 'text.secondary', fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
+                              Journal Entry No
+                            </TableCell>
+                            <TableCell sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
+                              {!selectedOrder.isFulfilled ? (
+                                <Typography sx={{
+                                  fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
+                                  color: 'text.secondary',
+                                  fontStyle: 'italic'
+                                }}>
+                                  Not fulfilled
+                                </Typography>
+                              ) : journalEntryRefLoading ? (
+                                <Typography sx={{
+                                  fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
+                                  color: 'text.secondary',
+                                  fontStyle: 'italic'
+                                }}>
+                                  Loading...
+                                </Typography>
+                              ) : journalEntryRef ? (
+                                <Typography
+                                  component="button"
+                                  onClick={() => navigate(`/accounting/journal-entries?sourceType=sales_order&sourceId=${selectedOrder.id}`)}
+                                  sx={{
+                                    fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
+                                    color: 'primary.main',
+                                    cursor: 'pointer',
+                                    textDecoration: 'none',
+                                    border: 'none',
+                                    background: 'none',
+                                    padding: 0,
+                                    fontFamily: 'inherit',
+                                    '&:hover': {
+                                      color: 'primary.dark'
+                                    }
+                                  }}
+                                >
+                                  {journalEntryRef.referenceNumber}
+                                </Typography>
+                              ) : (
+                                <Typography sx={{
+                                  fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
+                                  color: 'text.secondary',
+                                  fontStyle: 'italic'
+                                }}>
+                                  Pending
+                                </Typography>
+                              )}
                             </TableCell>
                           </TableRow>
                         </TableBody>
