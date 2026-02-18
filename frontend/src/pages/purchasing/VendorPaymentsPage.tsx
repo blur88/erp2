@@ -47,7 +47,7 @@ import {
 import { useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
 import DeletedVendorPaymentsDialog from '@/components/purchasing/DeletedVendorPaymentsDialog'
 import { VendorPaymentPrint } from '@/components/print'
-import AccountingEntryLink from '@/components/accounting/AccountingEntryLink'
+import { journalEntriesApi } from '@/services/accountingApi'
 import { paymentMethodsApi } from '@/services/paymentMethodsApi'
 
 interface VendorPaymentFilters {
@@ -135,6 +135,7 @@ const VendorPaymentsPage: React.FC = () => {
     customToDate: '',
   })
 
+  const [journalEntryRef, setJournalEntryRef] = useState<{ id: string; referenceNumber: string } | null>(null)
   const [deletedPaymentsDialogOpen, setDeletedPaymentsDialogOpen] = useState(false)
   const [printDialogOpen, setPrintDialogOpen] = useState(false)
   const [focusedPaymentIndex, setFocusedPaymentIndex] = useState(-1)
@@ -285,6 +286,23 @@ const VendorPaymentsPage: React.FC = () => {
       setFocusedPaymentIndex(-1)
     }
   }, [vendorPayments.length, selectedPayment, dispatch])
+
+  // Fetch journal entry reference for selected vendor payment
+  useEffect(() => {
+    if (!selectedPayment) {
+      setJournalEntryRef(null)
+      return
+    }
+    setJournalEntryRef(null)
+    journalEntriesApi.getAll({ sourceType: 'vendor_payment', sourceId: selectedPayment.id, limit: 1 })
+      .then((res: any) => {
+        const entry = res?.data?.[0]
+        if (entry) {
+          setJournalEntryRef({ id: entry.id, referenceNumber: entry.referenceNumber })
+        }
+      })
+      .catch(() => { /* silently ignore */ })
+  }, [selectedPayment?.id])
 
   // Auto-scroll to keep focused item visible
   useEffect(() => {
@@ -866,39 +884,39 @@ const VendorPaymentsPage: React.FC = () => {
                               </TableCell>
                             </TableRow>
                           )}
+                          <TableRow sx={{ backgroundColor: 'grey.50' }}>
+                            <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem' }}>
+                              Journal Entry
+                            </TableCell>
+                            <TableCell sx={{ fontSize: '0.8rem' }}>
+                              {journalEntryRef ? (
+                                <Typography
+                                  component="span"
+                                  sx={{
+                                    color: 'primary.main',
+                                    cursor: 'pointer',
+                                    fontSize: '0.8rem',
+                                    '&:hover': {
+                                      color: 'primary.dark',
+                                      textDecoration: 'underline'
+                                    }
+                                  }}
+                                  onClick={() => navigate(`/accounting/journal-entries/${journalEntryRef.id}`)}
+                                >
+                                  {journalEntryRef.referenceNumber}
+                                </Typography>
+                              ) : (
+                                <Typography variant="body2" sx={{ color: 'text.disabled', fontSize: '0.8rem' }}>
+                                  —
+                                </Typography>
+                              )}
+                            </TableCell>
+                          </TableRow>
                         </TableBody>
                       </Table>
                     </TableContainer>
                   </Grid>
 
-                  {/* Accounting Information */}
-                  <Grid size={12}>
-                    <Box
-                      sx={{
-                        p: 2,
-                        mt: 2,
-                        bgcolor: 'info.lighter',
-                        borderRadius: 1,
-                        borderLeft: '4px solid',
-                        borderColor: 'info.main',
-                      }}
-                    >
-                      <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
-                        Accounting Information
-                      </Typography>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                        <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.8rem' }}>
-                          This vendor payment has been recorded in the accounting system
-                        </Typography>
-                        <AccountingEntryLink
-                          sourceType="vendor_payment"
-                          sourceId={selectedPayment.id}
-                          variant="button"
-                          label="View Journal Entry"
-                        />
-                      </Box>
-                    </Box>
-                  </Grid>
                 </Grid>
 
                 {/* Payment Notes Section */}
