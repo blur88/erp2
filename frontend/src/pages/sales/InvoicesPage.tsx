@@ -50,6 +50,7 @@ import { useSearchAndFilter, useKeyboardShortcuts } from '@/hooks/useSearchAndFi
 import { useNotification } from '@/hooks/useNotification'
 import DeletedInvoicesDialog from '@/components/sales/DeletedInvoicesDialog'
 import { InvoicePrint } from '@/components/print'
+import { journalEntriesApi } from '@/services/accountingApi'
 import type { InvoiceItem } from '@/types'
 
 // Adapter types to match the backend API response structure
@@ -173,6 +174,8 @@ const InvoicesPage: React.FC = () => {
   const [shouldPreserveSearchFocus, setShouldPreserveSearchFocus] = useState(false)
   const [deletedInvoicesDialogOpen, setDeletedInvoicesDialogOpen] = useState(false)
   const [printDialogOpen, setPrintDialogOpen] = useState(false)
+  const [journalEntryRef, setJournalEntryRef] = useState<{ referenceNumber: string; sourceType: string; sourceId: string } | null>(null)
+  const [journalEntryRefLoading, setJournalEntryRefLoading] = useState(false)
   const searchInputRef = useRef<HTMLInputElement>(null)
   const invoiceListRef = useRef<HTMLDivElement>(null)
   const hasRestoredSelection = useRef(false)
@@ -215,6 +218,62 @@ const InvoicesPage: React.FC = () => {
       setShouldPreserveSearchFocus(false)
     }
   }, [shouldPreserveSearchFocus, loading])
+
+  useEffect(() => {
+    if (!selectedInvoice?.id) {
+      setJournalEntryRef(null)
+      setJournalEntryRefLoading(false)
+      return
+    }
+
+    let cancelled = false
+    const sources = [
+      { sourceType: 'invoice', sourceId: selectedInvoice.id },
+      { sourceType: 'sales_order', sourceId: selectedInvoice.salesOrder?.id },
+    ].filter((source): source is { sourceType: string; sourceId: string } => Boolean(source.sourceId))
+
+    if (sources.length === 0) {
+      setJournalEntryRef(null)
+      setJournalEntryRefLoading(false)
+      return
+    }
+
+    setJournalEntryRefLoading(true)
+
+    ;(async () => {
+      try {
+        for (const source of sources) {
+          const res = await journalEntriesApi.getAll({
+            sourceType: source.sourceType,
+            sourceId: source.sourceId,
+            limit: 1,
+          })
+
+          if (cancelled) return
+
+          const entry = res.data?.[0]
+          if (entry) {
+            setJournalEntryRef({
+              referenceNumber: entry.referenceNumber,
+              sourceType: source.sourceType,
+              sourceId: source.sourceId,
+            })
+            return
+          }
+        }
+
+        if (!cancelled) setJournalEntryRef(null)
+      } catch {
+        if (!cancelled) setJournalEntryRef(null)
+      } finally {
+        if (!cancelled) setJournalEntryRefLoading(false)
+      }
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [selectedInvoice?.id, selectedInvoice?.salesOrder?.id])
 
   // Helper function to calculate date ranges
   const getDateRange = useCallback((filter: string) => {
@@ -1011,6 +1070,50 @@ const InvoicesPage: React.FC = () => {
                                   fontStyle: 'italic'
                                 }}>
                                   No payments
+                                </Typography>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                          <TableRow sx={{ backgroundColor: 'grey.50' }}>
+                            <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem' }}>
+                              Journal Entry No
+                            </TableCell>
+                            <TableCell sx={{ fontSize: '0.8rem' }}>
+                              {journalEntryRefLoading ? (
+                                <Typography sx={{
+                                  fontSize: '0.8rem',
+                                  color: 'text.secondary',
+                                  fontStyle: 'italic'
+                                }}>
+                                  Loading...
+                                </Typography>
+                              ) : journalEntryRef ? (
+                                <Typography
+                                  component="button"
+                                  onClick={() => navigate(`/accounting/journal-entries?sourceType=${journalEntryRef.sourceType}&sourceId=${journalEntryRef.sourceId}`)}
+                                  sx={{
+                                    fontSize: '0.8rem',
+                                    color: 'primary.main',
+                                    cursor: 'pointer',
+                                    textDecoration: 'none',
+                                    border: 'none',
+                                    background: 'none',
+                                    padding: 0,
+                                    fontFamily: 'inherit',
+                                    '&:hover': {
+                                      color: 'primary.dark'
+                                    }
+                                  }}
+                                >
+                                  {journalEntryRef.referenceNumber}
+                                </Typography>
+                              ) : (
+                                <Typography sx={{
+                                  fontSize: '0.8rem',
+                                  color: 'text.secondary',
+                                  fontStyle: 'italic'
+                                }}>
+                                  Pending
                                 </Typography>
                               )}
                             </TableCell>
