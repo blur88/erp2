@@ -919,6 +919,89 @@ const VendorPaymentsPage: React.FC = () => {
 
                 </Grid>
 
+                {/* Page Break */}
+                <Box sx={{ borderTop: '2px solid', borderColor: 'divider', my: 3 }} />
+
+                {/* Payment Items Section */}
+                <Box sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+                  <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
+                    fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
+                    fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.5px',
+                    mb: 1
+                  }}>
+                    Payment Items
+                  </Typography>
+
+                  {selectedPayment.purchaseOrder?.items && selectedPayment.purchaseOrder.items.length > 0 ? (
+                    <TableContainer sx={{ flex: 1, overflow: 'auto' }}>
+                      <Table
+                        size={TABLE_STYLES.size}
+                        sx={{
+                          '& .MuiTableCell-root': {
+                            borderBottom: TABLE_STYLES.cell.border,
+                            py: TABLE_STYLES.cell.padding.py,
+                            px: TABLE_STYLES.cell.padding.px
+                          }
+                        }}
+                      >
+                        <TableHead>
+                          <TableRow sx={{ '& .MuiTableCell-head': {
+                            fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
+                            backgroundColor: 'grey.50',
+                            color: TYPOGRAPHY_STYLES.tableHeader.color,
+                            fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
+                          } }}>
+                            <TableCell sx={{ width: '40%' }}>Product</TableCell>
+                            <TableCell align="center" sx={{ width: '12%' }}>Quantity</TableCell>
+                            <TableCell align="right" sx={{ width: '16%' }}>Unit Cost</TableCell>
+                            <TableCell align="right" sx={{ width: '16%' }}>Discount</TableCell>
+                            <TableCell align="right" sx={{ width: '16%' }}>Total</TableCell>
+                          </TableRow>
+                        </TableHead>
+                        <TableBody>
+                          {selectedPayment.purchaseOrder.items.map((item: any, index: number) => (
+                            <TableRow
+                              key={item.id || index}
+                              hover
+                              sx={{
+                                '&:hover': { backgroundColor: 'action.hover' },
+                                transition: 'background-color 0.2s ease',
+                                height: TABLE_STYLES.row.height
+                              }}
+                            >
+                              <TableCell sx={{ fontSize: '0.8rem' }}>
+                                {item.product?.name || 'Unknown Product'}
+                              </TableCell>
+                              <TableCell align="center" sx={{ fontSize: '0.8rem' }}>
+                                {item.quantity}
+                              </TableCell>
+                              <TableCell align="right" sx={{ fontSize: '0.8rem' }}>
+                                {formatCurrency(item.unitCost)}
+                              </TableCell>
+                              <TableCell align="right" sx={{ fontSize: '0.8rem' }}>
+                                {item.discountType === 'percentage' && item.discountPercent ? (
+                                  `${item.discountPercent}%`
+                                ) : item.discountAmount ? (
+                                  `-${formatCurrency(item.discountAmount)}`
+                                ) : (
+                                  '-'
+                                )}
+                              </TableCell>
+                              <TableCell align="right" sx={{ fontSize: '0.8rem' }}>
+                                {formatCurrency(item.totalAmount)}
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </TableContainer>
+                  ) : (
+                    <Alert severity="info">No payment items available</Alert>
+                  )}
+                </Box>
+
                 {/* Payment Notes Section */}
                 <Box sx={{ mt: 2 }}>
                   <TableContainer>
