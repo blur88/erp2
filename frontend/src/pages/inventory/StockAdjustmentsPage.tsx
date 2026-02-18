@@ -40,7 +40,8 @@ import {
 } from '@mui/icons-material'
 import DeletedStockAdjustmentsDialog from '@/components/inventory/DeletedStockAdjustmentsDialog'
 import ConfirmationDialog from '@/components/common/ConfirmationDialog'
-import AccountingEntryLink from '@/components/accounting/AccountingEntryLink'
+import { journalEntriesApi } from '@/services/accountingApi'
+import type { JournalEntry } from '@/types'
 import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
 import {
   fetchStockAdjustments,
@@ -166,6 +167,21 @@ const StockAdjustmentsPage: React.FC = () => {
   const [adjustmentToCancel, setAdjustmentToCancel] = useState<string | null>(null)
   const [adjustmentToCancelName, setAdjustmentToCancelName] = useState<string>('')
   const [hasAutoSelected, setHasAutoSelected] = useState(false)
+  const [journalEntry, setJournalEntry] = useState<JournalEntry | null>(null)
+
+  // Fetch journal entry for completed stock adjustment
+  useEffect(() => {
+    if (selectedAdjustment?.status === 'completed') {
+      journalEntriesApi.getAll({ sourceType: 'stock_adjustment', sourceId: selectedAdjustment.id, limit: 1 })
+        .then((res: any) => {
+          const entries = res?.data || []
+          setJournalEntry(entries.length > 0 ? entries[0] : null)
+        })
+        .catch(() => setJournalEntry(null))
+    } else {
+      setJournalEntry(null)
+    }
+  }, [selectedAdjustment?.id, selectedAdjustment?.status])
 
   // Helper function to calculate date ranges
   const getDateRange = useCallback((filter: string) => {
@@ -861,6 +877,27 @@ const StockAdjustmentsPage: React.FC = () => {
                               {selectedAdjustment.itemCount}
                             </TableCell>
                           </TableRow>
+                          {selectedAdjustment.status === 'completed' && (
+                            <>
+                              <TableRow sx={{ backgroundColor: 'grey.50' }}>
+                                <TableCell sx={{ fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight, color: 'text.secondary', fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
+                                  Journal Entry
+                                </TableCell>
+                                <TableCell sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
+                                  {journalEntry ? (
+                                    <Typography
+                                      component="span"
+                                      sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize, fontWeight: 600, color: 'primary.main', cursor: 'pointer', '&:hover': { textDecoration: 'underline' } }}
+                                      onClick={() => navigate(`/accounting/journal-entries/${journalEntry.id}`)}
+                                    >
+                                      {journalEntry.referenceNumber}
+                                    </Typography>
+                                  ) : '-'}
+                                </TableCell>
+                              </TableRow>
+
+                            </>
+                          )}
                         </TableBody>
                       </Table>
                     </TableContainer>
@@ -959,36 +996,7 @@ const StockAdjustmentsPage: React.FC = () => {
                     </TableContainer>
                   </Grid>
 
-                  {/* Accounting Information - Only show when completed */}
-                  {selectedAdjustment.status === 'completed' && (
-                    <Grid size={12}>
-                      <Box
-                        sx={{
-                          p: 2,
-                          mt: 2,
-                          bgcolor: 'success.lighter',
-                          borderRadius: 1,
-                          borderLeft: '4px solid',
-                          borderColor: 'success.main',
-                        }}
-                      >
-                        <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
-                          Accounting Status
-                        </Typography>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                          <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.8rem' }}>
-                            Stock adjustment has been posted to accounting ledger
-                          </Typography>
-                          <AccountingEntryLink
-                            sourceType="stock_adjustment"
-                            sourceId={selectedAdjustment.id}
-                            variant="button"
-                            label="View Accounting Entry"
-                          />
-                        </Box>
-                      </Box>
-                    </Grid>
-                  )}
+
                 </Grid>
 
                 {/* Page Break before SA Items */}
