@@ -47,7 +47,7 @@ import {
 import { useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
 import DeletedGRNsDialog from '@/components/purchasing/DeletedGRNsDialog'
 import { GRNPrint } from '@/components/print'
-import AccountingEntryLink from '@/components/accounting/AccountingEntryLink'
+import { journalEntriesApi } from '@/services/accountingApi'
 
 
 interface GRNFilters {
@@ -132,6 +132,7 @@ const GoodsReceivedPage: React.FC = () => {
     customToDate: '',
   })
 
+  const [journalEntryRef, setJournalEntryRef] = useState<{ id: string; referenceNumber: string } | null>(null)
   const [deletedGRNsDialogOpen, setDeletedGRNsDialogOpen] = useState(false)
   const [printDialogOpen, setPrintDialogOpen] = useState(false)
   const [focusedGRNIndex, setFocusedGRNIndex] = useState(-1)
@@ -274,6 +275,23 @@ const GoodsReceivedPage: React.FC = () => {
       setFocusedGRNIndex(-1)
     }
   }, [filteredGRNs.length, selectedGRN, dispatch])
+
+  // Fetch journal entry reference for selected GRN
+  useEffect(() => {
+    if (!selectedGRN) {
+      setJournalEntryRef(null)
+      return
+    }
+    setJournalEntryRef(null)
+    journalEntriesApi.getAll({ sourceType: 'goods_received_note', sourceId: selectedGRN.id, limit: 1 })
+      .then((res: any) => {
+        const entry = res?.data?.[0]
+        if (entry) {
+          setJournalEntryRef({ id: entry.id, referenceNumber: entry.referenceNumber })
+        }
+      })
+      .catch(() => { /* silently ignore */ })
+  }, [selectedGRN?.id])
 
   // Auto-scroll to keep focused item visible
   useEffect(() => {
@@ -779,6 +797,36 @@ const GoodsReceivedPage: React.FC = () => {
                               </TableRow>
                             </>
                           )}
+                          <TableRow sx={{ backgroundColor: 'grey.50' }}>
+                            <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem' }}>
+                              Journal Entry
+                            </TableCell>
+                            <TableCell sx={{ fontSize: '0.8rem' }}>
+                              {journalEntryRef ? (
+                                <Link
+                                  to={`/accounting/journal-entries/${journalEntryRef.id}`}
+                                  style={{
+                                    color: '#1976d2',
+                                    textDecoration: 'none',
+                                    cursor: 'pointer',
+                                    transition: 'color 0.2s ease'
+                                  }}
+                                  onMouseEnter={(e) => {
+                                    e.currentTarget.style.color = '#1565c0'
+                                  }}
+                                  onMouseLeave={(e) => {
+                                    e.currentTarget.style.color = '#1976d2'
+                                  }}
+                                >
+                                  {journalEntryRef.referenceNumber}
+                                </Link>
+                              ) : (
+                                <Typography variant="body2" sx={{ color: 'text.disabled', fontSize: '0.8rem' }}>
+                                  —
+                                </Typography>
+                              )}
+                            </TableCell>
+                          </TableRow>
                         </TableBody>
                       </Table>
                     </TableContainer>
@@ -821,34 +869,6 @@ const GoodsReceivedPage: React.FC = () => {
                     </TableContainer>
                   </Grid>
 
-                  {/* Accounting Information */}
-                  <Grid size={12}>
-                    <Box
-                      sx={{
-                        p: 2,
-                        mt: 2,
-                        bgcolor: 'info.lighter',
-                        borderRadius: 1,
-                        borderLeft: '4px solid',
-                        borderColor: 'info.main',
-                      }}
-                    >
-                      <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
-                        Accounting Entry
-                      </Typography>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                        <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.8rem' }}>
-                          This goods receipt has been posted to the accounting system
-                        </Typography>
-                        <AccountingEntryLink
-                          sourceType="goods_received_note"
-                          sourceId={selectedGRN.id}
-                          variant="button"
-                          label="View Journal Entry"
-                        />
-                      </Box>
-                    </Box>
-                  </Grid>
                 </Grid>
 
                 {/* Page Break */}
