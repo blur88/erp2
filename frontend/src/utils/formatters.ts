@@ -59,6 +59,19 @@ export const formatNumber = (num: number | string | null | undefined): string =>
 }
 
 /**
+ * Format quantities as whole numbers for list/table display.
+ */
+export const formatWholeQuantity = (quantity: number | string | null | undefined): string => {
+  if (quantity === null || quantity === undefined) return '-'
+
+  const numericValue = typeof quantity === 'string' ? parseFloat(quantity) : quantity
+
+  if (isNaN(numericValue)) return '-'
+
+  return Math.trunc(numericValue).toString()
+}
+
+/**
  * Format percentage
  */
 export const formatPercentage = (value: number | string | null | undefined, decimals = 2): string => {

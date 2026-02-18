@@ -44,7 +44,7 @@ import {
   RestoreFromTrash as RestoreIcon,
   Print as PrintIcon,
 } from '@mui/icons-material'
-import { formatCurrency, formatDate } from '@/utils/formatters'
+import { formatCurrency, formatDate, formatWholeQuantity } from '@/utils/formatters'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
 import DeletedPaymentsDialog from '@/components/sales/DeletedPaymentsDialog'
 import { PaymentReceiptPrint } from '@/components/print'
@@ -1154,7 +1154,7 @@ const PaymentsPage: React.FC = () => {
                                 {item.product?.name || 'Unknown Product'}
                               </TableCell>
                               <TableCell align="center" sx={{ fontSize: '0.8rem' }}>
-                                {item.quantity}
+                                {formatWholeQuantity(item.quantity)}
                               </TableCell>
                               <TableCell align="right" sx={{ fontSize: '0.8rem' }}>
                                 {formatCurrency(item.unitPrice)}
