@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef, memo } from 'react'
-import { useSearchParams, Link } from 'react-router-dom'
+import { useSearchParams, useNavigate } from 'react-router-dom'
 import {
   Box,
   Typography,
@@ -115,6 +115,7 @@ GRNRow.displayName = 'GRNRow'
 const GoodsReceivedPage: React.FC = () => {
   const theme = useTheme()
   const isMobile = useMediaQuery(theme.breakpoints.down('md'))
+  const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
 
   const dispatch = useAppDispatch()
@@ -746,23 +747,25 @@ const GoodsReceivedPage: React.FC = () => {
                                   PO No
                                 </TableCell>
                                 <TableCell sx={{ fontSize: '0.8rem' }}>
-                                  <Link
-                                    to={`/purchasing/orders?poId=${selectedGRN.purchaseOrder.id}`}
-                                    style={{
-                                      color: '#1976d2',
-                                      textDecoration: 'none',
+                                  <Typography
+                                    component="button"
+                                    onClick={() => navigate(`/purchasing/orders?poId=${selectedGRN.purchaseOrder.id}`)}
+                                    sx={{
+                                      fontSize: '0.8rem',
+                                      color: 'primary.main',
                                       cursor: 'pointer',
-                                      transition: 'color 0.2s ease'
-                                    }}
-                                    onMouseEnter={(e) => {
-                                      e.currentTarget.style.color = '#1565c0'
-                                    }}
-                                    onMouseLeave={(e) => {
-                                      e.currentTarget.style.color = '#1976d2'
+                                      textDecoration: 'none',
+                                      border: 'none',
+                                      background: 'none',
+                                      padding: 0,
+                                      fontFamily: 'inherit',
+                                      '&:hover': {
+                                        color: 'primary.dark'
+                                      }
                                     }}
                                   >
                                     {selectedGRN.purchaseOrder.orderNumber}
-                                  </Link>
+                                  </Typography>
                                 </TableCell>
                               </TableRow>
                               <TableRow>
@@ -771,23 +774,25 @@ const GoodsReceivedPage: React.FC = () => {
                                 </TableCell>
                                 <TableCell sx={{ fontSize: '0.8rem' }}>
                                   {selectedGRN.purchaseOrder.vendorPayments && selectedGRN.purchaseOrder.vendorPayments.length > 0 ? (
-                                    <Link
-                                      to={`/purchasing/vendor-payments?vpId=${selectedGRN.purchaseOrder.vendorPayments[0].id}`}
-                                      style={{
-                                        color: '#1976d2',
-                                        textDecoration: 'none',
+                                    <Typography
+                                      component="button"
+                                      onClick={() => navigate(`/purchasing/vendor-payments?vpId=${selectedGRN.purchaseOrder.vendorPayments[0].id}`)}
+                                      sx={{
+                                        fontSize: '0.8rem',
+                                        color: 'primary.main',
                                         cursor: 'pointer',
-                                        transition: 'color 0.2s ease'
-                                      }}
-                                      onMouseEnter={(e) => {
-                                        e.currentTarget.style.color = '#1565c0'
-                                      }}
-                                      onMouseLeave={(e) => {
-                                        e.currentTarget.style.color = '#1976d2'
+                                        textDecoration: 'none',
+                                        border: 'none',
+                                        background: 'none',
+                                        padding: 0,
+                                        fontFamily: 'inherit',
+                                        '&:hover': {
+                                          color: 'primary.dark'
+                                        }
                                       }}
                                     >
                                       {selectedGRN.purchaseOrder.vendorPayments[0].paymentNumber}
-                                    </Link>
+                                    </Typography>
                                   ) : (
                                     <Typography variant="body2" sx={{ color: 'text.disabled', fontSize: '0.8rem' }}>
                                       Not yet paid
@@ -803,23 +808,25 @@ const GoodsReceivedPage: React.FC = () => {
                             </TableCell>
                             <TableCell sx={{ fontSize: '0.8rem' }}>
                               {journalEntryRef ? (
-                                <Link
-                                  to={`/accounting/journal-entries/${journalEntryRef.id}`}
-                                  style={{
-                                    color: '#1976d2',
-                                    textDecoration: 'none',
+                                <Typography
+                                  component="button"
+                                  onClick={() => navigate(`/accounting/journal-entries/${journalEntryRef.id}`)}
+                                  sx={{
+                                    fontSize: '0.8rem',
+                                    color: 'primary.main',
                                     cursor: 'pointer',
-                                    transition: 'color 0.2s ease'
-                                  }}
-                                  onMouseEnter={(e) => {
-                                    e.currentTarget.style.color = '#1565c0'
-                                  }}
-                                  onMouseLeave={(e) => {
-                                    e.currentTarget.style.color = '#1976d2'
+                                    textDecoration: 'none',
+                                    border: 'none',
+                                    background: 'none',
+                                    padding: 0,
+                                    fontFamily: 'inherit',
+                                    '&:hover': {
+                                      color: 'primary.dark'
+                                    }
                                   }}
                                 >
                                   {journalEntryRef.referenceNumber}
-                                </Link>
+                                </Typography>
                               ) : (
                                 <Typography variant="body2" sx={{ color: 'text.disabled', fontSize: '0.8rem' }}>
                                   —

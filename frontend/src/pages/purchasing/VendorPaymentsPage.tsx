@@ -843,14 +843,18 @@ const VendorPaymentsPage: React.FC = () => {
                               </TableCell>
                               <TableCell sx={{ fontSize: '0.8rem' }}>
                                 <Typography
-                                  component="span"
+                                  component="button"
                                   sx={{
+                                    fontSize: '0.8rem',
                                     color: 'primary.main',
                                     cursor: 'pointer',
-                                    fontSize: '0.8rem',
+                                    textDecoration: 'none',
+                                    border: 'none',
+                                    background: 'none',
+                                    padding: 0,
+                                    fontFamily: 'inherit',
                                     '&:hover': {
-                                      color: 'primary.dark',
-                                      textDecoration: 'underline'
+                                      color: 'primary.dark'
                                     }
                                   }}
                                   onClick={() => navigate(`/purchasing/orders?poId=${selectedPayment.purchaseOrder.id}`)}
@@ -867,14 +871,18 @@ const VendorPaymentsPage: React.FC = () => {
                               </TableCell>
                               <TableCell sx={{ fontSize: '0.8rem' }}>
                                 <Typography
-                                  component="span"
+                                  component="button"
                                   sx={{
+                                    fontSize: '0.8rem',
                                     color: 'primary.main',
                                     cursor: 'pointer',
-                                    fontSize: '0.8rem',
+                                    textDecoration: 'none',
+                                    border: 'none',
+                                    background: 'none',
+                                    padding: 0,
+                                    fontFamily: 'inherit',
                                     '&:hover': {
-                                      color: 'primary.dark',
-                                      textDecoration: 'underline'
+                                      color: 'primary.dark'
                                     }
                                   }}
                                   onClick={() => navigate(`/purchasing/goods-received?grnId=${selectedPayment.grn.id}`)}
@@ -891,14 +899,18 @@ const VendorPaymentsPage: React.FC = () => {
                             <TableCell sx={{ fontSize: '0.8rem' }}>
                               {journalEntryRef ? (
                                 <Typography
-                                  component="span"
+                                  component="button"
                                   sx={{
+                                    fontSize: '0.8rem',
                                     color: 'primary.main',
                                     cursor: 'pointer',
-                                    fontSize: '0.8rem',
+                                    textDecoration: 'none',
+                                    border: 'none',
+                                    background: 'none',
+                                    padding: 0,
+                                    fontFamily: 'inherit',
                                     '&:hover': {
-                                      color: 'primary.dark',
-                                      textDecoration: 'underline'
+                                      color: 'primary.dark'
                                     }
                                   }}
                                   onClick={() => navigate(`/accounting/journal-entries/${journalEntryRef.id}`)}

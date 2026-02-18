@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, memo } from 'react'
-import { useNavigate, Link, useSearchParams, useLocation } from 'react-router-dom'
+import { useNavigate, useSearchParams, useLocation } from 'react-router-dom'
 import {
   Box,
   Typography,
@@ -1264,23 +1264,25 @@ const PurchaseOrdersPage: React.FC = () => {
                                 ? selectedOrder.goodsReceivedNotes.map((grn: any, index: number) => (
                                     <Box key={grn.id} component="span">
                                       {index > 0 && ', '}
-                                      <Link
-                                        to={`/purchasing/goods-received?grnId=${grn.id}`}
-                                        style={{
-                                          color: '#1976d2',
-                                          textDecoration: 'none',
+                                      <Typography
+                                        component="button"
+                                        onClick={() => navigate(`/purchasing/goods-received?grnId=${grn.id}`)}
+                                        sx={{
+                                          fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
+                                          color: 'primary.main',
                                           cursor: 'pointer',
-                                          transition: 'color 0.2s ease'
-                                        }}
-                                        onMouseEnter={(e) => {
-                                          e.currentTarget.style.color = '#1565c0'
-                                        }}
-                                        onMouseLeave={(e) => {
-                                          e.currentTarget.style.color = '#1976d2'
+                                          textDecoration: 'none',
+                                          border: 'none',
+                                          background: 'none',
+                                          padding: 0,
+                                          fontFamily: 'inherit',
+                                          '&:hover': {
+                                            color: 'primary.dark'
+                                          }
                                         }}
                                       >
                                         {grn.grnNumber}
-                                      </Link>
+                                      </Typography>
                                     </Box>
                                   ))
                                 : '-'}
@@ -1299,23 +1301,25 @@ const PurchaseOrdersPage: React.FC = () => {
                                 ? selectedOrder.vendorPayments.map((payment: any, index: number) => (
                                     <Box key={payment.id} component="span">
                                       {index > 0 && ', '}
-                                      <Link
-                                        to={`/purchasing/vendor-payments?vpId=${payment.id}`}
-                                        style={{
-                                          color: '#1976d2',
-                                          textDecoration: 'none',
+                                      <Typography
+                                        component="button"
+                                        onClick={() => navigate(`/purchasing/vendor-payments?vpId=${payment.id}`)}
+                                        sx={{
+                                          fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
+                                          color: 'primary.main',
                                           cursor: 'pointer',
-                                          transition: 'color 0.2s ease'
-                                        }}
-                                        onMouseEnter={(e) => {
-                                          e.currentTarget.style.color = '#1565c0'
-                                        }}
-                                        onMouseLeave={(e) => {
-                                          e.currentTarget.style.color = '#1976d2'
+                                          textDecoration: 'none',
+                                          border: 'none',
+                                          background: 'none',
+                                          padding: 0,
+                                          fontFamily: 'inherit',
+                                          '&:hover': {
+                                            color: 'primary.dark'
+                                          }
                                         }}
                                       >
                                         {payment.paymentNumber}
-                                      </Link>
+                                      </Typography>
                                     </Box>
                                   ))
                                 : '-'}
