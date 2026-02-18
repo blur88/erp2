@@ -53,6 +53,7 @@ import {
   selectSupplierUpdateTimestamp,
 } from '@/store/slices/purchasingSlice'
 import { purchasingApi } from '@/services/purchasingApi'
+import { journalEntriesApi } from '@/services/accountingApi'
 import { formatCurrency, formatDate } from '@/utils/formatters'
 import { useNotification } from '@/hooks/useNotification'
 import { useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
@@ -162,6 +163,8 @@ const PurchaseOrdersPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false)
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false)
   const [paymentDialogOrder, setPaymentDialogOrder] = useState<any>(null)
+  const [journalEntryRef, setJournalEntryRef] = useState<{ referenceNumber: string; sourceType: string; sourceId: string } | null>(null)
+  const [journalEntryRefLoading, setJournalEntryRefLoading] = useState(false)
   const orderListRef = useRef<HTMLDivElement>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
   const [pendingHighlightId, setPendingHighlightId] = useState<string | null>(
@@ -214,6 +217,67 @@ const PurchaseOrdersPage: React.FC = () => {
         return { fromDate: undefined, toDate: undefined }
     }
   }, [state.customFromDate, state.customToDate])
+
+  useEffect(() => {
+    if (!selectedOrder?.id) {
+      setJournalEntryRef(null)
+      setJournalEntryRefLoading(false)
+      return
+    }
+
+    const grnSources = (selectedOrder.goodsReceivedNotes || []).map((grn: any) => ({
+      sourceType: 'goods_received_note',
+      sourceId: grn.id
+    }))
+    const vpSources = (selectedOrder.vendorPayments || []).map((payment: any) => ({
+      sourceType: 'vendor_payment',
+      sourceId: payment.id
+    }))
+    const sources = [...grnSources, ...vpSources]
+
+    if (sources.length === 0) {
+      setJournalEntryRef(null)
+      setJournalEntryRefLoading(false)
+      return
+    }
+
+    let cancelled = false
+    setJournalEntryRefLoading(true)
+
+    ;(async () => {
+      try {
+        for (const source of sources) {
+          const res = await journalEntriesApi.getAll({
+            sourceType: source.sourceType,
+            sourceId: source.sourceId,
+            limit: 1,
+          })
+
+          if (cancelled) return
+
+          const entry = res.data?.[0]
+          if (entry) {
+            setJournalEntryRef({
+              referenceNumber: entry.referenceNumber,
+              sourceType: source.sourceType,
+              sourceId: source.sourceId
+            })
+            return
+          }
+        }
+
+        if (!cancelled) setJournalEntryRef(null)
+      } catch {
+        if (!cancelled) setJournalEntryRef(null)
+      } finally {
+        if (!cancelled) setJournalEntryRefLoading(false)
+      }
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [selectedOrder?.id, selectedOrder?.goodsReceivedNotes, selectedOrder?.vendorPayments])
 
   // Load purchase orders
   const loadOrders = useCallback(() => {
@@ -1255,6 +1319,54 @@ const PurchaseOrdersPage: React.FC = () => {
                                     </Box>
                                   ))
                                 : '-'}
+                            </TableCell>
+                          </TableRow>
+                          <TableRow sx={{ backgroundColor: 'grey.50' }}>
+                            <TableCell sx={{
+                              fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight,
+                              color: 'text.secondary',
+                              fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize
+                            }}>
+                              Journal Entry No
+                            </TableCell>
+                            <TableCell sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
+                              {journalEntryRefLoading ? (
+                                <Typography sx={{
+                                  fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
+                                  color: 'text.secondary',
+                                  fontStyle: 'italic'
+                                }}>
+                                  Loading...
+                                </Typography>
+                              ) : journalEntryRef ? (
+                                <Typography
+                                  component="button"
+                                  onClick={() => navigate(`/accounting/journal-entries?sourceType=${journalEntryRef.sourceType}&sourceId=${journalEntryRef.sourceId}`)}
+                                  sx={{
+                                    fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
+                                    color: 'primary.main',
+                                    cursor: 'pointer',
+                                    textDecoration: 'none',
+                                    border: 'none',
+                                    background: 'none',
+                                    padding: 0,
+                                    fontFamily: 'inherit',
+                                    '&:hover': {
+                                      color: 'primary.dark'
+                                    }
+                                  }}
+                                >
+                                  {journalEntryRef.referenceNumber}
+                                </Typography>
+                              ) : (
+                                <Typography sx={{
+                                  fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
+                                  color: 'text.secondary',
+                                  fontStyle: 'italic'
+                                }}>
+                                  Pending
+                                </Typography>
+                              )}
                             </TableCell>
                           </TableRow>
                         </TableBody>
