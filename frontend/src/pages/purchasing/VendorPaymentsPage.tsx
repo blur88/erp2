@@ -35,7 +35,7 @@ import {
   ArrowDownward as ArrowDownIcon,
   Print as PrintIcon,
 } from '@mui/icons-material'
-import { formatDate, formatCurrency } from '@/utils/formatters'
+import { formatDate, formatCurrency, formatWholeQuantity } from '@/utils/formatters'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
 import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
 import {
@@ -975,15 +975,15 @@ const VendorPaymentsPage: React.FC = () => {
                                 {item.product?.name || 'Unknown Product'}
                               </TableCell>
                               <TableCell align="center" sx={{ fontSize: '0.8rem' }}>
-                                {item.quantity}
+                                {formatWholeQuantity(item.quantity)}
                               </TableCell>
                               <TableCell align="right" sx={{ fontSize: '0.8rem' }}>
                                 {formatCurrency(item.unitCost)}
                               </TableCell>
                               <TableCell align="right" sx={{ fontSize: '0.8rem' }}>
-                                {item.discountType === 'percentage' && item.discountPercent ? (
+                                {item.discountType === 'percentage' && parseFloat(item.discountPercent) > 0 ? (
                                   `${item.discountPercent}%`
-                                ) : item.discountAmount ? (
+                                ) : parseFloat(item.discountAmount) > 0 ? (
                                   `-${formatCurrency(item.discountAmount)}`
                                 ) : (
                                   '-'
