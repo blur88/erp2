@@ -6,9 +6,6 @@ RUN apk update && apk upgrade && \
     apk add --no-cache curl 'postgresql18-client>=18.2-r0' dumb-init && \
     rm -rf /var/cache/apk/*
 
-# Update npm to get patched bundled dependencies (tar)
-RUN npm install -g npm@11.9.0
-
 # Create non-root user
 RUN addgroup -g 1001 -S nodejs && \
     adduser -S nestjs -u 1001 -G nodejs
@@ -24,6 +21,13 @@ RUN npm ci && npm cache clean --force
 
 # Copy source code
 COPY --chown=nestjs:nodejs . .
+
+# Build and keep only runtime dependencies
+RUN npm run build && npm prune --omit=dev && npm cache clean --force
+
+# Remove npm and npx from runtime image to reduce vulnerable package surface
+RUN rm -rf /usr/local/lib/node_modules/npm && \
+    rm -f /usr/local/bin/npm /usr/local/bin/npx
 
 # Create necessary directories with proper permissions
 RUN mkdir -p uploads logs backups/{postgresql,mongodb,redis,settings,archives,temp,uploads} && \
@@ -42,5 +46,5 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \
 # Use dumb-init to handle signals properly
 ENTRYPOINT ["/usr/bin/dumb-init", "--"]
 
-# Start with ts-node (transpile-only for performance)
-CMD ["npx", "ts-node", "-r", "tsconfig-paths/register", "--transpile-only", "src/main.ts"]
+# Start compiled application
+CMD ["node", "dist/main"]
