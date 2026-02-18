@@ -368,7 +368,7 @@ const PaymentsPage: React.FC = () => {
 
   const handleOrderClick = useCallback((orderId: string, event: React.MouseEvent) => {
     event.stopPropagation()
-    navigate('/sales/orders', { state: { highlightOrderId: orderId } })
+    navigate(`/sales/orders?highlight=${orderId}`)
   }, [navigate])
 
   const handleInvoiceClick = useCallback((invoiceId: string, event: React.MouseEvent) => {

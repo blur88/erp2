@@ -341,7 +341,7 @@ const InvoicesPage: React.FC = () => {
 
   const handleSalesOrderClick = useCallback((salesOrderId: string, event: React.MouseEvent) => {
     event.stopPropagation() // Prevent triggering parent row click
-    navigate('/sales/orders', { state: { highlightOrderId: salesOrderId } })
+    navigate(`/sales/orders?highlight=${salesOrderId}`)
   }, [navigate])
 
   // Initialize: Restore persisted selected invoice on mount
