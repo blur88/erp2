@@ -156,6 +156,7 @@ export class PaymentService {
       .leftJoinAndSelect('invoice.salesOrder', 'salesOrder')
       .leftJoinAndSelect('invoice.items', 'items')
       .leftJoinAndSelect('items.product', 'product')
+      .leftJoinAndSelect('payment.paymentMethodEntity', 'paymentMethodEntity')
       .where(where)
       .orderBy(`payment.${sortBy}`, sortOrder);
 
@@ -509,6 +510,7 @@ export class PaymentService {
       .withDeleted() // Include soft-deleted records
       .leftJoinAndSelect('payment.customer', 'customer')
       .leftJoinAndSelect('payment.invoice', 'invoice')
+      .leftJoinAndSelect('payment.paymentMethodEntity', 'paymentMethodEntity')
       .where('payment.deletedAt IS NOT NULL'); // Only get soft-deleted payments
 
     if (customerId) {
