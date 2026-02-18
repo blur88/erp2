@@ -256,6 +256,11 @@ export class QueryJournalEntriesDto {
   @IsString()
   sourceType?: string;
 
+  @ApiPropertyOptional({ description: 'Filter by source ID' })
+  @IsOptional()
+  @IsUUID()
+  sourceId?: string;
+
   @ApiPropertyOptional({ description: 'Filter by start date', type: Date })
   @IsOptional()
   @Type(() => Date)

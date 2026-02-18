@@ -118,6 +118,7 @@ export class JournalEntryService {
       status,
       fiscalPeriodId,
       sourceType,
+      sourceId,
       startDate,
       endDate,
       sortBy = 'entryDate',
@@ -149,6 +150,10 @@ export class JournalEntryService {
 
     if (sourceType) {
       queryBuilder.andWhere('entry.sourceType = :sourceType', { sourceType });
+    }
+
+    if (sourceId) {
+      queryBuilder.andWhere('entry.sourceId = :sourceId', { sourceId });
     }
 
     if (startDate && endDate) {

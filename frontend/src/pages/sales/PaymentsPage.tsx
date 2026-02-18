@@ -27,6 +27,7 @@ import {
   DialogActions,
   Grid,
   Divider,
+  Link,
   useTheme,
   useMediaQuery,
 } from '@mui/material'
@@ -50,7 +51,7 @@ import { PaymentReceiptPrint } from '@/components/print'
 import { useSearchAndFilter, useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
 import { useNotification } from '@/hooks/useNotification'
 import { salesApi } from '@/services/salesApi'
-import AccountingEntryLink from '@/components/accounting/AccountingEntryLink'
+import { journalEntriesApi } from '@/services/accountingApi'
 import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
 import { setSelectedPayment, selectSelectedPayment } from '@/store/slices/salesSlice'
 import type { InvoiceItem } from '@/types'
@@ -196,6 +197,7 @@ const PaymentsPage: React.FC = () => {
   const [deletedPaymentsDialogOpen, setDeletedPaymentsDialogOpen] = useState(false)
   const [shouldPreserveSearchFocus, setShouldPreserveSearchFocus] = useState(false)
   const [printDialogOpen, setPrintDialogOpen] = useState(false)
+  const [journalEntryRef, setJournalEntryRef] = useState<{ referenceNumber: string; id: string } | null>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
   const paymentListRef = useRef<HTMLDivElement>(null)
   const hasRestoredSelection = useRef(false)
@@ -206,6 +208,20 @@ const PaymentsPage: React.FC = () => {
   useEffect(() => {
     selectedPaymentRef.current = selectedPayment
   }, [selectedPayment])
+
+  // Fetch journal entry reference number for selected payment
+  useEffect(() => {
+    if (!selectedPayment) {
+      setJournalEntryRef(null)
+      return
+    }
+    journalEntriesApi.getAll({ sourceType: 'payment', sourceId: selectedPayment.id, limit: 1 })
+      .then((res: any) => {
+        const entry = res?.data?.[0]
+        setJournalEntryRef(entry ? { referenceNumber: entry.referenceNumber, id: entry.id } : null)
+      })
+      .catch(() => setJournalEntryRef(null))
+  }, [selectedPayment?.id])
 
   // Memoize search change callback to prevent unnecessary re-renders
   const onSearchChange = useCallback((searchTerm: string) => {
@@ -1046,38 +1062,39 @@ const PaymentsPage: React.FC = () => {
                               </TableCell>
                             </TableRow>
                           )}
+                          <TableRow sx={{ backgroundColor: 'grey.50' }}>
+                            <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem', width: '40%' }}>
+                              Journal Entry
+                            </TableCell>
+                            <TableCell sx={{ fontSize: '0.8rem' }}>
+                              {journalEntryRef ? (
+                                <Link
+                                  component="button"
+                                  onClick={() => navigate(`/accounting/journal-entries/${journalEntryRef.id}`)}
+                                  sx={{
+                                    fontSize: '0.8rem',
+                                    color: 'primary.main',
+                                    cursor: 'pointer',
+                                    textDecoration: 'none',
+                                    border: 'none',
+                                    background: 'none',
+                                    padding: 0,
+                                    fontFamily: 'inherit',
+                                    '&:hover': { color: 'primary.dark' }
+                                  }}
+                                >
+                                  {journalEntryRef.referenceNumber}
+                                </Link>
+                              ) : (
+                                <Typography sx={{ fontSize: '0.8rem', color: 'text.secondary', fontStyle: 'italic' }}>
+                                  N/A
+                                </Typography>
+                              )}
+                            </TableCell>
+                          </TableRow>
                         </TableBody>
                       </Table>
                     </TableContainer>
-                  </Grid>
-
-                  {/* Accounting Information */}
-                  <Grid size={12}>
-                    <Box
-                      sx={{
-                        p: 2,
-                        mt: 2,
-                        bgcolor: 'info.lighter',
-                        borderRadius: 1,
-                        borderLeft: '4px solid',
-                        borderColor: 'info.main',
-                      }}
-                    >
-                      <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
-                        Accounting Information
-                      </Typography>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                        <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.8rem' }}>
-                          This payment has been recorded in the accounting system
-                        </Typography>
-                        <AccountingEntryLink
-                          sourceType="payment"
-                          sourceId={selectedPayment.id}
-                          variant="button"
-                          label="View Entry"
-                        />
-                      </Box>
-                    </Box>
                   </Grid>
                 </Grid>
 

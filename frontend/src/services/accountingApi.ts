@@ -77,6 +77,7 @@ export const journalEntriesApi = {
     status?: string;
     fiscalPeriodId?: string;
     sourceType?: string;
+    sourceId?: string;
     startDate?: string;
     endDate?: string;
     sortBy?: string;
