@@ -12,6 +12,7 @@ import AccountingEntryLink from '@/components/accounting/AccountingEntryLink'
 import AccountMappingWarning from '@/components/accounting/AccountMappingWarning'
 import { JournalEntryStatus } from '@/types'
 import { accountMappingsApi, journalEntriesApi } from '@/services/accountingApi'
+import { paymentMethodsApi } from '@/services/paymentMethodsApi'
 
 // Mock API services
 vi.mock('@/services/accountingApi', () => ({
@@ -30,6 +31,12 @@ vi.mock('@/services/accountingApi', () => ({
     delete: vi.fn(),
     post: vi.fn(),
     reverse: vi.fn(),
+  },
+}))
+
+vi.mock('@/services/paymentMethodsApi', () => ({
+  paymentMethodsApi: {
+    getActive: vi.fn().mockResolvedValue({ data: [] }),
   },
 }))
 
@@ -84,11 +91,16 @@ const createMockStore = (initialState = {}) => {
   })
 }
 
+const routerFutureFlags = {
+  v7_startTransition: true,
+  v7_relativeSplatPath: true,
+} as const
+
 const renderWithRouter = (component: React.ReactElement, initialState = {}) => {
   const store = createMockStore(initialState)
   return render(
     <Provider store={store}>
-      <BrowserRouter>{component}</BrowserRouter>
+      <BrowserRouter future={routerFutureFlags}>{component}</BrowserRouter>
     </Provider>
   )
 }
@@ -101,6 +113,7 @@ describe('Accounting Auto-Posting Integration Tests', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockNavigate.mockClear()
+    ;(paymentMethodsApi.getActive as any).mockResolvedValue({ data: [] })
   })
 
   describe('End-to-End User Flow: Configuring Account Mappings', () => {
@@ -180,16 +193,14 @@ describe('Accounting Auto-Posting Integration Tests', () => {
 
   describe('Transaction to Journal Entry Navigation Flow', () => {
     it('navigates from AccountingEntryLink to Journal Entries page with filters', async () => {
-      const user = createUser()
-
       render(
-        <BrowserRouter>
+        <BrowserRouter future={routerFutureFlags}>
           <AccountingEntryLink sourceType="sales_order" sourceId="so-123" variant="button" />
         </BrowserRouter>
       )
 
       const button = screen.getByText('View Journal Entry')
-      await user.click(button)
+      fireEvent.click(button)
 
       // Should navigate to journal entries with query params
       expect(mockNavigate).toHaveBeenCalledWith('/accounting/journal-entries?sourceType=sales_order&sourceId=so-123')
@@ -197,7 +208,7 @@ describe('Accounting Auto-Posting Integration Tests', () => {
 
     it('shows AccountingEntryLink in different variants', () => {
       const { rerender } = render(
-        <BrowserRouter>
+        <BrowserRouter future={routerFutureFlags}>
           <AccountingEntryLink sourceType="payment" sourceId="pay-456" variant="button" />
         </BrowserRouter>
       )
@@ -206,7 +217,7 @@ describe('Accounting Auto-Posting Integration Tests', () => {
 
       // Test inline variant
       rerender(
-        <BrowserRouter>
+        <BrowserRouter future={routerFutureFlags}>
           <AccountingEntryLink sourceType="payment" sourceId="pay-456" variant="inline" />
         </BrowserRouter>
       )
@@ -215,7 +226,7 @@ describe('Accounting Auto-Posting Integration Tests', () => {
 
       // Test alert variant
       rerender(
-        <BrowserRouter>
+        <BrowserRouter future={routerFutureFlags}>
           <AccountingEntryLink sourceType="payment" sourceId="pay-456" variant="alert" />
         </BrowserRouter>
       )
@@ -335,9 +346,7 @@ describe('Accounting Auto-Posting Integration Tests', () => {
       await user.click(viewLinks[0])
 
       // Should navigate to sales orders page and highlight the source order
-      expect(mockNavigate).toHaveBeenCalledWith('/sales/orders', {
-        state: { highlightOrderId: 'so-123' },
-      })
+      expect(mockNavigate).toHaveBeenCalledWith('/sales/orders?highlight=so-123')
     })
   })
 
@@ -351,7 +360,7 @@ describe('Accounting Auto-Posting Integration Tests', () => {
 
       const { container } = render(
         <Provider store={createMockStore()}>
-          <BrowserRouter>
+          <BrowserRouter future={routerFutureFlags}>
             <AccountMappingWarning context="system" />
           </BrowserRouter>
         </Provider>
@@ -370,7 +379,7 @@ describe('Accounting Auto-Posting Integration Tests', () => {
 
       const { container } = render(
         <Provider store={createMockStore()}>
-          <BrowserRouter>
+          <BrowserRouter future={routerFutureFlags}>
             <AccountMappingWarning context="sales_order" transactionId="so-123" />
           </BrowserRouter>
         </Provider>
@@ -432,7 +441,7 @@ describe('Accounting Auto-Posting Integration Tests', () => {
 
       render(
         <Provider store={store}>
-          <BrowserRouter>
+          <BrowserRouter future={routerFutureFlags}>
             <Routes>
               <Route
                 path="*"

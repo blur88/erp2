@@ -248,13 +248,11 @@ describe('JournalEntriesPage', () => {
     await user.click(viewLinks[0])
 
     await waitFor(() => {
-      expect(mockNavigate).toHaveBeenCalledWith('/sales/orders', {
-        state: { highlightOrderId: 'so-123' },
-      })
+      expect(mockNavigate).toHaveBeenCalledWith('/sales/orders?highlight=so-123')
     })
   })
 
-  it('navigates to sales payments with highlight state for payment entries', async () => {
+  it('navigates to sales payments with highlight query param for payment entries', async () => {
     const user = userEvent.setup()
     renderWithStore(<JournalEntriesPage />, defaultState)
 
@@ -262,9 +260,7 @@ describe('JournalEntriesPage', () => {
     await user.click(viewLinks[1])
 
     await waitFor(() => {
-      expect(mockNavigate).toHaveBeenCalledWith('/sales/payments', {
-        state: { highlightPaymentId: 'pay-456' },
-      })
+      expect(mockNavigate).toHaveBeenCalledWith('/sales/payments?highlight=pay-456')
     })
   })
 

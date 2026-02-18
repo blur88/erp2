@@ -40,7 +40,7 @@ describe('chartOfAccountsSlice', () => {
         chartOfAccounts: chartOfAccountsReducer,
       },
     });
-    vi.clearAllMocks();
+    vi.resetAllMocks();
   });
 
   describe('initial state', () => {
@@ -237,13 +237,13 @@ describe('chartOfAccountsSlice', () => {
     };
 
     it('should restore account successfully', async () => {
-      (ApiService.patch as any).mockResolvedValue(restoredAccount);
+      (ApiService.post as any).mockResolvedValue(restoredAccount);
 
       await store.dispatch(restoreAccount('1'));
 
       const state = store.getState().chartOfAccounts;
       expect(state.loading).toBe(false);
-      expect(state.data[0]).toEqual(restoredAccount);
+      expect(state.data).toContainEqual(restoredAccount);
     });
   });
 

@@ -382,9 +382,11 @@ const JournalEntriesPage: React.FC = () => {
             </>
           )}
           <Tooltip title="Refresh">
-            <IconButton onClick={handleRefresh} disabled={loading}>
-              <RefreshIcon />
-            </IconButton>
+            <span>
+              <IconButton onClick={handleRefresh} disabled={loading}>
+                <RefreshIcon />
+              </IconButton>
+            </span>
           </Tooltip>
           <Button
             variant="contained"
