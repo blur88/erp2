@@ -33,7 +33,9 @@ import {
   PostAdd as PostIcon,
   Refresh as RefreshIcon,
   Search as SearchIcon,
+  AccountBalanceWallet as OwnerEquityIcon,
 } from '@mui/icons-material'
+import { TYPOGRAPHY_STYLES } from '@/constants/typography'
 import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
 import { useNotification } from '@/hooks/useNotification'
 import {
@@ -269,8 +271,19 @@ const OwnerEquityPage: React.FC = () => {
 
   return (
     <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h4">Owner's Equity Transactions</Typography>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 3 }}>
+        <Box>
+          <Typography
+            variant={TYPOGRAPHY_STYLES.pageHeader.variant}
+            sx={{ fontWeight: TYPOGRAPHY_STYLES.pageHeader.fontWeight, mb: 1, display: 'flex', alignItems: 'center', gap: 2 }}
+          >
+            <OwnerEquityIcon sx={{ fontSize: TYPOGRAPHY_STYLES.pageHeader.icon.fontSize, color: TYPOGRAPHY_STYLES.pageHeader.icon.color }} />
+            Owner's Equity Transactions
+          </Typography>
+          <Typography variant={TYPOGRAPHY_STYLES.pageSubtitle.variant} color={TYPOGRAPHY_STYLES.pageSubtitle.color}>
+            Track owner capital contributions and withdrawals
+          </Typography>
+        </Box>
         <Stack direction="row" spacing={1}>
           {selectedIds.size > 0 && (
             <>

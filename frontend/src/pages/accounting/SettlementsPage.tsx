@@ -31,7 +31,8 @@ import {
   selectSettlements,
   selectSettlementsLoading,
 } from '@/store/slices/settlementsSlice';
-import { formatCurrency, formatDate } from '@/utils/formatters';
+import { formatCurrency, formatDate } from '@/utils/formatters'
+import { TYPOGRAPHY_STYLES } from '@/constants/typography';
 import type { Settlement } from '@/types';
 import CreateSettlementDialog from '@/components/accounting/CreateSettlementDialog';
 
@@ -79,11 +80,19 @@ const SettlementsPage: React.FC = () => {
 
   return (
     <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h4" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <AccountBalanceWalletIcon />
-          {title}
-        </Typography>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 3 }}>
+        <Box>
+          <Typography
+            variant={TYPOGRAPHY_STYLES.pageHeader.variant}
+            sx={{ fontWeight: TYPOGRAPHY_STYLES.pageHeader.fontWeight, mb: 1, display: 'flex', alignItems: 'center', gap: 2 }}
+          >
+            <AccountBalanceWalletIcon sx={{ fontSize: TYPOGRAPHY_STYLES.pageHeader.icon.fontSize, color: TYPOGRAPHY_STYLES.pageHeader.icon.color }} />
+            {title}
+          </Typography>
+          <Typography variant={TYPOGRAPHY_STYLES.pageSubtitle.variant} color={TYPOGRAPHY_STYLES.pageSubtitle.color}>
+            Settle pending payments by payment method
+          </Typography>
+        </Box>
         <Button variant="contained" startIcon={<AddIcon />} onClick={() => setDialogOpen(true)}>
           Create Settlement
         </Button>

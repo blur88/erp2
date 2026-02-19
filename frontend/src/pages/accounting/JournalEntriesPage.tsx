@@ -34,6 +34,7 @@ import {
   Delete as DeleteIcon,
   PostAdd as PostIcon,
   Refresh as RefreshIcon,
+  Description as JournalIcon,
 } from '@mui/icons-material'
 import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
 import { useNotification } from '@/hooks/useNotification'
@@ -354,10 +355,19 @@ const JournalEntriesPage: React.FC = () => {
       <AccountMappingWarning context="system" />
 
       {/* Header */}
-      <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Typography variant="h4" sx={{ fontWeight: 600 }}>
-          Journal Entries
-        </Typography>
+      <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <Box>
+          <Typography
+            variant={TYPOGRAPHY_STYLES.pageHeader.variant}
+            sx={{ fontWeight: TYPOGRAPHY_STYLES.pageHeader.fontWeight, mb: 1, display: 'flex', alignItems: 'center', gap: 2 }}
+          >
+            <JournalIcon sx={{ fontSize: TYPOGRAPHY_STYLES.pageHeader.icon.fontSize, color: TYPOGRAPHY_STYLES.pageHeader.icon.color }} />
+            Journal Entries
+          </Typography>
+          <Typography variant={TYPOGRAPHY_STYLES.pageSubtitle.variant} color={TYPOGRAPHY_STYLES.pageSubtitle.color}>
+            Manage and post accounting journal entries ({pagination?.total || 0} total)
+          </Typography>
+        </Box>
         <Stack direction="row" spacing={2}>
           {selectedIds.size > 0 && (
             <>
