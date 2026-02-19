@@ -270,7 +270,7 @@ const OwnerEquityPage: React.FC = () => {
   })
 
   return (
-    <Box>
+    <Box sx={{ p: 3 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 3 }}>
         <Box>
           <Typography
@@ -280,7 +280,7 @@ const OwnerEquityPage: React.FC = () => {
             <OwnerEquityIcon sx={{ fontSize: TYPOGRAPHY_STYLES.pageHeader.icon.fontSize, color: TYPOGRAPHY_STYLES.pageHeader.icon.color }} />
             Owner's Equity Transactions
           </Typography>
-          <Typography variant={TYPOGRAPHY_STYLES.pageSubtitle.variant} color={TYPOGRAPHY_STYLES.pageSubtitle.color}>
+          <Typography variant="body2" color="text.secondary">
             Track owner capital contributions and withdrawals
           </Typography>
         </Box>

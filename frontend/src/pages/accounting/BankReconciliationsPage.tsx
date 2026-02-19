@@ -173,13 +173,13 @@ const BankReconciliationsPage: React.FC = () => {
   };
 
   return (
-    <Box>
+    <Box sx={{ p: 3 }}>
       <Box sx={{
         display: 'flex',
         flexDirection: isMobile ? 'column' : 'row',
         justifyContent: 'space-between',
         alignItems: isMobile ? 'stretch' : 'center',
-        mb: 4,
+        mb: 3,
         gap: isMobile ? 2 : 0,
       }}>
         <Box>
@@ -196,7 +196,7 @@ const BankReconciliationsPage: React.FC = () => {
             <AccountBalanceIcon sx={{ fontSize: TYPOGRAPHY_STYLES.pageHeader.icon.fontSize, color: TYPOGRAPHY_STYLES.pageHeader.icon.color }} />
             Bank Reconciliations
           </Typography>
-          <Typography variant={TYPOGRAPHY_STYLES.pageSubtitle.variant} color={TYPOGRAPHY_STYLES.pageSubtitle.color}>
+          <Typography variant="body2" color="text.secondary">
             Reconcile bank and cash accounts ({pagination?.total || 0} total)
           </Typography>
         </Box>

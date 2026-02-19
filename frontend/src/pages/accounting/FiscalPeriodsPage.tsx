@@ -283,7 +283,7 @@ const FiscalPeriodsPage: React.FC = () => {
   }, [periods])
 
   return (
-    <Box>
+    <Box sx={{ p: 3 }}>
       {/* Account Mapping Warning */}
       <AccountMappingWarning context="system" />
 
@@ -293,7 +293,7 @@ const FiscalPeriodsPage: React.FC = () => {
         flexDirection: isMobile ? 'column' : 'row',
         justifyContent: 'space-between',
         alignItems: isMobile ? 'stretch' : 'center',
-        mb: 4,
+        mb: 3,
         gap: isMobile ? 2 : 0
       }}>
         <Box sx={{ mb: isMobile ? 2 : 0 }}>
@@ -310,7 +310,7 @@ const FiscalPeriodsPage: React.FC = () => {
             }} />
             Fiscal Periods
           </Typography>
-          <Typography variant={TYPOGRAPHY_STYLES.pageSubtitle.variant} color={TYPOGRAPHY_STYLES.pageSubtitle.color}>
+          <Typography variant="body2" color="text.secondary">
             Manage accounting periods for financial reporting ({pagination?.total || 0} total)
           </Typography>
         </Box>

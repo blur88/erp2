@@ -47,6 +47,7 @@ import {
 } from '@/store/slices/journalEntriesSlice'
 import { formatCurrency, formatDate, getCurrentDate } from '@/utils/formatters'
 import { JournalEntryStatus } from '@/types'
+import { TYPOGRAPHY_STYLES } from '@/constants/typography'
 
 const JournalEntryDetailsPage: React.FC = () => {
   const navigate = useNavigate()
@@ -201,7 +202,7 @@ const JournalEntryDetailsPage: React.FC = () => {
             <ArrowBackIcon />
           </IconButton>
           <Box>
-            <Typography variant="h4" sx={{ fontWeight: 600 }}>
+            <Typography variant={TYPOGRAPHY_STYLES.pageHeader.variant} sx={{ fontWeight: TYPOGRAPHY_STYLES.pageHeader.fontWeight }}>
               {entry.referenceNumber}
             </Typography>
             <Typography variant="body2" color="text.secondary">

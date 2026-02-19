@@ -58,6 +58,7 @@ import {
 import { formatCurrency, getCurrentDate } from '@/utils/formatters'
 import { JournalEntryStatus, FiscalPeriodStatus } from '@/types'
 import { useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
+import { TYPOGRAPHY_STYLES } from '@/constants/typography'
 
 interface JournalEntryLineForm {
   accountId: string
@@ -376,7 +377,7 @@ const JournalEntryFormPage: React.FC = () => {
         <IconButton onClick={handleBack}>
           <ArrowBackIcon />
         </IconButton>
-        <Typography variant="h4" sx={{ fontWeight: 600 }}>
+        <Typography variant={TYPOGRAPHY_STYLES.pageHeader.variant} sx={{ fontWeight: TYPOGRAPHY_STYLES.pageHeader.fontWeight }}>
           {isEditMode ? 'Edit Journal Entry' : 'New Journal Entry'}
         </Typography>
       </Box>

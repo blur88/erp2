@@ -45,6 +45,7 @@ import {
 } from '@/store/slices/bankReconciliationsSlice';
 import { BankReconciliationStatus, ReconciledTransaction } from '@/types';
 import { formatCurrency } from '@/utils/formatters';
+import { TYPOGRAPHY_STYLES } from '@/constants/typography';
 
 const BankReconciliationDetailsPage: React.FC = () => {
   const navigate = useNavigate();
@@ -200,14 +201,14 @@ const BankReconciliationDetailsPage: React.FC = () => {
   }
 
   return (
-    <Box sx={{ p: 1 }}>
+    <Box sx={{ p: 3 }}>
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
           <IconButton onClick={handleBack}>
             <ArrowBackIcon />
           </IconButton>
           <Box>
-            <Typography variant="h5" sx={{ fontWeight: 600 }}>
+            <Typography variant={TYPOGRAPHY_STYLES.pageHeader.variant} sx={{ fontWeight: TYPOGRAPHY_STYLES.pageHeader.fontWeight }}>
               {reconciliation.account ? `${reconciliation.account.code} - ${reconciliation.account.name}` : 'Bank Reconciliation'}
             </Typography>
             <Typography variant="body2" color="text.secondary">

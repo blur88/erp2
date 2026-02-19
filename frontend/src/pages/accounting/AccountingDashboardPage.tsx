@@ -245,32 +245,30 @@ const AccountingDashboardPage: React.FC = () => {
   });
 
   return (
-    <Box>
+    <Box sx={{ p: 3 }}>
       {/* Header */}
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
-        <Box>
-          <Typography
-            variant={TYPOGRAPHY_STYLES.pageHeader.variant}
+      <Box sx={{ mb: 3 }}>
+        <Typography
+          variant={TYPOGRAPHY_STYLES.pageHeader.variant}
+          sx={{
+            fontWeight: TYPOGRAPHY_STYLES.pageHeader.fontWeight,
+            mb: 1,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 2,
+          }}
+        >
+          <DashboardIcon
             sx={{
-              fontWeight: TYPOGRAPHY_STYLES.pageHeader.fontWeight,
-              mb: 1,
-              display: 'flex',
-              alignItems: 'center',
-              gap: 2,
+              fontSize: TYPOGRAPHY_STYLES.pageHeader.icon.fontSize,
+              color: TYPOGRAPHY_STYLES.pageHeader.icon.color,
             }}
-          >
-            <DashboardIcon
-              sx={{
-                fontSize: TYPOGRAPHY_STYLES.pageHeader.icon.fontSize,
-                color: TYPOGRAPHY_STYLES.pageHeader.icon.color,
-              }}
-            />
-            Accounting Dashboard
-          </Typography>
-          <Typography variant={TYPOGRAPHY_STYLES.pageSubtitle.variant} color={TYPOGRAPHY_STYLES.pageSubtitle.color}>
-            Overview of your financial position and accounting activity
-          </Typography>
-        </Box>
+          />
+          Accounting Dashboard
+        </Typography>
+        <Typography variant="body2" color="text.secondary">
+          Overview of your financial position and accounting activity
+        </Typography>
       </Box>
 
       {/* Error Alert */}

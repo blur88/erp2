@@ -227,7 +227,7 @@ const ChartOfAccountsPage: React.FC = () => {
   }
 
   return (
-    <Box>
+    <Box sx={{ p: 3 }}>
       {/* Account Mapping Warning */}
       <AccountMappingWarning context="system" />
 
@@ -237,7 +237,7 @@ const ChartOfAccountsPage: React.FC = () => {
         flexDirection: isMobile ? 'column' : 'row',
         justifyContent: 'space-between',
         alignItems: isMobile ? 'stretch' : 'center',
-        mb: 4,
+        mb: 3,
         gap: isMobile ? 2 : 0
       }}>
         <Box sx={{ mb: isMobile ? 2 : 0 }}>
@@ -254,7 +254,7 @@ const ChartOfAccountsPage: React.FC = () => {
             }} />
             Chart of Accounts
           </Typography>
-          <Typography variant={TYPOGRAPHY_STYLES.pageSubtitle.variant} color={TYPOGRAPHY_STYLES.pageSubtitle.color}>
+          <Typography variant="body2" color="text.secondary">
             Manage your accounting structure and account hierarchy ({pagination?.total || 0} total)
           </Typography>
         </Box>
