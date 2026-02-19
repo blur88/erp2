@@ -429,14 +429,14 @@ const ProductsPage: React.FC = () => {
 
 
   return (
-    <Box>
+    <Box sx={{ p: 3 }}>
       {/* Header */}
-      <Box sx={{ 
-        display: 'flex', 
+      <Box sx={{
+        display: 'flex',
         flexDirection: isMobile ? 'column' : 'row',
-        justifyContent: 'space-between', 
-        alignItems: isMobile ? 'stretch' : 'center', 
-        mb: 4,
+        justifyContent: 'space-between',
+        alignItems: isMobile ? 'stretch' : 'center',
+        mb: 3,
         gap: isMobile ? 2 : 0,
         transition: 'margin-right 0.3s ease-in-out',
         marginRight: calculatorPanelOpen ? { xs: '0px', md: '320px' } : '0px',
@@ -455,7 +455,7 @@ const ProductsPage: React.FC = () => {
             }} />
             Products
           </Typography>
-          <Typography variant={TYPOGRAPHY_STYLES.pageSubtitle.variant} color={TYPOGRAPHY_STYLES.pageSubtitle.color}>
+          <Typography variant="body2" color="text.secondary">
             Manage your product catalog and inventory ({pagination?.total || 0} total)
           </Typography>
         </Box>

@@ -8,6 +8,7 @@ import {
   Schedule as ScheduleIcon,
   Info as InfoIcon,
 } from '@mui/icons-material'
+import { TYPOGRAPHY_STYLES } from '@/constants/typography'
 
 const SecuritySettingsPage: React.FC = () => {
   return (
@@ -16,7 +17,7 @@ const SecuritySettingsPage: React.FC = () => {
       <Box sx={{ mb: 3, display: 'flex', alignItems: 'center', gap: 2 }}>
         <LockIcon sx={{ fontSize: 40, color: 'primary.main' }} />
         <Box>
-          <Typography variant="h4" sx={{ fontWeight: 700 }}>
+          <Typography variant={TYPOGRAPHY_STYLES.pageHeader.variant} sx={{ fontWeight: TYPOGRAPHY_STYLES.pageHeader.fontWeight }}>
             Security Settings
           </Typography>
           <Typography variant="body2" color="text.secondary">

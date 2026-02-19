@@ -293,9 +293,9 @@ const SalesPage: React.FC = () => {
   ]
 
   return (
-    <Box>
+    <Box sx={{ p: 3 }}>
       {/* Header */}
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4, flexWrap: 'wrap', gap: 2 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, flexWrap: 'wrap', gap: 2 }}>
         <Box>
           <Typography variant={TYPOGRAPHY_STYLES.pageHeader.variant} sx={{
             fontWeight: TYPOGRAPHY_STYLES.pageHeader.fontWeight,
@@ -310,7 +310,7 @@ const SalesPage: React.FC = () => {
             }} />
             Sales Overview
           </Typography>
-          <Typography variant={TYPOGRAPHY_STYLES.pageSubtitle.variant} color={TYPOGRAPHY_STYLES.pageSubtitle.color}>
+          <Typography variant="body2" color="text.secondary">
             Monitor sales performance and manage customer relationships
           </Typography>
         </Box>

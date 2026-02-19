@@ -791,14 +791,14 @@ const CustomerOrderHistory: React.FC = () => {
   }
 
   return (
-    <Box>
+    <Box sx={{ p: 3 }}>
       {/* Header */}
       <Box sx={{
         display: 'flex',
         flexDirection: isMobile ? 'column' : 'row',
         justifyContent: 'space-between',
         alignItems: isMobile ? 'stretch' : 'center',
-        mb: 4,
+        mb: 3,
         gap: isMobile ? 2 : 0
       }}>
         <Box sx={{ mb: isMobile ? 2 : 0 }}>
@@ -815,7 +815,7 @@ const CustomerOrderHistory: React.FC = () => {
             }} />
             Customer Order History
           </Typography>
-          <Typography variant={TYPOGRAPHY_STYLES.pageSubtitle.variant} color={TYPOGRAPHY_STYLES.pageSubtitle.color}>
+          <Typography variant="body2" color="text.secondary">
             {reportData.length > 0
               ? `Complete order history for ${reportData.length} orders`
               : 'View detailed customer order records'}

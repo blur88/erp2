@@ -27,6 +27,7 @@ import CategorySelector from '@/components/inventory/CategorySelector'
 import { Category, PriceList } from '@/types'
 import { useDuplicateCheck } from '@/hooks/useDuplicateCheck'
 import { useCurrency } from '@/hooks/useCurrency'
+import { TYPOGRAPHY_STYLES } from '@/constants/typography'
 
 // Price field component for price list items
 const PriceListPriceField: React.FC<{
@@ -414,7 +415,7 @@ const CreateProductPage: React.FC = () => {
           >
             <ArrowBackIcon />
           </IconButton>
-          <Typography variant="h4" component="h1">
+          <Typography variant={TYPOGRAPHY_STYLES.pageHeader.variant} sx={{ fontWeight: TYPOGRAPHY_STYLES.pageHeader.fontWeight }}>
             {isEditMode ? 'Edit Product' : 'Create Product'}
           </Typography>
         </Box>

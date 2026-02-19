@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import {
-  Container,
   Paper,
   Box,
   Typography,
@@ -12,6 +11,7 @@ import {
   CircularProgress,
 } from '@mui/material';
 import { Add as AddIcon, Backup as BackupIcon, CloudUpload as UploadIcon } from '@mui/icons-material';
+import { TYPOGRAPHY_STYLES } from '@/constants/typography';
 import { useAppDispatch, useAppSelector } from '@/hooks/useRedux';
 import {
   fetchBackups,
@@ -90,48 +90,55 @@ const BackupManagement: React.FC = () => {
   };
 
   return (
-    <Container maxWidth="xl" sx={{ mt: 4, mb: 4 }}>
-      <Paper sx={{ p: 3 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-          <Typography variant="h4" component="h1">
+    <Box sx={{ p: 3 }}>
+      {/* Header */}
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+        <Box>
+          <Typography variant={TYPOGRAPHY_STYLES.pageHeader.variant} sx={{ fontWeight: TYPOGRAPHY_STYLES.pageHeader.fontWeight, mb: 1, display: 'flex', alignItems: 'center', gap: 2 }}>
+            <BackupIcon sx={{ fontSize: TYPOGRAPHY_STYLES.pageHeader.icon.fontSize, color: TYPOGRAPHY_STYLES.pageHeader.icon.color }} />
             Backup & Restore Management
           </Typography>
-          <Box sx={{ display: 'flex', gap: 2 }}>
-            {tabValue === 0 && (
-              <>
-                <Button
-                  variant="outlined"
-                  color="primary"
-                  startIcon={<UploadIcon />}
-                  onClick={handleUploadBackup}
-                  disabled={backupInProgress}
-                >
-                  Upload Backup
-                </Button>
-                <Button
-                  variant="contained"
-                  color="primary"
-                  startIcon={backupInProgress ? <CircularProgress size={20} color="inherit" /> : <BackupIcon />}
-                  onClick={handleCreateBackup}
-                  disabled={backupInProgress}
-                >
-                  {backupInProgress ? 'Creating Backup...' : 'Create Backup'}
-                </Button>
-              </>
-            )}
-            {tabValue === 1 && (
+          <Typography variant="body2" color="text.secondary">
+            Create, manage, and restore database backups
+          </Typography>
+        </Box>
+        <Box sx={{ display: 'flex', gap: 2 }}>
+          {tabValue === 0 && (
+            <>
+              <Button
+                variant="outlined"
+                color="primary"
+                startIcon={<UploadIcon />}
+                onClick={handleUploadBackup}
+                disabled={backupInProgress}
+              >
+                Upload Backup
+              </Button>
               <Button
                 variant="contained"
                 color="primary"
-                startIcon={<AddIcon />}
-                onClick={handleCreateSchedule}
+                startIcon={backupInProgress ? <CircularProgress size={20} color="inherit" /> : <BackupIcon />}
+                onClick={handleCreateBackup}
+                disabled={backupInProgress}
               >
-                Create Schedule
+                {backupInProgress ? 'Creating Backup...' : 'Create Backup'}
               </Button>
-            )}
-          </Box>
+            </>
+          )}
+          {tabValue === 1 && (
+            <Button
+              variant="contained"
+              color="primary"
+              startIcon={<AddIcon />}
+              onClick={handleCreateSchedule}
+            >
+              Create Schedule
+            </Button>
+          )}
         </Box>
+      </Box>
 
+      <Paper sx={{ p: 3 }}>
         <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
           <Tabs value={tabValue} onChange={handleTabChange} aria-label="backup tabs">
             <Tab label="Backups" id="backup-tab-0" aria-controls="backup-tabpanel-0" />
@@ -190,7 +197,7 @@ const BackupManagement: React.FC = () => {
           {error}
         </Alert>
       </Snackbar>
-    </Container>
+    </Box>
   );
 };
 

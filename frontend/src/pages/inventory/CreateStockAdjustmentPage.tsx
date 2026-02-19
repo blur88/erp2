@@ -32,6 +32,7 @@ import * as yup from 'yup'
 import { ApiService } from '@/services/api'
 import { getCurrentDate } from '@/utils/formatters'
 import { useNotification } from '@/hooks/useNotification'
+import { TYPOGRAPHY_STYLES } from '@/constants/typography'
 
 interface AdjustmentItem {
   productId: string
@@ -320,7 +321,7 @@ const CreateStockAdjustmentPage: React.FC = () => {
           <IconButton onClick={() => navigate('/inventory/stock-adjustments')} sx={{ mr: 2 }}>
             <ArrowBackIcon />
           </IconButton>
-          <Typography variant="h4" component="h1">
+          <Typography variant={TYPOGRAPHY_STYLES.pageHeader.variant} sx={{ fontWeight: TYPOGRAPHY_STYLES.pageHeader.fontWeight }}>
             {isEditMode ? 'Edit Stock Adjustment' : 'Create Stock Adjustment'}
           </Typography>
         </Box>

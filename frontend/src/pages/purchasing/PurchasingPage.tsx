@@ -295,9 +295,9 @@ const PurchasingPage: React.FC = () => {
   const topSuppliers = purchasingData?.topSuppliers || []
 
   return (
-    <Box>
+    <Box sx={{ p: 3 }}>
       {/* Header */}
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Box>
           <Typography variant={TYPOGRAPHY_STYLES.pageHeader.variant} sx={{
             fontWeight: TYPOGRAPHY_STYLES.pageHeader.fontWeight,
@@ -312,7 +312,7 @@ const PurchasingPage: React.FC = () => {
             }} />
             Purchasing Overview
           </Typography>
-          <Typography variant={TYPOGRAPHY_STYLES.pageSubtitle.variant} color={TYPOGRAPHY_STYLES.pageSubtitle.color}>
+          <Typography variant="body2" color="text.secondary">
             Monitor purchasing activities and manage supplier relationships
           </Typography>
         </Box>

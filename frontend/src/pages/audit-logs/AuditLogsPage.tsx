@@ -30,6 +30,7 @@ import {
   FilterList,
   Visibility,
   GetApp,
+  History as AuditIcon,
 } from '@mui/icons-material'
 import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
 import {
@@ -43,6 +44,7 @@ import {
 } from '@/store/slices/auditLogSlice'
 import { AuditAction, type AuditLog } from '@/types'
 import { format } from 'date-fns'
+import { TYPOGRAPHY_STYLES } from '@/constants/typography'
 
 const AuditLogsPage: React.FC = () => {
   const dispatch = useAppDispatch()
@@ -146,7 +148,8 @@ const AuditLogsPage: React.FC = () => {
     <Box sx={{ p: 3 }}>
       {/* Header */}
       <Box sx={{ mb: 3 }}>
-        <Typography variant="h4" gutterBottom>
+        <Typography variant={TYPOGRAPHY_STYLES.pageHeader.variant} sx={{ fontWeight: TYPOGRAPHY_STYLES.pageHeader.fontWeight, mb: 1, display: 'flex', alignItems: 'center', gap: 2 }}>
+          <AuditIcon sx={{ fontSize: TYPOGRAPHY_STYLES.pageHeader.icon.fontSize, color: TYPOGRAPHY_STYLES.pageHeader.icon.color }} />
           Audit Logs
         </Typography>
         <Typography variant="body2" color="text.secondary">

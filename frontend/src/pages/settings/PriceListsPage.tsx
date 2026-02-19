@@ -220,14 +220,14 @@ const PriceListsPage: React.FC = () => {
   }
 
   return (
-    <Box>
+    <Box sx={{ p: 3 }}>
       {/* Header */}
       <Box
         sx={{
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
-          mb: 4,
+          mb: 3,
         }}
       >
         <Box>
@@ -249,7 +249,7 @@ const PriceListsPage: React.FC = () => {
             />
             Price Lists
           </Typography>
-          <Typography variant={TYPOGRAPHY_STYLES.pageSubtitle.variant} color={TYPOGRAPHY_STYLES.pageSubtitle.color}>
+          <Typography variant="body2" color="text.secondary">
             Manage pricing structures and product prices ({pagination.total} total)
           </Typography>
         </Box>

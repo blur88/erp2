@@ -20,6 +20,7 @@ import {
 } from '@mui/icons-material'
 import { useNotification } from '@/hooks/useNotification'
 import { settingsApi, type DocumentNumberConfig } from '@/services/settingsApi'
+import { TYPOGRAPHY_STYLES } from '@/constants/typography'
 
 const DocumentNumbersPage: React.FC = () => {
   const { showSuccess, showError } = useNotification()
@@ -112,11 +113,11 @@ const DocumentNumbersPage: React.FC = () => {
   }
 
   return (
-    <Box>
+    <Box sx={{ p: 3 }}>
       {/* Page Header */}
       <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
         <DocumentNumberIcon sx={{ fontSize: 40, mr: 2, color: 'primary.main' }} />
-        <Typography variant="h4" sx={{ fontWeight: 700 }}>
+        <Typography variant={TYPOGRAPHY_STYLES.pageHeader.variant} sx={{ fontWeight: TYPOGRAPHY_STYLES.pageHeader.fontWeight }}>
           Document Numbers Settings
         </Typography>
       </Box>

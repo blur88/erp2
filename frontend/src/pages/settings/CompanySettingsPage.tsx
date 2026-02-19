@@ -22,6 +22,7 @@ import * as yup from 'yup'
 import { yupResolver } from '@hookform/resolvers/yup'
 import { useNotification } from '@/hooks/useNotification'
 import { settingsApi } from '@/services/settingsApi'
+import { TYPOGRAPHY_STYLES } from '@/constants/typography'
 
 interface CompanyFormData {
   name: string
@@ -202,11 +203,11 @@ const CompanySettingsPage: React.FC = () => {
   }
 
   return (
-    <Box>
+    <Box sx={{ p: 3 }}>
       {/* Page Header */}
       <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
         <CompanyIcon sx={{ fontSize: 40, mr: 2, color: 'primary.main' }} />
-        <Typography variant="h4" sx={{ fontWeight: 700 }}>
+        <Typography variant={TYPOGRAPHY_STYLES.pageHeader.variant} sx={{ fontWeight: TYPOGRAPHY_STYLES.pageHeader.fontWeight }}>
           Company Settings
         </Typography>
       </Box>

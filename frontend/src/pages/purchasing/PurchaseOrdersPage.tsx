@@ -844,7 +844,7 @@ const PurchaseOrdersPage: React.FC = () => {
   })
 
   return (
-    <Box>
+    <Box sx={{ p: 3 }}>
       {/* Debug Info */}
       {process.env.NODE_ENV === 'development' && (
         <Alert severity="info" sx={{ mb: 2 }}>
@@ -857,7 +857,7 @@ const PurchaseOrdersPage: React.FC = () => {
         flexDirection: isMobile ? 'column' : 'row',
         justifyContent: 'space-between',
         alignItems: isMobile ? 'stretch' : 'center',
-        mb: 4,
+        mb: 3,
         gap: isMobile ? 2 : 0
       }}>
         <Box sx={{ mb: isMobile ? 2 : 0 }}>
@@ -874,7 +874,7 @@ const PurchaseOrdersPage: React.FC = () => {
             }} />
             Purchase Orders
           </Typography>
-          <Typography variant={TYPOGRAPHY_STYLES.pageSubtitle.variant} color={TYPOGRAPHY_STYLES.pageSubtitle.color}>
+          <Typography variant="body2" color="text.secondary">
             Manage supplier purchase orders and procurement ({purchaseOrders.length} total)
           </Typography>
         </Box>

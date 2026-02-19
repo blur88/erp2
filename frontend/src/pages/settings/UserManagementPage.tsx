@@ -279,13 +279,13 @@ const UserManagementPage: React.FC = () => {
   }
 
   return (
-    <Box>
+    <Box sx={{ p: 3 }}>
       {/* Header */}
       <Box sx={{
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
-        mb: 4
+        mb: 3
       }}>
         <Box>
           <Typography variant={TYPOGRAPHY_STYLES.pageHeader.variant} sx={{
@@ -301,7 +301,7 @@ const UserManagementPage: React.FC = () => {
             }} />
             User Management
           </Typography>
-          <Typography variant={TYPOGRAPHY_STYLES.pageSubtitle.variant} color={TYPOGRAPHY_STYLES.pageSubtitle.color}>
+          <Typography variant="body2" color="text.secondary">
             Manage system users and access control ({totalCount} total)
           </Typography>
         </Box>

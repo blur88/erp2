@@ -37,6 +37,7 @@ import { useNotification } from '@/hooks/useNotification'
 import { useAppDispatch } from '@/hooks/useRedux'
 import { updatePurchaseOrderInPlace, createPurchaseOrder as createPurchaseOrderAction, fetchGoodsReceivedNotes } from '@/store/slices/purchasingSlice'
 import { useCurrency } from '@/hooks/useCurrency'
+import { TYPOGRAPHY_STYLES } from '@/constants/typography'
 
 interface PurchaseOrderItem {
   productId: string
@@ -389,7 +390,7 @@ const CreatePurchaseOrderPage: React.FC = () => {
           <IconButton onClick={() => navigate('/purchasing/orders')} sx={{ mr: 2 }}>
             <ArrowBackIcon />
           </IconButton>
-          <Typography variant="h4" component="h1">
+          <Typography variant={TYPOGRAPHY_STYLES.pageHeader.variant} sx={{ fontWeight: TYPOGRAPHY_STYLES.pageHeader.fontWeight }}>
             {isEditMode ? 'Edit Purchase Order' : 'Create Purchase Order'}
           </Typography>
         </Box>

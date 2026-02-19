@@ -36,6 +36,7 @@ import {
 import type { PaymentMethodConfig } from '@/types';
 import PaymentMethodFormDialog from '@/components/settings/PaymentMethodFormDialog';
 import DeletedPaymentMethodsDialog from '@/components/settings/DeletedPaymentMethodsDialog';
+import { TYPOGRAPHY_STYLES } from '@/constants/typography';
 
 const PaymentMethodsPage: React.FC = () => {
   const dispatch = useAppDispatch();
@@ -76,12 +77,17 @@ const PaymentMethodsPage: React.FC = () => {
   };
 
   return (
-    <Box>
+    <Box sx={{ p: 3 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h4" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <PaymentIcon />
-          {title}
-        </Typography>
+        <Box>
+          <Typography variant={TYPOGRAPHY_STYLES.pageHeader.variant} sx={{ fontWeight: TYPOGRAPHY_STYLES.pageHeader.fontWeight, mb: 1, display: 'flex', alignItems: 'center', gap: 2 }}>
+            <PaymentIcon sx={{ fontSize: TYPOGRAPHY_STYLES.pageHeader.icon.fontSize, color: TYPOGRAPHY_STYLES.pageHeader.icon.color }} />
+            {title}
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            Manage payment methods and configurations
+          </Typography>
+        </Box>
         <Box sx={{ display: 'flex', gap: 1 }}>
           <Button
             variant="outlined"

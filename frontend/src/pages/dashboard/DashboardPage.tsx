@@ -354,9 +354,9 @@ const DashboardPage: React.FC = () => {
   }
 
   return (
-    <Box>
+    <Box sx={{ p: 3 }}>
       {/* Header */}
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Box>
           <Typography variant={TYPOGRAPHY_STYLES.pageHeader.variant} sx={{
             fontWeight: TYPOGRAPHY_STYLES.pageHeader.fontWeight,
@@ -371,7 +371,7 @@ const DashboardPage: React.FC = () => {
             }} />
             Dashboard
           </Typography>
-          <Typography variant={TYPOGRAPHY_STYLES.pageSubtitle.variant} color={TYPOGRAPHY_STYLES.pageSubtitle.color}>
+          <Typography variant="body2" color="text.secondary">
             Monitor your business performance across sales, purchasing, and inventory
           </Typography>
         </Box>

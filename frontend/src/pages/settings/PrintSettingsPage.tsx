@@ -13,6 +13,7 @@ import {
 } from '@mui/icons-material'
 import { useNotification } from '@/hooks/useNotification'
 import { printSettingsApi } from '@/services/printSettingsApi'
+import { TYPOGRAPHY_STYLES } from '@/constants/typography'
 import GeneralTab from './PrintSettings/GeneralTab'
 import TemplatesTab from './PrintSettings/TemplatesTab'
 
@@ -94,7 +95,7 @@ const PrintSettingsPage: React.FC = () => {
       <Box sx={{ mb: 3, display: 'flex', alignItems: 'center', gap: 2 }}>
         <PrintIcon sx={{ fontSize: 32, color: 'primary.main' }} />
         <Box>
-          <Typography variant="h4" sx={{ fontWeight: 600 }}>
+          <Typography variant={TYPOGRAPHY_STYLES.pageHeader.variant} sx={{ fontWeight: TYPOGRAPHY_STYLES.pageHeader.fontWeight }}>
             Print Settings
           </Typography>
           <Typography variant="body2" color="text.secondary">

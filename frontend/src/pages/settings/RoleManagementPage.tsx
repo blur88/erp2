@@ -100,7 +100,7 @@ const RoleManagementPage: React.FC = () => {
       <Box sx={{ mb: 3, display: 'flex', alignItems: 'center', gap: 2 }}>
         <SecurityIcon sx={{ fontSize: 40, color: 'primary.main' }} />
         <Box>
-          <Typography variant="h4" sx={{ fontWeight: 700 }}>
+          <Typography variant={TYPOGRAPHY_STYLES.pageHeader.variant} sx={{ fontWeight: TYPOGRAPHY_STYLES.pageHeader.fontWeight }}>
             Roles & Permissions
           </Typography>
           <Typography variant="body2" color="text.secondary">

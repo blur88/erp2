@@ -191,9 +191,9 @@ const PriceListDetailsPage: React.FC = () => {
   }
 
   return (
-    <Box>
+    <Box sx={{ p: 3 }}>
       {/* Header */}
-      <Box sx={{ mb: 4 }}>
+      <Box sx={{ mb: 3 }}>
         <Button startIcon={<BackIcon />} onClick={() => navigate('/settings/price-lists')} sx={{ mb: 2 }}>
           Back to Price Lists
         </Button>
@@ -213,7 +213,7 @@ const PriceListDetailsPage: React.FC = () => {
                 size="small"
               />
             </Box>
-            <Typography variant={TYPOGRAPHY_STYLES.pageSubtitle.variant} color={TYPOGRAPHY_STYLES.pageSubtitle.color}>
+            <Typography variant="body2" color="text.secondary">
               Code: {selectedPriceList.code}
             </Typography>
             {selectedPriceList.description && (
