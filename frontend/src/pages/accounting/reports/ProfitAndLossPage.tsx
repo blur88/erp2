@@ -24,7 +24,9 @@ import {
   Download as DownloadIcon,
   TrendingUp as TrendingUpIcon,
   TrendingDown as TrendingDownIcon,
+  ShowChart as ProfitLossIcon,
 } from '@mui/icons-material';
+import { TYPOGRAPHY_STYLES } from '@/constants/typography';
 import { useAppDispatch, useAppSelector } from '@/store';
 import {
   fetchProfitAndLoss,
@@ -261,7 +263,11 @@ const ProfitAndLossPage: React.FC = () => {
     <Box sx={{ p: 3 }}>
       {/* Header */}
       <Box sx={{ mb: 3 }}>
-        <Typography variant="h4" sx={{ fontWeight: 600, mb: 1 }}>
+        <Typography
+          variant={TYPOGRAPHY_STYLES.pageHeader.variant}
+          sx={{ fontWeight: TYPOGRAPHY_STYLES.pageHeader.fontWeight, mb: 1, display: 'flex', alignItems: 'center', gap: 2 }}
+        >
+          <ProfitLossIcon sx={{ fontSize: TYPOGRAPHY_STYLES.pageHeader.icon.fontSize, color: TYPOGRAPHY_STYLES.pageHeader.icon.color }} />
           Profit & Loss Statement
         </Typography>
         <Typography variant="body2" color="text.secondary">

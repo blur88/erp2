@@ -25,7 +25,9 @@ import {
   Download as DownloadIcon,
   CheckCircle as CheckCircleIcon,
   Cancel as CancelIcon,
+  ReceiptLong as BalanceSheetIcon,
 } from '@mui/icons-material';
+import { TYPOGRAPHY_STYLES } from '@/constants/typography';
 import { useAppDispatch, useAppSelector } from '@/store';
 import {
   fetchBalanceSheet,
@@ -267,7 +269,11 @@ const BalanceSheetPage: React.FC = () => {
     <Box sx={{ p: 3 }}>
       {/* Header */}
       <Box sx={{ mb: 3 }}>
-        <Typography variant="h4" sx={{ fontWeight: 600, mb: 1 }}>
+        <Typography
+          variant={TYPOGRAPHY_STYLES.pageHeader.variant}
+          sx={{ fontWeight: TYPOGRAPHY_STYLES.pageHeader.fontWeight, mb: 1, display: 'flex', alignItems: 'center', gap: 2 }}
+        >
+          <BalanceSheetIcon sx={{ fontSize: TYPOGRAPHY_STYLES.pageHeader.icon.fontSize, color: TYPOGRAPHY_STYLES.pageHeader.icon.color }} />
           Balance Sheet
         </Typography>
         <Typography variant="body2" color="text.secondary">

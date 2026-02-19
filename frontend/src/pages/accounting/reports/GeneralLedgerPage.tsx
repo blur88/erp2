@@ -25,7 +25,9 @@ import { alpha, useTheme } from '@mui/material/styles';
 import {
   Download as DownloadIcon,
   Receipt as ReceiptIcon,
+  Description as GeneralLedgerIcon,
 } from '@mui/icons-material';
+import { TYPOGRAPHY_STYLES } from '@/constants/typography';
 import { useAppDispatch, useAppSelector } from '@/store';
 import {
   fetchGeneralLedger,
@@ -192,7 +194,11 @@ const GeneralLedgerPage: React.FC = () => {
     <Box sx={{ p: 3 }}>
       {/* Header */}
       <Box sx={{ mb: 3 }}>
-        <Typography variant="h4" sx={{ fontWeight: 600, mb: 1 }}>
+        <Typography
+          variant={TYPOGRAPHY_STYLES.pageHeader.variant}
+          sx={{ fontWeight: TYPOGRAPHY_STYLES.pageHeader.fontWeight, mb: 1, display: 'flex', alignItems: 'center', gap: 2 }}
+        >
+          <GeneralLedgerIcon sx={{ fontSize: TYPOGRAPHY_STYLES.pageHeader.icon.fontSize, color: TYPOGRAPHY_STYLES.pageHeader.icon.color }} />
           General Ledger
         </Typography>
         <Typography variant="body2" color="text.secondary">

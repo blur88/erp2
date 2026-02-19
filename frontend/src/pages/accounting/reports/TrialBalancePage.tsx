@@ -22,7 +22,9 @@ import {
   Download as DownloadIcon,
   CheckCircle as CheckCircleIcon,
   Cancel as CancelIcon,
+  AccountBalance as TrialBalanceIcon,
 } from '@mui/icons-material';
+import { TYPOGRAPHY_STYLES } from '@/constants/typography';
 import { useAppDispatch, useAppSelector } from '@/store';
 import {
   fetchTrialBalance,
@@ -123,7 +125,11 @@ const TrialBalancePage: React.FC = () => {
     <Box sx={{ p: 3 }}>
       {/* Header */}
       <Box sx={{ mb: 3 }}>
-        <Typography variant="h4" sx={{ fontWeight: 600, mb: 1 }}>
+        <Typography
+          variant={TYPOGRAPHY_STYLES.pageHeader.variant}
+          sx={{ fontWeight: TYPOGRAPHY_STYLES.pageHeader.fontWeight, mb: 1, display: 'flex', alignItems: 'center', gap: 2 }}
+        >
+          <TrialBalanceIcon sx={{ fontSize: TYPOGRAPHY_STYLES.pageHeader.icon.fontSize, color: TYPOGRAPHY_STYLES.pageHeader.icon.color }} />
           Trial Balance
         </Typography>
         <Typography variant="body2" color="text.secondary">
