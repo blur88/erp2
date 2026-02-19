@@ -495,10 +495,7 @@ const AccountingDashboardPage: React.FC = () => {
                         >
                           <TableCell>{formatDate(entry.entryDate)}</TableCell>
                           <TableCell>
-                            <Typography
-                              variant="body2"
-                              sx={{ fontFamily: 'monospace', fontWeight: 600 }}
-                            >
+                            <Typography variant="body2">
                               {entry.referenceNumber}
                             </Typography>
                           </TableCell>
@@ -518,7 +515,7 @@ const AccountingDashboardPage: React.FC = () => {
                             </Typography>
                           </TableCell>
                           <TableCell align="right">
-                            <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                            <Typography variant="body2">
                               {formatCurrency(totalAmount)}
                             </Typography>
                           </TableCell>
