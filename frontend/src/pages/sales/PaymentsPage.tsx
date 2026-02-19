@@ -597,12 +597,12 @@ const PaymentsPage: React.FC = () => {
         </Box>
       </Box>
       {/* Filters and Search */}
+      <Paper sx={{ p: 2, mb: 3 }}>
       <Box sx={{
         display: 'flex',
         flexDirection: isMobile ? 'column' : 'row',
         gap: isMobile ? 2 : 1,
         alignItems: isMobile ? 'stretch' : 'center',
-        mb: 3,
         '& > *': {
           alignSelf: isMobile ? 'stretch' : 'flex-start'
         }
@@ -771,6 +771,7 @@ const PaymentsPage: React.FC = () => {
           Sort
         </Button>
       </Box>
+      </Paper>
       {/* Error Display */}
       {error && (
         <Alert severity="error" sx={{ mb: 3 }}>
