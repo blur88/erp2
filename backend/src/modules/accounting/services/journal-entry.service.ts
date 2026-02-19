@@ -6,7 +6,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Between } from 'typeorm';
+import { Repository, Between, IsNull } from 'typeorm';
 import {
   JournalEntry,
   JournalEntryStatus,
@@ -469,6 +469,84 @@ export class JournalEntryService {
 
     this.logger.log(`Journal entry reversed successfully: ${id} -> ${savedReversalEntry.id}`);
     return this.findOne(savedReversalEntry.id);
+  }
+
+  async reverseEntryInPeriod(
+    id: string,
+    fiscalPeriodId: string,
+    userId: string = 'system',
+  ): Promise<JournalEntryResponseDto> {
+    this.logger.log(`Reversing journal entry ${id} into period ${fiscalPeriodId}`);
+
+    const originalEntry = await this.journalEntryRepository.findOne({
+      where: { id },
+      relations: ['fiscalPeriod', 'lines', 'lines.account'],
+    });
+
+    if (!originalEntry) {
+      throw new NotFoundException(`Journal entry with ID '${id}' not found`);
+    }
+
+    if (originalEntry.status !== JournalEntryStatus.POSTED) {
+      throw new BadRequestException(
+        `Cannot reverse journal entry with status '${originalEntry.status}'. Only POSTED entries can be reversed.`,
+      );
+    }
+
+    if (originalEntry.reversedById) {
+      throw new BadRequestException(
+        `Journal entry '${originalEntry.referenceNumber}' has already been reversed`,
+      );
+    }
+
+    const periodIsOpen = await this.fiscalPeriodService.checkPeriodOpen(fiscalPeriodId);
+    if (!periodIsOpen) {
+      throw new BadRequestException(
+        'Cannot reverse journal entry - target fiscal period is closed',
+      );
+    }
+
+    const reversalReferenceNumber = await this.generateReferenceNumber(new Date(), 'REV');
+
+    const reversalEntry = this.journalEntryRepository.create({
+      entryDate: new Date(),
+      referenceNumber: reversalReferenceNumber,
+      description: `Reversal of ${originalEntry.referenceNumber} - ${originalEntry.description}`,
+      fiscalPeriodId,
+      reversalOfId: originalEntry.id,
+      status: JournalEntryStatus.POSTED,
+      // Do not copy sourceType/sourceId - reversal entries must not appear in findBySource
+      // results or they will be reversed again on subsequent reversal calls
+    });
+
+    const savedReversalEntry = await this.journalEntryRepository.save(reversalEntry);
+
+    const reversalLines = originalEntry.lines.map((line) =>
+      this.journalEntryLineRepository.create({
+        journalEntryId: savedReversalEntry.id,
+        accountId: line.accountId,
+        debitAmount: line.creditAmount,
+        creditAmount: line.debitAmount,
+        memo: line.memo ? `Reversal: ${line.memo}` : 'Reversal entry',
+      }),
+    );
+
+    await this.journalEntryLineRepository.save(reversalLines);
+
+    originalEntry.status = JournalEntryStatus.REVERSED;
+    originalEntry.reversedById = savedReversalEntry.id;
+    await this.journalEntryRepository.save(originalEntry);
+
+    this.logger.log(`Journal entry reversed: ${id} -> ${savedReversalEntry.id}`);
+    return this.findOne(savedReversalEntry.id);
+  }
+
+  async findBySource(sourceType: string, sourceId: string): Promise<JournalEntry[]> {
+    // Only return original entries (not reversal entries) to avoid reversing reversals
+    return this.journalEntryRepository.find({
+      where: { sourceType, sourceId, reversalOfId: IsNull() },
+      relations: ['lines'],
+    });
   }
 
   async bulkPost(ids: string[]): Promise<{

@@ -193,7 +193,7 @@ describe('AccountingReportsService', () => {
       ).rejects.toThrow('Account with ID');
     });
 
-    it('should only include POSTED journal entries', async () => {
+    it('should include POSTED and REVERSED journal entries', async () => {
       const accountId = '123e4567-e89b-12d3-a456-426614174000';
       const asOfDate = new Date('2026-02-01');
 
@@ -208,10 +208,10 @@ describe('AccountingReportsService', () => {
 
       await service.calculateAccountBalance(accountId, asOfDate);
 
-      // Verify that query builder filters by POSTED status
+      // Verify that query builder filters by POSTED + REVERSED status
       expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith(
-        'je.status = :status',
-        { status: JournalEntryStatus.POSTED },
+        'je.status IN (:...statuses)',
+        { statuses: [JournalEntryStatus.POSTED, JournalEntryStatus.REVERSED] },
       );
     });
   });
@@ -578,7 +578,7 @@ describe('AccountingReportsService', () => {
       expect(result.isBalanced).toBe(true);
     });
 
-    it('should only include POSTED journal entries', async () => {
+    it('should include POSTED and REVERSED journal entries', async () => {
       const asOfDate = new Date('2026-02-01');
 
       accountRepository.createQueryBuilder.mockReturnValue(mockQueryBuilder);
@@ -589,10 +589,10 @@ describe('AccountingReportsService', () => {
 
       await service.generateTrialBalance(asOfDate);
 
-      // Verify that journal entries query filters by POSTED status
+      // Verify that journal entries query filters by POSTED + REVERSED status
       expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith(
-        'je.status = :status',
-        { status: JournalEntryStatus.POSTED },
+        'je.status IN (:...statuses)',
+        { statuses: [JournalEntryStatus.POSTED, JournalEntryStatus.REVERSED] },
       );
     });
 
@@ -1367,7 +1367,7 @@ describe('AccountingReportsService', () => {
       ).rejects.toThrow('End date cannot be in the future');
     });
 
-    it('should only include POSTED journal entries', async () => {
+    it('should include POSTED and REVERSED journal entries', async () => {
       const accountId = '123e4567-e89b-12d3-a456-426614174000';
       const startDate = new Date('2026-01-01');
       const endDate = new Date('2026-01-31');
@@ -1384,10 +1384,10 @@ describe('AccountingReportsService', () => {
 
       await service.generateGeneralLedger(accountId, startDate, endDate);
 
-      // Verify POSTED status is used in both queries
+      // Verify POSTED + REVERSED status is used in both queries
       expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith(
-        'je.status = :status',
-        { status: JournalEntryStatus.POSTED },
+        'je.status IN (:...statuses)',
+        { statuses: [JournalEntryStatus.POSTED, JournalEntryStatus.REVERSED] },
       );
     });
 
@@ -1629,7 +1629,7 @@ describe('AccountingReportsService', () => {
       expect(result.revenue.total).toBe(15000);
     });
 
-    it('should only include POSTED journal entries', async () => {
+    it('should include POSTED and REVERSED journal entries', async () => {
       const startDate = new Date('2026-01-01');
       const endDate = new Date('2026-01-31');
 
@@ -1641,10 +1641,10 @@ describe('AccountingReportsService', () => {
 
       await service.generateProfitAndLoss(startDate, endDate);
 
-      // Verify that query filters by POSTED status
+      // Verify that query filters by POSTED + REVERSED status
       expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith(
-        'je.status = :status',
-        { status: JournalEntryStatus.POSTED },
+        'je.status IN (:...statuses)',
+        { statuses: [JournalEntryStatus.POSTED, JournalEntryStatus.REVERSED] },
       );
     });
 

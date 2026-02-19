@@ -1746,34 +1746,36 @@ const OrdersPage: React.FC = () => {
                                   );
                                 }
 
-                                return allPayments.map((payment: any, index: number) => (
-                                  <Box key={payment.id} component="span">
-                                    <Typography
-                                      component="button"
-                                      onClick={(event) => handleNavigateToPayment(payment.id, event)}
-                                      sx={{
-                                        fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
-                                        color: 'primary.main',
-                                        cursor: 'pointer',
-                                        textDecoration: 'none',
-                                        border: 'none',
-                                        background: 'none',
-                                        padding: 0,
-                                        fontFamily: 'inherit',
-                                        '&:hover': {
-                                          color: 'primary.dark'
-                                        }
-                                      }}
-                                    >
-                                      {payment.paymentNumber}
-                                    </Typography>
-                                    {index < allPayments.length - 1 && (
-                                      <Typography component="span" sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
-                                        ,
-                                      </Typography>
-                                    )}
-                                  </Box>
-                                ));
+                                return (
+                                  <Stack spacing={0.75}>
+                                    {allPayments.map((payment: any) => (
+                                      <Box
+                                        key={payment.id}
+                                        sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}
+                                      >
+                                        <Typography
+                                          component="button"
+                                          onClick={(event) => handleNavigateToPayment(payment.id, event)}
+                                          sx={{
+                                            fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
+                                            color: 'primary.main',
+                                            cursor: 'pointer',
+                                            textDecoration: 'none',
+                                            border: 'none',
+                                            background: 'none',
+                                            padding: 0,
+                                            fontFamily: 'inherit',
+                                            '&:hover': {
+                                              color: 'primary.dark'
+                                            }
+                                          }}
+                                        >
+                                          {payment.paymentNumber}
+                                        </Typography>
+                                      </Box>
+                                    ))}
+                                  </Stack>
+                                );
                               })()}
                             </TableCell>
                           </TableRow>

@@ -2252,6 +2252,14 @@ export class SalesOrderService {
         if (associatedPayments.length > 0) {
           // Log audit trail for payment deletion BEFORE deleting
           for (const payment of associatedPayments) {
+            try {
+              await this.accountingService.reverseSourceEntries('payment', payment.id, 'system');
+              this.logger.log(`Reversed accounting entries for payment ${payment.paymentNumber}`);
+            } catch (err) {
+              this.logger.error(`Failed to reverse JE for payment ${payment.id}: ${err.message}`);
+              // Continue - unpay proceeds even if accounting reversal fails
+            }
+
             await this.auditLogService.log(
               'DELETE',
               'Payment',
@@ -2402,6 +2410,15 @@ export class SalesOrderService {
     } catch (error) {
       console.error(`⚠️ Failed to delete stock movements for sales order ${order.orderNumber}:`, error.message);
       // Don't throw error - unfulfillment should still succeed
+    }
+
+    // Reverse accounting journal entry for this fulfillment
+    try {
+      await this.accountingService.reverseSourceEntries('sales_order', id, 'system');
+      this.logger.log(`Reversed accounting entries for sales order ${order.orderNumber}`);
+    } catch (err) {
+      this.logger.error(`Failed to reverse JE for order ${id}: ${err.message}`);
+      // Continue - unfulfill proceeds even if accounting reversal fails
     }
 
     // Mark as unfulfilled

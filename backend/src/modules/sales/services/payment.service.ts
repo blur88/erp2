@@ -400,7 +400,11 @@ export class PaymentService {
     return this.mapToResponseDto(await this.findPaymentWithRelations(savedPayment.id));
   }
 
-  async refund(refundDto: { paymentId: string; amount: number; reason?: string }): Promise<PaymentResponseDto> {
+  async refund(refundDto: {
+    paymentId: string;
+    amount: number;
+    reason?: string;
+  }): Promise<PaymentResponseDto> {
     const originalPayment = await this.findPaymentWithRelations(refundDto.paymentId);
 
     if (originalPayment.status !== PaymentStatus.COMPLETED) {
@@ -410,6 +414,8 @@ export class PaymentService {
     if (refundDto.amount > Number(originalPayment.amount)) {
       throw new BadRequestException('Refund amount cannot exceed original payment amount');
     }
+
+    const refundMethodCode = originalPayment.paymentMethodEntity?.code || 'CASH';
 
     // Create a refund payment record (negative amount)
     const refundPayment = this.paymentRepository.create({
@@ -435,6 +441,15 @@ export class PaymentService {
       await this.invoiceRepository.save(originalPayment.invoice);
     }
 
+    try {
+      await this.accountingService.reverseSourceEntries('payment', originalPayment.id, 'system');
+    } catch (err) {
+      this.logger.error(
+        `Failed to post refund accounting entry for payment ${originalPayment.id}: ${err.message}`,
+      );
+      // Refund still succeeds - accounting inconsistency is logged
+    }
+
     // Log audit trail
     await this.auditLogService.log(
       'CREATE',
@@ -447,6 +462,7 @@ export class PaymentService {
           amount: savedRefund.amount,
           status: savedRefund.status,
           originalPaymentId: originalPayment.id,
+          refundMethodCode,
         },
       }
     );

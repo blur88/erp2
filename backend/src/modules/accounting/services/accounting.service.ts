@@ -8,7 +8,7 @@ import { JournalEntryService } from './journal-entry.service';
 import { AccountMappingService } from './account-mapping.service';
 import { FiscalPeriodService } from './fiscal-period.service';
 import { MappingType } from '../../../database/entities/account-mapping.entity';
-import { JournalEntry } from '../../../database/entities/journal-entry.entity';
+import { JournalEntry, JournalEntryStatus } from '../../../database/entities/journal-entry.entity';
 import { SalesOrder } from '../../../database/entities/sales-order.entity';
 import { SalesOrderItem } from '../../../database/entities/sales-order-item.entity';
 import { Payment } from '../../../database/entities/payment.entity';
@@ -48,6 +48,18 @@ export class AccountingService {
     userId: string,
   ): Promise<JournalEntry> {
     this.logger.log(`Posting sales order entry for ${salesOrder.orderNumber}`);
+
+    // Guard: skip if an active (POSTED or DRAFT) entry already exists for this source
+    const existingEntries = await this.journalEntryService.findBySource('sales_order', salesOrder.id);
+    const activeEntry = existingEntries.find(
+      e => e.status === JournalEntryStatus.POSTED || e.status === JournalEntryStatus.DRAFT,
+    );
+    if (activeEntry) {
+      this.logger.warn(
+        `Journal entry already exists for sales order ${salesOrder.orderNumber} (${activeEntry.referenceNumber}) - skipping duplicate`,
+      );
+      return activeEntry as any;
+    }
 
     // Get account mappings
     const mappings = await this.accountMappingService.getMappings();
@@ -695,6 +707,105 @@ export class AccountingService {
     const postedEntry = await this.journalEntryService.postEntry(entry.id, userId);
     this.logger.log(`Expense entry posted successfully: ${postedEntry.referenceNumber}`);
     return postedEntry as any;
+  }
+
+  async reverseSourceEntries(
+    sourceType: string,
+    sourceId: string,
+    userId: string,
+  ): Promise<void> {
+    this.logger.log(`Reversing source entries: ${sourceType}/${sourceId}`);
+
+    const entries = await this.journalEntryService.findBySource(sourceType, sourceId);
+
+    if (entries.length === 0) {
+      this.logger.warn(
+        `No journal entries found for ${sourceType}/${sourceId} - nothing to reverse`,
+      );
+      return;
+    }
+
+    const currentPeriod = await this.fiscalPeriodService.getCurrentPeriod();
+    if (!currentPeriod) {
+      throw new BadRequestException(
+        'No open fiscal period found. Please open a fiscal period before processing reversals.',
+      );
+    }
+
+    for (const entry of entries) {
+      if (entry.status !== JournalEntryStatus.POSTED || entry.reversedById) {
+        this.logger.warn(
+          `Skipping entry ${entry.id} - status: ${entry.status}, reversedById: ${entry.reversedById}`,
+        );
+        continue;
+      }
+
+      await this.journalEntryService.reverseEntryInPeriod(entry.id, currentPeriod.id, userId);
+      this.logger.log(`Reversed entry ${entry.id} into period ${currentPeriod.id}`);
+    }
+  }
+
+  async reversePaymentEntry(
+    originalPaymentId: string,
+    originalMethodCode: string,
+    refundMethodCode: string,
+    amount: number,
+    userId: string,
+  ): Promise<void> {
+    this.logger.log(
+      `Reversing payment entry (diff method): ${originalMethodCode} -> ${refundMethodCode}, amount: ${amount}`,
+    );
+
+    const currentPeriod = await this.fiscalPeriodService.getCurrentPeriod();
+    if (!currentPeriod) {
+      throw new BadRequestException(
+        'No open fiscal period found. Please open a fiscal period before processing refunds.',
+      );
+    }
+
+    const mappings = await this.accountMappingService.getMappings();
+    const originalKey = `payment_${originalMethodCode.toLowerCase()}`;
+    const refundKey = `payment_${refundMethodCode.toLowerCase()}`;
+
+    if (!mappings[originalKey]) {
+      throw new BadRequestException(
+        `No account mapped for payment method "${originalMethodCode}". Please configure account mappings.`,
+      );
+    }
+
+    if (!mappings[refundKey]) {
+      throw new BadRequestException(
+        `No account mapped for refund payment method "${refundMethodCode}". Please configure account mappings.`,
+      );
+    }
+
+    const lines: CreateJournalEntryLineDto[] = [
+      {
+        accountId: mappings[originalKey],
+        debitAmount: amount,
+        creditAmount: 0,
+        memo: `Refund: clear original ${originalMethodCode} receipt`,
+      },
+      {
+        accountId: mappings[refundKey],
+        debitAmount: 0,
+        creditAmount: amount,
+        memo: `Refund: paid out via ${refundMethodCode}`,
+      },
+    ];
+
+    const entryDto: CreateJournalEntryDto = {
+      entryDate: new Date(),
+      description: `Refund via ${refundMethodCode} for payment ${originalPaymentId}`,
+      fiscalPeriodId: currentPeriod.id,
+      sourceType: 'payment_refund',
+      sourceId: originalPaymentId,
+      lines,
+    };
+
+    const entry = await this.journalEntryService.create(entryDto, userId);
+    await this.journalEntryService.postEntry(entry.id, userId);
+    this.logger.log(`Refund transfer JE posted for payment ${originalPaymentId}`);
   }
 
   /**

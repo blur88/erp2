@@ -291,6 +291,14 @@ export const salesApi = {
     return ApiService.post('payments/bulk-restore', { paymentIds })
   },
 
+  async refundPayment(data: {
+    paymentId: string;
+    amount: number;
+    reason?: string;
+  }) {
+    return ApiService.post('payments/refund', data)
+  },
+
 
   // Reports
   async getSalesReport(params: {

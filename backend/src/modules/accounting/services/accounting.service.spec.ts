@@ -56,6 +56,8 @@ describe('AccountingService', () => {
           useValue: {
             create: jest.fn(),
             postEntry: jest.fn(),
+            findBySource: jest.fn(),
+            reverseEntryInPeriod: jest.fn(),
           },
         },
         {
@@ -68,6 +70,7 @@ describe('AccountingService', () => {
           provide: FiscalPeriodService,
           useValue: {
             validatePeriod: jest.fn(),
+            getCurrentPeriod: jest.fn(),
           },
         },
       ],
@@ -124,6 +127,7 @@ describe('AccountingService', () => {
         message: 'Period is open',
         period: mockOpenPeriod as any,
       });
+      journalEntryService.findBySource.mockResolvedValue([]);
       journalEntryService.create.mockResolvedValue(mockJournalEntry as any);
       journalEntryService.postEntry.mockResolvedValue(mockJournalEntry as any);
     });
@@ -815,6 +819,136 @@ describe('AccountingService', () => {
 
       await expect(
         (service as any).validatePeriodOpen(new Date('2026-01-15')),
+      ).rejects.toThrow(BadRequestException);
+    });
+  });
+
+  describe('reverseSourceEntries', () => {
+    const openPeriod = {
+      id: 'period-open-123',
+      status: FiscalPeriodStatus.OPEN,
+      startDate: new Date('2026-02-01'),
+      endDate: new Date('2026-02-28'),
+    };
+
+    const postedEntry = {
+      id: 'je-123',
+      status: 'POSTED',
+      reversedById: null,
+      sourceType: 'payment',
+      sourceId: 'pay-123',
+    };
+
+    it('should reverse all posted entries matching sourceType and sourceId', async () => {
+      journalEntryService.findBySource.mockResolvedValue([postedEntry as any]);
+      fiscalPeriodService.getCurrentPeriod.mockResolvedValue(openPeriod as any);
+      journalEntryService.reverseEntryInPeriod.mockResolvedValue({} as any);
+
+      await service.reverseSourceEntries('payment', 'pay-123', 'system');
+
+      expect(journalEntryService.reverseEntryInPeriod).toHaveBeenCalledWith(
+        'je-123',
+        'period-open-123',
+        'system',
+      );
+    });
+
+    it('should throw BadRequestException if no open fiscal period', async () => {
+      journalEntryService.findBySource.mockResolvedValue([postedEntry as any]);
+      fiscalPeriodService.getCurrentPeriod.mockResolvedValue(null);
+
+      await expect(
+        service.reverseSourceEntries('payment', 'pay-123', 'system'),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should skip entries that are already reversed', async () => {
+      const alreadyReversed = { ...postedEntry, reversedById: 'je-456' };
+      journalEntryService.findBySource.mockResolvedValue([alreadyReversed as any]);
+      fiscalPeriodService.getCurrentPeriod.mockResolvedValue(openPeriod as any);
+      journalEntryService.reverseEntryInPeriod.mockResolvedValue({} as any);
+
+      await service.reverseSourceEntries('payment', 'pay-123', 'system');
+
+      expect(journalEntryService.reverseEntryInPeriod).not.toHaveBeenCalled();
+    });
+
+    it('should skip entries that are not POSTED', async () => {
+      const draftEntry = { ...postedEntry, status: 'DRAFT', reversedById: null };
+      journalEntryService.findBySource.mockResolvedValue([draftEntry as any]);
+      fiscalPeriodService.getCurrentPeriod.mockResolvedValue(openPeriod as any);
+      journalEntryService.reverseEntryInPeriod.mockResolvedValue({} as any);
+
+      await service.reverseSourceEntries('payment', 'pay-123', 'system');
+
+      expect(journalEntryService.reverseEntryInPeriod).not.toHaveBeenCalled();
+    });
+
+    it('should do nothing if no entries found', async () => {
+      journalEntryService.findBySource.mockResolvedValue([]);
+
+      await service.reverseSourceEntries('payment', 'pay-123', 'system');
+
+      expect(fiscalPeriodService.getCurrentPeriod).not.toHaveBeenCalled();
+      expect(journalEntryService.reverseEntryInPeriod).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('reversePaymentEntry', () => {
+    const openPeriod = {
+      id: 'period-open-123',
+      status: FiscalPeriodStatus.OPEN,
+      startDate: new Date('2026-02-01'),
+      endDate: new Date('2026-02-28'),
+    };
+
+    it('should create a 2-line JE transferring between payment accounts', async () => {
+      fiscalPeriodService.getCurrentPeriod.mockResolvedValue(openPeriod as any);
+      accountMappingService.getMappings.mockResolvedValue({
+        payment_cash: 'cash-account-id',
+        payment_bank: 'bank-account-id',
+        [MappingType.PAYMENT_AR]: 'ar-account-id',
+      });
+      journalEntryService.create.mockResolvedValue({ id: 'je-new' } as any);
+      journalEntryService.postEntry.mockResolvedValue({ id: 'je-new', status: 'POSTED' } as any);
+
+      await service.reversePaymentEntry('original-pay-id', 'CASH', 'BANK', 200, 'system');
+
+      expect(journalEntryService.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          lines: expect.arrayContaining([
+            expect.objectContaining({
+              accountId: 'cash-account-id',
+              debitAmount: 200,
+              creditAmount: 0,
+            }),
+            expect.objectContaining({
+              accountId: 'bank-account-id',
+              debitAmount: 0,
+              creditAmount: 200,
+            }),
+          ]),
+        }),
+        'system',
+      );
+    });
+
+    it('should throw if no open fiscal period', async () => {
+      fiscalPeriodService.getCurrentPeriod.mockResolvedValue(null);
+
+      await expect(
+        service.reversePaymentEntry('pay-id', 'CASH', 'BANK', 100, 'system'),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should throw if original payment method account not mapped', async () => {
+      fiscalPeriodService.getCurrentPeriod.mockResolvedValue(openPeriod as any);
+      accountMappingService.getMappings.mockResolvedValue({
+        payment_bank: 'bank-account-id',
+      });
+
+      await expect(
+        service.reversePaymentEntry('pay-id', 'CASH', 'BANK', 100, 'system'),
       ).rejects.toThrow(BadRequestException);
     });
   });

@@ -24,6 +24,8 @@ describe('SalesOrderService', () => {
   let salesOrderRepository: jest.Mocked<Repository<SalesOrder>>;
   let accountingService: jest.Mocked<AccountingService>;
   let inventoryIntegrationService: jest.Mocked<InventoryIntegrationService>;
+  let stockMovementService: jest.Mocked<StockMovementService>;
+  let baseCostCalculator: jest.Mocked<BaseCostCalculatorService>;
   let auditLogService: jest.Mocked<AuditLogService>;
   let dataSource: jest.Mocked<DataSource>;
 
@@ -144,6 +146,7 @@ describe('SalesOrderService', () => {
           provide: AccountingService,
           useValue: {
             postSalesOrderEntry: jest.fn(),
+            reverseSourceEntries: jest.fn(),
           },
         },
       ],
@@ -153,6 +156,8 @@ describe('SalesOrderService', () => {
     salesOrderRepository = module.get(getRepositoryToken(SalesOrder));
     accountingService = module.get(AccountingService);
     inventoryIntegrationService = module.get(InventoryIntegrationService);
+    stockMovementService = module.get(StockMovementService);
+    baseCostCalculator = module.get(BaseCostCalculatorService);
     auditLogService = module.get(AuditLogService);
   });
 
@@ -306,6 +311,135 @@ describe('SalesOrderService', () => {
       await expect(service.fulfillOrder(mockSalesOrder.id)).rejects.toThrow(
         ConflictException,
       );
+    });
+  });
+
+  describe('unpayOrder', () => {
+    it('should call reverseSourceEntries for each payment when unpaying', async () => {
+      const mockOrder = { id: 'so-123', orderNumber: 'SO-000026', isFulfilled: false, paidAmount: 500 };
+      const mockInvoice = {
+        id: 'inv-123',
+        salesOrderId: 'so-123',
+        paidAmount: 500,
+        calculateTotals: jest.fn(),
+        updateStatus: jest.fn(),
+      };
+      const mockPayments = [
+        { id: 'pay-1', paymentNumber: 'PAY-001', amount: 300, status: 'COMPLETED' },
+        { id: 'pay-2', paymentNumber: 'PAY-002', amount: 200, status: 'COMPLETED' },
+      ];
+
+      const paymentRepository = {
+        find: jest.fn().mockResolvedValue(mockPayments),
+        softDelete: jest.fn().mockResolvedValue({}),
+      };
+      const invoiceRepository = {
+        findOne: jest.fn().mockResolvedValue(mockInvoice),
+        save: jest.fn().mockResolvedValue(mockInvoice),
+      };
+
+      (salesOrderRepository as any).manager = {
+        getRepository: jest.fn()
+          .mockReturnValueOnce(paymentRepository)
+          .mockReturnValueOnce(invoiceRepository),
+      };
+
+      salesOrderRepository.findOne.mockResolvedValue(mockOrder as any);
+      salesOrderRepository.save.mockResolvedValue({ ...mockOrder, paidAmount: 0 } as any);
+      jest.spyOn(service, 'findById').mockResolvedValue({ id: 'so-123' } as any);
+      auditLogService.log.mockResolvedValue(undefined);
+      accountingService.reverseSourceEntries.mockResolvedValue(undefined);
+
+      await service.unpayOrder('so-123');
+
+      expect(accountingService.reverseSourceEntries).toHaveBeenCalledTimes(2);
+      expect(accountingService.reverseSourceEntries).toHaveBeenCalledWith('payment', 'pay-1', 'system');
+      expect(accountingService.reverseSourceEntries).toHaveBeenCalledWith('payment', 'pay-2', 'system');
+      expect(paymentRepository.softDelete).toHaveBeenCalledWith(['pay-1', 'pay-2']);
+    });
+
+    it('should still succeed if accounting reversal fails', async () => {
+      const mockOrder = { id: 'so-123', orderNumber: 'SO-000026', isFulfilled: false, paidAmount: 500 };
+      const mockInvoice = {
+        id: 'inv-123',
+        salesOrderId: 'so-123',
+        paidAmount: 500,
+        calculateTotals: jest.fn(),
+        updateStatus: jest.fn(),
+      };
+      const mockPayments = [
+        { id: 'pay-1', paymentNumber: 'PAY-001', amount: 300, status: 'COMPLETED' },
+      ];
+
+      const paymentRepository = {
+        find: jest.fn().mockResolvedValue(mockPayments),
+        softDelete: jest.fn().mockResolvedValue({}),
+      };
+      const invoiceRepository = {
+        findOne: jest.fn().mockResolvedValue(mockInvoice),
+        save: jest.fn().mockResolvedValue(mockInvoice),
+      };
+
+      (salesOrderRepository as any).manager = {
+        getRepository: jest.fn()
+          .mockReturnValueOnce(paymentRepository)
+          .mockReturnValueOnce(invoiceRepository),
+      };
+
+      salesOrderRepository.findOne.mockResolvedValue(mockOrder as any);
+      salesOrderRepository.save.mockResolvedValue({ ...mockOrder, paidAmount: 0 } as any);
+      jest.spyOn(service, 'findById').mockResolvedValue({ id: 'so-123' } as any);
+      auditLogService.log.mockResolvedValue(undefined);
+      accountingService.reverseSourceEntries.mockRejectedValue(new Error('No open period'));
+
+      await expect(service.unpayOrder('so-123')).resolves.toBeDefined();
+      expect(paymentRepository.softDelete).toHaveBeenCalled();
+    });
+  });
+
+  describe('unfulfillOrder', () => {
+    it('should call reverseSourceEntries with sales_order sourceType when unfulfilling', async () => {
+      const mockOrder = {
+        id: 'so-123',
+        orderNumber: 'SO-000026',
+        isFulfilled: true,
+        items: [{ productId: 'prod-1', quantity: 5, product: { id: 'prod-1' } }],
+      };
+
+      salesOrderRepository.findOne.mockResolvedValue(mockOrder as any);
+      salesOrderRepository.save.mockResolvedValue({ ...mockOrder, isFulfilled: false } as any);
+      jest.spyOn(service, 'findById').mockResolvedValue({ id: 'so-123' } as any);
+      baseCostCalculator.restoreStock.mockResolvedValue(undefined);
+      stockMovementService.deleteByReference.mockResolvedValue({ deletedCount: 1 } as any);
+      auditLogService.log.mockResolvedValue(undefined);
+      accountingService.reverseSourceEntries.mockResolvedValue(undefined);
+
+      await service.unfulfillOrder('so-123');
+
+      expect(accountingService.reverseSourceEntries).toHaveBeenCalledWith(
+        'sales_order',
+        'so-123',
+        'system',
+      );
+    });
+
+    it('should still succeed if accounting reversal fails', async () => {
+      const mockOrder = {
+        id: 'so-123',
+        orderNumber: 'SO-000026',
+        isFulfilled: true,
+        items: [{ productId: 'prod-1', quantity: 5, product: { id: 'prod-1' } }],
+      };
+
+      salesOrderRepository.findOne.mockResolvedValue(mockOrder as any);
+      salesOrderRepository.save.mockResolvedValue({ ...mockOrder, isFulfilled: false } as any);
+      jest.spyOn(service, 'findById').mockResolvedValue({ id: 'so-123' } as any);
+      baseCostCalculator.restoreStock.mockResolvedValue(undefined);
+      stockMovementService.deleteByReference.mockResolvedValue({ deletedCount: 1 } as any);
+      auditLogService.log.mockResolvedValue(undefined);
+      accountingService.reverseSourceEntries.mockRejectedValue(new Error('No open period'));
+
+      await expect(service.unfulfillOrder('so-123')).resolves.toBeDefined();
     });
   });
 });
