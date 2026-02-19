@@ -324,7 +324,7 @@ const GeneralLedgerPage: React.FC = () => {
                     </Typography>
                     <Typography
                       variant="h5"
-                      sx={{ fontFamily: 'monospace', fontWeight: 700 }}
+                      sx={{ fontWeight: 700 }}
                     >
                       {data.account.code}
                     </Typography>
@@ -376,8 +376,7 @@ const GeneralLedgerPage: React.FC = () => {
                     <Typography
                       variant="h6"
                       sx={{
-                        fontFamily: 'monospace',
-                        fontWeight: 700,
+                                                fontWeight: 700,
                         color: getBalanceColor(data.openingBalance),
                       }}
                     >
@@ -482,8 +481,7 @@ const GeneralLedgerPage: React.FC = () => {
                           <Typography
                             variant="body2"
                             sx={{
-                              fontFamily: 'monospace',
-                              cursor: 'pointer',
+                                                            cursor: 'pointer',
                               textDecoration: 'none',
                               '&:hover': {
                                 textDecoration: 'underline',
@@ -503,8 +501,7 @@ const GeneralLedgerPage: React.FC = () => {
                           <Typography
                             variant="body2"
                             sx={{
-                              fontFamily: 'monospace',
-                              fontWeight: transaction.debitAmount !== 0 ? 600 : 400,
+                                                            fontWeight: transaction.debitAmount !== 0 ? 600 : 400,
                               color:
                                 transaction.debitAmount !== 0
                                   ? 'text.primary'
@@ -520,8 +517,7 @@ const GeneralLedgerPage: React.FC = () => {
                           <Typography
                             variant="body2"
                             sx={{
-                              fontFamily: 'monospace',
-                              fontWeight: transaction.creditAmount !== 0 ? 600 : 400,
+                                                            fontWeight: transaction.creditAmount !== 0 ? 600 : 400,
                               color:
                                 transaction.creditAmount !== 0
                                   ? 'text.primary'
@@ -537,8 +533,7 @@ const GeneralLedgerPage: React.FC = () => {
                           <Typography
                             variant="body2"
                             sx={{
-                              fontFamily: 'monospace',
-                              fontWeight: 700,
+                                                            fontWeight: 700,
                               color: getBalanceColor(transaction.runningBalance),
                             }}
                           >
@@ -583,8 +578,7 @@ const GeneralLedgerPage: React.FC = () => {
                       <Typography
                         variant="h6"
                         sx={{
-                          fontFamily: 'monospace',
-                          fontWeight: 700,
+                                                    fontWeight: 700,
                           color: getBalanceColor(data.openingBalance),
                         }}
                       >
@@ -602,8 +596,7 @@ const GeneralLedgerPage: React.FC = () => {
                       <Typography
                         variant="h6"
                         sx={{
-                          fontFamily: 'monospace',
-                          fontWeight: 700,
+                                                    fontWeight: 700,
                           color: 'text.primary',
                         }}
                       >
@@ -621,8 +614,7 @@ const GeneralLedgerPage: React.FC = () => {
                       <Typography
                         variant="h6"
                         sx={{
-                          fontFamily: 'monospace',
-                          fontWeight: 700,
+                                                    fontWeight: 700,
                           color: 'text.primary',
                         }}
                       >
@@ -651,8 +643,7 @@ const GeneralLedgerPage: React.FC = () => {
                       <Typography
                         variant="h5"
                         sx={{
-                          fontFamily: 'monospace',
-                          fontWeight: 700,
+                                                    fontWeight: 700,
                           color: getBalanceColor(data.closingBalance),
                         }}
                       >

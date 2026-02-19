@@ -113,7 +113,7 @@ const BalanceSheetSection: React.FC<SectionProps> = ({ title, accounts, subtotal
                 {accounts.map((account) => (
                   <TableRow key={account.id} hover>
                     <TableCell>
-                      <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
+                      <Typography variant="body2">
                         {account.code}
                       </Typography>
                     </TableCell>
@@ -124,7 +124,6 @@ const BalanceSheetSection: React.FC<SectionProps> = ({ title, accounts, subtotal
                       <Typography
                         variant="body2"
                         sx={{
-                          fontFamily: 'monospace',
                           fontWeight: account.balance !== 0 ? 600 : 400,
                           color: account.balance !== 0 ? 'text.primary' : 'text.secondary',
                         }}
@@ -150,7 +149,7 @@ const BalanceSheetSection: React.FC<SectionProps> = ({ title, accounts, subtotal
                   <TableCell align="right">
                     <Typography
                       variant="body1"
-                      sx={{ fontFamily: 'monospace', fontWeight: 700 }}
+                      sx={{ fontWeight: 700 }}
                     >
                       {formatCurrency(Math.abs(subtotal))}
                     </Typography>
@@ -473,7 +472,6 @@ const BalanceSheetPage: React.FC = () => {
                           data-testid="balance-sheet-net-income-value"
                           variant="h6"
                           sx={{
-                            fontFamily: 'monospace',
                             fontWeight: 800,
                             color: netIncome >= 0 ? 'success.main' : 'error.main',
                           }}
@@ -520,7 +518,7 @@ const BalanceSheetPage: React.FC = () => {
                   </Typography>
                   <Typography
                     variant="h5"
-                    sx={{ fontFamily: 'monospace', fontWeight: 700, color: 'primary.main' }}
+                    sx={{ fontWeight: 700, color: 'primary.main' }}
                   >
                     {formatCurrency(Math.abs(totalAssets))}
                   </Typography>
@@ -548,7 +546,7 @@ const BalanceSheetPage: React.FC = () => {
                   </Typography>
                   <Typography
                     variant="h5"
-                    sx={{ fontFamily: 'monospace', fontWeight: 700, color: 'success.main' }}
+                    sx={{ fontWeight: 700, color: 'success.main' }}
                   >
                     {formatCurrency(Math.abs(totalLiabilitiesAndEquity))}
                   </Typography>
@@ -600,7 +598,7 @@ const BalanceSheetPage: React.FC = () => {
                           </Typography>
                           <Typography
                             variant="body2"
-                            sx={{ fontFamily: 'monospace', color: 'error.main' }}
+                            sx={{ color: 'error.main' }}
                           >
                             Difference: {formatCurrency(Math.abs(totalAssets - totalLiabilitiesAndEquity))}
                           </Typography>

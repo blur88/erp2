@@ -436,7 +436,7 @@ const AccountActivityPage: React.FC = () => {
                     </Typography>
                     <Typography
                       variant="h5"
-                      sx={{ fontFamily: 'monospace', fontWeight: 700 }}
+                      sx={{ fontWeight: 700 }}
                     >
                       {data.account.code}
                     </Typography>
@@ -587,8 +587,7 @@ const AccountActivityPage: React.FC = () => {
                             <Typography
                               variant="body2"
                               sx={{
-                                fontFamily: 'monospace',
-                                cursor: 'pointer',
+                                                                cursor: 'pointer',
                                 color: 'primary.main',
                                 textDecoration: 'none',
                                 '&:hover': {
@@ -625,8 +624,7 @@ const AccountActivityPage: React.FC = () => {
                             <Typography
                               variant="body2"
                               sx={{
-                                fontFamily: 'monospace',
-                                fontWeight: 700,
+                                                                fontWeight: 700,
                                 color: amount >= 0 ? 'text.primary' : 'error.main',
                               }}
                             >
@@ -696,8 +694,7 @@ const AccountActivityPage: React.FC = () => {
                       <Typography
                         variant="h6"
                         sx={{
-                          fontFamily: 'monospace',
-                          fontWeight: 700,
+                                                    fontWeight: 700,
                           color: 'text.primary',
                         }}
                       >
@@ -724,8 +721,7 @@ const AccountActivityPage: React.FC = () => {
                       <Typography
                         variant="h5"
                         sx={{
-                          fontFamily: 'monospace',
-                          fontWeight: 700,
+                                                    fontWeight: 700,
                           color: calculateTotalAmount() >= 0 ? 'text.primary' : 'error.main',
                         }}
                       >

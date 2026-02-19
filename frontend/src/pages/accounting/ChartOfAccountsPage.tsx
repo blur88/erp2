@@ -393,7 +393,6 @@ const ChartOfAccountsPage: React.FC = () => {
                       <Typography
                         variant="caption"
                         sx={{
-                          fontFamily: 'monospace',
                           fontWeight: 700,
                           color: `${color}.dark`,
                           backgroundColor: `${color}.100`,

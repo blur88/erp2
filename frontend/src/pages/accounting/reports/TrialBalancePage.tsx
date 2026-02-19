@@ -285,7 +285,7 @@ const TrialBalancePage: React.FC = () => {
                     {data.accounts.map((account, index) => (
                       <TableRow key={`${account.accountCode}-${index}`} hover>
                         <TableCell>
-                          <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
+                          <Typography variant="body2">
                             {account.accountCode}
                           </Typography>
                         </TableCell>
@@ -299,8 +299,7 @@ const TrialBalancePage: React.FC = () => {
                           <Typography
                             variant="body2"
                             sx={{
-                              fontFamily: 'monospace',
-                              fontWeight: account.debit > 0 ? 600 : 400,
+                                                            fontWeight: account.debit > 0 ? 600 : 400,
                               color: account.debit > 0 ? 'text.primary' : 'text.secondary',
                             }}
                           >
@@ -311,8 +310,7 @@ const TrialBalancePage: React.FC = () => {
                           <Typography
                             variant="body2"
                             sx={{
-                              fontFamily: 'monospace',
-                              fontWeight: account.credit > 0 ? 600 : 400,
+                                                            fontWeight: account.credit > 0 ? 600 : 400,
                               color:
                                 account.credit > 0 ? 'text.primary' : 'text.secondary',
                             }}
@@ -340,7 +338,7 @@ const TrialBalancePage: React.FC = () => {
                       <TableCell align="right">
                         <Typography
                           variant="body1"
-                          sx={{ fontFamily: 'monospace', fontWeight: 700 }}
+                          sx={{ fontWeight: 700 }}
                         >
                           {formatCurrency(totalDebit)}
                         </Typography>
@@ -348,7 +346,7 @@ const TrialBalancePage: React.FC = () => {
                       <TableCell align="right">
                         <Typography
                           variant="body1"
-                          sx={{ fontFamily: 'monospace', fontWeight: 700 }}
+                          sx={{ fontWeight: 700 }}
                         >
                           {formatCurrency(totalCredit)}
                         </Typography>

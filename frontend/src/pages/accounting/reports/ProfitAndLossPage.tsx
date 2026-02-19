@@ -105,7 +105,7 @@ export const ProfitAndLossSection: React.FC<SectionProps> = ({ title, accounts, 
                 {accounts.map((account) => (
                   <TableRow key={account.id} hover>
                     <TableCell>
-                      <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
+                      <Typography variant="body2">
                         {account.code}
                       </Typography>
                     </TableCell>
@@ -116,7 +116,6 @@ export const ProfitAndLossSection: React.FC<SectionProps> = ({ title, accounts, 
                       <Typography
                         variant="body2"
                         sx={{
-                          fontFamily: 'monospace',
                           fontWeight: account.amount !== 0 ? 600 : 400,
                           color: account.amount !== 0 ? 'text.primary' : 'text.secondary',
                         }}
@@ -146,7 +145,7 @@ export const ProfitAndLossSection: React.FC<SectionProps> = ({ title, accounts, 
                   <TableCell align="right">
                     <Typography
                       variant="body1"
-                      sx={{ fontFamily: 'monospace', fontWeight: 700, color: `${color}.main` }}
+                      sx={{ fontWeight: 700, color: `${color}.main` }}
                     >
                       {formatCurrency(subtotal)}
                     </Typography>
@@ -451,7 +450,6 @@ const ProfitAndLossPage: React.FC = () => {
                   <Typography
                     variant="h6"
                     sx={{
-                      fontFamily: 'monospace',
                       fontWeight: 700,
                       color: 'info.main',
                     }}
@@ -490,7 +488,6 @@ const ProfitAndLossPage: React.FC = () => {
                   <Typography
                     variant="h6"
                     sx={{
-                      fontFamily: 'monospace',
                       fontWeight: 700,
                       color: 'success.main',
                     }}
@@ -534,7 +531,6 @@ const ProfitAndLossPage: React.FC = () => {
                   <Typography
                     variant="h3"
                     sx={{
-                      fontFamily: 'monospace',
                       fontWeight: 700,
                       color: 'inherit',
                     }}
