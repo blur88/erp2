@@ -148,7 +148,7 @@ backend/src/migrations/*.js.map
 
 # Report exports (generated files)
 exports/
-reports/
+/reports/
 *.xlsx
 *.pdf
 backend/exports/
