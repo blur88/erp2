@@ -21,6 +21,8 @@ import {
   MenuItem,
   useTheme,
   useMediaQuery,
+  Collapse,
+  Grid,
 } from '@mui/material'
 import {
   Add as AddIcon,
@@ -30,6 +32,7 @@ import {
   AccountBalance as AccountIcon,
   CloudUpload as SeedIcon,
   Restore as RestoreIcon,
+  Info as InfoIcon,
 } from '@mui/icons-material'
 import { useDispatch, useSelector } from 'react-redux'
 import { useNotification } from '@/hooks/useNotification'
@@ -67,6 +70,7 @@ const ChartOfAccountsPage: React.FC = () => {
   const [accountToDelete, setAccountToDelete] = useState<ChartOfAccount | null>(null)
   const [seedConfirmOpen, setSeedConfirmOpen] = useState(false)
   const [deletedDialogOpen, setDeletedDialogOpen] = useState(false)
+  const [codeGuideOpen, setCodeGuideOpen] = useState(false)
 
   // Filters
   const [searchTerm, setSearchTerm] = useState('')
@@ -307,6 +311,114 @@ const ChartOfAccountsPage: React.FC = () => {
           </Button>
         </Box>
       </Box>
+
+      {/* Code Range Guide */}
+      <Paper variant="outlined" sx={{ mb: 3, borderColor: 'info.light' }}>
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            px: 2,
+            py: 1.25,
+            cursor: 'pointer',
+            '&:hover': { backgroundColor: 'action.hover' },
+            borderRadius: 1,
+          }}
+          onClick={() => setCodeGuideOpen(prev => !prev)}
+        >
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <InfoIcon sx={{ fontSize: 18, color: 'info.main' }} />
+            <Typography variant="body2" sx={{ fontWeight: 600, color: 'info.main' }}>
+              Account Code Reference
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              — click to {codeGuideOpen ? 'hide' : 'show'} code range guide
+            </Typography>
+          </Box>
+        </Box>
+        <Collapse in={codeGuideOpen}>
+          <Box sx={{ px: 2, pb: 2 }}>
+            <Grid container spacing={1.5}>
+              {[
+                {
+                  range: '1000 – 1999',
+                  label: 'Assets',
+                  desc: 'Cash, bank accounts, receivables, inventory, fixed assets',
+                  color: 'success' as const,
+                },
+                {
+                  range: '2000 – 2999',
+                  label: 'Liabilities',
+                  desc: 'Accounts payable, loans, credit cards, accrued expenses',
+                  color: 'error' as const,
+                },
+                {
+                  range: '3000 – 3999',
+                  label: 'Equity',
+                  desc: "Owner's equity, retained earnings, dividends",
+                  color: 'primary' as const,
+                },
+                {
+                  range: '4000 – 4999',
+                  label: 'Revenue',
+                  desc: 'Sales revenue, service income, other income — shown in P&L Revenue section',
+                  color: 'info' as const,
+                },
+                {
+                  range: '5000 – 5999',
+                  label: 'Cost of Goods Sold (COGS)',
+                  desc: 'Direct costs: COGS, inventory cost — shown in P&L COGS section',
+                  color: 'warning' as const,
+                },
+                {
+                  range: '6000+',
+                  label: 'Operating Expenses',
+                  desc: 'Salaries, rent, utilities, marketing, admin — shown in P&L Operating Expenses section',
+                  color: 'warning' as const,
+                },
+              ].map(({ range, label, desc, color }) => (
+                <Grid size={{ xs: 12, sm: 6, md: 4 }} key={range}>
+                  <Box
+                    sx={{
+                      p: 1.5,
+                      borderRadius: 1,
+                      border: 1,
+                      borderColor: `${color}.light`,
+                      backgroundColor: `${color}.50`,
+                      height: '100%',
+                    }}
+                  >
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+                      <Typography
+                        variant="caption"
+                        sx={{
+                          fontFamily: 'monospace',
+                          fontWeight: 700,
+                          color: `${color}.dark`,
+                          backgroundColor: `${color}.100`,
+                          px: 0.75,
+                          py: 0.25,
+                          borderRadius: 0.5,
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        {range}
+                      </Typography>
+                      <Typography variant="body2" sx={{ fontWeight: 600, color: `${color}.dark` }}>
+                        {label}
+                      </Typography>
+                    </Box>
+                    <Typography variant="caption" color="text.secondary">
+                      {desc}
+                    </Typography>
+                  </Box>
+                </Grid>
+              ))}
+            </Grid>
+          </Box>
+        </Collapse>
+      </Paper>
 
       {/* Filters and Search */}
       <Box sx={{
