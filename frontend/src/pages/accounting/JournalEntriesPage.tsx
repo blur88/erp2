@@ -582,12 +582,12 @@ const JournalEntriesPage: React.FC = () => {
                       )}
                     </TableCell>
                     <TableCell align="right">
-                      <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
+                      <Typography variant="body2">
                         {formatCurrency(entry.totalDebits)}
                       </Typography>
                     </TableCell>
                     <TableCell align="right">
-                      <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
+                      <Typography variant="body2">
                         {formatCurrency(entry.totalCredits)}
                       </Typography>
                     </TableCell>

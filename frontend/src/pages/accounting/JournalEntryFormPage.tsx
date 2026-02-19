@@ -630,7 +630,7 @@ const JournalEntryFormPage: React.FC = () => {
                       <Typography variant="body2" color="text.secondary" gutterBottom>
                         Total Debits
                       </Typography>
-                      <Typography variant="h6" sx={{ fontFamily: 'monospace' }}>
+                      <Typography variant="h6">
                         {formatCurrency(totalDebits)}
                       </Typography>
                     </Box>
@@ -640,7 +640,7 @@ const JournalEntryFormPage: React.FC = () => {
                       <Typography variant="body2" color="text.secondary" gutterBottom>
                         Total Credits
                       </Typography>
-                      <Typography variant="h6" sx={{ fontFamily: 'monospace' }}>
+                      <Typography variant="h6">
                         {formatCurrency(totalCredits)}
                       </Typography>
                     </Box>
@@ -653,7 +653,6 @@ const JournalEntryFormPage: React.FC = () => {
                       <Typography
                         variant="h6"
                         sx={{
-                          fontFamily: 'monospace',
                           color: isBalanced ? 'success.main' : 'error.main',
                         }}
                       >

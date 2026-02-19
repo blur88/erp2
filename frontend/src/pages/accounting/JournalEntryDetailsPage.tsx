@@ -405,10 +405,10 @@ const JournalEntryDetailsPage: React.FC = () => {
                             ? `${line.account.code} - ${line.account.name}`
                             : line.accountId}
                         </TableCell>
-                        <TableCell align="right" sx={{ fontFamily: 'monospace' }}>
+                        <TableCell align="right">
                           {line.debitAmount > 0 ? formatCurrency(line.debitAmount) : ''}
                         </TableCell>
-                        <TableCell align="right" sx={{ fontFamily: 'monospace' }}>
+                        <TableCell align="right">
                           {line.creditAmount > 0 ? formatCurrency(line.creditAmount) : ''}
                         </TableCell>
                         <TableCell>{line.memo || '-'}</TableCell>
@@ -419,13 +419,13 @@ const JournalEntryDetailsPage: React.FC = () => {
                       <TableCell sx={{ fontWeight: 600, borderTop: 2 }}>TOTALS</TableCell>
                       <TableCell
                         align="right"
-                        sx={{ fontWeight: 600, fontFamily: 'monospace', borderTop: 2 }}
+                        sx={{ fontWeight: 600, borderTop: 2 }}
                       >
                         {formatCurrency(entry.totalDebits)}
                       </TableCell>
                       <TableCell
                         align="right"
-                        sx={{ fontWeight: 600, fontFamily: 'monospace', borderTop: 2 }}
+                        sx={{ fontWeight: 600, borderTop: 2 }}
                       >
                         {formatCurrency(entry.totalCredits)}
                       </TableCell>
