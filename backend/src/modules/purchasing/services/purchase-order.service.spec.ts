@@ -327,4 +327,80 @@ describe('PurchaseOrderService', () => {
       await expect(service.returnGoods('po-1')).resolves.not.toThrow();
     });
   });
+
+  describe('recordOrderPayments', () => {
+    const mockDeletedPayment = {
+      id: 'vp-old-1',
+      paymentNumber: 'VP-000001',
+      purchaseOrderId: 'po-1',
+      deletedAt: new Date('2026-02-19'),
+      isActive: false,
+      paymentMethodId: 'pm-bank',
+      amount: 100,
+    } as unknown as VendorPayment;
+
+    const mockRestoredPayment = {
+      ...mockDeletedPayment,
+      deletedAt: null,
+      isActive: true,
+    } as unknown as VendorPayment;
+
+    const mockPurchaseOrderForPayment = {
+      ...mockPurchaseOrder,
+      supplierId: 'supplier-1',
+      paidAmount: 0,
+    } as unknown as PurchaseOrder;
+
+    beforeEach(() => {
+      purchaseOrderRepository.findOne.mockResolvedValue(mockPurchaseOrderForPayment);
+      purchaseOrderRepository.save.mockResolvedValue(mockPurchaseOrderForPayment);
+      vendorPaymentService.findOne.mockResolvedValue(mockRestoredPayment);
+      accountingService.postVendorPaymentEntry.mockResolvedValue(undefined);
+    });
+
+    it('creates a new vendor payment when no previous soft-deleted payment exists', async () => {
+      vendorPaymentRepository.findOne.mockResolvedValue(null);
+      vendorPaymentService.create.mockResolvedValue({ id: 'vp-new' } as VendorPayment);
+
+      await service.recordOrderPayments('po-1', [{ paymentMethodId: 'pm-cash', amount: 200 }]);
+
+      expect(vendorPaymentService.create).toHaveBeenCalled();
+      expect(vendorPaymentRepository.restore).not.toHaveBeenCalled();
+    });
+
+    it('restores the previous soft-deleted payment on re-pay', async () => {
+      vendorPaymentRepository.findOne.mockResolvedValue(mockDeletedPayment);
+      vendorPaymentRepository.restore.mockResolvedValue({} as any);
+      vendorPaymentRepository.save.mockResolvedValue(mockRestoredPayment);
+
+      await service.recordOrderPayments('po-1', [{ paymentMethodId: 'pm-cash', amount: 200 }]);
+
+      expect(vendorPaymentRepository.restore).toHaveBeenCalledWith('vp-old-1');
+    });
+
+    it('updates payment method and amount when restoring', async () => {
+      vendorPaymentRepository.findOne.mockResolvedValue(mockDeletedPayment);
+      vendorPaymentRepository.restore.mockResolvedValue({} as any);
+      vendorPaymentRepository.save.mockResolvedValue(mockRestoredPayment);
+
+      await service.recordOrderPayments('po-1', [{ paymentMethodId: 'pm-cash', amount: 300 }]);
+
+      expect(vendorPaymentRepository.save).toHaveBeenCalledWith(
+        expect.objectContaining({ paymentMethodId: 'pm-cash', amount: 300, isActive: true }),
+      );
+    });
+
+    it('re-posts accounting entry after restoring', async () => {
+      vendorPaymentRepository.findOne.mockResolvedValue(mockDeletedPayment);
+      vendorPaymentRepository.restore.mockResolvedValue({} as any);
+      vendorPaymentRepository.save.mockResolvedValue(mockRestoredPayment);
+
+      await service.recordOrderPayments('po-1', [{ paymentMethodId: 'pm-cash', amount: 200 }]);
+
+      expect(accountingService.postVendorPaymentEntry).toHaveBeenCalledWith(
+        mockRestoredPayment,
+        'system',
+      );
+    });
+  });
 });

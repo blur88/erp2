@@ -1465,7 +1465,48 @@ export class PurchaseOrderService {
 
     const totalNewPayment = payments.reduce((sum, p) => sum + p.amount, 0);
 
-    // Create a vendor payment for each line
+    // Check for a previously soft-deleted payment for this PO (from a prior unpay)
+    const previousPayment = await this.vendorPaymentRepository.findOne({
+      where: { purchaseOrderId: id },
+      withDeleted: true,
+      order: { deletedAt: 'DESC' } as any,
+    });
+
+    if (previousPayment?.deletedAt) {
+      // Restore previous vendor payment and update it with first payment line details.
+      const firstLine = payments[0];
+      await this.vendorPaymentRepository.restore(previousPayment.id);
+      previousPayment.isActive = true;
+      previousPayment.paymentMethodId = firstLine.paymentMethodId;
+      previousPayment.amount = firstLine.amount;
+      previousPayment.notes = firstLine.reference || previousPayment.notes;
+      previousPayment.paymentDate = new Date() as any;
+      await this.vendorPaymentRepository.save(previousPayment);
+
+      // Re-post accounting entry for restored payment.
+      const fullPayment = await this.vendorPaymentService.findOne(previousPayment.id);
+      await this.accountingService.postVendorPaymentEntry(fullPayment, 'system');
+
+      // Create additional vendor payments for remaining lines.
+      for (const line of payments.slice(1)) {
+        await this.vendorPaymentService.create({
+          supplierId: purchaseOrder.supplierId,
+          purchaseOrderId: id,
+          amount: line.amount,
+          paymentDate: new Date().toISOString().split('T')[0],
+          paymentMethodId: line.paymentMethodId,
+          status: 'completed',
+          notes: line.reference || undefined,
+        });
+      }
+
+      purchaseOrder.paidAmount = totalNewPayment;
+      await this.purchaseOrderRepository.save(purchaseOrder);
+      this.logger.log(`Restored vendor payment ${previousPayment.paymentNumber} for PO ${purchaseOrder.orderNumber}`);
+      return this.findOne(id);
+    }
+
+    // No previous payment - create a vendor payment for each line.
     for (const line of payments) {
       await this.vendorPaymentService.create({
         supplierId: purchaseOrder.supplierId,
