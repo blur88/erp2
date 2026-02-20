@@ -34,6 +34,11 @@ vi.mock('@/hooks/useSearchAndFilter', () => ({
   useKeyboardShortcuts: vi.fn(),
 }))
 
+// Isolate page behavior under test and avoid unrelated async API side effects.
+vi.mock('@/components/accounting/AccountMappingWarning', () => ({
+  default: () => null,
+}))
+
 // Mock data
 const mockAccounts = [
   {
