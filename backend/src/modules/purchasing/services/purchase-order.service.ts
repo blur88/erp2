@@ -1476,15 +1476,23 @@ export class PurchaseOrderService {
       // Restore previous vendor payment and update it with first payment line details.
       const firstLine = payments[0];
       await this.vendorPaymentRepository.restore(previousPayment.id);
-      previousPayment.isActive = true;
-      previousPayment.paymentMethodId = firstLine.paymentMethodId;
-      previousPayment.amount = firstLine.amount;
-      previousPayment.notes = firstLine.reference || previousPayment.notes;
-      previousPayment.paymentDate = new Date() as any;
-      await this.vendorPaymentRepository.save(previousPayment);
+      // Reload from DB after restore so deletedAt is null on the in-memory object.
+      // Without this, save() would overwrite the restored deletedAt=null back to the old date.
+      // Use update() (direct SQL) instead of save() to guarantee the new paymentMethodId
+      // is written — save() can skip dirty fields due to the identity map after restore().
+      await this.vendorPaymentRepository.update(previousPayment.id, {
+        isActive: true,
+        paymentMethodId: firstLine.paymentMethodId,
+        amount: firstLine.amount,
+        notes: firstLine.reference || previousPayment.notes,
+        paymentDate: new Date() as any,
+      });
+      const restoredPayment = await this.vendorPaymentRepository.findOne({
+        where: { id: previousPayment.id },
+      });
 
       // Re-post accounting entry for restored payment.
-      const fullPayment = await this.vendorPaymentService.findOne(previousPayment.id);
+      const fullPayment = await this.vendorPaymentService.findOne(restoredPayment.id);
       await this.accountingService.postVendorPaymentEntry(fullPayment, 'system');
 
       // Create additional vendor payments for remaining lines.
@@ -1502,7 +1510,7 @@ export class PurchaseOrderService {
 
       purchaseOrder.paidAmount = totalNewPayment;
       await this.purchaseOrderRepository.save(purchaseOrder);
-      this.logger.log(`Restored vendor payment ${previousPayment.paymentNumber} for PO ${purchaseOrder.orderNumber}`);
+      this.logger.log(`Restored vendor payment ${restoredPayment.paymentNumber} for PO ${purchaseOrder.orderNumber}`);
       return this.findOne(id);
     }
 

@@ -136,6 +136,7 @@ describe('PurchaseOrderService', () => {
           useValue: {
             findOne: jest.fn(),
             save: jest.fn(),
+            update: jest.fn(),
             restore: jest.fn(),
           },
         },
@@ -369,9 +370,11 @@ describe('PurchaseOrderService', () => {
     });
 
     it('restores the previous soft-deleted payment on re-pay', async () => {
-      vendorPaymentRepository.findOne.mockResolvedValue(mockDeletedPayment);
+      vendorPaymentRepository.findOne
+        .mockResolvedValueOnce(mockDeletedPayment)
+        .mockResolvedValueOnce(mockRestoredPayment);
       vendorPaymentRepository.restore.mockResolvedValue({} as any);
-      vendorPaymentRepository.save.mockResolvedValue(mockRestoredPayment);
+      vendorPaymentRepository.update.mockResolvedValue({} as any);
 
       await service.recordOrderPayments('po-1', [{ paymentMethodId: 'pm-cash', amount: 200 }]);
 
@@ -379,21 +382,26 @@ describe('PurchaseOrderService', () => {
     });
 
     it('updates payment method and amount when restoring', async () => {
-      vendorPaymentRepository.findOne.mockResolvedValue(mockDeletedPayment);
+      vendorPaymentRepository.findOne
+        .mockResolvedValueOnce(mockDeletedPayment)
+        .mockResolvedValueOnce(mockRestoredPayment);
       vendorPaymentRepository.restore.mockResolvedValue({} as any);
-      vendorPaymentRepository.save.mockResolvedValue(mockRestoredPayment);
+      vendorPaymentRepository.update.mockResolvedValue({} as any);
 
       await service.recordOrderPayments('po-1', [{ paymentMethodId: 'pm-cash', amount: 300 }]);
 
-      expect(vendorPaymentRepository.save).toHaveBeenCalledWith(
+      expect(vendorPaymentRepository.update).toHaveBeenCalledWith(
+        'vp-old-1',
         expect.objectContaining({ paymentMethodId: 'pm-cash', amount: 300, isActive: true }),
       );
     });
 
     it('re-posts accounting entry after restoring', async () => {
-      vendorPaymentRepository.findOne.mockResolvedValue(mockDeletedPayment);
+      vendorPaymentRepository.findOne
+        .mockResolvedValueOnce(mockDeletedPayment)
+        .mockResolvedValueOnce(mockRestoredPayment);
       vendorPaymentRepository.restore.mockResolvedValue({} as any);
-      vendorPaymentRepository.save.mockResolvedValue(mockRestoredPayment);
+      vendorPaymentRepository.update.mockResolvedValue({} as any);
 
       await service.recordOrderPayments('po-1', [{ paymentMethodId: 'pm-cash', amount: 200 }]);
 

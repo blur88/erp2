@@ -250,6 +250,9 @@ const PurchaseOrdersPage: React.FC = () => {
           const res = await journalEntriesApi.getAll({
             sourceType: source.sourceType,
             sourceId: source.sourceId,
+            status: 'posted',
+            sortBy: 'createdAt',
+            sortOrder: 'DESC',
             limit: 1,
           })
 
