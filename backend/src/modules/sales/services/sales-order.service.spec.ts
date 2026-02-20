@@ -26,6 +26,7 @@ describe('SalesOrderService', () => {
   let inventoryIntegrationService: jest.Mocked<InventoryIntegrationService>;
   let stockMovementService: jest.Mocked<StockMovementService>;
   let baseCostCalculator: jest.Mocked<BaseCostCalculatorService>;
+  let settingsService: jest.Mocked<SettingsService>;
   let auditLogService: jest.Mocked<AuditLogService>;
   let dataSource: jest.Mocked<DataSource>;
 
@@ -146,6 +147,7 @@ describe('SalesOrderService', () => {
           provide: AccountingService,
           useValue: {
             postSalesOrderEntry: jest.fn(),
+            postCustomerPaymentEntry: jest.fn(),
             reverseSourceEntries: jest.fn(),
           },
         },
@@ -158,6 +160,7 @@ describe('SalesOrderService', () => {
     inventoryIntegrationService = module.get(InventoryIntegrationService);
     stockMovementService = module.get(StockMovementService);
     baseCostCalculator = module.get(BaseCostCalculatorService);
+    settingsService = module.get(SettingsService);
     auditLogService = module.get(AuditLogService);
   });
 
@@ -394,6 +397,140 @@ describe('SalesOrderService', () => {
 
       await expect(service.unpayOrder('so-123')).resolves.toBeDefined();
       expect(paymentRepository.softDelete).toHaveBeenCalled();
+    });
+  });
+
+  describe('recordPayments - upsert on re-pay', () => {
+    it('should restore soft-deleted payment instead of creating a new one', async () => {
+      const invoiceId = 'invoice-uuid-1';
+      const softDeletedPaymentId = 'payment-uuid-1';
+      const existingPaymentNumber = 'PAY-000001';
+
+      const mockOrder = {
+        id: 'order-uuid-1',
+        orderNumber: 'SO-000001',
+        customerId: 'customer-uuid-1',
+        paidAmount: 0,
+        isFulfilled: false,
+      };
+      const mockInvoice = {
+        id: invoiceId,
+        salesOrderId: mockOrder.id,
+        invoiceNumber: 'INV-000001',
+        paidAmount: 0,
+        calculateTotals: jest.fn(),
+        updateStatus: jest.fn(),
+      };
+      const mockPaymentMethod = { id: 'pm-uuid-1', requiresSettlement: false, isActive: true };
+      const softDeletedPayment = {
+        id: softDeletedPaymentId,
+        paymentNumber: existingPaymentNumber,
+        deletedAt: new Date('2026-01-01'),
+        amount: 100,
+        paymentMethodId: 'pm-uuid-old',
+        settlementStatus: 'NOT_APPLICABLE',
+      };
+
+      const paymentRepo = {
+        find: jest.fn().mockResolvedValue([softDeletedPayment]),
+        findOne: jest.fn().mockResolvedValue({ ...softDeletedPayment, deletedAt: null, isActive: true }),
+        create: jest.fn().mockReturnValue({ id: 'new-payment-id' }),
+        save: jest.fn().mockResolvedValue({ ...softDeletedPayment, amount: 150 }),
+        restore: jest.fn().mockResolvedValue(undefined),
+      };
+      const invoiceRepo = {
+        findOne: jest.fn().mockResolvedValue(mockInvoice),
+        save: jest.fn().mockResolvedValue(mockInvoice),
+      };
+      const paymentMethodRepo = {
+        findOne: jest.fn().mockResolvedValue(mockPaymentMethod),
+      };
+      const orderRepo = {
+        update: jest.fn().mockResolvedValue(undefined),
+      };
+
+      dataSource.transaction = jest.fn().mockImplementation(async (cb) =>
+        cb({
+          getRepository: jest.fn((entity) => {
+            if (entity?.name === 'Payment') return paymentRepo;
+            if (entity?.name === 'Invoice') return invoiceRepo;
+            if (entity?.name === 'PaymentMethodEntity') return paymentMethodRepo;
+            if (entity?.name === 'SalesOrder') return orderRepo;
+            return {};
+          }),
+        } as any),
+      ) as any;
+
+      salesOrderRepository.findOne.mockResolvedValue(mockOrder as any);
+      settingsService.generateDocumentNumber.mockResolvedValue('PAY-000002');
+      accountingService.postCustomerPaymentEntry.mockResolvedValue({ id: 'je-1' } as any);
+      auditLogService.log.mockResolvedValue(undefined);
+      jest.spyOn(service, 'findById').mockResolvedValue({ id: mockOrder.id } as any);
+
+      await service.recordPayments(mockOrder.id, [{ paymentMethodId: 'pm-uuid-1', amount: 150 }]);
+
+      expect(paymentRepo.restore).toHaveBeenCalledWith(softDeletedPaymentId);
+      expect(paymentRepo.create).not.toHaveBeenCalled();
+    });
+
+    it('should create a new payment when no soft-deleted payments exist', async () => {
+      const mockOrder = {
+        id: 'order-uuid-1',
+        orderNumber: 'SO-000001',
+        customerId: 'customer-uuid-1',
+        paidAmount: 0,
+        isFulfilled: false,
+      };
+      const mockInvoice = {
+        id: 'invoice-uuid-1',
+        salesOrderId: mockOrder.id,
+        invoiceNumber: 'INV-000001',
+        paidAmount: 0,
+        calculateTotals: jest.fn(),
+        updateStatus: jest.fn(),
+      };
+      const mockPaymentMethod = { id: 'pm-uuid-1', requiresSettlement: false, isActive: true };
+
+      const paymentRepo = {
+        find: jest.fn().mockResolvedValue([]),
+        findOne: jest.fn().mockResolvedValue({ id: 'new-payment' }),
+        create: jest.fn().mockReturnValue({ id: 'new-payment', paymentNumber: 'PAY-000002' }),
+        save: jest.fn().mockResolvedValue({ id: 'new-payment', paymentNumber: 'PAY-000002' }),
+        restore: jest.fn().mockResolvedValue(undefined),
+      };
+      const invoiceRepo = {
+        findOne: jest.fn().mockResolvedValue(mockInvoice),
+        save: jest.fn().mockResolvedValue(mockInvoice),
+      };
+      const paymentMethodRepo = {
+        findOne: jest.fn().mockResolvedValue(mockPaymentMethod),
+      };
+      const orderRepo = {
+        update: jest.fn().mockResolvedValue(undefined),
+      };
+
+      dataSource.transaction = jest.fn().mockImplementation(async (cb) =>
+        cb({
+          getRepository: jest.fn((entity) => {
+            if (entity?.name === 'Payment') return paymentRepo;
+            if (entity?.name === 'Invoice') return invoiceRepo;
+            if (entity?.name === 'PaymentMethodEntity') return paymentMethodRepo;
+            if (entity?.name === 'SalesOrder') return orderRepo;
+            return {};
+          }),
+        } as any),
+      ) as any;
+
+      salesOrderRepository.findOne.mockResolvedValue(mockOrder as any);
+      settingsService.generateDocumentNumber.mockResolvedValue('PAY-000002');
+      accountingService.postCustomerPaymentEntry.mockResolvedValue({ id: 'je-1' } as any);
+      auditLogService.log.mockResolvedValue(undefined);
+      jest.spyOn(service, 'findById').mockResolvedValue({ id: mockOrder.id } as any);
+
+      await service.recordPayments(mockOrder.id, [{ paymentMethodId: 'pm-uuid-1', amount: 150 }]);
+
+      expect(paymentRepo.create).toHaveBeenCalled();
+      expect(paymentRepo.restore).not.toHaveBeenCalled();
     });
   });
 

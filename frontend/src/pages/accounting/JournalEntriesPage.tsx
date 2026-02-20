@@ -116,6 +116,8 @@ const JournalEntriesPage: React.FC = () => {
     const params: any = {
       page: 1,
       limit: 50,
+      sortBy: 'createdAt',
+      sortOrder: 'DESC',
     }
     if (filters.search) params.search = filters.search
     if (filters.status !== 'all') params.status = filters.status
@@ -219,7 +221,7 @@ const JournalEntriesPage: React.FC = () => {
       setIsPostConfirmOpen(false)
       setSelectedEntry(null)
       // Refresh list
-      dispatch(fetchJournalEntries({ page: 1, limit: 50 }))
+      dispatch(fetchJournalEntries(buildFetchParams()))
     } catch (error: any) {
       showError(`Failed to post journal entry: ${error}`)
     } finally {
@@ -244,7 +246,7 @@ const JournalEntriesPage: React.FC = () => {
       setIsDeleteConfirmOpen(false)
       setSelectedEntry(null)
       // Refresh list
-      dispatch(fetchJournalEntries({ page: 1, limit: 50 }))
+      dispatch(fetchJournalEntries(buildFetchParams()))
     } catch (error: any) {
       showError(`Failed to delete journal entry: ${error}`)
     } finally {

@@ -2134,25 +2134,21 @@ export class SalesOrderService {
       // Find invoice for this order
       const invoice = await invoiceRepo.findOne({ where: { salesOrderId: order.id } });
 
-      for (const line of payments) {
+      // Fetch soft-deleted payments for this invoice to enable positional upsert
+      const softDeletedPayments = invoice
+        ? (await paymentRepo.find({
+          where: { invoiceId: invoice.id },
+          withDeleted: true,
+          order: { paymentDate: 'DESC' },
+        })).filter(record => record.deletedAt !== null)
+        : [];
+
+      for (let i = 0; i < payments.length; i++) {
+        const line = payments[i];
         // Validate payment method
         const method = await paymentMethodRepo.findOne({ where: { id: line.paymentMethodId, isActive: true } });
         if (!method) {
           throw new BadRequestException(`Payment method ${line.paymentMethodId} not found or inactive`);
-        }
-
-        // Generate payment number
-        let paymentNumber: string;
-        try {
-          paymentNumber = await this.settingsService.generateDocumentNumber('Payments');
-        } catch {
-          const allPayments = await paymentRepo.find({ select: ['paymentNumber'], withDeleted: true });
-          let maxNum = 0;
-          for (const p of allPayments) {
-            const match = p.paymentNumber.match(/^PAY-(\d+)$/);
-            if (match) maxNum = Math.max(maxNum, parseInt(match[1]));
-          }
-          paymentNumber = `PAY-${(maxNum + 1).toString().padStart(6, '0')}`;
         }
 
         const settlementStatus = method.requiresSettlement
@@ -2163,19 +2159,70 @@ export class SalesOrderService {
           ? `${line.reference} - Payment for ${order.orderNumber}${invoice ? ` (${invoice.invoiceNumber})` : ''}`
           : `Payment for ${order.orderNumber}${invoice ? ` (${invoice.invoiceNumber})` : ''}`;
 
-        const payment = paymentRepo.create({
-          paymentNumber,
-          status: PaymentStatus.COMPLETED,
-          paymentMethodId: method.id,
-          settlementStatus,
-          paymentDate: new Date(),
-          amount: Number(line.amount),
-          customerId: order.customerId,
-          invoiceId: invoice ? invoice.id : null,
-          notes,
-        });
+        const existingDeleted = softDeletedPayments[i];
+        let savedPayment: any;
 
-        const savedPayment = await paymentRepo.save(payment);
+        if (existingDeleted) {
+          await paymentRepo.restore(existingDeleted.id);
+          const restoredPayment = await paymentRepo.findOne({ where: { id: existingDeleted.id } });
+          if (!restoredPayment) {
+            throw new NotFoundException(`Payment ${existingDeleted.id} not found after restore`);
+          }
+
+          restoredPayment.isActive = true;
+          restoredPayment.amount = Number(line.amount);
+          restoredPayment.paymentMethodId = method.id;
+          restoredPayment.paymentMethodEntity = method;
+          restoredPayment.settlementStatus = settlementStatus;
+          restoredPayment.paymentDate = new Date();
+          restoredPayment.notes = notes;
+          savedPayment = await paymentRepo.save(restoredPayment);
+
+          await this.auditLogService.log('UPDATE', 'Payment', `Restored and updated payment: ${savedPayment.paymentNumber} for ${order.orderNumber}`, {
+            entityId: savedPayment.id,
+            userId: 'system',
+            newValues: {
+              paymentNumber: savedPayment.paymentNumber,
+              amount: savedPayment.amount,
+              paymentMethodId: method.id,
+            },
+          });
+        } else {
+          // Generate payment number for newly-created payments
+          let paymentNumber: string;
+          try {
+            paymentNumber = await this.settingsService.generateDocumentNumber('Payments');
+          } catch {
+            const allPayments = await paymentRepo.find({ select: ['paymentNumber'], withDeleted: true });
+            let maxNum = 0;
+            for (const p of allPayments) {
+              const match = p.paymentNumber.match(/^PAY-(\d+)$/);
+              if (match) maxNum = Math.max(maxNum, parseInt(match[1]));
+            }
+            paymentNumber = `PAY-${(maxNum + 1).toString().padStart(6, '0')}`;
+          }
+
+          const payment = paymentRepo.create({
+            paymentNumber,
+            status: PaymentStatus.COMPLETED,
+            paymentMethodId: method.id,
+            settlementStatus,
+            paymentDate: new Date(),
+            amount: Number(line.amount),
+            customerId: order.customerId,
+            invoiceId: invoice ? invoice.id : null,
+            notes,
+          });
+
+          savedPayment = await paymentRepo.save(payment);
+
+          // Audit log
+          await this.auditLogService.log('CREATE', 'Payment', `Created payment: ${paymentNumber} for ${order.orderNumber}`, {
+            entityId: savedPayment.id,
+            userId: 'system',
+            newValues: { paymentNumber, amount: line.amount, paymentMethodId: method.id },
+          });
+        }
 
         // Post to accounting (don't fail the whole transaction on accounting errors)
         try {
@@ -2189,13 +2236,6 @@ export class SalesOrderService {
         } catch (error) {
           this.logger.error(`Failed to post accounting entry for payment ${savedPayment.paymentNumber}: ${error.message}`);
         }
-
-        // Audit log
-        await this.auditLogService.log('CREATE', 'Payment', `Created payment: ${paymentNumber} for ${order.orderNumber}`, {
-          entityId: savedPayment.id,
-          userId: 'system',
-          newValues: { paymentNumber, amount: line.amount, paymentMethodId: method.id },
-        });
       }
 
       // Update order paid amount

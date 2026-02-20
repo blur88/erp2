@@ -70,7 +70,7 @@ export default function PaymentDialog({
       setPaymentMethods([])
       setLines([{ paymentMethodId: '', amount: outstandingBalance > 0 ? outstandingBalance : '', reference: '' }])
     })
-  }, [open, outstandingBalance])
+  }, [open])
 
   const totalEntered = lines.reduce((sum, l) => sum + (typeof l.amount === 'number' ? l.amount : parseFloat(l.amount as string) || 0), 0)
   const remaining = outstandingBalance - totalEntered
