@@ -1541,9 +1541,14 @@ export class PurchaseOrderService {
       throw new NotFoundException('No payment found for this purchase order');
     }
 
-    // Hard delete all vendor payments
+    // Reverse accounting entries and soft-delete each vendor payment
     for (const payment of existingPayments) {
-      await this.vendorPaymentService.permanentDelete(payment.id);
+      try {
+        await this.accountingService.reverseSourceEntries('vendor_payment', payment.id, 'system');
+      } catch (error) {
+        this.logger.error(`Failed to reverse accounting for vendor payment ${payment.id}: ${error.message}`);
+      }
+      await this.vendorPaymentService.softDeleteForUnpay(payment.id);
     }
 
     // Reset paidAmount to 0

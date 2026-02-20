@@ -27,8 +27,11 @@ describe('PurchaseOrderService', () => {
   let purchaseOrderItemRepository: jest.Mocked<Repository<PurchaseOrderItem>>;
   let productRepository: jest.Mocked<Repository<Product>>;
   let grnRepository: jest.Mocked<Repository<GoodsReceivedNote>>;
+  let vendorPaymentRepository: jest.Mocked<Repository<VendorPayment>>;
   let accountingService: jest.Mocked<AccountingService>;
   let stockMovementService: jest.Mocked<StockMovementService>;
+  let vendorPaymentService: jest.Mocked<VendorPaymentService>;
+  let grnService: jest.Mocked<GoodsReceivedNoteService>;
 
   const mockPurchaseOrder = {
     id: 'po-1',
@@ -102,6 +105,7 @@ describe('PurchaseOrderService', () => {
           useValue: {
             findOne: jest.fn(),
             update: jest.fn(),
+            save: jest.fn(),
           },
         },
         {
@@ -129,7 +133,11 @@ describe('PurchaseOrderService', () => {
         },
         {
           provide: getRepositoryToken(VendorPayment),
-          useValue: {},
+          useValue: {
+            findOne: jest.fn(),
+            save: jest.fn(),
+            restore: jest.fn(),
+          },
         },
         {
           provide: SupplierService,
@@ -143,7 +151,14 @@ describe('PurchaseOrderService', () => {
         },
         {
           provide: VendorPaymentService,
-          useValue: {},
+          useValue: {
+            findAllByPurchaseOrder: jest.fn(),
+            softDeleteForUnpay: jest.fn(),
+            create: jest.fn(),
+            findOne: jest.fn(),
+            findByPurchaseOrder: jest.fn(),
+            createForPurchaseOrder: jest.fn(),
+          },
         },
         {
           provide: BaseCostCalculatorService,
@@ -153,6 +168,7 @@ describe('PurchaseOrderService', () => {
           provide: StockMovementService,
           useValue: {
             create: jest.fn(),
+            deleteByReference: jest.fn(),
           },
         },
         {
@@ -169,6 +185,8 @@ describe('PurchaseOrderService', () => {
           provide: AccountingService,
           useValue: {
             postGoodsReceivedEntry: jest.fn(),
+            reverseSourceEntries: jest.fn(),
+            postVendorPaymentEntry: jest.fn(),
           },
         },
       ],
@@ -179,8 +197,11 @@ describe('PurchaseOrderService', () => {
     purchaseOrderItemRepository = module.get(getRepositoryToken(PurchaseOrderItem));
     productRepository = module.get(getRepositoryToken(Product));
     grnRepository = module.get(getRepositoryToken(GoodsReceivedNote));
+    vendorPaymentRepository = module.get(getRepositoryToken(VendorPayment));
     accountingService = module.get(AccountingService);
     stockMovementService = module.get(StockMovementService);
+    vendorPaymentService = module.get(VendorPaymentService);
+    grnService = module.get(GoodsReceivedNoteService);
 
     jest.spyOn(Logger.prototype, 'log').mockImplementation();
     jest.spyOn(Logger.prototype, 'error').mockImplementation();
@@ -191,9 +212,11 @@ describe('PurchaseOrderService', () => {
 
     purchaseOrderRepository.findOne.mockResolvedValue(mockPurchaseOrder);
     purchaseOrderRepository.update.mockResolvedValue({} as any);
+    purchaseOrderRepository.save.mockResolvedValue(mockPurchaseOrder);
     grnRepository.save.mockResolvedValue(mockReceivedGrn);
     productRepository.findOne.mockResolvedValue({ id: 'product-1' } as Product);
     stockMovementService.create.mockResolvedValue({} as any);
+    stockMovementService.deleteByReference.mockResolvedValue({ deletedCount: 1 } as any);
     purchaseOrderItemRepository.save.mockResolvedValue({} as any);
   });
 
@@ -216,6 +239,49 @@ describe('PurchaseOrderService', () => {
       expect(accountingService.postGoodsReceivedEntry).toHaveBeenCalledWith(
         mockReceivedGrnWithRelations,
         'system',
+      );
+    });
+  });
+
+  describe('markAsUnpaid', () => {
+    const mockPayment = {
+      id: 'vp-1',
+      paymentNumber: 'VP-000001',
+      amount: 200,
+    } as VendorPayment;
+
+    const mockPaidOrder = {
+      ...mockPurchaseOrder,
+      paidAmount: 200,
+    } as unknown as PurchaseOrder;
+
+    beforeEach(() => {
+      purchaseOrderRepository.findOne.mockResolvedValue(mockPaidOrder);
+      grnRepository.findOne.mockResolvedValue(null);
+      vendorPaymentService.findAllByPurchaseOrder.mockResolvedValue([mockPayment]);
+      vendorPaymentService.softDeleteForUnpay.mockResolvedValue(undefined);
+      accountingService.reverseSourceEntries.mockResolvedValue(undefined);
+      purchaseOrderRepository.save.mockResolvedValue(mockPaidOrder);
+    });
+
+    it('reverses accounting entries for each vendor payment', async () => {
+      await service.markAsUnpaid('po-1');
+      expect(accountingService.reverseSourceEntries).toHaveBeenCalledWith(
+        'vendor_payment',
+        'vp-1',
+        'system',
+      );
+    });
+
+    it('soft-deletes vendor payments instead of hard-deleting', async () => {
+      await service.markAsUnpaid('po-1');
+      expect(vendorPaymentService.softDeleteForUnpay).toHaveBeenCalledWith('vp-1');
+    });
+
+    it('resets paidAmount to 0', async () => {
+      await service.markAsUnpaid('po-1');
+      expect(purchaseOrderRepository.save).toHaveBeenCalledWith(
+        expect.objectContaining({ paidAmount: 0 }),
       );
     });
   });
