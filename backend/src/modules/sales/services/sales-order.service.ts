@@ -2172,6 +2172,7 @@ export class SalesOrderService {
           restoredPayment.isActive = true;
           restoredPayment.amount = Number(line.amount);
           restoredPayment.paymentMethodId = method.id;
+          restoredPayment.paymentMethodEntity = method;
           restoredPayment.settlementStatus = settlementStatus;
           restoredPayment.paymentDate = new Date();
           restoredPayment.notes = notes;
