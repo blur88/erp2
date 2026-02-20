@@ -278,4 +278,19 @@ describe('JournalEntriesPage', () => {
     // Reset location
     mockLocation.search = ''
   })
+
+  it('requests journal entries sorted by created date-time descending by default', async () => {
+    renderWithStore(<JournalEntriesPage />, defaultState)
+
+    await waitFor(() => {
+      expect(journalEntriesApi.getAll).toHaveBeenCalledWith(
+        expect.objectContaining({
+          page: 1,
+          limit: 50,
+          sortBy: 'createdAt',
+          sortOrder: 'DESC',
+        }),
+      )
+    })
+  })
 })
