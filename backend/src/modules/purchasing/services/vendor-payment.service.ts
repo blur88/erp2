@@ -423,6 +423,18 @@ export class VendorPaymentService {
   }
 
   /**
+   * Soft delete a vendor payment during unpay without additional audit logging.
+   */
+  async softDeleteForUnpay(id: string): Promise<void> {
+    const payment = await this.vendorPaymentRepository.findOne({ where: { id } });
+    if (!payment) return;
+
+    payment.isActive = false;
+    await this.vendorPaymentRepository.save(payment);
+    await this.vendorPaymentRepository.softDelete(id);
+  }
+
+  /**
    * Create vendor payment for a purchase order
    */
   async createForPurchaseOrder(poId: string, user: string = 'system'): Promise<VendorPayment> {

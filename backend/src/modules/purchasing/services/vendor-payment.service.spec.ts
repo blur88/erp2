@@ -380,4 +380,25 @@ describe('VendorPaymentService', () => {
       );
     });
   });
+
+  describe('softDeleteForUnpay', () => {
+    it('sets isActive=false and soft-deletes the vendor payment', async () => {
+      const mockPayment = {
+        id: 'vp-1',
+        paymentNumber: 'VP-000001',
+        isActive: true,
+      } as VendorPayment;
+
+      vendorPaymentRepository.findOne.mockResolvedValue(mockPayment);
+      vendorPaymentRepository.save.mockResolvedValue({ ...mockPayment, isActive: false } as any);
+      vendorPaymentRepository.softDelete.mockResolvedValue({} as any);
+
+      await service.softDeleteForUnpay('vp-1');
+
+      expect(vendorPaymentRepository.save).toHaveBeenCalledWith(
+        expect.objectContaining({ isActive: false }),
+      );
+      expect(vendorPaymentRepository.softDelete).toHaveBeenCalledWith('vp-1');
+    });
+  });
 });
