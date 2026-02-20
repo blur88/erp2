@@ -285,4 +285,46 @@ describe('PurchaseOrderService', () => {
       );
     });
   });
+
+  describe('returnGoods', () => {
+    beforeEach(() => {
+      const receivedGrn = {
+        ...mockReceivedGrn,
+        status: GrnStatus.RECEIVED,
+        items: [...mockReceivedGrn.items],
+        calculateTotals: jest.fn(),
+      } as any;
+      const draftGrn = {
+        ...receivedGrn,
+        status: GrnStatus.DRAFT,
+      } as any;
+
+      purchaseOrderRepository.findOne.mockResolvedValue({
+        ...mockPurchaseOrder,
+        supplierId: 'supplier-1',
+      } as any);
+      grnRepository.findOne.mockResolvedValue(receivedGrn);
+      grnRepository.save.mockResolvedValue(draftGrn);
+      jest.spyOn(service as any, 'reverseBaseCostsForGrn').mockResolvedValue(undefined);
+      grnService.updateGrnItems.mockResolvedValue(undefined);
+      stockMovementService.deleteByReference.mockResolvedValue({ deletedCount: 1 } as any);
+      accountingService.reverseSourceEntries.mockResolvedValue(undefined);
+      purchaseOrderItemRepository.save.mockResolvedValue({} as any);
+      purchaseOrderRepository.update.mockResolvedValue({} as any);
+    });
+
+    it('reverses the GRN accounting entry after returning goods', async () => {
+      await service.returnGoods('po-1');
+      expect(accountingService.reverseSourceEntries).toHaveBeenCalledWith(
+        'goods_received_note',
+        'grn-1',
+        'system',
+      );
+    });
+
+    it('still succeeds even if accounting reversal fails', async () => {
+      accountingService.reverseSourceEntries.mockRejectedValue(new Error('No fiscal period'));
+      await expect(service.returnGoods('po-1')).resolves.not.toThrow();
+    });
+  });
 });

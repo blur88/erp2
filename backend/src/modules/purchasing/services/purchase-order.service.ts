@@ -1351,6 +1351,15 @@ export class PurchaseOrderService {
         // Don't throw error - return should still succeed
       }
 
+      // Reverse GRN journal entry (DR Inventory Asset / CR Accounts Payable)
+      try {
+        await this.accountingService.reverseSourceEntries('goods_received_note', grn.id, 'system');
+        this.logger.log(`Reversed GRN accounting entry for PO ${purchaseOrder.orderNumber}`);
+      } catch (error) {
+        this.logger.error(`Failed to reverse GRN accounting entry for PO ${purchaseOrder.orderNumber}: ${error.message}`);
+        // Non-fatal - return still succeeds
+      }
+
       // Reset PO item received quantities
       for (const item of purchaseOrder.items) {
         item.receivedQuantity = 0;
