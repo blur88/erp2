@@ -41,7 +41,7 @@ import {
   KeyboardDoubleArrowRight as KeyboardDoubleArrowRightIcon,
   KeyboardDoubleArrowLeft as KeyboardDoubleArrowLeftIcon,
 } from '@mui/icons-material'
-import { formatCurrency } from '@/utils/formatters'
+import { formatCurrency, formatDate, formatDateTime } from '@/utils/formatters'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
 import { ApiService } from '@/services/api'
 
@@ -425,10 +425,10 @@ const MovementSummaryReport: React.FC = () => {
       }
     }
     if (startDate) {
-      filterText.push(`<p><strong>Start Date:</strong> ${new Date(startDate).toLocaleDateString()}</p>`)
+      filterText.push(`<p><strong>Start Date:</strong> ${formatDate(startDate)}</p>`)
     }
     if (endDate) {
-      filterText.push(`<p><strong>End Date:</strong> ${new Date(endDate).toLocaleDateString()}</p>`)
+      filterText.push(`<p><strong>End Date:</strong> ${formatDate(endDate)}</p>`)
     }
     const filtersText = filterText.join('')
 
@@ -455,7 +455,7 @@ const MovementSummaryReport: React.FC = () => {
         <body>
           <h1>${reportTitle}</h1>
           <div class="header-info">
-            <p style="margin: 5px 0;"><strong>Generated on:</strong> ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}</p>
+            <p style="margin: 5px 0;"><strong>Generated on:</strong> ${formatDateTime(new Date())}</p>
             ${filtersText}
           </div>
           <table>
