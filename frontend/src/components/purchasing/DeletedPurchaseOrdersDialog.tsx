@@ -467,11 +467,7 @@ const DeletedPurchaseOrdersDialog: React.FC<DeletedPurchaseOrdersDialogProps> = 
                             mt: 0.25,
                             fontSize: '0.65rem'
                           }}>
-                            {new Date((order as any).deletedAt).toLocaleDateString('en-US', {
-                              month: 'short',
-                              day: 'numeric',
-                              year: '2-digit'
-                            })}
+                            {formatDate((order as any).deletedAt)}
                           </Typography>
                         )}
                       </TableCell>

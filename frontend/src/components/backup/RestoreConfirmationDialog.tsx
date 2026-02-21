@@ -15,6 +15,7 @@ import {
 } from '@mui/material';
 import { Warning as WarningIcon } from '@mui/icons-material';
 import { useAppDispatch, useAppSelector } from '@/hooks/useRedux';
+import { formatDateTime } from '@/utils/formatters';
 import { restoreBackup, fetchBackups } from '@/store/slices/backupSlice';
 
 interface RestoreConfirmationDialogProps {
@@ -109,7 +110,7 @@ const RestoreConfirmationDialog: React.FC<RestoreConfirmationDialogProps> = ({
               <ListItem>
                 <ListItemText
                   primary="Created"
-                  secondary={new Date(currentBackup.startedAt).toLocaleString()}
+                  secondary={formatDateTime(currentBackup.startedAt)}
                 />
               </ListItem>
               <ListItem>

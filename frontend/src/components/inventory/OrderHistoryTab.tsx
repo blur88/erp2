@@ -15,6 +15,7 @@ import {
 import { ApiService } from '@/services/api'
 import { useNotification } from '@/hooks/useNotification'
 import { formatCurrency } from '@/utils/currency'
+import { formatDate as formatDisplayDate } from '@/utils/formatters'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
 
 interface OrderHistoryTabProps {
@@ -73,11 +74,7 @@ const OrderHistoryTab: React.FC<OrderHistoryTabProps> = ({ productId }) => {
   }, [productId, page, rowsPerPage, showError])
 
   const formatDate = (date: Date | string) => {
-    return new Date(date).toLocaleDateString('en-GB', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
-    })
+    return formatDisplayDate(date)
   }
 
   const getOrderTypeLabel = (type: string): string => {

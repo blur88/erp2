@@ -17,6 +17,7 @@ import { ApiService } from '@/services/api'
 import { useNotification } from '@/hooks/useNotification'
 import { StockMovement, StockMovementType } from '@/types'
 import { formatCurrency } from '@/utils/currency'
+import { formatDate as formatDisplayDate } from '@/utils/formatters'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
 
 interface MovementHistoryTabProps {
@@ -91,11 +92,7 @@ const MovementHistoryTab: React.FC<MovementHistoryTabProps> = ({ productId }) =>
   }, [productId, page, rowsPerPage, showError])
 
   const formatDate = (date: Date | string) => {
-    return new Date(date).toLocaleDateString('en-GB', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
-    })
+    return formatDisplayDate(date)
   }
 
   const getOrderNumber = (movement: StockMovement): string => {

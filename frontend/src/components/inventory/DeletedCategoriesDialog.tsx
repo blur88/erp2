@@ -46,6 +46,7 @@ import {
   selectDeletedCategories,
   selectInventoryLoading,
 } from '@/store/slices/inventorySlice'
+import { formatDate as formatDisplayDate } from '@/utils/formatters'
 
 interface DeletedCategoriesDialogProps {
   open: boolean
@@ -237,11 +238,7 @@ const DeletedCategoriesDialog: React.FC<DeletedCategoriesDialogProps> = ({
   }
 
   const formatDate = (date: string | Date) => {
-    return new Date(date).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    })
+    return formatDisplayDate(date)
   }
 
   return (
@@ -483,11 +480,7 @@ const DeletedCategoriesDialog: React.FC<DeletedCategoriesDialogProps> = ({
                             mt: 0.25,
                             fontSize: '0.65rem'
                           }}>
-                            {new Date(category.deletedAt).toLocaleDateString('en-US', {
-                              month: 'short',
-                              day: 'numeric',
-                              year: '2-digit'
-                            })}
+                            {formatDate(category.deletedAt)}
                           </Typography>
                         )}
                       </TableCell>
