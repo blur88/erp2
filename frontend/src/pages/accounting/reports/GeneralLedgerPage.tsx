@@ -29,6 +29,7 @@ import {
 } from '@mui/icons-material';
 import { TYPOGRAPHY_STYLES } from '@/constants/typography';
 import { useAppDispatch, useAppSelector } from '@/store';
+import { formatDate } from '@/utils/formatters';
 import {
   fetchGeneralLedger,
   downloadGeneralLedgerExcel,
@@ -63,12 +64,7 @@ const formatDateForInput = (date: Date): string => {
 
 // Format date for display (e.g., "Jan 15, 2026")
 const formatDateForDisplay = (dateString: string): string => {
-  const date = new Date(dateString);
-  return date.toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-  });
+  return formatDate(dateString);
 };
 
 // Get first day of current month

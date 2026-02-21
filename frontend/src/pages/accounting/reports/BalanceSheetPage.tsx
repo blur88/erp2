@@ -29,6 +29,7 @@ import {
 } from '@mui/icons-material';
 import { TYPOGRAPHY_STYLES } from '@/constants/typography';
 import { useAppDispatch, useAppSelector } from '@/store';
+import { formatDate } from '@/utils/formatters';
 import {
   fetchBalanceSheet,
   downloadBalanceSheetExcel,
@@ -373,11 +374,7 @@ const BalanceSheetPage: React.FC = () => {
               Balance Sheet Report
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              As of: {new Date(asOfDate).toLocaleDateString('en-US', {
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric',
-              })}
+              As of: {formatDate(asOfDate)}
             </Typography>
             {/* Balance Status Indicator */}
             <Box sx={{ mt: 2 }}>
