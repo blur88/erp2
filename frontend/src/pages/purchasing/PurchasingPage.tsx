@@ -38,8 +38,7 @@ import {
   ArcElement
 } from 'chart.js'
 import { Line } from 'react-chartjs-2'
-import { format } from 'date-fns'
-import { formatCurrency } from '@/utils/formatters'
+import { formatCurrency, formatDate } from '@/utils/formatters'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
 import { useNavigate } from 'react-router-dom'
 import { purchasingApi } from '@/services/purchasingApi'
@@ -223,7 +222,7 @@ const PurchasingPage: React.FC = () => {
   const purchasingTrendData = {
     labels: purchasingData?.periodData?.map((item: any) => {
       const date = new Date(item.period)
-      return format(date, 'MMM dd')
+      return formatDate(date)
     }) || [],
     datasets: [
       {
@@ -545,7 +544,7 @@ const PurchasingPage: React.FC = () => {
                       </TableCell>
                       <TableCell>
                         <Typography variant={TYPOGRAPHY_STYLES.tableCell.secondary.variant} sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.secondary.fontSize }}>
-                          {order.orderDate ? format(new Date(order.orderDate), 'MMM dd, yyyy') : 'N/A'}
+                          {order.orderDate ? formatDate(order.orderDate) : 'N/A'}
                         </Typography>
                       </TableCell>
                       <TableCell align="right">

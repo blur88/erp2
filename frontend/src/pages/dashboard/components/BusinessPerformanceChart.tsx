@@ -33,7 +33,7 @@ import 'chartjs-adapter-date-fns'
 import zoomPlugin from 'chartjs-plugin-zoom'
 import { Line } from 'react-chartjs-2'
 import { format, startOfWeek, startOfMonth, startOfYear, eachDayOfInterval, eachWeekOfInterval, eachMonthOfInterval, eachYearOfInterval, endOfDay, endOfWeek, endOfMonth, endOfYear, isWithinInterval, subDays } from 'date-fns'
-import { formatCurrency } from '@/utils/formatters'
+import { formatCurrency, formatDate } from '@/utils/formatters'
 import { TYPOGRAPHY_STYLES } from '@/constants/typography'
 
 ChartJS.register(
@@ -366,6 +366,10 @@ const BusinessPerformanceChart: React.FC<BusinessPerformanceChartProps> = ({ raw
             },
             tooltip: {
                 callbacks: {
+                    title: function (context: any) {
+                        if (!context?.length) return ''
+                        return formatDate(new Date(context[0].parsed.x))
+                    },
                     label: function (context: any) {
                         const label = context.dataset.label || ''
                         const value = context.parsed.y
@@ -411,17 +415,20 @@ const BusinessPerformanceChart: React.FC<BusinessPerformanceChartProps> = ({ raw
                 time: {
                     unit: chartFilters.groupBy === 'days' ? 'day' : chartFilters.groupBy === 'weeks' ? 'week' : chartFilters.groupBy === 'months' ? 'month' : 'year',
                     displayFormats: {
-                        hour: 'MMM dd HH:mm',
-                        day: 'MMM dd',
-                        week: "'W'w MMM",
-                        month: 'MMM yyyy',
+                        hour: 'dd/MM/yyyy HH:mm',
+                        day: 'dd/MM/yyyy',
+                        week: 'dd/MM/yyyy',
+                        month: 'dd/MM/yyyy',
                         year: 'yyyy'
                     }
                 },
                 ticks: {
                     color: theme.palette.text.secondary,
                     maxRotation: 45,
-                    minRotation: 0
+                    minRotation: 0,
+                    callback: function (value: any) {
+                        return formatDate(new Date(value))
+                    },
                 },
                 grid: {
                     color: theme.palette.divider

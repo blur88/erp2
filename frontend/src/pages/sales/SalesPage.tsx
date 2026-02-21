@@ -26,8 +26,8 @@ import {
   Payment as PaymentsIcon,
   Add as AddIcon,
 } from '@mui/icons-material'
-import { format, subDays, subMonths, startOfMonth, endOfMonth, subYears, startOfYear, endOfYear } from 'date-fns'
-import { formatCurrency } from '@/utils/formatters'
+import { subDays, subMonths, startOfMonth, endOfMonth, subYears, startOfYear, endOfYear } from 'date-fns'
+import { formatCurrency, formatDate } from '@/utils/formatters'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
 import { useNavigate } from 'react-router-dom'
 import { salesApi } from '@/services/salesApi'
@@ -201,10 +201,14 @@ const SalesPage: React.FC = () => {
         const chartData: number[] = []
         for (let i = 29; i >= 0; i--) {
           const date = subDays(new Date(), i)
-          chartLabels.push(format(date, 'MMM dd'))
+          chartLabels.push(formatDate(date))
           const dayOrders = orders.filter((order: any) => {
             const orderDate = new Date(order.orderDate)
-            return format(orderDate, 'yyyy-MM-dd') === format(date, 'yyyy-MM-dd')
+            return (
+              orderDate.getFullYear() === date.getFullYear() &&
+              orderDate.getMonth() === date.getMonth() &&
+              orderDate.getDate() === date.getDate()
+            )
           })
           chartData.push(dayOrders.reduce((sum: number, o: any) => sum + (o.totalAmount || 0), 0))
         }
@@ -501,7 +505,7 @@ const SalesPage: React.FC = () => {
                       </TableCell>
                       <TableCell>
                         <Typography variant={TYPOGRAPHY_STYLES.tableCell.secondary.variant} sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.secondary.fontSize }}>
-                          {format(new Date(order.orderDate), 'MMM dd, yyyy')}
+                          {formatDate(order.orderDate)}
                         </Typography>
                       </TableCell>
                       <TableCell align="right">
