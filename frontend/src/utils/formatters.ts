@@ -14,15 +14,15 @@ export const formatCurrency = formatCurrencyUtil
  */
 export const formatDate = (date: Date | string | null | undefined): string => {
   if (!date) return '-'
-  
+
   const dateObj = typeof date === 'string' ? new Date(date) : date
-  
+
   if (isNaN(dateObj.getTime())) return '-'
-  
-  return dateObj.toLocaleDateString('en-MY', {
+
+  return dateObj.toLocaleDateString('en-GB', {
+    day: '2-digit',
+    month: '2-digit',
     year: 'numeric',
-    month: 'short',
-    day: 'numeric'
   })
 }
 
@@ -31,18 +31,21 @@ export const formatDate = (date: Date | string | null | undefined): string => {
  */
 export const formatDateTime = (date: Date | string | null | undefined): string => {
   if (!date) return '-'
-  
+
   const dateObj = typeof date === 'string' ? new Date(date) : date
-  
+
   if (isNaN(dateObj.getTime())) return '-'
-  
-  return dateObj.toLocaleString('en-MY', {
+
+  const datePart = dateObj.toLocaleDateString('en-GB', {
+    day: '2-digit',
+    month: '2-digit',
     year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit'
   })
+  const timePart = dateObj.toLocaleTimeString('en-GB', {
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+  return `${datePart} ${timePart}`
 }
 
 /**

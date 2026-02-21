@@ -65,6 +65,7 @@ import type { Customer } from '@/types'
 import { CustomerType } from '@/types'
 import { salesApi } from '@/services/salesApi'
 import { formatCurrency } from '@/utils/currency'
+import { formatDate } from '@/utils/formatters'
 import DeletedCustomersDialog from '@/components/sales/DeletedCustomersDialog'
 import PriceListSelector from '@/components/price-lists/PriceListSelector'
 import ConfirmationDialog from '@/components/common/ConfirmationDialog'
@@ -1174,7 +1175,7 @@ const CustomersPage: React.FC = () => {
                     <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                       <Typography color="text.secondary">Last Purchase:</Typography>
                       <Typography fontWeight={600}>
-                        {new Date(selectedCustomer.lastPurchaseDate).toLocaleDateString()}
+                        {formatDate(selectedCustomer.lastPurchaseDate)}
                       </Typography>
                     </Box>
                   )}

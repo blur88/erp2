@@ -186,11 +186,7 @@ const DeletedPaymentsDialog: React.FC<DeletedPaymentsDialogProps> = ({ open, onC
                                 </Typography>
                                 {payment.deletedAt && (
                                   <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
-                                    • Del: {new Date(payment.deletedAt).toLocaleDateString('en-US', {
-                                      month: 'short',
-                                      day: 'numeric',
-                                      year: '2-digit'
-                                    })}
+                                    • Del: {formatDate(payment.deletedAt)}
                                   </Typography>
                                 )}
                               </Box>

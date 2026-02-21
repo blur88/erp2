@@ -26,6 +26,7 @@ import {
 } from '@mui/icons-material';
 import { TYPOGRAPHY_STYLES } from '@/constants/typography';
 import { useAppDispatch, useAppSelector } from '@/store';
+import { formatDate } from '@/utils/formatters';
 import {
   fetchTrialBalance,
   downloadTrialBalanceExcel,
@@ -229,11 +230,7 @@ const TrialBalancePage: React.FC = () => {
               Trial Balance Report
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              As of: {asOfDate ? new Date(asOfDate).toLocaleDateString('en-US', {
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric',
-              }) : 'N/A'}
+              As of: {asOfDate ? formatDate(asOfDate) : 'N/A'}
             </Typography>
             {/* Balance Status Indicator */}
             <Box sx={{ mt: 2 }}>

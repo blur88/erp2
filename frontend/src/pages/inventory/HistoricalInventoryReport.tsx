@@ -40,7 +40,7 @@ import {
   KeyboardDoubleArrowRight as KeyboardDoubleArrowRightIcon,
   KeyboardDoubleArrowLeft as KeyboardDoubleArrowLeftIcon,
 } from '@mui/icons-material'
-import { formatCurrency } from '@/utils/formatters'
+import { formatCurrency, formatDate, formatDateTime } from '@/utils/formatters'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
 import { ApiService } from '@/services/api'
 
@@ -434,7 +434,7 @@ const HistoricalInventoryReport: React.FC = () => {
       }
     }
     if (targetDate) {
-      filterText.push(`<p><strong>Target Date:</strong> ${new Date(targetDate).toLocaleDateString()}</p>`)
+      filterText.push(`<p><strong>Target Date:</strong> ${formatDate(targetDate)}</p>`)
     }
     const filtersText = filterText.join('')
 
@@ -461,7 +461,7 @@ const HistoricalInventoryReport: React.FC = () => {
         <body>
           <h1>${reportTitle}</h1>
           <div class="header-info">
-            <p style="margin: 5px 0;"><strong>Generated on:</strong> ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}</p>
+            <p style="margin: 5px 0;"><strong>Generated on:</strong> ${formatDateTime(new Date())}</p>
             ${filtersText}
           </div>
           <table>

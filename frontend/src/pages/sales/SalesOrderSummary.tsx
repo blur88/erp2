@@ -30,7 +30,7 @@ import {
   PlayArrow as GenerateIcon,
   Receipt as OrderIcon,
 } from '@mui/icons-material'
-import { formatCurrency } from '@/utils/formatters'
+import { formatCurrency, formatDate, formatDateTime } from '@/utils/formatters'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
 import { salesApi } from '@/services/salesApi'
 
@@ -204,7 +204,7 @@ const SalesOrderSummary: React.FC = () => {
       const values = selectedColumns.map(col => {
         const value = (row as any)[col]
         if (col === 'orderDate') {
-          return `"${new Date(value).toLocaleDateString()}"`
+          return `"${formatDate(value)}"`
         } else if (col === 'itemsCount') {
           return value
         } else if (col === 'paymentStatus') {
@@ -339,7 +339,7 @@ const SalesOrderSummary: React.FC = () => {
         const value = (row as any)[col]
         let displayValue = value
         if (col === 'orderDate') {
-          displayValue = new Date(value).toLocaleDateString()
+          displayValue = formatDate(value)
         } else if (col === 'itemsCount') {
           displayValue = value
         } else if (col === 'paymentStatus') {
@@ -421,11 +421,11 @@ const SalesOrderSummary: React.FC = () => {
     // Build date range text
     let dateRangeText = ''
     if (dateFrom && dateTo) {
-      dateRangeText = `<p><strong>Date Range:</strong> ${new Date(dateFrom).toLocaleDateString()} - ${new Date(dateTo).toLocaleDateString()}</p>`
+      dateRangeText = `<p><strong>Date Range:</strong> ${formatDate(dateFrom)} - ${formatDate(dateTo)}</p>`
     } else if (dateFrom) {
-      dateRangeText = `<p><strong>Date From:</strong> ${new Date(dateFrom).toLocaleDateString()}</p>`
+      dateRangeText = `<p><strong>Date From:</strong> ${formatDate(dateFrom)}</p>`
     } else if (dateTo) {
-      dateRangeText = `<p><strong>Date To:</strong> ${new Date(dateTo).toLocaleDateString()}</p>`
+      dateRangeText = `<p><strong>Date To:</strong> ${formatDate(dateTo)}</p>`
     }
 
     const html = `
@@ -474,7 +474,7 @@ const SalesOrderSummary: React.FC = () => {
         <body>
           <h1>${reportTitle}</h1>
           <div class="header-info">
-            <p style="margin: 5px 0;"><strong>Generated on:</strong> ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}</p>
+            <p style="margin: 5px 0;"><strong>Generated on:</strong> ${formatDateTime(new Date())}</p>
             ${dateRangeText}
           </div>
           <table>
@@ -1089,7 +1089,7 @@ const SalesOrderSummary: React.FC = () => {
                             )}
                             {selectedColumns.includes('orderDate') && (
                               <TableCell sx={{ fontSize: '0.8rem' }}>
-                                {new Date(row.orderDate).toLocaleDateString()}
+                                {formatDate(row.orderDate)}
                               </TableCell>
                             )}
                             {selectedColumns.includes('totalAmount') && (

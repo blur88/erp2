@@ -55,7 +55,7 @@ import {
   fetchCurrentPeriod,
   selectCurrentPeriod,
 } from '@/store/slices/fiscalPeriodsSlice'
-import { formatCurrency, getCurrentDate } from '@/utils/formatters'
+import { formatCurrency, formatDate, getCurrentDate } from '@/utils/formatters'
 import { JournalEntryStatus, FiscalPeriodStatus } from '@/types'
 import { useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
 import { TYPOGRAPHY_STYLES } from '@/constants/typography'
@@ -287,7 +287,7 @@ const JournalEntryFormPage: React.FC = () => {
 
     if (entryDate < periodStart || entryDate > periodEnd) {
       showError(
-        `Entry date must be within the fiscal period range (${periodStart.toLocaleDateString()} - ${periodEnd.toLocaleDateString()})`
+        `Entry date must be within the fiscal period range (${formatDate(periodStart)} - ${formatDate(periodEnd)})`
       )
       return
     }

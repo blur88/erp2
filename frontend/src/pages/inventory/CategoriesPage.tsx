@@ -46,6 +46,7 @@ import { SmartCategoryDeleteDialog } from '@/components/inventory/SmartCategoryD
 import ConfirmationDialog from '@/components/common/ConfirmationDialog'
 import type { Category } from '@/types'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
+import { formatDate } from '@/utils/formatters'
 import {
   fetchCategories,
   createCategory,
@@ -580,11 +581,7 @@ const CategoriesPage: React.FC = () => {
                     {!isMobile && (
                       <TableCell>
                         <Typography variant={TYPOGRAPHY_STYLES.tableCell.caption.variant} color="text.secondary" sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize }}>
-                          {new Date(category.createdAt).toLocaleDateString('en-US', {
-                            year: 'numeric',
-                            month: 'short',
-                            day: 'numeric'
-                          })}
+                          {formatDate(category.createdAt)}
                         </Typography>
                       </TableCell>
                     )}
@@ -654,11 +651,7 @@ const CategoriesPage: React.FC = () => {
                           mt: 0.25, // Reduced margin
                           fontSize: TYPOGRAPHY_STYLES.mobile.caption.fontSize
                         }}>
-                          {new Date(category.createdAt).toLocaleDateString('en-US', {
-                            month: 'short',
-                            day: 'numeric',
-                            year: '2-digit'
-                          })}
+                          {formatDate(category.createdAt)}
                         </Typography>
                       )}
                     </TableCell>

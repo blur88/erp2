@@ -48,6 +48,7 @@ import { useNotification } from '@/hooks/useNotification'
 import LoadingSpinner from '@/components/common/LoadingSpinner'
 import type { Product } from '@/types'
 import { formatCurrency } from '@/utils/currency'
+import { formatDate as formatDisplayDate } from '@/utils/formatters'
 
 interface DeletedProductsDialogProps {
   open: boolean
@@ -236,11 +237,7 @@ const DeletedProductsDialog: React.FC<DeletedProductsDialogProps> = ({ open, onC
   }
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    })
+    return formatDisplayDate(dateString)
   }
 
 
@@ -506,11 +503,7 @@ const DeletedProductsDialog: React.FC<DeletedProductsDialogProps> = ({ open, onC
                             mt: 0.25,
                             fontSize: '0.65rem'
                           }}>
-                            {new Date((product as any).deletedAt).toLocaleDateString('en-US', {
-                              month: 'short',
-                              day: 'numeric',
-                              year: '2-digit'
-                            })}
+                            {formatDate((product as any).deletedAt)}
                           </Typography>
                         )}
                       </TableCell>

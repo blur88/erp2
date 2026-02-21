@@ -40,6 +40,7 @@ import type { User } from '@/types'
 import UserFormDialog from '@/components/settings/UserFormDialog'
 import ConfirmationDialog from '@/components/common/ConfirmationDialog'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
+import { formatDateTime } from '@/utils/formatters'
 
 const UserManagementPage: React.FC = () => {
   const currentUser = useAppSelector((state) => state.auth?.user)
@@ -275,7 +276,7 @@ const UserManagementPage: React.FC = () => {
   // Format date
   const formatDate = (date?: Date | string) => {
     if (!date) return 'Never'
-    return new Date(date).toLocaleString()
+    return formatDateTime(date)
   }
 
   return (

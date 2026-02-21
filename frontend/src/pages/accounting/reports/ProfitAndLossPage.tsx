@@ -28,6 +28,7 @@ import {
 } from '@mui/icons-material';
 import { TYPOGRAPHY_STYLES } from '@/constants/typography';
 import { useAppDispatch, useAppSelector } from '@/store';
+import { formatDate } from '@/utils/formatters';
 import {
   fetchProfitAndLoss,
   downloadProfitAndLossExcel,
@@ -384,17 +385,9 @@ const ProfitAndLossPage: React.FC = () => {
             </Typography>
             <Typography variant="body2" color="text.secondary">
               For the period from{' '}
-              {new Date(data.startDate || startDate).toLocaleDateString('en-US', {
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric',
-              })}{' '}
+              {formatDate(data.startDate || startDate)}{' '}
               to{' '}
-              {new Date(data.endDate || endDate).toLocaleDateString('en-US', {
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric',
-              })}
+              {formatDate(data.endDate || endDate)}
             </Typography>
             {/* Net Income Status Indicator */}
             <Box sx={{ mt: 2 }}>

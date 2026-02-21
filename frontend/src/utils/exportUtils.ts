@@ -2,6 +2,7 @@ import * as XLSX from 'xlsx'
 import jsPDF from 'jspdf'
 import { autoTable } from 'jspdf-autotable'
 import type { Product } from '../types'
+import { formatDate, formatDateTime } from './formatters'
 
 export interface ExportData {
   products: Product[]
@@ -16,15 +17,6 @@ const formatCurrencyForExport = (value: number | null | undefined): string => {
   if (value === null || value === undefined) return ''
   const currency = localStorage.getItem('defaultCurrency') || 'RM'
   return `${currency} ${value.toFixed(2)}`
-}
-
-// Format date for export
-const formatDateForExport = (date: string | Date): string => {
-  return new Date(date).toLocaleDateString('en-MY', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit'
-  })
 }
 
 // Get stock status text
@@ -61,8 +53,8 @@ const prepareExportData = (products: Product[]) => {
     row['Stock Status'] = getStockStatusText(product)
     row['Status'] = product.isActive ? 'Active' : 'Inactive'
     row['Notes'] = product.notes || ''
-    row['Created Date'] = formatDateForExport(product.createdAt)
-    row['Updated Date'] = formatDateForExport(product.updatedAt)
+    row['Created Date'] = formatDate(product.createdAt)
+    row['Updated Date'] = formatDate(product.updatedAt)
 
     return row
   })
@@ -183,8 +175,8 @@ export const exportToExcel = ({ products, filters }: ExportData): void => {
           return stock > 0 && stock <= 10
         }).length
       },
-      { Metric: 'Export Date', Value: formatDateForExport(new Date()) },
-      { Metric: 'Export Time', Value: new Date().toLocaleTimeString() }
+      { Metric: 'Export Date', Value: formatDate(new Date()) },
+      { Metric: 'Export Time', Value: formatDateTime(new Date()).split(' ')[1] || '-' }
     ]
 
     if (filters?.search) {
@@ -225,7 +217,7 @@ export const exportToPDF = ({ products, filters }: ExportData): void => {
     doc.setTextColor(80, 80, 80)
     let yPos = 30
 
-    doc.text(`Export Date: ${formatDateForExport(new Date())} ${new Date().toLocaleTimeString()}`, 20, yPos)
+    doc.text(`Export Date: ${formatDateTime(new Date())}`, 20, yPos)
     yPos += 5
 
     doc.text(`Total Products: ${products.length}`, 20, yPos)

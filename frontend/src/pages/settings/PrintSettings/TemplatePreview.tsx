@@ -13,6 +13,7 @@ import {
   Grid,
 } from '@mui/material'
 import { useCurrency } from '@/hooks/useCurrency'
+import { formatDate } from '@/utils/formatters'
 
 interface TemplatePreviewProps {
   template: any
@@ -193,7 +194,7 @@ const TemplatePreview: React.FC<TemplatePreviewProps> = ({ template, settings })
               }
             </Typography>
             <Typography variant="body2" sx={{ color: '#000000' }}>
-              <strong>Date:</strong> {new Date().toLocaleDateString()}
+              <strong>Date:</strong> {formatDate(new Date())}
             </Typography>
           </Box>
         </Box>

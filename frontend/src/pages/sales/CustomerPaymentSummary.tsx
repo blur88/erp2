@@ -32,7 +32,7 @@ import {
   PlayArrow as GenerateIcon,
   AccountBalanceWallet as PaymentSummaryIcon,
 } from '@mui/icons-material'
-import { formatCurrency } from '@/utils/formatters'
+import { formatCurrency, formatDate, formatDateTime } from '@/utils/formatters'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
 import api from '@/services/api'
 
@@ -171,7 +171,7 @@ const CustomerPaymentSummary: React.FC = () => {
         }
         const value = (row as any)[col]
         if (col === 'lastPaymentDate' || col === 'lastOrderDate') {
-          return value ? `"${new Date(value).toLocaleDateString()}"` : '""'
+          return value ? `"${formatDate(value)}"` : '""'
         } else if (col === 'customerName') {
           return `"${value || ''}"`
         } else if (typeof value === 'number') {
@@ -240,7 +240,7 @@ const CustomerPaymentSummary: React.FC = () => {
           const value = (row as any)[col]
           let displayValue = value
           if (col === 'lastPaymentDate' || col === 'lastOrderDate') {
-            displayValue = value ? new Date(value).toLocaleDateString() : '-'
+            displayValue = value ? formatDate(value) : '-'
           } else if (typeof value === 'number') {
             displayValue = formatCurrency(value)
           }
@@ -273,11 +273,11 @@ const CustomerPaymentSummary: React.FC = () => {
     // Build date range text
     let dateRangeText = ''
     if (dateFrom && dateTo) {
-      dateRangeText = `<p><strong>Date Range:</strong> ${new Date(dateFrom).toLocaleDateString()} - ${new Date(dateTo).toLocaleDateString()}</p>`
+      dateRangeText = `<p><strong>Date Range:</strong> ${formatDate(dateFrom)} - ${formatDate(dateTo)}</p>`
     } else if (dateFrom) {
-      dateRangeText = `<p><strong>Date From:</strong> ${new Date(dateFrom).toLocaleDateString()}</p>`
+      dateRangeText = `<p><strong>Date From:</strong> ${formatDate(dateFrom)}</p>`
     } else if (dateTo) {
-      dateRangeText = `<p><strong>Date To:</strong> ${new Date(dateTo).toLocaleDateString()}</p>`
+      dateRangeText = `<p><strong>Date To:</strong> ${formatDate(dateTo)}</p>`
     }
 
     const html = `
@@ -326,7 +326,7 @@ const CustomerPaymentSummary: React.FC = () => {
         <body>
           <h1>${reportTitle}</h1>
           <div class="header-info">
-            <p style="margin: 5px 0;"><strong>Generated on:</strong> ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}</p>
+            <p style="margin: 5px 0;"><strong>Generated on:</strong> ${formatDateTime(new Date())}</p>
             ${dateRangeText}
           </div>
           <table>
@@ -833,12 +833,12 @@ const CustomerPaymentSummary: React.FC = () => {
                         )}
                         {selectedColumns.includes('lastOrderDate') && (
                           <TableCell sx={{ fontSize: '0.8rem' }}>
-                            {row.lastOrderDate ? new Date(row.lastOrderDate).toLocaleDateString() : '-'}
+                            {row.lastOrderDate ? formatDate(row.lastOrderDate) : '-'}
                           </TableCell>
                         )}
                         {selectedColumns.includes('lastPaymentDate') && (
                           <TableCell sx={{ fontSize: '0.8rem' }}>
-                            {row.lastPaymentDate ? new Date(row.lastPaymentDate).toLocaleDateString() : '-'}
+                            {row.lastPaymentDate ? formatDate(row.lastPaymentDate) : '-'}
                           </TableCell>
                         )}
                         {selectedColumns.includes('totalInvoiced') && (

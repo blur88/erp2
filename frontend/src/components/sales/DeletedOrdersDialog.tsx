@@ -499,11 +499,7 @@ const DeletedOrdersDialog: React.FC<DeletedOrdersDialogProps> = ({ open, onClose
                             mt: 0.25,
                             fontSize: '0.65rem'
                           }}>
-                            {new Date(order.deletedAt).toLocaleDateString('en-US', {
-                              month: 'short',
-                              day: 'numeric',
-                              year: '2-digit'
-                            })}
+                            {formatDate(order.deletedAt)}
                           </Typography>
                         )}
                       </TableCell>

@@ -37,6 +37,7 @@ import { purchasingApi } from '@/services/purchasingApi'
 import type { Supplier } from '@/types'
 import { SupplierType } from '@/types'
 import { useNotification } from '@/hooks/useNotification'
+import { formatDate as formatDisplayDate } from '@/utils/formatters'
 
 interface DeletedSuppliersDialogProps {
   open: boolean
@@ -215,12 +216,8 @@ const DeletedSuppliersDialog: React.FC<DeletedSuppliersDialogProps> = ({ open, o
     }
   }
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    })
+  const formatDate = (date: string | Date) => {
+    return formatDisplayDate(date)
   }
 
   return (
@@ -499,11 +496,7 @@ const DeletedSuppliersDialog: React.FC<DeletedSuppliersDialogProps> = ({ open, o
                             mt: 0.25,
                             fontSize: '0.65rem'
                           }}>
-                            {new Date(supplier.deletedAt).toLocaleDateString('en-US', {
-                              month: 'short',
-                              day: 'numeric',
-                              year: '2-digit'
-                            })}
+                            {formatDate(supplier.deletedAt)}
                           </Typography>
                         )}
                       </TableCell>

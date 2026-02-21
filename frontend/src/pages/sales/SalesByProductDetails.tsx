@@ -49,7 +49,7 @@ import {
   KeyboardDoubleArrowLeft as KeyboardDoubleArrowLeftIcon,
   ViewColumn as ViewColumnIcon,
 } from '@mui/icons-material'
-import { formatCurrency } from '@/utils/formatters'
+import { formatCurrency, formatDate, formatDateTime } from '@/utils/formatters'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
 import api from '@/services/api'
 
@@ -222,7 +222,7 @@ const SalesByProductDetails: React.FC = () => {
           const values = selectedColumns.map(col => {
             const value = (row as any)[col]
             if (col === 'transactionDate') {
-              return `"${new Date(value).toLocaleDateString()}"`
+              return `"${formatDate(value)}"`
             } else if (col === 'quantity') {
               return value.toLocaleString()
             } else if (typeof value === 'number') {
@@ -257,7 +257,7 @@ const SalesByProductDetails: React.FC = () => {
         const values = selectedColumns.map(col => {
           const value = (row as any)[col]
           if (col === 'transactionDate') {
-            return `"${new Date(value).toLocaleDateString()}"`
+            return `"${formatDate(value)}"`
           } else if (col === 'quantity') {
             return value.toLocaleString()
           } else if (typeof value === 'number') {
@@ -333,7 +333,7 @@ const SalesByProductDetails: React.FC = () => {
             const value = (row as any)[col]
             let displayValue = value
             if (col === 'transactionDate') {
-              displayValue = new Date(value).toLocaleDateString()
+              displayValue = formatDate(value)
             } else if (col === 'quantity') {
               displayValue = value.toLocaleString()
             } else if (typeof value === 'number') {
@@ -371,7 +371,7 @@ const SalesByProductDetails: React.FC = () => {
           const value = (row as any)[col]
           let displayValue = value
           if (col === 'transactionDate') {
-            displayValue = new Date(value).toLocaleDateString()
+            displayValue = formatDate(value)
           } else if (col === 'quantity') {
             displayValue = value.toLocaleString()
           } else if (typeof value === 'number') {
@@ -405,11 +405,11 @@ const SalesByProductDetails: React.FC = () => {
     // Build date range text
     let dateRangeText = ''
     if (dateFrom && dateTo) {
-      dateRangeText = `<p><strong>Date Range:</strong> ${new Date(dateFrom).toLocaleDateString()} - ${new Date(dateTo).toLocaleDateString()}</p>`
+      dateRangeText = `<p><strong>Date Range:</strong> ${formatDate(dateFrom)} - ${formatDate(dateTo)}</p>`
     } else if (dateFrom) {
-      dateRangeText = `<p><strong>Date From:</strong> ${new Date(dateFrom).toLocaleDateString()}</p>`
+      dateRangeText = `<p><strong>Date From:</strong> ${formatDate(dateFrom)}</p>`
     } else if (dateTo) {
-      dateRangeText = `<p><strong>Date To:</strong> ${new Date(dateTo).toLocaleDateString()}</p>`
+      dateRangeText = `<p><strong>Date To:</strong> ${formatDate(dateTo)}</p>`
     }
 
     const html = `
@@ -458,7 +458,7 @@ const SalesByProductDetails: React.FC = () => {
         <body>
           <h1>${reportTitle}</h1>
           <div class="header-info">
-            <p style="margin: 5px 0;"><strong>Generated on:</strong> ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}</p>
+            <p style="margin: 5px 0;"><strong>Generated on:</strong> ${formatDateTime(new Date())}</p>
             ${dateRangeText}
           </div>
           <table>
@@ -1213,7 +1213,7 @@ const SalesByProductDetails: React.FC = () => {
                                 )}
                                 {selectedColumns.includes('transactionDate') && (
                                   <TableCell sx={{ fontSize: '0.8rem' }}>
-                                    {new Date(row.transactionDate).toLocaleDateString()}
+                                    {formatDate(row.transactionDate)}
                                   </TableCell>
                                 )}
                                 {selectedColumns.includes('documentNumber') && (
@@ -1333,7 +1333,7 @@ const SalesByProductDetails: React.FC = () => {
                           )}
                           {selectedColumns.includes('transactionDate') && (
                             <TableCell sx={{ fontSize: '0.8rem' }}>
-                              {new Date(row.transactionDate).toLocaleDateString()}
+                              {formatDate(row.transactionDate)}
                             </TableCell>
                           )}
                           {selectedColumns.includes('documentNumber') && (

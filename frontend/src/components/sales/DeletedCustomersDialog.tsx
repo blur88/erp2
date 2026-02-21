@@ -53,6 +53,7 @@ import { useNotification } from '@/hooks/useNotification'
 import type { Customer } from '@/types'
 import { CustomerType } from '@/types'
 import { formatCurrency } from '@/utils/currency'
+import { formatDate as formatDisplayDate } from '@/utils/formatters'
 
 interface DeletedCustomersDialogProps {
   open: boolean
@@ -235,11 +236,7 @@ const DeletedCustomersDialog: React.FC<DeletedCustomersDialogProps> = ({ open, o
   }
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    })
+    return formatDisplayDate(dateString)
   }
 
   const getCustomerTypeIcon = (type: CustomerType) => {
@@ -522,11 +519,7 @@ const DeletedCustomersDialog: React.FC<DeletedCustomersDialogProps> = ({ open, o
                             mt: 0.25,
                             fontSize: '0.65rem'
                           }}>
-                            {new Date(customer.deletedAt).toLocaleDateString('en-US', {
-                              month: 'short',
-                              day: 'numeric',
-                              year: '2-digit'
-                            })}
+                            {formatDate(customer.deletedAt)}
                           </Typography>
                         )}
                       </TableCell>
