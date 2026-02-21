@@ -104,12 +104,20 @@ const SalesPage: React.FC = () => {
         year: 'this_year',
       }
 
+      const groupByMap: Record<PeriodType, string> = {
+        week: 'day',
+        month: 'day',
+        quarter: 'week',
+        year: 'month',
+      }
+
       const [analyticsResult, customersResult, ordersResult] = await Promise.all([
         salesApi.getSalesAnalytics({
           period,
           startDate,
           endDate,
           dateRange: dateRangeMap[period],
+          groupBy: groupByMap[period],
         }).catch(() => null),
         salesApi.getTopCustomersReport({
           limit: 5,

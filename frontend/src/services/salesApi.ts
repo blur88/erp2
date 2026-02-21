@@ -348,6 +348,7 @@ export const salesApi = {
     startDate?: Date
     endDate?: Date
     dateRange?: string
+    groupBy?: string
   }) {
     return ApiService.get<{
       totalRevenue: number
