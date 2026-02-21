@@ -34,6 +34,9 @@ export interface PriceCostingSettings {
   id: string
   currency: string
   costingMethod: string
+  dateFormat: string
+  timeFormat: string
+  numberFormat: string
   createdAt: string
   updatedAt: string
   isActive: boolean
@@ -42,6 +45,9 @@ export interface PriceCostingSettings {
 export interface UpdatePriceCostingSettingsDto {
   currency?: string
   costingMethod?: string
+  dateFormat?: string
+  timeFormat?: string
+  numberFormat?: string
 }
 
 export interface DocumentNumberConfig {
