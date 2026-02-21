@@ -21,33 +21,15 @@ import { yupResolver } from '@hookform/resolvers/yup'
 import { useNotification } from '@/hooks/useNotification'
 import { settingsApi } from '@/services/settingsApi'
 import { inventoryApi } from '@/services/inventoryApi'
-import { refreshCurrencyCache } from '@/hooks/useCurrency'
 import { TYPOGRAPHY_STYLES } from '@/constants/typography'
 
 interface PriceCostingFormData {
-  currency: string
   costingMethod: string
 }
 
 const schema = yup.object({
-  currency: yup.string().required('Currency is required'),
   costingMethod: yup.string().required('Costing method is required'),
 })
-
-const CURRENCIES = [
-  { value: 'USD', label: 'USD - US Dollar' },
-  { value: 'EUR', label: 'EUR - Euro' },
-  { value: 'GBP', label: 'GBP - British Pound' },
-  { value: 'JPY', label: 'JPY - Japanese Yen' },
-  { value: 'AUD', label: 'AUD - Australian Dollar' },
-  { value: 'CAD', label: 'CAD - Canadian Dollar' },
-  { value: 'CHF', label: 'CHF - Swiss Franc' },
-  { value: 'CNY', label: 'CNY - Chinese Yuan' },
-  { value: 'INR', label: 'INR - Indian Rupee' },
-  { value: 'SGD', label: 'SGD - Singapore Dollar' },
-  { value: 'MYR', label: 'MYR - Malaysian Ringgit' },
-  { value: 'THB', label: 'THB - Thai Baht' },
-]
 
 const COSTING_METHODS = [
   { value: 'AVERAGE', label: 'Average Cost' },
@@ -65,10 +47,9 @@ const PriceCostingPage: React.FC = () => {
   const [savedCostingMethod, setSavedCostingMethod] = useState<string>('')
   const [currentCostingMethod, setCurrentCostingMethod] = useState<string>('')
 
-  const { control, handleSubmit, formState: { errors }, reset, setValue } = useForm<PriceCostingFormData>({
+  const { control, handleSubmit, formState: { errors }, setValue } = useForm<PriceCostingFormData>({
     resolver: yupResolver(schema) as any,
     defaultValues: {
-      currency: 'USD',
       costingMethod: 'AVERAGE',
     },
   })
@@ -99,7 +80,6 @@ const PriceCostingPage: React.FC = () => {
       const settings = response as any
 
       // Set form values
-      setValue('currency', settings.currency || 'USD')
       setValue('costingMethod', settings.costingMethod || 'AVERAGE')
 
       // Track saved costing method
@@ -120,13 +100,10 @@ const PriceCostingPage: React.FC = () => {
 
       await settingsApi.updatePriceCostingSettings(data)
 
-      // Refresh currency cache immediately after saving
-      await refreshCurrencyCache()
-
       // Update saved costing method after successful save
       setSavedCostingMethod(data.costingMethod)
 
-      showSuccess('Price and costing settings saved successfully. Please refresh pages to see currency changes.')
+      showSuccess('Inventory costing settings saved successfully.')
 
       // Reload settings to get updated data
       await fetchSettings()
@@ -186,7 +163,7 @@ const PriceCostingPage: React.FC = () => {
       <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
         <PriceCostingIcon sx={{ fontSize: 40, mr: 2, color: 'primary.main' }} />
         <Typography variant={TYPOGRAPHY_STYLES.pageHeader.variant} sx={{ fontWeight: TYPOGRAPHY_STYLES.pageHeader.fontWeight }}>
-          Price & Costing Settings
+          Inventory Costing Settings
         </Typography>
       </Box>
       {/* Error Alert */}
@@ -198,45 +175,6 @@ const PriceCostingPage: React.FC = () => {
       <Paper sx={{ p: 4 }}>
         <form onSubmit={handleSubmit(onSubmit)}>
           <Grid container spacing={3}>
-            {/* Currency Section */}
-            <Grid size={12}>
-              <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>
-                Currency
-              </Typography>
-            </Grid>
-
-            <Grid
-              size={{
-                xs: 12,
-                md: 6
-              }}>
-              <Controller
-                name="currency"
-                control={control}
-                render={({ field }) => (
-                  <TextField
-                    {...field}
-                    select
-                    label="Default Currency"
-                    fullWidth
-                    required
-                    error={!!errors.currency}
-                    helperText={errors.currency?.message || 'Select the default currency for your business'}
-                  >
-                    {CURRENCIES.map((option) => (
-                      <MenuItem key={option.value} value={option.value}>
-                        {option.label}
-                      </MenuItem>
-                    ))}
-                  </TextField>
-                )}
-              />
-            </Grid>
-
-            <Grid size={12}>
-              <Divider sx={{ my: 2 }} />
-            </Grid>
-
             {/* Costing Method Section */}
             <Grid size={12}>
               <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>
