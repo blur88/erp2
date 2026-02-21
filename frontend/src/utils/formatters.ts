@@ -1,5 +1,6 @@
 /**
  * Common formatting utilities
+ * Date/time/number formats are read from localStorage (set by Regional Settings)
  */
 
 import { formatCurrency as formatCurrencyUtil } from './currency'
@@ -10,7 +11,40 @@ import { formatCurrency as formatCurrencyUtil } from './currency'
 export const formatCurrency = formatCurrencyUtil
 
 /**
- * Format date to a readable string
+ * Apply a date format string (e.g. 'DD/MM/YYYY') to a Date object.
+ * Returns formatted string.
+ */
+const applyDateFormat = (dateObj: Date, fmt: string): string => {
+  const day = String(dateObj.getDate()).padStart(2, '0')
+  const month = String(dateObj.getMonth() + 1).padStart(2, '0')
+  const year = String(dateObj.getFullYear())
+
+  return fmt
+    .replace('DD', day)
+    .replace('MM', month)
+    .replace('YYYY', year)
+}
+
+/**
+ * Apply a time format ('24h' or '12h') to a Date object.
+ * Returns formatted time string.
+ */
+const applyTimeFormat = (dateObj: Date, fmt: string): string => {
+  const hours24 = dateObj.getHours()
+  const minutes = String(dateObj.getMinutes()).padStart(2, '0')
+
+  if (fmt === '12h') {
+    const period = hours24 >= 12 ? 'PM' : 'AM'
+    const hours12 = hours24 % 12 || 12
+    return `${hours12}:${minutes} ${period}`
+  }
+
+  return `${String(hours24).padStart(2, '0')}:${minutes}`
+}
+
+/**
+ * Format date to a readable string.
+ * Reads dateFormat from localStorage (default: 'DD/MM/YYYY').
  */
 export const formatDate = (date: Date | string | null | undefined): string => {
   if (!date) return '-'
@@ -19,15 +53,13 @@ export const formatDate = (date: Date | string | null | undefined): string => {
 
   if (isNaN(dateObj.getTime())) return '-'
 
-  return dateObj.toLocaleDateString('en-GB', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-  })
+  const fmt = localStorage.getItem('dateFormat') || 'DD/MM/YYYY'
+  return applyDateFormat(dateObj, fmt)
 }
 
 /**
- * Format date and time to a readable string
+ * Format date and time to a readable string.
+ * Reads dateFormat and timeFormat from localStorage.
  */
 export const formatDateTime = (date: Date | string | null | undefined): string => {
   if (!date) return '-'
@@ -36,28 +68,35 @@ export const formatDateTime = (date: Date | string | null | undefined): string =
 
   if (isNaN(dateObj.getTime())) return '-'
 
-  const datePart = dateObj.toLocaleDateString('en-GB', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-  })
-  const timePart = dateObj.toLocaleTimeString('en-GB', {
-    hour: '2-digit',
-    minute: '2-digit',
-  })
+  const dateFmt = localStorage.getItem('dateFormat') || 'DD/MM/YYYY'
+  const timeFmt = localStorage.getItem('timeFormat') || '24h'
+
+  const datePart = applyDateFormat(dateObj, dateFmt)
+  const timePart = applyTimeFormat(dateObj, timeFmt)
+
   return `${datePart} ${timePart}`
 }
 
 /**
- * Format number with thousand separators
+ * Format number with thousand separators.
+ * Reads numberFormat from localStorage (default: '1,234.56').
+ * '1,234.56' = comma thousands, dot decimal
+ * '1234.56'  = no thousands separator
  */
 export const formatNumber = (num: number | string | null | undefined): string => {
   if (num === null || num === undefined) return '-'
-  
+
   const numericValue = typeof num === 'string' ? parseFloat(num) : num
-  
+
   if (isNaN(numericValue)) return '-'
-  
+
+  const fmt = localStorage.getItem('numberFormat') || '1,234.56'
+
+  if (fmt === '1234.56') {
+    return numericValue.toString()
+  }
+
+  // Default: comma thousands, dot decimal (en-MY / en-US style)
   return numericValue.toLocaleString('en-MY')
 }
 
@@ -104,7 +143,6 @@ export const getCurrentDate = (): string => {
     month: '2-digit',
     day: '2-digit',
   }
-  // Using 'en-CA' locale gives YYYY-MM-DD format
   const parts = new Intl.DateTimeFormat('en-CA', options).formatToParts(now)
   const year = parts.find(p => p.type === 'year')?.value
   const month = parts.find(p => p.type === 'month')?.value
