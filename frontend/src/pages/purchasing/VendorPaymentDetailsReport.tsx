@@ -29,7 +29,7 @@ import {
   PlayArrow as GenerateIcon,
   MonetizationOn as PaymentIcon,
 } from '@mui/icons-material'
-import { formatCurrency } from '@/utils/formatters'
+import { formatCurrency, formatDate, formatDateTime } from '@/utils/formatters'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
 import api from '@/services/api'
 
@@ -139,7 +139,7 @@ const VendorPaymentDetailsReport: React.FC = () => {
       if (groupBy === 'supplierName') {
         return `Vendor: ${r.supplierName}`
       } else if (groupBy === 'paymentDate') {
-        return `Payment Date: ${r.paymentDate ? new Date(r.paymentDate).toLocaleDateString() : 'N/A'}`
+        return `Payment Date: ${r.paymentDate ? formatDate(r.paymentDate) : 'N/A'}`
       } else if (groupBy === 'orderNumber') {
         return `Order No: ${r.orderNumber || 'N/A'}`
       }
@@ -158,7 +158,7 @@ const VendorPaymentDetailsReport: React.FC = () => {
       const values = selectedColumns.map(col => {
         const value = (row as any)[col]
         if (col === 'paymentDate') {
-          return value ? `"${new Date(value).toLocaleDateString()}"` : '""'
+          return value ? `"${formatDate(value)}"` : '""'
         } else if (col === 'supplierName' || col === 'orderNumber') {
           return `"${value || ''}"`
         } else if (typeof value === 'number') {
@@ -243,7 +243,7 @@ const VendorPaymentDetailsReport: React.FC = () => {
       if (groupBy === 'supplierName') {
         return `Vendor: ${r.supplierName}`
       } else if (groupBy === 'paymentDate') {
-        return `Payment Date: ${r.paymentDate ? new Date(r.paymentDate).toLocaleDateString() : 'N/A'}`
+        return `Payment Date: ${r.paymentDate ? formatDate(r.paymentDate) : 'N/A'}`
       } else if (groupBy === 'orderNumber') {
         return `Order No: ${r.orderNumber || 'N/A'}`
       }
@@ -264,7 +264,7 @@ const VendorPaymentDetailsReport: React.FC = () => {
         const value = (row as any)[col]
         let displayValue = value
         if (col === 'paymentDate') {
-          displayValue = value ? new Date(value).toLocaleDateString() : '-'
+          displayValue = value ? formatDate(value) : '-'
         } else if (typeof value === 'number') {
           displayValue = formatCurrency(value)
         }
@@ -317,11 +317,11 @@ const VendorPaymentDetailsReport: React.FC = () => {
 
     const filterText = []
     if (dateFrom && dateTo) {
-      filterText.push(`<p><strong>Payment Date Range:</strong> ${new Date(dateFrom).toLocaleDateString()} - ${new Date(dateTo).toLocaleDateString()}</p>`)
+      filterText.push(`<p><strong>Payment Date Range:</strong> ${formatDate(dateFrom)} - ${formatDate(dateTo)}</p>`)
     } else if (dateFrom) {
-      filterText.push(`<p><strong>Payment Date From:</strong> ${new Date(dateFrom).toLocaleDateString()}</p>`)
+      filterText.push(`<p><strong>Payment Date From:</strong> ${formatDate(dateFrom)}</p>`)
     } else if (dateTo) {
-      filterText.push(`<p><strong>Payment Date To:</strong> ${new Date(dateTo).toLocaleDateString()}</p>`)
+      filterText.push(`<p><strong>Payment Date To:</strong> ${formatDate(dateTo)}</p>`)
     }
     const dateRangeText = filterText.join('')
 
@@ -348,7 +348,7 @@ const VendorPaymentDetailsReport: React.FC = () => {
         <body>
           <h1>${reportTitle}</h1>
           <div class="header-info">
-            <p style="margin: 5px 0;"><strong>Generated on:</strong> ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}</p>
+            <p style="margin: 5px 0;"><strong>Generated on:</strong> ${formatDateTime(new Date())}</p>
             ${dateRangeText}
           </div>
           <table>
@@ -784,7 +784,7 @@ const VendorPaymentDetailsReport: React.FC = () => {
                           if (field === 'supplierName') {
                             return `Vendor: ${r.supplierName}`
                           } else if (field === 'paymentDate') {
-                            return `Payment Date: ${r.paymentDate ? new Date(r.paymentDate).toLocaleDateString() : 'N/A'}`
+                            return `Payment Date: ${r.paymentDate ? formatDate(r.paymentDate) : 'N/A'}`
                           } else if (field === 'orderNumber') {
                             return `Order No: ${r.orderNumber || 'N/A'}`
                           }
@@ -835,7 +835,7 @@ const VendorPaymentDetailsReport: React.FC = () => {
                               )}
                               {selectedColumns.includes('paymentDate') && (
                                 <TableCell sx={{ fontSize: '0.8rem' }}>
-                                  {row.paymentDate ? new Date(row.paymentDate).toLocaleDateString() : '-'}
+                                  {row.paymentDate ? formatDate(row.paymentDate) : '-'}
                                 </TableCell>
                               )}
                               {selectedColumns.includes('orderNumber') && (
