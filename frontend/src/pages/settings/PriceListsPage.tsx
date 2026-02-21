@@ -52,6 +52,7 @@ import PriceListFormDialog from '@/components/settings/PriceListFormDialog'
 import PriceListCopyDialog from '@/components/settings/PriceListCopyDialog'
 import ConfirmationDialog from '@/components/common/ConfirmationDialog'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
+import { formatDate as formatDisplayDate } from '@/utils/formatters'
 
 const PriceListsPage: React.FC = () => {
   const navigate = useNavigate()
@@ -214,11 +215,6 @@ const PriceListsPage: React.FC = () => {
   }
 
   // Format date
-  const formatDate = (date?: Date | string) => {
-    if (!date) return '-'
-    return new Date(date).toLocaleDateString()
-  }
-
   return (
     <Box sx={{ p: 3 }}>
       {/* Header */}
@@ -485,12 +481,12 @@ const PriceListsPage: React.FC = () => {
                     </TableCell>
                     <TableCell>
                       <Typography variant="body2" sx={{ fontSize: '0.8rem', fontWeight: 400 }}>
-                        {formatDate(priceList.effectiveFrom)}
+                        {formatDisplayDate(priceList.effectiveFrom)}
                       </Typography>
                     </TableCell>
                     <TableCell>
                       <Typography variant="body2" sx={{ fontSize: '0.8rem', fontWeight: 400 }}>
-                        {formatDate(priceList.effectiveTo)}
+                        {formatDisplayDate(priceList.effectiveTo)}
                       </Typography>
                     </TableCell>
                     <TableCell>

@@ -40,6 +40,7 @@ import {
 import type { PriceListItem } from '@/types'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
 import { formatCurrency } from '@/utils/currency'
+import { formatDate as formatDisplayDate } from '@/utils/formatters'
 
 const PriceListDetailsPage: React.FC = () => {
   const { id } = useParams<{ id: string }>()
@@ -166,11 +167,6 @@ const PriceListDetailsPage: React.FC = () => {
   }
 
   // Format date
-  const formatDate = (date?: Date | string) => {
-    if (!date) return '-'
-    return new Date(date).toLocaleDateString()
-  }
-
   if (!selectedPriceList && loading.priceLists) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '400px' }}>
@@ -266,13 +262,13 @@ const PriceListDetailsPage: React.FC = () => {
               <Typography variant="caption" color="text.secondary">
                 Effective From
               </Typography>
-              <Typography variant="body2">{formatDate(selectedPriceList.effectiveFrom)}</Typography>
+              <Typography variant="body2">{formatDisplayDate(selectedPriceList.effectiveFrom)}</Typography>
             </Box>
             <Box>
               <Typography variant="caption" color="text.secondary">
                 Effective To
               </Typography>
-              <Typography variant="body2">{formatDate(selectedPriceList.effectiveTo)}</Typography>
+              <Typography variant="body2">{formatDisplayDate(selectedPriceList.effectiveTo)}</Typography>
             </Box>
             <Box>
               <Typography variant="caption" color="text.secondary">
