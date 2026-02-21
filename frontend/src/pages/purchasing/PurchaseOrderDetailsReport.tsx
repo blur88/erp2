@@ -49,7 +49,7 @@ import {
   KeyboardDoubleArrowRight as KeyboardDoubleArrowRightIcon,
   KeyboardDoubleArrowLeft as KeyboardDoubleArrowLeftIcon,
 } from '@mui/icons-material'
-import { formatCurrency } from '@/utils/formatters'
+import { formatCurrency, formatDate, formatDateTime } from '@/utils/formatters'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
 import api from '@/services/api'
 
@@ -360,7 +360,7 @@ const PurchaseOrderDetailsReport: React.FC = () => {
       const values = selectedColumns.map(col => {
         const value = (row as any)[col]
         if (col === 'orderDate') {
-          return value ? `"${new Date(value).toLocaleDateString()}"` : '""'
+          return value ? `"${formatDate(value)}"` : '""'
         } else if (['supplierName', 'productName', 'categoryName', 'orderNumber', 'status', 'paymentStatus'].includes(col)) {
           return `"${value || ''}"`
         } else if (typeof value === 'number') {
@@ -479,7 +479,7 @@ const PurchaseOrderDetailsReport: React.FC = () => {
         const value = (row as any)[col]
         let displayValue = value
         if (col === 'orderDate') {
-          displayValue = value ? new Date(value).toLocaleDateString() : '-'
+          displayValue = value ? formatDate(value) : '-'
         } else if (typeof value === 'number') {
           displayValue = formatCurrency(value)
         } else if (col === 'status' || col === 'paymentStatus') {
@@ -536,11 +536,11 @@ const PurchaseOrderDetailsReport: React.FC = () => {
 
     let dateRangeText = ''
     if (dateFrom && dateTo) {
-      dateRangeText = `<p><strong>Date Range:</strong> ${new Date(dateFrom).toLocaleDateString()} - ${new Date(dateTo).toLocaleDateString()}</p>`
+      dateRangeText = `<p><strong>Date Range:</strong> ${formatDate(dateFrom)} - ${formatDate(dateTo)}</p>`
     } else if (dateFrom) {
-      dateRangeText = `<p><strong>Date From:</strong> ${new Date(dateFrom).toLocaleDateString()}</p>`
+      dateRangeText = `<p><strong>Date From:</strong> ${formatDate(dateFrom)}</p>`
     } else if (dateTo) {
-      dateRangeText = `<p><strong>Date To:</strong> ${new Date(dateTo).toLocaleDateString()}</p>`
+      dateRangeText = `<p><strong>Date To:</strong> ${formatDate(dateTo)}</p>`
     }
 
     const html = `
@@ -566,7 +566,7 @@ const PurchaseOrderDetailsReport: React.FC = () => {
         <body>
           <h1>${reportTitle}</h1>
           <div class="header-info">
-            <p style="margin: 5px 0;"><strong>Generated on:</strong> ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}</p>
+            <p style="margin: 5px 0;"><strong>Generated on:</strong> ${formatDateTime(new Date())}</p>
             ${dateRangeText}
           </div>
           <table>
@@ -1190,7 +1190,7 @@ const PurchaseOrderDetailsReport: React.FC = () => {
                         )}
                         {selectedColumns.includes('orderDate') && (
                           <TableCell sx={{ fontSize: '0.8rem' }}>
-                            {row.orderDate ? new Date(row.orderDate).toLocaleDateString() : '-'}
+                            {row.orderDate ? formatDate(row.orderDate) : '-'}
                           </TableCell>
                         )}
                         {selectedColumns.includes('supplierName') && (

@@ -64,6 +64,7 @@ import type { Supplier } from '@/types'
 import { SupplierType } from '@/types'
 import { purchasingApi } from '@/services/purchasingApi'
 import { formatCurrency } from '@/utils/currency'
+import { formatDate } from '@/utils/formatters'
 import DeletedSuppliersDialog from '@/components/purchasing/DeletedSuppliersDialog'
 import ConfirmationDialog from '@/components/common/ConfirmationDialog'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
@@ -1094,7 +1095,7 @@ const SuppliersPage: React.FC = () => {
                     <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                       <Typography color="text.secondary">Last Purchase:</Typography>
                       <Typography fontWeight={600}>
-                        {new Date(selectedSupplier.lastPurchaseDate).toLocaleDateString()}
+                        {formatDate(selectedSupplier.lastPurchaseDate)}
                       </Typography>
                     </Box>
                   )}
