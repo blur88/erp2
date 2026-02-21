@@ -18,6 +18,18 @@ export class PriceCostingSettingsResponseDto {
   @Expose()
   costingMethod: string;
 
+  @ApiProperty({ description: 'Date display format', example: 'DD/MM/YYYY' })
+  @Expose()
+  dateFormat: string;
+
+  @ApiProperty({ description: 'Time display format', example: '24h' })
+  @Expose()
+  timeFormat: string;
+
+  @ApiProperty({ description: 'Number display format', example: '1,234.56' })
+  @Expose()
+  numberFormat: string;
+
   @ApiProperty({ description: 'Creation timestamp' })
   @Expose()
   createdAt: Date;
