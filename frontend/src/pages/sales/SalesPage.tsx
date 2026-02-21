@@ -97,11 +97,19 @@ const SalesPage: React.FC = () => {
       const { startDate, endDate } = getDateRange(period)
 
       // Fetch analytics, top customers, and recent orders in parallel
+      const dateRangeMap: Record<PeriodType, string> = {
+        week: 'this_week',
+        month: 'this_month',
+        quarter: 'this_quarter',
+        year: 'this_year',
+      }
+
       const [analyticsResult, customersResult, ordersResult] = await Promise.all([
         salesApi.getSalesAnalytics({
           period,
           startDate,
           endDate,
+          dateRange: dateRangeMap[period],
         }).catch(() => null),
         salesApi.getTopCustomersReport({
           limit: 5,

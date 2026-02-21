@@ -347,6 +347,7 @@ export const salesApi = {
     period: 'week' | 'month' | 'quarter' | 'year'
     startDate?: Date
     endDate?: Date
+    dateRange?: string
   }) {
     return ApiService.get<{
       totalRevenue: number
