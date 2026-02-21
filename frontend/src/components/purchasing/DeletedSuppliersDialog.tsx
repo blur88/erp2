@@ -216,8 +216,8 @@ const DeletedSuppliersDialog: React.FC<DeletedSuppliersDialogProps> = ({ open, o
     }
   }
 
-  const formatDate = (dateString: string) => {
-    return formatDisplayDate(dateString)
+  const formatDate = (date: string | Date) => {
+    return formatDisplayDate(date)
   }
 
   return (
