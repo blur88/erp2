@@ -2,6 +2,7 @@ import React, { Suspense, useEffect, useState } from 'react'
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom'
 import { Box, LinearProgress } from '@mui/material'
 import { useAppSelector, useAppDispatch } from './hooks/useRedux'
+import { useRegionalSettings } from '@/hooks/useRegionalSettings'
 import { selectTheme } from './store/slices/themeSlice'
 import { selectIsAuthenticated, selectRememberMe, logout as logoutAction, clearAuth } from './store/slices/authSlice'
 import { useIdleTimer } from './hooks/useIdleTimer'
@@ -102,6 +103,8 @@ function App() {
   const location = useLocation()
 
   const [showIdleWarning, setShowIdleWarning] = useState(false)
+
+  useRegionalSettings()
 
   // Auto-logout configuration
   const IDLE_TIMEOUT = 30 * 60 * 1000 // 30 minutes
