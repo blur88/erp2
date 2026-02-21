@@ -49,7 +49,7 @@ import {
   KeyboardDoubleArrowLeft as KeyboardDoubleArrowLeftIcon,
   ViewColumn as ViewColumnIcon,
 } from '@mui/icons-material'
-import { formatCurrency } from '@/utils/formatters'
+import { formatCurrency, formatDate, formatDateTime } from '@/utils/formatters'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
 import { ApiService } from '@/services/api'
 
@@ -393,11 +393,11 @@ const SalesByProductSummary: React.FC = () => {
     // Build date range text
     let dateRangeText = ''
     if (dateFrom && dateTo) {
-      dateRangeText = `<p><strong>Date Range:</strong> ${new Date(dateFrom).toLocaleDateString()} - ${new Date(dateTo).toLocaleDateString()}</p>`
+      dateRangeText = `<p><strong>Date Range:</strong> ${formatDate(dateFrom)} - ${formatDate(dateTo)}</p>`
     } else if (dateFrom) {
-      dateRangeText = `<p><strong>Date From:</strong> ${new Date(dateFrom).toLocaleDateString()}</p>`
+      dateRangeText = `<p><strong>Date From:</strong> ${formatDate(dateFrom)}</p>`
     } else if (dateTo) {
-      dateRangeText = `<p><strong>Date To:</strong> ${new Date(dateTo).toLocaleDateString()}</p>`
+      dateRangeText = `<p><strong>Date To:</strong> ${formatDate(dateTo)}</p>`
     }
 
     const html = `
@@ -446,7 +446,7 @@ const SalesByProductSummary: React.FC = () => {
         <body>
           <h1>${reportTitle}</h1>
           <div class="header-info">
-            <p style="margin: 5px 0;"><strong>Generated on:</strong> ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}</p>
+            <p style="margin: 5px 0;"><strong>Generated on:</strong> ${formatDateTime(new Date())}</p>
             ${dateRangeText}
           </div>
           <table>
