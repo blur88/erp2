@@ -29,7 +29,7 @@ import {
 } from '@mui/icons-material';
 import { TYPOGRAPHY_STYLES } from '@/constants/typography';
 import { useAppDispatch, useAppSelector } from '@/store';
-import { formatDate } from '@/utils/formatters';
+import { formatDate, formatDateTime } from '@/utils/formatters';
 import {
   fetchGeneralLedger,
   downloadGeneralLedgerExcel,
@@ -674,13 +674,7 @@ const GeneralLedgerPage: React.FC = () => {
               Total Transactions: {data.transactions.length}
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              Generated on: {new Date().toLocaleString('en-US', {
-                year: 'numeric',
-                month: 'short',
-                day: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit',
-              })}
+              Generated on: {formatDateTime(new Date())}
             </Typography>
           </Box>
         </Paper>

@@ -33,7 +33,7 @@ import {
 import { TYPOGRAPHY_STYLES } from '@/constants/typography';
 import { useNavigate } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '@/store';
-import { formatDate } from '@/utils/formatters';
+import { formatDate, formatDateTime } from '@/utils/formatters';
 import {
   fetchAccountActivity,
   downloadAccountActivityExcel,
@@ -771,13 +771,7 @@ const AccountActivityPage: React.FC = () => {
               Total Entries: {entries.length}
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              Generated on: {new Date().toLocaleString('en-US', {
-                year: 'numeric',
-                month: 'short',
-                day: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit',
-              })}
+              Generated on: {formatDateTime(new Date())}
             </Typography>
           </Box>
         </Paper>
