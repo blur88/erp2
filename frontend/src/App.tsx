@@ -57,6 +57,7 @@ const PriceListReport = React.lazy(() => import('./pages/inventory/PriceListRepo
 const ProductCostReport = React.lazy(() => import('./pages/inventory/ProductCostReport'))
 const CompanySettingsPage = React.lazy(() => import('./pages/settings/CompanySettingsPage'))
 const PriceCostingPage = React.lazy(() => import('./pages/settings/PriceCostingPage'))
+const RegionalSettingsPage = React.lazy(() => import('./pages/settings/RegionalSettingsPage'))
 const PrintSettingsPage = React.lazy(() => import('./pages/settings/PrintSettingsPage'))
 const DocumentNumbersPage = React.lazy(() => import('./pages/settings/DocumentNumbersPage'))
 const BackupManagement = React.lazy(() => import('./pages/settings/BackupManagement'))
@@ -268,6 +269,7 @@ function App() {
                     {/* Settings */}
                     <Route path="/settings/company" element={<CompanySettingsPage />} />
                     <Route path="/settings/price-costing" element={<PriceCostingPage />} />
+                    <Route path="/settings/regional" element={<RegionalSettingsPage />} />
                     <Route path="/settings/price-lists" element={<PriceListsPage />} />
                     <Route path="/settings/price-lists/:id" element={<PriceListDetailsPage />} />
                     <Route path="/settings/payment-methods" element={<PaymentMethodsPage />} />

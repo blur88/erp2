@@ -63,6 +63,7 @@ import {
   ShowChart as ShowChartIcon,
   ReceiptLong as ReceiptLongIcon,
   Timeline as TimelineIcon,
+  Language as RegionalIcon,
 } from '@mui/icons-material'
 
 interface SidebarProps {
@@ -477,9 +478,15 @@ const menuSections: MenuSection[] = [
           },
           {
             id: 'price-costing-settings',
-            title: 'Price & Costing',
+            title: 'Inventory Costing',
             icon: <PriceCostingIcon />,
             path: '/settings/price-costing',
+          },
+          {
+            id: 'regional-settings',
+            title: 'Regional',
+            icon: <RegionalIcon />,
+            path: '/settings/regional',
           },
           {
             id: 'price-lists',
