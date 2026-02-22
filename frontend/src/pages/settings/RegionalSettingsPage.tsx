@@ -54,6 +54,10 @@ const DATE_FORMATS = [
   { value: 'MM/DD/YYYY', label: 'MM/DD/YYYY (e.g. 02/22/2026)' },
   { value: 'MM-DD-YYYY', label: 'MM-DD-YYYY (e.g. 02-22-2026)' },
   { value: 'YYYY-MM-DD', label: 'YYYY-MM-DD (e.g. 2026-02-22)' },
+  { value: 'DD MMM YYYY', label: 'DD MMM YYYY (e.g. 22 Feb 2026)' },
+  { value: 'DD MMMM YYYY', label: 'DD MMMM YYYY (e.g. 22 February 2026)' },
+  { value: 'MMM DD, YYYY', label: 'MMM DD, YYYY (e.g. Feb 22, 2026)' },
+  { value: 'MMMM DD, YYYY', label: 'MMMM DD, YYYY (e.g. February 22, 2026)' },
 ]
 
 const TIME_FORMATS = [
@@ -66,6 +70,15 @@ const NUMBER_FORMATS = [
   { value: '1234.56', label: '1234.56 (no thousands separator)' },
 ]
 
+const MONTHS_FULL = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December',
+]
+const MONTHS_SHORT = [
+  'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+]
+
 /** Generate a live preview string based on current form values */
 const buildPreview = (dateFormat: string, timeFormat: string, numberFormat: string, currency: string): string => {
   const now = new Date(2026, 1, 22, 14, 30) // Fixed example date: 22 Feb 2026, 14:30
@@ -73,19 +86,17 @@ const buildPreview = (dateFormat: string, timeFormat: string, numberFormat: stri
   const day = String(now.getDate()).padStart(2, '0')
   const month = String(now.getMonth() + 1).padStart(2, '0')
   const year = String(now.getFullYear())
+  const monthFull = MONTHS_FULL[now.getMonth()]
+  const monthShort = MONTHS_SHORT[now.getMonth()]
 
   const datePart = dateFormat
-    .replace('DD', day)
+    .replace('MMMM', monthFull)
+    .replace('MMM', monthShort)
     .replace('MM', month)
+    .replace('DD', day)
     .replace('YYYY', year)
 
-  let timePart: string
-  if (timeFormat === '12h') {
-    timePart = '2:30 PM'
-  } else {
-    timePart = '14:30'
-  }
-
+  const timePart = timeFormat === '12h' ? '2:30 PM' : '14:30'
   const numPart = numberFormat === '1234.56' ? '1234.56' : '1,234.56'
 
   return `${datePart} ${timePart}  |  ${currency} ${numPart}`

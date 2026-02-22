@@ -18,10 +18,22 @@ const applyDateFormat = (dateObj: Date, fmt: string): string => {
   const day = String(dateObj.getDate()).padStart(2, '0')
   const month = String(dateObj.getMonth() + 1).padStart(2, '0')
   const year = String(dateObj.getFullYear())
+  const MONTHS_FULL = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December',
+  ]
+  const MONTHS_SHORT = [
+    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+  ]
+  const monthFull = MONTHS_FULL[dateObj.getMonth()]
+  const monthShort = MONTHS_SHORT[dateObj.getMonth()]
 
   return fmt
-    .replace('DD', day)
+    .replace('MMMM', monthFull)
+    .replace('MMM', monthShort)
     .replace('MM', month)
+    .replace('DD', day)
     .replace('YYYY', year)
 }
 
