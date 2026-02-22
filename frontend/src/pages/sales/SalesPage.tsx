@@ -27,7 +27,7 @@ import {
   Add as AddIcon,
 } from '@mui/icons-material'
 import { subDays, subMonths, startOfMonth, endOfMonth, subYears, startOfYear, endOfYear } from 'date-fns'
-import { formatCurrency, formatDate } from '@/utils/formatters'
+import { formatCurrency, formatDate, formatNumber } from '@/utils/formatters'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
 import { useNavigate } from 'react-router-dom'
 import { salesApi } from '@/services/salesApi'
@@ -137,6 +137,16 @@ const SalesPage: React.FC = () => {
         const periodData: Array<{ period: string; revenue: number }> = result.periodData || []
         const backendTopProducts: any[] = result.topProducts || []
 
+        const formatChartPeriodLabel = (periodLabel: string, groupBy: string): string => {
+          if (groupBy === 'day') {
+            const [year, month, day] = periodLabel.split('-').map(Number)
+            if (year && month && day) {
+              return formatDate(new Date(year, month - 1, day))
+            }
+          }
+          return periodLabel
+        }
+
         setAnalytics({
           totalRevenue: metrics.totalRevenue || 0,
           totalOrders: metrics.totalOrders || 0,
@@ -149,7 +159,7 @@ const SalesPage: React.FC = () => {
             quantity: p.quantitySold ?? p.quantity ?? 0,
           })),
           revenueChart: {
-            labels: periodData.map((d) => d.period),
+            labels: periodData.map((d) => formatChartPeriodLabel(d.period, groupByMap[period])),
             data: periodData.map((d) => d.revenue),
           },
         })
@@ -286,7 +296,7 @@ const SalesPage: React.FC = () => {
     },
     {
       title: 'Orders',
-      value: analytics?.totalOrders?.toLocaleString() || '0',
+      value: formatNumber(analytics?.totalOrders || 0),
       change: '+0.0%',
       trend: 'up',
       icon: OrdersIcon,
@@ -303,7 +313,7 @@ const SalesPage: React.FC = () => {
     },
     {
       title: 'Top Customers',
-      value: topCustomers.length.toString(),
+      value: formatNumber(topCustomers.length),
       change: '+0.0%',
       trend: 'up',
       icon: CustomersIcon,

@@ -20,7 +20,7 @@ import {
     Filler,
 } from 'chart.js'
 import { Line, Doughnut } from 'react-chartjs-2'
-import { formatCurrency } from '@/utils/formatters'
+import { formatCurrency, formatNumber } from '@/utils/formatters'
 import { TYPOGRAPHY_STYLES } from '@/constants/typography'
 
 ChartJS.register(
@@ -239,7 +239,7 @@ export const TopProductsList: React.FC<TopProductsListProps> = ({ products, load
                                         {product.productName}
                                     </Typography>
                                     <Typography variant="caption" color="text.secondary">
-                                        {product.quantity || 0} sold
+                                        {formatNumber(product.quantity || 0)} sold
                                     </Typography>
                                 </Box>
                             </Box>
@@ -323,7 +323,7 @@ export const TopCustomersList: React.FC<TopCustomersListProps> = ({ customers, l
                                         {customer.customerName || customer.name}
                                     </Typography>
                                     <Typography variant="caption" color="text.secondary">
-                                        {customer.totalOrders || customer.orderCount || customer.orders || 0} orders
+                                        {formatNumber(customer.totalOrders || customer.orderCount || customer.orders || 0)} orders
                                     </Typography>
                                 </Box>
                             </Box>
