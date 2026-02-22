@@ -105,7 +105,7 @@ function App() {
 
   const [showIdleWarning, setShowIdleWarning] = useState(false)
 
-  useRegionalSettings()
+  useRegionalSettings(isAuthenticated)
 
   // Auto-logout configuration
   const IDLE_TIMEOUT = 30 * 60 * 1000 // 30 minutes
