@@ -15,6 +15,21 @@ vi.mock('@/hooks/useNotification', () => ({
   }),
 }))
 
+// Mock the accounting API so fetchJournalEntryById doesn't make real HTTP calls
+vi.mock('@/services/accountingApi', () => ({
+  journalEntriesApi: {
+    getById: vi.fn().mockResolvedValue(null),
+    getAll: vi.fn().mockResolvedValue({ data: [], meta: { total: 0, page: 1, limit: 20, totalPages: 0 } }),
+    create: vi.fn(),
+    update: vi.fn(),
+    delete: vi.fn(),
+    post: vi.fn(),
+    reverse: vi.fn(),
+    bulkPost: vi.fn(),
+    bulkDelete: vi.fn(),
+  },
+}))
+
 const mockEntry = {
   id: 'entry-1',
   entryDate: '2026-01-15',
