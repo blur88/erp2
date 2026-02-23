@@ -598,54 +598,33 @@ export class ChartOfAccountsService {
     }
 
     const defaultAccounts: CreateChartOfAccountDto[] = [
-      // ASSET Accounts (1000-1999)
+      // ASSET Accounts
       { code: '1000', name: 'Cash', type: AccountType.ASSET },
-      { code: '1010', name: 'Petty Cash', type: AccountType.ASSET },
-      { code: '1100', name: 'Bank Account', type: AccountType.ASSET },
-      { code: '1120', name: 'TnG Receivable', type: AccountType.ASSET },
-      { code: '1130', name: 'Credit Card Receivable', type: AccountType.ASSET },
-      { code: '1140', name: 'Atome Receivable', type: AccountType.ASSET },
-      { code: '1150', name: 'Shopee Receivable', type: AccountType.ASSET },
-      { code: '1160', name: 'TikTok Receivable', type: AccountType.ASSET },
-      { code: '1200', name: 'Accounts Receivable', type: AccountType.ASSET },
-      { code: '1300', name: 'Inventory', type: AccountType.ASSET },
-      { code: '1400', name: 'Prepaid Expenses', type: AccountType.ASSET },
-      { code: '1500', name: 'Fixed Assets', type: AccountType.ASSET },
-      { code: '1510', name: 'Equipment', type: AccountType.ASSET },
-      { code: '1520', name: 'Furniture & Fixtures', type: AccountType.ASSET },
-      { code: '1600', name: 'Accumulated Depreciation', type: AccountType.ASSET },
+      { code: '1010', name: 'CIMB', type: AccountType.ASSET },
+      { code: '1020', name: 'Maybank', type: AccountType.ASSET },
+      { code: '1030', name: 'Shopee Receivable', type: AccountType.ASSET },
+      { code: '1100', name: 'Accounts Receivable', type: AccountType.ASSET },
+      { code: '1200', name: 'Inventory', type: AccountType.ASSET },
 
-      // LIABILITY Accounts (2000-2999)
+      // LIABILITY Accounts
       { code: '2000', name: 'Accounts Payable', type: AccountType.LIABILITY },
-      { code: '2100', name: 'Credit Cards Payable', type: AccountType.LIABILITY },
-      { code: '2200', name: 'Sales Tax Payable', type: AccountType.LIABILITY },
-      { code: '2300', name: 'Accrued Expenses', type: AccountType.LIABILITY },
-      { code: '2400', name: 'Short-term Loans', type: AccountType.LIABILITY },
-      { code: '2500', name: 'Long-term Loans', type: AccountType.LIABILITY },
 
-      // EQUITY Accounts (3000-3999)
-      { code: '3000', name: "Owner's Equity", type: AccountType.EQUITY },
+      // EQUITY Accounts
+      { code: '3000', name: "Owner's Capital", type: AccountType.EQUITY },
       { code: '3100', name: 'Retained Earnings', type: AccountType.EQUITY },
-      { code: '3200', name: 'Dividends', type: AccountType.EQUITY },
+      { code: '3200', name: "Owner's Drawings", type: AccountType.EQUITY },
 
-      // REVENUE Accounts (4000-4999)
+      // REVENUE Accounts
       { code: '4000', name: 'Sales Revenue', type: AccountType.REVENUE },
-      { code: '4100', name: 'Service Revenue', type: AccountType.REVENUE },
-      { code: '4200', name: 'Other Income', type: AccountType.REVENUE },
-      { code: '4300', name: 'Interest Income', type: AccountType.REVENUE },
+      { code: '4100', name: 'Other Income', type: AccountType.REVENUE },
+      { code: '4200', name: 'Inventory Adjustment Gain', type: AccountType.REVENUE },
 
-      // EXPENSE Accounts (5000-5999)
+      // EXPENSE Accounts
       { code: '5000', name: 'Cost of Goods Sold', type: AccountType.EXPENSE },
-      { code: '5100', name: 'Salaries & Wages', type: AccountType.EXPENSE },
-      { code: '5200', name: 'Rent Expense', type: AccountType.EXPENSE },
-      { code: '5300', name: 'Utilities Expense', type: AccountType.EXPENSE },
-      { code: '5400', name: 'Office Supplies', type: AccountType.EXPENSE },
-      { code: '5500', name: 'Insurance Expense', type: AccountType.EXPENSE },
-      { code: '5600', name: 'Advertising & Marketing', type: AccountType.EXPENSE },
-      { code: '5700', name: 'Professional Fees', type: AccountType.EXPENSE },
-      { code: '5800', name: 'Depreciation Expense', type: AccountType.EXPENSE },
-      { code: '5900', name: 'Interest Expense', type: AccountType.EXPENSE },
-      { code: '5950', name: 'Bank Charges', type: AccountType.EXPENSE },
+      { code: '6000', name: 'Utilities Expense', type: AccountType.EXPENSE },
+      { code: '6100', name: 'Office Supplies Expense', type: AccountType.EXPENSE },
+      { code: '6200', name: 'Courier Expense', type: AccountType.EXPENSE },
+      { code: '6300', name: 'Inventory Adjustment Loss', type: AccountType.EXPENSE },
     ];
 
     // Create all accounts
