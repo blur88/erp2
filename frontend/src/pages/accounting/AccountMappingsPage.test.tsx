@@ -7,6 +7,33 @@ import AccountMappingsPage from './AccountMappingsPage'
 import accountMappingsReducer from '@/store/slices/accountMappingsSlice'
 import { MappingType } from '@/types/accountMapping'
 
+// Mock the accounting API so thunks resolve immediately without HTTP calls
+vi.mock('@/services/accountingApi', () => ({
+  accountMappingsApi: {
+    getAll: vi.fn(),
+    validate: vi.fn(),
+  },
+}))
+
+// Mock the payment methods API so the component's useEffect resolves immediately
+vi.mock('@/services/paymentMethodsApi', () => ({
+  paymentMethodsApi: {
+    getActive: vi.fn(),
+  },
+}))
+
+// Import mocked modules so tests can configure return values
+import { accountMappingsApi } from '@/services/accountingApi'
+import { paymentMethodsApi } from '@/services/paymentMethodsApi'
+
+const defaultValidationResult = {
+  isValid: false,
+  missingMappings: [],
+  configuredMappings: [],
+  totalRequired: 0,
+  totalConfigured: 0,
+}
+
 // Mock the notification hook
 vi.mock('@/hooks/useNotification', () => ({
   useNotification: () => ({
@@ -102,6 +129,10 @@ const renderWithProviders = (ui: React.ReactElement, store: any) => {
 describe('AccountMappingsPage', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    // Default: API returns empty data so thunks don't overwrite preloaded store state
+    vi.mocked(accountMappingsApi.getAll).mockResolvedValue({ data: [] } as any)
+    vi.mocked(accountMappingsApi.validate).mockResolvedValue(defaultValidationResult as any)
+    vi.mocked(paymentMethodsApi.getActive).mockResolvedValue({ data: [] } as any)
   })
 
   it('renders without crashing', async () => {
@@ -200,6 +231,7 @@ describe('AccountMappingsPage', () => {
   })
 
   it('renders clear action for configured mappings', async () => {
+    vi.mocked(accountMappingsApi.getAll).mockResolvedValue({ data: mockMappings } as any)
     const store = createMockStore({ mappings: mockMappings, loading: false })
     renderWithProviders(<AccountMappingsPage />, store)
 
@@ -211,6 +243,7 @@ describe('AccountMappingsPage', () => {
   })
 
   it('displays configured mappings with account details', async () => {
+    vi.mocked(accountMappingsApi.getAll).mockResolvedValue({ data: mockMappings } as any)
     const store = createMockStore({ mappings: mockMappings })
     renderWithProviders(<AccountMappingsPage />, store)
 
@@ -270,11 +303,16 @@ describe('AccountMappingsPage', () => {
   })
 
   it('shows dynamic payment mappings returned by API', async () => {
+    vi.mocked(accountMappingsApi.getAll).mockResolvedValue({ data: [...mockMappings, dynamicPaymentMapping] } as any)
+    vi.mocked(paymentMethodsApi.getActive).mockResolvedValue({
+      data: [{ code: 'CUSTOM', name: 'Custom', requiresSettlement: false }],
+    } as any)
     const store = createMockStore({ mappings: [...mockMappings, dynamicPaymentMapping] })
     renderWithProviders(<AccountMappingsPage />, store)
 
+    // The component renders the payment method's label, not the raw type key
     await waitFor(() => {
-      expect(screen.getByText('payment_custom')).toBeInTheDocument()
+      expect(screen.getByText('Custom Payment Account')).toBeInTheDocument()
     })
     expect(screen.getByText(/1170 - Custom Receivable/i)).toBeInTheDocument()
   })
