@@ -190,13 +190,14 @@ export class BackupService {
     const filename = `erp_db_${timestamp}.sql`;
     const filepath = path.join(tempDir, filename);
 
-    const host = this.configService.get<string>('DATABASE_HOST', 'postgres');
-    const port = this.configService.get<string>('DATABASE_PORT', '5432');
-    const database = this.configService.get<string>('DATABASE_NAME', 'erp_db');
-    const username = this.configService.get<string>('DATABASE_USER', 'erp_user');
-    const password = this.configService.get<string>('DATABASE_PASSWORD', '');
+    const host = this.configService.get<string>('DB_HOST', 'postgres');
+    const port = this.configService.get<string>('DB_PORT', '5432');
+    const database = this.configService.get<string>('DB_DATABASE', 'erp_db');
+    const username = this.configService.get<string>('DB_USERNAME', 'erp_user');
+    const password = this.configService.get<string>('DB_PASSWORD', '');
 
     const env = {
+      ...process.env,
       PGPASSWORD: password,
     };
 
@@ -359,13 +360,13 @@ export class BackupService {
 
   private async getPostgreSQLTables(): Promise<string[]> {
     try {
-      const host = this.configService.get<string>('DATABASE_HOST', 'postgres');
-      const port = this.configService.get<string>('DATABASE_PORT', '5432');
-      const database = this.configService.get<string>('DATABASE_NAME', 'erp_db');
-      const username = this.configService.get<string>('DATABASE_USER', 'erp_user');
-      const password = this.configService.get<string>('DATABASE_PASSWORD', '');
+      const host = this.configService.get<string>('DB_HOST', 'postgres');
+      const port = this.configService.get<string>('DB_PORT', '5432');
+      const database = this.configService.get<string>('DB_DATABASE', 'erp_db');
+      const username = this.configService.get<string>('DB_USERNAME', 'erp_user');
+      const password = this.configService.get<string>('DB_PASSWORD', '');
 
-      const env = { PGPASSWORD: password };
+      const env = { ...process.env, PGPASSWORD: password };
       const command = `psql -h ${host} -p ${port} -U ${username} -d ${database} -t -c "SELECT tablename FROM pg_tables WHERE schemaname='public'"`;
 
       const { stdout } = await execAsync(command, { env });
@@ -629,17 +630,17 @@ export class BackupService {
     await execAsync(`gunzip "${sqlPath}"`);
     const decompressedPath = sqlPath.replace('.gz', '');
 
-    const host = this.configService.get<string>('DATABASE_HOST', 'postgres');
-    const port = this.configService.get<string>('DATABASE_PORT', '5432');
-    const database = this.configService.get<string>('DATABASE_NAME', 'erp_db');
-    const username = this.configService.get<string>('DATABASE_USER', 'erp_user');
-    const password = this.configService.get<string>('DATABASE_PASSWORD', '');
+    const host = this.configService.get<string>('DB_HOST', 'postgres');
+    const port = this.configService.get<string>('DB_PORT', '5432');
+    const database = this.configService.get<string>('DB_DATABASE', 'erp_db');
+    const username = this.configService.get<string>('DB_USERNAME', 'erp_user');
+    const password = this.configService.get<string>('DB_PASSWORD', '');
 
     // Use full path to psql to avoid Alpine Linux wrapper script issues
     const psqlPath = '/usr/bin/psql';
     const env = {
+      ...process.env,
       PGPASSWORD: password,
-      PATH: process.env.PATH || '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'
     };
 
     // Drop existing connections to the database
