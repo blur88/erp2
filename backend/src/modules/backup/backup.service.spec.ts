@@ -131,4 +131,47 @@ describe('BackupService - settings backup', () => {
       expect(result).toEqual({});
     });
   });
+
+  describe('backupSettings', () => {
+    it('writes settings JSON file with all 4 settings types', async () => {
+      const mockFs = {
+        writeFile: jest.fn().mockResolvedValue(undefined),
+      };
+      jest.spyOn(require('fs/promises'), 'writeFile').mockImplementation(mockFs.writeFile);
+
+      companySettingsRepo.findOne.mockResolvedValue({
+        name: 'Acme Corp', address: '1 Main St', city: 'KL',
+        state: 'WP', postalCode: '50000', country: 'MY',
+        phone: '', email: '', website: '', miscInfo: '', isActive: true,
+      });
+
+      priceCostingSettingsRepo.findOne.mockResolvedValue({
+        currency: 'MYR', costingMethod: 'AVERAGE',
+        dateFormat: 'DD/MM/YYYY', timeFormat: '24h', numberFormat: '1,234.56',
+        isActive: true,
+      });
+
+      documentNumberSettingsRepo.findOne.mockResolvedValue({
+        configurations: [{ documentName: 'Sales Orders', prefix: 'SO', numberFormat: '000001', nextNumber: 42 }],
+        isActive: true,
+      });
+
+      printSettingsRepo.findOne.mockResolvedValue({
+        companyName: 'Acme Corp', address: '1 Main St', city: 'KL',
+        salesOrderTemplate: { title: 'Sales Order' },
+      });
+
+      await (service as any).backupSettings('/tmp/test', '20260223_120000');
+
+      expect(mockFs.writeFile).toHaveBeenCalledTimes(1);
+      const [, jsonStr] = mockFs.writeFile.mock.calls[0];
+      const data = JSON.parse(jsonStr);
+
+      expect(data.companySettings.name).toBe('Acme Corp');
+      expect(data.priceCostingSettings.currency).toBe('MYR');
+      expect(data.documentNumberSettings.configurations[0].nextNumber).toBe(42);
+      expect(data.printSettings.salesOrderTemplate).toEqual({ title: 'Sales Order' });
+      expect(data.timestamp).toBeDefined();
+    });
+  });
 });
