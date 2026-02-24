@@ -17,6 +17,14 @@ vi.mock('react-router-dom', async () => {
   };
 });
 
+vi.mock('../../../services/authApi', () => ({
+  authApi: {
+    shouldShowDefaultCredentials: vi.fn().mockResolvedValue({
+      data: { showDefaultCredentials: true },
+    }),
+  },
+}));
+
 describe('LoginPage', () => {
   let store: ReturnType<typeof configureStore>;
 
@@ -139,10 +147,12 @@ describe('LoginPage', () => {
     // Note: Actual behavior depends on Redux state management
   });
 
-  it('should display default credentials hint', () => {
+  it('should display default credentials hint', async () => {
     renderLoginPage();
 
-    expect(screen.getByText(/default admin credentials/i)).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByText(/default admin credentials/i)).toBeInTheDocument();
+    });
     expect(screen.getByText(/username:/i)).toBeInTheDocument();
     expect(screen.getByText(/password:/i)).toBeInTheDocument();
   });
