@@ -174,4 +174,106 @@ describe('BackupService - settings backup', () => {
       expect(data.timestamp).toBeDefined();
     });
   });
+
+  describe('restoreSettings', () => {
+    const mockSettingsJson = {
+      companySettings: {
+        name: 'Restored Corp', address: '2 Restore St', city: 'Petaling Jaya',
+        state: 'Selangor', postalCode: '47500', country: 'Malaysia',
+        phone: '03-99999999', email: 'restore@corp.com', website: '', miscInfo: '',
+      },
+      priceCostingSettings: {
+        currency: 'USD', costingMethod: 'FIFO',
+        dateFormat: 'MM/DD/YYYY', timeFormat: '12h', numberFormat: '1,234.56',
+      },
+      documentNumberSettings: {
+        configurations: [
+          { documentName: 'Sales Orders', prefix: 'SO', numberFormat: '000001', nextNumber: 100 },
+        ],
+      },
+      printSettings: {
+        companyName: 'Restored Corp', address: '2 Restore St',
+        salesOrderTemplate: { title: 'Sales Order', showLogo: false },
+      },
+      timestamp: '2026-02-23T00:00:00.000Z',
+    };
+
+    beforeEach(() => {
+      jest.spyOn(require('fs/promises'), 'readdir').mockResolvedValue(['settings_20260223_120000.json']);
+      jest.spyOn(require('fs/promises'), 'readFile').mockResolvedValue(
+        JSON.stringify(mockSettingsJson),
+      );
+    });
+
+    it('upserts existing company settings (update path)', async () => {
+      const existing = { id: 'uuid-1', name: 'Old Corp', isActive: true };
+      companySettingsRepo.findOne.mockResolvedValue(existing);
+      companySettingsRepo.save.mockResolvedValue({ ...existing, ...mockSettingsJson.companySettings });
+
+      priceCostingSettingsRepo.findOne.mockResolvedValue({ id: 'uuid-2', isActive: true });
+      priceCostingSettingsRepo.save.mockResolvedValue({});
+      documentNumberSettingsRepo.findOne.mockResolvedValue({ id: 'uuid-3', isActive: true });
+      documentNumberSettingsRepo.save.mockResolvedValue({});
+      printSettingsRepo.findOne.mockResolvedValue({ id: 'uuid-4' });
+      printSettingsRepo.save.mockResolvedValue({});
+
+      await (service as any).restoreSettings('/tmp/restore');
+
+      expect(companySettingsRepo.save).toHaveBeenCalledWith(
+        expect.objectContaining({ name: 'Restored Corp', id: 'uuid-1' }),
+      );
+    });
+
+    it('creates company settings when none exist (create path)', async () => {
+      companySettingsRepo.findOne.mockResolvedValue(null);
+      companySettingsRepo.create.mockReturnValue({ name: 'Restored Corp' });
+      companySettingsRepo.save.mockResolvedValue({ name: 'Restored Corp' });
+
+      priceCostingSettingsRepo.findOne.mockResolvedValue({ id: 'uuid-2', isActive: true });
+      priceCostingSettingsRepo.save.mockResolvedValue({});
+      documentNumberSettingsRepo.findOne.mockResolvedValue({ id: 'uuid-3', isActive: true });
+      documentNumberSettingsRepo.save.mockResolvedValue({});
+      printSettingsRepo.findOne.mockResolvedValue({ id: 'uuid-4' });
+      printSettingsRepo.save.mockResolvedValue({});
+
+      await (service as any).restoreSettings('/tmp/restore');
+
+      expect(companySettingsRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({ name: 'Restored Corp' }),
+      );
+      expect(companySettingsRepo.save).toHaveBeenCalled();
+    });
+
+    it('does not restore logoUrl for company settings', async () => {
+      const jsonWithLogo = {
+        ...mockSettingsJson,
+        companySettings: { ...mockSettingsJson.companySettings, logoUrl: '/uploads/logos/old.png' },
+      };
+      jest.spyOn(require('fs/promises'), 'readFile').mockResolvedValue(JSON.stringify(jsonWithLogo));
+
+      companySettingsRepo.findOne.mockResolvedValue({ id: 'uuid-1', isActive: true });
+      companySettingsRepo.save.mockResolvedValue({});
+      priceCostingSettingsRepo.findOne.mockResolvedValue({ id: 'uuid-2', isActive: true });
+      priceCostingSettingsRepo.save.mockResolvedValue({});
+      documentNumberSettingsRepo.findOne.mockResolvedValue({ id: 'uuid-3', isActive: true });
+      documentNumberSettingsRepo.save.mockResolvedValue({});
+      printSettingsRepo.findOne.mockResolvedValue({ id: 'uuid-4' });
+      printSettingsRepo.save.mockResolvedValue({});
+
+      await (service as any).restoreSettings('/tmp/restore');
+
+      const savedArg = companySettingsRepo.save.mock.calls[0][0];
+      expect(savedArg.logoUrl).toBeUndefined();
+    });
+
+    it('logs warning and skips if no settings file found', async () => {
+      jest.spyOn(require('fs/promises'), 'readdir').mockResolvedValue(['other_file.json']);
+      const loggerWarnSpy = jest.spyOn((service as any).logger, 'warn');
+
+      await (service as any).restoreSettings('/tmp/restore');
+
+      expect(loggerWarnSpy).toHaveBeenCalledWith(expect.stringContaining('No settings file found'));
+      expect(companySettingsRepo.save).not.toHaveBeenCalled();
+    });
+  });
 });
