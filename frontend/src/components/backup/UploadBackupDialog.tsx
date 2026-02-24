@@ -29,18 +29,12 @@ const UploadBackupDialog: React.FC<UploadBackupDialogProps> = ({ open, onClose }
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploadSuccess, setUploadSuccess] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [dragActive, setDragActive] = useState(false);
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      // Validate file extension
-      if (file.name.endsWith('.tar.gz') || file.name.endsWith('.tgz')) {
-        setSelectedFile(file);
-        setUploadError(null);
-      } else {
-        setUploadError('Please select a valid backup file (.tar.gz or .tgz)');
-        setSelectedFile(null);
-      }
+      validateAndSetFile(file);
     }
   };
 
@@ -66,6 +60,34 @@ const UploadBackupDialog: React.FC<UploadBackupDialogProps> = ({ open, onClose }
     setUploadSuccess(false);
     setUploadError(null);
     onClose();
+  };
+
+  const validateAndSetFile = (file: File) => {
+    if (file.name.endsWith('.tar.gz') || file.name.endsWith('.tgz')) {
+      setSelectedFile(file);
+      setUploadError(null);
+    } else {
+      setUploadError('Please select a valid backup file (.tar.gz or .tgz)');
+      setSelectedFile(null);
+    }
+  };
+
+  const handleDragOver = (event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    setDragActive(true);
+  };
+
+  const handleDragLeave = () => {
+    setDragActive(false);
+  };
+
+  const handleDrop = (event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    setDragActive(false);
+    const file = event.dataTransfer?.files?.[0];
+    if (file) {
+      validateAndSetFile(file);
+    }
   };
 
   const formatFileSize = (bytes: number) => {
@@ -98,16 +120,23 @@ const UploadBackupDialog: React.FC<UploadBackupDialogProps> = ({ open, onClose }
 
               <Paper
                 variant="outlined"
+                data-drag-active={String(dragActive)}
                 sx={{
                   p: 3,
                   textAlign: 'center',
                   cursor: 'pointer',
-                  bgcolor: selectedFile ? 'action.hover' : 'background.paper',
+                  bgcolor: dragActive ? 'primary.light' : selectedFile ? 'action.hover' : 'background.paper',
+                  border: dragActive ? 2 : 1,
+                  borderColor: dragActive ? 'primary.main' : 'divider',
                   '&:hover': {
                     bgcolor: 'action.hover',
                   },
                 }}
                 onClick={() => document.getElementById('backup-file-input')?.click()}
+                onDragOver={handleDragOver}
+                onDragEnter={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
               >
                 <input
                   id="backup-file-input"
