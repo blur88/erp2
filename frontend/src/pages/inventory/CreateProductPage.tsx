@@ -85,6 +85,7 @@ const PriceListPriceField: React.FC<{
     <Grid size={{ xs: 12, md: 6 }}>
       <Box>
         <TextField
+          id={`price-list-${priceList.id}`}
           value={localValue}
           onChange={handleChange}
           onFocus={() => setIsFocused(true)}
