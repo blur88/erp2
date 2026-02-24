@@ -429,15 +429,66 @@ export class BackupService {
   }
 
   private async getCompanySettings(): Promise<any> {
-    // Query company settings from database
-    // This will be implemented based on your settings module
-    return {};
+    const settings = await this.companySettingsRepository.findOne({
+      where: { isActive: true },
+    });
+
+    if (!settings) {
+      return {};
+    }
+
+    return {
+      name: settings.name,
+      address: settings.address,
+      city: settings.city,
+      state: settings.state,
+      postalCode: settings.postalCode,
+      country: settings.country,
+      phone: settings.phone,
+      email: settings.email,
+      website: settings.website,
+      miscInfo: settings.miscInfo,
+      // logoUrl intentionally excluded - file not backed up
+    };
   }
 
   private async getPrintSettings(): Promise<any> {
-    // Query print settings from database
-    // This will be implemented based on your print-settings module
-    return {};
+    const settings = await this.printSettingsRepository.findOne({
+      where: {},
+      order: { createdAt: 'ASC' },
+    });
+
+    if (!settings) {
+      return {};
+    }
+
+    return {
+      companyName: settings.companyName,
+      address: settings.address,
+      city: settings.city,
+      state: settings.state,
+      postalCode: settings.postalCode,
+      country: settings.country,
+      phone: settings.phone,
+      email: settings.email,
+      website: settings.website,
+      miscInfo: settings.miscInfo,
+      salesPerPageFooter: settings.salesPerPageFooter,
+      salesEndOfDocFooter: settings.salesEndOfDocFooter,
+      purchasingPerPageFooter: settings.purchasingPerPageFooter,
+      purchasingEndOfDocFooter: settings.purchasingEndOfDocFooter,
+      inventoryPerPageFooter: settings.inventoryPerPageFooter,
+      inventoryEndOfDocFooter: settings.inventoryEndOfDocFooter,
+      reportPerPageFooter: settings.reportPerPageFooter,
+      reportEndOfDocFooter: settings.reportEndOfDocFooter,
+      salesOrderTemplate: settings.salesOrderTemplate,
+      invoiceTemplate: settings.invoiceTemplate,
+      paymentReceiptTemplate: settings.paymentReceiptTemplate,
+      purchaseOrderTemplate: settings.purchaseOrderTemplate,
+      grnTemplate: settings.grnTemplate,
+      vendorPaymentTemplate: settings.vendorPaymentTemplate,
+      // logoUrl intentionally excluded - file not backed up
+    };
   }
 
   private formatBytes(bytes: number): string {
