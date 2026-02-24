@@ -72,6 +72,10 @@ describe('BackupService - settings backup', () => {
     printSettingsRepo = module.get(getRepositoryToken(PrintSettings));
   });
 
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
   describe('getCompanySettings', () => {
     it('returns company settings data from repository', async () => {
       companySettingsRepo.findOne.mockResolvedValue({
