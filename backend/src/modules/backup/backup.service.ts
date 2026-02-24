@@ -317,10 +317,19 @@ export class BackupService {
     const filename = `settings_${timestamp}.json`;
     const filepath = path.join(tempDir, filename);
 
-    // Export system settings from database
+    const [companySettings, priceCostingSettings, documentNumberSettings, printSettings] =
+      await Promise.all([
+        this.getCompanySettings(),
+        this.getPriceCostingSettings(),
+        this.getDocumentNumberSettings(),
+        this.getPrintSettings(),
+      ]);
+
     const settings = {
-      companySettings: await this.getCompanySettings(),
-      printSettings: await this.getPrintSettings(),
+      companySettings,
+      priceCostingSettings,
+      documentNumberSettings,
+      printSettings,
       timestamp: new Date().toISOString(),
     };
 
@@ -488,6 +497,38 @@ export class BackupService {
       grnTemplate: settings.grnTemplate,
       vendorPaymentTemplate: settings.vendorPaymentTemplate,
       // logoUrl intentionally excluded - file not backed up
+    };
+  }
+
+  private async getPriceCostingSettings(): Promise<any> {
+    const settings = await this.priceCostingSettingsRepository.findOne({
+      where: { isActive: true },
+    });
+
+    if (!settings) {
+      return {};
+    }
+
+    return {
+      currency: settings.currency,
+      costingMethod: settings.costingMethod,
+      dateFormat: settings.dateFormat,
+      timeFormat: settings.timeFormat,
+      numberFormat: settings.numberFormat,
+    };
+  }
+
+  private async getDocumentNumberSettings(): Promise<any> {
+    const settings = await this.documentNumberSettingsRepository.findOne({
+      where: { isActive: true },
+    });
+
+    if (!settings) {
+      return {};
+    }
+
+    return {
+      configurations: settings.configurations,
     };
   }
 
