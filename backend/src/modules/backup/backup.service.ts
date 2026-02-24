@@ -12,6 +12,10 @@ const archiver = require('archiver');
 import * as crypto from 'crypto';
 import { BackupLog } from '@database/entities/backup-log.entity';
 import { BackupRetentionSettings } from '@database/entities/backup-settings.entity';
+import { CompanySettings } from '@database/entities/company-settings.entity';
+import { PriceCostingSettings } from '@database/entities/price-costing-settings.entity';
+import { DocumentNumberSettings } from '@database/entities/document-number-settings.entity';
+import { PrintSettings } from '@database/entities/print-settings.entity';
 import { CreateBackupDto, BackupDatabase } from './dto/create-backup.dto';
 import { BackupMetadata } from './interfaces/backup-metadata.interface';
 import { UpdateBackupSettingsDto, BackupSettingsResponseDto } from './dto/backup-settings.dto';
@@ -30,6 +34,14 @@ export class BackupService {
     private readonly backupLogRepository: Repository<BackupLog>,
     @InjectRepository(BackupRetentionSettings)
     private readonly backupSettingsRepository: Repository<BackupRetentionSettings>,
+    @InjectRepository(CompanySettings)
+    private readonly companySettingsRepository: Repository<CompanySettings>,
+    @InjectRepository(PriceCostingSettings)
+    private readonly priceCostingSettingsRepository: Repository<PriceCostingSettings>,
+    @InjectRepository(DocumentNumberSettings)
+    private readonly documentNumberSettingsRepository: Repository<DocumentNumberSettings>,
+    @InjectRepository(PrintSettings)
+    private readonly printSettingsRepository: Repository<PrintSettings>,
     private readonly configService: ConfigService,
   ) {
     this.backupDir = this.configService.get<string>(
