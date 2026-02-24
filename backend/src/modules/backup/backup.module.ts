@@ -8,10 +8,22 @@ import { BackupProcessor } from './backup.processor';
 import { BackupLog } from '@database/entities/backup-log.entity';
 import { BackupSchedule } from '@database/entities/backup-schedule.entity';
 import { BackupRetentionSettings } from '@database/entities/backup-settings.entity';
+import { CompanySettings } from '@database/entities/company-settings.entity';
+import { PriceCostingSettings } from '@database/entities/price-costing-settings.entity';
+import { DocumentNumberSettings } from '@database/entities/document-number-settings.entity';
+import { PrintSettings } from '@database/entities/print-settings.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([BackupLog, BackupSchedule, BackupRetentionSettings]),
+    TypeOrmModule.forFeature([
+      BackupLog,
+      BackupSchedule,
+      BackupRetentionSettings,
+      CompanySettings,
+      PriceCostingSettings,
+      DocumentNumberSettings,
+      PrintSettings,
+    ]),
     BullModule.registerQueue({
       name: 'backup-queue',
     }),
