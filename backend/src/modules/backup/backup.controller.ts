@@ -25,9 +25,12 @@ import {
 } from './dto/backup-schedule.dto';
 import { BackupLog } from '@database/entities/backup-log.entity';
 import { BackupSchedule } from '@database/entities/backup-schedule.entity';
+import { Auth } from '../auth/decorators/auth.decorator';
+import { UserRole } from '@database/entities/user.entity';
 
 @ApiTags('Backup')
 @Controller('backup')
+@Auth()
 export class BackupController {
   constructor(
     private readonly backupService: BackupService,
@@ -96,6 +99,7 @@ export class BackupController {
   }
 
   @Post('restore/:id')
+  @Auth(UserRole.ADMIN)
   @ApiOperation({ summary: 'Restore from a backup' })
   @ApiResponse({
     status: 200,
@@ -164,6 +168,7 @@ export class BackupController {
   }
 
   @Delete(':id')
+  @Auth(UserRole.ADMIN)
   @ApiOperation({ summary: 'Delete a backup' })
   @ApiResponse({ status: 200, description: 'Backup deleted successfully' })
   @ApiResponse({ status: 404, description: 'Backup not found' })
@@ -226,6 +231,7 @@ export class BackupController {
   }
 
   @Delete('schedule/:id')
+  @Auth(UserRole.ADMIN)
   @ApiOperation({ summary: 'Delete a backup schedule' })
   @ApiResponse({ status: 200, description: 'Schedule deleted successfully' })
   @ApiResponse({ status: 404, description: 'Schedule not found' })
@@ -260,6 +266,7 @@ export class BackupController {
   }
 
   @Post('cleanup')
+  @Auth(UserRole.ADMIN)
   @ApiOperation({ summary: 'Manually trigger backup cleanup with retention policy' })
   @ApiResponse({ status: 200, description: 'Cleanup completed successfully' })
   async cleanup(
@@ -277,6 +284,7 @@ export class BackupController {
   // Backup Settings Endpoints
 
   @Post('settings')
+  @Auth(UserRole.ADMIN)
   @ApiOperation({ summary: 'Update backup retention settings' })
   @ApiResponse({
     status: 200,
@@ -287,6 +295,7 @@ export class BackupController {
   }
 
   @Post('cleanup-with-settings')
+  @Auth(UserRole.ADMIN)
   @ApiOperation({ summary: 'Run cleanup using configured retention settings' })
   @ApiResponse({ status: 200, description: 'Cleanup completed successfully' })
   async cleanupWithSettings(): Promise<{ message: string; deletedCount: number }> {
