@@ -888,10 +888,101 @@ export class BackupService {
     const settingsContent = await fs.readFile(settingsPath, 'utf-8');
     const settings = JSON.parse(settingsContent);
 
-    // TODO: Implement actual settings restoration based on your settings module
-    // For now, just log that settings were found
-    this.logger.log(`Settings file found with company settings and print settings`);
-    this.logger.log('Settings restore completed (placeholder)');
+    // Restore each settings type independently - failures are non-fatal
+    await this.restoreCompanySettings(settings.companySettings);
+    await this.restorePriceCostingSettings(settings.priceCostingSettings);
+    await this.restoreDocumentNumberSettings(settings.documentNumberSettings);
+    await this.restorePrintSettingsData(settings.printSettings);
+
+    this.logger.log('Settings restore completed');
+  }
+
+  private async restoreCompanySettings(data: any): Promise<void> {
+    if (!data || Object.keys(data).length === 0) return;
+
+    try {
+      const { logoUrl: _logo, ...safeData } = data;
+      const existing = await this.companySettingsRepository.findOne({ where: { isActive: true } });
+
+      if (existing) {
+        Object.assign(existing, safeData);
+        await this.companySettingsRepository.save(existing);
+      } else {
+        const created = this.companySettingsRepository.create({ ...safeData, isActive: true });
+        await this.companySettingsRepository.save(created);
+      }
+
+      this.logger.log('Company settings restored');
+    } catch (error) {
+      this.logger.warn(`Failed to restore company settings: ${error.message}`);
+    }
+  }
+
+  private async restorePriceCostingSettings(data: any): Promise<void> {
+    if (!data || Object.keys(data).length === 0) return;
+
+    try {
+      const existing = await this.priceCostingSettingsRepository.findOne({ where: { isActive: true } });
+
+      if (existing) {
+        Object.assign(existing, data);
+        await this.priceCostingSettingsRepository.save(existing);
+      } else {
+        const created = this.priceCostingSettingsRepository.create({ ...data, isActive: true });
+        await this.priceCostingSettingsRepository.save(created);
+      }
+
+      this.logger.log('Price costing settings restored');
+    } catch (error) {
+      this.logger.warn(`Failed to restore price costing settings: ${error.message}`);
+    }
+  }
+
+  private async restoreDocumentNumberSettings(data: any): Promise<void> {
+    if (!data || Object.keys(data).length === 0) return;
+
+    try {
+      const existing = await this.documentNumberSettingsRepository.findOne({ where: { isActive: true } });
+
+      if (existing) {
+        existing.configurations = data.configurations;
+        await this.documentNumberSettingsRepository.save(existing);
+      } else {
+        const created = this.documentNumberSettingsRepository.create({
+          configurations: data.configurations,
+          isActive: true,
+        });
+        await this.documentNumberSettingsRepository.save(created);
+      }
+
+      this.logger.log('Document number settings restored');
+    } catch (error) {
+      this.logger.warn(`Failed to restore document number settings: ${error.message}`);
+    }
+  }
+
+  private async restorePrintSettingsData(data: any): Promise<void> {
+    if (!data || Object.keys(data).length === 0) return;
+
+    try {
+      const { logoUrl: _logo, ...safeData } = data;
+      const existing = await this.printSettingsRepository.findOne({
+        where: {},
+        order: { createdAt: 'ASC' },
+      });
+
+      if (existing) {
+        Object.assign(existing, safeData);
+        await this.printSettingsRepository.save(existing);
+      } else {
+        const created = this.printSettingsRepository.create(safeData);
+        await this.printSettingsRepository.save(created);
+      }
+
+      this.logger.log('Print settings restored');
+    } catch (error) {
+      this.logger.warn(`Failed to restore print settings: ${error.message}`);
+    }
   }
 
   async cleanupOldBackups(retentionDays: number): Promise<number> {
