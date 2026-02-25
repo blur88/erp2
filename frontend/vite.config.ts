@@ -1,4 +1,5 @@
 import { defineConfig } from 'vitest/config'
+import { createLogger } from 'vite'
 import react from '@vitejs/plugin-react'
 import path from 'path'
 
@@ -6,10 +7,27 @@ import path from 'path'
 export default defineConfig(({ mode }) => {
   const isVitest =
     mode === 'test' ||
-    process.env.VITEST === 'true' ||
-    process.env.VITEST === '1'
+    process.env.NODE_ENV === 'test' ||
+    process.env.VITEST != null ||
+    process.argv.some(arg => arg.includes('vitest'))
+
+  const baseLogger = createLogger()
+  const vitestLogger = {
+    ...baseLogger,
+    error(message: string, options?: any) {
+      if (
+        typeof message === 'string' &&
+        (message.includes('WebSocket server error') || message.includes('listen EPERM'))
+      ) {
+        return
+      }
+
+      baseLogger.error(message, options)
+    },
+  }
 
   return {
+    customLogger: isVitest ? vitestLogger : undefined,
     plugins: isVitest ? [] : [react({ fastRefresh: true })],
     resolve: {
       alias: {
