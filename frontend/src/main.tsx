@@ -15,6 +15,11 @@ import ThemeWrapper from './components/common/ThemeWrapper'
 
 import './styles/global.css'
 
+const routerFutureFlags = {
+  v7_startTransition: true,
+  v7_relativeSplatPath: true,
+}
+
 // Create React Query client
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -38,7 +43,7 @@ if ((import.meta as any).env?.DEV) {
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <BrowserRouter>
+    <BrowserRouter future={routerFutureFlags}>
       <Provider store={store}>
         <QueryClientProvider client={queryClient}>
           <ThemeWrapper>

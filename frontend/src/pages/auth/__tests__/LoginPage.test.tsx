@@ -7,6 +7,11 @@ import '@testing-library/jest-dom/vitest';
 import LoginPage from '../LoginPage';
 import authReducer from '../../../store/slices/authSlice';
 
+const routerFutureFlags = {
+  v7_startTransition: true,
+  v7_relativeSplatPath: true,
+};
+
 // Mock react-router-dom navigate
 const mockNavigate = vi.fn();
 vi.mock('react-router-dom', async () => {
@@ -40,7 +45,7 @@ describe('LoginPage', () => {
   const renderLoginPage = async () => {
     render(
       <Provider store={store}>
-        <BrowserRouter>
+        <BrowserRouter future={routerFutureFlags}>
           <LoginPage />
         </BrowserRouter>
       </Provider>

@@ -4,6 +4,11 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { BrowserRouter } from 'react-router-dom'
 import CreateProductPage from '../CreateProductPage'
 
+const routerFutureFlags = {
+  v7_startTransition: true,
+  v7_relativeSplatPath: true,
+}
+
 const mockNavigate = vi.fn()
 const mockShowSuccess = vi.fn()
 const mockShowError = vi.fn()
@@ -85,7 +90,7 @@ describe('CreateProductPage', () => {
 
   it('saves a price list item when price is explicitly set to 0', async () => {
     render(
-      <BrowserRouter>
+      <BrowserRouter future={routerFutureFlags}>
         <CreateProductPage />
       </BrowserRouter>
     )
