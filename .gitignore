@@ -195,3 +195,7 @@ debug/
 # Git worktree directories
 .worktrees/
 worktrees/
+
+# Frontend tool caches
+frontend/.vite/
+frontend/.turbo/

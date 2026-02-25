@@ -24,6 +24,9 @@ logs
 uploads
 backups
 temp
+tmp
+.tmp
+exports
 
 # Tests (keep tests out of production image)
 **/*.spec.ts
@@ -32,6 +35,7 @@ temp
 coverage
 .vitest
 test-results
+.nyc_output
 jest.config.js
 
 # IDE
@@ -59,6 +63,7 @@ CLAUDE.md
 .npm
 .yarn
 .pnpm-store
+.turbo
 
 # TypeScript
 tsconfig.tsbuildinfo
@@ -83,6 +88,10 @@ docker-compose*.yml
 .github
 .gitlab-ci.yml
 .travis.yml
+
+# Local tooling
+.claude
+.worktrees
 
 # Misc
 .editorconfig

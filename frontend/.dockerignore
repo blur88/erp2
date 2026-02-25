@@ -1,15 +1,72 @@
+# Dependencies
 node_modules
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-.git
-.gitignore
-README.md
+pnpm-debug.log*
+
+# Build outputs
+dist
+build
+*.tsbuildinfo
+
+# Environment files (never copy into image)
 .env
+.env.*
+!.env.example
+
+# Logs
+logs
+*.log
+*.log.*
+
+# Test outputs
 .nyc_output
 coverage
+test-results
+.vitest
+
+# Tooling/cache
 .cache
-dist
+.parcel-cache
+.eslintcache
+.npm
+.yarn
+.pnpm-store
+.turbo
+
+# Runtime/temp artifacts
+temp
+tmp
+.tmp
+exports
+
+# Editor/OS
 .DS_Store
 .vscode
 .idea
+*.swp
+*.swo
+
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Documentation
+README.md
+CLAUDE.md
+*.md
+!package.json
+
+# Docker and CI
+Dockerfile
+.dockerignore
+docker-compose*.yml
+.github
+.gitlab-ci.yml
+.travis.yml
+
+# Local tooling
+.claude
+.worktrees
