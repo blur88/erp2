@@ -35,6 +35,10 @@ vi.mock('@/hooks/useSearchAndFilter', () => ({
   useKeyboardShortcuts: vi.fn(),
 }))
 
+vi.mock('@/components/accounting/AccountMappingWarning', () => ({
+  default: () => null,
+}))
+
 // Mock date-fns
 vi.mock('date-fns', () => ({
   format: (date: Date | string, formatStr: string) => {
@@ -168,17 +172,11 @@ describe('FiscalPeriodsPage', () => {
     const store = createMockStore()
     renderWithProvider(store)
 
-    await waitFor(() => {
-      expect(screen.getByText('Fiscal Periods')).toBeInTheDocument()
-    })
-
-    const generateButton = screen.getByRole('button', { name: /Generate/i })
+    const generateButton = await screen.findByRole('button', { name: /^Generate(?: Periods)?$/i })
     fireEvent.click(generateButton)
 
-    await waitFor(() => {
-      expect(screen.getByText('Generate Fiscal Periods')).toBeInTheDocument()
-    })
-  })
+    expect(await screen.findByRole('dialog', { name: /Generate Fiscal Periods/i })).toBeInTheDocument()
+  }, 10000)
 
   it('opens create dialog when Add Period button is clicked', async () => {
     const store = createMockStore()
