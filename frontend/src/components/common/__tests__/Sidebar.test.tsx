@@ -1,8 +1,27 @@
-import { render, screen, waitFor } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import Sidebar from '../Sidebar'
+
+vi.mock('react-transition-group', async () => {
+  const actual = await vi.importActual<typeof import('react-transition-group')>(
+    'react-transition-group'
+  )
+
+  const InstantTransition = ({ in: isOpen, children }: { in?: boolean; children: any }) => {
+    if (!isOpen) {
+      return null
+    }
+
+    return typeof children === 'function' ? children('entered', {}) : children
+  }
+
+  return {
+    ...actual,
+    Transition: InstantTransition as any,
+    CSSTransition: InstantTransition as any,
+  }
+})
 
 describe('Sidebar', () => {
   beforeEach(() => {
@@ -10,8 +29,6 @@ describe('Sidebar', () => {
   })
 
   it('collapses expanded groups when navigating to a route without a parent group', async () => {
-    const user = userEvent.setup()
-
     render(
       <MemoryRouter initialEntries={['/sales/customers']}>
         <Sidebar />
@@ -20,7 +37,7 @@ describe('Sidebar', () => {
 
     expect(screen.getByText('Customers')).toBeInTheDocument()
 
-    await user.click(screen.getByRole('button', { name: 'Dashboard' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Dashboard' }))
 
     await waitFor(() => {
       expect(screen.queryByText('Customers')).not.toBeInTheDocument()
@@ -46,8 +63,6 @@ describe('Sidebar', () => {
   })
 
   it('renders reports as a parent group in analytics section', async () => {
-    const user = userEvent.setup()
-
     render(
       <MemoryRouter initialEntries={['/dashboard']}>
         <Sidebar />
@@ -57,14 +72,14 @@ describe('Sidebar', () => {
     expect(screen.getByRole('button', { name: 'Reports' })).toBeInTheDocument()
     expect(screen.queryByText('Sales Reports')).not.toBeInTheDocument()
 
-    await user.click(screen.getByRole('button', { name: 'Reports' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Reports' }))
 
-    expect(screen.getByText('Sales Reports')).toBeInTheDocument()
+    await waitFor(() => {
+      expect(screen.getByText('Sales Reports')).toBeInTheDocument()
+    })
   })
 
   it('renders accounting reports as a parent group after accounting', async () => {
-    const user = userEvent.setup()
-
     render(
       <MemoryRouter initialEntries={['/dashboard']}>
         <Sidebar />
@@ -80,7 +95,9 @@ describe('Sidebar', () => {
     ).toBeTruthy()
 
     expect(screen.queryByText('Trial Balance')).not.toBeInTheDocument()
-    await user.click(accountingReportsButton)
-    expect(screen.getByText('Trial Balance')).toBeInTheDocument()
+    fireEvent.click(accountingReportsButton)
+    await waitFor(() => {
+      expect(screen.getByText('Trial Balance')).toBeInTheDocument()
+    })
   })
 })

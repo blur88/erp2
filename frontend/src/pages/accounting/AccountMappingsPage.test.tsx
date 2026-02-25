@@ -144,12 +144,22 @@ describe('AccountMappingsPage', () => {
   })
 
   it('displays loading state', () => {
+    vi.mocked(accountMappingsApi.getAll).mockImplementation(
+      () => new Promise(() => {}) as any
+    )
+    vi.mocked(accountMappingsApi.validate).mockImplementation(
+      () => new Promise(() => {}) as any
+    )
+    vi.mocked(paymentMethodsApi.getActive).mockImplementation(
+      () => new Promise(() => {}) as any
+    )
+
     const store = createMockStore({ loading: true })
     renderWithProviders(<AccountMappingsPage />, store)
     expect(screen.getByRole('progressbar')).toBeInTheDocument()
   })
 
-  it('displays validation warning when mappings incomplete', () => {
+  it('displays validation warning when mappings incomplete', async () => {
     const store = createMockStore({
       mappings: mockMappings,
       isValid: false,
@@ -160,11 +170,13 @@ describe('AccountMappingsPage', () => {
       },
     })
     renderWithProviders(<AccountMappingsPage />, store)
-    expect(screen.getByText(/Configuration Incomplete/i)).toBeInTheDocument()
-    expect(screen.getByText(/Cost of Goods Sold/i)).toBeInTheDocument()
+    await waitFor(() => {
+      expect(screen.getByText(/Configuration Incomplete/i)).toBeInTheDocument()
+      expect(screen.getByText(/Cost of Goods Sold/i)).toBeInTheDocument()
+    })
   })
 
-  it('displays success message when all mappings configured', () => {
+  it('displays success message when all mappings configured', async () => {
     const store = createMockStore({
       mappings: mockMappings,
       isValid: true,
@@ -175,7 +187,9 @@ describe('AccountMappingsPage', () => {
       },
     })
     renderWithProviders(<AccountMappingsPage />, store)
-    expect(screen.getByText(/All required account mappings are configured/i)).toBeInTheDocument()
+    await waitFor(() => {
+      expect(screen.getByText(/All required account mappings are configured/i)).toBeInTheDocument()
+    })
   })
 
   it('shows all fixed mapping types in table including equity mappings', async () => {

@@ -120,8 +120,12 @@ describe('OwnerEquityPage', () => {
     expect(screen.getByText('Cash')).toBeInTheDocument()
   })
 
-  it('shows filter controls', () => {
+  it('shows filter controls', async () => {
     renderPage()
+
+    await waitFor(() => {
+      expect(screen.getByText('EQ-001')).toBeInTheDocument()
+    })
 
     expect(screen.getAllByText('Type').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Status').length).toBeGreaterThan(0)

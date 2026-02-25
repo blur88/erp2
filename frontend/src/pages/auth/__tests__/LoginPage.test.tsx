@@ -37,18 +37,22 @@ describe('LoginPage', () => {
     vi.clearAllMocks();
   });
 
-  const renderLoginPage = () => {
-    return render(
+  const renderLoginPage = async () => {
+    render(
       <Provider store={store}>
         <BrowserRouter>
           <LoginPage />
         </BrowserRouter>
       </Provider>
     );
+    // LoginPage triggers async credential-hint fetch on mount.
+    await waitFor(() => {
+      expect(screen.getByText(/default admin credentials/i)).toBeInTheDocument();
+    });
   };
 
-  it('should render login form', () => {
-    renderLoginPage();
+  it('should render login form', async () => {
+    await renderLoginPage();
 
     expect(screen.getByRole('button', { name: /sign in/i })).toBeInTheDocument();
     expect(screen.getByLabelText(/username or email/i)).toBeInTheDocument();
@@ -56,7 +60,7 @@ describe('LoginPage', () => {
   });
 
   it('should show validation errors for empty fields', async () => {
-    renderLoginPage();
+    await renderLoginPage();
 
     const submitButton = screen.getByRole('button', { name: /sign in/i });
     fireEvent.click(submitButton);
@@ -67,8 +71,8 @@ describe('LoginPage', () => {
     });
   });
 
-  it('should allow typing in input fields', () => {
-    renderLoginPage();
+  it('should allow typing in input fields', async () => {
+    await renderLoginPage();
 
     const usernameInput = screen.getByLabelText(/username or email/i) as HTMLInputElement;
     const passwordInput = screen.getByLabelText(/^password$/i) as HTMLInputElement;
@@ -80,8 +84,8 @@ describe('LoginPage', () => {
     expect(passwordInput.value).toBe('Password@123');
   });
 
-  it('should toggle password visibility', () => {
-    renderLoginPage();
+  it('should toggle password visibility', async () => {
+    await renderLoginPage();
 
     const passwordInput = screen.getByLabelText(/^password$/i) as HTMLInputElement;
     const toggleButton = screen.getByRole('button', { name: /toggle password visibility/i });
@@ -99,7 +103,7 @@ describe('LoginPage', () => {
   });
 
   it('should display error message on login failure', async () => {
-    renderLoginPage();
+    await renderLoginPage();
 
     const usernameInput = screen.getByLabelText(/username or email/i);
     const passwordInput = screen.getByLabelText(/^password$/i);
@@ -116,8 +120,8 @@ describe('LoginPage', () => {
     });
   });
 
-  it('should show remember me checkbox', () => {
-    renderLoginPage();
+  it('should show remember me checkbox', async () => {
+    await renderLoginPage();
 
     const rememberMeCheckbox = screen.getByLabelText(/remember me/i);
     expect(rememberMeCheckbox).toBeInTheDocument();
@@ -128,7 +132,7 @@ describe('LoginPage', () => {
   });
 
   it('should disable submit button while loading', async () => {
-    renderLoginPage();
+    await renderLoginPage();
 
     const usernameInput = screen.getByLabelText(/username or email/i);
     // Use more specific selector for password input field (not the label text)
@@ -143,16 +147,13 @@ describe('LoginPage', () => {
 
     fireEvent.click(submitButton);
 
-    // Should be disabled during submission
-    // Note: Actual behavior depends on Redux state management
+    await waitFor(() => {
+      expect(submitButton).not.toBeDisabled();
+    });
   });
 
   it('should display default credentials hint', async () => {
-    renderLoginPage();
-
-    await waitFor(() => {
-      expect(screen.getByText(/default admin credentials/i)).toBeInTheDocument();
-    });
+    await renderLoginPage();
     expect(screen.getByText(/username:/i)).toBeInTheDocument();
     expect(screen.getByText(/password:/i)).toBeInTheDocument();
   });
