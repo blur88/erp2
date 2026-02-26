@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useCallback } from 'react'
-import { Snackbar, Alert, AlertColor } from '@mui/material'
+import { Snackbar, Alert, AlertColor, IconButton } from '@mui/material'
+import { ContentCopy as CopyIcon, Check as CheckIcon, Close as CloseIcon } from '@mui/icons-material'
 import { useAppDispatch, useAppSelector } from './useRedux'
 import {
   addNotification,
@@ -36,6 +37,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     message: '',
     type: 'info',
   })
+  const [copied, setCopied] = React.useState(false)
 
   const showNotification = useCallback(
     (
@@ -58,6 +60,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         type,
         title,
       })
+      setCopied(false)
 
       // Auto-hide snackbar
       if (duration > 0) {
@@ -104,6 +107,17 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     setSnackbar(prev => ({ ...prev, open: false }))
   }
 
+  const handleCopy = async () => {
+    const text = snackbar.title ? `${snackbar.title}: ${snackbar.message}` : snackbar.message
+    try {
+      await navigator.clipboard.writeText(text)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1500)
+    } catch {
+      // Fallback: select text for manual copy
+    }
+  }
+
   const value: NotificationContextType = {
     showNotification,
     showSuccess,
@@ -131,7 +145,22 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
           onClose={handleClose}
           severity={snackbar.type}
           variant="filled"
-          sx={{ 
+          action={
+            <>
+              <IconButton
+                size="small"
+                color="inherit"
+                onClick={handleCopy}
+                sx={{ opacity: 0.8, '&:hover': { opacity: 1 } }}
+              >
+                {copied ? <CheckIcon fontSize="small" /> : <CopyIcon fontSize="small" />}
+              </IconButton>
+              <IconButton size="small" color="inherit" onClick={handleClose}>
+                <CloseIcon fontSize="small" />
+              </IconButton>
+            </>
+          }
+          sx={{
             width: '100%',
             minWidth: 300,
             maxWidth: 500,
