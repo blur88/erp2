@@ -95,22 +95,33 @@ export class CreateBackupLogs1735152000000 implements MigrationInterface {
       true,
     );
 
-    // Create indexes
-    await queryRunner.createIndex(
-      'backup_logs',
-      new TableIndex({
-        name: 'IDX_backup_logs_status',
-        columnNames: ['status'],
-      }),
+    // Create indexes only if they don't already exist
+    const existingIndexes = await queryRunner.query(
+      `SELECT indexname FROM pg_indexes WHERE tablename = 'backup_logs'`
     );
+    const indexNames: string[] = existingIndexes.map((r: { indexname: string }) => r.indexname);
 
-    await queryRunner.createIndex(
-      'backup_logs',
-      new TableIndex({
-        name: 'IDX_backup_logs_created_at',
-        columnNames: ['created_at'],
-      }),
-    );
+    if (!indexNames.includes('IDX_backup_logs_status')) {
+      await queryRunner.createIndex(
+        'backup_logs',
+        new TableIndex({
+          name: 'IDX_backup_logs_status',
+          columnNames: ['status'],
+        }),
+      );
+    }
+
+    const table = await queryRunner.getTable('backup_logs');
+    const hasSnakeCaseColumn = table?.columns.find(c => c.name === 'created_at');
+    if (hasSnakeCaseColumn && !indexNames.includes('IDX_backup_logs_created_at')) {
+      await queryRunner.createIndex(
+        'backup_logs',
+        new TableIndex({
+          name: 'IDX_backup_logs_created_at',
+          columnNames: ['created_at'],
+        }),
+      );
+    }
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {

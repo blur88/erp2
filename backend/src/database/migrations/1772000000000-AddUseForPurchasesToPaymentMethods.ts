@@ -6,7 +6,7 @@ export class AddUseForPurchasesToPaymentMethods1772000000000 implements Migratio
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`
       ALTER TABLE "payment_methods"
-      ADD COLUMN "useForPurchases" boolean NOT NULL DEFAULT true
+      ADD COLUMN IF NOT EXISTS "useForPurchases" boolean NOT NULL DEFAULT true
     `);
   }
 
