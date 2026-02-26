@@ -23,6 +23,7 @@ import {
   Cancel as CancelIcon,
 } from '@mui/icons-material';
 import { useAppDispatch, useAppSelector } from '@/hooks/useRedux';
+import { useNotification } from '@/hooks/useNotification'
 import {
   cancelSettlement,
   createSettlement,
@@ -44,6 +45,7 @@ const statusColor = (status: Settlement['status']) => {
 
 const SettlementsPage: React.FC = () => {
   const dispatch = useAppDispatch();
+  const { showSuccess, showError } = useNotification()
   const settlements = useAppSelector(selectSettlements);
   const loading = useAppSelector(selectSettlementsLoading);
 
@@ -64,18 +66,28 @@ const SettlementsPage: React.FC = () => {
     reference?: string;
     notes?: string;
   }) => {
-    await dispatch(createSettlement(data));
-    await dispatch(fetchSettlements({ page: 1, limit: 50 }));
-    await dispatch(fetchPendingSummary());
-    setDialogOpen(false);
+    try {
+      await dispatch(createSettlement(data)).unwrap();
+      await dispatch(fetchSettlements({ page: 1, limit: 50 }));
+      await dispatch(fetchPendingSummary());
+      setDialogOpen(false);
+      showSuccess('Settlement created successfully');
+    } catch (error: any) {
+      showError(error?.message || String(error) || 'Failed to create settlement');
+    }
   };
 
   const onCancel = async () => {
     if (!cancelTarget) return;
-    await dispatch(cancelSettlement(cancelTarget.id));
-    await dispatch(fetchSettlements({ page: 1, limit: 50 }));
-    await dispatch(fetchPendingSummary());
-    setCancelTarget(null);
+    try {
+      await dispatch(cancelSettlement(cancelTarget.id)).unwrap();
+      await dispatch(fetchSettlements({ page: 1, limit: 50 }));
+      await dispatch(fetchPendingSummary());
+      setCancelTarget(null);
+      showSuccess('Settlement cancelled successfully');
+    } catch (error: any) {
+      showError(error?.message || String(error) || 'Failed to cancel settlement');
+    }
   };
 
   return (

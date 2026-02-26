@@ -14,6 +14,7 @@ import {
   Avatar,
   Chip,
   Badge,
+  Tooltip,
 } from '@mui/material'
 import {
   Close as CloseIcon,
@@ -23,6 +24,8 @@ import {
   Warning as WarningIcon,
   Error as ErrorIcon,
   CheckCircle as SuccessIcon,
+  ContentCopy as CopyIcon,
+  Check as CheckIcon,
 } from '@mui/icons-material'
 import { formatDistanceToNow } from 'date-fns'
 
@@ -70,6 +73,8 @@ const NotificationPanel: React.FC<NotificationPanelProps> = ({
 }) => {
   const { notifications } = useNotifications()
   const dispatch = useAppDispatch()
+  const [copiedId, setCopiedId] = React.useState<string | null>(null)
+  const copyTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const unreadNotifications = notifications.filter(n => !n.read)
   const recentNotifications = notifications.slice(0, 10)
@@ -87,6 +92,24 @@ const NotificationPanel: React.FC<NotificationPanelProps> = ({
   const handleMarkAllAsRead = () => {
     dispatch(markAllAsRead())
   }
+
+  const handleCopy = async (notificationId: string, message: string, event: React.MouseEvent) => {
+    event.stopPropagation()
+    try {
+      await navigator.clipboard.writeText(message)
+      if (copyTimeoutRef.current) clearTimeout(copyTimeoutRef.current)
+      setCopiedId(notificationId)
+      copyTimeoutRef.current = setTimeout(() => setCopiedId(null), 1500)
+    } catch {
+      // Silent fallback if clipboard API unavailable
+    }
+  }
+
+  React.useEffect(() => {
+    return () => {
+      if (copyTimeoutRef.current) clearTimeout(copyTimeoutRef.current)
+    }
+  }, [])
 
   const handleNotificationClick = (notification: Notification) => {
     if (!notification.read) {
@@ -235,6 +258,19 @@ const NotificationPanel: React.FC<NotificationPanelProps> = ({
                   />
 
                   <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                    <Tooltip title="Copy message" placement="left">
+                      <IconButton
+                        size="small"
+                        onClick={(e) => handleCopy(notification.id, notification.message, e)}
+                        aria-label="Copy message"
+                      >
+                        {copiedId === notification.id ? (
+                          <CheckIcon fontSize="small" color="success" />
+                        ) : (
+                          <CopyIcon fontSize="small" />
+                        )}
+                      </IconButton>
+                    </Tooltip>
                     {!notification.read && (
                       <IconButton
                         size="small"

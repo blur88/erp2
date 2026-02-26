@@ -4,12 +4,24 @@ import { BrowserRouter } from 'react-router-dom'
 import AccountingEntryLink from '../AccountingEntryLink'
 
 const mockNavigate = vi.fn()
+const routerFutureFlags = {
+  v7_startTransition: true,
+  v7_relativeSplatPath: true,
+}
 
 vi.mock('react-router-dom', async () => {
-  const actual = await vi.importActual('react-router-dom')
+  const actual = await vi.importActual<typeof import('react-router-dom')>('react-router-dom')
+
+  const BrowserRouter = ({ future, children, ...props }: any) => (
+    <actual.BrowserRouter {...props} future={future ?? routerFutureFlags}>
+      {children}
+    </actual.BrowserRouter>
+  )
+
   return {
     ...actual,
     useNavigate: () => mockNavigate,
+    BrowserRouter,
   }
 })
 

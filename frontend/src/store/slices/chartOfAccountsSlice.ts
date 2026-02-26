@@ -66,6 +66,8 @@ const initialState: ChartOfAccountsState = {
     totalPages: 0,
   },
 }
+const EMPTY_ACCOUNTS: ChartOfAccount[] = []
+const EMPTY_HIERARCHY: ChartOfAccount[] = []
 
 // Async Thunks
 export const fetchChartOfAccounts = createAsyncThunk(
@@ -479,8 +481,8 @@ const chartOfAccountsSlice = createSlice({
 export const { clearError, resetState } = chartOfAccountsSlice.actions
 
 // Selectors
-export const selectChartOfAccounts = (state: any) => state.chartOfAccounts?.data || []
-export const selectAccountHierarchy = (state: any) => state.chartOfAccounts?.hierarchy || []
+export const selectChartOfAccounts = (state: any) => state.chartOfAccounts?.data || EMPTY_ACCOUNTS
+export const selectAccountHierarchy = (state: any) => state.chartOfAccounts?.hierarchy || EMPTY_HIERARCHY
 export const selectChartOfAccountsLoading = (state: any) => state.chartOfAccounts?.loading || false
 export const selectChartOfAccountsError = (state: any) => state.chartOfAccounts?.error || null
 export const selectChartOfAccountsPagination = (state: any) =>

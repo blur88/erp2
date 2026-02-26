@@ -602,7 +602,7 @@ export interface Notification {
   type: 'success' | 'error' | 'warning' | 'info';
   title: string;
   message: string;
-  timestamp: Date;
+  timestamp: string;
   read: boolean;
 }
 

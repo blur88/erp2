@@ -29,6 +29,9 @@ const initialState: SettlementsState = {
   pendingSummary: [],
   pendingPayments: [],
 };
+const EMPTY_SETTLEMENTS: Settlement[] = [];
+const EMPTY_PENDING_SUMMARY: PendingSettlementSummary[] = [];
+const EMPTY_PENDING_PAYMENTS: any[] = [];
 
 export const fetchSettlements = createAsyncThunk(
   'settlements/fetchAll',
@@ -144,11 +147,11 @@ const settlementsSlice = createSlice({
 
 export const { clearSettlementsError } = settlementsSlice.actions;
 
-export const selectSettlements = (state: any) => state.settlements?.data || [];
+export const selectSettlements = (state: any) => state.settlements?.data || EMPTY_SETTLEMENTS;
 export const selectSettlementsLoading = (state: any) => state.settlements?.loading || false;
 export const selectSettlementsError = (state: any) => state.settlements?.error || null;
 export const selectSettlementsPagination = (state: any) => state.settlements?.pagination || initialState.pagination;
-export const selectPendingSummary = (state: any) => state.settlements?.pendingSummary || [];
-export const selectPendingPayments = (state: any) => state.settlements?.pendingPayments || [];
+export const selectPendingSummary = (state: any) => state.settlements?.pendingSummary || EMPTY_PENDING_SUMMARY;
+export const selectPendingPayments = (state: any) => state.settlements?.pendingPayments || EMPTY_PENDING_PAYMENTS;
 
 export default settlementsSlice.reducer;

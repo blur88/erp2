@@ -5,14 +5,6 @@ import { configureStore } from '@reduxjs/toolkit'
 import UploadBackupDialog from '../UploadBackupDialog'
 import backupReducer from '@/store/slices/backupSlice'
 
-vi.mock('@/store/slices/backupSlice', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@/store/slices/backupSlice')>()
-  return {
-    ...actual,
-    uploadBackup: vi.fn(() => ({ type: 'backup/uploadBackup/pending', unwrap: () => Promise.resolve() })),
-  }
-})
-
 function makeStore() {
   return configureStore({
     reducer: { backup: backupReducer as any },

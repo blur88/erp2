@@ -1,5 +1,6 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit'
 import type { Notification } from '@/types'
+import { logout, clearAuth } from './authSlice'
 
 interface NotificationState {
   notifications: Notification[]
@@ -18,7 +19,7 @@ const notificationSlice = createSlice({
     addNotification: (state, action: PayloadAction<Omit<Notification, 'id' | 'timestamp' | 'read'>>) => {
       const notification: Notification = {
         id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
-        timestamp: new Date(),
+        timestamp: new Date().toISOString(),
         read: false,
         ...action.payload,
       }
@@ -61,6 +62,17 @@ const notificationSlice = createSlice({
         state.unreadCount = action.payload.filter((n) => !n.read).length
       }
     },
+  },
+  extraReducers: (builder) => {
+    builder
+      .addCase(logout.fulfilled, (state) => {
+        state.notifications = []
+        state.unreadCount = 0
+      })
+      .addCase(clearAuth, (state) => {
+        state.notifications = []
+        state.unreadCount = 0
+      })
   },
 })
 
