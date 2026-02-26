@@ -61,7 +61,7 @@ cd frontend && npm run lint
 
 ## Architecture
 
-**Active modules** (11): `AuthModule`, `UsersModule`, `InventoryModule`, `SalesModule`, `PurchasingModule`, `DashboardModule`, `SettingsModule`, `PrintSettingsModule`, `PriceListsModule`, `AuditLogsModule`, `BackupModule`
+**Active modules** (12): `AuthModule`, `UsersModule`, `InventoryModule`, `SalesModule`, `PurchasingModule`, `DashboardModule`, `SettingsModule`, `PrintSettingsModule`, `PriceListsModule`, `AuditLogsModule`, `BackupModule`, `AccountingModule`
 
 Reports are embedded in their business modules (Inventory, Sales, Purchasing) — there is no separate reports module.
 
@@ -80,7 +80,7 @@ Reports are embedded in their business modules (Inventory, Sales, Purchasing) �
 
 **Soft delete**: Always use TypeORM's `softDelete(id)` method — it sets the `deletedAt` timestamp. Setting `isActive = false` manually does NOT set `deletedAt`, breaking `withDeleted` queries and the restore flow.
 
-**API response structure**: Standard paginated list endpoints wrap items as `response.data.data` (items) and `response.data.meta` (pagination). Tree/hierarchy endpoints (categories, chart of accounts) return a flat array at `response.data` directly — no nested `.data.data`. Getting this wrong causes empty lists with no errors.
+**API response structure**: `ApiService` strips the Axios wrapper and returns the backend body directly. For paginated list endpoints the body is `{ data: T[], meta: {...} }` — access items as `response.data` and pagination as `response.meta`. For tree/hierarchy endpoints (categories, chart of accounts) the body is a plain array — access as `response` directly (no `.data`). Getting this wrong causes empty lists with no errors.
 
 **Frontend Docker**: Changes to frontend source require a rebuild — `docker compose build frontend && docker compose up -d frontend`. The Vite dev server (`npm run dev`) is for local-only development.
 
