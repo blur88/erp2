@@ -69,7 +69,7 @@ Reports are embedded in their business modules (Inventory, Sales, Purchasing) �
 - DB uses `family: 4` (IPv4 force) and SSL disabled for Docker PostgreSQL compatibility
 - Frontend environment variables injected at runtime via `window.__ENV__` (not build-time) so one Docker image works across environments
 - Backend source changes require `docker compose build backend && docker compose up -d backend` — there is no volume mount for live reload in Docker
-- All API responses are wrapped by `ApiService` as `{ data: T, meta?: {...} }` — access `response.data` (not `response.data.data`)
+- All API responses go through `ApiService` which wraps them as `{ data: T, meta?: {...} }` — see Gotchas for access patterns
 
 **Accounting module** (double-entry, auto-posting): 7 entities, full RBAC. View reports: all roles. Create/edit journal entries: Admin + Manager. Delete/manage fiscal periods: Admin only.
 
@@ -79,7 +79,7 @@ Reports are embedded in their business modules (Inventory, Sales, Purchasing) �
 
 **Soft delete**: Always use TypeORM's `softDelete(id)` method — it sets the `deletedAt` timestamp. Setting `isActive = false` manually does NOT set `deletedAt`, breaking `withDeleted` queries and the restore flow.
 
-**API tree responses**: Category/account hierarchy endpoints return `{ data: Item[], meta }` — access items as `response.data` directly, not `response.data.data`. Other list endpoints use `response.data.data`.
+**API response structure**: Standard paginated list endpoints wrap items as `response.data.data` (items) and `response.data.meta` (pagination). Tree/hierarchy endpoints (categories, chart of accounts) return a flat array at `response.data` directly — no nested `.data.data`. Getting this wrong causes empty lists with no errors.
 
 **Frontend Docker**: Changes to frontend source require a rebuild — `docker compose build frontend && docker compose up -d frontend`. The Vite dev server (`npm run dev`) is for local-only development.
 
