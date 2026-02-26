@@ -140,4 +140,9 @@ See `DEPLOYMENT_GUIDE.md` for production configuration and security hardening.
 
 ## License
 
-MIT License — see [LICENSE](LICENSE) for details.
+Copyright (c) 2026 MF Global Network. All rights reserved.
+
+This software is proprietary. Personal and internal business use is permitted.
+Commercial use, resale, or redistribution is not permitted without written permission.
+
+See [LICENSE](LICENSE) for full terms.
