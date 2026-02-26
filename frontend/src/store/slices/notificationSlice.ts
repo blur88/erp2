@@ -1,5 +1,6 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit'
 import type { Notification } from '@/types'
+import { logout, clearAuth } from './authSlice'
 
 interface NotificationState {
   notifications: Notification[]
@@ -61,6 +62,17 @@ const notificationSlice = createSlice({
         state.unreadCount = action.payload.filter((n) => !n.read).length
       }
     },
+  },
+  extraReducers: (builder) => {
+    builder
+      .addCase(logout.fulfilled, (state) => {
+        state.notifications = []
+        state.unreadCount = 0
+      })
+      .addCase(clearAuth, (state) => {
+        state.notifications = []
+        state.unreadCount = 0
+      })
   },
 })
 
