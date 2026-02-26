@@ -39,6 +39,15 @@ vi.mock('react-router-dom', async () => {
   };
 });
 
+// Remove MUI transition async updates in tests to reduce act(...) noise.
+vi.mock('@mui/material/Grow', () => ({
+  default: ({ children }: any) => children,
+}));
+
+vi.mock('@mui/material/Fade', () => ({
+  default: ({ children }: any) => children,
+}));
+
 // Extend Vitest's expect with jest-dom matchers
 expect.extend(matchers);
 
@@ -47,6 +56,8 @@ const buttonBase = ButtonBase as any;
 buttonBase.defaultProps = {
   ...buttonBase.defaultProps,
   disableRipple: true,
+  disableTouchRipple: true,
+  focusRipple: false,
 };
 
 // Cleanup after each test

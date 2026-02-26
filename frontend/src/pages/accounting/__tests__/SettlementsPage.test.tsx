@@ -51,6 +51,7 @@ vi.mock('@/store/slices/settlementsSlice', async () => {
 
   return {
     ...actual,
+    default: actual.default,
     createSettlement: mocked.createSettlement,
     cancelSettlement: mocked.cancelSettlement,
     fetchSettlements: mocked.fetchSettlements,

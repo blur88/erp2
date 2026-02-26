@@ -279,5 +279,12 @@ describe('chartOfAccountsSlice', () => {
       const loading = selectChartOfAccountsLoading(state);
       expect(loading).toBe(false);
     });
+
+    it('returns stable empty array reference when chartOfAccounts slice is missing', () => {
+      const emptyState = {} as any;
+      const first = selectChartOfAccounts(emptyState);
+      const second = selectChartOfAccounts(emptyState);
+      expect(first).toBe(second);
+    });
   });
 });

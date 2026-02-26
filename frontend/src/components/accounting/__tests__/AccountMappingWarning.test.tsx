@@ -21,6 +21,21 @@ vi.mock('react-router-dom', async () => {
   }
 })
 
+vi.mock('@/services/accountingApi', () => ({
+  accountMappingsApi: {
+    validate: vi.fn().mockResolvedValue({
+      isValid: false,
+      isComplete: false,
+      missingMappings: ['sales_revenue'],
+      configuredMappings: [],
+    }),
+    getAll: vi.fn().mockResolvedValue([]),
+    create: vi.fn(),
+    update: vi.fn(),
+    delete: vi.fn(),
+  },
+}))
+
 const createMockStore = (initialState = {}) => {
   return configureStore({
     reducer: {

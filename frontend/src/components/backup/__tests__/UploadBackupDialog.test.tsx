@@ -9,6 +9,7 @@ vi.mock('@/store/slices/backupSlice', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/store/slices/backupSlice')>()
   return {
     ...actual,
+    default: actual.default,
     uploadBackup: vi.fn(() => ({ type: 'backup/uploadBackup/pending', unwrap: () => Promise.resolve() })),
   }
 })
