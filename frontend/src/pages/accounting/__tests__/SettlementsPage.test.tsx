@@ -44,20 +44,15 @@ vi.mock('@/hooks/useNotification', () => ({
   useNotification: () => ({ showSuccess: mocked.showSuccess, showError: mocked.showError }),
 }))
 
-vi.mock('@/store/slices/settlementsSlice', async () => {
-  const actual = await vi.importActual<typeof import('@/store/slices/settlementsSlice')>(
-    '@/store/slices/settlementsSlice',
-  )
-
-  return {
-    ...actual,
-    default: actual.default,
-    createSettlement: mocked.createSettlement,
-    cancelSettlement: mocked.cancelSettlement,
-    fetchSettlements: mocked.fetchSettlements,
-    fetchPendingSummary: mocked.fetchPendingSummary,
-  }
-})
+vi.mock('@/store/slices/settlementsSlice', () => ({
+  default: (state = { data: [], loading: false }) => state,
+  createSettlement: mocked.createSettlement,
+  cancelSettlement: mocked.cancelSettlement,
+  fetchSettlements: mocked.fetchSettlements,
+  fetchPendingSummary: mocked.fetchPendingSummary,
+  selectSettlements: (state: any) => state.settlements?.data || [],
+  selectSettlementsLoading: (state: any) => state.settlements?.loading || false,
+}))
 
 vi.mock('@/components/accounting/CreateSettlementDialog', () => ({
   default: ({ open, onCreate }: any) =>
