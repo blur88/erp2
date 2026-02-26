@@ -120,6 +120,7 @@ const PaymentMethodsPage: React.FC = () => {
                 <TableCell>Code</TableCell>
                 <TableCell>Name</TableCell>
                 <TableCell>Requires Settlement</TableCell>
+                <TableCell>For Purchases</TableCell>
                 <TableCell>Sort Order</TableCell>
                 <TableCell>Active</TableCell>
                 <TableCell align="right">Actions</TableCell>
@@ -135,6 +136,13 @@ const PaymentMethodsPage: React.FC = () => {
                       size="small"
                       color={m.requiresSettlement ? 'warning' : 'default'}
                       label={m.requiresSettlement ? 'Yes' : 'No'}
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <Chip
+                      size="small"
+                      color={m.useForPurchases ? 'primary' : 'default'}
+                      label={m.useForPurchases ? 'Yes' : 'No'}
                     />
                   </TableCell>
                   <TableCell>{m.sortOrder}</TableCell>
@@ -165,7 +173,7 @@ const PaymentMethodsPage: React.FC = () => {
               ))}
               {!methods.length && !loading && (
                 <TableRow>
-                  <TableCell colSpan={6}>
+                  <TableCell colSpan={7}>
                     <Typography color="text.secondary">No payment methods found.</Typography>
                   </TableCell>
                 </TableRow>

@@ -30,6 +30,7 @@ const PaymentMethodFormDialog: React.FC<PaymentMethodFormDialogProps> = ({
   const [code, setCode] = useState('');
   const [name, setName] = useState('');
   const [requiresSettlement, setRequiresSettlement] = useState(false);
+  const [useForPurchases, setUseForPurchases] = useState(true);
   const [sortOrder, setSortOrder] = useState(0);
 
   useEffect(() => {
@@ -37,6 +38,7 @@ const PaymentMethodFormDialog: React.FC<PaymentMethodFormDialogProps> = ({
       setCode(initialData?.code || '');
       setName(initialData?.name || '');
       setRequiresSettlement(initialData?.requiresSettlement || false);
+      setUseForPurchases(initialData?.useForPurchases ?? true);
       setSortOrder(initialData?.sortOrder || 0);
     }
   }, [open, initialData]);
@@ -50,6 +52,7 @@ const PaymentMethodFormDialog: React.FC<PaymentMethodFormDialogProps> = ({
       code: code.trim().toUpperCase(),
       name: name.trim(),
       requiresSettlement,
+      useForPurchases,
       sortOrder,
     });
   };
@@ -91,6 +94,15 @@ const PaymentMethodFormDialog: React.FC<PaymentMethodFormDialogProps> = ({
               />
             }
             label="Requires Settlement"
+          />
+          <FormControlLabel
+            control={
+              <Switch
+                checked={useForPurchases}
+                onChange={(e) => setUseForPurchases(e.target.checked)}
+              />
+            }
+            label="Use for Purchase Orders"
           />
         </Stack>
       </DialogContent>

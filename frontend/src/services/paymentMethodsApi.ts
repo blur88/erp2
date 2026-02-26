@@ -10,6 +10,9 @@ export const paymentMethodsApi = {
   getActive: (): Promise<PaymentMethodConfig[]> =>
     ApiService.get(`${BASE_URL}/active`),
 
+  getActiveForPurchases: (): Promise<PaymentMethodConfig[]> =>
+    ApiService.get(`${BASE_URL}/active`, { params: { forPurchases: true } }),
+
   getById: (id: string): Promise<PaymentMethodConfig> =>
     ApiService.get(`${BASE_URL}/${id}`),
 

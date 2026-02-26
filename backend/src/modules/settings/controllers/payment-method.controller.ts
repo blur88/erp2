@@ -38,8 +38,11 @@ export class PaymentMethodController {
   @Get('active')
   @ApiOperation({ summary: 'Get all active payment methods (for dropdowns)' })
   @ApiResponse({ status: 200, type: [PaymentMethodResponseDto] })
-  async getActiveList(): Promise<PaymentMethodResponseDto[]> {
-    return this.paymentMethodService.getActiveList();
+  async getActiveList(
+    @Query('forPurchases') forPurchasesRaw?: string,
+  ): Promise<PaymentMethodResponseDto[]> {
+    const forPurchases = forPurchasesRaw === 'true' ? true : undefined;
+    return this.paymentMethodService.getActiveList(forPurchases);
   }
 
   @Get('deleted')

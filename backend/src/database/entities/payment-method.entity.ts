@@ -49,4 +49,12 @@ export class PaymentMethodEntity extends BaseEntity {
   })
   @IsInt()
   sortOrder: number;
+
+  @Column({
+    type: 'boolean',
+    default: true,
+    comment: 'Whether this method is used for purchase order payments',
+  })
+  @IsBoolean()
+  useForPurchases: boolean;
 }

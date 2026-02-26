@@ -268,25 +268,27 @@ export class PaymentMethodService {
       }
     }
 
-    const vendorKey = `vendor_payment_${pm.code.toLowerCase()}`;
-    const existingVendorMapping = await this.accountMappingRepository.findOne({
-      where: { mappingType: vendorKey },
-    });
-
-    if (!existingVendorMapping) {
-      const account = await this.findMatchingAccount(pm);
-      if (!account) {
-        this.logger.warn(
-          `No matching GL account found for vendor ${pm.code} — mapping created with null accountId`,
-        );
-      }
-      const mapping = this.accountMappingRepository.create({
-        mappingType: vendorKey,
-        accountId: account ? account.id : null,
-        description: `${pm.name} vendor payment account`,
-        isActive: true,
+    if (pm.useForPurchases !== false) {
+      const vendorKey = `vendor_payment_${pm.code.toLowerCase()}`;
+      const existingVendorMapping = await this.accountMappingRepository.findOne({
+        where: { mappingType: vendorKey },
       });
-      await this.accountMappingRepository.save(mapping);
+
+      if (!existingVendorMapping) {
+        const account = await this.findMatchingAccount(pm);
+        if (!account) {
+          this.logger.warn(
+            `No matching GL account found for vendor ${pm.code} — mapping created with null accountId`,
+          );
+        }
+        const mapping = this.accountMappingRepository.create({
+          mappingType: vendorKey,
+          accountId: account ? account.id : null,
+          description: `${pm.name} vendor payment account`,
+          isActive: true,
+        });
+        await this.accountMappingRepository.save(mapping);
+      }
     }
   }
 
@@ -361,6 +363,37 @@ export class PaymentMethodService {
       const settlementKey = `payment_${code}_settlement`;
       await this.accountMappingRepository.delete({ mappingType: settlementKey });
     }
+
+    if (newPm.useForPurchases && !oldPm.useForPurchases) {
+      const vendorKey = `vendor_payment_${code}`;
+      const existing = await this.accountMappingRepository.findOne({
+        where: { mappingType: vendorKey },
+      });
+
+      if (existing) {
+        existing.isActive = true;
+        await this.accountMappingRepository.save(existing);
+      } else {
+        const account = await this.findMatchingAccount(newPm);
+        const mapping = this.accountMappingRepository.create({
+          mappingType: vendorKey,
+          accountId: account ? account.id : null,
+          description: `${newPm.name} vendor payment account`,
+          isActive: true,
+        });
+        await this.accountMappingRepository.save(mapping);
+      }
+    } else if (!newPm.useForPurchases && oldPm.useForPurchases) {
+      const vendorKey = `vendor_payment_${code}`;
+      const existing = await this.accountMappingRepository.findOne({
+        where: { mappingType: vendorKey },
+      });
+
+      if (existing) {
+        existing.isActive = false;
+        await this.accountMappingRepository.save(existing);
+      }
+    }
   }
 
   private async findMatchingAccount(pm: PaymentMethodEntity): Promise<ChartOfAccount | null> {
@@ -384,9 +417,14 @@ export class PaymentMethodService {
     });
   }
 
-  async getActiveList(): Promise<PaymentMethodResponseDto[]> {
+  async getActiveList(forPurchases?: boolean): Promise<PaymentMethodResponseDto[]> {
+    const where: any = { isActive: true };
+    if (forPurchases === true) {
+      where.useForPurchases = true;
+    }
+
     const methods = await this.paymentMethodRepository.find({
-      where: { isActive: true },
+      where,
       order: { sortOrder: 'ASC', name: 'ASC' },
     });
 
@@ -401,6 +439,7 @@ export class PaymentMethodService {
       code: pm.code,
       name: pm.name,
       requiresSettlement: pm.requiresSettlement,
+      useForPurchases: pm.useForPurchases,
       sortOrder: pm.sortOrder,
       isActive: pm.isActive,
       createdAt: pm.createdAt,

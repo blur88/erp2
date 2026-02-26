@@ -439,6 +439,7 @@ export interface PaymentMethodConfig {
   code: string;
   name: string;
   requiresSettlement: boolean;
+  useForPurchases: boolean;
   sortOrder: number;
   isActive: boolean;
   createdAt: string;

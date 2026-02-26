@@ -26,6 +26,11 @@ export class CreatePaymentMethodDto {
   @IsBoolean()
   requiresSettlement: boolean;
 
+  @ApiPropertyOptional({ description: 'Whether this method is used for purchase orders', default: true })
+  @IsOptional()
+  @IsBoolean()
+  useForPurchases?: boolean;
+
   @ApiPropertyOptional({ description: 'Display order', default: 0 })
   @IsOptional()
   @IsInt()
@@ -66,6 +71,12 @@ export class QueryPaymentMethodsDto {
   @Type(() => Boolean)
   @IsBoolean()
   requiresSettlement?: boolean;
+
+  @ApiPropertyOptional({ description: 'Filter by useForPurchases' })
+  @IsOptional()
+  @Type(() => Boolean)
+  @IsBoolean()
+  forPurchases?: boolean;
 }
 
 export class PaymentMethodResponseDto {
@@ -73,6 +84,7 @@ export class PaymentMethodResponseDto {
   @ApiProperty() code: string;
   @ApiProperty() name: string;
   @ApiProperty() requiresSettlement: boolean;
+  @ApiProperty() useForPurchases: boolean;
   @ApiProperty() sortOrder: number;
   @ApiProperty() isActive: boolean;
   @ApiProperty() createdAt: Date;

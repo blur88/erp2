@@ -56,7 +56,7 @@ export default function VendorPaymentDialog({
     if (!open) return
     setError(null)
     setSubmitting(false)
-    paymentMethodsApi.getActive().then((methods: any) => {
+    paymentMethodsApi.getActiveForPurchases().then((methods: any) => {
       const list = Array.isArray(methods) ? methods : (methods as any)?.data || []
       setPaymentMethods(list)
       const cashMethod = list.find((m: any) => m.code === 'CASH')

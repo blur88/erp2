@@ -158,12 +158,36 @@ describe('PaymentMethodService', () => {
       name: 'Cash',
       type: AccountType.ASSET,
     } as any);
-    accountMappingRepository.create.mockReturnValue({} as any);
+    accountMappingRepository.create.mockImplementation((data: any) => data as any);
     accountMappingRepository.save.mockResolvedValue({} as any);
 
     await service.create({ code: 'cash', name: 'Cash', requiresSettlement: false });
 
     expect(accountMappingRepository.save).toHaveBeenCalled();
+  });
+
+  it('should NOT create vendor_payment mapping when useForPurchases is false', async () => {
+    const dto = {
+      code: 'TESTPM',
+      name: 'Test PM',
+      requiresSettlement: false,
+      useForPurchases: false,
+    };
+    const savedPm = { id: 'pm-1', ...dto, sortOrder: 0, isActive: true, deletedAt: null };
+
+    paymentMethodRepository.findOne.mockResolvedValueOnce(null);
+    paymentMethodRepository.create.mockReturnValue(savedPm as any);
+    paymentMethodRepository.save.mockResolvedValue(savedPm as any);
+    accountMappingRepository.findOne.mockResolvedValue(null);
+    accountRepository.findOne.mockResolvedValue(null);
+    accountMappingRepository.create.mockReturnValue({} as any);
+    accountMappingRepository.save.mockResolvedValue({} as any);
+
+    await service.create(dto as any);
+
+    expect(accountMappingRepository.findOne).not.toHaveBeenCalledWith({
+      where: { mappingType: 'vendor_payment_testpm' },
+    });
   });
 
   it('getDeletedList should return soft-deleted payment methods', async () => {
@@ -239,5 +263,71 @@ describe('PaymentMethodService', () => {
 
     expect(accountMappingRepository.delete).toHaveBeenCalled();
     expect(paymentMethodRepository.delete).toHaveBeenCalledWith('pm-1');
+  });
+
+  it('should deactivate vendor_payment mapping when useForPurchases toggled OFF', async () => {
+    const id = 'pm-1';
+    const oldPm: any = {
+      id,
+      code: 'BANK',
+      name: 'Bank',
+      requiresSettlement: false,
+      useForPurchases: true,
+      deletedAt: null,
+      sortOrder: 0,
+      isActive: true,
+    };
+    const dto = { useForPurchases: false };
+
+    paymentMethodRepository.findOne.mockResolvedValue(oldPm);
+    paymentMethodRepository.save.mockResolvedValue({ ...oldPm, useForPurchases: false });
+
+    const existingVendorMapping = { mappingType: 'vendor_payment_bank', isActive: true };
+    accountMappingRepository.findOne.mockResolvedValue(existingVendorMapping as any);
+    accountMappingRepository.save.mockResolvedValue({
+      ...existingVendorMapping,
+      isActive: false,
+    } as any);
+
+    await service.update(id, dto as any);
+
+    const savedCalls = accountMappingRepository.save.mock.calls;
+    const deactivated = savedCalls.some(
+      ([arg]: any) => arg.mappingType === 'vendor_payment_bank' && arg.isActive === false,
+    );
+    expect(deactivated).toBe(true);
+  });
+
+  it('should reactivate vendor_payment mapping when useForPurchases toggled ON', async () => {
+    const id = 'pm-1';
+    const oldPm: any = {
+      id,
+      code: 'BANK',
+      name: 'Bank',
+      requiresSettlement: false,
+      useForPurchases: false,
+      deletedAt: null,
+      sortOrder: 0,
+      isActive: true,
+    };
+    const dto = { useForPurchases: true };
+
+    paymentMethodRepository.findOne.mockResolvedValue(oldPm);
+    paymentMethodRepository.save.mockResolvedValue({ ...oldPm, useForPurchases: true });
+
+    const existingVendorMapping = { mappingType: 'vendor_payment_bank', isActive: false };
+    accountMappingRepository.findOne.mockResolvedValue(existingVendorMapping as any);
+    accountMappingRepository.save.mockResolvedValue({
+      ...existingVendorMapping,
+      isActive: true,
+    } as any);
+
+    await service.update(id, dto as any);
+
+    const savedCalls = accountMappingRepository.save.mock.calls;
+    const reactivated = savedCalls.some(
+      ([arg]: any) => arg.mappingType === 'vendor_payment_bank' && arg.isActive === true,
+    );
+    expect(reactivated).toBe(true);
   });
 });

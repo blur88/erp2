@@ -134,7 +134,7 @@ const AccountMappingsPage: React.FC = () => {
   const [mappingToClear, setMappingToClear] = useState<AccountMapping | null>(null)
   const [clearing, setClearing] = useState(false)
   const [paymentMethods, setPaymentMethods] = useState<
-    Array<{ code: string; name: string; requiresSettlement: boolean }>
+    Array<{ code: string; name: string; requiresSettlement: boolean; useForPurchases: boolean }>
   >([])
 
   useKeyboardShortcuts({
@@ -259,6 +259,7 @@ const AccountMappingsPage: React.FC = () => {
     ]
 
     for (const pm of paymentMethods) {
+      if (!pm.useForPurchases) continue
       const code = pm.code.toLowerCase()
       items.push({
         type: `vendor_payment_${code}`,
