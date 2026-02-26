@@ -26,13 +26,13 @@ cd frontend && npm run dev
 # Run all backend tests
 cd backend && npm run test
 
-# Run a single backend test file
-cd backend && npx jest path/to/file.spec.ts --no-coverage
+# Run a single backend test file (path relative to backend/)
+cd backend && npx jest src/path/to/file.spec.ts --no-coverage
 
 # Run all frontend tests
 cd frontend && npm run test
 
-# Run a single frontend test file
+# Run a single frontend test file (path relative to frontend/)
 cd frontend && npx vitest run src/path/to/file.test.tsx
 
 # TypeScript check (frontend, no build)
@@ -49,6 +49,7 @@ cd backend && npm run migration:revert
 
 # Lint & format
 cd backend && npm run lint && npm run format
+
 cd frontend && npm run lint
 
 # Deploy
