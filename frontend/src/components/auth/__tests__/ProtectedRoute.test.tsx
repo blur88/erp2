@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { Provider } from 'react-redux';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, MemoryRouter, Routes, Route } from 'react-router-dom';
 import { configureStore } from '@reduxjs/toolkit';
 import '@testing-library/jest-dom/vitest';
 import ProtectedRoute from '../ProtectedRoute';
@@ -162,7 +162,7 @@ describe('ProtectedRoute', () => {
 
     render(
       <Provider store={store}>
-        <BrowserRouter future={routerFutureFlags}>
+        <MemoryRouter initialEntries={['/dashboard']} future={routerFutureFlags}>
           <Routes>
             <Route
               path="/dashboard"
@@ -173,7 +173,7 @@ describe('ProtectedRoute', () => {
               }
             />
           </Routes>
-        </BrowserRouter>
+        </MemoryRouter>
       </Provider>
     );
 
