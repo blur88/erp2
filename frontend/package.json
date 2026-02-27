@@ -64,7 +64,7 @@
     "@vitest/coverage-v8": "^4.0.18",
     "@vitest/ui": "^4.0.18",
     "eslint": "10.0.2",
-    "eslint-plugin-react-hooks": "7.0.1",
+    "eslint-plugin-react-hooks": "7.1.0-canary-98ce535f-20260226",
     "eslint-plugin-react-refresh": "^0.5.2",
     "globals": "^17.3.0",
     "jsdom": "^23.0.1",
@@ -79,6 +79,6 @@
   },
   "overrides": {
     "qs": "6.14.2",
-    "eslint-plugin-react-hooks": "7.0.1"
+    "eslint-plugin-react-hooks": "7.1.0-canary-98ce535f-20260226"
   }
 }
