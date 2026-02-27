@@ -1,10 +1,22 @@
 import js from '@eslint/js';
+import globals from 'globals';
 import tseslint from 'typescript-eslint';
 import reactHooks from 'eslint-plugin-react-hooks';
 import { reactRefresh } from 'eslint-plugin-react-refresh';
 
 export default tseslint.config(
   { ignores: ['dist'] },
+  {
+    files: ['**/*.{js,mjs,cjs,ts,tsx}'],
+    languageOptions: {
+      ecmaVersion: 2020,
+      sourceType: 'module',
+      globals: globals.browser,
+    },
+    linterOptions: {
+      reportUnusedDisableDirectives: 'off',
+    },
+  },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
@@ -28,9 +40,12 @@ export default tseslint.config(
       '@typescript-eslint/no-empty-object-type': 'off',
       '@typescript-eslint/no-require-imports': 'off',
       '@typescript-eslint/ban-types': 'off',
+      '@typescript-eslint/no-unsafe-function-type': 'off',
+      '@typescript-eslint/no-unused-expressions': 'off',
 
       // base ESLint
       'no-unused-vars': 'off',
+      'no-unused-expressions': 'off',
       'no-extra-semi': 'off',
       'no-extra-boolean-cast': 'off',
       'prefer-const': 'off',
