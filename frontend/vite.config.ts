@@ -74,7 +74,7 @@ export default defineConfig(({ mode }) => {
           manualChunks: {
             vendor: ['react', 'react-dom'],
             mui: ['@mui/material', '@mui/icons-material'],
-            charts: ['chart.js', 'react-chartjs-2', 'recharts'],
+            charts: ['chart.js', 'react-chartjs-2'],
             router: ['react-router-dom'],
             redux: ['@reduxjs/toolkit', 'react-redux'],
           },

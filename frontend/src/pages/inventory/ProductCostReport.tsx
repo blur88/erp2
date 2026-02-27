@@ -946,7 +946,7 @@ const ProductCostReport: React.FC = () => {
                     </TableHead>
                     <TableBody>
                       {(() => {
-                        const rows: JSX.Element[] = []
+                        const rows: React.ReactElement[] = []
                         let groupSubtotals = {
                           quantityChange: 0,
                           costChange: 0
