@@ -13,6 +13,7 @@ const routerFutureFlags = {
 };
 
 let consoleErrorSpy: ReturnType<typeof vi.spyOn> | undefined;
+let consoleWarnSpy: ReturnType<typeof vi.spyOn> | undefined;
 
 vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual<typeof import('react-router-dom')>('react-router-dom');
@@ -58,6 +59,7 @@ expect.extend(matchers);
 
 beforeAll(() => {
   const originalConsoleError = console.error;
+  const originalConsoleWarn = console.warn;
 
   // Filter known React test-environment warning spam while keeping real errors.
   consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation((...args) => {
@@ -68,10 +70,21 @@ beforeAll(() => {
 
     originalConsoleError(...args);
   });
+
+  // Filter MUI GridLegacy deprecation warning spam while keeping other warnings.
+  consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation((...args) => {
+    const message = args.find((arg) => typeof arg === 'string') as string | undefined;
+    if (message?.includes('GridLegacy component is deprecated')) {
+      return;
+    }
+
+    originalConsoleWarn(...args);
+  });
 });
 
 afterAll(() => {
   consoleErrorSpy?.mockRestore();
+  consoleWarnSpy?.mockRestore();
 });
 
 // Prevent MUI ripple timers from causing act(...) warnings in tests.
