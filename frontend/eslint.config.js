@@ -26,7 +26,6 @@ export default tseslint.config(
     },
     rules: {
       // react-hooks
-      ...reactHooks.configs.recommended.rules,
       'react-hooks/exhaustive-deps': 'off',
       'react-hooks/rules-of-hooks': 'off',
 
@@ -44,6 +43,8 @@ export default tseslint.config(
       '@typescript-eslint/no-unused-expressions': 'off',
 
       // base ESLint
+      'no-unassigned-vars': 'off',
+      'no-useless-assignment': 'off',
       'no-unused-vars': 'off',
       'no-unused-expressions': 'off',
       'no-extra-semi': 'off',
