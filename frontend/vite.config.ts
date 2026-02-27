@@ -86,14 +86,8 @@ export default defineConfig(({ mode }) => {
       environment: 'jsdom',
       setupFiles: ['./src/test/setup.ts'],
       api: false,
-      pool: 'forks',
-      poolOptions: {
-        forks: {
-          minForks: 1,
-          maxForks: 2,
-          execArgv: ['--max-old-space-size=4096'],
-        },
-      },
+      maxWorkers: 2,
+      execArgv: ['--max-old-space-size=4096'],
     },
   }
 })
