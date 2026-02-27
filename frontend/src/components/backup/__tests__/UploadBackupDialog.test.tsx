@@ -3,11 +3,11 @@ import { render, screen, fireEvent, createEvent } from '@testing-library/react'
 import { Provider } from 'react-redux'
 import { configureStore } from '@reduxjs/toolkit'
 import UploadBackupDialog from '../UploadBackupDialog'
-import backupReducer from '@/store/slices/backupSlice'
 
 function makeStore() {
+  const initialState = { backup: { backupInProgress: false } }
   return configureStore({
-    reducer: { backup: backupReducer as any },
+    reducer: (state = initialState) => state,
   })
 }
 

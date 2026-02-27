@@ -47,7 +47,6 @@ export const fetchJournalEntries = createAsyncThunk(
       const response = await journalEntriesApi.getAll(params);
       return response || { data: [], meta: { page: 1, limit: 20, total: 0, totalPages: 0 } };
     } catch (error: any) {
-      console.error('Failed to fetch journal entries:', error);
       return rejectWithValue(error.response?.data?.message || 'Failed to fetch journal entries');
     }
   }

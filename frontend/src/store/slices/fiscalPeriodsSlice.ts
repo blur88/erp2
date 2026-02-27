@@ -46,7 +46,6 @@ export const fetchFiscalPeriods = createAsyncThunk(
       const response = await fiscalPeriodsApi.getAll(params);
       return response || { data: [], meta: { page: 1, limit: 20, total: 0, totalPages: 0 } };
     } catch (error: any) {
-      console.error('Failed to fetch fiscal periods:', error);
       return rejectWithValue(error.response?.data?.message || 'Failed to fetch fiscal periods');
     }
   }

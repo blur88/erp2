@@ -1,7 +1,5 @@
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse, InternalAxiosRequestConfig } from 'axios'
 import type { ApiResponse } from '@/types'
-import { store } from '@/store'
-import { setAccessToken, clearAuth } from '@/store/slices/authSlice'
 
 // Get API base URL dynamically with VPN compatibility
 const getApiBaseUrl = () => {
@@ -30,13 +28,14 @@ const api: AxiosInstance = axios.create({
 
 // Request interceptor to inject access token and set baseURL
 api.interceptors.request.use(
-  (config: InternalAxiosRequestConfig) => {
+  async (config: InternalAxiosRequestConfig) => {
     // Set base URL
     if (!config.baseURL) {
       config.baseURL = getApiBaseUrl()
     }
 
     // Inject Authorization header if access token exists
+    const store = await getStore()
     const state = store.getState()
     const accessToken = state.auth?.accessToken
 
@@ -57,6 +56,28 @@ let failedQueue: Array<{
   resolve: (value?: any) => void
   reject: (error?: any) => void
 }> = []
+
+let cachedStore: any = null
+const getStore = async () => {
+  if (!cachedStore) {
+    const storeModule = await import('@/store')
+    cachedStore = storeModule.store
+  }
+  return cachedStore
+}
+
+let cachedAuthActions: any = null
+const getAuthActions = async () => {
+  if (!cachedAuthActions) {
+    const authSliceModule = await import('@/store/slices/authSlice')
+    cachedAuthActions = {
+      setAccessToken: authSliceModule.setAccessToken,
+      clearAuth: authSliceModule.clearAuth,
+      setCredentials: authSliceModule.setCredentials,
+    }
+  }
+  return cachedAuthActions
+}
 
 const processQueue = (error: any, token: string | null = null) => {
   failedQueue.forEach((prom) => {
@@ -114,11 +135,13 @@ api.interceptors.response.use(
       originalRequest._retry = true
       isRefreshing = true
 
+      const store = await getStore()
       const state = store.getState()
       const refreshToken = state.auth?.refreshToken
 
       if (!refreshToken) {
         // No refresh token available, logout
+        const { clearAuth } = await getAuthActions()
         store.dispatch(clearAuth())
         window.location.href = '/login'
         return Promise.reject(error)
@@ -132,6 +155,7 @@ api.interceptors.response.use(
         const { accessToken: newAccessToken, refreshToken: newRefreshToken } = response.data
 
         // Update tokens in Redux store
+        const { setAccessToken, setCredentials } = await getAuthActions()
         store.dispatch(
           setAccessToken(newAccessToken)
         )
@@ -140,7 +164,6 @@ api.interceptors.response.use(
         if (newRefreshToken !== refreshToken) {
           // This would require a new action, but for now we'll update via setCredentials
           // The refresh endpoint returns full AuthResponse, so we can update everything
-          const { setCredentials } = await import('@/store/slices/authSlice')
           store.dispatch(setCredentials(response.data))
         }
 
@@ -155,6 +178,7 @@ api.interceptors.response.use(
       } catch (refreshError) {
         // Token refresh failed, logout user
         processQueue(refreshError, null)
+        const { clearAuth } = await getAuthActions()
         store.dispatch(clearAuth())
 
         // Force redirect to login page for invalid/expired tokens
