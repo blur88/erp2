@@ -255,6 +255,7 @@ const NotificationPanel: React.FC<NotificationPanelProps> = ({
                         </Typography>
                       </Box>
                     }
+                    secondaryTypographyProps={{ component: 'div' }}
                   />
 
                   <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>

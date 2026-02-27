@@ -49,7 +49,24 @@ describe('NotificationPanel copy button', () => {
   })
 
   it('copies notification message to clipboard and shows check icon', async () => {
-    const anchorEl = document.createElement('div')
+    const anchorEl = document.createElement('button')
+    anchorEl.textContent = 'anchor'
+    anchorEl.style.position = 'absolute'
+    anchorEl.style.top = '12px'
+    anchorEl.style.left = '12px'
+    anchorEl.style.width = '40px'
+    anchorEl.style.height = '20px'
+    anchorEl.getBoundingClientRect = vi.fn(() => ({
+      x: 12,
+      y: 12,
+      top: 12,
+      left: 12,
+      right: 52,
+      bottom: 32,
+      width: 40,
+      height: 20,
+      toJSON: () => ({}),
+    } as DOMRect))
     document.body.appendChild(anchorEl)
 
     render(
