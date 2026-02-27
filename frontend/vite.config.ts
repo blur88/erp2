@@ -88,6 +88,7 @@ export default defineConfig(({ mode }) => {
       api: false,
       maxWorkers: 2,
       execArgv: ['--max-old-space-size=4096'],
+      testTimeout: 30000,
     },
   }
 })

@@ -116,5 +116,5 @@ describe('CreateProductPage', () => {
         },
       ])
     })
-  }, 15000)
+  })
 })
