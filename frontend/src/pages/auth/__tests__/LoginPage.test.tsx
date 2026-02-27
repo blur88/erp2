@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { BrowserRouter } from 'react-router-dom';
@@ -32,6 +32,7 @@ vi.mock('../../../services/authApi', () => ({
 
 describe('LoginPage', () => {
   let store: ReturnType<typeof configureStore>;
+  let consoleErrorSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
     store = configureStore({
@@ -40,6 +41,12 @@ describe('LoginPage', () => {
       },
     });
     vi.clearAllMocks();
+    // Login failure paths are intentionally exercised in this suite.
+    consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    consoleErrorSpy.mockRestore();
   });
 
   const renderLoginPage = async () => {
