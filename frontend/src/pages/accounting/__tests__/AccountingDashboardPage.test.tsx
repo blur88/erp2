@@ -24,7 +24,8 @@ vi.mock('@/services/api', () => ({
 // Mock formatters
 vi.mock('@/utils/formatters', () => ({
   formatCurrency: (value: number) => `$${value.toFixed(2)}`,
-  formatDate: (date: string | Date) => typeof date === 'string' ? date : date.toLocaleDateString(),
+  formatDate: (date: string | Date | null | undefined) =>
+    !date ? '-' : typeof date === 'string' ? date : date.toLocaleDateString(),
   getCurrentDate: () => '2026-02-11',
 }));
 
