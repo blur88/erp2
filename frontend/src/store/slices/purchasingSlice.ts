@@ -118,18 +118,6 @@ export const fetchGoodsReceivedNotes = createAsyncThunk(
   }
 )
 
-export const createSupplier = createAsyncThunk(
-  'purchasing/createSupplier',
-  async (supplierData: Partial<Supplier>, { rejectWithValue }) => {
-    try {
-      const response = await purchasingApi.createSupplier(supplierData)
-      return response // response is already the data from ApiService.post
-    } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || 'Failed to create supplier')
-    }
-  }
-)
-
 export const createPurchaseOrder = createAsyncThunk(
   'purchasing/createPurchaseOrder',
   async (orderData: Partial<PurchaseOrder>, { rejectWithValue }) => {
@@ -184,9 +172,6 @@ const purchasingSlice = createSlice({
   name: 'purchasing',
   initialState,
   reducers: {
-    setSelectedSupplier: (state, action: PayloadAction<Supplier | null>) => {
-      state.selectedSupplier = action.payload
-    },
     setSelectedPurchaseOrder: (state, action: PayloadAction<PurchaseOrder | null>) => {
       state.selectedPurchaseOrder = action.payload
     },
@@ -212,9 +197,6 @@ const purchasingSlice = createSlice({
       // The GRN page should check this flag and refetch if needed
       // Note: We can't fully update the GRN here because the PO response
       // only includes a summary without full item details
-    },
-    clearError: (state) => {
-      state.error = null
     },
   },
   extraReducers: (builder) => {
@@ -291,14 +273,6 @@ const purchasingSlice = createSlice({
       .addCase(fetchGoodsReceivedNotes.rejected, (state, action) => {
         state.loading.goodsReceivedNotes = false
         state.error = action.payload as string
-      })
-
-    // Create Supplier
-    builder
-      .addCase(createSupplier.fulfilled, (state, action) => {
-        if (action.payload) {
-          state.suppliers.unshift(action.payload)
-        }
       })
 
     // Create Purchase Order
@@ -471,16 +445,13 @@ const purchasingSlice = createSlice({
 })
 
 export const {
-  setSelectedSupplier,
   setSelectedPurchaseOrder,
   setSelectedGRN,
   setSelectedVendorPayment,
   updatePurchaseOrderInPlace,
-  clearError,
 } = purchasingSlice.actions
 
 // Selectors
-export const selectSuppliers = (state: any) => state.purchasing?.suppliers
 export const selectPurchaseOrders = (state: any) => state.purchasing?.purchaseOrders
 export const selectDeletedGRNs = (state: any) => state.purchasing?.deletedGRNs
 export const selectDeletedVendorPayments = (state: any) => state.purchasing?.deletedVendorPayments

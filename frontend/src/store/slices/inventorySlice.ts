@@ -458,9 +458,6 @@ const inventorySlice = createSlice({
     setSelectedProduct: (state, action: PayloadAction<Product | null>) => {
       state.selectedProduct = action.payload
     },
-    setSelectedCategory: (state, action: PayloadAction<Category | null>) => {
-      state.selectedCategory = action.payload
-    },
     setSelectedStockAdjustment: (state, action: PayloadAction<StockAdjustment | null>) => {
       state.selectedStockAdjustment = action.payload
     },
@@ -740,7 +737,6 @@ const inventorySlice = createSlice({
 
 export const {
   setSelectedProduct,
-  setSelectedCategory,
   setSelectedStockAdjustment,
   setProductFilters,
   setCategoryFilters,
