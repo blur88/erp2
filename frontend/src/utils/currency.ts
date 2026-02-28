@@ -56,14 +56,14 @@ export const formatCurrency = (
 /**
  * Formats currency for input fields (without symbol)
  */
-export const formatCurrencyInput = (amount: number | string | null | undefined): string => {
+const formatCurrencyInput = (amount: number | string | null | undefined): string => {
   return formatCurrency(amount, { showSymbol: false })
 }
 
 /**
  * Formats currency with no decimals for display (e.g., large numbers)
  */
-export const formatCurrencyWhole = (amount: number | string | null | undefined): string => {
+const formatCurrencyWhole = (amount: number | string | null | undefined): string => {
   return formatCurrency(amount, { 
     minimumFractionDigits: 0, 
     maximumFractionDigits: 0 
