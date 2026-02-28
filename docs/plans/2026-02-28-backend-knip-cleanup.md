@@ -17,7 +17,6 @@ These are flagged by knip but are real/needed:
 - **All migration files** — loaded via glob `../database/migrations/*{.ts,.js}`, not static imports
 - **`src/config/cli-datasource.ts` default export** — used by TypeORM CLI via `-d ./src/config/database.config.ts`
 - **`src/config/database.config.ts` default export** — re-exports cli-datasource for CLI
-- **`webpack.config.js`** — custom webpack config; `nest-cli.json` has `"webpack": true`, keep for reference even if `webpackConfigPath` not set (it's a build artifact config)
 - **`ts-loader`** — used internally by NestJS webpack build (`"webpack": true` in nest-cli.json)
 - **`supertest` + `@types/supertest`** — used in `test/e2e/*.e2e-spec.ts`
 - **`AuditAction` enum members** — the whole enum IS used in `audit-logs.controller.ts` for `@ApiQuery({ enum: AuditAction })`, knip just can't see enum-as-value usage
@@ -43,9 +42,7 @@ These are flagged by knip but are real/needed:
   ],
   "project": ["src/**/*.ts"],
   "ignore": [
-    "src/database/migrations/**",
-    "webpack.config.js",
-    "test-auth.js"
+    "src/database/migrations/**"
   ],
   "ignoreDependencies": [
     "ts-loader",
@@ -186,7 +183,7 @@ git commit -m "chore: add ioredis as explicit dependency (was transitive only)"
 **Files to delete:**
 - `backend/src/app.module.minimal.ts` — scratch dev file, not imported anywhere
 - `backend/test-auth.js` — one-off debug script, not part of any test suite
-- `backend/webpack.config.js` — custom webpack config not referenced by nest-cli (nest uses built-in webpack)
+- `backend/webpack.config.js` — nest-cli.json has `"webpack": true` but no `webpackConfigPath`, so NestJS uses its built-in webpack; this custom file is not referenced anywhere
 
 **Step 1: Verify none are imported**
 
@@ -194,7 +191,7 @@ git commit -m "chore: add ioredis as explicit dependency (was transitive only)"
 cd /home/blur/erp2/backend
 grep -rn "app.module.minimal" src --include="*.ts"
 grep -rn "test-auth" . --include="*.json" --include="*.ts" --include="*.js" | grep -v "node_modules"
-grep -rn "webpack.config.js" nest-cli.json
+grep -rn "webpackConfigPath" nest-cli.json
 ```
 
 Expected: All return empty.
