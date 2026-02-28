@@ -1,5 +1,10 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -uo pipefail
 
-(cd frontend && npx knip)
-(cd backend && npx knip)
+frontend_exit=0
+backend_exit=0
+
+(cd frontend && npx knip) || frontend_exit=$?
+(cd backend && npx knip) || backend_exit=$?
+
+exit $(( frontend_exit | backend_exit ))
