@@ -4,7 +4,7 @@ import { QueryFailedError } from 'typeorm';
 /**
  * Security-related HTTP status codes
  */
-export const SECURITY_STATUSES = new Set([
+const SECURITY_STATUSES = new Set([
   HttpStatus.UNAUTHORIZED,
   HttpStatus.FORBIDDEN,
   HttpStatus.TOO_MANY_REQUESTS,
@@ -13,7 +13,7 @@ export const SECURITY_STATUSES = new Set([
 /**
  * Security-related keywords for error detection
  */
-export const SECURITY_KEYWORDS = new Set([
+const SECURITY_KEYWORDS = new Set([
   'unauthorized',
   'forbidden',
   'jwt',
