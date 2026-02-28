@@ -213,7 +213,7 @@ const CustomersPage: React.FC = () => {
   // Debounced phone validation
   const debouncedPhoneCheck = useMemo(
     () => {
-      let timeoutId: NodeJS.Timeout
+      let timeoutId: ReturnType<typeof setTimeout>
       return (phone: string) => {
         clearTimeout(timeoutId)
         timeoutId = setTimeout(() => checkPhoneDuplicate(phone), 500)

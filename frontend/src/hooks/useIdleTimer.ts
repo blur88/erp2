@@ -85,9 +85,9 @@ export function useIdleTimer(options: UseIdleTimerOptions = {}): UseIdleTimerRet
   const [remainingTime, setRemainingTime] = useState(0)
   const [isPaused, setIsPaused] = useState(false)
 
-  const idleTimerRef = useRef<NodeJS.Timeout | null>(null)
-  const timeoutTimerRef = useRef<NodeJS.Timeout | null>(null)
-  const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null)
+  const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const timeoutTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const countdownIntervalRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const lastActivityRef = useRef<number>(Date.now())
   const isIdleRef = useRef<boolean>(false)
 
