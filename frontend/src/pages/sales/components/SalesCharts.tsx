@@ -109,7 +109,7 @@ interface OrderStatusChartProps {
     loading?: boolean
 }
 
-export const OrderStatusChart: React.FC<OrderStatusChartProps> = ({ ordersByStatus, loading = false }) => {
+const OrderStatusChart: React.FC<OrderStatusChartProps> = ({ ordersByStatus, loading = false }) => {
     const theme = useTheme()
 
     const statusColors: { [key: string]: string } = {

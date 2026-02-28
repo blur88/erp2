@@ -105,7 +105,7 @@ const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({
 }
 
 // Skeleton loading component for cards
-export const SkeletonCard: React.FC<{ height?: number | string }> = ({ height = 200 }) => (
+const SkeletonCard: React.FC<{ height?: number | string }> = ({ height = 200 }) => (
   <Paper
     sx={{
       height,
@@ -147,7 +147,7 @@ export const SkeletonCard: React.FC<{ height?: number | string }> = ({ height = 
 )
 
 // Skeleton loading component for table rows
-export const SkeletonTable: React.FC<{ rows?: number; columns?: number }> = ({ 
+const SkeletonTable: React.FC<{ rows?: number; columns?: number }> = ({ 
   rows = 5, 
   columns = 4 
 }) => (

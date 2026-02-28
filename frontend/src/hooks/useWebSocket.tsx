@@ -245,7 +245,7 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   )
 }
 
-export const useWebSocket = (): WebSocketContextType => {
+const useWebSocket = (): WebSocketContextType => {
   const context = useContext(WebSocketContext)
   if (!context) {
     throw new Error('useWebSocket must be used within a WebSocketProvider')
@@ -254,7 +254,7 @@ export const useWebSocket = (): WebSocketContextType => {
 }
 
 // Custom hooks for specific real-time features
-export const useRealtimeUpdates = (entity: string, onUpdate: (data: any) => void) => {
+const useRealtimeUpdates = (entity: string, onUpdate: (data: any) => void) => {
   const { subscribe } = useWebSocket()
 
   useEffect(() => {
@@ -263,7 +263,7 @@ export const useRealtimeUpdates = (entity: string, onUpdate: (data: any) => void
   }, [entity, onUpdate, subscribe])
 }
 
-export const useBusinessAlerts = (onAlert: (alert: any) => void) => {
+const useBusinessAlerts = (onAlert: (alert: any) => void) => {
   const { subscribe } = useWebSocket()
 
   useEffect(() => {

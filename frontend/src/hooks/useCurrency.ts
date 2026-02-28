@@ -45,14 +45,14 @@ export const useCurrency = () => {
  * Get currency symbol synchronously from cache
  * Use this for utilities that can't be hooks
  */
-export const getCachedCurrency = (): string => {
+const getCachedCurrency = (): string => {
   return localStorage.getItem('defaultCurrency') || 'RM'
 }
 
 /**
  * Refresh currency cache (call this when settings change)
  */
-export const refreshCurrencyCache = async (): Promise<string> => {
+const refreshCurrencyCache = async (): Promise<string> => {
   try {
     const response = await settingsApi.getDefaultCurrency()
     // Handle both wrapped and direct response formats
