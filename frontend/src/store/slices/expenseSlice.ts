@@ -130,11 +130,7 @@ export const bulkDeleteExpenses = createAsyncThunk(
 const expenseSlice = createSlice({
   name: 'expenses',
   initialState,
-  reducers: {
-    clearExpensesError: (state) => {
-      state.error = null;
-    },
-  },
+  reducers: {},
   extraReducers: (builder) => {
     builder
       .addCase(fetchExpenses.pending, (state) => {
@@ -195,11 +191,7 @@ const expenseSlice = createSlice({
   },
 });
 
-export const { clearExpensesError } = expenseSlice.actions;
-
 export const selectExpenses = (state: any) => state.expenses?.data || [];
 export const selectExpensesLoading = (state: any) => state.expenses?.loading || false;
-export const selectExpensesError = (state: any) => state.expenses?.error || null;
-export const selectExpensesPagination = (state: any) => state.expenses?.pagination || initialState.pagination;
 
 export default expenseSlice.reducer;
