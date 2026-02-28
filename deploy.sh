@@ -52,9 +52,9 @@ check_prerequisites() {
 create_directories() {
     print_status "Creating necessary directories..."
     
-    mkdir -p uploads logs
+    mkdir -p uploads logs backups
     mkdir -p database/init
-    chmod 755 uploads logs
+    chmod 755 uploads logs backups
     
     print_success "Directories created"
 }
@@ -115,7 +115,13 @@ wait_for_services() {
     until curl -f http://localhost:3000 > /dev/null 2>&1; do
         sleep 5
     done
-    
+
+    # Wait for NGINX
+    print_status "Waiting for NGINX..."
+    until curl -f http://localhost:8080/health > /dev/null 2>&1; do
+        sleep 2
+    done
+
     print_success "All services are ready"
 }
 
@@ -133,9 +139,8 @@ show_status() {
     echo "  📚 API Documentation: http://localhost:3001/api/docs"
     echo ""
     echo "Demo Accounts:"
-    echo "  👤 Admin: admin@erp.com / admin123"
-    echo "  👤 Manager: manager@erp.com / manager123"
-    echo "  👤 Sales Staff: sales@erp.com / sales123"
+    echo "  👤 Admin: admin / Admin@123!"
+    echo "  ⚠️  Change the default password immediately after first login!"
     echo ""
     echo "Useful Commands:"
     echo "  📊 View logs: docker compose logs -f"
