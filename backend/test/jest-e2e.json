@@ -13,6 +13,8 @@
     "^@config/(.*)$": "<rootDir>/../src/config/$1",
     "^@database/(.*)$": "<rootDir>/../src/database/$1"
   },
+  "globalSetup": "./jest-e2e-global-setup.ts",
+  "globalTeardown": "./jest-e2e-global-teardown.ts",
   "collectCoverageFrom": [
     "../src/**/*.(t|j)s"
   ],
