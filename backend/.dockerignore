@@ -97,4 +97,3 @@ docker-compose*.yml
 .editorconfig
 .prettierrc
 .eslintrc.js
-nest-cli.json
