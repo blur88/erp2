@@ -26,11 +26,21 @@ export default async function globalSetup() {
 
   await client.end();
 
-  // Run migrations against the test DB
+  // Prepare schema on the test DB.
+  // Prefer migrations, but fallback to schema sync because this repository's
+  // migration set is not bootstrap-safe on an empty database.
   const backendRoot = path.resolve(__dirname, '..');
-  execSync('npm run migration:run', {
-    cwd: backendRoot,
-    stdio: 'inherit',
-    env: { ...process.env }, // .env.test vars already loaded above
-  });
+  try {
+    execSync('npm run migration:run', {
+      cwd: backendRoot,
+      stdio: 'inherit',
+      env: { ...process.env }, // .env.test vars already loaded above
+    });
+  } catch (_error) {
+    execSync('npm run typeorm -- -d ./src/config/database.config.ts schema:sync', {
+      cwd: backendRoot,
+      stdio: 'inherit',
+      env: { ...process.env },
+    });
+  }
 }
