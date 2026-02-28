@@ -58,7 +58,6 @@ import { formatDate } from '@/utils/formatters'
 import { useNotification } from '@/hooks/useNotification'
 import { useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
-import { StockAdjustmentStatus } from '@/types'
 import type { StockAdjustment } from '@/types'
 
 interface StockAdjustmentsPageState {

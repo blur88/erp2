@@ -107,12 +107,6 @@ export interface StockMovement {
   updatedAt: Date;
 }
 
-export enum StockAdjustmentStatus {
-  DRAFT = 'draft',
-  COMPLETED = 'completed',
-  CANCELLED = 'cancelled',
-}
-
 export interface StockAdjustmentItem {
   id: string;
   product: {
@@ -135,7 +129,7 @@ export interface StockAdjustment {
   id: string;
   adjustmentNumber: string;
   adjustmentDate: Date;
-  status: StockAdjustmentStatus;
+  status: 'draft' | 'completed' | 'cancelled';
   notes?: string;
   itemCount: number;
   totalValue: number;
@@ -495,28 +489,6 @@ export interface PendingSettlementSummary {
 }
 
 // Common types
-export interface DashboardStats {
-  totalSales: number;
-  totalPurchases: number;
-  totalCustomers: number;
-  totalProducts: number;
-  lowStockProducts: number;
-  pendingOrders: number;
-  revenueGrowth: number;
-  profitMargin: number;
-}
-
-export interface ChartData {
-  labels: string[];
-  datasets: {
-    label: string;
-    data: number[];
-    backgroundColor?: string | string[];
-    borderColor?: string;
-    borderWidth?: number;
-  }[];
-}
-
 // API Response types
 export interface ApiResponse<T> {
   success: boolean;
@@ -555,13 +527,6 @@ export interface QueryParams {
   filters?: Record<string, any>;
   isActive?: boolean;
   categoryId?: string;
-}
-
-// Theme types
-export interface ThemeConfig {
-  mode: 'light' | 'dark';
-  primaryColor: string;
-  secondaryColor: string;
 }
 
 // Notification types
