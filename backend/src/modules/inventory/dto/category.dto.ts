@@ -259,7 +259,7 @@ export class CategoryAncestorsDto {
   breadcrumbs: string[];
 }
 
-export class CategoryPathUpdateDto {
+class CategoryPathUpdateDto {
   @ApiProperty({ description: 'Category ID' })
   @IsUUID(4)
   categoryId: string;

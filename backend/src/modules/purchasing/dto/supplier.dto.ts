@@ -187,7 +187,7 @@ export class SupplierResponseDto {
 }
 
 
-export class UpdateSupplierBalanceDto {
+class UpdateSupplierBalanceDto {
   @ApiProperty({ description: 'Amount to add or subtract' })
   @IsDecimal({ decimal_digits: '0,4' })
   @Min(0)
@@ -227,7 +227,7 @@ export class SupplierListResponseDto {
   hasPrev!: boolean;
 }
 
-export class SupplierAnalyticsDto {
+class SupplierAnalyticsDto {
   @ApiPropertyOptional({ description: 'Start date for analytics' })
   @IsOptional()
   @IsDateString()
@@ -256,4 +256,3 @@ export class SupplierAnalyticsDto {
   @IsBoolean()
   includeSpending?: boolean;
 }
-

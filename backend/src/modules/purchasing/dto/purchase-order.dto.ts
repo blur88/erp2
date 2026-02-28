@@ -271,21 +271,21 @@ export class PurchaseOrderResponseDto {
   deletedAt?: Date;
 }
 
-export class ApprovePurchaseOrderDto {
+class ApprovePurchaseOrderDto {
   @ApiPropertyOptional({ description: 'Approval comments' })
   @IsOptional()
   @IsString()
   comments?: string;
 }
 
-export class AcknowledgePurchaseOrderDto {
+class AcknowledgePurchaseOrderDto {
   @ApiPropertyOptional({ description: 'Supplier acknowledgment notes' })
   @IsOptional()
   @IsString()
   notes?: string;
 }
 
-export class CancelPurchaseOrderDto {
+class CancelPurchaseOrderDto {
   @ApiProperty({ description: 'Reason for cancellation' })
   @IsString()
   @MinLength(5)
@@ -316,7 +316,7 @@ export class PurchaseOrderListResponseDto {
   hasPrev: boolean;
 }
 
-export class PurchaseOrderAnalyticsDto {
+class PurchaseOrderAnalyticsDto {
   @ApiPropertyOptional({ description: 'Start date for analytics' })
   @IsOptional()
   @IsDateString()

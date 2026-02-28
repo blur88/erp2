@@ -365,7 +365,7 @@ export class ProductImportResultDto {
   importedProductIds: string[];
 }
 
-export class ProductImportRowDto {
+class ProductImportRowDto {
   @ApiProperty({ description: 'Product name' })
   @IsString()
   @MaxLength(200)

@@ -51,7 +51,7 @@ export interface MarginAnalysis {
   };
 }
 
-export interface PricingRule {
+interface PricingRule {
   id: string;
   name: string;
   type: 'category' | 'customer' | 'quantity' | 'product';

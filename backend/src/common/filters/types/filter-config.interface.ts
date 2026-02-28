@@ -1,7 +1,7 @@
 /**
  * Configuration interface for exception filters
  */
-export interface FilterConfig {
+interface FilterConfig {
   isProduction: boolean;
   enableDetailedLogging: boolean;
   enableSecurityLogging: boolean;
@@ -12,7 +12,7 @@ export interface FilterConfig {
 /**
  * Security-related configuration
  */
-export interface SecurityConfig {
+interface SecurityConfig {
   enableSecurityDetection: boolean;
   sensitiveKeywords: string[];
   securityStatusCodes: number[];
