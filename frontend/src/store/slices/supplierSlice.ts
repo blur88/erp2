@@ -89,18 +89,6 @@ export const deleteSupplier = createAsyncThunk(
   }
 )
 
-export const restoreSupplier = createAsyncThunk(
-  'suppliers/restoreSupplier',
-  async (id: string, { rejectWithValue }) => {
-    try {
-      const response = await purchasingApi.restoreSupplier(id)
-      return response as any
-    } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || 'Failed to restore supplier')
-    }
-  }
-)
-
 const supplierSlice = createSlice({
   name: 'suppliers',
   initialState,
@@ -111,7 +99,6 @@ const supplierSlice = createSlice({
     clearError: (state) => {
       state.error = null
     },
-    resetSuppliers: () => initialState,
   },
   extraReducers: (builder) => {
     // Fetch suppliers
@@ -204,23 +191,10 @@ const supplierSlice = createSlice({
         state.error = action.payload as string
       })
 
-    // Restore supplier
-    builder
-      .addCase(restoreSupplier.pending, (state) => {
-        state.loading = true
-        state.error = null
-      })
-      .addCase(restoreSupplier.fulfilled, (state) => {
-        state.loading = false
-      })
-      .addCase(restoreSupplier.rejected, (state, action) => {
-        state.loading = false
-        state.error = action.payload as string
-      })
   },
 })
 
-export const { setFilters, clearError, resetSuppliers } = supplierSlice.actions
+export const { setFilters, clearError } = supplierSlice.actions
 
 // Selectors
 export const selectSuppliers = (state: any) => state.suppliers?.suppliers || []

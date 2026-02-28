@@ -267,7 +267,6 @@ const chartOfAccountsSlice = createSlice({
     clearError: (state) => {
       state.error = null
     },
-    resetState: () => initialState,
   },
   extraReducers: (builder) => {
     // Fetch All Accounts
@@ -478,7 +477,7 @@ const chartOfAccountsSlice = createSlice({
   },
 })
 
-export const { clearError, resetState } = chartOfAccountsSlice.actions
+export const { clearError } = chartOfAccountsSlice.actions
 
 // Selectors
 export const selectChartOfAccounts = (state: any) => state.chartOfAccounts?.data || EMPTY_ACCOUNTS

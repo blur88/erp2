@@ -91,30 +91,6 @@ export const login = createAsyncThunk(
   }
 );
 
-export const register = createAsyncThunk(
-  'auth/register',
-  async (data: RegisterData, { rejectWithValue }) => {
-    try {
-      const response = await authApi.register(data);
-      return response.data;
-    } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || 'Registration failed');
-    }
-  }
-);
-
-export const refreshAccessToken = createAsyncThunk(
-  'auth/refreshToken',
-  async (refreshToken: string, { rejectWithValue }) => {
-    try {
-      const response = await authApi.refreshToken(refreshToken);
-      return response.data;
-    } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || 'Token refresh failed');
-    }
-  }
-);
-
 export const logout = createAsyncThunk(
   'auth/logout',
   async (refreshToken: string) => {
@@ -183,12 +159,6 @@ const authSlice = createSlice({
     clearError: (state) => {
       state.error = null;
     },
-    updateLastActivity: (state) => {
-      state.lastActivityTime = Date.now();
-    },
-    setInactivityTimeout: (state, action: PayloadAction<number>) => {
-      state.inactivityTimeoutMinutes = action.payload;
-    },
   },
   extraReducers: (builder) => {
     // Login
@@ -213,45 +183,6 @@ const authSlice = createSlice({
       .addCase(login.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload as string;
-        state.isAuthenticated = false;
-      });
-
-    // Register
-    builder
-      .addCase(register.pending, (state) => {
-        state.loading = true;
-        state.error = null;
-      })
-      .addCase(register.fulfilled, (state, action) => {
-        if (action.payload) {
-          state.user = action.payload.user;
-          state.accessToken = action.payload.accessToken;
-          state.refreshToken = action.payload.refreshToken;
-          state.isAuthenticated = true;
-          state.loading = false;
-          state.error = null;
-          state.lastActivityTime = Date.now();
-        }
-      })
-      .addCase(register.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.payload as string;
-        state.isAuthenticated = false;
-      });
-
-    // Refresh token
-    builder
-      .addCase(refreshAccessToken.fulfilled, (state, action) => {
-        if (action.payload) {
-          state.accessToken = action.payload.accessToken;
-          state.refreshToken = action.payload.refreshToken;
-          state.user = action.payload.user;
-        }
-      })
-      .addCase(refreshAccessToken.rejected, (state) => {
-        state.user = null;
-        state.accessToken = null;
-        state.refreshToken = null;
         state.isAuthenticated = false;
       });
 
@@ -306,15 +237,13 @@ const authSlice = createSlice({
   },
 });
 
-export const { setCredentials, setAccessToken, clearAuth, clearError, updateLastActivity, setInactivityTimeout } = authSlice.actions;
+export const { setCredentials, setAccessToken, clearAuth, clearError } = authSlice.actions;
 
 // Selectors
 export const selectCurrentUser = (state: any) => state.auth?.user;
 export const selectIsAuthenticated = (state: any) => state.auth?.isAuthenticated || false;
 export const selectAccessToken = (state: any) => state.auth?.accessToken;
 export const selectRefreshToken = (state: any) => state.auth?.refreshToken;
-export const selectAuthLoading = (state: any) => state.auth?.loading || false;
-export const selectAuthError = (state: any) => state.auth?.error;
 export const selectRememberMe = (state: any) => state.auth?.rememberMe || false;
 
 export default authSlice.reducer;

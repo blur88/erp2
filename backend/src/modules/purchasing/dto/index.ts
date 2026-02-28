@@ -28,7 +28,7 @@ export interface PaginatedResponse<T> {
   hasPrev: boolean;
 }
 
-export interface ApiResponse<T> {
+interface ApiResponse<T> {
   success: boolean;
   message: string;
   data: T;
@@ -36,7 +36,7 @@ export interface ApiResponse<T> {
   timestamp: Date;
 }
 
-export interface BulkOperationResponse {
+interface BulkOperationResponse {
   success: boolean;
   successCount: number;
   errorCount: number;
@@ -47,7 +47,7 @@ export interface BulkOperationResponse {
 }
 
 // Analytics and reporting DTOs
-export interface PurchaseAnalyticsDto {
+interface PurchaseAnalyticsDto {
   period: {
     startDate: Date;
     endDate: Date;
@@ -85,7 +85,7 @@ export interface PurchaseAnalyticsDto {
   };
 }
 
-export interface VendorPerformanceDto {
+interface VendorPerformanceDto {
   supplierId: string;
   companyName: string;
   rating: string;
@@ -113,7 +113,7 @@ export interface VendorPerformanceDto {
 }
 
 // Approval workflow DTOs
-export interface ApprovalWorkflowDto {
+interface ApprovalWorkflowDto {
   entityType: 'purchase_order' | 'purchase_requisition' | 'supplier_invoice';
   entityId: string;
   currentLevel: number;
@@ -131,7 +131,7 @@ export interface ApprovalWorkflowDto {
 }
 
 // Notification DTOs
-export interface PurchaseNotificationDto {
+interface PurchaseNotificationDto {
   type: 'approval_required' | 'overdue' | 'quality_issue' | 'invoice_mismatch' | 'budget_exceeded';
   title: string;
   message: string;
@@ -143,7 +143,7 @@ export interface PurchaseNotificationDto {
 }
 
 // Integration DTOs
-export interface InventoryUpdateDto {
+interface InventoryUpdateDto {
   productId: string;
   quantityReceived: number;
   unitCost: number;
@@ -153,7 +153,7 @@ export interface InventoryUpdateDto {
   notes?: string;
 }
 
-export interface BudgetCheckDto {
+interface BudgetCheckDto {
   department: string;
   budgetCode?: string;
   amount: number;
@@ -163,7 +163,7 @@ export interface BudgetCheckDto {
   };
 }
 
-export interface BudgetCheckResponseDto {
+interface BudgetCheckResponseDto {
   isWithinBudget: boolean;
   budgetAmount: number;
   spentAmount: number;
@@ -173,7 +173,7 @@ export interface BudgetCheckResponseDto {
 }
 
 // Report DTOs
-export interface PurchaseReportDto {
+interface PurchaseReportDto {
   reportType: 'spend_analysis' | 'vendor_performance' | 'purchase_trends' | 'budget_utilization';
   parameters: {
     startDate: Date;
@@ -186,7 +186,7 @@ export interface PurchaseReportDto {
   };
 }
 
-export interface ExportOptionsDto {
+interface ExportOptionsDto {
   format: 'csv' | 'excel' | 'pdf';
   fields?: string[];
   filters?: Record<string, any>;

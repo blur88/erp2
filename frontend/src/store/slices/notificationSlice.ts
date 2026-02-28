@@ -49,19 +49,6 @@ const notificationSlice = createSlice({
       })
       state.unreadCount = 0
     },
-    clearAllNotifications: (state) => {
-      state.notifications = []
-      state.unreadCount = 0
-    },
-    clearReadNotifications: (state) => {
-      state.notifications = state.notifications.filter((n) => !n.read)
-    },
-    setNotifications: (state, action: PayloadAction<Notification[]>) => {
-      if (action.payload) {
-        state.notifications = action.payload
-        state.unreadCount = action.payload.filter((n) => !n.read).length
-      }
-    },
   },
   extraReducers: (builder) => {
     builder
@@ -81,9 +68,6 @@ export const {
   removeNotification,
   markAsRead,
   markAllAsRead,
-  clearAllNotifications,
-  clearReadNotifications,
-  setNotifications,
 } = notificationSlice.actions
 
 // Selectors
@@ -91,7 +75,5 @@ export const selectNotifications = (state: any) =>
   state.notifications?.notifications
 export const selectUnreadCount = (state: any) => 
   state.notifications?.unreadCount
-export const selectUnreadNotifications = (state: any) => 
-  state.notifications?.notifications?.filter(n => !n.read)
 
 export default notificationSlice.reducer

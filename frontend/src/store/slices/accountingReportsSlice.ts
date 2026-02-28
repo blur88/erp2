@@ -727,13 +727,6 @@ const accountingReportsSlice = createSlice({
     clearAccountActivityError: (state) => {
       state.accountActivity.error = null;
     },
-    clearAllReports: (state) => {
-      state.trialBalance.data = null;
-      state.balanceSheet.data = null;
-      state.profitAndLoss.data = null;
-      state.generalLedger.data = null;
-      state.accountActivity.data = null;
-    },
   },
   extraReducers: (builder) => {
     // Trial Balance
@@ -885,7 +878,6 @@ export const {
   clearProfitAndLossError,
   clearGeneralLedgerError,
   clearAccountActivityError,
-  clearAllReports,
 } = accountingReportsSlice.actions;
 
 // Selectors

@@ -1,6 +1,6 @@
 import { ApiService } from './api'
 
-export interface CompanySettings {
+interface CompanySettings {
   id: string
   name: string
   address: string
@@ -17,7 +17,7 @@ export interface CompanySettings {
   updatedAt: string
 }
 
-export interface UpdateCompanySettingsDto {
+interface UpdateCompanySettingsDto {
   name: string
   address: string
   city: string
@@ -30,7 +30,7 @@ export interface UpdateCompanySettingsDto {
   miscInfo?: string
 }
 
-export interface PriceCostingSettings {
+interface PriceCostingSettings {
   id: string
   currency: string
   costingMethod: string
@@ -42,7 +42,7 @@ export interface PriceCostingSettings {
   isActive: boolean
 }
 
-export interface UpdatePriceCostingSettingsDto {
+interface UpdatePriceCostingSettingsDto {
   currency?: string
   costingMethod?: string
   dateFormat?: string
@@ -57,14 +57,14 @@ export interface DocumentNumberConfig {
   nextNumber: number
 }
 
-export interface DocumentNumberSettings {
+interface DocumentNumberSettings {
   id: string
   configurations: DocumentNumberConfig[]
   createdAt: string
   updatedAt: string
 }
 
-export interface UpdateDocumentNumberSettingsDto {
+interface UpdateDocumentNumberSettingsDto {
   configurations: DocumentNumberConfig[]
 }
 

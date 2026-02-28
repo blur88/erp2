@@ -4,7 +4,7 @@ import { autoTable } from 'jspdf-autotable'
 import type { Product } from '../types'
 import { formatDate, formatDateTime } from './formatters'
 
-export interface ExportData {
+interface ExportData {
   products: Product[]
   filters?: {
     search?: string
@@ -76,7 +76,7 @@ const generateFilename = (format: string, filters?: ExportData['filters']): stri
 }
 
 // CSV Export
-export const exportToCSV = ({ products, filters }: ExportData): void => {
+const exportToCSV = ({ products, filters }: ExportData): void => {
   try {
     const exportData = prepareExportData(products)
 
@@ -121,7 +121,7 @@ export const exportToCSV = ({ products, filters }: ExportData): void => {
 }
 
 // Excel Export
-export const exportToExcel = ({ products, filters }: ExportData): void => {
+const exportToExcel = ({ products, filters }: ExportData): void => {
   try {
     const exportData = prepareExportData(products)
 
@@ -199,7 +199,7 @@ export const exportToExcel = ({ products, filters }: ExportData): void => {
 }
 
 // PDF Export
-export const exportToPDF = ({ products, filters }: ExportData): void => {
+const exportToPDF = ({ products, filters }: ExportData): void => {
   try {
     if (products.length === 0) {
       throw new Error('No data to export')

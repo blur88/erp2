@@ -20,6 +20,15 @@ These were flagged by knip but are actively used:
 - Dual exports on `IdleWarningDialog`, `ProductImportDialog`, `useSearchAndFilter` — intentional named+default pattern
 - `exportToCSV`, `exportToExcel`, `exportToPDF` bodies — called internally by `exportProducts()`; only the `export` keyword is removed
 
+**Knip false positives in Redux slices** — knip doesn't trace through dialog components that aren't in its entry graph. These are actively used:
+
+- `salesSlice`: `fetchDeletedCustomers`, `restoreCustomer`, `bulkRestoreCustomers`, `permanentDeleteCustomer`, `bulkPermanentDeleteCustomers`, `selectDeletedCustomers` — used in `src/components/sales/DeletedCustomersDialog.tsx`
+- `salesSlice`: `createCustomer` — used in `src/pages/sales/CustomersPage.tsx`
+- `salesSlice`: `updateOrder` — used in `src/pages/sales/CreateSalesOrderPage.tsx`
+- `salesSlice`: `setSelectedCustomer` — used in `src/pages/sales/CustomersPage.tsx`
+- `purchasingSlice`: `createSupplier`, `setSelectedSupplier`, `clearError` — used in `src/pages/purchasing/SuppliersPage.tsx`
+- `inventorySlice`: `setSelectedCategory` — used in `src/pages/inventory/CategoriesPage.tsx`
+
 ---
 
 ### Task 1: Delete Unused Files
@@ -340,36 +349,47 @@ git commit -m "chore: remove dead Redux thunks and selectors from dashboard, aut
 
 **Step 1: salesSlice.ts — remove dead thunks and actions**
 
-Remove entire thunk bodies (confirmed never dispatched):
+The following are confirmed dead (verified not used anywhere including dialog components):
 - `restoreInvoice`, `bulkRestoreInvoices`
 - `fetchPayments`
-- `createCustomer`, `createInvoice`, `recordPayment`
+- `createInvoice`, `recordPayment`
 - `restorePayment`, `bulkRestorePayments`
-- `fetchDeletedCustomers`, `restoreCustomer`, `bulkRestoreCustomers`
-- `permanentDeleteCustomer`, `bulkPermanentDeleteCustomers`
-- `updateOrder`
 
-Remove actions/selectors:
-- `setSelectedCustomer`, `setCustomers` actions
-- `selectCustomers`, `selectDeletedCustomers`, `selectInvoices`, `selectPayments`, `selectSelectedCustomer`
+The following are confirmed dead selectors/actions:
+- `setCustomers` action
+- `selectInvoices`, `selectPayments`, `selectSelectedCustomer`
 
-Verify each before removing:
+**DO NOT remove** (confirmed used in dialog/page components):
+- `fetchDeletedCustomers`, `restoreCustomer`, `bulkRestoreCustomers`, `permanentDeleteCustomer`, `bulkPermanentDeleteCustomers` — used in `DeletedCustomersDialog.tsx`
+- `selectDeletedCustomers` — used in `DeletedCustomersDialog.tsx`
+- `createCustomer` — used in `CustomersPage.tsx`
+- `updateOrder` — used in `CreateSalesOrderPage.tsx`
+- `setSelectedCustomer` — used in `CustomersPage.tsx`
+- `selectCustomers` — used in `CustomersPage.tsx`
+
+Verify dead items before removing:
 ```bash
-grep -r "restoreInvoice\|bulkRestoreInvoices\|createInvoice\|recordPayment\|fetchDeletedCustomers\|permanentDeleteCustomer\|selectInvoices\|selectPayments\|selectCustomers\|selectDeletedCustomers" /home/blur/erp2/frontend/src --include="*.ts" --include="*.tsx" | grep -v "salesSlice.ts"
+grep -r "restoreInvoice\|bulkRestoreInvoices\|createInvoice\|recordPayment\|restorePayment\|bulkRestorePayments\|selectInvoices\|selectPayments\|selectSelectedCustomer" /home/blur/erp2/frontend/src --include="*.ts" --include="*.tsx" | grep -v "salesSlice.ts"
 ```
 
 **Step 2: purchasingSlice.ts — remove dead thunks and actions**
 
-Remove:
-- `createSupplier`, `createGoodsReceivedNote`
+The following are confirmed dead:
+- `createGoodsReceivedNote`
 - `restoreGRN`, `bulkRestoreGRNs`
 - `restoreVendorPayment`, `bulkRestoreVendorPayments`
-- Actions: `setSelectedSupplier`, `markGRNsForRefetch`, `clearError`
-- Selectors: `selectSuppliers`, `selectGoodsReceivedNotes`, `selectVendorPayments`, `selectSelectedSupplier`
+- Actions: `markGRNsForRefetch`
+- Selectors: `selectGoodsReceivedNotes`, `selectVendorPayments`, `selectSelectedSupplier`
 
-Verify first:
+**DO NOT remove** (confirmed used):
+- `createSupplier` — used in `SuppliersPage.tsx`
+- `setSelectedSupplier` — used in `SuppliersPage.tsx`
+- `clearError` — used in `SuppliersPage.tsx`
+- `selectSuppliers` — imported from `supplierSlice` (different slice), but confirm purchasingSlice version if applicable
+
+Verify dead items first:
 ```bash
-grep -r "createSupplier\|createGoodsReceivedNote\|restoreGRN\|bulkRestoreGRNs\|restoreVendorPayment\|selectSuppliers\|selectGoodsReceivedNotes\|selectVendorPayments" /home/blur/erp2/frontend/src --include="*.ts" --include="*.tsx" | grep -v "purchasingSlice.ts"
+grep -r "createGoodsReceivedNote\|restoreGRN\|bulkRestoreGRNs\|restoreVendorPayment\|bulkRestoreVendorPayments\|markGRNsForRefetch\|selectGoodsReceivedNotes\|selectVendorPayments\|selectSelectedSupplier" /home/blur/erp2/frontend/src --include="*.ts" --include="*.tsx" | grep -v "purchasingSlice.ts"
 ```
 
 **Step 3: customerSlice.ts — remove dead exports**
@@ -417,19 +437,18 @@ git commit -m "chore: remove dead Redux thunks and selectors from sales, purchas
 
 **Step 1: inventorySlice.ts — remove dead thunks and actions**
 
-Remove thunks (confirmed never dispatched):
-- `createProduct`, `updateProduct`
-- `fetchStockMovements`
+The following are confirmed dead:
+- `createProduct`, `updateProduct` thunks
+- `fetchStockMovements` thunk
+- Actions: `setSelectedStockMovement`, `resetFilters`, `clearError`, `resetProducts`
+- Selectors: `selectStockMovements`, `selectSelectedCategory`, `selectSelectedStockMovement`, `selectInventoryFilters`
 
-Remove actions:
-- `setSelectedCategory`, `setSelectedStockMovement`, `resetFilters`, `clearError`, `resetProducts`
+**DO NOT remove:**
+- `setSelectedCategory` — used in `CategoriesPage.tsx`
 
-Remove selectors:
-- `selectStockMovements`, `selectSelectedCategory`, `selectSelectedStockMovement`, `selectInventoryFilters`
-
-Verify each:
+Verify dead items first:
 ```bash
-grep -r "createProduct\|updateProduct\|fetchStockMovements\|setSelectedCategory\|selectStockMovements\|selectInventoryFilters" /home/blur/erp2/frontend/src --include="*.ts" --include="*.tsx" | grep -v "inventorySlice.ts"
+grep -r "createProduct\|updateProduct\|fetchStockMovements\|setSelectedStockMovement\|resetFilters\|clearError\|resetProducts\|selectStockMovements\|selectInventoryFilters" /home/blur/erp2/frontend/src --include="*.ts" --include="*.tsx" | grep -v "inventorySlice.ts"
 ```
 
 **Step 2: notificationSlice.ts — remove dead actions and selectors**

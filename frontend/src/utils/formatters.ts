@@ -128,7 +128,7 @@ export const formatWholeQuantity = (quantity: number | string | null | undefined
 /**
  * Format percentage
  */
-export const formatPercentage = (value: number | string | null | undefined, decimals = 2): string => {
+const formatPercentage = (value: number | string | null | undefined, decimals = 2): string => {
   if (value === null || value === undefined) return '-'
 
   const numericValue = typeof value === 'string' ? parseFloat(value) : value
@@ -141,7 +141,7 @@ export const formatPercentage = (value: number | string | null | undefined, deci
 /**
  * Application timezone constant
  */
-export const APP_TIMEZONE = 'Asia/Kuala_Lumpur'
+const APP_TIMEZONE = 'Asia/Kuala_Lumpur'
 
 /**
  * Get current date in Asia/Kuala_Lumpur timezone as YYYY-MM-DD string
@@ -165,7 +165,7 @@ export const getCurrentDate = (): string => {
 /**
  * Get date N days ago in Asia/Kuala_Lumpur timezone as YYYY-MM-DD string
  */
-export const getDateDaysAgo = (days: number): string => {
+const getDateDaysAgo = (days: number): string => {
   const date = new Date()
   date.setDate(date.getDate() - days)
   const options: Intl.DateTimeFormatOptions = {

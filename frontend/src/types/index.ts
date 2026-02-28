@@ -23,14 +23,6 @@ export interface User {
 
 export type UserRole = 'admin' | 'manager' | 'sales_staff' | 'inventory_staff' | 'procurement_staff';
 
-// Legacy permission interface - kept for backward compatibility
-export interface Permission {
-  id: string;
-  name: string;
-  resource: string;
-  action: string;
-}
-
 // Product and Inventory types
 export interface Product {
   id: string;
@@ -69,11 +61,6 @@ export interface Category {
   createdAt: Date | string;
   updatedAt: Date | string;
   deletedAt?: Date | string | null; // For soft-deleted categories
-}
-
-export interface ProductAttribute {
-  name: string;
-  value: string;
 }
 
 export enum StockMovementType {
@@ -120,12 +107,6 @@ export interface StockMovement {
   updatedAt: Date;
 }
 
-export enum StockAdjustmentStatus {
-  DRAFT = 'draft',
-  COMPLETED = 'completed',
-  CANCELLED = 'cancelled',
-}
-
 export interface StockAdjustmentItem {
   id: string;
   product: {
@@ -148,7 +129,7 @@ export interface StockAdjustment {
   id: string;
   adjustmentNumber: string;
   adjustmentDate: Date;
-  status: StockAdjustmentStatus;
+  status: 'draft' | 'completed' | 'cancelled';
   notes?: string;
   itemCount: number;
   totalValue: number;
@@ -173,16 +154,6 @@ export enum CustomerType {
   BUSINESS = 'business',
 }
 
-
-/**
- * @deprecated Use pricingScheme string instead
- * Kept for backward compatibility
- */
-export enum PriceLevel {
-  RETAIL = 'retail',
-  WHOLESALE = 'wholesale',
-  SPECIAL = 'special',
-}
 
 export interface Customer {
   id: string;
@@ -518,37 +489,6 @@ export interface PendingSettlementSummary {
 }
 
 // Common types
-export interface Address {
-  street1: string;
-  street2?: string;
-  city: string;
-  state: string;
-  zipCode: string;
-  country: string;
-}
-
-export interface DashboardStats {
-  totalSales: number;
-  totalPurchases: number;
-  totalCustomers: number;
-  totalProducts: number;
-  lowStockProducts: number;
-  pendingOrders: number;
-  revenueGrowth: number;
-  profitMargin: number;
-}
-
-export interface ChartData {
-  labels: string[];
-  datasets: {
-    label: string;
-    data: number[];
-    backgroundColor?: string | string[];
-    borderColor?: string;
-    borderWidth?: number;
-  }[];
-}
-
 // API Response types
 export interface ApiResponse<T> {
   success: boolean;
@@ -587,13 +527,6 @@ export interface QueryParams {
   filters?: Record<string, any>;
   isActive?: boolean;
   categoryId?: string;
-}
-
-// Theme types
-export interface ThemeConfig {
-  mode: 'light' | 'dark';
-  primaryColor: string;
-  secondaryColor: string;
 }
 
 // Notification types

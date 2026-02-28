@@ -142,11 +142,7 @@ export const bulkDeleteOwnerEquity = createAsyncThunk(
 const ownerEquitySlice = createSlice({
   name: 'ownerEquity',
   initialState,
-  reducers: {
-    clearOwnerEquityError: (state) => {
-      state.error = null;
-    },
-  },
+  reducers: {},
   extraReducers: (builder) => {
     builder
       .addCase(fetchOwnerEquity.pending, (state) => {
@@ -207,12 +203,7 @@ const ownerEquitySlice = createSlice({
   },
 });
 
-export const { clearOwnerEquityError } = ownerEquitySlice.actions;
-
 export const selectOwnerEquity = (state: any) => state.ownerEquity?.data || [];
 export const selectOwnerEquityLoading = (state: any) => state.ownerEquity?.loading || false;
-export const selectOwnerEquityError = (state: any) => state.ownerEquity?.error || null;
-export const selectOwnerEquityPagination =
-  (state: any) => state.ownerEquity?.pagination || initialState.pagination;
 
 export default ownerEquitySlice.reducer;

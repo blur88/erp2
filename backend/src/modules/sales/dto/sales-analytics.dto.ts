@@ -25,7 +25,7 @@ export enum DateRange {
   CUSTOM = 'custom',
 }
 
-export enum MetricType {
+enum MetricType {
   REVENUE = 'revenue',
   ORDERS = 'orders',
   CUSTOMERS = 'customers',

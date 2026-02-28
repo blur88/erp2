@@ -2,7 +2,7 @@ import { Request } from 'express';
 import { ThreatPatterns } from './patterns';
 import { SecurityLogger } from '../logging/security-logger';
 
-export interface ThreatDetectionContext {
+interface ThreatDetectionContext {
   input: string;
   context: string;
   request: Request;

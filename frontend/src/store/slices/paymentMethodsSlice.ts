@@ -74,11 +74,7 @@ export const deletePaymentMethod = createAsyncThunk(
 const paymentMethodsSlice = createSlice({
   name: 'paymentMethods',
   initialState,
-  reducers: {
-    clearPaymentMethodsError: (state) => {
-      state.error = null;
-    },
-  },
+  reducers: {},
   extraReducers: (builder) => {
     builder
       .addCase(fetchPaymentMethods.pending, (state) => {
@@ -122,11 +118,7 @@ const paymentMethodsSlice = createSlice({
   },
 });
 
-export const { clearPaymentMethodsError } = paymentMethodsSlice.actions;
-
 export const selectPaymentMethods = (state: any) => state.paymentMethods?.data || [];
 export const selectPaymentMethodsLoading = (state: any) => state.paymentMethods?.loading || false;
-export const selectPaymentMethodsError = (state: any) => state.paymentMethods?.error || null;
-export const selectPaymentMethodsPagination = (state: any) => state.paymentMethods?.pagination || initialState.pagination;
 
 export default paymentMethodsSlice.reducer;

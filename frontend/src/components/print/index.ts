@@ -1,4 +1,3 @@
-export { default as BasePrintTemplate } from './BasePrintTemplate'
 export { default as SalesOrderPrint } from './SalesOrderPrint'
 export { default as InvoicePrint } from './InvoicePrint'
 export { default as PaymentReceiptPrint } from './PaymentReceiptPrint'

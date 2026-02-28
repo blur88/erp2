@@ -1,4 +1,4 @@
-import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
+import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import type { BankReconciliation } from '@/types';
 import { bankReconciliationsApi } from '@/services/accountingApi';
 
@@ -145,14 +145,7 @@ export const reopenBankReconciliation = createAsyncThunk(
 const bankReconciliationsSlice = createSlice({
   name: 'bankReconciliations',
   initialState,
-  reducers: {
-    setSelectedReconciliation: (state, action: PayloadAction<BankReconciliation | null>) => {
-      state.selectedReconciliation = action.payload;
-    },
-    clearError: (state) => {
-      state.error = null;
-    },
-  },
+  reducers: {},
   extraReducers: (builder) => {
     builder
       .addCase(fetchBankReconciliations.pending, (state) => {
@@ -257,8 +250,6 @@ const bankReconciliationsSlice = createSlice({
       .addCase(reopenBankReconciliation.rejected, (state, action) => { state.loading = false; state.error = action.payload as string; });
   },
 });
-
-export const { setSelectedReconciliation, clearError } = bankReconciliationsSlice.actions;
 
 export const selectBankReconciliations = (state: any) => state.bankReconciliations?.data;
 export const selectSelectedReconciliation = (state: any) => state.bankReconciliations?.selectedReconciliation;

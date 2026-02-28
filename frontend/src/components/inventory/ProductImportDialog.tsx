@@ -66,7 +66,7 @@ interface ImportResult {
   importedProductIds: string[];
 }
 
-export const ProductImportDialog: React.FC<ProductImportDialogProps> = ({
+const ProductImportDialog: React.FC<ProductImportDialogProps> = ({
   open,
   onClose,
   onImportSuccess
