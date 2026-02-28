@@ -1,4 +1,4 @@
-import { Injectable, Logger, NotFoundException, InternalServerErrorException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, InternalServerErrorException, OnModuleDestroy } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, LessThan } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
@@ -24,7 +24,7 @@ import { plainToInstance } from 'class-transformer';
 const execAsync = promisify(exec);
 
 @Injectable()
-export class BackupService {
+export class BackupService implements OnModuleDestroy {
   private readonly logger = new Logger(BackupService.name);
   private readonly backupDir: string;
   private readonly redis: Redis;
@@ -56,6 +56,14 @@ export class BackupService {
       password: this.configService.get<string>('REDIS_PASSWORD'),
       maxRetriesPerRequest: 3,
     });
+  }
+
+  onModuleDestroy(): void {
+    try {
+      this.redis.disconnect();
+    } catch (_error) {
+      // Ignore redis shutdown errors during module teardown.
+    }
   }
 
   async createBackup(createBackupDto: CreateBackupDto): Promise<BackupLog> {

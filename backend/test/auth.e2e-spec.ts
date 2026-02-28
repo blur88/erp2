@@ -27,6 +27,9 @@ describe('Authentication (e2e)', () => {
   });
 
   afterAll(async () => {
+    if (dataSource?.isInitialized) {
+      await dataSource.destroy();
+    }
     await app.close();
   });
 

@@ -108,6 +108,9 @@ describe('Accounting Auto-Posting Integration (E2E)', () => {
   });
 
   afterAll(async () => {
+    if (dataSource?.isInitialized) {
+      await dataSource.destroy();
+    }
     await app.close();
   });
 
