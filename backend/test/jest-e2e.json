@@ -2,6 +2,8 @@
   "moduleFileExtensions": ["js", "json", "ts"],
   "rootDir": ".",
   "testEnvironment": "node",
+  "maxWorkers": 1,
+  "testTimeout": 120000,
   "testRegex": ".e2e-spec.ts$",
   "transform": {
     "^.+\\.(t|j)s$": "ts-jest"
@@ -13,6 +15,8 @@
     "^@config/(.*)$": "<rootDir>/../src/config/$1",
     "^@database/(.*)$": "<rootDir>/../src/database/$1"
   },
+  "globalSetup": "./jest-e2e-global-setup.ts",
+  "globalTeardown": "./jest-e2e-global-teardown.ts",
   "collectCoverageFrom": [
     "../src/**/*.(t|j)s"
   ],

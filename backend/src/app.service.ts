@@ -1,10 +1,10 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, OnModuleDestroy } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import Redis from 'ioredis';
 
 @Injectable()
-export class AppService {
+export class AppService implements OnModuleDestroy {
   private redisClient: Redis;
 
   constructor(
@@ -90,5 +90,13 @@ export class AppService {
         'API documentation',
       ],
     };
+  }
+
+  async onModuleDestroy(): Promise<void> {
+    try {
+      this.redisClient.disconnect();
+    } catch (_error) {
+      // Ignore redis shutdown errors during application teardown.
+    }
   }
 }

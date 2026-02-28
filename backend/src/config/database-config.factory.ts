@@ -3,6 +3,46 @@ import { DataSourceOptions } from 'typeorm';
 import { validateAndParseInt } from './validation.utils';
 import { createSSLConfig } from './ssl.config';
 import { validateDatabaseConfig } from './environment.validator';
+import { AccountMapping } from '../database/entities/account-mapping.entity';
+import { AuditLog } from '../database/entities/audit-log.entity';
+import { BackupLog } from '../database/entities/backup-log.entity';
+import { BackupSchedule } from '../database/entities/backup-schedule.entity';
+import { BackupRetentionSettings } from '../database/entities/backup-settings.entity';
+import { BankReconciliation } from '../database/entities/bank-reconciliation.entity';
+import { Category } from '../database/entities/category.entity';
+import { ChartOfAccount } from '../database/entities/chart-of-account.entity';
+import { CompanySettings } from '../database/entities/company-settings.entity';
+import { Customer } from '../database/entities/customer.entity';
+import { DocumentNumberSettings } from '../database/entities/document-number-settings.entity';
+import { Expense } from '../database/entities/expense.entity';
+import { FiscalPeriod } from '../database/entities/fiscal-period.entity';
+import { GoodsReceivedNote } from '../database/entities/goods-received-note.entity';
+import { GoodsReceivedNoteItem } from '../database/entities/goods-received-note-item.entity';
+import { Invoice } from '../database/entities/invoice.entity';
+import { InvoiceItem } from '../database/entities/invoice-item.entity';
+import { JournalEntry } from '../database/entities/journal-entry.entity';
+import { JournalEntryLine } from '../database/entities/journal-entry-line.entity';
+import { OwnerEquityTransaction } from '../database/entities/owner-equity-transaction.entity';
+import { Payment } from '../database/entities/payment.entity';
+import { PaymentMethodEntity } from '../database/entities/payment-method.entity';
+import { PriceCostingSettings } from '../database/entities/price-costing-settings.entity';
+import { PriceList } from '../database/entities/price-list.entity';
+import { PriceListItem } from '../database/entities/price-list-item.entity';
+import { PrintSettings } from '../database/entities/print-settings.entity';
+import { Product } from '../database/entities/product.entity';
+import { PurchaseCostHistory } from '../database/entities/purchase-cost-history.entity';
+import { PurchaseOrder } from '../database/entities/purchase-order.entity';
+import { PurchaseOrderItem } from '../database/entities/purchase-order-item.entity';
+import { ReconciledTransaction } from '../database/entities/reconciled-transaction.entity';
+import { RefreshToken } from '../database/entities/refresh-token.entity';
+import { SalesOrder } from '../database/entities/sales-order.entity';
+import { SalesOrderItem } from '../database/entities/sales-order-item.entity';
+import { Settlement } from '../database/entities/settlement.entity';
+import { StockAdjustment, StockAdjustmentItem } from '../database/entities/stock-adjustment.entity';
+import { StockMovement } from '../database/entities/stock-movement.entity';
+import { Supplier } from '../database/entities/supplier.entity';
+import { User } from '../database/entities/user.entity';
+import { VendorPayment } from '../database/entities/vendor-payment.entity';
 
 /**
  * Database configuration factory utilities
@@ -41,7 +81,16 @@ export function createDatabaseConfig(configService: ConfigService, allowDefaults
     username,
     password,
     database,
-    entities: [__dirname + '/../database/entities/*.entity{.ts,.js}'],
+    entities: [
+      AccountMapping, AuditLog, BackupLog, BackupSchedule, BackupRetentionSettings,
+      BankReconciliation, Category, ChartOfAccount, CompanySettings, Customer,
+      DocumentNumberSettings, Expense, FiscalPeriod, GoodsReceivedNote, GoodsReceivedNoteItem,
+      Invoice, InvoiceItem, JournalEntry, JournalEntryLine, OwnerEquityTransaction,
+      Payment, PaymentMethodEntity, PriceCostingSettings, PriceList, PriceListItem,
+      PrintSettings, Product, PurchaseCostHistory, PurchaseOrder, PurchaseOrderItem,
+      ReconciledTransaction, RefreshToken, SalesOrder, SalesOrderItem, Settlement,
+      StockAdjustment, StockAdjustmentItem, StockMovement, Supplier, User, VendorPayment,
+    ],
     migrations: [__dirname + '/../database/migrations/*{.ts,.js}'],
     
     // Security: Disable auto-synchronization in production

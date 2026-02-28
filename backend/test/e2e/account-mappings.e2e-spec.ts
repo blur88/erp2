@@ -1,13 +1,11 @@
+import { ConflictException, INestApplication, NotFoundException, ValidationPipe } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
-import { INestApplication, ValidationPipe } from '@nestjs/common';
 import * as request from 'supertest';
-import { getRepositoryToken } from '@nestjs/typeorm';
-import { AccountingModule } from '../../src/modules/accounting/accounting.module';
-import { AccountMapping, MappingType } from '../../src/database/entities/account-mapping.entity';
-import { ChartOfAccount } from '../../src/database/entities/chart-of-account.entity';
-import { FiscalPeriod } from '../../src/database/entities/fiscal-period.entity';
-import { JournalEntry } from '../../src/database/entities/journal-entry.entity';
-import { JournalEntryLine } from '../../src/database/entities/journal-entry-line.entity';
+import { AccountMappingController } from '../../src/modules/accounting/controllers/account-mapping.controller';
+import { AccountMappingService } from '../../src/modules/accounting/services/account-mapping.service';
+import { MappingType } from '../../src/database/entities/account-mapping.entity';
+import { JwtAuthGuard } from '../../src/modules/auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../../src/modules/auth/guards/roles.guard';
 
 describe('AccountMappingController (e2e)', () => {
   let app: INestApplication;
@@ -15,80 +13,65 @@ describe('AccountMappingController (e2e)', () => {
   const mockAccountId = '123e4567-e89b-12d3-a456-426614174000';
   const mockMappingId = '223e4567-e89b-12d3-a456-426614174001';
 
-  const mockAccount = {
-    id: mockAccountId,
-    code: '4000',
-    name: 'Sales Revenue',
-    type: 'REVENUE',
-    isActive: true,
-  };
-
   const mockMapping = {
     id: mockMappingId,
     mappingType: MappingType.SALES_REVENUE,
     accountId: mockAccountId,
     description: 'Sales revenue account',
     isActive: true,
-    account: mockAccount,
+    account: {
+      id: mockAccountId,
+      code: '4000',
+      name: 'Sales Revenue',
+      type: 'REVENUE',
+    },
     createdAt: new Date(),
     updatedAt: new Date(),
   };
 
-  const mockMappingRepository = {
-    find: jest.fn().mockResolvedValue([mockMapping]),
+  const mockAccountMappingService = {
+    findAll: jest.fn().mockResolvedValue({
+      data: [mockMapping],
+      meta: {
+        page: 1,
+        limit: 20,
+        total: 1,
+        totalPages: 1,
+        hasNextPage: false,
+        hasPreviousPage: false,
+      },
+    }),
+    validateMappings: jest.fn().mockResolvedValue({
+      isValid: true,
+      missingMappings: [],
+      configuredMappings: [MappingType.SALES_REVENUE],
+      totalRequired: 1,
+      totalConfigured: 1,
+    }),
     findOne: jest.fn().mockResolvedValue(mockMapping),
-    save: jest.fn().mockResolvedValue(mockMapping),
-    create: jest.fn().mockReturnValue(mockMapping),
-    softDelete: jest.fn().mockResolvedValue({ affected: 1 }),
-    createQueryBuilder: jest.fn(() => ({
-      leftJoinAndSelect: jest.fn().mockReturnThis(),
-      where: jest.fn().mockReturnThis(),
-      andWhere: jest.fn().mockReturnThis(),
-      orderBy: jest.fn().mockReturnThis(),
-      skip: jest.fn().mockReturnThis(),
-      take: jest.fn().mockReturnThis(),
-      getManyAndCount: jest.fn().mockResolvedValue([[mockMapping], 1]),
-    })),
-  };
-
-  const mockAccountRepository = {
-    findOne: jest.fn().mockResolvedValue(mockAccount),
-    find: jest.fn().mockResolvedValue([mockAccount]),
-  };
-
-  // Mock other repositories needed by AccountingModule
-  const mockFiscalPeriodRepository = {
-    find: jest.fn().mockResolvedValue([]),
-    findOne: jest.fn(),
-  };
-
-  const mockJournalEntryRepository = {
-    find: jest.fn().mockResolvedValue([]),
-    findOne: jest.fn(),
-  };
-
-  const mockJournalEntryLineRepository = {
-    find: jest.fn().mockResolvedValue([]),
-    count: jest.fn().mockResolvedValue(0),
+    create: jest.fn().mockResolvedValue(mockMapping),
+    update: jest.fn().mockResolvedValue({ ...mockMapping, description: 'Updated description' }),
+    remove: jest.fn().mockResolvedValue(undefined),
   };
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [AccountingModule],
+      controllers: [AccountMappingController],
+      providers: [
+        {
+          provide: AccountMappingService,
+          useValue: mockAccountMappingService,
+        },
+      ],
     })
-      .overrideProvider(getRepositoryToken(AccountMapping))
-      .useValue(mockMappingRepository)
-      .overrideProvider(getRepositoryToken(ChartOfAccount))
-      .useValue(mockAccountRepository)
-      .overrideProvider(getRepositoryToken(FiscalPeriod))
-      .useValue(mockFiscalPeriodRepository)
-      .overrideProvider(getRepositoryToken(JournalEntry))
-      .useValue(mockJournalEntryRepository)
-      .overrideProvider(getRepositoryToken(JournalEntryLine))
-      .useValue(mockJournalEntryLineRepository)
+      .overrideGuard(JwtAuthGuard)
+      .useValue({ canActivate: () => true })
+      .overrideGuard(RolesGuard)
+      .useValue({ canActivate: () => true })
       .compile();
 
     app = moduleFixture.createNestApplication();
+    app.setGlobalPrefix('api');
     app.useGlobalPipes(new ValidationPipe({ transform: true }));
     await app.init();
   });
@@ -156,7 +139,9 @@ describe('AccountMappingController (e2e)', () => {
     });
 
     it('should return 404 if mapping not found', () => {
-      mockMappingRepository.findOne.mockResolvedValueOnce(null);
+      mockAccountMappingService.findOne.mockRejectedValueOnce(
+        new NotFoundException('Account mapping with ID not found'),
+      );
 
       return request(app.getHttpServer())
         .get('/api/accounting/account-mappings/non-existent-id')
@@ -171,9 +156,6 @@ describe('AccountMappingController (e2e)', () => {
         accountId: mockAccountId,
         description: 'Accounts receivable account',
       };
-
-      mockMappingRepository.findOne.mockResolvedValueOnce(null); // No existing mapping
-      mockMappingRepository.findOne.mockResolvedValueOnce(mockMapping); // Reload with relations
 
       return request(app.getHttpServer())
         .post('/api/accounting/account-mappings')
@@ -199,7 +181,9 @@ describe('AccountMappingController (e2e)', () => {
         description: 'Duplicate mapping',
       };
 
-      mockMappingRepository.findOne.mockResolvedValueOnce(mockMapping); // Existing mapping
+      mockAccountMappingService.create.mockRejectedValueOnce(
+        new ConflictException('Mapping type already exists'),
+      );
 
       return request(app.getHttpServer())
         .post('/api/accounting/account-mappings')
@@ -210,12 +194,13 @@ describe('AccountMappingController (e2e)', () => {
     it('should return 404 if account not found', () => {
       const createDto = {
         mappingType: MappingType.SALES_COGS,
-        accountId: 'non-existent-account',
+        accountId: '333e4567-e89b-12d3-a456-426614174999',
         description: 'COGS account',
       };
 
-      mockMappingRepository.findOne.mockResolvedValueOnce(null);
-      mockAccountRepository.findOne.mockResolvedValueOnce(null);
+      mockAccountMappingService.create.mockRejectedValueOnce(
+        new NotFoundException('Account not found or inactive'),
+      );
 
       return request(app.getHttpServer())
         .post('/api/accounting/account-mappings')
@@ -230,12 +215,6 @@ describe('AccountMappingController (e2e)', () => {
         description: 'Updated description',
       };
 
-      mockMappingRepository.findOne.mockResolvedValueOnce(mockMapping);
-      mockMappingRepository.findOne.mockResolvedValueOnce({
-        ...mockMapping,
-        ...updateDto,
-      });
-
       return request(app.getHttpServer())
         .patch(`/api/accounting/account-mappings/${mockMappingId}`)
         .send(updateDto)
@@ -247,7 +226,9 @@ describe('AccountMappingController (e2e)', () => {
     });
 
     it('should return 404 if mapping not found', () => {
-      mockMappingRepository.findOne.mockResolvedValueOnce(null);
+      mockAccountMappingService.update.mockRejectedValueOnce(
+        new NotFoundException('Account mapping with ID not found'),
+      );
 
       return request(app.getHttpServer())
         .patch('/api/accounting/account-mappings/non-existent-id')
@@ -264,7 +245,9 @@ describe('AccountMappingController (e2e)', () => {
     });
 
     it('should return 404 if mapping not found', () => {
-      mockMappingRepository.findOne.mockResolvedValueOnce(null);
+      mockAccountMappingService.remove.mockRejectedValueOnce(
+        new NotFoundException('Account mapping with ID not found'),
+      );
 
       return request(app.getHttpServer())
         .delete('/api/accounting/account-mappings/non-existent-id')
