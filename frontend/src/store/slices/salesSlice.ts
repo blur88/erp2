@@ -109,7 +109,7 @@ const initialState: SalesState = {
 }
 
 // Async thunks
-export const fetchCustomers = createAsyncThunk(
+const fetchCustomers = createAsyncThunk(
   'sales/fetchCustomers',
   async (params: { page?: number; limit?: number; search?: string }, { rejectWithValue }) => {
     try {
@@ -264,7 +264,7 @@ export const fetchDeletedInvoices = createAsyncThunk(
   }
 )
 
-export const createCustomer = createAsyncThunk(
+const createCustomer = createAsyncThunk(
   'sales/createCustomer',
   async (customerData: Partial<Customer>, { rejectWithValue }) => {
     try {
@@ -288,7 +288,7 @@ export const createOrder = createAsyncThunk(
   }
 )
 
-export const updateOrder = createAsyncThunk(
+const updateOrder = createAsyncThunk(
   'sales/updateOrder',
   async ({ id, orderData }: { id: string; orderData: Partial<SalesOrder> }, { rejectWithValue }) => {
     try {
@@ -312,7 +312,7 @@ export const fetchDeletedPayments = createAsyncThunk(
   }
 )
 
-export const fetchDeletedCustomers = createAsyncThunk(
+const fetchDeletedCustomers = createAsyncThunk(
   'sales/fetchDeletedCustomers',
   async (params: { page?: number; limit?: number; search?: string }, { rejectWithValue }) => {
     try {
@@ -324,7 +324,7 @@ export const fetchDeletedCustomers = createAsyncThunk(
   }
 )
 
-export const restoreCustomer = createAsyncThunk(
+const restoreCustomer = createAsyncThunk(
   'sales/restoreCustomer',
   async (customerId: string, { rejectWithValue }) => {
     try {
@@ -336,7 +336,7 @@ export const restoreCustomer = createAsyncThunk(
   }
 )
 
-export const bulkRestoreCustomers = createAsyncThunk(
+const bulkRestoreCustomers = createAsyncThunk(
   'sales/bulkRestoreCustomers',
   async (customerIds: string[], { rejectWithValue }) => {
     try {
@@ -348,7 +348,7 @@ export const bulkRestoreCustomers = createAsyncThunk(
   }
 )
 
-export const permanentDeleteCustomer = createAsyncThunk(
+const permanentDeleteCustomer = createAsyncThunk(
   'sales/permanentDeleteCustomer',
   async (customerId: string, { rejectWithValue }) => {
     try {
@@ -360,7 +360,7 @@ export const permanentDeleteCustomer = createAsyncThunk(
   }
 )
 
-export const bulkPermanentDeleteCustomers = createAsyncThunk(
+const bulkPermanentDeleteCustomers = createAsyncThunk(
   'sales/bulkPermanentDeleteCustomers',
   async (customerIds: string[], { rejectWithValue }) => {
     try {
@@ -734,7 +734,6 @@ const salesSlice = createSlice({
 })
 
 export const {
-  setSelectedCustomer,
   setSelectedOrder,
   setSelectedInvoice,
   setSelectedPayment,
@@ -744,8 +743,6 @@ export const {
 } = salesSlice.actions
 
 // Selectors
-export const selectCustomers = (state: any) => state.sales?.customers
-export const selectDeletedCustomers = (state: any) => state.sales?.deletedCustomers
 export const selectOrders = (state: any) => state.sales?.orders
 export const selectDeletedOrders = (state: any) => state.sales?.deletedOrders
 export const selectDeletedInvoices = (state: any) => state.sales?.deletedInvoices

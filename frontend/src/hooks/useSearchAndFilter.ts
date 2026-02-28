@@ -251,5 +251,3 @@ export const useKeyboardShortcuts = (callbacks: {
     return () => document.removeEventListener('keydown', handleKeyDown)
   }, [callbacks])
 }
-
-export default useSearchAndFilter

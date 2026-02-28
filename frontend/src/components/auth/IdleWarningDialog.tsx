@@ -37,7 +37,7 @@ interface IdleWarningDialogProps {
  * Dialog shown when user has been idle for too long
  * Displays countdown and allows user to stay logged in or logout
  */
-export const IdleWarningDialog: React.FC<IdleWarningDialogProps> = ({
+const IdleWarningDialog: React.FC<IdleWarningDialogProps> = ({
   open,
   remainingSeconds,
   totalWarningSeconds = 120, // Default 2 minutes
