@@ -57,32 +57,6 @@ export const fetchAuditLogs = createAsyncThunk(
   }
 )
 
-export const fetchAuditLogsByEntity = createAsyncThunk(
-  'auditLogs/fetchAuditLogsByEntity',
-  async ({ entityType, entityId }: { entityType: string; entityId: string }, { rejectWithValue }) => {
-    try {
-      const data = await auditLogApi.getAuditLogsByEntity(entityType, entityId)
-      return data
-    } catch (error: any) {
-      console.error('Failed to fetch entity audit logs:', error)
-      return rejectWithValue(error.response?.data?.message || 'Failed to fetch entity audit logs')
-    }
-  }
-)
-
-export const fetchAuditLogsByUser = createAsyncThunk(
-  'auditLogs/fetchAuditLogsByUser',
-  async (userId: string, { rejectWithValue }) => {
-    try {
-      const data = await auditLogApi.getAuditLogsByUser(userId)
-      return data
-    } catch (error: any) {
-      console.error('Failed to fetch user audit logs:', error)
-      return rejectWithValue(error.response?.data?.message || 'Failed to fetch user audit logs')
-    }
-  }
-)
-
 export const fetchAuditLogStatistics = createAsyncThunk(
   'auditLogs/fetchStatistics',
   async ({ startDate, endDate }: { startDate?: string; endDate?: string } = {}, { rejectWithValue }) => {
@@ -116,9 +90,6 @@ const auditLogSlice = createSlice({
     setLimit: (state, action: PayloadAction<number>) => {
       state.pagination.limit = action.payload
     },
-    clearError: (state) => {
-      state.error = null
-    },
   },
   extraReducers: (builder) => {
     // Fetch audit logs
@@ -134,34 +105,6 @@ const auditLogSlice = createSlice({
       }
     })
     builder.addCase(fetchAuditLogs.rejected, (state, action) => {
-      state.loading = false
-      state.error = action.payload as string
-    })
-
-    // Fetch audit logs by entity
-    builder.addCase(fetchAuditLogsByEntity.pending, (state) => {
-      state.loading = true
-      state.error = null
-    })
-    builder.addCase(fetchAuditLogsByEntity.fulfilled, (state, action) => {
-      state.loading = false
-      state.auditLogs = action.payload || []
-    })
-    builder.addCase(fetchAuditLogsByEntity.rejected, (state, action) => {
-      state.loading = false
-      state.error = action.payload as string
-    })
-
-    // Fetch audit logs by user
-    builder.addCase(fetchAuditLogsByUser.pending, (state) => {
-      state.loading = true
-      state.error = null
-    })
-    builder.addCase(fetchAuditLogsByUser.fulfilled, (state, action) => {
-      state.loading = false
-      state.auditLogs = action.payload || []
-    })
-    builder.addCase(fetchAuditLogsByUser.rejected, (state, action) => {
       state.loading = false
       state.error = action.payload as string
     })
@@ -188,7 +131,6 @@ export const {
   clearFilters,
   setPage,
   setLimit,
-  clearError,
 } = auditLogSlice.actions
 
 export default auditLogSlice.reducer
