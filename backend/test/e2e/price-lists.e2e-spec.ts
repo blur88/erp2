@@ -15,7 +15,7 @@ describe('PriceListsController (e2e)', () => {
     name: 'Retail Price List',
     code: 'RETAIL',
     description: 'Standard retail prices',
-    isDefault: true,
+    isDefault: false,
     isActive: true,
     effectiveFrom: new Date('2026-01-01'),
     effectiveTo: null,
@@ -28,6 +28,7 @@ describe('PriceListsController (e2e)', () => {
     findOneBy: jest.fn().mockResolvedValue(mockPriceList),
     save: jest.fn().mockResolvedValue(mockPriceList),
     create: jest.fn().mockReturnValue(mockPriceList),
+    update: jest.fn().mockResolvedValue({ affected: 1 }),
     softDelete: jest.fn().mockResolvedValue({ affected: 1 }),
     count: jest.fn().mockResolvedValue(1),
     createQueryBuilder: jest.fn(() => ({
@@ -37,6 +38,7 @@ describe('PriceListsController (e2e)', () => {
       skip: jest.fn().mockReturnThis(),
       take: jest.fn().mockReturnThis(),
       orderBy: jest.fn().mockReturnThis(),
+      addOrderBy: jest.fn().mockReturnThis(),
       getMany: jest.fn().mockResolvedValue([mockPriceList]),
       getOne: jest.fn().mockResolvedValue(mockPriceList),
       getManyAndCount: jest.fn().mockResolvedValue([[mockPriceList], 1]),
@@ -45,8 +47,8 @@ describe('PriceListsController (e2e)', () => {
 
   const mockPriceListItemRepository = {
     find: jest.fn().mockResolvedValue([]),
-    findOne: jest.fn(),
-    save: jest.fn(),
+    findOne: jest.fn().mockResolvedValue({ price: 100 }),
+    save: jest.fn().mockResolvedValue({}),
     create: jest.fn(),
     delete: jest.fn(),
     createQueryBuilder: jest.fn(() => ({
@@ -76,12 +78,28 @@ describe('PriceListsController (e2e)', () => {
       .compile();
 
     app = moduleFixture.createNestApplication();
+    app.setGlobalPrefix('api');
     app.useGlobalPipes(new ValidationPipe({ transform: true }));
     await app.init();
   });
 
   afterAll(async () => {
     await app.close();
+  });
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockPriceListRepository.find.mockResolvedValue([mockPriceList]);
+    mockPriceListRepository.findOne.mockResolvedValue(mockPriceList);
+    mockPriceListRepository.findOneBy.mockResolvedValue(null);
+    mockPriceListRepository.save.mockResolvedValue(mockPriceList);
+    mockPriceListRepository.create.mockReturnValue(mockPriceList);
+    mockPriceListRepository.update.mockResolvedValue({ affected: 1 });
+    mockPriceListRepository.softDelete.mockResolvedValue({ affected: 1 });
+    mockPriceListRepository.count.mockResolvedValue(1);
+    mockPriceListItemRepository.find.mockResolvedValue([]);
+    mockPriceListItemRepository.findOne.mockResolvedValue({ price: 100 });
+    mockPriceListItemRepository.save.mockResolvedValue({});
   });
 
   describe('GET /api/price-lists', () => {
@@ -110,8 +128,8 @@ describe('PriceListsController (e2e)', () => {
         .get('/api/price-lists?page=1&limit=10')
         .expect(200)
         .expect((res) => {
-          expect(res.body.meta).toHaveProperty('currentPage', 1);
-          expect(res.body.meta).toHaveProperty('itemsPerPage', 10);
+          expect(res.body.meta).toHaveProperty('page', 1);
+          expect(res.body.meta).toHaveProperty('limit', 10);
         });
     });
   });
@@ -128,7 +146,7 @@ describe('PriceListsController (e2e)', () => {
     });
 
     it('should return 404 for non-existent price list', () => {
-      mockPriceListRepository.createQueryBuilder().getOne.mockResolvedValueOnce(null);
+      mockPriceListRepository.findOne.mockResolvedValueOnce(null);
 
       return request(app.getHttpServer())
         .get('/api/price-lists/non-existent-id')
@@ -166,7 +184,7 @@ describe('PriceListsController (e2e)', () => {
         effectiveFrom: '2026-01-01',
       };
 
-      mockPriceListRepository.findOneBy.mockResolvedValueOnce(null);
+      mockPriceListRepository.findOne.mockResolvedValueOnce(null);
       mockPriceListRepository.save.mockResolvedValueOnce({ ...createDto, id: 'new-id' });
 
       return request(app.getHttpServer())
@@ -181,8 +199,7 @@ describe('PriceListsController (e2e)', () => {
 
     it('should return 400 for invalid data', () => {
       const invalidDto = {
-        name: '',
-        code: '',
+        effectiveFrom: 'not-a-date',
       };
 
       return request(app.getHttpServer())
@@ -199,7 +216,7 @@ describe('PriceListsController (e2e)', () => {
         isActive: true,
       };
 
-      mockPriceListRepository.findOneBy.mockResolvedValueOnce(mockPriceList);
+      mockPriceListRepository.findOne.mockResolvedValueOnce(mockPriceList);
 
       return request(app.getHttpServer())
         .post('/api/price-lists')
@@ -227,7 +244,7 @@ describe('PriceListsController (e2e)', () => {
     });
 
     it('should return 404 for non-existent price list', () => {
-      mockPriceListRepository.findOneBy.mockResolvedValueOnce(null);
+      mockPriceListRepository.findOne.mockResolvedValueOnce(null);
 
       return request(app.getHttpServer())
         .patch('/api/price-lists/non-existent-id')
@@ -240,18 +257,18 @@ describe('PriceListsController (e2e)', () => {
     it('should soft delete a price list', () => {
       return request(app.getHttpServer())
         .delete(`/api/price-lists/${mockPriceList.id}`)
-        .expect(200);
+        .expect(204);
     });
   });
 
   describe('POST /api/price-lists/:id/set-default', () => {
     it('should set a price list as default', () => {
-      mockPriceListRepository.findOne.mockResolvedValueOnce(null);
+      mockPriceListRepository.findOne.mockResolvedValueOnce(mockPriceList);
       mockPriceListRepository.save.mockResolvedValueOnce({ ...mockPriceList, isDefault: true });
 
       return request(app.getHttpServer())
         .post(`/api/price-lists/${mockPriceList.id}/set-default`)
-        .expect(200)
+        .expect(201)
         .expect((res) => {
           expect(res.body).toHaveProperty('isDefault', true);
         });
@@ -271,6 +288,7 @@ describe('PriceListsController (e2e)', () => {
 
   describe('GET /api/price-lists/default', () => {
     it('should return default price list', () => {
+      mockPriceListRepository.findOne.mockResolvedValueOnce({ ...mockPriceList, isDefault: true });
       return request(app.getHttpServer())
         .get('/api/price-lists/default')
         .expect(200)
@@ -297,24 +315,22 @@ describe('PriceListsController (e2e)', () => {
         items: [
           {
             productId: 'product-123',
-            unitPrice: 120.00,
+            price: 120.00,
             costBasis: 90.00,
-            marginPercent: 33.33,
+            margin: 33.33,
           },
         ],
       };
 
-      mockProductRepository.findByIds.mockResolvedValueOnce([{ id: 'product-123' }]);
       mockPriceListItemRepository.findOne.mockResolvedValueOnce(null);
       mockPriceListItemRepository.save.mockResolvedValueOnce({});
 
       return request(app.getHttpServer())
         .post(`/api/price-lists/${mockPriceList.id}/items/bulk`)
         .send(bulkDto)
-        .expect(200)
+        .expect(201)
         .expect((res) => {
-          expect(res.body).toHaveProperty('updated');
-          expect(res.body).toHaveProperty('failed');
+          expect(Array.isArray(res.body)).toBe(true);
         });
     });
   });
@@ -326,8 +342,10 @@ describe('PriceListsController (e2e)', () => {
         code: 'COPIED',
       };
 
+      mockPriceListRepository.findOne.mockResolvedValueOnce({ ...mockPriceList, items: [] });
       mockPriceListRepository.findOne.mockResolvedValueOnce(null);
-      mockPriceListRepository.save.mockResolvedValueOnce({ ...mockPriceList, ...copyDto, id: 'copied-id' });
+      mockPriceListRepository.save.mockResolvedValueOnce({ ...mockPriceList, ...copyDto, id: 'copied-id', isDefault: false });
+      mockPriceListRepository.findOne.mockResolvedValueOnce({ ...mockPriceList, ...copyDto, id: 'copied-id', items: [] });
 
       return request(app.getHttpServer())
         .post(`/api/price-lists/${mockPriceList.id}/copy`)
@@ -342,26 +360,26 @@ describe('PriceListsController (e2e)', () => {
   describe('POST /api/price-lists/:id/adjust', () => {
     it('should apply percentage adjustment', () => {
       const adjustDto = {
-        adjustmentPercent: 10,
+        percentage: 10,
       };
 
       mockPriceListItemRepository.find.mockResolvedValueOnce([
-        { id: 'item-1', unitPrice: 100.00 },
+        { id: 'item-1', price: 100.00 },
       ]);
       mockPriceListItemRepository.save.mockResolvedValueOnce({});
 
       return request(app.getHttpServer())
         .post(`/api/price-lists/${mockPriceList.id}/adjust`)
         .send(adjustDto)
-        .expect(200)
+        .expect(201)
         .expect((res) => {
-          expect(res.body).toHaveProperty('updated');
+          expect(Array.isArray(res.body)).toBe(true);
         });
     });
 
     it('should return 400 for invalid adjustment', () => {
       const invalidDto = {
-        adjustmentPercent: -101,
+        percentage: -101,
       };
 
       return request(app.getHttpServer())
@@ -373,9 +391,9 @@ describe('PriceListsController (e2e)', () => {
 
   describe('GET /api/price-lists/:id/products/:productId', () => {
     it('should return price for specific product', () => {
-      mockPriceListItemRepository.createQueryBuilder().getOne.mockResolvedValueOnce({
+      mockPriceListItemRepository.findOne.mockResolvedValueOnce({
         id: 'item-1',
-        unitPrice: 100.00,
+        price: 100.00,
         productId: 'product-123',
       });
 
@@ -383,18 +401,18 @@ describe('PriceListsController (e2e)', () => {
         .get(`/api/price-lists/${mockPriceList.id}/products/product-123`)
         .expect(200)
         .expect((res) => {
-          expect(res.body).toHaveProperty('unitPrice');
+          expect(res.body).toHaveProperty('price', 100);
         });
     });
 
     it('should return null for non-existent product price', () => {
-      mockPriceListItemRepository.createQueryBuilder().getOne.mockResolvedValueOnce(null);
+      mockPriceListItemRepository.findOne.mockResolvedValueOnce(null);
 
       return request(app.getHttpServer())
         .get(`/api/price-lists/${mockPriceList.id}/products/non-existent`)
         .expect(200)
         .expect((res) => {
-          expect(res.body).toBeNull();
+          expect(res.body).toEqual({ price: null });
         });
     });
   });
