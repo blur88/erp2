@@ -49,14 +49,6 @@ export const fetchCustomers = createAsyncThunk(
   }
 )
 
-export const fetchCustomer = createAsyncThunk(
-  'customers/fetchCustomer',
-  async (id: string) => {
-    const response = await salesApi.getCustomer(id)
-    return response  // Return the full response
-  }
-)
-
 export const createCustomer = createAsyncThunk(
   'customers/createCustomer',
   async (customerData: Partial<Customer>) => {
@@ -147,12 +139,6 @@ const customerSlice = createSlice({
     setFilters: (state, action: PayloadAction<Partial<CustomerState['filters']>>) => {
       state.filters = { ...state.filters, ...action.payload }
     },
-    clearFilters: (state) => {
-      state.filters = {}
-    },
-    setCurrentCustomer: (state, action: PayloadAction<Customer | null>) => {
-      state.currentCustomer = action.payload
-    },
   },
   extraReducers: (builder) => {
     // Fetch customers
@@ -173,23 +159,6 @@ const customerSlice = createSlice({
       .addCase(fetchCustomers.rejected, (state, action) => {
         state.loading = false
         state.error = action.error.message || 'Failed to fetch customers'
-      })
-
-    // Fetch single customer
-    builder
-      .addCase(fetchCustomer.pending, (state) => {
-        state.loading = true
-        state.error = null
-      })
-      .addCase(fetchCustomer.fulfilled, (state, action) => {
-        state.loading = false
-        if (action.payload) {
-          state.currentCustomer = ((action.payload as any).data || action.payload) as Customer
-        }
-      })
-      .addCase(fetchCustomer.rejected, (state, action) => {
-        state.loading = false
-        state.error = action.error.message || 'Failed to fetch customer'
       })
 
     // Create customer
@@ -351,12 +320,11 @@ const customerSlice = createSlice({
   },
 })
 
-export const { clearError, setFilters, clearFilters, setCurrentCustomer } = customerSlice.actions
+export const { clearError, setFilters } = customerSlice.actions
 
 // Selectors
 export const selectCustomers = (state: any) => state.customers?.customers || []
 export const selectDeletedCustomers = (state: any) => state.customers?.deletedCustomers || []
-export const selectCurrentCustomer = (state: any) => state.customers?.currentCustomer
 export const selectCustomersLoading = (state: any) => state.customers?.loading || false
 export const selectCustomersError = (state: any) => state.customers?.error
 export const selectCustomersFilters = (state: any) => state.customers?.filters || {}

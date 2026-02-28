@@ -142,18 +142,6 @@ export const createPurchaseOrder = createAsyncThunk(
   }
 )
 
-export const createGoodsReceivedNote = createAsyncThunk(
-  'purchasing/createGoodsReceivedNote',
-  async (grnData: Partial<GoodsReceivedNote>, { rejectWithValue }) => {
-    try {
-      const response = await purchasingApi.createGoodsReceivedNote(grnData)
-      return response // response is already the data from ApiService.post
-    } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || 'Failed to create GRN')
-    }
-  }
-)
-
 export const fetchDeletedGRNs = createAsyncThunk(
   'purchasing/fetchDeletedGRNs',
   async (params: { page?: number; limit?: number; search?: string }, { rejectWithValue }) => {
@@ -162,30 +150,6 @@ export const fetchDeletedGRNs = createAsyncThunk(
       return response
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.message || 'Failed to fetch deleted GRNs')
-    }
-  }
-)
-
-export const restoreGRN = createAsyncThunk(
-  'purchasing/restoreGRN',
-  async (id: string, { rejectWithValue }) => {
-    try {
-      const response = await purchasingApi.restoreGRN(id)
-      return response // response is already the data from ApiService.patch
-    } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || 'Failed to restore GRN')
-    }
-  }
-)
-
-export const bulkRestoreGRNs = createAsyncThunk(
-  'purchasing/bulkRestoreGRNs',
-  async (grnIds: string[], { rejectWithValue }) => {
-    try {
-      const response = await purchasingApi.bulkRestoreGRNs(grnIds)
-      return response // response is already the data from ApiService.post
-    } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || 'Failed to restore GRNs')
     }
   }
 )
@@ -212,30 +176,6 @@ export const fetchDeletedVendorPayments = createAsyncThunk(
       return response
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.message || 'Failed to fetch deleted vendor payments')
-    }
-  }
-)
-
-export const restoreVendorPayment = createAsyncThunk(
-  'purchasing/restoreVendorPayment',
-  async (id: string, { rejectWithValue }) => {
-    try {
-      const response = await purchasingApi.restoreVendorPayment(id)
-      return response // response is already the data from ApiService.patch
-    } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || 'Failed to restore vendor payment')
-    }
-  }
-)
-
-export const bulkRestoreVendorPayments = createAsyncThunk(
-  'purchasing/bulkRestoreVendorPayments',
-  async (paymentIds: string[], { rejectWithValue }) => {
-    try {
-      const response = await purchasingApi.bulkRestoreVendorPayments(paymentIds)
-      return response // response is already the data from ApiService.post
-    } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || 'Failed to restore vendor payments')
     }
   }
 )
@@ -272,11 +212,6 @@ const purchasingSlice = createSlice({
       // The GRN page should check this flag and refetch if needed
       // Note: We can't fully update the GRN here because the PO response
       // only includes a summary without full item details
-    },
-    markGRNsForRefetch: (state) => {
-      // This will be used by the GRN page to know when to refetch
-      // We'll use a timestamp to trigger refetch
-      state.loading.goodsReceivedNotes = false
     },
     clearError: (state) => {
       state.error = null
@@ -376,14 +311,6 @@ const purchasingSlice = createSlice({
         }
       })
 
-    // Create GRN
-    builder
-      .addCase(createGoodsReceivedNote.fulfilled, (state, action) => {
-        if (action.payload) {
-          state.goodsReceivedNotes.unshift(action.payload)
-        }
-      })
-
     // Fetch Deleted GRNs
     builder
       .addCase(fetchDeletedGRNs.pending, (state) => {
@@ -399,30 +326,6 @@ const purchasingSlice = createSlice({
       })
       .addCase(fetchDeletedGRNs.rejected, (state, action) => {
         state.loading.deletedGRNs = false
-        state.error = action.payload as string
-      })
-
-    // Restore GRN
-    builder
-      .addCase(restoreGRN.pending, (state) => {
-        state.error = null
-      })
-      .addCase(restoreGRN.fulfilled, (state, action) => {
-        // GRN will be removed from deletedGRNs when refetched
-      })
-      .addCase(restoreGRN.rejected, (state, action) => {
-        state.error = action.payload as string
-      })
-
-    // Bulk Restore GRNs
-    builder
-      .addCase(bulkRestoreGRNs.pending, (state) => {
-        state.error = null
-      })
-      .addCase(bulkRestoreGRNs.fulfilled, (state, action) => {
-        // GRNs will be removed from deletedGRNs when refetched
-      })
-      .addCase(bulkRestoreGRNs.rejected, (state, action) => {
         state.error = action.payload as string
       })
 
@@ -465,30 +368,6 @@ const purchasingSlice = createSlice({
       })
       .addCase(fetchDeletedVendorPayments.rejected, (state, action) => {
         state.loading.deletedVendorPayments = false
-        state.error = action.payload as string
-      })
-
-    // Restore Vendor Payment
-    builder
-      .addCase(restoreVendorPayment.pending, (state) => {
-        state.error = null
-      })
-      .addCase(restoreVendorPayment.fulfilled, (state, action) => {
-        // Payment will be removed from deletedVendorPayments when refetched
-      })
-      .addCase(restoreVendorPayment.rejected, (state, action) => {
-        state.error = action.payload as string
-      })
-
-    // Bulk Restore Vendor Payments
-    builder
-      .addCase(bulkRestoreVendorPayments.pending, (state) => {
-        state.error = null
-      })
-      .addCase(bulkRestoreVendorPayments.fulfilled, (state, action) => {
-        // Payments will be removed from deletedVendorPayments when refetched
-      })
-      .addCase(bulkRestoreVendorPayments.rejected, (state, action) => {
         state.error = action.payload as string
       })
 
@@ -597,16 +476,13 @@ export const {
   setSelectedGRN,
   setSelectedVendorPayment,
   updatePurchaseOrderInPlace,
-  markGRNsForRefetch,
   clearError,
 } = purchasingSlice.actions
 
 // Selectors
 export const selectSuppliers = (state: any) => state.purchasing?.suppliers
 export const selectPurchaseOrders = (state: any) => state.purchasing?.purchaseOrders
-export const selectGoodsReceivedNotes = (state: any) => state.purchasing?.goodsReceivedNotes
 export const selectDeletedGRNs = (state: any) => state.purchasing?.deletedGRNs
-export const selectVendorPayments = (state: any) => state.purchasing?.vendorPayments
 export const selectDeletedVendorPayments = (state: any) => state.purchasing?.deletedVendorPayments
 export const selectGRNsState = (state: any) => ({
   goodsReceivedNotes: state.purchasing?.goodsReceivedNotes || [],
@@ -620,7 +496,6 @@ export const selectVendorPaymentsState = (state: any) => ({
   error: state.purchasing?.error || null,
   pagination: state.purchasing?.pagination?.vendorPayments || { page: 1, limit: 20, total: 0, totalPages: 0 }
 })
-export const selectSelectedSupplier = (state: any) => state.purchasing?.selectedSupplier
 export const selectSelectedPurchaseOrder = (state: any) => state.purchasing?.selectedPurchaseOrder
 export const selectSelectedGRN = (state: any) => state.purchasing?.selectedGRN
 export const selectSelectedVendorPayment = (state: any) => state.purchasing?.selectedVendorPayment

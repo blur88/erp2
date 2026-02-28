@@ -264,42 +264,6 @@ export const fetchDeletedInvoices = createAsyncThunk(
   }
 )
 
-export const restoreInvoice = createAsyncThunk(
-  'sales/restoreInvoice',
-  async (id: string, { rejectWithValue }) => {
-    try {
-      const response = await salesApi.restoreInvoice(id)
-      return response
-    } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || 'Failed to restore invoice')
-    }
-  }
-)
-
-export const bulkRestoreInvoices = createAsyncThunk(
-  'sales/bulkRestoreInvoices',
-  async (invoiceIds: string[], { rejectWithValue }) => {
-    try {
-      const response = await salesApi.bulkRestoreInvoices(invoiceIds)
-      return response
-    } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || 'Failed to restore invoices')
-    }
-  }
-)
-
-export const fetchPayments = createAsyncThunk(
-  'sales/fetchPayments',
-  async (params: { page?: number; limit?: number; customerId?: string }, { rejectWithValue }) => {
-    try {
-      const response = await salesApi.getPayments(params)
-      return response.data
-    } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || 'Failed to fetch payments')
-    }
-  }
-)
-
 export const createCustomer = createAsyncThunk(
   'sales/createCustomer',
   async (customerData: Partial<Customer>, { rejectWithValue }) => {
@@ -336,30 +300,6 @@ export const updateOrder = createAsyncThunk(
   }
 )
 
-export const createInvoice = createAsyncThunk(
-  'sales/createInvoice',
-  async (invoiceData: Partial<Invoice>, { rejectWithValue }) => {
-    try {
-      const response = await salesApi.createInvoice(invoiceData)
-      return response
-    } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || 'Failed to create invoice')
-    }
-  }
-)
-
-export const recordPayment = createAsyncThunk(
-  'sales/recordPayment',
-  async (paymentData: Partial<Payment>, { rejectWithValue }) => {
-    try {
-      const response = await salesApi.recordPayment(paymentData)
-      return response
-    } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || 'Failed to record payment')
-    }
-  }
-)
-
 export const fetchDeletedPayments = createAsyncThunk(
   'sales/fetchDeletedPayments',
   async (params: { page?: number; limit?: number; search?: string }, { rejectWithValue }) => {
@@ -368,30 +308,6 @@ export const fetchDeletedPayments = createAsyncThunk(
       return response
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.message || 'Failed to fetch deleted payments')
-    }
-  }
-)
-
-export const restorePayment = createAsyncThunk(
-  'sales/restorePayment',
-  async (id: string, { rejectWithValue }) => {
-    try {
-      const response = await salesApi.restorePayment(id)
-      return response
-    } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || 'Failed to restore payment')
-    }
-  }
-)
-
-export const bulkRestorePayments = createAsyncThunk(
-  'sales/bulkRestorePayments',
-  async (paymentIds: string[], { rejectWithValue }) => {
-    try {
-      const response = await salesApi.bulkRestorePayments(paymentIds)
-      return response
-    } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || 'Failed to restore payments')
     }
   }
 )
@@ -486,9 +402,6 @@ const salesSlice = createSlice({
       if (state.selectedOrder?.id === updatedOrder.id) {
         state.selectedOrder = updatedOrder
       }
-    },
-    setCustomers: (state, action: PayloadAction<Customer[]>) => {
-      state.customers = action.payload
     },
     clearError: (state) => {
       state.error = null
@@ -715,58 +628,6 @@ const salesSlice = createSlice({
         state.error = action.payload as string
       })
 
-    // Restore Invoice
-    builder
-      .addCase(restoreInvoice.pending, (state) => {
-        state.error = null
-      })
-      .addCase(restoreInvoice.fulfilled, (state, action) => {
-        // Invoice will be removed from deletedInvoices when refetched
-      })
-      .addCase(restoreInvoice.rejected, (state, action) => {
-        state.error = action.payload as string
-      })
-
-    // Bulk Restore Invoices
-    builder
-      .addCase(bulkRestoreInvoices.pending, (state) => {
-        state.error = null
-      })
-      .addCase(bulkRestoreInvoices.fulfilled, (state, action) => {
-        // Invoices will be removed from deletedInvoices when refetched
-      })
-      .addCase(bulkRestoreInvoices.rejected, (state, action) => {
-        state.error = action.payload as string
-      })
-
-    // Fetch Payments
-    builder
-      .addCase(fetchPayments.pending, (state) => {
-        state.loading.payments = true
-        state.error = null
-      })
-      .addCase(fetchPayments.fulfilled, (state, action) => {
-        state.loading.payments = false
-        if (action.payload) {
-          // Handle both flat structure and nested meta structure
-          const payload = action.payload as any
-          state.payments = payload.data || []
-          
-          // Check if pagination is in meta or at root level
-          const paginationData = payload.meta || payload
-          state.pagination.payments = {
-            page: paginationData.page || 1,
-            limit: paginationData.limit || 20,
-            total: paginationData.total || 0,
-            totalPages: paginationData.totalPages || 0
-          }
-        }
-      })
-      .addCase(fetchPayments.rejected, (state, action) => {
-        state.loading.payments = false
-        state.error = action.payload as string
-      })
-
     // Create Customer
     builder
       .addCase(createCustomer.fulfilled, (state, action) => {
@@ -802,24 +663,6 @@ const salesSlice = createSlice({
         }
       })
 
-    // Create Invoice
-    builder
-      .addCase(createInvoice.fulfilled, (state, action) => {
-        if (action.payload) {
-          const invoice = (action.payload as any).data || action.payload
-          state.invoices.unshift(invoice)
-        }
-      })
-
-    // Record Payment
-    builder
-      .addCase(recordPayment.fulfilled, (state, action) => {
-        if (action.payload) {
-          const payment = (action.payload as any).data || action.payload
-          state.payments.unshift(payment)
-        }
-      })
-
     // Fetch Deleted Payments
     builder
       .addCase(fetchDeletedPayments.pending, (state) => {
@@ -835,30 +678,6 @@ const salesSlice = createSlice({
       })
       .addCase(fetchDeletedPayments.rejected, (state, action) => {
         state.loading.deletedPayments = false
-        state.error = action.payload as string
-      })
-
-    // Restore Payment
-    builder
-      .addCase(restorePayment.pending, (state) => {
-        state.error = null
-      })
-      .addCase(restorePayment.fulfilled, (state, action) => {
-        // Payment will be removed from deletedPayments when refetched
-      })
-      .addCase(restorePayment.rejected, (state, action) => {
-        state.error = action.payload as string
-      })
-
-    // Bulk Restore Payments
-    builder
-      .addCase(bulkRestorePayments.pending, (state) => {
-        state.error = null
-      })
-      .addCase(bulkRestorePayments.fulfilled, (state, action) => {
-        // Payments will be removed from deletedPayments when refetched
-      })
-      .addCase(bulkRestorePayments.rejected, (state, action) => {
         state.error = action.payload as string
       })
 
@@ -920,7 +739,6 @@ export const {
   setSelectedInvoice,
   setSelectedPayment,
   setOrderFilters,
-  setCustomers,
   updateOrderInPlace,
   clearError,
 } = salesSlice.actions
@@ -930,7 +748,6 @@ export const selectCustomers = (state: any) => state.sales?.customers
 export const selectDeletedCustomers = (state: any) => state.sales?.deletedCustomers
 export const selectOrders = (state: any) => state.sales?.orders
 export const selectDeletedOrders = (state: any) => state.sales?.deletedOrders
-export const selectInvoices = (state: any) => state.sales?.invoices
 export const selectDeletedInvoices = (state: any) => state.sales?.deletedInvoices
 export const selectInvoicesState = (state: any) => ({
   invoices: state.sales?.invoices || [],
@@ -938,9 +755,7 @@ export const selectInvoicesState = (state: any) => ({
   error: state.sales?.error || null,
   pagination: state.sales?.pagination?.invoices || { page: 1, limit: 20, total: 0, totalPages: 0 }
 })
-export const selectPayments = (state: any) => state.sales?.payments
 export const selectDeletedPayments = (state: any) => state.sales?.deletedPayments
-export const selectSelectedCustomer = (state: any) => state.sales?.selectedCustomer
 export const selectSelectedOrder = (state: any) => state.sales?.selectedOrder
 export const selectSelectedInvoice = (state: any) => state.sales?.selectedInvoice
 export const selectSelectedPayment = (state: any) => state.sales?.selectedPayment
