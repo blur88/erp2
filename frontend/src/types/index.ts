@@ -23,14 +23,6 @@ export interface User {
 
 export type UserRole = 'admin' | 'manager' | 'sales_staff' | 'inventory_staff' | 'procurement_staff';
 
-// Legacy permission interface - kept for backward compatibility
-export interface Permission {
-  id: string;
-  name: string;
-  resource: string;
-  action: string;
-}
-
 // Product and Inventory types
 export interface Product {
   id: string;
@@ -69,11 +61,6 @@ export interface Category {
   createdAt: Date | string;
   updatedAt: Date | string;
   deletedAt?: Date | string | null; // For soft-deleted categories
-}
-
-export interface ProductAttribute {
-  name: string;
-  value: string;
 }
 
 export enum StockMovementType {
@@ -173,16 +160,6 @@ export enum CustomerType {
   BUSINESS = 'business',
 }
 
-
-/**
- * @deprecated Use pricingScheme string instead
- * Kept for backward compatibility
- */
-export enum PriceLevel {
-  RETAIL = 'retail',
-  WHOLESALE = 'wholesale',
-  SPECIAL = 'special',
-}
 
 export interface Customer {
   id: string;
@@ -518,15 +495,6 @@ export interface PendingSettlementSummary {
 }
 
 // Common types
-export interface Address {
-  street1: string;
-  street2?: string;
-  city: string;
-  state: string;
-  zipCode: string;
-  country: string;
-}
-
 export interface DashboardStats {
   totalSales: number;
   totalPurchases: number;

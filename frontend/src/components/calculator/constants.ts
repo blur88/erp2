@@ -8,5 +8,5 @@ export const INITIAL_STATE: CalculatorState = {
   history: [],
 }
 
-export const MAX_DISPLAY_LENGTH = 12
+const MAX_DISPLAY_LENGTH = 12
 export const MAX_HISTORY_ENTRIES = 10
