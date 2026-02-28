@@ -1,0 +1,18 @@
+{
+  "$schema": "https://unpkg.com/knip@5/schema.json",
+  "entry": [
+    "src/main.ts",
+    "src/config/database.config.ts",
+    "src/config/cli-datasource.ts"
+  ],
+  "project": ["src/**/*.ts"],
+  "ignore": [
+    "src/database/migrations/**"
+  ],
+  "ignoreDependencies": [
+    "ts-loader",
+    "supertest",
+    "@types/supertest"
+  ],
+  "ignoreExportsUsedInFile": true
+}
