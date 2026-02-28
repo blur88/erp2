@@ -144,30 +144,6 @@ export const fetchCategories = createAsyncThunk(
   }
 )
 
-export const createProduct = createAsyncThunk(
-  'inventory/createProduct',
-  async (productData: Partial<Product>, { rejectWithValue }) => {
-    try {
-      const response = await inventoryApi.createProduct(productData)
-      return response
-    } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || 'Failed to create product')
-    }
-  }
-)
-
-export const updateProduct = createAsyncThunk(
-  'inventory/updateProduct',
-  async ({ id, data }: { id: string; data: Partial<Product> }, { rejectWithValue }) => {
-    try {
-      const response = await inventoryApi.updateProduct(id, data)
-      return response
-    } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || 'Failed to update product')
-    }
-  }
-)
-
 export const deleteProduct = createAsyncThunk(
   'inventory/deleteProduct',
   async (id: string, { rejectWithValue }) => {
@@ -388,29 +364,6 @@ export const checkCategoryDuplicate = createAsyncThunk(
   }
 )
 
-export const fetchStockMovements = createAsyncThunk(
-  'inventory/fetchStockMovements',
-  async (params: {
-    page?: number
-    limit?: number
-    productId?: string
-    movementType?: string
-    fromDate?: string
-    toDate?: string
-    search?: string
-    sortBy?: string
-    sortOrder?: string
-  }, { rejectWithValue }) => {
-    try {
-      const response = await inventoryApi.getStockMovements(params as any)
-      return response || { data: [], meta: { page: 1, limit: 20, total: 0, totalPages: 0 } }
-    } catch (error: any) {
-      console.error('Failed to fetch stock movements:', error)
-      return rejectWithValue(error.response?.data?.message || 'Failed to fetch stock movements')
-    }
-  }
-)
-
 export const fetchStockAdjustments = createAsyncThunk(
   'inventory/fetchStockAdjustments',
   async (params: {
@@ -508,9 +461,6 @@ const inventorySlice = createSlice({
     setSelectedCategory: (state, action: PayloadAction<Category | null>) => {
       state.selectedCategory = action.payload
     },
-    setSelectedStockMovement: (state, action: PayloadAction<StockMovement | null>) => {
-      state.selectedStockMovement = action.payload
-    },
     setSelectedStockAdjustment: (state, action: PayloadAction<StockAdjustment | null>) => {
       state.selectedStockAdjustment = action.payload
     },
@@ -519,16 +469,6 @@ const inventorySlice = createSlice({
     },
     setCategoryFilters: (state, action: PayloadAction<Partial<typeof initialState.filters.categories>>) => {
       state.filters.categories = { ...state.filters.categories, ...action.payload }
-    },
-    resetFilters: (state) => {
-      state.filters = initialState.filters
-    },
-    clearError: (state) => {
-      state.error = null
-    },
-    resetProducts: (state) => {
-      state.products = []
-      state.pagination.products = initialState.pagination.products
     },
   },
   extraReducers: (builder) => {
@@ -568,34 +508,6 @@ const inventorySlice = createSlice({
       })
       .addCase(fetchCategories.rejected, (state, action) => {
         state.loading.categories = false
-        state.error = action.payload as string
-      })
-
-    // Create Product
-    builder
-      .addCase(createProduct.fulfilled, (state, action) => {
-        if (action.payload) {
-          state.products.unshift(action.payload)
-        }
-      })
-      .addCase(createProduct.rejected, (state, action) => {
-        state.error = action.payload as string
-      })
-
-    // Update Product
-    builder
-      .addCase(updateProduct.fulfilled, (state, action) => {
-        if (action.payload) {
-          const index = state.products.findIndex(p => p.id === action.payload.id)
-          if (index >= 0) {
-            state.products[index] = action.payload
-          }
-          if (state.selectedProduct?.id === action.payload.id) {
-            state.selectedProduct = action.payload
-          }
-        }
-      })
-      .addCase(updateProduct.rejected, (state, action) => {
         state.error = action.payload as string
       })
 
@@ -673,24 +585,6 @@ const inventorySlice = createSlice({
             p => !successfulIds.includes(p.id)
           )
         }
-      })
-
-    // Fetch Stock Movements
-    builder
-      .addCase(fetchStockMovements.pending, (state) => {
-        state.loading.stockMovements = true
-        state.error = null
-      })
-      .addCase(fetchStockMovements.fulfilled, (state, action) => {
-        state.loading.stockMovements = false
-        if (action.payload) {
-          state.stockMovements = (action.payload as any).data || []
-          state.pagination.stockMovements = (action.payload as any).meta
-        }
-      })
-      .addCase(fetchStockMovements.rejected, (state, action) => {
-        state.loading.stockMovements = false
-        state.error = action.payload as string
       })
 
     // Create Category (data refreshed automatically via dispatch)
@@ -847,13 +741,9 @@ const inventorySlice = createSlice({
 export const {
   setSelectedProduct,
   setSelectedCategory,
-  setSelectedStockMovement,
   setSelectedStockAdjustment,
   setProductFilters,
   setCategoryFilters,
-  resetFilters,
-  clearError,
-  resetProducts,
 } = inventorySlice.actions
 
 // Selectors
@@ -861,17 +751,13 @@ export const selectProducts = (state: any) => state.inventory?.products
 export const selectDeletedProducts = (state: any) => state.inventory?.deletedProducts
 export const selectCategories = (state: any) => state.inventory?.categories
 export const selectDeletedCategories = (state: any) => state.inventory?.deletedCategories
-export const selectStockMovements = (state: any) => state.inventory?.stockMovements
 export const selectStockAdjustments = (state: any) => state.inventory?.stockAdjustments
 export const selectDeletedStockAdjustments = (state: any) => state.inventory?.deletedStockAdjustments
 export const selectSelectedProduct = (state: any) => state.inventory?.selectedProduct
-export const selectSelectedCategory = (state: any) => state.inventory?.selectedCategory
-export const selectSelectedStockMovement = (state: any) => state.inventory?.selectedStockMovement
 export const selectSelectedStockAdjustment = (state: any) => state.inventory?.selectedStockAdjustment
 export const selectInventoryLoading = (state: any) => state.inventory?.loading
 export const selectInventoryError = (state: any) => state.inventory?.error
 export const selectInventoryPagination = (state: any) => state.inventory?.pagination
-export const selectInventoryFilters = (state: any) => state.inventory?.filters
 export const selectProductFilters = (state: any) => state.inventory?.filters?.products
 export const selectCategoryFilters = (state: any) => state.inventory?.filters?.categories
 

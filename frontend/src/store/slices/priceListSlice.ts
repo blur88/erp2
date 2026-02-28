@@ -67,13 +67,6 @@ export const fetchPriceListById = createAsyncThunk(
   }
 )
 
-export const fetchPriceListByCode = createAsyncThunk(
-  'priceLists/fetchByCode',
-  async (code: string) => {
-    return await priceListApi.getPriceListByCode(code)
-  }
-)
-
 export const createPriceList = createAsyncThunk(
   'priceLists/create',
   async (data: Partial<PriceList>) => {
@@ -110,13 +103,6 @@ export const fetchEffectivePriceLists = createAsyncThunk(
   }
 )
 
-export const fetchDefaultPriceList = createAsyncThunk(
-  'priceLists/fetchDefault',
-  async () => {
-    return await priceListApi.getDefaultPriceList()
-  }
-)
-
 export const fetchPriceListItems = createAsyncThunk(
   'priceLists/fetchItems',
   async (priceListId: string) => {
@@ -149,9 +135,6 @@ const priceListSlice = createSlice({
   name: 'priceLists',
   initialState,
   reducers: {
-    setSelectedPriceList: (state, action: PayloadAction<PriceList | null>) => {
-      state.selectedPriceList = action.payload
-    },
     setFilters: (state, action: PayloadAction<Partial<typeof initialState.filters>>) => {
       state.filters = { ...state.filters, ...action.payload }
     },
@@ -203,24 +186,6 @@ const priceListSlice = createSlice({
         }
       })
       .addCase(fetchPriceListById.rejected, (state, action) => {
-        state.loading.priceLists = false
-        state.error = action.error.message || 'Failed to fetch price list'
-      })
-
-    // Fetch price list by code
-    builder
-      .addCase(fetchPriceListByCode.pending, (state) => {
-        state.loading.priceLists = true
-        state.error = null
-      })
-      .addCase(fetchPriceListByCode.fulfilled, (state, action) => {
-        state.loading.priceLists = false
-        if (action.payload) {
-          const payload = action.payload as any
-          state.selectedPriceList = payload.data || payload
-        }
-      })
-      .addCase(fetchPriceListByCode.rejected, (state, action) => {
         state.loading.priceLists = false
         state.error = action.error.message || 'Failed to fetch price list'
       })
@@ -333,24 +298,6 @@ const priceListSlice = createSlice({
         state.error = action.error.message || 'Failed to fetch effective price lists'
       })
 
-    // Fetch default price list
-    builder
-      .addCase(fetchDefaultPriceList.pending, (state) => {
-        state.loading.defaultPriceList = true
-        state.error = null
-      })
-      .addCase(fetchDefaultPriceList.fulfilled, (state, action) => {
-        state.loading.defaultPriceList = false
-        if (action.payload) {
-          const payload = action.payload as any
-          state.defaultPriceList = payload.data || payload
-        }
-      })
-      .addCase(fetchDefaultPriceList.rejected, (state, action) => {
-        state.loading.defaultPriceList = false
-        state.error = action.error.message || 'Failed to fetch default price list'
-      })
-
     // Fetch price list items
     builder
       .addCase(fetchPriceListItems.pending, (state) => {
@@ -433,6 +380,6 @@ const priceListSlice = createSlice({
   },
 })
 
-export const { setSelectedPriceList, setFilters, setPagination, clearError } = priceListSlice.actions
+export const { setFilters, setPagination, clearError } = priceListSlice.actions
 
 export default priceListSlice.reducer
