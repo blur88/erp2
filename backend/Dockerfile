@@ -1,33 +1,34 @@
-# Production-ready Dockerfile for NestJS Backend
-FROM node:24-alpine
+# Stage 1: Install all dependencies (dev + prod) for building
+FROM node:24.2.0-alpine3.21 AS deps
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci && npm cache clean --force
+
+# Stage 2: Build the application
+FROM node:24.2.0-alpine3.21 AS builder
+WORKDIR /app
+COPY --from=deps /app/node_modules ./node_modules
+COPY . .
+RUN npm run build && npm prune --omit=dev && npm cache clean --force
+
+# Stage 3: Production image — only compiled output + prod deps
+FROM node:24.2.0-alpine3.21 AS production
 
 # Install security updates and runtime dependencies
 RUN apk update && apk upgrade && \
-    apk add --no-cache curl 'postgresql18-client>=18.2-r0' dumb-init && \
+    apk add --no-cache curl 'postgresql17-client>=17.8-r0' dumb-init && \
     rm -rf /var/cache/apk/*
 
 # Create non-root user
 RUN addgroup -g 1001 -S nodejs && \
     adduser -S nestjs -u 1001 -G nodejs
 
-# Set working directory
 WORKDIR /app
 
-# Copy package files
-COPY package*.json ./
-
-# Install dependencies
-RUN npm ci && npm cache clean --force
-
-# Copy source code
-COPY --chown=nestjs:nodejs . .
-
-# Build and keep only runtime dependencies
-RUN npm run build && npm prune --omit=dev && npm cache clean --force
-
-# Remove npm and npx from runtime image to reduce vulnerable package surface
-RUN rm -rf /usr/local/lib/node_modules/npm && \
-    rm -f /usr/local/bin/npm /usr/local/bin/npx
+# Copy only built output and production node_modules
+COPY --from=builder --chown=nestjs:nodejs /app/dist ./dist
+COPY --from=builder --chown=nestjs:nodejs /app/node_modules ./node_modules
+COPY --from=builder --chown=nestjs:nodejs /app/package.json ./package.json
 
 # Create necessary directories with proper permissions
 RUN mkdir -p uploads logs backups/{postgresql,mongodb,redis,settings,archives,temp,uploads} && \
