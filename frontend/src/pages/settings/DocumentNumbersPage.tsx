@@ -121,14 +121,12 @@ const DocumentNumbersPage: React.FC = () => {
           Document Numbers Settings
         </Typography>
       </Box>
-
       {/* Error Alert */}
       {error && (
         <Alert severity="error" sx={{ mb: 3 }}>
           {error}
         </Alert>
       )}
-
       <Paper sx={{ p: 4 }}>
         <Typography variant="body2" sx={{ color: 'text.secondary', mb: 1 }}>
           Configure document numbering patterns for various business documents. The system will automatically
@@ -236,7 +234,7 @@ const DocumentNumbersPage: React.FC = () => {
         </Box>
       </Paper>
     </Box>
-  )
+  );
 }
 
 export default DocumentNumbersPage
