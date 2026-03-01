@@ -144,15 +144,14 @@ const BlockedPurchaseOrderDialog: React.FC<BlockedPurchaseOrderDialogProps> = ({
         {/* Show appropriate action buttons based on status */}
         {blockingReasons.length === 2 ? (
           // Both received and paid - unpay & return together
-          <Button
+          (<Button
             onClick={actionType === 'edit' ? onUnpayAndEdit : onUnpayAndDelete}
             variant="contained"
             color="error"
             disabled={loading}
             sx={{ minWidth: 180 }}
-          >
-            Unpay, Return & {actionVerbCap}
-          </Button>
+          >Unpay, Return & {actionVerbCap}
+          </Button>)
         ) : isReceived ? (
           // Only received
           (<>
@@ -177,15 +176,14 @@ const BlockedPurchaseOrderDialog: React.FC<BlockedPurchaseOrderDialogProps> = ({
           </>)
         ) : (
           // Only paid
-          <Button
+          (<Button
             onClick={actionType === 'edit' ? onUnpayAndEdit : onUnpayAndDelete}
             variant="contained"
             color="error"
             disabled={loading}
             sx={{ minWidth: 140 }}
-          >
-            Unpay & {actionVerbCap}
-          </Button>
+          >Unpay & {actionVerbCap}
+          </Button>)
         )}
       </DialogActions>
     </Dialog>

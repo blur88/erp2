@@ -23,7 +23,7 @@ function renderDialog(open = true) {
 }
 
 function getDropZone() {
-  return screen.getByText(/Click to select/i).closest('[data-drag-active]') as HTMLElement
+  return screen.getByText(/Click to select/i).closest('[data-drag-active]') as HTMLElement;
 }
 
 describe('UploadBackupDialog drag and drop', () => {

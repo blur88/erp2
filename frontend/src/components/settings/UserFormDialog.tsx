@@ -62,7 +62,7 @@ const userSchema = yup.object({
           .nullable()
           .test('password-complexity', 'Password must contain uppercase, lowercase, number, and special character (@$!%*?&.)', function(value) {
             if (!value || value.length === 0) return true // Optional when editing
-            return /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&.])[A-Za-z\d@$!%*?&.]/.test(value) && value.length >= 8
+            return /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&.])[A-Za-z\d@$!%*?&.]/.test(value) && value.length >= 8;
           }),
     }),
   passwordConfirmation: yup
