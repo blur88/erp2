@@ -1,5 +1,5 @@
 # Build stage
-FROM node:24-alpine AS builder
+FROM node:24.2.0-alpine3.21 AS builder
 
 # Set working directory
 WORKDIR /app
@@ -8,7 +8,7 @@ WORKDIR /app
 COPY package*.json ./
 
 # Install all dependencies (including dev for build)
-RUN npm install
+RUN npm ci
 # Fix Rollup native dependency issue in Alpine Linux
 RUN npm install @rollup/rollup-linux-x64-musl --save-optional
 
@@ -28,7 +28,7 @@ ENV VITE_APP_VERSION=$VITE_APP_VERSION
 RUN npm run build
 
 # Production stage
-FROM nginx:1-alpine-slim AS production
+FROM nginx:1.28.0-alpine3.21 AS production
 
 # Update Alpine packages and install curl for health checks
 RUN apk update && \
@@ -50,7 +50,7 @@ EXPOSE 80
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD curl -f http://localhost/ || exit 1
+  CMD curl -f http://localhost/health || exit 1
 
 # Start nginx with custom entrypoint
 ENTRYPOINT ["/docker-entrypoint.sh"]
