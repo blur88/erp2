@@ -12,7 +12,7 @@ services:
       PGDATA: /var/lib/postgresql/data/pgdata
       TZ: Asia/Kuala_Lumpur
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - ./data/postgres:/var/lib/postgresql/data/pgdata
       - ./database/init:/docker-entrypoint-initdb.d:ro
     networks:
       - erp_network
@@ -268,8 +268,6 @@ services:
         max-file: "3"
 
 volumes:
-  postgres_data:
-    driver: local
   redis_data:
     driver: local
 
