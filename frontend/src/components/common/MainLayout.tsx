@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react'
-import { useLocation } from 'react-router-dom'
+import React, { useEffect, useState } from 'react'
+import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import {
   Box,
   Drawer,
@@ -16,8 +16,6 @@ import {
   Tooltip,
   Divider,
   ListItemIcon,
-  Popover,
-  MenuList,
 } from '@mui/material'
 import {
   Menu as MenuIcon,
@@ -27,26 +25,20 @@ import {
   LightMode as LightModeIcon,
   Person as PersonIcon,
   Logout as LogoutIcon,
-  Lock as LockIcon,
 } from '@mui/icons-material'
 
 import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
 import { toggleTheme, selectThemeMode } from '@/store/slices/themeSlice'
 import { selectUnreadCount } from '@/store/slices/notificationSlice'
 import { logout as logoutAction, selectRefreshToken } from '@/store/slices/authSlice'
-import { useNavigate } from 'react-router-dom'
 
 import Sidebar from './Sidebar'
 import NotificationPanel from './NotificationPanel'
 import SystemStatus from './SystemStatus'
 
-interface MainLayoutProps {
-  children: React.ReactNode
-}
-
 const DRAWER_WIDTH = 280
 
-const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
+const MainLayout: React.FC = () => {
   const theme = useTheme()
   const isMobile = useMediaQuery(theme.breakpoints.down('lg'))
   const dispatch = useAppDispatch()
@@ -62,7 +54,6 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   const currentUser = useAppSelector((state) => state.auth?.user || null)
   const refreshToken = useAppSelector(selectRefreshToken)
 
-  // Close drawer and user menu on navigation to prevent overlay issues
   useEffect(() => {
     setMobileOpen(false)
     setUserMenuAnchorEl(null)
@@ -71,7 +62,6 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen)
   }
-
 
   const handleNotificationOpen = (event: React.MouseEvent<HTMLElement>) => {
     setNotificationAnchorEl(event.currentTarget)
@@ -103,14 +93,12 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
     navigate('/login')
   }
 
-  // Get user initials for avatar
   const getUserInitials = () => {
     if (!currentUser) return 'U'
 
     const firstName = currentUser.firstName?.trim() || ''
     const lastName = currentUser.lastName?.trim() || ''
 
-    // Try to get initials from first and last name
     const firstInitial = firstName.charAt(0).toUpperCase()
     const lastInitial = lastName.charAt(0).toUpperCase()
 
@@ -126,20 +114,16 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
       return lastInitial
     }
 
-    // Fallback to first letter of username
     return currentUser.username?.charAt(0).toUpperCase() || 'U'
   }
 
-  // Get user display name
   const getUserDisplayName = () => {
     if (!currentUser) return 'User'
 
-    // Check if fullName exists and is not empty
     if (currentUser.fullName && currentUser.fullName.trim()) {
       return currentUser.fullName
     }
 
-    // Check if firstName and lastName exist
     const firstName = currentUser.firstName?.trim() || ''
     const lastName = currentUser.lastName?.trim() || ''
 
@@ -147,11 +131,9 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
       return `${firstName} ${lastName}`.trim()
     }
 
-    // Fallback to username
     return currentUser.username || 'User'
   }
 
-  // Get role badge color
   const getRoleBadgeColor = (role?: string) => {
     switch (role) {
       case 'admin':
@@ -169,10 +151,8 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
     }
   }
 
-
   return (
     <Box sx={{ display: 'flex', minHeight: '100vh' }}>
-      {/* App Bar */}
       <AppBar
         position="fixed"
         sx={{
@@ -186,7 +166,6 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
         }}
       >
         <Toolbar>
-          {/* Mobile menu button */}
           <IconButton
             color="inherit"
             aria-label="open drawer"
@@ -197,29 +176,19 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
             <MenuIcon />
           </IconButton>
 
-          {/* Title */}
-          <Typography
-            variant="h6"
-            noWrap
-            component="div"
-            sx={{ flexGrow: 1, fontWeight: 600 }}
-          >
+          <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1, fontWeight: 600 }}>
             ERP System
           </Typography>
 
-          {/* Actions */}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            {/* System Status */}
             <SystemStatus />
 
-            {/* Theme toggle */}
             <Tooltip title={`Switch to ${themeMode === 'light' ? 'dark' : 'light'} mode`}>
               <IconButton onClick={handleThemeToggle} color="inherit">
                 {themeMode === 'light' ? <DarkModeIcon /> : <LightModeIcon />}
               </IconButton>
             </Tooltip>
 
-            {/* Notifications */}
             <Tooltip title="Notifications">
               <IconButton onClick={handleNotificationOpen} color="inherit">
                 <Badge badgeContent={unreadCount} color="error">
@@ -228,7 +197,6 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
               </IconButton>
             </Tooltip>
 
-            {/* User Menu */}
             <IconButton
               onClick={handleUserMenuOpen}
               sx={{ ml: 1 }}
@@ -253,12 +221,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
         </Toolbar>
       </AppBar>
 
-      {/* Sidebar */}
-      <Box
-        component="nav"
-        sx={{ width: { lg: DRAWER_WIDTH }, flexShrink: { lg: 0 } }}
-      >
-        {/* Mobile drawer */}
+      <Box component="nav" sx={{ width: { lg: DRAWER_WIDTH }, flexShrink: { lg: 0 } }}>
         <Drawer
           key={location.pathname}
           variant="temporary"
@@ -278,7 +241,6 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
           <Sidebar onItemClick={handleDrawerToggle} />
         </Drawer>
 
-        {/* Desktop drawer */}
         <Drawer
           variant="permanent"
           sx={{
@@ -294,7 +256,6 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
         </Drawer>
       </Box>
 
-      {/* Main content */}
       <Box
         component="main"
         sx={{
@@ -308,18 +269,15 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
           maxWidth: '100%',
         }}
       >
-        {children}
+        <Outlet />
       </Box>
 
-
-      {/* Notification Panel */}
       <NotificationPanel
         anchorEl={notificationAnchorEl}
         open={Boolean(notificationAnchorEl)}
         onClose={handleNotificationClose}
       />
 
-      {/* User Menu */}
       <Menu
         id="user-menu"
         anchorEl={userMenuAnchorEl}
@@ -351,7 +309,6 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
           },
         }}
       >
-        {/* User Info Header */}
         <Box sx={{ px: 2, py: 1.5, borderBottom: '1px solid', borderColor: 'divider' }}>
           <Typography variant="subtitle2" fontWeight={600}>
             {getUserDisplayName()}
@@ -378,7 +335,6 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
           </Box>
         </Box>
 
-        {/* Menu Items */}
         <MenuItem onClick={() => navigate('/settings/users')}>
           <ListItemIcon>
             <PersonIcon fontSize="small" />

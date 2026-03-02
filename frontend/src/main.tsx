@@ -1,30 +1,24 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
-import { BrowserRouter } from 'react-router-dom'
+import { RouterProvider } from 'react-router-dom'
 import { Provider } from 'react-redux'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import CssBaseline from '@mui/material/CssBaseline'
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider'
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns'
 
-import App from './App'
 import { store } from './store'
+import { router } from './router'
 import { NotificationProvider } from './hooks/useNotification'
 import { WebSocketProvider } from './hooks/useWebSocket'
 import ThemeWrapper from './components/common/ThemeWrapper'
 
 import './styles/global.css'
 
-const routerFutureFlags = {
-  v7_startTransition: true,
-  v7_relativeSplatPath: true,
-}
-
-// Create React Query client
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 5 * 60 * 1000, // 5 minutes
+      staleTime: 5 * 60 * 1000,
       retry: 3,
       retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
     },
@@ -34,30 +28,27 @@ const queryClient = new QueryClient({
   },
 })
 
-// Enable React Query Devtools in development
 if ((import.meta as any).env?.DEV) {
-  import('@tanstack/react-query-devtools').then(({ ReactQueryDevtools }) => {
-    // Devtools will be added automatically
+  import('@tanstack/react-query-devtools').then(() => {
+    // Devtools loaded only in development.
   })
 }
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <BrowserRouter future={routerFutureFlags}>
-      <Provider store={store}>
-        <QueryClientProvider client={queryClient}>
-          <ThemeWrapper>
-            <CssBaseline />
-            <LocalizationProvider dateAdapter={AdapterDateFns}>
-              <NotificationProvider>
-                <WebSocketProvider>
-                  <App />
-                </WebSocketProvider>
-              </NotificationProvider>
-            </LocalizationProvider>
-          </ThemeWrapper>
-        </QueryClientProvider>
-      </Provider>
-    </BrowserRouter>
+    <Provider store={store}>
+      <QueryClientProvider client={queryClient}>
+        <ThemeWrapper>
+          <CssBaseline />
+          <LocalizationProvider dateAdapter={AdapterDateFns}>
+            <NotificationProvider>
+              <WebSocketProvider>
+                <RouterProvider router={router} />
+              </WebSocketProvider>
+            </NotificationProvider>
+          </LocalizationProvider>
+        </ThemeWrapper>
+      </QueryClientProvider>
+    </Provider>
   </React.StrictMode>,
 )
