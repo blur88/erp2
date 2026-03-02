@@ -8,11 +8,6 @@ import journalEntriesReducer from '@/store/slices/journalEntriesSlice'
 import { JournalEntryStatus } from '@/types'
 import { ApiService } from '@/services/api'
 
-const routerFutureFlags = {
-  v7_startTransition: true,
-  v7_relativeSplatPath: true,
-}
-
 // Mock ApiService
 vi.mock('@/services/api', () => ({
   ApiService: {
@@ -111,7 +106,7 @@ const renderWithProviders = () => {
   const store = createMockStore()
   return render(
     <Provider store={store}>
-      <BrowserRouter future={routerFutureFlags}>
+      <BrowserRouter>
         <JournalEntriesPage />
       </BrowserRouter>
     </Provider>

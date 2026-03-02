@@ -7,11 +7,6 @@ import '@testing-library/jest-dom/vitest';
 import ProtectedRoute from '../ProtectedRoute';
 import authReducer from '../../../store/slices/authSlice';
 
-const routerFutureFlags = {
-  v7_startTransition: true,
-  v7_relativeSplatPath: true,
-};
-
 // Mock navigate
 const mockNavigate = vi.fn();
 vi.mock('react-router-dom', async () => {
@@ -63,7 +58,7 @@ describe('ProtectedRoute', () => {
 
     render(
       <Provider store={store}>
-        <BrowserRouter future={routerFutureFlags}>
+        <BrowserRouter>
           <ProtectedRoute>
             <TestComponent />
           </ProtectedRoute>
@@ -93,7 +88,7 @@ describe('ProtectedRoute', () => {
 
     render(
       <Provider store={store}>
-        <BrowserRouter future={routerFutureFlags}>
+        <BrowserRouter>
           <Routes>
             <Route
               path="/"
@@ -131,7 +126,7 @@ describe('ProtectedRoute', () => {
 
     render(
       <Provider store={store}>
-        <BrowserRouter future={routerFutureFlags}>
+        <BrowserRouter>
           <ProtectedRoute>
             <TestComponent />
           </ProtectedRoute>
@@ -162,7 +157,7 @@ describe('ProtectedRoute', () => {
 
     render(
       <Provider store={store}>
-        <MemoryRouter initialEntries={['/dashboard']} future={routerFutureFlags}>
+        <MemoryRouter initialEntries={['/dashboard']}>
           <Routes>
             <Route
               path="/dashboard"
@@ -200,7 +195,7 @@ describe('ProtectedRoute', () => {
 
     render(
       <Provider store={store}>
-        <BrowserRouter future={routerFutureFlags}>
+        <BrowserRouter>
           <ProtectedRoute>
             <TestComponent />
           </ProtectedRoute>

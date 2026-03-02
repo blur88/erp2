@@ -8,11 +8,6 @@ import journalEntriesReducer from '@/store/slices/journalEntriesSlice'
 import chartOfAccountsReducer from '@/store/slices/chartOfAccountsSlice'
 import fiscalPeriodsReducer from '@/store/slices/fiscalPeriodsSlice'
 
-const routerFutureFlags = {
-  v7_startTransition: true,
-  v7_relativeSplatPath: true,
-}
-
 const mockChartAccounts = [
   { id: '1', code: '1000', name: 'Cash', type: 'asset', normalBalance: 'debit', isActive: true },
   { id: '2', code: '2000', name: 'Accounts Payable', type: 'liability', normalBalance: 'credit', isActive: true },
@@ -130,7 +125,7 @@ const createMockStore = (initialState = {}) => {
 const renderWithProviders = (component: React.ReactElement, store = createMockStore()) => {
   return render(
     <Provider store={store}>
-      <BrowserRouter future={routerFutureFlags}>{component}</BrowserRouter>
+      <BrowserRouter>{component}</BrowserRouter>
     </Provider>
   )
 }

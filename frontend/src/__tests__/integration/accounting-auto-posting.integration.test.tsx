@@ -91,16 +91,11 @@ const createMockStore = (initialState = {}) => {
   })
 }
 
-const routerFutureFlags = {
-  v7_startTransition: true,
-  v7_relativeSplatPath: true,
-} as const
-
 const renderWithRouter = (component: React.ReactElement, initialState = {}) => {
   const store = createMockStore(initialState)
   return render(
     <Provider store={store}>
-      <BrowserRouter future={routerFutureFlags}>{component}</BrowserRouter>
+      <BrowserRouter>{component}</BrowserRouter>
     </Provider>
   )
 }
@@ -194,7 +189,7 @@ describe('Accounting Auto-Posting Integration Tests', () => {
   describe('Transaction to Journal Entry Navigation Flow', () => {
     it('navigates from AccountingEntryLink to Journal Entries page with filters', async () => {
       render(
-        <BrowserRouter future={routerFutureFlags}>
+        <BrowserRouter>
           <AccountingEntryLink sourceType="sales_order" sourceId="so-123" variant="button" />
         </BrowserRouter>
       )
@@ -208,7 +203,7 @@ describe('Accounting Auto-Posting Integration Tests', () => {
 
     it('shows AccountingEntryLink in different variants', () => {
       const { rerender } = render(
-        <BrowserRouter future={routerFutureFlags}>
+        <BrowserRouter>
           <AccountingEntryLink sourceType="payment" sourceId="pay-456" variant="button" />
         </BrowserRouter>
       )
@@ -217,7 +212,7 @@ describe('Accounting Auto-Posting Integration Tests', () => {
 
       // Test inline variant
       rerender(
-        <BrowserRouter future={routerFutureFlags}>
+        <BrowserRouter>
           <AccountingEntryLink sourceType="payment" sourceId="pay-456" variant="inline" />
         </BrowserRouter>
       )
@@ -226,7 +221,7 @@ describe('Accounting Auto-Posting Integration Tests', () => {
 
       // Test alert variant
       rerender(
-        <BrowserRouter future={routerFutureFlags}>
+        <BrowserRouter>
           <AccountingEntryLink sourceType="payment" sourceId="pay-456" variant="alert" />
         </BrowserRouter>
       )
@@ -360,7 +355,7 @@ describe('Accounting Auto-Posting Integration Tests', () => {
 
       const { container } = render(
         <Provider store={createMockStore()}>
-          <BrowserRouter future={routerFutureFlags}>
+          <BrowserRouter>
             <AccountMappingWarning context="system" />
           </BrowserRouter>
         </Provider>
@@ -379,7 +374,7 @@ describe('Accounting Auto-Posting Integration Tests', () => {
 
       const { container } = render(
         <Provider store={createMockStore()}>
-          <BrowserRouter future={routerFutureFlags}>
+          <BrowserRouter>
             <AccountMappingWarning context="sales_order" transactionId="so-123" />
           </BrowserRouter>
         </Provider>
@@ -441,7 +436,7 @@ describe('Accounting Auto-Posting Integration Tests', () => {
 
       render(
         <Provider store={store}>
-          <BrowserRouter future={routerFutureFlags}>
+          <BrowserRouter>
             <Routes>
               <Route
                 path="*"
