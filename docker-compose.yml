@@ -55,7 +55,7 @@ services:
       --save 60 10000
       --appendonly yes
     volumes:
-      - redis_data:/data
+      - ./data/redis:/data
     networks:
       - erp_network
     healthcheck:
@@ -267,9 +267,6 @@ services:
         max-size: "10m"
         max-file: "3"
 
-volumes:
-  redis_data:
-    driver: local
 
 networks:
   erp_network:
