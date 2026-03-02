@@ -13,8 +13,6 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./database/init:/docker-entrypoint-initdb.d:ro
-    ports:
-      - "5432:5432"
     networks:
       - erp_network
     healthcheck:
@@ -57,8 +55,6 @@ services:
       --appendonly yes
     volumes:
       - redis_data:/data
-    ports:
-      - "6379:6379"
     networks:
       - erp_network
     healthcheck:
@@ -105,7 +101,7 @@ services:
       - DB_USERNAME=${DATABASE_USERNAME:-erp_user}
       - DB_PASSWORD=${DATABASE_PASSWORD}
       - DB_LOGGING=${DATABASE_LOGGING:-false}
-      - DB_SYNCHRONIZE=${DATABASE_SYNCHRONIZE:-true}
+      - DB_SYNCHRONIZE=${DATABASE_SYNCHRONIZE:-false}
       - DB_SSL=${DATABASE_SSL:-false}
 
       # Redis
@@ -245,7 +241,7 @@ services:
     networks:
       - erp_network
     healthcheck:
-      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:8080/health || exit 1"]
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:80/ || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
