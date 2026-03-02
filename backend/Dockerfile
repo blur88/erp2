@@ -12,11 +12,13 @@ COPY . .
 RUN npm run build && npm prune --omit=dev && npm cache clean --force
 
 # Stage 3: Production image — only compiled output + prod deps
-FROM node:24.2.0-alpine3.21 AS production
+# Uses alpine3.23 (not 3.21) because postgresql18-client is only available from Alpine 3.23+
+# This matches the postgres:18.2-alpine3.23 service image used in docker-compose.yml
+FROM node:24-alpine3.23 AS production
 
 # Install security updates and runtime dependencies
 RUN apk update && apk upgrade && \
-    apk add --no-cache curl 'postgresql17-client>=17.8-r0' dumb-init && \
+    apk add --no-cache curl 'postgresql18-client>=18.2-r0' dumb-init && \
     rm -rf /var/cache/apk/*
 
 # Create non-root user
