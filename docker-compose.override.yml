@@ -1,0 +1,18 @@
+# Local development overrides — auto-applied by "docker compose up"
+# NOT used in production. For production: docker compose -f docker-compose.yml up -d
+
+services:
+  postgres:
+    ports:
+      - "5432:5432"
+
+  redis:
+    ports:
+      - "6379:6379"
+
+  backend:
+    environment:
+      - DB_SYNCHRONIZE=true
+      - LOG_LEVEL=debug
+      - DEBUG_MODE=true
+      - ENABLE_SWAGGER=true

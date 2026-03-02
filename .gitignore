@@ -77,13 +77,12 @@ Thumbs.db
 *.code-workspace
 
 # Docker volumes and data (runtime data - never commit)
+data/
 postgres-data/
 mongo-data/
 redis-data/
 docker-volumes/
-docker-compose.override.yml
-
-# NOTE: .dockerignore, Dockerfile, and docker-compose.yml ARE committed
+# NOTE: .dockerignore, Dockerfile, docker-compose.yml, and docker-compose.override.yml ARE committed
 
 # Uploaded files
 uploads/

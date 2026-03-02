@@ -9,12 +9,11 @@ services:
       POSTGRES_USER: ${DATABASE_USERNAME:-erp_user}
       POSTGRES_PASSWORD: ${DATABASE_PASSWORD}
       POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
+      PGDATA: /var/lib/postgresql/data/pgdata
       TZ: Asia/Kuala_Lumpur
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - ./data/postgres:/var/lib/postgresql/data/pgdata
       - ./database/init:/docker-entrypoint-initdb.d:ro
-    ports:
-      - "5432:5432"
     networks:
       - erp_network
     healthcheck:
@@ -56,9 +55,7 @@ services:
       --save 60 10000
       --appendonly yes
     volumes:
-      - redis_data:/data
-    ports:
-      - "6379:6379"
+      - ./data/redis:/data
     networks:
       - erp_network
     healthcheck:
@@ -105,7 +102,7 @@ services:
       - DB_USERNAME=${DATABASE_USERNAME:-erp_user}
       - DB_PASSWORD=${DATABASE_PASSWORD}
       - DB_LOGGING=${DATABASE_LOGGING:-false}
-      - DB_SYNCHRONIZE=${DATABASE_SYNCHRONIZE:-true}
+      - DB_SYNCHRONIZE=${DATABASE_SYNCHRONIZE:-false}
       - DB_SSL=${DATABASE_SSL:-false}
 
       # Redis
@@ -270,11 +267,6 @@ services:
         max-size: "10m"
         max-file: "3"
 
-volumes:
-  postgres_data:
-    driver: local
-  redis_data:
-    driver: local
 
 networks:
   erp_network:
