@@ -12,6 +12,7 @@ import {
 } from '../../../database/entities';
 import { AuditLogService } from '../../audit-logs/services';
 import { AccountingService } from '../../accounting/services/accounting.service';
+import { SettingsService } from '../../settings/settings.service';
 import { CreateVendorPaymentDto } from '../dto';
 
 describe('VendorPaymentService', () => {
@@ -22,6 +23,7 @@ describe('VendorPaymentService', () => {
   let paymentMethodRepository: jest.Mocked<Repository<PaymentMethodEntity>>;
   let accountingService: jest.Mocked<AccountingService>;
   let auditLogService: jest.Mocked<AuditLogService>;
+  let settingsService: jest.Mocked<SettingsService>;
 
   const mockSupplier: Partial<Supplier> = {
     id: 'supplier-123',
@@ -102,6 +104,12 @@ describe('VendorPaymentService', () => {
             postVendorPaymentEntry: jest.fn(),
           },
         },
+        {
+          provide: SettingsService,
+          useValue: {
+            generateDocumentNumber: jest.fn(),
+          },
+        },
       ],
     }).compile();
 
@@ -112,6 +120,8 @@ describe('VendorPaymentService', () => {
     paymentMethodRepository = module.get(getRepositoryToken(PaymentMethodEntity));
     accountingService = module.get(AccountingService);
     auditLogService = module.get(AuditLogService);
+    settingsService = module.get(SettingsService);
+    settingsService.generateDocumentNumber.mockResolvedValue('VP-26-001');
 
     // Suppress logger output during tests
     jest.spyOn(Logger.prototype, 'log').mockImplementation();

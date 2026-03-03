@@ -4,7 +4,6 @@ import {
   Index,
   ManyToOne,
   JoinColumn,
-  BeforeInsert,
 } from 'typeorm';
 import {
   IsString,
@@ -84,12 +83,4 @@ export class Expense extends BaseEntity {
   @ManyToOne(() => JournalEntry, { onDelete: 'SET NULL', nullable: true })
   @JoinColumn({ name: 'journalEntryId' })
   journalEntry?: JournalEntry;
-
-  @BeforeInsert()
-  generateReferenceNumber() {
-    if (!this.referenceNumber) {
-      const timestamp = Date.now().toString(36).toUpperCase();
-      this.referenceNumber = `EXP-${timestamp}`;
-    }
-  }
 }

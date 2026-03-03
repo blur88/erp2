@@ -15,6 +15,7 @@ import {
 } from '../dto';
 import { AuditLogService } from '../../audit-logs/services';
 import { AccountingService } from '@modules/accounting/services/accounting.service';
+import { SettingsService } from '@modules/settings/settings.service';
 
 @Injectable()
 export class VendorPaymentService {
@@ -31,6 +32,7 @@ export class VendorPaymentService {
     private paymentMethodRepository: Repository<PaymentMethodEntity>,
     private readonly auditLogService: AuditLogService,
     private readonly accountingService: AccountingService,
+    private readonly settingsService: SettingsService,
   ) {}
 
   /**
@@ -40,7 +42,7 @@ export class VendorPaymentService {
     createDto: CreateVendorPaymentDto,
     user: string = 'system',
   ): Promise<VendorPayment> {
-    const paymentNumber = await this.generatePaymentNumber();
+    const paymentNumber = await this.settingsService.generateDocumentNumber('Vendor Payments');
     let paymentMethodId = createDto.paymentMethodId;
 
     if (!paymentMethodId) {
@@ -466,7 +468,7 @@ export class VendorPaymentService {
     });
 
     // Create vendor payment
-    const paymentNumber = await this.generatePaymentNumber();
+    const paymentNumber = await this.settingsService.generateDocumentNumber('Vendor Payments');
     const defaultPaymentMethod = await this.paymentMethodRepository.findOne({
       where: { code: 'BANK', isActive: true },
     });
@@ -568,29 +570,4 @@ export class VendorPaymentService {
     return { message: 'Vendor payment permanently deleted successfully' };
   }
 
-  /**
-   * Generate unique payment number
-   */
-  private async generatePaymentNumber(): Promise<string> {
-    const prefix = 'VP';
-
-    // Find the last payment number
-    const lastPayment = await this.vendorPaymentRepository
-      .createQueryBuilder('vendorPayment')
-      .where('vendorPayment.paymentNumber LIKE :pattern', {
-        pattern: `${prefix}-%`,
-      })
-      .orderBy('vendorPayment.paymentNumber', 'DESC')
-      .getOne();
-
-    let sequence = 1;
-    if (lastPayment) {
-      const lastSequence = parseInt(
-        lastPayment.paymentNumber.split('-')[1],
-      );
-      sequence = lastSequence + 1;
-    }
-
-    return `${prefix}-${sequence.toString().padStart(6, '0')}`;
-  }
 }

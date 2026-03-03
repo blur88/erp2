@@ -6,7 +6,7 @@ import { BackupLog } from '@database/entities/backup-log.entity';
 import { BackupRetentionSettings } from '@database/entities/backup-settings.entity';
 import { CompanySettings } from '@database/entities/company-settings.entity';
 import { PriceCostingSettings } from '@database/entities/price-costing-settings.entity';
-import { DocumentNumberSettings } from '@database/entities/document-number-settings.entity';
+import { DocumentNumberSetting } from '@database/entities/document-number-settings.entity';
 import { PrintSettings } from '@database/entities/print-settings.entity';
 
 const mockRepository = () => ({
@@ -48,7 +48,7 @@ describe('BackupService - settings backup', () => {
   let service: BackupService;
   let companySettingsRepo: ReturnType<typeof mockRepository>;
   let priceCostingSettingsRepo: ReturnType<typeof mockRepository>;
-  let documentNumberSettingsRepo: ReturnType<typeof mockRepository>;
+  let documentNumberSettingRepo: ReturnType<typeof mockRepository>;
   let printSettingsRepo: ReturnType<typeof mockRepository>;
 
   beforeEach(async () => {
@@ -60,7 +60,7 @@ describe('BackupService - settings backup', () => {
         { provide: getRepositoryToken(BackupRetentionSettings), useFactory: mockRepository },
         { provide: getRepositoryToken(CompanySettings), useFactory: mockRepository },
         { provide: getRepositoryToken(PriceCostingSettings), useFactory: mockRepository },
-        { provide: getRepositoryToken(DocumentNumberSettings), useFactory: mockRepository },
+        { provide: getRepositoryToken(DocumentNumberSetting), useFactory: mockRepository },
         { provide: getRepositoryToken(PrintSettings), useFactory: mockRepository },
       ],
     }).compile();
@@ -68,7 +68,7 @@ describe('BackupService - settings backup', () => {
     service = module.get<BackupService>(BackupService);
     companySettingsRepo = module.get(getRepositoryToken(CompanySettings));
     priceCostingSettingsRepo = module.get(getRepositoryToken(PriceCostingSettings));
-    documentNumberSettingsRepo = module.get(getRepositoryToken(DocumentNumberSettings));
+    documentNumberSettingRepo = module.get(getRepositoryToken(DocumentNumberSetting));
     printSettingsRepo = module.get(getRepositoryToken(PrintSettings));
   });
 
@@ -155,10 +155,15 @@ describe('BackupService - settings backup', () => {
         isActive: true,
       });
 
-      documentNumberSettingsRepo.findOne.mockResolvedValue({
-        configurations: [{ documentName: 'Sales Orders', prefix: 'SO', numberFormat: '000001', nextNumber: 42 }],
-        isActive: true,
-      });
+      documentNumberSettingRepo.find.mockResolvedValue([
+        {
+          documentName: 'Sales Orders',
+          prefix: 'SO',
+          paddingDigits: 3,
+          nextNumber: 42,
+          lastResetYear: 26,
+        },
+      ]);
 
       printSettingsRepo.findOne.mockResolvedValue({
         companyName: 'Acme Corp', address: '1 Main St', city: 'KL',
@@ -192,7 +197,7 @@ describe('BackupService - settings backup', () => {
       },
       documentNumberSettings: {
         configurations: [
-          { documentName: 'Sales Orders', prefix: 'SO', numberFormat: '000001', nextNumber: 100 },
+          { documentName: 'Sales Orders', prefix: 'SO', paddingDigits: 3, nextNumber: 100, lastResetYear: 26 },
         ],
       },
       printSettings: {
@@ -216,8 +221,11 @@ describe('BackupService - settings backup', () => {
 
       priceCostingSettingsRepo.findOne.mockResolvedValue({ id: 'uuid-2', isActive: true });
       priceCostingSettingsRepo.save.mockResolvedValue({});
-      documentNumberSettingsRepo.findOne.mockResolvedValue({ id: 'uuid-3', isActive: true });
-      documentNumberSettingsRepo.save.mockResolvedValue({});
+      documentNumberSettingRepo.findOne.mockResolvedValue({
+        id: 'uuid-3',
+        documentName: 'Sales Orders',
+      });
+      documentNumberSettingRepo.save.mockResolvedValue({});
       printSettingsRepo.findOne.mockResolvedValue({ id: 'uuid-4' });
       printSettingsRepo.save.mockResolvedValue({});
 
@@ -235,8 +243,11 @@ describe('BackupService - settings backup', () => {
 
       priceCostingSettingsRepo.findOne.mockResolvedValue({ id: 'uuid-2', isActive: true });
       priceCostingSettingsRepo.save.mockResolvedValue({});
-      documentNumberSettingsRepo.findOne.mockResolvedValue({ id: 'uuid-3', isActive: true });
-      documentNumberSettingsRepo.save.mockResolvedValue({});
+      documentNumberSettingRepo.findOne.mockResolvedValue({
+        id: 'uuid-3',
+        documentName: 'Sales Orders',
+      });
+      documentNumberSettingRepo.save.mockResolvedValue({});
       printSettingsRepo.findOne.mockResolvedValue({ id: 'uuid-4' });
       printSettingsRepo.save.mockResolvedValue({});
 
@@ -259,8 +270,11 @@ describe('BackupService - settings backup', () => {
       companySettingsRepo.save.mockResolvedValue({});
       priceCostingSettingsRepo.findOne.mockResolvedValue({ id: 'uuid-2', isActive: true });
       priceCostingSettingsRepo.save.mockResolvedValue({});
-      documentNumberSettingsRepo.findOne.mockResolvedValue({ id: 'uuid-3', isActive: true });
-      documentNumberSettingsRepo.save.mockResolvedValue({});
+      documentNumberSettingRepo.findOne.mockResolvedValue({
+        id: 'uuid-3',
+        documentName: 'Sales Orders',
+      });
+      documentNumberSettingRepo.save.mockResolvedValue({});
       printSettingsRepo.findOne.mockResolvedValue({ id: 'uuid-4' });
       printSettingsRepo.save.mockResolvedValue({});
 

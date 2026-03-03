@@ -22,6 +22,13 @@ import { useNotification } from '@/hooks/useNotification'
 import { settingsApi, type DocumentNumberConfig } from '@/services/settingsApi'
 import { TYPOGRAPHY_STYLES } from '@/constants/typography'
 
+const MODULE_GROUPS: Record<string, string[]> = {
+  Sales: ['Sales Orders', 'Invoices', 'Payments'],
+  Purchasing: ['Purchase Orders', 'Goods Received', 'Vendor Payments'],
+  Inventory: ['Stock Adjustment'],
+  Accounting: ['Journal Entries', 'Expenses', 'Settlements'],
+}
+
 const DocumentNumbersPage: React.FC = () => {
   const { showSuccess, showError } = useNotification()
   const [loading, setLoading] = useState(true)
@@ -35,11 +42,11 @@ const DocumentNumbersPage: React.FC = () => {
   }, [])
 
   useEffect(() => {
-    // Update previews whenever configurations change
+    const currentYY = String(new Date().getFullYear() % 100).padStart(2, '0')
     const newPreviews: Record<string, string> = {}
     configurations.forEach((config) => {
-      const paddedNumber = String(config.nextNumber).padStart(config.numberFormat.length, '0')
-      newPreviews[config.documentName] = `${config.prefix}-${paddedNumber}`
+      const seq = String(config.nextNumber).padStart(config.paddingDigits, '0')
+      newPreviews[config.documentName] = `${config.prefix}-${currentYY}-${seq}`
     })
     setPreviews(newPreviews)
   }, [configurations])
@@ -65,7 +72,7 @@ const DocumentNumbersPage: React.FC = () => {
 
   const handleConfigChange = (
     index: number,
-    field: keyof DocumentNumberConfig,
+    field: 'prefix' | 'nextNumber',
     value: string | number
   ) => {
     const newConfigurations = [...configurations]
@@ -83,7 +90,7 @@ const DocumentNumbersPage: React.FC = () => {
 
       // Validate configurations
       for (const config of configurations) {
-        if (!config.prefix || !config.numberFormat || config.nextNumber < 1) {
+        if (!config.prefix || config.nextNumber < 1) {
           showError('Please fill in all fields with valid values')
           return
         }
@@ -129,83 +136,91 @@ const DocumentNumbersPage: React.FC = () => {
       )}
       <Paper sx={{ p: 4 }}>
         <Typography variant="body2" sx={{ color: 'text.secondary', mb: 1 }}>
-          Configure document numbering patterns for various business documents. The system will automatically
-          generate sequential document numbers based on your settings.
+          Configure document number prefixes for all business documents. Numbers are generated in the format
+          <strong> PREFIX-YY-NNN</strong> (e.g. SO-26-001), where YY is the current year and the sequence resets each year.
         </Typography>
         <Typography variant="body2" sx={{ color: 'text.secondary', mb: 3, fontStyle: 'italic' }}>
-          Note: Use zeros to define the number format length (e.g., 000001 for 6-digit numbers).
+          Note: The sequence auto-expands past 999 (e.g. SO-26-1000). Use the Sync button after changing prefixes.
         </Typography>
 
         <TableContainer>
           <Table>
             <TableHead>
               <TableRow>
-                <TableCell sx={{ fontWeight: 600, width: '25%' }}>Document Name</TableCell>
-                <TableCell sx={{ fontWeight: 600, width: '20%' }}>Prefix</TableCell>
-                <TableCell sx={{ fontWeight: 600, width: '20%' }}>Number Format</TableCell>
-                <TableCell sx={{ fontWeight: 600, width: '15%' }}>Next Number</TableCell>
-                <TableCell sx={{ fontWeight: 600, width: '20%' }}>Preview</TableCell>
+                <TableCell sx={{ fontWeight: 600, width: '30%' }}>Document Name</TableCell>
+                <TableCell sx={{ fontWeight: 600, width: '25%' }}>Prefix</TableCell>
+                <TableCell sx={{ fontWeight: 600, width: '20%' }}>Next Number</TableCell>
+                <TableCell sx={{ fontWeight: 600, width: '25%' }}>Preview</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
-              {configurations.map((config, index) => (
-                <TableRow key={config.documentName}>
-                  <TableCell>
-                    <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                      {config.documentName}
-                    </Typography>
-                  </TableCell>
-                  <TableCell>
-                    <TextField
-                      value={config.prefix}
-                      onChange={(e) => handleConfigChange(index, 'prefix', e.target.value.toUpperCase())}
-                      size="small"
-                      fullWidth
-                      inputProps={{ maxLength: 10 }}
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <TextField
-                      value={config.numberFormat}
-                      onChange={(e) => {
-                        // Only allow numbers (zeros)
-                        const value = e.target.value.replace(/[^0]/g, '0')
-                        if (value.length <= 10) {
-                          handleConfigChange(index, 'numberFormat', value)
-                        }
-                      }}
-                      size="small"
-                      fullWidth
-                      placeholder="000001"
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <TextField
-                      type="number"
-                      value={config.nextNumber}
-                      onChange={(e) => handleConfigChange(index, 'nextNumber', e.target.value)}
-                      size="small"
-                      fullWidth
-                      inputProps={{ min: 1 }}
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <Typography
-                      variant="body2"
+              {Object.entries(MODULE_GROUPS).map(([module, docNames]) => (
+                <React.Fragment key={module}>
+                  <TableRow>
+                    <TableCell
+                      colSpan={4}
                       sx={{
-                        fontFamily: 'monospace',
-                        color: 'primary.main',
-                        fontWeight: 600,
                         backgroundColor: 'action.hover',
-                        px: 2,
+                        fontWeight: 700,
                         py: 1,
-                        borderRadius: 1,
+                        fontSize: '0.75rem',
+                        textTransform: 'uppercase',
+                        letterSpacing: 1,
                       }}
                     >
-                      {previews[config.documentName] || 'N/A'}
-                    </Typography>
-                  </TableCell>
-                </TableRow>
+                      {module}
+                    </TableCell>
+                  </TableRow>
+                  {docNames.map((docName) => {
+                    const index = configurations.findIndex((c) => c.documentName === docName)
+                    if (index === -1) return null
+                    const config = configurations[index]
+                    return (
+                      <TableRow key={config.documentName}>
+                        <TableCell>
+                          <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                            {config.documentName}
+                          </Typography>
+                        </TableCell>
+                        <TableCell>
+                          <TextField
+                            value={config.prefix}
+                            onChange={(e) => handleConfigChange(index, 'prefix', e.target.value.toUpperCase())}
+                            size="small"
+                            fullWidth
+                            inputProps={{ maxLength: 10 }}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <TextField
+                            type="number"
+                            value={config.nextNumber}
+                            onChange={(e) => handleConfigChange(index, 'nextNumber', e.target.value)}
+                            size="small"
+                            fullWidth
+                            inputProps={{ min: 1 }}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Typography
+                            variant="body2"
+                            sx={{
+                              fontFamily: 'monospace',
+                              color: 'primary.main',
+                              fontWeight: 600,
+                              backgroundColor: 'action.hover',
+                              px: 2,
+                              py: 1,
+                              borderRadius: 1,
+                            }}
+                          >
+                            {previews[config.documentName] || 'N/A'}
+                          </Typography>
+                        </TableCell>
+                      </TableRow>
+                    )
+                  })}
+                </React.Fragment>
               ))}
             </TableBody>
           </Table>

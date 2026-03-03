@@ -1,32 +1,50 @@
-import { IsString, IsInt, IsArray, ValidateNested, Min } from 'class-validator';
+import { IsString, IsInt, IsArray, ValidateNested, Min, Max } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { Type, Expose } from 'class-transformer';
 
 export class DocumentNumberConfigDto {
-  @ApiProperty({ example: 'Sales Orders', description: 'Document name' })
+  @ApiProperty({ example: 'Sales Orders' })
   @IsString()
   @Expose()
   documentName: string;
 
-  @ApiProperty({ example: 'SO', description: 'Document prefix' })
+  @ApiProperty({ example: 'SO' })
   @IsString()
   @Expose()
   prefix: string;
 
-  @ApiProperty({ example: '000001', description: 'Number format pattern' })
-  @IsString()
+  @ApiProperty({ example: 3, description: 'Minimum digits for sequence padding' })
+  @IsInt()
+  @Min(1)
+  @Max(10)
   @Expose()
-  numberFormat: string;
+  paddingDigits: number;
 
-  @ApiProperty({ example: 1, description: 'Next document number' })
+  @ApiProperty({ example: 1 })
   @IsInt()
   @Min(1)
   @Expose()
   nextNumber: number;
+
+  @ApiProperty({ example: 26, description: 'Last 2-digit year when sequence was reset' })
+  @IsInt()
+  @Expose()
+  lastResetYear: number;
+}
+
+export class UpdateDocumentNumberSettingDto {
+  @ApiProperty({ example: 'SO', description: 'New prefix for this document type' })
+  @IsString()
+  prefix: string;
+
+  @ApiProperty({ example: 1 })
+  @IsInt()
+  @Min(1)
+  nextNumber: number;
 }
 
 export class UpdateDocumentNumberSettingsDto {
-  @ApiProperty({ type: [DocumentNumberConfigDto], description: 'Document number configurations' })
+  @ApiProperty({ type: [DocumentNumberConfigDto] })
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => DocumentNumberConfigDto)
@@ -34,34 +52,19 @@ export class UpdateDocumentNumberSettingsDto {
 }
 
 export class DocumentNumberSettingsResponseDto {
-  @ApiProperty()
-  @Expose()
-  id: string;
-
   @ApiProperty({ type: [DocumentNumberConfigDto] })
   @Expose()
   configurations: DocumentNumberConfigDto[];
-
-  @ApiProperty()
-  @Expose()
-  createdAt: Date;
-
-  @ApiProperty()
-  @Expose()
-  updatedAt: Date;
 }
 
 export class GenerateDocumentNumberDto {
-  @ApiProperty({
-    example: 'Sales Orders',
-    description: 'Document name to generate number for',
-  })
+  @ApiProperty({ example: 'Sales Orders' })
   @IsString()
   documentName: string;
 }
 
 export class GenerateDocumentNumberResponseDto {
-  @ApiProperty({ example: 'SO-000001' })
+  @ApiProperty({ example: 'SO-26-001' })
   documentNumber: string;
 
   @ApiProperty({ example: 'Sales Orders' })

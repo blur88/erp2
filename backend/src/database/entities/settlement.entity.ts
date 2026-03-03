@@ -4,7 +4,6 @@ import {
   Index,
   ManyToOne,
   JoinColumn,
-  BeforeInsert,
 } from 'typeorm';
 import {
   IsString,
@@ -96,12 +95,4 @@ export class Settlement extends BaseEntity {
   })
   @JoinColumn({ name: 'paymentMethodId' })
   paymentMethod: PaymentMethodEntity;
-
-  @BeforeInsert()
-  generateSettlementNumber() {
-    if (!this.settlementNumber) {
-      const timestamp = Date.now().toString(36).toUpperCase();
-      this.settlementNumber = `STL-${timestamp}`;
-    }
-  }
 }

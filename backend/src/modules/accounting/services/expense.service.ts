@@ -13,6 +13,7 @@ import {
   AccountType,
 } from '../../../database/entities/chart-of-account.entity';
 import { AccountingService } from './accounting.service';
+import { SettingsService } from '../../settings/settings.service';
 import {
   CreateExpenseDto,
   UpdateExpenseDto,
@@ -34,6 +35,7 @@ export class ExpenseService {
     @InjectRepository(ChartOfAccount)
     private readonly chartOfAccountRepository: Repository<ChartOfAccount>,
     private readonly accountingService: AccountingService,
+    private readonly settingsService: SettingsService,
   ) {}
 
   async findAll(query: QueryExpenseDto): Promise<ExpenseListResponseDto> {
@@ -139,7 +141,10 @@ export class ExpenseService {
       );
     }
 
+    const referenceNumber = await this.settingsService.generateDocumentNumber('Expenses');
+
     const expense = this.expenseRepository.create({
+      referenceNumber,
       expenseDate: new Date(dto.expenseDate),
       expenseAccountId: dto.expenseAccountId,
       amount: dto.amount,

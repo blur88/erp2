@@ -37,6 +37,7 @@ import { ReconciliationController } from './controllers/reconciliation.controlle
 import { SettlementController } from './controllers/settlement.controller';
 import { OwnerEquityController } from './controllers/owner-equity.controller';
 import { ExpenseController } from './controllers/expense.controller';
+import { SettingsModule } from '../settings/settings.module';
 
 @Module({
   imports: [
@@ -54,6 +55,7 @@ import { ExpenseController } from './controllers/expense.controller';
       OwnerEquityTransaction,
       Expense,
     ]),
+    SettingsModule,
   ],
   controllers: [
     ChartOfAccountsController,

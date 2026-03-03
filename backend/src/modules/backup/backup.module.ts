@@ -10,7 +10,7 @@ import { BackupSchedule } from '@database/entities/backup-schedule.entity';
 import { BackupRetentionSettings } from '@database/entities/backup-settings.entity';
 import { CompanySettings } from '@database/entities/company-settings.entity';
 import { PriceCostingSettings } from '@database/entities/price-costing-settings.entity';
-import { DocumentNumberSettings } from '@database/entities/document-number-settings.entity';
+import { DocumentNumberSetting } from '@database/entities/document-number-settings.entity';
 import { PrintSettings } from '@database/entities/print-settings.entity';
 
 @Module({
@@ -21,7 +21,7 @@ import { PrintSettings } from '@database/entities/print-settings.entity';
       BackupRetentionSettings,
       CompanySettings,
       PriceCostingSettings,
-      DocumentNumberSettings,
+      DocumentNumberSetting,
       PrintSettings,
     ]),
     BullModule.registerQueue({

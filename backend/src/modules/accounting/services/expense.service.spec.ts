@@ -10,6 +10,7 @@ import {
 } from '../../../database/entities/chart-of-account.entity';
 import { PaymentMethodEntity } from '../../../database/entities/payment-method.entity';
 import { AccountingService } from './accounting.service';
+import { SettingsService } from '../../settings/settings.service';
 
 describe('ExpenseService', () => {
   let service: ExpenseService;
@@ -17,6 +18,7 @@ describe('ExpenseService', () => {
   let paymentMethodRepository: jest.Mocked<Repository<PaymentMethodEntity>>;
   let chartOfAccountRepository: jest.Mocked<Repository<ChartOfAccount>>;
   let accountingService: jest.Mocked<AccountingService>;
+  let settingsService: jest.Mocked<SettingsService>;
 
   const mockQueryBuilder = {
     leftJoinAndSelect: jest.fn().mockReturnThis(),
@@ -60,6 +62,12 @@ describe('ExpenseService', () => {
             postExpenseEntry: jest.fn(),
           },
         },
+        {
+          provide: SettingsService,
+          useValue: {
+            generateDocumentNumber: jest.fn(),
+          },
+        },
       ],
     }).compile();
 
@@ -68,6 +76,8 @@ describe('ExpenseService', () => {
     paymentMethodRepository = module.get(getRepositoryToken(PaymentMethodEntity));
     chartOfAccountRepository = module.get(getRepositoryToken(ChartOfAccount));
     accountingService = module.get(AccountingService);
+    settingsService = module.get(SettingsService);
+    settingsService.generateDocumentNumber.mockResolvedValue('EXP-26-001');
 
     jest.clearAllMocks();
   });

@@ -24,6 +24,7 @@ import {
 } from '../dto/journal-entry.dto';
 import { ChartOfAccountsService } from './chart-of-accounts.service';
 import { FiscalPeriodService } from './fiscal-period.service';
+import { SettingsService } from '../../settings/settings.service';
 
 @Injectable()
 export class JournalEntryService {
@@ -40,6 +41,7 @@ export class JournalEntryService {
     private readonly chartOfAccountRepository: Repository<ChartOfAccount>,
     private readonly chartOfAccountsService: ChartOfAccountsService,
     private readonly fiscalPeriodService: FiscalPeriodService,
+    private readonly settingsService: SettingsService,
   ) {}
 
   /**
@@ -61,7 +63,9 @@ export class JournalEntryService {
     this.validateEntryLines(createDto.lines);
 
     // Generate reference number if not provided
-    const referenceNumber = createDto.referenceNumber || await this.generateReferenceNumber(createDto.entryDate);
+    const referenceNumber =
+      createDto.referenceNumber ||
+      await this.settingsService.generateDocumentNumber('Journal Entries');
 
     // Check if reference number already exists
     const existingEntry = await this.journalEntryRepository.findOne({
@@ -435,7 +439,7 @@ export class JournalEntryService {
     }
 
     // Generate reference number for reversal entry
-    const reversalReferenceNumber = await this.generateReferenceNumber(new Date(), 'REV');
+    const reversalReferenceNumber = await this.settingsService.generateDocumentNumber('Journal Entries');
 
     // Create reversal entry
     const reversalEntry = this.journalEntryRepository.create({
@@ -506,7 +510,7 @@ export class JournalEntryService {
       );
     }
 
-    const reversalReferenceNumber = await this.generateReferenceNumber(new Date(), 'REV');
+    const reversalReferenceNumber = await this.settingsService.generateDocumentNumber('Journal Entries');
 
     const reversalEntry = this.journalEntryRepository.create({
       entryDate: new Date(),
@@ -674,31 +678,6 @@ export class JournalEntryService {
         );
       }
     }
-  }
-
-  /**
-   * Generate reference number in format "JE-YYYY-NNN" or "REV-YYYY-NNN"
-   */
-  private async generateReferenceNumber(date: Date, prefix: string = 'JE'): Promise<string> {
-    const year = date.getFullYear();
-    const yearPrefix = `${prefix}-${year}`;
-
-    // Find the highest sequence number for this year
-    const lastEntry = await this.journalEntryRepository
-      .createQueryBuilder('entry')
-      .where('entry.referenceNumber LIKE :pattern', { pattern: `${yearPrefix}-%` })
-      .orderBy('entry.referenceNumber', 'DESC')
-      .getOne();
-
-    let sequence = 1;
-    if (lastEntry) {
-      const match = lastEntry.referenceNumber.match(/-(\d+)$/);
-      if (match) {
-        sequence = parseInt(match[1], 10) + 1;
-      }
-    }
-
-    return `${yearPrefix}-${String(sequence).padStart(3, '0')}`;
   }
 
   /**

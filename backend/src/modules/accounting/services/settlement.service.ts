@@ -17,6 +17,7 @@ import {
   PendingPaymentsSummaryDto,
 } from '../dto/settlement.dto';
 import { AccountingService } from './accounting.service';
+import { SettingsService } from '../../settings/settings.service';
 
 @Injectable()
 export class SettlementService {
@@ -30,6 +31,7 @@ export class SettlementService {
     @InjectRepository(Payment)
     private readonly paymentRepository: Repository<Payment>,
     private readonly accountingService: AccountingService,
+    private readonly settingsService: SettingsService,
   ) {}
 
   async findAll(query: QuerySettlementsDto): Promise<SettlementListResponseDto> {
@@ -132,8 +134,10 @@ export class SettlementService {
     }
 
     const totalAmount = payments.reduce((sum, p) => sum + Number(p.amount), 0);
+    const settlementNumber = await this.settingsService.generateDocumentNumber('Settlements');
 
     const settlement = this.settlementRepository.create({
+      settlementNumber,
       paymentMethodId: dto.paymentMethodId,
       settlementDate: new Date(dto.settlementDate),
       totalAmount,

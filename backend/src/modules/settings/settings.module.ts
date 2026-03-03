@@ -6,7 +6,7 @@ import { SettingsService } from './settings.service';
 import { SettingsController } from './settings.controller';
 import { CompanySettings } from '../../database/entities/company-settings.entity';
 import { PriceCostingSettings } from '../../database/entities/price-costing-settings.entity';
-import { DocumentNumberSettings } from '../../database/entities/document-number-settings.entity';
+import { DocumentNumberSetting } from '../../database/entities/document-number-settings.entity';
 import { SalesOrder } from '../../database/entities/sales-order.entity';
 import { Invoice } from '../../database/entities/invoice.entity';
 import { Payment } from '../../database/entities/payment.entity';
@@ -18,6 +18,8 @@ import { PaymentMethodEntity } from '../../database/entities/payment-method.enti
 import { AccountMapping } from '../../database/entities/account-mapping.entity';
 import { ChartOfAccount } from '../../database/entities/chart-of-account.entity';
 import { Settlement } from '../../database/entities/settlement.entity';
+import { JournalEntry } from '../../database/entities/journal-entry.entity';
+import { Expense } from '../../database/entities/expense.entity';
 import { PaymentMethodController } from './controllers/payment-method.controller';
 import { PaymentMethodService } from './services/payment-method.service';
 
@@ -31,7 +33,7 @@ import { PaymentMethodService } from './services/payment-method.service';
     TypeOrmModule.forFeature([
       CompanySettings,
       PriceCostingSettings,
-      DocumentNumberSettings,
+      DocumentNumberSetting,
       SalesOrder,
       Invoice,
       Payment,
@@ -43,6 +45,8 @@ import { PaymentMethodService } from './services/payment-method.service';
       Settlement,
       AccountMapping,
       ChartOfAccount,
+      JournalEntry,
+      Expense,
     ]),
 
     // Multer for file upload
