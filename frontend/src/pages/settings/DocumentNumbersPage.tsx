@@ -26,7 +26,7 @@ const MODULE_GROUPS: Record<string, string[]> = {
   Sales: ['Sales Orders', 'Invoices', 'Payments'],
   Purchasing: ['Purchase Orders', 'Goods Received', 'Vendor Payments'],
   Inventory: ['Stock Adjustment'],
-  Accounting: ['Journal Entries', 'Expenses', 'Settlements'],
+  Accounting: ['Journal Entries', 'Expenses', 'Settlements', 'Owner Equity'],
 }
 
 const DocumentNumbersPage: React.FC = () => {

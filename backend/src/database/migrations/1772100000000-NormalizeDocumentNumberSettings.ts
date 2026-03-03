@@ -35,6 +35,7 @@ export class NormalizeDocumentNumberSettings1772100000000 implements MigrationIn
       { name: 'Journal Entries',  prefix: 'JE'  },
       { name: 'Expenses',         prefix: 'EXP' },
       { name: 'Settlements',      prefix: 'STL' },
+      { name: 'Owner Equity',     prefix: 'EQ'  },
     ];
 
     for (const row of defaults) {

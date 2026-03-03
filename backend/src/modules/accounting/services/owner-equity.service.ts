@@ -13,6 +13,7 @@ import {
 } from '../../../database/entities/owner-equity-transaction.entity';
 import { PaymentMethodEntity } from '../../../database/entities/payment-method.entity';
 import { AccountingService } from './accounting.service';
+import { SettingsService } from '../../settings/settings.service';
 import {
   CreateOwnerEquityDto,
   UpdateOwnerEquityDto,
@@ -32,6 +33,7 @@ export class OwnerEquityService {
     @InjectRepository(PaymentMethodEntity)
     private readonly paymentMethodRepository: Repository<PaymentMethodEntity>,
     private readonly accountingService: AccountingService,
+    private readonly settingsService: SettingsService,
   ) {}
 
   async findAll(query: QueryOwnerEquityDto): Promise<OwnerEquityListResponseDto> {
@@ -121,7 +123,10 @@ export class OwnerEquityService {
       throw new NotFoundException(`Payment method ${dto.paymentMethodId} not found`);
     }
 
+    const referenceNumber = await this.settingsService.generateDocumentNumber('Owner Equity');
+
     const transaction = this.ownerEquityRepository.create({
+      referenceNumber,
       transactionDate: new Date(dto.transactionDate),
       type: dto.type,
       amount: dto.amount,

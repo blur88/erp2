@@ -19,6 +19,7 @@ import { StockAdjustment } from '../../database/entities/stock-adjustment.entity
 import { JournalEntry } from '../../database/entities/journal-entry.entity';
 import { Expense } from '../../database/entities/expense.entity';
 import { Settlement } from '../../database/entities/settlement.entity';
+import { OwnerEquityTransaction } from '../../database/entities/owner-equity-transaction.entity';
 import {
   UpdateCompanySettingsDto,
   CompanySettingsResponseDto,
@@ -67,6 +68,8 @@ export class SettingsService {
     private expenseRepository: Repository<Expense>,
     @InjectRepository(Settlement)
     private settlementRepository: Repository<Settlement>,
+    @InjectRepository(OwnerEquityTransaction)
+    private ownerEquityRepository: Repository<OwnerEquityTransaction>,
   ) {}
 
   /**
@@ -484,6 +487,7 @@ export class SettingsService {
       { documentName: 'Journal Entries', prefix: 'JE' },
       { documentName: 'Expenses', prefix: 'EXP' },
       { documentName: 'Settlements', prefix: 'STL' },
+      { documentName: 'Owner Equity', prefix: 'EQ' },
     ];
 
     for (const d of defaults) {
@@ -633,6 +637,17 @@ export class SettingsService {
                 .limit(1)
                 .getOne();
               if (r?.settlementNumber) maxNumber = parseInt(r.settlementNumber.split('-')[2], 10) || 0;
+              break;
+            }
+            case 'Owner Equity': {
+              const r = await this.ownerEquityRepository
+                .createQueryBuilder('eq')
+                .select('eq.referenceNumber')
+                .where('eq.referenceNumber LIKE :p', { p: pattern(row.prefix) })
+                .orderBy('eq.referenceNumber', 'DESC')
+                .limit(1)
+                .getOne();
+              if (r?.referenceNumber) maxNumber = parseInt(r.referenceNumber.split('-')[2], 10) || 0;
               break;
             }
             default:

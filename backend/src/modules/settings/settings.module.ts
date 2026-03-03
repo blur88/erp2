@@ -20,6 +20,7 @@ import { ChartOfAccount } from '../../database/entities/chart-of-account.entity'
 import { Settlement } from '../../database/entities/settlement.entity';
 import { JournalEntry } from '../../database/entities/journal-entry.entity';
 import { Expense } from '../../database/entities/expense.entity';
+import { OwnerEquityTransaction } from '../../database/entities/owner-equity-transaction.entity';
 import { PaymentMethodController } from './controllers/payment-method.controller';
 import { PaymentMethodService } from './services/payment-method.service';
 
@@ -47,6 +48,7 @@ import { PaymentMethodService } from './services/payment-method.service';
       ChartOfAccount,
       JournalEntry,
       Expense,
+      OwnerEquityTransaction,
     ]),
 
     // Multer for file upload
