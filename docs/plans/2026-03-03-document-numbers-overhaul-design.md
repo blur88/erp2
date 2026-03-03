@@ -22,7 +22,7 @@ All documents use: `PREFIX-YY-NNN`
 
 **Examples:** `SO-26-001`, `JE-26-042`, `EXP-26-1001`
 
-## Document Types (10 total)
+## Document Types (11 total)
 
 | Module      | Document Name    | Default Prefix |
 |-------------|------------------|----------------|
@@ -36,6 +36,7 @@ All documents use: `PREFIX-YY-NNN`
 | Accounting  | Journal Entries  | `JE`           |
 | Accounting  | Expenses         | `EXP`          |
 | Accounting  | Settlements      | `STL`          |
+| Accounting  | Owner Equity     | `EQ`           |
 
 ## Database Schema
 
@@ -97,7 +98,7 @@ Sequence auto-expands past 999 — no upper limit enforced.
 TypeORM migration file that:
 1. Drops the old `document_number_settings` table
 2. Creates the new normalized table
-3. Seeds all 10 default rows with `nextNumber: 1` and `lastResetYear: currentYY`
+3. Seeds all 11 default rows with `nextNumber: 1` and `lastResetYear: currentYY`
 
 Existing document numbers in other tables (e.g. `sales_orders.order_number`) are unaffected. The sync endpoint `POST /settings/document-numbers/sync` can be called post-deploy to align `nextNumber` from existing records.
 
@@ -111,8 +112,8 @@ Existing document numbers in other tables (e.g. `sales_orders.order_number`) are
 ### `settings.service.ts`
 - `generateDocumentNumber()`: year-reset logic + `PREFIX-YY-NNN` format
 - `previewDocumentNumber()`: same format, no increment
-- `createDefaultDocumentNumberSettings()`: seed 10 rows
-- `syncDocumentNumbersWithDatabase()`: simplified per-row updates, add cases for Journal Entries, Expenses, Settlements
+- `createDefaultDocumentNumberSettings()`: seed 11 rows
+- `syncDocumentNumbersWithDatabase()`: simplified per-row updates, add cases for Journal Entries, Expenses, Settlements, Owner Equity
 - Remove JSONB array manipulation throughout
 
 ### `document-number-settings.dto.ts`
@@ -144,12 +145,20 @@ Existing document numbers in other tables (e.g. `sales_orders.order_number`) are
 - Inject `SettingsService`
 - Call `settingsService.generateDocumentNumber('Settlements')` on create
 
+### `owner-equity-transaction.entity.ts`
+- Remove `@BeforeInsert() generateReferenceNumber()` hook
+- Remove `BeforeInsert` from TypeORM imports
+
+### `owner-equity.service.ts`
+- Inject `SettingsService` (already available — `SettingsModule` is imported in `AccountingModule`)
+- In `create()`, generate `referenceNumber` via `settingsService.generateDocumentNumber('Owner Equity')` before `ownerEquityRepository.create()`
+
 ### `vendor-payment.service.ts`
 - Remove hardcoded `generatePaymentNumber()` method
 - Call `settingsService.generateDocumentNumber('Vendor Payments')` on create
 
 ### `accounting.module.ts`
-- Import `SettingsModule` to make `SettingsService` injectable
+- `SettingsModule` already imported — no change needed
 
 ## Frontend Changes
 
@@ -157,6 +166,7 @@ Existing document numbers in other tables (e.g. `sales_orders.order_number`) are
 - Remove **Number Format** column (padding fixed at 3, not user-editable)
 - Update **Preview** column: shows `PREFIX-YY-NNN` using current year
 - Add module section headers: Sales, Purchasing, Inventory, Accounting
+- Accounting group includes: Journal Entries, Expenses, Settlements, **Owner Equity**
 - Update description text to explain `PREFIX-YY-NNN` format
 
 ### `settingsApi.ts`
@@ -178,8 +188,10 @@ Existing document numbers in other tables (e.g. `sales_orders.order_number`) are
 | `backend/src/database/entities/expense.entity.ts` | Remove BeforeInsert hook |
 | `backend/src/modules/accounting/services/settlement.service.ts` | Add SettingsService |
 | `backend/src/database/entities/settlement.entity.ts` | Remove BeforeInsert hook |
+| `backend/src/modules/accounting/services/owner-equity.service.ts` | Add SettingsService |
+| `backend/src/database/entities/owner-equity-transaction.entity.ts` | Remove BeforeInsert hook |
 | `backend/src/modules/purchasing/services/vendor-payment.service.ts` | Remove hardcoded numbering |
-| `backend/src/modules/accounting/accounting.module.ts` | Import SettingsModule |
+| `backend/src/modules/accounting/accounting.module.ts` | No change (SettingsModule already imported) |
 | `backend/src/database/migrations/XXXXXX-NormalizeDocumentNumberSettings.ts` | New migration |
 | `frontend/src/pages/settings/DocumentNumbersPage.tsx` | Update UI |
 | `frontend/src/services/settingsApi.ts` | Update types |
