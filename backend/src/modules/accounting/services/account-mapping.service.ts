@@ -67,7 +67,9 @@ export class AccountMappingService {
     for (const pm of paymentMethods) {
       const code = pm.code.toLowerCase();
       allRequiredTypes.push(`payment_${code}`);
-      allRequiredTypes.push(`vendor_payment_${code}`);
+      if (pm.useForPurchases) {
+        allRequiredTypes.push(`vendor_payment_${code}`);
+      }
       if (pm.requiresSettlement) {
         allRequiredTypes.push(`payment_${code}_settlement`);
       }
