@@ -19,7 +19,9 @@ FROM node:24-alpine3.23 AS production
 # Install security updates and runtime dependencies
 RUN apk update && apk upgrade && \
     apk add --no-cache curl 'postgresql18-client>=18.2-r0' dumb-init && \
-    rm -rf /var/cache/apk/*
+    rm -rf /var/cache/apk/* && \
+    rm -rf /usr/local/lib/node_modules/npm && \
+    rm -f /usr/local/bin/npm /usr/local/bin/npx
 
 # Create non-root user
 RUN addgroup -g 1001 -S nodejs && \

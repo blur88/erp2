@@ -8,7 +8,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { CompanySettings } from '../../database/entities/company-settings.entity';
 import { PriceCostingSettings } from '../../database/entities/price-costing-settings.entity';
-import { DocumentNumberSettings } from '../../database/entities/document-number-settings.entity';
+import { DocumentNumberSetting } from '../../database/entities/document-number-settings.entity';
 import { SalesOrder } from '../../database/entities/sales-order.entity';
 import { Invoice } from '../../database/entities/invoice.entity';
 import { Payment } from '../../database/entities/payment.entity';
@@ -16,6 +16,10 @@ import { PurchaseOrder } from '../../database/entities/purchase-order.entity';
 import { GoodsReceivedNote } from '../../database/entities/goods-received-note.entity';
 import { VendorPayment } from '../../database/entities/vendor-payment.entity';
 import { StockAdjustment } from '../../database/entities/stock-adjustment.entity';
+import { JournalEntry } from '../../database/entities/journal-entry.entity';
+import { Expense } from '../../database/entities/expense.entity';
+import { Settlement } from '../../database/entities/settlement.entity';
+import { OwnerEquityTransaction } from '../../database/entities/owner-equity-transaction.entity';
 import {
   UpdateCompanySettingsDto,
   CompanySettingsResponseDto,
@@ -42,8 +46,8 @@ export class SettingsService {
     private companySettingsRepository: Repository<CompanySettings>,
     @InjectRepository(PriceCostingSettings)
     private priceCostingSettingsRepository: Repository<PriceCostingSettings>,
-    @InjectRepository(DocumentNumberSettings)
-    private documentNumberSettingsRepository: Repository<DocumentNumberSettings>,
+    @InjectRepository(DocumentNumberSetting)
+    private documentNumberSettingRepository: Repository<DocumentNumberSetting>,
     @InjectRepository(SalesOrder)
     private salesOrderRepository: Repository<SalesOrder>,
     @InjectRepository(Invoice)
@@ -58,6 +62,14 @@ export class SettingsService {
     private vendorPaymentRepository: Repository<VendorPayment>,
     @InjectRepository(StockAdjustment)
     private stockAdjustmentRepository: Repository<StockAdjustment>,
+    @InjectRepository(JournalEntry)
+    private journalEntryRepository: Repository<JournalEntry>,
+    @InjectRepository(Expense)
+    private expenseRepository: Repository<Expense>,
+    @InjectRepository(Settlement)
+    private settlementRepository: Repository<Settlement>,
+    @InjectRepository(OwnerEquityTransaction)
+    private ownerEquityRepository: Repository<OwnerEquityTransaction>,
   ) {}
 
   /**
@@ -369,41 +381,20 @@ export class SettingsService {
    */
   async getDocumentNumberSettings(): Promise<DocumentNumberSettingsResponseDto> {
     try {
-      let settings = await this.documentNumberSettingsRepository.findOne({
-        where: { isActive: true },
+      let rows = await this.documentNumberSettingRepository.find({
+        order: { documentName: 'ASC' },
       });
 
-      let isNewSettings = false;
-      // Create default settings if none exist
-      if (!settings) {
-        settings = await this.createDefaultDocumentNumberSettings();
-        isNewSettings = true;
+      if (!rows.length) {
+        await this.createDefaultDocumentNumberSettings();
+        rows = await this.documentNumberSettingRepository.find({
+          order: { documentName: 'ASC' },
+        });
       }
 
-      // If this is newly created settings, sync with database
-      if (isNewSettings) {
-        this.logger.log('Syncing new document number settings with existing database records');
-        try {
-          await this.syncDocumentNumbersWithDatabase();
-          // Reload settings after sync
-          settings = await this.documentNumberSettingsRepository.findOne({
-            where: { isActive: true },
-          });
-        } catch (syncError) {
-          this.logger.error(
-            `Failed to sync document numbers: ${syncError.message}`,
-            syncError.stack,
-          );
-          // Continue even if sync fails, settings are still usable
-        }
-      }
-
-      return this.mapToDocumentNumberResponseDto(settings);
+      return { configurations: rows };
     } catch (error) {
-      this.logger.error(
-        `Failed to get document number settings: ${error.message}`,
-        error.stack,
-      );
+      this.logger.error(`Failed to get document number settings: ${error.message}`, error.stack);
       throw new InternalServerErrorException('Failed to retrieve document number settings');
     }
   }
@@ -416,33 +407,16 @@ export class SettingsService {
     updatedBy = 'system',
   ): Promise<DocumentNumberSettingsResponseDto> {
     try {
-      let settings = await this.documentNumberSettingsRepository.findOne({
-        where: { isActive: true },
-      });
-
-      if (!settings) {
-        // Create new settings if none exist
-        settings = this.documentNumberSettingsRepository.create({
-          configurations: updateDto.configurations,
-          isActive: true,
-        });
-      } else {
-        // Update existing settings
-        settings.configurations = updateDto.configurations;
+      for (const cfg of updateDto.configurations) {
+        await this.documentNumberSettingRepository.update(
+          { documentName: cfg.documentName },
+          { prefix: cfg.prefix, nextNumber: cfg.nextNumber },
+        );
       }
-
-      const savedSettings = await this.documentNumberSettingsRepository.save(settings);
-
-      this.logger.log(
-        `Document number settings updated by ${updatedBy}`,
-      );
-
-      return this.mapToDocumentNumberResponseDto(savedSettings);
+      this.logger.log(`Document number settings updated by ${updatedBy}`);
+      return this.getDocumentNumberSettings();
     } catch (error) {
-      this.logger.error(
-        `Failed to update document number settings: ${error.message}`,
-        error.stack,
-      );
+      this.logger.error(`Failed to update document number settings: ${error.message}`, error.stack);
       throw new InternalServerErrorException('Failed to update document number settings');
     }
   }
@@ -451,47 +425,29 @@ export class SettingsService {
    * Generate next document number for a specific document type
    */
   async generateDocumentNumber(documentName: string): Promise<string> {
-    try {
-      const settings = await this.documentNumberSettingsRepository.findOne({
-        where: { isActive: true },
-      });
+    const row = await this.documentNumberSettingRepository.findOne({
+      where: { documentName },
+    });
 
-      if (!settings || !settings.configurations) {
-        throw new NotFoundException('Document number settings not found');
-      }
-
-      // Find the configuration for this document type
-      const config = settings.configurations.find(
-        (c: any) => c.documentName === documentName,
-      );
-
-      if (!config) {
-        throw new NotFoundException(`Configuration for ${documentName} not found`);
-      }
-
-      // Generate the document number
-      const paddedNumber = String(config.nextNumber).padStart(config.numberFormat.length, '0');
-      const documentNumber = `${config.prefix}-${paddedNumber}`;
-
-      // Increment the next number
-      const updatedConfigs = settings.configurations.map((c: any) => {
-        if (c.documentName === documentName) {
-          return { ...c, nextNumber: c.nextNumber + 1 };
-        }
-        return c;
-      });
-
-      settings.configurations = updatedConfigs;
-      await this.documentNumberSettingsRepository.save(settings);
-
-      return documentNumber;
-    } catch (error) {
-      this.logger.error(
-        `Failed to generate document number: ${error.message}`,
-        error.stack,
-      );
-      throw error;
+    if (!row) {
+      throw new NotFoundException(`Document number config for '${documentName}' not found`);
     }
+
+    const currentYY = new Date().getFullYear() % 100;
+
+    if (row.lastResetYear !== currentYY) {
+      row.nextNumber = 1;
+      row.lastResetYear = currentYY;
+    }
+
+    const yy = String(currentYY).padStart(2, '0');
+    const seq = String(row.nextNumber).padStart(row.paddingDigits, '0');
+    const documentNumber = `${row.prefix}-${yy}-${seq}`;
+
+    row.nextNumber += 1;
+    await this.documentNumberSettingRepository.save(row);
+
+    return documentNumber;
   }
 
   /**
@@ -499,29 +455,18 @@ export class SettingsService {
    */
   async previewDocumentNumber(documentName: string): Promise<string> {
     try {
-      const settings = await this.documentNumberSettingsRepository.findOne({
-        where: { isActive: true },
+      const row = await this.documentNumberSettingRepository.findOne({
+        where: { documentName },
       });
 
-      if (!settings || !settings.configurations) {
-        return 'N/A';
-      }
+      if (!row) return 'N/A';
 
-      const config = settings.configurations.find(
-        (c: any) => c.documentName === documentName,
-      );
-
-      if (!config) {
-        return 'N/A';
-      }
-
-      const paddedNumber = String(config.nextNumber).padStart(config.numberFormat.length, '0');
-      return `${config.prefix}-${paddedNumber}`;
-    } catch (error) {
-      this.logger.error(
-        `Failed to preview document number: ${error.message}`,
-        error.stack,
-      );
+      const currentYY = new Date().getFullYear() % 100;
+      const nextNum = row.lastResetYear !== currentYY ? 1 : row.nextNumber;
+      const yy = String(currentYY).padStart(2, '0');
+      const seq = String(nextNum).padStart(row.paddingDigits, '0');
+      return `${row.prefix}-${yy}-${seq}`;
+    } catch {
       return 'N/A';
     }
   }
@@ -529,33 +474,38 @@ export class SettingsService {
   /**
    * Create default document number settings
    */
-  private async createDefaultDocumentNumberSettings(): Promise<DocumentNumberSettings> {
-    const defaultSettings = this.documentNumberSettingsRepository.create({
-      configurations: [
-        { documentName: 'Sales Orders', prefix: 'SO', numberFormat: '000001', nextNumber: 1 },
-        { documentName: 'Invoices', prefix: 'INV', numberFormat: '000001', nextNumber: 1 },
-        { documentName: 'Payments', prefix: 'PAY', numberFormat: '000001', nextNumber: 1 },
-        { documentName: 'Purchase Orders', prefix: 'PO', numberFormat: '000001', nextNumber: 1 },
-        { documentName: 'Goods Received', prefix: 'GRN', numberFormat: '000001', nextNumber: 1 },
-        { documentName: 'Vendor Payments', prefix: 'VP', numberFormat: '000001', nextNumber: 1 },
-        { documentName: 'Stock Adjustment', prefix: 'SA', numberFormat: '000001', nextNumber: 1 },
-      ],
-      isActive: true,
-    });
+  private async createDefaultDocumentNumberSettings(): Promise<void> {
+    const currentYY = new Date().getFullYear() % 100;
+    const defaults = [
+      { documentName: 'Sales Orders', prefix: 'SO' },
+      { documentName: 'Invoices', prefix: 'INV' },
+      { documentName: 'Payments', prefix: 'PAY' },
+      { documentName: 'Purchase Orders', prefix: 'PO' },
+      { documentName: 'Goods Received', prefix: 'GRN' },
+      { documentName: 'Vendor Payments', prefix: 'VP' },
+      { documentName: 'Stock Adjustment', prefix: 'SA' },
+      { documentName: 'Journal Entries', prefix: 'JE' },
+      { documentName: 'Expenses', prefix: 'EXP' },
+      { documentName: 'Settlements', prefix: 'STL' },
+      { documentName: 'Owner Equity', prefix: 'EQ' },
+    ];
 
-    const savedSettings = await this.documentNumberSettingsRepository.save(defaultSettings);
+    for (const d of defaults) {
+      const exists = await this.documentNumberSettingRepository.findOne({
+        where: { documentName: d.documentName },
+      });
+      if (!exists) {
+        await this.documentNumberSettingRepository.save(
+          this.documentNumberSettingRepository.create({
+            ...d,
+            paddingDigits: 3,
+            nextNumber: 1,
+            lastResetYear: currentYY,
+          }),
+        );
+      }
+    }
     this.logger.log('Default document number settings created');
-
-    return savedSettings;
-  }
-
-  /**
-   * Map entity to document number response DTO
-   */
-  private mapToDocumentNumberResponseDto(settings: DocumentNumberSettings): DocumentNumberSettingsResponseDto {
-    return plainToInstance(DocumentNumberSettingsResponseDto, settings, {
-      excludeExtraneousValues: true,
-    });
   }
 
   /**
@@ -564,170 +514,160 @@ export class SettingsService {
    */
   async syncDocumentNumbersWithDatabase(): Promise<void> {
     try {
-      let settings = await this.documentNumberSettingsRepository.findOne({
-        where: { isActive: true },
-      });
-
-      if (!settings) {
-        this.logger.warn('Document number settings not found, creating defaults');
-        settings = await this.createDefaultDocumentNumberSettings();
+      let rows = await this.documentNumberSettingRepository.find();
+      if (!rows.length) {
+        await this.createDefaultDocumentNumberSettings();
+        rows = await this.documentNumberSettingRepository.find();
       }
 
-      const updatedConfigs = await Promise.all(
-        settings.configurations.map(async (config: any) => {
-          let maxNumber = 0;
+      const currentYY = new Date().getFullYear() % 100;
+      const pattern = (prefix: string) => `${prefix}-${String(currentYY).padStart(2, '0')}-%`;
 
-          try {
-            switch (config.documentName) {
-              case 'Sales Orders': {
-                const result = await this.salesOrderRepository
-                  .createQueryBuilder('so')
-                  .select('so.orderNumber')
-                  .where("so.orderNumber LIKE :prefix", { prefix: `${config.prefix}-%` })
-                  .orderBy('so.orderNumber', 'DESC')
-                  .limit(1)
-                  .getOne();
-
-                if (result?.orderNumber) {
-                  const numPart = result.orderNumber.split('-')[1];
-                  maxNumber = parseInt(numPart, 10) || 0;
-                }
-                break;
-              }
-
-              case 'Invoices': {
-                const result = await this.invoiceRepository
-                  .createQueryBuilder('inv')
-                  .select('inv.invoiceNumber')
-                  .where("inv.invoiceNumber LIKE :prefix", { prefix: `${config.prefix}-%` })
-                  .orderBy('inv.invoiceNumber', 'DESC')
-                  .limit(1)
-                  .getOne();
-
-                if (result?.invoiceNumber) {
-                  const numPart = result.invoiceNumber.split('-')[1];
-                  maxNumber = parseInt(numPart, 10) || 0;
-                }
-                break;
-              }
-
-              case 'Payments': {
-                const result = await this.paymentRepository
-                  .createQueryBuilder('pay')
-                  .select('pay.paymentNumber')
-                  .where("pay.paymentNumber LIKE :prefix", { prefix: `${config.prefix}-%` })
-                  .orderBy('pay.paymentNumber', 'DESC')
-                  .limit(1)
-                  .getOne();
-
-                if (result?.paymentNumber) {
-                  const numPart = result.paymentNumber.split('-')[1];
-                  maxNumber = parseInt(numPart, 10) || 0;
-                }
-                break;
-              }
-
-              case 'Purchase Orders': {
-                const result = await this.purchaseOrderRepository
-                  .createQueryBuilder('po')
-                  .select('po.orderNumber')
-                  .where("po.orderNumber LIKE :prefix", { prefix: `${config.prefix}-%` })
-                  .orderBy('po.orderNumber', 'DESC')
-                  .limit(1)
-                  .getOne();
-
-                if (result?.orderNumber) {
-                  const numPart = result.orderNumber.split('-')[1];
-                  maxNumber = parseInt(numPart, 10) || 0;
-                }
-                break;
-              }
-
-              case 'Goods Received': {
-                const result = await this.goodsReceivedNoteRepository
-                  .createQueryBuilder('grn')
-                  .select('grn.grnNumber')
-                  .where("grn.grnNumber LIKE :prefix", { prefix: `${config.prefix}-%` })
-                  .orderBy('grn.grnNumber', 'DESC')
-                  .limit(1)
-                  .getOne();
-
-                if (result?.grnNumber) {
-                  const numPart = result.grnNumber.split('-')[1];
-                  maxNumber = parseInt(numPart, 10) || 0;
-                }
-                break;
-              }
-
-              case 'Vendor Payments': {
-                const result = await this.vendorPaymentRepository
-                  .createQueryBuilder('vp')
-                  .select('vp.paymentNumber')
-                  .where("vp.paymentNumber LIKE :prefix", { prefix: `${config.prefix}-%` })
-                  .orderBy('vp.paymentNumber', 'DESC')
-                  .limit(1)
-                  .getOne();
-
-                if (result?.paymentNumber) {
-                  const numPart = result.paymentNumber.split('-')[1];
-                  maxNumber = parseInt(numPart, 10) || 0;
-                }
-                break;
-              }
-
-              case 'Stock Adjustment': {
-                const result = await this.stockAdjustmentRepository
-                  .createQueryBuilder('sa')
-                  .select('sa.adjustmentNumber')
-                  .where("sa.adjustmentNumber LIKE :prefix", { prefix: `${config.prefix}-%` })
-                  .orderBy('sa.adjustmentNumber', 'DESC')
-                  .limit(1)
-                  .getOne();
-
-                if (result?.adjustmentNumber) {
-                  const numPart = result.adjustmentNumber.split('-')[1];
-                  maxNumber = parseInt(numPart, 10) || 0;
-                }
-                break;
-              }
-
-              default:
-                this.logger.warn(`Unknown document type: ${config.documentName}`);
+      for (const row of rows) {
+        let maxNumber = 0;
+        try {
+          switch (row.documentName) {
+            case 'Sales Orders': {
+              const r = await this.salesOrderRepository
+                .createQueryBuilder('so')
+                .select('so.orderNumber')
+                .where('so.orderNumber LIKE :p', { p: pattern(row.prefix) })
+                .orderBy('so.orderNumber', 'DESC')
+                .limit(1)
+                .getOne();
+              if (r?.orderNumber) maxNumber = parseInt(r.orderNumber.split('-')[2], 10) || 0;
+              break;
             }
-
-            // Update nextNumber to be max + 1
-            const nextNumber = maxNumber + 1;
-
-            this.logger.log(
-              `${config.documentName}: Found max number ${maxNumber}, setting nextNumber to ${nextNumber}`
-            );
-
-            return {
-              ...config,
-              nextNumber: nextNumber,
-            };
-          } catch (error) {
-            this.logger.error(
-              `Failed to sync ${config.documentName}: ${error.message}`,
-              error.stack,
-            );
-            // Keep original config if sync fails
-            return config;
+            case 'Invoices': {
+              const r = await this.invoiceRepository
+                .createQueryBuilder('inv')
+                .select('inv.invoiceNumber')
+                .where('inv.invoiceNumber LIKE :p', { p: pattern(row.prefix) })
+                .orderBy('inv.invoiceNumber', 'DESC')
+                .limit(1)
+                .getOne();
+              if (r?.invoiceNumber) maxNumber = parseInt(r.invoiceNumber.split('-')[2], 10) || 0;
+              break;
+            }
+            case 'Payments': {
+              const r = await this.paymentRepository
+                .createQueryBuilder('pay')
+                .select('pay.paymentNumber')
+                .where('pay.paymentNumber LIKE :p', { p: pattern(row.prefix) })
+                .orderBy('pay.paymentNumber', 'DESC')
+                .limit(1)
+                .getOne();
+              if (r?.paymentNumber) maxNumber = parseInt(r.paymentNumber.split('-')[2], 10) || 0;
+              break;
+            }
+            case 'Purchase Orders': {
+              const r = await this.purchaseOrderRepository
+                .createQueryBuilder('po')
+                .select('po.orderNumber')
+                .where('po.orderNumber LIKE :p', { p: pattern(row.prefix) })
+                .orderBy('po.orderNumber', 'DESC')
+                .limit(1)
+                .getOne();
+              if (r?.orderNumber) maxNumber = parseInt(r.orderNumber.split('-')[2], 10) || 0;
+              break;
+            }
+            case 'Goods Received': {
+              const r = await this.goodsReceivedNoteRepository
+                .createQueryBuilder('grn')
+                .select('grn.grnNumber')
+                .where('grn.grnNumber LIKE :p', { p: pattern(row.prefix) })
+                .orderBy('grn.grnNumber', 'DESC')
+                .limit(1)
+                .getOne();
+              if (r?.grnNumber) maxNumber = parseInt(r.grnNumber.split('-')[2], 10) || 0;
+              break;
+            }
+            case 'Vendor Payments': {
+              const r = await this.vendorPaymentRepository
+                .createQueryBuilder('vp')
+                .select('vp.paymentNumber')
+                .where('vp.paymentNumber LIKE :p', { p: pattern(row.prefix) })
+                .orderBy('vp.paymentNumber', 'DESC')
+                .limit(1)
+                .getOne();
+              if (r?.paymentNumber) maxNumber = parseInt(r.paymentNumber.split('-')[2], 10) || 0;
+              break;
+            }
+            case 'Stock Adjustment': {
+              const r = await this.stockAdjustmentRepository
+                .createQueryBuilder('sa')
+                .select('sa.adjustmentNumber')
+                .where('sa.adjustmentNumber LIKE :p', { p: pattern(row.prefix) })
+                .orderBy('sa.adjustmentNumber', 'DESC')
+                .limit(1)
+                .getOne();
+              if (r?.adjustmentNumber) {
+                maxNumber = parseInt(r.adjustmentNumber.split('-')[2], 10) || 0;
+              }
+              break;
+            }
+            case 'Journal Entries': {
+              const r = await this.journalEntryRepository
+                .createQueryBuilder('je')
+                .select('je.referenceNumber')
+                .where('je.referenceNumber LIKE :p', { p: pattern(row.prefix) })
+                .orderBy('je.referenceNumber', 'DESC')
+                .limit(1)
+                .getOne();
+              if (r?.referenceNumber) maxNumber = parseInt(r.referenceNumber.split('-')[2], 10) || 0;
+              break;
+            }
+            case 'Expenses': {
+              const r = await this.expenseRepository
+                .createQueryBuilder('exp')
+                .select('exp.referenceNumber')
+                .where('exp.referenceNumber LIKE :p', { p: pattern(row.prefix) })
+                .orderBy('exp.referenceNumber', 'DESC')
+                .limit(1)
+                .getOne();
+              if (r?.referenceNumber) maxNumber = parseInt(r.referenceNumber.split('-')[2], 10) || 0;
+              break;
+            }
+            case 'Settlements': {
+              const r = await this.settlementRepository
+                .createQueryBuilder('stl')
+                .select('stl.settlementNumber')
+                .where('stl.settlementNumber LIKE :p', { p: pattern(row.prefix) })
+                .orderBy('stl.settlementNumber', 'DESC')
+                .limit(1)
+                .getOne();
+              if (r?.settlementNumber) maxNumber = parseInt(r.settlementNumber.split('-')[2], 10) || 0;
+              break;
+            }
+            case 'Owner Equity': {
+              const r = await this.ownerEquityRepository
+                .createQueryBuilder('eq')
+                .select('eq.referenceNumber')
+                .where('eq.referenceNumber LIKE :p', { p: pattern(row.prefix) })
+                .orderBy('eq.referenceNumber', 'DESC')
+                .limit(1)
+                .getOne();
+              if (r?.referenceNumber) maxNumber = parseInt(r.referenceNumber.split('-')[2], 10) || 0;
+              break;
+            }
+            default:
+              this.logger.warn(`Unknown document type in sync: ${row.documentName}`);
           }
-        }),
-      );
 
-      // Save updated settings
-      settings.configurations = updatedConfigs;
-      await this.documentNumberSettingsRepository.save(settings);
+          await this.documentNumberSettingRepository.update(
+            { documentName: row.documentName },
+            { nextNumber: maxNumber + 1, lastResetYear: currentYY },
+          );
+          this.logger.log(`${row.documentName}: synced nextNumber to ${maxNumber + 1}`);
+        } catch (err) {
+          this.logger.error(`Failed to sync ${row.documentName}: ${err.message}`, err.stack);
+        }
+      }
 
       this.logger.log('Document number settings synchronized with database');
     } catch (error) {
-      this.logger.error(
-        `Failed to sync document numbers with database: ${error.message}`,
-        error.stack,
-      );
-      throw new InternalServerErrorException('Failed to sync document number settings');
+      this.logger.error(`Failed to sync document numbers: ${error.message}`, error.stack);
+      throw new InternalServerErrorException('Failed to sync document numbers');
     }
   }
 }

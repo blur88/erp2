@@ -2,9 +2,9 @@
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
-**Goal:** Replace the JSONB document number settings with a normalized per-row table, adopt `PREFIX-YY-NNN` format across all 10 document types, and integrate accounting module documents (Journal Entries, Expenses, Settlements).
+**Goal:** Replace the JSONB document number settings with a normalized per-row table, adopt `PREFIX-YY-NNN` format across all 11 document types, and integrate accounting module documents (Journal Entries, Expenses, Settlements, Owner Equity).
 
-**Architecture:** The `document_number_settings` table is rewritten from a single-row JSONB design to one row per document type. A TypeORM migration drops/recreates the table and seeds 10 default rows. All number generation goes through `SettingsService.generateDocumentNumber()` which auto-injects the current 2-digit year and resets sequence per-year. Accounting services import `SettingsModule` and call `generateDocumentNumber()` instead of their own hardcoded logic.
+**Architecture:** The `document_number_settings` table is rewritten from a single-row JSONB design to one row per document type. A TypeORM migration drops/recreates the table and seeds 11 default rows. All number generation goes through `SettingsService.generateDocumentNumber()` which auto-injects the current 2-digit year and resets sequence per-year. Accounting services use `SettingsModule` (already imported in `AccountingModule`) and call `generateDocumentNumber()` instead of their own hardcoded logic.
 
 **Tech Stack:** NestJS 11, TypeORM, PostgreSQL, React 18, Material-UI v7, Vitest (frontend tests), Jest (backend tests)
 
@@ -88,7 +88,7 @@ export class NormalizeDocumentNumberSettings1772100000000 implements MigrationIn
       )
     `);
 
-    // Seed the 10 default rows — use current 2-digit year
+    // Seed the 11 default rows — use current 2-digit year
     const currentYear = new Date().getFullYear() % 100;
     const defaults = [
       { name: 'Sales Orders',     prefix: 'SO'  },
@@ -101,6 +101,7 @@ export class NormalizeDocumentNumberSettings1772100000000 implements MigrationIn
       { name: 'Journal Entries',  prefix: 'JE'  },
       { name: 'Expenses',         prefix: 'EXP' },
       { name: 'Settlements',      prefix: 'STL' },
+      { name: 'Owner Equity',     prefix: 'EQ'  },
     ];
 
     for (const row of defaults) {
@@ -281,6 +282,8 @@ private journalEntryRepository: Repository<JournalEntry>,
 private expenseRepository: Repository<Expense>,
 @InjectRepository(Settlement)
 private settlementRepository: Repository<Settlement>,
+@InjectRepository(OwnerEquityTransaction)
+private ownerEquityRepository: Repository<OwnerEquityTransaction>,
 ```
 
 Add imports at top of file:
@@ -288,6 +291,7 @@ Add imports at top of file:
 import { JournalEntry } from '../../database/entities/journal-entry.entity';
 import { Expense } from '../../database/entities/expense.entity';
 import { Settlement } from '../../database/entities/settlement.entity';
+import { OwnerEquityTransaction } from '../../database/entities/owner-equity-transaction.entity';
 ```
 
 **Step 3: Replace `getDocumentNumberSettings()` (lines 370-409)**
@@ -406,6 +410,7 @@ private async createDefaultDocumentNumberSettings(): Promise<void> {
     { documentName: 'Journal Entries',  prefix: 'JE'  },
     { documentName: 'Expenses',         prefix: 'EXP' },
     { documentName: 'Settlements',      prefix: 'STL' },
+    { documentName: 'Owner Equity',     prefix: 'EQ'  },
   ];
 
   for (const d of defaults) {
@@ -534,6 +539,15 @@ async syncDocumentNumbersWithDatabase(): Promise<void> {
             if (r?.settlementNumber) maxNumber = parseInt(r.settlementNumber.split('-')[2], 10) || 0;
             break;
           }
+          case 'Owner Equity': {
+            const r = await this.ownerEquityRepository
+              .createQueryBuilder('eq')
+              .select('eq.referenceNumber')
+              .where('eq.referenceNumber LIKE :p', { p: pattern(row.prefix) })
+              .orderBy('eq.referenceNumber', 'DESC').limit(1).getOne();
+            if (r?.referenceNumber) maxNumber = parseInt(r.referenceNumber.split('-')[2], 10) || 0;
+            break;
+          }
           default:
             this.logger.warn(`Unknown document type in sync: ${row.documentName}`);
         }
@@ -587,6 +601,7 @@ After line 20 (`Settlement` import), add:
 ```typescript
 import { JournalEntry } from '../../database/entities/journal-entry.entity';
 import { Expense } from '../../database/entities/expense.entity';
+import { OwnerEquityTransaction } from '../../database/entities/owner-equity-transaction.entity';
 ```
 
 (Note: `Settlement` is already imported at line 20.)
@@ -611,6 +626,7 @@ TypeOrmModule.forFeature([
   ChartOfAccount,
   JournalEntry,               // new
   Expense,                    // new
+  OwnerEquityTransaction,     // new
 ]),
 ```
 
@@ -890,26 +906,101 @@ git commit -m "feat(accounting): replace hardcoded STL numbering with SettingsSe
 
 ---
 
-## Task 12: Import SettingsModule into AccountingModule
+## Task 12: Remove Hardcoded Numbering from OwnerEquityService
 
 **Files:**
-- Modify: `backend/src/modules/accounting/accounting.module.ts`
+- Modify: `backend/src/modules/accounting/services/owner-equity.service.ts`
+- Modify: `backend/src/database/entities/owner-equity-transaction.entity.ts`
 
-**Step 1: Add SettingsModule import**
+Note: `SettingsModule` is **already imported** in `AccountingModule` — no module change needed.
 
-Add at top of file:
+**Step 1: Add SettingsService import to owner-equity.service.ts**
+
+At the top of the file, after existing imports, add:
+```typescript
+import { SettingsService } from '../../settings/settings.service';
+```
+
+**Step 2: Add SettingsService to constructor**
+
+In the constructor, after the last existing injected service, add:
+```typescript
+private readonly settingsService: SettingsService,
+```
+
+**Step 3: Update `create()` — generate referenceNumber before `ownerEquityRepository.create()`**
+
+```typescript
+// Before
+const transaction = this.ownerEquityRepository.create({
+  transactionDate: new Date(dto.transactionDate),
+  type: dto.type,
+  amount: dto.amount,
+  paymentMethodId: dto.paymentMethodId,
+  description: dto.description,
+  status: OwnerEquityTransactionStatus.DRAFT,
+});
+
+// After
+const referenceNumber = await this.settingsService.generateDocumentNumber('Owner Equity');
+
+const transaction = this.ownerEquityRepository.create({
+  referenceNumber,
+  transactionDate: new Date(dto.transactionDate),
+  type: dto.type,
+  amount: dto.amount,
+  paymentMethodId: dto.paymentMethodId,
+  description: dto.description,
+  status: OwnerEquityTransactionStatus.DRAFT,
+});
+```
+
+**Step 4: Remove `@BeforeInsert` hook from owner-equity-transaction.entity.ts**
+
+Remove lines 86–92:
+```typescript
+// Remove this entire block
+@BeforeInsert()
+generateReferenceNumber() {
+  if (!this.referenceNumber) {
+    const timestamp = Date.now().toString(36).toUpperCase();
+    this.referenceNumber = `EQ-${timestamp}`;
+  }
+}
+```
+
+Also remove `BeforeInsert` from the TypeORM imports on line 7 since it is no longer used.
+
+**Step 5: Commit**
+
+```bash
+git add backend/src/modules/accounting/services/owner-equity.service.ts
+git add backend/src/database/entities/owner-equity-transaction.entity.ts
+git commit -m "feat(accounting): replace hardcoded EQ numbering with SettingsService"
+```
+
+---
+
+## Task 13: Verify AccountingModule Already Has SettingsModule
+
+**Files:**
+- Check: `backend/src/modules/accounting/accounting.module.ts`
+
+**Step 1: Confirm SettingsModule is imported**
+
+```bash
+grep -n "SettingsModule" backend/src/modules/accounting/accounting.module.ts
+```
+
+Expected output: a line showing `SettingsModule` in the imports array. If it is present, no change needed — skip to next task.
+
+**Step 2: If NOT present** (fallback only), add the import:
+
 ```typescript
 import { SettingsModule } from '../settings/settings.module';
 ```
 
-**Step 2: Add to `imports` array** (line 42, after `TypeOrmModule.forFeature([...])`)
-
-```typescript
-imports: [
-  TypeOrmModule.forFeature([...]),
-  SettingsModule,    // add this
-],
-```
+And add `SettingsModule` to the `imports` array.
 
 **Step 3: Run TypeScript check**
 
@@ -919,7 +1010,7 @@ cd backend && npx tsc --noEmit 2>&1 | head -40
 
 Fix any errors.
 
-**Step 4: Commit**
+**Step 4: Commit only if changed**
 
 ```bash
 git add backend/src/modules/accounting/accounting.module.ts
@@ -928,7 +1019,7 @@ git commit -m "feat(accounting): import SettingsModule for document number gener
 
 ---
 
-## Task 13: Backend Integration — Run Tests
+## Task 14: Backend Integration — Run Tests
 
 **Step 1: Run all backend tests**
 
@@ -955,7 +1046,7 @@ git commit -m "fix(settings): resolve type errors after document number refactor
 
 ---
 
-## Task 14: Update Frontend Types
+## Task 15: Update Frontend Types
 
 **Files:**
 - Modify: `frontend/src/services/settingsApi.ts`
@@ -996,7 +1087,7 @@ git commit -m "feat(frontend): update DocumentNumberConfig type for normalized s
 
 ---
 
-## Task 15: Update DocumentNumbersPage
+## Task 16: Update DocumentNumbersPage
 
 **Files:**
 - Modify: `frontend/src/pages/settings/DocumentNumbersPage.tsx`
@@ -1084,7 +1175,7 @@ const MODULE_GROUPS: Record<string, string[]> = {
   Sales: ['Sales Orders', 'Invoices', 'Payments'],
   Purchasing: ['Purchase Orders', 'Goods Received', 'Vendor Payments'],
   Inventory: ['Stock Adjustment'],
-  Accounting: ['Journal Entries', 'Expenses', 'Settlements'],
+  Accounting: ['Journal Entries', 'Expenses', 'Settlements', 'Owner Equity'],
 }
 ```
 
@@ -1184,7 +1275,7 @@ git commit -m "feat(frontend): update DocumentNumbersPage for PREFIX-YY-NNN form
 
 ---
 
-## Task 16: Frontend Tests
+## Task 17: Frontend Tests
 
 **Step 1: Run frontend tests**
 
@@ -1217,7 +1308,7 @@ git commit -m "fix(frontend): update document number tests for new format"
 
 ---
 
-## Task 17: End-to-End Verification
+## Task 18: End-to-End Verification
 
 **Step 1: Start the backend in dev mode**
 
@@ -1235,7 +1326,7 @@ docker exec -it erp2-postgres-1 psql -U postgres -d erp2 -c "\d document_number_
 docker exec -it erp2-postgres-1 psql -U postgres -d erp2 -c "SELECT document_name, prefix, next_number, last_reset_year FROM document_number_settings ORDER BY document_name"
 ```
 
-Expected: 10 rows with correct prefixes.
+Expected: 11 rows with correct prefixes.
 
 **Step 3: Test the GET endpoint**
 
@@ -1243,7 +1334,7 @@ Expected: 10 rows with correct prefixes.
 curl -s -H "Authorization: Bearer <token>" http://localhost:3000/settings/document-numbers | jq .
 ```
 
-Expected: array of 10 configs with `paddingDigits`, `nextNumber`, `lastResetYear`.
+Expected: array of 11 configs with `paddingDigits`, `nextNumber`, `lastResetYear`.
 
 **Step 4: Test number generation**
 

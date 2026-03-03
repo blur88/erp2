@@ -9,6 +9,7 @@ import {
 import { JournalEntryService } from './journal-entry.service';
 import { ChartOfAccountsService } from './chart-of-accounts.service';
 import { FiscalPeriodService } from './fiscal-period.service';
+import { SettingsService } from '../../settings/settings.service';
 import {
   JournalEntry,
   JournalEntryStatus,
@@ -36,6 +37,7 @@ describe('JournalEntryService', () => {
   let chartOfAccountRepository: jest.Mocked<Repository<ChartOfAccount>>;
   let chartOfAccountsService: jest.Mocked<ChartOfAccountsService>;
   let fiscalPeriodService: jest.Mocked<FiscalPeriodService>;
+  let settingsService: jest.Mocked<SettingsService>;
 
   // Test data
   const mockFiscalPeriod: Partial<FiscalPeriod> = {
@@ -158,6 +160,12 @@ describe('JournalEntryService', () => {
             findOne: jest.fn(),
           },
         },
+        {
+          provide: SettingsService,
+          useValue: {
+            generateDocumentNumber: jest.fn(),
+          },
+        },
       ],
     }).compile();
 
@@ -168,6 +176,8 @@ describe('JournalEntryService', () => {
     chartOfAccountRepository = module.get(getRepositoryToken(ChartOfAccount));
     chartOfAccountsService = module.get(ChartOfAccountsService);
     fiscalPeriodService = module.get(FiscalPeriodService);
+    settingsService = module.get(SettingsService);
+    settingsService.generateDocumentNumber.mockResolvedValue('JE-26-001');
   });
 
   it('should be defined', () => {
@@ -255,7 +265,8 @@ describe('JournalEntryService', () => {
 
       const result = await service.create(createDto);
 
-      expect(result.referenceNumber).toMatch(/^JE-\d{4}-\d{3}$/);
+      expect(settingsService.generateDocumentNumber).toHaveBeenCalledWith('Journal Entries');
+      expect(result.referenceNumber).toBeDefined();
     });
 
     it('should throw BadRequestException if fiscal period is closed', async () => {

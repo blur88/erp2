@@ -10,12 +10,14 @@ import {
 } from '../../../database/entities/owner-equity-transaction.entity';
 import { PaymentMethodEntity } from '../../../database/entities/payment-method.entity';
 import { AccountingService } from './accounting.service';
+import { SettingsService } from '../../settings/settings.service';
 
 describe('OwnerEquityService', () => {
   let service: OwnerEquityService;
   let ownerEquityRepository: jest.Mocked<Repository<OwnerEquityTransaction>>;
   let paymentMethodRepository: jest.Mocked<Repository<PaymentMethodEntity>>;
   let accountingService: jest.Mocked<AccountingService>;
+  let settingsService: jest.Mocked<SettingsService>;
 
   const mockQueryBuilder = {
     withDeleted: jest.fn().mockReturnThis(),
@@ -54,6 +56,12 @@ describe('OwnerEquityService', () => {
             postOwnerEquityEntry: jest.fn(),
           },
         },
+        {
+          provide: SettingsService,
+          useValue: {
+            generateDocumentNumber: jest.fn(),
+          },
+        },
       ],
     }).compile();
 
@@ -61,6 +69,9 @@ describe('OwnerEquityService', () => {
     ownerEquityRepository = module.get(getRepositoryToken(OwnerEquityTransaction));
     paymentMethodRepository = module.get(getRepositoryToken(PaymentMethodEntity));
     accountingService = module.get(AccountingService);
+    settingsService = module.get(SettingsService);
+
+    settingsService.generateDocumentNumber.mockResolvedValue('EQ-26-001');
 
     jest.clearAllMocks();
   });
@@ -147,6 +158,7 @@ describe('OwnerEquityService', () => {
 
     ownerEquityRepository.create.mockReturnValue({
       id: 'tx-1',
+      referenceNumber: 'EQ-26-001',
       transactionDate: new Date('2026-02-01'),
       type: OwnerEquityTransactionType.CAPITAL_INJECTION,
       amount: 100,
@@ -175,6 +187,7 @@ describe('OwnerEquityService', () => {
       paymentMethodId: 'pm-1',
     });
 
+    expect(settingsService.generateDocumentNumber).toHaveBeenCalledWith('Owner Equity');
     expect(result.status).toBe(OwnerEquityTransactionStatus.DRAFT);
   });
 

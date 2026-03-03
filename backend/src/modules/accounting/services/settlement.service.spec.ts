@@ -6,6 +6,7 @@ import { Settlement, SettlementStatus } from '../../../database/entities/settlem
 import { PaymentMethodEntity } from '../../../database/entities/payment-method.entity';
 import { Payment, SettlementStatusEnum } from '../../../database/entities/payment.entity';
 import { AccountingService } from './accounting.service';
+import { SettingsService } from '../../settings/settings.service';
 
 describe('SettlementService', () => {
   let service: SettlementService;
@@ -13,6 +14,7 @@ describe('SettlementService', () => {
   let paymentMethodRepository: jest.Mocked<Repository<PaymentMethodEntity>>;
   let paymentRepository: jest.Mocked<Repository<Payment>>;
   let accountingService: jest.Mocked<AccountingService>;
+  let settingsService: jest.Mocked<SettingsService>;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -48,6 +50,12 @@ describe('SettlementService', () => {
             postSettlementEntry: jest.fn(),
           },
         },
+        {
+          provide: SettingsService,
+          useValue: {
+            generateDocumentNumber: jest.fn(),
+          },
+        },
       ],
     }).compile();
 
@@ -56,6 +64,8 @@ describe('SettlementService', () => {
     paymentMethodRepository = module.get(getRepositoryToken(PaymentMethodEntity));
     paymentRepository = module.get(getRepositoryToken(Payment));
     accountingService = module.get(AccountingService);
+    settingsService = module.get(SettingsService);
+    settingsService.generateDocumentNumber.mockResolvedValue('STL-26-001');
   });
 
   it('should be defined', () => {

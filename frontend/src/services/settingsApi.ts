@@ -53,15 +53,13 @@ interface UpdatePriceCostingSettingsDto {
 export interface DocumentNumberConfig {
   documentName: string
   prefix: string
-  numberFormat: string
+  paddingDigits: number
   nextNumber: number
+  lastResetYear: number
 }
 
 interface DocumentNumberSettings {
-  id: string
   configurations: DocumentNumberConfig[]
-  createdAt: string
-  updatedAt: string
 }
 
 interface UpdateDocumentNumberSettingsDto {

@@ -14,7 +14,7 @@ import { BackupLog } from '@database/entities/backup-log.entity';
 import { BackupRetentionSettings } from '@database/entities/backup-settings.entity';
 import { CompanySettings } from '@database/entities/company-settings.entity';
 import { PriceCostingSettings } from '@database/entities/price-costing-settings.entity';
-import { DocumentNumberSettings } from '@database/entities/document-number-settings.entity';
+import { DocumentNumberSetting } from '@database/entities/document-number-settings.entity';
 import { PrintSettings } from '@database/entities/print-settings.entity';
 import { CreateBackupDto, BackupDatabase } from './dto/create-backup.dto';
 import { BackupMetadata } from './interfaces/backup-metadata.interface';
@@ -38,8 +38,8 @@ export class BackupService implements OnModuleDestroy {
     private readonly companySettingsRepository: Repository<CompanySettings>,
     @InjectRepository(PriceCostingSettings)
     private readonly priceCostingSettingsRepository: Repository<PriceCostingSettings>,
-    @InjectRepository(DocumentNumberSettings)
-    private readonly documentNumberSettingsRepository: Repository<DocumentNumberSettings>,
+    @InjectRepository(DocumentNumberSetting)
+    private readonly documentNumberSettingRepository: Repository<DocumentNumberSetting>,
     @InjectRepository(PrintSettings)
     private readonly printSettingsRepository: Repository<PrintSettings>,
     private readonly configService: ConfigService,
@@ -527,16 +527,16 @@ export class BackupService implements OnModuleDestroy {
   }
 
   private async getDocumentNumberSettings(): Promise<any> {
-    const settings = await this.documentNumberSettingsRepository.findOne({
-      where: { isActive: true },
+    const configurations = await this.documentNumberSettingRepository.find({
+      order: { documentName: 'ASC' },
     });
 
-    if (!settings) {
+    if (!configurations.length) {
       return {};
     }
 
     return {
-      configurations: settings.configurations,
+      configurations,
     };
   }
 
@@ -950,17 +950,29 @@ export class BackupService implements OnModuleDestroy {
     if (!data || Object.keys(data).length === 0) return;
 
     try {
-      const existing = await this.documentNumberSettingsRepository.findOne({ where: { isActive: true } });
+      const configurations = Array.isArray(data.configurations) ? data.configurations : [];
+      const currentYY = new Date().getFullYear() % 100;
 
-      if (existing) {
-        existing.configurations = data.configurations;
-        await this.documentNumberSettingsRepository.save(existing);
-      } else {
-        const created = this.documentNumberSettingsRepository.create({
-          configurations: data.configurations,
-          isActive: true,
+      for (const config of configurations) {
+        const existing = await this.documentNumberSettingRepository.findOne({
+          where: { documentName: config.documentName },
         });
-        await this.documentNumberSettingsRepository.save(created);
+
+        const payload = {
+          documentName: config.documentName,
+          prefix: config.prefix,
+          paddingDigits: config.paddingDigits || 3,
+          nextNumber: config.nextNumber || 1,
+          lastResetYear: config.lastResetYear ?? currentYY,
+        };
+
+        if (existing) {
+          Object.assign(existing, payload);
+          await this.documentNumberSettingRepository.save(existing);
+        } else {
+          const created = this.documentNumberSettingRepository.create(payload);
+          await this.documentNumberSettingRepository.save(created);
+        }
       }
 
       this.logger.log('Document number settings restored');
