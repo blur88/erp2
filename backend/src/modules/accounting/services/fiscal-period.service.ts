@@ -22,6 +22,7 @@ import {
   FiscalPeriodListResponseDto,
   FiscalPeriodValidationResponseDto,
 } from '../dto/fiscal-period.dto';
+import { AuditLogService } from '../../audit-logs/services';
 
 @Injectable()
 export class FiscalPeriodService {
@@ -32,6 +33,7 @@ export class FiscalPeriodService {
     private readonly fiscalPeriodRepository: Repository<FiscalPeriod>,
     @InjectRepository(JournalEntry)
     private readonly journalEntryRepository: Repository<JournalEntry>,
+    private readonly auditLogService: AuditLogService,
   ) {}
 
   /**
@@ -95,6 +97,13 @@ export class FiscalPeriodService {
     });
 
     const savedPeriod = await this.fiscalPeriodRepository.save(fiscalPeriod);
+
+    await this.auditLogService.log(
+      'CREATE',
+      'FiscalPeriod',
+      `Created fiscal period: ${savedPeriod.code} - ${savedPeriod.name}`,
+      { entityId: savedPeriod.id, userId: userId ?? 'system' },
+    );
 
     this.logger.log(`Fiscal period created successfully with ID: ${savedPeriod.id}`);
     return this.toResponseDto(savedPeriod);
@@ -260,6 +269,13 @@ export class FiscalPeriodService {
 
     const updatedPeriod = await this.fiscalPeriodRepository.save(period);
 
+    await this.auditLogService.log(
+      'UPDATE',
+      'FiscalPeriod',
+      `Updated fiscal period: ${updatedPeriod.code} - ${updatedPeriod.name}`,
+      { entityId: id, userId: userId ?? 'system' },
+    );
+
     this.logger.log(`Fiscal period updated successfully: ${id}`);
     return this.toResponseDto(updatedPeriod);
   }
@@ -292,6 +308,13 @@ export class FiscalPeriodService {
 
     // Soft delete the period
     await this.fiscalPeriodRepository.softDelete(id);
+
+    await this.auditLogService.log(
+      'DELETE',
+      'FiscalPeriod',
+      `Deleted fiscal period: ${period.code} - ${period.name}`,
+      { entityId: id, userId: userId ?? 'system' },
+    );
 
     this.logger.log(`Fiscal period soft-deleted successfully: ${id}`);
   }
@@ -333,6 +356,13 @@ export class FiscalPeriodService {
     const restoredPeriod = await this.fiscalPeriodRepository.findOne({
       where: { id },
     });
+
+    await this.auditLogService.log(
+      'RESTORE',
+      'FiscalPeriod',
+      `Restored fiscal period: ${period.code} - ${period.name}`,
+      { entityId: id, userId: userId ?? 'system' },
+    );
 
     this.logger.log(`Fiscal period restored successfully: ${id}`);
     return this.toResponseDto(restoredPeriod!);
@@ -382,6 +412,12 @@ export class FiscalPeriodService {
         );
 
         createdPeriods.push(period);
+        await this.auditLogService.log(
+          'GENERATE',
+          'FiscalPeriod',
+          `Generated fiscal period: ${period.code} - ${period.name}`,
+          { entityId: period.id, userId: userId ?? 'system' },
+        );
         this.logger.log(`Created period: ${code} - ${name}`);
       } catch (error) {
         if (error instanceof ConflictException) {
@@ -437,6 +473,13 @@ export class FiscalPeriodService {
     period.status = FiscalPeriodStatus.CLOSED;
     const closedPeriod = await this.fiscalPeriodRepository.save(period);
 
+    await this.auditLogService.log(
+      'UPDATE',
+      'FiscalPeriod',
+      `Closed fiscal period: ${closedPeriod.code} - ${closedPeriod.name}`,
+      { entityId: id, userId: userId ?? 'system', metadata: { status: 'CLOSED' } },
+    );
+
     this.logger.log(`Fiscal period closed successfully: ${id}`);
     return this.toResponseDto(closedPeriod);
   }
@@ -485,6 +528,13 @@ export class FiscalPeriodService {
     // Reopen the period
     period.status = FiscalPeriodStatus.OPEN;
     const reopenedPeriod = await this.fiscalPeriodRepository.save(period);
+
+    await this.auditLogService.log(
+      'UPDATE',
+      'FiscalPeriod',
+      `Reopened fiscal period: ${reopenedPeriod.code} - ${reopenedPeriod.name}`,
+      { entityId: id, userId: userId ?? 'system', metadata: { status: 'OPEN' } },
+    );
 
     this.logger.log(`Fiscal period reopened successfully: ${id}`);
     return this.toResponseDto(reopenedPeriod);
