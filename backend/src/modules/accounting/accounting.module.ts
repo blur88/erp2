@@ -38,6 +38,7 @@ import { SettlementController } from './controllers/settlement.controller';
 import { OwnerEquityController } from './controllers/owner-equity.controller';
 import { ExpenseController } from './controllers/expense.controller';
 import { SettingsModule } from '../settings/settings.module';
+import { AuditLogsModule } from '../audit-logs/audit-logs.module';
 
 @Module({
   imports: [
@@ -56,6 +57,7 @@ import { SettingsModule } from '../settings/settings.module';
       Expense,
     ]),
     SettingsModule,
+    AuditLogsModule,
   ],
   controllers: [
     ChartOfAccountsController,
