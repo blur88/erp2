@@ -152,7 +152,11 @@ export class SalesOrderService {
     return previousOrder ? this.mapToResponseDto(previousOrder) : null;
   }
 
-  async create(createSalesOrderDto: CreateSalesOrderDto, userId: string | null): Promise<SalesOrderResponseDto> {
+  async create(
+    createSalesOrderDto: CreateSalesOrderDto,
+    userId?: string,
+    username?: string,
+  ): Promise<SalesOrderResponseDto> {
     const { customerId, items, ...orderData } = createSalesOrderDto;
 
     // Verify customer exists and can purchase
@@ -298,10 +302,11 @@ export class SalesOrderService {
         'CREATE',
         'Invoice',
         `Created invoice: ${invoice.invoiceNumber} for sales order ${orderWithCustomer.orderNumber}`,
-        {
-          entityId: invoice.id,
-          userId: 'system',
-          newValues: {
+          {
+            entityId: invoice.id,
+            userId: userId || 'system',
+            username,
+            newValues: {
             invoiceNumber: invoice.invoiceNumber,
             salesOrderId: orderWithCustomer.id,
             customerId: orderWithCustomer.customerId,
@@ -344,6 +349,7 @@ export class SalesOrderService {
       {
         entityId: savedOrder.id,
         userId: userId || 'system',
+        username,
         newValues: {
           orderNumber: savedOrder.orderNumber,
           customerId: customer.id,
@@ -794,7 +800,12 @@ export class SalesOrderService {
     return this.mapToResponseDto(order);
   }
 
-  async update(id: string, updateSalesOrderDto: UpdateSalesOrderDto): Promise<SalesOrderResponseDto> {
+  async update(
+    id: string,
+    updateSalesOrderDto: UpdateSalesOrderDto,
+    userId?: string,
+    username?: string,
+  ): Promise<SalesOrderResponseDto> {
     const order = await this.salesOrderRepository.findOne({
       where: { id }
     });
@@ -911,7 +922,8 @@ export class SalesOrderService {
         `Updated sales order: ${order.orderNumber}`,
         {
           entityId: id,
-          userId: 'system',
+          userId: userId || 'system',
+          username,
           oldValues: updateData,
           newValues: updateData,
         }
@@ -921,7 +933,11 @@ export class SalesOrderService {
     return this.findById(id);
   }
 
-  async delete(id: string): Promise<{ deletedOrderNumber: string; previousOrder: SalesOrderResponseDto | null }> {
+  async delete(
+    id: string,
+    userId?: string,
+    username?: string,
+  ): Promise<{ deletedOrderNumber: string; previousOrder: SalesOrderResponseDto | null }> {
     const order = await this.salesOrderRepository.findOne({ where: { id } });
     if (!order) {
       throw new NotFoundException('Sales order not found');
@@ -968,7 +984,8 @@ export class SalesOrderService {
             `Deleted invoice: ${invoice.invoiceNumber} (cascaded from sales order ${order.orderNumber})`,
             {
               entityId: invoice.id,
-              userId: 'system',
+              userId: userId || 'system',
+              username,
               oldValues: {
                 invoiceNumber: invoice.invoiceNumber,
                 salesOrderId: id,
@@ -1011,7 +1028,8 @@ export class SalesOrderService {
             `Deleted payment: ${payment.paymentNumber} (cascaded from sales order ${order.orderNumber})`,
             {
               entityId: payment.id,
-              userId: 'system',
+              userId: userId || 'system',
+              username,
               oldValues: {
                 paymentNumber: payment.paymentNumber,
                 salesOrderId: id,
@@ -1036,7 +1054,8 @@ export class SalesOrderService {
       `Deleted sales order: ${order.orderNumber}`,
       {
         entityId: id,
-        userId: 'system',
+        userId: userId || 'system',
+        username,
         oldValues: {
           orderNumber: order.orderNumber,
           customerId: order.customerId,
@@ -1311,7 +1330,7 @@ export class SalesOrderService {
     };
   }
 
-  async restore(id: string): Promise<SalesOrderResponseDto> {
+  async restore(id: string, userId?: string, username?: string): Promise<SalesOrderResponseDto> {
     const order = await this.salesOrderRepository.findOne({
       where: { id },
       withDeleted: true, // Include soft-deleted records
@@ -1348,7 +1367,8 @@ export class SalesOrderService {
             `Restored invoice: ${invoice.invoiceNumber} (cascaded from sales order ${order.orderNumber})`,
             {
               entityId: invoice.id,
-              userId: 'system',
+              userId: userId || 'system',
+              username,
               newValues: {
                 invoiceNumber: invoice.invoiceNumber,
                 salesOrderId: id,
@@ -1402,7 +1422,8 @@ export class SalesOrderService {
               `Restored payment: ${payment.paymentNumber} (cascaded from sales order ${order.orderNumber})`,
               {
                 entityId: payment.id,
-                userId: 'system',
+                userId: userId || 'system',
+                username,
                 newValues: {
                   paymentNumber: payment.paymentNumber,
                   salesOrderId: id,
@@ -1431,7 +1452,8 @@ export class SalesOrderService {
       `Restored sales order: ${order.orderNumber}`,
       {
         entityId: id,
-        userId: 'system',
+        userId: userId || 'system',
+        username,
         newValues: {
           orderNumber: order.orderNumber,
           customerId: order.customerId,
@@ -1443,7 +1465,7 @@ export class SalesOrderService {
     return this.mapToResponseDto(restoredOrder);
   }
 
-  async bulkRestore(ids: string[]): Promise<BulkOperationResponse> {
+  async bulkRestore(ids: string[], userId?: string, username?: string): Promise<BulkOperationResponse> {
     if (!ids || ids.length === 0) {
       return BulkOperationUtil.createResponse('restored', 'sales order', 0, []);
     }
@@ -1453,7 +1475,7 @@ export class SalesOrderService {
 
     for (const id of ids) {
       try {
-        await this.restore(id);
+        await this.restore(id, userId, username);
         successCount++;
       } catch (error) {
         BulkOperationUtil.addFailure(
@@ -1468,7 +1490,7 @@ export class SalesOrderService {
     return BulkOperationUtil.createResponse('restored', 'sales order', successCount, failedItems);
   }
 
-  async permanentDelete(id: string): Promise<void> {
+  async permanentDelete(id: string, userId?: string, username?: string): Promise<void> {
     // Find the order (including soft-deleted ones)
     const order = await this.salesOrderRepository.findOne({
       where: { id },
@@ -1504,7 +1526,8 @@ export class SalesOrderService {
             `Permanently deleted invoice: ${invoice.invoiceNumber} (cascaded from sales order ${order.orderNumber})`,
             {
               entityId: invoice.id,
-              userId: 'system',
+              userId: userId || 'system',
+              username,
               oldValues: {
                 invoiceNumber: invoice.invoiceNumber,
                 salesOrderId: id,
@@ -1569,7 +1592,8 @@ export class SalesOrderService {
             `Permanently deleted payment: ${payment.paymentNumber} (cascaded from sales order ${order.orderNumber})`,
             {
               entityId: payment.id,
-              userId: 'system',
+              userId: userId || 'system',
+              username,
               oldValues: {
                 paymentNumber: payment.paymentNumber,
                 salesOrderId: id,
@@ -1600,7 +1624,8 @@ export class SalesOrderService {
       `Permanently deleted sales order: ${order.orderNumber}`,
       {
         entityId: id,
-        userId: 'system',
+        userId: userId || 'system',
+        username,
         oldValues: {
           orderNumber: order.orderNumber,
           customerId: order.customerId,
@@ -1616,7 +1641,9 @@ export class SalesOrderService {
   }
 
   async bulkPermanentDelete(
-    orderIds: string[]
+    orderIds: string[],
+    userId?: string,
+    username?: string,
   ): Promise<BulkOperationResponse> {
     if (!orderIds || orderIds.length === 0) {
       return BulkOperationUtil.createResponse('permanently deleted', 'sales order', 0, []);
@@ -1683,7 +1710,8 @@ export class SalesOrderService {
                 `Permanently deleted invoice: ${invoice.invoiceNumber} (cascaded from sales order ${order.orderNumber})`,
                 {
                   entityId: invoice.id,
-                  userId: 'system',
+                  userId: userId || 'system',
+                  username,
                   oldValues: {
                     invoiceNumber: invoice.invoiceNumber,
                     salesOrderId: id,
@@ -1753,7 +1781,8 @@ export class SalesOrderService {
                 `Permanently deleted payment: ${payment.paymentNumber} (cascaded from sales order ${order.orderNumber})`,
                 {
                   entityId: payment.id,
-                  userId: 'system',
+                  userId: userId || 'system',
+                  username,
                   oldValues: {
                     paymentNumber: payment.paymentNumber,
                     salesOrderId: id,
@@ -2341,7 +2370,7 @@ export class SalesOrderService {
     return this.findById(savedOrder.id);
   }
 
-  async fulfillOrder(id: string): Promise<SalesOrderResponseDto> {
+  async fulfillOrder(id: string, userId?: string, username?: string): Promise<SalesOrderResponseDto> {
     const order = await this.salesOrderRepository.findOne({
       where: { id },
       relations: ['customer', 'items', 'items.product'],
@@ -2386,7 +2415,8 @@ export class SalesOrderService {
       `Fulfilled sales order: ${order.orderNumber}`,
       {
         entityId: id,
-        userId: 'system',
+        userId: userId || 'system',
+        username,
         oldValues: { isFulfilled: false },
         newValues: { isFulfilled: true, fulfilledDate: order.fulfilledDate },
       }
@@ -2399,7 +2429,7 @@ export class SalesOrderService {
         relations: ['customer', 'items', 'items.product'],
       });
       if (fullOrder) {
-        await this.accountingService.postSalesOrderEntry(fullOrder, 'system');
+        await this.accountingService.postSalesOrderEntry(fullOrder, userId || 'system');
         this.logger.log(`Posted accounting entry for sales order ${fullOrder.orderNumber}`);
       }
     } catch (error) {

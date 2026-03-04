@@ -32,6 +32,7 @@ import {
   SalesOrderSummaryDto,
   RecordPaymentsDto,
 } from '../dto/sales-order.dto';
+import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 
 @ApiTags('Sales Orders')
 @Controller('sales-orders')
@@ -49,8 +50,10 @@ export class SalesOrderController {
   @ApiResponse({ status: 409, description: 'Insufficient inventory or credit limit exceeded' })
   async createSalesOrder(
     @Body() createSalesOrderDto: CreateSalesOrderDto,
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
   ) {
-    const data = await this.salesOrderService.create(createSalesOrderDto, null); // Auth removed - no user tracking
+    const data = await this.salesOrderService.create(createSalesOrderDto, currentUserId, currentUsername);
     return { data };
   }
 
@@ -160,8 +163,10 @@ export class SalesOrderController {
   async updateSalesOrder(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() updateSalesOrderDto: UpdateSalesOrderDto,
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
   ): Promise<SalesOrderResponseDto> {
-    return this.salesOrderService.update(id, updateSalesOrderDto);
+    return this.salesOrderService.update(id, updateSalesOrderDto, currentUserId, currentUsername);
   }
 
   @Delete(':id')
@@ -195,13 +200,17 @@ export class SalesOrderController {
   @ApiResponse({ status: 404, description: 'Sales order not found' })
   @ApiResponse({ status: 400, description: 'Order is fulfilled (unfulfill first) or order is paid (unpay first)' })
   @ApiResponse({ status: 409, description: 'Cannot delete order in current status' })
-  async deleteSalesOrder(@Param('id', ParseUUIDPipe) id: string): Promise<{
+  async deleteSalesOrder(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
+  ): Promise<{
     data: SalesOrderResponseDto | null;
     message: string;
     deletedOrderNumber: string;
     redirect?: string;
   }> {
-    const result = await this.salesOrderService.delete(id);
+    const result = await this.salesOrderService.delete(id, currentUserId, currentUsername);
 
     if (result.previousOrder) {
       // Return the previous order as the main data to display
@@ -371,8 +380,12 @@ export class SalesOrderController {
   })
   @ApiResponse({ status: 404, description: 'Sales order not found' })
   @ApiResponse({ status: 409, description: 'Cannot fulfill order - payment insufficient or already fulfilled' })
-  async fulfillOrder(@Param('id', ParseUUIDPipe) id: string) {
-    const data = await this.salesOrderService.fulfillOrder(id);
+  async fulfillOrder(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
+  ) {
+    const data = await this.salesOrderService.fulfillOrder(id, currentUserId, currentUsername);
     return { data };
   }
 
@@ -401,8 +414,12 @@ export class SalesOrderController {
   })
   @ApiResponse({ status: 404, description: 'Sales order not found' })
   @ApiResponse({ status: 409, description: 'Sales order is not deleted' })
-  async restoreSalesOrder(@Param('id', ParseUUIDPipe) id: string): Promise<SalesOrderResponseDto> {
-    return this.salesOrderService.restore(id);
+  async restoreSalesOrder(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
+  ): Promise<SalesOrderResponseDto> {
+    return this.salesOrderService.restore(id, currentUserId, currentUsername);
   }
 
   @Post('bulk-restore')
@@ -428,8 +445,14 @@ export class SalesOrderController {
   @HttpCode(HttpStatus.OK)
   async bulkRestore(
     @Body() body: { salesOrderIds: string[] },
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
   ): Promise<{ message: string; restoredCount: number; failedIds: string[] }> {
-    const result = await this.salesOrderService.bulkRestore(body.salesOrderIds);
+    const result = await this.salesOrderService.bulkRestore(
+      body.salesOrderIds,
+      currentUserId,
+      currentUsername,
+    );
     return {
       message: `Successfully restored ${result.successCount} of ${body.salesOrderIds.length} sales orders`,
       restoredCount: result.successCount,
@@ -460,8 +483,14 @@ export class SalesOrderController {
   @HttpCode(HttpStatus.OK)
   async bulkPermanentDelete(
     @Body() body: { salesOrderIds: string[] },
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
   ): Promise<{ message: string; deletedCount: number; failedIds: string[] }> {
-    const result = await this.salesOrderService.bulkPermanentDelete(body.salesOrderIds);
+    const result = await this.salesOrderService.bulkPermanentDelete(
+      body.salesOrderIds,
+      currentUserId,
+      currentUsername,
+    );
     return {
       message: `Successfully permanently deleted ${result.successCount} of ${body.salesOrderIds.length} sales orders`,
       deletedCount: result.successCount,
@@ -484,8 +513,10 @@ export class SalesOrderController {
   @HttpCode(HttpStatus.NO_CONTENT)
   async permanentDelete(
     @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
   ): Promise<void> {
-    await this.salesOrderService.permanentDelete(id);
+    await this.salesOrderService.permanentDelete(id, currentUserId, currentUsername);
   }
 
 }
