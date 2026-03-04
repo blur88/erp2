@@ -372,10 +372,23 @@ export class InvoiceService {
     // No direct field updates in current implementation
 
     const savedInvoice = await this.invoiceRepository.save(invoice);
+
+    await this.auditLogService.log(
+      'UPDATE',
+      'Invoice',
+      `Updated invoice: ${savedInvoice.invoiceNumber}`,
+      {
+        entityId: savedInvoice.id,
+        userId: userId || 'system',
+        username,
+        newValues: updateInvoiceDto,
+      }
+    );
+
     return this.findById(savedInvoice.id);
   }
 
-  async syncItemsFromSalesOrder(invoiceId: string): Promise<InvoiceResponseDto> {
+  async syncItemsFromSalesOrder(invoiceId: string, userId?: string, username?: string): Promise<InvoiceResponseDto> {
     const invoice = await this.invoiceRepository.findOne({
       where: { id: invoiceId }
     });
@@ -446,7 +459,8 @@ export class InvoiceService {
       `Updated invoice: ${invoice.invoiceNumber}`,
       {
         entityId: invoice.id,
-        userId: 'system',
+        userId: userId || 'system',
+        username,
         newValues: {
           status: invoice.status,
           totalAmount: invoice.totalAmount,

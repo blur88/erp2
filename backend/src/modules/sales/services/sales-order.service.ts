@@ -1806,6 +1806,23 @@ export class SalesOrderService {
         // Hard delete order items first
         await this.salesOrderItemRepository.delete({ salesOrderId: id });
 
+        // Log audit trail for the order itself before permanent deletion
+        await this.auditLogService.log(
+          'PERMANENT_DELETE',
+          'SalesOrder',
+          `Permanently deleted sales order: ${order.orderNumber}`,
+          {
+            entityId: id,
+            userId: userId || 'system',
+            username,
+            oldValues: {
+              orderNumber: order.orderNumber,
+              totalAmount: order.totalAmount,
+              customerId: order.customerId,
+            },
+          }
+        );
+
         // Hard delete the order
         await this.salesOrderRepository.delete(id);
 

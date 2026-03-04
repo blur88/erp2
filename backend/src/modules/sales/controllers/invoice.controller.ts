@@ -187,8 +187,10 @@ export class InvoiceController {
   @ApiResponse({ status: 409, description: 'Cannot sync items for fully paid invoice' })
   async syncItemsFromSalesOrder(
     @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
   ): Promise<InvoiceResponseDto> {
-    return this.invoiceService.syncItemsFromSalesOrder(id);
+    return this.invoiceService.syncItemsFromSalesOrder(id, currentUserId, currentUsername);
   }
 
   @Delete(':id')
