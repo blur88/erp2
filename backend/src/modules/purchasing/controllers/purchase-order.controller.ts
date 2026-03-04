@@ -227,8 +227,10 @@ export class PurchaseOrderController {
   @HttpCode(HttpStatus.OK)
   async receiveGoods(
     @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
   ): Promise<{ data: PurchaseOrderResponseDto }> {
-    const data = await this.purchaseOrderService.receiveGoods(id);
+    const data = await this.purchaseOrderService.receiveGoods(id, currentUserId, currentUsername);
     return { data };
   }
 
@@ -245,8 +247,10 @@ export class PurchaseOrderController {
   @HttpCode(HttpStatus.OK)
   async returnGoods(
     @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
   ): Promise<{ data: PurchaseOrderResponseDto }> {
-    const data = await this.purchaseOrderService.returnGoods(id);
+    const data = await this.purchaseOrderService.returnGoods(id, currentUserId, currentUsername);
     return { data };
   }
 

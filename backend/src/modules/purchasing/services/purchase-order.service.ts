@@ -97,7 +97,7 @@ export class PurchaseOrderService {
    */
   async create(
     createPurchaseOrderDto: CreatePurchaseOrderDto,
-    userId: string = 'system',
+    userId?: string,
     username?: string,
   ): Promise<PurchaseOrderResponseDto> {
     this.logger.log(`Creating purchase order for supplier: ${createPurchaseOrderDto.supplierId}`);
@@ -635,7 +635,7 @@ export class PurchaseOrderService {
   /**
    * Restore a deleted purchase order and its associated GRN (sets deletedAt to null for both)
    */
-  async restore(id: string, userId: string = 'system', username?: string): Promise<PurchaseOrderResponseDto> {
+  async restore(id: string, userId?: string, username?: string): Promise<PurchaseOrderResponseDto> {
     this.logger.log(`Restoring purchase order: ${id}`);
 
     // Check if the order exists in deleted records
@@ -726,7 +726,7 @@ export class PurchaseOrderService {
    */
   async bulkRestore(
     orderIds: string[],
-    userId: string = 'system',
+    userId?: string,
     username?: string,
   ): Promise<{ restoredCount: number; failedIds: string[] }> {
     this.logger.log(`Bulk restoring ${orderIds.length} purchase orders`);
@@ -751,7 +751,7 @@ export class PurchaseOrderService {
   /**
    * Permanently delete a purchase order and its associated GRN
    */
-  async permanentDelete(id: string, userId: string = 'system', username?: string): Promise<void> {
+  async permanentDelete(id: string, userId?: string, username?: string): Promise<void> {
     this.logger.log(`Permanently deleting purchase order: ${id}`);
 
     const purchaseOrder = await this.purchaseOrderRepository.findOne({
@@ -1063,7 +1063,7 @@ export class PurchaseOrderService {
    */
   private async createDraftGrn(
     purchaseOrder: PurchaseOrder,
-    userId: string = 'system',
+    userId?: string,
     username?: string,
   ): Promise<void> {
     try {
@@ -1164,7 +1164,7 @@ export class PurchaseOrderService {
   /**
    * Receive goods - change GRN status to received and update product quantities
    */
-  async receiveGoods(id: string): Promise<PurchaseOrderResponseDto> {
+  async receiveGoods(id: string, userId?: string, username?: string): Promise<PurchaseOrderResponseDto> {
     this.logger.log(`Receiving goods for purchase order: ${id}`);
 
     const purchaseOrder = await this.purchaseOrderRepository.findOne({
@@ -1259,7 +1259,7 @@ export class PurchaseOrderService {
         });
 
         if (fullGrn) {
-          await this.accountingService.postGoodsReceivedEntry(fullGrn, 'system');
+          await this.accountingService.postGoodsReceivedEntry(fullGrn, userId || 'system');
           this.logger.log(`Posted accounting entry for GRN ${fullGrn.grnNumber}`);
         }
       } catch (error) {
@@ -1282,7 +1282,8 @@ export class PurchaseOrderService {
         `Received goods for PO: ${purchaseOrder.orderNumber}`,
         {
           entityId: id,
-          userId: 'system',
+          userId: userId || 'system',
+          username,
           newValues: {
             orderNumber: purchaseOrder.orderNumber,
             status: 'received',
@@ -1302,7 +1303,7 @@ export class PurchaseOrderService {
   /**
    * Return goods - change GRN status to return and revert product quantities
    */
-  async returnGoods(id: string): Promise<PurchaseOrderResponseDto> {
+  async returnGoods(id: string, userId?: string, username?: string): Promise<PurchaseOrderResponseDto> {
     this.logger.log(`Returning goods for purchase order: ${id}`);
 
     const purchaseOrder = await this.purchaseOrderRepository.findOne({
@@ -1401,7 +1402,8 @@ export class PurchaseOrderService {
         `Returned goods for PO: ${purchaseOrder.orderNumber}`,
         {
           entityId: id,
-          userId: 'system',
+          userId: userId || 'system',
+          username,
           newValues: {
             orderNumber: purchaseOrder.orderNumber,
             status: 'draft',
