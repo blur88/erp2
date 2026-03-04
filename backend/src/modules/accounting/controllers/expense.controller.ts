@@ -10,6 +10,7 @@ import {
   ParseUUIDPipe,
 } from '@nestjs/common';
 import { Auth } from '../../auth/decorators/auth.decorator';
+import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import { UserRole } from '../../../database/entities/user.entity';
 import { ExpenseService } from '../services/expense.service';
 import {
@@ -36,37 +37,62 @@ export class ExpenseController {
 
   @Post()
   @Auth(UserRole.ADMIN, UserRole.MANAGER)
-  create(@Body() dto: CreateExpenseDto) {
-    return this.expenseService.create(dto);
+  create(
+    @Body() dto: CreateExpenseDto,
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
+  ) {
+    return this.expenseService.create(dto, currentUserId, currentUsername);
   }
 
   @Patch(':id')
   @Auth(UserRole.ADMIN, UserRole.MANAGER)
-  update(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateExpenseDto) {
-    return this.expenseService.update(id, dto);
+  update(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateExpenseDto,
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
+  ) {
+    return this.expenseService.update(id, dto, currentUserId, currentUsername);
   }
 
   @Delete(':id')
   @Auth(UserRole.ADMIN)
-  remove(@Param('id', ParseUUIDPipe) id: string) {
-    return this.expenseService.remove(id);
+  remove(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
+  ) {
+    return this.expenseService.remove(id, currentUserId, currentUsername);
   }
 
   @Post(':id/post')
   @Auth(UserRole.ADMIN, UserRole.MANAGER)
-  post(@Param('id', ParseUUIDPipe) id: string) {
-    return this.expenseService.post(id);
+  post(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
+  ) {
+    return this.expenseService.post(id, currentUserId, currentUsername);
   }
 
   @Post('bulk-post')
   @Auth(UserRole.ADMIN, UserRole.MANAGER)
-  bulkPost(@Body() dto: BulkExpenseDto) {
-    return this.expenseService.bulkPost(dto);
+  bulkPost(
+    @Body() dto: BulkExpenseDto,
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
+  ) {
+    return this.expenseService.bulkPost(dto, currentUserId, currentUsername);
   }
 
   @Post('bulk-delete')
   @Auth(UserRole.ADMIN)
-  bulkDelete(@Body() dto: BulkExpenseDto) {
-    return this.expenseService.bulkDelete(dto);
+  bulkDelete(
+    @Body() dto: BulkExpenseDto,
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
+  ) {
+    return this.expenseService.bulkDelete(dto, currentUserId, currentUsername);
   }
 }

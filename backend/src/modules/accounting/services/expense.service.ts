@@ -119,7 +119,11 @@ export class ExpenseService {
     return this.toResponseDto(expense);
   }
 
-  async create(dto: CreateExpenseDto, userId = 'system'): Promise<ExpenseResponseDto> {
+  async create(
+    dto: CreateExpenseDto,
+    userId?: string,
+    username?: string,
+  ): Promise<ExpenseResponseDto> {
     const paymentMethod = await this.paymentMethodRepository.findOne({
       where: { id: dto.paymentMethodId, isActive: true },
     });
@@ -160,7 +164,7 @@ export class ExpenseService {
       'CREATE',
       'Expense',
       `Created expense: ${saved.referenceNumber}`,
-      { entityId: saved.id, userId: userId ?? 'system' },
+      { entityId: saved.id, userId: userId ?? 'system', username },
     );
     return this.findOne(saved.id);
   }
@@ -168,7 +172,8 @@ export class ExpenseService {
   async update(
     id: string,
     dto: UpdateExpenseDto,
-    userId = 'system',
+    userId?: string,
+    username?: string,
   ): Promise<ExpenseResponseDto> {
     const expense = await this.expenseRepository.findOne({
       where: { id },
@@ -217,12 +222,12 @@ export class ExpenseService {
       'UPDATE',
       'Expense',
       `Updated expense: ${expense.referenceNumber}`,
-      { entityId: id, userId: userId ?? 'system' },
+      { entityId: id, userId: userId ?? 'system', username },
     );
     return this.findOne(id);
   }
 
-  async remove(id: string): Promise<void> {
+  async remove(id: string, userId?: string, username?: string): Promise<void> {
     const expense = await this.expenseRepository.findOne({
       where: { id },
     });
@@ -240,11 +245,11 @@ export class ExpenseService {
       'DELETE',
       'Expense',
       `Deleted expense: ${expense.referenceNumber}`,
-      { entityId: id, userId: 'system' },
+      { entityId: id, userId: userId ?? 'system', username },
     );
   }
 
-  async post(id: string, userId = 'system'): Promise<ExpenseResponseDto> {
+  async post(id: string, userId?: string, username?: string): Promise<ExpenseResponseDto> {
     const expense = await this.expenseRepository.findOne({
       where: { id },
       relations: ['paymentMethod', 'expenseAccount'],
@@ -259,7 +264,11 @@ export class ExpenseService {
     }
 
     try {
-      const journalEntry = await this.accountingService.postExpenseEntry(expense, userId);
+      const journalEntry = await this.accountingService.postExpenseEntry(
+        expense,
+        userId ?? 'system',
+        username,
+      );
       expense.status = ExpenseStatus.POSTED;
       expense.journalEntryId = journalEntry.id;
       await this.expenseRepository.save(expense);
@@ -267,7 +276,7 @@ export class ExpenseService {
         'POST',
         'Expense',
         `Posted expense: ${expense.referenceNumber}`,
-        { entityId: id, userId: userId ?? 'system' },
+        { entityId: id, userId: userId ?? 'system', username },
       );
     } catch (error) {
       this.logger.error(
@@ -281,14 +290,15 @@ export class ExpenseService {
 
   async bulkPost(
     dto: BulkExpenseDto,
-    userId = 'system',
+    userId?: string,
+    username?: string,
   ): Promise<{ posted: number; failed: number }> {
     let posted = 0;
     let failed = 0;
 
     for (const id of dto.ids) {
       try {
-        await this.post(id, userId);
+        await this.post(id, userId, username);
         posted++;
       } catch (error) {
         this.logger.error(`Failed to post expense ${id}: ${error.message}`);
@@ -299,13 +309,17 @@ export class ExpenseService {
     return { posted, failed };
   }
 
-  async bulkDelete(dto: BulkExpenseDto): Promise<{ deleted: number; failed: number }> {
+  async bulkDelete(
+    dto: BulkExpenseDto,
+    userId?: string,
+    username?: string,
+  ): Promise<{ deleted: number; failed: number }> {
     let deleted = 0;
     let failed = 0;
 
     for (const id of dto.ids) {
       try {
-        await this.remove(id);
+        await this.remove(id, userId, username);
         deleted++;
       } catch (error) {
         this.logger.error(`Failed to delete expense ${id}: ${error.message}`);
