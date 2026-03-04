@@ -28,6 +28,7 @@ import {
   CreateJournalEntryLineDto,
   PostOpeningBalancesDto,
 } from '../dto/journal-entry.dto';
+import { AuditLogService } from '../../audit-logs/services';
 
 @Injectable()
 export class AccountingService {
@@ -37,6 +38,7 @@ export class AccountingService {
     private readonly journalEntryService: JournalEntryService,
     private readonly accountMappingService: AccountMappingService,
     private readonly fiscalPeriodService: FiscalPeriodService,
+    private readonly auditLogService: AuditLogService,
   ) {}
 
   /**
@@ -132,6 +134,16 @@ export class AccountingService {
     // Create and post the entry
     const entry = await this.journalEntryService.create(entryDto, userId);
     const postedEntry = await this.journalEntryService.postEntry(entry.id, userId);
+    await this.auditLogService.log(
+      'AUTO_POST',
+      'JournalEntry',
+      `Auto-posted sales order journal entry for order: ${salesOrder.orderNumber}`,
+      {
+        entityId: entry.id,
+        userId: userId ?? 'system',
+        metadata: { sourceType: 'sales_order', sourceId: salesOrder.id },
+      },
+    );
 
     this.logger.log(
       `Sales order entry posted successfully: ${postedEntry.referenceNumber}`,
@@ -208,6 +220,16 @@ export class AccountingService {
     // Create and post the entry
     const entry = await this.journalEntryService.create(entryDto, userId);
     const postedEntry = await this.journalEntryService.postEntry(entry.id, userId);
+    await this.auditLogService.log(
+      'AUTO_POST',
+      'JournalEntry',
+      `Auto-posted customer payment journal entry: ${payment.paymentNumber}`,
+      {
+        entityId: entry.id,
+        userId: userId ?? 'system',
+        metadata: { sourceType: 'payment', sourceId: payment.id },
+      },
+    );
 
     this.logger.log(
       `Payment entry posted successfully: ${postedEntry.referenceNumber}`,
@@ -282,6 +304,16 @@ export class AccountingService {
     );
 
     const postedEntry = await this.journalEntryService.postEntry(entry.id, userId);
+    await this.auditLogService.log(
+      'AUTO_POST',
+      'JournalEntry',
+      `Auto-posted settlement journal entry: ${settlement.settlementNumber}`,
+      {
+        entityId: entry.id,
+        userId: userId ?? 'system',
+        metadata: { sourceType: 'settlement', sourceId: settlement.id },
+      },
+    );
     this.logger.log(
       `Settlement entry posted successfully: ${postedEntry.referenceNumber}`,
     );
@@ -353,6 +385,16 @@ export class AccountingService {
     // Create and post the entry
     const entry = await this.journalEntryService.create(entryDto, userId);
     const postedEntry = await this.journalEntryService.postEntry(entry.id, userId);
+    await this.auditLogService.log(
+      'AUTO_POST',
+      'JournalEntry',
+      `Auto-posted goods received journal entry: ${grn.grnNumber}`,
+      {
+        entityId: entry.id,
+        userId: userId ?? 'system',
+        metadata: { sourceType: 'goods_received_note', sourceId: grn.id },
+      },
+    );
 
     this.logger.log(
       `Goods received entry posted successfully: ${postedEntry.referenceNumber}`,
@@ -428,6 +470,16 @@ export class AccountingService {
     // Create and post the entry
     const entry = await this.journalEntryService.create(entryDto, userId);
     const postedEntry = await this.journalEntryService.postEntry(entry.id, userId);
+    await this.auditLogService.log(
+      'AUTO_POST',
+      'JournalEntry',
+      `Auto-posted vendor payment journal entry: ${vendorPayment.paymentNumber}`,
+      {
+        entityId: entry.id,
+        userId: userId ?? 'system',
+        metadata: { sourceType: 'vendor_payment', sourceId: vendorPayment.id },
+      },
+    );
 
     this.logger.log(
       `Vendor payment entry posted successfully: ${postedEntry.referenceNumber}`,
@@ -528,6 +580,16 @@ export class AccountingService {
     // Create and post the entry
     const entry = await this.journalEntryService.create(entryDto, userId);
     const postedEntry = await this.journalEntryService.postEntry(entry.id, userId);
+    await this.auditLogService.log(
+      'AUTO_POST',
+      'JournalEntry',
+      `Auto-posted stock adjustment journal entry: ${adjustment.adjustmentNumber}`,
+      {
+        entityId: entry.id,
+        userId: userId ?? 'system',
+        metadata: { sourceType: 'stock_adjustment', sourceId: adjustment.id },
+      },
+    );
 
     this.logger.log(
       `Stock adjustment entry posted successfully: ${postedEntry.referenceNumber}`,
@@ -627,6 +689,16 @@ export class AccountingService {
     );
 
     const postedEntry = await this.journalEntryService.postEntry(entry.id, userId);
+    await this.auditLogService.log(
+      'AUTO_POST',
+      'JournalEntry',
+      `Auto-posted owner equity journal entry: ${transaction.referenceNumber}`,
+      {
+        entityId: entry.id,
+        userId: userId ?? 'system',
+        metadata: { sourceType: 'owner_equity', sourceId: transaction.id },
+      },
+    );
     this.logger.log(
       `Owner equity entry posted successfully: ${postedEntry.referenceNumber}`,
     );
@@ -705,6 +777,16 @@ export class AccountingService {
     );
 
     const postedEntry = await this.journalEntryService.postEntry(entry.id, userId);
+    await this.auditLogService.log(
+      'AUTO_POST',
+      'JournalEntry',
+      `Auto-posted expense journal entry: ${expense.referenceNumber}`,
+      {
+        entityId: entry.id,
+        userId: userId ?? 'system',
+        metadata: { sourceType: 'expense', sourceId: expense.id },
+      },
+    );
     this.logger.log(`Expense entry posted successfully: ${postedEntry.referenceNumber}`);
     return postedEntry as any;
   }
@@ -896,6 +978,16 @@ export class AccountingService {
     });
 
     const postedEntry = await this.journalEntryService.postEntry(entry.id);
+    await this.auditLogService.log(
+      'AUTO_POST',
+      'JournalEntry',
+      'Auto-posted opening balance entry',
+      {
+        entityId: entry.id,
+        userId: 'system',
+        metadata: { sourceType: 'opening_balance' },
+      },
+    );
     return postedEntry as any;
   }
 
