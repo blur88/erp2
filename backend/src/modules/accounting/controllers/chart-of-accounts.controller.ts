@@ -263,8 +263,11 @@ export class ChartOfAccountsController {
     status: 400,
     description: 'Chart of accounts already seeded',
   })
-  async seedDefaults(): Promise<{ message: string }> {
-    await this.chartOfAccountsService.seedDefaultChartOfAccounts();
+  async seedDefaults(
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
+  ): Promise<{ message: string }> {
+    await this.chartOfAccountsService.seedDefaultChartOfAccounts(currentUserId, currentUsername);
     return {
       message:
         'Default chart of accounts seeded successfully with 30+ accounts',

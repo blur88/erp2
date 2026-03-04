@@ -630,7 +630,7 @@ export class ChartOfAccountsService {
    * Seed default chart of accounts
    * Creates 20+ accounts covering all account types
    */
-  async seedDefaultChartOfAccounts(): Promise<void> {
+  async seedDefaultChartOfAccounts(userId?: string, username?: string): Promise<void> {
     this.logger.log('Seeding default chart of accounts');
 
     // Check if accounts already exist
@@ -673,7 +673,7 @@ export class ChartOfAccountsService {
     // Create all accounts
     for (const accountDto of defaultAccounts) {
       try {
-        await this.create(accountDto, 'system');
+        await this.create(accountDto, userId, username);
         this.logger.log(`Created account: ${accountDto.code} - ${accountDto.name}`);
       } catch (error) {
         this.logger.error(`Failed to create account ${accountDto.code}: ${error.message}`);

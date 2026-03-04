@@ -126,8 +126,10 @@ export class ReconciliationController {
   async markCleared(
     @Param('id') id: string,
     @Body() dto: ToggleClearedDto,
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
   ): Promise<BankReconciliationResponseDto> {
-    return this.reconciliationService.markCleared(id, dto);
+    return this.reconciliationService.markCleared(id, dto, currentUserId, currentUsername);
   }
 
   @Post(':id/unmark-cleared')
@@ -143,8 +145,10 @@ export class ReconciliationController {
   async unmarkCleared(
     @Param('id') id: string,
     @Body() dto: ToggleClearedDto,
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
   ): Promise<BankReconciliationResponseDto> {
-    return this.reconciliationService.unmarkCleared(id, dto);
+    return this.reconciliationService.unmarkCleared(id, dto, currentUserId, currentUsername);
   }
 
   @Post(':id/complete')

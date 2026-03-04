@@ -269,7 +269,8 @@ export class ReconciliationService {
   async markCleared(
     id: string,
     dto: ToggleClearedDto,
-    userId: string = 'system',
+    userId?: string,
+    username?: string,
   ): Promise<BankReconciliationResponseDto> {
     const reconciliation = await this.reconciliationRepository.findOne({
       where: { id },
@@ -298,8 +299,6 @@ export class ReconciliationService {
     // Recalculate book balance from cleared transactions
     await this.recalculateBalances(id);
 
-    void userId;
-
     return this.findOne(id);
   }
 
@@ -309,7 +308,8 @@ export class ReconciliationService {
   async unmarkCleared(
     id: string,
     dto: ToggleClearedDto,
-    userId: string = 'system',
+    userId?: string,
+    username?: string,
   ): Promise<BankReconciliationResponseDto> {
     const reconciliation = await this.reconciliationRepository.findOne({
       where: { id },
@@ -335,8 +335,6 @@ export class ReconciliationService {
     }
 
     await this.recalculateBalances(id);
-
-    void userId;
 
     return this.findOne(id);
   }
