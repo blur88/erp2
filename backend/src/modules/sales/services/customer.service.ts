@@ -33,7 +33,11 @@ export class CustomerService {
     private readonly auditLogService: AuditLogService,
   ) {}
 
-  async create(createCustomerDto: CreateCustomerDto): Promise<CustomerResponseDto> {
+  async create(
+    createCustomerDto: CreateCustomerDto,
+    userId?: string,
+    username?: string,
+  ): Promise<CustomerResponseDto> {
     // Check for phone number duplicate if phone is provided
     if (createCustomerDto.phone) {
       await this.validatePhoneUniqueness(createCustomerDto.phone);
@@ -53,7 +57,8 @@ export class CustomerService {
       `Created customer: ${savedCustomer.name} (${savedCustomer.phone || 'no phone'})`,
       {
         entityId: savedCustomer.id,
-        userId: 'system',
+        userId: userId || 'system',
+        username,
         newValues: {
           name: savedCustomer.name,
           phone: savedCustomer.phone,
@@ -191,7 +196,12 @@ export class CustomerService {
   }
 
   
-  async update(id: string, updateCustomerDto: UpdateCustomerDto): Promise<CustomerResponseDto> {
+  async update(
+    id: string,
+    updateCustomerDto: UpdateCustomerDto,
+    userId?: string,
+    username?: string,
+  ): Promise<CustomerResponseDto> {
     const customer = await this.customerRepository.findOne({ where: { id } });
     if (!customer) {
       throw new NotFoundException('Customer not found');
@@ -220,7 +230,8 @@ export class CustomerService {
       `Updated customer: ${savedCustomer.name}`,
       {
         entityId: savedCustomer.id,
-        userId: 'system',
+        userId: userId || 'system',
+        username,
         oldValues,
         newValues: {
           name: savedCustomer.name,
@@ -234,7 +245,7 @@ export class CustomerService {
     return this.mapToResponseDto(savedCustomer);
   }
 
-  async delete(id: string): Promise<void> {
+  async delete(id: string, userId?: string, username?: string): Promise<void> {
     const customer = await this.customerRepository.findOne({ where: { id } });
     if (!customer) {
       throw new NotFoundException('Customer not found');
@@ -301,7 +312,8 @@ export class CustomerService {
       `Deleted customer: ${customer.name}`,
       {
         entityId: id,
-        userId: 'system',
+        userId: userId || 'system',
+        username,
         oldValues: {
           name: customer.name,
           phone: customer.phone,
@@ -311,7 +323,7 @@ export class CustomerService {
     );
   }
 
-  async restore(id: string): Promise<CustomerResponseDto> {
+  async restore(id: string, userId?: string, username?: string): Promise<CustomerResponseDto> {
     // Find the customer first to validate
     const customer = await this.customerRepository.findOne({
       where: { id },
@@ -331,7 +343,8 @@ export class CustomerService {
       `Restored customer: ${customer.name}`,
       {
         entityId: id,
-        userId: 'system',
+        userId: userId || 'system',
+        username,
         newValues: {
           name: customer.name,
           phone: customer.phone,
@@ -461,7 +474,11 @@ export class CustomerService {
     };
   }
 
-  async bulkRestore(customerIds: string[]): Promise<BulkOperationResponse> {
+  async bulkRestore(
+    customerIds: string[],
+    userId?: string,
+    username?: string,
+  ): Promise<BulkOperationResponse> {
     if (!customerIds || customerIds.length === 0) {
       return BulkOperationUtil.createResponse('restored', 'customer', 0, []);
     }
@@ -491,6 +508,20 @@ export class CustomerService {
         }
 
         await this.customerRepository.restore(customerId);
+        await this.auditLogService.log(
+          'RESTORE',
+          'Customer',
+          `Restored customer: ${customer.name}`,
+          {
+            entityId: customerId,
+            userId: userId || 'system',
+            username,
+            newValues: {
+              name: customer.name,
+              phone: customer.phone,
+            },
+          }
+        );
         successCount++;
       } catch (error) {
         BulkOperationUtil.addFailure(
@@ -505,7 +536,11 @@ export class CustomerService {
     return BulkOperationUtil.createResponse('restored', 'customer', successCount, failedItems);
   }
 
-  async bulkPermanentDelete(customerIds: string[]): Promise<BulkOperationResponse> {
+  async bulkPermanentDelete(
+    customerIds: string[],
+    userId?: string,
+    username?: string,
+  ): Promise<BulkOperationResponse> {
     if (!customerIds || customerIds.length === 0) {
       return BulkOperationUtil.createResponse('permanently deleted', 'customer', 0, []);
     }
@@ -603,6 +638,24 @@ export class CustomerService {
           // TODO: Add payment deletion when Payment entity is available
         ]);
 
+        // Log audit trail for permanent delete
+        await this.auditLogService.log(
+          'PERMANENT_DELETE',
+          'Customer',
+          `Permanently deleted customer: ${customer.name}`,
+          {
+            entityId: customerId,
+            userId: userId || 'system',
+            username,
+            oldValues: {
+              name: customer.name,
+              phone: customer.phone,
+              type: customer.type,
+              priceListId: customer.priceListId,
+            },
+          }
+        );
+
         // Perform hard delete
         await this.customerRepository.delete(customerId);
         successCount++;
@@ -620,7 +673,7 @@ export class CustomerService {
   }
 
   @Transactional('Customer permanent deletion with financial integrity validation')
-  async permanentDelete(id: string): Promise<void> {
+  async permanentDelete(id: string, userId?: string, username?: string): Promise<void> {
     // Verify customer exists and is soft-deleted
     console.log(`Looking for customer with ID: ${id}`);
     const customer = await this.customerRepository.findOne({
@@ -733,7 +786,8 @@ export class CustomerService {
       `Permanently deleted customer: ${customer.name}`,
       {
         entityId: id,
-        userId: 'system',
+        userId: userId || 'system',
+        username,
         oldValues: {
           name: customer.name,
           phone: customer.phone,
