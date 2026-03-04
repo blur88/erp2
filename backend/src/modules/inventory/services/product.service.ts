@@ -76,7 +76,11 @@ export class ProductService {
   /**
    * Create a new product
    */
-  async create(createProductDto: CreateProductDto, userId?: string): Promise<ProductResponseDto> {
+  async create(
+    createProductDto: CreateProductDto,
+    userId?: string,
+    username?: string,
+  ): Promise<ProductResponseDto> {
     this.logger.log(`Creating product with barcode: ${createProductDto.barcode}`);
 
     // Check if product name already exists (case-insensitive, including soft-deleted products)
@@ -186,6 +190,7 @@ export class ProductService {
       {
         entityId: savedProduct.id,
         userId: userId || 'system',
+        username,
         newValues: {
           name: savedProduct.name,
           barcode: savedProduct.barcode,
@@ -496,7 +501,7 @@ export class ProductService {
   /**
    * Restore a soft-deleted product
    */
-  async restore(id: string, _userId?: string): Promise<ProductResponseDto> {
+  async restore(id: string, userId?: string, username?: string): Promise<ProductResponseDto> {
     this.logger.log(`Restoring product with ID: ${id}`);
 
     const product = await this.productRepository.findOne({
@@ -540,7 +545,8 @@ export class ProductService {
       `Restored product: ${restoredProduct.name} (${restoredProduct.barcode})`,
       {
         entityId: restoredProduct.id,
-        userId: _userId || 'system',
+        userId: userId || 'system',
+        username,
         newValues: {
           name: restoredProduct.name,
           barcode: restoredProduct.barcode,
@@ -558,7 +564,8 @@ export class ProductService {
    */
   async bulkRestore(
     productIds: string[],
-    userId?: string
+    userId?: string,
+    username?: string,
   ): Promise<BulkOperationResponse> {
     this.logger.log(`Bulk restoring ${productIds.length} products`);
 
@@ -633,7 +640,7 @@ export class ProductService {
   /**
    * Permanently delete a product from database
    */
-  async permanentDelete(id: string, userId?: string): Promise<void> {
+  async permanentDelete(id: string, userId?: string, username?: string): Promise<void> {
     this.logger.log(`Permanently deleting product with ID: ${id}`);
 
     // Find the product (including soft-deleted ones)
@@ -667,6 +674,7 @@ export class ProductService {
       {
         entityId: id,
         userId: userId || 'system',
+        username,
         oldValues: {
           name: product.name,
           barcode: product.barcode,
@@ -687,7 +695,8 @@ export class ProductService {
    */
   async bulkPermanentDelete(
     productIds: string[],
-    userId?: string
+    userId?: string,
+    username?: string,
   ): Promise<BulkOperationResponse> {
     this.logger.log(`Bulk permanently deleting ${productIds.length} products`);
 
@@ -759,7 +768,12 @@ export class ProductService {
   /**
    * Update a product
    */
-  async update(id: string, updateProductDto: UpdateProductDto, userId?: string): Promise<ProductResponseDto> {
+  async update(
+    id: string,
+    updateProductDto: UpdateProductDto,
+    userId?: string,
+    username?: string,
+  ): Promise<ProductResponseDto> {
     this.logger.log(`Updating product with ID: ${id}`);
     console.log('🚀 UPDATE METHOD CALLED - CODE VERSION 2.0');
 
@@ -895,6 +909,7 @@ export class ProductService {
         {
           entityId: productWithCategory.id,
           userId: userId || 'system',
+          username,
           oldValues: Object.fromEntries(
             Object.entries(changes).map(([key, val]) => [key, val.from])
           ),
