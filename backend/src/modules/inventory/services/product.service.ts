@@ -76,7 +76,11 @@ export class ProductService {
   /**
    * Create a new product
    */
-  async create(createProductDto: CreateProductDto, userId?: string): Promise<ProductResponseDto> {
+  async create(
+    createProductDto: CreateProductDto,
+    userId?: string,
+    username?: string,
+  ): Promise<ProductResponseDto> {
     this.logger.log(`Creating product with barcode: ${createProductDto.barcode}`);
 
     // Check if product name already exists (case-insensitive, including soft-deleted products)
@@ -186,6 +190,7 @@ export class ProductService {
       {
         entityId: savedProduct.id,
         userId: userId || 'system',
+        username,
         newValues: {
           name: savedProduct.name,
           barcode: savedProduct.barcode,
@@ -496,7 +501,7 @@ export class ProductService {
   /**
    * Restore a soft-deleted product
    */
-  async restore(id: string, _userId?: string): Promise<ProductResponseDto> {
+  async restore(id: string, userId?: string, username?: string): Promise<ProductResponseDto> {
     this.logger.log(`Restoring product with ID: ${id}`);
 
     const product = await this.productRepository.findOne({
@@ -540,7 +545,8 @@ export class ProductService {
       `Restored product: ${restoredProduct.name} (${restoredProduct.barcode})`,
       {
         entityId: restoredProduct.id,
-        userId: _userId || 'system',
+        userId: userId || 'system',
+        username,
         newValues: {
           name: restoredProduct.name,
           barcode: restoredProduct.barcode,
@@ -558,7 +564,8 @@ export class ProductService {
    */
   async bulkRestore(
     productIds: string[],
-    userId?: string
+    userId?: string,
+    username?: string,
   ): Promise<BulkOperationResponse> {
     this.logger.log(`Bulk restoring ${productIds.length} products`);
 
@@ -614,6 +621,13 @@ export class ProductService {
         // Restore the product
         await this.productRepository.restore(id);
 
+        await this.auditLogService.log(
+          'RESTORE',
+          'Product',
+          `Restored product: ${product.name} (${product.barcode})`,
+          { entityId: id, userId: userId || 'system', username }
+        );
+
         successCount++;
         this.logger.log(`Product restored: ${id}`);
       } catch (error) {
@@ -633,7 +647,7 @@ export class ProductService {
   /**
    * Permanently delete a product from database
    */
-  async permanentDelete(id: string, userId?: string): Promise<void> {
+  async permanentDelete(id: string, userId?: string, username?: string): Promise<void> {
     this.logger.log(`Permanently deleting product with ID: ${id}`);
 
     // Find the product (including soft-deleted ones)
@@ -667,6 +681,7 @@ export class ProductService {
       {
         entityId: id,
         userId: userId || 'system',
+        username,
         oldValues: {
           name: product.name,
           barcode: product.barcode,
@@ -687,7 +702,8 @@ export class ProductService {
    */
   async bulkPermanentDelete(
     productIds: string[],
-    userId?: string
+    userId?: string,
+    username?: string,
   ): Promise<BulkOperationResponse> {
     this.logger.log(`Bulk permanently deleting ${productIds.length} products`);
 
@@ -738,6 +754,12 @@ export class ProductService {
         }
 
         // Hard delete the product from database
+        await this.auditLogService.log(
+          'PERMANENT_DELETE',
+          'Product',
+          `Permanently deleted product: ${product.name} (${product.barcode})`,
+          { entityId: id, userId: userId || 'system', username, oldValues: { name: product.name, barcode: product.barcode } }
+        );
         await this.productRepository.delete(id);
 
         successCount++;
@@ -759,9 +781,13 @@ export class ProductService {
   /**
    * Update a product
    */
-  async update(id: string, updateProductDto: UpdateProductDto, userId?: string): Promise<ProductResponseDto> {
+  async update(
+    id: string,
+    updateProductDto: UpdateProductDto,
+    userId?: string,
+    username?: string,
+  ): Promise<ProductResponseDto> {
     this.logger.log(`Updating product with ID: ${id}`);
-    console.log('🚀 UPDATE METHOD CALLED - CODE VERSION 2.0');
 
     const product = await this.productRepository.findOne({
       where: { id },
@@ -841,13 +867,6 @@ export class ProductService {
       this.validatePricing({ ...product, ...updateData } as any);
     }
 
-    // Debug logging
-    console.log('=== PRODUCT UPDATE DEBUG ===');
-    console.log('Current product.categoryId:', product.categoryId);
-    console.log('Original DTO:', updateProductDto);
-    console.log('Transformed updateData:', updateData);
-    console.log('Update DTO categoryId:', updateData.categoryId);
-
     // Track changes for audit (use transformed data)
     const changes: Record<string, { from: any; to: any }> = {};
     Object.keys(updateData).forEach(key => {
@@ -856,35 +875,22 @@ export class ProductService {
       }
     });
 
-    console.log('Detected changes:', changes);
-
     // Update product with transformed data
     Object.assign(product, updateData);
-    
-    console.log('After Object.assign - product.categoryId:', product.categoryId);
-    console.log('=============================');
 
     // Stock status is computed automatically in the entity
 
     // Use direct update with ID string for better control over what gets updated
-    const updateResult = await this.productRepository.update(
+    await this.productRepository.update(
       id,  // Use the ID parameter directly, not product.id
       updateData
     );
-    console.log('UPDATE RESULT:', updateResult);
-
-    const updatedProduct = await this.productRepository.findOne({
-      where: { id },
-    });
-    console.log('POST-UPDATE updatedProduct.categoryId:', updatedProduct?.categoryId);
 
     // Reload the product with category relation to ensure fresh data
     const productWithCategory = await this.productRepository.findOne({
       where: { id },
       relations: ['category'],
     });
-    console.log('RELOADED productWithCategory.categoryId:', productWithCategory?.categoryId);
-    console.log('RELOADED productWithCategory.category:', productWithCategory?.category?.name);
 
     // Log audit trail for update
     if (Object.keys(changes).length > 0) {
@@ -895,6 +901,7 @@ export class ProductService {
         {
           entityId: productWithCategory.id,
           userId: userId || 'system',
+          username,
           oldValues: Object.fromEntries(
             Object.entries(changes).map(([key, val]) => [key, val.from])
           ),
@@ -905,7 +912,7 @@ export class ProductService {
       );
     }
 
-    this.logger.log(`Product updated successfully: ${updatedProduct.id}`);
+    this.logger.log(`Product updated successfully: ${id}`);
     return this.toResponseDto(productWithCategory!);
   }
 
@@ -988,7 +995,7 @@ export class ProductService {
    * Only check for active sales order items to prevent deletion of products
    * currently in pending orders.
    */
-  async remove(id: string): Promise<void> {
+  async remove(id: string, userId?: string, username?: string): Promise<void> {
     this.logger.log(`Deleting product with ID: ${id}`);
 
     const product = await this.productRepository.findOne({
@@ -1025,7 +1032,8 @@ export class ProductService {
       `Deleted product: ${product.name} (${product.barcode})`,
       {
         entityId: product.id,
-        userId: 'system',
+        userId: userId || 'system',
+        username,
         oldValues: {
           name: product.name,
           barcode: product.barcode,

@@ -21,9 +21,12 @@ interface AuditLogState {
     entityId?: string
     userId?: string
     username?: string
+    ipAddress?: string
     startDate?: string
     endDate?: string
   }
+  activeTab: 'logs' | 'analytics'
+  sidebarCollapsed: boolean
 }
 
 const initialState: AuditLogState = {
@@ -41,6 +44,8 @@ const initialState: AuditLogState = {
   filters: {
     search: '',
   },
+  activeTab: 'logs' as const,
+  sidebarCollapsed: false,
 }
 
 // Async thunks
@@ -90,6 +95,12 @@ const auditLogSlice = createSlice({
     setLimit: (state, action: PayloadAction<number>) => {
       state.pagination.limit = action.payload
     },
+    setActiveTab: (state, action: PayloadAction<'logs' | 'analytics'>) => {
+      state.activeTab = action.payload
+    },
+    setSidebarCollapsed: (state, action: PayloadAction<boolean>) => {
+      state.sidebarCollapsed = action.payload
+    },
   },
   extraReducers: (builder) => {
     // Fetch audit logs
@@ -131,6 +142,8 @@ export const {
   clearFilters,
   setPage,
   setLimit,
+  setActiveTab,
+  setSidebarCollapsed,
 } = auditLogSlice.actions
 
 export default auditLogSlice.reducer

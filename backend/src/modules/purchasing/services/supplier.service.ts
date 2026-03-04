@@ -27,7 +27,11 @@ export class SupplierService {
   /**
    * Create a new supplier
    */
-  async create(createSupplierDto: CreateSupplierDto): Promise<SupplierResponseDto> {
+  async create(
+    createSupplierDto: CreateSupplierDto,
+    userId?: string,
+    username?: string,
+  ): Promise<SupplierResponseDto> {
     this.logger.log(`Creating supplier: ${createSupplierDto.companyName}`);
 
     // Check for duplicate company name (case-insensitive)
@@ -60,7 +64,8 @@ export class SupplierService {
         `Created supplier: ${savedSupplier.companyName}`,
         {
           entityId: savedSupplier.id,
-          userId: 'system',
+          userId: userId || 'system',
+          username,
           newValues: {
             companyName: savedSupplier.companyName,
             contactPerson: savedSupplier.contactPerson,
@@ -168,7 +173,12 @@ export class SupplierService {
   /**
    * Update supplier
    */
-  async update(id: string, updateSupplierDto: UpdateSupplierDto): Promise<SupplierResponseDto> {
+  async update(
+    id: string,
+    updateSupplierDto: UpdateSupplierDto,
+    userId?: string,
+    username?: string,
+  ): Promise<SupplierResponseDto> {
     this.logger.log(`Updating supplier: ${id}`);
 
     const supplier = await this.supplierRepository.findOne({ where: { id } });
@@ -211,7 +221,8 @@ export class SupplierService {
           `Updated supplier: ${updatedSupplier.companyName}`,
           {
             entityId: id,
-            userId: 'system',
+            userId: userId || 'system',
+            username,
             oldValues: Object.fromEntries(
               Object.entries(changes).map(([key, val]) => [key, val.from])
             ),
@@ -264,7 +275,7 @@ export class SupplierService {
   /**
    * Soft delete supplier (deactivate)
    */
-  async remove(id: string): Promise<void> {
+  async remove(id: string, userId?: string, username?: string): Promise<void> {
     this.logger.log(`Deactivating supplier: ${id}`);
 
     const supplier = await this.supplierRepository.findOne({ where: { id } });
@@ -297,7 +308,8 @@ export class SupplierService {
         `Deleted supplier: ${supplier.companyName}`,
         {
           entityId: id,
-          userId: 'system',
+          userId: userId || 'system',
+          username,
           oldValues: {
             companyName: supplier.companyName,
             contactPerson: supplier.contactPerson,
@@ -567,7 +579,7 @@ export class SupplierService {
   /**
    * Restore a soft-deleted supplier
    */
-  async restore(id: string): Promise<SupplierResponseDto> {
+  async restore(id: string, userId?: string, username?: string): Promise<SupplierResponseDto> {
     this.logger.log(`Restoring supplier: ${id}`);
 
     const supplier = await this.supplierRepository.findOne({
@@ -604,7 +616,8 @@ export class SupplierService {
         `Restored supplier: ${restoredSupplier.companyName}`,
         {
           entityId: id,
-          userId: 'system',
+          userId: userId || 'system',
+          username,
           newValues: {
             companyName: restoredSupplier.companyName,
             contactPerson: restoredSupplier.contactPerson,
@@ -627,7 +640,7 @@ export class SupplierService {
   /**
    * Permanently delete a supplier
    */
-  async permanentDelete(id: string): Promise<void> {
+  async permanentDelete(id: string, userId?: string, username?: string): Promise<void> {
     this.logger.log(`Permanently deleting supplier: ${id}`);
 
     const supplier = await this.supplierRepository.findOne({
@@ -650,7 +663,8 @@ export class SupplierService {
       `Permanently deleted supplier: ${supplier.companyName}`,
       {
         entityId: id,
-        userId: 'system',
+        userId: userId || 'system',
+        username,
         oldValues: {
           companyName: supplier.companyName,
           contactPerson: supplier.contactPerson,
@@ -674,7 +688,11 @@ export class SupplierService {
   /**
    * Bulk restore suppliers
    */
-  async bulkRestore(supplierIds: string[]): Promise<{ restoredCount: number; failedIds: string[] }> {
+  async bulkRestore(
+    supplierIds: string[],
+    userId?: string,
+    username?: string,
+  ): Promise<{ restoredCount: number; failedIds: string[] }> {
     this.logger.log(`Bulk restoring ${supplierIds.length} suppliers`);
 
     const failedIds: string[] = [];
@@ -682,7 +700,7 @@ export class SupplierService {
 
     for (const id of supplierIds) {
       try {
-        await this.restore(id);
+        await this.restore(id, userId, username);
         restoredCount++;
       } catch (error) {
         this.logger.error(`Failed to restore supplier ${id}:`, error);
@@ -697,7 +715,11 @@ export class SupplierService {
   /**
    * Bulk permanent delete suppliers
    */
-  async bulkPermanentDelete(supplierIds: string[]): Promise<{ deletedCount: number; failedIds: string[] }> {
+  async bulkPermanentDelete(
+    supplierIds: string[],
+    userId?: string,
+    username?: string,
+  ): Promise<{ deletedCount: number; failedIds: string[] }> {
     this.logger.log(`Bulk permanently deleting ${supplierIds.length} suppliers`);
 
     const failedIds: string[] = [];
@@ -705,7 +727,7 @@ export class SupplierService {
 
     for (const id of supplierIds) {
       try {
-        await this.permanentDelete(id);
+        await this.permanentDelete(id, userId, username);
         deletedCount++;
       } catch (error) {
         this.logger.error(`Failed to permanently delete supplier ${id}:`, error);

@@ -7,6 +7,7 @@ import { PaymentMethodEntity } from '../../../database/entities/payment-method.e
 import { Payment, SettlementStatusEnum } from '../../../database/entities/payment.entity';
 import { AccountingService } from './accounting.service';
 import { SettingsService } from '../../settings/settings.service';
+import { AuditLogService } from '../../audit-logs/services';
 
 describe('SettlementService', () => {
   let service: SettlementService;
@@ -54,6 +55,12 @@ describe('SettlementService', () => {
           provide: SettingsService,
           useValue: {
             generateDocumentNumber: jest.fn(),
+          },
+        },
+        {
+          provide: AuditLogService,
+          useValue: {
+            log: jest.fn(),
           },
         },
       ],

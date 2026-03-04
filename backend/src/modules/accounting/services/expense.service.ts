@@ -22,6 +22,7 @@ import {
   ExpenseResponseDto,
   ExpenseListResponseDto,
 } from '../dto/expense.dto';
+import { AuditLogService } from '../../audit-logs/services';
 
 @Injectable()
 export class ExpenseService {
@@ -36,6 +37,7 @@ export class ExpenseService {
     private readonly chartOfAccountRepository: Repository<ChartOfAccount>,
     private readonly accountingService: AccountingService,
     private readonly settingsService: SettingsService,
+    private readonly auditLogService: AuditLogService,
   ) {}
 
   async findAll(query: QueryExpenseDto): Promise<ExpenseListResponseDto> {
@@ -117,8 +119,11 @@ export class ExpenseService {
     return this.toResponseDto(expense);
   }
 
-  async create(dto: CreateExpenseDto, userId = 'system'): Promise<ExpenseResponseDto> {
-    void userId;
+  async create(
+    dto: CreateExpenseDto,
+    userId?: string,
+    username?: string,
+  ): Promise<ExpenseResponseDto> {
     const paymentMethod = await this.paymentMethodRepository.findOne({
       where: { id: dto.paymentMethodId, isActive: true },
     });
@@ -155,15 +160,21 @@ export class ExpenseService {
     });
 
     const saved = await this.expenseRepository.save(expense);
+    await this.auditLogService.log(
+      'CREATE',
+      'Expense',
+      `Created expense: ${saved.referenceNumber}`,
+      { entityId: saved.id, userId: userId ?? 'system', username },
+    );
     return this.findOne(saved.id);
   }
 
   async update(
     id: string,
     dto: UpdateExpenseDto,
-    userId = 'system',
+    userId?: string,
+    username?: string,
   ): Promise<ExpenseResponseDto> {
-    void userId;
     const expense = await this.expenseRepository.findOne({
       where: { id },
     });
@@ -207,10 +218,16 @@ export class ExpenseService {
     if (dto.vendor !== undefined) expense.vendor = dto.vendor;
 
     await this.expenseRepository.save(expense);
+    await this.auditLogService.log(
+      'UPDATE',
+      'Expense',
+      `Updated expense: ${expense.referenceNumber}`,
+      { entityId: id, userId: userId ?? 'system', username },
+    );
     return this.findOne(id);
   }
 
-  async remove(id: string): Promise<void> {
+  async remove(id: string, userId?: string, username?: string): Promise<void> {
     const expense = await this.expenseRepository.findOne({
       where: { id },
     });
@@ -224,9 +241,15 @@ export class ExpenseService {
     }
 
     await this.expenseRepository.softDelete(id);
+    await this.auditLogService.log(
+      'DELETE',
+      'Expense',
+      `Deleted expense: ${expense.referenceNumber}`,
+      { entityId: id, userId: userId ?? 'system', username },
+    );
   }
 
-  async post(id: string, userId = 'system'): Promise<ExpenseResponseDto> {
+  async post(id: string, userId?: string, username?: string): Promise<ExpenseResponseDto> {
     const expense = await this.expenseRepository.findOne({
       where: { id },
       relations: ['paymentMethod', 'expenseAccount'],
@@ -241,10 +264,20 @@ export class ExpenseService {
     }
 
     try {
-      const journalEntry = await this.accountingService.postExpenseEntry(expense, userId);
+      const journalEntry = await this.accountingService.postExpenseEntry(
+        expense,
+        userId ?? 'system',
+        username,
+      );
       expense.status = ExpenseStatus.POSTED;
       expense.journalEntryId = journalEntry.id;
       await this.expenseRepository.save(expense);
+      await this.auditLogService.log(
+        'POST',
+        'Expense',
+        `Posted expense: ${expense.referenceNumber}`,
+        { entityId: id, userId: userId ?? 'system', username },
+      );
     } catch (error) {
       this.logger.error(
         `Failed to post expense entry for ${expense.referenceNumber}: ${error.message}`,
@@ -257,14 +290,15 @@ export class ExpenseService {
 
   async bulkPost(
     dto: BulkExpenseDto,
-    userId = 'system',
+    userId?: string,
+    username?: string,
   ): Promise<{ posted: number; failed: number }> {
     let posted = 0;
     let failed = 0;
 
     for (const id of dto.ids) {
       try {
-        await this.post(id, userId);
+        await this.post(id, userId, username);
         posted++;
       } catch (error) {
         this.logger.error(`Failed to post expense ${id}: ${error.message}`);
@@ -275,13 +309,17 @@ export class ExpenseService {
     return { posted, failed };
   }
 
-  async bulkDelete(dto: BulkExpenseDto): Promise<{ deleted: number; failed: number }> {
+  async bulkDelete(
+    dto: BulkExpenseDto,
+    userId?: string,
+    username?: string,
+  ): Promise<{ deleted: number; failed: number }> {
     let deleted = 0;
     let failed = 0;
 
     for (const id of dto.ids) {
       try {
-        await this.remove(id);
+        await this.remove(id, userId, username);
         deleted++;
       } catch (error) {
         this.logger.error(`Failed to delete expense ${id}: ${error.message}`);

@@ -12,6 +12,7 @@ import {
   FiscalPeriodStatus,
 } from '../../../database/entities/fiscal-period.entity';
 import { JournalEntry, JournalEntryStatus } from '../../../database/entities/journal-entry.entity';
+import { AuditLogService } from '../../audit-logs/services';
 import {
   CreateFiscalPeriodDto,
   UpdateFiscalPeriodDto,
@@ -72,6 +73,12 @@ describe('FiscalPeriodService', () => {
           provide: getRepositoryToken(JournalEntry),
           useValue: {
             count: jest.fn(),
+          },
+        },
+        {
+          provide: AuditLogService,
+          useValue: {
+            log: jest.fn(),
           },
         },
       ],

@@ -18,6 +18,7 @@ import {
 } from '../dto/settlement.dto';
 import { AccountingService } from './accounting.service';
 import { SettingsService } from '../../settings/settings.service';
+import { AuditLogService } from '../../audit-logs/services';
 
 @Injectable()
 export class SettlementService {
@@ -32,6 +33,7 @@ export class SettlementService {
     private readonly paymentRepository: Repository<Payment>,
     private readonly accountingService: AccountingService,
     private readonly settingsService: SettingsService,
+    private readonly auditLogService: AuditLogService,
   ) {}
 
   async findAll(query: QuerySettlementsDto): Promise<SettlementListResponseDto> {
@@ -93,7 +95,11 @@ export class SettlementService {
     return this.toResponseDto(settlement);
   }
 
-  async create(dto: CreateSettlementDto, userId = 'system'): Promise<SettlementResponseDto> {
+  async create(
+    dto: CreateSettlementDto,
+    userId?: string,
+    username?: string,
+  ): Promise<SettlementResponseDto> {
     const paymentMethod = await this.paymentMethodRepository.findOne({
       where: { id: dto.paymentMethodId, isActive: true },
     });
@@ -161,7 +167,8 @@ export class SettlementService {
         savedSettlement,
         paymentMethod,
         totalAmount,
-        userId,
+        userId || 'system',
+        username,
       );
     } catch (error) {
       this.logger.error(
@@ -169,10 +176,17 @@ export class SettlementService {
       );
     }
 
+    await this.auditLogService.log(
+      'CREATE',
+      'Settlement',
+      `Created settlement: ${savedSettlement.settlementNumber}`,
+      { entityId: savedSettlement.id, userId: userId ?? 'system', username },
+    );
+
     return this.findOne(savedSettlement.id);
   }
 
-  async cancel(id: string): Promise<SettlementResponseDto> {
+  async cancel(id: string, userId?: string, username?: string): Promise<SettlementResponseDto> {
     const settlement = await this.settlementRepository.findOne({
       where: { id },
       relations: ['paymentMethod'],
@@ -194,8 +208,22 @@ export class SettlementService {
       },
     );
 
+    const previousStatus = settlement.status;
     settlement.status = SettlementStatus.CANCELLED;
     const saved = await this.settlementRepository.save(settlement);
+
+    await this.auditLogService.log(
+      'UPDATE',
+      'Settlement',
+      `Cancelled settlement: ${saved.settlementNumber}`,
+      {
+        entityId: id,
+        userId: userId ?? 'system',
+        username,
+        oldValues: { status: previousStatus },
+        newValues: { status: saved.status },
+      },
+    );
 
     return this.toResponseDto(saved);
   }

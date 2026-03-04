@@ -186,6 +186,7 @@ describe('StockAdjustmentService', () => {
           adjustmentNumber: mockAdjustment.adjustmentNumber,
         }),
         'system',
+        undefined,
       );
       expect(result).toBeDefined();
       expect(stockMovementService.create).toHaveBeenCalled();
@@ -267,6 +268,7 @@ describe('StockAdjustmentService', () => {
           items: expect.any(Array),
         }),
         'system',
+        undefined,
       );
       expect(result).toBeDefined();
     });

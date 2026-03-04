@@ -22,6 +22,7 @@ import {
   FiscalPeriodListResponseDto,
   FiscalPeriodValidationResponseDto,
 } from '../dto/fiscal-period.dto';
+import { AuditLogService } from '../../audit-logs/services';
 
 @Injectable()
 export class FiscalPeriodService {
@@ -32,6 +33,7 @@ export class FiscalPeriodService {
     private readonly fiscalPeriodRepository: Repository<FiscalPeriod>,
     @InjectRepository(JournalEntry)
     private readonly journalEntryRepository: Repository<JournalEntry>,
+    private readonly auditLogService: AuditLogService,
   ) {}
 
   /**
@@ -39,7 +41,8 @@ export class FiscalPeriodService {
    */
   async create(
     createDto: CreateFiscalPeriodDto,
-    userId: string = 'system',
+    userId?: string,
+    username?: string,
   ): Promise<FiscalPeriodResponseDto> {
     this.logger.log(`Creating fiscal period with code: ${createDto.code}`);
 
@@ -95,6 +98,13 @@ export class FiscalPeriodService {
     });
 
     const savedPeriod = await this.fiscalPeriodRepository.save(fiscalPeriod);
+
+    await this.auditLogService.log(
+      'CREATE',
+      'FiscalPeriod',
+      `Created fiscal period: ${savedPeriod.code} - ${savedPeriod.name}`,
+      { entityId: savedPeriod.id, userId: userId ?? 'system', username },
+    );
 
     this.logger.log(`Fiscal period created successfully with ID: ${savedPeriod.id}`);
     return this.toResponseDto(savedPeriod);
@@ -190,7 +200,8 @@ export class FiscalPeriodService {
   async update(
     id: string,
     updateDto: UpdateFiscalPeriodDto,
-    userId: string = 'system',
+    userId?: string,
+    username?: string,
   ): Promise<FiscalPeriodResponseDto> {
     this.logger.log(`Updating fiscal period with ID: ${id}`);
 
@@ -260,6 +271,13 @@ export class FiscalPeriodService {
 
     const updatedPeriod = await this.fiscalPeriodRepository.save(period);
 
+    await this.auditLogService.log(
+      'UPDATE',
+      'FiscalPeriod',
+      `Updated fiscal period: ${updatedPeriod.code} - ${updatedPeriod.name}`,
+      { entityId: id, userId: userId ?? 'system', username },
+    );
+
     this.logger.log(`Fiscal period updated successfully: ${id}`);
     return this.toResponseDto(updatedPeriod);
   }
@@ -267,7 +285,7 @@ export class FiscalPeriodService {
   /**
    * Soft delete a fiscal period
    */
-  async remove(id: string, userId: string = 'system'): Promise<void> {
+  async remove(id: string, userId?: string, username?: string): Promise<void> {
     this.logger.log(`Deleting fiscal period with ID: ${id}`);
 
     const period = await this.fiscalPeriodRepository.findOne({
@@ -293,13 +311,20 @@ export class FiscalPeriodService {
     // Soft delete the period
     await this.fiscalPeriodRepository.softDelete(id);
 
+    await this.auditLogService.log(
+      'DELETE',
+      'FiscalPeriod',
+      `Deleted fiscal period: ${period.code} - ${period.name}`,
+      { entityId: id, userId: userId ?? 'system', username },
+    );
+
     this.logger.log(`Fiscal period soft-deleted successfully: ${id}`);
   }
 
   /**
    * Restore a soft-deleted fiscal period
    */
-  async restore(id: string, userId: string = 'system'): Promise<FiscalPeriodResponseDto> {
+  async restore(id: string, userId?: string, username?: string): Promise<FiscalPeriodResponseDto> {
     this.logger.log(`Restoring fiscal period with ID: ${id}`);
 
     const period = await this.fiscalPeriodRepository.findOne({
@@ -334,6 +359,13 @@ export class FiscalPeriodService {
       where: { id },
     });
 
+    await this.auditLogService.log(
+      'RESTORE',
+      'FiscalPeriod',
+      `Restored fiscal period: ${period.code} - ${period.name}`,
+      { entityId: id, userId: userId ?? 'system', username },
+    );
+
     this.logger.log(`Fiscal period restored successfully: ${id}`);
     return this.toResponseDto(restoredPeriod!);
   }
@@ -344,7 +376,8 @@ export class FiscalPeriodService {
    */
   async generateFiscalPeriods(
     dto: GenerateFiscalPeriodsDto,
-    userId: string = 'system',
+    userId?: string,
+    username?: string,
   ): Promise<FiscalPeriodResponseDto[]> {
     const { year, startMonth = 1 } = dto;
 
@@ -379,6 +412,7 @@ export class FiscalPeriodService {
             status: FiscalPeriodStatus.OPEN,
           },
           userId,
+          username,
         );
 
         createdPeriods.push(period);
@@ -401,7 +435,7 @@ export class FiscalPeriodService {
    * Close a fiscal period
    * Prevents new journal entries from being posted to this period
    */
-  async closePeriod(id: string, userId: string = 'system'): Promise<FiscalPeriodResponseDto> {
+  async closePeriod(id: string, userId?: string, username?: string): Promise<FiscalPeriodResponseDto> {
     this.logger.log(`Closing fiscal period with ID: ${id}`);
 
     const period = await this.fiscalPeriodRepository.findOne({
@@ -434,8 +468,22 @@ export class FiscalPeriodService {
     }
 
     // Close the period
+    const previousStatus = period.status;
     period.status = FiscalPeriodStatus.CLOSED;
     const closedPeriod = await this.fiscalPeriodRepository.save(period);
+
+    await this.auditLogService.log(
+      'UPDATE',
+      'FiscalPeriod',
+      `Closed fiscal period: ${closedPeriod.code} - ${closedPeriod.name}`,
+      {
+        entityId: id,
+        userId: userId ?? 'system',
+        username,
+        oldValues: { status: previousStatus },
+        newValues: { status: closedPeriod.status },
+      },
+    );
 
     this.logger.log(`Fiscal period closed successfully: ${id}`);
     return this.toResponseDto(closedPeriod);
@@ -445,7 +493,7 @@ export class FiscalPeriodService {
    * Reopen a closed fiscal period
    * Only allows reopening the most recently closed period
    */
-  async reopenPeriod(id: string, userId: string = 'system'): Promise<FiscalPeriodResponseDto> {
+  async reopenPeriod(id: string, userId?: string, username?: string): Promise<FiscalPeriodResponseDto> {
     this.logger.log(`Reopening fiscal period with ID: ${id}`);
 
     const period = await this.fiscalPeriodRepository.findOne({
@@ -483,8 +531,22 @@ export class FiscalPeriodService {
     }
 
     // Reopen the period
+    const previousStatus = period.status;
     period.status = FiscalPeriodStatus.OPEN;
     const reopenedPeriod = await this.fiscalPeriodRepository.save(period);
+
+    await this.auditLogService.log(
+      'UPDATE',
+      'FiscalPeriod',
+      `Reopened fiscal period: ${reopenedPeriod.code} - ${reopenedPeriod.name}`,
+      {
+        entityId: id,
+        userId: userId ?? 'system',
+        username,
+        oldValues: { status: previousStatus },
+        newValues: { status: reopenedPeriod.status },
+      },
+    );
 
     this.logger.log(`Fiscal period reopened successfully: ${id}`);
     return this.toResponseDto(reopenedPeriod);

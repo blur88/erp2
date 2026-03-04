@@ -14,6 +14,7 @@ export interface AuditLogFilters {
   endDate?: string
   sortBy?: string
   sortOrder?: 'ASC' | 'DESC'
+  ipAddress?: string
 }
 
 export interface AuditLogStatistics {

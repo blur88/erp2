@@ -27,6 +27,7 @@ import {
   CustomerResponseDto,
   CustomerSummaryDto,
 } from '../dto/customer.dto';
+import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 
 @ApiTags('Customers')
 @Controller('customers')
@@ -42,8 +43,12 @@ export class CustomerController {
   })
   @ApiResponse({ status: 400, description: 'Invalid input data' })
   @ApiResponse({ status: 409, description: 'Customer with email already exists' })
-  async createCustomer(@Body() createCustomerDto: CreateCustomerDto): Promise<CustomerResponseDto> {
-    return this.customerService.create(createCustomerDto);
+  async createCustomer(
+    @Body() createCustomerDto: CreateCustomerDto,
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
+  ): Promise<CustomerResponseDto> {
+    return this.customerService.create(createCustomerDto, currentUserId, currentUsername);
   }
 
   @Get()
@@ -119,8 +124,10 @@ export class CustomerController {
   async updateCustomer(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() updateCustomerDto: UpdateCustomerDto,
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
   ): Promise<CustomerResponseDto> {
-    return this.customerService.update(id, updateCustomerDto);
+    return this.customerService.update(id, updateCustomerDto, currentUserId, currentUsername);
   }
 
   @Delete(':id')
@@ -155,8 +162,12 @@ export class CustomerController {
     }
   })
   @HttpCode(HttpStatus.NO_CONTENT)
-  async deleteCustomer(@Param('id', ParseUUIDPipe) id: string): Promise<void> {
-    return this.customerService.delete(id);
+  async deleteCustomer(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
+  ): Promise<void> {
+    return this.customerService.delete(id, currentUserId, currentUsername);
   }
 
 
@@ -249,8 +260,10 @@ export class CustomerController {
   @HttpCode(HttpStatus.OK)
   async bulkRestore(
     @Body() body: { customerIds: string[] },
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
   ): Promise<{ message: string; restoredCount: number; failedIds: string[] }> {
-    const result = await this.customerService.bulkRestore(body.customerIds);
+    const result = await this.customerService.bulkRestore(body.customerIds, currentUserId, currentUsername);
     return {
       message: `Successfully restored ${result.successCount} of ${body.customerIds.length} customers`,
       restoredCount: result.successCount,
@@ -281,8 +294,14 @@ export class CustomerController {
   @HttpCode(HttpStatus.OK)
   async bulkPermanentDelete(
     @Body() body: { customerIds: string[] },
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
   ): Promise<{ message: string; deletedCount: number; failedIds: string[] }> {
-    const result = await this.customerService.bulkPermanentDelete(body.customerIds);
+    const result = await this.customerService.bulkPermanentDelete(
+      body.customerIds,
+      currentUserId,
+      currentUsername,
+    );
     return {
       message: `Successfully permanently deleted ${result.successCount} of ${body.customerIds.length} customers`,
       deletedCount: result.successCount,
@@ -299,8 +318,12 @@ export class CustomerController {
     type: CustomerResponseDto,
   })
   @ApiResponse({ status: 404, description: 'Customer not found' })
-  async restoreCustomer(@Param('id', ParseUUIDPipe) id: string): Promise<CustomerResponseDto> {
-    return this.customerService.restore(id);
+  async restoreCustomer(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
+  ): Promise<CustomerResponseDto> {
+    return this.customerService.restore(id, currentUserId, currentUsername);
   }
 
   @Delete(':id/permanent')
@@ -341,7 +364,9 @@ export class CustomerController {
   @HttpCode(HttpStatus.NO_CONTENT)
   async permanentDelete(
     @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
   ): Promise<void> {
-    await this.customerService.permanentDelete(id);
+    await this.customerService.permanentDelete(id, currentUserId, currentUsername);
   }
 }

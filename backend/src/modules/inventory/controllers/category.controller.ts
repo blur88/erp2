@@ -33,6 +33,7 @@ import {
   CategoryStatsDto,
   CategoryAncestorsDto,
 } from '../dto/category.dto';
+import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 
 @ApiTags('Categories')
 @Controller('inventory/categories')
@@ -54,8 +55,10 @@ export class CategoryController {
   @ApiBody({ type: CreateCategoryDto })
   async create(
     @Body() createCategoryDto: CreateCategoryDto,
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
   ): Promise<CategoryResponseDto> {
-    return this.categoryService.create(createCategoryDto);
+    return this.categoryService.create(createCategoryDto, currentUserId, currentUsername);
   }
 
   @Get()
@@ -231,8 +234,10 @@ export class CategoryController {
   async update(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() updateCategoryDto: UpdateCategoryDto,
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
   ): Promise<CategoryResponseDto> {
-    return this.categoryService.update(id, updateCategoryDto);
+    return this.categoryService.update(id, updateCategoryDto, currentUserId, currentUsername);
   }
 
   @Patch(':id/move')
@@ -293,8 +298,14 @@ export class CategoryController {
   @HttpCode(HttpStatus.OK)
   async bulkRestore(
     @Body() body: { categoryIds: string[] },
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
   ): Promise<{ message: string; restoredCount: number; failedIds: string[] }> {
-    const result = await this.categoryService.bulkRestore(body.categoryIds);
+    const result = await this.categoryService.bulkRestore(
+      body.categoryIds,
+      currentUserId,
+      currentUsername,
+    );
     return {
       message: `Successfully restored ${result.successCount} of ${body.categoryIds.length} categories`,
       restoredCount: result.successCount,
@@ -314,8 +325,10 @@ export class CategoryController {
   @ApiParam({ name: 'id', description: 'Category ID' })
   async restore(
     @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
   ): Promise<CategoryResponseDto> {
-    return this.categoryService.restore(id);
+    return this.categoryService.restore(id, currentUserId, currentUsername);
   }
 
   @Post('bulk-permanent-delete')
@@ -341,8 +354,14 @@ export class CategoryController {
   @HttpCode(HttpStatus.OK)
   async bulkPermanentDelete(
     @Body() body: { categoryIds: string[] },
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
   ): Promise<{ message: string; deletedCount: number; failedIds: string[] }> {
-    const result = await this.categoryService.bulkPermanentDelete(body.categoryIds);
+    const result = await this.categoryService.bulkPermanentDelete(
+      body.categoryIds,
+      currentUserId,
+      currentUsername,
+    );
     return {
       message: `Successfully permanently deleted ${result.successCount} of ${body.categoryIds.length} categories`,
       deletedCount: result.successCount,
@@ -365,8 +384,10 @@ export class CategoryController {
   @HttpCode(HttpStatus.NO_CONTENT)
   async permanentDelete(
     @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
   ): Promise<void> {
-    await this.categoryService.permanentDelete(id);
+    await this.categoryService.permanentDelete(id, currentUserId, currentUsername);
   }
 
   @Delete(':id')
@@ -402,13 +423,20 @@ export class CategoryController {
   })
   async remove(
     @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
     @Query('force') force?: boolean,
     @Query('moveToUncategorized') moveToUncategorized?: boolean,
   ): Promise<{ message: string; moved?: number }> {
-    const result = await this.categoryService.remove(id, 'system', {
-      force: force === true,
-      moveToUncategorized: moveToUncategorized === true
-    });
+    const result = await this.categoryService.remove(
+      id,
+      currentUserId,
+      {
+        force: force === true,
+        moveToUncategorized: moveToUncategorized === true,
+      },
+      currentUsername,
+    );
     return result;
   }
 }

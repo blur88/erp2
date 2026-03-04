@@ -203,6 +203,7 @@ describe('GoodsReceivedNoteService', () => {
       expect(accountingService.postGoodsReceivedEntry).toHaveBeenCalledWith(
         fullGrn,
         'system',
+        undefined,
       );
 
       // Verify it was called exactly once
@@ -279,6 +280,7 @@ describe('GoodsReceivedNoteService', () => {
           purchaseOrder: mockPurchaseOrder,
         }),
         'system',
+        undefined,
       );
     });
 

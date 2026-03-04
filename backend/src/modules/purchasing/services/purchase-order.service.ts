@@ -97,7 +97,8 @@ export class PurchaseOrderService {
    */
   async create(
     createPurchaseOrderDto: CreatePurchaseOrderDto,
-    userId: string = 'system'
+    userId?: string,
+    username?: string,
   ): Promise<PurchaseOrderResponseDto> {
     this.logger.log(`Creating purchase order for supplier: ${createPurchaseOrderDto.supplierId}`);
 
@@ -207,7 +208,7 @@ export class PurchaseOrderService {
       );
 
       // Auto-create GRN in draft status
-      await this.createDraftGrn(savedPurchaseOrder);
+      await this.createDraftGrn(savedPurchaseOrder, userId, username);
 
       // Log audit trail for create
       await this.auditLogService.log(
@@ -216,7 +217,8 @@ export class PurchaseOrderService {
         `Created purchase order: ${savedPurchaseOrder.orderNumber}`,
         {
           entityId: savedPurchaseOrder.id,
-          userId: 'system',
+          userId: userId || 'system',
+          username,
           newValues: {
             orderNumber: savedPurchaseOrder.orderNumber,
             supplierId: supplier.id,
@@ -357,7 +359,9 @@ export class PurchaseOrderService {
    */
   async update(
     id: string,
-    updatePurchaseOrderDto: UpdatePurchaseOrderDto
+    updatePurchaseOrderDto: UpdatePurchaseOrderDto,
+    userId?: string,
+    username?: string,
   ): Promise<PurchaseOrderResponseDto> {
     this.logger.log(`Updating purchase order: ${id}`);
 
@@ -494,7 +498,8 @@ export class PurchaseOrderService {
         `Updated purchase order: ${updatedPurchaseOrder.orderNumber}`,
         {
           entityId: updatedPurchaseOrder.id,
-          userId: 'system',
+          userId: userId || 'system',
+          username,
           newValues: {
             orderNumber: updatedPurchaseOrder.orderNumber,
             totalAmount: updatedPurchaseOrder.totalAmount,
@@ -630,7 +635,7 @@ export class PurchaseOrderService {
   /**
    * Restore a deleted purchase order and its associated GRN (sets deletedAt to null for both)
    */
-  async restore(id: string, userId: string = 'system'): Promise<PurchaseOrderResponseDto> {
+  async restore(id: string, userId?: string, username?: string): Promise<PurchaseOrderResponseDto> {
     this.logger.log(`Restoring purchase order: ${id}`);
 
     // Check if the order exists in deleted records
@@ -670,6 +675,7 @@ export class PurchaseOrderService {
         {
           entityId: grn.id,
           userId,
+          username,
           newValues: {
             grnNumber: grn.grnNumber,
             purchaseOrderId: grn.purchaseOrderId,
@@ -703,6 +709,7 @@ export class PurchaseOrderService {
       {
         entityId: id,
         userId,
+        username,
         newValues: {
           orderNumber: purchaseOrder.orderNumber,
           totalAmount: purchaseOrder.totalAmount,
@@ -717,7 +724,11 @@ export class PurchaseOrderService {
   /**
    * Bulk restore deleted purchase orders
    */
-  async bulkRestore(orderIds: string[], userId: string = 'system'): Promise<{ restoredCount: number; failedIds: string[] }> {
+  async bulkRestore(
+    orderIds: string[],
+    userId?: string,
+    username?: string,
+  ): Promise<{ restoredCount: number; failedIds: string[] }> {
     this.logger.log(`Bulk restoring ${orderIds.length} purchase orders`);
 
     const failedIds: string[] = [];
@@ -725,7 +736,7 @@ export class PurchaseOrderService {
 
     for (const orderId of orderIds) {
       try {
-        await this.restore(orderId, userId);
+        await this.restore(orderId, userId, username);
         successCount++;
       } catch (error) {
         this.logger.error(`Failed to restore purchase order ${orderId}: ${error.message}`);
@@ -740,7 +751,7 @@ export class PurchaseOrderService {
   /**
    * Permanently delete a purchase order and its associated GRN
    */
-  async permanentDelete(id: string): Promise<void> {
+  async permanentDelete(id: string, userId?: string, username?: string): Promise<void> {
     this.logger.log(`Permanently deleting purchase order: ${id}`);
 
     const purchaseOrder = await this.purchaseOrderRepository.findOne({
@@ -778,7 +789,8 @@ export class PurchaseOrderService {
         `Permanently deleted GRN: ${grn.grnNumber} (auto-deleted with PO)`,
         {
           entityId: grn.id,
-          userId: 'system',
+          userId: userId || 'system',
+          username,
           oldValues: {
             grnNumber: grn.grnNumber,
             purchaseOrderId: grn.purchaseOrderId,
@@ -798,7 +810,8 @@ export class PurchaseOrderService {
       `Permanently deleted purchase order: ${purchaseOrder.orderNumber}`,
       {
         entityId: id,
-        userId: 'system',
+        userId: userId || 'system',
+        username,
         oldValues: {
           orderNumber: purchaseOrder.orderNumber,
           supplierId: purchaseOrder.supplierId,
@@ -817,7 +830,11 @@ export class PurchaseOrderService {
   /**
    * Bulk permanently delete purchase orders
    */
-  async bulkPermanentDelete(orderIds: string[]): Promise<{ deletedCount: number; failedIds: string[] }> {
+  async bulkPermanentDelete(
+    orderIds: string[],
+    userId?: string,
+    username?: string,
+  ): Promise<{ deletedCount: number; failedIds: string[] }> {
     this.logger.log(`Bulk permanently deleting ${orderIds.length} purchase orders`);
 
     const failedIds: string[] = [];
@@ -825,7 +842,7 @@ export class PurchaseOrderService {
 
     for (const orderId of orderIds) {
       try {
-        await this.permanentDelete(orderId);
+        await this.permanentDelete(orderId, userId || 'system', username);
         successCount++;
       } catch (error) {
         this.logger.error(`Failed to permanently delete purchase order ${orderId}: ${error.message}`);
@@ -840,7 +857,7 @@ export class PurchaseOrderService {
   /**
    * Soft delete a purchase order and its associated GRN with same deletedAt timestamp
    */
-  async remove(id: string): Promise<void> {
+  async remove(id: string, userId?: string, username?: string): Promise<void> {
     this.logger.log(`Soft deleting purchase order: ${id}`);
 
     const purchaseOrder = await this.purchaseOrderRepository.findOne({
@@ -889,7 +906,8 @@ export class PurchaseOrderService {
         `Deleted GRN: ${grn.grnNumber} (auto-deleted with PO)`,
         {
           entityId: grn.id,
-          userId: 'system',
+          userId: userId || 'system',
+          username,
           oldValues: {
             grnNumber: grn.grnNumber,
             purchaseOrderId: grn.purchaseOrderId,
@@ -916,7 +934,8 @@ export class PurchaseOrderService {
       `Deleted purchase order: ${purchaseOrder.orderNumber}`,
       {
         entityId: id,
-        userId: 'system',
+        userId: userId || 'system',
+        username,
         oldValues: {
           orderNumber: purchaseOrder.orderNumber,
           totalAmount: purchaseOrder.totalAmount,
@@ -1042,7 +1061,11 @@ export class PurchaseOrderService {
   /**
    * Create a draft GRN for a new purchase order
    */
-  private async createDraftGrn(purchaseOrder: PurchaseOrder): Promise<void> {
+  private async createDraftGrn(
+    purchaseOrder: PurchaseOrder,
+    userId?: string,
+    username?: string,
+  ): Promise<void> {
     try {
       // Generate sequential GRN number
       const grns = await this.grnRepository.find({
@@ -1092,7 +1115,8 @@ export class PurchaseOrderService {
         `Created GRN: ${savedGrn.grnNumber}`,
         {
           entityId: savedGrn.id,
-          userId: 'system',
+          userId: userId || 'system',
+          username,
           newValues: {
             grnNumber: savedGrn.grnNumber,
             purchaseOrderId: savedGrn.purchaseOrderId,
@@ -1140,7 +1164,7 @@ export class PurchaseOrderService {
   /**
    * Receive goods - change GRN status to received and update product quantities
    */
-  async receiveGoods(id: string): Promise<PurchaseOrderResponseDto> {
+  async receiveGoods(id: string, userId?: string, username?: string): Promise<PurchaseOrderResponseDto> {
     this.logger.log(`Receiving goods for purchase order: ${id}`);
 
     const purchaseOrder = await this.purchaseOrderRepository.findOne({
@@ -1235,7 +1259,7 @@ export class PurchaseOrderService {
         });
 
         if (fullGrn) {
-          await this.accountingService.postGoodsReceivedEntry(fullGrn, 'system');
+          await this.accountingService.postGoodsReceivedEntry(fullGrn, userId || 'system', username);
           this.logger.log(`Posted accounting entry for GRN ${fullGrn.grnNumber}`);
         }
       } catch (error) {
@@ -1258,7 +1282,8 @@ export class PurchaseOrderService {
         `Received goods for PO: ${purchaseOrder.orderNumber}`,
         {
           entityId: id,
-          userId: 'system',
+          userId: userId || 'system',
+          username,
           newValues: {
             orderNumber: purchaseOrder.orderNumber,
             status: 'received',
@@ -1278,7 +1303,7 @@ export class PurchaseOrderService {
   /**
    * Return goods - change GRN status to return and revert product quantities
    */
-  async returnGoods(id: string): Promise<PurchaseOrderResponseDto> {
+  async returnGoods(id: string, userId?: string, username?: string): Promise<PurchaseOrderResponseDto> {
     this.logger.log(`Returning goods for purchase order: ${id}`);
 
     const purchaseOrder = await this.purchaseOrderRepository.findOne({
@@ -1377,7 +1402,8 @@ export class PurchaseOrderService {
         `Returned goods for PO: ${purchaseOrder.orderNumber}`,
         {
           entityId: id,
-          userId: 'system',
+          userId: userId || 'system',
+          username,
           newValues: {
             orderNumber: purchaseOrder.orderNumber,
             status: 'draft',

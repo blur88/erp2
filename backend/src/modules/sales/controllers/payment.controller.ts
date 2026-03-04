@@ -27,6 +27,7 @@ import {
   AllocatePaymentDto,
   PaymentSummaryDto,
 } from '../dto/payment.dto';
+import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 
 @ApiTags('Payments')
 @Controller('payments')
@@ -44,8 +45,10 @@ export class PaymentController {
   @ApiResponse({ status: 404, description: 'Customer or invoice not found' })
   async recordPayment(
     @Body() createPaymentDto: CreatePaymentDto,
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
   ): Promise<PaymentResponseDto> {
-    return this.paymentService.create(createPaymentDto);
+    return this.paymentService.create(createPaymentDto, currentUserId, currentUsername);
   }
 
   @Get()
@@ -105,8 +108,10 @@ export class PaymentController {
   async updatePayment(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() updatePaymentDto: UpdatePaymentDto,
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
   ): Promise<PaymentResponseDto> {
-    return this.paymentService.update(id, updatePaymentDto);
+    return this.paymentService.update(id, updatePaymentDto, currentUserId, currentUsername);
   }
 
   @Put(':id/complete')
@@ -119,8 +124,12 @@ export class PaymentController {
   })
   @ApiResponse({ status: 404, description: 'Payment not found' })
   @ApiResponse({ status: 400, description: 'Payment cannot be completed' })
-  async completePayment(@Param('id', ParseUUIDPipe) id: string): Promise<PaymentResponseDto> {
-    return this.paymentService.complete(id);
+  async completePayment(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
+  ): Promise<PaymentResponseDto> {
+    return this.paymentService.complete(id, currentUserId, currentUsername);
   }
 
   @Put(':id/fail')
@@ -136,8 +145,10 @@ export class PaymentController {
   async failPayment(
     @Param('id', ParseUUIDPipe) id: string,
     @Body('reason') reason?: string,
+    @CurrentUser('userId') currentUserId?: string,
+    @CurrentUser('username') currentUsername?: string,
   ): Promise<PaymentResponseDto> {
-    return this.paymentService.fail(id, reason);
+    return this.paymentService.fail(id, reason, currentUserId, currentUsername);
   }
 
   @Put(':id/cancel')
@@ -153,8 +164,10 @@ export class PaymentController {
   async cancelPayment(
     @Param('id', ParseUUIDPipe) id: string,
     @Body('reason') reason?: string,
+    @CurrentUser('userId') currentUserId?: string,
+    @CurrentUser('username') currentUsername?: string,
   ): Promise<PaymentResponseDto> {
-    return this.paymentService.cancel(id, reason);
+    return this.paymentService.cancel(id, reason, currentUserId, currentUsername);
   }
 
   @Post('refund')
@@ -168,8 +181,10 @@ export class PaymentController {
   @ApiResponse({ status: 400, description: 'Payment cannot be refunded or invalid amount' })
   async refundPayment(
     @Body() refundDto: RefundPaymentDto,
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
   ): Promise<PaymentResponseDto> {
-    return this.paymentService.refund(refundDto);
+    return this.paymentService.refund(refundDto, currentUserId, currentUsername);
   }
 
   @Post('allocate')
@@ -244,8 +259,12 @@ export class PaymentController {
     type: PaymentResponseDto,
   })
   @ApiResponse({ status: 404, description: 'Payment not found' })
-  async restorePayment(@Param('id', ParseUUIDPipe) id: string): Promise<PaymentResponseDto> {
-    return this.paymentService.restore(id);
+  async restorePayment(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
+  ): Promise<PaymentResponseDto> {
+    return this.paymentService.restore(id, currentUserId, currentUsername);
   }
 
   @Post('bulk-restore')
@@ -254,7 +273,11 @@ export class PaymentController {
     status: 200,
     description: 'Payments restored successfully',
   })
-  async bulkRestorePayments(@Body('paymentIds') paymentIds: string[]) {
-    return this.paymentService.bulkRestore(paymentIds);
+  async bulkRestorePayments(
+    @Body('paymentIds') paymentIds: string[],
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
+  ) {
+    return this.paymentService.bulkRestore(paymentIds, currentUserId, currentUsername);
   }
 }

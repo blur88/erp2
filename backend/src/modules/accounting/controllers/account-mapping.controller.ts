@@ -13,6 +13,7 @@ import {
 import { ApiTags, ApiOperation, ApiResponse, ApiParam } from '@nestjs/swagger';
 import { AccountMappingService } from '../services/account-mapping.service';
 import { Auth } from '../../auth/decorators/auth.decorator';
+import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import { UserRole } from '../../../database/entities/user.entity';
 import {
   CreateAccountMappingDto,
@@ -80,8 +81,10 @@ export class AccountMappingController {
   @ApiResponse({ status: 409, description: 'Mapping type already exists' })
   async create(
     @Body() createDto: CreateAccountMappingDto,
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
   ): Promise<AccountMappingResponseDto> {
-    return this.accountMappingService.create(createDto);
+    return this.accountMappingService.create(createDto, currentUserId, currentUsername);
   }
 
   @Patch(':id')
@@ -97,8 +100,10 @@ export class AccountMappingController {
   async update(
     @Param('id') id: string,
     @Body() updateDto: UpdateAccountMappingDto,
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
   ): Promise<AccountMappingResponseDto> {
-    return this.accountMappingService.update(id, updateDto);
+    return this.accountMappingService.update(id, updateDto, currentUserId, currentUsername);
   }
 
   @Delete(':id')
@@ -108,7 +113,11 @@ export class AccountMappingController {
   @ApiParam({ name: 'id', description: 'Mapping ID' })
   @ApiResponse({ status: 204, description: 'Mapping deleted successfully' })
   @ApiResponse({ status: 404, description: 'Mapping not found' })
-  async remove(@Param('id') id: string): Promise<void> {
-    await this.accountMappingService.remove(id);
+  async remove(
+    @Param('id') id: string,
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
+  ): Promise<void> {
+    await this.accountMappingService.remove(id, currentUserId, currentUsername);
   }
 }

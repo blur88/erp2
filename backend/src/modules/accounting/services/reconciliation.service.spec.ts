@@ -14,6 +14,7 @@ import { ReconciledTransaction } from '../../../database/entities/reconciled-tra
 import { JournalEntryLine } from '../../../database/entities/journal-entry-line.entity';
 import { ChartOfAccount } from '../../../database/entities/chart-of-account.entity';
 import { FiscalPeriod, FiscalPeriodStatus } from '../../../database/entities/fiscal-period.entity';
+import { AuditLogService } from '../../audit-logs/services';
 
 describe('ReconciliationService', () => {
   let service: ReconciliationService;
@@ -123,6 +124,12 @@ describe('ReconciliationService', () => {
           provide: getRepositoryToken(FiscalPeriod),
           useValue: {
             findOne: jest.fn(),
+          },
+        },
+        {
+          provide: AuditLogService,
+          useValue: {
+            log: jest.fn(),
           },
         },
       ],

@@ -13,6 +13,7 @@ import {
 import { ApiTags, ApiOperation, ApiResponse, ApiParam } from '@nestjs/swagger';
 import { ChartOfAccountsService } from '../services/chart-of-accounts.service';
 import { Auth } from '../../auth/decorators/auth.decorator';
+import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import { UserRole } from '../../../database/entities/user.entity';
 import {
   CreateChartOfAccountDto,
@@ -108,8 +109,10 @@ export class ChartOfAccountsController {
   @ApiResponse({ status: 409, description: 'Account code already exists' })
   async create(
     @Body() createDto: CreateChartOfAccountDto,
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
   ): Promise<ChartOfAccountResponseDto> {
-    return this.chartOfAccountsService.create(createDto);
+    return this.chartOfAccountsService.create(createDto, currentUserId, currentUsername);
   }
 
   @Patch(':id')
@@ -130,8 +133,10 @@ export class ChartOfAccountsController {
   async update(
     @Param('id') id: string,
     @Body() updateDto: UpdateChartOfAccountDto,
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
   ): Promise<ChartOfAccountResponseDto> {
-    return this.chartOfAccountsService.update(id, updateDto);
+    return this.chartOfAccountsService.update(id, updateDto, currentUserId, currentUsername);
   }
 
   @Delete('bulk-permanent')
@@ -144,6 +149,8 @@ export class ChartOfAccountsController {
   })
   async bulkPermanentDelete(
     @Body() body: BulkChartOfAccountsDto,
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
   ): Promise<{
     message: string;
     deletedCount: number;
@@ -152,6 +159,8 @@ export class ChartOfAccountsController {
   }> {
     const result = await this.chartOfAccountsService.bulkPermanentDelete(
       body.accountIds,
+      currentUserId,
+      currentUsername,
     );
     return {
       message: `Successfully deleted ${result.deletedCount} of ${body.accountIds.length} accounts`,
@@ -172,8 +181,12 @@ export class ChartOfAccountsController {
     description: 'Account has children or journal entry lines',
   })
   @ApiResponse({ status: 404, description: 'Account not found' })
-  async remove(@Param('id') id: string): Promise<void> {
-    await this.chartOfAccountsService.remove(id);
+  async remove(
+    @Param('id') id: string,
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
+  ): Promise<void> {
+    await this.chartOfAccountsService.remove(id, currentUserId, currentUsername);
   }
 
   @Delete(':id/permanent')
@@ -187,8 +200,12 @@ export class ChartOfAccountsController {
     description: 'Account has children, journal entry lines, or is not soft-deleted',
   })
   @ApiResponse({ status: 404, description: 'Account not found' })
-  async permanentDelete(@Param('id') id: string): Promise<void> {
-    await this.chartOfAccountsService.permanentDelete(id);
+  async permanentDelete(
+    @Param('id') id: string,
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
+  ): Promise<void> {
+    await this.chartOfAccountsService.permanentDelete(id, currentUserId, currentUsername);
   }
 
   @Post(':id/restore')
@@ -203,8 +220,12 @@ export class ChartOfAccountsController {
   @ApiResponse({ status: 400, description: 'Account is not deleted' })
   @ApiResponse({ status: 404, description: 'Account not found' })
   @ApiResponse({ status: 409, description: 'Account code now used by another account' })
-  async restore(@Param('id') id: string): Promise<ChartOfAccountResponseDto> {
-    return this.chartOfAccountsService.restore(id);
+  async restore(
+    @Param('id') id: string,
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
+  ): Promise<ChartOfAccountResponseDto> {
+    return this.chartOfAccountsService.restore(id, currentUserId, currentUsername);
   }
 
   @Post('bulk-restore')
@@ -216,9 +237,13 @@ export class ChartOfAccountsController {
   })
   async bulkRestore(
     @Body() body: BulkChartOfAccountsDto,
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
   ): Promise<{ message: string; restoredCount: number; failedIds: string[] }> {
     const result = await this.chartOfAccountsService.bulkRestore(
       body.accountIds,
+      currentUserId,
+      currentUsername,
     );
     return {
       message: `Successfully restored ${result.restoredCount} of ${body.accountIds.length} accounts`,
@@ -238,8 +263,11 @@ export class ChartOfAccountsController {
     status: 400,
     description: 'Chart of accounts already seeded',
   })
-  async seedDefaults(): Promise<{ message: string }> {
-    await this.chartOfAccountsService.seedDefaultChartOfAccounts();
+  async seedDefaults(
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
+  ): Promise<{ message: string }> {
+    await this.chartOfAccountsService.seedDefaultChartOfAccounts(currentUserId, currentUsername);
     return {
       message:
         'Default chart of accounts seeded successfully with 30+ accounts',

@@ -30,6 +30,7 @@ import {
   SupplierResponseDto,
   SupplierListResponseDto,
 } from '../dto';
+import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 
 @ApiTags('Suppliers')
 @Controller('purchasing/suppliers')
@@ -51,9 +52,13 @@ export class SupplierController {
   })
   @ApiResponse({ status: 400, description: 'Invalid input data' })
   @ApiResponse({ status: 409, description: 'Supplier code or email already exists' })
-  async create(@Body() createSupplierDto: CreateSupplierDto): Promise<SupplierResponseDto> {
+  async create(
+    @Body() createSupplierDto: CreateSupplierDto,
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
+  ): Promise<SupplierResponseDto> {
     this.logger.log(`Creating supplier: ${createSupplierDto.companyName}`);
-    return await this.supplierService.create(createSupplierDto);
+    return await this.supplierService.create(createSupplierDto, currentUserId, currentUsername);
   }
 
   @Get()
@@ -177,9 +182,11 @@ export class SupplierController {
   async update(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() updateSupplierDto: UpdateSupplierDto,
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
   ): Promise<SupplierResponseDto> {
     this.logger.log(`Updating supplier: ${id}`);
-    return await this.supplierService.update(id, updateSupplierDto);
+    return await this.supplierService.update(id, updateSupplierDto, currentUserId, currentUsername);
   }
 
 
@@ -264,9 +271,13 @@ export class SupplierController {
   })
   @ApiResponse({ status: 404, description: 'Supplier not found' })
   @ApiParam({ name: 'id', description: 'Supplier UUID' })
-  async restore(@Param('id', ParseUUIDPipe) id: string): Promise<SupplierResponseDto> {
+  async restore(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
+  ): Promise<SupplierResponseDto> {
     this.logger.log(`Restoring supplier: ${id}`);
-    return await this.supplierService.restore(id);
+    return await this.supplierService.restore(id, currentUserId, currentUsername);
   }
 
   @Post('bulk-restore')
@@ -290,9 +301,13 @@ export class SupplierController {
       }
     }
   })
-  async bulkRestore(@Body() body: { supplierIds: string[] }): Promise<{ restoredCount: number; failedIds: string[] }> {
+  async bulkRestore(
+    @Body() body: { supplierIds: string[] },
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
+  ): Promise<{ restoredCount: number; failedIds: string[] }> {
     this.logger.log(`Bulk restoring ${body.supplierIds.length} suppliers`);
-    return await this.supplierService.bulkRestore(body.supplierIds);
+    return await this.supplierService.bulkRestore(body.supplierIds, currentUserId, currentUsername);
   }
 
   @Post('bulk-permanent-delete')
@@ -316,9 +331,17 @@ export class SupplierController {
       }
     }
   })
-  async bulkPermanentDelete(@Body() body: { supplierIds: string[] }): Promise<{ deletedCount: number; failedIds: string[] }> {
+  async bulkPermanentDelete(
+    @Body() body: { supplierIds: string[] },
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
+  ): Promise<{ deletedCount: number; failedIds: string[] }> {
     this.logger.log(`Bulk permanently deleting ${body.supplierIds.length} suppliers`);
-    return await this.supplierService.bulkPermanentDelete(body.supplierIds);
+    return await this.supplierService.bulkPermanentDelete(
+      body.supplierIds,
+      currentUserId,
+      currentUsername,
+    );
   }
 
   @Delete(':id/permanent')
@@ -329,9 +352,13 @@ export class SupplierController {
   @ApiResponse({ status: 200, description: 'Supplier permanently deleted successfully' })
   @ApiResponse({ status: 404, description: 'Supplier not found' })
   @ApiParam({ name: 'id', description: 'Supplier UUID' })
-  async permanentDelete(@Param('id', ParseUUIDPipe) id: string): Promise<void> {
+  async permanentDelete(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
+  ): Promise<void> {
     this.logger.log(`Permanently deleting supplier: ${id}`);
-    return await this.supplierService.permanentDelete(id);
+    return await this.supplierService.permanentDelete(id, currentUserId, currentUsername);
   }
 
   @Delete(':id')
@@ -344,8 +371,12 @@ export class SupplierController {
   @ApiResponse({ status: 404, description: 'Supplier not found' })
   @ApiParam({ name: 'id', description: 'Supplier UUID' })
   @HttpCode(HttpStatus.OK)
-  async remove(@Param('id', ParseUUIDPipe) id: string): Promise<void> {
+  async remove(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
+  ): Promise<void> {
     this.logger.log(`Deactivating supplier: ${id}`);
-    await this.supplierService.remove(id);
+    await this.supplierService.remove(id, currentUserId, currentUsername);
   }
 }

@@ -38,6 +38,7 @@ import {
   ProductImportDto,
   ProductImportResultDto,
 } from '../dto/product.dto';
+import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 
 @ApiTags('Products')
 @Controller('inventory/products')
@@ -69,8 +70,10 @@ export class ProductController {
   @ApiBody({ type: CreateProductDto })
   async create(
     @Body() createProductDto: CreateProductDto,
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
   ): Promise<ProductResponseDto> {
-    return this.productService.create(createProductDto, null);
+    return this.productService.create(createProductDto, currentUserId, currentUsername);
   }
 
   @Get()
@@ -261,8 +264,10 @@ export class ProductController {
   async update(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() updateProductDto: UpdateProductDto,
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
   ): Promise<ProductResponseDto> {
-    return this.productService.update(id, updateProductDto, null);
+    return this.productService.update(id, updateProductDto, currentUserId, currentUsername);
   }
 
   @Post('bulk-update-prices')
@@ -379,8 +384,14 @@ export class ProductController {
   @HttpCode(HttpStatus.OK)
   async bulkRestore(
     @Body() body: { productIds: string[] },
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
   ): Promise<{ message: string; restoredCount: number; failedIds: string[] }> {
-    const result = await this.productService.bulkRestore(body.productIds, null);
+    const result = await this.productService.bulkRestore(
+      body.productIds,
+      currentUserId,
+      currentUsername,
+    );
     return {
       message: `Successfully restored ${result.successCount} of ${body.productIds.length} products`,
       restoredCount: result.successCount,
@@ -401,8 +412,10 @@ export class ProductController {
   @HttpCode(HttpStatus.OK)
   async restore(
     @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
   ): Promise<ProductResponseDto> {
-    return this.productService.restore(id, null);
+    return this.productService.restore(id, currentUserId, currentUsername);
   }
 
   @Post('import')
@@ -474,8 +487,14 @@ export class ProductController {
   @HttpCode(HttpStatus.OK)
   async bulkPermanentDelete(
     @Body() body: { productIds: string[] },
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
   ): Promise<{ message: string; deletedCount: number; failedIds: string[] }> {
-    const result = await this.productService.bulkPermanentDelete(body.productIds, null);
+    const result = await this.productService.bulkPermanentDelete(
+      body.productIds,
+      currentUserId,
+      currentUsername,
+    );
     return {
       message: `Successfully permanently deleted ${result.successCount} of ${body.productIds.length} products`,
       deletedCount: result.successCount,
@@ -498,8 +517,10 @@ export class ProductController {
   @HttpCode(HttpStatus.NO_CONTENT)
   async permanentDelete(
     @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
   ): Promise<void> {
-    await this.productService.permanentDelete(id, null);
+    await this.productService.permanentDelete(id, currentUserId, currentUsername);
   }
 
   @Delete(':id')
@@ -517,7 +538,9 @@ export class ProductController {
   @HttpCode(HttpStatus.NO_CONTENT)
   async remove(
     @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
   ): Promise<void> {
-    await this.productService.remove(id);
+    await this.productService.remove(id, currentUserId, currentUsername);
   }
 }

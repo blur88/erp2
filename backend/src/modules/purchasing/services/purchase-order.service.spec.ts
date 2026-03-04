@@ -240,6 +240,7 @@ describe('PurchaseOrderService', () => {
       expect(accountingService.postGoodsReceivedEntry).toHaveBeenCalledWith(
         mockReceivedGrnWithRelations,
         'system',
+        undefined,
       );
     });
   });

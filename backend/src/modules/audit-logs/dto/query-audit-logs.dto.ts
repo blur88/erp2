@@ -54,6 +54,11 @@ export class QueryAuditLogsDto {
   @IsString()
   username?: string;
 
+  @ApiPropertyOptional({ description: 'Filter by IP address', example: '192.168.1.1' })
+  @IsOptional()
+  @IsString()
+  ipAddress?: string;
+
   @ApiPropertyOptional({ description: 'Start date', format: 'date-time' })
   @IsOptional()
   @IsDateString()

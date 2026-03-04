@@ -179,6 +179,7 @@ describe('VendorPaymentService', () => {
       expect(accountingService.postVendorPaymentEntry).toHaveBeenCalledWith(
         fullPayment,
         'test-user',
+        undefined,
       );
 
       // Verify it was called exactly once
@@ -244,6 +245,7 @@ describe('VendorPaymentService', () => {
           supplier: mockSupplier,
         }),
         'test-user',
+        undefined,
       );
     });
 

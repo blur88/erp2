@@ -14,6 +14,7 @@ import { ApiTags, ApiOperation, ApiResponse, ApiParam } from '@nestjs/swagger';
 import { JournalEntryService } from '../services/journal-entry.service';
 import { AccountingService } from '../services/accounting.service';
 import { Auth } from '../../auth/decorators/auth.decorator';
+import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import { UserRole } from '../../../database/entities/user.entity';
 import {
   CreateJournalEntryDto,
@@ -59,8 +60,10 @@ export class JournalEntryController {
   @ApiResponse({ status: 400, description: 'Invalid balances or no open period' })
   async postOpeningBalances(
     @Body() dto: PostOpeningBalancesDto,
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
   ): Promise<JournalEntryResponseDto> {
-    return this.accountingService.postOpeningBalances(dto) as any;
+    return this.accountingService.postOpeningBalances(dto, currentUserId, currentUsername) as any;
   }
 
   @Post('bulk-post')
@@ -71,8 +74,12 @@ export class JournalEntryController {
     description: 'Bulk post results',
     type: BulkOperationResultDto,
   })
-  async bulkPost(@Body() dto: BulkOperationDto): Promise<BulkOperationResultDto> {
-    return this.journalEntryService.bulkPost(dto.ids);
+  async bulkPost(
+    @Body() dto: BulkOperationDto,
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
+  ): Promise<BulkOperationResultDto> {
+    return this.journalEntryService.bulkPost(dto.ids, currentUserId, currentUsername);
   }
 
   @Post('bulk-delete')
@@ -83,8 +90,12 @@ export class JournalEntryController {
     description: 'Bulk delete results',
     type: BulkOperationResultDto,
   })
-  async bulkDelete(@Body() dto: BulkOperationDto): Promise<BulkOperationResultDto> {
-    return this.journalEntryService.bulkDelete(dto.ids);
+  async bulkDelete(
+    @Body() dto: BulkOperationDto,
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
+  ): Promise<BulkOperationResultDto> {
+    return this.journalEntryService.bulkDelete(dto.ids, currentUserId, currentUsername);
   }
 
   @Get(':id')
@@ -113,8 +124,10 @@ export class JournalEntryController {
   @ApiResponse({ status: 409, description: 'Reference number already exists' })
   async create(
     @Body() createDto: CreateJournalEntryDto,
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
   ): Promise<JournalEntryResponseDto> {
-    return this.journalEntryService.create(createDto);
+    return this.journalEntryService.create(createDto, currentUserId, currentUsername);
   }
 
   @Patch(':id')
@@ -134,8 +147,10 @@ export class JournalEntryController {
   async update(
     @Param('id') id: string,
     @Body() updateDto: UpdateJournalEntryDto,
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
   ): Promise<JournalEntryResponseDto> {
-    return this.journalEntryService.update(id, updateDto);
+    return this.journalEntryService.update(id, updateDto, currentUserId, currentUsername);
   }
 
   @Delete(':id')
@@ -149,8 +164,12 @@ export class JournalEntryController {
     description: 'Can only delete DRAFT entries or entry has been reversed',
   })
   @ApiResponse({ status: 404, description: 'Journal entry not found' })
-  async remove(@Param('id') id: string): Promise<void> {
-    await this.journalEntryService.remove(id);
+  async remove(
+    @Param('id') id: string,
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
+  ): Promise<void> {
+    await this.journalEntryService.remove(id, currentUserId, currentUsername);
   }
 
   @Post(':id/post')
@@ -167,8 +186,12 @@ export class JournalEntryController {
     description: 'Entry is not balanced, period is closed, or not a DRAFT entry',
   })
   @ApiResponse({ status: 404, description: 'Journal entry not found' })
-  async postEntry(@Param('id') id: string): Promise<JournalEntryResponseDto> {
-    return this.journalEntryService.postEntry(id);
+  async postEntry(
+    @Param('id') id: string,
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
+  ): Promise<JournalEntryResponseDto> {
+    return this.journalEntryService.postEntry(id, currentUserId, currentUsername);
   }
 
   @Post(':id/reverse')
@@ -185,7 +208,11 @@ export class JournalEntryController {
     description: 'Entry is not POSTED, already reversed, or period is closed',
   })
   @ApiResponse({ status: 404, description: 'Journal entry not found' })
-  async reverseEntry(@Param('id') id: string): Promise<JournalEntryResponseDto> {
-    return this.journalEntryService.reverseEntry(id);
+  async reverseEntry(
+    @Param('id') id: string,
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
+  ): Promise<JournalEntryResponseDto> {
+    return this.journalEntryService.reverseEntry(id, currentUserId, currentUsername);
   }
 }

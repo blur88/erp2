@@ -31,6 +31,7 @@ import {
   InvoicePaymentAllocationDto,
   VoidInvoiceDto,
 } from '../dto/invoice.dto';
+import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 
 @ApiTags('Invoices')
 @Controller('invoices')
@@ -46,8 +47,12 @@ export class InvoiceController {
   })
   @ApiResponse({ status: 400, description: 'Invalid input data' })
   @ApiResponse({ status: 404, description: 'Customer or sales order not found' })
-  async createInvoice(@Body() createInvoiceDto: CreateInvoiceDto): Promise<InvoiceResponseDto> {
-    return this.invoiceService.create(createInvoiceDto);
+  async createInvoice(
+    @Body() createInvoiceDto: CreateInvoiceDto,
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
+  ): Promise<InvoiceResponseDto> {
+    return this.invoiceService.create(createInvoiceDto, currentUserId, currentUsername);
   }
 
   @Get()
@@ -163,8 +168,10 @@ export class InvoiceController {
   async updateInvoice(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() updateInvoiceDto: UpdateInvoiceDto,
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
   ): Promise<InvoiceResponseDto> {
-    return this.invoiceService.update(id, updateInvoiceDto);
+    return this.invoiceService.update(id, updateInvoiceDto, currentUserId, currentUsername);
   }
 
   @Put(':id/sync-items')
@@ -180,8 +187,10 @@ export class InvoiceController {
   @ApiResponse({ status: 409, description: 'Cannot sync items for fully paid invoice' })
   async syncItemsFromSalesOrder(
     @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
   ): Promise<InvoiceResponseDto> {
-    return this.invoiceService.syncItemsFromSalesOrder(id);
+    return this.invoiceService.syncItemsFromSalesOrder(id, currentUserId, currentUsername);
   }
 
   @Delete(':id')
@@ -191,8 +200,12 @@ export class InvoiceController {
   @ApiResponse({ status: 404, description: 'Invoice not found' })
   @ApiResponse({ status: 409, description: 'Cannot delete invoice in current status' })
   @HttpCode(HttpStatus.NO_CONTENT)
-  async deleteInvoice(@Param('id', ParseUUIDPipe) id: string): Promise<void> {
-    return this.invoiceService.delete(id);
+  async deleteInvoice(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
+  ): Promise<void> {
+    return this.invoiceService.delete(id, currentUserId, currentUsername);
   }
 
   @Post(':id/send')
@@ -348,8 +361,12 @@ export class InvoiceController {
   })
   @ApiResponse({ status: 404, description: 'Invoice not found' })
   @ApiResponse({ status: 409, description: 'Invoice is not deleted' })
-  async restoreInvoice(@Param('id', ParseUUIDPipe) id: string): Promise<InvoiceResponseDto> {
-    return this.invoiceService.restore(id);
+  async restoreInvoice(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
+  ): Promise<InvoiceResponseDto> {
+    return this.invoiceService.restore(id, currentUserId, currentUsername);
   }
 
   @Post('bulk-restore')
@@ -364,8 +381,14 @@ export class InvoiceController {
     body: {
       invoiceIds: string[];
     },
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
   ): Promise<{ message: string; restoredCount: number; failedIds: string[] }> {
-    const result = await this.invoiceService.bulkRestore(body.invoiceIds);
+    const result = await this.invoiceService.bulkRestore(
+      body.invoiceIds,
+      currentUserId,
+      currentUsername,
+    );
     return {
       message: `Successfully restored ${result.restoredCount} of ${body.invoiceIds.length} invoices`,
       restoredCount: result.restoredCount,

@@ -50,7 +50,11 @@ export class CategoryService {
   /**
    * Create a new category
    */
-  async create(createCategoryDto: CreateCategoryDto, userId?: string): Promise<CategoryResponseDto> {
+  async create(
+    createCategoryDto: CreateCategoryDto,
+    userId?: string,
+    username?: string,
+  ): Promise<CategoryResponseDto> {
     this.logger.log(`Creating category: ${createCategoryDto.name}`);
 
     // Check if name already exists at the same level
@@ -90,6 +94,7 @@ export class CategoryService {
       {
         entityId: savedCategory.id,
         userId: userId || 'system',
+        username,
         newValues: {
           name: savedCategory.name,
           parentId: savedCategory.parentId,
@@ -344,7 +349,12 @@ export class CategoryService {
   /**
    * Update a category
    */
-  async update(id: string, updateCategoryDto: UpdateCategoryDto, userId?: string): Promise<CategoryResponseDto> {
+  async update(
+    id: string,
+    updateCategoryDto: UpdateCategoryDto,
+    userId?: string,
+    username?: string,
+  ): Promise<CategoryResponseDto> {
     this.logger.log(`Updating category with ID: ${id}`);
 
     const category = await this.categoryRepository.findOne({ where: { id } });
@@ -439,6 +449,7 @@ export class CategoryService {
         {
           entityId: updatedCategory.id,
           userId: userId || 'system',
+          username,
           oldValues: Object.fromEntries(
             Object.entries(changes).map(([key, val]) => [key, val.from])
           ),
@@ -508,7 +519,7 @@ export class CategoryService {
   async remove(id: string, userId?: string, options?: {
     force?: boolean;
     moveToUncategorized?: boolean;
-  }): Promise<{ message: string; moved?: number }> {
+  }, username?: string): Promise<{ message: string; moved?: number }> {
     this.logger.log(`Deleting category with ID: ${id}`, { options });
 
     const category = await this.categoryRepository.findOne({
@@ -579,6 +590,7 @@ export class CategoryService {
       {
         entityId: category.id,
         userId: userId || 'system',
+        username,
         oldValues: {
           name: category.name,
           parentId: category.parentId,
@@ -594,7 +606,7 @@ export class CategoryService {
   /**
    * Restore a soft-deleted category
    */
-  async restore(id: string, userId?: string): Promise<CategoryResponseDto> {
+  async restore(id: string, userId?: string, username?: string): Promise<CategoryResponseDto> {
     this.logger.log(`Restoring category with ID: ${id}`);
 
     const category = await this.categoryRepository.findOne({
@@ -626,6 +638,7 @@ export class CategoryService {
       {
         entityId: restoredCategory.id,
         userId: userId || 'system',
+        username,
         newValues: {
           name: restoredCategory.name,
           parentId: restoredCategory.parentId,
@@ -641,7 +654,7 @@ export class CategoryService {
   /**
    * Permanently delete a category from database
    */
-  async permanentDelete(id: string, userId?: string): Promise<void> {
+  async permanentDelete(id: string, userId?: string, username?: string): Promise<void> {
     this.logger.log(`Permanently deleting category with ID: ${id}`);
 
     // Find the category (including soft-deleted ones)
@@ -675,6 +688,7 @@ export class CategoryService {
       {
         entityId: id,
         userId: userId || 'system',
+        username,
         oldValues: {
           name: category.name,
           parentId: category.parentId,
@@ -692,7 +706,11 @@ export class CategoryService {
   /**
    * Bulk restore soft-deleted categories
    */
-  async bulkRestore(categoryIds: string[]): Promise<BulkOperationResponse> {
+  async bulkRestore(
+    categoryIds: string[],
+    userId?: string,
+    username?: string,
+  ): Promise<BulkOperationResponse> {
     this.logger.log(`Bulk restoring ${categoryIds.length} categories`);
 
     if (!categoryIds || categoryIds.length === 0) {
@@ -730,6 +748,13 @@ export class CategoryService {
           isActive: true,
         });
 
+        await this.auditLogService.log(
+          'RESTORE',
+          'Category',
+          `Restored category: ${category.name}`,
+          { entityId: categoryId, userId: userId || 'system', username }
+        );
+
         successCount++;
         this.logger.log(`Category restored: ${categoryId}`);
       } catch (error) {
@@ -749,7 +774,11 @@ export class CategoryService {
   /**
    * Bulk permanently delete categories from database
    */
-  async bulkPermanentDelete(categoryIds: string[]): Promise<BulkOperationResponse> {
+  async bulkPermanentDelete(
+    categoryIds: string[],
+    userId?: string,
+    username?: string,
+  ): Promise<BulkOperationResponse> {
     this.logger.log(`Bulk permanently deleting ${categoryIds.length} categories`);
 
     if (!categoryIds || categoryIds.length === 0) {
@@ -798,6 +827,12 @@ export class CategoryService {
         }
 
         // Perform the permanent deletion
+        await this.auditLogService.log(
+          'PERMANENT_DELETE',
+          'Category',
+          `Permanently deleted category: ${category.name}`,
+          { entityId: categoryId, userId: userId || 'system', username }
+        );
         await this.categoryRepository.remove(category);
 
         successCount++;
