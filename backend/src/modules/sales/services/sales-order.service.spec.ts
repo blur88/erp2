@@ -203,6 +203,7 @@ describe('SalesOrderService', () => {
           orderNumber: mockSalesOrder.orderNumber,
         }),
         'system',
+        undefined,
       );
       expect(result).toBeDefined();
       expect(salesOrderRepository.save).toHaveBeenCalled();

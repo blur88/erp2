@@ -665,8 +665,10 @@ describe('AccountingService', () => {
           description: expect.stringContaining('Opening Balance'),
           sourceType: 'opening_balance',
         }),
+        undefined,
+        undefined,
       );
-      expect(journalEntryService.postEntry).toHaveBeenCalledWith('je-id');
+      expect(journalEntryService.postEntry).toHaveBeenCalledWith('je-id', undefined, undefined);
       expect(result).toEqual({ id: 'je-id', status: 'POSTED' });
     });
 

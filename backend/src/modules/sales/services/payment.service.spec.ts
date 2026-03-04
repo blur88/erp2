@@ -144,6 +144,7 @@ describe('PaymentService', () => {
           }),
         }),
         'system',
+        undefined,
       );
       expect(result).toBeDefined();
       expect(paymentRepository.save).toHaveBeenCalled();

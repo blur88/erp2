@@ -912,7 +912,7 @@ export class ProductService {
       );
     }
 
-    this.logger.log(`Product updated successfully: ${updatedProduct.id}`);
+    this.logger.log(`Product updated successfully: ${id}`);
     return this.toResponseDto(productWithCategory!);
   }
 
