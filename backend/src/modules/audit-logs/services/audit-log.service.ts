@@ -87,6 +87,7 @@ export class AuditLogService {
       entityId,
       userId,
       username,
+      ipAddress,
       startDate,
       endDate,
       sortBy = 'createdAt',
@@ -122,6 +123,10 @@ export class AuditLogService {
 
     if (username) {
       where.username = Like(`%${username}%`);
+    }
+
+    if (ipAddress) {
+      where.ipAddress = ipAddress;
     }
 
     if (startDate && endDate) {
