@@ -24,6 +24,7 @@ import {
   BankReconciliationListResponseDto,
   ReconciledTransactionResponseDto,
 } from '../dto/reconciliation.dto';
+import { AuditLogService } from '../../audit-logs/services';
 
 @Injectable()
 export class ReconciliationService {
@@ -40,6 +41,7 @@ export class ReconciliationService {
     private readonly chartOfAccountRepository: Repository<ChartOfAccount>,
     @InjectRepository(FiscalPeriod)
     private readonly fiscalPeriodRepository: Repository<FiscalPeriod>,
+    private readonly auditLogService: AuditLogService,
   ) {}
 
   /**
@@ -100,11 +102,15 @@ export class ReconciliationService {
 
     const saved = await this.reconciliationRepository.save(reconciliation);
 
-    // Keep signature parity for future user audit trails.
-    void userId;
-
     // Load unreconciled journal entry lines for this account and create transaction records
     await this.loadUnreconciledTransactions(saved.id, createDto.accountId);
+
+    await this.auditLogService.log(
+      'CREATE',
+      'BankReconciliation',
+      `Created bank reconciliation for account: ${saved.accountId}`,
+      { entityId: saved.id, userId: userId ?? 'system' },
+    );
 
     this.logger.log(`Bank reconciliation created: ${saved.id}`);
     return this.findOne(saved.id);
@@ -219,8 +225,12 @@ export class ReconciliationService {
     reconciliation.calculateDifference();
 
     await this.reconciliationRepository.save(reconciliation);
-
-    void userId;
+    await this.auditLogService.log(
+      'UPDATE',
+      'BankReconciliation',
+      'Updated bank reconciliation',
+      { entityId: id, userId: userId ?? 'system' },
+    );
 
     return this.findOne(id);
   }
@@ -242,9 +252,13 @@ export class ReconciliationService {
     }
 
     await this.reconciliationRepository.softDelete(id);
+    await this.auditLogService.log(
+      'DELETE',
+      'BankReconciliation',
+      'Deleted bank reconciliation',
+      { entityId: id, userId: userId ?? 'system' },
+    );
     this.logger.log(`Bank reconciliation soft-deleted: ${id}`);
-
-    void userId;
   }
 
   /**
@@ -366,9 +380,14 @@ export class ReconciliationService {
     updated.status = BankReconciliationStatus.COMPLETED;
     await this.reconciliationRepository.save(updated);
 
-    this.logger.log(`Bank reconciliation completed: ${id}`);
+    await this.auditLogService.log(
+      'UPDATE',
+      'BankReconciliation',
+      'Completed bank reconciliation',
+      { entityId: id, userId: userId ?? 'system', metadata: { status: 'COMPLETED' } },
+    );
 
-    void userId;
+    this.logger.log(`Bank reconciliation completed: ${id}`);
 
     return this.findOne(id);
   }
@@ -395,9 +414,14 @@ export class ReconciliationService {
     reconciliation.status = BankReconciliationStatus.IN_PROGRESS;
     await this.reconciliationRepository.save(reconciliation);
 
-    this.logger.log(`Bank reconciliation reopened: ${id}`);
+    await this.auditLogService.log(
+      'UPDATE',
+      'BankReconciliation',
+      'Reopened bank reconciliation',
+      { entityId: id, userId: userId ?? 'system', metadata: { status: 'IN_PROGRESS' } },
+    );
 
-    void userId;
+    this.logger.log(`Bank reconciliation reopened: ${id}`);
 
     return this.findOne(id);
   }
