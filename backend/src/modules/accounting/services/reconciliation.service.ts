@@ -49,7 +49,8 @@ export class ReconciliationService {
    */
   async create(
     createDto: CreateBankReconciliationDto,
-    userId: string = 'system',
+    userId?: string,
+    username?: string,
   ): Promise<BankReconciliationResponseDto> {
     this.logger.log(`Creating bank reconciliation for account: ${createDto.accountId}`);
 
@@ -109,7 +110,7 @@ export class ReconciliationService {
       'CREATE',
       'BankReconciliation',
       `Created bank reconciliation for account: ${saved.accountId}`,
-      { entityId: saved.id, userId: userId ?? 'system' },
+      { entityId: saved.id, userId: userId ?? 'system', username },
     );
 
     this.logger.log(`Bank reconciliation created: ${saved.id}`);
@@ -200,7 +201,8 @@ export class ReconciliationService {
   async update(
     id: string,
     updateDto: UpdateBankReconciliationDto,
-    userId: string = 'system',
+    userId?: string,
+    username?: string,
   ): Promise<BankReconciliationResponseDto> {
     const reconciliation = await this.reconciliationRepository.findOne({
       where: { id },
@@ -229,7 +231,7 @@ export class ReconciliationService {
       'UPDATE',
       'BankReconciliation',
       'Updated bank reconciliation',
-      { entityId: id, userId: userId ?? 'system' },
+      { entityId: id, userId: userId ?? 'system', username },
     );
 
     return this.findOne(id);
@@ -238,7 +240,7 @@ export class ReconciliationService {
   /**
    * Soft delete a reconciliation (only if IN_PROGRESS)
    */
-  async remove(id: string, userId: string = 'system'): Promise<void> {
+  async remove(id: string, userId?: string, username?: string): Promise<void> {
     const reconciliation = await this.reconciliationRepository.findOne({
       where: { id },
     });
@@ -256,7 +258,7 @@ export class ReconciliationService {
       'DELETE',
       'BankReconciliation',
       'Deleted bank reconciliation',
-      { entityId: id, userId: userId ?? 'system' },
+      { entityId: id, userId: userId ?? 'system', username },
     );
     this.logger.log(`Bank reconciliation soft-deleted: ${id}`);
   }
@@ -344,7 +346,8 @@ export class ReconciliationService {
    */
   async complete(
     id: string,
-    userId: string = 'system',
+    userId?: string,
+    username?: string,
   ): Promise<BankReconciliationResponseDto> {
     const reconciliation = await this.reconciliationRepository.findOne({
       where: { id },
@@ -384,7 +387,12 @@ export class ReconciliationService {
       'UPDATE',
       'BankReconciliation',
       'Completed bank reconciliation',
-      { entityId: id, userId: userId ?? 'system', metadata: { status: 'COMPLETED' } },
+      {
+        entityId: id,
+        userId: userId ?? 'system',
+        username,
+        metadata: { status: 'COMPLETED' },
+      },
     );
 
     this.logger.log(`Bank reconciliation completed: ${id}`);
@@ -397,7 +405,8 @@ export class ReconciliationService {
    */
   async reopen(
     id: string,
-    userId: string = 'system',
+    userId?: string,
+    username?: string,
   ): Promise<BankReconciliationResponseDto> {
     const reconciliation = await this.reconciliationRepository.findOne({
       where: { id },
@@ -418,7 +427,12 @@ export class ReconciliationService {
       'UPDATE',
       'BankReconciliation',
       'Reopened bank reconciliation',
-      { entityId: id, userId: userId ?? 'system', metadata: { status: 'IN_PROGRESS' } },
+      {
+        entityId: id,
+        userId: userId ?? 'system',
+        username,
+        metadata: { status: 'IN_PROGRESS' },
+      },
     );
 
     this.logger.log(`Bank reconciliation reopened: ${id}`);

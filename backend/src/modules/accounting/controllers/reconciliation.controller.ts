@@ -13,6 +13,7 @@ import {
 import { ApiTags, ApiOperation, ApiResponse, ApiParam } from '@nestjs/swagger';
 import { ReconciliationService } from '../services/reconciliation.service';
 import { Auth } from '../../auth/decorators/auth.decorator';
+import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import { UserRole } from '../../../database/entities/user.entity';
 import {
   CreateBankReconciliationDto,
@@ -70,8 +71,10 @@ export class ReconciliationController {
   @ApiResponse({ status: 404, description: 'Account or fiscal period not found' })
   async create(
     @Body() createDto: CreateBankReconciliationDto,
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
   ): Promise<BankReconciliationResponseDto> {
-    return this.reconciliationService.create(createDto);
+    return this.reconciliationService.create(createDto, currentUserId, currentUsername);
   }
 
   @Patch(':id')
@@ -88,8 +91,10 @@ export class ReconciliationController {
   async update(
     @Param('id') id: string,
     @Body() updateDto: UpdateBankReconciliationDto,
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
   ): Promise<BankReconciliationResponseDto> {
-    return this.reconciliationService.update(id, updateDto);
+    return this.reconciliationService.update(id, updateDto, currentUserId, currentUsername);
   }
 
   @Delete(':id')
@@ -100,8 +105,12 @@ export class ReconciliationController {
   @ApiResponse({ status: 204, description: 'Bank reconciliation deleted' })
   @ApiResponse({ status: 400, description: 'Cannot delete completed reconciliation' })
   @ApiResponse({ status: 404, description: 'Bank reconciliation not found' })
-  async remove(@Param('id') id: string): Promise<void> {
-    await this.reconciliationService.remove(id);
+  async remove(
+    @Param('id') id: string,
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
+  ): Promise<void> {
+    await this.reconciliationService.remove(id, currentUserId, currentUsername);
   }
 
   @Post(':id/mark-cleared')
@@ -151,8 +160,12 @@ export class ReconciliationController {
     status: 400,
     description: 'Reconciliation is not balanced or already completed',
   })
-  async complete(@Param('id') id: string): Promise<BankReconciliationResponseDto> {
-    return this.reconciliationService.complete(id);
+  async complete(
+    @Param('id') id: string,
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
+  ): Promise<BankReconciliationResponseDto> {
+    return this.reconciliationService.complete(id, currentUserId, currentUsername);
   }
 
   @Post(':id/reopen')
@@ -165,7 +178,11 @@ export class ReconciliationController {
     type: BankReconciliationResponseDto,
   })
   @ApiResponse({ status: 400, description: 'Not a completed reconciliation' })
-  async reopen(@Param('id') id: string): Promise<BankReconciliationResponseDto> {
-    return this.reconciliationService.reopen(id);
+  async reopen(
+    @Param('id') id: string,
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
+  ): Promise<BankReconciliationResponseDto> {
+    return this.reconciliationService.reopen(id, currentUserId, currentUsername);
   }
 }
