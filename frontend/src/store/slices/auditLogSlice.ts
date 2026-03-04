@@ -4,7 +4,6 @@ import { auditLogApi, type AuditLogFilters, type AuditLogStatistics } from '@/se
 
 interface AuditLogState {
   auditLogs: AuditLog[]
-  selectedAuditLog: AuditLog | null
   statistics: AuditLogStatistics | null
   loading: boolean
   error: string | null
@@ -31,7 +30,6 @@ interface AuditLogState {
 
 const initialState: AuditLogState = {
   auditLogs: [],
-  selectedAuditLog: null,
   statistics: null,
   loading: false,
   error: null,
@@ -80,9 +78,6 @@ const auditLogSlice = createSlice({
   name: 'auditLogs',
   initialState,
   reducers: {
-    setSelectedAuditLog: (state, action: PayloadAction<AuditLog | null>) => {
-      state.selectedAuditLog = action.payload
-    },
     setFilters: (state, action: PayloadAction<Partial<AuditLogState['filters']>>) => {
       state.filters = { ...state.filters, ...action.payload }
     },
@@ -137,7 +132,6 @@ const auditLogSlice = createSlice({
 })
 
 export const {
-  setSelectedAuditLog,
   setFilters,
   clearFilters,
   setPage,
