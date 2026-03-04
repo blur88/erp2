@@ -468,6 +468,7 @@ export class FiscalPeriodService {
     }
 
     // Close the period
+    const previousStatus = period.status;
     period.status = FiscalPeriodStatus.CLOSED;
     const closedPeriod = await this.fiscalPeriodRepository.save(period);
 
@@ -479,7 +480,8 @@ export class FiscalPeriodService {
         entityId: id,
         userId: userId ?? 'system',
         username,
-        metadata: { status: 'CLOSED' },
+        oldValues: { status: previousStatus },
+        newValues: { status: closedPeriod.status },
       },
     );
 
@@ -529,6 +531,7 @@ export class FiscalPeriodService {
     }
 
     // Reopen the period
+    const previousStatus = period.status;
     period.status = FiscalPeriodStatus.OPEN;
     const reopenedPeriod = await this.fiscalPeriodRepository.save(period);
 
@@ -540,7 +543,8 @@ export class FiscalPeriodService {
         entityId: id,
         userId: userId ?? 'system',
         username,
-        metadata: { status: 'OPEN' },
+        oldValues: { status: previousStatus },
+        newValues: { status: reopenedPeriod.status },
       },
     );
 

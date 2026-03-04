@@ -378,6 +378,7 @@ export class ReconciliationService {
       );
     }
 
+    const previousStatus = updated.status;
     updated.status = BankReconciliationStatus.COMPLETED;
     await this.reconciliationRepository.save(updated);
 
@@ -389,7 +390,8 @@ export class ReconciliationService {
         entityId: id,
         userId: userId ?? 'system',
         username,
-        metadata: { status: 'COMPLETED' },
+        oldValues: { status: previousStatus },
+        newValues: { status: updated.status },
       },
     );
 
@@ -418,6 +420,7 @@ export class ReconciliationService {
       throw new BadRequestException('Can only reopen completed reconciliations');
     }
 
+    const previousStatus = reconciliation.status;
     reconciliation.status = BankReconciliationStatus.IN_PROGRESS;
     await this.reconciliationRepository.save(reconciliation);
 
@@ -429,7 +432,8 @@ export class ReconciliationService {
         entityId: id,
         userId: userId ?? 'system',
         username,
-        metadata: { status: 'IN_PROGRESS' },
+        oldValues: { status: previousStatus },
+        newValues: { status: reconciliation.status },
       },
     );
 

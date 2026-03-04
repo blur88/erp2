@@ -208,6 +208,7 @@ export class SettlementService {
       },
     );
 
+    const previousStatus = settlement.status;
     settlement.status = SettlementStatus.CANCELLED;
     const saved = await this.settlementRepository.save(settlement);
 
@@ -219,7 +220,8 @@ export class SettlementService {
         entityId: id,
         userId: userId ?? 'system',
         username,
-        metadata: { status: 'CANCELLED' },
+        oldValues: { status: previousStatus },
+        newValues: { status: saved.status },
       },
     );
 
