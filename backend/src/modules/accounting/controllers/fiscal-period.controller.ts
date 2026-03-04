@@ -171,8 +171,10 @@ export class FiscalPeriodController {
   })
   async generatePeriods(
     @Body() dto: GenerateFiscalPeriodsDto,
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
   ): Promise<FiscalPeriodResponseDto[]> {
-    return this.fiscalPeriodService.generateFiscalPeriods(dto);
+    return this.fiscalPeriodService.generateFiscalPeriods(dto, currentUserId, currentUsername);
   }
 
   @Post(':id/close')

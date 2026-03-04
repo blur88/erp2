@@ -894,7 +894,7 @@ export class AccountingService {
    * Post opening balances as a single balanced journal entry.
    * Positive amounts become debits, negative amounts become credits.
    */
-  async postOpeningBalances(dto: PostOpeningBalancesDto): Promise<JournalEntry> {
+  async postOpeningBalances(dto: PostOpeningBalancesDto, userId?: string, username?: string): Promise<JournalEntry> {
     this.logger.log(`Posting opening balances as of ${dto.asOfDate}`);
 
     const asOfDate = new Date(dto.asOfDate);
@@ -975,16 +975,17 @@ export class AccountingService {
       fiscalPeriodId: periodValidation.period.id,
       sourceType: 'opening_balance',
       lines,
-    });
+    }, userId, username);
 
-    const postedEntry = await this.journalEntryService.postEntry(entry.id);
+    const postedEntry = await this.journalEntryService.postEntry(entry.id, userId, username);
     await this.auditLogService.log(
       'AUTO_POST',
       'JournalEntry',
       'Auto-posted opening balance entry',
       {
         entityId: entry.id,
-        userId: 'system',
+        userId: userId ?? 'system',
+        username,
         metadata: { sourceType: 'opening_balance' },
       },
     );

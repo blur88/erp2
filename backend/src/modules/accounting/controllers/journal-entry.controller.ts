@@ -60,8 +60,10 @@ export class JournalEntryController {
   @ApiResponse({ status: 400, description: 'Invalid balances or no open period' })
   async postOpeningBalances(
     @Body() dto: PostOpeningBalancesDto,
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
   ): Promise<JournalEntryResponseDto> {
-    return this.accountingService.postOpeningBalances(dto) as any;
+    return this.accountingService.postOpeningBalances(dto, currentUserId, currentUsername) as any;
   }
 
   @Post('bulk-post')
