@@ -20,6 +20,7 @@ import {
   AccountMappingListResponseDto,
   MappingValidationResponseDto,
 } from '../dto/account-mapping.dto';
+import { AuditLogService } from '../../audit-logs/services';
 
 @Injectable()
 export class AccountMappingService {
@@ -32,6 +33,7 @@ export class AccountMappingService {
     private readonly accountRepository: Repository<ChartOfAccount>,
     @InjectRepository(PaymentMethodEntity)
     private readonly paymentMethodRepository: Repository<PaymentMethodEntity>,
+    private readonly auditLogService: AuditLogService,
   ) {}
 
   /**
@@ -221,6 +223,12 @@ export class AccountMappingService {
         this.logger.log(
           `Account mapping restored successfully with ID: ${savedRestoredMapping.id}`,
         );
+        await this.auditLogService.log(
+          'CREATE',
+          'AccountMapping',
+          `Created account mapping: ${savedRestoredMapping.mappingType}`,
+          { entityId: savedRestoredMapping.id, userId: userId ?? 'system' },
+        );
         return this.toResponseDto(mappingWithRelations!);
       }
 
@@ -242,6 +250,12 @@ export class AccountMappingService {
 
         this.logger.log(
           `Account mapping reactivated successfully with ID: ${savedReactivatedMapping.id}`,
+        );
+        await this.auditLogService.log(
+          'CREATE',
+          'AccountMapping',
+          `Created account mapping: ${savedReactivatedMapping.mappingType}`,
+          { entityId: savedReactivatedMapping.id, userId: userId ?? 'system' },
         );
         return this.toResponseDto(mappingWithRelations!);
       }
@@ -267,6 +281,12 @@ export class AccountMappingService {
 
     this.logger.log(
       `Account mapping created successfully with ID: ${savedMapping.id}`,
+    );
+    await this.auditLogService.log(
+      'CREATE',
+      'AccountMapping',
+      `Created account mapping: ${savedMapping.mappingType}`,
+      { entityId: savedMapping.id, userId: userId ?? 'system' },
     );
     return this.toResponseDto(mappingWithRelations!);
   }
@@ -314,6 +334,13 @@ export class AccountMappingService {
       relations: ['account'],
     });
 
+    await this.auditLogService.log(
+      'UPDATE',
+      'AccountMapping',
+      `Updated account mapping: ${updatedMapping.mappingType}`,
+      { entityId: id, userId: userId ?? 'system' },
+    );
+
     this.logger.log(`Account mapping updated successfully: ${id}`);
     return this.toResponseDto(mappingWithRelations!);
   }
@@ -334,6 +361,13 @@ export class AccountMappingService {
 
     // Soft delete the mapping
     await this.mappingRepository.softDelete(id);
+
+    await this.auditLogService.log(
+      'DELETE',
+      'AccountMapping',
+      `Deleted account mapping: ${mapping.mappingType}`,
+      { entityId: id, userId: userId ?? 'system' },
+    );
 
     this.logger.log(`Account mapping soft-deleted successfully: ${id}`);
   }
