@@ -192,7 +192,7 @@ const FilterSidebar: React.FC<FilterSidebarProps> = ({ entityTypes, onApply }) =
       {/* IP Address */}
       <TextField
         fullWidth size="small" label="IP Address"
-        value={(filters as any).ipAddress || ''}
+        value={filters.ipAddress || ''}
         onChange={(e) => handleFilter({ ipAddress: e.target.value })}
         sx={{ mb: 2 }}
       />

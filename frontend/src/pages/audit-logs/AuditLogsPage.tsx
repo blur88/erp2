@@ -24,7 +24,7 @@ const AuditLogsPage: React.FC = () => {
     pagination, filters, activeTab, sidebarCollapsed,
   } = useAppSelector((state) => state.auditLogs)
 
-  const fetchLogs = () => {
+  useEffect(() => {
     dispatch(fetchAuditLogs({
       page: pagination.page,
       limit: pagination.limit,
@@ -32,27 +32,18 @@ const AuditLogsPage: React.FC = () => {
       sortBy: 'createdAt',
       sortOrder: 'DESC',
     }))
-  }
+  }, [pagination.page, pagination.limit, filters])
 
-  const fetchStats = () => {
+  useEffect(() => {
     dispatch(fetchAuditLogStatistics({
       startDate: filters.startDate,
       endDate: filters.endDate,
     }))
-  }
-
-  useEffect(() => {
-    fetchLogs()
-  }, [pagination.page, pagination.limit])
-
-  useEffect(() => {
-    fetchStats()
   }, [filters.startDate, filters.endDate])
 
   const handleApply = () => {
     dispatch(setPage(1))
-    fetchLogs()
-    fetchStats()
+    // effects above will re-run due to state changes
   }
 
   const handlePageChange = (page: number) => {
