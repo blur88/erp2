@@ -27,6 +27,7 @@ import {
   StockAdjustmentResponseDto,
   StockAdjustmentListResponseDto,
 } from '../dto/stock-adjustment.dto';
+import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 
 @ApiTags('Stock Adjustments')
 @Controller('inventory/stock-adjustments')
@@ -47,8 +48,10 @@ export class StockAdjustmentController {
   @ApiBody({ type: CreateStockAdjustmentDto })
   async create(
     @Body() createDto: CreateStockAdjustmentDto,
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
   ): Promise<StockAdjustmentResponseDto> {
-    return this.stockAdjustmentService.create(createDto);
+    return this.stockAdjustmentService.create(createDto, currentUserId, currentUsername);
   }
 
   @Get('deleted')
@@ -111,8 +114,10 @@ export class StockAdjustmentController {
   async update(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() updateDto: UpdateStockAdjustmentDto,
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
   ): Promise<StockAdjustmentResponseDto> {
-    return this.stockAdjustmentService.update(id, updateDto);
+    return this.stockAdjustmentService.update(id, updateDto, currentUserId, currentUsername);
   }
 
   @Post(':id/complete')
@@ -174,8 +179,10 @@ export class StockAdjustmentController {
   @ApiParam({ name: 'id', description: 'Stock adjustment ID' })
   async restore(
     @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
   ): Promise<StockAdjustmentResponseDto> {
-    return this.stockAdjustmentService.restore(id);
+    return this.stockAdjustmentService.restore(id, currentUserId, currentUsername);
   }
 
   @Delete(':id/permanent')
@@ -193,8 +200,10 @@ export class StockAdjustmentController {
   @HttpCode(HttpStatus.NO_CONTENT)
   async permanentDelete(
     @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
   ): Promise<void> {
-    await this.stockAdjustmentService.permanentDelete(id);
+    await this.stockAdjustmentService.permanentDelete(id, currentUserId, currentUsername);
   }
 
   @Post('bulk-permanent-delete')
@@ -217,8 +226,14 @@ export class StockAdjustmentController {
   })
   async bulkPermanentDelete(
     @Body() body: { stockAdjustmentIds: string[] },
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
   ): Promise<any> {
-    const result = await this.stockAdjustmentService.bulkPermanentDelete(body.stockAdjustmentIds);
+    const result = await this.stockAdjustmentService.bulkPermanentDelete(
+      body.stockAdjustmentIds,
+      currentUserId,
+      currentUsername,
+    );
     return {
       message: `Successfully permanently deleted ${result.successCount} of ${body.stockAdjustmentIds.length} stock adjustments`,
       ...result

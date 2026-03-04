@@ -87,6 +87,8 @@ export class StockAdjustmentService {
    */
   async create(
     createDto: CreateStockAdjustmentDto,
+    userId?: string,
+    username?: string,
   ): Promise<StockAdjustmentResponseDto> {
     this.logger.log(`Creating stock adjustment with ${createDto.items.length} items`);
 
@@ -151,7 +153,8 @@ export class StockAdjustmentService {
       `Created stock adjustment: ${adjustmentNumber} (${items.length} items, RM ${totalValue.toFixed(2)})`,
       {
         entityId: saved.id,
-        userId: 'system',
+        userId: userId || 'system',
+        username,
         newValues: {
           adjustmentNumber,
           itemCount: items.length,
@@ -251,6 +254,8 @@ export class StockAdjustmentService {
   async update(
     id: string,
     updateDto: UpdateStockAdjustmentDto,
+    userId?: string,
+    username?: string,
   ): Promise<StockAdjustmentResponseDto> {
     const adjustment = await this.stockAdjustmentRepository.findOne({
       where: { id },
@@ -328,7 +333,8 @@ export class StockAdjustmentService {
       `Updated stock adjustment: ${saved.adjustmentNumber}`,
       {
         entityId: id,
-        userId: 'system',
+        userId: userId || 'system',
+        username,
         newValues: {
           adjustmentNumber: saved.adjustmentNumber,
           itemCount: saved.itemCount,
@@ -343,7 +349,7 @@ export class StockAdjustmentService {
   /**
    * Complete a stock adjustment (post to stock movements)
    */
-  async complete(id: string): Promise<StockAdjustmentResponseDto> {
+  async complete(id: string, userId?: string, username?: string): Promise<StockAdjustmentResponseDto> {
     const adjustment = await this.stockAdjustmentRepository.findOne({
       where: { id },
       relations: ['items', 'items.product'],
@@ -400,7 +406,8 @@ export class StockAdjustmentService {
         `Completed stock adjustment: ${adjustment.adjustmentNumber}`,
         {
           entityId: adjustment.id,
-          userId: 'system',
+          userId: userId || 'system',
+          username,
           oldValues: { status: StockAdjustmentStatus.DRAFT },
           newValues: { status: StockAdjustmentStatus.COMPLETED },
         }
@@ -419,7 +426,7 @@ export class StockAdjustmentService {
     // Auto-post to accounting (don't fail completion on error)
     try {
       const fullAdjustment = await this.findOne(id); // Get adjustment with relations
-      await this.accountingService.postStockAdjustmentEntry(fullAdjustment as any, 'system');
+      await this.accountingService.postStockAdjustmentEntry(fullAdjustment as any, userId || 'system');
       this.logger.log(`Posted accounting entry for stock adjustment ${adjustment.adjustmentNumber}`);
     } catch (error) {
       this.logger.error(
@@ -507,7 +514,7 @@ export class StockAdjustmentService {
   /**
    * Delete a stock adjustment (soft delete, only drafts)
    */
-  async remove(id: string): Promise<void> {
+  async remove(id: string, userId?: string, username?: string): Promise<void> {
     const adjustment = await this.stockAdjustmentRepository.findOne({
       where: { id },
     });
@@ -529,7 +536,8 @@ export class StockAdjustmentService {
       `Deleted stock adjustment: ${adjustment.adjustmentNumber}`,
       {
         entityId: id,
-        userId: 'system',
+        userId: userId || 'system',
+        username,
         oldValues: {
           adjustmentNumber: adjustment.adjustmentNumber,
           status: adjustment.status,
@@ -584,7 +592,7 @@ export class StockAdjustmentService {
   /**
    * Restore a soft-deleted stock adjustment
    */
-  async restore(id: string): Promise<StockAdjustmentResponseDto> {
+  async restore(id: string, userId?: string, username?: string): Promise<StockAdjustmentResponseDto> {
     const adjustment = await this.stockAdjustmentRepository.findOne({
       where: { id },
       withDeleted: true, // Include soft-deleted records
@@ -610,7 +618,7 @@ export class StockAdjustmentService {
   /**
    * Permanently delete a stock adjustment (hard delete from database)
    */
-  async permanentDelete(id: string): Promise<void> {
+  async permanentDelete(id: string, userId?: string, username?: string): Promise<void> {
     // Find the adjustment (including soft-deleted ones)
     const adjustment = await this.stockAdjustmentRepository.findOne({
       where: { id },
@@ -652,7 +660,8 @@ export class StockAdjustmentService {
       `Permanently deleted stock adjustment: ${adjustment.adjustmentNumber}`,
       {
         entityId: id,
-        userId: 'system',
+        userId: userId || 'system',
+        username,
         oldValues: {
           adjustmentNumber: adjustment.adjustmentNumber,
           itemCount: adjustment.itemCount,
@@ -671,13 +680,17 @@ export class StockAdjustmentService {
   /**
    * Bulk permanently delete stock adjustments
    */
-  async bulkPermanentDelete(adjustmentIds: string[]): Promise<{ successCount: number; failedIds: string[] }> {
+  async bulkPermanentDelete(
+    adjustmentIds: string[],
+    userId?: string,
+    username?: string,
+  ): Promise<{ successCount: number; failedIds: string[] }> {
     const failedIds: string[] = [];
     let successCount = 0;
 
     for (const id of adjustmentIds) {
       try {
-        await this.permanentDelete(id);
+        await this.permanentDelete(id, userId, username);
         successCount++;
       } catch (error) {
         this.logger.error(`Failed to permanently delete stock adjustment ${id}: ${error.message}`);
