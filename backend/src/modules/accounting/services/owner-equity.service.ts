@@ -114,7 +114,8 @@ export class OwnerEquityService {
 
   async create(
     dto: CreateOwnerEquityDto,
-    userId = 'system',
+    userId?: string,
+    username?: string,
   ): Promise<OwnerEquityResponseDto> {
     const paymentMethod = await this.paymentMethodRepository.findOne({
       where: { id: dto.paymentMethodId, isActive: true },
@@ -141,7 +142,7 @@ export class OwnerEquityService {
       'CREATE',
       'OwnerEquity',
       `Created owner equity transaction: ${saved.referenceNumber}`,
-      { entityId: saved.id, userId: userId ?? 'system' },
+      { entityId: saved.id, userId: userId ?? 'system', username },
     );
     return this.findOne(saved.id);
   }
@@ -149,7 +150,8 @@ export class OwnerEquityService {
   async update(
     id: string,
     dto: UpdateOwnerEquityDto,
-    userId = 'system',
+    userId?: string,
+    username?: string,
   ): Promise<OwnerEquityResponseDto> {
     const transaction = await this.ownerEquityRepository.findOne({
       where: { id },
@@ -183,12 +185,12 @@ export class OwnerEquityService {
       'UPDATE',
       'OwnerEquity',
       `Updated owner equity transaction: ${transaction.referenceNumber}`,
-      { entityId: id, userId: userId ?? 'system' },
+      { entityId: id, userId: userId ?? 'system', username },
     );
     return this.findOne(id);
   }
 
-  async remove(id: string): Promise<void> {
+  async remove(id: string, userId?: string, username?: string): Promise<void> {
     const transaction = await this.ownerEquityRepository.findOne({
       where: { id },
     });
@@ -206,11 +208,15 @@ export class OwnerEquityService {
       'DELETE',
       'OwnerEquity',
       `Deleted owner equity transaction: ${transaction.referenceNumber}`,
-      { entityId: id, userId: 'system' },
+      { entityId: id, userId: userId ?? 'system', username },
     );
   }
 
-  async post(id: string, userId = 'system'): Promise<OwnerEquityResponseDto> {
+  async post(
+    id: string,
+    userId?: string,
+    username?: string,
+  ): Promise<OwnerEquityResponseDto> {
     const transaction = await this.ownerEquityRepository.findOne({
       where: { id },
       relations: ['paymentMethod'],
@@ -228,7 +234,8 @@ export class OwnerEquityService {
     try {
       const journalEntry = await this.accountingService.postOwnerEquityEntry(
         transaction,
-        userId,
+        userId ?? 'system',
+        username,
       );
       transaction.status = OwnerEquityTransactionStatus.POSTED;
       transaction.journalEntryId = journalEntry.id;
@@ -237,7 +244,7 @@ export class OwnerEquityService {
         'POST',
         'OwnerEquity',
         `Posted owner equity transaction: ${transaction.referenceNumber}`,
-        { entityId: id, userId: userId ?? 'system' },
+        { entityId: id, userId: userId ?? 'system', username },
       );
     } catch (error) {
       this.logger.error(
@@ -251,14 +258,15 @@ export class OwnerEquityService {
 
   async bulkPost(
     dto: BulkOwnerEquityDto,
-    userId = 'system',
+    userId?: string,
+    username?: string,
   ): Promise<{ posted: number; failed: number }> {
     let posted = 0;
     let failed = 0;
 
     for (const id of dto.ids) {
       try {
-        await this.post(id, userId);
+        await this.post(id, userId, username);
         posted++;
       } catch (error) {
         this.logger.error(`Failed to post owner equity ${id}: ${error.message}`);
@@ -269,13 +277,17 @@ export class OwnerEquityService {
     return { posted, failed };
   }
 
-  async bulkDelete(dto: BulkOwnerEquityDto): Promise<{ deleted: number; failed: number }> {
+  async bulkDelete(
+    dto: BulkOwnerEquityDto,
+    userId?: string,
+    username?: string,
+  ): Promise<{ deleted: number; failed: number }> {
     let deleted = 0;
     let failed = 0;
 
     for (const id of dto.ids) {
       try {
-        await this.remove(id);
+        await this.remove(id, userId, username);
         deleted++;
       } catch (error) {
         this.logger.error(`Failed to delete owner equity ${id}: ${error.message}`);

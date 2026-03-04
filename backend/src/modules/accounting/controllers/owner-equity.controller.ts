@@ -10,6 +10,7 @@ import {
   ParseUUIDPipe,
 } from '@nestjs/common';
 import { Auth } from '../../auth/decorators/auth.decorator';
+import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import { UserRole } from '../../../database/entities/user.entity';
 import { OwnerEquityService } from '../services/owner-equity.service';
 import {
@@ -36,37 +37,62 @@ export class OwnerEquityController {
 
   @Post()
   @Auth(UserRole.ADMIN, UserRole.MANAGER)
-  create(@Body() dto: CreateOwnerEquityDto) {
-    return this.ownerEquityService.create(dto);
+  create(
+    @Body() dto: CreateOwnerEquityDto,
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
+  ) {
+    return this.ownerEquityService.create(dto, currentUserId, currentUsername);
   }
 
   @Patch(':id')
   @Auth(UserRole.ADMIN, UserRole.MANAGER)
-  update(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateOwnerEquityDto) {
-    return this.ownerEquityService.update(id, dto);
+  update(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateOwnerEquityDto,
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
+  ) {
+    return this.ownerEquityService.update(id, dto, currentUserId, currentUsername);
   }
 
   @Delete(':id')
   @Auth(UserRole.ADMIN)
-  remove(@Param('id', ParseUUIDPipe) id: string) {
-    return this.ownerEquityService.remove(id);
+  remove(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
+  ) {
+    return this.ownerEquityService.remove(id, currentUserId, currentUsername);
   }
 
   @Post(':id/post')
   @Auth(UserRole.ADMIN, UserRole.MANAGER)
-  post(@Param('id', ParseUUIDPipe) id: string) {
-    return this.ownerEquityService.post(id);
+  post(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
+  ) {
+    return this.ownerEquityService.post(id, currentUserId, currentUsername);
   }
 
   @Post('bulk-post')
   @Auth(UserRole.ADMIN, UserRole.MANAGER)
-  bulkPost(@Body() dto: BulkOwnerEquityDto) {
-    return this.ownerEquityService.bulkPost(dto);
+  bulkPost(
+    @Body() dto: BulkOwnerEquityDto,
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
+  ) {
+    return this.ownerEquityService.bulkPost(dto, currentUserId, currentUsername);
   }
 
   @Post('bulk-delete')
   @Auth(UserRole.ADMIN)
-  bulkDelete(@Body() dto: BulkOwnerEquityDto) {
-    return this.ownerEquityService.bulkDelete(dto);
+  bulkDelete(
+    @Body() dto: BulkOwnerEquityDto,
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
+  ) {
+    return this.ownerEquityService.bulkDelete(dto, currentUserId, currentUsername);
   }
 }
