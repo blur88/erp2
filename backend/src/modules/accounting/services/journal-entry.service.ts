@@ -614,19 +614,7 @@ export class JournalEntryService {
 
     for (const id of ids) {
       try {
-        const entry = await this.journalEntryRepository.findOne({
-          where: { id },
-          select: ['id', 'referenceNumber'],
-        });
         await this.postEntry(id);
-        if (entry) {
-          await this.auditLogService.log(
-            'POST',
-            'JournalEntry',
-            `Bulk posted journal entry: ${entry.referenceNumber}`,
-            { entityId: entry.id, userId: 'system' },
-          );
-        }
         succeeded.push(id);
       } catch (error: any) {
         failed.push({ id, error: error?.message || 'Unknown error' });
@@ -645,19 +633,7 @@ export class JournalEntryService {
 
     for (const id of ids) {
       try {
-        const entry = await this.journalEntryRepository.findOne({
-          where: { id },
-          select: ['id', 'referenceNumber'],
-        });
         await this.remove(id);
-        if (entry) {
-          await this.auditLogService.log(
-            'DELETE',
-            'JournalEntry',
-            `Bulk deleted journal entry: ${entry.referenceNumber}`,
-            { entityId: entry.id, userId: 'system' },
-          );
-        }
         succeeded.push(id);
       } catch (error: any) {
         failed.push({ id, error: error?.message || 'Unknown error' });

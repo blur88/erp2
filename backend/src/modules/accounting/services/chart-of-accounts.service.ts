@@ -425,19 +425,7 @@ export class ChartOfAccountsService {
 
     for (const accountId of accountIds) {
       try {
-        const account = await this.accountRepository.findOne({
-          where: { id: accountId },
-          withDeleted: true,
-        });
         await this.restore(accountId);
-        if (account) {
-          await this.auditLogService.log(
-            'RESTORE',
-            'Account',
-            `Bulk restored account: ${account.code} - ${account.name}`,
-            { entityId: account.id, userId: 'system' },
-          );
-        }
         restoredCount += 1;
       } catch (error: any) {
         failedIds.push(accountId);
@@ -617,19 +605,7 @@ export class ChartOfAccountsService {
 
     for (const accountId of accountIds) {
       try {
-        const account = await this.accountRepository.findOne({
-          where: { id: accountId },
-          withDeleted: true,
-        });
         await this.permanentDelete(accountId);
-        if (account) {
-          await this.auditLogService.log(
-            'PERMANENT_DELETE',
-            'Account',
-            `Bulk permanently deleted account: ${account.code} - ${account.name}`,
-            { entityId: account.id, userId: 'system' },
-          );
-        }
         deletedCount += 1;
       } catch (error: any) {
         const reason = error?.response?.message || error?.message || 'Unknown error';
