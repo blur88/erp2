@@ -25,6 +25,7 @@ import {
 import { ChartOfAccountsService } from './chart-of-accounts.service';
 import { FiscalPeriodService } from './fiscal-period.service';
 import { SettingsService } from '../../settings/settings.service';
+import { AuditLogService } from '../../audit-logs/services';
 
 @Injectable()
 export class JournalEntryService {
@@ -42,6 +43,7 @@ export class JournalEntryService {
     private readonly chartOfAccountsService: ChartOfAccountsService,
     private readonly fiscalPeriodService: FiscalPeriodService,
     private readonly settingsService: SettingsService,
+    private readonly auditLogService: AuditLogService,
   ) {}
 
   /**
@@ -104,6 +106,13 @@ export class JournalEntryService {
     );
 
     await this.journalEntryLineRepository.save(lines);
+
+    await this.auditLogService.log(
+      'CREATE',
+      'JournalEntry',
+      `Created journal entry: ${savedEntry.referenceNumber}`,
+      { entityId: savedEntry.id, userId: userId ?? 'system' },
+    );
 
     this.logger.log(`Journal entry created successfully with ID: ${savedEntry.id}`);
     return this.findOne(savedEntry.id);
@@ -301,6 +310,13 @@ export class JournalEntryService {
       await this.journalEntryLineRepository.save(lines);
     }
 
+    await this.auditLogService.log(
+      'UPDATE',
+      'JournalEntry',
+      `Updated journal entry: ${entry.referenceNumber}`,
+      { entityId: id, userId: userId ?? 'system' },
+    );
+
     this.logger.log(`Journal entry updated successfully: ${id}`);
     return this.findOne(id);
   }
@@ -337,6 +353,13 @@ export class JournalEntryService {
 
     // Soft delete the entry (lines will be cascade deleted)
     await this.journalEntryRepository.softDelete(id);
+
+    await this.auditLogService.log(
+      'DELETE',
+      'JournalEntry',
+      `Deleted journal entry: ${entry.referenceNumber}`,
+      { entityId: id, userId: userId ?? 'system' },
+    );
 
     this.logger.log(`Journal entry soft-deleted successfully: ${id}`);
   }
@@ -395,6 +418,13 @@ export class JournalEntryService {
     // Post the entry
     entry.status = JournalEntryStatus.POSTED;
     const postedEntry = await this.journalEntryRepository.save(entry);
+
+    await this.auditLogService.log(
+      'POST',
+      'JournalEntry',
+      `Posted journal entry: ${entry.referenceNumber}`,
+      { entityId: id, userId: userId ?? 'system' },
+    );
 
     this.logger.log(`Journal entry posted successfully: ${id}`);
     return this.toResponseDto(postedEntry);
@@ -471,6 +501,17 @@ export class JournalEntryService {
     originalEntry.reversedById = savedReversalEntry.id;
     await this.journalEntryRepository.save(originalEntry);
 
+    await this.auditLogService.log(
+      'REVERSE',
+      'JournalEntry',
+      `Reversed journal entry: ${originalEntry.referenceNumber} -> ${savedReversalEntry.referenceNumber}`,
+      {
+        entityId: id,
+        userId: userId ?? 'system',
+        metadata: { reversalEntryId: savedReversalEntry.id },
+      },
+    );
+
     this.logger.log(`Journal entry reversed successfully: ${id} -> ${savedReversalEntry.id}`);
     return this.findOne(savedReversalEntry.id);
   }
@@ -541,6 +582,17 @@ export class JournalEntryService {
     originalEntry.reversedById = savedReversalEntry.id;
     await this.journalEntryRepository.save(originalEntry);
 
+    await this.auditLogService.log(
+      'REVERSE',
+      'JournalEntry',
+      `Reversed journal entry: ${originalEntry.referenceNumber} (into period ${fiscalPeriodId})`,
+      {
+        entityId: id,
+        userId: userId ?? 'system',
+        metadata: { reversalEntryId: savedReversalEntry.id, fiscalPeriodId },
+      },
+    );
+
     this.logger.log(`Journal entry reversed: ${id} -> ${savedReversalEntry.id}`);
     return this.findOne(savedReversalEntry.id);
   }
@@ -562,7 +614,19 @@ export class JournalEntryService {
 
     for (const id of ids) {
       try {
+        const entry = await this.journalEntryRepository.findOne({
+          where: { id },
+          select: ['id', 'referenceNumber'],
+        });
         await this.postEntry(id);
+        if (entry) {
+          await this.auditLogService.log(
+            'POST',
+            'JournalEntry',
+            `Bulk posted journal entry: ${entry.referenceNumber}`,
+            { entityId: entry.id, userId: 'system' },
+          );
+        }
         succeeded.push(id);
       } catch (error: any) {
         failed.push({ id, error: error?.message || 'Unknown error' });
@@ -581,7 +645,19 @@ export class JournalEntryService {
 
     for (const id of ids) {
       try {
+        const entry = await this.journalEntryRepository.findOne({
+          where: { id },
+          select: ['id', 'referenceNumber'],
+        });
         await this.remove(id);
+        if (entry) {
+          await this.auditLogService.log(
+            'DELETE',
+            'JournalEntry',
+            `Bulk deleted journal entry: ${entry.referenceNumber}`,
+            { entityId: entry.id, userId: 'system' },
+          );
+        }
         succeeded.push(id);
       } catch (error: any) {
         failed.push({ id, error: error?.message || 'Unknown error' });
