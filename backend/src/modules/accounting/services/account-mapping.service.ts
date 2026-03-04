@@ -179,7 +179,8 @@ export class AccountMappingService {
    */
   async create(
     createDto: CreateAccountMappingDto,
-    userId: string = 'system',
+    userId?: string,
+    username?: string,
   ): Promise<AccountMappingResponseDto> {
     this.logger.log(
       `Creating account mapping for type: ${createDto.mappingType}`,
@@ -227,7 +228,11 @@ export class AccountMappingService {
           'CREATE',
           'AccountMapping',
           `Created account mapping: ${savedRestoredMapping.mappingType}`,
-          { entityId: savedRestoredMapping.id, userId: userId ?? 'system' },
+          {
+            entityId: savedRestoredMapping.id,
+            userId: userId ?? 'system',
+            username,
+          },
         );
         return this.toResponseDto(mappingWithRelations!);
       }
@@ -255,7 +260,11 @@ export class AccountMappingService {
           'CREATE',
           'AccountMapping',
           `Created account mapping: ${savedReactivatedMapping.mappingType}`,
-          { entityId: savedReactivatedMapping.id, userId: userId ?? 'system' },
+          {
+            entityId: savedReactivatedMapping.id,
+            userId: userId ?? 'system',
+            username,
+          },
         );
         return this.toResponseDto(mappingWithRelations!);
       }
@@ -286,7 +295,7 @@ export class AccountMappingService {
       'CREATE',
       'AccountMapping',
       `Created account mapping: ${savedMapping.mappingType}`,
-      { entityId: savedMapping.id, userId: userId ?? 'system' },
+      { entityId: savedMapping.id, userId: userId ?? 'system', username },
     );
     return this.toResponseDto(mappingWithRelations!);
   }
@@ -297,7 +306,8 @@ export class AccountMappingService {
   async update(
     id: string,
     updateDto: UpdateAccountMappingDto,
-    userId: string = 'system',
+    userId?: string,
+    username?: string,
   ): Promise<AccountMappingResponseDto> {
     this.logger.log(`Updating account mapping with ID: ${id}`);
 
@@ -338,7 +348,7 @@ export class AccountMappingService {
       'UPDATE',
       'AccountMapping',
       `Updated account mapping: ${updatedMapping.mappingType}`,
-      { entityId: id, userId: userId ?? 'system' },
+      { entityId: id, userId: userId ?? 'system', username },
     );
 
     this.logger.log(`Account mapping updated successfully: ${id}`);
@@ -348,7 +358,7 @@ export class AccountMappingService {
   /**
    * Soft delete an account mapping
    */
-  async remove(id: string, userId: string = 'system'): Promise<void> {
+  async remove(id: string, userId?: string, username?: string): Promise<void> {
     this.logger.log(`Deleting account mapping with ID: ${id}`);
 
     const mapping = await this.mappingRepository.findOne({
@@ -366,7 +376,7 @@ export class AccountMappingService {
       'DELETE',
       'AccountMapping',
       `Deleted account mapping: ${mapping.mappingType}`,
-      { entityId: id, userId: userId ?? 'system' },
+      { entityId: id, userId: userId ?? 'system', username },
     );
 
     this.logger.log(`Account mapping soft-deleted successfully: ${id}`);
