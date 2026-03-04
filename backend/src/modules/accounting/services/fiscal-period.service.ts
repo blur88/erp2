@@ -412,12 +412,6 @@ export class FiscalPeriodService {
         );
 
         createdPeriods.push(period);
-        await this.auditLogService.log(
-          'GENERATE',
-          'FiscalPeriod',
-          `Generated fiscal period: ${period.code} - ${period.name}`,
-          { entityId: period.id, userId: userId ?? 'system' },
-        );
         this.logger.log(`Created period: ${code} - ${name}`);
       } catch (error) {
         if (error instanceof ConflictException) {
