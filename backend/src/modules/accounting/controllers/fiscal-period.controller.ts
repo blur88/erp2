@@ -13,6 +13,7 @@ import {
 import { ApiTags, ApiOperation, ApiResponse, ApiParam } from '@nestjs/swagger';
 import { FiscalPeriodService } from '../services/fiscal-period.service';
 import { Auth } from '../../auth/decorators/auth.decorator';
+import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import { UserRole } from '../../../database/entities/user.entity';
 import {
   CreateFiscalPeriodDto,
@@ -87,8 +88,10 @@ export class FiscalPeriodController {
   })
   async create(
     @Body() createDto: CreateFiscalPeriodDto,
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
   ): Promise<FiscalPeriodResponseDto> {
-    return this.fiscalPeriodService.create(createDto);
+    return this.fiscalPeriodService.create(createDto, currentUserId, currentUsername);
   }
 
   @Patch(':id')
@@ -109,8 +112,10 @@ export class FiscalPeriodController {
   async update(
     @Param('id') id: string,
     @Body() updateDto: UpdateFiscalPeriodDto,
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
   ): Promise<FiscalPeriodResponseDto> {
-    return this.fiscalPeriodService.update(id, updateDto);
+    return this.fiscalPeriodService.update(id, updateDto, currentUserId, currentUsername);
   }
 
   @Delete(':id')
@@ -124,8 +129,12 @@ export class FiscalPeriodController {
     description: 'Period has journal entries',
   })
   @ApiResponse({ status: 404, description: 'Fiscal period not found' })
-  async remove(@Param('id') id: string): Promise<void> {
-    await this.fiscalPeriodService.remove(id);
+  async remove(
+    @Param('id') id: string,
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
+  ): Promise<void> {
+    await this.fiscalPeriodService.remove(id, currentUserId, currentUsername);
   }
 
   @Post(':id/restore')
@@ -140,8 +149,12 @@ export class FiscalPeriodController {
   @ApiResponse({ status: 400, description: 'Period is not deleted' })
   @ApiResponse({ status: 404, description: 'Fiscal period not found' })
   @ApiResponse({ status: 409, description: 'Period code now used by another period' })
-  async restore(@Param('id') id: string): Promise<FiscalPeriodResponseDto> {
-    return this.fiscalPeriodService.restore(id);
+  async restore(
+    @Param('id') id: string,
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
+  ): Promise<FiscalPeriodResponseDto> {
+    return this.fiscalPeriodService.restore(id, currentUserId, currentUsername);
   }
 
   @Post('generate')
@@ -176,8 +189,12 @@ export class FiscalPeriodController {
     description: 'Period already closed or has unposted draft entries',
   })
   @ApiResponse({ status: 404, description: 'Fiscal period not found' })
-  async closePeriod(@Param('id') id: string): Promise<FiscalPeriodResponseDto> {
-    return this.fiscalPeriodService.closePeriod(id);
+  async closePeriod(
+    @Param('id') id: string,
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
+  ): Promise<FiscalPeriodResponseDto> {
+    return this.fiscalPeriodService.closePeriod(id, currentUserId, currentUsername);
   }
 
   @Post(':id/reopen')
@@ -196,8 +213,10 @@ export class FiscalPeriodController {
   @ApiResponse({ status: 404, description: 'Fiscal period not found' })
   async reopenPeriod(
     @Param('id') id: string,
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
   ): Promise<FiscalPeriodResponseDto> {
-    return this.fiscalPeriodService.reopenPeriod(id);
+    return this.fiscalPeriodService.reopenPeriod(id, currentUserId, currentUsername);
   }
 
   @Post('validate')
