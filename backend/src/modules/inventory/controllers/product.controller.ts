@@ -538,7 +538,9 @@ export class ProductController {
   @HttpCode(HttpStatus.NO_CONTENT)
   async remove(
     @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
   ): Promise<void> {
-    await this.productService.remove(id);
+    await this.productService.remove(id, currentUserId, currentUsername);
   }
 }

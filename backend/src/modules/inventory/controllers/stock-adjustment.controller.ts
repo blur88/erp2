@@ -163,8 +163,12 @@ export class StockAdjustmentController {
   @ApiResponse({ status: 400, description: 'Only draft adjustments can be deleted' })
   @ApiResponse({ status: 404, description: 'Stock adjustment not found' })
   @ApiParam({ name: 'id', description: 'Stock adjustment ID' })
-  async remove(@Param('id', ParseUUIDPipe) id: string): Promise<void> {
-    return this.stockAdjustmentService.remove(id);
+  async remove(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
+  ): Promise<void> {
+    return this.stockAdjustmentService.remove(id, currentUserId, currentUsername);
   }
 
   @Post(':id/restore')

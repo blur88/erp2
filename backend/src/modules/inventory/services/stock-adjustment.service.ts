@@ -610,6 +610,13 @@ export class StockAdjustmentService {
     // Restore the adjustment
     await this.stockAdjustmentRepository.restore(id);
 
+    await this.auditLogService.log(
+      'RESTORE',
+      'StockAdjustment',
+      `Restored stock adjustment: ${adjustment.adjustmentNumber}`,
+      { entityId: id, userId: userId || 'system', username }
+    );
+
     this.logger.log(`Stock adjustment ${adjustment.adjustmentNumber} restored successfully`);
 
     return this.findOne(id);

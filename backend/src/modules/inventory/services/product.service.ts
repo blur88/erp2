@@ -621,6 +621,13 @@ export class ProductService {
         // Restore the product
         await this.productRepository.restore(id);
 
+        await this.auditLogService.log(
+          'RESTORE',
+          'Product',
+          `Restored product: ${product.name} (${product.barcode})`,
+          { entityId: id, userId: userId || 'system', username }
+        );
+
         successCount++;
         this.logger.log(`Product restored: ${id}`);
       } catch (error) {
@@ -747,6 +754,12 @@ export class ProductService {
         }
 
         // Hard delete the product from database
+        await this.auditLogService.log(
+          'PERMANENT_DELETE',
+          'Product',
+          `Permanently deleted product: ${product.name} (${product.barcode})`,
+          { entityId: id, userId: userId || 'system', username, oldValues: { name: product.name, barcode: product.barcode } }
+        );
         await this.productRepository.delete(id);
 
         successCount++;
@@ -775,7 +788,6 @@ export class ProductService {
     username?: string,
   ): Promise<ProductResponseDto> {
     this.logger.log(`Updating product with ID: ${id}`);
-    console.log('🚀 UPDATE METHOD CALLED - CODE VERSION 2.0');
 
     const product = await this.productRepository.findOne({
       where: { id },
@@ -855,13 +867,6 @@ export class ProductService {
       this.validatePricing({ ...product, ...updateData } as any);
     }
 
-    // Debug logging
-    console.log('=== PRODUCT UPDATE DEBUG ===');
-    console.log('Current product.categoryId:', product.categoryId);
-    console.log('Original DTO:', updateProductDto);
-    console.log('Transformed updateData:', updateData);
-    console.log('Update DTO categoryId:', updateData.categoryId);
-
     // Track changes for audit (use transformed data)
     const changes: Record<string, { from: any; to: any }> = {};
     Object.keys(updateData).forEach(key => {
@@ -870,35 +875,22 @@ export class ProductService {
       }
     });
 
-    console.log('Detected changes:', changes);
-
     // Update product with transformed data
     Object.assign(product, updateData);
-    
-    console.log('After Object.assign - product.categoryId:', product.categoryId);
-    console.log('=============================');
 
     // Stock status is computed automatically in the entity
 
     // Use direct update with ID string for better control over what gets updated
-    const updateResult = await this.productRepository.update(
+    await this.productRepository.update(
       id,  // Use the ID parameter directly, not product.id
       updateData
     );
-    console.log('UPDATE RESULT:', updateResult);
-
-    const updatedProduct = await this.productRepository.findOne({
-      where: { id },
-    });
-    console.log('POST-UPDATE updatedProduct.categoryId:', updatedProduct?.categoryId);
 
     // Reload the product with category relation to ensure fresh data
     const productWithCategory = await this.productRepository.findOne({
       where: { id },
       relations: ['category'],
     });
-    console.log('RELOADED productWithCategory.categoryId:', productWithCategory?.categoryId);
-    console.log('RELOADED productWithCategory.category:', productWithCategory?.category?.name);
 
     // Log audit trail for update
     if (Object.keys(changes).length > 0) {
@@ -1003,7 +995,7 @@ export class ProductService {
    * Only check for active sales order items to prevent deletion of products
    * currently in pending orders.
    */
-  async remove(id: string): Promise<void> {
+  async remove(id: string, userId?: string, username?: string): Promise<void> {
     this.logger.log(`Deleting product with ID: ${id}`);
 
     const product = await this.productRepository.findOne({
@@ -1040,7 +1032,8 @@ export class ProductService {
       `Deleted product: ${product.name} (${product.barcode})`,
       {
         entityId: product.id,
-        userId: 'system',
+        userId: userId || 'system',
+        username,
         oldValues: {
           name: product.name,
           barcode: product.barcode,

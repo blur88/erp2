@@ -425,8 +425,8 @@ export class CategoryController {
     @Param('id', ParseUUIDPipe) id: string,
     @Query('force') force?: boolean,
     @Query('moveToUncategorized') moveToUncategorized?: boolean,
-    @CurrentUser('userId') currentUserId: string = 'system',
-    @CurrentUser('username') currentUsername?: string,
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
   ): Promise<{ message: string; moved?: number }> {
     const result = await this.categoryService.remove(
       id,

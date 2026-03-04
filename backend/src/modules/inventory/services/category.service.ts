@@ -748,6 +748,13 @@ export class CategoryService {
           isActive: true,
         });
 
+        await this.auditLogService.log(
+          'RESTORE',
+          'Category',
+          `Restored category: ${category.name}`,
+          { entityId: categoryId, userId: userId || 'system', username }
+        );
+
         successCount++;
         this.logger.log(`Category restored: ${categoryId}`);
       } catch (error) {
@@ -820,6 +827,12 @@ export class CategoryService {
         }
 
         // Perform the permanent deletion
+        await this.auditLogService.log(
+          'PERMANENT_DELETE',
+          'Category',
+          `Permanently deleted category: ${category.name}`,
+          { entityId: categoryId, userId: userId || 'system', username }
+        );
         await this.categoryRepository.remove(category);
 
         successCount++;
