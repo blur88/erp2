@@ -423,10 +423,10 @@ export class CategoryController {
   })
   async remove(
     @Param('id', ParseUUIDPipe) id: string,
-    @Query('force') force?: boolean,
-    @Query('moveToUncategorized') moveToUncategorized?: boolean,
     @CurrentUser('userId') currentUserId: string,
     @CurrentUser('username') currentUsername: string,
+    @Query('force') force?: boolean,
+    @Query('moveToUncategorized') moveToUncategorized?: boolean,
   ): Promise<{ message: string; moved?: number }> {
     const result = await this.categoryService.remove(
       id,
