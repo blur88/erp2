@@ -22,6 +22,7 @@ import {
   ChartOfAccountListResponseDto,
   ChartOfAccountHierarchyDto,
 } from '../dto/chart-of-account.dto';
+import { AuditLogService } from '../../audit-logs/services';
 
 @Injectable()
 export class ChartOfAccountsService {
@@ -36,6 +37,7 @@ export class ChartOfAccountsService {
     private readonly accountMappingRepository: Repository<AccountMapping>,
     @InjectRepository(BankReconciliation)
     private readonly bankReconciliationRepository: Repository<BankReconciliation>,
+    private readonly auditLogService: AuditLogService,
   ) {}
 
   /**
@@ -92,6 +94,13 @@ export class ChartOfAccountsService {
     });
 
     const savedAccount = await this.accountRepository.save(account);
+
+    await this.auditLogService.log(
+      'CREATE',
+      'Account',
+      `Created account: ${savedAccount.code} - ${savedAccount.name}`,
+      { entityId: savedAccount.id, userId: userId ?? 'system' },
+    );
 
     this.logger.log(`Account created successfully with ID: ${savedAccount.id}`);
     return this.toResponseDto(savedAccount);
@@ -271,6 +280,13 @@ export class ChartOfAccountsService {
       relations: ['parent', 'children'],
     });
 
+    await this.auditLogService.log(
+      'UPDATE',
+      'Account',
+      `Updated account: ${account.code} - ${account.name}`,
+      { entityId: id, userId: userId ?? 'system' },
+    );
+
     this.logger.log(`Account updated successfully: ${id}`);
     return this.toResponseDto(accountWithRelations!);
   }
@@ -312,6 +328,13 @@ export class ChartOfAccountsService {
 
     // Soft delete the account
     await this.accountRepository.softDelete(id);
+
+    await this.auditLogService.log(
+      'DELETE',
+      'Account',
+      `Deleted account: ${account.code} - ${account.name}`,
+      { entityId: id, userId: userId ?? 'system' },
+    );
 
     this.logger.log(`Account soft-deleted successfully: ${id}`);
   }
@@ -376,6 +399,13 @@ export class ChartOfAccountsService {
       relations: ['parent', 'children'],
     });
 
+    await this.auditLogService.log(
+      'RESTORE',
+      'Account',
+      `Restored account: ${account.code} - ${account.name}`,
+      { entityId: id, userId: userId ?? 'system' },
+    );
+
     this.logger.log(`Account restored successfully: ${id}`);
     return this.toResponseDto(restoredAccount!);
   }
@@ -395,7 +425,19 @@ export class ChartOfAccountsService {
 
     for (const accountId of accountIds) {
       try {
+        const account = await this.accountRepository.findOne({
+          where: { id: accountId },
+          withDeleted: true,
+        });
         await this.restore(accountId);
+        if (account) {
+          await this.auditLogService.log(
+            'RESTORE',
+            'Account',
+            `Bulk restored account: ${account.code} - ${account.name}`,
+            { entityId: account.id, userId: 'system' },
+          );
+        }
         restoredCount += 1;
       } catch (error: any) {
         failedIds.push(accountId);
@@ -545,6 +587,13 @@ export class ChartOfAccountsService {
     // Hard delete the account
     await this.accountRepository.remove(account);
 
+    await this.auditLogService.log(
+      'PERMANENT_DELETE',
+      'Account',
+      `Permanently deleted account: ${account.code} - ${account.name}`,
+      { entityId: id, userId: userId ?? 'system' },
+    );
+
     this.logger.log(`Account permanently deleted: ${id}`);
   }
 
@@ -568,7 +617,19 @@ export class ChartOfAccountsService {
 
     for (const accountId of accountIds) {
       try {
+        const account = await this.accountRepository.findOne({
+          where: { id: accountId },
+          withDeleted: true,
+        });
         await this.permanentDelete(accountId);
+        if (account) {
+          await this.auditLogService.log(
+            'PERMANENT_DELETE',
+            'Account',
+            `Bulk permanently deleted account: ${account.code} - ${account.name}`,
+            { entityId: account.id, userId: 'system' },
+          );
+        }
         deletedCount += 1;
       } catch (error: any) {
         const reason = error?.response?.message || error?.message || 'Unknown error';
