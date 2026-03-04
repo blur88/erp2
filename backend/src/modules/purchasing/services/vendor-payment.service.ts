@@ -99,7 +99,11 @@ export class VendorPaymentService {
     // Auto-post to accounting (don't fail payment on error)
     try {
       const fullPayment = await this.findOne(savedPayment.id);
-      await this.accountingService.postVendorPaymentEntry(fullPayment, userId || 'system');
+      await this.accountingService.postVendorPaymentEntry(
+        fullPayment,
+        userId || 'system',
+        username,
+      );
       this.logger.log(`Posted accounting entry for vendor payment ${fullPayment.paymentNumber}`);
     } catch (error) {
       this.logger.error(

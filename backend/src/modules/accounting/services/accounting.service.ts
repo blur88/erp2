@@ -48,6 +48,7 @@ export class AccountingService {
   async postSalesOrderEntry(
     salesOrder: SalesOrder,
     userId: string,
+    username?: string,
   ): Promise<JournalEntry> {
     this.logger.log(`Posting sales order entry for ${salesOrder.orderNumber}`);
 
@@ -141,6 +142,7 @@ export class AccountingService {
       {
         entityId: entry.id,
         userId: userId ?? 'system',
+        username,
         metadata: { sourceType: 'sales_order', sourceId: salesOrder.id },
       },
     );
@@ -158,6 +160,7 @@ export class AccountingService {
   async postCustomerPaymentEntry(
     payment: Payment,
     userId: string,
+    username?: string,
   ): Promise<JournalEntry> {
     this.logger.log(`Posting customer payment entry for ${payment.paymentNumber}`);
 
@@ -227,6 +230,7 @@ export class AccountingService {
       {
         entityId: entry.id,
         userId: userId ?? 'system',
+        username,
         metadata: { sourceType: 'payment', sourceId: payment.id },
       },
     );
@@ -246,6 +250,7 @@ export class AccountingService {
     paymentMethod: PaymentMethodEntity,
     amount: number,
     userId: string,
+    username?: string,
   ): Promise<JournalEntry> {
     this.logger.log(`Posting settlement entry for ${settlement.settlementNumber}`);
 
@@ -311,6 +316,7 @@ export class AccountingService {
       {
         entityId: entry.id,
         userId: userId ?? 'system',
+        username,
         metadata: { sourceType: 'settlement', sourceId: settlement.id },
       },
     );
@@ -327,6 +333,7 @@ export class AccountingService {
   async postGoodsReceivedEntry(
     grn: GoodsReceivedNote,
     userId: string,
+    username?: string,
   ): Promise<JournalEntry> {
     this.logger.log(`Posting goods received entry for ${grn.grnNumber}`);
 
@@ -392,6 +399,7 @@ export class AccountingService {
       {
         entityId: entry.id,
         userId: userId ?? 'system',
+        username,
         metadata: { sourceType: 'goods_received_note', sourceId: grn.id },
       },
     );
@@ -409,6 +417,7 @@ export class AccountingService {
   async postVendorPaymentEntry(
     vendorPayment: VendorPayment,
     userId: string,
+    username?: string,
   ): Promise<JournalEntry> {
     this.logger.log(`Posting vendor payment entry for ${vendorPayment.paymentNumber}`);
 
@@ -477,6 +486,7 @@ export class AccountingService {
       {
         entityId: entry.id,
         userId: userId ?? 'system',
+        username,
         metadata: { sourceType: 'vendor_payment', sourceId: vendorPayment.id },
       },
     );
@@ -494,6 +504,7 @@ export class AccountingService {
   async postStockAdjustmentEntry(
     adjustment: StockAdjustment,
     userId: string,
+    username?: string,
   ): Promise<JournalEntry> {
     this.logger.log(`Posting stock adjustment entry for ${adjustment.adjustmentNumber}`);
 
@@ -587,6 +598,7 @@ export class AccountingService {
       {
         entityId: entry.id,
         userId: userId ?? 'system',
+        username,
         metadata: { sourceType: 'stock_adjustment', sourceId: adjustment.id },
       },
     );
@@ -605,6 +617,7 @@ export class AccountingService {
   async postOwnerEquityEntry(
     transaction: OwnerEquityTransaction,
     userId: string,
+    username?: string,
   ): Promise<JournalEntry> {
     this.logger.log(`Posting owner equity entry for ${transaction.referenceNumber}`);
 
@@ -696,6 +709,7 @@ export class AccountingService {
       {
         entityId: entry.id,
         userId: userId ?? 'system',
+        username,
         metadata: { sourceType: 'owner_equity', sourceId: transaction.id },
       },
     );
@@ -709,7 +723,11 @@ export class AccountingService {
    * Post journal entry for expense
    * DR Expense Account, CR Payment Method Account
    */
-  async postExpenseEntry(expense: Expense, userId: string): Promise<JournalEntry> {
+  async postExpenseEntry(
+    expense: Expense,
+    userId: string,
+    username?: string,
+  ): Promise<JournalEntry> {
     this.logger.log(`Posting expense entry for ${expense.referenceNumber}`);
 
     const mappings = await this.accountMappingService.getMappings();
@@ -784,6 +802,7 @@ export class AccountingService {
       {
         entityId: entry.id,
         userId: userId ?? 'system',
+        username,
         metadata: { sourceType: 'expense', sourceId: expense.id },
       },
     );

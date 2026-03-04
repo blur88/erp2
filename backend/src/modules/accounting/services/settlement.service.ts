@@ -168,6 +168,7 @@ export class SettlementService {
         paymentMethod,
         totalAmount,
         userId || 'system',
+        username,
       );
     } catch (error) {
       this.logger.error(

@@ -117,7 +117,11 @@ export class PaymentService {
     // Auto-post to accounting (don't fail payment on error)
     try {
       const fullPayment = await this.findPaymentWithRelations(savedPayment.id);
-      await this.accountingService.postCustomerPaymentEntry(fullPayment, userId || 'system');
+      await this.accountingService.postCustomerPaymentEntry(
+        fullPayment,
+        userId || 'system',
+        username,
+      );
       this.logger.log(`Posted accounting entry for payment ${fullPayment.paymentNumber}`);
     } catch (error) {
       this.logger.error(

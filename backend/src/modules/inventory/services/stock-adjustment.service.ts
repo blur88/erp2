@@ -426,7 +426,11 @@ export class StockAdjustmentService {
     // Auto-post to accounting (don't fail completion on error)
     try {
       const fullAdjustment = await this.findOne(id); // Get adjustment with relations
-      await this.accountingService.postStockAdjustmentEntry(fullAdjustment as any, userId || 'system');
+      await this.accountingService.postStockAdjustmentEntry(
+        fullAdjustment as any,
+        userId || 'system',
+        username,
+      );
       this.logger.log(`Posted accounting entry for stock adjustment ${adjustment.adjustmentNumber}`);
     } catch (error) {
       this.logger.error(

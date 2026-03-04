@@ -2446,7 +2446,11 @@ export class SalesOrderService {
         relations: ['customer', 'items', 'items.product'],
       });
       if (fullOrder) {
-        await this.accountingService.postSalesOrderEntry(fullOrder, userId || 'system');
+        await this.accountingService.postSalesOrderEntry(
+          fullOrder,
+          userId || 'system',
+          username,
+        );
         this.logger.log(`Posted accounting entry for sales order ${fullOrder.orderNumber}`);
       }
     } catch (error) {
