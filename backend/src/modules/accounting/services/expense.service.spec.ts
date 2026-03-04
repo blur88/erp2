@@ -11,6 +11,7 @@ import {
 import { PaymentMethodEntity } from '../../../database/entities/payment-method.entity';
 import { AccountingService } from './accounting.service';
 import { SettingsService } from '../../settings/settings.service';
+import { AuditLogService } from '../../audit-logs/services';
 
 describe('ExpenseService', () => {
   let service: ExpenseService;
@@ -66,6 +67,12 @@ describe('ExpenseService', () => {
           provide: SettingsService,
           useValue: {
             generateDocumentNumber: jest.fn(),
+          },
+        },
+        {
+          provide: AuditLogService,
+          useValue: {
+            log: jest.fn(),
           },
         },
       ],

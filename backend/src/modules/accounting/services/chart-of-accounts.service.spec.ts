@@ -14,6 +14,7 @@ import {
 import { JournalEntryLine } from '../../../database/entities/journal-entry-line.entity';
 import { AccountMapping } from '../../../database/entities/account-mapping.entity';
 import { BankReconciliation } from '../../../database/entities/bank-reconciliation.entity';
+import { AuditLogService } from '../../audit-logs/services';
 import {
   CreateChartOfAccountDto,
   UpdateChartOfAccountDto,
@@ -89,6 +90,12 @@ describe('ChartOfAccountsService', () => {
           provide: getRepositoryToken(BankReconciliation),
           useValue: {
             count: jest.fn(),
+          },
+        },
+        {
+          provide: AuditLogService,
+          useValue: {
+            log: jest.fn(),
           },
         },
       ],

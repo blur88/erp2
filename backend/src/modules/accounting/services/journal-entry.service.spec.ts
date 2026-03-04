@@ -10,6 +10,7 @@ import { JournalEntryService } from './journal-entry.service';
 import { ChartOfAccountsService } from './chart-of-accounts.service';
 import { FiscalPeriodService } from './fiscal-period.service';
 import { SettingsService } from '../../settings/settings.service';
+import { AuditLogService } from '../../audit-logs/services';
 import {
   JournalEntry,
   JournalEntryStatus,
@@ -164,6 +165,12 @@ describe('JournalEntryService', () => {
           provide: SettingsService,
           useValue: {
             generateDocumentNumber: jest.fn(),
+          },
+        },
+        {
+          provide: AuditLogService,
+          useValue: {
+            log: jest.fn(),
           },
         },
       ],
