@@ -24,6 +24,7 @@ import {
   UpdateVendorPaymentDto,
   QueryVendorPaymentsDto,
 } from '../dto/vendor-payment.dto';
+import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 
 @ApiTags('Vendor Payments')
 @Controller('purchasing/vendor-payments')
@@ -38,8 +39,12 @@ export class VendorPaymentController {
     description: 'Vendor payment created successfully',
   })
   @ApiResponse({ status: 400, description: 'Invalid input data' })
-  create(@Body() createVendorPaymentDto: CreateVendorPaymentDto) {
-    return this.vendorPaymentService.create(createVendorPaymentDto);
+  create(
+    @Body() createVendorPaymentDto: CreateVendorPaymentDto,
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
+  ) {
+    return this.vendorPaymentService.create(createVendorPaymentDto, currentUserId, currentUsername);
   }
 
   @Get()
@@ -86,8 +91,10 @@ export class VendorPaymentController {
   update(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() updateVendorPaymentDto: UpdateVendorPaymentDto,
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
   ) {
-    return this.vendorPaymentService.update(id, updateVendorPaymentDto);
+    return this.vendorPaymentService.update(id, updateVendorPaymentDto, currentUserId, currentUsername);
   }
 
   @Post(':id/restore')
@@ -98,8 +105,12 @@ export class VendorPaymentController {
     description: 'Vendor payment restored successfully',
   })
   @ApiResponse({ status: 404, description: 'Vendor payment not found' })
-  restore(@Param('id', ParseUUIDPipe) id: string) {
-    return this.vendorPaymentService.restore(id);
+  restore(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
+  ) {
+    return this.vendorPaymentService.restore(id, currentUserId, currentUsername);
   }
 
   @Post('bulk-restore')
@@ -120,8 +131,12 @@ export class VendorPaymentController {
     status: 200,
     description: 'Vendor payments restored successfully',
   })
-  bulkRestore(@Body('paymentIds') paymentIds: string[]) {
-    return this.vendorPaymentService.bulkRestore(paymentIds);
+  bulkRestore(
+    @Body('paymentIds') paymentIds: string[],
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
+  ) {
+    return this.vendorPaymentService.bulkRestore(paymentIds, currentUserId, currentUsername);
   }
 
   @Delete(':id')
@@ -133,8 +148,12 @@ export class VendorPaymentController {
     description: 'Vendor payment deleted successfully',
   })
   @ApiResponse({ status: 404, description: 'Vendor payment not found' })
-  remove(@Param('id', ParseUUIDPipe) id: string) {
-    return this.vendorPaymentService.remove(id);
+  remove(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
+  ) {
+    return this.vendorPaymentService.remove(id, currentUserId, currentUsername);
   }
 
   @Delete(':id/permanent')
@@ -146,8 +165,12 @@ export class VendorPaymentController {
     description: 'Vendor payment permanently deleted successfully',
   })
   @ApiResponse({ status: 404, description: 'Vendor payment not found' })
-  permanentDelete(@Param('id', ParseUUIDPipe) id: string) {
-    return this.vendorPaymentService.permanentDelete(id);
+  permanentDelete(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
+  ) {
+    return this.vendorPaymentService.permanentDelete(id, currentUserId, currentUsername);
   }
 
   @Post('for-po/:poId')

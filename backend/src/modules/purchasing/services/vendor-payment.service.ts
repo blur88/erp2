@@ -40,7 +40,8 @@ export class VendorPaymentService {
    */
   async create(
     createDto: CreateVendorPaymentDto,
-    user: string = 'system',
+    userId?: string,
+    username?: string,
   ): Promise<VendorPayment> {
     const paymentNumber = await this.settingsService.generateDocumentNumber('Vendor Payments');
     let paymentMethodId = createDto.paymentMethodId;
@@ -85,7 +86,8 @@ export class VendorPaymentService {
       `Created vendor payment: ${savedPayment.paymentNumber}`,
       {
         entityId: savedPayment.id,
-        userId: user,
+        userId: userId || 'system',
+        username,
         newValues: {
           paymentNumber: savedPayment.paymentNumber,
           amount: savedPayment.amount,
@@ -97,7 +99,7 @@ export class VendorPaymentService {
     // Auto-post to accounting (don't fail payment on error)
     try {
       const fullPayment = await this.findOne(savedPayment.id);
-      await this.accountingService.postVendorPaymentEntry(fullPayment, user);
+      await this.accountingService.postVendorPaymentEntry(fullPayment, userId || 'system');
       this.logger.log(`Posted accounting entry for vendor payment ${fullPayment.paymentNumber}`);
     } catch (error) {
       this.logger.error(
@@ -224,13 +226,14 @@ export class VendorPaymentService {
   async update(
     id: string,
     updateDto: UpdateVendorPaymentDto,
-    user: string = 'system',
+    userId?: string,
+    username?: string,
   ): Promise<VendorPayment> {
     const vendorPayment = await this.findOne(id);
 
     Object.assign(vendorPayment, {
       ...updateDto,
-      updatedBy: user,
+      updatedBy: userId || 'system',
     });
 
     const savedPayment = await this.vendorPaymentRepository.save(vendorPayment);
@@ -248,7 +251,8 @@ export class VendorPaymentService {
       `Updated vendor payment: ${savedPayment.paymentNumber}`,
       {
         entityId: id,
-        userId: user,
+        userId: userId || 'system',
+        username,
         newValues: {
           paymentNumber: savedPayment.paymentNumber,
           amount: savedPayment.amount,
@@ -334,7 +338,7 @@ export class VendorPaymentService {
   /**
    * Restore a soft deleted vendor payment
    */
-  async restore(id: string, user: string = 'system'): Promise<VendorPayment> {
+  async restore(id: string, userId?: string, username?: string): Promise<VendorPayment> {
     const vendorPayment = await this.vendorPaymentRepository.findOne({
       where: { id, isActive: false },
       withDeleted: true,
@@ -356,7 +360,8 @@ export class VendorPaymentService {
       `Restored vendor payment: ${restoredPayment.paymentNumber}`,
       {
         entityId: id,
-        userId: user,
+        userId: userId || 'system',
+        username,
         newValues: {
           paymentNumber: restoredPayment.paymentNumber,
           amount: restoredPayment.amount,
@@ -373,14 +378,15 @@ export class VendorPaymentService {
    */
   async bulkRestore(
     ids: string[],
-    user: string = 'system',
+    userId?: string,
+    username?: string,
   ): Promise<{ restoredCount: number; failedIds: string[] }> {
     const failedIds: string[] = [];
     let restoredCount = 0;
 
     for (const id of ids) {
       try {
-        await this.restore(id, user);
+        await this.restore(id, userId, username);
         restoredCount++;
       } catch (error) {
         failedIds.push(id);
@@ -393,7 +399,7 @@ export class VendorPaymentService {
   /**
    * Soft delete a vendor payment
    */
-  async remove(id: string, user: string = 'system'): Promise<void> {
+  async remove(id: string, userId?: string, username?: string): Promise<void> {
     const vendorPayment = await this.findOne(id);
 
     vendorPayment.isActive = false;
@@ -408,7 +414,8 @@ export class VendorPaymentService {
       `Deleted vendor payment: ${vendorPayment.paymentNumber}`,
       {
         entityId: id,
-        userId: user,
+        userId: userId || 'system',
+        username,
         oldValues: {
           paymentNumber: vendorPayment.paymentNumber,
           amount: vendorPayment.amount,
@@ -439,7 +446,7 @@ export class VendorPaymentService {
   /**
    * Create vendor payment for a purchase order
    */
-  async createForPurchaseOrder(poId: string, user: string = 'system'): Promise<VendorPayment> {
+  async createForPurchaseOrder(poId: string, userId?: string, username?: string): Promise<VendorPayment> {
     // Find the purchase order
     const purchaseOrder = await this.purchaseOrderRepository.findOne({
       where: { id: poId },
@@ -498,7 +505,8 @@ export class VendorPaymentService {
       `Created vendor payment: ${savedPayment.paymentNumber} for PO ${purchaseOrder.orderNumber}`,
       {
         entityId: savedPayment.id,
-        userId: user,
+        userId: userId || 'system',
+        username,
         newValues: {
           paymentNumber: savedPayment.paymentNumber,
           purchaseOrderId: poId,
@@ -539,7 +547,7 @@ export class VendorPaymentService {
   /**
    * Hard delete vendor payment
    */
-  async permanentDelete(id: string): Promise<{ message: string }> {
+  async permanentDelete(id: string, userId?: string, username?: string): Promise<{ message: string }> {
     const vendorPayment = await this.vendorPaymentRepository.findOne({
       where: { id },
       withDeleted: true,
@@ -556,7 +564,8 @@ export class VendorPaymentService {
       `Permanently deleted vendor payment: ${vendorPayment.paymentNumber}`,
       {
         entityId: id,
-        userId: 'system',
+        userId: userId || 'system',
+        username,
         oldValues: {
           paymentNumber: vendorPayment.paymentNumber,
           amount: vendorPayment.amount,
