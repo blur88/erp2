@@ -45,7 +45,8 @@ export class ChartOfAccountsService {
    */
   async create(
     createDto: CreateChartOfAccountDto,
-    userId: string = 'system',
+    userId?: string,
+    username?: string,
   ): Promise<ChartOfAccountResponseDto> {
     this.logger.log(`Creating account with code: ${createDto.code}`);
 
@@ -99,7 +100,7 @@ export class ChartOfAccountsService {
       'CREATE',
       'Account',
       `Created account: ${savedAccount.code} - ${savedAccount.name}`,
-      { entityId: savedAccount.id, userId: userId ?? 'system' },
+      { entityId: savedAccount.id, userId: userId ?? 'system', username },
     );
 
     this.logger.log(`Account created successfully with ID: ${savedAccount.id}`);
@@ -202,7 +203,8 @@ export class ChartOfAccountsService {
   async update(
     id: string,
     updateDto: UpdateChartOfAccountDto,
-    userId: string = 'system',
+    userId?: string,
+    username?: string,
   ): Promise<ChartOfAccountResponseDto> {
     this.logger.log(`Updating account with ID: ${id}`);
 
@@ -284,7 +286,7 @@ export class ChartOfAccountsService {
       'UPDATE',
       'Account',
       `Updated account: ${account.code} - ${account.name}`,
-      { entityId: id, userId: userId ?? 'system' },
+      { entityId: id, userId: userId ?? 'system', username },
     );
 
     this.logger.log(`Account updated successfully: ${id}`);
@@ -294,7 +296,7 @@ export class ChartOfAccountsService {
   /**
    * Soft delete an account
    */
-  async remove(id: string, userId: string = 'system'): Promise<void> {
+  async remove(id: string, userId?: string, username?: string): Promise<void> {
     this.logger.log(`Deleting account with ID: ${id}`);
 
     const account = await this.accountRepository.findOne({
@@ -333,7 +335,7 @@ export class ChartOfAccountsService {
       'DELETE',
       'Account',
       `Deleted account: ${account.code} - ${account.name}`,
-      { entityId: id, userId: userId ?? 'system' },
+      { entityId: id, userId: userId ?? 'system', username },
     );
 
     this.logger.log(`Account soft-deleted successfully: ${id}`);
@@ -362,7 +364,7 @@ export class ChartOfAccountsService {
   /**
    * Restore a soft-deleted account
    */
-  async restore(id: string, userId: string = 'system'): Promise<ChartOfAccountResponseDto> {
+  async restore(id: string, userId?: string, username?: string): Promise<ChartOfAccountResponseDto> {
     this.logger.log(`Restoring account with ID: ${id}`);
 
     const account = await this.accountRepository.findOne({
@@ -403,7 +405,7 @@ export class ChartOfAccountsService {
       'RESTORE',
       'Account',
       `Restored account: ${account.code} - ${account.name}`,
-      { entityId: id, userId: userId ?? 'system' },
+      { entityId: id, userId: userId ?? 'system', username },
     );
 
     this.logger.log(`Account restored successfully: ${id}`);
@@ -415,6 +417,8 @@ export class ChartOfAccountsService {
    */
   async bulkRestore(
     accountIds: string[],
+    userId?: string,
+    username?: string,
   ): Promise<{ restoredCount: number; failedIds: string[] }> {
     if (!accountIds?.length) {
       return { restoredCount: 0, failedIds: [] };
@@ -425,7 +429,7 @@ export class ChartOfAccountsService {
 
     for (const accountId of accountIds) {
       try {
-        await this.restore(accountId);
+        await this.restore(accountId, userId, username);
         restoredCount += 1;
       } catch (error: any) {
         failedIds.push(accountId);
@@ -505,7 +509,7 @@ export class ChartOfAccountsService {
    * Permanently delete an account (hard delete)
    * Only soft-deleted accounts can be permanently deleted
    */
-  async permanentDelete(id: string, userId: string = 'system'): Promise<void> {
+  async permanentDelete(id: string, userId?: string, username?: string): Promise<void> {
     this.logger.log(`Permanently deleting account with ID: ${id}`);
 
     const account = await this.accountRepository.findOne({
@@ -579,7 +583,7 @@ export class ChartOfAccountsService {
       'PERMANENT_DELETE',
       'Account',
       `Permanently deleted account: ${account.code} - ${account.name}`,
-      { entityId: id, userId: userId ?? 'system' },
+      { entityId: id, userId: userId ?? 'system', username },
     );
 
     this.logger.log(`Account permanently deleted: ${id}`);
@@ -590,6 +594,8 @@ export class ChartOfAccountsService {
    */
   async bulkPermanentDelete(
     accountIds: string[],
+    userId?: string,
+    username?: string,
   ): Promise<{
     deletedCount: number;
     failedIds: string[];
@@ -605,7 +611,7 @@ export class ChartOfAccountsService {
 
     for (const accountId of accountIds) {
       try {
-        await this.permanentDelete(accountId);
+        await this.permanentDelete(accountId, userId, username);
         deletedCount += 1;
       } catch (error: any) {
         const reason = error?.response?.message || error?.message || 'Unknown error';
