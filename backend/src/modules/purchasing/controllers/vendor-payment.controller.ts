@@ -181,8 +181,12 @@ export class VendorPaymentController {
     description: 'Vendor payment created successfully for PO',
   })
   @ApiResponse({ status: 404, description: 'Purchase order not found' })
-  createForPurchaseOrder(@Param('poId', ParseUUIDPipe) poId: string) {
-    return this.vendorPaymentService.createForPurchaseOrder(poId);
+  createForPurchaseOrder(
+    @Param('poId', ParseUUIDPipe) poId: string,
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
+  ) {
+    return this.vendorPaymentService.createForPurchaseOrder(poId, currentUserId, currentUsername);
   }
 
   @Get('for-po/:poId')
