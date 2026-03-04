@@ -5,10 +5,23 @@ import { alpha, type Theme } from '@mui/material/styles'
 interface DiffViewerProps {
   oldValues?: Record<string, unknown> | null
   newValues?: Record<string, unknown> | null
+  priceListNameById?: Record<string, string>
 }
 
-function formatValue(val: unknown): string {
+function formatFieldName(key: string): string {
+  if (key === 'priceListId') return 'priceList'
+  return key
+}
+
+function formatValue(
+  key: string,
+  val: unknown,
+  priceListNameById?: Record<string, string>,
+): string {
   if (val === null || val === undefined) return '—'
+  if (key === 'priceListId' && typeof val === 'string') {
+    return priceListNameById?.[val] || val
+  }
   if (typeof val === 'object') return JSON.stringify(val, null, 2)
   return String(val)
 }
@@ -25,7 +38,11 @@ function toneBackground(theme: Theme, tone: 'success' | 'error'): string {
     : theme.palette.error.light
 }
 
-const DiffViewer: React.FC<DiffViewerProps> = ({ oldValues, newValues }) => {
+const DiffViewer: React.FC<DiffViewerProps> = ({
+  oldValues,
+  newValues,
+  priceListNameById,
+}) => {
   // Single-side: CREATE (newValues only) or DELETE (oldValues only)
   if (!oldValues && newValues) {
     return (
@@ -43,9 +60,9 @@ const DiffViewer: React.FC<DiffViewerProps> = ({ oldValues, newValues }) => {
         <TableBody>
           {Object.entries(newValues).map(([key, val]) => (
             <TableRow key={key}>
-              <TableCell sx={{ fontSize: '0.8rem' }}>{key}</TableCell>
+              <TableCell sx={{ fontSize: '0.8rem' }}>{formatFieldName(key)}</TableCell>
               <TableCell sx={(theme) => ({ bgcolor: toneBackground(theme, 'success'), fontSize: '0.8rem', whiteSpace: 'pre-wrap', wordBreak: 'break-all' })}>
-                {formatValue(val)}
+                {formatValue(key, val, priceListNameById)}
               </TableCell>
             </TableRow>
           ))}
@@ -70,9 +87,9 @@ const DiffViewer: React.FC<DiffViewerProps> = ({ oldValues, newValues }) => {
         <TableBody>
           {Object.entries(oldValues).map(([key, val]) => (
             <TableRow key={key}>
-              <TableCell sx={{ fontSize: '0.8rem' }}>{key}</TableCell>
+              <TableCell sx={{ fontSize: '0.8rem' }}>{formatFieldName(key)}</TableCell>
               <TableCell sx={(theme) => ({ bgcolor: toneBackground(theme, 'error'), fontSize: '0.8rem', whiteSpace: 'pre-wrap', wordBreak: 'break-all' })}>
-                {formatValue(val)}
+                {formatValue(key, val, priceListNameById)}
               </TableCell>
             </TableRow>
           ))}
@@ -109,12 +126,12 @@ const DiffViewer: React.FC<DiffViewerProps> = ({ oldValues, newValues }) => {
           const changed = JSON.stringify(oldVal) !== JSON.stringify(newVal)
           return (
             <TableRow key={key} sx={{ opacity: changed ? 1 : 0.45 }}>
-              <TableCell sx={{ fontSize: '0.8rem' }}>{key}</TableCell>
+              <TableCell sx={{ fontSize: '0.8rem' }}>{formatFieldName(key)}</TableCell>
               <TableCell sx={(theme) => ({ bgcolor: changed ? toneBackground(theme, 'error') : undefined, fontSize: '0.8rem', whiteSpace: 'pre-wrap', wordBreak: 'break-all' })}>
-                {formatValue(oldVal)}
+                {formatValue(key, oldVal, priceListNameById)}
               </TableCell>
               <TableCell sx={(theme) => ({ bgcolor: changed ? toneBackground(theme, 'success') : undefined, fontSize: '0.8rem', whiteSpace: 'pre-wrap', wordBreak: 'break-all' })}>
-                {formatValue(newVal)}
+                {formatValue(key, newVal, priceListNameById)}
               </TableCell>
             </TableRow>
           )

@@ -11,6 +11,7 @@ import DiffViewer from './DiffViewer'
 
 interface LogRowProps {
   log: AuditLog
+  priceListNameById: Record<string, string>
 }
 
 function getActionColor(action: string): 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning' {
@@ -70,7 +71,7 @@ function parseUserAgent(ua?: string | null): string {
   return parts.length ? parts.join(' / ') : 'Unknown'
 }
 
-const LogRow: React.FC<LogRowProps> = ({ log }) => {
+const LogRow: React.FC<LogRowProps> = ({ log, priceListNameById }) => {
   const [expanded, setExpanded] = useState(false)
   const navigate = useNavigate()
   const entityLink = getEntityLink(log.entityType, log.entityId)
@@ -97,9 +98,6 @@ const LogRow: React.FC<LogRowProps> = ({ log }) => {
         <TableCell>{log.entityType}</TableCell>
         <TableCell>
           <Typography variant="body2">{log.username || log.userId}</Typography>
-          {log.username && (
-            <Typography variant="caption" color="text.secondary">{log.userId}</Typography>
-          )}
         </TableCell>
         <TableCell sx={{ maxWidth: 360 }}>
           <Typography variant="body2" noWrap>{log.description}</Typography>
@@ -144,7 +142,11 @@ const LogRow: React.FC<LogRowProps> = ({ log }) => {
 
               {/* Diff viewer */}
               {hasDiff ? (
-                <DiffViewer oldValues={log.oldValues as any} newValues={log.newValues as any} />
+                <DiffViewer
+                  oldValues={log.oldValues as any}
+                  newValues={log.newValues as any}
+                  priceListNameById={priceListNameById}
+                />
               ) : (
                 <Typography variant="body2" color="text.secondary">{log.description}</Typography>
               )}

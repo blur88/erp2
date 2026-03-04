@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react'
+import React, { useEffect, useState } from 'react'
 import {
   Box, Typography, Tabs, Tab, Stack,
 } from '@mui/material'
@@ -16,6 +16,7 @@ import FilterSidebar from './components/FilterSidebar'
 import LogsTab from './components/LogsTab'
 import AnalyticsTab from './components/AnalyticsTab'
 import ExportButton from './components/ExportButton'
+import { priceListApi } from '@/services/priceListApi'
 
 const AuditLogsPage: React.FC = () => {
   const dispatch = useAppDispatch()
@@ -23,6 +24,7 @@ const AuditLogsPage: React.FC = () => {
     auditLogs, statistics, loading, error,
     pagination, filters, activeTab, sidebarCollapsed,
   } = useAppSelector((state) => state.auditLogs)
+  const [priceListNameById, setPriceListNameById] = useState<Record<string, string>>({})
 
   useEffect(() => {
     dispatch(fetchAuditLogs({
@@ -40,6 +42,83 @@ const AuditLogsPage: React.FC = () => {
       endDate: filters.endDate,
     }))
   }, [filters.startDate, filters.endDate])
+
+  useEffect(() => {
+    const loadPriceLists = async () => {
+      try {
+        const response = await priceListApi.getPriceLists({
+          page: 1,
+          limit: 1000,
+          sortBy: 'name',
+          sortOrder: 'asc',
+        })
+        const data = response.data ?? []
+        const map: Record<string, string> = {}
+        data.forEach((pl) => {
+          map[pl.id] = pl.name
+        })
+        setPriceListNameById(map)
+      } catch (error) {
+        // Ignore lookup failures; audit logs can still render with raw IDs.
+        console.error('Failed to load price list names for audit logs:', error)
+      }
+    }
+
+    loadPriceLists()
+  }, [])
+
+  useEffect(() => {
+    const extractPriceListIds = (value: unknown, result: Set<string>) => {
+      if (!value) return
+      if (Array.isArray(value)) {
+        value.forEach((item) => extractPriceListIds(item, result))
+        return
+      }
+      if (typeof value !== 'object') return
+
+      const record = value as Record<string, unknown>
+      Object.entries(record).forEach(([key, val]) => {
+        if (key === 'priceListId' && typeof val === 'string') {
+          result.add(val)
+          return
+        }
+        extractPriceListIds(val, result)
+      })
+    }
+
+    const resolveMissingPriceListNames = async () => {
+      const idsInLogs = new Set<string>()
+      auditLogs.forEach((log) => {
+        extractPriceListIds(log.oldValues, idsInLogs)
+        extractPriceListIds(log.newValues, idsInLogs)
+      })
+
+      const missingIds = Array.from(idsInLogs).filter((id) => !priceListNameById[id])
+      if (missingIds.length === 0) return
+
+      const entries = await Promise.all(
+        missingIds.map(async (id): Promise<[string, string]> => {
+          try {
+            const priceList = await priceListApi.getPriceList(id)
+            return [id, priceList.name]
+          } catch {
+            // Cache fallback to avoid repeating failed lookups.
+            return [id, id]
+          }
+        }),
+      )
+
+      setPriceListNameById((prev) => {
+        const next = { ...prev }
+        entries.forEach(([id, name]) => {
+          next[id] = name
+        })
+        return next
+      })
+    }
+
+    resolveMissingPriceListNames()
+  }, [auditLogs, priceListNameById])
 
   const handleApply = () => {
     dispatch(setPage(1))
@@ -99,6 +178,7 @@ const AuditLogsPage: React.FC = () => {
             logs={auditLogs}
             loading={loading}
             error={error}
+            priceListNameById={priceListNameById}
             total={pagination.total}
             page={pagination.page}
             limit={pagination.limit}

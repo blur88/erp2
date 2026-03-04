@@ -10,6 +10,7 @@ interface LogsTabProps {
   logs: AuditLog[]
   loading: boolean
   error: string | null
+  priceListNameById: Record<string, string>
   total: number
   page: number          // 1-based
   limit: number
@@ -19,6 +20,7 @@ interface LogsTabProps {
 
 const LogsTab: React.FC<LogsTabProps> = ({
   logs, loading, error, total, page, limit, onPageChange, onLimitChange,
+  priceListNameById,
 }) => {
   return (
     <>
@@ -52,7 +54,9 @@ const LogsTab: React.FC<LogsTabProps> = ({
                   </TableCell>
                 </TableRow>
               ) : (
-                logs.map((log) => <LogRow key={log.id} log={log} />)
+                logs.map((log) => (
+                  <LogRow key={log.id} log={log} priceListNameById={priceListNameById} />
+                ))
               )}
             </TableBody>
           </Table>
