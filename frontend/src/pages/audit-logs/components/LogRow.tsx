@@ -5,6 +5,7 @@ import {
 } from '@mui/material'
 import { KeyboardArrowDown, KeyboardArrowRight, OpenInNew } from '@mui/icons-material'
 import { format } from 'date-fns'
+import { useNavigate } from 'react-router-dom'
 import type { AuditLog } from '@/types'
 import DiffViewer from './DiffViewer'
 
@@ -65,6 +66,7 @@ function parseUserAgent(ua?: string | null): string {
 
 const LogRow: React.FC<LogRowProps> = ({ log }) => {
   const [expanded, setExpanded] = useState(false)
+  const navigate = useNavigate()
   const entityLink = getEntityLink(log.entityType, log.entityId)
   const hasDiff = log.oldValues || log.newValues
 
@@ -122,10 +124,10 @@ const LogRow: React.FC<LogRowProps> = ({ log }) => {
                 )}
                 {entityLink && (
                   <Link
-                    href={entityLink}
+                    component="button"
                     variant="caption"
                     sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}
-                    onClick={(e) => e.stopPropagation()}
+                    onClick={(e) => { e.stopPropagation(); navigate(entityLink) }}
                   >
                     Go to {log.entityType} <OpenInNew sx={{ fontSize: 12 }} />
                   </Link>
