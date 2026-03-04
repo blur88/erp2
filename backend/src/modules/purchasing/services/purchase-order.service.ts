@@ -1259,7 +1259,7 @@ export class PurchaseOrderService {
         });
 
         if (fullGrn) {
-          await this.accountingService.postGoodsReceivedEntry(fullGrn, userId || 'system');
+          await this.accountingService.postGoodsReceivedEntry(fullGrn, userId || 'system', username);
           this.logger.log(`Posted accounting entry for GRN ${fullGrn.grnNumber}`);
         }
       } catch (error) {
