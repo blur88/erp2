@@ -29,7 +29,11 @@ const DiffViewer: React.FC<DiffViewerProps> = ({ oldValues, newValues }) => {
   // Single-side: CREATE (newValues only) or DELETE (oldValues only)
   if (!oldValues && newValues) {
     return (
-      <Table size="small">
+      <Table size="small" sx={{ tableLayout: 'fixed', width: '100%' }}>
+        <colgroup>
+          <col style={{ width: '35%' }} />
+          <col style={{ width: '65%' }} />
+        </colgroup>
         <TableHead>
           <TableRow>
             <TableCell><strong>Field</strong></TableCell>
@@ -52,7 +56,11 @@ const DiffViewer: React.FC<DiffViewerProps> = ({ oldValues, newValues }) => {
 
   if (oldValues && !newValues) {
     return (
-      <Table size="small">
+      <Table size="small" sx={{ tableLayout: 'fixed', width: '100%' }}>
+        <colgroup>
+          <col style={{ width: '35%' }} />
+          <col style={{ width: '65%' }} />
+        </colgroup>
         <TableHead>
           <TableRow>
             <TableCell><strong>Field</strong></TableCell>
@@ -81,7 +89,12 @@ const DiffViewer: React.FC<DiffViewerProps> = ({ oldValues, newValues }) => {
   const allKeys = Array.from(new Set([...Object.keys(oldValues), ...Object.keys(newValues)]))
 
   return (
-    <Table size="small">
+    <Table size="small" sx={{ tableLayout: 'fixed', width: '100%' }}>
+      <colgroup>
+        <col style={{ width: '35%' }} />
+        <col style={{ width: '32.5%' }} />
+        <col style={{ width: '32.5%' }} />
+      </colgroup>
       <TableHead>
         <TableRow>
           <TableCell><strong>Field</strong></TableCell>
