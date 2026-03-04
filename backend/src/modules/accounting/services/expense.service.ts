@@ -22,6 +22,7 @@ import {
   ExpenseResponseDto,
   ExpenseListResponseDto,
 } from '../dto/expense.dto';
+import { AuditLogService } from '../../audit-logs/services';
 
 @Injectable()
 export class ExpenseService {
@@ -36,6 +37,7 @@ export class ExpenseService {
     private readonly chartOfAccountRepository: Repository<ChartOfAccount>,
     private readonly accountingService: AccountingService,
     private readonly settingsService: SettingsService,
+    private readonly auditLogService: AuditLogService,
   ) {}
 
   async findAll(query: QueryExpenseDto): Promise<ExpenseListResponseDto> {
@@ -118,7 +120,6 @@ export class ExpenseService {
   }
 
   async create(dto: CreateExpenseDto, userId = 'system'): Promise<ExpenseResponseDto> {
-    void userId;
     const paymentMethod = await this.paymentMethodRepository.findOne({
       where: { id: dto.paymentMethodId, isActive: true },
     });
@@ -155,6 +156,12 @@ export class ExpenseService {
     });
 
     const saved = await this.expenseRepository.save(expense);
+    await this.auditLogService.log(
+      'CREATE',
+      'Expense',
+      `Created expense: ${saved.referenceNumber}`,
+      { entityId: saved.id, userId: userId ?? 'system' },
+    );
     return this.findOne(saved.id);
   }
 
@@ -163,7 +170,6 @@ export class ExpenseService {
     dto: UpdateExpenseDto,
     userId = 'system',
   ): Promise<ExpenseResponseDto> {
-    void userId;
     const expense = await this.expenseRepository.findOne({
       where: { id },
     });
@@ -207,6 +213,12 @@ export class ExpenseService {
     if (dto.vendor !== undefined) expense.vendor = dto.vendor;
 
     await this.expenseRepository.save(expense);
+    await this.auditLogService.log(
+      'UPDATE',
+      'Expense',
+      `Updated expense: ${expense.referenceNumber}`,
+      { entityId: id, userId: userId ?? 'system' },
+    );
     return this.findOne(id);
   }
 
@@ -224,6 +236,12 @@ export class ExpenseService {
     }
 
     await this.expenseRepository.softDelete(id);
+    await this.auditLogService.log(
+      'DELETE',
+      'Expense',
+      `Deleted expense: ${expense.referenceNumber}`,
+      { entityId: id, userId: 'system' },
+    );
   }
 
   async post(id: string, userId = 'system'): Promise<ExpenseResponseDto> {
@@ -245,6 +263,12 @@ export class ExpenseService {
       expense.status = ExpenseStatus.POSTED;
       expense.journalEntryId = journalEntry.id;
       await this.expenseRepository.save(expense);
+      await this.auditLogService.log(
+        'POST',
+        'Expense',
+        `Posted expense: ${expense.referenceNumber}`,
+        { entityId: id, userId: userId ?? 'system' },
+      );
     } catch (error) {
       this.logger.error(
         `Failed to post expense entry for ${expense.referenceNumber}: ${error.message}`,
