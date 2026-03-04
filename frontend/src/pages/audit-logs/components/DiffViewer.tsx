@@ -1,5 +1,6 @@
 import React from 'react'
 import { Table, TableBody, TableCell, TableHead, TableRow, Typography } from '@mui/material'
+import { alpha, type Theme } from '@mui/material/styles'
 
 interface DiffViewerProps {
   oldValues?: Record<string, unknown> | null
@@ -12,6 +13,18 @@ function formatValue(val: unknown): string {
   return String(val)
 }
 
+function toneBackground(theme: Theme, tone: 'success' | 'error'): string {
+  if (tone === 'success') {
+    return theme.palette.mode === 'dark'
+      ? alpha(theme.palette.success.main, 0.22)
+      : theme.palette.success.light
+  }
+
+  return theme.palette.mode === 'dark'
+    ? alpha(theme.palette.error.main, 0.22)
+    : theme.palette.error.light
+}
+
 const DiffViewer: React.FC<DiffViewerProps> = ({ oldValues, newValues }) => {
   // Single-side: CREATE (newValues only) or DELETE (oldValues only)
   if (!oldValues && newValues) {
@@ -20,14 +33,14 @@ const DiffViewer: React.FC<DiffViewerProps> = ({ oldValues, newValues }) => {
         <TableHead>
           <TableRow>
             <TableCell><strong>Field</strong></TableCell>
-            <TableCell sx={{ bgcolor: 'success.light' }}><strong>Value</strong></TableCell>
+            <TableCell sx={(theme) => ({ bgcolor: toneBackground(theme, 'success') })}><strong>Value</strong></TableCell>
           </TableRow>
         </TableHead>
         <TableBody>
           {Object.entries(newValues).map(([key, val]) => (
             <TableRow key={key}>
               <TableCell sx={{ fontFamily: 'monospace', fontSize: '0.8rem' }}>{key}</TableCell>
-              <TableCell sx={{ bgcolor: 'success.light', fontFamily: 'monospace', fontSize: '0.8rem', whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
+              <TableCell sx={(theme) => ({ bgcolor: toneBackground(theme, 'success'), fontFamily: 'monospace', fontSize: '0.8rem', whiteSpace: 'pre-wrap', wordBreak: 'break-all' })}>
                 {formatValue(val)}
               </TableCell>
             </TableRow>
@@ -43,14 +56,14 @@ const DiffViewer: React.FC<DiffViewerProps> = ({ oldValues, newValues }) => {
         <TableHead>
           <TableRow>
             <TableCell><strong>Field</strong></TableCell>
-            <TableCell sx={{ bgcolor: 'error.light' }}><strong>Value</strong></TableCell>
+            <TableCell sx={(theme) => ({ bgcolor: toneBackground(theme, 'error') })}><strong>Value</strong></TableCell>
           </TableRow>
         </TableHead>
         <TableBody>
           {Object.entries(oldValues).map(([key, val]) => (
             <TableRow key={key}>
               <TableCell sx={{ fontFamily: 'monospace', fontSize: '0.8rem' }}>{key}</TableCell>
-              <TableCell sx={{ bgcolor: 'error.light', fontFamily: 'monospace', fontSize: '0.8rem', whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
+              <TableCell sx={(theme) => ({ bgcolor: toneBackground(theme, 'error'), fontFamily: 'monospace', fontSize: '0.8rem', whiteSpace: 'pre-wrap', wordBreak: 'break-all' })}>
                 {formatValue(val)}
               </TableCell>
             </TableRow>
@@ -72,8 +85,8 @@ const DiffViewer: React.FC<DiffViewerProps> = ({ oldValues, newValues }) => {
       <TableHead>
         <TableRow>
           <TableCell><strong>Field</strong></TableCell>
-          <TableCell sx={{ bgcolor: 'error.light' }}><strong>Old Value</strong></TableCell>
-          <TableCell sx={{ bgcolor: 'success.light' }}><strong>New Value</strong></TableCell>
+          <TableCell sx={(theme) => ({ bgcolor: toneBackground(theme, 'error') })}><strong>Old Value</strong></TableCell>
+          <TableCell sx={(theme) => ({ bgcolor: toneBackground(theme, 'success') })}><strong>New Value</strong></TableCell>
         </TableRow>
       </TableHead>
       <TableBody>
@@ -84,10 +97,10 @@ const DiffViewer: React.FC<DiffViewerProps> = ({ oldValues, newValues }) => {
           return (
             <TableRow key={key} sx={{ opacity: changed ? 1 : 0.45 }}>
               <TableCell sx={{ fontFamily: 'monospace', fontSize: '0.8rem' }}>{key}</TableCell>
-              <TableCell sx={{ bgcolor: changed ? 'error.light' : undefined, fontFamily: 'monospace', fontSize: '0.8rem', whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
+              <TableCell sx={(theme) => ({ bgcolor: changed ? toneBackground(theme, 'error') : undefined, fontFamily: 'monospace', fontSize: '0.8rem', whiteSpace: 'pre-wrap', wordBreak: 'break-all' })}>
                 {formatValue(oldVal)}
               </TableCell>
-              <TableCell sx={{ bgcolor: changed ? 'success.light' : undefined, fontFamily: 'monospace', fontSize: '0.8rem', whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
+              <TableCell sx={(theme) => ({ bgcolor: changed ? toneBackground(theme, 'success') : undefined, fontFamily: 'monospace', fontSize: '0.8rem', whiteSpace: 'pre-wrap', wordBreak: 'break-all' })}>
                 {formatValue(newVal)}
               </TableCell>
             </TableRow>
