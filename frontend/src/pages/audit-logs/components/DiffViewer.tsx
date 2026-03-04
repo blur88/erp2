@@ -39,8 +39,8 @@ const DiffViewer: React.FC<DiffViewerProps> = ({ oldValues, newValues }) => {
         <TableBody>
           {Object.entries(newValues).map(([key, val]) => (
             <TableRow key={key}>
-              <TableCell sx={{ fontFamily: 'monospace', fontSize: '0.8rem' }}>{key}</TableCell>
-              <TableCell sx={(theme) => ({ bgcolor: toneBackground(theme, 'success'), fontFamily: 'monospace', fontSize: '0.8rem', whiteSpace: 'pre-wrap', wordBreak: 'break-all' })}>
+              <TableCell sx={{ fontSize: '0.8rem' }}>{key}</TableCell>
+              <TableCell sx={(theme) => ({ bgcolor: toneBackground(theme, 'success'), fontSize: '0.8rem', whiteSpace: 'pre-wrap', wordBreak: 'break-all' })}>
                 {formatValue(val)}
               </TableCell>
             </TableRow>
@@ -62,8 +62,8 @@ const DiffViewer: React.FC<DiffViewerProps> = ({ oldValues, newValues }) => {
         <TableBody>
           {Object.entries(oldValues).map(([key, val]) => (
             <TableRow key={key}>
-              <TableCell sx={{ fontFamily: 'monospace', fontSize: '0.8rem' }}>{key}</TableCell>
-              <TableCell sx={(theme) => ({ bgcolor: toneBackground(theme, 'error'), fontFamily: 'monospace', fontSize: '0.8rem', whiteSpace: 'pre-wrap', wordBreak: 'break-all' })}>
+              <TableCell sx={{ fontSize: '0.8rem' }}>{key}</TableCell>
+              <TableCell sx={(theme) => ({ bgcolor: toneBackground(theme, 'error'), fontSize: '0.8rem', whiteSpace: 'pre-wrap', wordBreak: 'break-all' })}>
                 {formatValue(val)}
               </TableCell>
             </TableRow>
@@ -96,11 +96,11 @@ const DiffViewer: React.FC<DiffViewerProps> = ({ oldValues, newValues }) => {
           const changed = JSON.stringify(oldVal) !== JSON.stringify(newVal)
           return (
             <TableRow key={key} sx={{ opacity: changed ? 1 : 0.45 }}>
-              <TableCell sx={{ fontFamily: 'monospace', fontSize: '0.8rem' }}>{key}</TableCell>
-              <TableCell sx={(theme) => ({ bgcolor: changed ? toneBackground(theme, 'error') : undefined, fontFamily: 'monospace', fontSize: '0.8rem', whiteSpace: 'pre-wrap', wordBreak: 'break-all' })}>
+              <TableCell sx={{ fontSize: '0.8rem' }}>{key}</TableCell>
+              <TableCell sx={(theme) => ({ bgcolor: changed ? toneBackground(theme, 'error') : undefined, fontSize: '0.8rem', whiteSpace: 'pre-wrap', wordBreak: 'break-all' })}>
                 {formatValue(oldVal)}
               </TableCell>
-              <TableCell sx={(theme) => ({ bgcolor: changed ? toneBackground(theme, 'success') : undefined, fontFamily: 'monospace', fontSize: '0.8rem', whiteSpace: 'pre-wrap', wordBreak: 'break-all' })}>
+              <TableCell sx={(theme) => ({ bgcolor: changed ? toneBackground(theme, 'success') : undefined, fontSize: '0.8rem', whiteSpace: 'pre-wrap', wordBreak: 'break-all' })}>
                 {formatValue(newVal)}
               </TableCell>
             </TableRow>

@@ -118,7 +118,7 @@ const LogRow: React.FC<LogRowProps> = ({ log }) => {
                   </Typography>
                 )}
                 {log.entityId && (
-                  <Typography variant="caption" color="text.secondary" sx={{ fontFamily: 'monospace' }}>
+                  <Typography variant="caption" color="text.secondary">
                     Entity ID: {log.entityId}
                   </Typography>
                 )}
@@ -149,7 +149,7 @@ const LogRow: React.FC<LogRowProps> = ({ log }) => {
                   <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
                     Metadata
                   </Typography>
-                  <Box component="pre" sx={{ fontSize: '0.75rem', mt: 0.5, overflow: 'auto' }}>
+                  <Box sx={{ fontSize: '0.75rem', mt: 0.5, overflow: 'auto', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
                     {JSON.stringify(log.metadata, null, 2)}
                   </Box>
                 </Box>
