@@ -84,7 +84,11 @@ export class GoodsReceivedNoteService {
   /**
    * Create a new goods received note
    */
-  async create(createDto: CreateGoodsReceivedNoteDto): Promise<GoodsReceivedNoteResponseDto> {
+  async create(
+    createDto: CreateGoodsReceivedNoteDto,
+    userId?: string,
+    username?: string,
+  ): Promise<GoodsReceivedNoteResponseDto> {
     this.logger.log(`Creating GRN for PO: ${createDto.purchaseOrderId}`);
 
     // Validate purchase order exists
@@ -184,7 +188,8 @@ export class GoodsReceivedNoteService {
         `Created GRN: ${savedGrn.grnNumber}`,
         {
           entityId: savedGrn.id,
-          userId: 'system',
+          userId: userId || 'system',
+          username,
           newValues: {
             grnNumber: savedGrn.grnNumber,
             purchaseOrderId: savedGrn.purchaseOrderId,
@@ -201,7 +206,7 @@ export class GoodsReceivedNoteService {
         });
 
         if (fullGrn) {
-          await this.accountingService.postGoodsReceivedEntry(fullGrn, 'system');
+          await this.accountingService.postGoodsReceivedEntry(fullGrn, userId || 'system', username);
           this.logger.log(`Posted accounting entry for GRN ${fullGrn.grnNumber}`);
         }
       } catch (error) {
@@ -313,7 +318,12 @@ export class GoodsReceivedNoteService {
   /**
    * Update GRN
    */
-  async update(id: string, updateDto: UpdateGoodsReceivedNoteDto): Promise<GoodsReceivedNoteResponseDto> {
+  async update(
+    id: string,
+    updateDto: UpdateGoodsReceivedNoteDto,
+    userId?: string,
+    username?: string,
+  ): Promise<GoodsReceivedNoteResponseDto> {
     this.logger.log(`Updating GRN: ${id}`);
 
     const grn = await this.grnRepository.findOne({ where: { id } });
@@ -337,7 +347,8 @@ export class GoodsReceivedNoteService {
         `Updated GRN: ${updatedGrn.grnNumber}`,
         {
           entityId: id,
-          userId: 'system',
+          userId: userId || 'system',
+          username,
           newValues: {
             grnNumber: updatedGrn.grnNumber,
             status: updatedGrn.status,
@@ -358,7 +369,7 @@ export class GoodsReceivedNoteService {
   /**
    * Soft delete GRN and sync deletedAt with associated PO using same timestamp
    */
-  async remove(id: string): Promise<void> {
+  async remove(id: string, userId?: string, username?: string): Promise<void> {
     this.logger.log(`Soft deleting GRN: ${id}`);
 
     const grn = await this.grnRepository.findOne({
@@ -400,7 +411,8 @@ export class GoodsReceivedNoteService {
         `Deleted GRN: ${grn.grnNumber}`,
         {
           entityId: id,
-          userId: 'system',
+          userId: userId || 'system',
+          username,
           oldValues: {
             grnNumber: grn.grnNumber,
             purchaseOrderId: grn.purchaseOrderId,
@@ -467,7 +479,7 @@ export class GoodsReceivedNoteService {
   /**
    * Restore a soft-deleted GRN and sync deletedAt with associated PO (sets to null)
    */
-  async restore(id: string): Promise<GoodsReceivedNoteResponseDto> {
+  async restore(id: string, userId?: string, username?: string): Promise<GoodsReceivedNoteResponseDto> {
     this.logger.log(`Restoring GRN: ${id}`);
 
     const grn = await this.grnRepository.findOne({
@@ -520,7 +532,8 @@ export class GoodsReceivedNoteService {
         `Restored GRN: ${restoredGrn.grnNumber}`,
         {
           entityId: id,
-          userId: 'system',
+          userId: userId || 'system',
+          username,
           newValues: {
             grnNumber: restoredGrn.grnNumber,
             purchaseOrderId: restoredGrn.purchaseOrderId,
@@ -542,7 +555,11 @@ export class GoodsReceivedNoteService {
   /**
    * Bulk restore GRNs
    */
-  async bulkRestore(grnIds: string[]): Promise<{ restoredCount: number; failedIds: string[] }> {
+  async bulkRestore(
+    grnIds: string[],
+    userId?: string,
+    username?: string,
+  ): Promise<{ restoredCount: number; failedIds: string[] }> {
     this.logger.log(`Bulk restoring ${grnIds.length} GRNs`);
 
     const failedIds: string[] = [];
@@ -550,7 +567,7 @@ export class GoodsReceivedNoteService {
 
     for (const id of grnIds) {
       try {
-        await this.restore(id);
+        await this.restore(id, userId, username);
         restoredCount++;
       } catch (error) {
         this.logger.error(`Failed to restore GRN ${id}:`, error);
@@ -565,7 +582,7 @@ export class GoodsReceivedNoteService {
   /**
    * Permanently delete a GRN
    */
-  async permanentDelete(id: string): Promise<void> {
+  async permanentDelete(id: string, userId?: string, username?: string): Promise<void> {
     this.logger.log(`Permanently deleting GRN: ${id}`);
 
     const grn = await this.grnRepository.findOne({
@@ -588,7 +605,8 @@ export class GoodsReceivedNoteService {
       `Permanently deleted GRN: ${grn.grnNumber}`,
       {
         entityId: id,
-        userId: 'system',
+        userId: userId || 'system',
+        username,
         oldValues: {
           grnNumber: grn.grnNumber,
           purchaseOrderId: grn.purchaseOrderId,
@@ -611,7 +629,11 @@ export class GoodsReceivedNoteService {
   /**
    * Bulk permanent delete GRNs
    */
-  async bulkPermanentDelete(grnIds: string[]): Promise<{ deletedCount: number; failedIds: string[] }> {
+  async bulkPermanentDelete(
+    grnIds: string[],
+    userId?: string,
+    username?: string,
+  ): Promise<{ deletedCount: number; failedIds: string[] }> {
     this.logger.log(`Bulk permanently deleting ${grnIds.length} GRNs`);
 
     const failedIds: string[] = [];
@@ -619,7 +641,7 @@ export class GoodsReceivedNoteService {
 
     for (const id of grnIds) {
       try {
-        await this.permanentDelete(id);
+        await this.permanentDelete(id, userId, username);
         deletedCount++;
       } catch (error) {
         this.logger.error(`Failed to permanently delete GRN ${id}:`, error);

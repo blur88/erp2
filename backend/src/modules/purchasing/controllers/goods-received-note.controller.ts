@@ -30,6 +30,7 @@ import {
   GoodsReceivedNoteResponseDto,
   GoodsReceivedNoteListResponseDto,
 } from '../dto/goods-received-note.dto';
+import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 
 @ApiTags('Goods Received Notes')
 @Controller('purchasing/goods-received-notes')
@@ -51,9 +52,13 @@ export class GoodsReceivedNoteController {
   })
   @ApiResponse({ status: 400, description: 'Invalid input data' })
   @ApiResponse({ status: 404, description: 'Purchase order not found' })
-  async create(@Body() createDto: CreateGoodsReceivedNoteDto): Promise<GoodsReceivedNoteResponseDto> {
+  async create(
+    @Body() createDto: CreateGoodsReceivedNoteDto,
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
+  ): Promise<GoodsReceivedNoteResponseDto> {
     this.logger.log(`Creating GRN for PO: ${createDto.purchaseOrderId}`);
-    return await this.grnService.create(createDto);
+    return await this.grnService.create(createDto, currentUserId, currentUsername);
   }
 
   @Get()
@@ -128,9 +133,11 @@ export class GoodsReceivedNoteController {
   async update(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() updateDto: UpdateGoodsReceivedNoteDto,
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
   ): Promise<GoodsReceivedNoteResponseDto> {
     this.logger.log(`Updating GRN: ${id}`);
-    return await this.grnService.update(id, updateDto);
+    return await this.grnService.update(id, updateDto, currentUserId, currentUsername);
   }
 
   @Post(':id/restore')
@@ -145,9 +152,13 @@ export class GoodsReceivedNoteController {
   })
   @ApiResponse({ status: 404, description: 'GRN not found' })
   @ApiParam({ name: 'id', description: 'GRN UUID' })
-  async restore(@Param('id', ParseUUIDPipe) id: string): Promise<GoodsReceivedNoteResponseDto> {
+  async restore(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
+  ): Promise<GoodsReceivedNoteResponseDto> {
     this.logger.log(`Restoring GRN: ${id}`);
-    return await this.grnService.restore(id);
+    return await this.grnService.restore(id, currentUserId, currentUsername);
   }
 
   @Post('bulk-restore')
@@ -171,9 +182,13 @@ export class GoodsReceivedNoteController {
       }
     }
   })
-  async bulkRestore(@Body() body: { grnIds: string[] }): Promise<{ restoredCount: number; failedIds: string[] }> {
+  async bulkRestore(
+    @Body() body: { grnIds: string[] },
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
+  ): Promise<{ restoredCount: number; failedIds: string[] }> {
     this.logger.log(`Bulk restoring ${body.grnIds.length} GRNs`);
-    return await this.grnService.bulkRestore(body.grnIds);
+    return await this.grnService.bulkRestore(body.grnIds, currentUserId, currentUsername);
   }
 
   @Post('bulk-permanent-delete')
@@ -197,9 +212,13 @@ export class GoodsReceivedNoteController {
       }
     }
   })
-  async bulkPermanentDelete(@Body() body: { grnIds: string[] }): Promise<{ deletedCount: number; failedIds: string[] }> {
+  async bulkPermanentDelete(
+    @Body() body: { grnIds: string[] },
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
+  ): Promise<{ deletedCount: number; failedIds: string[] }> {
     this.logger.log(`Bulk permanently deleting ${body.grnIds.length} GRNs`);
-    return await this.grnService.bulkPermanentDelete(body.grnIds);
+    return await this.grnService.bulkPermanentDelete(body.grnIds, currentUserId, currentUsername);
   }
 
   @Delete(':id/permanent')
@@ -210,9 +229,13 @@ export class GoodsReceivedNoteController {
   @ApiResponse({ status: 200, description: 'GRN permanently deleted successfully' })
   @ApiResponse({ status: 404, description: 'GRN not found' })
   @ApiParam({ name: 'id', description: 'GRN UUID' })
-  async permanentDelete(@Param('id', ParseUUIDPipe) id: string): Promise<void> {
+  async permanentDelete(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
+  ): Promise<void> {
     this.logger.log(`Permanently deleting GRN: ${id}`);
-    return await this.grnService.permanentDelete(id);
+    return await this.grnService.permanentDelete(id, currentUserId, currentUsername);
   }
 
   @Delete(':id')
@@ -224,8 +247,12 @@ export class GoodsReceivedNoteController {
   @ApiResponse({ status: 404, description: 'GRN not found' })
   @ApiParam({ name: 'id', description: 'GRN UUID' })
   @HttpCode(HttpStatus.OK)
-  async remove(@Param('id', ParseUUIDPipe) id: string): Promise<void> {
+  async remove(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
+  ): Promise<void> {
     this.logger.log(`Soft deleting GRN: ${id}`);
-    await this.grnService.remove(id);
+    await this.grnService.remove(id, currentUserId, currentUsername);
   }
 }
