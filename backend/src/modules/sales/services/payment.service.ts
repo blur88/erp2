@@ -40,7 +40,11 @@ export class PaymentService {
     private readonly accountingService: AccountingService,
   ) {}
 
-  async create(createPaymentDto: CreatePaymentDto): Promise<PaymentResponseDto> {
+  async create(
+    createPaymentDto: CreatePaymentDto,
+    userId?: string,
+    username?: string,
+  ): Promise<PaymentResponseDto> {
     // Verify customer exists
     const customer = await this.customerRepository.findOne({
       where: { id: createPaymentDto.customerId },
@@ -99,7 +103,8 @@ export class PaymentService {
       `Created payment: ${savedPayment.amount} for ${customer.name}`,
       {
         entityId: savedPayment.id,
-        userId: 'system',
+        userId: userId || 'system',
+        username,
         newValues: {
           amount: savedPayment.amount,
           paymentMethodId: savedPayment.paymentMethodId,
@@ -112,7 +117,7 @@ export class PaymentService {
     // Auto-post to accounting (don't fail payment on error)
     try {
       const fullPayment = await this.findPaymentWithRelations(savedPayment.id);
-      await this.accountingService.postCustomerPaymentEntry(fullPayment, 'system');
+      await this.accountingService.postCustomerPaymentEntry(fullPayment, userId || 'system');
       this.logger.log(`Posted accounting entry for payment ${fullPayment.paymentNumber}`);
     } catch (error) {
       this.logger.error(
@@ -175,7 +180,12 @@ export class PaymentService {
     return this.mapToResponseDto(payment);
   }
 
-  async update(id: string, updatePaymentDto: UpdatePaymentDto): Promise<PaymentResponseDto> {
+  async update(
+    id: string,
+    updatePaymentDto: UpdatePaymentDto,
+    userId?: string,
+    username?: string,
+  ): Promise<PaymentResponseDto> {
     const payment = await this.findPaymentWithRelations(id);
 
     Object.assign(payment, updatePaymentDto);
@@ -188,7 +198,8 @@ export class PaymentService {
       `Updated payment for ${payment.customer?.name || 'customer'}`,
       {
         entityId: id,
-        userId: 'system',
+        userId: userId || 'system',
+        username,
         newValues: {
           amount: savedPayment.amount,
           status: savedPayment.status,
@@ -314,7 +325,7 @@ export class PaymentService {
     };
   }
 
-  async complete(id: string): Promise<PaymentResponseDto> {
+  async complete(id: string, userId?: string, username?: string): Promise<PaymentResponseDto> {
     const payment = await this.findPaymentWithRelations(id);
 
     if (payment.status === PaymentStatus.COMPLETED) {
@@ -334,7 +345,8 @@ export class PaymentService {
       `Completed payment ${payment.paymentNumber}`,
       {
         entityId: id,
-        userId: 'system',
+        userId: userId || 'system',
+        username,
         newValues: { status: PaymentStatus.COMPLETED },
       }
     );
@@ -342,7 +354,7 @@ export class PaymentService {
     return this.mapToResponseDto(await this.findPaymentWithRelations(savedPayment.id));
   }
 
-  async fail(id: string, reason?: string): Promise<PaymentResponseDto> {
+  async fail(id: string, reason?: string, userId?: string, username?: string): Promise<PaymentResponseDto> {
     const payment = await this.findPaymentWithRelations(id);
 
     if (payment.status === PaymentStatus.COMPLETED) {
@@ -363,7 +375,8 @@ export class PaymentService {
       `Marked payment ${payment.paymentNumber} as failed`,
       {
         entityId: id,
-        userId: 'system',
+        userId: userId || 'system',
+        username,
         newValues: { status: PaymentStatus.FAILED, reason },
       }
     );
@@ -371,7 +384,7 @@ export class PaymentService {
     return this.mapToResponseDto(await this.findPaymentWithRelations(savedPayment.id));
   }
 
-  async cancel(id: string, reason?: string): Promise<PaymentResponseDto> {
+  async cancel(id: string, reason?: string, userId?: string, username?: string): Promise<PaymentResponseDto> {
     const payment = await this.findPaymentWithRelations(id);
 
     if (payment.status === PaymentStatus.COMPLETED) {
@@ -392,7 +405,8 @@ export class PaymentService {
       `Cancelled payment ${payment.paymentNumber}`,
       {
         entityId: id,
-        userId: 'system',
+        userId: userId || 'system',
+        username,
         newValues: { status: PaymentStatus.CANCELLED, reason },
       }
     );
@@ -404,7 +418,7 @@ export class PaymentService {
     paymentId: string;
     amount: number;
     reason?: string;
-  }): Promise<PaymentResponseDto> {
+  }, userId?: string, username?: string): Promise<PaymentResponseDto> {
     const originalPayment = await this.findPaymentWithRelations(refundDto.paymentId);
 
     if (originalPayment.status !== PaymentStatus.COMPLETED) {
@@ -442,7 +456,7 @@ export class PaymentService {
     }
 
     try {
-      await this.accountingService.reverseSourceEntries('payment', originalPayment.id, 'system');
+      await this.accountingService.reverseSourceEntries('payment', originalPayment.id, userId || 'system');
     } catch (err) {
       this.logger.error(
         `Failed to post refund accounting entry for payment ${originalPayment.id}: ${err.message}`,
@@ -457,7 +471,8 @@ export class PaymentService {
       `Created refund for payment ${originalPayment.paymentNumber}`,
       {
         entityId: savedRefund.id,
-        userId: 'system',
+        userId: userId || 'system',
+        username,
         newValues: {
           amount: savedRefund.amount,
           status: savedRefund.status,
@@ -555,7 +570,7 @@ export class PaymentService {
     };
   }
 
-  async restore(id: string): Promise<PaymentResponseDto> {
+  async restore(id: string, userId?: string, username?: string): Promise<PaymentResponseDto> {
     const payment = await this.paymentRepository.findOne({
       where: { id },
       withDeleted: true, // Include soft-deleted records
@@ -573,6 +588,22 @@ export class PaymentService {
     // Restore the payment
     await this.paymentRepository.restore(id);
 
+    await this.auditLogService.log(
+      'RESTORE',
+      'Payment',
+      `Restored payment: ${payment.paymentNumber}`,
+      {
+        entityId: id,
+        userId: userId || 'system',
+        username,
+        newValues: {
+          paymentNumber: payment.paymentNumber,
+          amount: payment.amount,
+          status: payment.status,
+        },
+      }
+    );
+
     // Return the restored payment
     const restoredPayment = await this.paymentRepository.findOne({
       where: { id },
@@ -582,7 +613,11 @@ export class PaymentService {
     return this.mapToResponseDto(restoredPayment);
   }
 
-  async bulkRestore(paymentIds: string[]): Promise<{ restoredCount: number; failedIds: string[] }> {
+  async bulkRestore(
+    paymentIds: string[],
+    userId?: string,
+    username?: string,
+  ): Promise<{ restoredCount: number; failedIds: string[] }> {
     if (!paymentIds || paymentIds.length === 0) {
       return { restoredCount: 0, failedIds: [] };
     }
@@ -592,7 +627,7 @@ export class PaymentService {
 
     for (const id of paymentIds) {
       try {
-        await this.restore(id);
+        await this.restore(id, userId, username);
         successCount++;
       } catch (error) {
         failedIds.push(id);
