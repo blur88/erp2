@@ -71,7 +71,11 @@ export class InvoiceService {
     return `INV-${nextNumber.toString().padStart(6, '0')}`;
   }
 
-  async create(createInvoiceDto: CreateInvoiceDto): Promise<InvoiceResponseDto> {
+  async create(
+    createInvoiceDto: CreateInvoiceDto,
+    userId?: string,
+    username?: string,
+  ): Promise<InvoiceResponseDto> {
     const { customerId, salesOrderId, ...invoiceData } = createInvoiceDto;
 
     // Verify customer exists
@@ -137,7 +141,8 @@ export class InvoiceService {
       `Created invoice: ${savedInvoice.invoiceNumber}`,
       {
         entityId: savedInvoice.id,
-        userId: 'system',
+        userId: userId || 'system',
+        username,
         newValues: {
           invoiceNumber: savedInvoice.invoiceNumber,
           customerId,
@@ -346,7 +351,12 @@ export class InvoiceService {
     return this.mapToResponseDto(invoice);
   }
 
-  async update(id: string, updateInvoiceDto: UpdateInvoiceDto): Promise<InvoiceResponseDto> {
+  async update(
+    id: string,
+    updateInvoiceDto: UpdateInvoiceDto,
+    userId?: string,
+    username?: string,
+  ): Promise<InvoiceResponseDto> {
     const invoice = await this.invoiceRepository.findOne({ where: { id } });
     if (!invoice) {
       throw new NotFoundException('Invoice not found');
@@ -447,7 +457,7 @@ export class InvoiceService {
     return this.findById(invoice.id);
   }
 
-  async delete(id: string): Promise<void> {
+  async delete(id: string, userId?: string, username?: string): Promise<void> {
     const invoice = await this.invoiceRepository.findOne({ where: { id } });
     if (!invoice) {
       throw new NotFoundException('Invoice not found');
@@ -479,7 +489,8 @@ export class InvoiceService {
       `Deleted invoice: ${invoice.invoiceNumber}`,
       {
         entityId: id,
-        userId: 'system',
+        userId: userId || 'system',
+        username,
         oldValues: {
           invoiceNumber: invoice.invoiceNumber,
           status: invoice.status,
@@ -840,7 +851,7 @@ export class InvoiceService {
     };
   }
 
-  async restore(id: string): Promise<InvoiceResponseDto> {
+  async restore(id: string, userId?: string, username?: string): Promise<InvoiceResponseDto> {
     const invoice = await this.invoiceRepository.findOne({
       where: { id },
       withDeleted: true, // Include soft-deleted records
@@ -865,7 +876,8 @@ export class InvoiceService {
       `Restored invoice: ${invoice.invoiceNumber}`,
       {
         entityId: id,
-        userId: 'system',
+        userId: userId || 'system',
+        username,
         newValues: {
           invoiceNumber: invoice.invoiceNumber,
           status: invoice.status,
@@ -883,7 +895,11 @@ export class InvoiceService {
     return this.mapToResponseDto(restoredInvoice);
   }
 
-  async bulkRestore(invoiceIds: string[]): Promise<{ message: string; restoredCount: number; failedIds: string[] }> {
+  async bulkRestore(
+    invoiceIds: string[],
+    userId?: string,
+    username?: string,
+  ): Promise<{ message: string; restoredCount: number; failedIds: string[] }> {
     if (!invoiceIds || invoiceIds.length === 0) {
       return {
         message: 'No invoices to restore',
@@ -897,7 +913,7 @@ export class InvoiceService {
 
     for (const id of invoiceIds) {
       try {
-        await this.restore(id);
+        await this.restore(id, userId, username);
         restoredCount++;
       } catch (error) {
         failedIds.push(id);
