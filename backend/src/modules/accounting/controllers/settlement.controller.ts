@@ -8,6 +8,7 @@ import {
 } from '@nestjs/common';
 import { ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { Auth } from '../../auth/decorators/auth.decorator';
+import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import { UserRole } from '../../../database/entities/user.entity';
 import { SettlementService } from '../services/settlement.service';
 import {
@@ -57,8 +58,12 @@ export class SettlementController {
   @Auth(UserRole.ADMIN, UserRole.MANAGER)
   @ApiOperation({ summary: 'Create settlement' })
   @ApiResponse({ status: 201, type: SettlementResponseDto })
-  async create(@Body() dto: CreateSettlementDto): Promise<SettlementResponseDto> {
-    return this.settlementService.create(dto);
+  async create(
+    @Body() dto: CreateSettlementDto,
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
+  ): Promise<SettlementResponseDto> {
+    return this.settlementService.create(dto, currentUserId, currentUsername);
   }
 
   @Post(':id/cancel')
@@ -66,7 +71,11 @@ export class SettlementController {
   @ApiOperation({ summary: 'Cancel settlement and revert payments to pending' })
   @ApiParam({ name: 'id', description: 'Settlement ID' })
   @ApiResponse({ status: 200, type: SettlementResponseDto })
-  async cancel(@Param('id') id: string): Promise<SettlementResponseDto> {
-    return this.settlementService.cancel(id);
+  async cancel(
+    @Param('id') id: string,
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
+  ): Promise<SettlementResponseDto> {
+    return this.settlementService.cancel(id, currentUserId, currentUsername);
   }
 }

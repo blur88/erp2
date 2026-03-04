@@ -95,7 +95,11 @@ export class SettlementService {
     return this.toResponseDto(settlement);
   }
 
-  async create(dto: CreateSettlementDto, userId = 'system'): Promise<SettlementResponseDto> {
+  async create(
+    dto: CreateSettlementDto,
+    userId?: string,
+    username?: string,
+  ): Promise<SettlementResponseDto> {
     const paymentMethod = await this.paymentMethodRepository.findOne({
       where: { id: dto.paymentMethodId, isActive: true },
     });
@@ -163,7 +167,7 @@ export class SettlementService {
         savedSettlement,
         paymentMethod,
         totalAmount,
-        userId,
+        userId || 'system',
       );
     } catch (error) {
       this.logger.error(
@@ -175,13 +179,13 @@ export class SettlementService {
       'CREATE',
       'Settlement',
       `Created settlement: ${savedSettlement.settlementNumber}`,
-      { entityId: savedSettlement.id, userId: userId ?? 'system' },
+      { entityId: savedSettlement.id, userId: userId ?? 'system', username },
     );
 
     return this.findOne(savedSettlement.id);
   }
 
-  async cancel(id: string): Promise<SettlementResponseDto> {
+  async cancel(id: string, userId?: string, username?: string): Promise<SettlementResponseDto> {
     const settlement = await this.settlementRepository.findOne({
       where: { id },
       relations: ['paymentMethod'],
@@ -210,7 +214,12 @@ export class SettlementService {
       'UPDATE',
       'Settlement',
       `Cancelled settlement: ${saved.settlementNumber}`,
-      { entityId: id, userId: 'system', metadata: { status: 'CANCELLED' } },
+      {
+        entityId: id,
+        userId: userId ?? 'system',
+        username,
+        metadata: { status: 'CANCELLED' },
+      },
     );
 
     return this.toResponseDto(saved);
