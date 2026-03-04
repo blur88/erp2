@@ -51,7 +51,8 @@ export class JournalEntryService {
    */
   async create(
     createDto: CreateJournalEntryDto,
-    userId: string = 'system',
+    userId?: string,
+    username?: string,
   ): Promise<JournalEntryResponseDto> {
     this.logger.log(`Creating journal entry with date: ${createDto.entryDate}`);
 
@@ -111,7 +112,7 @@ export class JournalEntryService {
       'CREATE',
       'JournalEntry',
       `Created journal entry: ${savedEntry.referenceNumber}`,
-      { entityId: savedEntry.id, userId: userId ?? 'system' },
+      { entityId: savedEntry.id, userId: userId ?? 'system', username },
     );
 
     this.logger.log(`Journal entry created successfully with ID: ${savedEntry.id}`);
@@ -233,7 +234,8 @@ export class JournalEntryService {
   async update(
     id: string,
     updateDto: UpdateJournalEntryDto,
-    userId: string = 'system',
+    userId?: string,
+    username?: string,
   ): Promise<JournalEntryResponseDto> {
     this.logger.log(`Updating journal entry with ID: ${id}`);
 
@@ -314,7 +316,7 @@ export class JournalEntryService {
       'UPDATE',
       'JournalEntry',
       `Updated journal entry: ${entry.referenceNumber}`,
-      { entityId: id, userId: userId ?? 'system' },
+      { entityId: id, userId: userId ?? 'system', username },
     );
 
     this.logger.log(`Journal entry updated successfully: ${id}`);
@@ -324,7 +326,7 @@ export class JournalEntryService {
   /**
    * Soft delete a journal entry (only if status = DRAFT)
    */
-  async remove(id: string, userId: string = 'system'): Promise<void> {
+  async remove(id: string, userId?: string, username?: string): Promise<void> {
     this.logger.log(`Deleting journal entry with ID: ${id}`);
 
     const entry = await this.journalEntryRepository.findOne({
@@ -358,7 +360,7 @@ export class JournalEntryService {
       'DELETE',
       'JournalEntry',
       `Deleted journal entry: ${entry.referenceNumber}`,
-      { entityId: id, userId: userId ?? 'system' },
+      { entityId: id, userId: userId ?? 'system', username },
     );
 
     this.logger.log(`Journal entry soft-deleted successfully: ${id}`);
@@ -368,7 +370,7 @@ export class JournalEntryService {
    * Post a draft entry
    * Validates: entry is balanced, period is open, changes status to POSTED
    */
-  async postEntry(id: string, userId: string = 'system'): Promise<JournalEntryResponseDto> {
+  async postEntry(id: string, userId?: string, username?: string): Promise<JournalEntryResponseDto> {
     this.logger.log(`Posting journal entry with ID: ${id}`);
 
     const entry = await this.journalEntryRepository.findOne({
@@ -423,7 +425,7 @@ export class JournalEntryService {
       'POST',
       'JournalEntry',
       `Posted journal entry: ${entry.referenceNumber}`,
-      { entityId: id, userId: userId ?? 'system' },
+      { entityId: id, userId: userId ?? 'system', username },
     );
 
     this.logger.log(`Journal entry posted successfully: ${id}`);
@@ -434,7 +436,7 @@ export class JournalEntryService {
    * Reverse a posted entry
    * Creates a new entry that's the mirror of the original
    */
-  async reverseEntry(id: string, userId: string = 'system'): Promise<JournalEntryResponseDto> {
+  async reverseEntry(id: string, userId?: string, username?: string): Promise<JournalEntryResponseDto> {
     this.logger.log(`Reversing journal entry with ID: ${id}`);
 
     const originalEntry = await this.journalEntryRepository.findOne({
@@ -508,6 +510,7 @@ export class JournalEntryService {
       {
         entityId: id,
         userId: userId ?? 'system',
+        username,
         metadata: { reversalEntryId: savedReversalEntry.id },
       },
     );
@@ -519,7 +522,8 @@ export class JournalEntryService {
   async reverseEntryInPeriod(
     id: string,
     fiscalPeriodId: string,
-    userId: string = 'system',
+    userId?: string,
+    username?: string,
   ): Promise<JournalEntryResponseDto> {
     this.logger.log(`Reversing journal entry ${id} into period ${fiscalPeriodId}`);
 
@@ -589,6 +593,7 @@ export class JournalEntryService {
       {
         entityId: id,
         userId: userId ?? 'system',
+        username,
         metadata: { reversalEntryId: savedReversalEntry.id, fiscalPeriodId },
       },
     );
@@ -605,7 +610,7 @@ export class JournalEntryService {
     });
   }
 
-  async bulkPost(ids: string[]): Promise<{
+  async bulkPost(ids: string[], userId?: string, username?: string): Promise<{
     succeeded: string[];
     failed: { id: string; error: string }[];
   }> {
@@ -614,7 +619,7 @@ export class JournalEntryService {
 
     for (const id of ids) {
       try {
-        await this.postEntry(id);
+        await this.postEntry(id, userId, username);
         succeeded.push(id);
       } catch (error: any) {
         failed.push({ id, error: error?.message || 'Unknown error' });
@@ -624,7 +629,7 @@ export class JournalEntryService {
     return { succeeded, failed };
   }
 
-  async bulkDelete(ids: string[]): Promise<{
+  async bulkDelete(ids: string[], userId?: string, username?: string): Promise<{
     succeeded: string[];
     failed: { id: string; error: string }[];
   }> {
@@ -633,7 +638,7 @@ export class JournalEntryService {
 
     for (const id of ids) {
       try {
-        await this.remove(id);
+        await this.remove(id, userId, username);
         succeeded.push(id);
       } catch (error: any) {
         failed.push({ id, error: error?.message || 'Unknown error' });
