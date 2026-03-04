@@ -22,6 +22,7 @@ import {
   OwnerEquityResponseDto,
   OwnerEquityListResponseDto,
 } from '../dto/owner-equity.dto';
+import { AuditLogService } from '../../audit-logs/services';
 
 @Injectable()
 export class OwnerEquityService {
@@ -34,6 +35,7 @@ export class OwnerEquityService {
     private readonly paymentMethodRepository: Repository<PaymentMethodEntity>,
     private readonly accountingService: AccountingService,
     private readonly settingsService: SettingsService,
+    private readonly auditLogService: AuditLogService,
   ) {}
 
   async findAll(query: QueryOwnerEquityDto): Promise<OwnerEquityListResponseDto> {
@@ -114,7 +116,6 @@ export class OwnerEquityService {
     dto: CreateOwnerEquityDto,
     userId = 'system',
   ): Promise<OwnerEquityResponseDto> {
-    void userId;
     const paymentMethod = await this.paymentMethodRepository.findOne({
       where: { id: dto.paymentMethodId, isActive: true },
     });
@@ -136,6 +137,12 @@ export class OwnerEquityService {
     });
 
     const saved = await this.ownerEquityRepository.save(transaction);
+    await this.auditLogService.log(
+      'CREATE',
+      'OwnerEquity',
+      `Created owner equity transaction: ${saved.referenceNumber}`,
+      { entityId: saved.id, userId: userId ?? 'system' },
+    );
     return this.findOne(saved.id);
   }
 
@@ -144,7 +151,6 @@ export class OwnerEquityService {
     dto: UpdateOwnerEquityDto,
     userId = 'system',
   ): Promise<OwnerEquityResponseDto> {
-    void userId;
     const transaction = await this.ownerEquityRepository.findOne({
       where: { id },
     });
@@ -173,6 +179,12 @@ export class OwnerEquityService {
     if (dto.description !== undefined) transaction.description = dto.description;
 
     await this.ownerEquityRepository.save(transaction);
+    await this.auditLogService.log(
+      'UPDATE',
+      'OwnerEquity',
+      `Updated owner equity transaction: ${transaction.referenceNumber}`,
+      { entityId: id, userId: userId ?? 'system' },
+    );
     return this.findOne(id);
   }
 
@@ -190,6 +202,12 @@ export class OwnerEquityService {
     }
 
     await this.ownerEquityRepository.softDelete(id);
+    await this.auditLogService.log(
+      'DELETE',
+      'OwnerEquity',
+      `Deleted owner equity transaction: ${transaction.referenceNumber}`,
+      { entityId: id, userId: 'system' },
+    );
   }
 
   async post(id: string, userId = 'system'): Promise<OwnerEquityResponseDto> {
@@ -215,6 +233,12 @@ export class OwnerEquityService {
       transaction.status = OwnerEquityTransactionStatus.POSTED;
       transaction.journalEntryId = journalEntry.id;
       await this.ownerEquityRepository.save(transaction);
+      await this.auditLogService.log(
+        'POST',
+        'OwnerEquity',
+        `Posted owner equity transaction: ${transaction.referenceNumber}`,
+        { entityId: id, userId: userId ?? 'system' },
+      );
     } catch (error) {
       this.logger.error(
         `Failed to post owner equity entry for ${transaction.referenceNumber}: ${error.message}`,
