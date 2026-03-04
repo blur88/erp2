@@ -1,24 +1,22 @@
 # Stage 1: Install all dependencies (dev + prod) for building
-FROM node:24.2.0-alpine3.21 AS deps
+FROM node:24.14.0-alpine3.23 AS deps
 WORKDIR /app
 COPY package*.json ./
 RUN npm ci && npm cache clean --force
 
 # Stage 2: Build the application
-FROM node:24.2.0-alpine3.21 AS builder
+FROM node:24.14.0-alpine3.23 AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN npm run build && npm prune --omit=dev && npm cache clean --force
 
 # Stage 3: Production image — only compiled output + prod deps
-# Uses alpine3.23 (not 3.21) because postgresql18-client is only available from Alpine 3.23+
-# This matches the postgres:18.2-alpine3.23 service image used in docker-compose.yml
-FROM node:24-alpine3.23 AS production
+FROM node:24.14.0-alpine3.23 AS production
 
 # Install security updates and runtime dependencies
 RUN apk update && apk upgrade && \
-    apk add --no-cache curl 'postgresql18-client>=18.2-r0' dumb-init && \
+    apk add --no-cache curl postgresql18-client dumb-init && \
     rm -rf /var/cache/apk/* && \
     rm -rf /usr/local/lib/node_modules/npm && \
     rm -f /usr/local/bin/npm /usr/local/bin/npx
