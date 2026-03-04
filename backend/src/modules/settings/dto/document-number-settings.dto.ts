@@ -32,17 +32,6 @@ export class DocumentNumberConfigDto {
   lastResetYear: number;
 }
 
-export class UpdateDocumentNumberSettingDto {
-  @ApiProperty({ example: 'SO', description: 'New prefix for this document type' })
-  @IsString()
-  prefix: string;
-
-  @ApiProperty({ example: 1 })
-  @IsInt()
-  @Min(1)
-  nextNumber: number;
-}
-
 export class UpdateDocumentNumberSettingsDto {
   @ApiProperty({ type: [DocumentNumberConfigDto] })
   @IsArray()
