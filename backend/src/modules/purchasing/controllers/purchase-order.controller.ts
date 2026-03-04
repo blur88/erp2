@@ -30,6 +30,7 @@ import {
   PurchaseOrderSummaryDto,
   RecordOrderPaymentsDto,
 } from '../dto';
+import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 
 @ApiTags('Purchase Orders')
 @Controller('purchasing/orders')
@@ -47,8 +48,14 @@ export class PurchaseOrderController {
   @ApiResponse({ status: 404, description: 'Supplier or product not found' })
   async create(
     @Body() createPurchaseOrderDto: CreatePurchaseOrderDto,
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
   ): Promise<{ data: PurchaseOrderResponseDto }> {
-    const data = await this.purchaseOrderService.create(createPurchaseOrderDto, 'system');
+    const data = await this.purchaseOrderService.create(
+      createPurchaseOrderDto,
+      currentUserId,
+      currentUsername,
+    );
     return { data };
   }
 
@@ -128,8 +135,15 @@ export class PurchaseOrderController {
   async update(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() updatePurchaseOrderDto: UpdatePurchaseOrderDto,
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
   ): Promise<{ data: PurchaseOrderResponseDto }> {
-    const data = await this.purchaseOrderService.update(id, updatePurchaseOrderDto);
+    const data = await this.purchaseOrderService.update(
+      id,
+      updatePurchaseOrderDto,
+      currentUserId,
+      currentUsername,
+    );
     return { data };
   }
 
@@ -145,8 +159,10 @@ export class PurchaseOrderController {
   @HttpCode(HttpStatus.OK)
   async restore(
     @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
   ): Promise<{ data: PurchaseOrderResponseDto }> {
-    const data = await this.purchaseOrderService.restore(id, 'system');
+    const data = await this.purchaseOrderService.restore(id, currentUserId, currentUsername);
     return { data };
   }
 
@@ -159,8 +175,10 @@ export class PurchaseOrderController {
   @HttpCode(HttpStatus.OK)
   async bulkRestore(
     @Body() body: { orderIds: string[] },
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
   ): Promise<{ restoredCount: number; failedIds: string[] }> {
-    return this.purchaseOrderService.bulkRestore(body.orderIds, 'system');
+    return this.purchaseOrderService.bulkRestore(body.orderIds, currentUserId, currentUsername);
   }
 
   @Post('bulk-permanent-delete')
@@ -172,8 +190,10 @@ export class PurchaseOrderController {
   @HttpCode(HttpStatus.OK)
   async bulkPermanentDelete(
     @Body() body: { orderIds: string[] },
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
   ): Promise<{ deletedCount: number; failedIds: string[] }> {
-    return this.purchaseOrderService.bulkPermanentDelete(body.orderIds);
+    return this.purchaseOrderService.bulkPermanentDelete(body.orderIds, currentUserId, currentUsername);
   }
 
   @Delete(':id/permanent')
@@ -187,8 +207,10 @@ export class PurchaseOrderController {
   @HttpCode(HttpStatus.OK)
   async permanentDelete(
     @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
   ): Promise<{ message: string }> {
-    await this.purchaseOrderService.permanentDelete(id);
+    await this.purchaseOrderService.permanentDelete(id, currentUserId, currentUsername);
     return { message: 'Purchase order permanently deleted successfully' };
   }
 
@@ -331,8 +353,10 @@ export class PurchaseOrderController {
   @HttpCode(HttpStatus.OK)
   async remove(
     @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
   ): Promise<{ message: string }> {
-    await this.purchaseOrderService.remove(id);
+    await this.purchaseOrderService.remove(id, currentUserId, currentUsername);
     return { message: 'Purchase order deleted successfully' };
   }
 }
