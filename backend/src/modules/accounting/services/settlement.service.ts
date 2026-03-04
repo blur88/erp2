@@ -18,6 +18,7 @@ import {
 } from '../dto/settlement.dto';
 import { AccountingService } from './accounting.service';
 import { SettingsService } from '../../settings/settings.service';
+import { AuditLogService } from '../../audit-logs/services';
 
 @Injectable()
 export class SettlementService {
@@ -32,6 +33,7 @@ export class SettlementService {
     private readonly paymentRepository: Repository<Payment>,
     private readonly accountingService: AccountingService,
     private readonly settingsService: SettingsService,
+    private readonly auditLogService: AuditLogService,
   ) {}
 
   async findAll(query: QuerySettlementsDto): Promise<SettlementListResponseDto> {
@@ -169,6 +171,13 @@ export class SettlementService {
       );
     }
 
+    await this.auditLogService.log(
+      'CREATE',
+      'Settlement',
+      `Created settlement: ${savedSettlement.settlementNumber}`,
+      { entityId: savedSettlement.id, userId: userId ?? 'system' },
+    );
+
     return this.findOne(savedSettlement.id);
   }
 
@@ -196,6 +205,13 @@ export class SettlementService {
 
     settlement.status = SettlementStatus.CANCELLED;
     const saved = await this.settlementRepository.save(settlement);
+
+    await this.auditLogService.log(
+      'UPDATE',
+      'Settlement',
+      `Cancelled settlement: ${saved.settlementNumber}`,
+      { entityId: id, userId: 'system', metadata: { status: 'CANCELLED' } },
+    );
 
     return this.toResponseDto(saved);
   }
