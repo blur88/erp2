@@ -23,6 +23,7 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  TableSortLabel,
   Alert,
   CircularProgress,
   useTheme,
@@ -43,6 +44,7 @@ import {
   TrendingUp as SalesIcon,
   LocationOn as LocationIcon,
 } from '@mui/icons-material'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { useForm, Controller } from 'react-hook-form'
 import { yupResolver } from '@hookform/resolvers/yup'
 import * as yup from 'yup'
@@ -101,6 +103,8 @@ interface CustomerFormData {
 const CustomersPage: React.FC = () => {
   const theme = useTheme()
   const isMobile = useMediaQuery(theme.breakpoints.down('md'))
+  const location = useLocation()
+  const navigate = useNavigate()
   const dispatch = useAppDispatch()
   const { showSuccess, showError } = useNotification()
 
@@ -113,7 +117,6 @@ const CustomersPage: React.FC = () => {
   // Local state
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
   const [isFormOpen, setIsFormOpen] = useState(false)
-  const [isViewOpen, setIsViewOpen] = useState(false)
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false)
   const [isDeletedDialogOpen, setIsDeletedDialogOpen] = useState(false)
   const [phoneValue, setPhoneValue] = useState<string>('')
@@ -225,7 +228,7 @@ const CustomersPage: React.FC = () => {
   // Load customers on mount and when filters change
   useEffect(() => {
     dispatch(fetchCustomers({ ...filters }))
-  }, [dispatch, filters.search, filters.type, filters.priceListId, filters.sortBy, filters.sortOrder])
+  }, [dispatch, filters.search, filters.type, filters.isActive, filters.priceListId, filters.sortBy, filters.sortOrder])
 
   // Handle form submit
   const handleFormSubmit = async (data: CustomerFormData) => {
@@ -309,7 +312,7 @@ const CustomersPage: React.FC = () => {
 
 
   // Form helpers
-  const handleOpenForm = (customer?: Customer) => {
+  const handleOpenForm = useCallback((customer?: Customer) => {
     setPhoneError(null)
     setIsCheckingPhone(false)
     if (customer) {
@@ -344,7 +347,21 @@ const CustomersPage: React.FC = () => {
       })
     }
     setIsFormOpen(true)
-  }
+  }, [reset, setSelectedCustomer, setPhoneValue, setPhoneError, setIsCheckingPhone, setIsFormOpen])
+
+  // Handle edit-from-profile navigation: list page receives editCustomerId in route state
+  useEffect(() => {
+    const state = location.state as { editCustomerId?: string } | null
+    if (!state?.editCustomerId) {
+      return
+    }
+
+    const customerToEdit = customers.find(c => c.id === state.editCustomerId)
+    if (customerToEdit) {
+      handleOpenForm(customerToEdit)
+      navigate('/sales/customers', { replace: true, state: {} })
+    }
+  }, [location.state, customers, navigate, handleOpenForm])
 
   const handleCloseForm = () => {
     setIsFormOpen(false)
@@ -356,8 +373,14 @@ const CustomersPage: React.FC = () => {
   }
 
   const handleViewCustomer = (customer: Customer) => {
-    setSelectedCustomer(customer)
-    setIsViewOpen(true)
+    navigate(`/sales/customers/${customer.id}`)
+  }
+
+  const handleSort = (sortBy: string) => {
+    dispatch(setFilters({
+      sortBy,
+      sortOrder: filters.sortBy === sortBy && filters.sortOrder === 'ASC' ? 'DESC' : 'ASC',
+    }))
   }
 
 
@@ -524,6 +547,53 @@ const CustomersPage: React.FC = () => {
             <MenuItem value={CustomerType.BUSINESS} sx={{ fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize }}>Business</MenuItem>
           </Select>
         </FormControl>
+        <FormControl
+          size="medium"
+          sx={{
+            minWidth: isMobile ? 'auto' : 120,
+            flex: 'none'
+          }}
+        >
+          <InputLabel
+            id="customer-status-filter-label"
+            sx={{
+              fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
+              '&.MuiInputLabel-shrunk': {
+                fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize
+              }
+            }}
+          >
+            Status
+          </InputLabel>
+          <Select
+            labelId="customer-status-filter-label"
+            id="customer-status-filter"
+            value={filters.isActive === undefined ? 'all' : filters.isActive ? 'active' : 'inactive'}
+            label="Status"
+            onChange={(e) => {
+              const val = e.target.value
+              dispatch(setFilters({
+                isActive: val === 'all' ? undefined : val === 'active'
+              }))
+            }}
+            sx={{
+              height: TYPOGRAPHY_STYLES.searchField.input.height,
+              fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
+              '& .MuiSelect-select': {
+                display: 'flex',
+                alignItems: 'center',
+                fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
+                padding: '8.5px 14px',
+                height: TYPOGRAPHY_STYLES.searchField.input.height,
+                boxSizing: 'border-box'
+              },
+            }}
+          >
+            <MenuItem value="all" sx={{ fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize }}>All</MenuItem>
+            <MenuItem value="active" sx={{ fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize }}>Active</MenuItem>
+            <MenuItem value="inactive" sx={{ fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize }}>Inactive</MenuItem>
+          </Select>
+        </FormControl>
       </Box>
       </Paper>
       {/* Error Alert */}
@@ -549,13 +619,18 @@ const CustomersPage: React.FC = () => {
             <TableHead>
               <TableRow sx={{ '& .MuiTableCell-head': { fontWeight: 600, backgroundColor: 'grey.50', py: 1 } }}>
                 <TableCell sx={{ width: isMobile ? '35%' : '30%' }}>
-                  <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
-                    fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
-                    color: TYPOGRAPHY_STYLES.tableHeader.color,
-                    fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
-                  }}>
-                    Customer
-                  </Typography>
+                  <TableSortLabel
+                    active={filters.sortBy === 'name'}
+                    direction={filters.sortBy === 'name' ? (filters.sortOrder?.toLowerCase() as 'asc' | 'desc') : 'asc'}
+                    onClick={() => handleSort('name')}
+                    sx={{
+                      fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
+                      color: TYPOGRAPHY_STYLES.tableHeader.color,
+                      fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
+                    }}
+                  >
+                    Name
+                  </TableSortLabel>
                 </TableCell>
                 {!isMobile && (
                   <TableCell sx={{ width: '10%' }}>
@@ -589,13 +664,61 @@ const CustomersPage: React.FC = () => {
                   </TableCell>
                 )}
                 {!isMobile && (
+                  <TableCell sx={{ width: '8%' }}>
+                    <TableSortLabel
+                      active={filters.sortBy === 'totalOrders'}
+                      direction={filters.sortBy === 'totalOrders' ? (filters.sortOrder?.toLowerCase() as 'asc' | 'desc') : 'asc'}
+                      onClick={() => handleSort('totalOrders')}
+                      sx={{
+                        fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
+                        color: TYPOGRAPHY_STYLES.tableHeader.color,
+                        fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
+                      }}
+                    >
+                      Total Orders
+                    </TableSortLabel>
+                  </TableCell>
+                )}
+                {!isMobile && (
                   <TableCell sx={{ width: '10%' }}>
+                    <TableSortLabel
+                      active={filters.sortBy === 'totalSales'}
+                      direction={filters.sortBy === 'totalSales' ? (filters.sortOrder?.toLowerCase() as 'asc' | 'desc') : 'asc'}
+                      onClick={() => handleSort('totalSales')}
+                      sx={{
+                        fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
+                        color: TYPOGRAPHY_STYLES.tableHeader.color,
+                        fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
+                      }}
+                    >
+                      Total Sales
+                    </TableSortLabel>
+                  </TableCell>
+                )}
+                {!isMobile && (
+                  <TableCell sx={{ width: '10%' }}>
+                    <TableSortLabel
+                      active={filters.sortBy === 'lastPurchaseDate'}
+                      direction={filters.sortBy === 'lastPurchaseDate' ? (filters.sortOrder?.toLowerCase() as 'asc' | 'desc') : 'asc'}
+                      onClick={() => handleSort('lastPurchaseDate')}
+                      sx={{
+                        fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
+                        color: TYPOGRAPHY_STYLES.tableHeader.color,
+                        fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
+                      }}
+                    >
+                      Last Purchase
+                    </TableSortLabel>
+                  </TableCell>
+                )}
+                {!isMobile && (
+                  <TableCell sx={{ width: '8%' }}>
                     <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
                     fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
                     color: TYPOGRAPHY_STYLES.tableHeader.color,
                     fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
                   }}>
-                      Sales
+                      Status
                     </Typography>
                   </TableCell>
                 )}
@@ -648,9 +771,14 @@ const CustomersPage: React.FC = () => {
                         <Typography variant={TYPOGRAPHY_STYLES.tableCell.primary.variant} sx={{
                           fontWeight: 400,
                           fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
-                          lineHeight: TYPOGRAPHY_STYLES.tableCell.primary.lineHeight
+                          lineHeight: TYPOGRAPHY_STYLES.tableCell.primary.lineHeight,
+                          cursor: 'pointer',
+                          color: 'primary.main',
+                          '&:hover': { textDecoration: 'underline' }
                         }}>
-                          {customer.name}
+                          <Box component="span" onClick={() => navigate(`/sales/customers/${customer.id}`)}>
+                            {customer.name}
+                          </Box>
                         </Typography>
                       </Box>
                       {/* Mobile-only type, price level, and active status indicators */}
@@ -728,14 +856,28 @@ const CustomersPage: React.FC = () => {
                     )}
                     {!isMobile && (
                       <TableCell>
-                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25 }}>
-                          <Typography variant={TYPOGRAPHY_STYLES.tableCell.caption.variant} color="text.secondary" sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize }}>
-                            {customer.totalOrders} orders
-                          </Typography>
-                          <Typography variant={TYPOGRAPHY_STYLES.tableCell.caption.variant} color="text.secondary" sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize }}>
-                            {formatCurrency(customer.totalSales)}
-                          </Typography>
-                        </Box>
+                        <Typography variant={TYPOGRAPHY_STYLES.tableCell.caption.variant} color="text.secondary" sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize }}>
+                          {customer.totalOrders}
+                        </Typography>
+                      </TableCell>
+                    )}
+                    {!isMobile && (
+                      <TableCell>
+                        <Typography variant={TYPOGRAPHY_STYLES.tableCell.caption.variant} color="text.secondary" sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize }}>
+                          {formatCurrency(customer.totalSales)}
+                        </Typography>
+                      </TableCell>
+                    )}
+                    {!isMobile && (
+                      <TableCell>
+                        <Typography variant={TYPOGRAPHY_STYLES.tableCell.caption.variant} color="text.secondary" sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize }}>
+                          {customer.lastPurchaseDate ? formatDate(customer.lastPurchaseDate) : 'Never'}
+                        </Typography>
+                      </TableCell>
+                    )}
+                    {!isMobile && (
+                      <TableCell>
+                        {getActiveStatusChip(customer.isActive)}
                       </TableCell>
                     )}
                     <TableCell align="right">
@@ -1083,129 +1225,6 @@ const CustomersPage: React.FC = () => {
             </Button>
           </DialogActions>
         </form>
-      </Dialog>
-      {/* Customer Details Dialog */}
-      <Dialog
-        open={isViewOpen}
-        onClose={() => setIsViewOpen(false)}
-        maxWidth="md"
-        fullWidth
-      >
-        <DialogTitle>Customer Details</DialogTitle>
-        <DialogContent dividers>
-          {selectedCustomer && (
-            <Grid container spacing={2}>
-              <Grid size={12}>
-                <Box sx={{ mb: 2 }}>
-                  <Typography variant="h5" fontWeight={600} sx={{ mb: 1 }}>
-                    {selectedCustomer.name}
-                  </Typography>
-                  {getActiveStatusChip(selectedCustomer.isActive)}
-                </Box>
-              </Grid>
-
-              <Grid
-                size={{
-                  xs: 12,
-                  md: 6
-                }}>
-                <Typography variant="h6" gutterBottom>Contact Information</Typography>
-                <Stack spacing={1}>
-                  {selectedCustomer.phone && (
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <PhoneIcon sx={{ fontSize: 18, color: 'text.secondary' }} />
-                      <Typography>{selectedCustomer.phone}</Typography>
-                    </Box>
-                  )}
-                </Stack>
-              </Grid>
-
-              <Grid
-                size={{
-                  xs: 12,
-                  md: 6
-                }}>
-                <Typography variant="h6" gutterBottom>Address</Typography>
-                <Stack spacing={1}>
-                  {((selectedCustomer as any).streetAddress || (selectedCustomer as any).city || (selectedCustomer as any).state || (selectedCustomer as any).postalCode || (selectedCustomer as any).country) ? (
-                    <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
-                      <LocationIcon sx={{ fontSize: 18, color: 'text.secondary', mt: 0.25 }} />
-                      <Box>
-                        {(selectedCustomer as any).streetAddress && (
-                          <Typography>{(selectedCustomer as any).streetAddress}</Typography>
-                        )}
-                        {((selectedCustomer as any).city || (selectedCustomer as any).state || (selectedCustomer as any).postalCode) && (
-                          <Typography>
-                            {[(selectedCustomer as any).city, (selectedCustomer as any).state, (selectedCustomer as any).postalCode]
-                              .filter(Boolean)
-                              .join(', ')}
-                          </Typography>
-                        )}
-                        {(selectedCustomer as any).country && (
-                          <Typography>{(selectedCustomer as any).country}</Typography>
-                        )}
-                      </Box>
-                    </Box>
-                  ) : (
-                    <Typography color="text.secondary" variant="body2">No address provided</Typography>
-                  )}
-                </Stack>
-              </Grid>
-
-              <Grid
-                size={{
-                  xs: 12,
-                  md: 6
-                }}>
-                <Typography variant="h6" gutterBottom>Sales Statistics</Typography>
-                <Stack spacing={1}>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <Typography color="text.secondary">Total Orders:</Typography>
-                    <Typography fontWeight={600}>{selectedCustomer.totalOrders}</Typography>
-                  </Box>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <Typography color="text.secondary">Total Sales:</Typography>
-                    <Typography fontWeight={600}>{formatCurrency(selectedCustomer.totalSales)}</Typography>
-                  </Box>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <Typography color="text.secondary">Average Order:</Typography>
-                    <Typography fontWeight={600}>{formatCurrency(selectedCustomer.averageOrderValue)}</Typography>
-                  </Box>
-                  {selectedCustomer.lastPurchaseDate && (
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <Typography color="text.secondary">Last Purchase:</Typography>
-                      <Typography fontWeight={600}>
-                        {formatDate(selectedCustomer.lastPurchaseDate)}
-                      </Typography>
-                    </Box>
-                  )}
-                </Stack>
-              </Grid>
-
-              {selectedCustomer.notes && (
-                <Grid size={12}>
-                  <Typography variant="h6" gutterBottom>Notes</Typography>
-                  <Typography>{selectedCustomer.notes}</Typography>
-                </Grid>
-              )}
-            </Grid>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setIsViewOpen(false)}>
-            Close
-          </Button>
-          <Button 
-            variant="contained"
-            startIcon={<EditIcon />}
-            onClick={() => {
-              setIsViewOpen(false)
-              selectedCustomer && handleOpenForm(selectedCustomer)
-            }}
-          >
-            Edit
-          </Button>
-        </DialogActions>
       </Dialog>
       {/* Delete Confirmation Dialog */}
       <ConfirmationDialog

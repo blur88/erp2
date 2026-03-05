@@ -413,6 +413,7 @@ export class CustomerService {
         totalAmount: Number(invoice.totalAmount),
         paidAmount: Number(invoice.paidAmount),
         balanceDue: Number(invoice.balanceDue),
+        salesOrderId: invoice.salesOrderId ?? null,
         // daysPastDue and isOverdue removed as they depend on dueDate
       })),
     };
