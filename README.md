@@ -7,7 +7,7 @@ and role-based access control.
 ## Tech Stack
 
 - **Frontend**: React 18 + TypeScript + Material-UI v7 + Redux Toolkit + Vite
-- **Backend**: NestJS 11 + TypeORM + PostgreSQL + MongoDB + Redis 8 + Bull Queue
+- **Backend**: NestJS 11 + TypeORM + PostgreSQL + Redis 8 + Bull Queue
 - **Infrastructure**: Docker + NGINX + Node.js 24
 
 ## Features

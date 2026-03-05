@@ -28,7 +28,7 @@ Target: ~100 lines. Keep only things Claude **cannot infer from reading the code
 
 ### What Stays
 
-1. **Stack overview** — non-obvious technology choices (MongoDB alongside PostgreSQL, Redis 8 with built-in modules)
+1. **Stack overview** — non-obvious technology choices (PostgreSQL, Redis 8 with built-in modules)
 2. **Key commands** — build, test (including single-test patterns), migrate, deploy
 3. **Architecture decisions** — non-obvious choices with reasoning (why strict: false, why IPv4, why Docker rebuild required)
 4. **Active modules list** — 11 active modules so Claude knows what's enabled

@@ -119,6 +119,7 @@ describe('Accounting Auto-Posting Integration (E2E)', () => {
     await cleanDatabase();
 
     // Setup test data
+    await setupDocumentNumberSettings();
     await setupFiscalPeriods();
     await setupChartOfAccounts();
     await setupAccountMappings();
@@ -131,7 +132,28 @@ describe('Accounting Auto-Posting Integration (E2E)', () => {
 
   // Helper: Clean database
   async function cleanDatabase() {
-    await dataSource.query('TRUNCATE TABLE journal_entry_lines, journal_entries, vendor_payments, goods_received_note_items, goods_received_notes, purchase_order_items, purchase_orders, payments, settlements, invoice_items, invoices, sales_order_items, sales_orders, stock_adjustment_items, stock_adjustments, products, categories, customers, suppliers, account_mappings, payment_methods, chart_of_accounts, fiscal_periods, reconciled_transactions, bank_reconciliations CASCADE');
+    await dataSource.query('TRUNCATE TABLE journal_entry_lines, journal_entries, vendor_payments, goods_received_note_items, goods_received_notes, purchase_order_items, purchase_orders, payments, settlements, invoice_items, invoices, sales_order_items, sales_orders, stock_adjustment_items, stock_adjustments, products, categories, customers, suppliers, account_mappings, payment_methods, chart_of_accounts, fiscal_periods, reconciled_transactions, bank_reconciliations, document_number_settings CASCADE');
+  }
+
+  // Helper: Seed document number settings (normally inserted by migration seed data)
+  async function setupDocumentNumberSettings() {
+    const currentYY = new Date().getFullYear() % 100;
+    const configs = [
+      { documentName: 'Journal Entries', prefix: 'JE' },
+      { documentName: 'Goods Received', prefix: 'GRN' },
+      { documentName: 'Vendor Payments', prefix: 'VP' },
+      { documentName: 'Stock Adjustment', prefix: 'SA' },
+      { documentName: 'Payments', prefix: 'PAY' },
+      { documentName: 'Sales Orders', prefix: 'SO' },
+      { documentName: 'Purchase Orders', prefix: 'PO' },
+    ];
+    for (const config of configs) {
+      await dataSource.query(
+        `INSERT INTO document_number_settings ("documentName", prefix, "paddingDigits", "nextNumber", "lastResetYear")
+         VALUES ($1, $2, 3, 1, $3)`,
+        [config.documentName, config.prefix, currentYY],
+      );
+    }
   }
 
   // Helper: Setup fiscal periods

@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ERP system — NestJS 11 backend + React 18 / Material-UI v7 frontend, served via NGINX in Docker.
 
-- **Databases**: PostgreSQL (TypeORM, primary), MongoDB (analytics/reports), Redis 8 (caching, queues, WebSocket state)
+- **Databases**: PostgreSQL (TypeORM, primary), Redis 8 (caching, queues, WebSocket state)
 - **Queue**: Bull Queue (background jobs)
 - **Testing**: Jest (backend) + Vitest (frontend)
 - **Default admin**: `admin / Admin@123!` — change on first login

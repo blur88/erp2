@@ -22,7 +22,7 @@ export class BackupSchedule extends BaseEntity {
   @Column({ type: 'int', nullable: true })
   dayOfMonth: number; // 1-31 for monthly backups
 
-  @Column({ type: 'simple-array', default: 'postgresql,mongodb,redis' })
+  @Column({ type: 'simple-array', default: 'postgresql,redis' })
   databases: string[];
 
   @Column({ type: 'boolean', default: true })

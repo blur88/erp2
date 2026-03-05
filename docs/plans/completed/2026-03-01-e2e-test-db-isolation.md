@@ -44,7 +44,6 @@ REDIS_PORT=6379
 REDIS_PASSWORD=DevRedis2024!Pass
 REDIS_DB=0
 REDIS_TTL=3600
-MONGODB_URI=mongodb://localhost:27017/erp_analytics_test
 JWT_SECRET=test-secret-key-minimum-32chars-long-for-testing-only
 JWT_REFRESH_SECRET=test-refresh-secret-minimum-32chars-long-for-testing
 JWT_EXPIRES_IN=15m

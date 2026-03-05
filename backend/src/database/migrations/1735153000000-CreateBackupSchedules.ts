@@ -49,7 +49,7 @@ export class CreateBackupSchedules1735153000000 implements MigrationInterface {
           {
             name: 'databases',
             type: 'text',
-            default: "'postgresql,mongodb,redis'",
+            default: "'postgresql,redis'",
           },
           {
             name: 'include_settings',
