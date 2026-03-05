@@ -101,7 +101,6 @@ const ExpensesPage: React.FC = () => {
     dispatch(
       fetchExpenses({
         page: 1,
-        limit: 100,
         expenseAccountId: accountFilter || undefined,
         paymentMethodId: paymentFilter || undefined,
         status: statusFilter || undefined,
@@ -117,7 +116,7 @@ const ExpensesPage: React.FC = () => {
   }, [dispatch, accountFilter, paymentFilter, statusFilter, startDate, endDate, search])
 
   useEffect(() => {
-    dispatch(fetchPaymentMethods({ page: 1, limit: 200, isActive: true }))
+    dispatch(fetchPaymentMethods({ page: 1, isActive: true }))
   }, [dispatch])
 
   useEffect(() => {
@@ -125,7 +124,6 @@ const ExpensesPage: React.FC = () => {
       try {
         const res = await accountingApi.chartOfAccounts.getAll({
           page: 1,
-          limit: 200,
           type: 'EXPENSE',
           isActive: true,
         })

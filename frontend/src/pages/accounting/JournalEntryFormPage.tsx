@@ -203,7 +203,7 @@ const JournalEntryFormPage: React.FC = () => {
 
   // Load data on mount
   useEffect(() => {
-    dispatch(fetchChartOfAccounts({ isActive: true, limit: 100 }))
+    dispatch(fetchChartOfAccounts({ isActive: true }))
     dispatch(fetchCurrentPeriod())
   }, [dispatch])
 

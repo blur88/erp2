@@ -92,7 +92,6 @@ const ChartOfAccountsPage: React.FC = () => {
   useEffect(() => {
     const params: any = {
       page: 1,
-      limit: 100,
     }
 
     if (searchTerm) {
@@ -144,7 +143,7 @@ const ChartOfAccountsPage: React.FC = () => {
       setAccountToDelete(null)
 
       // Refresh list
-      dispatch(fetchChartOfAccounts({ page: 1, limit: 100 }))
+      dispatch(fetchChartOfAccounts({ page: 1 }))
     } catch (error: any) {
       showError(error || 'Failed to delete account')
     }
@@ -165,7 +164,7 @@ const ChartOfAccountsPage: React.FC = () => {
     setSelectedAccount(null)
 
     // Refresh list
-    dispatch(fetchChartOfAccounts({ page: 1, limit: 100 }))
+    dispatch(fetchChartOfAccounts({ page: 1 }))
   }
 
   const handleSeedAccounts = () => {
@@ -179,7 +178,7 @@ const ChartOfAccountsPage: React.FC = () => {
       setSeedConfirmOpen(false)
 
       // Refresh list
-      dispatch(fetchChartOfAccounts({ page: 1, limit: 100 }))
+      dispatch(fetchChartOfAccounts({ page: 1 }))
     } catch (error: any) {
       showError(error || 'Failed to seed default accounts')
       setSeedConfirmOpen(false)

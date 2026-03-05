@@ -84,14 +84,13 @@ const BankReconciliationsPage: React.FC = () => {
   });
 
   useEffect(() => {
-    dispatch(fetchChartOfAccounts({ page: 1, limit: 100, isActive: true }));
-    dispatch(fetchFiscalPeriods({ page: 1, limit: 100, sortBy: 'startDate', sortOrder: 'DESC' }));
+    dispatch(fetchChartOfAccounts({ page: 1, isActive: true }));
+    dispatch(fetchFiscalPeriods({ page: 1, sortBy: 'startDate', sortOrder: 'DESC' }));
   }, [dispatch]);
 
   useEffect(() => {
     const params: any = {
       page: 1,
-      limit: 100,
       sortBy: 'reconciliationDate',
       sortOrder: 'DESC' as const,
     };
@@ -138,7 +137,7 @@ const BankReconciliationsPage: React.FC = () => {
       showSuccess('Reconciliation deleted successfully');
       setDeleteConfirmOpen(false);
       setSelectedReconciliation(null);
-      dispatch(fetchBankReconciliations({ page: 1, limit: 100, sortBy: 'reconciliationDate', sortOrder: 'DESC' }));
+      dispatch(fetchBankReconciliations({ page: 1, sortBy: 'reconciliationDate', sortOrder: 'DESC' }));
     } catch (err: any) {
       showError(err || 'Failed to delete reconciliation');
     }
@@ -161,7 +160,7 @@ const BankReconciliationsPage: React.FC = () => {
     setFormDialogOpen(false);
     setSelectedReconciliation(null);
     navigate('/accounting/bank-reconciliations');
-    dispatch(fetchBankReconciliations({ page: 1, limit: 100, sortBy: 'reconciliationDate', sortOrder: 'DESC' }));
+    dispatch(fetchBankReconciliations({ page: 1, sortBy: 'reconciliationDate', sortOrder: 'DESC' }));
     showSuccess('Reconciliation saved successfully');
   };
 

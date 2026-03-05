@@ -115,7 +115,6 @@ const JournalEntriesPage: React.FC = () => {
   const buildFetchParams = useCallback(() => {
     const params: any = {
       page: 1,
-      limit: 50,
       sortBy: 'createdAt',
       sortOrder: 'DESC',
     }

@@ -53,7 +53,7 @@ const SettlementsPage: React.FC = () => {
   const [cancelTarget, setCancelTarget] = useState<Settlement | null>(null);
 
   useEffect(() => {
-    dispatch(fetchSettlements({ page: 1, limit: 50 }));
+    dispatch(fetchSettlements({ page: 1 }));
     dispatch(fetchPendingSummary());
   }, [dispatch]);
 
@@ -68,7 +68,7 @@ const SettlementsPage: React.FC = () => {
   }) => {
     try {
       await dispatch(createSettlement(data)).unwrap();
-      await dispatch(fetchSettlements({ page: 1, limit: 50 }));
+      await dispatch(fetchSettlements({ page: 1 }));
       await dispatch(fetchPendingSummary());
       setDialogOpen(false);
       showSuccess('Settlement created successfully');
@@ -81,7 +81,7 @@ const SettlementsPage: React.FC = () => {
     if (!cancelTarget) return;
     try {
       await dispatch(cancelSettlement(cancelTarget.id)).unwrap();
-      await dispatch(fetchSettlements({ page: 1, limit: 50 }));
+      await dispatch(fetchSettlements({ page: 1 }));
       await dispatch(fetchPendingSummary());
       setCancelTarget(null);
       showSuccess('Settlement cancelled successfully');
