@@ -44,6 +44,7 @@ import {
   TrendingUp as SalesIcon,
   LocationOn as LocationIcon,
 } from '@mui/icons-material'
+import { useNavigate } from 'react-router-dom'
 import { useForm, Controller } from 'react-hook-form'
 import { yupResolver } from '@hookform/resolvers/yup'
 import * as yup from 'yup'
@@ -102,6 +103,7 @@ interface CustomerFormData {
 const CustomersPage: React.FC = () => {
   const theme = useTheme()
   const isMobile = useMediaQuery(theme.breakpoints.down('md'))
+  const navigate = useNavigate()
   const dispatch = useAppDispatch()
   const { showSuccess, showError } = useNotification()
 
@@ -114,7 +116,6 @@ const CustomersPage: React.FC = () => {
   // Local state
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
   const [isFormOpen, setIsFormOpen] = useState(false)
-  const [isViewOpen, setIsViewOpen] = useState(false)
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false)
   const [isDeletedDialogOpen, setIsDeletedDialogOpen] = useState(false)
   const [phoneValue, setPhoneValue] = useState<string>('')
@@ -357,8 +358,7 @@ const CustomersPage: React.FC = () => {
   }
 
   const handleViewCustomer = (customer: Customer) => {
-    setSelectedCustomer(customer)
-    setIsViewOpen(true)
+    navigate(`/sales/customers/${customer.id}`)
   }
 
   const handleSort = (sortBy: string) => {
@@ -756,9 +756,14 @@ const CustomersPage: React.FC = () => {
                         <Typography variant={TYPOGRAPHY_STYLES.tableCell.primary.variant} sx={{
                           fontWeight: 400,
                           fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
-                          lineHeight: TYPOGRAPHY_STYLES.tableCell.primary.lineHeight
+                          lineHeight: TYPOGRAPHY_STYLES.tableCell.primary.lineHeight,
+                          cursor: 'pointer',
+                          color: 'primary.main',
+                          '&:hover': { textDecoration: 'underline' }
                         }}>
-                          {customer.name}
+                          <Box component="span" onClick={() => navigate(`/sales/customers/${customer.id}`)}>
+                            {customer.name}
+                          </Box>
                         </Typography>
                       </Box>
                       {/* Mobile-only type, price level, and active status indicators */}
@@ -1205,129 +1210,6 @@ const CustomersPage: React.FC = () => {
             </Button>
           </DialogActions>
         </form>
-      </Dialog>
-      {/* Customer Details Dialog */}
-      <Dialog
-        open={isViewOpen}
-        onClose={() => setIsViewOpen(false)}
-        maxWidth="md"
-        fullWidth
-      >
-        <DialogTitle>Customer Details</DialogTitle>
-        <DialogContent dividers>
-          {selectedCustomer && (
-            <Grid container spacing={2}>
-              <Grid size={12}>
-                <Box sx={{ mb: 2 }}>
-                  <Typography variant="h5" fontWeight={600} sx={{ mb: 1 }}>
-                    {selectedCustomer.name}
-                  </Typography>
-                  {getActiveStatusChip(selectedCustomer.isActive)}
-                </Box>
-              </Grid>
-
-              <Grid
-                size={{
-                  xs: 12,
-                  md: 6
-                }}>
-                <Typography variant="h6" gutterBottom>Contact Information</Typography>
-                <Stack spacing={1}>
-                  {selectedCustomer.phone && (
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <PhoneIcon sx={{ fontSize: 18, color: 'text.secondary' }} />
-                      <Typography>{selectedCustomer.phone}</Typography>
-                    </Box>
-                  )}
-                </Stack>
-              </Grid>
-
-              <Grid
-                size={{
-                  xs: 12,
-                  md: 6
-                }}>
-                <Typography variant="h6" gutterBottom>Address</Typography>
-                <Stack spacing={1}>
-                  {((selectedCustomer as any).streetAddress || (selectedCustomer as any).city || (selectedCustomer as any).state || (selectedCustomer as any).postalCode || (selectedCustomer as any).country) ? (
-                    <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
-                      <LocationIcon sx={{ fontSize: 18, color: 'text.secondary', mt: 0.25 }} />
-                      <Box>
-                        {(selectedCustomer as any).streetAddress && (
-                          <Typography>{(selectedCustomer as any).streetAddress}</Typography>
-                        )}
-                        {((selectedCustomer as any).city || (selectedCustomer as any).state || (selectedCustomer as any).postalCode) && (
-                          <Typography>
-                            {[(selectedCustomer as any).city, (selectedCustomer as any).state, (selectedCustomer as any).postalCode]
-                              .filter(Boolean)
-                              .join(', ')}
-                          </Typography>
-                        )}
-                        {(selectedCustomer as any).country && (
-                          <Typography>{(selectedCustomer as any).country}</Typography>
-                        )}
-                      </Box>
-                    </Box>
-                  ) : (
-                    <Typography color="text.secondary" variant="body2">No address provided</Typography>
-                  )}
-                </Stack>
-              </Grid>
-
-              <Grid
-                size={{
-                  xs: 12,
-                  md: 6
-                }}>
-                <Typography variant="h6" gutterBottom>Sales Statistics</Typography>
-                <Stack spacing={1}>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <Typography color="text.secondary">Total Orders:</Typography>
-                    <Typography fontWeight={600}>{selectedCustomer.totalOrders}</Typography>
-                  </Box>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <Typography color="text.secondary">Total Sales:</Typography>
-                    <Typography fontWeight={600}>{formatCurrency(selectedCustomer.totalSales)}</Typography>
-                  </Box>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <Typography color="text.secondary">Average Order:</Typography>
-                    <Typography fontWeight={600}>{formatCurrency(selectedCustomer.averageOrderValue)}</Typography>
-                  </Box>
-                  {selectedCustomer.lastPurchaseDate && (
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <Typography color="text.secondary">Last Purchase:</Typography>
-                      <Typography fontWeight={600}>
-                        {formatDate(selectedCustomer.lastPurchaseDate)}
-                      </Typography>
-                    </Box>
-                  )}
-                </Stack>
-              </Grid>
-
-              {selectedCustomer.notes && (
-                <Grid size={12}>
-                  <Typography variant="h6" gutterBottom>Notes</Typography>
-                  <Typography>{selectedCustomer.notes}</Typography>
-                </Grid>
-              )}
-            </Grid>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setIsViewOpen(false)}>
-            Close
-          </Button>
-          <Button 
-            variant="contained"
-            startIcon={<EditIcon />}
-            onClick={() => {
-              setIsViewOpen(false)
-              selectedCustomer && handleOpenForm(selectedCustomer)
-            }}
-          >
-            Edit
-          </Button>
-        </DialogActions>
       </Dialog>
       {/* Delete Confirmation Dialog */}
       <ConfirmationDialog
