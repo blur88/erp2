@@ -23,6 +23,7 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  TableSortLabel,
   Alert,
   CircularProgress,
   useTheme,
@@ -225,7 +226,7 @@ const CustomersPage: React.FC = () => {
   // Load customers on mount and when filters change
   useEffect(() => {
     dispatch(fetchCustomers({ ...filters }))
-  }, [dispatch, filters.search, filters.type, filters.priceListId, filters.sortBy, filters.sortOrder])
+  }, [dispatch, filters.search, filters.type, filters.isActive, filters.priceListId, filters.sortBy, filters.sortOrder])
 
   // Handle form submit
   const handleFormSubmit = async (data: CustomerFormData) => {
@@ -358,6 +359,13 @@ const CustomersPage: React.FC = () => {
   const handleViewCustomer = (customer: Customer) => {
     setSelectedCustomer(customer)
     setIsViewOpen(true)
+  }
+
+  const handleSort = (sortBy: string) => {
+    dispatch(setFilters({
+      sortBy,
+      sortOrder: filters.sortBy === sortBy && filters.sortOrder === 'ASC' ? 'DESC' : 'ASC',
+    }))
   }
 
 
@@ -524,6 +532,53 @@ const CustomersPage: React.FC = () => {
             <MenuItem value={CustomerType.BUSINESS} sx={{ fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize }}>Business</MenuItem>
           </Select>
         </FormControl>
+        <FormControl
+          size="medium"
+          sx={{
+            minWidth: isMobile ? 'auto' : 120,
+            flex: 'none'
+          }}
+        >
+          <InputLabel
+            id="customer-status-filter-label"
+            sx={{
+              fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
+              '&.MuiInputLabel-shrunk': {
+                fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize
+              }
+            }}
+          >
+            Status
+          </InputLabel>
+          <Select
+            labelId="customer-status-filter-label"
+            id="customer-status-filter"
+            value={filters.isActive === undefined ? 'all' : filters.isActive ? 'active' : 'inactive'}
+            label="Status"
+            onChange={(e) => {
+              const val = e.target.value
+              dispatch(setFilters({
+                isActive: val === 'all' ? undefined : val === 'active'
+              }))
+            }}
+            sx={{
+              height: TYPOGRAPHY_STYLES.searchField.input.height,
+              fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
+              '& .MuiSelect-select': {
+                display: 'flex',
+                alignItems: 'center',
+                fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
+                padding: '8.5px 14px',
+                height: TYPOGRAPHY_STYLES.searchField.input.height,
+                boxSizing: 'border-box'
+              },
+            }}
+          >
+            <MenuItem value="all" sx={{ fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize }}>All</MenuItem>
+            <MenuItem value="active" sx={{ fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize }}>Active</MenuItem>
+            <MenuItem value="inactive" sx={{ fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize }}>Inactive</MenuItem>
+          </Select>
+        </FormControl>
       </Box>
       </Paper>
       {/* Error Alert */}
@@ -549,13 +604,18 @@ const CustomersPage: React.FC = () => {
             <TableHead>
               <TableRow sx={{ '& .MuiTableCell-head': { fontWeight: 600, backgroundColor: 'grey.50', py: 1 } }}>
                 <TableCell sx={{ width: isMobile ? '35%' : '30%' }}>
-                  <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
-                    fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
-                    color: TYPOGRAPHY_STYLES.tableHeader.color,
-                    fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
-                  }}>
-                    Customer
-                  </Typography>
+                  <TableSortLabel
+                    active={filters.sortBy === 'name'}
+                    direction={filters.sortBy === 'name' ? (filters.sortOrder?.toLowerCase() as 'asc' | 'desc') : 'asc'}
+                    onClick={() => handleSort('name')}
+                    sx={{
+                      fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
+                      color: TYPOGRAPHY_STYLES.tableHeader.color,
+                      fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
+                    }}
+                  >
+                    Name
+                  </TableSortLabel>
                 </TableCell>
                 {!isMobile && (
                   <TableCell sx={{ width: '10%' }}>
@@ -589,13 +649,61 @@ const CustomersPage: React.FC = () => {
                   </TableCell>
                 )}
                 {!isMobile && (
+                  <TableCell sx={{ width: '8%' }}>
+                    <TableSortLabel
+                      active={filters.sortBy === 'totalOrders'}
+                      direction={filters.sortBy === 'totalOrders' ? (filters.sortOrder?.toLowerCase() as 'asc' | 'desc') : 'asc'}
+                      onClick={() => handleSort('totalOrders')}
+                      sx={{
+                        fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
+                        color: TYPOGRAPHY_STYLES.tableHeader.color,
+                        fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
+                      }}
+                    >
+                      Total Orders
+                    </TableSortLabel>
+                  </TableCell>
+                )}
+                {!isMobile && (
                   <TableCell sx={{ width: '10%' }}>
+                    <TableSortLabel
+                      active={filters.sortBy === 'totalSales'}
+                      direction={filters.sortBy === 'totalSales' ? (filters.sortOrder?.toLowerCase() as 'asc' | 'desc') : 'asc'}
+                      onClick={() => handleSort('totalSales')}
+                      sx={{
+                        fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
+                        color: TYPOGRAPHY_STYLES.tableHeader.color,
+                        fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
+                      }}
+                    >
+                      Total Sales
+                    </TableSortLabel>
+                  </TableCell>
+                )}
+                {!isMobile && (
+                  <TableCell sx={{ width: '10%' }}>
+                    <TableSortLabel
+                      active={filters.sortBy === 'lastPurchaseDate'}
+                      direction={filters.sortBy === 'lastPurchaseDate' ? (filters.sortOrder?.toLowerCase() as 'asc' | 'desc') : 'asc'}
+                      onClick={() => handleSort('lastPurchaseDate')}
+                      sx={{
+                        fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
+                        color: TYPOGRAPHY_STYLES.tableHeader.color,
+                        fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
+                      }}
+                    >
+                      Last Purchase
+                    </TableSortLabel>
+                  </TableCell>
+                )}
+                {!isMobile && (
+                  <TableCell sx={{ width: '8%' }}>
                     <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
                     fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
                     color: TYPOGRAPHY_STYLES.tableHeader.color,
                     fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
                   }}>
-                      Sales
+                      Status
                     </Typography>
                   </TableCell>
                 )}
@@ -728,14 +836,28 @@ const CustomersPage: React.FC = () => {
                     )}
                     {!isMobile && (
                       <TableCell>
-                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25 }}>
-                          <Typography variant={TYPOGRAPHY_STYLES.tableCell.caption.variant} color="text.secondary" sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize }}>
-                            {customer.totalOrders} orders
-                          </Typography>
-                          <Typography variant={TYPOGRAPHY_STYLES.tableCell.caption.variant} color="text.secondary" sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize }}>
-                            {formatCurrency(customer.totalSales)}
-                          </Typography>
-                        </Box>
+                        <Typography variant={TYPOGRAPHY_STYLES.tableCell.caption.variant} color="text.secondary" sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize }}>
+                          {customer.totalOrders}
+                        </Typography>
+                      </TableCell>
+                    )}
+                    {!isMobile && (
+                      <TableCell>
+                        <Typography variant={TYPOGRAPHY_STYLES.tableCell.caption.variant} color="text.secondary" sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize }}>
+                          {formatCurrency(customer.totalSales)}
+                        </Typography>
+                      </TableCell>
+                    )}
+                    {!isMobile && (
+                      <TableCell>
+                        <Typography variant={TYPOGRAPHY_STYLES.tableCell.caption.variant} color="text.secondary" sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize }}>
+                          {customer.lastPurchaseDate ? formatDate(customer.lastPurchaseDate) : 'Never'}
+                        </Typography>
+                      </TableCell>
+                    )}
+                    {!isMobile && (
+                      <TableCell>
+                        {getActiveStatusChip(customer.isActive)}
                       </TableCell>
                     )}
                     <TableCell align="right">
