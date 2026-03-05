@@ -44,7 +44,7 @@ import {
   TrendingUp as SalesIcon,
   LocationOn as LocationIcon,
 } from '@mui/icons-material'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { useForm, Controller } from 'react-hook-form'
 import { yupResolver } from '@hookform/resolvers/yup'
 import * as yup from 'yup'
@@ -103,6 +103,7 @@ interface CustomerFormData {
 const CustomersPage: React.FC = () => {
   const theme = useTheme()
   const isMobile = useMediaQuery(theme.breakpoints.down('md'))
+  const location = useLocation()
   const navigate = useNavigate()
   const dispatch = useAppDispatch()
   const { showSuccess, showError } = useNotification()
@@ -228,6 +229,19 @@ const CustomersPage: React.FC = () => {
   useEffect(() => {
     dispatch(fetchCustomers({ ...filters }))
   }, [dispatch, filters.search, filters.type, filters.isActive, filters.priceListId, filters.sortBy, filters.sortOrder])
+
+  useEffect(() => {
+    const state = location.state as { editCustomerId?: string } | null
+    if (!state?.editCustomerId) {
+      return
+    }
+
+    const customerToEdit = customers.find(c => c.id === state.editCustomerId)
+    if (customerToEdit) {
+      handleOpenForm(customerToEdit)
+      navigate('/sales/customers', { replace: true, state: {} })
+    }
+  }, [location.state, customers, navigate])
 
   // Handle form submit
   const handleFormSubmit = async (data: CustomerFormData) => {
