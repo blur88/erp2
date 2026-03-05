@@ -8,7 +8,7 @@
 
 **Tech Stack:** npm, TypeScript 5.9, Vitest (frontend tests), Jest (backend tests)
 
-**Design doc:** `docs/plans/2026-02-28-types-node-v24-upgrade-design.md`
+**Design doc:** `docs/plans/completed/2026-02-28-types-node-v24-upgrade-design.md`
 
 ---
 

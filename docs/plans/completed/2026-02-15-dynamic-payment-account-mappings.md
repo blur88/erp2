@@ -8,7 +8,7 @@
 
 **Tech Stack:** NestJS + TypeORM (backend), React + Redux Toolkit + MUI (frontend), PostgreSQL migrations
 
-**Design doc:** `docs/plans/2026-02-15-dynamic-payment-account-mappings-design.md`
+**Design doc:** `docs/plans/completed/2026-02-15-dynamic-payment-account-mappings-design.md`
 
 ---
 

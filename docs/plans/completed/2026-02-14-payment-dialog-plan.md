@@ -8,7 +8,7 @@
 
 **Tech Stack:** NestJS (TypeORM transactions), React (MUI Dialog), class-validator DTOs
 
-**Design Doc:** `docs/plans/2026-02-14-payment-dialog-design.md`
+**Design Doc:** `docs/plans/completed/2026-02-14-payment-dialog-design.md`
 
 ---
 

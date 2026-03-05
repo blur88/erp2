@@ -384,7 +384,7 @@ The Accounting Module foundation is solid and ready to proceed to Phase 2 auto-p
 
 - **Audit Date**: February 5, 2026
 - **Auditor**: Claude Code (Subagent-Driven Development)
-- **Design Document**: `/home/blur/erp2/docs/plans/2026-02-02-accounting-module-design.md`
+- **Design Document**: `/home/blur/erp2/docs/plans/completed/2026-02-02-accounting-module-design.md`
 - **Completion Summary**: `/home/blur/erp2/docs/PHASE1_COMPLETION_SUMMARY.md`
 - **Branch**: `featured-account`
 - **Audit Method**: Two-stage review (spec compliance + code quality)

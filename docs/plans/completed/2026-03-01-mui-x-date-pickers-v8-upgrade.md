@@ -108,7 +108,7 @@ git commit -m "fix: update types for date-fns v4 compatibility"
 ### Task 4: Document the upgrade
 
 **Files:**
-- Create: `docs/plans/2026-03-01-mui-x-date-pickers-v8-upgrade-design.md`
+- Create: `docs/plans/completed/2026-03-01-mui-x-date-pickers-v8-upgrade-design.md`
 
 **Step 1: Write the design doc**
 
@@ -138,6 +138,6 @@ Upgrade `@mui/x-date-pickers` from v7 to v8 and `date-fns` from v2 to v4.
 **Step 2: Commit**
 
 ```bash
-git add docs/plans/2026-03-01-mui-x-date-pickers-v8-upgrade-design.md
+git add docs/plans/completed/2026-03-01-mui-x-date-pickers-v8-upgrade-design.md
 git commit -m "docs: add design doc for @mui/x-date-pickers v8 upgrade"
 ```

@@ -8,7 +8,7 @@
 
 **Tech Stack:** NestJS 11 + TypeORM (PostgreSQL), React 18 + MUI v7 + Redux Toolkit, Jest/Vitest
 
-**Design Doc:** `docs/plans/2026-02-14-payment-methods-settlement-design.md`
+**Design Doc:** `docs/plans/completed/2026-02-14-payment-methods-settlement-design.md`
 
 ---
 
