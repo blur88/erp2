@@ -7,7 +7,8 @@ import CssBaseline from '@mui/material/CssBaseline'
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider'
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns'
 
-import { store } from './store'
+import { PersistGate } from 'redux-persist/integration/react'
+import { store, persistor } from './store'
 import { router } from './router'
 import { NotificationProvider } from './hooks/useNotification'
 import { WebSocketProvider } from './hooks/useWebSocket'
@@ -43,7 +44,9 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
           <LocalizationProvider dateAdapter={AdapterDateFns}>
             <NotificationProvider>
               <WebSocketProvider>
+                <PersistGate loading={null} persistor={persistor}>
                 <RouterProvider router={router} />
+              </PersistGate>
               </WebSocketProvider>
             </NotificationProvider>
           </LocalizationProvider>
