@@ -239,7 +239,6 @@ const OrdersPage: React.FC = () => {
   const loadOrders = useCallback(() => {
     const dateRange = getDateRange(orderFilters.dateFilter)
     dispatch(fetchOrders({
-      limit: 1000, // Fetch more orders since pagination was removed
       sortBy: orderFilters.sortBy,
       sortOrder: orderFilters.sortOrder,
       search: orderFilters.search,

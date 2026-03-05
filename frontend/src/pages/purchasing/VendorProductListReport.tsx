@@ -100,7 +100,7 @@ const VendorProductListReport: React.FC = () => {
 
   useEffect(() => {
     // Load suppliers
-    api.get('/purchasing/suppliers?limit=100')
+    api.get('/purchasing/suppliers')
       .then(response => {
         if (response.data?.suppliers) {
           setSuppliers(response.data.suppliers)
@@ -109,7 +109,7 @@ const VendorProductListReport: React.FC = () => {
       .catch(() => {})
 
     // Load products
-    api.get('/inventory/products?limit=100')
+    api.get('/inventory/products')
       .then(response => {
         if (response.data?.data) {
           setProducts(response.data.data)

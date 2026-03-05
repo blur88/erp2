@@ -93,7 +93,6 @@ const SalesOrderSummary: React.FC = () => {
     try {
       // Build query parameters using authenticated API
       const queryParams: any = {
-        limit: 1000, // Get all for report
         sortBy: 'orderDate',
         sortOrder: 'DESC'
       }

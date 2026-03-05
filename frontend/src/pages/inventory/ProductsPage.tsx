@@ -131,7 +131,6 @@ const ProductsPage: React.FC = () => {
   useEffect(() => {
     dispatch(fetchProducts({
       page: 1,
-      limit: 100, // Backend max limit
       search: productFilters.search || undefined,
       categoryId: productFilters.categoryId || undefined
     }))
