@@ -229,7 +229,6 @@ export class InvoiceService {
     const invoices = await this.invoiceRepository.find({
       relations: ['customer'],
       order: { invoiceDate: 'DESC' },
-      take: 100, // Limit to recent invoices
     });
 
     return invoices.map(invoice => ({
