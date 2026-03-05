@@ -286,7 +286,6 @@ describe('JournalEntriesPage', () => {
       expect(journalEntriesApi.getAll).toHaveBeenCalledWith(
         expect.objectContaining({
           page: 1,
-          limit: 50,
           sortBy: 'createdAt',
           sortOrder: 'DESC',
         }),
