@@ -71,7 +71,7 @@ const VendorPaymentDetailsReport: React.FC = () => {
 
   useEffect(() => {
     // Load suppliers
-    api.get('/purchasing/suppliers?limit=100')
+    api.get('/purchasing/suppliers')
       .then(res => {
         if (res.data?.suppliers) {
           setSuppliers(res.data.suppliers)

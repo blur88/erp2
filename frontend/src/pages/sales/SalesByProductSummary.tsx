@@ -102,7 +102,7 @@ const SalesByProductSummary: React.FC = () => {
 
   useEffect(() => {
     // Load products with authentication
-    ApiService.get<{ data: any[] }>('/inventory/products?limit=100')
+    ApiService.get<{ data: any[] }>('/inventory/products')
       .then(data => {
         if (data?.data) {
           setProducts(data.data)

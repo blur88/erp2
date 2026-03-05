@@ -80,7 +80,7 @@ const CustomerPaymentSummary: React.FC = () => {
 
   useEffect(() => {
     // Load customers
-    api.get('/customers?limit=100')
+    api.get('/customers')
       .then(res => {
         if (res.data?.data) {
           setCustomers(res.data.data)

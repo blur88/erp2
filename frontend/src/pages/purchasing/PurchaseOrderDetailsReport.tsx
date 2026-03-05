@@ -106,7 +106,7 @@ const PurchaseOrderDetailsReport: React.FC = () => {
 
   useEffect(() => {
     // Load suppliers
-    api.get('/purchasing/suppliers?limit=100')
+    api.get('/purchasing/suppliers')
       .then(res => {
         if (res.data?.suppliers) {
           setSuppliers(res.data.suppliers)
@@ -115,7 +115,7 @@ const PurchaseOrderDetailsReport: React.FC = () => {
       .catch(() => {})
 
     // Load products
-    api.get('/inventory/products?limit=100')
+    api.get('/inventory/products')
       .then(res => {
         if (res.data?.data) {
           setProducts(res.data.data)

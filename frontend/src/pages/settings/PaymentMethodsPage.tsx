@@ -49,21 +49,21 @@ const PaymentMethodsPage: React.FC = () => {
   const [selected, setSelected] = useState<PaymentMethodConfig | null>(null);
 
   useEffect(() => {
-    dispatch(fetchPaymentMethods({ page: 1, limit: 100 }));
+    dispatch(fetchPaymentMethods({ page: 1 }));
   }, [dispatch]);
 
   const title = useMemo(() => `Payment Methods (${methods.length})`, [methods.length]);
 
   const onCreate = async (data: Partial<PaymentMethodConfig>) => {
     await dispatch(createPaymentMethod(data));
-    await dispatch(fetchPaymentMethods({ page: 1, limit: 100 }));
+    await dispatch(fetchPaymentMethods({ page: 1 }));
     setFormOpen(false);
   };
 
   const onUpdate = async (data: Partial<PaymentMethodConfig>) => {
     if (!selected) return;
     await dispatch(updatePaymentMethod({ id: selected.id, data }));
-    await dispatch(fetchPaymentMethods({ page: 1, limit: 100 }));
+    await dispatch(fetchPaymentMethods({ page: 1 }));
     setFormOpen(false);
     setSelected(null);
   };
@@ -71,7 +71,7 @@ const PaymentMethodsPage: React.FC = () => {
   const onDelete = async () => {
     if (!selected) return;
     await dispatch(deletePaymentMethod(selected.id));
-    await dispatch(fetchPaymentMethods({ page: 1, limit: 100 }));
+    await dispatch(fetchPaymentMethods({ page: 1 }));
     setDeleteOpen(false);
     setSelected(null);
   };
@@ -210,7 +210,7 @@ const PaymentMethodsPage: React.FC = () => {
         open={deletedOpen}
         onClose={() => setDeletedOpen(false)}
         onChanged={async () => {
-          await dispatch(fetchPaymentMethods({ page: 1, limit: 100 }))
+          await dispatch(fetchPaymentMethods({ page: 1 }))
         }}
       />
     </Box>

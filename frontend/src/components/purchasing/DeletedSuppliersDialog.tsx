@@ -73,7 +73,7 @@ const DeletedSuppliersDialog: React.FC<DeletedSuppliersDialogProps> = ({ open, o
   const fetchDeletedSuppliers = async () => {
     setLoading(true)
     try {
-      const response = await purchasingApi.getDeletedSuppliers({ limit: 100 })
+      const response = await purchasingApi.getDeletedSuppliers()
       const apiResponse = response as any
       setDeletedSuppliers(apiResponse.suppliers || apiResponse.data || [])
     } catch (error) {

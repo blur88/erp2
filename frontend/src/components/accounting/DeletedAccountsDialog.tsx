@@ -108,7 +108,7 @@ const DeletedAccountsDialog: React.FC<DeletedAccountsDialogProps> = ({ open, onC
 
       // Refresh both deleted and active accounts
       await loadDeletedAccounts()
-      dispatch(fetchChartOfAccounts({ page: 1, limit: 100 }))
+      dispatch(fetchChartOfAccounts({ page: 1 }))
     } catch (error: any) {
       showError(error || 'Failed to restore account')
     } finally {
@@ -168,7 +168,7 @@ const DeletedAccountsDialog: React.FC<DeletedAccountsDialogProps> = ({ open, onC
       }
 
       await loadDeletedAccounts()
-      dispatch(fetchChartOfAccounts({ page: 1, limit: 100 }))
+      dispatch(fetchChartOfAccounts({ page: 1 }))
       setSelectedAccounts(new Set())
     } catch (error: any) {
       showError(error || 'Failed to bulk restore accounts')

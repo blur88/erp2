@@ -100,7 +100,7 @@ const CustomerOrderHistory: React.FC = () => {
 
   useEffect(() => {
     // Load customers with authentication
-    ApiService.get<{ data: any[] }>('/customers?limit=100')
+    ApiService.get<{ data: any[] }>('/customers')
       .then(data => {
         if (data?.data) {
           setCustomers(data.data)
@@ -118,7 +118,7 @@ const CustomerOrderHistory: React.FC = () => {
       .catch(() => {})
 
     // Load products with authentication
-    ApiService.get<{ data: any[] }>('/inventory/products?limit=100')
+    ApiService.get<{ data: any[] }>('/inventory/products')
       .then(data => {
         if (data?.data) {
           setProducts(data.data)

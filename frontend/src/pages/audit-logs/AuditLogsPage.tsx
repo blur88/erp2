@@ -48,7 +48,6 @@ const AuditLogsPage: React.FC = () => {
       try {
         const response = await priceListApi.getPriceLists({
           page: 1,
-          limit: 1000,
           sortBy: 'name',
           sortOrder: 'asc',
         })

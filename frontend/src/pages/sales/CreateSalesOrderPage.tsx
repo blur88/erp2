@@ -302,7 +302,7 @@ const CreateSalesOrderPage: React.FC = () => {
 
   const loadCustomers = async () => {
     try {
-      const response = await salesApi.getCustomers({ limit: 1000 })
+      const response = await salesApi.getCustomers()
       setCustomers((response as any).data || [])
     } catch (err) {
       console.error('Error loading customers:', err)
@@ -311,7 +311,7 @@ const CreateSalesOrderPage: React.FC = () => {
 
   const loadProducts = async (searchTerm: string = '') => {
     try {
-      const params: any = { limit: 100, isActive: true }
+      const params: any = { isActive: true }
       if (searchTerm && searchTerm.trim().length >= 1) {
         params.search = searchTerm.trim()
       }

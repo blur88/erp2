@@ -71,7 +71,6 @@ const PurchasingPage: React.FC = () => {
 
       // Fetch purchase orders
       const ordersResponse = await purchasingApi.getPurchaseOrders({
-        limit: 100,
         sortBy: 'orderDate',
         sortOrder: 'DESC' as any
       })
@@ -84,7 +83,7 @@ const PurchasingPage: React.FC = () => {
       }
 
       // Fetch suppliers
-      const suppliersResponse = await purchasingApi.getSuppliers({ limit: 100 }) as any
+      const suppliersResponse = await purchasingApi.getSuppliers() as any
       let suppliersData = []
       if (suppliersResponse?.suppliers) {
         // Backend returns { suppliers: [...], total, page, limit, totalPages }

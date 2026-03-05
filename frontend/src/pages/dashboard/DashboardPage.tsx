@@ -92,12 +92,12 @@ const DashboardPage: React.FC = () => {
         outOfStockRes,
         paymentsRes
       ] = await Promise.all([
-        ApiService.get<any>('/sales-orders?limit=100&sortBy=orderDate&sortOrder=desc'),
-        ApiService.get<any>('/purchasing/orders?limit=100&sortBy=orderDate&sortOrder=DESC'),
-        ApiService.get<any>('/purchasing/suppliers?limit=100'),
+        ApiService.get<any>('/sales-orders?sortBy=orderDate&sortOrder=desc'),
+        ApiService.get<any>('/purchasing/orders?sortBy=orderDate&sortOrder=DESC'),
+        ApiService.get<any>('/purchasing/suppliers'),
         ApiService.get<any>('/inventory/products/dashboard-stats'),
         ApiService.get<any>('/inventory/products/out-of-stock'),
-        ApiService.get<any>('/payments?limit=100')
+        ApiService.get<any>('/payments')
       ])
 
       const salesOrders: any[] = salesOrdersRes.data || []

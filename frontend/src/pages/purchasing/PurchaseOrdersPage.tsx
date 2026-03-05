@@ -175,7 +175,7 @@ const PurchaseOrdersPage: React.FC = () => {
 
   // Fetch suppliers on mount
   useEffect(() => {
-    dispatch(fetchSuppliers({ limit: 1000 }))
+    dispatch(fetchSuppliers({}))
   }, [dispatch])
 
   // Clear ?highlight= query param so browser back/forward doesn't re-trigger highlight

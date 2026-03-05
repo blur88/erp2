@@ -75,7 +75,7 @@ const SalesOrderSummary: React.FC = () => {
 
   useEffect(() => {
     // Load customers using authenticated API
-    salesApi.getCustomers({ limit: 100 })
+    salesApi.getCustomers()
       .then(data => {
         if (data?.data) {
           setCustomers(data.data)
@@ -93,7 +93,6 @@ const SalesOrderSummary: React.FC = () => {
     try {
       // Build query parameters using authenticated API
       const queryParams: any = {
-        limit: 1000, // Get all for report
         sortBy: 'orderDate',
         sortOrder: 'DESC'
       }

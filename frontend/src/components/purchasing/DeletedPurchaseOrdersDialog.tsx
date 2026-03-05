@@ -68,7 +68,7 @@ const DeletedPurchaseOrdersDialog: React.FC<DeletedPurchaseOrdersDialogProps> = 
   const fetchDeletedOrders = async () => {
     setLoading(true)
     try {
-      const response = await purchasingApi.getDeletedPurchaseOrders({ limit: 100 })
+      const response = await purchasingApi.getDeletedPurchaseOrders()
       const apiResponse = response as any
       setDeletedOrders(apiResponse.orders || apiResponse.data || [])
     } catch (error) {

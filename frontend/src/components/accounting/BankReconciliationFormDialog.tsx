@@ -67,8 +67,8 @@ const BankReconciliationFormDialog: React.FC<BankReconciliationFormDialogProps> 
   useEffect(() => {
     if (!open) return;
 
-    dispatch(fetchChartOfAccounts({ page: 1, limit: 100, isActive: true }));
-    dispatch(fetchFiscalPeriods({ page: 1, limit: 100, status: FiscalPeriodStatus.OPEN }));
+    dispatch(fetchChartOfAccounts({ page: 1, isActive: true }));
+    dispatch(fetchFiscalPeriods({ page: 1, status: FiscalPeriodStatus.OPEN }));
   }, [dispatch, open]);
 
   useEffect(() => {

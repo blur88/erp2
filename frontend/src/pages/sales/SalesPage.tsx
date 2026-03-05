@@ -166,7 +166,6 @@ const SalesPage: React.FC = () => {
       } else {
         // Fallback: fetch orders and calculate on frontend (legacy behavior)
         const fallbackOrders = await salesApi.getOrders({
-          limit: 100,
           sortBy: 'orderDate',
           sortOrder: 'desc',
         })

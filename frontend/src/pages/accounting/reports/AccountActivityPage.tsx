@@ -205,7 +205,7 @@ const AccountActivityPage: React.FC = () => {
 
   // Fetch accounts on mount
   useEffect(() => {
-    dispatch(fetchChartOfAccounts({ isActive: true, limit: 100 }));
+    dispatch(fetchChartOfAccounts({ isActive: true }));
   }, [dispatch]);
 
   // Clear error on mount

@@ -96,7 +96,6 @@ const OwnerEquityPage: React.FC = () => {
     dispatch(
       fetchOwnerEquity({
         page: 1,
-        limit: 100,
         type: typeFilter || undefined,
         status: statusFilter || undefined,
         startDate: startDate || undefined,
