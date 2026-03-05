@@ -243,7 +243,7 @@ const CreatePurchaseOrderPage: React.FC = () => {
 
   const loadSuppliers = async () => {
     try {
-      const response = await purchasingApi.getSuppliers({ limit: 1000 })
+      const response = await purchasingApi.getSuppliers()
       setSuppliers((response as any).suppliers || [])
     } catch (err) {
       console.error('Error loading suppliers:', err)
@@ -252,7 +252,7 @@ const CreatePurchaseOrderPage: React.FC = () => {
 
   const loadProducts = async (searchTerm: string = '') => {
     try {
-      const params: any = { limit: 100, isActive: true }
+      const params: any = { isActive: true }
       if (searchTerm && searchTerm.trim().length >= 1) {
         params.search = searchTerm.trim()
       }

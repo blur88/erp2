@@ -187,7 +187,7 @@ const CreateStockAdjustmentPage: React.FC = () => {
 
   const loadProducts = async (searchTerm: string = '') => {
     try {
-      const params: any = { limit: 100, isActive: true }
+      const params: any = { isActive: true }
       if (searchTerm && searchTerm.trim().length >= 1) {
         params.search = searchTerm.trim()
       }
