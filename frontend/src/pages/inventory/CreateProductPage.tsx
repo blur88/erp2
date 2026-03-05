@@ -218,7 +218,7 @@ const CreateProductPage: React.FC = () => {
     const loadPriceLists = async () => {
       try {
         setLoadingPriceLists(true)
-        const response = await priceListApi.getPriceLists({ isActive: true, limit: 100 })
+        const response = await priceListApi.getPriceLists({ isActive: true })
         setPriceLists(response.data || [])
       } catch (error) {
         console.error('Failed to load price lists:', error)

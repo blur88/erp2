@@ -98,7 +98,7 @@ const InventorySummaryReport: React.FC = () => {
 
   useEffect(() => {
     // Load products - backend limits to max 100 per request
-    ApiService.get<any>('/inventory/products?limit=100')
+    ApiService.get<any>('/inventory/products')
       .then(response => {
         // ApiService.get returns the response body directly, which has { data, meta } structure
         if (response?.data) {

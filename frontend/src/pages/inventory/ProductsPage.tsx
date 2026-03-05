@@ -195,7 +195,6 @@ const ProductsPage: React.FC = () => {
             // Also refresh the products list to get the latest data
             dispatch(fetchProducts({
               page: 1,
-              limit: 9999,
               search: undefined,
               categoryId: undefined
             }))
@@ -359,7 +358,6 @@ const ProductsPage: React.FC = () => {
           // Refresh the product list to ensure consistency
           dispatch(fetchProducts({
             page: 1,
-            limit: 9999,
             search: productFilters.search || undefined,
             categoryId: productFilters.categoryId || undefined
           }))
@@ -1011,7 +1009,6 @@ const ProductsPage: React.FC = () => {
         onImportSuccess={() => {
           dispatch(fetchProducts({
             page: 1,
-            limit: 9999,
             search: productFilters.search || undefined,
             categoryId: productFilters.categoryId || undefined
           }))
