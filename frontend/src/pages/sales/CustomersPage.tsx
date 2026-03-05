@@ -230,19 +230,6 @@ const CustomersPage: React.FC = () => {
     dispatch(fetchCustomers({ ...filters }))
   }, [dispatch, filters.search, filters.type, filters.isActive, filters.priceListId, filters.sortBy, filters.sortOrder])
 
-  useEffect(() => {
-    const state = location.state as { editCustomerId?: string } | null
-    if (!state?.editCustomerId) {
-      return
-    }
-
-    const customerToEdit = customers.find(c => c.id === state.editCustomerId)
-    if (customerToEdit) {
-      handleOpenForm(customerToEdit)
-      navigate('/sales/customers', { replace: true, state: {} })
-    }
-  }, [location.state, customers, navigate])
-
   // Handle form submit
   const handleFormSubmit = async (data: CustomerFormData) => {
     try {
@@ -325,7 +312,7 @@ const CustomersPage: React.FC = () => {
 
 
   // Form helpers
-  const handleOpenForm = (customer?: Customer) => {
+  const handleOpenForm = useCallback((customer?: Customer) => {
     setPhoneError(null)
     setIsCheckingPhone(false)
     if (customer) {
@@ -360,7 +347,21 @@ const CustomersPage: React.FC = () => {
       })
     }
     setIsFormOpen(true)
-  }
+  }, [reset, setSelectedCustomer, setPhoneValue, setPhoneError, setIsCheckingPhone, setIsFormOpen])
+
+  // Handle edit-from-profile navigation: list page receives editCustomerId in route state
+  useEffect(() => {
+    const state = location.state as { editCustomerId?: string } | null
+    if (!state?.editCustomerId) {
+      return
+    }
+
+    const customerToEdit = customers.find(c => c.id === state.editCustomerId)
+    if (customerToEdit) {
+      handleOpenForm(customerToEdit)
+      navigate('/sales/customers', { replace: true, state: {} })
+    }
+  }, [location.state, customers, navigate, handleOpenForm])
 
   const handleCloseForm = () => {
     setIsFormOpen(false)

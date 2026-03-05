@@ -72,6 +72,7 @@ interface SalesOrder {
   isFulfilled: boolean
   isPaid: boolean
   totalAmount: number
+  itemsCount: number
 }
 
 interface OutstandingInvoice {
@@ -79,6 +80,7 @@ interface OutstandingInvoice {
   invoiceNumber: string
   invoiceDate: string
   totalAmount: number
+  paidAmount: number
   balanceDue: number
   salesOrderId: string | null
 }
