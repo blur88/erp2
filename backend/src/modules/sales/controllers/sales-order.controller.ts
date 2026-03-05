@@ -105,7 +105,7 @@ export class SalesOrderController {
     type: [SalesOrderSummaryDto],
   })
   async getSalesOrderSummaries() {
-    return this.salesOrderService.findSummaries({ limit: 100 }); // Get top 100 for summary
+    return this.salesOrderService.findSummaries();
   }
 
   @Get('dashboard-stats')
