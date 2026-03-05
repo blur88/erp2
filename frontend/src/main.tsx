@@ -45,8 +45,8 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
             <NotificationProvider>
               <WebSocketProvider>
                 <PersistGate loading={null} persistor={persistor}>
-                <RouterProvider router={router} />
-              </PersistGate>
+                  <RouterProvider router={router} />
+                </PersistGate>
               </WebSocketProvider>
             </NotificationProvider>
           </LocalizationProvider>
