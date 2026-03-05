@@ -228,7 +228,7 @@ const CustomersPage: React.FC = () => {
   // Load customers on mount and when filters change
   useEffect(() => {
     dispatch(fetchCustomers({ ...filters }))
-  }, [dispatch, filters.search, filters.type, filters.isActive, filters.priceListId, filters.sortBy, filters.sortOrder])
+  }, [dispatch, filters.search, filters.type, filters.priceListId, filters.sortBy, filters.sortOrder])
 
   // Handle form submit
   const handleFormSubmit = async (data: CustomerFormData) => {
@@ -382,15 +382,6 @@ const CustomersPage: React.FC = () => {
       sortOrder: filters.sortBy === sortBy && filters.sortOrder === 'ASC' ? 'DESC' : 'ASC',
     }))
   }
-
-
-  // Get active status chip
-  const getActiveStatusChip = (isActive: boolean) => {
-    return isActive
-      ? <Chip label="Active" size="small" color="success" />
-      : <Chip label="Inactive" size="small" color="default" />
-  }
-
 
   return (
     <Box sx={{ p: 3 }}>
@@ -547,53 +538,6 @@ const CustomersPage: React.FC = () => {
             <MenuItem value={CustomerType.BUSINESS} sx={{ fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize }}>Business</MenuItem>
           </Select>
         </FormControl>
-        <FormControl
-          size="medium"
-          sx={{
-            minWidth: isMobile ? 'auto' : 120,
-            flex: 'none'
-          }}
-        >
-          <InputLabel
-            id="customer-status-filter-label"
-            sx={{
-              fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
-              '&.MuiInputLabel-shrunk': {
-                fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize
-              }
-            }}
-          >
-            Status
-          </InputLabel>
-          <Select
-            labelId="customer-status-filter-label"
-            id="customer-status-filter"
-            value={filters.isActive === undefined ? 'all' : filters.isActive ? 'active' : 'inactive'}
-            label="Status"
-            onChange={(e) => {
-              const val = e.target.value
-              dispatch(setFilters({
-                isActive: val === 'all' ? undefined : val === 'active'
-              }))
-            }}
-            sx={{
-              height: TYPOGRAPHY_STYLES.searchField.input.height,
-              fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
-              '& .MuiSelect-select': {
-                display: 'flex',
-                alignItems: 'center',
-                fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
-                padding: '8.5px 14px',
-                height: TYPOGRAPHY_STYLES.searchField.input.height,
-                boxSizing: 'border-box'
-              },
-            }}
-          >
-            <MenuItem value="all" sx={{ fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize }}>All</MenuItem>
-            <MenuItem value="active" sx={{ fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize }}>Active</MenuItem>
-            <MenuItem value="inactive" sx={{ fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize }}>Inactive</MenuItem>
-          </Select>
-        </FormControl>
       </Box>
       </Paper>
       {/* Error Alert */}
@@ -711,17 +655,6 @@ const CustomersPage: React.FC = () => {
                     </TableSortLabel>
                   </TableCell>
                 )}
-                {!isMobile && (
-                  <TableCell sx={{ width: '8%' }}>
-                    <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
-                    fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
-                    color: TYPOGRAPHY_STYLES.tableHeader.color,
-                    fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
-                  }}>
-                      Status
-                    </Typography>
-                  </TableCell>
-                )}
                 <TableCell align="right" sx={{ width: isMobile ? '40%' : '15%' }}>
                   <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
                     fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
@@ -781,7 +714,7 @@ const CustomersPage: React.FC = () => {
                           </Box>
                         </Typography>
                       </Box>
-                      {/* Mobile-only type, price level, and active status indicators */}
+                      {/* Mobile-only type and price level indicators */}
                       {isMobile && (
                         <Box sx={{ mt: 0.5, display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
                           <Chip
@@ -798,7 +731,6 @@ const CustomersPage: React.FC = () => {
                               sx={{ fontSize: TYPOGRAPHY_STYLES.mobile.caption.fontSize }}
                             />
                           )}
-                          {getActiveStatusChip(customer.isActive)}
                         </Box>
                       )}
                     </TableCell>
@@ -873,11 +805,6 @@ const CustomersPage: React.FC = () => {
                         <Typography variant={TYPOGRAPHY_STYLES.tableCell.caption.variant} color="text.secondary" sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize }}>
                           {customer.lastPurchaseDate ? formatDate(customer.lastPurchaseDate) : 'Never'}
                         </Typography>
-                      </TableCell>
-                    )}
-                    {!isMobile && (
-                      <TableCell>
-                        {getActiveStatusChip(customer.isActive)}
                       </TableCell>
                     )}
                     <TableCell align="right">

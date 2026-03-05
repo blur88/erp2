@@ -43,10 +43,9 @@ function renderPage() {
 }
 
 describe('CustomersPage filters', () => {
-  it('renders Status filter with All/Active/Inactive options', async () => {
+  it('renders Type filter', async () => {
     renderPage()
-    const statusSelect = screen.getByLabelText('Status')
-    expect(statusSelect).toBeTruthy()
+    expect(screen.getAllByText('Type').length).toBeGreaterThan(0)
   })
 
   it('Name column header has sort indicator', () => {
