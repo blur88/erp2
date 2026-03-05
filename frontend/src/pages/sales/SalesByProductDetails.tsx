@@ -105,7 +105,7 @@ const SalesByProductDetails: React.FC = () => {
 
   useEffect(() => {
     // Load products
-    api.get('/inventory/products?limit=100')
+    api.get('/inventory/products')
       .then(response => {
         if (response?.data?.data) {
           setProducts(response.data.data)
