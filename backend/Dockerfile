@@ -33,7 +33,7 @@ COPY --from=builder --chown=nestjs:nodejs /app/node_modules ./node_modules
 COPY --from=builder --chown=nestjs:nodejs /app/package.json ./package.json
 
 # Create necessary directories with proper permissions
-RUN mkdir -p uploads logs backups/{postgresql,mongodb,redis,settings,archives,temp,uploads} && \
+RUN mkdir -p uploads logs backups/{postgresql,redis,settings,archives,temp,uploads} && \
     chown -R nestjs:nodejs uploads logs backups
 
 # Switch to non-root user

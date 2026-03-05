@@ -139,14 +139,6 @@ const RestoreConfirmationDialog: React.FC<RestoreConfirmationDialogProps> = ({
                 />
               </ListItem>
             )}
-            {currentBackup?.databases.includes('mongodb') && (
-              <ListItem>
-                <ListItemText
-                  primary="• MongoDB Database"
-                  secondary="Analytics and reporting data will be replaced"
-                />
-              </ListItem>
-            )}
             {currentBackup?.databases.includes('redis') && (
               <ListItem>
                 <ListItemText

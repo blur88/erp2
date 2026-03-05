@@ -3,7 +3,6 @@ import { IsArray, IsBoolean, IsEnum, IsOptional, IsString } from 'class-validato
 
 export enum BackupDatabase {
   POSTGRESQL = 'postgresql',
-  MONGODB = 'mongodb',
   REDIS = 'redis',
 }
 
@@ -21,13 +20,12 @@ export class CreateBackupDto {
     description: 'Databases to include in backup',
     enum: BackupDatabase,
     isArray: true,
-    default: ['postgresql', 'mongodb', 'redis'],
+    default: ['postgresql', 'redis'],
   })
   @IsArray()
   @IsOptional()
   databases?: BackupDatabase[] = [
     BackupDatabase.POSTGRESQL,
-    BackupDatabase.MONGODB,
     BackupDatabase.REDIS,
   ];
 

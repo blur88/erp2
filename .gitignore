@@ -79,7 +79,6 @@ Thumbs.db
 # Docker volumes and data (runtime data - never commit)
 data/
 postgres-data/
-mongo-data/
 redis-data/
 docker-volumes/
 # NOTE: .dockerignore, Dockerfile, docker-compose.yml, and docker-compose.override.yml ARE committed

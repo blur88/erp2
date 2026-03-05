@@ -74,7 +74,7 @@ export class CreateBackupScheduleDto {
   @ApiProperty({
     description: 'Databases to include in backup',
     isArray: true,
-    default: ['postgresql', 'mongodb', 'redis'],
+    default: ['postgresql', 'redis'],
   })
   @IsArray()
   databases: string[];

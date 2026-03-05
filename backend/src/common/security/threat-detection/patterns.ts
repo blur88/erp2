@@ -21,7 +21,7 @@ export class ThreatPatterns {
     /\b(EXEC|EXECUTE)\s*\(/gim,
   ];
 
-  // MongoDB injection - specific operators only
+  // NoSQL injection - specific operators only
   static readonly CRITICAL_NOSQL_PATTERNS = [
     /\$where.*function/gim,
     /\$regex.*\.\*/gim,

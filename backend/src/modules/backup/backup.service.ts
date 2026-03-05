@@ -118,15 +118,6 @@ export class BackupService implements OnModuleDestroy {
         this.logger.log(`PostgreSQL backup completed: ${pgFile}`);
       }
 
-      // Backup MongoDB
-      if (createBackupDto.databases.includes(BackupDatabase.MONGODB)) {
-        this.logger.log('Starting MongoDB backup...');
-        const mongoDir = await this.backupMongoDB(tempDir, timestamp);
-        metadata.mongoVersion = await this.getMongoDBVersion();
-        metadata.collections = await this.getMongoDBCollections();
-        this.logger.log(`MongoDB backup completed: ${mongoDir}`);
-      }
-
       // Backup Redis
       if (createBackupDto.databases.includes(BackupDatabase.REDIS)) {
         this.logger.log('Starting Redis backup...');
@@ -190,7 +181,6 @@ export class BackupService implements OnModuleDestroy {
   private async ensureBackupDirectories(): Promise<void> {
     const dirs = [
       path.join(this.backupDir, 'postgresql'),
-      path.join(this.backupDir, 'mongodb'),
       path.join(this.backupDir, 'redis'),
       path.join(this.backupDir, 'settings'),
       path.join(this.backupDir, 'archives'),
@@ -229,33 +219,6 @@ export class BackupService implements OnModuleDestroy {
     await execAsync(`gzip ${filepath}`);
 
     return `${filename}.gz`;
-  }
-
-  private async backupMongoDB(
-    tempDir: string,
-    timestamp: string,
-  ): Promise<string> {
-    const dirname = `erp_analytics_${timestamp}`;
-    const dirpath = path.join(tempDir, dirname);
-
-    const mongoUri = this.configService.get<string>('MONGODB_URI');
-
-    if (!mongoUri) {
-      this.logger.warn('MongoDB URI not configured, skipping MongoDB backup');
-      return dirname;
-    }
-
-    const command = `mongodump --uri="${mongoUri}" --out="${dirpath}"`;
-
-    try {
-      await execAsync(command);
-    } catch (error) {
-      this.logger.warn(
-        `MongoDB backup failed: ${error.message}, continuing with other backups`,
-      );
-    }
-
-    return dirname;
   }
 
   private async backupRedis(
@@ -399,33 +362,6 @@ export class BackupService implements OnModuleDestroy {
       const command = `psql -h ${host} -p ${port} -U ${username} -d ${database} -t -c "SELECT tablename FROM pg_tables WHERE schemaname='public'"`;
 
       const { stdout } = await execAsync(command, { env });
-      return stdout
-        .split('\n')
-        .map((line) => line.trim())
-        .filter((line) => line.length > 0);
-    } catch (error) {
-      return [];
-    }
-  }
-
-  private async getMongoDBVersion(): Promise<string> {
-    try {
-      const { stdout } = await execAsync('mongod --version');
-      const match = stdout.match(/db version v([\d.]+)/);
-      return match ? match[1] : 'unknown';
-    } catch (error) {
-      return 'unknown';
-    }
-  }
-
-  private async getMongoDBCollections(): Promise<string[]> {
-    try {
-      const mongoUri = this.configService.get<string>(
-        'MONGODB_URI',
-        'mongodb://mongodb:27017/erp_analytics',
-      );
-      const command = `mongo ${mongoUri} --quiet --eval "db.getCollectionNames().join('\\n')"`;
-      const { stdout } = await execAsync(command);
       return stdout
         .split('\n')
         .map((line) => line.trim())
@@ -621,11 +557,6 @@ export class BackupService implements OnModuleDestroy {
         await this.restorePostgreSQL(restoreDir);
       }
 
-      if (backup.databases.includes('mongodb')) {
-        this.logger.log('Restoring MongoDB database...');
-        await this.restoreMongoDB(restoreDir);
-      }
-
       if (backup.databases.includes('redis')) {
         this.logger.log('Restoring Redis database...');
         await this.restoreRedis(restoreDir);
@@ -769,35 +700,6 @@ export class BackupService implements OnModuleDestroy {
     await execAsync(restoreCommand, { env });
 
     this.logger.log('PostgreSQL restore completed');
-  }
-
-  private async restoreMongoDB(restoreDir: string): Promise<void> {
-    const mongoUri = this.configService.get<string>('MONGODB_URI');
-
-    if (!mongoUri) {
-      this.logger.warn('MongoDB URI not configured, skipping MongoDB restore');
-      return;
-    }
-
-    // Find the MongoDB backup directory
-    const files = await fs.readdir(restoreDir);
-    const mongoDir = files.find((f) => f.startsWith('erp_analytics_'));
-
-    if (!mongoDir) {
-      this.logger.warn('No MongoDB backup directory found, skipping MongoDB restore');
-      return;
-    }
-
-    const mongoDirPath = path.join(restoreDir, mongoDir);
-
-    const command = `mongorestore --uri="${mongoUri}" --drop "${mongoDirPath}"`;
-
-    try {
-      await execAsync(command);
-      this.logger.log('MongoDB restore completed');
-    } catch (error) {
-      this.logger.warn(`MongoDB restore failed: ${error.message}`);
-    }
   }
 
   private async restoreRedis(restoreDir: string): Promise<void> {
@@ -1080,9 +982,6 @@ export class BackupService implements OnModuleDestroy {
 
       if (files.some((f) => f.endsWith('.sql.gz'))) {
         databases.push('postgresql');
-      }
-      if (files.some((f) => f.startsWith('erp_analytics_'))) {
-        databases.push('mongodb');
       }
       if (files.some((f) => f.startsWith('redis_'))) {
         databases.push('redis');

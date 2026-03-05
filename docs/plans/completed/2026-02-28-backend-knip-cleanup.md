@@ -96,8 +96,8 @@ grep -rn "CacheModule\|CACHE_MANAGER\|@nestjs/cache-manager\|cache-manager" src 
 # @nestjs/event-emitter
 grep -rn "EventEmitterModule\|@OnEvent\|EventEmitter2\|@nestjs/event-emitter" src --include="*.ts" | grep "import"
 
-# @nestjs/mongoose / mongoose
-grep -rn "MongooseModule\|@Schema\|@nestjs/mongoose\|from 'mongoose'" src --include="*.ts" | grep "import"
+# removed ODM-related packages
+grep -rn "@Schema" src --include="*.ts" | grep "import"
 
 # nodemailer
 grep -rn "nodemailer\|createTransport" src --include="*.ts" | grep "import"
@@ -115,7 +115,7 @@ Expected: All return empty (no imports found).
 
 ```bash
 cd /home/blur/erp2/backend
-npm uninstall @grpc/grpc-js @grpc/proto-loader @nestjs/axios @nestjs/cache-manager @nestjs/event-emitter @nestjs/mongoose cache-manager cache-manager-redis-yet mongoose nodemailer pdfkit uuid
+npm uninstall @grpc/grpc-js @grpc/proto-loader @nestjs/axios @nestjs/cache-manager @nestjs/event-emitter cache-manager cache-manager-redis-yet nodemailer pdfkit uuid
 ```
 
 **Step 3: Run TypeScript build check**

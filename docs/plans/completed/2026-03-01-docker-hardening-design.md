@@ -5,7 +5,7 @@
 
 ## Context
 
-Single VPS deployment, still in active development, manual deploys via `deploy.sh`. CI/CD planned for the future. No MongoDB in use (listed in CLAUDE.md architecture but not actually used by any module).
+Single VPS deployment, still in active development, manual deploys via `deploy.sh`. CI/CD planned for the future.
 
 ## Goals
 
@@ -135,6 +135,5 @@ This explicitly skips the override file. No other changes to compose files requi
 ## Out of Scope
 
 - Docker secrets / Swarm mode (overkill for single VPS)
-- MongoDB service (not used by any module)
 - Kubernetes / ECS migration
 - Centralized log aggregation
