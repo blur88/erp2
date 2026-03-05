@@ -17,6 +17,7 @@ const CreateStockAdjustmentPage = React.lazy(() => import('./pages/inventory/Cre
 
 const SalesPage = React.lazy(() => import('./pages/sales/SalesPage'))
 const CustomersPage = React.lazy(() => import('./pages/sales/CustomersPage'))
+const CustomerProfilePage = React.lazy(() => import('./pages/sales/CustomerProfilePage'))
 const OrdersPage = React.lazy(() => import('./pages/sales/OrdersPage'))
 const CreateSalesOrderPage = React.lazy(() => import('./pages/sales/CreateSalesOrderPage'))
 const InvoicesPage = React.lazy(() => import('./pages/sales/InvoicesPage'))
@@ -125,6 +126,7 @@ export const router = createBrowserRouter([
 
           { path: '/sales', element: <SalesPage /> },
           { path: '/sales/customers', element: <CustomersPage /> },
+          { path: '/sales/customers/:id', element: <CustomerProfilePage /> },
           { path: '/sales/orders', element: <OrdersPage /> },
           { path: '/sales/orders/create', element: <CreateSalesOrderPage /> },
           { path: '/sales/orders/:id/edit', element: <CreateSalesOrderPage /> },
