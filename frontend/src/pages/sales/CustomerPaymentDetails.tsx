@@ -77,7 +77,7 @@ const CustomerPaymentDetails: React.FC = () => {
 
   useEffect(() => {
     // Load customers with authentication
-    ApiService.get<{ data: any[] }>('/customers?limit=100')
+    ApiService.get<{ data: any[] }>('/customers')
       .then(data => {
         if (data?.data) {
           setCustomers(data.data)

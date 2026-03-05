@@ -75,7 +75,7 @@ const SalesOrderSummary: React.FC = () => {
 
   useEffect(() => {
     // Load customers using authenticated API
-    salesApi.getCustomers({ limit: 100 })
+    salesApi.getCustomers()
       .then(data => {
         if (data?.data) {
           setCustomers(data.data)

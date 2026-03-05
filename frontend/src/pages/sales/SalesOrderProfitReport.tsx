@@ -73,7 +73,7 @@ const SalesOrderProfitReport: React.FC = () => {
 
   useEffect(() => {
     // Load customers using authenticated API
-    api.get('/customers?limit=100')
+    api.get('/customers')
       .then((response: any) => {
         // Response structure: response.data.data contains the array
         if (response?.data?.data && Array.isArray(response.data.data)) {
