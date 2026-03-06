@@ -30,6 +30,7 @@ import { auditLogApiSlice } from './api/auditLogApi'
 import { backupApiSlice } from './api/backupApi'
 import { priceListApiSlice } from './api/priceListApi'
 import { userManagementApiSlice } from './api/userManagementApi'
+import { dashboardApiSlice } from './api/dashboardApi'
 
 const rootReducer = combineReducers({
   theme: themeSlice,
@@ -58,6 +59,7 @@ const rootReducer = combineReducers({
   [backupApiSlice.reducerPath]: backupApiSlice.reducer,
   [priceListApiSlice.reducerPath]: priceListApiSlice.reducer,
   [userManagementApiSlice.reducerPath]: userManagementApiSlice.reducer,
+  [dashboardApiSlice.reducerPath]: dashboardApiSlice.reducer,
 })
 
 // Persist configuration
@@ -98,6 +100,7 @@ export const store = configureStore({
     backupApiSlice.middleware as any,
     priceListApiSlice.middleware as any,
     userManagementApiSlice.middleware as any,
+    dashboardApiSlice.middleware as any,
   ),
   devTools: process.env.NODE_ENV !== 'production',
 })
