@@ -6,7 +6,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, FindOptionsWhere, FindManyOptions, MoreThanOrEqual, LessThanOrEqual, Between, ILike, DataSource } from 'typeorm';
+import { Repository } from 'typeorm';
 import { SalesOrder } from '../../../database/entities/sales-order.entity';
 import { SalesOrderItem, DiscountType } from '../../../database/entities/sales-order-item.entity';
 import { Customer } from '../../../database/entities/customer.entity';
@@ -20,7 +20,6 @@ import {
   UpdateSalesOrderDto,
   QuerySalesOrdersDto,
   SalesOrderResponseDto,
-  SalesOrderSummaryDto,
 } from '../dto/sales-order.dto';
 // import { CustomerService } from './customer.service';
 import { InventoryIntegrationService } from './inventory-integration.service';
@@ -32,8 +31,8 @@ import { AuditLogService } from '../../audit-logs/services';
 import { AccountingService } from '@modules/accounting/services/accounting.service';
 import { SalesOrderFulfillmentService } from './sales-order-fulfillment.service';
 import { SalesOrderLifecycleService } from './sales-order-lifecycle.service';
-import { mapSalesOrderToResponseDto } from './sales-order.mapper';
 import { SalesOrderPaymentService } from './sales-order-payment.service';
+import { SalesOrderQueryService } from './sales-order-query.service';
 
 @Injectable()
 export class SalesOrderService {
@@ -66,7 +65,8 @@ export class SalesOrderService {
     private readonly salesOrderFulfillmentService: SalesOrderFulfillmentService,
     private readonly salesOrderLifecycleService: SalesOrderLifecycleService,
     private readonly salesOrderPaymentService: SalesOrderPaymentService,
-  ) { }
+    private readonly salesOrderQueryService: SalesOrderQueryService,
+  ) {}
 
   private async generateSequentialOrderNumber(): Promise<string> {
     // Use document number settings to generate order number
@@ -133,29 +133,7 @@ export class SalesOrderService {
   }
 
   private async findPreviousOrder(currentOrderNumber: string): Promise<SalesOrderResponseDto | null> {
-    // Extract number from current order number (format: SO-000003)
-    const match = currentOrderNumber.match(/^SO-(\d+)$/);
-    if (!match) {
-      return null; // Invalid format
-    }
-
-    const currentNumber = parseInt(match[1]);
-    if (currentNumber <= 1) {
-      return null; // No previous order possible
-    }
-
-    // Calculate previous sequential number
-    const previousNumber = currentNumber - 1;
-    const previousOrderNumber = `SO-${previousNumber.toString().padStart(6, '0')}`;
-
-    // Check if the previous order exists in database and get full details
-    const previousOrder = await this.salesOrderRepository.findOne({
-      where: { orderNumber: previousOrderNumber },
-      relations: ['customer', 'items', 'items.product'],
-      withDeleted: true // Include soft-deleted orders
-    });
-
-    return previousOrder ? mapSalesOrderToResponseDto(previousOrder) : null;
+    return this.salesOrderQueryService.findPreviousOrder(currentOrderNumber);
   }
 
   async create(
@@ -370,440 +348,27 @@ export class SalesOrderService {
   }
 
   async findAll(query: QuerySalesOrdersDto) {
-    const {
-      search,
-      customerId,
-      fromDate,
-      toDate,
-      paymentStatus,
-      fulfillmentStatus,
-      sortBy = 'orderNumber',
-      sortOrder = 'ASC',
-      page = 1,
-      limit = 1000, // Increased default to support fetching all orders
-    } = query;
-
-    // Use QueryBuilder to avoid metadata issues
-    let queryBuilder = this.salesOrderRepository
-      .createQueryBuilder('order')
-      .leftJoinAndSelect('order.customer', 'customer')
-      .leftJoinAndSelect('order.items', 'items')
-      .leftJoinAndSelect('items.product', 'product')
-      .select([
-        'order.id',
-        'order.orderNumber',
-        'order.orderDate',
-        'order.totalAmount',
-        'order.paidAmount',
-        'order.isFulfilled',
-        'order.customerId',
-        'order.createdAt',
-        'order.updatedAt',
-        'customer.id',
-        'customer.name',
-        'customer.phone',
-        'customer.streetAddress',
-        'customer.city',
-        'customer.state',
-        'customer.postalCode',
-        'customer.country',
-        'items.id',
-        'items.quantity',
-        'items.unitPrice',
-        'items.totalAmount',
-        'items.productId',
-        'product.id',
-        'product.name',
-        'product.baseCost'
-      ])
-      .where('order.deletedAt IS NULL'); // Only get non-deleted orders
-
-    if (customerId) {
-      queryBuilder = queryBuilder.andWhere('order.customerId = :customerId', { customerId });
-    }
-
-    if (fromDate) {
-      queryBuilder = queryBuilder.andWhere('order.orderDate >= :fromDate', { fromDate: new Date(fromDate) });
-    }
-
-    if (toDate) {
-      const endDate = new Date(toDate);
-      endDate.setHours(23, 59, 59, 999);
-      queryBuilder = queryBuilder.andWhere('order.orderDate <= :toDate', { toDate: endDate });
-    }
-
-    if (search) {
-      queryBuilder = queryBuilder.andWhere('order.orderNumber ILIKE :search', { search: `%${search}%` });
-    }
-
-    // Payment status filter
-    if (paymentStatus && paymentStatus !== 'all') {
-      switch (paymentStatus) {
-        case 'unpaid':
-          queryBuilder = queryBuilder.andWhere('(order.paidAmount = 0 OR order.paidAmount IS NULL)');
-          break;
-        case 'partial':
-          queryBuilder = queryBuilder.andWhere('order.paidAmount > 0 AND order.paidAmount < order.totalAmount');
-          break;
-        case 'paid':
-          queryBuilder = queryBuilder.andWhere('order.paidAmount >= order.totalAmount AND order.paidAmount > 0');
-          break;
-        case 'overpaid':
-          queryBuilder = queryBuilder.andWhere('order.paidAmount > order.totalAmount');
-          break;
-      }
-    }
-
-    // Fulfillment status filter
-    if (fulfillmentStatus && fulfillmentStatus !== 'all') {
-      switch (fulfillmentStatus) {
-        case 'fulfilled':
-          queryBuilder = queryBuilder.andWhere('order.isFulfilled = true');
-          break;
-        case 'unfulfilled':
-          queryBuilder = queryBuilder.andWhere('order.isFulfilled = false');
-          break;
-      }
-    }
-
-    queryBuilder = queryBuilder
-      .orderBy(`order.${sortBy}`, sortOrder as 'ASC' | 'DESC')
-      .skip((page - 1) * limit)
-      .take(limit);
-
-    // Get count first
-    const countQuery = this.salesOrderRepository
-      .createQueryBuilder('order')
-      .where('order.deletedAt IS NULL')
-      .select('COUNT(order.id)', 'count');
-
-    if (customerId) {
-      countQuery.andWhere('order.customerId = :customerId', { customerId });
-    }
-    if (fromDate) {
-      countQuery.andWhere('order.orderDate >= :fromDate', { fromDate: new Date(fromDate) });
-    }
-    if (toDate) {
-      const endDate = new Date(toDate);
-      endDate.setHours(23, 59, 59, 999);
-      countQuery.andWhere('order.orderDate <= :toDate', { toDate: endDate });
-    }
-    if (search) {
-      countQuery.andWhere('order.orderNumber ILIKE :search', { search: `%${search}%` });
-    }
-
-    // Payment status filter for count query
-    if (paymentStatus && paymentStatus !== 'all') {
-      switch (paymentStatus) {
-        case 'unpaid':
-          countQuery.andWhere('(order.paidAmount = 0 OR order.paidAmount IS NULL)');
-          break;
-        case 'partial':
-          countQuery.andWhere('order.paidAmount > 0 AND order.paidAmount < order.totalAmount');
-          break;
-        case 'paid':
-          countQuery.andWhere('order.paidAmount >= order.totalAmount AND order.paidAmount > 0');
-          break;
-        case 'overpaid':
-          countQuery.andWhere('order.paidAmount > order.totalAmount');
-          break;
-      }
-    }
-
-    // Fulfillment status filter for count query
-    if (fulfillmentStatus && fulfillmentStatus !== 'all') {
-      switch (fulfillmentStatus) {
-        case 'fulfilled':
-          countQuery.andWhere('order.isFulfilled = true');
-          break;
-        case 'unfulfilled':
-          countQuery.andWhere('order.isFulfilled = false');
-          break;
-      }
-    }
-
-    const { count } = await countQuery.getRawOne();
-    const total = parseInt(count);
-
-    // Get orders
-    const orders = await queryBuilder.getMany();
-
-    return {
-      data: orders.map(order => ({
-        id: order.id,
-        orderNumber: order.orderNumber,
-        orderDate: order.orderDate,
-        totalAmount: Number(order.totalAmount),
-        paidAmount: Number(order.paidAmount || 0),
-        balanceDue: Math.max(0, Number(order.totalAmount) - Number(order.paidAmount || 0)),
-        isPaidInFull: Number(order.paidAmount || 0) >= Number(order.totalAmount),
-        isFulfilled: order.isFulfilled,
-        customerId: order.customerId,
-        customer: order.customer,
-        items: order.items, // Include items for dashboard top products calculation
-        createdAt: order.createdAt,
-        updatedAt: order.updatedAt,
-      })),
-      total,
-      page,
-      limit,
-      totalPages: Math.ceil(total / limit),
-    };
+    return this.salesOrderQueryService.findAll(query);
   }
 
   async testInvoiceRelations(orderNumber: string): Promise<any> {
-    const order = await this.salesOrderRepository.findOne({
-      where: { orderNumber },
-      relations: ['invoices', 'customer', 'items']
-    });
-
-    return {
-      order,
-      invoicesCount: order?.invoices?.length || 0,
-      invoices: order?.invoices || null
-    };
+    return this.salesOrderQueryService.testInvoiceRelations(orderNumber);
   }
 
   async findSummaries(query: QuerySalesOrdersDto = {}): Promise<any> {
-    const {
-      search,
-      customerId,
-      fromDate,
-      toDate,
-      paymentStatus,
-      fulfillmentStatus,
-      sortBy = 'orderNumber',
-      sortOrder = 'ASC',
-    } = query;
-
-    // Build find options with filters using TypeORM operators - no pagination
-    let findOptions: any = {
-      relations: ['customer', 'items', 'items.product', 'invoices'],
-      where: { deletedAt: null },
-      order: { [sortBy]: sortOrder },
-    };
-
-    // Apply filters to where clause
-    if (customerId) {
-      findOptions.where.customerId = customerId;
-    }
-
-    if (fromDate && toDate) {
-      const endDate = new Date(toDate);
-      endDate.setHours(23, 59, 59, 999);
-      findOptions.where.orderDate = Between(new Date(fromDate), endDate);
-    } else if (fromDate) {
-      findOptions.where.orderDate = MoreThanOrEqual(new Date(fromDate));
-    } else if (toDate) {
-      const endDate = new Date(toDate);
-      endDate.setHours(23, 59, 59, 999);
-      findOptions.where.orderDate = LessThanOrEqual(endDate);
-    }
-
-    // For complex filters like search, payment status, etc., we'll need to fall back to QueryBuilder
-    // But for now, let's test the simple case first
-    const total = await this.salesOrderRepository.count({ where: findOptions.where });
-    const orders = await this.salesOrderRepository.find(findOptions);
-
-    const data = orders.map(order => {
-      const paidAmount = Number(order.paidAmount || 0);
-      const totalAmount = Number(order.totalAmount);
-      const balanceDue = Math.max(0, totalAmount - paidAmount);
-      const isPaidInFull = paidAmount >= totalAmount;
-
-      return {
-        id: order.id,
-        orderNumber: order.orderNumber,
-        orderDate: order.orderDate,
-        totalAmount: totalAmount,
-        paidAmount: paidAmount,
-        balanceDue: balanceDue,
-        isPaidInFull: isPaidInFull,
-        isFulfilled: order.isFulfilled || false,
-        fulfilledDate: order.fulfilledDate,
-        canFulfill: isPaidInFull && !order.isFulfilled,
-        canUnfulfill: order.isFulfilled || false,
-        customerId: order.customerId,
-        customer: order.customer ? {
-          id: order.customer.id,
-          name: order.customer.name,
-          phone: order.customer.phone,
-          streetAddress: order.customer.streetAddress,
-          city: order.customer.city,
-          state: order.customer.state,
-          postalCode: order.customer.postalCode,
-          country: order.customer.country
-        } : null,
-        customerName: order.customer?.name || 'Unknown Customer',
-        items: order.items?.map(item => ({
-          ...item,
-          product: item.product || null,
-          productId: item.productId
-        })) || [],
-        itemsCount: order.items?.length || 0,
-        invoices: order.invoices?.map(invoice => ({
-          id: invoice.id,
-          invoiceNumber: invoice.invoiceNumber,
-          status: invoice.status,
-          invoiceDate: invoice.invoiceDate,
-          shippingAmount: Number(invoice.shippingAmount || 0),
-          totalAmount: Number(invoice.totalAmount),
-          paidAmount: Number(invoice.paidAmount),
-          balanceDue: Number(invoice.balanceDue),
-          customerName: invoice.customer?.name,
-          customerId: invoice.customerId,
-          salesOrderId: invoice.salesOrderId,
-          salesOrder: {
-            id: order.id,
-            orderNumber: order.orderNumber,
-            orderDate: order.orderDate,
-          },
-          orderNumber: order.orderNumber,
-        })) || [],
-        isOverdue: false, // Placeholder since no requiredDate property exists
-        notes: order.notes, // Include notes field in summary response
-        createdAt: order.createdAt,
-        updatedAt: order.updatedAt,
-      };
-    });
-
-    return {
-      data,
-      total,
-    };
+    return this.salesOrderQueryService.findSummaries(query);
   }
 
   async getDashboardStats() {
-    const today = new Date();
-    const thisMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-    const thisWeek = new Date(today.setDate(today.getDate() - today.getDay()));
-
-    const [
-      totalOrders,
-      fulfilledOrders,
-      unfulfilledOrders,
-      thisMonthOrders,
-      thisWeekOrders,
-    ] = await Promise.all([
-      this.salesOrderRepository.count(),
-      this.salesOrderRepository.count({ where: { isFulfilled: true } }),
-      this.salesOrderRepository.count({ where: { isFulfilled: false } }),
-      this.salesOrderRepository.count({ where: { orderDate: MoreThanOrEqual(thisMonth) } }),
-      this.salesOrderRepository.count({ where: { orderDate: MoreThanOrEqual(thisWeek) } }),
-    ]);
-
-    const totalSalesResult = await this.salesOrderRepository
-      .createQueryBuilder('order')
-      .select('COALESCE(SUM(order.totalAmount), 0)', 'total')
-      .getRawOne();
-
-    const thisMonthSalesResult = await this.salesOrderRepository
-      .createQueryBuilder('order')
-      .select('COALESCE(SUM(order.totalAmount), 0)', 'total')
-      .where('order.orderDate >= :startDate', { startDate: thisMonth })
-      .getRawOne();
-
-    return {
-      orders: {
-        total: totalOrders,
-        fulfilled: fulfilledOrders,
-        unfulfilled: unfulfilledOrders,
-        thisMonth: thisMonthOrders,
-        thisWeek: thisWeekOrders,
-      },
-      sales: {
-        total: parseFloat(totalSalesResult.total) || 0,
-        thisMonth: parseFloat(thisMonthSalesResult.total) || 0,
-      },
-    };
+    return this.salesOrderQueryService.getDashboardStats();
   }
 
   async findById(id: string): Promise<SalesOrderResponseDto> {
-    // Use QueryBuilder to ensure proper loading of all relations
-    const order = await this.salesOrderRepository
-      .createQueryBuilder('salesOrder')
-      .leftJoinAndSelect('salesOrder.customer', 'customer')
-      .leftJoinAndSelect('salesOrder.items', 'items')
-      .leftJoinAndSelect('items.product', 'product')
-      .leftJoinAndSelect('salesOrder.invoices', 'invoices')
-      .leftJoinAndSelect('invoices.payments', 'payments')
-      .leftJoinAndSelect('invoices.items', 'invoiceItems')
-      .leftJoinAndSelect('invoiceItems.product', 'invoiceItemProduct')
-      .where('salesOrder.id = :id', { id })
-      .getOne();
-
-    if (!order) {
-      throw new NotFoundException('Sales order not found');
-    }
-
-    // Filter out soft-deleted and inactive payments in application layer
-    if (order.invoices && order.invoices.length > 0) {
-      order.invoices.forEach(invoice => {
-        if (invoice.payments && invoice.payments.length > 0) {
-          invoice.payments = invoice.payments.filter(p => p.isActive && !p.deletedAt);
-        }
-      });
-    }
-
-    console.log(`[findById] Order ${order.orderNumber}: ${order.invoices?.length || 0} invoices`);
-    if (order.invoices && order.invoices.length > 0) {
-      order.invoices.forEach(inv => {
-        console.log(`  Invoice ${inv.invoiceNumber}: ${inv.payments?.length || 0} payments`);
-        if (inv.payments) {
-          inv.payments.forEach(p => console.log(`    - ${p.paymentNumber}: isActive=${p.isActive}, deletedAt=${p.deletedAt}`));
-        }
-      });
-    }
-
-    // Manually load products for items if not already loaded
-    if (order.items && order.items.length > 0) {
-      console.log(`[findById] Loading products for ${order.items.length} items`);
-      for (const item of order.items) {
-        console.log(`[findById] Item ${item.id}: productId=${item.productId}, product=${item.product ? 'loaded' : 'null'}`);
-        if (!item.product && item.productId) {
-          item.product = await this.productRepository.findOne({
-            where: { id: item.productId }
-          });
-          console.log(`[findById] Manually loaded product: ${item.product?.name || 'FAILED'}`);
-        }
-      }
-    }
-
-    // Also fetch payments directly associated with this order (not through invoice)
-    try {
-      const Payment = (await import('../../../database/entities/payment.entity')).Payment;
-      const ILike = (await import('typeorm')).ILike;
-      const paymentRepository = this.salesOrderRepository.manager.getRepository(Payment);
-
-      const directPayments = await paymentRepository.find({
-        where: {
-          customerId: order.customerId,
-          notes: ILike(`%sales order ${order.orderNumber}%`),
-          invoiceId: null as any, // Payments not linked to invoice
-        }
-      });
-
-      const dto = mapSalesOrderToResponseDto(order);
-      // Add direct payments to the response
-      (dto as any).directPayments = directPayments;
-      return dto;
-    } catch (error) {
-      console.error('Failed to fetch direct payments:', error);
-      return mapSalesOrderToResponseDto(order);
-    }
+    return this.salesOrderQueryService.findById(id);
   }
 
   async findByOrderNumber(orderNumber: string): Promise<SalesOrderResponseDto> {
-    const order = await this.salesOrderRepository.findOne({
-      where: { orderNumber },
-      relations: ['customer', 'items', 'items.product', 'invoices'],
-    });
-
-    if (!order) {
-      throw new NotFoundException('Sales order not found');
-    }
-
-    return mapSalesOrderToResponseDto(order);
+    return this.salesOrderQueryService.findByOrderNumber(orderNumber);
   }
 
   async update(
@@ -999,56 +564,11 @@ export class SalesOrderService {
   }
 
   async findOrdersByCustomer(customerId: string, limit: number = 10) {
-    const orders = await this.salesOrderRepository.find({
-      where: { customerId },
-      relations: ['items'],
-      order: { orderDate: 'DESC' },
-      take: limit,
-    });
-
-    return orders.map(order => ({
-      id: order.id,
-      orderNumber: order.orderNumber,
-      orderDate: order.orderDate,
-      totalAmount: Number(order.totalAmount),
-      itemsCount: order.items?.length || 0,
-    }));
+    return this.salesOrderQueryService.findOrdersByCustomer(customerId, limit);
   }
 
   async getOrderInvoices(id: string) {
-    const order = await this.salesOrderRepository.findOne({ where: { id } });
-    if (!order) {
-      throw new NotFoundException('Sales order not found');
-    }
-
-    const invoices = await this.invoiceRepository.find({
-      where: { salesOrderId: id },
-      order: { invoiceDate: 'DESC' },
-    });
-
-    return {
-      orderId: id,
-      orderNumber: order.orderNumber,
-      invoices: invoices.map(invoice => ({
-        id: invoice.id,
-        invoiceNumber: invoice.invoiceNumber,
-        status: invoice.status,
-        invoiceDate: invoice.invoiceDate,
-        shippingAmount: Number(invoice.shippingAmount || 0),
-        totalAmount: Number(invoice.totalAmount),
-        paidAmount: Number(invoice.paidAmount),
-        balanceDue: Number(invoice.balanceDue),
-        customerName: invoice.customer?.name,
-        customerId: invoice.customerId,
-        salesOrderId: invoice.salesOrderId,
-        salesOrder: {
-          id: order.id,
-          orderNumber: order.orderNumber,
-          orderDate: order.orderDate,
-        },
-        orderNumber: order.orderNumber,
-      })),
-    };
+    return this.salesOrderQueryService.getOrderInvoices(id);
   }
 
   async createInvoiceFromOrder(id: string) {
@@ -1163,53 +683,7 @@ export class SalesOrderService {
 
 
   async findDeleted(query: QuerySalesOrdersDto = {}): Promise<any> {
-    const {
-      search,
-      customerId,
-      sortBy = 'deletedAt',
-      sortOrder = 'ASC',
-      page = 1,
-      limit = 20,
-    } = query;
-
-    let queryBuilder = this.salesOrderRepository
-      .createQueryBuilder('order')
-      .withDeleted() // Include soft-deleted records
-      .leftJoinAndSelect('order.customer', 'customer')
-      .leftJoinAndSelect('order.items', 'items')
-      .where('order.deletedAt IS NOT NULL'); // Only get soft-deleted orders
-
-    if (customerId) {
-      queryBuilder = queryBuilder.andWhere('order.customerId = :customerId', { customerId });
-    }
-
-    if (search) {
-      queryBuilder = queryBuilder.andWhere(
-        '(order.orderNumber ILIKE :search OR customer.name ILIKE :search)',
-        { search: `%${search}%` }
-      );
-    }
-
-    // Add sorting
-    queryBuilder = queryBuilder.orderBy(`order.${sortBy}`, sortOrder as 'ASC' | 'DESC');
-
-    // Add pagination
-    const offset = (page - 1) * limit;
-    queryBuilder = queryBuilder.skip(offset).take(limit);
-
-    const [orders, total] = await queryBuilder.getManyAndCount();
-
-    const data = orders.map(order => mapSalesOrderToResponseDto(order));
-
-    return {
-      data,
-      meta: {
-        total,
-        page,
-        limit,
-        totalPages: Math.ceil(total / limit),
-      },
-    };
+    return this.salesOrderQueryService.findDeleted(query);
   }
 
   async restore(id: string, userId?: string, username?: string): Promise<SalesOrderResponseDto> {

@@ -35,6 +35,7 @@ import { InventoryIntegrationService } from './services/inventory-integration.se
 import { SalesOrderFulfillmentService } from './services/sales-order-fulfillment.service';
 import { SalesOrderLifecycleService } from './services/sales-order-lifecycle.service';
 import { SalesOrderPaymentService } from './services/sales-order-payment.service';
+import { SalesOrderQueryService } from './services/sales-order-query.service';
 import { TransactionManager } from '../../common/utils/transaction.util';
 
 @Module({
@@ -74,6 +75,7 @@ import { TransactionManager } from '../../common/utils/transaction.util';
     SalesOrderFulfillmentService,
     SalesOrderLifecycleService,
     SalesOrderPaymentService,
+    SalesOrderQueryService,
     TransactionManager,
   ],
   exports: [
