@@ -32,6 +32,7 @@ import { InvoiceService } from './services/invoice.service';
 import { PaymentService } from './services/payment.service';
 import { SalesAnalyticsService } from './services/sales-analytics.service';
 import { InventoryIntegrationService } from './services/inventory-integration.service';
+import { SalesOrderPaymentService } from './services/sales-order-payment.service';
 import { TransactionManager } from '../../common/utils/transaction.util';
 
 @Module({
@@ -68,6 +69,7 @@ import { TransactionManager } from '../../common/utils/transaction.util';
     PaymentService,
     SalesAnalyticsService,
     InventoryIntegrationService,
+    SalesOrderPaymentService,
     TransactionManager,
   ],
   exports: [
