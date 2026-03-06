@@ -32,6 +32,7 @@ import { InvoiceService } from './services/invoice.service';
 import { PaymentService } from './services/payment.service';
 import { SalesAnalyticsService } from './services/sales-analytics.service';
 import { InventoryIntegrationService } from './services/inventory-integration.service';
+import { SalesOrderFulfillmentService } from './services/sales-order-fulfillment.service';
 import { SalesOrderLifecycleService } from './services/sales-order-lifecycle.service';
 import { SalesOrderPaymentService } from './services/sales-order-payment.service';
 import { TransactionManager } from '../../common/utils/transaction.util';
@@ -70,6 +71,7 @@ import { TransactionManager } from '../../common/utils/transaction.util';
     PaymentService,
     SalesAnalyticsService,
     InventoryIntegrationService,
+    SalesOrderFulfillmentService,
     SalesOrderLifecycleService,
     SalesOrderPaymentService,
     TransactionManager,

@@ -30,6 +30,7 @@ import { BaseCostCalculatorService } from '../../inventory/services/base-cost-ca
 import { SettingsService } from '../../settings/settings.service';
 import { AuditLogService } from '../../audit-logs/services';
 import { AccountingService } from '@modules/accounting/services/accounting.service';
+import { SalesOrderFulfillmentService } from './sales-order-fulfillment.service';
 import { SalesOrderLifecycleService } from './sales-order-lifecycle.service';
 import { mapSalesOrderToResponseDto } from './sales-order.mapper';
 import { SalesOrderPaymentService } from './sales-order-payment.service';
@@ -62,6 +63,7 @@ export class SalesOrderService {
     private readonly settingsService: SettingsService,
     private readonly auditLogService: AuditLogService,
     private readonly accountingService: AccountingService,
+    private readonly salesOrderFulfillmentService: SalesOrderFulfillmentService,
     private readonly salesOrderLifecycleService: SalesOrderLifecycleService,
     private readonly salesOrderPaymentService: SalesOrderPaymentService,
   ) { }
@@ -1339,149 +1341,16 @@ export class SalesOrderService {
   }
 
   async fulfillOrder(id: string, userId?: string, username?: string): Promise<SalesOrderResponseDto> {
-    const order = await this.salesOrderRepository.findOne({
-      where: { id },
-      relations: ['customer', 'items', 'items.product'],
-    });
-
-    if (!order) {
-      throw new NotFoundException('Sales order not found');
-    }
-
-    if (order.isFulfilled) {
-      throw new ConflictException('Order is already fulfilled');
-    }
-
-    if (!order.isPaidInFull) {
-      throw new ConflictException(
-        `Cannot fulfill order. Payment required: ${order.balanceDue}. Received: ${order.paidAmount}`
-      );
-    }
-
-    // Deduct inventory for each item
-    for (const item of order.items) {
-      if (item.product) {
-        await this.inventoryIntegrationService.adjustStock(
-          item.productId,
-          -item.quantity,
-          `Sales order fulfillment: ${order.orderNumber}`,
-          order.id // Add referenceId so we can delete these movements later
-        );
-      }
-    }
-
-    // Mark as fulfilled
-    order.isFulfilled = true;
-    order.fulfilledDate = new Date();
-
-    const savedOrder = await this.salesOrderRepository.save(order);
-
-    // Log audit trail for fulfill
-    await this.auditLogService.log(
-      'FULFILL',
-      'SalesOrder',
-      `Fulfilled sales order: ${order.orderNumber}`,
-      {
-        entityId: id,
-        userId: userId || 'system',
-        username,
-        oldValues: { isFulfilled: false },
-        newValues: { isFulfilled: true, fulfilledDate: order.fulfilledDate },
-      }
+    const savedOrder = await this.salesOrderFulfillmentService.fulfillOrder(
+      id,
+      userId,
+      username,
     );
-
-    // Auto-post to accounting (don't fail fulfillment on error)
-    try {
-      const fullOrder = await this.salesOrderRepository.findOne({
-        where: { id },
-        relations: ['customer', 'items', 'items.product'],
-      });
-      if (fullOrder) {
-        await this.accountingService.postSalesOrderEntry(
-          fullOrder,
-          userId || 'system',
-          username,
-        );
-        this.logger.log(`Posted accounting entry for sales order ${fullOrder.orderNumber}`);
-      }
-    } catch (error) {
-      this.logger.error(
-        `Failed to post accounting entry for sales order ${id}: ${error.message}`,
-        error.stack,
-      );
-      // Continue - don't fail the fulfillment
-    }
-
     return this.findById(savedOrder.id);
   }
 
   async unfulfillOrder(id: string): Promise<SalesOrderResponseDto> {
-    const order = await this.salesOrderRepository.findOne({
-      where: { id },
-      relations: ['customer', 'items', 'items.product'],
-    });
-
-    if (!order) {
-      throw new NotFoundException('Sales order not found');
-    }
-
-    if (!order.isFulfilled) {
-      throw new ConflictException('Order is not fulfilled');
-    }
-
-    // Add inventory back for each item and restore cost history
-    for (const item of order.items) {
-      if (item.product) {
-        // Restore stock to cost history batches (reverses the FIFO reduction during fulfillment)
-        try {
-          await this.baseCostCalculator.restoreStock(item.productId, item.quantity);
-        } catch (error) {
-          console.warn(`Failed to restore cost history for product ${item.productId}: ${error.message}`);
-          // Fall back to regular stock adjustment if cost history restoration fails
-        }
-      }
-    }
-
-    // Delete stock movement records created during fulfillment
-    try {
-      const stockMovementResult = await this.stockMovementService.deleteByReference(
-        'sales_order',
-        order.id
-      );
-      console.log(`✅ Deleted ${stockMovementResult.deletedCount} stock movements for sales order ${order.orderNumber} unfulfillment`);
-    } catch (error) {
-      console.error(`⚠️ Failed to delete stock movements for sales order ${order.orderNumber}:`, error.message);
-      // Don't throw error - unfulfillment should still succeed
-    }
-
-    // Reverse accounting journal entry for this fulfillment
-    try {
-      await this.accountingService.reverseSourceEntries('sales_order', id, 'system');
-      this.logger.log(`Reversed accounting entries for sales order ${order.orderNumber}`);
-    } catch (err) {
-      this.logger.error(`Failed to reverse JE for order ${id}: ${err.message}`);
-      // Continue - unfulfill proceeds even if accounting reversal fails
-    }
-
-    // Mark as unfulfilled
-    order.isFulfilled = false;
-    order.fulfilledDate = null;
-
-    const savedOrder = await this.salesOrderRepository.save(order);
-
-    // Log audit trail for unfulfill
-    await this.auditLogService.log(
-      'UPDATE',
-      'SalesOrder',
-      `Unfulfilled sales order: ${order.orderNumber}`,
-      {
-        entityId: id,
-        userId: 'system',
-        oldValues: { isFulfilled: true },
-        newValues: { isFulfilled: false, fulfilledDate: null },
-      }
-    );
-
+    const savedOrder = await this.salesOrderFulfillmentService.unfulfillOrder(id);
     return this.findById(savedOrder.id);
   }
 

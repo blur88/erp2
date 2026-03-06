@@ -18,6 +18,7 @@ import { SettingsService } from '../../settings/settings.service';
 import { AuditLogService } from '../../audit-logs/services';
 import { AccountingService } from '../../accounting/services/accounting.service';
 import { ConflictException, NotFoundException } from '@nestjs/common';
+import { SalesOrderFulfillmentService } from './sales-order-fulfillment.service';
 import { SalesOrderLifecycleService } from './sales-order-lifecycle.service';
 import { SalesOrderPaymentService } from './sales-order-payment.service';
 
@@ -72,6 +73,7 @@ describe('SalesOrderService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         SalesOrderService,
+        SalesOrderFulfillmentService,
         SalesOrderLifecycleService,
         SalesOrderPaymentService,
         {
