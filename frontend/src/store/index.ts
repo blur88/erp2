@@ -9,7 +9,6 @@ import authSlice from './slices/authSlice'
 import notificationSlice from './slices/notificationSlice'
 import inventorySlice from './slices/inventorySlice'
 import salesSlice from './slices/salesSlice'
-import customerSlice from './slices/customerSlice'
 import purchasingSlice from './slices/purchasingSlice'
 import backupSlice from './slices/backupSlice'
 import auditLogSlice from './slices/auditLogSlice'
@@ -31,6 +30,7 @@ import { userManagementApiSlice } from './api/userManagementApi'
 import { dashboardApiSlice } from './api/dashboardApi'
 import { inventoryApiSlice } from './api/inventoryApi'
 import { purchasingApiSlice } from './api/purchasingApi'
+import { salesApiSlice } from './api/salesApi'
 
 const rootReducer = combineReducers({
   theme: themeSlice,
@@ -38,7 +38,6 @@ const rootReducer = combineReducers({
   notifications: notificationSlice,
   inventory: inventorySlice,
   sales: salesSlice,
-  customers: customerSlice,
   purchasing: purchasingSlice,
   backup: backupSlice,
   auditLogs: auditLogSlice,
@@ -60,14 +59,15 @@ const rootReducer = combineReducers({
   [dashboardApiSlice.reducerPath]: dashboardApiSlice.reducer,
   [inventoryApiSlice.reducerPath]: inventoryApiSlice.reducer,
   [purchasingApiSlice.reducerPath]: purchasingApiSlice.reducer,
+  [salesApiSlice.reducerPath]: salesApiSlice.reducer,
 })
 
 // Persist configuration
 const persistConfig = {
   key: 'erp-app',
   storage,
-  whitelist: ['theme', 'auth', 'sales', 'notifications'], // Persist theme, auth, sales, and notifications
-  version: 3, // Add auth persistence
+  whitelist: ['theme', 'auth'],
+  version: 4,
   migrate: (state: any) => {
     // Force dark mode for all users on version 2+
     if (state) {
@@ -103,6 +103,7 @@ export const store = configureStore({
     dashboardApiSlice.middleware as any,
     inventoryApiSlice.middleware as any,
     purchasingApiSlice.middleware as any,
+    salesApiSlice.middleware as any,
   ),
   devTools: process.env.NODE_ENV !== 'production',
 })

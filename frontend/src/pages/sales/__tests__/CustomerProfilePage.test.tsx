@@ -3,7 +3,8 @@ import { render, screen, waitFor } from '@testing-library/react'
 import { Provider } from 'react-redux'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { configureStore } from '@reduxjs/toolkit'
-import customerReducer from '@/store/slices/customerSlice'
+import salesReducer from '@/store/slices/salesSlice'
+import { salesApiSlice } from '@/store/api/salesApi'
 import CustomerProfilePage from '../CustomerProfilePage'
 
 const mockCustomer = vi.hoisted(() => ({
@@ -49,7 +50,13 @@ vi.mock('@/services/salesApi', () => ({
 }))
 
 function makeStore() {
-  return configureStore({ reducer: { customers: customerReducer } })
+  return configureStore({
+    reducer: {
+      sales: salesReducer,
+      [salesApiSlice.reducerPath]: salesApiSlice.reducer,
+    },
+    middleware: (getDefaultMiddleware) => getDefaultMiddleware().concat(salesApiSlice.middleware),
+  })
 }
 
 function renderPage(customerId = 'test-uuid-1') {

@@ -45,7 +45,8 @@ import {
 import { formatCurrency, formatDate } from '@/utils/formatters'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
 import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
-import { fetchInvoices, selectInvoicesState, setSelectedInvoice, selectSelectedInvoice, clearError } from '@/store/slices/salesSlice'
+import { useGetInvoicesQuery } from '@/store/api/salesApi'
+import { setSelectedInvoice, selectSelectedInvoice } from '@/store/slices/salesSlice'
 import { useSearchAndFilter, useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
 import { useNotification } from '@/hooks/useNotification'
 import DeletedInvoicesDialog from '@/components/sales/DeletedInvoicesDialog'
@@ -155,7 +156,6 @@ const InvoicesPage: React.FC = () => {
   const location = useLocation()
 
   const dispatch = useAppDispatch()
-  const { invoices, loading, error, pagination } = useAppSelector(selectInvoicesState)
   const selectedInvoice = useAppSelector(selectSelectedInvoice) as InvoiceListItem | null
 
   const [filters, setFilters] = useState<InvoiceFilters>({
@@ -217,7 +217,7 @@ const InvoicesPage: React.FC = () => {
     } else if (shouldPreserveSearchFocus) {
       setShouldPreserveSearchFocus(false)
     }
-  }, [shouldPreserveSearchFocus, loading])
+  }, [shouldPreserveSearchFocus])
 
   useEffect(() => {
     if (!selectedInvoice?.id) {
@@ -306,32 +306,29 @@ const InvoicesPage: React.FC = () => {
         return { fromDate: undefined, toDate: undefined }
     }
   }, [filters.customFromDate, filters.customToDate])
-
-  // Consolidated invoice fetching - handles all refresh scenarios
-  const fetchInvoicesData = useCallback(() => {
-    const dateRange = getDateRange(filters.dateFilter)
-    dispatch(fetchInvoices({
-      search: filters.search,
+  const dateRange = useMemo(() => getDateRange(filters.dateFilter), [filters.dateFilter, getDateRange])
+  const queryArgs = useMemo(
+    () => ({
+      search: filters.search || undefined,
       sortBy: filters.sortBy,
-      sortOrder: filters.sortOrder.toUpperCase() as any,
+      sortOrder: filters.sortOrder,
       fromDate: dateRange.fromDate,
-      toDate: dateRange.toDate
-    }))
-  }, [dispatch, filters, getDateRange])
-
-  // Main effect: Load invoices on mount and when filters/pagination change
-  useEffect(() => {
-    fetchInvoicesData()
-  }, [fetchInvoicesData])
+      toDate: dateRange.toDate,
+    }),
+    [dateRange.fromDate, dateRange.toDate, filters.search, filters.sortBy, filters.sortOrder],
+  )
+  const { data, isLoading: loading, error, refetch } = useGetInvoicesQuery(queryArgs)
+  const invoices = data?.data ?? []
+  const pagination = data?.meta ?? { page: 1, limit: 20, total: 0, totalPages: 0 }
 
   // Refresh on route navigation (when coming back from sales page)
   useEffect(() => {
     // Only refresh if we navigated TO invoices page FROM somewhere else
     if (previousPathnameRef.current !== '/sales/invoices' && location.pathname === '/sales/invoices') {
-      fetchInvoicesData()
+      void refetch()
     }
     previousPathnameRef.current = location.pathname
-  }, [location.pathname, fetchInvoicesData])
+  }, [location.pathname, refetch])
 
   // Update selected invoice when fresh data arrives (to reflect status changes)
   useEffect(() => {
@@ -430,9 +427,8 @@ const InvoicesPage: React.FC = () => {
         dispatch(setSelectedInvoice(paginatedInvoices[0] as any))
       }
     } else if (paginatedInvoices.length === 0) {
-      // Clear selection and error when no invoices in list
+      // Clear selection when no invoices in list
       dispatch(setSelectedInvoice(null))
-      dispatch(clearError())
       setFocusedInvoiceIndex(-1)
     }
   }, [paginatedInvoices, focusedInvoiceIndex, selectedInvoice, dispatch])
@@ -811,7 +807,7 @@ const InvoicesPage: React.FC = () => {
       {/* Error Display */}
       {error && (
         <Alert severity="error" sx={{ mb: 3 }}>
-          {error}
+          Failed to load invoices.
         </Alert>
       )}
       {/* Split Layout: Invoice List and Invoice Details */}

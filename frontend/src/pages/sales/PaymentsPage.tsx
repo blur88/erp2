@@ -53,6 +53,7 @@ import { useNotification } from '@/hooks/useNotification'
 import { salesApi } from '@/services/salesApi'
 import { journalEntriesApi } from '@/services/accountingApi'
 import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
+import { useGetPaymentsQuery } from '@/store/api/salesApi'
 import { setSelectedPayment, selectSelectedPayment } from '@/store/slices/salesSlice'
 import type { InvoiceItem } from '@/types'
 
@@ -60,9 +61,9 @@ import type { InvoiceItem } from '@/types'
 interface Payment {
   id: string
   paymentNumber: string
-  customerName: string
+  customerName?: string
   amount: number
-  paymentDate: string
+  paymentDate: string | Date
   paymentMethodId?: string
   paymentMethod?: string
   paymentMethodEntity?: {
@@ -70,7 +71,7 @@ interface Payment {
     code: string
     name: string
   }
-  status: 'completed'
+  status: 'pending' | 'completed' | 'failed' | 'cancelled' | 'refunded'
   notes?: string
   reference?: string
   relatedOrderId?: string
@@ -173,11 +174,6 @@ const PaymentsPage: React.FC = () => {
   const dispatch = useAppDispatch()
   const selectedPayment = useAppSelector(selectSelectedPayment) as Payment | null
 
-  const [payments, setPayments] = useState<Payment[]>([])
-  const [loading, setLoading] = useState(true) // Start as true to prevent clearing selection on mount
-  const [error, setError] = useState<string | null>(null)
-  const [totalPayments, setTotalPayments] = useState(0)
-
   const [filters, setFilters] = useState<PaymentFilters>({
     search: '',
     sortBy: 'paymentNumber',
@@ -252,7 +248,7 @@ const PaymentsPage: React.FC = () => {
     } else if (shouldPreserveSearchFocus) {
       setShouldPreserveSearchFocus(false)
     }
-  }, [shouldPreserveSearchFocus, loading])
+  }, [shouldPreserveSearchFocus])
 
   // Helper function to calculate date ranges
   const getDateRange = useCallback((filter: string) => {
@@ -285,6 +281,28 @@ const PaymentsPage: React.FC = () => {
         return { fromDate: undefined, toDate: undefined }
     }
   }, [filters.customFromDate, filters.customToDate])
+  const dateRange = useMemo(() => getDateRange(filters.dateFilter), [filters.dateFilter, getDateRange])
+  const queryArgs = useMemo(
+    () => ({
+      sortBy: filters.sortBy,
+      sortOrder: filters.sortOrder,
+      search: filters.search || undefined,
+      customerId: filters.customerId === 'all' ? undefined : filters.customerId,
+      fromDate: dateRange.fromDate,
+      toDate: dateRange.toDate,
+    }),
+    [
+      dateRange.fromDate,
+      dateRange.toDate,
+      filters.customerId,
+      filters.search,
+      filters.sortBy,
+      filters.sortOrder,
+    ],
+  )
+  const { data, isLoading: loading, error, refetch } = useGetPaymentsQuery(queryArgs)
+  const payments = data?.data ?? []
+  const totalPayments = data?.meta.total ?? 0
 
   // Filter and sort payments
   // Since backend handles filtering, sorting, and pagination, use payments directly
@@ -306,52 +324,17 @@ const PaymentsPage: React.FC = () => {
     setFocusedPaymentIndex(paymentIndex)
   }, [paginatedPayments, dispatch])
 
-  // Load payments from API
-  const loadPayments = useCallback(async () => {
-    setLoading(true)
-    setError(null)
-    try {
-      const dateRange = getDateRange(filters.dateFilter)
-      const response = await salesApi.getPayments({
-        sortBy: filters.sortBy,
-        sortOrder: filters.sortOrder.toUpperCase() as 'ASC' | 'DESC',
-        search: filters.search,
-        customerId: filters.customerId === 'all' ? undefined : filters.customerId,
-        fromDate: dateRange.fromDate,
-        toDate: dateRange.toDate,
-      } as any)
-
-      // Backend returns { data: Payment[], meta: { total } }
-      const paymentsData = (response as any)
-      if (paymentsData) {
-        setPayments(paymentsData.data || [])
-        setTotalPayments(paymentsData.meta?.total || 0)
-      }
-    } catch (err: any) {
-      console.error('Failed to load payments:', err)
-      setError(err.message || 'Failed to load payments')
-      showError('Failed to load payments')
-    } finally {
-      setLoading(false)
-    }
-  }, [filters, getDateRange, showError])
-
-  // Load payments on mount and when filters change
-  useEffect(() => {
-    loadPayments()
-  }, [loadPayments])
-
   // Refresh on route navigation (when coming back from another page)
   useEffect(() => {
     // Only refresh if we navigated TO payments page FROM somewhere else
     if (previousPathnameRef.current !== '/sales/payments' && location.pathname === '/sales/payments') {
-      loadPayments()
+      void refetch()
       // Reset restoration flag so selection can be restored again
       hasRestoredSelection.current = false
       // Don't reset focusedPaymentIndex here - let the restoration effect handle it
     }
     previousPathnameRef.current = location.pathname
-  }, [location.pathname, loadPayments, selectedPayment])
+  }, [location.pathname, refetch, selectedPayment])
 
   // Update selected payment when fresh data arrives (to reflect customer changes)
   useEffect(() => {
@@ -775,7 +758,7 @@ const PaymentsPage: React.FC = () => {
       {/* Error Display */}
       {error && (
         <Alert severity="error" sx={{ mb: 3 }}>
-          {error}
+          Failed to load payments.
         </Alert>
       )}
       {/* Split Layout: Payment List and Payment Details */}

@@ -21,18 +21,14 @@ import {
   useTheme,
   useMediaQuery,
 } from '@mui/material'
+import { skipToken } from '@reduxjs/toolkit/query'
 import {
   Search as SearchIcon,
   Close as CloseIcon,
   Payment as PaymentIcon,
 } from '@mui/icons-material'
-import { useDispatch, useSelector } from 'react-redux'
-import {
-  fetchDeletedPayments,
-  selectDeletedPayments,
-  selectSalesLoading
-} from '@/store/slices/salesSlice'
 import { formatCurrency, formatDate } from '@/utils/formatters'
+import { useGetDeletedPaymentsQuery } from '@/store/api/salesApi'
 
 interface DeletedPaymentsDialogProps {
   open: boolean
@@ -40,20 +36,13 @@ interface DeletedPaymentsDialogProps {
 }
 
 const DeletedPaymentsDialog: React.FC<DeletedPaymentsDialogProps> = ({ open, onClose }) => {
-  const dispatch = useDispatch() as any
   const theme = useTheme()
   const isMobile = useMediaQuery(theme.breakpoints.down('md'))
-  const deletedPayments = useSelector(selectDeletedPayments) || []
-  const loadingState = useSelector(selectSalesLoading)
-  const loading = loadingState?.deletedPayments || false
+  const { data, isLoading } = useGetDeletedPaymentsQuery(open ? {} : skipToken)
+  const deletedPayments = data?.data ?? []
+  const loading = isLoading
 
   const [searchTerm, setSearchTerm] = useState('')
-
-  useEffect(() => {
-    if (open) {
-      dispatch(fetchDeletedPayments({}))
-    }
-  }, [open, dispatch])
 
   // Filter payments based on search term
   const filteredPayments = deletedPayments.filter(payment =>

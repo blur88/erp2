@@ -30,10 +30,9 @@ import {
   Phone as PhoneIcon,
 } from '@mui/icons-material'
 import { useNavigate, useParams } from 'react-router-dom'
-import { useAppDispatch } from '@/hooks/useRedux'
 import { useNotification } from '@/hooks/useNotification'
+import { useDeleteCustomerMutation } from '@/store/api/salesApi'
 import { salesApi } from '@/services/salesApi'
-import { deleteCustomer } from '@/store/slices/customerSlice'
 import type { Customer } from '@/types'
 import { CustomerType } from '@/types'
 import { TABLE_STYLES } from '@/constants/typography'
@@ -88,8 +87,8 @@ interface OutstandingInvoice {
 const CustomerProfilePage: React.FC = () => {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const dispatch = useAppDispatch()
   const { showSuccess, showError } = useNotification()
+  const [deleteCustomer] = useDeleteCustomerMutation()
 
   const [customer, setCustomer] = useState<Customer | null>(null)
   const [statistics, setStatistics] = useState<CustomerStatistics | null>(null)
@@ -144,7 +143,7 @@ const CustomerProfilePage: React.FC = () => {
 
     setDeleteLoading(true)
     try {
-      await dispatch(deleteCustomer(id)).unwrap()
+      await deleteCustomer(id).unwrap()
       showSuccess('Customer deleted successfully.')
       navigate('/sales/customers')
     } catch (err: any) {

@@ -38,22 +38,21 @@ import {
   Phone as PhoneIcon,
   DeleteForever as DeleteForeverIcon,
 } from '@mui/icons-material'
-import { useDispatch, useSelector } from 'react-redux'
-import { 
-  fetchDeletedCustomers, 
-  restoreCustomer,
-  bulkRestoreCustomers,
-  permanentDeleteCustomer,
-  bulkPermanentDeleteCustomers,
-  selectDeletedCustomers, 
-  selectCustomersLoading,
-  fetchCustomers
-} from '@/store/slices/customerSlice'
+import { skipToken } from '@reduxjs/toolkit/query'
 import { useNotification } from '@/hooks/useNotification'
 import type { Customer } from '@/types'
 import { CustomerType } from '@/types'
 import { formatCurrency } from '@/utils/currency'
 import { formatDate as formatDisplayDate } from '@/utils/formatters'
+import {
+  useBulkPermanentDeleteCustomersMutation,
+  useBulkRestoreCustomersMutation,
+  useGetDeletedCustomersQuery,
+  usePermanentDeleteCustomerMutation,
+  useRestoreCustomerMutation,
+} from '@/store/api/salesApi'
+
+type DeletedCustomer = Customer & { email?: string; deletedAt?: string | Date }
 
 interface DeletedCustomersDialogProps {
   open: boolean
@@ -61,13 +60,17 @@ interface DeletedCustomersDialogProps {
 }
 
 const DeletedCustomersDialog: React.FC<DeletedCustomersDialogProps> = ({ open, onClose }) => {
-  const dispatch = useDispatch() as any
   const { showSuccess, showError } = useNotification()
   const theme = useTheme()
   const isMobile = useMediaQuery(theme.breakpoints.down('md'))
   const isTablet = useMediaQuery(theme.breakpoints.down('lg'))
-  const deletedCustomers = useSelector(selectDeletedCustomers) || []
-  const loading = useSelector(selectCustomersLoading)
+  const { data, isLoading, refetch } = useGetDeletedCustomersQuery(open ? {} : skipToken)
+  const [restoreCustomer] = useRestoreCustomerMutation()
+  const [bulkRestoreCustomers] = useBulkRestoreCustomersMutation()
+  const [permanentDeleteCustomer] = usePermanentDeleteCustomerMutation()
+  const [bulkPermanentDeleteCustomers] = useBulkPermanentDeleteCustomersMutation()
+  const deletedCustomers = (data?.data ?? []) as DeletedCustomer[]
+  const loading = isLoading
   
   const [searchTerm, setSearchTerm] = useState('')
   const [restoringId, setRestoringId] = useState<string | null>(null)
@@ -81,11 +84,10 @@ const DeletedCustomersDialog: React.FC<DeletedCustomersDialogProps> = ({ open, o
 
   useEffect(() => {
     if (open) {
-      dispatch(fetchDeletedCustomers({}))
       // Reset selections when dialog opens
       setSelectedCustomers(new Set())
     }
-  }, [open, dispatch])
+  }, [open])
 
   // Filter customers based on search term
   const filteredCustomers = deletedCustomers.filter(customer =>
@@ -99,20 +101,12 @@ const DeletedCustomersDialog: React.FC<DeletedCustomersDialogProps> = ({ open, o
   const allSelected = filteredCustomers.length > 0 && selectedCustomers.size === filteredCustomers.length
   const partiallySelected = selectedCustomers.size > 0 && selectedCustomers.size < filteredCustomers.length
 
-  const handleRestore = async (customer: Customer) => {
+  const handleRestore = async (customer: DeletedCustomer) => {
     setRestoringId(customer.id)
     try {
-      const result = await dispatch(restoreCustomer(customer.id))
-      
-      if (restoreCustomer.rejected.match(result)) {
-        throw new Error(result.payload as string)
-      }
+      await restoreCustomer(customer.id).unwrap()
       
       showSuccess(`Customer "${customer.name}" restored successfully`)
-      
-      // Refresh both deleted and active customers
-      dispatch(fetchDeletedCustomers({}))
-      dispatch(fetchCustomers({}))
     } catch (error: any) {
       console.error('Customer restore error:', error)
       const errorMessage = error?.response?.data?.message || error?.message || 'Failed to restore customer'
@@ -122,18 +116,12 @@ const DeletedCustomersDialog: React.FC<DeletedCustomersDialogProps> = ({ open, o
     }
   }
 
-  const handlePermanentDelete = async (customer: Customer) => {
+  const handlePermanentDelete = async (customer: DeletedCustomer) => {
     setDeletingId(customer.id)
     try {
-      const result = await dispatch(permanentDeleteCustomer(customer.id))
-      
-      if (permanentDeleteCustomer.rejected.match(result)) {
-        throw new Error(result.payload as string)
-      }
+      await permanentDeleteCustomer(customer.id).unwrap()
       
       showSuccess(`Customer "${customer.name}" permanently deleted`)
-      // Refresh deleted customers list
-      dispatch(fetchDeletedCustomers({}))
     } catch (error: any) {
       console.error('Customer permanent delete error:', error)
       const errorMessage = error?.response?.data?.message || error?.message || 'Failed to permanently delete customer'
@@ -168,13 +156,8 @@ const DeletedCustomersDialog: React.FC<DeletedCustomersDialogProps> = ({ open, o
     setBulkRestoring(true)
     try {
       const customerIds = Array.from(selectedCustomers)
-      const result = await dispatch(bulkRestoreCustomers(customerIds))
+      const payload = await bulkRestoreCustomers(customerIds).unwrap() as any
       
-      if (bulkRestoreCustomers.rejected.match(result)) {
-        throw new Error(result.payload as string)
-      }
-      
-      const payload = result.payload as any
       const restoredCount = payload?.restoredCount || 0
       const failedIds = payload?.failedIds || []
       
@@ -186,9 +169,6 @@ const DeletedCustomersDialog: React.FC<DeletedCustomersDialogProps> = ({ open, o
         showError(`Failed to restore ${failedIds.length} customers`)
       }
       
-      // Refresh both deleted and active customers and clear selections
-      dispatch(fetchDeletedCustomers({}))
-      dispatch(fetchCustomers({}))
       setSelectedCustomers(new Set())
     } catch (error: any) {
       console.error('Bulk restore error:', error)
@@ -204,13 +184,8 @@ const DeletedCustomersDialog: React.FC<DeletedCustomersDialogProps> = ({ open, o
     setBulkDeleting(true)
     try {
       const customerIds = Array.from(selectedCustomers)
-      const result = await dispatch(bulkPermanentDeleteCustomers(customerIds))
+      const payload = await bulkPermanentDeleteCustomers(customerIds).unwrap() as any
       
-      if (bulkPermanentDeleteCustomers.rejected.match(result)) {
-        throw new Error(result.payload as string)
-      }
-      
-      const payload = result.payload as any
       const deletedCount = payload?.deletedCount || 0
       const failedIds = payload?.failedIds || []
       
@@ -222,8 +197,6 @@ const DeletedCustomersDialog: React.FC<DeletedCustomersDialogProps> = ({ open, o
         showError(`Failed to delete ${failedIds.length} customers`)
       }
       
-      // Refresh deleted customers list and clear selections
-      dispatch(fetchDeletedCustomers({}))
       setSelectedCustomers(new Set())
     } catch (error: any) {
       console.error('Bulk permanent delete error:', error)
@@ -232,11 +205,12 @@ const DeletedCustomersDialog: React.FC<DeletedCustomersDialogProps> = ({ open, o
     } finally {
       setBulkDeleting(false)
       setShowBulkConfirm(false)
+      void refetch()
     }
   }
 
-  const formatDate = (dateString: string) => {
-    return formatDisplayDate(dateString)
+  const formatDate = (dateValue: string | Date) => {
+    return formatDisplayDate(String(dateValue))
   }
 
   const getCustomerTypeIcon = (type: CustomerType) => {

@@ -48,21 +48,14 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { useForm, Controller } from 'react-hook-form'
 import { yupResolver } from '@hookform/resolvers/yup'
 import * as yup from 'yup'
-import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
 import { useNotification } from '@/hooks/useNotification'
 import { useSearchAndFilter, useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
 import {
-  fetchCustomers,
-  createCustomer,
-  updateCustomer,
-  deleteCustomer,
-  selectCustomers,
-  selectCustomersLoading,
-  selectCustomersError,
-  selectCustomersFilters,
-  setFilters,
-  clearError,
-} from '@/store/slices/customerSlice'
+  useCreateCustomerMutation,
+  useDeleteCustomerMutation,
+  useGetCustomersQuery,
+  useUpdateCustomerMutation,
+} from '@/store/api/salesApi'
 import type { Customer } from '@/types'
 import { CustomerType } from '@/types'
 import { salesApi } from '@/services/salesApi'
@@ -100,21 +93,27 @@ interface CustomerFormData {
   notes?: string | null
 }
 
+interface CustomerFilters {
+  search?: string
+  type?: CustomerType
+  priceListId?: string
+  sortBy?: string
+  sortOrder?: 'ASC' | 'DESC'
+}
+
 const CustomersPage: React.FC = () => {
   const theme = useTheme()
   const isMobile = useMediaQuery(theme.breakpoints.down('md'))
   const location = useLocation()
   const navigate = useNavigate()
-  const dispatch = useAppDispatch()
   const { showSuccess, showError } = useNotification()
 
-  // Redux state
-  const customers = useAppSelector(selectCustomers)
-  const loading = useAppSelector(selectCustomersLoading)
-  const error = useAppSelector(selectCustomersError)
-  const filters = useAppSelector(selectCustomersFilters)
-
   // Local state
+  const [filters, setFilters] = useState<CustomerFilters>({
+    search: '',
+    sortBy: 'name',
+    sortOrder: 'ASC',
+  })
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
   const [isFormOpen, setIsFormOpen] = useState(false)
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false)
@@ -122,6 +121,17 @@ const CustomersPage: React.FC = () => {
   const [phoneValue, setPhoneValue] = useState<string>('')
   const [isCheckingPhone, setIsCheckingPhone] = useState(false)
   const [phoneError, setPhoneError] = useState<string | null>(null)
+  const [pageError, setPageError] = useState<string | null>(null)
+  const queryFilters = useMemo(
+    () => Object.fromEntries(Object.entries(filters).filter(([, value]) => value !== '' && value !== undefined)),
+    [filters],
+  )
+  const { data, isLoading, error, refetch } = useGetCustomersQuery({ ...queryFilters, limit: 999999 })
+  const [createCustomer] = useCreateCustomerMutation()
+  const [updateCustomer] = useUpdateCustomerMutation()
+  const [deleteCustomer] = useDeleteCustomerMutation()
+  const customers = data?.data ?? []
+  const loading = isLoading
 
   // Form setup
   const { control, handleSubmit, reset, formState: { errors }, setValue } = useForm<CustomerFormData>({
@@ -150,7 +160,7 @@ const CustomersPage: React.FC = () => {
         searchHookInitialized.current = true
         return
       }
-      dispatch(setFilters({ search: searchTerm }))
+      setFilters((prev) => ({ ...prev, search: searchTerm }))
     },
   })
 
@@ -225,11 +235,6 @@ const CustomersPage: React.FC = () => {
     [checkPhoneDuplicate]
   )
 
-  // Load customers on mount and when filters change
-  useEffect(() => {
-    dispatch(fetchCustomers({ ...filters }))
-  }, [dispatch, filters.search, filters.type, filters.priceListId, filters.sortBy, filters.sortOrder])
-
   // Handle form submit
   const handleFormSubmit = async (data: CustomerFormData) => {
     try {
@@ -246,14 +251,15 @@ const CustomersPage: React.FC = () => {
       }
 
       if (selectedCustomer) {
-        await dispatch(updateCustomer({ id: selectedCustomer.id, data: cleanedData })).unwrap()
+        await updateCustomer({ id: selectedCustomer.id, data: cleanedData }).unwrap()
         showSuccess('Customer updated successfully')
       } else {
-        await dispatch(createCustomer(cleanedData)).unwrap()
+        await createCustomer(cleanedData).unwrap()
         showSuccess('Customer created successfully')
       }
       handleCloseForm()
-      dispatch(fetchCustomers({ ...filters }))
+      setPageError(null)
+      void refetch()
     } catch (error) {
       showError(`Failed to ${selectedCustomer ? 'update' : 'create'} customer: ${error}`)
     }
@@ -263,7 +269,7 @@ const CustomersPage: React.FC = () => {
   const handleDelete = async () => {
     if (!selectedCustomer) return
     try {
-      await dispatch(deleteCustomer(selectedCustomer.id)).unwrap()
+      await deleteCustomer(selectedCustomer.id).unwrap()
 
       // If we get here, deletion was successful
       showSuccess(`Customer "${selectedCustomer.name}" deleted successfully`)
@@ -271,7 +277,8 @@ const CustomersPage: React.FC = () => {
       setSelectedCustomer(null)
 
       // Refresh the customer list to ensure consistency
-      dispatch(fetchCustomers({ ...filters }))
+      setPageError(null)
+      void refetch()
     } catch (error: any) {
       // Handle error responses with detailed information
       let errorTitle = 'Failed to Delete Customer'
@@ -306,6 +313,7 @@ const CustomersPage: React.FC = () => {
         errorMessage = actualError.message
       }
 
+      setPageError(errorMessage)
       showError(errorMessage)
     }
   }
@@ -377,7 +385,8 @@ const CustomersPage: React.FC = () => {
   }
 
   const handleSort = (sortBy: string) => {
-    dispatch(setFilters({
+    setFilters((prev) => ({
+      ...prev,
       sortBy,
       sortOrder: filters.sortBy === sortBy && filters.sortOrder === 'ASC' ? 'DESC' : 'ASC',
     }))
@@ -509,7 +518,12 @@ const CustomersPage: React.FC = () => {
           <Select
             value={filters.type || 'all'}
             label="Type"
-            onChange={(e) => dispatch(setFilters({ type: e.target.value === 'all' ? undefined : e.target.value as CustomerType }))}
+            onChange={(e) =>
+              setFilters((prev) => ({
+                ...prev,
+                type: e.target.value === 'all' ? undefined : (e.target.value as CustomerType),
+              }))
+            }
             sx={{
               height: TYPOGRAPHY_STYLES.searchField.input.height,
               fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
@@ -541,9 +555,9 @@ const CustomersPage: React.FC = () => {
       </Box>
       </Paper>
       {/* Error Alert */}
-      {error && (
-        <Alert severity="error" sx={{ mb: 3 }} onClose={() => dispatch(clearError())}>
-          {error}
+      {(pageError || error) && (
+        <Alert severity="error" sx={{ mb: 3 }} onClose={() => setPageError(null)}>
+          {pageError || 'Failed to load customers.'}
         </Alert>
       )}
       {/* Customer Table */}

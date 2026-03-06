@@ -3,33 +3,38 @@ import { render, screen } from '@testing-library/react'
 import { Provider } from 'react-redux'
 import { MemoryRouter } from 'react-router-dom'
 import { configureStore } from '@reduxjs/toolkit'
-import customerReducer from '@/store/slices/customerSlice'
+import salesReducer from '@/store/slices/salesSlice'
+import { salesApiSlice } from '@/store/api/salesApi'
 import CustomersPage from '../CustomersPage'
 
 vi.mock('@/hooks/useNotification', () => ({
   useNotification: () => ({ showSuccess: vi.fn(), showError: vi.fn() }),
 }))
 
-vi.mock('@/services/salesApi', () => ({
-  salesApi: {
-    getCustomers: vi.fn().mockResolvedValue({ data: [], meta: { total: 0, page: 1, limit: 25 } }),
-    getDeletedCustomers: vi.fn().mockResolvedValue({ data: [] }),
-  },
-}))
-
-vi.mock('@/store/slices/customerSlice', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@/store/slices/customerSlice')>()
+vi.mock('@/store/api/salesApi', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/store/api/salesApi')>()
   return {
     ...actual,
-    fetchCustomers: vi.fn(() => ({
-      type: 'customers/fetchCustomers/fulfilled',
-      payload: { data: [], meta: {} },
+    useGetCustomersQuery: vi.fn(() => ({
+      data: { data: [], meta: { total: 0, page: 1, limit: 25, totalPages: 0 } },
+      isLoading: false,
+      error: null,
+      refetch: vi.fn(),
     })),
+    useCreateCustomerMutation: vi.fn(() => [vi.fn()]),
+    useUpdateCustomerMutation: vi.fn(() => [vi.fn()]),
+    useDeleteCustomerMutation: vi.fn(() => [vi.fn()]),
   }
 })
 
 function makeStore() {
-  return configureStore({ reducer: { customers: customerReducer } })
+  return configureStore({
+    reducer: {
+      sales: salesReducer,
+      [salesApiSlice.reducerPath]: salesApiSlice.reducer,
+    },
+    middleware: (getDefaultMiddleware) => getDefaultMiddleware().concat(salesApiSlice.middleware),
+  })
 }
 
 function renderPage() {

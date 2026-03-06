@@ -46,8 +46,13 @@ import {
   Print as PrintIcon,
 } from '@mui/icons-material'
 import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
-import { fetchOrders, fetchOrderById, deleteOrder, selectOrders, selectSalesLoading, selectSalesError, selectSalesPagination, selectSelectedOrder, selectOrderFilters, setSelectedOrder, setOrderFilters, updateOrderInPlace, fetchInvoices, clearError } from '@/store/slices/salesSlice'
-import { fetchCustomers } from '@/store/slices/customerSlice'
+import {
+  useDeleteSalesOrderMutation,
+  useGetCustomersQuery,
+  useGetSalesOrdersQuery,
+  useLazyGetSalesOrderQuery,
+} from '@/store/api/salesApi'
+import { selectSalesError, selectSelectedOrder, selectOrderFilters, setSelectedOrder, setOrderFilters, updateOrderInPlace, clearError } from '@/store/slices/salesSlice'
 import { salesApi } from '@/services/salesApi'
 import { journalEntriesApi } from '@/services/accountingApi'
 import { SalesOrder } from '@/types'
@@ -134,22 +139,11 @@ const OrdersPage: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams()
   const dispatch = useAppDispatch()
   const { showSuccess, showError } = useNotification()
-  const orders = useAppSelector(selectOrders) || []
-  const customers = useAppSelector((state: any) => state.customers.customers) || []
-
-  const loading = useAppSelector(selectSalesLoading)?.orders || false
   const error = useAppSelector(selectSalesError)
-  const pagination = useAppSelector(selectSalesPagination)?.orders
   const selectedOrder = useAppSelector(selectSelectedOrder)
-  const orderFilters = useAppSelector(selectOrderFilters) || {
-    search: '',
-    sortBy: 'orderNumber',
-    sortOrder: 'asc',
-    dateFilter: 'all',
-    customFromDate: '',
-    customToDate: '',
-    customerId: 'all',
-  }
+  const orderFilters = useAppSelector(selectOrderFilters)
+  const [triggerGetSalesOrder] = useLazyGetSalesOrderQuery()
+  const [deleteSalesOrder] = useDeleteSalesOrderMutation()
 
   const [viewDialog, setViewDialog] = useState(false)
   const [blockedDialogOpen, setBlockedDialogOpen] = useState(false)
@@ -173,6 +167,52 @@ const OrdersPage: React.FC = () => {
   const searchInputRef = useRef<HTMLInputElement>(null)
   const processedHighlightRef = useRef<string | null>(null)
   const userHasNavigatedRef = useRef<boolean>(false)
+  const getDateRange = useCallback((filter: string) => {
+    const today = new Date()
+    const yesterday = new Date(today)
+    yesterday.setDate(yesterday.getDate() - 1)
+
+    const startOfWeek = new Date(today)
+    startOfWeek.setDate(today.getDate() - today.getDay())
+
+    const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1)
+    const startOfYear = new Date(today.getFullYear(), 0, 1)
+
+    const toDateParam = (date: Date) => date.toISOString().split('T')[0]
+
+    switch (filter) {
+      case 'today':
+        return { fromDate: toDateParam(today), toDate: toDateParam(today) }
+      case 'yesterday':
+        return { fromDate: toDateParam(yesterday), toDate: toDateParam(yesterday) }
+      case 'this_week':
+        return { fromDate: toDateParam(startOfWeek), toDate: toDateParam(today) }
+      case 'this_month':
+        return { fromDate: toDateParam(startOfMonth), toDate: toDateParam(today) }
+      case 'this_year':
+        return { fromDate: toDateParam(startOfYear), toDate: toDateParam(today) }
+      case 'custom':
+        return { fromDate: orderFilters.customFromDate, toDate: orderFilters.customToDate }
+      default:
+        return { fromDate: undefined, toDate: undefined }
+    }
+  }, [orderFilters.customFromDate, orderFilters.customToDate])
+  const dateRange = getDateRange(orderFilters.dateFilter)
+  const orderQueryArgs = {
+    sortBy: orderFilters.sortBy,
+    sortOrder: orderFilters.sortOrder,
+    search: orderFilters.search || undefined,
+    customerId: orderFilters.customerId === 'all' ? undefined : orderFilters.customerId,
+    fromDate: dateRange.fromDate,
+    toDate: dateRange.toDate,
+    paymentStatus: orderFilters.paymentStatus === 'all' ? undefined : orderFilters.paymentStatus,
+    fulfillmentStatus: orderFilters.fulfillmentStatus === 'all' ? undefined : orderFilters.fulfillmentStatus,
+  }
+  const { data: ordersData, isLoading: loading, refetch: refetchOrders } = useGetSalesOrdersQuery(orderQueryArgs)
+  const { data: customersData } = useGetCustomersQuery({ limit: 999999 })
+  const orders = ordersData?.data ?? []
+  const customers = customersData?.data ?? []
+  const pagination = ordersData?.meta
 
   // Memoize search change callback to prevent unnecessary re-renders
   const onSearchChange = useCallback((searchTerm: string) => {
@@ -237,18 +277,8 @@ const OrdersPage: React.FC = () => {
 
   // Memoize loadOrders function to prevent unnecessary re-renders
   const loadOrders = useCallback(() => {
-    const dateRange = getDateRange(orderFilters.dateFilter)
-    dispatch(fetchOrders({
-      sortBy: orderFilters.sortBy,
-      sortOrder: orderFilters.sortOrder,
-      search: orderFilters.search,
-      customerId: orderFilters.customerId === 'all' ? undefined : orderFilters.customerId,
-      fromDate: dateRange.fromDate,
-      toDate: dateRange.toDate,
-      paymentStatus: orderFilters.paymentStatus,
-      fulfillmentStatus: orderFilters.fulfillmentStatus,
-    }))
-  }, [dispatch, orderFilters.sortBy, orderFilters.sortOrder, orderFilters.dateFilter, orderFilters.customFromDate, orderFilters.customToDate, orderFilters.customerId, orderFilters.search, orderFilters.paymentStatus, orderFilters.fulfillmentStatus])
+    void refetchOrders()
+  }, [refetchOrders])
 
   // Clear ?highlight= query param so browser back/forward doesn't re-trigger highlight
   useEffect(() => {
@@ -270,23 +300,21 @@ const OrdersPage: React.FC = () => {
       hasRefreshedPersistedOrder.current = true
 
       // Fetch the selected order by ID first to get complete data with invoices/items
-      dispatch(fetchOrderById(selectedOrder.id) as any)
-        .then((result: any) => {
-          if (result.payload) {
-            const order = result.payload.data || result.payload
+      triggerGetSalesOrder(selectedOrder.id)
+        .unwrap()
+        .then((order) => {
             // Set the complete order data from fetchOrderById
             dispatch(setSelectedOrder(order))
 
             // Find the index of this order in the list after orders load
-            setTimeout(() => {
-              const orderIndex = orders.findIndex((o: any) => o.id === order.id)
-              if (orderIndex >= 0) {
-                setFocusedOrderIndex(orderIndex)
-              }
-              isRefreshingPersistedOrder.current = false
-            }, 500) // Small delay to ensure orders list has loaded
-          }
-        })
+	            setTimeout(() => {
+	              const orderIndex = orders.findIndex((o: any) => o.id === order.id)
+	              if (orderIndex >= 0) {
+	                setFocusedOrderIndex(orderIndex)
+	              }
+	              isRefreshingPersistedOrder.current = false
+	            }, 500) // Small delay to ensure orders list has loaded
+	        })
         .catch(() => {
           isRefreshingPersistedOrder.current = false
         })
@@ -316,17 +344,15 @@ const OrdersPage: React.FC = () => {
       // Also refresh the selected order to get updated customer data
       // But skip if we have a pendingOrderToSelect (navigating from create page) - don't overwrite it
       if (selectedOrder && !pendingOrderToSelect) {
-        dispatch(fetchOrderById(selectedOrder.id) as any)
-          .then((result: any) => {
-            if (result.payload) {
-              const order = result.payload.data || result.payload
-              dispatch(setSelectedOrder(order))
-            }
+        triggerGetSalesOrder(selectedOrder.id)
+          .unwrap()
+          .then((order) => {
+            dispatch(setSelectedOrder(order))
           })
       }
     }
     previousPathnameRef.current = location.pathname
-  }, [location.pathname, loadOrders, selectedOrder, dispatch, pendingOrderToSelect])
+  }, [location.pathname, loadOrders, selectedOrder, dispatch, pendingOrderToSelect, triggerGetSalesOrder])
 
   // Sync selected order with fresh data from orders list (but don't overwrite during refresh)
   useEffect(() => {
@@ -353,44 +379,6 @@ const OrdersPage: React.FC = () => {
     }
   }, [orders, selectedOrder, dispatch])
 
-  // Fetch customers on component mount - memoized to prevent re-fetching
-  useEffect(() => {
-    dispatch(fetchCustomers({})) // Get all customers for dropdown
-  }, [dispatch])
-
-  // Helper function to calculate date ranges - memoized for performance
-  const getDateRange = useCallback((filter: string) => {
-    const today = new Date()
-    const yesterday = new Date(today)
-    yesterday.setDate(yesterday.getDate() - 1)
-
-    const startOfWeek = new Date(today)
-    startOfWeek.setDate(today.getDate() - today.getDay())
-
-    const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1)
-    const startOfYear = new Date(today.getFullYear(), 0, 1)
-
-    const formatDate = (date: Date) => date.toISOString().split('T')[0]
-
-    switch (filter) {
-      case 'today':
-        return { fromDate: formatDate(today), toDate: formatDate(today) }
-      case 'yesterday':
-        return { fromDate: formatDate(yesterday), toDate: formatDate(yesterday) }
-      case 'this_week':
-        return { fromDate: formatDate(startOfWeek), toDate: formatDate(today) }
-      case 'this_month':
-        return { fromDate: formatDate(startOfMonth), toDate: formatDate(today) }
-      case 'this_year':
-        return { fromDate: formatDate(startOfYear), toDate: formatDate(today) }
-      case 'custom':
-        return { fromDate: orderFilters.customFromDate, toDate: orderFilters.customToDate }
-      default: // 'all'
-        return { fromDate: undefined, toDate: undefined }
-    }
-  }, [orderFilters.customFromDate, orderFilters.customToDate])
-
-
   const handleSort = useCallback((field: string) => {
     const newSortOrder = orderFilters.sortBy === field && orderFilters.sortOrder === 'desc' ? 'asc' : 'desc'
     dispatch(setOrderFilters({
@@ -405,10 +393,12 @@ const OrdersPage: React.FC = () => {
     const orderIndex = orders.findIndex((o: SalesOrder) => o.id === order.id)
     setFocusedOrderIndex(orderIndex)
     // Fetch full order details with invoices and payments
-    dispatch(fetchOrderById(order.id) as any)
+    void triggerGetSalesOrder(order.id).unwrap().then((fullOrder) => {
+      dispatch(setSelectedOrder(fullOrder))
+    })
     // Mark that user has manually navigated
     userHasNavigatedRef.current = true
-  }, [dispatch, orders])
+  }, [dispatch, orders, triggerGetSalesOrder])
 
 
   const handleOrderAction = async (action: string, orderId: string, data?: any) => {
@@ -463,16 +453,14 @@ const OrdersPage: React.FC = () => {
   const handleConfirmDelete = async () => {
     if (orderToDelete) {
       try {
-        // Use Redux deleteOrder thunk which handles the new API response
-        const result = await dispatch(deleteOrder(orderToDelete))
-
-        if (deleteOrder.fulfilled.match(result)) {
-          // The Redux action automatically updates the state and selects the previous order
-          showSuccess(`Order "${orderToDeleteName}" has been deleted successfully`)
-        } else if (deleteOrder.rejected.match(result)) {
-          const errorMessage = result.payload as string || 'Failed to delete order'
-          showError(errorMessage)
+        const result = await deleteSalesOrder(orderToDelete).unwrap()
+        if (result?.data) {
+          dispatch(setSelectedOrder(result.data))
+        } else {
+          dispatch(setSelectedOrder(null))
         }
+        void refetchOrders()
+        showSuccess(`Order "${orderToDeleteName}" has been deleted successfully`)
 
         setDeleteConfirmOpen(false)
         setOrderToDelete(null)
@@ -523,8 +511,8 @@ const OrdersPage: React.FC = () => {
 
       const response = await salesApi.recordOrderPayments(selectedOrder.id, payments)
       dispatch(updateOrderInPlace(response.data))
-      dispatch(fetchOrderById(selectedOrder.id) as any)
-      dispatch(fetchInvoices({ page: 1, limit: 20 }))
+      const fullOrder = await triggerGetSalesOrder(selectedOrder.id).unwrap()
+      dispatch(setSelectedOrder(fullOrder))
       showSuccess(`Payment of ${formatCurrency(totalAdding)} recorded successfully.`)
     } catch (error: any) {
       dispatch(updateOrderInPlace(selectedOrder))
@@ -542,10 +530,8 @@ const OrdersPage: React.FC = () => {
       await salesApi.unpayOrder(selectedOrder.id)
 
       // Re-fetch full order details to get updated invoice/items with proper relations
-      await dispatch(fetchOrderById(selectedOrder.id) as any)
-
-      // Refresh invoices to show updated payment amounts
-      dispatch(fetchInvoices({ page: 1, limit: 20 }))
+      const fullOrder = await triggerGetSalesOrder(selectedOrder.id).unwrap()
+      dispatch(setSelectedOrder(fullOrder))
 
       // Note: NOT calling fetchOrders here because it would overwrite selectedOrder
       // with a shallow version from the list that doesn't have full invoice/item relations.
@@ -580,8 +566,6 @@ const OrdersPage: React.FC = () => {
 
       const response = await salesApi.recordOrderPayment(selectedOrder.id, newPaidAmount)
       dispatch(updateOrderInPlace(response.data))
-      // Refresh invoices to show updated payment amounts
-      dispatch(fetchInvoices({ page: 1, limit: 20 }))
       showSuccess(`Refund of ${formatCurrency(overpayment)} processed. Payment adjusted to ${formatCurrency(newPaidAmount)}`)
     } catch (error: any) {
       // Revert optimistic update on error
@@ -869,14 +853,14 @@ const OrdersPage: React.FC = () => {
 
       // Step 3: Delete the order directly
       // The delete endpoint will verify the order is in correct state
-      const result = await dispatch(deleteOrder(orderId))
-
-      if (deleteOrder.fulfilled.match(result)) {
-        showSuccess(`Order "${orderNumber}" deleted successfully`)
-      } else if (deleteOrder.rejected.match(result)) {
-        const errorMessage = result.payload as string || 'Failed to delete order'
-        showError(errorMessage)
+      const result = await deleteSalesOrder(orderId).unwrap()
+      if (result?.data) {
+        dispatch(setSelectedOrder(result.data))
+      } else {
+        dispatch(setSelectedOrder(null))
       }
+      void refetchOrders()
+      showSuccess(`Order "${orderNumber}" deleted successfully`)
     } catch (error: any) {
       console.error('Error preparing order for deletion:', error)
       showError(error?.response?.data?.message || error.message || 'Error preparing order for deletion. Please try again.')
@@ -905,7 +889,7 @@ const OrdersPage: React.FC = () => {
         // No selected order - auto-focus and select first order
         setFocusedOrderIndex(0)
         dispatch(setSelectedOrder(orders[0]))
-        dispatch(fetchOrderById(orders[0].id) as any)
+        void triggerGetSalesOrder(orders[0].id).unwrap().then((order) => dispatch(setSelectedOrder(order)))
       }
     } else if (orders.length === 0) {
       // Clear selection and error when no orders in list
@@ -913,7 +897,7 @@ const OrdersPage: React.FC = () => {
       dispatch(clearError())
       setFocusedOrderIndex(-1)
     }
-  }, [orders, focusedOrderIndex, selectedOrder, dispatch, pendingOrderToSelect])
+  }, [orders, focusedOrderIndex, selectedOrder, dispatch, pendingOrderToSelect, triggerGetSalesOrder])
 
   // Re-sync focusedOrderIndex when orders list reloads after a highlight was processed.
   // The new order is unshifted to front of Redux array (index 0) before loadOrders fires,
@@ -938,9 +922,9 @@ const OrdersPage: React.FC = () => {
       userHasNavigatedRef.current = false
       setPendingOrderToSelect(null)
       // Fetch full order details with invoices and payments
-      dispatch(fetchOrderById(orders[orderIndex].id) as any)
+      void triggerGetSalesOrder(orders[orderIndex].id).unwrap().then((order) => dispatch(setSelectedOrder(order)))
     }
-  }, [orders, pendingOrderToSelect])
+  }, [orders, pendingOrderToSelect, dispatch, triggerGetSalesOrder])
 
   // Auto-scroll to keep focused item visible
   useEffect(() => {
@@ -963,11 +947,11 @@ const OrdersPage: React.FC = () => {
       setFocusedOrderIndex(newIndex)
       dispatch(setSelectedOrder(orders[newIndex]))
       // Fetch full order details with invoices and payments
-      dispatch(fetchOrderById(orders[newIndex].id) as any)
+      void triggerGetSalesOrder(orders[newIndex].id).unwrap().then((order) => dispatch(setSelectedOrder(order)))
       // Mark that user has manually navigated
       userHasNavigatedRef.current = true
     }
-  }, [focusedOrderIndex, orders, dispatch])
+  }, [focusedOrderIndex, orders, dispatch, triggerGetSalesOrder])
 
   const handleNavigateDown = useCallback(() => {
     if (focusedOrderIndex < orders.length - 1) {
@@ -975,22 +959,22 @@ const OrdersPage: React.FC = () => {
       setFocusedOrderIndex(newIndex)
       dispatch(setSelectedOrder(orders[newIndex]))
       // Fetch full order details with invoices and payments
-      dispatch(fetchOrderById(orders[newIndex].id) as any)
+      void triggerGetSalesOrder(orders[newIndex].id).unwrap().then((order) => dispatch(setSelectedOrder(order)))
       // Mark that user has manually navigated
       userHasNavigatedRef.current = true
     }
-  }, [focusedOrderIndex, orders, dispatch])
+  }, [focusedOrderIndex, orders, dispatch, triggerGetSalesOrder])
 
   const handleNavigateToFirst = useCallback(() => {
     if (orders.length > 0) {
       setFocusedOrderIndex(0)
       dispatch(setSelectedOrder(orders[0]))
       // Fetch full order details with invoices and payments
-      dispatch(fetchOrderById(orders[0].id) as any)
+      void triggerGetSalesOrder(orders[0].id).unwrap().then((order) => dispatch(setSelectedOrder(order)))
       // Mark that user has manually navigated
       userHasNavigatedRef.current = true
     }
-  }, [orders, dispatch])
+  }, [orders, dispatch, triggerGetSalesOrder])
 
   const handleNavigateToLast = useCallback(() => {
     if (orders.length > 0) {
@@ -998,11 +982,11 @@ const OrdersPage: React.FC = () => {
       setFocusedOrderIndex(lastIndex)
       dispatch(setSelectedOrder(orders[lastIndex]))
       // Fetch full order details with invoices and payments
-      dispatch(fetchOrderById(orders[lastIndex].id) as any)
+      void triggerGetSalesOrder(orders[lastIndex].id).unwrap().then((order) => dispatch(setSelectedOrder(order)))
       // Mark that user has manually navigated
       userHasNavigatedRef.current = true
     }
-  }, [orders, dispatch])
+  }, [orders, dispatch, triggerGetSalesOrder])
 
   const handlePageUpNavigation = useCallback(() => {
     const rowsPerPage = 20 // Default value previously used
@@ -1011,11 +995,11 @@ const OrdersPage: React.FC = () => {
     if (orders[newIndex]) {
       dispatch(setSelectedOrder(orders[newIndex]))
       // Fetch full order details with invoices and payments
-      dispatch(fetchOrderById(orders[newIndex].id) as any)
+      void triggerGetSalesOrder(orders[newIndex].id).unwrap().then((order) => dispatch(setSelectedOrder(order)))
       // Mark that user has manually navigated
       userHasNavigatedRef.current = true
     }
-  }, [focusedOrderIndex, orders, dispatch])
+  }, [focusedOrderIndex, orders, dispatch, triggerGetSalesOrder])
 
   const handlePageDownNavigation = useCallback(() => {
     const rowsPerPage = 20 // Default value previously used
@@ -1024,11 +1008,11 @@ const OrdersPage: React.FC = () => {
     if (orders[newIndex]) {
       dispatch(setSelectedOrder(orders[newIndex]))
       // Fetch full order details with invoices and payments
-      dispatch(fetchOrderById(orders[newIndex].id) as any)
+      void triggerGetSalesOrder(orders[newIndex].id).unwrap().then((order) => dispatch(setSelectedOrder(order)))
       // Mark that user has manually navigated
       userHasNavigatedRef.current = true
     }
-  }, [focusedOrderIndex, orders, dispatch])
+  }, [focusedOrderIndex, orders, dispatch, triggerGetSalesOrder])
 
   const handleEnterAction = useCallback(() => {
     if (focusedOrderIndex >= 0 && orders[focusedOrderIndex]) {
@@ -1891,7 +1875,7 @@ const OrdersPage: React.FC = () => {
                               Shipping
                             </TableCell>
                             <TableCell sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
-                              {formatCurrency(selectedOrder.shippingAmount || 0)}
+                              {formatCurrency((selectedOrder as any).shippingAmount || 0)}
                             </TableCell>
                           </TableRow>
                           <TableRow sx={{ backgroundColor: 'grey.50' }}>
@@ -2248,10 +2232,10 @@ const OrdersPage: React.FC = () => {
                         <Typography color="text.secondary">Name:</Typography>
                         <Typography>{selectedOrder.customer?.name}</Typography>
                       </Box>
-                      {selectedOrder.customer?.email && (
+                      {(selectedOrder.customer as any)?.email && (
                         <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                           <Typography color="text.secondary">Email:</Typography>
-                          <Typography>{selectedOrder.customer.email}</Typography>
+                          <Typography>{(selectedOrder.customer as any).email}</Typography>
                         </Box>
                       )}
                     </Stack>
