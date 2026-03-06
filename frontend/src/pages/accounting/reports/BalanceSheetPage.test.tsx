@@ -1,18 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
-import { Provider } from 'react-redux';
-import { configureStore } from '@reduxjs/toolkit';
-import BalanceSheetPage from './BalanceSheetPage';
-import accountingReportsReducer from '@/store/slices/accountingReportsSlice';
-import { ApiService } from '@/services/api';
 
-vi.mock('@/services/api', () => ({
-  ApiService: {
-    get: vi.fn(),
-    post: vi.fn(),
-    patch: vi.fn(),
-    delete: vi.fn(),
-  },
+import BalanceSheetPage from './BalanceSheetPage';
+
+const mockedApi = vi.hoisted(() => ({
+  useGetBalanceSheetQuery: vi.fn(),
+}));
+
+vi.mock('@/store/api/accountingApi', () => ({
+  useGetBalanceSheetQuery: mockedApi.useGetBalanceSheetQuery,
 }));
 
 const reportData = {
@@ -34,38 +30,18 @@ const reportData = {
   isBalanced: false,
 };
 
-const createStore = () =>
-  configureStore({
-    reducer: {
-      accountingReports: accountingReportsReducer,
-    },
-    preloadedState: {
-      accountingReports: {
-        trialBalance: { data: null, loading: false, error: null },
-        balanceSheet: { data: reportData, loading: false, error: null },
-        profitAndLoss: { data: null, loading: false, error: null },
-        generalLedger: { data: null, loading: false, error: null },
-        accountActivity: { data: null, loading: false, error: null },
-        downloading: false,
-      },
-    } as any,
-  });
-
-const renderPage = () =>
-  render(
-    <Provider store={createStore()}>
-      <BalanceSheetPage />
-    </Provider>
-  );
-
 describe('BalanceSheetPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(ApiService.get).mockResolvedValue(reportData as any);
+    mockedApi.useGetBalanceSheetQuery.mockReturnValue({
+      data: reportData,
+      isLoading: false,
+      error: undefined,
+    });
   });
 
   it('uses uniform-height cards for assets, liabilities, and equity sections', async () => {
-    renderPage();
+    render(<BalanceSheetPage />);
 
     await waitFor(() => {
       expect(screen.getByTestId('balance-sheet-section-assets')).toBeInTheDocument();
@@ -81,7 +57,7 @@ describe('BalanceSheetPage', () => {
   });
 
   it('renders net income in a highlighted summary panel', async () => {
-    renderPage();
+    render(<BalanceSheetPage />);
 
     await waitFor(() => {
       expect(screen.getByTestId('balance-sheet-net-income')).toBeInTheDocument();
@@ -92,7 +68,7 @@ describe('BalanceSheetPage', () => {
   });
 
   it('keeps balance check footer card height consistent with totals cards', async () => {
-    renderPage();
+    render(<BalanceSheetPage />);
 
     await waitFor(() => {
       expect(screen.getByTestId('balance-sheet-total-assets')).toBeInTheDocument();

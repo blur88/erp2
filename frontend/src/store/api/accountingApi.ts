@@ -300,6 +300,11 @@ export const accountingApiSlice = createApi({
       transformResponse: normalizePaginated<PaymentMethodConfig>,
       providesTags: ['PaymentMethod'],
     }),
+    getDeletedPaymentMethods: builder.query<PaymentMethodConfig[], void>({
+      query: () => ({ url: '/settings/payment-methods/deleted' }),
+      transformResponse: (response: any) => (Array.isArray(response) ? response : response?.data ?? []),
+      providesTags: ['PaymentMethod'],
+    }),
     getSettlements: builder.query<PaginatedResponse<Settlement>, Record<string, unknown> | undefined>({
       query: (params) => ({ url: '/accounting/settlements', params: params ?? {} }),
       transformResponse: normalizePaginated<Settlement>,
@@ -560,6 +565,28 @@ export const accountingApiSlice = createApi({
       transformResponse: normalizeSingle<BankReconciliation>,
       invalidatesTags: (_result, _error, id) => [{ type: 'BankReconciliation', id }, 'BankReconciliation', 'AccountingReport'],
     }),
+    createPaymentMethod: builder.mutation<PaymentMethodConfig, Partial<PaymentMethodConfig>>({
+      query: (body) => ({ url: '/settings/payment-methods', method: 'POST', data: body }),
+      transformResponse: normalizeSingle<PaymentMethodConfig>,
+      invalidatesTags: ['PaymentMethod'],
+    }),
+    updatePaymentMethod: builder.mutation<PaymentMethodConfig, { id: string; data: Partial<PaymentMethodConfig> }>({
+      query: ({ id, data }) => ({ url: `/settings/payment-methods/${id}`, method: 'PATCH', data }),
+      transformResponse: normalizeSingle<PaymentMethodConfig>,
+      invalidatesTags: (_result, _error, { id }) => [{ type: 'PaymentMethod', id }, 'PaymentMethod'],
+    }),
+    deletePaymentMethod: builder.mutation<void, string>({
+      query: (id) => ({ url: `/settings/payment-methods/${id}`, method: 'DELETE' }),
+      invalidatesTags: (_result, _error, id) => [{ type: 'PaymentMethod', id }, 'PaymentMethod'],
+    }),
+    restorePaymentMethod: builder.mutation<void, string>({
+      query: (id) => ({ url: `/settings/payment-methods/${id}/restore`, method: 'POST' }),
+      invalidatesTags: (_result, _error, id) => [{ type: 'PaymentMethod', id }, 'PaymentMethod'],
+    }),
+    permanentDeletePaymentMethod: builder.mutation<void, string>({
+      query: (id) => ({ url: `/settings/payment-methods/${id}/permanent`, method: 'DELETE' }),
+      invalidatesTags: (_result, _error, id) => [{ type: 'PaymentMethod', id }, 'PaymentMethod'],
+    }),
     createSettlement: builder.mutation<
       Settlement,
       { paymentMethodId: string; settlementDate: string; paymentIds: string[]; reference?: string; notes?: string }
@@ -682,6 +709,7 @@ export const {
   useGetBankReconciliationsQuery,
   useGetBankReconciliationQuery,
   useGetPaymentMethodsQuery,
+  useGetDeletedPaymentMethodsQuery,
   useGetSettlementsQuery,
   useGetPendingSettlementSummaryQuery,
   useGetPendingSettlementPaymentsQuery,
@@ -724,6 +752,11 @@ export const {
   useUnmarkBankReconciliationClearedMutation,
   useCompleteBankReconciliationMutation,
   useReopenBankReconciliationMutation,
+  useCreatePaymentMethodMutation,
+  useUpdatePaymentMethodMutation,
+  useDeletePaymentMethodMutation,
+  useRestorePaymentMethodMutation,
+  usePermanentDeletePaymentMethodMutation,
   useCreateSettlementMutation,
   useCancelSettlementMutation,
   useCreateOwnerEquityTransactionMutation,

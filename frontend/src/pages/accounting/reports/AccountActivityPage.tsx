@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
+import { skipToken } from '@reduxjs/toolkit/query';
 import {
   Box,
   Typography,
@@ -32,20 +33,11 @@ import {
 } from '@mui/icons-material';
 import { TYPOGRAPHY_STYLES } from '@/constants/typography';
 import { useNavigate } from 'react-router-dom';
-import { useAppDispatch, useAppSelector } from '@/store';
 import { formatDate, formatDateTime } from '@/utils/formatters';
-import {
-  fetchAccountActivity,
-  downloadAccountActivityExcel,
-  selectAccountActivity,
-  selectDownloading,
-  clearAccountActivityError,
-} from '@/store/slices/accountingReportsSlice';
-import {
-  fetchChartOfAccounts,
-  selectChartOfAccounts,
-  ChartOfAccount,
-} from '@/store/slices/chartOfAccountsSlice';
+import { useGetAccountActivityQuery, useGetChartOfAccountsQuery } from '@/store/api/accountingApi';
+import type { ChartOfAccount } from '@/types';
+import { exportReportExcel } from '@/utils/exportReport';
+import { getErrorMessage } from '@/utils/errorMessage';
 
 // Format currency helper
 const formatCurrency = (amount: number): string => {
@@ -181,39 +173,27 @@ const accountActivityToolbarLayout = {
 export const getAccountActivityToolbarLayout = () => accountActivityToolbarLayout;
 
 const AccountActivityPage: React.FC = () => {
-  const dispatch = useAppDispatch();
   const navigate = useNavigate();
-
-  // Redux state
-  const accountActivityState = useAppSelector(selectAccountActivity);
-  const downloading = useAppSelector(selectDownloading);
-  const accounts = useAppSelector(selectChartOfAccounts);
-
-  const { data, loading, error } = accountActivityState || {
-    data: null,
-    loading: false,
-    error: null,
-  };
-  const entries = data?.entries ?? [];
-
-  // Local state for filters
   const [selectedAccount, setSelectedAccount] = useState<ChartOfAccount | null>(null);
   const [startDate, setStartDate] = useState<string>(getFirstDayOfMonth());
   const [endDate, setEndDate] = useState<string>(formatDateForInput(new Date()));
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [validationError, setValidationError] = useState<string | null>(null);
-
-  // Fetch accounts on mount
-  useEffect(() => {
-    dispatch(fetchChartOfAccounts({ isActive: true }));
-  }, [dispatch]);
-
-  // Clear error on mount
-  useEffect(() => {
-    return () => {
-      dispatch(clearAccountActivityError());
-    };
-  }, [dispatch]);
+  const [submitted, setSubmitted] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
+  const { data: accountsResponse } = useGetChartOfAccountsQuery({ page: 1, isActive: true });
+  const accounts = accountsResponse?.data ?? [];
+  const queryArgs = submitted && selectedAccount
+    ? {
+        accountId: selectedAccount.id,
+        startDate,
+        endDate,
+        status: statusFilter === 'ALL' ? undefined : statusFilter,
+      }
+    : skipToken;
+  const { data, isLoading: loading, error } = useGetAccountActivityQuery(queryArgs);
+  const errorMessage = error ? getErrorMessage(error, 'Failed to load account activity report') : null;
+  const entries = data?.entries ?? [];
 
   // Handle generate report
   const handleGenerateReport = () => {
@@ -226,32 +206,29 @@ const AccountActivityPage: React.FC = () => {
     // Clear validation error
     setValidationError(null);
 
-    // Fetch report
-    dispatch(
-      fetchAccountActivity({
-        accountId: selectedAccount.id,
-        startDate,
-        endDate,
-        status: statusFilter === 'ALL' ? undefined : statusFilter,
-      })
-    );
+    setSubmitted(true);
   };
 
-  // Handle export to Excel
-  const handleExportToExcel = () => {
+  const handleExportToExcel = async () => {
     if (!selectedAccount) {
       setValidationError('Please select an account to export the report');
       return;
     }
-
-    dispatch(
-      downloadAccountActivityExcel({
-        accountId: selectedAccount.id,
-        startDate,
-        endDate,
-        status: statusFilter === 'ALL' ? undefined : statusFilter,
-      })
-    );
+    try {
+      setIsDownloading(true);
+      await exportReportExcel(
+        '/accounting/reports/account-activity/export',
+        {
+          accountId: selectedAccount.id,
+          startDate,
+          endDate,
+          status: statusFilter === 'ALL' ? undefined : statusFilter,
+        },
+        `account-activity-${selectedAccount.code}-${startDate}-to-${endDate}.xlsx`,
+      );
+    } finally {
+      setIsDownloading(false);
+    }
   };
 
   // Handle entry number click
@@ -306,6 +283,7 @@ const AccountActivityPage: React.FC = () => {
               onChange={(event, newValue) => {
                 setSelectedAccount(newValue);
                 setValidationError(null);
+                setSubmitted(false);
               }}
               renderInput={(params) => (
                 <TextField
@@ -332,7 +310,10 @@ const AccountActivityPage: React.FC = () => {
                 label="Start Date"
                 type="date"
                 value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
+                onChange={(e) => {
+                  setStartDate(e.target.value);
+                  setSubmitted(false);
+                }}
                 size="small"
                 InputLabelProps={{ shrink: true }}
                 sx={{ minWidth: { xs: 140, sm: 160 } }}
@@ -343,7 +324,10 @@ const AccountActivityPage: React.FC = () => {
                 label="End Date"
                 type="date"
                 value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
+                onChange={(e) => {
+                  setEndDate(e.target.value);
+                  setSubmitted(false);
+                }}
                 size="small"
                 InputLabelProps={{ shrink: true }}
                 sx={{ minWidth: { xs: 140, sm: 160 } }}
@@ -356,7 +340,10 @@ const AccountActivityPage: React.FC = () => {
                   labelId="status-filter-label"
                   label="Status"
                   value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value)}
+                  onChange={(e) => {
+                    setStatusFilter(e.target.value);
+                    setSubmitted(false);
+                  }}
                 >
                   <MenuItem value="ALL">All Statuses</MenuItem>
                   <MenuItem value="DRAFT">Draft</MenuItem>
@@ -387,9 +374,9 @@ const AccountActivityPage: React.FC = () => {
             <Button
               variant="outlined"
               color="secondary"
-              startIcon={downloading ? <CircularProgress size={20} /> : <DownloadIcon />}
+              startIcon={isDownloading ? <CircularProgress size={20} /> : <DownloadIcon />}
               onClick={handleExportToExcel}
-              disabled={!data || loading || downloading}
+              disabled={!submitted || loading || isDownloading}
               sx={{ minWidth: 150, flex: { xs: 1, sm: 'initial' } }}
             >
               Export to Excel
@@ -399,18 +386,14 @@ const AccountActivityPage: React.FC = () => {
       </Paper>
 
       {/* Error Alert */}
-      {error && (
-        <Alert
-          severity="error"
-          sx={{ mb: 2 }}
-          onClose={() => dispatch(clearAccountActivityError())}
-        >
-          {error}
+      {errorMessage && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {errorMessage}
         </Alert>
       )}
 
       {/* Loading State */}
-      {loading && !data && (
+      {loading && submitted && !data && (
         <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 8 }}>
           <CircularProgress />
         </Box>

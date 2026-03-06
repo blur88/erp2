@@ -1,63 +1,39 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { Provider } from 'react-redux'
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
-import { configureStore } from '@reduxjs/toolkit'
-import accountMappingsReducer from '@/store/slices/accountMappingsSlice'
-import journalEntriesReducer from '@/store/slices/journalEntriesSlice'
-import AccountMappingsPage from '@/pages/accounting/AccountMappingsPage'
-import JournalEntriesPage from '@/pages/accounting/JournalEntriesPage'
-import AccountingEntryLink from '@/components/accounting/AccountingEntryLink'
-import AccountMappingWarning from '@/components/accounting/AccountMappingWarning'
+import { BrowserRouter, MemoryRouter, Route, Routes } from 'react-router-dom'
 import { JournalEntryStatus } from '@/types'
-import { accountMappingsApi, journalEntriesApi } from '@/services/accountingApi'
-import { paymentMethodsApi } from '@/services/paymentMethodsApi'
 
-// Mock API services
-vi.mock('@/services/accountingApi', () => ({
-  accountMappingsApi: {
-    getAll: vi.fn(),
-    validate: vi.fn(),
-    create: vi.fn(),
-    update: vi.fn(),
-    delete: vi.fn(),
-  },
-  journalEntriesApi: {
-    getAll: vi.fn(),
-    getById: vi.fn(),
-    create: vi.fn(),
-    update: vi.fn(),
-    delete: vi.fn(),
-    post: vi.fn(),
-    reverse: vi.fn(),
-  },
+const mockedApi = vi.hoisted(() => ({
+  useGetAccountMappingsQuery: vi.fn(),
+  useValidateAccountMappingsQuery: vi.fn(),
+  useGetPaymentMethodsQuery: vi.fn(),
+  useGetChartOfAccountsQuery: vi.fn(),
+  useCreateAccountMappingMutation: vi.fn(),
+  useUpdateAccountMappingMutation: vi.fn(),
+  useDeleteAccountMappingMutation: vi.fn(),
+  useGetJournalEntriesQuery: vi.fn(),
+  useDeleteJournalEntryMutation: vi.fn(),
+  usePostJournalEntryMutation: vi.fn(),
+  useBulkPostJournalEntriesMutation: vi.fn(),
+  useBulkDeleteJournalEntriesMutation: vi.fn(),
 }))
 
-vi.mock('@/services/paymentMethodsApi', () => ({
-  paymentMethodsApi: {
-    getActive: vi.fn().mockResolvedValue({ data: [] }),
-  },
+vi.mock('@/store/api/accountingApi', () => ({
+  useGetAccountMappingsQuery: mockedApi.useGetAccountMappingsQuery,
+  useValidateAccountMappingsQuery: mockedApi.useValidateAccountMappingsQuery,
+  useGetPaymentMethodsQuery: mockedApi.useGetPaymentMethodsQuery,
+  useGetChartOfAccountsQuery: mockedApi.useGetChartOfAccountsQuery,
+  useCreateAccountMappingMutation: mockedApi.useCreateAccountMappingMutation,
+  useUpdateAccountMappingMutation: mockedApi.useUpdateAccountMappingMutation,
+  useDeleteAccountMappingMutation: mockedApi.useDeleteAccountMappingMutation,
+  useGetJournalEntriesQuery: mockedApi.useGetJournalEntriesQuery,
+  useDeleteJournalEntryMutation: mockedApi.useDeleteJournalEntryMutation,
+  usePostJournalEntryMutation: mockedApi.usePostJournalEntryMutation,
+  useBulkPostJournalEntriesMutation: mockedApi.useBulkPostJournalEntriesMutation,
+  useBulkDeleteJournalEntriesMutation: mockedApi.useBulkDeleteJournalEntriesMutation,
 }))
 
-// Mock chart of accounts API
-vi.mock('@/services/chartOfAccountsApi', () => ({
-  chartOfAccountsApi: {
-    getAll: vi.fn().mockResolvedValue({
-      data: [
-        { id: 'acc1', accountCode: '1000', accountName: 'Cash', accountType: 'asset' },
-        { id: 'acc2', accountCode: '4000', accountName: 'Sales Revenue', accountType: 'revenue' },
-        { id: 'acc3', accountCode: '1200', accountName: 'Accounts Receivable', accountType: 'asset' },
-        { id: 'acc4', accountCode: '1300', accountName: 'Inventory', accountType: 'asset' },
-        { id: 'acc5', accountCode: '5000', accountName: 'Cost of Goods Sold', accountType: 'expense' },
-        { id: 'acc6', accountCode: '2000', accountName: 'Accounts Payable', accountType: 'liability' },
-      ],
-      meta: { page: 1, limit: 100, total: 6, totalPages: 1 },
-    }),
-  },
-}))
-
-// Mock notification hook
 vi.mock('@/hooks/useNotification', () => ({
   useNotification: () => ({
     showSuccess: vi.fn(),
@@ -65,124 +41,163 @@ vi.mock('@/hooks/useNotification', () => ({
   }),
 }))
 
-// Mock formatters
 vi.mock('@/utils/formatters', () => ({
   formatCurrency: (value: number) => `$${value.toFixed(2)}`,
   formatDate: (date: string | Date) => new Date(date).toLocaleDateString(),
 }))
 
-// Mock react-router-dom navigation
 const mockNavigate = vi.fn()
 vi.mock('react-router-dom', async () => {
-  const actual = await vi.importActual('react-router-dom')
+  const actual = await vi.importActual<typeof import('react-router-dom')>('react-router-dom')
   return {
     ...actual,
     useNavigate: () => mockNavigate,
   }
 })
 
-const createMockStore = (initialState = {}) => {
-  return configureStore({
-    reducer: {
-      accountMappings: accountMappingsReducer,
-      journalEntries: journalEntriesReducer,
-    },
-    preloadedState: initialState,
-  })
-}
-
-const renderWithRouter = (component: React.ReactElement, initialState = {}) => {
-  const store = createMockStore(initialState)
-  return render(
-    <Provider store={store}>
-      <BrowserRouter>{component}</BrowserRouter>
-    </Provider>
-  )
-}
+import AccountMappingWarning from '@/components/accounting/AccountMappingWarning'
+import AccountingEntryLink from '@/components/accounting/AccountingEntryLink'
+import AccountMappingsPage from '@/pages/accounting/AccountMappingsPage'
+import JournalEntriesPage from '@/pages/accounting/JournalEntriesPage'
 
 const createUser = () => {
   return (userEvent as any).setup ? (userEvent as any).setup() : userEvent
 }
 
+const renderWithRouter = (component: React.ReactElement) => {
+  return render(<BrowserRouter>{component}</BrowserRouter>)
+}
+
+const renderJournalEntriesPage = (initialEntryUrl = '/accounting/journal-entries') => {
+  return render(
+    <MemoryRouter initialEntries={[initialEntryUrl]}>
+      <Routes>
+        <Route path="*" element={<JournalEntriesPage />} />
+      </Routes>
+    </MemoryRouter>,
+  )
+}
+
 describe('Accounting Auto-Posting Integration Tests', () => {
+  const mockRefetch = vi.fn()
+  const mockCreateMapping = vi.fn(() => ({ unwrap: vi.fn().mockResolvedValue(undefined) }))
+  const mockUpdateMapping = vi.fn(() => ({ unwrap: vi.fn().mockResolvedValue(undefined) }))
+  const mockDeleteMapping = vi.fn(() => ({ unwrap: vi.fn().mockResolvedValue(undefined) }))
+  const mockDeleteJournalEntry = vi.fn(() => ({ unwrap: vi.fn().mockResolvedValue(undefined) }))
+  const mockPostJournalEntry = vi.fn(() => ({ unwrap: vi.fn().mockResolvedValue(undefined) }))
+  const mockBulkPostJournalEntries = vi.fn(() => ({ unwrap: vi.fn().mockResolvedValue({ succeeded: [], failed: [] }) }))
+  const mockBulkDeleteJournalEntries = vi.fn(() => ({ unwrap: vi.fn().mockResolvedValue({ succeeded: [], failed: [] }) }))
+
   beforeEach(() => {
     vi.clearAllMocks()
     mockNavigate.mockClear()
-    ;(paymentMethodsApi.getActive as any).mockResolvedValue({ data: [] })
+
+    mockedApi.useGetAccountMappingsQuery.mockReturnValue({
+      data: [],
+      isLoading: false,
+      error: undefined,
+      refetch: mockRefetch,
+    })
+    mockedApi.useValidateAccountMappingsQuery.mockReturnValue({
+      data: {
+        isValid: true,
+        missingMappings: [],
+        configuredMappings: [],
+      },
+      refetch: mockRefetch,
+    })
+    mockedApi.useGetPaymentMethodsQuery.mockReturnValue({
+      data: {
+        data: [],
+        meta: { page: 1, limit: 50, total: 0, totalPages: 0 },
+      },
+    })
+    mockedApi.useGetChartOfAccountsQuery.mockReturnValue({
+      data: {
+        data: [],
+        meta: { page: 1, limit: 100, total: 0, totalPages: 0 },
+      },
+      isLoading: false,
+    })
+    mockedApi.useCreateAccountMappingMutation.mockReturnValue([mockCreateMapping])
+    mockedApi.useUpdateAccountMappingMutation.mockReturnValue([mockUpdateMapping])
+    mockedApi.useDeleteAccountMappingMutation.mockReturnValue([mockDeleteMapping])
+    mockedApi.useGetJournalEntriesQuery.mockReturnValue({
+      data: {
+        data: [],
+        meta: { page: 1, limit: 50, total: 0, totalPages: 0 },
+      },
+      isLoading: false,
+      error: undefined,
+      refetch: mockRefetch,
+    })
+    mockedApi.useDeleteJournalEntryMutation.mockReturnValue([mockDeleteJournalEntry])
+    mockedApi.usePostJournalEntryMutation.mockReturnValue([mockPostJournalEntry])
+    mockedApi.useBulkPostJournalEntriesMutation.mockReturnValue([mockBulkPostJournalEntries])
+    mockedApi.useBulkDeleteJournalEntriesMutation.mockReturnValue([mockBulkDeleteJournalEntries])
   })
 
   describe('End-to-End User Flow: Configuring Account Mappings', () => {
     it('loads account mappings page successfully', async () => {
-      // Start with no mappings configured
-      ;(accountMappingsApi.getAll as any).mockResolvedValue({ data: [], meta: {} })
-      ;(accountMappingsApi.validate as any).mockResolvedValue({
-        isComplete: false,
-        missingMappings: ['sales_revenue', 'sales_ar'],
-        configuredMappings: [],
+      mockedApi.useValidateAccountMappingsQuery.mockReturnValue({
+        data: {
+          isValid: false,
+          missingMappings: ['sales_revenue', 'sales_ar'],
+          configuredMappings: [],
+        },
+        refetch: mockRefetch,
       })
 
       renderWithRouter(<AccountMappingsPage />)
 
-      // Wait for page to load
       await waitFor(() => {
         expect(screen.getByText('Account Mappings Configuration')).toBeInTheDocument()
       })
-
-      // Page renders successfully
-      expect(screen.getByText('Account Mappings Configuration')).toBeInTheDocument()
     })
 
     it('shows account mappings when configured', async () => {
-      // All mappings configured
       const configuredMappings = [
         {
           id: 'map1',
           mappingType: 'sales_revenue',
           accountId: 'acc1',
           isActive: true,
+          account: { id: 'acc1', accountCode: '4000', accountName: 'Sales Revenue' },
         },
         {
           id: 'map2',
           mappingType: 'sales_ar',
           accountId: 'acc2',
           isActive: true,
+          account: { id: 'acc2', accountCode: '1200', accountName: 'Accounts Receivable' },
         },
       ]
 
-      ;(accountMappingsApi.getAll as any).mockResolvedValue({ data: configuredMappings, meta: {} })
-      ;(accountMappingsApi.validate as any).mockResolvedValue({
-        isComplete: true,
-        missingMappings: [],
-        configuredMappings: configuredMappings.map((m) => m.mappingType),
+      mockedApi.useGetAccountMappingsQuery.mockReturnValue({
+        data: configuredMappings,
+        isLoading: false,
+        error: undefined,
+        refetch: mockRefetch,
       })
 
       renderWithRouter(<AccountMappingsPage />)
 
       await waitFor(() => {
-        expect(screen.getByText('Account Mappings Configuration')).toBeInTheDocument()
+        expect(screen.getByText('Sales Revenue')).toBeInTheDocument()
       })
 
-      // Page loads successfully with mappings
-      expect(accountMappingsApi.getAll).toHaveBeenCalled()
+      expect(screen.getByText('Accounts Receivable (Sales)')).toBeInTheDocument()
     })
 
     it('renders account mappings page without errors', async () => {
-      ;(accountMappingsApi.getAll as any).mockResolvedValue({ data: [], meta: {} })
-      ;(accountMappingsApi.validate as any).mockResolvedValue({
-        isComplete: false,
-        missingMappings: [],
-        configuredMappings: [],
-      })
-
       renderWithRouter(<AccountMappingsPage />)
 
       await waitFor(() => {
         expect(screen.getByText('Account Mappings Configuration')).toBeInTheDocument()
       })
 
-      // Page renders without errors
-      expect(accountMappingsApi.getAll).toHaveBeenCalled()
-      expect(accountMappingsApi.validate).toHaveBeenCalled()
+      expect(mockedApi.useGetAccountMappingsQuery).toHaveBeenCalled()
+      expect(mockedApi.useValidateAccountMappingsQuery).toHaveBeenCalled()
     })
   })
 
@@ -194,10 +209,8 @@ describe('Accounting Auto-Posting Integration Tests', () => {
         </BrowserRouter>
       )
 
-      const button = screen.getByText('View Journal Entry')
-      fireEvent.click(button)
+      fireEvent.click(screen.getByText('View Journal Entry'))
 
-      // Should navigate to journal entries with query params
       expect(mockNavigate).toHaveBeenCalledWith('/accounting/journal-entries?sourceType=sales_order&sourceId=so-123')
     })
 
@@ -210,7 +223,6 @@ describe('Accounting Auto-Posting Integration Tests', () => {
 
       expect(screen.getByText('View Journal Entry')).toBeInTheDocument()
 
-      // Test inline variant
       rerender(
         <BrowserRouter>
           <AccountingEntryLink sourceType="payment" sourceId="pay-456" variant="inline" />
@@ -219,7 +231,6 @@ describe('Accounting Auto-Posting Integration Tests', () => {
 
       expect(screen.getByText('View Journal Entry')).toBeInTheDocument()
 
-      // Test alert variant
       rerender(
         <BrowserRouter>
           <AccountingEntryLink sourceType="payment" sourceId="pay-456" variant="alert" />
@@ -268,19 +279,20 @@ describe('Accounting Auto-Posting Integration Tests', () => {
       },
     ]
 
+    beforeEach(() => {
+      mockedApi.useGetJournalEntriesQuery.mockReturnValue({
+        data: {
+          data: mockJournalEntries,
+          meta: { page: 1, limit: 50, total: 3, totalPages: 1 },
+        },
+        isLoading: false,
+        error: undefined,
+        refetch: mockRefetch,
+      })
+    })
+
     it('displays both manual and auto-posted entries with correct type labels', async () => {
-      ;(journalEntriesApi.getAll as any).mockResolvedValue({
-        data: mockJournalEntries,
-        meta: { page: 1, limit: 50, total: 3, totalPages: 1 },
-      })
-
-      ;(accountMappingsApi.validate as any).mockResolvedValue({
-        isComplete: true,
-        missingMappings: [],
-        configuredMappings: [],
-      })
-
-      renderWithRouter(<JournalEntriesPage />)
+      renderJournalEntriesPage()
 
       await waitFor(() => {
         expect(screen.getByText('JE-2026-001')).toBeInTheDocument()
@@ -288,215 +300,113 @@ describe('Accounting Auto-Posting Integration Tests', () => {
         expect(screen.getByText('JE-2026-003')).toBeInTheDocument()
       })
 
-      // Check entry type chips
       expect(screen.getByText('Manual Entry')).toBeInTheDocument()
       expect(screen.getByText('Sales Order')).toBeInTheDocument()
       expect(screen.getByText('Customer Payment')).toBeInTheDocument()
     })
 
     it('shows "View Transaction" link only for auto-posted entries', async () => {
-      ;(journalEntriesApi.getAll as any).mockResolvedValue({
-        data: mockJournalEntries,
-        meta: { page: 1, limit: 50, total: 3, totalPages: 1 },
-      })
-
-      ;(accountMappingsApi.validate as any).mockResolvedValue({
-        isComplete: true,
-        missingMappings: [],
-        configuredMappings: [],
-      })
-
-      renderWithRouter(<JournalEntriesPage />)
+      renderJournalEntriesPage()
 
       await waitFor(() => {
         expect(screen.getByText('JE-2026-002')).toBeInTheDocument()
       })
 
-      // Should have 2 "View Transaction" links (for auto-posted entries only)
-      const viewLinks = screen.getAllByText('View Transaction')
-      expect(viewLinks).toHaveLength(2)
+      expect(screen.getAllByText('View Transaction')).toHaveLength(2)
     })
 
     it('navigates to source transaction when clicking View Transaction', async () => {
       const user = createUser()
 
-      ;(journalEntriesApi.getAll as any).mockResolvedValue({
-        data: mockJournalEntries,
-        meta: { page: 1, limit: 50, total: 3, totalPages: 1 },
-      })
-
-      ;(accountMappingsApi.validate as any).mockResolvedValue({
-        isComplete: true,
-        missingMappings: [],
-        configuredMappings: [],
-      })
-
-      renderWithRouter(<JournalEntriesPage />)
+      renderJournalEntriesPage()
 
       await waitFor(() => {
         expect(screen.getByText('JE-2026-002')).toBeInTheDocument()
       })
 
-      const viewLinks = screen.getAllByText('View Transaction')
-      await user.click(viewLinks[0])
+      await user.click(screen.getAllByText('View Transaction')[0])
 
-      // Should navigate to sales orders page and highlight the source order
       expect(mockNavigate).toHaveBeenCalledWith('/sales/orders?highlight=so-123')
     })
   })
 
   describe('Validation Warning Component', () => {
-    it('renders AccountMappingWarning component without errors', () => {
-      ;(accountMappingsApi.validate as any).mockResolvedValue({
-        isComplete: true,
-        missingMappings: [],
-        configuredMappings: ['sales_revenue', 'sales_ar'],
-      })
-
+    it('renders AccountMappingWarning component without errors when mappings are valid', () => {
       const { container } = render(
-        <Provider store={createMockStore()}>
-          <BrowserRouter>
-            <AccountMappingWarning context="system" />
-          </BrowserRouter>
-        </Provider>
+        <BrowserRouter>
+          <AccountMappingWarning context="system" />
+        </BrowserRouter>
       )
 
-      // Component renders successfully
       expect(container).toBeTruthy()
     })
 
-    it('can render transaction-specific warning component', () => {
-      ;(accountMappingsApi.validate as any).mockResolvedValue({
-        isComplete: true,
-        missingMappings: [],
-        configuredMappings: [],
+    it('can render transaction-specific warning component when mappings are invalid', () => {
+      mockedApi.useValidateAccountMappingsQuery.mockReturnValue({
+        data: {
+          isValid: false,
+          missingMappings: ['sales_revenue'],
+          configuredMappings: [],
+        },
+        refetch: mockRefetch,
       })
 
-      const { container } = render(
-        <Provider store={createMockStore()}>
-          <BrowserRouter>
-            <AccountMappingWarning context="sales_order" transactionId="so-123" />
-          </BrowserRouter>
-        </Provider>
+      render(
+        <BrowserRouter>
+          <AccountMappingWarning context="transaction" action="complete this sale" />
+        </BrowserRouter>
       )
 
-      // Component renders successfully
-      expect(container).toBeTruthy()
+      expect(screen.getByText(/accounting entry will not be created automatically/i)).toBeInTheDocument()
     })
   })
 
   describe('Journal Entry Filtering', () => {
     it('filters journal entries by source type', async () => {
-      ;(journalEntriesApi.getAll as any).mockResolvedValue({
-        data: [
-          {
-            id: 'je-1',
-            referenceNumber: 'JE-2026-001',
-            entryDate: '2026-02-01',
-            description: 'Sales order entry',
-            sourceType: 'sales_order',
-            sourceId: 'so-123',
-            status: JournalEntryStatus.POSTED,
-            totalDebits: 5000,
-            totalCredits: 5000,
-          },
-        ],
-        meta: { page: 1, limit: 50, total: 1, totalPages: 1 },
+      mockedApi.useGetJournalEntriesQuery.mockReturnValue({
+        data: {
+          data: [
+            {
+              id: 'je-1',
+              referenceNumber: 'JE-2026-001',
+              entryDate: '2026-02-01',
+              description: 'Sales order entry',
+              sourceType: 'sales_order',
+              sourceId: 'so-123',
+              status: JournalEntryStatus.POSTED,
+              totalDebits: 5000,
+              totalCredits: 5000,
+            },
+          ],
+          meta: { page: 1, limit: 50, total: 1, totalPages: 1 },
+        },
+        isLoading: false,
+        error: undefined,
+        refetch: mockRefetch,
       })
 
-      ;(accountMappingsApi.validate as any).mockResolvedValue({
-        isComplete: true,
-        missingMappings: [],
-        configuredMappings: [],
-      })
-
-      renderWithRouter(<JournalEntriesPage />)
+      renderJournalEntriesPage()
 
       await waitFor(() => {
         expect(screen.getByText('JE-2026-001')).toBeInTheDocument()
       })
 
-      // Verify API was called
-      expect(journalEntriesApi.getAll).toHaveBeenCalled()
+      expect(mockedApi.useGetJournalEntriesQuery).toHaveBeenCalled()
     })
 
     it('handles URL query parameters for filtering (sourceType and sourceId)', async () => {
-      ;(journalEntriesApi.getAll as any).mockResolvedValue({
-        data: [],
-        meta: { page: 1, limit: 50, total: 0, totalPages: 0 },
-      })
-
-      ;(accountMappingsApi.validate as any).mockResolvedValue({
-        isComplete: true,
-        missingMappings: [],
-        configuredMappings: [],
-      })
-
-      const store = createMockStore()
-
-      render(
-        <Provider store={store}>
-          <BrowserRouter>
-            <Routes>
-              <Route
-                path="*"
-                element={<JournalEntriesPage />}
-              />
-            </Routes>
-          </BrowserRouter>
-        </Provider>
-      )
+      renderJournalEntriesPage('/accounting/journal-entries?sourceType=sales_order&sourceId=so-123')
 
       await waitFor(() => {
         expect(screen.getByText('Journal Entries')).toBeInTheDocument()
       })
 
-      // API should be called (will check params in real implementation)
-      expect(journalEntriesApi.getAll).toHaveBeenCalled()
-    })
-  })
-
-  describe('Account Mapping CRUD Operations', () => {
-    it('successfully creates a new account mapping', async () => {
-      ;(accountMappingsApi.create as any).mockResolvedValue({
-        id: 'map-new',
-        transactionType: 'sales_order_fulfillment',
-        description: 'Sales Order Fulfillment',
-        isActive: true,
-      })
-
-      // Test is simplified - full integration would require form submission
-      const result = await accountMappingsApi.create({
-        transactionType: 'sales_order_fulfillment',
-        description: 'Sales Order Fulfillment',
-        isActive: true,
-      })
-
-      expect(result).toBeDefined()
-      expect(result.transactionType).toBe('sales_order_fulfillment')
-    })
-
-    it('successfully updates an existing account mapping', async () => {
-      ;(accountMappingsApi.update as any).mockResolvedValue({
-        id: 'map-1',
-        transactionType: 'sales_order_fulfillment',
-        description: 'Updated Description',
-        isActive: true,
-      })
-
-      const result = await accountMappingsApi.update('map-1', {
-        description: 'Updated Description',
-      })
-
-      expect(result.description).toBe('Updated Description')
-    })
-
-    it('successfully deletes an account mapping', async () => {
-      ;(accountMappingsApi.delete as any).mockResolvedValue(undefined)
-
-      await accountMappingsApi.delete('map-1')
-
-      expect(accountMappingsApi.delete).toHaveBeenCalledWith('map-1')
+      expect(mockedApi.useGetJournalEntriesQuery).toHaveBeenCalledWith(
+        expect.objectContaining({
+          sourceType: 'sales_order',
+          sourceId: 'so-123',
+        }),
+      )
     })
   })
 })

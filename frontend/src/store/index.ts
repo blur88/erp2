@@ -13,16 +13,6 @@ import purchasingSlice from './slices/purchasingSlice'
 import backupSlice from './slices/backupSlice'
 import auditLogSlice from './slices/auditLogSlice'
 import priceListSlice from './slices/priceListSlice'
-import chartOfAccountsSlice from './slices/chartOfAccountsSlice'
-import journalEntriesSlice from './slices/journalEntriesSlice'
-import fiscalPeriodsSlice from './slices/fiscalPeriodsSlice'
-import accountMappingsSlice from './slices/accountMappingsSlice'
-import accountingReportsSlice from './slices/accountingReportsSlice'
-import bankReconciliationsSlice from './slices/bankReconciliationsSlice'
-import paymentMethodsSlice from './slices/paymentMethodsSlice'
-import settlementsSlice from './slices/settlementsSlice'
-import ownerEquitySlice from './slices/ownerEquitySlice'
-import expenseSlice from './slices/expenseSlice'
 import { auditLogApiSlice } from './api/auditLogApi'
 import { backupApiSlice } from './api/backupApi'
 import { priceListApiSlice } from './api/priceListApi'
@@ -42,16 +32,6 @@ const rootReducer = combineReducers({
   backup: backupSlice,
   auditLogs: auditLogSlice,
   priceLists: priceListSlice,
-  chartOfAccounts: chartOfAccountsSlice,
-  journalEntries: journalEntriesSlice,
-  fiscalPeriods: fiscalPeriodsSlice,
-  accountMappings: accountMappingsSlice,
-  accountingReports: accountingReportsSlice,
-  bankReconciliations: bankReconciliationsSlice,
-  paymentMethods: paymentMethodsSlice,
-  settlements: settlementsSlice,
-  ownerEquity: ownerEquitySlice,
-  expenses: expenseSlice,
   [auditLogApiSlice.reducerPath]: auditLogApiSlice.reducer,
   [backupApiSlice.reducerPath]: backupApiSlice.reducer,
   [priceListApiSlice.reducerPath]: priceListApiSlice.reducer,

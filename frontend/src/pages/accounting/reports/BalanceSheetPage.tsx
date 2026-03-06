@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
+import { skipToken } from '@reduxjs/toolkit/query';
 import {
   Box,
   Typography,
@@ -28,15 +29,10 @@ import {
   ReceiptLong as BalanceSheetIcon,
 } from '@mui/icons-material';
 import { TYPOGRAPHY_STYLES } from '@/constants/typography';
-import { useAppDispatch, useAppSelector } from '@/store';
 import { formatDate } from '@/utils/formatters';
-import {
-  fetchBalanceSheet,
-  downloadBalanceSheetExcel,
-  selectBalanceSheet,
-  selectDownloading,
-  clearBalanceSheetError,
-} from '@/store/slices/accountingReportsSlice';
+import { useGetBalanceSheetQuery } from '@/store/api/accountingApi';
+import { exportReportExcel } from '@/utils/exportReport';
+import { getErrorMessage } from '@/utils/errorMessage';
 
 // Format currency helper
 const formatCurrency = (amount: number): string => {
@@ -176,54 +172,41 @@ const BalanceSheetSection: React.FC<SectionProps> = ({ title, accounts, subtotal
 };
 
 const BalanceSheetPage: React.FC = () => {
-  const dispatch = useAppDispatch();
   const theme = useTheme();
   const tone = getBalanceSheetTone(theme.palette.mode);
-
-  // Redux state
-  const balanceSheetState = useAppSelector(selectBalanceSheet);
-  const downloading = useAppSelector(selectDownloading);
-
-  const { data, loading, error } = balanceSheetState || {
-    data: null,
-    loading: false,
-    error: null,
-  };
-
-  // Local state for filters
   const [asOfDate, setAsOfDate] = useState<string>(formatDateForInput(new Date()));
   const [includeInactive, setIncludeInactive] = useState<boolean>(false);
+  const [submitted, setSubmitted] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
+  const queryArgs = submitted ? { asOfDate, includeInactive } : skipToken;
+  const { data, isLoading: loading, error } = useGetBalanceSheetQuery(queryArgs);
+  const errorMessage = error ? getErrorMessage(error, 'Failed to load balance sheet') : null;
 
-  // Load report on mount with default parameters
-  useEffect(() => {
-    handleGenerateReport();
-  }, []);
-
-  // Clear error on mount
-  useEffect(() => {
-    return () => {
-      dispatch(clearBalanceSheetError());
-    };
-  }, [dispatch]);
-
-  // Handle generate report
   const handleGenerateReport = () => {
-    dispatch(
-      fetchBalanceSheet({
-        asOfDate,
-        includeInactive,
-      })
-    );
+    setSubmitted(true);
   };
 
-  // Handle export to Excel
-  const handleExportToExcel = () => {
-    dispatch(
-      downloadBalanceSheetExcel({
-        asOfDate,
-        includeInactive,
-      })
-    );
+  const handleExportToExcel = async () => {
+    try {
+      setIsDownloading(true);
+      await exportReportExcel(
+        '/accounting/reports/balance-sheet/export',
+        { asOfDate, includeInactive },
+        `balance-sheet-${asOfDate}.xlsx`,
+      );
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
+  const handleAsOfDateChange = (value: string) => {
+    setAsOfDate(value);
+    setSubmitted(false);
+  };
+
+  const handleIncludeInactiveChange = (value: boolean) => {
+    setIncludeInactive(value);
+    setSubmitted(false);
   };
 
   const normalizeAccounts = (accounts: any[] | undefined): NormalizedBalanceAccount[] => {
@@ -301,7 +284,7 @@ const BalanceSheetPage: React.FC = () => {
               label="As Of Date"
               type="date"
               value={asOfDate}
-              onChange={(e) => setAsOfDate(e.target.value)}
+              onChange={(e) => handleAsOfDateChange(e.target.value)}
               size="small"
               InputLabelProps={{ shrink: true }}
               sx={{ minWidth: 200 }}
@@ -310,7 +293,7 @@ const BalanceSheetPage: React.FC = () => {
               control={
                 <Checkbox
                   checked={includeInactive}
-                  onChange={(e) => setIncludeInactive(e.target.checked)}
+                  onChange={(e) => handleIncludeInactiveChange(e.target.checked)}
                 />
               }
               label="Include Inactive Accounts"
@@ -336,9 +319,9 @@ const BalanceSheetPage: React.FC = () => {
             <Button
               variant="outlined"
               color="secondary"
-              startIcon={downloading ? <CircularProgress size={20} /> : <DownloadIcon />}
+              startIcon={isDownloading ? <CircularProgress size={20} /> : <DownloadIcon />}
               onClick={handleExportToExcel}
-              disabled={!data || loading || downloading}
+              disabled={!submitted || loading || isDownloading}
               sx={{ minWidth: 150, flex: { xs: 1, sm: 'initial' } }}
             >
               Export to Excel
@@ -348,18 +331,14 @@ const BalanceSheetPage: React.FC = () => {
       </Paper>
 
       {/* Error Alert */}
-      {error && (
-        <Alert
-          severity="error"
-          sx={{ mb: 2 }}
-          onClose={() => dispatch(clearBalanceSheetError())}
-        >
-          {error}
+      {errorMessage && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {errorMessage}
         </Alert>
       )}
 
       {/* Loading State */}
-      {loading && !data && (
+      {loading && submitted && !data && (
         <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 8 }}>
           <CircularProgress />
         </Box>

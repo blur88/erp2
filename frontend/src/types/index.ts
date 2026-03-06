@@ -423,6 +423,7 @@ export interface PaymentMethodConfig {
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
+  deletedAt?: string | null;
 }
 
 export interface Settlement {

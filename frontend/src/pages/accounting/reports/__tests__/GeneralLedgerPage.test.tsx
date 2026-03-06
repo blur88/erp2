@@ -1,115 +1,88 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
-import { Provider } from 'react-redux';
-import { BrowserRouter } from 'react-router-dom';
-import { configureStore } from '@reduxjs/toolkit';
-import GeneralLedgerPage, { getGeneralLedgerTone, getLedgerMetricCardSx } from '../GeneralLedgerPage';
-import accountingReportsReducer from '@/store/slices/accountingReportsSlice';
-import chartOfAccountsReducer from '@/store/slices/chartOfAccountsSlice';
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { render, screen } from '@testing-library/react'
 
-// Mock API
-vi.mock('@/services/api', () => ({
-  ApiService: {
-    get: vi.fn().mockResolvedValue({ data: [], meta: {} }),
-  },
-}));
+import GeneralLedgerPage, { getGeneralLedgerTone, getLedgerMetricCardSx } from '../GeneralLedgerPage'
 
-const createMockStore = () => {
-  return configureStore({
-    reducer: {
-      accountingReports: accountingReportsReducer,
-      chartOfAccounts: chartOfAccountsReducer,
-    },
-  });
-};
+const mockedApi = vi.hoisted(() => ({
+  useGetGeneralLedgerQuery: vi.fn(),
+  useGetChartOfAccountsQuery: vi.fn(),
+}))
 
-const renderWithProviders = () => {
-  const store = createMockStore();
-  return render(
-    <Provider store={store}>
-      <BrowserRouter>
-        <GeneralLedgerPage />
-      </BrowserRouter>
-    </Provider>
-  );
-};
+vi.mock('@/store/api/accountingApi', () => ({
+  useGetGeneralLedgerQuery: mockedApi.useGetGeneralLedgerQuery,
+  useGetChartOfAccountsQuery: mockedApi.useGetChartOfAccountsQuery,
+}))
 
 describe('GeneralLedgerPage', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
-  });
+    vi.clearAllMocks()
+    mockedApi.useGetGeneralLedgerQuery.mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      error: undefined,
+    })
+    mockedApi.useGetChartOfAccountsQuery.mockReturnValue({
+      data: { data: [], meta: { page: 1, limit: 20, total: 0, totalPages: 0 } },
+    })
+  })
 
   it('renders without crashing', () => {
-    renderWithProviders();
-    expect(screen.getByText('General Ledger')).toBeInTheDocument();
-  });
+    render(<GeneralLedgerPage />)
+    expect(screen.getByText('General Ledger')).toBeInTheDocument()
+  })
 
   it('displays page subtitle', () => {
-    renderWithProviders();
-    expect(
-      screen.getByText('View all transactions for a specific account with running balance')
-    ).toBeInTheDocument();
-  });
+    render(<GeneralLedgerPage />)
+    expect(screen.getByText('View all transactions for a specific account with running balance')).toBeInTheDocument()
+  })
 
   it('has filter inputs', () => {
-    renderWithProviders();
-    // Check that date filters are rendered
-    expect(screen.getByLabelText('Start Date')).toBeInTheDocument();
-  });
+    render(<GeneralLedgerPage />)
+    expect(screen.getByLabelText('Start Date')).toBeInTheDocument()
+  })
 
   it('has start date filter', () => {
-    renderWithProviders();
-    expect(screen.getByLabelText('Start Date')).toBeInTheDocument();
-  });
+    render(<GeneralLedgerPage />)
+    expect(screen.getByLabelText('Start Date')).toBeInTheDocument()
+  })
 
   it('has end date filter', () => {
-    renderWithProviders();
-    expect(screen.getByLabelText('End Date')).toBeInTheDocument();
-  });
+    render(<GeneralLedgerPage />)
+    expect(screen.getByLabelText('End Date')).toBeInTheDocument()
+  })
 
   it('has action buttons', () => {
-    renderWithProviders();
-    // Check that buttons are rendered (they may show loading spinner on mount)
-    const buttons = screen.getAllByRole('button');
-    expect(buttons.length).toBeGreaterThan(0);
-  });
+    render(<GeneralLedgerPage />)
+    expect(screen.getAllByRole('button').length).toBeGreaterThan(0)
+  })
 
   it('renders generate and export buttons in the report actions area', () => {
-    renderWithProviders();
-
-    const actions = screen.getByTestId('general-ledger-actions');
-    const generateButton = screen.getByRole('button', { name: /generate report/i });
-    const exportButton = screen.getByRole('button', { name: /export to excel/i });
-
-    expect(actions).toContainElement(generateButton);
-    expect(actions).toContainElement(exportButton);
-  });
+    render(<GeneralLedgerPage />)
+    expect(screen.getByTestId('general-ledger-actions')).toContainElement(screen.getByRole('button', { name: /generate report/i }))
+    expect(screen.getByTestId('general-ledger-actions')).toContainElement(screen.getByRole('button', { name: /export to excel/i }))
+  })
 
   it('uses dark-mode specific tones for report surfaces', () => {
-    const darkTone = getGeneralLedgerTone('dark');
-    const lightTone = getGeneralLedgerTone('light');
-
-    expect(darkTone.surfaceSoft).toBe('rgba(255, 255, 255, 0.06)');
-    expect(darkTone.surfaceStrong).toBe('rgba(255, 255, 255, 0.1)');
-    expect(darkTone.tableHeader).toBe('rgba(255, 255, 255, 0.08)');
-    expect(lightTone.surfaceSoft).toBe('grey.50');
-    expect(lightTone.surfaceStrong).toBe('grey.100');
-    expect(lightTone.tableHeader).toBe('grey.200');
-  });
+    const darkTone = getGeneralLedgerTone('dark')
+    const lightTone = getGeneralLedgerTone('light')
+    expect(darkTone.surfaceSoft).toBe('rgba(255, 255, 255, 0.06)')
+    expect(darkTone.surfaceStrong).toBe('rgba(255, 255, 255, 0.1)')
+    expect(darkTone.tableHeader).toBe('rgba(255, 255, 255, 0.08)')
+    expect(lightTone.surfaceSoft).toBe('grey.50')
+    expect(lightTone.surfaceStrong).toBe('grey.100')
+    expect(lightTone.tableHeader).toBe('grey.200')
+  })
 
   it('uses a shared metric card layout so all summary boxes have consistent height', () => {
-    const metricCardSx = getLedgerMetricCardSx();
-
-    expect(metricCardSx.height).toBe('100%');
-    expect(metricCardSx.minHeight).toBe(88);
-    expect(metricCardSx.display).toBe('flex');
-    expect(metricCardSx['& .MuiCardContent-root']).toEqual(
-      expect.objectContaining({
-        display: 'flex',
-        flexDirection: 'column',
-        justifyContent: 'space-between',
-        height: '100%',
-      })
-    );
-  });
-});
+    const metricCardSx = getLedgerMetricCardSx()
+    expect(metricCardSx.height).toBe('100%')
+    expect(metricCardSx.minHeight).toBe(88)
+    expect(metricCardSx.display).toBe('flex')
+    expect(metricCardSx['& .MuiCardContent-root']).toEqual(expect.objectContaining({
+      display: 'flex',
+      flexDirection: 'column',
+      justifyContent: 'space-between',
+      height: '100%',
+    }))
+  })
+})
