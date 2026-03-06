@@ -26,6 +26,7 @@ import paymentMethodsSlice from './slices/paymentMethodsSlice'
 import settlementsSlice from './slices/settlementsSlice'
 import ownerEquitySlice from './slices/ownerEquitySlice'
 import expenseSlice from './slices/expenseSlice'
+import { auditLogApiSlice } from './api/auditLogApi'
 
 const rootReducer = combineReducers({
   theme: themeSlice,
@@ -50,6 +51,7 @@ const rootReducer = combineReducers({
   settlements: settlementsSlice,
   ownerEquity: ownerEquitySlice,
   expenses: expenseSlice,
+  [auditLogApiSlice.reducerPath]: auditLogApiSlice.reducer,
 })
 
 // Persist configuration
@@ -81,11 +83,11 @@ export const store = configureStore({
   reducer: persistedReducer,
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({
-      serializableCheck: {
-        ignoredActions: ['persist/PERSIST', 'persist/REHYDRATE'],
-        ignoredPaths: ['register'],
-      },
-    }),
+    serializableCheck: {
+      ignoredActions: ['persist/PERSIST', 'persist/REHYDRATE'],
+      ignoredPaths: ['register'],
+    },
+  }).concat(auditLogApiSlice.middleware as any),
   devTools: process.env.NODE_ENV !== 'production',
 })
 
