@@ -1,40 +1,25 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor, fireEvent } from '@testing-library/react'
-import { Provider } from 'react-redux'
 import { BrowserRouter } from 'react-router-dom'
-import { configureStore } from '@reduxjs/toolkit'
+
 import AccountMappingsPage from './AccountMappingsPage'
-import accountMappingsReducer from '@/store/slices/accountMappingsSlice'
 import { MappingType } from '@/types/accountMapping'
 
-// Mock the accounting API so thunks resolve immediately without HTTP calls
-vi.mock('@/services/accountingApi', () => ({
-  accountMappingsApi: {
-    getAll: vi.fn(),
-    validate: vi.fn(),
-  },
+const mockedApi = vi.hoisted(() => ({
+  useGetAccountMappingsQuery: vi.fn(),
+  useValidateAccountMappingsQuery: vi.fn(),
+  useGetPaymentMethodsQuery: vi.fn(),
+  useDeleteAccountMappingMutation: vi.fn(),
 }))
 
-// Mock the payment methods API so the component's useEffect resolves immediately
-vi.mock('@/services/paymentMethodsApi', () => ({
-  paymentMethodsApi: {
-    getActive: vi.fn(),
-  },
+vi.mock('@/store/api/accountingApi', () => ({
+  useGetAccountMappingsQuery: mockedApi.useGetAccountMappingsQuery,
+  useValidateAccountMappingsQuery: mockedApi.useValidateAccountMappingsQuery,
+  useGetPaymentMethodsQuery: mockedApi.useGetPaymentMethodsQuery,
+  useDeleteAccountMappingMutation: mockedApi.useDeleteAccountMappingMutation,
 }))
 
-// Import mocked modules so tests can configure return values
-import { accountMappingsApi } from '@/services/accountingApi'
-import { paymentMethodsApi } from '@/services/paymentMethodsApi'
-
-const defaultValidationResult = {
-  isValid: false,
-  missingMappings: [],
-  configuredMappings: [],
-  totalRequired: 0,
-  totalConfigured: 0,
-}
-
-// Mock the notification hook
+// Mock notification hook
 vi.mock('@/hooks/useNotification', () => ({
   useNotification: () => ({
     showSuccess: vi.fn(),
@@ -42,11 +27,19 @@ vi.mock('@/hooks/useNotification', () => ({
   }),
 }))
 
+// Mock keyboard shortcuts
+vi.mock('@/hooks/useSearchAndFilter', async () => {
+  const actual = await vi.importActual('@/hooks/useSearchAndFilter')
+  return {
+    ...actual,
+    useKeyboardShortcuts: vi.fn(),
+  }
+})
+
 // Mock the AccountMappingDialog component
 vi.mock('@/components/accounting/AccountMappingDialog', () => ({
-  default: ({ open, onClose }: any) => (
-    open ? <div data-testid="account-mapping-dialog">Account Mapping Dialog</div> : null
-  ),
+  default: ({ open }: any) =>
+    open ? <div data-testid="account-mapping-dialog">Account Mapping Dialog</div> : null,
 }))
 
 const mockMappings = [
@@ -98,105 +91,113 @@ const dynamicPaymentMapping = {
   updatedAt: '2024-01-01',
 }
 
-const createMockStore = (initialState = {}) => {
-  return configureStore({
-    reducer: {
-      accountMappings: accountMappingsReducer,
-    },
-    preloadedState: {
-      accountMappings: {
-        mappings: [],
-        loading: false,
-        error: null,
-        isValid: false,
-        validationResult: null,
-        ...initialState,
-      },
-    },
-  })
+const defaultValidationResult = {
+  isValid: false,
+  missingMappings: [],
+  configuredMappings: [],
+  totalRequired: 0,
+  totalConfigured: 0,
 }
 
-const renderWithProviders = (ui: React.ReactElement, store: any) => {
-  return render(
-    <Provider store={store}>
-      <BrowserRouter>
-        {ui}
-      </BrowserRouter>
-    </Provider>
-  )
+const renderWithProviders = (ui: React.ReactElement) => {
+  return render(<BrowserRouter>{ui}</BrowserRouter>)
 }
 
 describe('AccountMappingsPage', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    // Default: API returns empty data so thunks don't overwrite preloaded store state
-    vi.mocked(accountMappingsApi.getAll).mockResolvedValue({ data: [] } as any)
-    vi.mocked(accountMappingsApi.validate).mockResolvedValue(defaultValidationResult as any)
-    vi.mocked(paymentMethodsApi.getActive).mockResolvedValue({ data: [] } as any)
+    mockedApi.useGetAccountMappingsQuery.mockReturnValue({
+      data: [],
+      isLoading: false,
+      error: undefined,
+      refetch: vi.fn(),
+    })
+    mockedApi.useValidateAccountMappingsQuery.mockReturnValue({
+      data: defaultValidationResult,
+      refetch: vi.fn(),
+    })
+    mockedApi.useGetPaymentMethodsQuery.mockReturnValue({
+      data: { data: [] },
+    })
+    mockedApi.useDeleteAccountMappingMutation.mockReturnValue([vi.fn()])
   })
 
   it('renders without crashing', async () => {
-    const store = createMockStore({ mappings: [] })
-    renderWithProviders(<AccountMappingsPage />, store)
+    renderWithProviders(<AccountMappingsPage />)
     await waitFor(() => {
       expect(screen.getByText('Account Mappings Configuration')).toBeInTheDocument()
     })
   })
 
   it('displays loading state', () => {
-    vi.mocked(accountMappingsApi.getAll).mockImplementation(
-      () => new Promise(() => {}) as any
-    )
-    vi.mocked(accountMappingsApi.validate).mockImplementation(
-      () => new Promise(() => {}) as any
-    )
-    vi.mocked(paymentMethodsApi.getActive).mockImplementation(
-      () => new Promise(() => {}) as any
-    )
+    mockedApi.useGetAccountMappingsQuery.mockReturnValue({
+      data: [],
+      isLoading: true,
+      error: undefined,
+      refetch: vi.fn(),
+    })
 
-    const store = createMockStore({ loading: true })
-    renderWithProviders(<AccountMappingsPage />, store)
+    renderWithProviders(<AccountMappingsPage />)
     expect(screen.getByRole('progressbar')).toBeInTheDocument()
   })
 
   it('displays validation warning when mappings incomplete', async () => {
-    const store = createMockStore({
-      mappings: mockMappings,
-      isValid: false,
-      validationResult: {
+    mockedApi.useGetAccountMappingsQuery.mockReturnValue({
+      data: mockMappings,
+      isLoading: false,
+      error: undefined,
+      refetch: vi.fn(),
+    })
+    mockedApi.useValidateAccountMappingsQuery.mockReturnValue({
+      data: {
+        isValid: false,
         isComplete: false,
         missingMappings: [MappingType.SALES_COGS, MappingType.SALES_INVENTORY],
         configuredMappings: [MappingType.SALES_REVENUE, MappingType.SALES_AR],
       },
+      refetch: vi.fn(),
     })
-    renderWithProviders(<AccountMappingsPage />, store)
+
+    renderWithProviders(<AccountMappingsPage />)
     await waitFor(() => {
       expect(screen.getByText(/Configuration Incomplete/i)).toBeInTheDocument()
-      expect(screen.getByText(/Cost of Goods Sold/i)).toBeInTheDocument()
+      expect(screen.getAllByText(/Cost of Goods Sold/i).length).toBeGreaterThan(0)
     })
   })
 
   it('displays success message when all mappings configured', async () => {
-    const store = createMockStore({
-      mappings: mockMappings,
-      isValid: true,
-      validationResult: {
+    mockedApi.useGetAccountMappingsQuery.mockReturnValue({
+      data: mockMappings,
+      isLoading: false,
+      error: undefined,
+      refetch: vi.fn(),
+    })
+    mockedApi.useValidateAccountMappingsQuery.mockReturnValue({
+      data: {
+        isValid: true,
         isComplete: true,
         missingMappings: [],
         configuredMappings: Object.values(MappingType),
       },
+      refetch: vi.fn(),
     })
-    renderWithProviders(<AccountMappingsPage />, store)
+
+    renderWithProviders(<AccountMappingsPage />)
     await waitFor(() => {
       expect(screen.getByText(/All required account mappings are configured/i)).toBeInTheDocument()
     })
   })
 
   it('shows all fixed mapping types in table including equity mappings', async () => {
-    const store = createMockStore({ mappings: mockMappings })
-    renderWithProviders(<AccountMappingsPage />, store)
+    mockedApi.useGetAccountMappingsQuery.mockReturnValue({
+      data: mockMappings,
+      isLoading: false,
+      error: undefined,
+      refetch: vi.fn(),
+    })
 
-    // Check for some mapping type labels
+    renderWithProviders(<AccountMappingsPage />)
+
     await waitFor(() => {
       expect(screen.getByText('Sales Revenue')).toBeInTheDocument()
     })
@@ -208,15 +209,12 @@ describe('AccountMappingsPage', () => {
   })
 
   it('opens dialog when clicking configure button for unmapped type', async () => {
-    const store = createMockStore({ mappings: [] })
-    renderWithProviders(<AccountMappingsPage />, store)
+    renderWithProviders(<AccountMappingsPage />)
 
-    // Wait for page to load first
     await waitFor(() => {
       expect(screen.getByText('Account Mappings Configuration')).toBeInTheDocument()
     })
 
-    // Find and click the first "Configure" button
     const configureButtons = screen.getAllByRole('button', { name: /configure/i })
     fireEvent.click(configureButtons[0])
 
@@ -225,43 +223,31 @@ describe('AccountMappingsPage', () => {
     })
   })
 
-  it('renders edit buttons for configured mappings', async () => {
-    const store = createMockStore({ mappings: mockMappings, loading: false })
-    renderWithProviders(<AccountMappingsPage />, store)
-
-    // Wait for page to load first
-    await waitFor(() => {
-      expect(screen.getByText('Account Mappings Configuration')).toBeInTheDocument()
-    })
-
-    // Wait for table to render - check for any table content
-    await waitFor(() => {
-      // Check for mapping type labels that should be in the table
-      expect(screen.getByText('Sales Revenue')).toBeInTheDocument()
-    })
-
-    // At this point, the table should be rendered with mappings
-    // The component functionality is verified by other tests
-  })
-
   it('renders clear action for configured mappings', async () => {
-    vi.mocked(accountMappingsApi.getAll).mockResolvedValue({ data: mockMappings } as any)
-    const store = createMockStore({ mappings: mockMappings, loading: false })
-    renderWithProviders(<AccountMappingsPage />, store)
-
-    await waitFor(() => {
-      expect(screen.getByText('Account Mappings Configuration')).toBeInTheDocument()
+    mockedApi.useGetAccountMappingsQuery.mockReturnValue({
+      data: mockMappings,
+      isLoading: false,
+      error: undefined,
+      refetch: vi.fn(),
     })
 
-    expect(screen.getAllByRole('button', { name: /clear/i }).length).toBeGreaterThan(0)
+    renderWithProviders(<AccountMappingsPage />)
+
+    await waitFor(() => {
+      expect(screen.getAllByRole('button', { name: /clear/i }).length).toBeGreaterThan(0)
+    })
   })
 
   it('displays configured mappings with account details', async () => {
-    vi.mocked(accountMappingsApi.getAll).mockResolvedValue({ data: mockMappings } as any)
-    const store = createMockStore({ mappings: mockMappings })
-    renderWithProviders(<AccountMappingsPage />, store)
+    mockedApi.useGetAccountMappingsQuery.mockReturnValue({
+      data: mockMappings,
+      isLoading: false,
+      error: undefined,
+      refetch: vi.fn(),
+    })
 
-    // Check that account codes and names are displayed
+    renderWithProviders(<AccountMappingsPage />)
+
     await waitFor(() => {
       expect(screen.getByText(/4000 - Sales Revenue/i)).toBeInTheDocument()
     })
@@ -269,10 +255,15 @@ describe('AccountMappingsPage', () => {
   })
 
   it('displays "Not configured" chip for unmapped types', async () => {
-    const store = createMockStore({ mappings: mockMappings })
-    renderWithProviders(<AccountMappingsPage />, store)
+    mockedApi.useGetAccountMappingsQuery.mockReturnValue({
+      data: mockMappings,
+      isLoading: false,
+      error: undefined,
+      refetch: vi.fn(),
+    })
 
-    // Should have "Not configured" chips for unmapped types
+    renderWithProviders(<AccountMappingsPage />)
+
     await waitFor(() => {
       const notConfiguredChips = screen.getAllByText('Not configured')
       expect(notConfiguredChips.length).toBeGreaterThan(0)
@@ -280,33 +271,30 @@ describe('AccountMappingsPage', () => {
   })
 
   it('handles API errors gracefully', async () => {
-    const store = createMockStore({
-      mappings: [],
-      loading: false,
-      error: 'Failed to load account mappings',
+    mockedApi.useGetAccountMappingsQuery.mockReturnValue({
+      data: [],
+      isLoading: false,
+      error: { data: 'Failed to load account mappings' },
+      refetch: vi.fn(),
     })
-    renderWithProviders(<AccountMappingsPage />, store)
 
-    // Wait for the page to render first
+    renderWithProviders(<AccountMappingsPage />)
+
     await waitFor(() => {
-      expect(screen.getByText('Account Mappings Configuration')).toBeInTheDocument()
+      expect(screen.getByText('Failed to load account mappings')).toBeInTheDocument()
     })
-
-    // Check for error alert - it should be displayed when error exists
-    const errorElement = screen.queryByText('Failed to load account mappings')
-    if (errorElement) {
-      expect(errorElement).toBeInTheDocument()
-    } else {
-      // If error is not displayed, at least verify the page rendered
-      expect(screen.getByText('About Account Mappings')).toBeInTheDocument()
-    }
   })
 
   it('displays category chips for grouping', async () => {
-    const store = createMockStore({ mappings: mockMappings })
-    renderWithProviders(<AccountMappingsPage />, store)
+    mockedApi.useGetAccountMappingsQuery.mockReturnValue({
+      data: mockMappings,
+      isLoading: false,
+      error: undefined,
+      refetch: vi.fn(),
+    })
 
-    // Check for category chips
+    renderWithProviders(<AccountMappingsPage />)
+
     await waitFor(() => {
       expect(screen.getByText('Sales')).toBeInTheDocument()
     })
@@ -317,14 +305,20 @@ describe('AccountMappingsPage', () => {
   })
 
   it('shows dynamic payment mappings returned by API', async () => {
-    vi.mocked(accountMappingsApi.getAll).mockResolvedValue({ data: [...mockMappings, dynamicPaymentMapping] } as any)
-    vi.mocked(paymentMethodsApi.getActive).mockResolvedValue({
-      data: [{ code: 'CUSTOM', name: 'Custom', requiresSettlement: false }],
-    } as any)
-    const store = createMockStore({ mappings: [...mockMappings, dynamicPaymentMapping] })
-    renderWithProviders(<AccountMappingsPage />, store)
+    mockedApi.useGetAccountMappingsQuery.mockReturnValue({
+      data: [...mockMappings, dynamicPaymentMapping],
+      isLoading: false,
+      error: undefined,
+      refetch: vi.fn(),
+    })
+    mockedApi.useGetPaymentMethodsQuery.mockReturnValue({
+      data: {
+        data: [{ code: 'CUSTOM', name: 'Custom', requiresSettlement: false }],
+      },
+    })
 
-    // The component renders the payment method's label, not the raw type key
+    renderWithProviders(<AccountMappingsPage />)
+
     await waitFor(() => {
       expect(screen.getByText('Custom Payment Account')).toBeInTheDocument()
     })
@@ -332,8 +326,7 @@ describe('AccountMappingsPage', () => {
   })
 
   it('displays info alert about account mappings', async () => {
-    const store = createMockStore({ mappings: [] })
-    renderWithProviders(<AccountMappingsPage />, store)
+    renderWithProviders(<AccountMappingsPage />)
 
     await waitFor(() => {
       expect(screen.getByText(/About Account Mappings/i)).toBeInTheDocument()

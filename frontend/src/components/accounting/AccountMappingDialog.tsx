@@ -15,13 +15,12 @@ import {
   CircularProgress,
   Alert,
 } from '@mui/material'
-import { useAppDispatch } from '@/hooks/useRedux'
 import { useNotification } from '@/hooks/useNotification'
 import {
-  createAccountMapping,
-  updateAccountMapping,
-} from '@/store/slices/accountMappingsSlice'
-import { chartOfAccountsApi } from '@/services/accountingApi'
+  useCreateAccountMappingMutation,
+  useGetChartOfAccountsQuery,
+  useUpdateAccountMappingMutation,
+} from '@/store/api/accountingApi'
 import { getErrorMessage } from '@/utils/errorMessage'
 import type { AccountMapping, CreateAccountMappingDto, UpdateAccountMappingDto } from '@/types/accountMapping'
 import type { ChartOfAccount } from '@/types'
@@ -63,43 +62,26 @@ const AccountMappingDialog: React.FC<AccountMappingDialogProps> = ({
   mappingType,
   onSaveSuccess,
 }) => {
-  const dispatch = useAppDispatch()
   const { showError } = useNotification()
-
-  const [accounts, setAccounts] = useState<ChartOfAccount[]>([])
-  const [loadingAccounts, setLoadingAccounts] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const { data: accountsResponse, isLoading: loadingAccounts } = useGetChartOfAccountsQuery(
+    {
+      page: 1,
+      isActive: true,
+      sortBy: 'code',
+      sortOrder: 'ASC',
+    },
+    { skip: !open },
+  )
+  const [createAccountMapping] = useCreateAccountMappingMutation()
+  const [updateAccountMapping] = useUpdateAccountMappingMutation()
+  const accounts = (accountsResponse?.data ?? []) as ChartOfAccount[]
 
   const [formData, setFormData] = useState({
     accountId: '',
     description: '',
   })
-
-  // Load accounts on mount
-  useEffect(() => {
-    const loadAccounts = async () => {
-      try {
-        setLoadingAccounts(true)
-        const response = await chartOfAccountsApi.getAll({
-          page: 1,
-          isActive: true,
-          sortBy: 'code',
-          sortOrder: 'ASC',
-        })
-        setAccounts(response.data || [])
-      } catch (err: any) {
-        console.error('Failed to load accounts:', err)
-        showError('Failed to load chart of accounts')
-      } finally {
-        setLoadingAccounts(false)
-      }
-    }
-
-    if (open) {
-      loadAccounts()
-    }
-  }, [open, showError])
 
   // Initialize form data when mapping changes
   useEffect(() => {
@@ -145,7 +127,7 @@ const AccountMappingDialog: React.FC<AccountMappingDialogProps> = ({
           accountId: formData.accountId,
           description: formData.description || undefined,
         }
-        await dispatch(updateAccountMapping({ id: mapping.id, data: updateData })).unwrap()
+        await updateAccountMapping({ id: mapping.id, data: updateData }).unwrap()
       } else if (mappingType) {
         // Create new mapping
         const createData: CreateAccountMappingDto = {
@@ -153,7 +135,7 @@ const AccountMappingDialog: React.FC<AccountMappingDialogProps> = ({
           accountId: formData.accountId,
           description: formData.description || undefined,
         }
-        await dispatch(createAccountMapping(createData)).unwrap()
+        await createAccountMapping(createData).unwrap()
       }
 
       if (onSaveSuccess) {
