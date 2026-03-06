@@ -4,6 +4,7 @@ import { RouterProvider } from 'react-router-dom'
 import { Provider } from 'react-redux'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import CssBaseline from '@mui/material/CssBaseline'
+import LinearProgress from '@mui/material/LinearProgress'
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider'
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns'
 
@@ -43,11 +44,11 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
           <CssBaseline />
           <LocalizationProvider dateAdapter={AdapterDateFns}>
             <NotificationProvider>
-              <WebSocketProvider>
-                <PersistGate loading={null} persistor={persistor}>
+              <PersistGate loading={<LinearProgress />} persistor={persistor}>
+                <WebSocketProvider>
                   <RouterProvider router={router} />
-                </PersistGate>
-              </WebSocketProvider>
+                </WebSocketProvider>
+              </PersistGate>
             </NotificationProvider>
           </LocalizationProvider>
         </ThemeWrapper>
