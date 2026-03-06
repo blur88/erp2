@@ -12,7 +12,6 @@ import salesSlice from './slices/salesSlice'
 import customerSlice from './slices/customerSlice'
 import purchasingSlice from './slices/purchasingSlice'
 import supplierSlice from './slices/supplierSlice'
-import dashboardSlice from './slices/dashboardSlice'
 import backupSlice from './slices/backupSlice'
 import auditLogSlice from './slices/auditLogSlice'
 import priceListSlice from './slices/priceListSlice'
@@ -31,6 +30,7 @@ import { backupApiSlice } from './api/backupApi'
 import { priceListApiSlice } from './api/priceListApi'
 import { userManagementApiSlice } from './api/userManagementApi'
 import { dashboardApiSlice } from './api/dashboardApi'
+import { inventoryApiSlice } from './api/inventoryApi'
 
 const rootReducer = combineReducers({
   theme: themeSlice,
@@ -41,7 +41,6 @@ const rootReducer = combineReducers({
   customers: customerSlice,
   purchasing: purchasingSlice,
   suppliers: supplierSlice,
-  dashboard: dashboardSlice,
   backup: backupSlice,
   auditLogs: auditLogSlice,
   priceLists: priceListSlice,
@@ -60,6 +59,7 @@ const rootReducer = combineReducers({
   [priceListApiSlice.reducerPath]: priceListApiSlice.reducer,
   [userManagementApiSlice.reducerPath]: userManagementApiSlice.reducer,
   [dashboardApiSlice.reducerPath]: dashboardApiSlice.reducer,
+  [inventoryApiSlice.reducerPath]: inventoryApiSlice.reducer,
 })
 
 // Persist configuration
@@ -101,6 +101,7 @@ export const store = configureStore({
     priceListApiSlice.middleware as any,
     userManagementApiSlice.middleware as any,
     dashboardApiSlice.middleware as any,
+    inventoryApiSlice.middleware as any,
   ),
   devTools: process.env.NODE_ENV !== 'production',
 })
