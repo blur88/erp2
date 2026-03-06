@@ -27,7 +27,6 @@ import { auditLogApiSlice } from './api/auditLogApi'
 import { backupApiSlice } from './api/backupApi'
 import { priceListApiSlice } from './api/priceListApi'
 import { userManagementApiSlice } from './api/userManagementApi'
-import { dashboardApiSlice } from './api/dashboardApi'
 import { inventoryApiSlice } from './api/inventoryApi'
 import { purchasingApiSlice } from './api/purchasingApi'
 import { salesApiSlice } from './api/salesApi'
@@ -56,7 +55,6 @@ const rootReducer = combineReducers({
   [backupApiSlice.reducerPath]: backupApiSlice.reducer,
   [priceListApiSlice.reducerPath]: priceListApiSlice.reducer,
   [userManagementApiSlice.reducerPath]: userManagementApiSlice.reducer,
-  [dashboardApiSlice.reducerPath]: dashboardApiSlice.reducer,
   [inventoryApiSlice.reducerPath]: inventoryApiSlice.reducer,
   [purchasingApiSlice.reducerPath]: purchasingApiSlice.reducer,
   [salesApiSlice.reducerPath]: salesApiSlice.reducer,
@@ -100,7 +98,6 @@ export const store = configureStore({
     backupApiSlice.middleware as any,
     priceListApiSlice.middleware as any,
     userManagementApiSlice.middleware as any,
-    dashboardApiSlice.middleware as any,
     inventoryApiSlice.middleware as any,
     purchasingApiSlice.middleware as any,
     salesApiSlice.middleware as any,

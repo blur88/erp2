@@ -18,13 +18,11 @@ import { TYPOGRAPHY_STYLES } from '@/constants/typography'
 import { useNavigate } from 'react-router-dom'
 import { useCurrency } from '@/hooks/useCurrency'
 import {
-  useGetInventoryStatsQuery,
+  useGetDashboardStatsQuery,
   useGetOutOfStockProductsQuery,
-  useGetPaymentsQuery,
-  useGetPurchaseOrdersQuery,
-  useGetSalesOrdersQuery,
-  useGetSuppliersQuery,
-} from '@/store/api/dashboardApi'
+} from '@/store/api/inventoryApi'
+import { useGetPaymentsQuery, useGetSalesOrdersQuery } from '@/store/api/salesApi'
+import { useGetPurchaseOrdersQuery, useGetSuppliersQuery } from '@/store/api/purchasingApi'
 
 import {
   DashboardStats,
@@ -79,12 +77,24 @@ const DashboardPage: React.FC = () => {
   const navigate = useNavigate()
   const { currency } = useCurrency()
 
-  const { data: salesOrders = [], isLoading: salesLoading, error: salesError } = useGetSalesOrdersQuery()
-  const { data: purchaseOrders = [], isLoading: purchaseLoading, error: purchaseError } = useGetPurchaseOrdersQuery()
-  const { data: suppliers = [], isLoading: suppliersLoading, error: suppliersError } = useGetSuppliersQuery()
-  const { data: inventoryStats, isLoading: inventoryLoading, error: inventoryError } = useGetInventoryStatsQuery()
+  const {
+    data: salesOrdersResponse,
+    isLoading: salesLoading,
+    error: salesError,
+  } = useGetSalesOrdersQuery({ sortBy: 'orderDate', sortOrder: 'desc' })
+  const {
+    data: purchaseOrdersResponse,
+    isLoading: purchaseLoading,
+    error: purchaseError,
+  } = useGetPurchaseOrdersQuery({ sortBy: 'orderDate', sortOrder: 'DESC' })
+  const { data: suppliersResponse, isLoading: suppliersLoading, error: suppliersError } = useGetSuppliersQuery({})
+  const { data: inventoryStats, isLoading: inventoryLoading, error: inventoryError } = useGetDashboardStatsQuery()
   const { data: outOfStock = [], isLoading: outOfStockLoading, error: outOfStockError } = useGetOutOfStockProductsQuery()
-  const { data: payments = [], isLoading: paymentsLoading, error: paymentsError } = useGetPaymentsQuery()
+  const { data: paymentsResponse, isLoading: paymentsLoading, error: paymentsError } = useGetPaymentsQuery({})
+  const salesOrders = salesOrdersResponse?.data ?? []
+  const purchaseOrders = purchaseOrdersResponse?.data ?? []
+  const suppliers = suppliersResponse?.data ?? []
+  const payments = paymentsResponse?.data ?? []
 
   const loading =
     salesLoading ||
