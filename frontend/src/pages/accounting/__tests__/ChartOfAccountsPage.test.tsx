@@ -1,23 +1,25 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
-import { Provider } from 'react-redux'
 import { BrowserRouter } from 'react-router-dom'
-import { configureStore } from '@reduxjs/toolkit'
-import ChartOfAccountsPage from '../ChartOfAccountsPage'
-import chartOfAccountsReducer from '@/store/slices/chartOfAccountsSlice'
-import { ApiService } from '@/services/api'
 
-// Mock ApiService
-vi.mock('@/services/api', () => ({
-  ApiService: {
-    get: vi.fn(),
-    post: vi.fn(),
-    patch: vi.fn(),
-    delete: vi.fn(),
-  },
+import ChartOfAccountsPage from '../ChartOfAccountsPage'
+
+const mockedApi = vi.hoisted(() => ({
+  useGetChartOfAccountsQuery: vi.fn(),
+  useDeleteChartOfAccountMutation: vi.fn(),
+  useSeedDefaultChartOfAccountsMutation: vi.fn(),
+  useCreateChartOfAccountMutation: vi.fn(),
+  useUpdateChartOfAccountMutation: vi.fn(),
 }))
 
-// Mock hooks
+vi.mock('@/store/api/accountingApi', () => ({
+  useGetChartOfAccountsQuery: mockedApi.useGetChartOfAccountsQuery,
+  useDeleteChartOfAccountMutation: mockedApi.useDeleteChartOfAccountMutation,
+  useSeedDefaultChartOfAccountsMutation: mockedApi.useSeedDefaultChartOfAccountsMutation,
+  useCreateChartOfAccountMutation: mockedApi.useCreateChartOfAccountMutation,
+  useUpdateChartOfAccountMutation: mockedApi.useUpdateChartOfAccountMutation,
+}))
+
 vi.mock('@/hooks/useNotification', () => ({
   useNotification: () => ({
     showSuccess: vi.fn(),
@@ -34,19 +36,21 @@ vi.mock('@/hooks/useSearchAndFilter', () => ({
   useKeyboardShortcuts: vi.fn(),
 }))
 
-// Isolate page behavior under test and avoid unrelated async API side effects.
 vi.mock('@/components/accounting/AccountMappingWarning', () => ({
   default: () => null,
 }))
 
-// Mock data
+vi.mock('@/components/accounting/DeletedAccountsDialog', () => ({
+  default: () => null,
+}))
+
 const mockAccounts = [
   {
     id: '1',
     code: '1000',
     name: 'Assets',
-    type: 'asset' as const,
-    normalBalance: 'debit' as const,
+    type: 'asset',
+    normalBalance: 'debit',
     isActive: true,
     isSystemAccount: false,
     currentBalance: 0,
@@ -57,8 +61,8 @@ const mockAccounts = [
     id: '2',
     code: '1100',
     name: 'Cash',
-    type: 'asset' as const,
-    normalBalance: 'debit' as const,
+    type: 'asset',
+    normalBalance: 'debit',
     parentId: '1',
     isActive: true,
     isSystemAccount: false,
@@ -70,8 +74,8 @@ const mockAccounts = [
     id: '3',
     code: '2000',
     name: 'Liabilities',
-    type: 'liability' as const,
-    normalBalance: 'credit' as const,
+    type: 'liability',
+    normalBalance: 'credit',
     isActive: true,
     isSystemAccount: false,
     currentBalance: 0,
@@ -80,37 +84,33 @@ const mockAccounts = [
   },
 ]
 
-const createMockStore = () => {
-  return configureStore({
-    reducer: {
-      chartOfAccounts: chartOfAccountsReducer,
-    },
-  })
-}
-
-const renderWithProvider = (store: any) => {
-  return render(
-    <Provider store={store}>
-      <BrowserRouter>
-        <ChartOfAccountsPage />
-      </BrowserRouter>
-    </Provider>
+const renderWithProvider = () =>
+  render(
+    <BrowserRouter>
+      <ChartOfAccountsPage />
+    </BrowserRouter>
   )
-}
 
 describe('ChartOfAccountsPage', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    // Mock successful API response by default
-    ;(ApiService.get as any).mockResolvedValue({
-      data: mockAccounts,
-      meta: { page: 1, limit: 1000, total: 3, totalPages: 1 },
+    mockedApi.useGetChartOfAccountsQuery.mockReturnValue({
+      data: {
+        data: mockAccounts,
+        meta: { page: 1, limit: 1000, total: 3, totalPages: 1 },
+      },
+      isLoading: false,
+      error: undefined,
+      refetch: vi.fn(),
     })
+    mockedApi.useDeleteChartOfAccountMutation.mockReturnValue([vi.fn()])
+    mockedApi.useSeedDefaultChartOfAccountsMutation.mockReturnValue([vi.fn()])
+    mockedApi.useCreateChartOfAccountMutation.mockReturnValue([vi.fn()])
+    mockedApi.useUpdateChartOfAccountMutation.mockReturnValue([vi.fn()])
   })
 
   it('renders page header correctly', async () => {
-    const store = createMockStore()
-    renderWithProvider(store)
+    renderWithProvider()
 
     await waitFor(() => {
       expect(screen.getByText('Chart of Accounts')).toBeInTheDocument()
@@ -118,24 +118,21 @@ describe('ChartOfAccountsPage', () => {
   })
 
   it('renders account list with correct data', async () => {
-    const store = createMockStore()
-    renderWithProvider(store)
+    renderWithProvider()
 
     await waitFor(() => {
       expect(screen.getByText('1000')).toBeInTheDocument()
       expect(screen.getByText('1100')).toBeInTheDocument()
       expect(screen.getByText('2000')).toBeInTheDocument()
-    }, { timeout: 5000 })
+    })
 
-    // Verify account names appear in the table (getAllByText to handle duplicates in form)
     expect(screen.getAllByText('Assets').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Cash').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Liabilities').length).toBeGreaterThan(0)
   })
 
   it('opens create dialog when Add Account button is clicked', async () => {
-    const store = createMockStore()
-    renderWithProvider(store)
+    renderWithProvider()
 
     await waitFor(() => {
       expect(screen.getByText('Chart of Accounts')).toBeInTheDocument()
@@ -150,25 +147,17 @@ describe('ChartOfAccountsPage', () => {
   })
 
   it('displays account type badges with correct colors', async () => {
-    const store = createMockStore()
-    renderWithProvider(store)
+    renderWithProvider()
 
     await waitFor(() => {
       const assetBadges = screen.getAllByText('Asset')
       expect(assetBadges.length).toBeGreaterThan(0)
-
-      const liabilityBadge = screen.getByText('Liability')
-      expect(liabilityBadge).toBeInTheDocument()
+      expect(screen.getByText('Liability')).toBeInTheDocument()
     })
   })
 
   it('filters accounts by search term', async () => {
-    const store = createMockStore()
-    renderWithProvider(store)
-
-    await waitFor(() => {
-      expect(screen.getByText('Chart of Accounts')).toBeInTheDocument()
-    })
+    renderWithProvider()
 
     const searchInput = screen.getByPlaceholderText(/Search by code or name/i)
     fireEvent.change(searchInput, { target: { value: 'Cash' } })
@@ -179,76 +168,78 @@ describe('ChartOfAccountsPage', () => {
   })
 
   it('shows seed button when no accounts exist', async () => {
-    // Mock empty response
-    ;(ApiService.get as any).mockResolvedValue({
-      data: [],
-      meta: { page: 1, limit: 1000, total: 0, totalPages: 0 },
+    mockedApi.useGetChartOfAccountsQuery.mockReturnValue({
+      data: {
+        data: [],
+        meta: { page: 1, limit: 1000, total: 0, totalPages: 0 },
+      },
+      isLoading: false,
+      error: undefined,
+      refetch: vi.fn(),
     })
 
-    const store = createMockStore()
-    renderWithProvider(store)
+    renderWithProvider()
 
     await waitFor(() => {
-      const seedButtons = screen.getAllByText(/Seed Default/i)
-      expect(seedButtons.length).toBeGreaterThan(0)
+      expect(screen.getAllByText(/Seed Default/i).length).toBeGreaterThan(0)
     })
   })
 
   it('displays loading spinner when loading', () => {
-    // Mock pending API call
-    ;(ApiService.get as any).mockImplementation(() => new Promise(() => {}))
+    mockedApi.useGetChartOfAccountsQuery.mockReturnValue({
+      data: undefined,
+      isLoading: true,
+      error: undefined,
+      refetch: vi.fn(),
+    })
 
-    const store = createMockStore()
-    renderWithProvider(store)
+    renderWithProvider()
 
     expect(screen.getByRole('progressbar')).toBeInTheDocument()
   })
 
   it('displays active/inactive status chips', async () => {
-    const store = createMockStore()
-    renderWithProvider(store)
+    renderWithProvider()
 
     await waitFor(() => {
       const activeChips = screen.getAllByText('Active')
-      expect(activeChips.length).toBeGreaterThanOrEqual(3) // At least 3 for mock accounts (form dialog may add one)
+      expect(activeChips.length).toBeGreaterThanOrEqual(3)
     })
   })
 
   it('handles errors gracefully', async () => {
-    const errorMessage = 'Failed to fetch accounts'
-    ;(ApiService.get as any).mockRejectedValue({
-      response: { data: { message: errorMessage } },
+    mockedApi.useGetChartOfAccountsQuery.mockReturnValue({
+      data: { data: [], meta: { page: 1, limit: 1000, total: 0, totalPages: 0 } },
+      isLoading: false,
+      error: { data: 'Failed to fetch accounts' },
+      refetch: vi.fn(),
     })
 
-    const store = createMockStore()
-    renderWithProvider(store)
+    renderWithProvider()
 
     await waitFor(() => {
-      // Page should still render even with error
       expect(screen.getByText('Chart of Accounts')).toBeInTheDocument()
     })
   })
 
   it('disables delete button for system accounts', async () => {
-    const systemAccount = {
-      ...mockAccounts[0],
-      isSystemAccount: true,
-    }
-
-    ;(ApiService.get as any).mockResolvedValue({
-      data: [systemAccount],
-      meta: { page: 1, limit: 1000, total: 1, totalPages: 1 },
+    mockedApi.useGetChartOfAccountsQuery.mockReturnValue({
+      data: {
+        data: [{ ...mockAccounts[0], isSystemAccount: true }],
+        meta: { page: 1, limit: 1000, total: 1, totalPages: 1 },
+      },
+      isLoading: false,
+      error: undefined,
+      refetch: vi.fn(),
     })
 
-    const store = createMockStore()
-    renderWithProvider(store)
+    renderWithProvider()
 
     await waitFor(() => {
-      expect(screen.getByText('Assets')).toBeInTheDocument()
+      expect(screen.getAllByText('Assets').length).toBeGreaterThan(0)
     })
 
-    // System accounts should have disabled delete button
     const deleteButtons = screen.getAllByLabelText(/Delete account/i)
-    expect(deleteButtons.some(btn => (btn as HTMLButtonElement).disabled)).toBe(true)
+    expect(deleteButtons.some((btn) => (btn as HTMLButtonElement).disabled)).toBe(true)
   })
 })

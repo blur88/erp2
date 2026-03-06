@@ -246,6 +246,11 @@ export const accountingApiSlice = createApi({
       transformResponse: (response: any) => (Array.isArray(response) ? response : response?.data ?? []),
       providesTags: ['ChartOfAccount'],
     }),
+    getChartOfAccount: builder.query<ChartOfAccount, string>({
+      query: (id) => ({ url: `/accounting/chart-of-accounts/${id}` }),
+      transformResponse: normalizeSingle<ChartOfAccount>,
+      providesTags: (_result, _error, id) => [{ type: 'ChartOfAccount', id }],
+    }),
     getDeletedChartOfAccounts: builder.query<PaginatedResponse<ChartOfAccount>, Record<string, unknown> | undefined>({
       query: (params) => ({ url: '/accounting/chart-of-accounts/deleted', params: params ?? {} }),
       transformResponse: (response: any) => normalizeNamedCollection<ChartOfAccount>(response, 'accounts'),
@@ -369,6 +374,31 @@ export const accountingApiSlice = createApi({
         'AccountMapping',
         'AccountingReport',
       ],
+    }),
+    bulkRestoreChartOfAccounts: builder.mutation<{ restoredCount: number; failedIds: string[] }, string[]>({
+      query: (accountIds) => ({
+        url: '/accounting/chart-of-accounts/bulk-restore',
+        method: 'POST',
+        data: { accountIds },
+      }),
+      invalidatesTags: ['ChartOfAccount', 'DeletedChartOfAccount', 'AccountMapping', 'AccountingReport'],
+    }),
+    permanentDeleteChartOfAccount: builder.mutation<void, string>({
+      query: (id) => ({ url: `/accounting/chart-of-accounts/${id}/permanent`, method: 'DELETE' }),
+      invalidatesTags: (_result, _error, id) => [
+        { type: 'ChartOfAccount', id },
+        'DeletedChartOfAccount',
+        'AccountMapping',
+        'AccountingReport',
+      ],
+    }),
+    bulkPermanentDeleteChartOfAccounts: builder.mutation<{ deletedCount: number; failedIds: string[] }, string[]>({
+      query: (accountIds) => ({
+        url: '/accounting/chart-of-accounts/bulk-permanent',
+        method: 'DELETE',
+        data: { accountIds },
+      }),
+      invalidatesTags: ['DeletedChartOfAccount', 'AccountMapping', 'AccountingReport'],
     }),
     seedDefaultChartOfAccounts: builder.mutation<{ data: ChartOfAccount[]; message: string }, void>({
       query: () => ({ url: '/accounting/chart-of-accounts/seed-defaults', method: 'POST' }),
@@ -631,6 +661,7 @@ export const accountingApiSlice = createApi({
 export const {
   useGetChartOfAccountsQuery,
   useGetChartOfAccountsHierarchyQuery,
+  useGetChartOfAccountQuery,
   useGetDeletedChartOfAccountsQuery,
   useGetJournalEntriesQuery,
   useGetFiscalPeriodsQuery,
@@ -653,6 +684,9 @@ export const {
   useUpdateChartOfAccountMutation,
   useDeleteChartOfAccountMutation,
   useRestoreChartOfAccountMutation,
+  useBulkRestoreChartOfAccountsMutation,
+  usePermanentDeleteChartOfAccountMutation,
+  useBulkPermanentDeleteChartOfAccountsMutation,
   useSeedDefaultChartOfAccountsMutation,
   useCreateJournalEntryMutation,
   useUpdateJournalEntryMutation,

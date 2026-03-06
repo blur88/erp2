@@ -32,34 +32,29 @@ import {
   AccountBalance as AccountIcon,
   DeleteForever as DeleteForeverIcon,
 } from '@mui/icons-material'
-import { useDispatch } from 'react-redux'
 import {
-  fetchDeletedAccounts,
-  restoreAccount,
-  permanentDeleteAccount,
-  fetchChartOfAccounts,
-  bulkRestoreAccounts,
-  bulkPermanentDeleteAccounts,
-} from '@/store/slices/chartOfAccountsSlice'
+  useBulkPermanentDeleteChartOfAccountsMutation,
+  useBulkRestoreChartOfAccountsMutation,
+  useGetDeletedChartOfAccountsQuery,
+  usePermanentDeleteChartOfAccountMutation,
+  useRestoreChartOfAccountMutation,
+} from '@/store/api/accountingApi'
 import ConfirmationDialog from '@/components/common/ConfirmationDialog'
 import { useNotification } from '@/hooks/useNotification'
-import type { ChartOfAccount } from '@/store/slices/chartOfAccountsSlice'
+import type { ChartOfAccount } from '@/types'
 import { formatDate } from '@/utils/formatters'
 
 interface DeletedAccountsDialogProps {
   open: boolean
   onClose: () => void
+  onChanged?: () => void
 }
 
-const DeletedAccountsDialog: React.FC<DeletedAccountsDialogProps> = ({ open, onClose }) => {
-  const dispatch = useDispatch() as any
+const DeletedAccountsDialog: React.FC<DeletedAccountsDialogProps> = ({ open, onClose, onChanged }) => {
   const { showSuccess, showError } = useNotification()
   const theme = useTheme()
   const isMobile = useMediaQuery(theme.breakpoints.down('md'))
-
-  const [deletedAccounts, setDeletedAccounts] = useState<ChartOfAccount[]>([])
   const [searchTerm, setSearchTerm] = useState('')
-  const [loading, setLoading] = useState(false)
   const [restoringId, setRestoringId] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [confirmDeleteAccount, setConfirmDeleteAccount] = useState<ChartOfAccount | null>(null)
@@ -68,26 +63,22 @@ const DeletedAccountsDialog: React.FC<DeletedAccountsDialogProps> = ({ open, onC
   const [showBulkRestoreConfirm, setShowBulkRestoreConfirm] = useState(false)
   const [bulkDeleting, setBulkDeleting] = useState(false)
   const [bulkRestoring, setBulkRestoring] = useState(false)
+  const {
+    data: deletedAccountsResponse,
+    isLoading: loading,
+    refetch: refetchDeletedAccounts,
+  } = useGetDeletedChartOfAccountsQuery({ page: 1 }, { skip: !open })
+  const [restoreChartOfAccount] = useRestoreChartOfAccountMutation()
+  const [permanentDeleteChartOfAccount] = usePermanentDeleteChartOfAccountMutation()
+  const [bulkRestoreChartOfAccounts] = useBulkRestoreChartOfAccountsMutation()
+  const [bulkPermanentDeleteChartOfAccounts] = useBulkPermanentDeleteChartOfAccountsMutation()
+  const deletedAccounts = deletedAccountsResponse?.data ?? []
 
   useEffect(() => {
     if (open) {
-      loadDeletedAccounts()
       setSelectedAccounts(new Set())
     }
   }, [open])
-
-  const loadDeletedAccounts = async () => {
-    setLoading(true)
-    try {
-      const result = await dispatch(fetchDeletedAccounts()).unwrap()
-      setDeletedAccounts(result || [])
-    } catch (error: any) {
-      showError(error || 'Failed to load deleted accounts')
-      setDeletedAccounts([])
-    } finally {
-      setLoading(false)
-    }
-  }
 
   // Filter accounts based on search term
   const filteredAccounts = deletedAccounts.filter(account =>
@@ -103,12 +94,10 @@ const DeletedAccountsDialog: React.FC<DeletedAccountsDialogProps> = ({ open, onC
   const handleRestore = async (account: ChartOfAccount) => {
     setRestoringId(account.id)
     try {
-      await dispatch(restoreAccount(account.id)).unwrap()
+      await restoreChartOfAccount(account.id).unwrap()
       showSuccess(`Account "${account.code} - ${account.name}" restored successfully`)
-
-      // Refresh both deleted and active accounts
-      await loadDeletedAccounts()
-      dispatch(fetchChartOfAccounts({ page: 1 }))
+      await refetchDeletedAccounts()
+      onChanged?.()
     } catch (error: any) {
       showError(error || 'Failed to restore account')
     } finally {
@@ -121,11 +110,10 @@ const DeletedAccountsDialog: React.FC<DeletedAccountsDialogProps> = ({ open, onC
 
     setDeletingId(confirmDeleteAccount.id)
     try {
-      await dispatch(permanentDeleteAccount(confirmDeleteAccount.id)).unwrap()
+      await permanentDeleteChartOfAccount(confirmDeleteAccount.id).unwrap()
       showSuccess(`Account "${confirmDeleteAccount.code} - ${confirmDeleteAccount.name}" permanently deleted`)
-
-      // Refresh deleted accounts list
-      await loadDeletedAccounts()
+      await refetchDeletedAccounts()
+      onChanged?.()
     } catch (error: any) {
       showError(error || 'Failed to permanently delete account')
     } finally {
@@ -158,7 +146,7 @@ const DeletedAccountsDialog: React.FC<DeletedAccountsDialogProps> = ({ open, onC
     setBulkRestoring(true)
     try {
       const accountIds = Array.from(selectedAccounts)
-      const result = await dispatch(bulkRestoreAccounts(accountIds)).unwrap()
+      const result = await bulkRestoreChartOfAccounts(accountIds).unwrap()
 
       if (result.restoredCount > 0) {
         showSuccess(`Successfully restored ${result.restoredCount} account${result.restoredCount !== 1 ? 's' : ''}`)
@@ -167,8 +155,8 @@ const DeletedAccountsDialog: React.FC<DeletedAccountsDialogProps> = ({ open, onC
         showError(`Failed to restore ${result.failedIds.length} account${result.failedIds.length !== 1 ? 's' : ''}`)
       }
 
-      await loadDeletedAccounts()
-      dispatch(fetchChartOfAccounts({ page: 1 }))
+      await refetchDeletedAccounts()
+      onChanged?.()
       setSelectedAccounts(new Set())
     } catch (error: any) {
       showError(error || 'Failed to bulk restore accounts')
@@ -182,7 +170,11 @@ const DeletedAccountsDialog: React.FC<DeletedAccountsDialogProps> = ({ open, onC
     setBulkDeleting(true)
     try {
       const accountIds = Array.from(selectedAccounts)
-      const result = await dispatch(bulkPermanentDeleteAccounts(accountIds)).unwrap()
+      const result = await bulkPermanentDeleteChartOfAccounts(accountIds).unwrap() as {
+        deletedCount: number
+        failedIds: string[]
+        failedItems?: Array<{ reason: string }>
+      }
 
       if (result.deletedCount > 0) {
         showSuccess(`Successfully permanently deleted ${result.deletedCount} account${result.deletedCount !== 1 ? 's' : ''}`)
@@ -197,7 +189,8 @@ const DeletedAccountsDialog: React.FC<DeletedAccountsDialogProps> = ({ open, onC
         showError(`Failed to delete ${result.failedIds.length} account${result.failedIds.length !== 1 ? 's' : ''}.${detailsSuffix}`)
       }
 
-      await loadDeletedAccounts()
+      await refetchDeletedAccounts()
+      onChanged?.()
       setSelectedAccounts(new Set())
     } catch (error: any) {
       showError(error || 'Failed to bulk delete accounts')
