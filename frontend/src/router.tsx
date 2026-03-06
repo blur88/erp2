@@ -2,7 +2,7 @@ import React from 'react'
 import { Navigate, createBrowserRouter, redirect } from 'react-router-dom'
 import MainLayout from './components/common/MainLayout'
 import RootLayout from './RootLayout'
-import { store } from './store'
+import { store, persistor } from './store'
 
 const LoginPage = React.lazy(() => import('./pages/auth/LoginPage'))
 const MandatoryPasswordChangePage = React.lazy(() => import('./pages/auth/MandatoryPasswordChangePage'))
@@ -87,7 +87,21 @@ const AccountActivityPage = React.lazy(() => import('./pages/accounting/reports/
 
 const NotFoundPage = React.lazy(() => import('./pages/NotFoundPage'))
 
-function authLoader({ request }: { request: Request }) {
+function waitForRehydration(): Promise<void> {
+  if (persistor.getState().bootstrapped) return Promise.resolve()
+  return new Promise((resolve) => {
+    const unsubscribe = persistor.subscribe(() => {
+      if (persistor.getState().bootstrapped) {
+        unsubscribe()
+        resolve()
+      }
+    })
+  })
+}
+
+async function authLoader({ request }: { request: Request }) {
+  await waitForRehydration()
+
   const { auth } = store.getState()
   const url = new URL(request.url)
 
