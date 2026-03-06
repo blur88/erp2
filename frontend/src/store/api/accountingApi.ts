@@ -290,6 +290,11 @@ export const accountingApiSlice = createApi({
       transformResponse: (response: any) => normalizeNamedCollection<BankReconciliation>(response, 'reconciliations'),
       providesTags: ['BankReconciliation'],
     }),
+    getBankReconciliation: builder.query<BankReconciliation, string>({
+      query: (id) => ({ url: `/accounting/bank-reconciliations/${id}` }),
+      transformResponse: normalizeSingle<BankReconciliation>,
+      providesTags: (_result, _error, id) => [{ type: 'BankReconciliation', id }],
+    }),
     getPaymentMethods: builder.query<PaginatedResponse<PaymentMethodConfig>, Record<string, unknown> | undefined>({
       query: (params) => ({ url: '/settings/payment-methods', params: params ?? {} }),
       transformResponse: normalizePaginated<PaymentMethodConfig>,
@@ -675,6 +680,7 @@ export const {
   useGetAccountMappingsQuery,
   useValidateAccountMappingsQuery,
   useGetBankReconciliationsQuery,
+  useGetBankReconciliationQuery,
   useGetPaymentMethodsQuery,
   useGetSettlementsQuery,
   useGetPendingSettlementSummaryQuery,

@@ -12,22 +12,16 @@ import {
   Select,
   MenuItem,
 } from '@mui/material';
-import { useDispatch, useSelector } from 'react-redux';
 import { format } from 'date-fns';
 import { useNotification } from '@/hooks/useNotification';
 import {
-  createBankReconciliation,
-  updateBankReconciliation,
-} from '@/store/slices/bankReconciliationsSlice';
-import {
-  fetchChartOfAccounts,
-  selectChartOfAccounts,
-} from '@/store/slices/chartOfAccountsSlice';
-import {
-  fetchFiscalPeriods,
-  selectFiscalPeriods,
-} from '@/store/slices/fiscalPeriodsSlice';
+  useCreateBankReconciliationMutation,
+  useGetChartOfAccountsQuery,
+  useGetFiscalPeriodsQuery,
+  useUpdateBankReconciliationMutation,
+} from '@/store/api/accountingApi';
 import { BankReconciliation, FiscalPeriodStatus } from '@/types';
+import { getErrorMessage } from '@/utils/errorMessage';
 
 interface BankReconciliationFormDialogProps {
   open: boolean;
@@ -49,11 +43,19 @@ const BankReconciliationFormDialog: React.FC<BankReconciliationFormDialogProps> 
   onClose,
   onSuccess,
 }) => {
-  const dispatch = useDispatch() as any;
   const { showError } = useNotification();
-
-  const accounts = useSelector(selectChartOfAccounts) || [];
-  const periods = useSelector(selectFiscalPeriods) || [];
+  const { data: accountsResponse } = useGetChartOfAccountsQuery(
+    { page: 1, isActive: true },
+    { skip: !open },
+  );
+  const { data: periodsResponse } = useGetFiscalPeriodsQuery(
+    { page: 1, status: FiscalPeriodStatus.OPEN },
+    { skip: !open },
+  );
+  const [createBankReconciliation] = useCreateBankReconciliationMutation();
+  const [updateBankReconciliation] = useUpdateBankReconciliationMutation();
+  const accounts = accountsResponse?.data ?? [];
+  const periods = periodsResponse?.data ?? [];
 
   const [formData, setFormData] = useState<FormData>({
     accountId: '',
@@ -63,13 +65,6 @@ const BankReconciliationFormDialog: React.FC<BankReconciliationFormDialogProps> 
   });
   const [errors, setErrors] = useState<Partial<Record<keyof FormData, string>>>({});
   const [submitting, setSubmitting] = useState(false);
-
-  useEffect(() => {
-    if (!open) return;
-
-    dispatch(fetchChartOfAccounts({ page: 1, isActive: true }));
-    dispatch(fetchFiscalPeriods({ page: 1, status: FiscalPeriodStatus.OPEN }));
-  }, [dispatch, open]);
 
   useEffect(() => {
     if (reconciliation) {
@@ -134,29 +129,25 @@ const BankReconciliationFormDialog: React.FC<BankReconciliationFormDialogProps> 
 
     try {
       if (reconciliation) {
-        await dispatch(
-          updateBankReconciliation({
-            id: reconciliation.id,
-            data: {
-              reconciliationDate: formData.reconciliationDate,
-              statementBalance: Number(formData.statementBalance),
-            },
-          }),
-        ).unwrap();
-      } else {
-        await dispatch(
-          createBankReconciliation({
-            accountId: formData.accountId,
-            fiscalPeriodId: formData.fiscalPeriodId,
+        await updateBankReconciliation({
+          id: reconciliation.id,
+          data: {
             reconciliationDate: formData.reconciliationDate,
             statementBalance: Number(formData.statementBalance),
-          }),
-        ).unwrap();
+          },
+        }).unwrap();
+      } else {
+        await createBankReconciliation({
+          accountId: formData.accountId,
+          fiscalPeriodId: formData.fiscalPeriodId,
+          reconciliationDate: formData.reconciliationDate,
+          statementBalance: Number(formData.statementBalance),
+        }).unwrap();
       }
 
       onSuccess();
     } catch (error: any) {
-      showError(error || `Failed to ${reconciliation ? 'update' : 'create'} reconciliation`);
+      showError(getErrorMessage(error, `Failed to ${reconciliation ? 'update' : 'create'} reconciliation`));
     } finally {
       setSubmitting(false);
     }

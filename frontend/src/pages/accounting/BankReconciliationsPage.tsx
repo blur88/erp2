@@ -27,45 +27,27 @@ import {
   Delete as DeleteIcon,
 } from '@mui/icons-material';
 import { format } from 'date-fns';
-import { useDispatch, useSelector } from 'react-redux';
 import ConfirmationDialog from '@/components/common/ConfirmationDialog';
 import BankReconciliationFormDialog from '@/components/accounting/BankReconciliationFormDialog';
 import { useNotification } from '@/hooks/useNotification';
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography';
 import {
-  fetchBankReconciliations,
-  deleteBankReconciliation,
-  selectBankReconciliations,
-  selectBankReconciliationsLoading,
-  selectBankReconciliationsError,
-  selectBankReconciliationsPagination,
-} from '@/store/slices/bankReconciliationsSlice';
-import {
-  fetchChartOfAccounts,
-  selectChartOfAccounts,
-} from '@/store/slices/chartOfAccountsSlice';
-import {
-  fetchFiscalPeriods,
-  selectFiscalPeriods,
-} from '@/store/slices/fiscalPeriodsSlice';
+  useDeleteBankReconciliationMutation,
+  useGetBankReconciliationsQuery,
+  useGetChartOfAccountsQuery,
+  useGetFiscalPeriodsQuery,
+} from '@/store/api/accountingApi';
 import { BankReconciliation, BankReconciliationStatus } from '@/types';
 import { formatCurrency } from '@/utils/formatters';
 import { useKeyboardShortcuts } from '@/hooks/useSearchAndFilter';
+import { getErrorMessage } from '@/utils/errorMessage';
 
 const BankReconciliationsPage: React.FC = () => {
-  const dispatch = useDispatch() as any;
   const navigate = useNavigate();
   const location = useLocation();
   const { showSuccess, showError } = useNotification();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
-
-  const reconciliations = useSelector(selectBankReconciliations) || [];
-  const loading = useSelector(selectBankReconciliationsLoading);
-  const error = useSelector(selectBankReconciliationsError);
-  const pagination = useSelector(selectBankReconciliationsPagination);
-  const accounts = useSelector(selectChartOfAccounts) || [];
-  const periods = useSelector(selectFiscalPeriods) || [];
 
   const [accountFilter, setAccountFilter] = useState<string>('all');
   const [periodFilter, setPeriodFilter] = useState<string>('all');
@@ -74,22 +56,8 @@ const BankReconciliationsPage: React.FC = () => {
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [selectedReconciliation, setSelectedReconciliation] = useState<BankReconciliation | null>(null);
 
-  useKeyboardShortcuts({
-    onSearch: () => {
-      const el = document.querySelector<HTMLInputElement>('[data-testid="search-input"]');
-      el?.focus();
-    },
-    onAdd: () => setFormDialogOpen(true),
-    onRefresh: () => dispatch(fetchBankReconciliations({})),
-  });
-
-  useEffect(() => {
-    dispatch(fetchChartOfAccounts({ page: 1, isActive: true }));
-    dispatch(fetchFiscalPeriods({ page: 1, sortBy: 'startDate', sortOrder: 'DESC' }));
-  }, [dispatch]);
-
-  useEffect(() => {
-    const params: any = {
+  const queryParams = useMemo(() => {
+    const params: Record<string, unknown> = {
       page: 1,
       sortBy: 'reconciliationDate',
       sortOrder: 'DESC' as const,
@@ -98,15 +66,38 @@ const BankReconciliationsPage: React.FC = () => {
     if (accountFilter !== 'all') params.accountId = accountFilter;
     if (periodFilter !== 'all') params.fiscalPeriodId = periodFilter;
     if (statusFilter !== 'all') params.status = statusFilter;
+    return params;
+  }, [accountFilter, periodFilter, statusFilter]);
 
-    dispatch(fetchBankReconciliations(params));
-  }, [dispatch, accountFilter, periodFilter, statusFilter]);
+  const {
+    data: reconciliationsResponse,
+    isLoading: loading,
+    error,
+    refetch,
+  } = useGetBankReconciliationsQuery(queryParams);
+  const { data: accountsResponse } = useGetChartOfAccountsQuery({ page: 1, isActive: true });
+  const { data: periodsResponse } = useGetFiscalPeriodsQuery({ page: 1, sortBy: 'startDate', sortOrder: 'DESC' });
+  const [deleteBankReconciliation] = useDeleteBankReconciliationMutation();
+  const reconciliations = reconciliationsResponse?.data ?? [];
+  const pagination = reconciliationsResponse?.meta;
+  const accounts = accountsResponse?.data ?? [];
+  const periods = periodsResponse?.data ?? [];
+  const errorMessage = error ? getErrorMessage(error, 'Failed to fetch reconciliations') : null;
+
+  useKeyboardShortcuts({
+    onSearch: () => {
+      const el = document.querySelector<HTMLInputElement>('[data-testid="search-input"]');
+      el?.focus();
+    },
+    onAdd: () => setFormDialogOpen(true),
+    onRefresh: () => refetch(),
+  });
 
   useEffect(() => {
-    if (error) {
-      showError(error);
+    if (errorMessage) {
+      showError(errorMessage);
     }
-  }, [error, showError]);
+  }, [errorMessage, showError]);
 
   useEffect(() => {
     if (location.pathname.endsWith('/new')) {
@@ -133,13 +124,13 @@ const BankReconciliationsPage: React.FC = () => {
     if (!selectedReconciliation) return;
 
     try {
-      await dispatch(deleteBankReconciliation(selectedReconciliation.id)).unwrap();
+      await deleteBankReconciliation(selectedReconciliation.id).unwrap();
       showSuccess('Reconciliation deleted successfully');
       setDeleteConfirmOpen(false);
       setSelectedReconciliation(null);
-      dispatch(fetchBankReconciliations({ page: 1, sortBy: 'reconciliationDate', sortOrder: 'DESC' }));
+      refetch();
     } catch (err: any) {
-      showError(err || 'Failed to delete reconciliation');
+      showError(getErrorMessage(err, 'Failed to delete reconciliation'));
     }
   };
 
@@ -160,7 +151,7 @@ const BankReconciliationsPage: React.FC = () => {
     setFormDialogOpen(false);
     setSelectedReconciliation(null);
     navigate('/accounting/bank-reconciliations');
-    dispatch(fetchBankReconciliations({ page: 1, sortBy: 'reconciliationDate', sortOrder: 'DESC' }));
+    refetch();
     showSuccess('Reconciliation saved successfully');
   };
 

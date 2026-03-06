@@ -38,6 +38,7 @@ describe('accountingApiSlice', () => {
     expect(accountingApiSlice.endpoints.validateAccountMappings).toBeDefined()
     expect(accountingApiSlice.endpoints.deleteAccountMapping).toBeDefined()
     expect(accountingApiSlice.endpoints.getBankReconciliations).toBeDefined()
+    expect(accountingApiSlice.endpoints.getBankReconciliation).toBeDefined()
     expect(accountingApiSlice.endpoints.createBankReconciliation).toBeDefined()
     expect(accountingApiSlice.endpoints.updateBankReconciliation).toBeDefined()
     expect(accountingApiSlice.endpoints.deleteBankReconciliation).toBeDefined()
