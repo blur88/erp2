@@ -261,6 +261,11 @@ export const accountingApiSlice = createApi({
       transformResponse: normalizePaginated<JournalEntry>,
       providesTags: ['JournalEntry'],
     }),
+    getJournalEntry: builder.query<JournalEntry, string>({
+      query: (id) => ({ url: `/accounting/journal-entries/${id}` }),
+      transformResponse: normalizeSingle<JournalEntry>,
+      providesTags: (_result, _error, id) => [{ type: 'JournalEntry', id }],
+    }),
     getFiscalPeriods: builder.query<PaginatedResponse<FiscalPeriod>, Record<string, unknown> | undefined>({
       query: (params) => ({ url: '/accounting/fiscal-periods', params: params ?? {} }),
       transformResponse: normalizePaginated<FiscalPeriod>,
@@ -432,11 +437,11 @@ export const accountingApiSlice = createApi({
       transformResponse: normalizeSingle<JournalEntry>,
       invalidatesTags: (_result, _error, { id }) => [{ type: 'JournalEntry', id }, 'JournalEntry', 'AccountingReport'],
     }),
-    bulkPostJournalEntries: builder.mutation<unknown, string[]>({
+    bulkPostJournalEntries: builder.mutation<{ succeeded: string[]; failed: Array<{ id: string; error: string }> }, string[]>({
       query: (ids) => ({ url: '/accounting/journal-entries/bulk-post', method: 'POST', data: { ids } }),
       invalidatesTags: ['JournalEntry', 'AccountingReport'],
     }),
-    bulkDeleteJournalEntries: builder.mutation<unknown, string[]>({
+    bulkDeleteJournalEntries: builder.mutation<{ succeeded: string[]; failed: Array<{ id: string; error: string }> }, string[]>({
       query: (ids) => ({ url: '/accounting/journal-entries/bulk-delete', method: 'POST', data: { ids } }),
       invalidatesTags: ['JournalEntry', 'AccountingReport'],
     }),
@@ -664,6 +669,7 @@ export const {
   useGetChartOfAccountQuery,
   useGetDeletedChartOfAccountsQuery,
   useGetJournalEntriesQuery,
+  useGetJournalEntryQuery,
   useGetFiscalPeriodsQuery,
   useGetCurrentFiscalPeriodQuery,
   useGetAccountMappingsQuery,

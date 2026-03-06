@@ -1,33 +1,29 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
-import { Provider } from 'react-redux'
-import { BrowserRouter, MemoryRouter, Route, Routes } from 'react-router-dom'
-import { configureStore } from '@reduxjs/toolkit'
+import { MemoryRouter, Route, Routes } from 'react-router-dom'
+
 import JournalEntryDetailsPage from './JournalEntryDetailsPage'
-import journalEntriesReducer from '@/store/slices/journalEntriesSlice'
 import { JournalEntryStatus } from '@/types'
 
-// Mock the notification hook
+const mockedApi = vi.hoisted(() => ({
+  useGetJournalEntryQuery: vi.fn(),
+  usePostJournalEntryMutation: vi.fn(),
+  useReverseJournalEntryMutation: vi.fn(),
+  useDeleteJournalEntryMutation: vi.fn(),
+}))
+
+vi.mock('@/store/api/accountingApi', () => ({
+  useGetJournalEntryQuery: mockedApi.useGetJournalEntryQuery,
+  usePostJournalEntryMutation: mockedApi.usePostJournalEntryMutation,
+  useReverseJournalEntryMutation: mockedApi.useReverseJournalEntryMutation,
+  useDeleteJournalEntryMutation: mockedApi.useDeleteJournalEntryMutation,
+}))
+
 vi.mock('@/hooks/useNotification', () => ({
   useNotification: () => ({
     showSuccess: vi.fn(),
     showError: vi.fn(),
   }),
-}))
-
-// Mock the accounting API so fetchJournalEntryById doesn't make real HTTP calls
-vi.mock('@/services/accountingApi', () => ({
-  journalEntriesApi: {
-    getById: vi.fn().mockResolvedValue(null),
-    getAll: vi.fn().mockResolvedValue({ data: [], meta: { total: 0, page: 1, limit: 20, totalPages: 0 } }),
-    create: vi.fn(),
-    update: vi.fn(),
-    delete: vi.fn(),
-    post: vi.fn(),
-    reverse: vi.fn(),
-    bulkPost: vi.fn(),
-    bulkDelete: vi.fn(),
-  },
 }))
 
 const mockEntry = {
@@ -87,56 +83,51 @@ const mockEntry = {
   updatedAt: '2026-01-15T10:00:00Z',
 }
 
-const createMockStore = (initialState: any = {}) => {
-  return configureStore({
-    reducer: {
-      journalEntries: journalEntriesReducer,
-    },
-    preloadedState: {
-      journalEntries: {
-        data: [],
-        selectedEntry: null,
-        loading: false,
-        error: null,
-        pagination: {
-          page: 1,
-          limit: 20,
-          total: 0,
-          totalPages: 0,
-        },
-        ...initialState,
-      },
-    },
-  })
-}
-
-const renderWithRouter = (ui: React.ReactElement, store: any, route = '/accounting/journal-entries/entry-1') => {
-  return render(
-    <Provider store={store}>
-      <MemoryRouter initialEntries={[route]}>
-        <Routes>
-          <Route path="/accounting/journal-entries/:id" element={ui} />
-        </Routes>
-      </MemoryRouter>
-    </Provider>
+const renderWithRouter = (route = '/accounting/journal-entries/entry-1') =>
+  render(
+    <MemoryRouter initialEntries={[route]}>
+      <Routes>
+        <Route path="/accounting/journal-entries/:id" element={<JournalEntryDetailsPage />} />
+      </Routes>
+    </MemoryRouter>
   )
-}
 
 describe('JournalEntryDetailsPage', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mockedApi.useGetJournalEntryQuery.mockReturnValue({
+      data: mockEntry,
+      isLoading: false,
+      error: undefined,
+      refetch: vi.fn(),
+    })
+    mockedApi.usePostJournalEntryMutation.mockReturnValue([vi.fn()])
+    mockedApi.useReverseJournalEntryMutation.mockReturnValue([vi.fn()])
+    mockedApi.useDeleteJournalEntryMutation.mockReturnValue([vi.fn()])
   })
 
   it('renders loading state', () => {
-    const store = createMockStore({ loading: true, selectedEntry: null })
-    renderWithRouter(<JournalEntryDetailsPage />, store)
+    mockedApi.useGetJournalEntryQuery.mockReturnValue({
+      data: undefined,
+      isLoading: true,
+      error: undefined,
+      refetch: vi.fn(),
+    })
+
+    renderWithRouter()
 
     expect(screen.getByRole('progressbar')).toBeInTheDocument()
   })
 
   it('renders entry not found message when entry is null', async () => {
-    const store = createMockStore({ loading: false, selectedEntry: null })
-    renderWithRouter(<JournalEntryDetailsPage />, store)
+    mockedApi.useGetJournalEntryQuery.mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      error: undefined,
+      refetch: vi.fn(),
+    })
+
+    renderWithRouter()
 
     await waitFor(() => {
       expect(screen.getByText('Journal entry not found')).toBeInTheDocument()
@@ -145,26 +136,17 @@ describe('JournalEntryDetailsPage', () => {
   })
 
   it('renders entry details correctly', async () => {
-    const store = createMockStore({ selectedEntry: mockEntry })
-    renderWithRouter(<JournalEntryDetailsPage />, store)
+    renderWithRouter()
 
-    // Wait for content to be rendered
     await waitFor(() => {
       expect(screen.getByText('Journal Entry Details')).toBeInTheDocument()
     })
 
-    // Header
     expect(screen.getAllByText('JE-2026-001').length).toBeGreaterThan(0)
-
-    // Entry header information
     expect(screen.getByText('Test journal entry')).toBeInTheDocument()
     expect(screen.getByText('2026-01 - January 2026')).toBeInTheDocument()
     expect(screen.getByText(JournalEntryStatus.DRAFT)).toBeInTheDocument()
-
-    // Balance validation
     expect(screen.getByText('Entry is Balanced')).toBeInTheDocument()
-
-    // Line items
     expect(screen.getByText('1010 - Cash')).toBeInTheDocument()
     expect(screen.getByText('2010 - Accounts Payable')).toBeInTheDocument()
     expect(screen.getByText('Debit memo')).toBeInTheDocument()
@@ -172,14 +154,14 @@ describe('JournalEntryDetailsPage', () => {
   })
 
   it('displays unbalanced warning for unbalanced entry', async () => {
-    const unbalancedEntry = {
-      ...mockEntry,
-      totalDebits: 1000.0,
-      totalCredits: 900.0,
-      isBalanced: false,
-    }
-    const store = createMockStore({ selectedEntry: unbalancedEntry })
-    renderWithRouter(<JournalEntryDetailsPage />, store)
+    mockedApi.useGetJournalEntryQuery.mockReturnValue({
+      data: { ...mockEntry, totalDebits: 1000, totalCredits: 900, isBalanced: false },
+      isLoading: false,
+      error: undefined,
+      refetch: vi.fn(),
+    })
+
+    renderWithRouter()
 
     await waitFor(() => {
       expect(screen.getByText(/Entry is Unbalanced/)).toBeInTheDocument()
@@ -188,8 +170,7 @@ describe('JournalEntryDetailsPage', () => {
   })
 
   it('shows draft actions for draft entry', async () => {
-    const store = createMockStore({ selectedEntry: mockEntry })
-    renderWithRouter(<JournalEntryDetailsPage />, store)
+    renderWithRouter()
 
     await waitFor(() => {
       expect(screen.getByText('Edit')).toBeInTheDocument()
@@ -199,14 +180,14 @@ describe('JournalEntryDetailsPage', () => {
   })
 
   it('shows reverse action for posted entry', () => {
-    const postedEntry = {
-      ...mockEntry,
-      status: JournalEntryStatus.POSTED,
-      isDraft: false,
-      isPosted: true,
-    }
-    const store = createMockStore({ selectedEntry: postedEntry })
-    renderWithRouter(<JournalEntryDetailsPage />, store)
+    mockedApi.useGetJournalEntryQuery.mockReturnValue({
+      data: { ...mockEntry, status: JournalEntryStatus.POSTED, isDraft: false, isPosted: true },
+      isLoading: false,
+      error: undefined,
+      refetch: vi.fn(),
+    })
+
+    renderWithRouter()
 
     expect(screen.getByText('Reverse')).toBeInTheDocument()
     expect(screen.queryByText('Edit')).not.toBeInTheDocument()
@@ -215,25 +196,22 @@ describe('JournalEntryDetailsPage', () => {
   })
 
   it('disables post button for unbalanced entry', () => {
-    const unbalancedEntry = {
-      ...mockEntry,
-      totalDebits: 1000.0,
-      totalCredits: 900.0,
-      isBalanced: false,
-    }
-    const store = createMockStore({ selectedEntry: unbalancedEntry })
-    renderWithRouter(<JournalEntryDetailsPage />, store)
+    mockedApi.useGetJournalEntryQuery.mockReturnValue({
+      data: { ...mockEntry, totalDebits: 1000, totalCredits: 900, isBalanced: false },
+      isLoading: false,
+      error: undefined,
+      refetch: vi.fn(),
+    })
 
-    const postButton = screen.getByText('Post').closest('button')
-    expect(postButton).toBeDisabled()
+    renderWithRouter()
+
+    expect(screen.getByText('Post').closest('button')).toBeDisabled()
   })
 
   it('opens post confirmation dialog when post button is clicked', async () => {
-    const store = createMockStore({ selectedEntry: mockEntry })
-    renderWithRouter(<JournalEntryDetailsPage />, store)
+    renderWithRouter()
 
-    const postButton = screen.getByText('Post')
-    fireEvent.click(postButton)
+    fireEvent.click(screen.getByText('Post'))
 
     await waitFor(() => {
       expect(screen.getByText('Post Journal Entry')).toBeInTheDocument()
@@ -242,11 +220,9 @@ describe('JournalEntryDetailsPage', () => {
   })
 
   it('opens delete confirmation dialog when delete button is clicked', async () => {
-    const store = createMockStore({ selectedEntry: mockEntry })
-    renderWithRouter(<JournalEntryDetailsPage />, store)
+    renderWithRouter()
 
-    const deleteButton = screen.getByText('Delete')
-    fireEvent.click(deleteButton)
+    fireEvent.click(screen.getByText('Delete'))
 
     await waitFor(() => {
       expect(screen.getByText('Delete Journal Entry')).toBeInTheDocument()
@@ -255,17 +231,16 @@ describe('JournalEntryDetailsPage', () => {
   })
 
   it('opens reverse confirmation dialog when reverse button is clicked', async () => {
-    const postedEntry = {
-      ...mockEntry,
-      status: JournalEntryStatus.POSTED,
-      isDraft: false,
-      isPosted: true,
-    }
-    const store = createMockStore({ selectedEntry: postedEntry })
-    renderWithRouter(<JournalEntryDetailsPage />, store)
+    mockedApi.useGetJournalEntryQuery.mockReturnValue({
+      data: { ...mockEntry, status: JournalEntryStatus.POSTED, isDraft: false, isPosted: true },
+      isLoading: false,
+      error: undefined,
+      refetch: vi.fn(),
+    })
 
-    const reverseButton = screen.getByText('Reverse')
-    fireEvent.click(reverseButton)
+    renderWithRouter()
+
+    fireEvent.click(screen.getByText('Reverse'))
 
     await waitFor(() => {
       expect(screen.getByText('Reverse Journal Entry')).toBeInTheDocument()
@@ -274,43 +249,44 @@ describe('JournalEntryDetailsPage', () => {
   })
 
   it('displays reversal relationship information', () => {
-    const reversedEntry = {
-      ...mockEntry,
-      status: JournalEntryStatus.REVERSED,
-      isReversed: true,
-      reversedBy: {
-        id: 'entry-2',
-        referenceNumber: 'JE-2026-002',
+    mockedApi.useGetJournalEntryQuery.mockReturnValue({
+      data: {
+        ...mockEntry,
+        status: JournalEntryStatus.REVERSED,
+        isReversed: true,
+        reversedBy: { id: 'entry-2', referenceNumber: 'JE-2026-002' },
       },
-    }
-    const store = createMockStore({ selectedEntry: reversedEntry })
-    renderWithRouter(<JournalEntryDetailsPage />, store)
+      isLoading: false,
+      error: undefined,
+      refetch: vi.fn(),
+    })
+
+    renderWithRouter()
 
     expect(screen.getByText('Reversed By')).toBeInTheDocument()
     expect(screen.getByText('JE-2026-002')).toBeInTheDocument()
   })
 
   it('displays totals row correctly', async () => {
-    const store = createMockStore({ selectedEntry: mockEntry })
-    renderWithRouter(<JournalEntryDetailsPage />, store)
+    renderWithRouter()
 
     await waitFor(() => {
       expect(screen.getByText('TOTALS')).toBeInTheDocument()
     })
-    // Totals row should exist with amounts (checking for TOTALS text is sufficient)
   })
 
-  it('renders component when error exists in state', async () => {
-    const store = createMockStore({
-      selectedEntry: mockEntry,
-      error: 'Failed to load journal entry',
+  it('renders component when error exists with cached data', async () => {
+    mockedApi.useGetJournalEntryQuery.mockReturnValue({
+      data: mockEntry,
+      isLoading: false,
+      error: { data: 'Failed to load journal entry' },
+      refetch: vi.fn(),
     })
-    renderWithRouter(<JournalEntryDetailsPage />, store)
 
-    // Component should still render the entry even if there's an error in state
+    renderWithRouter()
+
     await waitFor(() => {
       expect(screen.getByText('Journal Entry Details')).toBeInTheDocument()
     })
-    // The error would show if it's propagated correctly, but main content still renders
   })
 })

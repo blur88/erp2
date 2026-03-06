@@ -17,6 +17,7 @@ describe('accountingApiSlice', () => {
     expect(accountingApiSlice.endpoints.bulkPermanentDeleteChartOfAccounts).toBeDefined()
     expect(accountingApiSlice.endpoints.seedDefaultChartOfAccounts).toBeDefined()
     expect(accountingApiSlice.endpoints.getJournalEntries).toBeDefined()
+    expect(accountingApiSlice.endpoints.getJournalEntry).toBeDefined()
     expect(accountingApiSlice.endpoints.createJournalEntry).toBeDefined()
     expect(accountingApiSlice.endpoints.updateJournalEntry).toBeDefined()
     expect(accountingApiSlice.endpoints.deleteJournalEntry).toBeDefined()

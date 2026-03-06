@@ -33,32 +33,33 @@ import {
   CheckCircle as CheckCircleIcon,
   Warning as WarningIcon,
 } from '@mui/icons-material'
-import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
 import { useNotification } from '@/hooks/useNotification'
 import {
-  fetchJournalEntryById,
-  postEntry,
-  reverseEntry,
-  deleteJournalEntry,
-  selectSelectedEntry,
-  selectJournalEntriesLoading,
-  selectJournalEntriesError,
-  clearError,
-} from '@/store/slices/journalEntriesSlice'
+  useDeleteJournalEntryMutation,
+  useGetJournalEntryQuery,
+  usePostJournalEntryMutation,
+  useReverseJournalEntryMutation,
+} from '@/store/api/accountingApi'
 import { formatCurrency, formatDate, getCurrentDate } from '@/utils/formatters'
 import { JournalEntryStatus } from '@/types'
 import { TYPOGRAPHY_STYLES } from '@/constants/typography'
+import { getErrorMessage } from '@/utils/errorMessage'
 
 const JournalEntryDetailsPage: React.FC = () => {
   const navigate = useNavigate()
-  const dispatch = useAppDispatch()
   const { id } = useParams<{ id: string }>()
   const { showSuccess, showError } = useNotification()
 
-  // Redux state
-  const entry = useAppSelector(selectSelectedEntry)
-  const loading = useAppSelector(selectJournalEntriesLoading)
-  const error = useAppSelector(selectJournalEntriesError)
+  const {
+    data: entry,
+    isLoading: loading,
+    error,
+    refetch,
+  } = useGetJournalEntryQuery(id as string, { skip: !id })
+  const [postJournalEntry] = usePostJournalEntryMutation()
+  const [reverseJournalEntry] = useReverseJournalEntryMutation()
+  const [deleteJournalEntry] = useDeleteJournalEntryMutation()
+  const errorMessage = error ? getErrorMessage(error, 'Failed to load journal entry') : null
 
   // Local state
   const [postDialogOpen, setPostDialogOpen] = useState(false)
@@ -67,19 +68,11 @@ const JournalEntryDetailsPage: React.FC = () => {
   const [reverseDate, setReverseDate] = useState(getCurrentDate())
   const [actionLoading, setActionLoading] = useState(false)
 
-  // Load entry on mount
   useEffect(() => {
-    if (id) {
-      dispatch(fetchJournalEntryById(id))
+    if (errorMessage) {
+      showError(errorMessage)
     }
-  }, [id, dispatch])
-
-  // Clear error on unmount
-  useEffect(() => {
-    return () => {
-      dispatch(clearError())
-    }
-  }, [dispatch])
+  }, [errorMessage, showError])
 
   // Handle back to list
   const handleBack = () => {
@@ -101,13 +94,12 @@ const JournalEntryDetailsPage: React.FC = () => {
 
     setActionLoading(true)
     try {
-      await dispatch(postEntry(id)).unwrap()
+      await postJournalEntry(id).unwrap()
       showSuccess('Journal entry posted successfully')
       setPostDialogOpen(false)
-      // Reload to get updated status
-      dispatch(fetchJournalEntryById(id))
+      refetch()
     } catch (err: any) {
-      showError(err || 'Failed to post journal entry')
+      showError(getErrorMessage(err, 'Failed to post journal entry'))
     } finally {
       setActionLoading(false)
     }
@@ -119,7 +111,7 @@ const JournalEntryDetailsPage: React.FC = () => {
 
     setActionLoading(true)
     try {
-      const result = await dispatch(reverseEntry({ id, reverseDate })).unwrap()
+      const result = await reverseJournalEntry({ id, reverseDate }).unwrap()
       showSuccess('Journal entry reversed successfully')
       setReverseDialogOpen(false)
 
@@ -127,11 +119,10 @@ const JournalEntryDetailsPage: React.FC = () => {
       if (result && result.id) {
         navigate(`/accounting/journal-entries/${result.id}`)
       } else {
-        // Or just reload current entry
-        dispatch(fetchJournalEntryById(id))
+        refetch()
       }
     } catch (err: any) {
-      showError(err || 'Failed to reverse journal entry')
+      showError(getErrorMessage(err, 'Failed to reverse journal entry'))
     } finally {
       setActionLoading(false)
     }
@@ -143,12 +134,12 @@ const JournalEntryDetailsPage: React.FC = () => {
 
     setActionLoading(true)
     try {
-      await dispatch(deleteJournalEntry(id)).unwrap()
+      await deleteJournalEntry(id).unwrap()
       showSuccess('Journal entry deleted successfully')
       setDeleteDialogOpen(false)
       navigate('/accounting/journal-entries')
     } catch (err: any) {
-      showError(err || 'Failed to delete journal entry')
+      showError(getErrorMessage(err, 'Failed to delete journal entry'))
     } finally {
       setActionLoading(false)
     }
@@ -258,9 +249,9 @@ const JournalEntryDetailsPage: React.FC = () => {
       </Box>
 
       {/* Error Alert */}
-      {error && (
-        <Alert severity="error" sx={{ mb: 2 }} onClose={() => dispatch(clearError())}>
-          {error}
+      {errorMessage && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {errorMessage}
         </Alert>
       )}
 

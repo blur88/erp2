@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import {
   Box,
@@ -36,26 +36,21 @@ import {
   Refresh as RefreshIcon,
   Description as JournalIcon,
 } from '@mui/icons-material'
-import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
 import { useNotification } from '@/hooks/useNotification'
 import {
-  fetchJournalEntries,
-  deleteJournalEntry,
-  postEntry,
-  bulkPostEntries,
-  bulkDeleteEntries,
-  selectJournalEntries,
-  selectJournalEntriesLoading,
-  selectJournalEntriesError,
-  selectJournalEntriesPagination,
-  clearError,
-} from '@/store/slices/journalEntriesSlice'
+  useBulkDeleteJournalEntriesMutation,
+  useBulkPostJournalEntriesMutation,
+  useDeleteJournalEntryMutation,
+  useGetJournalEntriesQuery,
+  usePostJournalEntryMutation,
+} from '@/store/api/accountingApi'
 import { JournalEntry, JournalEntryStatus } from '@/types'
 import { formatCurrency, formatDate } from '@/utils/formatters'
 import ConfirmationDialog from '@/components/common/ConfirmationDialog'
 import AccountMappingWarning from '@/components/accounting/AccountMappingWarning'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
 import { useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
+import { getErrorMessage } from '@/utils/errorMessage'
 
 interface Filters {
   search: string
@@ -87,14 +82,7 @@ const getEntryTypeLabel = (sourceType?: string): string => {
 const JournalEntriesPage: React.FC = () => {
   const navigate = useNavigate()
   const location = useLocation()
-  const dispatch = useAppDispatch()
   const { showSuccess, showError } = useNotification()
-
-  // Redux state
-  const journalEntries = useAppSelector(selectJournalEntries) || []
-  const loading = useAppSelector(selectJournalEntriesLoading)
-  const error = useAppSelector(selectJournalEntriesError)
-  const pagination = useAppSelector(selectJournalEntriesPagination)
 
   // Local state
   const [filters, setFilters] = useState<Filters>({
@@ -112,8 +100,8 @@ const JournalEntriesPage: React.FC = () => {
   const [isBulkDeleteConfirmOpen, setIsBulkDeleteConfirmOpen] = useState(false)
   const [actionLoading, setActionLoading] = useState(false)
 
-  const buildFetchParams = useCallback(() => {
-    const params: any = {
+  const queryParams = useMemo(() => {
+    const params: Record<string, unknown> = {
       page: 1,
       sortBy: 'createdAt',
       sortOrder: 'DESC',
@@ -123,14 +111,7 @@ const JournalEntriesPage: React.FC = () => {
     if (filters.entryType) params.sourceType = filters.entryType
     if (filters.startDate) params.startDate = filters.startDate
     if (filters.endDate) params.endDate = filters.endDate
-    return params
-  }, [filters])
 
-  // Load journal entries
-  useEffect(() => {
-    const params: any = buildFetchParams()
-
-    // Check URL query parameters (from transaction pages)
     const urlParams = new URLSearchParams(location.search)
     const sourceType = urlParams.get('sourceType')
     const sourceId = urlParams.get('sourceId')
@@ -140,13 +121,28 @@ const JournalEntriesPage: React.FC = () => {
       params.sourceId = sourceId
     }
 
-    dispatch(fetchJournalEntries(params))
-  }, [dispatch, buildFetchParams, location.search])
+    return params
+  }, [filters, location.search])
 
-  // Clear error on mount
+  const {
+    data: journalEntriesResponse,
+    isLoading: loading,
+    error,
+    refetch,
+  } = useGetJournalEntriesQuery(queryParams)
+  const [deleteJournalEntry] = useDeleteJournalEntryMutation()
+  const [postJournalEntry] = usePostJournalEntryMutation()
+  const [bulkPostJournalEntries] = useBulkPostJournalEntriesMutation()
+  const [bulkDeleteJournalEntries] = useBulkDeleteJournalEntriesMutation()
+  const journalEntries = journalEntriesResponse?.data ?? []
+  const pagination = journalEntriesResponse?.meta
+  const errorMessage = error ? getErrorMessage(error, 'Failed to fetch journal entries') : null
+
   useEffect(() => {
-    dispatch(clearError())
-  }, [dispatch])
+    if (errorMessage) {
+      showError(errorMessage)
+    }
+  }, [errorMessage, showError])
 
   useEffect(() => {
     const validIds = new Set(journalEntries.map((entry: JournalEntry) => entry.id))
@@ -215,14 +211,13 @@ const JournalEntriesPage: React.FC = () => {
 
     setActionLoading(true)
     try {
-      await dispatch(postEntry(selectedEntry.id)).unwrap()
+      await postJournalEntry(selectedEntry.id).unwrap()
       showSuccess(`Journal entry ${selectedEntry.referenceNumber} posted successfully`)
       setIsPostConfirmOpen(false)
       setSelectedEntry(null)
-      // Refresh list
-      dispatch(fetchJournalEntries(buildFetchParams()))
+      refetch()
     } catch (error: any) {
-      showError(`Failed to post journal entry: ${error}`)
+      showError(getErrorMessage(error, 'Failed to post journal entry'))
     } finally {
       setActionLoading(false)
     }
@@ -240,14 +235,13 @@ const JournalEntriesPage: React.FC = () => {
 
     setActionLoading(true)
     try {
-      await dispatch(deleteJournalEntry(selectedEntry.id)).unwrap()
+      await deleteJournalEntry(selectedEntry.id).unwrap()
       showSuccess(`Journal entry ${selectedEntry.referenceNumber} deleted successfully`)
       setIsDeleteConfirmOpen(false)
       setSelectedEntry(null)
-      // Refresh list
-      dispatch(fetchJournalEntries(buildFetchParams()))
+      refetch()
     } catch (error: any) {
-      showError(`Failed to delete journal entry: ${error}`)
+      showError(getErrorMessage(error, 'Failed to delete journal entry'))
     } finally {
       setActionLoading(false)
     }
@@ -255,21 +249,21 @@ const JournalEntriesPage: React.FC = () => {
 
   // Handle refresh
   const handleRefresh = () => {
-    dispatch(fetchJournalEntries(buildFetchParams()))
+    refetch()
   }
 
   const handleBulkPost = async () => {
     setActionLoading(true)
     try {
-      const result = await dispatch(bulkPostEntries(Array.from(selectedIds))).unwrap()
+      const result = await bulkPostJournalEntries(Array.from(selectedIds)).unwrap()
       showSuccess(`Posted ${result.succeeded.length} entries`)
       if (result.failed.length > 0) {
         showError(`${result.failed.length} entries failed to post`)
       }
       setSelectedIds(new Set())
-      dispatch(fetchJournalEntries(buildFetchParams()))
+      refetch()
     } catch (error: any) {
-      showError(error)
+      showError(getErrorMessage(error, 'Bulk post failed'))
     } finally {
       setActionLoading(false)
       setIsBulkPostConfirmOpen(false)
@@ -279,15 +273,15 @@ const JournalEntriesPage: React.FC = () => {
   const handleBulkDelete = async () => {
     setActionLoading(true)
     try {
-      const result = await dispatch(bulkDeleteEntries(Array.from(selectedIds))).unwrap()
+      const result = await bulkDeleteJournalEntries(Array.from(selectedIds)).unwrap()
       showSuccess(`Deleted ${result.succeeded.length} entries`)
       if (result.failed.length > 0) {
         showError(`${result.failed.length} entries failed to delete`)
       }
       setSelectedIds(new Set())
-      dispatch(fetchJournalEntries(buildFetchParams()))
+      refetch()
     } catch (error: any) {
-      showError(error)
+      showError(getErrorMessage(error, 'Bulk delete failed'))
     } finally {
       setActionLoading(false)
       setIsBulkDeleteConfirmOpen(false)
@@ -490,9 +484,9 @@ const JournalEntriesPage: React.FC = () => {
       </Paper>
 
       {/* Error Alert */}
-      {error && (
-        <Alert severity="error" sx={{ mb: 2 }} onClose={() => dispatch(clearError())}>
-          {error}
+      {errorMessage && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {errorMessage}
         </Alert>
       )}
 

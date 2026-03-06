@@ -36,29 +36,18 @@ import { useForm, useFieldArray, Controller, useWatch } from 'react-hook-form'
 import { yupResolver } from '@hookform/resolvers/yup'
 import * as yup from 'yup'
 import { useNotification } from '@/hooks/useNotification'
-import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
 import {
-  createJournalEntry,
-  updateJournalEntry,
-  fetchJournalEntryById,
-  selectSelectedEntry,
-  selectJournalEntriesLoading,
-  selectJournalEntriesError,
-  clearError,
-} from '@/store/slices/journalEntriesSlice'
-import {
-  fetchChartOfAccounts,
-  selectChartOfAccounts,
-  selectChartOfAccountsLoading,
-} from '@/store/slices/chartOfAccountsSlice'
-import {
-  fetchCurrentPeriod,
-  selectCurrentPeriod,
-} from '@/store/slices/fiscalPeriodsSlice'
+  useCreateJournalEntryMutation,
+  useGetChartOfAccountsQuery,
+  useGetCurrentFiscalPeriodQuery,
+  useGetJournalEntryQuery,
+  useUpdateJournalEntryMutation,
+} from '@/store/api/accountingApi'
 import { formatCurrency, formatDate, getCurrentDate } from '@/utils/formatters'
 import { JournalEntryStatus, FiscalPeriodStatus } from '@/types'
 import { useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
 import { TYPOGRAPHY_STYLES } from '@/constants/typography'
+import { getErrorMessage } from '@/utils/errorMessage'
 
 interface JournalEntryLineForm {
   accountId: string
@@ -131,18 +120,29 @@ const schema = yup.object({
  */
 const JournalEntryFormPage: React.FC = () => {
   const navigate = useNavigate()
-  const dispatch = useAppDispatch()
   const { id } = useParams<{ id: string }>()
   const isEditMode = !!id
   const { showSuccess, showError } = useNotification()
 
-  // Redux state
-  const selectedEntry = useAppSelector(selectSelectedEntry)
-  const loading = useAppSelector(selectJournalEntriesLoading)
-  const error = useAppSelector(selectJournalEntriesError)
-  const accounts = useAppSelector(selectChartOfAccounts) || []
-  const accountsLoading = useAppSelector(selectChartOfAccountsLoading)
-  const currentPeriod = useAppSelector(selectCurrentPeriod)
+  const {
+    data: selectedEntry,
+    isLoading: loading,
+    error: journalEntryError,
+  } = useGetJournalEntryQuery(id as string, { skip: !id })
+  const {
+    data: accountsResponse,
+    isLoading: accountsLoading,
+  } = useGetChartOfAccountsQuery({
+    page: 1,
+    isActive: true,
+    sortBy: 'code',
+    sortOrder: 'ASC',
+  })
+  const { data: currentPeriod } = useGetCurrentFiscalPeriodQuery()
+  const [createJournalEntry] = useCreateJournalEntryMutation()
+  const [updateJournalEntry] = useUpdateJournalEntryMutation()
+  const accounts = accountsResponse?.data ?? []
+  const errorMessage = journalEntryError ? getErrorMessage(journalEntryError, 'Failed to load journal entry') : null
 
   // Local state
   const [submitting, setSubmitting] = useState(false)
@@ -201,18 +201,11 @@ const JournalEntryFormPage: React.FC = () => {
     }
   }, [watchedLines])
 
-  // Load data on mount
   useEffect(() => {
-    dispatch(fetchChartOfAccounts({ isActive: true }))
-    dispatch(fetchCurrentPeriod())
-  }, [dispatch])
-
-  // Load entry in edit mode
-  useEffect(() => {
-    if (isEditMode && id) {
-      dispatch(fetchJournalEntryById(id))
+    if (errorMessage) {
+      showError(errorMessage)
     }
-  }, [isEditMode, id, dispatch])
+  }, [errorMessage, showError])
 
   // Populate form in edit mode
   useEffect(() => {
@@ -245,13 +238,6 @@ const JournalEntryFormPage: React.FC = () => {
       })
     }
   }, [isEditMode, selectedEntry, id, reset, navigate, showError])
-
-  // Clear error on unmount
-  useEffect(() => {
-    return () => {
-      dispatch(clearError())
-    }
-  }, [dispatch])
 
   // Handle form submission with comprehensive business validations
   const onSubmit = async (data: JournalEntryFormData) => {
@@ -308,10 +294,10 @@ const JournalEntryFormPage: React.FC = () => {
       }
 
       if (isEditMode && id) {
-        await dispatch(updateJournalEntry({ id, data: payload })).unwrap()
+        await updateJournalEntry({ id, data: payload }).unwrap()
         showSuccess('Journal entry updated successfully')
       } else {
-        const result = await dispatch(createJournalEntry(payload)).unwrap()
+        const result = await createJournalEntry(payload).unwrap()
         showSuccess('Journal entry created successfully')
 
         // If should post, navigate to detail page to allow posting
@@ -323,9 +309,7 @@ const JournalEntryFormPage: React.FC = () => {
 
       navigate('/accounting/journal-entries')
     } catch (err: any) {
-      // Extract meaningful error message from error object
-      const errorMessage = err?.message || err?.response?.data?.message || 'Failed to save journal entry'
-      showError(errorMessage)
+      showError(getErrorMessage(err, 'Failed to save journal entry'))
     } finally {
       setSubmitting(false)
     }
@@ -383,9 +367,9 @@ const JournalEntryFormPage: React.FC = () => {
       </Box>
 
       {/* Error Alert */}
-      {error && (
-        <Alert severity="error" sx={{ mb: 2 }} onClose={() => dispatch(clearError())}>
-          {error}
+      {errorMessage && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {errorMessage}
         </Alert>
       )}
 

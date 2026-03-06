@@ -1,34 +1,38 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
-import { Provider } from 'react-redux'
 import { BrowserRouter } from 'react-router-dom'
-import { configureStore } from '@reduxjs/toolkit'
-import JournalEntriesPage from '../JournalEntriesPage'
-import journalEntriesReducer from '@/store/slices/journalEntriesSlice'
-import { JournalEntryStatus } from '@/types'
-import { ApiService } from '@/services/api'
 
-// Mock ApiService
-vi.mock('@/services/api', () => ({
-  ApiService: {
-    get: vi.fn(),
-    post: vi.fn(),
-    patch: vi.fn(),
-    delete: vi.fn(),
-  },
+import JournalEntriesPage from '../JournalEntriesPage'
+import { JournalEntryStatus } from '@/types'
+
+const mockedApi = vi.hoisted(() => ({
+  useGetJournalEntriesQuery: vi.fn(),
+  useDeleteJournalEntryMutation: vi.fn(),
+  usePostJournalEntryMutation: vi.fn(),
+  useBulkPostJournalEntriesMutation: vi.fn(),
+  useBulkDeleteJournalEntriesMutation: vi.fn(),
 }))
 
-// Mock navigation
 const mockNavigate = vi.fn()
+const mockLocation = { search: '', pathname: '/accounting/journal-entries' }
+
 vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual('react-router-dom')
   return {
     ...actual,
     useNavigate: () => mockNavigate,
+    useLocation: () => mockLocation,
   }
 })
 
-// Mock notification hook
+vi.mock('@/store/api/accountingApi', () => ({
+  useGetJournalEntriesQuery: mockedApi.useGetJournalEntriesQuery,
+  useDeleteJournalEntryMutation: mockedApi.useDeleteJournalEntryMutation,
+  usePostJournalEntryMutation: mockedApi.usePostJournalEntryMutation,
+  useBulkPostJournalEntriesMutation: mockedApi.useBulkPostJournalEntriesMutation,
+  useBulkDeleteJournalEntriesMutation: mockedApi.useBulkDeleteJournalEntriesMutation,
+}))
+
 vi.mock('@/hooks/useNotification', () => ({
   useNotification: () => ({
     showSuccess: vi.fn(),
@@ -36,13 +40,15 @@ vi.mock('@/hooks/useNotification', () => ({
   }),
 }))
 
-// Mock formatters
+vi.mock('@/components/accounting/AccountMappingWarning', () => ({
+  default: () => null,
+}))
+
 vi.mock('@/utils/formatters', () => ({
   formatCurrency: (value: number) => `$${value.toFixed(2)}`,
   formatDate: (date: string | Date) => new Date(date).toLocaleDateString(),
 }))
 
-// Sample journal entries
 const mockJournalEntries = [
   {
     id: '1',
@@ -94,40 +100,31 @@ const mockJournalEntries = [
   },
 ]
 
-const createMockStore = () => {
-  return configureStore({
-    reducer: {
-      journalEntries: journalEntriesReducer,
-    },
-  })
-}
-
-const renderWithProviders = () => {
-  const store = createMockStore()
-  return render(
-    <Provider store={store}>
-      <BrowserRouter>
-        <JournalEntriesPage />
-      </BrowserRouter>
-    </Provider>
+const renderWithProviders = () =>
+  render(
+    <BrowserRouter>
+      <JournalEntriesPage />
+    </BrowserRouter>
   )
-}
 
 describe('JournalEntriesPage', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockNavigate.mockClear()
-
-    // Mock successful API response by default
-    ;(ApiService.get as any).mockResolvedValue({
-      data: mockJournalEntries,
-      meta: {
-        page: 1,
-        limit: 50,
-        total: 3,
-        totalPages: 1,
+    mockLocation.search = ''
+    mockedApi.useGetJournalEntriesQuery.mockReturnValue({
+      data: {
+        data: mockJournalEntries,
+        meta: { page: 1, limit: 50, total: 3, totalPages: 1 },
       },
+      isLoading: false,
+      error: undefined,
+      refetch: vi.fn(),
     })
+    mockedApi.useDeleteJournalEntryMutation.mockReturnValue([vi.fn()])
+    mockedApi.usePostJournalEntryMutation.mockReturnValue([vi.fn()])
+    mockedApi.useBulkPostJournalEntriesMutation.mockReturnValue([vi.fn()])
+    mockedApi.useBulkDeleteJournalEntriesMutation.mockReturnValue([vi.fn()])
   })
 
   it('renders the page with journal entries', async () => {
@@ -153,9 +150,11 @@ describe('JournalEntriesPage', () => {
   })
 
   it('shows empty state when no entries', async () => {
-    ;(ApiService.get as any).mockResolvedValue({
-      data: [],
-      meta: { page: 1, limit: 50, total: 0, totalPages: 0 },
+    mockedApi.useGetJournalEntriesQuery.mockReturnValue({
+      data: { data: [], meta: { page: 1, limit: 50, total: 0, totalPages: 0 } },
+      isLoading: false,
+      error: undefined,
+      refetch: vi.fn(),
     })
 
     renderWithProviders()
@@ -168,8 +167,7 @@ describe('JournalEntriesPage', () => {
   it('navigates to create page when clicking New Journal Entry button', () => {
     renderWithProviders()
 
-    const createButton = screen.getByText('New Journal Entry')
-    fireEvent.click(createButton)
+    fireEvent.click(screen.getByText('New Journal Entry'))
 
     expect(mockNavigate).toHaveBeenCalledWith('/accounting/journal-entries/new')
   })
@@ -177,14 +175,8 @@ describe('JournalEntriesPage', () => {
   it('navigates to details page when clicking a row', async () => {
     renderWithProviders()
 
-    await waitFor(() => {
-      expect(screen.getByText('JE-2026-001')).toBeInTheDocument()
-    })
-
-    const firstRow = screen.getByText('JE-2026-001').closest('tr')
-    if (firstRow) {
-      fireEvent.click(firstRow)
-    }
+    const firstRow = await screen.findByText('JE-2026-001')
+    fireEvent.click(firstRow.closest('tr') as HTMLElement)
 
     expect(mockNavigate).toHaveBeenCalledWith('/accounting/journal-entries/1')
   })
@@ -215,7 +207,7 @@ describe('JournalEntriesPage', () => {
     renderWithProviders()
 
     await waitFor(() => {
-      expect(screen.getByText('Showing 3 of 3 entries')).toBeInTheDocument()
+      expect(screen.getByText('Manage and post accounting journal entries (3 total)')).toBeInTheDocument()
     })
   })
 
@@ -226,8 +218,7 @@ describe('JournalEntriesPage', () => {
       expect(screen.getByText('JE-2026-002')).toBeInTheDocument()
     })
 
-    const checkboxes = screen.getAllByRole('checkbox')
-    fireEvent.click(checkboxes[2])
+    fireEvent.click(screen.getAllByRole('checkbox')[2])
 
     await waitFor(() => {
       expect(screen.getByText('Post Selected (1)')).toBeInTheDocument()
