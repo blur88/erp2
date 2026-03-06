@@ -10,8 +10,7 @@ import {
   Box,
 } from '@mui/material'
 import { Star as StarIcon } from '@mui/icons-material'
-import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
-import { fetchEffectivePriceLists } from '@/store/slices/priceListSlice'
+import { useGetEffectivePriceListsQuery, useGetPriceListsQuery } from '@/store/api/priceListApi'
 import type { PriceList } from '@/types'
 
 interface PriceListSelectorProps {
@@ -35,13 +34,9 @@ const PriceListSelector: React.FC<PriceListSelectorProps> = ({
   fullWidth = true,
   showInactive = false,
 }) => {
-  const dispatch = useAppDispatch()
-  const { effectivePriceLists, loading, defaultPriceList } = useAppSelector((state) => state.priceLists)
-
-  useEffect(() => {
-    // Fetch effective price lists on mount
-    dispatch(fetchEffectivePriceLists())
-  }, [dispatch])
+  const { data: effectivePriceLists = [], isLoading: effectiveLoading } = useGetEffectivePriceListsQuery()
+  const { data: allPriceLists } = useGetPriceListsQuery({ page: 1, limit: 200, isActive: undefined })
+  const defaultPriceList = allPriceLists?.data?.find((pl) => pl.isDefault) ?? null
 
   // Filter price lists based on showInactive prop
   const filteredPriceLists = showInactive
@@ -80,7 +75,7 @@ const PriceListSelector: React.FC<PriceListSelectorProps> = ({
   )
 
   return (
-    <FormControl fullWidth={fullWidth} error={!!error} disabled={disabled || loading.effectivePriceLists}>
+    <FormControl fullWidth={fullWidth} error={!!error} disabled={disabled || effectiveLoading}>
       <InputLabel id="price-list-selector-label" required={required}>
         {label}
       </InputLabel>
@@ -89,14 +84,14 @@ const PriceListSelector: React.FC<PriceListSelectorProps> = ({
         value={value || ''}
         onChange={(e) => onChange(e.target.value)}
         label={label}
-        disabled={disabled || loading.effectivePriceLists}
+        disabled={disabled || effectiveLoading}
         endAdornment={
-          loading.effectivePriceLists ? (
+          effectiveLoading ? (
             <CircularProgress size={20} sx={{ mr: 2 }} />
           ) : null
         }
       >
-        {filteredPriceLists.length === 0 && !loading.effectivePriceLists && (
+        {filteredPriceLists.length === 0 && !effectiveLoading && (
           <MenuItem disabled>
             <em>No price lists available</em>
           </MenuItem>

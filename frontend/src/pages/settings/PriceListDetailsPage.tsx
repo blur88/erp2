@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useCallback } from 'react'
 import {
   Box,
   Typography,
@@ -29,14 +29,13 @@ import {
   TrendingUp as AdjustIcon,
 } from '@mui/icons-material'
 import { useParams, useNavigate } from 'react-router-dom'
-import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
 import { useNotification } from '@/hooks/useNotification'
 import {
-  fetchPriceListById,
-  fetchPriceListItems,
-  bulkUpdatePrices,
-  applyPercentageAdjustment,
-} from '@/store/slices/priceListSlice'
+  useApplyPercentageAdjustmentMutation,
+  useBulkUpdatePricesMutation,
+  useGetPriceListItemsQuery,
+  useGetPriceListQuery,
+} from '@/store/api/priceListApi'
 import type { PriceListItem } from '@/types'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
 import { formatCurrency } from '@/utils/currency'
@@ -45,14 +44,23 @@ import { formatDate as formatDisplayDate } from '@/utils/formatters'
 const PriceListDetailsPage: React.FC = () => {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const dispatch = useAppDispatch()
   const { showSuccess, showError } = useNotification()
 
-  // Redux state
-  const selectedPriceList = useAppSelector((state) => state.priceLists.selectedPriceList)
-  const priceListItems = useAppSelector((state) => state.priceLists.priceListItems)
-  const loading = useAppSelector((state) => state.priceLists.loading)
-  const error = useAppSelector((state) => state.priceLists.error)
+  const {
+    data: selectedPriceList,
+    isLoading: priceListLoading,
+    error: priceListError,
+    refetch: refetchPriceList,
+  } = useGetPriceListQuery(id || '', { skip: !id })
+  const {
+    data: priceListItems = [],
+    isLoading: priceListItemsLoading,
+    error: priceListItemsError,
+    refetch: refetchPriceListItems,
+  } = useGetPriceListItemsQuery(id || '', { skip: !id })
+  const [bulkUpdatePrices] = useBulkUpdatePricesMutation()
+  const [applyPercentageAdjustment] = useApplyPercentageAdjustmentMutation()
+  const error = priceListError || priceListItemsError
 
   // Local state
   const [editMode, setEditMode] = useState(false)
@@ -65,14 +73,10 @@ const PriceListDetailsPage: React.FC = () => {
   // Load price list and items
   const loadData = useCallback(() => {
     if (id) {
-      dispatch(fetchPriceListById(id))
-      dispatch(fetchPriceListItems(id))
+      refetchPriceList()
+      refetchPriceListItems()
     }
-  }, [dispatch, id])
-
-  useEffect(() => {
-    loadData()
-  }, [loadData])
+  }, [id, refetchPriceList, refetchPriceListItems])
 
   // Handle edit item
   const handleEditItem = (item: PriceListItem, field: keyof PriceListItem, value: any) => {
@@ -118,11 +122,11 @@ const PriceListDetailsPage: React.FC = () => {
         }
       })
 
-      await dispatch(bulkUpdatePrices({ priceListId: id, items: updates })).unwrap()
+      await bulkUpdatePrices({ priceListId: id, items: updates }).unwrap()
       showSuccess('Prices updated successfully')
       setEditMode(false)
       setEditedItems(new Map())
-      loadData()
+      refetchPriceListItems()
     } catch (err: any) {
       showError(err.response?.data?.message || err.message || 'Failed to update prices')
     }
@@ -139,22 +143,20 @@ const PriceListDetailsPage: React.FC = () => {
         return
       }
 
-      await dispatch(
-        applyPercentageAdjustment({
-          priceListId: id,
-          data: {
-            percentage,
-            adjustmentType,
-            affectCostBasis: adjustCostBasis,
-            roundTo: 2,
-          },
-        })
-      ).unwrap()
+      await applyPercentageAdjustment({
+        priceListId: id,
+        data: {
+          percentage,
+          adjustmentType,
+          affectCostBasis: adjustCostBasis,
+          roundTo: 2,
+        },
+      }).unwrap()
 
       showSuccess(`Prices ${adjustmentType === 'increase' ? 'increased' : 'decreased'} by ${percentage}%`)
       setAdjustmentDialogOpen(false)
       setAdjustmentPercentage('')
-      loadData()
+      refetchPriceListItems()
     } catch (err: any) {
       showError(err.response?.data?.message || err.message || 'Failed to apply adjustment')
     }
@@ -167,7 +169,7 @@ const PriceListDetailsPage: React.FC = () => {
   }
 
   // Format date
-  if (!selectedPriceList && loading.priceLists) {
+  if (!selectedPriceList && priceListLoading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '400px' }}>
         <CircularProgress />
@@ -281,11 +283,7 @@ const PriceListDetailsPage: React.FC = () => {
       </Box>
 
       {/* Error Alert */}
-      {error && (
-        <Alert severity="error" sx={{ mb: 2 }}>
-          {error}
-        </Alert>
-      )}
+      {error && <Alert severity="error" sx={{ mb: 2 }}>Failed to load price list data</Alert>}
 
       {/* Price List Items Table */}
       <Paper sx={{ borderRadius: 2, overflow: 'hidden' }}>
@@ -343,7 +341,7 @@ const PriceListDetailsPage: React.FC = () => {
               </TableRow>
             </TableHead>
             <TableBody>
-              {loading.priceListItems ? (
+              {priceListItemsLoading ? (
                 <TableRow>
                   <TableCell colSpan={7} align="center" sx={{ py: 8 }}>
                     <CircularProgress />
@@ -560,7 +558,7 @@ const PriceListDetailsPage: React.FC = () => {
           <Button
             variant="contained"
             onClick={handleApplyAdjustment}
-            disabled={!adjustmentPercentage || loading.priceListItems}
+            disabled={!adjustmentPercentage || priceListItemsLoading}
           >
             Apply Adjustment
           </Button>

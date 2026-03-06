@@ -12,9 +12,8 @@ import {
 import { useForm, Controller } from 'react-hook-form'
 import { yupResolver } from '@hookform/resolvers/yup'
 import * as yup from 'yup'
-import { useAppDispatch } from '@/hooks/useRedux'
 import { useNotification } from '@/hooks/useNotification'
-import { copyPriceList } from '@/store/slices/priceListSlice'
+import { useCopyPriceListMutation } from '@/store/api/priceListApi'
 import type { PriceList } from '@/types'
 
 // Form validation schema
@@ -58,8 +57,8 @@ interface PriceListCopyDialogProps {
 }
 
 const PriceListCopyDialog: React.FC<PriceListCopyDialogProps> = ({ open, priceList, onClose, onSuccess }) => {
-  const dispatch = useAppDispatch()
   const { showError } = useNotification()
+  const [copyPriceList] = useCopyPriceListMutation()
   const [submitting, setSubmitting] = React.useState(false)
 
   const {
@@ -108,7 +107,7 @@ const PriceListCopyDialog: React.FC<PriceListCopyDialogProps> = ({ open, priceLi
         effectiveTo: data.effectiveTo || undefined,
       }
 
-      await dispatch(copyPriceList({ priceListId: priceList.id, data: submitData })).unwrap()
+      await copyPriceList({ priceListId: priceList.id, data: submitData }).unwrap()
       onSuccess()
     } catch (err: any) {
       console.error('Failed to copy price list:', err)

@@ -14,9 +14,8 @@ import {
 import { useForm, Controller } from 'react-hook-form'
 import { yupResolver } from '@hookform/resolvers/yup'
 import * as yup from 'yup'
-import { useAppDispatch } from '@/hooks/useRedux'
 import { useNotification } from '@/hooks/useNotification'
-import { createPriceList, updatePriceList } from '@/store/slices/priceListSlice'
+import { useCreatePriceListMutation, useUpdatePriceListMutation } from '@/store/api/priceListApi'
 import type { PriceList } from '@/types'
 
 // Form validation schema
@@ -64,8 +63,9 @@ interface PriceListFormDialogProps {
 }
 
 const PriceListFormDialog: React.FC<PriceListFormDialogProps> = ({ open, priceList, onClose, onSuccess }) => {
-  const dispatch = useAppDispatch()
   const { showError } = useNotification()
+  const [createPriceList] = useCreatePriceListMutation()
+  const [updatePriceList] = useUpdatePriceListMutation()
   const [submitting, setSubmitting] = React.useState(false)
 
   const isEdit = !!priceList
@@ -134,10 +134,10 @@ const PriceListFormDialog: React.FC<PriceListFormDialogProps> = ({ open, priceLi
 
       if (priceList) {
         // Update existing price list
-        await dispatch(updatePriceList({ id: priceList.id, data: submitData })).unwrap()
+        await updatePriceList({ id: priceList.id, data: submitData }).unwrap()
       } else {
         // Create new price list
-        await dispatch(createPriceList(submitData)).unwrap()
+        await createPriceList(submitData).unwrap()
       }
 
       onSuccess()
