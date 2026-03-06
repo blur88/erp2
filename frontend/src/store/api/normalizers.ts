@@ -19,7 +19,7 @@ export function normalizePaginated<T>(response: any): PaginatedResponse<T> {
 }
 
 export function normalizeSingle<T>(response: any): T {
-  if (response && 'data' in response && !Array.isArray(response.data)) {
+  if (response && 'data' in response && response.data != null && !Array.isArray(response.data)) {
     return response.data as T
   }
 

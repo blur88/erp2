@@ -34,6 +34,12 @@ describe('normalizeSingle', () => {
     expect(result).toEqual({ id: '1' })
   })
 
+  it('does not unwrap null data payloads', () => {
+    const response = { data: null, fallback: true }
+    const result = normalizeSingle<typeof response>(response)
+    expect(result).toEqual(response)
+  })
+
   it('returns plain payloads unchanged', () => {
     const result = normalizeSingle<{ id: string }>({ id: '2' })
     expect(result).toEqual({ id: '2' })
