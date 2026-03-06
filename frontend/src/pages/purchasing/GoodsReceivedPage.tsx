@@ -39,11 +39,10 @@ import { formatDate } from '@/utils/formatters'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
 import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
 import {
-  fetchGoodsReceivedNotes,
-  selectGRNsState,
   setSelectedGRN,
   selectSelectedGRN
 } from '@/store/slices/purchasingSlice'
+import { useGetGoodsReceivedNotesQuery } from '@/store/api/purchasingApi'
 import { useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
 import DeletedGRNsDialog from '@/components/purchasing/DeletedGRNsDialog'
 import { GRNPrint } from '@/components/print'
@@ -58,6 +57,37 @@ interface GRNFilters {
   dateFilter: string
   customFromDate: string
   customToDate: string
+}
+
+const getDateRangeFromFilter = (filter: string, customFromDate: string, customToDate: string) => {
+  const today = new Date()
+  const yesterday = new Date(today)
+  yesterday.setDate(yesterday.getDate() - 1)
+
+  const startOfWeek = new Date(today)
+  startOfWeek.setDate(today.getDate() - today.getDay())
+
+  const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1)
+  const startOfYear = new Date(today.getFullYear(), 0, 1)
+
+  const formatLocalDate = (date: Date) => date.toISOString().split('T')[0]
+
+  switch (filter) {
+    case 'today':
+      return { fromDate: formatLocalDate(today), toDate: formatLocalDate(today) }
+    case 'yesterday':
+      return { fromDate: formatLocalDate(yesterday), toDate: formatLocalDate(yesterday) }
+    case 'this_week':
+      return { fromDate: formatLocalDate(startOfWeek), toDate: formatLocalDate(today) }
+    case 'this_month':
+      return { fromDate: formatLocalDate(startOfMonth), toDate: formatLocalDate(today) }
+    case 'this_year':
+      return { fromDate: formatLocalDate(startOfYear), toDate: formatLocalDate(today) }
+    case 'custom':
+      return { fromDate: customFromDate, toDate: customToDate }
+    default:
+      return { fromDate: undefined, toDate: undefined }
+  }
 }
 
 // Memoized GRN Row Component
@@ -119,7 +149,6 @@ const GoodsReceivedPage: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams()
 
   const dispatch = useAppDispatch()
-  const { goodsReceivedNotes, loading, error, pagination } = useAppSelector(selectGRNsState)
   const selectedGRNFromRedux = useAppSelector(selectSelectedGRN)
   const [selectedGRN, setSelectedGRNLocal] = useState<any | null>(null)
 
@@ -139,50 +168,23 @@ const GoodsReceivedPage: React.FC = () => {
   const [focusedGRNIndex, setFocusedGRNIndex] = useState(-1)
   const grnListRef = useRef<HTMLDivElement>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
-
-  // Helper function to calculate date ranges
-  const getDateRange = useCallback((filter: string) => {
-    const today = new Date()
-    const yesterday = new Date(today)
-    yesterday.setDate(yesterday.getDate() - 1)
-
-    const startOfWeek = new Date(today)
-    startOfWeek.setDate(today.getDate() - today.getDay())
-
-    const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1)
-    const startOfYear = new Date(today.getFullYear(), 0, 1)
-
-    const formatDate = (date: Date) => date.toISOString().split('T')[0]
-
-    switch (filter) {
-      case 'today':
-        return { fromDate: formatDate(today), toDate: formatDate(today) }
-      case 'yesterday':
-        return { fromDate: formatDate(yesterday), toDate: formatDate(yesterday) }
-      case 'this_week':
-        return { fromDate: formatDate(startOfWeek), toDate: formatDate(today) }
-      case 'this_month':
-        return { fromDate: formatDate(startOfMonth), toDate: formatDate(today) }
-      case 'this_year':
-        return { fromDate: formatDate(startOfYear), toDate: formatDate(today) }
-      case 'custom':
-        return { fromDate: filters.customFromDate, toDate: filters.customToDate }
-      default:
-        return { fromDate: undefined, toDate: undefined }
-    }
-  }, [filters.customFromDate, filters.customToDate])
-
-  // Load GRNs on component mount and filter changes
-  useEffect(() => {
-    const dateRange = getDateRange(filters.dateFilter)
-    dispatch(fetchGoodsReceivedNotes({
+  const queryParams = useMemo(() => {
+    const dateRange = getDateRangeFromFilter(filters.dateFilter, filters.customFromDate, filters.customToDate)
+    return {
       search: filters.search,
       sortBy: filters.sortBy,
       sortOrder: filters.sortOrder,
       receivedDateFrom: dateRange.fromDate,
       receivedDateTo: dateRange.toDate,
-    } as any))
-  }, [dispatch, filters.search, filters.sortBy, filters.sortOrder, filters.dateFilter, getDateRange])
+    }
+  }, [filters])
+  const { data: grnsResponse, isFetching: loading, error: grnsError } = useGetGoodsReceivedNotesQuery(queryParams)
+  const goodsReceivedNotes = grnsResponse?.data || []
+  const pagination = grnsResponse?.meta
+  const error =
+    grnsError && typeof grnsError === 'object'
+      ? ((grnsError as any).data?.message || (grnsError as any).data || 'Failed to fetch GRNs')
+      : null
 
   // Filter GRNs (status filter only - backend handles search and sorting)
   const filteredGRNs = useMemo(() => {
@@ -217,29 +219,13 @@ const GoodsReceivedPage: React.FC = () => {
   useEffect(() => {
     const grnId = searchParams.get('grnId')
     if (grnId) {
-      // Force refresh the GRN list to ensure we have the latest data
-      const dateRange = getDateRange(filters.dateFilter)
-      dispatch(fetchGoodsReceivedNotes({
-        search: filters.search,
-        sortBy: filters.sortBy,
-        sortOrder: filters.sortOrder,
-        receivedDateFrom: dateRange.fromDate,
-        receivedDateTo: dateRange.toDate,
-      } as any)).then((result: any) => {
-        // Use the data from the fetch result, not the Redux state
-        // API returns { grns: [], total: 3, page: 1, ... }
-        if (result.payload && result.payload.grns) {
-          const grns = result.payload.grns
-          const grn = grns.find((g: any) => g.id === grnId)
-          if (grn) {
-            handleGRNSelect(grn)
-            // Remove the query parameter after selection
-            setSearchParams({})
-          }
-        }
-      })
+      const grn = goodsReceivedNotes.find((g: any) => g.id === grnId)
+      if (grn) {
+        handleGRNSelect(grn)
+        setSearchParams({})
+      }
     }
-  }, [searchParams.get('grnId')]) // Only run when grnId changes
+  }, [goodsReceivedNotes, handleGRNSelect, searchParams, setSearchParams])
 
   // Auto-refresh selected GRN when the list updates (e.g., after PO edit/return/receive)
   useEffect(() => {

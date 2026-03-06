@@ -39,11 +39,10 @@ import { formatDate, formatCurrency, formatWholeQuantity } from '@/utils/formatt
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
 import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
 import {
-  fetchVendorPayments,
-  selectVendorPaymentsState,
   setSelectedVendorPayment,
   selectSelectedVendorPayment
 } from '@/store/slices/purchasingSlice'
+import { useGetVendorPaymentsQuery } from '@/store/api/purchasingApi'
 import { useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
 import DeletedVendorPaymentsDialog from '@/components/purchasing/DeletedVendorPaymentsDialog'
 import { VendorPaymentPrint } from '@/components/print'
@@ -59,6 +58,37 @@ interface VendorPaymentFilters {
   dateFilter: string
   customFromDate: string
   customToDate: string
+}
+
+const getDateRangeFromFilter = (filter: string, customFromDate: string, customToDate: string) => {
+  const today = new Date()
+  const yesterday = new Date(today)
+  yesterday.setDate(yesterday.getDate() - 1)
+
+  const startOfWeek = new Date(today)
+  startOfWeek.setDate(today.getDate() - today.getDay())
+
+  const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1)
+  const startOfYear = new Date(today.getFullYear(), 0, 1)
+
+  const formatLocalDate = (date: Date) => date.toISOString().split('T')[0]
+
+  switch (filter) {
+    case 'today':
+      return { startDate: formatLocalDate(today), endDate: formatLocalDate(today) }
+    case 'yesterday':
+      return { startDate: formatLocalDate(yesterday), endDate: formatLocalDate(yesterday) }
+    case 'this_week':
+      return { startDate: formatLocalDate(startOfWeek), endDate: formatLocalDate(today) }
+    case 'this_month':
+      return { startDate: formatLocalDate(startOfMonth), endDate: formatLocalDate(today) }
+    case 'this_year':
+      return { startDate: formatLocalDate(startOfYear), endDate: formatLocalDate(today) }
+    case 'custom':
+      return { startDate: customFromDate, endDate: customToDate }
+    default:
+      return { startDate: undefined, endDate: undefined }
+  }
 }
 
 // Memoized Payment Row Component
@@ -120,7 +150,6 @@ const VendorPaymentsPage: React.FC = () => {
   const navigate = useNavigate()
 
   const dispatch = useAppDispatch()
-  const { vendorPayments, loading, error, pagination } = useAppSelector(selectVendorPaymentsState)
   const selectedPaymentFromRedux = useAppSelector(selectSelectedVendorPayment)
   const [selectedPayment, setSelectedPaymentLocal] = useState<any | null>(null)
 
@@ -142,43 +171,9 @@ const VendorPaymentsPage: React.FC = () => {
   const paymentListRef = useRef<HTMLDivElement>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
   const [paymentMethods, setPaymentMethods] = useState<Array<{ id: string; name: string }>>([])
-
-  // Helper function to calculate date ranges
-  const getDateRange = useCallback((filter: string) => {
-    const today = new Date()
-    const yesterday = new Date(today)
-    yesterday.setDate(yesterday.getDate() - 1)
-
-    const startOfWeek = new Date(today)
-    startOfWeek.setDate(today.getDate() - today.getDay())
-
-    const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1)
-    const startOfYear = new Date(today.getFullYear(), 0, 1)
-
-    const formatDate = (date: Date) => date.toISOString().split('T')[0]
-
-    switch (filter) {
-      case 'today':
-        return { startDate: formatDate(today), endDate: formatDate(today) }
-      case 'yesterday':
-        return { startDate: formatDate(yesterday), endDate: formatDate(yesterday) }
-      case 'this_week':
-        return { startDate: formatDate(startOfWeek), endDate: formatDate(today) }
-      case 'this_month':
-        return { startDate: formatDate(startOfMonth), endDate: formatDate(today) }
-      case 'this_year':
-        return { startDate: formatDate(startOfYear), endDate: formatDate(today) }
-      case 'custom':
-        return { startDate: filters.customFromDate, endDate: filters.customToDate }
-      default:
-        return { startDate: undefined, endDate: undefined }
-    }
-  }, [filters.customFromDate, filters.customToDate])
-
-  // Load vendor payments on component mount and filter changes
-  useEffect(() => {
-    const dateRange = getDateRange(filters.dateFilter)
-    dispatch(fetchVendorPayments({
+  const queryParams = useMemo(() => {
+    const dateRange = getDateRangeFromFilter(filters.dateFilter, filters.customFromDate, filters.customToDate)
+    return {
       search: filters.search,
       sortBy: filters.sortBy,
       sortOrder: filters.sortOrder,
@@ -186,8 +181,17 @@ const VendorPaymentsPage: React.FC = () => {
       paymentMethodId: filters.paymentMethodId !== 'all' ? filters.paymentMethodId : undefined,
       startDate: dateRange.startDate,
       endDate: dateRange.endDate,
-    } as any))
-  }, [dispatch, filters, getDateRange])
+    }
+  }, [filters])
+  const { data: vendorPaymentsResponse, isFetching: loading, error: vendorPaymentsError } = useGetVendorPaymentsQuery(queryParams)
+  const vendorPayments = vendorPaymentsResponse?.data || []
+  const pagination = vendorPaymentsResponse?.meta
+  const error =
+    vendorPaymentsError && typeof vendorPaymentsError === 'object'
+      ? ((vendorPaymentsError as any).data?.message ||
+          (vendorPaymentsError as any).data ||
+          'Failed to fetch vendor payments')
+      : null
 
   const handlePaymentSelect = useCallback((payment: any) => {
     setSelectedPaymentLocal(payment)
@@ -210,31 +214,13 @@ const VendorPaymentsPage: React.FC = () => {
   useEffect(() => {
     const vpId = searchParams.get('vpId')
     if (vpId) {
-      // Force refresh the vendor payments list to ensure we have the latest data
-      const dateRange = getDateRange(filters.dateFilter)
-      dispatch(fetchVendorPayments({
-        search: filters.search,
-        sortBy: filters.sortBy,
-        sortOrder: filters.sortOrder,
-        status: filters.status !== 'all' ? filters.status : undefined,
-        paymentMethodId: filters.paymentMethodId !== 'all' ? filters.paymentMethodId : undefined,
-        startDate: dateRange.startDate,
-        endDate: dateRange.endDate,
-      } as any)).then((result: any) => {
-        // Use the data from the fetch result, not the Redux state
-        // API returns { data: [] } or { payments: [] }
-        if (result.payload) {
-          const payments = result.payload.data || result.payload.payments || []
-          const payment = payments.find((p: any) => p.id === vpId)
-          if (payment) {
-            handlePaymentSelect(payment)
-            // Remove the query parameter after selection
-            setSearchParams({})
-          }
-        }
-      })
+      const payment = vendorPayments.find((p: any) => p.id === vpId)
+      if (payment) {
+        handlePaymentSelect(payment)
+        setSearchParams({})
+      }
     }
-  }, [filters.dateFilter, filters.paymentMethodId, filters.search, filters.sortBy, filters.sortOrder, filters.status, getDateRange, searchParams, setSearchParams, dispatch, handlePaymentSelect]) // Only run when vpId changes
+  }, [handlePaymentSelect, searchParams, setSearchParams, vendorPayments])
 
   useEffect(() => {
     paymentMethodsApi

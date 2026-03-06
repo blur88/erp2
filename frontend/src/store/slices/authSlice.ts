@@ -1,5 +1,6 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { authApi } from '@/services/authApi';
+import type { RootState } from '@/store';
 
 // Auth-specific User interface matching backend
 export interface AuthUser {
@@ -239,11 +240,10 @@ const authSlice = createSlice({
 
 export const { setCredentials, setAccessToken, clearAuth, clearError } = authSlice.actions;
 
-// Selectors
-export const selectCurrentUser = (state: any) => state.auth?.user;
-export const selectIsAuthenticated = (state: any) => state.auth?.isAuthenticated || false;
-export const selectAccessToken = (state: any) => state.auth?.accessToken;
-export const selectRefreshToken = (state: any) => state.auth?.refreshToken;
-export const selectRememberMe = (state: any) => state.auth?.rememberMe || false;
+export const selectCurrentUser = (state: RootState) => state.auth.user;
+export const selectIsAuthenticated = (state: RootState) => state.auth.isAuthenticated;
+export const selectAccessToken = (state: RootState) => state.auth.accessToken;
+export const selectRefreshToken = (state: RootState) => state.auth.refreshToken;
+export const selectRememberMe = (state: RootState) => state.auth.rememberMe;
 
 export default authSlice.reducer;

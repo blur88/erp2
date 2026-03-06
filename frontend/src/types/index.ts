@@ -333,6 +333,7 @@ export interface PurchaseOrder {
   supplier: Supplier;
   items: PurchaseOrderItem[];
   total: number;
+  paidAmount?: number;
   subtotal?: number;
   discountAmount?: number;
   shippingAmount?: number;
@@ -346,6 +347,13 @@ export interface PurchaseOrder {
     grnNumber: string;
     status: string;
     receivedDate?: Date;
+  }>;
+  vendorPayments?: Array<{
+    id: string;
+    paymentNumber: string;
+    amount?: number;
+    paymentDate?: Date | string;
+    status?: string;
   }>;
   createdAt: Date;
   updatedAt: Date;

@@ -1,6 +1,7 @@
 import { createSlice, type PayloadAction } from '@reduxjs/toolkit'
 
 import type { Category, Product, StockAdjustment } from '@/types'
+import type { RootState } from '@/store'
 
 interface InventoryState {
   selectedProduct: Product | null
@@ -65,10 +66,10 @@ export const {
   setCategoryFilters,
 } = inventorySlice.actions
 
-export const selectSelectedProduct = (state: any) => state.inventory?.selectedProduct
-export const selectSelectedCategory = (state: any) => state.inventory?.selectedCategory
-export const selectSelectedStockAdjustment = (state: any) => state.inventory?.selectedStockAdjustment
-export const selectProductFilters = (state: any) => state.inventory?.filters?.products
-export const selectCategoryFilters = (state: any) => state.inventory?.filters?.categories
+export const selectSelectedProduct = (state: RootState) => state.inventory.selectedProduct
+export const selectSelectedCategory = (state: RootState) => state.inventory.selectedCategory
+export const selectSelectedStockAdjustment = (state: RootState) => state.inventory.selectedStockAdjustment
+export const selectProductFilters = (state: RootState) => state.inventory.filters.products
+export const selectCategoryFilters = (state: RootState) => state.inventory.filters.categories
 
 export default inventorySlice.reducer

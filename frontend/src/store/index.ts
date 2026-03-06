@@ -11,7 +11,6 @@ import inventorySlice from './slices/inventorySlice'
 import salesSlice from './slices/salesSlice'
 import customerSlice from './slices/customerSlice'
 import purchasingSlice from './slices/purchasingSlice'
-import supplierSlice from './slices/supplierSlice'
 import backupSlice from './slices/backupSlice'
 import auditLogSlice from './slices/auditLogSlice'
 import priceListSlice from './slices/priceListSlice'
@@ -31,6 +30,7 @@ import { priceListApiSlice } from './api/priceListApi'
 import { userManagementApiSlice } from './api/userManagementApi'
 import { dashboardApiSlice } from './api/dashboardApi'
 import { inventoryApiSlice } from './api/inventoryApi'
+import { purchasingApiSlice } from './api/purchasingApi'
 
 const rootReducer = combineReducers({
   theme: themeSlice,
@@ -40,7 +40,6 @@ const rootReducer = combineReducers({
   sales: salesSlice,
   customers: customerSlice,
   purchasing: purchasingSlice,
-  suppliers: supplierSlice,
   backup: backupSlice,
   auditLogs: auditLogSlice,
   priceLists: priceListSlice,
@@ -60,13 +59,14 @@ const rootReducer = combineReducers({
   [userManagementApiSlice.reducerPath]: userManagementApiSlice.reducer,
   [dashboardApiSlice.reducerPath]: dashboardApiSlice.reducer,
   [inventoryApiSlice.reducerPath]: inventoryApiSlice.reducer,
+  [purchasingApiSlice.reducerPath]: purchasingApiSlice.reducer,
 })
 
 // Persist configuration
 const persistConfig = {
   key: 'erp-app',
   storage,
-  whitelist: ['theme', 'auth', 'sales', 'purchasing', 'notifications'], // Persist theme, auth, sales, purchasing, and notifications
+  whitelist: ['theme', 'auth', 'sales', 'notifications'], // Persist theme, auth, sales, and notifications
   version: 3, // Add auth persistence
   migrate: (state: any) => {
     // Force dark mode for all users on version 2+
@@ -102,6 +102,7 @@ export const store = configureStore({
     userManagementApiSlice.middleware as any,
     dashboardApiSlice.middleware as any,
     inventoryApiSlice.middleware as any,
+    purchasingApiSlice.middleware as any,
   ),
   devTools: process.env.NODE_ENV !== 'production',
 })

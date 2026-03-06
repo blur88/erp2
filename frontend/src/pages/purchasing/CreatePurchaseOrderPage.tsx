@@ -35,7 +35,12 @@ import { ApiService } from '@/services/api'
 import { formatCurrency, getCurrentDate } from '@/utils/formatters'
 import { useNotification } from '@/hooks/useNotification'
 import { useAppDispatch } from '@/hooks/useRedux'
-import { updatePurchaseOrderInPlace, createPurchaseOrder as createPurchaseOrderAction, fetchGoodsReceivedNotes } from '@/store/slices/purchasingSlice'
+import { updatePurchaseOrderInPlace } from '@/store/slices/purchasingSlice'
+import {
+  useCreatePurchaseOrderMutation,
+  useGetSuppliersQuery,
+  useUpdatePurchaseOrderMutation,
+} from '@/store/api/purchasingApi'
 import { useCurrency } from '@/hooks/useCurrency'
 import { TYPOGRAPHY_STYLES } from '@/constants/typography'
 
@@ -84,12 +89,15 @@ const CreatePurchaseOrderPage: React.FC = () => {
   const { id } = useParams<{ id: string }>()
   const isEditMode = !!id
   const { showSuccess, showError } = useNotification()
-  const [suppliers, setSuppliers] = useState<any[]>([])
   const [products, setProducts] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
   const [loadingOrder, setLoadingOrder] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [orderToLoad, setOrderToLoad] = useState<any>(null)
+  const { data: suppliersResponse } = useGetSuppliersQuery({})
+  const [createPurchaseOrder] = useCreatePurchaseOrderMutation()
+  const [updatePurchaseOrder] = useUpdatePurchaseOrderMutation()
+  const suppliers = suppliersResponse?.data || []
 
   const { control, handleSubmit, watch, setValue, reset, formState: { errors } } = useForm<CreatePurchaseOrderFormData>({
     resolver: yupResolver(schema) as any,
@@ -121,7 +129,6 @@ const CreatePurchaseOrderPage: React.FC = () => {
   const watchedShipping = watch('shipping')
 
   useEffect(() => {
-    loadSuppliers()
     loadProducts()
   }, [])
 
@@ -241,15 +248,6 @@ const CreatePurchaseOrderPage: React.FC = () => {
     })
   }, [JSON.stringify(watchedItems), setValue])
 
-  const loadSuppliers = async () => {
-    try {
-      const response = await purchasingApi.getSuppliers()
-      setSuppliers((response as any).suppliers || [])
-    } catch (err) {
-      console.error('Error loading suppliers:', err)
-    }
-  }
-
   const loadProducts = async (searchTerm: string = '') => {
     try {
       const params: any = { isActive: true }
@@ -300,22 +298,17 @@ const CreatePurchaseOrderPage: React.FC = () => {
       console.log('Sending order data:', JSON.stringify(orderData, null, 2))
 
       if (isEditMode && id) {
-        const response = await purchasingApi.updatePurchaseOrder(id, orderData as any)
-        const updatedOrder = (response as any).data || response
+        const updatedOrder = await updatePurchaseOrder({ id, data: orderData as any }).unwrap()
 
         // Update Redux state directly - this will auto-refresh the list
         dispatch(updatePurchaseOrderInPlace(updatedOrder))
-
-        // Refetch GRNs to update the GRN page with latest data
-        dispatch(fetchGoodsReceivedNotes({ page: 1, limit: 20 }))
 
         showSuccess('Purchase order updated successfully')
         // Navigate to orders page with the updated order selected
         navigate(`/purchasing/orders?highlight=${id}`)
       } else {
-        // Use Redux action to create order - this will auto-select it
-        const result = await dispatch(createPurchaseOrderAction(orderData as any)).unwrap()
-        const newOrderId = (result as any).data?.id || (result as any).id
+        const result = await createPurchaseOrder(orderData as any).unwrap()
+        const newOrderId = (result as any).id
         showSuccess('Purchase order created successfully')
         // Navigate to orders page with the new order selected
         navigate(`/purchasing/orders?highlight=${newOrderId}`)

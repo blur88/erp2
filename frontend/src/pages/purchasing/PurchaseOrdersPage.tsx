@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback, memo } from 'react'
+import React, { useState, useEffect, useRef, useCallback, memo, useMemo } from 'react'
 import { useNavigate, useSearchParams, useLocation } from 'react-router-dom'
 import {
   Box,
@@ -40,19 +40,21 @@ import {
 } from '@mui/icons-material'
 import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
 import {
-  fetchPurchaseOrders,
-  fetchSuppliers,
-  fetchGoodsReceivedNotes,
   setSelectedPurchaseOrder,
   updatePurchaseOrderInPlace,
-  selectPurchaseOrders,
   selectSelectedPurchaseOrder,
-  selectPurchasingLoading,
-  selectPurchasingError,
-  selectPurchasingPagination,
-  selectSupplierUpdateTimestamp,
 } from '@/store/slices/purchasingSlice'
 import { purchasingApi } from '@/services/purchasingApi'
+import {
+  useDeletePurchaseOrderMutation,
+  useGetPurchaseOrdersQuery,
+  useGetSuppliersQuery,
+  useLazyGetPurchaseOrderQuery,
+  useMarkPurchaseOrderAsUnpaidMutation,
+  useReceiveGoodsMutation,
+  useRecordOrderPaymentsMutation,
+  useReturnGoodsMutation,
+} from '@/store/api/purchasingApi'
 import { journalEntriesApi } from '@/services/accountingApi'
 import { formatCurrency, formatDate } from '@/utils/formatters'
 import { useNotification } from '@/hooks/useNotification'
@@ -72,6 +74,37 @@ interface PurchaseOrdersPageState {
   dateFilter: string
   customFromDate: string
   customToDate: string
+}
+
+const getDateRangeFromFilter = (filter: string, customFromDate: string, customToDate: string) => {
+  const today = new Date()
+  const yesterday = new Date(today)
+  yesterday.setDate(yesterday.getDate() - 1)
+
+  const startOfWeek = new Date(today)
+  startOfWeek.setDate(today.getDate() - today.getDay())
+
+  const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1)
+  const startOfYear = new Date(today.getFullYear(), 0, 1)
+
+  const formatLocalDate = (date: Date) => date.toISOString().split('T')[0]
+
+  switch (filter) {
+    case 'today':
+      return { fromDate: formatLocalDate(today), toDate: formatLocalDate(today) }
+    case 'yesterday':
+      return { fromDate: formatLocalDate(yesterday), toDate: formatLocalDate(yesterday) }
+    case 'this_week':
+      return { fromDate: formatLocalDate(startOfWeek), toDate: formatLocalDate(today) }
+    case 'this_month':
+      return { fromDate: formatLocalDate(startOfMonth), toDate: formatLocalDate(today) }
+    case 'this_year':
+      return { fromDate: formatLocalDate(startOfYear), toDate: formatLocalDate(today) }
+    case 'custom':
+      return { fromDate: customFromDate, toDate: customToDate }
+    default:
+      return { fromDate: undefined, toDate: undefined }
+  }
 }
 
 // Memoized Order Row Component
@@ -135,13 +168,7 @@ const PurchaseOrdersPage: React.FC = () => {
   const { showSuccess, showError } = useNotification()
   const [searchParams, setSearchParams] = useSearchParams()
 
-  const purchaseOrders = useAppSelector(selectPurchaseOrders) || []
-  const suppliers = useAppSelector((state: any) => state.purchasing.suppliers) || []
-  const loading = useAppSelector(selectPurchasingLoading)?.purchaseOrders || false
-  const error = useAppSelector(selectPurchasingError)
-  const pagination = useAppSelector(selectPurchasingPagination)?.purchaseOrders
   const selectedOrder = useAppSelector(selectSelectedPurchaseOrder)
-  const supplierUpdateTimestamp = useAppSelector(selectSupplierUpdateTimestamp)
 
   const [state, setState] = useState<PurchaseOrdersPageState>({
     search: '',
@@ -172,11 +199,35 @@ const PurchaseOrdersPage: React.FC = () => {
   )
   const processedHighlightRef = useRef<string | null>(null)
   const userHasNavigatedRef = useRef(false)
-
-  // Fetch suppliers on mount
-  useEffect(() => {
-    dispatch(fetchSuppliers({}))
-  }, [dispatch])
+  const queryParams = useMemo(() => {
+    const dateRange = getDateRangeFromFilter(state.dateFilter, state.customFromDate, state.customToDate)
+    return {
+      sortBy: state.sortBy,
+      sortOrder: state.sortOrder.toUpperCase(),
+      search: state.search,
+      supplierId: state.supplierFilter === 'all' ? undefined : state.supplierFilter,
+      orderDateFrom: dateRange.fromDate,
+      orderDateTo: dateRange.toDate,
+    }
+  }, [state])
+  const { data: purchaseOrdersResponse, isFetching: loading, error: purchaseOrdersError, refetch: refetchOrders } =
+    useGetPurchaseOrdersQuery(queryParams)
+  const { data: suppliersResponse } = useGetSuppliersQuery({})
+  const [fetchPurchaseOrder] = useLazyGetPurchaseOrderQuery()
+  const [receiveGoods] = useReceiveGoodsMutation()
+  const [returnGoods] = useReturnGoodsMutation()
+  const [markPurchaseOrderAsUnpaid] = useMarkPurchaseOrderAsUnpaidMutation()
+  const [recordOrderPayments] = useRecordOrderPaymentsMutation()
+  const [deletePurchaseOrder] = useDeletePurchaseOrderMutation()
+  const purchaseOrders = purchaseOrdersResponse?.data || []
+  const suppliers = suppliersResponse?.data || []
+  const pagination = purchaseOrdersResponse?.meta
+  const error =
+    purchaseOrdersError && typeof purchaseOrdersError === 'object'
+      ? ((purchaseOrdersError as any).data?.message ||
+          (purchaseOrdersError as any).data ||
+          'Failed to fetch purchase orders')
+      : null
 
   // Clear ?highlight= query param so browser back/forward doesn't re-trigger highlight
   useEffect(() => {
@@ -185,38 +236,6 @@ const PurchaseOrdersPage: React.FC = () => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
-
-  // Helper function to calculate date ranges
-  const getDateRange = useCallback((filter: string) => {
-    const today = new Date()
-    const yesterday = new Date(today)
-    yesterday.setDate(yesterday.getDate() - 1)
-
-    const startOfWeek = new Date(today)
-    startOfWeek.setDate(today.getDate() - today.getDay())
-
-    const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1)
-    const startOfYear = new Date(today.getFullYear(), 0, 1)
-
-    const formatDate = (date: Date) => date.toISOString().split('T')[0]
-
-    switch (filter) {
-      case 'today':
-        return { fromDate: formatDate(today), toDate: formatDate(today) }
-      case 'yesterday':
-        return { fromDate: formatDate(yesterday), toDate: formatDate(yesterday) }
-      case 'this_week':
-        return { fromDate: formatDate(startOfWeek), toDate: formatDate(today) }
-      case 'this_month':
-        return { fromDate: formatDate(startOfMonth), toDate: formatDate(today) }
-      case 'this_year':
-        return { fromDate: formatDate(startOfYear), toDate: formatDate(today) }
-      case 'custom':
-        return { fromDate: state.customFromDate, toDate: state.customToDate }
-      default:
-        return { fromDate: undefined, toDate: undefined }
-    }
-  }, [state.customFromDate, state.customToDate])
 
   useEffect(() => {
     if (!selectedOrder?.id) {
@@ -281,29 +300,9 @@ const PurchaseOrdersPage: React.FC = () => {
     }
   }, [selectedOrder?.id, selectedOrder?.goodsReceivedNotes, selectedOrder?.vendorPayments])
 
-  // Load purchase orders
   const loadOrders = useCallback(() => {
-    const dateRange = getDateRange(state.dateFilter)
-    dispatch(fetchPurchaseOrders({
-      sortBy: state.sortBy,
-      sortOrder: state.sortOrder.toUpperCase() as 'ASC' | 'DESC',
-      search: state.search,
-      supplierId: state.supplierFilter === 'all' ? undefined : state.supplierFilter,
-      orderDateFrom: dateRange.fromDate,
-      orderDateTo: dateRange.toDate,
-    } as any))
-  }, [dispatch, state, getDateRange])
-
-  useEffect(() => {
-    loadOrders()
-  }, [loadOrders])
-
-  // Refetch purchase orders when a supplier is updated
-  useEffect(() => {
-    if (supplierUpdateTimestamp) {
-      loadOrders()
-    }
-  }, [supplierUpdateTimestamp])
+    void refetchOrders()
+  }, [refetchOrders])
 
   // Handle poId query parameter to auto-select PO from GRN page
   useEffect(() => {
@@ -336,8 +335,7 @@ const PurchaseOrdersPage: React.FC = () => {
 
     try {
       // Fetch fresh data from server to ensure supplier name is current
-      const response = await purchasingApi.getPurchaseOrder(order.id)
-      const freshOrder = (response as any).data || response
+      const freshOrder = await fetchPurchaseOrder(order.id).unwrap()
 
       // Update both the selected order and the order in the list
       dispatch(setSelectedPurchaseOrder(freshOrder))
@@ -347,7 +345,7 @@ const PurchaseOrdersPage: React.FC = () => {
       // Fallback to cached order if fetch fails
       dispatch(setSelectedPurchaseOrder(order))
     }
-  }, [dispatch, purchaseOrders])
+  }, [dispatch, fetchPurchaseOrder, purchaseOrders])
 
   const handleReceive = async () => {
     if (!selectedOrder || !selectedOrder.items || selectedOrder.items.length === 0) {
@@ -365,7 +363,7 @@ const PurchaseOrdersPage: React.FC = () => {
     }
 
     try {
-      const response = await purchasingApi.receiveGoods(selectedOrder.id)
+      const response = await receiveGoods(selectedOrder.id).unwrap()
       showSuccess('Goods received successfully. Product quantities updated.')
 
       // Update the selected order with the new data
@@ -375,8 +373,6 @@ const PurchaseOrdersPage: React.FC = () => {
       }
 
       loadOrders() // Reload to update the list
-      // Refetch GRNs to update the GRN page with latest data
-      dispatch(fetchGoodsReceivedNotes({ page: 1, limit: 20 }))
     } catch (err: any) {
       console.error('Receive error:', err)
       showError(err?.response?.data?.message || 'Failed to receive goods')
@@ -397,7 +393,7 @@ const PurchaseOrdersPage: React.FC = () => {
     }
 
     try {
-      const response = await purchasingApi.returnGoods(selectedOrder.id)
+      const response = await returnGoods(selectedOrder.id).unwrap()
       showSuccess('Goods returned successfully. Product quantities reverted.')
 
       // Update the selected order with the new data
@@ -407,8 +403,6 @@ const PurchaseOrdersPage: React.FC = () => {
       }
 
       loadOrders() // Reload to update the list
-      // Refetch GRNs to update the GRN page with latest data
-      dispatch(fetchGoodsReceivedNotes({ page: 1, limit: 20 }))
     } catch (err: any) {
       console.error('Return error:', err)
       showError(err?.response?.data?.message || 'Failed to return goods')
@@ -440,7 +434,7 @@ const PurchaseOrdersPage: React.FC = () => {
 
     setIsLoading(true)
     try {
-      const response = await purchasingApi.returnGoods(selectedOrder.id)
+      const response = await returnGoods(selectedOrder.id).unwrap()
       showSuccess('Goods returned successfully. You can now edit the order.')
 
       // Update the selected order with the new data
@@ -451,8 +445,6 @@ const PurchaseOrdersPage: React.FC = () => {
 
       setUnreturnDialogOpen(false)
       loadOrders() // Reload to update the list
-      // Refetch GRNs to update the GRN page with latest data
-      dispatch(fetchGoodsReceivedNotes({ page: 1, limit: 20 }))
 
       // Navigate to edit page
       navigate(`/purchasing/orders/${selectedOrder.id}/edit`)
@@ -469,7 +461,7 @@ const PurchaseOrdersPage: React.FC = () => {
 
     setIsLoading(true)
     try {
-      const response = await purchasingApi.returnGoods(selectedOrder.id)
+      const response = await returnGoods(selectedOrder.id).unwrap()
       showSuccess('Goods returned successfully. Product quantities reverted.')
 
       // Update the selected order with the new data
@@ -480,8 +472,6 @@ const PurchaseOrdersPage: React.FC = () => {
 
       setUnreturnDialogOpen(false)
       loadOrders() // Reload to update the list
-      // Refetch GRNs to update the GRN page with latest data
-      dispatch(fetchGoodsReceivedNotes({ page: 1, limit: 20 }))
     } catch (err: any) {
       console.error('Return error:', err)
       showError(err?.response?.data?.message || 'Failed to return goods')
@@ -502,13 +492,10 @@ const PurchaseOrdersPage: React.FC = () => {
 
       // Step 1: If received, return goods first
       if (isReceived) {
-        await purchasingApi.returnGoods(selectedOrder.id)
-
-        // Refetch GRNs to update the GRN page with latest data
-        dispatch(fetchGoodsReceivedNotes({ page: 1, limit: 20 }))
+        await returnGoods(selectedOrder.id).unwrap()
 
         // Step 2: Then unpay
-        const unpayResponse = await purchasingApi.markPurchaseOrderAsUnpaid(selectedOrder.id)
+        const unpayResponse = await markPurchaseOrderAsUnpaid(selectedOrder.id).unwrap()
         showSuccess('Goods returned and payment deleted successfully. You can now edit the order.')
 
         // Update with the latest data
@@ -523,7 +510,7 @@ const PurchaseOrdersPage: React.FC = () => {
         }
       } else {
         // Only unpay (not received)
-        const unpayResponse = await purchasingApi.markPurchaseOrderAsUnpaid(selectedOrder.id)
+        const unpayResponse = await markPurchaseOrderAsUnpaid(selectedOrder.id).unwrap()
         showSuccess('Payment deleted successfully. You can now edit the order.')
 
         // Update the selected order with the unpay data
@@ -558,10 +545,10 @@ const PurchaseOrdersPage: React.FC = () => {
     setIsLoading(true)
     try {
       // First return goods
-      await purchasingApi.returnGoods(selectedOrder.id)
+      await returnGoods(selectedOrder.id).unwrap()
 
       // Then delete the order
-      await purchasingApi.deletePurchaseOrder(selectedOrder.id)
+      await deletePurchaseOrder(selectedOrder.id).unwrap()
       showSuccess('Goods returned and purchase order deleted successfully.')
 
       setUnreturnDialogOpen(false)
@@ -581,8 +568,6 @@ const PurchaseOrdersPage: React.FC = () => {
       }
 
       loadOrders() // Reload to update the list
-      // Refetch GRNs to update the GRN page with latest data
-      dispatch(fetchGoodsReceivedNotes({ page: 1, limit: 20 }))
     } catch (err: any) {
       console.error('Return/Delete error:', err)
       showError(err?.response?.data?.message || 'Failed to return and delete order')
@@ -603,16 +588,14 @@ const PurchaseOrdersPage: React.FC = () => {
 
       // Step 1: If received, return goods first
       if (isReceived) {
-        await purchasingApi.returnGoods(selectedOrder.id)
-        // Refetch GRNs to update the GRN page with latest data
-        dispatch(fetchGoodsReceivedNotes({ page: 1, limit: 20 }))
+        await returnGoods(selectedOrder.id).unwrap()
       }
 
       // Step 2: Unpay
-      await purchasingApi.markPurchaseOrderAsUnpaid(selectedOrder.id)
+      await markPurchaseOrderAsUnpaid(selectedOrder.id).unwrap()
 
       // Step 3: Delete the order
-      await purchasingApi.deletePurchaseOrder(selectedOrder.id)
+      await deletePurchaseOrder(selectedOrder.id).unwrap()
 
       if (isReceived) {
         showSuccess('Goods returned, payment deleted, and purchase order deleted successfully.')
@@ -650,7 +633,7 @@ const PurchaseOrdersPage: React.FC = () => {
 
     setIsLoading(true)
     try {
-      const response = await purchasingApi.markPurchaseOrderAsUnpaid(selectedOrder.id)
+      const response = await markPurchaseOrderAsUnpaid(selectedOrder.id).unwrap()
       showSuccess('Payment deleted successfully')
 
       // Update the selected order with the new data
@@ -688,7 +671,10 @@ const PurchaseOrdersPage: React.FC = () => {
   const handleRecordPayments = useCallback(async (payments: { paymentMethodId: string; amount: number; reference?: string }[]) => {
     if (!paymentDialogOrder) return
 
-    const response = await purchasingApi.recordOrderPayments(paymentDialogOrder.id, payments)
+    const response = await recordOrderPayments({
+      purchaseOrderId: paymentDialogOrder.id,
+      payments,
+    }).unwrap()
     const responseData: any = (response as any).data || response
     const updatedOrder = responseData.data || responseData
 
@@ -729,7 +715,7 @@ const PurchaseOrdersPage: React.FC = () => {
     const deletedIndex = purchaseOrders.findIndex((o: any) => o.id === orderToDelete.id)
 
     try {
-      await purchasingApi.deletePurchaseOrder(orderToDelete.id)
+      await deletePurchaseOrder(orderToDelete.id).unwrap()
       showSuccess('Purchase order deleted successfully')
       setDeleteConfirmOpen(false)
       setOrderToDelete(null)
