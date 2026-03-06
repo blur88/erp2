@@ -29,6 +29,7 @@ import expenseSlice from './slices/expenseSlice'
 import { auditLogApiSlice } from './api/auditLogApi'
 import { backupApiSlice } from './api/backupApi'
 import { priceListApiSlice } from './api/priceListApi'
+import { userManagementApiSlice } from './api/userManagementApi'
 
 const rootReducer = combineReducers({
   theme: themeSlice,
@@ -56,6 +57,7 @@ const rootReducer = combineReducers({
   [auditLogApiSlice.reducerPath]: auditLogApiSlice.reducer,
   [backupApiSlice.reducerPath]: backupApiSlice.reducer,
   [priceListApiSlice.reducerPath]: priceListApiSlice.reducer,
+  [userManagementApiSlice.reducerPath]: userManagementApiSlice.reducer,
 })
 
 // Persist configuration
@@ -95,6 +97,7 @@ export const store = configureStore({
     auditLogApiSlice.middleware as any,
     backupApiSlice.middleware as any,
     priceListApiSlice.middleware as any,
+    userManagementApiSlice.middleware as any,
   ),
   devTools: process.env.NODE_ENV !== 'production',
 })

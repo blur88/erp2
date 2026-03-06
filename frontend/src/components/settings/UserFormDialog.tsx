@@ -22,8 +22,8 @@ import {
 import { useForm, Controller } from 'react-hook-form'
 import { yupResolver } from '@hookform/resolvers/yup'
 import * as yup from 'yup'
-import { userManagementApi } from '@/services/userManagementApi'
 import { useNotification } from '@/hooks/useNotification'
+import { useCreateUserMutation, useUpdateUserMutation } from '@/store/api/userManagementApi'
 import type { User, UserRole } from '@/types'
 
 // Form validation schema
@@ -128,6 +128,8 @@ interface UserFormDialogProps {
 
 const UserFormDialog: React.FC<UserFormDialogProps> = ({ open, user, currentUser, onClose, onSuccess }) => {
   const { showSuccess, showError } = useNotification()
+  const [createUser] = useCreateUserMutation()
+  const [updateUser] = useUpdateUserMutation()
   const [showPassword, setShowPassword] = React.useState(false)
   const [showPasswordConfirmation, setShowPasswordConfirmation] = React.useState(false)
   const [submitting, setSubmitting] = React.useState(false)
@@ -222,7 +224,7 @@ const UserFormDialog: React.FC<UserFormDialogProps> = ({ open, user, currentUser
 
       if (user) {
         // Update existing user
-        await userManagementApi.updateUser(user.id, submitData)
+        await updateUser({ id: user.id, data: submitData }).unwrap()
         showSuccess(isSelfEdit ? 'Profile updated successfully' : 'User updated successfully')
       } else {
         // Create new user
@@ -233,7 +235,7 @@ const UserFormDialog: React.FC<UserFormDialogProps> = ({ open, user, currentUser
         // New users always need role and status
         submitData.role = data.role
         submitData.status = data.status
-        await userManagementApi.createUser(submitData)
+        await createUser(submitData).unwrap()
         showSuccess('User created successfully')
       }
 
