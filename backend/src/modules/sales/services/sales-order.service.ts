@@ -30,6 +30,8 @@ import { BaseCostCalculatorService } from '../../inventory/services/base-cost-ca
 import { SettingsService } from '../../settings/settings.service';
 import { AuditLogService } from '../../audit-logs/services';
 import { AccountingService } from '@modules/accounting/services/accounting.service';
+import { SalesOrderLifecycleService } from './sales-order-lifecycle.service';
+import { mapSalesOrderToResponseDto } from './sales-order.mapper';
 import { SalesOrderPaymentService } from './sales-order-payment.service';
 
 @Injectable()
@@ -60,6 +62,7 @@ export class SalesOrderService {
     private readonly settingsService: SettingsService,
     private readonly auditLogService: AuditLogService,
     private readonly accountingService: AccountingService,
+    private readonly salesOrderLifecycleService: SalesOrderLifecycleService,
     private readonly salesOrderPaymentService: SalesOrderPaymentService,
   ) { }
 
@@ -150,7 +153,7 @@ export class SalesOrderService {
       withDeleted: true // Include soft-deleted orders
     });
 
-    return previousOrder ? this.mapToResponseDto(previousOrder) : null;
+    return previousOrder ? mapSalesOrderToResponseDto(previousOrder) : null;
   }
 
   async create(
@@ -778,13 +781,13 @@ export class SalesOrderService {
         }
       });
 
-      const dto = this.mapToResponseDto(order);
+      const dto = mapSalesOrderToResponseDto(order);
       // Add direct payments to the response
       (dto as any).directPayments = directPayments;
       return dto;
     } catch (error) {
       console.error('Failed to fetch direct payments:', error);
-      return this.mapToResponseDto(order);
+      return mapSalesOrderToResponseDto(order);
     }
   }
 
@@ -798,7 +801,7 @@ export class SalesOrderService {
       throw new NotFoundException('Sales order not found');
     }
 
-    return this.mapToResponseDto(order);
+    return mapSalesOrderToResponseDto(order);
   }
 
   async update(
@@ -939,136 +942,12 @@ export class SalesOrderService {
     userId?: string,
     username?: string,
   ): Promise<{ deletedOrderNumber: string; previousOrder: SalesOrderResponseDto | null }> {
-    const order = await this.salesOrderRepository.findOne({ where: { id } });
-    if (!order) {
-      throw new NotFoundException('Sales order not found');
-    }
-
-    // Check if order has been fulfilled - must unfulfill before deleting
-    if (order.isFulfilled) {
-      throw new BadRequestException(
-        'Cannot delete sales order that has been fulfilled. Please unfulfill first.'
-      );
-    }
-
-    // Check if order has been paid - must unpay before deleting
-    if (Number(order.paidAmount || 0) > 0) {
-      throw new BadRequestException(
-        'Cannot delete sales order that has been paid. Please unpay first.'
-      );
-    }
-
-    // Find previous order details before deletion
-    const previousOrder = await this.findPreviousOrder(order.orderNumber);
-
-    // Release reserved inventory
-    await this.inventoryIntegrationService.releaseReservation(id);
-
-    // Automatically soft delete associated invoices
-    try {
-      const associatedInvoices = await this.invoiceRepository.find({
-        where: { salesOrderId: id }
-      });
-
-      if (associatedInvoices.length > 0) {
-        // Soft delete all associated invoices
-        await this.invoiceRepository.softDelete(
-          associatedInvoices.map(invoice => invoice.id)
-        );
-        console.log(`✅ Auto-deleted ${associatedInvoices.length} invoice(s) for sales order ${order.orderNumber}`);
-
-        // Log audit trail for each deleted invoice
-        for (const invoice of associatedInvoices) {
-          await this.auditLogService.log(
-            'DELETE',
-            'Invoice',
-            `Deleted invoice: ${invoice.invoiceNumber} (cascaded from sales order ${order.orderNumber})`,
-            {
-              entityId: invoice.id,
-              userId: userId || 'system',
-              username,
-              oldValues: {
-                invoiceNumber: invoice.invoiceNumber,
-                salesOrderId: id,
-                totalAmount: invoice.totalAmount,
-              },
-            }
-          );
-        }
-      }
-    } catch (error) {
-      console.error(`⚠️ Failed to auto-delete invoices for sales order ${order.orderNumber}:`, error.message);
-      // Don't throw error - sales order deletion should still succeed
-    }
-
-    // Automatically soft delete associated payments
-    try {
-      const Payment = (await import('../../../database/entities/payment.entity')).Payment;
-      const paymentRepository = this.salesOrderRepository.manager.getRepository(Payment);
-
-      // Find payments associated with this sales order
-      const associatedPayments = await paymentRepository.find({
-        where: {
-          customerId: order.customerId,
-          notes: ILike(`%sales order ${order.orderNumber}%`)
-        }
-      });
-
-      if (associatedPayments.length > 0) {
-        // Soft delete all associated payments
-        await paymentRepository.softDelete(
-          associatedPayments.map(payment => payment.id)
-        );
-        console.log(`✅ Auto-deleted ${associatedPayments.length} payment(s) for sales order ${order.orderNumber}`);
-
-        // Log audit trail for each deleted payment
-        for (const payment of associatedPayments) {
-          await this.auditLogService.log(
-            'DELETE',
-            'Payment',
-            `Deleted payment: ${payment.paymentNumber} (cascaded from sales order ${order.orderNumber})`,
-            {
-              entityId: payment.id,
-              userId: userId || 'system',
-              username,
-              oldValues: {
-                paymentNumber: payment.paymentNumber,
-                salesOrderId: id,
-                amount: payment.amount,
-              },
-            }
-          );
-        }
-      }
-    } catch (error) {
-      console.error(`⚠️ Failed to auto-delete payments for sales order ${order.orderNumber}:`, error.message);
-      // Don't throw error - sales order deletion should still succeed
-    }
-
-    // Soft delete using TypeORM's built-in soft delete
-    await this.salesOrderRepository.softDelete(id);
-
-    // Log audit trail for delete
-    await this.auditLogService.log(
-      'DELETE',
-      'SalesOrder',
-      `Deleted sales order: ${order.orderNumber}`,
-      {
-        entityId: id,
-        userId: userId || 'system',
-        username,
-        oldValues: {
-          orderNumber: order.orderNumber,
-          customerId: order.customerId,
-          totalAmount: order.totalAmount,
-        },
-      }
+    return this.salesOrderLifecycleService.delete(
+      id,
+      userId,
+      username,
+      this.findPreviousOrder.bind(this),
     );
-
-    return {
-      deletedOrderNumber: order.orderNumber,
-      previousOrder
-    };
   }
 
   async duplicateOrder(id: string, userId: string): Promise<SalesOrderResponseDto> {
@@ -1318,7 +1197,7 @@ export class SalesOrderService {
 
     const [orders, total] = await queryBuilder.getManyAndCount();
 
-    const data = orders.map(order => this.mapToResponseDto(order));
+    const data = orders.map(order => mapSalesOrderToResponseDto(order));
 
     return {
       data,
@@ -1332,313 +1211,15 @@ export class SalesOrderService {
   }
 
   async restore(id: string, userId?: string, username?: string): Promise<SalesOrderResponseDto> {
-    const order = await this.salesOrderRepository.findOne({
-      where: { id },
-      withDeleted: true, // Include soft-deleted records
-      relations: ['customer', 'items', 'items.product'],
-    });
-
-    // Use standardized validation
-    ValidationUtil.validateForRestore(order, 'Sales order', id);
-
-    // Restore the order
-    await this.salesOrderRepository.restore(id);
-
-    // Automatically restore associated invoices
-    try {
-      const associatedInvoices = await this.invoiceRepository.find({
-        where: { salesOrderId: id },
-        withDeleted: true, // Include soft-deleted invoices
-      });
-
-      const softDeletedInvoices = associatedInvoices.filter(invoice => invoice.deletedAt !== null);
-
-      if (softDeletedInvoices.length > 0) {
-        // Restore all soft-deleted invoices
-        await this.invoiceRepository.restore(
-          softDeletedInvoices.map(invoice => invoice.id)
-        );
-        console.log(`✅ Auto-restored ${softDeletedInvoices.length} invoice(s) for sales order ${order.orderNumber}`);
-
-        // Log audit trail for each restored invoice
-        for (const invoice of softDeletedInvoices) {
-          await this.auditLogService.log(
-            'RESTORE',
-            'Invoice',
-            `Restored invoice: ${invoice.invoiceNumber} (cascaded from sales order ${order.orderNumber})`,
-            {
-              entityId: invoice.id,
-              userId: userId || 'system',
-              username,
-              newValues: {
-                invoiceNumber: invoice.invoiceNumber,
-                salesOrderId: id,
-                totalAmount: invoice.totalAmount,
-              },
-            }
-          );
-        }
-      }
-    } catch (error) {
-      console.error(`⚠️ Failed to auto-restore invoices for sales order ${order.orderNumber}:`, error.message);
-      // Don't throw error - sales order restoration should still succeed
-    }
-
-    // Automatically restore associated payments
-    try {
-      const Payment = (await import('../../../database/entities/payment.entity')).Payment;
-      const Invoice = (await import('../../../database/entities/invoice.entity')).Invoice;
-      const paymentRepository = this.salesOrderRepository.manager.getRepository(Payment);
-      const invoiceRepository = this.salesOrderRepository.manager.getRepository(Invoice);
-
-      // Find invoices for this sales order
-      const invoices = await invoiceRepository.find({
-        where: { salesOrderId: id },
-        withDeleted: true,
-      });
-
-      if (invoices.length > 0) {
-        // Find all payments associated with these invoices
-        const invoiceIds = invoices.map(inv => inv.id);
-        const associatedPayments = await paymentRepository
-          .createQueryBuilder('payment')
-          .where('payment.invoiceId IN (:...invoiceIds)', { invoiceIds })
-          .withDeleted()
-          .getMany();
-
-        const softDeletedPayments = associatedPayments.filter(payment => payment.deletedAt !== null);
-
-        if (softDeletedPayments.length > 0) {
-          // Restore all soft-deleted payments
-          await paymentRepository.restore(
-            softDeletedPayments.map(payment => payment.id)
-          );
-          console.log(`✅ Auto-restored ${softDeletedPayments.length} payment(s) for sales order ${order.orderNumber}`);
-
-          // Log audit trail for each restored payment
-          for (const payment of softDeletedPayments) {
-            await this.auditLogService.log(
-              'RESTORE',
-              'Payment',
-              `Restored payment: ${payment.paymentNumber} (cascaded from sales order ${order.orderNumber})`,
-              {
-                entityId: payment.id,
-                userId: userId || 'system',
-                username,
-                newValues: {
-                  paymentNumber: payment.paymentNumber,
-                  salesOrderId: id,
-                  amount: payment.amount,
-                },
-              }
-            );
-          }
-        }
-      }
-    } catch (error) {
-      console.error(`⚠️ Failed to auto-restore payments for sales order ${order.orderNumber}:`, error.message);
-      // Don't throw error - sales order restoration should still succeed
-    }
-
-    // Return the restored order
-    const restoredOrder = await this.salesOrderRepository.findOne({
-      where: { id },
-      relations: ['customer', 'items', 'items.product'],
-    });
-
-    // Log audit trail for restore
-    await this.auditLogService.log(
-      'RESTORE',
-      'SalesOrder',
-      `Restored sales order: ${order.orderNumber}`,
-      {
-        entityId: id,
-        userId: userId || 'system',
-        username,
-        newValues: {
-          orderNumber: order.orderNumber,
-          customerId: order.customerId,
-          totalAmount: order.totalAmount,
-        },
-      }
-    );
-
-    return this.mapToResponseDto(restoredOrder);
+    return this.salesOrderLifecycleService.restore(id, userId, username);
   }
 
   async bulkRestore(ids: string[], userId?: string, username?: string): Promise<BulkOperationResponse> {
-    if (!ids || ids.length === 0) {
-      return BulkOperationUtil.createResponse('restored', 'sales order', 0, []);
-    }
-
-    const failedItems = [];
-    let successCount = 0;
-
-    for (const id of ids) {
-      try {
-        await this.restore(id, userId, username);
-        successCount++;
-      } catch (error) {
-        BulkOperationUtil.addFailure(
-          failedItems,
-          id,
-          error.message,
-          'RESTORE_ERROR'
-        );
-      }
-    }
-
-    return BulkOperationUtil.createResponse('restored', 'sales order', successCount, failedItems);
+    return this.salesOrderLifecycleService.bulkRestore(ids, userId, username);
   }
 
   async permanentDelete(id: string, userId?: string, username?: string): Promise<void> {
-    // Find the order (including soft-deleted ones)
-    const order = await this.salesOrderRepository.findOne({
-      where: { id },
-      relations: ['customer', 'items'],
-      withDeleted: true,
-    });
-
-    // Use standardized validation
-    ValidationUtil.validateForPermanentDelete(order, 'Sales order', id);
-
-    const isCompleted = order.isFulfilled; // Use fulfillment status instead of order status
-
-    // Check for invoices with payments - cannot delete if invoices have payments
-    const invoices = await this.invoiceRepository.find({
-      where: { salesOrderId: id },
-      withDeleted: true, // Include soft-deleted invoices
-    });
-
-    // Check if any invoice has payments
-    const hasPayments = invoices.some(invoice => Number(invoice.paidAmount) > 0);
-
-    // Use standardized financial entity validation
-    ValidationUtil.validateFinancialEntityDeletion('sales order', hasPayments, false, isCompleted);
-
-    // Automatically hard delete associated invoices (if they have no payments)
-    if (invoices.length > 0) {
-      try {
-        // Log audit trail for each invoice BEFORE permanent deletion
-        for (const invoice of invoices) {
-          await this.auditLogService.log(
-            'PERMANENT_DELETE',
-            'Invoice',
-            `Permanently deleted invoice: ${invoice.invoiceNumber} (cascaded from sales order ${order.orderNumber})`,
-            {
-              entityId: invoice.id,
-              userId: userId || 'system',
-              username,
-              oldValues: {
-                invoiceNumber: invoice.invoiceNumber,
-                salesOrderId: id,
-                totalAmount: invoice.totalAmount,
-                paidAmount: invoice.paidAmount,
-              },
-            }
-          );
-        }
-
-        // Hard delete all associated invoices
-        await this.invoiceRepository.delete(
-          invoices.map(invoice => invoice.id)
-        );
-        console.log(`✅ Auto-deleted ${invoices.length} invoice(s) for sales order ${order.orderNumber}`);
-      } catch (error) {
-        console.error(`⚠️ Failed to auto-delete invoices for sales order ${order.orderNumber}:`, error.message);
-        throw new ConflictException('Failed to delete associated invoices. Cannot permanently delete sales order.');
-      }
-    }
-
-    // Revert customer metrics if order had payment
-    if (Number(order.paidAmount) > 0 && order.customer) {
-      const customer = order.customer;
-      customer.totalSales = Math.max(0, Number(customer.totalSales) - Number(order.totalAmount));
-      customer.totalOrders = Math.max(0, customer.totalOrders - 1);
-      await this.customerRepository.save(customer);
-    }
-
-    // Delete associated stock movements
-    try {
-      const stockMovementResult = await this.stockMovementService.deleteByReference(
-        'sales_order',
-        id
-      );
-      console.log(`✅ Deleted ${stockMovementResult.deletedCount} stock movements for sales order ${order.orderNumber}`);
-    } catch (error) {
-      console.error(`⚠️ Failed to delete stock movements for sales order ${order.orderNumber}:`, error.message);
-      // Don't throw error - sales order deletion should still succeed
-    }
-
-    // Permanently delete associated payments (including soft-deleted ones)
-    try {
-      const Payment = (await import('../../../database/entities/payment.entity')).Payment;
-      const paymentRepository = this.salesOrderRepository.manager.getRepository(Payment);
-
-      // Find all payments associated with this sales order (including soft-deleted)
-      const associatedPayments = await paymentRepository.find({
-        where: {
-          customerId: order.customerId,
-          notes: ILike(`%sales order ${order.orderNumber}%`)
-        },
-        withDeleted: true, // Include soft-deleted payments
-      });
-
-      if (associatedPayments.length > 0) {
-        // Log audit trail for each payment BEFORE permanent deletion
-        for (const payment of associatedPayments) {
-          await this.auditLogService.log(
-            'PERMANENT_DELETE',
-            'Payment',
-            `Permanently deleted payment: ${payment.paymentNumber} (cascaded from sales order ${order.orderNumber})`,
-            {
-              entityId: payment.id,
-              userId: userId || 'system',
-              username,
-              oldValues: {
-                paymentNumber: payment.paymentNumber,
-                salesOrderId: id,
-                amount: payment.amount,
-              },
-            }
-          );
-        }
-
-        // Hard delete all associated payments (both active and soft-deleted)
-        await paymentRepository.delete(
-          associatedPayments.map(payment => payment.id)
-        );
-        console.log(`✅ Permanently deleted ${associatedPayments.length} payment(s) for sales order ${order.orderNumber}`);
-      }
-    } catch (error) {
-      console.error(`⚠️ Failed to permanently delete payments for sales order ${order.orderNumber}:`, error.message);
-      // Don't throw error - sales order deletion should still succeed
-    }
-
-    // Hard delete order items first (foreign key constraint)
-    await this.salesOrderItemRepository.delete({ salesOrderId: id });
-
-    // Log audit trail for permanent delete
-    await this.auditLogService.log(
-      'PERMANENT_DELETE',
-      'SalesOrder',
-      `Permanently deleted sales order: ${order.orderNumber}`,
-      {
-        entityId: id,
-        userId: userId || 'system',
-        username,
-        oldValues: {
-          orderNumber: order.orderNumber,
-          customerId: order.customerId,
-          customerName: order.customer?.name,
-          totalAmount: order.totalAmount,
-          paidAmount: order.paidAmount,
-        },
-      }
-    );
-
-    // Hard delete the order from database
-    await this.salesOrderRepository.delete(id);
+    return this.salesOrderLifecycleService.permanentDelete(id, userId, username);
   }
 
   async bulkPermanentDelete(
@@ -1646,199 +1227,7 @@ export class SalesOrderService {
     userId?: string,
     username?: string,
   ): Promise<BulkOperationResponse> {
-    if (!orderIds || orderIds.length === 0) {
-      return BulkOperationUtil.createResponse('permanently deleted', 'sales order', 0, []);
-    }
-
-    const failedItems = [];
-    let successCount = 0;
-
-    // Process each order individually to handle failures gracefully
-    for (const id of orderIds) {
-      try {
-        // Find the order (including soft-deleted ones)
-        const order = await this.salesOrderRepository.findOne({
-          where: { id },
-          relations: ['customer', 'items'],
-          withDeleted: true,
-        });
-
-        // Use standardized validation
-        try {
-          ValidationUtil.validateForPermanentDelete(order, 'Sales order', id);
-        } catch (error) {
-          BulkOperationUtil.addFailure(
-            failedItems,
-            id,
-            error.message,
-            'VALIDATION_ERROR'
-          );
-          continue;
-        }
-
-        const isCompleted = order.isFulfilled; // Use fulfillment status instead of order status
-
-        // Check for invoices with payments - cannot delete if invoices have payments
-        const invoices = await this.invoiceRepository.find({
-          where: { salesOrderId: id },
-          withDeleted: true, // Include soft-deleted invoices
-        });
-
-        // Check if any invoice has payments
-        const hasPayments = invoices.some(invoice => Number(invoice.paidAmount) > 0);
-
-        // Use standardized financial entity validation
-        try {
-          ValidationUtil.validateFinancialEntityDeletion('sales order', hasPayments, false, isCompleted);
-        } catch (error) {
-          BulkOperationUtil.addFailure(
-            failedItems,
-            id,
-            error.message,
-            'BUSINESS_RULE_ERROR'
-          );
-          continue;
-        }
-
-        // Automatically hard delete associated invoices (if they have no payments)
-        if (invoices.length > 0) {
-          try {
-            // Log audit trail for each invoice BEFORE permanent deletion
-            for (const invoice of invoices) {
-              await this.auditLogService.log(
-                'PERMANENT_DELETE',
-                'Invoice',
-                `Permanently deleted invoice: ${invoice.invoiceNumber} (cascaded from sales order ${order.orderNumber})`,
-                {
-                  entityId: invoice.id,
-                  userId: userId || 'system',
-                  username,
-                  oldValues: {
-                    invoiceNumber: invoice.invoiceNumber,
-                    salesOrderId: id,
-                    totalAmount: invoice.totalAmount,
-                    paidAmount: invoice.paidAmount,
-                  },
-                }
-              );
-            }
-
-            // Hard delete all associated invoices
-            await this.invoiceRepository.delete(
-              invoices.map(invoice => invoice.id)
-            );
-            console.log(`✅ Auto-deleted ${invoices.length} invoice(s) for sales order ${order.orderNumber}`);
-          } catch (error) {
-            BulkOperationUtil.addFailure(
-              failedItems,
-              id,
-              `Failed to delete associated invoices: ${error.message}`,
-              'INVOICE_DELETE_ERROR'
-            );
-            continue;
-          }
-        }
-
-        // Revert customer metrics if order had payment
-        if (Number(order.paidAmount) > 0 && order.customer) {
-          const customer = order.customer;
-          customer.totalSales = Math.max(0, Number(customer.totalSales) - Number(order.totalAmount));
-          customer.totalOrders = Math.max(0, customer.totalOrders - 1);
-          await this.customerRepository.save(customer);
-        }
-
-        // Delete associated stock movements
-        try {
-          const stockMovementResult = await this.stockMovementService.deleteByReference(
-            'sales_order',
-            id
-          );
-          console.log(`✅ Deleted ${stockMovementResult.deletedCount} stock movements for sales order ${order.orderNumber}`);
-        } catch (error) {
-          console.error(`⚠️ Failed to delete stock movements for sales order ${order.orderNumber}:`, error.message);
-          // Don't throw error - bulk deletion should still succeed
-        }
-
-        // Permanently delete associated payments (including soft-deleted ones)
-        try {
-          const Payment = (await import('../../../database/entities/payment.entity')).Payment;
-          const paymentRepository = this.salesOrderRepository.manager.getRepository(Payment);
-
-          // Find all payments associated with this sales order (including soft-deleted)
-          const associatedPayments = await paymentRepository.find({
-            where: {
-              customerId: order.customerId,
-              notes: ILike(`%sales order ${order.orderNumber}%`)
-            },
-            withDeleted: true, // Include soft-deleted payments
-          });
-
-          if (associatedPayments.length > 0) {
-            // Log audit trail for each payment BEFORE permanent deletion
-            for (const payment of associatedPayments) {
-              await this.auditLogService.log(
-                'PERMANENT_DELETE',
-                'Payment',
-                `Permanently deleted payment: ${payment.paymentNumber} (cascaded from sales order ${order.orderNumber})`,
-                {
-                  entityId: payment.id,
-                  userId: userId || 'system',
-                  username,
-                  oldValues: {
-                    paymentNumber: payment.paymentNumber,
-                    salesOrderId: id,
-                    amount: payment.amount,
-                  },
-                }
-              );
-            }
-
-            // Hard delete all associated payments (both active and soft-deleted)
-            await paymentRepository.delete(
-              associatedPayments.map(payment => payment.id)
-            );
-            console.log(`✅ Permanently deleted ${associatedPayments.length} payment(s) for sales order ${order.orderNumber}`);
-          }
-        } catch (error) {
-          console.error(`⚠️ Failed to permanently delete payments for sales order ${order.orderNumber}:`, error.message);
-          // Don't throw error - bulk deletion should still succeed
-        }
-
-        // Hard delete order items first
-        await this.salesOrderItemRepository.delete({ salesOrderId: id });
-
-        // Log audit trail for the order itself before permanent deletion
-        await this.auditLogService.log(
-          'PERMANENT_DELETE',
-          'SalesOrder',
-          `Permanently deleted sales order: ${order.orderNumber}`,
-          {
-            entityId: id,
-            userId: userId || 'system',
-            username,
-            oldValues: {
-              orderNumber: order.orderNumber,
-              totalAmount: order.totalAmount,
-              customerId: order.customerId,
-            },
-          }
-        );
-
-        // Hard delete the order
-        await this.salesOrderRepository.delete(id);
-
-        successCount++;
-      } catch (error) {
-        BulkOperationUtil.addFailure(
-          failedItems,
-          id,
-          error.message,
-          'UNEXPECTED_ERROR'
-        );
-      }
-    }
-
-    return BulkOperationUtil.createResponse('permanently deleted', 'sales order', successCount, failedItems);
+    return this.salesOrderLifecycleService.bulkPermanentDelete(orderIds, userId, username);
   }
 
   async updateAssociatedInvoices(salesOrderId: string): Promise<void> {
@@ -2097,98 +1486,4 @@ export class SalesOrderService {
   }
 
 
-  private mapToResponseDto(order: SalesOrder): SalesOrderResponseDto {
-    return {
-      id: order.id,
-      orderNumber: order.orderNumber,
-      orderDate: order.orderDate,
-      fulfilledDate: order.fulfilledDate,
-      shippingAmount: Number(order.shippingAmount || 0),
-      totalAmount: Number(order.totalAmount),
-      paidAmount: Number(order.paidAmount),
-      isFulfilled: order.isFulfilled,
-      isPaidInFull: order.isPaidInFull,
-      balanceDue: order.balanceDue,
-      canFulfill: order.canFulfill,
-      canUnfulfill: order.canUnfulfill,
-      notes: order.notes,
-      customerId: order.customerId,
-      customer: order.customer ? {
-        id: order.customer.id,
-        name: order.customer.name,
-        phone: order.customer.phone,
-        streetAddress: order.customer.streetAddress,
-        city: order.customer.city,
-        state: order.customer.state,
-        postalCode: order.customer.postalCode,
-        country: order.customer.country,
-      } : undefined,
-      items: order.items?.map(item => ({
-        id: item.id,
-        productId: item.productId,
-        product: item.product ? {
-          id: item.product.id,
-          name: item.product.name,
-          description: item.product.description,
-          barcode: item.product.barcode,
-        } : null,
-        quantity: item.quantity,
-        unitPrice: Number(item.unitPrice),
-        discountType: item.discountType || DiscountType.PERCENTAGE,
-        discountPercent: Number(item.discountPercent || 0),
-        discountAmount: Number(item.discountAmount || 0),
-        totalAmount: Number(item.totalAmount),
-        notes: item.notes,
-        createdAt: item.createdAt,
-        updatedAt: item.updatedAt,
-      })) || [],
-      invoices: order.invoices?.map(invoice => ({
-        id: invoice.id,
-        invoiceNumber: invoice.invoiceNumber,
-        status: invoice.status,
-        invoiceDate: invoice.invoiceDate,
-        shippingAmount: Number(invoice.shippingAmount || 0),
-        totalAmount: Number(invoice.totalAmount),
-        paidAmount: Number(invoice.paidAmount),
-        balanceDue: Number(invoice.balanceDue),
-        customerName: invoice.customer?.name,
-        customerId: invoice.customerId,
-        salesOrderId: invoice.salesOrderId,
-        salesOrder: {
-          id: order.id,
-          orderNumber: order.orderNumber,
-          orderDate: order.orderDate,
-        },
-        orderNumber: order.orderNumber,
-        payments: invoice.payments?.map(payment => ({
-          id: payment.id,
-          paymentNumber: payment.paymentNumber,
-          paymentDate: payment.paymentDate,
-          amount: Number(payment.amount),
-          paymentMethodId: payment.paymentMethodId,
-          paymentMethod: payment.paymentMethodEntity?.code?.toLowerCase() || 'cash',
-          status: payment.status,
-        })) || [],
-        items: invoice.items?.map(item => ({
-          id: item.id,
-          lineNumber: item.lineNumber,
-          productId: item.productId,
-          quantity: Number(item.quantity),
-          unitPrice: Number(item.unitPrice),
-          discountType: item.discountType,
-          discountPercent: Number(item.discountPercent || 0),
-          discount: Number(item.discount),
-          totalAmount: Number(item.totalAmount),
-          product: item.product ? {
-            id: item.product.id,
-            name: item.product.name,
-            barcode: item.product.barcode,
-          } : undefined,
-        })) || [],
-      })) || [],
-      createdAt: order.createdAt,
-      updatedAt: order.updatedAt,
-      deletedAt: order.deletedAt,
-    };
-  }
 }
