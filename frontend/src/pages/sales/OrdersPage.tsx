@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect } from 'react'
 import { Alert, Box, useMediaQuery, useTheme } from '@mui/material'
 import Grid from '@mui/material/GridLegacy'
+import { useStore } from 'react-redux'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 
 import OrdersDialogs from './components/OrdersDialogs'
@@ -14,6 +15,7 @@ import { useOrdersSelection } from './hooks/useOrdersSelection'
 import { useNotification } from '@/hooks/useNotification'
 import { useSearchAndFilter, useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
 import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
+import type { RootState } from '@/store'
 import {
   useDeleteSalesOrderMutation,
   useGetCustomersQuery,
@@ -35,6 +37,7 @@ const OrdersPage: React.FC = () => {
   const navigate = useNavigate()
   const [, setSearchParams] = useSearchParams()
   const dispatch = useAppDispatch()
+  const store = useStore()
   const { showSuccess, showError } = useNotification()
   const error = useAppSelector(selectSalesError)
   const selectedOrder = useAppSelector(selectSelectedOrder)
@@ -123,6 +126,7 @@ const OrdersPage: React.FC = () => {
 
   const actions = useOrdersActions({
     dispatch,
+    getState: () => store.getState() as RootState,
     navigate,
     orders,
     selectedOrder,

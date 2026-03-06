@@ -2,8 +2,9 @@ import { useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 import { salesApi } from '@/services/salesApi'
-import { setSelectedOrder, updateOrderInPlace } from '@/store/slices/salesSlice'
-import type { AppDispatch } from '@/store'
+import { patchSalesOrderCaches } from '@/store/api/salesOrderCache'
+import { setSelectedOrder } from '@/store/slices/salesSlice'
+import type { AppDispatch, RootState } from '@/store'
 import type { SalesOrder } from '@/types'
 import { formatCurrency } from '@/utils/formatters'
 
@@ -11,6 +12,7 @@ import type { BlockedOrderAction } from './useOrdersPageState'
 
 interface UseOrdersActionsParams {
   dispatch: AppDispatch
+  getState: () => RootState
   navigate: ReturnType<typeof useNavigate>
   orders: SalesOrder[]
   selectedOrder: SalesOrder | null
@@ -30,6 +32,7 @@ interface UseOrdersActionsParams {
 
 export function useOrdersActions({
   dispatch,
+  getState,
   navigate,
   orders,
   selectedOrder,
@@ -148,20 +151,24 @@ export function useOrdersActions({
 
     setIsLoading(true)
     try {
-      dispatch(updateOrderInPlace({ ...selectedOrder, paidAmount: newPaidAmount }))
+      const optimisticOrder = { ...selectedOrder, paidAmount: newPaidAmount }
+      patchSalesOrderCaches(dispatch, getState, optimisticOrder)
+      dispatch(setSelectedOrder(optimisticOrder))
 
       const response = await salesApi.recordOrderPayments(selectedOrder.id, payments)
-      dispatch(updateOrderInPlace(response.data))
+      patchSalesOrderCaches(dispatch, getState, response.data)
+      dispatch(setSelectedOrder(response.data))
       const fullOrder = await triggerGetSalesOrder(selectedOrder.id).unwrap()
       dispatch(setSelectedOrder(fullOrder))
       showSuccess(`Payment of ${formatCurrency(totalAdding)} recorded successfully.`)
     } catch (error) {
-      dispatch(updateOrderInPlace(selectedOrder))
+      patchSalesOrderCaches(dispatch, getState, selectedOrder)
+      dispatch(setSelectedOrder(selectedOrder))
       throw error
     } finally {
       setIsLoading(false)
     }
-  }, [dispatch, selectedOrder, setIsLoading, showSuccess, triggerGetSalesOrder])
+  }, [dispatch, getState, selectedOrder, setIsLoading, showSuccess, triggerGetSalesOrder])
 
   const handleUnpayOrder = useCallback(async () => {
     if (!selectedOrder) return
@@ -192,20 +199,23 @@ export function useOrdersActions({
     setIsLoading(true)
     try {
       const optimisticUpdate = { ...selectedOrder, paidAmount: newPaidAmount }
-      dispatch(updateOrderInPlace(optimisticUpdate))
+      patchSalesOrderCaches(dispatch, getState, optimisticUpdate)
+      dispatch(setSelectedOrder(optimisticUpdate))
 
       const response = await salesApi.recordOrderPayment(selectedOrder.id, newPaidAmount)
-      dispatch(updateOrderInPlace(response.data))
+      patchSalesOrderCaches(dispatch, getState, response.data)
+      dispatch(setSelectedOrder(response.data))
       showSuccess(`Refund of ${formatCurrency(overpayment)} processed. Payment adjusted to ${formatCurrency(newPaidAmount)}`)
     } catch (error: any) {
-      dispatch(updateOrderInPlace(selectedOrder))
+      patchSalesOrderCaches(dispatch, getState, selectedOrder)
+      dispatch(setSelectedOrder(selectedOrder))
       console.error('Error processing refund:', error)
       const errorMessage = error?.response?.data?.message || 'Error processing refund. Please try again.'
       showError(errorMessage)
     } finally {
       setIsLoading(false)
     }
-  }, [dispatch, selectedOrder, setIsLoading, showError, showSuccess])
+  }, [dispatch, getState, selectedOrder, setIsLoading, showError, showSuccess])
 
   const handleFulfillOrder = useCallback(async () => {
     if (!selectedOrder) return
@@ -213,7 +223,8 @@ export function useOrdersActions({
     setIsLoading(true)
     try {
       const response = await salesApi.fulfillOrder(selectedOrder.id)
-      dispatch(updateOrderInPlace(response.data))
+      patchSalesOrderCaches(dispatch, getState, response.data)
+      dispatch(setSelectedOrder(response.data))
       showSuccess('Order fulfilled successfully! Inventory has been deducted.')
     } catch (error: any) {
       console.error('Error fulfilling order:', error)
@@ -222,7 +233,7 @@ export function useOrdersActions({
     } finally {
       setIsLoading(false)
     }
-  }, [dispatch, selectedOrder, setIsLoading, showError, showSuccess])
+  }, [dispatch, getState, selectedOrder, setIsLoading, showError, showSuccess])
 
   const handleUnfulfillOrder = useCallback(async () => {
     if (!selectedOrder) return
@@ -230,7 +241,8 @@ export function useOrdersActions({
     setIsLoading(true)
     try {
       const response = await salesApi.unfulfillOrder(selectedOrder.id)
-      dispatch(updateOrderInPlace(response.data))
+      patchSalesOrderCaches(dispatch, getState, response.data)
+      dispatch(setSelectedOrder(response.data))
       showSuccess('Order unfulfilled successfully - inventory restored')
     } catch (error: any) {
       console.error('Error unfulfilling order:', error)
@@ -239,7 +251,7 @@ export function useOrdersActions({
     } finally {
       setIsLoading(false)
     }
-  }, [dispatch, selectedOrder, setIsLoading, showError, showSuccess])
+  }, [dispatch, getState, selectedOrder, setIsLoading, showError, showSuccess])
 
   const handleUnfulfillAndEdit = useCallback(async () => {
     if (!selectedOrder) return
@@ -265,7 +277,8 @@ export function useOrdersActions({
 
         if (unpayResponse.ok) {
           const updatedOrder = await unpayResponse.json()
-          dispatch(updateOrderInPlace(updatedOrder.data))
+          patchSalesOrderCaches(dispatch, getState, updatedOrder.data)
+          dispatch(setSelectedOrder(updatedOrder.data))
           showSuccess('Order unfulfilled and unpaid successfully')
           setBlockedDialogOpen(false)
           navigate(`/sales/orders/${selectedOrder.id}/edit`)
@@ -275,7 +288,8 @@ export function useOrdersActions({
         }
       } else {
         const updatedOrder = await unfulfillResponse.json()
-        dispatch(updateOrderInPlace(updatedOrder.data))
+        patchSalesOrderCaches(dispatch, getState, updatedOrder.data)
+        dispatch(setSelectedOrder(updatedOrder.data))
         showSuccess('Order unfulfilled successfully')
         setBlockedDialogOpen(false)
         navigate(`/sales/orders/${selectedOrder.id}/edit`)
@@ -286,7 +300,7 @@ export function useOrdersActions({
     } finally {
       setIsLoading(false)
     }
-  }, [dispatch, navigate, selectedOrder, setBlockedDialogOpen, setIsLoading, showError, showSuccess])
+  }, [dispatch, getState, navigate, selectedOrder, setBlockedDialogOpen, setIsLoading, showError, showSuccess])
 
   const handleUnfulfillOnly = useCallback(async () => {
     if (!selectedOrder) return
@@ -300,7 +314,8 @@ export function useOrdersActions({
 
       if (response.ok) {
         const updatedOrder = await response.json()
-        dispatch(updateOrderInPlace(updatedOrder.data))
+        patchSalesOrderCaches(dispatch, getState, updatedOrder.data)
+        dispatch(setSelectedOrder(updatedOrder.data))
         showSuccess('Order unfulfilled successfully - inventory restored')
         setBlockedDialogOpen(false)
       } else {
@@ -314,7 +329,7 @@ export function useOrdersActions({
     } finally {
       setIsLoading(false)
     }
-  }, [dispatch, selectedOrder, setBlockedDialogOpen, setIsLoading, showError, showSuccess])
+  }, [dispatch, getState, selectedOrder, setBlockedDialogOpen, setIsLoading, showError, showSuccess])
 
   const handleUnpayAndEdit = useCallback(async () => {
     if (!selectedOrder) return
@@ -341,7 +356,8 @@ export function useOrdersActions({
 
         if (unpayResponse.ok) {
           const updatedOrder = await unpayResponse.json()
-          dispatch(updateOrderInPlace(updatedOrder.data))
+          patchSalesOrderCaches(dispatch, getState, updatedOrder.data)
+          dispatch(setSelectedOrder(updatedOrder.data))
           showSuccess('Order unfulfilled and unpaid successfully')
           setBlockedDialogOpen(false)
           navigate(`/sales/orders/${selectedOrder.id}/edit`)
@@ -361,7 +377,8 @@ export function useOrdersActions({
         }
 
         const updatedOrder = await unpayResponse.json()
-        dispatch(updateOrderInPlace(updatedOrder.data))
+        patchSalesOrderCaches(dispatch, getState, updatedOrder.data)
+        dispatch(setSelectedOrder(updatedOrder.data))
         showSuccess('Order unpaid successfully - payment removed')
         setBlockedDialogOpen(false)
         navigate(`/sales/orders/${selectedOrder.id}/edit`)
@@ -372,7 +389,7 @@ export function useOrdersActions({
     } finally {
       setIsLoading(false)
     }
-  }, [dispatch, navigate, selectedOrder, setBlockedDialogOpen, setIsLoading, showError, showSuccess])
+  }, [dispatch, getState, navigate, selectedOrder, setBlockedDialogOpen, setIsLoading, showError, showSuccess])
 
   const handleUnfulfillAndDelete = useCallback(async () => {
     if (!selectedOrder) return
@@ -407,7 +424,8 @@ export function useOrdersActions({
       }
 
       const updatedOrder = await unfulfillResponse.json()
-      dispatch(updateOrderInPlace(updatedOrder.data))
+      patchSalesOrderCaches(dispatch, getState, updatedOrder.data)
+      dispatch(setSelectedOrder(updatedOrder.data))
       setBlockedDialogOpen(false)
       setOrderToDelete(selectedOrder.id)
       setOrderToDeleteName(selectedOrder.orderNumber || selectedOrder.id)
@@ -418,7 +436,7 @@ export function useOrdersActions({
     } finally {
       setIsLoading(false)
     }
-  }, [dispatch, selectedOrder, setBlockedDialogOpen, setDeleteConfirmOpen, setIsLoading, setOrderToDelete, setOrderToDeleteName, showError, showSuccess])
+  }, [dispatch, getState, selectedOrder, setBlockedDialogOpen, setDeleteConfirmOpen, setIsLoading, setOrderToDelete, setOrderToDeleteName, showError, showSuccess])
 
   const handleUnpayAndDelete = useCallback(async () => {
     if (!selectedOrder) return

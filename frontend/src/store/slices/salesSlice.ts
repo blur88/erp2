@@ -55,11 +55,6 @@ const salesSlice = createSlice({
     setOrderFilters: (state, action: PayloadAction<Partial<SalesState['orderFilters']>>) => {
       state.orderFilters = { ...state.orderFilters, ...action.payload }
     },
-    updateOrderInPlace: (state, action: PayloadAction<SalesOrder>) => {
-      if (state.selectedOrder?.id === action.payload.id) {
-        state.selectedOrder = action.payload
-      }
-    },
     clearError: (state) => {
       state.error = null
     },
@@ -71,7 +66,6 @@ export const {
   setSelectedInvoice,
   setSelectedPayment,
   setOrderFilters,
-  updateOrderInPlace,
   clearError,
 } = salesSlice.actions
 

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import { useStore } from 'react-redux'
 import { useNavigate, useParams } from 'react-router-dom'
 import {
   Box,
@@ -31,12 +32,14 @@ import { useForm, useFieldArray, Controller } from 'react-hook-form'
 import { yupResolver } from '@hookform/resolvers/yup'
 import * as yup from 'yup'
 import { useCreateSalesOrderMutation, useUpdateSalesOrderMutation } from '@/store/api/salesApi'
+import { patchSalesOrderCaches } from '@/store/api/salesOrderCache'
 import { salesApi } from '@/services/salesApi'
 import { ApiService } from '@/services/api'
 import { formatCurrency, getCurrentDate } from '@/utils/formatters'
 import { useNotification } from '@/hooks/useNotification'
 import { useAppDispatch } from '@/hooks/useRedux'
-import { updateOrderInPlace } from '@/store/slices/salesSlice'
+import type { RootState } from '@/store'
+import { setSelectedOrder } from '@/store/slices/salesSlice'
 import { useCurrency } from '@/hooks/useCurrency'
 import { TYPOGRAPHY_STYLES } from '@/constants/typography'
 
@@ -85,6 +88,7 @@ const CreateSalesOrderPage: React.FC = () => {
   const theme = useTheme()
   const navigate = useNavigate()
   const dispatch = useAppDispatch()
+  const store = useStore()
   const { id } = useParams<{ id: string }>()
   const isEditMode = !!id
   const { showSuccess, showError } = useNotification()
@@ -365,8 +369,8 @@ const CreateSalesOrderPage: React.FC = () => {
       if (isEditMode && id) {
         const updatedOrder = await updateSalesOrder({ id, data: orderData as any }).unwrap()
 
-        // Update Redux state directly
-        dispatch(updateOrderInPlace(updatedOrder))
+        patchSalesOrderCaches(dispatch, () => store.getState() as RootState, updatedOrder)
+        dispatch(setSelectedOrder(updatedOrder))
 
         showSuccess('Sales order updated successfully')
         // Navigate to orders page with the updated order selected
