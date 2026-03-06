@@ -295,6 +295,11 @@ export const accountingApiSlice = createApi({
       transformResponse: (response: any) => (Array.isArray(response) ? response : response?.data ?? []),
       providesTags: ['Settlement'],
     }),
+    getPendingSettlementPayments: builder.query<any[], string>({
+      query: (paymentMethodId) => ({ url: `/accounting/settlements/pending-payments/${paymentMethodId}` }),
+      transformResponse: (response: any) => (Array.isArray(response) ? response : response?.data ?? []),
+      providesTags: ['Settlement'],
+    }),
     getOwnerEquityTransactions: builder.query<PaginatedResponse<OwnerEquityTransaction>, Record<string, unknown> | undefined>({
       query: (params) => ({ url: '/accounting/owner-equity', params: params ?? {} }),
       transformResponse: normalizePaginated<OwnerEquityTransaction>,
@@ -329,6 +334,118 @@ export const accountingApiSlice = createApi({
       providesTags: ['AccountingReport'],
     }),
 
+    createChartOfAccount: builder.mutation<ChartOfAccount, Partial<ChartOfAccount>>({
+      query: (body) => ({ url: '/accounting/chart-of-accounts', method: 'POST', data: body }),
+      transformResponse: normalizeSingle<ChartOfAccount>,
+      invalidatesTags: ['ChartOfAccount', 'DeletedChartOfAccount', 'AccountMapping', 'AccountingReport'],
+    }),
+    updateChartOfAccount: builder.mutation<ChartOfAccount, { id: string; data: Partial<ChartOfAccount> }>({
+      query: ({ id, data }) => ({ url: `/accounting/chart-of-accounts/${id}`, method: 'PATCH', data }),
+      transformResponse: normalizeSingle<ChartOfAccount>,
+      invalidatesTags: (_result, _error, { id }) => [
+        { type: 'ChartOfAccount', id },
+        'ChartOfAccount',
+        'AccountMapping',
+        'AccountingReport',
+      ],
+    }),
+    deleteChartOfAccount: builder.mutation<void, string>({
+      query: (id) => ({ url: `/accounting/chart-of-accounts/${id}`, method: 'DELETE' }),
+      invalidatesTags: (_result, _error, id) => [
+        { type: 'ChartOfAccount', id },
+        'ChartOfAccount',
+        'DeletedChartOfAccount',
+        'AccountMapping',
+        'AccountingReport',
+      ],
+    }),
+    restoreChartOfAccount: builder.mutation<ChartOfAccount, string>({
+      query: (id) => ({ url: `/accounting/chart-of-accounts/${id}/restore`, method: 'POST' }),
+      transformResponse: normalizeSingle<ChartOfAccount>,
+      invalidatesTags: (_result, _error, id) => [
+        { type: 'ChartOfAccount', id },
+        'ChartOfAccount',
+        'DeletedChartOfAccount',
+        'AccountMapping',
+        'AccountingReport',
+      ],
+    }),
+    seedDefaultChartOfAccounts: builder.mutation<{ data: ChartOfAccount[]; message: string }, void>({
+      query: () => ({ url: '/accounting/chart-of-accounts/seed-defaults', method: 'POST' }),
+      invalidatesTags: ['ChartOfAccount', 'DeletedChartOfAccount', 'AccountMapping', 'AccountingReport'],
+    }),
+    createJournalEntry: builder.mutation<JournalEntry, Partial<JournalEntry>>({
+      query: (body) => ({ url: '/accounting/journal-entries', method: 'POST', data: body }),
+      transformResponse: normalizeSingle<JournalEntry>,
+      invalidatesTags: ['JournalEntry', 'AccountingReport'],
+    }),
+    updateJournalEntry: builder.mutation<JournalEntry, { id: string; data: Partial<JournalEntry> }>({
+      query: ({ id, data }) => ({ url: `/accounting/journal-entries/${id}`, method: 'PATCH', data }),
+      transformResponse: normalizeSingle<JournalEntry>,
+      invalidatesTags: (_result, _error, { id }) => [{ type: 'JournalEntry', id }, 'JournalEntry', 'AccountingReport'],
+    }),
+    deleteJournalEntry: builder.mutation<void, string>({
+      query: (id) => ({ url: `/accounting/journal-entries/${id}`, method: 'DELETE' }),
+      invalidatesTags: (_result, _error, id) => [{ type: 'JournalEntry', id }, 'JournalEntry', 'AccountingReport'],
+    }),
+    postJournalEntry: builder.mutation<JournalEntry, string>({
+      query: (id) => ({ url: `/accounting/journal-entries/${id}/post`, method: 'POST' }),
+      transformResponse: normalizeSingle<JournalEntry>,
+      invalidatesTags: (_result, _error, id) => [{ type: 'JournalEntry', id }, 'JournalEntry', 'AccountingReport'],
+    }),
+    reverseJournalEntry: builder.mutation<JournalEntry, { id: string; reverseDate?: string }>({
+      query: ({ id, reverseDate }) => ({
+        url: `/accounting/journal-entries/${id}/reverse`,
+        method: 'POST',
+        data: { reverseDate },
+      }),
+      transformResponse: normalizeSingle<JournalEntry>,
+      invalidatesTags: (_result, _error, { id }) => [{ type: 'JournalEntry', id }, 'JournalEntry', 'AccountingReport'],
+    }),
+    bulkPostJournalEntries: builder.mutation<unknown, string[]>({
+      query: (ids) => ({ url: '/accounting/journal-entries/bulk-post', method: 'POST', data: { ids } }),
+      invalidatesTags: ['JournalEntry', 'AccountingReport'],
+    }),
+    bulkDeleteJournalEntries: builder.mutation<unknown, string[]>({
+      query: (ids) => ({ url: '/accounting/journal-entries/bulk-delete', method: 'POST', data: { ids } }),
+      invalidatesTags: ['JournalEntry', 'AccountingReport'],
+    }),
+    createFiscalPeriod: builder.mutation<FiscalPeriod, Partial<FiscalPeriod>>({
+      query: (body) => ({ url: '/accounting/fiscal-periods', method: 'POST', data: body }),
+      transformResponse: normalizeSingle<FiscalPeriod>,
+      invalidatesTags: ['FiscalPeriod', 'AccountingReport'],
+    }),
+    updateFiscalPeriod: builder.mutation<FiscalPeriod, { id: string; data: Partial<FiscalPeriod> }>({
+      query: ({ id, data }) => ({ url: `/accounting/fiscal-periods/${id}`, method: 'PATCH', data }),
+      transformResponse: normalizeSingle<FiscalPeriod>,
+      invalidatesTags: (_result, _error, { id }) => [{ type: 'FiscalPeriod', id }, 'FiscalPeriod', 'AccountingReport'],
+    }),
+    deleteFiscalPeriod: builder.mutation<void, string>({
+      query: (id) => ({ url: `/accounting/fiscal-periods/${id}`, method: 'DELETE' }),
+      invalidatesTags: (_result, _error, id) => [{ type: 'FiscalPeriod', id }, 'FiscalPeriod', 'AccountingReport'],
+    }),
+    closeFiscalPeriod: builder.mutation<FiscalPeriod, string>({
+      query: (id) => ({ url: `/accounting/fiscal-periods/${id}/close`, method: 'POST' }),
+      transformResponse: normalizeSingle<FiscalPeriod>,
+      invalidatesTags: (_result, _error, id) => [{ type: 'FiscalPeriod', id }, 'FiscalPeriod', 'AccountingReport'],
+    }),
+    reopenFiscalPeriod: builder.mutation<FiscalPeriod, string>({
+      query: (id) => ({ url: `/accounting/fiscal-periods/${id}/reopen`, method: 'POST' }),
+      transformResponse: normalizeSingle<FiscalPeriod>,
+      invalidatesTags: (_result, _error, id) => [{ type: 'FiscalPeriod', id }, 'FiscalPeriod', 'AccountingReport'],
+    }),
+    generateFiscalPeriods: builder.mutation<{ data: FiscalPeriod[]; message: string }, { year: number; startMonth?: number }>({
+      query: ({ year, startMonth }) => ({
+        url: '/accounting/fiscal-periods/generate',
+        method: 'POST',
+        data: { year, startMonth: startMonth ?? 1 },
+      }),
+      invalidatesTags: ['FiscalPeriod', 'AccountingReport'],
+    }),
+    validateFiscalPeriodDate: builder.mutation<{ isValid: boolean; message: string; period?: FiscalPeriod }, { date: string }>({
+      query: (body) => ({ url: '/accounting/fiscal-periods/validate', method: 'POST', data: body }),
+    }),
+
     createAccountMapping: builder.mutation<AccountMapping, CreateAccountMappingDto>({
       query: (body) => ({ url: '/accounting/account-mappings', method: 'POST', data: body }),
       transformResponse: normalizeSingle<AccountMapping>,
@@ -338,6 +455,175 @@ export const accountingApiSlice = createApi({
       query: ({ id, data }) => ({ url: `/accounting/account-mappings/${id}`, method: 'PATCH', data }),
       transformResponse: normalizeSingle<AccountMapping>,
       invalidatesTags: ['AccountMapping'],
+    }),
+    deleteAccountMapping: builder.mutation<void, string>({
+      query: (id) => ({ url: `/accounting/account-mappings/${id}`, method: 'DELETE' }),
+      invalidatesTags: ['AccountMapping'],
+    }),
+    createBankReconciliation: builder.mutation<
+      BankReconciliation,
+      { accountId: string; fiscalPeriodId: string; reconciliationDate: string; statementBalance: number }
+    >({
+      query: (body) => ({ url: '/accounting/bank-reconciliations', method: 'POST', data: body }),
+      transformResponse: normalizeSingle<BankReconciliation>,
+      invalidatesTags: ['BankReconciliation', 'AccountingReport'],
+    }),
+    updateBankReconciliation: builder.mutation<
+      BankReconciliation,
+      { id: string; data: { reconciliationDate?: string; statementBalance?: number } }
+    >({
+      query: ({ id, data }) => ({ url: `/accounting/bank-reconciliations/${id}`, method: 'PATCH', data }),
+      transformResponse: normalizeSingle<BankReconciliation>,
+      invalidatesTags: (_result, _error, { id }) => [
+        { type: 'BankReconciliation', id },
+        'BankReconciliation',
+        'AccountingReport',
+      ],
+    }),
+    deleteBankReconciliation: builder.mutation<void, string>({
+      query: (id) => ({ url: `/accounting/bank-reconciliations/${id}`, method: 'DELETE' }),
+      invalidatesTags: (_result, _error, id) => [{ type: 'BankReconciliation', id }, 'BankReconciliation', 'AccountingReport'],
+    }),
+    markBankReconciliationCleared: builder.mutation<BankReconciliation, { id: string; journalEntryLineIds: string[] }>({
+      query: ({ id, journalEntryLineIds }) => ({
+        url: `/accounting/bank-reconciliations/${id}/mark-cleared`,
+        method: 'POST',
+        data: { journalEntryLineIds },
+      }),
+      transformResponse: normalizeSingle<BankReconciliation>,
+      invalidatesTags: (_result, _error, { id }) => [
+        { type: 'BankReconciliation', id },
+        'BankReconciliation',
+        'AccountingReport',
+      ],
+    }),
+    unmarkBankReconciliationCleared: builder.mutation<BankReconciliation, { id: string; journalEntryLineIds: string[] }>({
+      query: ({ id, journalEntryLineIds }) => ({
+        url: `/accounting/bank-reconciliations/${id}/unmark-cleared`,
+        method: 'POST',
+        data: { journalEntryLineIds },
+      }),
+      transformResponse: normalizeSingle<BankReconciliation>,
+      invalidatesTags: (_result, _error, { id }) => [
+        { type: 'BankReconciliation', id },
+        'BankReconciliation',
+        'AccountingReport',
+      ],
+    }),
+    completeBankReconciliation: builder.mutation<BankReconciliation, string>({
+      query: (id) => ({ url: `/accounting/bank-reconciliations/${id}/complete`, method: 'POST' }),
+      transformResponse: normalizeSingle<BankReconciliation>,
+      invalidatesTags: (_result, _error, id) => [{ type: 'BankReconciliation', id }, 'BankReconciliation', 'AccountingReport'],
+    }),
+    reopenBankReconciliation: builder.mutation<BankReconciliation, string>({
+      query: (id) => ({ url: `/accounting/bank-reconciliations/${id}/reopen`, method: 'POST' }),
+      transformResponse: normalizeSingle<BankReconciliation>,
+      invalidatesTags: (_result, _error, id) => [{ type: 'BankReconciliation', id }, 'BankReconciliation', 'AccountingReport'],
+    }),
+    createSettlement: builder.mutation<
+      Settlement,
+      { paymentMethodId: string; settlementDate: string; paymentIds: string[]; reference?: string; notes?: string }
+    >({
+      query: (body) => ({ url: '/accounting/settlements', method: 'POST', data: body }),
+      transformResponse: normalizeSingle<Settlement>,
+      invalidatesTags: ['Settlement', 'AccountingReport'],
+    }),
+    cancelSettlement: builder.mutation<Settlement, string>({
+      query: (id) => ({ url: `/accounting/settlements/${id}/cancel`, method: 'POST' }),
+      transformResponse: normalizeSingle<Settlement>,
+      invalidatesTags: (_result, _error, id) => [{ type: 'Settlement', id }, 'Settlement', 'AccountingReport'],
+    }),
+    createOwnerEquityTransaction: builder.mutation<
+      OwnerEquityTransaction,
+      { transactionDate: string; type: string; amount: number; paymentMethodId: string; description?: string }
+    >({
+      query: (body) => ({ url: '/accounting/owner-equity', method: 'POST', data: body }),
+      transformResponse: normalizeSingle<OwnerEquityTransaction>,
+      invalidatesTags: ['OwnerEquity', 'AccountingReport'],
+    }),
+    updateOwnerEquityTransaction: builder.mutation<
+      OwnerEquityTransaction,
+      {
+        id: string
+        data: {
+          transactionDate?: string
+          type?: string
+          amount?: number
+          paymentMethodId?: string
+          description?: string
+        }
+      }
+    >({
+      query: ({ id, data }) => ({ url: `/accounting/owner-equity/${id}`, method: 'PATCH', data }),
+      transformResponse: normalizeSingle<OwnerEquityTransaction>,
+      invalidatesTags: (_result, _error, { id }) => [{ type: 'OwnerEquity', id }, 'OwnerEquity', 'AccountingReport'],
+    }),
+    deleteOwnerEquityTransaction: builder.mutation<void, string>({
+      query: (id) => ({ url: `/accounting/owner-equity/${id}`, method: 'DELETE' }),
+      invalidatesTags: (_result, _error, id) => [{ type: 'OwnerEquity', id }, 'OwnerEquity', 'AccountingReport'],
+    }),
+    postOwnerEquityTransaction: builder.mutation<OwnerEquityTransaction, string>({
+      query: (id) => ({ url: `/accounting/owner-equity/${id}/post`, method: 'POST' }),
+      transformResponse: normalizeSingle<OwnerEquityTransaction>,
+      invalidatesTags: (_result, _error, id) => [{ type: 'OwnerEquity', id }, 'OwnerEquity', 'AccountingReport'],
+    }),
+    bulkPostOwnerEquityTransactions: builder.mutation<{ posted: number; failed: number }, string[]>({
+      query: (ids) => ({ url: '/accounting/owner-equity/bulk-post', method: 'POST', data: { ids } }),
+      invalidatesTags: ['OwnerEquity', 'AccountingReport'],
+    }),
+    bulkDeleteOwnerEquityTransactions: builder.mutation<{ deleted: number; failed: number }, string[]>({
+      query: (ids) => ({ url: '/accounting/owner-equity/bulk-delete', method: 'POST', data: { ids } }),
+      invalidatesTags: ['OwnerEquity', 'AccountingReport'],
+    }),
+    createExpense: builder.mutation<
+      ExpenseRecord,
+      {
+        expenseDate: string
+        expenseAccountId: string
+        amount: number
+        paymentMethodId: string
+        description?: string
+        vendor?: string
+      }
+    >({
+      query: (body) => ({ url: '/accounting/expenses', method: 'POST', data: body }),
+      transformResponse: normalizeSingle<ExpenseRecord>,
+      invalidatesTags: ['Expense', 'AccountingReport'],
+    }),
+    updateExpense: builder.mutation<
+      ExpenseRecord,
+      {
+        id: string
+        data: {
+          expenseDate?: string
+          expenseAccountId?: string
+          amount?: number
+          paymentMethodId?: string
+          description?: string
+          vendor?: string
+        }
+      }
+    >({
+      query: ({ id, data }) => ({ url: `/accounting/expenses/${id}`, method: 'PATCH', data }),
+      transformResponse: normalizeSingle<ExpenseRecord>,
+      invalidatesTags: (_result, _error, { id }) => [{ type: 'Expense', id }, 'Expense', 'AccountingReport'],
+    }),
+    deleteExpense: builder.mutation<void, string>({
+      query: (id) => ({ url: `/accounting/expenses/${id}`, method: 'DELETE' }),
+      invalidatesTags: (_result, _error, id) => [{ type: 'Expense', id }, 'Expense', 'AccountingReport'],
+    }),
+    postExpense: builder.mutation<ExpenseRecord, string>({
+      query: (id) => ({ url: `/accounting/expenses/${id}/post`, method: 'POST' }),
+      transformResponse: normalizeSingle<ExpenseRecord>,
+      invalidatesTags: (_result, _error, id) => [{ type: 'Expense', id }, 'Expense', 'AccountingReport'],
+    }),
+    bulkPostExpenses: builder.mutation<{ posted: number; failed: number }, string[]>({
+      query: (ids) => ({ url: '/accounting/expenses/bulk-post', method: 'POST', data: { ids } }),
+      invalidatesTags: ['Expense', 'AccountingReport'],
+    }),
+    bulkDeleteExpenses: builder.mutation<{ deleted: number; failed: number }, string[]>({
+      query: (ids) => ({ url: '/accounting/expenses/bulk-delete', method: 'POST', data: { ids } }),
+      invalidatesTags: ['Expense', 'AccountingReport'],
     }),
   }),
 })
@@ -355,6 +641,7 @@ export const {
   useGetPaymentMethodsQuery,
   useGetSettlementsQuery,
   useGetPendingSettlementSummaryQuery,
+  useGetPendingSettlementPaymentsQuery,
   useGetOwnerEquityTransactionsQuery,
   useGetExpensesQuery,
   useGetTrialBalanceQuery,
@@ -362,6 +649,47 @@ export const {
   useGetProfitAndLossQuery,
   useGetGeneralLedgerQuery,
   useGetAccountActivityQuery,
+  useCreateChartOfAccountMutation,
+  useUpdateChartOfAccountMutation,
+  useDeleteChartOfAccountMutation,
+  useRestoreChartOfAccountMutation,
+  useSeedDefaultChartOfAccountsMutation,
+  useCreateJournalEntryMutation,
+  useUpdateJournalEntryMutation,
+  useDeleteJournalEntryMutation,
+  usePostJournalEntryMutation,
+  useReverseJournalEntryMutation,
+  useBulkPostJournalEntriesMutation,
+  useBulkDeleteJournalEntriesMutation,
+  useCreateFiscalPeriodMutation,
+  useUpdateFiscalPeriodMutation,
+  useDeleteFiscalPeriodMutation,
+  useCloseFiscalPeriodMutation,
+  useReopenFiscalPeriodMutation,
+  useGenerateFiscalPeriodsMutation,
+  useValidateFiscalPeriodDateMutation,
   useCreateAccountMappingMutation,
   useUpdateAccountMappingMutation,
+  useDeleteAccountMappingMutation,
+  useCreateBankReconciliationMutation,
+  useUpdateBankReconciliationMutation,
+  useDeleteBankReconciliationMutation,
+  useMarkBankReconciliationClearedMutation,
+  useUnmarkBankReconciliationClearedMutation,
+  useCompleteBankReconciliationMutation,
+  useReopenBankReconciliationMutation,
+  useCreateSettlementMutation,
+  useCancelSettlementMutation,
+  useCreateOwnerEquityTransactionMutation,
+  useUpdateOwnerEquityTransactionMutation,
+  useDeleteOwnerEquityTransactionMutation,
+  usePostOwnerEquityTransactionMutation,
+  useBulkPostOwnerEquityTransactionsMutation,
+  useBulkDeleteOwnerEquityTransactionsMutation,
+  useCreateExpenseMutation,
+  useUpdateExpenseMutation,
+  useDeleteExpenseMutation,
+  usePostExpenseMutation,
+  useBulkPostExpensesMutation,
+  useBulkDeleteExpensesMutation,
 } = accountingApiSlice

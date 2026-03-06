@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react'
+import React, { useMemo, useRef, useState } from 'react'
 import {
   Box,
   Button,
@@ -38,25 +38,19 @@ import {
   ReceiptLong as ExpenseIcon,
 } from '@mui/icons-material'
 import { TYPOGRAPHY_STYLES } from '@/constants/typography'
-import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
 import { useNotification } from '@/hooks/useNotification'
 import {
-  bulkDeleteExpenses,
-  bulkPostExpenses,
-  createExpense,
-  deleteExpense,
-  fetchExpenses,
-  postExpense,
-  selectExpenses,
-  selectExpensesLoading,
-  updateExpense,
-} from '@/store/slices/expenseSlice'
-import {
-  fetchPaymentMethods,
-  selectPaymentMethods,
-} from '@/store/slices/paymentMethodsSlice'
+  useBulkDeleteExpensesMutation,
+  useBulkPostExpensesMutation,
+  useCreateExpenseMutation,
+  useDeleteExpenseMutation,
+  useGetChartOfAccountsQuery,
+  useGetExpensesQuery,
+  useGetPaymentMethodsQuery,
+  usePostExpenseMutation,
+  useUpdateExpenseMutation,
+} from '@/store/api/accountingApi'
 import { useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
-import { accountingApi } from '@/services/accountingApi'
 import type { ChartOfAccount, ExpenseRecord } from '@/types'
 import { formatCurrency, formatDate } from '@/utils/formatters'
 
@@ -71,15 +65,9 @@ type FormState = {
 }
 
 const ExpensesPage: React.FC = () => {
-  const dispatch = useAppDispatch()
   const { showError, showSuccess } = useNotification()
-  const rows = useAppSelector(selectExpenses)
-  const loading = useAppSelector(selectExpensesLoading)
-  const paymentMethods = useAppSelector(selectPaymentMethods)
-
   const searchRef = useRef<HTMLInputElement | null>(null)
 
-  const [expenseAccounts, setExpenseAccounts] = useState<ChartOfAccount[]>([])
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [accountFilter, setAccountFilter] = useState('')
   const [paymentFilter, setPaymentFilter] = useState('')
@@ -96,45 +84,34 @@ const ExpensesPage: React.FC = () => {
     vendor: '',
     description: '',
   })
-
-  const load = () => {
-    dispatch(
-      fetchExpenses({
-        page: 1,
-        expenseAccountId: accountFilter || undefined,
-        paymentMethodId: paymentFilter || undefined,
-        status: statusFilter || undefined,
-        startDate: startDate || undefined,
-        endDate: endDate || undefined,
-        search: search || undefined,
-      }),
-    )
-  }
-
-  useEffect(() => {
-    load()
-  }, [dispatch, accountFilter, paymentFilter, statusFilter, startDate, endDate, search])
-
-  useEffect(() => {
-    dispatch(fetchPaymentMethods({ page: 1, isActive: true }))
-  }, [dispatch])
-
-  useEffect(() => {
-    const fetchExpenseAccounts = async () => {
-      try {
-        const res = await accountingApi.chartOfAccounts.getAll({
-          page: 1,
-          type: 'EXPENSE',
-          isActive: true,
-        })
-        setExpenseAccounts(res.data || [])
-      } catch {
-        setExpenseAccounts([])
-      }
-    }
-
-    fetchExpenseAccounts()
-  }, [])
+  const filters = useMemo(
+    () => ({
+      page: 1,
+      expenseAccountId: accountFilter || undefined,
+      paymentMethodId: paymentFilter || undefined,
+      status: statusFilter || undefined,
+      startDate: startDate || undefined,
+      endDate: endDate || undefined,
+      search: search || undefined,
+    }),
+    [accountFilter, paymentFilter, statusFilter, startDate, endDate, search],
+  )
+  const { data: expensesResponse, isLoading: loading, refetch } = useGetExpensesQuery(filters)
+  const rows = expensesResponse?.data ?? []
+  const { data: paymentMethodsResponse } = useGetPaymentMethodsQuery({ page: 1, isActive: true })
+  const paymentMethods = paymentMethodsResponse?.data ?? []
+  const { data: expenseAccountsResponse } = useGetChartOfAccountsQuery({
+    page: 1,
+    type: 'EXPENSE',
+    isActive: true,
+  })
+  const expenseAccounts = (expenseAccountsResponse?.data ?? []) as ChartOfAccount[]
+  const [createExpense] = useCreateExpenseMutation()
+  const [updateExpense] = useUpdateExpenseMutation()
+  const [deleteExpense] = useDeleteExpenseMutation()
+  const [postExpense] = usePostExpenseMutation()
+  const [bulkPostExpenses] = useBulkPostExpensesMutation()
+  const [bulkDeleteExpenses] = useBulkDeleteExpensesMutation()
 
   const filteredRows = useMemo(() => {
     if (!search) return rows
@@ -210,14 +187,14 @@ const ExpensesPage: React.FC = () => {
 
     try {
       if (form.id) {
-        await dispatch(updateExpense({ id: form.id, data: payload })).unwrap()
+        await updateExpense({ id: form.id, data: payload }).unwrap()
         showSuccess('Expense updated')
       } else {
-        await dispatch(createExpense(payload)).unwrap()
+        await createExpense(payload).unwrap()
         showSuccess('Expense created')
       }
       resetDialog()
-      load()
+      refetch()
     } catch (error: any) {
       showError(String(error))
     }
@@ -226,14 +203,14 @@ const ExpensesPage: React.FC = () => {
   const onDelete = async (id: string) => {
     if (!window.confirm('Delete this draft expense?')) return
     try {
-      await dispatch(deleteExpense(id)).unwrap()
+      await deleteExpense(id).unwrap()
       showSuccess('Expense deleted')
       setSelectedIds((prev) => {
         const next = new Set(prev)
         next.delete(id)
         return next
       })
-      load()
+      refetch()
     } catch (error: any) {
       showError(String(error))
     }
@@ -242,14 +219,14 @@ const ExpensesPage: React.FC = () => {
   const onPost = async (id: string) => {
     if (!window.confirm('Post this expense?')) return
     try {
-      await dispatch(postExpense(id)).unwrap()
+      await postExpense(id).unwrap()
       showSuccess('Expense posted')
       setSelectedIds((prev) => {
         const next = new Set(prev)
         next.delete(id)
         return next
       })
-      load()
+      refetch()
     } catch (error: any) {
       showError(String(error))
     }
@@ -259,10 +236,10 @@ const ExpensesPage: React.FC = () => {
     const ids = Array.from(selectedIds)
     if (!ids.length || !window.confirm(`Post ${ids.length} selected expenses?`)) return
     try {
-      await dispatch(bulkPostExpenses(ids)).unwrap()
+      await bulkPostExpenses(ids).unwrap()
       showSuccess('Bulk post completed')
       setSelectedIds(new Set())
-      load()
+      refetch()
     } catch (error: any) {
       showError(String(error))
     }
@@ -272,10 +249,10 @@ const ExpensesPage: React.FC = () => {
     const ids = Array.from(selectedIds)
     if (!ids.length || !window.confirm(`Delete ${ids.length} selected expenses?`)) return
     try {
-      await dispatch(bulkDeleteExpenses(ids)).unwrap()
+      await bulkDeleteExpenses(ids).unwrap()
       showSuccess('Bulk delete completed')
       setSelectedIds(new Set())
-      load()
+      refetch()
     } catch (error: any) {
       showError(String(error))
     }
@@ -284,7 +261,7 @@ const ExpensesPage: React.FC = () => {
   useKeyboardShortcuts({
     onSearch: () => searchRef.current?.focus(),
     onAdd: openCreate,
-    onRefresh: load,
+    onRefresh: refetch,
     onEscape: () => {
       setSelectedIds(new Set())
       setDialogOpen(false)
@@ -317,7 +294,7 @@ const ExpensesPage: React.FC = () => {
               </Button>
             </>
           )}
-          <IconButton onClick={load}>
+          <IconButton onClick={() => refetch()}>
             <RefreshIcon />
           </IconButton>
           <Button variant="contained" startIcon={<AddIcon />} onClick={openCreate}>

@@ -30,6 +30,7 @@ import { userManagementApiSlice } from './api/userManagementApi'
 import { inventoryApiSlice } from './api/inventoryApi'
 import { purchasingApiSlice } from './api/purchasingApi'
 import { salesApiSlice } from './api/salesApi'
+import { accountingApiSlice } from './api/accountingApi'
 
 const rootReducer = combineReducers({
   theme: themeSlice,
@@ -58,6 +59,7 @@ const rootReducer = combineReducers({
   [inventoryApiSlice.reducerPath]: inventoryApiSlice.reducer,
   [purchasingApiSlice.reducerPath]: purchasingApiSlice.reducer,
   [salesApiSlice.reducerPath]: salesApiSlice.reducer,
+  [accountingApiSlice.reducerPath]: accountingApiSlice.reducer,
 })
 
 // Persist configuration
@@ -101,6 +103,7 @@ export const store = configureStore({
     inventoryApiSlice.middleware as any,
     purchasingApiSlice.middleware as any,
     salesApiSlice.middleware as any,
+    accountingApiSlice.middleware as any,
   ),
   devTools: process.env.NODE_ENV !== 'production',
 })

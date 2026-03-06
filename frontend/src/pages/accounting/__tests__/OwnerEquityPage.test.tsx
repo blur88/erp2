@@ -1,21 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
-import { Provider } from 'react-redux'
+import { render, screen } from '@testing-library/react'
 import { BrowserRouter } from 'react-router-dom'
-import { configureStore } from '@reduxjs/toolkit'
-import OwnerEquityPage from '../OwnerEquityPage'
-import ownerEquityReducer from '@/store/slices/ownerEquitySlice'
-import paymentMethodsReducer from '@/store/slices/paymentMethodsSlice'
-import { ApiService } from '@/services/api'
 
-vi.mock('@/services/api', () => ({
-  ApiService: {
-    get: vi.fn(),
-    post: vi.fn(),
-    patch: vi.fn(),
-    delete: vi.fn(),
-  },
-}))
+import OwnerEquityPage from '../OwnerEquityPage'
 
 vi.mock('@/hooks/useNotification', () => ({
   useNotification: () => ({
@@ -32,115 +19,104 @@ vi.mock('@/hooks/useSearchAndFilter', async () => {
   }
 })
 
-const createMockStore = () =>
-  configureStore({
-    reducer: {
-      ownerEquity: ownerEquityReducer,
-      paymentMethods: paymentMethodsReducer,
-    },
-  })
+const mockedApi = vi.hoisted(() => ({
+  useGetOwnerEquityTransactionsQuery: vi.fn(),
+  useGetPaymentMethodsQuery: vi.fn(),
+  useCreateOwnerEquityTransactionMutation: vi.fn(),
+  useUpdateOwnerEquityTransactionMutation: vi.fn(),
+  useDeleteOwnerEquityTransactionMutation: vi.fn(),
+  usePostOwnerEquityTransactionMutation: vi.fn(),
+  useBulkPostOwnerEquityTransactionsMutation: vi.fn(),
+  useBulkDeleteOwnerEquityTransactionsMutation: vi.fn(),
+}))
 
-const renderPage = () => {
-  const store = createMockStore()
-  return render(
-    <Provider store={store}>
-      <BrowserRouter>
-        <OwnerEquityPage />
-      </BrowserRouter>
-    </Provider>,
+vi.mock('@/store/api/accountingApi', () => ({
+  useGetOwnerEquityTransactionsQuery: mockedApi.useGetOwnerEquityTransactionsQuery,
+  useGetPaymentMethodsQuery: mockedApi.useGetPaymentMethodsQuery,
+  useCreateOwnerEquityTransactionMutation: mockedApi.useCreateOwnerEquityTransactionMutation,
+  useUpdateOwnerEquityTransactionMutation: mockedApi.useUpdateOwnerEquityTransactionMutation,
+  useDeleteOwnerEquityTransactionMutation: mockedApi.useDeleteOwnerEquityTransactionMutation,
+  usePostOwnerEquityTransactionMutation: mockedApi.usePostOwnerEquityTransactionMutation,
+  useBulkPostOwnerEquityTransactionsMutation: mockedApi.useBulkPostOwnerEquityTransactionsMutation,
+  useBulkDeleteOwnerEquityTransactionsMutation: mockedApi.useBulkDeleteOwnerEquityTransactionsMutation,
+}))
+
+const renderPage = () =>
+  render(
+    <BrowserRouter>
+      <OwnerEquityPage />
+    </BrowserRouter>,
   )
-}
 
 describe('OwnerEquityPage', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    vi.mocked(ApiService.get).mockImplementation((url: string) => {
-      if (url.includes('/settings/payment-methods/active')) {
-        return Promise.resolve([
-          { id: 'pm-1', code: 'CASH', name: 'Cash', isActive: true },
-        ] as any)
-      }
-
-      if (url.includes('/accounting/owner-equity')) {
-        return Promise.resolve({
-          data: [
-            {
-              id: 'tx-1',
-              referenceNumber: 'EQ-001',
-              transactionDate: '2026-02-15',
-              type: 'capital_injection',
-              amount: 500,
-              paymentMethodId: 'pm-1',
-              paymentMethod: { id: 'pm-1', code: 'CASH', name: 'Cash' },
-              description: 'Initial owner capital',
-              status: 'draft',
-              createdAt: '2026-02-15',
-              updatedAt: '2026-02-15',
-            },
-          ],
-          meta: { page: 1, limit: 100, total: 1, totalPages: 1 },
-        } as any)
-      }
-
-      if (url.includes('/settings/payment-methods')) {
-        return Promise.resolve({
-          data: [{ id: 'pm-1', code: 'CASH', name: 'Cash', isActive: true }],
-          meta: { page: 1, limit: 200, total: 1, totalPages: 1 },
-        } as any)
-      }
-
-      return Promise.resolve({ data: [], meta: {} } as any)
+    mockedApi.useGetOwnerEquityTransactionsQuery.mockReturnValue({
+      data: {
+        data: [
+          {
+            id: 'tx-1',
+            referenceNumber: 'EQ-001',
+            transactionDate: '2026-02-15',
+            type: 'capital_injection',
+            amount: 500,
+            paymentMethodId: 'pm-1',
+            paymentMethod: { id: 'pm-1', code: 'CASH', name: 'Cash' },
+            description: 'Initial owner capital',
+            status: 'draft',
+            createdAt: '2026-02-15',
+            updatedAt: '2026-02-15',
+          },
+        ],
+      },
+      isLoading: false,
+      refetch: vi.fn(),
     })
+    mockedApi.useGetPaymentMethodsQuery.mockReturnValue({
+      data: {
+        data: [{ id: 'pm-1', code: 'CASH', name: 'Cash', isActive: true }],
+      },
+    })
+    mockedApi.useCreateOwnerEquityTransactionMutation.mockReturnValue([vi.fn()])
+    mockedApi.useUpdateOwnerEquityTransactionMutation.mockReturnValue([vi.fn()])
+    mockedApi.useDeleteOwnerEquityTransactionMutation.mockReturnValue([vi.fn()])
+    mockedApi.usePostOwnerEquityTransactionMutation.mockReturnValue([vi.fn()])
+    mockedApi.useBulkPostOwnerEquityTransactionsMutation.mockReturnValue([vi.fn()])
+    mockedApi.useBulkDeleteOwnerEquityTransactionsMutation.mockReturnValue([vi.fn()])
   })
 
-  it('renders the page title', async () => {
+  it('renders the page title', () => {
     renderPage()
     expect(screen.getByText("Owner's Equity Transactions")).toBeInTheDocument()
-
-    await waitFor(() => {
-      expect(screen.getByText('EQ-001')).toBeInTheDocument()
-    })
+    expect(screen.getByText('EQ-001')).toBeInTheDocument()
   })
 
   it('shows loading state', () => {
-    vi.mocked(ApiService.get).mockImplementation(() => new Promise(() => {}))
+    mockedApi.useGetOwnerEquityTransactionsQuery.mockReturnValue({
+      data: undefined,
+      isLoading: true,
+      refetch: vi.fn(),
+    })
+
     renderPage()
     expect(screen.getByRole('progressbar')).toBeInTheDocument()
   })
 
-  it('displays transaction data in table', async () => {
+  it('displays transaction data in table', () => {
     renderPage()
 
-    await waitFor(() => {
-      expect(screen.getByText('EQ-001')).toBeInTheDocument()
-    })
-
+    expect(screen.getByText('EQ-001')).toBeInTheDocument()
     expect(screen.getByText('Capital Injection')).toBeInTheDocument()
     expect(screen.getByText('Initial owner capital')).toBeInTheDocument()
     expect(screen.getByText('Cash')).toBeInTheDocument()
   })
 
-  it('shows filter controls', async () => {
+  it('shows filter controls', () => {
     renderPage()
-
-    await waitFor(() => {
-      expect(screen.getByText('EQ-001')).toBeInTheDocument()
-    })
 
     expect(screen.getAllByText('Type').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Status').length).toBeGreaterThan(0)
     expect(screen.getByLabelText('Start Date')).toBeInTheDocument()
     expect(screen.getByLabelText('End Date')).toBeInTheDocument()
-  })
-
-  it('loads active payment methods for dropdown', async () => {
-    renderPage()
-
-    await waitFor(() => {
-      expect(vi.mocked(ApiService.get)).toHaveBeenCalled()
-    })
-
-    const calls = vi.mocked(ApiService.get).mock.calls.map((call) => call[0])
-    expect(calls).toContain('/settings/payment-methods/active')
   })
 })

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react'
+import React, { useMemo, useRef, useState } from 'react'
 import {
   Box,
   Button,
@@ -36,21 +36,18 @@ import {
   AccountBalanceWallet as OwnerEquityIcon,
 } from '@mui/icons-material'
 import { TYPOGRAPHY_STYLES } from '@/constants/typography'
-import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
 import { useNotification } from '@/hooks/useNotification'
 import {
-  bulkDeleteOwnerEquity,
-  bulkPostOwnerEquity,
-  createOwnerEquity,
-  deleteOwnerEquity,
-  fetchOwnerEquity,
-  postOwnerEquity,
-  selectOwnerEquity,
-  selectOwnerEquityLoading,
-  updateOwnerEquity,
-} from '@/store/slices/ownerEquitySlice'
+  useBulkDeleteOwnerEquityTransactionsMutation,
+  useBulkPostOwnerEquityTransactionsMutation,
+  useCreateOwnerEquityTransactionMutation,
+  useDeleteOwnerEquityTransactionMutation,
+  useGetOwnerEquityTransactionsQuery,
+  useGetPaymentMethodsQuery,
+  usePostOwnerEquityTransactionMutation,
+  useUpdateOwnerEquityTransactionMutation,
+} from '@/store/api/accountingApi'
 import { useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
-import { paymentMethodsApi } from '@/services/paymentMethodsApi'
 import type { OwnerEquityTransaction, PaymentMethodConfig } from '@/types'
 import { formatCurrency, formatDate } from '@/utils/formatters'
 
@@ -69,12 +66,7 @@ type FormState = {
 }
 
 const OwnerEquityPage: React.FC = () => {
-  const dispatch = useAppDispatch()
   const { showError, showSuccess } = useNotification()
-  const rows = useAppSelector(selectOwnerEquity)
-  const loading = useAppSelector(selectOwnerEquityLoading)
-  const [paymentMethods, setPaymentMethods] = useState<PaymentMethodConfig[]>([])
-
   const searchRef = useRef<HTMLInputElement | null>(null)
 
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
@@ -91,36 +83,26 @@ const OwnerEquityPage: React.FC = () => {
     paymentMethodId: '',
     description: '',
   })
-
-  const load = () => {
-    dispatch(
-      fetchOwnerEquity({
-        page: 1,
-        type: typeFilter || undefined,
-        status: statusFilter || undefined,
-        startDate: startDate || undefined,
-        endDate: endDate || undefined,
-      }),
-    )
-  }
-
-  useEffect(() => {
-    load()
-  }, [dispatch, typeFilter, statusFilter, startDate, endDate])
-
-  useEffect(() => {
-    const loadPaymentMethods = async () => {
-      try {
-        const rows = await paymentMethodsApi.getActive()
-        const list = Array.isArray(rows) ? rows : ((rows as any)?.data || [])
-        setPaymentMethods(list)
-      } catch {
-        setPaymentMethods([])
-      }
-    }
-
-    void loadPaymentMethods()
-  }, [])
+  const filters = useMemo(
+    () => ({
+      page: 1,
+      type: typeFilter || undefined,
+      status: statusFilter || undefined,
+      startDate: startDate || undefined,
+      endDate: endDate || undefined,
+    }),
+    [typeFilter, statusFilter, startDate, endDate],
+  )
+  const { data: ownerEquityResponse, isLoading: loading, refetch } = useGetOwnerEquityTransactionsQuery(filters)
+  const rows = ownerEquityResponse?.data ?? []
+  const { data: paymentMethodsResponse } = useGetPaymentMethodsQuery({ page: 1, isActive: true })
+  const paymentMethods = (paymentMethodsResponse?.data ?? []) as PaymentMethodConfig[]
+  const [createOwnerEquityTransaction] = useCreateOwnerEquityTransactionMutation()
+  const [updateOwnerEquityTransaction] = useUpdateOwnerEquityTransactionMutation()
+  const [deleteOwnerEquityTransaction] = useDeleteOwnerEquityTransactionMutation()
+  const [postOwnerEquityTransaction] = usePostOwnerEquityTransactionMutation()
+  const [bulkPostOwnerEquityTransactions] = useBulkPostOwnerEquityTransactionsMutation()
+  const [bulkDeleteOwnerEquityTransactions] = useBulkDeleteOwnerEquityTransactionsMutation()
 
   const filteredRows = useMemo(() => {
     if (!search) return rows
@@ -187,14 +169,14 @@ const OwnerEquityPage: React.FC = () => {
 
     try {
       if (form.id) {
-        await dispatch(updateOwnerEquity({ id: form.id, data: payload })).unwrap()
+        await updateOwnerEquityTransaction({ id: form.id, data: payload }).unwrap()
         showSuccess('Transaction updated')
       } else {
-        await dispatch(createOwnerEquity(payload)).unwrap()
+        await createOwnerEquityTransaction(payload).unwrap()
         showSuccess('Transaction created')
       }
       resetDialog()
-      load()
+      refetch()
     } catch (error: any) {
       showError(String(error))
     }
@@ -203,14 +185,14 @@ const OwnerEquityPage: React.FC = () => {
   const onDelete = async (id: string) => {
     if (!window.confirm('Delete this draft transaction?')) return
     try {
-      await dispatch(deleteOwnerEquity(id)).unwrap()
+      await deleteOwnerEquityTransaction(id).unwrap()
       showSuccess('Transaction deleted')
       setSelectedIds((prev) => {
         const next = new Set(prev)
         next.delete(id)
         return next
       })
-      load()
+      refetch()
     } catch (error: any) {
       showError(String(error))
     }
@@ -219,14 +201,14 @@ const OwnerEquityPage: React.FC = () => {
   const onPost = async (id: string) => {
     if (!window.confirm('Post this transaction?')) return
     try {
-      await dispatch(postOwnerEquity(id)).unwrap()
+      await postOwnerEquityTransaction(id).unwrap()
       showSuccess('Transaction posted')
       setSelectedIds((prev) => {
         const next = new Set(prev)
         next.delete(id)
         return next
       })
-      load()
+      refetch()
     } catch (error: any) {
       showError(String(error))
     }
@@ -236,10 +218,10 @@ const OwnerEquityPage: React.FC = () => {
     const ids = Array.from(selectedIds)
     if (!ids.length || !window.confirm(`Post ${ids.length} selected transactions?`)) return
     try {
-      await dispatch(bulkPostOwnerEquity(ids)).unwrap()
+      await bulkPostOwnerEquityTransactions(ids).unwrap()
       showSuccess('Bulk post completed')
       setSelectedIds(new Set())
-      load()
+      refetch()
     } catch (error: any) {
       showError(String(error))
     }
@@ -249,10 +231,10 @@ const OwnerEquityPage: React.FC = () => {
     const ids = Array.from(selectedIds)
     if (!ids.length || !window.confirm(`Delete ${ids.length} selected transactions?`)) return
     try {
-      await dispatch(bulkDeleteOwnerEquity(ids)).unwrap()
+      await bulkDeleteOwnerEquityTransactions(ids).unwrap()
       showSuccess('Bulk delete completed')
       setSelectedIds(new Set())
-      load()
+      refetch()
     } catch (error: any) {
       showError(String(error))
     }
@@ -261,7 +243,7 @@ const OwnerEquityPage: React.FC = () => {
   useKeyboardShortcuts({
     onSearch: () => searchRef.current?.focus(),
     onAdd: openCreate,
-    onRefresh: load,
+    onRefresh: refetch,
     onEscape: () => {
       setSelectedIds(new Set())
       setDialogOpen(false)
@@ -294,7 +276,7 @@ const OwnerEquityPage: React.FC = () => {
               </Button>
             </>
           )}
-          <IconButton onClick={load}>
+          <IconButton onClick={() => refetch()}>
             <RefreshIcon />
           </IconButton>
           <Button variant="contained" startIcon={<AddIcon />} onClick={openCreate}>

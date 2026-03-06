@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   Box,
   Button,
@@ -22,16 +22,13 @@ import {
   Add as AddIcon,
   Cancel as CancelIcon,
 } from '@mui/icons-material';
-import { useAppDispatch, useAppSelector } from '@/hooks/useRedux';
 import { useNotification } from '@/hooks/useNotification'
 import {
-  cancelSettlement,
-  createSettlement,
-  fetchPendingSummary,
-  fetchSettlements,
-  selectSettlements,
-  selectSettlementsLoading,
-} from '@/store/slices/settlementsSlice';
+  useCancelSettlementMutation,
+  useCreateSettlementMutation,
+  useGetPendingSettlementSummaryQuery,
+  useGetSettlementsQuery,
+} from '@/store/api/accountingApi';
 import { formatCurrency, formatDate } from '@/utils/formatters'
 import { TYPOGRAPHY_STYLES } from '@/constants/typography';
 import type { Settlement } from '@/types';
@@ -44,18 +41,19 @@ const statusColor = (status: Settlement['status']) => {
 };
 
 const SettlementsPage: React.FC = () => {
-  const dispatch = useAppDispatch();
   const { showSuccess, showError } = useNotification()
-  const settlements = useAppSelector(selectSettlements);
-  const loading = useAppSelector(selectSettlementsLoading);
+  const {
+    data: settlementsResponse,
+    isLoading: loading,
+  } = useGetSettlementsQuery({ page: 1 });
+  useGetPendingSettlementSummaryQuery();
+  const [createSettlement] = useCreateSettlementMutation();
+  const [cancelSettlement] = useCancelSettlementMutation();
+
+  const settlements = settlementsResponse?.data ?? [];
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [cancelTarget, setCancelTarget] = useState<Settlement | null>(null);
-
-  useEffect(() => {
-    dispatch(fetchSettlements({ page: 1 }));
-    dispatch(fetchPendingSummary());
-  }, [dispatch]);
 
   const title = useMemo(() => `Settlements (${settlements.length})`, [settlements.length]);
 
@@ -67,9 +65,7 @@ const SettlementsPage: React.FC = () => {
     notes?: string;
   }) => {
     try {
-      await dispatch(createSettlement(data)).unwrap();
-      await dispatch(fetchSettlements({ page: 1 }));
-      await dispatch(fetchPendingSummary());
+      await createSettlement(data).unwrap();
       setDialogOpen(false);
       showSuccess('Settlement created successfully');
     } catch (error: any) {
@@ -80,9 +76,7 @@ const SettlementsPage: React.FC = () => {
   const onCancel = async () => {
     if (!cancelTarget) return;
     try {
-      await dispatch(cancelSettlement(cancelTarget.id)).unwrap();
-      await dispatch(fetchSettlements({ page: 1 }));
-      await dispatch(fetchPendingSummary());
+      await cancelSettlement(cancelTarget.id).unwrap();
       setCancelTarget(null);
       showSuccess('Settlement cancelled successfully');
     } catch (error: any) {
