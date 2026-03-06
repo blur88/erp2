@@ -164,6 +164,7 @@ export class QueryInvoicesDto {
     example: 'DESC',
   })
   @IsOptional()
+  @Transform(({ value }) => value?.toUpperCase())
   @IsEnum(['ASC', 'DESC'])
   sortOrder?: 'ASC' | 'DESC';
 

@@ -1,6 +1,6 @@
 import { IsOptional, IsString, IsEnum, IsUUID, IsDateString } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 
 export enum AuditAction {
   CREATE = 'CREATE',
@@ -76,6 +76,7 @@ export class QueryAuditLogsDto {
 
   @ApiPropertyOptional({ description: 'Sort order', enum: ['ASC', 'DESC'], default: 'DESC' })
   @IsOptional()
+  @Transform(({ value }) => value?.toUpperCase())
   @IsEnum(['ASC', 'DESC'])
   sortOrder?: 'ASC' | 'DESC' = 'DESC';
 }
