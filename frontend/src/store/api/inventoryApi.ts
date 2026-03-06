@@ -28,6 +28,16 @@ export const inventoryApiSlice = createApi({
       transformResponse: normalizePaginated<Product>,
       providesTags: ['DeletedProduct'],
     }),
+    createProduct: builder.mutation<Product, Partial<Product>>({
+      query: (body) => ({ url: '/inventory/products', method: 'POST', data: body }),
+      transformResponse: normalizeSingle<Product>,
+      invalidatesTags: ['Product'],
+    }),
+    updateProduct: builder.mutation<Product, { id: string; data: Partial<Product> }>({
+      query: ({ id, data }) => ({ url: `/inventory/products/${id}`, method: 'PATCH', data }),
+      transformResponse: normalizeSingle<Product>,
+      invalidatesTags: ['Product'],
+    }),
     deleteProduct: builder.mutation<void, string>({
       query: (id) => ({ url: `/inventory/products/${id}`, method: 'DELETE' }),
       invalidatesTags: ['Product', 'DeletedProduct'],
@@ -131,6 +141,16 @@ export const inventoryApiSlice = createApi({
       transformResponse: normalizeSingle<StockAdjustment>,
       providesTags: (_result, _error, id) => [{ type: 'StockAdjustment', id }],
     }),
+    createStockAdjustment: builder.mutation<StockAdjustment, Record<string, unknown>>({
+      query: (body) => ({ url: '/inventory/stock-adjustments', method: 'POST', data: body }),
+      transformResponse: normalizeSingle<StockAdjustment>,
+      invalidatesTags: ['StockAdjustment'],
+    }),
+    updateStockAdjustment: builder.mutation<StockAdjustment, { id: string; data: Record<string, unknown> }>({
+      query: ({ id, data }) => ({ url: `/inventory/stock-adjustments/${id}`, method: 'PUT', data }),
+      transformResponse: normalizeSingle<StockAdjustment>,
+      invalidatesTags: ['StockAdjustment'],
+    }),
     getDeletedStockAdjustments: builder.query<PaginatedResponse<StockAdjustment>, Record<string, unknown> | undefined>({
       query: (params) => ({ url: '/inventory/stock-adjustments/deleted', params: params ?? {} }),
       transformResponse: normalizePaginated<StockAdjustment>,
@@ -160,6 +180,8 @@ export const {
   useGetProductsQuery,
   useGetProductQuery,
   useGetDeletedProductsQuery,
+  useCreateProductMutation,
+  useUpdateProductMutation,
   useDeleteProductMutation,
   useRestoreProductMutation,
   useBulkRestoreProductsMutation,
@@ -178,6 +200,8 @@ export const {
   useBulkPermanentDeleteCategoriesMutation,
   useGetStockAdjustmentsQuery,
   useGetStockAdjustmentQuery,
+  useCreateStockAdjustmentMutation,
+  useUpdateStockAdjustmentMutation,
   useGetDeletedStockAdjustmentsQuery,
   useRestoreStockAdjustmentMutation,
   usePermanentDeleteStockAdjustmentMutation,
