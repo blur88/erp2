@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useEffect, useState } from 'react'
 import {
   Dialog,
   DialogTitle,
@@ -8,14 +8,14 @@ import {
   TextField,
   Box,
 } from '@mui/material'
-import { useDispatch } from 'react-redux'
 import { format } from 'date-fns'
 import { useNotification } from '@/hooks/useNotification'
 import {
-  createFiscalPeriod,
-  updateFiscalPeriod,
-} from '@/store/slices/fiscalPeriodsSlice'
+  useCreateFiscalPeriodMutation,
+  useUpdateFiscalPeriodMutation,
+} from '@/store/api/accountingApi'
 import { FiscalPeriod } from '@/types'
+import { getErrorMessage } from '@/utils/errorMessage'
 
 interface FiscalPeriodFormDialogProps {
   open: boolean
@@ -37,8 +37,9 @@ const FiscalPeriodFormDialog: React.FC<FiscalPeriodFormDialogProps> = ({
   onClose,
   onSuccess,
 }) => {
-  const dispatch = useDispatch() as any
   const { showError } = useNotification()
+  const [createFiscalPeriod] = useCreateFiscalPeriodMutation()
+  const [updateFiscalPeriod] = useUpdateFiscalPeriodMutation()
 
   const [formData, setFormData] = useState<FormData>({
     code: '',
@@ -116,33 +117,27 @@ const FiscalPeriodFormDialog: React.FC<FiscalPeriodFormDialogProps> = ({
 
     try {
       if (period) {
-        // Update existing period
-        await dispatch(
-          updateFiscalPeriod({
-            id: period.id,
-            data: {
-              code: formData.code.trim(),
-              name: formData.name.trim(),
-              startDate: new Date(formData.startDate),
-              endDate: new Date(formData.endDate),
-            },
-          })
-        ).unwrap()
-      } else {
-        // Create new period
-        await dispatch(
-          createFiscalPeriod({
+        await updateFiscalPeriod({
+          id: period.id,
+          data: {
             code: formData.code.trim(),
             name: formData.name.trim(),
             startDate: new Date(formData.startDate),
             endDate: new Date(formData.endDate),
-          })
-        ).unwrap()
+          },
+        }).unwrap()
+      } else {
+        await createFiscalPeriod({
+          code: formData.code.trim(),
+          name: formData.name.trim(),
+          startDate: new Date(formData.startDate),
+          endDate: new Date(formData.endDate),
+        }).unwrap()
       }
 
       onSuccess()
     } catch (error: any) {
-      showError(error || `Failed to ${period ? 'update' : 'create'} fiscal period`)
+      showError(getErrorMessage(error, `Failed to ${period ? 'update' : 'create'} fiscal period`))
     } finally {
       setSubmitting(false)
     }
