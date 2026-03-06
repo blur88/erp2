@@ -1,0 +1,150 @@
+import React from 'react'
+import {
+  Box,
+  CircularProgress,
+  Paper,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableRow,
+  Typography,
+} from '@mui/material'
+import { DragIndicator as DragIndicatorIcon } from '@mui/icons-material'
+
+import type { Product } from '@/types'
+import { TABLE_STYLES, TYPOGRAPHY_STYLES } from '@/constants/typography'
+
+interface ProductsTableProps {
+  products: Product[]
+  total: number
+  loading: boolean
+  selectedProductId?: string
+  focusedProductIndex: number
+  productListRef: React.RefObject<HTMLDivElement | null>
+  onFocus: () => void
+  onProductSelect: (product: Product, index: number) => void
+}
+
+const ProductsTable: React.FC<ProductsTableProps> = ({
+  products,
+  total,
+  loading,
+  selectedProductId,
+  focusedProductIndex,
+  productListRef,
+  onFocus,
+  onProductSelect,
+}) => {
+  return (
+    <Paper sx={{ height: 'calc(100vh - 300px)', display: 'flex', flexDirection: 'column' }}>
+      <Box sx={{ p: TABLE_STYLES.cell.padding.px, borderBottom: TABLE_STYLES.cell.border }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Typography
+            variant={TYPOGRAPHY_STYLES.tableHeader.variant}
+            sx={{
+              fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
+              fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize,
+              textTransform: 'uppercase',
+              letterSpacing: '0.5px',
+            }}
+          >
+            Product List ({total})
+          </Typography>
+        </Box>
+      </Box>
+
+      <Box
+        sx={{
+          flex: 1,
+          overflow: 'hidden',
+          display: 'flex',
+          flexDirection: 'column',
+          '&:focus': {
+            outline: '2px solid',
+            outlineColor: 'primary.main',
+            outlineOffset: '-2px',
+          },
+        }}
+        ref={productListRef}
+        tabIndex={0}
+        onFocus={onFocus}
+      >
+        {loading ? (
+          <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', flex: 1 }}>
+            <CircularProgress />
+          </Box>
+        ) : products.length === 0 ? (
+          <Box sx={{ p: 4, textAlign: 'center', flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Typography variant={TYPOGRAPHY_STYLES.tableCell.primary.variant} color="text.secondary">
+              No products found. Create your first product to get started.
+            </Typography>
+          </Box>
+        ) : (
+          <TableContainer sx={{ flex: 1, overflowX: 'auto' }}>
+            <Table
+              size={TABLE_STYLES.size}
+              stickyHeader
+              sx={{
+                '& .MuiTableCell-root': {
+                  borderBottom: TABLE_STYLES.cell.border,
+                  py: TABLE_STYLES.cell.padding.py,
+                  px: TABLE_STYLES.cell.padding.px,
+                },
+              }}
+            >
+              <TableBody>
+                {products.map((product, index) => {
+                  const isSelected = selectedProductId === product.id
+                  const isFocused = focusedProductIndex === index
+
+                  return (
+                    <TableRow
+                      key={product.id}
+                      data-product-index={index}
+                      hover
+                      tabIndex={-1}
+                      onClick={() => onProductSelect(product, index)}
+                      sx={{
+                        cursor: 'pointer',
+                        backgroundColor: isSelected ? 'action.selected' : isFocused ? 'primary.light' : 'inherit',
+                        '&:hover': {
+                          backgroundColor: isSelected ? 'action.selected' : isFocused ? 'primary.light' : 'action.hover',
+                        },
+                        transition: 'background-color 0.2s ease',
+                        height: TABLE_STYLES.row.height,
+                        ...(isFocused && {
+                          outline: '2px solid',
+                          outlineColor: 'primary.main',
+                          outlineOffset: '-2px',
+                        }),
+                      }}
+                    >
+                      <TableCell sx={{ py: TABLE_STYLES.cell.padding.py }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                          <DragIndicatorIcon sx={{ color: 'text.secondary', fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize }} />
+                          <Typography
+                            variant={TYPOGRAPHY_STYLES.tableCell.secondary.variant}
+                            sx={{
+                              fontSize: '0.8rem',
+                              lineHeight: TYPOGRAPHY_STYLES.tableCell.secondary.lineHeight,
+                              fontWeight: 400,
+                            }}
+                          >
+                            {product.name}
+                          </Typography>
+                        </Box>
+                      </TableCell>
+                    </TableRow>
+                  )
+                })}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        )}
+      </Box>
+    </Paper>
+  )
+}
+
+export default ProductsTable
