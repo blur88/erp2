@@ -11,8 +11,7 @@ import {
   Box,
   Typography,
 } from '@mui/material';
-import { useAppDispatch } from '@/hooks/useRedux';
-import { createBackup, fetchBackups } from '@/store/slices/backupSlice';
+import { useCreateBackupMutation } from '@/store/api/backupApi';
 
 interface CreateBackupDialogProps {
   open: boolean;
@@ -20,7 +19,7 @@ interface CreateBackupDialogProps {
 }
 
 const CreateBackupDialog: React.FC<CreateBackupDialogProps> = ({ open, onClose }) => {
-  const dispatch = useAppDispatch();
+  const [createBackup] = useCreateBackupMutation();
   const [includeSettings, setIncludeSettings] = useState(true);
   const [description, setDescription] = useState('');
   const [loading, setLoading] = useState(false);
@@ -28,18 +27,13 @@ const CreateBackupDialog: React.FC<CreateBackupDialogProps> = ({ open, onClose }
   const handleSubmit = async () => {
     setLoading(true);
     try {
-      await dispatch(
-        createBackup({
-          backupType: 'manual',
-          databases: ['postgresql'],
-          includeSettings,
-          description: description || undefined,
-          createdBy: 'system',
-        })
-      ).unwrap();
-
-      // Refresh the backup list
-      await dispatch(fetchBackups());
+      await createBackup({
+        backupType: 'manual',
+        databases: ['postgresql'],
+        includeSettings,
+        description: description || undefined,
+        createdBy: 'system',
+      }).unwrap();
 
       // Reset form and close
       setIncludeSettings(true);

@@ -16,12 +16,8 @@ import {
   Stack,
   Typography,
 } from '@mui/material';
-import { useAppDispatch, useAppSelector } from '@/hooks/useRedux';
-import {
-  createSchedule,
-  updateSchedule,
-  fetchSchedules,
-} from '@/store/slices/backupSlice';
+import { useAppSelector } from '@/hooks/useRedux';
+import { useCreateScheduleMutation, useUpdateScheduleMutation } from '@/store/api/backupApi';
 
 interface BackupScheduleDialogProps {
   open: boolean;
@@ -29,8 +25,9 @@ interface BackupScheduleDialogProps {
 }
 
 const BackupScheduleDialog: React.FC<BackupScheduleDialogProps> = ({ open, onClose }) => {
-  const dispatch = useAppDispatch();
   const { currentSchedule } = useAppSelector((state) => state.backup);
+  const [createSchedule] = useCreateScheduleMutation();
+  const [updateSchedule] = useUpdateScheduleMutation();
   const isEditMode = !!currentSchedule;
 
   const [formData, setFormData] = useState({
@@ -89,18 +86,13 @@ const BackupScheduleDialog: React.FC<BackupScheduleDialogProps> = ({ open, onClo
       };
 
       if (isEditMode && currentSchedule) {
-        await dispatch(
-          updateSchedule({
-            id: currentSchedule.id,
-            dto: scheduleData,
-          })
-        ).unwrap();
+        await updateSchedule({
+          id: currentSchedule.id,
+          dto: scheduleData,
+        }).unwrap();
       } else {
-        await dispatch(createSchedule(scheduleData)).unwrap();
+        await createSchedule(scheduleData).unwrap();
       }
-
-      // Refresh the schedule list
-      await dispatch(fetchSchedules());
 
       onClose();
     } catch (error) {

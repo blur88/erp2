@@ -27,6 +27,7 @@ import settlementsSlice from './slices/settlementsSlice'
 import ownerEquitySlice from './slices/ownerEquitySlice'
 import expenseSlice from './slices/expenseSlice'
 import { auditLogApiSlice } from './api/auditLogApi'
+import { backupApiSlice } from './api/backupApi'
 
 const rootReducer = combineReducers({
   theme: themeSlice,
@@ -52,6 +53,7 @@ const rootReducer = combineReducers({
   ownerEquity: ownerEquitySlice,
   expenses: expenseSlice,
   [auditLogApiSlice.reducerPath]: auditLogApiSlice.reducer,
+  [backupApiSlice.reducerPath]: backupApiSlice.reducer,
 })
 
 // Persist configuration
@@ -87,7 +89,7 @@ export const store = configureStore({
       ignoredActions: ['persist/PERSIST', 'persist/REHYDRATE'],
       ignoredPaths: ['register'],
     },
-  }).concat(auditLogApiSlice.middleware as any),
+  }).concat(auditLogApiSlice.middleware as any, backupApiSlice.middleware as any),
   devTools: process.env.NODE_ENV !== 'production',
 })
 

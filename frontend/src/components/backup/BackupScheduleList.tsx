@@ -18,39 +18,48 @@ import {
   Delete as DeleteIcon,
   PlayArrow as PlayIcon,
 } from '@mui/icons-material';
-import { useAppDispatch, useAppSelector } from '@/hooks/useRedux';
+import { useAppDispatch } from '@/hooks/useRedux';
+import type { BackupSchedule } from '@/services/backupService';
 import {
-  deleteSchedule,
-  toggleSchedule,
-  triggerSchedule,
+  useDeleteScheduleMutation,
+  useToggleScheduleMutation,
+  useTriggerScheduleMutation,
+} from '@/store/api/backupApi';
+import {
   setCurrentSchedule,
 } from '@/store/slices/backupSlice';
 import BackupScheduleDialog from './BackupScheduleDialog';
 import { format } from 'date-fns';
 
-const BackupScheduleList: React.FC = () => {
+interface BackupScheduleListProps {
+  schedules: BackupSchedule[]
+}
+
+const BackupScheduleList: React.FC<BackupScheduleListProps> = ({ schedules }) => {
   const dispatch = useAppDispatch();
-  const { schedules } = useAppSelector((state) => state.backup);
+  const [deleteSchedule] = useDeleteScheduleMutation();
+  const [toggleSchedule] = useToggleScheduleMutation();
+  const [triggerSchedule] = useTriggerScheduleMutation();
   const [editDialogOpen, setEditDialogOpen] = useState(false);
 
   const handleToggle = async (id: string, enabled: boolean) => {
-    await dispatch(toggleSchedule({ id, enabled: !enabled }));
+    await toggleSchedule({ id, enabled: !enabled });
   };
 
   const handleTrigger = async (id: string) => {
     if (window.confirm('Are you sure you want to trigger this backup schedule now?')) {
-      await dispatch(triggerSchedule(id));
+      await triggerSchedule(id);
     }
   };
 
-  const handleEdit = (schedule: any) => {
+  const handleEdit = (schedule: BackupSchedule) => {
     dispatch(setCurrentSchedule(schedule));
     setEditDialogOpen(true);
   };
 
   const handleDelete = async (id: string) => {
     if (window.confirm('Are you sure you want to delete this schedule?')) {
-      await dispatch(deleteSchedule(id));
+      await deleteSchedule(id);
     }
   };
 
