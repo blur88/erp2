@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useMemo } from 'react'
 import {
   Box,
   Typography,
@@ -46,7 +46,11 @@ import { format } from 'date-fns'
 import { formatCurrency } from '@/utils/formatters'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
 import { useNavigate } from 'react-router-dom'
-import { inventoryApi } from '@/services/inventoryApi'
+import {
+  useGetDashboardStatsQuery,
+  useGetOutOfStockProductsQuery,
+  useGetStockMovementsQuery,
+} from '@/store/api/inventoryApi'
 
 ChartJS.register(
   CategoryScale,
@@ -63,68 +67,49 @@ ChartJS.register(
 const InventoryPage: React.FC = () => {
   const theme = useTheme()
   const navigate = useNavigate()
-  const [inventoryData, setInventoryData] = useState<any>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const {
+    data: dashboardStats,
+    isLoading: statsLoading,
+    error: statsError,
+  } = useGetDashboardStatsQuery()
+  const {
+    data: stockMovementsResponse,
+    isLoading: movementsLoading,
+    error: movementsError,
+  } = useGetStockMovementsQuery({
+    limit: 5,
+    sortBy: 'movementDate',
+    sortOrder: 'desc',
+  })
+  const {
+    data: outOfStockProducts = [],
+    isLoading: outOfStockLoading,
+    error: outOfStockError,
+  } = useGetOutOfStockProductsQuery()
 
-  useEffect(() => {
-    fetchInventoryData()
-  }, [])
-
-  const fetchInventoryData = async () => {
-    try {
-      setLoading(true)
-      setError(null)
-
-      // Fetch dashboard stats
-      const statsResponse = await inventoryApi.getDashboardStats()
-      let dashboardStats = null
-      if (statsResponse) {
-        // ApiService.get returns response.data directly
-        dashboardStats = statsResponse
-      }
-
-      // Fetch recent stock movements
-      const movementsResponse = await inventoryApi.getStockMovements({
-        limit: 5,
-        sortBy: 'movementDate',
-        sortOrder: 'desc'
-      })
-      let movementsData = []
-      if (movementsResponse?.data) {
-        // ApiService.get returns response.data, so movementsResponse = { data: [...], meta: {...} }
-        movementsData = movementsResponse.data || []
-      }
-
-      // Fetch out of stock products (products with stockQuantity <= 0)
-      const outOfStockResponse = await inventoryApi.getOutOfStockProducts()
-      const outOfStockData = Array.isArray(outOfStockResponse) ? outOfStockResponse.slice(0, 5) : []
-
-      setInventoryData({
-        stats: dashboardStats || {
-          totalProducts: 0,
-          totalCategories: 0,
-          inventoryValue: 0,
-          lowStockCount: 0,
-          outOfStockCount: 0,
-          recentMovements: 0,
-          categoryBreakdown: [],
-          stockHealthMetrics: {
-            inStockPercentage: 0,
-            outOfStockPercentage: 0,
-            averageValue: 0
-          }
+  const loading = statsLoading || movementsLoading || outOfStockLoading
+  const error = statsError || movementsError || outOfStockError ? 'Failed to load inventory data' : null
+  const inventoryData = useMemo(
+    () => ({
+      stats: dashboardStats || {
+        totalProducts: 0,
+        totalCategories: 0,
+        inventoryValue: 0,
+        lowStockCount: 0,
+        outOfStockCount: 0,
+        recentMovements: 0,
+        categoryBreakdown: [],
+        stockHealthMetrics: {
+          inStockPercentage: 0,
+          outOfStockPercentage: 0,
+          averageValue: 0,
         },
-        recentMovements: movementsData,
-        outOfStockAlerts: outOfStockData
-      })
-    } catch (error) {
-      console.error('Error fetching inventory data:', error)
-      setError('Failed to load inventory data')
-    } finally {
-      setLoading(false)
-    }
-  }
+      },
+      recentMovements: stockMovementsResponse?.data || [],
+      outOfStockAlerts: outOfStockProducts.slice(0, 5),
+    }),
+    [dashboardStats, stockMovementsResponse?.data, outOfStockProducts],
+  )
 
   // Chart data for category breakdown
   const categoryBreakdownData = {
@@ -273,10 +258,7 @@ const InventoryPage: React.FC = () => {
           </Typography>
         </Box>
         <Box sx={{ display: 'flex', gap: 1 }}>
-          <Button
-            variant="outlined"
-            onClick={() => navigate('/inventory/categories')}
-          >
+          <Button variant="outlined" onClick={() => navigate('/inventory/categories')}>
             Manage Categories
           </Button>
           <Button

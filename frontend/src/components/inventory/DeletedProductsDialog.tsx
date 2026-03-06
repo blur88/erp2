@@ -33,17 +33,13 @@ import {
   DeleteForever as DeleteForeverIcon,
   Inventory2 as ProductIcon,
 } from '@mui/icons-material'
-import { useDispatch, useSelector } from 'react-redux'
-import { 
-  fetchDeletedProducts, 
-  restoreProduct,
-  bulkRestoreProducts,
-  permanentDeleteProduct,
-  bulkPermanentDeleteProducts, 
-  selectDeletedProducts, 
-  selectInventoryLoading,
-  fetchProducts
-} from '@/store/slices/inventorySlice'
+import {
+  useBulkPermanentDeleteProductsMutation,
+  useBulkRestoreProductsMutation,
+  useGetDeletedProductsQuery,
+  usePermanentDeleteProductMutation,
+  useRestoreProductMutation,
+} from '@/store/api/inventoryApi'
 import { useNotification } from '@/hooks/useNotification'
 import LoadingSpinner from '@/components/common/LoadingSpinner'
 import type { Product } from '@/types'
@@ -56,13 +52,20 @@ interface DeletedProductsDialogProps {
 }
 
 const DeletedProductsDialog: React.FC<DeletedProductsDialogProps> = ({ open, onClose }) => {
-  const dispatch = useDispatch() as any
   const { showSuccess, showError } = useNotification()
   const theme = useTheme()
   const isMobile = useMediaQuery(theme.breakpoints.down('md'))
   const isTablet = useMediaQuery(theme.breakpoints.down('lg'))
-  const deletedProducts = useSelector(selectDeletedProducts) || []
-  const loading = useSelector(selectInventoryLoading)
+  const { data: deletedProductsResponse, isFetching: isFetchingDeleted, refetch: refetchDeletedProducts } = useGetDeletedProductsQuery(
+    {},
+    { skip: !open }
+  )
+  const [restoreProduct, { isLoading: isRestoringMutation }] = useRestoreProductMutation()
+  const [bulkRestoreProducts, { isLoading: isBulkRestoringMutation }] = useBulkRestoreProductsMutation()
+  const [permanentDeleteProduct, { isLoading: isPermanentDeletingMutation }] = usePermanentDeleteProductMutation()
+  const [bulkPermanentDeleteProducts, { isLoading: isBulkDeletingMutation }] = useBulkPermanentDeleteProductsMutation()
+  const deletedProducts = deletedProductsResponse?.data || []
+  const loading = isFetchingDeleted || isRestoringMutation || isBulkRestoringMutation || isPermanentDeletingMutation || isBulkDeletingMutation
   
   const [searchTerm, setSearchTerm] = useState('')
   const [restoringId, setRestoringId] = useState<string | null>(null)
@@ -76,11 +79,11 @@ const DeletedProductsDialog: React.FC<DeletedProductsDialogProps> = ({ open, onC
 
   useEffect(() => {
     if (open) {
-      dispatch(fetchDeletedProducts({}))
+      void refetchDeletedProducts()
       // Reset selections when dialog opens
       setSelectedProducts(new Set())
     }
-  }, [open, dispatch])
+  }, [open, refetchDeletedProducts])
 
   // Filter products based on search term
   const filteredProducts = deletedProducts.filter(product =>
@@ -96,19 +99,12 @@ const DeletedProductsDialog: React.FC<DeletedProductsDialogProps> = ({ open, onC
   const handleRestore = async (product: Product) => {
     setRestoringId(product.id)
     try {
-      const result = await dispatch(restoreProduct(product.id))
-      
-      if (restoreProduct.rejected.match(result)) {
-        throw new Error(result.payload as string)
-      }
-      
+      await restoreProduct(product.id).unwrap()
       showSuccess(`Product "${product.name}" restored successfully`)
-      // Refresh both deleted and active products
-      dispatch(fetchDeletedProducts({}))
-      dispatch(fetchProducts({}))
+      void refetchDeletedProducts()
     } catch (error: any) {
       console.error('Product restore error:', error)
-      const errorMessage = error?.response?.data?.message || error?.message || 'Failed to restore product'
+      const errorMessage = error?.data?.message || error?.message || 'Failed to restore product'
       showError(errorMessage)
     } finally {
       setRestoringId(null)
@@ -118,18 +114,12 @@ const DeletedProductsDialog: React.FC<DeletedProductsDialogProps> = ({ open, onC
   const handlePermanentDelete = async (product: Product) => {
     setDeletingId(product.id)
     try {
-      const result = await dispatch(permanentDeleteProduct(product.id))
-      
-      if (permanentDeleteProduct.rejected.match(result)) {
-        throw new Error(result.payload as string)
-      }
-      
+      await permanentDeleteProduct(product.id).unwrap()
       showSuccess(`Product "${product.name}" permanently deleted`)
-      // Refresh deleted products list
-      dispatch(fetchDeletedProducts({}))
+      void refetchDeletedProducts()
     } catch (error: any) {
       console.error('Product permanent delete error:', error)
-      const errorMessage = error?.response?.data?.message || error?.message || 'Failed to permanently delete product'
+      const errorMessage = error?.data?.message || error?.message || 'Failed to permanently delete product'
       showError(errorMessage)
     } finally {
       setDeletingId(null)
@@ -161,39 +151,23 @@ const DeletedProductsDialog: React.FC<DeletedProductsDialogProps> = ({ open, onC
     setBulkRestoring(true)
     try {
       const productIds = Array.from(selectedProducts)
-      console.log('🔄 Starting bulk restore for products:', productIds)
-      const result = await dispatch(bulkRestoreProducts(productIds))
-
-      console.log('📦 Bulk restore result:', result)
-
-      if (bulkRestoreProducts.rejected.match(result)) {
-        throw new Error(result.payload as string)
-      }
-
-      const payload = result.payload as any
-      console.log('📋 Extracted payload:', payload)
+      const payload = await bulkRestoreProducts(productIds).unwrap()
       const restoredCount = payload?.restoredCount || 0
       const failedIds = payload?.failedIds || []
 
-      console.log(`✅ Restored count: ${restoredCount}, Failed IDs:`, failedIds)
-
       if (restoredCount > 0) {
-        console.log('🎉 Showing success notification for', restoredCount, 'products')
         showSuccess(`Successfully restored ${restoredCount} products`)
       }
 
       if (failedIds.length > 0) {
-        console.log('❌ Showing error notification for', failedIds.length, 'failed products')
         showError(`Failed to restore ${failedIds.length} products`)
       }
 
-      // Refresh both deleted and active products and clear selections
-      dispatch(fetchDeletedProducts({}))
-      dispatch(fetchProducts({}))
+      void refetchDeletedProducts()
       setSelectedProducts(new Set())
     } catch (error: any) {
       console.error('Bulk restore error:', error)
-      const errorMessage = error?.response?.data?.message || error?.message || 'Failed to bulk restore products'
+      const errorMessage = error?.data?.message || error?.message || 'Failed to bulk restore products'
       showError(errorMessage)
     } finally {
       setBulkRestoring(false)
@@ -205,13 +179,7 @@ const DeletedProductsDialog: React.FC<DeletedProductsDialogProps> = ({ open, onC
     setBulkDeleting(true)
     try {
       const productIds = Array.from(selectedProducts)
-      const result = await dispatch(bulkPermanentDeleteProducts(productIds))
-      
-      if (bulkPermanentDeleteProducts.rejected.match(result)) {
-        throw new Error(result.payload as string)
-      }
-      
-      const payload = result.payload as any
+      const payload = await bulkPermanentDeleteProducts(productIds).unwrap()
       const deletedCount = payload?.deletedCount || 0
       const failedIds = payload?.failedIds || []
       
@@ -223,12 +191,11 @@ const DeletedProductsDialog: React.FC<DeletedProductsDialogProps> = ({ open, onC
         showError(`Failed to delete ${failedIds.length} products`)
       }
       
-      // Refresh deleted products list and clear selections
-      dispatch(fetchDeletedProducts({}))
+      void refetchDeletedProducts()
       setSelectedProducts(new Set())
     } catch (error: any) {
       console.error('Bulk permanent delete error:', error)
-      const errorMessage = error?.response?.data?.message || error?.message || 'Failed to bulk delete products'
+      const errorMessage = error?.data?.message || error?.message || 'Failed to bulk delete products'
       showError(errorMessage)
     } finally {
       setBulkDeleting(false)
@@ -317,7 +284,7 @@ const DeletedProductsDialog: React.FC<DeletedProductsDialogProps> = ({ open, onC
           </Box>
         </Box>
 
-        {loading?.deletedProducts ? (
+        {loading ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
             <CircularProgress />
           </Box>

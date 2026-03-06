@@ -1,6 +1,6 @@
 import { createApi } from '@reduxjs/toolkit/query/react'
 
-import type { Category, PaginatedResponse, Product, StockAdjustment } from '@/types'
+import type { Category, PaginatedResponse, Product, StockAdjustment, StockMovement } from '@/types'
 
 import { axiosBaseQuery } from './baseQuery'
 import { normalizePaginated, normalizeSingle } from './normalizers'
@@ -8,7 +8,7 @@ import { normalizePaginated, normalizeSingle } from './normalizers'
 export const inventoryApiSlice = createApi({
   reducerPath: 'inventoryApi',
   baseQuery: axiosBaseQuery(),
-  tagTypes: ['Product', 'DeletedProduct', 'Category', 'DeletedCategory', 'StockAdjustment', 'DeletedStockAdjustment'],
+  tagTypes: ['Product', 'DeletedProduct', 'Category', 'DeletedCategory', 'StockAdjustment', 'DeletedStockAdjustment', 'StockMovement'],
   endpoints: (builder) => ({
     getProducts: builder.query<PaginatedResponse<Product>, Record<string, unknown> | undefined>({
       query: (params) => ({
@@ -131,6 +131,30 @@ export const inventoryApiSlice = createApi({
       invalidatesTags: ['DeletedCategory'],
     }),
 
+    getDashboardStats: builder.query<{
+      totalProducts: number
+      totalCategories: number
+      inventoryValue: number
+      lowStockCount: number
+      outOfStockCount: number
+      recentMovements: number
+      categoryBreakdown: Array<{ category: string; count: number; value: number }>
+      stockHealthMetrics: { inStockPercentage: number; outOfStockPercentage: number; averageValue: number }
+    }, void>({
+      query: () => ({ url: '/inventory/products/dashboard-stats' }),
+      providesTags: ['Product'],
+    }),
+    getStockMovements: builder.query<PaginatedResponse<StockMovement>, Record<string, unknown> | undefined>({
+      query: (params) => ({ url: '/inventory/stock/movements', params: params ?? {} }),
+      transformResponse: normalizePaginated<StockMovement>,
+      providesTags: ['StockMovement'],
+    }),
+    getOutOfStockProducts: builder.query<Product[], void>({
+      query: () => ({ url: '/inventory/products/out-of-stock' }),
+      transformResponse: (response: any) => (Array.isArray(response) ? response : response?.data ?? []),
+      providesTags: ['Product'],
+    }),
+
     getStockAdjustments: builder.query<PaginatedResponse<StockAdjustment>, Record<string, unknown> | undefined>({
       query: (params) => ({ url: '/inventory/stock-adjustments', params: params ?? {} }),
       transformResponse: normalizePaginated<StockAdjustment>,
@@ -148,6 +172,20 @@ export const inventoryApiSlice = createApi({
     }),
     updateStockAdjustment: builder.mutation<StockAdjustment, { id: string; data: Record<string, unknown> }>({
       query: ({ id, data }) => ({ url: `/inventory/stock-adjustments/${id}`, method: 'PUT', data }),
+      transformResponse: normalizeSingle<StockAdjustment>,
+      invalidatesTags: ['StockAdjustment'],
+    }),
+    deleteStockAdjustment: builder.mutation<void, string>({
+      query: (id) => ({ url: `/inventory/stock-adjustments/${id}`, method: 'DELETE' }),
+      invalidatesTags: ['StockAdjustment', 'DeletedStockAdjustment'],
+    }),
+    completeStockAdjustment: builder.mutation<StockAdjustment, string>({
+      query: (id) => ({ url: `/inventory/stock-adjustments/${id}/complete`, method: 'POST' }),
+      transformResponse: normalizeSingle<StockAdjustment>,
+      invalidatesTags: ['StockAdjustment'],
+    }),
+    uncompleteStockAdjustment: builder.mutation<StockAdjustment, string>({
+      query: (id) => ({ url: `/inventory/stock-adjustments/${id}/uncomplete`, method: 'POST' }),
       transformResponse: normalizeSingle<StockAdjustment>,
       invalidatesTags: ['StockAdjustment'],
     }),
@@ -179,6 +217,7 @@ export const inventoryApiSlice = createApi({
 export const {
   useGetProductsQuery,
   useGetProductQuery,
+  useLazyGetProductQuery,
   useGetDeletedProductsQuery,
   useCreateProductMutation,
   useUpdateProductMutation,
@@ -198,10 +237,17 @@ export const {
   usePermanentDeleteCategoryMutation,
   useBulkRestoreCategoriesMutation,
   useBulkPermanentDeleteCategoriesMutation,
+  useGetDashboardStatsQuery,
+  useGetStockMovementsQuery,
+  useGetOutOfStockProductsQuery,
   useGetStockAdjustmentsQuery,
   useGetStockAdjustmentQuery,
+  useLazyGetStockAdjustmentQuery,
   useCreateStockAdjustmentMutation,
   useUpdateStockAdjustmentMutation,
+  useDeleteStockAdjustmentMutation,
+  useCompleteStockAdjustmentMutation,
+  useUncompleteStockAdjustmentMutation,
   useGetDeletedStockAdjustmentsQuery,
   useRestoreStockAdjustmentMutation,
   usePermanentDeleteStockAdjustmentMutation,

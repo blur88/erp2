@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react'
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import {
   Box,
@@ -41,10 +41,8 @@ import {
   CloudUpload as CloudUploadIcon,
   ShoppingCart as ProductIcon,
 } from '@mui/icons-material'
-import { useDispatch, useSelector } from 'react-redux'
 import { useNotification } from '@/hooks/useNotification'
 import { useSearchAndFilter, useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
-import { ApiService } from '@/services/api'
 import DeletedProductsDialog from '@/components/inventory/DeletedProductsDialog'
 import ProductImportDialog from '@/components/inventory/ProductImportDialog'
 import ProductDetailsTab from '@/components/inventory/ProductDetailsTab'
@@ -56,34 +54,44 @@ import type { Product } from '@/types'
 import { formatCurrency } from '@/utils/currency'
 import { exportProducts } from '@/utils/exportUtils'
 import {
-  fetchProducts,
-  fetchCategories,
-  deleteProduct,
-  selectProducts,
-  selectCategories,
-  selectInventoryLoading,
-  selectInventoryPagination,
   setProductFilters,
   selectProductFilters,
   setSelectedProduct,
   selectSelectedProduct,
 } from '@/store/slices/inventorySlice'
+import {
+  useDeleteProductMutation,
+  useGetCategoriesQuery,
+  useGetProductsQuery,
+  useLazyGetProductQuery,
+} from '@/store/api/inventoryApi'
+import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
 
 const ProductsPage: React.FC = () => {
-  const dispatch = useDispatch() as any
+  const dispatch = useAppDispatch()
   const navigate = useNavigate()
   const location = useLocation()
   const { showSuccess, showError } = useNotification()
   const theme = useTheme()
   const isMobile = useMediaQuery(theme.breakpoints.down('md'))
 
-  const products = useSelector(selectProducts) || []
-  const categories = useSelector(selectCategories) || []
-  const loading = useSelector(selectInventoryLoading)
-  const pagination = useSelector(selectInventoryPagination)?.products
-  const productFilters = useSelector(selectProductFilters) || { search: '', categoryId: '', lowStock: false, inStock: true }
-  const selectedProductForDetails = useSelector(selectSelectedProduct)
+  const productFilters = useAppSelector(selectProductFilters) || { search: '', categoryId: '', lowStock: false, inStock: true }
+  const selectedProductForDetails = useAppSelector(selectSelectedProduct)
+  const productQueryParams = useMemo(
+    () => ({
+      page: 1,
+      search: productFilters.search || undefined,
+      categoryId: productFilters.categoryId || undefined,
+    }),
+    [productFilters.search, productFilters.categoryId]
+  )
+  const { data: productsResponse, isFetching: isProductsFetching, refetch: refetchProducts } = useGetProductsQuery(productQueryParams)
+  const { data: categories = [], refetch: refetchCategories } = useGetCategoriesQuery({ includeProductCount: true })
+  const [deleteProduct] = useDeleteProductMutation()
+  const [fetchProductById] = useLazyGetProductQuery()
+  const products = productsResponse?.data || []
+  const pagination = productsResponse?.meta
   const [deletedProductsDialogOpen, setDeletedProductsDialogOpen] = useState(false)
   const [importDialogOpen, setImportDialogOpen] = useState(false)
   const [calculatorPanelOpen, setCalculatorPanelOpen] = useState(false)
@@ -113,10 +121,6 @@ const ProductsPage: React.FC = () => {
     dispatch(setProductFilters({ categoryId: selectedCategory === 'all' ? undefined : selectedCategory }))
   }, [dispatch, selectedCategory])
 
-  useEffect(() => {
-    dispatch(fetchCategories({ includeProductCount: true }))
-  }, [dispatch])
-
   // Initialize: Restore persisted selected product on mount
   useEffect(() => {
     if (!hasRestoredSelection.current && selectedProductForDetails && products.length > 0) {
@@ -127,14 +131,6 @@ const ProductsPage: React.FC = () => {
       }
     }
   }, [selectedProductForDetails, products])
-
-  useEffect(() => {
-    dispatch(fetchProducts({
-      page: 1,
-      search: productFilters.search || undefined,
-      categoryId: productFilters.categoryId || undefined
-    }))
-  }, [dispatch, productFilters.search, productFilters.categoryId, location.key])
 
   // Update selectedProductForDetails when products change (to reflect updates in detail view)
   useEffect(() => {
@@ -185,18 +181,14 @@ const ProductsPage: React.FC = () => {
         setTimeout(() => setHasNavigatedWithSelection(false), 1000)
       } else {
         // Product not in current list - fetch it directly by ID
-        ApiService.get(`/inventory/products/${pendingProductId}`)
-          .then((response: any) => {
-            const product = response as Product
+        fetchProductById(pendingProductId)
+          .unwrap()
+          .then((product: Product) => {
             dispatch(setSelectedProduct(product))
             setFocusedProductIndex(-1) // No index since it's not in the list
 
             // Also refresh the products list to get the latest data
-            dispatch(fetchProducts({
-              page: 1,
-              search: undefined,
-              categoryId: undefined
-            }))
+            void refetchProducts()
           })
           .catch((error) => {
             console.error('Failed to fetch product:', error)
@@ -208,7 +200,7 @@ const ProductsPage: React.FC = () => {
           })
       }
     }
-  }, [pendingProductId, products, dispatch, showError])
+  }, [pendingProductId, products, dispatch, fetchProductById, refetchProducts, showError])
 
   // Reset focused index when products change (but not on initial mount if we have a persisted selection)
   useEffect(() => {
@@ -344,24 +336,11 @@ const ProductsPage: React.FC = () => {
   const handleConfirmDelete = async () => {
     if (productToDelete) {
       try {
-        const result = await dispatch(deleteProduct(productToDelete.id))
+        await deleteProduct(productToDelete.id).unwrap()
+        showSuccess(`Product ${productToDelete.name} deleted successfully`)
 
-        if (deleteProduct.fulfilled.match(result)) {
-          showSuccess(`Product ${productToDelete.name} deleted successfully`)
-
-          // If the deleted product was selected for details, clear the selection
-          if (selectedProductForDetails?.id === productToDelete.id) {
-            dispatch(setSelectedProduct(null))
-          }
-
-          // Refresh the product list to ensure consistency
-          dispatch(fetchProducts({
-            page: 1,
-            search: productFilters.search || undefined,
-            categoryId: productFilters.categoryId || undefined
-          }))
-        } else {
-          throw new Error(result.payload as string)
+        if (selectedProductForDetails?.id === productToDelete.id) {
+          dispatch(setSelectedProduct(null))
         }
       } catch (error: any) {
         const errorMessage = error?.message || 'Failed to delete product. Please try again.'
@@ -723,7 +702,7 @@ const ProductsPage: React.FC = () => {
                 }
               }}
             >
-              {loading?.products ? (
+              {isProductsFetching ? (
                 <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', flex: 1 }}>
                   <CircularProgress />
                 </Box>
@@ -1006,12 +985,8 @@ const ProductsPage: React.FC = () => {
         open={importDialogOpen}
         onClose={() => setImportDialogOpen(false)}
         onImportSuccess={() => {
-          dispatch(fetchProducts({
-            page: 1,
-            search: productFilters.search || undefined,
-            categoryId: productFilters.categoryId || undefined
-          }))
-          dispatch(fetchCategories({ includeProductCount: true }))
+          void refetchProducts()
+          void refetchCategories()
         }}
       />
       {/* Delete Confirmation Dialog */}

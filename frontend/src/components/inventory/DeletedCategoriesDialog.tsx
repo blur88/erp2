@@ -34,18 +34,15 @@ import {
   Category as CategoryIcon,
   DeleteForever as DeleteForeverIcon,
 } from '@mui/icons-material'
-import { useDispatch, useSelector } from 'react-redux'
 import { useNotification } from '@/hooks/useNotification'
 import type { Category } from '@/types'
 import {
-  fetchDeletedCategories,
-  restoreCategory,
-  permanentDeleteCategory,
-  bulkRestoreCategories,
-  bulkPermanentDeleteCategories,
-  selectDeletedCategories,
-  selectInventoryLoading,
-} from '@/store/slices/inventorySlice'
+  useBulkPermanentDeleteCategoriesMutation,
+  useBulkRestoreCategoriesMutation,
+  useGetDeletedCategoriesQuery,
+  usePermanentDeleteCategoryMutation,
+  useRestoreCategoryMutation,
+} from '@/store/api/inventoryApi'
 import { formatDate as formatDisplayDate } from '@/utils/formatters'
 
 interface DeletedCategoriesDialogProps {
@@ -59,13 +56,19 @@ const DeletedCategoriesDialog: React.FC<DeletedCategoriesDialogProps> = ({
   onClose, 
   onCategoryRestored 
 }) => {
-  const dispatch = useDispatch() as any
   const { showSuccess, showError } = useNotification()
   const theme = useTheme()
   const isMobile = useMediaQuery(theme.breakpoints.down('md'))
-  
-  const deletedCategories = useSelector(selectDeletedCategories) || []
-  const loading = useSelector(selectInventoryLoading)
+  const { data: deletedCategoriesResponse, isFetching: isFetchingDeleted, refetch: refetchDeletedCategories } = useGetDeletedCategoriesQuery(
+    {},
+    { skip: !open }
+  )
+  const [restoreCategory, { isLoading: isRestoringMutation }] = useRestoreCategoryMutation()
+  const [permanentDeleteCategory, { isLoading: isPermanentDeletingMutation }] = usePermanentDeleteCategoryMutation()
+  const [bulkRestoreCategories, { isLoading: isBulkRestoringMutation }] = useBulkRestoreCategoriesMutation()
+  const [bulkPermanentDeleteCategories, { isLoading: isBulkDeletingMutation }] = useBulkPermanentDeleteCategoriesMutation()
+  const deletedCategories = deletedCategoriesResponse?.data || []
+  const loading = isFetchingDeleted || isRestoringMutation || isPermanentDeletingMutation || isBulkRestoringMutation || isBulkDeletingMutation
   const [searchTerm, setSearchTerm] = useState('')
   const [restoringId, setRestoringId] = useState<string | null>(null)
   const [permanentDeletingId, setPermanentDeletingId] = useState<string | null>(null)
@@ -79,11 +82,11 @@ const DeletedCategoriesDialog: React.FC<DeletedCategoriesDialogProps> = ({
 
   useEffect(() => {
     if (open) {
-      dispatch(fetchDeletedCategories({}))
+      void refetchDeletedCategories()
       // Reset selections when dialog opens
       setSelectedCategories(new Set())
     }
-  }, [open, dispatch])
+  }, [open, refetchDeletedCategories])
 
   // Filter categories based on search term
   const filteredCategories = deletedCategories.filter(category => 
@@ -98,7 +101,7 @@ const DeletedCategoriesDialog: React.FC<DeletedCategoriesDialogProps> = ({
   const handleRestore = async (category: Category) => {
     setRestoringId(category.id)
     try {
-      await dispatch(restoreCategory(category.id))
+      await restoreCategory(category.id).unwrap()
       showSuccess(`Category "${category.name}" restored successfully`)
       
       // Notify parent component that a category was restored
@@ -106,7 +109,7 @@ const DeletedCategoriesDialog: React.FC<DeletedCategoriesDialogProps> = ({
       
     } catch (error: any) {
       console.error('Category restore error:', error)
-      const errorMessage = error?.response?.data?.message || error?.message || 'Failed to restore category'
+      const errorMessage = error?.data?.message || error?.message || 'Failed to restore category'
       showError(errorMessage)
     } finally {
       setRestoringId(null)
@@ -123,7 +126,7 @@ const DeletedCategoriesDialog: React.FC<DeletedCategoriesDialogProps> = ({
 
     setPermanentDeletingId(categoryToDelete.id)
     try {
-      await dispatch(permanentDeleteCategory(categoryToDelete.id))
+      await permanentDeleteCategory(categoryToDelete.id).unwrap()
       showSuccess(`Category "${categoryToDelete.name}" permanently deleted`)
       
       // Notify parent component that a category was restored (in case they want to refresh main list)
@@ -131,7 +134,7 @@ const DeletedCategoriesDialog: React.FC<DeletedCategoriesDialogProps> = ({
       
     } catch (error: any) {
       console.error('Category permanent delete error:', error)
-      const errorMessage = error?.response?.data?.message || error?.message || 'Failed to permanently delete category'
+      const errorMessage = error?.data?.message || error?.message || 'Failed to permanently delete category'
       showError(errorMessage)
     } finally {
       setPermanentDeletingId(null)
@@ -169,13 +172,7 @@ const DeletedCategoriesDialog: React.FC<DeletedCategoriesDialogProps> = ({
     setBulkRestoring(true)
     try {
       const categoryIds = Array.from(selectedCategories)
-      const result = await dispatch(bulkRestoreCategories(categoryIds))
-      
-      if (bulkRestoreCategories.rejected.match(result)) {
-        throw new Error(result.payload as string)
-      }
-      
-      const payload = result.payload as any
+      const payload = await bulkRestoreCategories(categoryIds).unwrap()
       const restoredCount = payload?.restoredCount || 0
       const failedIds = payload?.failedIds || []
 
@@ -187,13 +184,12 @@ const DeletedCategoriesDialog: React.FC<DeletedCategoriesDialogProps> = ({
         showError(`Failed to restore ${failedIds.length} categories`)
       }
       
-      // Refresh data and clear selections
-      dispatch(fetchDeletedCategories({}))
+      void refetchDeletedCategories()
       setSelectedCategories(new Set())
       onCategoryRestored?.()
     } catch (error: any) {
       console.error('Bulk restore error:', error)
-      const errorMessage = error?.response?.data?.message || error?.message || 'Failed to bulk restore categories'
+      const errorMessage = error?.data?.message || error?.message || 'Failed to bulk restore categories'
       showError(errorMessage)
     } finally {
       setBulkRestoring(false)
@@ -205,13 +201,7 @@ const DeletedCategoriesDialog: React.FC<DeletedCategoriesDialogProps> = ({
     setBulkDeleting(true)
     try {
       const categoryIds = Array.from(selectedCategories)
-      const result = await dispatch(bulkPermanentDeleteCategories(categoryIds))
-      
-      if (bulkPermanentDeleteCategories.rejected.match(result)) {
-        throw new Error(result.payload as string)
-      }
-      
-      const payload = result.payload as any
+      const payload = await bulkPermanentDeleteCategories(categoryIds).unwrap()
       const deletedCount = payload?.deletedCount || 0
       const failedIds = payload?.failedIds || []
       
@@ -223,13 +213,12 @@ const DeletedCategoriesDialog: React.FC<DeletedCategoriesDialogProps> = ({
         showError(`Failed to delete ${failedIds.length} categories`)
       }
       
-      // Refresh data and clear selections
-      dispatch(fetchDeletedCategories({}))
+      void refetchDeletedCategories()
       setSelectedCategories(new Set())
       onCategoryRestored?.()
     } catch (error: any) {
       console.error('Bulk permanent delete error:', error)
-      const errorMessage = error?.response?.data?.message || error?.message || 'Failed to bulk delete categories'
+      const errorMessage = error?.data?.message || error?.message || 'Failed to bulk delete categories'
       showError(errorMessage)
     } finally {
       setBulkDeleting(false)
@@ -317,7 +306,7 @@ const DeletedCategoriesDialog: React.FC<DeletedCategoriesDialogProps> = ({
           </Box>
         </Box>
 
-        {loading?.deletedCategories ? (
+        {loading ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
             <CircularProgress />
           </Box>

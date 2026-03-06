@@ -66,7 +66,7 @@ const rootReducer = combineReducers({
 const persistConfig = {
   key: 'erp-app',
   storage,
-  whitelist: ['theme', 'auth', 'inventory', 'sales', 'purchasing', 'notifications'], // Persist theme, auth, inventory, sales, purchasing, and notifications
+  whitelist: ['theme', 'auth', 'sales', 'purchasing', 'notifications'], // Persist theme, auth, sales, purchasing, and notifications
   version: 3, // Add auth persistence
   migrate: (state: any) => {
     // Force dark mode for all users on version 2+
