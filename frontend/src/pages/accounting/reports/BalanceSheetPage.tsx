@@ -61,6 +61,7 @@ interface SectionProps {
   }>;
   subtotal: number;
   color?: 'primary' | 'warning' | 'success' | 'info';
+  netIncome?: number;
 }
 
 interface NormalizedBalanceAccount {
@@ -76,9 +77,13 @@ export const getBalanceSheetTone = (mode: 'light' | 'dark') => ({
   sectionAccent: mode === 'dark' ? 'rgba(255, 255, 255, 0.08)' : 'grey.100',
 });
 
-const BalanceSheetSection: React.FC<SectionProps> = ({ title, accounts, subtotal, color = 'primary' }) => {
+const BalanceSheetSection: React.FC<SectionProps> = ({ title, accounts, subtotal, color = 'primary', netIncome }) => {
   const theme = useTheme();
   const tone = getBalanceSheetTone(theme.palette.mode);
+
+  // Filter out zero-balance accounts
+  const nonZeroAccounts = accounts.filter((a) => a.balance !== 0);
+  const hasNetIncome = netIncome !== undefined && netIncome !== 0;
 
   return (
     <Box>
@@ -107,9 +112,9 @@ const BalanceSheetSection: React.FC<SectionProps> = ({ title, accounts, subtotal
             </TableRow>
           </TableHead>
           <TableBody>
-            {accounts.length > 0 ? (
+            {nonZeroAccounts.length > 0 || hasNetIncome ? (
               <>
-                {accounts.map((account) => (
+                {nonZeroAccounts.map((account) => (
                   <TableRow key={account.id} hover>
                     <TableCell>
                       <Typography variant="body2">
@@ -123,15 +128,45 @@ const BalanceSheetSection: React.FC<SectionProps> = ({ title, accounts, subtotal
                       <Typography
                         variant="body2"
                         sx={{
-                          fontWeight: account.balance !== 0 ? 600 : 400,
-                          color: account.balance !== 0 ? 'text.primary' : 'text.secondary',
+                          fontWeight: 600,
+                          color: account.balance < 0 ? 'error.main' : 'text.primary',
                         }}
                       >
-                        {account.balance !== 0 ? formatCurrency(Math.abs(account.balance)) : '-'}
+                        {account.balance < 0
+                          ? `(${formatCurrency(Math.abs(account.balance))})`
+                          : formatCurrency(account.balance)}
                       </Typography>
                     </TableCell>
                   </TableRow>
                 ))}
+
+                {/* Net Income row inside equity section */}
+                {hasNetIncome && (
+                  <TableRow hover>
+                    <TableCell>
+                      <Typography variant="body2" sx={{ fontStyle: 'italic' }}>—</Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2" sx={{ fontStyle: 'italic' }}>
+                        {netIncome! >= 0 ? 'Add: Net Income' : 'Less: Net Loss'}
+                      </Typography>
+                    </TableCell>
+                    <TableCell align="right">
+                      <Typography
+                        variant="body2"
+                        sx={{
+                          fontWeight: 600,
+                          fontStyle: 'italic',
+                          color: netIncome! >= 0 ? 'success.main' : 'error.main',
+                        }}
+                      >
+                        {netIncome! < 0
+                          ? `(${formatCurrency(Math.abs(netIncome!))})`
+                          : formatCurrency(netIncome!)}
+                      </Typography>
+                    </TableCell>
+                  </TableRow>
+                )}
 
                 {/* Subtotal Row */}
                 <TableRow
@@ -419,51 +454,13 @@ const BalanceSheetPage: React.FC = () => {
                   data-testid="balance-sheet-section-equity"
                   sx={{ p: 2, height: '100%', display: 'flex', flexDirection: 'column', flex: 1 }}
                 >
-                  <Box sx={{ flexGrow: 1 }}>
-                    <BalanceSheetSection
-                      title="EQUITY"
-                      accounts={equityAccounts}
-                      subtotal={equitySubtotal}
-                      color="success"
-                    />
-                  </Box>
-                  {netIncome !== 0 && (
-                    <Box
-                      data-testid="balance-sheet-net-income"
-                      sx={{
-                        mt: 2,
-                        p: 1.5,
-                        borderRadius: 1,
-                        border: 1,
-                        borderColor: netIncome >= 0 ? 'success.main' : 'error.main',
-                        backgroundColor:
-                          netIncome >= 0
-                            ? alpha(theme.palette.success.main, theme.palette.mode === 'dark' ? 0.2 : 0.08)
-                            : alpha(theme.palette.error.main, theme.palette.mode === 'dark' ? 0.2 : 0.08),
-                      }}
-                    >
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <Typography
-                          data-testid="balance-sheet-net-income-label"
-                          variant="subtitle2"
-                          sx={{ fontWeight: 700, letterSpacing: 0.3 }}
-                        >
-                          {netIncome >= 0 ? 'Net Income' : 'Net Loss'}
-                        </Typography>
-                        <Typography
-                          data-testid="balance-sheet-net-income-value"
-                          variant="h6"
-                          sx={{
-                            fontWeight: 800,
-                            color: netIncome >= 0 ? 'success.main' : 'error.main',
-                          }}
-                        >
-                          {formatCurrency(Math.abs(netIncome))}
-                          {netIncome < 0 && ' (Loss)'}
-                        </Typography>
-                      </Box>
-                    </Box>
-                  )}
+                  <BalanceSheetSection
+                    title="EQUITY"
+                    accounts={equityAccounts}
+                    subtotal={equitySubtotal}
+                    color="success"
+                    netIncome={netIncome}
+                  />
                 </Paper>
               </Grid>
             </Grid>
