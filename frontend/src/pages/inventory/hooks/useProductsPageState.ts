@@ -2,21 +2,6 @@ import { useRef, useState } from 'react'
 
 import type { Product } from '@/types'
 
-export interface ProductsPageState {
-  deletedProductsDialogOpen: boolean
-  importDialogOpen: boolean
-  calculatorPanelOpen: boolean
-  deleteConfirmOpen: boolean
-  productToDelete: Product | null
-  focusedProductIndex: number
-  exportMenuAnchor: HTMLElement | null
-  isExporting: boolean
-  hasNavigatedWithSelection: boolean
-  currentTab: number
-  selectedCategory: string
-  pendingProductId: string | null
-}
-
 export function useProductsPageState(initialCategoryId?: string) {
   const [deletedProductsDialogOpen, setDeletedProductsDialogOpen] = useState(false)
   const [importDialogOpen, setImportDialogOpen] = useState(false)

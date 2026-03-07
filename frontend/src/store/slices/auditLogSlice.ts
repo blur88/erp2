@@ -63,9 +63,4 @@ const auditLogSlice = createSlice({
 export const { setFilters, clearFilters, setPage, setLimit, setActiveTab, setSidebarCollapsed } =
   auditLogSlice.actions
 
-export const selectAuditLogFilters = (state: RootState) => state.auditLogs.filters
-export const selectAuditLogPagination = (state: RootState) => state.auditLogs.pagination
-export const selectAuditLogActiveTab = (state: RootState) => state.auditLogs.activeTab
-export const selectAuditLogSidebarCollapsed = (state: RootState) => state.auditLogs.sidebarCollapsed
-
 export default auditLogSlice.reducer

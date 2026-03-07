@@ -28,7 +28,4 @@ const backupSlice = createSlice({
 
 export const { setCurrentBackup, setCurrentSchedule } = backupSlice.actions
 
-export const selectCurrentBackup = (state: RootState) => state.backup.currentBackup
-export const selectCurrentSchedule = (state: RootState) => state.backup.currentSchedule
-
 export default backupSlice.reducer

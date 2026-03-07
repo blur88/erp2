@@ -39,7 +39,4 @@ const priceListSlice = createSlice({
 
 export const { setFilters, setPagination } = priceListSlice.actions
 
-export const selectPriceListFilters = (state: RootState) => state.priceLists.filters
-export const selectPriceListPagination = (state: RootState) => state.priceLists.pagination
-
 export default priceListSlice.reducer

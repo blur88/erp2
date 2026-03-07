@@ -8,8 +8,7 @@
   "project": ["src/**/*.ts"],
   "ignore": [
     "src/database/migrations/**",
-    "src/modules/audit-logs/dto/query-audit-logs.dto.ts",
-    "src/modules/dashboard/interfaces/dashboard-interfaces.ts"
+    "src/modules/audit-logs/dto/query-audit-logs.dto.ts"
   ],
   "ignoreDependencies": [
     "ts-loader",

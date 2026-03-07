@@ -48,9 +48,6 @@ const purchasingSlice = createSlice({
     setSupplierFilters: (state, action: PayloadAction<Partial<PurchasingState['supplierFilters']>>) => {
       state.supplierFilters = { ...state.supplierFilters, ...action.payload }
     },
-    clearSupplierFilters: (state) => {
-      state.supplierFilters = initialState.supplierFilters
-    },
   },
 })
 
@@ -60,7 +57,6 @@ export const {
   setSelectedVendorPayment,
   updatePurchaseOrderInPlace,
   setSupplierFilters,
-  clearSupplierFilters,
 } = purchasingSlice.actions
 
 export const selectSelectedPurchaseOrder = (state: RootState) => state.purchasing.selectedPurchaseOrder
