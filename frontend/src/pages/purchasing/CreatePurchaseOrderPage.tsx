@@ -257,7 +257,7 @@ const CreatePurchaseOrderPage: React.FC = () => {
       }
       const response = await api.get('/inventory/products', { params })
       console.log('Products loaded:', response)
-      const newProducts = (response as any).data || []
+      const newProducts = (response as any).data?.data || []
 
       // Merge with existing products to preserve order item products
       setProducts((prevProducts) => {
