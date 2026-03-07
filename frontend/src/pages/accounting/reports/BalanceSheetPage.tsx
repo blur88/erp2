@@ -223,13 +223,23 @@ const BalanceSheetSection: React.FC<SectionProps> = ({ title, accounts, subtotal
                 </TableRow>
               </>
             ) : (
-              <TableRow>
-                <TableCell colSpan={3} align="center" sx={{ py: 2 }}>
-                  <Typography variant="body2" color="text.secondary">
-                    No accounts in this section
-                  </Typography>
-                </TableCell>
-              </TableRow>
+              <>
+                <TableRow>
+                  <TableCell colSpan={3} align="center" sx={{ py: 2 }}>
+                    <Typography variant="body2" color="text.secondary">
+                      No accounts in this section
+                    </Typography>
+                  </TableCell>
+                </TableRow>
+                <TableRow sx={{ backgroundColor: tone.sectionAccent, '& td': { borderTop: 2, borderColor: 'divider' } }}>
+                  <TableCell colSpan={2}>
+                    <Typography variant="body1" sx={{ fontWeight: 700 }}>Total {title}</Typography>
+                  </TableCell>
+                  <TableCell align="right">
+                    <Typography variant="body1" sx={{ fontWeight: 700 }}>0.00</Typography>
+                  </TableCell>
+                </TableRow>
+              </>
             )}
           </TableBody>
         </Table>
