@@ -1,6 +1,6 @@
 import { createSlice, type PayloadAction } from '@reduxjs/toolkit'
 
-import type { BackupLog, BackupSchedule } from '@/services/backupService'
+import type { BackupLog, BackupSchedule } from '@/store/api/backupApi'
 import type { RootState } from '@/store'
 
 interface BackupUIState {

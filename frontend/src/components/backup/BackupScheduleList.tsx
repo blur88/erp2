@@ -19,7 +19,7 @@ import {
   PlayArrow as PlayIcon,
 } from '@mui/icons-material';
 import { useAppDispatch } from '@/hooks/useRedux';
-import type { BackupSchedule } from '@/services/backupService';
+import type { BackupSchedule } from '@/store/api/backupApi';
 import {
   useDeleteScheduleMutation,
   useToggleScheduleMutation,

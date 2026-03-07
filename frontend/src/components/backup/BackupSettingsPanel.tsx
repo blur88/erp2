@@ -15,57 +15,49 @@ import {
   InputAdornment,
 } from '@mui/material';
 import { Save as SaveIcon, Refresh as RefreshIcon } from '@mui/icons-material';
-import backupService, { BackupSettings, UpdateBackupSettingsDto } from '@/services/backupService';
+import type { BackupSettings, UpdateBackupSettingsDto } from '@/store/api/backupApi';
+import {
+  useGetBackupSettingsQuery,
+  useGetBackupsQuery,
+  useUpdateBackupSettingsMutation,
+  useCleanupWithSettingsMutation,
+} from '@/store/api/backupApi';
 
 interface BackupSettingsPanelProps {
   onCleanupComplete?: () => void;
 }
 
 const BackupSettingsPanel: React.FC<BackupSettingsPanelProps> = ({ onCleanupComplete }) => {
+  const { data: remoteSettings, isLoading: loading } = useGetBackupSettingsQuery();
+  const { data: backups = [] } = useGetBackupsQuery();
+  const [updateBackupSettings, { isLoading: isSaving }] = useUpdateBackupSettingsMutation();
+  const [cleanupWithSettings, { isLoading: isCleaning }] = useCleanupWithSettingsMutation();
+
   const [settings, setSettings] = useState<BackupSettings | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [currentTotalSize, setCurrentTotalSize] = useState<number>(0);
   const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({
     open: false,
     message: '',
     severity: 'success',
   });
 
-  const loadSettings = async () => {
-    try {
-      setLoading(true);
-      const data = await backupService.getBackupSettings();
-      setSettings(data);
-
-      // Load current total size of all backups
-      const backups = await backupService.listBackups();
-      const totalSize = backups.reduce((sum, backup) => {
-        // Convert string to number (size is returned as string from bigint PostgreSQL type)
-        const size = typeof backup.size === 'string' ? parseInt(backup.size, 10) : (backup.size || 0);
-        return sum + size;
-      }, 0);
-      setCurrentTotalSize(totalSize);
-    } catch (error: any) {
-      setSnackbar({
-        open: true,
-        message: error?.message || 'Failed to load backup settings',
-        severity: 'error',
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
+  const saving = isSaving || isCleaning;
 
   useEffect(() => {
-    loadSettings();
-  }, []);
+    if (remoteSettings) {
+      setSettings(remoteSettings);
+    }
+  }, [remoteSettings]);
+
+  const currentTotalSize = backups.reduce((sum, backup) => {
+    // Convert string to number (size is returned as string from bigint PostgreSQL type)
+    const size = typeof backup.size === 'string' ? parseInt(backup.size, 10) : (backup.size || 0);
+    return sum + size;
+  }, 0);
 
   const handleSave = async () => {
     if (!settings) return;
 
     try {
-      setSaving(true);
       const updateDto: UpdateBackupSettingsDto = {
         retentionDays: settings.retentionDays,
         autoCleanupEnabled: settings.autoCleanupEnabled,
@@ -74,8 +66,7 @@ const BackupSettingsPanel: React.FC<BackupSettingsPanelProps> = ({ onCleanupComp
         maximumTotalSize: settings.maximumTotalSize,
       };
 
-      const updated = await backupService.updateBackupSettings(updateDto);
-      setSettings(updated);
+      await updateBackupSettings(updateDto).unwrap();
       setSnackbar({
         open: true,
         message: 'Backup settings saved successfully',
@@ -87,21 +78,17 @@ const BackupSettingsPanel: React.FC<BackupSettingsPanelProps> = ({ onCleanupComp
         message: error?.message || 'Failed to save backup settings',
         severity: 'error',
       });
-    } finally {
-      setSaving(false);
     }
   };
 
   const handleRunCleanup = async () => {
     try {
-      setSaving(true);
-      const result = await backupService.cleanupWithSettings();
+      const result = await cleanupWithSettings().unwrap();
       setSnackbar({
         open: true,
         message: `Cleanup completed: ${result.deletedCount} backup(s) deleted`,
         severity: 'success',
       });
-      await loadSettings();
       // Notify parent component to refresh backup list
       if (onCleanupComplete) {
         onCleanupComplete();
@@ -112,8 +99,6 @@ const BackupSettingsPanel: React.FC<BackupSettingsPanelProps> = ({ onCleanupComp
         message: error?.message || 'Failed to run cleanup',
         severity: 'error',
       });
-    } finally {
-      setSaving(false);
     }
   };
 

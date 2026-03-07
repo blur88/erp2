@@ -1,15 +1,105 @@
 import { createApi } from '@reduxjs/toolkit/query/react'
 
-import type {
-  BackupLog,
-  BackupSchedule,
-  CreateBackupDto,
-  CreateScheduleDto,
-  RestoreBackupDto,
-  UpdateScheduleDto,
-} from '@/services/backupService'
-
 import { axiosBaseQuery } from './baseQuery'
+
+export interface BackupLog {
+  id: string
+  filename: string
+  filepath: string
+  backupType: 'manual' | 'scheduled'
+  status: 'in_progress' | 'completed' | 'failed'
+  size: number
+  databases: string[]
+  startedAt: string
+  completedAt: string | null
+  createdBy: string
+  metadata: Record<string, unknown> | null
+  error: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export interface BackupSchedule {
+  id: string
+  name: string
+  frequency: 'hourly' | 'daily' | 'weekly' | 'monthly'
+  cronExpression: string | null
+  time: string
+  dayOfWeek: number | null
+  dayOfMonth: number | null
+  databases: string[]
+  includeSettings: boolean
+  retentionDays: number
+  enabled: boolean
+  lastRunAt: string | null
+  nextRunAt: string | null
+  createdBy: string
+  notifications: {
+    enabled: boolean
+    email?: string
+    onSuccess?: boolean
+    onFailure?: boolean
+  } | null
+  createdAt: string
+  updatedAt: string
+}
+
+export interface CreateBackupDto {
+  backupType?: 'manual' | 'scheduled'
+  databases?: string[]
+  includeSettings?: boolean
+  createdBy?: string
+  description?: string
+}
+
+export interface RestoreBackupDto {
+  confirmed: boolean
+  restoredBy?: string
+  note?: string
+}
+
+export interface CreateScheduleDto {
+  name: string
+  frequency: 'hourly' | 'daily' | 'weekly' | 'monthly'
+  time?: string
+  dayOfWeek?: number
+  dayOfMonth?: number
+  databases?: string[]
+  includeSettings?: boolean
+  retentionDays?: number
+  enabled?: boolean
+}
+
+export interface UpdateScheduleDto {
+  name?: string
+  frequency?: 'hourly' | 'daily' | 'weekly' | 'monthly'
+  time?: string
+  dayOfWeek?: number
+  dayOfMonth?: number
+  databases?: string[]
+  includeSettings?: boolean
+  retentionDays?: number
+  enabled?: boolean
+}
+
+export interface BackupSettings {
+  id: string
+  retentionDays: number
+  autoCleanupEnabled: boolean
+  cleanupTime: string
+  maximumBackupsToKeep: number | null
+  maximumTotalSize: number | null
+  createdAt: string
+  updatedAt: string
+}
+
+export interface UpdateBackupSettingsDto {
+  retentionDays?: number
+  autoCleanupEnabled?: boolean
+  cleanupTime?: string
+  maximumBackupsToKeep?: number | null
+  maximumTotalSize?: number | null
+}
 
 const normalizeList = <T>(response: unknown): T[] => {
   if (!response) return []
@@ -23,7 +113,7 @@ const normalizeList = <T>(response: unknown): T[] => {
 export const backupApiSlice = createApi({
   reducerPath: 'backupApi',
   baseQuery: axiosBaseQuery(),
-  tagTypes: ['Backup', 'BackupSchedule'],
+  tagTypes: ['Backup', 'BackupSchedule', 'BackupSettings'],
   endpoints: (builder) => ({
     getBackups: builder.query<BackupLog[], void>({
       query: () => ({ url: '/backup/list' }),
@@ -81,6 +171,19 @@ export const backupApiSlice = createApi({
       query: (id) => ({ url: `/backup/schedule/${id}/trigger`, method: 'POST', data: {} }),
       invalidatesTags: ['Backup'],
     }),
+
+    getBackupSettings: builder.query<BackupSettings, void>({
+      query: () => ({ url: '/backup/settings' }),
+      providesTags: ['BackupSettings'],
+    }),
+    updateBackupSettings: builder.mutation<BackupSettings, UpdateBackupSettingsDto>({
+      query: (body) => ({ url: '/backup/settings', method: 'POST', data: body }),
+      invalidatesTags: ['BackupSettings'],
+    }),
+    cleanupWithSettings: builder.mutation<{ message: string; deletedCount: number }, void>({
+      query: () => ({ url: '/backup/cleanup-with-settings', method: 'POST', data: {} }),
+      invalidatesTags: ['Backup'],
+    }),
   }),
 })
 
@@ -96,4 +199,7 @@ export const {
   useDeleteScheduleMutation,
   useToggleScheduleMutation,
   useTriggerScheduleMutation,
+  useGetBackupSettingsQuery,
+  useUpdateBackupSettingsMutation,
+  useCleanupWithSettingsMutation,
 } = backupApiSlice
