@@ -1,9 +1,33 @@
 import { createApi } from '@reduxjs/toolkit/query/react'
 
 import type { PaginatedResponse, PriceList, PriceListItem, QueryParams } from '@/types'
-import type { BulkUpdatePriceDto, CopyPriceListDto, PercentageAdjustmentDto } from '@/services/priceListApi'
 
 import { axiosBaseQuery } from './baseQuery'
+
+export interface BulkUpdatePriceDto {
+  productId: string
+  price: number
+  costBasis?: number
+  marginPercent?: number
+  minQuantity?: number
+  maxQuantity?: number
+  notes?: string
+}
+
+export interface CopyPriceListDto {
+  code: string
+  name: string
+  description?: string
+  effectiveFrom?: string
+  effectiveTo?: string
+}
+
+export interface PercentageAdjustmentDto {
+  percentage: number
+  adjustmentType: 'increase' | 'decrease'
+  roundTo?: number
+  affectCostBasis?: boolean
+}
 import { normalizePaginated, normalizeSingle } from './normalizers'
 
 export const priceListApiSlice = createApi({

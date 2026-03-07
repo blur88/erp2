@@ -10,12 +10,12 @@ import {
   setActiveTab,
 } from '@/store/slices/auditLogSlice'
 import { useGetAuditLogsQuery, useGetAuditLogStatisticsQuery } from '@/store/api/auditLogApi'
+import { priceListApiSlice } from '@/store/api/priceListApi'
 import { TYPOGRAPHY_STYLES } from '@/constants/typography'
 import FilterSidebar from './components/FilterSidebar'
 import LogsTab from './components/LogsTab'
 import AnalyticsTab from './components/AnalyticsTab'
 import ExportButton from './components/ExportButton'
-import { priceListApi } from '@/services/priceListApi'
 
 const AuditLogsPage: React.FC = () => {
   const dispatch = useAppDispatch()
@@ -43,12 +43,10 @@ const AuditLogsPage: React.FC = () => {
   useEffect(() => {
     const loadPriceLists = async () => {
       try {
-        const response = await priceListApi.getPriceLists({
-          page: 1,
-          sortBy: 'name',
-          sortOrder: 'asc',
-        })
-        const data = response.data ?? []
+        const result = await dispatch(
+          priceListApiSlice.endpoints.getPriceLists.initiate({ page: 1, sortBy: 'name', sortOrder: 'asc' })
+        )
+        const data = result.data?.data ?? []
         const map: Record<string, string> = {}
         data.forEach((pl) => {
           map[pl.id] = pl.name
@@ -61,7 +59,7 @@ const AuditLogsPage: React.FC = () => {
     }
 
     loadPriceLists()
-  }, [])
+  }, [dispatch])
 
   useEffect(() => {
     const extractPriceListIds = (value: unknown, result: Set<string>) => {
@@ -95,8 +93,8 @@ const AuditLogsPage: React.FC = () => {
       const entries = await Promise.all(
         missingIds.map(async (id): Promise<[string, string]> => {
           try {
-            const priceList = await priceListApi.getPriceList(id)
-            return [id, priceList.name]
+            const result = await dispatch(priceListApiSlice.endpoints.getPriceList.initiate(id))
+            return [id, result.data?.name ?? id]
           } catch {
             // Cache fallback to avoid repeating failed lookups.
             return [id, id]

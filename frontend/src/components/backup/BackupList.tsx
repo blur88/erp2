@@ -20,10 +20,10 @@ import {
   Info as InfoIcon,
 } from '@mui/icons-material';
 import { useAppDispatch } from '@/hooks/useRedux';
-import type { BackupLog } from '@/services/backupService';
+import type { BackupLog } from '@/store/api/backupApi';
 import { useDeleteBackupMutation } from '@/store/api/backupApi';
 import { setCurrentBackup } from '@/store/slices/backupSlice';
-import backupService from '@/services/backupService';
+import { ApiService } from '@/services/api';
 import RestoreConfirmationDialog from './RestoreConfirmationDialog';
 import BackupDetailsDialog from './BackupDetailsDialog';
 import { format } from 'date-fns';
@@ -51,7 +51,7 @@ const BackupList: React.FC<BackupListProps> = ({ backups }) => {
 
   const handleDownload = async (id: string, filename: string) => {
     try {
-      await backupService.downloadBackup(id, filename);
+      await ApiService.downloadFile(`/backup/download/${id}`, filename);
     } catch (error) {
       console.error('Download failed:', error);
     }

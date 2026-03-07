@@ -23,7 +23,7 @@ import {
   useGetPriceCostingSettingsQuery,
   useUpdatePriceCostingSettingsMutation,
 } from '@/store/api/settingsApi'
-import { inventoryApi } from '@/services/inventoryApi'
+import { ApiService } from '@/services/api'
 import { TYPOGRAPHY_STYLES } from '@/constants/typography'
 
 interface PriceCostingFormData {
@@ -116,7 +116,9 @@ const PriceCostingPage: React.FC = () => {
   const handleRecalculateCosts = async () => {
     try {
       setRecalculating(true)
-      const result = await inventoryApi.recalculateAllProductCosts()
+      const result = await ApiService.post<{ updated: number; errors: number; costingMethod: string; results: any[] }>(
+        '/inventory/costing/recalculate'
+      )
 
       // ApiService returns response.data directly, so result is the data itself
       const data = result as any
