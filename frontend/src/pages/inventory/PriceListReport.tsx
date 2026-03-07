@@ -43,6 +43,8 @@ import {
 import { formatCurrency, formatDateTime } from '@/utils/formatters'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
 import { ApiService } from '@/services/api'
+import { useGetProductsQuery, useGetCategoriesQuery } from '@/store/api/inventoryApi'
+import { useGetPriceListsQuery } from '@/store/api/priceListApi'
 
 interface PriceListItem {
   productName: string
@@ -65,9 +67,6 @@ const PriceListReport: React.FC = () => {
   const isMobile = useMediaQuery(theme.breakpoints.down('md'))
   const [loading, setLoading] = useState(false)
   const [reportData, setReportData] = useState<PriceListItem[]>([])
-  const [products, setProducts] = useState<any[]>([])
-  const [categories, setCategories] = useState<any[]>([])
-  const [priceLists, setPriceLists] = useState<PriceList[]>([])
   const [selectedProducts, setSelectedProducts] = useState<string[]>([])
   const [selectedCategory, setSelectedCategory] = useState<string>('')
 
@@ -95,85 +94,29 @@ const PriceListReport: React.FC = () => {
   const [page, setPage] = useState<number>(0)
   const [rowsPerPage, setRowsPerPage] = useState<number>(25)
 
+  const { data: productsResponse } = useGetProductsQuery({ limit: 10000 })
+  const products = productsResponse?.data ?? []
+
+  const { data: categoriesData = [] } = useGetCategoriesQuery(undefined)
+  const categories = categoriesData
+
+  const { data: priceListsResponse } = useGetPriceListsQuery(undefined)
+  const priceLists: PriceList[] = (priceListsResponse?.data ?? [])
+    .filter((pl: PriceList) => pl.isActive)
+    .sort((a: PriceList, b: PriceList) => {
+      if (a.isDefault && !b.isDefault) return -1
+      if (!a.isDefault && b.isDefault) return 1
+      return a.name.localeCompare(b.name)
+    })
+
   useEffect(() => {
-    // Load products - fetch all pages to get complete list
-    const fetchAllProducts = async () => {
-      try {
-        let allProducts: any[] = []
-        let page = 1
-        let hasMore = true
-
-        while (hasMore) {
-          const response = await ApiService.get<any>(`/inventory/products?page=${page}&limit=100`)
-          if (response?.data) {
-            allProducts = [...allProducts, ...response.data]
-
-            // Check if there are more pages
-            const meta = response?.meta
-            if (meta && meta.hasNextPage) {
-              page++
-            } else {
-              hasMore = false
-            }
-          } else {
-            hasMore = false
-          }
-        }
-
-        setProducts(allProducts)
-      } catch (error) {
-        console.error('Failed to load products:', error)
-        setProducts([])
+    if (priceLists.length > 0 && !priceListId) {
+      const defaultPriceList = priceLists.find((pl: PriceList) => pl.isDefault)
+      if (defaultPriceList) {
+        setPriceListId(defaultPriceList.id)
       }
     }
-
-    fetchAllProducts()
-
-    // Load categories
-    ApiService.get<any>('/inventory/categories/tree')
-      .then(data => {
-        const categoryData = data?.data || data
-        if (Array.isArray(categoryData)) {
-          const flattenCategories = (cats: any[], level = 0): any[] => {
-            return cats.reduce((acc: any[], cat: any) => {
-              acc.push({ ...cat, level })
-              if (cat.children && cat.children.length > 0) {
-                acc.push(...flattenCategories(cat.children, level + 1))
-              }
-              return acc
-            }, [])
-          }
-          setCategories(flattenCategories(categoryData))
-        }
-      })
-      .catch(() => {})
-
-    // Load price lists
-    ApiService.get<any>('/price-lists')
-      .then(data => {
-        const priceListData = data?.data || []
-        if (Array.isArray(priceListData)) {
-          // Filter only active price lists and sort with default first
-          const activePriceLists = priceListData
-            .filter((pl: PriceList) => pl.isActive)
-            .sort((a: PriceList, b: PriceList) => {
-              if (a.isDefault && !b.isDefault) return -1
-              if (!a.isDefault && b.isDefault) return 1
-              return a.name.localeCompare(b.name)
-            })
-          setPriceLists(activePriceLists)
-
-          // Set default price list as selected
-          const defaultPriceList = activePriceLists.find((pl: PriceList) => pl.isDefault)
-          if (defaultPriceList) {
-            setPriceListId(defaultPriceList.id)
-          }
-        }
-      })
-      .catch((error) => {
-        console.error('Failed to load price lists:', error)
-      })
-  }, [])
+  }, [priceLists, priceListId])
 
   const handleGenerateReport = async () => {
     setLoading(true)
