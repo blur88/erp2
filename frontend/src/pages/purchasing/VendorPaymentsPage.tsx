@@ -46,7 +46,7 @@ import { useGetVendorPaymentsQuery } from '@/store/api/purchasingApi'
 import { useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
 import DeletedVendorPaymentsDialog from '@/components/purchasing/DeletedVendorPaymentsDialog'
 import { VendorPaymentPrint } from '@/components/print'
-import { journalEntriesApi } from '@/services/accountingApi'
+import { useLazyGetJournalEntriesQuery } from '@/store/api/accountingApi'
 import { useGetActivePaymentMethodsQuery } from '@/store/api/paymentMethodsApi'
 
 interface VendorPaymentFilters {
@@ -164,6 +164,7 @@ const VendorPaymentsPage: React.FC = () => {
     customToDate: '',
   })
 
+  const [fetchJournalEntries] = useLazyGetJournalEntriesQuery()
   const [journalEntryRef, setJournalEntryRef] = useState<{ id: string; referenceNumber: string } | null>(null)
   const [deletedPaymentsDialogOpen, setDeletedPaymentsDialogOpen] = useState(false)
   const [printDialogOpen, setPrintDialogOpen] = useState(false)
@@ -264,15 +265,16 @@ const VendorPaymentsPage: React.FC = () => {
       return
     }
     setJournalEntryRef(null)
-    journalEntriesApi.getAll({ sourceType: 'vendor_payment', sourceId: selectedPayment.id, limit: 1 })
-      .then((res: any) => {
+    fetchJournalEntries({ sourceType: 'vendor_payment', sourceId: selectedPayment.id, limit: 1 })
+      .unwrap()
+      .then((res) => {
         const entry = res?.data?.[0]
         if (entry) {
           setJournalEntryRef({ id: entry.id, referenceNumber: entry.referenceNumber })
         }
       })
       .catch(() => { /* silently ignore */ })
-  }, [selectedPayment?.id])
+  }, [selectedPayment?.id, fetchJournalEntries])
 
   // Auto-scroll to keep focused item visible
   useEffect(() => {

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, type MutableRefObject, type RefObject } from 'react'
 import type { NavigateFunction, SetURLSearchParams } from 'react-router-dom'
 
-import { journalEntriesApi } from '@/services/accountingApi'
+import { useLazyGetJournalEntriesQuery } from '@/store/api/accountingApi'
 import { clearError, setSelectedOrder } from '@/store/slices/salesSlice'
 import type { AppDispatch } from '@/store'
 import type { SalesOrder } from '@/types'
@@ -61,6 +61,8 @@ export function useOrdersSelection({
   setDeletedOrdersDialogOpen,
   setDeleteConfirmOpen,
 }: UseOrdersSelectionParams) {
+  const [fetchJournalEntries] = useLazyGetJournalEntriesQuery()
+
   useEffect(() => {
     if (!selectedOrder?.isFulfilled || !selectedOrder?.id) {
       setJournalEntryRef(null)
@@ -71,8 +73,8 @@ export function useOrdersSelection({
     let cancelled = false
     setJournalEntryRefLoading(true)
 
-    journalEntriesApi
-      .getAll({ sourceType: 'sales_order', sourceId: selectedOrder.id, limit: 1 })
+    fetchJournalEntries({ sourceType: 'sales_order', sourceId: selectedOrder.id, limit: 1 })
+      .unwrap()
       .then((res) => {
         if (cancelled) return
         const entry = res.data?.[0]
@@ -88,7 +90,7 @@ export function useOrdersSelection({
     return () => {
       cancelled = true
     }
-  }, [selectedOrder?.id, selectedOrder?.isFulfilled, setJournalEntryRef, setJournalEntryRefLoading])
+  }, [selectedOrder?.id, selectedOrder?.isFulfilled, setJournalEntryRef, setJournalEntryRefLoading, fetchJournalEntries])
 
   useEffect(() => {
     if (new URLSearchParams(window.location.search).get('highlight')) {

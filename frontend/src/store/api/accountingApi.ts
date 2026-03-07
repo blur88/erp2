@@ -701,6 +701,7 @@ export const {
   useGetChartOfAccountQuery,
   useGetDeletedChartOfAccountsQuery,
   useGetJournalEntriesQuery,
+  useLazyGetJournalEntriesQuery,
   useGetJournalEntryQuery,
   useGetFiscalPeriodsQuery,
   useGetCurrentFiscalPeriodQuery,

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, type MutableRefObject, type RefObject } from 'react'
 import type { SetURLSearchParams } from 'react-router-dom'
 
-import { journalEntriesApi } from '@/services/accountingApi'
+import { useLazyGetJournalEntriesQuery } from '@/store/api/accountingApi'
 import { setSelectedPurchaseOrder, updatePurchaseOrderInPlace } from '@/store/slices/purchasingSlice'
 import type { AppDispatch } from '@/store'
 import type { PurchaseOrder } from '@/types'
@@ -45,6 +45,8 @@ export function usePurchaseOrdersSelection({
   setJournalEntryRef,
   setJournalEntryRefLoading,
 }: UsePurchaseOrdersSelectionParams) {
+  const [fetchJournalEntries] = useLazyGetJournalEntriesQuery()
+
   useEffect(() => {
     if (new URLSearchParams(window.location.search).get('highlight')) {
       setSearchParams((prev) => {
@@ -83,13 +85,13 @@ export function usePurchaseOrdersSelection({
     ;(async () => {
       try {
         for (const source of sources) {
-          const res = await journalEntriesApi.getAll({
+          const res = await fetchJournalEntries({
             sourceType: source.sourceType,
             sourceId: source.sourceId,
             sortBy: 'createdAt',
             sortOrder: 'DESC',
             limit: 1,
-          })
+          }).unwrap()
 
           if (cancelled) return
 
@@ -115,7 +117,7 @@ export function usePurchaseOrdersSelection({
     return () => {
       cancelled = true
     }
-  }, [selectedOrder?.id, selectedOrder?.goodsReceivedNotes, selectedOrder?.vendorPayments, setJournalEntryRef, setJournalEntryRefLoading])
+  }, [selectedOrder?.id, selectedOrder?.goodsReceivedNotes, selectedOrder?.vendorPayments, setJournalEntryRef, setJournalEntryRefLoading, fetchJournalEntries])
 
   useEffect(() => {
     const poId = searchParams.get('poId')

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, type MutableRefObject, type RefObject } from 'react'
 import type { Location, NavigateFunction } from 'react-router-dom'
 
-import { journalEntriesApi } from '@/services/accountingApi'
+import { useLazyGetJournalEntriesQuery } from '@/store/api/accountingApi'
 import { clearError, setSelectedInvoice } from '@/store/slices/salesSlice'
 import type { AppDispatch } from '@/store'
 
@@ -44,6 +44,8 @@ export function useInvoicesSelection({
   setCreateDialog,
   setEditDialog,
 }: UseInvoicesSelectionParams) {
+  const [fetchJournalEntries] = useLazyGetJournalEntriesQuery()
+
   useEffect(() => {
     selectedInvoiceRef.current = selectedInvoice
   }, [selectedInvoice, selectedInvoiceRef])
@@ -72,11 +74,11 @@ export function useInvoicesSelection({
     ;(async () => {
       try {
         for (const source of sources) {
-          const res = await journalEntriesApi.getAll({
+          const res = await fetchJournalEntries({
             sourceType: source.sourceType,
             sourceId: source.sourceId,
             limit: 1,
-          })
+          }).unwrap()
 
           if (cancelled) return
 
@@ -102,7 +104,7 @@ export function useInvoicesSelection({
     return () => {
       cancelled = true
     }
-  }, [selectedInvoice?.id, selectedInvoice?.salesOrder?.id, setJournalEntryRef, setJournalEntryRefLoading])
+  }, [selectedInvoice?.id, selectedInvoice?.salesOrder?.id, setJournalEntryRef, setJournalEntryRefLoading, fetchJournalEntries])
 
   useEffect(() => {
     if (location.pathname === '/sales/invoices') {

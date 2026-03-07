@@ -46,7 +46,7 @@ import { useGetGoodsReceivedNotesQuery } from '@/store/api/purchasingApi'
 import { useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
 import DeletedGRNsDialog from '@/components/purchasing/DeletedGRNsDialog'
 import { GRNPrint } from '@/components/print'
-import { journalEntriesApi } from '@/services/accountingApi'
+import { useLazyGetJournalEntriesQuery } from '@/store/api/accountingApi'
 
 
 interface GRNFilters {
@@ -162,6 +162,7 @@ const GoodsReceivedPage: React.FC = () => {
     customToDate: '',
   })
 
+  const [fetchJournalEntries] = useLazyGetJournalEntriesQuery()
   const [journalEntryRef, setJournalEntryRef] = useState<{ id: string; referenceNumber: string } | null>(null)
   const [deletedGRNsDialogOpen, setDeletedGRNsDialogOpen] = useState(false)
   const [printDialogOpen, setPrintDialogOpen] = useState(false)
@@ -270,15 +271,16 @@ const GoodsReceivedPage: React.FC = () => {
       return
     }
     setJournalEntryRef(null)
-    journalEntriesApi.getAll({ sourceType: 'goods_received_note', sourceId: selectedGRN.id, limit: 1 })
-      .then((res: any) => {
+    fetchJournalEntries({ sourceType: 'goods_received_note', sourceId: selectedGRN.id, limit: 1 })
+      .unwrap()
+      .then((res) => {
         const entry = res?.data?.[0]
         if (entry) {
           setJournalEntryRef({ id: entry.id, referenceNumber: entry.referenceNumber })
         }
       })
       .catch(() => { /* silently ignore */ })
-  }, [selectedGRN?.id])
+  }, [selectedGRN?.id, fetchJournalEntries])
 
   // Auto-scroll to keep focused item visible
   useEffect(() => {

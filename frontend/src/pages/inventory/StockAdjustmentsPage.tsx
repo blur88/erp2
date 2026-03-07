@@ -40,7 +40,7 @@ import {
 } from '@mui/icons-material'
 import DeletedStockAdjustmentsDialog from '@/components/inventory/DeletedStockAdjustmentsDialog'
 import ConfirmationDialog from '@/components/common/ConfirmationDialog'
-import { journalEntriesApi } from '@/services/accountingApi'
+import { useLazyGetJournalEntriesQuery } from '@/store/api/accountingApi'
 import type { JournalEntry } from '@/types'
 import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
 import {
@@ -195,6 +195,7 @@ const StockAdjustmentsPage: React.FC = () => {
   const [deleteStockAdjustment] = useDeleteStockAdjustmentMutation()
   const [completeStockAdjustment] = useCompleteStockAdjustmentMutation()
   const [uncompleteStockAdjustment] = useUncompleteStockAdjustmentMutation()
+  const [fetchJournalEntries] = useLazyGetJournalEntriesQuery()
   const adjustments = adjustmentsResponse?.data || []
   const pagination = adjustmentsResponse?.meta
   const error = useMemo(() => {
@@ -228,8 +229,9 @@ const StockAdjustmentsPage: React.FC = () => {
   // Fetch journal entry for completed stock adjustment
   useEffect(() => {
     if (selectedAdjustment?.status === 'completed') {
-      journalEntriesApi.getAll({ sourceType: 'stock_adjustment', sourceId: selectedAdjustment.id, limit: 1 })
-        .then((res: any) => {
+      fetchJournalEntries({ sourceType: 'stock_adjustment', sourceId: selectedAdjustment.id, limit: 1 })
+        .unwrap()
+        .then((res) => {
           const entries = res?.data || []
           setJournalEntry(entries.length > 0 ? entries[0] : null)
         })
@@ -237,7 +239,7 @@ const StockAdjustmentsPage: React.FC = () => {
     } else {
       setJournalEntry(null)
     }
-  }, [selectedAdjustment?.id, selectedAdjustment?.status])
+  }, [selectedAdjustment?.id, selectedAdjustment?.status, fetchJournalEntries])
 
   const loadStockAdjustmentDetail = useCallback(async (id: string) => {
     try {

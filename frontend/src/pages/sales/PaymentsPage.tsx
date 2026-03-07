@@ -50,7 +50,7 @@ import DeletedPaymentsDialog from '@/components/sales/DeletedPaymentsDialog'
 import { PaymentReceiptPrint } from '@/components/print'
 import { useSearchAndFilter, useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
 import { useNotification } from '@/hooks/useNotification'
-import { journalEntriesApi } from '@/services/accountingApi'
+import { useLazyGetJournalEntriesQuery } from '@/store/api/accountingApi'
 import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
 import { useGetPaymentsQuery } from '@/store/api/salesApi'
 import { setSelectedPayment, selectSelectedPayment } from '@/store/slices/salesSlice'
@@ -192,6 +192,7 @@ const PaymentsPage: React.FC = () => {
   const [deletedPaymentsDialogOpen, setDeletedPaymentsDialogOpen] = useState(false)
   const [shouldPreserveSearchFocus, setShouldPreserveSearchFocus] = useState(false)
   const [printDialogOpen, setPrintDialogOpen] = useState(false)
+  const [fetchJournalEntries] = useLazyGetJournalEntriesQuery()
   const [journalEntryRef, setJournalEntryRef] = useState<{ referenceNumber: string; id: string } | null>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
   const paymentListRef = useRef<HTMLDivElement>(null)
@@ -210,13 +211,14 @@ const PaymentsPage: React.FC = () => {
       setJournalEntryRef(null)
       return
     }
-    journalEntriesApi.getAll({ sourceType: 'payment', sourceId: selectedPayment.id, limit: 1 })
-      .then((res: any) => {
+    fetchJournalEntries({ sourceType: 'payment', sourceId: selectedPayment.id, limit: 1 })
+      .unwrap()
+      .then((res) => {
         const entry = res?.data?.[0]
         setJournalEntryRef(entry ? { referenceNumber: entry.referenceNumber, id: entry.id } : null)
       })
       .catch(() => setJournalEntryRef(null))
-  }, [selectedPayment?.id])
+  }, [selectedPayment?.id, fetchJournalEntries])
 
   // Memoize search change callback to prevent unnecessary re-renders
   const onSearchChange = useCallback((searchTerm: string) => {
