@@ -3,10 +3,11 @@
   "entry": [
     "src/main.ts",
     "src/config/database.config.ts",
-    "src/config/cli-datasource.ts"
+    "src/config/cli-datasource.ts",
+    "src/modules/audit-logs/dto/query-audit-logs.dto.ts"
   ],
   "project": ["src/**/*.ts"],
-  "ignore": [],
+  "ignore": ["src/database/migrations/**"],
   "ignoreDependencies": [],
   "ignoreExportsUsedInFile": true
 }
