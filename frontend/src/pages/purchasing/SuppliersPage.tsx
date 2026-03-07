@@ -60,7 +60,6 @@ import {
 } from '@/store/api/purchasingApi'
 import type { Supplier } from '@/types'
 import { SupplierType } from '@/types'
-import { purchasingApi } from '@/services/purchasingApi'
 import { formatCurrency } from '@/utils/currency'
 import { formatDate } from '@/utils/formatters'
 import DeletedSuppliersDialog from '@/components/purchasing/DeletedSuppliersDialog'

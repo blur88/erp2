@@ -30,8 +30,7 @@ import {
 import { useForm, useFieldArray, Controller } from 'react-hook-form'
 import { yupResolver } from '@hookform/resolvers/yup'
 import * as yup from 'yup'
-import { purchasingApi } from '@/services/purchasingApi'
-import { ApiService } from '@/services/api'
+import api from '@/services/api'
 import { formatCurrency, getCurrentDate } from '@/utils/formatters'
 import { useNotification } from '@/hooks/useNotification'
 import { useAppDispatch } from '@/hooks/useRedux'
@@ -40,6 +39,7 @@ import {
   useCreatePurchaseOrderMutation,
   useGetSuppliersQuery,
   useUpdatePurchaseOrderMutation,
+  useLazyGetPurchaseOrderQuery,
 } from '@/store/api/purchasingApi'
 import { useCurrency } from '@/hooks/useCurrency'
 import { TYPOGRAPHY_STYLES } from '@/constants/typography'
@@ -97,6 +97,7 @@ const CreatePurchaseOrderPage: React.FC = () => {
   const { data: suppliersResponse } = useGetSuppliersQuery({})
   const [createPurchaseOrder] = useCreatePurchaseOrderMutation()
   const [updatePurchaseOrder] = useUpdatePurchaseOrderMutation()
+  const [fetchPurchaseOrder] = useLazyGetPurchaseOrderQuery()
   const suppliers = suppliersResponse?.data || []
 
   const { control, handleSubmit, watch, setValue, reset, formState: { errors } } = useForm<CreatePurchaseOrderFormData>({
@@ -142,7 +143,7 @@ const CreatePurchaseOrderPage: React.FC = () => {
   const loadPurchaseOrder = async (orderId: string) => {
     setLoadingOrder(true)
     try {
-      const response = await purchasingApi.getPurchaseOrder(orderId)
+      const response = await fetchPurchaseOrder(orderId).unwrap()
       const order = (response as any).data || response
 
       // Extract products from order items and add to products state
@@ -254,7 +255,7 @@ const CreatePurchaseOrderPage: React.FC = () => {
       if (searchTerm && searchTerm.trim().length >= 1) {
         params.search = searchTerm.trim()
       }
-      const response = await ApiService.get('/inventory/products', { params })
+      const response = await api.get('/inventory/products', { params })
       console.log('Products loaded:', response)
       const newProducts = (response as any).data || []
 
