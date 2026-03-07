@@ -85,6 +85,12 @@ const BalanceSheetSection: React.FC<SectionProps> = ({ title, accounts, subtotal
   const nonZeroAccounts = accounts.filter((a) => a.balance !== 0);
   const hasNetIncome = netIncome !== undefined && netIncome !== 0;
 
+  // For equity: show positive accounts (capital) first, then net income, then negative (drawings)
+  const negativeAccounts = nonZeroAccounts.filter((a) => a.balance < 0);
+  const orderedAccounts = title === 'EQUITY'
+    ? [...nonZeroAccounts.filter((a) => a.balance > 0), ...negativeAccounts]
+    : nonZeroAccounts;
+
   return (
     <Box>
       {/* Section Title */}
@@ -112,40 +118,66 @@ const BalanceSheetSection: React.FC<SectionProps> = ({ title, accounts, subtotal
             </TableRow>
           </TableHead>
           <TableBody>
-            {nonZeroAccounts.length > 0 || hasNetIncome ? (
+            {orderedAccounts.length > 0 || hasNetIncome ? (
               <>
-                {nonZeroAccounts.map((account) => (
-                  <TableRow key={account.id} hover>
-                    <TableCell>
-                      <Typography variant="body2">
-                        {account.code}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body2">{account.name}</Typography>
-                    </TableCell>
-                    <TableCell align="right">
-                      <Typography
-                        variant="body2"
-                        sx={{
-                          fontWeight: 600,
-                          color: account.balance < 0 ? 'error.main' : 'text.primary',
-                        }}
-                      >
-                        {account.balance < 0
-                          ? `(${formatCurrency(Math.abs(account.balance))})`
-                          : formatCurrency(account.balance)}
-                      </Typography>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {orderedAccounts.map((account, idx) => {
+                  // For equity: insert Net Income row after positive accounts (before first negative)
+                  const isFirstNegative = title === 'EQUITY' && account.balance < 0 && (idx === 0 || orderedAccounts[idx - 1].balance > 0);
+                  return (
+                    <React.Fragment key={account.id}>
+                      {isFirstNegative && hasNetIncome && (
+                        <TableRow hover>
+                          <TableCell />
+                          <TableCell>
+                            <Typography variant="body2" sx={{ fontStyle: 'italic' }}>
+                              {netIncome! >= 0 ? 'Add: Net Income' : 'Less: Net Loss'}
+                            </Typography>
+                          </TableCell>
+                          <TableCell align="right">
+                            <Typography
+                              variant="body2"
+                              sx={{
+                                fontWeight: 600,
+                                fontStyle: 'italic',
+                                color: netIncome! >= 0 ? 'success.main' : 'error.main',
+                              }}
+                            >
+                              {netIncome! < 0
+                                ? `(${formatCurrency(Math.abs(netIncome!))})`
+                                : formatCurrency(netIncome!)}
+                            </Typography>
+                          </TableCell>
+                        </TableRow>
+                      )}
+                      <TableRow hover>
+                        <TableCell>
+                          <Typography variant="body2">{account.code}</Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Typography variant="body2">{account.name}</Typography>
+                        </TableCell>
+                        <TableCell align="right">
+                          <Typography
+                            variant="body2"
+                            sx={{
+                              fontWeight: 600,
+                              color: account.balance < 0 ? 'error.main' : 'text.primary',
+                            }}
+                          >
+                            {account.balance < 0
+                              ? `(${formatCurrency(Math.abs(account.balance))})`
+                              : formatCurrency(account.balance)}
+                          </Typography>
+                        </TableCell>
+                      </TableRow>
+                    </React.Fragment>
+                  );
+                })}
 
-                {/* Net Income row inside equity section */}
-                {hasNetIncome && (
+                {/* Net Income row — shown at end if no negative accounts */}
+                {hasNetIncome && (title !== 'EQUITY' || negativeAccounts.length === 0) && (
                   <TableRow hover>
-                    <TableCell>
-                      <Typography variant="body2" sx={{ fontStyle: 'italic' }}>—</Typography>
-                    </TableCell>
+                    <TableCell />
                     <TableCell>
                       <Typography variant="body2" sx={{ fontStyle: 'italic' }}>
                         {netIncome! >= 0 ? 'Add: Net Income' : 'Less: Net Loss'}
