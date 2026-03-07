@@ -12,7 +12,7 @@ import {
 } from '@mui/material'
 import { Add } from '@mui/icons-material'
 import { Category } from '@/types'
-import { inventoryApi } from '@/services/inventoryApi'
+import { ApiService } from '@/services/api'
 
 interface CategorySelectorProps {
   value?: Category | null
@@ -56,10 +56,10 @@ const CategorySelector: React.FC<CategorySelectorProps> = ({
   const loadCategories = useCallback(async () => {
     setLoading(true)
     try {
-      const response = await inventoryApi.getCategoryTree(true)
-      
-      // The API returns { data: Category[], meta: {...} }
-      const categoryTree = (response.data as any) || []
+      const response = await ApiService.get<any>('/inventory/categories/tree', { params: { includeProductCount: true } })
+
+      // The API returns { data: Category[], meta: {...} } or a plain array
+      const categoryTree = (response as any)?.data || (Array.isArray(response) ? response : [])
       const flatCategories = flattenCategoryTree(categoryTree)
       
       // Filter out excluded categories

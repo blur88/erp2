@@ -50,6 +50,11 @@ export const priceListApiSlice = createApi({
       transformResponse: (response: any) => (Array.isArray(response) ? response : response?.data ?? []),
       providesTags: (_result, _error, priceListId) => [{ type: 'PriceListItem', id: priceListId }],
     }),
+    getProductPriceListItems: builder.query<PriceListItem[], string>({
+      query: (productId) => ({ url: `/price-lists/product/${productId}/items` }),
+      transformResponse: (response: any) => (Array.isArray(response) ? response : response?.data ?? []),
+      providesTags: (_result, _error, productId) => [{ type: 'PriceListItem', id: `product-${productId}` }],
+    }),
     bulkUpdatePrices: builder.mutation<
       { updated: number; created: number; failed: number; items: PriceListItem[] },
       { priceListId: string; items: BulkUpdatePriceDto[] }
@@ -81,6 +86,7 @@ export const {
   useSetDefaultPriceListMutation,
   useGetEffectivePriceListsQuery,
   useGetPriceListItemsQuery,
+  useGetProductPriceListItemsQuery,
   useBulkUpdatePricesMutation,
   useCopyPriceListMutation,
   useApplyPercentageAdjustmentMutation,

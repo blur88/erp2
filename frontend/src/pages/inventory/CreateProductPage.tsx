@@ -21,7 +21,7 @@ import { useForm, Controller } from 'react-hook-form'
 import { yupResolver } from '@hookform/resolvers/yup'
 import * as yup from 'yup'
 import { ApiService } from '@/services/api'
-import { priceListApi } from '@/services/priceListApi'
+import { useGetPriceListsQuery, useBulkUpdatePricesMutation } from '@/store/api/priceListApi'
 import { useNotification } from '@/hooks/useNotification'
 import CategorySelector from '@/components/inventory/CategorySelector'
 import { Category, PriceList } from '@/types'
@@ -175,9 +175,11 @@ const CreateProductPage: React.FC = () => {
   const [loadingProduct, setLoadingProduct] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null)
-  const [priceLists, setPriceLists] = useState<PriceList[]>([])
   const [priceListPrices, setPriceListPrices] = useState<Record<string, number>>({})
-  const [loadingPriceLists, setLoadingPriceLists] = useState(false)
+
+  const { data: priceListsData, isLoading: loadingPriceLists } = useGetPriceListsQuery({ isActive: true })
+  const priceLists = priceListsData?.data ?? []
+  const [bulkUpdatePrices] = useBulkUpdatePricesMutation()
 
   // Currency hook
   const { currency } = useCurrency()
@@ -212,23 +214,6 @@ const CreateProductPage: React.FC = () => {
   const watchedName = watch('name')
   const watchedBarcode = watch('barcode')
   const watchedBaseCost = watch('baseCost')
-
-  // Load active price lists
-  useEffect(() => {
-    const loadPriceLists = async () => {
-      try {
-        setLoadingPriceLists(true)
-        const response = await priceListApi.getPriceLists({ isActive: true })
-        setPriceLists(response.data || [])
-      } catch (error) {
-        console.error('Failed to load price lists:', error)
-        showError('Failed to load price lists')
-      } finally {
-        setLoadingPriceLists(false)
-      }
-    }
-    loadPriceLists()
-  }, [showError])
 
   // Update price for a specific price list
   const updatePriceListPrice = (priceListId: string, price: number) => {
@@ -343,11 +328,14 @@ const CreateProductPage: React.FC = () => {
         for (const [priceListId, price] of Object.entries(priceListPrices)) {
           if (price >= 0) {
             try {
-              await priceListApi.bulkUpdatePrices(priceListId, [{
-                productId,
-                price,
-                costBasis: data.baseCost || 0
-              }])
+              await bulkUpdatePrices({
+                priceListId,
+                items: [{
+                  productId,
+                  price,
+                  costBasis: data.baseCost || 0
+                }]
+              })
             } catch (error) {
               console.error(`Failed to update prices for price list ${priceListId}:`, error)
             }

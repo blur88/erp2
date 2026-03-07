@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React from 'react'
 import {
   Box,
   Typography,
@@ -13,7 +13,7 @@ import {
 import { Product, PriceListItem } from '@/types'
 import { formatCurrency } from '@/utils/currency'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
-import { priceListApi } from '@/services/priceListApi'
+import { useGetProductPriceListItemsQuery } from '@/store/api/priceListApi'
 
 interface ProductDetailsTabProps {
   product: Product
@@ -32,25 +32,7 @@ const getStockStatus = (product: Product) => {
 }
 
 const ProductDetailsTab: React.FC<ProductDetailsTabProps> = ({ product }) => {
-  const [priceListItems, setPriceListItems] = useState<PriceListItem[]>([])
-  const [loading, setLoading] = useState(false)
-
-  // Load price list items for this product
-  useEffect(() => {
-    const loadPriceListItems = async () => {
-      try {
-        setLoading(true)
-        const data = await priceListApi.getProductPriceListItems(product.id)
-        setPriceListItems(data || [])
-      } catch (error) {
-        console.error('Failed to load price list items:', error)
-        setPriceListItems([])
-      } finally {
-        setLoading(false)
-      }
-    }
-    loadPriceListItems()
-  }, [product.id])
+  const { data: priceListItems = [], isLoading: loading } = useGetProductPriceListItemsQuery(product.id)
 
   // Calculate margin for a price
   const calculateMargin = (price: number, baseCost: number): number => {
