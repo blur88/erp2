@@ -31,9 +31,8 @@ import {
 import { useForm, useFieldArray, Controller } from 'react-hook-form'
 import { yupResolver } from '@hookform/resolvers/yup'
 import * as yup from 'yup'
-import { useCreateSalesOrderMutation, useUpdateSalesOrderMutation } from '@/store/api/salesApi'
+import { useCreateSalesOrderMutation, useUpdateSalesOrderMutation, useLazyGetSalesOrderQuery, useGetCustomersQuery } from '@/store/api/salesApi'
 import { patchSalesOrderCaches } from '@/store/api/salesOrderCache'
-import { salesApi } from '@/services/salesApi'
 import { ApiService } from '@/services/api'
 import { formatCurrency, getCurrentDate } from '@/utils/formatters'
 import { useNotification } from '@/hooks/useNotification'
@@ -95,6 +94,8 @@ const CreateSalesOrderPage: React.FC = () => {
   const { currency } = useCurrency()
   const [createSalesOrder] = useCreateSalesOrderMutation()
   const [updateSalesOrder] = useUpdateSalesOrderMutation()
+  const [triggerGetSalesOrder] = useLazyGetSalesOrderQuery()
+  const { data: customersData } = useGetCustomersQuery({})
   const [customers, setCustomers] = useState<any[]>([])
   const [products, setProducts] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
@@ -136,7 +137,12 @@ const CreateSalesOrderPage: React.FC = () => {
   const watchedCustomerId = watch('customerId')
 
   useEffect(() => {
-    loadCustomers()
+    if (customersData?.data) {
+      setCustomers(customersData.data)
+    }
+  }, [customersData])
+
+  useEffect(() => {
     loadProducts()
   }, [])
 
@@ -203,8 +209,7 @@ const CreateSalesOrderPage: React.FC = () => {
   const loadSalesOrder = async (orderId: string) => {
     setLoadingOrder(true)
     try {
-      const response = await salesApi.getOrder(orderId)
-      const order = (response as any).data || response
+      const order = await triggerGetSalesOrder(orderId).unwrap()
 
       // Extract products from order items and add to products state
       if (order.items && order.items.length > 0) {
@@ -306,15 +311,6 @@ const CreateSalesOrderPage: React.FC = () => {
       }
     })
   }, [JSON.stringify(watchedItems), setValue])
-
-  const loadCustomers = async () => {
-    try {
-      const response = await salesApi.getCustomers()
-      setCustomers((response as any).data || [])
-    } catch (err) {
-      console.error('Error loading customers:', err)
-    }
-  }
 
   const loadProducts = async (searchTerm: string = '') => {
     try {

@@ -32,7 +32,7 @@ import {
 import { useNavigate, useParams } from 'react-router-dom'
 import { useNotification } from '@/hooks/useNotification'
 import { useDeleteCustomerMutation } from '@/store/api/salesApi'
-import { salesApi } from '@/services/salesApi'
+import api from '@/services/api'
 import type { Customer } from '@/types'
 import { CustomerType } from '@/types'
 import { TABLE_STYLES } from '@/constants/typography'
@@ -106,7 +106,10 @@ const CustomerProfilePage: React.FC = () => {
   useEffect(() => {
     if (!id) return
     setLoading(true)
-    Promise.all([salesApi.getCustomer(id), salesApi.getCustomerStatistics(id)])
+    Promise.all([
+      api.get(`/customers/${id}`).then(r => r.data?.data ?? r.data),
+      api.get(`/customers/${id}/statistics`).then(r => r.data?.data ?? r.data),
+    ])
       .then(([cust, stats]) => {
         setCustomer(cust as unknown as Customer)
         setStatistics(stats as unknown as CustomerStatistics)
@@ -117,9 +120,9 @@ const CustomerProfilePage: React.FC = () => {
 
   useEffect(() => {
     if (tabValue === 1 && !ordersLoaded && id) {
-      salesApi
-        .getCustomerSalesHistory(id)
-        .then((res: any) => setOrders(res.orders ?? []))
+      api
+        .get(`/customers/${id}/sales-history`)
+        .then((res: any) => setOrders(res.data?.orders ?? res.data ?? []))
         .catch(() => {})
         .finally(() => setOrdersLoaded(true))
     }
@@ -127,11 +130,12 @@ const CustomerProfilePage: React.FC = () => {
 
   useEffect(() => {
     if (tabValue === 2 && !invoicesLoaded && id) {
-      salesApi
-        .getOutstandingInvoices(id)
+      api
+        .get(`/customers/${id}/outstanding-invoices`)
         .then((res: any) => {
-          setInvoices(res.invoices ?? [])
-          setTotalOutstanding(res.totalOutstanding ?? 0)
+          const data = res.data?.data ?? res.data
+          setInvoices(data?.invoices ?? [])
+          setTotalOutstanding(data?.totalOutstanding ?? 0)
         })
         .catch(() => {})
         .finally(() => setInvoicesLoaded(true))

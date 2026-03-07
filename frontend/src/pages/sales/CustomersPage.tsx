@@ -58,7 +58,7 @@ import {
 } from '@/store/api/salesApi'
 import type { Customer } from '@/types'
 import { CustomerType } from '@/types'
-import { salesApi } from '@/services/salesApi'
+import api from '@/services/api'
 import { formatCurrency } from '@/utils/currency'
 import { formatDate } from '@/utils/formatters'
 import DeletedCustomersDialog from '@/components/sales/DeletedCustomersDialog'
@@ -189,18 +189,14 @@ const CustomersPage: React.FC = () => {
     try {
       // Search for customers with similar phone numbers in BOTH active and deleted customers
       const [activeResponse, deletedResponse] = await Promise.all([
-        salesApi.getCustomers({ search: phone }),
-        salesApi.getDeletedCustomers({ search: phone })
+        api.get('/customers', { params: { search: phone } }),
+        api.get('/customers/deleted', { params: { search: phone } }),
       ])
-
-      // Cast to any to handle type mismatch between interface and actual API response
-      const activeApiResponse = activeResponse as any
-      const deletedApiResponse = deletedResponse as any
 
       // Combine both active and deleted customers for duplicate checking
       const allCustomers = [
-        ...(activeApiResponse.data || []),
-        ...(deletedApiResponse.data || [])
+        ...(activeResponse.data?.data || []),
+        ...(deletedResponse.data?.data || []),
       ]
 
       if (allCustomers.length > 0) {

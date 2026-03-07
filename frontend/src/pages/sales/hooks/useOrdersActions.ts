@@ -1,7 +1,19 @@
 import { useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 
-import { salesApi } from '@/services/salesApi'
+import {
+  useConfirmSalesOrderMutation,
+  useShipSalesOrderMutation,
+  useDeliverSalesOrderMutation,
+  useCompleteSalesOrderMutation,
+  useCancelSalesOrderMutation,
+  useDuplicateSalesOrderMutation,
+  useRecordOrderPaymentMutation,
+  useRecordOrderPaymentsMutation,
+  useUnpaySalesOrderMutation,
+  useFulfillSalesOrderMutation,
+  useUnfulfillSalesOrderMutation,
+} from '@/store/api/salesApi'
 import { patchSalesOrderCaches } from '@/store/api/salesOrderCache'
 import { setSelectedOrder } from '@/store/slices/salesSlice'
 import type { AppDispatch, RootState } from '@/store'
@@ -49,26 +61,38 @@ export function useOrdersActions({
   setIsLoading,
   setPaymentDialogOpen,
 }: UseOrdersActionsParams) {
+  const [confirmSalesOrder] = useConfirmSalesOrderMutation()
+  const [shipSalesOrder] = useShipSalesOrderMutation()
+  const [deliverSalesOrder] = useDeliverSalesOrderMutation()
+  const [completeSalesOrder] = useCompleteSalesOrderMutation()
+  const [cancelSalesOrder] = useCancelSalesOrderMutation()
+  const [duplicateSalesOrder] = useDuplicateSalesOrderMutation()
+  const [recordOrderPayment] = useRecordOrderPaymentMutation()
+  const [recordOrderPayments] = useRecordOrderPaymentsMutation()
+  const [unpaySalesOrder] = useUnpaySalesOrderMutation()
+  const [fulfillSalesOrder] = useFulfillSalesOrderMutation()
+  const [unfulfillSalesOrder] = useUnfulfillSalesOrderMutation()
+
   const handleOrderAction = useCallback(async (action: string, orderId: string, data?: any) => {
     try {
       switch (action) {
         case 'confirm':
-          await salesApi.confirmOrder(orderId)
+          await confirmSalesOrder(orderId).unwrap()
           break
         case 'ship':
-          await salesApi.shipOrder(orderId, data || {})
+          await shipSalesOrder({ id: orderId, data: data || {} }).unwrap()
           break
         case 'deliver':
-          await salesApi.deliverOrder(orderId)
+          await deliverSalesOrder(orderId).unwrap()
           break
         case 'complete':
-          await salesApi.completeOrder(orderId)
+          await completeSalesOrder(orderId).unwrap()
           break
         case 'cancel':
-          await salesApi.cancelOrder(orderId, data?.reason)
+          await cancelSalesOrder({ id: orderId, reason: data?.reason }).unwrap()
           break
         case 'duplicate':
-          await salesApi.duplicateOrder(orderId)
+          await duplicateSalesOrder(orderId).unwrap()
           break
         case 'delete': {
           const order = orders.find((item) => item.id === orderId)
@@ -95,7 +119,7 @@ export function useOrdersActions({
     } catch (error) {
       console.error(`Failed to ${action} order:`, error)
     }
-  }, [dispatch, orders, refetchOrders, setBlockedDialogAction, setBlockedDialogOpen, setDeleteConfirmOpen, setOrderToDelete, setOrderToDeleteName])
+  }, [dispatch, orders, refetchOrders, setBlockedDialogAction, setBlockedDialogOpen, setDeleteConfirmOpen, setOrderToDelete, setOrderToDeleteName, confirmSalesOrder, shipSalesOrder, deliverSalesOrder, completeSalesOrder, cancelSalesOrder, duplicateSalesOrder])
 
   const handleConfirmDelete = useCallback(async (orderToDelete: string | null, orderToDeleteName: string) => {
     if (!orderToDelete) return
@@ -155,9 +179,9 @@ export function useOrdersActions({
       patchSalesOrderCaches(dispatch, getState, optimisticOrder)
       dispatch(setSelectedOrder(optimisticOrder))
 
-      const response = await salesApi.recordOrderPayments(selectedOrder.id, payments)
-      patchSalesOrderCaches(dispatch, getState, response.data)
-      dispatch(setSelectedOrder(response.data))
+      const updatedOrder = await recordOrderPayments({ id: selectedOrder.id, payments }).unwrap()
+      patchSalesOrderCaches(dispatch, getState, updatedOrder)
+      dispatch(setSelectedOrder(updatedOrder))
       const fullOrder = await triggerGetSalesOrder(selectedOrder.id).unwrap()
       dispatch(setSelectedOrder(fullOrder))
       showSuccess(`Payment of ${formatCurrency(totalAdding)} recorded successfully.`)
@@ -168,14 +192,14 @@ export function useOrdersActions({
     } finally {
       setIsLoading(false)
     }
-  }, [dispatch, getState, selectedOrder, setIsLoading, showSuccess, triggerGetSalesOrder])
+  }, [dispatch, getState, recordOrderPayments, selectedOrder, setIsLoading, showSuccess, triggerGetSalesOrder])
 
   const handleUnpayOrder = useCallback(async () => {
     if (!selectedOrder) return
 
     setIsLoading(true)
     try {
-      await salesApi.unpayOrder(selectedOrder.id)
+      await unpaySalesOrder(selectedOrder.id).unwrap()
       const fullOrder = await triggerGetSalesOrder(selectedOrder.id).unwrap()
       dispatch(setSelectedOrder(fullOrder))
       showSuccess('Payment cleared successfully')
@@ -186,7 +210,7 @@ export function useOrdersActions({
     } finally {
       setIsLoading(false)
     }
-  }, [dispatch, selectedOrder, setIsLoading, showError, showSuccess, triggerGetSalesOrder])
+  }, [dispatch, selectedOrder, setIsLoading, showError, showSuccess, triggerGetSalesOrder, unpaySalesOrder])
 
   const handleRefundOrder = useCallback(async () => {
     if (!selectedOrder) return
@@ -202,9 +226,9 @@ export function useOrdersActions({
       patchSalesOrderCaches(dispatch, getState, optimisticUpdate)
       dispatch(setSelectedOrder(optimisticUpdate))
 
-      const response = await salesApi.recordOrderPayment(selectedOrder.id, newPaidAmount)
-      patchSalesOrderCaches(dispatch, getState, response.data)
-      dispatch(setSelectedOrder(response.data))
+      const updatedOrder = await recordOrderPayment({ id: selectedOrder.id, amount: newPaidAmount }).unwrap()
+      patchSalesOrderCaches(dispatch, getState, updatedOrder)
+      dispatch(setSelectedOrder(updatedOrder))
       showSuccess(`Refund of ${formatCurrency(overpayment)} processed. Payment adjusted to ${formatCurrency(newPaidAmount)}`)
     } catch (error: any) {
       patchSalesOrderCaches(dispatch, getState, selectedOrder)
@@ -215,16 +239,16 @@ export function useOrdersActions({
     } finally {
       setIsLoading(false)
     }
-  }, [dispatch, getState, selectedOrder, setIsLoading, showError, showSuccess])
+  }, [dispatch, getState, recordOrderPayment, selectedOrder, setIsLoading, showError, showSuccess])
 
   const handleFulfillOrder = useCallback(async () => {
     if (!selectedOrder) return
 
     setIsLoading(true)
     try {
-      const response = await salesApi.fulfillOrder(selectedOrder.id)
-      patchSalesOrderCaches(dispatch, getState, response.data)
-      dispatch(setSelectedOrder(response.data))
+      const updatedOrder = await fulfillSalesOrder(selectedOrder.id).unwrap()
+      patchSalesOrderCaches(dispatch, getState, updatedOrder)
+      dispatch(setSelectedOrder(updatedOrder))
       showSuccess('Order fulfilled successfully! Inventory has been deducted.')
     } catch (error: any) {
       console.error('Error fulfilling order:', error)
@@ -233,16 +257,16 @@ export function useOrdersActions({
     } finally {
       setIsLoading(false)
     }
-  }, [dispatch, getState, selectedOrder, setIsLoading, showError, showSuccess])
+  }, [dispatch, fulfillSalesOrder, getState, selectedOrder, setIsLoading, showError, showSuccess])
 
   const handleUnfulfillOrder = useCallback(async () => {
     if (!selectedOrder) return
 
     setIsLoading(true)
     try {
-      const response = await salesApi.unfulfillOrder(selectedOrder.id)
-      patchSalesOrderCaches(dispatch, getState, response.data)
-      dispatch(setSelectedOrder(response.data))
+      const updatedOrder = await unfulfillSalesOrder(selectedOrder.id).unwrap()
+      patchSalesOrderCaches(dispatch, getState, updatedOrder)
+      dispatch(setSelectedOrder(updatedOrder))
       showSuccess('Order unfulfilled successfully - inventory restored')
     } catch (error: any) {
       console.error('Error unfulfilling order:', error)
@@ -251,7 +275,7 @@ export function useOrdersActions({
     } finally {
       setIsLoading(false)
     }
-  }, [dispatch, getState, selectedOrder, setIsLoading, showError, showSuccess])
+  }, [dispatch, getState, selectedOrder, setIsLoading, showError, showSuccess, unfulfillSalesOrder])
 
   const handleUnfulfillAndEdit = useCallback(async () => {
     if (!selectedOrder) return
@@ -448,11 +472,11 @@ export function useOrdersActions({
     setIsLoading(true)
     try {
       if (isFulfilled) {
-        await salesApi.unfulfillOrder(orderId)
-        await salesApi.unpayOrder(orderId)
+        await unfulfillSalesOrder(orderId).unwrap()
+        await unpaySalesOrder(orderId).unwrap()
         showSuccess('Order unfulfilled and unpaid - now deleting...')
       } else {
-        await salesApi.unpayOrder(orderId)
+        await unpaySalesOrder(orderId).unwrap()
         showSuccess('Order unpaid - now deleting...')
       }
 
@@ -472,7 +496,7 @@ export function useOrdersActions({
     } finally {
       setIsLoading(false)
     }
-  }, [deleteSalesOrder, dispatch, refetchOrders, selectedOrder, setBlockedDialogOpen, setIsLoading, showError, showSuccess])
+  }, [deleteSalesOrder, dispatch, refetchOrders, selectedOrder, setBlockedDialogOpen, setIsLoading, showError, showSuccess, unfulfillSalesOrder, unpaySalesOrder])
 
   const openPaymentDialog = useCallback(() => {
     setPaymentDialogOpen(true)
