@@ -6,14 +6,7 @@
     "src/config/cli-datasource.ts"
   ],
   "project": ["src/**/*.ts"],
-  "ignore": [
-    "src/database/migrations/**",
-    "src/modules/audit-logs/dto/query-audit-logs.dto.ts"
-  ],
-  "ignoreDependencies": [
-    "ts-loader",
-    "supertest",
-    "@types/supertest"
-  ],
+  "ignore": [],
+  "ignoreDependencies": [],
   "ignoreExportsUsedInFile": true
 }

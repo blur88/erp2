@@ -3,16 +3,7 @@
   "project": [
     "src/**/*.{ts,tsx}"
   ],
-  "ignore": [
-    "src/store/api/accountingApi.ts",
-    "src/store/api/auditLogApi.ts",
-    "src/store/api/inventoryApi.ts",
-    "src/store/api/purchasingApi.ts",
-    "src/store/api/salesApi.ts",
-    "src/store/api/userManagementApi.ts"
-  ],
+  "ignore": [],
   "ignoreExportsUsedInFile": true,
-  "ignoreDependencies": [
-    "@vitest/coverage-v8"
-  ]
+  "ignoreDependencies": []
 }
