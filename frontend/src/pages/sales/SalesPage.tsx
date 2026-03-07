@@ -112,7 +112,7 @@ const SalesPage: React.FC = () => {
       }
 
       const [analyticsResult, customersResult, ordersResult] = await Promise.all([
-        api.get('/sales/analytics/sales-analytics', {
+        api.get('/sales/analytics/dashboard', {
           params: {
             period,
             startDate: startDate.toISOString(),
