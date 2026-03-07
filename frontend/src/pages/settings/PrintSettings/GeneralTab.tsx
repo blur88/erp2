@@ -19,8 +19,12 @@ import { useForm, Controller } from 'react-hook-form'
 import * as yup from 'yup'
 import { yupResolver } from '@hookform/resolvers/yup'
 import { useNotification } from '@/hooks/useNotification'
-import { printSettingsApi } from '@/services/printSettingsApi'
-import { settingsApi } from '@/services/settingsApi'
+import {
+  useUpdatePrintSettingsMutation,
+  useImportFromCompanyMutation,
+  useUploadPrintLogoMutation,
+} from '@/store/api/printSettingsApi'
+import { useGetCompanySettingsQuery } from '@/store/api/settingsApi'
 
 interface GeneralFormData {
   companyName?: string
@@ -85,6 +89,11 @@ const GeneralTab: React.FC<GeneralTabProps> = ({ settings, onUpdate, onRefresh }
   const [logoFile, setLogoFile] = useState<File | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [importing, setImporting] = useState(false)
+
+  const [updatePrintSettings] = useUpdatePrintSettingsMutation()
+  const [importFromCompany] = useImportFromCompanyMutation()
+  const [uploadPrintLogo] = useUploadPrintLogoMutation()
+  const { data: companySettings } = useGetCompanySettingsQuery()
 
   const { control, handleSubmit, formState: { errors }, reset } = useForm<GeneralFormData>({
     resolver: yupResolver(schema) as any,
@@ -158,11 +167,8 @@ const GeneralTab: React.FC<GeneralTabProps> = ({ settings, onUpdate, onRefresh }
   const handleImportFromCompany = async () => {
     try {
       setImporting(true)
-      // Fetch company settings
-      const companySettings = await settingsApi.getCompanySettings()
-
-      // Import to print settings
-      const updatedSettings = await printSettingsApi.importFromCompany(companySettings)
+      // Import to print settings using company settings from RTK cache
+      const updatedSettings = await importFromCompany(companySettings).unwrap()
 
       // Update logo preview if logo was imported
       if (updatedSettings.logoUrl) {
@@ -190,15 +196,15 @@ const GeneralTab: React.FC<GeneralTabProps> = ({ settings, onUpdate, onRefresh }
       // Upload logo if changed
       let logoUrl = settings?.logoUrl
       if (logoFile) {
-        const uploadResult = await printSettingsApi.uploadLogo(logoFile)
+        const uploadResult = await uploadPrintLogo(logoFile).unwrap()
         logoUrl = uploadResult.logoUrl
       }
 
       // Update settings
-      const updatedSettings = await printSettingsApi.updatePrintSettings({
+      const updatedSettings = await updatePrintSettings({
         ...data,
         logoUrl,
-      })
+      }).unwrap()
 
       onUpdate(updatedSettings)
       showSuccess('Print settings updated successfully')

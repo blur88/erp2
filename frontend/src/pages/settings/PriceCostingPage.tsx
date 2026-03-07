@@ -19,7 +19,10 @@ import { useForm, Controller, useWatch } from 'react-hook-form'
 import * as yup from 'yup'
 import { yupResolver } from '@hookform/resolvers/yup'
 import { useNotification } from '@/hooks/useNotification'
-import { settingsApi } from '@/services/settingsApi'
+import {
+  useGetPriceCostingSettingsQuery,
+  useUpdatePriceCostingSettingsMutation,
+} from '@/store/api/settingsApi'
 import { inventoryApi } from '@/services/inventoryApi'
 import { TYPOGRAPHY_STYLES } from '@/constants/typography'
 
@@ -41,11 +44,12 @@ const COSTING_METHODS = [
 const PriceCostingPage: React.FC = () => {
   const { showSuccess, showError } = useNotification()
   const [submitting, setSubmitting] = useState(false)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
   const [recalculating, setRecalculating] = useState(false)
   const [savedCostingMethod, setSavedCostingMethod] = useState<string>('')
   const [currentCostingMethod, setCurrentCostingMethod] = useState<string>('')
+
+  const { data: settingsData, isLoading: loading, error: fetchError, refetch } = useGetPriceCostingSettingsQuery()
+  const [updatePriceCostingSettings] = useUpdatePriceCostingSettingsMutation()
 
   const { control, handleSubmit, formState: { errors }, setValue } = useForm<PriceCostingFormData>({
     resolver: yupResolver(schema) as any,
@@ -67,38 +71,27 @@ const PriceCostingPage: React.FC = () => {
     }
   }, [watchedCostingMethod])
 
-  // Fetch settings on mount
+  // Populate form when settings load
   useEffect(() => {
-    fetchSettings()
-  }, [])
-
-  const fetchSettings = async () => {
-    try {
-      setLoading(true)
-      setError(null)
-      const response = await settingsApi.getPriceCostingSettings()
-      const settings = response as any
-
-      // Set form values
+    if (settingsData) {
+      const settings = settingsData as any
       setValue('costingMethod', settings.costingMethod || 'AVERAGE')
-
-      // Track saved costing method
       setSavedCostingMethod(settings.costingMethod || 'AVERAGE')
       setCurrentCostingMethod(settings.costingMethod || 'AVERAGE')
-    } catch (error: any) {
-      const errorMessage = error.response?.data?.message || error.message || 'Failed to load settings'
-      setError(errorMessage)
-      showError(errorMessage)
-    } finally {
-      setLoading(false)
     }
+  }, [settingsData, setValue])
+
+  const fetchSettings = () => {
+    refetch()
   }
+
+  const error = fetchError ? ((fetchError as any)?.message || 'Failed to load settings') : null
 
   const onSubmit = async (data: PriceCostingFormData) => {
     try {
       setSubmitting(true)
 
-      await settingsApi.updatePriceCostingSettings(data)
+      await updatePriceCostingSettings(data).unwrap()
 
       // Update saved costing method after successful save
       setSavedCostingMethod(data.costingMethod)
@@ -106,7 +99,7 @@ const PriceCostingPage: React.FC = () => {
       showSuccess('Inventory costing settings saved successfully.')
 
       // Reload settings to get updated data
-      await fetchSettings()
+      refetch()
     } catch (error: any) {
       const errorMessage = error.response?.data?.message || error.message || 'Failed to save settings'
       showError(errorMessage)

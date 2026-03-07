@@ -11,8 +11,7 @@ import {
 import {
   Print as PrintIcon,
 } from '@mui/icons-material'
-import { useNotification } from '@/hooks/useNotification'
-import { printSettingsApi } from '@/services/printSettingsApi'
+import { useGetPrintSettingsQuery } from '@/store/api/printSettingsApi'
 import { TYPOGRAPHY_STYLES } from '@/constants/typography'
 import GeneralTab from './PrintSettings/GeneralTab'
 import TemplatesTab from './PrintSettings/TemplatesTab'
@@ -40,29 +39,23 @@ function TabPanel(props: TabPanelProps) {
 }
 
 const PrintSettingsPage: React.FC = () => {
-  const { showSuccess, showError } = useNotification()
   const [tabValue, setTabValue] = useState(0)
-  const [settings, setSettings] = useState<any>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [localSettings, setLocalSettings] = useState<any>(null)
 
+  const { data: printSettingsData, isLoading: loading, error: fetchError, refetch } = useGetPrintSettingsQuery()
+
+  // Keep localSettings in sync with RTK data
   useEffect(() => {
-    fetchPrintSettings()
-  }, [])
-
-  const fetchPrintSettings = async () => {
-    try {
-      setLoading(true)
-      setError(null)
-      const response = await printSettingsApi.getPrintSettings()
-      setSettings(response)
-    } catch (err: any) {
-      console.error('Error fetching print settings:', err)
-      setError(err.message || 'Failed to load print settings')
-      showError('Failed to load print settings')
-    } finally {
-      setLoading(false)
+    if (printSettingsData) {
+      setLocalSettings(printSettingsData)
     }
+  }, [printSettingsData])
+
+  const settings = localSettings ?? printSettingsData ?? null
+  const error = fetchError ? ((fetchError as any)?.message || 'Failed to load print settings') : null
+
+  const fetchPrintSettings = () => {
+    refetch()
   }
 
   const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
@@ -70,7 +63,7 @@ const PrintSettingsPage: React.FC = () => {
   }
 
   const handleSettingsUpdate = (updatedSettings: any) => {
-    setSettings(updatedSettings)
+    setLocalSettings(updatedSettings)
   }
 
   if (loading) {
