@@ -47,7 +47,7 @@ import { useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
 import DeletedVendorPaymentsDialog from '@/components/purchasing/DeletedVendorPaymentsDialog'
 import { VendorPaymentPrint } from '@/components/print'
 import { journalEntriesApi } from '@/services/accountingApi'
-import { paymentMethodsApi } from '@/services/paymentMethodsApi'
+import { useGetActivePaymentMethodsQuery } from '@/store/api/paymentMethodsApi'
 
 interface VendorPaymentFilters {
   search: string
@@ -170,7 +170,7 @@ const VendorPaymentsPage: React.FC = () => {
   const [focusedPaymentIndex, setFocusedPaymentIndex] = useState(-1)
   const paymentListRef = useRef<HTMLDivElement>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
-  const [paymentMethods, setPaymentMethods] = useState<Array<{ id: string; name: string }>>([])
+  const { data: paymentMethods = [] } = useGetActivePaymentMethodsQuery()
   const queryParams = useMemo(() => {
     const dateRange = getDateRangeFromFilter(filters.dateFilter, filters.customFromDate, filters.customToDate)
     return {
@@ -221,22 +221,6 @@ const VendorPaymentsPage: React.FC = () => {
       }
     }
   }, [handlePaymentSelect, searchParams, setSearchParams, vendorPayments])
-
-  useEffect(() => {
-    paymentMethodsApi
-      .getActive()
-      .then((response: any) => {
-        const methods = response?.data?.data || response?.data || response || []
-        setPaymentMethods(
-          Array.isArray(methods)
-            ? methods.map((pm: any) => ({ id: pm.id, name: pm.name }))
-            : [],
-        )
-      })
-      .catch(() => {
-        setPaymentMethods([])
-      })
-  }, [])
 
   // Auto-refresh selected payment when the list updates
   useEffect(() => {

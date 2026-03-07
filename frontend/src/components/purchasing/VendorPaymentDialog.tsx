@@ -17,7 +17,7 @@ import {
   CircularProgress,
 } from '@mui/material'
 import { Delete as DeleteIcon, Add as AddIcon } from '@mui/icons-material'
-import { paymentMethodsApi } from '@/services/paymentMethodsApi'
+import { useGetActivePaymentMethodsForPurchasesQuery } from '@/store/api/paymentMethodsApi'
 
 interface PaymentLine {
   paymentMethodId: string
@@ -47,7 +47,7 @@ export default function VendorPaymentDialog({
   paidAmount,
 }: VendorPaymentDialogProps) {
   const outstandingBalance = Math.max(0, totalAmount - paidAmount)
-  const [paymentMethods, setPaymentMethods] = useState<any[]>([])
+  const { data: paymentMethods = [] } = useGetActivePaymentMethodsForPurchasesQuery(undefined, { skip: !open })
   const [lines, setLines] = useState<PaymentLine[]>([])
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -56,20 +56,13 @@ export default function VendorPaymentDialog({
     if (!open) return
     setError(null)
     setSubmitting(false)
-    paymentMethodsApi.getActiveForPurchases().then((methods: any) => {
-      const list = Array.isArray(methods) ? methods : (methods as any)?.data || []
-      setPaymentMethods(list)
-      const cashMethod = list.find((m: any) => m.code === 'CASH')
-      setLines([{
-        paymentMethodId: cashMethod?.id || list[0]?.id || '',
-        amount: outstandingBalance > 0 ? outstandingBalance : '',
-        reference: '',
-      }])
-    }).catch(() => {
-      setPaymentMethods([])
-      setLines([{ paymentMethodId: '', amount: outstandingBalance > 0 ? outstandingBalance : '', reference: '' }])
-    })
-  }, [open, outstandingBalance])
+    const cashMethod = paymentMethods.find((m) => m.code === 'CASH')
+    setLines([{
+      paymentMethodId: cashMethod?.id || paymentMethods[0]?.id || '',
+      amount: outstandingBalance > 0 ? outstandingBalance : '',
+      reference: '',
+    }])
+  }, [open, paymentMethods, outstandingBalance])
 
   const totalEntered = lines.reduce((sum, l) => sum + (typeof l.amount === 'number' ? l.amount : parseFloat(l.amount as string) || 0), 0)
   const remaining = outstandingBalance - totalEntered
@@ -83,7 +76,7 @@ export default function VendorPaymentDialog({
   }, [])
 
   const addLine = useCallback(() => {
-    const cashMethod = paymentMethods.find((m: any) => m.code === 'CASH')
+    const cashMethod = paymentMethods.find((m) => m.code === 'CASH')
     setLines(prev => [...prev, {
       paymentMethodId: cashMethod?.id || paymentMethods[0]?.id || '',
       amount: remaining > 0 ? remaining : '',
@@ -152,7 +145,7 @@ export default function VendorPaymentDialog({
                 sx={{ fontSize: '0.85rem' }}
               >
                 <MenuItem value="" disabled>Method</MenuItem>
-                {paymentMethods.map((pm: any) => (
+                {paymentMethods.map((pm) => (
                   <MenuItem key={pm.id} value={pm.id} sx={{ fontSize: '0.85rem' }}>
                     {pm.name}
                   </MenuItem>
