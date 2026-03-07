@@ -87,7 +87,7 @@ export const settingsApiSlice = createApi({
       query: (file) => {
         const formData = new FormData()
         formData.append('logo', file)
-        return { url: '/settings/company/logo', method: 'POST', data: formData, headers: { 'Content-Type': 'multipart/form-data' } }
+        return { url: '/settings/company/logo', method: 'POST', data: formData }
       },
       transformResponse: normalizeSingle<CompanySettings>,
       invalidatesTags: ['CompanySettings'],

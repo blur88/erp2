@@ -77,7 +77,7 @@ export const printSettingsApiSlice = createApi({
       query: (file) => {
         const formData = new FormData()
         formData.append('file', file)
-        return { url: '/print-settings/upload-logo', method: 'POST', data: formData, headers: { 'Content-Type': 'multipart/form-data' } }
+        return { url: '/print-settings/upload-logo', method: 'POST', data: formData }
       },
       invalidatesTags: ['PrintSettings'],
     }),
