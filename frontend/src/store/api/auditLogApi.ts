@@ -1,10 +1,32 @@
 import { createApi } from '@reduxjs/toolkit/query/react'
 
 import type { AuditLog, PaginatedResponse } from '@/types'
-import type { AuditLogFilters, AuditLogStatistics } from '@/services/auditLogApi'
 
 import { axiosBaseQuery } from './baseQuery'
 import { normalizePaginated } from './normalizers'
+
+export interface AuditLogFilters {
+  page?: number
+  limit?: number
+  search?: string
+  action?: string
+  entityType?: string
+  entityId?: string
+  userId?: string
+  username?: string
+  startDate?: string
+  endDate?: string
+  sortBy?: string
+  sortOrder?: 'ASC' | 'DESC'
+  ipAddress?: string
+}
+
+export interface AuditLogStatistics {
+  total: number
+  byAction: Array<{ action: string; count: number }>
+  byEntityType: Array<{ entityType: string; count: number }>
+  topUsers: Array<{ userId: string; username: string; count: number }>
+}
 
 export const auditLogApiSlice = createApi({
   reducerPath: 'auditLogApi',
