@@ -46,11 +46,27 @@ do_audit() {
   (cd "$ROOT_DIR/frontend" && npm audit) || true
 }
 
+do_top_lines() {
+  echo -e "${BOLD}${YELLOW}--- Top 5 files by line count ---${RESET}"
+  find "$ROOT_DIR" \
+    -type f \
+    \( -name "*.ts" -o -name "*.tsx" -o -name "*.js" -o -name "*.jsx" \) \
+    ! -path "*/node_modules/*" \
+    ! -path "*/dist/*" \
+    ! -path "*/.git/*" \
+    -exec wc -l {} + 2>/dev/null \
+    | sort -rn \
+    | grep -v '^ *0 ' \
+    | head -6 \
+    | grep -v ' total$'
+}
+
 STEPS=(
   "Knip (dead code / unused deps check)"
   "Outdated packages"
   "Update packages (within semver ranges)"
   "Audit (security vulnerabilities)"
+  "Top 5 files by line count"
 )
 
 run_step() {
@@ -59,6 +75,7 @@ run_step() {
     1) do_outdated ;;
     2) do_update ;;
     3) do_audit ;;
+    4) do_top_lines ;;
   esac
 }
 
@@ -79,6 +96,7 @@ prompt_next() {
       2) echo "1" ; return ;;
       3) echo "2" ; return ;;
       4) echo "3" ; return ;;
+      5) echo "4" ; return ;;
       [Rr]) echo "$current" ; return ;;
       [Qq]) echo "-1" ; return ;;
       *) echo -e "${RED}Invalid choice.${RESET}" >&2 ;;
@@ -100,9 +118,9 @@ echo ""
 
 # Pick starting step
 while true; do
-  read -rp "$(echo -e "${BOLD}Start with (1/2/3/4): ${RESET}")" start
+  read -rp "$(echo -e "${BOLD}Start with (1/2/3/4/5): ${RESET}")" start
   case "$start" in
-    1|2|3|4) current=$((start-1)) ; break ;;
+    1|2|3|4|5) current=$((start-1)) ; break ;;
     *) echo -e "${RED}Please enter 1, 2, 3, or 4.${RESET}" ;;
   esac
 done
