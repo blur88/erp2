@@ -38,10 +38,19 @@ do_update() {
   echo -e "${GREEN}Frontend updated.${RESET}"
 }
 
+do_audit() {
+  echo -e "${BOLD}${YELLOW}--- BACKEND (NestJS) ---${RESET}"
+  (cd "$ROOT_DIR/backend" && npm audit) || true
+  echo ""
+  echo -e "${BOLD}${YELLOW}--- FRONTEND (React/Vite) ---${RESET}"
+  (cd "$ROOT_DIR/frontend" && npm audit) || true
+}
+
 STEPS=(
   "Knip (dead code / unused deps check)"
   "Outdated packages"
   "Update packages (within semver ranges)"
+  "Audit (security vulnerabilities)"
 )
 
 run_step() {
@@ -49,6 +58,7 @@ run_step() {
     0) do_knip ;;
     1) do_outdated ;;
     2) do_update ;;
+    3) do_audit ;;
   esac
 }
 
@@ -68,6 +78,7 @@ prompt_next() {
       1) echo "0" ; return ;;
       2) echo "1" ; return ;;
       3) echo "2" ; return ;;
+      4) echo "3" ; return ;;
       [Rr]) echo "$current" ; return ;;
       [Qq]) echo "-1" ; return ;;
       *) echo -e "${RED}Invalid choice.${RESET}" >&2 ;;
@@ -89,10 +100,10 @@ echo ""
 
 # Pick starting step
 while true; do
-  read -rp "$(echo -e "${BOLD}Start with (1/2/3): ${RESET}")" start
+  read -rp "$(echo -e "${BOLD}Start with (1/2/3/4): ${RESET}")" start
   case "$start" in
-    1|2|3) current=$((start-1)) ; break ;;
-    *) echo -e "${RED}Please enter 1, 2, or 3.${RESET}" ;;
+    1|2|3|4) current=$((start-1)) ; break ;;
+    *) echo -e "${RED}Please enter 1, 2, 3, or 4.${RESET}" ;;
   esac
 done
 
