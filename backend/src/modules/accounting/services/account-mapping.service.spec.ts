@@ -67,6 +67,7 @@ describe('AccountMappingService', () => {
             save: jest.fn(),
             recover: jest.fn(),
             softDelete: jest.fn(),
+            update: jest.fn(),
             createQueryBuilder: jest.fn(() => mockQueryBuilder),
           },
         },
