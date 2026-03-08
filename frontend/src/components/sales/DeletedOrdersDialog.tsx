@@ -33,21 +33,20 @@ import {
   Close as CloseIcon,
   Receipt as OrderIcon,
 } from '@mui/icons-material'
-import { useDispatch, useSelector } from 'react-redux'
-import {
-  fetchDeletedOrders,
-  restoreOrder,
-  bulkRestoreOrders,
-  bulkDeleteOrders,
-  permanentDeleteOrder,
-  selectDeletedOrders,
-  selectSalesLoading,
-  fetchOrders
-} from '@/store/slices/salesSlice'
+import { skipToken } from '@reduxjs/toolkit/query'
 import { useNotification } from '@/hooks/useNotification'
 import LoadingSpinner from '@/components/common/LoadingSpinner'
 import type { SalesOrder } from '@/types'
 import { formatCurrency, formatDate } from '@/utils/formatters'
+import {
+  useBulkPermanentDeleteSalesOrdersMutation,
+  useBulkRestoreSalesOrdersMutation,
+  useGetDeletedSalesOrdersQuery,
+  usePermanentDeleteSalesOrderMutation,
+  useRestoreSalesOrderMutation,
+} from '@/store/api/salesApi'
+
+type DeletedSalesOrder = SalesOrder & { deletedAt?: string | Date }
 
 interface DeletedOrdersDialogProps {
   open: boolean
@@ -55,13 +54,17 @@ interface DeletedOrdersDialogProps {
 }
 
 const DeletedOrdersDialog: React.FC<DeletedOrdersDialogProps> = ({ open, onClose }) => {
-  const dispatch = useDispatch() as any
   const { showSuccess, showError } = useNotification()
   const theme = useTheme()
   const isMobile = useMediaQuery(theme.breakpoints.down('md'))
   const isTablet = useMediaQuery(theme.breakpoints.down('lg'))
-  const deletedOrders = useSelector(selectDeletedOrders) || []
-  const loading = useSelector(selectSalesLoading)
+  const { data, isLoading, refetch } = useGetDeletedSalesOrdersQuery(open ? {} : skipToken)
+  const [restoreSalesOrder] = useRestoreSalesOrderMutation()
+  const [bulkRestoreSalesOrders] = useBulkRestoreSalesOrdersMutation()
+  const [permanentDeleteSalesOrder] = usePermanentDeleteSalesOrderMutation()
+  const [bulkPermanentDeleteSalesOrders] = useBulkPermanentDeleteSalesOrdersMutation()
+  const deletedOrders = (data?.data ?? []) as DeletedSalesOrder[]
+  const loading = isLoading
 
   const [searchTerm, setSearchTerm] = useState('')
   const [restoringId, setRestoringId] = useState<string | null>(null)
@@ -75,11 +78,10 @@ const DeletedOrdersDialog: React.FC<DeletedOrdersDialogProps> = ({ open, onClose
 
   useEffect(() => {
     if (open) {
-      dispatch(fetchDeletedOrders({}))
       // Reset selections when dialog opens
       setSelectedOrders(new Set())
     }
-  }, [open, dispatch])
+  }, [open])
 
   // Filter orders based on search term
   const filteredOrders = deletedOrders.filter(order =>
@@ -92,19 +94,12 @@ const DeletedOrdersDialog: React.FC<DeletedOrdersDialogProps> = ({ open, onClose
   const allSelected = filteredOrders.length > 0 && selectedOrders.size === filteredOrders.length
   const partiallySelected = selectedOrders.size > 0 && selectedOrders.size < filteredOrders.length
 
-  const handleRestore = async (order: SalesOrder) => {
+  const handleRestore = async (order: DeletedSalesOrder) => {
     setRestoringId(order.id)
     try {
-      const result = await dispatch(restoreOrder(order.id))
-
-      if (restoreOrder.rejected.match(result)) {
-        throw new Error(result.payload as string)
-      }
+      await restoreSalesOrder(order.id).unwrap()
 
       showSuccess(`Order "${order.orderNumber}" restored successfully`)
-      // Refresh both deleted and active orders
-      dispatch(fetchDeletedOrders({}))
-      dispatch(fetchOrders({}))
     } catch (error: any) {
       console.error('Order restore error:', error)
       const errorMessage = error?.response?.data?.message || error?.message || 'Failed to restore order'
@@ -138,14 +133,8 @@ const DeletedOrdersDialog: React.FC<DeletedOrdersDialogProps> = ({ open, onClose
     setBulkRestoring(true)
     try {
       const orderIds = Array.from(selectedOrders)
-      const result = await dispatch(bulkRestoreOrders(orderIds))
+      const payload = await bulkRestoreSalesOrders(orderIds).unwrap() as any
 
-      if (bulkRestoreOrders.rejected.match(result)) {
-        throw new Error(result.payload as string)
-      }
-
-      const payload = result.payload as any
-      console.log('Bulk restore payload:', payload) // Debug log
       const restoredCount = payload?.restoredCount || 0
       const failedIds = payload?.failedIds || []
 
@@ -157,9 +146,6 @@ const DeletedOrdersDialog: React.FC<DeletedOrdersDialogProps> = ({ open, onClose
         showError(`Failed to restore ${failedIds.length} orders`)
       }
 
-      // Refresh both deleted and active orders and clear selections
-      dispatch(fetchDeletedOrders({}))
-      dispatch(fetchOrders({}))
       setSelectedOrders(new Set())
     } catch (error: any) {
       console.error('Bulk restore error:', error)
@@ -171,17 +157,12 @@ const DeletedOrdersDialog: React.FC<DeletedOrdersDialogProps> = ({ open, onClose
     }
   }
 
-  const handlePermanentDelete = async (order: SalesOrder) => {
+  const handlePermanentDelete = async (order: DeletedSalesOrder) => {
     setDeletingId(order.id)
     try {
-      const result = await dispatch(permanentDeleteOrder(order.id))
-
-      if (permanentDeleteOrder.rejected.match(result)) {
-        throw new Error(result.payload as string)
-      }
+      await permanentDeleteSalesOrder(order.id).unwrap()
 
       showSuccess(`Order "${order.orderNumber}" permanently deleted`)
-      // No need to refresh as the Redux reducer removes it from the list
     } catch (error: any) {
       console.error('Order permanent delete error:', error)
       const errorMessage = error?.response?.data?.message || error?.message || 'Failed to permanently delete order'
@@ -196,14 +177,8 @@ const DeletedOrdersDialog: React.FC<DeletedOrdersDialogProps> = ({ open, onClose
     setBulkDeleting(true)
     try {
       const orderIds = Array.from(selectedOrders)
-      const result = await dispatch(bulkDeleteOrders(orderIds))
+      const payload = await bulkPermanentDeleteSalesOrders(orderIds).unwrap() as any
 
-      if (bulkDeleteOrders.rejected.match(result)) {
-        throw new Error(result.payload as string)
-      }
-
-      const payload = result.payload as any
-      console.log('Bulk delete payload:', payload) // Debug log
       const deletedCount = payload?.deletedCount || 0
       const failedIds = payload?.failedIds || []
 
@@ -215,8 +190,6 @@ const DeletedOrdersDialog: React.FC<DeletedOrdersDialogProps> = ({ open, onClose
         showError(`Failed to delete ${failedIds.length} orders`)
       }
 
-      // Refresh deleted orders list and clear selections
-      dispatch(fetchDeletedOrders({}))
       setSelectedOrders(new Set())
     } catch (error: any) {
       console.error('Bulk delete error:', error)
@@ -225,6 +198,7 @@ const DeletedOrdersDialog: React.FC<DeletedOrdersDialogProps> = ({ open, onClose
     } finally {
       setBulkDeleting(false)
       setShowBulkDeleteConfirm(false)
+      void refetch()
     }
   }
 
@@ -302,7 +276,7 @@ const DeletedOrdersDialog: React.FC<DeletedOrdersDialogProps> = ({ open, onClose
           </Box>
         </Box>
 
-        {loading?.deletedOrders ? (
+        {loading ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
             <CircularProgress />
           </Box>

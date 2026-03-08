@@ -20,13 +20,11 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
-import { useAppDispatch, useAppSelector } from '@/hooks/useRedux';
 import type { PaymentMethodConfig } from '@/types';
-import { paymentMethodsApi } from '@/services/paymentMethodsApi';
 import {
-  fetchPendingPayments,
-  selectPendingPayments,
-} from '@/store/slices/settlementsSlice';
+  useGetPaymentMethodsQuery,
+  useGetPendingSettlementPaymentsQuery,
+} from '@/store/api/accountingApi';
 import { formatCurrency, formatDate } from '@/utils/formatters';
 
 interface CreateSettlementDialogProps {
@@ -42,29 +40,24 @@ interface CreateSettlementDialogProps {
 }
 
 const CreateSettlementDialog: React.FC<CreateSettlementDialogProps> = ({ open, onClose, onCreate }) => {
-  const dispatch = useAppDispatch();
-  const pendingPayments = useAppSelector(selectPendingPayments);
-
-  const [methods, setMethods] = useState<PaymentMethodConfig[]>([]);
   const [paymentMethodId, setPaymentMethodId] = useState('');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [settlementDate, setSettlementDate] = useState(new Date().toISOString().slice(0, 10));
   const [reference, setReference] = useState('');
   const [notes, setNotes] = useState('');
+  const { data: paymentMethodsResponse } = useGetPaymentMethodsQuery(
+    { page: 1, isActive: true },
+    { skip: !open },
+  );
+  const { data: pendingPayments = [] } = useGetPendingSettlementPaymentsQuery(paymentMethodId, {
+    skip: !open || !paymentMethodId,
+  });
 
-  useEffect(() => {
-    if (!open) return;
-    paymentMethodsApi.getActive().then((rows) => {
-      setMethods(rows.filter((m) => m.requiresSettlement));
-    });
-  }, [open]);
-
-  useEffect(() => {
-    if (!paymentMethodId) {
-      return;
-    }
-    dispatch(fetchPendingPayments(paymentMethodId));
-  }, [dispatch, paymentMethodId]);
+  const methods = useMemo(
+    () =>
+      ((paymentMethodsResponse?.data ?? []) as PaymentMethodConfig[]).filter((method) => method.requiresSettlement),
+    [paymentMethodsResponse],
+  );
 
   useEffect(() => {
     if (!open) {

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect } from 'react'
 import {
   Box,
   Typography,
@@ -35,7 +35,13 @@ import {
 } from '@mui/icons-material'
 import { useAppSelector } from '@/hooks/useRedux'
 import { useNotification } from '@/hooks/useNotification'
-import { userManagementApi } from '@/services/userManagementApi'
+import {
+  useDeactivateUserMutation,
+  useGetStatisticsQuery,
+  useGetUsersQuery,
+  useUnlockUserMutation,
+  useUpdateUserMutation,
+} from '@/store/api/userManagementApi'
 import type { User } from '@/types'
 import UserFormDialog from '@/components/settings/UserFormDialog'
 import ConfirmationDialog from '@/components/common/ConfirmationDialog'
@@ -47,12 +53,8 @@ const UserManagementPage: React.FC = () => {
   const { showSuccess, showError } = useNotification()
 
   // State
-  const [users, setUsers] = useState<User[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
   const [page, setPage] = useState(0)
   const [rowsPerPage, setRowsPerPage] = useState(20)
-  const [totalCount, setTotalCount] = useState(0)
 
   // Filters
   const [searchQuery, setSearchQuery] = useState('')
@@ -74,13 +76,20 @@ const UserManagementPage: React.FC = () => {
     action: () => {},
   })
 
-  // Statistics
-  const [statistics, setStatistics] = useState<{
-    total: number
-    active: number
-    inactive: number
-    locked: number
-  } | null>(null)
+  const usersQueryParams = {
+    page: page + 1,
+    limit: rowsPerPage,
+    search: searchQuery.trim() || undefined,
+    role: roleFilter !== 'all' ? (roleFilter as any) : undefined,
+    status: statusFilter !== 'all' ? (statusFilter as any) : undefined,
+  }
+  const { data: usersResponse, isLoading: loading, error, refetch: refetchUsers } = useGetUsersQuery(usersQueryParams)
+  const { data: statistics, refetch: refetchStatistics } = useGetStatisticsQuery()
+  const [unlockUser] = useUnlockUserMutation()
+  const [deactivateUser] = useDeactivateUserMutation()
+  const [updateUser] = useUpdateUserMutation()
+  const users = usersResponse?.data ?? []
+  const totalCount = usersResponse?.meta?.total ?? 0
 
   // Check if user is admin
   useEffect(() => {
@@ -89,56 +98,6 @@ const UserManagementPage: React.FC = () => {
       window.location.href = '/dashboard'
     }
   }, [currentUser, showError])
-
-  // Fetch users
-  const fetchUsers = useCallback(async () => {
-    try {
-      setLoading(true)
-      setError(null)
-
-      const filters: any = {
-        page: page + 1,
-        limit: rowsPerPage,
-      }
-
-      if (searchQuery.trim()) {
-        filters.search = searchQuery.trim()
-      }
-
-      if (roleFilter !== 'all') {
-        filters.role = roleFilter
-      }
-
-      if (statusFilter !== 'all') {
-        filters.status = statusFilter
-      }
-
-      const response = await userManagementApi.getUsers(filters)
-      setUsers(response.data || [])
-      setTotalCount(response.meta?.total || 0)
-    } catch (err: any) {
-      console.error('Failed to fetch users:', err)
-      setError(err.response?.data?.message || 'Failed to load users')
-      showError('Failed to load users')
-    } finally {
-      setLoading(false)
-    }
-  }, [page, rowsPerPage, searchQuery, roleFilter, statusFilter, showError])
-
-  // Fetch statistics
-  const fetchStatistics = useCallback(async () => {
-    try {
-      const stats = await userManagementApi.getStatistics()
-      setStatistics(stats)
-    } catch (err: any) {
-      console.error('Failed to fetch statistics:', err)
-    }
-  }, [])
-
-  useEffect(() => {
-    fetchUsers()
-    fetchStatistics()
-  }, [fetchUsers, fetchStatistics])
 
   // Handlers
   const handleSearch = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -183,8 +142,6 @@ const UserManagementPage: React.FC = () => {
   const handleFormSuccess = () => {
     setFormDialogOpen(false)
     setSelectedUser(null)
-    fetchUsers()
-    fetchStatistics()
     showSuccess(selectedUser ? 'User updated successfully' : 'User created successfully')
   }
 
@@ -195,10 +152,8 @@ const UserManagementPage: React.FC = () => {
       message: `Are you sure you want to unlock ${user.username}'s account? This will reset their failed login attempts.`,
       action: async () => {
         try {
-          await userManagementApi.unlockUser(user.id)
+          await unlockUser(user.id).unwrap()
           showSuccess('User account unlocked successfully')
-          fetchUsers()
-          fetchStatistics()
         } catch (err: any) {
           showError(err.response?.data?.message || 'Failed to unlock user')
         }
@@ -215,14 +170,12 @@ const UserManagementPage: React.FC = () => {
       action: async () => {
         try {
           if (action === 'deactivate') {
-            await userManagementApi.deactivateUser(user.id)
+            await deactivateUser(user.id).unwrap()
             showSuccess('User deactivated successfully')
           } else {
-            await userManagementApi.updateUser(user.id, { status: 'active' })
+            await updateUser({ id: user.id, data: { status: 'active' } }).unwrap()
             showSuccess('User activated successfully')
           }
-          fetchUsers()
-          fetchStatistics()
         } catch (err: any) {
           showError(err.response?.data?.message || `Failed to ${action} user`)
         }
@@ -311,8 +264,8 @@ const UserManagementPage: React.FC = () => {
             variant="outlined"
             startIcon={<RefreshIcon />}
             onClick={() => {
-              fetchUsers()
-              fetchStatistics()
+              refetchUsers()
+              refetchStatistics()
             }}
           >
             Refresh
@@ -392,8 +345,8 @@ const UserManagementPage: React.FC = () => {
 
       {/* Error Alert */}
       {error && (
-        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
-          {error}
+        <Alert severity="error" sx={{ mb: 2 }}>
+          Failed to load users
         </Alert>
       )}
 

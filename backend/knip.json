@@ -3,18 +3,11 @@
   "entry": [
     "src/main.ts",
     "src/config/database.config.ts",
-    "src/config/cli-datasource.ts"
+    "src/config/cli-datasource.ts",
+    "src/modules/audit-logs/dto/query-audit-logs.dto.ts"
   ],
   "project": ["src/**/*.ts"],
-  "ignore": [
-    "src/database/migrations/**",
-    "src/modules/audit-logs/dto/query-audit-logs.dto.ts",
-    "src/modules/dashboard/interfaces/dashboard-interfaces.ts"
-  ],
-  "ignoreDependencies": [
-    "ts-loader",
-    "supertest",
-    "@types/supertest"
-  ],
+  "ignore": ["src/database/migrations/**"],
+  "ignoreDependencies": ["ts-loader"],
   "ignoreExportsUsedInFile": true
 }

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React from 'react'
 import {
   Box,
   Typography,
@@ -41,7 +41,7 @@ import { Line } from 'react-chartjs-2'
 import { formatCurrency, formatDate } from '@/utils/formatters'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
 import { useNavigate } from 'react-router-dom'
-import { purchasingApi } from '@/services/purchasingApi'
+import { useGetPurchaseOrdersQuery, useGetSuppliersQuery } from '@/store/api/purchasingApi'
 
 ChartJS.register(
   CategoryScale,
@@ -58,163 +58,103 @@ ChartJS.register(
 const PurchasingPage: React.FC = () => {
   const theme = useTheme()
   const navigate = useNavigate()
-  const [purchasingData, setPurchasingData] = useState<any>(null)
-  const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    fetchPurchasingData()
-  }, [])
+  const { data: ordersResponse, isFetching: ordersLoading } = useGetPurchaseOrdersQuery({
+    sortBy: 'orderDate',
+    sortOrder: 'DESC',
+  })
+  const { data: suppliersResponse, isFetching: suppliersLoading } = useGetSuppliersQuery({})
+  const loading = ordersLoading || suppliersLoading
 
-  const fetchPurchasingData = async () => {
-    try {
-      setLoading(true)
+  const allOrders: any[] = ordersResponse?.data || []
+  const suppliersData: any[] = suppliersResponse?.data || []
 
-      // Fetch purchase orders
-      const ordersResponse = await purchasingApi.getPurchaseOrders({
-        sortBy: 'orderDate',
-        sortOrder: 'DESC' as any
-      })
-      let ordersData = []
-      let allOrders = []
-      if (ordersResponse?.orders) {
-        // Backend returns { orders: [...], total, page, limit, totalPages }
-        allOrders = ordersResponse.orders || []
-        ordersData = allOrders.slice(0, 5)
+  // Calculate top suppliers from orders
+  const supplierStats: { [key: string]: { name: string, totalSpent: number, orderCount: number } } = {}
+  allOrders.forEach((order: any) => {
+    const supplierId = order.supplier?.id
+    const supplierName = order.supplier?.companyName || 'Unknown Supplier'
+    const amount = parseFloat(order.totalAmount) || 0
+    if (supplierId) {
+      if (!supplierStats[supplierId]) {
+        supplierStats[supplierId] = { name: supplierName, totalSpent: 0, orderCount: 0 }
       }
-
-      // Fetch suppliers
-      const suppliersResponse = await purchasingApi.getSuppliers() as any
-      let suppliersData = []
-      if (suppliersResponse?.suppliers) {
-        // Backend returns { suppliers: [...], total, page, limit, totalPages }
-        suppliersData = suppliersResponse.suppliers || []
-      }
-
-      // Calculate top suppliers from orders
-      const supplierStats: { [key: string]: { name: string, totalSpent: number, orderCount: number } } = {}
-
-      allOrders.forEach((order: any) => {
-        const supplierId = order.supplier?.id
-        const supplierName = order.supplier?.companyName || 'Unknown Supplier'
-        const amount = parseFloat(order.totalAmount) || 0
-
-        if (supplierId) {
-          if (!supplierStats[supplierId]) {
-            supplierStats[supplierId] = { name: supplierName, totalSpent: 0, orderCount: 0 }
-          }
-          supplierStats[supplierId].totalSpent += amount
-          supplierStats[supplierId].orderCount += 1
-        }
-      })
-
-      // Convert to array and sort by total spent
-      const topSuppliersData = Object.entries(supplierStats)
-        .map(([id, stats]) => ({
-          supplierId: id,
-          supplierName: stats.name,
-          totalSpent: stats.totalSpent,
-          orderCount: stats.orderCount
-        }))
-        .sort((a, b) => b.totalSpent - a.totalSpent)
-        .slice(0, 5)
-
-      // Calculate metrics from all orders
-      const totalSpent = allOrders.reduce((sum: number, order: any) => sum + (parseFloat(order.totalAmount) || 0), 0)
-      const totalOrders = allOrders.length
-      const avgOrderValue = totalOrders > 0 ? totalSpent / totalOrders : 0
-      // Count active suppliers (backend already filters out soft-deleted records)
-      // Note: isActive field is not included in SupplierResponseDto, but all returned suppliers are active
-      const activeSuppliers = suppliersData.filter((s: any) => !s.deletedAt).length
-
-      // Generate period data for chart (last 30 days)
-      const periodData: any[] = []
-      const today = new Date()
-      const daysToShow = 30
-
-      for (let i = daysToShow - 1; i >= 0; i--) {
-        const date = new Date(today)
-        date.setDate(date.getDate() - i)
-        date.setHours(0, 0, 0, 0)
-
-        const nextDate = new Date(date)
-        nextDate.setDate(nextDate.getDate() + 1)
-
-        const dayOrders = allOrders.filter((order: any) => {
-          const orderDate = new Date(order.orderDate)
-          return orderDate >= date && orderDate < nextDate
-        })
-
-        const spent = dayOrders.reduce((sum: number, order: any) => sum + (parseFloat(order.totalAmount) || 0), 0)
-
-        periodData.push({
-          period: date.toISOString(),
-          spent,
-          orders: dayOrders.length
-        })
-      }
-
-      // Calculate growth percentages (current 30 days vs previous 30 days)
-      const thirtyDaysAgo = new Date(today)
-      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
-
-      const sixtyDaysAgo = new Date(today)
-      sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60)
-
-      // Current period
-      const currentPeriodOrders = allOrders.filter((order: any) => {
-        const orderDate = new Date(order.orderDate)
-        return orderDate >= thirtyDaysAgo && orderDate <= today
-      })
-      const currentSpent = currentPeriodOrders.reduce((sum: number, order: any) => sum + (parseFloat(order.totalAmount) || 0), 0)
-      const currentOrderCount = currentPeriodOrders.length
-
-      // Previous period
-      const previousPeriodOrders = allOrders.filter((order: any) => {
-        const orderDate = new Date(order.orderDate)
-        return orderDate >= sixtyDaysAgo && orderDate < thirtyDaysAgo
-      })
-      const previousSpent = previousPeriodOrders.reduce((sum: number, order: any) => sum + (parseFloat(order.totalAmount) || 0), 0)
-      const previousOrderCount = previousPeriodOrders.length
-
-      // Calculate percentage changes
-      const spentGrowth = previousSpent > 0
-        ? ((currentSpent - previousSpent) / previousSpent) * 100
-        : currentSpent > 0 ? 100 : 0
-
-      const ordersGrowth = previousOrderCount > 0
-        ? ((currentOrderCount - previousOrderCount) / previousOrderCount) * 100
-        : currentOrderCount > 0 ? 100 : 0
-
-      // Calculate supplier growth
-      const suppliersGrowth = 0 // Mock data for now
-
-      // Calculate avg order value growth
-      const currentAvgOrder = currentOrderCount > 0 ? currentSpent / currentOrderCount : 0
-      const previousAvgOrder = previousOrderCount > 0 ? previousSpent / previousOrderCount : 0
-      const avgOrderGrowth = previousAvgOrder > 0
-        ? ((currentAvgOrder - previousAvgOrder) / previousAvgOrder) * 100
-        : currentAvgOrder > 0 ? 100 : 0
-
-      setPurchasingData({
-        metrics: {
-          totalSpent,
-          totalOrders,
-          averageOrderValue: avgOrderValue,
-          activeSuppliers,
-          spentGrowth,
-          ordersGrowth,
-          suppliersGrowth,
-          avgOrderGrowth
-        },
-        recentOrders: ordersData,
-        topSuppliers: topSuppliersData,
-        periodData
-      })
-    } catch (error) {
-      console.error('Error fetching purchasing data:', error)
-    } finally {
-      setLoading(false)
+      supplierStats[supplierId].totalSpent += amount
+      supplierStats[supplierId].orderCount += 1
     }
+  })
+
+  const topSuppliersData = Object.entries(supplierStats)
+    .map(([id, stats]) => ({
+      supplierId: id,
+      supplierName: stats.name,
+      totalSpent: stats.totalSpent,
+      orderCount: stats.orderCount
+    }))
+    .sort((a, b) => b.totalSpent - a.totalSpent)
+    .slice(0, 5)
+
+  const totalSpent = allOrders.reduce((sum: number, order: any) => sum + (parseFloat(order.totalAmount) || 0), 0)
+  const totalOrders = allOrders.length
+  const avgOrderValue = totalOrders > 0 ? totalSpent / totalOrders : 0
+  const activeSuppliers = suppliersData.filter((s: any) => !s.deletedAt).length
+
+  // Generate period data for chart (last 30 days)
+  const periodData: any[] = []
+  const today = new Date()
+  const daysToShow = 30
+  for (let i = daysToShow - 1; i >= 0; i--) {
+    const date = new Date(today)
+    date.setDate(date.getDate() - i)
+    date.setHours(0, 0, 0, 0)
+    const nextDate = new Date(date)
+    nextDate.setDate(nextDate.getDate() + 1)
+    const dayOrders = allOrders.filter((order: any) => {
+      const orderDate = new Date(order.orderDate)
+      return orderDate >= date && orderDate < nextDate
+    })
+    const spent = dayOrders.reduce((sum: number, order: any) => sum + (parseFloat(order.totalAmount) || 0), 0)
+    periodData.push({ period: date.toISOString(), spent, orders: dayOrders.length })
+  }
+
+  // Growth calculations (current vs previous 30 days)
+  const thirtyDaysAgo = new Date(today)
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+  const sixtyDaysAgo = new Date(today)
+  sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60)
+
+  const currentPeriodOrders = allOrders.filter((order: any) => {
+    const orderDate = new Date(order.orderDate)
+    return orderDate >= thirtyDaysAgo && orderDate <= today
+  })
+  const currentSpent = currentPeriodOrders.reduce((sum: number, order: any) => sum + (parseFloat(order.totalAmount) || 0), 0)
+  const currentOrderCount = currentPeriodOrders.length
+
+  const previousPeriodOrders = allOrders.filter((order: any) => {
+    const orderDate = new Date(order.orderDate)
+    return orderDate >= sixtyDaysAgo && orderDate < thirtyDaysAgo
+  })
+  const previousSpent = previousPeriodOrders.reduce((sum: number, order: any) => sum + (parseFloat(order.totalAmount) || 0), 0)
+  const previousOrderCount = previousPeriodOrders.length
+
+  const spentGrowth = previousSpent > 0
+    ? ((currentSpent - previousSpent) / previousSpent) * 100
+    : currentSpent > 0 ? 100 : 0
+  const ordersGrowth = previousOrderCount > 0
+    ? ((currentOrderCount - previousOrderCount) / previousOrderCount) * 100
+    : currentOrderCount > 0 ? 100 : 0
+  const suppliersGrowth = 0
+  const currentAvgOrder = currentOrderCount > 0 ? currentSpent / currentOrderCount : 0
+  const previousAvgOrder = previousOrderCount > 0 ? previousSpent / previousOrderCount : 0
+  const avgOrderGrowth = previousAvgOrder > 0
+    ? ((currentAvgOrder - previousAvgOrder) / previousAvgOrder) * 100
+    : currentAvgOrder > 0 ? 100 : 0
+
+  const purchasingData = {
+    metrics: { totalSpent, totalOrders, averageOrderValue: avgOrderValue, activeSuppliers, spentGrowth, ordersGrowth, suppliersGrowth, avgOrderGrowth },
+    recentOrders: allOrders.slice(0, 5),
+    topSuppliers: topSuppliersData,
+    periodData,
   }
 
   // Chart data

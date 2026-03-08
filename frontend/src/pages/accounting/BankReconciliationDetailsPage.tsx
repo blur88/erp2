@@ -28,48 +28,44 @@ import {
   Delete as DeleteIcon,
   Save as SaveIcon,
 } from '@mui/icons-material';
-import { useDispatch, useSelector } from 'react-redux';
 import { format } from 'date-fns';
 import { useNotification } from '@/hooks/useNotification';
 import {
-  fetchBankReconciliationById,
-  updateBankReconciliation,
-  deleteBankReconciliation,
-  markTransactionsCleared,
-  unmarkTransactionsCleared,
-  completeBankReconciliation,
-  reopenBankReconciliation,
-  selectSelectedReconciliation,
-  selectBankReconciliationsLoading,
-  selectBankReconciliationsError,
-} from '@/store/slices/bankReconciliationsSlice';
+  useCompleteBankReconciliationMutation,
+  useDeleteBankReconciliationMutation,
+  useGetBankReconciliationQuery,
+  useMarkBankReconciliationClearedMutation,
+  useReopenBankReconciliationMutation,
+  useUnmarkBankReconciliationClearedMutation,
+  useUpdateBankReconciliationMutation,
+} from '@/store/api/accountingApi';
 import { BankReconciliationStatus, ReconciledTransaction } from '@/types';
 import { formatCurrency } from '@/utils/formatters';
 import { TYPOGRAPHY_STYLES } from '@/constants/typography';
+import { getErrorMessage } from '@/utils/errorMessage';
 
 const BankReconciliationDetailsPage: React.FC = () => {
   const navigate = useNavigate();
-  const dispatch = useDispatch() as any;
   const { id } = useParams<{ id: string }>();
   const { showSuccess, showError } = useNotification();
 
-  const reconciliation = useSelector(selectSelectedReconciliation);
-  const loading = useSelector(selectBankReconciliationsLoading);
-  const error = useSelector(selectBankReconciliationsError);
+  const {
+    data: reconciliation,
+    isLoading: loading,
+    error,
+    refetch,
+  } = useGetBankReconciliationQuery(id as string, { skip: !id });
+  const [updateBankReconciliation] = useUpdateBankReconciliationMutation();
+  const [deleteBankReconciliation] = useDeleteBankReconciliationMutation();
+  const [markBankReconciliationCleared] = useMarkBankReconciliationClearedMutation();
+  const [unmarkBankReconciliationCleared] = useUnmarkBankReconciliationClearedMutation();
+  const [completeBankReconciliation] = useCompleteBankReconciliationMutation();
+  const [reopenBankReconciliation] = useReopenBankReconciliationMutation();
+  const errorMessage = error ? getErrorMessage(error, 'Failed to fetch reconciliation') : null;
 
   const [reconciliationDate, setReconciliationDate] = useState('');
   const [statementBalance, setStatementBalance] = useState('');
   const [savingHeader, setSavingHeader] = useState(false);
-
-  const toErrorMessage = (error: any): string => {
-    return typeof error === 'string' ? error : error?.message || 'Operation failed';
-  };
-
-  useEffect(() => {
-    if (id) {
-      dispatch(fetchBankReconciliationById(id));
-    }
-  }, [dispatch, id]);
 
   useEffect(() => {
     if (reconciliation) {
@@ -79,10 +75,10 @@ const BankReconciliationDetailsPage: React.FC = () => {
   }, [reconciliation]);
 
   useEffect(() => {
-    if (error) {
-      showError(error);
+    if (errorMessage) {
+      showError(errorMessage);
     }
-  }, [error, showError]);
+  }, [errorMessage, showError]);
 
   const isInProgress = reconciliation?.status === BankReconciliationStatus.IN_PROGRESS;
 
@@ -95,19 +91,17 @@ const BankReconciliationDetailsPage: React.FC = () => {
 
     setSavingHeader(true);
     try {
-      await dispatch(
-        updateBankReconciliation({
-          id,
-          data: {
-            reconciliationDate,
-            statementBalance: Number(statementBalance),
-          },
-        }),
-      ).unwrap();
+      await updateBankReconciliation({
+        id,
+        data: {
+          reconciliationDate,
+          statementBalance: Number(statementBalance),
+        },
+      }).unwrap();
       showSuccess('Reconciliation updated');
-      dispatch(fetchBankReconciliationById(id));
+      refetch();
     } catch (error: any) {
-      showError(toErrorMessage(error));
+      showError(getErrorMessage(error, 'Failed to update reconciliation'));
     } finally {
       setSavingHeader(false);
     }
@@ -117,11 +111,11 @@ const BankReconciliationDetailsPage: React.FC = () => {
     if (!id) return;
 
     try {
-      await dispatch(deleteBankReconciliation(id)).unwrap();
+      await deleteBankReconciliation(id).unwrap();
       showSuccess('Reconciliation deleted successfully');
       navigate('/accounting/bank-reconciliations');
     } catch (error: any) {
-      showError(toErrorMessage(error));
+      showError(getErrorMessage(error, 'Failed to delete reconciliation'));
     }
   };
 
@@ -130,13 +124,13 @@ const BankReconciliationDetailsPage: React.FC = () => {
 
     try {
       if (txn.cleared) {
-        await dispatch(unmarkTransactionsCleared({ id, journalEntryLineIds: [txn.journalEntryLineId] })).unwrap();
+        await unmarkBankReconciliationCleared({ id, journalEntryLineIds: [txn.journalEntryLineId] }).unwrap();
       } else {
-        await dispatch(markTransactionsCleared({ id, journalEntryLineIds: [txn.journalEntryLineId] })).unwrap();
+        await markBankReconciliationCleared({ id, journalEntryLineIds: [txn.journalEntryLineId] }).unwrap();
       }
-      dispatch(fetchBankReconciliationById(id));
+      refetch();
     } catch (error: any) {
-      showError(toErrorMessage(error));
+      showError(getErrorMessage(error, 'Failed to update cleared transactions'));
     }
   };
 
@@ -144,11 +138,11 @@ const BankReconciliationDetailsPage: React.FC = () => {
     if (!id) return;
 
     try {
-      await dispatch(completeBankReconciliation(id)).unwrap();
+      await completeBankReconciliation(id).unwrap();
       showSuccess('Reconciliation completed');
-      dispatch(fetchBankReconciliationById(id));
+      refetch();
     } catch (error: any) {
-      showError(toErrorMessage(error));
+      showError(getErrorMessage(error, 'Failed to complete reconciliation'));
     }
   };
 
@@ -156,11 +150,11 @@ const BankReconciliationDetailsPage: React.FC = () => {
     if (!id) return;
 
     try {
-      await dispatch(reopenBankReconciliation(id)).unwrap();
+      await reopenBankReconciliation(id).unwrap();
       showSuccess('Reconciliation reopened');
-      dispatch(fetchBankReconciliationById(id));
+      refetch();
     } catch (error: any) {
-      showError(toErrorMessage(error));
+      showError(getErrorMessage(error, 'Failed to reopen reconciliation'));
     }
   };
 

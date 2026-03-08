@@ -21,7 +21,12 @@ import { useForm, Controller } from 'react-hook-form'
 import * as yup from 'yup'
 import { yupResolver } from '@hookform/resolvers/yup'
 import { useNotification } from '@/hooks/useNotification'
-import { settingsApi } from '@/services/settingsApi'
+import {
+  useGetCompanySettingsQuery,
+  useUpdateCompanySettingsMutation,
+  useUploadLogoMutation,
+  useDeleteLogoMutation,
+} from '@/store/api/settingsApi'
 import { TYPOGRAPHY_STYLES } from '@/constants/typography'
 
 interface CompanyFormData {
@@ -68,8 +73,11 @@ const CompanySettingsPage: React.FC = () => {
   const [logoPreview, setLogoPreview] = useState<string | null>(null)
   const [logoFile, setLogoFile] = useState<File | null>(null)
   const [submitting, setSubmitting] = useState(false)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+
+  const { data: settings, isLoading: loading, error: fetchError, refetch } = useGetCompanySettingsQuery()
+  const [updateCompanySettings] = useUpdateCompanySettingsMutation()
+  const [uploadLogo] = useUploadLogoMutation()
+  const [deleteLogo] = useDeleteLogoMutation()
 
   const { control, handleSubmit, formState: { errors }, reset, setValue } = useForm<CompanyFormData>({
     resolver: yupResolver(schema) as any,
@@ -87,20 +95,9 @@ const CompanySettingsPage: React.FC = () => {
     },
   })
 
-  // Fetch company settings on mount
+  // Populate form when settings load
   useEffect(() => {
-    fetchCompanySettings()
-  }, [])
-
-  const fetchCompanySettings = async () => {
-    try {
-      setLoading(true)
-      setError(null)
-      const response = await settingsApi.getCompanySettings()
-      // The API returns the data directly, not wrapped in { data: ... }
-      const settings = response as any
-
-      // Set form values
+    if (settings) {
       setValue('name', settings.name)
       setValue('address', settings.address)
       setValue('city', settings.city)
@@ -112,21 +109,14 @@ const CompanySettingsPage: React.FC = () => {
       setValue('website', settings.website || '')
       setValue('miscInfo', settings.miscInfo || '')
 
-      // Set logo preview if exists
       if (settings.logoUrl) {
         const fullLogoUrl = getLogoUrl(settings.logoUrl)
         console.log('Logo URL from API:', settings.logoUrl)
         console.log('Full Logo URL:', fullLogoUrl)
         setLogoPreview(fullLogoUrl)
       }
-    } catch (error: any) {
-      const errorMessage = error.response?.data?.message || error.message || 'Failed to load company settings'
-      setError(errorMessage)
-      showError(errorMessage)
-    } finally {
-      setLoading(false)
     }
-  }
+  }, [settings, setValue])
 
   const handleLogoUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
@@ -152,7 +142,7 @@ const CompanySettingsPage: React.FC = () => {
     try {
       if (logoPreview && !logoFile) {
         // Logo exists on server, delete it
-        await settingsApi.deleteLogo()
+        await deleteLogo().unwrap()
         showSuccess('Logo deleted successfully')
       }
       setLogoFile(null)
@@ -167,18 +157,18 @@ const CompanySettingsPage: React.FC = () => {
       setSubmitting(true)
 
       // Update company settings
-      await settingsApi.updateCompanySettings(data)
+      await updateCompanySettings(data).unwrap()
 
       // Upload logo if a new file is selected
       if (logoFile) {
-        await settingsApi.uploadLogo(logoFile)
+        await uploadLogo(logoFile).unwrap()
         setLogoFile(null) // Clear the file after upload
       }
 
       showSuccess('Company settings saved successfully')
 
       // Reload settings to get updated data
-      await fetchCompanySettings()
+      await refetch()
     } catch (error: any) {
       const errorMessage = error.response?.data?.message || error.message || 'Failed to save company settings'
       showError(errorMessage)
@@ -189,9 +179,11 @@ const CompanySettingsPage: React.FC = () => {
 
   const handleCancel = () => {
     // Reload settings to reset form
-    fetchCompanySettings()
+    refetch()
     setLogoFile(null)
   }
+
+  const error = fetchError ? ((fetchError as any)?.message || 'Failed to load company settings') : null
 
   // Loading state
   if (loading) {

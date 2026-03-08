@@ -12,13 +12,7 @@ import {
 } from '@mui/material';
 import { Add as AddIcon, Backup as BackupIcon, CloudUpload as UploadIcon } from '@mui/icons-material';
 import { TYPOGRAPHY_STYLES } from '@/constants/typography';
-import { useAppDispatch, useAppSelector } from '@/hooks/useRedux';
-import {
-  fetchBackups,
-  fetchSchedules,
-  createBackup,
-  clearError,
-} from '@/store/slices/backupSlice';
+import { useGetBackupsQuery, useGetSchedulesQuery } from '@/store/api/backupApi';
 import BackupList from '@/components/backup/BackupList';
 import BackupScheduleList from '@/components/backup/BackupScheduleList';
 import BackupSettingsPanel from '@/components/backup/BackupSettingsPanel';
@@ -49,18 +43,15 @@ function TabPanel(props: TabPanelProps) {
 }
 
 const BackupManagement: React.FC = () => {
-  const dispatch = useAppDispatch();
-  const { error, loading, backupInProgress } = useAppSelector((state) => state.backup);
+  const { data: backups = [], isLoading: backupsLoading, error: backupsError, refetch: refetchBackups } = useGetBackupsQuery();
+  const { data: schedules = [], isLoading: schedulesLoading, error: schedulesError } = useGetSchedulesQuery();
+  const loading = backupsLoading || schedulesLoading;
+  const error = (backupsError || schedulesError) ? 'Failed to load backup data' : null;
   const [tabValue, setTabValue] = useState(0);
   const [createBackupOpen, setCreateBackupOpen] = useState(false);
   const [createScheduleOpen, setCreateScheduleOpen] = useState(false);
   const [uploadBackupOpen, setUploadBackupOpen] = useState(false);
   const [snackbarOpen, setSnackbarOpen] = useState(false);
-
-  useEffect(() => {
-    dispatch(fetchBackups());
-    dispatch(fetchSchedules());
-  }, [dispatch]);
 
   useEffect(() => {
     if (error) {
@@ -86,7 +77,6 @@ const BackupManagement: React.FC = () => {
 
   const handleSnackbarClose = () => {
     setSnackbarOpen(false);
-    dispatch(clearError());
   };
 
   return (
@@ -110,18 +100,18 @@ const BackupManagement: React.FC = () => {
                 color="primary"
                 startIcon={<UploadIcon />}
                 onClick={handleUploadBackup}
-                disabled={backupInProgress}
+                disabled={loading}
               >
                 Upload Backup
               </Button>
               <Button
                 variant="contained"
                 color="primary"
-                startIcon={backupInProgress ? <CircularProgress size={20} color="inherit" /> : <BackupIcon />}
+                startIcon={loading ? <CircularProgress size={20} color="inherit" /> : <BackupIcon />}
                 onClick={handleCreateBackup}
-                disabled={backupInProgress}
+                disabled={loading}
               >
-                {backupInProgress ? 'Creating Backup...' : 'Create Backup'}
+                {loading ? 'Processing...' : 'Create Backup'}
               </Button>
             </>
           )}
@@ -153,7 +143,7 @@ const BackupManagement: React.FC = () => {
               <CircularProgress />
             </Box>
           ) : (
-            <BackupList />
+            <BackupList backups={backups} />
           )}
         </TabPanel>
 
@@ -163,12 +153,12 @@ const BackupManagement: React.FC = () => {
               <CircularProgress />
             </Box>
           ) : (
-            <BackupScheduleList />
+            <BackupScheduleList schedules={schedules} />
           )}
         </TabPanel>
 
         <TabPanel value={tabValue} index={2}>
-          <BackupSettingsPanel onCleanupComplete={() => dispatch(fetchBackups())} />
+          <BackupSettingsPanel onCleanupComplete={() => refetchBackups()} />
         </TabPanel>
       </Paper>
 

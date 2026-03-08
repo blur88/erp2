@@ -19,16 +19,22 @@ import {
   Delete as DeleteIcon,
   Info as InfoIcon,
 } from '@mui/icons-material';
-import { useAppDispatch, useAppSelector } from '@/hooks/useRedux';
-import { deleteBackup, setCurrentBackup } from '@/store/slices/backupSlice';
-import backupService from '@/services/backupService';
+import { useAppDispatch } from '@/hooks/useRedux';
+import type { BackupLog } from '@/store/api/backupApi';
+import { useDeleteBackupMutation } from '@/store/api/backupApi';
+import { setCurrentBackup } from '@/store/slices/backupSlice';
+import { ApiService } from '@/services/api';
 import RestoreConfirmationDialog from './RestoreConfirmationDialog';
 import BackupDetailsDialog from './BackupDetailsDialog';
 import { format } from 'date-fns';
 
-const BackupList: React.FC = () => {
+interface BackupListProps {
+  backups: BackupLog[]
+}
+
+const BackupList: React.FC<BackupListProps> = ({ backups }) => {
   const dispatch = useAppDispatch();
-  const { backups } = useAppSelector((state) => state.backup);
+  const [deleteBackup] = useDeleteBackupMutation();
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [restoreDialogOpen, setRestoreDialogOpen] = useState(false);
@@ -45,24 +51,24 @@ const BackupList: React.FC = () => {
 
   const handleDownload = async (id: string, filename: string) => {
     try {
-      await backupService.downloadBackup(id, filename);
+      await ApiService.downloadFile(`/backup/download/${id}`, filename);
     } catch (error) {
       console.error('Download failed:', error);
     }
   };
 
-  const handleRestore = (backup: any) => {
+  const handleRestore = (backup: BackupLog) => {
     dispatch(setCurrentBackup(backup));
     setRestoreDialogOpen(true);
   };
 
   const handleDelete = async (id: string) => {
     if (window.confirm('Are you sure you want to delete this backup? This action cannot be undone.')) {
-      await dispatch(deleteBackup(id));
+      await deleteBackup(id);
     }
   };
 
-  const handleViewDetails = (backup: any) => {
+  const handleViewDetails = (backup: BackupLog) => {
     dispatch(setCurrentBackup(backup));
     setDetailsDialogOpen(true);
   };

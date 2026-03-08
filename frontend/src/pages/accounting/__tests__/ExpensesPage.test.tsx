@@ -1,21 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
-import { Provider } from 'react-redux'
+import { render, screen } from '@testing-library/react'
 import { BrowserRouter } from 'react-router-dom'
-import { configureStore } from '@reduxjs/toolkit'
-import ExpensesPage from '../ExpensesPage'
-import expenseReducer from '@/store/slices/expenseSlice'
-import paymentMethodsReducer from '@/store/slices/paymentMethodsSlice'
-import { ApiService } from '@/services/api'
 
-vi.mock('@/services/api', () => ({
-  ApiService: {
-    get: vi.fn(),
-    post: vi.fn(),
-    patch: vi.fn(),
-    delete: vi.fn(),
-  },
-}))
+import ExpensesPage from '../ExpensesPage'
 
 vi.mock('@/hooks/useNotification', () => ({
   useNotification: () => ({
@@ -32,103 +19,109 @@ vi.mock('@/hooks/useSearchAndFilter', async () => {
   }
 })
 
-const createMockStore = () =>
-  configureStore({
-    reducer: {
-      expenses: expenseReducer,
-      paymentMethods: paymentMethodsReducer,
-    },
-  })
+const mockedApi = vi.hoisted(() => ({
+  useGetExpensesQuery: vi.fn(),
+  useGetPaymentMethodsQuery: vi.fn(),
+  useGetChartOfAccountsQuery: vi.fn(),
+  useCreateExpenseMutation: vi.fn(),
+  useUpdateExpenseMutation: vi.fn(),
+  useDeleteExpenseMutation: vi.fn(),
+  usePostExpenseMutation: vi.fn(),
+  useBulkPostExpensesMutation: vi.fn(),
+  useBulkDeleteExpensesMutation: vi.fn(),
+}))
 
-const renderPage = () => {
-  const store = createMockStore()
-  return render(
-    <Provider store={store}>
-      <BrowserRouter>
-        <ExpensesPage />
-      </BrowserRouter>
-    </Provider>,
+vi.mock('@/store/api/accountingApi', () => ({
+  useGetExpensesQuery: mockedApi.useGetExpensesQuery,
+  useGetPaymentMethodsQuery: mockedApi.useGetPaymentMethodsQuery,
+  useGetChartOfAccountsQuery: mockedApi.useGetChartOfAccountsQuery,
+  useCreateExpenseMutation: mockedApi.useCreateExpenseMutation,
+  useUpdateExpenseMutation: mockedApi.useUpdateExpenseMutation,
+  useDeleteExpenseMutation: mockedApi.useDeleteExpenseMutation,
+  usePostExpenseMutation: mockedApi.usePostExpenseMutation,
+  useBulkPostExpensesMutation: mockedApi.useBulkPostExpensesMutation,
+  useBulkDeleteExpensesMutation: mockedApi.useBulkDeleteExpensesMutation,
+}))
+
+const renderPage = () =>
+  render(
+    <BrowserRouter>
+      <ExpensesPage />
+    </BrowserRouter>,
   )
-}
 
 describe('ExpensesPage', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    vi.mocked(ApiService.get).mockImplementation((url: string) => {
-      if (url.includes('/accounting/expenses')) {
-        return Promise.resolve({
-          data: [
-            {
-              id: 'ex-1',
-              referenceNumber: 'EXP-001',
-              expenseDate: '2026-02-15',
-              expenseAccountId: 'coa-1',
-              expenseAccount: { id: 'coa-1', code: '6000', name: 'Office Supplies' },
-              amount: 225.5,
-              paymentMethodId: 'pm-1',
-              paymentMethod: { id: 'pm-1', code: 'CASH', name: 'Cash' },
-              vendor: 'Stationery Hub',
-              description: 'Printer paper and ink',
-              status: 'draft',
-              createdAt: '2026-02-15',
-              updatedAt: '2026-02-15',
-            },
-          ],
-          meta: { page: 1, limit: 100, total: 1, totalPages: 1 },
-        } as any)
-      }
-
-      if (url.includes('/settings/payment-methods')) {
-        return Promise.resolve({
-          data: [{ id: 'pm-1', code: 'CASH', name: 'Cash', isActive: true }],
-          meta: { page: 1, limit: 200, total: 1, totalPages: 1 },
-        } as any)
-      }
-
-      if (url.includes('/accounting/chart-of-accounts')) {
-        return Promise.resolve({
-          data: [{ id: 'coa-1', code: '6000', name: 'Office Supplies', type: 'EXPENSE', isActive: true }],
-          meta: { page: 1, limit: 200, total: 1, totalPages: 1 },
-        } as any)
-      }
-
-      return Promise.resolve({ data: [], meta: {} } as any)
+    mockedApi.useGetExpensesQuery.mockReturnValue({
+      data: {
+        data: [
+          {
+            id: 'ex-1',
+            referenceNumber: 'EXP-001',
+            expenseDate: '2026-02-15',
+            expenseAccountId: 'coa-1',
+            expenseAccount: { id: 'coa-1', code: '6000', name: 'Office Supplies' },
+            amount: 225.5,
+            paymentMethodId: 'pm-1',
+            paymentMethod: { id: 'pm-1', code: 'CASH', name: 'Cash' },
+            vendor: 'Stationery Hub',
+            description: 'Printer paper and ink',
+            status: 'draft',
+            createdAt: '2026-02-15',
+            updatedAt: '2026-02-15',
+          },
+        ],
+      },
+      isLoading: false,
+      refetch: vi.fn(),
     })
+    mockedApi.useGetPaymentMethodsQuery.mockReturnValue({
+      data: {
+        data: [{ id: 'pm-1', code: 'CASH', name: 'Cash', isActive: true }],
+      },
+    })
+    mockedApi.useGetChartOfAccountsQuery.mockReturnValue({
+      data: {
+        data: [{ id: 'coa-1', code: '6000', name: 'Office Supplies', type: 'EXPENSE', isActive: true }],
+      },
+    })
+    mockedApi.useCreateExpenseMutation.mockReturnValue([vi.fn()])
+    mockedApi.useUpdateExpenseMutation.mockReturnValue([vi.fn()])
+    mockedApi.useDeleteExpenseMutation.mockReturnValue([vi.fn()])
+    mockedApi.usePostExpenseMutation.mockReturnValue([vi.fn()])
+    mockedApi.useBulkPostExpensesMutation.mockReturnValue([vi.fn()])
+    mockedApi.useBulkDeleteExpensesMutation.mockReturnValue([vi.fn()])
   })
 
-  it('renders the page title', async () => {
+  it('renders the page title', () => {
     renderPage()
     expect(screen.getByText('Expenses')).toBeInTheDocument()
-
-    await waitFor(() => {
-      expect(screen.getByText('EXP-001')).toBeInTheDocument()
-    })
+    expect(screen.getByText('EXP-001')).toBeInTheDocument()
   })
 
   it('shows loading state', () => {
-    vi.mocked(ApiService.get).mockImplementation(() => new Promise(() => {}))
+    mockedApi.useGetExpensesQuery.mockReturnValue({
+      data: undefined,
+      isLoading: true,
+      refetch: vi.fn(),
+    })
+
     renderPage()
     expect(screen.getByRole('progressbar')).toBeInTheDocument()
   })
 
-  it('displays expense data in table', async () => {
+  it('displays expense data in table', () => {
     renderPage()
 
-    await waitFor(() => {
-      expect(screen.getByText('EXP-001')).toBeInTheDocument()
-    })
-
+    expect(screen.getByText('EXP-001')).toBeInTheDocument()
     expect(screen.getByText('Stationery Hub')).toBeInTheDocument()
     expect(screen.getByText('Printer paper and ink')).toBeInTheDocument()
     expect(screen.getByText('6000 - Office Supplies')).toBeInTheDocument()
   })
 
-  it('shows filter controls', async () => {
+  it('shows filter controls', () => {
     renderPage()
-
-    await waitFor(() => {
-      expect(screen.getByText('EXP-001')).toBeInTheDocument()
-    })
 
     expect(screen.getAllByText('Expense Account').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Payment Method').length).toBeGreaterThan(0)

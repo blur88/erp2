@@ -1,27 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
-import { Provider } from 'react-redux';
+import { render, screen } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
-import { configureStore } from '@reduxjs/toolkit';
 import { ThemeProvider } from '@mui/material/styles';
+
 import AccountingDashboardPage from '../AccountingDashboardPage';
-import accountingReportsReducer from '@/store/slices/accountingReportsSlice';
-import journalEntriesReducer from '@/store/slices/journalEntriesSlice';
-import fiscalPeriodsReducer from '@/store/slices/fiscalPeriodsSlice';
 import { darkTheme } from '@/styles/theme';
-import { ApiService } from '@/services/api';
 
-// Mock API Service
-vi.mock('@/services/api', () => ({
-  ApiService: {
-    get: vi.fn().mockResolvedValue({ data: [], meta: {} }),
-    post: vi.fn(),
-    patch: vi.fn(),
-    delete: vi.fn(),
-  },
-}));
-
-// Mock formatters
 vi.mock('@/utils/formatters', () => ({
   formatCurrency: (value: number) => `$${value.toFixed(2)}`,
   formatDate: (date: string | Date | null | undefined) =>
@@ -29,24 +13,35 @@ vi.mock('@/utils/formatters', () => ({
   getCurrentDate: () => '2026-02-11',
 }));
 
-const createMockStore = () => {
-  return configureStore({
-    reducer: {
-      accountingReports: accountingReportsReducer,
-      journalEntries: journalEntriesReducer,
-      fiscalPeriods: fiscalPeriodsReducer,
-    },
-  });
-};
+vi.mock('@/hooks/useSearchAndFilter', async () => {
+  const actual = await vi.importActual('@/hooks/useSearchAndFilter');
+  return {
+    ...actual,
+    useKeyboardShortcuts: vi.fn(),
+  };
+});
+
+const mockedApi = vi.hoisted(() => ({
+  useGetBalanceSheetQuery: vi.fn(),
+  useGetProfitAndLossQuery: vi.fn(),
+  useGetJournalEntriesQuery: vi.fn(),
+  useGetCurrentFiscalPeriodQuery: vi.fn(),
+  useGetPendingSettlementSummaryQuery: vi.fn(),
+}));
+
+vi.mock('@/store/api/accountingApi', () => ({
+  useGetBalanceSheetQuery: mockedApi.useGetBalanceSheetQuery,
+  useGetProfitAndLossQuery: mockedApi.useGetProfitAndLossQuery,
+  useGetJournalEntriesQuery: mockedApi.useGetJournalEntriesQuery,
+  useGetCurrentFiscalPeriodQuery: mockedApi.useGetCurrentFiscalPeriodQuery,
+  useGetPendingSettlementSummaryQuery: mockedApi.useGetPendingSettlementSummaryQuery,
+}));
 
 const renderWithProviders = (useDarkTheme = false) => {
-  const store = createMockStore();
   const content = (
-    <Provider store={store}>
-      <BrowserRouter>
-        <AccountingDashboardPage />
-      </BrowserRouter>
-    </Provider>
+    <BrowserRouter>
+      <AccountingDashboardPage />
+    </BrowserRouter>
   );
 
   if (useDarkTheme) {
@@ -59,6 +54,54 @@ const renderWithProviders = (useDarkTheme = false) => {
 describe('AccountingDashboardPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockedApi.useGetBalanceSheetQuery.mockReturnValue({
+      data: {
+        assets: { current: [], fixed: [], totalCurrent: 0, totalFixed: 0, total: 1111.11 },
+        liabilities: { current: [], longTerm: [], totalCurrent: 0, totalLongTerm: 0, total: 2222.22 },
+        equity: { accounts: [], netIncome: 0, total: 3333.33 },
+        isBalanced: true,
+      },
+      isLoading: false,
+      error: undefined,
+      refetch: vi.fn(),
+    });
+    mockedApi.useGetProfitAndLossQuery.mockReturnValue({
+      data: {
+        startDate: '2026-01-01',
+        endDate: '2026-02-11',
+        revenue: { accounts: [], subtotal: 0 },
+        cogs: { accounts: [], subtotal: 0 },
+        expenses: { accounts: [], subtotal: 0 },
+        grossProfit: 0,
+        operatingIncome: 0,
+        netIncome: 4444.44,
+      },
+      isLoading: false,
+      error: undefined,
+      refetch: vi.fn(),
+    });
+    mockedApi.useGetJournalEntriesQuery.mockReturnValue({
+      data: {
+        data: [],
+      },
+      isLoading: false,
+      error: undefined,
+      refetch: vi.fn(),
+    });
+    mockedApi.useGetCurrentFiscalPeriodQuery.mockReturnValue({
+      data: {
+        id: 'period-1',
+        name: 'February 2026',
+        startDate: '2026-02-01',
+        endDate: '2026-02-28',
+        status: 'OPEN',
+        isOpen: true,
+      },
+      isLoading: false,
+    });
+    mockedApi.useGetPendingSettlementSummaryQuery.mockReturnValue({
+      data: [],
+    });
   });
 
   it('renders without crashing', () => {
@@ -124,55 +167,12 @@ describe('AccountingDashboardPage', () => {
     expect(totalAssetsIconBadge).toHaveStyle({ color: darkTheme.palette.primary.light });
   });
 
-  it('displays balance sheet totals from report response', async () => {
-    vi.mocked(ApiService.get).mockImplementation((url: string) => {
-      if (url.includes('/balance-sheet')) {
-        return Promise.resolve({
-          assets: { current: [], fixed: [], totalCurrent: 0, totalFixed: 0, total: 1111.11 },
-          liabilities: { current: [], longTerm: [], totalCurrent: 0, totalLongTerm: 0, total: 2222.22 },
-          equity: { accounts: [], netIncome: 0, total: 3333.33 },
-          isBalanced: true,
-        } as any);
-      }
-
-      if (url.includes('/profit-loss')) {
-        return Promise.resolve({
-          startDate: '2026-01-01',
-          endDate: '2026-02-11',
-          revenue: { accounts: [], subtotal: 0 },
-          cogs: { accounts: [], subtotal: 0 },
-          expenses: { accounts: [], subtotal: 0 },
-          grossProfit: 0,
-          operatingIncome: 0,
-          netIncome: 4444.44,
-        } as any);
-      }
-
-      if (url.includes('/journal-entries')) {
-        return Promise.resolve({ data: [], meta: {} } as any);
-      }
-
-      if (url.includes('/fiscal-periods/current')) {
-        return Promise.resolve({
-          id: 'period-1',
-          name: 'February 2026',
-          startDate: '2026-02-01',
-          endDate: '2026-02-28',
-          status: 'OPEN',
-          isOpen: true,
-        } as any);
-      }
-
-      return Promise.resolve({ data: [], meta: {} } as any);
-    });
-
+  it('displays balance sheet totals from report response', () => {
     renderWithProviders();
 
-    await waitFor(() => {
-      expect(screen.getByText('$1111.11')).toBeInTheDocument();
-      expect(screen.getByText('$2222.22')).toBeInTheDocument();
-      expect(screen.getByText('$3333.33')).toBeInTheDocument();
-      expect(screen.getByText('$4444.44')).toBeInTheDocument();
-    });
+    expect(screen.getByText('$1111.11')).toBeInTheDocument();
+    expect(screen.getByText('$2222.22')).toBeInTheDocument();
+    expect(screen.getByText('$3333.33')).toBeInTheDocument();
+    expect(screen.getByText('$4444.44')).toBeInTheDocument();
   });
 });

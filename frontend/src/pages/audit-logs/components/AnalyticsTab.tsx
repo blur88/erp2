@@ -8,7 +8,7 @@ import {
   Title, Tooltip, Legend,
 } from 'chart.js'
 import { Bar, Doughnut } from 'react-chartjs-2'
-import type { AuditLogStatistics } from '@/services/auditLogApi'
+import type { AuditLogStatistics } from '@/store/api/auditLogApi'
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, Title, Tooltip, Legend)
 

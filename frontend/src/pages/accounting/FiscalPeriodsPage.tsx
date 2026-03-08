@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import {
   Box,
   Typography,
@@ -32,7 +32,6 @@ import {
   Lock as CloseIcon,
   AutoAwesome as GenerateIcon,
 } from '@mui/icons-material'
-import { useDispatch, useSelector } from 'react-redux'
 import { format } from 'date-fns'
 import { useNotification } from '@/hooks/useNotification'
 import { useSearchAndFilter, useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
@@ -42,28 +41,19 @@ import FiscalPeriodFormDialog from '@/components/accounting/FiscalPeriodFormDial
 import AccountMappingWarning from '@/components/accounting/AccountMappingWarning'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
 import {
-  fetchFiscalPeriods,
-  closePeriod,
-  reopenPeriod,
-  deleteFiscalPeriod,
-  generatePeriods,
-  selectFiscalPeriods,
-  selectFiscalPeriodsLoading,
-  selectFiscalPeriodsError,
-  selectFiscalPeriodsPagination,
-} from '@/store/slices/fiscalPeriodsSlice'
+  useCloseFiscalPeriodMutation,
+  useDeleteFiscalPeriodMutation,
+  useGenerateFiscalPeriodsMutation,
+  useGetFiscalPeriodsQuery,
+  useReopenFiscalPeriodMutation,
+} from '@/store/api/accountingApi'
 import { FiscalPeriod, FiscalPeriodStatus } from '@/types'
+import { getErrorMessage } from '@/utils/errorMessage'
 
 const FiscalPeriodsPage: React.FC = () => {
-  const dispatch = useDispatch() as any
   const { showSuccess, showError } = useNotification()
   const theme = useTheme()
   const isMobile = useMediaQuery(theme.breakpoints.down('md'))
-
-  const periods = useSelector(selectFiscalPeriods) || []
-  const loading = useSelector(selectFiscalPeriodsLoading)
-  const error = useSelector(selectFiscalPeriodsError)
-  const pagination = useSelector(selectFiscalPeriodsPagination)
 
   const [formDialogOpen, setFormDialogOpen] = useState(false)
   const [selectedPeriod, setSelectedPeriod] = useState<FiscalPeriod | null>(null)
@@ -91,9 +81,8 @@ const FiscalPeriodsPage: React.FC = () => {
     onSearch: focusSearchInput,
   })
 
-  // Fetch periods on mount and filter changes
-  useEffect(() => {
-    const params: any = {
+  const queryParams = useMemo(() => {
+    const params: Record<string, unknown> = {
       page: 1,
       sortBy: 'startDate',
       sortOrder: 'DESC' as const,
@@ -111,15 +100,28 @@ const FiscalPeriodsPage: React.FC = () => {
       params.year = parseInt(yearFilter, 10)
     }
 
-    dispatch(fetchFiscalPeriods(params))
-  }, [dispatch, searchTerm, statusFilter, yearFilter])
+    return params
+  }, [searchTerm, statusFilter, yearFilter])
 
-  // Show error notifications
+  const {
+    data: periodsResponse,
+    isLoading: loading,
+    error,
+    refetch,
+  } = useGetFiscalPeriodsQuery(queryParams)
+  const [deleteFiscalPeriod] = useDeleteFiscalPeriodMutation()
+  const [closeFiscalPeriod] = useCloseFiscalPeriodMutation()
+  const [reopenFiscalPeriod] = useReopenFiscalPeriodMutation()
+  const [generateFiscalPeriods] = useGenerateFiscalPeriodsMutation()
+  const periods = periodsResponse?.data ?? []
+  const pagination = periodsResponse?.meta
+  const errorMessage = error ? getErrorMessage(error, 'Failed to fetch fiscal periods') : null
+
   useEffect(() => {
-    if (error) {
-      showError(error)
+    if (errorMessage) {
+      showError(errorMessage)
     }
-  }, [error, showError])
+  }, [errorMessage, showError])
 
   const handleAddPeriod = () => {
     setSelectedPeriod(null)
@@ -140,15 +142,13 @@ const FiscalPeriodsPage: React.FC = () => {
     if (!periodToDelete) return
 
     try {
-      await dispatch(deleteFiscalPeriod(periodToDelete.id)).unwrap()
+      await deleteFiscalPeriod(periodToDelete.id).unwrap()
       showSuccess(`Period "${periodToDelete.name}" deleted successfully`)
       setDeleteConfirmOpen(false)
       setPeriodToDelete(null)
-
-      // Refresh list
-      dispatch(fetchFiscalPeriods({ page: 1, sortBy: 'startDate', sortOrder: 'DESC' }))
+      refetch()
     } catch (error: any) {
-      showError(error || 'Failed to delete period')
+      showError(getErrorMessage(error, 'Failed to delete period'))
     }
   }
 
@@ -165,9 +165,7 @@ const FiscalPeriodsPage: React.FC = () => {
   const handleFormSuccess = () => {
     setFormDialogOpen(false)
     setSelectedPeriod(null)
-
-    // Refresh list
-    dispatch(fetchFiscalPeriods({ page: 1, sortBy: 'startDate', sortOrder: 'DESC' }))
+    refetch()
   }
 
   const handleGeneratePeriods = () => {
@@ -176,14 +174,12 @@ const FiscalPeriodsPage: React.FC = () => {
 
   const handleGenerateSubmit = async (year: number, startMonth: number) => {
     try {
-      await dispatch(generatePeriods({ year, startMonth })).unwrap()
+      await generateFiscalPeriods({ year, startMonth }).unwrap()
       showSuccess(`Successfully generated 12 periods for year ${year}`)
       setGenerateDialogOpen(false)
-
-      // Refresh list
-      dispatch(fetchFiscalPeriods({ page: 1, sortBy: 'startDate', sortOrder: 'DESC' }))
+      refetch()
     } catch (error: any) {
-      showError(error || 'Failed to generate periods')
+      showError(getErrorMessage(error, 'Failed to generate periods'))
     }
   }
 
@@ -196,15 +192,13 @@ const FiscalPeriodsPage: React.FC = () => {
     if (!periodToClose) return
 
     try {
-      await dispatch(closePeriod(periodToClose.id)).unwrap()
+      await closeFiscalPeriod(periodToClose.id).unwrap()
       showSuccess(`Period "${periodToClose.name}" closed successfully`)
       setCloseConfirmOpen(false)
       setPeriodToClose(null)
-
-      // Refresh list
-      dispatch(fetchFiscalPeriods({ page: 1, sortBy: 'startDate', sortOrder: 'DESC' }))
+      refetch()
     } catch (error: any) {
-      showError(error || 'Failed to close period')
+      showError(getErrorMessage(error, 'Failed to close period'))
       setCloseConfirmOpen(false)
       setPeriodToClose(null)
     }
@@ -224,15 +218,13 @@ const FiscalPeriodsPage: React.FC = () => {
     if (!periodToReopen) return
 
     try {
-      await dispatch(reopenPeriod(periodToReopen.id)).unwrap()
+      await reopenFiscalPeriod(periodToReopen.id).unwrap()
       showSuccess(`Period "${periodToReopen.name}" reopened successfully`)
       setReopenConfirmOpen(false)
       setPeriodToReopen(null)
-
-      // Refresh list
-      dispatch(fetchFiscalPeriods({ page: 1, sortBy: 'startDate', sortOrder: 'DESC' }))
+      refetch()
     } catch (error: any) {
-      showError(error || 'Failed to reopen period')
+      showError(getErrorMessage(error, 'Failed to reopen period'))
       setReopenConfirmOpen(false)
       setPeriodToReopen(null)
     }
@@ -272,7 +264,7 @@ const FiscalPeriodsPage: React.FC = () => {
   }
 
   // Extract unique years from periods
-  const availableYears = React.useMemo(() => {
+  const availableYears = useMemo(() => {
     const years = new Set<number>()
     periods.forEach((period: FiscalPeriod) => {
       const year = new Date(period.startDate).getFullYear()

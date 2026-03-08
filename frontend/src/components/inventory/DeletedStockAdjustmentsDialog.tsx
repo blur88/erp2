@@ -33,16 +33,12 @@ import {
   Close as CloseIcon,
   Assessment as AssessmentIcon,
 } from '@mui/icons-material'
-import { useDispatch, useSelector } from 'react-redux'
 import {
-  fetchDeletedStockAdjustments,
-  restoreStockAdjustment,
-  permanentDeleteStockAdjustment,
-  bulkPermanentDeleteStockAdjustments,
-  selectDeletedStockAdjustments,
-  selectInventoryLoading,
-  fetchStockAdjustments,
-} from '@/store/slices/inventorySlice'
+  useBulkPermanentDeleteStockAdjustmentsMutation,
+  useGetDeletedStockAdjustmentsQuery,
+  usePermanentDeleteStockAdjustmentMutation,
+  useRestoreStockAdjustmentMutation,
+} from '@/store/api/inventoryApi'
 import { useNotification } from '@/hooks/useNotification'
 import type { StockAdjustment } from '@/types'
 import { formatDate } from '@/utils/formatters'
@@ -53,12 +49,18 @@ interface DeletedStockAdjustmentsDialogProps {
 }
 
 const DeletedStockAdjustmentsDialog: React.FC<DeletedStockAdjustmentsDialogProps> = ({ open, onClose }) => {
-  const dispatch = useDispatch() as any
   const { showSuccess, showError } = useNotification()
   const theme = useTheme()
   const isMobile = useMediaQuery(theme.breakpoints.down('md'))
-  const deletedAdjustments = useSelector(selectDeletedStockAdjustments) || []
-  const loading = useSelector(selectInventoryLoading)
+  const { data: deletedAdjustmentsResponse, isFetching: isFetchingDeleted, refetch: refetchDeletedAdjustments } = useGetDeletedStockAdjustmentsQuery(
+    {},
+    { skip: !open }
+  )
+  const [restoreStockAdjustment, { isLoading: isRestoringMutation }] = useRestoreStockAdjustmentMutation()
+  const [permanentDeleteStockAdjustment, { isLoading: isDeletingMutation }] = usePermanentDeleteStockAdjustmentMutation()
+  const [bulkPermanentDeleteStockAdjustments, { isLoading: isBulkDeletingMutation }] = useBulkPermanentDeleteStockAdjustmentsMutation()
+  const deletedAdjustments = deletedAdjustmentsResponse?.data || []
+  const loading = isFetchingDeleted || isRestoringMutation || isDeletingMutation || isBulkDeletingMutation
 
   const [searchTerm, setSearchTerm] = useState('')
   const [restoringId, setRestoringId] = useState<string | null>(null)
@@ -72,11 +74,11 @@ const DeletedStockAdjustmentsDialog: React.FC<DeletedStockAdjustmentsDialogProps
 
   useEffect(() => {
     if (open) {
-      dispatch(fetchDeletedStockAdjustments({}))
+      void refetchDeletedAdjustments()
       // Reset selections when dialog opens
       setSelectedAdjustments(new Set())
     }
-  }, [open, dispatch])
+  }, [open, refetchDeletedAdjustments])
 
   // Filter adjustments based on search term
   const filteredAdjustments = deletedAdjustments.filter(adjustment =>
@@ -92,17 +94,13 @@ const DeletedStockAdjustmentsDialog: React.FC<DeletedStockAdjustmentsDialogProps
   const handleRestore = async (adjustment: StockAdjustment) => {
     setRestoringId(adjustment.id)
     try {
-      const result = await dispatch(restoreStockAdjustment(adjustment.id))
-
-      if (restoreStockAdjustment.rejected.match(result)) {
-        throw new Error(result.payload as string)
-      }
+      await restoreStockAdjustment(adjustment.id).unwrap()
 
       showSuccess(`Stock adjustment "${adjustment.adjustmentNumber}" restored successfully`)
-      // Lists are refreshed by the action's dispatch
+      void refetchDeletedAdjustments()
     } catch (error: any) {
       console.error('Stock adjustment restore error:', error)
-      const errorMessage = error?.response?.data?.message || error?.message || 'Failed to restore stock adjustment'
+      const errorMessage = error?.data?.message || error?.message || 'Failed to restore stock adjustment'
       showError(errorMessage)
     } finally {
       setRestoringId(null)
@@ -138,12 +136,8 @@ const DeletedStockAdjustmentsDialog: React.FC<DeletedStockAdjustmentsDialogProps
 
       for (const id of adjustmentIds) {
         try {
-          const result = await dispatch(restoreStockAdjustment(id))
-          if (!restoreStockAdjustment.rejected.match(result)) {
-            successCount++
-          } else {
-            failCount++
-          }
+          await restoreStockAdjustment(id).unwrap()
+          successCount++
         } catch {
           failCount++
         }
@@ -157,13 +151,11 @@ const DeletedStockAdjustmentsDialog: React.FC<DeletedStockAdjustmentsDialogProps
         showError(`Failed to restore ${failCount} stock adjustment${failCount > 1 ? 's' : ''}`)
       }
 
-      // Refresh both deleted and active adjustments and clear selections
-      dispatch(fetchDeletedStockAdjustments({}))
-      dispatch(fetchStockAdjustments({}))
+      void refetchDeletedAdjustments()
       setSelectedAdjustments(new Set())
     } catch (error: any) {
       console.error('Bulk restore error:', error)
-      const errorMessage = error?.response?.data?.message || error?.message || 'Failed to bulk restore stock adjustments'
+      const errorMessage = error?.data?.message || error?.message || 'Failed to bulk restore stock adjustments'
       showError(errorMessage)
     } finally {
       setBulkRestoring(false)
@@ -174,17 +166,13 @@ const DeletedStockAdjustmentsDialog: React.FC<DeletedStockAdjustmentsDialogProps
   const handlePermanentDelete = async (adjustment: StockAdjustment) => {
     setDeletingId(adjustment.id)
     try {
-      const result = await dispatch(permanentDeleteStockAdjustment(adjustment.id))
-
-      if (permanentDeleteStockAdjustment.rejected.match(result)) {
-        throw new Error(result.payload as string)
-      }
+      await permanentDeleteStockAdjustment(adjustment.id).unwrap()
 
       showSuccess(`Stock adjustment "${adjustment.adjustmentNumber}" permanently deleted`)
-      // No need to refresh as the Redux reducer removes it from the list
+      void refetchDeletedAdjustments()
     } catch (error: any) {
       console.error('Stock adjustment permanent delete error:', error)
-      const errorMessage = error?.response?.data?.message || error?.message || 'Failed to permanently delete stock adjustment'
+      const errorMessage = error?.data?.message || error?.message || 'Failed to permanently delete stock adjustment'
       showError(errorMessage)
     } finally {
       setDeletingId(null)
@@ -196,14 +184,7 @@ const DeletedStockAdjustmentsDialog: React.FC<DeletedStockAdjustmentsDialogProps
     setBulkDeleting(true)
     try {
       const adjustmentIds = Array.from(selectedAdjustments)
-      const result = await dispatch(bulkPermanentDeleteStockAdjustments(adjustmentIds))
-
-      if (bulkPermanentDeleteStockAdjustments.rejected.match(result)) {
-        throw new Error(result.payload as string)
-      }
-
-      const payload = result.payload as any
-      console.log('Bulk delete payload:', payload) // Debug log
+      const payload = await bulkPermanentDeleteStockAdjustments(adjustmentIds).unwrap()
       const deletedCount = payload?.successCount || 0
       const failedIds = payload?.failedIds || []
 
@@ -215,12 +196,11 @@ const DeletedStockAdjustmentsDialog: React.FC<DeletedStockAdjustmentsDialogProps
         showError(`Failed to delete ${failedIds.length} stock adjustments`)
       }
 
-      // Refresh deleted adjustments list and clear selections
-      dispatch(fetchDeletedStockAdjustments({}))
+      void refetchDeletedAdjustments()
       setSelectedAdjustments(new Set())
     } catch (error: any) {
       console.error('Bulk delete error:', error)
-      const errorMessage = error?.response?.data?.message || error?.message || 'Failed to bulk delete stock adjustments'
+      const errorMessage = error?.data?.message || error?.message || 'Failed to bulk delete stock adjustments'
       showError(errorMessage)
     } finally {
       setBulkDeleting(false)
@@ -375,7 +355,7 @@ const DeletedStockAdjustmentsDialog: React.FC<DeletedStockAdjustmentsDialogProps
                 </TableRow>
               </TableHead>
               <TableBody>
-                {loading?.deletedStockAdjustments ? (
+                {loading ? (
                   <TableRow>
                     <TableCell colSpan={isMobile ? 5 : 8} align="center" sx={{ py: 4 }}>
                       <CircularProgress size={32} />

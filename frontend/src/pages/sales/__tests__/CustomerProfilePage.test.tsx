@@ -3,7 +3,8 @@ import { render, screen, waitFor } from '@testing-library/react'
 import { Provider } from 'react-redux'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { configureStore } from '@reduxjs/toolkit'
-import customerReducer from '@/store/slices/customerSlice'
+import salesReducer from '@/store/slices/salesSlice'
+import { salesApiSlice } from '@/store/api/salesApi'
 import CustomerProfilePage from '../CustomerProfilePage'
 
 const mockCustomer = vi.hoisted(() => ({
@@ -30,26 +31,44 @@ vi.mock('@/hooks/useNotification', () => ({
   useNotification: () => ({ showSuccess: vi.fn(), showError: vi.fn() }),
 }))
 
-vi.mock('@/services/salesApi', () => ({
-  salesApi: {
-    getCustomer: vi.fn().mockResolvedValue(mockCustomer),
-    getCustomerStatistics: vi.fn().mockResolvedValue({
-      orders: {
-        totalOrders: 5,
-        totalSales: 15000,
-        averageOrderValue: 3000,
-        firstOrderDate: '2025-06-01',
-        lastOrderDate: '2026-01-15',
-      },
+vi.mock('@/services/api', () => ({
+  default: {
+    get: vi.fn((url: string) => {
+      if (url.includes('/statistics')) {
+        return Promise.resolve({
+          data: {
+            data: {
+              orders: {
+                totalOrders: 5,
+                totalSales: 15000,
+                averageOrderValue: 3000,
+                firstOrderDate: '2025-06-01',
+                lastOrderDate: '2026-01-15',
+              },
+            },
+          },
+        })
+      }
+      if (url.includes('/sales-history')) {
+        return Promise.resolve({ data: { data: { orders: [] } } })
+      }
+      if (url.includes('/outstanding-invoices')) {
+        return Promise.resolve({ data: { data: { invoices: [], totalOutstanding: 0 } } })
+      }
+      // Default: customer profile
+      return Promise.resolve({ data: { data: mockCustomer } })
     }),
-    getCustomerSalesHistory: vi.fn().mockResolvedValue({ orders: [] }),
-    getOutstandingInvoices: vi.fn().mockResolvedValue({ invoices: [], totalOutstanding: 0 }),
-    deleteCustomer: vi.fn(),
   },
 }))
 
 function makeStore() {
-  return configureStore({ reducer: { customers: customerReducer } })
+  return configureStore({
+    reducer: {
+      sales: salesReducer,
+      [salesApiSlice.reducerPath]: salesApiSlice.reducer,
+    },
+    middleware: (getDefaultMiddleware) => getDefaultMiddleware().concat(salesApiSlice.middleware),
+  })
 }
 
 function renderPage(customerId = 'test-uuid-1') {

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useRef } from 'react'
 import {
   Dialog,
   DialogTitle,
@@ -7,11 +7,10 @@ import {
   Button,
   CircularProgress,
   Box,
-  Alert,
 } from '@mui/material'
 import { Print as PrintIcon, Close as CloseIcon } from '@mui/icons-material'
 import BasePrintTemplate from './BasePrintTemplate'
-import { printSettingsApi } from '@/services/printSettingsApi'
+import { useGetPrintSettingsQuery } from '@/store/api/printSettingsApi'
 import { useCurrency } from '@/hooks/useCurrency'
 import { formatDate } from '@/utils/formatters'
 
@@ -23,30 +22,8 @@ interface InvoicePrintProps {
 
 const InvoicePrint: React.FC<InvoicePrintProps> = ({ open, onClose, invoice }) => {
   const { currency } = useCurrency()
-  const [settings, setSettings] = useState<any>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const { data: printSettings, isLoading } = useGetPrintSettingsQuery()
   const printRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    if (open) {
-      fetchPrintSettings()
-    }
-  }, [open])
-
-  const fetchPrintSettings = async () => {
-    try {
-      setLoading(true)
-      setError(null)
-      const response = await printSettingsApi.getPrintSettings()
-      setSettings(response)
-    } catch (err: any) {
-      console.error('Error fetching print settings:', err)
-      setError('Failed to load print settings')
-    } finally {
-      setLoading(false)
-    }
-  }
 
   const handlePrint = () => {
     window.print()
@@ -125,16 +102,14 @@ const InvoicePrint: React.FC<InvoicePrintProps> = ({ open, onClose, invoice }) =
         Print Invoice - {invoice.invoiceNumber}
       </DialogTitle>
       <DialogContent>
-        {loading ? (
+        {isLoading ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
             <CircularProgress />
           </Box>
-        ) : error ? (
-          <Alert severity="error">{error}</Alert>
         ) : (
           <Box ref={printRef}>
             <BasePrintTemplate
-              settings={settings}
+              settings={printSettings}
               documentTitle="Invoice"
               documentNumber={invoice.invoiceNumber || ''}
               documentDate={formatDate(invoice.invoiceDate || invoice.issueDate || new Date())}
@@ -142,8 +117,8 @@ const InvoicePrint: React.FC<InvoicePrintProps> = ({ open, onClose, invoice }) =
               items={items}
               totals={totals}
               notes={invoice.notes || ''}
-              perPageFooter={settings?.salesPerPageFooter || ''}
-              endOfDocFooter={settings?.salesEndOfDocFooter || ''}
+              perPageFooter={printSettings?.salesPerPageFooter || ''}
+              endOfDocFooter={printSettings?.salesEndOfDocFooter || ''}
               showDiscount={true}
               showPricing={true}
               currency={currency}
@@ -159,7 +134,7 @@ const InvoicePrint: React.FC<InvoicePrintProps> = ({ open, onClose, invoice }) =
           onClick={handlePrint}
           variant="contained"
           startIcon={<PrintIcon />}
-          disabled={loading || !!error}
+          disabled={isLoading}
         >
           Print
         </Button>

@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { settingsApi } from '@/services/settingsApi'
+import { useState, useEffect } from 'react'
+import { useGetDefaultCurrencyQuery } from '@/store/api/settingsApi'
 
 /**
  * Hook to get the default currency from settings
@@ -11,32 +11,17 @@ export const useCurrency = () => {
     const cached = localStorage.getItem('defaultCurrency')
     return cached || 'RM' // Fallback to RM
   })
-  const [loading, setLoading] = useState(false)
+
+  const { data, isLoading: loading } = useGetDefaultCurrencyQuery()
 
   useEffect(() => {
-    const fetchCurrency = async () => {
-      try {
-        setLoading(true)
-        const response = await settingsApi.getDefaultCurrency()
-
-        // Handle both wrapped and direct response formats
-        const newCurrency = (response as any)?.data?.currency || (response as any)?.currency || 'RM'
-
-        console.log('Fetched currency:', newCurrency, 'from response:', response)
-
-        // Update state and cache
-        setCurrency(newCurrency)
-        localStorage.setItem('defaultCurrency', newCurrency)
-      } catch (error) {
-        console.error('Failed to fetch default currency:', error)
-        // Keep using cached or fallback value
-      } finally {
-        setLoading(false)
-      }
+    if (data) {
+      const newCurrency = data.currency || 'RM'
+      console.log('Fetched currency:', newCurrency)
+      setCurrency(newCurrency)
+      localStorage.setItem('defaultCurrency', newCurrency)
     }
-
-    fetchCurrency()
-  }, [])
+  }, [data])
 
   return { currency, loading }
 }
@@ -53,19 +38,7 @@ const getCachedCurrency = (): string => {
  * Refresh currency cache (call this when settings change)
  */
 const refreshCurrencyCache = async (): Promise<string> => {
-  try {
-    const response = await settingsApi.getDefaultCurrency()
-    // Handle both wrapped and direct response formats
-    const currency = (response as any)?.data?.currency || (response as any)?.currency || 'RM'
-    console.log('Refreshed currency cache:', currency)
-    localStorage.setItem('defaultCurrency', currency)
-
-    // Force reload to update all components
-    window.dispatchEvent(new Event('currencyChanged'))
-
-    return currency
-  } catch (error) {
-    console.error('Failed to refresh currency cache:', error)
-    return getCachedCurrency()
-  }
+  // Force reload to update all components
+  window.dispatchEvent(new Event('currencyChanged'))
+  return getCachedCurrency()
 }

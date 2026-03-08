@@ -1,117 +1,78 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
-import { Provider } from 'react-redux';
-import { BrowserRouter } from 'react-router-dom';
-import { configureStore } from '@reduxjs/toolkit';
-import { ThemeProvider, createTheme } from '@mui/material/styles';
-import TrialBalancePage from '../TrialBalancePage';
-import accountingReportsReducer from '@/store/slices/accountingReportsSlice';
-import { ApiService } from '@/services/api';
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { render, screen } from '@testing-library/react'
+import { ThemeProvider, createTheme } from '@mui/material/styles'
 
-// Mock API
-vi.mock('@/services/api', () => ({
-  ApiService: {
-    get: vi.fn().mockResolvedValue({ data: [], meta: {} }),
-  },
-}));
+import TrialBalancePage from '../TrialBalancePage'
 
-const createMockStore = (preloadedState?: any) => {
-  return configureStore({
-    reducer: {
-      accountingReports: accountingReportsReducer,
-    },
-    preloadedState,
-  });
-};
+const mockedApi = vi.hoisted(() => ({
+  useGetTrialBalanceQuery: vi.fn(),
+}))
 
-const renderWithProviders = () => {
-  const store = createMockStore();
-  return render(
-    <Provider store={store}>
-      <BrowserRouter>
-        <TrialBalancePage />
-      </BrowserRouter>
-    </Provider>
-  );
-};
+vi.mock('@/store/api/accountingApi', () => ({
+  useGetTrialBalanceQuery: mockedApi.useGetTrialBalanceQuery,
+}))
 
 describe('TrialBalancePage', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
-  });
+    vi.clearAllMocks()
+    mockedApi.useGetTrialBalanceQuery.mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      error: undefined,
+    })
+  })
 
   it('renders without crashing', () => {
-    renderWithProviders();
-    expect(screen.getByText('Trial Balance')).toBeInTheDocument();
-  });
+    render(<TrialBalancePage />)
+    expect(screen.getByText('Trial Balance')).toBeInTheDocument()
+  })
 
   it('displays page subtitle', () => {
-    renderWithProviders();
-    expect(
-      screen.getByText('View account balances and verify debits equal credits as of a specific date')
-    ).toBeInTheDocument();
-  });
+    render(<TrialBalancePage />)
+    expect(screen.getByText('View account balances and verify debits equal credits as of a specific date')).toBeInTheDocument()
+  })
 
   it('has as of date filter', () => {
-    renderWithProviders();
-    expect(screen.getByLabelText('As Of Date')).toBeInTheDocument();
-  });
+    render(<TrialBalancePage />)
+    expect(screen.getByLabelText('As Of Date')).toBeInTheDocument()
+  })
 
   it('has include inactive checkbox', () => {
-    renderWithProviders();
-    expect(screen.getByLabelText('Include Inactive Accounts')).toBeInTheDocument();
-  });
+    render(<TrialBalancePage />)
+    expect(screen.getByLabelText('Include Inactive Accounts')).toBeInTheDocument()
+  })
 
   it('has action buttons', () => {
-    renderWithProviders();
-    // Check that buttons are rendered (they may show loading spinner on mount)
-    const buttons = screen.getAllByRole('button');
-    expect(buttons.length).toBeGreaterThan(0);
-  });
+    render(<TrialBalancePage />)
+    expect(screen.getAllByRole('button').length).toBeGreaterThan(0)
+  })
 
   it('renders generate and export buttons in the report actions area', () => {
-    renderWithProviders();
-
-    const actions = screen.getByTestId('trial-balance-actions');
-    const generateButton = screen.getByRole('button', { name: /generate report/i });
-    const exportButton = screen.getByRole('button', { name: /export to excel/i });
-
-    expect(actions).toContainElement(generateButton);
-    expect(actions).toContainElement(exportButton);
-  });
+    render(<TrialBalancePage />)
+    expect(screen.getByTestId('trial-balance-actions')).toContainElement(screen.getByRole('button', { name: /generate report/i }))
+    expect(screen.getByTestId('trial-balance-actions')).toContainElement(screen.getByRole('button', { name: /export to excel/i }))
+  })
 
   it('uses a dark-mode-friendly background color for totals row', async () => {
-    const darkTheme = createTheme({ palette: { mode: 'dark' } });
-    vi.mocked(ApiService.get).mockResolvedValueOnce({
-      accounts: [
-        {
-          accountCode: '1000',
-          accountName: 'Cash',
-          accountType: 'Asset',
-          debit: 100,
-          credit: 0,
-        },
-      ],
-      totalDebit: 100,
-      totalCredit: 100,
-      isBalanced: true,
-    } as any);
-    const store = createMockStore();
+    const darkTheme = createTheme({ palette: { mode: 'dark' } })
+    mockedApi.useGetTrialBalanceQuery.mockReturnValue({
+      data: {
+        accounts: [{ accountCode: '1000', accountName: 'Cash', accountType: 'Asset', debit: 100, credit: 0 }],
+        totalDebit: 100,
+        totalCredit: 100,
+        isBalanced: true,
+      },
+      isLoading: false,
+      error: undefined,
+    })
 
     render(
       <ThemeProvider theme={darkTheme}>
-        <Provider store={store}>
-          <BrowserRouter>
-            <TrialBalancePage />
-          </BrowserRouter>
-        </Provider>
-      </ThemeProvider>
-    );
+        <TrialBalancePage />
+      </ThemeProvider>,
+    )
 
-    const totalCell = await screen.findByText('Total');
-    const totalRow = totalCell.closest('tr');
-    expect(totalRow).toHaveStyle({
-      backgroundColor: darkTheme.palette.action.hover,
-    });
-  });
-});
+    expect(await screen.findByText('Total')).toBeInTheDocument()
+    expect(screen.getByText('Total').closest('tr')).toHaveStyle({ backgroundColor: darkTheme.palette.action.hover })
+  })
+})

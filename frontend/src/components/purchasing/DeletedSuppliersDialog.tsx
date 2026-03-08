@@ -33,7 +33,13 @@ import {
   Phone as PhoneIcon,
   DeleteForever as DeleteForeverIcon,
 } from '@mui/icons-material'
-import { purchasingApi } from '@/services/purchasingApi'
+import {
+  useBulkPermanentDeleteSuppliersMutation,
+  useBulkRestoreSuppliersMutation,
+  useGetDeletedSuppliersQuery,
+  usePermanentDeleteSupplierMutation,
+  useRestoreSupplierMutation,
+} from '@/store/api/purchasingApi'
 import type { Supplier } from '@/types'
 import { SupplierType } from '@/types'
 import { useNotification } from '@/hooks/useNotification'
@@ -49,9 +55,19 @@ const DeletedSuppliersDialog: React.FC<DeletedSuppliersDialogProps> = ({ open, o
   const { showSuccess, showError } = useNotification()
   const theme = useTheme()
   const isMobile = useMediaQuery(theme.breakpoints.down('md'))
-
-  const [deletedSuppliers, setDeletedSuppliers] = useState<Supplier[]>([])
-  const [loading, setLoading] = useState(false)
+  const { data: deletedSuppliersResponse, isFetching: isFetchingDeleted, refetch: refetchDeletedSuppliers } =
+    useGetDeletedSuppliersQuery({}, { skip: !open })
+  const [restoreSupplier, { isLoading: isRestoringMutation }] = useRestoreSupplierMutation()
+  const [permanentDeleteSupplier, { isLoading: isDeletingMutation }] = usePermanentDeleteSupplierMutation()
+  const [bulkRestoreSuppliers, { isLoading: isBulkRestoringMutation }] = useBulkRestoreSuppliersMutation()
+  const [bulkPermanentDeleteSuppliers, { isLoading: isBulkDeletingMutation }] = useBulkPermanentDeleteSuppliersMutation()
+  const deletedSuppliers = deletedSuppliersResponse?.data || []
+  const loading =
+    isFetchingDeleted ||
+    isRestoringMutation ||
+    isDeletingMutation ||
+    isBulkRestoringMutation ||
+    isBulkDeletingMutation
   const [searchTerm, setSearchTerm] = useState('')
   const [restoringId, setRestoringId] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
@@ -64,25 +80,11 @@ const DeletedSuppliersDialog: React.FC<DeletedSuppliersDialogProps> = ({ open, o
 
   useEffect(() => {
     if (open) {
-      fetchDeletedSuppliers()
+      void refetchDeletedSuppliers()
       // Reset selections when dialog opens
       setSelectedSuppliers(new Set())
     }
-  }, [open])
-
-  const fetchDeletedSuppliers = async () => {
-    setLoading(true)
-    try {
-      const response = await purchasingApi.getDeletedSuppliers()
-      const apiResponse = response as any
-      setDeletedSuppliers(apiResponse.suppliers || apiResponse.data || [])
-    } catch (error) {
-      console.error('Error fetching deleted suppliers:', error)
-      showError('Failed to fetch deleted suppliers')
-    } finally {
-      setLoading(false)
-    }
-  }
+  }, [open, refetchDeletedSuppliers])
 
   // Filter suppliers based on search term
   const filteredSuppliers = deletedSuppliers.filter(supplier =>
@@ -99,17 +101,17 @@ const DeletedSuppliersDialog: React.FC<DeletedSuppliersDialogProps> = ({ open, o
   const handleRestore = async (supplier: Supplier) => {
     setRestoringId(supplier.id)
     try {
-      await purchasingApi.restoreSupplier(supplier.id)
+      await restoreSupplier(supplier.id).unwrap()
       showSuccess(`Supplier "${supplier.companyName}" restored successfully`)
 
       // Refresh both deleted and active suppliers
-      await fetchDeletedSuppliers()
+      await refetchDeletedSuppliers()
       if (onRefresh) {
         onRefresh()
       }
     } catch (error: any) {
       console.error('Supplier restore error:', error)
-      const errorMessage = error?.response?.data?.message || error?.message || 'Failed to restore supplier'
+      const errorMessage = error?.data?.message || error?.message || 'Failed to restore supplier'
       showError(errorMessage)
     } finally {
       setRestoringId(null)
@@ -119,13 +121,13 @@ const DeletedSuppliersDialog: React.FC<DeletedSuppliersDialogProps> = ({ open, o
   const handlePermanentDelete = async (supplier: Supplier) => {
     setDeletingId(supplier.id)
     try {
-      await purchasingApi.permanentDeleteSupplier(supplier.id)
+      await permanentDeleteSupplier(supplier.id).unwrap()
       showSuccess(`Supplier "${supplier.companyName}" permanently deleted`)
       // Refresh deleted suppliers list
-      await fetchDeletedSuppliers()
+      await refetchDeletedSuppliers()
     } catch (error: any) {
       console.error('Supplier permanent delete error:', error)
-      const errorMessage = error?.response?.data?.message || error?.message || 'Failed to permanently delete supplier'
+      const errorMessage = error?.data?.message || error?.message || 'Failed to permanently delete supplier'
       showError(errorMessage)
     } finally {
       setDeletingId(null)
@@ -157,10 +159,10 @@ const DeletedSuppliersDialog: React.FC<DeletedSuppliersDialogProps> = ({ open, o
     setBulkRestoring(true)
     try {
       const supplierIds = Array.from(selectedSuppliers)
-      const response = await purchasingApi.bulkRestoreSuppliers(supplierIds)
+      const response = await bulkRestoreSuppliers(supplierIds).unwrap()
 
-      const restoredCount = (response as any)?.data?.restoredCount || 0
-      const failedIds = (response as any)?.data?.failedIds || []
+      const restoredCount = response?.restoredCount || 0
+      const failedIds = response?.failedIds || []
 
       if (restoredCount > 0) {
         showSuccess(`Successfully restored ${restoredCount} suppliers`)
@@ -171,14 +173,14 @@ const DeletedSuppliersDialog: React.FC<DeletedSuppliersDialogProps> = ({ open, o
       }
 
       // Refresh both deleted and active suppliers and clear selections
-      await fetchDeletedSuppliers()
+      await refetchDeletedSuppliers()
       if (onRefresh) {
         onRefresh()
       }
       setSelectedSuppliers(new Set())
     } catch (error: any) {
       console.error('Bulk restore error:', error)
-      const errorMessage = error?.response?.data?.message || error?.message || 'Failed to bulk restore suppliers'
+      const errorMessage = error?.data?.message || error?.message || 'Failed to bulk restore suppliers'
       showError(errorMessage)
     } finally {
       setBulkRestoring(false)
@@ -190,10 +192,10 @@ const DeletedSuppliersDialog: React.FC<DeletedSuppliersDialogProps> = ({ open, o
     setBulkDeleting(true)
     try {
       const supplierIds = Array.from(selectedSuppliers)
-      const response = await purchasingApi.bulkPermanentDeleteSuppliers(supplierIds)
+      const response = await bulkPermanentDeleteSuppliers(supplierIds).unwrap()
 
-      const deletedCount = (response as any)?.data?.deletedCount || 0
-      const failedIds = (response as any)?.data?.failedIds || []
+      const deletedCount = response?.deletedCount || 0
+      const failedIds = response?.failedIds || []
 
       if (deletedCount > 0) {
         showSuccess(`Successfully permanently deleted ${deletedCount} suppliers`)
@@ -204,11 +206,11 @@ const DeletedSuppliersDialog: React.FC<DeletedSuppliersDialogProps> = ({ open, o
       }
 
       // Refresh deleted suppliers list and clear selections
-      await fetchDeletedSuppliers()
+      await refetchDeletedSuppliers()
       setSelectedSuppliers(new Set())
     } catch (error: any) {
       console.error('Bulk permanent delete error:', error)
-      const errorMessage = error?.response?.data?.message || error?.message || 'Failed to bulk delete suppliers'
+      const errorMessage = error?.data?.message || error?.message || 'Failed to bulk delete suppliers'
       showError(errorMessage)
     } finally {
       setBulkDeleting(false)

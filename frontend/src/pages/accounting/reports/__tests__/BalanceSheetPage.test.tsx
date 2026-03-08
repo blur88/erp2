@@ -1,175 +1,117 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
-import { Provider } from 'react-redux';
-import { BrowserRouter } from 'react-router-dom';
-import { configureStore } from '@reduxjs/toolkit';
-import BalanceSheetPage, { getBalanceSheetTone } from '../BalanceSheetPage';
-import accountingReportsReducer from '@/store/slices/accountingReportsSlice';
-import { ApiService } from '@/services/api';
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { render, screen } from '@testing-library/react'
 
-// Mock API
-vi.mock('@/services/api', () => ({
-  ApiService: {
-    get: vi.fn().mockResolvedValue({ data: [], meta: {} }),
-  },
-}));
+import BalanceSheetPage, { getBalanceSheetTone } from '../BalanceSheetPage'
 
-const createMockStore = (preloadedState?: unknown) => {
-  return configureStore({
-    reducer: {
-      accountingReports: accountingReportsReducer,
-    },
-    preloadedState: preloadedState as any,
-  });
-};
+const mockedApi = vi.hoisted(() => ({
+  useGetBalanceSheetQuery: vi.fn(),
+}))
 
-const renderWithProviders = () => {
-  const store = createMockStore();
-  return render(
-    <Provider store={store}>
-      <BrowserRouter>
-        <BalanceSheetPage />
-      </BrowserRouter>
-    </Provider>
-  );
-};
+vi.mock('@/store/api/accountingApi', () => ({
+  useGetBalanceSheetQuery: mockedApi.useGetBalanceSheetQuery,
+}))
 
 describe('BalanceSheetPage', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
-  });
+    vi.clearAllMocks()
+    mockedApi.useGetBalanceSheetQuery.mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      error: undefined,
+    })
+  })
 
   it('renders without crashing', () => {
-    renderWithProviders();
-    expect(screen.getByText('Balance Sheet')).toBeInTheDocument();
-  });
+    render(<BalanceSheetPage />)
+    expect(screen.getByText('Balance Sheet')).toBeInTheDocument()
+  })
 
   it('displays page subtitle', () => {
-    renderWithProviders();
-    expect(
-      screen.getByText('View your financial position showing Assets = Liabilities + Equity as of a specific date')
-    ).toBeInTheDocument();
-  });
+    render(<BalanceSheetPage />)
+    expect(screen.getByText('View your financial position showing Assets = Liabilities + Equity as of a specific date')).toBeInTheDocument()
+  })
 
   it('has as of date filter', () => {
-    renderWithProviders();
-    expect(screen.getByLabelText('As Of Date')).toBeInTheDocument();
-  });
+    render(<BalanceSheetPage />)
+    expect(screen.getByLabelText('As Of Date')).toBeInTheDocument()
+  })
 
   it('has include inactive checkbox', () => {
-    renderWithProviders();
-    expect(screen.getByLabelText('Include Inactive Accounts')).toBeInTheDocument();
-  });
+    render(<BalanceSheetPage />)
+    expect(screen.getByLabelText('Include Inactive Accounts')).toBeInTheDocument()
+  })
 
   it('has action buttons', () => {
-    renderWithProviders();
-    // Check that buttons are rendered (they may show loading spinner on mount)
-    const buttons = screen.getAllByRole('button');
-    expect(buttons.length).toBeGreaterThan(0);
-  });
+    render(<BalanceSheetPage />)
+    expect(screen.getAllByRole('button').length).toBeGreaterThan(0)
+  })
 
   it('renders generate and export buttons in the report actions area', () => {
-    renderWithProviders();
-
-    const actions = screen.getByTestId('balance-sheet-actions');
-    const generateButton = screen.getByRole('button', { name: /generate report/i });
-    const exportButton = screen.getByRole('button', { name: /export to excel/i });
-
-    expect(actions).toContainElement(generateButton);
-    expect(actions).toContainElement(exportButton);
-  });
+    render(<BalanceSheetPage />)
+    expect(screen.getByTestId('balance-sheet-actions')).toContainElement(screen.getByRole('button', { name: /generate report/i }))
+    expect(screen.getByTestId('balance-sheet-actions')).toContainElement(screen.getByRole('button', { name: /export to excel/i }))
+  })
 
   it('renders balance sheet data from backend response shape', () => {
-    const store = createMockStore({
-      accountingReports: {
-        trialBalance: { data: null, loading: false, error: null },
-        balanceSheet: {
-          loading: false,
-          error: null,
-          data: {
-            assets: {
-              current: [
-                { accountCode: '1100', accountName: 'Cash', balance: 1000 },
-                { accountCode: '1200', accountName: 'Inventory', balance: 500 },
-              ],
-              fixed: [{ accountCode: '1500', accountName: 'Equipment', balance: 4000 }],
-              totalCurrent: 1500,
-              totalFixed: 4000,
-              total: 5500,
-            },
-            liabilities: {
-              current: [{ accountCode: '2100', accountName: 'Accounts Payable', balance: 1200 }],
-              longTerm: [{ accountCode: '2300', accountName: 'Loan', balance: 3000 }],
-              totalCurrent: 1200,
-              totalLongTerm: 3000,
-              total: 4200,
-            },
-            equity: {
-              accounts: [{ accountCode: '3100', accountName: 'Capital', balance: 1300 }],
-              netIncome: 0,
-              total: 1300,
-            },
-            isBalanced: true,
-          },
+    mockedApi.useGetBalanceSheetQuery.mockReturnValue({
+      data: {
+        assets: {
+          current: [{ accountCode: '1100', accountName: 'Cash', balance: 1000 }],
+          fixed: [],
+          totalCurrent: 1000,
+          totalFixed: 0,
+          total: 1000,
         },
-        profitAndLoss: { data: null, loading: false, error: null },
-        generalLedger: { data: null, loading: false, error: null },
-        accountActivity: { data: null, loading: false, error: null },
-        downloading: false,
+        liabilities: {
+          current: [],
+          longTerm: [],
+          totalCurrent: 0,
+          totalLongTerm: 0,
+          total: 0,
+        },
+        equity: {
+          accounts: [{ accountCode: '3100', accountName: 'Capital', balance: 1000 }],
+          netIncome: 0,
+          total: 1000,
+        },
+        isBalanced: true,
       },
-    });
+      isLoading: false,
+      error: undefined,
+    })
 
-    expect(() =>
-      render(
-        <Provider store={store}>
-          <BrowserRouter>
-            <BalanceSheetPage />
-          </BrowserRouter>
-        </Provider>
-      )
-    ).not.toThrow();
-
-    expect(screen.getByText('Balance Sheet')).toBeInTheDocument();
-  });
+    render(<BalanceSheetPage />)
+    expect(screen.getByText('Balance Sheet')).toBeInTheDocument()
+  })
 
   it('uses dark-mode specific tones for report surfaces', () => {
-    const darkTone = getBalanceSheetTone('dark');
-    const lightTone = getBalanceSheetTone('light');
-
-    expect(darkTone.surfaceSoft).toBe('rgba(255, 255, 255, 0.06)');
-    expect(darkTone.surfaceStrong).toBe('rgba(255, 255, 255, 0.1)');
-    expect(darkTone.sectionAccent).toBe('rgba(255, 255, 255, 0.08)');
-    expect(lightTone.surfaceSoft).toBe('grey.50');
-    expect(lightTone.surfaceStrong).toBe('grey.100');
-    expect(lightTone.sectionAccent).toBe('grey.100');
-  });
+    const darkTone = getBalanceSheetTone('dark')
+    const lightTone = getBalanceSheetTone('light')
+    expect(darkTone.surfaceSoft).toBe('rgba(255, 255, 255, 0.06)')
+    expect(darkTone.surfaceStrong).toBe('rgba(255, 255, 255, 0.1)')
+    expect(darkTone.sectionAccent).toBe('rgba(255, 255, 255, 0.08)')
+    expect(lightTone.surfaceSoft).toBe('grey.50')
+    expect(lightTone.surfaceStrong).toBe('grey.100')
+    expect(lightTone.sectionAccent).toBe('grey.100')
+  })
 
   it('renders net income in equity section when present', async () => {
-    vi.mocked(ApiService.get).mockResolvedValueOnce({
-      assets: {
-        current: [{ accountCode: '1000', accountName: 'Cash', balance: 5000 }],
-        fixed: [],
-        totalCurrent: 5000,
-        totalFixed: 0,
-        total: 5000,
+    mockedApi.useGetBalanceSheetQuery.mockReturnValue({
+      data: {
+        assets: { current: [], fixed: [], totalCurrent: 0, totalFixed: 0, total: 5000 },
+        liabilities: { current: [], longTerm: [], totalCurrent: 0, totalLongTerm: 0, total: 0 },
+        equity: {
+          accounts: [{ accountCode: '3000', accountName: "Owner's Equity", balance: 2000 }],
+          netIncome: 3000,
+          total: 5000,
+        },
+        isBalanced: true,
       },
-      liabilities: {
-        current: [],
-        longTerm: [],
-        totalCurrent: 0,
-        totalLongTerm: 0,
-        total: 0,
-      },
-      equity: {
-        accounts: [{ accountCode: '3000', accountName: "Owner's Equity", balance: 2000 }],
-        netIncome: 3000,
-        total: 5000,
-      },
-      isBalanced: true,
-    });
+      isLoading: false,
+      error: undefined,
+    })
 
-    renderWithProviders();
-
-    expect(await screen.findByText('Net Income')).toBeInTheDocument();
-  });
-});
+    render(<BalanceSheetPage />)
+    expect(await screen.findByText('Add: Net Income')).toBeInTheDocument()
+  })
+})

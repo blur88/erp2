@@ -82,15 +82,11 @@ export interface DashboardAlert {
 
 export enum AlertType {
   Threshold = 'threshold',
-  Anomaly = 'anomaly',
-  Performance = 'performance'
 }
 
 export enum AlertSeverity {
   Low = 'low',
-  Medium = 'medium', 
-  High = 'high',
-  Critical = 'critical'
+  Medium = 'medium',
 }
 
 // Dashboard Personalization

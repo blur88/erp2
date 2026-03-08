@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
+import { skipToken } from '@reduxjs/toolkit/query';
 import {
   Box,
   Typography,
@@ -27,15 +28,10 @@ import {
   ShowChart as ProfitLossIcon,
 } from '@mui/icons-material';
 import { TYPOGRAPHY_STYLES } from '@/constants/typography';
-import { useAppDispatch, useAppSelector } from '@/store';
 import { formatDate } from '@/utils/formatters';
-import {
-  fetchProfitAndLoss,
-  downloadProfitAndLossExcel,
-  selectProfitAndLoss,
-  selectDownloading,
-  clearProfitAndLossError,
-} from '@/store/slices/accountingReportsSlice';
+import { useGetProfitAndLossQuery } from '@/store/api/accountingApi';
+import { exportReportExcel } from '@/utils/exportReport';
+import { getErrorMessage } from '@/utils/errorMessage';
 
 // Format currency helper
 const formatCurrency = (amount: number): string => {
@@ -172,39 +168,19 @@ export const ProfitAndLossSection: React.FC<SectionProps> = ({ title, accounts, 
 };
 
 const ProfitAndLossPage: React.FC = () => {
-  const dispatch = useAppDispatch();
-
-  // Redux state
-  const profitAndLossState = useAppSelector(selectProfitAndLoss);
-  const downloading = useAppSelector(selectDownloading);
-
-  const { data, loading, error } = profitAndLossState || {
-    data: null,
-    loading: false,
-    error: null,
-  };
-
-  const revenueSection = data?.revenue ?? { accounts: [], subtotal: 0 };
-  const cogsSection = data?.cogs ?? { accounts: [], subtotal: 0 };
-  const expensesSection = data?.expenses ?? { accounts: [], subtotal: 0 };
-
-  // Local state for filters
   const [startDate, setStartDate] = useState<string>(getFirstDayOfMonth());
   const [endDate, setEndDate] = useState<string>(formatDateForInput(new Date()));
   const [includeInactive, setIncludeInactive] = useState<boolean>(false);
   const [dateError, setDateError] = useState<string>('');
+  const [submitted, setSubmitted] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
+  const queryArgs = submitted ? { startDate, endDate, includeInactive } : skipToken;
+  const { data, isLoading: loading, error } = useGetProfitAndLossQuery(queryArgs);
+  const errorMessage = error ? getErrorMessage(error, 'Failed to load profit and loss report') : null;
 
-  // Load report on mount with default parameters
-  useEffect(() => {
-    handleGenerateReport();
-  }, []);
-
-  // Clear error on mount
-  useEffect(() => {
-    return () => {
-      dispatch(clearProfitAndLossError());
-    };
-  }, [dispatch]);
+  const revenueSection = data?.revenue ?? { accounts: [], subtotal: 0 };
+  const cogsSection = data?.cogs ?? { accounts: [], subtotal: 0 };
+  const expensesSection = data?.expenses ?? { accounts: [], subtotal: 0 };
 
   // Validate date range
   const validateDates = (): boolean => {
@@ -235,29 +211,38 @@ const ProfitAndLossPage: React.FC = () => {
     if (!validateDates()) {
       return;
     }
-
-    dispatch(
-      fetchProfitAndLoss({
-        startDate,
-        endDate,
-        includeInactive,
-      })
-    );
+    setSubmitted(true);
   };
 
-  // Handle export to Excel
-  const handleExportToExcel = () => {
+  const handleExportToExcel = async () => {
     if (!validateDates()) {
       return;
     }
+    try {
+      setIsDownloading(true);
+      await exportReportExcel(
+        '/accounting/reports/profit-loss/export',
+        { startDate, endDate, includeInactive },
+        `profit-loss-${startDate}-to-${endDate}.xlsx`,
+      );
+    } finally {
+      setIsDownloading(false);
+    }
+  };
 
-    dispatch(
-      downloadProfitAndLossExcel({
-        startDate,
-        endDate,
-        includeInactive,
-      })
-    );
+  const handleStartDateChange = (value: string) => {
+    setStartDate(value);
+    setSubmitted(false);
+  };
+
+  const handleEndDateChange = (value: string) => {
+    setEndDate(value);
+    setSubmitted(false);
+  };
+
+  const handleIncludeInactiveChange = (value: boolean) => {
+    setIncludeInactive(value);
+    setSubmitted(false);
   };
 
   return (
@@ -295,7 +280,7 @@ const ProfitAndLossPage: React.FC = () => {
               label="Start Date"
               type="date"
               value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
+              onChange={(e) => handleStartDateChange(e.target.value)}
               size="small"
               InputLabelProps={{ shrink: true }}
               sx={{ minWidth: 200 }}
@@ -304,7 +289,7 @@ const ProfitAndLossPage: React.FC = () => {
               label="End Date"
               type="date"
               value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
+              onChange={(e) => handleEndDateChange(e.target.value)}
               size="small"
               InputLabelProps={{ shrink: true }}
               sx={{ minWidth: 200 }}
@@ -313,7 +298,7 @@ const ProfitAndLossPage: React.FC = () => {
               control={
                 <Checkbox
                   checked={includeInactive}
-                  onChange={(e) => setIncludeInactive(e.target.checked)}
+                  onChange={(e) => handleIncludeInactiveChange(e.target.checked)}
                 />
               }
               label="Include Inactive Accounts"
@@ -339,9 +324,9 @@ const ProfitAndLossPage: React.FC = () => {
             <Button
               variant="outlined"
               color="secondary"
-              startIcon={downloading ? <CircularProgress size={20} /> : <DownloadIcon />}
+              startIcon={isDownloading ? <CircularProgress size={20} /> : <DownloadIcon />}
               onClick={handleExportToExcel}
-              disabled={!data || loading || downloading}
+              disabled={!submitted || loading || isDownloading}
               sx={{ minWidth: 150, flex: { xs: 1, sm: 'initial' } }}
             >
               Export to Excel
@@ -358,18 +343,14 @@ const ProfitAndLossPage: React.FC = () => {
       )}
 
       {/* API Error Alert */}
-      {error && (
-        <Alert
-          severity="error"
-          sx={{ mb: 2 }}
-          onClose={() => dispatch(clearProfitAndLossError())}
-        >
-          {error}
+      {errorMessage && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {errorMessage}
         </Alert>
       )}
 
       {/* Loading State */}
-      {loading && !data && (
+      {loading && submitted && !data && (
         <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 8 }}>
           <CircularProgress />
         </Box>

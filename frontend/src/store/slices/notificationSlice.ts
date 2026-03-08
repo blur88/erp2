@@ -1,5 +1,6 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit'
 import type { Notification } from '@/types'
+import type { RootState } from '@/store'
 import { logout, clearAuth } from './authSlice'
 
 interface NotificationState {
@@ -71,9 +72,9 @@ export const {
 } = notificationSlice.actions
 
 // Selectors
-export const selectNotifications = (state: any) => 
-  state.notifications?.notifications
-export const selectUnreadCount = (state: any) => 
-  state.notifications?.unreadCount
+export const selectNotifications = (state: RootState) =>
+  state.notifications.notifications
+export const selectUnreadCount = (state: RootState) =>
+  state.notifications.unreadCount
 
 export default notificationSlice.reducer

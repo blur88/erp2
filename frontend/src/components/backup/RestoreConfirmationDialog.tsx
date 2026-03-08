@@ -14,9 +14,9 @@ import {
   ListItemText,
 } from '@mui/material';
 import { Warning as WarningIcon } from '@mui/icons-material';
-import { useAppDispatch, useAppSelector } from '@/hooks/useRedux';
+import { useAppSelector } from '@/hooks/useRedux';
 import { formatDateTime } from '@/utils/formatters';
-import { restoreBackup, fetchBackups } from '@/store/slices/backupSlice';
+import { useRestoreBackupMutation } from '@/store/api/backupApi';
 
 interface RestoreConfirmationDialogProps {
   open: boolean;
@@ -27,8 +27,8 @@ const RestoreConfirmationDialog: React.FC<RestoreConfirmationDialogProps> = ({
   open,
   onClose,
 }) => {
-  const dispatch = useAppDispatch();
-  const { currentBackup, restoreInProgress } = useAppSelector((state) => state.backup);
+  const { currentBackup } = useAppSelector((state) => state.backup);
+  const [restoreBackup, { isLoading: restoreInProgress }] = useRestoreBackupMutation();
   const [confirmText, setConfirmText] = useState('');
   const [note, setNote] = useState('');
 
@@ -36,19 +36,14 @@ const RestoreConfirmationDialog: React.FC<RestoreConfirmationDialogProps> = ({
     if (!currentBackup) return;
 
     try {
-      await dispatch(
-        restoreBackup({
-          id: currentBackup.id,
-          dto: {
-            confirmed: true,
-            restoredBy: 'system',
-            note: note || undefined,
-          },
-        })
-      ).unwrap();
-
-      // Refresh the backup list
-      await dispatch(fetchBackups());
+      await restoreBackup({
+        id: currentBackup.id,
+        dto: {
+          confirmed: true,
+          restoredBy: 'system',
+          note: note || undefined,
+        },
+      }).unwrap();
 
       // Reset and close
       setConfirmText('');

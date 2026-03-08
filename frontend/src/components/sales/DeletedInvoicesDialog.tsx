@@ -21,18 +21,24 @@ import {
   useTheme,
   useMediaQuery,
 } from '@mui/material'
+import { skipToken } from '@reduxjs/toolkit/query'
 import {
   Search as SearchIcon,
   Close as CloseIcon,
   ReceiptLong as InvoiceIcon,
 } from '@mui/icons-material'
-import { useDispatch, useSelector } from 'react-redux'
-import {
-  fetchDeletedInvoices,
-  selectDeletedInvoices,
-  selectSalesLoading
-} from '@/store/slices/salesSlice'
 import { formatCurrency, formatDate } from '@/utils/formatters'
+import { useGetDeletedInvoicesQuery } from '@/store/api/salesApi'
+
+type DeletedInvoice = {
+  id: string
+  invoiceNumber?: string
+  customerName?: string
+  customer?: { name?: string }
+  totalAmount?: number
+  total?: number
+  deletedAt?: string | Date
+}
 
 interface DeletedInvoicesDialogProps {
   open: boolean
@@ -40,20 +46,13 @@ interface DeletedInvoicesDialogProps {
 }
 
 const DeletedInvoicesDialog: React.FC<DeletedInvoicesDialogProps> = ({ open, onClose }) => {
-  const dispatch = useDispatch() as any
   const theme = useTheme()
   const isMobile = useMediaQuery(theme.breakpoints.down('md'))
-  const deletedInvoices = useSelector(selectDeletedInvoices) || []
-  const loadingState = useSelector(selectSalesLoading)
-  const loading = loadingState?.deletedInvoices || false
+  const { data, isLoading } = useGetDeletedInvoicesQuery(open ? {} : skipToken)
+  const deletedInvoices = (data?.data ?? []) as DeletedInvoice[]
+  const loading = isLoading
 
   const [searchTerm, setSearchTerm] = useState('')
-
-  useEffect(() => {
-    if (open) {
-      dispatch(fetchDeletedInvoices({}))
-    }
-  }, [open, dispatch])
 
   // Filter invoices based on search term
   const filteredInvoices = deletedInvoices.filter(invoice =>
@@ -198,7 +197,7 @@ const DeletedInvoicesDialog: React.FC<DeletedInvoicesDialogProps> = ({ open, onC
                         </TableCell>
                         <TableCell>
                           <Typography variant="body2" sx={{ fontSize: '0.8rem', fontWeight: 500 }}>
-                            {invoice.customerName || 'Unknown'}
+                            {invoice.customerName || invoice.customer?.name || 'Unknown'}
                           </Typography>
                         </TableCell>
                         {!isMobile && (

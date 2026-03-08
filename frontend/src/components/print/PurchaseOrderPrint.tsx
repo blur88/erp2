@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useRef } from 'react'
 import {
   Dialog,
   DialogTitle,
@@ -7,11 +7,10 @@ import {
   Button,
   CircularProgress,
   Box,
-  Alert,
 } from '@mui/material'
 import { Print as PrintIcon, Close as CloseIcon } from '@mui/icons-material'
 import BasePrintTemplate from './BasePrintTemplate'
-import { printSettingsApi } from '@/services/printSettingsApi'
+import { useGetPrintSettingsQuery } from '@/store/api/printSettingsApi'
 import { useCurrency } from '@/hooks/useCurrency'
 import { formatDate } from '@/utils/formatters'
 
@@ -23,30 +22,8 @@ interface PurchaseOrderPrintProps {
 
 const PurchaseOrderPrint: React.FC<PurchaseOrderPrintProps> = ({ open, onClose, purchaseOrder }) => {
   const { currency } = useCurrency()
-  const [settings, setSettings] = useState<any>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const { data: printSettings, isLoading } = useGetPrintSettingsQuery()
   const printRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    if (open) {
-      fetchPrintSettings()
-    }
-  }, [open])
-
-  const fetchPrintSettings = async () => {
-    try {
-      setLoading(true)
-      setError(null)
-      const response = await printSettingsApi.getPrintSettings()
-      setSettings(response)
-    } catch (err: any) {
-      console.error('Error fetching print settings:', err)
-      setError('Failed to load print settings')
-    } finally {
-      setLoading(false)
-    }
-  }
 
   const handlePrint = () => {
     window.print()
@@ -87,16 +64,14 @@ const PurchaseOrderPrint: React.FC<PurchaseOrderPrintProps> = ({ open, onClose, 
         Print Purchase Order - {purchaseOrder.orderNumber}
       </DialogTitle>
       <DialogContent>
-        {loading ? (
+        {isLoading ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
             <CircularProgress />
           </Box>
-        ) : error ? (
-          <Alert severity="error">{error}</Alert>
         ) : (
           <Box ref={printRef}>
             <BasePrintTemplate
-              settings={settings}
+              settings={printSettings}
               documentTitle="Purchase Order"
               documentNumber={purchaseOrder.orderNumber || ''}
               documentDate={formatDate(purchaseOrder.orderDate || new Date())}
@@ -104,8 +79,8 @@ const PurchaseOrderPrint: React.FC<PurchaseOrderPrintProps> = ({ open, onClose, 
               items={items}
               totals={totals}
               notes={purchaseOrder.notes || ''}
-              perPageFooter={settings?.purchasingPerPageFooter || ''}
-              endOfDocFooter={settings?.purchasingEndOfDocFooter || ''}
+              perPageFooter={printSettings?.purchasingPerPageFooter || ''}
+              endOfDocFooter={printSettings?.purchasingEndOfDocFooter || ''}
               showDiscount={false}
               showPricing={true}
               currency={currency}
@@ -121,7 +96,7 @@ const PurchaseOrderPrint: React.FC<PurchaseOrderPrintProps> = ({ open, onClose, 
           onClick={handlePrint}
           variant="contained"
           startIcon={<PrintIcon />}
-          disabled={loading || !!error}
+          disabled={isLoading}
         >
           Print
         </Button>

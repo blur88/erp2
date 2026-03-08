@@ -19,7 +19,11 @@ import {
   Save as SaveIcon,
 } from '@mui/icons-material'
 import { useNotification } from '@/hooks/useNotification'
-import { settingsApi, type DocumentNumberConfig } from '@/services/settingsApi'
+import {
+  useGetDocumentNumberSettingsQuery,
+  useUpdateDocumentNumberSettingsMutation,
+  type DocumentNumberConfig,
+} from '@/store/api/settingsApi'
 import { TYPOGRAPHY_STYLES } from '@/constants/typography'
 
 const MODULE_GROUPS: Record<string, string[]> = {
@@ -31,15 +35,19 @@ const MODULE_GROUPS: Record<string, string[]> = {
 
 const DocumentNumbersPage: React.FC = () => {
   const { showSuccess, showError } = useNotification()
-  const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
-  const [error, setError] = useState<string | null>(null)
   const [configurations, setConfigurations] = useState<DocumentNumberConfig[]>([])
   const [previews, setPreviews] = useState<Record<string, string>>({})
 
+  const { data: settingsData, isLoading: loading, error: fetchError, refetch } = useGetDocumentNumberSettingsQuery()
+  const [updateDocumentNumberSettings] = useUpdateDocumentNumberSettingsMutation()
+
+  // Populate local configurations state when RTK data loads
   useEffect(() => {
-    fetchSettings()
-  }, [])
+    if (settingsData && settingsData.configurations) {
+      setConfigurations(settingsData.configurations)
+    }
+  }, [settingsData])
 
   useEffect(() => {
     const currentYY = String(new Date().getFullYear() % 100).padStart(2, '0')
@@ -51,24 +59,7 @@ const DocumentNumbersPage: React.FC = () => {
     setPreviews(newPreviews)
   }, [configurations])
 
-  const fetchSettings = async () => {
-    try {
-      setLoading(true)
-      setError(null)
-      const response = await settingsApi.getDocumentNumberSettings()
-      const settings = response as any
-
-      if (settings && settings.configurations) {
-        setConfigurations(settings.configurations)
-      }
-    } catch (error: any) {
-      const errorMessage = error.response?.data?.message || error.message || 'Failed to load settings'
-      setError(errorMessage)
-      showError(errorMessage)
-    } finally {
-      setLoading(false)
-    }
-  }
+  const error = fetchError ? ((fetchError as any)?.message || 'Failed to load settings') : null
 
   const handleConfigChange = (
     index: number,
@@ -96,9 +87,9 @@ const DocumentNumbersPage: React.FC = () => {
         }
       }
 
-      await settingsApi.updateDocumentNumberSettings({ configurations })
+      await updateDocumentNumberSettings({ configurations }).unwrap()
       showSuccess('Document number settings saved successfully')
-      await fetchSettings()
+      refetch()
     } catch (error: any) {
       const errorMessage = error.response?.data?.message || error.message || 'Failed to save settings'
       showError(errorMessage)
@@ -108,7 +99,7 @@ const DocumentNumbersPage: React.FC = () => {
   }
 
   const handleCancel = () => {
-    fetchSettings()
+    refetch()
   }
 
   if (loading) {

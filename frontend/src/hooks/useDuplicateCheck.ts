@@ -1,7 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { useDispatch } from 'react-redux'
-import { checkProductDuplicate } from '@/store/slices/inventorySlice'
-import { AppDispatch } from '@/store'
+import { useLazyCheckProductDuplicateQuery } from '@/store/api/inventoryApi'
 
 interface DuplicateCheckResult {
   nameExists: boolean
@@ -37,7 +35,7 @@ interface UseDuplicateCheckReturn {
 }
 
 export const useDuplicateCheck = (): UseDuplicateCheckReturn => {
-  const dispatch = useDispatch<AppDispatch>()
+  const [checkDuplicateRequest] = useLazyCheckProductDuplicateQuery()
   const [isChecking, setIsChecking] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [nameError, setNameError] = useState('')
@@ -66,7 +64,7 @@ export const useDuplicateCheck = (): UseDuplicateCheckReturn => {
     setHasCheckedBarcode(false)
 
     try {
-      const result = await dispatch(checkProductDuplicate(params)).unwrap()
+      const result = await checkDuplicateRequest(params).unwrap()
 
       // Handle name duplicates
       if (result.nameExists && result.nameConflict) {
@@ -110,7 +108,7 @@ export const useDuplicateCheck = (): UseDuplicateCheckReturn => {
     } finally {
       setIsChecking(false)
     }
-  }, [dispatch])
+  }, [checkDuplicateRequest])
 
   return {
     checkDuplicate,

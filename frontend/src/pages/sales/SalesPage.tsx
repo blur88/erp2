@@ -30,7 +30,7 @@ import { subDays, subMonths, startOfMonth, endOfMonth, subYears, startOfYear, en
 import { formatCurrency, formatDate, formatNumber } from '@/utils/formatters'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
 import { useNavigate } from 'react-router-dom'
-import { salesApi } from '@/services/salesApi'
+import api from '@/services/api'
 import { SalesStatsCards, SalesTrendChart, TopProductsList, TopCustomersList } from './components'
 import type { StatItem } from './components'
 
@@ -112,22 +112,24 @@ const SalesPage: React.FC = () => {
       }
 
       const [analyticsResult, customersResult, ordersResult] = await Promise.all([
-        salesApi.getSalesAnalytics({
-          period,
-          startDate,
-          endDate,
-          dateRange: dateRangeMap[period],
-          groupBy: groupByMap[period],
-        }).catch(() => null),
-        salesApi.getTopCustomersReport({
-          limit: 5,
-          period: period === 'week' ? 'month' : period === 'quarter' ? 'quarter' : period,
-        }).catch(() => []),
-        salesApi.getOrders({
-          limit: 5,
-          sortBy: 'orderDate',
-          sortOrder: 'desc',
-        }).catch(() => ({ data: [] })),
+        api.get('/sales/analytics/dashboard', {
+          params: {
+            period,
+            startDate: startDate.toISOString(),
+            endDate: endDate.toISOString(),
+            dateRange: dateRangeMap[period],
+            groupBy: groupByMap[period],
+          },
+        }).then(r => r.data).catch(() => null),
+        api.get('/sales/analytics/top-customers', {
+          params: {
+            limit: 5,
+            period: period === 'week' ? 'month' : period === 'quarter' ? 'quarter' : period,
+          },
+        }).then(r => r.data?.data ?? r.data ?? []).catch(() => []),
+        api.get('/sales-orders', {
+          params: { limit: 5, sortBy: 'orderDate', sortOrder: 'desc' },
+        }).then(r => r.data).catch(() => ({ data: [] })),
       ])
 
       // Set analytics data - map backend response shape to frontend interface
@@ -165,11 +167,10 @@ const SalesPage: React.FC = () => {
         })
       } else {
         // Fallback: fetch orders and calculate on frontend (legacy behavior)
-        const fallbackOrders = await salesApi.getOrders({
-          sortBy: 'orderDate',
-          sortOrder: 'desc',
+        const fallbackOrders = await api.get('/sales-orders', {
+          params: { sortBy: 'orderDate', sortOrder: 'desc' },
         })
-        const orders = fallbackOrders?.data || []
+        const orders = fallbackOrders?.data?.data || []
 
         // Calculate basic metrics
         const totalRevenue = orders.reduce((sum: number, order: any) => sum + (order.totalAmount || 0), 0)
@@ -273,7 +274,7 @@ const SalesPage: React.FC = () => {
       }
 
       // Set recent orders
-      setRecentOrders(ordersResult?.data || [])
+      setRecentOrders(ordersResult?.data || ordersResult || [])
 
     } catch (error) {
       console.error('Error fetching sales data:', error)

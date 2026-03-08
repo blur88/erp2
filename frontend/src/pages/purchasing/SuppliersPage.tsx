@@ -48,21 +48,18 @@ import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
 import { useNotification } from '@/hooks/useNotification'
 import { useSearchAndFilter, useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
 import {
-  fetchSuppliers,
-  createSupplier,
-  updateSupplier,
-  deleteSupplier,
-  selectSuppliers,
-  selectSuppliersLoading,
-  selectSuppliersError,
-  selectSuppliersPagination,
-  selectSuppliersFilters,
-  setFilters,
-  clearError,
-} from '@/store/slices/supplierSlice'
+  selectSupplierFilters,
+  setSupplierFilters,
+} from '@/store/slices/purchasingSlice'
+import {
+  useCreateSupplierMutation,
+  useDeleteSupplierMutation,
+  useGetSuppliersQuery,
+  useLazyCheckDuplicateCompanyNameQuery,
+  useUpdateSupplierMutation,
+} from '@/store/api/purchasingApi'
 import type { Supplier } from '@/types'
 import { SupplierType } from '@/types'
-import { purchasingApi } from '@/services/purchasingApi'
 import { formatCurrency } from '@/utils/currency'
 import { formatDate } from '@/utils/formatters'
 import DeletedSuppliersDialog from '@/components/purchasing/DeletedSuppliersDialog'
@@ -103,10 +100,23 @@ const SuppliersPage: React.FC = () => {
   const { showSuccess, showError } = useNotification()
 
   // Redux state
-  const suppliers = useAppSelector(selectSuppliers)
-  const loading = useAppSelector(selectSuppliersLoading)
-  const error = useAppSelector(selectSuppliersError)
-  const filters = useAppSelector(selectSuppliersFilters)
+  const filters = useAppSelector(selectSupplierFilters)
+  const {
+    data: suppliersResponse,
+    isFetching: isSuppliersFetching,
+    error: suppliersQueryError,
+    refetch: refetchSuppliers,
+  } = useGetSuppliersQuery(filters)
+  const [createSupplier, { isLoading: isCreatingSupplier }] = useCreateSupplierMutation()
+  const [updateSupplier, { isLoading: isUpdatingSupplier }] = useUpdateSupplierMutation()
+  const [deleteSupplier, { isLoading: isDeletingSupplier }] = useDeleteSupplierMutation()
+  const [checkDuplicateCompanyName] = useLazyCheckDuplicateCompanyNameQuery()
+  const suppliers = suppliersResponse?.data || []
+  const loading = isSuppliersFetching || isCreatingSupplier || isUpdatingSupplier || isDeletingSupplier
+  const error =
+    suppliersQueryError && typeof suppliersQueryError === 'object'
+      ? ((suppliersQueryError as any).data?.message || (suppliersQueryError as any).data || 'Failed to load suppliers')
+      : null
 
   // Local state
   const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(null)
@@ -146,7 +156,7 @@ const SuppliersPage: React.FC = () => {
         searchHookInitialized.current = true
         return
       }
-      dispatch(setFilters({ search: searchTerm }))
+      dispatch(setSupplierFilters({ search: searchTerm }))
     },
   })
 
@@ -156,10 +166,6 @@ const SuppliersPage: React.FC = () => {
   })
 
   // Load suppliers on mount and when filters change
-  useEffect(() => {
-    dispatch(fetchSuppliers(filters))
-  }, [dispatch, filters.search, filters.type, filters.sortBy, filters.sortOrder])
-
   // Debounced duplicate check for company name
   useEffect(() => {
     // Skip check if dialog is not open
@@ -182,12 +188,10 @@ const SuppliersPage: React.FC = () => {
 
       setIsCheckingDuplicate(true)
       try {
-        const response = await purchasingApi.checkDuplicateCompanyName(
-          companyName.trim(),
-          selectedSupplier?.id
-        )
-
-        const result = response as any
+        const result = await checkDuplicateCompanyName({
+          companyName: companyName.trim(),
+          excludeId: selectedSupplier?.id,
+        }).unwrap()
 
         if (result?.exists) {
           const errorMsg = result.message || 'This company name already exists'
@@ -206,7 +210,7 @@ const SuppliersPage: React.FC = () => {
     return () => {
       clearTimeout(timer)
     }
-  }, [companyName, selectedSupplier?.id, isFormOpen])
+  }, [companyName, selectedSupplier?.id, isFormOpen, checkDuplicateCompanyName])
 
   // Handle form submit
   const handleFormSubmit = async (data: SupplierFormData) => {
@@ -230,14 +234,14 @@ const SuppliersPage: React.FC = () => {
       }
 
       if (selectedSupplier) {
-        await dispatch(updateSupplier({ id: selectedSupplier.id, data: cleanedData })).unwrap()
+        await updateSupplier({ id: selectedSupplier.id, data: cleanedData }).unwrap()
         showSuccess('Supplier updated successfully')
       } else {
-        await dispatch(createSupplier(cleanedData)).unwrap()
+        await createSupplier(cleanedData).unwrap()
         showSuccess('Supplier created successfully')
       }
       handleCloseForm()
-      dispatch(fetchSuppliers(filters))
+      void refetchSuppliers()
     } catch (error: any) {
       // Extract error message from the response
       let errorMessage = `Failed to ${selectedSupplier ? 'update' : 'create'} supplier`
@@ -255,21 +259,15 @@ const SuppliersPage: React.FC = () => {
   // Handle delete
   const handleDelete = async () => {
     if (!selectedSupplier) return
-    console.log('🗑️ Starting delete for supplier:', selectedSupplier.id)
-    console.log('📊 Current suppliers count:', suppliers.length)
-    console.log('📊 Current filters:', filters)
-
     try {
-      console.log('🔄 Calling deleteSupplier...')
-      await dispatch(deleteSupplier(selectedSupplier.id)).unwrap()
-      console.log('✅ Delete successful')
+      await deleteSupplier(selectedSupplier.id).unwrap()
       showSuccess(`Supplier "${selectedSupplier.companyName}" deleted successfully`)
       setIsDeleteConfirmOpen(false)
       setSelectedSupplier(null)
     } catch (error: any) {
-      console.error('❌ Delete failed:', error)
+      console.error('Delete failed:', error)
       let errorMessage = 'An unexpected error occurred. Please try again.'
-      const actualError = error?.payload || error
+      const actualError = error
       if (actualError?.response?.data) {
         const backendError = actualError.response.data
         if (backendError.message) {
@@ -283,11 +281,7 @@ const SuppliersPage: React.FC = () => {
       }
       showError(errorMessage)
     } finally {
-      console.log('🔄 Starting refetch...')
-      // Always refetch to ensure UI is in sync with backend
-      await dispatch(fetchSuppliers(filters))
-      console.log('✅ Refetch complete')
-      console.log('📊 New suppliers count:', suppliers.length)
+      await refetchSuppliers()
     }
   }
 
@@ -468,7 +462,7 @@ const SuppliersPage: React.FC = () => {
           <Select
             value={filters.type || 'all'}
             label="Type"
-            onChange={(e) => dispatch(setFilters({ type: e.target.value === 'all' ? undefined : e.target.value as SupplierType }))}
+            onChange={(e) => dispatch(setSupplierFilters({ type: e.target.value === 'all' ? undefined : e.target.value as SupplierType }))}
             sx={{
               height: TYPOGRAPHY_STYLES.searchField.input.height,
               fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
@@ -491,7 +485,7 @@ const SuppliersPage: React.FC = () => {
       </Paper>
       {/* Error Alert */}
       {error && (
-        <Alert severity="error" sx={{ mb: 3 }} onClose={() => dispatch(clearError())}>
+        <Alert severity="error" sx={{ mb: 3 }}>
           {error}
         </Alert>
       )}

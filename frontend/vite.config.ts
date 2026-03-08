@@ -84,7 +84,7 @@ export default defineConfig(({ mode }) => {
     test: {
       globals: true,
       environment: 'jsdom',
-      setupFiles: ['./src/test/setup.ts'],
+      setupFiles: ['./src/test/setup.ts', './src/setupTests.ts'],
       api: false,
       maxWorkers: 2,
       execArgv: ['--max-old-space-size=4096'],

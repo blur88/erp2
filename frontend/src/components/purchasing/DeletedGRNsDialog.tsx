@@ -26,12 +26,7 @@ import {
   Close as CloseIcon,
   LocalShipping as GRNIcon,
 } from '@mui/icons-material'
-import { useDispatch, useSelector } from 'react-redux'
-import {
-  fetchDeletedGRNs,
-  selectDeletedGRNs,
-  selectPurchasingLoading
-} from '@/store/slices/purchasingSlice'
+import { useGetDeletedGRNsQuery } from '@/store/api/purchasingApi'
 import { formatCurrency, formatDate } from '@/utils/formatters'
 
 interface DeletedGRNsDialogProps {
@@ -40,20 +35,12 @@ interface DeletedGRNsDialogProps {
 }
 
 const DeletedGRNsDialog: React.FC<DeletedGRNsDialogProps> = ({ open, onClose }) => {
-  const dispatch = useDispatch() as any
   const theme = useTheme()
   const isMobile = useMediaQuery(theme.breakpoints.down('md'))
-  const deletedGRNs = useSelector(selectDeletedGRNs) || []
-  const loadingState = useSelector(selectPurchasingLoading)
-  const loading = loadingState?.deletedGRNs || false
+  const { data: deletedGRNsResponse, isFetching: loading } = useGetDeletedGRNsQuery({}, { skip: !open })
+  const deletedGRNs = deletedGRNsResponse?.data || []
 
   const [searchTerm, setSearchTerm] = useState('')
-
-  useEffect(() => {
-    if (open) {
-      dispatch(fetchDeletedGRNs({}))
-    }
-  }, [open, dispatch])
 
   // Filter GRNs based on search term
   const filteredGRNs = deletedGRNs.filter((grn: any) =>

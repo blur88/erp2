@@ -44,7 +44,7 @@ import {
 import { formatCurrency, formatDateTime } from '@/utils/formatters'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
 import { ApiService } from '@/services/api'
-import { priceListApi } from '@/services/priceListApi'
+import { useGetEffectivePriceListsQuery } from '@/store/api/priceListApi'
 import type { PriceList } from '@/types'
 
 interface InventorySummary {
@@ -69,12 +69,12 @@ const InventorySummaryReport: React.FC = () => {
   const [reportData, setReportData] = useState<InventorySummary[]>([])
   const [products, setProducts] = useState<any[]>([])
   const [categories, setCategories] = useState<any[]>([])
-  const [priceLists, setPriceLists] = useState<PriceList[]>([])
   const [selectedProducts, setSelectedProducts] = useState<string[]>([])
   const [selectedCategory, setSelectedCategory] = useState<string>('')
 
   // Options
   const [selectedPriceList, setSelectedPriceList] = useState<string>('')
+  const { data: priceLists = [] } = useGetEffectivePriceListsQuery()
 
   const [productDialogOpen, setProductDialogOpen] = useState(false)
   const [productSearchFilter, setProductSearchFilter] = useState<string>('')
@@ -126,21 +126,17 @@ const InventorySummaryReport: React.FC = () => {
       })
       .catch(() => {})
 
-    // Load effective price lists
-    priceListApi.getEffectivePriceLists()
-      .then(data => {
-        const priceListData = (data as any)?.data || data
-        if (Array.isArray(priceListData)) {
-          setPriceLists(priceListData)
-          // Set default price list if available
-          const defaultPriceList = priceListData.find((pl: PriceList) => pl.isDefault)
-          if (defaultPriceList) {
-            setSelectedPriceList(defaultPriceList.id)
-          }
-        }
-      })
-      .catch(() => {})
   }, [])
+
+  // Set default price list when data loads
+  useEffect(() => {
+    if (priceLists.length > 0 && !selectedPriceList) {
+      const defaultPriceList = priceLists.find((pl: PriceList) => pl.isDefault)
+      if (defaultPriceList) {
+        setSelectedPriceList(defaultPriceList.id)
+      }
+    }
+  }, [priceLists, selectedPriceList])
 
   const handleGenerateReport = async () => {
     setLoading(true)

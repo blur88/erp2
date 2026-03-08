@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import { useStore } from 'react-redux'
 import { useNavigate, useParams } from 'react-router-dom'
 import {
   Box,
@@ -30,12 +31,14 @@ import {
 import { useForm, useFieldArray, Controller } from 'react-hook-form'
 import { yupResolver } from '@hookform/resolvers/yup'
 import * as yup from 'yup'
-import { salesApi } from '@/services/salesApi'
+import { useCreateSalesOrderMutation, useUpdateSalesOrderMutation, useLazyGetSalesOrderQuery, useGetCustomersQuery } from '@/store/api/salesApi'
+import { patchSalesOrderCaches } from '@/store/api/salesOrderCache'
 import { ApiService } from '@/services/api'
 import { formatCurrency, getCurrentDate } from '@/utils/formatters'
 import { useNotification } from '@/hooks/useNotification'
 import { useAppDispatch } from '@/hooks/useRedux'
-import { updateOrderInPlace, createOrder as createOrderAction } from '@/store/slices/salesSlice'
+import type { RootState } from '@/store'
+import { setSelectedOrder } from '@/store/slices/salesSlice'
 import { useCurrency } from '@/hooks/useCurrency'
 import { TYPOGRAPHY_STYLES } from '@/constants/typography'
 
@@ -84,10 +87,15 @@ const CreateSalesOrderPage: React.FC = () => {
   const theme = useTheme()
   const navigate = useNavigate()
   const dispatch = useAppDispatch()
+  const store = useStore()
   const { id } = useParams<{ id: string }>()
   const isEditMode = !!id
   const { showSuccess, showError } = useNotification()
   const { currency } = useCurrency()
+  const [createSalesOrder] = useCreateSalesOrderMutation()
+  const [updateSalesOrder] = useUpdateSalesOrderMutation()
+  const [triggerGetSalesOrder] = useLazyGetSalesOrderQuery()
+  const { data: customersData } = useGetCustomersQuery({})
   const [customers, setCustomers] = useState<any[]>([])
   const [products, setProducts] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
@@ -129,7 +137,12 @@ const CreateSalesOrderPage: React.FC = () => {
   const watchedCustomerId = watch('customerId')
 
   useEffect(() => {
-    loadCustomers()
+    if (customersData?.data) {
+      setCustomers(customersData.data)
+    }
+  }, [customersData])
+
+  useEffect(() => {
     loadProducts()
   }, [])
 
@@ -196,8 +209,7 @@ const CreateSalesOrderPage: React.FC = () => {
   const loadSalesOrder = async (orderId: string) => {
     setLoadingOrder(true)
     try {
-      const response = await salesApi.getOrder(orderId)
-      const order = (response as any).data || response
+      const order = await triggerGetSalesOrder(orderId).unwrap()
 
       // Extract products from order items and add to products state
       if (order.items && order.items.length > 0) {
@@ -300,15 +312,6 @@ const CreateSalesOrderPage: React.FC = () => {
     })
   }, [JSON.stringify(watchedItems), setValue])
 
-  const loadCustomers = async () => {
-    try {
-      const response = await salesApi.getCustomers()
-      setCustomers((response as any).data || [])
-    } catch (err) {
-      console.error('Error loading customers:', err)
-    }
-  }
-
   const loadProducts = async (searchTerm: string = '') => {
     try {
       const params: any = { isActive: true }
@@ -360,19 +363,17 @@ const CreateSalesOrderPage: React.FC = () => {
       console.log('Sending order data:', JSON.stringify(orderData, null, 2))
 
       if (isEditMode && id) {
-        const response = await salesApi.updateOrder(id, orderData as any)
-        const updatedOrder = (response as any).data || response
+        const updatedOrder = await updateSalesOrder({ id, data: orderData as any }).unwrap()
 
-        // Update Redux state directly
-        dispatch(updateOrderInPlace(updatedOrder))
+        patchSalesOrderCaches(dispatch, () => store.getState() as RootState, updatedOrder)
+        dispatch(setSelectedOrder(updatedOrder))
 
         showSuccess('Sales order updated successfully')
         // Navigate to orders page with the updated order selected
         navigate(`/sales/orders?highlight=${id}`)
       } else {
-        // Use Redux action to create order - this will auto-add it to the list
-        const result = await dispatch(createOrderAction(orderData as any)).unwrap()
-        const newOrderId = (result as any).data?.id || (result as any).id
+        const createdOrder = await createSalesOrder(orderData as any).unwrap()
+        const newOrderId = (createdOrder as any).id
         showSuccess('Sales order created successfully')
         // Navigate to orders page with the new order selected
         navigate(`/sales/orders?highlight=${newOrderId}`)

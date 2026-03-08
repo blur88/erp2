@@ -5,53 +5,28 @@ import userEvent from '@testing-library/user-event'
 import SettlementsPage from '../SettlementsPage'
 
 const mocked = vi.hoisted(() => ({
-  dispatch: vi.fn(),
   showSuccess: vi.fn(),
   showError: vi.fn(),
-  createSettlement: vi.fn((data: any) => ({ type: 'createSettlement', payload: data })),
-  cancelSettlement: vi.fn((id: string) => ({ type: 'cancelSettlement', payload: id })),
-  fetchSettlements: vi.fn((params: any) => ({ type: 'fetchSettlements', payload: params })),
-  fetchPendingSummary: vi.fn(() => ({ type: 'fetchPendingSummary' })),
+  createSettlement: vi.fn(),
+  cancelSettlement: vi.fn(),
+  useGetSettlementsQuery: vi.fn(),
+  useGetPendingSettlementSummaryQuery: vi.fn(),
+  useCreateSettlementMutation: vi.fn(),
+  useCancelSettlementMutation: vi.fn(),
 }))
 
 let createShouldFail = false
 let cancelShouldFail = false
 
-const mockState = {
-  settlements: {
-    data: [
-      {
-        id: 's-1',
-        settlementNumber: 'SET-001',
-        paymentMethod: { name: 'Cash' },
-        settlementDate: '2026-02-26',
-        totalAmount: 120,
-        paymentCount: 1,
-        reference: 'ref',
-        status: 'completed',
-      },
-    ],
-    loading: false,
-  },
-}
-
-vi.mock('@/hooks/useRedux', () => ({
-  useAppDispatch: () => mocked.dispatch,
-  useAppSelector: (selector: any) => selector(mockState),
-}))
-
 vi.mock('@/hooks/useNotification', () => ({
   useNotification: () => ({ showSuccess: mocked.showSuccess, showError: mocked.showError }),
 }))
 
-vi.mock('@/store/slices/settlementsSlice', () => ({
-  default: (state = { data: [], loading: false }) => state,
-  createSettlement: mocked.createSettlement,
-  cancelSettlement: mocked.cancelSettlement,
-  fetchSettlements: mocked.fetchSettlements,
-  fetchPendingSummary: mocked.fetchPendingSummary,
-  selectSettlements: (state: any) => state.settlements?.data || [],
-  selectSettlementsLoading: (state: any) => state.settlements?.loading || false,
+vi.mock('@/store/api/accountingApi', () => ({
+  useGetSettlementsQuery: mocked.useGetSettlementsQuery,
+  useGetPendingSettlementSummaryQuery: mocked.useGetPendingSettlementSummaryQuery,
+  useCreateSettlementMutation: mocked.useCreateSettlementMutation,
+  useCancelSettlementMutation: mocked.useCancelSettlementMutation,
 }))
 
 vi.mock('@/components/accounting/CreateSettlementDialog', () => ({
@@ -85,31 +60,36 @@ describe('SettlementsPage notifications', () => {
     mocked.showError.mockClear()
     mocked.createSettlement.mockClear()
     mocked.cancelSettlement.mockClear()
-    mocked.fetchSettlements.mockClear()
-    mocked.fetchPendingSummary.mockClear()
-
-    mocked.dispatch.mockReset()
-    mocked.dispatch.mockImplementation((action: any) => {
-      if (action?.type === 'createSettlement') {
-        return {
-          unwrap: () =>
-            createShouldFail
-              ? Promise.reject(new Error('Create failed'))
-              : Promise.resolve({ id: 's-2' }),
-        }
-      }
-
-      if (action?.type === 'cancelSettlement') {
-        return {
-          unwrap: () =>
-            cancelShouldFail
-              ? Promise.reject(new Error('Cancel failed'))
-              : Promise.resolve({ id: 's-1' }),
-        }
-      }
-
-      return Promise.resolve(action)
+    mocked.useGetSettlementsQuery.mockReturnValue({
+      data: {
+        data: [
+          {
+            id: 's-1',
+            settlementNumber: 'SET-001',
+            paymentMethod: { name: 'Cash' },
+            settlementDate: '2026-02-26',
+            totalAmount: 120,
+            paymentCount: 1,
+            reference: 'ref',
+            status: 'completed',
+          },
+        ],
+      },
+      isLoading: false,
     })
+    mocked.useGetPendingSettlementSummaryQuery.mockReturnValue({})
+    mocked.useCreateSettlementMutation.mockReturnValue([
+      (data: any) => ({
+        unwrap: () =>
+          createShouldFail ? Promise.reject(new Error('Create failed')) : Promise.resolve({ id: 's-2', ...data }),
+      }),
+    ])
+    mocked.useCancelSettlementMutation.mockReturnValue([
+      (id: string) => ({
+        unwrap: () =>
+          cancelShouldFail ? Promise.reject(new Error('Cancel failed')) : Promise.resolve({ id }),
+      }),
+    ])
   })
 
   it('shows success notification after creating settlement', async () => {

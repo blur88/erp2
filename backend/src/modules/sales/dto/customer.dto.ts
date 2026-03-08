@@ -247,6 +247,7 @@ export class QueryCustomersDto {
     example: 'ASC',
   })
   @IsOptional()
+  @Transform(({ value }) => value?.toUpperCase())
   @IsEnum(['ASC', 'DESC'])
   sortOrder?: 'ASC' | 'DESC';
 

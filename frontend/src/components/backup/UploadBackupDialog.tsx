@@ -15,8 +15,7 @@ import {
   CloudUpload as UploadIcon,
   CheckCircle as CheckIcon,
 } from '@mui/icons-material';
-import { useAppDispatch, useAppSelector } from '@/hooks/useRedux';
-import { uploadBackup } from '@/store/slices/backupSlice';
+import { useUploadBackupMutation } from '@/store/api/backupApi';
 
 interface UploadBackupDialogProps {
   open: boolean;
@@ -24,8 +23,7 @@ interface UploadBackupDialogProps {
 }
 
 const UploadBackupDialog: React.FC<UploadBackupDialogProps> = ({ open, onClose }) => {
-  const dispatch = useAppDispatch();
-  const { backupInProgress } = useAppSelector((state) => state.backup);
+  const [uploadBackup, { isLoading: backupInProgress }] = useUploadBackupMutation();
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploadSuccess, setUploadSuccess] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
@@ -45,7 +43,7 @@ const UploadBackupDialog: React.FC<UploadBackupDialogProps> = ({ open, onClose }
     setUploadError(null);
 
     try {
-      await dispatch(uploadBackup(selectedFile)).unwrap();
+      await uploadBackup(selectedFile).unwrap();
       setUploadSuccess(true);
       setTimeout(() => {
         handleClose();

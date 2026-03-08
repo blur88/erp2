@@ -1,7 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { useDispatch } from 'react-redux'
-import { checkCategoryDuplicate } from '@/store/slices/inventorySlice'
-import { AppDispatch } from '@/store'
+import { useLazyCheckCategoryDuplicateQuery } from '@/store/api/inventoryApi'
 
 interface CategoryDuplicateCheckResult {
   nameExists: boolean
@@ -27,7 +25,7 @@ interface UseCategoryDuplicateCheckReturn {
 }
 
 export const useCategoryDuplicateCheck = (): UseCategoryDuplicateCheckReturn => {
-  const dispatch = useDispatch<AppDispatch>()
+  const [checkDuplicateRequest] = useLazyCheckCategoryDuplicateQuery()
   const [isChecking, setIsChecking] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [nameError, setNameError] = useState('')
@@ -50,7 +48,7 @@ export const useCategoryDuplicateCheck = (): UseCategoryDuplicateCheckReturn => 
     setHasCheckedName(false)
 
     try {
-      const result = await dispatch(checkCategoryDuplicate(params)).unwrap()
+      const result = await checkDuplicateRequest(params).unwrap()
 
       // Handle name duplicates
       if (result.nameExists && result.nameConflict) {
@@ -78,7 +76,7 @@ export const useCategoryDuplicateCheck = (): UseCategoryDuplicateCheckReturn => 
     } finally {
       setIsChecking(false)
     }
-  }, [dispatch])
+  }, [checkDuplicateRequest])
 
   return {
     checkDuplicate,

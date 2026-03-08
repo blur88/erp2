@@ -36,7 +36,6 @@ import {
 import { useForm, Controller } from 'react-hook-form'
 import { yupResolver } from '@hookform/resolvers/yup'
 import * as yup from 'yup'
-import { useDispatch, useSelector } from 'react-redux'
 import { useNotification } from '@/hooks/useNotification'
 import { useSearchAndFilter, useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
 import { useCategoryDuplicateCheck } from '@/hooks/useCategoryDuplicateCheck'
@@ -48,15 +47,16 @@ import type { Category } from '@/types'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
 import { formatDate } from '@/utils/formatters'
 import {
-  fetchCategories,
-  createCategory,
-  updateCategory,
-  deleteCategory,
-  selectCategories,
-  selectInventoryLoading,
   setCategoryFilters,
   selectCategoryFilters,
 } from '@/store/slices/inventorySlice'
+import {
+  useCreateCategoryMutation,
+  useDeleteCategoryMutation,
+  useGetCategoriesQuery,
+  useUpdateCategoryMutation,
+} from '@/store/api/inventoryApi'
+import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
 
 
 interface CategoryFormData {
@@ -70,13 +70,22 @@ const categorySchema = yup.object({
 })
 
 const CategoriesPage: React.FC = () => {
-  const dispatch = useDispatch() as any
+  const dispatch = useAppDispatch()
   const { showSuccess, showError } = useNotification()
   const theme = useTheme()
   const isMobile = useMediaQuery(theme.breakpoints.down('md'))
-  const categories = useSelector(selectCategories) || []
-  const loading = useSelector(selectInventoryLoading)
-  const categoryFilters = useSelector(selectCategoryFilters) || { search: '' }
+  const categoryFilters = useAppSelector(selectCategoryFilters) || { search: '' }
+  const {
+    data: categories = [],
+    isFetching: isCategoriesFetching,
+    refetch: refetchCategories,
+  } = useGetCategoriesQuery({
+    includeProductCount: true,
+    search: categoryFilters.search || undefined,
+  })
+  const [createCategory] = useCreateCategoryMutation()
+  const [updateCategory] = useUpdateCategoryMutation()
+  const [deleteCategory] = useDeleteCategoryMutation()
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editMode, setEditMode] = useState(false)
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null)
@@ -136,13 +145,6 @@ const CategoriesPage: React.FC = () => {
     return () => clearTimeout(timeoutId)
   }, [watchedName, watchedParentId, editMode, selectedCategory, checkDuplicate])
 
-  useEffect(() => {
-    dispatch(fetchCategories({
-      includeProductCount: true,
-      search: categoryFilters.search || undefined
-    }))
-  }, [dispatch, categoryFilters.search])
-
   const handleAddCategory = (parentId?: string) => {
     const parent = parentId ? findCategoryById(categories, parentId) : null
     reset({
@@ -181,7 +183,7 @@ const CategoriesPage: React.FC = () => {
   const handleConfirmDelete = async () => {
     if (categoryToDelete) {
       try {
-        await dispatch(deleteCategory(categoryToDelete.id)).unwrap()
+        await deleteCategory(categoryToDelete.id).unwrap()
         showSuccess(`Category "${categoryToDelete.name}" deleted successfully.`)
         setDeleteConfirmOpen(false)
         setCategoryToDelete(null)
@@ -242,10 +244,7 @@ const CategoriesPage: React.FC = () => {
       }
 
       // Refresh the categories list
-      dispatch(fetchCategories({
-        includeProductCount: true,
-        search: categoryFilters.search || undefined
-      }))
+      void refetchCategories()
     } catch (error: any) {
       console.error('Smart delete error:', error)
       showError(error.message || 'Failed to delete category')
@@ -276,14 +275,14 @@ const CategoriesPage: React.FC = () => {
       }
 
       if (editMode && selectedCategory) {
-        await dispatch(updateCategory({ id: selectedCategory.id, data }))
+        await updateCategory({ id: selectedCategory.id, data }).unwrap()
         showSuccess('Category updated successfully')
       } else {
         const createData = {
           ...data,
           parentId: data.parentId || null
         }
-        await dispatch(createCategory(createData))
+        await createCategory(createData).unwrap()
         showSuccess('Category created successfully')
       }
       
@@ -471,7 +470,7 @@ const CategoriesPage: React.FC = () => {
       </Paper>
       {/* Categories Content */}
       <Paper sx={{ borderRadius: 2, overflow: 'hidden' }}>
-        {loading?.categories ? (
+        {isCategoriesFetching ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
             <CircularProgress />
           </Box>
@@ -738,10 +737,9 @@ const CategoriesPage: React.FC = () => {
       <DeletedCategoriesDialog
         open={deletedCategoriesDialogOpen}
         onClose={() => setDeletedCategoriesDialogOpen(false)}
-        onCategoryRestored={() => dispatch(fetchCategories({
-          includeProductCount: true,
-          search: categoryFilters.search || undefined
-        }))}
+        onCategoryRestored={() => {
+          void refetchCategories()
+        }}
       />
       {/* Smart Delete Dialog */}
       <SmartCategoryDeleteDialog

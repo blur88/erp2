@@ -18,6 +18,10 @@ import { SettingsService } from '../../settings/settings.service';
 import { AuditLogService } from '../../audit-logs/services';
 import { AccountingService } from '../../accounting/services/accounting.service';
 import { ConflictException, NotFoundException } from '@nestjs/common';
+import { SalesOrderFulfillmentService } from './sales-order-fulfillment.service';
+import { SalesOrderLifecycleService } from './sales-order-lifecycle.service';
+import { SalesOrderPaymentService } from './sales-order-payment.service';
+import { SalesOrderQueryService } from './sales-order-query.service';
 
 describe('SalesOrderService', () => {
   let service: SalesOrderService;
@@ -58,18 +62,17 @@ describe('SalesOrderService', () => {
   });
 
   beforeEach(async () => {
-    // Mock DataSource for findById method
-    const mockPaymentRepository = {
-      find: jest.fn().mockResolvedValue([]),
-    };
-
     dataSource = {
-      getRepository: jest.fn().mockReturnValue(mockPaymentRepository),
+      transaction: jest.fn(),
     } as any;
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         SalesOrderService,
+        SalesOrderFulfillmentService,
+        SalesOrderLifecycleService,
+        SalesOrderPaymentService,
+        SalesOrderQueryService,
         {
           provide: getRepositoryToken(SalesOrder),
           useValue: {
@@ -108,6 +111,12 @@ describe('SalesOrderService', () => {
         {
           provide: getRepositoryToken(PriceListItem),
           useValue: {},
+        },
+        {
+          provide: getRepositoryToken(Payment),
+          useValue: {
+            find: jest.fn().mockResolvedValue([]),
+          },
         },
         {
           provide: getDataSourceToken(),

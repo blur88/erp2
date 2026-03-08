@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useEffect, useState } from 'react'
 import {
   Box,
   Typography,
@@ -34,7 +34,6 @@ import {
   Restore as RestoreIcon,
   Info as InfoIcon,
 } from '@mui/icons-material'
-import { useDispatch, useSelector } from 'react-redux'
 import { useNotification } from '@/hooks/useNotification'
 import { useSearchAndFilter, useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
 import ConfirmationDialog from '@/components/common/ConfirmationDialog'
@@ -43,26 +42,16 @@ import AccountMappingWarning from '@/components/accounting/AccountMappingWarning
 import DeletedAccountsDialog from '@/components/accounting/DeletedAccountsDialog'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
 import {
-  fetchChartOfAccounts,
-  deleteAccount,
-  seedDefaultAccounts,
-  selectChartOfAccounts,
-  selectChartOfAccountsLoading,
-  selectChartOfAccountsError,
-  selectChartOfAccountsPagination,
-  type ChartOfAccount,
-} from '@/store/slices/chartOfAccountsSlice'
+  useDeleteChartOfAccountMutation,
+  useGetChartOfAccountsQuery,
+  useSeedDefaultChartOfAccountsMutation,
+} from '@/store/api/accountingApi'
+import type { ChartOfAccount } from '@/types'
 
 const ChartOfAccountsPage: React.FC = () => {
-  const dispatch = useDispatch() as any
   const { showSuccess, showError } = useNotification()
   const theme = useTheme()
   const isMobile = useMediaQuery(theme.breakpoints.down('md'))
-
-  const accounts = useSelector(selectChartOfAccounts) || []
-  const loading = useSelector(selectChartOfAccountsLoading)
-  const error = useSelector(selectChartOfAccountsError)
-  const pagination = useSelector(selectChartOfAccountsPagination)
 
   const [formDialogOpen, setFormDialogOpen] = useState(false)
   const [selectedAccount, setSelectedAccount] = useState<ChartOfAccount | null>(null)
@@ -87,36 +76,28 @@ const ChartOfAccountsPage: React.FC = () => {
   useKeyboardShortcuts({
     onSearch: focusSearchInput,
   })
+  const queryParams: Record<string, unknown> = { page: 1 }
+  if (searchTerm) queryParams.search = searchTerm
+  if (typeFilter !== 'all') queryParams.type = typeFilter
+  if (activeFilter === 'active') queryParams.isActive = true
+  else if (activeFilter === 'inactive') queryParams.isActive = false
+  const {
+    data: accountsResponse,
+    isLoading: loading,
+    error,
+    refetch,
+  } = useGetChartOfAccountsQuery(queryParams)
+  const [deleteChartOfAccount] = useDeleteChartOfAccountMutation()
+  const [seedDefaultChartOfAccounts] = useSeedDefaultChartOfAccountsMutation()
+  const accounts = accountsResponse?.data ?? []
+  const pagination = accountsResponse?.meta
+  const errorMessage = (error as any)?.data ?? null
 
-  // Fetch accounts on mount and filter changes
   useEffect(() => {
-    const params: any = {
-      page: 1,
+    if (errorMessage) {
+      showError(errorMessage)
     }
-
-    if (searchTerm) {
-      params.search = searchTerm
-    }
-
-    if (typeFilter !== 'all') {
-      params.type = typeFilter
-    }
-
-    if (activeFilter === 'active') {
-      params.isActive = true
-    } else if (activeFilter === 'inactive') {
-      params.isActive = false
-    }
-
-    dispatch(fetchChartOfAccounts(params))
-  }, [dispatch, searchTerm, typeFilter, activeFilter])
-
-  // Show error notifications
-  useEffect(() => {
-    if (error) {
-      showError(error)
-    }
-  }, [error, showError])
+  }, [errorMessage, showError])
 
   const handleAddAccount = () => {
     setSelectedAccount(null)
@@ -137,13 +118,11 @@ const ChartOfAccountsPage: React.FC = () => {
     if (!accountToDelete) return
 
     try {
-      await dispatch(deleteAccount(accountToDelete.id)).unwrap()
+      await deleteChartOfAccount(accountToDelete.id).unwrap()
       showSuccess(`Account "${accountToDelete.name}" deleted successfully`)
       setDeleteConfirmOpen(false)
       setAccountToDelete(null)
-
-      // Refresh list
-      dispatch(fetchChartOfAccounts({ page: 1 }))
+      refetch()
     } catch (error: any) {
       showError(error || 'Failed to delete account')
     }
@@ -162,9 +141,7 @@ const ChartOfAccountsPage: React.FC = () => {
   const handleFormSuccess = () => {
     setFormDialogOpen(false)
     setSelectedAccount(null)
-
-    // Refresh list
-    dispatch(fetchChartOfAccounts({ page: 1 }))
+    refetch()
   }
 
   const handleSeedAccounts = () => {
@@ -173,12 +150,10 @@ const ChartOfAccountsPage: React.FC = () => {
 
   const handleConfirmSeed = async () => {
     try {
-      const result = await dispatch(seedDefaultAccounts()).unwrap()
+      const result = await seedDefaultChartOfAccounts().unwrap()
       showSuccess(result.message || 'Default accounts seeded successfully')
       setSeedConfirmOpen(false)
-
-      // Refresh list
-      dispatch(fetchChartOfAccounts({ page: 1 }))
+      refetch()
     } catch (error: any) {
       showError(error || 'Failed to seed default accounts')
       setSeedConfirmOpen(false)
@@ -629,6 +604,7 @@ const ChartOfAccountsPage: React.FC = () => {
               <TableBody>
                 {accounts.map((account) => {
                   const indentLevel = calculateIndentLevel(account)
+                  const isSystemAccount = (account as ChartOfAccount & { isSystemAccount?: boolean }).isSystemAccount ?? false
                   return (
                     <TableRow
                       key={account.id}
@@ -738,17 +714,17 @@ const ChartOfAccountsPage: React.FC = () => {
                             title={`Delete ${account.name}`}
                             aria-label={`Delete account ${account.name}`}
                             onClick={() => handleDeleteAccount(account)}
-                            disabled={account.isSystemAccount}
+                            disabled={isSystemAccount}
                             sx={{
                               height: `${TABLE_STYLES.row.height * 0.75}px`,
                               width: `${TABLE_STYLES.row.height * 0.75}px`,
                               minHeight: 20,
                               minWidth: 20,
                               p: 0.125,
-                              color: account.isSystemAccount ? 'text.disabled' : 'error.main',
+                              color: isSystemAccount ? 'text.disabled' : 'error.main',
                               '&:hover': {
-                                backgroundColor: account.isSystemAccount ? 'transparent' : 'error.light',
-                                color: account.isSystemAccount ? 'text.disabled' : 'error.dark'
+                                backgroundColor: isSystemAccount ? 'transparent' : 'error.light',
+                                color: isSystemAccount ? 'text.disabled' : 'error.dark'
                               }
                             }}
                           >
@@ -803,6 +779,7 @@ const ChartOfAccountsPage: React.FC = () => {
       <DeletedAccountsDialog
         open={deletedDialogOpen}
         onClose={() => setDeletedDialogOpen(false)}
+        onChanged={() => refetch()}
       />
     </Box>
   )

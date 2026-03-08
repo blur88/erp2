@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo } from 'react';
+import React, { useMemo } from 'react';
 import {
   Box,
   Grid,
@@ -31,28 +31,13 @@ import {
   AccountBalanceWallet as AccountBalanceWalletIcon,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
-import { useAppDispatch, useAppSelector } from '@/store';
 import {
-  fetchBalanceSheet,
-  fetchProfitAndLoss,
-  selectBalanceSheet,
-  selectProfitAndLoss,
-} from '@/store/slices/accountingReportsSlice';
-import {
-  fetchJournalEntries,
-  selectJournalEntries,
-  selectJournalEntriesLoading,
-  selectJournalEntriesError,
-} from '@/store/slices/journalEntriesSlice';
-import {
-  fetchCurrentPeriod,
-  selectCurrentPeriod,
-  selectFiscalPeriodsLoading,
-} from '@/store/slices/fiscalPeriodsSlice';
-import {
-  fetchPendingSummary,
-  selectPendingSummary,
-} from '@/store/slices/settlementsSlice';
+  useGetBalanceSheetQuery,
+  useGetCurrentFiscalPeriodQuery,
+  useGetJournalEntriesQuery,
+  useGetPendingSettlementSummaryQuery,
+  useGetProfitAndLossQuery,
+} from '@/store/api/accountingApi';
 import { formatCurrency, formatDate, getCurrentDate } from '@/utils/formatters';
 import { TYPOGRAPHY_STYLES } from '@/constants/typography';
 import type { JournalEntry } from '@/types';
@@ -176,19 +161,6 @@ const getEntryTypeChip = (type: string) => {
 
 const AccountingDashboardPage: React.FC = () => {
   const navigate = useNavigate();
-  const dispatch = useAppDispatch();
-
-  // Selectors
-  const balanceSheetState = useAppSelector(selectBalanceSheet);
-  const profitAndLossState = useAppSelector(selectProfitAndLoss);
-  const journalEntries = useAppSelector(selectJournalEntries);
-  const journalEntriesLoading = useAppSelector(selectJournalEntriesLoading);
-  const journalEntriesError = useAppSelector(selectJournalEntriesError);
-  const currentPeriod = useAppSelector(selectCurrentPeriod);
-  const fiscalPeriodsLoading = useAppSelector(selectFiscalPeriodsLoading);
-  const pendingSummary = useAppSelector(selectPendingSummary);
-  const isCurrentPeriodOpen =
-    currentPeriod?.isOpen ?? currentPeriod?.status === 'OPEN';
 
   // Calculate YTD date range
   const today = getCurrentDate();
@@ -196,19 +168,31 @@ const AccountingDashboardPage: React.FC = () => {
     const currentYear = new Date().getFullYear();
     return `${currentYear}-01-01`;
   }, []);
-
-  // Fetch data on mount
-  useEffect(() => {
-    dispatch(fetchBalanceSheet({ asOfDate: today, includeInactive: false }));
-    dispatch(fetchProfitAndLoss({ startDate: ytdStartDate, endDate: today, includeInactive: false }));
-    dispatch(fetchJournalEntries({ page: 1, limit: 10, sortBy: 'entryDate', sortOrder: 'DESC' }));
-    dispatch(fetchCurrentPeriod());
-    dispatch(fetchPendingSummary());
-  }, [dispatch, today, ytdStartDate]);
-
-  // Extract data from reports
-  const balanceSheet = balanceSheetState.data;
-  const profitAndLoss = profitAndLossState.data;
+  const {
+    data: balanceSheet,
+    isLoading: balanceSheetLoading,
+    error: balanceSheetError,
+    refetch: refetchBalanceSheet,
+  } = useGetBalanceSheetQuery({ asOfDate: today, includeInactive: false });
+  const {
+    data: profitAndLoss,
+    isLoading: profitAndLossLoading,
+    error: profitAndLossError,
+    refetch: refetchProfitAndLoss,
+  } = useGetProfitAndLossQuery({ startDate: ytdStartDate, endDate: today, includeInactive: false });
+  const {
+    data: journalEntriesResponse,
+    isLoading: journalEntriesLoading,
+    error: journalEntriesError,
+    refetch: refetchJournalEntries,
+  } = useGetJournalEntriesQuery({ page: 1, limit: 10, sortBy: 'entryDate', sortOrder: 'DESC' });
+  const {
+    data: currentPeriod,
+    isLoading: fiscalPeriodsLoading,
+  } = useGetCurrentFiscalPeriodQuery();
+  const { data: pendingSummary = [] } = useGetPendingSettlementSummaryQuery();
+  const isCurrentPeriodOpen = currentPeriod?.isOpen ?? currentPeriod?.status === 'OPEN';
+  const journalEntries = journalEntriesResponse?.data ?? [];
 
   const totalAssets = balanceSheet?.assets?.total || 0;
   const totalLiabilities = balanceSheet?.liabilities?.total || 0;
@@ -216,9 +200,14 @@ const AccountingDashboardPage: React.FC = () => {
   const netIncome = profitAndLoss?.netIncome || 0;
 
   const isLoading =
-    balanceSheetState.loading || profitAndLossState.loading || journalEntriesLoading || fiscalPeriodsLoading;
+    balanceSheetLoading || profitAndLossLoading || journalEntriesLoading || fiscalPeriodsLoading;
 
-  const hasError = balanceSheetState.error || profitAndLossState.error || journalEntriesError;
+  const hasError = balanceSheetError || profitAndLossError || journalEntriesError;
+  const errorMessage =
+    (balanceSheetError as any)?.data ||
+    (profitAndLossError as any)?.data ||
+    (journalEntriesError as any)?.data ||
+    'Failed to load dashboard data';
 
   // Recent journal entries (limit to 10)
   const recentEntries = useMemo(() => {
@@ -238,9 +227,9 @@ const AccountingDashboardPage: React.FC = () => {
   useKeyboardShortcuts({
     onAdd: () => navigate('/accounting/journal-entries/new'),
     onRefresh: () => {
-      dispatch(fetchBalanceSheet({ asOfDate: getCurrentDate() }));
-      dispatch(fetchProfitAndLoss({ startDate: '', endDate: getCurrentDate() }));
-      dispatch(fetchJournalEntries({ limit: 10 }));
+      refetchBalanceSheet();
+      refetchProfitAndLoss();
+      refetchJournalEntries();
     },
   });
 
@@ -274,7 +263,7 @@ const AccountingDashboardPage: React.FC = () => {
       {/* Error Alert */}
       {hasError && (
         <Alert severity="error" sx={{ mb: 4 }}>
-          {balanceSheetState.error || profitAndLossState.error || journalEntriesError}
+          {errorMessage}
         </Alert>
       )}
 
@@ -288,7 +277,7 @@ const AccountingDashboardPage: React.FC = () => {
             icon={<AccountBalanceIcon sx={{ fontSize: 32 }} />}
             color="primary"
             onClick={() => navigate('/accounting/reports/balance-sheet')}
-            loading={balanceSheetState.loading}
+            loading={balanceSheetLoading}
           />
         </Grid>
         <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
@@ -299,7 +288,7 @@ const AccountingDashboardPage: React.FC = () => {
             icon={<ReceiptIcon sx={{ fontSize: 32 }} />}
             color="warning"
             onClick={() => navigate('/accounting/reports/balance-sheet')}
-            loading={balanceSheetState.loading}
+            loading={balanceSheetLoading}
           />
         </Grid>
         <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
@@ -310,7 +299,7 @@ const AccountingDashboardPage: React.FC = () => {
             icon={<AccountBalanceWalletIcon sx={{ fontSize: 32 }} />}
             color="success"
             onClick={() => navigate('/accounting/reports/balance-sheet')}
-            loading={balanceSheetState.loading}
+            loading={balanceSheetLoading}
           />
         </Grid>
         <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
@@ -327,7 +316,7 @@ const AccountingDashboardPage: React.FC = () => {
             }
             color={netIncome >= 0 ? 'success' : 'error'}
             onClick={() => navigate('/accounting/reports/profit-loss')}
-            loading={profitAndLossState.loading}
+            loading={profitAndLossLoading}
           />
         </Grid>
       </Grid>

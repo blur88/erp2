@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState } from 'react'
 import {
   Box,
   Typography,
@@ -40,13 +40,14 @@ import { useNavigate } from 'react-router-dom'
 import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
 import { useNotification } from '@/hooks/useNotification'
 import {
-  fetchPriceLists,
-  deletePriceList,
-  setDefaultPriceList,
   setFilters,
   setPagination,
-  clearError,
 } from '@/store/slices/priceListSlice'
+import {
+  useDeletePriceListMutation,
+  useGetPriceListsQuery,
+  useSetDefaultPriceListMutation,
+} from '@/store/api/priceListApi'
 import type { PriceList } from '@/types'
 import PriceListFormDialog from '@/components/settings/PriceListFormDialog'
 import PriceListCopyDialog from '@/components/settings/PriceListCopyDialog'
@@ -59,12 +60,18 @@ const PriceListsPage: React.FC = () => {
   const dispatch = useAppDispatch()
   const { showSuccess, showError } = useNotification()
 
-  // Redux state
-  const priceLists = useAppSelector((state) => state.priceLists.priceLists)
-  const loading = useAppSelector((state) => state.priceLists.loading.priceLists)
-  const error = useAppSelector((state) => state.priceLists.error)
   const pagination = useAppSelector((state) => state.priceLists.pagination)
   const filters = useAppSelector((state) => state.priceLists.filters)
+  const { data: priceListResponse, isLoading: loading, error, refetch } = useGetPriceListsQuery({
+    page: pagination.page,
+    limit: pagination.limit,
+    search: filters.search || undefined,
+    isActive: filters.isActive,
+  })
+  const [deletePriceList] = useDeletePriceListMutation()
+  const [setDefaultPriceList] = useSetDefaultPriceListMutation()
+  const priceLists = priceListResponse?.data ?? []
+  const total = priceListResponse?.meta?.total ?? 0
 
   // Local state
   const [selectedPriceList, setSelectedPriceList] = useState<PriceList | null>(null)
@@ -81,22 +88,6 @@ const PriceListsPage: React.FC = () => {
     message: '',
     action: () => {},
   })
-
-  // Fetch price lists
-  const loadPriceLists = useCallback(() => {
-    dispatch(
-      fetchPriceLists({
-        page: pagination.page,
-        limit: pagination.limit,
-        search: filters.search || undefined,
-        isActive: filters.isActive,
-      })
-    )
-  }, [dispatch, pagination.page, pagination.limit, filters.search, filters.isActive])
-
-  useEffect(() => {
-    loadPriceLists()
-  }, [loadPriceLists])
 
   // Handlers
   const handleSearch = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -145,7 +136,6 @@ const PriceListsPage: React.FC = () => {
   const handleFormSuccess = () => {
     setFormDialogOpen(false)
     setSelectedPriceList(null)
-    loadPriceLists()
     showSuccess(selectedPriceList ? 'Price list updated successfully' : 'Price list created successfully')
   }
 
@@ -157,7 +147,6 @@ const PriceListsPage: React.FC = () => {
   const handleCopySuccess = () => {
     setCopyDialogOpen(false)
     setSelectedPriceList(null)
-    loadPriceLists()
     showSuccess('Price list copied successfully')
   }
 
@@ -173,9 +162,8 @@ const PriceListsPage: React.FC = () => {
       message: `Are you sure you want to set "${priceList.name}" as the default price list? This will update any references to the current default price list.`,
       action: async () => {
         try {
-          await dispatch(setDefaultPriceList(priceList.id)).unwrap()
+          await setDefaultPriceList(priceList.id).unwrap()
           showSuccess('Default price list updated successfully')
-          loadPriceLists()
         } catch (err: any) {
           showError(err.response?.data?.message || 'Failed to set default price list')
         }
@@ -195,9 +183,8 @@ const PriceListsPage: React.FC = () => {
       message: `Are you sure you want to delete "${priceList.name}"? This action cannot be undone.`,
       action: async () => {
         try {
-          await dispatch(deletePriceList(priceList.id)).unwrap()
+          await deletePriceList(priceList.id).unwrap()
           showSuccess('Price list deleted successfully')
-          loadPriceLists()
         } catch (err: any) {
           showError(err.response?.data?.message || 'Failed to delete price list')
         }
@@ -246,11 +233,11 @@ const PriceListsPage: React.FC = () => {
             Price Lists
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            Manage pricing structures and product prices ({pagination.total} total)
+            Manage pricing structures and product prices ({total} total)
           </Typography>
         </Box>
         <Box sx={{ display: 'flex', gap: 1 }}>
-          <Button variant="outlined" startIcon={<RefreshIcon />} onClick={loadPriceLists}>
+          <Button variant="outlined" startIcon={<RefreshIcon />} onClick={() => refetch()}>
             Refresh
           </Button>
           <Button variant="contained" startIcon={<AddIcon />} onClick={handleAddPriceList}>
@@ -293,11 +280,7 @@ const PriceListsPage: React.FC = () => {
       </Paper>
 
       {/* Error Alert */}
-      {error && (
-        <Alert severity="error" sx={{ mb: 2 }} onClose={() => dispatch(clearError())}>
-          {error}
-        </Alert>
-      )}
+      {error && <Alert severity="error" sx={{ mb: 2 }}>Failed to load price lists</Alert>}
 
       {/* Price Lists Table */}
       <Paper sx={{ borderRadius: 2, overflow: 'hidden' }}>
@@ -640,7 +623,7 @@ const PriceListsPage: React.FC = () => {
         <TablePagination
           rowsPerPageOptions={[10, 20, 50, 100]}
           component="div"
-          count={pagination.total}
+          count={total}
           rowsPerPage={pagination.limit}
           page={pagination.page - 1}
           onPageChange={handlePageChange}

@@ -32,7 +32,7 @@ import {
 } from '@mui/icons-material'
 import { formatCurrency, formatDate, formatDateTime } from '@/utils/formatters'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
-import { salesApi } from '@/services/salesApi'
+import api from '@/services/api'
 
 interface SalesOrderSummary {
   orderNumber: string
@@ -75,10 +75,10 @@ const SalesOrderSummary: React.FC = () => {
 
   useEffect(() => {
     // Load customers using authenticated API
-    salesApi.getCustomers()
-      .then(data => {
-        if (data?.data) {
-          setCustomers(data.data)
+    api.get('/customers')
+      .then(res => {
+        if (res.data?.data) {
+          setCustomers(res.data.data)
         }
       })
       .catch(err => {
@@ -104,8 +104,8 @@ const SalesOrderSummary: React.FC = () => {
       if (inventoryStatus && inventoryStatus !== 'all') queryParams.fulfillmentStatus = inventoryStatus
 
       // Call the backend API using authenticated service
-      const result = await salesApi.getOrders(queryParams)
-      const orders = result.data || []
+      const result = await api.get('/sales-orders', { params: queryParams })
+      const orders = result.data?.data || []
 
       // Transform data to match our interface
       const transformedData: SalesOrderSummary[] = orders.map((order: any) => ({

@@ -16,7 +16,10 @@ import { useForm, Controller, useWatch } from 'react-hook-form'
 import * as yup from 'yup'
 import { yupResolver } from '@hookform/resolvers/yup'
 import { useNotification } from '@/hooks/useNotification'
-import { settingsApi } from '@/services/settingsApi'
+import {
+  useGetPriceCostingSettingsQuery,
+  useUpdatePriceCostingSettingsMutation,
+} from '@/store/api/settingsApi'
 import { TYPOGRAPHY_STYLES } from '@/constants/typography'
 
 interface RegionalFormData {
@@ -105,8 +108,9 @@ const buildPreview = (dateFormat: string, timeFormat: string, numberFormat: stri
 const RegionalSettingsPage: React.FC = () => {
   const { showSuccess, showError } = useNotification()
   const [submitting, setSubmitting] = useState(false)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+
+  const { data: settingsData, isLoading: loading, error: fetchError, refetch } = useGetPriceCostingSettingsQuery()
+  const [updatePriceCostingSettings] = useUpdatePriceCostingSettingsMutation()
 
   const { control, handleSubmit, formState: { errors }, setValue } = useForm<RegionalFormData>({
     resolver: yupResolver(schema) as any,
@@ -121,32 +125,23 @@ const RegionalSettingsPage: React.FC = () => {
   const watchedValues = useWatch({ control })
 
   useEffect(() => {
-    fetchSettings()
-  }, [])
-
-  const fetchSettings = async () => {
-    try {
-      setLoading(true)
-      setError(null)
-      const settings = await settingsApi.getPriceCostingSettings()
-      const s = settings as any
+    if (settingsData) {
+      const s = settingsData as any
       setValue('currency', s.currency || 'MYR')
       setValue('dateFormat', s.dateFormat || 'DD/MM/YYYY')
       setValue('timeFormat', s.timeFormat || '24h')
       setValue('numberFormat', s.numberFormat || '1,234.56')
-    } catch (err: any) {
-      const msg = err.response?.data?.message || err.message || 'Failed to load settings'
-      setError(msg)
-      showError(msg)
-    } finally {
-      setLoading(false)
     }
+  }, [settingsData, setValue])
+
+  const fetchSettings = () => {
+    refetch()
   }
 
   const onSubmit = async (data: RegionalFormData) => {
     try {
       setSubmitting(true)
-      await settingsApi.updatePriceCostingSettings(data)
+      await updatePriceCostingSettings(data).unwrap()
 
       // Update localStorage immediately so formatters reflect new values
       localStorage.setItem('defaultCurrency', data.currency)
@@ -158,7 +153,7 @@ const RegionalSettingsPage: React.FC = () => {
       window.dispatchEvent(new Event('currencyChanged'))
 
       showSuccess('Regional settings saved successfully.')
-      await fetchSettings()
+      refetch()
     } catch (err: any) {
       const msg = err.response?.data?.message || err.message || 'Failed to save settings'
       showError(msg)
@@ -166,6 +161,8 @@ const RegionalSettingsPage: React.FC = () => {
       setSubmitting(false)
     }
   }
+
+  const error = fetchError ? ((fetchError as any)?.message || 'Failed to load settings') : null
 
   if (loading) {
     return (

@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
+import { skipToken } from '@reduxjs/toolkit/query';
 import {
   Box,
   Typography,
@@ -28,15 +29,10 @@ import {
   ReceiptLong as BalanceSheetIcon,
 } from '@mui/icons-material';
 import { TYPOGRAPHY_STYLES } from '@/constants/typography';
-import { useAppDispatch, useAppSelector } from '@/store';
 import { formatDate } from '@/utils/formatters';
-import {
-  fetchBalanceSheet,
-  downloadBalanceSheetExcel,
-  selectBalanceSheet,
-  selectDownloading,
-  clearBalanceSheetError,
-} from '@/store/slices/accountingReportsSlice';
+import { useGetBalanceSheetQuery } from '@/store/api/accountingApi';
+import { exportReportExcel } from '@/utils/exportReport';
+import { getErrorMessage } from '@/utils/errorMessage';
 
 // Format currency helper
 const formatCurrency = (amount: number): string => {
@@ -65,6 +61,7 @@ interface SectionProps {
   }>;
   subtotal: number;
   color?: 'primary' | 'warning' | 'success' | 'info';
+  netIncome?: number;
 }
 
 interface NormalizedBalanceAccount {
@@ -80,9 +77,19 @@ export const getBalanceSheetTone = (mode: 'light' | 'dark') => ({
   sectionAccent: mode === 'dark' ? 'rgba(255, 255, 255, 0.08)' : 'grey.100',
 });
 
-const BalanceSheetSection: React.FC<SectionProps> = ({ title, accounts, subtotal, color = 'primary' }) => {
+const BalanceSheetSection: React.FC<SectionProps> = ({ title, accounts, subtotal, color = 'primary', netIncome }) => {
   const theme = useTheme();
   const tone = getBalanceSheetTone(theme.palette.mode);
+
+  // Filter out zero-balance accounts
+  const nonZeroAccounts = accounts.filter((a) => a.balance !== 0);
+  const hasNetIncome = netIncome !== undefined && netIncome !== 0;
+
+  // For equity: show positive accounts (capital) first, then net income, then negative (drawings)
+  const negativeAccounts = nonZeroAccounts.filter((a) => a.balance < 0);
+  const orderedAccounts = title === 'EQUITY'
+    ? [...nonZeroAccounts.filter((a) => a.balance > 0), ...negativeAccounts]
+    : nonZeroAccounts;
 
   return (
     <Box>
@@ -111,31 +118,89 @@ const BalanceSheetSection: React.FC<SectionProps> = ({ title, accounts, subtotal
             </TableRow>
           </TableHead>
           <TableBody>
-            {accounts.length > 0 ? (
+            {orderedAccounts.length > 0 || hasNetIncome ? (
               <>
-                {accounts.map((account) => (
-                  <TableRow key={account.id} hover>
+                {orderedAccounts.map((account, idx) => {
+                  // For equity: insert Net Income row after positive accounts (before first negative)
+                  const isFirstNegative = title === 'EQUITY' && account.balance < 0 && (idx === 0 || orderedAccounts[idx - 1].balance > 0);
+                  return (
+                    <React.Fragment key={account.id}>
+                      {isFirstNegative && hasNetIncome && (
+                        <TableRow hover data-testid="balance-sheet-net-income">
+                          <TableCell />
+                          <TableCell>
+                            <Typography variant="body2" sx={{ fontStyle: 'italic' }} data-testid="balance-sheet-net-income-label">
+                              {netIncome! >= 0 ? 'Add: Net Income' : 'Less: Net Loss'}
+                            </Typography>
+                          </TableCell>
+                          <TableCell align="right">
+                            <Typography
+                              variant="body2"
+                              data-testid="balance-sheet-net-income-value"
+                              sx={{
+                                fontWeight: 600,
+                                fontStyle: 'italic',
+                                color: netIncome! >= 0 ? 'success.main' : 'error.main',
+                              }}
+                            >
+                              {netIncome! < 0
+                                ? `(${formatCurrency(Math.abs(netIncome!))})`
+                                : formatCurrency(netIncome!)}
+                            </Typography>
+                          </TableCell>
+                        </TableRow>
+                      )}
+                      <TableRow hover>
+                        <TableCell>
+                          <Typography variant="body2">{account.code}</Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Typography variant="body2">{account.name}</Typography>
+                        </TableCell>
+                        <TableCell align="right">
+                          <Typography
+                            variant="body2"
+                            sx={{
+                              fontWeight: 600,
+                              color: account.balance < 0 ? 'error.main' : 'text.primary',
+                            }}
+                          >
+                            {account.balance < 0
+                              ? `(${formatCurrency(Math.abs(account.balance))})`
+                              : formatCurrency(account.balance)}
+                          </Typography>
+                        </TableCell>
+                      </TableRow>
+                    </React.Fragment>
+                  );
+                })}
+
+                {/* Net Income row — shown at end if no negative accounts */}
+                {hasNetIncome && (title !== 'EQUITY' || negativeAccounts.length === 0) && (
+                  <TableRow hover data-testid="balance-sheet-net-income">
+                    <TableCell />
                     <TableCell>
-                      <Typography variant="body2">
-                        {account.code}
+                      <Typography variant="body2" sx={{ fontStyle: 'italic' }} data-testid="balance-sheet-net-income-label">
+                        {netIncome! >= 0 ? 'Add: Net Income' : 'Less: Net Loss'}
                       </Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body2">{account.name}</Typography>
                     </TableCell>
                     <TableCell align="right">
                       <Typography
                         variant="body2"
+                        data-testid="balance-sheet-net-income-value"
                         sx={{
-                          fontWeight: account.balance !== 0 ? 600 : 400,
-                          color: account.balance !== 0 ? 'text.primary' : 'text.secondary',
+                          fontWeight: 600,
+                          fontStyle: 'italic',
+                          color: netIncome! >= 0 ? 'success.main' : 'error.main',
                         }}
                       >
-                        {account.balance !== 0 ? formatCurrency(Math.abs(account.balance)) : '-'}
+                        {netIncome! < 0
+                          ? `(${formatCurrency(Math.abs(netIncome!))})`
+                          : formatCurrency(netIncome!)}
                       </Typography>
                     </TableCell>
                   </TableRow>
-                ))}
+                )}
 
                 {/* Subtotal Row */}
                 <TableRow
@@ -160,13 +225,23 @@ const BalanceSheetSection: React.FC<SectionProps> = ({ title, accounts, subtotal
                 </TableRow>
               </>
             ) : (
-              <TableRow>
-                <TableCell colSpan={3} align="center" sx={{ py: 2 }}>
-                  <Typography variant="body2" color="text.secondary">
-                    No accounts in this section
-                  </Typography>
-                </TableCell>
-              </TableRow>
+              <>
+                <TableRow>
+                  <TableCell colSpan={3} align="center" sx={{ py: 2 }}>
+                    <Typography variant="body2" color="text.secondary">
+                      No accounts in this section
+                    </Typography>
+                  </TableCell>
+                </TableRow>
+                <TableRow sx={{ backgroundColor: tone.sectionAccent, '& td': { borderTop: 2, borderColor: 'divider' } }}>
+                  <TableCell colSpan={2}>
+                    <Typography variant="body1" sx={{ fontWeight: 700 }}>Total {title}</Typography>
+                  </TableCell>
+                  <TableCell align="right">
+                    <Typography variant="body1" sx={{ fontWeight: 700 }}>0.00</Typography>
+                  </TableCell>
+                </TableRow>
+              </>
             )}
           </TableBody>
         </Table>
@@ -176,54 +251,41 @@ const BalanceSheetSection: React.FC<SectionProps> = ({ title, accounts, subtotal
 };
 
 const BalanceSheetPage: React.FC = () => {
-  const dispatch = useAppDispatch();
   const theme = useTheme();
   const tone = getBalanceSheetTone(theme.palette.mode);
-
-  // Redux state
-  const balanceSheetState = useAppSelector(selectBalanceSheet);
-  const downloading = useAppSelector(selectDownloading);
-
-  const { data, loading, error } = balanceSheetState || {
-    data: null,
-    loading: false,
-    error: null,
-  };
-
-  // Local state for filters
   const [asOfDate, setAsOfDate] = useState<string>(formatDateForInput(new Date()));
   const [includeInactive, setIncludeInactive] = useState<boolean>(false);
+  const [submitted, setSubmitted] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
+  const queryArgs = submitted ? { asOfDate, includeInactive } : skipToken;
+  const { data, isLoading: loading, error } = useGetBalanceSheetQuery(queryArgs);
+  const errorMessage = error ? getErrorMessage(error, 'Failed to load balance sheet') : null;
 
-  // Load report on mount with default parameters
-  useEffect(() => {
-    handleGenerateReport();
-  }, []);
-
-  // Clear error on mount
-  useEffect(() => {
-    return () => {
-      dispatch(clearBalanceSheetError());
-    };
-  }, [dispatch]);
-
-  // Handle generate report
   const handleGenerateReport = () => {
-    dispatch(
-      fetchBalanceSheet({
-        asOfDate,
-        includeInactive,
-      })
-    );
+    setSubmitted(true);
   };
 
-  // Handle export to Excel
-  const handleExportToExcel = () => {
-    dispatch(
-      downloadBalanceSheetExcel({
-        asOfDate,
-        includeInactive,
-      })
-    );
+  const handleExportToExcel = async () => {
+    try {
+      setIsDownloading(true);
+      await exportReportExcel(
+        '/accounting/reports/balance-sheet/export',
+        { asOfDate, includeInactive },
+        `balance-sheet-${asOfDate}.xlsx`,
+      );
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
+  const handleAsOfDateChange = (value: string) => {
+    setAsOfDate(value);
+    setSubmitted(false);
+  };
+
+  const handleIncludeInactiveChange = (value: boolean) => {
+    setIncludeInactive(value);
+    setSubmitted(false);
   };
 
   const normalizeAccounts = (accounts: any[] | undefined): NormalizedBalanceAccount[] => {
@@ -301,7 +363,7 @@ const BalanceSheetPage: React.FC = () => {
               label="As Of Date"
               type="date"
               value={asOfDate}
-              onChange={(e) => setAsOfDate(e.target.value)}
+              onChange={(e) => handleAsOfDateChange(e.target.value)}
               size="small"
               InputLabelProps={{ shrink: true }}
               sx={{ minWidth: 200 }}
@@ -310,7 +372,7 @@ const BalanceSheetPage: React.FC = () => {
               control={
                 <Checkbox
                   checked={includeInactive}
-                  onChange={(e) => setIncludeInactive(e.target.checked)}
+                  onChange={(e) => handleIncludeInactiveChange(e.target.checked)}
                 />
               }
               label="Include Inactive Accounts"
@@ -336,9 +398,9 @@ const BalanceSheetPage: React.FC = () => {
             <Button
               variant="outlined"
               color="secondary"
-              startIcon={downloading ? <CircularProgress size={20} /> : <DownloadIcon />}
+              startIcon={isDownloading ? <CircularProgress size={20} /> : <DownloadIcon />}
               onClick={handleExportToExcel}
-              disabled={!data || loading || downloading}
+              disabled={!submitted || loading || isDownloading}
               sx={{ minWidth: 150, flex: { xs: 1, sm: 'initial' } }}
             >
               Export to Excel
@@ -348,18 +410,14 @@ const BalanceSheetPage: React.FC = () => {
       </Paper>
 
       {/* Error Alert */}
-      {error && (
-        <Alert
-          severity="error"
-          sx={{ mb: 2 }}
-          onClose={() => dispatch(clearBalanceSheetError())}
-        >
-          {error}
+      {errorMessage && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {errorMessage}
         </Alert>
       )}
 
       {/* Loading State */}
-      {loading && !data && (
+      {loading && submitted && !data && (
         <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 8 }}>
           <CircularProgress />
         </Box>
@@ -440,51 +498,13 @@ const BalanceSheetPage: React.FC = () => {
                   data-testid="balance-sheet-section-equity"
                   sx={{ p: 2, height: '100%', display: 'flex', flexDirection: 'column', flex: 1 }}
                 >
-                  <Box sx={{ flexGrow: 1 }}>
-                    <BalanceSheetSection
-                      title="EQUITY"
-                      accounts={equityAccounts}
-                      subtotal={equitySubtotal}
-                      color="success"
-                    />
-                  </Box>
-                  {netIncome !== 0 && (
-                    <Box
-                      data-testid="balance-sheet-net-income"
-                      sx={{
-                        mt: 2,
-                        p: 1.5,
-                        borderRadius: 1,
-                        border: 1,
-                        borderColor: netIncome >= 0 ? 'success.main' : 'error.main',
-                        backgroundColor:
-                          netIncome >= 0
-                            ? alpha(theme.palette.success.main, theme.palette.mode === 'dark' ? 0.2 : 0.08)
-                            : alpha(theme.palette.error.main, theme.palette.mode === 'dark' ? 0.2 : 0.08),
-                      }}
-                    >
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <Typography
-                          data-testid="balance-sheet-net-income-label"
-                          variant="subtitle2"
-                          sx={{ fontWeight: 700, letterSpacing: 0.3 }}
-                        >
-                          {netIncome >= 0 ? 'Net Income' : 'Net Loss'}
-                        </Typography>
-                        <Typography
-                          data-testid="balance-sheet-net-income-value"
-                          variant="h6"
-                          sx={{
-                            fontWeight: 800,
-                            color: netIncome >= 0 ? 'success.main' : 'error.main',
-                          }}
-                        >
-                          {formatCurrency(Math.abs(netIncome))}
-                          {netIncome < 0 && ' (Loss)'}
-                        </Typography>
-                      </Box>
-                    </Box>
-                  )}
+                  <BalanceSheetSection
+                    title="EQUITY"
+                    accounts={equityAccounts}
+                    subtotal={equitySubtotal}
+                    color="success"
+                    netIncome={netIncome}
+                  />
                 </Paper>
               </Grid>
             </Grid>

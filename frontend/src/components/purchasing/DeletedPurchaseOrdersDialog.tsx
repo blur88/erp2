@@ -30,7 +30,13 @@ import {
   Close as CloseIcon,
   Description as OrderIcon,
 } from '@mui/icons-material'
-import { purchasingApi } from '@/services/purchasingApi'
+import {
+  useBulkPermanentDeletePurchaseOrdersMutation,
+  useBulkRestorePurchaseOrdersMutation,
+  useGetDeletedPurchaseOrdersQuery,
+  usePermanentDeletePurchaseOrderMutation,
+  useRestorePurchaseOrderMutation,
+} from '@/store/api/purchasingApi'
 import type { PurchaseOrder } from '@/types'
 import { useNotification } from '@/hooks/useNotification'
 import { formatCurrency, formatDate } from '@/utils/formatters'
@@ -45,9 +51,20 @@ const DeletedPurchaseOrdersDialog: React.FC<DeletedPurchaseOrdersDialogProps> = 
   const { showSuccess, showError } = useNotification()
   const theme = useTheme()
   const isMobile = useMediaQuery(theme.breakpoints.down('md'))
-
-  const [deletedOrders, setDeletedOrders] = useState<PurchaseOrder[]>([])
-  const [loading, setLoading] = useState(false)
+  const { data: deletedOrdersResponse, isFetching: isFetchingDeleted, refetch: refetchDeletedOrders } =
+    useGetDeletedPurchaseOrdersQuery({}, { skip: !open })
+  const [restorePurchaseOrder, { isLoading: isRestoringMutation }] = useRestorePurchaseOrderMutation()
+  const [permanentDeletePurchaseOrder, { isLoading: isDeletingMutation }] = usePermanentDeletePurchaseOrderMutation()
+  const [bulkRestorePurchaseOrders, { isLoading: isBulkRestoringMutation }] = useBulkRestorePurchaseOrdersMutation()
+  const [bulkPermanentDeletePurchaseOrders, { isLoading: isBulkDeletingMutation }] =
+    useBulkPermanentDeletePurchaseOrdersMutation()
+  const deletedOrders = deletedOrdersResponse?.data || []
+  const loading =
+    isFetchingDeleted ||
+    isRestoringMutation ||
+    isDeletingMutation ||
+    isBulkRestoringMutation ||
+    isBulkDeletingMutation
   const [searchTerm, setSearchTerm] = useState('')
   const [restoringId, setRestoringId] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
@@ -60,24 +77,10 @@ const DeletedPurchaseOrdersDialog: React.FC<DeletedPurchaseOrdersDialogProps> = 
 
   useEffect(() => {
     if (open) {
-      fetchDeletedOrders()
+      void refetchDeletedOrders()
       setSelectedOrders(new Set())
     }
-  }, [open])
-
-  const fetchDeletedOrders = async () => {
-    setLoading(true)
-    try {
-      const response = await purchasingApi.getDeletedPurchaseOrders()
-      const apiResponse = response as any
-      setDeletedOrders(apiResponse.orders || apiResponse.data || [])
-    } catch (error) {
-      console.error('Error fetching deleted purchase orders:', error)
-      showError('Failed to fetch deleted purchase orders')
-    } finally {
-      setLoading(false)
-    }
-  }
+  }, [open, refetchDeletedOrders])
 
   const filteredOrders = deletedOrders.filter(order =>
     order.orderNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -91,12 +94,12 @@ const DeletedPurchaseOrdersDialog: React.FC<DeletedPurchaseOrdersDialogProps> = 
   const handleRestore = async (order: PurchaseOrder) => {
     setRestoringId(order.id)
     try {
-      await purchasingApi.restorePurchaseOrder(order.id)
+      await restorePurchaseOrder(order.id).unwrap()
       showSuccess(`Purchase order ${order.orderNumber} restored successfully`)
-      await fetchDeletedOrders()
+      await refetchDeletedOrders()
       onRefresh?.()
     } catch (error: any) {
-      showError(error?.response?.data?.message || 'Failed to restore purchase order')
+      showError(error?.data?.message || error?.message || 'Failed to restore purchase order')
     } finally {
       setRestoringId(null)
     }
@@ -126,8 +129,7 @@ const DeletedPurchaseOrdersDialog: React.FC<DeletedPurchaseOrdersDialogProps> = 
     setBulkRestoring(true)
     try {
       const orderIds = Array.from(selectedOrders)
-      const response = await purchasingApi.bulkRestorePurchaseOrders(orderIds)
-      const result = (response as any).data || response
+      const result = await bulkRestorePurchaseOrders(orderIds).unwrap()
 
       const restoredCount = result?.restoredCount || 0
       const failedIds = result?.failedIds || []
@@ -140,11 +142,11 @@ const DeletedPurchaseOrdersDialog: React.FC<DeletedPurchaseOrdersDialogProps> = 
         showError(`Failed to restore ${failedIds.length} purchase orders`)
       }
 
-      await fetchDeletedOrders()
+      await refetchDeletedOrders()
       onRefresh?.()
       setSelectedOrders(new Set())
     } catch (error: any) {
-      showError(error?.response?.data?.message || 'Failed to bulk restore purchase orders')
+      showError(error?.data?.message || error?.message || 'Failed to bulk restore purchase orders')
     } finally {
       setBulkRestoring(false)
       setShowBulkRestoreConfirm(false)
@@ -154,11 +156,11 @@ const DeletedPurchaseOrdersDialog: React.FC<DeletedPurchaseOrdersDialogProps> = 
   const handlePermanentDelete = async (order: PurchaseOrder) => {
     setDeletingId(order.id)
     try {
-      await purchasingApi.permanentDeletePurchaseOrder(order.id)
+      await permanentDeletePurchaseOrder(order.id).unwrap()
       showSuccess(`Purchase order ${order.orderNumber} permanently deleted`)
-      await fetchDeletedOrders()
+      await refetchDeletedOrders()
     } catch (error: any) {
-      showError(error?.response?.data?.message || 'Failed to permanently delete purchase order')
+      showError(error?.data?.message || error?.message || 'Failed to permanently delete purchase order')
     } finally {
       setDeletingId(null)
       setShowDeleteConfirm(null)
@@ -169,8 +171,7 @@ const DeletedPurchaseOrdersDialog: React.FC<DeletedPurchaseOrdersDialogProps> = 
     setBulkDeleting(true)
     try {
       const orderIds = Array.from(selectedOrders)
-      const response = await purchasingApi.bulkPermanentDeletePurchaseOrders(orderIds)
-      const result = (response as any).data || response
+      const result = await bulkPermanentDeletePurchaseOrders(orderIds).unwrap()
 
       const deletedCount = result?.deletedCount || 0
       const failedIds = result?.failedIds || []
@@ -183,10 +184,10 @@ const DeletedPurchaseOrdersDialog: React.FC<DeletedPurchaseOrdersDialogProps> = 
         showError(`Failed to delete ${failedIds.length} purchase orders`)
       }
 
-      await fetchDeletedOrders()
+      await refetchDeletedOrders()
       setSelectedOrders(new Set())
     } catch (error: any) {
-      showError(error?.response?.data?.message || 'Failed to bulk delete purchase orders')
+      showError(error?.data?.message || error?.message || 'Failed to bulk delete purchase orders')
     } finally {
       setBulkDeleting(false)
       setShowBulkDeleteConfirm(false)

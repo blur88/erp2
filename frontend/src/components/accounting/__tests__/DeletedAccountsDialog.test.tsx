@@ -1,18 +1,22 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
-import { Provider } from 'react-redux'
-import { configureStore } from '@reduxjs/toolkit'
-import DeletedAccountsDialog from '../DeletedAccountsDialog'
-import chartOfAccountsReducer from '@/store/slices/chartOfAccountsSlice'
-import { ApiService } from '@/services/api'
 
-vi.mock('@/services/api', () => ({
-  ApiService: {
-    get: vi.fn(),
-    post: vi.fn(),
-    patch: vi.fn(),
-    delete: vi.fn(),
-  },
+import DeletedAccountsDialog from '../DeletedAccountsDialog'
+
+const mockedApi = vi.hoisted(() => ({
+  useGetDeletedChartOfAccountsQuery: vi.fn(),
+  useRestoreChartOfAccountMutation: vi.fn(),
+  usePermanentDeleteChartOfAccountMutation: vi.fn(),
+  useBulkRestoreChartOfAccountsMutation: vi.fn(),
+  useBulkPermanentDeleteChartOfAccountsMutation: vi.fn(),
+}))
+
+vi.mock('@/store/api/accountingApi', () => ({
+  useGetDeletedChartOfAccountsQuery: mockedApi.useGetDeletedChartOfAccountsQuery,
+  useRestoreChartOfAccountMutation: mockedApi.useRestoreChartOfAccountMutation,
+  usePermanentDeleteChartOfAccountMutation: mockedApi.usePermanentDeleteChartOfAccountMutation,
+  useBulkRestoreChartOfAccountsMutation: mockedApi.useBulkRestoreChartOfAccountsMutation,
+  useBulkPermanentDeleteChartOfAccountsMutation: mockedApi.useBulkPermanentDeleteChartOfAccountsMutation,
 }))
 
 vi.mock('@/hooks/useNotification', () => ({
@@ -25,10 +29,9 @@ vi.mock('@/hooks/useNotification', () => ({
 describe('DeletedAccountsDialog', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-
-    ;(ApiService.get as any).mockImplementation((url: string) => {
-      if (url === '/accounting/chart-of-accounts/deleted') {
-        return Promise.resolve([
+    mockedApi.useGetDeletedChartOfAccountsQuery.mockReturnValue({
+      data: {
+        data: [
           {
             id: 'acc-1',
             code: '1000',
@@ -41,44 +44,19 @@ describe('DeletedAccountsDialog', () => {
             updatedAt: '2026-01-01T00:00:00Z',
             deletedAt: '2026-02-01T00:00:00Z',
           },
-        ])
-      }
-
-      if (url.startsWith('/accounting/chart-of-accounts?')) {
-        return Promise.resolve({
-          data: [],
-          meta: { page: 1, limit: 100, total: 0, totalPages: 0 },
-        })
-      }
-
-      return Promise.resolve([])
+        ],
+      },
+      isLoading: false,
+      refetch: vi.fn(),
     })
-
-    ;(ApiService.post as any).mockResolvedValue({
-      message: 'ok',
-      restoredCount: 1,
-      failedIds: [],
-    })
-
-    ;(ApiService.delete as any).mockResolvedValue({
-      message: 'ok',
-      deletedCount: 1,
-      failedIds: [],
-    })
+    mockedApi.useRestoreChartOfAccountMutation.mockReturnValue([vi.fn()])
+    mockedApi.usePermanentDeleteChartOfAccountMutation.mockReturnValue([vi.fn()])
+    mockedApi.useBulkRestoreChartOfAccountsMutation.mockReturnValue([vi.fn()])
+    mockedApi.useBulkPermanentDeleteChartOfAccountsMutation.mockReturnValue([vi.fn()])
   })
 
   it('shows bulk action buttons after selecting a deleted account checkbox', async () => {
-    const store = configureStore({
-      reducer: {
-        chartOfAccounts: chartOfAccountsReducer,
-      },
-    })
-
-    render(
-      <Provider store={store}>
-        <DeletedAccountsDialog open onClose={vi.fn()} />
-      </Provider>
-    )
+    render(<DeletedAccountsDialog open onClose={vi.fn()} />)
 
     await waitFor(() => {
       expect(screen.getByText('1000')).toBeInTheDocument()

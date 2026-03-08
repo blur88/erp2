@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react'
+import React, { useState, useMemo } from 'react'
 import {
   Box,
   Typography,
@@ -24,25 +24,19 @@ import {
   Settings as SettingsIcon,
   Clear as ClearIcon,
 } from '@mui/icons-material'
-import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
 import { useNotification } from '@/hooks/useNotification'
 import {
-  fetchAccountMappings,
-  validateAccountMappings,
-  deleteAccountMapping,
-  selectAccountMappings,
-  selectAccountMappingsLoading,
-  selectAccountMappingsError,
-  selectAccountMappingsValid,
-  selectAccountMappingsValidation,
-} from '@/store/slices/accountMappingsSlice'
+  useDeleteAccountMappingMutation,
+  useGetAccountMappingsQuery,
+  useGetPaymentMethodsQuery,
+  useValidateAccountMappingsQuery,
+} from '@/store/api/accountingApi'
 import { MappingType } from '@/types/accountMapping'
 import type { AccountMapping } from '@/types/accountMapping'
 import AccountMappingDialog from '@/components/accounting/AccountMappingDialog'
 import ConfirmationDialog from '@/components/common/ConfirmationDialog'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
 import { useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
-import { paymentMethodsApi } from '@/services/paymentMethodsApi'
 
 // Mapping type labels with category grouping
 const MAPPING_TYPE_LABELS: Record<MappingType, { label: string; category: string; description: string }> = {
@@ -117,47 +111,41 @@ const getMappingLabel = (mappingType: string): string =>
   MAPPING_TYPE_LABELS[mappingType as MappingType]?.label || mappingType
 
 const AccountMappingsPage: React.FC = () => {
-  const dispatch = useAppDispatch()
   const { showSuccess, showError } = useNotification()
   const theme = useTheme()
   const isMobile = useMediaQuery(theme.breakpoints.down('md'))
-
-  const mappings = useAppSelector(selectAccountMappings)
-  const loading = useAppSelector(selectAccountMappingsLoading)
-  const error = useAppSelector(selectAccountMappingsError)
-  const isValid = useAppSelector(selectAccountMappingsValid)
-  const validationResult = useAppSelector(selectAccountMappingsValidation)
+  const {
+    data: mappings = [],
+    isLoading: mappingsLoading,
+    error: mappingsError,
+    refetch: refetchMappings,
+  } = useGetAccountMappingsQuery()
+  const {
+    data: validationResult,
+    refetch: refetchValidation,
+  } = useValidateAccountMappingsQuery()
+  const { data: paymentMethodsResponse } = useGetPaymentMethodsQuery({ page: 1, isActive: true })
+  const [deleteAccountMapping] = useDeleteAccountMappingMutation()
+  const isValid = validationResult?.isValid ?? false
+  const loading = mappingsLoading
+  const error = (mappingsError as any)?.data ?? null
 
   const [dialogOpen, setDialogOpen] = useState(false)
   const [selectedMapping, setSelectedMapping] = useState<AccountMapping | null>(null)
   const [selectedMappingType, setSelectedMappingType] = useState<string | null>(null)
   const [mappingToClear, setMappingToClear] = useState<AccountMapping | null>(null)
   const [clearing, setClearing] = useState(false)
-  const [paymentMethods, setPaymentMethods] = useState<
-    Array<{ code: string; name: string; requiresSettlement: boolean; useForPurchases: boolean }>
-  >([])
+  const paymentMethods = useMemo(
+    () => ((paymentMethodsResponse?.data ?? []) as Array<{ code: string; name: string; requiresSettlement: boolean; useForPurchases: boolean }>),
+    [paymentMethodsResponse],
+  )
 
   useKeyboardShortcuts({
-    onRefresh: () => dispatch(fetchAccountMappings()),
+    onRefresh: () => {
+      refetchMappings()
+      refetchValidation()
+    },
   })
-
-  // Load mappings and validate on mount
-  useEffect(() => {
-    dispatch(fetchAccountMappings())
-    dispatch(validateAccountMappings())
-  }, [dispatch])
-
-  useEffect(() => {
-    paymentMethodsApi
-      .getActive()
-      .then((response: any) => {
-        const methods = response?.data?.data || response?.data || response || []
-        setPaymentMethods(Array.isArray(methods) ? methods : [])
-      })
-      .catch(() => {
-        setPaymentMethods([])
-      })
-  }, [])
 
   // Handle edit mapping
   const handleEdit = (mapping: AccountMapping) => {
@@ -183,8 +171,8 @@ const AccountMappingsPage: React.FC = () => {
   // Handle dialog save success
   const handleSaveSuccess = () => {
     handleDialogClose()
-    dispatch(fetchAccountMappings())
-    dispatch(validateAccountMappings())
+    refetchMappings()
+    refetchValidation()
     showSuccess('Account mapping saved successfully')
   }
 
@@ -197,9 +185,9 @@ const AccountMappingsPage: React.FC = () => {
 
     try {
       setClearing(true)
-      await dispatch(deleteAccountMapping(mappingToClear.id)).unwrap()
-      await dispatch(fetchAccountMappings()).unwrap()
-      await dispatch(validateAccountMappings()).unwrap()
+      await deleteAccountMapping(mappingToClear.id).unwrap()
+      await refetchMappings()
+      await refetchValidation()
       showSuccess(`Mapping "${getMappingLabel(mappingToClear.mappingType)}" cleared successfully`)
     } catch (err: any) {
       showError(err || 'Failed to clear mapping')
@@ -367,7 +355,7 @@ const AccountMappingsPage: React.FC = () => {
         <Alert
           severity="error"
           action={
-            <Button color="inherit" size="small" onClick={() => dispatch(fetchAccountMappings())}>
+            <Button color="inherit" size="small" onClick={() => refetchMappings()}>
               Retry
             </Button>
           }

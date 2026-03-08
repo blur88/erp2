@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback, memo } from 'react'
+import React, { useState, useEffect, useRef, useCallback, memo, useMemo } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import {
   Box,
@@ -40,20 +40,20 @@ import {
 } from '@mui/icons-material'
 import DeletedStockAdjustmentsDialog from '@/components/inventory/DeletedStockAdjustmentsDialog'
 import ConfirmationDialog from '@/components/common/ConfirmationDialog'
-import { journalEntriesApi } from '@/services/accountingApi'
+import { useLazyGetJournalEntriesQuery } from '@/store/api/accountingApi'
 import type { JournalEntry } from '@/types'
 import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
 import {
-  fetchStockAdjustments,
-  fetchStockAdjustment,
   setSelectedStockAdjustment,
-  selectStockAdjustments,
   selectSelectedStockAdjustment,
-  selectInventoryLoading,
-  selectInventoryError,
-  selectInventoryPagination,
 } from '@/store/slices/inventorySlice'
-import { inventoryApi } from '@/services/inventoryApi'
+import {
+  useCompleteStockAdjustmentMutation,
+  useDeleteStockAdjustmentMutation,
+  useGetStockAdjustmentsQuery,
+  useLazyGetStockAdjustmentQuery,
+  useUncompleteStockAdjustmentMutation,
+} from '@/store/api/inventoryApi'
 import { formatDate } from '@/utils/formatters'
 import { useNotification } from '@/hooks/useNotification'
 import { useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
@@ -68,6 +68,37 @@ interface StockAdjustmentsPageState {
   dateFilter: string
   customFromDate: string
   customToDate: string
+}
+
+const getDateRangeFromFilter = (filter: string, customFromDate: string, customToDate: string) => {
+  const today = new Date()
+  const yesterday = new Date(today)
+  yesterday.setDate(yesterday.getDate() - 1)
+
+  const startOfWeek = new Date(today)
+  startOfWeek.setDate(today.getDate() - today.getDay())
+
+  const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1)
+  const startOfYear = new Date(today.getFullYear(), 0, 1)
+
+  const formatLocalDate = (date: Date) => date.toISOString().split('T')[0]
+
+  switch (filter) {
+    case 'today':
+      return { fromDate: formatLocalDate(today), toDate: formatLocalDate(today) }
+    case 'yesterday':
+      return { fromDate: formatLocalDate(yesterday), toDate: formatLocalDate(yesterday) }
+    case 'this_week':
+      return { fromDate: formatLocalDate(startOfWeek), toDate: formatLocalDate(today) }
+    case 'this_month':
+      return { fromDate: formatLocalDate(startOfMonth), toDate: formatLocalDate(today) }
+    case 'this_year':
+      return { fromDate: formatLocalDate(startOfYear), toDate: formatLocalDate(today) }
+    case 'custom':
+      return { fromDate: customFromDate, toDate: customToDate }
+    default:
+      return { fromDate: undefined, toDate: undefined }
+  }
 }
 
 // Memoized Adjustment Row Component
@@ -133,12 +164,6 @@ const StockAdjustmentsPage: React.FC = () => {
   // Check for newly created adjustment ID from navigation state
   const newAdjustmentId = (location.state as any)?.newAdjustmentId
 
-  const adjustments = useAppSelector(selectStockAdjustments) || []
-  const loading = useAppSelector(selectInventoryLoading)?.stockAdjustments || false
-  const error = useAppSelector(selectInventoryError)
-  const pagination = useAppSelector(selectInventoryPagination)?.stockAdjustments
-  const selectedAdjustment = useAppSelector(selectSelectedStockAdjustment)
-
   const [state, setState] = useState<StockAdjustmentsPageState>({
     search: '',
     sortBy: 'adjustmentNumber',
@@ -148,6 +173,39 @@ const StockAdjustmentsPage: React.FC = () => {
     customFromDate: '',
     customToDate: '',
   })
+  const selectedAdjustment = useAppSelector(selectSelectedStockAdjustment)
+  const queryParams = useMemo(() => {
+    const dateRange = getDateRangeFromFilter(state.dateFilter, state.customFromDate, state.customToDate)
+    return {
+      status: state.statusFilter !== 'all' ? state.statusFilter : undefined,
+      fromDate: dateRange.fromDate,
+      toDate: dateRange.toDate,
+      search: state.search || undefined,
+      sortBy: state.sortBy,
+      sortOrder: state.sortOrder.toUpperCase(),
+    }
+  }, [state])
+  const {
+    data: adjustmentsResponse,
+    isFetching: loading,
+    error: listError,
+    refetch: refetchAdjustments,
+  } = useGetStockAdjustmentsQuery(queryParams)
+  const [fetchStockAdjustmentById] = useLazyGetStockAdjustmentQuery()
+  const [deleteStockAdjustment] = useDeleteStockAdjustmentMutation()
+  const [completeStockAdjustment] = useCompleteStockAdjustmentMutation()
+  const [uncompleteStockAdjustment] = useUncompleteStockAdjustmentMutation()
+  const [fetchJournalEntries] = useLazyGetJournalEntriesQuery()
+  const adjustments = adjustmentsResponse?.data || []
+  const pagination = adjustmentsResponse?.meta
+  const error = useMemo(() => {
+    if (!listError) return null
+    const fallback = 'Failed to fetch stock adjustments'
+    if (typeof listError !== 'object') return fallback
+    const errorData = (listError as any).data
+    if (typeof errorData === 'string') return errorData
+    return errorData?.message || fallback
+  }, [listError])
 
   const [focusedAdjustmentIndex, setFocusedAdjustmentIndex] = useState(-1)
   const adjustmentListRef = useRef<HTMLDivElement>(null)
@@ -171,8 +229,9 @@ const StockAdjustmentsPage: React.FC = () => {
   // Fetch journal entry for completed stock adjustment
   useEffect(() => {
     if (selectedAdjustment?.status === 'completed') {
-      journalEntriesApi.getAll({ sourceType: 'stock_adjustment', sourceId: selectedAdjustment.id, limit: 1 })
-        .then((res: any) => {
+      fetchJournalEntries({ sourceType: 'stock_adjustment', sourceId: selectedAdjustment.id, limit: 1 })
+        .unwrap()
+        .then((res) => {
           const entries = res?.data || []
           setJournalEntry(entries.length > 0 ? entries[0] : null)
         })
@@ -180,57 +239,17 @@ const StockAdjustmentsPage: React.FC = () => {
     } else {
       setJournalEntry(null)
     }
-  }, [selectedAdjustment?.id, selectedAdjustment?.status])
+  }, [selectedAdjustment?.id, selectedAdjustment?.status, fetchJournalEntries])
 
-  // Helper function to calculate date ranges
-  const getDateRange = useCallback((filter: string) => {
-    const today = new Date()
-    const yesterday = new Date(today)
-    yesterday.setDate(yesterday.getDate() - 1)
-
-    const startOfWeek = new Date(today)
-    startOfWeek.setDate(today.getDate() - today.getDay())
-
-    const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1)
-    const startOfYear = new Date(today.getFullYear(), 0, 1)
-
-    const formatDate = (date: Date) => date.toISOString().split('T')[0]
-
-    switch (filter) {
-      case 'today':
-        return { fromDate: formatDate(today), toDate: formatDate(today) }
-      case 'yesterday':
-        return { fromDate: formatDate(yesterday), toDate: formatDate(yesterday) }
-      case 'this_week':
-        return { fromDate: formatDate(startOfWeek), toDate: formatDate(today) }
-      case 'this_month':
-        return { fromDate: formatDate(startOfMonth), toDate: formatDate(today) }
-      case 'this_year':
-        return { fromDate: formatDate(startOfYear), toDate: formatDate(today) }
-      case 'custom':
-        return { fromDate: state.customFromDate, toDate: state.customToDate }
-      default:
-        return { fromDate: undefined, toDate: undefined }
+  const loadStockAdjustmentDetail = useCallback(async (id: string) => {
+    try {
+      const adjustment = await fetchStockAdjustmentById(id).unwrap()
+      dispatch(setSelectedStockAdjustment(adjustment))
+    } catch (detailError: any) {
+      console.error('Failed to fetch stock adjustment details:', detailError)
+      showError(detailError?.data?.message || detailError?.message || 'Failed to load stock adjustment details')
     }
-  }, [state.customFromDate, state.customToDate])
-
-  // Load adjustments
-  const loadAdjustments = useCallback(() => {
-    const dateRange = getDateRange(state.dateFilter)
-
-    dispatch(fetchStockAdjustments({
-      status: state.statusFilter !== 'all' ? state.statusFilter : undefined,
-      fromDate: dateRange.fromDate,
-      toDate: dateRange.toDate,
-      search: state.search || undefined,
-      sortBy: state.sortBy,
-      sortOrder: state.sortOrder.toUpperCase() as any,
-    }))
-  }, [dispatch, state, getDateRange])
-
-  useEffect(() => {
-    loadAdjustments()
-  }, [loadAdjustments])
+  }, [dispatch, fetchStockAdjustmentById, showError])
 
   const handleSort = useCallback((field: string) => {
     setState(prev => ({
@@ -247,8 +266,8 @@ const StockAdjustmentsPage: React.FC = () => {
     setFocusedAdjustmentIndex(adjustmentIndex)
 
     // Fetch full details including items
-    dispatch(fetchStockAdjustment(adjustment.id))
-  }, [dispatch, adjustments])
+    void loadStockAdjustmentDetail(adjustment.id)
+  }, [dispatch, adjustments, loadStockAdjustmentDetail])
 
   // Auto-select newly created adjustment when navigating back from create page
   useEffect(() => {
@@ -261,10 +280,10 @@ const StockAdjustmentsPage: React.FC = () => {
         // Set the selected adjustment first (for immediate UI feedback)
         dispatch(setSelectedStockAdjustment(newAdjustment))
         // Fetch full details including items
-        dispatch(fetchStockAdjustment(newAdjustmentId))
+        void loadStockAdjustmentDetail(newAdjustmentId)
       }
     }
-  }, [newAdjustmentId, adjustments, hasAutoSelected, dispatch])
+  }, [newAdjustmentId, adjustments, hasAutoSelected, dispatch, loadStockAdjustmentDetail])
 
   // Auto-focus first adjustment when adjustments load (only if no new adjustment to select)
   useEffect(() => {
@@ -273,10 +292,10 @@ const StockAdjustmentsPage: React.FC = () => {
         setFocusedAdjustmentIndex(0)
         dispatch(setSelectedStockAdjustment(adjustments[0]))
         // Fetch full details for the first adjustment
-        dispatch(fetchStockAdjustment(adjustments[0].id))
+        void loadStockAdjustmentDetail(adjustments[0].id)
       }
     }
-  }, [adjustments, focusedAdjustmentIndex, selectedAdjustment, dispatch, newAdjustmentId])
+  }, [adjustments, focusedAdjustmentIndex, selectedAdjustment, dispatch, newAdjustmentId, loadStockAdjustmentDetail])
 
   // Clear selection when no adjustments exist
   useEffect(() => {
@@ -292,18 +311,18 @@ const StockAdjustmentsPage: React.FC = () => {
       const newIndex = focusedAdjustmentIndex - 1
       setFocusedAdjustmentIndex(newIndex)
       dispatch(setSelectedStockAdjustment(adjustments[newIndex]))
-      dispatch(fetchStockAdjustment(adjustments[newIndex].id))
+      void loadStockAdjustmentDetail(adjustments[newIndex].id)
     }
-  }, [focusedAdjustmentIndex, adjustments, dispatch])
+  }, [focusedAdjustmentIndex, adjustments, dispatch, loadStockAdjustmentDetail])
 
   const handleNavigateDown = useCallback(() => {
     if (focusedAdjustmentIndex < adjustments.length - 1) {
       const newIndex = focusedAdjustmentIndex + 1
       setFocusedAdjustmentIndex(newIndex)
       dispatch(setSelectedStockAdjustment(adjustments[newIndex]))
-      dispatch(fetchStockAdjustment(adjustments[newIndex].id))
+      void loadStockAdjustmentDetail(adjustments[newIndex].id)
     }
-  }, [focusedAdjustmentIndex, adjustments, dispatch])
+  }, [focusedAdjustmentIndex, adjustments, dispatch, loadStockAdjustmentDetail])
 
   const focusSearchInput = useCallback(() => {
     searchInputRef.current?.focus()
@@ -336,9 +355,9 @@ const StockAdjustmentsPage: React.FC = () => {
           setFocusedAdjustmentIndex(-1)
         }
 
-        await inventoryApi.deleteStockAdjustment(adjustmentToDelete)
+        await deleteStockAdjustment(adjustmentToDelete).unwrap()
         showSuccess(`Stock adjustment "${adjustmentToDeleteName}" deleted successfully`)
-        loadAdjustments()
+        void refetchAdjustments()
 
         setDeleteConfirmOpen(false)
         setAdjustmentToDelete(null)
@@ -371,12 +390,11 @@ const StockAdjustmentsPage: React.FC = () => {
     if (adjustmentToComplete) {
       setCompletingId(adjustmentToComplete)
       try {
-        await inventoryApi.completeStockAdjustment(adjustmentToComplete)
+        await completeStockAdjustment(adjustmentToComplete).unwrap()
         showSuccess(`Stock adjustment "${adjustmentToCompleteName}" completed successfully`)
-        loadAdjustments()
-        // Refresh the selected adjustment details
+        void refetchAdjustments()
         if (selectedAdjustment?.id === adjustmentToComplete) {
-          dispatch(fetchStockAdjustment(adjustmentToComplete))
+          void loadStockAdjustmentDetail(adjustmentToComplete)
         }
         setCompleteConfirmOpen(false)
         setAdjustmentToComplete(null)
@@ -409,12 +427,11 @@ const StockAdjustmentsPage: React.FC = () => {
     if (adjustmentToCancel) {
       setCancellingId(adjustmentToCancel)
       try {
-        await inventoryApi.uncompleteStockAdjustment(adjustmentToCancel)
+        await uncompleteStockAdjustment(adjustmentToCancel).unwrap()
         showSuccess(`Stock adjustment "${adjustmentToCancelName}" reverted to draft successfully`)
-        loadAdjustments()
-        // Refresh the selected adjustment details
+        void refetchAdjustments()
         if (selectedAdjustment?.id === adjustmentToCancel) {
-          dispatch(fetchStockAdjustment(adjustmentToCancel))
+          void loadStockAdjustmentDetail(adjustmentToCancel)
         }
         setCancelConfirmOpen(false)
         setAdjustmentToCancel(null)

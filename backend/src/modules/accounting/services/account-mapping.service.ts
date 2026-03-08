@@ -333,10 +333,8 @@ export class AccountMappingService {
       }
     }
 
-    // Update the mapping
-    Object.assign(mapping, updateDto);
-
-    const updatedMapping = await this.mappingRepository.save(mapping);
+    // Update the mapping using direct query to avoid TypeORM relation override
+    await this.mappingRepository.update(id, updateDto);
 
     // Reload with relations
     const mappingWithRelations = await this.mappingRepository.findOne({
@@ -347,7 +345,7 @@ export class AccountMappingService {
     await this.auditLogService.log(
       'UPDATE',
       'AccountMapping',
-      `Updated account mapping: ${updatedMapping.mappingType}`,
+      `Updated account mapping: ${mapping.mappingType}`,
       { entityId: id, userId: userId ?? 'system', username },
     );
 

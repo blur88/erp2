@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
+import { skipToken } from '@reduxjs/toolkit/query';
 import {
   Box,
   Typography,
@@ -28,20 +29,11 @@ import {
   Description as GeneralLedgerIcon,
 } from '@mui/icons-material';
 import { TYPOGRAPHY_STYLES } from '@/constants/typography';
-import { useAppDispatch, useAppSelector } from '@/store';
 import { formatDate, formatDateTime } from '@/utils/formatters';
-import {
-  fetchGeneralLedger,
-  downloadGeneralLedgerExcel,
-  selectGeneralLedger,
-  selectDownloading,
-  clearGeneralLedgerError,
-} from '@/store/slices/accountingReportsSlice';
-import {
-  fetchChartOfAccounts,
-  selectChartOfAccounts,
-  ChartOfAccount,
-} from '@/store/slices/chartOfAccountsSlice';
+import { useGetChartOfAccountsQuery, useGetGeneralLedgerQuery } from '@/store/api/accountingApi';
+import type { ChartOfAccount } from '@/types';
+import { exportReportExcel } from '@/utils/exportReport';
+import { getErrorMessage } from '@/utils/errorMessage';
 
 // Format currency helper
 const formatCurrency = (amount: number): string => {
@@ -109,38 +101,21 @@ export const getLedgerMetricCardSx = () => ({
 });
 
 const GeneralLedgerPage: React.FC = () => {
-  const dispatch = useAppDispatch();
   const theme = useTheme();
   const tone = getGeneralLedgerTone(theme.palette.mode);
-
-  // Redux state
-  const generalLedgerState = useAppSelector(selectGeneralLedger);
-  const downloading = useAppSelector(selectDownloading);
-  const accounts = useAppSelector(selectChartOfAccounts);
-
-  const { data, loading, error } = generalLedgerState || {
-    data: null,
-    loading: false,
-    error: null,
-  };
-
-  // Local state for filters
   const [selectedAccount, setSelectedAccount] = useState<ChartOfAccount | null>(null);
   const [startDate, setStartDate] = useState<string>(getFirstDayOfMonth());
   const [endDate, setEndDate] = useState<string>(formatDateForInput(new Date()));
   const [validationError, setValidationError] = useState<string | null>(null);
-
-  // Fetch accounts on mount
-  useEffect(() => {
-    dispatch(fetchChartOfAccounts({ isActive: true }));
-  }, [dispatch]);
-
-  // Clear error on mount
-  useEffect(() => {
-    return () => {
-      dispatch(clearGeneralLedgerError());
-    };
-  }, [dispatch]);
+  const [submitted, setSubmitted] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
+  const { data: accountsResponse } = useGetChartOfAccountsQuery({ page: 1, isActive: true });
+  const accounts = accountsResponse?.data ?? [];
+  const queryArgs = submitted && selectedAccount
+    ? { accountId: selectedAccount.id, startDate, endDate }
+    : skipToken;
+  const { data, isLoading: loading, error } = useGetGeneralLedgerQuery(queryArgs);
+  const errorMessage = error ? getErrorMessage(error, 'Failed to load general ledger') : null;
 
   // Handle generate report
   const handleGenerateReport = () => {
@@ -153,30 +128,24 @@ const GeneralLedgerPage: React.FC = () => {
     // Clear validation error
     setValidationError(null);
 
-    // Fetch report
-    dispatch(
-      fetchGeneralLedger({
-        accountId: selectedAccount.id,
-        startDate,
-        endDate,
-      })
-    );
+    setSubmitted(true);
   };
 
-  // Handle export to Excel
-  const handleExportToExcel = () => {
+  const handleExportToExcel = async () => {
     if (!selectedAccount) {
       setValidationError('Please select an account to export the report');
       return;
     }
-
-    dispatch(
-      downloadGeneralLedgerExcel({
-        accountId: selectedAccount.id,
-        startDate,
-        endDate,
-      })
-    );
+    try {
+      setIsDownloading(true);
+      await exportReportExcel(
+        '/accounting/reports/general-ledger/export',
+        { accountId: selectedAccount.id, startDate, endDate },
+        `general-ledger-${selectedAccount.code}-${startDate}-to-${endDate}.xlsx`,
+      );
+    } finally {
+      setIsDownloading(false);
+    }
   };
 
   // Get color for running balance
@@ -225,6 +194,7 @@ const GeneralLedgerPage: React.FC = () => {
               onChange={(event, newValue) => {
                 setSelectedAccount(newValue);
                 setValidationError(null);
+                setSubmitted(false);
               }}
               renderInput={(params) => (
                 <TextField
@@ -245,7 +215,10 @@ const GeneralLedgerPage: React.FC = () => {
               label="Start Date"
               type="date"
               value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
+              onChange={(e) => {
+                setStartDate(e.target.value);
+                setSubmitted(false);
+              }}
               size="small"
               InputLabelProps={{ shrink: true }}
               sx={{ minWidth: 180 }}
@@ -256,7 +229,10 @@ const GeneralLedgerPage: React.FC = () => {
               label="End Date"
               type="date"
               value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
+              onChange={(e) => {
+                setEndDate(e.target.value);
+                setSubmitted(false);
+              }}
               size="small"
               InputLabelProps={{ shrink: true }}
               sx={{ minWidth: 180 }}
@@ -283,9 +259,9 @@ const GeneralLedgerPage: React.FC = () => {
             <Button
               variant="outlined"
               color="secondary"
-              startIcon={downloading ? <CircularProgress size={20} /> : <DownloadIcon />}
+              startIcon={isDownloading ? <CircularProgress size={20} /> : <DownloadIcon />}
               onClick={handleExportToExcel}
-              disabled={!data || loading || downloading}
+              disabled={!submitted || loading || isDownloading}
               sx={{ minWidth: 150, flex: { xs: 1, sm: 'initial' } }}
             >
               Export to Excel
@@ -295,18 +271,14 @@ const GeneralLedgerPage: React.FC = () => {
       </Paper>
 
       {/* Error Alert */}
-      {error && (
-        <Alert
-          severity="error"
-          sx={{ mb: 2 }}
-          onClose={() => dispatch(clearGeneralLedgerError())}
-        >
-          {error}
+      {errorMessage && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {errorMessage}
         </Alert>
       )}
 
       {/* Loading State */}
-      {loading && !data && (
+      {loading && submitted && !data && (
         <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 8 }}>
           <CircularProgress />
         </Box>

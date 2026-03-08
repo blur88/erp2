@@ -1,12 +1,7 @@
-import React, { useEffect } from 'react'
+import React from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Alert, AlertTitle, Typography, Button } from '@mui/material'
-import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
-import {
-  validateAccountMappings,
-  selectAccountMappingsValid,
-  selectAccountMappingsValidation,
-} from '@/store/slices/accountMappingsSlice'
+import { useValidateAccountMappingsQuery } from '@/store/api/accountingApi'
 import { MappingType } from '@/types/accountMapping'
 
 interface AccountMappingWarningProps {
@@ -40,13 +35,8 @@ const AccountMappingWarning: React.FC<AccountMappingWarningProps> = ({
   action = 'complete this operation',
 }) => {
   const navigate = useNavigate()
-  const dispatch = useAppDispatch()
-  const isValid = useAppSelector(selectAccountMappingsValid)
-  const validationResult = useAppSelector(selectAccountMappingsValidation)
-
-  useEffect(() => {
-    dispatch(validateAccountMappings())
-  }, [dispatch])
+  const { data: validationResult } = useValidateAccountMappingsQuery()
+  const isValid = validationResult?.isValid ?? false
 
   if (isValid) return null
 

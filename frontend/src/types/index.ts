@@ -333,6 +333,7 @@ export interface PurchaseOrder {
   supplier: Supplier;
   items: PurchaseOrderItem[];
   total: number;
+  paidAmount?: number;
   subtotal?: number;
   discountAmount?: number;
   shippingAmount?: number;
@@ -346,6 +347,13 @@ export interface PurchaseOrder {
     grnNumber: string;
     status: string;
     receivedDate?: Date;
+  }>;
+  vendorPayments?: Array<{
+    id: string;
+    paymentNumber: string;
+    amount?: number;
+    paymentDate?: Date | string;
+    status?: string;
   }>;
   createdAt: Date;
   updatedAt: Date;
@@ -415,6 +423,7 @@ export interface PaymentMethodConfig {
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
+  deletedAt?: string | null;
 }
 
 export interface Settlement {
@@ -507,16 +516,6 @@ export interface PaginatedResponse<T> {
   };
 }
 
-// Purchase Orders use a different response structure
-export interface PurchaseOrderListResponse {
-  orders: PurchaseOrder[];
-  total: number;
-  page: number;
-  limit: number;
-  totalPages: number;
-  hasNext: boolean;
-  hasPrev: boolean;
-}
 
 export interface QueryParams {
   page?: number;

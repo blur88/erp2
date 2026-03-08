@@ -5,53 +5,48 @@ import {
 import { History as AuditIcon } from '@mui/icons-material'
 import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
 import {
-  fetchAuditLogs,
-  fetchAuditLogStatistics,
   setPage,
   setLimit,
   setActiveTab,
 } from '@/store/slices/auditLogSlice'
+import { useGetAuditLogsQuery, useGetAuditLogStatisticsQuery } from '@/store/api/auditLogApi'
+import { priceListApiSlice } from '@/store/api/priceListApi'
 import { TYPOGRAPHY_STYLES } from '@/constants/typography'
 import FilterSidebar from './components/FilterSidebar'
 import LogsTab from './components/LogsTab'
 import AnalyticsTab from './components/AnalyticsTab'
 import ExportButton from './components/ExportButton'
-import { priceListApi } from '@/services/priceListApi'
 
 const AuditLogsPage: React.FC = () => {
   const dispatch = useAppDispatch()
+  const { pagination, filters, activeTab, sidebarCollapsed } = useAppSelector((state) => state.auditLogs)
   const {
-    auditLogs, statistics, loading, error,
-    pagination, filters, activeTab, sidebarCollapsed,
-  } = useAppSelector((state) => state.auditLogs)
+    data: logsResponse,
+    isLoading: isLogsLoading,
+    error: logsError,
+  } = useGetAuditLogsQuery({
+    page: pagination.page,
+    limit: pagination.limit,
+    ...filters,
+    sortBy: 'createdAt',
+    sortOrder: 'DESC',
+  })
+  const { data: statistics, isLoading: isStatisticsLoading } = useGetAuditLogStatisticsQuery({
+    startDate: filters.startDate,
+    endDate: filters.endDate,
+  })
+  const auditLogs = logsResponse?.data ?? []
+  const loading = isLogsLoading || isStatisticsLoading
+  const error = logsError ? 'Failed to fetch audit logs' : null
   const [priceListNameById, setPriceListNameById] = useState<Record<string, string>>({})
-
-  useEffect(() => {
-    dispatch(fetchAuditLogs({
-      page: pagination.page,
-      limit: pagination.limit,
-      ...filters,
-      sortBy: 'createdAt',
-      sortOrder: 'DESC',
-    }))
-  }, [pagination.page, pagination.limit, filters])
-
-  useEffect(() => {
-    dispatch(fetchAuditLogStatistics({
-      startDate: filters.startDate,
-      endDate: filters.endDate,
-    }))
-  }, [filters.startDate, filters.endDate])
 
   useEffect(() => {
     const loadPriceLists = async () => {
       try {
-        const response = await priceListApi.getPriceLists({
-          page: 1,
-          sortBy: 'name',
-          sortOrder: 'asc',
-        })
-        const data = response.data ?? []
+        const result = await dispatch(
+          priceListApiSlice.endpoints.getPriceLists.initiate({ page: 1, sortBy: 'name', sortOrder: 'asc' })
+        )
+        const data = result.data?.data ?? []
         const map: Record<string, string> = {}
         data.forEach((pl) => {
           map[pl.id] = pl.name
@@ -64,7 +59,7 @@ const AuditLogsPage: React.FC = () => {
     }
 
     loadPriceLists()
-  }, [])
+  }, [dispatch])
 
   useEffect(() => {
     const extractPriceListIds = (value: unknown, result: Set<string>) => {
@@ -98,8 +93,8 @@ const AuditLogsPage: React.FC = () => {
       const entries = await Promise.all(
         missingIds.map(async (id): Promise<[string, string]> => {
           try {
-            const priceList = await priceListApi.getPriceList(id)
-            return [id, priceList.name]
+            const result = await dispatch(priceListApiSlice.endpoints.getPriceList.initiate(id))
+            return [id, result.data?.name ?? id]
           } catch {
             // Cache fallback to avoid repeating failed lookups.
             return [id, id]
@@ -178,7 +173,7 @@ const AuditLogsPage: React.FC = () => {
             loading={loading}
             error={error}
             priceListNameById={priceListNameById}
-            total={pagination.total}
+            total={logsResponse?.meta?.total ?? 0}
             page={pagination.page}
             limit={pagination.limit}
             onPageChange={handlePageChange}

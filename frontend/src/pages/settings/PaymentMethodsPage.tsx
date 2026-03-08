@@ -1,4 +1,11 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
+import {
+  Add as AddIcon,
+  Delete as DeleteIcon,
+  Edit as EditIcon,
+  Payment as PaymentIcon,
+  RestoreFromTrash as RestoreFromTrashIcon,
+} from '@mui/icons-material';
 import {
   Box,
   Button,
@@ -17,71 +24,94 @@ import {
   TableRow,
   Typography,
 } from '@mui/material';
-import {
-  Add as AddIcon,
-  Delete as DeleteIcon,
-  Edit as EditIcon,
-  RestoreFromTrash as RestoreFromTrashIcon,
-  Payment as PaymentIcon,
-} from '@mui/icons-material';
-import { useAppDispatch, useAppSelector } from '@/hooks/useRedux';
-import {
-  createPaymentMethod,
-  deletePaymentMethod,
-  fetchPaymentMethods,
-  selectPaymentMethods,
-  selectPaymentMethodsLoading,
-  updatePaymentMethod,
-} from '@/store/slices/paymentMethodsSlice';
-import type { PaymentMethodConfig } from '@/types';
+
 import PaymentMethodFormDialog from '@/components/settings/PaymentMethodFormDialog';
 import DeletedPaymentMethodsDialog from '@/components/settings/DeletedPaymentMethodsDialog';
 import { TYPOGRAPHY_STYLES } from '@/constants/typography';
+import { useNotification } from '@/hooks/useNotification';
+import {
+  useCreatePaymentMethodMutation,
+  useDeletePaymentMethodMutation,
+  useGetPaymentMethodsQuery,
+  useUpdatePaymentMethodMutation,
+} from '@/store/api/accountingApi';
+import type { PaymentMethodConfig } from '@/types';
 
 const PaymentMethodsPage: React.FC = () => {
-  const dispatch = useAppDispatch();
-  const methods = useAppSelector(selectPaymentMethods);
-  const loading = useAppSelector(selectPaymentMethodsLoading);
+  const { showError, showSuccess } = useNotification();
+  const {
+    data: methodsResponse,
+    isLoading: loading,
+  } = useGetPaymentMethodsQuery({ page: 1, limit: 50 });
+  const [createPaymentMethod] = useCreatePaymentMethodMutation();
+  const [updatePaymentMethod] = useUpdatePaymentMethodMutation();
+  const [deletePaymentMethod] = useDeletePaymentMethodMutation();
+
+  const methods = methodsResponse?.data ?? [];
 
   const [formOpen, setFormOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deletedOpen, setDeletedOpen] = useState(false);
   const [selected, setSelected] = useState<PaymentMethodConfig | null>(null);
 
-  useEffect(() => {
-    dispatch(fetchPaymentMethods({ page: 1 }));
-  }, [dispatch]);
-
   const title = useMemo(() => `Payment Methods (${methods.length})`, [methods.length]);
 
   const onCreate = async (data: Partial<PaymentMethodConfig>) => {
-    await dispatch(createPaymentMethod(data));
-    await dispatch(fetchPaymentMethods({ page: 1 }));
-    setFormOpen(false);
+    try {
+      await createPaymentMethod(data).unwrap();
+      showSuccess('Payment method created successfully');
+      setFormOpen(false);
+    } catch (error: any) {
+      showError(error?.message || String(error) || 'Failed to create payment method');
+    }
   };
 
   const onUpdate = async (data: Partial<PaymentMethodConfig>) => {
     if (!selected) return;
-    await dispatch(updatePaymentMethod({ id: selected.id, data }));
-    await dispatch(fetchPaymentMethods({ page: 1 }));
-    setFormOpen(false);
-    setSelected(null);
+
+    try {
+      await updatePaymentMethod({ id: selected.id, data }).unwrap();
+      showSuccess('Payment method updated successfully');
+      setFormOpen(false);
+      setSelected(null);
+    } catch (error: any) {
+      showError(error?.message || String(error) || 'Failed to update payment method');
+    }
   };
 
   const onDelete = async () => {
     if (!selected) return;
-    await dispatch(deletePaymentMethod(selected.id));
-    await dispatch(fetchPaymentMethods({ page: 1 }));
-    setDeleteOpen(false);
-    setSelected(null);
+
+    try {
+      await deletePaymentMethod(selected.id).unwrap();
+      showSuccess('Payment method deleted successfully');
+      setDeleteOpen(false);
+      setSelected(null);
+    } catch (error: any) {
+      showError(error?.message || String(error) || 'Failed to delete payment method');
+    }
   };
 
   return (
     <Box sx={{ p: 3 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Box>
-          <Typography variant={TYPOGRAPHY_STYLES.pageHeader.variant} sx={{ fontWeight: TYPOGRAPHY_STYLES.pageHeader.fontWeight, mb: 1, display: 'flex', alignItems: 'center', gap: 2 }}>
-            <PaymentIcon sx={{ fontSize: TYPOGRAPHY_STYLES.pageHeader.icon.fontSize, color: TYPOGRAPHY_STYLES.pageHeader.icon.color }} />
+          <Typography
+            variant={TYPOGRAPHY_STYLES.pageHeader.variant}
+            sx={{
+              fontWeight: TYPOGRAPHY_STYLES.pageHeader.fontWeight,
+              mb: 1,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 2,
+            }}
+          >
+            <PaymentIcon
+              sx={{
+                fontSize: TYPOGRAPHY_STYLES.pageHeader.icon.fontSize,
+                color: TYPOGRAPHY_STYLES.pageHeader.icon.color,
+              }}
+            />
             {title}
           </Typography>
           <Typography variant="body2" color="text.secondary">
@@ -93,9 +123,7 @@ const PaymentMethodsPage: React.FC = () => {
             variant="outlined"
             color="warning"
             startIcon={<RestoreFromTrashIcon />}
-            onClick={async () => {
-              setDeletedOpen(true);
-            }}
+            onClick={() => setDeletedOpen(true)}
           >
             View Deleted
           </Button>
@@ -127,33 +155,37 @@ const PaymentMethodsPage: React.FC = () => {
               </TableRow>
             </TableHead>
             <TableBody>
-              {methods.map((m) => (
-                <TableRow key={m.id}>
-                  <TableCell>{m.code}</TableCell>
-                  <TableCell>{m.name}</TableCell>
+              {methods.map((method) => (
+                <TableRow key={method.id}>
+                  <TableCell>{method.code}</TableCell>
+                  <TableCell>{method.name}</TableCell>
                   <TableCell>
                     <Chip
                       size="small"
-                      color={m.requiresSettlement ? 'warning' : 'default'}
-                      label={m.requiresSettlement ? 'Yes' : 'No'}
+                      color={method.requiresSettlement ? 'warning' : 'default'}
+                      label={method.requiresSettlement ? 'Yes' : 'No'}
                     />
                   </TableCell>
                   <TableCell>
                     <Chip
                       size="small"
-                      color={m.useForPurchases ? 'primary' : 'default'}
-                      label={m.useForPurchases ? 'Yes' : 'No'}
+                      color={method.useForPurchases ? 'primary' : 'default'}
+                      label={method.useForPurchases ? 'Yes' : 'No'}
                     />
                   </TableCell>
-                  <TableCell>{m.sortOrder}</TableCell>
+                  <TableCell>{method.sortOrder}</TableCell>
                   <TableCell>
-                    <Chip size="small" color={m.isActive ? 'success' : 'default'} label={m.isActive ? 'Active' : 'Inactive'} />
+                    <Chip
+                      size="small"
+                      color={method.isActive ? 'success' : 'default'}
+                      label={method.isActive ? 'Active' : 'Inactive'}
+                    />
                   </TableCell>
                   <TableCell align="right">
                     <IconButton
                       size="small"
                       onClick={() => {
-                        setSelected(m);
+                        setSelected(method);
                         setFormOpen(true);
                       }}
                     >
@@ -162,7 +194,7 @@ const PaymentMethodsPage: React.FC = () => {
                     <IconButton
                       size="small"
                       onClick={() => {
-                        setSelected(m);
+                        setSelected(method);
                         setDeleteOpen(true);
                       }}
                     >
@@ -202,17 +234,13 @@ const PaymentMethodsPage: React.FC = () => {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setDeleteOpen(false)}>Cancel</Button>
-          <Button color="error" variant="contained" onClick={onDelete}>Delete</Button>
+          <Button color="error" variant="contained" onClick={onDelete}>
+            Delete
+          </Button>
         </DialogActions>
       </Dialog>
 
-      <DeletedPaymentMethodsDialog
-        open={deletedOpen}
-        onClose={() => setDeletedOpen(false)}
-        onChanged={async () => {
-          await dispatch(fetchPaymentMethods({ page: 1 }))
-        }}
-      />
+      <DeletedPaymentMethodsDialog open={deletedOpen} onClose={() => setDeletedOpen(false)} />
     </Box>
   );
 };

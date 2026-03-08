@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
+import { skipToken } from '@reduxjs/toolkit/query';
 import {
   Box,
   Typography,
@@ -25,15 +26,10 @@ import {
   AccountBalance as TrialBalanceIcon,
 } from '@mui/icons-material';
 import { TYPOGRAPHY_STYLES } from '@/constants/typography';
-import { useAppDispatch, useAppSelector } from '@/store';
 import { formatDate } from '@/utils/formatters';
-import {
-  fetchTrialBalance,
-  downloadTrialBalanceExcel,
-  selectTrialBalance,
-  selectDownloading,
-  clearTrialBalanceError,
-} from '@/store/slices/accountingReportsSlice';
+import { useGetTrialBalanceQuery } from '@/store/api/accountingApi';
+import { exportReportExcel } from '@/utils/exportReport';
+import { getErrorMessage } from '@/utils/errorMessage';
 
 // Format currency helper
 const formatCurrency = (amount: number): string => {
@@ -52,55 +48,44 @@ const formatDateForInput = (date: Date): string => {
 };
 
 const TrialBalancePage: React.FC = () => {
-  const dispatch = useAppDispatch();
-
-  // Redux state
-  const trialBalanceState = useAppSelector(selectTrialBalance);
-  const downloading = useAppSelector(selectDownloading);
-
-  const { data, loading, error } = trialBalanceState || {
-    data: null,
-    loading: false,
-    error: null,
-  };
-
-  // Local state for filters
   const [asOfDate, setAsOfDate] = useState<string>(formatDateForInput(new Date()));
   const [includeInactive, setIncludeInactive] = useState<boolean>(false);
+  const [submitted, setSubmitted] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
+  const queryArgs = submitted ? { asOfDate, includeInactive } : skipToken;
+  const { data, isLoading: loading, error } = useGetTrialBalanceQuery(queryArgs);
+  const errorMessage = error ? getErrorMessage(error, 'Failed to load trial balance') : null;
 
-  // Load report on mount with default parameters
-  useEffect(() => {
-    handleGenerateReport();
-  }, []);
-
-  // Clear error on mount
-  useEffect(() => {
-    return () => {
-      dispatch(clearTrialBalanceError());
-    };
-  }, [dispatch]);
-
-  // Handle generate report
   const handleGenerateReport = () => {
-    dispatch(
-      fetchTrialBalance({
-        asOfDate,
-        includeInactive,
-      })
-    );
+    setSubmitted(true);
   };
 
-  // Handle export to Excel
-  const handleExportToExcel = () => {
-    dispatch(
-      downloadTrialBalanceExcel({
-        asOfDate,
-        includeInactive,
-      })
-    );
+  const handleExportToExcel = async () => {
+    try {
+      setIsDownloading(true);
+      await exportReportExcel(
+        '/accounting/reports/trial-balance/export',
+        {
+          asOfDate,
+          includeInactive,
+        },
+        `trial-balance-${asOfDate}.xlsx`,
+      );
+    } finally {
+      setIsDownloading(false);
+    }
   };
 
-  // Calculate totals from accounts (fallback if not provided by API)
+  const handleAsOfDateChange = (value: string) => {
+    setAsOfDate(value);
+    setSubmitted(false);
+  };
+
+  const handleIncludeInactiveChange = (value: boolean) => {
+    setIncludeInactive(value);
+    setSubmitted(false);
+  };
+
   const calculateTotals = () => {
     if (!data?.accounts || data.accounts.length === 0) {
       return { totalDebit: 0, totalCredit: 0 };
@@ -157,7 +142,7 @@ const TrialBalancePage: React.FC = () => {
               label="As Of Date"
               type="date"
               value={asOfDate}
-              onChange={(e) => setAsOfDate(e.target.value)}
+              onChange={(e) => handleAsOfDateChange(e.target.value)}
               size="small"
               InputLabelProps={{ shrink: true }}
               sx={{ minWidth: 200 }}
@@ -166,7 +151,7 @@ const TrialBalancePage: React.FC = () => {
               control={
                 <Checkbox
                   checked={includeInactive}
-                  onChange={(e) => setIncludeInactive(e.target.checked)}
+                  onChange={(e) => handleIncludeInactiveChange(e.target.checked)}
                 />
               }
               label="Include Inactive Accounts"
@@ -192,9 +177,9 @@ const TrialBalancePage: React.FC = () => {
             <Button
               variant="outlined"
               color="secondary"
-              startIcon={downloading ? <CircularProgress size={20} /> : <DownloadIcon />}
+              startIcon={isDownloading ? <CircularProgress size={20} /> : <DownloadIcon />}
               onClick={handleExportToExcel}
-              disabled={!data || loading || downloading}
+              disabled={!submitted || loading || isDownloading}
               sx={{ minWidth: 150, flex: { xs: 1, sm: 'initial' } }}
             >
               Export to Excel
@@ -203,25 +188,18 @@ const TrialBalancePage: React.FC = () => {
         </Stack>
       </Paper>
 
-      {/* Error Alert */}
-      {error && (
-        <Alert
-          severity="error"
-          sx={{ mb: 2 }}
-          onClose={() => dispatch(clearTrialBalanceError())}
-        >
-          {error}
+      {errorMessage && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {errorMessage}
         </Alert>
       )}
 
-      {/* Loading State */}
-      {loading && !data && (
+      {loading && submitted && !data && (
         <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 8 }}>
           <CircularProgress />
         </Box>
       )}
 
-      {/* Report Table */}
       {!loading && data && (
         <Paper>
           {/* Report Header */}
@@ -259,26 +237,14 @@ const TrialBalancePage: React.FC = () => {
             <Table stickyHeader>
               <TableHead>
                 <TableRow>
-                  <TableCell sx={{ fontWeight: 600, backgroundColor: 'grey.50' }}>
-                    Account Code
+                  <TableCell sx={{ fontWeight: 600, width: '15%' }}>Account Code</TableCell>
+                  <TableCell sx={{ fontWeight: 600, width: '35%' }}>Account Name</TableCell>
+                  <TableCell sx={{ fontWeight: 600, width: '20%' }}>Account Type</TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 600, width: '15%' }}>
+                    Debit
                   </TableCell>
-                  <TableCell sx={{ fontWeight: 600, backgroundColor: 'grey.50' }}>
-                    Account Name
-                  </TableCell>
-                  <TableCell sx={{ fontWeight: 600, backgroundColor: 'grey.50' }}>
-                    Account Type
-                  </TableCell>
-                  <TableCell
-                    align="right"
-                    sx={{ fontWeight: 600, backgroundColor: 'grey.50' }}
-                  >
-                    Debit Balance
-                  </TableCell>
-                  <TableCell
-                    align="right"
-                    sx={{ fontWeight: 600, backgroundColor: 'grey.50' }}
-                  >
-                    Credit Balance
+                  <TableCell align="right" sx={{ fontWeight: 600, width: '15%' }}>
+                    Credit
                   </TableCell>
                 </TableRow>
               </TableHead>
@@ -287,132 +253,38 @@ const TrialBalancePage: React.FC = () => {
                   <>
                     {data.accounts.map((account, index) => (
                       <TableRow key={`${account.accountCode}-${index}`} hover>
-                        <TableCell>
-                          <Typography variant="body2">
-                            {account.accountCode}
-                          </Typography>
-                        </TableCell>
-                        <TableCell>
-                          <Typography variant="body2">{account.accountName}</Typography>
-                        </TableCell>
-                        <TableCell>
-                          <Chip label={account.accountType} size="small" variant="outlined" />
+                        <TableCell>{account.accountCode}</TableCell>
+                        <TableCell>{account.accountName}</TableCell>
+                        <TableCell>{account.accountType}</TableCell>
+                        <TableCell align="right">
+                          {account.debit !== 0 ? formatCurrency(account.debit) : '-'}
                         </TableCell>
                         <TableCell align="right">
-                          <Typography
-                            variant="body2"
-                            sx={{
-                                                            fontWeight: account.debit > 0 ? 600 : 400,
-                              color: account.debit > 0 ? 'text.primary' : 'text.secondary',
-                            }}
-                          >
-                            {account.debit > 0 ? formatCurrency(account.debit) : '-'}
-                          </Typography>
-                        </TableCell>
-                        <TableCell align="right">
-                          <Typography
-                            variant="body2"
-                            sx={{
-                                                            fontWeight: account.credit > 0 ? 600 : 400,
-                              color:
-                                account.credit > 0 ? 'text.primary' : 'text.secondary',
-                            }}
-                          >
-                            {account.credit > 0
-                              ? formatCurrency(account.credit)
-                              : '-'}
-                          </Typography>
+                          {account.credit !== 0 ? formatCurrency(account.credit) : '-'}
                         </TableCell>
                       </TableRow>
                     ))}
-
-                    {/* Footer Row - Totals */}
                     <TableRow
                       sx={{
-                        backgroundColor: 'action.hover',
-                        '& td': { borderTop: 2, borderColor: 'divider' },
+                        backgroundColor: (theme) => theme.palette.action.hover,
+                        '& td': { fontWeight: 700, borderTop: 2, borderColor: 'divider' },
                       }}
                     >
-                      <TableCell colSpan={3}>
-                        <Typography variant="body1" sx={{ fontWeight: 700 }}>
-                          Total
-                        </Typography>
-                      </TableCell>
-                      <TableCell align="right">
-                        <Typography
-                          variant="body1"
-                          sx={{ fontWeight: 700 }}
-                        >
-                          {formatCurrency(totalDebit)}
-                        </Typography>
-                      </TableCell>
-                      <TableCell align="right">
-                        <Typography
-                          variant="body1"
-                          sx={{ fontWeight: 700 }}
-                        >
-                          {formatCurrency(totalCredit)}
-                        </Typography>
-                      </TableCell>
+                      <TableCell colSpan={3}>Total</TableCell>
+                      <TableCell align="right">{formatCurrency(totalDebit)}</TableCell>
+                      <TableCell align="right">{formatCurrency(totalCredit)}</TableCell>
                     </TableRow>
                   </>
                 ) : (
                   <TableRow>
                     <TableCell colSpan={5} align="center" sx={{ py: 4 }}>
-                      <Typography variant="body2" color="text.secondary">
-                        No data available
-                      </Typography>
+                      No trial balance data found
                     </TableCell>
                   </TableRow>
                 )}
               </TableBody>
             </Table>
           </TableContainer>
-
-          {/* Summary Footer */}
-          {data.accounts && data.accounts.length > 0 && (
-            <Box
-              sx={{
-                p: 2,
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                borderTop: 1,
-                borderColor: 'divider',
-                backgroundColor: 'grey.50',
-              }}
-            >
-              <Typography variant="body2" color="text.secondary">
-                Total Accounts: {data.accounts.length}
-              </Typography>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                {data.isBalanced ? (
-                  <Chip
-                    icon={<CheckCircleIcon />}
-                    label="Debits = Credits"
-                    color="success"
-                    size="small"
-                  />
-                ) : (
-                  <Chip
-                    icon={<CancelIcon />}
-                    label={`Difference: ${formatCurrency(Math.abs(totalDebit - totalCredit))}`}
-                    color="error"
-                    size="small"
-                  />
-                )}
-              </Box>
-            </Box>
-          )}
-        </Paper>
-      )}
-
-      {/* Empty State - No Data Loaded */}
-      {!loading && !data && !error && (
-        <Paper sx={{ p: 6, textAlign: 'center' }}>
-          <Typography variant="body1" color="text.secondary">
-            Click "Generate Report" to view the Trial Balance
-          </Typography>
         </Paper>
       )}
     </Box>

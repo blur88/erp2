@@ -19,14 +19,13 @@ import {
 import { useForm, Controller } from 'react-hook-form'
 import { yupResolver } from '@hookform/resolvers/yup'
 import * as yup from 'yup'
-import { useDispatch, useSelector } from 'react-redux'
 import { useNotification } from '@/hooks/useNotification'
 import {
-  createAccount,
-  updateAccount,
-  selectChartOfAccounts,
-  type ChartOfAccount,
-} from '@/store/slices/chartOfAccountsSlice'
+  useCreateChartOfAccountMutation,
+  useGetChartOfAccountsQuery,
+  useUpdateChartOfAccountMutation,
+} from '@/store/api/accountingApi'
+import { AccountType, type ChartOfAccount } from '@/types'
 
 interface ChartOfAccountFormDialogProps {
   open: boolean
@@ -44,11 +43,11 @@ interface FormData {
 }
 
 const accountTypeMap: Record<FormData['type'], ChartOfAccount['type']> = {
-  asset: 'ASSET',
-  liability: 'LIABILITY',
-  equity: 'EQUITY',
-  revenue: 'REVENUE',
-  expense: 'EXPENSE',
+  asset: AccountType.ASSET,
+  liability: AccountType.LIABILITY,
+  equity: AccountType.EQUITY,
+  revenue: AccountType.REVENUE,
+  expense: AccountType.EXPENSE,
 }
 
 const accountSchema = yup.object({
@@ -65,10 +64,12 @@ const ChartOfAccountFormDialog: React.FC<ChartOfAccountFormDialogProps> = ({
   onClose,
   onSuccess,
 }) => {
-  const dispatch = useDispatch() as any
   const { showSuccess, showError } = useNotification()
-  const accounts = useSelector(selectChartOfAccounts) || []
   const [submitting, setSubmitting] = useState(false)
+  const { data: accountsResponse } = useGetChartOfAccountsQuery({ page: 1 })
+  const accounts = accountsResponse?.data ?? []
+  const [createChartOfAccount] = useCreateChartOfAccountMutation()
+  const [updateChartOfAccount] = useUpdateChartOfAccountMutation()
 
   const {
     control,
@@ -125,10 +126,10 @@ const ChartOfAccountFormDialog: React.FC<ChartOfAccountFormDialogProps> = ({
       }
 
       if (account) {
-        await dispatch(updateAccount({ id: account.id, data: accountData })).unwrap()
+        await updateChartOfAccount({ id: account.id, data: accountData }).unwrap()
         showSuccess('Account updated successfully')
       } else {
-        await dispatch(createAccount(accountData)).unwrap()
+        await createChartOfAccount(accountData).unwrap()
         showSuccess('Account created successfully')
       }
 

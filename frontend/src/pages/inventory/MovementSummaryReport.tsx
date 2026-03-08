@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Box,
@@ -44,6 +44,7 @@ import {
 import { formatCurrency, formatDate, formatDateTime } from '@/utils/formatters'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
 import { ApiService } from '@/services/api'
+import { useGetProductsQuery, useGetCategoriesQuery } from '@/store/api/inventoryApi'
 
 interface MovementSummary {
   productName: string
@@ -59,8 +60,6 @@ const MovementSummaryReport: React.FC = () => {
   const isMobile = useMediaQuery(theme.breakpoints.down('md'))
   const [loading, setLoading] = useState(false)
   const [reportData, setReportData] = useState<MovementSummary[]>([])
-  const [products, setProducts] = useState<any[]>([])
-  const [categories, setCategories] = useState<any[]>([])
   const [selectedProducts, setSelectedProducts] = useState<string[]>([])
   const [selectedCategory, setSelectedCategory] = useState<string>('')
 
@@ -88,59 +87,10 @@ const MovementSummaryReport: React.FC = () => {
   const [page, setPage] = useState<number>(0)
   const [rowsPerPage, setRowsPerPage] = useState<number>(25)
 
-  useEffect(() => {
-    // Load products - fetch all pages to get complete list
-    const fetchAllProducts = async () => {
-      try {
-        let allProducts: any[] = []
-        let page = 1
-        let hasMore = true
+  const { data: productsResponse } = useGetProductsQuery({ limit: 10000 })
+  const products = productsResponse?.data ?? []
 
-        while (hasMore) {
-          const response = await ApiService.get<any>(`/inventory/products?page=${page}&limit=100`)
-          if (response?.data) {
-            allProducts = [...allProducts, ...response.data]
-
-            // Check if there are more pages
-            const meta = response?.meta
-            if (meta && meta.hasNextPage) {
-              page++
-            } else {
-              hasMore = false
-            }
-          } else {
-            hasMore = false
-          }
-        }
-
-        setProducts(allProducts)
-      } catch (error) {
-        console.error('Failed to load products:', error)
-        setProducts([])
-      }
-    }
-
-    fetchAllProducts()
-
-    // Load categories
-    ApiService.get<any>('/inventory/categories/tree')
-      .then(data => {
-        const categoryData = data?.data || data
-        if (Array.isArray(categoryData)) {
-          const flattenCategories = (cats: any[], level = 0): any[] => {
-            return cats.reduce((acc: any[], cat: any) => {
-              acc.push({ ...cat, level })
-              if (cat.children && cat.children.length > 0) {
-                acc.push(...flattenCategories(cat.children, level + 1))
-              }
-              return acc
-            }, [])
-          }
-          setCategories(flattenCategories(categoryData))
-        }
-      })
-      .catch(() => {})
-  }, [])
+  const { data: categories = [] } = useGetCategoriesQuery(undefined)
 
   const handleGenerateReport = async () => {
     setLoading(true)

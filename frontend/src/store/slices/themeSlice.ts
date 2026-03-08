@@ -1,4 +1,5 @@
 import { createSlice } from '@reduxjs/toolkit'
+import type { RootState } from '@/store'
 
 interface ThemeState {
   mode: 'light' | 'dark'
@@ -26,8 +27,7 @@ export const {
   toggleTheme,
 } = themeSlice.actions
 
-// Selectors
-export const selectTheme = (state: any) => state.theme
-export const selectThemeMode = (state: any) => state.theme?.mode
+export const selectTheme = (state: RootState) => state.theme
+export const selectThemeMode = (state: RootState) => state.theme.mode
 
 export default themeSlice.reducer

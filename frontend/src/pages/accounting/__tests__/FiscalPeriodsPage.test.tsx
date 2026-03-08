@@ -1,24 +1,30 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
-import { Provider } from 'react-redux'
 import { BrowserRouter } from 'react-router-dom'
-import { configureStore } from '@reduxjs/toolkit'
+
 import FiscalPeriodsPage from '../FiscalPeriodsPage'
-import fiscalPeriodsReducer from '@/store/slices/fiscalPeriodsSlice'
-import { ApiService } from '@/services/api'
 import { FiscalPeriodStatus } from '@/types'
 
-// Mock ApiService
-vi.mock('@/services/api', () => ({
-  ApiService: {
-    get: vi.fn(),
-    post: vi.fn(),
-    patch: vi.fn(),
-    delete: vi.fn(),
-  },
+const mockedApi = vi.hoisted(() => ({
+  useGetFiscalPeriodsQuery: vi.fn(),
+  useDeleteFiscalPeriodMutation: vi.fn(),
+  useCloseFiscalPeriodMutation: vi.fn(),
+  useReopenFiscalPeriodMutation: vi.fn(),
+  useGenerateFiscalPeriodsMutation: vi.fn(),
+  useCreateFiscalPeriodMutation: vi.fn(),
+  useUpdateFiscalPeriodMutation: vi.fn(),
 }))
 
-// Mock hooks
+vi.mock('@/store/api/accountingApi', () => ({
+  useGetFiscalPeriodsQuery: mockedApi.useGetFiscalPeriodsQuery,
+  useDeleteFiscalPeriodMutation: mockedApi.useDeleteFiscalPeriodMutation,
+  useCloseFiscalPeriodMutation: mockedApi.useCloseFiscalPeriodMutation,
+  useReopenFiscalPeriodMutation: mockedApi.useReopenFiscalPeriodMutation,
+  useGenerateFiscalPeriodsMutation: mockedApi.useGenerateFiscalPeriodsMutation,
+  useCreateFiscalPeriodMutation: mockedApi.useCreateFiscalPeriodMutation,
+  useUpdateFiscalPeriodMutation: mockedApi.useUpdateFiscalPeriodMutation,
+}))
+
 vi.mock('@/hooks/useNotification', () => ({
   useNotification: () => ({
     showSuccess: vi.fn(),
@@ -39,7 +45,6 @@ vi.mock('@/components/accounting/AccountMappingWarning', () => ({
   default: () => null,
 }))
 
-// Mock date-fns
 vi.mock('date-fns', () => ({
   format: (date: Date | string, formatStr: string) => {
     const d = new Date(date)
@@ -50,7 +55,6 @@ vi.mock('date-fns', () => ({
   },
 }))
 
-// Mock data
 const mockPeriods = [
   {
     id: '1',
@@ -93,37 +97,35 @@ const mockPeriods = [
   },
 ]
 
-const createMockStore = () => {
-  return configureStore({
-    reducer: {
-      fiscalPeriods: fiscalPeriodsReducer,
-    },
-  })
-}
-
-const renderWithProvider = (store: any) => {
-  return render(
-    <Provider store={store}>
-      <BrowserRouter>
-        <FiscalPeriodsPage />
-      </BrowserRouter>
-    </Provider>
+const renderWithProvider = () =>
+  render(
+    <BrowserRouter>
+      <FiscalPeriodsPage />
+    </BrowserRouter>
   )
-}
 
 describe('FiscalPeriodsPage', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    // Mock successful API response by default
-    ;(ApiService.get as any).mockResolvedValue({
-      data: mockPeriods,
-      meta: { page: 1, limit: 1000, total: 3, totalPages: 1 },
+    mockedApi.useGetFiscalPeriodsQuery.mockReturnValue({
+      data: {
+        data: mockPeriods,
+        meta: { page: 1, limit: 1000, total: 3, totalPages: 1 },
+      },
+      isLoading: false,
+      error: undefined,
+      refetch: vi.fn(),
     })
+    mockedApi.useDeleteFiscalPeriodMutation.mockReturnValue([vi.fn()])
+    mockedApi.useCloseFiscalPeriodMutation.mockReturnValue([vi.fn()])
+    mockedApi.useReopenFiscalPeriodMutation.mockReturnValue([vi.fn()])
+    mockedApi.useGenerateFiscalPeriodsMutation.mockReturnValue([vi.fn()])
+    mockedApi.useCreateFiscalPeriodMutation.mockReturnValue([vi.fn()])
+    mockedApi.useUpdateFiscalPeriodMutation.mockReturnValue([vi.fn()])
   })
 
   it('renders page header correctly', async () => {
-    const store = createMockStore()
-    renderWithProvider(store)
+    renderWithProvider()
 
     await waitFor(() => {
       expect(screen.getByText('Fiscal Periods')).toBeInTheDocument()
@@ -131,14 +133,13 @@ describe('FiscalPeriodsPage', () => {
   })
 
   it('renders fiscal periods list with correct data', async () => {
-    const store = createMockStore()
-    renderWithProvider(store)
+    renderWithProvider()
 
     await waitFor(() => {
       expect(screen.getByText('2026-01')).toBeInTheDocument()
       expect(screen.getByText('2025-12')).toBeInTheDocument()
       expect(screen.getByText('2025-11')).toBeInTheDocument()
-    }, { timeout: 5000 })
+    })
 
     expect(screen.getByText('January 2026')).toBeInTheDocument()
     expect(screen.getByText('December 2025')).toBeInTheDocument()
@@ -146,48 +147,40 @@ describe('FiscalPeriodsPage', () => {
   })
 
   it('displays status badges correctly', async () => {
-    const store = createMockStore()
-    renderWithProvider(store)
+    renderWithProvider()
 
     await waitFor(() => {
       expect(screen.getByText('OPEN')).toBeInTheDocument()
-      const closedBadges = screen.getAllByText('CLOSED')
-      expect(closedBadges.length).toBe(2)
+      expect(screen.getAllByText('CLOSED')).toHaveLength(2)
     })
   })
 
   it('displays duration in days', async () => {
-    const store = createMockStore()
-    renderWithProvider(store)
+    renderWithProvider()
 
     await waitFor(() => {
-      const duration31 = screen.getAllByText('31 days')
-      expect(duration31.length).toBe(2) // Jan and Dec both have 31 days
-
-      expect(screen.getByText('30 days')).toBeInTheDocument() // November has 30 days
+      expect(screen.getAllByText('31 days')).toHaveLength(2)
+      expect(screen.getByText('30 days')).toBeInTheDocument()
     })
   })
 
   it('opens generate periods dialog when Generate button clicked', async () => {
-    const store = createMockStore()
-    renderWithProvider(store)
+    renderWithProvider()
 
     const generateButton = await screen.findByRole('button', { name: /^Generate(?: Periods)?$/i })
     fireEvent.click(generateButton)
 
     expect(await screen.findByRole('dialog', { name: /Generate Fiscal Periods/i })).toBeInTheDocument()
-  }, 10000)
+  })
 
   it('opens create dialog when Add Period button is clicked', async () => {
-    const store = createMockStore()
-    renderWithProvider(store)
+    renderWithProvider()
 
     await waitFor(() => {
       expect(screen.getByText('Fiscal Periods')).toBeInTheDocument()
     })
 
-    const addButton = screen.getByRole('button', { name: /Add Period/i })
-    fireEvent.click(addButton)
+    fireEvent.click(screen.getByRole('button', { name: /Add Period/i }))
 
     await waitFor(() => {
       expect(screen.getByText('Create Fiscal Period')).toBeInTheDocument()
@@ -195,36 +188,25 @@ describe('FiscalPeriodsPage', () => {
   })
 
   it('shows close button for open periods', async () => {
-    const store = createMockStore()
-    renderWithProvider(store)
+    renderWithProvider()
 
     await waitFor(() => {
-      const closeButtons = screen.getAllByTitle(/Close/i)
-      // Only open periods have close buttons
-      expect(closeButtons.length).toBe(1)
+      expect(screen.getAllByTitle(/Close/i)).toHaveLength(1)
     })
   })
 
   it('shows reopen button only for most recently closed period', async () => {
-    const store = createMockStore()
-    renderWithProvider(store)
+    renderWithProvider()
 
     await waitFor(() => {
-      const reopenButtons = screen.getAllByTitle(/Reopen/i)
-      // Only the most recently closed period can be reopened
-      expect(reopenButtons.length).toBe(1)
+      expect(screen.getAllByTitle(/Reopen/i)).toHaveLength(1)
     })
   })
 
   it('filters periods by search term', async () => {
-    const store = createMockStore()
-    renderWithProvider(store)
+    renderWithProvider()
 
-    await waitFor(() => {
-      expect(screen.getByText('Fiscal Periods')).toBeInTheDocument()
-    })
-
-    const searchInput = screen.getByPlaceholderText(/Search by code or name/i)
+    const searchInput = await screen.findByPlaceholderText(/Search by code or name/i)
     fireEvent.change(searchInput, { target: { value: 'January' } })
 
     await waitFor(() => {
@@ -233,27 +215,25 @@ describe('FiscalPeriodsPage', () => {
   })
 
   it('filters periods by status', async () => {
-    const store = createMockStore()
-    renderWithProvider(store)
+    renderWithProvider()
 
     await waitFor(() => {
-      expect(screen.getByText('Fiscal Periods')).toBeInTheDocument()
+      expect(screen.getAllByText('Status').length).toBeGreaterThan(0)
     })
-
-    // Find status filter by text content since MUI Select doesn't associate labels properly
-    const statusFilters = screen.getAllByText('Status')
-    // The first occurrence is the label, the filter itself is nearby
-    expect(statusFilters.length).toBeGreaterThan(0)
   })
 
   it('shows empty state when no periods exist', async () => {
-    ;(ApiService.get as any).mockResolvedValue({
-      data: [],
-      meta: { page: 1, limit: 1000, total: 0, totalPages: 0 },
+    mockedApi.useGetFiscalPeriodsQuery.mockReturnValue({
+      data: {
+        data: [],
+        meta: { page: 1, limit: 1000, total: 0, totalPages: 0 },
+      },
+      isLoading: false,
+      error: undefined,
+      refetch: vi.fn(),
     })
 
-    const store = createMockStore()
-    renderWithProvider(store)
+    renderWithProvider()
 
     await waitFor(() => {
       expect(screen.getByText(/No fiscal periods found/i)).toBeInTheDocument()
@@ -262,22 +242,27 @@ describe('FiscalPeriodsPage', () => {
   })
 
   it('displays loading spinner when loading', () => {
-    ;(ApiService.get as any).mockImplementation(() => new Promise(() => {}))
+    mockedApi.useGetFiscalPeriodsQuery.mockReturnValue({
+      data: undefined,
+      isLoading: true,
+      error: undefined,
+      refetch: vi.fn(),
+    })
 
-    const store = createMockStore()
-    renderWithProvider(store)
+    renderWithProvider()
 
     expect(screen.getByRole('progressbar')).toBeInTheDocument()
   })
 
   it('handles errors gracefully', async () => {
-    const errorMessage = 'Failed to fetch periods'
-    ;(ApiService.get as any).mockRejectedValue({
-      response: { data: { message: errorMessage } },
+    mockedApi.useGetFiscalPeriodsQuery.mockReturnValue({
+      data: { data: [], meta: { page: 1, limit: 1000, total: 0, totalPages: 0 } },
+      isLoading: false,
+      error: { data: 'Failed to fetch periods' },
+      refetch: vi.fn(),
     })
 
-    const store = createMockStore()
-    renderWithProvider(store)
+    renderWithProvider()
 
     await waitFor(() => {
       expect(screen.getByText('Fiscal Periods')).toBeInTheDocument()
@@ -285,13 +270,10 @@ describe('FiscalPeriodsPage', () => {
   })
 
   it('displays year filter with available years', async () => {
-    const store = createMockStore()
-    renderWithProvider(store)
+    renderWithProvider()
 
     await waitFor(() => {
-      // Find year filter by text content since MUI Select doesn't associate labels properly
-      const yearFilters = screen.getAllByText('Year')
-      expect(yearFilters.length).toBeGreaterThan(0)
+      expect(screen.getAllByText('Year').length).toBeGreaterThan(0)
     })
   })
 })

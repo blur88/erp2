@@ -26,12 +26,7 @@ import {
   Close as CloseIcon,
   Payment as PaymentIcon,
 } from '@mui/icons-material'
-import { useDispatch, useSelector } from 'react-redux'
-import {
-  fetchDeletedVendorPayments,
-  selectDeletedVendorPayments,
-  selectPurchasingLoading
-} from '@/store/slices/purchasingSlice'
+import { useGetDeletedVendorPaymentsQuery } from '@/store/api/purchasingApi'
 import { formatCurrency, formatDate } from '@/utils/formatters'
 
 interface DeletedVendorPaymentsDialogProps {
@@ -40,20 +35,12 @@ interface DeletedVendorPaymentsDialogProps {
 }
 
 const DeletedVendorPaymentsDialog: React.FC<DeletedVendorPaymentsDialogProps> = ({ open, onClose }) => {
-  const dispatch = useDispatch() as any
   const theme = useTheme()
   const isMobile = useMediaQuery(theme.breakpoints.down('md'))
-  const deletedPayments = useSelector(selectDeletedVendorPayments) || []
-  const loadingState = useSelector(selectPurchasingLoading)
-  const loading = loadingState?.deletedVendorPayments || false
+  const { data: deletedPaymentsResponse, isFetching: loading } = useGetDeletedVendorPaymentsQuery({}, { skip: !open })
+  const deletedPayments = deletedPaymentsResponse?.data || []
 
   const [searchTerm, setSearchTerm] = useState('')
-
-  useEffect(() => {
-    if (open) {
-      dispatch(fetchDeletedVendorPayments({}))
-    }
-  }, [open, dispatch])
 
   // Filter payments based on search term
   const filteredPayments = deletedPayments.filter((payment: any) =>
