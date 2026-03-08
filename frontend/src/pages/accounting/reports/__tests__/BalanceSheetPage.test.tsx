@@ -112,6 +112,6 @@ describe('BalanceSheetPage', () => {
     })
 
     render(<BalanceSheetPage />)
-    expect(await screen.findByText('Net Income')).toBeInTheDocument()
+    expect(await screen.findByText('Add: Net Income')).toBeInTheDocument()
   })
 })

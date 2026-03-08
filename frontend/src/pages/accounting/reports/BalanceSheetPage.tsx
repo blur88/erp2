@@ -126,16 +126,17 @@ const BalanceSheetSection: React.FC<SectionProps> = ({ title, accounts, subtotal
                   return (
                     <React.Fragment key={account.id}>
                       {isFirstNegative && hasNetIncome && (
-                        <TableRow hover>
+                        <TableRow hover data-testid="balance-sheet-net-income">
                           <TableCell />
                           <TableCell>
-                            <Typography variant="body2" sx={{ fontStyle: 'italic' }}>
+                            <Typography variant="body2" sx={{ fontStyle: 'italic' }} data-testid="balance-sheet-net-income-label">
                               {netIncome! >= 0 ? 'Add: Net Income' : 'Less: Net Loss'}
                             </Typography>
                           </TableCell>
                           <TableCell align="right">
                             <Typography
                               variant="body2"
+                              data-testid="balance-sheet-net-income-value"
                               sx={{
                                 fontWeight: 600,
                                 fontStyle: 'italic',
@@ -176,16 +177,17 @@ const BalanceSheetSection: React.FC<SectionProps> = ({ title, accounts, subtotal
 
                 {/* Net Income row — shown at end if no negative accounts */}
                 {hasNetIncome && (title !== 'EQUITY' || negativeAccounts.length === 0) && (
-                  <TableRow hover>
+                  <TableRow hover data-testid="balance-sheet-net-income">
                     <TableCell />
                     <TableCell>
-                      <Typography variant="body2" sx={{ fontStyle: 'italic' }}>
+                      <Typography variant="body2" sx={{ fontStyle: 'italic' }} data-testid="balance-sheet-net-income-label">
                         {netIncome! >= 0 ? 'Add: Net Income' : 'Less: Net Loss'}
                       </Typography>
                     </TableCell>
                     <TableCell align="right">
                       <Typography
                         variant="body2"
+                        data-testid="balance-sheet-net-income-value"
                         sx={{
                           fontWeight: 600,
                           fontStyle: 'italic',

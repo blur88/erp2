@@ -63,20 +63,18 @@ vi.mock('@/services/api', () => ({
   },
 }))
 
-vi.mock('@/services/priceListApi', () => ({
-  priceListApi: {
-    getPriceLists: (...args: unknown[]) => mockGetPriceLists(...args),
-    bulkUpdatePrices: (...args: unknown[]) => mockBulkUpdatePrices(...args),
-  },
+vi.mock('@/store/api/priceListApi', () => ({
+  useGetPriceListsQuery: () => ({
+    data: { data: [{ id: 'pl-1', name: 'Retail', isActive: true }] },
+    isLoading: false,
+  }),
+  useBulkUpdatePricesMutation: () => [mockBulkUpdatePrices, { isLoading: false }],
 }))
 
 describe('CreateProductPage', () => {
   beforeEach(() => {
     vi.clearAllMocks()
 
-    mockGetPriceLists.mockResolvedValue({
-      data: [{ id: 'pl-1', name: 'Retail', isActive: true }],
-    })
     mockApiPost.mockResolvedValue({ id: 'prod-1' })
     mockApiPatch.mockResolvedValue({})
     mockApiGet.mockResolvedValue({})
@@ -103,13 +101,16 @@ describe('CreateProductPage', () => {
     })
 
     await waitFor(() => {
-      expect(mockBulkUpdatePrices).toHaveBeenCalledWith('pl-1', [
-        {
-          productId: 'prod-1',
-          price: 0,
-          costBasis: 0,
-        },
-      ])
+      expect(mockBulkUpdatePrices).toHaveBeenCalledWith({
+        priceListId: 'pl-1',
+        items: [
+          {
+            productId: 'prod-1',
+            price: 0,
+            costBasis: 0,
+          },
+        ],
+      })
     })
   })
 })
