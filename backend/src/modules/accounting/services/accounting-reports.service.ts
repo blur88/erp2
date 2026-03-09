@@ -6,7 +6,6 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
-import * as ExcelJS from 'exceljs';
 import {
   ChartOfAccount,
   AccountType,
@@ -16,6 +15,10 @@ import {
   JournalEntryStatus,
 } from '../../../database/entities/journal-entry.entity';
 import { JournalEntryLine } from '../../../database/entities/journal-entry-line.entity';
+import {
+  AccountingReportsQueryHelper,
+} from './accounting-reports.query-helper';
+import { AccountingExcelExportService } from './accounting-reports.excel-export.service';
 
 /**
  * Interface for account with balance information
@@ -173,6 +176,8 @@ export class AccountingReportsService {
     private readonly journalEntryRepository: Repository<JournalEntry>,
     @InjectRepository(JournalEntryLine)
     private readonly journalEntryLineRepository: Repository<JournalEntryLine>,
+    private readonly queryHelper: AccountingReportsQueryHelper,
+    private readonly excelExportService: AccountingExcelExportService,
   ) {}
 
   /**
@@ -220,7 +225,7 @@ export class AccountingReportsService {
       : 0;
 
     // Calculate balance based on account type using proper accounting rules
-    const balance = this.calculateBalanceByAccountType(
+    const balance = this.queryHelper.calculateBalanceByAccountType(
       account.type,
       totalDebit,
       totalCredit,
@@ -263,17 +268,11 @@ export class AccountingReportsService {
     });
 
     // Query journal entry lines for all accounts in a single query
-    const results = await this.journalEntryLineRepository
-      .createQueryBuilder('jel')
-      .leftJoin('jel.journalEntry', 'je')
-      .select('jel.accountId', 'accountId')
-      .addSelect('SUM(jel.debitAmount)', 'totalDebit')
-      .addSelect('SUM(jel.creditAmount)', 'totalCredit')
-      .where('jel.accountId IN (:...accountIds)', { accountIds })
-      .andWhere('je.entryDate <= :asOfDate', { asOfDate })
-      .andWhere('je.status IN (:...statuses)', { statuses: [JournalEntryStatus.POSTED, JournalEntryStatus.REVERSED] })
-      .groupBy('jel.accountId')
-      .getRawMany();
+    const totalsMap = await this.queryHelper.queryTransactionTotals(
+      accountIds,
+      { type: 'asOf', date: asOfDate },
+      [JournalEntryStatus.POSTED, JournalEntryStatus.REVERSED],
+    );
 
     // Build result map with calculated balances
     const balances: Record<string, number> = {};
@@ -284,8 +283,7 @@ export class AccountingReportsService {
     });
 
     // Update balances for accounts with transactions
-    results.forEach(result => {
-      const accountId = result.accountId;
+    accountIds.forEach(accountId => {
       const accountType = accountTypeMap.get(accountId);
 
       if (!accountType) {
@@ -293,10 +291,12 @@ export class AccountingReportsService {
         return;
       }
 
-      const totalDebit = parseFloat(result.totalDebit || '0');
-      const totalCredit = parseFloat(result.totalCredit || '0');
+      const { totalDebit, totalCredit } = totalsMap.get(accountId) || {
+        totalDebit: 0,
+        totalCredit: 0,
+      };
 
-      balances[accountId] = this.calculateBalanceByAccountType(
+      balances[accountId] = this.queryHelper.calculateBalanceByAccountType(
         accountType,
         totalDebit,
         totalCredit,
@@ -434,33 +434,18 @@ export class AccountingReportsService {
     const accountIds = accounts.map(account => account.id);
 
     // Query journal entry lines for all accounts in a single batch query
-    const transactionData = await this.journalEntryLineRepository
-      .createQueryBuilder('jel')
-      .leftJoin('jel.journalEntry', 'je')
-      .select('jel.accountId', 'accountId')
-      .addSelect('SUM(jel.debitAmount)', 'totalDebit')
-      .addSelect('SUM(jel.creditAmount)', 'totalCredit')
-      .where('jel.accountId IN (:...accountIds)', { accountIds })
-      .andWhere('je.entryDate <= :asOfDate', { asOfDate })
-      .andWhere('je.status IN (:...statuses)', { statuses: [JournalEntryStatus.POSTED, JournalEntryStatus.REVERSED] })
-      .groupBy('jel.accountId')
-      .getRawMany();
-
-    // Build a map of account ID to transaction totals
-    const transactionMap = new Map<string, { totalDebit: number; totalCredit: number }>();
-    transactionData.forEach(row => {
-      transactionMap.set(row.accountId, {
-        totalDebit: parseFloat(row.totalDebit || '0'),
-        totalCredit: parseFloat(row.totalCredit || '0'),
-      });
-    });
+    const totalsMap = await this.queryHelper.queryTransactionTotals(
+      accountIds,
+      { type: 'asOf', date: asOfDate },
+      [JournalEntryStatus.POSTED, JournalEntryStatus.REVERSED],
+    );
 
     // Build trial balance accounts array
     let grandTotalDebit = 0;
     let grandTotalCredit = 0;
 
     const trialBalanceAccounts: TrialBalanceAccount[] = accounts.map(account => {
-      const transactions = transactionMap.get(account.id) || {
+      const transactions = totalsMap.get(account.id) || {
         totalDebit: 0,
         totalCredit: 0,
       };
@@ -474,10 +459,10 @@ export class AccountingReportsService {
       let credit = 0;
 
       if (netDebit > 0) {
-        debit = this.roundTo2Decimals(netDebit);
+        debit = this.queryHelper.roundTo2Decimals(netDebit);
         grandTotalDebit += debit;
       } else if (netCredit > 0) {
-        credit = this.roundTo2Decimals(netCredit);
+        credit = this.queryHelper.roundTo2Decimals(netCredit);
         grandTotalCredit += credit;
       }
       // If netDebit === netCredit (zero balance), both remain 0
@@ -492,8 +477,8 @@ export class AccountingReportsService {
     });
 
     // Round grand totals to 2 decimals
-    grandTotalDebit = this.roundTo2Decimals(grandTotalDebit);
-    grandTotalCredit = this.roundTo2Decimals(grandTotalCredit);
+    grandTotalDebit = this.queryHelper.roundTo2Decimals(grandTotalDebit);
+    grandTotalCredit = this.queryHelper.roundTo2Decimals(grandTotalCredit);
 
     // Check if trial balance is balanced (allow 0.01 tolerance for rounding)
     const isBalanced = Math.abs(grandTotalDebit - grandTotalCredit) < 0.01;
@@ -570,26 +555,11 @@ export class AccountingReportsService {
     const accountIds = accounts.map(account => account.id);
 
     // Query journal entry lines for all accounts in a single batch query
-    const transactionData = await this.journalEntryLineRepository
-      .createQueryBuilder('jel')
-      .leftJoin('jel.journalEntry', 'je')
-      .select('jel.accountId', 'accountId')
-      .addSelect('SUM(jel.debitAmount)', 'totalDebit')
-      .addSelect('SUM(jel.creditAmount)', 'totalCredit')
-      .where('jel.accountId IN (:...accountIds)', { accountIds })
-      .andWhere('je.entryDate <= :asOfDate', { asOfDate })
-      .andWhere('je.status IN (:...statuses)', { statuses: [JournalEntryStatus.POSTED, JournalEntryStatus.REVERSED] })
-      .groupBy('jel.accountId')
-      .getRawMany();
-
-    // Build a map of account ID to transaction totals
-    const transactionMap = new Map<string, { totalDebit: number; totalCredit: number }>();
-    transactionData.forEach(row => {
-      transactionMap.set(row.accountId, {
-        totalDebit: parseFloat(row.totalDebit || '0'),
-        totalCredit: parseFloat(row.totalCredit || '0'),
-      });
-    });
+    const totalsMap = await this.queryHelper.queryTransactionTotals(
+      accountIds,
+      { type: 'asOf', date: asOfDate },
+      [JournalEntryStatus.POSTED, JournalEntryStatus.REVERSED],
+    );
 
     // Initialize balance sheet sections
     const currentAssets: AccountBalance[] = [];
@@ -600,12 +570,12 @@ export class AccountingReportsService {
 
     // Process each account and classify by type and code
     accounts.forEach(account => {
-      const transactions = transactionMap.get(account.id) || {
+      const transactions = totalsMap.get(account.id) || {
         totalDebit: 0,
         totalCredit: 0,
       };
 
-      const balance = this.calculateBalanceByAccountType(
+      const balance = this.queryHelper.calculateBalanceByAccountType(
         account.type,
         transactions.totalDebit,
         transactions.totalCredit,
@@ -649,92 +619,41 @@ export class AccountingReportsService {
     });
 
     // Calculate section totals
-    const totalCurrentAssets = this.roundTo2Decimals(
+    const totalCurrentAssets = this.queryHelper.roundTo2Decimals(
       currentAssets.reduce((sum, acc) => sum + acc.balance, 0),
     );
-    const totalFixedAssets = this.roundTo2Decimals(
+    const totalFixedAssets = this.queryHelper.roundTo2Decimals(
       fixedAssets.reduce((sum, acc) => sum + acc.balance, 0),
     );
-    const totalAssets = this.roundTo2Decimals(totalCurrentAssets + totalFixedAssets);
+    const totalAssets = this.queryHelper.roundTo2Decimals(
+      totalCurrentAssets + totalFixedAssets,
+    );
 
-    const totalCurrentLiabilities = this.roundTo2Decimals(
+    const totalCurrentLiabilities = this.queryHelper.roundTo2Decimals(
       currentLiabilities.reduce((sum, acc) => sum + acc.balance, 0),
     );
-    const totalLongTermLiabilities = this.roundTo2Decimals(
+    const totalLongTermLiabilities = this.queryHelper.roundTo2Decimals(
       longTermLiabilities.reduce((sum, acc) => sum + acc.balance, 0),
     );
-    const totalLiabilities = this.roundTo2Decimals(
+    const totalLiabilities = this.queryHelper.roundTo2Decimals(
       totalCurrentLiabilities + totalLongTermLiabilities,
     );
 
-    const equityAccountsTotal = this.roundTo2Decimals(
+    const equityAccountsTotal = this.queryHelper.roundTo2Decimals(
       equityAccounts.reduce((sum, acc) => sum + acc.balance, 0),
     );
-
-    // Calculate current-period net income from REVENUE and EXPENSE accounts.
-    const incomeQueryBuilder = this.accountRepository.createQueryBuilder('account');
-    incomeQueryBuilder.where('account.type IN (:...types)', {
-      types: [AccountType.REVENUE, AccountType.EXPENSE],
-    });
-    if (!includeInactive) {
-      incomeQueryBuilder.andWhere('account.isActive = :isActive', { isActive: true });
-    }
-
-    const incomeAccounts = await incomeQueryBuilder
-      .orderBy('account.code', 'ASC')
-      .getMany();
-
-    let netIncome = 0;
-
-    if (incomeAccounts.length > 0) {
-      const incomeAccountIds = incomeAccounts.map(account => account.id);
-      const incomeTransactionData = await this.journalEntryLineRepository
-        .createQueryBuilder('jel')
-        .leftJoin('jel.journalEntry', 'je')
-        .select('jel.accountId', 'accountId')
-        .addSelect('SUM(jel.debitAmount)', 'totalDebit')
-        .addSelect('SUM(jel.creditAmount)', 'totalCredit')
-        .where('jel.accountId IN (:...accountIds)', { accountIds: incomeAccountIds })
-        .andWhere('je.entryDate <= :asOfDate', { asOfDate })
-        .andWhere('je.status IN (:...statuses)', { statuses: [JournalEntryStatus.POSTED, JournalEntryStatus.REVERSED] })
-        .groupBy('jel.accountId')
-        .getRawMany();
-
-      const incomeTransactionMap = new Map<string, { totalDebit: number; totalCredit: number }>();
-      incomeTransactionData.forEach(row => {
-        incomeTransactionMap.set(row.accountId, {
-          totalDebit: parseFloat(row.totalDebit || '0'),
-          totalCredit: parseFloat(row.totalCredit || '0'),
-        });
-      });
-
-      let totalRevenue = 0;
-      let totalExpenses = 0;
-
-      incomeAccounts.forEach(account => {
-        const txn = incomeTransactionMap.get(account.id) || { totalDebit: 0, totalCredit: 0 };
-        const balance = this.calculateBalanceByAccountType(
-          account.type,
-          txn.totalDebit,
-          txn.totalCredit,
-        );
-
-        if (account.type === AccountType.REVENUE) {
-          totalRevenue += balance;
-        } else {
-          totalExpenses += balance;
-        }
-      });
-
-      netIncome = this.roundTo2Decimals(totalRevenue - totalExpenses);
-    }
+    const netIncome = await this.calculateNetIncome(asOfDate, includeInactive);
 
     this.logger.log(`Net income calculated: ${netIncome}`);
 
-    const totalEquity = this.roundTo2Decimals(equityAccountsTotal + netIncome);
+    const totalEquity = this.queryHelper.roundTo2Decimals(
+      equityAccountsTotal + netIncome,
+    );
 
     // Validate balance sheet equation: Assets = Liabilities + Equity (including net income)
-    const totalLiabilitiesAndEquity = this.roundTo2Decimals(totalLiabilities + totalEquity);
+    const totalLiabilitiesAndEquity = this.queryHelper.roundTo2Decimals(
+      totalLiabilities + totalEquity,
+    );
     const isBalanced = Math.abs(totalAssets - totalLiabilitiesAndEquity) < 0.01;
 
     this.logger.log(
@@ -825,24 +744,15 @@ export class AccountingReportsService {
     }
 
     // Calculate opening balance (balance before startDate)
-    const openingBalanceData = await this.journalEntryLineRepository
-      .createQueryBuilder('jel')
-      .leftJoin('jel.journalEntry', 'je')
-      .select('SUM(jel.debitAmount)', 'totalDebit')
-      .addSelect('SUM(jel.creditAmount)', 'totalCredit')
-      .where('jel.accountId = :accountId', { accountId })
-      .andWhere('je.entryDate < :startDate', { startDate })
-      .andWhere('je.status IN (:...statuses)', { statuses: [JournalEntryStatus.POSTED, JournalEntryStatus.REVERSED] })
-      .getRawMany();
+    const openingTotalsMap = await this.queryHelper.queryTransactionTotals(
+      [accountId],
+      { type: 'before', date: startDate },
+      [JournalEntryStatus.POSTED, JournalEntryStatus.REVERSED],
+    );
+    const { totalDebit: openingDebit, totalCredit: openingCredit } =
+      openingTotalsMap.get(accountId) || { totalDebit: 0, totalCredit: 0 };
 
-    const openingDebit = openingBalanceData.length > 0 && openingBalanceData[0].totalDebit
-      ? parseFloat(openingBalanceData[0].totalDebit)
-      : 0;
-    const openingCredit = openingBalanceData.length > 0 && openingBalanceData[0].totalCredit
-      ? parseFloat(openingBalanceData[0].totalCredit)
-      : 0;
-
-    const openingBalance = this.calculateBalanceByAccountType(
+    const openingBalance = this.queryHelper.calculateBalanceByAccountType(
       account.type,
       openingDebit,
       openingCredit,
@@ -885,14 +795,14 @@ export class AccountingReportsService {
         runningBalance += credit - debit;
       }
 
-      runningBalance = this.roundTo2Decimals(runningBalance);
+      runningBalance = this.queryHelper.roundTo2Decimals(runningBalance);
 
       return {
         date: row.entryDate,
         entryNumber: row.referenceNumber,
         description: row.description,
-        debit: this.roundTo2Decimals(debit),
-        credit: this.roundTo2Decimals(credit),
+        debit: this.queryHelper.roundTo2Decimals(debit),
+        credit: this.queryHelper.roundTo2Decimals(credit),
         balance: runningBalance,
       };
     });
@@ -914,9 +824,9 @@ export class AccountingReportsService {
         name: account.name,
         type: account.type,
       },
-      openingBalance: this.roundTo2Decimals(openingBalance),
+      openingBalance: this.queryHelper.roundTo2Decimals(openingBalance),
       transactions,
-      closingBalance: this.roundTo2Decimals(closingBalance),
+      closingBalance: this.queryHelper.roundTo2Decimals(closingBalance),
     };
   }
 
@@ -974,24 +884,15 @@ export class AccountingReportsService {
 
     // Calculate opening balance (balance before startDate)
     // IMPORTANT: Opening balance only includes POSTED entries for accuracy
-    const openingBalanceData = await this.journalEntryLineRepository
-      .createQueryBuilder('jel')
-      .leftJoin('jel.journalEntry', 'je')
-      .select('SUM(jel.debitAmount)', 'totalDebit')
-      .addSelect('SUM(jel.creditAmount)', 'totalCredit')
-      .where('jel.accountId = :accountId', { accountId })
-      .andWhere('je.entryDate < :startDate', { startDate })
-      .andWhere('je.status IN (:...statuses)', { statuses: [JournalEntryStatus.POSTED, JournalEntryStatus.REVERSED] })
-      .getRawMany();
+    const openingTotalsMap = await this.queryHelper.queryTransactionTotals(
+      [accountId],
+      { type: 'before', date: startDate },
+      [JournalEntryStatus.POSTED, JournalEntryStatus.REVERSED],
+    );
+    const { totalDebit: openingDebit, totalCredit: openingCredit } =
+      openingTotalsMap.get(accountId) || { totalDebit: 0, totalCredit: 0 };
 
-    const openingDebit = openingBalanceData.length > 0 && openingBalanceData[0].totalDebit
-      ? parseFloat(openingBalanceData[0].totalDebit)
-      : 0;
-    const openingCredit = openingBalanceData.length > 0 && openingBalanceData[0].totalCredit
-      ? parseFloat(openingBalanceData[0].totalCredit)
-      : 0;
-
-    const openingBalance = this.calculateBalanceByAccountType(
+    const openingBalance = this.queryHelper.calculateBalanceByAccountType(
       account.type,
       openingDebit,
       openingCredit,
@@ -1044,7 +945,7 @@ export class AccountingReportsService {
         runningBalance += credit - debit;
       }
 
-      runningBalance = this.roundTo2Decimals(runningBalance);
+      runningBalance = this.queryHelper.roundTo2Decimals(runningBalance);
 
       return {
         date: row.entryDate,
@@ -1053,8 +954,8 @@ export class AccountingReportsService {
         referenceType: row.sourceType || undefined, // Include reference metadata
         referenceId: row.sourceId || undefined, // Include reference metadata
         status: row.status, // Include status for filtering in frontend
-        debit: this.roundTo2Decimals(debit),
-        credit: this.roundTo2Decimals(credit),
+        debit: this.queryHelper.roundTo2Decimals(debit),
+        credit: this.queryHelper.roundTo2Decimals(credit),
         balance: runningBalance,
       };
     });
@@ -1076,10 +977,64 @@ export class AccountingReportsService {
         name: account.name,
         type: account.type,
       },
-      openingBalance: this.roundTo2Decimals(openingBalance),
+      openingBalance: this.queryHelper.roundTo2Decimals(openingBalance),
       activity,
-      closingBalance: this.roundTo2Decimals(closingBalance),
+      closingBalance: this.queryHelper.roundTo2Decimals(closingBalance),
     };
+  }
+
+  private async calculateNetIncome(
+    asOfDate: Date,
+    includeInactive: boolean,
+  ): Promise<number> {
+    const incomeQueryBuilder = this.accountRepository.createQueryBuilder('account');
+    incomeQueryBuilder.where('account.type IN (:...types)', {
+      types: [AccountType.REVENUE, AccountType.EXPENSE],
+    });
+
+    if (!includeInactive) {
+      incomeQueryBuilder.andWhere('account.isActive = :isActive', {
+        isActive: true,
+      });
+    }
+
+    const incomeAccounts = await incomeQueryBuilder
+      .orderBy('account.code', 'ASC')
+      .getMany();
+
+    if (incomeAccounts.length === 0) {
+      return 0;
+    }
+
+    const incomeAccountIds = incomeAccounts.map(account => account.id);
+    const totalsMap = await this.queryHelper.queryTransactionTotals(
+      incomeAccountIds,
+      { type: 'asOf', date: asOfDate },
+      [JournalEntryStatus.POSTED, JournalEntryStatus.REVERSED],
+    );
+
+    let totalRevenue = 0;
+    let totalExpenses = 0;
+
+    incomeAccounts.forEach(account => {
+      const { totalDebit, totalCredit } = totalsMap.get(account.id) || {
+        totalDebit: 0,
+        totalCredit: 0,
+      };
+      const balance = this.queryHelper.calculateBalanceByAccountType(
+        account.type,
+        totalDebit,
+        totalCredit,
+      );
+
+      if (account.type === AccountType.REVENUE) {
+        totalRevenue += balance;
+      } else {
+        totalExpenses += balance;
+      }
+    });
+
+    return this.queryHelper.roundTo2Decimals(totalRevenue - totalExpenses);
   }
 
   /**
@@ -1149,27 +1104,11 @@ export class AccountingReportsService {
     const accountIds = accounts.map(account => account.id);
 
     // Query journal entry lines for the date range
-    const transactionData = await this.journalEntryLineRepository
-      .createQueryBuilder('jel')
-      .leftJoin('jel.journalEntry', 'je')
-      .select('jel.accountId', 'accountId')
-      .addSelect('SUM(jel.debitAmount)', 'totalDebit')
-      .addSelect('SUM(jel.creditAmount)', 'totalCredit')
-      .where('jel.accountId IN (:...accountIds)', { accountIds })
-      .andWhere('je.entryDate >= :startDate', { startDate })
-      .andWhere('je.entryDate <= :endDate', { endDate })
-      .andWhere('je.status IN (:...statuses)', { statuses: [JournalEntryStatus.POSTED, JournalEntryStatus.REVERSED] })
-      .groupBy('jel.accountId')
-      .getRawMany();
-
-    // Build a map of account ID to transaction totals
-    const transactionMap = new Map<string, { totalDebit: number; totalCredit: number }>();
-    transactionData.forEach(row => {
-      transactionMap.set(row.accountId, {
-        totalDebit: parseFloat(row.totalDebit || '0'),
-        totalCredit: parseFloat(row.totalCredit || '0'),
-      });
-    });
+    const totalsMap = await this.queryHelper.queryTransactionTotals(
+      accountIds,
+      { type: 'range', startDate, endDate },
+      [JournalEntryStatus.POSTED, JournalEntryStatus.REVERSED],
+    );
 
     // Initialize P&L sections
     const revenueAccounts: AccountBalance[] = [];
@@ -1178,12 +1117,12 @@ export class AccountingReportsService {
 
     // Process each account and classify by type and code
     accounts.forEach(account => {
-      const transactions = transactionMap.get(account.id) || {
+      const transactions = totalsMap.get(account.id) || {
         totalDebit: 0,
         totalCredit: 0,
       };
 
-      const balance = this.calculateBalanceByAccountType(
+      const balance = this.queryHelper.calculateBalanceByAccountType(
         account.type,
         transactions.totalDebit,
         transactions.totalCredit,
@@ -1212,21 +1151,21 @@ export class AccountingReportsService {
     });
 
     // Calculate totals
-    const totalRevenue = this.roundTo2Decimals(
+    const totalRevenue = this.queryHelper.roundTo2Decimals(
       revenueAccounts.reduce((sum, acc) => sum + acc.balance, 0),
     );
 
-    const totalCOGS = this.roundTo2Decimals(
+    const totalCOGS = this.queryHelper.roundTo2Decimals(
       cogsAccounts.reduce((sum, acc) => sum + acc.balance, 0),
     );
 
-    const grossProfit = this.roundTo2Decimals(totalRevenue - totalCOGS);
+    const grossProfit = this.queryHelper.roundTo2Decimals(totalRevenue - totalCOGS);
 
-    const totalExpenses = this.roundTo2Decimals(
+    const totalExpenses = this.queryHelper.roundTo2Decimals(
       expenseAccounts.reduce((sum, acc) => sum + acc.balance, 0),
     );
 
-    const netIncome = this.roundTo2Decimals(grossProfit - totalExpenses);
+    const netIncome = this.queryHelper.roundTo2Decimals(grossProfit - totalExpenses);
 
     this.logger.log(
       `P&L generated: Revenue=${totalRevenue}, COGS=${totalCOGS}, ` +
@@ -1262,89 +1201,7 @@ export class AccountingReportsService {
     data: TrialBalanceResponse,
     filename: string = 'trial-balance',
   ): Promise<Buffer> {
-    this.logger.log(`Exporting Trial Balance to Excel: ${filename}`);
-
-    const workbook = new ExcelJS.Workbook();
-    const worksheet = workbook.addWorksheet('Trial Balance');
-
-    // Header section
-    worksheet.addRow(['Company Name']);
-    worksheet.addRow(['Trial Balance']);
-    worksheet.addRow([`As of ${new Date().toISOString().split('T')[0]}`]);
-    worksheet.addRow([]); // Blank row
-
-    // Column headers
-    const headerRow = worksheet.addRow([
-      'Account Code',
-      'Account Name',
-      'Account Type',
-      'Debit',
-      'Credit',
-    ]);
-    headerRow.font = { bold: true };
-    headerRow.fill = {
-      type: 'pattern',
-      pattern: 'solid',
-      fgColor: { argb: 'FFD3D3D3' },
-    };
-
-    // Data rows
-    data.accounts.forEach(account => {
-      const row = worksheet.addRow([
-        account.accountCode,
-        account.accountName,
-        account.accountType,
-        account.debit || 0,
-        account.credit || 0,
-      ]);
-
-      // Number formatting for currency columns
-      row.getCell(4).numFmt = '#,##0.00';
-      row.getCell(5).numFmt = '#,##0.00';
-    });
-
-    // Blank row before grand total
-    worksheet.addRow([]);
-
-    // Grand total row
-    const totalRow = worksheet.addRow([
-      '',
-      '',
-      'Total',
-      data.totalDebit,
-      data.totalCredit,
-    ]);
-    totalRow.font = { bold: true, size: 12 };
-    totalRow.fill = {
-      type: 'pattern',
-      pattern: 'solid',
-      fgColor: { argb: 'FFD0D0D0' },
-    };
-    totalRow.getCell(4).numFmt = '#,##0.00';
-    totalRow.getCell(5).numFmt = '#,##0.00';
-
-    // Add balance status row
-    const balanceRow = worksheet.addRow([
-      '',
-      '',
-      data.isBalanced ? 'BALANCED' : 'UNBALANCED',
-      '',
-      '',
-    ]);
-    balanceRow.font = { bold: true, color: { argb: data.isBalanced ? 'FF008000' : 'FFFF0000' } };
-
-    // Auto-fit columns
-    worksheet.columns = [
-      { width: 15 }, // Account Code
-      { width: 30 }, // Account Name
-      { width: 15 }, // Account Type
-      { width: 15 }, // Debit
-      { width: 15 }, // Credit
-    ];
-
-    // Generate buffer
-    const buffer = await workbook.xlsx.writeBuffer();
-    return Buffer.from(buffer);
+    return this.excelExportService.exportTrialBalanceToExcel(data, filename);
   }
 
   /**
@@ -1358,205 +1215,7 @@ export class AccountingReportsService {
     data: BalanceSheetResponse,
     filename: string = 'balance-sheet',
   ): Promise<Buffer> {
-    this.logger.log(`Exporting Balance Sheet to Excel: ${filename}`);
-
-    const workbook = new ExcelJS.Workbook();
-    const worksheet = workbook.addWorksheet('Balance Sheet');
-
-    // Header section
-    worksheet.addRow(['Company Name']);
-    worksheet.addRow(['Balance Sheet']);
-    worksheet.addRow([`As of ${new Date().toISOString().split('T')[0]}`]);
-    worksheet.addRow([]); // Blank row
-
-    // Column headers
-    const headerRow = worksheet.addRow(['Account Code', 'Account Name', 'Balance']);
-    headerRow.font = { bold: true };
-    headerRow.fill = {
-      type: 'pattern',
-      pattern: 'solid',
-      fgColor: { argb: 'FFD3D3D3' },
-    };
-
-    // ASSETS SECTION
-    const assetsSectionRow = worksheet.addRow(['ASSETS', '', '']);
-    assetsSectionRow.font = { bold: true, size: 12 };
-    assetsSectionRow.fill = {
-      type: 'pattern',
-      pattern: 'solid',
-      fgColor: { argb: 'FFE8E8E8' },
-    };
-
-    // Current Assets
-    worksheet.addRow(['Current Assets', '', '']);
-    data.assets.current.forEach(account => {
-      const row = worksheet.addRow([account.accountCode, account.accountName, account.balance]);
-      row.getCell(3).numFmt = '#,##0.00';
-    });
-
-    worksheet.addRow([]); // Blank row before subtotal
-    const currentAssetsTotalRow = worksheet.addRow(['', 'Total Current Assets', data.assets.totalCurrent]);
-    currentAssetsTotalRow.font = { bold: true };
-    currentAssetsTotalRow.fill = {
-      type: 'pattern',
-      pattern: 'solid',
-      fgColor: { argb: 'FFE0E0E0' },
-    };
-    currentAssetsTotalRow.getCell(3).numFmt = '#,##0.00';
-
-    worksheet.addRow([]); // Blank row
-
-    // Fixed Assets
-    worksheet.addRow(['Fixed Assets', '', '']);
-    data.assets.fixed.forEach(account => {
-      const row = worksheet.addRow([account.accountCode, account.accountName, account.balance]);
-      row.getCell(3).numFmt = '#,##0.00';
-    });
-
-    worksheet.addRow([]); // Blank row before subtotal
-    const fixedAssetsTotalRow = worksheet.addRow(['', 'Total Fixed Assets', data.assets.totalFixed]);
-    fixedAssetsTotalRow.font = { bold: true };
-    fixedAssetsTotalRow.fill = {
-      type: 'pattern',
-      pattern: 'solid',
-      fgColor: { argb: 'FFE0E0E0' },
-    };
-    fixedAssetsTotalRow.getCell(3).numFmt = '#,##0.00';
-
-    worksheet.addRow([]); // Blank row
-    const totalAssetsRow = worksheet.addRow(['', 'TOTAL ASSETS', data.assets.total]);
-    totalAssetsRow.font = { bold: true, size: 12 };
-    totalAssetsRow.fill = {
-      type: 'pattern',
-      pattern: 'solid',
-      fgColor: { argb: 'FFD0D0D0' },
-    };
-    totalAssetsRow.getCell(3).numFmt = '#,##0.00';
-
-    worksheet.addRow([]); // Blank row
-
-    // LIABILITIES SECTION
-    const liabilitiesSectionRow = worksheet.addRow(['LIABILITIES', '', '']);
-    liabilitiesSectionRow.font = { bold: true, size: 12 };
-    liabilitiesSectionRow.fill = {
-      type: 'pattern',
-      pattern: 'solid',
-      fgColor: { argb: 'FFE8E8E8' },
-    };
-
-    // Current Liabilities
-    worksheet.addRow(['Current Liabilities', '', '']);
-    data.liabilities.current.forEach(account => {
-      const row = worksheet.addRow([account.accountCode, account.accountName, account.balance]);
-      row.getCell(3).numFmt = '#,##0.00';
-    });
-
-    worksheet.addRow([]); // Blank row before subtotal
-    const currentLiabilitiesTotalRow = worksheet.addRow(['', 'Total Current Liabilities', data.liabilities.totalCurrent]);
-    currentLiabilitiesTotalRow.font = { bold: true };
-    currentLiabilitiesTotalRow.fill = {
-      type: 'pattern',
-      pattern: 'solid',
-      fgColor: { argb: 'FFE0E0E0' },
-    };
-    currentLiabilitiesTotalRow.getCell(3).numFmt = '#,##0.00';
-
-    worksheet.addRow([]); // Blank row
-
-    // Long-term Liabilities
-    worksheet.addRow(['Long-term Liabilities', '', '']);
-    data.liabilities.longTerm.forEach(account => {
-      const row = worksheet.addRow([account.accountCode, account.accountName, account.balance]);
-      row.getCell(3).numFmt = '#,##0.00';
-    });
-
-    worksheet.addRow([]); // Blank row before subtotal
-    const longTermLiabilitiesTotalRow = worksheet.addRow(['', 'Total Long-term Liabilities', data.liabilities.totalLongTerm]);
-    longTermLiabilitiesTotalRow.font = { bold: true };
-    longTermLiabilitiesTotalRow.fill = {
-      type: 'pattern',
-      pattern: 'solid',
-      fgColor: { argb: 'FFE0E0E0' },
-    };
-    longTermLiabilitiesTotalRow.getCell(3).numFmt = '#,##0.00';
-
-    worksheet.addRow([]); // Blank row
-    const totalLiabilitiesRow = worksheet.addRow(['', 'TOTAL LIABILITIES', data.liabilities.total]);
-    totalLiabilitiesRow.font = { bold: true, size: 12 };
-    totalLiabilitiesRow.fill = {
-      type: 'pattern',
-      pattern: 'solid',
-      fgColor: { argb: 'FFD0D0D0' },
-    };
-    totalLiabilitiesRow.getCell(3).numFmt = '#,##0.00';
-
-    worksheet.addRow([]); // Blank row
-
-    // EQUITY SECTION
-    const equitySectionRow = worksheet.addRow(['EQUITY', '', '']);
-    equitySectionRow.font = { bold: true, size: 12 };
-    equitySectionRow.fill = {
-      type: 'pattern',
-      pattern: 'solid',
-      fgColor: { argb: 'FFE8E8E8' },
-    };
-
-    data.equity.accounts.forEach(account => {
-      const row = worksheet.addRow([account.accountCode, account.accountName, account.balance]);
-      row.getCell(3).numFmt = '#,##0.00';
-    });
-
-    if (data.equity.netIncome !== 0) {
-      const netIncomeRow = worksheet.addRow([
-        '',
-        data.equity.netIncome >= 0 ? 'Net Income (Current Period)' : 'Net Loss (Current Period)',
-        data.equity.netIncome,
-      ]);
-      netIncomeRow.font = { bold: true, italic: true };
-      netIncomeRow.getCell(3).numFmt = '#,##0.00';
-    }
-
-    worksheet.addRow([]); // Blank row before total
-    const totalEquityRow = worksheet.addRow(['', 'TOTAL EQUITY', data.equity.total]);
-    totalEquityRow.font = { bold: true, size: 12 };
-    totalEquityRow.fill = {
-      type: 'pattern',
-      pattern: 'solid',
-      fgColor: { argb: 'FFD0D0D0' },
-    };
-    totalEquityRow.getCell(3).numFmt = '#,##0.00';
-
-    worksheet.addRow([]); // Blank row
-
-    // Grand total: Total Liabilities + Equity
-    const totalLiabilitiesAndEquity = data.liabilities.total + data.equity.total;
-    const grandTotalRow = worksheet.addRow(['', 'TOTAL LIABILITIES & EQUITY', totalLiabilitiesAndEquity]);
-    grandTotalRow.font = { bold: true, size: 12 };
-    grandTotalRow.fill = {
-      type: 'pattern',
-      pattern: 'solid',
-      fgColor: { argb: 'FFC0C0C0' },
-    };
-    grandTotalRow.getCell(3).numFmt = '#,##0.00';
-
-    // Balance verification row
-    const balanceRow = worksheet.addRow([
-      '',
-      data.isBalanced ? 'BALANCED' : 'UNBALANCED',
-      '',
-    ]);
-    balanceRow.font = { bold: true, color: { argb: data.isBalanced ? 'FF008000' : 'FFFF0000' } };
-
-    // Auto-fit columns
-    worksheet.columns = [
-      { width: 15 }, // Account Code
-      { width: 35 }, // Account Name
-      { width: 18 }, // Balance
-    ];
-
-    // Generate buffer
-    const buffer = await workbook.xlsx.writeBuffer();
-    return Buffer.from(buffer);
+    return this.excelExportService.exportBalanceSheetToExcel(data, filename);
   }
 
   /**
@@ -1570,136 +1229,7 @@ export class AccountingReportsService {
     data: ProfitAndLossResponse,
     filename: string = 'profit-and-loss',
   ): Promise<Buffer> {
-    this.logger.log(`Exporting Profit and Loss to Excel: ${filename}`);
-
-    const workbook = new ExcelJS.Workbook();
-    const worksheet = workbook.addWorksheet('Profit and Loss');
-
-    // Header section
-    worksheet.addRow(['Company Name']);
-    worksheet.addRow(['Profit and Loss Statement']);
-    worksheet.addRow([`Period: ${new Date().toISOString().split('T')[0]}`]);
-    worksheet.addRow([]); // Blank row
-
-    // Column headers
-    const headerRow = worksheet.addRow(['Account Code', 'Account Name', 'Amount']);
-    headerRow.font = { bold: true };
-    headerRow.fill = {
-      type: 'pattern',
-      pattern: 'solid',
-      fgColor: { argb: 'FFD3D3D3' },
-    };
-
-    // REVENUE SECTION
-    const revenueSectionRow = worksheet.addRow(['REVENUE', '', '']);
-    revenueSectionRow.font = { bold: true, size: 12 };
-    revenueSectionRow.fill = {
-      type: 'pattern',
-      pattern: 'solid',
-      fgColor: { argb: 'FFE8E8E8' },
-    };
-
-    data.revenue.accounts.forEach(account => {
-      const row = worksheet.addRow([account.accountCode, account.accountName, account.balance]);
-      row.getCell(3).numFmt = '#,##0.00';
-    });
-
-    worksheet.addRow([]); // Blank row before subtotal
-    const totalRevenueRow = worksheet.addRow(['', 'Total Revenue', data.revenue.total]);
-    totalRevenueRow.font = { bold: true };
-    totalRevenueRow.fill = {
-      type: 'pattern',
-      pattern: 'solid',
-      fgColor: { argb: 'FFE0E0E0' },
-    };
-    totalRevenueRow.getCell(3).numFmt = '#,##0.00';
-
-    worksheet.addRow([]); // Blank row
-
-    // COST OF GOODS SOLD SECTION
-    const cogsSectionRow = worksheet.addRow(['COST OF GOODS SOLD', '', '']);
-    cogsSectionRow.font = { bold: true, size: 12 };
-    cogsSectionRow.fill = {
-      type: 'pattern',
-      pattern: 'solid',
-      fgColor: { argb: 'FFE8E8E8' },
-    };
-
-    data.costOfGoodsSold.accounts.forEach(account => {
-      const row = worksheet.addRow([account.accountCode, account.accountName, account.balance]);
-      row.getCell(3).numFmt = '#,##0.00';
-    });
-
-    worksheet.addRow([]); // Blank row before subtotal
-    const totalCogsRow = worksheet.addRow(['', 'Total Cost of Goods Sold', data.costOfGoodsSold.total]);
-    totalCogsRow.font = { bold: true };
-    totalCogsRow.fill = {
-      type: 'pattern',
-      pattern: 'solid',
-      fgColor: { argb: 'FFE0E0E0' },
-    };
-    totalCogsRow.getCell(3).numFmt = '#,##0.00';
-
-    worksheet.addRow([]); // Blank row
-
-    // GROSS PROFIT
-    const grossProfitRow = worksheet.addRow(['', 'GROSS PROFIT', data.grossProfit]);
-    grossProfitRow.font = { bold: true, size: 12 };
-    grossProfitRow.fill = {
-      type: 'pattern',
-      pattern: 'solid',
-      fgColor: { argb: 'FFD0D0D0' },
-    };
-    grossProfitRow.getCell(3).numFmt = '#,##0.00';
-
-    worksheet.addRow([]); // Blank row
-
-    // EXPENSES SECTION
-    const expensesSectionRow = worksheet.addRow(['OPERATING EXPENSES', '', '']);
-    expensesSectionRow.font = { bold: true, size: 12 };
-    expensesSectionRow.fill = {
-      type: 'pattern',
-      pattern: 'solid',
-      fgColor: { argb: 'FFE8E8E8' },
-    };
-
-    data.expenses.accounts.forEach(account => {
-      const row = worksheet.addRow([account.accountCode, account.accountName, account.balance]);
-      row.getCell(3).numFmt = '#,##0.00';
-    });
-
-    worksheet.addRow([]); // Blank row before subtotal
-    const totalExpensesRow = worksheet.addRow(['', 'Total Operating Expenses', data.expenses.total]);
-    totalExpensesRow.font = { bold: true };
-    totalExpensesRow.fill = {
-      type: 'pattern',
-      pattern: 'solid',
-      fgColor: { argb: 'FFE0E0E0' },
-    };
-    totalExpensesRow.getCell(3).numFmt = '#,##0.00';
-
-    worksheet.addRow([]); // Blank row
-
-    // NET INCOME (Grand Total)
-    const netIncomeRow = worksheet.addRow(['', 'NET INCOME', data.netIncome]);
-    netIncomeRow.font = { bold: true, size: 12 };
-    netIncomeRow.fill = {
-      type: 'pattern',
-      pattern: 'solid',
-      fgColor: { argb: 'FFC0C0C0' },
-    };
-    netIncomeRow.getCell(3).numFmt = '#,##0.00';
-
-    // Auto-fit columns
-    worksheet.columns = [
-      { width: 15 }, // Account Code
-      { width: 35 }, // Account Name
-      { width: 18 }, // Amount
-    ];
-
-    // Generate buffer
-    const buffer = await workbook.xlsx.writeBuffer();
-    return Buffer.from(buffer);
+    return this.excelExportService.exportProfitAndLossToExcel(data, filename);
   }
 
   /**
@@ -1713,99 +1243,7 @@ export class AccountingReportsService {
     data: GeneralLedgerResponse,
     filename: string = 'general-ledger',
   ): Promise<Buffer> {
-    this.logger.log(`Exporting General Ledger to Excel: ${filename}`);
-
-    const workbook = new ExcelJS.Workbook();
-    const worksheet = workbook.addWorksheet('General Ledger');
-
-    // Header section
-    worksheet.addRow(['Company Name']);
-    worksheet.addRow(['General Ledger']);
-    worksheet.addRow([`Account: ${data.account.code} - ${data.account.name}`]);
-    worksheet.addRow([`Account Type: ${data.account.type}`]);
-    worksheet.addRow([]); // Blank row
-
-    // Column headers
-    const headerRow = worksheet.addRow([
-      'Date',
-      'Entry Number',
-      'Description',
-      'Debit',
-      'Credit',
-      'Balance',
-    ]);
-    headerRow.font = { bold: true };
-    headerRow.fill = {
-      type: 'pattern',
-      pattern: 'solid',
-      fgColor: { argb: 'FFD3D3D3' },
-    };
-
-    // Opening balance row
-    const openingRow = worksheet.addRow([
-      '',
-      '',
-      'Opening Balance',
-      '',
-      '',
-      data.openingBalance,
-    ]);
-    openingRow.font = { bold: true };
-    openingRow.fill = {
-      type: 'pattern',
-      pattern: 'solid',
-      fgColor: { argb: 'FFEFEFEF' },
-    };
-    openingRow.getCell(6).numFmt = '#,##0.00';
-
-    // Transaction rows
-    data.transactions.forEach(transaction => {
-      const row = worksheet.addRow([
-        transaction.date.toISOString().split('T')[0],
-        transaction.entryNumber,
-        transaction.description,
-        transaction.debit || '',
-        transaction.credit || '',
-        transaction.balance,
-      ]);
-      row.getCell(4).numFmt = '#,##0.00';
-      row.getCell(5).numFmt = '#,##0.00';
-      row.getCell(6).numFmt = '#,##0.00';
-    });
-
-    // Blank row before closing balance
-    worksheet.addRow([]);
-
-    // Closing balance row
-    const closingRow = worksheet.addRow([
-      '',
-      '',
-      'Closing Balance',
-      '',
-      '',
-      data.closingBalance,
-    ]);
-    closingRow.font = { bold: true, size: 12 };
-    closingRow.fill = {
-      type: 'pattern',
-      pattern: 'solid',
-      fgColor: { argb: 'FFD0D0D0' },
-    };
-    closingRow.getCell(6).numFmt = '#,##0.00';
-
-    // Auto-fit columns
-    worksheet.columns = [
-      { width: 12 }, // Date
-      { width: 15 }, // Entry Number
-      { width: 35 }, // Description
-      { width: 15 }, // Debit
-      { width: 15 }, // Credit
-      { width: 15 }, // Balance
-    ];
-
-    // Generate buffer
-    const buffer = await workbook.xlsx.writeBuffer();
-    return Buffer.from(buffer);
+    return this.excelExportService.exportGeneralLedgerToExcel(data, filename);
   }
 
   /**
@@ -1819,123 +1257,7 @@ export class AccountingReportsService {
     data: AccountActivityResponse,
     filename: string = 'account-activity',
   ): Promise<Buffer> {
-    this.logger.log(`Exporting Account Activity to Excel: ${filename}`);
-
-    const workbook = new ExcelJS.Workbook();
-    const worksheet = workbook.addWorksheet('Account Activity');
-
-    // Header section
-    worksheet.addRow(['Company Name']);
-    worksheet.addRow(['Account Activity Report']);
-    worksheet.addRow([`Account: ${data.account.code} - ${data.account.name}`]);
-    worksheet.addRow([`Account Type: ${data.account.type}`]);
-    worksheet.addRow([]); // Blank row
-
-    // Column headers
-    const headerRow = worksheet.addRow([
-      'Date',
-      'Entry Number',
-      'Description',
-      'Reference Type',
-      'Reference ID',
-      'Status',
-      'Debit',
-      'Credit',
-      'Balance',
-    ]);
-    headerRow.font = { bold: true };
-    headerRow.fill = {
-      type: 'pattern',
-      pattern: 'solid',
-      fgColor: { argb: 'FFD3D3D3' },
-    };
-
-    // Opening balance row
-    const openingRow = worksheet.addRow([
-      '',
-      '',
-      'Opening Balance',
-      '',
-      '',
-      '',
-      '',
-      '',
-      data.openingBalance,
-    ]);
-    openingRow.font = { bold: true };
-    openingRow.fill = {
-      type: 'pattern',
-      pattern: 'solid',
-      fgColor: { argb: 'FFEFEFEF' },
-    };
-    openingRow.getCell(9).numFmt = '#,##0.00';
-
-    // Activity rows
-    data.activity.forEach(transaction => {
-      const row = worksheet.addRow([
-        transaction.date.toISOString().split('T')[0],
-        transaction.entryNumber,
-        transaction.description,
-        transaction.referenceType || '',
-        transaction.referenceId || '',
-        transaction.status,
-        transaction.debit || '',
-        transaction.credit || '',
-        transaction.balance,
-      ]);
-      row.getCell(7).numFmt = '#,##0.00';
-      row.getCell(8).numFmt = '#,##0.00';
-      row.getCell(9).numFmt = '#,##0.00';
-
-      // Color-code by status
-      if (transaction.status === 'DRAFT') {
-        row.getCell(6).font = { color: { argb: 'FFFFA500' } }; // Orange for draft
-      } else if (transaction.status === 'REVERSED') {
-        row.getCell(6).font = { color: { argb: 'FFFF0000' } }; // Red for reversed
-      } else if (transaction.status === 'POSTED') {
-        row.getCell(6).font = { color: { argb: 'FF008000' } }; // Green for posted
-      }
-    });
-
-    // Blank row before closing balance
-    worksheet.addRow([]);
-
-    // Closing balance row
-    const closingRow = worksheet.addRow([
-      '',
-      '',
-      'Closing Balance',
-      '',
-      '',
-      '',
-      '',
-      '',
-      data.closingBalance,
-    ]);
-    closingRow.font = { bold: true, size: 12 };
-    closingRow.fill = {
-      type: 'pattern',
-      pattern: 'solid',
-      fgColor: { argb: 'FFD0D0D0' },
-    };
-    closingRow.getCell(9).numFmt = '#,##0.00';
-
-    // Auto-fit columns
-    worksheet.columns = [
-      { width: 12 }, // Date
-      { width: 15 }, // Entry Number
-      { width: 30 }, // Description
-      { width: 15 }, // Reference Type
-      { width: 20 }, // Reference ID
-      { width: 10 }, // Status
-      { width: 13 }, // Debit
-      { width: 13 }, // Credit
-      { width: 15 }, // Balance
-    ];
-
-    // Generate buffer
-    const buffer = await workbook.xlsx.writeBuffer();
-    return Buffer.from(buffer);
+    return this.excelExportService.exportAccountActivityToExcel(data, filename);
   }
 
   /**
@@ -1988,44 +1310,4 @@ export class AccountingReportsService {
     };
   }
 
-  /**
-   * Round number to 2 decimal places to avoid floating point precision issues
-   */
-  private roundTo2Decimals(num: number): number {
-    return Math.round(num * 100) / 100;
-  }
-
-  /**
-   * Calculate balance based on account type using proper accounting rules
-   *
-   * Assets & Expenses: Debit increases, Credit decreases (Balance = Debit - Credit)
-   * Liabilities, Equity & Revenue: Credit increases, Debit decreases (Balance = Credit - Debit)
-   *
-   * @param accountType - Type of account
-   * @param totalDebit - Total debit amount
-   * @param totalCredit - Total credit amount
-   * @returns Calculated balance
-   */
-  private calculateBalanceByAccountType(
-    accountType: AccountType,
-    totalDebit: number,
-    totalCredit: number,
-  ): number {
-    switch (accountType) {
-      case AccountType.ASSET:
-      case AccountType.EXPENSE:
-        // Debit increases, Credit decreases
-        return this.roundTo2Decimals(totalDebit - totalCredit);
-
-      case AccountType.LIABILITY:
-      case AccountType.EQUITY:
-      case AccountType.REVENUE:
-        // Credit increases, Debit decreases
-        return this.roundTo2Decimals(totalCredit - totalDebit);
-
-      default:
-        this.logger.warn(`Unknown account type: ${accountType}, defaulting to Debit - Credit`);
-        return this.roundTo2Decimals(totalDebit - totalCredit);
-    }
-  }
 }
