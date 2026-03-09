@@ -22,6 +22,8 @@ import { FiscalPeriodService } from './services/fiscal-period.service';
 import { JournalEntryService } from './services/journal-entry.service';
 import { AccountMappingService } from './services/account-mapping.service';
 import { AccountingReportsService } from './services/accounting-reports.service';
+import { AccountingReportsQueryHelper } from './services/accounting-reports.query-helper';
+import { AccountingExcelExportService } from './services/accounting-reports.excel-export.service';
 import { ReconciliationService } from './services/reconciliation.service';
 import { SettlementService } from './services/settlement.service';
 import { OwnerEquityService } from './services/owner-equity.service';
@@ -77,6 +79,8 @@ import { AuditLogsModule } from '../audit-logs/audit-logs.module';
     JournalEntryService,
     AccountMappingService,
     AccountingReportsService,
+    AccountingReportsQueryHelper,
+    AccountingExcelExportService,
     ReconciliationService,
     SettlementService,
     OwnerEquityService,
@@ -89,6 +93,8 @@ import { AuditLogsModule } from '../audit-logs/audit-logs.module';
     JournalEntryService,
     AccountMappingService,
     AccountingReportsService,
+    AccountingReportsQueryHelper,
+    AccountingExcelExportService,
     ReconciliationService,
     SettlementService,
     OwnerEquityService,
