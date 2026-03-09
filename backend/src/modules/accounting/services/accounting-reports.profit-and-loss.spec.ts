@@ -11,18 +11,26 @@ import {
 } from '../../../database/entities/journal-entry.entity';
 import { JournalEntryLine } from '../../../database/entities/journal-entry-line.entity';
 import {
+  createMockExcelExportService,
+  createMockQueryHelper,
   createMockQueryBuilder,
   createMockRepositories,
 } from './__fixtures__/accounting-reports.fixtures';
+import { AccountingExcelExportService } from './accounting-reports.excel-export.service';
+import { AccountingReportsQueryHelper } from './accounting-reports.query-helper';
 
 describe('AccountingReportsService - Profit And Loss', () => {
   let service: AccountingReportsService;
   let accountRepository: any;
+  let excelExportService: ReturnType<typeof createMockExcelExportService>;
+  let queryHelper: ReturnType<typeof createMockQueryHelper>;
   let qb: ReturnType<typeof createMockQueryBuilder>;
 
   beforeEach(async () => {
     qb = createMockQueryBuilder();
     const { accountRepo, journalRepo, lineRepo } = createMockRepositories(qb);
+    excelExportService = createMockExcelExportService();
+    queryHelper = createMockQueryHelper();
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -30,6 +38,11 @@ describe('AccountingReportsService - Profit And Loss', () => {
         { provide: getRepositoryToken(ChartOfAccount), useValue: accountRepo },
         { provide: getRepositoryToken(JournalEntry), useValue: journalRepo },
         { provide: getRepositoryToken(JournalEntryLine), useValue: lineRepo },
+        { provide: AccountingReportsQueryHelper, useValue: queryHelper },
+        {
+          provide: AccountingExcelExportService,
+          useValue: excelExportService,
+        },
       ],
     }).compile();
 
@@ -57,14 +70,16 @@ describe('AccountingReportsService - Profit And Loss', () => {
         { id: '5', code: '6000', name: 'Rent Expense', type: AccountType.EXPENSE, isActive: true },
         { id: '6', code: '6100', name: 'Utilities Expense', type: AccountType.EXPENSE, isActive: true },
       ]);
-      qb.getRawMany.mockResolvedValue([
-        { accountId: '1', totalDebit: '0', totalCredit: '100000' },
-        { accountId: '2', totalDebit: '0', totalCredit: '20000' },
-        { accountId: '3', totalDebit: '60000', totalCredit: '0' },
-        { accountId: '4', totalDebit: '5000', totalCredit: '0' },
-        { accountId: '5', totalDebit: '10000', totalCredit: '0' },
-        { accountId: '6', totalDebit: '5000', totalCredit: '0' },
-      ]);
+      queryHelper.queryTransactionTotals.mockResolvedValue(
+        new Map([
+          ['1', { totalDebit: 0, totalCredit: 100000 }],
+          ['2', { totalDebit: 0, totalCredit: 20000 }],
+          ['3', { totalDebit: 60000, totalCredit: 0 }],
+          ['4', { totalDebit: 5000, totalCredit: 0 }],
+          ['5', { totalDebit: 10000, totalCredit: 0 }],
+          ['6', { totalDebit: 5000, totalCredit: 0 }],
+        ]),
+      );
 
       const result = await service.generateProfitAndLoss(startDate, endDate);
 
@@ -76,6 +91,11 @@ describe('AccountingReportsService - Profit And Loss', () => {
       expect(result.expenses.accounts).toHaveLength(2);
       expect(result.expenses.total).toBe(15000);
       expect(result.netIncome).toBe(40000);
+      expect(queryHelper.queryTransactionTotals).toHaveBeenCalledWith(
+        ['1', '2', '3', '4', '5', '6'],
+        { type: 'range', startDate, endDate },
+        [JournalEntryStatus.POSTED, JournalEntryStatus.REVERSED],
+      );
     });
 
     it('should handle negative net income (loss)', async () => {
@@ -85,11 +105,13 @@ describe('AccountingReportsService - Profit And Loss', () => {
         { id: '2', code: '5000', name: 'Cost of Goods Sold', type: AccountType.EXPENSE, isActive: true },
         { id: '3', code: '6000', name: 'Operating Expenses', type: AccountType.EXPENSE, isActive: true },
       ]);
-      qb.getRawMany.mockResolvedValue([
-        { accountId: '1', totalDebit: '0', totalCredit: '50000' },
-        { accountId: '2', totalDebit: '30000', totalCredit: '0' },
-        { accountId: '3', totalDebit: '40000', totalCredit: '0' },
-      ]);
+      queryHelper.queryTransactionTotals.mockResolvedValue(
+        new Map([
+          ['1', { totalDebit: 0, totalCredit: 50000 }],
+          ['2', { totalDebit: 30000, totalCredit: 0 }],
+          ['3', { totalDebit: 40000, totalCredit: 0 }],
+        ]),
+      );
 
       const result = await service.generateProfitAndLoss(
         new Date('2026-01-01'),
@@ -112,13 +134,15 @@ describe('AccountingReportsService - Profit And Loss', () => {
         { id: '4', code: '6000', name: 'Rent', type: AccountType.EXPENSE, isActive: true },
         { id: '5', code: '7000', name: 'Marketing', type: AccountType.EXPENSE, isActive: true },
       ]);
-      qb.getRawMany.mockResolvedValue([
-        { accountId: '1', totalDebit: '0', totalCredit: '100000' },
-        { accountId: '2', totalDebit: '30000', totalCredit: '0' },
-        { accountId: '3', totalDebit: '10000', totalCredit: '0' },
-        { accountId: '4', totalDebit: '5000', totalCredit: '0' },
-        { accountId: '5', totalDebit: '3000', totalCredit: '0' },
-      ]);
+      queryHelper.queryTransactionTotals.mockResolvedValue(
+        new Map([
+          ['1', { totalDebit: 0, totalCredit: 100000 }],
+          ['2', { totalDebit: 30000, totalCredit: 0 }],
+          ['3', { totalDebit: 10000, totalCredit: 0 }],
+          ['4', { totalDebit: 5000, totalCredit: 0 }],
+          ['5', { totalDebit: 3000, totalCredit: 0 }],
+        ]),
+      );
 
       const result = await service.generateProfitAndLoss(
         new Date('2026-01-01'),
@@ -141,12 +165,15 @@ describe('AccountingReportsService - Profit And Loss', () => {
       qb.getMany.mockResolvedValue([
         { id: '1', code: '4000', name: 'Revenue', type: AccountType.REVENUE, isActive: true },
       ]);
-      qb.getRawMany.mockResolvedValue([]);
+      queryHelper.queryTransactionTotals.mockResolvedValue(new Map());
 
       await service.generateProfitAndLoss(startDate, endDate);
 
-      expect(qb.andWhere).toHaveBeenCalledWith('je.entryDate >= :startDate', { startDate });
-      expect(qb.andWhere).toHaveBeenCalledWith('je.entryDate <= :endDate', { endDate });
+      expect(queryHelper.queryTransactionTotals).toHaveBeenCalledWith(
+        ['1'],
+        { type: 'range', startDate, endDate },
+        [JournalEntryStatus.POSTED, JournalEntryStatus.REVERSED],
+      );
     });
 
     it('should exclude inactive accounts by default', async () => {
@@ -154,7 +181,7 @@ describe('AccountingReportsService - Profit And Loss', () => {
       qb.getMany.mockResolvedValue([
         { id: '1', code: '4000', name: 'Revenue', type: AccountType.REVENUE, isActive: true },
       ]);
-      qb.getRawMany.mockResolvedValue([]);
+      queryHelper.queryTransactionTotals.mockResolvedValue(new Map());
 
       await service.generateProfitAndLoss(
         new Date('2026-01-01'),
@@ -172,10 +199,12 @@ describe('AccountingReportsService - Profit And Loss', () => {
         { id: '1', code: '4000', name: 'Revenue', type: AccountType.REVENUE, isActive: true },
         { id: '2', code: '4100', name: 'Old Revenue', type: AccountType.REVENUE, isActive: false },
       ]);
-      qb.getRawMany.mockResolvedValue([
-        { accountId: '1', totalDebit: '0', totalCredit: '10000' },
-        { accountId: '2', totalDebit: '0', totalCredit: '5000' },
-      ]);
+      queryHelper.queryTransactionTotals.mockResolvedValue(
+        new Map([
+          ['1', { totalDebit: 0, totalCredit: 10000 }],
+          ['2', { totalDebit: 0, totalCredit: 5000 }],
+        ]),
+      );
 
       const result = await service.generateProfitAndLoss(
         new Date('2026-01-01'),
@@ -192,16 +221,22 @@ describe('AccountingReportsService - Profit And Loss', () => {
       qb.getMany.mockResolvedValue([
         { id: '1', code: '4000', name: 'Revenue', type: AccountType.REVENUE, isActive: true },
       ]);
-      qb.getRawMany.mockResolvedValue([]);
+      queryHelper.queryTransactionTotals.mockResolvedValue(new Map());
 
       await service.generateProfitAndLoss(
         new Date('2026-01-01'),
         new Date('2026-01-31'),
       );
 
-      expect(qb.andWhere).toHaveBeenCalledWith('je.status IN (:...statuses)', {
-        statuses: [JournalEntryStatus.POSTED, JournalEntryStatus.REVERSED],
-      });
+      expect(queryHelper.queryTransactionTotals).toHaveBeenCalledWith(
+        ['1'],
+        {
+          type: 'range',
+          startDate: new Date('2026-01-01'),
+          endDate: new Date('2026-01-31'),
+        },
+        [JournalEntryStatus.POSTED, JournalEntryStatus.REVERSED],
+      );
     });
 
     it('should throw BadRequestException when date range is invalid', async () => {
@@ -227,7 +262,7 @@ describe('AccountingReportsService - Profit And Loss', () => {
         { id: '2', code: '5000', name: 'COGS', type: AccountType.EXPENSE, isActive: true },
         { id: '3', code: '6000', name: 'Expenses', type: AccountType.EXPENSE, isActive: true },
       ]);
-      qb.getRawMany.mockResolvedValue([]);
+      queryHelper.queryTransactionTotals.mockResolvedValue(new Map());
 
       const result = await service.generateProfitAndLoss(
         new Date('2026-01-01'),
@@ -272,6 +307,10 @@ describe('AccountingReportsService - Profit And Loss', () => {
       expect(buffer).toBeDefined();
       expect(buffer).toBeInstanceOf(Buffer);
       expect(buffer.length).toBeGreaterThan(0);
+      expect(excelExportService.exportProfitAndLossToExcel).toHaveBeenCalledWith(
+        mockProfitAndLoss,
+        'profit-and-loss',
+      );
     });
 
     it('should handle negative net income (loss)', async () => {
@@ -299,6 +338,10 @@ describe('AccountingReportsService - Profit And Loss', () => {
       expect(buffer).toBeDefined();
       expect(buffer).toBeInstanceOf(Buffer);
       expect(buffer.length).toBeGreaterThan(0);
+      expect(excelExportService.exportProfitAndLossToExcel).toHaveBeenCalledWith(
+        mockLoss,
+        'profit-and-loss',
+      );
     });
   });
 });

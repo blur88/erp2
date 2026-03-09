@@ -5,21 +5,32 @@ import {
   ChartOfAccount,
   AccountType,
 } from '../../../database/entities/chart-of-account.entity';
-import { JournalEntry } from '../../../database/entities/journal-entry.entity';
+import {
+  JournalEntry,
+  JournalEntryStatus,
+} from '../../../database/entities/journal-entry.entity';
 import { JournalEntryLine } from '../../../database/entities/journal-entry-line.entity';
 import {
+  createMockExcelExportService,
+  createMockQueryHelper,
   createMockQueryBuilder,
   createMockRepositories,
 } from './__fixtures__/accounting-reports.fixtures';
+import { AccountingExcelExportService } from './accounting-reports.excel-export.service';
+import { AccountingReportsQueryHelper } from './accounting-reports.query-helper';
 
 describe('AccountingReportsService - Balance Sheet', () => {
   let service: AccountingReportsService;
   let accountRepository: any;
+  let excelExportService: ReturnType<typeof createMockExcelExportService>;
+  let queryHelper: ReturnType<typeof createMockQueryHelper>;
   let qb: ReturnType<typeof createMockQueryBuilder>;
 
   beforeEach(async () => {
     qb = createMockQueryBuilder();
     const { accountRepo, journalRepo, lineRepo } = createMockRepositories(qb);
+    excelExportService = createMockExcelExportService();
+    queryHelper = createMockQueryHelper();
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -27,6 +38,11 @@ describe('AccountingReportsService - Balance Sheet', () => {
         { provide: getRepositoryToken(ChartOfAccount), useValue: accountRepo },
         { provide: getRepositoryToken(JournalEntry), useValue: journalRepo },
         { provide: getRepositoryToken(JournalEntryLine), useValue: lineRepo },
+        { provide: AccountingReportsQueryHelper, useValue: queryHelper },
+        {
+          provide: AccountingExcelExportService,
+          useValue: excelExportService,
+        },
       ],
     }).compile();
 
@@ -58,18 +74,22 @@ describe('AccountingReportsService - Balance Sheet', () => {
 
       accountRepository.createQueryBuilder.mockReturnValue(qb);
       qb.getMany.mockResolvedValueOnce(mockAccounts).mockResolvedValueOnce([]);
-      qb.getRawMany.mockResolvedValue([
-        { accountId: '1', totalDebit: '5000', totalCredit: '0' },
-        { accountId: '2', totalDebit: '3000', totalCredit: '0' },
-        { accountId: '3', totalDebit: '10000', totalCredit: '0' },
-        { accountId: '4', totalDebit: '20000', totalCredit: '0' },
-        { accountId: '5', totalDebit: '0', totalCredit: '2000' },
-        { accountId: '6', totalDebit: '0', totalCredit: '1000' },
-        { accountId: '7', totalDebit: '0', totalCredit: '10000' },
-        { accountId: '8', totalDebit: '0', totalCredit: '5000' },
-        { accountId: '9', totalDebit: '0', totalCredit: '15000' },
-        { accountId: '10', totalDebit: '0', totalCredit: '5000' },
-      ]);
+      queryHelper.queryTransactionTotals
+        .mockResolvedValueOnce(
+          new Map([
+            ['1', { totalDebit: 5000, totalCredit: 0 }],
+            ['2', { totalDebit: 3000, totalCredit: 0 }],
+            ['3', { totalDebit: 10000, totalCredit: 0 }],
+            ['4', { totalDebit: 20000, totalCredit: 0 }],
+            ['5', { totalDebit: 0, totalCredit: 2000 }],
+            ['6', { totalDebit: 0, totalCredit: 1000 }],
+            ['7', { totalDebit: 0, totalCredit: 10000 }],
+            ['8', { totalDebit: 0, totalCredit: 5000 }],
+            ['9', { totalDebit: 0, totalCredit: 15000 }],
+            ['10', { totalDebit: 0, totalCredit: 5000 }],
+          ]),
+        )
+        .mockResolvedValueOnce(new Map());
 
       const result = await service.generateBalanceSheet(asOfDate);
 
@@ -88,6 +108,12 @@ describe('AccountingReportsService - Balance Sheet', () => {
       expect(result.equity.total).toBe(20000);
       expect(result.isBalanced).toBe(true);
       expect(result.assets.total).toBe(result.liabilities.total + result.equity.total);
+      expect(queryHelper.queryTransactionTotals).toHaveBeenNthCalledWith(
+        1,
+        ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10'],
+        { type: 'asOf', date: asOfDate },
+        [JournalEntryStatus.POSTED, JournalEntryStatus.REVERSED],
+      );
     });
 
     it('should detect unbalanced balance sheet', async () => {
@@ -98,10 +124,14 @@ describe('AccountingReportsService - Balance Sheet', () => {
           { id: '2', code: '2000', name: 'Accounts Payable', type: AccountType.LIABILITY, isActive: true },
         ])
         .mockResolvedValueOnce([]);
-      qb.getRawMany.mockResolvedValue([
-        { accountId: '1', totalDebit: '5000', totalCredit: '0' },
-        { accountId: '2', totalDebit: '0', totalCredit: '3000' },
-      ]);
+      queryHelper.queryTransactionTotals
+        .mockResolvedValueOnce(
+          new Map([
+            ['1', { totalDebit: 5000, totalCredit: 0 }],
+            ['2', { totalDebit: 0, totalCredit: 3000 }],
+          ]),
+        )
+        .mockResolvedValueOnce(new Map());
 
       const result = await service.generateBalanceSheet(new Date('2026-02-01'));
 
@@ -118,11 +148,15 @@ describe('AccountingReportsService - Balance Sheet', () => {
           { id: '3', code: '3000', name: 'Common Stock', type: AccountType.EQUITY, isActive: true },
         ])
         .mockResolvedValueOnce([]);
-      qb.getRawMany.mockResolvedValue([
-        { accountId: '1', totalDebit: '1000.00', totalCredit: '0' },
-        { accountId: '2', totalDebit: '0', totalCredit: '500.00' },
-        { accountId: '3', totalDebit: '0', totalCredit: '500.005' },
-      ]);
+      queryHelper.queryTransactionTotals
+        .mockResolvedValueOnce(
+          new Map([
+            ['1', { totalDebit: 1000, totalCredit: 0 }],
+            ['2', { totalDebit: 0, totalCredit: 500 }],
+            ['3', { totalDebit: 0, totalCredit: 500.005 }],
+          ]),
+        )
+        .mockResolvedValueOnce(new Map());
 
       const result = await service.generateBalanceSheet(new Date('2026-02-01'));
 
@@ -136,7 +170,9 @@ describe('AccountingReportsService - Balance Sheet', () => {
           { id: '1', code: '1000', name: 'Cash', type: AccountType.ASSET, isActive: true },
         ])
         .mockResolvedValueOnce([]);
-      qb.getRawMany.mockResolvedValue([{ accountId: '1', totalDebit: '1000', totalCredit: '0' }]);
+      queryHelper.queryTransactionTotals
+        .mockResolvedValueOnce(new Map([['1', { totalDebit: 1000, totalCredit: 0 }]]))
+        .mockResolvedValueOnce(new Map());
 
       await service.generateBalanceSheet(new Date('2026-02-01'));
 
@@ -153,10 +189,14 @@ describe('AccountingReportsService - Balance Sheet', () => {
           { id: '2', code: '1100', name: 'Old Asset', type: AccountType.ASSET, isActive: false },
         ])
         .mockResolvedValueOnce([]);
-      qb.getRawMany.mockResolvedValue([
-        { accountId: '1', totalDebit: '1000', totalCredit: '0' },
-        { accountId: '2', totalDebit: '500', totalCredit: '0' },
-      ]);
+      queryHelper.queryTransactionTotals
+        .mockResolvedValueOnce(
+          new Map([
+            ['1', { totalDebit: 1000, totalCredit: 0 }],
+            ['2', { totalDebit: 500, totalCredit: 0 }],
+          ]),
+        )
+        .mockResolvedValueOnce(new Map());
 
       const result = await service.generateBalanceSheet(new Date('2026-02-01'), true);
 
@@ -173,12 +213,16 @@ describe('AccountingReportsService - Balance Sheet', () => {
           { id: '4', code: '1999', name: 'Land', type: AccountType.ASSET, isActive: true },
         ])
         .mockResolvedValueOnce([]);
-      qb.getRawMany.mockResolvedValue([
-        { accountId: '1', totalDebit: '1000', totalCredit: '0' },
-        { accountId: '2', totalDebit: '2000', totalCredit: '0' },
-        { accountId: '3', totalDebit: '5000', totalCredit: '0' },
-        { accountId: '4', totalDebit: '10000', totalCredit: '0' },
-      ]);
+      queryHelper.queryTransactionTotals
+        .mockResolvedValueOnce(
+          new Map([
+            ['1', { totalDebit: 1000, totalCredit: 0 }],
+            ['2', { totalDebit: 2000, totalCredit: 0 }],
+            ['3', { totalDebit: 5000, totalCredit: 0 }],
+            ['4', { totalDebit: 10000, totalCredit: 0 }],
+          ]),
+        )
+        .mockResolvedValueOnce(new Map());
 
       const result = await service.generateBalanceSheet(new Date('2026-02-01'));
 
@@ -198,12 +242,16 @@ describe('AccountingReportsService - Balance Sheet', () => {
           { id: '4', code: '2999', name: 'Deferred Revenue', type: AccountType.LIABILITY, isActive: true },
         ])
         .mockResolvedValueOnce([]);
-      qb.getRawMany.mockResolvedValue([
-        { accountId: '1', totalDebit: '0', totalCredit: '1000' },
-        { accountId: '2', totalDebit: '0', totalCredit: '500' },
-        { accountId: '3', totalDebit: '0', totalCredit: '5000' },
-        { accountId: '4', totalDebit: '0', totalCredit: '2000' },
-      ]);
+      queryHelper.queryTransactionTotals
+        .mockResolvedValueOnce(
+          new Map([
+            ['1', { totalDebit: 0, totalCredit: 1000 }],
+            ['2', { totalDebit: 0, totalCredit: 500 }],
+            ['3', { totalDebit: 0, totalCredit: 5000 }],
+            ['4', { totalDebit: 0, totalCredit: 2000 }],
+          ]),
+        )
+        .mockResolvedValueOnce(new Map());
 
       const result = await service.generateBalanceSheet(new Date('2026-02-01'));
 
@@ -228,19 +276,23 @@ describe('AccountingReportsService - Balance Sheet', () => {
           { id: '7', code: '5000', name: 'Cost of Goods Sold', type: AccountType.EXPENSE, isActive: true },
           { id: '8', code: '6000', name: 'Rent Expense', type: AccountType.EXPENSE, isActive: true },
         ]);
-      qb.getRawMany
-        .mockResolvedValueOnce([
-          { accountId: '1', totalDebit: '6000', totalCredit: '0' },
-          { accountId: '2', totalDebit: '4000', totalCredit: '0' },
-          { accountId: '3', totalDebit: '0', totalCredit: '3000' },
-          { accountId: '4', totalDebit: '0', totalCredit: '1000' },
-          { accountId: '5', totalDebit: '0', totalCredit: '1000' },
-        ])
-        .mockResolvedValueOnce([
-          { accountId: '6', totalDebit: '0', totalCredit: '8000' },
-          { accountId: '7', totalDebit: '2000', totalCredit: '0' },
-          { accountId: '8', totalDebit: '1000', totalCredit: '0' },
-        ]);
+      queryHelper.queryTransactionTotals
+        .mockResolvedValueOnce(
+          new Map([
+            ['1', { totalDebit: 6000, totalCredit: 0 }],
+            ['2', { totalDebit: 4000, totalCredit: 0 }],
+            ['3', { totalDebit: 0, totalCredit: 3000 }],
+            ['4', { totalDebit: 0, totalCredit: 1000 }],
+            ['5', { totalDebit: 0, totalCredit: 1000 }],
+          ]),
+        )
+        .mockResolvedValueOnce(
+          new Map([
+            ['6', { totalDebit: 0, totalCredit: 8000 }],
+            ['7', { totalDebit: 2000, totalCredit: 0 }],
+            ['8', { totalDebit: 1000, totalCredit: 0 }],
+          ]),
+        );
 
       const result = await service.generateBalanceSheet(new Date('2026-02-01'));
 
@@ -262,15 +314,19 @@ describe('AccountingReportsService - Balance Sheet', () => {
           { id: '3', code: '4000', name: 'Sales Revenue', type: AccountType.REVENUE, isActive: true },
           { id: '4', code: '6000', name: 'Rent Expense', type: AccountType.EXPENSE, isActive: true },
         ]);
-      qb.getRawMany
-        .mockResolvedValueOnce([
-          { accountId: '1', totalDebit: '5000', totalCredit: '0' },
-          { accountId: '2', totalDebit: '0', totalCredit: '8000' },
-        ])
-        .mockResolvedValueOnce([
-          { accountId: '3', totalDebit: '0', totalCredit: '1000' },
-          { accountId: '4', totalDebit: '4000', totalCredit: '0' },
-        ]);
+      queryHelper.queryTransactionTotals
+        .mockResolvedValueOnce(
+          new Map([
+            ['1', { totalDebit: 5000, totalCredit: 0 }],
+            ['2', { totalDebit: 0, totalCredit: 8000 }],
+          ]),
+        )
+        .mockResolvedValueOnce(
+          new Map([
+            ['3', { totalDebit: 0, totalCredit: 1000 }],
+            ['4', { totalDebit: 4000, totalCredit: 0 }],
+          ]),
+        );
 
       const result = await service.generateBalanceSheet(new Date('2026-02-01'));
 
@@ -287,10 +343,14 @@ describe('AccountingReportsService - Balance Sheet', () => {
           { id: '2', code: '3000', name: "Owner's Equity", type: AccountType.EQUITY, isActive: true },
         ])
         .mockResolvedValueOnce([]);
-      qb.getRawMany.mockResolvedValue([
-        { accountId: '1', totalDebit: '5000', totalCredit: '0' },
-        { accountId: '2', totalDebit: '0', totalCredit: '5000' },
-      ]);
+      queryHelper.queryTransactionTotals
+        .mockResolvedValueOnce(
+          new Map([
+            ['1', { totalDebit: 5000, totalCredit: 0 }],
+            ['2', { totalDebit: 0, totalCredit: 5000 }],
+          ]),
+        )
+        .mockResolvedValueOnce(new Map());
 
       const result = await service.generateBalanceSheet(new Date('2026-02-01'));
 
@@ -336,6 +396,10 @@ describe('AccountingReportsService - Balance Sheet', () => {
       expect(buffer).toBeDefined();
       expect(buffer).toBeInstanceOf(Buffer);
       expect(buffer.length).toBeGreaterThan(0);
+      expect(excelExportService.exportBalanceSheetToExcel).toHaveBeenCalledWith(
+        mockBalanceSheet,
+        'balance-sheet',
+      );
     });
 
     it('should handle empty balance sheet sections', async () => {

@@ -69,3 +69,41 @@ export function createMockRepositories(
     lineRepo: makeRepo(),
   };
 }
+
+export function createMockQueryHelper() {
+  const roundTo2Decimals = (n: number) => Math.round(n * 100) / 100;
+
+  return {
+    queryTransactionTotals: jest.fn().mockResolvedValue(new Map()),
+    calculateBalanceByAccountType: jest.fn(
+      (type: AccountType, debit: number, credit: number) => {
+        if (type === AccountType.ASSET || type === AccountType.EXPENSE) {
+          return roundTo2Decimals(debit - credit);
+        }
+
+        return roundTo2Decimals(credit - debit);
+      },
+    ),
+    roundTo2Decimals: jest.fn(roundTo2Decimals),
+  };
+}
+
+export function createMockExcelExportService() {
+  return {
+    exportTrialBalanceToExcel: jest
+      .fn()
+      .mockResolvedValue(Buffer.from('trial-balance')),
+    exportBalanceSheetToExcel: jest
+      .fn()
+      .mockResolvedValue(Buffer.from('balance-sheet')),
+    exportProfitAndLossToExcel: jest
+      .fn()
+      .mockResolvedValue(Buffer.from('profit-and-loss')),
+    exportGeneralLedgerToExcel: jest
+      .fn()
+      .mockResolvedValue(Buffer.from('general-ledger')),
+    exportAccountActivityToExcel: jest
+      .fn()
+      .mockResolvedValue(Buffer.from('account-activity')),
+  };
+}

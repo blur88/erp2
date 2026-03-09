@@ -15,18 +15,24 @@ import {
   AP_ACCOUNT,
   CASH_ACCOUNT,
   REVENUE_ACCOUNT,
+  createMockExcelExportService,
+  createMockQueryHelper,
   createMockQueryBuilder,
   createMockRepositories,
 } from './__fixtures__/accounting-reports.fixtures';
+import { AccountingExcelExportService } from './accounting-reports.excel-export.service';
+import { AccountingReportsQueryHelper } from './accounting-reports.query-helper';
 
 describe('AccountingReportsService - Account Balances', () => {
   let service: AccountingReportsService;
   let accountRepository: any;
+  let queryHelper: ReturnType<typeof createMockQueryHelper>;
   let qb: ReturnType<typeof createMockQueryBuilder>;
 
   beforeEach(async () => {
     qb = createMockQueryBuilder();
     const { accountRepo, journalRepo, lineRepo } = createMockRepositories(qb);
+    queryHelper = createMockQueryHelper();
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -34,6 +40,11 @@ describe('AccountingReportsService - Account Balances', () => {
         { provide: getRepositoryToken(ChartOfAccount), useValue: accountRepo },
         { provide: getRepositoryToken(JournalEntry), useValue: journalRepo },
         { provide: getRepositoryToken(JournalEntryLine), useValue: lineRepo },
+        { provide: AccountingReportsQueryHelper, useValue: queryHelper },
+        {
+          provide: AccountingExcelExportService,
+          useValue: createMockExcelExportService(),
+        },
       ],
     }).compile();
 
@@ -128,11 +139,12 @@ describe('AccountingReportsService - Account Balances', () => {
         CASH_ACCOUNT as ChartOfAccount,
         REVENUE_ACCOUNT as ChartOfAccount,
       ]);
-
-      qb.getRawMany.mockResolvedValue([
-        { accountId: accountIds[0], totalDebit: '1000', totalCredit: '200' },
-        { accountId: accountIds[1], totalDebit: '100', totalCredit: '800' },
-      ]);
+      queryHelper.queryTransactionTotals.mockResolvedValue(
+        new Map([
+          [accountIds[0], { totalDebit: 1000, totalCredit: 200 }],
+          [accountIds[1], { totalDebit: 100, totalCredit: 800 }],
+        ]),
+      );
 
       const balances = await service.calculateAccountBalances(accountIds, asOfDate);
 
@@ -140,6 +152,11 @@ describe('AccountingReportsService - Account Balances', () => {
       expect(balances).toHaveProperty(accountIds[1]);
       expect(balances[accountIds[0]]).toBe(800);
       expect(balances[accountIds[1]]).toBe(700);
+      expect(queryHelper.queryTransactionTotals).toHaveBeenCalledWith(
+        accountIds,
+        { type: 'asOf', date: asOfDate },
+        [JournalEntryStatus.POSTED, JournalEntryStatus.REVERSED],
+      );
     });
 
     it('should return empty object when no account IDs provided', async () => {
@@ -151,7 +168,7 @@ describe('AccountingReportsService - Account Balances', () => {
       const accountIds = [ACCOUNT_IDS.cash];
 
       accountRepository.find.mockResolvedValue([CASH_ACCOUNT as ChartOfAccount]);
-      qb.getRawMany.mockResolvedValue([]);
+      queryHelper.queryTransactionTotals.mockResolvedValue(new Map());
 
       const balances = await service.calculateAccountBalances(
         accountIds,
@@ -225,14 +242,15 @@ describe('AccountingReportsService - Account Balances', () => {
       ];
 
       accountRepository.find.mockResolvedValue(mockAccounts as ChartOfAccount[]);
-      qb.getRawMany.mockResolvedValue([
-        { accountId: ACCOUNT_IDS.cash, totalDebit: '1000', totalCredit: '200' },
-        {
-          accountId: '223e4567-e89b-12d3-a456-426614174000',
-          totalDebit: '500',
-          totalCredit: '100',
-        },
-      ]);
+      queryHelper.queryTransactionTotals.mockResolvedValue(
+        new Map([
+          [ACCOUNT_IDS.cash, { totalDebit: 1000, totalCredit: 200 }],
+          [
+            '223e4567-e89b-12d3-a456-426614174000',
+            { totalDebit: 500, totalCredit: 100 },
+          ],
+        ]),
+      );
 
       const result = await service.getAccountsWithBalances(
         [AccountType.ASSET],

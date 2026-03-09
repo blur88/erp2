@@ -11,18 +11,26 @@ import {
 } from '../../../database/entities/journal-entry.entity';
 import { JournalEntryLine } from '../../../database/entities/journal-entry-line.entity';
 import {
+  createMockExcelExportService,
+  createMockQueryHelper,
   createMockQueryBuilder,
   createMockRepositories,
 } from './__fixtures__/accounting-reports.fixtures';
+import { AccountingExcelExportService } from './accounting-reports.excel-export.service';
+import { AccountingReportsQueryHelper } from './accounting-reports.query-helper';
 
 describe('AccountingReportsService - Account Activity', () => {
   let service: AccountingReportsService;
   let accountRepository: any;
+  let excelExportService: ReturnType<typeof createMockExcelExportService>;
+  let queryHelper: ReturnType<typeof createMockQueryHelper>;
   let qb: ReturnType<typeof createMockQueryBuilder>;
 
   beforeEach(async () => {
     qb = createMockQueryBuilder();
     const { accountRepo, journalRepo, lineRepo } = createMockRepositories(qb);
+    excelExportService = createMockExcelExportService();
+    queryHelper = createMockQueryHelper();
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -30,6 +38,11 @@ describe('AccountingReportsService - Account Activity', () => {
         { provide: getRepositoryToken(ChartOfAccount), useValue: accountRepo },
         { provide: getRepositoryToken(JournalEntry), useValue: journalRepo },
         { provide: getRepositoryToken(JournalEntryLine), useValue: lineRepo },
+        { provide: AccountingReportsQueryHelper, useValue: queryHelper },
+        {
+          provide: AccountingExcelExportService,
+          useValue: excelExportService,
+        },
       ],
     }).compile();
 
@@ -56,8 +69,9 @@ describe('AccountingReportsService - Account Activity', () => {
         type: AccountType.ASSET,
         isActive: true,
       } as ChartOfAccount);
+      queryHelper.queryTransactionTotals
+        .mockResolvedValueOnce(new Map([[accountId, { totalDebit: 10000, totalCredit: 0 }]]));
       qb.getRawMany
-        .mockResolvedValueOnce([{ totalDebit: '10000', totalCredit: '0' }])
         .mockResolvedValueOnce([
           {
             entryDate: new Date('2026-01-02'),
@@ -139,8 +153,9 @@ describe('AccountingReportsService - Account Activity', () => {
         type: AccountType.ASSET,
         isActive: true,
       } as ChartOfAccount);
+      queryHelper.queryTransactionTotals
+        .mockResolvedValueOnce(new Map([[accountId, { totalDebit: 5000, totalCredit: 0 }]]));
       qb.getRawMany
-        .mockResolvedValueOnce([{ totalDebit: '5000', totalCredit: '0' }])
         .mockResolvedValueOnce([
           {
             entryDate: new Date('2026-01-02'),
@@ -180,7 +195,8 @@ describe('AccountingReportsService - Account Activity', () => {
         type: AccountType.ASSET,
         isActive: true,
       } as ChartOfAccount);
-      qb.getRawMany.mockResolvedValueOnce([]).mockResolvedValueOnce([
+      queryHelper.queryTransactionTotals.mockResolvedValueOnce(new Map());
+      qb.getRawMany.mockResolvedValueOnce([
         {
           entryDate: new Date('2026-01-10'),
           referenceNumber: 'JE-010',
@@ -276,6 +292,10 @@ describe('AccountingReportsService - Account Activity', () => {
       expect(buffer).toBeDefined();
       expect(buffer).toBeInstanceOf(Buffer);
       expect(buffer.length).toBeGreaterThan(0);
+      expect(excelExportService.exportAccountActivityToExcel).toHaveBeenCalledWith(
+        mockAccountActivity,
+        'account-activity',
+      );
     });
 
     it('should handle activity with missing reference metadata', async () => {

@@ -11,18 +11,26 @@ import {
 } from '../../../database/entities/journal-entry.entity';
 import { JournalEntryLine } from '../../../database/entities/journal-entry-line.entity';
 import {
+  createMockExcelExportService,
+  createMockQueryHelper,
   createMockQueryBuilder,
   createMockRepositories,
 } from './__fixtures__/accounting-reports.fixtures';
+import { AccountingExcelExportService } from './accounting-reports.excel-export.service';
+import { AccountingReportsQueryHelper } from './accounting-reports.query-helper';
 
 describe('AccountingReportsService - Trial Balance', () => {
   let service: AccountingReportsService;
   let accountRepository: any;
+  let excelExportService: ReturnType<typeof createMockExcelExportService>;
+  let queryHelper: ReturnType<typeof createMockQueryHelper>;
   let qb: ReturnType<typeof createMockQueryBuilder>;
 
   beforeEach(async () => {
     qb = createMockQueryBuilder();
     const { accountRepo, journalRepo, lineRepo } = createMockRepositories(qb);
+    excelExportService = createMockExcelExportService();
+    queryHelper = createMockQueryHelper();
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -30,6 +38,11 @@ describe('AccountingReportsService - Trial Balance', () => {
         { provide: getRepositoryToken(ChartOfAccount), useValue: accountRepo },
         { provide: getRepositoryToken(JournalEntry), useValue: journalRepo },
         { provide: getRepositoryToken(JournalEntryLine), useValue: lineRepo },
+        { provide: AccountingReportsQueryHelper, useValue: queryHelper },
+        {
+          provide: AccountingExcelExportService,
+          useValue: excelExportService,
+        },
       ],
     }).compile();
 
@@ -57,13 +70,15 @@ describe('AccountingReportsService - Trial Balance', () => {
 
       accountRepository.createQueryBuilder.mockReturnValue(qb);
       qb.getMany.mockResolvedValue(mockAccounts);
-      qb.getRawMany.mockResolvedValue([
-        { accountId: '1', totalDebit: '5000', totalCredit: '1000' },
-        { accountId: '2', totalDebit: '500', totalCredit: '1500' },
-        { accountId: '3', totalDebit: '0', totalCredit: '2000' },
-        { accountId: '4', totalDebit: '200', totalCredit: '1700' },
-        { accountId: '5', totalDebit: '500', totalCredit: '0' },
-      ]);
+      queryHelper.queryTransactionTotals.mockResolvedValue(
+        new Map([
+          ['1', { totalDebit: 5000, totalCredit: 1000 }],
+          ['2', { totalDebit: 500, totalCredit: 1500 }],
+          ['3', { totalDebit: 0, totalCredit: 2000 }],
+          ['4', { totalDebit: 200, totalCredit: 1700 }],
+          ['5', { totalDebit: 500, totalCredit: 0 }],
+        ]),
+      );
 
       const result = await service.generateTrialBalance(asOfDate);
 
@@ -78,6 +93,11 @@ describe('AccountingReportsService - Trial Balance', () => {
       expect(result.accounts[0].credit).toBe(0);
       expect(result.accounts[1].debit).toBe(0);
       expect(result.accounts[1].credit).toBe(1000);
+      expect(queryHelper.queryTransactionTotals).toHaveBeenCalledWith(
+        ['1', '2', '3', '4', '5'],
+        { type: 'asOf', date: asOfDate },
+        [JournalEntryStatus.POSTED, JournalEntryStatus.REVERSED],
+      );
     });
 
     it('should detect unbalanced trial balance', async () => {
@@ -86,10 +106,12 @@ describe('AccountingReportsService - Trial Balance', () => {
         { id: '1', code: '1000', name: 'Cash', type: AccountType.ASSET, isActive: true },
         { id: '2', code: '2000', name: 'Accounts Payable', type: AccountType.LIABILITY, isActive: true },
       ]);
-      qb.getRawMany.mockResolvedValue([
-        { accountId: '1', totalDebit: '1000', totalCredit: '0' },
-        { accountId: '2', totalDebit: '0', totalCredit: '500' },
-      ]);
+      queryHelper.queryTransactionTotals.mockResolvedValue(
+        new Map([
+          ['1', { totalDebit: 1000, totalCredit: 0 }],
+          ['2', { totalDebit: 0, totalCredit: 500 }],
+        ]),
+      );
 
       const result = await service.generateTrialBalance(new Date('2026-02-01'));
 
@@ -103,9 +125,9 @@ describe('AccountingReportsService - Trial Balance', () => {
       qb.getMany.mockResolvedValue([
         { id: '1', code: '1000', name: 'Cash', type: AccountType.ASSET, isActive: true },
       ]);
-      qb.getRawMany.mockResolvedValue([
-        { accountId: '1', totalDebit: '1000', totalCredit: '1000' },
-      ]);
+      queryHelper.queryTransactionTotals.mockResolvedValue(
+        new Map([['1', { totalDebit: 1000, totalCredit: 1000 }]]),
+      );
 
       await service.generateTrialBalance(new Date('2026-02-01'));
 
@@ -120,10 +142,12 @@ describe('AccountingReportsService - Trial Balance', () => {
         { id: '1', code: '1000', name: 'Cash', type: AccountType.ASSET, isActive: true },
         { id: '2', code: '1010', name: 'Old Account', type: AccountType.ASSET, isActive: false },
       ]);
-      qb.getRawMany.mockResolvedValue([
-        { accountId: '1', totalDebit: '1000', totalCredit: '500' },
-        { accountId: '2', totalDebit: '200', totalCredit: '200' },
-      ]);
+      queryHelper.queryTransactionTotals.mockResolvedValue(
+        new Map([
+          ['1', { totalDebit: 1000, totalCredit: 500 }],
+          ['2', { totalDebit: 200, totalCredit: 200 }],
+        ]),
+      );
 
       const result = await service.generateTrialBalance(new Date('2026-02-01'), true);
 
@@ -139,10 +163,12 @@ describe('AccountingReportsService - Trial Balance', () => {
         { id: '1', code: '1000', name: 'Cash', type: AccountType.ASSET, isActive: true },
         { id: '2', code: '2000', name: 'Revenue', type: AccountType.REVENUE, isActive: true },
       ]);
-      qb.getRawMany.mockResolvedValue([
-        { accountId: '1', totalDebit: '1000', totalCredit: '1000' },
-        { accountId: '2', totalDebit: '500', totalCredit: '500' },
-      ]);
+      queryHelper.queryTransactionTotals.mockResolvedValue(
+        new Map([
+          ['1', { totalDebit: 1000, totalCredit: 1000 }],
+          ['2', { totalDebit: 500, totalCredit: 500 }],
+        ]),
+      );
 
       const result = await service.generateTrialBalance(new Date('2026-02-01'));
 
@@ -161,7 +187,7 @@ describe('AccountingReportsService - Trial Balance', () => {
       qb.getMany.mockResolvedValue([
         { id: '1', code: '1000', name: 'Cash', type: AccountType.ASSET, isActive: true },
       ]);
-      qb.getRawMany.mockResolvedValue([]);
+      queryHelper.queryTransactionTotals.mockResolvedValue(new Map());
 
       const result = await service.generateTrialBalance(new Date('2026-02-01'));
 
@@ -174,17 +200,21 @@ describe('AccountingReportsService - Trial Balance', () => {
     });
 
     it('should include POSTED and REVERSED journal entries', async () => {
+      const asOfDate = new Date('2026-02-01');
+
       accountRepository.createQueryBuilder.mockReturnValue(qb);
       qb.getMany.mockResolvedValue([
         { id: '1', code: '1000', name: 'Cash', type: AccountType.ASSET, isActive: true },
       ]);
-      qb.getRawMany.mockResolvedValue([]);
+      queryHelper.queryTransactionTotals.mockResolvedValue(new Map());
 
-      await service.generateTrialBalance(new Date('2026-02-01'));
+      await service.generateTrialBalance(asOfDate);
 
-      expect(qb.andWhere).toHaveBeenCalledWith('je.status IN (:...statuses)', {
-        statuses: [JournalEntryStatus.POSTED, JournalEntryStatus.REVERSED],
-      });
+      expect(queryHelper.queryTransactionTotals).toHaveBeenCalledWith(
+        ['1'],
+        { type: 'asOf', date: asOfDate },
+        [JournalEntryStatus.POSTED, JournalEntryStatus.REVERSED],
+      );
     });
 
     it('should throw BadRequestException when asOfDate is in the future', async () => {
@@ -202,7 +232,7 @@ describe('AccountingReportsService - Trial Balance', () => {
       qb.getMany.mockResolvedValue([
         { id: '1', code: '1000', name: 'Cash', type: AccountType.ASSET, isActive: true },
       ]);
-      qb.getRawMany.mockResolvedValue([]);
+      queryHelper.queryTransactionTotals.mockResolvedValue(new Map());
 
       const result = await service.generateTrialBalance(new Date());
 
@@ -247,6 +277,10 @@ describe('AccountingReportsService - Trial Balance', () => {
       expect(buffer).toBeDefined();
       expect(buffer).toBeInstanceOf(Buffer);
       expect(buffer.length).toBeGreaterThan(0);
+      expect(excelExportService.exportTrialBalanceToExcel).toHaveBeenCalledWith(
+        mockTrialBalance,
+        'trial-balance',
+      );
     });
 
     it('should include balanced status in export', async () => {
@@ -272,6 +306,10 @@ describe('AccountingReportsService - Trial Balance', () => {
       expect(buffer).toBeDefined();
       expect(buffer).toBeInstanceOf(Buffer);
       expect(buffer.length).toBeGreaterThan(0);
+      expect(excelExportService.exportTrialBalanceToExcel).toHaveBeenCalledWith(
+        mockUnbalancedTrialBalance,
+        'trial-balance',
+      );
     });
   });
 });

@@ -11,18 +11,26 @@ import {
 } from '../../../database/entities/journal-entry.entity';
 import { JournalEntryLine } from '../../../database/entities/journal-entry-line.entity';
 import {
+  createMockExcelExportService,
+  createMockQueryHelper,
   createMockQueryBuilder,
   createMockRepositories,
 } from './__fixtures__/accounting-reports.fixtures';
+import { AccountingExcelExportService } from './accounting-reports.excel-export.service';
+import { AccountingReportsQueryHelper } from './accounting-reports.query-helper';
 
 describe('AccountingReportsService - General Ledger', () => {
   let service: AccountingReportsService;
   let accountRepository: any;
+  let excelExportService: ReturnType<typeof createMockExcelExportService>;
+  let queryHelper: ReturnType<typeof createMockQueryHelper>;
   let qb: ReturnType<typeof createMockQueryBuilder>;
 
   beforeEach(async () => {
     qb = createMockQueryBuilder();
     const { accountRepo, journalRepo, lineRepo } = createMockRepositories(qb);
+    excelExportService = createMockExcelExportService();
+    queryHelper = createMockQueryHelper();
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -30,6 +38,11 @@ describe('AccountingReportsService - General Ledger', () => {
         { provide: getRepositoryToken(ChartOfAccount), useValue: accountRepo },
         { provide: getRepositoryToken(JournalEntry), useValue: journalRepo },
         { provide: getRepositoryToken(JournalEntryLine), useValue: lineRepo },
+        { provide: AccountingReportsQueryHelper, useValue: queryHelper },
+        {
+          provide: AccountingExcelExportService,
+          useValue: excelExportService,
+        },
       ],
     }).compile();
 
@@ -56,8 +69,9 @@ describe('AccountingReportsService - General Ledger', () => {
         type: AccountType.ASSET,
         isActive: true,
       } as ChartOfAccount);
+      queryHelper.queryTransactionTotals
+        .mockResolvedValueOnce(new Map([[accountId, { totalDebit: 50000, totalCredit: 0 }]]));
       qb.getRawMany
-        .mockResolvedValueOnce([{ totalDebit: '50000', totalCredit: '0' }])
         .mockResolvedValueOnce([
           {
             entryDate: new Date('2026-01-02'),
@@ -119,8 +133,11 @@ describe('AccountingReportsService - General Ledger', () => {
         type: AccountType.LIABILITY,
         isActive: true,
       } as ChartOfAccount);
+      queryHelper.queryTransactionTotals
+        .mockResolvedValueOnce(
+          new Map([['223e4567-e89b-12d3-a456-426614174000', { totalDebit: 0, totalCredit: 10000 }]]),
+        );
       qb.getRawMany
-        .mockResolvedValueOnce([{ totalDebit: '0', totalCredit: '10000' }])
         .mockResolvedValueOnce([
           {
             entryDate: new Date('2026-01-10'),
@@ -158,7 +175,9 @@ describe('AccountingReportsService - General Ledger', () => {
         type: AccountType.REVENUE,
         isActive: true,
       } as ChartOfAccount);
-      qb.getRawMany.mockResolvedValueOnce([]).mockResolvedValueOnce([
+      queryHelper.queryTransactionTotals
+        .mockResolvedValueOnce(new Map());
+      qb.getRawMany.mockResolvedValueOnce([
         {
           entryDate: new Date('2026-01-05'),
           referenceNumber: 'JE-005',
@@ -195,8 +214,11 @@ describe('AccountingReportsService - General Ledger', () => {
         type: AccountType.EXPENSE,
         isActive: true,
       } as ChartOfAccount);
+      queryHelper.queryTransactionTotals
+        .mockResolvedValueOnce(
+          new Map([['423e4567-e89b-12d3-a456-426614174000', { totalDebit: 2000, totalCredit: 0 }]]),
+        );
       qb.getRawMany
-        .mockResolvedValueOnce([{ totalDebit: '2000', totalCredit: '0' }])
         .mockResolvedValueOnce([
           {
             entryDate: new Date('2026-01-10'),
@@ -234,8 +256,11 @@ describe('AccountingReportsService - General Ledger', () => {
         type: AccountType.EQUITY,
         isActive: true,
       } as ChartOfAccount);
+      queryHelper.queryTransactionTotals
+        .mockResolvedValueOnce(
+          new Map([['523e4567-e89b-12d3-a456-426614174000', { totalDebit: 0, totalCredit: 50000 }]]),
+        );
       qb.getRawMany
-        .mockResolvedValueOnce([{ totalDebit: '0', totalCredit: '50000' }])
         .mockResolvedValueOnce([
           {
             entryDate: new Date('2026-01-15'),
@@ -275,7 +300,8 @@ describe('AccountingReportsService - General Ledger', () => {
         type: AccountType.ASSET,
         isActive: true,
       } as ChartOfAccount);
-      qb.getRawMany.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
+      queryHelper.queryTransactionTotals.mockResolvedValueOnce(new Map());
+      qb.getRawMany.mockResolvedValueOnce([]);
 
       const result = await service.generateGeneralLedger(
         accountId,
@@ -417,6 +443,10 @@ describe('AccountingReportsService - General Ledger', () => {
       expect(buffer).toBeDefined();
       expect(buffer).toBeInstanceOf(Buffer);
       expect(buffer.length).toBeGreaterThan(0);
+      expect(excelExportService.exportGeneralLedgerToExcel).toHaveBeenCalledWith(
+        mockGeneralLedger,
+        'general-ledger',
+      );
     });
 
     it('should handle account with no transactions', async () => {
