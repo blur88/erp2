@@ -20,15 +20,42 @@ const makeProduct = (id: string, name: string): Product =>
   }) as Product
 
 describe('useProductsSelection', () => {
-  it('does not fetch a product when the navigation selection id is missing from the loaded list', async () => {
+  it('selects and highlights the product when navigation state id matches a loaded product', async () => {
     const dispatch = vi.fn()
     const navigate = vi.fn()
     const setFocusedProductIndex = vi.fn()
-    const setPendingProductId = vi.fn()
-    const setHasNavigatedWithSelection = vi.fn()
-    const fetchProductById = vi.fn(() => ({ unwrap: vi.fn().mockResolvedValue(makeProduct('missing-id', 'Fetched')) }))
-    const refetchProducts = vi.fn()
-    const showError = vi.fn()
+    const alpha = makeProduct('1', 'Alpha')
+    const beta = makeProduct('2', 'Beta')
+
+    renderHook(() =>
+      useProductsSelection({
+        dispatch: dispatch as never,
+        navigate,
+        location: {
+          pathname: '/inventory/products',
+          state: { selectedProductId: '2' },
+        } as never,
+        products: [alpha, beta],
+        selectedProduct: null,
+        focusedProductIndex: -1,
+        setFocusedProductIndex,
+        selectedCategory: 'all',
+        productListRef: { current: null },
+      }),
+    )
+
+    await waitFor(() => {
+      expect(navigate).toHaveBeenCalledWith('/inventory/products', { replace: true, state: {} })
+    })
+
+    expect(dispatch).toHaveBeenCalledWith(expect.objectContaining({ payload: beta }))
+    expect(setFocusedProductIndex).toHaveBeenCalledWith(1)
+  })
+
+  it('does not navigate or select when the navigation selection id is missing from the loaded list', async () => {
+    const dispatch = vi.fn()
+    const navigate = vi.fn()
+    const setFocusedProductIndex = vi.fn()
 
     renderHook(() =>
       useProductsSelection({
@@ -47,12 +74,9 @@ describe('useProductsSelection', () => {
       }),
     )
 
-    await waitFor(() => {
-      expect(navigate).toHaveBeenCalledWith('/inventory/products', { replace: true, state: {} })
-    })
+    // Give effects time to run
+    await new Promise((r) => setTimeout(r, 100))
 
-    expect(fetchProductById).not.toHaveBeenCalled()
-    expect(refetchProducts).not.toHaveBeenCalled()
-    expect(showError).not.toHaveBeenCalled()
+    expect(navigate).not.toHaveBeenCalled()
   })
 })

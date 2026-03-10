@@ -1,4 +1,4 @@
-import { useCallback, useEffect, type RefObject } from 'react'
+import { useCallback, useEffect, useRef, type RefObject } from 'react'
 import type { Location, NavigateFunction } from 'react-router-dom'
 
 import { setProductFilters, setSelectedProduct } from '@/store/slices/inventorySlice'
@@ -34,8 +34,10 @@ export function useProductsSelection({
     dispatch(setProductFilters({ categoryId: selectedCategory === 'all' ? undefined : selectedCategory }))
   }, [dispatch, selectedCategory])
 
+  const prevCategoryRef = useRef(selectedCategory)
   useEffect(() => {
-    if (selectedCategory) {
+    if (prevCategoryRef.current !== selectedCategory) {
+      prevCategoryRef.current = selectedCategory
       setFocusedProductIndex(-1)
     }
   }, [selectedCategory, setFocusedProductIndex])
@@ -66,8 +68,8 @@ export function useProductsSelection({
   useEffect(() => {
     if (navigationSelectionId && products.length > 0) {
       const product = products.find((item) => item.id === navigationSelectionId)
-      navigate(location.pathname, { replace: true, state: {} })
       if (product) {
+        navigate(location.pathname, { replace: true, state: {} })
         dispatch(setSelectedProduct(product))
         const index = products.findIndex((item) => item.id === navigationSelectionId)
         if (index >= 0) {
