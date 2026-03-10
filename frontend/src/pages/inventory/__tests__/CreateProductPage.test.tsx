@@ -7,6 +7,7 @@ import CreateProductPage from '../CreateProductPage'
 const mockNavigate = vi.fn()
 const mockShowSuccess = vi.fn()
 const mockShowError = vi.fn()
+const mockUpdateProduct = vi.fn()
 
 const mockApiPost = vi.fn()
 const mockApiPatch = vi.fn()
@@ -14,13 +15,14 @@ const mockApiGet = vi.fn()
 
 const mockGetPriceLists = vi.fn()
 const mockBulkUpdatePrices = vi.fn()
+let mockRouteParams: Record<string, string> = {}
 
 vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual('react-router-dom')
   return {
     ...actual,
     useNavigate: () => mockNavigate,
-    useParams: () => ({}),
+    useParams: () => mockRouteParams,
   }
 })
 
@@ -71,13 +73,21 @@ vi.mock('@/store/api/priceListApi', () => ({
   useBulkUpdatePricesMutation: () => [mockBulkUpdatePrices, { isLoading: false }],
 }))
 
+vi.mock('@/store/api/inventoryApi', () => ({
+  useUpdateProductMutation: () => [mockUpdateProduct],
+}))
+
 describe('CreateProductPage', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mockRouteParams = {}
 
     mockApiPost.mockResolvedValue({ id: 'prod-1' })
     mockApiPatch.mockResolvedValue({})
     mockApiGet.mockResolvedValue({})
+    mockUpdateProduct.mockReturnValue({
+      unwrap: vi.fn().mockResolvedValue({}),
+    })
     mockBulkUpdatePrices.mockResolvedValue({})
   })
 
@@ -112,5 +122,49 @@ describe('CreateProductPage', () => {
         ],
       })
     })
+  })
+
+  it('uses the RTK Query update mutation when editing a product', async () => {
+    mockRouteParams = { id: 'prod-1' }
+    mockApiGet.mockResolvedValue({
+      id: 'prod-1',
+      name: 'Original Product',
+      description: '',
+      barcode: '',
+      type: 'Stocked Product',
+      categoryId: 'cat-1',
+      baseCost: 0,
+      stockQuantity: 0,
+      notes: '',
+      isActive: true,
+      category: { id: 'cat-1', name: 'Category 1' },
+      priceListItems: [],
+    })
+
+    render(
+      <BrowserRouter>
+        <CreateProductPage />
+      </BrowserRouter>
+    )
+
+    const productNameInput = await screen.findByRole('textbox', { name: /Product Name/i })
+    await waitFor(() => {
+      expect(productNameInput).toHaveValue('Original Product')
+    })
+
+    fireEvent.change(productNameInput, { target: { value: 'Updated Product' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Update Product' }))
+
+    await waitFor(() => {
+      expect(mockUpdateProduct).toHaveBeenCalledWith({
+        id: 'prod-1',
+        data: expect.objectContaining({
+          name: 'Updated Product',
+          categoryId: 'cat-1',
+        }),
+      })
+    })
+
+    expect(mockApiPatch).not.toHaveBeenCalled()
   })
 })

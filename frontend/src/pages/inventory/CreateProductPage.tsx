@@ -22,6 +22,7 @@ import { yupResolver } from '@hookform/resolvers/yup'
 import * as yup from 'yup'
 import { ApiService } from '@/services/api'
 import { useGetPriceListsQuery, useBulkUpdatePricesMutation } from '@/store/api/priceListApi'
+import { useUpdateProductMutation } from '@/store/api/inventoryApi'
 import { useNotification } from '@/hooks/useNotification'
 import CategorySelector from '@/components/inventory/CategorySelector'
 import { Category, PriceList } from '@/types'
@@ -180,6 +181,7 @@ const CreateProductPage: React.FC = () => {
   const { data: priceListsData, isLoading: loadingPriceLists } = useGetPriceListsQuery({ isActive: true })
   const priceLists = priceListsData?.data ?? []
   const [bulkUpdatePrices] = useBulkUpdatePricesMutation()
+  const [updateProduct] = useUpdateProductMutation()
 
   // Currency hook
   const { currency } = useCurrency()
@@ -314,7 +316,7 @@ const CreateProductPage: React.FC = () => {
       let productId = id
 
       if (isEditMode && id) {
-        await ApiService.patch(`/inventory/products/${id}`, productData)
+        await updateProduct({ id, data: productData }).unwrap()
         productId = id
       } else {
         const response = await ApiService.post('/inventory/products', productData) as any
