@@ -21,8 +21,9 @@ import { useForm, Controller } from 'react-hook-form'
 import { yupResolver } from '@hookform/resolvers/yup'
 import * as yup from 'yup'
 import { ApiService } from '@/services/api'
-import { useGetPriceListsQuery, useBulkUpdatePricesMutation } from '@/store/api/priceListApi'
+import { useGetPriceListsQuery, useBulkUpdatePricesMutation, priceListApiSlice } from '@/store/api/priceListApi'
 import { useUpdateProductMutation } from '@/store/api/inventoryApi'
+import { useDispatch } from 'react-redux'
 import { useNotification } from '@/hooks/useNotification'
 import CategorySelector from '@/components/inventory/CategorySelector'
 import { Category, PriceList } from '@/types'
@@ -182,6 +183,7 @@ const CreateProductPage: React.FC = () => {
   const priceLists = priceListsData?.data ?? []
   const [bulkUpdatePrices] = useBulkUpdatePricesMutation()
   const [updateProduct] = useUpdateProductMutation()
+  const dispatch = useDispatch()
 
   // Currency hook
   const { currency } = useCurrency()
@@ -342,6 +344,11 @@ const CreateProductPage: React.FC = () => {
               console.error(`Failed to update prices for price list ${priceListId}:`, error)
             }
           }
+        }
+        // In edit mode, invalidate the product-specific PriceListItem cache so
+        // ProductDetailsTab refetches and shows the updated prices immediately
+        if (isEditMode) {
+          dispatch(priceListApiSlice.util.invalidateTags([{ type: 'PriceListItem', id: `product-${productId}` }]))
         }
       }
 
