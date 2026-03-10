@@ -11,13 +11,10 @@ export function useProductsPageState(initialCategoryId?: string) {
   const [focusedProductIndex, setFocusedProductIndex] = useState<number>(-1)
   const [exportMenuAnchor, setExportMenuAnchor] = useState<HTMLElement | null>(null)
   const [isExporting, setIsExporting] = useState(false)
-  const [hasNavigatedWithSelection, setHasNavigatedWithSelection] = useState(false)
   const [currentTab, setCurrentTab] = useState(0)
   const [selectedCategory, setSelectedCategory] = useState(initialCategoryId || 'all')
-  const [pendingProductId, setPendingProductId] = useState<string | null>(null)
 
   const productListRef = useRef<HTMLDivElement>(null)
-  const hasRestoredSelection = useRef(false)
 
   return {
     deletedProductsDialogOpen,
@@ -36,15 +33,10 @@ export function useProductsPageState(initialCategoryId?: string) {
     setExportMenuAnchor,
     isExporting,
     setIsExporting,
-    hasNavigatedWithSelection,
-    setHasNavigatedWithSelection,
     currentTab,
     setCurrentTab,
     selectedCategory,
     setSelectedCategory,
-    pendingProductId,
-    setPendingProductId,
     productListRef,
-    hasRestoredSelection,
   }
 }

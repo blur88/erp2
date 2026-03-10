@@ -4,18 +4,18 @@ export function normalizePaginated<T>(response: any): PaginatedResponse<T> {
   if (response && Array.isArray(response.data)) {
     return {
       data: response.data,
-      meta: response.meta ?? { page: 1, limit: 20, total: response.data.length, totalPages: 1 },
+      meta: { total: response.meta?.total ?? response.data.length },
     }
   }
 
   if (Array.isArray(response)) {
     return {
       data: response,
-      meta: { page: 1, limit: response.length, total: response.length, totalPages: 1 },
+      meta: { total: response.length },
     }
   }
 
-  return { data: [], meta: { page: 1, limit: 20, total: 0, totalPages: 0 } }
+  return { data: [], meta: { total: 0 } }
 }
 
 export function normalizeSingle<T>(response: any): T {

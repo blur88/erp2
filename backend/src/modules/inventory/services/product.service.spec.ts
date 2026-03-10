@@ -1,0 +1,120 @@
+import { Test, TestingModule } from '@nestjs/testing';
+import { getRepositoryToken } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { ProductService } from './product.service';
+import { Product, ProductType } from '../../../database/entities/product.entity';
+import { Category } from '../../../database/entities/category.entity';
+import { SalesOrderItem } from '../../../database/entities/sales-order-item.entity';
+import { PurchaseOrderItem } from '../../../database/entities/purchase-order-item.entity';
+import { StockMovement } from '../../../database/entities/stock-movement.entity';
+import { StockAdjustmentItem } from '../../../database/entities/stock-adjustment.entity';
+import { GoodsReceivedNoteItem } from '../../../database/entities/goods-received-note-item.entity';
+import { InvoiceItem } from '../../../database/entities/invoice-item.entity';
+import { PurchaseCostHistory } from '../../../database/entities/purchase-cost-history.entity';
+import { CategoryService } from './category.service';
+import { StockMovementService } from './stock-movement.service';
+import { BaseCostCalculatorService } from './base-cost-calculator.service';
+import { SettingsService } from '../../settings/settings.service';
+import { AuditLogService } from '../../audit-logs/services';
+
+describe('ProductService pagination removal', () => {
+  let service: ProductService;
+  let productRepository: jest.Mocked<Repository<Product>>;
+
+  const createProduct = (id: string, overrides: Partial<Product> = {}): Product =>
+    ({
+      id,
+      name: `Product ${id}`,
+      description: null,
+      barcode: `SKU-${id}`,
+      type: ProductType.GOODS,
+      isActive: true,
+      baseCost: 12.5,
+      stockQuantity: 4,
+      notes: null,
+      categoryId: 'category-1',
+      category: {
+        id: 'category-1',
+        name: 'Category',
+        fullPath: 'Inventory > Category',
+      } as Category,
+      priceListItems: [],
+      isOutOfStock: false,
+      createdAt: new Date('2026-03-10T00:00:00.000Z'),
+      updatedAt: new Date('2026-03-10T00:00:00.000Z'),
+      deletedAt: null,
+      ...overrides,
+    }) as Product;
+
+  const createQueryBuilder = (products: Product[]) => {
+    const qb = {
+      leftJoinAndSelect: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      addSelect: jest.fn().mockReturnThis(),
+      orderBy: jest.fn().mockReturnThis(),
+      withDeleted: jest.fn().mockReturnThis(),
+      skip: jest.fn().mockReturnThis(),
+      take: jest.fn().mockReturnThis(),
+      getManyAndCount: jest.fn().mockResolvedValue([products, products.length]),
+    };
+
+    return qb;
+  };
+
+  beforeEach(async () => {
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        ProductService,
+        {
+          provide: getRepositoryToken(Product),
+          useValue: {
+            createQueryBuilder: jest.fn(),
+          },
+        },
+        { provide: getRepositoryToken(Category), useValue: {} },
+        { provide: getRepositoryToken(SalesOrderItem), useValue: {} },
+        { provide: getRepositoryToken(PurchaseOrderItem), useValue: {} },
+        { provide: getRepositoryToken(StockMovement), useValue: {} },
+        { provide: getRepositoryToken(StockAdjustmentItem), useValue: {} },
+        { provide: getRepositoryToken(GoodsReceivedNoteItem), useValue: {} },
+        { provide: getRepositoryToken(InvoiceItem), useValue: {} },
+        { provide: getRepositoryToken(PurchaseCostHistory), useValue: {} },
+        { provide: CategoryService, useValue: {} },
+        { provide: StockMovementService, useValue: {} },
+        { provide: BaseCostCalculatorService, useValue: {} },
+        { provide: SettingsService, useValue: {} },
+        { provide: AuditLogService, useValue: { log: jest.fn() } },
+      ],
+    }).compile();
+
+    service = module.get(ProductService);
+    productRepository = module.get(getRepositoryToken(Product));
+  });
+
+  it('findAll returns all matching products with total-only metadata', async () => {
+    const products = [createProduct('1'), createProduct('2')];
+    const qb = createQueryBuilder(products);
+    productRepository.createQueryBuilder.mockReturnValue(qb as any);
+
+    const result = await service.findAll({ search: 'Product' });
+
+    expect(qb.skip).not.toHaveBeenCalled();
+    expect(qb.take).not.toHaveBeenCalled();
+    expect(result.meta).toEqual({ total: 2 });
+    expect(result.data).toHaveLength(2);
+  });
+
+  it('findDeleted returns all deleted products with total-only metadata', async () => {
+    const products = [createProduct('deleted-1', { deletedAt: new Date('2026-03-10T00:00:00.000Z') })];
+    const qb = createQueryBuilder(products);
+    productRepository.createQueryBuilder.mockReturnValue(qb as any);
+
+    const result = await service.findDeleted({});
+
+    expect(qb.skip).not.toHaveBeenCalled();
+    expect(qb.take).not.toHaveBeenCalled();
+    expect(result.meta).toEqual({ total: 1 });
+    expect(result.data).toHaveLength(1);
+  });
+});

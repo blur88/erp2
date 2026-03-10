@@ -26,7 +26,7 @@ import { TYPOGRAPHY_STYLES } from '@/constants/typography'
 
 interface ProductsToolbarProps {
   isMobile: boolean
-  total: number
+  productCount: number
   searchTerm: string
   selectedCategory: string
   categories: any[]
@@ -45,7 +45,7 @@ interface ProductsToolbarProps {
 
 const ProductsToolbar: React.FC<ProductsToolbarProps> = ({
   isMobile,
-  total,
+  productCount,
   searchTerm,
   selectedCategory,
   categories,
@@ -95,7 +95,7 @@ const ProductsToolbar: React.FC<ProductsToolbarProps> = ({
             Products
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            Manage your product catalog and inventory ({total} total)
+            Manage your product catalog and inventory ({productCount} total)
           </Typography>
         </Box>
         <Box

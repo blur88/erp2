@@ -205,12 +205,10 @@ export class ProductService {
   }
 
   /**
-   * Find all products with filtering, sorting, and pagination
+   * Find all products with filtering and sorting
    */
   async findAll(query: QueryProductsDto): Promise<ProductListResponseDto> {
     const {
-      page = 1,
-      limit = 20,
       search,
       categoryId,
       type,
@@ -281,24 +279,13 @@ export class ProductService {
       queryBuilder.orderBy(`product.${sortField}`, safeSortOrder);
     }
 
-    // Apply pagination
-    const offset = (page - 1) * limit;
-    queryBuilder.skip(offset).take(limit);
-
     const [products, total] = await queryBuilder.getManyAndCount();
 
     const data = products.map(product => this.toResponseDto(product));
 
     return {
       data,
-      meta: {
-        page,
-        limit,
-        total,
-        totalPages: Math.ceil(total / limit),
-        hasNextPage: page < Math.ceil(total / limit),
-        hasPreviousPage: page > 1,
-      },
+      meta: { total },
     };
   }
 
@@ -431,8 +418,6 @@ export class ProductService {
     this.logger.log('Fetching deleted products with filters:', query);
 
     const {
-      page = 1,
-      limit = 20,
       search,
       categoryId,
       type,
@@ -476,10 +461,6 @@ export class ProductService {
       queryBuilder.orderBy(`product.${safeSortBy}`, safeSortOrder);
     }
 
-    // Apply pagination
-    const offset = (page - 1) * limit;
-    queryBuilder.skip(offset).take(limit);
-
     // Get products and total count
     const [deletedProducts, total] = await queryBuilder.getManyAndCount();
 
@@ -487,14 +468,7 @@ export class ProductService {
 
     return {
       data: productDtos,
-      meta: {
-        page,
-        limit,
-        total,
-        totalPages: Math.ceil(total / limit),
-        hasNextPage: page < Math.ceil(total / limit),
-        hasPreviousPage: page > 1,
-      },
+      meta: { total },
     };
   }
 
