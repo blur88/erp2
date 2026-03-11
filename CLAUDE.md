@@ -4,9 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-ERP system — NestJS 11 backend + React 18 / Material-UI v7 frontend, served via NGINX in Docker.
+ERP system — NestJS 11 backend + React 19 / Material-UI v7 frontend, served via NGINX in Docker.
 
-- **Databases**: PostgreSQL (TypeORM, primary), Redis 8 (caching, queues, WebSocket state)
+- **Databases**: PostgreSQL 18.3 (TypeORM, primary), Redis 8.6 (caching, queues, WebSocket state)
 - **Queue**: Bull Queue (background jobs)
 - **Testing**: Jest (backend) + Vitest (frontend)
 - **Default admin**: `admin / Admin@123!` — change on first login
@@ -71,6 +71,7 @@ Reports are embedded in their business modules (Inventory, Sales, Purchasing) �
 - Frontend environment variables injected at runtime via `window.__ENV__` (not build-time) so one Docker image works across environments
 - Backend source changes require `docker compose build backend && docker compose up -d backend` — there is no volume mount for live reload in Docker
 - All API responses go through `ApiService` which wraps them as `{ data: T, meta?: {...} }` — see Gotchas for access patterns
+- Frontend API calls use RTK Query (`frontend/src/store/api/`); `ApiService` (Axios) is the underlying transport layer
 
 **Accounting module** (double-entry, auto-posting): 7 entities, full RBAC. View reports: all roles. Create/edit journal entries: Admin + Manager. Delete/manage fiscal periods: Admin only.
 
@@ -83,7 +84,5 @@ Reports are embedded in their business modules (Inventory, Sales, Purchasing) �
 **API response structure**: `ApiService` strips the Axios wrapper and returns the backend body directly. For paginated list endpoints the body is `{ data: T[], meta: {...} }` — access items as `response.data` and pagination as `response.meta`. For tree/hierarchy endpoints (categories, chart of accounts) the body is a plain array — access as `response` directly (no `.data`). Getting this wrong causes empty lists with no errors.
 
 **Frontend Docker**: Changes to frontend source require a rebuild — `docker compose build frontend && docker compose up -d frontend`. The Vite dev server (`npm run dev`) is for local-only development.
-
-**Accounting schema**: The `account_mappings.description` column required a manual `ALTER TABLE account_mappings ALTER COLUMN description DROP NOT NULL` — the entity marks it nullable but the DB was created with NOT NULL. If you see null-constraint errors on this table, the migration may not have run.
 
 **Path aliases**: Frontend uses `@/` as alias for `src/`. Backend uses `@/*` → `src/*` and `@modules/*` → `src/modules/*`.
