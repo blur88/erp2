@@ -29,6 +29,7 @@ import {
 } from '@mui/icons-material'
 import { formatDistanceToNow } from 'date-fns'
 
+import { copyToClipboard } from '@/utils/clipboard'
 import { useNotifications } from '@/hooks/useNotification'
 import { useAppDispatch } from '@/hooks/useRedux'
 import { markAsRead, markAllAsRead, removeNotification } from '@/store/slices/notificationSlice'
@@ -95,13 +96,11 @@ const NotificationPanel: React.FC<NotificationPanelProps> = ({
 
   const handleCopy = async (notificationId: string, message: string, event: React.MouseEvent) => {
     event.stopPropagation()
-    try {
-      await navigator.clipboard.writeText(message)
+    const success = await copyToClipboard(message)
+    if (success) {
       if (copyTimeoutRef.current) clearTimeout(copyTimeoutRef.current)
       setCopiedId(notificationId)
       copyTimeoutRef.current = setTimeout(() => setCopiedId(null), 1500)
-    } catch {
-      // Silent fallback if clipboard API unavailable
     }
   }
 
