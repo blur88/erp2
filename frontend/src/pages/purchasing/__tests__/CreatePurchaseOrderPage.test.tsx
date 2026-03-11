@@ -12,12 +12,14 @@ const {
   mockCreatePurchaseOrder,
   mockUpdatePurchaseOrder,
   mockFetchPurchaseOrder,
+  mockParams,
 } = vi.hoisted(() => ({
   mockDispatch: vi.fn(),
   mockGet: vi.fn(),
   mockCreatePurchaseOrder: vi.fn(),
   mockUpdatePurchaseOrder: vi.fn(),
   mockFetchPurchaseOrder: vi.fn(),
+  mockParams: vi.fn(() => ({})),
 }))
 
 vi.mock('react-router-dom', async () => {
@@ -25,7 +27,7 @@ vi.mock('react-router-dom', async () => {
   return {
     ...actual,
     useNavigate: () => vi.fn(),
-    useParams: () => ({}),
+    useParams: () => mockParams(),
   }
 })
 
@@ -64,6 +66,7 @@ vi.mock('@/store/api/purchasingApi', () => ({
 describe('CreatePurchaseOrderPage', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mockParams.mockReturnValue({})
 
     mockGet.mockImplementation(async (_url: string, config?: { params?: { search?: string } }) => {
       if (config?.params?.search === 'Beta Gadget') {
@@ -147,6 +150,67 @@ describe('CreatePurchaseOrderPage', () => {
 
     await waitFor(() => {
       expect(firstProductInput).toHaveValue('Alpha Widget')
+    })
+  })
+
+  it('keeps hydrated edit-mode product visible after shared search options are replaced', async () => {
+    const user = userEvent.setup()
+
+    mockParams.mockReturnValue({ id: 'po-1' })
+    mockFetchPurchaseOrder.mockReturnValue({
+      unwrap: vi.fn().mockResolvedValue({
+        data: {
+          id: 'po-1',
+          supplierId: 'supplier-1',
+          orderDate: '2026-03-01T00:00:00.000Z',
+          shippingAmount: 0,
+          items: [
+            {
+              productId: 'product-9',
+              quantity: 2,
+              unitPrice: 44,
+              discountAmount: 0,
+              discountPercent: 0,
+              totalAmount: 88,
+              product: { id: 'product-9', name: 'Hydrated Product', baseCost: 44 },
+            },
+          ],
+        },
+      }),
+    })
+
+    render(
+      <BrowserRouter>
+        <CreatePurchaseOrderPage />
+      </BrowserRouter>
+    )
+
+    await waitFor(() => {
+      expect(mockFetchPurchaseOrder).toHaveBeenCalledWith('po-1')
+    })
+
+    const [firstProductInput] = await screen.findAllByPlaceholderText('Search by name or barcode...')
+
+    await waitFor(() => {
+      expect(firstProductInput).toHaveValue('Hydrated Product')
+    })
+
+    await user.click(screen.getByRole('button', { name: /add item/i }))
+
+    const productInputs = screen.getAllByPlaceholderText('Search by name or barcode...')
+    const secondProductInput = productInputs[1]
+
+    await user.click(secondProductInput)
+    await user.type(secondProductInput, 'Beta Gadget')
+
+    await waitFor(() => {
+      expect(mockGet).toHaveBeenCalledWith('/inventory/products', {
+        params: { isActive: true, search: 'Beta Gadget' },
+      })
+    })
+
+    await waitFor(() => {
+      expect(firstProductInput).toHaveValue('Hydrated Product')
     })
   })
 })
