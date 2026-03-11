@@ -8,11 +8,9 @@ const mockNavigate = vi.fn()
 const mockShowSuccess = vi.fn()
 const mockShowError = vi.fn()
 const mockUpdateProduct = vi.fn()
+const mockCreateProduct = vi.fn()
+const mockFetchProduct = vi.fn()
 const mockDispatch = vi.fn()
-
-const mockApiPost = vi.fn()
-const mockApiPatch = vi.fn()
-const mockApiGet = vi.fn()
 
 const mockBulkUpdatePrices = vi.fn()
 let mockRouteParams: Record<string, string> = {}
@@ -65,14 +63,6 @@ vi.mock('@/components/inventory/CategorySelector', () => ({
   ),
 }))
 
-vi.mock('@/services/api', () => ({
-  ApiService: {
-    post: (...args: unknown[]) => mockApiPost(...args),
-    patch: (...args: unknown[]) => mockApiPatch(...args),
-    get: (...args: unknown[]) => mockApiGet(...args),
-  },
-}))
-
 vi.mock('@/store/api/priceListApi', () => ({
   useGetPriceListsQuery: () => ({
     data: { data: [{ id: 'pl-1', name: 'Retail', isActive: true }] },
@@ -88,6 +78,8 @@ vi.mock('@/store/api/priceListApi', () => ({
 
 vi.mock('@/store/api/inventoryApi', () => ({
   useUpdateProductMutation: () => [mockUpdateProduct],
+  useCreateProductMutation: () => [mockCreateProduct],
+  useLazyGetProductQuery: () => [mockFetchProduct, { isFetching: false }],
 }))
 
 describe('CreateProductPage', () => {
@@ -95,9 +87,25 @@ describe('CreateProductPage', () => {
     vi.clearAllMocks()
     mockRouteParams = {}
 
-    mockApiPost.mockResolvedValue({ id: 'prod-1' })
-    mockApiPatch.mockResolvedValue({})
-    mockApiGet.mockResolvedValue({})
+    mockCreateProduct.mockReturnValue({
+      unwrap: vi.fn().mockResolvedValue({ id: 'prod-1' }),
+    })
+    mockFetchProduct.mockReturnValue({
+      unwrap: vi.fn().mockResolvedValue({
+        id: 'prod-1',
+        name: 'Original Product',
+        description: '',
+        barcode: '',
+        type: 'Stocked Product',
+        categoryId: 'cat-1',
+        baseCost: 0,
+        stockQuantity: 0,
+        notes: '',
+        isActive: true,
+        category: { id: 'cat-1', name: 'Category 1' },
+        priceListItems: [],
+      }),
+    })
     mockUpdateProduct.mockReturnValue({
       unwrap: vi.fn().mockResolvedValue({}),
     })
@@ -120,7 +128,9 @@ describe('CreateProductPage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Create Product' }))
 
     await waitFor(() => {
-      expect(mockApiPost).toHaveBeenCalled()
+      expect(mockCreateProduct).toHaveBeenCalledWith(
+        expect.objectContaining({ categoryId: 'cat-1' })
+      )
     })
 
     await waitFor(() => {
@@ -139,20 +149,6 @@ describe('CreateProductPage', () => {
 
   it('uses the RTK Query update mutation when editing a product', async () => {
     mockRouteParams = { id: 'prod-1' }
-    mockApiGet.mockResolvedValue({
-      id: 'prod-1',
-      name: 'Original Product',
-      description: '',
-      barcode: '',
-      type: 'Stocked Product',
-      categoryId: 'cat-1',
-      baseCost: 0,
-      stockQuantity: 0,
-      notes: '',
-      isActive: true,
-      category: { id: 'cat-1', name: 'Category 1' },
-      priceListItems: [],
-    })
 
     render(
       <BrowserRouter>
@@ -177,25 +173,25 @@ describe('CreateProductPage', () => {
         }),
       })
     })
-
-    expect(mockApiPatch).not.toHaveBeenCalled()
   })
 
   it('invalidates PriceListItem cache for the product after updating prices in edit mode', async () => {
     mockRouteParams = { id: 'prod-1' }
-    mockApiGet.mockResolvedValue({
-      id: 'prod-1',
-      name: 'Original Product',
-      description: '',
-      barcode: '',
-      type: 'Stocked Product',
-      categoryId: 'cat-1',
-      baseCost: 10,
-      stockQuantity: 0,
-      notes: '',
-      isActive: true,
-      category: { id: 'cat-1', name: 'Category 1' },
-      priceListItems: [{ priceListId: 'pl-1', price: 50 }],
+    mockFetchProduct.mockReturnValue({
+      unwrap: vi.fn().mockResolvedValue({
+        id: 'prod-1',
+        name: 'Original Product',
+        description: '',
+        barcode: '',
+        type: 'Stocked Product',
+        categoryId: 'cat-1',
+        baseCost: 10,
+        stockQuantity: 0,
+        notes: '',
+        isActive: true,
+        category: { id: 'cat-1', name: 'Category 1' },
+        priceListItems: [{ priceListId: 'pl-1', price: 50 }],
+      }),
     })
 
     render(

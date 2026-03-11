@@ -28,7 +28,7 @@ export default defineConfig(({ mode }) => {
 
   return {
     customLogger: isVitest ? vitestLogger : undefined,
-    plugins: isVitest ? [] : [react({ fastRefresh: true })],
+    plugins: isVitest ? [] : [react()],
     resolve: {
       alias: {
         '@': path.resolve(__dirname, './src'),

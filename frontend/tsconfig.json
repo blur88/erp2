@@ -39,7 +39,10 @@
   "exclude": [
     "src/**/*.test.ts",
     "src/**/*.test.tsx",
-    "src/**/__tests__/**"
+    "src/**/__tests__/**",
+    "src/setupTests.ts",
+    "src/test/**",
+    "src/mocks/**"
   ],
   "references": [{ "path": "./tsconfig.node.json" }]
 }

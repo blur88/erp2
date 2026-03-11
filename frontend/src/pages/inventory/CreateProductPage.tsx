@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import {
   Box,
@@ -20,9 +20,8 @@ import {
 import { useForm, Controller } from 'react-hook-form'
 import { yupResolver } from '@hookform/resolvers/yup'
 import * as yup from 'yup'
-import { ApiService } from '@/services/api'
 import { useGetPriceListsQuery, useBulkUpdatePricesMutation, priceListApiSlice } from '@/store/api/priceListApi'
-import { useUpdateProductMutation } from '@/store/api/inventoryApi'
+import { useCreateProductMutation, useLazyGetProductQuery, useUpdateProductMutation } from '@/store/api/inventoryApi'
 import { useDispatch } from 'react-redux'
 import { useNotification } from '@/hooks/useNotification'
 import CategorySelector from '@/components/inventory/CategorySelector'
@@ -174,7 +173,6 @@ const CreateProductPage: React.FC = () => {
   const isEditMode = !!id
   const { showSuccess, showError } = useNotification()
   const [loading, setLoading] = useState(false)
-  const [loadingProduct, setLoadingProduct] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null)
   const [priceListPrices, setPriceListPrices] = useState<Record<string, number>>({})
@@ -183,6 +181,8 @@ const CreateProductPage: React.FC = () => {
   const priceLists = priceListsData?.data ?? []
   const [bulkUpdatePrices] = useBulkUpdatePricesMutation()
   const [updateProduct] = useUpdateProductMutation()
+  const [createProduct] = useCreateProductMutation()
+  const [fetchProduct, { isFetching: isFetchingProduct }] = useLazyGetProductQuery()
   const dispatch = useDispatch()
 
   // Currency hook
@@ -248,42 +248,35 @@ const CreateProductPage: React.FC = () => {
   }, [isEditMode, id])
 
   const loadProduct = async (productId: string) => {
-    setLoadingProduct(true)
     try {
-      const response = await ApiService.get(`/inventory/products/${productId}`)
-      // ApiService already unwraps response.data, so response IS the product data
-      const product = response as any
+      const product = await fetchProduct(productId).unwrap()
 
-      // Set the selected category if available
       if (product.category) {
-        setSelectedCategory(product.category)
+        setSelectedCategory(product.category as Category)
       }
 
       reset({
         name: product.name || '',
         description: product.description || '',
-        barcode: product.barcode || '',
-        type: product.type || 'Stocked Product',
+        barcode: (product as any).barcode || '',
+        type: (product.type as any) || 'Stocked Product',
         categoryId: product.categoryId || '',
         baseCost: product.baseCost || 0,
         stockQuantity: product.stockQuantity || 0,
-        notes: product.notes || '',
+        notes: (product as any).notes || '',
         isActive: product.isActive !== undefined ? product.isActive : true,
       })
 
-      // Load existing price list items for this product
-      if (product.priceListItems && Array.isArray(product.priceListItems)) {
+      if ((product as any).priceListItems && Array.isArray((product as any).priceListItems)) {
         const pricesMap: Record<string, number> = {}
-        product.priceListItems.forEach((item: any) => {
+        ;(product as any).priceListItems.forEach((item: any) => {
           pricesMap[item.priceListId] = item.price
         })
         setPriceListPrices(pricesMap)
       }
     } catch (err: any) {
-      showError(err?.response?.data?.message || 'Failed to load product')
+      showError(err?.message || 'Failed to load product')
       setError('Failed to load product')
-    } finally {
-      setLoadingProduct(false)
     }
   }
 
@@ -321,8 +314,7 @@ const CreateProductPage: React.FC = () => {
         await updateProduct({ id, data: productData }).unwrap()
         productId = id
       } else {
-        const response = await ApiService.post('/inventory/products', productData) as any
-        // ApiService.post already unwraps response.data, so the response IS the product data
+        const response = await createProduct(productData).unwrap()
         productId = response?.id
       }
 
@@ -418,7 +410,7 @@ const CreateProductPage: React.FC = () => {
           </Typography>
         </Box>
 
-        {loadingProduct ? (
+        {isFetchingProduct ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
             <Typography>Loading product...</Typography>
           </Box>
