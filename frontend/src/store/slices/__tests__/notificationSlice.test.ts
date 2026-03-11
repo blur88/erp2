@@ -1,7 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { configureStore } from '@reduxjs/toolkit'
+import { REHYDRATE } from 'redux-persist'
 import notificationReducer, {
   addNotification,
+  removeNotification,
+  markAsRead,
+  markAllAsRead,
   selectNotifications,
   selectUnreadCount,
 } from '../notificationSlice'
@@ -54,6 +58,117 @@ describe('notificationSlice', () => {
     store.dispatch({ type: logout.fulfilled.type })
 
     expect(selectNotifications(store.getState())).toHaveLength(0)
+    expect(selectUnreadCount(store.getState())).toBe(0)
+  })
+
+  // -- Cap at 50 -----------------------------------------------------------
+
+  it('caps notifications at 50 when a 51st is added', () => {
+    for (let i = 0; i < 51; i++) {
+      store.dispatch(addNotification({ type: 'info', title: `N${i}`, message: 'm' }))
+    }
+    const notifications = selectNotifications(store.getState())
+    expect(notifications).toHaveLength(50)
+  })
+
+  it('drops the oldest notification when cap is exceeded', () => {
+    // Add 50 notifications -- oldest is "first"
+    for (let i = 0; i < 50; i++) {
+      store.dispatch(addNotification({ type: 'info', title: `N${i}`, message: 'm' }))
+    }
+    // Add a 51st -- "newest" should be at index 0, "first" should be gone
+    store.dispatch(addNotification({ type: 'success', title: 'newest', message: 'm' }))
+    const notifications = selectNotifications(store.getState())
+    expect(notifications[0].title).toBe('newest')
+    expect(notifications.find((n) => n.title === 'N0')).toBeUndefined()
+  })
+
+  it('keeps unreadCount correct after cap is applied', () => {
+    for (let i = 0; i < 51; i++) {
+      store.dispatch(addNotification({ type: 'info', title: `N${i}`, message: 'm' }))
+    }
+    // unreadCount should match the number of unread notifications in the capped array
+    const notifications = selectNotifications(store.getState())
+    const expectedUnread = notifications.filter((n) => !n.read).length
+    expect(selectUnreadCount(store.getState())).toBe(expectedUnread)
+  })
+
+  // -- removeNotification floor guard --------------------------------------
+
+  it('does not decrement unreadCount below zero on removeNotification', () => {
+    store.dispatch(addNotification({ type: 'info', title: 'X', message: 'm' }))
+    const id = selectNotifications(store.getState())[0].id
+    // Manually corrupt unreadCount to 0 by marking as read first
+    store.dispatch(markAsRead(id))
+    expect(selectUnreadCount(store.getState())).toBe(0)
+    // Now remove -- unreadCount must not go negative
+    store.dispatch(removeNotification(id))
+    expect(selectUnreadCount(store.getState())).toBe(0)
+  })
+
+  // -- REHYDRATE ------------------------------------------------------------
+
+  function makeNotification(i: number, read = false) {
+    return {
+      id: `id-${i}`,
+      type: 'info' as const,
+      title: `N${i}`,
+      message: 'm',
+      timestamp: new Date().toISOString(),
+      read,
+    }
+  }
+
+  it('trims to 50 and recalculates unreadCount on REHYDRATE with 60 notifications', () => {
+    const notifications = Array.from({ length: 60 }, (_, i) => makeNotification(i))
+    store.dispatch({
+      type: REHYDRATE,
+      key: 'erp-app',
+      payload: { notifications: { notifications, unreadCount: 60 } },
+    })
+    expect(selectNotifications(store.getState())).toHaveLength(50)
+    expect(selectUnreadCount(store.getState())).toBe(50)
+  })
+
+  it('is a no-op on REHYDRATE when payload is undefined', () => {
+    store.dispatch({ type: REHYDRATE, key: 'erp-app', payload: undefined })
+    expect(selectNotifications(store.getState())).toHaveLength(0)
+    expect(selectUnreadCount(store.getState())).toBe(0)
+  })
+
+  it('recalculates unreadCount correctly on REHYDRATE with mixed read/unread', () => {
+    const notifications = [
+      makeNotification(0, true),
+      makeNotification(1, false),
+      makeNotification(2, false),
+    ]
+    store.dispatch({
+      type: REHYDRATE,
+      key: 'erp-app',
+      payload: { notifications: { notifications, unreadCount: 99 } },
+    })
+    expect(selectUnreadCount(store.getState())).toBe(2)
+  })
+
+  it('markAsRead decrements unreadCount correctly after REHYDRATE', () => {
+    const notifications = [makeNotification(0, false), makeNotification(1, false)]
+    store.dispatch({
+      type: REHYDRATE,
+      key: 'erp-app',
+      payload: { notifications: { notifications, unreadCount: 2 } },
+    })
+    store.dispatch(markAsRead('id-0'))
+    expect(selectUnreadCount(store.getState())).toBe(1)
+  })
+
+  it('markAllAsRead sets unreadCount to 0 after REHYDRATE', () => {
+    const notifications = [makeNotification(0, false), makeNotification(1, false)]
+    store.dispatch({
+      type: REHYDRATE,
+      key: 'erp-app',
+      payload: { notifications: { notifications, unreadCount: 2 } },
+    })
+    store.dispatch(markAllAsRead())
     expect(selectUnreadCount(store.getState())).toBe(0)
   })
 })
