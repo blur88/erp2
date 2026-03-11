@@ -124,6 +124,7 @@ describe('notificationSlice', () => {
 
     store.dispatch(removeNotification(unreadNotification.id))
 
+    expect(selectNotifications(store.getState())).toEqual([])
     expect(selectUnreadCount(store.getState())).toBe(0)
   })
 
