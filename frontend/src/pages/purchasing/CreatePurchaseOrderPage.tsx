@@ -89,6 +89,10 @@ const CreatePurchaseOrderPage: React.FC = () => {
   const { id } = useParams<{ id: string }>()
   const isEditMode = !!id
   const { showSuccess, showError } = useNotification()
+  // Shared options list for all product Autocomplete rows. Replaced (not merged) on each
+  // search so the dropdown shows only current results. Selected values survive options
+  // replacement because each row's `value` prop is sourced from watchedItems, not from
+  // this array — see `isOptionEqualToValue` and the value expression in the Autocomplete.
   const [products, setProducts] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
   const [loadingOrder, setLoadingOrder] = useState(false)
