@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { configureStore } from '@reduxjs/toolkit'
 import { REHYDRATE } from 'redux-persist'
 import type { Notification } from '@/types'
+import { PERSIST_KEY } from '../../persistKey'
 import notificationReducer, {
   addNotification,
   removeNotification,
@@ -146,17 +147,26 @@ describe('notificationSlice', () => {
     const notifications = Array.from({ length: 60 }, (_, i) => makeNotification(i))
     store.dispatch({
       type: REHYDRATE,
-      key: 'erp-app',
+      key: PERSIST_KEY,
       payload: { notifications: { notifications, unreadCount: 60 } },
     })
     expect(selectNotifications(store.getState())).toHaveLength(50)
     expect(selectUnreadCount(store.getState())).toBe(50)
   })
 
-  it('is a no-op on REHYDRATE when payload is undefined', () => {
-    store.dispatch({ type: REHYDRATE, key: 'erp-app', payload: undefined })
-    expect(selectNotifications(store.getState())).toHaveLength(0)
-    expect(selectUnreadCount(store.getState())).toBe(0)
+  it('preserves existing state on REHYDRATE when payload is undefined', () => {
+    const existingNotifications = [makeNotification(0, false), makeNotification(1, true)]
+    store = createTestStore({
+      notifications: {
+        notifications: existingNotifications,
+        unreadCount: 1,
+      },
+    })
+
+    store.dispatch({ type: REHYDRATE, key: PERSIST_KEY, payload: undefined })
+
+    expect(selectNotifications(store.getState())).toEqual(existingNotifications)
+    expect(selectUnreadCount(store.getState())).toBe(1)
   })
 
   it('recalculates unreadCount correctly on REHYDRATE with mixed read/unread', () => {
@@ -167,7 +177,7 @@ describe('notificationSlice', () => {
     ]
     store.dispatch({
       type: REHYDRATE,
-      key: 'erp-app',
+      key: PERSIST_KEY,
       payload: { notifications: { notifications, unreadCount: 99 } },
     })
     expect(selectUnreadCount(store.getState())).toBe(2)
@@ -177,7 +187,7 @@ describe('notificationSlice', () => {
     const notifications = [makeNotification(0, false), makeNotification(1, false)]
     store.dispatch({
       type: REHYDRATE,
-      key: 'erp-app',
+      key: PERSIST_KEY,
       payload: { notifications: { notifications, unreadCount: 2 } },
     })
     store.dispatch(markAsRead('id-0'))
@@ -188,7 +198,7 @@ describe('notificationSlice', () => {
     const notifications = [makeNotification(0, false), makeNotification(1, false)]
     store.dispatch({
       type: REHYDRATE,
-      key: 'erp-app',
+      key: PERSIST_KEY,
       payload: { notifications: { notifications, unreadCount: 2 } },
     })
     store.dispatch(markAllAsRead())
