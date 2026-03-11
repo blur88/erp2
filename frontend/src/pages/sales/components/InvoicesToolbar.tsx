@@ -138,10 +138,10 @@ const InvoicesToolbar: React.FC<InvoicesToolbarProps> = ({
               maxWidth: isMobile ? 'none' : 400,
               '& .MuiOutlinedInput-root': {
                 height: TYPOGRAPHY_STYLES.searchField.input.height,
-                fontSize: '0.875rem',
+                fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
                 '& input': {
-                  padding: '8.5px 14px',
-                  fontSize: '0.875rem',
+                  padding: TYPOGRAPHY_STYLES.searchField.input.padding,
+                  fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
                 },
               },
             }}
@@ -160,7 +160,7 @@ const InvoicesToolbar: React.FC<InvoicesToolbarProps> = ({
               minWidth: isMobile ? 'auto' : 120,
               '& .MuiOutlinedInput-root': {
                 height: TYPOGRAPHY_STYLES.searchField.input.height,
-                fontSize: '0.875rem',
+                fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
               },
             }}
           >
@@ -170,17 +170,17 @@ const InvoicesToolbar: React.FC<InvoicesToolbarProps> = ({
               label="Date Filter"
               onChange={(event) => onFilterChange({ dateFilter: event.target.value })}
               sx={{
-                fontSize: '0.875rem',
+                fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
                 '& .MuiSelect-select': {
-                  padding: '8.5px 14px',
-                  fontSize: '0.875rem',
+                  padding: TYPOGRAPHY_STYLES.searchField.input.padding,
+                  fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
                 },
               }}
               MenuProps={{
                 PaperProps: {
                   sx: {
                     '& .MuiMenuItem-root': {
-                      fontSize: '0.875rem',
+                      fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
                     },
                   },
                 },
@@ -209,7 +209,11 @@ const InvoicesToolbar: React.FC<InvoicesToolbarProps> = ({
                   minWidth: 120,
                   '& .MuiOutlinedInput-root': {
                     height: TYPOGRAPHY_STYLES.searchField.input.height,
-                    fontSize: '0.875rem',
+                    fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
+                    '& input': {
+                      padding: TYPOGRAPHY_STYLES.searchField.input.padding,
+                      fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
+                    },
                   },
                 }}
                 InputLabelProps={{ shrink: true }}
@@ -224,7 +228,11 @@ const InvoicesToolbar: React.FC<InvoicesToolbarProps> = ({
                   minWidth: 120,
                   '& .MuiOutlinedInput-root': {
                     height: TYPOGRAPHY_STYLES.searchField.input.height,
-                    fontSize: '0.875rem',
+                    fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
+                    '& input': {
+                      padding: TYPOGRAPHY_STYLES.searchField.input.padding,
+                      fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
+                    },
                   },
                 }}
                 InputLabelProps={{ shrink: true }}
@@ -241,7 +249,7 @@ const InvoicesToolbar: React.FC<InvoicesToolbarProps> = ({
                 minWidth: 'auto',
                 px: 2,
                 height: TYPOGRAPHY_STYLES.searchField.input.height,
-                fontSize: '0.875rem',
+                fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
               }}
             >
               Clear Filters
@@ -261,7 +269,7 @@ const InvoicesToolbar: React.FC<InvoicesToolbarProps> = ({
             onClick={() => onSort('invoiceNumber')}
             sx={{
               height: TYPOGRAPHY_STYLES.searchField.input.height,
-              fontSize: '0.875rem',
+              fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
               minWidth: 'auto',
               px: 2,
             }}

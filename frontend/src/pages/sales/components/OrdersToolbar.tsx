@@ -167,10 +167,10 @@ const OrdersToolbar: React.FC<OrdersToolbarProps> = ({
               maxWidth: isMobile ? 'none' : 400,
               '& .MuiOutlinedInput-root': {
                 height: TYPOGRAPHY_STYLES.searchField.input.height,
-                fontSize: '0.875rem',
+                fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
                 '& input': {
-                  padding: '8.5px 14px',
-                  fontSize: '0.875rem',
+                  padding: TYPOGRAPHY_STYLES.searchField.input.padding,
+                  fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
                 },
               },
             }}
@@ -185,7 +185,16 @@ const OrdersToolbar: React.FC<OrdersToolbarProps> = ({
             }}
           />
 
-          <FormControl size="medium" sx={{ minWidth: isMobile ? 'auto' : 120 }}>
+          <FormControl
+            size="medium"
+            sx={{
+              minWidth: isMobile ? 'auto' : 120,
+              '& .MuiOutlinedInput-root': {
+                height: TYPOGRAPHY_STYLES.searchField.input.height,
+                fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
+              },
+            }}
+          >
             <InputLabel>Date Filter</InputLabel>
             <Select
               value={orderFilters.dateFilter}
@@ -211,7 +220,17 @@ const OrdersToolbar: React.FC<OrdersToolbarProps> = ({
                 value={orderFilters.customFromDate}
                 onChange={(event) => onFilterChange({ customFromDate: event.target.value })}
                 size="medium"
-                sx={{ minWidth: 120 }}
+                sx={{
+                  minWidth: 120,
+                  '& .MuiOutlinedInput-root': {
+                    height: TYPOGRAPHY_STYLES.searchField.input.height,
+                    fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
+                    '& input': {
+                      padding: TYPOGRAPHY_STYLES.searchField.input.padding,
+                      fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
+                    },
+                  },
+                }}
                 slotProps={{ inputLabel: { shrink: true } }}
               />
               <TextField
@@ -220,13 +239,32 @@ const OrdersToolbar: React.FC<OrdersToolbarProps> = ({
                 value={orderFilters.customToDate}
                 onChange={(event) => onFilterChange({ customToDate: event.target.value })}
                 size="medium"
-                sx={{ minWidth: 120 }}
+                sx={{
+                  minWidth: 120,
+                  '& .MuiOutlinedInput-root': {
+                    height: TYPOGRAPHY_STYLES.searchField.input.height,
+                    fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
+                    '& input': {
+                      padding: TYPOGRAPHY_STYLES.searchField.input.padding,
+                      fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
+                    },
+                  },
+                }}
                 slotProps={{ inputLabel: { shrink: true } }}
               />
             </>
           )}
 
-          <FormControl size="medium" sx={{ minWidth: isMobile ? 'auto' : 120 }}>
+          <FormControl
+            size="medium"
+            sx={{
+              minWidth: isMobile ? 'auto' : 120,
+              '& .MuiOutlinedInput-root': {
+                height: TYPOGRAPHY_STYLES.searchField.input.height,
+                fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
+              },
+            }}
+          >
             <InputLabel>Customer</InputLabel>
             <Select
               value={orderFilters.customerId}
@@ -242,7 +280,16 @@ const OrdersToolbar: React.FC<OrdersToolbarProps> = ({
             </Select>
           </FormControl>
 
-          <FormControl size="medium" sx={{ minWidth: isMobile ? 'auto' : 120 }}>
+          <FormControl
+            size="medium"
+            sx={{
+              minWidth: isMobile ? 'auto' : 120,
+              '& .MuiOutlinedInput-root': {
+                height: TYPOGRAPHY_STYLES.searchField.input.height,
+                fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
+              },
+            }}
+          >
             <InputLabel>Payment Status</InputLabel>
             <Select
               value={orderFilters.paymentStatus}
@@ -257,7 +304,16 @@ const OrdersToolbar: React.FC<OrdersToolbarProps> = ({
             </Select>
           </FormControl>
 
-          <FormControl size="medium" sx={{ minWidth: isMobile ? 'auto' : 120 }}>
+          <FormControl
+            size="medium"
+            sx={{
+              minWidth: isMobile ? 'auto' : 120,
+              '& .MuiOutlinedInput-root': {
+                height: TYPOGRAPHY_STYLES.searchField.input.height,
+                fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
+              },
+            }}
+          >
             <InputLabel>Fulfillment</InputLabel>
             <Select
               value={orderFilters.fulfillmentStatus}
@@ -271,7 +327,15 @@ const OrdersToolbar: React.FC<OrdersToolbarProps> = ({
           </FormControl>
 
           {hasActiveFilters && (
-            <Button variant="outlined" size="medium" onClick={onClearFilters}>
+            <Button
+              variant="outlined"
+              size="medium"
+              onClick={onClearFilters}
+              sx={{
+                height: TYPOGRAPHY_STYLES.searchField.input.height,
+                fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
+              }}
+            >
               Clear Filters
             </Button>
           )}
@@ -279,6 +343,10 @@ const OrdersToolbar: React.FC<OrdersToolbarProps> = ({
           <Button
             variant={orderFilters.sortBy === 'orderNumber' ? 'contained' : 'outlined'}
             size="medium"
+            sx={{
+              height: TYPOGRAPHY_STYLES.searchField.input.height,
+              fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
+            }}
             startIcon={
               orderFilters.sortBy === 'orderNumber' ? (
                 orderFilters.sortOrder === 'desc' ? <ArrowDownIcon /> : <ArrowUpIcon />
