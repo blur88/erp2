@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { copyToClipboard } from './clipboard'
 
 describe('copyToClipboard', () => {
@@ -19,7 +19,7 @@ describe('copyToClipboard', () => {
     expect(result).toBe(true)
   })
 
-  it('returns false when navigator.clipboard throws', async () => {
+  it('returns false when navigator.clipboard throws and execCommand fallback also fails', async () => {
     const writeText = vi.fn().mockRejectedValue(new Error('denied'))
     Object.defineProperty(navigator, 'clipboard', {
       value: { writeText },
