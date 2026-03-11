@@ -6,6 +6,8 @@ import { BrowserRouter } from 'react-router-dom'
 
 import CreatePurchaseOrderPage from '../CreatePurchaseOrderPage'
 
+const replacementSearchTerm = 'B'
+
 const {
   mockDispatch,
   mockGet,
@@ -69,7 +71,7 @@ describe('CreatePurchaseOrderPage', () => {
     mockParams.mockReturnValue({})
 
     mockGet.mockImplementation(async (_url: string, config?: { params?: { search?: string } }) => {
-      if (config?.params?.search === 'Beta Gadget') {
+      if (config?.params?.search?.startsWith(replacementSearchTerm)) {
         return {
           data: {
             data: [{ id: 'product-2', name: 'Beta Gadget', baseCost: 22 }],
@@ -101,11 +103,11 @@ describe('CreatePurchaseOrderPage', () => {
     expect(within(initialListbox).getByText('Alpha Widget')).toBeInTheDocument()
 
     await user.clear(productInput)
-    await user.type(productInput, 'Beta Gadget')
+    await user.type(productInput, replacementSearchTerm)
 
     await waitFor(() => {
       expect(mockGet).toHaveBeenCalledWith('/inventory/products', {
-        params: { isActive: true, search: 'Beta Gadget' },
+        params: { isActive: true, search: replacementSearchTerm },
       })
     })
 
@@ -140,11 +142,11 @@ describe('CreatePurchaseOrderPage', () => {
     const secondProductInput = productInputs[1]
 
     await user.click(secondProductInput)
-    await user.type(secondProductInput, 'Beta Gadget')
+    await user.type(secondProductInput, replacementSearchTerm)
 
     await waitFor(() => {
       expect(mockGet).toHaveBeenCalledWith('/inventory/products', {
-        params: { isActive: true, search: 'Beta Gadget' },
+        params: { isActive: true, search: replacementSearchTerm },
       })
     })
 
@@ -201,11 +203,11 @@ describe('CreatePurchaseOrderPage', () => {
     const secondProductInput = productInputs[1]
 
     await user.click(secondProductInput)
-    await user.type(secondProductInput, 'Beta Gadget')
+    await user.type(secondProductInput, replacementSearchTerm)
 
     await waitFor(() => {
       expect(mockGet).toHaveBeenCalledWith('/inventory/products', {
-        params: { isActive: true, search: 'Beta Gadget' },
+        params: { isActive: true, search: replacementSearchTerm },
       })
     })
 
