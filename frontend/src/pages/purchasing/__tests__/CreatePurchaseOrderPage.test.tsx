@@ -110,4 +110,43 @@ describe('CreatePurchaseOrderPage', () => {
     expect(within(updatedListbox).getByText('Beta Gadget')).toBeInTheDocument()
     expect(within(updatedListbox).queryByText('Alpha Widget')).toBeNull()
   })
+
+  it('keeps the selected product visible when another search replaces the shared options list', async () => {
+    const user = userEvent.setup()
+
+    render(
+      <BrowserRouter>
+        <CreatePurchaseOrderPage />
+      </BrowserRouter>
+    )
+
+    const [firstProductInput] = screen.getAllByPlaceholderText('Search by name or barcode...')
+
+    await user.click(firstProductInput)
+
+    const initialListbox = await screen.findByRole('listbox')
+    await user.click(within(initialListbox).getByText('Alpha Widget'))
+
+    await waitFor(() => {
+      expect(firstProductInput).toHaveValue('Alpha Widget')
+    })
+
+    await user.click(screen.getByRole('button', { name: /add item/i }))
+
+    const productInputs = screen.getAllByPlaceholderText('Search by name or barcode...')
+    const secondProductInput = productInputs[1]
+
+    await user.click(secondProductInput)
+    await user.type(secondProductInput, 'Beta Gadget')
+
+    await waitFor(() => {
+      expect(mockGet).toHaveBeenCalledWith('/inventory/products', {
+        params: { isActive: true, search: 'Beta Gadget' },
+      })
+    })
+
+    await waitFor(() => {
+      expect(firstProductInput).toHaveValue('Alpha Widget')
+    })
+  })
 })

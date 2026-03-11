@@ -570,8 +570,9 @@ const CreatePurchaseOrderPage: React.FC = () => {
                                 render={({ field: productField }) => (
                                   <Autocomplete
                                     options={products}
-                                    getOptionLabel={(option) => option.name}
-                                    value={products.find(p => p.id === productField.value) || null}
+                                    getOptionLabel={(option) => option?.name || ''}
+                                    isOptionEqualToValue={(option, value) => option.id === value.id}
+                                    value={watchedItems[index]?.product || products.find(p => p.id === productField.value) || null}
                                     onChange={(_, value) => handleProductSelect(index, value)}
                                     onInputChange={(_, value, reason) => {
                                       if (reason === 'input' && value.trim().length >= 1) {
