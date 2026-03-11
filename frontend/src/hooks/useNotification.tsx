@@ -39,6 +39,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     type: 'info',
   })
   const [copied, setCopied] = React.useState(false)
+  const snackbarRef = React.useRef<HTMLDivElement>(null)
 
   const showNotification = useCallback(
     (
@@ -110,7 +111,8 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
   const handleCopy = async () => {
     const text = snackbar.title ? `${snackbar.title}: ${snackbar.message}` : snackbar.message
-    const success = await copyToClipboard(text)
+    const container = snackbarRef.current ?? document.body
+    const success = await copyToClipboard(text, container)
     if (success) {
       setCopied(true)
       setTimeout(() => setCopied(false), 1500)
@@ -141,6 +143,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         sx={{ mt: 8 }}
       >
         <Alert
+          ref={snackbarRef}
           onClose={handleClose}
           severity={snackbar.type}
           variant="filled"
