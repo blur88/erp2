@@ -34,6 +34,20 @@ describe('copyToClipboard', () => {
     expect(result).toBe(false)
   })
 
+  it('falls back to execCommand and returns true when navigator.clipboard throws', async () => {
+    const writeText = vi.fn().mockRejectedValue(new Error('denied'))
+    Object.defineProperty(navigator, 'clipboard', {
+      value: { writeText },
+      configurable: true,
+    })
+    document.execCommand = vi.fn().mockReturnValue(true)
+
+    const result = await copyToClipboard('hello')
+
+    expect(document.execCommand).toHaveBeenCalledWith('copy')
+    expect(result).toBe(true)
+  })
+
   it('falls back to execCommand when navigator.clipboard is undefined and returns true on success', async () => {
     Object.defineProperty(navigator, 'clipboard', {
       value: undefined,
