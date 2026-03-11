@@ -24,6 +24,7 @@ import { accountingApiSlice } from './api/accountingApi'
 import { settingsApiSlice } from './api/settingsApi'
 import { paymentMethodsApiSlice } from './api/paymentMethodsApi'
 import { printSettingsApiSlice } from './api/printSettingsApi'
+import { PERSIST_KEY } from './persistKey'
 
 const rootReducer = combineReducers({
   theme: themeSlice,
@@ -50,25 +51,34 @@ const rootReducer = combineReducers({
 
 // Persist configuration
 const persistConfig = {
-  key: 'erp-app',
+  key: PERSIST_KEY,
   storage,
-  whitelist: ['theme', 'auth'],
-  version: 4,
+  whitelist: ['theme', 'auth', 'notifications'],
+  version: 5,
   migrate: (state: any) => {
-    // Force dark mode for all users on version 2+
+    // Migration runs when persisted _persist.version !== persistConfig.version.
+    // For all existing v4 users, state.notifications is undefined (was not
+    // whitelisted), so the ?? [] fallback is the normal code path.
+    // On a cold start (no persisted state at all), redux-persist does not call
+    // migrate — REHYDRATE fires with payload === undefined instead.
     if (state) {
-      const newState = {
-        ...state,
-        theme: state.theme ? {
-          ...state.theme,
-          mode: 'dark'
-        } : { mode: 'dark' }
-      };
+      const notifications: any[] = state.notifications?.notifications ?? []
+      const capped = notifications.slice(0, 50) // newest-first invariant
+      const unreadCount = capped.filter((n: any) => !n.read).length
 
-      return Promise.resolve(newState);
+      return Promise.resolve({
+        ...state,
+        theme: state.theme
+          ? { ...state.theme, mode: 'dark' }
+          : { mode: 'dark' },
+        notifications: {
+          notifications: capped,
+          unreadCount,
+        },
+      })
     }
     return Promise.resolve(state)
-  }
+  },
 }
 
 const persistedReducer = persistReducer(persistConfig, rootReducer)
