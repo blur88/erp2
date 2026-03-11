@@ -100,6 +100,24 @@ describe('notificationSlice', () => {
     expect(selectUnreadCount(store.getState())).toBe(50)
   })
 
+  it('keeps unreadCount stable when capping evicts an unread item from a mixed list', () => {
+    const notifications = Array.from({ length: 50 }, (_, i) => makeNotification(i, i < 30))
+    store = createTestStore({
+      notifications: {
+        notifications,
+        unreadCount: 20,
+      },
+    })
+
+    store.dispatch(addNotification({ type: 'info', title: 'newest', message: 'm' }))
+
+    const nextNotifications = selectNotifications(store.getState())
+    expect(nextNotifications).toHaveLength(50)
+    expect(nextNotifications[0].title).toBe('newest')
+    expect(nextNotifications.find((notification) => notification.id === 'id-49')).toBeUndefined()
+    expect(selectUnreadCount(store.getState())).toBe(20)
+  })
+
   // -- removeNotification floor guard --------------------------------------
 
   it('does not decrement unreadCount below zero on removeNotification', () => {

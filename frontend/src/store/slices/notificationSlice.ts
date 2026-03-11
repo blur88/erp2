@@ -27,11 +27,14 @@ const notificationSlice = createSlice({
         ...action.payload,
       }
       state.notifications.unshift(notification)
-      if (state.notifications.length > 50) {
-        state.notifications = state.notifications.slice(0, 50) // newest-first invariant
-        state.unreadCount = Math.min(state.unreadCount, state.notifications.length - 1)
-      }
       state.unreadCount += 1
+      if (state.notifications.length > 50) {
+        const evictedNotification = state.notifications[50]
+        state.notifications = state.notifications.slice(0, 50) // newest-first invariant
+        if (evictedNotification && !evictedNotification.read) {
+          state.unreadCount = Math.max(0, state.unreadCount - 1)
+        }
+      }
     },
     removeNotification: (state, action: PayloadAction<string>) => {
       const index = state.notifications.findIndex((n) => n.id === action.payload)
