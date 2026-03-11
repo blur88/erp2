@@ -259,12 +259,7 @@ const CreatePurchaseOrderPage: React.FC = () => {
       console.log('Products loaded:', response)
       const newProducts = (response as any).data?.data || []
 
-      // Merge with existing products to preserve order item products
-      setProducts((prevProducts) => {
-        const existingIds = new Set(prevProducts.map(p => p.id))
-        const productsToAdd = newProducts.filter((p: any) => !existingIds.has(p.id))
-        return [...prevProducts, ...productsToAdd]
-      })
+      setProducts(newProducts)
     } catch (err) {
       console.error('Error loading products:', err)
     }
