@@ -89,11 +89,16 @@ const CreatePurchaseOrderPage: React.FC = () => {
   const { id } = useParams<{ id: string }>()
   const isEditMode = !!id
   const { showSuccess, showError } = useNotification()
+  // Shared options list for all product Autocomplete rows. Replaced (not merged) on each
+  // search so the dropdown shows only current results. Selected values survive options
+  // replacement because each row's `value` prop is sourced from watchedItems, not from
+  // this array — see `isOptionEqualToValue` and the value expression in the Autocomplete.
   const [products, setProducts] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
   const [loadingOrder, setLoadingOrder] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [orderToLoad, setOrderToLoad] = useState<any>(null)
+  const latestProductsRequestRef = React.useRef(0)
   const { data: suppliersResponse } = useGetSuppliersQuery({})
   const [createPurchaseOrder] = useCreatePurchaseOrderMutation()
   const [updatePurchaseOrder] = useUpdatePurchaseOrderMutation()
@@ -250,21 +255,23 @@ const CreatePurchaseOrderPage: React.FC = () => {
   }, [JSON.stringify(watchedItems), setValue])
 
   const loadProducts = async (searchTerm: string = '') => {
+    const requestId = ++latestProductsRequestRef.current
+
     try {
       const params: any = { isActive: true }
       if (searchTerm && searchTerm.trim().length >= 1) {
         params.search = searchTerm.trim()
       }
       const response = await api.get('/inventory/products', { params })
+
+      if (requestId !== latestProductsRequestRef.current) {
+        return
+      }
+
       console.log('Products loaded:', response)
       const newProducts = (response as any).data?.data || []
 
-      // Merge with existing products to preserve order item products
-      setProducts((prevProducts) => {
-        const existingIds = new Set(prevProducts.map(p => p.id))
-        const productsToAdd = newProducts.filter((p: any) => !existingIds.has(p.id))
-        return [...prevProducts, ...productsToAdd]
-      })
+      setProducts(newProducts)
     } catch (err) {
       console.error('Error loading products:', err)
     }
@@ -575,8 +582,9 @@ const CreatePurchaseOrderPage: React.FC = () => {
                                 render={({ field: productField }) => (
                                   <Autocomplete
                                     options={products}
-                                    getOptionLabel={(option) => option.name}
-                                    value={products.find(p => p.id === productField.value) || null}
+                                    getOptionLabel={(option) => option?.name || ''}
+                                    isOptionEqualToValue={(option, value) => option.id === value.id}
+                                    value={watchedItems[index]?.product || products.find(p => p.id === productField.value) || null}
                                     onChange={(_, value) => handleProductSelect(index, value)}
                                     onInputChange={(_, value, reason) => {
                                       if (reason === 'input' && value.trim().length >= 1) {
