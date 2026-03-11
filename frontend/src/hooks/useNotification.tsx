@@ -7,6 +7,7 @@ import {
   removeNotification,
   selectNotifications,
 } from '@/store/slices/notificationSlice'
+import { copyToClipboard } from '@/utils/clipboard'
 
 interface NotificationContextType {
   showNotification: (
@@ -109,12 +110,10 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
   const handleCopy = async () => {
     const text = snackbar.title ? `${snackbar.title}: ${snackbar.message}` : snackbar.message
-    try {
-      await navigator.clipboard.writeText(text)
+    const success = await copyToClipboard(text)
+    if (success) {
       setCopied(true)
       setTimeout(() => setCopied(false), 1500)
-    } catch {
-      // Fallback: select text for manual copy
     }
   }
 
