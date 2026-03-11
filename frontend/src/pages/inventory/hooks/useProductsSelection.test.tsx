@@ -1,0 +1,82 @@
+import { renderHook, waitFor } from '@testing-library/react'
+import { describe, expect, it, vi } from 'vitest'
+
+import { useProductsSelection } from './useProductsSelection'
+
+import type { Product } from '@/types'
+
+const makeProduct = (id: string, name: string): Product =>
+  ({
+    id,
+    name,
+    barcode: `SKU-${id}`,
+    type: 'Stocked Product',
+    baseCost: 10,
+    stockQuantity: 5,
+    isActive: true,
+    isOutOfStock: false,
+    createdAt: new Date('2026-03-10T00:00:00.000Z'),
+    updatedAt: new Date('2026-03-10T00:00:00.000Z'),
+  }) as Product
+
+describe('useProductsSelection', () => {
+  it('selects and highlights the product when navigation state id matches a loaded product', async () => {
+    const dispatch = vi.fn()
+    const navigate = vi.fn()
+    const setFocusedProductIndex = vi.fn()
+    const alpha = makeProduct('1', 'Alpha')
+    const beta = makeProduct('2', 'Beta')
+
+    renderHook(() =>
+      useProductsSelection({
+        dispatch: dispatch as never,
+        navigate,
+        location: {
+          pathname: '/inventory/products',
+          state: { selectedProductId: '2' },
+        } as never,
+        products: [alpha, beta],
+        selectedProduct: null,
+        focusedProductIndex: -1,
+        setFocusedProductIndex,
+        selectedCategory: 'all',
+        productListRef: { current: null },
+      }),
+    )
+
+    await waitFor(() => {
+      expect(navigate).toHaveBeenCalledWith('/inventory/products', { replace: true, state: {} })
+    })
+
+    expect(dispatch).toHaveBeenCalledWith(expect.objectContaining({ payload: beta }))
+    expect(setFocusedProductIndex).toHaveBeenCalledWith(1)
+  })
+
+  it('does not navigate or select when the navigation selection id is missing from the loaded list', async () => {
+    const dispatch = vi.fn()
+    const navigate = vi.fn()
+    const setFocusedProductIndex = vi.fn()
+
+    renderHook(() =>
+      useProductsSelection({
+        dispatch: dispatch as never,
+        navigate,
+        location: {
+          pathname: '/inventory/products',
+          state: { selectedProductId: 'missing-id' },
+        } as never,
+        products: [makeProduct('1', 'Alpha'), makeProduct('2', 'Beta')],
+        selectedProduct: null,
+        focusedProductIndex: -1,
+        setFocusedProductIndex,
+        selectedCategory: 'all',
+        productListRef: { current: null },
+      }),
+    )
+
+    // Give effects time to run
+    await new Promise((r) => setTimeout(r, 100))
+
+    expect(navigate).not.toHaveBeenCalled()
+  })
+})

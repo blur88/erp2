@@ -18,7 +18,6 @@ import {
   useDeleteProductMutation,
   useGetCategoriesQuery,
   useGetProductsQuery,
-  useLazyGetProductQuery,
 } from '@/store/api/inventoryApi'
 import {
   selectProductFilters,
@@ -41,7 +40,6 @@ const ProductsPage: React.FC = () => {
 
   const productQueryParams = useMemo(
     () => ({
-      page: 1,
       search: productFilters.search || undefined,
       categoryId: productFilters.categoryId || undefined,
     }),
@@ -51,9 +49,7 @@ const ProductsPage: React.FC = () => {
   const { data: productsResponse, isFetching: isProductsFetching, refetch: refetchProducts } = useGetProductsQuery(productQueryParams)
   const { data: categories = [], refetch: refetchCategories } = useGetCategoriesQuery({ includeProductCount: true })
   const [deleteProduct] = useDeleteProductMutation()
-  const [fetchProductById] = useLazyGetProductQuery()
   const products = productsResponse?.data || []
-  const pagination = productsResponse?.meta
 
   const { searchTerm, setSearchTerm, focusSearchInput } = useSearchAndFilter({
     initialSearchTerm: productFilters.search,
@@ -71,15 +67,7 @@ const ProductsPage: React.FC = () => {
     focusedProductIndex: pageState.focusedProductIndex,
     setFocusedProductIndex: pageState.setFocusedProductIndex,
     selectedCategory: pageState.selectedCategory,
-    pendingProductId: pageState.pendingProductId,
-    setPendingProductId: pageState.setPendingProductId,
-    hasNavigatedWithSelection: pageState.hasNavigatedWithSelection,
-    setHasNavigatedWithSelection: pageState.setHasNavigatedWithSelection,
     productListRef: pageState.productListRef,
-    hasRestoredSelection: pageState.hasRestoredSelection,
-    fetchProductById,
-    refetchProducts,
-    showError,
   })
 
   const actions = useProductsActions({
@@ -115,7 +103,7 @@ const ProductsPage: React.FC = () => {
     <Box sx={{ p: 3 }}>
       <ProductsToolbar
         isMobile={isMobile}
-        total={pagination?.total || 0}
+        productCount={products.length}
         searchTerm={searchTerm}
         selectedCategory={pageState.selectedCategory}
         categories={categories as any[]}
@@ -137,7 +125,6 @@ const ProductsPage: React.FC = () => {
           <Grid item xs={12} md={3}>
             <ProductsTable
               products={products}
-              total={pagination?.total || 0}
               loading={isProductsFetching}
               selectedProductId={selectedProduct?.id}
               focusedProductIndex={pageState.focusedProductIndex}

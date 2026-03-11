@@ -69,20 +69,6 @@ export class CreateProductDto {
 export class UpdateProductDto extends PartialType(CreateProductDto) {}
 
 export class QueryProductsDto {
-  @ApiPropertyOptional({ description: 'Page number', minimum: 1, default: 1 })
-  @IsOptional()
-  @Type(() => Number)
-  @IsNumber()
-  @Min(1)
-  page?: number = 1;
-
-  @ApiPropertyOptional({ description: 'Items per page', minimum: 1, default: 20 })
-  @IsOptional()
-  @Type(() => Number)
-  @IsNumber()
-  @Min(1)
-  limit?: number = 20;
-
   @ApiPropertyOptional({ description: 'Search term (product name, barcode, brand)' })
   @IsOptional()
   @IsString()
@@ -230,14 +216,9 @@ export class ProductListResponseDto {
   @ApiProperty({ description: 'List of products', type: [ProductResponseDto] })
   data: ProductResponseDto[];
 
-  @ApiProperty({ description: 'Pagination metadata' })
+  @ApiProperty({ description: 'Response metadata' })
   meta: {
-    page: number;
-    limit: number;
     total: number;
-    totalPages: number;
-    hasNextPage: boolean;
-    hasPreviousPage: boolean;
   };
 }
 

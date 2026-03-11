@@ -1,4 +1,4 @@
-import { useCallback, useEffect, type MutableRefObject, type RefObject } from 'react'
+import { useCallback, useEffect, useRef, type RefObject } from 'react'
 import type { Location, NavigateFunction } from 'react-router-dom'
 
 import { setProductFilters, setSelectedProduct } from '@/store/slices/inventorySlice'
@@ -14,15 +14,7 @@ interface UseProductsSelectionParams {
   focusedProductIndex: number
   setFocusedProductIndex: (index: number) => void
   selectedCategory: string
-  pendingProductId: string | null
-  setPendingProductId: (id: string | null) => void
-  hasNavigatedWithSelection: boolean
-  setHasNavigatedWithSelection: (value: boolean) => void
   productListRef: RefObject<HTMLDivElement | null>
-  hasRestoredSelection: MutableRefObject<boolean>
-  fetchProductById: (id: string) => { unwrap: () => Promise<Product> }
-  refetchProducts: () => void
-  showError: (message: string) => void
 }
 
 export function useProductsSelection({
@@ -34,29 +26,30 @@ export function useProductsSelection({
   focusedProductIndex,
   setFocusedProductIndex,
   selectedCategory,
-  pendingProductId,
-  setPendingProductId,
-  hasNavigatedWithSelection,
-  setHasNavigatedWithSelection,
   productListRef,
-  hasRestoredSelection,
-  fetchProductById,
-  refetchProducts,
-  showError,
 }: UseProductsSelectionParams) {
+  const navigationSelectionId = (location.state as { selectedProductId?: string } | null)?.selectedProductId
+
   useEffect(() => {
     dispatch(setProductFilters({ categoryId: selectedCategory === 'all' ? undefined : selectedCategory }))
   }, [dispatch, selectedCategory])
 
+  const prevCategoryRef = useRef(selectedCategory)
   useEffect(() => {
-    if (!hasRestoredSelection.current && selectedProduct && products.length > 0) {
+    if (prevCategoryRef.current !== selectedCategory) {
+      prevCategoryRef.current = selectedCategory
+      setFocusedProductIndex(-1)
+    }
+  }, [selectedCategory, setFocusedProductIndex])
+
+  useEffect(() => {
+    if (selectedProduct && products.length > 0) {
       const index = products.findIndex((product) => product.id === selectedProduct.id)
       if (index >= 0) {
         setFocusedProductIndex(index)
-        hasRestoredSelection.current = true
       }
     }
-  }, [hasRestoredSelection, products, selectedProduct, setFocusedProductIndex])
+  }, [products, selectedProduct, setFocusedProductIndex])
 
   useEffect(() => {
     if (selectedProduct && products.length > 0) {
@@ -73,50 +66,18 @@ export function useProductsSelection({
   }, [dispatch, products, selectedProduct])
 
   useEffect(() => {
-    const state = location.state as { selectedProductId?: string } | null
-    if (state?.selectedProductId && state.selectedProductId !== pendingProductId) {
-      setHasNavigatedWithSelection(true)
-      setPendingProductId(state.selectedProductId)
-      navigate(location.pathname, { replace: true, state: {} })
-    }
-  }, [location.pathname, location.state, navigate, pendingProductId, setHasNavigatedWithSelection, setPendingProductId])
-
-  useEffect(() => {
-    if (pendingProductId && products.length > 0) {
-      const product = products.find((item) => item.id === pendingProductId)
+    if (navigationSelectionId && products.length > 0) {
+      const product = products.find((item) => item.id === navigationSelectionId)
       if (product) {
+        navigate(location.pathname, { replace: true, state: {} })
         dispatch(setSelectedProduct(product))
-        const index = products.findIndex((item) => item.id === pendingProductId)
+        const index = products.findIndex((item) => item.id === navigationSelectionId)
         if (index >= 0) {
           setFocusedProductIndex(index)
         }
-        setPendingProductId(null)
-        setTimeout(() => setHasNavigatedWithSelection(false), 1000)
-      } else {
-        fetchProductById(pendingProductId)
-          .unwrap()
-          .then((fetchedProduct) => {
-            dispatch(setSelectedProduct(fetchedProduct))
-            setFocusedProductIndex(-1)
-            void refetchProducts()
-          })
-          .catch((error) => {
-            console.error('Failed to fetch product:', error)
-            showError('Failed to load the product')
-          })
-          .finally(() => {
-            setPendingProductId(null)
-            setTimeout(() => setHasNavigatedWithSelection(false), 1000)
-          })
       }
     }
-  }, [dispatch, fetchProductById, pendingProductId, products, refetchProducts, setFocusedProductIndex, setHasNavigatedWithSelection, setPendingProductId, showError])
-
-  useEffect(() => {
-    if (hasRestoredSelection.current || !selectedProduct) {
-      setFocusedProductIndex(-1)
-    }
-  }, [hasRestoredSelection, selectedProduct, setFocusedProductIndex, selectedCategory])
+  }, [dispatch, location.pathname, navigate, navigationSelectionId, products, setFocusedProductIndex])
 
   useEffect(() => {
     if (products.length > 0 && focusedProductIndex === -1) {
@@ -125,12 +86,12 @@ export function useProductsSelection({
         if (index >= 0) {
           setFocusedProductIndex(index)
         }
-      } else if (!hasNavigatedWithSelection) {
+      } else if (!navigationSelectionId) {
         setFocusedProductIndex(0)
         dispatch(setSelectedProduct(products[0]))
       }
     }
-  }, [dispatch, focusedProductIndex, hasNavigatedWithSelection, products, selectedProduct, setFocusedProductIndex])
+  }, [dispatch, focusedProductIndex, navigationSelectionId, products, selectedProduct, setFocusedProductIndex])
 
   useEffect(() => {
     if (focusedProductIndex >= 0 && productListRef.current) {

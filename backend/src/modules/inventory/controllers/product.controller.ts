@@ -77,14 +77,12 @@ export class ProductController {
   }
 
   @Get()
-  @ApiOperation({ summary: 'Get all products with filtering and pagination' })
+  @ApiOperation({ summary: 'Get all products with filtering' })
   @ApiResponse({
     status: 200,
     description: 'Products retrieved successfully',
     type: ProductListResponseDto,
   })
-  @ApiQuery({ name: 'page', required: false, description: 'Page number' })
-  @ApiQuery({ name: 'limit', required: false, description: 'Items per page' })
   @ApiQuery({ name: 'search', required: false, description: 'Search term' })
   @ApiQuery({ name: 'categoryId', required: false, description: 'Filter by category' })
   @ApiQuery({ name: 'type', required: false, description: 'Filter by product type' })
@@ -173,8 +171,6 @@ export class ProductController {
     description: 'Deleted products retrieved successfully',
     type: ProductListResponseDto,
   })
-  @ApiQuery({ name: 'page', required: false, description: 'Page number' })
-  @ApiQuery({ name: 'limit', required: false, description: 'Items per page' })
   @ApiQuery({ name: 'search', required: false, description: 'Search term' })
   async findDeleted(@Query() query: QueryProductsDto): Promise<ProductListResponseDto> {
     return this.productService.findDeleted(query);

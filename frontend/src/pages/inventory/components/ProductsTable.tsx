@@ -17,7 +17,6 @@ import { TABLE_STYLES, TYPOGRAPHY_STYLES } from '@/constants/typography'
 
 interface ProductsTableProps {
   products: Product[]
-  total: number
   loading: boolean
   selectedProductId?: string
   focusedProductIndex: number
@@ -28,7 +27,6 @@ interface ProductsTableProps {
 
 const ProductsTable: React.FC<ProductsTableProps> = ({
   products,
-  total,
   loading,
   selectedProductId,
   focusedProductIndex,
@@ -49,7 +47,7 @@ const ProductsTable: React.FC<ProductsTableProps> = ({
               letterSpacing: '0.5px',
             }}
           >
-            Product List ({total})
+            Product List ({products.length})
           </Typography>
         </Box>
       </Box>
