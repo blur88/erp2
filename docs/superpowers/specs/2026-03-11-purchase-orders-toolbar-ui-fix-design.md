@@ -102,7 +102,7 @@ Mostly correct but uses hardcoded values instead of constants, and has redundant
 | Element | Current state | Fix |
 |---------|--------------|-----|
 | Search TextField | Height uses constant; `fontSize` and `padding` hardcoded | Replace hardcoded `'0.875rem'` / `'8.5px 14px'` with constants |
-| Date Filter FormControl | Height uses constant; `fontSize` hardcoded. Select also has redundant `sx` with `'& .MuiSelect-select': { padding, fontSize }` and `MenuProps` font overrides | Replace hardcoded values with constants; remove redundant `Select`-level `sx` block and `MenuProps` (menu items inherit theme font size) |
+| Date Filter FormControl | Height uses constant; `fontSize` hardcoded. Select also has `sx` with `'& .MuiSelect-select': { padding, fontSize }` and `MenuProps` font override | Replace hardcoded values on `FormControl` and `Select`-level `sx` with constants; **keep** `MenuProps` font override but replace its hardcoded `'0.875rem'` with `TYPOGRAPHY_STYLES.searchField.input.fontSize` (MUI default menu item font is `1rem`; this override is needed) |
 | From Date TextField (conditional) | Height uses constant; `fontSize` hardcoded; missing `'& input': { padding }` sub-rule | Replace hardcoded `'0.875rem'` with constant; add missing `padding` sub-rule |
 | To Date TextField (conditional) | Height uses constant; `fontSize` hardcoded; missing `'& input': { padding }` sub-rule | Replace hardcoded `'0.875rem'` with constant; add missing `padding` sub-rule |
 | Clear Filters Button | Height uses constant; `fontSize` hardcoded | Replace hardcoded `'0.875rem'` with constant |
@@ -124,3 +124,4 @@ After the fix, every visible toolbar element across `PurchaseOrdersToolbar`, `Or
 - No changes to mobile layout logic
 - Header-area action buttons (View Deleted, Create Order, Add Product, etc.) are intentionally excluded — `ProductsToolbar` (the reference) also has no height override on these, so the standard is filter-area elements only
 - `slotProps` vs `InputProps` API inconsistency across toolbar files is out of scope for this styling fix
+- Keep `size="medium"` props as-is on all elements; the `sx` height override takes precedence over the MUI default medium size
