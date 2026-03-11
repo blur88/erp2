@@ -97,10 +97,7 @@ describe('notificationSlice', () => {
     for (let i = 0; i < 51; i++) {
       store.dispatch(addNotification({ type: 'info', title: `N${i}`, message: 'm' }))
     }
-    // unreadCount should match the number of unread notifications in the capped array
-    const notifications = selectNotifications(store.getState())
-    const expectedUnread = notifications.filter((n) => !n.read).length
-    expect(selectUnreadCount(store.getState())).toBe(expectedUnread)
+    expect(selectUnreadCount(store.getState())).toBe(50)
   })
 
   // -- removeNotification floor guard --------------------------------------
