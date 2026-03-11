@@ -354,8 +354,8 @@ const CreateProductPage: React.FC = () => {
       })
     } catch (err: any) {
       console.error('Error saving product:', err)
-      setError(err.response?.data?.message || 'Failed to save product')
-      showError(err.response?.data?.message || 'Failed to save product')
+      setError(err?.message || 'Failed to save product')
+      showError(err?.message || 'Failed to save product')
     } finally {
       setLoading(false)
     }
