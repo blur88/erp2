@@ -94,6 +94,7 @@ const CreatePurchaseOrderPage: React.FC = () => {
   const [loadingOrder, setLoadingOrder] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [orderToLoad, setOrderToLoad] = useState<any>(null)
+  const latestProductsRequestRef = React.useRef(0)
   const { data: suppliersResponse } = useGetSuppliersQuery({})
   const [createPurchaseOrder] = useCreatePurchaseOrderMutation()
   const [updatePurchaseOrder] = useUpdatePurchaseOrderMutation()
@@ -250,12 +251,19 @@ const CreatePurchaseOrderPage: React.FC = () => {
   }, [JSON.stringify(watchedItems), setValue])
 
   const loadProducts = async (searchTerm: string = '') => {
+    const requestId = ++latestProductsRequestRef.current
+
     try {
       const params: any = { isActive: true }
       if (searchTerm && searchTerm.trim().length >= 1) {
         params.search = searchTerm.trim()
       }
       const response = await api.get('/inventory/products', { params })
+
+      if (requestId !== latestProductsRequestRef.current) {
+        return
+      }
+
       console.log('Products loaded:', response)
       const newProducts = (response as any).data?.data || []
 

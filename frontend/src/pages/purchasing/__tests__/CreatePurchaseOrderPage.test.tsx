@@ -1,12 +1,21 @@
 import '@testing-library/jest-dom/vitest'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { BrowserRouter } from 'react-router-dom'
 
 import CreatePurchaseOrderPage from '../CreatePurchaseOrderPage'
 
 const replacementSearchTerm = 'B'
+
+const createDeferred = <T,>() => {
+  let resolve!: (value: T) => void
+  const promise = new Promise<T>((res) => {
+    resolve = res
+  })
+
+  return { promise, resolve }
+}
 
 const {
   mockDispatch,
@@ -213,6 +222,67 @@ describe('CreatePurchaseOrderPage', () => {
 
     await waitFor(() => {
       expect(firstProductInput).toHaveValue('Hydrated Product')
+    })
+  })
+
+  it('ignores stale earlier product responses that finish after the latest search', async () => {
+    const user = userEvent.setup()
+    const initialProductsRequest = createDeferred<any>()
+    const latestSearchRequest = createDeferred<any>()
+
+    mockGet.mockImplementation(async (_url: string, config?: { params?: { search?: string } }) => {
+      if (config?.params?.search === replacementSearchTerm) {
+        return latestSearchRequest.promise
+      }
+
+      return initialProductsRequest.promise
+    })
+
+    render(
+      <BrowserRouter>
+        <CreatePurchaseOrderPage />
+      </BrowserRouter>
+    )
+
+    const productInput = screen.getByPlaceholderText('Search by name or barcode...')
+
+    await waitFor(() => {
+      expect(mockGet).toHaveBeenCalledWith('/inventory/products', {
+        params: { isActive: true },
+      })
+    })
+
+    await user.click(productInput)
+    await user.type(productInput, replacementSearchTerm)
+
+    await waitFor(() => {
+      expect(mockGet).toHaveBeenCalledWith('/inventory/products', {
+        params: { isActive: true, search: replacementSearchTerm },
+      })
+    })
+
+    await act(async () => {
+      latestSearchRequest.resolve({
+        data: {
+          data: [{ id: 'product-2', name: 'Beta Gadget', baseCost: 22 }],
+        },
+      })
+    })
+
+    const listbox = await screen.findByRole('listbox')
+    expect(within(listbox).getByText('Beta Gadget')).toBeInTheDocument()
+
+    await act(async () => {
+      initialProductsRequest.resolve({
+        data: {
+          data: [{ id: 'product-1', name: 'Alpha Widget', baseCost: 11 }],
+        },
+      })
+    })
+
+    await waitFor(() => {
+      expect(within(listbox).getByText('Beta Gadget')).toBeInTheDocument()
+      expect(within(listbox).queryByText('Alpha Widget')).toBeNull()
     })
   })
 })
