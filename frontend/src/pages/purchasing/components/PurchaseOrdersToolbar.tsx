@@ -82,7 +82,19 @@ const PurchaseOrdersToolbar: React.FC<PurchaseOrdersToolbarProps> = ({
             value={filters.search}
             onChange={(event) => onFilterChange({ search: event.target.value })}
             size="medium"
-            sx={{ minWidth: isMobile ? 'auto' : 250, flex: isMobile ? 'none' : 1, maxWidth: isMobile ? 'none' : 400 }}
+            sx={{
+              minWidth: isMobile ? 'auto' : 250,
+              flex: isMobile ? 'none' : 1,
+              maxWidth: isMobile ? 'none' : 400,
+              '& .MuiOutlinedInput-root': {
+                height: TYPOGRAPHY_STYLES.searchField.input.height,
+                fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
+                '& input': {
+                  padding: TYPOGRAPHY_STYLES.searchField.input.padding,
+                  fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
+                },
+              },
+            }}
             InputProps={{
               startAdornment: (
                 <InputAdornment position="start">
@@ -92,7 +104,16 @@ const PurchaseOrdersToolbar: React.FC<PurchaseOrdersToolbarProps> = ({
             }}
           />
 
-          <FormControl size="medium" sx={{ minWidth: isMobile ? 'auto' : 120 }}>
+          <FormControl
+            size="medium"
+            sx={{
+              minWidth: isMobile ? 'auto' : 120,
+              '& .MuiOutlinedInput-root': {
+                height: TYPOGRAPHY_STYLES.searchField.input.height,
+                fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
+              },
+            }}
+          >
             <InputLabel>Date Filter</InputLabel>
             <Select value={filters.dateFilter} label="Date Filter" onChange={(event) => onFilterChange({ dateFilter: event.target.value })}>
               <MenuItem value="all">All</MenuItem>
@@ -108,12 +129,57 @@ const PurchaseOrdersToolbar: React.FC<PurchaseOrdersToolbarProps> = ({
 
           {filters.dateFilter === 'custom' && (
             <>
-              <TextField label="From Date" type="date" value={filters.customFromDate} onChange={(event) => onFilterChange({ customFromDate: event.target.value })} size="medium" sx={{ minWidth: isMobile ? 'auto' : 120 }} InputLabelProps={{ shrink: true }} />
-              <TextField label="To Date" type="date" value={filters.customToDate} onChange={(event) => onFilterChange({ customToDate: event.target.value })} size="medium" sx={{ minWidth: isMobile ? 'auto' : 120 }} InputLabelProps={{ shrink: true }} />
+              <TextField
+                label="From Date"
+                type="date"
+                value={filters.customFromDate}
+                onChange={(event) => onFilterChange({ customFromDate: event.target.value })}
+                size="medium"
+                sx={{
+                  minWidth: isMobile ? 'auto' : 120,
+                  '& .MuiOutlinedInput-root': {
+                    height: TYPOGRAPHY_STYLES.searchField.input.height,
+                    fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
+                    '& input': {
+                      padding: TYPOGRAPHY_STYLES.searchField.input.padding,
+                      fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
+                    },
+                  },
+                }}
+                InputLabelProps={{ shrink: true }}
+              />
+              <TextField
+                label="To Date"
+                type="date"
+                value={filters.customToDate}
+                onChange={(event) => onFilterChange({ customToDate: event.target.value })}
+                size="medium"
+                sx={{
+                  minWidth: isMobile ? 'auto' : 120,
+                  '& .MuiOutlinedInput-root': {
+                    height: TYPOGRAPHY_STYLES.searchField.input.height,
+                    fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
+                    '& input': {
+                      padding: TYPOGRAPHY_STYLES.searchField.input.padding,
+                      fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
+                    },
+                  },
+                }}
+                InputLabelProps={{ shrink: true }}
+              />
             </>
           )}
 
-          <FormControl size="medium" sx={{ minWidth: isMobile ? 'auto' : 120 }}>
+          <FormControl
+            size="medium"
+            sx={{
+              minWidth: isMobile ? 'auto' : 120,
+              '& .MuiOutlinedInput-root': {
+                height: TYPOGRAPHY_STYLES.searchField.input.height,
+                fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
+              },
+            }}
+          >
             <InputLabel>Supplier</InputLabel>
             <Select value={filters.supplierFilter} label="Supplier" onChange={(event) => onFilterChange({ supplierFilter: event.target.value })}>
               <MenuItem value="all">All</MenuItem>
@@ -126,7 +192,12 @@ const PurchaseOrdersToolbar: React.FC<PurchaseOrdersToolbarProps> = ({
           </FormControl>
 
           {hasActiveFilters && (
-            <Button variant="outlined" size="medium" onClick={onClearFilters}>
+            <Button
+              variant="outlined"
+              size="medium"
+              onClick={onClearFilters}
+              sx={{ height: TYPOGRAPHY_STYLES.searchField.input.height, fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize }}
+            >
               Clear Filters
             </Button>
           )}
@@ -136,6 +207,7 @@ const PurchaseOrdersToolbar: React.FC<PurchaseOrdersToolbarProps> = ({
             size="medium"
             startIcon={filters.sortBy === 'orderNumber' ? filters.sortOrder === 'desc' ? <ArrowDownIcon /> : <ArrowUpIcon /> : <SortIcon />}
             onClick={() => onSort('orderNumber')}
+            sx={{ height: TYPOGRAPHY_STYLES.searchField.input.height, fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize }}
           >
             Sort
           </Button>
