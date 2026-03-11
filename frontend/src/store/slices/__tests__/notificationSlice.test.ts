@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { configureStore } from '@reduxjs/toolkit'
 import { REHYDRATE } from 'redux-persist'
+import type { Notification } from '@/types'
 import notificationReducer, {
   addNotification,
   removeNotification,
@@ -23,9 +24,17 @@ vi.mock('@/services/authApi', () => ({
   },
 }))
 
-function createTestStore() {
+function createTestStore(
+  preloadedState?: {
+    notifications: {
+      notifications: Notification[]
+      unreadCount: number
+    }
+  },
+) {
   return configureStore({
     reducer: { notifications: notificationReducer },
+    preloadedState,
     middleware: (getDefaultMiddleware) =>
       getDefaultMiddleware({ serializableCheck: false }),
   })
@@ -96,13 +105,27 @@ describe('notificationSlice', () => {
   // -- removeNotification floor guard --------------------------------------
 
   it('does not decrement unreadCount below zero on removeNotification', () => {
-    store.dispatch(addNotification({ type: 'info', title: 'X', message: 'm' }))
-    const id = selectNotifications(store.getState())[0].id
-    // Manually corrupt unreadCount to 0 by marking as read first
-    store.dispatch(markAsRead(id))
+    const unreadNotification: Notification = {
+      id: 'floor-guard-id',
+      type: 'info',
+      title: 'X',
+      message: 'm',
+      timestamp: new Date().toISOString(),
+      read: false,
+    }
+
+    store = createTestStore({
+      notifications: {
+        notifications: [unreadNotification],
+        unreadCount: 0,
+      },
+    })
+
+    expect(selectNotifications(store.getState())).toEqual([unreadNotification])
     expect(selectUnreadCount(store.getState())).toBe(0)
-    // Now remove -- unreadCount must not go negative
-    store.dispatch(removeNotification(id))
+
+    store.dispatch(removeNotification(unreadNotification.id))
+
     expect(selectUnreadCount(store.getState())).toBe(0)
   })
 
