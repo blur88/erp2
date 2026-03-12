@@ -94,7 +94,7 @@ export class FundTransferResponseDto {
   description?: string;
   status: FundTransferStatus;
   fiscalPeriodId: string;
-  journalEntryId?: string;
+  journalEntryId: string | null;
   sourceAccount: AccountSummary;
   destinationAccount: AccountSummary;
   journalEntry?: JournalEntrySummary;
