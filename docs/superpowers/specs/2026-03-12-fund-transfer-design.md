@@ -45,7 +45,7 @@ On transfer creation, `AccountingService.postFundTransferEntry(transfer, userId,
 
 1. Check for existing POSTED or DRAFT JE for this source via `journalEntryService.findBySource('fund_transfer', transfer.id)` — filter the returned array for `e.status === POSTED || e.status === DRAFT`; if an active entry is found, return it (idempotency guard; same pattern as `postSalesOrderEntry`)
 2. Call `this.validatePeriodOpen(transfer.transferDate)` — consistent with all other `post*Entry` methods
-3. Call `this.fiscalPeriodService.validatePeriod({ date: transfer.transferDate })` to get the period object; use `periodValidation.period.id` as `fiscalPeriodId` for the JE (same dual-call pattern used by all other `post*Entry` methods — `validatePeriodOpen` is the guard, `validatePeriod` provides the period entity)
+3. Call `this.fiscalPeriodService.validatePeriod({ date: transfer.transferDate })` to get the period object; use `periodValidation.period.id` as `fiscalPeriodId` for the JE. Note: this is the same dual-call pattern used by all other `post*Entry` methods. The period is re-queried here (rather than passed in from `FundTransferService.create`) to keep `AccountingService` self-contained — consistent with every other `post*Entry` method which also re-validates regardless of upstream validation.
 4. Call `journalEntryService.create()` with:
    - `entryDate = transfer.transferDate` (use the transfer date — same as expense uses `expenseDate`)
    - `fiscalPeriodId` from step 3
@@ -119,7 +119,7 @@ No DELETE endpoint — transfers are permanent records. Use cancellation to void
 1. Find transfer; throw `NotFoundException` if not found
 2. Throw `BadRequestException` if status is already `CANCELLED`
 3. If `transfer.journalEntryId` is null: throw `BadRequestException("Cannot cancel transfer — journal entry was not posted. This should not happen if transaction wrapping is in place.")`
-4. Call `accountingService.reverseSourceEntries('fund_transfer', transfer.id, userId)` — this existing method on `AccountingService` handles: finding the JE via `findBySource`, detecting the current open period via `getCurrentPeriod()`, throwing `BadRequestException` if no open period exists, and calling `reverseEntryInPeriod` into the current period. If the JE was already reversed, it throws — let the error propagate as-is.
+4. Call `accountingService.reverseSourceEntries('fund_transfer', transfer.id, userId)` — this existing method handles: finding the JE via `findBySource`, detecting the current open period via `getCurrentPeriod()`, throwing `BadRequestException` if no open period exists, and calling `reverseEntryInPeriod`. Note: `reverseSourceEntries` silently skips entries that are already reversed (logs a warning, no exception) — double-cancel is already blocked by step 2 (`status === CANCELLED` check), so this is safe.
 6. Set `transfer.status = CANCELLED`
 7. Save
 8. Audit log `CANCEL`
