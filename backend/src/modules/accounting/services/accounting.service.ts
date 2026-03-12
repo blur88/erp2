@@ -855,13 +855,13 @@ export class AccountingService {
         accountId: transfer.destinationAccountId,
         debitAmount: Number(transfer.amount),
         creditAmount: 0,
-        memo: `Transfer to ${transfer.destinationAccountId}`,
+        memo: `Transfer to ${transfer.destinationAccount?.name ?? transfer.destinationAccountId}`,
       },
       {
         accountId: transfer.sourceAccountId,
         debitAmount: 0,
         creditAmount: Number(transfer.amount),
-        memo: `Transfer from ${transfer.sourceAccountId}`,
+        memo: `Transfer from ${transfer.sourceAccount?.name ?? transfer.sourceAccountId}`,
       },
     ];
 

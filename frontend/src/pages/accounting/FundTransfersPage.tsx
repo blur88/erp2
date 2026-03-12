@@ -199,7 +199,7 @@ const FundTransfersPage: React.FC = () => {
       resetForm()
       refetch()
     } catch (error: any) {
-      showError(String(error))
+      showError(error?.data?.message ?? error?.message ?? 'Operation failed')
     }
   }
 
@@ -212,7 +212,7 @@ const FundTransfersPage: React.FC = () => {
       setCancelTarget(null)
       refetch()
     } catch (error: any) {
-      showError(String(error))
+      showError(error?.data?.message ?? error?.message ?? 'Operation failed')
     }
   }
 

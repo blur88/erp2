@@ -110,6 +110,12 @@ export class QueryChartOfAccountsDto {
   @IsUUID(4)
   parentId?: string;
 
+  @ApiPropertyOptional({ description: 'Filter by cash/bank accounts eligible for fund transfers' })
+  @IsOptional()
+  @Type(() => Boolean)
+  @IsBoolean()
+  isCashEquivalent?: boolean;
+
   @ApiPropertyOptional({ description: 'Sort field', enum: ['code', 'name', 'type', 'createdAt'] })
   @IsOptional()
   @IsString()
