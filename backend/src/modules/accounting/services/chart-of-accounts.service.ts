@@ -694,6 +694,7 @@ export class ChartOfAccountsService {
       type: account.type,
       parentId: account.parentId,
       isActive: account.isActive,
+      isCashEquivalent: account.isCashEquivalent,
       fullCode: account.fullCode,
       isParent: account.isParent,
       parent: account.parent

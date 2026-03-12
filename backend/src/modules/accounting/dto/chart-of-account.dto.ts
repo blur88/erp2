@@ -43,6 +43,14 @@ export class CreateChartOfAccountDto {
   @IsOptional()
   @IsBoolean()
   isActive?: boolean;
+
+  @ApiPropertyOptional({
+    description: 'Whether the account is eligible for cash/bank fund transfers',
+    default: false,
+  })
+  @IsOptional()
+  @IsBoolean()
+  isCashEquivalent?: boolean;
 }
 
 export class UpdateChartOfAccountDto extends PartialType(CreateChartOfAccountDto) {
@@ -131,6 +139,9 @@ export class ChartOfAccountResponseDto {
 
   @ApiProperty({ description: 'Whether the account is active' })
   isActive: boolean;
+
+  @ApiProperty({ description: 'Whether the account is eligible for cash/bank fund transfers' })
+  isCashEquivalent: boolean;
 
   @ApiProperty({ description: 'Full hierarchical code (e.g., "1000-1010")' })
   fullCode: string;
