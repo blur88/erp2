@@ -46,6 +46,11 @@ do_audit() {
   (cd "$ROOT_DIR/frontend" && npm audit) || true
 }
 
+do_docker_rebuild() {
+  echo -e "${BOLD}${YELLOW}--- Docker: prune + rebuild + up ---${RESET}"
+  docker system prune -f && docker compose up --build -d
+}
+
 do_top_lines() {
   echo -e "${BOLD}${YELLOW}--- Top 5 files by line count ---${RESET}"
   find "$ROOT_DIR" \
@@ -67,6 +72,7 @@ STEPS=(
   "Update packages (within semver ranges)"
   "Audit (security vulnerabilities)"
   "Top 5 files by line count"
+  "Docker: prune + rebuild + up"
 )
 
 run_step() {
@@ -76,6 +82,7 @@ run_step() {
     2) do_update ;;
     3) do_audit ;;
     4) do_top_lines ;;
+    5) do_docker_rebuild ;;
   esac
 }
 
@@ -97,6 +104,7 @@ prompt_next() {
       3) echo "2" ; return ;;
       4) echo "3" ; return ;;
       5) echo "4" ; return ;;
+      6) echo "5" ; return ;;
       [Rr]) echo "$current" ; return ;;
       [Qq]) echo "-1" ; return ;;
       *) echo -e "${RED}Invalid choice.${RESET}" >&2 ;;
@@ -118,10 +126,10 @@ echo ""
 
 # Pick starting step
 while true; do
-  read -rp "$(echo -e "${BOLD}Start with (1/2/3/4/5): ${RESET}")" start
+  read -rp "$(echo -e "${BOLD}Start with (1–6): ${RESET}")" start
   case "$start" in
-    1|2|3|4|5) current=$((start-1)) ; break ;;
-    *) echo -e "${RED}Please enter 1, 2, 3, or 4.${RESET}" ;;
+    1|2|3|4|5|6) current=$((start-1)) ; break ;;
+    *) echo -e "${RED}Please enter 1–6.${RESET}" ;;
   esac
 done
 
