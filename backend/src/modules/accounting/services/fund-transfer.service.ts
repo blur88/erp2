@@ -38,6 +38,30 @@ export class FundTransferService {
     private readonly dataSource: DataSource,
   ) {}
 
+  private getAccountingTransferPoster(): (
+    transfer: FundTransfer,
+    currentUserId: string,
+    currentUsername?: string,
+  ) => Promise<{ id: string }> {
+    const candidate = (
+      this.accountingService as Partial<{
+        postFundTransferEntry: (
+          transfer: FundTransfer,
+          currentUserId: string,
+          currentUsername?: string,
+        ) => Promise<{ id: string }>;
+      }>
+    ).postFundTransferEntry;
+
+    if (typeof candidate !== 'function') {
+      throw new BadRequestException(
+        'Fund transfer journal entry posting is not available',
+      );
+    }
+
+    return candidate.bind(this.accountingService);
+  }
+
   async create(
     dto: CreateFundTransferDto,
     userId: string,
@@ -99,6 +123,7 @@ export class FundTransferService {
     );
 
     let savedTransfer!: FundTransfer;
+    const postFundTransferEntry = this.getAccountingTransferPoster();
     await this.dataSource.transaction(async (manager) => {
       const transfer = manager.create(FundTransfer, {
         referenceNumber,
@@ -113,19 +138,37 @@ export class FundTransferService {
       });
 
       savedTransfer = await manager.save(FundTransfer, transfer);
+      let postedJournalEntryId: string | null = null;
 
-      const postedJournalEntry = await (
-        this.accountingService as AccountingService & {
-          postFundTransferEntry: (
-            transfer: FundTransfer,
-            currentUserId: string,
-            currentUsername?: string,
-          ) => Promise<{ id: string }>;
+      try {
+        const postedJournalEntry = await postFundTransferEntry(
+          savedTransfer,
+          userId,
+          username,
+        );
+        postedJournalEntryId = postedJournalEntry.id;
+        savedTransfer.journalEntryId = postedJournalEntryId;
+        await manager.save(FundTransfer, savedTransfer);
+      } catch (error) {
+        if (savedTransfer.id && postedJournalEntryId) {
+          try {
+            await this.accountingService.reverseSourceEntries(
+              'fund_transfer',
+              savedTransfer.id,
+              userId,
+            );
+          } catch (cleanupError) {
+            this.logger.error(
+              `Failed to reverse orphaned journal entry for fund transfer ${savedTransfer.id}`,
+              cleanupError instanceof Error
+                ? cleanupError.stack
+                : String(cleanupError),
+            );
+          }
         }
-      ).postFundTransferEntry(savedTransfer, userId, username);
 
-      savedTransfer.journalEntryId = postedJournalEntry.id;
-      await manager.save(FundTransfer, savedTransfer);
+        throw error;
+      }
     });
 
     await this.auditLogService.log(
@@ -265,6 +308,37 @@ export class FundTransferService {
     return this.toResponseDto(transfer);
   }
 
+  private buildAccountSummary(
+    account: ChartOfAccount | undefined,
+    relationName: 'sourceAccount' | 'destinationAccount',
+    transfer: FundTransfer,
+  ): FundTransferResponseDto['sourceAccount'] {
+    if (account) {
+      return {
+        id: account.id,
+        code: account.code,
+        name: account.name,
+        type: account.type,
+      };
+    }
+
+    this.logger.warn(
+      `Fund transfer '${transfer.id}' is missing ${relationName} relation data during response mapping`,
+    );
+
+    const fallbackId =
+      relationName === 'sourceAccount'
+        ? transfer.sourceAccountId
+        : transfer.destinationAccountId;
+
+    return {
+      id: fallbackId ?? '',
+      code: '',
+      name: '',
+      type: '',
+    };
+  }
+
   private toResponseDto(transfer: FundTransfer): FundTransferResponseDto {
     return {
       id: transfer.id,
@@ -275,22 +349,16 @@ export class FundTransferService {
       status: transfer.status,
       fiscalPeriodId: transfer.fiscalPeriodId,
       journalEntryId: transfer.journalEntryId ?? null,
-      sourceAccount: transfer.sourceAccount
-        ? {
-            id: transfer.sourceAccount.id,
-            code: transfer.sourceAccount.code,
-            name: transfer.sourceAccount.name,
-            type: transfer.sourceAccount.type,
-          }
-        : (undefined as never),
-      destinationAccount: transfer.destinationAccount
-        ? {
-            id: transfer.destinationAccount.id,
-            code: transfer.destinationAccount.code,
-            name: transfer.destinationAccount.name,
-            type: transfer.destinationAccount.type,
-          }
-        : (undefined as never),
+      sourceAccount: this.buildAccountSummary(
+        transfer.sourceAccount,
+        'sourceAccount',
+        transfer,
+      ),
+      destinationAccount: this.buildAccountSummary(
+        transfer.destinationAccount,
+        'destinationAccount',
+        transfer,
+      ),
       journalEntry: transfer.journalEntry
         ? {
             id: transfer.journalEntry.id,
