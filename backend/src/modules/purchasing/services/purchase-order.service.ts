@@ -775,6 +775,37 @@ export class PurchaseOrderService {
       // Don't throw error - purchase order deletion should still succeed
     }
 
+    // Find and permanently delete all associated VendorPayments (including soft-deleted)
+    // Must be done before GRN deletion because vendor_payments.grnId references goods_received_notes
+    const vendorPayments = await this.vendorPaymentRepository.find({
+      where: { purchaseOrderId: id },
+      withDeleted: true,
+    });
+
+    for (const payment of vendorPayments) {
+      await this.auditLogService.log(
+        'PERMANENT_DELETE',
+        'VendorPayment',
+        `Permanently deleted vendor payment: ${payment.paymentNumber} (auto-deleted with PO)`,
+        {
+          entityId: payment.id,
+          userId: userId || 'system',
+          username,
+          oldValues: {
+            paymentNumber: payment.paymentNumber,
+            amount: payment.amount,
+            status: payment.status,
+            paymentMethodId: payment.paymentMethodId,
+          },
+        }
+      );
+    }
+
+    if (vendorPayments.length > 0) {
+      await this.vendorPaymentRepository.remove(vendorPayments);
+      this.logger.log(`Permanently deleted ${vendorPayments.length} vendor payment(s) for purchase order ${purchaseOrder.orderNumber}`);
+    }
+
     // Find and permanently delete associated GRN (including soft-deleted)
     const grn = await this.grnRepository.findOne({
       where: { purchaseOrderId: id },
@@ -824,7 +855,7 @@ export class PurchaseOrderService {
     // Hard delete - remove from database completely
     await this.purchaseOrderRepository.remove(purchaseOrder);
 
-    this.logger.log(`Purchase order ${purchaseOrder.orderNumber} permanently deleted`);
+    this.logger.log(`Permanently deleted purchase order: ${purchaseOrder.orderNumber}`);
   }
 
   /**
@@ -1595,7 +1626,7 @@ export class PurchaseOrderService {
   }
 
   /**
-   * Mark purchase order as unpaid by hard deleting the vendor payment
+   * Mark purchase order as unpaid by soft-deleting the vendor payment
    */
   async markAsUnpaid(id: string): Promise<PurchaseOrderResponseDto> {
     this.logger.log(`Marking purchase order as unpaid: ${id}`);

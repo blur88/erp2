@@ -22,12 +22,14 @@ import { AuditLogService } from '../../audit-logs/services';
 import { AccountingService } from '../../accounting/services/accounting.service';
 
 describe('PurchaseOrderService', () => {
+  let module: TestingModule;
   let service: PurchaseOrderService;
   let purchaseOrderRepository: jest.Mocked<Repository<PurchaseOrder>>;
   let purchaseOrderItemRepository: jest.Mocked<Repository<PurchaseOrderItem>>;
   let productRepository: jest.Mocked<Repository<Product>>;
   let grnRepository: jest.Mocked<Repository<GoodsReceivedNote>>;
   let vendorPaymentRepository: jest.Mocked<Repository<VendorPayment>>;
+  let auditLogService: jest.Mocked<AuditLogService>;
   let accountingService: jest.Mocked<AccountingService>;
   let stockMovementService: jest.Mocked<StockMovementService>;
   let vendorPaymentService: jest.Mocked<VendorPaymentService>;
@@ -97,7 +99,7 @@ describe('PurchaseOrderService', () => {
   } as any;
 
   beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
+    module = await Test.createTestingModule({
       providers: [
         PurchaseOrderService,
         {
@@ -106,6 +108,7 @@ describe('PurchaseOrderService', () => {
             findOne: jest.fn(),
             update: jest.fn(),
             save: jest.fn(),
+            remove: jest.fn(),
           },
         },
         {
@@ -129,15 +132,18 @@ describe('PurchaseOrderService', () => {
           useValue: {
             findOne: jest.fn(),
             save: jest.fn(),
+            remove: jest.fn(),
           },
         },
         {
           provide: getRepositoryToken(VendorPayment),
           useValue: {
+            find: jest.fn(),
             findOne: jest.fn(),
             save: jest.fn(),
             update: jest.fn(),
             restore: jest.fn(),
+            remove: jest.fn(),
           },
         },
         {
@@ -199,6 +205,7 @@ describe('PurchaseOrderService', () => {
     productRepository = module.get(getRepositoryToken(Product));
     grnRepository = module.get(getRepositoryToken(GoodsReceivedNote));
     vendorPaymentRepository = module.get(getRepositoryToken(VendorPayment));
+    auditLogService = module.get(AuditLogService);
     accountingService = module.get(AccountingService);
     stockMovementService = module.get(StockMovementService);
     vendorPaymentService = module.get(VendorPaymentService);
@@ -284,6 +291,102 @@ describe('PurchaseOrderService', () => {
       await service.markAsUnpaid('po-1');
       expect(purchaseOrderRepository.save).toHaveBeenCalledWith(
         expect.objectContaining({ paidAmount: 0 }),
+      );
+    });
+  });
+
+  describe('permanentDelete', () => {
+    const mockPO = {
+      id: 'po-1',
+      orderNumber: 'PO-000001',
+      supplierId: 'supplier-1',
+      totalAmount: 500,
+      isFullyReceived: false,
+    } as unknown as PurchaseOrder;
+
+    const mockVP1 = {
+      id: 'vp-1',
+      paymentNumber: 'VP-000001',
+      amount: 250,
+      status: 'completed',
+    } as unknown as VendorPayment;
+
+    const mockVP2 = {
+      id: 'vp-2',
+      paymentNumber: 'VP-000002',
+      amount: 250,
+      status: 'completed',
+    } as unknown as VendorPayment;
+
+    beforeEach(() => {
+      purchaseOrderRepository.findOne.mockResolvedValue(mockPO);
+      grnRepository.findOne.mockResolvedValue(null);
+      stockMovementService.deleteByReference.mockResolvedValue({ deletedCount: 0 } as any);
+      vendorPaymentRepository.find.mockResolvedValue([]);
+      vendorPaymentRepository.remove.mockResolvedValue(undefined as any);
+      purchaseOrderRepository.remove.mockResolvedValue(undefined as any);
+      auditLogService.log.mockResolvedValue(undefined as any);
+    });
+
+    it('queries vendor payments with withDeleted: true', async () => {
+      await service.permanentDelete('po-1', 'user-1', 'admin');
+      expect(vendorPaymentRepository.find).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { purchaseOrderId: 'po-1' },
+          withDeleted: true,
+        }),
+      );
+    });
+
+    it('logs PERMANENT_DELETE audit entry for each vendor payment', async () => {
+      vendorPaymentRepository.find.mockResolvedValue([mockVP1, mockVP2]);
+
+      await service.permanentDelete('po-1', 'user-1', 'admin');
+
+      const vendorPaymentPermanentDeleteLogs = auditLogService.log.mock.calls.filter(
+        ([action, entityType]) => action === 'PERMANENT_DELETE' && entityType === 'VendorPayment',
+      );
+
+      expect(auditLogService.log).toHaveBeenCalledWith(
+        'PERMANENT_DELETE',
+        'VendorPayment',
+        expect.stringContaining('VP-000001'),
+        expect.objectContaining({ entityId: 'vp-1' }),
+      );
+      expect(auditLogService.log).toHaveBeenCalledWith(
+        'PERMANENT_DELETE',
+        'VendorPayment',
+        expect.stringContaining('VP-000002'),
+        expect.objectContaining({ entityId: 'vp-2' }),
+      );
+      expect(vendorPaymentPermanentDeleteLogs).toHaveLength(2);
+    });
+
+    it('calls vendorPaymentRepository.remove with all payments', async () => {
+      vendorPaymentRepository.find.mockResolvedValue([mockVP1, mockVP2]);
+
+      await service.permanentDelete('po-1', 'user-1', 'admin');
+
+      expect(vendorPaymentRepository.remove).toHaveBeenCalledWith([mockVP1, mockVP2]);
+    });
+
+    it('does not call remove when there are no vendor payments', async () => {
+      vendorPaymentRepository.find.mockResolvedValue([]);
+
+      await service.permanentDelete('po-1', 'user-1', 'admin');
+
+      expect(vendorPaymentRepository.remove).not.toHaveBeenCalled();
+    });
+
+    it('still hard-deletes the PO after removing vendor payments', async () => {
+      vendorPaymentRepository.find.mockResolvedValue([mockVP1]);
+
+      await service.permanentDelete('po-1', 'user-1', 'admin');
+
+      expect(purchaseOrderRepository.remove).toHaveBeenCalledWith(mockPO);
+      expect(vendorPaymentRepository.remove).toHaveBeenCalledWith([mockVP1]);
+      expect(purchaseOrderRepository.remove.mock.invocationCallOrder[0]).toBeGreaterThan(
+        vendorPaymentRepository.remove.mock.invocationCallOrder[0],
       );
     });
   });
