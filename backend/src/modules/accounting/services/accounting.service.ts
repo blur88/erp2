@@ -810,6 +810,92 @@ export class AccountingService {
     return postedEntry as any;
   }
 
+  async postFundTransferEntry(
+    transfer: import('../../../database/entities/fund-transfer.entity').FundTransfer,
+    userId: string,
+    username?: string,
+  ): Promise<JournalEntry> {
+    this.logger.log(`Posting fund transfer entry for ${transfer.referenceNumber}`);
+
+    const existingEntries = await this.journalEntryService.findBySource(
+      'fund_transfer',
+      transfer.id,
+    );
+    const activeEntry = existingEntries.find(
+      (entry) =>
+        entry.status === JournalEntryStatus.POSTED ||
+        entry.status === JournalEntryStatus.DRAFT,
+    );
+
+    if (activeEntry) {
+      this.logger.warn(
+        `Journal entry already exists for fund transfer ${transfer.referenceNumber} - skipping duplicate`,
+      );
+      return activeEntry as any;
+    }
+
+    await this.validatePeriodOpen(transfer.transferDate);
+
+    const periodValidation = await this.fiscalPeriodService.validatePeriod({
+      date: transfer.transferDate,
+    });
+
+    if (!periodValidation.period) {
+      throw new BadRequestException(
+        `No fiscal period found for date ${transfer.transferDate}`,
+      );
+    }
+
+    const description = `Fund Transfer: ${transfer.referenceNumber}${
+      transfer.description ? ` - ${transfer.description}` : ''
+    }`;
+
+    const lines: CreateJournalEntryLineDto[] = [
+      {
+        accountId: transfer.destinationAccountId,
+        debitAmount: Number(transfer.amount),
+        creditAmount: 0,
+        memo: `Transfer to ${transfer.destinationAccountId}`,
+      },
+      {
+        accountId: transfer.sourceAccountId,
+        debitAmount: 0,
+        creditAmount: Number(transfer.amount),
+        memo: `Transfer from ${transfer.sourceAccountId}`,
+      },
+    ];
+
+    const entry = await this.journalEntryService.create(
+      {
+        entryDate: new Date(transfer.transferDate),
+        description,
+        fiscalPeriodId: periodValidation.period.id,
+        sourceType: 'fund_transfer',
+        sourceId: transfer.id,
+        lines,
+      },
+      userId,
+    );
+
+    const postedEntry = await this.journalEntryService.postEntry(entry.id, userId);
+    await this.auditLogService.log(
+      'AUTO_POST',
+      'JournalEntry',
+      `Auto-posted fund transfer journal entry: ${transfer.referenceNumber}`,
+      {
+        entityId: entry.id,
+        userId: userId ?? 'system',
+        username,
+        metadata: { sourceType: 'fund_transfer', sourceId: transfer.id },
+      },
+    );
+
+    this.logger.log(
+      `Fund transfer entry posted successfully: ${postedEntry.referenceNumber}`,
+    );
+    return postedEntry as any;
+  }
+
   async reverseSourceEntries(
     sourceType: string,
     sourceId: string,
