@@ -775,35 +775,8 @@ export class PurchaseOrderService {
       // Don't throw error - purchase order deletion should still succeed
     }
 
-    // Find and permanently delete associated GRN (including soft-deleted)
-    const grn = await this.grnRepository.findOne({
-      where: { purchaseOrderId: id },
-      withDeleted: true,
-    });
-
-    if (grn) {
-      // Log audit trail for GRN permanent delete
-      await this.auditLogService.log(
-        'PERMANENT_DELETE',
-        'GoodsReceivedNote',
-        `Permanently deleted GRN: ${grn.grnNumber} (auto-deleted with PO)`,
-        {
-          entityId: grn.id,
-          userId: userId || 'system',
-          username,
-          oldValues: {
-            grnNumber: grn.grnNumber,
-            purchaseOrderId: grn.purchaseOrderId,
-            status: grn.status,
-          },
-        }
-      );
-
-      await this.grnRepository.remove(grn);
-      this.logger.log(`Associated GRN ${grn.grnNumber} permanently deleted`);
-    }
-
     // Find and permanently delete all associated VendorPayments (including soft-deleted)
+    // Must be done before GRN deletion because vendor_payments.grnId references goods_received_notes
     const vendorPayments = await this.vendorPaymentRepository.find({
       where: { purchaseOrderId: id },
       withDeleted: true,
@@ -831,6 +804,34 @@ export class PurchaseOrderService {
     if (vendorPayments.length > 0) {
       await this.vendorPaymentRepository.remove(vendorPayments);
       this.logger.log(`Permanently deleted ${vendorPayments.length} vendor payment(s) for purchase order ${purchaseOrder.orderNumber}`);
+    }
+
+    // Find and permanently delete associated GRN (including soft-deleted)
+    const grn = await this.grnRepository.findOne({
+      where: { purchaseOrderId: id },
+      withDeleted: true,
+    });
+
+    if (grn) {
+      // Log audit trail for GRN permanent delete
+      await this.auditLogService.log(
+        'PERMANENT_DELETE',
+        'GoodsReceivedNote',
+        `Permanently deleted GRN: ${grn.grnNumber} (auto-deleted with PO)`,
+        {
+          entityId: grn.id,
+          userId: userId || 'system',
+          username,
+          oldValues: {
+            grnNumber: grn.grnNumber,
+            purchaseOrderId: grn.purchaseOrderId,
+            status: grn.status,
+          },
+        }
+      );
+
+      await this.grnRepository.remove(grn);
+      this.logger.log(`Associated GRN ${grn.grnNumber} permanently deleted`);
     }
 
     // Log audit trail for PO permanent delete
