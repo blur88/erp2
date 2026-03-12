@@ -61,6 +61,30 @@ function useProductSearch(): {
 - In edit-mode order loading: replace the `setProducts` merge block with `seedProducts(orderProducts)`.
 - `Autocomplete` is already correct — no changes needed.
 
+### Changes to `CreateStockAdjustmentPage`
+
+Same four bugs as the SO page:
+
+1. Search results merged instead of replaced.
+2. No race condition guard.
+3. `Autocomplete` `value` prop looks up by ID from options list — selected product disappears after a search.
+4. No `isOptionEqualToValue`.
+
+Fixes mirror the SO page changes exactly:
+
+- Remove inline `products` state and `loadProducts` function.
+- Replace with `const { products, loadProducts, seedProducts } = useProductSearch()`.
+- In edit-mode adjustment loading: replace the `setProducts` merge block with `seedProducts(adjustmentProducts)`.
+- Fix `Autocomplete` `value` prop:
+  ```ts
+  // Before
+  value={products.find(p => p.id === productField.value) || null}
+  // After
+  value={watchedItems[index]?.product || products.find(p => p.id === productField.value) || null}
+  ```
+- Add `isOptionEqualToValue={(option, value) => option.id === value.id}`.
+- `filterOptions={(options) => options}` remains — filtering is server-side.
+
 ## Files
 
 | File | Change |
@@ -68,9 +92,10 @@ function useProductSearch(): {
 | `frontend/src/hooks/useProductSearch.ts` | New |
 | `frontend/src/pages/sales/CreateSalesOrderPage.tsx` | Bug fixes + hook adoption |
 | `frontend/src/pages/purchasing/CreatePurchaseOrderPage.tsx` | Refactor to hook |
+| `frontend/src/pages/inventory/CreateStockAdjustmentPage.tsx` | Bug fixes + hook adoption |
 
 ## Out of Scope
 
 - RTK Query migration for product search
 - Debouncing (can be added inside the hook later without touching consumers)
-- Any other changes to SO or PO pages
+- Any other changes to SO, PO, or stock adjustment pages

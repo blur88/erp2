@@ -650,3 +650,332 @@ Expected: No errors
 git add frontend/src/pages/purchasing/CreatePurchaseOrderPage.tsx
 git commit -m "refactor(purchasing): adopt useProductSearch hook in CreatePurchaseOrderPage"
 ```
+
+---
+
+## Chunk 4: Fix `CreateStockAdjustmentPage`
+
+**Files:**
+- Modify: `frontend/src/pages/inventory/CreateStockAdjustmentPage.tsx`
+- Create: `frontend/src/pages/inventory/__tests__/CreateStockAdjustmentPage.test.tsx`
+
+---
+
+### Task 6: Write failing integration tests for stock adjustment product search
+
+The test structure mirrors the SO tests in Chunk 2. Read `frontend/src/pages/sales/__tests__/CreateSalesOrderPage.test.tsx` before starting — the mock setup is nearly identical.
+
+**Files:**
+- Create: `frontend/src/pages/inventory/__tests__/CreateStockAdjustmentPage.test.tsx`
+
+- [ ] **Step 1: Create the test file**
+
+```ts
+// frontend/src/pages/inventory/__tests__/CreateStockAdjustmentPage.test.tsx
+import '@testing-library/jest-dom/vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { render, screen, waitFor, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { BrowserRouter } from 'react-router-dom'
+import CreateStockAdjustmentPage from '../CreateStockAdjustmentPage'
+
+const replacementSearchTerm = 'B'
+
+const {
+  mockDispatch,
+  mockGet,
+  mockCreateAdjustment,
+  mockUpdateAdjustment,
+  mockParams,
+} = vi.hoisted(() => ({
+  mockDispatch: vi.fn(),
+  mockGet: vi.fn(),
+  mockCreateAdjustment: vi.fn(),
+  mockUpdateAdjustment: vi.fn(),
+  mockParams: vi.fn(() => ({})),
+}))
+
+vi.mock('react-router-dom', async () => {
+  const actual = await vi.importActual('react-router-dom')
+  return { ...actual, useNavigate: () => vi.fn(), useParams: () => mockParams() }
+})
+
+vi.mock('@/hooks/useRedux', () => ({ useAppDispatch: () => mockDispatch }))
+
+vi.mock('@/hooks/useNotification', () => ({
+  useNotification: () => ({ showSuccess: vi.fn(), showError: vi.fn() }),
+}))
+
+vi.mock('@/hooks/useCurrency', () => ({
+  useCurrency: () => ({ currency: '$' }),
+}))
+
+vi.mock('@/services/api', () => ({
+  ApiService: { get: mockGet },
+}))
+
+vi.mock('@/store/api/inventoryApi', () => ({
+  useCreateStockAdjustmentMutation: () => [mockCreateAdjustment],
+  useUpdateStockAdjustmentMutation: () => [mockUpdateAdjustment],
+}))
+```
+
+> **Note:** Check the actual imports at the top of `CreateStockAdjustmentPage.tsx` to verify the exact RTK Query hook names used (e.g. `useCreateStockAdjustmentMutation`) and the API slice path (`@/store/api/inventoryApi` or similar). Adjust the `vi.mock` block above to match exactly.
+
+```ts
+describe('CreateStockAdjustmentPage — product search', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockParams.mockReturnValue({})
+
+    mockGet.mockImplementation(async (url: string, config?: { params?: { search?: string } }) => {
+      // Per-product fetch in handleProductSelect
+      if (url.includes('/inventory/products/')) {
+        const id = url.split('/').pop()
+        return { data: { id, name: id === 'product-1' ? 'Alpha Widget' : 'Beta Gadget', stockQuantity: 10 } }
+      }
+      // List fetch
+      if (config?.params?.search?.startsWith(replacementSearchTerm)) {
+        return { data: { data: [{ id: 'product-2', name: 'Beta Gadget', stockQuantity: 5 }] } }
+      }
+      return { data: { data: [{ id: 'product-1', name: 'Alpha Widget', stockQuantity: 10 }] } }
+    })
+  })
+
+  it('replaces autocomplete options with only the latest search results', async () => {
+    const user = userEvent.setup()
+    render(<BrowserRouter><CreateStockAdjustmentPage /></BrowserRouter>)
+
+    const productInput = screen.getByPlaceholderText('Search by name or barcode...')
+    await user.click(productInput)
+
+    const initialListbox = await screen.findByRole('listbox')
+    expect(within(initialListbox).getByText('Alpha Widget')).toBeInTheDocument()
+
+    await user.clear(productInput)
+    await user.type(productInput, replacementSearchTerm)
+
+    await waitFor(() => {
+      expect(mockGet).toHaveBeenCalledWith('/inventory/products', {
+        params: { isActive: true, search: replacementSearchTerm },
+      })
+    })
+
+    const updatedListbox = await screen.findByRole('listbox')
+    expect(within(updatedListbox).getByText('Beta Gadget')).toBeInTheDocument()
+    expect(within(updatedListbox).queryByText('Alpha Widget')).toBeNull()
+  })
+
+  it('keeps the selected product visible when another search replaces the shared options list', async () => {
+    const user = userEvent.setup()
+    render(<BrowserRouter><CreateStockAdjustmentPage /></BrowserRouter>)
+
+    const [firstProductInput] = screen.getAllByPlaceholderText('Search by name or barcode...')
+    await user.click(firstProductInput)
+
+    const initialListbox = await screen.findByRole('listbox')
+    await user.click(within(initialListbox).getByText('Alpha Widget'))
+
+    await waitFor(() => {
+      expect(firstProductInput).toHaveValue('Alpha Widget')
+    })
+
+    await user.click(screen.getByRole('button', { name: /add item/i }))
+
+    const productInputs = screen.getAllByPlaceholderText('Search by name or barcode...')
+    const secondProductInput = productInputs[1]
+
+    await user.click(secondProductInput)
+    await user.type(secondProductInput, replacementSearchTerm)
+
+    await waitFor(() => {
+      expect(mockGet).toHaveBeenCalledWith('/inventory/products', {
+        params: { isActive: true, search: replacementSearchTerm },
+      })
+    })
+
+    await waitFor(() => {
+      expect(firstProductInput).toHaveValue('Alpha Widget')
+    })
+  })
+
+  it('keeps hydrated edit-mode product visible after search replaces options', async () => {
+    const user = userEvent.setup()
+    mockParams.mockReturnValue({ id: 'adj-1' })
+
+    // Mock the adjustment fetch endpoint
+    mockGet.mockImplementation(async (url: string, config?: { params?: { search?: string } }) => {
+      if (url === '/inventory/stock-adjustments/adj-1') {
+        return {
+          data: {
+            id: 'adj-1',
+            adjustmentDate: '2026-03-01T00:00:00.000Z',
+            reason: 'Recount',
+            items: [
+              {
+                productId: 'product-9',
+                oldQuantity: 5,
+                newQuantity: 8,
+                difference: 3,
+                product: { id: 'product-9', name: 'Hydrated Product', stockQuantity: 5 },
+              },
+            ],
+          },
+        }
+      }
+      if (url.includes('/inventory/products/')) {
+        const id = url.split('/').pop()
+        return { data: { id, name: id === 'product-1' ? 'Alpha Widget' : 'Beta Gadget', stockQuantity: 10 } }
+      }
+      if (config?.params?.search?.startsWith(replacementSearchTerm)) {
+        return { data: { data: [{ id: 'product-2', name: 'Beta Gadget', stockQuantity: 5 }] } }
+      }
+      return { data: { data: [{ id: 'product-1', name: 'Alpha Widget', stockQuantity: 10 }] } }
+    })
+
+    render(<BrowserRouter><CreateStockAdjustmentPage /></BrowserRouter>)
+
+    await waitFor(() => {
+      expect(screen.getByDisplayValue('Hydrated Product')).toBeInTheDocument()
+    })
+
+    const productInputs = screen.getAllByPlaceholderText('Search by name or barcode...')
+    await user.type(productInputs[0], replacementSearchTerm)
+
+    await waitFor(() => {
+      expect(mockGet).toHaveBeenCalledWith('/inventory/products', {
+        params: { isActive: true, search: replacementSearchTerm },
+      })
+    })
+
+    await waitFor(() => {
+      expect(screen.getByDisplayValue('Hydrated Product')).toBeInTheDocument()
+    })
+  })
+})
+```
+
+- [ ] **Step 2: Run tests to verify they fail**
+
+```bash
+cd frontend && npx vitest run src/pages/inventory/__tests__/CreateStockAdjustmentPage.test.tsx --no-coverage
+```
+
+Expected: Tests FAIL (merge bug and missing `isOptionEqualToValue` cause assertion failures)
+
+---
+
+### Task 7: Apply fixes to `CreateStockAdjustmentPage`
+
+**Files:**
+- Modify: `frontend/src/pages/inventory/CreateStockAdjustmentPage.tsx`
+
+**Change 1 — Import `useProductSearch` and replace inline state/function**
+
+Add to imports at the top:
+```ts
+import { useProductSearch } from '@/hooks/useProductSearch'
+```
+
+Find (around line 70):
+```ts
+const [products, setProducts] = useState<any[]>([])
+```
+Replace with:
+```ts
+const { products, loadProducts, seedProducts } = useProductSearch()
+```
+
+Remove the entire inline `loadProducts` function (around lines 188–203):
+```ts
+const loadProducts = async (searchTerm: string = '') => {
+  try {
+    const params: any = { isActive: true }
+    if (searchTerm && searchTerm.trim().length >= 1) {
+      params.search = searchTerm.trim()
+    }
+    const response = await ApiService.get('/inventory/products', { params })
+    const newProducts = (response as any).data || []
+
+    // Merge with existing products
+    setProducts((prevProducts) => {
+      const existingIds = new Set(prevProducts.map(p => p.id))
+      const productsToAdd = newProducts.filter((p: any) => !existingIds.has(p.id))
+      return [...prevProducts, ...productsToAdd]
+    })
+  } catch (err) {
+    console.error('Error loading products:', err)
+  }
+}
+```
+
+**Change 2 — Replace edit-mode setProducts merge with seedProducts**
+
+Find (around lines 122–127):
+```ts
+// Merge with existing products, avoiding duplicates
+setProducts((prevProducts) => {
+  const existingIds = new Set(prevProducts.map(p => p.id))
+  const newProducts = adjustmentProducts.filter((p: any) => !existingIds.has(p.id))
+  return [...prevProducts, ...newProducts]
+})
+```
+Replace with:
+```ts
+seedProducts(adjustmentProducts)
+```
+
+**Change 3 — Fix Autocomplete `value` prop**
+
+Find (around line 463):
+```ts
+value={products.find(p => p.id === productField.value) || null}
+```
+Replace with:
+```ts
+value={watchedItems[index]?.product || products.find(p => p.id === productField.value) || null}
+```
+
+**Change 4 — Add `isOptionEqualToValue`**
+
+Find (around line 462):
+```ts
+getOptionLabel={(option) => option.name}
+```
+Replace with:
+```ts
+getOptionLabel={(option) => option?.name || ''}
+isOptionEqualToValue={(option, value) => option.id === value.id}
+```
+
+- [ ] **Step 2: Run tests to verify they pass**
+
+```bash
+cd frontend && npx vitest run src/pages/inventory/__tests__/CreateStockAdjustmentPage.test.tsx --no-coverage
+```
+
+Expected: All 3 tests PASS
+
+- [ ] **Step 3: Run full frontend test suite to check for regressions**
+
+```bash
+cd frontend && npm run test -- --no-coverage
+```
+
+Expected: All tests PASS
+
+- [ ] **Step 4: TypeScript check**
+
+```bash
+cd frontend && npm run type-check
+```
+
+Expected: No errors
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add frontend/src/pages/inventory/CreateStockAdjustmentPage.tsx \
+        frontend/src/pages/inventory/__tests__/CreateStockAdjustmentPage.test.tsx
+git commit -m "fix(inventory): fix product search filtering on CreateStockAdjustmentPage"
+```
