@@ -497,7 +497,7 @@ export interface FundTransfer {
   description?: string;
   status: 'ACTIVE' | 'CANCELLED';
   fiscalPeriodId: string;
-  journalEntryId?: string;
+  journalEntryId: string | null;
   sourceAccount: {
     id: string;
     code: string;

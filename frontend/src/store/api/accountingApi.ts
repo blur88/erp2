@@ -81,6 +81,14 @@ type AccountActivityReport = {
   totalEntries: number
 }
 
+type CreateFundTransferPayload = {
+  sourceAccountId: string
+  destinationAccountId: string
+  amount: number
+  transferDate: string
+  description?: string
+}
+
 const toNumber = (value: unknown, fallback = 0): number => {
   const parsed = typeof value === 'number' ? value : Number(value)
   return Number.isFinite(parsed) ? parsed : fallback
@@ -697,7 +705,7 @@ export const accountingApiSlice = createApi({
       query: (ids) => ({ url: '/accounting/expenses/bulk-delete', method: 'POST', data: { ids } }),
       invalidatesTags: ['Expense', 'AccountingReport'],
     }),
-    createFundTransfer: builder.mutation<FundTransfer, Partial<FundTransfer>>({
+    createFundTransfer: builder.mutation<FundTransfer, CreateFundTransferPayload>({
       query: (body) => ({ url: '/accounting/fund-transfers', method: 'POST', data: body }),
       transformResponse: normalizeSingle<FundTransfer>,
       invalidatesTags: ['FundTransfer', 'JournalEntry', 'AccountingReport'],
