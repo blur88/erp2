@@ -113,6 +113,8 @@ export class FundTransferService {
       });
 
       savedTransfer = await manager.save(FundTransfer, transfer);
+      savedTransfer.sourceAccount = sourceAccount;
+      savedTransfer.destinationAccount = destinationAccount;
 
       const postedJournalEntry = await this.accountingService.postFundTransferEntry(
         savedTransfer,
