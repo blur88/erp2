@@ -60,6 +60,10 @@ export function useProductSearch() {
   }
 
   const seedProducts = (incoming: Product[]) => {
+    // Invalidate older in-flight searches so edit-mode hydration is not overwritten
+    // when the initial product request resolves after seeding selected products.
+    latestRequestRef.current += 1
+
     setProducts((previousProducts) => {
       const existingIds = new Set(previousProducts.map((product) => product.id))
       const productsToAdd = incoming.filter((product) => !existingIds.has(product.id))

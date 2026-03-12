@@ -33,9 +33,9 @@ import { yupResolver } from '@hookform/resolvers/yup'
 import * as yup from 'yup'
 import { useCreateSalesOrderMutation, useUpdateSalesOrderMutation, useLazyGetSalesOrderQuery, useGetCustomersQuery } from '@/store/api/salesApi'
 import { patchSalesOrderCaches } from '@/store/api/salesOrderCache'
-import { ApiService } from '@/services/api'
 import { formatCurrency, getCurrentDate } from '@/utils/formatters'
 import { useNotification } from '@/hooks/useNotification'
+import { useProductSearch } from '@/hooks/useProductSearch'
 import { useAppDispatch } from '@/hooks/useRedux'
 import type { RootState } from '@/store'
 import { setSelectedOrder } from '@/store/slices/salesSlice'
@@ -97,7 +97,7 @@ const CreateSalesOrderPage: React.FC = () => {
   const [triggerGetSalesOrder] = useLazyGetSalesOrderQuery()
   const { data: customersData } = useGetCustomersQuery({})
   const [customers, setCustomers] = useState<any[]>([])
-  const [products, setProducts] = useState<any[]>([])
+  const { products, loadProducts, seedProducts } = useProductSearch()
   const [loading, setLoading] = useState(false)
   const [loadingOrder, setLoadingOrder] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -217,12 +217,7 @@ const CreateSalesOrderPage: React.FC = () => {
           .filter((item: any) => item.product)
           .map((item: any) => item.product)
 
-        // Merge with existing products, avoiding duplicates
-        setProducts((prevProducts) => {
-          const existingIds = new Set(prevProducts.map(p => p.id))
-          const newProducts = orderProducts.filter((p: any) => !existingIds.has(p.id))
-          return [...prevProducts, ...newProducts]
-        })
+        seedProducts(orderProducts)
       }
 
       // Store order data to be loaded after products are set
@@ -311,26 +306,6 @@ const CreateSalesOrderPage: React.FC = () => {
       }
     })
   }, [JSON.stringify(watchedItems), setValue])
-
-  const loadProducts = async (searchTerm: string = '') => {
-    try {
-      const params: any = { isActive: true }
-      if (searchTerm && searchTerm.trim().length >= 1) {
-        params.search = searchTerm.trim()
-      }
-      const response = await ApiService.get('/inventory/products', { params })
-      const newProducts = (response as any).data || []
-
-      // Merge with existing products to preserve order item products
-      setProducts((prevProducts) => {
-        const existingIds = new Set(prevProducts.map(p => p.id))
-        const productsToAdd = newProducts.filter((p: any) => !existingIds.has(p.id))
-        return [...prevProducts, ...productsToAdd]
-      })
-    } catch (err) {
-      console.error('Error loading products:', err)
-    }
-  }
 
   const onSubmit = async (data: CreateOrderFormData) => {
     setLoading(true)
@@ -641,8 +616,9 @@ const CreateSalesOrderPage: React.FC = () => {
                                   render={({ field: productField }) => (
                                     <Autocomplete
                                       options={products}
-                                      getOptionLabel={(option) => option.name}
-                                      value={products.find(p => p.id === productField.value) || null}
+                                      getOptionLabel={(option) => option?.name || ''}
+                                      isOptionEqualToValue={(option, value) => option.id === value.id}
+                                      value={watchedItems[index]?.product || products.find(p => p.id === productField.value) || null}
                                       onChange={(_, value) => handleProductSelect(index, value)}
                                       onInputChange={(_, value, reason) => {
                                         if (reason === 'input' && value.trim().length >= 1) {

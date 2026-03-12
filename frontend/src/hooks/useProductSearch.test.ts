@@ -105,4 +105,30 @@ describe('useProductSearch', () => {
     expect(result.current.products).toHaveLength(3)
     expect(result.current.products.map((product) => product.id)).toEqual(['1', '2', '3'])
   })
+
+  it('seedProducts invalidates older in-flight loadProducts responses', async () => {
+    let resolveRequest!: (value: { data: { data: Array<{ id: string; name: string }> } }) => void
+    const request = new Promise<{ data: { data: Array<{ id: string; name: string }> } }>((res) => {
+      resolveRequest = res
+    })
+
+    mockGet.mockReturnValueOnce(request)
+
+    const { result } = renderHook(() => useProductSearch())
+
+    act(() => {
+      void result.current.loadProducts()
+    })
+
+    act(() => {
+      result.current.seedProducts([makeProduct('9', 'Hydrated Product')])
+    })
+
+    await act(async () => {
+      resolveRequest({ data: { data: [makeProduct('1', 'Alpha')] } })
+      await Promise.resolve()
+    })
+
+    expect(result.current.products).toEqual([makeProduct('9', 'Hydrated Product')])
+  })
 })
