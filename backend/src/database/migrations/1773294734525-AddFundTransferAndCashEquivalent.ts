@@ -104,8 +104,15 @@ export class AddFundTransferAndCashEquivalent1773294734525
     await queryRunner.query(
       'ALTER TABLE "chart_of_accounts" DROP COLUMN IF EXISTS "isCashEquivalent"',
     );
+    const currentYear = new Date().getFullYear() % 100;
     await queryRunner.query(
-      `DELETE FROM "document_number_settings" WHERE "documentName" = 'Fund Transfers'`,
+      `DELETE FROM "document_number_settings"
+       WHERE "documentName" = $1
+         AND "prefix" = $2
+         AND "paddingDigits" = 3
+         AND "nextNumber" = 1
+         AND "lastResetYear" = $3`,
+      ['Fund Transfers', 'TRF', currentYear],
     );
   }
 }
