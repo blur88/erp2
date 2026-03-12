@@ -1,5 +1,8 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
+const FUND_TRANSFER_DOCUMENT_NUMBER_SETTING_ID =
+  'd6fd8dd0-8f45-4a9f-bf2f-2fca7fd29e77';
+
 export class AddFundTransferAndCashEquivalent1773294734525
   implements MigrationInterface
 {
@@ -79,10 +82,15 @@ export class AddFundTransferAndCashEquivalent1773294734525
     const currentYear = new Date().getFullYear() % 100;
     await queryRunner.query(
       `INSERT INTO "document_number_settings"
-         ("documentName", "prefix", "paddingDigits", "nextNumber", "lastResetYear")
-       VALUES ($1, $2, 3, 1, $3)
+         ("id", "documentName", "prefix", "paddingDigits", "nextNumber", "lastResetYear")
+       VALUES ($1, $2, $3, 3, 1, $4)
        ON CONFLICT ("documentName") DO NOTHING`,
-      ['Fund Transfers', 'TRF', currentYear],
+      [
+        FUND_TRANSFER_DOCUMENT_NUMBER_SETTING_ID,
+        'Fund Transfers',
+        'TRF',
+        currentYear,
+      ],
     );
   }
 
@@ -104,15 +112,9 @@ export class AddFundTransferAndCashEquivalent1773294734525
     await queryRunner.query(
       'ALTER TABLE "chart_of_accounts" DROP COLUMN IF EXISTS "isCashEquivalent"',
     );
-    const currentYear = new Date().getFullYear() % 100;
     await queryRunner.query(
-      `DELETE FROM "document_number_settings"
-       WHERE "documentName" = $1
-         AND "prefix" = $2
-         AND "paddingDigits" = 3
-         AND "nextNumber" = 1
-         AND "lastResetYear" = $3`,
-      ['Fund Transfers', 'TRF', currentYear],
+      'DELETE FROM "document_number_settings" WHERE "id" = $1',
+      [FUND_TRANSFER_DOCUMENT_NUMBER_SETTING_ID],
     );
   }
 }
