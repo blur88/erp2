@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react'
 import {
+  Autocomplete,
   Box,
   Button,
   Card,
@@ -41,6 +42,7 @@ import {
   useGetChartOfAccountsQuery,
   useGetFundTransfersQuery,
 } from '@/store/api/accountingApi'
+import { PERSIST_KEY } from '@/store/persistKey'
 import type { ChartOfAccount, FundTransfer } from '@/types'
 import { formatCurrency, formatDate, getCurrentDate } from '@/utils/formatters'
 
@@ -58,6 +60,19 @@ const defaultForm: FormState = {
   amount: '',
   transferDate: getCurrentDate(),
   description: '',
+}
+
+const getPersistedAuthRole = (): string | null => {
+  try {
+    const persistedRoot = localStorage.getItem(PERSIST_KEY)
+    if (!persistedRoot) return null
+
+    const parsedRoot = JSON.parse(persistedRoot)
+    const parsedAuth = parsedRoot?.auth ? JSON.parse(parsedRoot.auth) : null
+    return parsedAuth?.user?.role ?? null
+  } catch {
+    return null
+  }
 }
 
 const FundTransfersPage: React.FC = () => {
@@ -87,6 +102,11 @@ const FundTransfersPage: React.FC = () => {
     useCreateFundTransferMutation()
   const [cancelFundTransfer, { isLoading: cancelling }] =
     useCancelFundTransferMutation()
+  const currentUserRole = getPersistedAuthRole()
+  const canManageTransfers =
+    !currentUserRole ||
+    currentUserRole === 'admin' ||
+    currentUserRole === 'manager'
 
   const transfers = data?.data ?? []
   const cashAccounts = useMemo(
@@ -194,13 +214,15 @@ const FundTransfersPage: React.FC = () => {
           <IconButton onClick={() => refetch()}>
             <RefreshIcon />
           </IconButton>
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={() => setDialogOpen(true)}
-          >
-            New Transfer
-          </Button>
+          {canManageTransfers ? (
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
+              onClick={() => setDialogOpen(true)}
+            >
+              New Transfer
+            </Button>
+          ) : null}
         </Stack>
       </Box>
 
@@ -298,15 +320,17 @@ const FundTransfersPage: React.FC = () => {
                       />
                     </TableCell>
                     <TableCell>
-                      <Button
-                        size="small"
-                        color="error"
-                        startIcon={<CancelIcon />}
-                        disabled={transfer.status === 'CANCELLED'}
-                        onClick={() => setCancelTarget(transfer)}
-                      >
-                        Cancel
-                      </Button>
+                      {canManageTransfers ? (
+                        <Button
+                          size="small"
+                          color="error"
+                          startIcon={<CancelIcon />}
+                          disabled={transfer.status === 'CANCELLED'}
+                          onClick={() => setCancelTarget(transfer)}
+                        >
+                          Cancel
+                        </Button>
+                      ) : null}
                     </TableCell>
                   </TableRow>
                 ))
@@ -316,51 +340,71 @@ const FundTransfersPage: React.FC = () => {
         </TableContainer>
       )}
 
-      <Dialog open={dialogOpen} onClose={resetForm} maxWidth="sm" fullWidth>
+      <Dialog
+        open={dialogOpen && canManageTransfers}
+        onClose={resetForm}
+        maxWidth="sm"
+        fullWidth
+      >
         <DialogTitle>New Fund Transfer</DialogTitle>
         <DialogContent>
           <Stack gap={2} sx={{ mt: 1 }}>
-            <FormControl fullWidth>
-              <InputLabel>From Account *</InputLabel>
-              <Select
-                value={form.sourceAccountId}
-                label="From Account *"
-                onChange={(event) =>
-                  setForm((current) => ({
-                    ...current,
-                    sourceAccountId: event.target.value,
-                    destinationAccountId: '',
-                  }))
-                }
-              >
-                {cashAccounts.map((account) => (
-                  <MenuItem key={account.id} value={account.id}>
-                    {account.code} - {account.name}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
+            <Autocomplete
+              options={cashAccounts}
+              getOptionLabel={(option) => `${option.code} - ${option.name}`}
+              value={
+                cashAccounts.find(
+                  (account) => account.id === form.sourceAccountId,
+                ) ?? null
+              }
+              onChange={(_event, newValue) =>
+                setForm((current) => ({
+                  ...current,
+                  sourceAccountId: newValue?.id ?? '',
+                  destinationAccountId:
+                    newValue?.id === current.destinationAccountId
+                      ? ''
+                      : current.destinationAccountId,
+                }))
+              }
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label="From Account *"
+                  placeholder="Search accounts"
+                />
+              )}
+              isOptionEqualToValue={(option, value) => option.id === value.id}
+              fullWidth
+              size="small"
+            />
 
-            <FormControl fullWidth>
-              <InputLabel>To Account *</InputLabel>
-              <Select
-                value={form.destinationAccountId}
-                label="To Account *"
-                disabled={!form.sourceAccountId}
-                onChange={(event) =>
-                  setForm((current) => ({
-                    ...current,
-                    destinationAccountId: event.target.value,
-                  }))
-                }
-              >
-                {availableDestinations.map((account) => (
-                  <MenuItem key={account.id} value={account.id}>
-                    {account.code} - {account.name}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
+            <Autocomplete
+              options={availableDestinations}
+              getOptionLabel={(option) => `${option.code} - ${option.name}`}
+              value={
+                availableDestinations.find(
+                  (account) => account.id === form.destinationAccountId,
+                ) ?? null
+              }
+              onChange={(_event, newValue) =>
+                setForm((current) => ({
+                  ...current,
+                  destinationAccountId: newValue?.id ?? '',
+                }))
+              }
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label="To Account *"
+                  placeholder="Search accounts"
+                />
+              )}
+              isOptionEqualToValue={(option, value) => option.id === value.id}
+              fullWidth
+              size="small"
+              disabled={!form.sourceAccountId}
+            />
 
             <TextField
               fullWidth
