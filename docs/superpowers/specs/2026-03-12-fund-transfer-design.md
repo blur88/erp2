@@ -43,7 +43,7 @@ All existing accounts default to `false` — no breaking changes. Admins check t
 
 On transfer creation, `AccountingService.postFundTransferEntry(transfer, userId, username)` (new method) is called. It follows the same internal pattern as other `post*Entry` methods in `AccountingService`:
 
-1. Check for existing POSTED or DRAFT JE for this source via `journalEntryService.findBySource('fund_transfer', transfer.id)` — if found, return the existing JE (idempotency guard; handles retry after partial transaction failure where transfer was rolled back but JE was not)
+1. Check for existing POSTED or DRAFT JE for this source via `journalEntryService.findBySource('fund_transfer', transfer.id)` — filter the returned array for `e.status === POSTED || e.status === DRAFT`; if an active entry is found, return it (idempotency guard; same pattern as `postSalesOrderEntry`)
 2. Call `this.validatePeriodOpen(transfer.transferDate)` — consistent with all other `post*Entry` methods
 3. Call `this.fiscalPeriodService.validatePeriod({ date: transfer.transferDate })` to get the period object; use `periodValidation.period.id` as `fiscalPeriodId` for the JE (same dual-call pattern used by all other `post*Entry` methods — `validatePeriodOpen` is the guard, `validatePeriod` provides the period entity)
 4. Call `journalEntryService.create()` with:
@@ -56,7 +56,7 @@ On transfer creation, `AccountingService.postFundTransferEntry(transfer, userId,
 5. Call `journalEntryService.postEntry()` on the created JE
 6. Return the posted `JournalEntry`
 
-On cancellation, `journalEntryService.reverseEntryInPeriod(transfer.journalEntryId, currentPeriod.id, userId, username)` is called. The current open period is auto-detected via `fiscalPeriodService.getCurrentPeriod()` (returns `null` if no open period — not an exception) at cancellation time. This correctly handles the case where the original fiscal period has been closed since the transfer was created.
+On cancellation, `accountingService.reverseSourceEntries('fund_transfer', transfer.id, userId)` is called. This existing method auto-detects the current open period, calls `reverseEntryInPeriod`, and throws `BadRequestException` if no open period exists — correctly handling the case where the original period is now closed.
 
 ---
 
@@ -99,7 +99,7 @@ No DELETE endpoint — transfers are permanent records. Use cancellation to void
 
 ### `FundTransferService` methods
 
-**`FundTransferService` constructor dependencies:** `FundTransfer` repository, `ChartOfAccount` repository, `AccountingService`, `SettingsService`, `AuditLogService`, `FiscalPeriodService`. (`FiscalPeriodService` is needed directly — unlike `ExpenseService` which delegates period validation entirely to `AccountingService`, `FundTransferService` must validate the period before saving the entity since `fiscalPeriodId` is stored on the transfer record. Since both `FundTransferService` and `FiscalPeriodService` live in the same `AccountingModule`, this is a straightforward intra-module injection — no circular dependency, no extra exports needed.)
+**`FundTransferService` constructor dependencies:** `FundTransfer` repository, `ChartOfAccount` repository, `AccountingService`, `SettingsService`, `AuditLogService`, `FiscalPeriodService`. (`FiscalPeriodService` is needed directly for period detection during `create`. Both live in `AccountingModule` — straightforward intra-module injection, no circular dependency. `JournalEntryService` is NOT injected directly — all JE operations go through `AccountingService`.)
 
 **`create(dto, userId, username)`**
 1. Validate `sourceAccountId !== destinationAccountId`
@@ -119,8 +119,7 @@ No DELETE endpoint — transfers are permanent records. Use cancellation to void
 1. Find transfer; throw `NotFoundException` if not found
 2. Throw `BadRequestException` if status is already `CANCELLED`
 3. If `transfer.journalEntryId` is null: throw `BadRequestException("Cannot cancel transfer — journal entry was not posted. This should not happen if transaction wrapping is in place.")`
-4. Auto-detect current open period via `fiscalPeriodService.getCurrentPeriod()`; if it returns `null`, throw `BadRequestException("Cannot cancel transfer — no open fiscal period exists for today's date")`
-5. Call `journalEntryService.reverseEntryInPeriod(transfer.journalEntryId, currentPeriod.id, userId, username)` to post reversing JE into the current open period (handles the case where the original period is now closed); if this throws because the JE was already reversed outside this flow, let the error propagate as-is
+4. Call `accountingService.reverseSourceEntries('fund_transfer', transfer.id, userId)` — this existing method on `AccountingService` handles: finding the JE via `findBySource`, detecting the current open period via `getCurrentPeriod()`, throwing `BadRequestException` if no open period exists, and calling `reverseEntryInPeriod` into the current period. If the JE was already reversed, it throws — let the error propagate as-is.
 6. Set `transfer.status = CANCELLED`
 7. Save
 8. Audit log `CANCEL`
