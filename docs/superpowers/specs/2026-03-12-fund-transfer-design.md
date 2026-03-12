@@ -43,9 +43,9 @@ All existing accounts default to `false` — no breaking changes. Admins check t
 
 On transfer creation, `AccountingService.postFundTransferEntry(transfer, userId, username)` (new method) is called. It follows the same internal pattern as other `post*Entry` methods in `AccountingService`:
 
-1. Check for existing POSTED or DRAFT JE for this source via `journalEntryService.findBySource('fund_transfer', transfer.id)` — skip if already posted (idempotency guard)
-2. Call `this.validatePeriodOpen(transfer.transferDate)` — consistent with all other `post*Entry` methods; period was already validated upstream in `FundTransferService.create` so this is a safety double-check, not redundant in the architectural sense
-3. Call `this.fiscalPeriodService.validatePeriod({ date: transfer.transferDate })` to get the `periodId`
+1. Check for existing POSTED or DRAFT JE for this source via `journalEntryService.findBySource('fund_transfer', transfer.id)` — if found, return the existing JE (idempotency guard; handles retry after partial transaction failure where transfer was rolled back but JE was not)
+2. Call `this.validatePeriodOpen(transfer.transferDate)` — consistent with all other `post*Entry` methods
+3. Call `this.fiscalPeriodService.validatePeriod({ date: transfer.transferDate })` to get the period object; use `periodValidation.period.id` as `fiscalPeriodId` for the JE (same dual-call pattern used by all other `post*Entry` methods — `validatePeriodOpen` is the guard, `validatePeriod` provides the period entity)
 4. Call `journalEntryService.create()` with:
    - `entryDate = transfer.transferDate` (use the transfer date — same as expense uses `expenseDate`)
    - `fiscalPeriodId` from step 3
@@ -99,7 +99,7 @@ No DELETE endpoint — transfers are permanent records. Use cancellation to void
 
 ### `FundTransferService` methods
 
-**`FundTransferService` constructor dependencies:** `FundTransfer` repository, `ChartOfAccount` repository, `AccountingService`, `SettingsService`, `AuditLogService`, `FiscalPeriodService`. (`FiscalPeriodService` is needed directly — unlike `ExpenseService` which delegates period validation entirely to `AccountingService`, `FundTransferService` must validate the period before saving the entity since `fiscalPeriodId` is stored on the transfer record.)
+**`FundTransferService` constructor dependencies:** `FundTransfer` repository, `ChartOfAccount` repository, `AccountingService`, `SettingsService`, `AuditLogService`, `FiscalPeriodService`. (`FiscalPeriodService` is needed directly — unlike `ExpenseService` which delegates period validation entirely to `AccountingService`, `FundTransferService` must validate the period before saving the entity since `fiscalPeriodId` is stored on the transfer record. Since both `FundTransferService` and `FiscalPeriodService` live in the same `AccountingModule`, this is a straightforward intra-module injection — no circular dependency, no extra exports needed.)
 
 **`create(dto, userId, username)`**
 1. Validate `sourceAccountId !== destinationAccountId`
@@ -112,8 +112,8 @@ No DELETE endpoint — transfers are permanent records. Use cancellation to void
    - 6b. Call `accountingService.postFundTransferEntry(savedTransfer, userId, username)` to create and post the JE
    - 6c. Update `transfer.journalEntryId` with the returned JE id; save transfer again
    - If any step fails, the transaction rolls back — no orphaned transfer or JE records
-9. Audit log `CREATE`
-10. Return response DTO
+7. Audit log `CREATE`
+8. Return `this.findOne(savedTransfer.id)` — reload with relations
 
 **`cancel(id, userId, username)`**
 1. Find transfer; throw `NotFoundException` if not found
@@ -124,10 +124,10 @@ No DELETE endpoint — transfers are permanent records. Use cancellation to void
 6. Set `transfer.status = CANCELLED`
 7. Save
 8. Audit log `CANCEL`
-9. Return response DTO
+9. Return `this.findOne(id)` — reload with fresh relations so the returned DTO reflects the updated JE status (`REVERSED`)
 
 **`findAll(query)`**
-- Filters: `startDate`, `endDate`, `sourceAccountId`, `destinationAccountId`, `status`, `search` (reference number)
+- Filters: `startDate`, `endDate`, `sourceAccountId`, `destinationAccountId`, `status`, `search` (searches `referenceNumber` and `description` via ILIKE)
 - Pagination: `page`, `limit`
 - Sort: `transferDate DESC` default
 - Load relations: `sourceAccount`, `destinationAccount`, `journalEntry`
@@ -233,7 +233,7 @@ cancelTransfer(id)            // useCancelFundTransferMutation
 **Table columns:**
 | Column | Notes |
 |---|---|
-| Reference | e.g. `TRF-2026-001` |
+| Reference | e.g. `TRF-26-001` |
 | Date | formatted date |
 | From Account | account code + name |
 | To Account | account code + name |
@@ -265,8 +265,8 @@ cancelTransfer(id)            // useCancelFundTransferMutation
 ### Audit logging
 
 `FundTransferService` calls `auditLogService.log()` on:
-- `CREATE` — "Created fund transfer: TRF-2026-001"
-- `CANCEL` — "Cancelled fund transfer: TRF-2026-001"
+- `CREATE` — "Created fund transfer: TRF-26-001"
+- `CANCEL` — "Cancelled fund transfer: TRF-26-001"
 
 `AuditLogsModule` is already imported in `AccountingModule` — no infrastructure changes needed.
 
@@ -293,7 +293,14 @@ One migration: `TIMESTAMP-AddFundTransferAndCashEquivalent.ts`
 2. Create PostgreSQL enum type `fund_transfer_status` with values `ACTIVE`, `CANCELLED`
 3. Create `fund_transfers` table with all columns and FK constraints; `journal_entry_id` is nullable
 4. Add indexes: `transfer_date`, `status`, `source_account_id`, `destination_account_id`, `reference_number` (unique), `fiscal_period_id`
-5. Insert document number settings seed row: `('Fund Transfers', 'TRF', paddingDigits=3, nextNumber=1, lastResetYear=currentYear%100)` — `lastResetYear` must be a 2-digit year (`% 100`) matching the `smallint` schema and the year-reset logic in `generateDocumentNumber`. Required so the first `create` call does not throw `NotFoundException`.
+5. Insert document number settings seed row — exact format matching the existing migration pattern (`AddOwnerEquityDocumentNumberSetting`):
+   ```sql
+   INSERT INTO "document_number_settings"
+     ("documentName", "prefix", "paddingDigits", "nextNumber", "lastResetYear")
+   VALUES ('Fund Transfers', 'TRF', 3, 1, $1)
+   ON CONFLICT ("documentName") DO NOTHING
+   ```
+   where `$1 = new Date().getFullYear() % 100`. The `lastResetYear` is a 2-digit integer (`smallint`) — must use `% 100` or the year-reset logic in `generateDocumentNumber` breaks.
 
 ---
 
