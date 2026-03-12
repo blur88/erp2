@@ -79,6 +79,14 @@ export class ChartOfAccount extends BaseEntity {
   @IsBoolean()
   isActive: boolean;
 
+  @Column({
+    type: 'boolean',
+    default: false,
+    comment: 'Marks account as eligible for fund transfers (cash/bank accounts)',
+  })
+  @IsBoolean()
+  isCashEquivalent: boolean;
+
   // Relationships
   @ManyToOne(() => ChartOfAccount, (account) => account.children, {
     onDelete: 'SET NULL',
