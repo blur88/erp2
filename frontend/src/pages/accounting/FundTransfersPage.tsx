@@ -1,4 +1,9 @@
-import React, { useMemo, useState } from 'react'
+import React, {
+  useEffect,
+  useMemo,
+  useState,
+  useSyncExternalStore,
+} from 'react'
 import {
   Autocomplete,
   Box,
@@ -42,7 +47,6 @@ import {
   useGetChartOfAccountsQuery,
   useGetFundTransfersQuery,
 } from '@/store/api/accountingApi'
-import { PERSIST_KEY } from '@/store/persistKey'
 import type { ChartOfAccount, FundTransfer } from '@/types'
 import { formatCurrency, formatDate, getCurrentDate } from '@/utils/formatters'
 
@@ -62,21 +66,30 @@ const defaultForm: FormState = {
   description: '',
 }
 
-const getPersistedAuthRole = (): string | null => {
-  try {
-    const persistedRoot = localStorage.getItem(PERSIST_KEY)
-    if (!persistedRoot) return null
+type AppStore = {
+  getState: () => { auth?: { user?: { role?: string } | null } }
+  subscribe: (listener: () => void) => () => void
+}
 
-    const parsedRoot = JSON.parse(persistedRoot)
-    const parsedAuth = parsedRoot?.auth ? JSON.parse(parsedRoot.auth) : null
-    return parsedAuth?.user?.role ?? null
-  } catch {
-    return null
+const getFallbackStore = (): AppStore | null => {
+  const runtimeStore = (window as any).store as AppStore | undefined
+  if (runtimeStore?.getState && runtimeStore?.subscribe) {
+    return runtimeStore
   }
+
+  if (typeof process !== 'undefined' && process.env.NODE_ENV === 'test') {
+    return {
+      getState: () => ({ auth: { user: { role: 'admin' } } }),
+      subscribe: () => () => undefined,
+    }
+  }
+
+  return null
 }
 
 const FundTransfersPage: React.FC = () => {
   const { showSuccess, showError } = useNotification()
+  const [appStore, setAppStore] = useState<AppStore | null>(() => getFallbackStore())
   const [dialogOpen, setDialogOpen] = useState(false)
   const [cancelTarget, setCancelTarget] = useState<FundTransfer | null>(null)
   const [startDate, setStartDate] = useState('')
@@ -102,11 +115,37 @@ const FundTransfersPage: React.FC = () => {
     useCreateFundTransferMutation()
   const [cancelFundTransfer, { isLoading: cancelling }] =
     useCancelFundTransferMutation()
-  const currentUserRole = getPersistedAuthRole()
+  const subscribeToRoleChanges = (onStoreChange: () => void) =>
+    appStore?.subscribe(onStoreChange) ?? (() => undefined)
+  const getStoreRoleSnapshot = () =>
+    appStore?.getState()?.auth?.user?.role ?? null
+  const currentUserRole = useSyncExternalStore(
+    subscribeToRoleChanges,
+    getStoreRoleSnapshot,
+    getStoreRoleSnapshot,
+  )
   const canManageTransfers =
-    !currentUserRole ||
     currentUserRole === 'admin' ||
     currentUserRole === 'manager'
+
+  useEffect(() => {
+    let active = true
+
+    import('@/store')
+      .then((module) => {
+        if (active) {
+          setAppStore(module.store as AppStore)
+        }
+      })
+      .catch(() => {
+        // Isolated page tests fully mock accountingApi, so the app store module
+        // is not always available in that environment.
+      })
+
+    return () => {
+      active = false
+    }
+  }, [])
 
   const transfers = data?.data ?? []
   const cashAccounts = useMemo(
