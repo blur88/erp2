@@ -79,6 +79,7 @@ const BankReconciliationDetailsPage = React.lazy(() => import('./pages/accountin
 const SettlementsPage = React.lazy(() => import('./pages/accounting/SettlementsPage'))
 const OwnerEquityPage = React.lazy(() => import('./pages/accounting/OwnerEquityPage'))
 const ExpensesPage = React.lazy(() => import('./pages/accounting/ExpensesPage'))
+const FundTransfersPage = React.lazy(() => import('./pages/accounting/FundTransfersPage'))
 const TrialBalancePage = React.lazy(() => import('./pages/accounting/reports/TrialBalancePage'))
 const BalanceSheetPage = React.lazy(() => import('./pages/accounting/reports/BalanceSheetPage'))
 const ProfitAndLossPage = React.lazy(() => import('./pages/accounting/reports/ProfitAndLossPage'))
@@ -204,6 +205,7 @@ export const router = createBrowserRouter([
           { path: '/accounting/settlements', element: <SettlementsPage /> },
           { path: '/accounting/owner-equity', element: <OwnerEquityPage /> },
           { path: '/accounting/expenses', element: <ExpensesPage /> },
+          { path: '/accounting/fund-transfers', element: <FundTransfersPage /> },
           { path: '/accounting/bank-reconciliations', element: <BankReconciliationsPage /> },
           { path: '/accounting/bank-reconciliations/new', element: <BankReconciliationsPage /> },
           { path: '/accounting/bank-reconciliations/:id', element: <BankReconciliationDetailsPage /> },

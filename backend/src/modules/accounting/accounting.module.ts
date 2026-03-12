@@ -14,6 +14,7 @@ import { PaymentMethodEntity } from '../../database/entities/payment-method.enti
 import { Payment } from '../../database/entities/payment.entity';
 import { OwnerEquityTransaction } from '../../database/entities/owner-equity-transaction.entity';
 import { Expense } from '../../database/entities/expense.entity';
+import { FundTransfer } from '../../database/entities/fund-transfer.entity';
 
 // Services
 import { AccountingService } from './services/accounting.service';
@@ -28,6 +29,7 @@ import { ReconciliationService } from './services/reconciliation.service';
 import { SettlementService } from './services/settlement.service';
 import { OwnerEquityService } from './services/owner-equity.service';
 import { ExpenseService } from './services/expense.service';
+import { FundTransferService } from './services/fund-transfer.service';
 
 // Controllers
 import { ChartOfAccountsController } from './controllers/chart-of-accounts.controller';
@@ -39,6 +41,7 @@ import { ReconciliationController } from './controllers/reconciliation.controlle
 import { SettlementController } from './controllers/settlement.controller';
 import { OwnerEquityController } from './controllers/owner-equity.controller';
 import { ExpenseController } from './controllers/expense.controller';
+import { FundTransferController } from './controllers/fund-transfer.controller';
 import { SettingsModule } from '../settings/settings.module';
 import { AuditLogsModule } from '../audit-logs/audit-logs.module';
 
@@ -57,6 +60,7 @@ import { AuditLogsModule } from '../audit-logs/audit-logs.module';
       Payment,
       OwnerEquityTransaction,
       Expense,
+      FundTransfer,
     ]),
     SettingsModule,
     AuditLogsModule,
@@ -71,6 +75,7 @@ import { AuditLogsModule } from '../audit-logs/audit-logs.module';
     SettlementController,
     OwnerEquityController,
     ExpenseController,
+    FundTransferController,
   ],
   providers: [
     AccountingService,
@@ -85,6 +90,7 @@ import { AuditLogsModule } from '../audit-logs/audit-logs.module';
     SettlementService,
     OwnerEquityService,
     ExpenseService,
+    FundTransferService,
   ],
   exports: [
     AccountingService,
@@ -99,6 +105,7 @@ import { AuditLogsModule } from '../audit-logs/audit-logs.module';
     SettlementService,
     OwnerEquityService,
     ExpenseService,
+    FundTransferService,
   ],
 })
 export class AccountingModule {}

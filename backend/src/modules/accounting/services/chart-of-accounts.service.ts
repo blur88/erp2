@@ -120,6 +120,7 @@ export class ChartOfAccountsService {
       type,
       isActive,
       parentId,
+      isCashEquivalent,
       sortBy = 'code',
       sortOrder = 'ASC',
     } = query;
@@ -143,6 +144,10 @@ export class ChartOfAccountsService {
 
     if (isActive !== undefined) {
       queryBuilder.andWhere('account.isActive = :isActive', { isActive });
+    }
+
+    if (isCashEquivalent !== undefined) {
+      queryBuilder.andWhere('account.isCashEquivalent = :isCashEquivalent', { isCashEquivalent });
     }
 
     if (parentId !== undefined) {
@@ -694,6 +699,7 @@ export class ChartOfAccountsService {
       type: account.type,
       parentId: account.parentId,
       isActive: account.isActive,
+      isCashEquivalent: account.isCashEquivalent,
       fullCode: account.fullCode,
       isParent: account.isParent,
       parent: account.parent

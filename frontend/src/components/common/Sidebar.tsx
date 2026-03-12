@@ -32,6 +32,7 @@ import {
   Description as PurchaseOrderIcon,
   AccountBalance as VendorPaymentsIcon,
   SwapVert as StockAdjustmentIcon,
+  SwapHoriz as SwapHorizIcon,
   PriceChange as PriceCostingIcon,
   Summarize as SummaryIcon,
   ListAlt as DetailIcon,
@@ -247,6 +248,12 @@ const menuSections: MenuSection[] = [
             title: 'Expenses',
             icon: <OrdersIcon />,
             path: '/accounting/expenses',
+          },
+          {
+            id: 'fund-transfers',
+            title: 'Fund Transfers',
+            icon: <SwapHorizIcon />,
+            path: '/accounting/fund-transfers',
           },
           {
             id: 'settlements',

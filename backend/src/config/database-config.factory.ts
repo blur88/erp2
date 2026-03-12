@@ -16,6 +16,7 @@ import { Customer } from '../database/entities/customer.entity';
 import { DocumentNumberSetting } from '../database/entities/document-number-settings.entity';
 import { Expense } from '../database/entities/expense.entity';
 import { FiscalPeriod } from '../database/entities/fiscal-period.entity';
+import { FundTransfer } from '../database/entities/fund-transfer.entity';
 import { GoodsReceivedNote } from '../database/entities/goods-received-note.entity';
 import { GoodsReceivedNoteItem } from '../database/entities/goods-received-note-item.entity';
 import { Invoice } from '../database/entities/invoice.entity';
@@ -84,7 +85,7 @@ export function createDatabaseConfig(configService: ConfigService, allowDefaults
     entities: [
       AccountMapping, AuditLog, BackupLog, BackupSchedule, BackupRetentionSettings,
       BankReconciliation, Category, ChartOfAccount, CompanySettings, Customer,
-      DocumentNumberSetting, Expense, FiscalPeriod, GoodsReceivedNote, GoodsReceivedNoteItem,
+      DocumentNumberSetting, Expense, FiscalPeriod, FundTransfer, GoodsReceivedNote, GoodsReceivedNoteItem,
       Invoice, InvoiceItem, JournalEntry, JournalEntryLine, OwnerEquityTransaction,
       Payment, PaymentMethodEntity, PriceCostingSettings, PriceList, PriceListItem,
       PrintSettings, Product, PurchaseCostHistory, PurchaseOrder, PurchaseOrderItem,

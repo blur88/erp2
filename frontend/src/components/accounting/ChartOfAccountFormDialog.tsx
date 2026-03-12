@@ -40,6 +40,7 @@ interface FormData {
   type: 'asset' | 'liability' | 'equity' | 'revenue' | 'expense'
   parentId?: string | null
   isActive: boolean
+  isCashEquivalent: boolean
 }
 
 const accountTypeMap: Record<FormData['type'], ChartOfAccount['type']> = {
@@ -56,6 +57,7 @@ const accountSchema = yup.object({
   type: yup.string().required('Account type is required').oneOf(['asset', 'liability', 'equity', 'revenue', 'expense'], 'Invalid account type'),
   parentId: yup.string().optional().nullable(),
   isActive: yup.boolean().required(),
+  isCashEquivalent: yup.boolean().required(),
 })
 
 const ChartOfAccountFormDialog: React.FC<ChartOfAccountFormDialogProps> = ({
@@ -85,6 +87,7 @@ const ChartOfAccountFormDialog: React.FC<ChartOfAccountFormDialogProps> = ({
       type: 'asset',
       parentId: null,
       isActive: true,
+      isCashEquivalent: false,
     },
   })
 
@@ -100,6 +103,7 @@ const ChartOfAccountFormDialog: React.FC<ChartOfAccountFormDialogProps> = ({
           type: account.type.toLowerCase() as any,
           parentId: account.parentId || null,
           isActive: account.isActive,
+          isCashEquivalent: account.isCashEquivalent ?? false,
         })
       } else {
         reset({
@@ -108,6 +112,7 @@ const ChartOfAccountFormDialog: React.FC<ChartOfAccountFormDialogProps> = ({
           type: 'asset',
           parentId: null,
           isActive: true,
+          isCashEquivalent: false,
         })
       }
     }
@@ -123,6 +128,7 @@ const ChartOfAccountFormDialog: React.FC<ChartOfAccountFormDialogProps> = ({
         type: accountTypeMap[data.type],
         parentId: data.parentId || undefined,
         isActive: data.isActive,
+        isCashEquivalent: data.isCashEquivalent,
       }
 
       if (account) {
@@ -319,6 +325,24 @@ const ChartOfAccountFormDialog: React.FC<ChartOfAccountFormDialogProps> = ({
                       />
                     }
                     label="Active (Enable for transactions)"
+                  />
+                )}
+              />
+            </Grid>
+
+            <Grid size={12}>
+              <Controller
+                name="isCashEquivalent"
+                control={control}
+                render={({ field }) => (
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        checked={field.value}
+                        onChange={(e) => field.onChange(e.target.checked)}
+                      />
+                    }
+                    label="Cash/Bank Account (eligible for fund transfers)"
                   />
                 )}
               />

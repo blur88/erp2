@@ -489,6 +489,36 @@ export interface ExpenseRecord {
   updatedAt: string;
 }
 
+export interface FundTransfer {
+  id: string;
+  referenceNumber: string;
+  transferDate: string;
+  amount: number;
+  description?: string;
+  status: 'ACTIVE' | 'CANCELLED';
+  fiscalPeriodId: string;
+  journalEntryId: string | null;
+  sourceAccount: {
+    id: string;
+    code: string;
+    name: string;
+    type: string;
+  };
+  destinationAccount: {
+    id: string;
+    code: string;
+    name: string;
+    type: string;
+  };
+  journalEntry?: {
+    id: string;
+    referenceNumber: string;
+    status: string;
+  };
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface PendingSettlementSummary {
   paymentMethodId: string;
   paymentMethodCode: string;
@@ -631,6 +661,7 @@ export interface ChartOfAccount {
   parent?: Partial<ChartOfAccount>;
   children?: ChartOfAccount[];
   isActive: boolean;
+  isCashEquivalent?: boolean;
   fullCode: string;
   isParent: boolean;
   createdAt: Date | string;

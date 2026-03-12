@@ -5,6 +5,7 @@ import type {
   ChartOfAccount,
   ExpenseRecord,
   FiscalPeriod,
+  FundTransfer,
   JournalEntry,
   OwnerEquityTransaction,
   PaginatedResponse,
@@ -78,6 +79,14 @@ type AccountActivityReport = {
     referenceNumber?: string
   }>
   totalEntries: number
+}
+
+type CreateFundTransferPayload = {
+  sourceAccountId: string
+  destinationAccountId: string
+  amount: number
+  transferDate: string
+  description?: string
 }
 
 const toNumber = (value: unknown, fallback = 0): number => {
@@ -226,6 +235,7 @@ export const accountingApiSlice = createApi({
     'Settlement',
     'OwnerEquity',
     'Expense',
+    'FundTransfer',
     'AccountingReport',
   ],
   endpoints: (builder) => ({
@@ -322,6 +332,16 @@ export const accountingApiSlice = createApi({
       query: (params) => ({ url: '/accounting/expenses', params: params ?? {} }),
       transformResponse: normalizePaginated<ExpenseRecord>,
       providesTags: ['Expense'],
+    }),
+    getFundTransfers: builder.query<PaginatedResponse<FundTransfer>, Record<string, unknown> | undefined>({
+      query: (params) => ({ url: '/accounting/fund-transfers', params: params ?? {} }),
+      transformResponse: normalizePaginated<FundTransfer>,
+      providesTags: ['FundTransfer'],
+    }),
+    getFundTransfer: builder.query<FundTransfer, string>({
+      query: (id) => ({ url: `/accounting/fund-transfers/${id}` }),
+      transformResponse: normalizeSingle<FundTransfer>,
+      providesTags: (_result, _error, id) => [{ type: 'FundTransfer', id }],
     }),
     getTrialBalance: builder.query<any, { asOfDate: string; includeInactive?: boolean }>({
       query: (params) => ({ url: '/accounting/reports/trial-balance', params }),
@@ -685,6 +705,21 @@ export const accountingApiSlice = createApi({
       query: (ids) => ({ url: '/accounting/expenses/bulk-delete', method: 'POST', data: { ids } }),
       invalidatesTags: ['Expense', 'AccountingReport'],
     }),
+    createFundTransfer: builder.mutation<FundTransfer, CreateFundTransferPayload>({
+      query: (body) => ({ url: '/accounting/fund-transfers', method: 'POST', data: body }),
+      transformResponse: normalizeSingle<FundTransfer>,
+      invalidatesTags: ['FundTransfer', 'JournalEntry', 'AccountingReport'],
+    }),
+    cancelFundTransfer: builder.mutation<FundTransfer, string>({
+      query: (id) => ({ url: `/accounting/fund-transfers/${id}/cancel`, method: 'POST' }),
+      transformResponse: normalizeSingle<FundTransfer>,
+      invalidatesTags: (_result, _error, id) => [
+        { type: 'FundTransfer', id },
+        'FundTransfer',
+        'JournalEntry',
+        'AccountingReport',
+      ],
+    }),
   }),
 })
 
@@ -709,6 +744,8 @@ export const {
   useGetPendingSettlementPaymentsQuery,
   useGetOwnerEquityTransactionsQuery,
   useGetExpensesQuery,
+  useGetFundTransfersQuery,
+  useGetFundTransferQuery,
   useGetTrialBalanceQuery,
   useGetBalanceSheetQuery,
   useGetProfitAndLossQuery,
@@ -765,4 +802,6 @@ export const {
   usePostExpenseMutation,
   useBulkPostExpensesMutation,
   useBulkDeleteExpensesMutation,
+  useCreateFundTransferMutation,
+  useCancelFundTransferMutation,
 } = accountingApiSlice
