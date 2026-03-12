@@ -58,6 +58,9 @@ vi.mock('@/hooks/useCurrency', () => ({
 }))
 
 vi.mock('@/services/api', () => ({
+  ApiService: {
+    get: mockGet,
+  },
   default: {
     get: mockGet,
   },
