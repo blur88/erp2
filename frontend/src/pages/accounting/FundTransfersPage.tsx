@@ -18,7 +18,6 @@ import {
   DialogTitle,
   FormControl,
   IconButton,
-  InputAdornment,
   InputLabel,
   MenuItem,
   Paper,
@@ -457,11 +456,6 @@ const FundTransfersPage: React.FC = () => {
                   amount: event.target.value,
                 }))
               }
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">$</InputAdornment>
-                ),
-              }}
             />
 
             <TextField
