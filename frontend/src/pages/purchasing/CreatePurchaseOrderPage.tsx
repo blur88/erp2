@@ -30,9 +30,9 @@ import {
 import { useForm, useFieldArray, Controller } from 'react-hook-form'
 import { yupResolver } from '@hookform/resolvers/yup'
 import * as yup from 'yup'
-import api from '@/services/api'
 import { formatCurrency, getCurrentDate } from '@/utils/formatters'
 import { useNotification } from '@/hooks/useNotification'
+import { useProductSearch } from '@/hooks/useProductSearch'
 import { useAppDispatch } from '@/hooks/useRedux'
 import { updatePurchaseOrderInPlace } from '@/store/slices/purchasingSlice'
 import {
@@ -93,12 +93,11 @@ const CreatePurchaseOrderPage: React.FC = () => {
   // search so the dropdown shows only current results. Selected values survive options
   // replacement because each row's `value` prop is sourced from watchedItems, not from
   // this array — see `isOptionEqualToValue` and the value expression in the Autocomplete.
-  const [products, setProducts] = useState<any[]>([])
+  const { products, loadProducts, seedProducts } = useProductSearch()
   const [loading, setLoading] = useState(false)
   const [loadingOrder, setLoadingOrder] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [orderToLoad, setOrderToLoad] = useState<any>(null)
-  const latestProductsRequestRef = React.useRef(0)
   const { data: suppliersResponse } = useGetSuppliersQuery({})
   const [createPurchaseOrder] = useCreatePurchaseOrderMutation()
   const [updatePurchaseOrder] = useUpdatePurchaseOrderMutation()
@@ -158,14 +157,7 @@ const CreatePurchaseOrderPage: React.FC = () => {
           .map((item: any) => item.product)
 
         console.log('Order products:', orderProducts)
-
-        // Merge with existing products, avoiding duplicates
-        setProducts((prevProducts) => {
-          const existingIds = new Set(prevProducts.map(p => p.id))
-          const newProducts = orderProducts.filter((p: any) => !existingIds.has(p.id))
-          console.log('Merged products:', [...prevProducts, ...newProducts])
-          return [...prevProducts, ...newProducts]
-        })
+        seedProducts(orderProducts)
       }
 
       // Store order data to be loaded after products are set
@@ -253,29 +245,6 @@ const CreatePurchaseOrderPage: React.FC = () => {
       }
     })
   }, [JSON.stringify(watchedItems), setValue])
-
-  const loadProducts = async (searchTerm: string = '') => {
-    const requestId = ++latestProductsRequestRef.current
-
-    try {
-      const params: any = { isActive: true }
-      if (searchTerm && searchTerm.trim().length >= 1) {
-        params.search = searchTerm.trim()
-      }
-      const response = await api.get('/inventory/products', { params })
-
-      if (requestId !== latestProductsRequestRef.current) {
-        return
-      }
-
-      console.log('Products loaded:', response)
-      const newProducts = (response as any).data?.data || []
-
-      setProducts(newProducts)
-    } catch (err) {
-      console.error('Error loading products:', err)
-    }
-  }
 
   const onSubmit = async (data: CreatePurchaseOrderFormData) => {
     setLoading(true)

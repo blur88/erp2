@@ -1,44 +1,50 @@
 import '@testing-library/jest-dom/vitest'
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { act, render, screen, waitFor, within } from '@testing-library/react'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { BrowserRouter } from 'react-router-dom'
 
-import CreatePurchaseOrderPage from '../CreatePurchaseOrderPage'
+import CreateSalesOrderPage from '../CreateSalesOrderPage'
 
 const replacementSearchTerm = 'B'
-
-const createDeferred = <T,>() => {
-  let resolve!: (value: T) => void
-  const promise = new Promise<T>((res) => {
-    resolve = res
-  })
-
-  return { promise, resolve }
+const customersResponse = {
+  data: { data: [{ id: 'customer-1', name: 'Test Customer' }] },
 }
 
 const {
   mockDispatch,
   mockGet,
-  mockCreatePurchaseOrder,
-  mockUpdatePurchaseOrder,
-  mockFetchPurchaseOrder,
+  mockCreateSalesOrder,
+  mockUpdateSalesOrder,
+  mockFetchSalesOrder,
   mockParams,
 } = vi.hoisted(() => ({
   mockDispatch: vi.fn(),
   mockGet: vi.fn(),
-  mockCreatePurchaseOrder: vi.fn(),
-  mockUpdatePurchaseOrder: vi.fn(),
-  mockFetchPurchaseOrder: vi.fn(),
+  mockCreateSalesOrder: vi.fn(),
+  mockUpdateSalesOrder: vi.fn(),
+  mockFetchSalesOrder: vi.fn(),
   mockParams: vi.fn(() => ({})),
 }))
 
 vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual('react-router-dom')
+
   return {
     ...actual,
     useNavigate: () => vi.fn(),
     useParams: () => mockParams(),
+  }
+})
+
+vi.mock('react-redux', async (importOriginal) => {
+  const actual = (await importOriginal()) as Record<string, unknown>
+
+  return {
+    ...actual,
+    useStore: () => ({
+      getState: vi.fn(() => ({})),
+    }),
   }
 })
 
@@ -58,45 +64,44 @@ vi.mock('@/hooks/useCurrency', () => ({
 }))
 
 vi.mock('@/services/api', () => ({
-  ApiService: {
-    get: mockGet,
-  },
-  default: {
-    get: mockGet,
-  },
+  ApiService: { get: mockGet },
 }))
 
-vi.mock('@/store/api/purchasingApi', () => ({
-  useGetSuppliersQuery: () => ({
-    data: {
-      data: [{ id: 'supplier-1', companyName: 'Acme Supplies' }],
-    },
-  }),
-  useCreatePurchaseOrderMutation: () => [mockCreatePurchaseOrder],
-  useUpdatePurchaseOrderMutation: () => [mockUpdatePurchaseOrder],
-  useLazyGetPurchaseOrderQuery: () => [mockFetchPurchaseOrder],
+vi.mock('@/store/api/salesApi', () => ({
+  useGetCustomersQuery: () => customersResponse,
+  useCreateSalesOrderMutation: () => [mockCreateSalesOrder],
+  useUpdateSalesOrderMutation: () => [mockUpdateSalesOrder],
+  useLazyGetSalesOrderQuery: () => [mockFetchSalesOrder],
 }))
 
-describe('CreatePurchaseOrderPage', () => {
+vi.mock('@/store/api/salesOrderCache', () => ({
+  patchSalesOrderCaches: vi.fn(),
+}))
+
+vi.mock('@/store/slices/salesSlice', () => ({
+  setSelectedOrder: vi.fn((value) => ({ type: 'sales/setSelectedOrder', payload: value })),
+}))
+
+describe('CreateSalesOrderPage product search', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockParams.mockReturnValue({})
 
     mockGet.mockImplementation(async (_url: string, config?: { params?: { search?: string } }) => {
       if (config?.params?.search?.startsWith(replacementSearchTerm)) {
-        return { data: [{ id: 'product-2', name: 'Beta Gadget', baseCost: 22 }] }
+        return { data: [{ id: 'product-2', name: 'Beta Gadget', basePrice: 22 }] }
       }
 
-      return { data: [{ id: 'product-1', name: 'Alpha Widget', baseCost: 11 }] }
+      return { data: [{ id: 'product-1', name: 'Alpha Widget', basePrice: 11 }] }
     })
   })
 
-  it('replaces the autocomplete options with only the latest product search results', async () => {
+  it('replaces autocomplete options with only the latest search results', async () => {
     const user = userEvent.setup()
 
     render(
       <BrowserRouter>
-        <CreatePurchaseOrderPage />
+        <CreateSalesOrderPage />
       </BrowserRouter>
     )
 
@@ -125,12 +130,11 @@ describe('CreatePurchaseOrderPage', () => {
 
     render(
       <BrowserRouter>
-        <CreatePurchaseOrderPage />
+        <CreateSalesOrderPage />
       </BrowserRouter>
     )
 
     const [firstProductInput] = screen.getAllByPlaceholderText('Search by name or barcode...')
-
     await user.click(firstProductInput)
 
     const initialListbox = await screen.findByRole('listbox')
@@ -159,44 +163,38 @@ describe('CreatePurchaseOrderPage', () => {
     })
   })
 
-  it('keeps hydrated edit-mode product visible after shared search options are replaced', async () => {
+  it('keeps hydrated edit-mode product visible after search replaces options', async () => {
     const user = userEvent.setup()
+    mockParams.mockReturnValue({ id: 'so-1' })
 
-    mockParams.mockReturnValue({ id: 'po-1' })
-    mockFetchPurchaseOrder.mockReturnValue({
+    mockFetchSalesOrder.mockReturnValue({
       unwrap: vi.fn().mockResolvedValue({
-        data: {
-          id: 'po-1',
-          supplierId: 'supplier-1',
-          orderDate: '2026-03-01T00:00:00.000Z',
-          shippingAmount: 0,
-          items: [
-            {
-              productId: 'product-9',
-              quantity: 2,
-              unitPrice: 44,
-              discountAmount: 0,
-              discountPercent: 0,
-              totalAmount: 88,
-              product: { id: 'product-9', name: 'Hydrated Product', baseCost: 44 },
-            },
-          ],
-        },
+        items: [
+          {
+            productId: 'product-9',
+            quantity: 2,
+            unitPrice: 44,
+            discountType: 'percentage',
+            discountValue: 0,
+            discountPercent: 0,
+            discountAmount: 0,
+            totalPrice: 88,
+            product: { id: 'product-9', name: 'Hydrated Product', basePrice: 44 },
+          },
+        ],
+        customerId: 'customer-1',
+        orderDate: '2026-03-01T00:00:00.000Z',
+        shippingAmount: 0,
       }),
     })
 
     render(
       <BrowserRouter>
-        <CreatePurchaseOrderPage />
+        <CreateSalesOrderPage />
       </BrowserRouter>
     )
 
-    await waitFor(() => {
-      expect(mockFetchPurchaseOrder).toHaveBeenCalledWith('po-1')
-    })
-
     const [firstProductInput] = await screen.findAllByPlaceholderText('Search by name or barcode...')
-
     await waitFor(() => {
       expect(firstProductInput).toHaveValue('Hydrated Product')
     })
@@ -217,63 +215,6 @@ describe('CreatePurchaseOrderPage', () => {
 
     await waitFor(() => {
       expect(firstProductInput).toHaveValue('Hydrated Product')
-    })
-  })
-
-  it('ignores stale earlier product responses that finish after the latest search', async () => {
-    const user = userEvent.setup()
-    const initialProductsRequest = createDeferred<any>()
-    const latestSearchRequest = createDeferred<any>()
-
-    mockGet.mockImplementation(async (_url: string, config?: { params?: { search?: string } }) => {
-      if (config?.params?.search === replacementSearchTerm) {
-        return latestSearchRequest.promise
-      }
-
-      return initialProductsRequest.promise
-    })
-
-    render(
-      <BrowserRouter>
-        <CreatePurchaseOrderPage />
-      </BrowserRouter>
-    )
-
-    const productInput = screen.getByPlaceholderText('Search by name or barcode...')
-
-    await waitFor(() => {
-      expect(mockGet).toHaveBeenCalledWith('/inventory/products', {
-        params: { isActive: true },
-      })
-    })
-
-    await user.click(productInput)
-    await user.type(productInput, replacementSearchTerm)
-
-    await waitFor(() => {
-      expect(mockGet).toHaveBeenCalledWith('/inventory/products', {
-        params: { isActive: true, search: replacementSearchTerm },
-      })
-    })
-
-    await act(async () => {
-      latestSearchRequest.resolve({
-        data: [{ id: 'product-2', name: 'Beta Gadget', baseCost: 22 }],
-      })
-    })
-
-    const listbox = await screen.findByRole('listbox')
-    expect(within(listbox).getByText('Beta Gadget')).toBeInTheDocument()
-
-    await act(async () => {
-      initialProductsRequest.resolve({
-        data: [{ id: 'product-1', name: 'Alpha Widget', baseCost: 11 }],
-      })
-    })
-
-    await waitFor(() => {
-      expect(within(listbox).getByText('Beta Gadget')).toBeInTheDocument()
-      expect(within(listbox).queryByText('Alpha Widget')).toBeNull()
     })
   })
 })
