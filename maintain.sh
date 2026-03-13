@@ -66,12 +66,29 @@ do_top_lines() {
     | grep -v ' total$'
 }
 
+do_jscpd() {
+  echo -e "${BOLD}${YELLOW}--- BACKEND (NestJS) ---${RESET}"
+  (cd "$ROOT_DIR/backend" && npx jscpd src \
+    --ignore "**/node_modules/**,**/dist/**" \
+    --min-lines 15 \
+    --min-tokens 100 \
+    --reporters console) || true
+  echo ""
+  echo -e "${BOLD}${YELLOW}--- FRONTEND (React/Vite) ---${RESET}"
+  (cd "$ROOT_DIR/frontend" && npx jscpd src \
+    --ignore "**/node_modules/**,**/dist/**" \
+    --min-lines 15 \
+    --min-tokens 100 \
+    --reporters console) || true
+}
+
 STEPS=(
   "Knip (dead code / unused deps check)"
   "Outdated packages"
   "Update packages (within semver ranges)"
   "Audit (security vulnerabilities)"
   "Top 5 files by line count"
+  "jscpd (copy-paste detection)"
   "Docker: prune + rebuild + up"
 )
 
@@ -82,7 +99,8 @@ run_step() {
     2) do_update ;;
     3) do_audit ;;
     4) do_top_lines ;;
-    5) do_docker_rebuild ;;
+    5) do_jscpd ;;
+    6) do_docker_rebuild ;;
   esac
 }
 
@@ -105,6 +123,7 @@ prompt_next() {
       4) echo "3" ; return ;;
       5) echo "4" ; return ;;
       6) echo "5" ; return ;;
+      7) echo "6" ; return ;;
       [Rr]) echo "$current" ; return ;;
       [Qq]) echo "-1" ; return ;;
       *) echo -e "${RED}Invalid choice.${RESET}" >&2 ;;
@@ -126,10 +145,10 @@ echo ""
 
 # Pick starting step
 while true; do
-  read -rp "$(echo -e "${BOLD}Start with (1–6): ${RESET}")" start
+  read -rp "$(echo -e "${BOLD}Start with (1–7): ${RESET}")" start
   case "$start" in
-    1|2|3|4|5|6) current=$((start-1)) ; break ;;
-    *) echo -e "${RED}Please enter 1–6.${RESET}" ;;
+    1|2|3|4|5|6|7) current=$((start-1)) ; break ;;
+    *) echo -e "${RED}Please enter 1–7.${RESET}" ;;
   esac
 done
 
