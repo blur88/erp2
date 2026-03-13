@@ -1,6 +1,6 @@
 import '@testing-library/jest-dom/vitest'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { BrowserRouter } from 'react-router-dom'
 
@@ -308,8 +308,9 @@ describe('CreateStockAdjustmentPage submit', () => {
       (element) => element !== productInput && (element as HTMLInputElement).value === '10'
     ) as HTMLInputElement
 
-    fireEvent.change(newQtyInput, { target: { value: '15' } })
-    fireEvent.click(screen.getByRole('button', { name: /create adjustment/i }))
+    await user.clear(newQtyInput)
+    await user.type(newQtyInput, '15')
+    await user.click(screen.getByRole('button', { name: /create adjustment/i }))
 
     await waitFor(() => {
       expect(mockCreateAdjustment).toHaveBeenCalledWith(
@@ -357,8 +358,9 @@ describe('CreateStockAdjustmentPage submit', () => {
       (element) => (element as HTMLInputElement).value === '10'
     ) as HTMLInputElement
 
-    fireEvent.change(newQtyInput, { target: { value: '20' } })
-    fireEvent.click(screen.getByRole('button', { name: /update adjustment/i }))
+    await user.clear(newQtyInput)
+    await user.type(newQtyInput, '20')
+    await user.click(screen.getByRole('button', { name: /update adjustment/i }))
 
     await waitFor(() => {
       expect(mockUpdateAdjustment).toHaveBeenCalledWith(
