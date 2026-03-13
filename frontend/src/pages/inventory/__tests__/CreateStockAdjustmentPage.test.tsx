@@ -57,18 +57,10 @@ describe('CreateStockAdjustmentPage product search', () => {
       }
 
       if (config?.params?.search?.startsWith(replacementSearchTerm)) {
-        return {
-          data: {
-            data: [{ id: 'product-2', name: 'Beta Gadget', stockQuantity: 5 }],
-          },
-        }
+        return { data: [{ id: 'product-2', name: 'Beta Gadget', stockQuantity: 5 }] }
       }
 
-      return {
-        data: {
-          data: [{ id: 'product-1', name: 'Alpha Widget', stockQuantity: 10 }],
-        },
-      }
+      return { data: [{ id: 'product-1', name: 'Alpha Widget', stockQuantity: 10 }] }
     })
   })
 
@@ -149,7 +141,7 @@ describe('CreateStockAdjustmentPage product search', () => {
       if (url === '/inventory/stock-adjustments/adj-1') {
         return adjustmentPromise
       }
-      return { data: { data: [{ id: 'product-1', name: 'Alpha Widget', stockQuantity: 10 }] } }
+      return { data: [{ id: 'product-1', name: 'Alpha Widget', stockQuantity: 10 }] }
     })
 
     render(
@@ -212,18 +204,10 @@ describe('CreateStockAdjustmentPage product search', () => {
       }
 
       if (config?.params?.search?.startsWith(replacementSearchTerm)) {
-        return {
-          data: {
-            data: [{ id: 'product-2', name: 'Beta Gadget', stockQuantity: 5 }],
-          },
-        }
+        return { data: [{ id: 'product-2', name: 'Beta Gadget', stockQuantity: 5 }] }
       }
 
-      return {
-        data: {
-          data: [{ id: 'product-1', name: 'Alpha Widget', stockQuantity: 10 }],
-        },
-      }
+      return { data: [{ id: 'product-1', name: 'Alpha Widget', stockQuantity: 10 }] }
     })
 
     render(

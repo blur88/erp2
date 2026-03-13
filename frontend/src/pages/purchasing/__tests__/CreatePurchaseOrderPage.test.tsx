@@ -84,18 +84,10 @@ describe('CreatePurchaseOrderPage', () => {
 
     mockGet.mockImplementation(async (_url: string, config?: { params?: { search?: string } }) => {
       if (config?.params?.search?.startsWith(replacementSearchTerm)) {
-        return {
-          data: {
-            data: [{ id: 'product-2', name: 'Beta Gadget', baseCost: 22 }],
-          },
-        }
+        return { data: [{ id: 'product-2', name: 'Beta Gadget', baseCost: 22 }] }
       }
 
-      return {
-        data: {
-          data: [{ id: 'product-1', name: 'Alpha Widget', baseCost: 11 }],
-        },
-      }
+      return { data: [{ id: 'product-1', name: 'Alpha Widget', baseCost: 11 }] }
     })
   })
 
@@ -266,9 +258,7 @@ describe('CreatePurchaseOrderPage', () => {
 
     await act(async () => {
       latestSearchRequest.resolve({
-        data: {
-          data: [{ id: 'product-2', name: 'Beta Gadget', baseCost: 22 }],
-        },
+        data: [{ id: 'product-2', name: 'Beta Gadget', baseCost: 22 }],
       })
     })
 
@@ -277,9 +267,7 @@ describe('CreatePurchaseOrderPage', () => {
 
     await act(async () => {
       initialProductsRequest.resolve({
-        data: {
-          data: [{ id: 'product-1', name: 'Alpha Widget', baseCost: 11 }],
-        },
+        data: [{ id: 'product-1', name: 'Alpha Widget', baseCost: 11 }],
       })
     })
 

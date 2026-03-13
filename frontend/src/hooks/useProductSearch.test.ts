@@ -11,6 +11,11 @@ import { useProductSearch } from './useProductSearch'
 
 const makeProduct = (id: string, name: string) => ({ id, name })
 
+// ApiService.get strips the Axios wrapper and returns response.data directly.
+// So the mock returns { data: Product[] } — the backend body shape — not the
+// raw Axios response shape { data: { data: Product[] } }.
+const makeResponse = (products: ReturnType<typeof makeProduct>[]) => ({ data: products })
+
 describe('useProductSearch', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -23,7 +28,7 @@ describe('useProductSearch', () => {
   })
 
   it('loadProducts replaces the list with API results', async () => {
-    mockGet.mockResolvedValue({ data: { data: [makeProduct('1', 'Alpha')] } })
+    mockGet.mockResolvedValue(makeResponse([makeProduct('1', 'Alpha')]))
     const { result } = renderHook(() => useProductSearch())
 
     await act(() => result.current.loadProducts())
@@ -35,7 +40,7 @@ describe('useProductSearch', () => {
   })
 
   it('loadProducts sends search param when searchTerm is provided', async () => {
-    mockGet.mockResolvedValue({ data: { data: [] } })
+    mockGet.mockResolvedValue(makeResponse([]))
     const { result } = renderHook(() => useProductSearch())
 
     await act(() => result.current.loadProducts('apple'))
@@ -47,8 +52,8 @@ describe('useProductSearch', () => {
 
   it('loadProducts replaces the list, not merges', async () => {
     mockGet
-      .mockResolvedValueOnce({ data: { data: [makeProduct('1', 'Alpha')] } })
-      .mockResolvedValueOnce({ data: { data: [makeProduct('2', 'Beta')] } })
+      .mockResolvedValueOnce(makeResponse([makeProduct('1', 'Alpha')]))
+      .mockResolvedValueOnce(makeResponse([makeProduct('2', 'Beta')]))
     const { result } = renderHook(() => useProductSearch())
 
     await act(() => result.current.loadProducts())
@@ -59,33 +64,26 @@ describe('useProductSearch', () => {
   })
 
   it('loadProducts discards stale responses (race condition guard)', async () => {
-    let resolveFirst!: (value: { data: { data: Array<{ id: string; name: string }> } }) => void
-    let resolveSecond!: (value: { data: { data: Array<{ id: string; name: string }> } }) => void
-    const first = new Promise<{ data: { data: Array<{ id: string; name: string }> } }>((res) => {
-      resolveFirst = res
-    })
-    const second = new Promise<{ data: { data: Array<{ id: string; name: string }> } }>((res) => {
-      resolveSecond = res
-    })
+    type Response = ReturnType<typeof makeResponse>
+    let resolveFirst!: (value: Response) => void
+    let resolveSecond!: (value: Response) => void
+    const first = new Promise<Response>((res) => { resolveFirst = res })
+    const second = new Promise<Response>((res) => { resolveSecond = res })
 
     mockGet.mockReturnValueOnce(first).mockReturnValueOnce(second)
 
     const { result } = renderHook(() => useProductSearch())
 
-    act(() => {
-      void result.current.loadProducts('a')
-    })
-    act(() => {
-      void result.current.loadProducts('b')
-    })
+    act(() => { void result.current.loadProducts('a') })
+    act(() => { void result.current.loadProducts('b') })
 
     await act(async () => {
-      resolveSecond({ data: { data: [makeProduct('2', 'Second')] } })
+      resolveSecond(makeResponse([makeProduct('2', 'Second')]))
       await Promise.resolve()
     })
 
     await act(async () => {
-      resolveFirst({ data: { data: [makeProduct('1', 'First')] } })
+      resolveFirst(makeResponse([makeProduct('1', 'First')]))
       await Promise.resolve()
     })
 
@@ -107,25 +105,19 @@ describe('useProductSearch', () => {
   })
 
   it('seedProducts invalidates older in-flight loadProducts responses', async () => {
-    let resolveRequest!: (value: { data: { data: Array<{ id: string; name: string }> } }) => void
-    const request = new Promise<{ data: { data: Array<{ id: string; name: string }> } }>((res) => {
-      resolveRequest = res
-    })
+    type Response = ReturnType<typeof makeResponse>
+    let resolveRequest!: (value: Response) => void
+    const request = new Promise<Response>((res) => { resolveRequest = res })
 
     mockGet.mockReturnValueOnce(request)
 
     const { result } = renderHook(() => useProductSearch())
 
-    act(() => {
-      void result.current.loadProducts()
-    })
-
-    act(() => {
-      result.current.seedProducts([makeProduct('9', 'Hydrated Product')])
-    })
+    act(() => { void result.current.loadProducts() })
+    act(() => { result.current.seedProducts([makeProduct('9', 'Hydrated Product')]) })
 
     await act(async () => {
-      resolveRequest({ data: { data: [makeProduct('1', 'Alpha')] } })
+      resolveRequest(makeResponse([makeProduct('1', 'Alpha')]))
       await Promise.resolve()
     })
 

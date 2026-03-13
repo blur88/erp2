@@ -89,10 +89,10 @@ describe('CreateSalesOrderPage product search', () => {
 
     mockGet.mockImplementation(async (_url: string, config?: { params?: { search?: string } }) => {
       if (config?.params?.search?.startsWith(replacementSearchTerm)) {
-        return { data: { data: [{ id: 'product-2', name: 'Beta Gadget', basePrice: 22 }] } }
+        return { data: [{ id: 'product-2', name: 'Beta Gadget', basePrice: 22 }] }
       }
 
-      return { data: { data: [{ id: 'product-1', name: 'Alpha Widget', basePrice: 11 }] } }
+      return { data: [{ id: 'product-1', name: 'Alpha Widget', basePrice: 11 }] }
     })
   })
 
