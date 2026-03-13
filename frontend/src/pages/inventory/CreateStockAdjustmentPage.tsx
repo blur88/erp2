@@ -218,7 +218,7 @@ const CreateStockAdjustmentPage: React.FC = () => {
         const saNumber = updatedAdjustment?.adjustmentNumber || 'N/A'
 
         showSuccess(`Stock adjustment ${saNumber} updated successfully`)
-        navigate('/inventory/stock-adjustments')
+        navigate('/inventory/stock-adjustments', { state: { newAdjustmentId: id } })
       } else {
         // Create mode: Create new adjustment (kept as draft)
         const adjustment = await createStockAdjustment(adjustmentData).unwrap()

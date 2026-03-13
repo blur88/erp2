@@ -8,8 +8,9 @@ import CreateStockAdjustmentPage from '../CreateStockAdjustmentPage'
 
 const replacementSearchTerm = 'B'
 
-const { mockGet, mockParams, mockFetchAdjustment, mockCreateAdjustment, mockUpdateAdjustment } = vi.hoisted(() => ({
+const { mockGet, mockNavigate, mockParams, mockFetchAdjustment, mockCreateAdjustment, mockUpdateAdjustment } = vi.hoisted(() => ({
   mockGet: vi.fn(),
+  mockNavigate: vi.fn(),
   mockParams: vi.fn(() => ({})),
   mockFetchAdjustment: vi.fn(),
   mockCreateAdjustment: vi.fn(),
@@ -21,7 +22,7 @@ vi.mock('react-router-dom', async () => {
 
   return {
     ...actual,
-    useNavigate: () => vi.fn(),
+    useNavigate: () => mockNavigate,
     useParams: () => mockParams(),
   }
 })
@@ -372,6 +373,53 @@ describe('CreateStockAdjustmentPage submit', () => {
             ]),
           }),
         })
+      )
+    })
+  })
+
+  it('navigates back with the edited adjustment id in state so the list can highlight it', async () => {
+    const user = userEvent.setup()
+    mockParams.mockReturnValue({ id: 'adj-1' })
+    mockFetchAdjustment.mockReturnValue({
+      unwrap: async () => ({
+        id: 'adj-1',
+        adjustmentNumber: 'SA-001',
+        adjustmentDate: '2026-03-01T00:00:00.000Z',
+        notes: 'Recount',
+        items: [
+          {
+            productId: 'product-1',
+            oldQuantity: 10,
+            newQuantity: 10,
+            difference: 0,
+            product: { id: 'product-1', name: 'Alpha Widget', stockQuantity: 10 },
+          },
+        ],
+      }),
+    })
+
+    render(
+      <BrowserRouter>
+        <CreateStockAdjustmentPage />
+      </BrowserRouter>
+    )
+
+    await waitFor(() => {
+      expect(screen.queryByText('Loading stock adjustment...')).not.toBeInTheDocument()
+    })
+
+    const newQtyInput = screen.getAllByRole('textbox').find(
+      (element) => (element as HTMLInputElement).value === '10'
+    ) as HTMLInputElement
+
+    await user.clear(newQtyInput)
+    await user.type(newQtyInput, '20')
+    await user.click(screen.getByRole('button', { name: /update adjustment/i }))
+
+    await waitFor(() => {
+      expect(mockNavigate).toHaveBeenCalledWith(
+        '/inventory/stock-adjustments',
+        { state: { newAdjustmentId: 'adj-1' } }
       )
     })
   })
