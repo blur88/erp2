@@ -186,7 +186,7 @@
   2. `setLoading(false)` inside the early-return no-items guard (line 195 in the original, inside `if (itemsWithDifference.length === 0)`)
   3. `setLoading(false)` inside the `finally` block (line 247 in the original)
 
-  Also remove the old `const [loading, setLoading] = useState(false)` line if it wasn't replaced in Task 1 Step 2.
+  The `const [loading, setLoading] = useState(false)` line was replaced in Task 1 Step 2 — no further action needed for that declaration.
 
   Also remove the `console.error` debug blocks (lines 239–243 in the original):
   ```ts
@@ -212,9 +212,7 @@
   cd frontend && npx vitest run src/pages/inventory/__tests__/CreateStockAdjustmentPage.test.tsx
   ```
 
-  Expected: all 4 existing tests pass. The edit-mode tests will still pass because `ApiService.get` is still mocked for `/inventory/stock-adjustments/:id` — that mock will now be unused for the adjustment fetch but harmless.
-
-  > Note: The edit-mode loading test (`shows a loading indicator while edit-mode adjustment is being fetched`) will need updating in Task 4 since the mock pattern changes. If it fails here, that is expected — proceed to Task 4.
+  Expected: **3 of 4 tests pass.** The `shows a loading indicator while edit-mode adjustment is being fetched` test will fail — `loadStockAdjustment` now calls `triggerGetStockAdjustment` but no `inventoryApi` mock exists yet, so it throws. This is expected; it will be fixed in Task 4. Proceed to Task 4.
 
 - [ ] **Step 8: Commit**
 
@@ -305,7 +303,19 @@ The edit-mode adjustment fetch now uses `useLazyGetStockAdjustmentQuery` instead
     })
   ```
 
-  Also update the `resolveAdjustment(...)` call — the lazy query `.unwrap()` resolves with the normalized object directly (no `{ data: { ... } }` wrapper):
+  Later in the same test, update the `resolveAdjustment(...)` call — the lazy query `.unwrap()` resolves with the normalized object directly (no `{ data: { ... } }` wrapper). Find:
+  ```ts
+  resolveAdjustment({
+    data: {
+      id: 'adj-1',
+      adjustmentDate: '2026-03-01T00:00:00.000Z',
+      reason: 'Recount',
+      items: [],
+    },
+  })
+  ```
+
+  Replace with:
   ```ts
   resolveAdjustment({
     id: 'adj-1',
@@ -498,7 +508,7 @@ There are currently no tests for the `onSubmit` flow. Add them now.
   })
   ```
 
-- [ ] **Step 4: Run all tests — expect all pass**
+- [ ] **Step 3: Run all tests — expect all pass**
 
   ```bash
   cd frontend && npx vitest run src/pages/inventory/__tests__/CreateStockAdjustmentPage.test.tsx
@@ -506,7 +516,7 @@ There are currently no tests for the `onSubmit` flow. Add them now.
 
   Expected: all 6 tests pass.
 
-- [ ] **Step 5: Run full frontend test suite — expect no regressions**
+- [ ] **Step 4: Run full frontend test suite — expect no regressions**
 
   ```bash
   cd frontend && npm run test 2>&1 | tail -20
@@ -514,7 +524,7 @@ There are currently no tests for the `onSubmit` flow. Add them now.
 
   Expected: all tests pass.
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 5: Commit**
 
   ```bash
   git add frontend/src/pages/inventory/__tests__/CreateStockAdjustmentPage.test.tsx
