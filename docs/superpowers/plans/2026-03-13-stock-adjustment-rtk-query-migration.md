@@ -92,7 +92,7 @@
 
   Also remove the now-unused `const adjustment = (response as any).data || response` line — with `.unwrap()` the result is already the normalized `StockAdjustment` object directly.
 
-  The rest of the function body (seedProducts, setAdjustmentToLoad, catch block) stays unchanged. Update the catch block error path:
+  The rest of the function body (seedProducts, setAdjustmentToLoad) stays unchanged. Update only the error message line in the catch block:
 
   Find:
   ```ts
@@ -179,12 +179,12 @@
   showError(err.data?.message || err.message || 'Failed to record stock adjustments')
   ```
 
-- [ ] **Step 5: Remove all `setLoading` calls**
+- [ ] **Step 5: Remove all `setLoading` calls and `console.error` debug blocks**
 
   There are three `setLoading` calls to remove — all three must be deleted:
-  1. `setLoading(true)` at the top of `onSubmit` (line 185 in the original)
-  2. `setLoading(false)` inside the early-return no-items guard (line 195 in the original, inside `if (itemsWithDifference.length === 0)`)
-  3. `setLoading(false)` inside the `finally` block (line 247 in the original)
+  1. `setLoading(true)` at the top of `onSubmit`
+  2. `setLoading(false)` inside the early-return no-items guard (inside `if (itemsWithDifference.length === 0) { showError(...); setLoading(false); return }`)
+  3. `setLoading(false)` inside the `finally` block
 
   The `const [loading, setLoading] = useState(false)` line was replaced in Task 1 Step 2 — no further action needed for that declaration.
 
@@ -320,7 +320,7 @@ The edit-mode adjustment fetch now uses `useLazyGetStockAdjustmentQuery` instead
   resolveAdjustment({
     id: 'adj-1',
     adjustmentDate: '2026-03-01T00:00:00.000Z',
-    reason: 'Recount',
+    notes: 'Recount',
     items: [],
   })
   ```
@@ -335,7 +335,7 @@ The edit-mode adjustment fetch now uses `useLazyGetStockAdjustmentQuery` instead
     unwrap: async () => ({
       id: 'adj-1',
       adjustmentDate: '2026-03-01T00:00:00.000Z',
-      reason: 'Recount',
+      notes: 'Recount',
       items: [
         {
           productId: 'product-9',
@@ -378,9 +378,7 @@ There are currently no tests for the `onSubmit` flow. Add them now.
       vi.clearAllMocks()
       mockParams.mockReturnValue({})
 
-      mockGet.mockResolvedValue({ data: [{ id: 'product-1', name: 'Alpha Widget', stockQuantity: 10 }] })
-
-      // Mock product detail fetch (handleProductSelect)
+      // Mock product list and per-item detail fetch (handleProductSelect)
       mockGet.mockImplementation(async (url: string, config?: { params?: { search?: string } }) => {
         if (url.includes('/inventory/products/')) {
           return { data: { id: 'product-1', name: 'Alpha Widget', stockQuantity: 10 } }
@@ -455,6 +453,7 @@ There are currently no tests for the `onSubmit` flow. Add them now.
         id: 'adj-1',
         adjustmentNumber: 'SA-001',
         adjustmentDate: '2026-03-01T00:00:00.000Z',
+        notes: 'Recount',
         items: [
           {
             productId: 'product-1',
