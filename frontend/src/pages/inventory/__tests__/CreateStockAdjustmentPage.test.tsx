@@ -139,6 +139,42 @@ describe('CreateStockAdjustmentPage product search', () => {
     })
   })
 
+  it('shows a loading indicator while edit-mode adjustment is being fetched', async () => {
+    let resolveAdjustment!: (v: any) => void
+    const adjustmentPromise = new Promise((res) => { resolveAdjustment = res })
+
+    mockParams.mockReturnValue({ id: 'adj-1' })
+
+    mockGet.mockImplementation(async (url: string) => {
+      if (url === '/inventory/stock-adjustments/adj-1') {
+        return adjustmentPromise
+      }
+      return { data: { data: [{ id: 'product-1', name: 'Alpha Widget', stockQuantity: 10 }] } }
+    })
+
+    render(
+      <BrowserRouter>
+        <CreateStockAdjustmentPage />
+      </BrowserRouter>
+    )
+
+    expect(await screen.findByText('Loading stock adjustment...')).toBeInTheDocument()
+    expect(screen.queryByRole('form')).not.toBeInTheDocument()
+
+    resolveAdjustment({
+      data: {
+        id: 'adj-1',
+        adjustmentDate: '2026-03-01T00:00:00.000Z',
+        reason: 'Recount',
+        items: [],
+      },
+    })
+
+    await waitFor(() => {
+      expect(screen.queryByText('Loading stock adjustment...')).not.toBeInTheDocument()
+    })
+  })
+
   it('keeps hydrated edit-mode product visible after search replaces options', async () => {
     const user = userEvent.setup()
     mockParams.mockReturnValue({ id: 'adj-1' })

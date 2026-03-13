@@ -8,6 +8,10 @@ type Product = {
 }
 
 const getProductsFromResponse = (response: unknown): Product[] => {
+  // The inventory products list endpoint returns { data: Product[], meta: {...} }
+  // after ApiService strips the Axios wrapper — so the correct path is always
+  // response.data.data. Flat-array shapes (used by tree endpoints like chart of
+  // accounts) are not returned by this endpoint.
   if (
     response &&
     typeof response === 'object' &&
@@ -18,15 +22,6 @@ const getProductsFromResponse = (response: unknown): Product[] => {
     Array.isArray(response.data.data)
   ) {
     return response.data.data as Product[]
-  }
-
-  if (
-    response &&
-    typeof response === 'object' &&
-    'data' in response &&
-    Array.isArray(response.data)
-  ) {
-    return response.data as Product[]
   }
 
   return []
