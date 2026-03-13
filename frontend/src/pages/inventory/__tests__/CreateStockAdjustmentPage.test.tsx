@@ -1,6 +1,6 @@
 import '@testing-library/jest-dom/vitest'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { BrowserRouter } from 'react-router-dom'
 
@@ -8,9 +8,12 @@ import CreateStockAdjustmentPage from '../CreateStockAdjustmentPage'
 
 const replacementSearchTerm = 'B'
 
-const { mockGet, mockParams } = vi.hoisted(() => ({
+const { mockGet, mockParams, mockFetchAdjustment, mockCreateAdjustment, mockUpdateAdjustment } = vi.hoisted(() => ({
   mockGet: vi.fn(),
   mockParams: vi.fn(() => ({})),
+  mockFetchAdjustment: vi.fn(),
+  mockCreateAdjustment: vi.fn(),
+  mockUpdateAdjustment: vi.fn(),
 }))
 
 vi.mock('react-router-dom', async () => {
@@ -38,10 +41,30 @@ vi.mock('@/services/api', () => ({
   },
 }))
 
+vi.mock('@/store/api/inventoryApi', () => ({
+  useLazyGetStockAdjustmentQuery: () => [mockFetchAdjustment],
+  useCreateStockAdjustmentMutation: () => [mockCreateAdjustment, { isLoading: false }],
+  useUpdateStockAdjustmentMutation: () => [mockUpdateAdjustment, { isLoading: false }],
+}))
+
 describe('CreateStockAdjustmentPage product search', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockParams.mockReturnValue({})
+    mockCreateAdjustment.mockReturnValue({
+      unwrap: vi.fn().mockResolvedValue({
+        id: 'adj-new',
+        adjustmentNumber: 'SA-001',
+        itemCount: 1,
+        status: 'draft',
+      }),
+    })
+    mockUpdateAdjustment.mockReturnValue({
+      unwrap: vi.fn().mockResolvedValue({
+        id: 'adj-1',
+        adjustmentNumber: 'SA-001',
+      }),
+    })
 
     mockGet.mockImplementation(async (url: string, config?: { params?: { search?: string } }) => {
       if (url.includes('/inventory/products/')) {
@@ -136,11 +159,9 @@ describe('CreateStockAdjustmentPage product search', () => {
     const adjustmentPromise = new Promise((res) => { resolveAdjustment = res })
 
     mockParams.mockReturnValue({ id: 'adj-1' })
+    mockFetchAdjustment.mockReturnValue({ unwrap: () => adjustmentPromise })
 
-    mockGet.mockImplementation(async (url: string) => {
-      if (url === '/inventory/stock-adjustments/adj-1') {
-        return adjustmentPromise
-      }
+    mockGet.mockImplementation(async () => {
       return { data: [{ id: 'product-1', name: 'Alpha Widget', stockQuantity: 10 }] }
     })
 
@@ -154,12 +175,10 @@ describe('CreateStockAdjustmentPage product search', () => {
     expect(screen.queryByRole('form')).not.toBeInTheDocument()
 
     resolveAdjustment({
-      data: {
-        id: 'adj-1',
-        adjustmentDate: '2026-03-01T00:00:00.000Z',
-        reason: 'Recount',
-        items: [],
-      },
+      id: 'adj-1',
+      adjustmentDate: '2026-03-01T00:00:00.000Z',
+      notes: 'Recount',
+      items: [],
     })
 
     await waitFor(() => {
@@ -170,27 +189,24 @@ describe('CreateStockAdjustmentPage product search', () => {
   it('keeps hydrated edit-mode product visible after search replaces options', async () => {
     const user = userEvent.setup()
     mockParams.mockReturnValue({ id: 'adj-1' })
+    mockFetchAdjustment.mockReturnValue({
+      unwrap: async () => ({
+        id: 'adj-1',
+        adjustmentDate: '2026-03-01T00:00:00.000Z',
+        notes: 'Recount',
+        items: [
+          {
+            productId: 'product-9',
+            oldQuantity: 5,
+            newQuantity: 8,
+            difference: 3,
+            product: { id: 'product-9', name: 'Hydrated Product', stockQuantity: 5 },
+          },
+        ],
+      }),
+    })
 
     mockGet.mockImplementation(async (url: string, config?: { params?: { search?: string } }) => {
-      if (url === '/inventory/stock-adjustments/adj-1') {
-        return {
-          data: {
-            id: 'adj-1',
-            adjustmentDate: '2026-03-01T00:00:00.000Z',
-            reason: 'Recount',
-            items: [
-              {
-                productId: 'product-9',
-                oldQuantity: 5,
-                newQuantity: 8,
-                difference: 3,
-                product: { id: 'product-9', name: 'Hydrated Product', stockQuantity: 5 },
-              },
-            ],
-          },
-        }
-      }
-
       if (url.includes('/inventory/products/')) {
         const id = url.split('/').pop()
 
@@ -237,6 +253,124 @@ describe('CreateStockAdjustmentPage product search', () => {
 
     await waitFor(() => {
       expect(firstProductInput).toHaveValue('Hydrated Product')
+    })
+  })
+})
+
+describe('CreateStockAdjustmentPage submit', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockParams.mockReturnValue({})
+    mockCreateAdjustment.mockReturnValue({
+      unwrap: async () => ({
+        id: 'adj-new',
+        adjustmentNumber: 'SA-001',
+        itemCount: 1,
+        status: 'draft',
+      }),
+    })
+    mockUpdateAdjustment.mockReturnValue({
+      unwrap: async () => ({
+        id: 'adj-1',
+        adjustmentNumber: 'SA-001',
+      }),
+    })
+
+    mockGet.mockImplementation(async (url: string) => {
+      if (url.includes('/inventory/products/')) {
+        return { data: { id: 'product-1', name: 'Alpha Widget', stockQuantity: 10 } }
+      }
+
+      return { data: [{ id: 'product-1', name: 'Alpha Widget', stockQuantity: 10 }] }
+    })
+  })
+
+  it('calls createStockAdjustment mutation on submit in create mode', async () => {
+    const user = userEvent.setup()
+
+    render(
+      <BrowserRouter>
+        <CreateStockAdjustmentPage />
+      </BrowserRouter>
+    )
+
+    const productInput = screen.getByPlaceholderText('Search by name or barcode...')
+    await user.click(productInput)
+
+    const listbox = await screen.findByRole('listbox')
+    await user.click(within(listbox).getByText('Alpha Widget'))
+
+    await waitFor(() => {
+      expect(productInput).toHaveValue('Alpha Widget')
+    })
+
+    const newQtyInput = screen.getAllByRole('textbox').find(
+      (element) => element !== productInput && (element as HTMLInputElement).value === '10'
+    ) as HTMLInputElement
+
+    fireEvent.change(newQtyInput, { target: { value: '15' } })
+    fireEvent.click(screen.getByRole('button', { name: /create adjustment/i }))
+
+    await waitFor(() => {
+      expect(mockCreateAdjustment).toHaveBeenCalledWith(
+        expect.objectContaining({
+          items: expect.arrayContaining([
+            expect.objectContaining({ productId: 'product-1' }),
+          ]),
+        })
+      )
+    })
+  })
+
+  it('calls updateStockAdjustment mutation on submit in edit mode', async () => {
+    const user = userEvent.setup()
+    mockParams.mockReturnValue({ id: 'adj-1' })
+    mockFetchAdjustment.mockReturnValue({
+      unwrap: async () => ({
+        id: 'adj-1',
+        adjustmentNumber: 'SA-001',
+        adjustmentDate: '2026-03-01T00:00:00.000Z',
+        notes: 'Recount',
+        items: [
+          {
+            productId: 'product-1',
+            oldQuantity: 10,
+            newQuantity: 10,
+            difference: 0,
+            product: { id: 'product-1', name: 'Alpha Widget', stockQuantity: 10 },
+          },
+        ],
+      }),
+    })
+
+    render(
+      <BrowserRouter>
+        <CreateStockAdjustmentPage />
+      </BrowserRouter>
+    )
+
+    await waitFor(() => {
+      expect(screen.queryByText('Loading stock adjustment...')).not.toBeInTheDocument()
+    })
+
+    const newQtyInput = screen.getAllByRole('textbox').find(
+      (element) => (element as HTMLInputElement).value === '10'
+    ) as HTMLInputElement
+
+    fireEvent.change(newQtyInput, { target: { value: '20' } })
+    fireEvent.click(screen.getByRole('button', { name: /update adjustment/i }))
+
+    await waitFor(() => {
+      expect(mockUpdateAdjustment).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: 'adj-1',
+          data: expect.objectContaining({
+            items: expect.arrayContaining([
+              expect.objectContaining({ productId: 'product-1' }),
+            ]),
+          }),
+        })
+      )
     })
   })
 })
