@@ -30,6 +30,11 @@ import { useForm, useFieldArray, Controller } from 'react-hook-form'
 import { yupResolver } from '@hookform/resolvers/yup'
 import * as yup from 'yup'
 import { ApiService } from '@/services/api'
+import {
+  useLazyGetStockAdjustmentQuery,
+  useCreateStockAdjustmentMutation,
+  useUpdateStockAdjustmentMutation,
+} from '@/store/api/inventoryApi'
 import { useProductSearch } from '@/hooks/useProductSearch'
 import { getCurrentDate } from '@/utils/formatters'
 import { useNotification } from '@/hooks/useNotification'
@@ -69,7 +74,10 @@ const CreateStockAdjustmentPage: React.FC = () => {
   const isEditMode = !!id
   const { showSuccess, showError } = useNotification()
   const { products, loadProducts, seedProducts } = useProductSearch()
-  const [loading, setLoading] = useState(false)
+  const [createStockAdjustment, { isLoading: isCreating }] = useCreateStockAdjustmentMutation()
+  const [updateStockAdjustment, { isLoading: isUpdating }] = useUpdateStockAdjustmentMutation()
+  const [triggerGetStockAdjustment] = useLazyGetStockAdjustmentQuery()
+  const loading = isCreating || isUpdating
   const [loadingAdjustment, setLoadingAdjustment] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [adjustmentToLoad, setAdjustmentToLoad] = useState<any>(null)
@@ -111,8 +119,7 @@ const CreateStockAdjustmentPage: React.FC = () => {
   const loadStockAdjustment = async (adjustmentId: string) => {
     setLoadingAdjustment(true)
     try {
-      const response = await ApiService.get(`/inventory/stock-adjustments/${adjustmentId}`)
-      const adjustment = (response as any).data || response
+      const adjustment = await triggerGetStockAdjustment(adjustmentId).unwrap()
 
       // Extract products from adjustment items and add to products state
       if (adjustment.items && adjustment.items.length > 0) {
@@ -126,7 +133,7 @@ const CreateStockAdjustmentPage: React.FC = () => {
       // Store adjustment data to be loaded after products are set
       setAdjustmentToLoad(adjustment)
     } catch (err: any) {
-      showError(err?.response?.data?.message || 'Failed to load stock adjustment')
+      showError(err?.data?.message || err?.message || 'Failed to load stock adjustment')
       setError('Failed to load stock adjustment')
       setLoadingAdjustment(false)
     }
@@ -182,7 +189,6 @@ const CreateStockAdjustmentPage: React.FC = () => {
   }, [JSON.stringify(watchedItems), setValue])
 
   const onSubmit = async (data: CreateAdjustmentFormData) => {
-    setLoading(true)
     setError(null)
 
     try {
@@ -191,7 +197,6 @@ const CreateStockAdjustmentPage: React.FC = () => {
 
       if (itemsWithDifference.length === 0) {
         showError('No changes to record. At least one item must have a difference.')
-        setLoading(false)
         return
       }
 
@@ -207,25 +212,16 @@ const CreateStockAdjustmentPage: React.FC = () => {
         })),
       }
 
-      console.log(isEditMode ? 'Updating stock adjustment:' : 'Creating stock adjustment:', adjustmentData)
-
       if (isEditMode && id) {
         // Edit mode: Update existing adjustment
-        const updateResponse = await ApiService.put(`/inventory/stock-adjustments/${id}`, adjustmentData)
-        const updatedAdjustment = updateResponse as any
+        const updatedAdjustment = await updateStockAdjustment({ id, data: adjustmentData }).unwrap()
         const saNumber = updatedAdjustment?.adjustmentNumber || 'N/A'
 
         showSuccess(`Stock adjustment ${saNumber} updated successfully`)
         navigate('/inventory/stock-adjustments')
       } else {
         // Create mode: Create new adjustment (kept as draft)
-        const createResponse = await ApiService.post('/inventory/stock-adjustments', adjustmentData)
-
-        const adjustment = createResponse as any
-
-        if (!adjustment || !adjustment.id) {
-          throw new Error('Invalid response from server: missing adjustment ID')
-        }
+        const adjustment = await createStockAdjustment(adjustmentData).unwrap()
 
         const saNumber = adjustment?.adjustmentNumber || 'N/A'
         const itemsAdjusted = adjustment?.itemCount || 0
@@ -235,16 +231,8 @@ const CreateStockAdjustmentPage: React.FC = () => {
         navigate('/inventory/stock-adjustments', { state: { newAdjustmentId: adjustment.id } })
       }
     } catch (err: any) {
-      console.error('Error creating stock adjustments:', err)
-      console.error('Error details:', {
-        message: err.message,
-        response: err.response?.data,
-        status: err.response?.status
-      })
-      setError(err.response?.data?.message || err.message || 'Failed to record stock adjustments')
-      showError(err.response?.data?.message || err.message || 'Failed to record stock adjustments')
-    } finally {
-      setLoading(false)
+      setError(err.data?.message || err.message || 'Failed to record stock adjustments')
+      showError(err.data?.message || err.message || 'Failed to record stock adjustments')
     }
   }
 
