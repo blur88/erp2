@@ -1,6 +1,10 @@
 import { configureStore } from '@reduxjs/toolkit'
 import { persistStore, persistReducer } from 'redux-persist'
-import storage from 'redux-persist/lib/storage'
+const storage = {
+  getItem: (key: string) => Promise.resolve(localStorage.getItem(key)),
+  setItem: (key: string, value: string) => Promise.resolve(localStorage.setItem(key, value)),
+  removeItem: (key: string) => Promise.resolve(localStorage.removeItem(key)),
+}
 import { combineReducers } from '@reduxjs/toolkit'
 
 // Import slices
@@ -104,7 +108,7 @@ export const store = configureStore({
     paymentMethodsApiSlice.middleware as any,
     printSettingsApiSlice.middleware as any,
   ),
-  devTools: process.env.NODE_ENV !== 'production',
+  devTools: import.meta.env.MODE !== 'production',
 })
 
 export const persistor = persistStore(store)

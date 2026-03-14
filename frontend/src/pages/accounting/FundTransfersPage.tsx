@@ -76,13 +76,6 @@ const getFallbackStore = (): AppStore | null => {
     return runtimeStore
   }
 
-  if (typeof process !== 'undefined' && process.env.NODE_ENV === 'test') {
-    return {
-      getState: () => ({ auth: { user: { role: 'admin' } } }),
-      subscribe: () => () => undefined,
-    }
-  }
-
   return null
 }
 
