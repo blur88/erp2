@@ -64,6 +64,8 @@ if (typeof process !== 'undefined' && process.env.NODE_ENV === 'test') {
 
 ## Testing
 
+Note: Vitest polyfills `import.meta.env` in both `jsdom` and `node` test environments, so existing tests that import `store/index.ts` or any affected file will continue to work without changes.
+
 1. `cd frontend && npm run test` — confirm no regressions
 2. `cd frontend && npm run dev` — confirm the app loads without a blank page at `/login`
 3. `cd frontend && npm run type-check` — confirm no TypeScript errors
