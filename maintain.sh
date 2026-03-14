@@ -21,6 +21,9 @@ do_knip() {
 }
 
 do_outdated() {
+  echo -e "${BOLD}${YELLOW}--- ROOT (semantic-release) ---${RESET}"
+  (cd "$ROOT_DIR" && npm outdated 2>/dev/null) || true
+  echo ""
   echo -e "${BOLD}${YELLOW}--- BACKEND (NestJS) ---${RESET}"
   (cd "$ROOT_DIR/backend" && npm outdated 2>/dev/null) || true
   echo ""
@@ -39,6 +42,9 @@ do_update() {
 }
 
 do_audit() {
+  echo -e "${BOLD}${YELLOW}--- ROOT (semantic-release) ---${RESET}"
+  (cd "$ROOT_DIR" && npm audit) || true
+  echo ""
   echo -e "${BOLD}${YELLOW}--- BACKEND (NestJS) ---${RESET}"
   (cd "$ROOT_DIR/backend" && npm audit) || true
   echo ""
