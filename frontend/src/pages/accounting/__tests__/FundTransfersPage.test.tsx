@@ -63,9 +63,15 @@ const renderPage = () =>
     </BrowserRouter>,
   )
 
+const mockRuntimeStore = {
+  getState: () => ({ auth: { user: { role: 'admin' } } }),
+  subscribe: () => () => undefined,
+}
+
 describe('FundTransfersPage', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    ;(window as typeof window & { store?: typeof mockRuntimeStore }).store = mockRuntimeStore
     mockedApi.useGetFundTransfersQuery.mockReturnValue({
       data: { data: [mockTransfer], meta: { total: 1 } },
       isLoading: false,
