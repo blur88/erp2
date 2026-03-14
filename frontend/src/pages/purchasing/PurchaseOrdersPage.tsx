@@ -153,7 +153,7 @@ const PurchaseOrdersPage: React.FC = () => {
 
   return (
     <Box sx={{ p: 3 }}>
-      {process.env.NODE_ENV === 'development' && (
+      {import.meta.env.DEV && (
         <Alert severity="info" sx={{ mb: 2 }}>
           Debug: PurchaseOrdersPage loaded | Orders: {purchaseOrders.length} | Loading: {String(loading)} | Error: {error || 'None'}
         </Alert>
