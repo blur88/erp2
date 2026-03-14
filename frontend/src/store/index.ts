@@ -104,7 +104,7 @@ export const store = configureStore({
     paymentMethodsApiSlice.middleware as any,
     printSettingsApiSlice.middleware as any,
   ),
-  devTools: process.env.NODE_ENV !== 'production',
+  devTools: import.meta.env.MODE !== 'production',
 })
 
 export const persistor = persistStore(store)
