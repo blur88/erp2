@@ -69,14 +69,36 @@ export default defineConfig(({ mode }) => {
     build: {
       outDir: 'dist',
       sourcemap: true,
-      rollupOptions: {
+      rolldownOptions: {
         output: {
-          manualChunks: {
-            vendor: ['react', 'react-dom'],
-            mui: ['@mui/material', '@mui/icons-material'],
-            charts: ['chart.js', 'react-chartjs-2'],
-            router: ['react-router-dom'],
-            redux: ['@reduxjs/toolkit', 'react-redux'],
+          codeSplitting: {
+            groups: [
+              {
+                name: 'vendor',
+                test: /node_modules[\\/](react|react-dom)[\\/]/,
+                priority: 50,
+              },
+              {
+                name: 'mui',
+                test: /node_modules[\\/]@mui[\\/]/,
+                priority: 40,
+              },
+              {
+                name: 'charts',
+                test: /node_modules[\\/](chart\.js|react-chartjs-2)[\\/]/,
+                priority: 30,
+              },
+              {
+                name: 'router',
+                test: /node_modules[\\/](react-router|react-router-dom)[\\/]/,
+                priority: 20,
+              },
+              {
+                name: 'redux',
+                test: /node_modules[\\/](@reduxjs[\\/]toolkit|react-redux)[\\/]/,
+                priority: 10,
+              },
+            ],
           },
         },
       },
