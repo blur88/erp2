@@ -13,7 +13,7 @@ Upgrade the frontend build tooling from Vite 7 + @vitejs/plugin-react v5 to Vite
 | Change | Impact | Action |
 |---|---|---|
 | `build.rollupOptions` renamed to `build.rolldownOptions` | Low — old name still works via shim | Rename to remove deprecation warning |
-| `manualChunks` object form removed | **High — direct breakage** | Migrate to `codeSplitting.groups` |
+| `manualChunks` object form unsupported | **High — direct breakage** | Migrate to `codeSplitting.groups` |
 | `@vitejs/plugin-react` Babel option removed | None — we call `react()` with no args | No action |
 | Default browser targets raised | None | No action |
 | Vitest v4 compatibility | Compatible with Vite 8 | No action |
@@ -25,16 +25,20 @@ Use `build.rolldownOptions.output.codeSplitting.groups` instead of the deprecate
 
 Rolldown's `codeSplitting.groups` matches modules against resolved file paths (via regex), unlike `manualChunks` which matched against module specifier strings. The chunk names are preserved to avoid browser cache invalidation.
 
+Note: the object form of `manualChunks` (`{ vendor: ['react', 'react-dom'], ... }`) was a Vite/Rollup-specific extension — it was never part of Rolldown's API. Rolldown only accepts the function form of `manualChunks` (deprecated), hence the migration to `codeSplitting.groups`.
+
 ## Changes
 
 ### `frontend/package.json`
 
 ```diff
 - "vite": "^7.3.1",
-+ "vite": "8.0.0",
++ "vite": "^8.0.0",
 - "@vitejs/plugin-react": "^5.1.4",
-+ "@vitejs/plugin-react": "6.0.0",
++ "@vitejs/plugin-react": "^6.0.0",
 ```
+
+Caret ranges follow the existing project convention. Exact pins are not used here since Vite 8.x and plugin-react 6.x patch/minor releases are expected to be backwards compatible.
 
 ### `frontend/vite.config.ts`
 
@@ -84,8 +88,7 @@ build: {
 - `test` matches against resolved file paths (`node_modules/[package]/...`), not module specifier strings
 - `[\\/]` is used instead of `/` for cross-platform path separator compatibility
 - `priority` controls which group claims a module when multiple tests match — higher wins
-- `includeDependenciesRecursively: true` is the default — each group automatically pulls in transitive deps
-- Rolldown will emit a `runtime.js` chunk automatically when manual groups are used
+- `includeDependenciesRecursively` defaults to `true` at the `codeSplitting` level (not per-group) — all groups inherit this, meaning each group automatically pulls in transitive deps of matched modules
 
 ## Verification Criteria
 
