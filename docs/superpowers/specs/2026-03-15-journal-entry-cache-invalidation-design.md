@@ -78,8 +78,13 @@ invalidatesTags: ['Expense', 'JournalEntry', 'AccountingReport'],
 ## Testing
 
 - No new test files needed — this is a configuration-only change.
-- Existing RTK Query integration tests (if any) should continue to pass.
-- Manual verification: perform each action and confirm Journal Entries page auto-refreshes without a manual reload.
+- There are no existing automated tests for `accountingApi.ts` mutations; manual verification is the only required testing for this change.
+- Manual verification steps (for each action below, navigate to Accounting > Journal Entries and confirm the list updates without a page reload):
+  1. Post a draft Owner Equity transaction
+  2. Reverse a posted Owner Equity transaction
+  3. Create a Settlement
+  4. Post a draft Expense
+  5. Bulk-post draft Expenses
 
 ## Scope
 
