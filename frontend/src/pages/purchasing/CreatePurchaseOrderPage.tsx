@@ -156,7 +156,6 @@ const CreatePurchaseOrderPage: React.FC = () => {
           .filter((item: any) => item.product)
           .map((item: any) => item.product)
 
-        console.log('Order products:', orderProducts)
         seedProducts(orderProducts)
       }
 
@@ -172,15 +171,8 @@ const CreatePurchaseOrderPage: React.FC = () => {
   // Reset form after products are loaded
   useEffect(() => {
     if (orderToLoad && products.length > 0) {
-      console.log('=== RESETTING FORM ===')
-      console.log('Products array length:', products.length)
-      console.log('Products array:', products)
-      console.log('Order items:', orderToLoad.items)
-
       const itemsToReset = orderToLoad.items?.map((item: any) => {
         const productId = item.productId || item.product?.id || ''
-        const foundProduct = products.find(p => p.id === productId)
-        console.log(`Item productId: ${productId}, Found in products: ${!!foundProduct}`, foundProduct)
 
         return {
           productId,
@@ -193,8 +185,6 @@ const CreatePurchaseOrderPage: React.FC = () => {
           totalPrice: item.totalAmount || 0,
         }
       })
-
-      console.log('Items to reset:', itemsToReset)
 
       // Map order data to form
       reset({
@@ -272,8 +262,6 @@ const CreatePurchaseOrderPage: React.FC = () => {
         }),
       }
 
-      console.log('Sending order data:', JSON.stringify(orderData, null, 2))
-
       if (isEditMode && id) {
         const updatedOrder = await updatePurchaseOrder({ id, data: orderData as any }).unwrap()
 
@@ -327,8 +315,6 @@ const CreatePurchaseOrderPage: React.FC = () => {
     const subtotal = watchedItems.reduce((sum, item) => sum + (Number(item.totalPrice) || 0), 0)
     const shipping = Number(watchedShipping) || 0
     const totalAmount = subtotal + shipping
-    console.log('[calculateOrderTotals] subtotal:', subtotal, 'shipping:', shipping, 'total:', totalAmount)
-    console.log('[calculateOrderTotals] watchedItems:', watchedItems)
     return { subtotal, shipping, totalAmount }
   }
 

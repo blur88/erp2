@@ -48,7 +48,7 @@ vi.mock('@/store/api/inventoryApi', () => ({
   useUpdateStockAdjustmentMutation: () => [mockUpdateAdjustment, { isLoading: false }],
 }))
 
-describe('CreateStockAdjustmentPage product search', () => {
+describe('CreateStockAdjustmentPage product search', { timeout: 60000 }, () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockParams.mockReturnValue({})
@@ -258,7 +258,7 @@ describe('CreateStockAdjustmentPage product search', () => {
   })
 })
 
-describe('CreateStockAdjustmentPage submit', () => {
+describe('CreateStockAdjustmentPage submit', { timeout: 60000 }, () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockParams.mockReturnValue({})

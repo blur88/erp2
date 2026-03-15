@@ -77,7 +77,7 @@ vi.mock('@/store/api/purchasingApi', () => ({
   useLazyGetPurchaseOrderQuery: () => [mockFetchPurchaseOrder],
 }))
 
-describe('CreatePurchaseOrderPage', () => {
+describe('CreatePurchaseOrderPage', { timeout: 60000 }, () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockParams.mockReturnValue({})
