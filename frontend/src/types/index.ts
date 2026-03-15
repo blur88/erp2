@@ -458,7 +458,7 @@ export interface OwnerEquityTransaction {
     name: string;
   };
   description?: string;
-  status: 'draft' | 'posted';
+  status: 'draft' | 'posted' | 'reversed';
   journalEntryId?: string;
   createdAt: string;
   updatedAt: string;

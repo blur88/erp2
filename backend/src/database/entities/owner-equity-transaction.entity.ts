@@ -25,6 +25,7 @@ export enum OwnerEquityTransactionType {
 export enum OwnerEquityTransactionStatus {
   DRAFT = 'draft',
   POSTED = 'posted',
+  REVERSED = 'reversed',
 }
 
 @Entity('owner_equity_transactions')

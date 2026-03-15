@@ -34,6 +34,7 @@ import {
   Refresh as RefreshIcon,
   Search as SearchIcon,
   AccountBalanceWallet as OwnerEquityIcon,
+  Undo as UndoIcon,
 } from '@mui/icons-material'
 import { TYPOGRAPHY_STYLES } from '@/constants/typography'
 import { useNotification } from '@/hooks/useNotification'
@@ -45,6 +46,7 @@ import {
   useGetOwnerEquityTransactionsQuery,
   useGetPaymentMethodsQuery,
   usePostOwnerEquityTransactionMutation,
+  useReverseOwnerEquityTransactionMutation,
   useUpdateOwnerEquityTransactionMutation,
 } from '@/store/api/accountingApi'
 import { useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
@@ -86,6 +88,8 @@ const OwnerEquityPage: React.FC = () => {
   const filters = useMemo(
     () => ({
       page: 1,
+      sortBy: 'referenceNumber',
+      sortOrder: 'DESC',
       type: typeFilter || undefined,
       status: statusFilter || undefined,
       startDate: startDate || undefined,
@@ -101,8 +105,10 @@ const OwnerEquityPage: React.FC = () => {
   const [updateOwnerEquityTransaction] = useUpdateOwnerEquityTransactionMutation()
   const [deleteOwnerEquityTransaction] = useDeleteOwnerEquityTransactionMutation()
   const [postOwnerEquityTransaction] = usePostOwnerEquityTransactionMutation()
+  const [reverseOwnerEquityTransaction] = useReverseOwnerEquityTransactionMutation()
   const [bulkPostOwnerEquityTransactions] = useBulkPostOwnerEquityTransactionsMutation()
   const [bulkDeleteOwnerEquityTransactions] = useBulkDeleteOwnerEquityTransactionsMutation()
+  const [reverseConfirmId, setReverseConfirmId] = useState<string | null>(null)
 
   const filteredRows = useMemo(() => {
     if (!search) return rows
@@ -240,6 +246,18 @@ const OwnerEquityPage: React.FC = () => {
     }
   }
 
+  const onReverse = async () => {
+    if (!reverseConfirmId) return
+    try {
+      await reverseOwnerEquityTransaction(reverseConfirmId).unwrap()
+      showSuccess('Transaction reversed')
+      setReverseConfirmId(null)
+      refetch()
+    } catch (error: any) {
+      showError(String(error))
+    }
+  }
+
   useKeyboardShortcuts({
     onSearch: () => searchRef.current?.focus(),
     onAdd: openCreate,
@@ -315,6 +333,7 @@ const OwnerEquityPage: React.FC = () => {
               <MenuItem value="">All</MenuItem>
               <MenuItem value="draft">Draft</MenuItem>
               <MenuItem value="posted">Posted</MenuItem>
+              <MenuItem value="reversed">Reversed</MenuItem>
             </Select>
           </FormControl>
           <TextField label="Start Date" type="date" size="small" value={startDate} onChange={(e) => setStartDate(e.target.value)} InputLabelProps={{ shrink: true }} />
@@ -387,7 +406,17 @@ const OwnerEquityPage: React.FC = () => {
                     <TableCell>{row.paymentMethod?.name || '-'}</TableCell>
                     <TableCell>{row.description || '-'}</TableCell>
                     <TableCell>
-                      <Chip size="small" label={row.status} color={row.status === 'posted' ? 'success' : 'default'} />
+                      <Chip
+                        size="small"
+                        label={row.status}
+                        color={
+                          row.status === 'posted'
+                            ? 'success'
+                            : row.status === 'reversed'
+                              ? 'error'
+                              : 'default'
+                        }
+                      />
                     </TableCell>
                     <TableCell align="right">
                       {isDraft && (
@@ -402,6 +431,11 @@ const OwnerEquityPage: React.FC = () => {
                             <DeleteIcon fontSize="small" />
                           </IconButton>
                         </>
+                      )}
+                      {row.status === 'posted' && (
+                        <IconButton size="small" color="warning" onClick={() => setReverseConfirmId(row.id)}>
+                          <UndoIcon fontSize="small" />
+                        </IconButton>
                       )}
                     </TableCell>
                   </TableRow>
@@ -446,6 +480,21 @@ const OwnerEquityPage: React.FC = () => {
         <DialogActions>
           <Button onClick={resetDialog}>Cancel</Button>
           <Button variant="contained" onClick={save}>Save</Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={!!reverseConfirmId} onClose={() => setReverseConfirmId(null)} maxWidth="xs" fullWidth>
+        <DialogTitle>Reverse Transaction</DialogTitle>
+        <DialogContent>
+          <Typography>
+            Are you sure you want to reverse this transaction? This will create a reversal journal entry.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setReverseConfirmId(null)}>Cancel</Button>
+          <Button variant="contained" color="error" onClick={onReverse}>
+            Confirm
+          </Button>
         </DialogActions>
       </Dialog>
     </Box>
