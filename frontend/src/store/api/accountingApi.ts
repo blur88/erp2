@@ -692,11 +692,11 @@ export const accountingApiSlice = createApi({
     postExpense: builder.mutation<ExpenseRecord, string>({
       query: (id) => ({ url: `/accounting/expenses/${id}/post`, method: 'POST' }),
       transformResponse: normalizeSingle<ExpenseRecord>,
-      invalidatesTags: (_result, _error, id) => [{ type: 'Expense', id }, 'Expense', 'AccountingReport'],
+      invalidatesTags: (_result, _error, id) => [{ type: 'Expense', id }, 'Expense', 'JournalEntry', 'AccountingReport'],
     }),
     bulkPostExpenses: builder.mutation<{ posted: number; failed: number }, string[]>({
       query: (ids) => ({ url: '/accounting/expenses/bulk-post', method: 'POST', data: { ids } }),
-      invalidatesTags: ['Expense', 'AccountingReport'],
+      invalidatesTags: ['Expense', 'JournalEntry', 'AccountingReport'],
     }),
     bulkDeleteExpenses: builder.mutation<{ deleted: number; failed: number }, string[]>({
       query: (ids) => ({ url: '/accounting/expenses/bulk-delete', method: 'POST', data: { ids } }),
