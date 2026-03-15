@@ -46,7 +46,7 @@ export class OwnerEquityService {
       status,
       startDate,
       endDate,
-      sortBy = 'transactionDate',
+      sortBy = 'referenceNumber',
       sortOrder = 'DESC',
     } = query;
     const parsedPage = Number(rawPage);
@@ -79,8 +79,14 @@ export class OwnerEquityService {
       qb.andWhere('oet.transactionDate <= :endDate', { endDate });
     }
 
-    const allowedSortFields = ['transactionDate', 'createdAt', 'amount', 'type'];
-    const safeSortBy = allowedSortFields.includes(sortBy) ? sortBy : 'transactionDate';
+    const allowedSortFields = [
+      'transactionDate',
+      'createdAt',
+      'amount',
+      'type',
+      'referenceNumber',
+    ];
+    const safeSortBy = allowedSortFields.includes(sortBy) ? sortBy : 'referenceNumber';
     const safeSortOrder = sortOrder === 'ASC' ? 'ASC' : 'DESC';
 
     qb.orderBy(`oet.${safeSortBy}`, safeSortOrder).skip((page - 1) * limit).take(limit);
@@ -161,8 +167,8 @@ export class OwnerEquityService {
       throw new NotFoundException(`Owner equity transaction ${id} not found`);
     }
 
-    if (transaction.status === OwnerEquityTransactionStatus.POSTED) {
-      throw new BadRequestException('Cannot update a posted transaction');
+    if (transaction.status !== OwnerEquityTransactionStatus.DRAFT) {
+      throw new BadRequestException('Cannot update a non-draft transaction');
     }
 
     if (dto.paymentMethodId) {
@@ -199,8 +205,8 @@ export class OwnerEquityService {
       throw new NotFoundException(`Owner equity transaction ${id} not found`);
     }
 
-    if (transaction.status === OwnerEquityTransactionStatus.POSTED) {
-      throw new BadRequestException('Cannot delete a posted transaction');
+    if (transaction.status !== OwnerEquityTransactionStatus.DRAFT) {
+      throw new BadRequestException('Cannot delete a non-draft transaction');
     }
 
     await this.ownerEquityRepository.softDelete(id);
@@ -227,8 +233,8 @@ export class OwnerEquityService {
       throw new NotFoundException(`Owner equity transaction ${id} not found`);
     }
 
-    if (transaction.status === OwnerEquityTransactionStatus.POSTED) {
-      throw new BadRequestException('Transaction is already posted');
+    if (transaction.status !== OwnerEquityTransactionStatus.DRAFT) {
+      throw new BadRequestException('Only draft transactions can be posted');
     }
 
     try {
@@ -252,6 +258,44 @@ export class OwnerEquityService {
       );
       throw error;
     }
+
+    return this.findOne(id);
+  }
+
+  async reverse(
+    id: string,
+    userId?: string,
+    username?: string,
+  ): Promise<OwnerEquityResponseDto> {
+    const transaction = await this.ownerEquityRepository.findOne({
+      where: { id },
+      relations: ['paymentMethod'],
+      withDeleted: true,
+    });
+
+    if (!transaction || transaction.deletedAt) {
+      throw new NotFoundException(`Owner equity transaction ${id} not found`);
+    }
+
+    if (transaction.status !== OwnerEquityTransactionStatus.POSTED) {
+      throw new BadRequestException('Transaction is not posted');
+    }
+
+    await this.accountingService.reverseSourceEntries(
+      'owner_equity_transaction',
+      id,
+      userId ?? 'system',
+    );
+
+    transaction.status = OwnerEquityTransactionStatus.REVERSED;
+    await this.ownerEquityRepository.save(transaction);
+
+    await this.auditLogService.log(
+      'REVERSE',
+      'OwnerEquity',
+      `Reversed owner equity transaction: ${transaction.referenceNumber}`,
+      { entityId: id, userId: userId ?? 'system', username },
+    );
 
     return this.findOne(id);
   }

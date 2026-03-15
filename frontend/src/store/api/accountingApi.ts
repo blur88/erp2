@@ -647,6 +647,11 @@ export const accountingApiSlice = createApi({
       transformResponse: normalizeSingle<OwnerEquityTransaction>,
       invalidatesTags: (_result, _error, id) => [{ type: 'OwnerEquity', id }, 'OwnerEquity', 'AccountingReport'],
     }),
+    reverseOwnerEquityTransaction: builder.mutation<OwnerEquityTransaction, string>({
+      query: (id) => ({ url: `/accounting/owner-equity/${id}/reverse`, method: 'POST' }),
+      transformResponse: normalizeSingle<OwnerEquityTransaction>,
+      invalidatesTags: (_result, _error, id) => [{ type: 'OwnerEquity', id }, 'OwnerEquity', 'AccountingReport'],
+    }),
     bulkPostOwnerEquityTransactions: builder.mutation<{ posted: number; failed: number }, string[]>({
       query: (ids) => ({ url: '/accounting/owner-equity/bulk-post', method: 'POST', data: { ids } }),
       invalidatesTags: ['OwnerEquity', 'AccountingReport'],
@@ -794,6 +799,7 @@ export const {
   useUpdateOwnerEquityTransactionMutation,
   useDeleteOwnerEquityTransactionMutation,
   usePostOwnerEquityTransactionMutation,
+  useReverseOwnerEquityTransactionMutation,
   useBulkPostOwnerEquityTransactionsMutation,
   useBulkDeleteOwnerEquityTransactionsMutation,
   useCreateExpenseMutation,

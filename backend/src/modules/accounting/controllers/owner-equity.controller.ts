@@ -76,6 +76,16 @@ export class OwnerEquityController {
     return this.ownerEquityService.post(id, currentUserId, currentUsername);
   }
 
+  @Post(':id/reverse')
+  @Auth(UserRole.ADMIN, UserRole.MANAGER)
+  reverse(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
+  ) {
+    return this.ownerEquityService.reverse(id, currentUserId, currentUsername);
+  }
+
   @Post('bulk-post')
   @Auth(UserRole.ADMIN, UserRole.MANAGER)
   bulkPost(
