@@ -77,7 +77,7 @@ data/
 postgres-data/
 redis-data/
 docker-volumes/
-# NOTE: .dockerignore, Dockerfile, docker-compose.yml, and docker-compose.override.yml ARE committed
+# NOTE: .dockerignore, Dockerfile, docker-compose*.yml, setup.sh, and deploy.sh ARE committed
 
 # Uploaded files
 uploads/

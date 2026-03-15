@@ -63,6 +63,8 @@ CLAUDE.md
 Dockerfile
 .dockerignore
 docker-compose*.yml
+setup.sh
+deploy.sh
 .github
 .gitlab-ci.yml
 .travis.yml
