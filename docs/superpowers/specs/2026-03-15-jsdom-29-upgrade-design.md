@@ -21,7 +21,7 @@ Update `jsdom` from `28.1.0` to `29.0.0` in `frontend/package.json` and ensure t
 
 Many properties on `Window` that were plain data properties are now accessor properties (getters/setters). Using `Object.defineProperty` to redefine a property **without `configurable: true`** will throw in strict mode once jsdom v29 converts it to an accessor.
 
-**Assessment**: Both affected files (`NotificationPanel.test.tsx` and `useNotification.test.tsx`) already pass `configurable: true` when defining `window.navigator.clipboard`. No pre-emptive fix required.
+**Assessment**: All three files that redefine `window.navigator.clipboard` (`NotificationPanel.test.tsx`, `useNotification.test.tsx`, and `clipboard.test.ts`) already pass `configurable: true`. No pre-emptive fix required.
 
 ### 2. Resource loading API overhaul
 
