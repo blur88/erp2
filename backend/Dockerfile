@@ -32,6 +32,10 @@ COPY --from=builder --chown=nestjs:nodejs /app/dist ./dist
 COPY --from=builder --chown=nestjs:nodejs /app/node_modules ./node_modules
 COPY --from=builder --chown=nestjs:nodejs /app/package.json ./package.json
 
+# Copy entrypoint script
+COPY --chown=nestjs:nodejs docker-entrypoint.sh ./docker-entrypoint.sh
+RUN chmod +x docker-entrypoint.sh
+
 # Create necessary directories with proper permissions
 RUN mkdir -p uploads logs backups/{postgresql,redis,settings,archives,temp,uploads} && \
     chown -R nestjs:nodejs uploads logs backups
@@ -49,5 +53,5 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \
 # Use dumb-init to handle signals properly
 ENTRYPOINT ["/usr/bin/dumb-init", "--"]
 
-# Start compiled application
-CMD ["node", "dist/main"]
+# Run migrations then start application
+CMD ["./docker-entrypoint.sh"]

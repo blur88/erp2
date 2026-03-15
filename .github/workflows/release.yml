@@ -101,3 +101,12 @@ jobs:
           tags: |
             blur88/all:erp-frontend
             blur88/all:erp-frontend-v${{ needs.release.outputs.new_release_version }}
+
+      - name: Build and push nginx image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./nginx
+          push: true
+          tags: |
+            blur88/all:erp-nginx
+            blur88/all:erp-nginx-v${{ needs.release.outputs.new_release_version }}

@@ -13,7 +13,6 @@ services:
       TZ: Asia/Kuala_Lumpur
     volumes:
       - ./data/postgres:/var/lib/postgresql/data/pgdata
-      - ./database/init:/docker-entrypoint-initdb.d:ro
     networks:
       - erp_network
     healthcheck:
@@ -82,27 +81,22 @@ services:
 
   # Backend API
   backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-      args:
-        NODE_ENV: ${NODE_ENV:-development}
-    image: erp-backend:latest
+    image: blur88/all:erp-backend
     container_name: erp_backend
     restart: unless-stopped
     environment:
       # Application
-      - NODE_ENV=${NODE_ENV:-development}
+      - NODE_ENV=production
       - PORT=${PORT:-3001}
 
-      # Database (using DB_* prefix to match backend config)
+      # Database
       - DB_HOST=${DATABASE_HOST:-postgres}
       - DB_PORT=${DATABASE_PORT:-5432}
       - DB_DATABASE=${DATABASE_NAME:-erp_db}
       - DB_USERNAME=${DATABASE_USERNAME:-erp_user}
       - DB_PASSWORD=${DATABASE_PASSWORD}
-      - DB_LOGGING=${DATABASE_LOGGING:-false}
-      - DB_SYNCHRONIZE=${DATABASE_SYNCHRONIZE:-false}
+      - DB_LOGGING=false
+      - DB_SYNCHRONIZE=false
       - DB_SSL=${DATABASE_SSL:-false}
 
       # Redis
@@ -134,8 +128,8 @@ services:
       - LOG_FORMAT=${LOG_FORMAT:-combined}
       - ENABLE_REQUEST_LOGGING=${ENABLE_REQUEST_LOGGING:-true}
       - ENABLE_METRICS=${ENABLE_METRICS:-false}
-      - ENABLE_SWAGGER=${ENABLE_SWAGGER:-true}
-      - DEBUG_MODE=${DEBUG_MODE:-false}
+      - ENABLE_SWAGGER=${ENABLE_SWAGGER:-false}
+      - DEBUG_MODE=false
 
       # Timezone
       - TZ=Asia/Kuala_Lumpur
@@ -168,7 +162,7 @@ services:
           memory: 512M
     security_opt:
       - no-new-privileges:true
-    read_only: false  # Need write access for uploads/logs/backups
+    read_only: false
     logging:
       driver: "json-file"
       options:
@@ -177,13 +171,7 @@ services:
 
   # Frontend Application
   frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-      args:
-        VITE_API_BASE_URL: /api
-        VITE_SOCKET_URL: /
-    image: erp-frontend:latest
+    image: blur88/all:erp-frontend
     container_name: erp_frontend
     restart: unless-stopped
     environment:
@@ -211,7 +199,7 @@ services:
           memory: 128M
     security_opt:
       - no-new-privileges:true
-    read_only: true  # NGINX doesn't need write access
+    read_only: true
     tmpfs:
       - /var/cache/nginx:size=10M
       - /var/run:size=1M
@@ -223,10 +211,7 @@ services:
 
   # NGINX Reverse Proxy
   nginx:
-    build:
-      context: ./nginx
-      dockerfile: Dockerfile
-    image: erp-nginx:latest
+    image: blur88/all:erp-nginx
     container_name: erp_nginx
     restart: unless-stopped
     environment:
