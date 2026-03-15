@@ -27,8 +27,6 @@ const mockedApi = vi.hoisted(() => ({
   useDeleteOwnerEquityTransactionMutation: vi.fn(),
   usePostOwnerEquityTransactionMutation: vi.fn(),
   useReverseOwnerEquityTransactionMutation: vi.fn(),
-  useBulkPostOwnerEquityTransactionsMutation: vi.fn(),
-  useBulkDeleteOwnerEquityTransactionsMutation: vi.fn(),
 }))
 
 vi.mock('@/store/api/accountingApi', () => ({
@@ -39,8 +37,6 @@ vi.mock('@/store/api/accountingApi', () => ({
   useDeleteOwnerEquityTransactionMutation: mockedApi.useDeleteOwnerEquityTransactionMutation,
   usePostOwnerEquityTransactionMutation: mockedApi.usePostOwnerEquityTransactionMutation,
   useReverseOwnerEquityTransactionMutation: mockedApi.useReverseOwnerEquityTransactionMutation,
-  useBulkPostOwnerEquityTransactionsMutation: mockedApi.useBulkPostOwnerEquityTransactionsMutation,
-  useBulkDeleteOwnerEquityTransactionsMutation: mockedApi.useBulkDeleteOwnerEquityTransactionsMutation,
 }))
 
 const renderPage = () =>
@@ -84,8 +80,6 @@ describe('OwnerEquityPage', () => {
     mockedApi.useDeleteOwnerEquityTransactionMutation.mockReturnValue([vi.fn()])
     mockedApi.usePostOwnerEquityTransactionMutation.mockReturnValue([vi.fn()])
     mockedApi.useReverseOwnerEquityTransactionMutation.mockReturnValue([vi.fn()])
-    mockedApi.useBulkPostOwnerEquityTransactionsMutation.mockReturnValue([vi.fn()])
-    mockedApi.useBulkDeleteOwnerEquityTransactionsMutation.mockReturnValue([vi.fn()])
   })
 
   it('renders the page title', () => {
