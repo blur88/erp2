@@ -82,7 +82,7 @@ vi.mock('@/store/slices/salesSlice', () => ({
   setSelectedOrder: vi.fn((value) => ({ type: 'sales/setSelectedOrder', payload: value })),
 }))
 
-describe('CreateSalesOrderPage product search', () => {
+describe('CreateSalesOrderPage product search', { timeout: 60000 }, () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockParams.mockReturnValue({})

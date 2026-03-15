@@ -5,7 +5,6 @@ import {
   IsNumber,
   IsDateString,
   IsUUID,
-  IsArray,
   Min,
 } from 'class-validator';
 import { Type } from 'class-transformer';
@@ -87,12 +86,6 @@ export class QueryOwnerEquityDto {
   @IsOptional()
   @IsString()
   sortOrder?: string;
-}
-
-export class BulkOwnerEquityDto {
-  @IsArray()
-  @IsUUID('4', { each: true })
-  ids: string[];
 }
 
 export class OwnerEquityResponseDto {

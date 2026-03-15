@@ -63,8 +63,6 @@ describe('accountingApiSlice', () => {
     expect(accountingApiSlice.endpoints.updateOwnerEquityTransaction).toBeDefined()
     expect(accountingApiSlice.endpoints.deleteOwnerEquityTransaction).toBeDefined()
     expect(accountingApiSlice.endpoints.postOwnerEquityTransaction).toBeDefined()
-    expect(accountingApiSlice.endpoints.bulkPostOwnerEquityTransactions).toBeDefined()
-    expect(accountingApiSlice.endpoints.bulkDeleteOwnerEquityTransactions).toBeDefined()
     expect(accountingApiSlice.endpoints.getExpenses).toBeDefined()
     expect(accountingApiSlice.endpoints.createExpense).toBeDefined()
     expect(accountingApiSlice.endpoints.updateExpense).toBeDefined()

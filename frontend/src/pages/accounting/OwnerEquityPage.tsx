@@ -24,7 +24,6 @@ import {
   TableRow,
   TextField,
   Typography,
-  Checkbox,
 } from '@mui/material'
 import {
   Add as AddIcon,
@@ -39,8 +38,6 @@ import {
 import { TYPOGRAPHY_STYLES } from '@/constants/typography'
 import { useNotification } from '@/hooks/useNotification'
 import {
-  useBulkDeleteOwnerEquityTransactionsMutation,
-  useBulkPostOwnerEquityTransactionsMutation,
   useCreateOwnerEquityTransactionMutation,
   useDeleteOwnerEquityTransactionMutation,
   useGetOwnerEquityTransactionsQuery,
@@ -71,7 +68,6 @@ const OwnerEquityPage: React.FC = () => {
   const { showError, showSuccess } = useNotification()
   const searchRef = useRef<HTMLInputElement | null>(null)
 
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [typeFilter, setTypeFilter] = useState<string>('')
   const [statusFilter, setStatusFilter] = useState<string>('')
   const [startDate, setStartDate] = useState('')
@@ -106,8 +102,6 @@ const OwnerEquityPage: React.FC = () => {
   const [deleteOwnerEquityTransaction] = useDeleteOwnerEquityTransactionMutation()
   const [postOwnerEquityTransaction] = usePostOwnerEquityTransactionMutation()
   const [reverseOwnerEquityTransaction] = useReverseOwnerEquityTransactionMutation()
-  const [bulkPostOwnerEquityTransactions] = useBulkPostOwnerEquityTransactionsMutation()
-  const [bulkDeleteOwnerEquityTransactions] = useBulkDeleteOwnerEquityTransactionsMutation()
   const [reverseConfirmId, setReverseConfirmId] = useState<string | null>(null)
 
   const filteredRows = useMemo(() => {
@@ -121,9 +115,6 @@ const OwnerEquityPage: React.FC = () => {
         .includes(term),
     )
   }, [rows, search])
-
-  const draftRows = filteredRows.filter((r) => r.status === 'draft')
-  const allSelected = draftRows.length > 0 && selectedIds.size === draftRows.length
 
   const resetDialog = () => {
     setDialogOpen(false)
@@ -193,11 +184,6 @@ const OwnerEquityPage: React.FC = () => {
     try {
       await deleteOwnerEquityTransaction(id).unwrap()
       showSuccess('Transaction deleted')
-      setSelectedIds((prev) => {
-        const next = new Set(prev)
-        next.delete(id)
-        return next
-      })
       refetch()
     } catch (error: any) {
       showError(String(error))
@@ -209,37 +195,6 @@ const OwnerEquityPage: React.FC = () => {
     try {
       await postOwnerEquityTransaction(id).unwrap()
       showSuccess('Transaction posted')
-      setSelectedIds((prev) => {
-        const next = new Set(prev)
-        next.delete(id)
-        return next
-      })
-      refetch()
-    } catch (error: any) {
-      showError(String(error))
-    }
-  }
-
-  const onBulkPost = async () => {
-    const ids = Array.from(selectedIds)
-    if (!ids.length || !window.confirm(`Post ${ids.length} selected transactions?`)) return
-    try {
-      await bulkPostOwnerEquityTransactions(ids).unwrap()
-      showSuccess('Bulk post completed')
-      setSelectedIds(new Set())
-      refetch()
-    } catch (error: any) {
-      showError(String(error))
-    }
-  }
-
-  const onBulkDelete = async () => {
-    const ids = Array.from(selectedIds)
-    if (!ids.length || !window.confirm(`Delete ${ids.length} selected transactions?`)) return
-    try {
-      await bulkDeleteOwnerEquityTransactions(ids).unwrap()
-      showSuccess('Bulk delete completed')
-      setSelectedIds(new Set())
       refetch()
     } catch (error: any) {
       showError(String(error))
@@ -263,7 +218,6 @@ const OwnerEquityPage: React.FC = () => {
     onAdd: openCreate,
     onRefresh: refetch,
     onEscape: () => {
-      setSelectedIds(new Set())
       setDialogOpen(false)
     },
   })
@@ -284,16 +238,6 @@ const OwnerEquityPage: React.FC = () => {
           </Typography>
         </Box>
         <Stack direction="row" spacing={1}>
-          {selectedIds.size > 0 && (
-            <>
-              <Button variant="contained" startIcon={<PostIcon />} onClick={onBulkPost}>
-                Bulk Post ({selectedIds.size})
-              </Button>
-              <Button variant="outlined" color="error" startIcon={<DeleteIcon />} onClick={onBulkDelete}>
-                Bulk Delete ({selectedIds.size})
-              </Button>
-            </>
-          )}
           <IconButton onClick={() => refetch()}>
             <RefreshIcon />
           </IconButton>
@@ -351,19 +295,6 @@ const OwnerEquityPage: React.FC = () => {
           <Table>
             <TableHead>
               <TableRow>
-                <TableCell padding="checkbox">
-                  <Checkbox
-                    checked={allSelected}
-                    indeterminate={!allSelected && selectedIds.size > 0}
-                    onChange={() => {
-                      if (allSelected) {
-                        setSelectedIds(new Set())
-                        return
-                      }
-                      setSelectedIds(new Set(draftRows.map((r) => r.id)))
-                    }}
-                  />
-                </TableCell>
                 <TableCell>Reference #</TableCell>
                 <TableCell>Date</TableCell>
                 <TableCell>Type</TableCell>
@@ -379,20 +310,6 @@ const OwnerEquityPage: React.FC = () => {
                 const isDraft = row.status === 'draft'
                 return (
                   <TableRow key={row.id}>
-                    <TableCell padding="checkbox">
-                      <Checkbox
-                        disabled={!isDraft}
-                        checked={selectedIds.has(row.id)}
-                        onChange={() => {
-                          setSelectedIds((prev) => {
-                            const next = new Set(prev)
-                            if (next.has(row.id)) next.delete(row.id)
-                            else next.add(row.id)
-                            return next
-                          })
-                        }}
-                      />
-                    </TableCell>
                     <TableCell>{row.referenceNumber}</TableCell>
                     <TableCell>{formatDate(row.transactionDate)}</TableCell>
                     <TableCell>
@@ -443,7 +360,7 @@ const OwnerEquityPage: React.FC = () => {
               })}
               {!filteredRows.length && !loading && (
                 <TableRow>
-                  <TableCell colSpan={9}>
+                  <TableCell colSpan={8}>
                     <Typography color="text.secondary">No owner equity transactions found.</Typography>
                   </TableCell>
                 </TableRow>
