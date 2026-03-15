@@ -1,3 +1,10 @@
+# [1.1.0](https://github.com/blur88/erp2/compare/v1.0.0...v1.1.0) (2026-03-15)
+
+
+### Features
+
+* **accounting:** add owner equity reversal ([839969c](https://github.com/blur88/erp2/commit/839969cc19349be723f6f8172ffd8a5e3f48dc35))
+
 # 1.0.0 (2026-03-14)
 
 
