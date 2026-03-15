@@ -17,6 +17,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      issues: write
+      pull-requests: write
 
     outputs:
       new_release_published: ${{ steps.detect_release.outputs.new_release_published }}
