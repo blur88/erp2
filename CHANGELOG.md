@@ -1,3 +1,10 @@
+# [1.3.0](https://github.com/blur88/erp2/compare/v1.2.1...v1.3.0) (2026-03-15)
+
+
+### Features
+
+* add production deployment support with auto-migration on startup ([3a58e26](https://github.com/blur88/erp2/commit/3a58e26574731bf2e20d9a48c1e7e3395d4757ba))
+
 ## [1.2.1](https://github.com/blur88/erp2/compare/v1.2.0...v1.2.1) (2026-03-15)
 
 
