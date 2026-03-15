@@ -1,3 +1,11 @@
+# [1.2.0](https://github.com/blur88/erp2/compare/v1.1.0...v1.2.0) (2026-03-15)
+
+
+### Features
+
+* **accounting:** remove bulk actions from owner equity page (closes [#107](https://github.com/blur88/erp2/issues/107)) ([1018975](https://github.com/blur88/erp2/commit/1018975c7f01819ac73f0501f9232de430c6cdb0))
+* **accounting:** remove bulk post/delete from owner equity backend ([b0bb122](https://github.com/blur88/erp2/commit/b0bb122e50a1ed8cd4636095df1bcb7bc698d3d6))
+
 # [1.1.0](https://github.com/blur88/erp2/compare/v1.0.0...v1.1.0) (2026-03-15)
 
 
