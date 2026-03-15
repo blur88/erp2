@@ -606,7 +606,7 @@ export const accountingApiSlice = createApi({
     >({
       query: (body) => ({ url: '/accounting/settlements', method: 'POST', data: body }),
       transformResponse: normalizeSingle<Settlement>,
-      invalidatesTags: ['Settlement', 'AccountingReport'],
+      invalidatesTags: ['Settlement', 'JournalEntry', 'AccountingReport'],
     }),
     cancelSettlement: builder.mutation<Settlement, string>({
       query: (id) => ({ url: `/accounting/settlements/${id}/cancel`, method: 'POST' }),
