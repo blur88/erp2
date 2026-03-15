@@ -1,3 +1,12 @@
+## [1.2.1](https://github.com/blur88/erp2/compare/v1.2.0...v1.2.1) (2026-03-15)
+
+
+### Bug Fixes
+
+* invalidate JournalEntry cache on expense post and bulk-post (issue [#105](https://github.com/blur88/erp2/issues/105)) ([67a8d23](https://github.com/blur88/erp2/commit/67a8d23b5f11d555c90f05814156b6e685027001))
+* invalidate JournalEntry cache on owner equity post and reverse (issue [#105](https://github.com/blur88/erp2/issues/105)) ([3b6edf5](https://github.com/blur88/erp2/commit/3b6edf54ed8a867abb36b0ecf4cb30f904d6417e))
+* invalidate JournalEntry cache on settlement create (issue [#105](https://github.com/blur88/erp2/issues/105)) ([1a6f5e4](https://github.com/blur88/erp2/commit/1a6f5e486438ae2f23a4209e40d0e3e1975ceaf0))
+
 # [1.2.0](https://github.com/blur88/erp2/compare/v1.1.0...v1.2.0) (2026-03-15)
 
 
