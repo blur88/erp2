@@ -18,7 +18,6 @@ import {
   CreateOwnerEquityDto,
   UpdateOwnerEquityDto,
   QueryOwnerEquityDto,
-  BulkOwnerEquityDto,
   OwnerEquityResponseDto,
   OwnerEquityListResponseDto,
 } from '../dto/owner-equity.dto';
@@ -298,48 +297,6 @@ export class OwnerEquityService {
     );
 
     return this.findOne(id);
-  }
-
-  async bulkPost(
-    dto: BulkOwnerEquityDto,
-    userId?: string,
-    username?: string,
-  ): Promise<{ posted: number; failed: number }> {
-    let posted = 0;
-    let failed = 0;
-
-    for (const id of dto.ids) {
-      try {
-        await this.post(id, userId, username);
-        posted++;
-      } catch (error) {
-        this.logger.error(`Failed to post owner equity ${id}: ${error.message}`);
-        failed++;
-      }
-    }
-
-    return { posted, failed };
-  }
-
-  async bulkDelete(
-    dto: BulkOwnerEquityDto,
-    userId?: string,
-    username?: string,
-  ): Promise<{ deleted: number; failed: number }> {
-    let deleted = 0;
-    let failed = 0;
-
-    for (const id of dto.ids) {
-      try {
-        await this.remove(id, userId, username);
-        deleted++;
-      } catch (error) {
-        this.logger.error(`Failed to delete owner equity ${id}: ${error.message}`);
-        failed++;
-      }
-    }
-
-    return { deleted, failed };
   }
 
   private toResponseDto(transaction: OwnerEquityTransaction): OwnerEquityResponseDto {

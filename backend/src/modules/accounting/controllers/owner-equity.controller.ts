@@ -17,7 +17,6 @@ import {
   CreateOwnerEquityDto,
   UpdateOwnerEquityDto,
   QueryOwnerEquityDto,
-  BulkOwnerEquityDto,
 } from '../dto/owner-equity.dto';
 
 @Controller('accounting/owner-equity')
@@ -86,23 +85,4 @@ export class OwnerEquityController {
     return this.ownerEquityService.reverse(id, currentUserId, currentUsername);
   }
 
-  @Post('bulk-post')
-  @Auth(UserRole.ADMIN, UserRole.MANAGER)
-  bulkPost(
-    @Body() dto: BulkOwnerEquityDto,
-    @CurrentUser('userId') currentUserId: string,
-    @CurrentUser('username') currentUsername: string,
-  ) {
-    return this.ownerEquityService.bulkPost(dto, currentUserId, currentUsername);
-  }
-
-  @Post('bulk-delete')
-  @Auth(UserRole.ADMIN)
-  bulkDelete(
-    @Body() dto: BulkOwnerEquityDto,
-    @CurrentUser('userId') currentUserId: string,
-    @CurrentUser('username') currentUsername: string,
-  ) {
-    return this.ownerEquityService.bulkDelete(dto, currentUserId, currentUsername);
-  }
 }

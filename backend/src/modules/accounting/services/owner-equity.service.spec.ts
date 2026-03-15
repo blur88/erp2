@@ -449,22 +449,4 @@ describe('OwnerEquityService', () => {
       expect(ownerEquityRepository.save).not.toHaveBeenCalled();
     });
   });
-
-  it('bulkPost posts multiple transactions and returns count', async () => {
-    const postSpy = jest.spyOn(service, 'post').mockResolvedValue({} as any);
-
-    const result = await service.bulkPost({ ids: ['tx-1', 'tx-2'] });
-
-    expect(postSpy).toHaveBeenCalledTimes(2);
-    expect(result).toEqual({ posted: 2, failed: 0 });
-  });
-
-  it('bulkDelete deletes multiple transactions and returns count', async () => {
-    const removeSpy = jest.spyOn(service, 'remove').mockResolvedValue();
-
-    const result = await service.bulkDelete({ ids: ['tx-1', 'tx-2'] });
-
-    expect(removeSpy).toHaveBeenCalledTimes(2);
-    expect(result).toEqual({ deleted: 2, failed: 0 });
-  });
 });
