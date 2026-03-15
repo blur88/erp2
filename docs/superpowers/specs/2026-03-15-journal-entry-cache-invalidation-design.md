@@ -78,7 +78,7 @@ invalidatesTags: ['Expense', 'JournalEntry', 'AccountingReport'],
 ## Testing
 
 - No new test files needed — this is a configuration-only change.
-- There are no existing automated tests for `accountingApi.ts` mutations; manual verification is the only required testing for this change.
+- `frontend/src/store/api/__tests__/accountingApi.test.ts` exists and asserts endpoint existence for all 5 affected mutations. It does not assert `invalidatesTags` values, so it will continue to pass after the fix with no changes. Run `cd frontend && npm run test` to confirm.
 - Manual verification steps (for each action below, navigate to Accounting > Journal Entries and confirm the list updates without a page reload):
   1. Post a draft Owner Equity transaction
   2. Reverse a posted Owner Equity transaction
