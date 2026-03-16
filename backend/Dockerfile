@@ -9,7 +9,9 @@ FROM node:24.14.0-alpine3.23 AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-RUN npm run build && npm prune --omit=dev && npm cache clean --force
+RUN npm run build && \
+    npx tsc -p tsconfig.cli.json && \
+    npm prune --omit=dev && npm cache clean --force
 
 # Stage 3: Production image — only compiled output + prod deps
 FROM node:24.14.0-alpine3.23 AS production

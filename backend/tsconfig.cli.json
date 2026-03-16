@@ -1,0 +1,13 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "incremental": false
+  },
+  "include": [
+    "src/config/**/*",
+    "src/database/entities/**/*",
+    "src/database/migrations/**/*"
+  ]
+}
