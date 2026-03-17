@@ -23,10 +23,10 @@ Update `SIDEBAR_COLORS` in `Sidebar.tsx` to align with the dark theme palette de
 | `icon` | *(new)* | `#6B7280` | Default icon color (new dedicated token) |
 | `activeBg` | `#1F2937` | `#1F2937` | No change |
 | `text` | `#9CA3AF` | `#9CA3AF` | No change |
-| `hoverText` | `#CBD5E1` | `#CBD5E1` | No change |
+| `hoverText` | `#CBD5E1` | `#CBD5E1` | No change — `docs/ui.md` section 8 defines no sidebar hover-text color; intentionally deferred |
 | `sectionLabel` | `#6B7280` | `#6B7280` | No change |
 | `border` | `#1F2937` | `#1F2937` | No change |
-| `accentBar` | `#42a5f5` | `#42a5f5` | No change (not in issue scope) |
+| `accentBar` | `#42a5f5` | `#42a5f5` | No change — `docs/ui.md` defines no sidebar accent-bar color; deferred |
 
 ---
 
@@ -34,19 +34,23 @@ Update `SIDEBAR_COLORS` in `Sidebar.tsx` to align with the dark theme palette de
 
 The `text` token (`#9CA3AF`) was used for both text labels and icon colors. With the new `icon` token (`#6B7280`), icon-specific usages are separated.
 
+There are **9 total** `SIDEBAR_COLORS.text` usages in the file. **7 migrate** to `SIDEBAR_COLORS.icon`; **2 are intentionally kept** as `SIDEBAR_COLORS.text` (the `ListItemText` inactive-state label color in `renderFlyoutItem` and `renderMenuItem`).
+
 **7 usages** switch from `SIDEBAR_COLORS.text` → `SIDEBAR_COLORS.icon`:
 
 | Location | Context |
 |---|---|
 | `renderFlyoutItem` — `ListItemIcon` (line ~841) | Flyout item icon inactive state |
+| `renderFlyoutItem` — `ExpandMore` chevron (line ~863) | Flyout expand arrow |
 | `renderMenuItem` collapsed+children — `ListItemIcon` (line ~961) | Rail icon inactive state |
 | `renderMenuItem` collapsed+leaf — `ListItemIcon` (line ~1003) | Rail leaf icon inactive state |
 | `renderMenuItem` expanded — `ListItemIcon` (line ~1047) | Expanded menu icon inactive state |
-| `renderFlyoutItem` — `ExpandMore` chevron (line ~863) | Flyout expand arrow |
 | `renderMenuItem` expanded — `ExpandMore` chevron (line ~1076) | Sidebar expand arrow |
 | Collapse `IconButton` (line ~1149) | Sidebar collapse/expand toggle button |
 
-Text label usages (`ListItemText`) keep `SIDEBAR_COLORS.text` unchanged.
+**2 usages kept as `SIDEBAR_COLORS.text`** (text labels, not icons):
+- `renderFlyoutItem` — `ListItemText` inactive color (line ~854)
+- `renderMenuItem` expanded — `ListItemText` inactive color (line ~1060)
 
 ---
 
