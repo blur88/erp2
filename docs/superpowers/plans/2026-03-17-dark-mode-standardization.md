@@ -353,7 +353,7 @@ If the resulting style value is the MUI dark-theme default (e.g., `background.pa
 - [ ] **Step 2: Verify no palette.mode remains**
 
   ```bash
-  grep -n "palette\.mode" frontend/src/pages/purchasing/
+  grep -rn "palette\.mode" frontend/src/pages/purchasing/
   ```
   Expected: no output.
 
@@ -395,7 +395,7 @@ If the resulting style value is the MUI dark-theme default (e.g., `background.pa
 - [ ] **Step 2: Verify no palette.mode remains**
 
   ```bash
-  grep -n "palette\.mode" frontend/src/pages/sales/
+  grep -rn "palette\.mode" frontend/src/pages/sales/
   ```
   Expected: no output.
 
@@ -424,7 +424,7 @@ If the resulting style value is the MUI dark-theme default (e.g., `background.pa
 - Modify: `frontend/src/pages/accounting/reports/ProfitAndLossPage.tsx`
 - Modify: `frontend/src/pages/audit-logs/components/DiffViewer.tsx`
 
-- [ ] **Step 1: Update `getBalanceSheetTone` in `BalanceSheetPage.tsx`**
+- [ ] **Step 1: Update `getBalanceSheetTone` in `BalanceSheetPage.tsx` and its test**
 
   `BalanceSheetPage.tsx` exports a helper function that branches on `mode`. Remove the `mode` parameter and hardcode the dark values:
 
@@ -448,7 +448,29 @@ If the resulting style value is the MUI dark-theme default (e.g., `background.pa
 
   Update both call sites (lines 82 and 255) from `getBalanceSheetTone(theme.palette.mode)` to `getBalanceSheetTone()`.
 
-- [ ] **Step 2: Update `getGeneralLedgerTone` in `GeneralLedgerPage.tsx`**
+  Also update `BalanceSheetPage.test.tsx` (lines 88–95). The test currently calls the function with `'dark'` and `'light'` arguments and asserts both. Remove the `lightTone` variable and the light-mode assertions; update the dark call to use no argument:
+
+  Before (lines 88–95):
+  ```ts
+  const darkTone = getBalanceSheetTone('dark')
+  const lightTone = getBalanceSheetTone('light')
+  expect(darkTone.surfaceSoft).toBe('rgba(255, 255, 255, 0.06)')
+  expect(darkTone.surfaceStrong).toBe('rgba(255, 255, 255, 0.1)')
+  expect(darkTone.sectionAccent).toBe('rgba(255, 255, 255, 0.08)')
+  expect(lightTone.surfaceSoft).toBe('grey.50')
+  expect(lightTone.surfaceStrong).toBe('grey.100')
+  expect(lightTone.sectionAccent).toBe('grey.100')
+  ```
+
+  After:
+  ```ts
+  const tone = getBalanceSheetTone()
+  expect(tone.surfaceSoft).toBe('rgba(255, 255, 255, 0.06)')
+  expect(tone.surfaceStrong).toBe('rgba(255, 255, 255, 0.1)')
+  expect(tone.sectionAccent).toBe('rgba(255, 255, 255, 0.08)')
+  ```
+
+- [ ] **Step 2: Update `getGeneralLedgerTone` in `GeneralLedgerPage.tsx` and its test**
 
   Same pattern — remove the `mode` parameter and hardcode dark values:
 
@@ -471,6 +493,28 @@ If the resulting style value is the MUI dark-theme default (e.g., `background.pa
   ```
 
   Update the call site (line 105) from `getGeneralLedgerTone(theme.palette.mode)` to `getGeneralLedgerTone()`.
+
+  Also update `GeneralLedgerPage.test.tsx` (lines 66–73) — same treatment as BalanceSheetPage.test.tsx above:
+
+  Before (lines 66–73):
+  ```ts
+  const darkTone = getGeneralLedgerTone('dark')
+  const lightTone = getGeneralLedgerTone('light')
+  expect(darkTone.surfaceSoft).toBe('rgba(255, 255, 255, 0.06)')
+  expect(darkTone.surfaceStrong).toBe('rgba(255, 255, 255, 0.1)')
+  expect(darkTone.tableHeader).toBe('rgba(255, 255, 255, 0.08)')
+  expect(lightTone.surfaceSoft).toBe('grey.50')
+  expect(lightTone.surfaceStrong).toBe('grey.100')
+  expect(lightTone.tableHeader).toBe('grey.200')
+  ```
+
+  After:
+  ```ts
+  const tone = getGeneralLedgerTone()
+  expect(tone.surfaceSoft).toBe('rgba(255, 255, 255, 0.06)')
+  expect(tone.surfaceStrong).toBe('rgba(255, 255, 255, 0.1)')
+  expect(tone.tableHeader).toBe('rgba(255, 255, 255, 0.08)')
+  ```
 
 - [ ] **Step 3: Edit remaining files — apply transformation rule**
 
@@ -514,6 +558,8 @@ If the resulting style value is the MUI dark-theme default (e.g., `background.pa
   git add frontend/src/pages/accounting/ frontend/src/pages/audit-logs/
   git commit -m "refactor: remove palette.mode ternaries from accounting and audit-log pages"
   ```
+
+  Note: this commit includes both the source file changes and the test updates to `BalanceSheetPage.test.tsx` and `GeneralLedgerPage.test.tsx`.
 
 ---
 
