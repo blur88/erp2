@@ -30,36 +30,81 @@ The sidebar uses a fixed dark background independent of MUI theme mode, so it lo
 
 The MUI `Drawer` paper `backgroundColor` is overridden inline to `#0F172A`. The rest of the app theme is unaffected.
 
+**Important:** The `selected` prop on `ListItemButton` must **not** be used. MUI's `Mui-selected` class applies its own background overrides that are hard to suppress cleanly. Active state must be applied via a conditional `sx` prop only.
+
 ---
 
 ## 2. Layout & Collapse Behavior
 
 ### Dimensions
-- Expanded: `256px`
+- Expanded: `256px` (changing from current `280px`)
 - Collapsed: `64px`
-- Width transition: `0.22s ease` on both the `Drawer` paper and the `AppBar` offset
+- Width transition: `0.22s ease` on the Drawer paper `width`, and on the AppBar `width` and `marginLeft`
+
+Exact transition strings:
+```
+// Drawer paper
+transition: 'width 0.22s ease'
+
+// AppBar
+sx={{
+  transition: 'width 0.22s ease, margin-left 0.22s ease',
+  width: collapsed ? `calc(100% - 64px)` : `calc(100% - 256px)`,
+  ml: collapsed ? '64px' : '256px',
+}}
+```
+
+The `DRAWER_WIDTH` constant in `MainLayout.tsx` is replaced by two constants: `DRAWER_WIDTH_EXPANDED = 256` and `DRAWER_WIDTH_COLLAPSED = 64`.
+
+The `<Box component="nav">` wrapper also tracks `collapsed` state — its `width` switches between the two constants (no CSS transition needed; the Drawer paper transition handles the visual movement):
+```
+sx={{ width: { lg: collapsed ? DRAWER_WIDTH_COLLAPSED : DRAWER_WIDTH_EXPANDED }, flexShrink: { lg: 0 } }}
+```
 
 ### Collapse state
-- Managed in `MainLayout.tsx` as `collapsed: boolean`
+- Managed in `MainLayout.tsx` as `collapsed: boolean`, default `false`
 - Persisted to `localStorage` as `sidebar-collapsed`
-- Passed to `Sidebar` as a `collapsed?: boolean` prop
+- Passed to `Sidebar` as a `collapsed?: boolean` prop, default `false`
+- The mobile `Sidebar` instance (inside the `temporary` Drawer) is always passed `collapsed={false}` — the collapse toggle only applies to desktop (`lg+`)
+
+### Updated `SidebarProps` interface
+```ts
+interface SidebarProps {
+  onItemClick?: () => void
+  collapsed?: boolean        // default false
+  onToggleCollapse?: () => void
+}
+```
+
+`MainLayout.tsx` passes `onToggleCollapse={() => setCollapsed(c => !c)}` to the desktop `Sidebar` instance. The mobile instance does not receive this prop.
 
 ### Toggle button
 - Placed in the sidebar header, right-aligned next to the logo
-- Icon: chevron left / chevron right
+- Icon: `ChevronLeft` when expanded, `ChevronRight` when collapsed
 - Icon color: `#9CA3AF`; hover background: `#1E293B`; size: `28px`
 - Visually recessive — does not compete with the logo
+- Hidden on mobile (below `lg` breakpoint)
 
 ### Collapsed mode rendering
 - All item text hidden
 - Section labels hidden
 - Expand/collapse chevrons hidden
 - Icons only, centered in a `64px` column with fixed `44px` row height
-- `Tooltip` (placement `"right"`, `enterDelay={400}`, `enterNextDelay={200}`) on leaf items only
+- `Tooltip` (placement `"right"`, `enterDelay={400}`, `enterNextDelay={200}`) on leaf items only (no tooltip on parent items — flyout takes over)
+
+### Badges in collapsed mode
+- Badges are **hidden** in collapsed mode
+- They render only in expanded mode, same as today
 
 ### Section grouping
 - **Expanded:** section labels render as uppercase overline text in `#6B7280`
-- **Collapsed:** section labels hidden; grouping conveyed by `8px` extra top padding before the first icon of each new section; faint dividers (`#1F2937`) only between the most distinct groups (e.g. System from Analytics)
+- **Collapsed:** section labels hidden; grouping conveyed by `8px` extra top padding before the first icon of each new section; faint dividers (`#1F2937`) only between the most distinct groups (System from Analytics)
+
+### Accordion state persistence
+- The `sidebar-expanded` localStorage key (list of expanded accordion IDs) is **retained** for expanded mode only
+- The existing `useEffect` auto-expand behavior (which **replaces** `expandedItems` with only the ancestors of the active route on route change) is **preserved as-is**. This means manually opened accordions that are not ancestors of the active route will collapse on navigation — matching the current behavior.
+- In collapsed mode, the flyout accordion state is **in-memory only** (not persisted to `localStorage`) and resets on navigation
+- When the user expands the sidebar again, the accordion state is restored from `sidebar-expanded` (which will reflect the active-route ancestors from the last navigation)
 
 ---
 
@@ -68,6 +113,7 @@ The MUI `Drawer` paper `backgroundColor` is overridden inline to `#0F172A`. The 
 - **Expanded:** logo box + "ERP System" text, header height `56–64px`
 - **Collapsed:** logo box only, centered
 - Version label (`ERP System v1.0.0`) **removed** from the sidebar footer entirely
+- The footer `<Box>` element (currently renders the version label with a top border and `bgcolor: background.default`) is **removed entirely** — no empty box, no bottom border artifact in collapsed mode
 
 ---
 
@@ -76,7 +122,10 @@ The MUI `Drawer` paper `backgroundColor` is overridden inline to `#0F172A`. The 
 ### Open / close trigger
 - Opens on `mouseenter` of the icon row after an `80ms` delay (via `setTimeout`, cleared on `mouseleave`) — prevents accidental hover flicker when cursor moves vertically past the rail
 - Clicking the icon row also opens the flyout (touch / keyboard fallback)
-- Closes on `mouseleave` of both the icon row and the flyout panel, with a `150ms` close delay to allow cursor travel
+- Closes on `mouseleave` with a single shared `closeTimerRef` (not separate timers per element):
+  - `mouseenter` on **either** the icon row or the flyout panel cancels the close timer
+  - `mouseleave` of **either** element, when the cursor is not inside the other, starts the `150ms` close timer
+  - This allows the cursor to travel from the rail to the flyout panel without the panel snapping shut
 - Only one flyout open at a time; opening a new one closes the previous
 
 ### Placement & appearance
@@ -84,21 +133,31 @@ The MUI `Drawer` paper `backgroundColor` is overridden inline to `#0F172A`. The 
 - Background: `#1E293B`; border-radius: `4px`; subtle box shadow
 - Min-width `200px`, max-width `240px`
 - Enter animation: `opacity 0→1` + `translateX(-4px → 0)`, `120ms ease-out`
-- `z-index` above the AppBar (`1300+`)
+- Exit animation: `opacity 1→0`, `80ms ease-in`
+- Implementation: wrap the Popper's inner content in MUI `Fade` with `in={flyoutOpen}` and `timeout={{ enter: 120, exit: 80 }}`. The Popper itself uses `keepMounted={false}` (conditionally rendered, not toggled via CSS visibility).
+- `z-index`: `1400` (above MUI AppBar at `1100` and Drawer at `1200`)
 
-### Nested submenus inside the flyout
-- Parent items with children render an expand chevron; clicking expands **inline** within the same flyout panel (accordion style) — no second nested Popper
-- Max 2 levels inside the flyout (covers the deepest case: Reports → Sales Reports → individual report)
-- Flyout stays open while navigating accordion levels
+### 3-level menu handling (Reports → Sales Reports → individual report)
+- The flyout opens directly on the level-1 group rows (e.g. "Sales Reports", "Purchasing Reports") — there is no repeated "Reports" title header inside the panel
+- When the flyout first opens, level-1 groups are **collapsed by default**, unless a descendant is the active route — in that case the relevant level-1 group is **auto-expanded**
+- Level-2 items (individual reports) receive `16px` additional left padding inside the flyout
+- Level-1 parent rows ("Sales Reports") show a chevron; clicking toggles inline accordion; flyout stays open
+- Level-1 parent rows are highlighted as active if any descendant is the current route
 
 ### Active item styling inside flyout
-- Same pill style as the main sidebar: `#1F2937` background, left accent bar, `#E5E7EB` text
+- Same pill style as the main sidebar: `#1F2937` background, left accent bar, `#E5E7EB` text/icon
 - Icons at `20px`
 
 ### Tooltip vs flyout conflict
 - Leaf items (no children): `Tooltip` only — no flyout
 - Parent items (have children): flyout takes over — no `Tooltip` rendered
 - Mutually exclusive; no double overlays
+
+### Keyboard interaction (collapsed mode flyout)
+- `Enter` or `Space` on a focused icon row (parent item) opens the flyout and moves focus to the first item inside it
+- `Escape` closes the flyout and returns focus to the triggering icon row
+- `Tab` navigates within the flyout items
+- `Escape` from within the flyout closes it and returns focus to the triggering icon
 
 ---
 
@@ -115,19 +174,19 @@ The MUI `Drawer` paper `backgroundColor` is overridden inline to `#0F172A`. The 
 | Flyout | Parent with children | Toggle inline accordion; flyout stays open |
 | Flyout | Leaf | Navigate to `item.path`; close flyout immediately |
 
-Parent items have no `path` and are never navigable. This eliminates "sometimes navigates, sometimes expands" ambiguity.
+Parent items have no `path` and are never navigable.
 
 ### Active state
 - A parent item is styled active if any descendant is the current route (recursive `isItemActive` check — same logic as today)
-- In collapsed mode the rail icon shows active even when the flyout is closed — clear "you are here" signal
-- **Auto-expand active ancestors in expanded mode:** on route change, all ancestor containers of the active leaf are automatically expanded so the active page is never hidden inside a collapsed accordion
+- In collapsed mode the rail icon shows active even when the flyout is closed
+- **Auto-expand active ancestors in expanded mode:** on route change, all ancestor containers of the active leaf are automatically expanded so the active page is never hidden
 
 ### State separation
-Three distinct states are tracked and styled independently:
+Three distinct states tracked and styled independently:
 
 | State | Styling |
 |---|---|
-| Active route | Pill background + left accent bar + bright text/icon |
+| Active route | Pill background `#1F2937` + `3px` left accent bar + `#E5E7EB` text/icon |
 | Expanded accordion | Chevron rotated + children visible |
 | Open flyout | Floating panel visible |
 
@@ -135,20 +194,32 @@ Three distinct states are tracked and styled independently:
 After a leaf-click navigation:
 - Flyout closes immediately
 - Hover timers cleared
-- Flyout accordion state reset
+- Flyout in-memory accordion state reset
 
 ### Accessibility
-- Parent rows are focusable; `Enter`/`Space` toggles
+- Parent rows are focusable; `Enter`/`Space` toggles accordion (expanded mode) or opens flyout (collapsed mode)
 - `aria-expanded` updates on accordion parents
-- `aria-haspopup` on collapsed-mode flyout parents
+- `aria-haspopup="true"` on collapsed-mode flyout parents
+- See Section 4 for full collapsed-mode keyboard model
 
 ---
 
-## 6. Files Changed
+## 6. Mobile Behavior
+
+Below the `lg` breakpoint the sidebar behavior is **unchanged** from the current implementation:
+- `temporary` Drawer (overlay), full width (`256px`)
+- Opened via hamburger `MenuIcon` in the AppBar (existing behavior retained)
+- `collapsed` prop is always `false` for the mobile drawer instance
+- The collapse toggle button in the sidebar header is hidden on mobile (`display: { xs: 'none', lg: 'flex' }`)
+- `mobileOpen` state in `MainLayout.tsx` is retained as-is
+
+---
+
+## 7. Files Changed
 
 | File | Change |
 |---|---|
-| `frontend/src/components/common/Sidebar.tsx` | Color overrides, collapsed prop, toggle button, flyout Popper logic, tooltip/flyout conflict, section label hide/show, logo collapse, version label removal |
-| `frontend/src/components/common/MainLayout.tsx` | `collapsed` state + localStorage, drawer width transition, AppBar offset transition, pass `collapsed` prop to `Sidebar` |
+| `frontend/src/components/common/Sidebar.tsx` | Color overrides, `collapsed` prop, toggle button, flyout Popper + shared close timer, tooltip/flyout mutual exclusion, section label hide/show, logo collapse, version label removal, badge hide in collapsed mode, `selected` prop replaced with conditional `sx` |
+| `frontend/src/components/common/MainLayout.tsx` | `collapsed` state + localStorage, `DRAWER_WIDTH` replaced with two constants, drawer width transition, AppBar offset transition, pass `collapsed` prop to Sidebar, mobile drawer always passes `collapsed={false}` |
 
 No new files. No changes to routing, backend, or theme.
