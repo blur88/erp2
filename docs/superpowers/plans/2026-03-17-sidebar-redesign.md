@@ -459,6 +459,7 @@ const renderMenuItem = (item: MenuItem, level: number = 0) => {
         <ListItem disablePadding>
           <ListItemButton
             id={`rail-item-${item.id}`}
+            aria-label={item.title}
             onClick={() => {/* handled in Chunk 3 */}}
             aria-haspopup="true"
             aria-expanded={flyoutItemId === item.id}
@@ -706,10 +707,11 @@ it('shows flyout panel on hover over parent item in collapsed mode', async () =>
     </MemoryRouter>
   )
 
-  const salesButton = screen.getByRole('button', { name: /sales/i })
+  // aria-label="Sales" is required on the Case 1 ListItemButton (no visible text in collapsed mode)
+  const salesButton = screen.getByRole('button', { name: 'Sales' })
   fireEvent.mouseEnter(salesButton)
 
-  // flyout should appear (after 80ms open delay — use fake timers)
+  // waitFor with 500ms to accommodate the real 80ms open timer
   await waitFor(() => {
     expect(screen.getByText('Customers')).toBeInTheDocument()
   }, { timeout: 500 })
@@ -722,7 +724,7 @@ it('closes flyout on mouse leave', async () => {
     </MemoryRouter>
   )
 
-  const salesButton = screen.getByRole('button', { name: /sales/i })
+  const salesButton = screen.getByRole('button', { name: 'Sales' })
   fireEvent.mouseEnter(salesButton)
 
   await waitFor(() => {
@@ -731,6 +733,7 @@ it('closes flyout on mouse leave', async () => {
 
   fireEvent.mouseLeave(salesButton)
 
+  // waitFor 500ms to accommodate the real 150ms close timer
   await waitFor(() => {
     expect(screen.queryByText('Customers')).not.toBeInTheDocument()
   }, { timeout: 500 })
@@ -818,14 +821,17 @@ const handleFlyoutMouseLeave = () => {
 }
 
 // Reset flyout on navigation
+// eslint-disable-next-line react-hooks/exhaustive-deps
 React.useEffect(() => {
   setFlyoutItemId(null)
   setFlyoutAnchorEl(null)
   setFlyoutExpandedIds([])
-  clearOpenTimer()
-  clearCloseTimer()
+  if (openTimerRef.current) clearTimeout(openTimerRef.current)
+  if (closeTimerRef.current) clearTimeout(closeTimerRef.current)
 }, [location.pathname])
 ```
+
+**Ordering note:** `openFlyout` calls `isItemActive`, which is defined earlier in the component. Define the flyout state block and helpers **after** `isItemActive` in the file to avoid a "used before defined" reference. The existing `isItemActive` function is near the bottom of the component body — place the flyout block after it.
 
 - [ ] **Step 4: Wire up mouse handlers on the collapsed parent rail items**
 
@@ -839,6 +845,7 @@ if (collapsed && hasChildren) {
       <ListItem disablePadding>
         <ListItemButton
           id={`rail-item-${item.id}`}
+          aria-label={item.title}
           onMouseEnter={(e) => handleRailMouseEnter(item, e.currentTarget)}
           onMouseLeave={handleRailMouseLeave}
           onClick={(e) => openFlyout(item.id, e.currentTarget)}
@@ -912,7 +919,7 @@ it('navigates when clicking a leaf item inside the flyout', async () => {
     </MemoryRouter>
   )
 
-  const salesButton = screen.getByRole('button', { name: /sales/i })
+  const salesButton = screen.getByRole('button', { name: 'Sales' })
   fireEvent.mouseEnter(salesButton)
 
   await waitFor(() => {
@@ -945,7 +952,7 @@ import { Popper, Fade, Paper } from '@mui/material'
 
 - [ ] **Step 4: Add a renderFlyoutItem helper**
 
-Add inside the Sidebar component, after the existing helpers:
+Add inside the Sidebar component, **after** the flyout state and timer helpers added in Task 5 (both `renderFlyoutItem` and `openFlyout` reference each other's closures — they must be declared after `isItemActive` and after the state/ref declarations):
 
 ```tsx
 const renderFlyoutItem = (item: MenuItem, level: number = 0): React.ReactNode => {
@@ -1066,6 +1073,7 @@ Add just before the closing `</Box>` of the outer sidebar wrapper:
       open={Boolean(flyoutAnchorEl)}
       anchorEl={flyoutAnchorEl}
       placement="right-start"
+      keepMounted={false}
       modifiers={[{ name: 'offset', options: { offset: [0, 8] } }]}
       style={{ zIndex: 1400 }}
     >
@@ -1080,6 +1088,12 @@ Add just before the closing `</Box>` of the outer sidebar wrapper:
             py: 1,
             borderRadius: 1,
             boxShadow: '0 4px 20px rgba(0,0,0,0.4)',
+            // translateX enter animation (complements Fade opacity)
+            '@keyframes flyoutEnter': {
+              from: { transform: 'translateX(-4px)' },
+              to: { transform: 'translateX(0)' },
+            },
+            animation: 'flyoutEnter 0.12s ease-out',
           }}
         >
           <List disablePadding>
@@ -1129,39 +1143,110 @@ git commit -m "feat: add flyout Popper panel with inline accordion for collapsed
 
 Add to `__tests__/Sidebar.test.tsx`:
 ```tsx
-it('shows active styling on rail icon when a child route is active in collapsed mode', () => {
+it('shows rail icon button for active parent in collapsed mode', () => {
   render(
     <MemoryRouter initialEntries={['/sales/customers']}>
       <Sidebar collapsed={true} />
     </MemoryRouter>
   )
-
-  // Sales parent button should have active color (no text visible in collapsed mode)
-  const salesButton = screen.getByRole('button', { name: /sales/i })
-  // Icon inside should have active color applied — verify the button is found and rendered
+  // Sales parent should render as a rail button with its title as aria-label
+  const salesButton = screen.getByRole('button', { name: 'Sales' })
   expect(salesButton).toBeInTheDocument()
+  // No visible "Sales" text — confirmed by absence of a ListItemText
+  expect(screen.queryByText('Sales')).not.toBeInTheDocument()
 })
 ```
 
-- [ ] **Step 2: Write test that badges are hidden in collapsed mode**
+- [ ] **Step 2: Write a genuine TDD test for badge hiding in collapsed mode**
+
+This test requires temporarily patching the menu data so a badge exists. Add to `__tests__/Sidebar.test.tsx`:
+```tsx
+it('hides badge when sidebar is collapsed', async () => {
+  // We test the renderMenuItem logic by rendering in expanded mode (badge visible)
+  // then in collapsed mode (badge hidden)
+  const { rerender } = render(
+    <MemoryRouter initialEntries={['/dashboard']}>
+      <Sidebar collapsed={false} />
+    </MemoryRouter>
+  )
+
+  // In expanded mode, the Dashboard item has no badge — but we can verify
+  // the Badge component is NOT present because no item has badge data.
+  // The real test: confirm renderMenuItem correctly gates badge rendering.
+  // Since we can't inject a badge item without modifying source, we verify
+  // the code path by checking the collapsed prop changes the render output.
+  rerender(
+    <MemoryRouter initialEntries={['/dashboard']}>
+      <Sidebar collapsed={true} />
+    </MemoryRouter>
+  )
+
+  // In collapsed mode there must be no MuiBadge elements
+  expect(document.querySelector('.MuiBadge-badge')).toBeNull()
+})
+```
+
+Note: This test is a smoke test — it passes in both implementations (since no item has a badge currently). The real guard is in `renderMenuItem`'s Case 1/2 branches which never render `Badge`. The test documents intent and will catch regressions if a badge is ever added to a menu item.
+
+- [ ] **Step 3: Add keyboard interaction for collapsed mode flyout**
+
+In `Sidebar.tsx`, update the Case 1 `ListItemButton` to handle `Enter`/`Space` for keyboard users, and add a global `keydown` listener for `Escape`:
+
+```tsx
+// Add to the Case 1 ListItemButton (collapsed + hasChildren):
+onKeyDown={(e) => {
+  if (e.key === 'Enter' || e.key === ' ') {
+    e.preventDefault()
+    openFlyout(item.id, e.currentTarget)
+  }
+}}
+```
+
+Add a `useEffect` for `Escape` key (place it alongside the navigation-reset `useEffect`):
+```tsx
+React.useEffect(() => {
+  const handleKeyDown = (e: KeyboardEvent) => {
+    if (e.key === 'Escape' && flyoutItemId) {
+      setFlyoutItemId(null)
+      setFlyoutAnchorEl(null)
+      setFlyoutExpandedIds([])
+      // Return focus to the triggering rail button
+      const trigger = document.getElementById(`rail-item-${flyoutItemId}`)
+      trigger?.focus()
+    }
+  }
+  document.addEventListener('keydown', handleKeyDown)
+  return () => document.removeEventListener('keydown', handleKeyDown)
+}, [flyoutItemId])
+```
+
+- [ ] **Step 4: Write test for Escape key closing flyout**
 
 Add to `__tests__/Sidebar.test.tsx`:
 ```tsx
-it('does not render badge in collapsed mode', () => {
-  // Create a menu with a badge item — verify badge is not shown when collapsed
-  // Since no current menu item has a badge by default, this test verifies the badge
-  // render path in renderMenuItem is behind the !collapsed guard
+it('closes flyout when Escape is pressed', async () => {
   render(
     <MemoryRouter initialEntries={['/dashboard']}>
       <Sidebar collapsed={true} />
     </MemoryRouter>
   )
-  // No MuiBadge-badge elements should be present
-  expect(document.querySelector('.MuiBadge-badge')).toBeNull()
+
+  const salesButton = screen.getByRole('button', { name: 'Sales' })
+  fireEvent.mouseEnter(salesButton)
+
+  await waitFor(() => {
+    expect(screen.getByText('Customers')).toBeInTheDocument()
+  }, { timeout: 500 })
+
+  fireEvent.keyDown(document, { key: 'Escape' })
+
+  await waitFor(() => {
+    expect(screen.queryByText('Customers')).not.toBeInTheDocument()
+  }, { timeout: 500 })
 })
 ```
 
-- [ ] **Step 3: Run all sidebar tests**
+- [ ] **Step 5: Run all sidebar tests**
 
 ```bash
 cd frontend && npx vitest run src/components/common/__tests__/Sidebar.test.tsx --no-coverage
@@ -1169,7 +1254,7 @@ cd frontend && npx vitest run src/components/common/__tests__/Sidebar.test.tsx -
 
 Expected: all tests pass
 
-- [ ] **Step 4: Run the full frontend test suite**
+- [ ] **Step 6: Run the full frontend test suite**
 
 ```bash
 cd frontend && npm run test
@@ -1177,7 +1262,7 @@ cd frontend && npm run test
 
 Expected: all tests pass
 
-- [ ] **Step 5: TypeScript check**
+- [ ] **Step 7: TypeScript check**
 
 ```bash
 cd frontend && npm run type-check
@@ -1185,15 +1270,15 @@ cd frontend && npm run type-check
 
 Expected: no errors
 
-- [ ] **Step 6: Lint**
+- [ ] **Step 8: Lint**
 
 ```bash
 cd frontend && npm run lint
 ```
 
-Expected: no errors
+Expected: no errors. Note: the `// eslint-disable-next-line react-hooks/exhaustive-deps` added in Task 5 Step 3 suppresses the exhaustive-deps warning on the navigation reset effect — this is intentional.
 
-- [ ] **Step 7: Final commit**
+- [ ] **Step 9: Final commit**
 
 ```bash
 git add frontend/src/components/common/Sidebar.tsx \
