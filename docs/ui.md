@@ -1,179 +1,142 @@
-If your **base background is `#111827`**, you should build a **complete color system** around it. A good UI (especially ERP/dashboard) normally has these color groups:
-
-1. Background layers
-2. Text colors
-3. Border colors
-4. Primary / accent colors
-5. Status colors (success, warning, error)
-6. Table colors
-7. Interactive states (hover, active)
-
-Below is a **complete dark UI palette based on `#111827`**.
+# 🎨 Dark Theme Palette (Base: #121212)
 
 ---
 
-# 1. Background Colors
+## 🧱 1. Core Background Layers
 
-These create **depth and hierarchy**.
-
-| Usage           | Color        | Hex       |
-| --------------- | ------------ | --------- |
-| Main Background | Dark Slate   | `#111827` |
-| Sidebar         | Darker Slate | `#0F172A` |
-| Card / Panel    | Gray Slate   | `#1F2937` |
-| Secondary Card  | Dark Gray    | `#374151` |
-| Hover Surface   | Soft Gray    | `#4B5563` |
-
-Example structure:
-
-```
-App Background      #111827
-Sidebar             #0F172A
-Card / Table        #1F2937
-Hover               #374151
-```
+| Usage | Color |
+|------|------|
+| App Background | #121212 |
+| Surface (cards, tables) | #1E1E1E |
+| Surface 2 (sections) | #232323 |
+| Hover / Active | #2C2C2C |
+| Sidebar | #0D0D0D |
+| Overlay | #000000 |
 
 ---
 
-# 2. Text Colors
+## ✍️ 2. Text Colors
 
-Text should **never be pure white**.
-
-| Usage          | Color      | Hex       |
-| -------------- | ---------- | --------- |
-| Primary Text   | Light Gray | `#E5E7EB` |
-| Secondary Text | Muted Gray | `#9CA3AF` |
-| Placeholder    | Soft Gray  | `#6B7280` |
-| Disabled       | Dark Gray  | `#4B5563` |
-
-Example:
-
-```
-Title          #E5E7EB
-Description    #9CA3AF
-Hint text      #6B7280
-```
+| Usage | Color |
+|------|------|
+| Primary Text | #E0E0E0 |
+| Secondary Text | #A0A0A0 |
+| Muted / Disabled | #6B7280 |
+| Inverse Text | #111827 |
 
 ---
 
-# 3. Border & Divider
+## 🎯 3. Primary / Accent
 
-Borders should be **subtle**.
-
-| Usage         | Hex       |
-| ------------- | --------- |
-| Border        | `#374151` |
-| Soft Border   | `#2D3748` |
-| Table Divider | `#1F2937` |
-
----
-
-# 4. Primary Brand Colors
-
-Good for **ERP actions like Save / Create / Submit**.
-
-| Type           | Color       | Hex       |
-| -------------- | ----------- | --------- |
-| Primary        | Blue        | `#3B82F6` |
-| Primary Hover  | Darker Blue | `#2563EB` |
-| Primary Active | Strong Blue | `#1D4ED8` |
-
-Example button:
-
-```
-Button BG        #3B82F6
-Button Hover     #2563EB
-Text             #FFFFFF
-```
+| Usage | Color |
+|------|------|
+| Primary | #3B82F6 |
+| Primary Hover | #2563EB |
+| Primary Active | #1D4ED8 |
+| Primary Soft BG | #172554 |
 
 ---
 
-# 5. Status Colors
-
-Important for **ERP alerts and validation**.
+## ⚠️ 4. Semantic Colors
 
 ### Success
-
-| Usage         | Hex       |
-| ------------- | --------- |
-| Success       | `#10B981` |
-| Success Hover | `#059669` |
+| Usage | Color |
+|------|------|
+| Text / Icon | #22C55E |
+| Background | #052E16 |
 
 ### Warning
-
-| Usage         | Hex       |
-| ------------- | --------- |
-| Warning       | `#F59E0B` |
-| Warning Hover | `#D97706` |
+| Usage | Color |
+|------|------|
+| Text / Icon | #F59E0B |
+| Background | #451A03 |
 
 ### Error
-
-| Usage       | Hex       |
-| ----------- | --------- |
-| Error       | `#EF4444` |
-| Error Hover | `#DC2626` |
+| Usage | Color |
+|------|------|
+| Text / Icon | #EF4444 |
+| Background | #450A0A |
 
 ### Info
-
-| Usage | Hex       |
-| ----- | --------- |
-| Info  | `#38BDF8` |
-
----
-
-# 6. Table Colors (Important for ERP)
-
-ERP apps show **lots of tables**, so these matter.
-
-| Usage             | Hex       |
-| ----------------- | --------- |
-| Table Background  | `#1F2937` |
-| Header Background | `#111827` |
-| Row Hover         | `#374151` |
-| Selected Row      | `#1D4ED8` |
-| Divider           | `#374151` |
+| Usage | Color |
+|------|------|
+| Text / Icon | #38BDF8 |
+| Background | #082F49 |
 
 ---
 
-# 7. Input Fields
+## 🧩 5. Borders & Dividers
 
-Forms are common in ERP.
-
-| Usage            | Hex       |
-| ---------------- | --------- |
-| Input Background | `#1F2937` |
-| Input Border     | `#374151` |
-| Focus Border     | `#3B82F6` |
-| Disabled Input   | `#4B5563` |
+| Usage | Color |
+|------|------|
+| Default Border | #2A2A2A |
+| Strong Border | #3A3A3A |
+| Subtle Divider | #1A1A1A |
 
 ---
 
-# 8. Icon Colors
+## 🖱️ 6. Interaction States
 
-Icons follow text hierarchy.
-
-| Usage          | Hex       |
-| -------------- | --------- |
-| Primary Icon   | `#E5E7EB` |
-| Secondary Icon | `#9CA3AF` |
-| Disabled Icon  | `#6B7280` |
+| Usage | Color |
+|------|------|
+| Hover | #2C2C2C |
+| Active Item Background | #1F2937 |
+| Focus Ring | #3B82F6 |
+| Selected Row | #172554 |
 
 ---
 
-# 9. Complete Example Layout
+## 📊 7. Table Colors
 
-```
-App Background      #111827
-Sidebar             #0F172A
+| Usage | Color |
+|------|------|
+| Header Background | #1A1A1A |
+| Row Background | #121212 |
+| Alternate Row | #161616 |
+| Row Hover | #1F1F1F |
+| Border | #2A2A2A |
 
-Card                #1F2937
-Border              #374151
+---
 
-Primary Button      #3B82F6
-Success             #10B981
-Warning             #F59E0B
-Error               #EF4444
+## 📦 8. Sidebar
 
-Text Primary        #E5E7EB
-Text Secondary      #9CA3AF
+| Usage | Color |
+|------|------|
+| Background | #0D0D0D |
+| Item | #121212 |
+| Hover | #1E1E1E |
+| Active Background | #1F2937 |
+| Active Text | #FFFFFF |
+| Text | #9CA3AF |
+| Icon | #6B7280 |
+| Active Icon | #3B82F6 |
 
+---
+
+## 🧠 Final Theme Object
+
+```ts
+export const DARK_THEME = {
+  background: "#121212",
+  surface: "#1E1E1E",
+  surface2: "#232323",
+  hover: "#2C2C2C",
+
+  sidebar: "#0D0D0D",
+
+  textPrimary: "#E0E0E0",
+  textSecondary: "#A0A0A0",
+  textMuted: "#6B7280",
+
+  primary: "#3B82F6",
+  primaryHover: "#2563EB",
+  primaryActive: "#1D4ED8",
+
+  success: "#22C55E",
+  warning: "#F59E0B",
+  error: "#EF4444",
+  info: "#38BDF8",
+
+  border: "#2A2A2A",
+  borderStrong: "#3A3A3A"
+}

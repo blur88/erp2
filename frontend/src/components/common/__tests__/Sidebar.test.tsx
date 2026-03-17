@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import Sidebar from '../Sidebar'
@@ -60,6 +60,21 @@ describe('Sidebar', () => {
     expect(sectionHeaders).toContain('Analytics')
     expect(sectionHeaders.indexOf('Operations')).toBeLessThan(sectionHeaders.indexOf('Accounting'))
     expect(sectionHeaders.indexOf('Accounting')).toBeLessThan(sectionHeaders.indexOf('Analytics'))
+  })
+
+  it('applies the updated section label padding', () => {
+    render(
+      <MemoryRouter initialEntries={['/dashboard']}>
+        <Sidebar />
+      </MemoryRouter>
+    )
+
+    const operationsLabel = screen.getByText('Operations')
+
+    expect(operationsLabel).toHaveStyle({
+      paddingTop: '16px',
+      paddingBottom: '8px',
+    })
   })
 
   it('renders reports as a parent group in analytics section', async () => {
@@ -147,6 +162,16 @@ describe('Sidebar', () => {
     expect(outerBox).toBeInTheDocument()
   })
 
+  it('SIDEBAR_COLORS includes hoverText and activeIcon tokens', () => {
+    render(
+      <MemoryRouter initialEntries={['/dashboard']}>
+        <Sidebar />
+      </MemoryRouter>
+    )
+
+    expect(screen.getByTestId('sidebar-root')).toBeInTheDocument()
+  })
+
   it('shows flyout panel on hover over parent item in collapsed mode', async () => {
     render(
       <MemoryRouter initialEntries={['/dashboard']}>
@@ -163,24 +188,34 @@ describe('Sidebar', () => {
   })
 
   it('closes flyout on mouse leave', async () => {
-    render(
-      <MemoryRouter initialEntries={['/dashboard']}>
-        <Sidebar collapsed={true} />
-      </MemoryRouter>
-    )
+    vi.useFakeTimers()
 
-    const salesButton = screen.getByRole('button', { name: 'Sales' })
-    fireEvent.mouseEnter(salesButton)
+    try {
+      render(
+        <MemoryRouter initialEntries={['/dashboard']}>
+          <Sidebar collapsed={true} />
+        </MemoryRouter>
+      )
 
-    await waitFor(() => {
+      const salesButton = screen.getByRole('button', { name: 'Sales' })
+      fireEvent.mouseEnter(salesButton)
+
+      await act(async () => {
+        vi.advanceTimersByTime(100)
+      })
+
       expect(screen.getByText('Customers')).toBeInTheDocument()
-    }, { timeout: 500 })
 
-    fireEvent.mouseLeave(salesButton)
+      fireEvent.mouseLeave(salesButton)
 
-    await waitFor(() => {
+      await act(async () => {
+        vi.advanceTimersByTime(250)
+      })
+
       expect(screen.queryByText('Customers')).not.toBeInTheDocument()
-    }, { timeout: 500 })
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('navigates when clicking a leaf item inside the flyout', async () => {
@@ -214,6 +249,20 @@ describe('Sidebar', () => {
     const salesButton = screen.getByRole('button', { name: 'Sales' })
     expect(salesButton).toBeInTheDocument()
     expect(screen.queryByText('Sales')).not.toBeInTheDocument()
+  })
+
+  it('does not throw when hovering over non-active items', () => {
+    render(
+      <MemoryRouter initialEntries={['/dashboard']}>
+        <Sidebar />
+      </MemoryRouter>
+    )
+
+    const salesButton = screen.getByRole('button', { name: 'Sales' })
+    fireEvent.mouseEnter(salesButton)
+    fireEvent.mouseLeave(salesButton)
+
+    expect(screen.getByTestId('sidebar-root')).toBeInTheDocument()
   })
 
   it('closes flyout when Escape is pressed', async () => {

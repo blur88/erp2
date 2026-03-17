@@ -100,6 +100,8 @@ const SIDEBAR_COLORS = {
   hoverBg: '#1E293B',
   text: '#9CA3AF',
   activeText: '#E5E7EB',
+  hoverText: '#CBD5E1',
+  activeIcon: '#FFFFFF',
   sectionLabel: '#6B7280',
   border: '#1F2937',
   accentBar: '#42a5f5',
@@ -800,13 +802,15 @@ const Sidebar: React.FC<SidebarProps> = ({
             pr: 1.5,
             py: 0,
             height: 40,
-            borderRadius: 1,
+            borderRadius: 2,
             mx: 0.5,
             mb: 0.25,
             position: 'relative',
+            transition: 'background-color 0.18s ease',
             // Leaf active: pill background + left accent bar
             ...(isActive && !hasChildren && {
               bgcolor: SIDEBAR_COLORS.activeBg,
+              boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.03)',
               '&::before': {
                 content: '""',
                 position: 'absolute',
@@ -825,13 +829,18 @@ const Sidebar: React.FC<SidebarProps> = ({
               '& .MuiListItemText-primary': { color: SIDEBAR_COLORS.activeText },
             }),
             '&:hover': { bgcolor: SIDEBAR_COLORS.hoverBg },
+            ...(!isActive && {
+              '&:hover .MuiListItemIcon-root': { color: SIDEBAR_COLORS.hoverText },
+              '&:hover .MuiListItemText-primary': { color: SIDEBAR_COLORS.hoverText },
+            }),
           }}
         >
           <ListItemIcon
             sx={{
               minWidth: 32,
-              color: isActive ? SIDEBAR_COLORS.activeText : SIDEBAR_COLORS.text,
+              color: isActive ? SIDEBAR_COLORS.activeIcon : SIDEBAR_COLORS.text,
               '& .MuiSvgIcon-root': { fontSize: '1.25rem' },
+              transition: 'color 0.18s ease',
             }}
           >
             {item.icon}
@@ -843,6 +852,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                 fontSize: '0.8125rem',
                 fontWeight: isActive && !hasChildren ? 600 : 400,
                 color: isActive ? SIDEBAR_COLORS.activeText : SIDEBAR_COLORS.text,
+                transition: 'color 0.18s ease',
               },
             }}
           />
@@ -863,7 +873,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         </ListItemButton>
 
         {hasChildren && (
-          <Collapse in={isExpanded} timeout="auto" unmountOnExit>
+          <Collapse in={isExpanded} timeout={200} unmountOnExit>
             <List component="div" disablePadding>
               {item.children?.map(child => renderFlyoutItem(child, level + 1))}
             </List>
@@ -882,6 +892,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       isActive && !hasChildren
         ? {
             bgcolor: SIDEBAR_COLORS.activeBg,
+            boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.03)',
             '&::before': {
               content: '""',
               position: 'absolute',
@@ -935,17 +946,22 @@ const Sidebar: React.FC<SidebarProps> = ({
                 mb: 0.5,
                 justifyContent: 'center',
                 position: 'relative',
+                transition: 'background-color 0.18s ease',
                 ...activeParentSx,
                 '&:hover': { bgcolor: SIDEBAR_COLORS.hoverBg },
+                ...(!isActive && {
+                  '&:hover .MuiListItemIcon-root': { color: SIDEBAR_COLORS.hoverText },
+                }),
                 '&.Mui-selected': { bgcolor: 'transparent' },
               }}
             >
               <ListItemIcon
                 sx={{
                   minWidth: 0,
-                  color: isActive ? SIDEBAR_COLORS.activeText : SIDEBAR_COLORS.text,
+                  color: isActive ? SIDEBAR_COLORS.activeIcon : SIDEBAR_COLORS.text,
                   justifyContent: 'center',
                   '& .MuiSvgIcon-root': { fontSize: '1.25rem' },
+                  transition: 'color 0.18s ease',
                 }}
               >
                 {item.icon}
@@ -972,17 +988,22 @@ const Sidebar: React.FC<SidebarProps> = ({
                   mb: 0.5,
                   justifyContent: 'center',
                   position: 'relative',
+                  transition: 'background-color 0.18s ease',
                   ...activeLeafSx,
                   '&:hover': { bgcolor: SIDEBAR_COLORS.hoverBg },
+                  ...(!isActive && {
+                    '&:hover .MuiListItemIcon-root': { color: SIDEBAR_COLORS.hoverText },
+                  }),
                   '&.Mui-selected': { bgcolor: 'transparent' },
                 }}
               >
                 <ListItemIcon
                   sx={{
                     minWidth: 0,
-                    color: isActive ? SIDEBAR_COLORS.activeText : SIDEBAR_COLORS.text,
+                    color: isActive ? SIDEBAR_COLORS.activeIcon : SIDEBAR_COLORS.text,
                     justifyContent: 'center',
                     '& .MuiSvgIcon-root': { fontSize: '1.25rem' },
+                    transition: 'color 0.18s ease',
                   }}
                 >
                   {item.icon}
@@ -1005,21 +1026,27 @@ const Sidebar: React.FC<SidebarProps> = ({
               pl: 2 + level * 2,
               py: 0,
               height: 44,
-              borderRadius: 1,
+              borderRadius: 2,
               mx: 1,
               mb: 0.5,
               position: 'relative',
+              transition: 'background-color 0.18s ease',
               ...activeLeafSx,
               ...activeParentSx,
               '&:hover': { bgcolor: SIDEBAR_COLORS.hoverBg },
+              ...(!isActive && {
+                '&:hover .MuiListItemIcon-root': { color: SIDEBAR_COLORS.hoverText },
+                '&:hover .MuiListItemText-primary': { color: SIDEBAR_COLORS.hoverText },
+              }),
               '&.Mui-selected': { bgcolor: 'transparent' },
             }}
           >
             <ListItemIcon
               sx={{
                 minWidth: 40,
-                color: isActive ? SIDEBAR_COLORS.activeText : SIDEBAR_COLORS.text,
+                color: isActive ? SIDEBAR_COLORS.activeIcon : SIDEBAR_COLORS.text,
                 '& .MuiSvgIcon-root': { fontSize: '1.25rem' },
+                transition: 'color 0.18s ease',
               }}
             >
               {item.icon}
@@ -1031,6 +1058,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                   fontSize: '0.875rem',
                   fontWeight: isActive && !hasChildren ? 600 : 400,
                   color: isActive ? SIDEBAR_COLORS.activeText : SIDEBAR_COLORS.text,
+                  transition: 'color 0.18s ease',
                 },
               }}
             />
@@ -1058,7 +1086,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           </ListItemButton>
         </ListItem>
 
-        <Collapse in={isExpanded} timeout="auto" unmountOnExit>
+        <Collapse in={isExpanded} timeout={200} unmountOnExit>
           <List component="div" disablePadding>
             {item.children?.map(child => renderMenuItem(child, level + 1))}
           </List>
@@ -1145,14 +1173,15 @@ const Sidebar: React.FC<SidebarProps> = ({
             )}
 
             {!collapsed && (
-              <Typography
-                variant="overline"
-                sx={{
-                  px: 3,
-                  py: 1,
-                  display: 'block',
-                  color: SIDEBAR_COLORS.sectionLabel,
-                  fontWeight: 600,
+                <Typography
+                  variant="overline"
+                  sx={{
+                    px: 3,
+                    pt: 2,
+                    pb: 1,
+                    display: 'block',
+                    color: SIDEBAR_COLORS.sectionLabel,
+                    fontWeight: 600,
                   fontSize: '0.75rem',
                 }}
               >
