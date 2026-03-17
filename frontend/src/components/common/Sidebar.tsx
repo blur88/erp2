@@ -736,6 +736,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     startCloseFlyout()
   }
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   React.useEffect(() => {
     setFlyoutOpen(false)
     setFlyoutItemId(null)
@@ -743,6 +744,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     setFlyoutExpandedIds([])
     if (openTimerRef.current) clearTimeout(openTimerRef.current)
     if (closeTimerRef.current) clearTimeout(closeTimerRef.current)
+    if (clearFlyoutStateTimerRef.current) clearTimeout(clearFlyoutStateTimerRef.current)
   }, [location.pathname])
 
   React.useEffect(() => {
@@ -802,21 +804,26 @@ const Sidebar: React.FC<SidebarProps> = ({
             mx: 0.5,
             mb: 0.25,
             position: 'relative',
-            ...(isActive &&
-              !hasChildren && {
-                bgcolor: SIDEBAR_COLORS.activeBg,
-                '&::before': {
-                  content: '""',
-                  position: 'absolute',
-                  left: 0,
-                  top: '50%',
-                  transform: 'translateY(-50%)',
-                  width: 3,
-                  height: '60%',
-                  borderRadius: '0 2px 2px 0',
-                  bgcolor: SIDEBAR_COLORS.accentBar,
-                },
-              }),
+            // Leaf active: pill background + left accent bar
+            ...(isActive && !hasChildren && {
+              bgcolor: SIDEBAR_COLORS.activeBg,
+              '&::before': {
+                content: '""',
+                position: 'absolute',
+                left: 0,
+                top: '50%',
+                transform: 'translateY(-50%)',
+                width: 3,
+                height: '60%',
+                borderRadius: '0 2px 2px 0',
+                bgcolor: SIDEBAR_COLORS.accentBar,
+              },
+            }),
+            // Parent active: brighten icon/text when a descendant is current route
+            ...(isActive && hasChildren && {
+              '& .MuiListItemIcon-root': { color: SIDEBAR_COLORS.activeText },
+              '& .MuiListItemText-primary': { color: SIDEBAR_COLORS.activeText },
+            }),
             '&:hover': { bgcolor: SIDEBAR_COLORS.hoverBg },
           }}
         >
@@ -993,7 +1000,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           <ListItemButton
             onClick={() => handleItemClick(item)}
             aria-expanded={hasChildren ? isExpanded : undefined}
-            aria-haspopup={hasChildren ? 'menu' : undefined}
+            // No aria-haspopup for inline accordion (children appear in-document, not in a popup)
             sx={{
               pl: 2 + level * 2,
               py: 0,
@@ -1164,7 +1171,10 @@ const Sidebar: React.FC<SidebarProps> = ({
         ))}
       </Box>
 
-      {collapsed && flyoutAnchorEl && flyoutItemId && (() => {
+      {/* Popper gated only on flyoutItemId (not flyoutAnchorEl) so it stays mounted
+          during the 80ms exit fade. flyoutAnchorEl provides the anchor position;
+          flyoutOpen drives the Fade animation. Both are cleared after animation completes. */}
+      {collapsed && flyoutItemId && (() => {
         const flyoutItem = menuSections
           .flatMap(section => section.items)
           .find(item => item.id === flyoutItemId)
@@ -1173,7 +1183,7 @@ const Sidebar: React.FC<SidebarProps> = ({
 
         return (
           <Popper
-            open={Boolean(flyoutAnchorEl)}
+            open={Boolean(flyoutItemId)}
             anchorEl={flyoutAnchorEl}
             placement="right-start"
             keepMounted={false}

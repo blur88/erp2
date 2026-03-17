@@ -266,7 +266,7 @@ const MainLayout: React.FC = () => {
             },
           }}
         >
-          <Sidebar onItemClick={handleDrawerToggle} />
+          <Sidebar collapsed={false} onItemClick={handleDrawerToggle} />
         </Drawer>
 
         <Drawer
