@@ -95,13 +95,14 @@ interface MenuItem {
 }
 
 const SIDEBAR_COLORS = {
-  bg: '#0F172A',
+  bg: '#0D0D0D',
   activeBg: '#1F2937',
-  hoverBg: '#1E293B',
+  hoverBg: '#1E1E1E',
   text: '#9CA3AF',
-  activeText: '#E5E7EB',
+  activeText: '#FFFFFF',
   hoverText: '#CBD5E1',
-  activeIcon: '#FFFFFF',
+  activeIcon: '#3B82F6',
+  icon: '#6B7280',
   sectionLabel: '#6B7280',
   border: '#1F2937',
   accentBar: '#42a5f5',
@@ -838,7 +839,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           <ListItemIcon
             sx={{
               minWidth: 32,
-              color: isActive ? SIDEBAR_COLORS.activeIcon : SIDEBAR_COLORS.text,
+              color: isActive ? SIDEBAR_COLORS.activeIcon : SIDEBAR_COLORS.icon,
               '& .MuiSvgIcon-root': { fontSize: '1.25rem' },
               transition: 'color 0.18s ease',
             }}
@@ -860,7 +861,7 @@ const Sidebar: React.FC<SidebarProps> = ({
             <Box
               component="span"
               sx={{
-                color: SIDEBAR_COLORS.text,
+                color: SIDEBAR_COLORS.icon,
                 display: 'flex',
                 alignItems: 'center',
                 transition: 'transform 0.2s',
@@ -958,7 +959,7 @@ const Sidebar: React.FC<SidebarProps> = ({
               <ListItemIcon
                 sx={{
                   minWidth: 0,
-                  color: isActive ? SIDEBAR_COLORS.activeIcon : SIDEBAR_COLORS.text,
+                  color: isActive ? SIDEBAR_COLORS.activeIcon : SIDEBAR_COLORS.icon,
                   justifyContent: 'center',
                   '& .MuiSvgIcon-root': { fontSize: '1.25rem' },
                   transition: 'color 0.18s ease',
@@ -1000,7 +1001,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                 <ListItemIcon
                   sx={{
                     minWidth: 0,
-                    color: isActive ? SIDEBAR_COLORS.activeIcon : SIDEBAR_COLORS.text,
+                    color: isActive ? SIDEBAR_COLORS.activeIcon : SIDEBAR_COLORS.icon,
                     justifyContent: 'center',
                     '& .MuiSvgIcon-root': { fontSize: '1.25rem' },
                     transition: 'color 0.18s ease',
@@ -1044,7 +1045,7 @@ const Sidebar: React.FC<SidebarProps> = ({
             <ListItemIcon
               sx={{
                 minWidth: 40,
-                color: isActive ? SIDEBAR_COLORS.activeIcon : SIDEBAR_COLORS.text,
+                color: isActive ? SIDEBAR_COLORS.activeIcon : SIDEBAR_COLORS.icon,
                 '& .MuiSvgIcon-root': { fontSize: '1.25rem' },
                 transition: 'color 0.18s ease',
               }}
@@ -1073,7 +1074,7 @@ const Sidebar: React.FC<SidebarProps> = ({
               <Box
                 component="span"
                 sx={{
-                  color: SIDEBAR_COLORS.text,
+                  color: SIDEBAR_COLORS.icon,
                   display: 'flex',
                   alignItems: 'center',
                   transition: 'transform 0.2s',
@@ -1146,7 +1147,7 @@ const Sidebar: React.FC<SidebarProps> = ({
             size="small"
             sx={{
               display: { xs: 'none', lg: 'flex' },
-              color: SIDEBAR_COLORS.text,
+              color: SIDEBAR_COLORS.icon,
               width: 28,
               height: 28,
               '&:hover': { bgcolor: SIDEBAR_COLORS.hoverBg },
