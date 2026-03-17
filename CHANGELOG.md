@@ -1,3 +1,17 @@
+# [1.5.0](https://github.com/blur88/erp2/compare/v1.4.1...v1.5.0) (2026-03-17)
+
+
+### Features
+
+* add background and icon/text color transitions to sidebar rows ([5d084aa](https://github.com/blur88/erp2/commit/5d084aa5928f7adb208138c647cc228c1d024321))
+* add hover color brightening to non-active sidebar rows ([6267ff6](https://github.com/blur88/erp2/commit/6267ff64326b811ce2628dedd640d4f3a8d81d5a))
+* add hoverText and activeIcon tokens to SIDEBAR_COLORS ([67420c3](https://github.com/blur88/erp2/commit/67420c385c044ba5b0578afed1ca9b1fb05ade43))
+* add inset shadow to active leaf items ([dddd399](https://github.com/blur88/erp2/commit/dddd3997b85e456411e99eefffe80014a708abe8))
+* adjust section label padding to 16px top / 8px bottom ([45da35c](https://github.com/blur88/erp2/commit/45da35c860f10eb70181edee7087fcfe112b77c1))
+* increase active item border-radius to 8px on expanded and flyout rows ([c17eaa1](https://github.com/blur88/erp2/commit/c17eaa1cad35a22ddf145308f36c760e4d56820c))
+* set Collapse animation timeout to 200ms ([8ba1879](https://github.com/blur88/erp2/commit/8ba1879f407117f71efdf65727fc4822265b5915))
+* use activeIcon (#FFFFFF) for all active ListItemIcon states ([ddf86a5](https://github.com/blur88/erp2/commit/ddf86a59c33c5c43a82da0070dac6f7edf94c044)), closes [#FFFFFF](https://github.com/blur88/erp2/issues/FFFFFF)
+
 ## [1.4.1](https://github.com/blur88/erp2/compare/v1.4.0...v1.4.1) (2026-03-17)
 
 
