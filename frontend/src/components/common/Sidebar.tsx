@@ -809,6 +809,7 @@ const Sidebar: React.FC<SidebarProps> = ({
             // Leaf active: pill background + left accent bar
             ...(isActive && !hasChildren && {
               bgcolor: SIDEBAR_COLORS.activeBg,
+              boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.03)',
               '&::before': {
                 content: '""',
                 position: 'absolute',
@@ -884,6 +885,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       isActive && !hasChildren
         ? {
             bgcolor: SIDEBAR_COLORS.activeBg,
+            boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.03)',
             '&::before': {
               content: '""',
               position: 'absolute',
