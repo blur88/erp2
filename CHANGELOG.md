@@ -1,3 +1,10 @@
+## [1.5.1](https://github.com/blur88/erp2/compare/v1.5.0...v1.5.1) (2026-03-17)
+
+
+### Bug Fixes
+
+* update dark theme background color to [#121212](https://github.com/blur88/erp2/issues/121212) ([49090a8](https://github.com/blur88/erp2/commit/49090a8668582896af833b32a4ce40bbc4a0b95f))
+
 # [1.5.0](https://github.com/blur88/erp2/compare/v1.4.1...v1.5.0) (2026-03-17)
 
 
