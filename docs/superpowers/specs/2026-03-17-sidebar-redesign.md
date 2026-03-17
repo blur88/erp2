@@ -85,6 +85,11 @@ interface SidebarProps {
 - Visually recessive — does not compete with the logo
 - Hidden on mobile (below `lg` breakpoint)
 
+### Row heights and icon columns
+- **Expanded row height:** `44px` (consistent with collapsed mode)
+- **Expanded icon column:** `40px` wide (`minWidth: 40` on `ListItemIcon`) — matches current code, keeps icon/text alignment consistent
+- **Collapsed row height:** `44px`; icon centered in the full `64px` column hit area
+
 ### Collapsed mode rendering
 - All item text hidden
 - Section labels hidden
@@ -129,9 +134,11 @@ interface SidebarProps {
 - Only one flyout open at a time; opening a new one closes the previous
 
 ### Placement & appearance
-- MUI `Popper`, placement `"right-start"`, offset `[0, 8]` (8px horizontal gap from the rail)
-- Background: `#1E293B`; border-radius: `4px`; subtle box shadow
+- MUI `Popper`, placement `"right-start"`, offset `[0, 8]`
+  - Offset semantics: `[skidding, distance]` — skidding `0` (no vertical shift), distance `8` (horizontal gap from rail)
+- Background: `#1E293B`; border-radius: `4px`; subtle box shadow; `padding: 8px 0` (vertical padding inside the panel so item edges don't feel cramped)
 - Min-width `200px`, max-width `240px`
+- The flyout panel must accept pointer events — do not set `pointerEvents: 'none'` on the panel or its container during animation
 - Enter animation: `opacity 0→1` + `translateX(-4px → 0)`, `120ms ease-out`
 - Exit animation: `opacity 1→0`, `80ms ease-in`
 - Implementation: wrap the Popper's inner content in MUI `Fade` with `in={flyoutOpen}` and `timeout={{ enter: 120, exit: 80 }}`. The Popper itself uses `keepMounted={false}` (conditionally rendered, not toggled via CSS visibility).
