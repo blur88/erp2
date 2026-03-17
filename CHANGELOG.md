@@ -1,3 +1,19 @@
+# [1.4.0](https://github.com/blur88/erp2/compare/v1.3.1...v1.4.0) (2026-03-17)
+
+
+### Bug Fixes
+
+* address code review issues in sidebar redesign ([1adb4ba](https://github.com/blur88/erp2/commit/1adb4ba410bf8a4220ffd8a4b3baef62d341561a))
+* update dockerfile-security test to match entrypoint-based startup ([73e562b](https://github.com/blur88/erp2/commit/73e562bca43334c8974c506e68fafa6eeb956ff8))
+
+
+### Features
+
+* add flyout popper and collapsed rail interactions ([9ecfdfb](https://github.com/blur88/erp2/commit/9ecfdfb85a424fd22084b3ae6aeb740d3c70996d))
+* add sidebar collapse state and layout wiring to MainLayout ([a2abc0e](https://github.com/blur88/erp2/commit/a2abc0e30f76bfb91692fcf76d9d3867694c1449))
+* finalize sidebar redesign tests and keyboard interactions ([78df1bf](https://github.com/blur88/erp2/commit/78df1bfdf74b4c5c31d1ca485b4bca7932517d59))
+* redesign sidebar shell and collapsed navigation styling ([e89f7f5](https://github.com/blur88/erp2/commit/e89f7f5722d23bbe59c29af82195f44f6d2cd1f1))
+
 ## [1.3.1](https://github.com/blur88/erp2/compare/v1.3.0...v1.3.1) (2026-03-17)
 
 
