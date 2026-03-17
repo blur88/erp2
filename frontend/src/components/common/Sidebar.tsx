@@ -100,6 +100,8 @@ const SIDEBAR_COLORS = {
   hoverBg: '#1E293B',
   text: '#9CA3AF',
   activeText: '#E5E7EB',
+  hoverText: '#CBD5E1',
+  activeIcon: '#FFFFFF',
   sectionLabel: '#6B7280',
   border: '#1F2937',
   accentBar: '#42a5f5',

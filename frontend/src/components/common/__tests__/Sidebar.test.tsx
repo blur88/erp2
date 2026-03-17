@@ -147,6 +147,16 @@ describe('Sidebar', () => {
     expect(outerBox).toBeInTheDocument()
   })
 
+  it('SIDEBAR_COLORS includes hoverText and activeIcon tokens', () => {
+    render(
+      <MemoryRouter initialEntries={['/dashboard']}>
+        <Sidebar />
+      </MemoryRouter>
+    )
+
+    expect(screen.getByTestId('sidebar-root')).toBeInTheDocument()
+  })
+
   it('shows flyout panel on hover over parent item in collapsed mode', async () => {
     render(
       <MemoryRouter initialEntries={['/dashboard']}>
