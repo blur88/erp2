@@ -21,7 +21,7 @@ body {
 /* Dark theme support */
 [data-theme='dark'] body {
   color: #ffffff;
-  background-color: #121212;
+  background-color: #111827;
 }
 
 /* Scrollbar styling */
