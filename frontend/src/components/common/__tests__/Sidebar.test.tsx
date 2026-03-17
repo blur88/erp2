@@ -203,4 +203,37 @@ describe('Sidebar', () => {
       expect(screen.queryByText('Customers')).not.toBeInTheDocument()
     }, { timeout: 500 })
   })
+
+  it('shows rail icon button for active parent in collapsed mode', () => {
+    render(
+      <MemoryRouter initialEntries={['/sales/customers']}>
+        <Sidebar collapsed={true} />
+      </MemoryRouter>
+    )
+
+    const salesButton = screen.getByRole('button', { name: 'Sales' })
+    expect(salesButton).toBeInTheDocument()
+    expect(screen.queryByText('Sales')).not.toBeInTheDocument()
+  })
+
+  it('closes flyout when Escape is pressed', async () => {
+    render(
+      <MemoryRouter initialEntries={['/dashboard']}>
+        <Sidebar collapsed={true} />
+      </MemoryRouter>
+    )
+
+    const salesButton = screen.getByRole('button', { name: 'Sales' })
+    fireEvent.mouseEnter(salesButton)
+
+    await waitFor(() => {
+      expect(screen.getByText('Customers')).toBeInTheDocument()
+    }, { timeout: 500 })
+
+    fireEvent.keyDown(document, { key: 'Escape' })
+
+    await waitFor(() => {
+      expect(screen.queryByText('Customers')).not.toBeInTheDocument()
+    }, { timeout: 500 })
+  })
 })
