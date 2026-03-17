@@ -1,3 +1,10 @@
+## [1.4.1](https://github.com/blur88/erp2/compare/v1.4.0...v1.4.1) (2026-03-17)
+
+
+### Bug Fixes
+
+* update package versions to 1.3.1 and msw to 2.12.12 ([7b33c06](https://github.com/blur88/erp2/commit/7b33c067bc1cb4011414213eaefc1d10f6c805db))
+
 # [1.4.0](https://github.com/blur88/erp2/compare/v1.3.1...v1.4.0) (2026-03-17)
 
 
