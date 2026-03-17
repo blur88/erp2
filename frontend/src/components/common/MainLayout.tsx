@@ -36,7 +36,8 @@ import Sidebar from './Sidebar'
 import NotificationPanel from './NotificationPanel'
 import SystemStatus from './SystemStatus'
 
-const DRAWER_WIDTH = 280
+const DRAWER_WIDTH_EXPANDED = 256
+const DRAWER_WIDTH_COLLAPSED = 64
 
 const MainLayout: React.FC = () => {
   const theme = useTheme()
@@ -47,6 +48,10 @@ const MainLayout: React.FC = () => {
   const location = useLocation()
 
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [collapsed, setCollapsed] = React.useState<boolean>(() => {
+    if (typeof window === 'undefined') return false
+    return localStorage.getItem('sidebar-collapsed') === 'true'
+  })
   const [notificationAnchorEl, setNotificationAnchorEl] = useState<null | HTMLElement>(null)
   const [userMenuAnchorEl, setUserMenuAnchorEl] = useState<null | HTMLElement>(null)
 
@@ -61,6 +66,14 @@ const MainLayout: React.FC = () => {
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen)
+  }
+
+  const handleToggleCollapse = () => {
+    setCollapsed(c => {
+      const next = !c
+      localStorage.setItem('sidebar-collapsed', String(next))
+      return next
+    })
   }
 
   const handleNotificationOpen = (event: React.MouseEvent<HTMLElement>) => {
@@ -156,13 +169,22 @@ const MainLayout: React.FC = () => {
       <AppBar
         position="fixed"
         sx={{
-          width: { lg: `calc(100% - ${DRAWER_WIDTH}px)` },
-          ml: { lg: `${DRAWER_WIDTH}px` },
+          width: {
+            lg: collapsed
+              ? `calc(100% - ${DRAWER_WIDTH_COLLAPSED}px)`
+              : `calc(100% - ${DRAWER_WIDTH_EXPANDED}px)`,
+          },
+          ml: {
+            lg: collapsed
+              ? `${DRAWER_WIDTH_COLLAPSED}px`
+              : `${DRAWER_WIDTH_EXPANDED}px`,
+          },
           bgcolor: 'background.paper',
           color: 'text.primary',
           boxShadow: '0px 1px 3px rgba(0, 0, 0, 0.08)',
           borderBottom: '1px solid',
           borderBottomColor: 'divider',
+          transition: 'width 0.22s ease, margin-left 0.22s ease',
         }}
       >
         <Toolbar>
@@ -221,7 +243,13 @@ const MainLayout: React.FC = () => {
         </Toolbar>
       </AppBar>
 
-      <Box component="nav" sx={{ width: { lg: DRAWER_WIDTH }, flexShrink: { lg: 0 } }}>
+      <Box
+        component="nav"
+        sx={{
+          width: { lg: collapsed ? DRAWER_WIDTH_COLLAPSED : DRAWER_WIDTH_EXPANDED },
+          flexShrink: { lg: 0 },
+        }}
+      >
         <Drawer
           key={location.pathname}
           variant="temporary"
@@ -234,11 +262,11 @@ const MainLayout: React.FC = () => {
             display: { xs: 'block', lg: 'none' },
             '& .MuiDrawer-paper': {
               boxSizing: 'border-box',
-              width: DRAWER_WIDTH,
+              width: DRAWER_WIDTH_EXPANDED,
             },
           }}
         >
-          <Sidebar onItemClick={handleDrawerToggle} />
+          <Sidebar collapsed={false} onItemClick={handleDrawerToggle} />
         </Drawer>
 
         <Drawer
@@ -246,13 +274,16 @@ const MainLayout: React.FC = () => {
           sx={{
             display: { xs: 'none', lg: 'block' },
             '& .MuiDrawer-paper': {
+              bgcolor: '#0F172A',
               boxSizing: 'border-box',
-              width: DRAWER_WIDTH,
+              width: collapsed ? DRAWER_WIDTH_COLLAPSED : DRAWER_WIDTH_EXPANDED,
+              transition: 'width 0.22s ease',
+              overflowX: 'hidden',
             },
           }}
           open
         >
-          <Sidebar />
+          <Sidebar collapsed={collapsed} onToggleCollapse={handleToggleCollapse} />
         </Drawer>
       </Box>
 

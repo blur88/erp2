@@ -11,6 +11,11 @@ import {
   Typography,
   Collapse,
   Badge,
+  IconButton,
+  Tooltip,
+  Popper,
+  Fade,
+  Paper,
 } from '@mui/material'
 import {
   Dashboard as DashboardIcon,
@@ -18,7 +23,6 @@ import {
   PointOfSale as SalesIcon,
   Assignment as PurchasingIcon,
   Settings as SettingsIcon,
-  ExpandLess,
   ExpandMore,
   Category as CategoryIcon,
   ShoppingCart as ProductIcon,
@@ -65,10 +69,14 @@ import {
   ReceiptLong as ReceiptLongIcon,
   Timeline as TimelineIcon,
   Language as RegionalIcon,
+  ChevronLeft,
+  ChevronRight,
 } from '@mui/icons-material'
 
 interface SidebarProps {
   onItemClick?: () => void
+  collapsed?: boolean
+  onToggleCollapse?: () => void
 }
 
 interface MenuSection {
@@ -85,6 +93,17 @@ interface MenuItem {
   badge?: number | string
   children?: MenuItem[]
 }
+
+const SIDEBAR_COLORS = {
+  bg: '#0F172A',
+  activeBg: '#1F2937',
+  hoverBg: '#1E293B',
+  text: '#9CA3AF',
+  activeText: '#E5E7EB',
+  sectionLabel: '#6B7280',
+  border: '#1F2937',
+  accentBar: '#42a5f5',
+} as const
 
 const menuSections: MenuSection[] = [
   {
@@ -555,21 +574,22 @@ const menuSections: MenuSection[] = [
   },
 ]
 
-const Sidebar: React.FC<SidebarProps> = ({ onItemClick }) => {
+const Sidebar: React.FC<SidebarProps> = ({
+  onItemClick,
+  collapsed = false,
+  onToggleCollapse,
+}) => {
   const location = useLocation()
   const navigate = useNavigate()
   const [expandedItems, setExpandedItems] = React.useState<string[]>(() => {
-    // Initialize from localStorage
     const stored = localStorage.getItem('sidebar-expanded')
     return stored ? JSON.parse(stored) : []
   })
 
-  // Auto-expand parent items based on current route (supports nested children)
   useEffect(() => {
     const currentPath = location.pathname
     const parentItems: string[] = []
 
-    // Recursive function to find all parent items that contain the current path
     const findParentItems = (items: MenuItem[], parents: string[] = []): void => {
       items.forEach(item => {
         if (item.path === currentPath) {
@@ -580,12 +600,10 @@ const Sidebar: React.FC<SidebarProps> = ({ onItemClick }) => {
       })
     }
 
-    // Find which parent menu items contain the current path
     menuSections.forEach(section => {
       findParentItems(section.items)
     })
 
-    // Keep expansion state aligned with current route, including routes without parents.
     setExpandedItems(prev => {
       const isSame =
         prev.length === parentItems.length &&
@@ -600,9 +618,8 @@ const Sidebar: React.FC<SidebarProps> = ({ onItemClick }) => {
     })
   }, [location.pathname])
 
-  // Show all modules - no filtering based on backend availability
   const getFilteredMenuSections = () => {
-    return menuSections // Return all menu sections without filtering
+    return menuSections
   }
 
   const handleItemClick = (item: MenuItem) => {
@@ -618,9 +635,8 @@ const Sidebar: React.FC<SidebarProps> = ({ onItemClick }) => {
     setExpandedItems(prev => {
       const newExpanded = prev.includes(itemId)
         ? prev.filter(id => id !== itemId)
-        : [...prev, itemId] // Add to existing expanded items to support nested menus
+        : [...prev, itemId]
 
-      // Save to localStorage
       localStorage.setItem('sidebar-expanded', JSON.stringify(newExpanded))
       return newExpanded
     })
@@ -636,42 +652,374 @@ const Sidebar: React.FC<SidebarProps> = ({ onItemClick }) => {
     return false
   }
 
+  const [flyoutItemId, setFlyoutItemId] = React.useState<string | null>(null)
+  const [flyoutAnchorEl, setFlyoutAnchorEl] = React.useState<HTMLElement | null>(null)
+  const [flyoutExpandedIds, setFlyoutExpandedIds] = React.useState<string[]>([])
+  const [flyoutOpen, setFlyoutOpen] = React.useState(false)
+  const openTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
+  const closeTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
+  const clearFlyoutStateTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const clearOpenTimer = () => {
+    if (openTimerRef.current) {
+      clearTimeout(openTimerRef.current)
+      openTimerRef.current = null
+    }
+  }
+
+  const clearCloseTimer = () => {
+    if (closeTimerRef.current) {
+      clearTimeout(closeTimerRef.current)
+      closeTimerRef.current = null
+    }
+  }
+
+  const openFlyout = (itemId: string, anchorEl: HTMLElement) => {
+    clearOpenTimer()
+    clearCloseTimer()
+    if (clearFlyoutStateTimerRef.current) {
+      clearTimeout(clearFlyoutStateTimerRef.current)
+      clearFlyoutStateTimerRef.current = null
+    }
+
+    const item = menuSections.flatMap(section => section.items).find(menuItem => menuItem.id === itemId)
+    const autoExpanded: string[] = []
+
+    if (item?.children) {
+      item.children.forEach(child => {
+        if (child.children && isItemActive(child)) {
+          autoExpanded.push(child.id)
+        }
+      })
+    }
+
+    setFlyoutExpandedIds(autoExpanded)
+    setFlyoutItemId(itemId)
+    setFlyoutAnchorEl(anchorEl)
+    setFlyoutOpen(true)
+  }
+
+  const closeFlyout = React.useCallback(() => {
+    setFlyoutOpen(false)
+    if (clearFlyoutStateTimerRef.current) {
+      clearTimeout(clearFlyoutStateTimerRef.current)
+    }
+    clearFlyoutStateTimerRef.current = setTimeout(() => {
+      setFlyoutItemId(null)
+      setFlyoutAnchorEl(null)
+      setFlyoutExpandedIds([])
+      clearFlyoutStateTimerRef.current = null
+    }, 80)
+  }, [])
+
+  const startCloseFlyout = () => {
+    clearCloseTimer()
+    closeTimerRef.current = setTimeout(closeFlyout, 150)
+  }
+
+  const handleRailMouseEnter = (item: MenuItem, el: HTMLElement) => {
+    clearOpenTimer()
+    clearCloseTimer()
+    openTimerRef.current = setTimeout(() => openFlyout(item.id, el), 80)
+  }
+
+  const handleRailMouseLeave = () => {
+    clearOpenTimer()
+    startCloseFlyout()
+  }
+
+  const handleFlyoutMouseEnter = () => {
+    clearCloseTimer()
+  }
+
+  const handleFlyoutMouseLeave = () => {
+    startCloseFlyout()
+  }
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  React.useEffect(() => {
+    setFlyoutOpen(false)
+    setFlyoutItemId(null)
+    setFlyoutAnchorEl(null)
+    setFlyoutExpandedIds([])
+    if (openTimerRef.current) clearTimeout(openTimerRef.current)
+    if (closeTimerRef.current) clearTimeout(closeTimerRef.current)
+    if (clearFlyoutStateTimerRef.current) clearTimeout(clearFlyoutStateTimerRef.current)
+  }, [location.pathname])
+
+  React.useEffect(() => {
+    return () => {
+      if (openTimerRef.current) clearTimeout(openTimerRef.current)
+      if (closeTimerRef.current) clearTimeout(closeTimerRef.current)
+      if (clearFlyoutStateTimerRef.current) clearTimeout(clearFlyoutStateTimerRef.current)
+    }
+  }, [])
+
+  React.useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && flyoutItemId) {
+        const trigger = document.getElementById(`rail-item-${flyoutItemId}`)
+        closeFlyout()
+        trigger?.focus()
+      }
+    }
+
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [flyoutItemId, closeFlyout])
+
+  const renderFlyoutItem = (
+    item: MenuItem,
+    level: number = 0,
+    isFirst = false
+  ): React.ReactNode => {
+    const isActive = isItemActive(item)
+    const hasChildren = Boolean(item.children && item.children.length > 0)
+    const isExpanded = flyoutExpandedIds.includes(item.id)
+
+    return (
+      <React.Fragment key={item.id}>
+        <ListItemButton
+          {...(isFirst ? { 'data-flyout-first': 'true' } : {})}
+          onClick={() => {
+            if (item.path) {
+              navigate(item.path)
+              onItemClick?.()
+              closeFlyout()
+            } else if (hasChildren) {
+              setFlyoutExpandedIds(prev =>
+                prev.includes(item.id)
+                  ? prev.filter(id => id !== item.id)
+                  : [...prev, item.id]
+              )
+            }
+          }}
+          aria-expanded={hasChildren ? isExpanded : undefined}
+          sx={{
+            pl: 1.5 + level * 2,
+            pr: 1.5,
+            py: 0,
+            height: 40,
+            borderRadius: 1,
+            mx: 0.5,
+            mb: 0.25,
+            position: 'relative',
+            // Leaf active: pill background + left accent bar
+            ...(isActive && !hasChildren && {
+              bgcolor: SIDEBAR_COLORS.activeBg,
+              '&::before': {
+                content: '""',
+                position: 'absolute',
+                left: 0,
+                top: '50%',
+                transform: 'translateY(-50%)',
+                width: 3,
+                height: '60%',
+                borderRadius: '0 2px 2px 0',
+                bgcolor: SIDEBAR_COLORS.accentBar,
+              },
+            }),
+            // Parent active: brighten icon/text when a descendant is current route
+            ...(isActive && hasChildren && {
+              '& .MuiListItemIcon-root': { color: SIDEBAR_COLORS.activeText },
+              '& .MuiListItemText-primary': { color: SIDEBAR_COLORS.activeText },
+            }),
+            '&:hover': { bgcolor: SIDEBAR_COLORS.hoverBg },
+          }}
+        >
+          <ListItemIcon
+            sx={{
+              minWidth: 32,
+              color: isActive ? SIDEBAR_COLORS.activeText : SIDEBAR_COLORS.text,
+              '& .MuiSvgIcon-root': { fontSize: '1.25rem' },
+            }}
+          >
+            {item.icon}
+          </ListItemIcon>
+          <ListItemText
+            primary={item.title}
+            sx={{
+              '& .MuiListItemText-primary': {
+                fontSize: '0.8125rem',
+                fontWeight: isActive && !hasChildren ? 600 : 400,
+                color: isActive ? SIDEBAR_COLORS.activeText : SIDEBAR_COLORS.text,
+              },
+            }}
+          />
+          {hasChildren && (
+            <Box
+              component="span"
+              sx={{
+                color: SIDEBAR_COLORS.text,
+                display: 'flex',
+                alignItems: 'center',
+                transition: 'transform 0.2s',
+                transform: isExpanded ? 'rotate(180deg)' : 'none',
+              }}
+            >
+              <ExpandMore sx={{ fontSize: '1rem' }} />
+            </Box>
+          )}
+        </ListItemButton>
+
+        {hasChildren && (
+          <Collapse in={isExpanded} timeout="auto" unmountOnExit>
+            <List component="div" disablePadding>
+              {item.children?.map(child => renderFlyoutItem(child, level + 1))}
+            </List>
+          </Collapse>
+        )}
+      </React.Fragment>
+    )
+  }
+
   const renderMenuItem = (item: MenuItem, level: number = 0) => {
     const isActive = isItemActive(item)
     const isExpanded = expandedItems.includes(item.id)
-    const hasChildren = item.children && item.children.length > 0
+    const hasChildren = Boolean(item.children && item.children.length > 0)
+
+    const activeLeafSx =
+      isActive && !hasChildren
+        ? {
+            bgcolor: SIDEBAR_COLORS.activeBg,
+            '&::before': {
+              content: '""',
+              position: 'absolute',
+              left: 0,
+              top: '50%',
+              transform: 'translateY(-50%)',
+              width: 3,
+              height: '60%',
+              borderRadius: '0 2px 2px 0',
+              bgcolor: SIDEBAR_COLORS.accentBar,
+            },
+          }
+        : {}
+
+    const activeParentSx =
+      isActive && hasChildren
+        ? {
+            '& .MuiListItemIcon-root': { color: SIDEBAR_COLORS.activeText },
+            '& .MuiListItemText-primary': { color: SIDEBAR_COLORS.activeText },
+          }
+        : {}
+
+    if (collapsed && hasChildren) {
+      return (
+        <React.Fragment key={item.id}>
+          <ListItem disablePadding>
+            <ListItemButton
+              id={`rail-item-${item.id}`}
+              aria-label={item.title}
+              onMouseEnter={e => handleRailMouseEnter(item, e.currentTarget)}
+              onMouseLeave={handleRailMouseLeave}
+              onClick={e => openFlyout(item.id, e.currentTarget)}
+              onKeyDown={e => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault()
+                  openFlyout(item.id, e.currentTarget)
+                  setTimeout(() => {
+                    const first = document.querySelector<HTMLElement>('[data-flyout-first="true"]')
+                    first?.focus()
+                  }, 0)
+                }
+              }}
+              aria-haspopup="menu"
+              aria-expanded={flyoutItemId === item.id}
+              sx={{
+                pl: 0,
+                py: 0,
+                height: 44,
+                borderRadius: 1,
+                mx: 0.5,
+                mb: 0.5,
+                justifyContent: 'center',
+                position: 'relative',
+                ...activeParentSx,
+                '&:hover': { bgcolor: SIDEBAR_COLORS.hoverBg },
+                '&.Mui-selected': { bgcolor: 'transparent' },
+              }}
+            >
+              <ListItemIcon
+                sx={{
+                  minWidth: 0,
+                  color: isActive ? SIDEBAR_COLORS.activeText : SIDEBAR_COLORS.text,
+                  justifyContent: 'center',
+                  '& .MuiSvgIcon-root': { fontSize: '1.25rem' },
+                }}
+              >
+                {item.icon}
+              </ListItemIcon>
+            </ListItemButton>
+          </ListItem>
+        </React.Fragment>
+      )
+    }
+
+    if (collapsed && !hasChildren) {
+      return (
+        <React.Fragment key={item.id}>
+          <ListItem disablePadding>
+            <Tooltip title={item.title} placement="right" enterDelay={400} enterNextDelay={200}>
+              <ListItemButton
+                onClick={() => handleItemClick(item)}
+                sx={{
+                  pl: 0,
+                  py: 0,
+                  height: 44,
+                  borderRadius: 1,
+                  mx: 0.5,
+                  mb: 0.5,
+                  justifyContent: 'center',
+                  position: 'relative',
+                  ...activeLeafSx,
+                  '&:hover': { bgcolor: SIDEBAR_COLORS.hoverBg },
+                  '&.Mui-selected': { bgcolor: 'transparent' },
+                }}
+              >
+                <ListItemIcon
+                  sx={{
+                    minWidth: 0,
+                    color: isActive ? SIDEBAR_COLORS.activeText : SIDEBAR_COLORS.text,
+                    justifyContent: 'center',
+                    '& .MuiSvgIcon-root': { fontSize: '1.25rem' },
+                  }}
+                >
+                  {item.icon}
+                </ListItemIcon>
+              </ListItemButton>
+            </Tooltip>
+          </ListItem>
+        </React.Fragment>
+      )
+    }
 
     return (
       <React.Fragment key={item.id}>
         <ListItem disablePadding>
           <ListItemButton
             onClick={() => handleItemClick(item)}
-            selected={isActive && !hasChildren}
+            aria-expanded={hasChildren ? isExpanded : undefined}
+            // No aria-haspopup for inline accordion (children appear in-document, not in a popup)
             sx={{
               pl: 2 + level * 2,
-              py: 1,
+              py: 0,
+              height: 44,
               borderRadius: 1,
               mx: 1,
               mb: 0.5,
-              '&.Mui-selected': {
-                bgcolor: 'primary.main',
-                color: 'primary.contrastText',
-                '& .MuiListItemIcon-root': {
-                  color: 'inherit',
-                },
-                '&:hover': {
-                  bgcolor: 'primary.dark',
-                },
-              },
-              '&:hover': {
-                bgcolor: 'action.hover',
-              },
+              position: 'relative',
+              ...activeLeafSx,
+              ...activeParentSx,
+              '&:hover': { bgcolor: SIDEBAR_COLORS.hoverBg },
+              '&.Mui-selected': { bgcolor: 'transparent' },
             }}
           >
             <ListItemIcon
               sx={{
                 minWidth: 40,
-                color: isActive && !hasChildren ? 'inherit' : 'text.secondary',
+                color: isActive ? SIDEBAR_COLORS.activeText : SIDEBAR_COLORS.text,
+                '& .MuiSvgIcon-root': { fontSize: '1.25rem' },
               }}
             >
               {item.icon}
@@ -682,6 +1030,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onItemClick }) => {
                 '& .MuiListItemText-primary': {
                   fontSize: '0.875rem',
                   fontWeight: isActive && !hasChildren ? 600 : 400,
+                  color: isActive ? SIDEBAR_COLORS.activeText : SIDEBAR_COLORS.text,
                 },
               }}
             />
@@ -689,85 +1038,132 @@ const Sidebar: React.FC<SidebarProps> = ({ onItemClick }) => {
               <Badge
                 badgeContent={item.badge}
                 color="error"
-                sx={{
-                  '& .MuiBadge-badge': {
-                    right: 16,
-                    fontSize: '0.75rem',
-                  },
-                }}
+                sx={{ '& .MuiBadge-badge': { right: 16, fontSize: '0.75rem' } }}
               />
             )}
             {hasChildren && (
-              isExpanded ? <ExpandLess /> : <ExpandMore />
+              <Box
+                component="span"
+                sx={{
+                  color: SIDEBAR_COLORS.text,
+                  display: 'flex',
+                  alignItems: 'center',
+                  transition: 'transform 0.2s',
+                  transform: isExpanded ? 'rotate(180deg)' : 'none',
+                }}
+              >
+                <ExpandMore fontSize="small" />
+              </Box>
             )}
           </ListItemButton>
         </ListItem>
 
-        {hasChildren && (
-          <Collapse in={isExpanded} timeout="auto" unmountOnExit>
-            <List component="div" disablePadding>
-              {item.children!.map(child => renderMenuItem(child, level + 1))}
-            </List>
-          </Collapse>
-        )}
+        <Collapse in={isExpanded} timeout="auto" unmountOnExit>
+          <List component="div" disablePadding>
+            {item.children?.map(child => renderMenuItem(child, level + 1))}
+          </List>
+        </Collapse>
       </React.Fragment>
     )
   }
 
   return (
-    <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-      {/* Logo */}
+    <Box
+      data-testid="sidebar-root"
+      sx={{ height: '100%', display: 'flex', flexDirection: 'column', bgcolor: SIDEBAR_COLORS.bg }}
+    >
       <Box
         sx={{
-          p: 2,
+          px: collapsed ? 0 : 2,
+          py: 1.5,
           display: 'flex',
           alignItems: 'center',
-          borderBottom: 1,
-          borderColor: 'divider',
+          justifyContent: collapsed ? 'center' : 'space-between',
+          borderBottom: `1px solid ${SIDEBAR_COLORS.border}`,
+          minHeight: 56,
         }}
       >
-        <Box
-          sx={{
-            width: 40,
-            height: 40,
-            borderRadius: 1,
-            bgcolor: 'primary.main',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: 'white',
-            fontWeight: 'bold',
-            fontSize: '1.25rem',
-            mr: 2,
-          }}
-        >
-          ERP
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: collapsed ? 0 : 1.5 }}>
+          <Box
+            sx={{
+              width: 36,
+              height: 36,
+              borderRadius: 1,
+              bgcolor: 'primary.main',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: 'white',
+              fontWeight: 'bold',
+              fontSize: '0.875rem',
+              flexShrink: 0,
+            }}
+          >
+            ERP
+          </Box>
+          {!collapsed && (
+            <Typography
+              variant="h6"
+              sx={{ fontWeight: 600, color: SIDEBAR_COLORS.activeText, whiteSpace: 'nowrap' }}
+            >
+              ERP System
+            </Typography>
+          )}
         </Box>
-        <Typography variant="h6" sx={{ fontWeight: 600 }}>
-          ERP System
-        </Typography>
+
+        {onToggleCollapse && (
+          <IconButton
+            onClick={onToggleCollapse}
+            aria-label={collapsed ? 'expand sidebar' : 'collapse sidebar'}
+            size="small"
+            sx={{
+              display: { xs: 'none', lg: 'flex' },
+              color: SIDEBAR_COLORS.text,
+              width: 28,
+              height: 28,
+              '&:hover': { bgcolor: SIDEBAR_COLORS.hoverBg },
+              flexShrink: 0,
+            }}
+          >
+            {collapsed ? <ChevronRight fontSize="small" /> : <ChevronLeft fontSize="small" />}
+          </IconButton>
+        )}
       </Box>
 
-      {/* Navigation */}
       <Box sx={{ flexGrow: 1, overflow: 'auto', py: 1 }}>
         {getFilteredMenuSections().map((section, index) => (
           <React.Fragment key={section.id}>
-            {index > 0 && <Divider sx={{ my: 1 }} />}
-            
-            <Typography
-              variant="overline"
-              sx={{
-                px: 3,
-                py: 1,
-                display: 'block',
-                color: 'text.secondary',
-                fontWeight: 600,
-                fontSize: '0.75rem',
-              }}
-            >
-              {section.title}
-            </Typography>
-            
+            {index > 0 && (
+              <Divider
+                sx={{
+                  my: collapsed ? 1 : 0.5,
+                  borderColor: SIDEBAR_COLORS.border,
+                  display:
+                    collapsed && !['analytics', 'system'].includes(section.id) ? 'none' : 'block',
+                }}
+              />
+            )}
+
+            {!collapsed && (
+              <Typography
+                variant="overline"
+                sx={{
+                  px: 3,
+                  py: 1,
+                  display: 'block',
+                  color: SIDEBAR_COLORS.sectionLabel,
+                  fontWeight: 600,
+                  fontSize: '0.75rem',
+                }}
+              >
+                {section.title}
+              </Typography>
+            )}
+
+            {collapsed && index > 0 && ['analytics', 'system'].includes(section.id) && (
+              <Box sx={{ pt: 1 }} />
+            )}
+
             <List sx={{ px: 0 }}>
               {section.items.map(item => renderMenuItem(item))}
             </List>
@@ -775,26 +1171,52 @@ const Sidebar: React.FC<SidebarProps> = ({ onItemClick }) => {
         ))}
       </Box>
 
-      {/* Footer */}
-      <Box
-        sx={{
-          p: 2,
-          borderTop: 1,
-          borderColor: 'divider',
-          bgcolor: 'background.default',
-        }}
-      >
-        <Typography
-          variant="caption"
-          sx={{
-            display: 'block',
-            textAlign: 'center',
-            color: 'text.secondary',
-          }}
-        >
-          ERP System v1.0.0
-        </Typography>
-      </Box>
+      {/* Popper gated only on flyoutItemId (not flyoutAnchorEl) so it stays mounted
+          during the 80ms exit fade. flyoutAnchorEl provides the anchor position;
+          flyoutOpen drives the Fade animation. Both are cleared after animation completes. */}
+      {collapsed && flyoutItemId && (() => {
+        const flyoutItem = menuSections
+          .flatMap(section => section.items)
+          .find(item => item.id === flyoutItemId)
+
+        if (!flyoutItem?.children) return null
+
+        return (
+          <Popper
+            open={Boolean(flyoutItemId)}
+            anchorEl={flyoutAnchorEl}
+            placement="right-start"
+            keepMounted={false}
+            modifiers={[{ name: 'offset', options: { offset: [0, 8] } }]}
+            style={{ zIndex: 1400 }}
+          >
+            <Fade in={flyoutOpen} timeout={{ enter: 120, exit: 80 }}>
+              <Paper
+                id={`flyout-panel-${flyoutItemId}`}
+                onMouseEnter={handleFlyoutMouseEnter}
+                onMouseLeave={handleFlyoutMouseLeave}
+                sx={{
+                  bgcolor: SIDEBAR_COLORS.hoverBg,
+                  minWidth: 200,
+                  maxWidth: 240,
+                  py: 1,
+                  borderRadius: 1,
+                  boxShadow: '0 4px 20px rgba(0,0,0,0.4)',
+                  '@keyframes flyoutEnter': {
+                    from: { transform: 'translateX(-4px)' },
+                    to: { transform: 'translateX(0)' },
+                  },
+                  animation: 'flyoutEnter 0.12s ease-out',
+                }}
+              >
+                <List disablePadding>
+                  {flyoutItem.children.map((child, idx) => renderFlyoutItem(child, 0, idx === 0))}
+                </List>
+              </Paper>
+            </Fade>
+          </Popper>
+        )
+      })()}
     </Box>
   )
 }

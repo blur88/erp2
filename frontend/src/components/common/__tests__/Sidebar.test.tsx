@@ -100,4 +100,140 @@ describe('Sidebar', () => {
       expect(screen.getByText('Trial Balance')).toBeInTheDocument()
     })
   })
+
+  it('hides app name text when collapsed', () => {
+    render(
+      <MemoryRouter initialEntries={['/dashboard']}>
+        <Sidebar collapsed={true} />
+      </MemoryRouter>
+    )
+
+    expect(screen.queryByText('ERP System')).not.toBeInTheDocument()
+  })
+
+  it('shows app name text when expanded', () => {
+    render(
+      <MemoryRouter initialEntries={['/dashboard']}>
+        <Sidebar collapsed={false} />
+      </MemoryRouter>
+    )
+
+    expect(screen.getByText('ERP System')).toBeInTheDocument()
+  })
+
+  it('calls onToggleCollapse when toggle button is clicked', () => {
+    const onToggleCollapse = vi.fn()
+
+    render(
+      <MemoryRouter initialEntries={['/dashboard']}>
+        <Sidebar collapsed={false} onToggleCollapse={onToggleCollapse} />
+      </MemoryRouter>
+    )
+
+    const toggleBtn = screen.getByRole('button', { name: /collapse sidebar/i })
+    fireEvent.click(toggleBtn)
+
+    expect(onToggleCollapse).toHaveBeenCalledTimes(1)
+  })
+
+  it('renders sidebar with dark background data attribute', () => {
+    render(
+      <MemoryRouter initialEntries={['/dashboard']}>
+        <Sidebar />
+      </MemoryRouter>
+    )
+
+    const outerBox = document.querySelector('[data-testid="sidebar-root"]')
+    expect(outerBox).toBeInTheDocument()
+  })
+
+  it('shows flyout panel on hover over parent item in collapsed mode', async () => {
+    render(
+      <MemoryRouter initialEntries={['/dashboard']}>
+        <Sidebar collapsed={true} />
+      </MemoryRouter>
+    )
+
+    const salesButton = screen.getByRole('button', { name: 'Sales' })
+    fireEvent.mouseEnter(salesButton)
+
+    await waitFor(() => {
+      expect(screen.getByText('Customers')).toBeInTheDocument()
+    }, { timeout: 500 })
+  })
+
+  it('closes flyout on mouse leave', async () => {
+    render(
+      <MemoryRouter initialEntries={['/dashboard']}>
+        <Sidebar collapsed={true} />
+      </MemoryRouter>
+    )
+
+    const salesButton = screen.getByRole('button', { name: 'Sales' })
+    fireEvent.mouseEnter(salesButton)
+
+    await waitFor(() => {
+      expect(screen.getByText('Customers')).toBeInTheDocument()
+    }, { timeout: 500 })
+
+    fireEvent.mouseLeave(salesButton)
+
+    await waitFor(() => {
+      expect(screen.queryByText('Customers')).not.toBeInTheDocument()
+    }, { timeout: 500 })
+  })
+
+  it('navigates when clicking a leaf item inside the flyout', async () => {
+    render(
+      <MemoryRouter initialEntries={['/dashboard']}>
+        <Sidebar collapsed={true} />
+      </MemoryRouter>
+    )
+
+    const salesButton = screen.getByRole('button', { name: 'Sales' })
+    fireEvent.mouseEnter(salesButton)
+
+    await waitFor(() => {
+      expect(screen.getByText('Customers')).toBeInTheDocument()
+    }, { timeout: 500 })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Customers' }))
+
+    await waitFor(() => {
+      expect(screen.queryByText('Customers')).not.toBeInTheDocument()
+    }, { timeout: 500 })
+  })
+
+  it('shows rail icon button for active parent in collapsed mode', () => {
+    render(
+      <MemoryRouter initialEntries={['/sales/customers']}>
+        <Sidebar collapsed={true} />
+      </MemoryRouter>
+    )
+
+    const salesButton = screen.getByRole('button', { name: 'Sales' })
+    expect(salesButton).toBeInTheDocument()
+    expect(screen.queryByText('Sales')).not.toBeInTheDocument()
+  })
+
+  it('closes flyout when Escape is pressed', async () => {
+    render(
+      <MemoryRouter initialEntries={['/dashboard']}>
+        <Sidebar collapsed={true} />
+      </MemoryRouter>
+    )
+
+    const salesButton = screen.getByRole('button', { name: 'Sales' })
+    fireEvent.mouseEnter(salesButton)
+
+    await waitFor(() => {
+      expect(screen.getByText('Customers')).toBeInTheDocument()
+    }, { timeout: 500 })
+
+    fireEvent.keyDown(document, { key: 'Escape' })
+
+    await waitFor(() => {
+      expect(screen.queryByText('Customers')).not.toBeInTheDocument()
+    }, { timeout: 500 })
+  })
 })
