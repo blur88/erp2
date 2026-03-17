@@ -3,7 +3,6 @@ import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { Box, LinearProgress } from '@mui/material'
 import { useAppDispatch, useAppSelector } from './hooks/useRedux'
 import { useRegionalSettings } from '@/hooks/useRegionalSettings'
-import { selectTheme } from './store/slices/themeSlice'
 import { clearAuth, logout as logoutAction, selectIsAuthenticated, selectRememberMe } from './store/slices/authSlice'
 import { useIdleTimer } from './hooks/useIdleTimer'
 import IdleWarningDialog from './components/auth/IdleWarningDialog'
@@ -15,7 +14,6 @@ const PageLoader = () => (
 )
 
 export default function RootLayout() {
-  const theme = useAppSelector(selectTheme)
   const isAuthenticated = useAppSelector(selectIsAuthenticated)
   const rememberMe = useAppSelector(selectRememberMe)
   const dispatch = useAppDispatch()
@@ -76,8 +74,8 @@ export default function RootLayout() {
   }
 
   useEffect(() => {
-    document.documentElement.setAttribute('data-theme', theme.mode)
-  }, [theme.mode])
+    document.documentElement.setAttribute('data-theme', 'dark')
+  }, [])
 
   useEffect(() => {
     if (!isAuthenticated) {
