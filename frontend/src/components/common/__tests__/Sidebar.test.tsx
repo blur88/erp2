@@ -100,4 +100,50 @@ describe('Sidebar', () => {
       expect(screen.getByText('Trial Balance')).toBeInTheDocument()
     })
   })
+
+  it('hides app name text when collapsed', () => {
+    render(
+      <MemoryRouter initialEntries={['/dashboard']}>
+        <Sidebar collapsed={true} />
+      </MemoryRouter>
+    )
+
+    expect(screen.queryByText('ERP System')).not.toBeInTheDocument()
+  })
+
+  it('shows app name text when expanded', () => {
+    render(
+      <MemoryRouter initialEntries={['/dashboard']}>
+        <Sidebar collapsed={false} />
+      </MemoryRouter>
+    )
+
+    expect(screen.getByText('ERP System')).toBeInTheDocument()
+  })
+
+  it('calls onToggleCollapse when toggle button is clicked', () => {
+    const onToggleCollapse = vi.fn()
+
+    render(
+      <MemoryRouter initialEntries={['/dashboard']}>
+        <Sidebar collapsed={false} onToggleCollapse={onToggleCollapse} />
+      </MemoryRouter>
+    )
+
+    const toggleBtn = screen.getByRole('button', { name: /collapse sidebar/i })
+    fireEvent.click(toggleBtn)
+
+    expect(onToggleCollapse).toHaveBeenCalledTimes(1)
+  })
+
+  it('renders sidebar with dark background data attribute', () => {
+    render(
+      <MemoryRouter initialEntries={['/dashboard']}>
+        <Sidebar />
+      </MemoryRouter>
+    )
+
+    const outerBox = document.querySelector('[data-testid="sidebar-root"]')
+    expect(outerBox).toBeInTheDocument()
+  })
 })

@@ -11,6 +11,8 @@ import {
   Typography,
   Collapse,
   Badge,
+  IconButton,
+  Tooltip,
 } from '@mui/material'
 import {
   Dashboard as DashboardIcon,
@@ -65,10 +67,14 @@ import {
   ReceiptLong as ReceiptLongIcon,
   Timeline as TimelineIcon,
   Language as RegionalIcon,
+  ChevronLeft,
+  ChevronRight,
 } from '@mui/icons-material'
 
 interface SidebarProps {
   onItemClick?: () => void
+  collapsed?: boolean
+  onToggleCollapse?: () => void
 }
 
 interface MenuSection {
@@ -85,6 +91,17 @@ interface MenuItem {
   badge?: number | string
   children?: MenuItem[]
 }
+
+const SIDEBAR_COLORS = {
+  bg: '#0F172A',
+  activeBg: '#1F2937',
+  hoverBg: '#1E293B',
+  text: '#9CA3AF',
+  activeText: '#E5E7EB',
+  sectionLabel: '#6B7280',
+  border: '#1F2937',
+  accentBar: '#42a5f5',
+} as const
 
 const menuSections: MenuSection[] = [
   {
@@ -555,21 +572,23 @@ const menuSections: MenuSection[] = [
   },
 ]
 
-const Sidebar: React.FC<SidebarProps> = ({ onItemClick }) => {
+const Sidebar: React.FC<SidebarProps> = ({
+  onItemClick,
+  collapsed = false,
+  onToggleCollapse,
+}) => {
   const location = useLocation()
   const navigate = useNavigate()
+  const flyoutItemId: string | null = null
   const [expandedItems, setExpandedItems] = React.useState<string[]>(() => {
-    // Initialize from localStorage
     const stored = localStorage.getItem('sidebar-expanded')
     return stored ? JSON.parse(stored) : []
   })
 
-  // Auto-expand parent items based on current route (supports nested children)
   useEffect(() => {
     const currentPath = location.pathname
     const parentItems: string[] = []
 
-    // Recursive function to find all parent items that contain the current path
     const findParentItems = (items: MenuItem[], parents: string[] = []): void => {
       items.forEach(item => {
         if (item.path === currentPath) {
@@ -580,12 +599,10 @@ const Sidebar: React.FC<SidebarProps> = ({ onItemClick }) => {
       })
     }
 
-    // Find which parent menu items contain the current path
     menuSections.forEach(section => {
       findParentItems(section.items)
     })
 
-    // Keep expansion state aligned with current route, including routes without parents.
     setExpandedItems(prev => {
       const isSame =
         prev.length === parentItems.length &&
@@ -600,9 +617,8 @@ const Sidebar: React.FC<SidebarProps> = ({ onItemClick }) => {
     })
   }, [location.pathname])
 
-  // Show all modules - no filtering based on backend availability
   const getFilteredMenuSections = () => {
-    return menuSections // Return all menu sections without filtering
+    return menuSections
   }
 
   const handleItemClick = (item: MenuItem) => {
@@ -618,9 +634,8 @@ const Sidebar: React.FC<SidebarProps> = ({ onItemClick }) => {
     setExpandedItems(prev => {
       const newExpanded = prev.includes(itemId)
         ? prev.filter(id => id !== itemId)
-        : [...prev, itemId] // Add to existing expanded items to support nested menus
+        : [...prev, itemId]
 
-      // Save to localStorage
       localStorage.setItem('sidebar-expanded', JSON.stringify(newExpanded))
       return newExpanded
     })
@@ -639,39 +654,138 @@ const Sidebar: React.FC<SidebarProps> = ({ onItemClick }) => {
   const renderMenuItem = (item: MenuItem, level: number = 0) => {
     const isActive = isItemActive(item)
     const isExpanded = expandedItems.includes(item.id)
-    const hasChildren = item.children && item.children.length > 0
+    const hasChildren = Boolean(item.children && item.children.length > 0)
+
+    const activeLeafSx =
+      isActive && !hasChildren
+        ? {
+            bgcolor: SIDEBAR_COLORS.activeBg,
+            '&::before': {
+              content: '""',
+              position: 'absolute',
+              left: 0,
+              top: '50%',
+              transform: 'translateY(-50%)',
+              width: 3,
+              height: '60%',
+              borderRadius: '0 2px 2px 0',
+              bgcolor: SIDEBAR_COLORS.accentBar,
+            },
+          }
+        : {}
+
+    const activeParentSx =
+      isActive && hasChildren
+        ? {
+            '& .MuiListItemIcon-root': { color: SIDEBAR_COLORS.activeText },
+            '& .MuiListItemText-primary': { color: SIDEBAR_COLORS.activeText },
+          }
+        : {}
+
+    if (collapsed && hasChildren) {
+      return (
+        <React.Fragment key={item.id}>
+          <ListItem disablePadding>
+            <ListItemButton
+              id={`rail-item-${item.id}`}
+              aria-label={item.title}
+              onClick={() => {}}
+              aria-haspopup="menu"
+              aria-expanded={flyoutItemId === item.id}
+              sx={{
+                pl: 0,
+                py: 0,
+                height: 44,
+                borderRadius: 1,
+                mx: 0.5,
+                mb: 0.5,
+                justifyContent: 'center',
+                position: 'relative',
+                ...activeParentSx,
+                '&:hover': { bgcolor: SIDEBAR_COLORS.hoverBg },
+                '&.Mui-selected': { bgcolor: 'transparent' },
+              }}
+            >
+              <ListItemIcon
+                sx={{
+                  minWidth: 0,
+                  color: isActive ? SIDEBAR_COLORS.activeText : SIDEBAR_COLORS.text,
+                  justifyContent: 'center',
+                  '& .MuiSvgIcon-root': { fontSize: '1.25rem' },
+                }}
+              >
+                {item.icon}
+              </ListItemIcon>
+            </ListItemButton>
+          </ListItem>
+        </React.Fragment>
+      )
+    }
+
+    if (collapsed && !hasChildren) {
+      return (
+        <React.Fragment key={item.id}>
+          <ListItem disablePadding>
+            <Tooltip title={item.title} placement="right" enterDelay={400} enterNextDelay={200}>
+              <ListItemButton
+                onClick={() => handleItemClick(item)}
+                sx={{
+                  pl: 0,
+                  py: 0,
+                  height: 44,
+                  borderRadius: 1,
+                  mx: 0.5,
+                  mb: 0.5,
+                  justifyContent: 'center',
+                  position: 'relative',
+                  ...activeLeafSx,
+                  '&:hover': { bgcolor: SIDEBAR_COLORS.hoverBg },
+                  '&.Mui-selected': { bgcolor: 'transparent' },
+                }}
+              >
+                <ListItemIcon
+                  sx={{
+                    minWidth: 0,
+                    color: isActive ? SIDEBAR_COLORS.activeText : SIDEBAR_COLORS.text,
+                    justifyContent: 'center',
+                    '& .MuiSvgIcon-root': { fontSize: '1.25rem' },
+                  }}
+                >
+                  {item.icon}
+                </ListItemIcon>
+              </ListItemButton>
+            </Tooltip>
+          </ListItem>
+        </React.Fragment>
+      )
+    }
 
     return (
       <React.Fragment key={item.id}>
         <ListItem disablePadding>
           <ListItemButton
             onClick={() => handleItemClick(item)}
-            selected={isActive && !hasChildren}
+            aria-expanded={hasChildren ? isExpanded : undefined}
+            aria-haspopup={hasChildren ? 'menu' : undefined}
             sx={{
               pl: 2 + level * 2,
-              py: 1,
+              py: 0,
+              height: 44,
               borderRadius: 1,
               mx: 1,
               mb: 0.5,
-              '&.Mui-selected': {
-                bgcolor: 'primary.main',
-                color: 'primary.contrastText',
-                '& .MuiListItemIcon-root': {
-                  color: 'inherit',
-                },
-                '&:hover': {
-                  bgcolor: 'primary.dark',
-                },
-              },
-              '&:hover': {
-                bgcolor: 'action.hover',
-              },
+              position: 'relative',
+              ...activeLeafSx,
+              ...activeParentSx,
+              '&:hover': { bgcolor: SIDEBAR_COLORS.hoverBg },
+              '&.Mui-selected': { bgcolor: 'transparent' },
             }}
           >
             <ListItemIcon
               sx={{
                 minWidth: 40,
-                color: isActive && !hasChildren ? 'inherit' : 'text.secondary',
+                color: isActive ? SIDEBAR_COLORS.activeText : SIDEBAR_COLORS.text,
+                '& .MuiSvgIcon-root': { fontSize: '1.25rem' },
               }}
             >
               {item.icon}
@@ -682,6 +796,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onItemClick }) => {
                 '& .MuiListItemText-primary': {
                   fontSize: '0.875rem',
                   fontWeight: isActive && !hasChildren ? 600 : 400,
+                  color: isActive ? SIDEBAR_COLORS.activeText : SIDEBAR_COLORS.text,
                 },
               }}
             />
@@ -689,111 +804,137 @@ const Sidebar: React.FC<SidebarProps> = ({ onItemClick }) => {
               <Badge
                 badgeContent={item.badge}
                 color="error"
-                sx={{
-                  '& .MuiBadge-badge': {
-                    right: 16,
-                    fontSize: '0.75rem',
-                  },
-                }}
+                sx={{ '& .MuiBadge-badge': { right: 16, fontSize: '0.75rem' } }}
               />
             )}
             {hasChildren && (
-              isExpanded ? <ExpandLess /> : <ExpandMore />
+              <Box
+                component="span"
+                sx={{
+                  color: SIDEBAR_COLORS.text,
+                  display: 'flex',
+                  alignItems: 'center',
+                  transition: 'transform 0.2s',
+                  transform: isExpanded ? 'rotate(180deg)' : 'none',
+                }}
+              >
+                <ExpandMore fontSize="small" />
+              </Box>
             )}
           </ListItemButton>
         </ListItem>
 
-        {hasChildren && (
-          <Collapse in={isExpanded} timeout="auto" unmountOnExit>
-            <List component="div" disablePadding>
-              {item.children!.map(child => renderMenuItem(child, level + 1))}
-            </List>
-          </Collapse>
-        )}
+        <Collapse in={isExpanded} timeout="auto" unmountOnExit>
+          <List component="div" disablePadding>
+            {item.children?.map(child => renderMenuItem(child, level + 1))}
+          </List>
+        </Collapse>
       </React.Fragment>
     )
   }
 
   return (
-    <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-      {/* Logo */}
+    <Box
+      data-testid="sidebar-root"
+      sx={{ height: '100%', display: 'flex', flexDirection: 'column', bgcolor: SIDEBAR_COLORS.bg }}
+    >
       <Box
         sx={{
-          p: 2,
+          px: collapsed ? 0 : 2,
+          py: 1.5,
           display: 'flex',
           alignItems: 'center',
-          borderBottom: 1,
-          borderColor: 'divider',
+          justifyContent: collapsed ? 'center' : 'space-between',
+          borderBottom: `1px solid ${SIDEBAR_COLORS.border}`,
+          minHeight: 56,
         }}
       >
-        <Box
-          sx={{
-            width: 40,
-            height: 40,
-            borderRadius: 1,
-            bgcolor: 'primary.main',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: 'white',
-            fontWeight: 'bold',
-            fontSize: '1.25rem',
-            mr: 2,
-          }}
-        >
-          ERP
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: collapsed ? 0 : 1.5 }}>
+          <Box
+            sx={{
+              width: 36,
+              height: 36,
+              borderRadius: 1,
+              bgcolor: 'primary.main',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: 'white',
+              fontWeight: 'bold',
+              fontSize: '0.875rem',
+              flexShrink: 0,
+            }}
+          >
+            ERP
+          </Box>
+          {!collapsed && (
+            <Typography
+              variant="h6"
+              sx={{ fontWeight: 600, color: SIDEBAR_COLORS.activeText, whiteSpace: 'nowrap' }}
+            >
+              ERP System
+            </Typography>
+          )}
         </Box>
-        <Typography variant="h6" sx={{ fontWeight: 600 }}>
-          ERP System
-        </Typography>
+
+        {onToggleCollapse && (
+          <IconButton
+            onClick={onToggleCollapse}
+            aria-label={collapsed ? 'expand sidebar' : 'collapse sidebar'}
+            size="small"
+            sx={{
+              display: { xs: 'none', lg: 'flex' },
+              color: SIDEBAR_COLORS.text,
+              width: 28,
+              height: 28,
+              '&:hover': { bgcolor: SIDEBAR_COLORS.hoverBg },
+              flexShrink: 0,
+            }}
+          >
+            {collapsed ? <ChevronRight fontSize="small" /> : <ChevronLeft fontSize="small" />}
+          </IconButton>
+        )}
       </Box>
 
-      {/* Navigation */}
       <Box sx={{ flexGrow: 1, overflow: 'auto', py: 1 }}>
         {getFilteredMenuSections().map((section, index) => (
           <React.Fragment key={section.id}>
-            {index > 0 && <Divider sx={{ my: 1 }} />}
-            
-            <Typography
-              variant="overline"
-              sx={{
-                px: 3,
-                py: 1,
-                display: 'block',
-                color: 'text.secondary',
-                fontWeight: 600,
-                fontSize: '0.75rem',
-              }}
-            >
-              {section.title}
-            </Typography>
-            
+            {index > 0 && (
+              <Divider
+                sx={{
+                  my: collapsed ? 1 : 0.5,
+                  borderColor: SIDEBAR_COLORS.border,
+                  display:
+                    collapsed && !['analytics', 'system'].includes(section.id) ? 'none' : 'block',
+                }}
+              />
+            )}
+
+            {!collapsed && (
+              <Typography
+                variant="overline"
+                sx={{
+                  px: 3,
+                  py: 1,
+                  display: 'block',
+                  color: SIDEBAR_COLORS.sectionLabel,
+                  fontWeight: 600,
+                  fontSize: '0.75rem',
+                }}
+              >
+                {section.title}
+              </Typography>
+            )}
+
+            {collapsed && index > 0 && ['analytics', 'system'].includes(section.id) && (
+              <Box sx={{ pt: 1 }} />
+            )}
+
             <List sx={{ px: 0 }}>
               {section.items.map(item => renderMenuItem(item))}
             </List>
           </React.Fragment>
         ))}
-      </Box>
-
-      {/* Footer */}
-      <Box
-        sx={{
-          p: 2,
-          borderTop: 1,
-          borderColor: 'divider',
-          bgcolor: 'background.default',
-        }}
-      >
-        <Typography
-          variant="caption"
-          sx={{
-            display: 'block',
-            textAlign: 'center',
-            color: 'text.secondary',
-          }}
-        >
-          ERP System v1.0.0
-        </Typography>
       </Box>
     </Box>
   )
