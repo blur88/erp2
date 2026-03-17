@@ -146,4 +146,61 @@ describe('Sidebar', () => {
     const outerBox = document.querySelector('[data-testid="sidebar-root"]')
     expect(outerBox).toBeInTheDocument()
   })
+
+  it('shows flyout panel on hover over parent item in collapsed mode', async () => {
+    render(
+      <MemoryRouter initialEntries={['/dashboard']}>
+        <Sidebar collapsed={true} />
+      </MemoryRouter>
+    )
+
+    const salesButton = screen.getByRole('button', { name: 'Sales' })
+    fireEvent.mouseEnter(salesButton)
+
+    await waitFor(() => {
+      expect(screen.getByText('Customers')).toBeInTheDocument()
+    }, { timeout: 500 })
+  })
+
+  it('closes flyout on mouse leave', async () => {
+    render(
+      <MemoryRouter initialEntries={['/dashboard']}>
+        <Sidebar collapsed={true} />
+      </MemoryRouter>
+    )
+
+    const salesButton = screen.getByRole('button', { name: 'Sales' })
+    fireEvent.mouseEnter(salesButton)
+
+    await waitFor(() => {
+      expect(screen.getByText('Customers')).toBeInTheDocument()
+    }, { timeout: 500 })
+
+    fireEvent.mouseLeave(salesButton)
+
+    await waitFor(() => {
+      expect(screen.queryByText('Customers')).not.toBeInTheDocument()
+    }, { timeout: 500 })
+  })
+
+  it('navigates when clicking a leaf item inside the flyout', async () => {
+    render(
+      <MemoryRouter initialEntries={['/dashboard']}>
+        <Sidebar collapsed={true} />
+      </MemoryRouter>
+    )
+
+    const salesButton = screen.getByRole('button', { name: 'Sales' })
+    fireEvent.mouseEnter(salesButton)
+
+    await waitFor(() => {
+      expect(screen.getByText('Customers')).toBeInTheDocument()
+    }, { timeout: 500 })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Customers' }))
+
+    await waitFor(() => {
+      expect(screen.queryByText('Customers')).not.toBeInTheDocument()
+    }, { timeout: 500 })
+  })
 })

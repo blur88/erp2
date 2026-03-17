@@ -13,6 +13,9 @@ import {
   Badge,
   IconButton,
   Tooltip,
+  Popper,
+  Fade,
+  Paper,
 } from '@mui/material'
 import {
   Dashboard as DashboardIcon,
@@ -20,7 +23,6 @@ import {
   PointOfSale as SalesIcon,
   Assignment as PurchasingIcon,
   Settings as SettingsIcon,
-  ExpandLess,
   ExpandMore,
   Category as CategoryIcon,
   ShoppingCart as ProductIcon,
@@ -579,7 +581,6 @@ const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const location = useLocation()
   const navigate = useNavigate()
-  const flyoutItemId: string | null = null
   const [expandedItems, setExpandedItems] = React.useState<string[]>(() => {
     const stored = localStorage.getItem('sidebar-expanded')
     return stored ? JSON.parse(stored) : []
@@ -651,6 +652,220 @@ const Sidebar: React.FC<SidebarProps> = ({
     return false
   }
 
+  const [flyoutItemId, setFlyoutItemId] = React.useState<string | null>(null)
+  const [flyoutAnchorEl, setFlyoutAnchorEl] = React.useState<HTMLElement | null>(null)
+  const [flyoutExpandedIds, setFlyoutExpandedIds] = React.useState<string[]>([])
+  const [flyoutOpen, setFlyoutOpen] = React.useState(false)
+  const openTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
+  const closeTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
+  const clearFlyoutStateTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const clearOpenTimer = () => {
+    if (openTimerRef.current) {
+      clearTimeout(openTimerRef.current)
+      openTimerRef.current = null
+    }
+  }
+
+  const clearCloseTimer = () => {
+    if (closeTimerRef.current) {
+      clearTimeout(closeTimerRef.current)
+      closeTimerRef.current = null
+    }
+  }
+
+  const openFlyout = (itemId: string, anchorEl: HTMLElement) => {
+    clearOpenTimer()
+    clearCloseTimer()
+    if (clearFlyoutStateTimerRef.current) {
+      clearTimeout(clearFlyoutStateTimerRef.current)
+      clearFlyoutStateTimerRef.current = null
+    }
+
+    const item = menuSections.flatMap(section => section.items).find(menuItem => menuItem.id === itemId)
+    const autoExpanded: string[] = []
+
+    if (item?.children) {
+      item.children.forEach(child => {
+        if (child.children && isItemActive(child)) {
+          autoExpanded.push(child.id)
+        }
+      })
+    }
+
+    setFlyoutExpandedIds(autoExpanded)
+    setFlyoutItemId(itemId)
+    setFlyoutAnchorEl(anchorEl)
+    setFlyoutOpen(true)
+  }
+
+  const closeFlyout = React.useCallback(() => {
+    setFlyoutOpen(false)
+    if (clearFlyoutStateTimerRef.current) {
+      clearTimeout(clearFlyoutStateTimerRef.current)
+    }
+    clearFlyoutStateTimerRef.current = setTimeout(() => {
+      setFlyoutItemId(null)
+      setFlyoutAnchorEl(null)
+      setFlyoutExpandedIds([])
+      clearFlyoutStateTimerRef.current = null
+    }, 80)
+  }, [])
+
+  const startCloseFlyout = () => {
+    clearCloseTimer()
+    closeTimerRef.current = setTimeout(closeFlyout, 150)
+  }
+
+  const handleRailMouseEnter = (item: MenuItem, el: HTMLElement) => {
+    clearOpenTimer()
+    clearCloseTimer()
+    openTimerRef.current = setTimeout(() => openFlyout(item.id, el), 80)
+  }
+
+  const handleRailMouseLeave = () => {
+    clearOpenTimer()
+    startCloseFlyout()
+  }
+
+  const handleFlyoutMouseEnter = () => {
+    clearCloseTimer()
+  }
+
+  const handleFlyoutMouseLeave = () => {
+    startCloseFlyout()
+  }
+
+  React.useEffect(() => {
+    setFlyoutOpen(false)
+    setFlyoutItemId(null)
+    setFlyoutAnchorEl(null)
+    setFlyoutExpandedIds([])
+    if (openTimerRef.current) clearTimeout(openTimerRef.current)
+    if (closeTimerRef.current) clearTimeout(closeTimerRef.current)
+  }, [location.pathname])
+
+  React.useEffect(() => {
+    return () => {
+      if (openTimerRef.current) clearTimeout(openTimerRef.current)
+      if (closeTimerRef.current) clearTimeout(closeTimerRef.current)
+      if (clearFlyoutStateTimerRef.current) clearTimeout(clearFlyoutStateTimerRef.current)
+    }
+  }, [])
+
+  React.useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && flyoutItemId) {
+        const trigger = document.getElementById(`rail-item-${flyoutItemId}`)
+        closeFlyout()
+        trigger?.focus()
+      }
+    }
+
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [flyoutItemId, closeFlyout])
+
+  const renderFlyoutItem = (
+    item: MenuItem,
+    level: number = 0,
+    isFirst = false
+  ): React.ReactNode => {
+    const isActive = isItemActive(item)
+    const hasChildren = Boolean(item.children && item.children.length > 0)
+    const isExpanded = flyoutExpandedIds.includes(item.id)
+
+    return (
+      <React.Fragment key={item.id}>
+        <ListItemButton
+          {...(isFirst ? { 'data-flyout-first': 'true' } : {})}
+          onClick={() => {
+            if (item.path) {
+              navigate(item.path)
+              onItemClick?.()
+              closeFlyout()
+            } else if (hasChildren) {
+              setFlyoutExpandedIds(prev =>
+                prev.includes(item.id)
+                  ? prev.filter(id => id !== item.id)
+                  : [...prev, item.id]
+              )
+            }
+          }}
+          aria-expanded={hasChildren ? isExpanded : undefined}
+          sx={{
+            pl: 1.5 + level * 2,
+            pr: 1.5,
+            py: 0,
+            height: 40,
+            borderRadius: 1,
+            mx: 0.5,
+            mb: 0.25,
+            position: 'relative',
+            ...(isActive &&
+              !hasChildren && {
+                bgcolor: SIDEBAR_COLORS.activeBg,
+                '&::before': {
+                  content: '""',
+                  position: 'absolute',
+                  left: 0,
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  width: 3,
+                  height: '60%',
+                  borderRadius: '0 2px 2px 0',
+                  bgcolor: SIDEBAR_COLORS.accentBar,
+                },
+              }),
+            '&:hover': { bgcolor: SIDEBAR_COLORS.hoverBg },
+          }}
+        >
+          <ListItemIcon
+            sx={{
+              minWidth: 32,
+              color: isActive ? SIDEBAR_COLORS.activeText : SIDEBAR_COLORS.text,
+              '& .MuiSvgIcon-root': { fontSize: '1.25rem' },
+            }}
+          >
+            {item.icon}
+          </ListItemIcon>
+          <ListItemText
+            primary={item.title}
+            sx={{
+              '& .MuiListItemText-primary': {
+                fontSize: '0.8125rem',
+                fontWeight: isActive && !hasChildren ? 600 : 400,
+                color: isActive ? SIDEBAR_COLORS.activeText : SIDEBAR_COLORS.text,
+              },
+            }}
+          />
+          {hasChildren && (
+            <Box
+              component="span"
+              sx={{
+                color: SIDEBAR_COLORS.text,
+                display: 'flex',
+                alignItems: 'center',
+                transition: 'transform 0.2s',
+                transform: isExpanded ? 'rotate(180deg)' : 'none',
+              }}
+            >
+              <ExpandMore sx={{ fontSize: '1rem' }} />
+            </Box>
+          )}
+        </ListItemButton>
+
+        {hasChildren && (
+          <Collapse in={isExpanded} timeout="auto" unmountOnExit>
+            <List component="div" disablePadding>
+              {item.children?.map(child => renderFlyoutItem(child, level + 1))}
+            </List>
+          </Collapse>
+        )}
+      </React.Fragment>
+    )
+  }
+
   const renderMenuItem = (item: MenuItem, level: number = 0) => {
     const isActive = isItemActive(item)
     const isExpanded = expandedItems.includes(item.id)
@@ -689,7 +904,19 @@ const Sidebar: React.FC<SidebarProps> = ({
             <ListItemButton
               id={`rail-item-${item.id}`}
               aria-label={item.title}
-              onClick={() => {}}
+              onMouseEnter={e => handleRailMouseEnter(item, e.currentTarget)}
+              onMouseLeave={handleRailMouseLeave}
+              onClick={e => openFlyout(item.id, e.currentTarget)}
+              onKeyDown={e => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault()
+                  openFlyout(item.id, e.currentTarget)
+                  setTimeout(() => {
+                    const first = document.querySelector<HTMLElement>('[data-flyout-first="true"]')
+                    first?.focus()
+                  }, 0)
+                }
+              }}
               aria-haspopup="menu"
               aria-expanded={flyoutItemId === item.id}
               sx={{
@@ -936,6 +1163,50 @@ const Sidebar: React.FC<SidebarProps> = ({
           </React.Fragment>
         ))}
       </Box>
+
+      {collapsed && flyoutAnchorEl && flyoutItemId && (() => {
+        const flyoutItem = menuSections
+          .flatMap(section => section.items)
+          .find(item => item.id === flyoutItemId)
+
+        if (!flyoutItem?.children) return null
+
+        return (
+          <Popper
+            open={Boolean(flyoutAnchorEl)}
+            anchorEl={flyoutAnchorEl}
+            placement="right-start"
+            keepMounted={false}
+            modifiers={[{ name: 'offset', options: { offset: [0, 8] } }]}
+            style={{ zIndex: 1400 }}
+          >
+            <Fade in={flyoutOpen} timeout={{ enter: 120, exit: 80 }}>
+              <Paper
+                id={`flyout-panel-${flyoutItemId}`}
+                onMouseEnter={handleFlyoutMouseEnter}
+                onMouseLeave={handleFlyoutMouseLeave}
+                sx={{
+                  bgcolor: SIDEBAR_COLORS.hoverBg,
+                  minWidth: 200,
+                  maxWidth: 240,
+                  py: 1,
+                  borderRadius: 1,
+                  boxShadow: '0 4px 20px rgba(0,0,0,0.4)',
+                  '@keyframes flyoutEnter': {
+                    from: { transform: 'translateX(-4px)' },
+                    to: { transform: 'translateX(0)' },
+                  },
+                  animation: 'flyoutEnter 0.12s ease-out',
+                }}
+              >
+                <List disablePadding>
+                  {flyoutItem.children.map((child, idx) => renderFlyoutItem(child, 0, idx === 0))}
+                </List>
+              </Paper>
+            </Fade>
+          </Popper>
+        )
+      })()}
     </Box>
   )
 }
