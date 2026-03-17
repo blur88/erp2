@@ -65,13 +65,19 @@ const SIDEBAR_COLORS = {
 
 ### 2a. Icon color
 
-In both `renderMenuItem` and `renderFlyoutItem`, update icon `ListItemIcon` color:
+Update icon `ListItemIcon` color in all four branches that set it:
 
 ```ts
 color: isActive ? SIDEBAR_COLORS.activeIcon : SIDEBAR_COLORS.text,
 ```
 
-Previously both used `SIDEBAR_COLORS.activeText` (`#E5E7EB`) for active icons. Active icon is now `#FFFFFF`.
+The four sites to update:
+1. `renderMenuItem` — expanded leaf/parent row (line ~1021)
+2. `renderFlyoutItem` — flyout row (line ~833)
+3. `renderMenuItem` collapsed-with-children branch — icon-only rail parent (line ~946)
+4. `renderMenuItem` collapsed-leaf branch — icon-only rail leaf (line ~983)
+
+Previously all four used `SIDEBAR_COLORS.activeText` (`#E5E7EB`) for active icons. Active icon is now `SIDEBAR_COLORS.activeIcon` (`#FFFFFF`).
 
 ### 2b. Border-radius
 
@@ -81,7 +87,10 @@ Previously both used `SIDEBAR_COLORS.activeText` (`#E5E7EB`) for active icons. A
 
 ### 2c. Inset shadow (active leaf only)
 
-Add to `activeLeafSx` (not to parent-active rows):
+Add to active leaf styling only (not to parent-active rows). Two targets:
+
+- **`renderMenuItem`**: add to the `activeLeafSx` const
+- **`renderFlyoutItem`**: add inline to the `isActive && !hasChildren` spread block (the flyout path has no named `activeLeafSx` — styling is written inline)
 
 ```ts
 boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.03)',
