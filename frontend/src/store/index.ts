@@ -8,7 +8,6 @@ const storage = {
 import { combineReducers } from '@reduxjs/toolkit'
 
 // Import slices
-import themeSlice from './slices/themeSlice'
 import authSlice from './slices/authSlice'
 import notificationSlice from './slices/notificationSlice'
 import inventorySlice from './slices/inventorySlice'
@@ -31,7 +30,6 @@ import { printSettingsApiSlice } from './api/printSettingsApi'
 import { PERSIST_KEY } from './persistKey'
 
 const rootReducer = combineReducers({
-  theme: themeSlice,
   auth: authSlice,
   notifications: notificationSlice,
   inventory: inventorySlice,
@@ -57,8 +55,8 @@ const rootReducer = combineReducers({
 const persistConfig = {
   key: PERSIST_KEY,
   storage,
-  whitelist: ['theme', 'auth', 'notifications'],
-  version: 5,
+  whitelist: ['auth', 'notifications'],
+  version: 6,
   migrate: (state: any) => {
     // Migration runs when persisted _persist.version !== persistConfig.version.
     // For all existing v4 users, state.notifications is undefined (was not
@@ -72,9 +70,6 @@ const persistConfig = {
 
       return Promise.resolve({
         ...state,
-        theme: state.theme
-          ? { ...state.theme, mode: 'dark' }
-          : { mode: 'dark' },
         notifications: {
           notifications: capped,
           unreadCount,
