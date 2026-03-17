@@ -1173,14 +1173,15 @@ const Sidebar: React.FC<SidebarProps> = ({
             )}
 
             {!collapsed && (
-              <Typography
-                variant="overline"
-                sx={{
-                  px: 3,
-                  py: 1,
-                  display: 'block',
-                  color: SIDEBAR_COLORS.sectionLabel,
-                  fontWeight: 600,
+                <Typography
+                  variant="overline"
+                  sx={{
+                    px: 3,
+                    pt: 2,
+                    pb: 1,
+                    display: 'block',
+                    color: SIDEBAR_COLORS.sectionLabel,
+                    fontWeight: 600,
                   fontSize: '0.75rem',
                 }}
               >
