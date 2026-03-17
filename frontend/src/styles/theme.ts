@@ -294,7 +294,7 @@ const darkTheme = createTheme({
       50: colors.grey[800], // Map grey.50 to grey.800 for dark mode
     },
     background: {
-      default: '#111827',
+      default: '#121212',
       paper: '#1e1e1e',
     },
     text: {
