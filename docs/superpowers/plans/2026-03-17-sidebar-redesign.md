@@ -19,34 +19,7 @@
 **Files:**
 - Modify: `frontend/src/components/common/MainLayout.tsx`
 
-- [ ] **Step 1: Write a failing test**
-
-Add to `frontend/src/components/common/__tests__/Sidebar.test.tsx` — this tests the toggle callback prop exists and is callable (pure unit test on the prop interface):
-
-```tsx
-it('calls onToggleCollapse when toggle button is clicked', () => {
-  const onToggleCollapse = vi.fn()
-  render(
-    <MemoryRouter initialEntries={['/dashboard']}>
-      <Sidebar onToggleCollapse={onToggleCollapse} />
-    </MemoryRouter>
-  )
-  // Toggle button is only shown when onToggleCollapse is provided
-  const toggleBtn = screen.getByRole('button', { name: /collapse sidebar/i })
-  fireEvent.click(toggleBtn)
-  expect(onToggleCollapse).toHaveBeenCalledTimes(1)
-})
-```
-
-- [ ] **Step 2: Run test to verify it fails**
-
-```bash
-cd frontend && npx vitest run src/components/common/__tests__/Sidebar.test.tsx --no-coverage
-```
-
-Expected: FAIL — "Unable to find role button with name /collapse sidebar/i"
-
-- [ ] **Step 3: Replace DRAWER_WIDTH constant and add collapsed state in MainLayout**
+- [ ] **Step 1: Replace DRAWER_WIDTH constant and add collapsed state in MainLayout**
 
 In `frontend/src/components/common/MainLayout.tsx`, find and replace:
 ```tsx
@@ -61,6 +34,8 @@ const DRAWER_WIDTH_COLLAPSED = 64
 Add collapse state immediately after `const [mobileOpen, setMobileOpen] = useState(false)`:
 ```tsx
 const [collapsed, setCollapsed] = React.useState<boolean>(() => {
+  // Guard for test environments where window/localStorage may not be available
+  if (typeof window === 'undefined') return false
   return localStorage.getItem('sidebar-collapsed') === 'true'
 })
 
@@ -141,13 +116,13 @@ The mobile Sidebar render (inside `variant="temporary"` Drawer) — no change:
 <Sidebar onItemClick={handleDrawerToggle} />
 ```
 
-- [ ] **Step 8: Run test to verify it passes**
+- [ ] **Step 8: Run pre-existing tests to verify no regressions**
 
 ```bash
 cd frontend && npx vitest run src/components/common/__tests__/Sidebar.test.tsx --no-coverage
 ```
 
-Expected: all **pre-existing** tests pass. The new toggle test added in Step 1 will still FAIL at this point — that is expected, Sidebar.tsx has not changed yet.
+Expected: the 4 pre-existing tests pass. No new tests have been added in Chunk 1 — the toggle test belongs in Chunk 2 where Sidebar.tsx is actually changed.
 
 - [ ] **Step 9: Commit**
 
@@ -213,7 +188,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onItemClick, collapsed = false, onTog
 **Files:**
 - Modify: `frontend/src/components/common/Sidebar.tsx`
 
-- [ ] **Step 1: Write failing test for collapsed logo**
+- [ ] **Step 1: Write failing tests for header behavior**
 
 Add to `frontend/src/components/common/__tests__/Sidebar.test.tsx`:
 ```tsx
@@ -234,6 +209,19 @@ it('shows app name text when expanded', () => {
   )
   expect(screen.getByText('ERP System')).toBeInTheDocument()
 })
+
+it('calls onToggleCollapse when toggle button is clicked', () => {
+  const onToggleCollapse = vi.fn()
+  render(
+    <MemoryRouter initialEntries={['/dashboard']}>
+      <Sidebar collapsed={false} onToggleCollapse={onToggleCollapse} />
+    </MemoryRouter>
+  )
+  // Toggle button renders with aria-label="collapse sidebar" when expanded
+  const toggleBtn = screen.getByRole('button', { name: /collapse sidebar/i })
+  fireEvent.click(toggleBtn)
+  expect(onToggleCollapse).toHaveBeenCalledTimes(1)
+})
 ```
 
 - [ ] **Step 2: Run tests to verify they fail**
@@ -242,7 +230,7 @@ it('shows app name text when expanded', () => {
 cd frontend && npx vitest run src/components/common/__tests__/Sidebar.test.tsx --no-coverage
 ```
 
-Expected: FAIL — `collapsed` prop doesn't affect rendering yet
+Expected: FAIL — `collapsed` prop doesn't affect rendering yet; toggle button does not exist yet
 
 - [ ] **Step 3: Rewrite the header Box in Sidebar**
 
@@ -435,8 +423,8 @@ const renderMenuItem = (item: MenuItem, level: number = 0) => {
   const isExpanded = expandedItems.includes(item.id)
   const hasChildren = Boolean(item.children && item.children.length > 0)
 
-  // Shared active sx for the pill + left accent bar
-  const activeItemSx = isActive && !hasChildren ? {
+  // Active pill sx: applied to leaf items only (pill background + left accent bar)
+  const activeLeafSx = isActive && !hasChildren ? {
     bgcolor: SIDEBAR_COLORS.activeBg,
     '&::before': {
       content: '""',
@@ -451,6 +439,13 @@ const renderMenuItem = (item: MenuItem, level: number = 0) => {
     },
   } : {}
 
+  // Active parent sx: when a parent has an active descendant, brighten its icon/text
+  // Applied to expanded parents AND collapsed rail parent icons
+  const activeParentSx = isActive && hasChildren ? {
+    '& .MuiListItemIcon-root': { color: SIDEBAR_COLORS.activeText },
+    '& .MuiListItemText-primary': { color: SIDEBAR_COLORS.activeText },
+  } : {}
+
   // CASE 1: Collapsed + has children → rail icon with mouse handlers, no tooltip
   // Mouse handlers are wired up in Chunk 3; placeholder handlers used here initially
   if (collapsed && hasChildren) {
@@ -461,7 +456,7 @@ const renderMenuItem = (item: MenuItem, level: number = 0) => {
             id={`rail-item-${item.id}`}
             aria-label={item.title}
             onClick={() => {/* handled in Chunk 3 */}}
-            aria-haspopup="true"
+            aria-haspopup="menu"
             aria-expanded={flyoutItemId === item.id}
             sx={{
               pl: 0,
@@ -472,9 +467,7 @@ const renderMenuItem = (item: MenuItem, level: number = 0) => {
               mb: 0.5,
               justifyContent: 'center',
               position: 'relative',
-              ...(isActive ? {
-                '& .MuiListItemIcon-root': { color: SIDEBAR_COLORS.activeText },
-              } : {}),
+              ...activeParentSx,
               '&:hover': { bgcolor: SIDEBAR_COLORS.hoverBg },
               '&.Mui-selected': { bgcolor: 'transparent' },
             }}
@@ -512,7 +505,7 @@ const renderMenuItem = (item: MenuItem, level: number = 0) => {
                 mb: 0.5,
                 justifyContent: 'center',
                 position: 'relative',
-                ...activeItemSx,
+                ...activeLeafSx,
                 '&:hover': { bgcolor: SIDEBAR_COLORS.hoverBg },
                 '&.Mui-selected': { bgcolor: 'transparent' },
               }}
@@ -541,7 +534,7 @@ const renderMenuItem = (item: MenuItem, level: number = 0) => {
         <ListItemButton
           onClick={() => handleItemClick(item)}
           aria-expanded={hasChildren ? isExpanded : undefined}
-          aria-haspopup={hasChildren ? 'true' : undefined}
+          aria-haspopup={hasChildren ? 'menu' : undefined}
           sx={{
             pl: 2 + level * 2,
             py: 0,
@@ -550,11 +543,8 @@ const renderMenuItem = (item: MenuItem, level: number = 0) => {
             mx: 1,
             mb: 0.5,
             position: 'relative',
-            ...activeItemSx,
-            ...(isActive && hasChildren ? {
-              '& .MuiListItemIcon-root': { color: SIDEBAR_COLORS.activeText },
-              '& .MuiListItemText-primary': { color: SIDEBAR_COLORS.activeText },
-            } : {}),
+            ...activeLeafSx,
+            ...activeParentSx,
             '&:hover': { bgcolor: SIDEBAR_COLORS.hoverBg },
             '&.Mui-selected': { bgcolor: 'transparent' },
           }}
@@ -761,6 +751,8 @@ const [flyoutExpandedIds, setFlyoutExpandedIds] = React.useState<string[]>([])
 const [flyoutOpen, setFlyoutOpen] = React.useState(false)
 const openTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
 const closeTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
+// Tracks the 80ms deferred-clear timer inside closeFlyout so it can be cancelled on reopen
+const clearFlyoutStateTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
 
 const clearOpenTimer = () => {
   if (openTimerRef.current) {
@@ -779,6 +771,11 @@ const clearCloseTimer = () => {
 const openFlyout = (itemId: string, anchorEl: HTMLElement) => {
   clearOpenTimer()
   clearCloseTimer()
+  // Cancel any in-flight deferred state clear from a previous close
+  if (clearFlyoutStateTimerRef.current) {
+    clearTimeout(clearFlyoutStateTimerRef.current)
+    clearFlyoutStateTimerRef.current = null
+  }
   // Auto-expand level-1 groups that have an active descendant
   const item = menuSections.flatMap(s => s.items).find(i => i.id === itemId)
   const autoExpanded: string[] = []
@@ -798,12 +795,15 @@ const openFlyout = (itemId: string, anchorEl: HTMLElement) => {
 const closeFlyout = React.useCallback(() => {
   setFlyoutOpen(false)
   // Defer state clear until after the 80ms exit animation
-  setTimeout(() => {
+  // Stored in a ref so it can be cancelled if the flyout reopens quickly
+  if (clearFlyoutStateTimerRef.current) clearTimeout(clearFlyoutStateTimerRef.current)
+  clearFlyoutStateTimerRef.current = setTimeout(() => {
     setFlyoutItemId(null)
     setFlyoutAnchorEl(null)
     setFlyoutExpandedIds([])
+    clearFlyoutStateTimerRef.current = null
   }, 80)
-}, []) // stable: only calls state setters which are stable references
+}, []) // stable: only calls state setters (stable) and refs (not reactive)
 
 const startCloseFlyout = () => {
   clearCloseTimer()
@@ -841,6 +841,18 @@ React.useEffect(() => {
 }, [location.pathname])
 ```
 
+Add unmount cleanup effect (after the navigation-reset effect):
+```tsx
+// Cleanup all timers on unmount
+React.useEffect(() => {
+  return () => {
+    if (openTimerRef.current) clearTimeout(openTimerRef.current)
+    if (closeTimerRef.current) clearTimeout(closeTimerRef.current)
+    if (clearFlyoutStateTimerRef.current) clearTimeout(clearFlyoutStateTimerRef.current)
+  }
+}, [])
+```
+
 **Ordering note:** `openFlyout` calls `isItemActive`, which is defined earlier in the component. Define the flyout state block and helpers **after** `isItemActive` in the file to avoid a "used before defined" reference. The existing `isItemActive` function is near the bottom of the component body — place the flyout block after it.
 
 - [ ] **Step 4: Wire up mouse handlers on the collapsed parent rail items**
@@ -859,7 +871,7 @@ if (collapsed && hasChildren) {
           onMouseEnter={(e) => handleRailMouseEnter(item, e.currentTarget)}
           onMouseLeave={handleRailMouseLeave}
           onClick={(e) => openFlyout(item.id, e.currentTarget)}
-          aria-haspopup="true"
+          aria-haspopup="menu"
           aria-expanded={flyoutItemId === item.id}
           sx={{
             pl: 0,
@@ -965,7 +977,8 @@ import { Popper, Fade, Paper } from '@mui/material'
 Add inside the Sidebar component, **after** the flyout state and timer helpers added in Task 5 (both `renderFlyoutItem` and `openFlyout` reference each other's closures — they must be declared after `isItemActive` and after the state/ref declarations):
 
 ```tsx
-const renderFlyoutItem = (item: MenuItem, level: number = 0): React.ReactNode => {
+// isFirst=true is set on the first top-level child in the flyout panel (for keyboard focus)
+const renderFlyoutItem = (item: MenuItem, level: number = 0, isFirst = false): React.ReactNode => {
   const isActive = isItemActive(item)
   const hasChildren = item.children && item.children.length > 0
   const isExpanded = flyoutExpandedIds.includes(item.id)
@@ -973,6 +986,8 @@ const renderFlyoutItem = (item: MenuItem, level: number = 0): React.ReactNode =>
   return (
     <React.Fragment key={item.id}>
       <ListItemButton
+        // data-flyout-first allows keyboard Enter/Space to move focus here after flyout opens
+        {...(isFirst ? { 'data-flyout-first': 'true' } : {})}
         onClick={() => {
           if (item.path) {
             navigate(item.path)
@@ -1107,7 +1122,7 @@ Add just before the closing `</Box>` of the outer sidebar wrapper:
           }}
         >
           <List disablePadding>
-            {flyoutItem.children.map(child => renderFlyoutItem(child))}
+            {flyoutItem.children.map((child, idx) => renderFlyoutItem(child, 0, idx === 0))}
           </List>
         </Paper>
       </Fade>
@@ -1167,36 +1182,13 @@ it('shows rail icon button for active parent in collapsed mode', () => {
 })
 ```
 
-- [ ] **Step 2: Write a genuine TDD test for badge hiding in collapsed mode**
+- [ ] **Step 2: Verify badge hiding in collapsed mode by code review**
 
-This test requires temporarily patching the menu data so a badge exists. Add to `__tests__/Sidebar.test.tsx`:
-```tsx
-it('hides badge when sidebar is collapsed', async () => {
-  // We test the renderMenuItem logic by rendering in expanded mode (badge visible)
-  // then in collapsed mode (badge hidden)
-  const { rerender } = render(
-    <MemoryRouter initialEntries={['/dashboard']}>
-      <Sidebar collapsed={false} />
-    </MemoryRouter>
-  )
+No menu item currently has badge data, so a DOM assertion would be a no-op test (always passes regardless of implementation). Instead, verify the implementation manually:
 
-  // In expanded mode, the Dashboard item has no badge — but we can verify
-  // the Badge component is NOT present because no item has badge data.
-  // The real test: confirm renderMenuItem correctly gates badge rendering.
-  // Since we can't inject a badge item without modifying source, we verify
-  // the code path by checking the collapsed prop changes the render output.
-  rerender(
-    <MemoryRouter initialEntries={['/dashboard']}>
-      <Sidebar collapsed={true} />
-    </MemoryRouter>
-  )
+Open `Sidebar.tsx` and confirm that `Badge` is only rendered inside the expanded Case 3 branch (the `{!collapsed && ...}` guard). Cases 1 and 2 (collapsed mode) must have no `Badge` component in their JSX.
 
-  // In collapsed mode there must be no MuiBadge elements
-  expect(document.querySelector('.MuiBadge-badge')).toBeNull()
-})
-```
-
-Note: This test is a smoke test — it passes in both implementations (since no item has a badge currently). The real guard is in `renderMenuItem`'s Case 1/2 branches which never render `Badge`. The test documents intent and will catch regressions if a badge is ever added to a menu item.
+This is a code-review step, not a test step. No new test code is added here.
 
 - [ ] **Step 3: Add keyboard interaction for collapsed mode flyout**
 
@@ -1209,9 +1201,9 @@ onKeyDown={(e) => {
     e.preventDefault()
     openFlyout(item.id, e.currentTarget)
     // Move focus to first flyout item after render
+    // Uses data-flyout-first="true" on the first rendered flyout ListItemButton
     setTimeout(() => {
-      const panel = document.getElementById(`flyout-panel-${item.id}`)
-      const first = panel?.querySelector<HTMLElement>('[role="button"]')
+      const first = document.querySelector<HTMLElement>('[data-flyout-first="true"]')
       first?.focus()
     }, 0)
   }
