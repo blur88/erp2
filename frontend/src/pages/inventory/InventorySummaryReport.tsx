@@ -1025,7 +1025,7 @@ const InventorySummaryReport: React.FC = () => {
                     <TableHead>
                       <TableRow sx={{ '& .MuiTableCell-head': {
                         fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
-                        backgroundColor: (theme) => theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : '#fafafa',
+                        backgroundColor: 'rgba(255, 255, 255, 0.05)',
                         color: TYPOGRAPHY_STYLES.tableHeader.color,
                         fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize,
                         textAlign: 'center',
@@ -1079,7 +1079,7 @@ const InventorySummaryReport: React.FC = () => {
                           <React.Fragment key={`${row.productName}-${idx}`}>
                             {showGroupHeader && (
                               <TableRow sx={{
-                                backgroundColor: (theme) => theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.08)' : 'grey.200',
+                                backgroundColor: 'rgba(255, 255, 255, 0.08)',
                                 '& .MuiTableCell-root': {
                                   fontWeight: 700,
                                   fontSize: '0.85rem',
@@ -1138,7 +1138,7 @@ const InventorySummaryReport: React.FC = () => {
                             {showGroupFooter && groupSubtotals && (
                               <>
                                 <TableRow sx={{
-                                  backgroundColor: (theme) => theme.palette.mode === 'dark' ? 'rgba(33, 150, 243, 0.2)' : 'rgba(33, 150, 243, 0.1)',
+                                  backgroundColor: 'rgba(33, 150, 243, 0.2)',
                                   '& .MuiTableCell-root': {
                                     fontWeight: 700,
                                     fontSize: '0.85rem',
@@ -1178,7 +1178,7 @@ const InventorySummaryReport: React.FC = () => {
                       {totals && (
                         <TableRow
                           sx={{
-                            backgroundColor: (theme) => theme.palette.mode === 'dark' ? 'rgba(76, 175, 80, 0.3)' : 'rgba(76, 175, 80, 0.2)',
+                            backgroundColor: 'rgba(76, 175, 80, 0.3)',
                             '& .MuiTableCell-root': {
                               fontWeight: 800,
                               fontSize: '0.9rem',

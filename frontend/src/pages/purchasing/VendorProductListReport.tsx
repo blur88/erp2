@@ -986,7 +986,7 @@ const VendorProductListReport: React.FC = () => {
                     <TableHead>
                       <TableRow sx={{ '& .MuiTableCell-head': {
                         fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
-                        backgroundColor: (theme) => theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : '#fafafa',
+                        backgroundColor: 'rgba(255, 255, 255, 0.05)',
                         color: TYPOGRAPHY_STYLES.tableHeader.color,
                         fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize,
                         textAlign: 'center',
@@ -1028,7 +1028,7 @@ const VendorProductListReport: React.FC = () => {
                           <React.Fragment key={`${row.orderNumber}-${row.productName}-${idx}`}>
                             {showGroupHeader && (
                               <TableRow sx={{
-                                backgroundColor: (theme) => theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.08)' : 'grey.200',
+                                backgroundColor: 'rgba(255, 255, 255, 0.08)',
                                 '& .MuiTableCell-root': {
                                   fontWeight: 700,
                                   fontSize: '0.85rem',

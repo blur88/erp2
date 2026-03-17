@@ -28,14 +28,10 @@ function formatValue(
 
 function toneBackground(theme: Theme, tone: 'success' | 'error'): string {
   if (tone === 'success') {
-    return theme.palette.mode === 'dark'
-      ? alpha(theme.palette.success.main, 0.22)
-      : theme.palette.success.light
+    return alpha(theme.palette.success.main, 0.22)
   }
 
-  return theme.palette.mode === 'dark'
-    ? alpha(theme.palette.error.main, 0.22)
-    : theme.palette.error.light
+  return alpha(theme.palette.error.main, 0.22)
 }
 
 const DiffViewer: React.FC<DiffViewerProps> = ({

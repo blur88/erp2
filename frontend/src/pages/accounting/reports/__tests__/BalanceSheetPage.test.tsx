@@ -85,14 +85,10 @@ describe('BalanceSheetPage', () => {
   })
 
   it('uses dark-mode specific tones for report surfaces', () => {
-    const darkTone = getBalanceSheetTone('dark')
-    const lightTone = getBalanceSheetTone('light')
-    expect(darkTone.surfaceSoft).toBe('rgba(255, 255, 255, 0.06)')
-    expect(darkTone.surfaceStrong).toBe('rgba(255, 255, 255, 0.1)')
-    expect(darkTone.sectionAccent).toBe('rgba(255, 255, 255, 0.08)')
-    expect(lightTone.surfaceSoft).toBe('grey.50')
-    expect(lightTone.surfaceStrong).toBe('grey.100')
-    expect(lightTone.sectionAccent).toBe('grey.100')
+    const tone = getBalanceSheetTone()
+    expect(tone.surfaceSoft).toBe('rgba(255, 255, 255, 0.06)')
+    expect(tone.surfaceStrong).toBe('rgba(255, 255, 255, 0.1)')
+    expect(tone.sectionAccent).toBe('rgba(255, 255, 255, 0.08)')
   })
 
   it('renders net income in equity section when present', async () => {

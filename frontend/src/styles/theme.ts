@@ -253,62 +253,6 @@ const baseThemeOptions: ThemeOptions = {
   },
 }
 
-// Light theme
-const lightTheme = createTheme({
-  ...baseThemeOptions,
-  palette: {
-    mode: 'light',
-    primary: {
-      main: colors.primary[700],
-      light: colors.primary[400],
-      dark: colors.primary[800],
-      contrastText: '#fff',
-    },
-    secondary: {
-      main: colors.secondary[600],
-      light: colors.secondary[400],
-      dark: colors.secondary[800],
-      contrastText: '#fff',
-    },
-    success: {
-      main: colors.success[600],
-      light: colors.success[400],
-      dark: colors.success[800],
-      contrastText: '#fff',
-    },
-    warning: {
-      main: colors.warning[600],
-      light: colors.warning[400],
-      dark: colors.warning[800],
-      contrastText: '#000',
-    },
-    error: {
-      main: colors.error[600],
-      light: colors.error[400],
-      dark: colors.error[800],
-      contrastText: '#fff',
-    },
-    grey: colors.grey,
-    background: {
-      default: colors.grey[50],
-      paper: '#ffffff',
-    },
-    text: {
-      primary: colors.grey[900],
-      secondary: colors.grey[700],
-      disabled: colors.grey[400],
-    },
-    divider: colors.grey[200],
-    action: {
-      active: colors.grey[700],
-      hover: alpha(colors.grey[900], 0.04),
-      selected: alpha(colors.grey[900], 0.08),
-      disabled: colors.grey[400],
-      disabledBackground: colors.grey[100],
-    },
-  },
-})
-
 // Dark theme
 const darkTheme = createTheme({
   ...baseThemeOptions,
@@ -420,28 +364,4 @@ const darkTheme = createTheme({
   },
 })
 
-// Export themes
-export { lightTheme, darkTheme }
-
-// Default theme (dark)
-const theme = darkTheme
-
-// Theme creator function
-const createAppTheme = (mode: 'light' | 'dark', primaryColor?: string) => {
-  const baseTheme = mode === 'dark' ? darkTheme : lightTheme
-  
-  if (primaryColor) {
-    return createTheme({
-      ...baseTheme,
-      palette: {
-        ...baseTheme.palette,
-        primary: {
-          ...baseTheme.palette.primary,
-          main: primaryColor,
-        },
-      },
-    })
-  }
-  
-  return baseTheme
-}
+export { darkTheme }

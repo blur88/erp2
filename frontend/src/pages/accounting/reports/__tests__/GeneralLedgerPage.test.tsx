@@ -63,14 +63,10 @@ describe('GeneralLedgerPage', () => {
   })
 
   it('uses dark-mode specific tones for report surfaces', () => {
-    const darkTone = getGeneralLedgerTone('dark')
-    const lightTone = getGeneralLedgerTone('light')
-    expect(darkTone.surfaceSoft).toBe('rgba(255, 255, 255, 0.06)')
-    expect(darkTone.surfaceStrong).toBe('rgba(255, 255, 255, 0.1)')
-    expect(darkTone.tableHeader).toBe('rgba(255, 255, 255, 0.08)')
-    expect(lightTone.surfaceSoft).toBe('grey.50')
-    expect(lightTone.surfaceStrong).toBe('grey.100')
-    expect(lightTone.tableHeader).toBe('grey.200')
+    const tone = getGeneralLedgerTone()
+    expect(tone.surfaceSoft).toBe('rgba(255, 255, 255, 0.06)')
+    expect(tone.surfaceStrong).toBe('rgba(255, 255, 255, 0.1)')
+    expect(tone.tableHeader).toBe('rgba(255, 255, 255, 0.08)')
   })
 
   it('uses a shared metric card layout so all summary boxes have consistent height', () => {

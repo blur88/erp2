@@ -21,14 +21,11 @@ import {
   Menu as MenuIcon,
   Notifications as NotificationsIcon,
   Settings as SettingsIcon,
-  DarkMode as DarkModeIcon,
-  LightMode as LightModeIcon,
   Person as PersonIcon,
   Logout as LogoutIcon,
 } from '@mui/icons-material'
 
 import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
-import { toggleTheme, selectThemeMode } from '@/store/slices/themeSlice'
 import { selectUnreadCount } from '@/store/slices/notificationSlice'
 import { logout as logoutAction, selectRefreshToken } from '@/store/slices/authSlice'
 
@@ -43,7 +40,6 @@ const MainLayout: React.FC = () => {
   const theme = useTheme()
   const isMobile = useMediaQuery(theme.breakpoints.down('lg'))
   const dispatch = useAppDispatch()
-  const themeMode = useAppSelector(selectThemeMode)
   const unreadCount = useAppSelector(selectUnreadCount)
   const location = useLocation()
 
@@ -82,10 +78,6 @@ const MainLayout: React.FC = () => {
 
   const handleNotificationClose = () => {
     setNotificationAnchorEl(null)
-  }
-
-  const handleThemeToggle = () => {
-    dispatch(toggleTheme())
   }
 
   const handleUserMenuOpen = (event: React.MouseEvent<HTMLButtonElement>) => {
@@ -204,12 +196,6 @@ const MainLayout: React.FC = () => {
 
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <SystemStatus />
-
-            <Tooltip title={`Switch to ${themeMode === 'light' ? 'dark' : 'light'} mode`}>
-              <IconButton onClick={handleThemeToggle} color="inherit">
-                {themeMode === 'light' ? <DarkModeIcon /> : <LightModeIcon />}
-              </IconButton>
-            </Tooltip>
 
             <Tooltip title="Notifications">
               <IconButton onClick={handleNotificationOpen} color="inherit">
