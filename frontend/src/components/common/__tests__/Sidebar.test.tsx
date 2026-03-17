@@ -226,6 +226,20 @@ describe('Sidebar', () => {
     expect(screen.queryByText('Sales')).not.toBeInTheDocument()
   })
 
+  it('does not throw when hovering over non-active items', () => {
+    render(
+      <MemoryRouter initialEntries={['/dashboard']}>
+        <Sidebar />
+      </MemoryRouter>
+    )
+
+    const salesButton = screen.getByRole('button', { name: 'Sales' })
+    fireEvent.mouseEnter(salesButton)
+    fireEvent.mouseLeave(salesButton)
+
+    expect(screen.getByTestId('sidebar-root')).toBeInTheDocument()
+  })
+
   it('closes flyout when Escape is pressed', async () => {
     render(
       <MemoryRouter initialEntries={['/dashboard']}>

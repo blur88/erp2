@@ -829,6 +829,10 @@ const Sidebar: React.FC<SidebarProps> = ({
               '& .MuiListItemText-primary': { color: SIDEBAR_COLORS.activeText },
             }),
             '&:hover': { bgcolor: SIDEBAR_COLORS.hoverBg },
+            ...(!isActive && {
+              '&:hover .MuiListItemIcon-root': { color: SIDEBAR_COLORS.hoverText },
+              '&:hover .MuiListItemText-primary': { color: SIDEBAR_COLORS.hoverText },
+            }),
           }}
         >
           <ListItemIcon
@@ -945,6 +949,9 @@ const Sidebar: React.FC<SidebarProps> = ({
                 transition: 'background-color 0.18s ease',
                 ...activeParentSx,
                 '&:hover': { bgcolor: SIDEBAR_COLORS.hoverBg },
+                ...(!isActive && {
+                  '&:hover .MuiListItemIcon-root': { color: SIDEBAR_COLORS.hoverText },
+                }),
                 '&.Mui-selected': { bgcolor: 'transparent' },
               }}
             >
@@ -984,6 +991,9 @@ const Sidebar: React.FC<SidebarProps> = ({
                   transition: 'background-color 0.18s ease',
                   ...activeLeafSx,
                   '&:hover': { bgcolor: SIDEBAR_COLORS.hoverBg },
+                  ...(!isActive && {
+                    '&:hover .MuiListItemIcon-root': { color: SIDEBAR_COLORS.hoverText },
+                  }),
                   '&.Mui-selected': { bgcolor: 'transparent' },
                 }}
               >
@@ -1024,6 +1034,10 @@ const Sidebar: React.FC<SidebarProps> = ({
               ...activeLeafSx,
               ...activeParentSx,
               '&:hover': { bgcolor: SIDEBAR_COLORS.hoverBg },
+              ...(!isActive && {
+                '&:hover .MuiListItemIcon-root': { color: SIDEBAR_COLORS.hoverText },
+                '&:hover .MuiListItemText-primary': { color: SIDEBAR_COLORS.hoverText },
+              }),
               '&.Mui-selected': { bgcolor: 'transparent' },
             }}
           >
