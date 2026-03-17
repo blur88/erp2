@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import Sidebar from '../Sidebar'
@@ -173,24 +173,34 @@ describe('Sidebar', () => {
   })
 
   it('closes flyout on mouse leave', async () => {
-    render(
-      <MemoryRouter initialEntries={['/dashboard']}>
-        <Sidebar collapsed={true} />
-      </MemoryRouter>
-    )
+    vi.useFakeTimers()
 
-    const salesButton = screen.getByRole('button', { name: 'Sales' })
-    fireEvent.mouseEnter(salesButton)
+    try {
+      render(
+        <MemoryRouter initialEntries={['/dashboard']}>
+          <Sidebar collapsed={true} />
+        </MemoryRouter>
+      )
 
-    await waitFor(() => {
+      const salesButton = screen.getByRole('button', { name: 'Sales' })
+      fireEvent.mouseEnter(salesButton)
+
+      await act(async () => {
+        vi.advanceTimersByTime(100)
+      })
+
       expect(screen.getByText('Customers')).toBeInTheDocument()
-    }, { timeout: 500 })
 
-    fireEvent.mouseLeave(salesButton)
+      fireEvent.mouseLeave(salesButton)
 
-    await waitFor(() => {
+      await act(async () => {
+        vi.advanceTimersByTime(250)
+      })
+
       expect(screen.queryByText('Customers')).not.toBeInTheDocument()
-    }, { timeout: 500 })
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('navigates when clicking a leaf item inside the flyout', async () => {
