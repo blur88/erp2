@@ -62,6 +62,21 @@ describe('Sidebar', () => {
     expect(sectionHeaders.indexOf('Accounting')).toBeLessThan(sectionHeaders.indexOf('Analytics'))
   })
 
+  it('applies the updated section label padding', () => {
+    render(
+      <MemoryRouter initialEntries={['/dashboard']}>
+        <Sidebar />
+      </MemoryRouter>
+    )
+
+    const operationsLabel = screen.getByText('Operations')
+
+    expect(operationsLabel).toHaveStyle({
+      paddingTop: '16px',
+      paddingBottom: '8px',
+    })
+  })
+
   it('renders reports as a parent group in analytics section', async () => {
     render(
       <MemoryRouter initialEntries={['/dashboard']}>
