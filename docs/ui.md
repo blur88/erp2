@@ -176,22 +176,4 @@ Error               #EF4444
 
 Text Primary        #E5E7EB
 Text Secondary      #9CA3AF
-```
 
----
-
-# 10. Professional UI Tip
-
-Good dark UI usually uses **3 background levels only**:
-
-```
-Level 1   Page        #111827
-Level 2   Card        #1F2937
-Level 3   Hover       #374151
-```
-
-Too many shades makes the UI messy.
-
----
-
-✅ If you want, I can also show you a **full ERP dashboard example color system (sidebar, table, form, modal, charts)** so the whole UI feels consistent.
