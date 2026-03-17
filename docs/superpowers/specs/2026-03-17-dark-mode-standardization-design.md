@@ -27,6 +27,7 @@ Remove light mode entirely from the frontend. Standardize on the existing dark t
 ### `frontend/src/styles/theme.ts`
 
 - Delete `lightTheme` and the `createAppTheme` function.
+- Update the export statement from `export { lightTheme, darkTheme }` to `export { darkTheme }`.
 - Keep `darkTheme` unchanged (all existing palette values stay as-is).
 - Remove the `theme` const alias; consumers import `darkTheme` directly.
 - The `colors` object and `baseThemeOptions` remain — they are used by `darkTheme`.
@@ -38,7 +39,11 @@ Remove light mode entirely from the frontend. Standardize on the existing dark t
 
 ### `frontend/src/store/index.ts`
 
-- Remove `import themeSlice` and the `theme: themeSlice` entry from the Redux store.
+- Remove `import themeSlice` and the `theme: themeSlice` entry from the Redux store's `rootReducer`.
+- In `persistConfig`:
+  - Remove `'theme'` from the `whitelist` array.
+  - Remove the `theme:` property rewrite inside the `migrate` function body (the block that reads `state.theme` and sets `mode: 'dark'`). The migration otherwise stays intact for the `notifications` key.
+  - Bump `version` by 1 (the persisted shape is changing — existing users will re-run the migration on next load, which is harmless since the theme key will simply be absent).
 
 ### `frontend/src/components/common/ThemeWrapper.tsx`
 
@@ -49,7 +54,7 @@ Remove light mode entirely from the frontend. Standardize on the existing dark t
 ### `frontend/src/RootLayout.tsx`
 
 - Remove `useAppSelector(selectTheme)`.
-- Hardcode `document.documentElement.setAttribute('data-theme', 'dark')` in the existing effect (or move to a one-time call with empty deps array).
+- Hardcode `document.documentElement.setAttribute('data-theme', 'dark')` in the existing effect with an empty deps array.
 
 ### `frontend/src/components/common/MainLayout.tsx`
 
@@ -57,7 +62,7 @@ Remove light mode entirely from the frontend. Standardize on the existing dark t
 - Remove `themeMode` selector, `handleThemeToggle` handler, and the `IconButton` that renders the toggle.
 - Remove `dispatch(toggleTheme())` call.
 
-### Conditional Styling Audit (~33 files)
+### Conditional Styling Audit (26 files)
 
 Files containing `theme.palette.mode` ternaries:
 
@@ -96,8 +101,6 @@ Files containing `theme.palette.mode` ternaries:
 
 **Other:**
 - `DiffViewer.tsx` (audit logs)
-- `CategoriesPage.tsx`
-- `StockAdjustmentsPage.tsx`
 
 **Pattern to apply:** For every ternary of the form:
 ```ts
@@ -109,7 +112,7 @@ If the entire style property only exists to differ between modes and the dark va
 
 ### Tests
 
-- `AccountActivityPage.test.tsx`: `renderWithProviders` accepts a `mode` param and creates a theme with `{ palette: { mode } }`. Remove the `mode` param, hardcode `{ palette: { mode: 'dark' } }`, and remove any light-mode test cases.
+- `AccountActivityPage.test.tsx`: `renderWithProviders` accepts a `mode` param and creates a theme with `{ palette: { mode } }`. Remove the `mode` parameter from the helper and hardcode `{ palette: { mode: 'dark' } }`. At every call site, remove any explicit `'dark'` argument (it becomes redundant). No test cases need to be deleted — none are light-mode-only. Verify the `'uses dark-friendly table header colors in dark mode'` test still passes after the refactor.
 - `TrialBalancePage.test.tsx`: Already creates `darkTheme` inline — verify it still passes after the slice removal.
 - Run full frontend test suite after changes.
 
@@ -119,5 +122,5 @@ If the entire style property only exists to differ between modes and the dark va
 
 - [ ] `npm run type-check` passes with no errors.
 - [ ] `npm run test` — all frontend tests pass.
-- [ ] `grep -r "palette\.mode\|lightTheme\|toggleTheme\|selectThemeMode\|selectTheme" frontend/src` returns zero results (excluding this spec).
+- [ ] `grep -r "palette\.mode\|lightTheme\|createAppTheme\|toggleTheme\|selectThemeMode\|selectTheme\b\|themeSlice" frontend/src` returns zero results (excluding this spec).
 - [ ] UI visual spot-check: toggle button is gone from the app bar, dark theme renders correctly throughout.
