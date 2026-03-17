@@ -48,7 +48,7 @@ const handleToggleCollapse = () => {
 }
 ```
 
-- [ ] **Step 4: Update AppBar sx in MainLayout**
+- [ ] **Step 2: Update AppBar sx in MainLayout**
 
 Find the AppBar `sx` prop (currently uses `DRAWER_WIDTH`). Replace:
 ```tsx
@@ -76,7 +76,7 @@ sx={{
 }}
 ```
 
-- [ ] **Step 5: Update nav Box width**
+- [ ] **Step 3: Update nav Box width**
 
 Find `<Box component="nav" sx={{ width: { lg: DRAWER_WIDTH }, flexShrink: { lg: 0 } }}>` and replace:
 ```tsx
@@ -89,7 +89,7 @@ Find `<Box component="nav" sx={{ width: { lg: DRAWER_WIDTH }, flexShrink: { lg: 
 >
 ```
 
-- [ ] **Step 6: Update permanent Drawer paper width and add transition**
+- [ ] **Step 4: Update permanent Drawer paper width and add transition**
 
 Find the permanent Drawer (`variant="permanent"`) and update its `sx`:
 ```tsx
@@ -104,7 +104,7 @@ sx={{
 }}
 ```
 
-- [ ] **Step 7: Pass collapsed props to desktop Sidebar, keep mobile collapsed={false}**
+- [ ] **Step 5: Pass collapsed props to desktop Sidebar, keep mobile collapsed={false}**
 
 The desktop Sidebar render (inside `variant="permanent"` Drawer):
 ```tsx
@@ -116,7 +116,7 @@ The mobile Sidebar render (inside `variant="temporary"` Drawer) — no change:
 <Sidebar onItemClick={handleDrawerToggle} />
 ```
 
-- [ ] **Step 8: Run pre-existing tests to verify no regressions**
+- [ ] **Step 6: Run pre-existing tests to verify no regressions**
 
 ```bash
 cd frontend && npx vitest run src/components/common/__tests__/Sidebar.test.tsx --no-coverage
@@ -124,7 +124,7 @@ cd frontend && npx vitest run src/components/common/__tests__/Sidebar.test.tsx -
 
 Expected: the 4 pre-existing tests pass. No new tests have been added in Chunk 1 — the toggle test belongs in Chunk 2 where Sidebar.tsx is actually changed.
 
-- [ ] **Step 9: Commit**
+- [ ] **Step 7: Commit**
 
 ```bash
 git add frontend/src/components/common/MainLayout.tsx
@@ -303,11 +303,12 @@ import {
 } from '@mui/icons-material'
 ```
 
-Also add `IconButton` to the MUI core import:
+Also add `IconButton` and `Tooltip` to the MUI core import (both are used in the new sidebar — `IconButton` for the toggle button, `Tooltip` for collapsed leaf items):
 ```tsx
 import {
   // ...existing...
   IconButton,
+  Tooltip,
   // ...
 } from '@mui/material'
 ```
