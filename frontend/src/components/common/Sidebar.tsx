@@ -806,6 +806,7 @@ const Sidebar: React.FC<SidebarProps> = ({
             mx: 0.5,
             mb: 0.25,
             position: 'relative',
+            transition: 'background-color 0.18s ease',
             // Leaf active: pill background + left accent bar
             ...(isActive && !hasChildren && {
               bgcolor: SIDEBAR_COLORS.activeBg,
@@ -835,6 +836,7 @@ const Sidebar: React.FC<SidebarProps> = ({
               minWidth: 32,
               color: isActive ? SIDEBAR_COLORS.activeIcon : SIDEBAR_COLORS.text,
               '& .MuiSvgIcon-root': { fontSize: '1.25rem' },
+              transition: 'color 0.18s ease',
             }}
           >
             {item.icon}
@@ -846,6 +848,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                 fontSize: '0.8125rem',
                 fontWeight: isActive && !hasChildren ? 600 : 400,
                 color: isActive ? SIDEBAR_COLORS.activeText : SIDEBAR_COLORS.text,
+                transition: 'color 0.18s ease',
               },
             }}
           />
@@ -939,6 +942,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                 mb: 0.5,
                 justifyContent: 'center',
                 position: 'relative',
+                transition: 'background-color 0.18s ease',
                 ...activeParentSx,
                 '&:hover': { bgcolor: SIDEBAR_COLORS.hoverBg },
                 '&.Mui-selected': { bgcolor: 'transparent' },
@@ -950,6 +954,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                   color: isActive ? SIDEBAR_COLORS.activeIcon : SIDEBAR_COLORS.text,
                   justifyContent: 'center',
                   '& .MuiSvgIcon-root': { fontSize: '1.25rem' },
+                  transition: 'color 0.18s ease',
                 }}
               >
                 {item.icon}
@@ -976,6 +981,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                   mb: 0.5,
                   justifyContent: 'center',
                   position: 'relative',
+                  transition: 'background-color 0.18s ease',
                   ...activeLeafSx,
                   '&:hover': { bgcolor: SIDEBAR_COLORS.hoverBg },
                   '&.Mui-selected': { bgcolor: 'transparent' },
@@ -987,6 +993,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                     color: isActive ? SIDEBAR_COLORS.activeIcon : SIDEBAR_COLORS.text,
                     justifyContent: 'center',
                     '& .MuiSvgIcon-root': { fontSize: '1.25rem' },
+                    transition: 'color 0.18s ease',
                   }}
                 >
                   {item.icon}
@@ -1013,6 +1020,7 @@ const Sidebar: React.FC<SidebarProps> = ({
               mx: 1,
               mb: 0.5,
               position: 'relative',
+              transition: 'background-color 0.18s ease',
               ...activeLeafSx,
               ...activeParentSx,
               '&:hover': { bgcolor: SIDEBAR_COLORS.hoverBg },
@@ -1024,6 +1032,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                 minWidth: 40,
                 color: isActive ? SIDEBAR_COLORS.activeIcon : SIDEBAR_COLORS.text,
                 '& .MuiSvgIcon-root': { fontSize: '1.25rem' },
+                transition: 'color 0.18s ease',
               }}
             >
               {item.icon}
@@ -1035,6 +1044,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                   fontSize: '0.875rem',
                   fontWeight: isActive && !hasChildren ? 600 : 400,
                   color: isActive ? SIDEBAR_COLORS.activeText : SIDEBAR_COLORS.text,
+                  transition: 'color 0.18s ease',
                 },
               }}
             />
