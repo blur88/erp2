@@ -611,14 +611,20 @@ const renderMenuItem = (item: MenuItem, level: number = 0) => {
 }
 ```
 
-Note: `flyoutItemId` referenced in Case 1 is not yet defined at this stage. Add a temporary stub at the top of the component body so the file compiles:
+Note: `flyoutItemId` referenced in Case 1 is not yet defined at this stage. Add a temporary stub at the top of the component body (right after the `const navigate = useNavigate()` line) so the file compiles:
 ```tsx
 // Temporary stub — replaced with full flyout state in Chunk 3
 const flyoutItemId: string | null = null
 ```
-This will be replaced in Task 5.
+This will be removed in Task 5.
 
-- [ ] **Step 5: Update section label and divider colors**
+Also confirm `navigate` is already declared in the component (look for `const navigate = useNavigate()`). It exists in the current codebase. If it is missing for any reason, add it.
+
+- [ ] **Step 5: Confirm section IDs before updating divider logic**
+
+Open `Sidebar.tsx` and verify the `menuSections` array has `id` values of `'main'`, `'operations'`, `'accounting'`, `'analytics'`, `'system'`. The divider logic uses `['analytics', 'system']` as the IDs for major section boundaries. If the IDs differ, update the array literal in the next step accordingly.
+
+- [ ] **Step 6: Update section label and divider colors**
 
 In the navigation section map, update the `Typography` section label and `Divider`:
 
@@ -664,7 +670,7 @@ In the navigation section map, update the `Typography` section label and `Divide
 ))}
 ```
 
-- [ ] **Step 6: Run all sidebar tests**
+- [ ] **Step 7: Run all sidebar tests**
 
 ```bash
 cd frontend && npx vitest run src/components/common/__tests__/Sidebar.test.tsx --no-coverage
@@ -672,10 +678,11 @@ cd frontend && npx vitest run src/components/common/__tests__/Sidebar.test.tsx -
 
 Expected: all tests pass
 
-- [ ] **Step 7: Commit**
+- [ ] **Step 8: Commit both files**
 
 ```bash
-git add frontend/src/components/common/Sidebar.tsx
+git add frontend/src/components/common/Sidebar.tsx \
+        frontend/src/components/common/MainLayout.tsx
 git commit -m "feat: apply dark palette, rewrite active item styling, collapsed icon-only mode"
 ```
 
@@ -870,7 +877,9 @@ if (collapsed && hasChildren) {
 }
 ```
 
-Also remove the temporary stub `const flyoutItemId: string | null = null` added in Task 4 — the real state is now defined in Step 3 of this task.
+- [ ] **Remove the temporary stub** — delete the line `const flyoutItemId: string | null = null` added in Task 4 Step 4. The real `flyoutItemId` state is now declared in Step 3 of this task.
+
+Also confirm `menuSections` is accessible in `openFlyout`. In the existing codebase it is declared as a module-level `const menuSections: MenuSection[]` (not behind `getFilteredMenuSections()`), so `menuSections.flatMap(...)` compiles. If the variable name differs in the actual file, update the reference accordingly.
 
 - [ ] **Step 5: Run tests**
 
