@@ -757,6 +757,8 @@ Add inside the `Sidebar` component body, after the existing `expandedItems` stat
 const [flyoutItemId, setFlyoutItemId] = React.useState<string | null>(null)
 const [flyoutAnchorEl, setFlyoutAnchorEl] = React.useState<HTMLElement | null>(null)
 const [flyoutExpandedIds, setFlyoutExpandedIds] = React.useState<string[]>([])
+// flyoutOpen is separate from flyoutAnchorEl so the Fade exit animation plays before unmounting
+const [flyoutOpen, setFlyoutOpen] = React.useState(false)
 const openTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
 const closeTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -790,15 +792,22 @@ const openFlyout = (itemId: string, anchorEl: HTMLElement) => {
   setFlyoutExpandedIds(autoExpanded)
   setFlyoutItemId(itemId)
   setFlyoutAnchorEl(anchorEl)
+  setFlyoutOpen(true)
+}
+
+const closeFlyout = () => {
+  setFlyoutOpen(false)
+  // Defer state clear until after the 80ms exit animation
+  setTimeout(() => {
+    setFlyoutItemId(null)
+    setFlyoutAnchorEl(null)
+    setFlyoutExpandedIds([])
+  }, 80)
 }
 
 const startCloseFlyout = () => {
   clearCloseTimer()
-  closeTimerRef.current = setTimeout(() => {
-    setFlyoutItemId(null)
-    setFlyoutAnchorEl(null)
-    setFlyoutExpandedIds([])
-  }, 150)
+  closeTimerRef.current = setTimeout(closeFlyout, 150)
 }
 
 const handleRailMouseEnter = (item: MenuItem, el: HTMLElement) => {
@@ -820,9 +829,10 @@ const handleFlyoutMouseLeave = () => {
   startCloseFlyout()
 }
 
-// Reset flyout on navigation
+// Reset flyout on navigation (immediate — no fade on route change)
 // eslint-disable-next-line react-hooks/exhaustive-deps
 React.useEffect(() => {
+  setFlyoutOpen(false)
   setFlyoutItemId(null)
   setFlyoutAnchorEl(null)
   setFlyoutExpandedIds([])
@@ -967,12 +977,7 @@ const renderFlyoutItem = (item: MenuItem, level: number = 0): React.ReactNode =>
           if (item.path) {
             navigate(item.path)
             onItemClick?.()
-            // close flyout
-            setFlyoutItemId(null)
-            setFlyoutAnchorEl(null)
-            setFlyoutExpandedIds([])
-            clearOpenTimer()
-            clearCloseTimer()
+            closeFlyout()
           } else if (hasChildren) {
             setFlyoutExpandedIds(prev =>
               prev.includes(item.id)
@@ -1061,6 +1066,7 @@ Add just before the closing `</Box>` of the outer sidebar wrapper:
 
 ```tsx
 {/* Flyout Popper — collapsed mode parent items */}
+{/* flyoutAnchorEl kept mounted during exit animation so Fade can play; cleared after 80ms by closeFlyout */}
 {collapsed && flyoutAnchorEl && flyoutItemId && (() => {
   const flyoutItem = menuSections
     .flatMap(s => s.items)
@@ -1077,8 +1083,9 @@ Add just before the closing `</Box>` of the outer sidebar wrapper:
       modifiers={[{ name: 'offset', options: { offset: [0, 8] } }]}
       style={{ zIndex: 1400 }}
     >
-      <Fade in={Boolean(flyoutAnchorEl)} timeout={{ enter: 120, exit: 80 }}>
+      <Fade in={flyoutOpen} timeout={{ enter: 120, exit: 80 }}>
         <Paper
+          id={`flyout-panel-${flyoutItemId}`}
           onMouseEnter={handleFlyoutMouseEnter}
           onMouseLeave={handleFlyoutMouseLeave}
           sx={{
@@ -1190,7 +1197,7 @@ Note: This test is a smoke test — it passes in both implementations (since no 
 
 - [ ] **Step 3: Add keyboard interaction for collapsed mode flyout**
 
-In `Sidebar.tsx`, update the Case 1 `ListItemButton` to handle `Enter`/`Space` for keyboard users, and add a global `keydown` listener for `Escape`:
+In `Sidebar.tsx`, update the Case 1 `ListItemButton` to handle `Enter`/`Space` for keyboard users. After `openFlyout` is called, move focus to the first interactive item inside the flyout panel using a `setTimeout(0)` (deferred to after the render cycle):
 
 ```tsx
 // Add to the Case 1 ListItemButton (collapsed + hasChildren):
@@ -1198,26 +1205,45 @@ onKeyDown={(e) => {
   if (e.key === 'Enter' || e.key === ' ') {
     e.preventDefault()
     openFlyout(item.id, e.currentTarget)
+    // Move focus to first flyout item after render
+    setTimeout(() => {
+      const panel = document.getElementById(`flyout-panel-${item.id}`)
+      const first = panel?.querySelector<HTMLElement>('[role="button"]')
+      first?.focus()
+    }, 0)
   }
 }}
 ```
+
+Add `id={`flyout-panel-${flyoutItemId}`}` to the `<Paper>` element in the Popper JSX (Task 6 Step 5).
 
 Add a `useEffect` for `Escape` key (place it alongside the navigation-reset `useEffect`):
 ```tsx
 React.useEffect(() => {
   const handleKeyDown = (e: KeyboardEvent) => {
     if (e.key === 'Escape' && flyoutItemId) {
-      setFlyoutItemId(null)
-      setFlyoutAnchorEl(null)
-      setFlyoutExpandedIds([])
-      // Return focus to the triggering rail button
+      // Return focus to the triggering rail button before closing
       const trigger = document.getElementById(`rail-item-${flyoutItemId}`)
+      closeFlyout()
       trigger?.focus()
     }
   }
   document.addEventListener('keydown', handleKeyDown)
   return () => document.removeEventListener('keydown', handleKeyDown)
 }, [flyoutItemId])
+```
+
+Add a `closeFlyout` helper alongside the other flyout helpers (so both the Escape handler and `renderFlyoutItem` can call it):
+```tsx
+const closeFlyout = () => {
+  setFlyoutOpen(false)
+  // Defer state clear until after the exit animation (80ms)
+  setTimeout(() => {
+    setFlyoutItemId(null)
+    setFlyoutAnchorEl(null)
+    setFlyoutExpandedIds([])
+  }, 80)
+}
 ```
 
 - [ ] **Step 4: Write test for Escape key closing flyout**
