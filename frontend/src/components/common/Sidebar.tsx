@@ -832,7 +832,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           <ListItemIcon
             sx={{
               minWidth: 32,
-              color: isActive ? SIDEBAR_COLORS.activeText : SIDEBAR_COLORS.text,
+              color: isActive ? SIDEBAR_COLORS.activeIcon : SIDEBAR_COLORS.text,
               '& .MuiSvgIcon-root': { fontSize: '1.25rem' },
             }}
           >
@@ -945,7 +945,7 @@ const Sidebar: React.FC<SidebarProps> = ({
               <ListItemIcon
                 sx={{
                   minWidth: 0,
-                  color: isActive ? SIDEBAR_COLORS.activeText : SIDEBAR_COLORS.text,
+                  color: isActive ? SIDEBAR_COLORS.activeIcon : SIDEBAR_COLORS.text,
                   justifyContent: 'center',
                   '& .MuiSvgIcon-root': { fontSize: '1.25rem' },
                 }}
@@ -982,7 +982,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                 <ListItemIcon
                   sx={{
                     minWidth: 0,
-                    color: isActive ? SIDEBAR_COLORS.activeText : SIDEBAR_COLORS.text,
+                    color: isActive ? SIDEBAR_COLORS.activeIcon : SIDEBAR_COLORS.text,
                     justifyContent: 'center',
                     '& .MuiSvgIcon-root': { fontSize: '1.25rem' },
                   }}
@@ -1020,7 +1020,7 @@ const Sidebar: React.FC<SidebarProps> = ({
             <ListItemIcon
               sx={{
                 minWidth: 40,
-                color: isActive ? SIDEBAR_COLORS.activeText : SIDEBAR_COLORS.text,
+                color: isActive ? SIDEBAR_COLORS.activeIcon : SIDEBAR_COLORS.text,
                 '& .MuiSvgIcon-root': { fontSize: '1.25rem' },
               }}
             >
