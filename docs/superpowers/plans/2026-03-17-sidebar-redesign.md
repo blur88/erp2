@@ -795,7 +795,7 @@ const openFlyout = (itemId: string, anchorEl: HTMLElement) => {
   setFlyoutOpen(true)
 }
 
-const closeFlyout = () => {
+const closeFlyout = React.useCallback(() => {
   setFlyoutOpen(false)
   // Defer state clear until after the 80ms exit animation
   setTimeout(() => {
@@ -803,7 +803,7 @@ const closeFlyout = () => {
     setFlyoutAnchorEl(null)
     setFlyoutExpandedIds([])
   }, 80)
-}
+}, []) // stable: only calls state setters which are stable references
 
 const startCloseFlyout = () => {
   clearCloseTimer()
@@ -1083,6 +1083,9 @@ Add just before the closing `</Box>` of the outer sidebar wrapper:
       modifiers={[{ name: 'offset', options: { offset: [0, 8] } }]}
       style={{ zIndex: 1400 }}
     >
+      {/* IMPORTANT: open={Boolean(flyoutAnchorEl)} not open={flyoutOpen} — this keeps
+          the Popper mounted during the 80ms exit animation so Fade can play.
+          flyoutAnchorEl is cleared after 80ms by closeFlyout's setTimeout. */}
       <Fade in={flyoutOpen} timeout={{ enter: 120, exit: 80 }}>
         <Paper
           id={`flyout-panel-${flyoutItemId}`}
@@ -1230,20 +1233,13 @@ React.useEffect(() => {
   }
   document.addEventListener('keydown', handleKeyDown)
   return () => document.removeEventListener('keydown', handleKeyDown)
-}, [flyoutItemId])
+}, [flyoutItemId, closeFlyout])
 ```
 
-Add a `closeFlyout` helper alongside the other flyout helpers (so both the Escape handler and `renderFlyoutItem` can call it):
+The `closeFlyout` helper is already declared in Task 5 Step 3 — shown here for reference only, do not redeclare it:
 ```tsx
-const closeFlyout = () => {
-  setFlyoutOpen(false)
-  // Defer state clear until after the exit animation (80ms)
-  setTimeout(() => {
-    setFlyoutItemId(null)
-    setFlyoutAnchorEl(null)
-    setFlyoutExpandedIds([])
-  }, 80)
-}
+// Already declared in Task 5 — reference only:
+// const closeFlyout = () => { setFlyoutOpen(false); setTimeout(..., 80) }
 ```
 
 - [ ] **Step 4: Write test for Escape key closing flyout**
