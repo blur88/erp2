@@ -129,7 +129,7 @@ export const ProfitAndLossSection: React.FC<SectionProps> = ({ title, accounts, 
                 <TableRow
                   sx={{
                     backgroundColor: (theme) =>
-                      alpha(theme.palette[color].main, theme.palette.mode === 'dark' ? 0.24 : 0.1),
+                      alpha(theme.palette[color].main, 0.24),
                     '& td': {
                       borderTop: 2,
                       borderColor: `${color}.main`,
@@ -417,8 +417,7 @@ const ProfitAndLossPage: React.FC = () => {
                 variant="outlined"
                 sx={{
                   p: 2,
-                  backgroundColor: (theme) =>
-                    alpha(theme.palette.info.main, theme.palette.mode === 'dark' ? 0.25 : 0.12),
+                  backgroundColor: (theme) => alpha(theme.palette.info.main, 0.25),
                   borderColor: 'info.main',
                   borderWidth: 2,
                 }}
@@ -455,8 +454,7 @@ const ProfitAndLossPage: React.FC = () => {
                 variant="outlined"
                 sx={{
                   p: 2,
-                  backgroundColor: (theme) =>
-                    alpha(theme.palette.success.main, theme.palette.mode === 'dark' ? 0.25 : 0.12),
+                  backgroundColor: (theme) => alpha(theme.palette.success.main, 0.25),
                   borderColor: 'success.main',
                   borderWidth: 2,
                 }}

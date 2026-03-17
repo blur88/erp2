@@ -403,7 +403,7 @@ const AccountMappingsPage: React.FC = () => {
                 <TableRow sx={{
                   '& .MuiTableCell-head': {
                     fontWeight: 600,
-                    backgroundColor: theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'grey.50',
+                    backgroundColor: 'rgba(255, 255, 255, 0.05)',
                     py: 1
                   }
                 }}>
@@ -453,9 +453,7 @@ const AccountMappingsPage: React.FC = () => {
                           transition: 'background-color 0.2s ease',
                           height: TABLE_STYLES.row.height,
                           backgroundColor: !mapping
-                            ? theme.palette.mode === 'dark'
-                              ? 'rgba(255, 152, 0, 0.15)'
-                              : 'warning.light'
+                            ? 'rgba(255, 152, 0, 0.15)'
                             : 'inherit',
                           opacity: !mapping ? 0.85 : 1,
                         }}

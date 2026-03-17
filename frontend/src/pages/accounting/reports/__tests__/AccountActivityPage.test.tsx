@@ -18,8 +18,8 @@ vi.mock('@/store/api/accountingApi', () => ({
   useGetChartOfAccountsQuery: mockedApi.useGetChartOfAccountsQuery,
 }))
 
-const renderWithProviders = (mode: 'light' | 'dark' = 'light') => {
-  const theme = createTheme({ palette: { mode } })
+const renderWithProviders = () => {
+  const theme = createTheme({ palette: { mode: 'dark' } })
   return render(
     <ThemeProvider theme={theme}>
       <BrowserRouter>
@@ -118,7 +118,7 @@ describe('AccountActivityPage', () => {
       error: undefined,
     })
 
-    renderWithProviders('dark')
+    renderWithProviders()
     expect(screen.getByText('Entry Date').closest('th')).not.toHaveStyle({ backgroundColor: 'rgb(238, 238, 238)' })
   })
 

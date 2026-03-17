@@ -77,10 +77,10 @@ const getAccountTypeColor = (type: string): 'primary' | 'success' | 'warning' | 
   return 'primary';
 };
 
-export const getGeneralLedgerTone = (mode: 'light' | 'dark') => ({
-  surfaceSoft: mode === 'dark' ? 'rgba(255, 255, 255, 0.06)' : 'grey.50',
-  surfaceStrong: mode === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'grey.100',
-  tableHeader: mode === 'dark' ? 'rgba(255, 255, 255, 0.08)' : 'grey.200',
+export const getGeneralLedgerTone = () => ({
+  surfaceSoft: 'rgba(255, 255, 255, 0.06)',
+  surfaceStrong: 'rgba(255, 255, 255, 0.1)',
+  tableHeader: 'rgba(255, 255, 255, 0.08)',
 });
 
 export const getLedgerMetricCardSx = () => ({
@@ -102,7 +102,7 @@ export const getLedgerMetricCardSx = () => ({
 
 const GeneralLedgerPage: React.FC = () => {
   const theme = useTheme();
-  const tone = getGeneralLedgerTone(theme.palette.mode);
+  const tone = getGeneralLedgerTone();
   const [selectedAccount, setSelectedAccount] = useState<ChartOfAccount | null>(null);
   const [startDate, setStartDate] = useState<string>(getFirstDayOfMonth());
   const [endDate, setEndDate] = useState<string>(formatDateForInput(new Date()));
@@ -337,10 +337,7 @@ const GeneralLedgerPage: React.FC = () => {
                   variant="outlined"
                   sx={{
                     ...getLedgerMetricCardSx(),
-                    backgroundColor:
-                      theme.palette.mode === 'dark'
-                        ? alpha(theme.palette.primary.main, 0.2)
-                        : 'primary.light',
+                    backgroundColor: alpha(theme.palette.primary.main, 0.2),
                   }}
                 >
                   <CardContent>
@@ -602,10 +599,7 @@ const GeneralLedgerPage: React.FC = () => {
                     variant="outlined"
                     sx={{
                       ...getLedgerMetricCardSx(),
-                      backgroundColor:
-                        theme.palette.mode === 'dark'
-                          ? alpha(theme.palette.primary.main, 0.2)
-                          : 'primary.light',
+                      backgroundColor: alpha(theme.palette.primary.main, 0.2),
                       borderColor: 'primary.main',
                       borderWidth: 2,
                     }}

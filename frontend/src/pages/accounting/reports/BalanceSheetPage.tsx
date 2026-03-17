@@ -71,15 +71,15 @@ interface NormalizedBalanceAccount {
   balance: number;
 }
 
-export const getBalanceSheetTone = (mode: 'light' | 'dark') => ({
-  surfaceSoft: mode === 'dark' ? 'rgba(255, 255, 255, 0.06)' : 'grey.50',
-  surfaceStrong: mode === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'grey.100',
-  sectionAccent: mode === 'dark' ? 'rgba(255, 255, 255, 0.08)' : 'grey.100',
+export const getBalanceSheetTone = () => ({
+  surfaceSoft: 'rgba(255, 255, 255, 0.06)',
+  surfaceStrong: 'rgba(255, 255, 255, 0.1)',
+  sectionAccent: 'rgba(255, 255, 255, 0.08)',
 });
 
 const BalanceSheetSection: React.FC<SectionProps> = ({ title, accounts, subtotal, color = 'primary', netIncome }) => {
   const theme = useTheme();
-  const tone = getBalanceSheetTone(theme.palette.mode);
+  const tone = getBalanceSheetTone();
 
   // Filter out zero-balance accounts
   const nonZeroAccounts = accounts.filter((a) => a.balance !== 0);
@@ -252,7 +252,7 @@ const BalanceSheetSection: React.FC<SectionProps> = ({ title, accounts, subtotal
 
 const BalanceSheetPage: React.FC = () => {
   const theme = useTheme();
-  const tone = getBalanceSheetTone(theme.palette.mode);
+  const tone = getBalanceSheetTone();
   const [asOfDate, setAsOfDate] = useState<string>(formatDateForInput(new Date()));
   const [includeInactive, setIncludeInactive] = useState<boolean>(false);
   const [submitted, setSubmitted] = useState(false);
@@ -529,10 +529,7 @@ const BalanceSheetPage: React.FC = () => {
                     p: 2,
                     height: '100%',
                     flex: 1,
-                    backgroundColor:
-                      theme.palette.mode === 'dark'
-                        ? alpha(theme.palette.primary.main, 0.2)
-                        : theme.palette.primary.light,
+                    backgroundColor: alpha(theme.palette.primary.main, 0.2),
                     borderColor: 'primary.main',
                   }}
                 >
@@ -557,10 +554,7 @@ const BalanceSheetPage: React.FC = () => {
                     p: 2,
                     height: '100%',
                     flex: 1,
-                    backgroundColor:
-                      theme.palette.mode === 'dark'
-                        ? alpha(theme.palette.success.main, 0.2)
-                        : theme.palette.success.light,
+                    backgroundColor: alpha(theme.palette.success.main, 0.2),
                     borderColor: 'success.main',
                   }}
                 >
@@ -586,12 +580,8 @@ const BalanceSheetPage: React.FC = () => {
                     height: '100%',
                     flex: 1,
                     backgroundColor: isBalanced
-                      ? theme.palette.mode === 'dark'
-                        ? alpha(theme.palette.success.main, 0.2)
-                        : theme.palette.success.light
-                      : theme.palette.mode === 'dark'
-                        ? alpha(theme.palette.error.main, 0.2)
-                        : theme.palette.error.light,
+                      ? alpha(theme.palette.success.main, 0.2)
+                      : alpha(theme.palette.error.main, 0.2),
                     borderColor: isBalanced ? 'success.main' : 'error.main',
                   }}
                 >

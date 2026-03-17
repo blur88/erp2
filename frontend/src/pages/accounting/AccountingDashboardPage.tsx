@@ -91,14 +91,8 @@ const SummaryCard: React.FC<SummaryCardProps> = ({
                 width: 56,
                 height: 56,
                 borderRadius: 2,
-                bgcolor: (theme) =>
-                  theme.palette.mode === 'dark'
-                    ? alpha(theme.palette[color].main, 0.16)
-                    : theme.palette[color].light,
-                color: (theme) =>
-                  theme.palette.mode === 'dark'
-                    ? theme.palette[color].light
-                    : theme.palette[color].main,
+                bgcolor: (theme) => alpha(theme.palette[color].main, 0.16),
+                color: (theme) => theme.palette[color].light,
                 mr: 2,
               }}
             >

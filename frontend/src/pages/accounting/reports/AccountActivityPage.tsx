@@ -408,8 +408,7 @@ const AccountActivityPage: React.FC = () => {
               p: 3,
               borderBottom: 1,
               borderColor: 'divider',
-              backgroundColor: (theme) =>
-                theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.04)' : 'grey.50',
+              backgroundColor: 'rgba(255, 255, 255, 0.04)',
             }}
           >
             <Grid container spacing={2}>
@@ -476,8 +475,7 @@ const AccountActivityPage: React.FC = () => {
                       <TableCell
                         sx={{
                           fontWeight: 600,
-                          backgroundColor: (theme) =>
-                            theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.08)' : 'grey.200',
+                          backgroundColor: 'rgba(255, 255, 255, 0.08)',
                           width: '10%',
                         }}
                       >
@@ -486,8 +484,7 @@ const AccountActivityPage: React.FC = () => {
                       <TableCell
                         sx={{
                           fontWeight: 600,
-                          backgroundColor: (theme) =>
-                            theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.08)' : 'grey.200',
+                          backgroundColor: 'rgba(255, 255, 255, 0.08)',
                           width: '10%',
                         }}
                       >
@@ -496,8 +493,7 @@ const AccountActivityPage: React.FC = () => {
                       <TableCell
                         sx={{
                           fontWeight: 600,
-                          backgroundColor: (theme) =>
-                            theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.08)' : 'grey.200',
+                          backgroundColor: 'rgba(255, 255, 255, 0.08)',
                           width: '10%',
                         }}
                       >
@@ -506,8 +502,7 @@ const AccountActivityPage: React.FC = () => {
                       <TableCell
                         sx={{
                           fontWeight: 600,
-                          backgroundColor: (theme) =>
-                            theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.08)' : 'grey.200',
+                          backgroundColor: 'rgba(255, 255, 255, 0.08)',
                           width: '8%',
                         }}
                       >
@@ -516,8 +511,7 @@ const AccountActivityPage: React.FC = () => {
                       <TableCell
                         sx={{
                           fontWeight: 600,
-                          backgroundColor: (theme) =>
-                            theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.08)' : 'grey.200',
+                          backgroundColor: 'rgba(255, 255, 255, 0.08)',
                           width: '25%',
                         }}
                       >
@@ -527,8 +521,7 @@ const AccountActivityPage: React.FC = () => {
                         align="right"
                         sx={{
                           fontWeight: 600,
-                          backgroundColor: (theme) =>
-                            theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.08)' : 'grey.200',
+                          backgroundColor: 'rgba(255, 255, 255, 0.08)',
                           width: '12%',
                         }}
                       >
@@ -537,8 +530,7 @@ const AccountActivityPage: React.FC = () => {
                       <TableCell
                         sx={{
                           fontWeight: 600,
-                          backgroundColor: (theme) =>
-                            theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.08)' : 'grey.200',
+                          backgroundColor: 'rgba(255, 255, 255, 0.08)',
                           width: '15%',
                         }}
                       >
@@ -558,8 +550,7 @@ const AccountActivityPage: React.FC = () => {
                           hover
                           sx={{
                             '&:nth-of-type(odd)': {
-                              backgroundColor: (theme) =>
-                                theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.02)' : 'grey.50',
+                              backgroundColor: 'rgba(255, 255, 255, 0.02)',
                             },
                           }}
                         >
@@ -662,11 +653,10 @@ const AccountActivityPage: React.FC = () => {
           {entries.length > 0 && (
             <Box
               sx={{
-                p: 3,
-                borderTop: 2,
-                borderColor: 'divider',
-                backgroundColor: (theme) =>
-                  theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.04)' : 'grey.50',
+              p: 3,
+              borderTop: 2,
+              borderColor: 'divider',
+              backgroundColor: 'rgba(255, 255, 255, 0.04)',
               }}
             >
               <Grid container spacing={2}>
@@ -693,8 +683,7 @@ const AccountActivityPage: React.FC = () => {
                     variant="outlined"
                     sx={{
                       ...getAccountActivityMetricCardSx(),
-                      backgroundColor: (theme) =>
-                        theme.palette.mode === 'dark' ? 'rgba(33, 150, 243, 0.16)' : 'primary.light',
+                      backgroundColor: 'rgba(33, 150, 243, 0.16)',
                       borderColor: 'primary.main',
                       borderWidth: 2,
                     }}
@@ -746,8 +735,7 @@ const AccountActivityPage: React.FC = () => {
               alignItems: 'center',
               borderTop: 1,
               borderColor: 'divider',
-              backgroundColor: (theme) =>
-                theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.06)' : 'grey.100',
+              backgroundColor: 'rgba(255, 255, 255, 0.06)',
             }}
           >
             <Typography variant="body2" color="text.secondary">
