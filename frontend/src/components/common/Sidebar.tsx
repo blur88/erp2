@@ -873,7 +873,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         </ListItemButton>
 
         {hasChildren && (
-          <Collapse in={isExpanded} timeout="auto" unmountOnExit>
+          <Collapse in={isExpanded} timeout={200} unmountOnExit>
             <List component="div" disablePadding>
               {item.children?.map(child => renderFlyoutItem(child, level + 1))}
             </List>
@@ -1086,7 +1086,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           </ListItemButton>
         </ListItem>
 
-        <Collapse in={isExpanded} timeout="auto" unmountOnExit>
+        <Collapse in={isExpanded} timeout={200} unmountOnExit>
           <List component="div" disablePadding>
             {item.children?.map(child => renderMenuItem(child, level + 1))}
           </List>
