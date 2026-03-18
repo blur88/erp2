@@ -92,6 +92,7 @@ interface MenuItem {
   icon: React.ReactNode
   path?: string
   badge?: number | string
+  group?: string
   children?: MenuItem[]
 }
 
@@ -497,66 +498,77 @@ const menuSections: MenuSection[] = [
             id: 'company-settings',
             title: 'Company',
             icon: <CompanyIcon />,
+            group: 'Business',
             path: '/settings/company',
           },
           {
             id: 'price-costing-settings',
             title: 'Inventory Costing',
             icon: <PriceCostingIcon />,
+            group: 'Business',
             path: '/settings/price-costing',
           },
           {
             id: 'regional-settings',
             title: 'Regional',
             icon: <RegionalIcon />,
+            group: 'Business',
             path: '/settings/regional',
           },
           {
             id: 'price-lists',
             title: 'Price Lists',
             icon: <PriceTagIcon />,
+            group: 'Business',
             path: '/settings/price-lists',
           },
           {
             id: 'payment-methods',
             title: 'Payment Methods',
             icon: <PaymentsIcon />,
+            group: 'Business',
             path: '/settings/payment-methods',
           },
           {
             id: 'print-settings',
             title: 'Print Settings',
             icon: <PrintIcon />,
+            group: 'Business',
             path: '/settings/print',
           },
           {
             id: 'document-numbers',
             title: 'Document Numbers',
             icon: <DocumentNumberIcon />,
+            group: 'Business',
             path: '/settings/document-numbers',
           },
           {
             id: 'users',
             title: 'Users',
             icon: <PeopleIcon />,
+            group: 'Access',
             path: '/settings/users',
           },
           {
             id: 'roles',
             title: 'Roles & Permissions',
             icon: <SecurityIcon />,
+            group: 'Access',
             path: '/settings/roles',
           },
           {
             id: 'security',
             title: 'Security',
             icon: <LockIcon />,
+            group: 'Access',
             path: '/settings/security',
           },
           {
             id: 'backup-restore',
             title: 'Backup & Restore',
             icon: <BackupIcon />,
+            group: 'System',
             path: '/settings/backup',
           },
         ],
@@ -884,6 +896,26 @@ const Sidebar: React.FC<SidebarProps> = ({
     )
   }
 
+  const renderGroupLabel = (label: string) => (
+    <Typography
+      key={`group-${label}`}
+      variant="caption"
+      sx={{
+        display: 'block',
+        px: 2,
+        pt: 1.5,
+        pb: 0.5,
+        color: SIDEBAR_COLORS.sectionLabel,
+        fontWeight: 600,
+        fontSize: '0.6875rem',
+        textTransform: 'uppercase',
+        letterSpacing: '0.08em',
+      }}
+    >
+      {label}
+    </Typography>
+  )
+
   const renderMenuItem = (item: MenuItem, level: number = 0) => {
     const isActive = isItemActive(item)
     const isExpanded = expandedItems.includes(item.id)
@@ -1089,7 +1121,14 @@ const Sidebar: React.FC<SidebarProps> = ({
 
         <Collapse in={isExpanded} timeout={200} unmountOnExit>
           <List component="div" disablePadding>
-            {item.children?.map(child => renderMenuItem(child, level + 1))}
+            {item.children?.map((child, idx, arr) => (
+              <React.Fragment key={child.id}>
+                {child.group && (idx === 0 || child.group !== arr[idx - 1].group)
+                  ? renderGroupLabel(child.group)
+                  : null}
+                {renderMenuItem(child, level + 1)}
+              </React.Fragment>
+            ))}
           </List>
         </Collapse>
       </React.Fragment>

@@ -93,6 +93,23 @@ describe('Sidebar', () => {
     })
   })
 
+  it('renders group labels inside Settings accordion when expanded', async () => {
+    render(
+      <MemoryRouter initialEntries={['/dashboard']}>
+        <Sidebar collapsed={false} />
+      </MemoryRouter>
+    )
+
+    const settingsButton = screen.getByRole('button', { name: 'Settings' })
+    fireEvent.click(settingsButton)
+
+    await waitFor(() => {
+      expect(screen.getByText('Business')).toBeInTheDocument()
+      expect(screen.getByText('Access')).toBeInTheDocument()
+      expect(screen.getAllByText('System').length).toBeGreaterThan(1)
+    })
+  })
+
   it('renders sales, purchasing, and inventory directly under reports section', () => {
     render(
       <MemoryRouter initialEntries={['/dashboard']}>
