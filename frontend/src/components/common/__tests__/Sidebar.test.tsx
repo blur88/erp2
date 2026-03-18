@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import Sidebar from '../Sidebar'
@@ -27,6 +27,11 @@ describe('Sidebar', () => {
   beforeEach(() => {
     localStorage.clear()
   })
+
+  const getSectionList = (sectionTitle: string) => {
+    const sectionHeader = screen.getByText(sectionTitle, { selector: '.MuiTypography-overline' })
+    return sectionHeader.nextElementSibling as HTMLElement
+  }
 
   it('collapses expanded groups when navigating to a route without a parent group', async () => {
     render(
@@ -57,9 +62,9 @@ describe('Sidebar', () => {
 
     expect(sectionHeaders).toContain('Operations')
     expect(sectionHeaders).toContain('Accounting')
-    expect(sectionHeaders).toContain('Analytics')
+    expect(sectionHeaders).toContain('Reports')
     expect(sectionHeaders.indexOf('Operations')).toBeLessThan(sectionHeaders.indexOf('Accounting'))
-    expect(sectionHeaders.indexOf('Accounting')).toBeLessThan(sectionHeaders.indexOf('Analytics'))
+    expect(sectionHeaders.indexOf('Accounting')).toBeLessThan(sectionHeaders.indexOf('Reports'))
   })
 
   it('applies the updated section label padding', () => {
@@ -77,21 +82,18 @@ describe('Sidebar', () => {
     })
   })
 
-  it('renders reports as a parent group in analytics section', async () => {
+  it('renders sales, purchasing, and inventory directly under reports section', () => {
     render(
       <MemoryRouter initialEntries={['/dashboard']}>
         <Sidebar />
       </MemoryRouter>
     )
 
-    expect(screen.getByRole('button', { name: 'Reports' })).toBeInTheDocument()
-    expect(screen.queryByText('Sales Reports')).not.toBeInTheDocument()
+    const reportsList = getSectionList('Reports')
 
-    fireEvent.click(screen.getByRole('button', { name: 'Reports' }))
-
-    await waitFor(() => {
-      expect(screen.getByText('Sales Reports')).toBeInTheDocument()
-    })
+    expect(within(reportsList).getByRole('button', { name: 'Sales' })).toBeInTheDocument()
+    expect(within(reportsList).getByRole('button', { name: 'Purchasing' })).toBeInTheDocument()
+    expect(within(reportsList).getByRole('button', { name: 'Inventory' })).toBeInTheDocument()
   })
 
   it('renders accounting reports as a parent group after accounting', async () => {
@@ -102,7 +104,7 @@ describe('Sidebar', () => {
     )
 
     const accountingButton = screen.getByRole('button', { name: 'Accounting' })
-    const accountingReportsButton = screen.getByRole('button', { name: 'Accounting Reports' })
+    const accountingReportsButton = screen.getByRole('button', { name: 'Reports' })
 
     expect(
       accountingButton.compareDocumentPosition(accountingReportsButton) &
@@ -179,7 +181,7 @@ describe('Sidebar', () => {
       </MemoryRouter>
     )
 
-    const salesButton = screen.getByRole('button', { name: 'Sales' })
+    const salesButton = document.getElementById('rail-item-sales') as HTMLElement
     fireEvent.mouseEnter(salesButton)
 
     await waitFor(() => {
@@ -197,7 +199,7 @@ describe('Sidebar', () => {
         </MemoryRouter>
       )
 
-      const salesButton = screen.getByRole('button', { name: 'Sales' })
+      const salesButton = document.getElementById('rail-item-sales') as HTMLElement
       fireEvent.mouseEnter(salesButton)
 
       await act(async () => {
@@ -225,7 +227,7 @@ describe('Sidebar', () => {
       </MemoryRouter>
     )
 
-    const salesButton = screen.getByRole('button', { name: 'Sales' })
+    const salesButton = document.getElementById('rail-item-sales') as HTMLElement
     fireEvent.mouseEnter(salesButton)
 
     await waitFor(() => {
@@ -246,7 +248,7 @@ describe('Sidebar', () => {
       </MemoryRouter>
     )
 
-    const salesButton = screen.getByRole('button', { name: 'Sales' })
+    const salesButton = document.getElementById('rail-item-sales') as HTMLElement
     expect(salesButton).toBeInTheDocument()
     expect(screen.queryByText('Sales')).not.toBeInTheDocument()
   })
@@ -258,7 +260,8 @@ describe('Sidebar', () => {
       </MemoryRouter>
     )
 
-    const salesButton = screen.getByRole('button', { name: 'Sales' })
+    const operationsList = getSectionList('Operations')
+    const salesButton = within(operationsList).getByRole('button', { name: 'Sales' })
     fireEvent.mouseEnter(salesButton)
     fireEvent.mouseLeave(salesButton)
 
@@ -272,7 +275,7 @@ describe('Sidebar', () => {
       </MemoryRouter>
     )
 
-    const salesButton = screen.getByRole('button', { name: 'Sales' })
+    const salesButton = document.getElementById('rail-item-sales') as HTMLElement
     fireEvent.mouseEnter(salesButton)
 
     await waitFor(() => {
