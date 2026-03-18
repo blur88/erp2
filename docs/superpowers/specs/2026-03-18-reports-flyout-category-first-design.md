@@ -39,7 +39,7 @@ In collapsed mode, hovering Reports opens a compact flyout that shows only the 4
 - Routing and menu data structure (paths, ids, groups, titles)
 - Hover-to-open / close timer logic
 - Escape key and mouse-leave close behavior
-- `flyoutExpandedIds` state (retained for any future multi-level flyouts; currently unused in practice since Settings children are all flat leaf nodes)
+- `flyoutExpandedIds` state — retained because it is structurally wired into `renderFlyoutItem` (used at lines 798 and 810 for any flyout item that has nested children). After this change, no current flyout item has nested children, so it is dormant but not dead code. Remove it only if confirmed nothing uses it after the change; otherwise keep it.
 
 ---
 
@@ -121,7 +121,7 @@ For each unique group in `flyoutItem.children` (in order of first appearance):
    - Label: group display name (e.g. "Sales")
    - Right-side chevron: rotated down when expanded
    - `onClick`: toggle `flyoutExpandedGroup`
-   - `selected` styling driven independently by `location.pathname` — a category header is `selected` when any of its children's `path` values match the current route (i.e. `children.some(c => c.path && location.pathname.startsWith(c.path))`). This is separate from `flyoutExpandedGroup`: a user can expand a non-active category without it becoming `selected`, and the active category header stays `selected` even when collapsed.
+   - `selected` styling: a category header is `selected` when any of its children is active, determined via the existing `isItemActive` helper — i.e. `groupChildren.some(child => isItemActive(child))`. This is independent of `flyoutExpandedGroup`: a user can expand a non-active category without it becoming `selected`, and the active category header stays `selected` even when collapsed. Use `isItemActive` (which uses exact `===` path matching) rather than duplicating pathname logic inline.
    - **`data-flyout-first="true"`** on the first category header (i.e. the one at index 0). This attribute is used by the existing keyboard handler in `renderMenuItem` to move focus into the flyout when the user presses Enter/Space on the collapsed Reports rail icon. Without it, keyboard users can open the flyout but focus will not move into it.
 
 2. If `flyoutExpandedGroup === slug`:
@@ -163,20 +163,15 @@ The `maxHeight` + `overflowY` are a safeguard for the category-first view and an
 
 When `openFlyout` is called for the Reports item, determine the active group by matching `location.pathname` against each child's path. Use an **exact segment match** rather than a bare `startsWith` to avoid the Accounting path collision: Accounting reports live under `/accounting/reports/...` while the Accounting module (journal entries, chart of accounts, etc.) lives under `/accounting/...`. A bare `startsWith('/accounting/')` would spuriously match non-report pages.
 
-Preferred approach — match on a child path that is itself a report route:
+Use `isItemActive` (exact `===` match) for consistency with the rest of the sidebar:
 
 ```ts
-const activeChild = flyoutItem.children?.find(
-  child => child.path && location.pathname.startsWith(child.path)
-)
-// child.path values are specific leaf paths like '/accounting/reports/trial-balance',
-// so startsWith is safe here because no two children share a prefix with each other.
+const activeChild = flyoutItem.children?.find(child => isItemActive(child))
 const activeGroup = activeChild?.group?.toLowerCase() ?? null
-
 setFlyoutExpandedGroup(activeGroup)
 ```
 
-Because every child has a distinct, specific `path` (e.g. `/reports/sales/product-summary`, `/accounting/reports/trial-balance`), `startsWith(child.path)` only matches that exact report. There is no ambiguity between report children — the collision risk was with using a module-level prefix, not a leaf-level path. The implementer should use the child path values directly, not derive prefixes from group names.
+`isItemActive` uses `location.pathname === item.path` for leaf nodes, which is exact and safe. Prefer this over `startsWith` unless report detail subroutes are intentionally added later.
 
 If the user is not on any report route, `flyoutExpandedGroup` starts as `null` (all categories collapsed).
 
@@ -203,6 +198,7 @@ The following new test cases should be added to the Sidebar test file:
 5. **Leaf navigation** — clicking a report item calls navigate and closes the flyout
 6. **Auto-expand** — when `location.pathname` is a Sales report path, opening the Reports flyout shows Sales expanded by default
 7. **Keyboard focus** — pressing Enter on the rail Reports button with `collapsed={true}` moves focus to the first category header (`data-flyout-first`)
+8. **Non-Reports flyout unchanged** — collapsed Settings flyout still renders the existing flat list, not the category-first view
 
 ---
 
@@ -214,7 +210,7 @@ The following new test cases should be added to the Sidebar test file:
 - [ ] Clicking the active category collapses it
 - [ ] Clicking a report item navigates and closes the flyout
 - [ ] If the user is on a report page, that category auto-expands on flyout open
-- [ ] Flyout Paper is `280px` wide and viewport-bounded with scroll fallback
+- [ ] Flyout Paper uses widened bounds (`minWidth: 240`, `maxWidth: 280`) and is viewport-bounded with scroll fallback
 - [ ] Escape and mouse-leave close behavior is unchanged
 - [ ] Expanded sidebar is unchanged
 - [ ] Settings flyout and other flyouts are unchanged
