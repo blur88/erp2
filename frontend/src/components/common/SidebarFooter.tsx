@@ -133,6 +133,7 @@ const SidebarFooter: React.FC<SidebarFooterProps> = ({ collapsed }) => {
         sx={{
           px: 2,
           py: 1.5,
+          transition: 'background-color 0.15s ease',
           '&:hover': {
             bgcolor: COLORS.hoverBg,
             '& svg': { color: COLORS.hoverText },
@@ -153,7 +154,7 @@ const SidebarFooter: React.FC<SidebarFooterProps> = ({ collapsed }) => {
         <Box sx={{ ml: 1.5, flex: 1, minWidth: 0 }}>
           <Typography
             noWrap
-            sx={{ color: COLORS.activeText, fontSize: '0.875rem', lineHeight: 1.3 }}
+            sx={{ color: COLORS.activeText, fontSize: '0.875rem', lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis' }}
           >
             {username}
           </Typography>
@@ -162,7 +163,7 @@ const SidebarFooter: React.FC<SidebarFooterProps> = ({ collapsed }) => {
               color: COLORS.sectionLabel,
               fontSize: '0.7rem',
               lineHeight: 1.2,
-              mt: '2px',
+              mt: '4px',
             }}
           >
             v{version}
