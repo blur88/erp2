@@ -9,12 +9,14 @@ import {
 } from '@mui/material'
 import { Logout as LogoutIcon } from '@mui/icons-material'
 import { useDispatch, useSelector } from 'react-redux'
+import { useNavigate } from 'react-router-dom'
 import {
   logout,
   selectCurrentUser,
   selectRefreshToken,
 } from '@/store/slices/authSlice'
 import type { AppDispatch } from '@/store'
+import { persistor } from '@/store'
 
 const COLORS = {
   border: '#1F2937',
@@ -31,6 +33,7 @@ interface SidebarFooterProps {
 
 const SidebarFooter: React.FC<SidebarFooterProps> = ({ collapsed }) => {
   const dispatch = useDispatch<AppDispatch>()
+  const navigate = useNavigate()
   const user = useSelector(selectCurrentUser)
   const refreshToken = useSelector(selectRefreshToken)
 
@@ -40,10 +43,12 @@ const SidebarFooter: React.FC<SidebarFooterProps> = ({ collapsed }) => {
   const initials = ((firstName?.[0] ?? '') + (lastName?.[0] ?? '') || username?.[0] || 'U').toUpperCase()
   const version = __APP_VERSION__ || '0.0.0'
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     if (refreshToken) {
-      dispatch(logout(refreshToken))
+      await dispatch(logout(refreshToken))
     }
+    await persistor.purge()
+    navigate('/login')
   }
 
   if (collapsed) {

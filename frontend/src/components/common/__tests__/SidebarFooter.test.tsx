@@ -1,5 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import { Provider } from 'react-redux'
+import { MemoryRouter } from 'react-router-dom'
 import { configureStore } from '@reduxjs/toolkit'
 import { describe, expect, it, vi } from 'vitest'
 import SidebarFooter from '../SidebarFooter'
@@ -40,7 +41,9 @@ const renderFooter = (props = {}, authOverrides = {}) => {
   const store = makeStore(authOverrides)
   return render(
     <Provider store={store}>
-      <SidebarFooter collapsed={false} {...props} />
+      <MemoryRouter>
+        <SidebarFooter collapsed={false} {...props} />
+      </MemoryRouter>
     </Provider>
   )
 }
@@ -101,7 +104,9 @@ describe('SidebarFooter', () => {
     const dispatchSpy = vi.spyOn(store, 'dispatch')
     render(
       <Provider store={store}>
-        <SidebarFooter collapsed={false} />
+        <MemoryRouter>
+          <SidebarFooter collapsed={false} />
+        </MemoryRouter>
       </Provider>
     )
     fireEvent.click(screen.getByRole('button', { name: /logout jdoe/i }))
@@ -113,7 +118,9 @@ describe('SidebarFooter', () => {
     const dispatchSpy = vi.spyOn(store, 'dispatch')
     render(
       <Provider store={store}>
-        <SidebarFooter collapsed={true} />
+        <MemoryRouter>
+          <SidebarFooter collapsed={true} />
+        </MemoryRouter>
       </Provider>
     )
     fireEvent.click(screen.getByRole('button', { name: /logout/i }))
