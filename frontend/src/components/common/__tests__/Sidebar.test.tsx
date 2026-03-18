@@ -60,7 +60,7 @@ describe('Sidebar', () => {
     })
   })
 
-  it('renders accounting as its own top-level section', () => {
+  it('renders Finance and Insights as top-level sections in correct order', () => {
     render(
       <MemoryRouter initialEntries={['/dashboard']}>
         <Sidebar />
@@ -72,10 +72,14 @@ describe('Sidebar', () => {
     )
 
     expect(sectionHeaders).toContain('Operations')
-    expect(sectionHeaders).toContain('Accounting')
-    expect(sectionHeaders).toContain('Reports')
-    expect(sectionHeaders.indexOf('Operations')).toBeLessThan(sectionHeaders.indexOf('Accounting'))
-    expect(sectionHeaders.indexOf('Accounting')).toBeLessThan(sectionHeaders.indexOf('Reports'))
+    expect(sectionHeaders).toContain('Finance')
+    expect(sectionHeaders).toContain('Insights')
+    expect(sectionHeaders).toContain('Administration')
+    expect(sectionHeaders.indexOf('Operations')).toBeLessThan(sectionHeaders.indexOf('Finance'))
+    expect(sectionHeaders.indexOf('Finance')).toBeLessThan(sectionHeaders.indexOf('Insights'))
+    expect(sectionHeaders.indexOf('Insights')).toBeLessThan(
+      sectionHeaders.indexOf('Administration')
+    )
   })
 
   it('applies the updated section label padding', () => {
@@ -93,37 +97,57 @@ describe('Sidebar', () => {
     })
   })
 
-  it('renders sales, purchasing, and inventory directly under reports section', () => {
+  it('renders group labels inside Settings accordion when expanded', async () => {
     render(
       <MemoryRouter initialEntries={['/dashboard']}>
-        <Sidebar />
+        <Sidebar collapsed={false} />
       </MemoryRouter>
     )
 
-    const reportsList = getSectionList('Reports')
+    const settingsButton = screen.getByRole('button', { name: 'Settings' })
+    fireEvent.click(settingsButton)
 
-    expect(within(reportsList).getByRole('button', { name: 'Sales' })).toBeInTheDocument()
-    expect(within(reportsList).getByRole('button', { name: 'Purchasing' })).toBeInTheDocument()
-    expect(within(reportsList).getByRole('button', { name: 'Inventory' })).toBeInTheDocument()
+    await waitFor(() => {
+      expect(screen.getByText('Business')).toBeInTheDocument()
+      expect(screen.getByText('Access')).toBeInTheDocument()
+      expect(screen.getByText('System')).toBeInTheDocument()
+    })
   })
 
-  it('renders accounting reports as a parent group after accounting', async () => {
+  it('renders Reports accordion button under Insights section', async () => {
     render(
       <MemoryRouter initialEntries={['/dashboard']}>
         <Sidebar />
       </MemoryRouter>
     )
 
-    const accountingButton = screen.getByRole('button', { name: 'Accounting' })
-    const accountingReportsButton = screen.getByRole('button', { name: 'Reports' })
+    const insightsList = getSectionList('Insights')
+    const reportsButton = within(insightsList).getByRole('button', { name: 'Reports' })
+    expect(reportsButton).toBeInTheDocument()
 
-    expect(
-      accountingButton.compareDocumentPosition(accountingReportsButton) &
-        Node.DOCUMENT_POSITION_FOLLOWING
-    ).toBeTruthy()
+    fireEvent.click(reportsButton)
+
+    await waitFor(() => {
+      expect(within(insightsList).getAllByText('Sales').length).toBeGreaterThan(0)
+      expect(within(insightsList).getAllByText('Purchasing').length).toBeGreaterThan(0)
+      expect(within(insightsList).getAllByText('Inventory').length).toBeGreaterThan(0)
+      expect(within(insightsList).getAllByText('Accounting').length).toBeGreaterThan(0)
+    })
+  })
+
+  it('Trial Balance is accessible by expanding Reports under Insights', async () => {
+    render(
+      <MemoryRouter initialEntries={['/dashboard']}>
+        <Sidebar />
+      </MemoryRouter>
+    )
 
     expect(screen.queryByText('Trial Balance')).not.toBeInTheDocument()
-    fireEvent.click(accountingReportsButton)
+
+    const insightsList = getSectionList('Insights')
+    const reportsButton = within(insightsList).getByRole('button', { name: 'Reports' })
+    fireEvent.click(reportsButton)
+
     await waitFor(() => {
       expect(screen.getByText('Trial Balance')).toBeInTheDocument()
     })
@@ -197,6 +221,21 @@ describe('Sidebar', () => {
 
     await waitFor(() => {
       expect(screen.getByText('Customers')).toBeInTheDocument()
+    }, { timeout: 500 })
+  })
+
+  it('renders group labels inside Settings flyout in collapsed mode', async () => {
+    render(
+      <MemoryRouter initialEntries={['/dashboard']}>
+        <Sidebar collapsed={true} />
+      </MemoryRouter>
+    )
+
+    const settingsButton = document.getElementById('rail-item-settings') as HTMLElement
+    fireEvent.mouseEnter(settingsButton)
+
+    await waitFor(() => {
+      expect(screen.getByText('Business')).toBeInTheDocument()
     }, { timeout: 500 })
   })
 
