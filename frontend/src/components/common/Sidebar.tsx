@@ -1243,15 +1243,12 @@ const Sidebar: React.FC<SidebarProps> = ({
       <Box sx={{ flexGrow: 1, overflow: 'auto', py: 1 }}>
         {getFilteredMenuSections().map((section, index) => (
           <React.Fragment key={section.id}>
-            {index > 0 && (
+            {index > 0 && section.id === 'administration' && (
               <Divider
                 sx={{
                   my: collapsed ? 1 : 0.5,
                   borderColor: SIDEBAR_COLORS.border,
-                  display:
-                    collapsed && !['insights', 'administration'].includes(section.id)
-                      ? 'none'
-                      : 'block',
+                  display: collapsed && section.id !== 'administration' ? 'none' : 'block',
                 }}
               />
             )}
@@ -1273,7 +1270,7 @@ const Sidebar: React.FC<SidebarProps> = ({
               </Typography>
             )}
 
-            {collapsed && index > 0 && ['insights', 'administration'].includes(section.id) && (
+            {collapsed && index > 0 && section.id === 'administration' && (
               <Box sx={{ pt: 1 }} />
             )}
 
