@@ -1,3 +1,20 @@
+# [1.12.0](https://github.com/blur88/erp2/compare/v1.11.0...v1.12.0) (2026-03-18)
+
+
+### Bug Fixes
+
+* complete logout flow — purge persist and navigate to /login ([c7ade80](https://github.com/blur88/erp2/commit/c7ade80dd6b151026a3c006b0b7e30ddc73ce27b))
+* improve accessibility of SidebarFooter ([3cd0ac4](https://github.com/blur88/erp2/commit/3cd0ac4c9e3d220c5f47bb0aeb3491757c0be351))
+* use authenticated api instance for logout request ([a57ce76](https://github.com/blur88/erp2/commit/a57ce76603244ec9ef3c88dd1971bd6de3710246))
+
+
+### Features
+
+* add logout confirmation dialog in SidebarFooter ([fa52f38](https://github.com/blur88/erp2/commit/fa52f3857949428f46531bd6ec8064d0c49dc224))
+* add SidebarFooter component with user info, logout, and version ([6488e98](https://github.com/blur88/erp2/commit/6488e98f97e25faee5e50a96ab8c82726c0149e6))
+* inject __APP_VERSION__ at build time via Vite define ([03cfc73](https://github.com/blur88/erp2/commit/03cfc738c411ab4b57eece335a5937019d5a9be2))
+* wire SidebarFooter into Sidebar layout ([d6d95b0](https://github.com/blur88/erp2/commit/d6d95b0a5d4edec6c4ee22a34aa17f0525447ad1))
+
 # [1.11.0](https://github.com/blur88/erp2/compare/v1.10.0...v1.11.0) (2026-03-18)
 
 
