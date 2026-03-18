@@ -72,6 +72,7 @@ import {
   ChevronLeft,
   ChevronRight,
 } from '@mui/icons-material'
+import { useGetCompanySettingsQuery } from '@/store/api/settingsApi'
 
 interface SidebarProps {
   onItemClick?: () => void
@@ -577,10 +578,12 @@ const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const location = useLocation()
   const navigate = useNavigate()
+  const { data: company } = useGetCompanySettingsQuery()
   const [expandedItems, setExpandedItems] = React.useState<string[]>(() => {
     const stored = localStorage.getItem('sidebar-expanded')
     return stored ? JSON.parse(stored) : []
   })
+  const [imageError, setImageError] = React.useState(false)
 
   useEffect(() => {
     const currentPath = location.pathname
@@ -750,6 +753,10 @@ const Sidebar: React.FC<SidebarProps> = ({
       if (clearFlyoutStateTimerRef.current) clearTimeout(clearFlyoutStateTimerRef.current)
     }
   }, [])
+
+  React.useEffect(() => {
+    setImageError(false)
+  }, [company?.logoUrl])
 
   React.useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -1111,25 +1118,55 @@ const Sidebar: React.FC<SidebarProps> = ({
               width: 36,
               height: 36,
               borderRadius: 1,
-              bgcolor: 'primary.main',
+              flexShrink: 0,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              color: 'white',
-              fontWeight: 'bold',
-              fontSize: '0.875rem',
-              flexShrink: 0,
+              overflow: 'hidden',
+              ...(company?.logoUrl && !imageError
+                ? { bgcolor: 'rgba(255,255,255,0.04)' }
+                : {
+                    bgcolor: 'primary.main',
+                    color: 'white',
+                    fontWeight: 'bold',
+                    fontSize: '0.875rem',
+                  }),
             }}
           >
-            ERP
+            {company?.logoUrl && !imageError ? (
+              <img
+                src={company.logoUrl}
+                alt={company.name ?? 'Company logo'}
+                onError={() => setImageError(true)}
+                style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+              />
+            ) : (
+              'ERP'
+            )}
           </Box>
           {!collapsed && (
-            <Typography
-              variant="h6"
-              sx={{ fontWeight: 600, color: SIDEBAR_COLORS.activeText, whiteSpace: 'nowrap' }}
-            >
-              ERP System
-            </Typography>
+            <Box sx={{ minWidth: 0 }}>
+              <Typography
+                variant="h6"
+                sx={{
+                  fontWeight: 600,
+                  color: SIDEBAR_COLORS.activeText,
+                  whiteSpace: 'nowrap',
+                  lineHeight: 1.2,
+                }}
+              >
+                ERP System
+              </Typography>
+              {company?.name && (
+                <Typography
+                  variant="caption"
+                  noWrap
+                  sx={{ color: SIDEBAR_COLORS.text, display: 'block', lineHeight: 1.2 }}
+                >
+                  {company.name}
+                </Typography>
+              )}
+            </Box>
           )}
         </Box>
 
