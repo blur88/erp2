@@ -29,6 +29,10 @@ vi.mock('react-transition-group', async () => {
   }
 })
 
+vi.mock('../SidebarFooter', () => ({
+  default: () => null,
+}))
+
 describe('Sidebar', () => {
   beforeEach(() => {
     localStorage.clear()
