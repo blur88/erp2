@@ -31,6 +31,8 @@ All state is read from Redux internally:
 
 The component owns its own auth concerns; nothing is passed down from `Sidebar.tsx` beyond layout mode.
 
+If `user` is null (e.g., during an auth transition), render nothing (`return null`). The sidebar will unmount shortly after logout clears the auth state, so no special handling is needed.
+
 ### Changes to `Sidebar.tsx`
 
 Import and render `<SidebarFooter collapsed={collapsed} />` immediately after the scrollable menu container. The existing root `<Box>` already uses `display: 'flex', flexDirection: 'column', height: '100%'`. The scrollable menu `<Box>` at line ~1254 already has `flexGrow: 1, overflow: 'auto'` — no change is needed to that box; the footer will be bottom-anchored automatically.
@@ -83,7 +85,7 @@ declare const __APP_VERSION__: string
 
 **Usage in footer:**
 ```ts
-const version = __APP_VERSION__
+const version = __APP_VERSION__ || '0.0.0'
 // displayed as `v${version}`
 ```
 
@@ -103,7 +105,7 @@ const version = __APP_VERSION__
 └─────────────────────────────────┘
 ```
 
-Full row is a `ListItemButton` that triggers logout on click. Logout icon on the right is decorative affordance only (tooltip: "Logout").
+Full row is a `ListItemButton` that triggers logout on click. Logout icon is a visual affordance; click behavior is handled by the parent `ListItemButton`. Tooltip on the icon in expanded mode is optional but kept for consistency with collapsed mode.
 
 ### Collapsed mode
 
@@ -118,6 +120,8 @@ Full row is a `ListItemButton` that triggers logout on click. Logout icon on the
 Version is hidden in collapsed mode. Avatar has no click action (cursor: default).
 
 In collapsed mode, the logout icon is rendered as an `IconButton` (not a plain `Box`) to get keyboard accessibility and correct ARIA semantics for free. Size the `IconButton` to `40×40px` to match sidebar item height.
+
+**Accessibility:** The logout `IconButton` must include `aria-label="Logout"`. The avatar tooltip provides the username in collapsed mode, satisfying accessibility for identity display.
 
 ---
 
