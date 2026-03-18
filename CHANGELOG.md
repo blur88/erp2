@@ -1,3 +1,10 @@
+# [1.7.0](https://github.com/blur88/erp2/compare/v1.6.0...v1.7.0) (2026-03-18)
+
+
+### Features
+
+* sidebar nav refactoring - rename groups and flatten analytics section ([c477968](https://github.com/blur88/erp2/commit/c4779684b1bdc487203e4f7d8316152580c53efb))
+
 # [1.6.0](https://github.com/blur88/erp2/compare/v1.5.1...v1.6.0) (2026-03-18)
 
 
