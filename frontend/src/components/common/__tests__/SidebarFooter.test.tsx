@@ -99,7 +99,7 @@ describe('SidebarFooter', () => {
     expect(screen.getByText('JD')).toBeInTheDocument()
   })
 
-  it('dispatches logout when row is clicked in expanded mode', () => {
+  it('dispatches logout after confirming dialog in expanded mode', () => {
     const store = makeStore()
     const dispatchSpy = vi.spyOn(store, 'dispatch')
     render(
@@ -110,20 +110,19 @@ describe('SidebarFooter', () => {
       </Provider>
     )
     fireEvent.click(screen.getByRole('button', { name: /logout jdoe/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^logout$/i }))
     expect(dispatchSpy).toHaveBeenCalled()
   })
 
-  it('dispatches logout when icon button is clicked in collapsed mode', () => {
-    const store = makeStore()
-    const dispatchSpy = vi.spyOn(store, 'dispatch')
+  it('opens confirmation dialog when logout icon is clicked in collapsed mode', () => {
     render(
-      <Provider store={store}>
+      <Provider store={makeStore()}>
         <MemoryRouter>
           <SidebarFooter collapsed={true} />
         </MemoryRouter>
       </Provider>
     )
-    fireEvent.click(screen.getByRole('button', { name: /logout/i }))
-    expect(dispatchSpy).toHaveBeenCalled()
+    fireEvent.click(screen.getByRole('button', { name: /^logout$/i }))
+    expect(screen.getByText('Are you sure you want to log out?')).toBeInTheDocument()
   })
 })

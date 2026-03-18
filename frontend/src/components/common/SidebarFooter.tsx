@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState } from 'react'
 import {
   Avatar,
   Box,
@@ -7,6 +7,7 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material'
+import ConfirmationDialog from './ConfirmationDialog'
 import { Logout as LogoutIcon } from '@mui/icons-material'
 import { useDispatch, useSelector } from 'react-redux'
 import { useNavigate } from 'react-router-dom'
@@ -36,6 +37,7 @@ const SidebarFooter: React.FC<SidebarFooterProps> = ({ collapsed }) => {
   const navigate = useNavigate()
   const user = useSelector(selectCurrentUser)
   const refreshToken = useSelector(selectRefreshToken)
+  const [confirmOpen, setConfirmOpen] = useState(false)
 
   if (!user) return null
 
@@ -43,7 +45,8 @@ const SidebarFooter: React.FC<SidebarFooterProps> = ({ collapsed }) => {
   const initials = ((firstName?.[0] ?? '') + (lastName?.[0] ?? '') || username?.[0] || 'U').toUpperCase()
   const version = __APP_VERSION__ || '0.0.0'
 
-  const handleLogout = async () => {
+  const handleLogoutConfirm = async () => {
+    setConfirmOpen(false)
     if (refreshToken) {
       await dispatch(logout(refreshToken))
     }
@@ -51,8 +54,22 @@ const SidebarFooter: React.FC<SidebarFooterProps> = ({ collapsed }) => {
     navigate('/login')
   }
 
+  const confirmDialog = (
+    <ConfirmationDialog
+      open={confirmOpen}
+      title="Logout"
+      message="Are you sure you want to log out?"
+      confirmText="Logout"
+      cancelText="Cancel"
+      severity="warning"
+      onConfirm={handleLogoutConfirm}
+      onCancel={() => setConfirmOpen(false)}
+    />
+  )
+
   if (collapsed) {
     return (
+      <>
       <Box
         sx={{
           borderTop: `1px solid ${COLORS.border}`,
@@ -84,7 +101,7 @@ const SidebarFooter: React.FC<SidebarFooterProps> = ({ collapsed }) => {
         </Tooltip>
         <Tooltip title="Logout" placement="right">
           <IconButton
-            onClick={handleLogout}
+            onClick={() => setConfirmOpen(true)}
             aria-label="Logout"
             size="small"
             sx={{
@@ -102,13 +119,16 @@ const SidebarFooter: React.FC<SidebarFooterProps> = ({ collapsed }) => {
           </IconButton>
         </Tooltip>
       </Box>
+      {confirmDialog}
+      </>
     )
   }
 
   return (
+    <>
     <Box sx={{ borderTop: `1px solid ${COLORS.border}` }}>
       <ListItemButton
-        onClick={handleLogout}
+        onClick={() => setConfirmOpen(true)}
         aria-label={`Logout ${username}`}
         sx={{
           px: 2,
@@ -153,6 +173,8 @@ const SidebarFooter: React.FC<SidebarFooterProps> = ({ collapsed }) => {
         </Tooltip>
       </ListItemButton>
     </Box>
+    {confirmDialog}
+    </>
   )
 }
 
