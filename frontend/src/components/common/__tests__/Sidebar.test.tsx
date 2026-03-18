@@ -3,6 +3,12 @@ import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import Sidebar from '../Sidebar'
 
+const mockUseGetCompanySettingsQuery = vi.fn()
+
+vi.mock('@/store/api/settingsApi', () => ({
+  useGetCompanySettingsQuery: () => mockUseGetCompanySettingsQuery(),
+}))
+
 vi.mock('react-transition-group', async () => {
   const actual = await vi.importActual<typeof import('react-transition-group')>(
     'react-transition-group'
@@ -26,6 +32,11 @@ vi.mock('react-transition-group', async () => {
 describe('Sidebar', () => {
   beforeEach(() => {
     localStorage.clear()
+    mockUseGetCompanySettingsQuery.mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      isError: false,
+    })
   })
 
   const getSectionList = (sectionTitle: string) => {
@@ -287,5 +298,142 @@ describe('Sidebar', () => {
     await waitFor(() => {
       expect(screen.queryByText('Customers')).not.toBeInTheDocument()
     }, { timeout: 500 })
+  })
+
+  describe('brand header', () => {
+    it('renders ERP fallback mark when no logoUrl', () => {
+      mockUseGetCompanySettingsQuery.mockReturnValue({
+        data: { name: 'Acme Corp', logoUrl: undefined },
+        isLoading: false,
+        isError: false,
+      })
+
+      render(
+        <MemoryRouter>
+          <Sidebar />
+        </MemoryRouter>
+      )
+
+      expect(screen.getByText('ERP')).toBeInTheDocument()
+      expect(screen.queryByRole('img')).not.toBeInTheDocument()
+    })
+
+    it('renders logo img with correct src and alt when logoUrl is set', () => {
+      mockUseGetCompanySettingsQuery.mockReturnValue({
+        data: { name: 'Acme Corp', logoUrl: 'https://example.com/logo.png' },
+        isLoading: false,
+        isError: false,
+      })
+
+      render(
+        <MemoryRouter>
+          <Sidebar />
+        </MemoryRouter>
+      )
+
+      const img = screen.getByRole('img')
+      expect(img).toHaveAttribute('src', 'https://example.com/logo.png')
+      expect(img).toHaveAttribute('alt', 'Acme Corp')
+    })
+
+    it('uses fallback alt text when logoUrl is set but company.name is absent', () => {
+      mockUseGetCompanySettingsQuery.mockReturnValue({
+        data: { name: undefined, logoUrl: 'https://example.com/logo.png' },
+        isLoading: false,
+        isError: false,
+      })
+
+      render(
+        <MemoryRouter>
+          <Sidebar />
+        </MemoryRouter>
+      )
+
+      const img = screen.getByRole('img')
+      expect(img).toHaveAttribute('alt', 'Company logo')
+    })
+
+    it('renders ERP fallback mark when image fires onError', async () => {
+      mockUseGetCompanySettingsQuery.mockReturnValue({
+        data: { name: 'Acme Corp', logoUrl: 'https://example.com/broken.png' },
+        isLoading: false,
+        isError: false,
+      })
+
+      render(
+        <MemoryRouter>
+          <Sidebar />
+        </MemoryRouter>
+      )
+
+      const img = screen.getByRole('img')
+      fireEvent.error(img)
+
+      await waitFor(() => {
+        expect(screen.queryByRole('img')).not.toBeInTheDocument()
+        expect(screen.getByText('ERP')).toBeInTheDocument()
+      })
+    })
+
+    it('always shows ERP System text when expanded', () => {
+      render(
+        <MemoryRouter>
+          <Sidebar collapsed={false} />
+        </MemoryRouter>
+      )
+
+      expect(screen.getByText('ERP System')).toBeInTheDocument()
+    })
+
+    it('shows company name below app name when available and expanded', () => {
+      mockUseGetCompanySettingsQuery.mockReturnValue({
+        data: { name: 'Acme Trading Sdn Bhd', logoUrl: undefined },
+        isLoading: false,
+        isError: false,
+      })
+
+      render(
+        <MemoryRouter>
+          <Sidebar collapsed={false} />
+        </MemoryRouter>
+      )
+
+      expect(screen.getByText('Acme Trading Sdn Bhd')).toBeInTheDocument()
+    })
+
+    it('omits company name when company.name is unavailable', () => {
+      mockUseGetCompanySettingsQuery.mockReturnValue({
+        data: { name: undefined, logoUrl: undefined },
+        isLoading: false,
+        isError: false,
+      })
+
+      render(
+        <MemoryRouter>
+          <Sidebar collapsed={false} />
+        </MemoryRouter>
+      )
+
+      expect(screen.getByText('ERP System')).toBeInTheDocument()
+      expect(screen.queryByText('Acme Trading Sdn Bhd')).not.toBeInTheDocument()
+    })
+
+    it('hides text stack and shows only mark when collapsed', () => {
+      mockUseGetCompanySettingsQuery.mockReturnValue({
+        data: { name: 'Acme Corp', logoUrl: undefined },
+        isLoading: false,
+        isError: false,
+      })
+
+      render(
+        <MemoryRouter>
+          <Sidebar collapsed={true} />
+        </MemoryRouter>
+      )
+
+      expect(screen.queryByText('ERP System')).not.toBeInTheDocument()
+      expect(screen.queryByText('Acme Corp')).not.toBeInTheDocument()
+      expect(screen.getByText('ERP')).toBeInTheDocument()
+    })
   })
 })

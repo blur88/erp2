@@ -19,9 +19,6 @@ const getApiBaseUrl = () => {
 // Create axios instance with enhanced error handling for VPN
 const api: AxiosInstance = axios.create({
   timeout: 30000,
-  headers: {
-    'Content-Type': 'application/json',
-  },
   // Add retry logic for network issues common with VPN
   validateStatus: (status) => status >= 200 && status < 300, // Only accept 2xx status codes
 })
