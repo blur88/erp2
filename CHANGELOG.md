@@ -1,3 +1,10 @@
+# [1.6.0](https://github.com/blur88/erp2/compare/v1.5.1...v1.6.0) (2026-03-18)
+
+
+### Features
+
+* update SIDEBAR_COLORS to align with docs/ui.md (issue [#121](https://github.com/blur88/erp2/issues/121)) ([f8fc1be](https://github.com/blur88/erp2/commit/f8fc1be017aa2ca851afd207274c5931f23255da))
+
 ## [1.5.1](https://github.com/blur88/erp2/compare/v1.5.0...v1.5.1) (2026-03-17)
 
 
