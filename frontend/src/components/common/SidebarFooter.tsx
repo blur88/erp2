@@ -126,13 +126,14 @@ const SidebarFooter: React.FC<SidebarFooterProps> = ({ collapsed }) => {
 
   return (
     <>
-    <Box sx={{ borderTop: `1px solid ${COLORS.border}` }}>
+    <Box sx={{ borderTop: `1px solid ${COLORS.border}`, mt: 1 }}>
       <ListItemButton
         onClick={() => setConfirmOpen(true)}
         aria-label={`Logout ${username}`}
         sx={{
           px: 2,
           py: 1.5,
+          bgcolor: 'transparent',
           transition: 'background-color 0.15s ease',
           '&:hover': {
             bgcolor: COLORS.hoverBg,
@@ -170,7 +171,9 @@ const SidebarFooter: React.FC<SidebarFooterProps> = ({ collapsed }) => {
           </Typography>
         </Box>
         <Tooltip title="Logout">
-          <LogoutIcon sx={{ color: COLORS.icon, fontSize: 18, flexShrink: 0 }} />
+          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+            <LogoutIcon sx={{ color: COLORS.icon, fontSize: 18 }} />
+          </Box>
         </Tooltip>
       </ListItemButton>
     </Box>
