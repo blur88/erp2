@@ -1,3 +1,18 @@
+# [1.9.0](https://github.com/blur88/erp2/compare/v1.8.0...v1.9.0) (2026-03-18)
+
+
+### Bug Fixes
+
+* update divider conditions and test assertions for new sidebar structure ([4225fb9](https://github.com/blur88/erp2/commit/4225fb94842c1ac39f5397c51f30b471bceb75b3))
+
+
+### Features
+
+* add Administration section with grouped Settings children ([914785d](https://github.com/blur88/erp2/commit/914785ddce244c1bcc436d616455fd4f72ccc728))
+* add group label rendering to sidebar MenuItem children ([05cd73d](https://github.com/blur88/erp2/commit/05cd73d632d2463546d943bf8568f09afd1fe6c9))
+* consolidate all reports under single Reports item in Insights section ([72e33af](https://github.com/blur88/erp2/commit/72e33af563bf329b0ebeb9ef96215dae9ecce060))
+* render group labels in sidebar flyout panel ([41eaa15](https://github.com/blur88/erp2/commit/41eaa15ff0e3377351a151b3d7ce4c8fc8d4802a))
+
 # [1.8.0](https://github.com/blur88/erp2/compare/v1.7.0...v1.8.0) (2026-03-18)
 
 
