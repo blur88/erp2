@@ -1113,62 +1113,62 @@ const Sidebar: React.FC<SidebarProps> = ({
         }}
       >
         <Box sx={{ display: 'flex', alignItems: 'center', gap: collapsed ? 0 : 1.5 }}>
-          <Box
-            sx={{
-              width: 36,
-              height: 36,
-              borderRadius: 1,
-              flexShrink: 0,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              overflow: 'hidden',
-              ...(company?.logoUrl && !imageError
-                ? { bgcolor: 'rgba(255,255,255,0.04)' }
-                : {
-                    bgcolor: 'primary.main',
-                    color: 'white',
-                    fontWeight: 'bold',
-                    fontSize: '0.875rem',
-                  }),
-            }}
-          >
-            {company?.logoUrl && !imageError ? (
-              <img
-                src={company.logoUrl}
-                alt={company.name ?? 'Company logo'}
-                onError={() => setImageError(true)}
-                style={{ width: '100%', height: '100%', objectFit: 'contain' }}
-              />
-            ) : (
-              'ERP'
-            )}
-          </Box>
-          {!collapsed && (
-            <Box sx={{ minWidth: 0 }}>
-              <Typography
-                variant="h6"
-                sx={{
-                  fontWeight: 600,
-                  color: SIDEBAR_COLORS.activeText,
-                  whiteSpace: 'nowrap',
-                  lineHeight: 1.2,
-                }}
-              >
-                ERP System
-              </Typography>
-              {company?.name && (
-                <Typography
-                  variant="caption"
-                  noWrap
-                  sx={{ color: SIDEBAR_COLORS.text, display: 'block', lineHeight: 1.2 }}
-                >
-                  {company.name}
-                </Typography>
+            <Box
+              sx={{
+                width: 36,
+                height: 36,
+                borderRadius: 1,
+                flexShrink: 0,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                overflow: 'hidden',
+                ...(company?.logoUrl && !imageError
+                  ? { bgcolor: 'rgba(255,255,255,0.04)' }
+                  : {
+                      bgcolor: 'primary.main',
+                      color: 'white',
+                      fontWeight: 'bold',
+                      fontSize: '0.875rem',
+                    }),
+              }}
+            >
+              {company?.logoUrl && !imageError ? (
+                <img
+                  src={company.logoUrl}
+                  alt={company.name ?? 'Company logo'}
+                  onError={() => setImageError(true)}
+                  style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                />
+              ) : (
+                'ERP'
               )}
             </Box>
-          )}
-        </Box>
+            {!collapsed && (
+              <Box sx={{ minWidth: 0 }}>
+                <Typography
+                  variant="h6"
+                  sx={{
+                    fontWeight: 600,
+                    color: SIDEBAR_COLORS.activeText,
+                    whiteSpace: 'nowrap',
+                    lineHeight: 1.2,
+                  }}
+                >
+                  ERP System
+                </Typography>
+                {company?.name && (
+                  <Typography
+                    variant="caption"
+                    noWrap
+                    sx={{ color: SIDEBAR_COLORS.text, display: 'block', lineHeight: 1.2 }}
+                  >
+                    {company.name}
+                  </Typography>
+                )}
+              </Box>
+            )}
+          </Box>
 
         {onToggleCollapse && (
           <IconButton
