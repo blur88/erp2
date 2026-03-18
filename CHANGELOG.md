@@ -1,3 +1,10 @@
+# [1.10.0](https://github.com/blur88/erp2/compare/v1.9.0...v1.10.0) (2026-03-18)
+
+
+### Features
+
+* category-first Reports flyout in collapsed sidebar mode ([5ff596b](https://github.com/blur88/erp2/commit/5ff596bf62c2cb680f1f3762277794aff8953f5f)), closes [#130](https://github.com/blur88/erp2/issues/130)
+
 # [1.9.0](https://github.com/blur88/erp2/compare/v1.8.0...v1.9.0) (2026-03-18)
 
 
