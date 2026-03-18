@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { Outlet, useLocation, useNavigate } from 'react-router-dom'
+import { Outlet, useLocation, useMatches, useNavigate } from 'react-router-dom'
 import {
   Box,
   Drawer,
@@ -36,6 +36,10 @@ import SystemStatus from './SystemStatus'
 const DRAWER_WIDTH_EXPANDED = 256
 const DRAWER_WIDTH_COLLAPSED = 64
 
+type RouteHandle = {
+  title?: string
+}
+
 const MainLayout: React.FC = () => {
   const theme = useTheme()
   const isMobile = useMediaQuery(theme.breakpoints.down('lg'))
@@ -50,6 +54,12 @@ const MainLayout: React.FC = () => {
   })
   const [notificationAnchorEl, setNotificationAnchorEl] = useState<null | HTMLElement>(null)
   const [userMenuAnchorEl, setUserMenuAnchorEl] = useState<null | HTMLElement>(null)
+  const matches = useMatches()
+  const matchedRoute = [...matches]
+    .reverse()
+    .find(match => (match.handle as RouteHandle | undefined)?.title)
+  const pageTitle =
+    ((matchedRoute?.handle as RouteHandle | undefined)?.title ?? 'ERP System')
 
   const navigate = useNavigate()
   const currentUser = useAppSelector((state) => state.auth?.user || null)
@@ -191,7 +201,7 @@ const MainLayout: React.FC = () => {
           </IconButton>
 
           <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1, fontWeight: 600 }}>
-            ERP System
+            {pageTitle}
           </Typography>
 
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
