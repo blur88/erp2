@@ -91,12 +91,12 @@ describe('SidebarFooter', () => {
     expect(screen.queryByText(/^v/)).not.toBeInTheDocument()
   })
 
-  it('shows avatar tooltip with username in collapsed mode', async () => {
+  it('shows avatar initials in collapsed mode', () => {
     renderFooter({ collapsed: true })
     expect(screen.getByText('JD')).toBeInTheDocument()
   })
 
-  it('dispatches logout when row is clicked in expanded mode', async () => {
+  it('dispatches logout when row is clicked in expanded mode', () => {
     const store = makeStore()
     const dispatchSpy = vi.spyOn(store, 'dispatch')
     render(
@@ -104,7 +104,7 @@ describe('SidebarFooter', () => {
         <SidebarFooter collapsed={false} />
       </Provider>
     )
-    fireEvent.click(screen.getByRole('button', { name: /logout/i }))
+    fireEvent.click(screen.getByRole('button', { name: /logout jdoe/i }))
     expect(dispatchSpy).toHaveBeenCalled()
   })
 

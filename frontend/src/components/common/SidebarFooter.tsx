@@ -60,12 +60,16 @@ const SidebarFooter: React.FC<SidebarFooterProps> = ({ collapsed }) => {
       >
         <Tooltip title={username} placement="right">
           <Box
+            tabIndex={0}
+            role="img"
+            aria-label={username}
             sx={{
               height: 40,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               cursor: 'default',
+              outline: 'none',
             }}
           >
             <Avatar sx={{ width: 32, height: 32, bgcolor: 'primary.main', fontSize: '0.75rem' }}>
@@ -100,7 +104,7 @@ const SidebarFooter: React.FC<SidebarFooterProps> = ({ collapsed }) => {
     <Box sx={{ borderTop: `1px solid ${COLORS.border}` }}>
       <ListItemButton
         onClick={handleLogout}
-        aria-label="Logout"
+        aria-label={`Logout ${username}`}
         sx={{
           px: 2,
           py: 1.5,
