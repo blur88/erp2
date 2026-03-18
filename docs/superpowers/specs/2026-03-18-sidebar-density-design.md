@@ -34,7 +34,7 @@ height: 40,
 
 Change item height from `40px` to `36px`.
 
-Affects nested items that use `renderFlyoutItem` — both the flyout panel (collapsed rail mode) and inline children rendered via `renderFlyoutItem` in the expanded sidebar.
+Affects flyout panel items in collapsed rail mode only. `renderFlyoutItem` is not called from the expanded sidebar path — expanded sidebar children use `renderMenuItem` recursively.
 
 **Line:** the `height: 40` in the `renderFlyoutItem` `ListItemButton` sx prop.
 
@@ -64,7 +64,7 @@ height: 36,
 
 - Expanded top-level items: `44px` → `40px` — noticeably denser
 - Nested / flyout items: `40px` → `36px` — more compact, matches brand mark height
-- Visual hierarchy preserved: top-level (40px) > nested (36px) > collapsed rail (44px, icon comfort)
+- Visual hierarchy preserved: expanded top-level (40px) > expanded nested (36px); collapsed rail items remain at 44px (icon comfort, independent of expanded hierarchy)
 - Collapsed rail usability intact
 - No cascading visual risk
 
