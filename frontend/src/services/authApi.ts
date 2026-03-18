@@ -59,9 +59,11 @@ export const authApi = {
 
   /**
    * Logout user and invalidate refresh token
+   * Note: This requires Authorization header via the main api instance
    */
   logout: async (refreshToken: string): Promise<AxiosResponse<void>> => {
-    return await authAxios.post<void>('/auth/logout', { refreshToken });
+    const apiInstance = (await import('./api')).default;
+    return await apiInstance.post<void>('/auth/logout', { refreshToken });
   },
 
   /**
