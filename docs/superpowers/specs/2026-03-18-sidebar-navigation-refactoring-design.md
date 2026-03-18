@@ -61,11 +61,18 @@ Reports                          (id: analytics)
 
 **File:** `frontend/src/components/common/__tests__/Sidebar.test.tsx`
 
-| Test | Change |
-|---|---|
-| Section headers test | Update expected value: `'Analytics'` → `'Reports'` |
-| `'renders reports as a parent group in analytics section'` | Remove assertion for `'Reports'` button; assert `'Sales'`, `'Purchasing'`, `'Inventory'` buttons are directly present |
-| `'renders accounting reports as a parent group after accounting'` | Change button query: `'Accounting Reports'` → `'Reports'` |
+**`'renders accounting as its own top-level section'`**
+- `expect(sectionHeaders).toContain('Analytics')` → `toContain('Reports')`
+- `expect(sectionHeaders.indexOf('Accounting')).toBeLessThan(sectionHeaders.indexOf('Analytics'))` → replace `'Analytics'` with `'Reports'` in the `indexOf` call
+
+**`'renders reports as a parent group in analytics section'`**
+- Rename test to `'renders sales, purchasing, and inventory directly under reports section'`
+- Remove: assertion for `'Reports'` button, click on `'Reports'`, and the `waitFor` expand assertion
+- Add: assert `screen.getByRole('button', { name: 'Sales' })`, `screen.getByRole('button', { name: 'Purchasing' })`, and `screen.getByRole('button', { name: 'Inventory' })` are in the document (they are direct collapsed items, no click needed to reveal them)
+- The three items (`Sales`, `Purchasing`, `Inventory`) are top-level collapsed buttons in the section — their sub-items are not visible without clicking, but the buttons themselves are always rendered
+
+**`'renders accounting reports as a parent group after accounting'`**
+- Change button query: `'Accounting Reports'` → `'Reports'`
 
 ---
 
@@ -75,6 +82,7 @@ Reports                          (id: analytics)
 - No new files or components
 - No changes to sub-item titles or IDs
 - No backend changes
+- `id: 'analytics'` is intentionally left unchanged — it is referenced in the collapsed-sidebar divider rendering logic at lines 1171 and 1193 of `Sidebar.tsx` (`['analytics', 'system'].includes(section.id)`). Do not rename this id.
 
 ---
 
