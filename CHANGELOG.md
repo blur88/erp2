@@ -1,3 +1,18 @@
+# [1.8.0](https://github.com/blur88/erp2/compare/v1.7.0...v1.8.0) (2026-03-18)
+
+
+### Bug Fixes
+
+* resolve company logo upload and preview failures ([eeb5561](https://github.com/blur88/erp2/commit/eeb55615d0e3f9b683f82b9441e2f1f4106cbe43))
+
+
+### Features
+
+* add handle.title metadata to all routes ([ae98ba6](https://github.com/blur88/erp2/commit/ae98ba63ac78bf74c369f24388d0f24234b96272))
+* modernize sidebar header with company logo and name ([01b7ac1](https://github.com/blur88/erp2/commit/01b7ac1e1b960ff7510197c6517b09c3f3a7add6))
+* modernize sidebar header with company logo and name ([6cc413e](https://github.com/blur88/erp2/commit/6cc413e88328d1f163d26396e18a4d85f6209bb3))
+* replace static AppBar title with route-derived page title ([4ef7d4d](https://github.com/blur88/erp2/commit/4ef7d4d60ba8ce93a530142ab02bb0353f66de27))
+
 # [1.7.0](https://github.com/blur88/erp2/compare/v1.6.0...v1.7.0) (2026-03-18)
 
 
