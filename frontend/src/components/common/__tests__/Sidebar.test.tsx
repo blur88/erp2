@@ -1,5 +1,5 @@
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, useLocation } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import Sidebar from '../Sidebar'
 
@@ -42,6 +42,22 @@ describe('Sidebar', () => {
   const getSectionList = (sectionTitle: string) => {
     const sectionHeader = screen.getByText(sectionTitle, { selector: '.MuiTypography-overline' })
     return sectionHeader.nextElementSibling as HTMLElement
+  }
+
+  const openCollapsedFlyout = async (itemId: string) => {
+    const button = document.getElementById(`rail-item-${itemId}`) as HTMLElement
+    fireEvent.mouseEnter(button)
+
+    await waitFor(() => {
+      expect(document.getElementById(`flyout-panel-${itemId}`)).toBeInTheDocument()
+    }, { timeout: 500 })
+
+    return document.getElementById(`flyout-panel-${itemId}`) as HTMLElement
+  }
+
+  const LocationDisplay = () => {
+    const location = useLocation()
+    return <div data-testid="location-display">{location.pathname}</div>
   }
 
   it('collapses expanded groups when navigating to a route without a parent group', async () => {
@@ -337,6 +353,163 @@ describe('Sidebar', () => {
     await waitFor(() => {
       expect(screen.queryByText('Customers')).not.toBeInTheDocument()
     }, { timeout: 500 })
+  })
+
+  describe('reports flyout category-first mode', () => {
+    it('shows only category headers when the collapsed Reports flyout first opens', async () => {
+      render(
+        <MemoryRouter initialEntries={['/dashboard']}>
+          <Sidebar collapsed={true} />
+        </MemoryRouter>
+      )
+
+      const flyout = await openCollapsedFlyout('reports')
+
+      expect(within(flyout).getByRole('button', { name: 'Sales' })).toBeInTheDocument()
+      expect(within(flyout).getByRole('button', { name: 'Purchasing' })).toBeInTheDocument()
+      expect(within(flyout).getByRole('button', { name: 'Inventory' })).toBeInTheDocument()
+      expect(within(flyout).getByRole('button', { name: 'Accounting' })).toBeInTheDocument()
+      expect(within(flyout).queryByRole('button', { name: 'Product Summary' })).not.toBeInTheDocument()
+      expect(within(flyout).queryByRole('button', { name: 'Trial Balance' })).not.toBeInTheDocument()
+    })
+
+    it('expands a report category to show its items inline', async () => {
+      render(
+        <MemoryRouter initialEntries={['/dashboard']}>
+          <Sidebar collapsed={true} />
+        </MemoryRouter>
+      )
+
+      const flyout = await openCollapsedFlyout('reports')
+
+      expect(within(flyout).queryByRole('button', { name: 'Product Summary' })).not.toBeInTheDocument()
+
+      fireEvent.click(within(flyout).getByRole('button', { name: 'Sales' }))
+
+      await waitFor(() => {
+        expect(within(flyout).getByRole('button', { name: 'Product Summary' })).toBeInTheDocument()
+        expect(within(flyout).getByRole('button', { name: 'Product Details' })).toBeInTheDocument()
+      })
+    })
+
+    it('keeps only one report category expanded at a time', async () => {
+      render(
+        <MemoryRouter initialEntries={['/dashboard']}>
+          <Sidebar collapsed={true} />
+        </MemoryRouter>
+      )
+
+      const flyout = await openCollapsedFlyout('reports')
+
+      fireEvent.click(within(flyout).getByRole('button', { name: 'Sales' }))
+
+      await waitFor(() => {
+        expect(within(flyout).getByRole('button', { name: 'Product Summary' })).toBeInTheDocument()
+      })
+
+      fireEvent.click(within(flyout).getByRole('button', { name: 'Purchasing' }))
+
+      await waitFor(() => {
+        expect(within(flyout).getByRole('button', { name: 'Sales' })).toHaveAttribute('aria-expanded', 'false')
+        expect(within(flyout).getByRole('button', { name: 'Purchasing' })).toHaveAttribute('aria-expanded', 'true')
+        expect(screen.getByRole('button', { name: 'Order Details' })).toBeInTheDocument()
+      })
+    })
+
+    it('collapses an expanded report category when clicked again', async () => {
+      render(
+        <MemoryRouter initialEntries={['/dashboard']}>
+          <Sidebar collapsed={true} />
+        </MemoryRouter>
+      )
+
+      const flyout = await openCollapsedFlyout('reports')
+
+      fireEvent.click(within(flyout).getByRole('button', { name: 'Sales' }))
+
+      await waitFor(() => {
+        expect(within(flyout).getByRole('button', { name: 'Product Summary' })).toBeInTheDocument()
+      })
+
+      fireEvent.click(within(flyout).getByRole('button', { name: 'Sales' }))
+
+      await waitFor(() => {
+        expect(within(flyout).getByRole('button', { name: 'Sales' })).toHaveAttribute('aria-expanded', 'false')
+      })
+    })
+
+    it('navigates to a report item and closes the flyout', async () => {
+      render(
+        <MemoryRouter initialEntries={['/dashboard']}>
+          <Sidebar collapsed={true} />
+          <LocationDisplay />
+        </MemoryRouter>
+      )
+
+      const flyout = await openCollapsedFlyout('reports')
+
+      fireEvent.click(within(flyout).getByRole('button', { name: 'Sales' }))
+
+      await waitFor(() => {
+        expect(within(flyout).getByRole('button', { name: 'Product Summary' })).toBeInTheDocument()
+      })
+
+      fireEvent.click(within(flyout).getByRole('button', { name: 'Product Summary' }))
+
+      await waitFor(() => {
+        expect(screen.getByTestId('location-display')).toHaveTextContent('/reports/sales/product-summary')
+        expect(document.getElementById('flyout-panel-reports')).not.toBeInTheDocument()
+      })
+    })
+
+    it('auto-expands the active report category when opening the flyout', async () => {
+      render(
+        <MemoryRouter initialEntries={['/reports/sales/product-summary']}>
+          <Sidebar collapsed={true} />
+        </MemoryRouter>
+      )
+
+      const flyout = await openCollapsedFlyout('reports')
+
+      await waitFor(() => {
+        expect(within(flyout).getByRole('button', { name: 'Sales' })).toHaveAttribute('aria-expanded', 'true')
+        expect(within(flyout).getByRole('button', { name: 'Product Summary' })).toBeInTheDocument()
+      })
+    })
+
+    it('moves keyboard focus into the first report category when opening from the rail', async () => {
+      render(
+        <MemoryRouter initialEntries={['/dashboard']}>
+          <Sidebar collapsed={true} />
+        </MemoryRouter>
+      )
+
+      const reportsButton = document.getElementById('rail-item-reports') as HTMLElement
+      reportsButton.focus()
+
+      fireEvent.keyDown(reportsButton, { key: 'Enter' })
+
+      await waitFor(() => {
+        const firstFlyoutButton = document.querySelector('[data-flyout-first="true"]') as HTMLElement
+        expect(firstFlyoutButton).toHaveTextContent('Sales')
+        expect(firstFlyoutButton).toHaveFocus()
+      })
+    })
+
+    it('keeps non-Reports flyouts on the existing flat grouped layout', async () => {
+      render(
+        <MemoryRouter initialEntries={['/dashboard']}>
+          <Sidebar collapsed={true} />
+        </MemoryRouter>
+      )
+
+      const flyout = await openCollapsedFlyout('settings')
+
+      expect(within(flyout).getByText('Business')).toBeInTheDocument()
+      expect(within(flyout).queryByRole('button', { name: 'Business' })).not.toBeInTheDocument()
+      expect(within(flyout).getByRole('button', { name: 'Users' })).toBeInTheDocument()
+      expect(within(flyout).getByRole('button', { name: 'Backup & Restore' })).toBeInTheDocument()
+    })
   })
 
   describe('brand header', () => {

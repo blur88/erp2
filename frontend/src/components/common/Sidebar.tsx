@@ -96,6 +96,7 @@ interface MenuItem {
   badge?: number | string
   group?: string
   children?: MenuItem[]
+  flyoutMode?: 'category-first'
 }
 
 const SIDEBAR_COLORS = {
@@ -317,6 +318,7 @@ const menuSections: MenuSection[] = [
         id: 'reports',
         title: 'Reports',
         icon: <AssessmentIcon />,
+        flyoutMode: 'category-first',
         children: [
           {
             id: 'sales-by-product-summary',
@@ -671,6 +673,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   const [flyoutItemId, setFlyoutItemId] = React.useState<string | null>(null)
   const [flyoutAnchorEl, setFlyoutAnchorEl] = React.useState<HTMLElement | null>(null)
   const [flyoutExpandedIds, setFlyoutExpandedIds] = React.useState<string[]>([])
+  const [flyoutExpandedGroup, setFlyoutExpandedGroup] = React.useState<string | null>(null)
   const [flyoutOpen, setFlyoutOpen] = React.useState(false)
   const openTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
   const closeTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -710,6 +713,12 @@ const Sidebar: React.FC<SidebarProps> = ({
     }
 
     setFlyoutExpandedIds(autoExpanded)
+    if (item?.flyoutMode === 'category-first' && item.children) {
+      const activeChild = item.children.find(child => isItemActive(child))
+      setFlyoutExpandedGroup(activeChild?.group?.toLowerCase() ?? null)
+    } else {
+      setFlyoutExpandedGroup(null)
+    }
     setFlyoutItemId(itemId)
     setFlyoutAnchorEl(anchorEl)
     setFlyoutOpen(true)
@@ -724,6 +733,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       setFlyoutItemId(null)
       setFlyoutAnchorEl(null)
       setFlyoutExpandedIds([])
+      setFlyoutExpandedGroup(null)
       clearFlyoutStateTimerRef.current = null
     }, 80)
   }, [])
@@ -758,6 +768,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     setFlyoutItemId(null)
     setFlyoutAnchorEl(null)
     setFlyoutExpandedIds([])
+    setFlyoutExpandedGroup(null)
     if (openTimerRef.current) clearTimeout(openTimerRef.current)
     if (closeTimerRef.current) clearTimeout(closeTimerRef.current)
     if (clearFlyoutStateTimerRef.current) clearTimeout(clearFlyoutStateTimerRef.current)
@@ -1307,8 +1318,10 @@ const Sidebar: React.FC<SidebarProps> = ({
                 onMouseLeave={handleFlyoutMouseLeave}
                 sx={{
                   bgcolor: SIDEBAR_COLORS.hoverBg,
-                  minWidth: 200,
-                  maxWidth: 240,
+                  minWidth: 240,
+                  maxWidth: 280,
+                  maxHeight: 'calc(100vh - 24px)',
+                  overflowY: 'auto',
                   py: 1,
                   borderRadius: 1,
                   boxShadow: '0 4px 20px rgba(0,0,0,0.4)',
@@ -1319,16 +1332,100 @@ const Sidebar: React.FC<SidebarProps> = ({
                   animation: 'flyoutEnter 0.12s ease-out',
                 }}
               >
-                <List disablePadding>
-                  {flyoutItem.children.map((child, idx, arr) => (
-                    <React.Fragment key={child.id}>
-                      {child.group && (idx === 0 || child.group !== arr[idx - 1].group)
-                        ? renderGroupLabel(child.group)
-                        : null}
-                      {renderFlyoutItem(child, 0, idx === 0)}
-                    </React.Fragment>
-                  ))}
-                </List>
+                {flyoutItem.flyoutMode === 'category-first'
+                  ? (() => {
+                      const groups: string[] = []
+
+                      flyoutItem.children.forEach(child => {
+                        if (child.group && !groups.includes(child.group)) {
+                          groups.push(child.group)
+                        }
+                      })
+
+                      return (
+                        <List disablePadding>
+                          {groups.map((group, groupIdx) => {
+                            const slug = group.toLowerCase()
+                            const groupChildren = flyoutItem.children?.filter(
+                              child => child.group === group
+                            ) ?? []
+                            const isGroupActive = groupChildren.some(child => isItemActive(child))
+                            const isExpanded = flyoutExpandedGroup === slug
+
+                            return (
+                              <React.Fragment key={group}>
+                                <ListItemButton
+                                  {...(groupIdx === 0 ? { 'data-flyout-first': 'true' } : {})}
+                                  selected={isGroupActive}
+                                  aria-expanded={isExpanded}
+                                  onClick={() => {
+                                    setFlyoutExpandedGroup(prev => (prev === slug ? null : slug))
+                                  }}
+                                  sx={{
+                                    px: 2,
+                                    py: 0.75,
+                                    minHeight: 40,
+                                    color: isGroupActive
+                                      ? SIDEBAR_COLORS.activeText
+                                      : SIDEBAR_COLORS.text,
+                                    '&.Mui-selected': {
+                                      bgcolor: SIDEBAR_COLORS.activeBg,
+                                      color: SIDEBAR_COLORS.activeText,
+                                    },
+                                    '&.Mui-selected:hover': {
+                                      bgcolor: SIDEBAR_COLORS.activeBg,
+                                    },
+                                    '&:hover': {
+                                      bgcolor: SIDEBAR_COLORS.hoverBg,
+                                    },
+                                  }}
+                                >
+                                  <ListItemText
+                                    primary={group}
+                                    primaryTypographyProps={{
+                                      variant: 'body2',
+                                      fontWeight: isGroupActive ? 600 : 500,
+                                    }}
+                                  />
+                                  <Box
+                                    component="span"
+                                    sx={{
+                                      color: isGroupActive
+                                        ? SIDEBAR_COLORS.activeText
+                                        : SIDEBAR_COLORS.icon,
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      transition: 'transform 0.2s',
+                                      transform: isExpanded ? 'rotate(180deg)' : 'none',
+                                    }}
+                                  >
+                                    <ExpandMore fontSize="small" />
+                                  </Box>
+                                </ListItemButton>
+
+                                <Collapse in={isExpanded} timeout={200} unmountOnExit>
+                                  <List component="div" disablePadding>
+                                    {groupChildren.map(child => renderFlyoutItem(child, 1))}
+                                  </List>
+                                </Collapse>
+                              </React.Fragment>
+                            )
+                          })}
+                        </List>
+                      )
+                    })()
+                  : (
+                    <List disablePadding>
+                      {flyoutItem.children.map((child, idx, arr) => (
+                        <React.Fragment key={child.id}>
+                          {child.group && (idx === 0 || child.group !== arr[idx - 1].group)
+                            ? renderGroupLabel(child.group)
+                            : null}
+                          {renderFlyoutItem(child, 0, idx === 0)}
+                        </React.Fragment>
+                      ))}
+                    </List>
+                  )}
               </Paper>
             </Fade>
           </Popper>
