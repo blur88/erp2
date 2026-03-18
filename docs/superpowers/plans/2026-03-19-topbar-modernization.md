@@ -394,7 +394,7 @@ import { DnsRounded as DnsRoundedIcon } from '@mui/icons-material'
 ```bash
 cd frontend && npx vitest run src/components/common/__tests__/SystemStatus.test.tsx --no-coverage 2>&1 | tail -20
 ```
-Expected: 2 tests PASS.
+Expected: 3 tests PASS.
 
 - [ ] **Step 5: Run TypeScript check**
 
@@ -675,8 +675,6 @@ const NAVIGABLE_PATHS = new Set([
   '/settings/price-lists', '/settings/payment-methods', '/settings/print',
   '/settings/document-numbers', '/settings/users', '/settings/roles',
   '/settings/security', '/settings/backup',
-  // Accounting reports list page
-  '/accounting/bank-reconciliations',
 ])
 
 type RouteHandle = { title?: string }
@@ -1112,7 +1110,7 @@ Expected: all tests pass. The deleted `MainLayout.test.tsx` tests are gone; `Top
 - [ ] **Step 5: Commit**
 
 ```bash
-git add frontend/src/components/common/MainLayout.tsx
+git add frontend/src/components/common/MainLayout.tsx frontend/src/components/common/__tests__/MainLayout.test.tsx
 git commit -m "refactor: slim MainLayout to layout shell, delegate top bar to TopBar"
 ```
 
