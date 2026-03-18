@@ -75,6 +75,7 @@ import {
   ChevronRight,
 } from '@mui/icons-material'
 import { useGetCompanySettingsQuery } from '@/store/api/settingsApi'
+import SidebarFooter from './SidebarFooter'
 
 interface SidebarProps {
   onItemClick?: () => void
@@ -1291,6 +1292,8 @@ const Sidebar: React.FC<SidebarProps> = ({
           </React.Fragment>
         ))}
       </Box>
+
+      <SidebarFooter collapsed={Boolean(collapsed)} />
 
       {/* Popper gated only on flyoutItemId (not flyoutAnchorEl) so it stays mounted
           during the 80ms exit fade. flyoutAnchorEl provides the anchor position;

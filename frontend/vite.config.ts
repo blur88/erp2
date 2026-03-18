@@ -29,6 +29,9 @@ export default defineConfig(({ mode }) => {
   return {
     customLogger: isVitest ? vitestLogger : undefined,
     plugins: isVitest ? [] : [react()],
+    define: {
+      __APP_VERSION__: JSON.stringify(process.env.npm_package_version ?? '0.0.0'),
+    },
     resolve: {
       alias: {
         '@': path.resolve(__dirname, './src'),
