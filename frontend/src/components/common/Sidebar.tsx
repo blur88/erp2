@@ -830,7 +830,7 @@ const Sidebar: React.FC<SidebarProps> = ({
             pl: 1.5 + level * 2,
             pr: 1.5,
             py: 0,
-            height: 40,
+            height: 36,
             borderRadius: 2,
             mx: 0.5,
             mb: 0.25,
