@@ -217,6 +217,21 @@ describe('Sidebar', () => {
     }, { timeout: 500 })
   })
 
+  it('renders group labels inside Settings flyout in collapsed mode', async () => {
+    render(
+      <MemoryRouter initialEntries={['/dashboard']}>
+        <Sidebar collapsed={true} />
+      </MemoryRouter>
+    )
+
+    const settingsButton = document.getElementById('rail-item-settings') as HTMLElement
+    fireEvent.mouseEnter(settingsButton)
+
+    await waitFor(() => {
+      expect(screen.getByText('Business')).toBeInTheDocument()
+    }, { timeout: 500 })
+  })
+
   it('closes flyout on mouse leave', async () => {
     vi.useFakeTimers()
 

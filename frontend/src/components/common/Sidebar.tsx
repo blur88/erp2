@@ -888,7 +888,14 @@ const Sidebar: React.FC<SidebarProps> = ({
         {hasChildren && (
           <Collapse in={isExpanded} timeout={200} unmountOnExit>
             <List component="div" disablePadding>
-              {item.children?.map(child => renderFlyoutItem(child, level + 1))}
+              {item.children?.map((child, idx, arr) => (
+                <React.Fragment key={child.id}>
+                  {child.group && (idx === 0 || child.group !== arr[idx - 1].group)
+                    ? renderGroupLabel(child.group)
+                    : null}
+                  {renderFlyoutItem(child, level + 1)}
+                </React.Fragment>
+              ))}
             </List>
           </Collapse>
         )}
@@ -1309,7 +1316,14 @@ const Sidebar: React.FC<SidebarProps> = ({
                 }}
               >
                 <List disablePadding>
-                  {flyoutItem.children.map((child, idx) => renderFlyoutItem(child, 0, idx === 0))}
+                  {flyoutItem.children.map((child, idx, arr) => (
+                    <React.Fragment key={child.id}>
+                      {child.group && (idx === 0 || child.group !== arr[idx - 1].group)
+                        ? renderGroupLabel(child.group)
+                        : null}
+                      {renderFlyoutItem(child, 0, idx === 0)}
+                    </React.Fragment>
+                  ))}
                 </List>
               </Paper>
             </Fade>
