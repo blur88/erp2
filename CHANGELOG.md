@@ -1,3 +1,11 @@
+# [1.11.0](https://github.com/blur88/erp2/compare/v1.10.0...v1.11.0) (2026-03-18)
+
+
+### Features
+
+* reduce expanded sidebar top-level item height 44px → 40px ([464bd46](https://github.com/blur88/erp2/commit/464bd4650384c59c6a55547a15448f3bd2966c0f))
+* reduce flyout panel item height 40px → 36px ([3fd1238](https://github.com/blur88/erp2/commit/3fd1238d4551089feff1f9851cb23e78138f750e))
+
 # [1.10.0](https://github.com/blur88/erp2/compare/v1.9.0...v1.10.0) (2026-03-18)
 
 
