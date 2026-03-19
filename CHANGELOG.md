@@ -1,3 +1,22 @@
+# [1.15.0](https://github.com/blur88/erp2/compare/v1.14.1...v1.15.0) (2026-03-19)
+
+
+### Bug Fixes
+
+* **search:** don't show stale results when modal reopens with empty query ([42fb342](https://github.com/blur88/erp2/commit/42fb342cc91b917d6920580df4502083a95e2749))
+
+
+### Features
+
+* **search:** add CustomerService.searchGlobal ([a3b258d](https://github.com/blur88/erp2/commit/a3b258dd1d8fec839efe7af8d3c3037a83a71963))
+* **search:** add global search DTOs ([2b987eb](https://github.com/blur88/erp2/commit/2b987eb27006785f89411835c7a9301824864554))
+* **search:** add ProductService.searchGlobal ([29443bb](https://github.com/blur88/erp2/commit/29443bbda6b2755acbf1fa6e3928dddae339e66a))
+* **search:** add PurchaseOrderService.searchGlobal ([212cca9](https://github.com/blur88/erp2/commit/212cca97eb602fc0689a3e4ef58fb586716792fd))
+* **search:** add SalesOrderService.searchGlobal ([7cd060b](https://github.com/blur88/erp2/commit/7cd060b5956772aee0d687bfcb45bc783d154002))
+* **search:** add searchApi RTK Query slice and frontend types ([4e6f944](https://github.com/blur88/erp2/commit/4e6f94482ed509667025d689f3235752e0978021))
+* **search:** add SearchModule, SearchService, SearchController ([327f931](https://github.com/blur88/erp2/commit/327f9310ffb0727edc21ac8874e59153c4c2bcc6))
+* **search:** implement SearchModal with real search behavior ([81cd7dc](https://github.com/blur88/erp2/commit/81cd7dc5e57b965f7d9b02480c412aab4105fe5f))
+
 ## [1.14.1](https://github.com/blur88/erp2/compare/v1.14.0...v1.14.1) (2026-03-19)
 
 # [1.14.0](https://github.com/blur88/erp2/compare/v1.13.0...v1.14.0) (2026-03-19)
