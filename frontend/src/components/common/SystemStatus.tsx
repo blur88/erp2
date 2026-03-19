@@ -1,25 +1,28 @@
-import React, { useState, useEffect } from 'react'
+import React, { useEffect, useState } from 'react'
+import { keyframes } from '@emotion/react'
 import {
-  IconButton,
-  Popover,
   Box,
-  Typography,
   Chip,
+  CircularProgress,
   Divider,
+  IconButton,
   List,
   ListItem,
   ListItemIcon,
   ListItemText,
+  Popover,
   Tooltip,
-  CircularProgress,
+  Typography,
 } from '@mui/material'
 import {
-  Computer as BackendIcon,
-  Storage as DatabaseIcon,
-  Memory as RedisIcon,
   CloudQueue as NginxIcon,
+  Computer as BackendIcon,
+  DnsRounded as DnsRoundedIcon,
   InfoOutlined as InfoIcon,
+  Memory as RedisIcon,
+  Storage as DatabaseIcon,
 } from '@mui/icons-material'
+
 import { ApiService } from '@/services/api'
 
 interface ServiceHealth {
@@ -39,6 +42,11 @@ interface HealthResponse {
   }
 }
 
+const statusPulse = keyframes`
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(1.3); }
+`
+
 const SystemStatus: React.FC = () => {
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null)
   const [health, setHealth] = useState<HealthResponse | null>(null)
@@ -49,7 +57,7 @@ const SystemStatus: React.FC = () => {
     setLoading(true)
     try {
       const response = await ApiService.get<HealthResponse>('/health')
-      const healthData = response as any as HealthResponse
+      const healthData = response as HealthResponse
       setHealth(healthData)
       setFrontendStatus('healthy')
     } catch (error) {
@@ -60,10 +68,8 @@ const SystemStatus: React.FC = () => {
   }
 
   useEffect(() => {
-    // Initial check
     checkHealth()
 
-    // Check every 30 seconds
     const interval = setInterval(checkHealth, 30000)
 
     return () => clearInterval(interval)
@@ -71,7 +77,7 @@ const SystemStatus: React.FC = () => {
 
   const handleClick = (event: React.MouseEvent<HTMLElement>) => {
     setAnchorEl(event.currentTarget)
-    checkHealth() // Refresh on open
+    void checkHealth()
   }
 
   const handleClose = () => {
@@ -93,9 +99,36 @@ const SystemStatus: React.FC = () => {
     }
   }
 
-  const getOverallStatus = (): 'healthy' | 'degraded' | 'unhealthy' => {
-    if (!health) return 'unhealthy'
+  const getOverallStatus = (): 'healthy' | 'degraded' | 'unhealthy' | 'unknown' => {
+    if (loading && !health) return 'unknown'
+    if (!health) return 'unknown'
     return health.status
+  }
+
+  const getDotColor = (status: 'healthy' | 'degraded' | 'unhealthy' | 'unknown'): string => {
+    switch (status) {
+      case 'healthy':
+        return '#22C55E'
+      case 'degraded':
+        return '#F59E0B'
+      case 'unhealthy':
+        return '#EF4444'
+      default:
+        return '#6B7280'
+    }
+  }
+
+  const getTooltipText = (status: 'healthy' | 'degraded' | 'unhealthy' | 'unknown'): string => {
+    switch (status) {
+      case 'healthy':
+        return 'System: Healthy - All services operational'
+      case 'degraded':
+        return 'System: Degraded - One or more services affected'
+      case 'unhealthy':
+        return 'System: Unhealthy - Backend may be offline'
+      default:
+        return 'System: Unknown - Checking status...'
+    }
   }
 
   const formatUptime = (seconds: number): string => {
@@ -105,22 +138,30 @@ const SystemStatus: React.FC = () => {
   }
 
   const overallStatus = getOverallStatus()
+  const dotColor = getDotColor(overallStatus)
+  const tooltipText = getTooltipText(overallStatus)
+  const shouldPulse = overallStatus === 'degraded' || overallStatus === 'unhealthy'
 
   return (
     <>
-      <Tooltip title="System Status">
+      <Tooltip title={tooltipText}>
         <IconButton onClick={handleClick} color="inherit" size="small">
-          <Chip
-            label={overallStatus.toUpperCase()}
-            color={getStatusColor(overallStatus)}
-            size="small"
-            sx={{
-              fontWeight: 600,
-              fontSize: '0.7rem',
-              height: 24,
-              cursor: 'pointer',
-            }}
-          />
+          <Box sx={{ position: 'relative', display: 'inline-flex' }}>
+            <DnsRoundedIcon sx={{ fontSize: 22, color: '#A0A0A0' }} />
+            <Box
+              sx={{
+                position: 'absolute',
+                top: 2,
+                right: 2,
+                width: 8,
+                height: 8,
+                borderRadius: '50%',
+                bgcolor: dotColor,
+                animation: shouldPulse ? `${statusPulse} 1.8s ease-in-out infinite` : 'none',
+                '@media (prefers-reduced-motion: reduce)': { animation: 'none' },
+              }}
+            />
+          </Box>
         </IconButton>
       </Tooltip>
 
@@ -177,7 +218,6 @@ const SystemStatus: React.FC = () => {
               </Typography>
 
               <List sx={{ p: 0 }}>
-                {/* Frontend/NGINX */}
                 <ListItem sx={{ px: 0, py: 0.5 }}>
                   <ListItemIcon sx={{ minWidth: 40 }}>
                     <NginxIcon fontSize="small" color="action" />
@@ -202,7 +242,6 @@ const SystemStatus: React.FC = () => {
                   />
                 </ListItem>
 
-                {/* Backend */}
                 <ListItem sx={{ px: 0, py: 0.5 }}>
                   <ListItemIcon sx={{ minWidth: 40 }}>
                     <BackendIcon fontSize="small" color="action" />
@@ -227,7 +266,6 @@ const SystemStatus: React.FC = () => {
                   />
                 </ListItem>
 
-                {/* PostgreSQL */}
                 <ListItem sx={{ px: 0, py: 0.5 }}>
                   <ListItemIcon sx={{ minWidth: 40 }}>
                     <DatabaseIcon fontSize="small" color="action" />
@@ -252,7 +290,6 @@ const SystemStatus: React.FC = () => {
                   />
                 </ListItem>
 
-                {/* Redis */}
                 <ListItem sx={{ px: 0, py: 0.5 }}>
                   <ListItemIcon sx={{ minWidth: 40 }}>
                     <RedisIcon fontSize="small" color="action" />
@@ -277,25 +314,14 @@ const SystemStatus: React.FC = () => {
                   />
                 </ListItem>
               </List>
-
-              <Divider sx={{ my: 2 }} />
-
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <InfoIcon fontSize="small" color="action" />
-                <Typography variant="caption" color="text.secondary">
-                  Last checked: {new Date(health.timestamp).toLocaleTimeString()}
-                </Typography>
-              </Box>
             </>
           )}
 
           {!health && !loading && (
-            <Box sx={{ textAlign: 'center', py: 3 }}>
-              <Typography variant="body2" color="error">
-                Unable to fetch system status
-              </Typography>
-              <Typography variant="caption" color="text.secondary">
-                Backend may be offline
+            <Box sx={{ py: 3, textAlign: 'center' }}>
+              <InfoIcon color="disabled" sx={{ fontSize: 32, mb: 1 }} />
+              <Typography variant="body2" color="text.secondary">
+                Unable to fetch system health information
               </Typography>
             </Box>
           )}

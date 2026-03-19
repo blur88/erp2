@@ -1,0 +1,2 @@
+export const DRAWER_WIDTH_EXPANDED = 256
+export const DRAWER_WIDTH_COLLAPSED = 64
