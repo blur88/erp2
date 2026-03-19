@@ -339,7 +339,11 @@ const TopBar: React.FC<TopBarProps> = ({ collapsed, onMobileMenuOpen }) => {
             <SystemStatus />
 
             <Tooltip title="Notifications">
-              <IconButton onClick={(event) => setNotificationAnchorEl(event.currentTarget)} color="inherit">
+              <IconButton
+                onClick={(event) => setNotificationAnchorEl(event.currentTarget)}
+                color="inherit"
+                sx={{ '&:hover': { bgcolor: '#2A2A2A', borderRadius: '8px' } }}
+              >
                 <Badge badgeContent={unreadCount} color="error">
                   <NotificationsIcon />
                 </Badge>
