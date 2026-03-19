@@ -11,6 +11,7 @@
 | Surface 2 (sections) | #232323 |
 | Hover / Active | #2C2C2C |
 | Sidebar | #0D0D0D |
+| Top Bar | #181818 |
 | Overlay | #000000 |
 
 ---
@@ -113,6 +114,21 @@
 
 ---
 
+## 🔝 9. Top Bar (Main Layout)
+
+| Usage | Color |
+|------|------|
+| Background | #181818 |
+| Border Bottom | #2A2A2A |
+| Text | #E0E0E0 |
+| Icon | #9CA3AF |
+| Hover | #2C2C2C |
+| Active | #1F2937 |
+| Search Background | #1E1E1E |
+| Search Placeholder | #6B7280 |
+
+---
+
 ## 🧠 Final Theme Object
 
 ```ts
@@ -123,6 +139,7 @@ export const DARK_THEME = {
   hover: "#2C2C2C",
 
   sidebar: "#0D0D0D",
+  topbar: "#181818",
 
   textPrimary: "#E0E0E0",
   textSecondary: "#A0A0A0",
