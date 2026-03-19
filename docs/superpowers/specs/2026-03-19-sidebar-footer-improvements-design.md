@@ -36,10 +36,11 @@ Improve sidebar footer UX to match modern SaaS patterns. The avatar becomes the 
 |---------|-------|
 | Open logout confirmation | `SidebarUserMenu` |
 | Dispatch logout intent | `SidebarUserMenu` |
-| `persistor.purge()` + token cleanup | `logout` thunk |
+| `persistor.purge()` | `SidebarUserMenu` (after awaiting thunk — existing behavior preserved) |
+| Token cleanup | `logout` thunk |
 | Redirect to `/login` | `ProtectedRoute` (detects `isAuthenticated === false`) |
 
-`SidebarUserMenu` dispatches one action and stops. No `navigate('/login')` in the component.
+`SidebarUserMenu` dispatches `logout(refreshToken)` then calls `persistor.purge()` — matching the existing `SidebarFooter` logout flow. The `logout` thunk itself does not call `persistor.purge()`. Guard dispatch with `if (refreshToken)` before calling the thunk, as `selectRefreshToken` may return `null`. No `navigate('/login')` in the component.
 
 ---
 
@@ -61,16 +62,29 @@ Menu closes on outside click or Escape (MUI default).
 
 ### Logout Confirmation (MUI `Popover`)
 
-- Anchored to the Logout `MenuItem` element (closest to user intent)
+MUI `Popover` is chosen over `Popper` here because `Popover` includes built-in backdrop and outside-click dismissal — appropriate for a modal-style confirmation. The existing flyout uses `Popper` for hover-driven navigation menus where a backdrop would be intrusive; this is a different interaction pattern.
+
+**Anchor lifecycle:** When the user clicks the Logout `MenuItem`, capture `event.currentTarget` into `logoutAnchorEl` *before* closing the Menu. The Popover is rendered as a sibling of the Menu (not inside it), so it remains correctly positioned even after the Menu unmounts.
+
+- Anchored to the captured Logout `MenuItem` element reference
 - Content: `"Log out?"` text + `[Cancel]` and `[Logout]` buttons inline
 - Cancel: closes popover, no action
 - Logout: dispatches `logout(refreshToken)` thunk; `ProtectedRoute` handles redirect
 
-`ConfirmationDialog` is removed from this flow entirely.
+`ConfirmationDialog` is removed from `SidebarFooter`/`SidebarUserMenu` only — the shared `ConfirmationDialog.tsx` component is not deleted (it is used in many other pages).
+
+### Settings Navigation
+
+`SidebarUserMenu` uses the React Router `useNavigate` hook to navigate to `/settings` on Settings click. The menu closes before navigation.
+
+### Version Value
+
+Version is read from `__APP_VERSION__` — a Vite build-time define constant already used in `SidebarFooter.tsx`. Carry the same pattern: `const version = __APP_VERSION__ || '0.0.0'`.
 
 ### Collapsed Mode
 
 - Avatar is the sole clickable element — same menu opens as in expanded mode
+- Collapsed avatar click target: wrap in a `Box` with `width: 40px, height: 40px` to meet minimum interaction target size (matching expanded row height)
 - Separate logout icon button below the avatar is removed
 
 ---
@@ -103,7 +117,7 @@ sx={{
   height: '40px',
   transition: 'background-color 0.15s ease, transform 0.15s ease',
   '&:hover': {
-    backgroundColor: SIDEBAR_COLORS.hoverBg,
+    backgroundColor: '#1E1E1E', // SIDEBAR_COLORS.hoverBg equivalent
     transform: 'translateX(1px)',
   },
 }}
@@ -123,9 +137,11 @@ sx={{
 - Version: same, `fontSize: '0.65rem'`, color `SIDEBAR_COLORS.icon` (`#6B7280`)
 
 **Action MenuItems** (Settings, Logout):
-- Icon color idle: `SIDEBAR_COLORS.icon`
-- Icon color hover: `SIDEBAR_COLORS.hoverText`
+- Icon color idle: `#6B7280` (matching `SIDEBAR_COLORS.icon`)
+- Icon color hover: `#CBD5E1` (matching `SIDEBAR_COLORS.hoverText`)
 - Standard MUI hover background
+
+Note: `SIDEBAR_COLORS` is a module-private const in `Sidebar.tsx` and is not exported. `SidebarUserMenu` declares its own local color constants using the same values — do not import from `Sidebar.tsx`. If a future refactor moves these to a shared constants file, update both files then.
 
 ### Logout Confirmation Popover
 
@@ -161,7 +177,7 @@ const [logoutAnchorEl, setLogoutAnchorEl] = useState<HTMLElement | null>(null)
 - Logout click opens confirmation popover
 - Confirm dispatches `logout` thunk
 - Cancel closes popover without dispatching
-- Clicking outside closes menu/popover
+- Menu closes on Escape key (simulate `keyDown` Escape on the Menu); outside-click dismissal is MUI-internal and is not tested directly
 
 ---
 
@@ -170,12 +186,15 @@ const [logoutAnchorEl, setLogoutAnchorEl] = useState<HTMLElement | null>(null)
 - [ ] Avatar triggers dropdown menu in both collapsed and expanded modes
 - [ ] Dropdown contains username, Settings, Logout, version — in correct order
 - [ ] Username and version blocks are non-interactive (no hover state)
-- [ ] Logout confirmation uses inline Popover anchored to the Logout menu item
-- [ ] No full ConfirmationDialog for logout
+- [ ] Logout confirmation uses inline Popover anchored to the captured Logout MenuItem reference
+- [ ] No ConfirmationDialog import in `SidebarFooter` or `SidebarUserMenu` (shared component not deleted)
 - [ ] Collapsed mode has no separate logout icon button
+- [ ] Collapsed avatar wrapped in 40×40px click target
 - [ ] Footer background is `#141414`
 - [ ] Expanded trigger row has `height: 40px`, `alignItems: center`
 - [ ] Hover applies background color change + `translateX(1px)` with smooth transition
 - [ ] Null user guard: `SidebarUserMenu` returns null if currentUser is null
 - [ ] `ProtectedRoute` handles redirect to `/login` — no explicit navigate in component
+- [ ] Version read from `__APP_VERSION__`
+- [ ] `SidebarFooter.test.tsx` covers: collapsed render, expanded render, correct prop passed to `SidebarUserMenu`
 - [ ] All interaction tests live in `SidebarUserMenu.test.tsx`
