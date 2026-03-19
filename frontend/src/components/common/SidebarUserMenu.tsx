@@ -85,6 +85,7 @@ const SidebarUserMenu: React.FC<SidebarUserMenuProps> = ({ collapsed }) => {
       await dispatch(logout(refreshToken))
     }
     await persistor.purge()
+    navigate('/login')
   }
 
   const avatarElement = (
