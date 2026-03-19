@@ -53,6 +53,8 @@ Change the right-side `Box` `gap` from `0.5` (4px) to `2` (16px via MUI 8px scal
 <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexShrink: 0 }}>
 ```
 
+The `gap` applies to all three children: search bar (visible on `lg+`), `SystemStatus`, and the notification button. On desktop the search bar gains 12px of additional separation from the status icon — this is the intended result.
+
 #### 3. Notification `IconButton` hover
 
 Add hover background to unify with `SystemStatus` icon treatment.
