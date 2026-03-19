@@ -71,7 +71,7 @@ describe('CustomerService', () => {
         id: 'uuid-1',
         label: 'ABC Trading',
         description: '0123456789',
-        route: '/customers/uuid-1',
+        route: '/sales/customers/uuid-1',
       });
       expect(results[0].score).toBeGreaterThan(0);
     });

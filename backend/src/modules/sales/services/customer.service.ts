@@ -159,7 +159,7 @@ export class CustomerService {
         id: customer.id,
         label: customer.name,
         description: customer.phone,
-        route: `/customers/${customer.id}`,
+        route: `/sales/customers/${customer.id}`,
         score,
       };
     });

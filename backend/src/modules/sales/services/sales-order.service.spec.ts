@@ -201,7 +201,7 @@ describe('SalesOrderService', () => {
         id: 'so-uuid-1',
         label: 'SO-000001',
         description: 'ABC Trading',
-        route: '/sales/orders/so-uuid-1',
+        route: '/sales/orders/so-uuid-1/edit',
       });
     });
   });

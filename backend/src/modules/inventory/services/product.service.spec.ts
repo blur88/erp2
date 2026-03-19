@@ -141,7 +141,7 @@ describe('ProductService pagination removal', () => {
         id: 'prod-uuid-1',
         label: 'Widget A',
         description: 'SKU-001',
-        route: '/inventory/products/prod-uuid-1',
+        route: '/inventory/products/prod-uuid-1/edit',
       });
     });
 

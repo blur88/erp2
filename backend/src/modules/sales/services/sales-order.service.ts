@@ -380,7 +380,7 @@ export class SalesOrderService {
         id: order.id,
         label: order.orderNumber,
         description: order.customer?.name ?? '',
-        route: `/sales/orders/${order.id}`,
+        route: `/sales/orders/${order.id}/edit`,
         score,
       };
     });

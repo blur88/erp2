@@ -256,7 +256,7 @@ describe('PurchaseOrderService', () => {
         id: 'po-uuid-1',
         label: 'PO-000001',
         description: 'Acme Supplies',
-        route: '/purchasing/orders/po-uuid-1',
+        route: '/purchasing/orders/po-uuid-1/edit',
       });
     });
   });

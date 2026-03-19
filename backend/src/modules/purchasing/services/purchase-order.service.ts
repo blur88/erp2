@@ -360,7 +360,7 @@ export class PurchaseOrderService {
         id: order.id,
         label: order.orderNumber,
         description: order.supplier?.companyName ?? '',
-        route: `/purchasing/orders/${order.id}`,
+        route: `/purchasing/orders/${order.id}/edit`,
         score,
       };
     });

@@ -323,7 +323,7 @@ export class ProductService {
         id: product.id,
         label: product.name,
         description: product.barcode,
-        route: `/inventory/products/${product.id}`,
+        route: `/inventory/products/${product.id}/edit`,
         score,
       };
     });
