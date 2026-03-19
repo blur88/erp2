@@ -1,3 +1,18 @@
+# [1.14.0](https://github.com/blur88/erp2/compare/v1.13.0...v1.14.0) (2026-03-19)
+
+
+### Bug Fixes
+
+* redirect to login after sidebar logout ([8963a36](https://github.com/blur88/erp2/commit/8963a36114cddb00bf0e8b24e6148c27c77b5102))
+* remove navigate('/login') from SidebarUserMenu logout flow ([c92aa03](https://github.com/blur88/erp2/commit/c92aa032d0a499601cd69f25b35bbdae103e962b))
+* restore navigate('/login') after logout and purge ([eb075bf](https://github.com/blur88/erp2/commit/eb075bf05273ab17776c0be825a3432658173cea))
+* stabilize sidebar user menu logout popover ([84ab98c](https://github.com/blur88/erp2/commit/84ab98cbcef16fe1582a39bc28857715744c3ce8))
+
+
+### Features
+
+* add SidebarUserMenu with avatar dropdown and logout popover ([dcbfdad](https://github.com/blur88/erp2/commit/dcbfdada537c940f5ea8e4dd7f90f94ff1087310))
+
 # [1.13.0](https://github.com/blur88/erp2/compare/v1.12.0...v1.13.0) (2026-03-19)
 
 
