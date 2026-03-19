@@ -125,7 +125,7 @@ describe('SidebarUserMenu', () => {
     expect(dispatchSpy).not.toHaveBeenCalled()
   })
 
-  it('Confirm dispatches logout thunk and navigates to login', async () => {
+  it('Confirm dispatches logout thunk', async () => {
     const { store } = renderMenu()
     const dispatchSpy = vi.spyOn(store, 'dispatch')
     fireEvent.click(screen.getByRole('button', { name: /open user menu/i }))
@@ -134,7 +134,8 @@ describe('SidebarUserMenu', () => {
     await screen.findByText(/log out\?/i)
     fireEvent.click(screen.getByRole('button', { name: /^logout$/i }))
     expect(dispatchSpy).toHaveBeenCalledWith(expect.any(Function))
-    await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/login'))
+    // ProtectedRoute handles redirect to /login — no navigate('/login') in this component
+    await waitFor(() => expect(mockNavigate).not.toHaveBeenCalledWith('/login'))
   })
 
   it('menu closes on Escape key', async () => {

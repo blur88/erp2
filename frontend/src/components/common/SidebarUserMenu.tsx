@@ -85,7 +85,8 @@ const SidebarUserMenu: React.FC<SidebarUserMenuProps> = ({ collapsed }) => {
       await dispatch(logout(refreshToken))
     }
     await persistor.purge()
-    navigate('/login')
+    // No navigate('/login') here — ProtectedRoute detects isAuthenticated === false
+    // and handles the redirect, preserving the 'from' location state for post-login return.
   }
 
   const avatarElement = (
