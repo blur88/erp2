@@ -256,7 +256,7 @@ const TopBar: React.FC<TopBarProps> = ({ collapsed, onMobileMenuOpen }) => {
               </Typography>
             ) : breadcrumbs.length > 0 ? (
               <Breadcrumbs
-                separator={<NavigateNextIcon sx={{ fontSize: 14, color: '#6B7280' }} />}
+                separator={<NavigateNextIcon sx={{ fontSize: 14, color: '#5A5A5A' }} />}
                 aria-label="breadcrumb"
                 sx={{ '& .MuiBreadcrumbs-ol': { flexWrap: 'nowrap' } }}
               >
@@ -265,7 +265,7 @@ const TopBar: React.FC<TopBarProps> = ({ collapsed, onMobileMenuOpen }) => {
 
                   if (isLast) {
                     return (
-                      <Typography key={segment.path} sx={{ fontSize: '12px', color: '#E0E0E0' }}>
+                      <Typography key={segment.path} sx={{ fontSize: '12px', color: '#E0E0E0', fontWeight: 500 }}>
                         {segment.label}
                       </Typography>
                     )
@@ -278,7 +278,7 @@ const TopBar: React.FC<TopBarProps> = ({ collapsed, onMobileMenuOpen }) => {
                         component={RouterLink}
                         to={segment.path}
                         underline="hover"
-                        sx={{ fontSize: '12px', color: '#A0A0A0' }}
+                        sx={{ fontSize: '12px', color: '#8A8A8A', '&:hover': { color: '#CFCFCF' } }}
                       >
                         {segment.label}
                       </Link>
@@ -286,7 +286,7 @@ const TopBar: React.FC<TopBarProps> = ({ collapsed, onMobileMenuOpen }) => {
                   }
 
                   return (
-                    <Typography key={segment.path} sx={{ fontSize: '12px', color: '#A0A0A0' }}>
+                    <Typography key={segment.path} sx={{ fontSize: '12px', color: '#8A8A8A' }}>
                       {segment.label}
                     </Typography>
                   )
