@@ -133,7 +133,7 @@ describe('SidebarUserMenu', () => {
     fireEvent.click(screen.getByRole('menuitem', { name: /logout/i }))
     await screen.findByText(/log out\?/i)
     fireEvent.click(screen.getByRole('button', { name: /^logout$/i }))
-    expect(dispatchSpy).toHaveBeenCalled()
+    expect(dispatchSpy).toHaveBeenCalledWith(expect.any(Function))
   })
 
   it('menu closes on Escape key', async () => {

@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useRef, useState } from 'react'
 import {
   Avatar,
   Box,
@@ -47,6 +47,7 @@ const SidebarUserMenu: React.FC<SidebarUserMenuProps> = ({ collapsed }) => {
   const refreshToken = useSelector(selectRefreshToken)
   const [menuAnchorEl, setMenuAnchorEl] = useState<HTMLElement | null>(null)
   const [logoutAnchorEl, setLogoutAnchorEl] = useState<HTMLElement | null>(null)
+  const triggerButtonRef = useRef<HTMLButtonElement | null>(null)
 
   if (!user) return null
 
@@ -69,8 +70,8 @@ const SidebarUserMenu: React.FC<SidebarUserMenuProps> = ({ collapsed }) => {
     navigate('/settings')
   }
 
-  const handleLogoutClick = (event: React.MouseEvent<HTMLElement>) => {
-    setLogoutAnchorEl(event.currentTarget)
+  const handleLogoutClick = () => {
+    setLogoutAnchorEl(triggerButtonRef.current)
     handleMenuClose()
   }
 
@@ -101,27 +102,6 @@ const SidebarUserMenu: React.FC<SidebarUserMenuProps> = ({ collapsed }) => {
     </Avatar>
   )
 
-  const avatarButton = (
-    <Box
-      component="button"
-      type="button"
-      aria-label="Open user menu"
-      aria-haspopup="true"
-      onClick={handleAvatarClick}
-      sx={{
-        background: 'none',
-        border: 'none',
-        padding: 0,
-        cursor: 'pointer',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-      }}
-    >
-      {avatarElement}
-    </Box>
-  )
-
   return (
     <>
       {collapsed ? (
@@ -134,11 +114,32 @@ const SidebarUserMenu: React.FC<SidebarUserMenuProps> = ({ collapsed }) => {
             justifyContent: 'center',
           }}
         >
-          {avatarButton}
+          <Box
+            component="button"
+            ref={triggerButtonRef}
+            type="button"
+            aria-label="Open user menu"
+            aria-haspopup="true"
+            onClick={handleAvatarClick}
+            sx={{
+              width: 40,
+              height: 40,
+              background: 'none',
+              border: 'none',
+              padding: 0,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            {avatarElement}
+          </Box>
         </Box>
       ) : (
         <Box
           component="button"
+          ref={triggerButtonRef}
           type="button"
           sx={{
             display: 'flex',
