@@ -36,11 +36,13 @@ Improve sidebar footer UX to match modern SaaS patterns. The avatar becomes the 
 |---------|-------|
 | Open logout confirmation | `SidebarUserMenu` |
 | Dispatch logout intent | `SidebarUserMenu` |
-| `persistor.purge()` | `SidebarUserMenu` (after awaiting thunk — existing `persistor.purge()` call preserved; `navigate('/login')` is deliberately removed, delegated to `ProtectedRoute`) |
+| `persistor.purge()` | `SidebarUserMenu` — **compatibility carry-forward for Issue #138** (see note below) |
 | Token cleanup | `logout` thunk |
 | Redirect to `/login` | `ProtectedRoute` (detects `isAuthenticated === false`) |
 
-`SidebarUserMenu` dispatches `logout(refreshToken)` then calls `persistor.purge()` — matching the existing `SidebarFooter` logout flow. The `logout` thunk itself does not call `persistor.purge()`. Guard dispatch with `if (refreshToken)` before calling the thunk, as `selectRefreshToken` may return `null`. No `navigate('/login')` in the component.
+`SidebarUserMenu` dispatches `logout(refreshToken)` then calls `persistor.purge()`. Guard dispatch with `if (refreshToken)` before calling, as `selectRefreshToken` may return `null`. No `navigate('/login')` in the component.
+
+> **Architectural note — `persistor.purge()` location:** Ideally this call lives in the `logout` thunk or a shared auth-teardown helper, not in a UI component. However, `persistor` is defined in `store/index.ts` and importing it into `authSlice.ts` would create a circular dependency. Moving `persistor.purge()` into the thunk requires store restructuring outside the scope of Issue #138. This is a **deliberate temporary carry-forward**, not the ideal ownership model. A future refactor should extract a `logoutAndClearStore()` helper that the thunk (or a middleware listener) can call without circular imports.
 
 ---
 
@@ -132,16 +134,16 @@ sx={{
 | `borderRadius` | `1` |
 | `boxShadow` | `'0 4px 20px rgba(0,0,0,0.4)'` |
 
-**Identity/version blocks** — passive `Box` elements, no hover state:
-- Username: `px: 2, py: 1`, color `SIDEBAR_COLORS.text` (`#9CA3AF`), `fontSize: '0.75rem'`
-- Version: same, `fontSize: '0.65rem'`, color `SIDEBAR_COLORS.icon` (`#6B7280`)
+**Identity block and version block** — passive `Box` elements, no hover state:
+- Identity block (username): `px: 2, py: 1`, color `#9CA3AF`, `fontSize: '0.75rem'`
+- Version block: same padding, `fontSize: '0.65rem'`, color `#6B7280`
 
 **Action MenuItems** (Settings, Logout):
 - Icon color idle: `#6B7280` (matching `SIDEBAR_COLORS.icon`)
 - Icon color hover: `#CBD5E1` (matching `SIDEBAR_COLORS.hoverText`)
 - Standard MUI hover background
 
-Note: `SIDEBAR_COLORS` is a module-private const in `Sidebar.tsx` and is not exported. `SidebarUserMenu` declares its own local color constants using the same values — do not import from `Sidebar.tsx`. If a future refactor moves these to a shared constants file, update both files then.
+Note: `SIDEBAR_COLORS` is a module-private const in `Sidebar.tsx` and is not exported. `SidebarUserMenu` declares its own local color constants using the same values. This intentionally duplicates existing sidebar token values to avoid broad refactoring in Issue #138 — it is not an endorsed long-term pattern. A future refactor should extract these to a shared `sidebarColors` constants file.
 
 ### Logout Confirmation Popover
 
