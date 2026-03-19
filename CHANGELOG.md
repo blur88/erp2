@@ -1,3 +1,10 @@
+# [1.13.0](https://github.com/blur88/erp2/compare/v1.12.0...v1.13.0) (2026-03-19)
+
+
+### Features
+
+* **layout:** modernize top bar and extract layout components ([846e462](https://github.com/blur88/erp2/commit/846e46222a3eb471ae0c52151924258c22172e94))
+
 # [1.12.0](https://github.com/blur88/erp2/compare/v1.11.0...v1.12.0) (2026-03-18)
 
 
