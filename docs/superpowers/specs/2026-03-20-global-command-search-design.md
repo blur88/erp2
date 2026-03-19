@@ -105,7 +105,7 @@ if (!query?.trim() || query.trim().length < 2) {
 
 Each method returns `GlobalSearchResultDto[]` with score assigned by the domain method. Scores follow these rules: exact match = 100, startsWith = 80, contains = 50, code/SKU/number match = 90.
 
-**Customers** (`CustomersService.searchGlobal`)
+**Customers** (`CustomerService.searchGlobal`)
 - Search fields: name, code, email
 - Filter: not soft-deleted, applying the same baseline visibility rules already used by the customers module
 - Result shape: `label = name`, `description = code`, `route = /customers/:id`, `type = 'customer'`
@@ -115,15 +115,15 @@ Each method returns `GlobalSearchResultDto[]` with score assigned by the domain 
 - Filter: not soft-deleted, baseline visibility rules
 - Result shape: `label = name`, `description = SKU`, `route = /inventory/products/:id`, `type = 'product'`
 
-**Sales Orders** (`SalesOrdersService.searchGlobal`)
+**Sales Orders** (`SalesOrderService.searchGlobal`)
 - Search fields: order number, customer name
 - Filter: not soft-deleted, baseline visibility rules
 - Result shape: `label = order number`, `description = customer name`, `route = /sales/orders/:id`, `type = 'transaction'`
 
-**Purchase Orders** (`PurchaseOrdersService.searchGlobal`)
+**Purchase Orders** (`PurchaseOrderService.searchGlobal`)
 - Search fields: order number, supplier name
 - Filter: not soft-deleted, baseline visibility rules
-- Result shape: `label = order number`, `description = supplier name`, `route = /purchasing/orders/:id`, `type = 'transaction'`
+- Result shape: `label = order number`, `description = supplier.companyName` (via join-loaded relation, consistent with existing purchasing module usage), `route = /purchasing/orders/:id`, `type = 'transaction'`
 
 **Pages** (static, inside `search.service.ts`)
 - A static array of ~20 app routes, each with label, keywords, and route
@@ -149,7 +149,7 @@ New file: `frontend/src/store/api/searchApi.ts`
 
 Single query endpoint: `GET /search/global?q=abc` returning `{ query: string, results: GlobalSearchResultDto[] }`.
 
-Search results are treated as ephemeral. Set `keepUnusedDataFor: 0` on this endpoint so cached results from a prior query string are not reused on repeat queries within the default 60-second RTK Query cache window. No custom retry or timeout behavior is added; the existing base query behavior is used as-is.
+Search results are treated as ephemeral. Set `keepUnusedDataFor: 0` inside the `builder.query({...})` endpoint definition (not at the `createApi` level) so cached results from a prior query string are not reused on repeat queries within the default 60-second RTK Query cache window. No custom retry or timeout behavior is added; the existing base query behavior is used as-is.
 
 ### SearchModal
 
