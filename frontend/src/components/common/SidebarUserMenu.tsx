@@ -73,8 +73,10 @@ const SidebarUserMenu: React.FC<SidebarUserMenuProps> = ({ collapsed }) => {
       await dispatch(logout(refreshToken))
     }
     await persistor.purge()
-    // No navigate('/login') here — ProtectedRoute detects isAuthenticated === false
-    // and handles the redirect, preserving the 'from' location state for post-login return.
+    // Explicit navigate after purge — ProtectedRoute's redirect is unreliable here
+    // because persistor.purge() clears localStorage async, and the accessToken in Redux
+    // can trigger ProtectedRoute's verification branch before purge completes.
+    navigate('/login')
   }
 
   const avatarElement = (
