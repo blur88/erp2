@@ -1,8 +1,8 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import { Provider } from 'react-redux'
 import { MemoryRouter } from 'react-router-dom'
 import { configureStore } from '@reduxjs/toolkit'
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import SidebarFooter from '../SidebarFooter'
 import authReducer from '@/store/slices/authSlice'
 
@@ -37,92 +37,36 @@ const makeStore = (authOverrides = {}) =>
     },
   })
 
-const renderFooter = (props = {}, authOverrides = {}) => {
-  const store = makeStore(authOverrides)
-  return render(
-    <Provider store={store}>
+// SidebarFooter is a layout shell - SidebarUserMenu is a Redux-connected child,
+// so Provider + MemoryRouter are still required even though SidebarFooter itself
+// has no Redux or router dependencies.
+const renderFooter = (props = {}, authOverrides = {}) =>
+  render(
+    <Provider store={makeStore(authOverrides)}>
       <MemoryRouter>
         <SidebarFooter collapsed={false} {...props} />
       </MemoryRouter>
     </Provider>
   )
-}
 
-describe('SidebarFooter', () => {
-  it('renders username in expanded mode', () => {
-    renderFooter()
-    expect(screen.getByText('jdoe')).toBeInTheDocument()
+describe('SidebarFooter (layout shell)', () => {
+  it('renders in expanded mode without crashing', () => {
+    const { container } = renderFooter()
+    expect(container.firstChild).not.toBeNull()
   })
 
-  it('renders avatar with initials JD', () => {
-    renderFooter()
-    expect(screen.getByText('JD')).toBeInTheDocument()
+  it('renders in collapsed mode without crashing', () => {
+    const { container } = renderFooter({ collapsed: true })
+    expect(container.firstChild).not.toBeNull()
   })
 
-  it('renders version string', () => {
-    renderFooter()
-    expect(screen.getByText(/^v/)).toBeInTheDocument()
+  it('passes collapsed=false to SidebarUserMenu', () => {
+    renderFooter({ collapsed: false })
+    expect(screen.getByRole('button', { name: /open user menu/i })).toBeInTheDocument()
   })
 
-  it('falls back to username initial when no first/last name', () => {
-    renderFooter({}, {
-      user: {
-        id: '2',
-        username: 'bob',
-        firstName: '',
-        lastName: '',
-        email: 'b@test.com',
-        role: 'admin',
-        isActive: true,
-        status: 'active',
-        failedLoginAttempts: 0,
-        createdAt: '2024-01-01',
-        updatedAt: '2024-01-01',
-      },
-    })
-    expect(screen.getByText('B')).toBeInTheDocument()
-  })
-
-  it('renders nothing when user is null', () => {
-    const { container } = renderFooter({}, { user: null, isAuthenticated: false })
-    expect(container.firstChild).toBeNull()
-  })
-
-  it('hides username and version in collapsed mode', () => {
+  it('passes collapsed=true to SidebarUserMenu', () => {
     renderFooter({ collapsed: true })
-    expect(screen.queryByText('jdoe')).not.toBeInTheDocument()
-    expect(screen.queryByText(/^v/)).not.toBeInTheDocument()
-  })
-
-  it('shows avatar initials in collapsed mode', () => {
-    renderFooter({ collapsed: true })
-    expect(screen.getByText('JD')).toBeInTheDocument()
-  })
-
-  it('dispatches logout after confirming dialog in expanded mode', () => {
-    const store = makeStore()
-    const dispatchSpy = vi.spyOn(store, 'dispatch')
-    render(
-      <Provider store={store}>
-        <MemoryRouter>
-          <SidebarFooter collapsed={false} />
-        </MemoryRouter>
-      </Provider>
-    )
-    fireEvent.click(screen.getByRole('button', { name: /logout jdoe/i }))
-    fireEvent.click(screen.getByRole('button', { name: /^logout$/i }))
-    expect(dispatchSpy).toHaveBeenCalled()
-  })
-
-  it('opens confirmation dialog when logout icon is clicked in collapsed mode', () => {
-    render(
-      <Provider store={makeStore()}>
-        <MemoryRouter>
-          <SidebarFooter collapsed={true} />
-        </MemoryRouter>
-      </Provider>
-    )
-    fireEvent.click(screen.getByRole('button', { name: /^logout$/i }))
-    expect(screen.getByText('Are you sure you want to log out?')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /open user menu/i })).toBeInTheDocument()
   })
 })
