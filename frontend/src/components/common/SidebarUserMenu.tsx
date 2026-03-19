@@ -2,12 +2,10 @@ import React, { useRef, useState } from 'react'
 import {
   Avatar,
   Box,
-  Button,
   Divider,
   ListItemIcon,
   Menu,
   MenuItem,
-  Popover,
   Typography,
 } from '@mui/material'
 import {
@@ -46,7 +44,6 @@ const SidebarUserMenu: React.FC<SidebarUserMenuProps> = ({ collapsed }) => {
   const user = useSelector(selectCurrentUser)
   const refreshToken = useSelector(selectRefreshToken)
   const [menuAnchorEl, setMenuAnchorEl] = useState<HTMLElement | null>(null)
-  const [logoutAnchorEl, setLogoutAnchorEl] = useState<HTMLElement | null>(null)
   const triggerButtonRef = useRef<HTMLButtonElement | null>(null)
 
   if (!user) return null
@@ -70,17 +67,8 @@ const SidebarUserMenu: React.FC<SidebarUserMenuProps> = ({ collapsed }) => {
     navigate('/settings')
   }
 
-  const handleLogoutClick = () => {
-    setLogoutAnchorEl(triggerButtonRef.current)
+  const handleLogoutClick = async () => {
     handleMenuClose()
-  }
-
-  const handleLogoutCancel = () => {
-    setLogoutAnchorEl(null)
-  }
-
-  const handleLogoutConfirm = async () => {
-    setLogoutAnchorEl(null)
     if (refreshToken) {
       await dispatch(logout(refreshToken))
     }
@@ -97,7 +85,11 @@ const SidebarUserMenu: React.FC<SidebarUserMenuProps> = ({ collapsed }) => {
         bgcolor: 'primary.main',
         fontSize: '0.75rem',
         cursor: 'pointer',
-        '&:hover': { filter: 'brightness(1.1)' },
+        transition: 'transform 0.15s ease, filter 0.15s ease',
+        '&:hover': {
+          filter: 'brightness(1.1)',
+          transform: 'scale(1.02)',
+        },
       }}
     >
       {initials}
@@ -203,11 +195,11 @@ const SidebarUserMenu: React.FC<SidebarUserMenuProps> = ({ collapsed }) => {
             boxShadow: '0 4px 20px rgba(0,0,0,0.4)',
           },
         }}
-        transformOrigin={{ horizontal: 'left', vertical: 'bottom' }}
-        anchorOrigin={{ horizontal: 'left', vertical: 'top' }}
+        anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+        transformOrigin={{ vertical: 'bottom', horizontal: 'right' }}
       >
         <Box sx={{ px: 2, py: 1, cursor: 'default', userSelect: 'none' }}>
-          <Typography sx={{ color: COLORS.text, fontSize: '0.75rem' }}>
+          <Typography sx={{ color: '#D1D5DB', fontSize: '0.8rem', fontWeight: 500 }}>
             {username}
           </Typography>
         </Box>
@@ -247,44 +239,11 @@ const SidebarUserMenu: React.FC<SidebarUserMenuProps> = ({ collapsed }) => {
         <Divider sx={{ borderColor: COLORS.border }} />
 
         <Box sx={{ px: 2, py: 1, mt: '4px' }}>
-          <Typography sx={{ color: COLORS.mutedText, fontSize: '0.65rem' }}>
+          <Typography sx={{ color: COLORS.mutedText, fontSize: '0.65rem', opacity: 0.7, letterSpacing: '0.02em' }}>
             v{version}
           </Typography>
         </Box>
       </Menu>
-
-      <Popover
-        open={Boolean(logoutAnchorEl)}
-        anchorEl={logoutAnchorEl}
-        onClose={handleLogoutCancel}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
-        transformOrigin={{ vertical: 'top', horizontal: 'left' }}
-        PaperProps={{
-          sx: {
-            bgcolor: COLORS.menuBg,
-            border: `1px solid ${COLORS.border}`,
-            p: 2,
-          },
-        }}
-      >
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Typography sx={{ color: '#FFFFFF', fontSize: '0.875rem' }}>
-            Log out?
-          </Typography>
-          <Button size="small" onClick={handleLogoutCancel} aria-label="Cancel">
-            Cancel
-          </Button>
-          <Button
-            size="small"
-            variant="contained"
-            color="error"
-            onClick={handleLogoutConfirm}
-            aria-label="Logout"
-          >
-            Logout
-          </Button>
-        </Box>
-      </Popover>
     </>
   )
 }

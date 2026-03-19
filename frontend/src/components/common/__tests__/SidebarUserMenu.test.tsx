@@ -104,38 +104,16 @@ describe('SidebarUserMenu', () => {
     expect(mockNavigate).toHaveBeenCalledWith('/settings')
   })
 
-  it('Logout click closes menu and opens confirmation popover', async () => {
-    renderMenu()
+  it('Logout click closes menu and dispatches logout thunk immediately', async () => {
+    const { store } = renderMenu()
+    const dispatchSpy = vi.spyOn(store, 'dispatch')
     fireEvent.click(screen.getByRole('button', { name: /open user menu/i }))
     await screen.findByRole('menu')
     fireEvent.click(screen.getByRole('menuitem', { name: /logout/i }))
     await waitFor(() => expect(screen.queryByRole('menu')).not.toBeInTheDocument())
-    expect(screen.getByText(/log out\?/i)).toBeInTheDocument()
-  })
-
-  it('Cancel closes popover without dispatching logout', async () => {
-    const { store } = renderMenu()
-    const dispatchSpy = vi.spyOn(store, 'dispatch')
-    fireEvent.click(screen.getByRole('button', { name: /open user menu/i }))
-    await screen.findByRole('menu')
-    fireEvent.click(screen.getByRole('menuitem', { name: /logout/i }))
-    await screen.findByText(/log out\?/i)
-    fireEvent.click(screen.getByRole('button', { name: /cancel/i }))
-    await waitFor(() => expect(screen.queryByText(/log out\?/i)).not.toBeInTheDocument())
-    expect(dispatchSpy).not.toHaveBeenCalled()
-  })
-
-  it('Confirm dispatches logout thunk', async () => {
-    const { store } = renderMenu()
-    const dispatchSpy = vi.spyOn(store, 'dispatch')
-    fireEvent.click(screen.getByRole('button', { name: /open user menu/i }))
-    await screen.findByRole('menu')
-    fireEvent.click(screen.getByRole('menuitem', { name: /logout/i }))
-    await screen.findByText(/log out\?/i)
-    fireEvent.click(screen.getByRole('button', { name: /^logout$/i }))
     expect(dispatchSpy).toHaveBeenCalledWith(expect.any(Function))
     // ProtectedRoute handles redirect to /login — no navigate('/login') in this component
-    await waitFor(() => expect(mockNavigate).not.toHaveBeenCalledWith('/login'))
+    expect(mockNavigate).not.toHaveBeenCalledWith('/login')
   })
 
   it('menu closes on Escape key', async () => {
