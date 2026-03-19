@@ -34,6 +34,7 @@ import {
   ProductImportDto,
   ProductImportResultDto,
 } from '../dto/product.dto';
+import { GlobalSearchResultDto } from '../../search/dto/global-search-result.dto';
 import { CategoryService } from './category.service';
 import { StockMovementService } from './stock-movement.service';
 import { BaseCostCalculatorService } from './base-cost-calculator.service';
@@ -287,6 +288,45 @@ export class ProductService {
       data,
       meta: { total },
     };
+  }
+
+  async searchGlobal(query: string, user: any): Promise<GlobalSearchResultDto[]> {
+    const trimmed = query.trim();
+    const products = await this.productRepository
+      .createQueryBuilder('product')
+      .where('product.deletedAt IS NULL')
+      .andWhere('(product.name ILIKE :q OR product.barcode ILIKE :q)', {
+        q: `%${trimmed}%`,
+      })
+      .take(5)
+      .getMany();
+
+    return products.map((product) => {
+      const name = product.name?.toLowerCase() ?? '';
+      const barcode = product.barcode?.toLowerCase() ?? '';
+      const normalized = trimmed.toLowerCase();
+      let score = 50;
+
+      if (name === normalized) {
+        score = 100;
+      } else if (barcode === normalized) {
+        score = 90;
+      } else if (
+        name.startsWith(normalized) ||
+        barcode.startsWith(normalized)
+      ) {
+        score = 80;
+      }
+
+      return {
+        type: 'product',
+        id: product.id,
+        label: product.name,
+        description: product.barcode,
+        route: `/inventory/products/${product.id}`,
+        score,
+      };
+    });
   }
 
   /**

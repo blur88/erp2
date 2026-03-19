@@ -117,4 +117,44 @@ describe('ProductService pagination removal', () => {
     expect(result.meta).toEqual({ total: 1 });
     expect(result.data).toHaveLength(1);
   });
+
+  describe('searchGlobal', () => {
+    it('returns matching products as GlobalSearchResultDto', async () => {
+      const product = {
+        id: 'prod-uuid-1',
+        name: 'Widget A',
+        barcode: 'SKU-001',
+        deletedAt: null,
+      };
+      productRepository.createQueryBuilder = jest.fn().mockReturnValue({
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        take: jest.fn().mockReturnThis(),
+        getMany: jest.fn().mockResolvedValue([product]),
+      } as any);
+
+      const results = await service.searchGlobal('Widget', {} as any);
+
+      expect(results).toHaveLength(1);
+      expect(results[0]).toMatchObject({
+        type: 'product',
+        id: 'prod-uuid-1',
+        label: 'Widget A',
+        description: 'SKU-001',
+        route: '/inventory/products/prod-uuid-1',
+      });
+    });
+
+    it('returns empty array when no matches', async () => {
+      productRepository.createQueryBuilder = jest.fn().mockReturnValue({
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        take: jest.fn().mockReturnThis(),
+        getMany: jest.fn().mockResolvedValue([]),
+      } as any);
+
+      const results = await service.searchGlobal('zzz', {} as any);
+      expect(results).toEqual([]);
+    });
+  });
 });
