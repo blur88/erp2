@@ -16,6 +16,7 @@ import {
   CustomerResponseDto,
   CustomerSummaryDto,
 } from '../dto/customer.dto';
+import { GlobalSearchResultDto } from '../../search/dto/global-search-result.dto';
 import { ValidationUtil, BulkOperationUtil, BulkOperationResponse } from '../../../common/utils/validation.util';
 import { TransactionManager, Transactional } from '../../../common/utils/transaction.util';
 import { AuditLogService } from '../../audit-logs/services';
@@ -125,6 +126,43 @@ export class CustomerService {
       limit,
       totalPages: Math.ceil(total / limit),
     };
+  }
+
+  async searchGlobal(query: string, user: any): Promise<GlobalSearchResultDto[]> {
+    const trimmed = query.trim();
+    const customers = await this.customerRepository
+      .createQueryBuilder('customer')
+      .where('customer.deletedAt IS NULL')
+      .andWhere(
+        '(customer.name ILIKE :q OR customer.phone ILIKE :q)',
+        { q: `%${trimmed}%` },
+      )
+      .take(5)
+      .getMany();
+
+    return customers.map((customer) => {
+      const name = customer.name?.toLowerCase() ?? '';
+      const phone = customer.phone?.toLowerCase() ?? '';
+      const normalized = trimmed.toLowerCase();
+      let score = 50;
+
+      if (name === normalized) {
+        score = 100;
+      } else if (phone === normalized) {
+        score = 90;
+      } else if (name.startsWith(normalized) || phone.startsWith(normalized)) {
+        score = 80;
+      }
+
+      return {
+        type: 'customer',
+        id: customer.id,
+        label: customer.name,
+        description: customer.phone,
+        route: `/customers/${customer.id}`,
+        score,
+      };
+    });
   }
 
   async findDeleted(query: QueryCustomersDto) {
