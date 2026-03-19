@@ -177,6 +177,35 @@ describe('SalesOrderService', () => {
     expect(service).toBeDefined();
   });
 
+  describe('searchGlobal', () => {
+    it('returns matching sales orders as GlobalSearchResultDto', async () => {
+      const order = {
+        id: 'so-uuid-1',
+        orderNumber: 'SO-000001',
+        customer: { name: 'ABC Trading' },
+        deletedAt: null,
+      };
+      salesOrderRepository.createQueryBuilder = jest.fn().mockReturnValue({
+        leftJoinAndSelect: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        take: jest.fn().mockReturnThis(),
+        getMany: jest.fn().mockResolvedValue([order]),
+      } as any);
+
+      const results = await service.searchGlobal('SO-000001', {} as any);
+
+      expect(results).toHaveLength(1);
+      expect(results[0]).toMatchObject({
+        type: 'transaction',
+        id: 'so-uuid-1',
+        label: 'SO-000001',
+        description: 'ABC Trading',
+        route: '/sales/orders/so-uuid-1',
+      });
+    });
+  });
+
   describe('fulfillOrder', () => {
     it('should post accounting entry successfully', async () => {
       // Arrange

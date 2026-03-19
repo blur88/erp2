@@ -21,6 +21,7 @@ import {
   QuerySalesOrdersDto,
   SalesOrderResponseDto,
 } from '../dto/sales-order.dto';
+import { GlobalSearchResultDto } from '../../search/dto/global-search-result.dto';
 // import { CustomerService } from './customer.service';
 import { InventoryIntegrationService } from './inventory-integration.service';
 import { ValidationUtil, BulkOperationUtil, BulkOperationResponse } from '../../../common/utils/validation.util';
@@ -349,6 +350,40 @@ export class SalesOrderService {
 
   async findAll(query: QuerySalesOrdersDto) {
     return this.salesOrderQueryService.findAll(query);
+  }
+
+  async searchGlobal(query: string, user: any): Promise<GlobalSearchResultDto[]> {
+    const trimmed = query.trim();
+    const orders = await this.salesOrderRepository
+      .createQueryBuilder('order')
+      .leftJoinAndSelect('order.customer', 'customer')
+      .where('order.deletedAt IS NULL')
+      .andWhere('(order.orderNumber ILIKE :q OR customer.name ILIKE :q)', {
+        q: `%${trimmed}%`,
+      })
+      .take(5)
+      .getMany();
+
+    return orders.map((order) => {
+      const orderNumber = order.orderNumber?.toLowerCase() ?? '';
+      const normalized = trimmed.toLowerCase();
+      let score = 50;
+
+      if (orderNumber === normalized) {
+        score = 90;
+      } else if (orderNumber.startsWith(normalized)) {
+        score = 80;
+      }
+
+      return {
+        type: 'transaction',
+        id: order.id,
+        label: order.orderNumber,
+        description: order.customer?.name ?? '',
+        route: `/sales/orders/${order.id}`,
+        score,
+      };
+    });
   }
 
   async testInvoiceRelations(orderNumber: string): Promise<any> {
