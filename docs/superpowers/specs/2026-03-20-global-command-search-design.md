@@ -10,7 +10,7 @@
 
 This feature has three layers:
 
-1. **Backend search module (`search/`)** — a new NestJS module exposing `GET /search/global?q=abc&limit=20`. It orchestrates search across four sources in parallel, normalizes results into a shared response shape, applies basic permission-safe filtering via domain methods, and returns a capped result set.
+1. **Backend search module (`search/`)** — a new NestJS module exposing `GET /search/global?q=abc`. It orchestrates search across four sources in parallel, normalizes results into a shared response shape, applies basic permission-safe filtering via domain methods, and returns a fixed cap of 20 results.
 
 2. **Domain search methods** — one focused `searchGlobal(query, user)` method added to each relevant domain service: customers, products, and transaction services (sales orders and purchase orders). Each method owns its domain-specific query rules and permission-aware filtering. Transactions are internally aggregated from sales orders and purchase orders by a private `searchTransactions()` helper in the search service. Static page/route search lives inside the search service itself.
 
@@ -51,7 +51,7 @@ export class GlobalSearchResultDto {
 }
 ```
 
-**`GlobalSearchQueryDto`** — validates `q` (string, min 2, max 100) and `limit` (number, default 20, max 20).
+**`GlobalSearchQueryDto`** — validates `q` (string, min 2, max 100). Result count is fixed at 20 server-side; no `limit` parameter is exposed to callers.
 
 **`GlobalSearchResponseDto`**
 ```ts
@@ -63,7 +63,7 @@ export class GlobalSearchResponseDto {
 
 ### Controller
 
-`GET /search/global` protected by `JwtAuthGuard`. Validates query via `GlobalSearchQueryDto`. Passes `req.user` into the service. Returns `GlobalSearchResponseDto`.
+`GET /search/global` protected by `JwtAuthGuard`. Validates `q` via `GlobalSearchQueryDto`. Passes `req.user` (typed as the existing `JwtPayload`/user object from the auth module — use the same type already used by other guarded controllers) into the service. Returns `GlobalSearchResponseDto`.
 
 ### Search service
 
@@ -73,7 +73,7 @@ Orchestrates four sources in parallel:
 const [pages, customers, products, transactions] = await Promise.all([
   this.searchPages(query),
   this.customersService.searchGlobal(query, user),
-  this.inventoryService.searchGlobal(query, user),
+  this.productService.searchGlobal(query, user),
   this.searchTransactions(query, user),
 ]);
 ```
@@ -92,7 +92,7 @@ private async searchTransactions(query: string, user: AuthUserDto): Promise<Glob
 }
 ```
 
-After fan-out, the service merges all results, sorts by descending `score`, slices to the requested limit (max 20), and returns `{ query, results }`.
+After fan-out, the service merges all results, sorts by descending `score` (items with `undefined` score are treated as 0 and sort to the bottom), slices to 20, and returns `{ query, results }`.
 
 A defensive early return prevents unnecessary fan-out:
 ```ts
@@ -110,7 +110,7 @@ Each method returns `GlobalSearchResultDto[]` with score assigned by the domain 
 - Filter: not soft-deleted, applying the same baseline visibility rules already used by the customers module
 - Result shape: `label = name`, `description = code`, `route = /customers/:id`, `type = 'customer'`
 
-**Products** (`InventoryService.searchGlobal` / `ProductsService.searchGlobal`)
+**Products** (`ProductService.searchGlobal`)
 - Search fields: name, SKU
 - Filter: not soft-deleted, baseline visibility rules
 - Result shape: `label = name`, `description = SKU`, `route = /inventory/products/:id`, `type = 'product'`
@@ -128,11 +128,16 @@ Each method returns `GlobalSearchResultDto[]` with score assigned by the domain 
 **Pages** (static, inside `search.service.ts`)
 - A static array of ~20 app routes, each with label, keywords, and route
 - Filtered with `includes()` on label and keywords
+- Score: exact label match = 100, label startsWith = 80, label/keyword contains = 50
 - Result shape: `label = page title`, `description = 'Navigation'`, `route = static route`, `type = 'page'`
 
 ### Permission filtering
 
 Each domain method applies the same baseline visibility rules already used by its module, excluding soft-deleted records and any records the current authenticated user should not see. Advanced role-based search shaping and module-aware exclusion (e.g. accounting) are deferred to Phase 2.
+
+### Query performance note
+
+Domain `searchGlobal()` methods use `LIKE '%query%'` (contains) matching on name, code, and similar fields. Leading-wildcard `LIKE` queries do not benefit from standard B-tree indexes. For Phase 1 data volumes this is acceptable, but implementers should be aware that `pg_trgm` trigram indexes on searched columns are the recommended fix if query latency becomes a problem as data grows.
 
 ---
 
@@ -142,20 +147,20 @@ Each domain method applies the same baseline visibility rules already used by it
 
 New file: `frontend/src/store/api/searchApi.ts`
 
-Single query endpoint: `GET /search/global?q=abc&limit=20` returning `{ query: string, results: GlobalSearchResultDto[] }`.
+Single query endpoint: `GET /search/global?q=abc` returning `{ query: string, results: GlobalSearchResultDto[] }`.
 
-Search results are treated as ephemeral and refreshed per debounced query rather than reused as long-lived cached data. No custom retry or timeout behavior is added; the existing base query behavior is used as-is.
+Search results are treated as ephemeral. Set `keepUnusedDataFor: 0` on this endpoint so cached results from a prior query string are not reused on repeat queries within the default 60-second RTK Query cache window. No custom retry or timeout behavior is added; the existing base query behavior is used as-is.
 
 ### SearchModal
 
-**State:** `query`, `debouncedQuery` (250 ms via `useEffect`), `selectedIndex` (reset to 0 on new results).
+**State:** `query`, `debouncedQuery` (250 ms via `useEffect`), `selectedIndex` (reset to 0 whenever a completed fetch replaces a prior result set — not on every intermediate re-fetch while the user is still typing).
 
 **Behavior on open:** Input auto-focuses immediately. Query resets to empty on each fresh open. State (query, selectedIndex) resets to clean defaults on close.
 
 **RTK Query usage:**
 ```ts
 useSearchGlobalQuery(
-  { q: debouncedQuery.trim(), limit: 20 },
+  { q: debouncedQuery.trim() },
   { skip: debouncedQuery.trim().length < 2 }
 )
 ```
@@ -236,3 +241,4 @@ No dedicated E2E coverage is included in Phase 1; this is deferred once the inte
 - Elasticsearch / Meilisearch / external search infrastructure
 - Journal Entry search (not included in Phase 1 transaction scope)
 - Advanced performance optimization beyond basic query limits, indexing, and capped result sets
+- Page result filtering by user role — the static page list is not permission-filtered in Phase 1; all authenticated users see all navigation results (Phase 2+)
