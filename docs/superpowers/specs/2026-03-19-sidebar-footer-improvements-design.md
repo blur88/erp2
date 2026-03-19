@@ -36,7 +36,7 @@ Improve sidebar footer UX to match modern SaaS patterns. The avatar becomes the 
 |---------|-------|
 | Open logout confirmation | `SidebarUserMenu` |
 | Dispatch logout intent | `SidebarUserMenu` |
-| `persistor.purge()` | `SidebarUserMenu` (after awaiting thunk — existing behavior preserved) |
+| `persistor.purge()` | `SidebarUserMenu` (after awaiting thunk — existing `persistor.purge()` call preserved; `navigate('/login')` is deliberately removed, delegated to `ProtectedRoute`) |
 | Token cleanup | `logout` thunk |
 | Redirect to `/login` | `ProtectedRoute` (detects `isAuthenticated === false`) |
 
@@ -165,7 +165,7 @@ const [logoutAnchorEl, setLogoutAnchorEl] = useState<HTMLElement | null>(null)
 
 ### Test Split
 
-**`SidebarFooter.test.tsx`** — layout/shell only:
+**`SidebarFooter.test.tsx`** — layout/shell only (still requires Redux `Provider` and `MemoryRouter` wrappers because `SidebarUserMenu` is a Redux-connected child):
 - Renders in collapsed mode
 - Renders in expanded mode
 - Mounts `SidebarUserMenu` with correct `collapsed` prop
