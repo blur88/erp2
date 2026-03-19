@@ -167,11 +167,11 @@ export default function SearchModal({ open, onClose }: SearchModalProps) {
     }
   }
 
-  const showLoading = (isLoading || isFetching) && !data
-  const showError = isError && !showLoading
-  const showEmpty = !showLoading && !showError && !!data && flatResults.length === 0
-  const showHelp =
-    !showLoading && !showError && !data && trimmedQuery.length < 2
+  const hasActiveQuery = trimmedQuery.length >= 2
+  const showHelp = !hasActiveQuery
+  const showLoading = hasActiveQuery && (isLoading || isFetching) && !data
+  const showError = hasActiveQuery && isError && !showLoading
+  const showEmpty = hasActiveQuery && !showLoading && !showError && !!data && flatResults.length === 0
 
   return (
     <Modal open={open} onClose={handleClose} aria-label="Global search">
@@ -259,7 +259,7 @@ export default function SearchModal({ open, onClose }: SearchModalProps) {
             </Typography>
           )}
 
-          {groups.map((group) => (
+          {hasActiveQuery && groups.map((group) => (
             <Box key={group.type}>
               <Typography
                 variant="caption"

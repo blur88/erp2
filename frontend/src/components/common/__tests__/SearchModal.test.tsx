@@ -1,8 +1,8 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen } from '@testing-library/react'
 import { configureStore } from '@reduxjs/toolkit'
 import { Provider } from 'react-redux'
 import { MemoryRouter } from 'react-router-dom'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import SearchModal from '../SearchModal'
 import { searchApiSlice } from '@/store/api/searchApi'
@@ -50,8 +50,15 @@ function renderModal(open = true) {
   return { onClose }
 }
 
+// Helper: type into input and advance debounce timer
+function typeAndFlush(value: string) {
+  fireEvent.change(screen.getByPlaceholderText(/search/i), { target: { value } })
+  act(() => { vi.advanceTimersByTime(300) })
+}
+
 describe('SearchModal', () => {
   beforeEach(() => {
+    vi.useFakeTimers()
     vi.clearAllMocks()
     mockUseSearchGlobal.mockReturnValue({
       data: undefined,
@@ -59,6 +66,10 @@ describe('SearchModal', () => {
       isFetching: false,
       isError: false,
     })
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
   })
 
   it('renders nothing when closed', () => {
@@ -101,6 +112,7 @@ describe('SearchModal', () => {
     })
 
     renderModal()
+    typeAndFlush('abc')
 
     expect(screen.getByRole('progressbar')).toBeInTheDocument()
   })
@@ -138,6 +150,7 @@ describe('SearchModal', () => {
     })
 
     renderModal()
+    typeAndFlush('abc')
 
     expect(screen.getByText('Pages')).toBeInTheDocument()
     expect(screen.getAllByText('Customers').length).toBeGreaterThan(0)
@@ -154,6 +167,7 @@ describe('SearchModal', () => {
     })
 
     renderModal()
+    typeAndFlush('zzz')
 
     expect(screen.getByText(/no results/i)).toBeInTheDocument()
   })
@@ -177,6 +191,7 @@ describe('SearchModal', () => {
     })
 
     const { onClose } = renderModal()
+    typeAndFlush('abc')
     const input = screen.getByPlaceholderText(/search/i)
     fireEvent.keyDown(input, { key: 'Enter' })
 
@@ -193,6 +208,7 @@ describe('SearchModal', () => {
     })
 
     renderModal()
+    typeAndFlush('abc')
 
     expect(screen.getByText(/search unavailable/i)).toBeInTheDocument()
   })
@@ -221,7 +237,7 @@ describe('SearchModal', () => {
     )
 
     const input = screen.getByPlaceholderText(/search/i)
-    fireEvent.change(input, { target: { value: 'abc' } })
+    typeAndFlush('abc')
     expect(input).toHaveValue('abc')
 
     rerender(
@@ -267,6 +283,7 @@ describe('SearchModal', () => {
     })
 
     renderModal()
+    typeAndFlush('abc')
 
     const input = screen.getByPlaceholderText(/search/i)
     fireEvent.keyDown(input, { key: 'ArrowUp' })
@@ -300,6 +317,7 @@ describe('SearchModal', () => {
     })
 
     renderModal()
+    typeAndFlush('abc')
 
     const input = screen.getByPlaceholderText(/search/i)
     fireEvent.keyDown(input, { key: 'ArrowDown' })
