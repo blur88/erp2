@@ -39,7 +39,7 @@ Strengthen contrast between ancestor and current-page segments.
 | Separator `NavigateNextIcon` | `color` | `#6B7280` | `#5A5A5A` |
 | Current page `Typography` | `color` | `#E0E0E0` | `#E0E0E0` (unchanged) |
 | Current page `Typography` | `fontWeight` | _(absent)_ | `500` |
-| Ancestor `Link` hover | `color` | _(absent)_ | `#CFCFCF` |
+| Ancestor `Link` hover | `color` | _(absent)_ | `#CFCFCF` (navigable `Link` items only — non-navigable `Typography` ancestors have no hover state) |
 
 #### 2. Right-side action spacing
 
