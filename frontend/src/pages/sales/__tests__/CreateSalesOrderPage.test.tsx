@@ -1,6 +1,6 @@
 import '@testing-library/jest-dom/vitest'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { BrowserRouter } from 'react-router-dom'
 
@@ -97,8 +97,6 @@ describe('CreateSalesOrderPage product search', { timeout: 60000 }, () => {
   })
 
   it('replaces autocomplete options with only the latest search results', async () => {
-    const user = userEvent.setup()
-
     render(
       <BrowserRouter>
         <CreateSalesOrderPage />
@@ -106,13 +104,12 @@ describe('CreateSalesOrderPage product search', { timeout: 60000 }, () => {
     )
 
     const productInput = screen.getByPlaceholderText('Search by name or barcode...')
-    await user.click(productInput)
+    fireEvent.mouseDown(productInput)
 
     const initialListbox = await screen.findByRole('listbox')
     expect(within(initialListbox).getByText('Alpha Widget')).toBeInTheDocument()
 
-    await user.clear(productInput)
-    await user.type(productInput, replacementSearchTerm)
+    fireEvent.change(productInput, { target: { value: replacementSearchTerm } })
 
     await waitFor(() => {
       expect(mockGet).toHaveBeenCalledWith('/inventory/products', {
@@ -126,8 +123,6 @@ describe('CreateSalesOrderPage product search', { timeout: 60000 }, () => {
   })
 
   it('keeps the selected product visible when another search replaces the shared options list', async () => {
-    const user = userEvent.setup()
-
     render(
       <BrowserRouter>
         <CreateSalesOrderPage />
@@ -135,22 +130,22 @@ describe('CreateSalesOrderPage product search', { timeout: 60000 }, () => {
     )
 
     const [firstProductInput] = screen.getAllByPlaceholderText('Search by name or barcode...')
-    await user.click(firstProductInput)
+    fireEvent.mouseDown(firstProductInput)
 
     const initialListbox = await screen.findByRole('listbox')
-    await user.click(within(initialListbox).getByText('Alpha Widget'))
+    fireEvent.click(within(initialListbox).getByText('Alpha Widget'))
 
     await waitFor(() => {
       expect(firstProductInput).toHaveValue('Alpha Widget')
     })
 
-    await user.click(screen.getByRole('button', { name: /add item/i }))
+    fireEvent.click(screen.getByRole('button', { name: /add item/i }))
 
     const productInputs = screen.getAllByPlaceholderText('Search by name or barcode...')
     const secondProductInput = productInputs[1]
 
-    await user.click(secondProductInput)
-    await user.type(secondProductInput, replacementSearchTerm)
+    fireEvent.mouseDown(secondProductInput)
+    fireEvent.change(secondProductInput, { target: { value: replacementSearchTerm } })
 
     await waitFor(() => {
       expect(mockGet).toHaveBeenCalledWith('/inventory/products', {
@@ -164,7 +159,6 @@ describe('CreateSalesOrderPage product search', { timeout: 60000 }, () => {
   })
 
   it('keeps hydrated edit-mode product visible after search replaces options', async () => {
-    const user = userEvent.setup()
     mockParams.mockReturnValue({ id: 'so-1' })
 
     mockFetchSalesOrder.mockReturnValue({
@@ -199,13 +193,13 @@ describe('CreateSalesOrderPage product search', { timeout: 60000 }, () => {
       expect(firstProductInput).toHaveValue('Hydrated Product')
     })
 
-    await user.click(screen.getByRole('button', { name: /add item/i }))
+    fireEvent.click(screen.getByRole('button', { name: /add item/i }))
 
     const productInputs = screen.getAllByPlaceholderText('Search by name or barcode...')
     const secondProductInput = productInputs[1]
 
-    await user.click(secondProductInput)
-    await user.type(secondProductInput, replacementSearchTerm)
+    fireEvent.mouseDown(secondProductInput)
+    fireEvent.change(secondProductInput, { target: { value: replacementSearchTerm } })
 
     await waitFor(() => {
       expect(mockGet).toHaveBeenCalledWith('/inventory/products', {
