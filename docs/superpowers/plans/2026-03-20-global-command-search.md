@@ -51,7 +51,24 @@
 - Create: `backend/src/modules/search/dto/global-search-result.dto.ts`
 - Create: `backend/src/modules/search/dto/global-search-response.dto.ts`
 
-- [ ] **Step 1: Create the query DTO**
+- [ ] **Step 1: Verify ValidationPipe is globally registered**
+
+The query DTO uses `class-validator` decorators (`@MinLength`, `@MaxLength`). These only enforce at runtime if `ValidationPipe` is globally registered.
+
+```bash
+grep -n "ValidationPipe\|useGlobalPipes\|APP_PIPE" backend/src/main.ts
+```
+
+Expected: At least one match. If none, open `backend/src/main.ts` and add:
+
+```typescript
+import { ValidationPipe } from '@nestjs/common';
+app.useGlobalPipes(new ValidationPipe({ transform: true, whitelist: true }));
+```
+
+(Most NestJS projects already have this — this step is just a verification.)
+
+- [ ] **Step 2: Create the query DTO**
 
 ```typescript
 // backend/src/modules/search/dto/global-search-query.dto.ts
@@ -65,7 +82,7 @@ export class GlobalSearchQueryDto {
 }
 ```
 
-- [ ] **Step 2: Create the result DTO**
+- [ ] **Step 3: Create the result DTO**
 
 ```typescript
 // backend/src/modules/search/dto/global-search-result.dto.ts
@@ -81,7 +98,7 @@ export class GlobalSearchResultDto {
 }
 ```
 
-- [ ] **Step 3: Create the response DTO**
+- [ ] **Step 4: Create the response DTO**
 
 ```typescript
 // backend/src/modules/search/dto/global-search-response.dto.ts
@@ -93,7 +110,7 @@ export class GlobalSearchResponseDto {
 }
 ```
 
-- [ ] **Step 4: Commit**
+- [ ] **Step 5: Commit**
 
 ```bash
 git add backend/src/modules/search/
@@ -358,10 +375,11 @@ async searchGlobal(query: string, user: any): Promise<import('../search/dto/glob
   return products.map((p) => {
     const name = p.name?.toLowerCase() ?? '';
     const sku = p.sku?.toLowerCase() ?? '';
+    const t = trimmed.toLowerCase();
     let score = 50;
-    if (name === trimmed) score = 100;
-    else if (sku === trimmed) score = 90;
-    else if (name.startsWith(trimmed) || sku.startsWith(trimmed)) score = 80;
+    if (name === t) score = 100;
+    else if (sku === t) score = 90;
+    else if (name.startsWith(t) || sku.startsWith(t)) score = 80;
     return {
       type: 'product' as const,
       id: p.id,
@@ -459,9 +477,10 @@ async searchGlobal(query: string, user: any): Promise<import('../search/dto/glob
 
   return orders.map((o) => {
     const num = o.orderNumber?.toLowerCase() ?? '';
+    const t = trimmed.toLowerCase();
     let score = 50;
-    if (num === trimmed) score = 90;
-    else if (num.startsWith(trimmed)) score = 80;
+    if (num === t) score = 90;
+    else if (num.startsWith(t)) score = 80;
     return {
       type: 'transaction' as const,
       id: o.id,
@@ -573,9 +592,10 @@ async searchGlobal(query: string, user: any): Promise<import('../search/dto/glob
 
   return orders.map((o) => {
     const num = o.orderNumber?.toLowerCase() ?? '';
+    const t = trimmed.toLowerCase();
     let score = 50;
-    if (num === trimmed) score = 90;
-    else if (num.startsWith(trimmed)) score = 80;
+    if (num === t) score = 90;
+    else if (num.startsWith(t)) score = 80;
     return {
       type: 'transaction' as const,
       id: o.id,
@@ -1060,7 +1080,7 @@ import { searchApiSlice } from '@/store/api/searchApi'
 import type { GlobalSearchResponse } from '@/types/search'
 
 // Helper to create a minimal store for tests
-function makeStore(searchResult?: GlobalSearchResponse) {
+function makeStore() {
   return configureStore({
     reducer: {
       [searchApiSlice.reducerPath]: searchApiSlice.reducer,
@@ -1234,6 +1254,27 @@ describe('SearchModal', () => {
       </Provider>
     )
     expect(screen.getByPlaceholderText(/search/i)).toHaveValue('')
+  })
+
+  it('ArrowUp wraps from first result to last', () => {
+    mockUseSearchGlobal.mockReturnValue({
+      data: {
+        query: 'abc',
+        results: [
+          { type: 'customer', id: '1', label: 'First', route: '/customers/1' },
+          { type: 'customer', id: '2', label: 'Second', route: '/customers/2' },
+        ],
+      },
+      isLoading: false,
+      isFetching: false,
+      isError: false,
+    })
+    renderModal()
+    const input = screen.getByPlaceholderText(/search/i)
+    // selectedIndex starts at 0 (first item); ArrowUp should wrap to last (index 1)
+    fireEvent.keyDown(input, { key: 'ArrowUp' })
+    fireEvent.keyDown(input, { key: 'Enter' })
+    expect(mockNavigate).toHaveBeenCalledWith('/customers/2')
   })
 
   it('ArrowDown wraps from last result to first', () => {
