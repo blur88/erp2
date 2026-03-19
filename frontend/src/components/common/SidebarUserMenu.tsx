@@ -206,7 +206,7 @@ const SidebarUserMenu: React.FC<SidebarUserMenuProps> = ({ collapsed }) => {
         transformOrigin={{ horizontal: 'left', vertical: 'bottom' }}
         anchorOrigin={{ horizontal: 'left', vertical: 'top' }}
       >
-        <Box sx={{ px: 2, py: 1 }}>
+        <Box sx={{ px: 2, py: 1, cursor: 'default', userSelect: 'none' }}>
           <Typography sx={{ color: COLORS.text, fontSize: '0.75rem' }}>
             {username}
           </Typography>
@@ -217,6 +217,8 @@ const SidebarUserMenu: React.FC<SidebarUserMenuProps> = ({ collapsed }) => {
         <MenuItem
           onClick={handleSettingsClick}
           sx={{
+            minHeight: 40,
+            alignItems: 'center',
             '& .MuiListItemIcon-root': { color: COLORS.icon },
             '&:hover .MuiListItemIcon-root': { color: COLORS.hoverText },
           }}
@@ -230,6 +232,8 @@ const SidebarUserMenu: React.FC<SidebarUserMenuProps> = ({ collapsed }) => {
         <MenuItem
           onClick={handleLogoutClick}
           sx={{
+            minHeight: 40,
+            alignItems: 'center',
             '& .MuiListItemIcon-root': { color: COLORS.icon },
             '&:hover .MuiListItemIcon-root': { color: COLORS.hoverText },
           }}
@@ -242,7 +246,7 @@ const SidebarUserMenu: React.FC<SidebarUserMenuProps> = ({ collapsed }) => {
 
         <Divider sx={{ borderColor: COLORS.border }} />
 
-        <Box sx={{ px: 2, py: 1 }}>
+        <Box sx={{ px: 2, py: 1, mt: '4px' }}>
           <Typography sx={{ color: COLORS.mutedText, fontSize: '0.65rem' }}>
             v{version}
           </Typography>
