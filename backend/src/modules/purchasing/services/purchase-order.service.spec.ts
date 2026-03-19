@@ -232,6 +232,35 @@ describe('PurchaseOrderService', () => {
     jest.clearAllMocks();
   });
 
+  describe('searchGlobal', () => {
+    it('returns matching purchase orders as GlobalSearchResultDto', async () => {
+      const order = {
+        id: 'po-uuid-1',
+        orderNumber: 'PO-000001',
+        supplier: { companyName: 'Acme Supplies' },
+        deletedAt: null,
+      };
+      purchaseOrderRepository.createQueryBuilder = jest.fn().mockReturnValue({
+        leftJoinAndSelect: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        take: jest.fn().mockReturnThis(),
+        getMany: jest.fn().mockResolvedValue([order]),
+      } as any);
+
+      const results = await service.searchGlobal('PO-000001', {} as any);
+
+      expect(results).toHaveLength(1);
+      expect(results[0]).toMatchObject({
+        type: 'transaction',
+        id: 'po-uuid-1',
+        label: 'PO-000001',
+        description: 'Acme Supplies',
+        route: '/purchasing/orders/po-uuid-1',
+      });
+    });
+  });
+
   describe('receiveGoods', () => {
     it('posts accounting entry after receiving goods', async () => {
       grnRepository.findOne

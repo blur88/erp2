@@ -17,6 +17,7 @@ import {
   PurchaseOrderListResponseDto,
   PurchaseOrderSummaryDto,
 } from '../dto';
+import { GlobalSearchResultDto } from '../../search/dto/global-search-result.dto';
 import { SupplierService } from './supplier.service';
 import { GoodsReceivedNoteService } from './goods-received-note.service';
 import { VendorPaymentService } from './vendor-payment.service';
@@ -329,6 +330,40 @@ export class PurchaseOrderService {
       hasNext: limit ? page < Math.ceil(total / limit) : false,
       hasPrev: page ? page > 1 : false,
     };
+  }
+
+  async searchGlobal(query: string, user: any): Promise<GlobalSearchResultDto[]> {
+    const trimmed = query.trim();
+    const orders = await this.purchaseOrderRepository
+      .createQueryBuilder('order')
+      .leftJoinAndSelect('order.supplier', 'supplier')
+      .where('order.deletedAt IS NULL')
+      .andWhere('(order.orderNumber ILIKE :q OR supplier.companyName ILIKE :q)', {
+        q: `%${trimmed}%`,
+      })
+      .take(5)
+      .getMany();
+
+    return orders.map((order) => {
+      const orderNumber = order.orderNumber?.toLowerCase() ?? '';
+      const normalized = trimmed.toLowerCase();
+      let score = 50;
+
+      if (orderNumber === normalized) {
+        score = 90;
+      } else if (orderNumber.startsWith(normalized)) {
+        score = 80;
+      }
+
+      return {
+        type: 'transaction',
+        id: order.id,
+        label: order.orderNumber,
+        description: order.supplier?.companyName ?? '',
+        route: `/purchasing/orders/${order.id}`,
+        score,
+      };
+    });
   }
 
   /**
