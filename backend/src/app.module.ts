@@ -43,6 +43,7 @@ import { PrintSettingsModule } from './modules/print-settings/print-settings.mod
 import { BackupModule } from './modules/backup/backup.module';
 import { PriceListsModule } from './modules/price-lists/price-lists.module';
 import { AccountingModule } from './modules/accounting/accounting.module';
+import { SearchModule } from './modules/search/search.module';
 
 // Auth Guards
 import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard';
@@ -93,6 +94,7 @@ import { AppService } from './app.service';
     BackupModule, // Backup and restore functionality
     PriceListsModule, // Price list management (Phase 3)
     AccountingModule, // Accounting module (Phase 1)
+    SearchModule,
   ],
   controllers: [AppController],
   providers: [
