@@ -1,2 +1,3 @@
 export const DRAWER_WIDTH_EXPANDED = 256
 export const DRAWER_WIDTH_COLLAPSED = 64
+export const TOPBAR_HEIGHT = 64

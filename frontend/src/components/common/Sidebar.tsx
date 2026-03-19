@@ -74,6 +74,7 @@ import {
   ChevronLeft,
   ChevronRight,
 } from '@mui/icons-material'
+import { TOPBAR_HEIGHT } from '@/constants/layout'
 import { useGetCompanySettingsQuery } from '@/store/api/settingsApi'
 import SidebarFooter from './SidebarFooter'
 
@@ -1167,12 +1168,12 @@ const Sidebar: React.FC<SidebarProps> = ({
       <Box
         sx={{
           px: collapsed ? 0 : 2,
-          py: 1.5,
           display: 'flex',
           alignItems: 'center',
           justifyContent: collapsed ? 'center' : 'space-between',
-          borderBottom: `1px solid ${SIDEBAR_COLORS.border}`,
-          minHeight: 56,
+          borderBottom: '1px solid #2A2A2A',
+          height: TOPBAR_HEIGHT,
+          flexShrink: 0,
         }}
       >
         <Box sx={{ display: 'flex', alignItems: 'center', gap: collapsed ? 0 : 1.5 }}>

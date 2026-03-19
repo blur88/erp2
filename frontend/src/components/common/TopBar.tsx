@@ -20,7 +20,7 @@ import {
   Search as SearchIcon,
 } from '@mui/icons-material'
 
-import { DRAWER_WIDTH_COLLAPSED, DRAWER_WIDTH_EXPANDED } from '@/constants/layout'
+import { DRAWER_WIDTH_COLLAPSED, DRAWER_WIDTH_EXPANDED, TOPBAR_HEIGHT } from '@/constants/layout'
 import { useAppSelector } from '@/hooks/useRedux'
 import { selectUnreadCount } from '@/store/slices/notificationSlice'
 
@@ -236,7 +236,7 @@ const TopBar: React.FC<TopBarProps> = ({ collapsed, onMobileMenuOpen }) => {
           transition: 'width 0.22s ease, margin-left 0.22s ease',
         }}
       >
-        <Toolbar sx={{ minHeight: '64px !important', gap: 1 }}>
+        <Toolbar sx={{ minHeight: `${TOPBAR_HEIGHT}px !important`, height: TOPBAR_HEIGHT, gap: 1 }}>
           {isMobile && (
             <IconButton
               color="inherit"
