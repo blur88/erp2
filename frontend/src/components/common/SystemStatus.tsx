@@ -145,7 +145,12 @@ const SystemStatus: React.FC = () => {
   return (
     <>
       <Tooltip title={tooltipText}>
-        <IconButton onClick={handleClick} color="inherit" size="small">
+        <IconButton
+          onClick={handleClick}
+          color="inherit"
+          size="small"
+          sx={{ '&:hover': { bgcolor: '#2A2A2A', borderRadius: '8px' } }}
+        >
           <Box sx={{ position: 'relative', display: 'inline-flex' }}>
             <DnsRoundedIcon sx={{ fontSize: 22, color: '#A0A0A0' }} />
             <Box
