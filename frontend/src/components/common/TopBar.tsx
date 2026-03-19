@@ -249,23 +249,31 @@ const TopBar: React.FC<TopBarProps> = ({ collapsed, onMobileMenuOpen }) => {
             </IconButton>
           )}
 
-          <Box sx={{ flexGrow: 1, overflow: 'hidden' }}>
+          <Box sx={{ flexGrow: 1, overflow: 'hidden', display: 'flex', alignItems: 'center', height: '100%' }}>
             {isMobile ? (
               <Typography noWrap sx={{ fontSize: '0.875rem', color: '#E0E0E0', fontWeight: 500 }}>
                 {leafLabel}
               </Typography>
             ) : breadcrumbs.length > 0 ? (
               <Breadcrumbs
-                separator={<NavigateNextIcon sx={{ fontSize: 14, color: '#5A5A5A' }} />}
+                separator={<NavigateNextIcon sx={{ fontSize: 14, color: '#5A5A5A', mx: 0.5 }} />}
                 aria-label="breadcrumb"
-                sx={{ '& .MuiBreadcrumbs-ol': { flexWrap: 'nowrap' } }}
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  '& .MuiBreadcrumbs-ol': { flexWrap: 'nowrap' },
+                  '& .MuiBreadcrumbs-separator': { mx: 0.75 },
+                }}
               >
                 {breadcrumbs.map((segment, index) => {
                   const isLast = index === breadcrumbs.length - 1
 
                   if (isLast) {
                     return (
-                      <Typography key={segment.path} sx={{ fontSize: '12px', color: '#E0E0E0', fontWeight: 500 }}>
+                      <Typography
+                        key={segment.path}
+                        sx={{ fontSize: '13px', color: '#E0E0E0', fontWeight: 500, display: 'flex', alignItems: 'center', lineHeight: 1.4 }}
+                      >
                         {segment.label}
                       </Typography>
                     )
@@ -278,7 +286,16 @@ const TopBar: React.FC<TopBarProps> = ({ collapsed, onMobileMenuOpen }) => {
                         component={RouterLink}
                         to={segment.path}
                         underline="hover"
-                        sx={{ fontSize: '12px', color: '#8A8A8A', '&:hover': { color: '#CFCFCF' } }}
+                        sx={{
+                          fontSize: '13px',
+                          fontWeight: 400,
+                          color: '#8A8A8A',
+                          display: 'flex',
+                          alignItems: 'center',
+                          lineHeight: 1.4,
+                          transition: 'color 0.15s ease',
+                          '&:hover': { color: '#CFCFCF' },
+                        }}
                       >
                         {segment.label}
                       </Link>
@@ -286,7 +303,10 @@ const TopBar: React.FC<TopBarProps> = ({ collapsed, onMobileMenuOpen }) => {
                   }
 
                   return (
-                    <Typography key={segment.path} sx={{ fontSize: '12px', color: '#8A8A8A' }}>
+                    <Typography
+                      key={segment.path}
+                      sx={{ fontSize: '13px', fontWeight: 400, color: '#8A8A8A', display: 'flex', alignItems: 'center', lineHeight: 1.4 }}
+                    >
                       {segment.label}
                     </Typography>
                   )
