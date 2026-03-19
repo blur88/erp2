@@ -206,7 +206,7 @@ Selected row calls `scrollIntoView({ block: 'nearest' })` to stay visible during
 ### Testing
 
 **Backend unit tests — `SearchService`:**
-- Verify fan-out to all four sources via `Promise.all`
+- Verify fan-out to all four sources in parallel
 - Verify results merged and sorted by descending score
 - Verify limit cap applied correctly
 - Verify early return for queries shorter than 2 characters
