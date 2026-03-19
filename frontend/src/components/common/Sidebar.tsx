@@ -1171,8 +1171,10 @@ const Sidebar: React.FC<SidebarProps> = ({
           display: 'flex',
           alignItems: 'center',
           justifyContent: collapsed ? 'center' : 'space-between',
-          borderBottom: '1px solid #2A2A2A',
+          boxSizing: 'border-box',
           height: TOPBAR_HEIGHT,
+          minHeight: TOPBAR_HEIGHT,
+          borderBottom: '1px solid #2A2A2A',
           flexShrink: 0,
         }}
       >

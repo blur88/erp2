@@ -232,6 +232,9 @@ const TopBar: React.FC<TopBarProps> = ({ collapsed, onMobileMenuOpen }) => {
           bgcolor: '#1E1E1E',
           color: 'text.primary',
           boxShadow: 'none',
+          boxSizing: 'border-box',
+          height: TOPBAR_HEIGHT,
+          minHeight: TOPBAR_HEIGHT,
           borderBottom: '1px solid #2A2A2A',
           transition: 'width 0.22s ease, margin-left 0.22s ease',
         }}
