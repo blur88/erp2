@@ -34,8 +34,8 @@ chore(release): <version> [skip ci]
 ```
 
 Two independent guards prevent an infinite loop:
-1. **`[skip ci]`** — GitHub Actions skips the workflow entirely for this commit.
-2. **`chore(release): false`** in `releaseRules` — semantic-release itself treats this commit as non-releasable, as a belt-and-suspenders measure.
+1. **`[skip ci]`** — GitHub Actions skips the workflow entirely for this commit. This is the primary guard.
+2. **`{ type: "chore", scope: "release", release: false }`** — a belt-and-suspenders guard at the semantic-release layer. When this rule matches, it returns `false` (a concrete non-`undefined` value), which prevents the built-in default rules from running as a fallback for that commit. Because `false` is not a valid release type string, it contributes nothing to the release type calculation — the net effect is no release. Note: this guard is coupled to the `chore(release):` scope in the release commit message; if that message format changes, this rule must be updated in tandem.
 
 ## Change
 
@@ -53,7 +53,7 @@ Replace the bare `"@semantic-release/commit-analyzer"` string entry with a plugi
 }]
 ```
 
-Custom `releaseRules` are evaluated first; the Angular preset defaults apply as fallback for types not listed here (`feat`, `fix`, `BREAKING CHANGE`).
+Custom `releaseRules` are evaluated first. If no custom rule matches a commit (the result is `undefined`), the built-in multi-format defaults kick in as a fallback — this covers `feat`→minor, `fix`→patch, `BREAKING CHANGE`→major, and others. There is no need to re-declare those types in the custom array.
 
 ## Out of Scope
 
