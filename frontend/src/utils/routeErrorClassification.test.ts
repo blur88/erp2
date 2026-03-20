@@ -44,6 +44,13 @@ describe('classifyRouteError', () => {
       })
     })
 
+    it('detects "ChunkLoadError" in message (webpack pattern)', () => {
+      expect(classifyRouteError(new Error('ChunkLoadError: Loading chunk 5 failed.'))).toEqual({
+        type: 'chunk-load',
+        message: CHUNK_MSG,
+      })
+    })
+
     it('is case-insensitive for message patterns', () => {
       expect(classifyRouteError(new Error('IMPORTING A MODULE SCRIPT FAILED'))).toEqual({
         type: 'chunk-load',

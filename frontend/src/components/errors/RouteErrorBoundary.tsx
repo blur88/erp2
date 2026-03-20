@@ -5,6 +5,11 @@ import { classifyRouteError } from '@/utils/routeErrorClassification'
 export default function RouteErrorBoundary() {
   const error = useRouteError()
   const { type } = classifyRouteError(error)
+  // classifyRouteError also returns `message` for future use; UI uses hard-coded copy per spec.
+  // Log unexpected errors for observability (chunk-load failures are deployment-related, not bugs).
+  if (type === 'generic') {
+    console.error('[RouteErrorBoundary]', error)
+  }
 
   if (type === 'chunk-load') {
     return (
