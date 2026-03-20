@@ -6,7 +6,7 @@
 
 **Architecture:** A pure `classifyRouteError` utility inspects the thrown value and returns a typed result (`chunk-load` | `generic`). A functional `RouteErrorBoundary` component consumes `useRouteError()`, calls the classifier, and renders one of two MUI-based UI states. The component is wired as the `errorElement` on the root (pathless layout) route in `router.tsx`, so it catches all descendant route errors via React Router's built-in error bubbling — no child route changes needed.
 
-**Tech Stack:** React 19, React Router v7 (`useRouteError`, `isRouteErrorResponse`, `json`, `Link`, `createMemoryRouter`, `RouterProvider`), MUI v7 (`Box`, `Paper`, `Typography`, `Button`), Vitest, `@testing-library/react`
+**Tech Stack:** React 19, React Router v7 (`useRouteError`, `isRouteErrorResponse`, `UNSAFE_ErrorResponseImpl`, `Link`, `createMemoryRouter`, `RouterProvider`), MUI v7 (`Box`, `Paper`, `Typography`, `Button`), Vitest, `@testing-library/react`
 
 **Spec:** `docs/superpowers/specs/2026-03-20-route-error-boundary-design.md`
 
@@ -38,7 +38,7 @@ Create `frontend/src/utils/routeErrorClassification.test.ts`:
 
 ```ts
 import { describe, it, expect } from 'vitest'
-import { json } from 'react-router-dom'
+import { UNSAFE_ErrorResponseImpl, isRouteErrorResponse } from 'react-router-dom'
 import { classifyRouteError } from './routeErrorClassification'
 
 const CHUNK_MSG = 'A new version of the app is available.'
@@ -114,8 +114,11 @@ describe('classifyRouteError', () => {
     })
 
     it('classifies a React Router ErrorResponse (isRouteErrorResponse) as generic', () => {
-      // json() creates a real ErrorResponse that satisfies isRouteErrorResponse()
-      const routeError = json({ error: true }, { status: 404 })
+      // UNSAFE_ErrorResponseImpl is the concrete class behind isRouteErrorResponse().
+      // json() was removed in React Router v7 — use this instead.
+      // Constructor: (status, statusText, data, internal)
+      const routeError = new UNSAFE_ErrorResponseImpl(404, 'Not Found', { error: true }, false)
+      expect(isRouteErrorResponse(routeError)).toBe(true) // guard: confirms this is the right shape
       expect(classifyRouteError(routeError)).toEqual({
         type: 'generic',
         message: GENERIC_MSG,
@@ -458,11 +461,14 @@ git commit -m "feat(frontend): wire RouteErrorBoundary as root errorElement (clo
 After Task 3, the feature is complete. To manually verify end-to-end:
 
 1. Start the frontend dev server: `cd frontend && npm run dev`
-2. In the browser console, simulate a chunk error:
-   ```js
-   // Trigger the chunk-load UI branch:
-   window.__testRouteError = new Error('Importing a module script failed')
+2. Temporarily add a throw to any route component (e.g. `DashboardPage`):
+   ```ts
+   throw new Error('Importing a module script failed')
    ```
-   (Or navigate to a route and throw manually from a component during development.)
-3. Confirm "App Updated" UI appears with Refresh Page + Go to Dashboard buttons.
-4. For the generic branch, throw `new Error('oops')` from any route component and confirm "Something Went Wrong" appears.
+   Navigate to that route. Confirm the **"App Updated"** UI appears with Refresh Page + Go to Dashboard buttons.
+3. Change the throw to a generic error:
+   ```ts
+   throw new Error('oops')
+   ```
+   Navigate to the same route. Confirm the **"Something Went Wrong"** UI appears with Reload Page + Go Home buttons.
+4. Remove the temporary throw before committing.

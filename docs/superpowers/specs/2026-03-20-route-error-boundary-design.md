@@ -131,7 +131,7 @@ Note on reload: `window.location.reload()` is acceptable for this issue. It may 
 
 ### `routeErrorClassification.test.ts`
 
-Assert both `type` and `message` for fixed-message cases. For `generic` cases with extracted messages, assert `type` and `message` where the value is deterministic. Use `json({ type, data })` from `react-router-dom` to construct a real `ErrorResponse` that satisfies `isRouteErrorResponse`.
+Assert both `type` and `message` for fixed-message cases. For `generic` cases with extracted messages, assert `type` and `message` where the value is deterministic. Use `UNSAFE_ErrorResponseImpl` from `react-router-dom` to construct a real `ErrorResponse` that satisfies `isRouteErrorResponse` — `json()` was removed in React Router v7.
 
 | Test case | Expected result |
 |-----------|----------------|
@@ -142,7 +142,7 @@ Assert both `type` and `message` for fixed-message cases. For `generic` cases wi
 | Error with `name === 'ChunkLoadError'` | `{ type: 'chunk-load', message: 'A new version of the app is available.' }` |
 | `new Error('something broke')` | `{ type: 'generic', message: 'something broke' }` |
 | Thrown string `'oops'` | `{ type: 'generic', message: 'oops' }` |
-| `json({ error: true }, { status: 404 })` (real `ErrorResponse`) | `{ type: 'generic', message: 'An unexpected error occurred.' }` |
+| `new UNSAFE_ErrorResponseImpl(404, 'Not Found', {}, false)` (real `ErrorResponse`) | `{ type: 'generic', message: 'An unexpected error occurred.' }` |
 | `null` | `{ type: 'generic', message: 'An unexpected error occurred.' }` |
 
 ### `RouteErrorBoundary.test.tsx`
