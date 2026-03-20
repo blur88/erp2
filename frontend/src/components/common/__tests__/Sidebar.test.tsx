@@ -4,6 +4,11 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import Sidebar from '../Sidebar'
 
 const mockUseGetCompanySettingsQuery = vi.fn()
+const mockUseAppSelector = vi.fn()
+
+vi.mock('@/hooks/useRedux', () => ({
+  useAppSelector: (selector: (state: any) => unknown) => mockUseAppSelector(selector),
+}))
 
 vi.mock('@/store/api/settingsApi', () => ({
   useGetCompanySettingsQuery: () => mockUseGetCompanySettingsQuery(),
@@ -36,6 +41,15 @@ vi.mock('../SidebarFooter', () => ({
 describe('Sidebar', () => {
   beforeEach(() => {
     localStorage.clear()
+    mockUseAppSelector.mockImplementation((selector: (state: any) => unknown) =>
+      selector({
+        auth: {
+          user: {
+            role: 'admin',
+          },
+        },
+      })
+    )
     mockUseGetCompanySettingsQuery.mockReturnValue({
       data: undefined,
       isLoading: false,
