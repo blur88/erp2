@@ -51,7 +51,11 @@ export function classifyRouteError(error: unknown): ClassifiedError
 
 The fallback message string for all generic cases is `"An unexpected error occurred."`.
 
-1. If `error` is an `Error` instance:
+Evaluation order matters. `isRouteErrorResponse` is checked first because `ErrorResponse` objects (thrown from loaders/actions) are plain objects, not `Error` instances — but checking it first also makes the priority explicit and defensively correct.
+
+1. If `isRouteErrorResponse(error)` is true (React Router's built-in utility from `react-router-dom`) → `{ type: 'generic', message: "An unexpected error occurred." }`
+   - This identifies errors thrown by loaders/actions as route error responses. Must be first to avoid any confusion with subsequent checks.
+2. If `error` is an `Error` instance:
    - Check `error.name === 'ChunkLoadError'`
    - Check `error.message` against patterns (case-sensitive substring match):
      - `"Importing a module script failed"`
@@ -61,11 +65,8 @@ The fallback message string for all generic cases is `"An unexpected error occur
      - `"dynamically imported module"`
    - If any match → `{ type: 'chunk-load', message: 'A new version of the app is available.' }`
    - Otherwise → `{ type: 'generic', message: error.message || "An unexpected error occurred." }`
-2. If `isRouteErrorResponse(error)` is true (React Router's built-in utility) → `{ type: 'generic', message: "An unexpected error occurred." }`
 3. If `error` is a string → `{ type: 'generic', message: error }`
 4. Anything else → `{ type: 'generic', message: "An unexpected error occurred." }`
-
-Note: use `isRouteErrorResponse` from `react-router-dom` — not duck-typed `.status` checking — to identify React Router response errors. This avoids false-positive matches with Axios error responses or other objects that happen to have a `.status` property.
 
 The `message` field on `ClassifiedError` is part of the public API but is **not used by `RouteErrorBoundary`** in the current UI (both states use hard-coded copy from the UI section). It is included in the type for future extensibility. Tests should assert on `type` only.
 
@@ -86,7 +87,7 @@ export default function RouteErrorBoundary() {
 
 ### `router.tsx` change
 
-Add `errorElement` to the root route:
+Add `errorElement` to the root (pathless layout) route:
 
 ```ts
 {
@@ -95,6 +96,8 @@ Add `errorElement` to the root route:
   children: [...]
 }
 ```
+
+The root route is a pathless layout route. React Router bubbles unhandled errors up through the route tree, so this single `errorElement` covers all descendant routes — no child routes need their own `errorElement`.
 
 ## UI
 
@@ -140,7 +143,9 @@ Note on reload: `window.location.reload()` is acceptable for this issue. It may 
 
 ### `RouteErrorBoundary.test.tsx`
 
-Wrap the component in `MemoryRouter` for test rendering (required for `Link` to render correctly).
+Use `createMemoryRouter` + `RouterProvider` for render tests. Do NOT use bare `MemoryRouter` — it does not populate `useRouteError()`, which reads from React Router's internal route error context.
+
+Test setup pattern: define a route whose `element` throws the target error and whose `errorElement` is `<RouteErrorBoundary />`. Render via `RouterProvider`. React Router will invoke `errorElement` automatically and `useRouteError()` will return the thrown value.
 
 | Test case | Expected output |
 |-----------|----------------|
