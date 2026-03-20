@@ -22,6 +22,7 @@ import {
   SalesOrderResponseDto,
 } from '../dto/sales-order.dto';
 import { GlobalSearchResultDto } from '../../search/dto/global-search-result.dto';
+import { canSearchSalesOrders } from '../../search/search.permissions';
 // import { CustomerService } from './customer.service';
 import { InventoryIntegrationService } from './inventory-integration.service';
 import { ValidationUtil, BulkOperationUtil, BulkOperationResponse } from '../../../common/utils/validation.util';
@@ -353,6 +354,8 @@ export class SalesOrderService {
   }
 
   async searchGlobal(query: string, user: any): Promise<GlobalSearchResultDto[]> {
+    if (!canSearchSalesOrders(user.role)) return [];
+
     const trimmed = query.trim();
     const orders = await this.salesOrderRepository
       .createQueryBuilder('order')

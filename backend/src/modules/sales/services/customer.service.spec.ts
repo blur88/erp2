@@ -63,7 +63,9 @@ describe('CustomerService', () => {
         getMany: jest.fn().mockResolvedValue([customer]),
       } as any);
 
-      const results = await service.searchGlobal('ABC', {} as any);
+      const results = await service.searchGlobal('ABC', {
+        role: UserRole.SALES_STAFF,
+      } as any);
 
       expect(results).toHaveLength(1);
       expect(results[0]).toMatchObject({
@@ -84,8 +86,11 @@ describe('CustomerService', () => {
         getMany: jest.fn().mockResolvedValue([]),
       } as any);
 
-      const results = await service.searchGlobal('zzz', {} as any);
+      const results = await service.searchGlobal('zzz', {
+        role: UserRole.SALES_STAFF,
+      } as any);
       expect(results).toEqual([]);
     });
   });
 });
+import { UserRole } from '../../../database/entities/user.entity';

@@ -12,6 +12,7 @@ import {
   VendorPayment,
 } from '../../../database/entities';
 import { GrnStatus } from '../../../database/entities/goods-received-note.entity';
+import { UserRole } from '../../../database/entities/user.entity';
 import { SupplierService } from './supplier.service';
 import { GoodsReceivedNoteService } from './goods-received-note.service';
 import { VendorPaymentService } from './vendor-payment.service';
@@ -248,7 +249,9 @@ describe('PurchaseOrderService', () => {
         getMany: jest.fn().mockResolvedValue([order]),
       } as any);
 
-      const results = await service.searchGlobal('PO-000001', {} as any);
+      const results = await service.searchGlobal('PO-000001', {
+        role: UserRole.PROCUREMENT_STAFF,
+      } as any);
 
       expect(results).toHaveLength(1);
       expect(results[0]).toMatchObject({

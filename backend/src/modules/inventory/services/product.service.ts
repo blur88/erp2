@@ -35,6 +35,7 @@ import {
   ProductImportResultDto,
 } from '../dto/product.dto';
 import { GlobalSearchResultDto } from '../../search/dto/global-search-result.dto';
+import { canSearchProducts } from '../../search/search.permissions';
 import { CategoryService } from './category.service';
 import { StockMovementService } from './stock-movement.service';
 import { BaseCostCalculatorService } from './base-cost-calculator.service';
@@ -291,6 +292,8 @@ export class ProductService {
   }
 
   async searchGlobal(query: string, user: any): Promise<GlobalSearchResultDto[]> {
+    if (!canSearchProducts(user.role)) return [];
+
     const trimmed = query.trim();
     const products = await this.productRepository
       .createQueryBuilder('product')

@@ -18,6 +18,7 @@ import {
   PurchaseOrderSummaryDto,
 } from '../dto';
 import { GlobalSearchResultDto } from '../../search/dto/global-search-result.dto';
+import { canSearchPurchaseOrders } from '../../search/search.permissions';
 import { SupplierService } from './supplier.service';
 import { GoodsReceivedNoteService } from './goods-received-note.service';
 import { VendorPaymentService } from './vendor-payment.service';
@@ -333,6 +334,8 @@ export class PurchaseOrderService {
   }
 
   async searchGlobal(query: string, user: any): Promise<GlobalSearchResultDto[]> {
+    if (!canSearchPurchaseOrders(user.role)) return [];
+
     const trimmed = query.trim();
     const orders = await this.purchaseOrderRepository
       .createQueryBuilder('order')

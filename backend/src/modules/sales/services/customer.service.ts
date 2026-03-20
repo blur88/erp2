@@ -17,6 +17,7 @@ import {
   CustomerSummaryDto,
 } from '../dto/customer.dto';
 import { GlobalSearchResultDto } from '../../search/dto/global-search-result.dto';
+import { canSearchCustomers } from '../../search/search.permissions';
 import { ValidationUtil, BulkOperationUtil, BulkOperationResponse } from '../../../common/utils/validation.util';
 import { TransactionManager, Transactional } from '../../../common/utils/transaction.util';
 import { AuditLogService } from '../../audit-logs/services';
@@ -129,6 +130,8 @@ export class CustomerService {
   }
 
   async searchGlobal(query: string, user: any): Promise<GlobalSearchResultDto[]> {
+    if (!canSearchCustomers(user.role)) return [];
+
     const trimmed = query.trim();
     const customers = await this.customerRepository
       .createQueryBuilder('customer')
