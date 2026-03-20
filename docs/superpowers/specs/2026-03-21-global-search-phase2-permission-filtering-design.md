@@ -14,7 +14,7 @@ Phase 1 delivered functional global search across 4 entity types and ~15 static 
 Phase 2 introduces role-based navigation visibility across the application. Both the sidebar and global search derive page visibility from a shared permission model, ensuring users only see navigation targets they are authorized to access.
 
 **Out of scope:**
-Ranking improvements, recent searches, fuzzy matching, new searchable entities, search analytics, and row-level record filtering. These are deferred to subsequent phases.
+Ranking improvements, recent searches, fuzzy matching, new searchable entities, search analytics, and row-level record filtering. Session invalidation on role change and suspended-user handling are also deferred — search results reflect the role embedded in the current JWT.
 
 ---
 
@@ -36,38 +36,144 @@ Ranking improvements, recent searches, fuzzy matching, new searchable entities, 
 | Inventory Staff | `inventory_staff` |
 | Procurement Staff | `procurement_staff` |
 
-### Page / navigation visibility
+### Role-set constants (used in both frontend and backend configs)
 
-| Page / Section | Roles with access |
+| Constant | Roles |
 |---|---|
-| Dashboard | All 5 roles |
-| Sales (orders, list) | Admin, Manager, Sales Staff |
-| Customers | Admin, Manager, Sales Staff |
-| Purchasing (orders, list) | Admin, Manager, Procurement Staff |
-| Suppliers | Admin, Manager, Procurement Staff |
-| Inventory (stock, adjustments) | Admin, Manager, Inventory Staff |
-| Products | Admin, Manager, Inventory Staff |
-| Accounting, Journal Entries | Admin, Manager |
-| Reports — Sales | Admin, Manager, Sales Staff |
-| Reports — Purchasing | Admin, Manager, Procurement Staff |
-| Reports — Inventory | Admin, Manager, Inventory Staff |
-| Reports — Accounting | Admin, Manager |
-| Settings | Admin |
-| Audit Logs | Admin |
-| Users / Access | Admin |
+| `ALL_ROLES` | admin, manager, sales_staff, inventory_staff, procurement_staff |
+| `SALES_ROLES` | admin, manager, sales_staff |
+| `PROCUREMENT_ROLES` | admin, manager, procurement_staff |
+| `INVENTORY_ROLES` | admin, manager, inventory_staff |
+| `FINANCE_ROLES` | admin, manager |
+| `ADMIN_ONLY` | admin |
 
-Parent sections are visible if and only if at least one child item is visible to the user's role.
+### Leaf page visibility (complete)
+
+Every leaf page that appears in the sidebar and/or backend `STATIC_PAGES` must carry an explicit role assignment. The authoritative list:
+
+**Primary**
+
+| Path | Label | Roles |
+|---|---|---|
+| `/dashboard` | Dashboard | ALL_ROLES |
+
+**Sales**
+
+| Path | Label | Roles |
+|---|---|---|
+| `/sales` | Sales Overview | SALES_ROLES |
+| `/sales/customers` | Customers | SALES_ROLES |
+| `/sales/orders` | Sales Orders | SALES_ROLES |
+| `/sales/invoices` | Invoices | SALES_ROLES |
+| `/sales/payments` | Payments | SALES_ROLES |
+
+**Purchasing**
+
+| Path | Label | Roles |
+|---|---|---|
+| `/purchasing` | Purchasing Overview | PROCUREMENT_ROLES |
+| `/purchasing/suppliers` | Suppliers | PROCUREMENT_ROLES |
+| `/purchasing/orders` | Purchase Orders | PROCUREMENT_ROLES |
+| `/purchasing/goods-received` | Goods Received | PROCUREMENT_ROLES |
+| `/purchasing/vendor-payments` | Vendor Payments | PROCUREMENT_ROLES |
+
+**Inventory**
+
+| Path | Label | Roles |
+|---|---|---|
+| `/inventory` | Inventory Overview | INVENTORY_ROLES |
+| `/inventory/products` | Products | INVENTORY_ROLES |
+| `/inventory/categories` | Categories | INVENTORY_ROLES |
+| `/inventory/stock-adjustments` | Stock Adjustments | INVENTORY_ROLES |
+
+**Accounting**
+
+| Path | Label | Roles |
+|---|---|---|
+| `/accounting/dashboard` | Accounting Dashboard | FINANCE_ROLES |
+| `/accounting/chart-of-accounts` | Chart of Accounts | FINANCE_ROLES |
+| `/accounting/journal-entries` | Journal Entries | FINANCE_ROLES |
+| `/accounting/bank-reconciliations` | Bank Reconciliation | FINANCE_ROLES |
+| `/accounting/expenses` | Expenses | FINANCE_ROLES |
+| `/accounting/fund-transfers` | Fund Transfers | FINANCE_ROLES |
+| `/accounting/settlements` | Settlements | FINANCE_ROLES |
+| `/accounting/owner-equity` | Owner's Equity | FINANCE_ROLES |
+| `/accounting/fiscal-periods` | Fiscal Periods | ADMIN_ONLY |
+| `/accounting/account-mappings` | Account Mappings | ADMIN_ONLY |
+
+**Reports — Sales**
+
+| Path | Label | Roles |
+|---|---|---|
+| `/reports/sales/product-summary` | Product Summary | SALES_ROLES |
+| `/reports/sales/product-details` | Product Details | SALES_ROLES |
+| `/reports/sales/order-summary` | Order Summary | SALES_ROLES |
+| `/reports/sales/order-profit` | Order Profit | SALES_ROLES |
+| `/reports/sales/customer-payment-summary` | Payment Summary | SALES_ROLES |
+| `/reports/sales/payment-by-order` | Payment by Order | SALES_ROLES |
+| `/reports/sales/payment-details` | Payment Details | SALES_ROLES |
+| `/reports/sales/order-history` | Order History | SALES_ROLES |
+| `/reports/sales/product-customer` | Product Customers | SALES_ROLES |
+
+**Reports — Purchasing**
+
+| Path | Label | Roles |
+|---|---|---|
+| `/reports/purchasing/order-summary` | Order Summary | PROCUREMENT_ROLES |
+| `/reports/purchasing/order-details` | Order Details | PROCUREMENT_ROLES |
+| `/reports/purchasing/order-status` | Order Status | PROCUREMENT_ROLES |
+| `/reports/purchasing/payment-details` | Payment Details | PROCUREMENT_ROLES |
+| `/reports/purchasing/vendor-purchase-list` | Vendor Products | PROCUREMENT_ROLES |
+
+**Reports — Inventory**
+
+| Path | Label | Roles |
+|---|---|---|
+| `/reports/inventory/summary` | Inventory Summary | INVENTORY_ROLES |
+| `/reports/inventory/historical` | Historical Inventory | INVENTORY_ROLES |
+| `/reports/inventory/movement-summary` | Movement Summary | INVENTORY_ROLES |
+| `/reports/inventory/price-list` | Product Price List | INVENTORY_ROLES |
+| `/reports/inventory/product-cost` | Product Cost Report | INVENTORY_ROLES |
+
+**Reports — Accounting**
+
+| Path | Label | Roles |
+|---|---|---|
+| `/accounting/reports/trial-balance` | Trial Balance | FINANCE_ROLES |
+| `/accounting/reports/balance-sheet` | Balance Sheet | FINANCE_ROLES |
+| `/accounting/reports/profit-loss` | Profit & Loss | FINANCE_ROLES |
+| `/accounting/reports/general-ledger` | General Ledger | FINANCE_ROLES |
+| `/accounting/reports/account-activity` | Account Activity | FINANCE_ROLES |
+
+**Administration**
+
+| Path | Label | Roles |
+|---|---|---|
+| `/settings/company` | Company Settings | ADMIN_ONLY |
+| `/settings/price-costing` | Inventory Costing | ADMIN_ONLY |
+| `/settings/regional` | Regional | ADMIN_ONLY |
+| `/settings/price-lists` | Price Lists | ADMIN_ONLY |
+| `/settings/payment-methods` | Payment Methods | ADMIN_ONLY |
+| `/settings/print` | Print Settings | ADMIN_ONLY |
+| `/settings/document-numbers` | Document Numbers | ADMIN_ONLY |
+| `/settings/users` | Users | ADMIN_ONLY |
+| `/settings/roles` | Roles & Permissions | ADMIN_ONLY |
+| `/settings/security` | Security | ADMIN_ONLY |
+| `/settings/backup` | Backup & Restore | ADMIN_ONLY |
+| `/audit-logs` | Audit Logs | ADMIN_ONLY |
+
+**Grouping rule for parent sections:** A parent section (Sales, Purchasing, Inventory, Accounting, Reports, Settings) is visible if and only if at least one of its leaf children is visible to the user's role. No parent item has both a `path` and `children` in the current sidebar — parent visibility is entirely child-derived.
 
 ### Record-type search visibility
 
 | Entity | Searchable by |
 |---|---|
-| Customers | Admin, Manager, Sales Staff |
-| Products | Admin, Manager, Inventory Staff, Sales Staff, Procurement Staff |
-| Sales Orders | Admin, Manager, Sales Staff |
-| Purchase Orders | Admin, Manager, Procurement Staff |
+| Customers | SALES_ROLES |
+| Products | ALL_ROLES (all 5 roles) |
+| Sales Orders | SALES_ROLES |
+| Purchase Orders | PROCUREMENT_ROLES |
 
-**Note on Products:** Products are shared master data referenced by sales orders, purchase orders, and inventory operations. Product search is therefore broader than inventory page access. This is intentional — record-type search access does not have to mirror page/module access 1:1 when an entity is shared across workflows.
+**Note on Products:** Products are shared master data referenced by sales orders, purchase orders, and inventory operations. Product search is broader than inventory page access — record-type search access does not have to mirror page/module access 1:1 when an entity is shared across workflows.
 
 ---
 
@@ -75,7 +181,7 @@ Parent sections are visible if and only if at least one child item is visible to
 
 ### Approach: Role arrays on existing nav config
 
-Both sidebar and backend search filter from explicit `roles: UserRole[]` arrays defined on each nav item / static page entry. This is a shared permission model expressed through matching static config on frontend and backend. The two constants must stay aligned — there is no runtime sync mechanism. For ~15 static nav items this maintenance burden is acceptable.
+Both sidebar and backend search filter from explicit `roles: UserRole[]` arrays defined on each nav item / static page entry. This is a shared permission model expressed through matching static config on frontend and backend. The two constants must stay aligned — there is no runtime sync mechanism. For ~55 static nav items this is low maintenance risk, but the alignment is a manual contract.
 
 **Frontend owns:** UI rendering (sidebar filters items from auth state, no network request).
 **Backend owns:** Security enforcement (search endpoint filters pages and entity results server-side).
@@ -89,11 +195,9 @@ Both must agree; backend is authoritative for discoverability.
 
 Move `menuSections` out of `Sidebar.tsx` into `frontend/src/config/navigation.ts`.
 
-Each leaf `MenuItem` gains a required `roles: UserRole[]` field. Always explicit — never empty or omitted. Dashboard uses all 5 roles listed explicitly.
+Each leaf `MenuItem` gains a required `roles: UserRole[]` field. Always explicit — use the named role-set constants from the permission model above, never an empty array. Dashboard uses `ALL_ROLES` (all 5 roles explicitly).
 
-Parent/group items do not carry their own `roles` field; their visibility is derived entirely from their children.
-
-If a parent item is also a directly clickable route (not just a group), it must carry its own `roles` field in addition to having children — its route-level visibility is independent of child filtering.
+Parent/group items do not carry a `roles` field. In the current sidebar, no parent item has both a `path` and `children` — parent visibility is derived entirely from filtered children.
 
 ### 1b. Sidebar filtering
 
@@ -124,6 +228,8 @@ function filterMenuItems(items: MenuItem[], role: UserRole): MenuItem[] {
 
 The sidebar calls `getFilteredMenuSections(menuSections, user.role)` using role from auth state.
 
+**Flyout code path:** The collapsed-rail flyout Popper (lines ~706 and ~1304 of `Sidebar.tsx`) reads from `menuSections` directly to locate items and render their children. After extraction, the flyout must read from the same filtered result — not the raw exported constant — so that role-filtered items do not reappear in flyout menus. Pass `filteredSections` (the output of `getFilteredMenuSections`) to the flyout lookup, or ensure the flyout's item lookup searches `filteredSections` rather than the raw `menuSections` constant.
+
 ### 1c. SearchModal
 
 No permission-logic changes are needed in `SearchModal`. It continues rendering the backend-filtered results it receives. Page filtering is handled server-side.
@@ -134,9 +240,9 @@ No permission-logic changes are needed in `SearchModal`. It continues rendering 
 
 ### 2a. Static pages config
 
-`STATIC_PAGES` in `search.service.ts` gains a `roles: UserRole[]` field on each entry, using the page visibility table above.
+`STATIC_PAGES` in `search.service.ts` gains a `roles: UserRole[]` field on each entry, using the leaf page visibility table above as the authoritative source.
 
-Define reusable role-set constants at the top of the file:
+Define reusable role-set constants at the top of `search.service.ts` (or imported from `search.permissions.ts`):
 
 ```ts
 const ALL_ROLES = [UserRole.ADMIN, UserRole.MANAGER, UserRole.SALES_STAFF, UserRole.INVENTORY_STAFF, UserRole.PROCUREMENT_STAFF];
@@ -147,7 +253,11 @@ const FINANCE_ROLES = [UserRole.ADMIN, UserRole.MANAGER];
 const ADMIN_ONLY = [UserRole.ADMIN];
 ```
 
-`searchPages()` signature becomes `searchPages(query: string, user: JwtUser)`. Before running keyword matching, filter to accessible pages only:
+`searchPages()` signature becomes `searchPages(query: string, user: JwtUser)`. The existing call site inside `SearchService.search()` (currently `this.searchPages(trimmed)` passed through `safeSearch`) must be updated to `this.searchPages(trimmed, user)`, with `user` threaded through from the top-level `search(query, user)` call.
+
+**Route reconciliation:** The existing `STATIC_PAGES` entries in `search.service.ts` contain some routes and labels that differ from the leaf page visibility table above (e.g., `/customers` vs `/sales/customers`, `/inventory/adjustments` vs `/inventory/stock-adjustments`). When adding `roles` fields, simultaneously reconcile each existing entry's route and label against the leaf page visibility table; mismatches must be corrected in the same PR.
+
+Before running keyword matching, filter to accessible pages only:
 
 ```ts
 const accessible = STATIC_PAGES.filter(p => p.roles.includes(user.role));
@@ -159,6 +269,7 @@ const accessible = STATIC_PAGES.filter(p => p.roles.includes(user.role));
 New file: `backend/src/modules/search/search.permissions.ts`
 
 ```ts
+export const ALL_ROLES = [...];
 export const PRODUCT_SEARCH_ROLES = [
   UserRole.ADMIN, UserRole.MANAGER,
   UserRole.INVENTORY_STAFF, UserRole.SALES_STAFF, UserRole.PROCUREMENT_STAFF,
@@ -169,7 +280,7 @@ export function canSearchCustomers(role: UserRole): boolean {
 }
 
 export function canSearchProducts(role: UserRole): boolean {
-  return PRODUCT_SEARCH_ROLES.includes(role);
+  return PRODUCT_SEARCH_ROLES.includes(role);  // all 5 roles
 }
 
 export function canSearchSalesOrders(role: UserRole): boolean {
@@ -210,10 +321,11 @@ No backend API contract or orchestration changes are introduced. The endpoint si
 ### Frontend unit tests (`filterMenuItems`)
 
 - For each of the 5 roles, assert the exact set of visible top-level sections
-- For each role, assert specific leaf routes are present or absent (not only top-level):
-  - Admin sees Audit Logs; Sales Staff does not
-  - Procurement Staff sees Purchasing; Sales Staff does not
-  - All roles see Dashboard
+- For each role, assert specific leaf routes are present or absent:
+  - Admin sees `/audit-logs`; Sales Staff does not
+  - Procurement Staff sees `/purchasing`; Sales Staff does not
+  - All roles see `/dashboard`
+  - Sales Staff sees `/sales/customers`; Inventory Staff does not
 - Assert parent sections collapse when all children are filtered out for a given role
 
 ### Backend unit tests
@@ -225,11 +337,13 @@ No backend API contract or orchestration changes are introduced. The endpoint si
 
 ### Integration tests (`GET /search/global`)
 
-One authenticated request per role. Assert:
+One authenticated request per role. Assert both absence and presence:
 
-- **Absence:** forbidden entity types return no results; inaccessible pages are absent
-- **Presence:** expected results are returned (e.g., Sales Staff searching `"cust"` returns customer results; Procurement Staff searching `"po"` returns purchase order results; Admin searching `"audit"` returns Audit Logs page)
-- **Products specifically:** Sales Staff, Procurement Staff, and Inventory Staff all receive product results (this is the special case most likely to regress)
+- **Sales Staff** searching `"cust"` → returns customer results; assert no accounting pages
+- **Procurement Staff** searching `"po"` → returns purchase order results; assert no sales results
+- **Inventory Staff** searching `"prod"` → returns product results
+- **Admin** searching `"audit"` → returns Audit Logs page
+- **Products specifically** (regression guard): Sales Staff, Procurement Staff, and Inventory Staff all receive product results when searching a product term — this is the cross-role special case most likely to regress
 
 ### What is not expanded
 
@@ -243,13 +357,13 @@ Existing row-level filtering behavior (soft-delete exclusion) is not expanded in
 | File | Change |
 |---|---|
 | `frontend/src/config/navigation.ts` | New file — extracted nav config with `roles` on each leaf item |
-| `frontend/src/components/common/Sidebar.tsx` | Import from navigation.ts; replace no-op filter with `getFilteredMenuSections` |
+| `frontend/src/components/common/Sidebar.tsx` | Import from `navigation.ts`; replace no-op filter with `getFilteredMenuSections`; update flyout Popper lookup (lines ~706 and ~1304) to use filtered sections |
 
 ### Backend
 | File | Change |
 |---|---|
-| `backend/src/modules/search/search.permissions.ts` | New file — `canSearch*` helpers |
-| `backend/src/modules/search/search.service.ts` | Add `roles` to `STATIC_PAGES`; update `searchPages` to accept and filter by `user` |
+| `backend/src/modules/search/search.permissions.ts` | New file — role-set constants + `canSearch*` helpers |
+| `backend/src/modules/search/search.service.ts` | Add `roles` to `STATIC_PAGES`; update `searchPages` to accept `user` and filter by role; update `safeSearch` call site to pass `user` |
 | `backend/src/modules/sales/services/customer.service.ts` | Add role guard at top of `searchGlobal` |
 | `backend/src/modules/inventory/services/product.service.ts` | Add role guard at top of `searchGlobal` |
 | `backend/src/modules/sales/services/sales-order.service.ts` | Add role guard at top of `searchGlobal` |
@@ -258,7 +372,7 @@ Existing row-level filtering behavior (soft-delete exclusion) is not expanded in
 ### Tests
 | File | Change |
 |---|---|
-| `frontend/src/config/navigation.test.ts` | New — filterMenuItems role-matrix tests |
-| `backend/src/modules/search/search.permissions.spec.ts` | New — canSearch* helper tests |
-| `backend/src/modules/search/search.service.spec.ts` | Update — searchPages role filtering tests |
+| `frontend/src/config/navigation.test.ts` | New — `filterMenuItems` role-matrix tests |
+| `backend/src/modules/search/search.permissions.spec.ts` | New — `canSearch*` helper tests |
+| `backend/src/modules/search/search.service.spec.ts` | Update — `searchPages` role filtering tests |
 | `backend/test/search.e2e-spec.ts` | New or update — integration tests per role |
