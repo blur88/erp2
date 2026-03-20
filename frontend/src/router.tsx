@@ -1,5 +1,6 @@
 import React from 'react'
 import { Navigate, createBrowserRouter, redirect } from 'react-router-dom'
+import RouteErrorBoundary from './components/errors/RouteErrorBoundary'
 import MainLayout from './components/common/MainLayout'
 import RootLayout from './RootLayout'
 import { store, persistor } from './store'
@@ -120,6 +121,7 @@ async function authLoader({ request }: { request: Request }) {
 export const router = createBrowserRouter([
   {
     element: <RootLayout />,
+    errorElement: <RouteErrorBoundary />,
     children: [
       { path: '/login', element: <LoginPage /> },
       { path: '/change-password-required', element: <MandatoryPasswordChangePage /> },
