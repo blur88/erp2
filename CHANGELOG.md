@@ -1,3 +1,10 @@
+## [1.15.2](https://github.com/blur88/erp2/compare/v1.15.1...v1.15.2) (2026-03-20)
+
+
+### Bug Fixes
+
+* **deps:** override flatted to 3.4.2 to patch prototype pollution (GHSA-rf6f-7fwh-wjgh) ([878649f](https://github.com/blur88/erp2/commit/878649f910925242725227907b3195739d0c8366))
+
 ## [1.15.1](https://github.com/blur88/erp2/compare/v1.15.0...v1.15.1) (2026-03-19)
 
 # [1.15.0](https://github.com/blur88/erp2/compare/v1.14.1...v1.15.0) (2026-03-19)
