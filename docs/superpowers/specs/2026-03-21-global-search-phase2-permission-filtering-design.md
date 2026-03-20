@@ -201,10 +201,10 @@ Parent/group items do not carry a `roles` field. In the current sidebar, no pare
 
 ### 1b. Sidebar filtering
 
-Replace the current no-op `getFilteredMenuSections()` in `Sidebar.tsx` with:
+`getFilteredMenuSections` and `filterMenuItems` live in `frontend/src/config/navigation.ts` alongside the nav config (not embedded in `Sidebar.tsx`). This keeps the sidebar presentational and makes the filtering logic independently testable.
 
 ```ts
-function getFilteredMenuSections(sections: MenuSection[], role: UserRole): MenuSection[] {
+export function getFilteredMenuSections(sections: MenuSection[], role: UserRole): MenuSection[] {
   return sections
     .map(section => ({
       ...section,
@@ -213,7 +213,7 @@ function getFilteredMenuSections(sections: MenuSection[], role: UserRole): MenuS
     .filter(section => section.items.length > 0);
 }
 
-function filterMenuItems(items: MenuItem[], role: UserRole): MenuItem[] {
+export function filterMenuItems(items: MenuItem[], role: UserRole): MenuItem[] {
   return items
     .map(item => {
       if (item.children?.length) {
@@ -226,7 +226,7 @@ function filterMenuItems(items: MenuItem[], role: UserRole): MenuItem[] {
 }
 ```
 
-The sidebar calls `getFilteredMenuSections(menuSections, user.role)` using role from auth state.
+`Sidebar.tsx` imports `getFilteredMenuSections` from `navigation.ts` and calls it with the role from auth state.
 
 **Flyout code path:** The collapsed-rail flyout Popper (lines ~706 and ~1304 of `Sidebar.tsx`) reads from `menuSections` directly to locate items and render their children. After extraction, the flyout must read from the same filtered result — not the raw exported constant — so that role-filtered items do not reappear in flyout menus. Pass `filteredSections` (the output of `getFilteredMenuSections`) to the flyout lookup, or ensure the flyout's item lookup searches `filteredSections` rather than the raw `menuSections` constant.
 
@@ -242,20 +242,15 @@ No permission-logic changes are needed in `SearchModal`. It continues rendering 
 
 `STATIC_PAGES` in `search.service.ts` gains a `roles: UserRole[]` field on each entry, using the leaf page visibility table above as the authoritative source.
 
-Define reusable role-set constants at the top of `search.service.ts` (or imported from `search.permissions.ts`):
-
-```ts
-const ALL_ROLES = [UserRole.ADMIN, UserRole.MANAGER, UserRole.SALES_STAFF, UserRole.INVENTORY_STAFF, UserRole.PROCUREMENT_STAFF];
-const SALES_ROLES = [UserRole.ADMIN, UserRole.MANAGER, UserRole.SALES_STAFF];
-const PROCUREMENT_ROLES = [UserRole.ADMIN, UserRole.MANAGER, UserRole.PROCUREMENT_STAFF];
-const INVENTORY_ROLES = [UserRole.ADMIN, UserRole.MANAGER, UserRole.INVENTORY_STAFF];
-const FINANCE_ROLES = [UserRole.ADMIN, UserRole.MANAGER];
-const ADMIN_ONLY = [UserRole.ADMIN];
-```
+Role-set constants are defined once in `search.permissions.ts` and imported into `search.service.ts` — they are not redefined in the service file. `STATIC_PAGES` uses the same exported constants (`ALL_ROLES`, `SALES_ROLES`, etc.) as the `canSearch*` helpers.
 
 `searchPages()` signature becomes `searchPages(query: string, user: JwtUser)`. The existing call site inside `SearchService.search()` (currently `this.searchPages(trimmed)` passed through `safeSearch`) must be updated to `this.searchPages(trimmed, user)`, with `user` threaded through from the top-level `search(query, user)` call.
 
+**Route authority:** The sidebar config (`navigation.ts`) is the frontend authority for route strings. Backend `STATIC_PAGES` routes must match it exactly.
+
 **Route reconciliation:** The existing `STATIC_PAGES` entries in `search.service.ts` contain some routes and labels that differ from the leaf page visibility table above (e.g., `/customers` vs `/sales/customers`, `/inventory/adjustments` vs `/inventory/stock-adjustments`). When adding `roles` fields, simultaneously reconcile each existing entry's route and label against the leaf page visibility table; mismatches must be corrected in the same PR.
+
+**Searchable page set:** Every visible leaf sidebar page is searchable. The full leaf page visibility table above is also the complete `STATIC_PAGES` definition — after route reconciliation, the two sets are identical.
 
 Before running keyword matching, filter to accessible pages only:
 
@@ -344,6 +339,7 @@ One authenticated request per role. Assert both absence and presence:
 - **Inventory Staff** searching `"prod"` → returns product results
 - **Admin** searching `"audit"` → returns Audit Logs page
 - **Products specifically** (regression guard): Sales Staff, Procurement Staff, and Inventory Staff all receive product results when searching a product term — this is the cross-role special case most likely to regress
+- **Denied entity cases** (explicit absence): Inventory Staff searching `"cust"` returns no customer records; Sales Staff searching `"purchase"` returns no purchase order records
 
 ### What is not expanded
 
@@ -356,8 +352,8 @@ Existing row-level filtering behavior (soft-delete exclusion) is not expanded in
 ### Frontend
 | File | Change |
 |---|---|
-| `frontend/src/config/navigation.ts` | New file — extracted nav config with `roles` on each leaf item |
-| `frontend/src/components/common/Sidebar.tsx` | Import from `navigation.ts`; replace no-op filter with `getFilteredMenuSections`; update flyout Popper lookup (lines ~706 and ~1304) to use filtered sections |
+| `frontend/src/config/navigation.ts` | New file — extracted nav config with `roles` on each leaf item; exports `getFilteredMenuSections` and `filterMenuItems` |
+| `frontend/src/components/common/Sidebar.tsx` | Import `getFilteredMenuSections` from `navigation.ts`; replace no-op filter call; update flyout Popper lookup (lines ~706 and ~1304) to use filtered sections |
 
 ### Backend
 | File | Change |
