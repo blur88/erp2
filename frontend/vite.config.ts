@@ -2,9 +2,11 @@ import { defineConfig } from 'vitest/config'
 import { createLogger } from 'vite'
 import react from '@vitejs/plugin-react'
 import path from 'path'
+import os from 'node:os'
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
+  const availableParallelism = os.availableParallelism()
   const isVitest =
     mode === 'test' ||
     process.env.NODE_ENV === 'test' ||
@@ -111,7 +113,7 @@ export default defineConfig(({ mode }) => {
       environment: 'jsdom',
       setupFiles: ['./src/test/setup.ts', './src/setupTests.ts'],
       api: false,
-      maxWorkers: 2,
+      maxWorkers: Math.max(2, availableParallelism),
       execArgv: ['--max-old-space-size=4096'],
       testTimeout: 30000,
     },
