@@ -49,21 +49,25 @@ export function classifyRouteError(error: unknown): ClassifiedError
 
 **Classification logic:**
 
+The fallback message string for all generic cases is `"An unexpected error occurred."`.
+
 1. If `error` is an `Error` instance:
    - Check `error.name === 'ChunkLoadError'`
-   - Check `error.message` against patterns:
+   - Check `error.message` against patterns (case-sensitive substring match):
      - `"Importing a module script failed"`
      - `"Failed to fetch dynamically imported module"`
      - `"Loading chunk"`
      - `"ChunkLoadError"`
      - `"dynamically imported module"`
-   - If any match → `{ type: 'chunk-load', message: <fixed copy> }`
-   - Otherwise → `{ type: 'generic', message: error.message || <fallback> }`
-2. If `error` is a string → `{ type: 'generic', message: error }`
-3. If `error` is a React Router `Response` object (has `.status`) → `{ type: 'generic', message: <fallback> }`
-4. Anything else → `{ type: 'generic', message: <fallback> }`
+   - If any match → `{ type: 'chunk-load', message: 'A new version of the app is available.' }`
+   - Otherwise → `{ type: 'generic', message: error.message || "An unexpected error occurred." }`
+2. If `isRouteErrorResponse(error)` is true (React Router's built-in utility) → `{ type: 'generic', message: "An unexpected error occurred." }`
+3. If `error` is a string → `{ type: 'generic', message: error }`
+4. Anything else → `{ type: 'generic', message: "An unexpected error occurred." }`
 
-The `message` for chunk-load is always fixed copy (not from the error object). For generic errors, the message is extracted only when it is a non-empty string from a real `Error` — never raw-echoed from unknown values.
+Note: use `isRouteErrorResponse` from `react-router-dom` — not duck-typed `.status` checking — to identify React Router response errors. This avoids false-positive matches with Axios error responses or other objects that happen to have a `.status` property.
+
+The `message` field on `ClassifiedError` is part of the public API but is **not used by `RouteErrorBoundary`** in the current UI (both states use hard-coded copy from the UI section). It is included in the type for future extensibility. Tests should assert on `type` only.
 
 ### `components/errors/RouteErrorBoundary.tsx`
 
@@ -94,21 +98,27 @@ Add `errorElement` to the root route:
 
 ## UI
 
+**Theme context:** `ThemeWrapper` wraps `RouterProvider` in `main.tsx`, so `RouteErrorBoundary` already inherits `ThemeProvider` — no self-wrapping needed.
+
+**Navigation:** Use `<Link to="/">` from `react-router-dom` for dashboard/home navigation, not `useNavigate()`. The `useNavigate` hook may not have a stable context when the error occurs at the root route level. `<Link>` is safe in all error boundary positions.
+
+**Layout:** Full-viewport height (`minHeight: '100vh'`) with flex centering. Use `Paper` for the card, `Typography` for title/message, `Button variant="contained"` for primary action, `Button variant="outlined"` for secondary action.
+
 ### Chunk-load failure state
 
 - **Title:** App Updated
 - **Message:** A new version of the app is available. Refresh the page to continue.
-- **Primary action:** Refresh Page → `window.location.reload()`
-- **Secondary action:** Go to Dashboard → `navigate('/')`
+- **Primary action (Button contained):** Refresh Page → `window.location.reload()`
+- **Secondary action (Button outlined, as Link):** Go to Dashboard → `<Link to="/">`
 
 ### Generic error state
 
 - **Title:** Something Went Wrong
 - **Message:** The app hit an unexpected error. You can reload the page or return to the dashboard.
-- **Primary action:** Reload Page → `window.location.reload()`
-- **Secondary action:** Go Home → `navigate('/')`
+- **Primary action (Button contained):** Reload Page → `window.location.reload()`
+- **Secondary action (Button outlined, as Link):** Go Home → `<Link to="/">`
 
-Both states use MUI (`Box`, `Paper`, `Typography`, `Button`) to match the existing app visual style. No new dependencies.
+Both states use MUI (`Box`, `Paper`, `Typography`, `Button`) and React Router's `Link`. No new dependencies.
 
 Note on reload: `window.location.reload()` is acceptable for this issue. It may not force-bypass aggressive asset caching in all environments, but is the least surprising behavior for users and handles the common case.
 
@@ -125,15 +135,19 @@ Note on reload: `window.location.reload()` is acceptable for this issue. It may 
 | Error with `name === 'ChunkLoadError'` | `type: 'chunk-load'` |
 | `new Error('something broke')` | `type: 'generic'` |
 | Thrown string `'oops'` | `type: 'generic'` |
-| Plain object `{ status: 404, statusText: 'Not Found' }` | `type: 'generic'` |
+| `isRouteErrorResponse` object `{ status: 404, data: 'Not Found' }` | `type: 'generic'` |
 | `null` | `type: 'generic'` |
 
 ### `RouteErrorBoundary.test.tsx`
 
+Wrap the component in `MemoryRouter` for test rendering (required for `Link` to render correctly).
+
 | Test case | Expected output |
 |-----------|----------------|
-| chunk-load error | renders "App Updated" heading |
-| generic error | renders "Something Went Wrong" heading |
+| chunk-load error | renders "App Updated" heading; "Refresh Page" button present |
+| generic error | renders "Something Went Wrong" heading; "Reload Page" button present |
+| chunk-load error | "Go to Dashboard" link renders with `href="/"` |
+| generic error | "Go Home" link renders with `href="/"` |
 
 ## Out of Scope
 
