@@ -20,36 +20,111 @@ do_knip() {
   (cd "$ROOT_DIR/backend" && npx knip) || true
 }
 
+print_outdated_table() {
+  local label="$1"
+  local dir="$2"
+  local raw
+  raw=$(cd "$dir" && npm outdated --json 2>/dev/null); [[ -z "$raw" ]] && raw="{}"
+  if [[ -z "$raw" || "$raw" == "{}" ]]; then
+    echo -e "  ${GREEN}All packages up to date.${RESET}"
+    return
+  fi
+  # Header
+  printf "  ${BOLD}%-38s %-16s %-16s %-16s${RESET}\n" "Package" "Current" "Wanted" "Latest"
+  printf "  %-38s %-16s %-16s %-16s\n" "$(printf '%0.s-' {1..38})" "$(printf '%0.s-' {1..16})" "$(printf '%0.s-' {1..16})" "$(printf '%0.s-' {1..16})"
+  echo "$raw" | python3 -c "
+import sys, json
+data = json.load(sys.stdin)
+W_VER = 16
+for pkg, info in sorted(data.items()):
+    cur  = info.get('current', 'N/A')
+    want = info.get('wanted',  'N/A')
+    lat  = info.get('latest',  'N/A')
+    color = '\033[0;31m' if lat != cur else '\033[0;33m'
+    reset = '\033[0m'
+    # split each version into chunks of W_VER
+    def chunks(s):
+        return [s[i:i+W_VER] for i in range(0, max(len(s), 1), W_VER)]
+    rows = max(len(chunks(cur)), len(chunks(want)), len(chunks(lat)))
+    cc, wc, lc = chunks(cur), chunks(want), chunks(lat)
+    for i in range(rows):
+        p   = pkg  if i == 0 else ''
+        cv  = cc[i] if i < len(cc) else ''
+        wv  = wc[i] if i < len(wc) else ''
+        lv  = lc[i] if i < len(lc) else ''
+        print(f'  {color}{p:<38} {cv:<16} {wv:<16} {lv:<16}{reset}')
+"
+}
+
 do_outdated() {
   echo -e "${BOLD}${YELLOW}--- ROOT (semantic-release) ---${RESET}"
-  (cd "$ROOT_DIR" && npm outdated 2>/dev/null) || true
-  echo ""
-  echo -e "${BOLD}${YELLOW}--- BACKEND (NestJS) ---${RESET}"
-  (cd "$ROOT_DIR/backend" && npm outdated 2>/dev/null) || true
+  print_outdated_table "Root" "$ROOT_DIR"
   echo ""
   echo -e "${BOLD}${YELLOW}--- FRONTEND (React/Vite) ---${RESET}"
-  (cd "$ROOT_DIR/frontend" && npm outdated 2>/dev/null) || true
+  print_outdated_table "Frontend" "$ROOT_DIR/frontend"
+  echo ""
+  echo -e "${BOLD}${YELLOW}--- BACKEND (NestJS) ---${RESET}"
+  print_outdated_table "Backend" "$ROOT_DIR/backend"
 }
 
 do_update() {
-  echo -e "${BOLD}${YELLOW}--- BACKEND (NestJS) ---${RESET}"
-  (cd "$ROOT_DIR/backend" && npm update)
-  echo -e "${GREEN}Backend updated.${RESET}"
+  echo -e "${BOLD}${YELLOW}--- ROOT (semantic-release) ---${RESET}"
+  (cd "$ROOT_DIR" && npm update)
+  echo -e "${GREEN}Root updated.${RESET}"
   echo ""
   echo -e "${BOLD}${YELLOW}--- FRONTEND (React/Vite) ---${RESET}"
   (cd "$ROOT_DIR/frontend" && npm update)
   echo -e "${GREEN}Frontend updated.${RESET}"
+  echo ""
+  echo -e "${BOLD}${YELLOW}--- BACKEND (NestJS) ---${RESET}"
+  (cd "$ROOT_DIR/backend" && npm update)
+  echo -e "${GREEN}Backend updated.${RESET}"
+}
+
+print_audit_table() {
+  local dir="$1"
+  local raw
+  raw=$(cd "$dir" && npm audit --json 2>/dev/null) || true
+  [[ -z "$raw" ]] && raw="{}"
+  echo "$raw" | python3 -c "
+import sys, json
+data = json.load(sys.stdin)
+vulns = data.get('vulnerabilities', {})
+meta  = data.get('metadata', {}).get('vulnerabilities', {})
+total = meta.get('total', 0)
+if total == 0:
+    print('  \033[0;32mNo vulnerabilities found.\033[0m')
+    sys.exit()
+sev_color = {'critical': '\033[0;31m', 'high': '\033[0;31m', 'moderate': '\033[0;33m', 'low': '\033[0;36m', 'info': '\033[0m'}
+reset = '\033[0m'
+bold  = '\033[1m'
+# Summary row
+print(f'  {bold}Summary:{reset}  ' + '  '.join(
+    f\"{sev_color.get(s,reset)}{s}: {meta.get(s,0)}{reset}\"
+    for s in ['critical','high','moderate','low','info'] if meta.get(s,0) > 0
+))
+print()
+print(f'  {bold}{\"Package\":<35} {\"Severity\":<10} {\"Via\":<30} Fix{reset}')
+print(f'  {\"-\"*35} {\"-\"*10} {\"-\"*30} {\"-\"*20}')
+for pkg, info in sorted(vulns.items(), key=lambda x: [\"critical\",\"high\",\"moderate\",\"low\",\"info\"].index(x[1].get(\"severity\",\"info\")) if x[1].get(\"severity\",\"info\") in [\"critical\",\"high\",\"moderate\",\"low\",\"info\"] else 99):
+    sev  = info.get('severity', '')
+    via  = ', '.join(str(v) if isinstance(v, str) else v.get('source','?') if isinstance(v,dict) else '?' for v in info.get('via', []))[:30]
+    fix  = info.get('fixAvailable', False)
+    fix_str = 'fix available' if fix is True else (fix.get('name','') + '@' + fix.get('version','') if isinstance(fix,dict) else 'manual')
+    col  = sev_color.get(sev, reset)
+    print(f'  {col}{pkg:<35} {sev:<10} {via:<30} {fix_str}{reset}')
+"
 }
 
 do_audit() {
   echo -e "${BOLD}${YELLOW}--- ROOT (semantic-release) ---${RESET}"
-  (cd "$ROOT_DIR" && npm audit) || true
-  echo ""
-  echo -e "${BOLD}${YELLOW}--- BACKEND (NestJS) ---${RESET}"
-  (cd "$ROOT_DIR/backend" && npm audit) || true
+  print_audit_table "$ROOT_DIR"
   echo ""
   echo -e "${BOLD}${YELLOW}--- FRONTEND (React/Vite) ---${RESET}"
-  (cd "$ROOT_DIR/frontend" && npm audit) || true
+  print_audit_table "$ROOT_DIR/frontend"
+  echo ""
+  echo -e "${BOLD}${YELLOW}--- BACKEND (NestJS) ---${RESET}"
+  print_audit_table "$ROOT_DIR/backend"
 }
 
 do_docker_rebuild() {
@@ -59,6 +134,8 @@ do_docker_rebuild() {
 
 do_top_lines() {
   echo -e "${BOLD}${YELLOW}--- Top 5 files by line count ---${RESET}"
+  printf "  ${BOLD}%-8s %s${RESET}\n" "Lines" "File"
+  printf "  %-8s %s\n" "--------" "$(printf '%0.s-' {1..60})"
   find "$ROOT_DIR" \
     -type f \
     \( -name "*.ts" -o -name "*.tsx" -o -name "*.js" -o -name "*.jsx" \) \
@@ -68,8 +145,17 @@ do_top_lines() {
     -exec wc -l {} + 2>/dev/null \
     | sort -rn \
     | grep -v '^ *0 ' \
-    | head -6 \
-    | grep -v ' total$'
+    | grep -v ' total$' \
+    | head -5 \
+    | awk -v root="$ROOT_DIR/" '{
+        lines = $1
+        path  = $2
+        sub(root, "", path)
+        if (lines > 500) color = "\033[0;31m"
+        else if (lines > 300) color = "\033[0;33m"
+        else color = "\033[0m"
+        printf "  %s%-8s %s\033[0m\n", color, lines, path
+      }'
 }
 
 do_jscpd() {
