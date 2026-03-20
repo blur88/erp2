@@ -1,0 +1,52 @@
+import { UserRole } from '../../database/entities/user.entity';
+
+export const ALL_ROLES: UserRole[] = [
+  UserRole.ADMIN,
+  UserRole.MANAGER,
+  UserRole.SALES_STAFF,
+  UserRole.INVENTORY_STAFF,
+  UserRole.PROCUREMENT_STAFF,
+];
+
+export const SALES_ROLES: UserRole[] = [
+  UserRole.ADMIN,
+  UserRole.MANAGER,
+  UserRole.SALES_STAFF,
+];
+
+export const PROCUREMENT_ROLES: UserRole[] = [
+  UserRole.ADMIN,
+  UserRole.MANAGER,
+  UserRole.PROCUREMENT_STAFF,
+];
+
+export const INVENTORY_ROLES: UserRole[] = [
+  UserRole.ADMIN,
+  UserRole.MANAGER,
+  UserRole.INVENTORY_STAFF,
+];
+
+export const FINANCE_ROLES: UserRole[] = [
+  UserRole.ADMIN,
+  UserRole.MANAGER,
+];
+
+export const ADMIN_ONLY: UserRole[] = [UserRole.ADMIN];
+
+export const PRODUCT_SEARCH_ROLES: UserRole[] = ALL_ROLES;
+
+export function canSearchCustomers(role: UserRole): boolean {
+  return SALES_ROLES.includes(role);
+}
+
+export function canSearchProducts(role: UserRole): boolean {
+  return PRODUCT_SEARCH_ROLES.includes(role);
+}
+
+export function canSearchSalesOrders(role: UserRole): boolean {
+  return SALES_ROLES.includes(role);
+}
+
+export function canSearchPurchaseOrders(role: UserRole): boolean {
+  return PROCUREMENT_ROLES.includes(role);
+}
