@@ -1,3 +1,17 @@
+# [1.16.0](https://github.com/blur88/erp2/compare/v1.15.3...v1.16.0) (2026-03-20)
+
+
+### Bug Fixes
+
+* **frontend:** address code review findings on route error boundary ([52d43b9](https://github.com/blur88/erp2/commit/52d43b9b1a7c2c8af567c6faa97aa6513e0763cb))
+
+
+### Features
+
+* **frontend:** add classifyRouteError utility with tests ([1b556ba](https://github.com/blur88/erp2/commit/1b556baf09e6931e43e4f9a2f560b45197ca2d61))
+* **frontend:** add RouteErrorBoundary component with render tests ([008800a](https://github.com/blur88/erp2/commit/008800ac40b7ed221bd22676c6d823ccf277e78f))
+* **frontend:** wire RouteErrorBoundary as root errorElement (closes [#148](https://github.com/blur88/erp2/issues/148)) ([b42ee07](https://github.com/blur88/erp2/commit/b42ee07830bf5f5c207172b3d3efd3b85be54116))
+
 ## [1.15.3](https://github.com/blur88/erp2/compare/v1.15.2...v1.15.3) (2026-03-20)
 
 
