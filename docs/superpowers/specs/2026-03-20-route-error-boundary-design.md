@@ -57,18 +57,20 @@ Evaluation order matters. `isRouteErrorResponse` is checked first because `Error
    - This identifies errors thrown by loaders/actions as route error responses. Must be first to avoid any confusion with subsequent checks.
 2. If `error` is an `Error` instance:
    - Check `error.name === 'ChunkLoadError'`
-   - Check `error.message` against patterns (case-sensitive substring match):
-     - `"Importing a module script failed"`
-     - `"Failed to fetch dynamically imported module"`
-     - `"Loading chunk"`
-     - `"ChunkLoadError"`
+   - Normalize `error.message` to lowercase before matching. Check against patterns:
+     - `"importing a module script failed"`
+     - `"failed to fetch dynamically imported module"`
+     - `"loading chunk"`
+     - `"chunkloaderror"`
      - `"dynamically imported module"`
    - If any match → `{ type: 'chunk-load', message: 'A new version of the app is available.' }`
    - Otherwise → `{ type: 'generic', message: error.message || "An unexpected error occurred." }`
 3. If `error` is a string → `{ type: 'generic', message: error }`
 4. Anything else → `{ type: 'generic', message: "An unexpected error occurred." }`
 
-The `message` field on `ClassifiedError` is part of the public API but is **not used by `RouteErrorBoundary`** in the current UI (both states use hard-coded copy from the UI section). It is included in the type for future extensibility. Tests should assert on `type` only.
+The `message` field on `ClassifiedError` is part of the public API but is **not used by `RouteErrorBoundary`** in the current UI (both states use hard-coded copy from the UI section). It is included in the type for future extensibility.
+
+**Test assertion rule:** classifier tests should assert `type` AND `message` for the fixed-message cases (chunk-load fixed string, generic fallback string) — since `message` is part of the public contract. Boundary render tests should assert only the rendered UI copy, not the classifier's `message` value.
 
 ### `components/errors/RouteErrorBoundary.tsx`
 
@@ -129,17 +131,19 @@ Note on reload: `window.location.reload()` is acceptable for this issue. It may 
 
 ### `routeErrorClassification.test.ts`
 
+Assert both `type` and `message` for fixed-message cases. For `generic` cases with extracted messages, assert `type` and `message` where the value is deterministic. Use `json({ type, data })` from `react-router-dom` to construct a real `ErrorResponse` that satisfies `isRouteErrorResponse`.
+
 | Test case | Expected result |
 |-----------|----------------|
-| `new Error('Importing a module script failed')` | `type: 'chunk-load'` |
-| `new Error('Failed to fetch dynamically imported module')` | `type: 'chunk-load'` |
-| `new Error('Loading chunk 3 failed')` | `type: 'chunk-load'` |
-| `new Error('dynamically imported module')` | `type: 'chunk-load'` |
-| Error with `name === 'ChunkLoadError'` | `type: 'chunk-load'` |
-| `new Error('something broke')` | `type: 'generic'` |
-| Thrown string `'oops'` | `type: 'generic'` |
-| `isRouteErrorResponse` object `{ status: 404, data: 'Not Found' }` | `type: 'generic'` |
-| `null` | `type: 'generic'` |
+| `new Error('Importing a module script failed')` | `{ type: 'chunk-load', message: 'A new version of the app is available.' }` |
+| `new Error('Failed to fetch dynamically imported module')` | `{ type: 'chunk-load', message: 'A new version of the app is available.' }` |
+| `new Error('Loading chunk 3 failed')` | `{ type: 'chunk-load', message: 'A new version of the app is available.' }` |
+| `new Error('dynamically imported module')` | `{ type: 'chunk-load', message: 'A new version of the app is available.' }` |
+| Error with `name === 'ChunkLoadError'` | `{ type: 'chunk-load', message: 'A new version of the app is available.' }` |
+| `new Error('something broke')` | `{ type: 'generic', message: 'something broke' }` |
+| Thrown string `'oops'` | `{ type: 'generic', message: 'oops' }` |
+| `json({ error: true }, { status: 404 })` (real `ErrorResponse`) | `{ type: 'generic', message: 'An unexpected error occurred.' }` |
+| `null` | `{ type: 'generic', message: 'An unexpected error occurred.' }` |
 
 ### `RouteErrorBoundary.test.tsx`
 
