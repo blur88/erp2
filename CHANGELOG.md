@@ -1,3 +1,10 @@
+## [1.15.3](https://github.com/blur88/erp2/compare/v1.15.2...v1.15.3) (2026-03-20)
+
+
+### Bug Fixes
+
+* **deps:** upgrade jsdom to ^29.0.1 in frontend ([cd1c441](https://github.com/blur88/erp2/commit/cd1c441c325130f2c71c4a4d65dbaff4a8c10235)), closes [#147](https://github.com/blur88/erp2/issues/147)
+
 ## [1.15.2](https://github.com/blur88/erp2/compare/v1.15.1...v1.15.2) (2026-03-20)
 
 
