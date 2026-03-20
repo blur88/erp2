@@ -3,67 +3,360 @@ import { ProductService } from '../inventory/services/product.service';
 import { PurchaseOrderService } from '../purchasing/services/purchase-order.service';
 import { CustomerService } from '../sales/services/customer.service';
 import { SalesOrderService } from '../sales/services/sales-order.service';
+import { UserRole } from '../../database/entities/user.entity';
 import { GlobalSearchResponseDto } from './dto/global-search-response.dto';
 import { GlobalSearchResultDto } from './dto/global-search-result.dto';
+import {
+  ALL_ROLES,
+  SALES_ROLES,
+  PROCUREMENT_ROLES,
+  INVENTORY_ROLES,
+  FINANCE_ROLES,
+  ADMIN_ONLY,
+} from './search.permissions';
 
 const STATIC_PAGES: Array<{
   label: string;
   keywords: string[];
   route: string;
+  roles: UserRole[];
 }> = [
-  { label: 'Dashboard', keywords: ['home', 'overview'], route: '/dashboard' },
-  { label: 'Customers', keywords: ['clients', 'buyers'], route: '/customers' },
+  { label: 'Dashboard', keywords: ['home', 'overview'], route: '/dashboard', roles: ALL_ROLES },
+  { label: 'Sales', keywords: ['sales', 'overview'], route: '/sales', roles: SALES_ROLES },
+  { label: 'Customers', keywords: ['clients', 'buyers'], route: '/sales/customers', roles: SALES_ROLES },
+  { label: 'Sales Orders', keywords: ['orders', 'so'], route: '/sales/orders', roles: SALES_ROLES },
+  { label: 'Invoices', keywords: ['billing', 'invoice'], route: '/sales/invoices', roles: SALES_ROLES },
+  { label: 'Payments', keywords: ['receipts', 'payment'], route: '/sales/payments', roles: SALES_ROLES },
   {
-    label: 'Products',
-    keywords: ['items', 'inventory', 'catalogue'],
-    route: '/inventory/products',
+    label: 'Purchasing',
+    keywords: ['purchasing', 'overview'],
+    route: '/purchasing',
+    roles: PROCUREMENT_ROLES,
   },
-  { label: 'Sales Orders', keywords: ['orders', 'so'], route: '/sales/orders' },
+  {
+    label: 'Suppliers',
+    keywords: ['vendors', 'supplier'],
+    route: '/purchasing/suppliers',
+    roles: PROCUREMENT_ROLES,
+  },
   {
     label: 'Purchase Orders',
-    keywords: ['purchasing', 'po', 'procurement'],
+    keywords: ['po', 'procurement', 'purchase order'],
     route: '/purchasing/orders',
+    roles: PROCUREMENT_ROLES,
   },
-  { label: 'Invoices', keywords: ['billing'], route: '/sales/invoices' },
-  { label: 'Payments', keywords: ['receipts'], route: '/sales/payments' },
-  { label: 'Suppliers', keywords: ['vendors'], route: '/purchasing/suppliers' },
   {
-    label: 'Stock Adjustments',
-    keywords: ['adjustment', 'inventory'],
-    route: '/inventory/adjustments',
+    label: 'Goods Received',
+    keywords: ['grn', 'goods received', 'receiving'],
+    route: '/purchasing/goods-received',
+    roles: PROCUREMENT_ROLES,
+  },
+  {
+    label: 'Vendor Payments',
+    keywords: ['vendor payment', 'ap'],
+    route: '/purchasing/vendor-payments',
+    roles: PROCUREMENT_ROLES,
+  },
+  {
+    label: 'Inventory',
+    keywords: ['inventory', 'overview'],
+    route: '/inventory',
+    roles: INVENTORY_ROLES,
+  },
+  {
+    label: 'Products',
+    keywords: ['items', 'catalogue', 'sku'],
+    route: '/inventory/products',
+    roles: INVENTORY_ROLES,
   },
   {
     label: 'Categories',
     keywords: ['product categories'],
     route: '/inventory/categories',
+    roles: INVENTORY_ROLES,
   },
-  { label: 'Price Lists', keywords: ['pricing'], route: '/price-lists' },
+  {
+    label: 'Stock Adjustments',
+    keywords: ['adjustment', 'stock', 'inventory'],
+    route: '/inventory/stock-adjustments',
+    roles: INVENTORY_ROLES,
+  },
+  {
+    label: 'Accounting',
+    keywords: ['accounting', 'finance', 'overview'],
+    route: '/accounting/dashboard',
+    roles: FINANCE_ROLES,
+  },
   {
     label: 'Journal Entries',
     keywords: ['accounting', 'ledger'],
     route: '/accounting/journal-entries',
+    roles: FINANCE_ROLES,
   },
   {
     label: 'Chart of Accounts',
     keywords: ['accounts', 'coa'],
     route: '/accounting/chart-of-accounts',
+    roles: FINANCE_ROLES,
   },
   {
     label: 'Fiscal Periods',
     keywords: ['financial periods'],
     route: '/accounting/fiscal-periods',
+    roles: ADMIN_ONLY,
   },
   {
-    label: 'User Management',
-    keywords: ['users', 'roles'],
+    label: 'Bank Reconciliation',
+    keywords: ['bank', 'reconciliation'],
+    route: '/accounting/bank-reconciliations',
+    roles: FINANCE_ROLES,
+  },
+  {
+    label: 'Expenses',
+    keywords: ['expenses'],
+    route: '/accounting/expenses',
+    roles: FINANCE_ROLES,
+  },
+  {
+    label: 'Fund Transfers',
+    keywords: ['fund transfer', 'transfer'],
+    route: '/accounting/fund-transfers',
+    roles: FINANCE_ROLES,
+  },
+  {
+    label: 'Settlements',
+    keywords: ['settlement'],
+    route: '/accounting/settlements',
+    roles: FINANCE_ROLES,
+  },
+  {
+    label: "Owner's Equity",
+    keywords: ['equity', 'owner'],
+    route: '/accounting/owner-equity',
+    roles: FINANCE_ROLES,
+  },
+  {
+    label: 'Account Mappings',
+    keywords: ['account mapping', 'mapping'],
+    route: '/accounting/account-mappings',
+    roles: ADMIN_ONLY,
+  },
+  {
+    label: 'Product Summary Report',
+    keywords: ['sales report', 'product summary'],
+    route: '/reports/sales/product-summary',
+    roles: SALES_ROLES,
+  },
+  {
+    label: 'Product Details Report',
+    keywords: ['sales report', 'product details'],
+    route: '/reports/sales/product-details',
+    roles: SALES_ROLES,
+  },
+  {
+    label: 'Sales Order Summary',
+    keywords: ['order summary', 'sales report'],
+    route: '/reports/sales/order-summary',
+    roles: SALES_ROLES,
+  },
+  {
+    label: 'Order Profit Report',
+    keywords: ['profit', 'order profit'],
+    route: '/reports/sales/order-profit',
+    roles: SALES_ROLES,
+  },
+  {
+    label: 'Customer Payment Summary',
+    keywords: ['payment summary', 'customer payment'],
+    route: '/reports/sales/customer-payment-summary',
+    roles: SALES_ROLES,
+  },
+  {
+    label: 'Payment by Order',
+    keywords: ['payment by order'],
+    route: '/reports/sales/payment-by-order',
+    roles: SALES_ROLES,
+  },
+  {
+    label: 'Customer Payment Details',
+    keywords: ['payment details', 'customer payment'],
+    route: '/reports/sales/payment-details',
+    roles: SALES_ROLES,
+  },
+  {
+    label: 'Customer Order History',
+    keywords: ['order history', 'customer history'],
+    route: '/reports/sales/order-history',
+    roles: SALES_ROLES,
+  },
+  {
+    label: 'Product Customers Report',
+    keywords: ['product customer', 'customer report'],
+    route: '/reports/sales/product-customer',
+    roles: SALES_ROLES,
+  },
+  {
+    label: 'Purchase Order Summary',
+    keywords: ['purchase report', 'order summary'],
+    route: '/reports/purchasing/order-summary',
+    roles: PROCUREMENT_ROLES,
+  },
+  {
+    label: 'Purchase Order Details',
+    keywords: ['purchase report', 'order details'],
+    route: '/reports/purchasing/order-details',
+    roles: PROCUREMENT_ROLES,
+  },
+  {
+    label: 'Purchase Order Status',
+    keywords: ['order status', 'purchase report'],
+    route: '/reports/purchasing/order-status',
+    roles: PROCUREMENT_ROLES,
+  },
+  {
+    label: 'Vendor Payment Details',
+    keywords: ['vendor payment', 'purchase report'],
+    route: '/reports/purchasing/payment-details',
+    roles: PROCUREMENT_ROLES,
+  },
+  {
+    label: 'Vendor Products Report',
+    keywords: ['vendor products', 'purchase report'],
+    route: '/reports/purchasing/vendor-purchase-list',
+    roles: PROCUREMENT_ROLES,
+  },
+  {
+    label: 'Inventory Summary Report',
+    keywords: ['inventory report', 'summary'],
+    route: '/reports/inventory/summary',
+    roles: INVENTORY_ROLES,
+  },
+  {
+    label: 'Historical Inventory Report',
+    keywords: ['historical inventory', 'inventory report'],
+    route: '/reports/inventory/historical',
+    roles: INVENTORY_ROLES,
+  },
+  {
+    label: 'Inventory Movement Summary',
+    keywords: ['movement', 'inventory report'],
+    route: '/reports/inventory/movement-summary',
+    roles: INVENTORY_ROLES,
+  },
+  {
+    label: 'Product Price List Report',
+    keywords: ['price list', 'inventory report'],
+    route: '/reports/inventory/price-list',
+    roles: INVENTORY_ROLES,
+  },
+  {
+    label: 'Product Cost Report',
+    keywords: ['product cost', 'inventory report'],
+    route: '/reports/inventory/product-cost',
+    roles: INVENTORY_ROLES,
+  },
+  {
+    label: 'Trial Balance',
+    keywords: ['trial balance', 'accounting report'],
+    route: '/accounting/reports/trial-balance',
+    roles: FINANCE_ROLES,
+  },
+  {
+    label: 'Balance Sheet',
+    keywords: ['balance sheet', 'accounting report'],
+    route: '/accounting/reports/balance-sheet',
+    roles: FINANCE_ROLES,
+  },
+  {
+    label: 'Profit & Loss',
+    keywords: ['profit loss', 'p&l', 'income statement'],
+    route: '/accounting/reports/profit-loss',
+    roles: FINANCE_ROLES,
+  },
+  {
+    label: 'General Ledger',
+    keywords: ['general ledger', 'gl', 'accounting report'],
+    route: '/accounting/reports/general-ledger',
+    roles: FINANCE_ROLES,
+  },
+  {
+    label: 'Account Activity',
+    keywords: ['account activity', 'accounting report'],
+    route: '/accounting/reports/account-activity',
+    roles: FINANCE_ROLES,
+  },
+  {
+    label: 'Company Settings',
+    keywords: ['company', 'settings', 'configuration'],
+    route: '/settings/company',
+    roles: ADMIN_ONLY,
+  },
+  {
+    label: 'Inventory Costing',
+    keywords: ['costing', 'price costing', 'settings'],
+    route: '/settings/price-costing',
+    roles: ADMIN_ONLY,
+  },
+  {
+    label: 'Regional Settings',
+    keywords: ['regional', 'locale', 'settings'],
+    route: '/settings/regional',
+    roles: ADMIN_ONLY,
+  },
+  {
+    label: 'Price Lists',
+    keywords: ['price list', 'pricing', 'settings'],
+    route: '/settings/price-lists',
+    roles: ADMIN_ONLY,
+  },
+  {
+    label: 'Payment Methods',
+    keywords: ['payment method', 'settings'],
+    route: '/settings/payment-methods',
+    roles: ADMIN_ONLY,
+  },
+  {
+    label: 'Print Settings',
+    keywords: ['print', 'settings'],
+    route: '/settings/print',
+    roles: ADMIN_ONLY,
+  },
+  {
+    label: 'Document Numbers',
+    keywords: ['document number', 'numbering', 'settings'],
+    route: '/settings/document-numbers',
+    roles: ADMIN_ONLY,
+  },
+  {
+    label: 'Users',
+    keywords: ['users', 'user management', 'settings'],
     route: '/settings/users',
+    roles: ADMIN_ONLY,
   },
   {
-    label: 'Settings',
-    keywords: ['configuration', 'preferences'],
-    route: '/settings',
+    label: 'Roles & Permissions',
+    keywords: ['roles', 'permissions', 'access', 'settings'],
+    route: '/settings/roles',
+    roles: ADMIN_ONLY,
   },
-  { label: 'Audit Logs', keywords: ['activity', 'history'], route: '/audit-logs' },
+  {
+    label: 'Security',
+    keywords: ['security', 'settings'],
+    route: '/settings/security',
+    roles: ADMIN_ONLY,
+  },
+  {
+    label: 'Backup & Restore',
+    keywords: ['backup', 'restore', 'settings'],
+    route: '/settings/backup',
+    roles: ADMIN_ONLY,
+  },
+  {
+    label: 'Audit Logs',
+    keywords: ['audit', 'activity', 'history'],
+    route: '/audit-logs',
+    roles: ADMIN_ONLY,
+  },
 ];
 
 @Injectable()
@@ -85,7 +378,9 @@ export class SearchService {
 
     const [pages, customers, products, salesOrders, purchaseOrders] =
       await Promise.all([
-        this.safeSearch('pages', async () => this.searchPages(trimmed)),
+        this.safeSearch('pages', async () =>
+          Promise.resolve(this.searchPages(trimmed, user)),
+        ),
         this.safeSearch('customers', () =>
           this.customerService.searchGlobal(trimmed, user),
         ),
@@ -127,30 +422,27 @@ export class SearchService {
     }
   }
 
-  private searchPages(query: string): GlobalSearchResultDto[] {
-    const lowerQuery = query.toLowerCase();
+  private searchPages(query: string, user: { role: UserRole }): GlobalSearchResultDto[] {
+    const q = query.toLowerCase();
+    const accessible = STATIC_PAGES.filter((page) => page.roles.includes(user.role));
 
-    return STATIC_PAGES.filter(
-      (page) =>
-        page.label.toLowerCase().includes(lowerQuery) ||
-        page.keywords.some((keyword) => keyword.toLowerCase().includes(lowerQuery)),
-    ).map((page) => {
-      const lowerLabel = page.label.toLowerCase();
-      let score = 30;
-
-      if (lowerLabel === lowerQuery) {
-        score = 100;
-      } else if (lowerLabel.startsWith(lowerQuery)) {
-        score = 40;
-      }
-
-      return {
+    return accessible
+      .filter(
+        (page) =>
+          page.label.toLowerCase().includes(q) ||
+          page.keywords.some((keyword) => keyword.toLowerCase().includes(q)),
+      )
+      .map((page) => ({
         type: 'page',
         label: page.label,
         description: 'Navigation',
         route: page.route,
-        score,
-      };
-    });
+        score:
+          page.label.toLowerCase() === q
+            ? 90
+            : page.label.toLowerCase().startsWith(q)
+              ? 75
+              : 50,
+      }));
   }
 }
