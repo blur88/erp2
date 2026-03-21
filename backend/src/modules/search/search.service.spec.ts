@@ -90,6 +90,22 @@ describe('SearchService', () => {
     expect(result.results[1].score).toBe(50);
   });
 
+  it('breaks score ties with case-insensitive label ascending order', async () => {
+    (customerService.searchGlobal as jest.Mock).mockResolvedValue([
+      { type: 'customer', id: 'a', label: 'Zebra Corp', route: '/customers/a', score: 80 },
+      { type: 'customer', id: 'b', label: 'apple inc', route: '/customers/b', score: 80 },
+      { type: 'customer', id: 'c', label: 'Mango Ltd', route: '/customers/c', score: 80 },
+    ]);
+
+    const result = await service.search('corp', mockUser);
+
+    expect(result.results.map((r) => r.label)).toEqual([
+      'apple inc',
+      'Mango Ltd',
+      'Zebra Corp',
+    ]);
+  });
+
   it('treats undefined score as 0 when sorting', async () => {
     const noScore: GlobalSearchResultDto = {
       type: 'page',

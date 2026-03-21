@@ -14,6 +14,13 @@ import {
   FINANCE_ROLES,
   ADMIN_ONLY,
 } from './search.permissions';
+import {
+  SEARCH_RESPONSE_LIMIT,
+  SCORE_PAGE_EXACT,
+  SCORE_PAGE_STARTSWITH,
+  SCORE_PAGE_KEYWORD,
+  BOOST_PAGE,
+} from './search.constants';
 
 const STATIC_PAGES: Array<{
   label: string;
@@ -402,8 +409,15 @@ export class SearchService {
       ...salesOrders,
       ...purchaseOrders,
     ]
-      .sort((a, b) => (b.score ?? 0) - (a.score ?? 0))
-      .slice(0, 20);
+      .sort((a, b) => {
+        const scoreDiff = (b.score ?? 0) - (a.score ?? 0);
+        if (scoreDiff !== 0) return scoreDiff;
+
+        return (a.label ?? '')
+          .toLowerCase()
+          .localeCompare((b.label ?? '').toLowerCase());
+      })
+      .slice(0, SEARCH_RESPONSE_LIMIT);
 
     return { query, results };
   }
@@ -439,10 +453,10 @@ export class SearchService {
         route: page.route,
         score:
           page.label.toLowerCase() === q
-            ? 90
+            ? SCORE_PAGE_EXACT + BOOST_PAGE
             : page.label.toLowerCase().startsWith(q)
-              ? 75
-              : 50,
+              ? SCORE_PAGE_STARTSWITH + BOOST_PAGE
+              : SCORE_PAGE_KEYWORD + BOOST_PAGE,
       }));
   }
 }
