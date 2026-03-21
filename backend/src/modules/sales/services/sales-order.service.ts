@@ -23,6 +23,13 @@ import {
 } from '../dto/sales-order.dto';
 import { GlobalSearchResultDto } from '../../search/dto/global-search-result.dto';
 import { canSearchSalesOrders } from '../../search/search.permissions';
+import {
+  SEARCH_CANDIDATE_LIMIT,
+  SCORE_EXACT_CODE,
+  SCORE_STARTSWITH_CODE,
+  SCORE_CONTAINS,
+  BOOST_TRANSACTION,
+} from '../../search/search.constants';
 // import { CustomerService } from './customer.service';
 import { InventoryIntegrationService } from './inventory-integration.service';
 import { ValidationUtil, BulkOperationUtil, BulkOperationResponse } from '../../../common/utils/validation.util';
@@ -364,19 +371,18 @@ export class SalesOrderService {
       .andWhere('(order.orderNumber ILIKE :q OR customer.name ILIKE :q)', {
         q: `%${trimmed}%`,
       })
-      .take(5)
+      .take(SEARCH_CANDIDATE_LIMIT)
       .getMany();
 
     return orders.map((order) => {
       const orderNumber = order.orderNumber?.toLowerCase() ?? '';
       const normalized = trimmed.toLowerCase();
-      let score = 50;
-
-      if (orderNumber === normalized) {
-        score = 90;
-      } else if (orderNumber.startsWith(normalized)) {
-        score = 80;
-      }
+      const baseScore =
+        orderNumber === normalized
+          ? SCORE_EXACT_CODE
+          : orderNumber.startsWith(normalized)
+            ? SCORE_STARTSWITH_CODE
+            : SCORE_CONTAINS;
 
       return {
         type: 'transaction',
@@ -384,7 +390,7 @@ export class SalesOrderService {
         label: order.orderNumber,
         description: order.customer?.name ?? '',
         route: `/sales/orders/${order.id}/edit`,
-        score,
+        score: baseScore + BOOST_TRANSACTION,
       };
     });
   }
