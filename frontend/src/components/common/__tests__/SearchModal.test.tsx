@@ -35,6 +35,14 @@ vi.mock('react-router-dom', async (importOriginal) => {
   }
 })
 
+vi.mock('@/hooks/useRedux', () => ({
+  useAppSelector: vi.fn().mockReturnValue({ id: 'user-1' }),
+}))
+
+vi.mock('@/store/slices/authSlice', () => ({
+  selectCurrentUser: (state: unknown) => state,
+}))
+
 function renderModal(open = true) {
   const onClose = vi.fn()
   const store = makeStore()
@@ -48,6 +56,10 @@ function renderModal(open = true) {
   )
 
   return { onClose }
+}
+
+function setLocalRecents(userId: string, items: object[]) {
+  localStorage.setItem(`global_search_recent_${userId}`, JSON.stringify(items))
 }
 
 // Helper: type into input and advance debounce timer
@@ -69,6 +81,7 @@ describe('SearchModal', () => {
   })
 
   afterEach(() => {
+    localStorage.clear()
     vi.useRealTimers()
   })
 
@@ -78,8 +91,9 @@ describe('SearchModal', () => {
     expect(screen.queryByPlaceholderText(/search/i)).not.toBeInTheDocument()
   })
 
-  it('shows help text when query is shorter than 2 characters', () => {
+  it('shows help text when query is 1 character long', () => {
     renderModal()
+    typeAndFlush('a')
 
     expect(
       screen.getByText(/type at least 2 characters/i),
@@ -154,8 +168,12 @@ describe('SearchModal', () => {
 
     expect(screen.getByText('Pages')).toBeInTheDocument()
     expect(screen.getAllByText('Customers').length).toBeGreaterThan(0)
-    expect(screen.getByText('ABC Trading')).toBeInTheDocument()
-    expect(screen.getByText('ABC Widget')).toBeInTheDocument()
+    expect(
+      screen.getByText((_, element) => element?.textContent === 'ABC Trading'),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByText((_, element) => element?.textContent === 'ABC Widget'),
+    ).toBeInTheDocument()
   })
 
   it('shows no-results message when results are empty', () => {
@@ -170,6 +188,60 @@ describe('SearchModal', () => {
     typeAndFlush('zzz')
 
     expect(screen.getByText(/no results/i)).toBeInTheDocument()
+  })
+
+  it('shows recent searches when query is empty and recents exist', () => {
+    setLocalRecents('user-1', [
+      {
+        label: 'ABC Trading',
+        description: '01234',
+        route: '/sales/customers/1',
+        type: 'customer',
+        timestamp: Date.now(),
+      },
+    ])
+
+    renderModal()
+
+    expect(screen.getByText('Recent')).toBeInTheDocument()
+    expect(screen.getByText('ABC Trading')).toBeInTheDocument()
+  })
+
+  it('shows start-typing hint when query is empty and no recents', () => {
+    renderModal()
+
+    expect(screen.getByText(/start typing to search/i)).toBeInTheDocument()
+  })
+
+  it('replaces recent section with live results when user types', () => {
+    setLocalRecents('user-1', [
+      {
+        label: 'Old Result',
+        route: '/old',
+        type: 'page',
+        timestamp: Date.now(),
+      },
+    ])
+    mockUseSearchGlobal.mockReturnValue({
+      data: {
+        query: 'abc',
+        results: [
+          { type: 'customer', id: '1', label: 'ABC Corp', route: '/customers/1' },
+        ],
+      },
+      isLoading: false,
+      isFetching: false,
+      isError: false,
+    })
+
+    renderModal()
+    typeAndFlush('ab')
+
+    expect(screen.queryByText('Recent')).not.toBeInTheDocument()
+    expect(
+      screen.getAllByText((_, element) => element?.textContent === 'ABC Corp')
+        .length,
+    ).toBeGreaterThan(0)
   })
 
   it('navigates and closes when Enter is pressed on selected result', () => {
@@ -199,6 +271,30 @@ describe('SearchModal', () => {
     expect(onClose).toHaveBeenCalled()
   })
 
+  it('saves to recent searches on result selection', () => {
+    mockUseSearchGlobal.mockReturnValue({
+      data: {
+        query: 'abc',
+        results: [
+          { type: 'customer', id: '1', label: 'ABC Corp', route: '/customers/1' },
+        ],
+      },
+      isLoading: false,
+      isFetching: false,
+      isError: false,
+    })
+
+    renderModal()
+    typeAndFlush('abc')
+    const input = screen.getByPlaceholderText(/search/i)
+    fireEvent.keyDown(input, { key: 'Enter' })
+
+    const stored = JSON.parse(
+      localStorage.getItem('global_search_recent_user-1') ?? '[]',
+    )
+    expect(stored[0].route).toBe('/customers/1')
+  })
+
   it('shows error message when query fails', () => {
     mockUseSearchGlobal.mockReturnValue({
       data: undefined,
@@ -211,6 +307,21 @@ describe('SearchModal', () => {
     typeAndFlush('abc')
 
     expect(screen.getByText(/search unavailable/i)).toBeInTheDocument()
+  })
+
+  it('shows improved empty state with two lines', () => {
+    mockUseSearchGlobal.mockReturnValue({
+      data: { query: 'zzz', results: [] },
+      isLoading: false,
+      isFetching: false,
+      isError: false,
+    })
+
+    renderModal()
+    typeAndFlush('zzz')
+
+    expect(screen.getByText(/no results for/i)).toBeInTheDocument()
+    expect(screen.getByText(/try searching by name/i)).toBeInTheDocument()
   })
 
   it('skips the query when typing fewer than 2 characters', () => {

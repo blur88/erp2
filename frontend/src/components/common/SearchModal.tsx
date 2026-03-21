@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import HistoryIcon from '@mui/icons-material/History'
 import SearchIcon from '@mui/icons-material/Search'
 import {
   Box,
@@ -10,11 +11,19 @@ import {
 } from '@mui/material'
 import { useNavigate } from 'react-router-dom'
 
+import { useAppSelector } from '@/hooks/useRedux'
 import { useSearchGlobalQuery } from '@/store/api/searchApi'
+import { selectCurrentUser } from '@/store/slices/authSlice'
 import type {
   GlobalSearchResultDto,
   GlobalSearchResultType,
 } from '@/types/search'
+import {
+  addRecentSearch,
+  getRecentSearches,
+  type RecentSearchItem,
+} from '@/utils/recentSearch'
+import { highlightText } from '@/utils/highlightText'
 
 interface SearchModalProps {
   open: boolean
@@ -42,6 +51,13 @@ const TYPE_BADGES: Record<GlobalSearchResultType, string> = {
   transaction: 'Transaction',
 }
 
+type NavigableItem = {
+  label: string
+  description?: string
+  route: string
+  type: GlobalSearchResultType
+}
+
 function useDebounce(value: string, delay: number) {
   const [debouncedValue, setDebouncedValue] = useState(value)
 
@@ -59,14 +75,19 @@ function useDebounce(value: string, delay: number) {
 export default function SearchModal({ open, onClose }: SearchModalProps) {
   const navigate = useNavigate()
   const inputRef = useRef<HTMLInputElement>(null)
+  const currentUser = useAppSelector(selectCurrentUser)
+  const userId = currentUser?.id ?? ''
   const [query, setQuery] = useState('')
   const [selectedIndex, setSelectedIndex] = useState(0)
+  const [recentSearches, setRecentSearches] = useState<RecentSearchItem[]>([])
   const debouncedQuery = useDebounce(query, 250)
   const trimmedQuery = debouncedQuery.trim()
+  const isEmptyQuery = trimmedQuery.length === 0
+  const isActiveQuery = trimmedQuery.length >= 2
 
   const { data, isLoading, isFetching, isError } = useSearchGlobalQuery(
     { q: trimmedQuery },
-    { skip: trimmedQuery.length < 2 },
+    { skip: !isActiveQuery },
   )
 
   useEffect(() => {
@@ -100,18 +121,32 @@ export default function SearchModal({ open, onClose }: SearchModalProps) {
   }, [open])
 
   useEffect(() => {
+    if (open && userId) {
+      setRecentSearches(getRecentSearches(userId))
+    }
+  }, [open, userId])
+
+  useEffect(() => {
     setSelectedIndex(0)
   }, [data])
 
-  const flatResults = useMemo(
-    () =>
-      data
-        ? GROUP_ORDER.flatMap((type) =>
-            data.results.filter((result) => result.type === type),
-          )
-        : [],
-    [data],
-  )
+  useEffect(() => {
+    setSelectedIndex(0)
+  }, [isEmptyQuery])
+
+  const flatResults = useMemo((): NavigableItem[] => {
+    if (isEmptyQuery) {
+      return recentSearches
+    }
+
+    if (!isActiveQuery || !data) {
+      return []
+    }
+
+    return GROUP_ORDER.flatMap((type) =>
+      data.results.filter((result) => result.type === type),
+    )
+  }, [data, isActiveQuery, isEmptyQuery, recentSearches])
 
   const groups = useMemo(() => {
     let offset = 0
@@ -135,8 +170,26 @@ export default function SearchModal({ open, onClose }: SearchModalProps) {
     onClose()
   }
 
-  const navigateTo = (route: string) => {
-    navigate(route)
+  const handleSelect = (item: NavigableItem) => {
+    if (userId) {
+      addRecentSearch(userId, {
+        label: item.label,
+        description: item.description,
+        route: item.route,
+        type: item.type,
+      })
+
+      const stored = getRecentSearches(userId)
+      if (stored.some((entry) => entry.route === item.route)) {
+        setRecentSearches(stored)
+      } else {
+        setRecentSearches((current) =>
+          [{ ...item, timestamp: Date.now() }, ...current.filter((entry) => entry.route !== item.route)].slice(0, 8),
+        )
+      }
+    }
+
+    navigate(item.route)
     handleClose()
   }
 
@@ -163,15 +216,16 @@ export default function SearchModal({ open, onClose }: SearchModalProps) {
 
     if (event.key === 'Enter' && flatResults[selectedIndex]) {
       event.preventDefault()
-      navigateTo(flatResults[selectedIndex].route)
+      handleSelect(flatResults[selectedIndex])
     }
   }
 
-  const hasActiveQuery = trimmedQuery.length >= 2
-  const showHelp = !hasActiveQuery
-  const showLoading = hasActiveQuery && (isLoading || isFetching) && !data
-  const showError = hasActiveQuery && isError && !showLoading
-  const showEmpty = hasActiveQuery && !showLoading && !showError && !!data && flatResults.length === 0
+  const showHelp = !isEmptyQuery && !isActiveQuery
+  const showRecent = isEmptyQuery
+  const showLive = isActiveQuery
+  const showLoading = showLive && (isLoading || isFetching) && !data
+  const showError = showLive && isError && !showLoading
+  const showEmpty = showLive && !showLoading && !showError && !!data && flatResults.length === 0
 
   return (
     <Modal open={open} onClose={handleClose} aria-label="Global search">
@@ -235,6 +289,44 @@ export default function SearchModal({ open, onClose }: SearchModalProps) {
             </Typography>
           )}
 
+          {showRecent && recentSearches.length === 0 && (
+            <Typography
+              variant="body2"
+              sx={{ color: '#A0A0A0', textAlign: 'center', px: 3, py: 4 }}
+            >
+              Start typing to search
+            </Typography>
+          )}
+
+          {showRecent && recentSearches.length > 0 && (
+            <Box>
+              <Typography
+                variant="caption"
+                sx={{
+                  display: 'block',
+                  px: 2,
+                  py: 1,
+                  color: '#6B7280',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.08em',
+                }}
+              >
+                Recent
+              </Typography>
+              {recentSearches.map((item, idx) => (
+                <SearchResultRow
+                  key={`recent-${item.route}`}
+                  item={item}
+                  isSelected={idx === selectedIndex}
+                  onClick={() => handleSelect(item)}
+                  onHover={() => setSelectedIndex(idx)}
+                  query=""
+                  isRecent={true}
+                />
+              ))}
+            </Box>
+          )}
+
           {showLoading && (
             <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
               <CircularProgress />
@@ -251,15 +343,20 @@ export default function SearchModal({ open, onClose }: SearchModalProps) {
           )}
 
           {showEmpty && (
-            <Typography
-              variant="body2"
-              sx={{ color: '#A0A0A0', textAlign: 'center', px: 3, py: 4 }}
-            >
-              No results for "{data?.query}"
-            </Typography>
+            <Box sx={{ textAlign: 'center', px: 3, py: 4 }}>
+              <Typography variant="body2" sx={{ color: '#A0A0A0' }}>
+                No results for "{trimmedQuery}"
+              </Typography>
+              <Typography
+                variant="caption"
+                sx={{ color: '#6B7280', mt: 0.5, display: 'block' }}
+              >
+                Try searching by name, code, SKU, or order number
+              </Typography>
+            </Box>
           )}
 
-          {hasActiveQuery && groups.map((group) => (
+          {showLive && groups.map((group) => (
             <Box key={group.type}>
               <Typography
                 variant="caption"
@@ -280,11 +377,12 @@ export default function SearchModal({ open, onClose }: SearchModalProps) {
 
                 return (
                   <SearchResultRow
-                    key={`${item.type}-${item.id ?? item.route}`}
+                    key={`${item.type}-${item.route}`}
                     item={item}
                     isSelected={isSelected}
-                    onClick={() => navigateTo(item.route)}
+                    onClick={() => handleSelect(item)}
                     onHover={() => setSelectedIndex(flatIndex)}
+                    query={trimmedQuery}
                   />
                 )
               })}
@@ -297,10 +395,12 @@ export default function SearchModal({ open, onClose }: SearchModalProps) {
 }
 
 interface SearchResultRowProps {
-  item: GlobalSearchResultDto
+  item: NavigableItem
   isSelected: boolean
   onClick: () => void
   onHover: () => void
+  query: string
+  isRecent?: boolean
 }
 
 function SearchResultRow({
@@ -308,6 +408,8 @@ function SearchResultRow({
   isSelected,
   onClick,
   onHover,
+  query,
+  isRecent = false,
 }: SearchResultRowProps) {
   return (
     <Box
@@ -316,7 +418,6 @@ function SearchResultRow({
       sx={{
         display: 'flex',
         alignItems: 'center',
-        justifyContent: 'space-between',
         gap: 2,
         px: 2,
         py: 1.25,
@@ -327,33 +428,39 @@ function SearchResultRow({
         },
       }}
     >
-      <Box sx={{ minWidth: 0 }}>
+      {isRecent && (
+        <HistoryIcon sx={{ color: '#6B7280', fontSize: 16, flexShrink: 0 }} />
+      )}
+
+      <Box sx={{ minWidth: 0, flex: 1 }}>
         <Typography sx={{ color: '#E0E0E0', fontWeight: 600 }}>
-          {item.label}
+          {highlightText(item.label, query)}
         </Typography>
         {item.description && (
           <Typography
             variant="caption"
             sx={{ color: '#A0A0A0', display: 'block', mt: 0.25 }}
           >
-            {item.description}
+            {highlightText(item.description, query, 600)}
           </Typography>
         )}
       </Box>
 
-      <Typography
-        variant="caption"
-        sx={{
-          color: '#6B7280',
-          bgcolor: 'rgba(255, 255, 255, 0.05)',
-          borderRadius: '999px',
-          px: 1,
-          py: 0.5,
-          flexShrink: 0,
-        }}
-      >
-        {TYPE_BADGES[item.type]}
-      </Typography>
+      {!isRecent && (
+        <Typography
+          variant="caption"
+          sx={{
+            color: '#6B7280',
+            bgcolor: 'rgba(255, 255, 255, 0.05)',
+            borderRadius: '999px',
+            px: 1,
+            py: 0.5,
+            flexShrink: 0,
+          }}
+        >
+          {TYPE_BADGES[item.type]}
+        </Typography>
+      )}
     </Box>
   )
 }
