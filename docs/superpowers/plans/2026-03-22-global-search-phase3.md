@@ -1271,10 +1271,20 @@ const handleSelect = (item: { label: string; description?: string; route: string
       route: item.route,
       type: item.type,
     })
-    // Read back canonical list after addRecentSearch writes it — avoids duplicating
-    // deduplication/slice logic. If storage fails silently, the read returns the
-    // previous list; the spec accepts this as acceptable session-only divergence.
-    setRecentSearches(getRecentSearches(userId))
+    // Read back after write to get the canonical list (deduped, capped).
+    // If storage fails silently, getRecentSearches returns the previous list —
+    // so update state optimistically as a fallback to satisfy the spec's "session-only" requirement:
+    const stored = getRecentSearches(userId)
+    if (stored.some((r) => r.route === item.route)) {
+      // Storage succeeded — use the canonical stored list
+      setRecentSearches(stored)
+    } else {
+      // Storage failed silently — apply optimistic update for this session only
+      setRecentSearches((prev) => [
+        { ...item, timestamp: Date.now() },
+        ...prev.filter((r) => r.route !== item.route),
+      ].slice(0, 8))
+    }
   }
   navigate(item.route)
   handleClose()
@@ -1462,7 +1472,7 @@ export function highlightText(text: string, query: string, highlightWeight: numb
 Then call with weight 600 for descriptions in `SearchResultRow`:
 
 ```tsx
-{highlightText(item.description, query)}        // label — uses default 700
+{highlightText(item.label, query)}              // label — uses default 700
 {highlightText(item.description, query, 600)}   // description — uses 600
 ```
 
