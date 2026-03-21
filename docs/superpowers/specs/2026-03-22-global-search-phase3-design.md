@@ -74,13 +74,13 @@ The "exact code" and "starts-with code" scores apply only to these designated id
 | Entity | Code/Identifier Field | Name Field |
 |---|---|---|
 | Customer | `phone` (no `code` field exists on entity) | `name` |
-| Product | `barcode` (the actual entity field; `sku` is an alias in some service methods) | `name` |
+| Product | `barcode` (actual entity/DB field; `sku` is an alias in some service methods — scoring uses the entity value, not the alias; UI may still display "SKU" as the label if that is what users recognize) | `name` |
 | Sales Order | `orderNumber` | `customerName` (joined) |
 | Purchase Order | `orderNumber` | supplier name (if available) |
 
 The `SCORE_EXACT_CODE` / `SCORE_STARTSWITH_CODE` tiers apply to the Code/Identifier fields above. Name fields use `SCORE_EXACT_NAME` / `SCORE_STARTSWITH_NAME`. All other string fields use `SCORE_CONTAINS`.
 
-> **Customer note:** Because `phone` is a nullable field and not a structured identifier like an order number, `SCORE_EXACT_CODE = 120` for an exact phone match remains correct — a user typing an exact phone number expects the customer to be the top result.
+> **Customer note:** Because `phone` is a nullable field and not a structured identifier like an order number, `SCORE_EXACT_CODE = 120` for an exact phone match remains correct — a user typing an exact phone number expects the customer to be the top result. Phone matching should compare normalized values where possible (trimmed, formatting-insensitive), consistent with however the existing service already handles phone queries.
 
 ### Scoring Logic per Domain
 
@@ -101,7 +101,7 @@ score = baseScore + BOOST_PRODUCT;
 
 When two results have identical final scores, the `SearchService` sort uses a stable secondary order:
 1. Score descending (primary)
-2. Label ascending (secondary — alphabetical, deterministic)
+2. Label ascending, case-insensitive (secondary — `localeCompare` or `.toLowerCase()` before comparing, deterministic)
 
 ### Candidate Fetch Limit
 
@@ -126,6 +126,7 @@ const MAX_RECENT = 8;
 
 export interface RecentSearchItem {
   label: string;
+  description?: string; // preserved for display; matches live result row rendering
   route: string;
   type: 'page' | 'customer' | 'product' | 'transaction';
   timestamp: number;
@@ -164,7 +165,7 @@ All localStorage access is wrapped in try/catch. `getRecentSearches` returns `[]
 
 **When trimmed query is 1 char:**
 - Inherit existing behavior: show help/hint text (query too short to search)
-- Do not show recent searches
+- Do not show recent searches — this prevents the recent section from briefly flashing during the transition from empty to a real query, which would feel inconsistent
 - Navigation list = empty (no keyboard navigation)
 
 **When query is non-empty (≥ 2 chars):**
@@ -173,8 +174,8 @@ All localStorage access is wrapped in try/catch. `getRecentSearches` returns `[]
 - No mixing of recent and live results in Phase 3
 
 **On result select (Enter or click):**
-1. Call `addRecentSearch(userId, { label, route, type })`
-2. Update `recentSearches` state in memory (keep UI in sync). If storage fails silently (quota exceeded etc.), in-memory state will reflect the add but the item will be absent on next open — this is acceptable; no reconciliation is required.
+1. Call `addRecentSearch(userId, { label, description, route, type })`
+2. Update `recentSearches` state in memory optimistically (keep UI in sync for this session). This update is session-only: if storage fails silently (quota exceeded etc.), in-memory state will show the add, but reopening the modal reloads from storage and the item will be absent. This is acceptable; no reconciliation is required.
 3. Navigate to `route`
 
 **Selection index:** Reset to `0` whenever switching between recent and live result lists (i.e., when trimmed query transitions from empty to non-empty or vice versa).
@@ -196,7 +197,7 @@ export function highlightText(text: string, query: string): ReactNode
 
 **Behavior:**
 - Trims `query` before matching
-- Escapes regex special characters in query (`.`, `+`, `?`, `(`, `[`, etc.) before constructing RegExp
+- Implementation may use `RegExp` (with special chars escaped) or a plain `indexOf`/`split` approach — either is acceptable as long as it is case-insensitive, matches the first occurrence only, and handles special characters safely
 - Case-insensitive match of the **first occurrence** only
 - Returns three spans: pre-match | **highlighted** | post-match
 - Returns the original `text` string unchanged (no React wrapping) if there is no match or if query is empty/blank. This is assignable to `ReactNode` — callers must treat the return as opaque `ReactNode` only and never cast it to a React element.
@@ -273,7 +274,7 @@ The `[trimmed query]` value uses the trimmed query string, not raw input.
 ### Backend
 - Score ordering: exact code > starts-with code > exact name > starts-with name > contains
 - Entity priority: transactions > customers > products > pages at equal base score
-- Candidate pool: verify each domain service fetches up to 10
+- Candidate pool: verify the candidate query limit was increased from 5 to 10 — assert on behavior (no more than 10 candidates per entity source are considered before merge), not on the raw `.take()` call
 - Final cap: response never exceeds 20 results
 - Tie-break: two results with identical final score are returned in ascending label order (verified with a test case that has two items sharing the same score)
 
