@@ -1,3 +1,13 @@
+# [1.17.0](https://github.com/blur88/erp2/compare/v1.16.0...v1.17.0) (2026-03-21)
+
+
+### Features
+
+* **search:** add permission helpers for role-based entity access ([19433cf](https://github.com/blur88/erp2/commit/19433cfe3e808fbf7d3b52de41b1e86f3c8c59cd))
+* **search:** add role-based entity access guards to domain searchGlobal methods ([3c701ed](https://github.com/blur88/erp2/commit/3c701ed413e706c25f28b124d3db96ccf7c3591d))
+* **search:** add role-based page filtering and reconcile STATIC_PAGES routes ([041e77a](https://github.com/blur88/erp2/commit/041e77a8b01105e95c61785029b04fd6b5a0d4dc))
+* **sidebar:** apply role-based nav filtering using shared navigation config ([bdc7d51](https://github.com/blur88/erp2/commit/bdc7d510b4cc24fb68bdb31c9907dd4f06be88f9))
+
 # [1.16.0](https://github.com/blur88/erp2/compare/v1.15.3...v1.16.0) (2026-03-20)
 
 
