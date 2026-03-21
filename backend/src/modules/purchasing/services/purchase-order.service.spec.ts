@@ -35,6 +35,7 @@ describe('PurchaseOrderService', () => {
   let stockMovementService: jest.Mocked<StockMovementService>;
   let vendorPaymentService: jest.Mocked<VendorPaymentService>;
   let grnService: jest.Mocked<GoodsReceivedNoteService>;
+  const adminUser = { role: UserRole.ADMIN } as any;
 
   const mockPurchaseOrder = {
     id: 'po-1',
@@ -110,6 +111,7 @@ describe('PurchaseOrderService', () => {
             update: jest.fn(),
             save: jest.fn(),
             remove: jest.fn(),
+            createQueryBuilder: jest.fn(),
           },
         },
         {
@@ -234,6 +236,20 @@ describe('PurchaseOrderService', () => {
   });
 
   describe('searchGlobal', () => {
+    function mockPOQuery(order: {
+      id: string;
+      orderNumber: string;
+      supplier: { companyName: string };
+    }) {
+      purchaseOrderRepository.createQueryBuilder = jest.fn().mockReturnValue({
+        leftJoinAndSelect: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        take: jest.fn().mockReturnThis(),
+        getMany: jest.fn().mockResolvedValue([order]),
+      } as any);
+    }
+
     it('returns matching purchase orders as GlobalSearchResultDto', async () => {
       const order = {
         id: 'po-uuid-1',
@@ -261,6 +277,42 @@ describe('PurchaseOrderService', () => {
         description: 'Acme Supplies',
         route: '/purchasing/orders/po-uuid-1/edit',
       });
+    });
+
+    it('exact orderNumber match scores SCORE_EXACT_CODE + BOOST_TRANSACTION', async () => {
+      mockPOQuery({
+        id: 'po1',
+        orderNumber: 'PO-001',
+        supplier: { companyName: 'Vendor' },
+      });
+
+      const results = await service.searchGlobal('PO-001', adminUser);
+
+      expect(results[0].score).toBe(130);
+    });
+
+    it('orderNumber startsWith scores SCORE_STARTSWITH_CODE + BOOST_TRANSACTION', async () => {
+      mockPOQuery({
+        id: 'po1',
+        orderNumber: 'PO-001',
+        supplier: { companyName: 'Vendor' },
+      });
+
+      const results = await service.searchGlobal('PO-', adminUser);
+
+      expect(results[0].score).toBe(110);
+    });
+
+    it('contains match scores SCORE_CONTAINS + BOOST_TRANSACTION', async () => {
+      mockPOQuery({
+        id: 'po1',
+        orderNumber: 'PO-001',
+        supplier: { companyName: 'Global Vendor' },
+      });
+
+      const results = await service.searchGlobal('Vendor', adminUser);
+
+      expect(results[0].score).toBe(70);
     });
   });
 

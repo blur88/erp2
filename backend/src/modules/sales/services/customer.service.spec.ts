@@ -7,10 +7,12 @@ import { SalesOrder } from '../../../database/entities/sales-order.entity';
 import { Invoice } from '../../../database/entities/invoice.entity';
 import { AuditLogService } from '../../audit-logs/services';
 import { TransactionManager } from '../../../common/utils/transaction.util';
+import { UserRole } from '../../../database/entities/user.entity';
 
 describe('CustomerService', () => {
   let service: CustomerService;
   let customerRepository: jest.Mocked<Repository<Customer>>;
+  const adminUser = { role: UserRole.ADMIN } as any;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -91,6 +93,54 @@ describe('CustomerService', () => {
       } as any);
       expect(results).toEqual([]);
     });
+
+    it('exact phone match scores SCORE_EXACT_CODE + BOOST_CUSTOMER', async () => {
+      const mockCustomer = {
+        id: 'c1',
+        name: 'Acme Corp',
+        phone: '0123456789',
+      };
+
+      customerRepository.createQueryBuilder = jest.fn().mockReturnValue({
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        take: jest.fn().mockReturnThis(),
+        getMany: jest.fn().mockResolvedValue([mockCustomer]),
+      } as any);
+
+      const results = await service.searchGlobal('0123456789', adminUser);
+
+      expect(results[0].score).toBe(128);
+    });
+
+    it('exact name match scores SCORE_EXACT_NAME + BOOST_CUSTOMER', async () => {
+      const mockCustomer = { id: 'c1', name: 'acme corp', phone: null };
+
+      customerRepository.createQueryBuilder = jest.fn().mockReturnValue({
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        take: jest.fn().mockReturnThis(),
+        getMany: jest.fn().mockResolvedValue([mockCustomer]),
+      } as any);
+
+      const results = await service.searchGlobal('acme corp', adminUser);
+
+      expect(results[0].score).toBe(103);
+    });
+
+    it('phone exact match outranks name exact match', async () => {
+      const mockCustomer = { id: 'c1', name: 'acme corp', phone: 'acme corp' };
+
+      customerRepository.createQueryBuilder = jest.fn().mockReturnValue({
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        take: jest.fn().mockReturnThis(),
+        getMany: jest.fn().mockResolvedValue([mockCustomer]),
+      } as any);
+
+      const results = await service.searchGlobal('acme corp', adminUser);
+
+      expect(results[0].score).toBe(128);
+    });
   });
 });
-import { UserRole } from '../../../database/entities/user.entity';

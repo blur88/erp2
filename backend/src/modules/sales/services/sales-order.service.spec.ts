@@ -33,6 +33,7 @@ describe('SalesOrderService', () => {
   let settingsService: jest.Mocked<SettingsService>;
   let auditLogService: jest.Mocked<AuditLogService>;
   let dataSource: jest.Mocked<DataSource>;
+  const adminUser = { role: UserRole.ADMIN } as any;
 
   const createMockSalesOrder = (): Partial<SalesOrder> => ({
     id: '123e4567-e89b-12d3-a456-426614174000',
@@ -178,6 +179,20 @@ describe('SalesOrderService', () => {
   });
 
   describe('searchGlobal', () => {
+    function mockSOQuery(order: {
+      id: string;
+      orderNumber: string;
+      customer: { name: string };
+    }) {
+      salesOrderRepository.createQueryBuilder = jest.fn().mockReturnValue({
+        leftJoinAndSelect: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        take: jest.fn().mockReturnThis(),
+        getMany: jest.fn().mockResolvedValue([order]),
+      } as any);
+    }
+
     it('returns matching sales orders as GlobalSearchResultDto', async () => {
       const order = {
         id: 'so-uuid-1',
@@ -205,6 +220,42 @@ describe('SalesOrderService', () => {
         description: 'ABC Trading',
         route: '/sales/orders/so-uuid-1/edit',
       });
+    });
+
+    it('exact orderNumber match scores SCORE_EXACT_CODE + BOOST_TRANSACTION', async () => {
+      mockSOQuery({
+        id: 'so1',
+        orderNumber: 'SO-001',
+        customer: { name: 'Acme' },
+      });
+
+      const results = await service.searchGlobal('SO-001', adminUser);
+
+      expect(results[0].score).toBe(130);
+    });
+
+    it('orderNumber startsWith scores SCORE_STARTSWITH_CODE + BOOST_TRANSACTION', async () => {
+      mockSOQuery({
+        id: 'so1',
+        orderNumber: 'SO-001',
+        customer: { name: 'Acme' },
+      });
+
+      const results = await service.searchGlobal('SO-', adminUser);
+
+      expect(results[0].score).toBe(110);
+    });
+
+    it('contains match scores SCORE_CONTAINS + BOOST_TRANSACTION', async () => {
+      mockSOQuery({
+        id: 'so1',
+        orderNumber: 'SO-001',
+        customer: { name: 'Acme Corp' },
+      });
+
+      const results = await service.searchGlobal('Acme', adminUser);
+
+      expect(results[0].score).toBe(70);
     });
   });
 

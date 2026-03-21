@@ -19,6 +19,13 @@ import {
 } from '../dto';
 import { GlobalSearchResultDto } from '../../search/dto/global-search-result.dto';
 import { canSearchPurchaseOrders } from '../../search/search.permissions';
+import {
+  SEARCH_CANDIDATE_LIMIT,
+  SCORE_EXACT_CODE,
+  SCORE_STARTSWITH_CODE,
+  SCORE_CONTAINS,
+  BOOST_TRANSACTION,
+} from '../../search/search.constants';
 import { SupplierService } from './supplier.service';
 import { GoodsReceivedNoteService } from './goods-received-note.service';
 import { VendorPaymentService } from './vendor-payment.service';
@@ -344,19 +351,18 @@ export class PurchaseOrderService {
       .andWhere('(order.orderNumber ILIKE :q OR supplier.companyName ILIKE :q)', {
         q: `%${trimmed}%`,
       })
-      .take(5)
+      .take(SEARCH_CANDIDATE_LIMIT)
       .getMany();
 
     return orders.map((order) => {
       const orderNumber = order.orderNumber?.toLowerCase() ?? '';
       const normalized = trimmed.toLowerCase();
-      let score = 50;
-
-      if (orderNumber === normalized) {
-        score = 90;
-      } else if (orderNumber.startsWith(normalized)) {
-        score = 80;
-      }
+      const baseScore =
+        orderNumber === normalized
+          ? SCORE_EXACT_CODE
+          : orderNumber.startsWith(normalized)
+            ? SCORE_STARTSWITH_CODE
+            : SCORE_CONTAINS;
 
       return {
         type: 'transaction',
@@ -364,7 +370,7 @@ export class PurchaseOrderService {
         label: order.orderNumber,
         description: order.supplier?.companyName ?? '',
         route: `/purchasing/orders/${order.id}/edit`,
-        score,
+        score: baseScore + BOOST_TRANSACTION,
       };
     });
   }

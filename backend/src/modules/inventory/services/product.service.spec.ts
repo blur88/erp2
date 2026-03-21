@@ -16,10 +16,12 @@ import { StockMovementService } from './stock-movement.service';
 import { BaseCostCalculatorService } from './base-cost-calculator.service';
 import { SettingsService } from '../../settings/settings.service';
 import { AuditLogService } from '../../audit-logs/services';
+import { UserRole } from '../../../database/entities/user.entity';
 
 describe('ProductService pagination removal', () => {
   let service: ProductService;
   let productRepository: jest.Mocked<Repository<Product>>;
+  const adminUser = { role: UserRole.ADMIN } as any;
 
   const createProduct = (id: string, overrides: Partial<Product> = {}): Product =>
     ({
@@ -160,6 +162,47 @@ describe('ProductService pagination removal', () => {
       } as any);
       expect(results).toEqual([]);
     });
+
+    it('exact barcode match scores SCORE_EXACT_CODE + BOOST_PRODUCT', async () => {
+      const mockProduct = { id: 'p1', name: 'Widget', barcode: 'BC-001' };
+      productRepository.createQueryBuilder = jest.fn().mockReturnValue({
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        take: jest.fn().mockReturnThis(),
+        getMany: jest.fn().mockResolvedValue([mockProduct]),
+      } as any);
+
+      const results = await service.searchGlobal('BC-001', adminUser);
+
+      expect(results[0].score).toBe(126);
+    });
+
+    it('exact name match scores SCORE_EXACT_NAME + BOOST_PRODUCT', async () => {
+      const mockProduct = { id: 'p1', name: 'Widget', barcode: 'BC-999' };
+      productRepository.createQueryBuilder = jest.fn().mockReturnValue({
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        take: jest.fn().mockReturnThis(),
+        getMany: jest.fn().mockResolvedValue([mockProduct]),
+      } as any);
+
+      const results = await service.searchGlobal('widget', adminUser);
+
+      expect(results[0].score).toBe(101);
+    });
+
+    it('barcode exact match outranks name exact match', async () => {
+      const mockProduct = { id: 'p1', name: 'widget', barcode: 'widget' };
+      productRepository.createQueryBuilder = jest.fn().mockReturnValue({
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        take: jest.fn().mockReturnThis(),
+        getMany: jest.fn().mockResolvedValue([mockProduct]),
+      } as any);
+
+      const results = await service.searchGlobal('widget', adminUser);
+
+      expect(results[0].score).toBe(126);
+    });
   });
 });
-import { UserRole } from '../../../database/entities/user.entity';

@@ -18,6 +18,15 @@ import {
 } from '../dto/customer.dto';
 import { GlobalSearchResultDto } from '../../search/dto/global-search-result.dto';
 import { canSearchCustomers } from '../../search/search.permissions';
+import {
+  SEARCH_CANDIDATE_LIMIT,
+  SCORE_EXACT_CODE,
+  SCORE_STARTSWITH_CODE,
+  SCORE_EXACT_NAME,
+  SCORE_STARTSWITH_NAME,
+  SCORE_CONTAINS,
+  BOOST_CUSTOMER,
+} from '../../search/search.constants';
 import { ValidationUtil, BulkOperationUtil, BulkOperationResponse } from '../../../common/utils/validation.util';
 import { TransactionManager, Transactional } from '../../../common/utils/transaction.util';
 import { AuditLogService } from '../../audit-logs/services';
@@ -140,22 +149,23 @@ export class CustomerService {
         '(customer.name ILIKE :q OR customer.phone ILIKE :q)',
         { q: `%${trimmed}%` },
       )
-      .take(5)
+      .take(SEARCH_CANDIDATE_LIMIT)
       .getMany();
 
     return customers.map((customer) => {
       const name = customer.name?.toLowerCase() ?? '';
       const phone = customer.phone?.toLowerCase() ?? '';
       const normalized = trimmed.toLowerCase();
-      let score = 50;
-
-      if (name === normalized) {
-        score = 100;
-      } else if (phone === normalized) {
-        score = 90;
-      } else if (name.startsWith(normalized) || phone.startsWith(normalized)) {
-        score = 80;
-      }
+      const baseScore =
+        phone && phone === normalized
+          ? SCORE_EXACT_CODE
+          : phone && phone.startsWith(normalized)
+            ? SCORE_STARTSWITH_CODE
+            : name === normalized
+              ? SCORE_EXACT_NAME
+              : name.startsWith(normalized)
+                ? SCORE_STARTSWITH_NAME
+                : SCORE_CONTAINS;
 
       return {
         type: 'customer',
@@ -163,7 +173,7 @@ export class CustomerService {
         label: customer.name,
         description: customer.phone,
         route: `/sales/customers/${customer.id}`,
-        score,
+        score: baseScore + BOOST_CUSTOMER,
       };
     });
   }
