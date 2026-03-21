@@ -8,7 +8,7 @@ import { Customer } from '../../../database/entities/customer.entity';
 import { Product } from '../../../database/entities/product.entity';
 import { Invoice } from '../../../database/entities/invoice.entity';
 import { InvoiceItem } from '../../../database/entities/invoice-item.entity';
-import { User } from '../../../database/entities/user.entity';
+import { User, UserRole } from '../../../database/entities/user.entity';
 import { PriceListItem } from '../../../database/entities/price-list-item.entity';
 import { Payment } from '../../../database/entities/payment.entity';
 import { InventoryIntegrationService } from './inventory-integration.service';
@@ -193,7 +193,9 @@ describe('SalesOrderService', () => {
         getMany: jest.fn().mockResolvedValue([order]),
       } as any);
 
-      const results = await service.searchGlobal('SO-000001', {} as any);
+      const results = await service.searchGlobal('SO-000001', {
+        role: UserRole.SALES_STAFF,
+      } as any);
 
       expect(results).toHaveLength(1);
       expect(results[0]).toMatchObject({

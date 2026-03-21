@@ -18,87 +18,25 @@ import {
   Paper,
 } from '@mui/material'
 import {
-  Dashboard as DashboardIcon,
-  Inventory as InventoryIcon,
-  PointOfSale as SalesIcon,
-  Assignment as PurchasingIcon,
-  Settings as SettingsIcon,
   ExpandMore,
-  Category as CategoryIcon,
-  ShoppingCart as ProductIcon,
-  People as CustomersIcon,
-  Receipt as OrdersIcon,
-  ReceiptLong as InvoiceIcon,
-  Payment as PaymentsIcon,
-  Business as SuppliersIcon,
-  LocalShipping as GRNIcon,
-  BusinessCenter as CompanyIcon,
-  Description as PurchaseOrderIcon,
-  AccountBalance as VendorPaymentsIcon,
-  SwapVert as StockAdjustmentIcon,
-  SwapHoriz as SwapHorizIcon,
-  PriceChange as PriceCostingIcon,
-  Summarize as SummaryIcon,
-  ListAlt as DetailIcon,
-  TrendingUp as ProfitIcon,
-  AccountBalanceWallet as PaymentSummaryIcon,
-  AccountBalanceWallet as AccountBalanceWalletIcon,
-  ReceiptLongOutlined as PaymentOrderIcon,
-  MonetizationOn as PaymentDetailIcon,
-  History as HistoryIcon,
-  PersonSearch as CustomerProductIcon,
-  Inventory2 as InventorySummaryIcon,
-  Timeline as HistoricalInventoryIcon,
-  CompareArrows as MovementSummaryIcon,
-  AttachMoney as PriceListIcon,
-  TrendingDown as CostReportIcon,
-  Print as PrintIcon,
-  FormatListNumbered as DocumentNumberIcon,
-  Backup as BackupIcon,
-  ManageSearch as AuditIcon,
-  People as PeopleIcon,
-  Security as SecurityIcon,
-  Lock as LockIcon,
-  LocalOffer as PriceTagIcon,
-  AccountBalance as AccountBalanceIcon,
-  AccountBalanceOutlined as AccountBalanceOutlinedIcon,
-  AccountTree as AccountTreeIcon,
-  Description as DescriptionIcon,
-  DateRange as DateRangeIcon,
-  Assessment as AssessmentIcon,
-  ShowChart as ShowChartIcon,
-  ReceiptLong as ReceiptLongIcon,
-  Timeline as TimelineIcon,
-  MenuBook as MenuBookIcon,
-  Language as RegionalIcon,
   ChevronLeft,
   ChevronRight,
 } from '@mui/icons-material'
+import { useAppSelector } from '@/hooks/useRedux'
 import { TOPBAR_HEIGHT } from '@/constants/layout'
 import { useGetCompanySettingsQuery } from '@/store/api/settingsApi'
+import { selectCurrentUser } from '@/store/slices/authSlice'
+import {
+  menuSections,
+  getFilteredMenuSections,
+  type MenuItem,
+} from '@/config/navigation'
 import SidebarFooter from './SidebarFooter'
 
 interface SidebarProps {
   onItemClick?: () => void
   collapsed?: boolean
   onToggleCollapse?: () => void
-}
-
-interface MenuSection {
-  id: string
-  title: string
-  items: MenuItem[]
-}
-
-interface MenuItem {
-  id: string
-  title: string
-  icon: React.ReactNode
-  path?: string
-  badge?: number | string
-  group?: string
-  children?: MenuItem[]
-  flyoutMode?: 'category-first'
 }
 
 const SIDEBAR_COLORS = {
@@ -115,483 +53,6 @@ const SIDEBAR_COLORS = {
   accentBar: '#42a5f5',
 } as const
 
-const menuSections: MenuSection[] = [
-  {
-    id: 'primary',
-    title: 'Primary',
-    items: [
-      {
-        id: 'dashboard',
-        title: 'Dashboard',
-        icon: <DashboardIcon />,
-        path: '/dashboard',
-      },
-    ],
-  },
-  {
-    id: 'operations',
-    title: 'Operations',
-    items: [
-      {
-        id: 'sales',
-        title: 'Sales',
-        icon: <SalesIcon />,
-        children: [
-          {
-            id: 'sales-overview',
-            title: 'Overview',
-            icon: <SalesIcon />,
-            path: '/sales',
-          },
-          {
-            id: 'customers',
-            title: 'Customers',
-            icon: <CustomersIcon />,
-            path: '/sales/customers',
-          },
-          {
-            id: 'orders',
-            title: 'Sales Orders',
-            icon: <OrdersIcon />,
-            path: '/sales/orders',
-          },
-          {
-            id: 'invoices',
-            title: 'Invoices',
-            icon: <InvoiceIcon />,
-            path: '/sales/invoices',
-          },
-          {
-            id: 'payments',
-            title: 'Payments',
-            icon: <PaymentsIcon />,
-            path: '/sales/payments',
-          },
-        ],
-      },
-      {
-        id: 'purchasing',
-        title: 'Purchasing',
-        icon: <PurchasingIcon />,
-        children: [
-          {
-            id: 'purchasing-overview',
-            title: 'Overview',
-            icon: <PurchasingIcon />,
-            path: '/purchasing',
-          },
-          {
-            id: 'suppliers',
-            title: 'Suppliers',
-            icon: <SuppliersIcon />,
-            path: '/purchasing/suppliers',
-          },
-          {
-            id: 'purchase-orders',
-            title: 'Purchase Orders',
-            icon: <PurchaseOrderIcon />,
-            path: '/purchasing/orders',
-          },
-          {
-            id: 'grn',
-            title: 'Goods Received',
-            icon: <GRNIcon />,
-            path: '/purchasing/goods-received',
-          },
-          {
-            id: 'vendor-payments',
-            title: 'Vendor Payments',
-            icon: <VendorPaymentsIcon />,
-            path: '/purchasing/vendor-payments',
-          },
-        ],
-      },
-      {
-        id: 'inventory',
-        title: 'Inventory',
-        icon: <InventoryIcon />,
-        children: [
-          {
-            id: 'inventory-overview',
-            title: 'Overview',
-            icon: <InventoryIcon />,
-            path: '/inventory',
-          },
-          {
-            id: 'products',
-            title: 'Products',
-            icon: <ProductIcon />,
-            path: '/inventory/products',
-          },
-          {
-            id: 'categories',
-            title: 'Categories',
-            icon: <CategoryIcon />,
-            path: '/inventory/categories',
-          },
-          {
-            id: 'stock-adjustments',
-            title: 'Stock Adjustments',
-            icon: <StockAdjustmentIcon />,
-            path: '/inventory/stock-adjustments',
-          },
-        ],
-      },
-    ],
-  },
-  {
-    id: 'finance',
-    title: 'Finance',
-    items: [
-      {
-        id: 'accounting',
-        title: 'Accounting',
-        icon: <AccountBalanceIcon />,
-        children: [
-          {
-            id: 'accounting-dashboard',
-            title: 'Dashboard',
-            icon: <DashboardIcon />,
-            path: '/accounting/dashboard',
-          },
-          {
-            id: 'chart-of-accounts',
-            title: 'Chart of Accounts',
-            icon: <AccountTreeIcon />,
-            path: '/accounting/chart-of-accounts',
-          },
-          {
-            id: 'journal-entries',
-            title: 'Journal Entries',
-            icon: <DescriptionIcon />,
-            path: '/accounting/journal-entries',
-          },
-          {
-            id: 'bank-reconciliation',
-            title: 'Bank Reconciliation',
-            icon: <AccountBalanceOutlinedIcon />,
-            path: '/accounting/bank-reconciliations',
-          },
-          {
-            id: 'expenses',
-            title: 'Expenses',
-            icon: <OrdersIcon />,
-            path: '/accounting/expenses',
-          },
-          {
-            id: 'fund-transfers',
-            title: 'Fund Transfers',
-            icon: <SwapHorizIcon />,
-            path: '/accounting/fund-transfers',
-          },
-          {
-            id: 'settlements',
-            title: 'Settlements',
-            icon: <AccountBalanceWalletIcon />,
-            path: '/accounting/settlements',
-          },
-          {
-            id: 'owner-equity',
-            title: "Owner's Equity",
-            icon: <AccountBalanceWalletIcon />,
-            path: '/accounting/owner-equity',
-          },
-          {
-            id: 'fiscal-periods',
-            title: 'Fiscal Periods',
-            icon: <DateRangeIcon />,
-            path: '/accounting/fiscal-periods',
-          },
-          {
-            id: 'account-mappings',
-            title: 'Account Mappings',
-            icon: <SettingsIcon />,
-            path: '/accounting/account-mappings',
-          },
-        ],
-      },
-    ],
-  },
-  {
-    id: 'insights',
-    title: 'Insights',
-    items: [
-      {
-        id: 'reports',
-        title: 'Reports',
-        icon: <AssessmentIcon />,
-        flyoutMode: 'category-first',
-        children: [
-          {
-            id: 'sales-by-product-summary',
-            title: 'Product Summary',
-            icon: <SummaryIcon />,
-            group: 'Sales',
-            path: '/reports/sales/product-summary',
-          },
-          {
-            id: 'sales-by-product-details',
-            title: 'Product Details',
-            icon: <DetailIcon />,
-            group: 'Sales',
-            path: '/reports/sales/product-details',
-          },
-          {
-            id: 'sales-order-summary',
-            title: 'Order Summary',
-            icon: <OrdersIcon />,
-            group: 'Sales',
-            path: '/reports/sales/order-summary',
-          },
-          {
-            id: 'sales-order-profit-report',
-            title: 'Order Profit',
-            icon: <ProfitIcon />,
-            group: 'Sales',
-            path: '/reports/sales/order-profit',
-          },
-          {
-            id: 'customer-payment-summary',
-            title: 'Payment Summary',
-            icon: <PaymentSummaryIcon />,
-            group: 'Sales',
-            path: '/reports/sales/customer-payment-summary',
-          },
-          {
-            id: 'customer-payment-by-order',
-            title: 'Payment by Order',
-            icon: <PaymentOrderIcon />,
-            group: 'Sales',
-            path: '/reports/sales/payment-by-order',
-          },
-          {
-            id: 'customer-payment-details',
-            title: 'Payment Details',
-            icon: <PaymentDetailIcon />,
-            group: 'Sales',
-            path: '/reports/sales/payment-details',
-          },
-          {
-            id: 'customer-order-history',
-            title: 'Order History',
-            icon: <HistoryIcon />,
-            group: 'Sales',
-            path: '/reports/sales/order-history',
-          },
-          {
-            id: 'product-customer-report',
-            title: 'Product Customers',
-            icon: <CustomerProductIcon />,
-            group: 'Sales',
-            path: '/reports/sales/product-customer',
-          },
-          {
-            id: 'purchase-order-summary',
-            title: 'Order Summary',
-            icon: <SummaryIcon />,
-            group: 'Purchasing',
-            path: '/reports/purchasing/order-summary',
-          },
-          {
-            id: 'purchase-order-details',
-            title: 'Order Details',
-            icon: <DetailIcon />,
-            group: 'Purchasing',
-            path: '/reports/purchasing/order-details',
-          },
-          {
-            id: 'purchase-order-status',
-            title: 'Order Status',
-            icon: <OrdersIcon />,
-            group: 'Purchasing',
-            path: '/reports/purchasing/order-status',
-          },
-          {
-            id: 'vendor-payment-details',
-            title: 'Payment Details',
-            icon: <PaymentDetailIcon />,
-            group: 'Purchasing',
-            path: '/reports/purchasing/payment-details',
-          },
-          {
-            id: 'vendor-purchase-list',
-            title: 'Vendor Products',
-            icon: <SuppliersIcon />,
-            group: 'Purchasing',
-            path: '/reports/purchasing/vendor-purchase-list',
-          },
-          {
-            id: 'inventory-summary',
-            title: 'Inventory Summary',
-            icon: <InventorySummaryIcon />,
-            group: 'Inventory',
-            path: '/reports/inventory/summary',
-          },
-          {
-            id: 'historical-inventory',
-            title: 'Historical Inventory',
-            icon: <HistoricalInventoryIcon />,
-            group: 'Inventory',
-            path: '/reports/inventory/historical',
-          },
-          {
-            id: 'inventory-movement-summary',
-            title: 'Movement Summary',
-            icon: <MovementSummaryIcon />,
-            group: 'Inventory',
-            path: '/reports/inventory/movement-summary',
-          },
-          {
-            id: 'product-price-list',
-            title: 'Product Price List',
-            icon: <PriceListIcon />,
-            group: 'Inventory',
-            path: '/reports/inventory/price-list',
-          },
-          {
-            id: 'product-cost-report',
-            title: 'Product Cost Report',
-            icon: <CostReportIcon />,
-            group: 'Inventory',
-            path: '/reports/inventory/product-cost',
-          },
-          {
-            id: 'trial-balance',
-            title: 'Trial Balance',
-            icon: <AccountBalanceIcon />,
-            group: 'Accounting',
-            path: '/accounting/reports/trial-balance',
-          },
-          {
-            id: 'balance-sheet',
-            title: 'Balance Sheet',
-            icon: <ReceiptLongIcon />,
-            group: 'Accounting',
-            path: '/accounting/reports/balance-sheet',
-          },
-          {
-            id: 'profit-loss',
-            title: 'Profit & Loss',
-            icon: <ShowChartIcon />,
-            group: 'Accounting',
-            path: '/accounting/reports/profit-loss',
-          },
-          {
-            id: 'general-ledger',
-            title: 'General Ledger',
-            icon: <MenuBookIcon />,
-            group: 'Accounting',
-            path: '/accounting/reports/general-ledger',
-          },
-          {
-            id: 'account-activity',
-            title: 'Account Activity',
-            icon: <TimelineIcon />,
-            group: 'Accounting',
-            path: '/accounting/reports/account-activity',
-          },
-        ],
-      },
-    ],
-  },
-  {
-    id: 'administration',
-    title: 'Administration',
-    items: [
-      {
-        id: 'settings',
-        title: 'Settings',
-        icon: <SettingsIcon />,
-        children: [
-          {
-            id: 'company-settings',
-            title: 'Company',
-            icon: <CompanyIcon />,
-            group: 'Business',
-            path: '/settings/company',
-          },
-          {
-            id: 'price-costing-settings',
-            title: 'Inventory Costing',
-            icon: <PriceCostingIcon />,
-            group: 'Business',
-            path: '/settings/price-costing',
-          },
-          {
-            id: 'regional-settings',
-            title: 'Regional',
-            icon: <RegionalIcon />,
-            group: 'Business',
-            path: '/settings/regional',
-          },
-          {
-            id: 'price-lists',
-            title: 'Price Lists',
-            icon: <PriceTagIcon />,
-            group: 'Business',
-            path: '/settings/price-lists',
-          },
-          {
-            id: 'payment-methods',
-            title: 'Payment Methods',
-            icon: <PaymentsIcon />,
-            group: 'Business',
-            path: '/settings/payment-methods',
-          },
-          {
-            id: 'print-settings',
-            title: 'Print Settings',
-            icon: <PrintIcon />,
-            group: 'Business',
-            path: '/settings/print',
-          },
-          {
-            id: 'document-numbers',
-            title: 'Document Numbers',
-            icon: <DocumentNumberIcon />,
-            group: 'Business',
-            path: '/settings/document-numbers',
-          },
-          {
-            id: 'users',
-            title: 'Users',
-            icon: <PeopleIcon />,
-            group: 'Access',
-            path: '/settings/users',
-          },
-          {
-            id: 'roles',
-            title: 'Roles & Permissions',
-            icon: <SecurityIcon />,
-            group: 'Access',
-            path: '/settings/roles',
-          },
-          {
-            id: 'security',
-            title: 'Security',
-            icon: <LockIcon />,
-            group: 'Access',
-            path: '/settings/security',
-          },
-          {
-            id: 'backup-restore',
-            title: 'Backup & Restore',
-            icon: <BackupIcon />,
-            group: 'System',
-            path: '/settings/backup',
-          },
-        ],
-      },
-      {
-        id: 'audit-logs',
-        title: 'Audit Logs',
-        icon: <AuditIcon />,
-        path: '/audit-logs',
-      },
-    ],
-  },
-]
-
 const Sidebar: React.FC<SidebarProps> = ({
   onItemClick,
   collapsed = false,
@@ -599,6 +60,7 @@ const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const location = useLocation()
   const navigate = useNavigate()
+  const user = useAppSelector(selectCurrentUser)
   const { data: company } = useGetCompanySettingsQuery()
   const [expandedItems, setExpandedItems] = React.useState<string[]>(() => {
     const stored = localStorage.getItem('sidebar-expanded')
@@ -638,9 +100,9 @@ const Sidebar: React.FC<SidebarProps> = ({
     })
   }, [location.pathname])
 
-  const getFilteredMenuSections = () => {
-    return menuSections
-  }
+  const filteredSections = user
+    ? getFilteredMenuSections(menuSections, user.role)
+    : []
 
   const handleItemClick = (item: MenuItem) => {
     if (item.path) {
@@ -703,7 +165,9 @@ const Sidebar: React.FC<SidebarProps> = ({
       clearFlyoutStateTimerRef.current = null
     }
 
-    const item = menuSections.flatMap(section => section.items).find(menuItem => menuItem.id === itemId)
+    const item = filteredSections
+      .flatMap(section => section.items)
+      .find(menuItem => menuItem.id === itemId)
     const autoExpanded: string[] = []
 
     if (item?.children) {
@@ -1256,7 +720,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       </Box>
 
       <Box sx={{ flexGrow: 1, overflow: 'auto', py: 1 }}>
-        {getFilteredMenuSections().map((section, index) => (
+        {filteredSections.map((section, index) => (
           <React.Fragment key={section.id}>
             {index > 0 && section.id === 'administration' && (
               <Divider
@@ -1302,7 +766,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           during the 80ms exit fade. flyoutAnchorEl provides the anchor position;
           flyoutOpen drives the Fade animation. Both are cleared after animation completes. */}
       {collapsed && flyoutItemId && (() => {
-        const flyoutItem = menuSections
+        const flyoutItem = filteredSections
           .flatMap(section => section.items)
           .find(item => item.id === flyoutItemId)
 

@@ -133,7 +133,9 @@ describe('ProductService pagination removal', () => {
         getMany: jest.fn().mockResolvedValue([product]),
       } as any);
 
-      const results = await service.searchGlobal('Widget', {} as any);
+      const results = await service.searchGlobal('Widget', {
+        role: UserRole.SALES_STAFF,
+      } as any);
 
       expect(results).toHaveLength(1);
       expect(results[0]).toMatchObject({
@@ -153,8 +155,11 @@ describe('ProductService pagination removal', () => {
         getMany: jest.fn().mockResolvedValue([]),
       } as any);
 
-      const results = await service.searchGlobal('zzz', {} as any);
+      const results = await service.searchGlobal('zzz', {
+        role: UserRole.SALES_STAFF,
+      } as any);
       expect(results).toEqual([]);
     });
   });
 });
+import { UserRole } from '../../../database/entities/user.entity';

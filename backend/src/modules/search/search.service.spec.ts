@@ -5,6 +5,7 @@ import { ProductService } from '../inventory/services/product.service';
 import { SalesOrderService } from '../sales/services/sales-order.service';
 import { PurchaseOrderService } from '../purchasing/services/purchase-order.service';
 import { GlobalSearchResultDto } from './dto/global-search-result.dto';
+import { UserRole } from '../../database/entities/user.entity';
 
 describe('SearchService', () => {
   let service: SearchService;
@@ -126,5 +127,87 @@ describe('SearchService', () => {
 
     expect(result.results).toHaveLength(1);
     expect(result.results[0].label).toBe('Widget');
+  });
+
+  describe('searchPages role filtering', () => {
+    it('returns Dashboard for all roles', async () => {
+      for (const role of Object.values(UserRole)) {
+        const user = { role } as any;
+        const result = await service.search('dashboard', user);
+        const dashboardResult = result.results.find(
+          (r) => r.route === '/dashboard',
+        );
+        expect(dashboardResult).toBeDefined();
+      }
+    });
+
+    it('returns Audit Logs page only for admin', async () => {
+      const adminResult = await service.search(
+        'audit',
+        { role: UserRole.ADMIN } as any,
+      );
+      expect(
+        adminResult.results.find((r) => r.route === '/audit-logs'),
+      ).toBeDefined();
+
+      for (const role of [
+        UserRole.MANAGER,
+        UserRole.SALES_STAFF,
+        UserRole.INVENTORY_STAFF,
+        UserRole.PROCUREMENT_STAFF,
+      ]) {
+        const result = await service.search('audit', { role } as any);
+        expect(
+          result.results.find((r) => r.route === '/audit-logs'),
+        ).toBeUndefined();
+      }
+    });
+
+    it('returns Customers page only for sales roles', async () => {
+      for (const role of [
+        UserRole.ADMIN,
+        UserRole.MANAGER,
+        UserRole.SALES_STAFF,
+      ]) {
+        const result = await service.search('customer', { role } as any);
+        expect(
+          result.results.find((r) => r.route === '/sales/customers'),
+        ).toBeDefined();
+      }
+
+      for (const role of [
+        UserRole.INVENTORY_STAFF,
+        UserRole.PROCUREMENT_STAFF,
+      ]) {
+        const result = await service.search('customer', { role } as any);
+        expect(
+          result.results.find((r) => r.route === '/sales/customers'),
+        ).toBeUndefined();
+      }
+    });
+
+    it('returns Journal Entries page only for finance roles', async () => {
+      for (const role of [UserRole.ADMIN, UserRole.MANAGER]) {
+        const result = await service.search('journal', { role } as any);
+        expect(
+          result.results.find(
+            (r) => r.route === '/accounting/journal-entries',
+          ),
+        ).toBeDefined();
+      }
+
+      for (const role of [
+        UserRole.SALES_STAFF,
+        UserRole.INVENTORY_STAFF,
+        UserRole.PROCUREMENT_STAFF,
+      ]) {
+        const result = await service.search('journal', { role } as any);
+        expect(
+          result.results.find(
+            (r) => r.route === '/accounting/journal-entries',
+          ),
+        ).toBeUndefined();
+      }
+    });
   });
 });
