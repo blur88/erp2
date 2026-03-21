@@ -1007,6 +1007,12 @@ describe('highlightText', () => {
     const result = highlightText('Hello', 'zzz')
     expect(typeof result).toBe('string')
   })
+
+  it('applies custom fontWeight when highlightWeight is provided', () => {
+    const { container } = render(<>{highlightText('abc and more', 'abc', 600)}</>)
+    const span = container.querySelector('span')
+    expect(span?.style.fontWeight).toBe('600')
+  })
 })
 ```
 
@@ -1038,7 +1044,7 @@ function escapeRegex(str: string): string {
  *
  * Callers must treat the return as opaque ReactNode — never cast to element.
  */
-export function highlightText(text: string, query: string): ReactNode {
+export function highlightText(text: string, query: string, highlightWeight: number = 700): ReactNode {
   const trimmed = query.trim()
   if (!trimmed) return text
 
@@ -1054,7 +1060,7 @@ export function highlightText(text: string, query: string): ReactNode {
   return (
     <>
       {text.slice(0, start)}
-      <span style={{ fontWeight: 700 }}>{text.slice(start, end)}</span>
+      <span style={{ fontWeight: highlightWeight }}>{text.slice(start, end)}</span>
       {text.slice(end)}
     </>
   )
@@ -1373,7 +1379,7 @@ Update `SearchResultRow` props to accept `query` and `isRecent`, and apply `high
 
 ```tsx
 // Use NavigableItem (defined above with flatResults) so both live results and
-// recent items are accepted without unsafe casts. TYPE_BADGES access is guarded by !isRecent.
+// recent items are accepted without unsafe casts. Both types share label/description/route/type.
 interface SearchResultRowProps {
   item: NavigableItem
   isSelected: boolean
@@ -1391,7 +1397,6 @@ function SearchResultRow({ item, isSelected, onClick, onHover, query, isRecent }
       sx={{
         display: 'flex',
         alignItems: 'center',
-        justifyContent: 'space-between',
         gap: 2,
         px: 2,
         py: 1.25,
@@ -1400,20 +1405,34 @@ function SearchResultRow({ item, isSelected, onClick, onHover, query, isRecent }
         '&:hover': { bgcolor: 'rgba(255, 255, 255, 0.08)' },
       }}
     >
-      <Box sx={{ minWidth: 0 }}>
+      {/* Clock icon on LEFT for recent items, per spec */}
+      {isRecent && (
+        <HistoryIcon sx={{ color: '#6B7280', fontSize: 16, flexShrink: 0 }} />
+      )}
+
+      <Box sx={{ minWidth: 0, flex: 1 }}>
         <Typography sx={{ color: '#E0E0E0', fontWeight: 600 }}>
           {highlightText(item.label, query)}
         </Typography>
         {item.description && (
-          <Typography variant="caption" sx={{ color: '#A0A0A0', display: 'block', mt: 0.25 }}>
+          <Typography
+            variant="caption"
+            sx={{
+              color: '#A0A0A0',
+              display: 'block',
+              mt: 0.25,
+              // Description highlights use fontWeight 600 (slightly less than label's 700)
+              // Applied via inline style on the <span> inside highlightText.
+              // Pass a descriptionHighlight prop to distinguish label vs description highlight weight.
+            }}
+          >
             {highlightText(item.description, query)}
           </Typography>
         )}
       </Box>
 
-      {isRecent ? (
-        <HistoryIcon sx={{ color: '#6B7280', fontSize: 16, flexShrink: 0 }} />
-      ) : (
+      {/* Type badge on RIGHT for live results only */}
+      {!isRecent && (
         <Typography variant="caption" sx={{
           color: '#6B7280',
           bgcolor: 'rgba(255, 255, 255, 0.05)',
@@ -1428,6 +1447,26 @@ function SearchResultRow({ item, isSelected, onClick, onHover, query, isRecent }
   )
 }
 ```
+
+**Description highlight style note:** The spec calls for `fontWeight: 600` on the description match span (vs `fontWeight: 700` on the label). Since `highlightText` always uses `fontWeight: 700`, add an optional `highlightWeight` parameter:
+
+```tsx
+// Update highlightText signature in highlightText.tsx to accept optional weight:
+export function highlightText(text: string, query: string, highlightWeight: number = 700): ReactNode {
+  // ...
+  <span style={{ fontWeight: highlightWeight }}>{text.slice(start, end)}</span>
+  // ...
+}
+```
+
+Then call with weight 600 for descriptions in `SearchResultRow`:
+
+```tsx
+{highlightText(item.description, query)}        // label — uses default 700
+{highlightText(item.description, query, 600)}   // description — uses 600
+```
+
+Update the `highlightText` tests to cover the optional weight parameter.
 
 Also pass `query={trimmedQuery}` to all live result `SearchResultRow` instances in the groups render.
 
