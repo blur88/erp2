@@ -71,14 +71,16 @@ export const BOOST_PAGE          = 2;
 
 The "exact code" and "starts-with code" scores apply only to these designated identifier fields:
 
-| Entity | Code Field |
-|---|---|
-| Customer | `code` |
-| Product | `sku` |
-| Sales Order | `orderNumber` |
-| Purchase Order | `orderNumber` |
+| Entity | Code/Identifier Field | Name Field |
+|---|---|---|
+| Customer | `phone` (no `code` field exists on entity) | `name` |
+| Product | `barcode` (the actual entity field; `sku` is an alias in some service methods) | `name` |
+| Sales Order | `orderNumber` | `customerName` (joined) |
+| Purchase Order | `orderNumber` | supplier name (if available) |
 
-Name fields (`name`, `customerName`) use the `EXACT_NAME` / `STARTSWITH_NAME` scores. All other string fields use `CONTAINS`.
+The `SCORE_EXACT_CODE` / `SCORE_STARTSWITH_CODE` tiers apply to the Code/Identifier fields above. Name fields use `SCORE_EXACT_NAME` / `SCORE_STARTSWITH_NAME`. All other string fields use `SCORE_CONTAINS`.
+
+> **Customer note:** Because `phone` is a nullable field and not a structured identifier like an order number, `SCORE_EXACT_CODE = 120` for an exact phone match remains correct — a user typing an exact phone number expects the customer to be the top result.
 
 ### Scoring Logic per Domain
 
@@ -86,11 +88,12 @@ Each domain `searchGlobal` method applies `baseScore + entityBoost`:
 
 **Example — Product:**
 ```ts
-const baseScore = name === q     ? SCORE_EXACT_NAME
-                : sku === q      ? SCORE_EXACT_CODE
-                : sku.startsWith ? SCORE_STARTSWITH_CODE
-                : name.startsWith? SCORE_STARTSWITH_NAME
-                                 : SCORE_CONTAINS;
+// Check exact code before exact name — code matches have higher priority (120 > 95)
+const baseScore = barcode === q          ? SCORE_EXACT_CODE
+                : barcode.startsWith(q)  ? SCORE_STARTSWITH_CODE
+                : name === q             ? SCORE_EXACT_NAME
+                : name.startsWith(q)     ? SCORE_STARTSWITH_NAME
+                                         : SCORE_CONTAINS;
 score = baseScore + BOOST_PRODUCT;
 ```
 
@@ -135,17 +138,18 @@ export function addRecentSearch(
   userId: string,
   item: Omit<RecentSearchItem, 'timestamp'>
 ): void
-// 1. Load current list (defensively)
+// 1. Load current list (defensively, [] on any error)
 // 2. Remove existing entry with same route (dedupe by route)
 // 3. Prepend with timestamp: Date.now()
 // 4. Slice to MAX_RECENT
-// 5. Write back
+// 5. Write back — wrapped in try/catch; silently swallows errors (e.g. quota exceeded)
 
 export function clearRecentSearches(userId: string): void
-// Exists for test support and future use; no visible UI control in Phase 3
+// Removes the key from localStorage; wrapped in try/catch.
+// No visible UI control in Phase 3 — exists for test support and future use.
 ```
 
-All localStorage access is wrapped in try/catch, falling back to `[]` or silent failure.
+All localStorage access is wrapped in try/catch. `getRecentSearches` returns `[]` on any error. `addRecentSearch` and `clearRecentSearches` silently swallow errors (no throw, no user-visible feedback).
 
 ### SearchModal Behavior
 
@@ -153,10 +157,15 @@ All localStorage access is wrapped in try/catch, falling back to `[]` or silent 
 - Load recent searches from localStorage into component state (`useState<RecentSearchItem[]>`)
 - Done once on open via `useEffect`
 
-**When query is empty (trimmed):**
+**When trimmed query is empty (0 chars):**
 - Render a "Recent" section showing loaded recent items
 - If no recent items: show neutral hint — "Start typing to search"
 - Navigation list = recent items only
+
+**When trimmed query is 1 char:**
+- Inherit existing behavior: show help/hint text (query too short to search)
+- Do not show recent searches
+- Navigation list = empty (no keyboard navigation)
 
 **When query is non-empty (≥ 2 chars):**
 - Replace Recent section with live RTK Query results
@@ -165,7 +174,7 @@ All localStorage access is wrapped in try/catch, falling back to `[]` or silent 
 
 **On result select (Enter or click):**
 1. Call `addRecentSearch(userId, { label, route, type })`
-2. Update `recentSearches` state in memory (keep UI in sync)
+2. Update `recentSearches` state in memory (keep UI in sync). If storage fails silently (quota exceeded etc.), in-memory state will reflect the add but the item will be absent on next open — this is acceptable; no reconciliation is required.
 3. Navigate to `route`
 
 **Selection index:** Reset to `0` whenever switching between recent and live result lists (i.e., when trimmed query transitions from empty to non-empty or vice versa).
@@ -190,7 +199,7 @@ export function highlightText(text: string, query: string): ReactNode
 - Escapes regex special characters in query (`.`, `+`, `?`, `(`, `[`, etc.) before constructing RegExp
 - Case-insensitive match of the **first occurrence** only
 - Returns three spans: pre-match | **highlighted** | post-match
-- Returns a plain text node (no extra wrapping) if no match or if query is empty
+- Returns the original `text` string unchanged (no React wrapping) if there is no match or if query is empty/blank. This is assignable to `ReactNode` — callers must treat the return as opaque `ReactNode` only and never cast it to a React element.
 - Applied defensively — only called when the field exists and query is non-empty
 
 **Visual treatment:**
@@ -235,19 +244,25 @@ The `[trimmed query]` value uses the trimmed query string, not raw input.
 | File | Change |
 |---|---|
 | `search/search.constants.ts` | **New** — all score and limit constants |
-| `search/search.service.ts` | Import constants; sort with label tie-break |
+| `search/search.service.ts` | Import constants; refactor `searchPages` to use `SCORE_PAGE_*` constants; sort with label tie-break |
 | `search/search.service.spec.ts` | Update tests for new scoring and limits |
 | `*/customer.service.ts` | Import constants; apply new scores + `.take(10)` |
+| `*/customer.service.spec.ts` | Update tests for new scoring and candidate limit |
 | `*/product.service.ts` | Import constants; apply new scores + `.take(10)` |
+| `*/product.service.spec.ts` | Update tests for new scoring and candidate limit |
 | `*/sales-order.service.ts` | Import constants; apply new scores + `.take(10)` |
+| `*/sales-order.service.spec.ts` | Update tests for new scoring and candidate limit |
 | `*/purchase-order.service.ts` | Import constants; apply new scores + `.take(10)` |
+| `*/purchase-order.service.spec.ts` | Update tests for new scoring and candidate limit |
 
 ### Frontend
 
 | File | Change |
 |---|---|
 | `utils/recentSearch.ts` | **New** — localStorage recent search utility |
+| `utils/recentSearch.test.ts` | **New** — unit tests for recent search utility |
 | `utils/highlightText.tsx` | **New** — text highlight helper |
+| `utils/highlightText.test.tsx` | **New** — unit tests for highlight helper |
 | `components/common/SearchModal.tsx` | Recent section, highlight, empty state, selection reset |
 | `components/common/__tests__/SearchModal.test.tsx` | Tests for new behavior |
 
@@ -260,7 +275,7 @@ The `[trimmed query]` value uses the trimmed query string, not raw input.
 - Entity priority: transactions > customers > products > pages at equal base score
 - Candidate pool: verify each domain service fetches up to 10
 - Final cap: response never exceeds 20 results
-- Tie-break: equal-score items sorted label ascending
+- Tie-break: two results with identical final score are returned in ascending label order (verified with a test case that has two items sharing the same score)
 
 ### Frontend
 - `recentSearch.ts`: persistence, deduplication by route, max 8, namespace isolation by userId, graceful localStorage failure
