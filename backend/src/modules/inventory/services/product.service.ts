@@ -36,6 +36,15 @@ import {
 } from '../dto/product.dto';
 import { GlobalSearchResultDto } from '../../search/dto/global-search-result.dto';
 import { canSearchProducts } from '../../search/search.permissions';
+import {
+  SEARCH_CANDIDATE_LIMIT,
+  SCORE_EXACT_CODE,
+  SCORE_STARTSWITH_CODE,
+  SCORE_EXACT_NAME,
+  SCORE_STARTSWITH_NAME,
+  SCORE_CONTAINS,
+  BOOST_PRODUCT,
+} from '../../search/search.constants';
 import { CategoryService } from './category.service';
 import { StockMovementService } from './stock-movement.service';
 import { BaseCostCalculatorService } from './base-cost-calculator.service';
@@ -301,25 +310,23 @@ export class ProductService {
       .andWhere('(product.name ILIKE :q OR product.barcode ILIKE :q)', {
         q: `%${trimmed}%`,
       })
-      .take(5)
+      .take(SEARCH_CANDIDATE_LIMIT)
       .getMany();
 
     return products.map((product) => {
       const name = product.name?.toLowerCase() ?? '';
       const barcode = product.barcode?.toLowerCase() ?? '';
       const normalized = trimmed.toLowerCase();
-      let score = 50;
-
-      if (name === normalized) {
-        score = 100;
-      } else if (barcode === normalized) {
-        score = 90;
-      } else if (
-        name.startsWith(normalized) ||
-        barcode.startsWith(normalized)
-      ) {
-        score = 80;
-      }
+      const baseScore =
+        barcode && barcode === normalized
+          ? SCORE_EXACT_CODE
+          : barcode && barcode.startsWith(normalized)
+            ? SCORE_STARTSWITH_CODE
+            : name === normalized
+              ? SCORE_EXACT_NAME
+              : name.startsWith(normalized)
+                ? SCORE_STARTSWITH_NAME
+                : SCORE_CONTAINS;
 
       return {
         type: 'product',
@@ -327,7 +334,7 @@ export class ProductService {
         label: product.name,
         description: product.barcode,
         route: `/inventory/products/${product.id}/edit`,
-        score,
+        score: baseScore + BOOST_PRODUCT,
       };
     });
   }
