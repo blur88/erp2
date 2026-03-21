@@ -145,6 +145,29 @@ describe('SearchService', () => {
     expect(result.results[0].label).toBe('Widget');
   });
 
+  describe('searchPages scoring', () => {
+    it('scores an exact page label match as SCORE_PAGE_EXACT + BOOST_PAGE (92)', async () => {
+      // "Dashboard" is an exact match for query "dashboard"
+      const result = await service.search('dashboard', { role: UserRole.ADMIN } as any);
+      const dashPage = result.results.find((r) => r.route === '/dashboard');
+      expect(dashPage?.score).toBe(92); // SCORE_PAGE_EXACT(90) + BOOST_PAGE(2)
+    });
+
+    it('scores a page starts-with match as SCORE_PAGE_STARTSWITH + BOOST_PAGE (77)', async () => {
+      // "Invoices" starts with "inv"
+      const result = await service.search('inv', { role: UserRole.ADMIN } as any);
+      const invoicesPage = result.results.find((r) => r.route === '/sales/invoices');
+      expect(invoicesPage?.score).toBe(77); // SCORE_PAGE_STARTSWITH(75) + BOOST_PAGE(2)
+    });
+
+    it('scores a keyword-only match as SCORE_PAGE_KEYWORD + BOOST_PAGE (52)', async () => {
+      // "Customers" has keyword "clients" — searching "clients" is a keyword match, not label match
+      const result = await service.search('clients', { role: UserRole.ADMIN } as any);
+      const customersPage = result.results.find((r) => r.route === '/sales/customers');
+      expect(customersPage?.score).toBe(52); // SCORE_PAGE_KEYWORD(50) + BOOST_PAGE(2)
+    });
+  });
+
   describe('searchPages role filtering', () => {
     it('returns Dashboard for all roles', async () => {
       for (const role of Object.values(UserRole)) {

@@ -26,7 +26,13 @@ describe('getRecentSearches', () => {
     expect(getRecentSearches(USER_ID)).toEqual([])
   })
 
-  it('returns stored items newest first', () => {
+  it('returns [] when stored value is valid JSON but not an array', () => {
+    localStorage.setItem(KEY, JSON.stringify({ label: 'oops' }))
+
+    expect(getRecentSearches(USER_ID)).toEqual([])
+  })
+
+  it('returns stored items in the order they were persisted', () => {
     const items: RecentSearchItem[] = [
       {
         label: 'A',

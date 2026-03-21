@@ -47,10 +47,6 @@ describe('highlightText', () => {
 
   it('handles regex special characters safely with dots', () => {
     expect(() => renderHighlight('file.txt', '.')).not.toThrow()
-    renderHighlight('file.txt', '.')
-
-    const dots = screen.queryAllByText('.')
-    expect(dots.length).toBeGreaterThanOrEqual(0)
   })
 
   it('handles regex special characters safely with brackets', () => {

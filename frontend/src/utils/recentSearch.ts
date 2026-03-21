@@ -15,7 +15,9 @@ export function getRecentSearches(userId: string): RecentSearchItem[] {
     const raw = localStorage.getItem(storageKey(userId))
     if (!raw) return []
 
-    return JSON.parse(raw) as RecentSearchItem[]
+    const parsed: unknown = JSON.parse(raw)
+    if (!Array.isArray(parsed)) return []
+    return parsed as RecentSearchItem[]
   } catch {
     return []
   }
