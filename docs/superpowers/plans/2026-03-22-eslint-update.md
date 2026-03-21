@@ -65,9 +65,9 @@ git commit -m "chore(deps): update eslint to 10.1.0 in backend"
 
 - [ ] **Step 1: Edit frontend/package.json**
 
-Make two changes in the `devDependencies` section:
-- `"eslint": "10.0.3"` → `"eslint": "10.1.0"`
-- `"@eslint/js": "10.0.1"` → `"@eslint/js": "10.1.0"`
+Change `"eslint": "10.0.3"` to `"eslint": "10.1.0"` in the `devDependencies` section.
+
+Note: `@eslint/js@10.1.0` was not published as of 2026-03-22 — leave `@eslint/js` at `10.0.1`.
 
 - [ ] **Step 2: Run npm install in frontend**
 

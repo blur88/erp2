@@ -13,7 +13,7 @@ Bump ESLint from `10.0.3` to `10.1.0` in both backend and frontend. Also align `
 |------|---------|------|----|
 | `backend/package.json` | `eslint` | `10.0.3` | `10.1.0` |
 | `frontend/package.json` | `eslint` | `10.0.3` | `10.1.0` |
-| `frontend/package.json` | `@eslint/js` | `10.0.1` | `10.1.0` |
+| `frontend/package.json` | `@eslint/js` | `10.0.1` | `10.0.1` (unchanged — 10.1.0 not yet published) |
 
 ## Approach
 
