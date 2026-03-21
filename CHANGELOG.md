@@ -1,3 +1,23 @@
+# [1.18.0](https://github.com/blur88/erp2/compare/v1.17.2...v1.18.0) (2026-03-21)
+
+
+### Bug Fixes
+
+* **search:** address code review issues ([7e57ba2](https://github.com/blur88/erp2/commit/7e57ba2e6224da69601258093ccec1f364de0293))
+
+
+### Features
+
+* **search:** add centralized scoring and limit constants ([f8377ab](https://github.com/blur88/erp2/commit/f8377ab49e12c4e3ed21698772bc0b4b59235e07))
+* **search:** add highlightText utility ([4d87b2a](https://github.com/blur88/erp2/commit/4d87b2aec0a219f6c584b1dc2b270dfa9b41d45b))
+* **search:** add label tie-break to sort and use SCORE_PAGE_* constants ([16a6f30](https://github.com/blur88/erp2/commit/16a6f30c26446b9b6f0aa1fba74615b181cf1646))
+* **search:** add recent searches, text highlighting, and improved empty state ([866d570](https://github.com/blur88/erp2/commit/866d5705cf9083bf3f247eced0c4f58f4e99991d))
+* **search:** add recentSearch localStorage utility ([ac219bd](https://github.com/blur88/erp2/commit/ac219bdd8b85ad1bd01b3adad4bf67a58ed1406b))
+* **search:** update customer scoring to Phase 3 model ([15cfce2](https://github.com/blur88/erp2/commit/15cfce288bd8301df36a32065ad14f53d33c4941))
+* **search:** update product scoring to Phase 3 model ([e7d1987](https://github.com/blur88/erp2/commit/e7d1987b2f33598bf11dd61671aa90d8ea19dd21))
+* **search:** update purchase order scoring to Phase 3 model ([6872ab5](https://github.com/blur88/erp2/commit/6872ab53bc487fee28d4f680ed784105b8aef701))
+* **search:** update sales order scoring to Phase 3 model ([ce90558](https://github.com/blur88/erp2/commit/ce90558a8d6c883b2fb2df056ba6ec8ddbe0f5d8))
+
 ## [1.17.2](https://github.com/blur88/erp2/compare/v1.17.1...v1.17.2) (2026-03-21)
 
 ## [1.17.1](https://github.com/blur88/erp2/compare/v1.17.0...v1.17.1) (2026-03-21)
