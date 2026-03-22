@@ -41,6 +41,7 @@ vi.mock('../SidebarFooter', () => ({
 describe('Sidebar', () => {
   beforeEach(() => {
     localStorage.clear()
+    vi.useFakeTimers({ shouldAdvanceTime: true })
     mockUseAppSelector.mockImplementation((selector: (state: any) => unknown) =>
       selector({
         auth: {
@@ -57,6 +58,11 @@ describe('Sidebar', () => {
     })
   })
 
+  afterEach(() => {
+    vi.runOnlyPendingTimers()
+    vi.useRealTimers()
+  })
+
   const getSectionList = (sectionTitle: string) => {
     const sectionHeader = screen.getByText(sectionTitle, { selector: '.MuiTypography-overline' })
     return sectionHeader.nextElementSibling as HTMLElement
@@ -64,19 +70,17 @@ describe('Sidebar', () => {
 
   const openCollapsedFlyout = async (itemId: string) => {
     const button = document.getElementById(`rail-item-${itemId}`) as HTMLElement
-    vi.useFakeTimers()
 
-    try {
+    await act(async () => {
       fireEvent.mouseEnter(button)
+      vi.advanceTimersByTime(100) // flyout open delay (80ms) + margin
+    })
 
-      await act(async () => {
-        vi.advanceTimersByTime(100)
-      })
+    await act(async () => {
+      vi.advanceTimersByTime(250) // MUI Collapse transition (200ms) + margin
+    })
 
-      return document.getElementById(`flyout-panel-${itemId}`) as HTMLElement
-    } finally {
-      vi.useRealTimers()
-    }
+    return document.getElementById(`flyout-panel-${itemId}`) as HTMLElement
   }
 
   const LocationDisplay = () => {
@@ -274,34 +278,28 @@ describe('Sidebar', () => {
   })
 
   it('closes flyout on mouse leave', async () => {
-    vi.useFakeTimers()
+    render(
+      <MemoryRouter initialEntries={['/dashboard']}>
+        <Sidebar collapsed={true} />
+      </MemoryRouter>
+    )
 
-    try {
-      render(
-        <MemoryRouter initialEntries={['/dashboard']}>
-          <Sidebar collapsed={true} />
-        </MemoryRouter>
-      )
+    const salesButton = document.getElementById('rail-item-sales') as HTMLElement
+    fireEvent.mouseEnter(salesButton)
 
-      const salesButton = document.getElementById('rail-item-sales') as HTMLElement
-      fireEvent.mouseEnter(salesButton)
+    await act(async () => {
+      vi.advanceTimersByTime(100)
+    })
 
-      await act(async () => {
-        vi.advanceTimersByTime(100)
-      })
+    expect(screen.getByText('Customers')).toBeInTheDocument()
 
-      expect(screen.getByText('Customers')).toBeInTheDocument()
+    fireEvent.mouseLeave(salesButton)
 
-      fireEvent.mouseLeave(salesButton)
+    await act(async () => {
+      vi.advanceTimersByTime(250)
+    })
 
-      await act(async () => {
-        vi.advanceTimersByTime(250)
-      })
-
-      expect(screen.queryByText('Customers')).not.toBeInTheDocument()
-    } finally {
-      vi.useRealTimers()
-    }
+    expect(screen.queryByText('Customers')).not.toBeInTheDocument()
   })
 
   it('navigates when clicking a leaf item inside the flyout', async () => {
@@ -409,9 +407,17 @@ describe('Sidebar', () => {
 
       fireEvent.click(within(flyout).getByRole('button', { name: 'Sales' }))
 
+      await act(async () => {
+        vi.advanceTimersByTime(250) // wait for Sales Collapse to open
+      })
+
       expect(within(flyout).getByRole('button', { name: 'Product Summary' })).toBeInTheDocument()
 
       fireEvent.click(within(flyout).getByRole('button', { name: 'Purchasing' }))
+
+      await act(async () => {
+        vi.advanceTimersByTime(250) // wait for Sales Collapse to close / Purchasing to open
+      })
 
       expect(within(flyout).getByRole('button', { name: 'Sales' })).toHaveAttribute('aria-expanded', 'false')
       expect(within(flyout).getByRole('button', { name: 'Purchasing' })).toHaveAttribute('aria-expanded', 'true')
@@ -472,30 +478,24 @@ describe('Sidebar', () => {
     })
 
     it('moves keyboard focus into the first report category when opening from the rail', async () => {
-      vi.useFakeTimers()
+      render(
+        <MemoryRouter initialEntries={['/dashboard']}>
+          <Sidebar collapsed={true} />
+        </MemoryRouter>
+      )
 
-      try {
-        render(
-          <MemoryRouter initialEntries={['/dashboard']}>
-            <Sidebar collapsed={true} />
-          </MemoryRouter>
-        )
+      const reportsButton = document.getElementById('rail-item-reports') as HTMLElement
+      reportsButton.focus()
 
-        const reportsButton = document.getElementById('rail-item-reports') as HTMLElement
-        reportsButton.focus()
+      fireEvent.keyDown(reportsButton, { key: 'Enter' })
 
-        fireEvent.keyDown(reportsButton, { key: 'Enter' })
+      await act(async () => {
+        vi.advanceTimersByTime(100)
+      })
 
-        await act(async () => {
-          vi.advanceTimersByTime(100)
-        })
-
-        const firstFlyoutButton = document.querySelector('[data-flyout-first="true"]') as HTMLElement
-        expect(firstFlyoutButton).toHaveTextContent('Sales')
-        expect(firstFlyoutButton).toHaveFocus()
-      } finally {
-        vi.useRealTimers()
-      }
+      const firstFlyoutButton = document.querySelector('[data-flyout-first="true"]') as HTMLElement
+      expect(firstFlyoutButton).toHaveTextContent('Sales')
+      expect(firstFlyoutButton).toHaveFocus()
     })
 
     it('keeps non-Reports flyouts on the existing flat grouped layout', async () => {
