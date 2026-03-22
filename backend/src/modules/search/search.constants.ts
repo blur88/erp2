@@ -19,5 +19,13 @@ export const SCORE_PAGE_KEYWORD = 50;
 // Entity type boosts - added after base score to break cross-entity ties
 export const BOOST_TRANSACTION = 10;
 export const BOOST_CUSTOMER = 8;
+export const BOOST_INVOICE = 9;
+export const BOOST_CUSTOMER_PAYMENT = 8;
+export const BOOST_VENDOR_PAYMENT = 8;
+export const BOOST_SUPPLIER = 7;
 export const BOOST_PRODUCT = 6;
+export const BOOST_JOURNAL = 4;
 export const BOOST_PAGE = 2;
+
+// Fuzzy fallback score - used only when ILIKE returns no results
+export const SCORE_FUZZY = 40;
