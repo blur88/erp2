@@ -57,18 +57,18 @@ CREATE INDEX CONCURRENTLY idx_journal_entries_referencenumber_trgm ON journal_en
 ### `down()`
 
 ```sql
-DROP INDEX IF EXISTS idx_products_name_trgm;
-DROP INDEX IF EXISTS idx_products_barcode_trgm;
-DROP INDEX IF EXISTS idx_customers_name_trgm;
-DROP INDEX IF EXISTS idx_customers_phone_trgm;
-DROP INDEX IF EXISTS idx_sales_orders_ordernumber_trgm;
-DROP INDEX IF EXISTS idx_purchase_orders_ordernumber_trgm;
-DROP INDEX IF EXISTS idx_suppliers_companyname_trgm;
-DROP INDEX IF EXISTS idx_invoices_invoicenumber_trgm;
-DROP INDEX IF EXISTS idx_payments_paymentnumber_trgm;
-DROP INDEX IF EXISTS idx_vendor_payments_paymentnumber_trgm;
-DROP INDEX IF EXISTS idx_vendor_payments_referencenumber_trgm;
-DROP INDEX IF EXISTS idx_journal_entries_referencenumber_trgm;
+DROP INDEX CONCURRENTLY IF EXISTS idx_products_name_trgm;
+DROP INDEX CONCURRENTLY IF EXISTS idx_products_barcode_trgm;
+DROP INDEX CONCURRENTLY IF EXISTS idx_customers_name_trgm;
+DROP INDEX CONCURRENTLY IF EXISTS idx_customers_phone_trgm;
+DROP INDEX CONCURRENTLY IF EXISTS idx_sales_orders_ordernumber_trgm;
+DROP INDEX CONCURRENTLY IF EXISTS idx_purchase_orders_ordernumber_trgm;
+DROP INDEX CONCURRENTLY IF EXISTS idx_suppliers_companyname_trgm;
+DROP INDEX CONCURRENTLY IF EXISTS idx_invoices_invoicenumber_trgm;
+DROP INDEX CONCURRENTLY IF EXISTS idx_payments_paymentnumber_trgm;
+DROP INDEX CONCURRENTLY IF EXISTS idx_vendor_payments_paymentnumber_trgm;
+DROP INDEX CONCURRENTLY IF EXISTS idx_vendor_payments_referencenumber_trgm;
+DROP INDEX CONCURRENTLY IF EXISTS idx_journal_entries_referencenumber_trgm;
 -- DO NOT drop pg_trgm extension
 ```
 
@@ -87,10 +87,11 @@ Add to the existing constants file:
 
 ```ts
 // New entity boosts (Phase 4)
-export const BOOST_INVOICE  = 9;  // closely tied to transactions, high-frequency lookup
-export const BOOST_PAYMENT  = 8;  // same tier as CUSTOMER
-export const BOOST_SUPPLIER = 7;  // slightly below Customer in typical usage
-export const BOOST_JOURNAL  = 4;  // specialist/accounting use, low search frequency
+export const BOOST_INVOICE          = 9;  // closely tied to transactions, high-frequency lookup
+export const BOOST_CUSTOMER_PAYMENT = 8;  // same tier as CUSTOMER
+export const BOOST_VENDOR_PAYMENT   = 8;  // same tier as CUSTOMER
+export const BOOST_SUPPLIER         = 7;  // slightly below Customer in typical usage
+export const BOOST_JOURNAL          = 4;  // specialist/accounting use, low search frequency
 
 // Fuzzy fallback score: below all normal text-match tiers.
 // Used only when exact/startsWith/contains return zero results.
@@ -101,7 +102,7 @@ export const SCORE_FUZZY = 40;
 ```
 +10  Sales/Purchase Orders (transaction)
  +9  Invoices
- +8  Customers, Customer/Vendor Payments
+ +8  Customers, Customer Payments, Vendor Payments
  +7  Suppliers
  +6  Products
  +4  Journal Entries
@@ -228,12 +229,14 @@ private mapSupplier(s: Supplier, q: string, fuzzy: boolean): GlobalSearchResultD
 **Vendor Payment:**
 - ILIKE on `paymentNumber OR referenceNumber`
 - Fuzzy on both with `similarity(vp.paymentNumber, :q) > 0.3 OR similarity(vp.referenceNumber, :q) > 0.3`
+- Order by `GREATEST(similarity(vp.paymentNumber, :q), similarity(vp.referenceNumber, :q)) DESC` — use `.addSelect('GREATEST(...)', 'sim')` and `.orderBy('sim', 'DESC')` (same pattern as Customer/Product)
 - Route: `/purchasing/vendor-payments/${vp.id}`
 - Type: `'vendor_payment'`
 
 **Journal Entry:**
 - ILIKE on `referenceNumber OR description` (description is searched via ILIKE only)
 - Fuzzy fallback on `referenceNumber` only (no trigram index on description)
+- Scoring comparison uses `referenceNumber` only; description-only ILIKE hits will fall to `SCORE_CONTAINS` tier
 - Route: `/accounting/journal-entries/${je.id}`
 - Type: `'journal_entry'`
 
@@ -331,7 +334,7 @@ Fuzzy results from existing services use `SCORE_FUZZY + BOOST_<entity>` — same
 **Files affected:**
 - `frontend/src/types/search.ts` — extend `GlobalSearchResultType`
 - `frontend/src/components/common/SearchModal.tsx` — extend `GROUP_ORDER`, `GROUP_LABELS`, `TYPE_BADGES`
-- `frontend/src/utils/recentSearch.ts` — extend type union
+- `frontend/src/utils/recentSearch.ts` — extend the `type` union in `RecentSearchItem` to include the five new type strings (same union as `GlobalSearchResultType`); no logic changes needed
 
 ### Type extension
 
