@@ -28,6 +28,7 @@ import {
   SCORE_EXACT_CODE,
   SCORE_STARTSWITH_CODE,
   SCORE_CONTAINS,
+  SCORE_FUZZY,
   BOOST_TRANSACTION,
 } from '../../search/search.constants';
 // import { CustomerService } from './customer.service';
@@ -364,6 +365,7 @@ export class SalesOrderService {
     if (!canSearchSalesOrders(user.role)) return [];
 
     const trimmed = query.trim();
+    const q = trimmed.toLowerCase();
     const orders = await this.salesOrderRepository
       .createQueryBuilder('order')
       .leftJoinAndSelect('order.customer', 'customer')
@@ -374,25 +376,46 @@ export class SalesOrderService {
       .take(SEARCH_CANDIDATE_LIMIT)
       .getMany();
 
-    return orders.map((order) => {
-      const orderNumber = order.orderNumber?.toLowerCase() ?? '';
-      const normalized = trimmed.toLowerCase();
-      const baseScore =
-        orderNumber === normalized
-          ? SCORE_EXACT_CODE
-          : orderNumber.startsWith(normalized)
-            ? SCORE_STARTSWITH_CODE
-            : SCORE_CONTAINS;
+    if (orders.length > 0) {
+      return orders.map((order) => this.mapSalesOrder(order, q, false));
+    }
 
-      return {
-        type: 'transaction',
-        id: order.id,
-        label: order.orderNumber,
-        description: order.customer?.name ?? '',
-        route: `/sales/orders/${order.id}/edit`,
-        score: baseScore + BOOST_TRANSACTION,
-      };
-    });
+    const fuzzyOrders = await this.salesOrderRepository
+      .createQueryBuilder('order')
+      .addSelect('similarity(order.orderNumber, :q)', 'sim')
+      .leftJoinAndSelect('order.customer', 'customer')
+      .where('order.deletedAt IS NULL')
+      .andWhere('similarity(order.orderNumber, :q) > 0.3')
+      .orderBy('sim', 'DESC')
+      .setParameter('q', trimmed)
+      .take(SEARCH_CANDIDATE_LIMIT)
+      .getMany();
+
+    return fuzzyOrders.map((order) => this.mapSalesOrder(order, q, true));
+  }
+
+  private mapSalesOrder(
+    order: SalesOrder,
+    q: string,
+    fuzzy: boolean,
+  ): GlobalSearchResultDto {
+    const orderNumber = order.orderNumber?.toLowerCase() ?? '';
+    const baseScore = fuzzy
+      ? SCORE_FUZZY
+      : orderNumber === q
+        ? SCORE_EXACT_CODE
+        : orderNumber.startsWith(q)
+          ? SCORE_STARTSWITH_CODE
+          : SCORE_CONTAINS;
+
+    return {
+      type: 'transaction',
+      id: order.id,
+      label: order.orderNumber,
+      description: order.customer?.name ?? '',
+      route: `/sales/orders/${order.id}/edit`,
+      score: baseScore + BOOST_TRANSACTION,
+    };
   }
 
   async testInvoiceRelations(orderNumber: string): Promise<any> {

@@ -24,6 +24,7 @@ import {
   SCORE_EXACT_CODE,
   SCORE_STARTSWITH_CODE,
   SCORE_CONTAINS,
+  SCORE_FUZZY,
   BOOST_TRANSACTION,
 } from '../../search/search.constants';
 import { SupplierService } from './supplier.service';
@@ -344,6 +345,7 @@ export class PurchaseOrderService {
     if (!canSearchPurchaseOrders(user.role)) return [];
 
     const trimmed = query.trim();
+    const q = trimmed.toLowerCase();
     const orders = await this.purchaseOrderRepository
       .createQueryBuilder('order')
       .leftJoinAndSelect('order.supplier', 'supplier')
@@ -354,25 +356,46 @@ export class PurchaseOrderService {
       .take(SEARCH_CANDIDATE_LIMIT)
       .getMany();
 
-    return orders.map((order) => {
-      const orderNumber = order.orderNumber?.toLowerCase() ?? '';
-      const normalized = trimmed.toLowerCase();
-      const baseScore =
-        orderNumber === normalized
-          ? SCORE_EXACT_CODE
-          : orderNumber.startsWith(normalized)
-            ? SCORE_STARTSWITH_CODE
-            : SCORE_CONTAINS;
+    if (orders.length > 0) {
+      return orders.map((order) => this.mapPurchaseOrder(order, q, false));
+    }
 
-      return {
-        type: 'transaction',
-        id: order.id,
-        label: order.orderNumber,
-        description: order.supplier?.companyName ?? '',
-        route: `/purchasing/orders/${order.id}/edit`,
-        score: baseScore + BOOST_TRANSACTION,
-      };
-    });
+    const fuzzyOrders = await this.purchaseOrderRepository
+      .createQueryBuilder('order')
+      .addSelect('similarity(order.orderNumber, :q)', 'sim')
+      .leftJoinAndSelect('order.supplier', 'supplier')
+      .where('order.deletedAt IS NULL')
+      .andWhere('similarity(order.orderNumber, :q) > 0.3')
+      .orderBy('sim', 'DESC')
+      .setParameter('q', trimmed)
+      .take(SEARCH_CANDIDATE_LIMIT)
+      .getMany();
+
+    return fuzzyOrders.map((order) => this.mapPurchaseOrder(order, q, true));
+  }
+
+  private mapPurchaseOrder(
+    order: PurchaseOrder,
+    q: string,
+    fuzzy: boolean,
+  ): GlobalSearchResultDto {
+    const orderNumber = order.orderNumber?.toLowerCase() ?? '';
+    const baseScore = fuzzy
+      ? SCORE_FUZZY
+      : orderNumber === q
+        ? SCORE_EXACT_CODE
+        : orderNumber.startsWith(q)
+          ? SCORE_STARTSWITH_CODE
+          : SCORE_CONTAINS;
+
+    return {
+      type: 'transaction',
+      id: order.id,
+      label: order.orderNumber,
+      description: order.supplier?.companyName ?? '',
+      route: `/purchasing/orders/${order.id}/edit`,
+      score: baseScore + BOOST_TRANSACTION,
+    };
   }
 
   /**

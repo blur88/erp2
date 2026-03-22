@@ -43,6 +43,7 @@ import {
   SCORE_EXACT_NAME,
   SCORE_STARTSWITH_NAME,
   SCORE_CONTAINS,
+  SCORE_FUZZY,
   BOOST_PRODUCT,
 } from '../../search/search.constants';
 import { CategoryService } from './category.service';
@@ -304,6 +305,7 @@ export class ProductService {
     if (!canSearchProducts(user.role)) return [];
 
     const trimmed = query.trim();
+    const q = trimmed.toLowerCase();
     const products = await this.productRepository
       .createQueryBuilder('product')
       .where('product.deletedAt IS NULL')
@@ -313,30 +315,55 @@ export class ProductService {
       .take(SEARCH_CANDIDATE_LIMIT)
       .getMany();
 
-    return products.map((product) => {
-      const name = product.name?.toLowerCase() ?? '';
-      const barcode = product.barcode?.toLowerCase() ?? '';
-      const normalized = trimmed.toLowerCase();
-      const baseScore =
-        barcode && barcode === normalized
-          ? SCORE_EXACT_CODE
-          : barcode && barcode.startsWith(normalized)
-            ? SCORE_STARTSWITH_CODE
-            : name === normalized
-              ? SCORE_EXACT_NAME
-              : name.startsWith(normalized)
-                ? SCORE_STARTSWITH_NAME
-                : SCORE_CONTAINS;
+    if (products.length > 0) {
+      return products.map((product) => this.mapProduct(product, q, false));
+    }
 
-      return {
-        type: 'product',
-        id: product.id,
-        label: product.name,
-        description: product.barcode,
-        route: `/inventory/products/${product.id}/edit`,
-        score: baseScore + BOOST_PRODUCT,
-      };
-    });
+    const fuzzyProducts = await this.productRepository
+      .createQueryBuilder('product')
+      .addSelect(
+        'GREATEST(similarity(product.name, :q), similarity(product.barcode, :q))',
+        'sim',
+      )
+      .where('product.deletedAt IS NULL')
+      .andWhere(
+        '(similarity(product.name, :q) > 0.3 OR similarity(product.barcode, :q) > 0.3)',
+      )
+      .orderBy('sim', 'DESC')
+      .setParameter('q', trimmed)
+      .take(SEARCH_CANDIDATE_LIMIT)
+      .getMany();
+
+    return fuzzyProducts.map((product) => this.mapProduct(product, q, true));
+  }
+
+  private mapProduct(
+    product: Product,
+    q: string,
+    fuzzy: boolean,
+  ): GlobalSearchResultDto {
+    const name = product.name?.toLowerCase() ?? '';
+    const barcode = product.barcode?.toLowerCase() ?? '';
+    const baseScore = fuzzy
+      ? SCORE_FUZZY
+      : barcode && barcode === q
+        ? SCORE_EXACT_CODE
+        : barcode && barcode.startsWith(q)
+          ? SCORE_STARTSWITH_CODE
+          : name === q
+            ? SCORE_EXACT_NAME
+            : name.startsWith(q)
+              ? SCORE_STARTSWITH_NAME
+              : SCORE_CONTAINS;
+
+    return {
+      type: 'product',
+      id: product.id,
+      label: product.name,
+      description: product.barcode,
+      route: `/inventory/products/${product.id}/edit`,
+      score: baseScore + BOOST_PRODUCT,
+    };
   }
 
   /**
