@@ -59,8 +59,11 @@ describe('CustomerService', () => {
         deletedAt: null,
       };
       customerRepository.createQueryBuilder = jest.fn().mockReturnValue({
+        addSelect: jest.fn().mockReturnThis(),
         where: jest.fn().mockReturnThis(),
         andWhere: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        setParameter: jest.fn().mockReturnThis(),
         take: jest.fn().mockReturnThis(),
         getMany: jest.fn().mockResolvedValue([customer]),
       } as any);
@@ -82,8 +85,11 @@ describe('CustomerService', () => {
 
     it('returns empty array when no matches', async () => {
       customerRepository.createQueryBuilder = jest.fn().mockReturnValue({
+        addSelect: jest.fn().mockReturnThis(),
         where: jest.fn().mockReturnThis(),
         andWhere: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        setParameter: jest.fn().mockReturnThis(),
         take: jest.fn().mockReturnThis(),
         getMany: jest.fn().mockResolvedValue([]),
       } as any);
@@ -102,8 +108,11 @@ describe('CustomerService', () => {
       };
 
       customerRepository.createQueryBuilder = jest.fn().mockReturnValue({
+        addSelect: jest.fn().mockReturnThis(),
         where: jest.fn().mockReturnThis(),
         andWhere: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        setParameter: jest.fn().mockReturnThis(),
         take: jest.fn().mockReturnThis(),
         getMany: jest.fn().mockResolvedValue([mockCustomer]),
       } as any);
@@ -117,8 +126,11 @@ describe('CustomerService', () => {
       const mockCustomer = { id: 'c1', name: 'acme corp', phone: null };
 
       customerRepository.createQueryBuilder = jest.fn().mockReturnValue({
+        addSelect: jest.fn().mockReturnThis(),
         where: jest.fn().mockReturnThis(),
         andWhere: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        setParameter: jest.fn().mockReturnThis(),
         take: jest.fn().mockReturnThis(),
         getMany: jest.fn().mockResolvedValue([mockCustomer]),
       } as any);
@@ -141,6 +153,50 @@ describe('CustomerService', () => {
       const results = await service.searchGlobal('acme corp', adminUser);
 
       expect(results[0].score).toBe(128);
+    });
+
+    it('falls back to fuzzy search when ILIKE returns empty', async () => {
+      const fuzzyCustomer = { id: 'c2', name: 'Acme Corp', phone: null };
+
+      let callCount = 0;
+      customerRepository.createQueryBuilder = jest.fn().mockReturnValue({
+        addSelect: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        setParameter: jest.fn().mockReturnThis(),
+        take: jest.fn().mockReturnThis(),
+        getMany: jest.fn().mockImplementation(() => {
+          callCount++;
+          return Promise.resolve(callCount === 1 ? [] : [fuzzyCustomer]);
+        }),
+      } as any);
+
+      const results = await service.searchGlobal('Akme', {
+        role: UserRole.SALES_STAFF,
+      } as any);
+
+      expect(results).toHaveLength(1);
+      expect(results[0].label).toBe('Acme Corp');
+      expect(results[0].score).toBe(48);
+    });
+
+    it('fuzzy fallback returns empty when no fuzzy matches', async () => {
+      customerRepository.createQueryBuilder = jest.fn().mockReturnValue({
+        addSelect: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        setParameter: jest.fn().mockReturnThis(),
+        take: jest.fn().mockReturnThis(),
+        getMany: jest.fn().mockResolvedValue([]),
+      } as any);
+
+      const results = await service.searchGlobal('zzzqqq', {
+        role: UserRole.SALES_STAFF,
+      } as any);
+
+      expect(results).toEqual([]);
     });
   });
 });
