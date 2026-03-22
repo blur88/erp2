@@ -1,3 +1,10 @@
+## [1.18.2](https://github.com/blur88/erp2/compare/v1.18.1...v1.18.2) (2026-03-22)
+
+
+### Bug Fixes
+
+* **test:** stabilize Sidebar timer management to prevent flaky timeouts ([3a5345d](https://github.com/blur88/erp2/commit/3a5345d2d8b00d9860da9d4f5938eed4c0726e71)), closes [#155](https://github.com/blur88/erp2/issues/155)
+
 ## [1.18.1](https://github.com/blur88/erp2/compare/v1.18.0...v1.18.1) (2026-03-22)
 
 # [1.18.0](https://github.com/blur88/erp2/compare/v1.17.2...v1.18.0) (2026-03-21)
