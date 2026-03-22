@@ -304,7 +304,7 @@ export class InvoiceService {
       description: inv.customer?.name ?? undefined,
       route: `/sales/invoices/${inv.id}`,
       score: baseScore + BOOST_INVOICE,
-    } as unknown as GlobalSearchResultDto;
+    };
   }
 
   async getDashboardStats() {

@@ -829,6 +829,6 @@ export class SupplierService {
       description: supplier.phone ?? undefined,
       route: `/purchasing/suppliers/${supplier.id}`,
       score: baseScore + BOOST_SUPPLIER,
-    } as unknown as GlobalSearchResultDto;
+    };
   }
 }

@@ -591,7 +591,7 @@ export class PaymentService {
       description: undefined,
       route: `/sales/payments/${p.id}`,
       score: baseScore + BOOST_CUSTOMER_PAYMENT,
-    } as unknown as GlobalSearchResultDto;
+    };
   }
 
   async findDeleted(query: QueryPaymentsDto = {}) {

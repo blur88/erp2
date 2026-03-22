@@ -273,7 +273,7 @@ export class VendorPaymentService {
       description: vp.referenceNumber ?? undefined,
       route: `/purchasing/vendor-payments/${vp.id}`,
       score: baseScore + BOOST_VENDOR_PAYMENT,
-    } as unknown as GlobalSearchResultDto;
+    };
   }
 
   /**

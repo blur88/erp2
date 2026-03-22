@@ -431,7 +431,7 @@ export class JournalEntryService {
       description: je.description ?? undefined,
       route: `/accounting/journal-entries/${je.id}`,
       score: baseScore + BOOST_JOURNAL,
-    } as unknown as GlobalSearchResultDto;
+    };
   }
 
   /**
