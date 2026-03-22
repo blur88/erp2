@@ -834,7 +834,7 @@ import { SalesOrder } from '../../../database/entities/sales-order.entity';
 import { Payment } from '../../../database/entities/payment.entity';
 import { Product } from '../../../database/entities/product.entity';
 import { InvoiceItem } from '../../../database/entities/invoice-item.entity';
-import { AuditLogService } from '../../audit-logs/audit-log.service';
+import { AuditLogService } from '../../audit-logs/services';
 import { UserRole } from '../../../database/entities/user.entity';
 
 describe('InvoiceService.searchGlobal', () => {
@@ -1032,6 +1032,7 @@ Expected: all tests PASS.
 
 ```bash
 git add backend/src/modules/sales/services/invoice.service.ts \
+        backend/src/modules/sales/services/invoice.service.spec.ts \
         backend/src/modules/sales/sales.module.ts
 git commit -m "feat(search): add searchGlobal to InvoiceService, export from SalesModule"
 ```
@@ -1045,6 +1046,8 @@ git commit -m "feat(search): add searchGlobal to InvoiceService, export from Sal
 - Modify: `backend/src/modules/sales/sales.module.ts`
 
 PaymentService is also not currently exported from SalesModule.
+
+**Note on TDD:** `payment.service.spec.ts` already exists but no new tests are added here. The fuzzy fallback pattern is identical to CustomerService (already tested in Task 3) and the single-column ILIKE+fuzzy pattern is covered by the product and customer tests. Adding tests for PaymentService fuzzy is a follow-up improvement, not a Phase 4 blocker.
 
 - [ ] **Step 1: Add searchGlobal and mapper to payment.service.ts**
 
