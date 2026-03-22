@@ -22,6 +22,18 @@ import {
   PaymentSummaryDto,
 } from '../dto/payment.dto';
 import { AccountingService } from '@modules/accounting/services/accounting.service';
+import { GlobalSearchResultDto } from '../../search/dto/global-search-result.dto';
+import { canSearchCustomerPayments } from '../../search/search.permissions';
+import {
+  SEARCH_CANDIDATE_LIMIT,
+  SCORE_EXACT_CODE,
+  SCORE_STARTSWITH_CODE,
+  SCORE_CONTAINS,
+  SCORE_FUZZY,
+  BOOST_CUSTOMER_PAYMENT,
+} from '../../search/search.constants';
+import { JwtPayload } from '../../auth/strategies/jwt.strategy';
+import { UserRole } from '../../../database/entities/user.entity';
 
 @Injectable()
 export class PaymentService {
@@ -530,6 +542,56 @@ export class PaymentService {
   private async updateInvoiceFromPayment(invoice: Invoice, payment: Payment): Promise<void> {
     invoice.addPayment(Number(payment.amount));
     await this.invoiceRepository.save(invoice);
+  }
+
+  async searchGlobal(query: string, user: JwtPayload): Promise<GlobalSearchResultDto[]> {
+    if (!canSearchCustomerPayments(user.role as UserRole)) return [];
+
+    const trimmed = query.trim();
+    const q = trimmed.toLowerCase();
+
+    const results = await this.paymentRepository
+      .createQueryBuilder('payment')
+      .where('payment.deletedAt IS NULL')
+      .andWhere('payment.paymentNumber ILIKE :q', { q: `%${trimmed}%` })
+      .take(SEARCH_CANDIDATE_LIMIT)
+      .getMany();
+
+    if (results.length > 0) {
+      return results.map((p) => this.mapPayment(p, q, false));
+    }
+
+    const fuzzyResults = await this.paymentRepository
+      .createQueryBuilder('payment')
+      .addSelect('similarity(payment.paymentNumber, :q)', 'sim')
+      .where('payment.deletedAt IS NULL')
+      .andWhere('similarity(payment.paymentNumber, :q) > 0.3')
+      .orderBy('sim', 'DESC')
+      .setParameter('q', trimmed)
+      .take(SEARCH_CANDIDATE_LIMIT)
+      .getMany();
+
+    return fuzzyResults.map((p) => this.mapPayment(p, q, true));
+  }
+
+  private mapPayment(p: Payment, q: string, fuzzy: boolean): GlobalSearchResultDto {
+    const num = p.paymentNumber?.toLowerCase() ?? '';
+    const baseScore = fuzzy
+      ? SCORE_FUZZY
+      : num === q
+        ? SCORE_EXACT_CODE
+        : num.startsWith(q)
+          ? SCORE_STARTSWITH_CODE
+          : SCORE_CONTAINS;
+
+    return {
+      type: 'customer_payment',
+      id: p.id,
+      label: p.paymentNumber,
+      description: undefined,
+      route: `/sales/payments/${p.id}`,
+      score: baseScore + BOOST_CUSTOMER_PAYMENT,
+    } as unknown as GlobalSearchResultDto;
   }
 
   async findDeleted(query: QueryPaymentsDto = {}) {

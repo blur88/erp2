@@ -84,6 +84,7 @@ import { TransactionManager } from '../../common/utils/transaction.util';
     CustomerService,
     SalesOrderService, // Temporarily disabled due to TypeScript errors
     InvoiceService,
+    PaymentService,
   ],
 })
 export class SalesModule {}
