@@ -176,6 +176,47 @@ describe('SearchModal', () => {
     ).toBeInTheDocument()
   })
 
+  it('renders new entity type groups when results include them', () => {
+    mockUseSearchGlobal.mockReturnValue({
+      data: {
+        query: 'ac',
+        results: [
+          {
+            type: 'supplier',
+            id: 's1',
+            label: 'ACME Supplies',
+            route: '/purchasing/suppliers/s1',
+            score: 77,
+          },
+          {
+            type: 'invoice',
+            id: 'i1',
+            label: 'INV-001',
+            route: '/sales/invoices/i1',
+            score: 69,
+          },
+          {
+            type: 'journal_entry',
+            id: 'j1',
+            label: 'JE-2026-001',
+            route: '/accounting/journal-entries/j1',
+            score: 44,
+          },
+        ],
+      },
+      isLoading: false,
+      isFetching: false,
+      isError: false,
+    })
+
+    renderModal()
+    typeAndFlush('ac')
+
+    expect(screen.getByText('Suppliers')).toBeInTheDocument()
+    expect(screen.getByText('Invoices')).toBeInTheDocument()
+    expect(screen.getByText('Journal Entries')).toBeInTheDocument()
+  })
+
   it('shows no-results message when results are empty', () => {
     mockUseSearchGlobal.mockReturnValue({
       data: { query: 'zzz', results: [] },

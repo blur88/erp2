@@ -35,6 +35,11 @@ const GROUP_ORDER: GlobalSearchResultType[] = [
   'customer',
   'product',
   'transaction',
+  'supplier',
+  'invoice',
+  'customer_payment',
+  'vendor_payment',
+  'journal_entry',
 ]
 
 const GROUP_LABELS: Record<GlobalSearchResultType, string> = {
@@ -42,6 +47,11 @@ const GROUP_LABELS: Record<GlobalSearchResultType, string> = {
   customer: 'Customers',
   product: 'Products',
   transaction: 'Transactions',
+  supplier: 'Suppliers',
+  invoice: 'Invoices',
+  customer_payment: 'Customer Payments',
+  vendor_payment: 'Vendor Payments',
+  journal_entry: 'Journal Entries',
 }
 
 const TYPE_BADGES: Record<GlobalSearchResultType, string> = {
@@ -49,6 +59,11 @@ const TYPE_BADGES: Record<GlobalSearchResultType, string> = {
   customer: 'Customer',
   product: 'Product',
   transaction: 'Transaction',
+  supplier: 'Supplier',
+  invoice: 'Invoice',
+  customer_payment: 'Customer Payment',
+  vendor_payment: 'Vendor Payment',
+  journal_entry: 'Journal',
 }
 
 type NavigableItem = {
