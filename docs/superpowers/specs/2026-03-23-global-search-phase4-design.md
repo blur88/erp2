@@ -150,8 +150,8 @@ Role assignments match existing page visibility from Phase 2 — no new role log
 Each `searchGlobal` follows this standardized structure:
 
 ```ts
-async searchGlobal(query: string, user: any): Promise<GlobalSearchResultDto[]> {
-  if (!canSearchSuppliers(user.role)) return [];
+async searchGlobal(query: string, user: JwtPayload): Promise<GlobalSearchResultDto[]> {
+  if (!canSearchSuppliers(user.role as UserRole)) return [];
 
   const trimmed = query.trim();
   const q = trimmed.toLowerCase();
@@ -206,7 +206,7 @@ private mapSupplier(s: Supplier, q: string, fuzzy: boolean): GlobalSearchResultD
 
 - **Similarity threshold:** 0.3 (pg_trgm default — catches common typos without noise)
 - **Parameter passing:** use `.setParameter('q', trimmed)` once; reference `:q` in `.andWhere()` and `.orderBy()`
-- **Similarity alias:** `.addSelect('similarity(...)', 'sim')` then `.orderBy('sim', 'DESC')` to avoid repeating the expression
+- **Similarity alias:** `.addSelect('similarity(...)', 'sim')` then `.orderBy('sim', 'DESC')` to avoid repeating the expression. Note: `sim` is not exposed on the returned entity when using `.getMany()` — it is only used for ordering. Do not attempt to access it in the mapper.
 - **Mapper pattern:** private mapper method with `fuzzy: boolean` flag controls scoring branch
 - **Soft-delete filter:** always `WHERE deletedAt IS NULL`
 
@@ -286,7 +286,7 @@ const [
   vendorPayments,
   journalEntries,
 ] = await Promise.all([
-  this.safeSearch('pages', async () => Promise.resolve(this.searchPages(trimmed, user))),
+  this.safeSearch('pages', () => Promise.resolve(this.searchPages(trimmed, user))),
   this.safeSearch('customers', () => this.customerService.searchGlobal(trimmed, user)),
   this.safeSearch('products', () => this.productService.searchGlobal(trimmed, user)),
   this.safeSearch('salesOrders', () => this.salesOrderService.searchGlobal(trimmed, user)),
@@ -326,6 +326,8 @@ The four existing services (Customer, Product, SalesOrder, PurchaseOrder) get fu
 | PurchaseOrder | `orderNumber` | `orderNumber` |
 
 Fuzzy results from existing services use `SCORE_FUZZY + BOOST_<entity>` — same scoring pattern as new entities.
+
+**Note on Customer phone fuzzy:** Phone fuzzy matching uses the stored value as-is in Phase 4. Formatting variation (spaces, dashes, country code prefixes) means fuzzy recall on phone may be imperfect. Normalization is deferred to a later phase.
 
 ---
 
@@ -385,7 +387,7 @@ const TYPE_BADGES: Record<GlobalSearchResultType, string> = {
   transaction: 'Transaction',
   supplier: 'Supplier',
   invoice: 'Invoice',
-  customer_payment: 'Payment',
+  customer_payment: 'Customer Payment',
   vendor_payment: 'Vendor Payment',
   journal_entry: 'Journal',
 }
