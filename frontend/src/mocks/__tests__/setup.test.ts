@@ -13,6 +13,6 @@ describe('mocks setup', () => {
 
   it('exports handlers array', () => {
     expect(Array.isArray(handlers)).toBe(true)
-    expect(handlers).toHaveLength(0)
+    expect(handlers.length).toBeGreaterThan(0)
   })
 })
