@@ -68,7 +68,7 @@ Apply component changes first, then migrate modules in order. Each module batch 
 
 | Page | Notes |
 |------|-------|
-| `ProductsPage` | Remove icon, static subtitle, keep primary action |
+| `ProductsPage` | Header is in `components/ProductsToolbar.tsx`, not the page file — migrate the toolbar |
 | `StockAdjustmentsPage` | Remove icon, strip `({pagination?.total || 0} total)` from subtitle |
 | `InventoryPage` | Migrate if header is applicable; defer if nonstandard |
 | `CreateProductPage` | Form page — use `showDivider={false}` |
@@ -109,6 +109,9 @@ Rule: if any settings page has a nonstandard shell or embedded section-header pa
 - Accounting CRUD pages (`JournalEntriesPage`, `ExpensesPage`, etc.)
 - `AccountingDashboardPage`
 - `DashboardPage`
+- `BackupManagement.tsx` (embedded section-header pattern — nonstandard)
+- `PriceListDetailsPage.tsx` (detail page with inline section-header usage — nonstandard)
+- `PurchasingPage.tsx` (multi-section overview with multiple sub-headers — defer)
 
 ---
 
@@ -138,7 +141,7 @@ refactor(purchasing): migrate SuppliersPage, PurchaseOrdersPage, VendorPaymentsP
 
 ## Testing
 
-- Update `PageHeader.test.tsx`: add/confirm assertion that `data-testid="page-header-divider"` is present by default; update any existing style assertions that break due to `mb`/`fontWeight` changes only if they were already intentional
+- Confirm the existing `shows divider by default` and `hides divider when showDivider is false` test cases in `PageHeader.test.tsx` still pass after the `fontWeight`/`mb` changes. No new test case needed.
 - Do not introduce new brittle CSS-value tests for `fontWeight` or `mb`
 - Run full Vitest suite after each module batch before proceeding to the next
 - Manual visual QA after each module batch: confirm title hierarchy, subtitle cleanliness, action alignment, divider behavior, and absence of dynamic counts in subtitles
