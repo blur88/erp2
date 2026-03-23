@@ -54,7 +54,7 @@ This change applies only to `backend/package.json`'s `jest` block. The `test:e2e
 CI compatibility is a hard constraint. Both reporters rely on built-in TTY detection:
 
 - Vitest default reporter: CI-safe out of the box
-- `jest-progress-bar-reporter`: degrades gracefully in non-TTY (no garbled escape codes)
+- `jest-progress-bar-reporter` is expected to degrade gracefully in non-TTY — this is explicitly verified in validation step 2
 
 No special CI flags or separate scripts are needed.
 
@@ -69,4 +69,4 @@ No special CI flags or separate scripts are needed.
 - Interactive terminal runs show progress feedback for both frontend and backend.
 - Non-interactive / non-TTY runs produce clean readable output.
 - No new test scripts; existing workflows (`test`, `test:watch`, `test:cov`, `test:e2e`) are unchanged.
-- The change does not affect test results or coverage collection.
+- The change affects reporter output only; test execution, results, and coverage workflows remain unchanged.
