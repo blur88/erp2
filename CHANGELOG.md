@@ -1,3 +1,5 @@
+## [1.19.1](https://github.com/blur88/erp2/compare/v1.19.0...v1.19.1) (2026-03-23)
+
 # [1.19.0](https://github.com/blur88/erp2/compare/v1.18.2...v1.19.0) (2026-03-23)
 
 
