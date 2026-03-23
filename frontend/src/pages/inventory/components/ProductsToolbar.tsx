@@ -19,9 +19,9 @@ import {
   GetApp as ExportIcon,
   RestoreFromTrash as RestoreIcon,
   Search as SearchIcon,
-  ShoppingCart as ProductIcon,
 } from '@mui/icons-material'
 
+import PageHeader from '@/components/common/PageHeader'
 import { TYPOGRAPHY_STYLES } from '@/constants/typography'
 
 interface ProductsToolbarProps {
@@ -45,7 +45,6 @@ interface ProductsToolbarProps {
 
 const ProductsToolbar: React.FC<ProductsToolbarProps> = ({
   isMobile,
-  productCount,
   searchTerm,
   selectedCategory,
   categories,
@@ -65,74 +64,17 @@ const ProductsToolbar: React.FC<ProductsToolbarProps> = ({
     <>
       <Box
         sx={{
-          display: 'flex',
-          flexDirection: isMobile ? 'column' : 'row',
-          justifyContent: 'space-between',
-          alignItems: isMobile ? 'stretch' : 'center',
           mb: 3,
-          gap: isMobile ? 2 : 0,
           transition: 'margin-right 0.3s ease-in-out',
           marginRight,
         }}
       >
-        <Box sx={{ mb: isMobile ? 2 : 0 }}>
-          <Typography
-            variant={isMobile ? TYPOGRAPHY_STYLES.pageHeader.mobileVariant : TYPOGRAPHY_STYLES.pageHeader.variant}
-            sx={{
-              fontWeight: TYPOGRAPHY_STYLES.pageHeader.fontWeight,
-              mb: 1,
-              display: 'flex',
-              alignItems: 'center',
-              gap: 2,
-            }}
-          >
-            <ProductIcon
-              sx={{
-                fontSize: TYPOGRAPHY_STYLES.pageHeader.icon.fontSize,
-                color: TYPOGRAPHY_STYLES.pageHeader.icon.color,
-              }}
-            />
-            Products
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            Manage your product catalog and inventory ({productCount} total)
-          </Typography>
-        </Box>
-        <Box
-          sx={{
-            display: 'flex',
-            flexDirection: isMobile ? 'column' : 'row',
-            gap: isMobile ? 1.5 : 1,
-            alignItems: isMobile ? 'stretch' : 'center',
-          }}
-        >
-          <Button
-            variant="outlined"
-            startIcon={!isMobile ? <RestoreIcon /> : undefined}
-            onClick={onOpenDeleted}
-            size="medium"
-            fullWidth={isMobile}
-            sx={{
-              color: 'warning.main',
-              borderColor: 'warning.main',
-              '&:hover': {
-                borderColor: 'warning.dark',
-                backgroundColor: 'warning.light',
-              },
-            }}
-          >
-            View Deleted
-          </Button>
-          <Button
-            variant="contained"
-            startIcon={!isMobile ? <AddIcon /> : undefined}
-            size="medium"
-            onClick={onAddProduct}
-            fullWidth={isMobile}
-          >
-            {isMobile ? 'Add New Product' : 'Add Product'}
-          </Button>
-        </Box>
+        <PageHeader
+          title="Products"
+          subtitle="Manage your product catalog and inventory"
+          secondaryAction={{ label: 'View Deleted', onClick: onOpenDeleted }}
+          primaryAction={{ label: 'Add Product', onClick: onAddProduct }}
+        />
       </Box>
 
       <Paper sx={{ p: 2, mb: 3 }}>
