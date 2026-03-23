@@ -86,7 +86,7 @@ These rules apply to every page in the "Migrate Now" list.
 | FiscalPeriodsPage | Fiscal Periods | Manage accounting periods and year boundaries |
 | FundTransfersPage | Fund Transfers | Move funds between accounts and review transfer history |
 | OwnerEquityPage | Owner Equity | Track owner contributions and equity transactions |
-| SettlementsPage | Settlements | Manage payment settlements and clearing entries |
+| SettlementsPage | Settlements | Settle pending payments by payment method |
 | AccountMappingsPage | Account Mappings | Configure default account assignments for transactions |
 
 ---
