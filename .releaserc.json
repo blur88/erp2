@@ -5,7 +5,8 @@
       "releaseRules": [
         { "type": "chore", "scope": "release", "release": false },
         { "type": "chore", "release": "patch" },
-        { "type": "style", "release": "patch" }
+        { "type": "style", "release": "patch" },
+        { "type": "refactor", "release": "patch" }
       ]
     }],
     "@semantic-release/release-notes-generator",
