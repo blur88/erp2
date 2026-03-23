@@ -32,7 +32,7 @@ Lightweight entity — no `deletedAt` / `isActive` (append-only telemetry).
 |---|---|---|---|
 | `id` | uuid | PK | app-generated before insert — use `@PrimaryColumn('uuid')` (not `@PrimaryGeneratedColumn`) since the service assigns the ID before calling save() |
 | `query` | varchar(500) | NOT NULL | trimmed search string |
-| `user_id` | uuid | NOT NULL | from `req.user.userId` (JWT payload field name) |
+| `user_id` | uuid | NOT NULL | from `req.user.userId`; `User.id` is `@PrimaryGeneratedColumn('uuid')` so this is always a valid UUID |
 | `result_count` | int | NOT NULL | total results across all groups |
 | `execution_time_ms` | int | NOT NULL | measured from before `Promise.all()` fan-out to after, using `Date.now()`; partial source failures (caught by `safeSearch`) are included in the window |
 | `created_at` | timestamptz | NOT NULL, default NOW() | |
@@ -94,25 +94,26 @@ Response adds `searchQueryId`:
   resultType: SearchResultType;        // NestJS enum (new, mirrors GlobalSearchResultType union) — validated, rejects unknown values
   resultId: string;         // @IsString() @MaxLength(255)
   resultLabel?: string;     // @IsOptional() @IsString() @MaxLength(255)
-  position: number;         // @IsInt() @Min(1) @Max(50) — ceiling is 50 (2.5× SEARCH_RESPONSE_LIMIT of 20) to allow for client-side result caching; adjust if limit changes
+  position: number;         // @IsInt() @Min(1) @Max(20) — matches SEARCH_RESPONSE_LIMIT; clicks only come from the visible search response
 }
 ```
 
-**Fire-and-forget contract:** the controller calls `logClick()` (returns `void`, never awaited) and immediately returns `201`. There is no causal relationship between write success and the response status — the `201` is returned regardless of whether the DB write succeeds.
+**Fire-and-forget contract:** the controller calls `logClick()` (returns `void`, never awaited) and immediately returns `201`. The endpoint acknowledges receipt of the click event — there is no causal relationship between write success and response status.
 
 ---
 
 ## ID Generation Strategy
 
-`SearchAnalyticsService.logQuery()` generates the UUID in application code *before* attempting the DB insert. This means:
+`searchQueryId` is generated **synchronously in `search.service.ts`** before the analytics write is dispatched:
 
-1. UUID is available immediately to include in the search response
-2. DB write is kicked off but not awaited by the caller
-3. If the insert fails, the error is logged internally — the caller already has the ID and the response is unaffected
+1. `search.service.ts` generates the UUID (e.g. `v4()`) before calling `logQuery()`
+2. The response is assembled and returned with that UUID
+3. `this.searchAnalyticsService.logQuery({ id: searchQueryId, ... })` is called but **not awaited** — fire-and-forget
+4. If the insert fails, the error is logged internally — the response has already been sent with the ID
 
-This avoids any coupling between analytics persistence success and the search response contract.
+The response always includes `searchQueryId` regardless of whether persistence later succeeds.
 
-**Short queries:** `GlobalSearchQueryDto` enforces `@MinLength(2)`, so the internal `trimmed.length < 2` guard in `search()` is unreachable from the API. `searchQueryId` will always be a non-null `string` in every successful `200` response.
+**Short queries:** `GlobalSearchQueryDto` enforces `@MinLength(2)`, so the internal `trimmed.length < 2` guard in `search()` is unreachable from the API. `searchQueryId` will always be non-null on every `200` response.
 
 ---
 
@@ -175,7 +176,7 @@ logQuery(params: {
 logClick(params: {
   searchQueryId?: string;
   query: string;
-  resultType: string;   // deliberately typed as string to avoid coupling analytics service to SearchResultType enum; the controller has already validated the value via @IsEnum() before it reaches here
+  resultType: string;   // typed as string to decouple analytics service from the DTO enum; controller validates via @IsEnum() before this is called; stored verbatim
   resultId: string;
   resultLabel?: string;
   position: number;
@@ -201,7 +202,7 @@ async handleRetentionCleanup() {
 }
 ```
 
-The two deletes must run in a **single transaction** to prevent FK violations if the process crashes between steps.
+The two deletes must run in a **single transaction** to prevent FK violations if the process crashes between steps. Use the same `QueryRunner` / `DataSource.transaction()` pattern already established elsewhere in the codebase.
 
 ---
 
@@ -251,3 +252,4 @@ These are Phase 6+ concerns.
 - Integration test for `POST /search/click` — valid payload, invalid enum, position out of range
 - Verify `GET /search/global` response includes `searchQueryId` field
 - Verify search response is unaffected when analytics write fails
+- Integration test for retention job: old clicks deleted before old queries with no FK violation
