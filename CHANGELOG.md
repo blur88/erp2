@@ -1,3 +1,16 @@
+# [1.21.0](https://github.com/blur88/erp2/compare/v1.20.0...v1.21.0) (2026-03-23)
+
+
+### Bug Fixes
+
+* **sales:** correct Create Order navigation target in SalesPage ([8e25eee](https://github.com/blur88/erp2/commit/8e25eee8f9534296da543d3bab07b93f2667adcd))
+* **sales:** restore invoices toolbar button import ([e66667b](https://github.com/blur88/erp2/commit/e66667ba7b62e13c8d0cf3325f058eaa1104689c))
+
+
+### Features
+
+* **ui:** add shared PageHeader component with tests ([7fd7141](https://github.com/blur88/erp2/commit/7fd7141481b7180399c63b1060d615284a51e4ec))
+
 # [1.20.0](https://github.com/blur88/erp2/compare/v1.19.1...v1.20.0) (2026-03-23)
 
 
