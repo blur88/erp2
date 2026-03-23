@@ -27,7 +27,7 @@ import {
   useUploadLogoMutation,
   useDeleteLogoMutation,
 } from '@/store/api/settingsApi'
-import { TYPOGRAPHY_STYLES } from '@/constants/typography'
+import PageHeader from '@/components/common/PageHeader'
 
 interface CompanyFormData {
   name: string
@@ -197,12 +197,7 @@ const CompanySettingsPage: React.FC = () => {
   return (
     <Box sx={{ p: 3 }}>
       {/* Page Header */}
-      <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
-        <CompanyIcon sx={{ fontSize: 40, mr: 2, color: 'primary.main' }} />
-        <Typography variant={TYPOGRAPHY_STYLES.pageHeader.variant} sx={{ fontWeight: TYPOGRAPHY_STYLES.pageHeader.fontWeight }}>
-          Company Settings
-        </Typography>
-      </Box>
+      <PageHeader title="Company Settings" />
       {/* Error Alert */}
       {error && (
         <Alert severity="error" sx={{ mb: 3 }}>

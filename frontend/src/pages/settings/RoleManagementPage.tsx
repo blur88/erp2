@@ -1,7 +1,6 @@
 import React from 'react'
 import { Box, Typography, Paper, List, ListItem, ListItemIcon, ListItemText, Chip } from '@mui/material'
 import {
-  Security as SecurityIcon,
   SupervisorAccount as AdminIcon,
   Business as ManagerIcon,
   ShoppingCart as SalesIcon,
@@ -9,7 +8,7 @@ import {
   LocalShipping as ProcurementIcon,
   Check as CheckIcon,
 } from '@mui/icons-material'
-import { TYPOGRAPHY_STYLES } from '@/constants/typography'
+import PageHeader from '@/components/common/PageHeader'
 
 interface RolePermission {
   description: string
@@ -97,17 +96,10 @@ const RoleManagementPage: React.FC = () => {
   return (
     <Box sx={{ p: 3 }}>
       {/* Header */}
-      <Box sx={{ mb: 3, display: 'flex', alignItems: 'center', gap: 2 }}>
-        <SecurityIcon sx={{ fontSize: 40, color: 'primary.main' }} />
-        <Box>
-          <Typography variant={TYPOGRAPHY_STYLES.pageHeader.variant} sx={{ fontWeight: TYPOGRAPHY_STYLES.pageHeader.fontWeight }}>
-            Roles & Permissions
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            Overview of user roles and their permissions
-          </Typography>
-        </Box>
-      </Box>
+      <PageHeader
+        title="Roles & Permissions"
+        subtitle="Overview of user roles and their permissions"
+      />
 
       {/* Information Alert */}
       <Paper sx={{ p: 2, mb: 3, bgcolor: 'info.lighter', borderLeft: 4, borderColor: 'info.main' }}>

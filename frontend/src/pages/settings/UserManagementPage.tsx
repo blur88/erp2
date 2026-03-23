@@ -25,14 +25,12 @@ import {
   Stack,
 } from '@mui/material'
 import {
-  Add as AddIcon,
   Search as SearchIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
   LockOpen as UnlockIcon,
-  People as PeopleIcon,
-  Refresh as RefreshIcon,
 } from '@mui/icons-material'
+import PageHeader from '@/components/common/PageHeader'
 import { useAppSelector } from '@/hooks/useRedux'
 import { useNotification } from '@/hooks/useNotification'
 import {
@@ -235,50 +233,18 @@ const UserManagementPage: React.FC = () => {
   return (
     <Box sx={{ p: 3 }}>
       {/* Header */}
-      <Box sx={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        mb: 3
-      }}>
-        <Box>
-          <Typography variant={TYPOGRAPHY_STYLES.pageHeader.variant} sx={{
-            fontWeight: TYPOGRAPHY_STYLES.pageHeader.fontWeight,
-            mb: 1,
-            display: 'flex',
-            alignItems: 'center',
-            gap: 2
-          }}>
-            <PeopleIcon sx={{
-              fontSize: TYPOGRAPHY_STYLES.pageHeader.icon.fontSize,
-              color: TYPOGRAPHY_STYLES.pageHeader.icon.color
-            }} />
-            User Management
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            Manage system users and access control ({totalCount} total)
-          </Typography>
-        </Box>
-        <Box sx={{ display: 'flex', gap: 1 }}>
-          <Button
-            variant="outlined"
-            startIcon={<RefreshIcon />}
-            onClick={() => {
-              refetchUsers()
-              refetchStatistics()
-            }}
-          >
-            Refresh
-          </Button>
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={handleAddUser}
-          >
-            Add User
-          </Button>
-        </Box>
-      </Box>
+      <PageHeader
+        title="User Management"
+        subtitle="Manage system users and access control"
+        secondaryAction={{
+          label: 'Refresh',
+          onClick: () => {
+            refetchUsers()
+            refetchStatistics()
+          },
+        }}
+        primaryAction={{ label: 'Add User', onClick: handleAddUser }}
+      />
 
       {/* Statistics Cards */}
       {statistics && (

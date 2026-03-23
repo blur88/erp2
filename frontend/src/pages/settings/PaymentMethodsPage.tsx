@@ -1,10 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import {
-  Add as AddIcon,
   Delete as DeleteIcon,
   Edit as EditIcon,
-  Payment as PaymentIcon,
-  RestoreFromTrash as RestoreFromTrashIcon,
 } from '@mui/icons-material';
 import {
   Box,
@@ -27,7 +24,7 @@ import {
 
 import PaymentMethodFormDialog from '@/components/settings/PaymentMethodFormDialog';
 import DeletedPaymentMethodsDialog from '@/components/settings/DeletedPaymentMethodsDialog';
-import { TYPOGRAPHY_STYLES } from '@/constants/typography';
+import PageHeader from '@/components/common/PageHeader';
 import { useNotification } from '@/hooks/useNotification';
 import {
   useCreatePaymentMethodMutation,
@@ -94,51 +91,18 @@ const PaymentMethodsPage: React.FC = () => {
 
   return (
     <Box sx={{ p: 3 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Box>
-          <Typography
-            variant={TYPOGRAPHY_STYLES.pageHeader.variant}
-            sx={{
-              fontWeight: TYPOGRAPHY_STYLES.pageHeader.fontWeight,
-              mb: 1,
-              display: 'flex',
-              alignItems: 'center',
-              gap: 2,
-            }}
-          >
-            <PaymentIcon
-              sx={{
-                fontSize: TYPOGRAPHY_STYLES.pageHeader.icon.fontSize,
-                color: TYPOGRAPHY_STYLES.pageHeader.icon.color,
-              }}
-            />
-            {title}
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            Manage payment methods and configurations
-          </Typography>
-        </Box>
-        <Box sx={{ display: 'flex', gap: 1 }}>
-          <Button
-            variant="outlined"
-            color="warning"
-            startIcon={<RestoreFromTrashIcon />}
-            onClick={() => setDeletedOpen(true)}
-          >
-            View Deleted
-          </Button>
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={() => {
-              setSelected(null);
-              setFormOpen(true);
-            }}
-          >
-            Add Payment Method
-          </Button>
-        </Box>
-      </Box>
+      <PageHeader
+        title={title}
+        subtitle="Manage payment methods and configurations"
+        secondaryAction={{ label: 'View Deleted', onClick: () => setDeletedOpen(true) }}
+        primaryAction={{
+          label: 'Add Payment Method',
+          onClick: () => {
+            setSelected(null);
+            setFormOpen(true);
+          },
+        }}
+      />
 
       <Paper>
         <TableContainer>

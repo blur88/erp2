@@ -11,7 +11,7 @@ import {
   Alert,
   MenuItem,
 } from '@mui/material'
-import { Language as RegionalIcon } from '@mui/icons-material'
+import PageHeader from '@/components/common/PageHeader'
 import { useForm, Controller, useWatch } from 'react-hook-form'
 import * as yup from 'yup'
 import { yupResolver } from '@hookform/resolvers/yup'
@@ -20,7 +20,6 @@ import {
   useGetPriceCostingSettingsQuery,
   useUpdatePriceCostingSettingsMutation,
 } from '@/store/api/settingsApi'
-import { TYPOGRAPHY_STYLES } from '@/constants/typography'
 
 interface RegionalFormData {
   currency: string
@@ -181,12 +180,7 @@ const RegionalSettingsPage: React.FC = () => {
 
   return (
     <Box sx={{ p: 3 }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
-        <RegionalIcon sx={{ fontSize: 40, mr: 2, color: 'primary.main' }} />
-        <Typography variant={TYPOGRAPHY_STYLES.pageHeader.variant} sx={{ fontWeight: TYPOGRAPHY_STYLES.pageHeader.fontWeight }}>
-          Regional Settings
-        </Typography>
-      </Box>
+      <PageHeader title="Regional Settings" />
 
       {error && (
         <Alert severity="error" sx={{ mb: 3 }}>
