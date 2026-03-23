@@ -21,7 +21,7 @@ Define the page header as a reusable layout primitive — not one-off per-page s
   - Invoices (list page — second validation target)
   - Customers (list page)
   - Create Sales Order (form page — no divider variant)
-  - Sales dashboard/overview page if applicable
+  - Sales dashboard/overview page only if it already uses the standard page shell
 
 ### Phase 2 (follow-on)
 - Roll out to remaining CRUD modules (Inventory, Purchasing, Accounting, Settings)
@@ -170,7 +170,7 @@ File: `frontend/src/components/common/__tests__/PageHeader.test.tsx`
 
 - **Behavior-based only** — no snapshots
 - Find buttons by `role="button"` + accessible label, not by CSS class
-- For divider presence/absence: use a `data-testid="page-header-divider"` on the divider container to avoid asserting on exact CSS values
+- For divider presence/absence: apply `data-testid="page-header-divider"` to the outer header container only when `showDivider !== false` — not a separate visual element added for testing
 - For `children` placement: assert render presence only, not exact spatial position
 
 ### Refactor validation
@@ -195,6 +195,9 @@ Existing Sales page unit tests passing unchanged is the acceptance criterion for
 - Do not export from a barrel index yet — import directly during the pilot
 - Do not add icon support, color variants, href, or additional action props unless a real repeated need emerges across multiple pages
 - After the pilot is validated, Phase 2 rollout follows the same refactor pattern: swap manual header markup for `<PageHeader>` with props
+- Header action buttons must use `type="button"` to avoid accidental form submission when `PageHeader` is used inside a form page shell
+- Subtitle may wrap to multiple lines when needed — do not truncate during the pilot unless a repeated need emerges
+- When neither action is provided, the left content block still occupies the row naturally — do not leave an empty right-side wrapper placeholder
 
 ---
 
