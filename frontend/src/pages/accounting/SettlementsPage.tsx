@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useState } from 'react';
 import {
   Box,
   Button,
@@ -18,10 +18,9 @@ import {
   Typography,
 } from '@mui/material';
 import {
-  AccountBalanceWallet as AccountBalanceWalletIcon,
-  Add as AddIcon,
   Cancel as CancelIcon,
 } from '@mui/icons-material';
+import PageHeader from '@/components/common/PageHeader'
 import { useNotification } from '@/hooks/useNotification'
 import {
   useCancelSettlementMutation,
@@ -30,7 +29,6 @@ import {
   useGetSettlementsQuery,
 } from '@/store/api/accountingApi';
 import { formatCurrency, formatDate } from '@/utils/formatters'
-import { TYPOGRAPHY_STYLES } from '@/constants/typography';
 import type { Settlement } from '@/types';
 import CreateSettlementDialog from '@/components/accounting/CreateSettlementDialog';
 
@@ -54,8 +52,6 @@ const SettlementsPage: React.FC = () => {
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [cancelTarget, setCancelTarget] = useState<Settlement | null>(null);
-
-  const title = useMemo(() => `Settlements (${settlements.length})`, [settlements.length]);
 
   const onCreate = async (data: {
     paymentMethodId: string;
@@ -86,23 +82,11 @@ const SettlementsPage: React.FC = () => {
 
   return (
     <Box sx={{ p: 3 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 3 }}>
-        <Box>
-          <Typography
-            variant={TYPOGRAPHY_STYLES.pageHeader.variant}
-            sx={{ fontWeight: TYPOGRAPHY_STYLES.pageHeader.fontWeight, mb: 1, display: 'flex', alignItems: 'center', gap: 2 }}
-          >
-            <AccountBalanceWalletIcon sx={{ fontSize: TYPOGRAPHY_STYLES.pageHeader.icon.fontSize, color: TYPOGRAPHY_STYLES.pageHeader.icon.color }} />
-            {title}
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            Settle pending payments by payment method
-          </Typography>
-        </Box>
-        <Button variant="contained" startIcon={<AddIcon />} onClick={() => setDialogOpen(true)}>
-          Create Settlement
-        </Button>
-      </Box>
+      <PageHeader
+        title="Settlements"
+        subtitle="Settle pending payments by payment method"
+        primaryAction={{ label: 'Create Settlement', onClick: () => setDialogOpen(true) }}
+      />
 
       <Paper>
         <TableContainer>
