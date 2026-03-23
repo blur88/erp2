@@ -43,7 +43,11 @@ Add a `reporters` array to the `jest` config in `backend/package.json`:
 ]
 ```
 
-`"default"` is kept first — it preserves standard Jest failure output and error details. The progress reporter is purely additive. `jest-progress-bar-reporter` uses TTY detection internally: progress bar in interactive terminals, silent in non-TTY.
+`"default"` is a valid Jest reporter name — per [Jest docs](https://jestjs.io/docs/configuration#reporters-arraymodulename--modulename-options), it must be listed explicitly when custom reporters are specified, otherwise the default reporter is overridden. It is kept first to preserve standard Jest failure output and error details. The progress reporter is purely additive.
+
+`jest-progress-bar-reporter` renders a progress bar in interactive terminals. In non-TTY environments (CI, piped output) this behavior should be validated via `npm test | cat` before merging — see Validation step 2 below.
+
+This change applies only to `backend/package.json`'s `jest` block. The `test:e2e` script explicitly loads `./test/jest-e2e.json`, which is a separate config file and is intentionally outside the scope of this change. Progress bars will not appear in e2e runs; that is expected.
 
 ## CI Compatibility
 
@@ -57,7 +61,7 @@ No special CI flags or separate scripts are needed.
 ## Validation
 
 1. Run `npm test` in both `frontend/` and `backend/` in an interactive terminal — confirm progress feedback appears.
-2. Run `npm test | cat` in both — confirm clean readable text output, no escape code artifacts.
+2. **Required:** Run `npm test | cat` in both — confirm clean readable text output, no escape code artifacts. This is the direct verification of the CI hard constraint.
 3. (Optional) Run `CI=true npm test` in both as an extra spot-check if needed.
 
 ## Acceptance Criteria
