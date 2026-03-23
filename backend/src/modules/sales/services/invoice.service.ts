@@ -25,6 +25,18 @@ import {
   SendInvoiceDto,
   InvoicePaymentAllocationDto,
 } from '../dto/invoice.dto';
+import { GlobalSearchResultDto } from '../../search/dto/global-search-result.dto';
+import { canSearchInvoices } from '../../search/search.permissions';
+import {
+  SEARCH_CANDIDATE_LIMIT,
+  SCORE_EXACT_CODE,
+  SCORE_STARTSWITH_CODE,
+  SCORE_CONTAINS,
+  SCORE_FUZZY,
+  BOOST_INVOICE,
+} from '../../search/search.constants';
+import { JwtPayload } from '../../auth/strategies/jwt.strategy';
+import { UserRole } from '../../../database/entities/user.entity';
 // import { EmailService } from '../../auth/services/email.service'; // Temporarily disabled
 
 @Injectable()
@@ -241,6 +253,58 @@ export class InvoiceService {
       totalAmount: Number(invoice.totalAmount),
       balanceDue: Number(invoice.balanceDue),
     }));
+  }
+
+  async searchGlobal(query: string, user: JwtPayload): Promise<GlobalSearchResultDto[]> {
+    if (!canSearchInvoices(user.role as UserRole)) return [];
+
+    const trimmed = query.trim();
+    const q = trimmed.toLowerCase();
+
+    const results = await this.invoiceRepository
+      .createQueryBuilder('invoice')
+      .leftJoinAndSelect('invoice.customer', 'customer')
+      .where('invoice.deletedAt IS NULL')
+      .andWhere('invoice.invoiceNumber ILIKE :q', { q: `%${trimmed}%` })
+      .take(SEARCH_CANDIDATE_LIMIT)
+      .getMany();
+
+    if (results.length > 0) {
+      return results.map((inv) => this.mapInvoice(inv, q, false));
+    }
+
+    const fuzzyResults = await this.invoiceRepository
+      .createQueryBuilder('invoice')
+      .addSelect('similarity(invoice.invoiceNumber, :q)', 'sim')
+      .leftJoinAndSelect('invoice.customer', 'customer')
+      .where('invoice.deletedAt IS NULL')
+      .andWhere('similarity(invoice.invoiceNumber, :q) > 0.3')
+      .orderBy('sim', 'DESC')
+      .setParameter('q', trimmed)
+      .take(SEARCH_CANDIDATE_LIMIT)
+      .getMany();
+
+    return fuzzyResults.map((inv) => this.mapInvoice(inv, q, true));
+  }
+
+  private mapInvoice(inv: Invoice, q: string, fuzzy: boolean): GlobalSearchResultDto {
+    const num = inv.invoiceNumber?.toLowerCase() ?? '';
+    const baseScore = fuzzy
+      ? SCORE_FUZZY
+      : num === q
+        ? SCORE_EXACT_CODE
+        : num.startsWith(q)
+          ? SCORE_STARTSWITH_CODE
+          : SCORE_CONTAINS;
+
+    return {
+      type: 'invoice',
+      id: inv.id,
+      label: inv.invoiceNumber,
+      description: inv.customer?.name ?? undefined,
+      route: `/sales/invoices/${inv.id}`,
+      score: baseScore + BOOST_INVOICE,
+    };
   }
 
   async getDashboardStats() {

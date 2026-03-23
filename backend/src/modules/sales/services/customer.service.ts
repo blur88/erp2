@@ -25,6 +25,7 @@ import {
   SCORE_EXACT_NAME,
   SCORE_STARTSWITH_NAME,
   SCORE_CONTAINS,
+  SCORE_FUZZY,
   BOOST_CUSTOMER,
 } from '../../search/search.constants';
 import { ValidationUtil, BulkOperationUtil, BulkOperationResponse } from '../../../common/utils/validation.util';
@@ -142,6 +143,8 @@ export class CustomerService {
     if (!canSearchCustomers(user.role)) return [];
 
     const trimmed = query.trim();
+    const q = trimmed.toLowerCase();
+
     const customers = await this.customerRepository
       .createQueryBuilder('customer')
       .where('customer.deletedAt IS NULL')
@@ -152,30 +155,55 @@ export class CustomerService {
       .take(SEARCH_CANDIDATE_LIMIT)
       .getMany();
 
-    return customers.map((customer) => {
-      const name = customer.name?.toLowerCase() ?? '';
-      const phone = customer.phone?.toLowerCase() ?? '';
-      const normalized = trimmed.toLowerCase();
-      const baseScore =
-        phone && phone === normalized
-          ? SCORE_EXACT_CODE
-          : phone && phone.startsWith(normalized)
-            ? SCORE_STARTSWITH_CODE
-            : name === normalized
-              ? SCORE_EXACT_NAME
-              : name.startsWith(normalized)
-                ? SCORE_STARTSWITH_NAME
-                : SCORE_CONTAINS;
+    if (customers.length > 0) {
+      return customers.map((customer) => this.mapCustomer(customer, q, false));
+    }
 
-      return {
-        type: 'customer',
-        id: customer.id,
-        label: customer.name,
-        description: customer.phone,
-        route: `/sales/customers/${customer.id}`,
-        score: baseScore + BOOST_CUSTOMER,
-      };
-    });
+    const fuzzyResults = await this.customerRepository
+      .createQueryBuilder('customer')
+      .addSelect(
+        'GREATEST(similarity(customer.name, :q), similarity(customer.phone, :q))',
+        'sim',
+      )
+      .where('customer.deletedAt IS NULL')
+      .andWhere(
+        '(similarity(customer.name, :q) > 0.3 OR similarity(customer.phone, :q) > 0.3)',
+      )
+      .orderBy('sim', 'DESC')
+      .setParameter('q', trimmed)
+      .take(SEARCH_CANDIDATE_LIMIT)
+      .getMany();
+
+    return fuzzyResults.map((customer) => this.mapCustomer(customer, q, true));
+  }
+
+  private mapCustomer(
+    customer: Customer,
+    q: string,
+    fuzzy: boolean,
+  ): GlobalSearchResultDto {
+    const name = customer.name?.toLowerCase() ?? '';
+    const phone = customer.phone?.toLowerCase() ?? '';
+    const baseScore = fuzzy
+      ? SCORE_FUZZY
+      : phone && phone === q
+        ? SCORE_EXACT_CODE
+        : phone && phone.startsWith(q)
+          ? SCORE_STARTSWITH_CODE
+          : name === q
+            ? SCORE_EXACT_NAME
+            : name.startsWith(q)
+              ? SCORE_STARTSWITH_NAME
+              : SCORE_CONTAINS;
+
+    return {
+      type: 'customer',
+      id: customer.id,
+      label: customer.name,
+      description: customer.phone ?? undefined,
+      route: `/sales/customers/${customer.id}`,
+      score: baseScore + BOOST_CUSTOMER,
+    };
   }
 
   async findDeleted(query: QueryCustomersDto) {

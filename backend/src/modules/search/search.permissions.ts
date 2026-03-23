@@ -50,3 +50,23 @@ export function canSearchSalesOrders(role: UserRole): boolean {
 export function canSearchPurchaseOrders(role: UserRole): boolean {
   return PROCUREMENT_ROLES.includes(role);
 }
+
+export function canSearchSuppliers(role: UserRole): boolean {
+  return PROCUREMENT_ROLES.includes(role);
+}
+
+export function canSearchInvoices(role: UserRole): boolean {
+  return SALES_ROLES.includes(role);
+}
+
+export function canSearchCustomerPayments(role: UserRole): boolean {
+  return SALES_ROLES.includes(role);
+}
+
+export function canSearchVendorPayments(role: UserRole): boolean {
+  return PROCUREMENT_ROLES.includes(role);
+}
+
+export function canSearchJournalEntries(role: UserRole): boolean {
+  return FINANCE_ROLES.includes(role);
+}

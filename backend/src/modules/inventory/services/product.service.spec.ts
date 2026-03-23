@@ -129,8 +129,11 @@ describe('ProductService pagination removal', () => {
         deletedAt: null,
       };
       productRepository.createQueryBuilder = jest.fn().mockReturnValue({
+        addSelect: jest.fn().mockReturnThis(),
         where: jest.fn().mockReturnThis(),
         andWhere: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        setParameter: jest.fn().mockReturnThis(),
         take: jest.fn().mockReturnThis(),
         getMany: jest.fn().mockResolvedValue([product]),
       } as any);
@@ -151,8 +154,11 @@ describe('ProductService pagination removal', () => {
 
     it('returns empty array when no matches', async () => {
       productRepository.createQueryBuilder = jest.fn().mockReturnValue({
+        addSelect: jest.fn().mockReturnThis(),
         where: jest.fn().mockReturnThis(),
         andWhere: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        setParameter: jest.fn().mockReturnThis(),
         take: jest.fn().mockReturnThis(),
         getMany: jest.fn().mockResolvedValue([]),
       } as any);
@@ -166,8 +172,11 @@ describe('ProductService pagination removal', () => {
     it('exact barcode match scores SCORE_EXACT_CODE + BOOST_PRODUCT', async () => {
       const mockProduct = { id: 'p1', name: 'Widget', barcode: 'BC-001' };
       productRepository.createQueryBuilder = jest.fn().mockReturnValue({
+        addSelect: jest.fn().mockReturnThis(),
         where: jest.fn().mockReturnThis(),
         andWhere: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        setParameter: jest.fn().mockReturnThis(),
         take: jest.fn().mockReturnThis(),
         getMany: jest.fn().mockResolvedValue([mockProduct]),
       } as any);
@@ -180,8 +189,11 @@ describe('ProductService pagination removal', () => {
     it('exact name match scores SCORE_EXACT_NAME + BOOST_PRODUCT', async () => {
       const mockProduct = { id: 'p1', name: 'Widget', barcode: 'BC-999' };
       productRepository.createQueryBuilder = jest.fn().mockReturnValue({
+        addSelect: jest.fn().mockReturnThis(),
         where: jest.fn().mockReturnThis(),
         andWhere: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        setParameter: jest.fn().mockReturnThis(),
         take: jest.fn().mockReturnThis(),
         getMany: jest.fn().mockResolvedValue([mockProduct]),
       } as any);
@@ -203,6 +215,50 @@ describe('ProductService pagination removal', () => {
       const results = await service.searchGlobal('widget', adminUser);
 
       expect(results[0].score).toBe(126);
+    });
+
+    it('falls back to fuzzy search when ILIKE returns empty', async () => {
+      const fuzzyProduct = { id: 'p2', name: 'Widget Pro', barcode: null };
+
+      let callCount = 0;
+      productRepository.createQueryBuilder = jest.fn().mockReturnValue({
+        addSelect: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        setParameter: jest.fn().mockReturnThis(),
+        take: jest.fn().mockReturnThis(),
+        getMany: jest.fn().mockImplementation(() => {
+          callCount++;
+          return Promise.resolve(callCount === 1 ? [] : [fuzzyProduct]);
+        }),
+      } as any);
+
+      const results = await service.searchGlobal('Widgt', {
+        role: UserRole.SALES_STAFF,
+      } as any);
+
+      expect(results).toHaveLength(1);
+      expect(results[0].label).toBe('Widget Pro');
+      expect(results[0].score).toBe(46);
+    });
+
+    it('fuzzy fallback returns empty when no fuzzy matches', async () => {
+      productRepository.createQueryBuilder = jest.fn().mockReturnValue({
+        addSelect: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        setParameter: jest.fn().mockReturnThis(),
+        take: jest.fn().mockReturnThis(),
+        getMany: jest.fn().mockResolvedValue([]),
+      } as any);
+
+      const results = await service.searchGlobal('zzzqqq', {
+        role: UserRole.SALES_STAFF,
+      } as any);
+
+      expect(results).toEqual([]);
     });
   });
 });

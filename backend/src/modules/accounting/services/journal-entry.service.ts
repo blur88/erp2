@@ -22,6 +22,18 @@ import {
   JournalEntryListResponseDto,
   JournalEntryLineResponseDto,
 } from '../dto/journal-entry.dto';
+import { GlobalSearchResultDto } from '../../search/dto/global-search-result.dto';
+import { canSearchJournalEntries } from '../../search/search.permissions';
+import {
+  SEARCH_CANDIDATE_LIMIT,
+  SCORE_EXACT_CODE,
+  SCORE_STARTSWITH_CODE,
+  SCORE_CONTAINS,
+  SCORE_FUZZY,
+  BOOST_JOURNAL,
+} from '../../search/search.constants';
+import { JwtPayload } from '../../auth/strategies/jwt.strategy';
+import { UserRole } from '../../../database/entities/user.entity';
 import { ChartOfAccountsService } from './chart-of-accounts.service';
 import { FiscalPeriodService } from './fiscal-period.service';
 import { SettingsService } from '../../settings/settings.service';
@@ -212,6 +224,38 @@ export class JournalEntryService {
     };
   }
 
+  async searchGlobal(query: string, user: JwtPayload): Promise<GlobalSearchResultDto[]> {
+    if (!canSearchJournalEntries(user.role as UserRole)) return [];
+
+    const trimmed = query.trim();
+    const q = trimmed.toLowerCase();
+
+    const results = await this.journalEntryRepository
+      .createQueryBuilder('je')
+      .where('je.deletedAt IS NULL')
+      .andWhere('(je.referenceNumber ILIKE :q OR je.description ILIKE :q)', {
+        q: `%${trimmed}%`,
+      })
+      .take(SEARCH_CANDIDATE_LIMIT)
+      .getMany();
+
+    if (results.length > 0) {
+      return results.map((je) => this.mapJournalEntry(je, q, false));
+    }
+
+    const fuzzyResults = await this.journalEntryRepository
+      .createQueryBuilder('je')
+      .addSelect('similarity(je.referenceNumber, :q)', 'sim')
+      .where('je.deletedAt IS NULL')
+      .andWhere('similarity(je.referenceNumber, :q) > 0.3')
+      .orderBy('sim', 'DESC')
+      .setParameter('q', trimmed)
+      .take(SEARCH_CANDIDATE_LIMIT)
+      .getMany();
+
+    return fuzzyResults.map((je) => this.mapJournalEntry(je, q, true));
+  }
+
   /**
    * Find one journal entry by ID with all relations
    */
@@ -364,6 +408,30 @@ export class JournalEntryService {
     );
 
     this.logger.log(`Journal entry soft-deleted successfully: ${id}`);
+  }
+
+  private mapJournalEntry(
+    je: JournalEntry,
+    q: string,
+    fuzzy: boolean,
+  ): GlobalSearchResultDto {
+    const ref = je.referenceNumber?.toLowerCase() ?? '';
+    const baseScore = fuzzy
+      ? SCORE_FUZZY
+      : ref === q
+        ? SCORE_EXACT_CODE
+        : ref.startsWith(q)
+          ? SCORE_STARTSWITH_CODE
+          : SCORE_CONTAINS;
+
+    return {
+      type: 'journal_entry',
+      id: je.id,
+      label: je.referenceNumber,
+      description: je.description ?? undefined,
+      route: `/accounting/journal-entries/${je.id}`,
+      score: baseScore + BOOST_JOURNAL,
+    };
   }
 
   /**

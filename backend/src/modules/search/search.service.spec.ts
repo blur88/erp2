@@ -1,8 +1,13 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { SearchService } from './search.service';
+import { JournalEntryService } from '../accounting/services/journal-entry.service';
 import { CustomerService } from '../sales/services/customer.service';
 import { ProductService } from '../inventory/services/product.service';
+import { SupplierService } from '../purchasing/services/supplier.service';
+import { VendorPaymentService } from '../purchasing/services/vendor-payment.service';
 import { SalesOrderService } from '../sales/services/sales-order.service';
+import { InvoiceService } from '../sales/services/invoice.service';
+import { PaymentService } from '../sales/services/payment.service';
 import { PurchaseOrderService } from '../purchasing/services/purchase-order.service';
 import { GlobalSearchResultDto } from './dto/global-search-result.dto';
 import { UserRole } from '../../database/entities/user.entity';
@@ -13,6 +18,15 @@ describe('SearchService', () => {
   let productService: jest.Mocked<Pick<ProductService, 'searchGlobal'>>;
   let salesOrderService: jest.Mocked<Pick<SalesOrderService, 'searchGlobal'>>;
   let purchaseOrderService: jest.Mocked<Pick<PurchaseOrderService, 'searchGlobal'>>;
+  let supplierService: jest.Mocked<Pick<SupplierService, 'searchGlobal'>>;
+  let invoiceService: jest.Mocked<Pick<InvoiceService, 'searchGlobal'>>;
+  let paymentService: jest.Mocked<Pick<PaymentService, 'searchGlobal'>>;
+  let vendorPaymentService: jest.Mocked<
+    Pick<VendorPaymentService, 'searchGlobal'>
+  >;
+  let journalEntryService: jest.Mocked<
+    Pick<JournalEntryService, 'searchGlobal'>
+  >;
 
   const mockUser = { userId: 'u1', username: 'admin' } as any;
 
@@ -44,6 +58,26 @@ describe('SearchService', () => {
           provide: PurchaseOrderService,
           useValue: { searchGlobal: jest.fn().mockResolvedValue([]) },
         },
+        {
+          provide: SupplierService,
+          useValue: { searchGlobal: jest.fn().mockResolvedValue([]) },
+        },
+        {
+          provide: InvoiceService,
+          useValue: { searchGlobal: jest.fn().mockResolvedValue([]) },
+        },
+        {
+          provide: PaymentService,
+          useValue: { searchGlobal: jest.fn().mockResolvedValue([]) },
+        },
+        {
+          provide: VendorPaymentService,
+          useValue: { searchGlobal: jest.fn().mockResolvedValue([]) },
+        },
+        {
+          provide: JournalEntryService,
+          useValue: { searchGlobal: jest.fn().mockResolvedValue([]) },
+        },
       ],
     }).compile();
 
@@ -52,15 +86,31 @@ describe('SearchService', () => {
     productService = module.get(ProductService);
     salesOrderService = module.get(SalesOrderService);
     purchaseOrderService = module.get(PurchaseOrderService);
+    supplierService = module.get(SupplierService);
+    invoiceService = module.get(InvoiceService);
+    paymentService = module.get(PaymentService);
+    vendorPaymentService = module.get(VendorPaymentService);
+    journalEntryService = module.get(JournalEntryService);
   });
 
-  it('fans out to all four sources in parallel', async () => {
+  it('fans out to all ten sources in parallel', async () => {
     await service.search('abc', mockUser);
 
     expect(customerService.searchGlobal).toHaveBeenCalledWith('abc', mockUser);
     expect(productService.searchGlobal).toHaveBeenCalledWith('abc', mockUser);
     expect(salesOrderService.searchGlobal).toHaveBeenCalledWith('abc', mockUser);
     expect(purchaseOrderService.searchGlobal).toHaveBeenCalledWith('abc', mockUser);
+    expect(supplierService.searchGlobal).toHaveBeenCalledWith('abc', mockUser);
+    expect(invoiceService.searchGlobal).toHaveBeenCalledWith('abc', mockUser);
+    expect(paymentService.searchGlobal).toHaveBeenCalledWith('abc', mockUser);
+    expect(vendorPaymentService.searchGlobal).toHaveBeenCalledWith(
+      'abc',
+      mockUser,
+    );
+    expect(journalEntryService.searchGlobal).toHaveBeenCalledWith(
+      'abc',
+      mockUser,
+    );
   });
 
   it('returns early with empty results for queries shorter than 2 characters', async () => {

@@ -3,6 +3,11 @@ export type GlobalSearchResultType =
   | 'customer'
   | 'product'
   | 'transaction'
+  | 'supplier'
+  | 'invoice'
+  | 'customer_payment'
+  | 'vendor_payment'
+  | 'journal_entry'
 
 export interface GlobalSearchResultDto {
   type: GlobalSearchResultType

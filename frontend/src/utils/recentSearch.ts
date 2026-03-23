@@ -4,7 +4,16 @@ export interface RecentSearchItem {
   label: string
   description?: string
   route: string
-  type: 'page' | 'customer' | 'product' | 'transaction'
+  type:
+    | 'page'
+    | 'customer'
+    | 'product'
+    | 'transaction'
+    | 'supplier'
+    | 'invoice'
+    | 'customer_payment'
+    | 'vendor_payment'
+    | 'journal_entry'
   timestamp: number
 }
 

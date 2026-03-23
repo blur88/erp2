@@ -13,6 +13,18 @@ import {
   SupplierListResponseDto,
 } from '../dto';
 import { AuditLogService } from '../../audit-logs/services';
+import { GlobalSearchResultDto } from '../../search/dto/global-search-result.dto';
+import { canSearchSuppliers } from '../../search/search.permissions';
+import {
+  SEARCH_CANDIDATE_LIMIT,
+  SCORE_EXACT_NAME,
+  SCORE_STARTSWITH_NAME,
+  SCORE_CONTAINS,
+  SCORE_FUZZY,
+  BOOST_SUPPLIER,
+} from '../../search/search.constants';
+import { JwtPayload } from '../../auth/strategies/jwt.strategy';
+import { UserRole } from '../../../database/entities/user.entity';
 
 @Injectable()
 export class SupplierService {
@@ -150,6 +162,36 @@ export class SupplierService {
       hasNext: false,
       hasPrev: false,
     };
+  }
+
+  async searchGlobal(query: string, user: JwtPayload): Promise<GlobalSearchResultDto[]> {
+    if (!canSearchSuppliers(user.role as UserRole)) return [];
+
+    const trimmed = query.trim();
+    const q = trimmed.toLowerCase();
+
+    const results = await this.supplierRepository
+      .createQueryBuilder('supplier')
+      .where('supplier.deletedAt IS NULL')
+      .andWhere('supplier.companyName ILIKE :q', { q: `%${trimmed}%` })
+      .take(SEARCH_CANDIDATE_LIMIT)
+      .getMany();
+
+    if (results.length > 0) {
+      return results.map((supplier) => this.mapSupplier(supplier, q, false));
+    }
+
+    const fuzzyResults = await this.supplierRepository
+      .createQueryBuilder('supplier')
+      .addSelect('similarity(supplier.companyName, :q)', 'sim')
+      .where('supplier.deletedAt IS NULL')
+      .andWhere('similarity(supplier.companyName, :q) > 0.3')
+      .orderBy('sim', 'DESC')
+      .setParameter('q', trimmed)
+      .take(SEARCH_CANDIDATE_LIMIT)
+      .getMany();
+
+    return fuzzyResults.map((supplier) => this.mapSupplier(supplier, q, true));
   }
 
   /**
@@ -763,6 +805,30 @@ export class SupplierService {
       createdAt: supplier.createdAt,
       updatedAt: supplier.updatedAt,
       deletedAt: supplier.deletedAt,
+    };
+  }
+
+  private mapSupplier(
+    supplier: Supplier,
+    q: string,
+    fuzzy: boolean,
+  ): GlobalSearchResultDto {
+    const name = supplier.companyName?.toLowerCase() ?? '';
+    const baseScore = fuzzy
+      ? SCORE_FUZZY
+      : name === q
+        ? SCORE_EXACT_NAME
+        : name.startsWith(q)
+          ? SCORE_STARTSWITH_NAME
+          : SCORE_CONTAINS;
+
+    return {
+      type: 'supplier',
+      id: supplier.id,
+      label: supplier.companyName,
+      description: supplier.phone ?? undefined,
+      route: `/purchasing/suppliers/${supplier.id}`,
+      score: baseScore + BOOST_SUPPLIER,
     };
   }
 }
