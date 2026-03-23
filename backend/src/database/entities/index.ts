@@ -12,5 +12,7 @@ export { PurchaseOrder } from './purchase-order.entity';
 export { PurchaseOrderItem } from './purchase-order-item.entity';
 export { GoodsReceivedNote } from './goods-received-note.entity';
 export { GoodsReceivedNoteItem } from './goods-received-note-item.entity';
+export { SearchClick } from './search-click.entity';
+export { SearchQuery } from './search-query.entity';
 export { VendorPayment } from './vendor-payment.entity';
 export { PaymentMethodEntity } from './payment-method.entity';
