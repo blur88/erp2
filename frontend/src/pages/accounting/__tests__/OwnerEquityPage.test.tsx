@@ -82,9 +82,15 @@ describe('OwnerEquityPage', () => {
     mockedApi.useReverseOwnerEquityTransactionMutation.mockReturnValue([vi.fn()])
   })
 
-  it('renders the page title', () => {
+  it('renders the PageHeader title, subtitle, and refresh action', () => {
     renderPage()
-    expect(screen.getByText("Owner's Equity Transactions")).toBeInTheDocument()
+
+    expect(screen.getByText('Owner Equity')).toBeInTheDocument()
+    expect(
+      screen.getByText('Track owner contributions and equity transactions'),
+    ).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /refresh/i })).toBeInTheDocument()
+    expect(screen.queryByText("Owner's Equity Transactions")).not.toBeInTheDocument()
     expect(screen.getByText('EQ-001')).toBeInTheDocument()
   })
 
