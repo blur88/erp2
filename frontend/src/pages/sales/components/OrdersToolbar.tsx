@@ -1,10 +1,7 @@
 import React from 'react'
 import {
-  Add as AddIcon,
   ArrowDownward as ArrowDownIcon,
   ArrowUpward as ArrowUpIcon,
-  Receipt as OrderIcon,
-  RestoreFromTrash as RestoreIcon,
   Search as SearchIcon,
   Sort as SortIcon,
 } from '@mui/icons-material'
@@ -19,9 +16,9 @@ import {
   Paper,
   Select,
   TextField,
-  Typography,
 } from '@mui/material'
 
+import PageHeader from '@/components/common/PageHeader'
 import { TYPOGRAPHY_STYLES } from '@/constants/typography'
 
 interface OrderFilters {
@@ -73,75 +70,12 @@ const OrdersToolbar: React.FC<OrdersToolbarProps> = ({
 
   return (
     <>
-      <Box
-        sx={{
-          display: 'flex',
-          flexDirection: isMobile ? 'column' : 'row',
-          justifyContent: 'space-between',
-          alignItems: isMobile ? 'stretch' : 'center',
-          mb: 3,
-          gap: isMobile ? 2 : 0,
-        }}
-      >
-        <Box sx={{ mb: isMobile ? 2 : 0 }}>
-          <Typography
-            variant={isMobile ? TYPOGRAPHY_STYLES.pageHeader.mobileVariant : TYPOGRAPHY_STYLES.pageHeader.variant}
-            sx={{
-              fontWeight: TYPOGRAPHY_STYLES.pageHeader.fontWeight,
-              mb: 1,
-              display: 'flex',
-              alignItems: 'center',
-              gap: 2,
-            }}
-          >
-            <RestoreIcon
-              sx={{
-                fontSize: TYPOGRAPHY_STYLES.pageHeader.icon.fontSize,
-                color: TYPOGRAPHY_STYLES.pageHeader.icon.color,
-              }}
-            />
-            Sales Orders
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            Manage your sales orders and track delivery status ({ordersCount} total)
-          </Typography>
-        </Box>
-        <Box
-          sx={{
-            display: 'flex',
-            flexDirection: isMobile ? 'column' : 'row',
-            gap: isMobile ? 1.5 : 1,
-            alignItems: isMobile ? 'stretch' : 'center',
-          }}
-        >
-          <Button
-            variant="outlined"
-            startIcon={!isMobile ? <RestoreIcon /> : undefined}
-            onClick={onOpenDeleted}
-            size="medium"
-            fullWidth={isMobile}
-            sx={{
-              color: 'warning.main',
-              borderColor: 'warning.main',
-              '&:hover': {
-                borderColor: 'warning.dark',
-                backgroundColor: 'warning.light',
-              },
-            }}
-          >
-            View Deleted
-          </Button>
-          <Button
-            variant="contained"
-            startIcon={!isMobile ? <AddIcon /> : undefined}
-            size="medium"
-            onClick={onCreateOrder}
-            fullWidth={isMobile}
-          >
-            {isMobile ? 'Create New Order' : 'Create Order'}
-          </Button>
-        </Box>
-      </Box>
+      <PageHeader
+        title="Sales Orders"
+        subtitle={`Manage your sales orders and track delivery status (${ordersCount} total)`}
+        secondaryAction={{ label: 'View Deleted', onClick: onOpenDeleted }}
+        primaryAction={{ label: 'Create Order', onClick: onCreateOrder }}
+      />
 
       <Paper sx={{ p: 2, mb: 3 }}>
         <Box

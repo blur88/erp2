@@ -10,19 +10,17 @@ import {
   Paper,
   Select,
   TextField,
-  Typography,
 } from '@mui/material'
 import {
   ArrowDownward as ArrowDownIcon,
   ArrowUpward as ArrowUpIcon,
-  ReceiptLong as InvoiceIcon,
-  RestoreFromTrash as RestoreIcon,
   Search as SearchIcon,
   Sort as SortIcon,
 } from '@mui/icons-material'
 
 import type { InvoiceFilters } from '../hooks/useInvoicesPageState'
 
+import PageHeader from '@/components/common/PageHeader'
 import { TYPOGRAPHY_STYLES } from '@/constants/typography'
 
 interface InvoicesToolbarProps {
@@ -52,67 +50,11 @@ const InvoicesToolbar: React.FC<InvoicesToolbarProps> = ({
 }) => {
   return (
     <>
-      <Box
-        sx={{
-          display: 'flex',
-          flexDirection: isMobile ? 'column' : 'row',
-          justifyContent: 'space-between',
-          alignItems: isMobile ? 'stretch' : 'center',
-          mb: 3,
-          gap: isMobile ? 2 : 0,
-        }}
-      >
-        <Box sx={{ mb: isMobile ? 2 : 0 }}>
-          <Typography
-            variant={isMobile ? TYPOGRAPHY_STYLES.pageHeader.mobileVariant : TYPOGRAPHY_STYLES.pageHeader.variant}
-            sx={{
-              fontWeight: TYPOGRAPHY_STYLES.pageHeader.fontWeight,
-              mb: 1,
-              display: 'flex',
-              alignItems: 'center',
-              gap: 2,
-            }}
-          >
-            <InvoiceIcon
-              sx={{
-                fontSize: TYPOGRAPHY_STYLES.pageHeader.icon.fontSize,
-                color: TYPOGRAPHY_STYLES.pageHeader.icon.color,
-              }}
-            />
-            Invoices
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            Manage customer invoices and track payments ({total} total)
-          </Typography>
-        </Box>
-
-        <Box
-          sx={{
-            display: 'flex',
-            flexDirection: isMobile ? 'column' : 'row',
-            gap: isMobile ? 1.5 : 1,
-            alignItems: isMobile ? 'stretch' : 'center',
-          }}
-        >
-          <Button
-            variant="outlined"
-            startIcon={!isMobile ? <RestoreIcon /> : undefined}
-            onClick={onOpenDeleted}
-            size="medium"
-            fullWidth={isMobile}
-            sx={{
-              color: 'warning.main',
-              borderColor: 'warning.main',
-              '&:hover': {
-                borderColor: 'warning.dark',
-                backgroundColor: 'warning.light',
-              },
-            }}
-          >
-            View Deleted
-          </Button>
-        </Box>
-      </Box>
+      <PageHeader
+        title="Invoices"
+        subtitle={`Manage customer invoices and track payments (${total} total)`}
+        secondaryAction={{ label: 'View Deleted', onClick: onOpenDeleted }}
+      />
 
       <Paper sx={{ p: 2, mb: 3 }}>
         <Box

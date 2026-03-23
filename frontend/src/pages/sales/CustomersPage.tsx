@@ -32,13 +32,10 @@ import {
   Stack,
 } from '@mui/material'
 import {
-  Add as AddIcon,
   Search as SearchIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
   Visibility as ViewIcon,
-  RestoreFromTrash as RestoreIcon,
-  People as CustomersIcon,
   AccountBalance as CreditIcon,
   Phone as PhoneIcon,
   TrendingUp as SalesIcon,
@@ -64,6 +61,7 @@ import { formatDate } from '@/utils/formatters'
 import DeletedCustomersDialog from '@/components/sales/DeletedCustomersDialog'
 import PriceListSelector from '@/components/price-lists/PriceListSelector'
 import ConfirmationDialog from '@/components/common/ConfirmationDialog'
+import PageHeader from '@/components/common/PageHeader'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
 
 // Form validation schema
@@ -390,67 +388,12 @@ const CustomersPage: React.FC = () => {
 
   return (
     <Box sx={{ p: 3 }}>
-      {/* Header */}
-      <Box sx={{
-        display: 'flex',
-        flexDirection: isMobile ? 'column' : 'row',
-        justifyContent: 'space-between',
-        alignItems: isMobile ? 'stretch' : 'center',
-        mb: 3,
-        gap: isMobile ? 2 : 0
-      }}>
-        <Box sx={{ mb: isMobile ? 2 : 0 }}>
-          <Typography variant={isMobile ? TYPOGRAPHY_STYLES.pageHeader.mobileVariant : TYPOGRAPHY_STYLES.pageHeader.variant} sx={{
-            fontWeight: TYPOGRAPHY_STYLES.pageHeader.fontWeight,
-            mb: 1,
-            display: 'flex',
-            alignItems: 'center',
-            gap: 2
-          }}>
-            <CustomersIcon sx={{
-              fontSize: TYPOGRAPHY_STYLES.pageHeader.icon.fontSize,
-              color: TYPOGRAPHY_STYLES.pageHeader.icon.color
-            }} />
-            Customers
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            Manage your customers and client information ({customers.length} total)
-          </Typography>
-        </Box>
-        <Box sx={{
-          display: 'flex',
-          flexDirection: isMobile ? 'column' : 'row',
-          gap: isMobile ? 1.5 : 1,
-          alignItems: isMobile ? 'stretch' : 'center'
-        }}>
-          <Button
-            variant="outlined"
-            startIcon={!isMobile ? <RestoreIcon /> : undefined}
-            onClick={() => setIsDeletedDialogOpen(true)}
-            size={isMobile ? "medium" : "medium"}
-            fullWidth={isMobile}
-            sx={{
-              color: 'warning.main',
-              borderColor: 'warning.main',
-              '&:hover': {
-                borderColor: 'warning.dark',
-                backgroundColor: 'warning.light'
-              }
-            }}
-          >
-            {isMobile ? "View Deleted" : "View Deleted"}
-          </Button>
-          <Button
-            variant="contained"
-            startIcon={!isMobile ? <AddIcon /> : undefined}
-            size="medium"
-            onClick={() => handleOpenForm()}
-            fullWidth={isMobile}
-          >
-            {isMobile ? "Add New Customer" : "Add Customer"}
-          </Button>
-        </Box>
-      </Box>
+      <PageHeader
+        title="Customers"
+        subtitle={`Manage your customers and client information (${customers.length} total)`}
+        secondaryAction={{ label: 'View Deleted', onClick: () => setIsDeletedDialogOpen(true) }}
+        primaryAction={{ label: 'New Customer', onClick: () => handleOpenForm() }}
+      />
       {/* Filters and Search */}
       <Paper sx={{ p: 2, mb: 3 }}>
       <Box sx={{

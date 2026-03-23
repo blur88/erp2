@@ -3,7 +3,6 @@ import {
   Box,
   Typography,
   Paper,
-  Button,
   Grid,
   Table,
   TableBody,
@@ -24,11 +23,11 @@ import {
   People as CustomersIcon,
   Receipt as OrdersIcon,
   Payment as PaymentsIcon,
-  Add as AddIcon,
 } from '@mui/icons-material'
 import { subDays, subMonths, startOfMonth, endOfMonth, subYears, startOfYear, endOfYear } from 'date-fns'
 import { formatCurrency, formatDate, formatNumber } from '@/utils/formatters'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
+import PageHeader from '@/components/common/PageHeader'
 import { useNavigate } from 'react-router-dom'
 import api from '@/services/api'
 import { SalesStatsCards, SalesTrendChart, TopProductsList, TopCustomersList } from './components'
@@ -325,47 +324,26 @@ const SalesPage: React.FC = () => {
   return (
     <Box sx={{ p: 3 }}>
       {/* Header */}
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, flexWrap: 'wrap', gap: 2 }}>
-        <Box>
-          <Typography variant={TYPOGRAPHY_STYLES.pageHeader.variant} sx={{
-            fontWeight: TYPOGRAPHY_STYLES.pageHeader.fontWeight,
-            mb: 1,
-            display: 'flex',
-            alignItems: 'center',
-            gap: 2
-          }}>
-            <SalesIcon sx={{
-              fontSize: TYPOGRAPHY_STYLES.pageHeader.icon.fontSize,
-              color: TYPOGRAPHY_STYLES.pageHeader.icon.color
-            }} />
-            Sales Overview
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            Monitor sales performance and manage customer relationships
-          </Typography>
-        </Box>
-        <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
-          <FormControl size="small" sx={{ minWidth: 120 }}>
-            <InputLabel>Period</InputLabel>
-            <Select
-              value={period}
-              label="Period"
-              onChange={(e) => setPeriod(e.target.value as PeriodType)}
-            >
-              <MenuItem value="week">Last 7 Days</MenuItem>
-              <MenuItem value="month">This Month</MenuItem>
-              <MenuItem value="quarter">Last 3 Months</MenuItem>
-              <MenuItem value="year">This Year</MenuItem>
-            </Select>
-          </FormControl>
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={() => navigate('/sales/orders')}
+      <PageHeader
+        title="Sales Overview"
+        subtitle="Monitor sales performance and manage customer relationships"
+        primaryAction={{ label: 'Create Order', onClick: () => navigate('/sales/orders/create') }}
+      />
+
+      <Box sx={{ mb: 3 }}>
+        <FormControl size="small" sx={{ minWidth: 120 }}>
+          <InputLabel>Period</InputLabel>
+          <Select
+            value={period}
+            label="Period"
+            onChange={(e) => setPeriod(e.target.value as PeriodType)}
           >
-            Create Order
-          </Button>
-        </Box>
+            <MenuItem value="week">Last 7 Days</MenuItem>
+            <MenuItem value="month">This Month</MenuItem>
+            <MenuItem value="quarter">Last 3 Months</MenuItem>
+            <MenuItem value="year">This Year</MenuItem>
+          </Select>
+        </FormControl>
       </Box>
 
       {/* Stats Cards */}
