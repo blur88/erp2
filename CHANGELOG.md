@@ -1,3 +1,20 @@
+# [1.19.0](https://github.com/blur88/erp2/compare/v1.18.2...v1.19.0) (2026-03-23)
+
+
+### Features
+
+* **search:** add fuzzy fallback to CustomerService.searchGlobal ([b0b9bd1](https://github.com/blur88/erp2/commit/b0b9bd181c1279ec2d3698591c78e354c9bc2789))
+* **search:** add fuzzy fallback to Product, SalesOrder, PurchaseOrder searchGlobal ([d68e6c5](https://github.com/blur88/erp2/commit/d68e6c51ccdcbaf6ba51fb90adb1079afadb7093))
+* **search:** add pg_trgm extension and trigram indexes for fuzzy search ([d392d5d](https://github.com/blur88/erp2/commit/d392d5d87d79ce33bf4b6dd45b65751147014e8a))
+* **search:** add Phase 4 boost constants and permission guards ([74b8265](https://github.com/blur88/erp2/commit/74b82658fa559306b3ca1de03f9d3298f38502ce))
+* **search:** add searchGlobal to InvoiceService, export from SalesModule ([03849b3](https://github.com/blur88/erp2/commit/03849b36af876f5f15c50d0f1fcca7e3fd4049fd))
+* **search:** add searchGlobal to JournalEntryService ([f32d3cc](https://github.com/blur88/erp2/commit/f32d3cc2ade20d155535dc2d7bcc4d9470b93690))
+* **search:** add searchGlobal to PaymentService, export from SalesModule ([e5bb0f3](https://github.com/blur88/erp2/commit/e5bb0f3570612b96ea391ad40280aaf349dfff72))
+* **search:** add searchGlobal to SupplierService ([99e806e](https://github.com/blur88/erp2/commit/99e806e1ccf1b75419df114c636e57dc46b0ab69))
+* **search:** add searchGlobal to VendorPaymentService ([9c44ad9](https://github.com/blur88/erp2/commit/9c44ad91aa611179ad5091fa59cd716e8eab826c))
+* **search:** extend frontend type contract and SearchModal for Phase 4 entities ([be90373](https://github.com/blur88/erp2/commit/be90373489cada6040fbd60392a8995bcb064df9))
+* **search:** wire 5 new entity sources into SearchService and SearchModule ([8865043](https://github.com/blur88/erp2/commit/8865043ee72b3409ec77c1bc7c2efc7ea0a71acd))
+
 ## [1.18.2](https://github.com/blur88/erp2/compare/v1.18.1...v1.18.2) (2026-03-22)
 
 
