@@ -15,7 +15,7 @@ export default async function globalSetup() {
     port: parseInt(DB_PORT || '5432', 10),
     user: DB_USERNAME || 'erp_user',
     password: DB_PASSWORD,
-    database: 'erp_db', // connect to existing DB to issue CREATE DATABASE
+    database: 'postgres', // connect to maintenance DB — cannot drop the DB you're connected to
   });
 
   await client.connect();

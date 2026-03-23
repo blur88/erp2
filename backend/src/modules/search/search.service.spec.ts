@@ -9,10 +9,12 @@ import { SalesOrderService } from '../sales/services/sales-order.service';
 import { InvoiceService } from '../sales/services/invoice.service';
 import { PaymentService } from '../sales/services/payment.service';
 import { PurchaseOrderService } from '../purchasing/services/purchase-order.service';
+import { SearchAnalyticsService } from './search-analytics.service';
 import { GlobalSearchResultDto } from './dto/global-search-result.dto';
 import { UserRole } from '../../database/entities/user.entity';
 
 describe('SearchService', () => {
+  let module: TestingModule;
   let service: SearchService;
   let customerService: jest.Mocked<Pick<CustomerService, 'searchGlobal'>>;
   let productService: jest.Mocked<Pick<ProductService, 'searchGlobal'>>;
@@ -27,6 +29,7 @@ describe('SearchService', () => {
   let journalEntryService: jest.Mocked<
     Pick<JournalEntryService, 'searchGlobal'>
   >;
+  let searchAnalyticsService: jest.Mocked<Pick<SearchAnalyticsService, 'logQuery'>>;
 
   const mockUser = { userId: 'u1', username: 'admin' } as any;
 
@@ -39,7 +42,7 @@ describe('SearchService', () => {
   });
 
   beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
+    module = await Test.createTestingModule({
       providers: [
         SearchService,
         {
@@ -78,6 +81,10 @@ describe('SearchService', () => {
           provide: JournalEntryService,
           useValue: { searchGlobal: jest.fn().mockResolvedValue([]) },
         },
+        {
+          provide: SearchAnalyticsService,
+          useValue: { logQuery: jest.fn() },
+        },
       ],
     }).compile();
 
@@ -91,6 +98,7 @@ describe('SearchService', () => {
     paymentService = module.get(PaymentService);
     vendorPaymentService = module.get(VendorPaymentService);
     journalEntryService = module.get(JournalEntryService);
+    searchAnalyticsService = module.get(SearchAnalyticsService);
   });
 
   it('fans out to all ten sources in parallel', async () => {
@@ -297,6 +305,41 @@ describe('SearchService', () => {
           ),
         ).toBeUndefined();
       }
+    });
+  });
+
+  describe('searchQueryId', () => {
+    it('includes searchQueryId in the response', async () => {
+      const result = await service.search('test', mockUser);
+
+      expect(result.searchQueryId).toBeDefined();
+      expect(typeof result.searchQueryId).toBe('string');
+      expect(result.searchQueryId).toMatch(
+        /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
+      );
+    });
+
+    it('calls logQuery with correct params', async () => {
+      await service.search('acme', mockUser);
+
+      expect(searchAnalyticsService.logQuery).toHaveBeenCalledWith(
+        expect.objectContaining({
+          query: 'acme',
+          userId: mockUser.userId,
+          resultCount: expect.any(Number),
+          executionTimeMs: expect.any(Number),
+        }),
+      );
+    });
+
+    it('returns searchQueryId even when logQuery throws', async () => {
+      searchAnalyticsService.logQuery.mockImplementation(() => {
+        throw new Error('unexpected');
+      });
+
+      const result = await service.search('test', mockUser);
+
+      expect(result.searchQueryId).toBeDefined();
     });
   });
 });
