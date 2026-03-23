@@ -1,3 +1,24 @@
+# [1.20.0](https://github.com/blur88/erp2/compare/v1.19.1...v1.20.0) (2026-03-23)
+
+
+### Bug Fixes
+
+* **test:** connect to postgres maintenance DB in e2e global setup ([09791e4](https://github.com/blur88/erp2/commit/09791e45aeb7d073dc04f9ae1d748939b7caaa3b))
+
+
+### Features
+
+* **search:** add POST /search/click endpoint for click tracking ([5c809ba](https://github.com/blur88/erp2/commit/5c809ba832555c5016c2bdff2b74d01fe7debcf3))
+* **search:** add search analytics tables migration ([edb78ad](https://github.com/blur88/erp2/commit/edb78adc86c2e160492ff958ef7dce5a25bc49aa))
+* **search:** add SearchAnalyticsService with fire-and-forget logQuery/logClick ([7054b8c](https://github.com/blur88/erp2/commit/7054b8c27d9d4c4c56f7db603e41145b77c50f18))
+* **search:** add SearchQuery and SearchClick entities ([a2ed520](https://github.com/blur88/erp2/commit/a2ed520d72a6e6059daf361b964f11561bdea433))
+* **search:** add searchQueryId to GlobalSearchResponseDto ([795a95f](https://github.com/blur88/erp2/commit/795a95fcad4ef9988cf11079265ab1f141b59047))
+* **search:** add SearchResultType enum for analytics DTO validation ([8b8b33a](https://github.com/blur88/erp2/commit/8b8b33acb3473f6dea52df74685be9cc475e3609))
+* **search:** add SearchScheduler with transactional 90-day retention cleanup ([63843f1](https://github.com/blur88/erp2/commit/63843f192515091ce84f34e8e03c82ab811488b5))
+* **search:** add TrackClickDto with enum and position validation ([0cde452](https://github.com/blur88/erp2/commit/0cde4520e699ce321ebaec0c60a5b6ea2a797eb0))
+* **search:** return searchQueryId and log query analytics in SearchService ([e6b7fe9](https://github.com/blur88/erp2/commit/e6b7fe97cbaec3d53acc452f3a7d940fda10a56a))
+* **search:** wire SearchAnalyticsService and SearchScheduler into SearchModule ([bc1bdc9](https://github.com/blur88/erp2/commit/bc1bdc9aefe685f94d8b2773f41bc4ae1ed05e21))
+
 ## [1.19.1](https://github.com/blur88/erp2/compare/v1.19.0...v1.19.1) (2026-03-23)
 
 # [1.19.0](https://github.com/blur88/erp2/compare/v1.18.2...v1.19.0) (2026-03-23)
