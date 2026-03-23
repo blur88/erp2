@@ -122,11 +122,17 @@ describe('AccountMappingsPage', () => {
     mockedApi.useDeleteAccountMappingMutation.mockReturnValue([vi.fn()])
   })
 
-  it('renders without crashing', async () => {
+  it('renders the PageHeader title and subtitle', async () => {
     renderWithProviders(<AccountMappingsPage />)
+
     await waitFor(() => {
-      expect(screen.getByText('Account Mappings Configuration')).toBeInTheDocument()
+      expect(screen.getByText('Account Mappings')).toBeInTheDocument()
+      expect(
+        screen.getByText('Configure default account assignments for transactions'),
+      ).toBeInTheDocument()
     })
+
+    expect(screen.queryByText('Account Mappings Configuration')).not.toBeInTheDocument()
   })
 
   it('displays loading state', () => {
@@ -212,7 +218,7 @@ describe('AccountMappingsPage', () => {
     renderWithProviders(<AccountMappingsPage />)
 
     await waitFor(() => {
-      expect(screen.getByText('Account Mappings Configuration')).toBeInTheDocument()
+      expect(screen.getByText('Account Mappings')).toBeInTheDocument()
     })
 
     const configureButtons = screen.getAllByRole('button', { name: /configure/i })
