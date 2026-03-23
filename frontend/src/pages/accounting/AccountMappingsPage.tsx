@@ -35,7 +35,7 @@ import type { AccountMapping } from '@/types/accountMapping'
 import AccountMappingDialog from '@/components/accounting/AccountMappingDialog'
 import PageHeader from '@/components/common/PageHeader'
 import ConfirmationDialog from '@/components/common/ConfirmationDialog'
-import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
+import { TABLE_STYLES } from '@/constants/typography'
 import { useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
 
 // Mapping type labels with category grouping

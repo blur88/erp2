@@ -1,6 +1,8 @@
 # UI Design System Reference
 
-This document defines UI standards for the ERP frontend. It is a living reference - rules live here, implementation history lives in `docs/superpowers/specs/`.
+This document defines UI standards for the ERP frontend. It is a living reference — rules live here, implementation history lives in `docs/superpowers/specs/`.
+
+> **Note:** Prior to 2026-03-24 this file contained a dark theme color palette reference. That content has been superseded by the live theme implementation in `frontend/src/styles/theme.ts`.
 
 ---
 
