@@ -1,3 +1,11 @@
+# [1.22.0](https://github.com/blur88/erp2/compare/v1.21.2...v1.22.0) (2026-03-23)
+
+
+### Features
+
+* **dx:** add jest-progress-bar-reporter for backend test runs ([ed18965](https://github.com/blur88/erp2/commit/ed189652e3dd70b9d312db17602c643f8efe7205))
+* **dx:** restore vitest default reporter, remove --reporter=dot ([1a7e9aa](https://github.com/blur88/erp2/commit/1a7e9aaaf2cc7ac8c15c86b8e6bb3eef1da99edc))
+
 ## [1.21.2](https://github.com/blur88/erp2/compare/v1.21.1...v1.21.2) (2026-03-23)
 
 
