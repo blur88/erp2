@@ -43,6 +43,7 @@ import {
 } from 'chart.js'
 import { Bar, Doughnut } from 'react-chartjs-2'
 import { format } from 'date-fns'
+import PageHeader from '@/components/common/PageHeader'
 import { formatCurrency } from '@/utils/formatters'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
 import { useNavigate } from 'react-router-dom'
@@ -238,38 +239,12 @@ const InventoryPage: React.FC = () => {
   return (
     <Box sx={{ p: 3 }}>
       {/* Header */}
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Box>
-          <Typography variant={TYPOGRAPHY_STYLES.pageHeader.variant} sx={{
-            fontWeight: TYPOGRAPHY_STYLES.pageHeader.fontWeight,
-            mb: 1,
-            display: 'flex',
-            alignItems: 'center',
-            gap: 2
-          }}>
-            <InventoryIcon sx={{
-              fontSize: TYPOGRAPHY_STYLES.pageHeader.icon.fontSize,
-              color: TYPOGRAPHY_STYLES.pageHeader.icon.color
-            }} />
-            Inventory Overview
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            Monitor stock levels, track movements, and manage inventory health
-          </Typography>
-        </Box>
-        <Box sx={{ display: 'flex', gap: 1 }}>
-          <Button variant="outlined" onClick={() => navigate('/inventory/categories')}>
-            Manage Categories
-          </Button>
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={() => navigate('/inventory/products')}
-          >
-            Add Product
-          </Button>
-        </Box>
-      </Box>
+      <PageHeader
+        title="Inventory Overview"
+        subtitle="Monitor stock levels, track movements, and manage inventory health"
+        secondaryAction={{ label: 'Manage Categories', onClick: () => navigate('/inventory/categories') }}
+        primaryAction={{ label: 'Add Product', onClick: () => navigate('/inventory/products') }}
+      />
       {/* Error Alert */}
       {error && (
         <Alert severity="error" sx={{ mb: 4 }}>

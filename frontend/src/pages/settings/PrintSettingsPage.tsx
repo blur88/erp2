@@ -9,10 +9,9 @@ import {
   Alert,
 } from '@mui/material'
 import {
-  Print as PrintIcon,
 } from '@mui/icons-material'
 import { useGetPrintSettingsQuery } from '@/store/api/printSettingsApi'
-import { TYPOGRAPHY_STYLES } from '@/constants/typography'
+import PageHeader from '@/components/common/PageHeader'
 import GeneralTab from './PrintSettings/GeneralTab'
 import TemplatesTab from './PrintSettings/TemplatesTab'
 
@@ -85,17 +84,10 @@ const PrintSettingsPage: React.FC = () => {
   return (
     <Box sx={{ p: 3 }}>
       {/* Header */}
-      <Box sx={{ mb: 3, display: 'flex', alignItems: 'center', gap: 2 }}>
-        <PrintIcon sx={{ fontSize: 32, color: 'primary.main' }} />
-        <Box>
-          <Typography variant={TYPOGRAPHY_STYLES.pageHeader.variant} sx={{ fontWeight: TYPOGRAPHY_STYLES.pageHeader.fontWeight }}>
-            Print Settings
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            Configure print templates and document footers
-          </Typography>
-        </Box>
-      </Box>
+      <PageHeader
+        title="Print Settings"
+        subtitle="Configure print templates and document footers"
+      />
 
       <Paper sx={{ borderRadius: 2 }}>
         <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>

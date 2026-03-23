@@ -30,7 +30,6 @@ import {
 import {
   Add as AddIcon,
   Search as SearchIcon,
-  SwapVert as StockAdjustmentIcon,
   Sort as SortIcon,
   ArrowUpward as ArrowUpIcon,
   ArrowDownward as ArrowDownIcon,
@@ -38,6 +37,7 @@ import {
   Edit as EditIcon,
   RestoreFromTrash as RestoreIcon,
 } from '@mui/icons-material'
+import PageHeader from '@/components/common/PageHeader'
 import DeletedStockAdjustmentsDialog from '@/components/inventory/DeletedStockAdjustmentsDialog'
 import ConfirmationDialog from '@/components/common/ConfirmationDialog'
 import { useLazyGetJournalEntriesQuery } from '@/store/api/accountingApi'
@@ -463,66 +463,12 @@ const StockAdjustmentsPage: React.FC = () => {
   return (
     <Box sx={{ p: 3 }}>
       {/* Header */}
-      <Box sx={{
-        display: 'flex',
-        flexDirection: isMobile ? 'column' : 'row',
-        justifyContent: 'space-between',
-        alignItems: isMobile ? 'stretch' : 'center',
-        mb: 3,
-        gap: isMobile ? 2 : 0
-      }}>
-        <Box sx={{ mb: isMobile ? 2 : 0 }}>
-          <Typography variant={isMobile ? TYPOGRAPHY_STYLES.pageHeader.mobileVariant : TYPOGRAPHY_STYLES.pageHeader.variant} sx={{
-            fontWeight: TYPOGRAPHY_STYLES.pageHeader.fontWeight,
-            mb: 1,
-            display: 'flex',
-            alignItems: 'center',
-            gap: 2
-          }}>
-            <StockAdjustmentIcon sx={{
-              fontSize: TYPOGRAPHY_STYLES.pageHeader.icon.fontSize,
-              color: TYPOGRAPHY_STYLES.pageHeader.icon.color
-            }} />
-            Stock Adjustments
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            View and manage stock adjustment history ({pagination?.total || 0} total)
-          </Typography>
-        </Box>
-        <Box sx={{
-          display: 'flex',
-          flexDirection: isMobile ? 'column' : 'row',
-          gap: isMobile ? 1.5 : 1,
-          alignItems: isMobile ? 'stretch' : 'center'
-        }}>
-          <Button
-            variant="outlined"
-            startIcon={!isMobile ? <RestoreIcon /> : undefined}
-            onClick={() => setShowDeletedDialog(true)}
-            size={isMobile ? "medium" : "medium"}
-            fullWidth={isMobile}
-            sx={{
-              color: 'warning.main',
-              borderColor: 'warning.main',
-              '&:hover': {
-                borderColor: 'warning.dark',
-                backgroundColor: 'warning.light'
-              }
-            }}
-          >
-            {isMobile ? "View Deleted" : "View Deleted"}
-          </Button>
-          <Button
-            variant="contained"
-            startIcon={!isMobile ? <AddIcon /> : undefined}
-            size="medium"
-            onClick={() => navigate('/inventory/stock-adjustments/create')}
-            fullWidth={isMobile}
-          >
-            {isMobile ? "New Adjustment" : "New Adjustment"}
-          </Button>
-        </Box>
-      </Box>
+      <PageHeader
+        title="Stock Adjustments"
+        subtitle="View and manage stock adjustment history"
+        secondaryAction={{ label: 'View Deleted', onClick: () => setShowDeletedDialog(true) }}
+        primaryAction={{ label: 'New Adjustment', onClick: () => navigate('/inventory/stock-adjustments/create') }}
+      />
       {/* Filters and Search */}
       <Paper sx={{ p: 2, mb: 3 }}>
       <Box sx={{

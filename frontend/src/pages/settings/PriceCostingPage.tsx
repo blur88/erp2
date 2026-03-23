@@ -12,7 +12,6 @@ import {
   MenuItem,
 } from '@mui/material'
 import {
-  PriceChange as PriceCostingIcon,
   Calculate as CalculateIcon,
 } from '@mui/icons-material'
 import { useForm, Controller, useWatch } from 'react-hook-form'
@@ -24,7 +23,7 @@ import {
   useUpdatePriceCostingSettingsMutation,
 } from '@/store/api/settingsApi'
 import { ApiService } from '@/services/api'
-import { TYPOGRAPHY_STYLES } from '@/constants/typography'
+import PageHeader from '@/components/common/PageHeader'
 
 interface PriceCostingFormData {
   costingMethod: string
@@ -155,12 +154,7 @@ const PriceCostingPage: React.FC = () => {
   return (
     <Box sx={{ p: 3 }}>
       {/* Page Header */}
-      <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
-        <PriceCostingIcon sx={{ fontSize: 40, mr: 2, color: 'primary.main' }} />
-        <Typography variant={TYPOGRAPHY_STYLES.pageHeader.variant} sx={{ fontWeight: TYPOGRAPHY_STYLES.pageHeader.fontWeight }}>
-          Inventory Costing Settings
-        </Typography>
-      </Box>
+      <PageHeader title="Inventory Costing Settings" />
       {/* Error Alert */}
       {error && (
         <Alert severity="error" sx={{ mb: 3 }}>

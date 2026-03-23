@@ -24,11 +24,11 @@ import { useGetPriceListsQuery, useBulkUpdatePricesMutation, priceListApiSlice }
 import { useCreateProductMutation, useLazyGetProductQuery, useUpdateProductMutation } from '@/store/api/inventoryApi'
 import { useDispatch } from 'react-redux'
 import { useNotification } from '@/hooks/useNotification'
+import PageHeader from '@/components/common/PageHeader'
 import CategorySelector from '@/components/inventory/CategorySelector'
 import { Category, PriceList } from '@/types'
 import { useDuplicateCheck } from '@/hooks/useDuplicateCheck'
 import { useCurrency } from '@/hooks/useCurrency'
-import { TYPOGRAPHY_STYLES } from '@/constants/typography'
 
 // Price field component for price list items
 const PriceListPriceField: React.FC<{
@@ -389,26 +389,25 @@ const CreateProductPage: React.FC = () => {
     <Container maxWidth="xl">
       <Box sx={{ py: 3 }}>
         {/* Header */}
-        <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
-          <IconButton
-            onClick={() => {
-              // When going back in edit mode, navigate back with the product ID to keep it selected
-              if (isEditMode && id) {
-                navigate('/inventory/products', {
-                  state: { selectedProductId: id }
-                })
-              } else {
-                navigate('/inventory/products')
-              }
-            }}
-            sx={{ mr: 2 }}
-          >
-            <ArrowBackIcon />
-          </IconButton>
-          <Typography variant={TYPOGRAPHY_STYLES.pageHeader.variant} sx={{ fontWeight: TYPOGRAPHY_STYLES.pageHeader.fontWeight }}>
-            {isEditMode ? 'Edit Product' : 'Create Product'}
-          </Typography>
-        </Box>
+        <IconButton
+          onClick={() => {
+            // When going back in edit mode, navigate back with the product ID to keep it selected
+            if (isEditMode && id) {
+              navigate('/inventory/products', {
+                state: { selectedProductId: id }
+              })
+            } else {
+              navigate('/inventory/products')
+            }
+          }}
+          sx={{ mr: 2, mb: 1 }}
+        >
+          <ArrowBackIcon />
+        </IconButton>
+        <PageHeader
+          title={isEditMode ? 'Edit Product' : 'Create Product'}
+          showDivider={false}
+        />
 
         {isFetchingProduct ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>

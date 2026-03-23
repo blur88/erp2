@@ -3,7 +3,6 @@ import {
   Add as AddIcon,
   ArrowDownward as ArrowDownIcon,
   ArrowUpward as ArrowUpIcon,
-  Description as OrderIcon,
   RestoreFromTrash as RestoreIcon,
   Search as SearchIcon,
   Sort as SortIcon,
@@ -22,6 +21,7 @@ import {
   Typography,
 } from '@mui/material'
 
+import PageHeader from '@/components/common/PageHeader'
 import { TYPOGRAPHY_STYLES } from '@/constants/typography'
 import type { PurchaseOrdersPageState } from '../hooks/usePurchaseOrdersPageState'
 
@@ -40,7 +40,6 @@ interface PurchaseOrdersToolbarProps {
 
 const PurchaseOrdersToolbar: React.FC<PurchaseOrdersToolbarProps> = ({
   isMobile,
-  ordersCount,
   filters,
   suppliers,
   searchInputRef,
@@ -54,25 +53,12 @@ const PurchaseOrdersToolbar: React.FC<PurchaseOrdersToolbarProps> = ({
 
   return (
     <>
-      <Box sx={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', justifyContent: 'space-between', alignItems: isMobile ? 'stretch' : 'center', mb: 3, gap: isMobile ? 2 : 0 }}>
-        <Box sx={{ mb: isMobile ? 2 : 0 }}>
-          <Typography variant={isMobile ? TYPOGRAPHY_STYLES.pageHeader.mobileVariant : TYPOGRAPHY_STYLES.pageHeader.variant} sx={{ fontWeight: TYPOGRAPHY_STYLES.pageHeader.fontWeight, mb: 1, display: 'flex', alignItems: 'center', gap: 2 }}>
-            <OrderIcon sx={{ fontSize: TYPOGRAPHY_STYLES.pageHeader.icon.fontSize, color: TYPOGRAPHY_STYLES.pageHeader.icon.color }} />
-            Purchase Orders
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            Manage supplier purchase orders and procurement ({ordersCount} total)
-          </Typography>
-        </Box>
-        <Box sx={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: isMobile ? 1.5 : 1, alignItems: isMobile ? 'stretch' : 'center' }}>
-          <Button variant="outlined" startIcon={!isMobile ? <RestoreIcon /> : undefined} onClick={onOpenDeleted} fullWidth={isMobile} sx={{ color: 'warning.main', borderColor: 'warning.main' }}>
-            View Deleted
-          </Button>
-          <Button variant="contained" startIcon={!isMobile ? <AddIcon /> : undefined} onClick={onCreateOrder} fullWidth={isMobile}>
-            {isMobile ? 'Create New Order' : 'Create Order'}
-          </Button>
-        </Box>
-      </Box>
+      <PageHeader
+        title="Purchase Orders"
+        subtitle="Manage supplier purchase orders and procurement"
+        secondaryAction={{ label: 'View Deleted', onClick: onOpenDeleted }}
+        primaryAction={{ label: 'Create Order', onClick: onCreateOrder }}
+      />
 
       <Paper sx={{ p: 2, mb: 3 }}>
         <Box sx={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: isMobile ? 2 : 1, alignItems: isMobile ? 'stretch' : 'center', '& > *': { alignSelf: isMobile ? 'stretch' : 'flex-start' } }}>

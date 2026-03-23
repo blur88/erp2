@@ -15,16 +15,15 @@ import {
   TextField,
 } from '@mui/material'
 import {
-  FormatListNumbered as DocumentNumberIcon,
   Save as SaveIcon,
 } from '@mui/icons-material'
+import PageHeader from '@/components/common/PageHeader'
 import { useNotification } from '@/hooks/useNotification'
 import {
   useGetDocumentNumberSettingsQuery,
   useUpdateDocumentNumberSettingsMutation,
   type DocumentNumberConfig,
 } from '@/store/api/settingsApi'
-import { TYPOGRAPHY_STYLES } from '@/constants/typography'
 
 const MODULE_GROUPS: Record<string, string[]> = {
   Sales: ['Sales Orders', 'Invoices', 'Payments'],
@@ -113,12 +112,7 @@ const DocumentNumbersPage: React.FC = () => {
   return (
     <Box sx={{ p: 3 }}>
       {/* Page Header */}
-      <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
-        <DocumentNumberIcon sx={{ fontSize: 40, mr: 2, color: 'primary.main' }} />
-        <Typography variant={TYPOGRAPHY_STYLES.pageHeader.variant} sx={{ fontWeight: TYPOGRAPHY_STYLES.pageHeader.fontWeight }}>
-          Document Numbers Settings
-        </Typography>
-      </Box>
+      <PageHeader title="Document Numbers Settings" />
       {/* Error Alert */}
       {error && (
         <Alert severity="error" sx={{ mb: 3 }}>

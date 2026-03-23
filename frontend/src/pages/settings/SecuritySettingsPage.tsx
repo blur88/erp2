@@ -1,30 +1,22 @@
 import React from 'react'
 import { Box, Typography, Paper, Divider, Chip } from '@mui/material'
 import {
-  Lock as LockIcon,
   Password as PasswordIcon,
   Token as TokenIcon,
   Block as BlockIcon,
   Schedule as ScheduleIcon,
   Info as InfoIcon,
 } from '@mui/icons-material'
-import { TYPOGRAPHY_STYLES } from '@/constants/typography'
+import PageHeader from '@/components/common/PageHeader'
 
 const SecuritySettingsPage: React.FC = () => {
   return (
     <Box sx={{ p: 3 }}>
       {/* Header */}
-      <Box sx={{ mb: 3, display: 'flex', alignItems: 'center', gap: 2 }}>
-        <LockIcon sx={{ fontSize: 40, color: 'primary.main' }} />
-        <Box>
-          <Typography variant={TYPOGRAPHY_STYLES.pageHeader.variant} sx={{ fontWeight: TYPOGRAPHY_STYLES.pageHeader.fontWeight }}>
-            Security Settings
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            View current security configuration and policies
-          </Typography>
-        </Box>
-      </Box>
+      <PageHeader
+        title="Security Settings"
+        subtitle="View current security configuration and policies"
+      />
 
       {/* Information Alert */}
       <Paper sx={{ p: 2, mb: 3, bgcolor: 'info.lighter', borderLeft: 4, borderColor: 'info.main' }}>

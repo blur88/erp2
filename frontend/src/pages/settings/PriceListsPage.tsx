@@ -25,7 +25,6 @@ import {
   Stack,
 } from '@mui/material'
 import {
-  Add as AddIcon,
   Search as SearchIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
@@ -33,10 +32,9 @@ import {
   Star as StarIcon,
   StarBorder as StarBorderIcon,
   Visibility as ViewIcon,
-  Refresh as RefreshIcon,
-  LocalOffer as PriceListIcon,
 } from '@mui/icons-material'
 import { useNavigate } from 'react-router-dom'
+import PageHeader from '@/components/common/PageHeader'
 import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
 import { useNotification } from '@/hooks/useNotification'
 import {
@@ -52,7 +50,7 @@ import type { PriceList } from '@/types'
 import PriceListFormDialog from '@/components/settings/PriceListFormDialog'
 import PriceListCopyDialog from '@/components/settings/PriceListCopyDialog'
 import ConfirmationDialog from '@/components/common/ConfirmationDialog'
-import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
+import { TABLE_STYLES } from '@/constants/typography'
 import { formatDate as formatDisplayDate } from '@/utils/formatters'
 
 const PriceListsPage: React.FC = () => {
@@ -205,46 +203,12 @@ const PriceListsPage: React.FC = () => {
   return (
     <Box sx={{ p: 3 }}>
       {/* Header */}
-      <Box
-        sx={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          mb: 3,
-        }}
-      >
-        <Box>
-          <Typography
-            variant={TYPOGRAPHY_STYLES.pageHeader.variant}
-            sx={{
-              fontWeight: TYPOGRAPHY_STYLES.pageHeader.fontWeight,
-              mb: 1,
-              display: 'flex',
-              alignItems: 'center',
-              gap: 2,
-            }}
-          >
-            <PriceListIcon
-              sx={{
-                fontSize: TYPOGRAPHY_STYLES.pageHeader.icon.fontSize,
-                color: TYPOGRAPHY_STYLES.pageHeader.icon.color,
-              }}
-            />
-            Price Lists
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            Manage pricing structures and product prices ({total} total)
-          </Typography>
-        </Box>
-        <Box sx={{ display: 'flex', gap: 1 }}>
-          <Button variant="outlined" startIcon={<RefreshIcon />} onClick={() => refetch()}>
-            Refresh
-          </Button>
-          <Button variant="contained" startIcon={<AddIcon />} onClick={handleAddPriceList}>
-            Add Price List
-          </Button>
-        </Box>
-      </Box>
+      <PageHeader
+        title="Price Lists"
+        subtitle="Manage pricing structures and product prices"
+        secondaryAction={{ label: 'Refresh', onClick: () => refetch() }}
+        primaryAction={{ label: 'Add Price List', onClick: handleAddPriceList }}
+      />
 
       {/* Filters */}
       <Paper sx={{ p: 2, mb: 3 }}>
