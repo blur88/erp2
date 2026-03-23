@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { v4 as uuidv4 } from 'uuid';
 import { ProductService } from '../inventory/services/product.service';
 import { JournalEntryService } from '../accounting/services/journal-entry.service';
 import { PurchaseOrderService } from '../purchasing/services/purchase-order.service';
@@ -26,6 +27,7 @@ import {
   SCORE_PAGE_KEYWORD,
   BOOST_PAGE,
 } from './search.constants';
+import { SearchAnalyticsService } from './search-analytics.service';
 
 const STATIC_PAGES: Array<{
   label: string;
@@ -385,13 +387,17 @@ export class SearchService {
     private readonly paymentService: PaymentService,
     private readonly vendorPaymentService: VendorPaymentService,
     private readonly journalEntryService: JournalEntryService,
+    private readonly searchAnalyticsService: SearchAnalyticsService,
   ) {}
 
   async search(query: string, user: any): Promise<GlobalSearchResponseDto> {
     const trimmed = query?.trim() ?? '';
     if (trimmed.length < 2) {
-      return { query, results: [] };
+      return { query, searchQueryId: uuidv4(), results: [] };
     }
+
+    const searchQueryId = uuidv4();
+    const startTime = Date.now();
 
     const [
       pages,
@@ -437,6 +443,8 @@ export class SearchService {
       ),
     ]);
 
+    const executionTimeMs = Date.now() - startTime;
+
     const results = [
       ...pages,
       ...customers,
@@ -459,7 +467,21 @@ export class SearchService {
       })
       .slice(0, SEARCH_RESPONSE_LIMIT);
 
-    return { query, results };
+    try {
+      this.searchAnalyticsService.logQuery({
+        id: searchQueryId,
+        query: trimmed,
+        userId: user.userId,
+        resultCount: results.length,
+        executionTimeMs,
+      });
+    } catch (error) {
+      this.logger.error(
+        `Search analytics logging failed: ${(error as Error).message}`,
+      );
+    }
+
+    return { query, searchQueryId, results };
   }
 
   private async safeSearch(
