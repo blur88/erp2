@@ -25,19 +25,19 @@ export class SearchClick {
   @Column({ type: 'varchar', length: 500 })
   query: string;
 
-  @Column({ type: 'varchar', length: 100 })
+  @Column({ type: 'varchar', length: 100, name: 'result_type' })
   resultType: string;
 
-  @Column({ type: 'varchar', length: 255 })
+  @Column({ type: 'varchar', length: 255, name: 'result_id' })
   resultId: string;
 
-  @Column({ type: 'varchar', length: 255, nullable: true })
+  @Column({ type: 'varchar', length: 255, nullable: true, name: 'result_label' })
   resultLabel: string | null;
 
   @Column({ type: 'int' })
   position: number;
 
-  @CreateDateColumn({ type: 'timestamptz' })
+  @CreateDateColumn({ type: 'timestamptz', name: 'created_at' })
   @Index()
   createdAt: Date;
 }
