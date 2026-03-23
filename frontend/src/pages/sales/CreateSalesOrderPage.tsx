@@ -37,6 +37,7 @@ import { formatCurrency, getCurrentDate } from '@/utils/formatters'
 import { useNotification } from '@/hooks/useNotification'
 import { useProductSearch } from '@/hooks/useProductSearch'
 import { useAppDispatch } from '@/hooks/useRedux'
+import PageHeader from '@/components/common/PageHeader'
 import type { RootState } from '@/store'
 import { setSelectedOrder } from '@/store/slices/salesSlice'
 import { useCurrency } from '@/hooks/useCurrency'
@@ -418,14 +419,13 @@ const CreateSalesOrderPage: React.FC = () => {
     <Container maxWidth="xl">
       <Box sx={{ py: 3 }}>
         {/* Header */}
-        <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
-          <IconButton onClick={() => navigate('/sales/orders')} sx={{ mr: 2 }}>
-            <ArrowBackIcon />
-          </IconButton>
-          <Typography variant={TYPOGRAPHY_STYLES.pageHeader.variant} sx={{ fontWeight: TYPOGRAPHY_STYLES.pageHeader.fontWeight }}>
-            {isEditMode ? 'Edit Sales Order' : 'Create Sales Order'}
-          </Typography>
-        </Box>
+        <IconButton onClick={() => navigate('/sales/orders')} sx={{ mr: 2, mb: 1 }}>
+          <ArrowBackIcon />
+        </IconButton>
+        <PageHeader
+          title={isEditMode ? 'Edit Sales Order' : 'Create Sales Order'}
+          showDivider={false}
+        />
 
         {loadingOrder ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
