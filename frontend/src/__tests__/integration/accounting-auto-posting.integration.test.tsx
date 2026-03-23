@@ -151,7 +151,7 @@ describe('Accounting Auto-Posting Integration Tests', () => {
       renderWithRouter(<AccountMappingsPage />)
 
       await waitFor(() => {
-        expect(screen.getByText('Account Mappings Configuration')).toBeInTheDocument()
+        expect(screen.getByText('Account Mappings')).toBeInTheDocument()
       })
     })
 
@@ -193,7 +193,7 @@ describe('Accounting Auto-Posting Integration Tests', () => {
       renderWithRouter(<AccountMappingsPage />)
 
       await waitFor(() => {
-        expect(screen.getByText('Account Mappings Configuration')).toBeInTheDocument()
+        expect(screen.getByText('Account Mappings')).toBeInTheDocument()
       })
 
       expect(mockedApi.useGetAccountMappingsQuery).toHaveBeenCalled()

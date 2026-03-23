@@ -124,12 +124,18 @@ describe('FiscalPeriodsPage', () => {
     mockedApi.useUpdateFiscalPeriodMutation.mockReturnValue([vi.fn()])
   })
 
-  it('renders page header correctly', async () => {
+  it('renders page header with the static PageHeader copy', async () => {
     renderWithProvider()
 
     await waitFor(() => {
       expect(screen.getByText('Fiscal Periods')).toBeInTheDocument()
+      expect(
+        screen.getByText('Manage accounting periods and year boundaries')
+      ).toBeInTheDocument()
     })
+
+    expect(screen.queryByText(/financial reporting/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/\(3 total\)/i)).not.toBeInTheDocument()
   })
 
   it('renders fiscal periods list with correct data', async () => {

@@ -92,6 +92,16 @@ describe('SettlementsPage notifications', () => {
     ])
   })
 
+  it('renders a static PageHeader title and subtitle', () => {
+    render(<SettlementsPage />)
+
+    expect(screen.getByText('Settlements')).toBeInTheDocument()
+    expect(
+      screen.getByText('Settle pending payments by payment method'),
+    ).toBeInTheDocument()
+    expect(screen.queryByText('Settlements (1)')).not.toBeInTheDocument()
+  })
+
   it('shows success notification after creating settlement', async () => {
     const user = userEvent.setup()
     render(<SettlementsPage />)

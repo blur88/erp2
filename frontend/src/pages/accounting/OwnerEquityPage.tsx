@@ -26,16 +26,13 @@ import {
   Typography,
 } from '@mui/material'
 import {
-  Add as AddIcon,
   Delete as DeleteIcon,
   Edit as EditIcon,
   PostAdd as PostIcon,
-  Refresh as RefreshIcon,
   Search as SearchIcon,
-  AccountBalanceWallet as OwnerEquityIcon,
   Undo as UndoIcon,
 } from '@mui/icons-material'
-import { TYPOGRAPHY_STYLES } from '@/constants/typography'
+import PageHeader from '@/components/common/PageHeader'
 import { useNotification } from '@/hooks/useNotification'
 import {
   useCreateOwnerEquityTransactionMutation,
@@ -224,28 +221,12 @@ const OwnerEquityPage: React.FC = () => {
 
   return (
     <Box sx={{ p: 3 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 3 }}>
-        <Box>
-          <Typography
-            variant={TYPOGRAPHY_STYLES.pageHeader.variant}
-            sx={{ fontWeight: TYPOGRAPHY_STYLES.pageHeader.fontWeight, mb: 1, display: 'flex', alignItems: 'center', gap: 2 }}
-          >
-            <OwnerEquityIcon sx={{ fontSize: TYPOGRAPHY_STYLES.pageHeader.icon.fontSize, color: TYPOGRAPHY_STYLES.pageHeader.icon.color }} />
-            Owner's Equity Transactions
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            Track owner capital contributions and withdrawals
-          </Typography>
-        </Box>
-        <Stack direction="row" spacing={1}>
-          <IconButton onClick={() => refetch()}>
-            <RefreshIcon />
-          </IconButton>
-          <Button variant="contained" startIcon={<AddIcon />} onClick={openCreate}>
-            New Transaction
-          </Button>
-        </Stack>
-      </Box>
+      <PageHeader
+        title="Owner Equity"
+        subtitle="Track owner contributions and equity transactions"
+        secondaryAction={{ label: 'Refresh', onClick: () => refetch() }}
+        primaryAction={{ label: 'New Transaction', onClick: openCreate }}
+      />
 
       <Paper sx={{ p: 2, mb: 2 }}>
         <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>

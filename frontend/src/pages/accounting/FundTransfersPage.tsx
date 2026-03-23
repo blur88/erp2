@@ -17,7 +17,6 @@ import {
   DialogContent,
   DialogTitle,
   FormControl,
-  IconButton,
   InputLabel,
   MenuItem,
   Paper,
@@ -33,12 +32,9 @@ import {
   Typography,
 } from '@mui/material'
 import {
-  Add as AddIcon,
   Cancel as CancelIcon,
-  Refresh as RefreshIcon,
-  SwapHoriz as TransferIcon,
 } from '@mui/icons-material'
-import { TYPOGRAPHY_STYLES } from '@/constants/typography'
+import PageHeader from '@/components/common/PageHeader'
 import { useNotification } from '@/hooks/useNotification'
 import {
   useCancelFundTransferMutation,
@@ -210,52 +206,16 @@ const FundTransfersPage: React.FC = () => {
 
   return (
     <Box sx={{ p: 3 }}>
-      <Box
-        sx={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'flex-start',
-          mb: 3,
-        }}
-      >
-        <Box>
-          <Typography
-            variant={TYPOGRAPHY_STYLES.pageHeader.variant}
-            sx={{
-              fontWeight: TYPOGRAPHY_STYLES.pageHeader.fontWeight,
-              mb: 1,
-              display: 'flex',
-              alignItems: 'center',
-              gap: 2,
-            }}
-          >
-            <TransferIcon
-              sx={{
-                fontSize: TYPOGRAPHY_STYLES.pageHeader.icon.fontSize,
-                color: TYPOGRAPHY_STYLES.pageHeader.icon.color,
-              }}
-            />
-            Fund Transfers
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            Move funds between eligible cash and bank accounts
-          </Typography>
-        </Box>
-        <Stack direction="row" spacing={1}>
-          <IconButton onClick={() => refetch()}>
-            <RefreshIcon />
-          </IconButton>
-          {canManageTransfers ? (
-            <Button
-              variant="contained"
-              startIcon={<AddIcon />}
-              onClick={() => setDialogOpen(true)}
-            >
-              New Transfer
-            </Button>
-          ) : null}
-        </Stack>
-      </Box>
+      <PageHeader
+        title="Fund Transfers"
+        subtitle="Move funds between accounts and review transfer history"
+        secondaryAction={{ label: 'Refresh', onClick: () => refetch() }}
+        primaryAction={
+          canManageTransfers
+            ? { label: 'New Transfer', onClick: () => setDialogOpen(true) }
+            : undefined
+        }
+      />
 
       <Card sx={{ mb: 2 }}>
         <CardContent>

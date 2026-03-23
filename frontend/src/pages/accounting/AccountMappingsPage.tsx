@@ -21,7 +21,6 @@ import {
 import {
   Edit as EditIcon,
   Add as AddIcon,
-  Settings as SettingsIcon,
   Clear as ClearIcon,
 } from '@mui/icons-material'
 import { useNotification } from '@/hooks/useNotification'
@@ -34,8 +33,9 @@ import {
 import { MappingType } from '@/types/accountMapping'
 import type { AccountMapping } from '@/types/accountMapping'
 import AccountMappingDialog from '@/components/accounting/AccountMappingDialog'
+import PageHeader from '@/components/common/PageHeader'
 import ConfirmationDialog from '@/components/common/ConfirmationDialog'
-import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
+import { TABLE_STYLES } from '@/constants/typography'
 import { useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
 
 // Mapping type labels with category grouping
@@ -283,37 +283,10 @@ const AccountMappingsPage: React.FC = () => {
 
   return (
     <Box sx={{ p: 3 }}>
-      {/* Header */}
-      <Box sx={{
-        display: 'flex',
-        flexDirection: isMobile ? 'column' : 'row',
-        justifyContent: 'space-between',
-        alignItems: isMobile ? 'stretch' : 'center',
-        mb: 3,
-        gap: isMobile ? 2 : 0
-      }}>
-        <Box sx={{ mb: isMobile ? 2 : 0 }}>
-          <Typography
-            variant={isMobile ? TYPOGRAPHY_STYLES.pageHeader.mobileVariant : TYPOGRAPHY_STYLES.pageHeader.variant}
-            sx={{
-              fontWeight: TYPOGRAPHY_STYLES.pageHeader.fontWeight,
-              mb: 1,
-              display: 'flex',
-              alignItems: 'center',
-              gap: 2
-            }}
-          >
-            <SettingsIcon sx={{
-              fontSize: TYPOGRAPHY_STYLES.pageHeader.icon.fontSize,
-              color: TYPOGRAPHY_STYLES.pageHeader.icon.color
-            }} />
-            Account Mappings Configuration
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            Configure GL accounts for automatic journal entry posting
-          </Typography>
-        </Box>
-      </Box>
+      <PageHeader
+        title="Account Mappings"
+        subtitle="Configure default account assignments for transactions"
+      />
 
       {/* Validation Status Alert */}
       {!isValid && validationResult && validationResult.missingMappings.length > 0 && (

@@ -52,7 +52,7 @@ const InvoicesToolbar: React.FC<InvoicesToolbarProps> = ({
     <>
       <PageHeader
         title="Invoices"
-        subtitle={`Manage customer invoices and track payments (${total} total)`}
+        subtitle="Review customer invoices and payment status"
         secondaryAction={{ label: 'View Deleted', onClick: onOpenDeleted }}
       />
 

@@ -23,11 +23,9 @@ import {
   useMediaQuery,
 } from '@mui/material'
 import {
-  Add as AddIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
   Search as SearchIcon,
-  CalendarMonth as CalendarIcon,
   LockOpen as ReopenIcon,
   Lock as CloseIcon,
   AutoAwesome as GenerateIcon,
@@ -35,6 +33,7 @@ import {
 import { format } from 'date-fns'
 import { useNotification } from '@/hooks/useNotification'
 import { useSearchAndFilter, useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
+import PageHeader from '@/components/common/PageHeader'
 import ConfirmationDialog from '@/components/common/ConfirmationDialog'
 import GeneratePeriodsDialog from '@/components/accounting/GeneratePeriodsDialog'
 import FiscalPeriodFormDialog from '@/components/accounting/FiscalPeriodFormDialog'
@@ -278,67 +277,12 @@ const FiscalPeriodsPage: React.FC = () => {
       {/* Account Mapping Warning */}
       <AccountMappingWarning context="system" />
 
-      {/* Header */}
-      <Box sx={{
-        display: 'flex',
-        flexDirection: isMobile ? 'column' : 'row',
-        justifyContent: 'space-between',
-        alignItems: isMobile ? 'stretch' : 'center',
-        mb: 3,
-        gap: isMobile ? 2 : 0
-      }}>
-        <Box sx={{ mb: isMobile ? 2 : 0 }}>
-          <Typography variant={isMobile ? TYPOGRAPHY_STYLES.pageHeader.mobileVariant : TYPOGRAPHY_STYLES.pageHeader.variant} sx={{
-            fontWeight: TYPOGRAPHY_STYLES.pageHeader.fontWeight,
-            mb: 1,
-            display: 'flex',
-            alignItems: 'center',
-            gap: 2
-          }}>
-            <CalendarIcon sx={{
-              fontSize: TYPOGRAPHY_STYLES.pageHeader.icon.fontSize,
-              color: TYPOGRAPHY_STYLES.pageHeader.icon.color
-            }} />
-            Fiscal Periods
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            Manage accounting periods for financial reporting ({pagination?.total || 0} total)
-          </Typography>
-        </Box>
-        <Box sx={{
-          display: 'flex',
-          flexDirection: isMobile ? 'column' : 'row',
-          gap: isMobile ? 1.5 : 1,
-          alignItems: isMobile ? 'stretch' : 'center'
-        }}>
-          <Button
-            variant="outlined"
-            startIcon={!isMobile ? <GenerateIcon /> : undefined}
-            onClick={handleGeneratePeriods}
-            size="medium"
-            fullWidth={isMobile}
-            sx={{
-              color: 'info.main',
-              borderColor: 'info.main',
-              '&:hover': {
-                borderColor: 'info.dark',
-                backgroundColor: 'info.light'
-              }
-            }}
-          >
-            {isMobile ? "Generate Periods" : "Generate"}
-          </Button>
-          <Button
-            variant="contained"
-            startIcon={!isMobile ? <AddIcon /> : undefined}
-            size="medium"
-            onClick={handleAddPeriod}
-            fullWidth={isMobile}
-          >
-            {isMobile ? "Add New Period" : "Add Period"}
-          </Button>
-        </Box>
-      </Box>
+      <PageHeader
+        title="Fiscal Periods"
+        subtitle="Manage accounting periods and year boundaries"
+        secondaryAction={{ label: 'Generate Periods', onClick: handleGeneratePeriods }}
+        primaryAction={{ label: 'Add Period', onClick: handleAddPeriod }}
+      />
 
       {/* Filters and Search */}
       <Paper sx={{ p: 2, mb: 3 }}>
