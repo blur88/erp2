@@ -1,159 +1,125 @@
-# 🎨 Dark Theme Palette (Base: #121212)
+# UI Design System Reference
+
+This document defines UI standards for the ERP frontend. It is a living reference - rules live here, implementation history lives in `docs/superpowers/specs/`.
 
 ---
 
-## 🧱 1. Core Background Layers
+## PageHeader
 
-| Usage | Color |
-|------|------|
-| App Background | #121212 |
-| Surface (cards, tables) | #1E1E1E |
-| Surface 2 (sections) | #232323 |
-| Hover / Active | #2C2C2C |
-| Sidebar | #0D0D0D |
-| Top Bar | #181818 |
-| Overlay | #000000 |
+### Purpose
 
----
+`PageHeader` is the standard page-level header component for all CRUD, list, and form pages. It provides a consistent title, optional subtitle, and up to two action buttons across all standard pages.
 
-## ✍️ 2. Text Colors
+### Anatomy
 
-| Usage | Color |
-|------|------|
-| Primary Text | #E0E0E0 |
-| Secondary Text | #A0A0A0 |
-| Muted / Disabled | #6B7280 |
-| Inverse Text | #111827 |
+```text
+Title
+Subtitle (optional)
+                    [Secondary Action]  [Primary Action]
+---------------------------------------------------------
+```
 
----
+### Props
 
-## 🎯 3. Primary / Accent
+| Prop | Type | Required | Default | Notes |
+|------|------|----------|---------|-------|
+| `title` | `string` | yes | - | Plain text only. No icons, counts, or dynamic values. |
+| `subtitle` | `string` | no | - | Optional. See subtitle policy below. |
+| `primaryAction` | `{ label, onClick, disabled? }` | no | - | Rendered as a contained button. |
+| `secondaryAction` | `{ label, onClick, disabled? }` | no | - | Rendered as an outlined button. |
+| `showDivider` | `boolean` | no | `true` | Set to `false` on form/create pages. |
+| `children` | `ReactNode` | no | - | Escape hatch for complex cases only. |
 
-| Usage | Color |
-|------|------|
-| Primary | #3B82F6 |
-| Primary Hover | #2563EB |
-| Primary Active | #1D4ED8 |
-| Primary Soft BG | #172554 |
+### Action Rules
 
----
+- Maximum 2 actions in the header: one primary, one secondary.
+- If a page has more than 2 actions, the primary CTA goes in `primaryAction`, secondary in `secondaryAction`, and any remaining actions move to a toolbar or inline controls below the header.
+- Do not add more actions by customizing `PageHeader`. If a page cannot fit within 2 actions without harming usability, defer it rather than extending the component.
+- Permission-gated actions: pass `primaryAction={canDoThing ? { label: '...', onClick: ... } : undefined}` - do not render a disabled primary action for permission checks.
 
-## ⚠️ 4. Semantic Colors
+### Subtitle Policy
 
-### Success
-| Usage | Color |
-|------|------|
-| Text / Icon | #22C55E |
-| Background | #052E16 |
+Subtitles are optional. Only add a subtitle where it adds clarity.
 
-### Warning
-| Usage | Color |
-|------|------|
-| Text / Icon | #F59E0B |
-| Background | #451A03 |
+Required when: Page purpose is not immediately obvious from the title alone; user benefits from operational context.
 
-### Error
-| Usage | Color |
-|------|------|
-| Text / Icon | #EF4444 |
-| Background | #450A0A |
+Forbidden content:
+- Dynamic values: counts, filter state, statuses, dates (for example `"14 pending orders"`, `"(filtered)"`)
+- Redundant text that restates the title (for example Title: "Suppliers" / Subtitle: "Manage suppliers")
+- Filler phrases: "This page allows you to...", "Here you can..."
 
-### Info
-| Usage | Color |
-|------|------|
-| Text / Icon | #38BDF8 |
-| Background | #082F49 |
+Style: Short, stable, operational. Present-tense verb phrase describing what the page helps the user do.
 
----
+```text
+OK  "Manage accounting periods and year boundaries"
+OK  "Configure default account assignments for transactions"
+NO  "14 Pending Orders Found"
+NO  "Manage Vendors"
+```
 
-## 🧩 5. Borders & Dividers
+### Do / Don't
 
-| Usage | Color |
-|------|------|
-| Default Border | #2A2A2A |
-| Strong Border | #3A3A3A |
-| Subtle Divider | #1A1A1A |
+Do:
+- Use `PageHeader` for all standard CRUD, list, and form pages
+- Keep titles concise, plain text, and stable
+- Use at most one primary and one secondary action
+- Write operational subtitles in plain English
+
+Don't:
+- Add icons to titles
+- Include dynamic data in titles or subtitles
+- Add more than 2 actions to the header
+- Customize layout or spacing per page
+- Force a subtitle if the title is self-explanatory
 
 ---
 
-## 🖱️ 6. Interaction States
+## PageHeader - When NOT to Use
 
-| Usage | Color |
-|------|------|
-| Hover | #2C2C2C |
-| Active Item Background | #1F2937 |
-| Focus Ring | #3B82F6 |
-| Selected Row | #172554 |
+Do not use `PageHeader` if the page requires more than one header region or custom header composition.
 
----
+### Exception Categories
 
-## 📊 7. Table Colors
+| Category | Examples | Why |
+|----------|----------|-----|
+| Tree / hierarchy | ChartOfAccountsPage, CategoriesPage | Require hierarchical navigation context, not a single title |
+| Dashboard / multi-section overview | DashboardPage, AccountingDashboardPage | Multiple header zones, no single page-level title |
+| Report / analytical | All report pages (TrialBalance, GeneralLedger, SalesOrderSummary, etc.) | Filter-heavy, parameter-driven layouts |
+| Multi-tab + sidebar filter | AuditLogsPage | Custom layout with multiple header regions |
+| Detail pages | CustomerProfilePage, JournalEntryDetailsPage, PriceListDetailsPage | Breadcrumb-led, read-only or tab-based layouts |
+| Multi-section overview | PurchasingPage | Multiple sub-headers, not a single page title |
+| Embedded section-header pattern | BackupManagement | Section headers are structural, not page-level |
+| Auth / error | LoginPage, MandatoryPasswordChangePage, NotFoundPage | No page header expected |
 
-| Usage | Color |
-|------|------|
-| Header Background | #1A1A1A |
-| Row Background | #121212 |
-| Alternate Row | #161616 |
-| Row Hover | #1F1F1F |
-| Border | #2A2A2A |
+### Decision Checklist
 
----
+Use `PageHeader` if ALL of the following are true:
 
-## 📦 8. Sidebar
+- [ ] The page has a single page-level title
+- [ ] The page has at most 2 primary actions in the header
+- [ ] No custom header widgets (date pickers, tabs, filter bars embedded in the header)
+- [ ] No multiple header zones
+- [ ] The title is stable, plain text
 
-| Usage | Color |
-|------|------|
-| Background | #0D0D0D |
-| Item | #121212 |
-| Hover | #1E1E1E |
-| Active Background | #1F2937 |
-| Active Text | #FFFFFF |
-| Text | #9CA3AF |
-| Icon | #6B7280 |
-| Active Icon | #3B82F6 |
+If any item is unchecked, do not use `PageHeader` - define an appropriate pattern first.
 
 ---
 
-## 🔝 9. Top Bar (Main Layout)
+## Deferred Pages
 
-| Usage | Color |
-|------|------|
-| Background | #181818 |
-| Border Bottom | #2A2A2A |
-| Text | #E0E0E0 |
-| Icon | #9CA3AF |
-| Hover | #2C2C2C |
-| Active | #1F2937 |
-| Search Background | #1E1E1E |
-| Search Placeholder | #6B7280 |
+Some pages are not yet migrated to `PageHeader`. These pages are not rejected - they require pattern validation before migration.
+
+> Deferred pages should not be force-fit into `PageHeader` until a suitable pattern is defined. Migration is only appropriate if the page can adopt `PageHeader` without introducing exceptions to layout, action constraints, or header composition.
+
+See `docs/superpowers/specs/2026-03-24-page-header-phase3-design.md` for the full classification table.
 
 ---
 
-## 🧠 Final Theme Object
+## Future Expansion
 
-```ts
-export const DARK_THEME = {
-  background: "#121212",
-  surface: "#1E1E1E",
-  surface2: "#232323",
-  hover: "#2C2C2C",
+This document will expand as new layout primitives are standardized. Planned additions:
 
-  sidebar: "#0D0D0D",
-  topbar: "#181818",
-
-  textPrimary: "#E0E0E0",
-  textSecondary: "#A0A0A0",
-  textMuted: "#6B7280",
-
-  primary: "#3B82F6",
-  primaryHover: "#2563EB",
-  primaryActive: "#1D4ED8",
-
-  success: "#22C55E",
-  warning: "#F59E0B",
-  error: "#EF4444",
-  info: "#38BDF8",
-
-  border: "#2A2A2A",
-  borderStrong: "#3A3A3A"
-}
+- Filter Bar
+- Table Toolbar / List Actions
+- Form Layout
+- Report & Dashboard Header Patterns
