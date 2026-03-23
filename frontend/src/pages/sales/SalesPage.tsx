@@ -327,7 +327,7 @@ const SalesPage: React.FC = () => {
       <PageHeader
         title="Sales Overview"
         subtitle="Monitor sales performance and manage customer relationships"
-        primaryAction={{ label: 'Create Order', onClick: () => navigate('/sales/orders') }}
+        primaryAction={{ label: 'Create Order', onClick: () => navigate('/sales/orders/create') }}
       />
 
       <Box sx={{ mb: 3 }}>
