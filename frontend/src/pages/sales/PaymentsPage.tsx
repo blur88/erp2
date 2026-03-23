@@ -530,7 +530,7 @@ const PaymentsPage: React.FC = () => {
       {/* Header */}
       <PageHeader
         title="Payments"
-        subtitle={`Manage customer payments and track financial transactions (${totalPayments} total)`}
+        subtitle="Review customer payments and transaction history"
         secondaryAction={{ label: 'View Deleted', onClick: () => setDeletedPaymentsDialogOpen(true) }}
       />
       {/* Filters and Search */}

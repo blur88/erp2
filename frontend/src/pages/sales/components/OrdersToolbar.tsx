@@ -72,7 +72,7 @@ const OrdersToolbar: React.FC<OrdersToolbarProps> = ({
     <>
       <PageHeader
         title="Sales Orders"
-        subtitle={`Manage your sales orders and track delivery status (${ordersCount} total)`}
+        subtitle="Track sales orders and delivery status"
         secondaryAction={{ label: 'View Deleted', onClick: onOpenDeleted }}
         primaryAction={{ label: 'Create Order', onClick: onCreateOrder }}
       />

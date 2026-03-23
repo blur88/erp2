@@ -390,7 +390,7 @@ const CustomersPage: React.FC = () => {
     <Box sx={{ p: 3 }}>
       <PageHeader
         title="Customers"
-        subtitle={`Manage your customers and client information (${customers.length} total)`}
+        subtitle="View customer profiles and client account details"
         secondaryAction={{ label: 'View Deleted', onClick: () => setIsDeletedDialogOpen(true) }}
         primaryAction={{ label: 'New Customer', onClick: () => handleOpenForm() }}
       />
