@@ -1,3 +1,10 @@
+## [1.21.2](https://github.com/blur88/erp2/compare/v1.21.1...v1.21.2) (2026-03-23)
+
+
+### Bug Fixes
+
+* **accounting:** remove stale TYPOGRAPHY_STYLES import from AccountMappingsPage ([4c083db](https://github.com/blur88/erp2/commit/4c083db49905b2435fc944835bcb310097c2cf4b))
+
 ## [1.21.1](https://github.com/blur88/erp2/compare/v1.21.0...v1.21.1) (2026-03-23)
 
 # [1.21.0](https://github.com/blur88/erp2/compare/v1.20.0...v1.21.0) (2026-03-23)
