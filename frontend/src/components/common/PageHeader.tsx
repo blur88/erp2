@@ -31,7 +31,7 @@ export default function PageHeader({
     <Box
       data-testid={showDivider ? 'page-header-divider' : undefined}
       sx={{
-        mb: 3,
+        mb: 4,
         pb: 2,
         ...(showDivider && {
           borderBottom: `1px solid ${theme.palette.divider}`,
@@ -53,7 +53,7 @@ export default function PageHeader({
         <Box sx={{ minWidth: 0 }}>
           <Typography
             variant="h5"
-            sx={{ fontWeight: 600, color: 'text.primary', lineHeight: 1.2 }}
+            sx={{ fontWeight: 700, color: 'text.primary', lineHeight: 1.2 }}
           >
             {title}
           </Typography>
