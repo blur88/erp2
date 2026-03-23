@@ -30,11 +30,11 @@ Lightweight entity — no `deletedAt` / `isActive` (append-only telemetry).
 
 | Column | Type | Constraints | Notes |
 |---|---|---|---|
-| `id` | uuid | PK | app-generated before insert |
+| `id` | uuid | PK | app-generated before insert — use `@PrimaryColumn('uuid')` (not `@PrimaryGeneratedColumn`) since the service assigns the ID before calling save() |
 | `query` | varchar(500) | NOT NULL | trimmed search string |
-| `user_id` | varchar(100) | NOT NULL | from JWT payload |
+| `user_id` | uuid | NOT NULL | from `req.user.userId` (JWT payload field name) |
 | `result_count` | int | NOT NULL | total results across all groups |
-| `execution_time_ms` | int | NOT NULL | server-side ms, non-negative |
+| `execution_time_ms` | int | NOT NULL | measured from before `Promise.all()` fan-out to after, using `Date.now()`; partial source failures (caught by `safeSearch`) are included in the window |
 | `created_at` | timestamptz | NOT NULL, default NOW() | |
 
 **Indexes:**
@@ -46,10 +46,10 @@ Lightweight entity — no `deletedAt` / `isActive` (append-only telemetry).
 
 | Column | Type | Constraints | Notes |
 |---|---|---|---|
-| `id` | uuid | PK | |
-| `search_query_id` | uuid | FK → search_queries, nullable | nullable for resilience |
+| `id` | uuid | PK | DB-generated via `@PrimaryGeneratedColumn('uuid')` |
+| `search_query_id` | uuid | FK → search_queries, nullable | nullable to handle clients that don't send it |
 | `query` | varchar(500) | NOT NULL | denormalized; trimmed |
-| `result_type` | varchar(100) | NOT NULL | `GlobalSearchResultType` enum value |
+| `result_type` | varchar(100) | NOT NULL | value from `GlobalSearchResultType` union (see note below) |
 | `result_id` | varchar(255) | NOT NULL | entity UUID or page route |
 | `result_label` | varchar(255) | nullable | display label at click time |
 | `position` | int | NOT NULL | 1-based rank |
@@ -59,7 +59,11 @@ Lightweight entity — no `deletedAt` / `isActive` (append-only telemetry).
 - `created_at` — retention deletes
 - `search_query_id` — query-to-click joins, CTR
 
-**FK behavior:** no `ON DELETE CASCADE` or `ON DELETE SET NULL` needed — retention job deletes clicks before queries.
+**FK behavior:** define with `onDelete: 'NO ACTION'` and `nullable: true` on the TypeORM `@ManyToOne` decorator. The retention scheduler must wrap both deletes in a **single transaction** (clicks first, then queries) to prevent FK violations on crash between the two deletes. No manual deletion of `search_queries` rows is expected outside the retention job.
+
+**Note on `result_type` values:** `GlobalSearchResultType` is a TypeScript string union type (not an enum). For DTO validation, a `SearchResultType` TypeScript enum must be created with all 9 values:
+`page`, `customer`, `product`, `transaction`, `supplier`, `invoice`, `customer_payment`, `vendor_payment`, `journal_entry`.
+Both sales orders and purchase orders use `'transaction'` — this ambiguity is accepted for Phase 5 analytics; Phase 6 can refine if needed.
 
 ---
 
@@ -72,14 +76,14 @@ Response adds `searchQueryId`:
 ```ts
 {
   query: string;
-  searchQueryId: string;   // UUID generated before insert attempt; always present
+  searchQueryId: string;   // UUID; always non-null on a 200 response (GlobalSearchQueryDto enforces @MinLength(2) so the early-return path is unreachable via the API)
   results: GlobalSearchResultDto[];
 }
 ```
 
 ### `POST /search/click` (new)
 
-**Auth:** same JWT guard as search endpoint.
+**Auth:** protected by the global `JwtAuthGuard` registered in `app.module.ts` — no explicit guard decorator needed on the controller.
 **Response:** `201 Created`, empty body.
 
 ```ts
@@ -87,14 +91,14 @@ Response adds `searchQueryId`:
 {
   searchQueryId?: string;   // @IsOptional() @IsUUID()
   query: string;            // @IsString() @MaxLength(500); trimmed before storing
-  resultType: GlobalSearchResultType;  // enum — validated, rejects unknown values
+  resultType: SearchResultType;        // NestJS enum (new, mirrors GlobalSearchResultType union) — validated, rejects unknown values
   resultId: string;         // @IsString() @MaxLength(255)
   resultLabel?: string;     // @IsOptional() @IsString() @MaxLength(255)
-  position: number;         // @IsInt() @Min(1) @Max(50)
+  position: number;         // @IsInt() @Min(1) @Max(50) — ceiling is 50 (2.5× SEARCH_RESPONSE_LIMIT of 20) to allow for client-side result caching; adjust if limit changes
 }
 ```
 
-**Fire-and-forget contract:** persistence failure is logged internally; endpoint always returns `201`.
+**Fire-and-forget contract:** the controller calls `logClick()` (returns `void`, never awaited) and immediately returns `201`. There is no causal relationship between write success and the response status — the `201` is returned regardless of whether the DB write succeeds.
 
 ---
 
@@ -107,6 +111,8 @@ Response adds `searchQueryId`:
 3. If the insert fails, the error is logged internally — the caller already has the ID and the response is unaffected
 
 This avoids any coupling between analytics persistence success and the search response contract.
+
+**Short queries:** `GlobalSearchQueryDto` enforces `@MinLength(2)`, so the internal `trimmed.length < 2` guard in `search()` is unreachable from the API. `searchQueryId` will always be a non-null `string` in every successful `200` response.
 
 ---
 
@@ -126,16 +132,20 @@ backend/src/modules/search/
   search.scheduler.ts            — daily retention cleanup at 2 AM
 
 backend/src/modules/search/dto/
-  track-click.dto.ts             — validated DTO for POST /search/click
+  track-click.dto.ts             — validated DTO for POST /search/click (uses SearchResultType enum)
+
+backend/src/modules/search/
+  search-result-type.enum.ts     — SearchResultType enum (mirrors GlobalSearchResultType union; needed for @IsEnum() validation)
 ```
 
 ### Modified files
 
 ```
 backend/src/database/entities/index.ts          — export new entities
+backend/src/config/database-config.factory.ts  — import and register SearchQuery + SearchClick in the entities array (critical: TypeORM loads entities from here, not from index.ts)
 backend/src/modules/search/search.service.ts    — inject analytics service, return searchQueryId
 backend/src/modules/search/search.controller.ts — add POST /search/click
-backend/src/modules/search/search.module.ts     — register entities, providers
+backend/src/modules/search/search.module.ts     — register entities, providers (SearchAnalyticsService, SearchScheduler)
 backend/src/modules/search/dto/global-search-response.dto.ts — add searchQueryId field
 ```
 
@@ -165,7 +175,7 @@ logQuery(params: {
 logClick(params: {
   searchQueryId?: string;
   query: string;
-  resultType: string;
+  resultType: string;   // deliberately typed as string to avoid coupling analytics service to SearchResultType enum; the controller has already validated the value via @IsEnum() before it reaches here
   resultId: string;
   resultLabel?: string;
   position: number;
@@ -182,21 +192,23 @@ Follows `auth.scheduler.ts` pattern exactly:
 @Cron(CronExpression.EVERY_DAY_AT_2AM)
 async handleRetentionCleanup() {
   // 1. log start
-  // 2. delete search_clicks older than 90 days
-  // 3. delete search_queries older than 90 days
-  // 4. log rows deleted
+  // 2. open a single DB transaction
+  // 3. delete search_clicks older than 90 days (clicks first — respects FK)
+  // 4. delete search_queries older than 90 days
+  // 5. commit transaction
+  // 6. log rows deleted from each table
   // catch: log error, do not rethrow
 }
 ```
 
-Delete order: clicks first, then queries (respects FK).
+The two deletes must run in a **single transaction** to prevent FK violations if the process crashes between steps.
 
 ---
 
 ## Retention Policy
 
 - **Window:** 90 days
-- **Schedule:** daily at 2 AM (`EVERY_DAY_AT_2AM`)
+- **Schedule:** daily at 2 AM (`EVERY_DAY_AT_2AM`) — intentionally aligns with `AuthScheduler`; both run concurrently, which is acceptable for lightweight deletes
 - **Method:** hard delete (`DELETE WHERE created_at < NOW() - INTERVAL '90 days'`)
 - **Idempotent:** safe to run multiple times
 - **Failure handling:** logs error, does not crash, does not retry
@@ -216,7 +228,7 @@ GROUP BY query
 ORDER BY occurrences DESC;
 ```
 
-The `(result_count, created_at)` composite index makes this efficient.
+The `(result_count, created_at)` composite index makes this efficient. Note: the query window (30 days) is an analytics window, not the retention window — data is kept for 90 days.
 
 ---
 
