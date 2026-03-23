@@ -90,9 +90,17 @@ describe('FundTransfersPage', () => {
     mockedApi.useCancelFundTransferMutation.mockReturnValue([vi.fn(), { isLoading: false }])
   })
 
-  it('renders the page title', () => {
+  it('renders the PageHeader title, subtitle, and refresh action', () => {
     renderPage()
+
     expect(screen.getByText('Fund Transfers')).toBeInTheDocument()
+    expect(
+      screen.getByText('Move funds between accounts and review transfer history'),
+    ).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /refresh/i })).toBeInTheDocument()
+    expect(
+      screen.queryByText('Move funds between eligible cash and bank accounts'),
+    ).not.toBeInTheDocument()
   })
 
   it('renders the transfer reference number in the table', () => {
