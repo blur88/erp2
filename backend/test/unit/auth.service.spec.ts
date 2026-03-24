@@ -10,12 +10,18 @@ import { RefreshToken } from '../../src/database/entities/refresh-token.entity';
 import { UnauthorizedException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { UserRole, UserStatus } from '../../src/database/entities/user.entity';
 
+jest.mock('bcrypt', () => ({
+  compare: jest.fn(),
+  hash: jest.fn(),
+}));
+
 describe('AuthService', () => {
   let service: AuthService;
   let userRepository: Repository<User>;
   let refreshTokenRepository: Repository<RefreshToken>;
   let jwtService: JwtService;
   let configService: ConfigService;
+  const mockedBcrypt = bcrypt as jest.Mocked<typeof bcrypt>;
 
   const mockUser: Partial<User> = {
     id: '123e4567-e89b-12d3-a456-426614174000',
@@ -99,6 +105,8 @@ describe('AuthService', () => {
 
     // Reset all mocks before each test
     jest.clearAllMocks();
+    mockedBcrypt.compare.mockReset();
+    mockedBcrypt.hash.mockReset();
   });
 
   it('should be defined', () => {
@@ -118,7 +126,7 @@ describe('AuthService', () => {
     };
 
     it('should validate user with correct credentials during login', async () => {
-      jest.spyOn(bcrypt, 'compare').mockImplementation(() => Promise.resolve(true));
+      mockedBcrypt.compare.mockResolvedValue(true as never);
       mockUserRepository.findOne.mockResolvedValue(mockUser);
       mockUserRepository.save.mockResolvedValue({ ...mockUser, lastLoginAt: new Date() });
       mockRefreshTokenRepository.create.mockReturnValue({});
@@ -140,7 +148,7 @@ describe('AuthService', () => {
     });
 
     it('should throw UnauthorizedException for invalid password', async () => {
-      jest.spyOn(bcrypt, 'compare').mockImplementation(() => Promise.resolve(false));
+      mockedBcrypt.compare.mockResolvedValue(false as never);
       mockUserRepository.findOne.mockResolvedValue(mockUser);
       mockUserRepository.save.mockImplementation((user) => Promise.resolve(user));
 
@@ -188,7 +196,7 @@ describe('AuthService', () => {
     };
 
     it('should login successfully with valid credentials', async () => {
-      jest.spyOn(bcrypt, 'compare').mockImplementation(() => Promise.resolve(true));
+      mockedBcrypt.compare.mockResolvedValue(true as never);
       mockUserRepository.findOne.mockResolvedValue(mockUser);
       mockUserRepository.save.mockResolvedValue({ ...mockUser, lastLoginAt: new Date() });
       mockRefreshTokenRepository.create.mockReturnValue({});
@@ -204,7 +212,7 @@ describe('AuthService', () => {
     });
 
     it('should increment failed login attempts on wrong password', async () => {
-      jest.spyOn(bcrypt, 'compare').mockImplementation(() => Promise.resolve(false));
+      mockedBcrypt.compare.mockResolvedValue(false as never);
       const userWithFailedAttempts = { ...mockUser, failedLoginAttempts: 2 };
       mockUserRepository.findOne.mockResolvedValue(userWithFailedAttempts);
       mockUserRepository.save.mockResolvedValue({ ...userWithFailedAttempts, failedLoginAttempts: 3 });
@@ -216,7 +224,7 @@ describe('AuthService', () => {
     });
 
     it('should lock account after 5 failed attempts', async () => {
-      jest.spyOn(bcrypt, 'compare').mockImplementation(() => Promise.resolve(false));
+      mockedBcrypt.compare.mockResolvedValue(false as never);
       const userWithMaxAttempts = { ...mockUser, failedLoginAttempts: 4 };
       mockUserRepository.findOne.mockResolvedValue(userWithMaxAttempts);
       mockUserRepository.save.mockImplementation((user) => Promise.resolve(user));
@@ -231,7 +239,7 @@ describe('AuthService', () => {
     });
 
     it('should reset failed login attempts on successful login', async () => {
-      jest.spyOn(bcrypt, 'compare').mockImplementation(() => Promise.resolve(true));
+      mockedBcrypt.compare.mockResolvedValue(true as never);
       const userWithPreviousFailures = { ...mockUser, failedLoginAttempts: 3 };
       mockUserRepository.findOne.mockResolvedValue(userWithPreviousFailures);
       mockUserRepository.save.mockResolvedValue({ ...userWithPreviousFailures, failedLoginAttempts: 0 });
@@ -260,7 +268,7 @@ describe('AuthService', () => {
     };
 
     it('should generate access and refresh tokens during login', async () => {
-      jest.spyOn(bcrypt, 'compare').mockImplementation(() => Promise.resolve(true));
+      mockedBcrypt.compare.mockResolvedValue(true as never);
       mockUserRepository.findOne.mockResolvedValue(mockUser);
       mockUserRepository.save.mockResolvedValue({ ...mockUser, lastLoginAt: new Date() });
       mockRefreshTokenRepository.create.mockReturnValue({});
@@ -274,7 +282,7 @@ describe('AuthService', () => {
     });
 
     it('should include correct payload in tokens', async () => {
-      jest.spyOn(bcrypt, 'compare').mockImplementation(() => Promise.resolve(true));
+      mockedBcrypt.compare.mockResolvedValue(true as never);
       mockUserRepository.findOne.mockResolvedValue(mockUser);
       mockUserRepository.save.mockResolvedValue({ ...mockUser, lastLoginAt: new Date() });
       mockRefreshTokenRepository.create.mockReturnValue({});
@@ -361,13 +369,10 @@ describe('AuthService', () => {
     };
 
     it('should change password successfully', async () => {
-      // Mock bcrypt.compare to return true for current password, false for new password check
-      const compareSpy = jest.spyOn(bcrypt, 'compare');
-      compareSpy
-        .mockImplementationOnce(() => Promise.resolve(true))  // Current password check - valid
-        .mockImplementationOnce(() => Promise.resolve(false)); // Same password check - different
-
-      jest.spyOn(bcrypt, 'hash').mockImplementation(() => Promise.resolve('new-hashed-password'));
+      mockedBcrypt.compare
+        .mockResolvedValueOnce(true as never)
+        .mockResolvedValueOnce(false as never);
+      mockedBcrypt.hash.mockResolvedValue('new-hashed-password' as never);
       mockUserRepository.findOne.mockResolvedValue(mockUser);
       mockUserRepository.save.mockResolvedValue({ ...mockUser, password: 'new-hashed-password' });
       mockRefreshTokenRepository.delete.mockResolvedValue({ affected: 1 });
@@ -381,7 +386,7 @@ describe('AuthService', () => {
     });
 
     it('should throw UnauthorizedException for incorrect current password', async () => {
-      jest.spyOn(bcrypt, 'compare').mockImplementation(() => Promise.resolve(false));
+      mockedBcrypt.compare.mockResolvedValue(false as never);
       mockUserRepository.findOne.mockResolvedValue(mockUser);
 
       await expect(
@@ -404,12 +409,11 @@ describe('AuthService', () => {
   describe('password hashing', () => {
     it('should hash password with bcrypt (12 rounds)', async () => {
       const plainPassword = 'Password@123';
-      const hashSpy = jest.spyOn(bcrypt, 'hash');
-      hashSpy.mockImplementation(() => Promise.resolve('$2b$12$hashed'));
+      mockedBcrypt.hash.mockResolvedValue('$2b$12$hashed' as never);
 
       const hashedPassword = await bcrypt.hash(plainPassword, 12);
 
-      expect(hashSpy).toHaveBeenCalledWith(plainPassword, 12);
+      expect(mockedBcrypt.hash).toHaveBeenCalledWith(plainPassword, 12);
       expect(hashedPassword).toBeDefined();
       expect(hashedPassword).toContain('$2b$12$');
     });
