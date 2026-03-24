@@ -1,3 +1,13 @@
+# [1.24.0](https://github.com/blur88/erp2/compare/v1.23.0...v1.24.0) (2026-03-24)
+
+
+### Features
+
+* **ui:** migrate CreatePurchaseOrderPage to PageHeader (Phase 4 Tier 1) ([92e7308](https://github.com/blur88/erp2/commit/92e7308a38a51780479c0b45f7fef2320f82f54b))
+* **ui:** migrate CreateStockAdjustmentPage to PageHeader (Phase 4 Tier 1) ([d73ce6d](https://github.com/blur88/erp2/commit/d73ce6da9333a9dece8b67974d624120593ed19c))
+* **ui:** migrate ExpensesPage to PageHeader; move bulk actions to selection-context bar (Phase 4 Tier 2) ([fb639d9](https://github.com/blur88/erp2/commit/fb639d93a97986e62ce71fb0b3866c2d081fb651))
+* **ui:** migrate JournalEntryFormPage to PageHeader (Phase 4 Tier 1) ([f52edb9](https://github.com/blur88/erp2/commit/f52edb9d4e74fc118c201e4520a86b04637284c6))
+
 # [1.23.0](https://github.com/blur88/erp2/compare/v1.22.3...v1.23.0) (2026-03-24)
 
 
