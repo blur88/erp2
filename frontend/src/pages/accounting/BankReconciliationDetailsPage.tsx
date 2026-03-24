@@ -200,7 +200,7 @@ const BankReconciliationDetailsPage: React.FC = () => {
         variant="workflow"
         title={reconciliation.account ? `${reconciliation.account.code} - ${reconciliation.account.name}` : 'Bank Reconciliation'}
         subtitle={reconciliation.fiscalPeriod?.name || reconciliation.fiscalPeriodId}
-        meta={
+        titleBadge={
           <Chip
             size="small"
             label={reconciliation.status === BankReconciliationStatus.COMPLETED ? 'Completed' : 'In Progress'}

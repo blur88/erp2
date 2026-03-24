@@ -357,7 +357,7 @@ const JournalEntriesPage: React.FC = () => {
         variant="workflow"
         title="Journal Entries"
         subtitle={`Manage and post accounting journal entries (${pagination?.total || 0} total)`}
-        meta={<Chip size="small" label={`${pagination?.total || 0} total`} />}
+        titleBadge={<Chip size="small" label={`${pagination?.total || 0} total`} />}
         toolbar={
           <Stack direction="row" spacing={2}>
             {selectedIds.size > 0 && (

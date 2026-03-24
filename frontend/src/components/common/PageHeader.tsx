@@ -14,7 +14,7 @@ type PageHeaderProps = {
   secondaryAction?: PageHeaderAction
   showDivider?: boolean
   variant?: 'standard' | 'report' | 'overview' | 'structure' | 'workflow' | 'system'
-  meta?: ReactNode
+  titleBadge?: ReactNode
   toolbar?: ReactNode
   children?: ReactNode
 }
@@ -26,7 +26,7 @@ export default function PageHeader({
   secondaryAction,
   showDivider = true,
   variant: _variant,
-  meta,
+  titleBadge,
   toolbar,
   children,
 }: PageHeaderProps) {
@@ -58,12 +58,15 @@ export default function PageHeader({
         }}
       >
         <Box sx={{ minWidth: 0, flex: '1 1 auto' }}>
-          <Typography
-            variant="h5"
-            sx={{ fontWeight: 700, color: 'text.primary', lineHeight: 1.2 }}
-          >
-            {title}
-          </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Typography
+              variant="h5"
+              sx={{ fontWeight: 700, color: 'text.primary', lineHeight: 1.2 }}
+            >
+              {title}
+            </Typography>
+            {titleBadge}
+          </Box>
           {subtitle && (
             <Typography variant="body2" sx={{ mt: 0.5, color: 'text.secondary' }}>
               {subtitle}
@@ -106,12 +109,6 @@ export default function PageHeader({
           </Box>
         )}
       </Box>
-
-      {meta && (
-        <Box data-testid="page-header-meta" sx={{ mt: 1 }}>
-          {meta}
-        </Box>
-      )}
 
       {toolbar && (
         <Box data-testid="page-header-toolbar" sx={{ mt: 1 }}>

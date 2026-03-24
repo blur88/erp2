@@ -233,7 +233,7 @@ const AccountingDashboardPage: React.FC = () => {
         variant="overview"
         title="Accounting Dashboard"
         subtitle="Overview of your financial position and accounting activity"
-        meta={
+        titleBadge={
           currentPeriod ? (
             <Chip
               label={`${currentPeriod.name} ${isCurrentPeriodOpen ? 'Open' : 'Closed'}`}

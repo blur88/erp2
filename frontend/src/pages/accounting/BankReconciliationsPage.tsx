@@ -173,7 +173,7 @@ const BankReconciliationsPage: React.FC = () => {
         variant="workflow"
         title="Bank Reconciliations"
         subtitle="Reconcile bank and cash accounts"
-        meta={<Chip size="small" label={selectedPeriodLabel} />}
+        titleBadge={<Chip size="small" label={selectedPeriodLabel} />}
         toolbar={
           <Button variant="contained" startIcon={<AddIcon />} onClick={handleOpenCreate}>
             New Reconciliation
