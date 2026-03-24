@@ -80,7 +80,7 @@ These pages are not yet migrated. Do not force-fit them into `PageHeader` until 
 | PurchasingPage | Purchasing | Multi-section overview, multiple header zones |
 | PriceListDetailsPage | Settings | Detail page, nonstandard layout |
 | CustomerProfilePage | Sales | Detail + tabs layout |
-| BackupManagement | Settings | Embedded section-header pattern |
+| BackupManagement | Settings | Embedded section-header pattern (filename: `BackupManagement.tsx` — no Page suffix) |
 
 ### Permanent Exceptions
 
@@ -105,7 +105,7 @@ All three pages follow the same pattern as `CreateSalesOrderPage`: a back-button
 ### Migration rules
 
 1. Keep the `IconButton` back-arrow as a sibling element above `PageHeader` — consistent with `CreateSalesOrderPage`. Back navigation is navigation, not a page action. Do not put it inside `PageHeader`.
-2. The back-arrow `IconButton` must be top-left aligned with `mb: 1` spacing — matching `CreateSalesOrderPage` (line 422).
+2. The back-arrow `IconButton` must use `sx={{ mb: 1 }}` — matching `CreateSalesOrderPage` line 422. That reference also has `mr: 2` but since `PageHeader` is a block element on the next line, `mr` has no visual effect and may be omitted.
 3. Replace the legacy `Typography` title block and its wrapper `Box` with `<PageHeader title="..." showDivider={false} />`.
 4. No subtitle — form pages with dynamic titles do not benefit from one.
 5. Remove `TYPOGRAPHY_STYLES.pageHeader` import if no other keys from `TYPOGRAPHY_STYLES` remain in use.
@@ -201,7 +201,7 @@ Do not add subtitles to pages that currently lack one unless the title is genuin
 
 Add two selectors to the `no-restricted-syntax` rule in the frontend ESLint config (`frontend/eslint.config.js`). This rule is added **after** all Tier 1 and Tier 2 migrations are complete, so it lands on a codebase with zero existing violations.
 
-The project uses ESLint flat config with `tseslint.config(...)`. Add the rule to the existing `rules` object in the last config block:
+The project uses ESLint flat config with `tseslint.config(...)`. Add the rule to the existing `rules` object — the block that already contains `'react-hooks/exhaustive-deps': 'off'` (lines 22–57 of `eslint.config.js`):
 
 ```js
 // In frontend/eslint.config.js, inside the rules object:
