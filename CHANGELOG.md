@@ -1,9 +1,29 @@
 ## [1.22.3](https://github.com/blur88/erp2/compare/v1.22.2...v1.22.3) (2026-03-24)
 
+### Internal Changes
+
+* chore(deps): revert TypeScript 6.0.2 → 5.9.3 to satisfy typescript-eslint peer deps (unblock CI, issue #176)
+* docs(plan): add implementation plan for issue #176 TypeScript revert
+* docs(spec): apply final review refinements to issue #176 spec
+* docs(spec): update issue #176 spec with reviewer fixes
+* docs(spec): add design doc for issue #176 TypeScript revert
+* chore(deps): upgrade TypeScript to 6.0.2 with minimal tsconfig compatibility fixes
+* chore(deps): bump react-router-dom from 7.13.1 to 7.13.2
+* docs(plan): add implementation plan for issue #174 dependency upgrade
+* docs(spec): tighten wording in issue #174 dependency upgrade spec
+* docs(spec): add design doc for issue #174 dependency upgrade
 ## [1.22.2](https://github.com/blur88/erp2/compare/v1.22.1...v1.22.2) (2026-03-24)
 
+### Internal Changes
+
+* chore: update package-lock.json files.
 ## [1.22.1](https://github.com/blur88/erp2/compare/v1.22.0...v1.22.1) (2026-03-23)
 
+### Internal Changes
+
+* chore: update dependency lock files
+* docs(plan): add implementation plan for issue #169 test noise fixes
+* docs(spec): add design doc for issue #169 test noise and MSW handler fixes
 # [1.22.0](https://github.com/blur88/erp2/compare/v1.21.2...v1.22.0) (2026-03-23)
 
 
@@ -21,6 +41,16 @@
 
 ## [1.21.1](https://github.com/blur88/erp2/compare/v1.21.0...v1.21.1) (2026-03-23)
 
+### Internal Changes
+
+* chore: add refactor type to semantic-release rules
+* refactor(purchasing): migrate PurchaseOrdersToolbar, SuppliersPage, VendorPaymentsPage, GoodsReceivedPage to PageHeader
+* refactor(settings): migrate 10 settings pages to PageHeader
+* refactor(inventory): migrate inventory pages to PageHeader
+* refactor(page-header): bump title weight to 700, increase bottom margin to mb:4
+* docs: add PageHeader polish & rollout implementation plan
+* docs: update PageHeader spec with reviewer fixes
+* docs: add PageHeader polish & Phase 2 rollout design spec
 # [1.21.0](https://github.com/blur88/erp2/compare/v1.20.0...v1.21.0) (2026-03-23)
 
 
@@ -57,6 +87,13 @@
 
 ## [1.19.1](https://github.com/blur88/erp2/compare/v1.19.0...v1.19.1) (2026-03-23)
 
+### Internal Changes
+
+* chore: Update frontend and backend dependencies.
+* docs(search): add Phase 5 analytics implementation plan
+* docs(search): refine Phase 5 spec — ID generation flow, position max, fire-and-forget wording, retention test
+* docs(search): fix Phase 5 spec issues from review (entity registration, PK type, enum values, FK transaction)
+* docs(search): add Phase 5 analytics & observability design spec
 # [1.19.0](https://github.com/blur88/erp2/compare/v1.18.2...v1.19.0) (2026-03-23)
 
 
@@ -83,6 +120,9 @@
 
 ## [1.18.1](https://github.com/blur88/erp2/compare/v1.18.0...v1.18.1) (2026-03-22)
 
+### Internal Changes
+
+* chore: Update backend and frontend package dependencies.
 # [1.18.0](https://github.com/blur88/erp2/compare/v1.17.2...v1.18.0) (2026-03-21)
 
 
@@ -105,8 +145,18 @@
 
 ## [1.17.2](https://github.com/blur88/erp2/compare/v1.17.1...v1.17.2) (2026-03-21)
 
+### Internal Changes
+
+* docs: correct @eslint/js version in spec and plan
+* chore(deps): update eslint to 10.1.0 in frontend
+* chore(deps): update eslint to 10.1.0 in backend
+* docs: add ESLint 10.1.0 update implementation plan
+* docs: add ESLint 10.1.0 update design spec
 ## [1.17.1](https://github.com/blur88/erp2/compare/v1.17.0...v1.17.1) (2026-03-21)
 
+### Internal Changes
+
+* chore: update dependency lock files
 # [1.17.0](https://github.com/blur88/erp2/compare/v1.16.0...v1.17.0) (2026-03-21)
 
 
@@ -147,6 +197,9 @@
 
 ## [1.15.1](https://github.com/blur88/erp2/compare/v1.15.0...v1.15.1) (2026-03-19)
 
+### Internal Changes
+
+* chore: Update frontend and backend dependencies.
 # [1.15.0](https://github.com/blur88/erp2/compare/v1.14.1...v1.15.0) (2026-03-19)
 
 
@@ -168,6 +221,24 @@
 
 ## [1.14.1](https://github.com/blur88/erp2/compare/v1.14.0...v1.14.1) (2026-03-19)
 
+### Internal Changes
+
+* chore: extend semantic-release to bump patch on style and chore commits
+* docs: add version bump rules implementation plan
+* docs: update version bump rules spec with accurate fallback and loop prevention details
+* docs: add version bump rules design spec
+* style: enforce explicit box-sizing and minHeight on both header containers
+* style: unify header geometry with shared TOPBAR_HEIGHT constant
+* style: improve breadcrumb font size, alignment and transition
+* style: add hover treatment to SystemStatus IconButton
+* style: add hover treatment to notification IconButton
+* style: increase top bar right-side action spacing to 16px
+* style: strengthen breadcrumb hierarchy contrast and add ancestor hover
+* docs: add implementation plan for top bar polish pass (issue #140)
+* docs: clarify breadcrumb hover applies only to navigable Link items
+* docs: clarify gap affects all three right-side children in #140 spec
+* docs: add design spec for top bar polish pass (issue #140)
+* chore: update dependencies in both frontend and backend package-lock files.
 # [1.14.0](https://github.com/blur88/erp2/compare/v1.13.0...v1.14.0) (2026-03-19)
 
 
