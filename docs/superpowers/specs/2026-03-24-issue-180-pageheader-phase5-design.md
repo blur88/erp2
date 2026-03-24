@@ -236,12 +236,10 @@ Subtitle
 
 ### Pages
 
-| Page | File | Module |
-|------|------|--------|
-| `AuditLogsPage` | `AuditLogsPage.tsx` | Audit |
-| `BackupManagement` | `BackupManagement.tsx` | Settings |
-
-> `BackupManagement.tsx` has no `Page` suffix — use the exact filename when searching or modifying.
+| Page | File | Module | Notes |
+|------|------|--------|-------|
+| `AuditLogsPage` | `AuditLogsPage.tsx` | Audit | Phase 4 designated this a "Permanent Exception" (multi-tab + sidebar filter). Phase 5's `system` variant accommodates its header structure — the exception classification is superseded. The multi-tab body content does not move. |
+| `BackupManagement` | `BackupManagement.tsx` | Settings | No `Page` suffix — use exact filename when searching or modifying. |
 
 ---
 
@@ -262,12 +260,12 @@ Title                        [Action]
 
 ### Pages
 
-| Page | Module |
-|------|--------|
-| `JournalEntriesPage` | Accounting |
-| `JournalEntryDetailsPage` | Accounting |
-| `BankReconciliationsPage` | Accounting |
-| `BankReconciliationDetailsPage` | Accounting |
+| Page | Module | Notes |
+|------|--------|-------|
+| `JournalEntriesPage` | Accounting | Full workflow pattern: `meta` (period/status) + `toolbar` (control row) |
+| `JournalEntryDetailsPage` | Accounting | Read-only detail layout; use `meta` for entry status/period context, no `toolbar` expected |
+| `BankReconciliationsPage` | Accounting | Full workflow pattern: `meta` (period/status) + `toolbar` (control row) |
+| `BankReconciliationDetailsPage` | Accounting | Read-only detail layout (same as `JournalEntryDetailsPage`); use `meta` only, no `toolbar` expected |
 
 ---
 
