@@ -22,7 +22,6 @@ import {
   useMediaQuery,
 } from '@mui/material';
 import {
-  Add as AddIcon,
   Delete as DeleteIcon,
 } from '@mui/icons-material';
 import PageHeader from '@/components/common/PageHeader';
@@ -174,11 +173,7 @@ const BankReconciliationsPage: React.FC = () => {
         title="Bank Reconciliations"
         subtitle="Reconcile bank and cash accounts"
         titleBadge={<Chip size="small" label={selectedPeriodLabel} />}
-        toolbar={
-          <Button variant="contained" startIcon={<AddIcon />} onClick={handleOpenCreate}>
-            New Reconciliation
-          </Button>
-        }
+        primaryAction={{ label: 'New Reconciliation', onClick: handleOpenCreate }}
       />
 
       <Paper sx={{ p: 2, mb: 3 }}>
