@@ -35,6 +35,7 @@ import {
 import { useForm, useFieldArray, Controller, useWatch } from 'react-hook-form'
 import { yupResolver } from '@hookform/resolvers/yup'
 import * as yup from 'yup'
+import PageHeader from '@/components/common/PageHeader'
 import { useNotification } from '@/hooks/useNotification'
 import {
   useCreateJournalEntryMutation,
@@ -46,7 +47,6 @@ import {
 import { formatCurrency, formatDate, getCurrentDate } from '@/utils/formatters'
 import { JournalEntryStatus, FiscalPeriodStatus } from '@/types'
 import { useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
-import { TYPOGRAPHY_STYLES } from '@/constants/typography'
 import { getErrorMessage } from '@/utils/errorMessage'
 
 interface JournalEntryLineForm {
@@ -357,14 +357,13 @@ const JournalEntryFormPage: React.FC = () => {
   return (
     <Box sx={{ p: 3 }}>
       {/* Header */}
-      <Box sx={{ mb: 3, display: 'flex', alignItems: 'center', gap: 2 }}>
-        <IconButton onClick={handleBack}>
-          <ArrowBackIcon />
-        </IconButton>
-        <Typography variant={TYPOGRAPHY_STYLES.pageHeader.variant} sx={{ fontWeight: TYPOGRAPHY_STYLES.pageHeader.fontWeight }}>
-          {isEditMode ? 'Edit Journal Entry' : 'New Journal Entry'}
-        </Typography>
-      </Box>
+      <IconButton onClick={handleBack} sx={{ mb: 1 }}>
+        <ArrowBackIcon />
+      </IconButton>
+      <PageHeader
+        title={isEditMode ? 'Edit Journal Entry' : 'New Journal Entry'}
+        showDivider={false}
+      />
 
       {/* Error Alert */}
       {errorMessage && (
