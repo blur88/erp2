@@ -66,23 +66,24 @@ async function transform(commit, context) {
  *   - Otherwise: replace commitGroups with a single 'Internal Changes' group.
  */
 function finalizeContext(templateContext, options, filteredCommits, keyCommit, allCommits) {
-  if (!allCommits || allCommits.length === 0) {
+  const commits = allCommits && allCommits.length > 0 ? allCommits : filteredCommits;
+
+  if (!commits || commits.length === 0) {
     console.warn(
-      '[release.config.cjs] WARNING: allCommits (5th arg to finalizeContext) is empty or undefined. ' +
-        'This may indicate a conventional-changelog-writer version incompatibility. ' +
-        'Falling back to filteredCommits - internal-only detection may be unreliable.'
+      '[release.config.cjs] WARNING: finalizeContext received no commits to classify. ' +
+        'This may indicate a conventional-changelog-writer version incompatibility.'
     );
     return templateContext;
   }
 
-  const classification = classifyRelease(allCommits);
+  const classification = classifyRelease(commits);
 
   if (classification === 'user-facing') {
     templateContext.commitGroups = (templateContext.commitGroups || []).filter(group => group.title !== 'Internal Changes');
     return templateContext;
   }
 
-  const entries = buildInternalChangesCommits(allCommits);
+  const entries = buildInternalChangesCommits(commits);
 
   if (entries.length === 0) {
     console.warn(
