@@ -91,6 +91,28 @@ describe('CreatePurchaseOrderPage', { timeout: 60000 }, () => {
     })
   })
 
+  it('renders PageHeader with title "Create Purchase Order" in create mode', () => {
+    render(
+      <BrowserRouter>
+        <CreatePurchaseOrderPage />
+      </BrowserRouter>
+    )
+
+    expect(screen.getByRole('heading', { name: 'Create Purchase Order' })).toBeInTheDocument()
+  })
+
+  it('renders PageHeader with title "Edit Purchase Order" in edit mode', async () => {
+    mockParams.mockReturnValue({ id: 'po-test-id' })
+
+    render(
+      <BrowserRouter>
+        <CreatePurchaseOrderPage />
+      </BrowserRouter>
+    )
+
+    expect(await screen.findByRole('heading', { name: 'Edit Purchase Order' })).toBeInTheDocument()
+  })
+
   it('replaces the autocomplete options with only the latest product search results', async () => {
     render(
       <BrowserRouter>
