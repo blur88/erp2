@@ -50,13 +50,14 @@ export default function PageHeader({
           justifyContent: 'space-between',
           alignItems: 'center',
           gap: 2,
+          flexWrap: 'nowrap',
           [theme.breakpoints.down('sm')]: {
             flexDirection: 'column',
             alignItems: 'flex-start',
           },
         }}
       >
-        <Box sx={{ minWidth: 0 }}>
+        <Box sx={{ minWidth: 0, flex: '1 1 auto' }}>
           <Typography
             variant="h5"
             sx={{ fontWeight: 700, color: 'text.primary', lineHeight: 1.2 }}

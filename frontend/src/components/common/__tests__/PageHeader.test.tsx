@@ -162,4 +162,27 @@ describe('PageHeader', () => {
       ).not.toThrow()
     })
   })
+
+  it('keeps the desktop header row on a single line while allowing the title block to shrink', () => {
+    const { container } = renderWithTheme(
+      <PageHeader
+        title="A very long page title that should be allowed to shrink within the left column"
+        subtitle="Subtitle"
+        primaryAction={{ label: 'Primary', onClick: vi.fn() }}
+        secondaryAction={{ label: 'Secondary', onClick: vi.fn() }}
+      />
+    )
+
+    const boxes = Array.from(container.querySelectorAll('.MuiBox-root'))
+    const topRow = boxes.find((box) => window.getComputedStyle(box).justifyContent === 'space-between')
+    expect(topRow).toBeTruthy()
+    expect(window.getComputedStyle(topRow as HTMLElement).flexWrap).toBe('nowrap')
+
+    const title = screen.getByText(
+      'A very long page title that should be allowed to shrink within the left column'
+    )
+    const titleBlock = title.closest('.MuiBox-root')
+    expect(titleBlock).toBeTruthy()
+    expect(window.getComputedStyle(titleBlock as HTMLElement).flex).toBe('1 1 auto')
+  })
 })
