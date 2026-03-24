@@ -100,6 +100,19 @@ describe('ExpensesPage', () => {
     expect(screen.getByText('EXP-001')).toBeInTheDocument()
   })
 
+  it('renders Expenses title via PageHeader (h5 heading)', () => {
+    renderPage()
+
+    expect(screen.getByRole('heading', { level: 5, name: 'Expenses' })).toBeInTheDocument()
+  })
+
+  it('bulk action buttons are hidden when no rows are selected', () => {
+    renderPage()
+
+    expect(screen.queryByText(/Bulk Post/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/Bulk Delete/i)).not.toBeInTheDocument()
+  })
+
   it('shows loading state', () => {
     mockedApi.useGetExpensesQuery.mockReturnValue({
       data: undefined,
