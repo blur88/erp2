@@ -64,15 +64,15 @@ it('renders PageHeader with title "Edit Purchase Order" in edit mode', async () 
 })
 ```
 
-> **Note on `getByRole('heading')`:** `PageHeader` renders the title as an MUI `Typography` with `variant="h5"` which maps to an `<h5>` element, so `getByRole('heading')` matches it. If the test cannot find a heading, fall back to `screen.getByText('Create Purchase Order')`.
+> **Note on `getByRole('heading')`:** `PageHeader` renders the title as `Typography variant="h5"` (an `<h5>`). The legacy header used `TYPOGRAPHY_STYLES.pageHeader.variant` = `'h4'` (an `<h4>`). Both have the heading role, so `getByRole('heading', { name: '...' })` passes both before and after migration for Tasks 1–3. These tests are correctness assertions, not red-green gates — they verify the title text is present as a heading and will still catch regressions if the title text changes or `PageHeader` is removed.
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [ ] **Step 2: Run tests to verify they run cleanly**
 
 ```bash
 cd frontend && npx vitest run src/pages/purchasing/__tests__/CreatePurchaseOrderPage.test.tsx --no-coverage
 ```
 
-Expected: new tests FAIL (the legacy `Typography` is not a heading element).
+Expected: new tests PASS (both the legacy `Typography variant="h4"` and `PageHeader`'s `Typography variant="h5"` render heading elements, so `getByRole('heading')` matches both — these tests are correctness assertions, not red-green gates). All existing tests continue to pass.
 
 - [ ] **Step 3: Implement the migration**
 
@@ -164,13 +164,13 @@ it('renders PageHeader with title "Create Stock Adjustment" in create mode', () 
 })
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [ ] **Step 2: Run test to verify it runs cleanly**
 
 ```bash
 cd frontend && npx vitest run src/pages/inventory/__tests__/CreateStockAdjustmentPage.test.tsx --no-coverage
 ```
 
-Expected: new test FAIL.
+Expected: new test PASSES (same reason as Task 1 — heading role matched by both h4 and h5). All existing tests continue to pass.
 
 - [ ] **Step 3: Implement the migration**
 
@@ -258,13 +258,13 @@ it('renders PageHeader with title "Edit Journal Entry" in edit mode', async () =
 })
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [ ] **Step 2: Run tests to verify they run cleanly**
 
 ```bash
 cd frontend && npx vitest run src/pages/accounting/__tests__/JournalEntryFormPage.test.tsx --no-coverage
 ```
 
-Expected: new tests FAIL.
+Expected: new tests PASS (same reason as Tasks 1–2 — heading role matched by both h4 and h5). All existing tests continue to pass.
 
 - [ ] **Step 3: Implement the migration**
 
@@ -343,14 +343,16 @@ This is a Tier 2 migration. The page header currently contains the title, subtit
 
 - [ ] **Step 1: Write the failing test**
 
-Open `frontend/src/pages/accounting/__tests__/ExpensesPage.test.tsx`. The existing `'renders the page title'` test uses `getByText('Expenses')` — this passes before and after migration. Add a test that will actually fail before migration:
+Open `frontend/src/pages/accounting/__tests__/ExpensesPage.test.tsx`. The existing `'renders the page title'` test uses `getByText('Expenses')` — this passes before and after migration.
+
+The legacy header uses `TYPOGRAPHY_STYLES.pageHeader.variant` = `'h4'` (an `<h4>` element). `PageHeader` renders `Typography variant="h5"` (an `<h5>` element). Use `getByRole('heading', { level: 5 })` as the red-green test — it will fail before migration (no `<h5>` heading exists yet) and pass after (`PageHeader` renders `<h5>`).
 
 ```tsx
-it('renders Expenses title as a heading (PageHeader)', () => {
+it('renders Expenses title via PageHeader (h5 heading)', () => {
   renderPage()
-  // PageHeader renders title as Typography variant="h5" (an <h5> element)
-  // The current legacy Typography is not a heading — this test should fail before migration
-  expect(screen.getByRole('heading', { name: 'Expenses' })).toBeInTheDocument()
+  // PageHeader renders Typography variant="h5" — the legacy header used h4
+  // This assertion will fail until PageHeader is in place
+  expect(screen.getByRole('heading', { level: 5, name: 'Expenses' })).toBeInTheDocument()
 })
 ```
 
@@ -370,7 +372,7 @@ it('bulk action buttons are hidden when no rows are selected', () => {
 cd frontend && npx vitest run src/pages/accounting/__tests__/ExpensesPage.test.tsx --no-coverage
 ```
 
-Expected: `'renders Expenses title as a heading'` FAILS (the legacy `Typography` with `TYPOGRAPHY_STYLES.pageHeader.variant` is `h6`, not a semantic heading that `getByRole('heading')` resolves correctly from a non-h-tag). The bulk-action test PASSES — that's expected.
+Expected: `'renders Expenses title via PageHeader (h5 heading)'` FAILS — the legacy `Typography variant="h4"` renders an `<h4>`, not an `<h5>`, so `getByRole('heading', { level: 5 })` finds nothing. The bulk-action test PASSES — that's expected.
 
 - [ ] **Step 3: Implement the migration**
 
