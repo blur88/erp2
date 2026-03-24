@@ -10,10 +10,6 @@ const REPO_ROOT = path.resolve(__dirname, '..');
 const CHANGELOG_PATH = path.join(REPO_ROOT, 'CHANGELOG.md');
 
 const TARGET_TAGS = [
-  'v1.2.1',
-  'v1.3.1',
-  'v1.4.1',
-  'v1.5.1',
   'v1.14.1',
   'v1.15.1',
   'v1.17.1',
@@ -21,6 +17,9 @@ const TARGET_TAGS = [
   'v1.18.1',
   'v1.19.1',
   'v1.21.1',
+  'v1.22.1',
+  'v1.22.2',
+  'v1.22.3',
 ];
 
 const SEMVER_TAG_RE = /^v\d+\.\d+\.\d+$/;
