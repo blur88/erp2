@@ -4,6 +4,7 @@
 **Issue:** [#176](https://github.com/blur88/erp2/issues/176)
 **PR:** [#175](https://github.com/blur88/erp2/pull/175)
 **Branch:** `deps/issue-174-ts6-router-upgrade`
+**TS 6 upgrade commit:** `355d44823`
 **Scope:** Revert TypeScript 6.0.2 → 5.9.3 in frontend and backend; keep react-router-dom patch bump; defer TS 6 upgrade
 
 ---
@@ -17,7 +18,9 @@ npm error peer typescript@">=4.8.4 <6.0.0" from @typescript-eslint/eslint-plugin
 npm error peer typescript@">=4.8.4 <6.0.0" from typescript-eslint@8.57.2
 ```
 
-`typescript-eslint@8.57.2` (the latest stable release as of 2026-03-24, including all alpha/canary versions) has a hard peer dependency constraint of `typescript <6.0.0`. No published version of typescript-eslint lifts this constraint. The constraint is not a cosmetic warning — it prevents installation entirely, making PR #175 unmergeable in any standards-compliant CI pipeline.
+Both packages declare `"typescript-eslint": "^8.56.1"` (frontend) and `"@typescript-eslint/eslint-plugin": "^8.46.0"` (backend), which resolve to `8.57.2` at lockfile time. That version has a hard peer dependency constraint of `typescript <6.0.0`. The constraint is not a cosmetic warning — it prevents installation entirely, making PR #175 unmergeable in any standards-compliant CI pipeline.
+
+No published version of typescript-eslint (stable, RC, alpha, or canary as of 2026-03-24) lifts this constraint.
 
 ---
 
@@ -45,52 +48,65 @@ No public typescript-eslint release (stable, RC, alpha, or canary as of 2026-03-
 
 ### What changes
 
+All changes are relative to commit `355d44823` (the TS 6 upgrade). The react-router-dom bump (commit `717ff718a`) is untouched.
+
 | File | Change |
 |---|---|
 | `backend/package.json` | `"typescript": "6.0.2"` → `"typescript": "5.9.3"` |
 | `frontend/package.json` | `"typescript": "6.0.2"` → `"typescript": "5.9.3"` (exact pin) |
 | `backend/package-lock.json` | Regenerated via `npm install` |
 | `frontend/package-lock.json` | Regenerated via `npm install` |
+| `backend/nest-cli.json` | Revert: `"webpack": false` → `"webpack": true`; `"tsConfigPath": "tsconfig.build.json"` → `"tsConfigPath": "tsconfig.json"` |
+| `backend/tsconfig.build.json` | **Delete** — this file was created for TS 6 and has no purpose under TS 5.x. Before deleting, confirm no other config references it: `grep -r "tsconfig.build.json" . --include="*.json" --include="*.yml" --include="*.yaml" --exclude-dir=node_modules` — expected: only `nest-cli.json` (which is being reverted anyway) |
+| `backend/tsconfig.json` | Remove `"ignoreDeprecations": "6.0"` (TS 6-specific, invalid under 5.x); remove `"types": ["node", "jest"]` (added as part of the TS 6 split — see note below) |
+| `frontend/tsconfig.json` | Remove `"ignoreDeprecations": "6.0"` (TS 6-specific, invalid under 5.x) |
+| `backend/src/common/security/middleware/security-application.service.ts` | **Revert** — see note below |
+| `backend/test/unit/auth.service.spec.ts` | **Retain** — see note below |
 
-The `react-router-dom` `7.13.1` → `7.13.2` bump stays untouched.
+> **`security-application.service.ts` note:** The TS 6 commit changed `import * as compression from 'compression'` → `import compression from 'compression'`. This was introduced to fix a TS 6 module resolution issue. Under TS 5.9.3 the original `* as` import is correct. Revert to `import * as compression from 'compression'`.
 
-### TS 6 compatibility fixes — revert policy
+> **`auth.service.spec.ts` note:** The bcrypt mock refactor (switching from `jest.spyOn(bcrypt, ...)` to `jest.mock('bcrypt', ...)` + `mockedBcrypt`) is backward-compatible with TS 5.9.3 and improves test isolation (module-level mock vs. per-test spy, with explicit `mockReset()` between tests). **Retain this change** — it is a valid improvement that does not depend on TS 6 behavior.
 
-Any changes introduced solely to satisfy TS 6 behavior must be reverted **unless** they are backward-compatible with TS 5.9.3 **and** do not alter runtime behavior. Backward-compatible fixes (e.g., tsconfig option changes that are valid under both versions, test pattern improvements) may be retained. Changes that existed only because TS 6 required them must be removed.
+> **`backend/tsconfig.json` `types` note:** The `"types": ["node", "jest"]` option was added as part of the build/test tsconfig split strategy for TS 6. Under TS 5.9.3 with a single `tsconfig.json` covering all files, this explicit `types` array is unnecessary and was not present before. Remove it.
 
 ### Verification (in order)
 
-1. `cd backend && npm install`
-2. `cd frontend && npm install`
+1. `cd backend && npm ci` — confirm no ERESOLVE (this is the original failure; must pass first)
+2. `cd frontend && npm ci` — same
 3. `cd frontend && npm run type-check`
 4. `cd backend && npm run build`
 5. `cd frontend && npm run build`
-6. `cd frontend && npm run test`
-7. `cd backend && npm run test`
-8. `npm ci` succeeds in both `backend/` and `frontend/` (CI parity check — this is what originally broke)
+6. `cd backend && npm run lint`
+7. `cd frontend && npm run lint`
+8. `cd frontend && npm run test`
+9. `cd backend && npm run test`
+
+> **Step 1–2 note:** `npm ci` requires a clean environment (no existing `node_modules`) to be a true CI parity check. Run from a directory where `node_modules` either does not exist or has been deleted. After regenerating lockfiles via `npm install`, delete `node_modules` and run `npm ci` to confirm the lockfile installs cleanly from scratch.
+
+> **Lint note (steps 6–7):** Since the root cause was a `typescript-eslint` peer dep conflict, confirming ESLint runs cleanly after the revert provides direct evidence the fix worked at the tool level, not just at the install level.
 
 ### Acceptance Criteria
 
-1. `npm ci` succeeds in both frontend and backend (no ERESOLVE)
+1. `npm ci` succeeds in both `backend/` and `frontend/` with no ERESOLVE or peer dep warnings
 2. `npm run type-check` passes in frontend
 3. `npm run build` passes in frontend and backend
 4. Frontend and backend test suites pass with no new failures
-5. No TS 6–only changes remain unless confirmed backward-compatible with TS 5.9.3
-6. `react-router-dom` remains at `7.13.2`
+5. No file from commit `355d44823` retains changes unless explicitly listed as "Retain" in the table above — verify with `git diff 355d44823^ HEAD -- $(git show --format="" --name-only 355d44823 | grep -v package-lock)`
+6. `react-router-dom` remains at `7.13.2` in `frontend/package.json`
 
 ---
 
 ## Commit Structure
 
 - **Single commit** on the existing branch: `chore(deps): revert TypeScript to 5.9.3, unblock CI (issue #176)`
-- **PR #175** now represents only the react-router-dom patch bump; the TypeScript 6 upgrade is deferred. Update title and description to reflect this.
+- **PR #175** now represents only the react-router-dom patch bump; the TypeScript 6 upgrade is deferred. Update PR title and description to reflect this.
 - Supersedes the TS 6 portion of Issue #174; tracked separately for future reattempt.
 
 ---
 
 ## Issue Housekeeping
 
-- Close Issue #174's TS 6 portion as **deferred — blocked by ecosystem support** with a comment explaining the constraint.
+- Close Issue #174's TS 6 portion as **deferred — blocked by ecosystem support** with a comment explaining the typescript-eslint peer dep constraint.
 - Issue #176 is resolved by this PR.
 - **Revisit trigger:** When typescript-eslint publishes a stable release with a peer dependency range that includes TypeScript 6.x, open a new issue to reattempt the TS 6 upgrade.
 
