@@ -130,7 +130,7 @@ Subtitle
 
 - `variant="report"`
 - `subtitle` — brief report description
-- `primaryAction` — optional; only when the page has a clear page-level primary action not already handled inside the toolbar
+- `primaryAction` — optional; only for true page-level actions outside the filter row; report run/generate controls belong in `toolbar` by default
 - `toolbar` — the main home for report filters and run/generate controls
 - `showDivider={true}` (default)
 
@@ -184,7 +184,7 @@ Subtitle
 ```
 
 - `variant="overview"`
-- `meta` for KPI summary, date range, or contextual header info
+- `meta` for KPI summary, date range summary, or contextual header info; where KPI content is too large for header context, keep it in the page body
 - `toolbar` for interactive controls (date range pickers, refresh controls)
 
 ### Pages
@@ -263,9 +263,9 @@ Title                        [Action]
 | Page | Module | Notes |
 |------|--------|-------|
 | `JournalEntriesPage` | Accounting | Full workflow pattern: `meta` (period/status) + `toolbar` (control row) |
-| `JournalEntryDetailsPage` | Accounting | Read-only detail layout; use `meta` for entry status/period context, no `toolbar` expected |
+| `JournalEntryDetailsPage` | Accounting | Read-only detail layout; included in 5F because it shares the workflow header context pattern, not because it follows the full control-row layout. Use `meta` for entry status/period context, no `toolbar` expected. |
 | `BankReconciliationsPage` | Accounting | Full workflow pattern: `meta` (period/status) + `toolbar` (control row) |
-| `BankReconciliationDetailsPage` | Accounting | Read-only detail layout (same as `JournalEntryDetailsPage`); use `meta` only, no `toolbar` expected |
+| `BankReconciliationDetailsPage` | Accounting | Read-only detail layout; included in 5F because it shares the workflow header context pattern, not because it follows the full control-row layout. Use `meta` only, no `toolbar` expected. |
 
 ---
 
@@ -293,4 +293,4 @@ These pages remain out of scope for Phase 5. They require a separate detail-page
 
 - Variant slot expectations are documented in the table above and enforced by code review, not runtime validation.
 - The existing Phase 4 ESLint guard remains in place for `standard` pages.
-- Phase 5 does not add new lint rules — governance is documentation-first until all migrations are complete.
+- Phase 5 adds no new lint rules; governance remains documentation-first until all variant migrations are complete.
