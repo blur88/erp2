@@ -44,7 +44,7 @@ These are treated as two independent concerns with separate implementations.
 
 Dependency-update commits are treated as internal when their subject or scope indicates package maintenance — for example, scopes like `deps`, `dependencies`, `frontend`, `backend` combined with verbs like `update`, `bump`, `upgrade`. These typically appear as `chore(deps):` but the rule is intentionally broad enough to cover variations.
 
-**Dep-update classification scope:** This heuristic is a refinement of the type-based rule, not an override. A commit is internal only if its type is already in the internal list (`chore`, `refactor`, `docs`, `style`). The dep-update subject/scope pattern identifies which of those internal-type commits represent dependency maintenance — it does not reclassify commits whose type is absent from the internal list (e.g., a hypothetical `build(deps):` commit would not be classified as internal by this heuristic, because `build` is not in the internal type list).
+**Dep-update classification scope:** This heuristic is a refinement of the type-based rule, not an override. A commit is internal only if its type is already in the internal list (`chore`, `refactor`, `docs`, `style`). The dep-update subject/scope pattern identifies which of those internal-type commits represent dependency maintenance — it does not reclassify commits whose type is absent from the internal list (e.g., a `build(deps):` or `ci(deps):` commit would not be classified as internal by this heuristic, because `build` and `ci` are not in the internal type list). This is intentional to keep classification simple and predictable.
 
 ---
 
@@ -64,7 +64,11 @@ Convert `.releaserc.json` → `release.config.cjs`. This is required because `wr
 
 The classification uses the **actual commits in the release range**, not just the pre-grouped rendered output. `commitGroups` reflects what the writer has already decided to render and may exclude commits before the decision is made — classifying from the raw commit list is more reliable.
 
-**Implementation note on `finalizeContext` context shape:** In `conventional-changelog-core`, by the time `finalizeContext` runs, the Angular preset's `transform` function has already processed each commit. Commits whose type is not recognized by the Angular preset (e.g., `chore`, `refactor`, `docs`) are **not stripped** by transform — they remain accessible via `context.commits` (the flat array of all commits in the range) even if they were excluded from `context.commitGroups`. The classification should read from `context.commits`. If `context.commits` is empty or unavailable in the installed version, fall back to flattening commits from `context.commitGroups`. However, on a purely internal release `context.commitGroups` will itself be empty (the preset rendered nothing). If both `context.commits` and the `commitGroups` flatten yield zero commits, log a warning and emit a minimal `Internal Changes` group with a single placeholder entry (`"see commit history for this release"`) rather than silently producing empty notes. Verify the actual context shape against `conventional-changelog-core` version in use during implementation.
+**Implementation note on `finalizeContext` context shape:** In `conventional-changelog-core`, by the time `finalizeContext` runs, the Angular preset's `transform` function has already processed each commit. Commits whose type is not recognized by the Angular preset (e.g., `chore`, `refactor`, `docs`) are **not stripped** by transform — they remain accessible via `context.commits` (the flat array of all commits in the range) even if they were excluded from `context.commitGroups`. The classification should read from `context.commits`.
+
+During initial rollout, log a warning if `context.commits` is `undefined` or unexpectedly empty — this validates the assumption about the writer context shape and surfaces version-specific divergence early rather than silently.
+
+If `context.commits` is unavailable, fall back to flattening commits from `context.commitGroups`. However, on a purely internal release `context.commitGroups` will itself be empty (the preset rendered nothing). If both `context.commits` and the `commitGroups` flatten yield zero commits, log a warning and emit a minimal `Internal Changes` group with a single placeholder entry (`"see commit history for this release"`) rather than silently producing empty notes. Verify the actual context shape against `conventional-changelog-core` version in use during implementation.
 
 **Decision rule:**
 
@@ -125,8 +129,12 @@ node scripts/backfill-release-notes.cjs [--dry-run]
 ### Idempotency
 
 - **CHANGELOG.md:** If the target version section already has non-empty content, skip it and log a message. Do not overwrite.
-- **GitHub Releases:** If the release body is already non-empty, warn and skip. Do not overwrite.
+- **GitHub Releases:** If the release body is already non-empty, warn and skip. Do not overwrite. Skipped releases are reported clearly in output but do not cause a non-zero exit unless an invariant is violated.
 - Running the script a second time should produce zero changes and exit 0 on all targets.
+
+### CHANGELOG Parsing
+
+Before parsing, normalize `CHANGELOG.md` content to `\n` line endings to ensure consistent section detection across environments (guards against `\r\n` from Windows tooling).
 
 ### Invariant Violations (exit non-zero)
 
@@ -140,7 +148,7 @@ Both `--dry-run` and real runs fail clearly if:
 
 ### Commit Range
 
-For tag `vX.Y.Z`, the script resolves the immediately preceding semantic version tag using `git tag --sort=version:refname` to determine order. This produces a deterministic version-sorted list regardless of tag creation order. The range `previousTag..currentTag` is then passed to `git log`. This is the same range semantic-release would have used at release time.
+For tag `vX.Y.Z`, the script resolves the immediately preceding semantic version tag using `git tag --sort=version:refname` to determine order, filtering to only tags matching the `vX.Y.Z` pattern (strict semver with `v` prefix). Pre-release tags (e.g., `v1.2.1-beta.1`) and non-semver tags are excluded to prevent accidentally resolving the wrong previous tag. The range `previousTag..currentTag` is then passed to `git log`. This is the same range semantic-release would have used at release time.
 
 ### What the Script Does NOT Do
 
