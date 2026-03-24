@@ -4,7 +4,7 @@
 
 **Goal:** Prevent future empty patch-release notes and backfill the 11 existing empty GitHub/CHANGELOG releases.
 
-**Architecture:** Two independent parts: (1) convert `.releaserc.json` → `release.config.cjs` and add a `finalizeContext` hook to `release-notes-generator` that injects an `### Internal Changes` fallback section when a release contains only internal-type commits; (2) a one-time `scripts/backfill-release-notes.cjs` script that patches CHANGELOG.md and GitHub Releases for the 11 known-empty versions.
+**Architecture:** Two independent parts: (1) convert `.releaserc.json` → `release.config.cjs` and add dual `transform` + `finalizeContext` hooks to `release-notes-generator` — `transform` marks internal commits as `'Internal Changes'` type so they survive angular's filter, and `finalizeContext` strips that group when any user-facing group exists; (2) a one-time `scripts/backfill-release-notes.cjs` script that patches CHANGELOG.md and GitHub Releases for the 11 known-empty versions.
 
 **Tech Stack:** semantic-release 25, `@semantic-release/release-notes-generator` 14, `conventional-changelog-angular` 8.3, `conventional-changelog-writer` (finalizeContext hook), Node.js CJS scripts, `gh` CLI for GitHub Release updates.
 
@@ -397,20 +397,23 @@ git commit -m "feat(release): add Internal Changes fallback section for internal
 
 These are manual validation steps — no automated test to write. Run them to confirm both halves of the conditional behavior work before proceeding to the backfill.
 
-**Prerequisites:** You need a local branch with controlled commits for testing. The dry-run does not publish anything.
+**Prerequisites:** You need a local branch with controlled commits for testing. The dry-run does not publish anything. `--branches <branchname>` tells semantic-release to treat this branch as a release branch for the dry-run — without it, semantic-release will refuse to run on any non-`main` branch.
+
+**Note on actual implementation:** The implementation used a dual-hook approach (`transform` + `finalizeContext`) rather than `finalizeContext` alone. The custom `transform` marks internal commits as `type: 'Internal Changes'` so they survive angular's filter; `finalizeContext` then strips that group if any user-facing group exists. The smoke tests validate the observable behavior either way.
 
 - [ ] **Step 3.1: Smoke test A — internal-only release shows fallback**
 
 ```bash
-# Create a temp branch off main
+# Create a temp branch off the feature branch
+git checkout feat/issue-170-empty-release-notes
 git checkout -b smoke-test-internal-only
 
 # Make a chore commit
 git commit --allow-empty -m "chore(deps): update packages for smoke test"
 git commit --allow-empty -m "refactor(ui): clean up imports for smoke test"
 
-# Run semantic-release dry-run
-GITHUB_TOKEN=dummy npx semantic-release --dry-run --no-ci 2>&1 | grep -A 20 "Release note"
+# Run semantic-release dry-run — --branches tells SR to treat this branch as releasable
+GITHUB_TOKEN=dummy npx semantic-release --dry-run --no-ci --branches smoke-test-internal-only 2>&1 | grep -A 20 "Release note"
 ```
 
 Expected: output contains `### Internal Changes` section with the two commits. No `### Bug Fixes`, `### Features` sections.
@@ -418,12 +421,13 @@ Expected: output contains `### Internal Changes` section with the two commits. N
 - [ ] **Step 3.2: Smoke test B — mixed release shows only user-facing content**
 
 ```bash
+git checkout feat/issue-170-empty-release-notes
 git checkout -b smoke-test-mixed
 
 git commit --allow-empty -m "fix(auth): fix login redirect for smoke test"
 git commit --allow-empty -m "chore(deps): update packages for smoke test"
 
-GITHUB_TOKEN=dummy npx semantic-release --dry-run --no-ci 2>&1 | grep -A 20 "Release note"
+GITHUB_TOKEN=dummy npx semantic-release --dry-run --no-ci --branches smoke-test-mixed 2>&1 | grep -A 20 "Release note"
 ```
 
 Expected: output contains `### Bug Fixes` section. No `### Internal Changes` section.
@@ -431,7 +435,7 @@ Expected: output contains `### Bug Fixes` section. No `### Internal Changes` sec
 - [ ] **Step 3.3: Clean up smoke-test branches**
 
 ```bash
-git checkout main
+git checkout feat/issue-170-empty-release-notes
 git branch -D smoke-test-internal-only smoke-test-mixed
 ```
 
