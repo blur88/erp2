@@ -111,6 +111,7 @@ export default defineConfig(({ mode }) => {
     test: {
       globals: true,
       environment: 'jsdom',
+      environmentMatchGlobs: [['src/**/*.test.ts', 'node']],
       setupFiles: ['./src/test/setup.ts', './src/setupTests.ts'],
       api: false,
       maxWorkers: Math.max(2, availableParallelism),
