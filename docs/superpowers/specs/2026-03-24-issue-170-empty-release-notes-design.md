@@ -40,7 +40,11 @@ These are treated as two independent concerns with separate implementations.
 **User-facing types:** `feat`, `fix`, `perf`
 **Internal types:** `chore`, `refactor`, `docs`, `style`
 
+> **Note on `perf`:** The Angular conventional-changelog preset used by `release-notes-generator` does render `perf` commits under a "Performance Improvements" section by default (it is included in the preset's writer `commitGroupsSort` and `transform` configuration). A `perf`-only release will therefore produce a visible non-empty section and will not trigger the fallback. This assumption should be verified against the installed version of `conventional-changelog-angular` during implementation.
+
 Dependency-update commits are treated as internal when their subject or scope indicates package maintenance — for example, scopes like `deps`, `dependencies`, `frontend`, `backend` combined with verbs like `update`, `bump`, `upgrade`. These typically appear as `chore(deps):` but the rule is intentionally broad enough to cover variations.
+
+**Dep-update classification scope:** This heuristic is a refinement of the type-based rule, not an override. A commit is internal only if its type is already in the internal list (`chore`, `refactor`, `docs`, `style`). The dep-update subject/scope pattern identifies which of those internal-type commits represent dependency maintenance — it does not reclassify commits whose type is absent from the internal list (e.g., a hypothetical `build(deps):` commit would not be classified as internal by this heuristic, because `build` is not in the internal type list).
 
 ---
 
@@ -60,13 +64,15 @@ Convert `.releaserc.json` → `release.config.cjs`. This is required because `wr
 
 The classification uses the **actual commits in the release range**, not just the pre-grouped rendered output. `commitGroups` reflects what the writer has already decided to render and may exclude commits before the decision is made — classifying from the raw commit list is more reliable.
 
+**Implementation note on `finalizeContext` context shape:** In `conventional-changelog-core`, by the time `finalizeContext` runs, the Angular preset's `transform` function has already processed each commit. Commits whose type is not recognized by the Angular preset (e.g., `chore`, `refactor`, `docs`) are **not stripped** by transform — they remain accessible via `context.commits` (the flat array of all commits in the range) even if they were excluded from `context.commitGroups`. The classification should read from `context.commits`. If `context.commits` is empty or unavailable in the installed version, fall back to flattening commits from `context.commitGroups`. Verify the actual shape against `conventional-changelog-core` version in use during implementation.
+
 **Decision rule:**
 
-1. Inspect all commits in the release.
+1. Inspect all commits via `context.commits`.
 2. If at least one commit has a user-facing type (`feat`, `fix`, `perf`), return context unchanged — normal rendering proceeds.
 3. If no user-facing commit exists, replace `context.commitGroups` with a single synthetic group:
    - Title: `Internal Changes`
-   - Commits: all internal commits from the release range, normalized for display
+   - Commits: all internal commits from `context.commits`, normalized for display
 
 ### Fallback Output Format
 
@@ -130,10 +136,11 @@ Both `--dry-run` and real runs fail clearly if:
 - The previous tag cannot be resolved for a target tag.
 - A user-facing commit (`feat`, `fix`, `perf`) is found in a supposedly empty release.
 - The target version section cannot be located uniquely in `CHANGELOG.md`.
+- The commit range for a target tag resolves to zero commits (indicates a tag resolution error or a zero-commit release, both of which require manual review).
 
 ### Commit Range
 
-For tag `vX.Y.Z`, the script resolves the immediately preceding semantic version tag and uses `previousTag..currentTag` as the git range. This is the same range semantic-release would have used at release time.
+For tag `vX.Y.Z`, the script resolves the immediately preceding semantic version tag using `git tag --sort=version:refname` to determine order. This produces a deterministic version-sorted list regardless of tag creation order. The range `previousTag..currentTag` is then passed to `git log`. This is the same range semantic-release would have used at release time.
 
 ### What the Script Does NOT Do
 
@@ -155,7 +162,8 @@ The script is kept after use as a permanent audit artifact.
 - `classifyRelease(commits)` → `'user-facing' | 'internal-only'`
   - input with `feat` commits → `user-facing`
   - input with only `chore`/`refactor`/`docs` → `internal-only`
-  - mixed input → `user-facing`
+  - mixed input (fix + chore) → `user-facing`
+  - `perf`-only input → `user-facing`
   - dependency-update commit patterns → classified as internal
 - `buildInternalChangesCommits(commits)` → normalized commit entries
   - release commit (`chore(release):`) excluded
@@ -164,8 +172,10 @@ The script is kept after use as a permanent audit artifact.
 
 **Manual smoke tests:**
 
-1. **Internal-only dry-run:** branch with only `chore:` and `refactor:` commits → `npx semantic-release --dry-run --no-ci` → output contains `### Internal Changes`, no other sections.
-2. **Mixed dry-run:** branch with one `fix:` plus `chore:` commits → dry-run output contains `### Bug Fixes` only, no `### Internal Changes` section.
+1. **Internal-only dry-run:** branch with only `chore:` and `refactor:` commits → `GITHUB_TOKEN=dummy npx semantic-release --dry-run --no-ci` → output contains `### Internal Changes`, no other sections.
+2. **Mixed dry-run:** branch with one `fix:` plus `chore:` commits → `GITHUB_TOKEN=dummy npx semantic-release --dry-run --no-ci` → output contains `### Bug Fixes` only, no `### Internal Changes` section.
+
+> **Note:** `GITHUB_TOKEN` must be set to a non-empty string when running semantic-release dry-run locally to prevent auth errors; a placeholder value is sufficient for dry-run.
 
 These two cases together validate both halves of the conditional behavior.
 
