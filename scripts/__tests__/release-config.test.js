@@ -64,6 +64,25 @@ test('internal-only releases render Internal Changes entries from raw commits', 
   ]);
 });
 
+test('falls back to filtered commits when allCommits is empty', () => {
+  const internal = {
+    type: 'Internal Changes',
+    subject: 'chore(deps): update packages',
+    header: 'chore(deps): update packages',
+    raw: makeCommit('chore', 'deps', 'update packages'),
+  };
+  const templateContext = { commitGroups: [] };
+
+  const result = finalizeContext(templateContext, {}, [internal], internal, []);
+
+  assert.deepEqual(result.commitGroups, [
+    {
+      title: 'Internal Changes',
+      commits: [{ subject: 'chore(deps): update packages' }],
+    },
+  ]);
+});
+
 test('transform preserves internal commits for fallback rendering', async () => {
   const commit = makeCommit('chore', 'deps', 'update packages');
 

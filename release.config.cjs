@@ -58,11 +58,11 @@ async function transform(commit, context) {
  *
  * Signature: finalizeContext(templateContext, options, filteredCommits, keyCommit, allCommits)
  *   - templateContext: the writer context being rendered (has .commitGroups)
- *   - filteredCommits: post-transform commits - internal types already stripped, do NOT use for classification
- *   - allCommits: pre-transform full commit list - use this for classification
+ *   - filteredCommits: transformed commits included in the rendered release notes
+ *   - allCommits: transformed commit list passed by conventional-changelog-writer; may be empty
  *
  * Behavior:
- *   - If any user-facing commit (feat/fix/perf) exists: return templateContext unchanged.
+ *   - If any user-facing commit (feat/fix/perf) exists: return templateContext without the synthetic internal group.
  *   - Otherwise: replace commitGroups with a single 'Internal Changes' group.
  */
 function finalizeContext(templateContext, options, filteredCommits, keyCommit, allCommits) {
