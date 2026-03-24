@@ -88,6 +88,16 @@ describe('CreateStockAdjustmentPage product search', { timeout: 60000 }, () => {
     })
   })
 
+  it('renders PageHeader with title "Create Stock Adjustment" in create mode', () => {
+    render(
+      <BrowserRouter>
+        <CreateStockAdjustmentPage />
+      </BrowserRouter>
+    )
+
+    expect(screen.getByRole('heading', { name: 'Create Stock Adjustment' })).toBeInTheDocument()
+  })
+
   it('replaces autocomplete options with only the latest search results', async () => {
     render(
       <BrowserRouter>

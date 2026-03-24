@@ -104,6 +104,25 @@ describe('JournalEntryFormPage', () => {
     mockedApi.useUpdateJournalEntryMutation.mockReturnValue([vi.fn()])
   })
 
+  it('renders PageHeader with title "New Journal Entry" in create mode', () => {
+    renderWithProviders()
+
+    expect(screen.getByRole('heading', { name: 'New Journal Entry' })).toBeInTheDocument()
+  })
+
+  it('renders PageHeader with title "Edit Journal Entry" in edit mode', async () => {
+    mockParams.id = 'test-id'
+    mockedApi.useGetJournalEntryQuery.mockReturnValue({
+      data: mockJournalEntry,
+      isLoading: false,
+      error: undefined,
+    })
+
+    renderWithProviders()
+
+    expect(await screen.findByRole('heading', { name: 'Edit Journal Entry' })).toBeInTheDocument()
+  })
+
   it('renders create form with header and fields', () => {
     renderWithProviders()
 

@@ -74,6 +74,14 @@ Don't:
 - Customize layout or spacing per page
 - Force a subtitle if the title is self-explanatory
 
+### New Page Checklist
+
+- Is this a standard CRUD, list, or form page? -> Use `PageHeader`
+- Does the page have at most 2 header actions? If not, move extras to a toolbar below
+- Subtitle: stable, operational, non-dynamic - or omit it entirely
+- Do not use `TYPOGRAPHY_STYLES.pageHeader` - it is lint-blocked
+- If the page does not fit `PageHeader` without introducing exceptions, classify it as Deferred/Exception - do not customize the component
+
 ---
 
 ## PageHeader - When NOT to Use
@@ -113,7 +121,7 @@ Some pages are not yet migrated to `PageHeader`. These pages are not rejected - 
 
 > Deferred pages should not be force-fit into `PageHeader` until a suitable pattern is defined. Migration is only appropriate if the page can adopt `PageHeader` without introducing exceptions to layout, action constraints, or header composition.
 
-See `docs/superpowers/specs/2026-03-24-page-header-phase3-design.md` for the full classification table.
+See `docs/superpowers/specs/2026-03-24-issue-173-pageheader-phase4-design.md` for the full classification table.
 
 ---
 

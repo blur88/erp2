@@ -31,6 +31,7 @@ import { useForm, useFieldArray, Controller } from 'react-hook-form'
 import { yupResolver } from '@hookform/resolvers/yup'
 import * as yup from 'yup'
 import { formatCurrency, getCurrentDate } from '@/utils/formatters'
+import PageHeader from '@/components/common/PageHeader'
 import { useNotification } from '@/hooks/useNotification'
 import { useProductSearch } from '@/hooks/useProductSearch'
 import { useAppDispatch } from '@/hooks/useRedux'
@@ -42,7 +43,6 @@ import {
   useLazyGetPurchaseOrderQuery,
 } from '@/store/api/purchasingApi'
 import { useCurrency } from '@/hooks/useCurrency'
-import { TYPOGRAPHY_STYLES } from '@/constants/typography'
 
 interface PurchaseOrderItem {
   productId: string
@@ -342,14 +342,13 @@ const CreatePurchaseOrderPage: React.FC = () => {
     <Container maxWidth="xl">
       <Box sx={{ py: 3 }}>
         {/* Header */}
-        <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
-          <IconButton onClick={() => navigate('/purchasing/orders')} sx={{ mr: 2 }}>
-            <ArrowBackIcon />
-          </IconButton>
-          <Typography variant={TYPOGRAPHY_STYLES.pageHeader.variant} sx={{ fontWeight: TYPOGRAPHY_STYLES.pageHeader.fontWeight }}>
-            {isEditMode ? 'Edit Purchase Order' : 'Create Purchase Order'}
-          </Typography>
-        </Box>
+        <IconButton onClick={() => navigate('/purchasing/orders')} sx={{ mb: 1 }}>
+          <ArrowBackIcon />
+        </IconButton>
+        <PageHeader
+          title={isEditMode ? 'Edit Purchase Order' : 'Create Purchase Order'}
+          showDivider={false}
+        />
 
         {loadingOrder ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>

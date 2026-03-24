@@ -35,9 +35,8 @@ import {
   PostAdd as PostIcon,
   Refresh as RefreshIcon,
   Search as SearchIcon,
-  ReceiptLong as ExpenseIcon,
 } from '@mui/icons-material'
-import { TYPOGRAPHY_STYLES } from '@/constants/typography'
+import PageHeader from '@/components/common/PageHeader'
 import { useNotification } from '@/hooks/useNotification'
 import {
   useBulkDeleteExpensesMutation,
@@ -270,38 +269,11 @@ const ExpensesPage: React.FC = () => {
 
   return (
     <Box sx={{ p: 3 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 3 }}>
-        <Box>
-          <Typography
-            variant={TYPOGRAPHY_STYLES.pageHeader.variant}
-            sx={{ fontWeight: TYPOGRAPHY_STYLES.pageHeader.fontWeight, mb: 1, display: 'flex', alignItems: 'center', gap: 2 }}
-          >
-            <ExpenseIcon sx={{ fontSize: TYPOGRAPHY_STYLES.pageHeader.icon.fontSize, color: TYPOGRAPHY_STYLES.pageHeader.icon.color }} />
-            Expenses
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            Record and manage business expense transactions
-          </Typography>
-        </Box>
-        <Stack direction="row" spacing={1}>
-          {selectedIds.size > 0 && (
-            <>
-              <Button variant="contained" startIcon={<PostIcon />} onClick={onBulkPost}>
-                Bulk Post ({selectedIds.size})
-              </Button>
-              <Button variant="outlined" color="error" startIcon={<DeleteIcon />} onClick={onBulkDelete}>
-                Bulk Delete ({selectedIds.size})
-              </Button>
-            </>
-          )}
-          <IconButton onClick={() => refetch()}>
-            <RefreshIcon />
-          </IconButton>
-          <Button variant="contained" startIcon={<AddIcon />} onClick={openCreate}>
-            New Expense
-          </Button>
-        </Stack>
-      </Box>
+      <PageHeader
+        title="Expenses"
+        subtitle="Record and manage business expense transactions"
+        primaryAction={{ label: 'New Expense', onClick: openCreate }}
+      />
 
       <Card sx={{ mb: 2 }}>
         <CardContent>
@@ -311,7 +283,8 @@ const ExpensesPage: React.FC = () => {
       </Card>
 
       <Paper sx={{ p: 2, mb: 2 }}>
-        <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
+        <Stack direction="row" alignItems="flex-start" spacing={1}>
+          <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} sx={{ flex: 1, flexWrap: 'wrap' }}>
           <TextField
             inputRef={searchRef}
             label="Search"
@@ -354,8 +327,23 @@ const ExpensesPage: React.FC = () => {
           </FormControl>
           <TextField label="Start Date" type="date" size="small" value={startDate} onChange={(e) => setStartDate(e.target.value)} InputLabelProps={{ shrink: true }} />
           <TextField label="End Date" type="date" size="small" value={endDate} onChange={(e) => setEndDate(e.target.value)} InputLabelProps={{ shrink: true }} />
+          </Stack>
+          <IconButton onClick={() => refetch()} size="small" sx={{ mt: 0.5 }}>
+            <RefreshIcon />
+          </IconButton>
         </Stack>
       </Paper>
+
+      {selectedIds.size > 0 && (
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2, p: 1.5, bgcolor: 'action.selected', borderRadius: 1 }}>
+          <Button variant="contained" size="small" startIcon={<PostIcon />} onClick={onBulkPost}>
+            Bulk Post ({selectedIds.size})
+          </Button>
+          <Button variant="outlined" size="small" color="error" startIcon={<DeleteIcon />} onClick={onBulkDelete}>
+            Bulk Delete ({selectedIds.size})
+          </Button>
+        </Box>
+      )}
 
       <Paper>
         <TableContainer>

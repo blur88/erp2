@@ -30,6 +30,7 @@ import { useForm, useFieldArray, Controller } from 'react-hook-form'
 import { yupResolver } from '@hookform/resolvers/yup'
 import * as yup from 'yup'
 import { ApiService } from '@/services/api'
+import PageHeader from '@/components/common/PageHeader'
 import {
   useLazyGetStockAdjustmentQuery,
   useCreateStockAdjustmentMutation,
@@ -38,7 +39,6 @@ import {
 import { useProductSearch } from '@/hooks/useProductSearch'
 import { getCurrentDate } from '@/utils/formatters'
 import { useNotification } from '@/hooks/useNotification'
-import { TYPOGRAPHY_STYLES } from '@/constants/typography'
 
 interface AdjustmentItem {
   productId: string
@@ -281,14 +281,13 @@ const CreateStockAdjustmentPage: React.FC = () => {
     <Container maxWidth="xl">
       <Box sx={{ py: 3 }}>
         {/* Header */}
-        <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
-          <IconButton onClick={() => navigate('/inventory/stock-adjustments')} sx={{ mr: 2 }}>
-            <ArrowBackIcon />
-          </IconButton>
-          <Typography variant={TYPOGRAPHY_STYLES.pageHeader.variant} sx={{ fontWeight: TYPOGRAPHY_STYLES.pageHeader.fontWeight }}>
-            {isEditMode ? 'Edit Stock Adjustment' : 'Create Stock Adjustment'}
-          </Typography>
-        </Box>
+        <IconButton onClick={() => navigate('/inventory/stock-adjustments')} sx={{ mb: 1 }}>
+          <ArrowBackIcon />
+        </IconButton>
+        <PageHeader
+          title={isEditMode ? 'Edit Stock Adjustment' : 'Create Stock Adjustment'}
+          showDivider={false}
+        />
 
         {loadingAdjustment ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
