@@ -1,3 +1,16 @@
+# [1.23.0](https://github.com/blur88/erp2/compare/v1.22.3...v1.23.0) (2026-03-24)
+
+
+### Bug Fixes
+
+* **release:** fallback to transformed commits in finalizeContext ([32c0cfd](https://github.com/blur88/erp2/commit/32c0cfdfec29876c4b2cdd01230c694db8df7db1))
+* **release:** preserve internal commits for fallback notes ([e4b52c1](https://github.com/blur88/erp2/commit/e4b52c14331b5451cf03f53b8217efb9db9e8524))
+
+
+### Features
+
+* **release:** add Internal Changes fallback section for internal-only patch releases ([ccf640e](https://github.com/blur88/erp2/commit/ccf640e839f26fd471e67b7079879fa443852e96))
+
 ## [1.22.3](https://github.com/blur88/erp2/compare/v1.22.2...v1.22.3) (2026-03-24)
 
 ### Internal Changes
