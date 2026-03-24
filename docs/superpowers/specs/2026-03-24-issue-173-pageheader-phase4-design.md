@@ -28,11 +28,14 @@ Audit-first, then migrate in two tiers. The full adoption table below serves as 
 | CreateSalesOrderPage | Sales | Phase 1 |
 | SalesPage | Sales | Phase 1 |
 | PaymentsPage | Sales | Phase 1 |
+| OrdersPage | Sales | Phase 1 — header via OrdersToolbar (embedded PageHeader) |
+| InvoicesPage | Sales | Phase 1 — header via InvoicesToolbar (embedded PageHeader) |
 | OrdersToolbar | Sales | Phase 1 — embedded PageHeader |
 | InvoicesToolbar | Sales | Phase 1 — embedded PageHeader |
 | InventoryPage | Inventory | Phase 2 |
 | StockAdjustmentsPage | Inventory | Phase 2 |
 | CreateProductPage | Inventory | Phase 2 |
+| ProductsPage | Inventory | Phase 2 — header via ProductsToolbar (embedded PageHeader) |
 | ProductsToolbar | Inventory | Phase 2 — embedded PageHeader |
 | UserManagementPage | Settings | Phase 2 |
 | RoleManagementPage | Settings | Phase 2 |
@@ -47,6 +50,7 @@ Audit-first, then migrate in two tiers. The full adoption table below serves as 
 | SuppliersPage | Purchasing | Phase 2 |
 | VendorPaymentsPage | Purchasing | Phase 2 |
 | GoodsReceivedPage | Purchasing | Phase 2 |
+| PurchaseOrdersPage | Purchasing | Phase 2 — header via PurchaseOrdersToolbar (embedded PageHeader) |
 | PurchaseOrdersToolbar | Purchasing | Phase 2 — embedded PageHeader |
 | FiscalPeriodsPage | Accounting | Phase 3 |
 | FundTransfersPage | Accounting | Phase 3 |
@@ -59,6 +63,7 @@ Audit-first, then migrate in two tiers. The full adoption table below serves as 
 | Page | Module | Tier | Notes |
 |------|--------|------|-------|
 | CreatePurchaseOrderPage | Purchasing | Tier 1 | Clean form-shell, matches CreateSalesOrderPage pattern |
+| CreateStockAdjustmentPage | Inventory | Tier 1 | Clean form-shell, matches CreateSalesOrderPage pattern |
 | JournalEntryFormPage | Accounting | Tier 1 | Clean form-shell, matches CreateSalesOrderPage pattern |
 | ExpensesPage | Accounting | Tier 2 | Standard list page; bulk-action buttons move below header |
 
@@ -95,12 +100,12 @@ These pages are not yet migrated. Do not force-fit them into `PageHeader` until 
 
 ## Phase 4B — Tier 1 Migrations
 
-Both pages follow the same pattern as `CreateSalesOrderPage`: a back-button + dynamic title, no header actions.
+All three pages follow the same pattern as `CreateSalesOrderPage`: a back-button + dynamic title, no header actions.
 
 ### Migration rules
 
 1. Keep the `IconButton` back-arrow as a sibling element above `PageHeader` — consistent with `CreateSalesOrderPage`. Back navigation is navigation, not a page action. Do not put it inside `PageHeader`.
-2. The back-arrow `IconButton` must be top-left aligned with consistent spacing (`mb: 1` or matching the existing `CreateSalesOrderPage` value).
+2. The back-arrow `IconButton` must be top-left aligned with `mb: 1` spacing — matching `CreateSalesOrderPage` (line 422).
 3. Replace the legacy `Typography` title block and its wrapper `Box` with `<PageHeader title="..." showDivider={false} />`.
 4. No subtitle — form pages with dynamic titles do not benefit from one.
 5. Remove `TYPOGRAPHY_STYLES.pageHeader` import if no other keys from `TYPOGRAPHY_STYLES` remain in use.
@@ -110,6 +115,16 @@ Both pages follow the same pattern as `CreateSalesOrderPage`: a back-button + dy
 | | Value |
 |---|---|
 | Title | `isEditMode ? 'Edit Purchase Order' : 'Create Purchase Order'` |
+| Subtitle | none |
+| `showDivider` | `false` |
+| Primary action | none |
+| Secondary action | none |
+
+### CreateStockAdjustmentPage
+
+| | Value |
+|---|---|
+| Title | `isEditMode ? 'Edit Stock Adjustment' : 'Create Stock Adjustment'` (or equivalent dynamic title from current code) |
 | Subtitle | none |
 | `showDivider` | `false` |
 | Primary action | none |
@@ -174,7 +189,7 @@ The selection-context bar uses `Stack`, `Box`, and existing `Button` components 
 
 Spot-check only. Same policy as Phase 3.
 
-- **Tier 1 pages:** No subtitle added — form pages with dynamic titles.
+- **Tier 1 pages (CreatePurchaseOrderPage, CreateStockAdjustmentPage, JournalEntryFormPage):** No subtitle added — form pages with dynamic titles.
 - **ExpensesPage:** Keep existing subtitle unchanged ("Record and manage business expense transactions" — operational, stable, non-dynamic).
 - **All other migrated pages:** No changes needed; the Phase 3 pass already cleaned up previously migrated pages.
 
@@ -184,25 +199,26 @@ Do not add subtitles to pages that currently lack one unless the title is genuin
 
 ## Phase 4E — ESLint Enforcement
 
-Add two selectors to the `no-restricted-syntax` rule in the frontend ESLint config. This rule is added **after** all Tier 1 and Tier 2 migrations are complete, so it lands on a codebase with zero existing violations.
+Add two selectors to the `no-restricted-syntax` rule in the frontend ESLint config (`frontend/eslint.config.js`). This rule is added **after** all Tier 1 and Tier 2 migrations are complete, so it lands on a codebase with zero existing violations.
 
-```json
-{
-  "no-restricted-syntax": [
-    "error",
-    {
-      "selector": "MemberExpression[object.name='TYPOGRAPHY_STYLES'][property.name='pageHeader']",
-      "message": "Use the <PageHeader> component instead of TYPOGRAPHY_STYLES.pageHeader. See docs/ui.md for usage rules and exception categories."
-    },
-    {
-      "selector": "ObjectPattern > Property[key.name='pageHeader'][value.name='pageHeader']",
-      "message": "Do not destructure TYPOGRAPHY_STYLES.pageHeader. Use <PageHeader> instead. See docs/ui.md."
-    }
-  ]
-}
+The project uses ESLint flat config with `tseslint.config(...)`. Add the rule to the existing `rules` object in the last config block:
+
+```js
+// In frontend/eslint.config.js, inside the rules object:
+'no-restricted-syntax': [
+  'error',
+  {
+    selector: "MemberExpression[object.name='TYPOGRAPHY_STYLES'][property.name='pageHeader']",
+    message: 'Use the <PageHeader> component instead of TYPOGRAPHY_STYLES.pageHeader. See docs/ui.md for usage rules and exception categories.',
+  },
+  {
+    selector: "VariableDeclarator[init.name='TYPOGRAPHY_STYLES'] > ObjectPattern > Property[key.name='pageHeader']",
+    message: 'Do not destructure TYPOGRAPHY_STYLES.pageHeader. Use <PageHeader> instead. See docs/ui.md.',
+  },
+],
 ```
 
-The first selector catches direct access (`TYPOGRAPHY_STYLES.pageHeader.variant`). The second catches destructuring (`const { pageHeader } = TYPOGRAPHY_STYLES`). Together they close both regression paths.
+The first selector catches direct access (`TYPOGRAPHY_STYLES.pageHeader.variant`). The second catches destructuring (`const { pageHeader } = TYPOGRAPHY_STYLES`) — it is scoped to `VariableDeclarator` whose `init` is `TYPOGRAPHY_STYLES`, so it will not fire on any other object that happens to have a `pageHeader` property.
 
 Other `TYPOGRAPHY_STYLES` keys (`tableCell`, `pageSubtitle`, etc.) are not affected.
 
@@ -228,7 +244,7 @@ Add to the PageHeader section, after the Do/Don't list:
 
 ### 2. Adoption Map reference
 
-Update the Deferred Pages section to reference this spec (Phase 4) instead of the Phase 3 spec.
+In the Deferred Pages section of `docs/ui.md`, replace the reference to `docs/superpowers/specs/2026-03-24-page-header-phase3-design.md` with `docs/superpowers/specs/2026-03-24-issue-173-pageheader-phase4-design.md`.
 
 ---
 
@@ -236,6 +252,7 @@ Update the Deferred Pages section to reference this spec (Phase 4) instead of th
 
 - [ ] Full adoption table documented in this spec
 - [ ] `CreatePurchaseOrderPage` migrated to `PageHeader` with `showDivider={false}`
+- [ ] `CreateStockAdjustmentPage` migrated to `PageHeader` with `showDivider={false}`
 - [ ] `JournalEntryFormPage` migrated to `PageHeader` with `showDivider={false}`
 - [ ] `ExpensesPage` migrated to `PageHeader`; bulk actions moved to inline selection-context bar; refresh icon moved below header; OR explicitly deferred with documented reason
 - [ ] No legacy `TYPOGRAPHY_STYLES.pageHeader` usage in any Tier 1 or Tier 2 page after migration
