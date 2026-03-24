@@ -45,6 +45,20 @@ test('release auto-commit excluded from classification', () => {
   assert.equal(classifyRelease(commits), 'internal-only');
 });
 
+test('classifies transformed feat commit via raw type as user-facing', () => {
+  const commits = [
+    {
+      type: 'Features',
+      scope: 'release',
+      subject: 'add fallback',
+      header: 'feat(release): add fallback',
+      raw: makeCommit('feat', 'release', 'add fallback'),
+    },
+  ];
+
+  assert.equal(classifyRelease(commits), 'user-facing');
+});
+
 test('excludes release auto-commit', () => {
   const commits = [
     { type: 'chore', scope: 'release', subject: '1.2.1', header: 'chore(release): 1.2.1 [skip ci]' },
@@ -77,4 +91,17 @@ test('only includes internal types', () => {
 test('dep-update chore(deps) commit included', () => {
   const commits = [makeCommit('chore', 'deps', 'update frontend and backend dependencies')];
   assert.deepEqual(buildInternalChangesCommits(commits), ['chore(deps): update frontend and backend dependencies']);
+});
+
+test('builds internal changes entries from transformed commit raw data', () => {
+  const commits = [
+    {
+      type: 'Internal Changes',
+      subject: 'chore(deps): update packages',
+      header: 'chore(deps): update packages',
+      raw: makeCommit('chore', 'deps', 'update packages'),
+    },
+  ];
+
+  assert.deepEqual(buildInternalChangesCommits(commits), ['chore(deps): update packages']);
 });

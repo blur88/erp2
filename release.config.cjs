@@ -1,6 +1,57 @@
 'use strict';
 
-const { classifyRelease, buildInternalChangesCommits } = require('./scripts/release-notes-helpers.cjs');
+const {
+  classifyRelease,
+  buildInternalChangesCommits,
+  INTERNAL_TYPES,
+  RELEASE_COMMIT_RE,
+} = require('./scripts/release-notes-helpers.cjs');
+
+const SHORT_HASH_LENGTH = 7;
+
+let angularWriterTransformPromise;
+
+function getShortHash(commit) {
+  return typeof commit.hash === 'string' ? commit.hash.substring(0, SHORT_HASH_LENGTH) : commit.shortHash;
+}
+
+async function getAngularWriterTransform() {
+  if (!angularWriterTransformPromise) {
+    angularWriterTransformPromise = import('conventional-changelog-angular').then(async module => {
+      const presetFactory = module.default || module;
+      const preset = await presetFactory();
+
+      return preset.writer.transform;
+    });
+  }
+
+  return angularWriterTransformPromise;
+}
+
+async function transform(commit, context) {
+  const angularTransform = await getAngularWriterTransform();
+  const transformed = await angularTransform(commit, context);
+
+  if (transformed) {
+    return transformed;
+  }
+
+  if (!commit.type || !INTERNAL_TYPES.has(commit.type) || RELEASE_COMMIT_RE.test(commit.header || '')) {
+    return transformed;
+  }
+
+  const scope = commit.scope === '*' ? '' : commit.scope;
+  const scopeText = scope ? `(${scope})` : '';
+
+  return {
+    notes: [],
+    references: [],
+    type: 'Internal Changes',
+    scope: '',
+    shortHash: getShortHash(commit),
+    subject: `${commit.type}${scopeText}: ${commit.subject || commit.header}`,
+  };
+}
 
 /**
  * finalizeContext hook for @semantic-release/release-notes-generator.
@@ -27,6 +78,7 @@ function finalizeContext(templateContext, options, filteredCommits, keyCommit, a
   const classification = classifyRelease(allCommits);
 
   if (classification === 'user-facing') {
+    templateContext.commitGroups = (templateContext.commitGroups || []).filter(group => group.title !== 'Internal Changes');
     return templateContext;
   }
 
@@ -67,7 +119,7 @@ module.exports = {
     [
       '@semantic-release/release-notes-generator',
       {
-        writerOpts: { finalizeContext },
+        writerOpts: { transform, finalizeContext },
       },
     ],
     '@semantic-release/changelog',
