@@ -39,7 +39,7 @@ The `breakpoints.down('sm')` rules (`flexDirection: 'column'`, `alignItems: 'fle
 
 ## Edge Case: Long unbroken title strings
 
-`flexWrap: 'nowrap'` on the row prevents the row from wrapping, but text inside the left block can still wrap normally (the block is a block-level container). Long titles will wrap within the left column — this is correct. The `minWidth: 0` on the left block ensures text truncation or wrapping can occur without the block overflowing.
+`flexWrap: 'nowrap'` on the row prevents the row from wrapping, but text inside the left block can still wrap normally (the block is a block-level container). Long titles will wrap within the left column — this is correct. The `minWidth: 0` on the left block ensures text can wrap within the left column without forcing the actions box off the row or causing the flex item to overflow.
 
 ## Scope
 
@@ -53,6 +53,8 @@ The `breakpoints.down('sm')` rules (`flexDirection: 'column'`, `alignItems: 'fle
 - Page with both Primary and Secondary actions
 - Page with only one action
 - Report page with toolbar slot populated
+- Page with meta slot populated
+- Page with both meta and toolbar slots populated
 - Mobile-width check (verify stacking still works)
 
 ## Testing
