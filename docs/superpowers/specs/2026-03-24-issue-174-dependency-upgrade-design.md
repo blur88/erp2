@@ -28,7 +28,7 @@ Upgrade two dependencies in one PR with two isolated commits:
 4. `cd frontend && npm run test`
 
 ### Expected outcome
-No code changes required. Patch release — stability and dependency alignment only.
+No code changes expected. Patch release with low regression risk.
 
 ---
 
@@ -70,8 +70,8 @@ No code changes required. Patch release — stability and dependency alignment o
 1. `npm run type-check` passes in frontend
 2. `npm run build` passes in frontend
 3. `npm run build` passes in backend
-4. All frontend tests pass (`npm run test`)
-5. All backend tests pass (`npm run test`)
+4. Frontend test suite passes with no new failures (`npm run test`)
+5. Backend test suite passes with no new failures (`npm run test`)
 6. No tsconfig options changed (unless compiler hard-fails on a current option)
 7. No intentional code changes beyond minimal compatibility fixes required for TypeScript 6.0 compilation or test pass
 8. Lockfiles generated with project's normal package manager only — no unrelated dependency updates
