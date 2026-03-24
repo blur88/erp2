@@ -1,3 +1,18 @@
+# [1.25.0](https://github.com/blur88/erp2/compare/v1.24.0...v1.25.0) (2026-03-24)
+
+
+### Features
+
+* **ui:** add variant, meta, toolbar slot props to PageHeader (Phase 5A) ([a9a3e69](https://github.com/blur88/erp2/commit/a9a3e69615b48fe3627e4f5938d380a3346b90f0))
+* **ui:** migrate accounting report pages to PageHeader (Phase 5B) ([5ed0655](https://github.com/blur88/erp2/commit/5ed0655f38016be47e9f1ab326640217e6990cf1))
+* **ui:** migrate dashboard/overview pages to PageHeader (Phase 5C) ([4718fa4](https://github.com/blur88/erp2/commit/4718fa41eef4e34916868924cbb104dc773229bd))
+* **ui:** migrate inventory report pages to PageHeader (Phase 5B) ([5f5d375](https://github.com/blur88/erp2/commit/5f5d375a52790c24526cd33c5d3abfe5ee191d37))
+* **ui:** migrate purchasing report pages to PageHeader (Phase 5B) ([a13953f](https://github.com/blur88/erp2/commit/a13953fb7b9fbefc6a8dcbef8163de473cf0f26b))
+* **ui:** migrate sales report pages to PageHeader (Phase 5B) ([4b64332](https://github.com/blur88/erp2/commit/4b6433268867f3f45e8fb0ce75709ee654815d5d))
+* **ui:** migrate structure pages to PageHeader (Phase 5D) ([dc45d4f](https://github.com/blur88/erp2/commit/dc45d4fd0827af5aa72ee78d9c1fe191b16ca988))
+* **ui:** migrate system pages to PageHeader (Phase 5E) ([5f27682](https://github.com/blur88/erp2/commit/5f27682816815e2f6ce719d2b638916e0deafc3d))
+* **ui:** migrate workflow pages to PageHeader (Phase 5F) ([8eced84](https://github.com/blur88/erp2/commit/8eced8406c9589053d871b50621720f54692ca00))
+
 # [1.24.0](https://github.com/blur88/erp2/compare/v1.23.0...v1.24.0) (2026-03-24)
 
 
