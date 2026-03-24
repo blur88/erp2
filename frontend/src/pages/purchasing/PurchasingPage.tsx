@@ -42,6 +42,7 @@ import { formatCurrency, formatDate } from '@/utils/formatters'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
 import { useNavigate } from 'react-router-dom'
 import { useGetPurchaseOrdersQuery, useGetSuppliersQuery } from '@/store/api/purchasingApi'
+import PageHeader from '@/components/common/PageHeader'
 
 ChartJS.register(
   CategoryScale,
@@ -234,27 +235,11 @@ const PurchasingPage: React.FC = () => {
 
   return (
     <Box sx={{ p: 3 }}>
-      {/* Header */}
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Box>
-          <Typography variant={TYPOGRAPHY_STYLES.pageHeader.variant} sx={{
-            fontWeight: TYPOGRAPHY_STYLES.pageHeader.fontWeight,
-            mb: 1,
-            display: 'flex',
-            alignItems: 'center',
-            gap: 2
-          }}>
-            <PurchasingIcon sx={{
-              fontSize: TYPOGRAPHY_STYLES.pageHeader.icon.fontSize,
-              color: TYPOGRAPHY_STYLES.pageHeader.icon.color
-            }} />
-            Purchasing Overview
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            Monitor purchasing activities and manage supplier relationships
-          </Typography>
-        </Box>
-        <Box sx={{ display: 'flex', gap: 1 }}>
+      <PageHeader
+        variant="overview"
+        title="Purchasing Overview"
+        subtitle="Monitor purchasing activities and manage supplier relationships"
+        toolbar={
           <Button
             variant="contained"
             startIcon={<AddIcon />}
@@ -262,8 +247,8 @@ const PurchasingPage: React.FC = () => {
           >
             Create Purchase Order
           </Button>
-        </Box>
-      </Box>
+        }
+      />
       {/* Stats Cards */}
       <Grid container spacing={3} sx={{ mb: 4 }}>
         {stats.map((stat, index) => (

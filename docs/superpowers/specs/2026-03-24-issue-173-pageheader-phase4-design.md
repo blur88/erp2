@@ -84,6 +84,8 @@ These pages are not yet migrated. Do not force-fit them into `PageHeader` until 
 
 ### Permanent Exceptions
 
+**Note:** `AuditLogsPage` was reclassified in Phase 5 — its header was migrated using `variant="system"`. The multi-tab body content remains unchanged.
+
 | Page | Module | Exception Category |
 |------|--------|-------------------|
 | ChartOfAccountsPage | Accounting | Tree / hierarchy |

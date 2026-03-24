@@ -29,9 +29,8 @@ import {
 import {
   Download as DownloadIcon,
   Receipt as ReceiptIcon,
-  Timeline as AccountActivityIcon,
 } from '@mui/icons-material';
-import { TYPOGRAPHY_STYLES } from '@/constants/typography';
+import PageHeader from '@/components/common/PageHeader';
 import { useNavigate } from 'react-router-dom';
 import { formatDate, formatDateTime } from '@/utils/formatters';
 import { useGetAccountActivityQuery, useGetChartOfAccountsQuery } from '@/store/api/accountingApi';
@@ -246,144 +245,136 @@ const AccountActivityPage: React.FC = () => {
 
   return (
     <Box sx={{ p: 3 }}>
-      {/* Header */}
-      <Box sx={{ mb: 3 }}>
-        <Typography
-          variant={TYPOGRAPHY_STYLES.pageHeader.variant}
-          sx={{ fontWeight: TYPOGRAPHY_STYLES.pageHeader.fontWeight, mb: 1, display: 'flex', alignItems: 'center', gap: 2 }}
-        >
-          <AccountActivityIcon sx={{ fontSize: TYPOGRAPHY_STYLES.pageHeader.icon.fontSize, color: TYPOGRAPHY_STYLES.pageHeader.icon.color }} />
-          Account Activity Report
-        </Typography>
-        <Typography variant="body2" color="text.secondary">
-          View journal entries affecting an account with drill-down to source transactions
-        </Typography>
-      </Box>
-
-      {/* Filters Section */}
-      <Paper sx={{ p: 3, mb: 3 }}>
-        <Stack
-          direction={accountActivityToolbarLayout.containerDirection}
-          spacing={2}
-          justifyContent="space-between"
-          alignItems={accountActivityToolbarLayout.containerAlignItems}
-        >
-          <Stack
-            data-testid="account-activity-filters"
-            direction="row"
-            spacing={2}
-            alignItems="flex-start"
-            flexWrap={accountActivityToolbarLayout.filtersWrap}
-          >
-            {/* Account Selector */}
-            <Autocomplete
-              options={accounts}
-              getOptionLabel={(option) => `${option.code} - ${option.name}`}
-              value={selectedAccount}
-              onChange={(event, newValue) => {
-                setSelectedAccount(newValue);
-                setValidationError(null);
-                setSubmitted(false);
-              }}
-              renderInput={(params) => (
-                <TextField
-                  {...params}
-                  label="Account"
-                  placeholder="Select an account"
-                  required
-                  error={!!validationError}
-                  helperText={validationError}
-                />
-              )}
-              sx={{ minWidth: { xs: 280, md: 220 }, flexGrow: 1 }}
-              size="small"
-            />
-
+      <PageHeader
+        variant="report"
+        title="Account Activity Report"
+        subtitle="View journal entries affecting an account with drill-down to source transactions"
+        toolbar={
+          <Paper sx={{ p: 3, mb: 3 }}>
             <Stack
-              direction={accountActivityToolbarLayout.dateStatusDirection}
+              direction={accountActivityToolbarLayout.containerDirection}
               spacing={2}
-              flexWrap={accountActivityToolbarLayout.dateStatusWrap}
-              sx={{ width: { xs: '100%', sm: 'auto' } }}
+              justifyContent="space-between"
+              alignItems={accountActivityToolbarLayout.containerAlignItems}
             >
-              {/* Start Date */}
-              <TextField
-                label="Start Date"
-                type="date"
-                value={startDate}
-                onChange={(e) => {
-                  setStartDate(e.target.value);
-                  setSubmitted(false);
-                }}
-                size="small"
-                InputLabelProps={{ shrink: true }}
-                sx={{ minWidth: { xs: 140, sm: 160 } }}
-              />
-
-              {/* End Date */}
-              <TextField
-                label="End Date"
-                type="date"
-                value={endDate}
-                onChange={(e) => {
-                  setEndDate(e.target.value);
-                  setSubmitted(false);
-                }}
-                size="small"
-                InputLabelProps={{ shrink: true }}
-                sx={{ minWidth: { xs: 140, sm: 160 } }}
-              />
-
-              {/* Status Filter */}
-              <FormControl size="small" sx={{ minWidth: { xs: 110, sm: 120 } }}>
-                <InputLabel id="status-filter-label">Status</InputLabel>
-                <Select
-                  labelId="status-filter-label"
-                  label="Status"
-                  value={statusFilter}
-                  onChange={(e) => {
-                    setStatusFilter(e.target.value);
+              <Stack
+                data-testid="account-activity-filters"
+                direction="row"
+                spacing={2}
+                alignItems="flex-start"
+                flexWrap={accountActivityToolbarLayout.filtersWrap}
+              >
+                {/* Account Selector */}
+                <Autocomplete
+                  options={accounts}
+                  getOptionLabel={(option) => `${option.code} - ${option.name}`}
+                  value={selectedAccount}
+                  onChange={(event, newValue) => {
+                    setSelectedAccount(newValue);
+                    setValidationError(null);
                     setSubmitted(false);
                   }}
-                >
-                  <MenuItem value="ALL">All Statuses</MenuItem>
-                  <MenuItem value="DRAFT">Draft</MenuItem>
-                  <MenuItem value="POSTED">Posted</MenuItem>
-                  <MenuItem value="REVERSED">Reversed</MenuItem>
-                </Select>
-              </FormControl>
-            </Stack>
-          </Stack>
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label="Account"
+                      placeholder="Select an account"
+                      required
+                      error={!!validationError}
+                      helperText={validationError}
+                    />
+                  )}
+                  sx={{ minWidth: { xs: 280, md: 220 }, flexGrow: 1 }}
+                  size="small"
+                />
 
-          <Stack
-            data-testid="account-activity-actions"
-            direction="row"
-            spacing={2}
-            justifyContent={accountActivityToolbarLayout.actionsJustify}
-            flexWrap="wrap"
-          >
-            <Button
-              variant="contained"
-              color="primary"
-              onClick={handleGenerateReport}
-              disabled={loading}
-              aria-label="Generate Report"
-              sx={{ minWidth: 150, flex: { xs: 1, sm: 'initial' } }}
-            >
-              {loading ? <CircularProgress size={24} /> : 'Generate Report'}
-            </Button>
-            <Button
-              variant="outlined"
-              color="secondary"
-              startIcon={isDownloading ? <CircularProgress size={20} /> : <DownloadIcon />}
-              onClick={handleExportToExcel}
-              disabled={!submitted || loading || isDownloading}
-              sx={{ minWidth: 150, flex: { xs: 1, sm: 'initial' } }}
-            >
-              Export to Excel
-            </Button>
-          </Stack>
-        </Stack>
-      </Paper>
+                <Stack
+                  direction={accountActivityToolbarLayout.dateStatusDirection}
+                  spacing={2}
+                  flexWrap={accountActivityToolbarLayout.dateStatusWrap}
+                  sx={{ width: { xs: '100%', sm: 'auto' } }}
+                >
+                  {/* Start Date */}
+                  <TextField
+                    label="Start Date"
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => {
+                      setStartDate(e.target.value);
+                      setSubmitted(false);
+                    }}
+                    size="small"
+                    InputLabelProps={{ shrink: true }}
+                    sx={{ minWidth: { xs: 140, sm: 160 } }}
+                  />
+
+                  {/* End Date */}
+                  <TextField
+                    label="End Date"
+                    type="date"
+                    value={endDate}
+                    onChange={(e) => {
+                      setEndDate(e.target.value);
+                      setSubmitted(false);
+                    }}
+                    size="small"
+                    InputLabelProps={{ shrink: true }}
+                    sx={{ minWidth: { xs: 140, sm: 160 } }}
+                  />
+
+                  {/* Status Filter */}
+                  <FormControl size="small" sx={{ minWidth: { xs: 110, sm: 120 } }}>
+                    <InputLabel id="status-filter-label">Status</InputLabel>
+                    <Select
+                      labelId="status-filter-label"
+                      label="Status"
+                      value={statusFilter}
+                      onChange={(e) => {
+                        setStatusFilter(e.target.value);
+                        setSubmitted(false);
+                      }}
+                    >
+                      <MenuItem value="ALL">All Statuses</MenuItem>
+                      <MenuItem value="DRAFT">Draft</MenuItem>
+                      <MenuItem value="POSTED">Posted</MenuItem>
+                      <MenuItem value="REVERSED">Reversed</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Stack>
+              </Stack>
+
+              <Stack
+                data-testid="account-activity-actions"
+                direction="row"
+                spacing={2}
+                justifyContent={accountActivityToolbarLayout.actionsJustify}
+                flexWrap="wrap"
+              >
+                <Button
+                  variant="contained"
+                  color="primary"
+                  onClick={handleGenerateReport}
+                  disabled={loading}
+                  aria-label="Generate Report"
+                  sx={{ minWidth: 150, flex: { xs: 1, sm: 'initial' } }}
+                >
+                  {loading ? <CircularProgress size={24} /> : 'Generate Report'}
+                </Button>
+                <Button
+                  variant="outlined"
+                  color="secondary"
+                  startIcon={isDownloading ? <CircularProgress size={20} /> : <DownloadIcon />}
+                  onClick={handleExportToExcel}
+                  disabled={!submitted || loading || isDownloading}
+                  sx={{ minWidth: 150, flex: { xs: 1, sm: 'initial' } }}
+                >
+                  Export to Excel
+                </Button>
+              </Stack>
+            </Stack>
+          </Paper>
+        }
+      />
 
       {/* Error Alert */}
       {errorMessage && (

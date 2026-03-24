@@ -34,8 +34,8 @@ import {
   Delete as DeleteIcon,
   PostAdd as PostIcon,
   Refresh as RefreshIcon,
-  Description as JournalIcon,
 } from '@mui/icons-material'
+import PageHeader from '@/components/common/PageHeader'
 import { useNotification } from '@/hooks/useNotification'
 import {
   useBulkDeleteJournalEntriesMutation,
@@ -48,7 +48,7 @@ import { JournalEntry, JournalEntryStatus } from '@/types'
 import { formatCurrency, formatDate } from '@/utils/formatters'
 import ConfirmationDialog from '@/components/common/ConfirmationDialog'
 import AccountMappingWarning from '@/components/accounting/AccountMappingWarning'
-import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
+import { TABLE_STYLES } from '@/constants/typography'
 import { useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
 import { getErrorMessage } from '@/utils/errorMessage'
 
@@ -353,59 +353,48 @@ const JournalEntriesPage: React.FC = () => {
       {/* Account Mapping Warning */}
       <AccountMappingWarning context="system" />
 
-      {/* Header */}
-      <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-        <Box>
-          <Typography
-            variant={TYPOGRAPHY_STYLES.pageHeader.variant}
-            sx={{ fontWeight: TYPOGRAPHY_STYLES.pageHeader.fontWeight, mb: 1, display: 'flex', alignItems: 'center', gap: 2 }}
-          >
-            <JournalIcon sx={{ fontSize: TYPOGRAPHY_STYLES.pageHeader.icon.fontSize, color: TYPOGRAPHY_STYLES.pageHeader.icon.color }} />
-            Journal Entries
-          </Typography>
-          <Typography variant={TYPOGRAPHY_STYLES.pageSubtitle.variant} color={TYPOGRAPHY_STYLES.pageSubtitle.color}>
-            Manage and post accounting journal entries ({pagination?.total || 0} total)
-          </Typography>
-        </Box>
-        <Stack direction="row" spacing={2}>
-          {selectedIds.size > 0 && (
-            <>
-              <Button
-                size="small"
-                variant="contained"
-                color="primary"
-                startIcon={<PostIcon />}
-                onClick={() => setIsBulkPostConfirmOpen(true)}
-              >
-                Post Selected ({selectedIds.size})
-              </Button>
-              <Button
-                size="small"
-                variant="outlined"
-                color="error"
-                startIcon={<DeleteIcon />}
-                onClick={() => setIsBulkDeleteConfirmOpen(true)}
-              >
-                Delete Selected ({selectedIds.size})
-              </Button>
-            </>
-          )}
-          <Tooltip title="Refresh">
-            <span>
-              <IconButton onClick={handleRefresh} disabled={loading}>
-                <RefreshIcon />
-              </IconButton>
-            </span>
-          </Tooltip>
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={handleCreateNew}
-          >
-            New Journal Entry
-          </Button>
-        </Stack>
-      </Box>
+      <PageHeader
+        variant="workflow"
+        title="Journal Entries"
+        subtitle={`Manage and post accounting journal entries (${pagination?.total || 0} total)`}
+        meta={<Chip size="small" label={`${pagination?.total || 0} total`} />}
+        toolbar={
+          <Stack direction="row" spacing={2}>
+            {selectedIds.size > 0 && (
+              <>
+                <Button
+                  size="small"
+                  variant="contained"
+                  color="primary"
+                  startIcon={<PostIcon />}
+                  onClick={() => setIsBulkPostConfirmOpen(true)}
+                >
+                  Post Selected ({selectedIds.size})
+                </Button>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  color="error"
+                  startIcon={<DeleteIcon />}
+                  onClick={() => setIsBulkDeleteConfirmOpen(true)}
+                >
+                  Delete Selected ({selectedIds.size})
+                </Button>
+              </>
+            )}
+            <Tooltip title="Refresh">
+              <span>
+                <IconButton onClick={handleRefresh} disabled={loading}>
+                  <RefreshIcon />
+                </IconButton>
+              </span>
+            </Tooltip>
+            <Button variant="contained" startIcon={<AddIcon />} onClick={handleCreateNew}>
+              New Journal Entry
+            </Button>
+          </Stack>
+        }
+      />
 
       {/* Filters */}
       <Paper sx={{ p: 2, mb: 3 }}>

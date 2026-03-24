@@ -26,9 +26,8 @@ import { alpha, useTheme } from '@mui/material/styles';
 import {
   Download as DownloadIcon,
   Receipt as ReceiptIcon,
-  Description as GeneralLedgerIcon,
 } from '@mui/icons-material';
-import { TYPOGRAPHY_STYLES } from '@/constants/typography';
+import PageHeader from '@/components/common/PageHeader';
 import { formatDate, formatDateTime } from '@/utils/formatters';
 import { useGetChartOfAccountsQuery, useGetGeneralLedgerQuery } from '@/store/api/accountingApi';
 import type { ChartOfAccount } from '@/types';
@@ -157,118 +156,110 @@ const GeneralLedgerPage: React.FC = () => {
 
   return (
     <Box sx={{ p: 3 }}>
-      {/* Header */}
-      <Box sx={{ mb: 3 }}>
-        <Typography
-          variant={TYPOGRAPHY_STYLES.pageHeader.variant}
-          sx={{ fontWeight: TYPOGRAPHY_STYLES.pageHeader.fontWeight, mb: 1, display: 'flex', alignItems: 'center', gap: 2 }}
-        >
-          <GeneralLedgerIcon sx={{ fontSize: TYPOGRAPHY_STYLES.pageHeader.icon.fontSize, color: TYPOGRAPHY_STYLES.pageHeader.icon.color }} />
-          General Ledger
-        </Typography>
-        <Typography variant="body2" color="text.secondary">
-          View all transactions for a specific account with running balance
-        </Typography>
-      </Box>
-
-      {/* Filters Section */}
-      <Paper sx={{ p: 3, mb: 3 }}>
-        <Stack
-          direction={{ xs: 'column', md: 'row' }}
-          spacing={2}
-          justifyContent="space-between"
-          alignItems={{ xs: 'stretch', md: 'center' }}
-        >
-          <Stack
-            data-testid="general-ledger-filters"
-            direction="row"
-            spacing={2}
-            alignItems="flex-start"
-            flexWrap="wrap"
-          >
-            {/* Account Selector */}
-            <Autocomplete
-              options={accounts}
-              getOptionLabel={(option) => `${option.code} - ${option.name}`}
-              value={selectedAccount}
-              onChange={(event, newValue) => {
-                setSelectedAccount(newValue);
-                setValidationError(null);
-                setSubmitted(false);
-              }}
-              renderInput={(params) => (
-                <TextField
-                  {...params}
-                  label="Account"
-                  placeholder="Select an account"
-                  required
-                  error={!!validationError}
-                  helperText={validationError}
+      <PageHeader
+        variant="report"
+        title="General Ledger"
+        subtitle="View all transactions for a specific account with running balance"
+        toolbar={
+          <Paper sx={{ p: 3, mb: 3 }}>
+            <Stack
+              direction={{ xs: 'column', md: 'row' }}
+              spacing={2}
+              justifyContent="space-between"
+              alignItems={{ xs: 'stretch', md: 'center' }}
+            >
+              <Stack
+                data-testid="general-ledger-filters"
+                direction="row"
+                spacing={2}
+                alignItems="flex-start"
+                flexWrap="wrap"
+              >
+                {/* Account Selector */}
+                <Autocomplete
+                  options={accounts}
+                  getOptionLabel={(option) => `${option.code} - ${option.name}`}
+                  value={selectedAccount}
+                  onChange={(event, newValue) => {
+                    setSelectedAccount(newValue);
+                    setValidationError(null);
+                    setSubmitted(false);
+                  }}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label="Account"
+                      placeholder="Select an account"
+                      required
+                      error={!!validationError}
+                      helperText={validationError}
+                    />
+                  )}
+                  sx={{ minWidth: 350, flexGrow: 1 }}
+                  size="small"
                 />
-              )}
-              sx={{ minWidth: 350, flexGrow: 1 }}
-              size="small"
-            />
 
-            {/* Start Date */}
-            <TextField
-              label="Start Date"
-              type="date"
-              value={startDate}
-              onChange={(e) => {
-                setStartDate(e.target.value);
-                setSubmitted(false);
-              }}
-              size="small"
-              InputLabelProps={{ shrink: true }}
-              sx={{ minWidth: 180 }}
-            />
+                {/* Start Date */}
+                <TextField
+                  label="Start Date"
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => {
+                    setStartDate(e.target.value);
+                    setSubmitted(false);
+                  }}
+                  size="small"
+                  InputLabelProps={{ shrink: true }}
+                  sx={{ minWidth: 180 }}
+                />
 
-            {/* End Date */}
-            <TextField
-              label="End Date"
-              type="date"
-              value={endDate}
-              onChange={(e) => {
-                setEndDate(e.target.value);
-                setSubmitted(false);
-              }}
-              size="small"
-              InputLabelProps={{ shrink: true }}
-              sx={{ minWidth: 180 }}
-            />
-          </Stack>
+                {/* End Date */}
+                <TextField
+                  label="End Date"
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => {
+                    setEndDate(e.target.value);
+                    setSubmitted(false);
+                  }}
+                  size="small"
+                  InputLabelProps={{ shrink: true }}
+                  sx={{ minWidth: 180 }}
+                />
+              </Stack>
 
-          <Stack
-            data-testid="general-ledger-actions"
-            direction="row"
-            spacing={2}
-            justifyContent={{ xs: 'stretch', md: 'flex-end' }}
-            flexWrap="wrap"
-          >
-            <Button
-              variant="contained"
-              color="primary"
-              onClick={handleGenerateReport}
-              disabled={loading}
-              aria-label="Generate Report"
-              sx={{ minWidth: 150, flex: { xs: 1, sm: 'initial' } }}
-            >
-              {loading ? <CircularProgress size={24} /> : 'Generate Report'}
-            </Button>
-            <Button
-              variant="outlined"
-              color="secondary"
-              startIcon={isDownloading ? <CircularProgress size={20} /> : <DownloadIcon />}
-              onClick={handleExportToExcel}
-              disabled={!submitted || loading || isDownloading}
-              sx={{ minWidth: 150, flex: { xs: 1, sm: 'initial' } }}
-            >
-              Export to Excel
-            </Button>
-          </Stack>
-        </Stack>
-      </Paper>
+              <Stack
+                data-testid="general-ledger-actions"
+                direction="row"
+                spacing={2}
+                justifyContent={{ xs: 'stretch', md: 'flex-end' }}
+                flexWrap="wrap"
+              >
+                <Button
+                  variant="contained"
+                  color="primary"
+                  onClick={handleGenerateReport}
+                  disabled={loading}
+                  aria-label="Generate Report"
+                  sx={{ minWidth: 150, flex: { xs: 1, sm: 'initial' } }}
+                >
+                  {loading ? <CircularProgress size={24} /> : 'Generate Report'}
+                </Button>
+                <Button
+                  variant="outlined"
+                  color="secondary"
+                  startIcon={isDownloading ? <CircularProgress size={20} /> : <DownloadIcon />}
+                  onClick={handleExportToExcel}
+                  disabled={!submitted || loading || isDownloading}
+                  sx={{ minWidth: 150, flex: { xs: 1, sm: 'initial' } }}
+                >
+                  Export to Excel
+                </Button>
+              </Stack>
+            </Stack>
+          </Paper>
+        }
+      />
 
       {/* Error Alert */}
       {errorMessage && (

@@ -34,13 +34,13 @@ import {
   TableChart as ExcelIcon,
   Refresh as RefreshIcon,
   PlayArrow as GenerateIcon,
-  Inventory2 as InventoryIcon,
   Close as CloseIcon,
   KeyboardArrowRight as KeyboardArrowRightIcon,
   KeyboardArrowLeft as KeyboardArrowLeftIcon,
   KeyboardDoubleArrowRight as KeyboardDoubleArrowRightIcon,
   KeyboardDoubleArrowLeft as KeyboardDoubleArrowLeftIcon,
 } from '@mui/icons-material'
+import PageHeader from '@/components/common/PageHeader'
 import { formatCurrency, formatDateTime } from '@/utils/formatters'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
 import { ApiService } from '@/services/api'
@@ -680,63 +680,42 @@ const InventorySummaryReport: React.FC = () => {
 
   return (
     <Box sx={{ p: 3 }}>
-      {/* Header */}
-      <Box sx={{
-        display: 'flex',
-        flexDirection: isMobile ? 'column' : 'row',
-        justifyContent: 'space-between',
-        alignItems: isMobile ? 'stretch' : 'center',
-        mb: 3,
-        gap: isMobile ? 2 : 0
-      }}>
-        <Box sx={{ mb: isMobile ? 2 : 0 }}>
-          <Typography variant={isMobile ? TYPOGRAPHY_STYLES.pageHeader.mobileVariant : TYPOGRAPHY_STYLES.pageHeader.variant} sx={{
-            fontWeight: TYPOGRAPHY_STYLES.pageHeader.fontWeight,
-            mb: 1,
+      <PageHeader
+        variant="report"
+        title="Inventory Summary"
+        subtitle={reportData.length > 0
+          ? `${reportData.length} products`
+          : 'View comprehensive inventory summary with values and profit potential'}
+        toolbar={
+          <Box sx={{
             display: 'flex',
-            alignItems: 'center',
-            gap: 2
+            flexDirection: isMobile ? 'column' : 'row',
+            gap: isMobile ? 1.5 : 1,
+            alignItems: isMobile ? 'stretch' : 'center'
           }}>
-            <InventoryIcon sx={{
-              fontSize: TYPOGRAPHY_STYLES.pageHeader.icon.fontSize,
-              color: TYPOGRAPHY_STYLES.pageHeader.icon.color
-            }} />
-            Inventory Summary
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            {reportData.length > 0
-              ? `${reportData.length} products`
-              : 'View comprehensive inventory summary with values and profit potential'}
-          </Typography>
-        </Box>
-        <Box sx={{
-          display: 'flex',
-          flexDirection: isMobile ? 'column' : 'row',
-          gap: isMobile ? 1.5 : 1,
-          alignItems: isMobile ? 'stretch' : 'center'
-        }}>
-          <Button
-            variant="outlined"
-            startIcon={!isMobile ? <RefreshIcon /> : undefined}
-            onClick={handleClearFilters}
-            disabled={loading}
-            size={isMobile ? "medium" : "medium"}
-            fullWidth={isMobile}
-          >
-            {isMobile ? "Clear Filters" : "Clear Filters"}
-          </Button>
-          <Button
-            variant="contained"
-            startIcon={!isMobile ? <GenerateIcon /> : undefined}
-            onClick={handleGenerateReport}
-            disabled={loading}
-            size="medium"
-            fullWidth={isMobile}
-          >
-            {loading ? 'Generating...' : 'Generate Report'}
-          </Button>
-        </Box>
-      </Box>
+            <Button
+              variant="outlined"
+              startIcon={!isMobile ? <RefreshIcon /> : undefined}
+              onClick={handleClearFilters}
+              disabled={loading}
+              size={isMobile ? 'medium' : 'medium'}
+              fullWidth={isMobile}
+            >
+              {isMobile ? 'Clear Filters' : 'Clear Filters'}
+            </Button>
+            <Button
+              variant="contained"
+              startIcon={!isMobile ? <GenerateIcon /> : undefined}
+              onClick={handleGenerateReport}
+              disabled={loading}
+              size="medium"
+              fullWidth={isMobile}
+            >
+              {loading ? 'Generating...' : 'Generate Report'}
+            </Button>
+          </Box>
+        }
+      />
       {/* Split Layout */}
       <Grid container spacing={3} sx={{ alignItems: 'stretch', height: 'calc(100vh - 220px)' }}>
         {/* Left Side - Filters and Display */}
@@ -965,7 +944,6 @@ const InventorySummaryReport: React.FC = () => {
                     <CircularProgress />
                   ) : (
                     <>
-                      <InventoryIcon sx={{ fontSize: 80, color: 'text.disabled', mb: 2 }} />
                       <Typography variant="h6" color="text.secondary" sx={{ mb: 1 }}>
                         No Report Generated
                       </Typography>

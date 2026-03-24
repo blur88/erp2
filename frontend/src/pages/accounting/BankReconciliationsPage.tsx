@@ -22,15 +22,15 @@ import {
   useMediaQuery,
 } from '@mui/material';
 import {
-  AccountBalance as AccountBalanceIcon,
   Add as AddIcon,
   Delete as DeleteIcon,
 } from '@mui/icons-material';
+import PageHeader from '@/components/common/PageHeader';
 import { format } from 'date-fns';
 import ConfirmationDialog from '@/components/common/ConfirmationDialog';
 import BankReconciliationFormDialog from '@/components/accounting/BankReconciliationFormDialog';
 import { useNotification } from '@/hooks/useNotification';
-import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography';
+import { TABLE_STYLES } from '@/constants/typography';
 import {
   useDeleteBankReconciliationMutation,
   useGetBankReconciliationsQuery,
@@ -162,38 +162,24 @@ const BankReconciliationsPage: React.FC = () => {
     return <Chip size="small" color="warning" label="In Progress" />;
   };
 
+  const selectedPeriodLabel =
+    periodFilter === 'all'
+      ? 'All periods'
+      : periods.find((period: any) => period.id === periodFilter)?.name || periodFilter;
+
   return (
     <Box sx={{ p: 3 }}>
-      <Box sx={{
-        display: 'flex',
-        flexDirection: isMobile ? 'column' : 'row',
-        justifyContent: 'space-between',
-        alignItems: isMobile ? 'stretch' : 'center',
-        mb: 3,
-        gap: isMobile ? 2 : 0,
-      }}>
-        <Box>
-          <Typography
-            variant={isMobile ? TYPOGRAPHY_STYLES.pageHeader.mobileVariant : TYPOGRAPHY_STYLES.pageHeader.variant}
-            sx={{
-              fontWeight: TYPOGRAPHY_STYLES.pageHeader.fontWeight,
-              mb: 1,
-              display: 'flex',
-              alignItems: 'center',
-              gap: 2,
-            }}
-          >
-            <AccountBalanceIcon sx={{ fontSize: TYPOGRAPHY_STYLES.pageHeader.icon.fontSize, color: TYPOGRAPHY_STYLES.pageHeader.icon.color }} />
-            Bank Reconciliations
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            Reconcile bank and cash accounts ({pagination?.total || 0} total)
-          </Typography>
-        </Box>
-        <Button variant="contained" startIcon={<AddIcon />} onClick={handleOpenCreate}>
-          New Reconciliation
-        </Button>
-      </Box>
+      <PageHeader
+        variant="workflow"
+        title="Bank Reconciliations"
+        subtitle="Reconcile bank and cash accounts"
+        meta={<Chip size="small" label={selectedPeriodLabel} />}
+        toolbar={
+          <Button variant="contained" startIcon={<AddIcon />} onClick={handleOpenCreate}>
+            New Reconciliation
+          </Button>
+        }
+      />
 
       <Paper sx={{ p: 2, mb: 3 }}>
         <Box sx={{ display: 'flex', gap: 2, flexDirection: isMobile ? 'column' : 'row' }}>

@@ -25,15 +25,13 @@ import {
   Grid,
 } from '@mui/material'
 import {
-  Add as AddIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
   Search as SearchIcon,
-  AccountBalance as AccountIcon,
   CloudUpload as SeedIcon,
-  Restore as RestoreIcon,
   Info as InfoIcon,
 } from '@mui/icons-material'
+import PageHeader from '@/components/common/PageHeader'
 import { useNotification } from '@/hooks/useNotification'
 import { useSearchAndFilter, useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
 import ConfirmationDialog from '@/components/common/ConfirmationDialog'
@@ -205,86 +203,154 @@ const ChartOfAccountsPage: React.FC = () => {
       {/* Account Mapping Warning */}
       <AccountMappingWarning context="system" />
 
-      {/* Header */}
-      <Box sx={{
-        display: 'flex',
-        flexDirection: isMobile ? 'column' : 'row',
-        justifyContent: 'space-between',
-        alignItems: isMobile ? 'stretch' : 'center',
-        mb: 3,
-        gap: isMobile ? 2 : 0
-      }}>
-        <Box sx={{ mb: isMobile ? 2 : 0 }}>
-          <Typography variant={isMobile ? TYPOGRAPHY_STYLES.pageHeader.mobileVariant : TYPOGRAPHY_STYLES.pageHeader.variant} sx={{
-            fontWeight: TYPOGRAPHY_STYLES.pageHeader.fontWeight,
-            mb: 1,
-            display: 'flex',
-            alignItems: 'center',
-            gap: 2
-          }}>
-            <AccountIcon sx={{
-              fontSize: TYPOGRAPHY_STYLES.pageHeader.icon.fontSize,
-              color: TYPOGRAPHY_STYLES.pageHeader.icon.color
-            }} />
-            Chart of Accounts
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            Manage your accounting structure and account hierarchy ({pagination?.total || 0} total)
-          </Typography>
-        </Box>
-        <Box sx={{
-          display: 'flex',
-          flexDirection: isMobile ? 'column' : 'row',
-          gap: isMobile ? 1.5 : 1,
-          alignItems: isMobile ? 'stretch' : 'center'
-        }}>
-          {accounts.length === 0 && !loading && (
-            <Button
-              variant="outlined"
-              startIcon={!isMobile ? <SeedIcon /> : undefined}
-              onClick={handleSeedAccounts}
-              size="medium"
-              fullWidth={isMobile}
+      <PageHeader
+        variant="structure"
+        title="Chart of Accounts"
+        subtitle={`Manage your accounting structure and account hierarchy (${pagination?.total || 0} total)`}
+        primaryAction={{
+          label: isMobile ? 'Add New Account' : 'Add Account',
+          onClick: handleAddAccount,
+        }}
+        secondaryAction={{
+          label: 'View Deleted',
+          onClick: () => setDeletedDialogOpen(true),
+        }}
+        toolbar={
+          <Paper sx={{ p: 2 }}>
+            <Box
               sx={{
-                color: 'info.main',
-                borderColor: 'info.main',
-                '&:hover': {
-                  borderColor: 'info.dark',
-                  backgroundColor: 'info.light'
-                }
+                display: 'flex',
+                flexDirection: isMobile ? 'column' : 'row',
+                gap: isMobile ? 2 : 1,
+                alignItems: isMobile ? 'stretch' : 'center',
+                '& > *': {
+                  alignSelf: isMobile ? 'stretch' : 'flex-start',
+                },
               }}
             >
-              {isMobile ? "Seed Default Accounts" : "Seed Defaults"}
-            </Button>
-          )}
-          <Button
-            variant="outlined"
-            startIcon={!isMobile ? <RestoreIcon /> : undefined}
-            onClick={() => setDeletedDialogOpen(true)}
-            size="medium"
-            fullWidth={isMobile}
-            sx={{
-              color: 'warning.main',
-              borderColor: 'warning.main',
-              '&:hover': {
-                borderColor: 'warning.dark',
-                backgroundColor: 'warning.lighter'
-              }
-            }}
-          >
-            {isMobile ? "View Deleted" : "View Deleted"}
-          </Button>
-          <Button
-            variant="contained"
-            startIcon={!isMobile ? <AddIcon /> : undefined}
-            size="medium"
-            onClick={handleAddAccount}
-            fullWidth={isMobile}
-          >
-            {isMobile ? "Add New Account" : "Add Account"}
-          </Button>
-        </Box>
-      </Box>
+              <TextField
+                placeholder="Search by code or name..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                size="medium"
+                sx={{
+                  minWidth: isMobile ? 'auto' : 250,
+                  flex: isMobile ? 'none' : 1,
+                  maxWidth: isMobile ? 'none' : 400,
+                  '& .MuiOutlinedInput-root': {
+                    height: TYPOGRAPHY_STYLES.searchField.input.height,
+                    fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
+                    '& input': {
+                      padding: TYPOGRAPHY_STYLES.searchField.input.padding,
+                      fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize
+                    }
+                  },
+                  '& .MuiInputAdornment-root': {
+                    '& .MuiSvgIcon-root': {
+                      fontSize: TYPOGRAPHY_STYLES.searchField.icon.fontSize,
+                      color: TYPOGRAPHY_STYLES.searchField.icon.color
+                    }
+                  }
+                }}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon fontSize="small" />
+                    </InputAdornment>
+                  ),
+                }}
+              />
+
+              <FormControl
+                size="medium"
+                sx={{
+                  minWidth: isMobile ? 'auto' : 150,
+                  flex: 'none'
+                }}
+              >
+                <InputLabel
+                  sx={{
+                    fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
+                    '&.MuiInputLabel-shrunk': {
+                      fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize
+                    }
+                  }}
+                >
+                  Account Type
+                </InputLabel>
+                <Select
+                  value={typeFilter}
+                  label="Account Type"
+                  onChange={(e) => setTypeFilter(e.target.value)}
+                  sx={{
+                    height: TYPOGRAPHY_STYLES.searchField.input.height,
+                    fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
+                  }}
+                >
+                  <MenuItem value="all">All Types</MenuItem>
+                  <MenuItem value="asset">Asset</MenuItem>
+                  <MenuItem value="liability">Liability</MenuItem>
+                  <MenuItem value="equity">Equity</MenuItem>
+                  <MenuItem value="revenue">Revenue</MenuItem>
+                  <MenuItem value="expense">Expense</MenuItem>
+                </Select>
+              </FormControl>
+
+              <FormControl
+                size="medium"
+                sx={{
+                  minWidth: isMobile ? 'auto' : 120,
+                  flex: 'none'
+                }}
+              >
+                <InputLabel
+                  sx={{
+                    fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
+                    '&.MuiInputLabel-shrunk': {
+                      fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize
+                    }
+                  }}
+                >
+                  Status
+                </InputLabel>
+                <Select
+                  value={activeFilter}
+                  label="Status"
+                  onChange={(e) => setActiveFilter(e.target.value)}
+                  sx={{
+                    height: TYPOGRAPHY_STYLES.searchField.input.height,
+                    fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
+                  }}
+                >
+                  <MenuItem value="all">All</MenuItem>
+                  <MenuItem value="active">Active</MenuItem>
+                  <MenuItem value="inactive">Inactive</MenuItem>
+                </Select>
+              </FormControl>
+
+              {accounts.length === 0 && !loading && (
+                <Button
+                  variant="outlined"
+                  startIcon={!isMobile ? <SeedIcon /> : undefined}
+                  onClick={handleSeedAccounts}
+                  size="medium"
+                  fullWidth={isMobile}
+                  sx={{
+                    color: 'info.main',
+                    borderColor: 'info.main',
+                    '&:hover': {
+                      borderColor: 'info.dark',
+                      backgroundColor: 'info.light'
+                    }
+                  }}
+                >
+                  {isMobile ? 'Seed Default Accounts' : 'Seed Defaults'}
+                </Button>
+              )}
+            </Box>
+          </Paper>
+        }
+      />
 
       {/* Code Range Guide */}
       <Paper variant="outlined" sx={{ mb: 3, borderColor: 'info.light' }}>
@@ -391,119 +457,6 @@ const ChartOfAccountsPage: React.FC = () => {
             </Grid>
           </Box>
         </Collapse>
-      </Paper>
-
-      {/* Filters and Search */}
-      <Paper sx={{ p: 2, mb: 3 }}>
-      <Box sx={{
-        display: 'flex',
-        flexDirection: isMobile ? 'column' : 'row',
-        gap: isMobile ? 2 : 1,
-        alignItems: isMobile ? 'stretch' : 'center',
-        '& > *': {
-          alignSelf: isMobile ? 'stretch' : 'flex-start'
-        }
-      }}>
-        <TextField
-          placeholder="Search by code or name..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          size="medium"
-          sx={{
-            minWidth: isMobile ? 'auto' : 250,
-            flex: isMobile ? 'none' : 1,
-            maxWidth: isMobile ? 'none' : 400,
-            '& .MuiOutlinedInput-root': {
-              height: TYPOGRAPHY_STYLES.searchField.input.height,
-              fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
-              '& input': {
-                padding: TYPOGRAPHY_STYLES.searchField.input.padding,
-                fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize
-              }
-            },
-            '& .MuiInputAdornment-root': {
-              '& .MuiSvgIcon-root': {
-                fontSize: TYPOGRAPHY_STYLES.searchField.icon.fontSize,
-                color: TYPOGRAPHY_STYLES.searchField.icon.color
-              }
-            }
-          }}
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <SearchIcon fontSize="small" />
-              </InputAdornment>
-            ),
-          }}
-        />
-
-        <FormControl
-          size="medium"
-          sx={{
-            minWidth: isMobile ? 'auto' : 150,
-            flex: 'none'
-          }}
-        >
-          <InputLabel
-            sx={{
-              fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
-              '&.MuiInputLabel-shrunk': {
-                fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize
-              }
-            }}
-          >
-            Account Type
-          </InputLabel>
-          <Select
-            value={typeFilter}
-            label="Account Type"
-            onChange={(e) => setTypeFilter(e.target.value)}
-            sx={{
-              height: TYPOGRAPHY_STYLES.searchField.input.height,
-              fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
-            }}
-          >
-            <MenuItem value="all">All Types</MenuItem>
-            <MenuItem value="asset">Asset</MenuItem>
-            <MenuItem value="liability">Liability</MenuItem>
-            <MenuItem value="equity">Equity</MenuItem>
-            <MenuItem value="revenue">Revenue</MenuItem>
-            <MenuItem value="expense">Expense</MenuItem>
-          </Select>
-        </FormControl>
-
-        <FormControl
-          size="medium"
-          sx={{
-            minWidth: isMobile ? 'auto' : 120,
-            flex: 'none'
-          }}
-        >
-          <InputLabel
-            sx={{
-              fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
-              '&.MuiInputLabel-shrunk': {
-                fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize
-              }
-            }}
-          >
-            Status
-          </InputLabel>
-          <Select
-            value={activeFilter}
-            label="Status"
-            onChange={(e) => setActiveFilter(e.target.value)}
-            sx={{
-              height: TYPOGRAPHY_STYLES.searchField.input.height,
-              fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
-            }}
-          >
-            <MenuItem value="all">All</MenuItem>
-            <MenuItem value="active">Active</MenuItem>
-            <MenuItem value="inactive">Inactive</MenuItem>
-          </Select>
-        </FormControl>
-      </Box>
       </Paper>
 
       {/* Accounts Table */}

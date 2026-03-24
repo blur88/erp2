@@ -11,8 +11,8 @@ import {
   PointOfSale as SalesIcon,
   Assignment as PurchasingIcon,
   People as CustomersIcon,
-  Dashboard as DashboardIcon,
 } from '@mui/icons-material'
+import PageHeader from '@/components/common/PageHeader'
 import { formatCurrency } from '@/utils/formatters'
 import { TYPOGRAPHY_STYLES } from '@/constants/typography'
 import { useNavigate } from 'react-router-dom'
@@ -374,31 +374,11 @@ const DashboardPage: React.FC = () => {
 
   return (
     <Box sx={{ p: 3 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Box>
-          <Typography
-            variant={TYPOGRAPHY_STYLES.pageHeader.variant}
-            sx={{
-              fontWeight: TYPOGRAPHY_STYLES.pageHeader.fontWeight,
-              mb: 1,
-              display: 'flex',
-              alignItems: 'center',
-              gap: 2,
-            }}
-          >
-            <DashboardIcon
-              sx={{
-                fontSize: TYPOGRAPHY_STYLES.pageHeader.icon.fontSize,
-                color: TYPOGRAPHY_STYLES.pageHeader.icon.color,
-              }}
-            />
-            Dashboard
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            Monitor your business performance across sales, purchasing, and inventory
-          </Typography>
-        </Box>
-      </Box>
+      <PageHeader
+        variant="overview"
+        title="Dashboard"
+        subtitle="Monitor your business performance across sales, purchasing, and inventory"
+      />
 
       {error && <Alert severity="error" sx={{ mb: 4 }}>Failed to load dashboard data</Alert>}
 

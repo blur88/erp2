@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react'
 import {
-  Box, Typography, Tabs, Tab, Stack,
+  Box, Tabs, Tab,
 } from '@mui/material'
-import { History as AuditIcon } from '@mui/icons-material'
+import PageHeader from '@/components/common/PageHeader'
 import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
 import {
   setPage,
@@ -11,7 +11,6 @@ import {
 } from '@/store/slices/auditLogSlice'
 import { useGetAuditLogsQuery, useGetAuditLogStatisticsQuery } from '@/store/api/auditLogApi'
 import { priceListApiSlice } from '@/store/api/priceListApi'
-import { TYPOGRAPHY_STYLES } from '@/constants/typography'
 import FilterSidebar from './components/FilterSidebar'
 import LogsTab from './components/LogsTab'
 import AnalyticsTab from './components/AnalyticsTab'
@@ -139,22 +138,12 @@ const AuditLogsPage: React.FC = () => {
 
       {/* Main content */}
       <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
-        {/* Header */}
-        <Stack direction="row" justifyContent="space-between" alignItems="center">
-          <Box>
-            <Typography
-              variant={TYPOGRAPHY_STYLES.pageHeader.variant}
-              sx={{ fontWeight: TYPOGRAPHY_STYLES.pageHeader.fontWeight, display: 'flex', alignItems: 'center', gap: 1 }}
-            >
-              <AuditIcon sx={{ fontSize: TYPOGRAPHY_STYLES.pageHeader.icon.fontSize, color: TYPOGRAPHY_STYLES.pageHeader.icon.color }} />
-              Audit Logs
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              View all system changes and user activities
-            </Typography>
-          </Box>
-          <ExportButton logs={auditLogs} disabled={loading} />
-        </Stack>
+        <PageHeader
+          variant="system"
+          title="Audit Logs"
+          subtitle="View all system changes and user activities"
+          toolbar={<ExportButton logs={auditLogs} disabled={loading} />}
+        />
 
         {/* Tabs */}
         <Tabs

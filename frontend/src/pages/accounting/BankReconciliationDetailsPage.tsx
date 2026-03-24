@@ -28,6 +28,7 @@ import {
   Delete as DeleteIcon,
   Save as SaveIcon,
 } from '@mui/icons-material';
+import PageHeader from '@/components/common/PageHeader';
 import { format } from 'date-fns';
 import { useNotification } from '@/hooks/useNotification';
 import {
@@ -41,7 +42,6 @@ import {
 } from '@/store/api/accountingApi';
 import { BankReconciliationStatus, ReconciledTransaction } from '@/types';
 import { formatCurrency } from '@/utils/formatters';
-import { TYPOGRAPHY_STYLES } from '@/constants/typography';
 import { getErrorMessage } from '@/utils/errorMessage';
 
 const BankReconciliationDetailsPage: React.FC = () => {
@@ -196,45 +196,47 @@ const BankReconciliationDetailsPage: React.FC = () => {
 
   return (
     <Box sx={{ p: 3 }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-          <IconButton onClick={handleBack}>
-            <ArrowBackIcon />
-          </IconButton>
-          <Box>
-            <Typography variant={TYPOGRAPHY_STYLES.pageHeader.variant} sx={{ fontWeight: TYPOGRAPHY_STYLES.pageHeader.fontWeight }}>
-              {reconciliation.account ? `${reconciliation.account.code} - ${reconciliation.account.name}` : 'Bank Reconciliation'}
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              {reconciliation.fiscalPeriod?.name || reconciliation.fiscalPeriodId}
-            </Typography>
-          </Box>
-        </Box>
+      <PageHeader
+        variant="workflow"
+        title={reconciliation.account ? `${reconciliation.account.code} - ${reconciliation.account.name}` : 'Bank Reconciliation'}
+        subtitle={reconciliation.fiscalPeriod?.name || reconciliation.fiscalPeriodId}
+        meta={
+          <Chip
+            size="small"
+            label={reconciliation.status === BankReconciliationStatus.COMPLETED ? 'Completed' : 'In Progress'}
+            color={reconciliation.status === BankReconciliationStatus.COMPLETED ? 'success' : 'warning'}
+          />
+        }
+      />
 
-        <Stack direction="row" spacing={1}>
-          {reconciliation.status === BankReconciliationStatus.COMPLETED ? (
-            <Button variant="outlined" color="warning" startIcon={<ReopenIcon />} onClick={handleReopen}>
-              Reopen
+      <Stack direction="row" spacing={1} sx={{ mb: 3 }}>
+        <IconButton onClick={handleBack}>
+          <ArrowBackIcon />
+        </IconButton>
+        {reconciliation.status === BankReconciliationStatus.COMPLETED ? (
+          <Button variant="outlined" color="warning" startIcon={<ReopenIcon />} onClick={handleReopen}>
+            Reopen
+          </Button>
+        ) : (
+          <>
+            <Button
+              variant="contained"
+              color="success"
+              startIcon={<CheckCircleIcon />}
+              disabled={!reconciliation.isBalanced}
+              onClick={handleComplete}
+            >
+              Complete
             </Button>
-          ) : (
-            <>
-              <Button
-                variant="contained"
-                color="success"
-                startIcon={<CheckCircleIcon />}
-                disabled={!reconciliation.isBalanced}
-                onClick={handleComplete}
-              >
-                Complete
-              </Button>
-              <Button variant="outlined" color="error" startIcon={<DeleteIcon />} onClick={handleDelete}>
-                Delete
-              </Button>
-            </>
-          )}
-          <Button variant="outlined" onClick={handleBack}>Back to List</Button>
-        </Stack>
-      </Box>
+            <Button variant="outlined" color="error" startIcon={<DeleteIcon />} onClick={handleDelete}>
+              Delete
+            </Button>
+          </>
+        )}
+        <Button variant="outlined" onClick={handleBack}>
+          Back to List
+        </Button>
+      </Stack>
 
       <Card sx={{ mb: 3 }}>
         <CardContent>

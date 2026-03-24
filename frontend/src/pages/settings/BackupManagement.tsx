@@ -2,7 +2,6 @@ import React, { useEffect, useState } from 'react';
 import {
   Paper,
   Box,
-  Typography,
   Tabs,
   Tab,
   Button,
@@ -11,7 +10,7 @@ import {
   CircularProgress,
 } from '@mui/material';
 import { Add as AddIcon, Backup as BackupIcon, CloudUpload as UploadIcon } from '@mui/icons-material';
-import { TYPOGRAPHY_STYLES } from '@/constants/typography';
+import PageHeader from '@/components/common/PageHeader';
 import { useGetBackupsQuery, useGetSchedulesQuery } from '@/store/api/backupApi';
 import BackupList from '@/components/backup/BackupList';
 import BackupScheduleList from '@/components/backup/BackupScheduleList';
@@ -81,52 +80,47 @@ const BackupManagement: React.FC = () => {
 
   return (
     <Box sx={{ p: 3 }}>
-      {/* Header */}
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Box>
-          <Typography variant={TYPOGRAPHY_STYLES.pageHeader.variant} sx={{ fontWeight: TYPOGRAPHY_STYLES.pageHeader.fontWeight, mb: 1, display: 'flex', alignItems: 'center', gap: 2 }}>
-            <BackupIcon sx={{ fontSize: TYPOGRAPHY_STYLES.pageHeader.icon.fontSize, color: TYPOGRAPHY_STYLES.pageHeader.icon.color }} />
-            Backup & Restore Management
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            Create, manage, and restore database backups
-          </Typography>
-        </Box>
-        <Box sx={{ display: 'flex', gap: 2 }}>
-          {tabValue === 0 && (
-            <>
-              <Button
-                variant="outlined"
-                color="primary"
-                startIcon={<UploadIcon />}
-                onClick={handleUploadBackup}
-                disabled={loading}
-              >
-                Upload Backup
-              </Button>
+      <PageHeader
+        variant="system"
+        title="Backup & Restore Management"
+        subtitle="Create, manage, and restore database backups"
+        toolbar={
+          <Box sx={{ display: 'flex', gap: 2 }}>
+            {tabValue === 0 && (
+              <>
+                <Button
+                  variant="outlined"
+                  color="primary"
+                  startIcon={<UploadIcon />}
+                  onClick={handleUploadBackup}
+                  disabled={loading}
+                >
+                  Upload Backup
+                </Button>
+                <Button
+                  variant="contained"
+                  color="primary"
+                  startIcon={loading ? <CircularProgress size={20} color="inherit" /> : <BackupIcon />}
+                  onClick={handleCreateBackup}
+                  disabled={loading}
+                >
+                  {loading ? 'Processing...' : 'Create Backup'}
+                </Button>
+              </>
+            )}
+            {tabValue === 1 && (
               <Button
                 variant="contained"
                 color="primary"
-                startIcon={loading ? <CircularProgress size={20} color="inherit" /> : <BackupIcon />}
-                onClick={handleCreateBackup}
-                disabled={loading}
+                startIcon={<AddIcon />}
+                onClick={handleCreateSchedule}
               >
-                {loading ? 'Processing...' : 'Create Backup'}
+                Create Schedule
               </Button>
-            </>
-          )}
-          {tabValue === 1 && (
-            <Button
-              variant="contained"
-              color="primary"
-              startIcon={<AddIcon />}
-              onClick={handleCreateSchedule}
-            >
-              Create Schedule
-            </Button>
-          )}
-        </Box>
-      </Box>
+            )}
+          </Box>
+        }
+      />
 
       <Paper sx={{ p: 3 }}>
         <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>

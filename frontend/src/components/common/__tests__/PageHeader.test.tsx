@@ -101,4 +101,65 @@ describe('PageHeader', () => {
     )
     expect(screen.getByText('extra content')).toBeInTheDocument()
   })
+
+  describe('slot rendering', () => {
+    it('renders meta when provided', () => {
+      renderWithTheme(
+        <PageHeader title="T" meta={<span data-testid="meta-content">Meta</span>} />
+      )
+      expect(screen.getByTestId('meta-content')).toBeInTheDocument()
+    })
+
+    it('does not render meta wrapper when meta is not provided', () => {
+      renderWithTheme(<PageHeader title="T" />)
+      expect(screen.queryByTestId('page-header-meta')).not.toBeInTheDocument()
+    })
+
+    it('renders toolbar when provided', () => {
+      renderWithTheme(
+        <PageHeader title="T" toolbar={<span data-testid="toolbar-content">Toolbar</span>} />
+      )
+      expect(screen.getByTestId('toolbar-content')).toBeInTheDocument()
+    })
+
+    it('does not render toolbar wrapper when toolbar is not provided', () => {
+      renderWithTheme(<PageHeader title="T" />)
+      expect(screen.queryByTestId('page-header-toolbar')).not.toBeInTheDocument()
+    })
+
+    it('does not render children wrapper when children is not provided', () => {
+      renderWithTheme(<PageHeader title="T" />)
+      expect(screen.queryByTestId('page-header-children')).not.toBeInTheDocument()
+    })
+
+    it('renders meta before toolbar in the DOM', () => {
+      renderWithTheme(
+        <PageHeader
+          title="T"
+          meta={<span data-testid="meta-content">Meta</span>}
+          toolbar={<span data-testid="toolbar-content">Toolbar</span>}
+        />
+      )
+      const meta = screen.getByTestId('meta-content')
+      const toolbar = screen.getByTestId('toolbar-content')
+      expect(meta.compareDocumentPosition(toolbar)).toBe(Node.DOCUMENT_POSITION_FOLLOWING)
+    })
+
+    it('renders toolbar before children in the DOM', () => {
+      renderWithTheme(
+        <PageHeader title="T" toolbar={<span data-testid="toolbar-content">Toolbar</span>}>
+          <span data-testid="children-content">Children</span>
+        </PageHeader>
+      )
+      const toolbar = screen.getByTestId('toolbar-content')
+      const children = screen.getByTestId('children-content')
+      expect(toolbar.compareDocumentPosition(children)).toBe(Node.DOCUMENT_POSITION_FOLLOWING)
+    })
+
+    it('accepts variant prop without error', () => {
+      expect(() =>
+        renderWithTheme(<PageHeader title="T" variant="report" />)
+      ).not.toThrow()
+    })
+  })
 })

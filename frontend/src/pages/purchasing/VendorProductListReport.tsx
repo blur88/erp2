@@ -41,6 +41,7 @@ import {
   KeyboardDoubleArrowRight as KeyboardDoubleArrowRightIcon,
   KeyboardDoubleArrowLeft as KeyboardDoubleArrowLeftIcon,
 } from '@mui/icons-material'
+import PageHeader from '@/components/common/PageHeader'
 import { formatCurrency, formatDate, formatDateTime } from '@/utils/formatters'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
 import api from '@/services/api'
@@ -630,63 +631,46 @@ const VendorProductListReport: React.FC = () => {
 
   return (
     <Box sx={{ p: 3 }}>
-      {/* Header */}
-      <Box sx={{
-        display: 'flex',
-        flexDirection: isMobile ? 'column' : 'row',
-        justifyContent: 'space-between',
-        alignItems: isMobile ? 'stretch' : 'center',
-        mb: 3,
-        gap: isMobile ? 2 : 0
-      }}>
-        <Box sx={{ mb: isMobile ? 2 : 0 }}>
-          <Typography variant={isMobile ? TYPOGRAPHY_STYLES.pageHeader.mobileVariant : TYPOGRAPHY_STYLES.pageHeader.variant} sx={{
-            fontWeight: TYPOGRAPHY_STYLES.pageHeader.fontWeight,
-            mb: 1,
-            display: 'flex',
-            alignItems: 'center',
-            gap: 2
-          }}>
-            <ProductIcon sx={{
-              fontSize: TYPOGRAPHY_STYLES.pageHeader.icon.fontSize,
-              color: TYPOGRAPHY_STYLES.pageHeader.icon.color
-            }} />
-            Vendor Product List
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            {reportData.length > 0
-              ? `${reportData.length} purchase items`
-              : 'View product-level details for vendor purchases'}
-          </Typography>
-        </Box>
-        <Box sx={{
-          display: 'flex',
-          flexDirection: isMobile ? 'column' : 'row',
-          gap: isMobile ? 1.5 : 1,
-          alignItems: isMobile ? 'stretch' : 'center'
-        }}>
-          <Button
-            variant="outlined"
-            startIcon={!isMobile ? <RefreshIcon /> : undefined}
-            onClick={handleClearFilters}
-            disabled={loading}
-            size={isMobile ? "medium" : "medium"}
-            fullWidth={isMobile}
+      <PageHeader
+        variant="report"
+        title={reportTitle}
+        subtitle={
+          reportData.length > 0
+            ? `${reportData.length} purchase items`
+            : 'View product-level details for vendor purchases'
+        }
+        toolbar={
+          <Box
+            sx={{
+              display: 'flex',
+              flexDirection: isMobile ? 'column' : 'row',
+              gap: isMobile ? 1.5 : 1,
+              alignItems: isMobile ? 'stretch' : 'center',
+            }}
           >
-            {isMobile ? "Clear Filters" : "Clear Filters"}
-          </Button>
-          <Button
-            variant="contained"
-            startIcon={!isMobile ? <GenerateIcon /> : undefined}
-            onClick={handleGenerateReport}
-            disabled={loading}
-            size="medium"
-            fullWidth={isMobile}
-          >
-            {loading ? 'Generating...' : 'Generate Report'}
-          </Button>
-        </Box>
-      </Box>
+            <Button
+              variant="outlined"
+              startIcon={!isMobile ? <RefreshIcon /> : undefined}
+              onClick={handleClearFilters}
+              disabled={loading}
+              size="medium"
+              fullWidth={isMobile}
+            >
+              Clear Filters
+            </Button>
+            <Button
+              variant="contained"
+              startIcon={!isMobile ? <GenerateIcon /> : undefined}
+              onClick={handleGenerateReport}
+              disabled={loading}
+              size="medium"
+              fullWidth={isMobile}
+            >
+              {loading ? 'Generating...' : 'Generate Report'}
+            </Button>
+          </Box>
+        }
+      />
       {/* Split Layout */}
       <Grid container spacing={3} sx={{ alignItems: 'stretch', height: 'calc(100vh - 220px)' }}>
         {/* Left Side - Filters and Display */}

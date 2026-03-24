@@ -25,14 +25,12 @@ import {
   InputAdornment,
 } from '@mui/material'
 import {
-  Add as AddIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
   DragIndicator as DragIndicatorIcon,
-  RestoreFromTrash as RestoreIcon,
   Search as SearchIcon,
-  Category as CategoryIcon,
 } from '@mui/icons-material'
+import PageHeader from '@/components/common/PageHeader'
 import { useForm, Controller } from 'react-hook-form'
 import { yupResolver } from '@hookform/resolvers/yup'
 import * as yup from 'yup'
@@ -354,120 +352,67 @@ const CategoriesPage: React.FC = () => {
 
   return (
     <Box sx={{ p: 3 }}>
-      {/* Header */}
-      <Box sx={{
-        display: 'flex',
-        flexDirection: isMobile ? 'column' : 'row',
-        justifyContent: 'space-between',
-        alignItems: isMobile ? 'stretch' : 'center',
-        mb: 3,
-        gap: isMobile ? 2 : 0
-      }}>
-        <Box sx={{ mb: isMobile ? 2 : 0 }}>
-          <Typography variant={isMobile ? TYPOGRAPHY_STYLES.pageHeader.mobileVariant : TYPOGRAPHY_STYLES.pageHeader.variant} sx={{
-            fontWeight: TYPOGRAPHY_STYLES.pageHeader.fontWeight,
-            mb: 1,
-            display: 'flex',
-            alignItems: 'center',
-            gap: 2
-          }}>
-            <CategoryIcon sx={{
-              fontSize: TYPOGRAPHY_STYLES.pageHeader.icon.fontSize,
-              color: TYPOGRAPHY_STYLES.pageHeader.icon.color
-            }} />
-            Categories
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            Organize your products with categories ({categories.length} {categoryFilters.search ? 'found' : 'total'})
-            {categoryFilters.search && (
-              <>
-                <br />
-                <Typography component="span" variant="body2" color="primary.main" sx={{ fontStyle: 'italic' }}>
-                  Filtered by: "{categoryFilters.search}"
-                </Typography>
-              </>
-            )}
-          </Typography>
-        </Box>
-        <Box sx={{ 
-          display: 'flex', 
-          flexDirection: isMobile ? 'column' : 'row',
-          gap: isMobile ? 1.5 : 1,
-          alignItems: isMobile ? 'stretch' : 'center'
-        }}>
-          <Button
-            variant="outlined"
-            startIcon={!isMobile ? <RestoreIcon /> : undefined}
-            onClick={() => setDeletedCategoriesDialogOpen(true)}
-            size="medium"
-            fullWidth={isMobile}
-            sx={{
-              color: 'warning.main',
-              borderColor: 'warning.main',
-              '&:hover': {
-                borderColor: 'warning.dark',
-                backgroundColor: 'warning.light'
-              }
-            }}
-          >
-            {isMobile ? "View Deleted" : "View Deleted"}
-          </Button>
-          <Button
-            variant="contained"
-            startIcon={!isMobile ? <AddIcon /> : undefined}
-            size="medium"
-            onClick={() => handleAddCategory()}
-            fullWidth={isMobile}
-          >
-            {isMobile ? "Add New Category" : "Add Category"}
-          </Button>
-        </Box>
-      </Box>
-      {/* Filters and Search */}
-      <Paper sx={{ p: 2, mb: 3 }}>
-      <Box sx={{
-        display: 'flex',
-        flexDirection: isMobile ? 'column' : 'row',
-        gap: isMobile ? 2 : 1,
-        alignItems: isMobile ? 'stretch' : 'center',
-        '& > *': {
-          alignSelf: isMobile ? 'stretch' : 'flex-start'
+      <PageHeader
+        variant="structure"
+        title="Categories"
+        subtitle={`Organize your products with categories (${categories.length} ${categoryFilters.search ? 'found' : 'total'})`}
+        primaryAction={{
+          label: isMobile ? 'Add New Category' : 'Add Category',
+          onClick: () => handleAddCategory(),
+        }}
+        secondaryAction={{
+          label: 'View Deleted',
+          onClick: () => setDeletedCategoriesDialogOpen(true),
+        }}
+        toolbar={
+          <Paper sx={{ p: 2 }}>
+            <Box
+              sx={{
+                display: 'flex',
+                flexDirection: isMobile ? 'column' : 'row',
+                gap: isMobile ? 2 : 1,
+                alignItems: isMobile ? 'stretch' : 'center',
+                '& > *': {
+                  alignSelf: isMobile ? 'stretch' : 'flex-start'
+                }
+              }}
+            >
+              <TextField
+                placeholder="Search categories by name..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                size="medium"
+                sx={{
+                  minWidth: isMobile ? 'auto' : 250,
+                  flex: isMobile ? 'none' : 1,
+                  maxWidth: isMobile ? 'none' : 400,
+                  '& .MuiOutlinedInput-root': {
+                    height: TYPOGRAPHY_STYLES.searchField.input.height,
+                    fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
+                    '& input': {
+                      padding: TYPOGRAPHY_STYLES.searchField.input.padding,
+                      fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize
+                    }
+                  },
+                  '& .MuiInputAdornment-root': {
+                    '& .MuiSvgIcon-root': {
+                      fontSize: TYPOGRAPHY_STYLES.searchField.icon.fontSize,
+                      color: TYPOGRAPHY_STYLES.searchField.icon.color
+                    }
+                  }
+                }}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon fontSize="small" />
+                    </InputAdornment>
+                  ),
+                }}
+              />
+            </Box>
+          </Paper>
         }
-      }}>
-        <TextField
-          placeholder="Search categories by name..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          size="medium"
-          sx={{
-            minWidth: isMobile ? 'auto' : 250,
-            flex: isMobile ? 'none' : 1,
-            maxWidth: isMobile ? 'none' : 400,
-            '& .MuiOutlinedInput-root': {
-              height: TYPOGRAPHY_STYLES.searchField.input.height,
-              fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
-              '& input': {
-                padding: TYPOGRAPHY_STYLES.searchField.input.padding,
-                fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize
-              }
-            },
-            '& .MuiInputAdornment-root': {
-              '& .MuiSvgIcon-root': {
-                fontSize: TYPOGRAPHY_STYLES.searchField.icon.fontSize,
-                color: TYPOGRAPHY_STYLES.searchField.icon.color
-              }
-            }
-          }}
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <SearchIcon fontSize="small" />
-              </InputAdornment>
-            ),
-          }}
-        />
-      </Box>
-      </Paper>
+      />
       {/* Categories Content */}
       <Paper sx={{ borderRadius: 2, overflow: 'hidden' }}>
         {isCategoriesFetching ? (

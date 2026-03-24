@@ -26,9 +26,8 @@ import {
   Download as DownloadIcon,
   CheckCircle as CheckCircleIcon,
   Cancel as CancelIcon,
-  ReceiptLong as BalanceSheetIcon,
 } from '@mui/icons-material';
-import { TYPOGRAPHY_STYLES } from '@/constants/typography';
+import PageHeader from '@/components/common/PageHeader';
 import { formatDate } from '@/utils/formatters';
 import { useGetBalanceSheetQuery } from '@/store/api/accountingApi';
 import { exportReportExcel } from '@/utils/exportReport';
@@ -330,84 +329,76 @@ const BalanceSheetPage: React.FC = () => {
 
   return (
     <Box sx={{ p: 3 }}>
-      {/* Header */}
-      <Box sx={{ mb: 3 }}>
-        <Typography
-          variant={TYPOGRAPHY_STYLES.pageHeader.variant}
-          sx={{ fontWeight: TYPOGRAPHY_STYLES.pageHeader.fontWeight, mb: 1, display: 'flex', alignItems: 'center', gap: 2 }}
-        >
-          <BalanceSheetIcon sx={{ fontSize: TYPOGRAPHY_STYLES.pageHeader.icon.fontSize, color: TYPOGRAPHY_STYLES.pageHeader.icon.color }} />
-          Balance Sheet
-        </Typography>
-        <Typography variant="body2" color="text.secondary">
-          View your financial position showing Assets = Liabilities + Equity as of a specific date
-        </Typography>
-      </Box>
-
-      {/* Filters Section */}
-      <Paper sx={{ p: 3, mb: 3 }}>
-        <Stack
-          direction={{ xs: 'column', md: 'row' }}
-          spacing={2}
-          justifyContent="space-between"
-          alignItems={{ xs: 'stretch', md: 'center' }}
-        >
-          <Stack
-            data-testid="balance-sheet-filters"
-            direction="row"
-            spacing={2}
-            alignItems="center"
-            flexWrap="wrap"
-          >
-            <TextField
-              label="As Of Date"
-              type="date"
-              value={asOfDate}
-              onChange={(e) => handleAsOfDateChange(e.target.value)}
-              size="small"
-              InputLabelProps={{ shrink: true }}
-              sx={{ minWidth: 200 }}
-            />
-            <FormControlLabel
-              control={
-                <Checkbox
-                  checked={includeInactive}
-                  onChange={(e) => handleIncludeInactiveChange(e.target.checked)}
+      <PageHeader
+        variant="report"
+        title="Balance Sheet"
+        subtitle="View your financial position showing Assets = Liabilities + Equity as of a specific date"
+        toolbar={
+          <Paper sx={{ p: 3, mb: 3 }}>
+            <Stack
+              direction={{ xs: 'column', md: 'row' }}
+              spacing={2}
+              justifyContent="space-between"
+              alignItems={{ xs: 'stretch', md: 'center' }}
+            >
+              <Stack
+                data-testid="balance-sheet-filters"
+                direction="row"
+                spacing={2}
+                alignItems="center"
+                flexWrap="wrap"
+              >
+                <TextField
+                  label="As Of Date"
+                  type="date"
+                  value={asOfDate}
+                  onChange={(e) => handleAsOfDateChange(e.target.value)}
+                  size="small"
+                  InputLabelProps={{ shrink: true }}
+                  sx={{ minWidth: 200 }}
                 />
-              }
-              label="Include Inactive Accounts"
-            />
-          </Stack>
-          <Stack
-            data-testid="balance-sheet-actions"
-            direction="row"
-            spacing={2}
-            justifyContent={{ xs: 'stretch', md: 'flex-end' }}
-            flexWrap="wrap"
-          >
-            <Button
-              variant="contained"
-              color="primary"
-              onClick={handleGenerateReport}
-              disabled={loading}
-              aria-label="Generate Report"
-              sx={{ minWidth: 150, flex: { xs: 1, sm: 'initial' } }}
-            >
-              {loading ? <CircularProgress size={24} /> : 'Generate Report'}
-            </Button>
-            <Button
-              variant="outlined"
-              color="secondary"
-              startIcon={isDownloading ? <CircularProgress size={20} /> : <DownloadIcon />}
-              onClick={handleExportToExcel}
-              disabled={!submitted || loading || isDownloading}
-              sx={{ minWidth: 150, flex: { xs: 1, sm: 'initial' } }}
-            >
-              Export to Excel
-            </Button>
-          </Stack>
-        </Stack>
-      </Paper>
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={includeInactive}
+                      onChange={(e) => handleIncludeInactiveChange(e.target.checked)}
+                    />
+                  }
+                  label="Include Inactive Accounts"
+                />
+              </Stack>
+              <Stack
+                data-testid="balance-sheet-actions"
+                direction="row"
+                spacing={2}
+                justifyContent={{ xs: 'stretch', md: 'flex-end' }}
+                flexWrap="wrap"
+              >
+                <Button
+                  variant="contained"
+                  color="primary"
+                  onClick={handleGenerateReport}
+                  disabled={loading}
+                  aria-label="Generate Report"
+                  sx={{ minWidth: 150, flex: { xs: 1, sm: 'initial' } }}
+                >
+                  {loading ? <CircularProgress size={24} /> : 'Generate Report'}
+                </Button>
+                <Button
+                  variant="outlined"
+                  color="secondary"
+                  startIcon={isDownloading ? <CircularProgress size={20} /> : <DownloadIcon />}
+                  onClick={handleExportToExcel}
+                  disabled={!submitted || loading || isDownloading}
+                  sx={{ minWidth: 150, flex: { xs: 1, sm: 'initial' } }}
+                >
+                  Export to Excel
+                </Button>
+              </Stack>
+            </Stack>
+          </Paper>
+        }
+      />
 
       {/* Error Alert */}
       {errorMessage && (

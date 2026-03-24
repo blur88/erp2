@@ -13,6 +13,9 @@ type PageHeaderProps = {
   primaryAction?: PageHeaderAction
   secondaryAction?: PageHeaderAction
   showDivider?: boolean
+  variant?: 'standard' | 'report' | 'overview' | 'structure' | 'workflow' | 'system'
+  meta?: ReactNode
+  toolbar?: ReactNode
   children?: ReactNode
 }
 
@@ -22,6 +25,9 @@ export default function PageHeader({
   primaryAction,
   secondaryAction,
   showDivider = true,
+  variant: _variant,
+  meta,
+  toolbar,
   children,
 }: PageHeaderProps) {
   const theme = useTheme()
@@ -100,7 +106,23 @@ export default function PageHeader({
         )}
       </Box>
 
-      {children && <Box sx={{ mt: 1 }}>{children}</Box>}
+      {meta && (
+        <Box data-testid="page-header-meta" sx={{ mt: 1 }}>
+          {meta}
+        </Box>
+      )}
+
+      {toolbar && (
+        <Box data-testid="page-header-toolbar" sx={{ mt: 1 }}>
+          {toolbar}
+        </Box>
+      )}
+
+      {children && (
+        <Box data-testid="page-header-children" sx={{ mt: 1 }}>
+          {children}
+        </Box>
+      )}
     </Box>
   )
 }
