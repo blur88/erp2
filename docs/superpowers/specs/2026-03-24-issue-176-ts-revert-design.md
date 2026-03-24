@@ -67,7 +67,7 @@ All changes are relative to commit `355d44823` (the TS 6 upgrade). The react-rou
 
 > **`auth.service.spec.ts` note:** The bcrypt mock refactor (switching from `jest.spyOn(bcrypt, ...)` to `jest.mock('bcrypt', ...)` + `mockedBcrypt`) is backward-compatible with TS 5.9.3 and improves test isolation (module-level mock vs. per-test spy, with explicit `mockReset()` between tests). **Retain this change** — it is a valid improvement that does not depend on TS 6 behavior.
 
-> **`backend/tsconfig.json` `types` note:** The `"types": ["node", "jest"]` option was added as part of the build/test tsconfig split strategy for TS 6. Under TS 5.9.3 with a single `tsconfig.json` covering all files, this explicit `types` array is unnecessary and was not present before. Remove it.
+> **`backend/tsconfig.json` `types` note:** The `"types": ["node", "jest"]` option was added as part of the build/test tsconfig split strategy for TS 6. It was not present prior to the TS 6 changes and is not required for correct type resolution under TS 5.9.3 with a single `tsconfig.json` covering all files. Remove it.
 
 ### Verification (in order)
 
@@ -93,12 +93,14 @@ All changes are relative to commit `355d44823` (the TS 6 upgrade). The react-rou
 4. Frontend and backend test suites pass with no new failures
 5. No file from commit `355d44823` retains changes unless explicitly listed as "Retain" in the table above — verify with `git diff 355d44823^ HEAD -- $(git show --format="" --name-only 355d44823 | grep -v package-lock)`
 6. `react-router-dom` remains at `7.13.2` in `frontend/package.json`
+7. `npm ls typescript` shows only `5.9.3` across the entire dependency tree (no transitive TS 6.x copy pulled in by a nested dependency)
+8. No runtime behavior changes compared to pre-TS6 state (manually verify key flows such as login, JWT refresh, and a representative API call if CI alone is insufficient confidence)
 
 ---
 
 ## Commit Structure
 
-- **Single commit** on the existing branch: `chore(deps): revert TypeScript to 5.9.3, unblock CI (issue #176)`
+- **Single commit** on the existing branch: `chore(deps): revert TypeScript 6.0.2 → 5.9.3 to satisfy typescript-eslint peer deps (unblock CI, issue #176)`
 - **PR #175** now represents only the react-router-dom patch bump; the TypeScript 6 upgrade is deferred. Update PR title and description to reflect this.
 - Supersedes the TS 6 portion of Issue #174; tracked separately for future reattempt.
 
