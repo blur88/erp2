@@ -357,9 +357,13 @@ const JournalEntriesPage: React.FC = () => {
         variant="workflow"
         title="Journal Entries"
         subtitle={`Manage and post accounting journal entries (${pagination?.total || 0} total)`}
-        titleBadge={<Chip size="small" label={`${pagination?.total || 0} total`} />}
-        toolbar={
-          <Stack direction="row" spacing={2}>
+        primaryAction={{ label: 'New Journal Entry', onClick: handleCreateNew }}
+      />
+
+      {/* Filters */}
+      <Paper sx={{ p: 2, mb: 3 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+          <Box sx={{ display: 'flex', gap: 1 }}>
             {selectedIds.size > 0 && (
               <>
                 <Button
@@ -382,22 +386,15 @@ const JournalEntriesPage: React.FC = () => {
                 </Button>
               </>
             )}
-            <Tooltip title="Refresh">
-              <span>
-                <IconButton onClick={handleRefresh} disabled={loading}>
-                  <RefreshIcon />
-                </IconButton>
-              </span>
-            </Tooltip>
-            <Button variant="contained" startIcon={<AddIcon />} onClick={handleCreateNew}>
-              New Journal Entry
-            </Button>
-          </Stack>
-        }
-      />
-
-      {/* Filters */}
-      <Paper sx={{ p: 2, mb: 3 }}>
+          </Box>
+          <Tooltip title="Refresh">
+            <span>
+              <IconButton onClick={handleRefresh} disabled={loading}>
+                <RefreshIcon />
+              </IconButton>
+            </span>
+          </Tooltip>
+        </Box>
         <GridLegacy container spacing={2} alignItems="center">
           <GridLegacy item xs={12} md={3}>
             <TextField
