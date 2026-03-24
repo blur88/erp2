@@ -33,6 +33,7 @@ import {
   CheckCircle as CheckCircleIcon,
   Warning as WarningIcon,
 } from '@mui/icons-material'
+import PageHeader from '@/components/common/PageHeader'
 import { useNotification } from '@/hooks/useNotification'
 import {
   useDeleteJournalEntryMutation,
@@ -42,7 +43,6 @@ import {
 } from '@/store/api/accountingApi'
 import { formatCurrency, formatDate, getCurrentDate } from '@/utils/formatters'
 import { JournalEntryStatus } from '@/types'
-import { TYPOGRAPHY_STYLES } from '@/constants/typography'
 import { getErrorMessage } from '@/utils/errorMessage'
 
 const JournalEntryDetailsPage: React.FC = () => {
@@ -186,31 +186,27 @@ const JournalEntryDetailsPage: React.FC = () => {
 
   return (
     <Box sx={{ p: 3 }}>
-      {/* Header */}
-      <Box sx={{ mb: 3, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+      <PageHeader
+        variant="workflow"
+        title={entry.referenceNumber}
+        subtitle="Journal Entry Details"
+        meta={<Chip size="small" label={`Status: ${entry.status}`} />}
+      />
+
+      <Box sx={{ mb: 3 }}>
+        <Stack direction="row" spacing={1} sx={{ mb: 2 }} alignItems="center">
           <IconButton onClick={handleBack}>
             <ArrowBackIcon />
           </IconButton>
-          <Box>
-            <Typography variant={TYPOGRAPHY_STYLES.pageHeader.variant} sx={{ fontWeight: TYPOGRAPHY_STYLES.pageHeader.fontWeight }}>
-              {entry.referenceNumber}
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              Journal Entry Details
-            </Typography>
-          </Box>
-        </Box>
+          <Typography variant="body2" color="text.secondary">
+            Back to List
+          </Typography>
+        </Stack>
 
-        {/* Action Buttons */}
         <Stack direction="row" spacing={1}>
           {isDraft && (
             <>
-              <Button
-                variant="outlined"
-                startIcon={<EditIcon />}
-                onClick={handleEdit}
-              >
+              <Button variant="outlined" startIcon={<EditIcon />} onClick={handleEdit}>
                 Edit
               </Button>
               <Button
