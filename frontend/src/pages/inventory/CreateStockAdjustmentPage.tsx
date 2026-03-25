@@ -24,7 +24,6 @@ import {
 import {
   Add as AddIcon,
   Delete as DeleteIcon,
-  ArrowBack as ArrowBackIcon,
 } from '@mui/icons-material'
 import { useForm, useFieldArray, Controller } from 'react-hook-form'
 import { yupResolver } from '@hookform/resolvers/yup'
@@ -281,12 +280,11 @@ const CreateStockAdjustmentPage: React.FC = () => {
     <Container maxWidth="xl">
       <Box sx={{ py: 3 }}>
         {/* Header */}
-        <IconButton onClick={() => navigate('/inventory/stock-adjustments')} sx={{ mb: 1 }}>
-          <ArrowBackIcon />
-        </IconButton>
         <PageHeader
+          variant="workflow"
           title={isEditMode ? 'Edit Stock Adjustment' : 'Create Stock Adjustment'}
-          showDivider={false}
+          subtitle={isEditMode ? 'Update adjustment details and quantities' : 'Adjust stock quantities for inventory corrections'}
+          backAction={() => navigate('/inventory/stock-adjustments')}
         />
 
         {loadingAdjustment ? (

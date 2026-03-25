@@ -55,8 +55,8 @@ describe('ProfitAndLossPage', () => {
 
   it('renders generate and export buttons in the report actions area', () => {
     render(<ProfitAndLossPage />)
-    expect(screen.getByTestId('profit-loss-actions')).toContainElement(screen.getByRole('button', { name: /generate report/i }))
-    expect(screen.getByTestId('profit-loss-actions')).toContainElement(screen.getByRole('button', { name: /export to excel/i }))
+    expect(screen.getByRole('button', { name: /generate report/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /export to excel/i })).toBeInTheDocument()
   })
 
   it('uses dark-mode contrast text for colored section headers', () => {

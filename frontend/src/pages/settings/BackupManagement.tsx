@@ -84,8 +84,10 @@ const BackupManagement: React.FC = () => {
         variant="system"
         title="Backup & Restore Management"
         subtitle="Create, manage, and restore database backups"
-        toolbar={
-          <Box sx={{ display: 'flex', gap: 2 }}>
+      />
+
+      <Paper sx={{ p: 2, mb: 3 }}>
+        <Box sx={{ display: 'flex', gap: 2 }}>
             {tabValue === 0 && (
               <>
                 <Button
@@ -119,8 +121,7 @@ const BackupManagement: React.FC = () => {
               </Button>
             )}
           </Box>
-        }
-      />
+        </Paper>
 
       <Paper sx={{ p: 3 }}>
         <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>

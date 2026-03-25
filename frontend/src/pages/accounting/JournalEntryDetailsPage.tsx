@@ -190,7 +190,7 @@ const JournalEntryDetailsPage: React.FC = () => {
         variant="workflow"
         title={entry.referenceNumber}
         subtitle="Journal Entry Details"
-        meta={<Chip size="small" label={`Status: ${entry.status}`} />}
+        titleBadge={<Chip size="small" label={`Status: ${entry.status}`} />}
       />
 
       <Box sx={{ mb: 3 }}>

@@ -3,7 +3,6 @@ import {
   Box,
   Typography,
   Paper,
-  Button,
   Grid,
   Card,
   CardContent,
@@ -23,7 +22,6 @@ import {
   Payment as PaymentsIcon,
   TrendingUp as TrendingUpIcon,
   TrendingDown as TrendingDownIcon,
-  Add as AddIcon
 } from '@mui/icons-material'
 import {
   Chart as ChartJS,
@@ -239,15 +237,7 @@ const PurchasingPage: React.FC = () => {
         variant="overview"
         title="Purchasing Overview"
         subtitle="Monitor purchasing activities and manage supplier relationships"
-        toolbar={
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={() => navigate('/purchasing/orders/create')}
-          >
-            Create Purchase Order
-          </Button>
-        }
+        primaryAction={{ label: 'Create Purchase Order', onClick: () => navigate('/purchasing/orders/create') }}
       />
       {/* Stats Cards */}
       <Grid container spacing={3} sx={{ mb: 4 }}>

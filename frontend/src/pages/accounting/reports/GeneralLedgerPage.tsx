@@ -4,7 +4,6 @@ import {
   Box,
   Typography,
   Paper,
-  Button,
   TextField,
   Table,
   TableBody,
@@ -24,7 +23,6 @@ import {
 } from '@mui/material';
 import { alpha, useTheme } from '@mui/material/styles';
 import {
-  Download as DownloadIcon,
   Receipt as ReceiptIcon,
 } from '@mui/icons-material';
 import PageHeader from '@/components/common/PageHeader';
@@ -160,106 +158,71 @@ const GeneralLedgerPage: React.FC = () => {
         variant="report"
         title="General Ledger"
         subtitle="View all transactions for a specific account with running balance"
-        toolbar={
-          <Paper sx={{ p: 3, mb: 3 }}>
-            <Stack
-              direction={{ xs: 'column', md: 'row' }}
-              spacing={2}
-              justifyContent="space-between"
-              alignItems={{ xs: 'stretch', md: 'center' }}
-            >
-              <Stack
-                data-testid="general-ledger-filters"
-                direction="row"
-                spacing={2}
-                alignItems="flex-start"
-                flexWrap="wrap"
-              >
-                {/* Account Selector */}
-                <Autocomplete
-                  options={accounts}
-                  getOptionLabel={(option) => `${option.code} - ${option.name}`}
-                  value={selectedAccount}
-                  onChange={(event, newValue) => {
-                    setSelectedAccount(newValue);
-                    setValidationError(null);
-                    setSubmitted(false);
-                  }}
-                  renderInput={(params) => (
-                    <TextField
-                      {...params}
-                      label="Account"
-                      placeholder="Select an account"
-                      required
-                      error={!!validationError}
-                      helperText={validationError}
-                    />
-                  )}
-                  sx={{ minWidth: 350, flexGrow: 1 }}
-                  size="small"
-                />
-
-                {/* Start Date */}
-                <TextField
-                  label="Start Date"
-                  type="date"
-                  value={startDate}
-                  onChange={(e) => {
-                    setStartDate(e.target.value);
-                    setSubmitted(false);
-                  }}
-                  size="small"
-                  InputLabelProps={{ shrink: true }}
-                  sx={{ minWidth: 180 }}
-                />
-
-                {/* End Date */}
-                <TextField
-                  label="End Date"
-                  type="date"
-                  value={endDate}
-                  onChange={(e) => {
-                    setEndDate(e.target.value);
-                    setSubmitted(false);
-                  }}
-                  size="small"
-                  InputLabelProps={{ shrink: true }}
-                  sx={{ minWidth: 180 }}
-                />
-              </Stack>
-
-              <Stack
-                data-testid="general-ledger-actions"
-                direction="row"
-                spacing={2}
-                justifyContent={{ xs: 'stretch', md: 'flex-end' }}
-                flexWrap="wrap"
-              >
-                <Button
-                  variant="contained"
-                  color="primary"
-                  onClick={handleGenerateReport}
-                  disabled={loading}
-                  aria-label="Generate Report"
-                  sx={{ minWidth: 150, flex: { xs: 1, sm: 'initial' } }}
-                >
-                  {loading ? <CircularProgress size={24} /> : 'Generate Report'}
-                </Button>
-                <Button
-                  variant="outlined"
-                  color="secondary"
-                  startIcon={isDownloading ? <CircularProgress size={20} /> : <DownloadIcon />}
-                  onClick={handleExportToExcel}
-                  disabled={!submitted || loading || isDownloading}
-                  sx={{ minWidth: 150, flex: { xs: 1, sm: 'initial' } }}
-                >
-                  Export to Excel
-                </Button>
-              </Stack>
-            </Stack>
-          </Paper>
-        }
+        primaryAction={{ label: loading ? 'Generating...' : 'Generate Report', onClick: handleGenerateReport, disabled: loading }}
+        secondaryAction={{ label: isDownloading ? 'Exporting...' : 'Export to Excel', onClick: handleExportToExcel, disabled: !submitted || loading || isDownloading }}
       />
+
+      <Paper sx={{ p: 3, mb: 3 }}>
+        <Stack
+          data-testid="general-ledger-filters"
+          direction="row"
+          spacing={2}
+          alignItems="flex-start"
+          flexWrap="wrap"
+        >
+          {/* Account Selector */}
+          <Autocomplete
+            options={accounts}
+            getOptionLabel={(option) => `${option.code} - ${option.name}`}
+            value={selectedAccount}
+            onChange={(event, newValue) => {
+              setSelectedAccount(newValue);
+              setValidationError(null);
+              setSubmitted(false);
+            }}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                label="Account"
+                placeholder="Select an account"
+                required
+                error={!!validationError}
+                helperText={validationError}
+              />
+            )}
+            sx={{ minWidth: 350, flexGrow: 1 }}
+            size="small"
+          />
+
+          {/* Start Date */}
+          <TextField
+            label="Start Date"
+            type="date"
+            value={startDate}
+            onChange={(e) => {
+              setStartDate(e.target.value);
+              setSubmitted(false);
+            }}
+            size="small"
+            InputLabelProps={{ shrink: true }}
+            sx={{ minWidth: 180 }}
+          />
+
+          {/* End Date */}
+          <TextField
+            label="End Date"
+            type="date"
+            value={endDate}
+            onChange={(e) => {
+              setEndDate(e.target.value);
+              setSubmitted(false);
+            }}
+            size="small"
+            InputLabelProps={{ shrink: true }}
+            sx={{ minWidth: 180 }}
+          />
+        </Stack>
+      </Paper>
 
       {/* Error Alert */}
       {errorMessage && (

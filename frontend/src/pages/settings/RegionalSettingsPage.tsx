@@ -180,7 +180,7 @@ const RegionalSettingsPage: React.FC = () => {
 
   return (
     <Box sx={{ p: 3 }}>
-      <PageHeader title="Regional Settings" />
+      <PageHeader title="Regional Settings" subtitle="Configure locale, currency, date format, and timezone preferences" />
 
       {error && (
         <Alert severity="error" sx={{ mb: 3 }}>

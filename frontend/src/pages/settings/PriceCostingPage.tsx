@@ -154,7 +154,7 @@ const PriceCostingPage: React.FC = () => {
   return (
     <Box sx={{ p: 3 }}>
       {/* Page Header */}
-      <PageHeader title="Inventory Costing Settings" />
+      <PageHeader title="Inventory Costing Settings" subtitle="Configure costing method and pricing rules for inventory valuation" />
       {/* Error Alert */}
       {error && (
         <Alert severity="error" sx={{ mb: 3 }}>

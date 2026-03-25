@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
-import { Box, Button, Typography, useTheme } from '@mui/material'
+import { Box, Button, IconButton, Typography, useTheme } from '@mui/material'
+import ArrowBackIcon from '@mui/icons-material/ArrowBack'
 
 type PageHeaderAction = {
   label: string
@@ -14,7 +15,8 @@ type PageHeaderProps = {
   secondaryAction?: PageHeaderAction
   showDivider?: boolean
   variant?: 'standard' | 'report' | 'overview' | 'structure' | 'workflow' | 'system'
-  meta?: ReactNode
+  titleBadge?: ReactNode
+  backAction?: () => void
   toolbar?: ReactNode
   children?: ReactNode
 }
@@ -26,7 +28,8 @@ export default function PageHeader({
   secondaryAction,
   showDivider = true,
   variant: _variant,
-  meta,
+  titleBadge,
+  backAction,
   toolbar,
   children,
 }: PageHeaderProps) {
@@ -50,24 +53,35 @@ export default function PageHeader({
           justifyContent: 'space-between',
           alignItems: 'center',
           gap: 2,
+          flexWrap: 'nowrap',
           [theme.breakpoints.down('sm')]: {
             flexDirection: 'column',
             alignItems: 'flex-start',
           },
         }}
       >
-        <Box sx={{ minWidth: 0 }}>
-          <Typography
-            variant="h5"
-            sx={{ fontWeight: 700, color: 'text.primary', lineHeight: 1.2 }}
-          >
-            {title}
-          </Typography>
-          {subtitle && (
-            <Typography variant="body2" sx={{ mt: 0.5, color: 'text.secondary' }}>
-              {subtitle}
-            </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0, flex: '1 1 auto' }}>
+          {backAction && (
+            <IconButton onClick={backAction} size="small" sx={{ flexShrink: 0 }}>
+              <ArrowBackIcon />
+            </IconButton>
           )}
+          <Box sx={{ minWidth: 0, flex: '1 1 auto' }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Typography
+                variant="h5"
+                sx={{ fontWeight: 700, color: 'text.primary', lineHeight: 1.2 }}
+              >
+                {title}
+              </Typography>
+              {titleBadge}
+            </Box>
+            {subtitle && (
+              <Typography variant="body2" sx={{ mt: 0.5, color: 'text.secondary' }}>
+                {subtitle}
+              </Typography>
+            )}
+          </Box>
         </Box>
 
         {hasActions && (
@@ -105,12 +119,6 @@ export default function PageHeader({
           </Box>
         )}
       </Box>
-
-      {meta && (
-        <Box data-testid="page-header-meta" sx={{ mt: 1 }}>
-          {meta}
-        </Box>
-      )}
 
       {toolbar && (
         <Box data-testid="page-header-toolbar" sx={{ mt: 1 }}>

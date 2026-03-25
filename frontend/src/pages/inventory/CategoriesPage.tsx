@@ -364,55 +364,42 @@ const CategoriesPage: React.FC = () => {
           label: 'View Deleted',
           onClick: () => setDeletedCategoriesDialogOpen(true),
         }}
-        toolbar={
-          <Paper sx={{ p: 2 }}>
-            <Box
-              sx={{
-                display: 'flex',
-                flexDirection: isMobile ? 'column' : 'row',
-                gap: isMobile ? 2 : 1,
-                alignItems: isMobile ? 'stretch' : 'center',
-                '& > *': {
-                  alignSelf: isMobile ? 'stretch' : 'flex-start'
-                }
-              }}
-            >
-              <TextField
-                placeholder="Search categories by name..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                size="medium"
-                sx={{
-                  minWidth: isMobile ? 'auto' : 250,
-                  flex: isMobile ? 'none' : 1,
-                  maxWidth: isMobile ? 'none' : 400,
-                  '& .MuiOutlinedInput-root': {
-                    height: TYPOGRAPHY_STYLES.searchField.input.height,
-                    fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
-                    '& input': {
-                      padding: TYPOGRAPHY_STYLES.searchField.input.padding,
-                      fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize
-                    }
-                  },
-                  '& .MuiInputAdornment-root': {
-                    '& .MuiSvgIcon-root': {
-                      fontSize: TYPOGRAPHY_STYLES.searchField.icon.fontSize,
-                      color: TYPOGRAPHY_STYLES.searchField.icon.color
-                    }
-                  }
-                }}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <SearchIcon fontSize="small" />
-                    </InputAdornment>
-                  ),
-                }}
-              />
-            </Box>
-          </Paper>
-        }
       />
+      {/* Search / Filter */}
+      <Paper sx={{ p: 2, mb: 3 }}>
+        <TextField
+          placeholder="Search categories by name..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          size="medium"
+          sx={{
+            minWidth: isMobile ? 'auto' : 250,
+            width: isMobile ? '100%' : 'auto',
+            maxWidth: isMobile ? 'none' : 400,
+            '& .MuiOutlinedInput-root': {
+              height: TYPOGRAPHY_STYLES.searchField.input.height,
+              fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
+              '& input': {
+                padding: TYPOGRAPHY_STYLES.searchField.input.padding,
+                fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize
+              }
+            },
+            '& .MuiInputAdornment-root': {
+              '& .MuiSvgIcon-root': {
+                fontSize: TYPOGRAPHY_STYLES.searchField.icon.fontSize,
+                color: TYPOGRAPHY_STYLES.searchField.icon.color
+              }
+            }
+          }}
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <SearchIcon fontSize="small" />
+              </InputAdornment>
+            ),
+          }}
+        />
+      </Paper>
       {/* Categories Content */}
       <Paper sx={{ borderRadius: 2, overflow: 'hidden' }}>
         {isCategoriesFetching ? (

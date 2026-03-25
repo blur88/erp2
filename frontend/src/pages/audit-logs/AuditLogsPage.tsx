@@ -142,8 +142,11 @@ const AuditLogsPage: React.FC = () => {
           variant="system"
           title="Audit Logs"
           subtitle="View all system changes and user activities"
-          toolbar={<ExportButton logs={auditLogs} disabled={loading} />}
         />
+
+        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 3 }}>
+          <ExportButton logs={auditLogs} disabled={loading} />
+        </Box>
 
         {/* Tabs */}
         <Tabs

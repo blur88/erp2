@@ -58,8 +58,8 @@ describe('GeneralLedgerPage', () => {
 
   it('renders generate and export buttons in the report actions area', () => {
     render(<GeneralLedgerPage />)
-    expect(screen.getByTestId('general-ledger-actions')).toContainElement(screen.getByRole('button', { name: /generate report/i }))
-    expect(screen.getByTestId('general-ledger-actions')).toContainElement(screen.getByRole('button', { name: /export to excel/i }))
+    expect(screen.getByRole('button', { name: /generate report/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /export to excel/i })).toBeInTheDocument()
   })
 
   it('uses dark-mode specific tones for report surfaces', () => {

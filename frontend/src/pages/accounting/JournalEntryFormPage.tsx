@@ -28,7 +28,6 @@ import {
 import {
   Add as AddIcon,
   Delete as DeleteIcon,
-  ArrowBack as ArrowBackIcon,
   Save as SaveIcon,
   PostAdd as PostIcon,
 } from '@mui/icons-material'
@@ -357,12 +356,11 @@ const JournalEntryFormPage: React.FC = () => {
   return (
     <Box sx={{ p: 3 }}>
       {/* Header */}
-      <IconButton onClick={handleBack} sx={{ mb: 1 }}>
-        <ArrowBackIcon />
-      </IconButton>
       <PageHeader
+        variant="workflow"
         title={isEditMode ? 'Edit Journal Entry' : 'New Journal Entry'}
-        showDivider={false}
+        subtitle={isEditMode ? 'Update journal entry lines and amounts' : 'Record a manual double-entry accounting transaction'}
+        backAction={handleBack}
       />
 
       {/* Error Alert */}

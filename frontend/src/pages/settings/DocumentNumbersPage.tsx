@@ -112,7 +112,7 @@ const DocumentNumbersPage: React.FC = () => {
   return (
     <Box sx={{ p: 3 }}>
       {/* Page Header */}
-      <PageHeader title="Document Numbers Settings" />
+      <PageHeader title="Document Numbers Settings" subtitle="Configure automatic numbering sequences for orders, invoices, and other documents" />
       {/* Error Alert */}
       {error && (
         <Alert severity="error" sx={{ mb: 3 }}>

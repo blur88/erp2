@@ -103,16 +103,11 @@ describe('PageHeader', () => {
   })
 
   describe('slot rendering', () => {
-    it('renders meta when provided', () => {
+    it('renders titleBadge when provided', () => {
       renderWithTheme(
-        <PageHeader title="T" meta={<span data-testid="meta-content">Meta</span>} />
+        <PageHeader title="T" titleBadge={<span data-testid="badge-content">Badge</span>} />
       )
-      expect(screen.getByTestId('meta-content')).toBeInTheDocument()
-    })
-
-    it('does not render meta wrapper when meta is not provided', () => {
-      renderWithTheme(<PageHeader title="T" />)
-      expect(screen.queryByTestId('page-header-meta')).not.toBeInTheDocument()
+      expect(screen.getByTestId('badge-content')).toBeInTheDocument()
     })
 
     it('renders toolbar when provided', () => {
@@ -132,17 +127,17 @@ describe('PageHeader', () => {
       expect(screen.queryByTestId('page-header-children')).not.toBeInTheDocument()
     })
 
-    it('renders meta before toolbar in the DOM', () => {
+    it('renders titleBadge before toolbar in the DOM', () => {
       renderWithTheme(
         <PageHeader
           title="T"
-          meta={<span data-testid="meta-content">Meta</span>}
+          titleBadge={<span data-testid="badge-content">Badge</span>}
           toolbar={<span data-testid="toolbar-content">Toolbar</span>}
         />
       )
-      const meta = screen.getByTestId('meta-content')
+      const badge = screen.getByTestId('badge-content')
       const toolbar = screen.getByTestId('toolbar-content')
-      expect(meta.compareDocumentPosition(toolbar)).toBe(Node.DOCUMENT_POSITION_FOLLOWING)
+      expect(badge.compareDocumentPosition(toolbar)).toBe(Node.DOCUMENT_POSITION_FOLLOWING)
     })
 
     it('renders toolbar before children in the DOM', () => {
@@ -161,5 +156,19 @@ describe('PageHeader', () => {
         renderWithTheme(<PageHeader title="T" variant="report" />)
       ).not.toThrow()
     })
+  })
+
+  it('renders title and action buttons in the same row', () => {
+    renderWithTheme(
+      <PageHeader
+        title="A very long page title that should be allowed to shrink within the left column"
+        subtitle="Subtitle"
+        primaryAction={{ label: 'Primary', onClick: vi.fn() }}
+        secondaryAction={{ label: 'Secondary', onClick: vi.fn() }}
+      />
+    )
+    expect(screen.getByText('A very long page title that should be allowed to shrink within the left column')).toBeInTheDocument()
+    expect(screen.getByText('Primary')).toBeInTheDocument()
+    expect(screen.getByText('Secondary')).toBeInTheDocument()
   })
 })

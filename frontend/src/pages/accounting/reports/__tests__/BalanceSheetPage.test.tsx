@@ -48,8 +48,8 @@ describe('BalanceSheetPage', () => {
 
   it('renders generate and export buttons in the report actions area', () => {
     render(<BalanceSheetPage />)
-    expect(screen.getByTestId('balance-sheet-actions')).toContainElement(screen.getByRole('button', { name: /generate report/i }))
-    expect(screen.getByTestId('balance-sheet-actions')).toContainElement(screen.getByRole('button', { name: /export to excel/i }))
+    expect(screen.getByRole('button', { name: /generate report/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /export to excel/i })).toBeInTheDocument()
   })
 
   it('renders balance sheet data from backend response shape', () => {

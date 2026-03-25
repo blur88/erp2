@@ -4,7 +4,6 @@ import {
   Box,
   Typography,
   Paper,
-  Button,
   TextField,
   Table,
   TableBody,
@@ -20,7 +19,6 @@ import {
   Chip,
 } from '@mui/material';
 import {
-  Download as DownloadIcon,
   CheckCircle as CheckCircleIcon,
   Cancel as CancelIcon,
 } from '@mui/icons-material';
@@ -112,72 +110,38 @@ const TrialBalancePage: React.FC = () => {
         variant="report"
         title="Trial Balance"
         subtitle="View account balances and verify debits equal credits as of a specific date"
-        toolbar={
-          <Paper sx={{ p: 3, mb: 3 }}>
-            <Stack
-              direction={{ xs: 'column', md: 'row' }}
-              spacing={2}
-              justifyContent="space-between"
-              alignItems={{ xs: 'stretch', md: 'center' }}
-            >
-              <Stack
-                data-testid="trial-balance-filters"
-                direction="row"
-                spacing={2}
-                alignItems="center"
-                flexWrap="wrap"
-              >
-                <TextField
-                  label="As Of Date"
-                  type="date"
-                  value={asOfDate}
-                  onChange={(e) => handleAsOfDateChange(e.target.value)}
-                  size="small"
-                  InputLabelProps={{ shrink: true }}
-                  sx={{ minWidth: 200 }}
-                />
-                <FormControlLabel
-                  control={
-                    <Checkbox
-                      checked={includeInactive}
-                      onChange={(e) => handleIncludeInactiveChange(e.target.checked)}
-                    />
-                  }
-                  label="Include Inactive Accounts"
-                />
-              </Stack>
-              <Stack
-                data-testid="trial-balance-actions"
-                direction="row"
-                spacing={2}
-                justifyContent={{ xs: 'stretch', md: 'flex-end' }}
-                flexWrap="wrap"
-              >
-                <Button
-                  variant="contained"
-                  color="primary"
-                  onClick={handleGenerateReport}
-                  disabled={loading}
-                  aria-label="Generate Report"
-                  sx={{ minWidth: 150, flex: { xs: 1, sm: 'initial' } }}
-                >
-                  {loading ? <CircularProgress size={24} /> : 'Generate Report'}
-                </Button>
-                <Button
-                  variant="outlined"
-                  color="secondary"
-                  startIcon={isDownloading ? <CircularProgress size={20} /> : <DownloadIcon />}
-                  onClick={handleExportToExcel}
-                  disabled={!submitted || loading || isDownloading}
-                  sx={{ minWidth: 150, flex: { xs: 1, sm: 'initial' } }}
-                >
-                  Export to Excel
-                </Button>
-              </Stack>
-            </Stack>
-          </Paper>
-        }
+        primaryAction={{ label: loading ? 'Generating...' : 'Generate Report', onClick: handleGenerateReport, disabled: loading }}
+        secondaryAction={{ label: isDownloading ? 'Exporting...' : 'Export to Excel', onClick: handleExportToExcel, disabled: !submitted || loading || isDownloading }}
       />
+
+      <Paper sx={{ p: 3, mb: 3 }}>
+        <Stack
+          data-testid="trial-balance-filters"
+          direction="row"
+          spacing={2}
+          alignItems="center"
+          flexWrap="wrap"
+        >
+          <TextField
+            label="As Of Date"
+            type="date"
+            value={asOfDate}
+            onChange={(e) => handleAsOfDateChange(e.target.value)}
+            size="small"
+            InputLabelProps={{ shrink: true }}
+            sx={{ minWidth: 200 }}
+          />
+          <FormControlLabel
+            control={
+              <Checkbox
+                checked={includeInactive}
+                onChange={(e) => handleIncludeInactiveChange(e.target.checked)}
+              />
+            }
+            label="Include Inactive Accounts"
+          />
+        </Stack>
+      </Paper>
 
       {errorMessage && (
         <Alert severity="error" sx={{ mb: 2 }}>

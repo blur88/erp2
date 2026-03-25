@@ -4,7 +4,6 @@ import {
   Box,
   Typography,
   Paper,
-  Button,
   TextField,
   Table,
   TableBody,
@@ -23,7 +22,6 @@ import {
 } from '@mui/material';
 import { alpha, useTheme } from '@mui/material/styles';
 import {
-  Download as DownloadIcon,
   CheckCircle as CheckCircleIcon,
   Cancel as CancelIcon,
 } from '@mui/icons-material';
@@ -333,72 +331,38 @@ const BalanceSheetPage: React.FC = () => {
         variant="report"
         title="Balance Sheet"
         subtitle="View your financial position showing Assets = Liabilities + Equity as of a specific date"
-        toolbar={
-          <Paper sx={{ p: 3, mb: 3 }}>
-            <Stack
-              direction={{ xs: 'column', md: 'row' }}
-              spacing={2}
-              justifyContent="space-between"
-              alignItems={{ xs: 'stretch', md: 'center' }}
-            >
-              <Stack
-                data-testid="balance-sheet-filters"
-                direction="row"
-                spacing={2}
-                alignItems="center"
-                flexWrap="wrap"
-              >
-                <TextField
-                  label="As Of Date"
-                  type="date"
-                  value={asOfDate}
-                  onChange={(e) => handleAsOfDateChange(e.target.value)}
-                  size="small"
-                  InputLabelProps={{ shrink: true }}
-                  sx={{ minWidth: 200 }}
-                />
-                <FormControlLabel
-                  control={
-                    <Checkbox
-                      checked={includeInactive}
-                      onChange={(e) => handleIncludeInactiveChange(e.target.checked)}
-                    />
-                  }
-                  label="Include Inactive Accounts"
-                />
-              </Stack>
-              <Stack
-                data-testid="balance-sheet-actions"
-                direction="row"
-                spacing={2}
-                justifyContent={{ xs: 'stretch', md: 'flex-end' }}
-                flexWrap="wrap"
-              >
-                <Button
-                  variant="contained"
-                  color="primary"
-                  onClick={handleGenerateReport}
-                  disabled={loading}
-                  aria-label="Generate Report"
-                  sx={{ minWidth: 150, flex: { xs: 1, sm: 'initial' } }}
-                >
-                  {loading ? <CircularProgress size={24} /> : 'Generate Report'}
-                </Button>
-                <Button
-                  variant="outlined"
-                  color="secondary"
-                  startIcon={isDownloading ? <CircularProgress size={20} /> : <DownloadIcon />}
-                  onClick={handleExportToExcel}
-                  disabled={!submitted || loading || isDownloading}
-                  sx={{ minWidth: 150, flex: { xs: 1, sm: 'initial' } }}
-                >
-                  Export to Excel
-                </Button>
-              </Stack>
-            </Stack>
-          </Paper>
-        }
+        primaryAction={{ label: loading ? 'Generating...' : 'Generate Report', onClick: handleGenerateReport, disabled: loading }}
+        secondaryAction={{ label: isDownloading ? 'Exporting...' : 'Export to Excel', onClick: handleExportToExcel, disabled: !submitted || loading || isDownloading }}
       />
+
+      <Paper sx={{ p: 3, mb: 3 }}>
+        <Stack
+          data-testid="balance-sheet-filters"
+          direction="row"
+          spacing={2}
+          alignItems="center"
+          flexWrap="wrap"
+        >
+          <TextField
+            label="As Of Date"
+            type="date"
+            value={asOfDate}
+            onChange={(e) => handleAsOfDateChange(e.target.value)}
+            size="small"
+            InputLabelProps={{ shrink: true }}
+            sx={{ minWidth: 200 }}
+          />
+          <FormControlLabel
+            control={
+              <Checkbox
+                checked={includeInactive}
+                onChange={(e) => handleIncludeInactiveChange(e.target.checked)}
+              />
+            }
+            label="Include Inactive Accounts"
+          />
+        </Stack>
+      </Paper>
 
       {/* Error Alert */}
       {errorMessage && (
