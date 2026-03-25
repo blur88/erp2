@@ -29,6 +29,19 @@ import {
 } from './search.constants';
 import { SearchAnalyticsService } from './search-analytics.service';
 
+function getPageCategory(route: string): string {
+  const r = route.toLowerCase().trim();
+  if (r === '/dashboard') return 'Dashboard';
+  if (r === '/reports' || r.startsWith('/reports/')) return 'Report';
+  if (r === '/accounting' || r.startsWith('/accounting/')) return 'Accounting';
+  if (r === '/sales' || r.startsWith('/sales/')) return 'Sales';
+  if (r === '/purchasing' || r.startsWith('/purchasing/')) return 'Purchasing';
+  if (r === '/inventory' || r.startsWith('/inventory/')) return 'Inventory';
+  if (r === '/settings' || r.startsWith('/settings/')) return 'Settings';
+  if (r === '/audit-logs' || r.startsWith('/audit-logs/')) return 'Audit';
+  return 'Page';
+}
+
 const STATIC_PAGES: Array<{
   label: string;
   keywords: string[];
@@ -511,7 +524,7 @@ export class SearchService {
       .map((page) => ({
         type: 'page',
         label: page.label,
-        description: 'Navigation',
+        description: getPageCategory(page.route),
         route: page.route,
         score:
           page.label.toLowerCase() === q

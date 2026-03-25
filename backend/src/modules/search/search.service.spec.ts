@@ -226,6 +226,52 @@ describe('SearchService', () => {
     });
   });
 
+  describe('page descriptions (getPageCategory)', () => {
+    it('returns "Dashboard" for /dashboard', async () => {
+      const result = await service.search('dashboard', {
+        role: UserRole.ADMIN,
+      } as any);
+      const page = result.results.find((r) => r.route === '/dashboard');
+      expect(page?.description).toBe('Dashboard');
+    });
+
+    it('returns "Sales" for /sales routes', async () => {
+      const result = await service.search('customers', {
+        role: UserRole.ADMIN,
+      } as any);
+      const page = result.results.find((r) => r.route === '/sales/customers');
+      expect(page?.description).toBe('Sales');
+    });
+
+    it('returns "Report" for /reports routes (not "Sales")', async () => {
+      const result = await service.search('product summary', {
+        role: UserRole.ADMIN,
+      } as any);
+      const page = result.results.find((r) =>
+        r.route?.startsWith('/reports/sales/'),
+      );
+      expect(page?.description).toBe('Report');
+    });
+
+    it('returns "Accounting" for /accounting routes', async () => {
+      const result = await service.search('journal', {
+        role: UserRole.ADMIN,
+      } as any);
+      const page = result.results.find((r) =>
+        r.route?.startsWith('/accounting/'),
+      );
+      expect(page?.description).toBe('Accounting');
+    });
+
+    it('returns "Audit" for /audit-logs', async () => {
+      const result = await service.search('audit', {
+        role: UserRole.ADMIN,
+      } as any);
+      const page = result.results.find((r) => r.route === '/audit-logs');
+      expect(page?.description).toBe('Audit');
+    });
+  });
+
   describe('searchPages role filtering', () => {
     it('returns Dashboard for all roles', async () => {
       for (const role of Object.values(UserRole)) {
