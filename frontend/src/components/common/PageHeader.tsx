@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
-import { Box, Button, Typography, useTheme } from '@mui/material'
+import { Box, Button, IconButton, Typography, useTheme } from '@mui/material'
+import ArrowBackIcon from '@mui/icons-material/ArrowBack'
 
 type PageHeaderAction = {
   label: string
@@ -15,6 +16,7 @@ type PageHeaderProps = {
   showDivider?: boolean
   variant?: 'standard' | 'report' | 'overview' | 'structure' | 'workflow' | 'system'
   titleBadge?: ReactNode
+  backAction?: () => void
   toolbar?: ReactNode
   children?: ReactNode
 }
@@ -27,6 +29,7 @@ export default function PageHeader({
   showDivider = true,
   variant: _variant,
   titleBadge,
+  backAction,
   toolbar,
   children,
 }: PageHeaderProps) {
@@ -57,7 +60,13 @@ export default function PageHeader({
           },
         }}
       >
-        <Box sx={{ minWidth: 0, flex: '1 1 auto' }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0, flex: '1 1 auto' }}>
+          {backAction && (
+            <IconButton onClick={backAction} size="small" sx={{ flexShrink: 0 }}>
+              <ArrowBackIcon />
+            </IconButton>
+          )}
+          <Box sx={{ minWidth: 0 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <Typography
               variant="h5"
@@ -72,6 +81,7 @@ export default function PageHeader({
               {subtitle}
             </Typography>
           )}
+          </Box>
         </Box>
 
         {hasActions && (

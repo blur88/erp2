@@ -10,13 +10,11 @@ import {
   Container,
   Card,
   CardContent,
-  IconButton,
+
   MenuItem,
   Chip,
 } from '@mui/material'
-import {
-  ArrowBack as ArrowBackIcon,
-} from '@mui/icons-material'
+
 import { useForm, Controller } from 'react-hook-form'
 import { yupResolver } from '@hookform/resolvers/yup'
 import * as yup from 'yup'
@@ -389,24 +387,17 @@ const CreateProductPage: React.FC = () => {
     <Container maxWidth="xl">
       <Box sx={{ py: 3 }}>
         {/* Header */}
-        <IconButton
-          onClick={() => {
-            // When going back in edit mode, navigate back with the product ID to keep it selected
+        <PageHeader
+          variant="workflow"
+          title={isEditMode ? 'Edit Product' : 'Create Product'}
+          subtitle={isEditMode ? 'Update product details, pricing, and inventory settings' : 'Add a new product with details, pricing, and inventory settings'}
+          backAction={() => {
             if (isEditMode && id) {
-              navigate('/inventory/products', {
-                state: { selectedProductId: id }
-              })
+              navigate('/inventory/products', { state: { selectedProductId: id } })
             } else {
               navigate('/inventory/products')
             }
           }}
-          sx={{ mr: 2, mb: 1 }}
-        >
-          <ArrowBackIcon />
-        </IconButton>
-        <PageHeader
-          title={isEditMode ? 'Edit Product' : 'Create Product'}
-          showDivider={false}
         />
 
         {isFetchingProduct ? (

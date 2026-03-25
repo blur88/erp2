@@ -25,7 +25,6 @@ import {
 import {
   Add as AddIcon,
   Delete as DeleteIcon,
-  ArrowBack as ArrowBackIcon,
 } from '@mui/icons-material'
 import { useForm, useFieldArray, Controller } from 'react-hook-form'
 import { yupResolver } from '@hookform/resolvers/yup'
@@ -342,13 +341,11 @@ const CreatePurchaseOrderPage: React.FC = () => {
     <Container maxWidth="xl">
       <Box sx={{ py: 3 }}>
         {/* Header */}
-        <IconButton onClick={() => navigate('/purchasing/orders')} sx={{ mb: 1 }}>
-          <ArrowBackIcon />
-        </IconButton>
         <PageHeader
           variant="workflow"
           title={isEditMode ? 'Edit Purchase Order' : 'Create Purchase Order'}
           subtitle={isEditMode ? 'Update order details, items, and pricing' : 'Fill in order details, add items, and set pricing'}
+          backAction={() => navigate('/purchasing/orders')}
         />
 
         {loadingOrder ? (
