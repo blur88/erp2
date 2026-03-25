@@ -1,3 +1,24 @@
+## [1.25.1](https://github.com/blur88/erp2/compare/v1.25.0...v1.25.1) (2026-03-25)
+
+
+### Bug Fixes
+
+* **test:** update accounting report tests — buttons now in PageHeader not actions container ([5f583ab](https://github.com/blur88/erp2/commit/5f583ab8863e8db53a3c51acdf3929d36cd9f5ce))
+* **ui:** add backAction prop to PageHeader, migrate all form pages ([5dc51b3](https://github.com/blur88/erp2/commit/5dc51b34195a9830fda4528f314b6e5e359b815d))
+* **ui:** add subtitle to Company Settings page header ([8c7481d](https://github.com/blur88/erp2/commit/8c7481d9388224e73b380f7aecf45eb2f77469e0))
+* **ui:** add subtitles to Inventory Costing, Regional, and Document Numbers settings pages ([05699dd](https://github.com/blur88/erp2/commit/05699dd37f23994d0bbe262ff57fc27c2648f603))
+* **ui:** add variant and subtitle to Create/Edit Sales and Purchase Order page headers ([03035c0](https://github.com/blur88/erp2/commit/03035c04d9a2d4e6d013a729ef84aab4f0da54b7))
+* **ui:** fix PageHeader inner box structure and update tests for renamed/removed props ([6d107bd](https://github.com/blur88/erp2/commit/6d107bdc42ec904eba2748a95b0582f3590848f3))
+* **ui:** move Bank Reconciliations CTA to primaryAction slot ([103b149](https://github.com/blur88/erp2/commit/103b1494a20d8eadac65222b793c391dd38c7809))
+* **ui:** move Categories search out of PageHeader toolbar into its own section ([e4f368d](https://github.com/blur88/erp2/commit/e4f368d4007c82f9c7cc16d01f34b7ec512fbdb5))
+* **ui:** move Chart of Accounts filters out of PageHeader toolbar into own section ([ff756bd](https://github.com/blur88/erp2/commit/ff756bd739c8690c362b98161a1c794441e7c188))
+* **ui:** move Journal Entries CTA to primaryAction, bulk actions into filters section ([95f5aa4](https://github.com/blur88/erp2/commit/95f5aa40b29341a3c808eec830d57b3e946f655c))
+* **ui:** move Purchasing Overview CTA to primaryAction slot ([#182](https://github.com/blur88/erp2/issues/182)) ([17fe166](https://github.com/blur88/erp2/commit/17fe166568faf161948b1193dfd28306d8fbe0be))
+* **ui:** move report page action buttons to PageHeader primaryAction/secondaryAction ([9ca1aaf](https://github.com/blur88/erp2/commit/9ca1aafe1fbdab6b14a08177197c4a14de795045))
+* **ui:** move toolbar filters/actions out of PageHeader into page body (all report pages) ([84db479](https://github.com/blur88/erp2/commit/84db47985b9b0ada7080240f52a06203c7c8a6f6))
+* **ui:** prevent PageHeader action buttons from wrapping on desktop ([#182](https://github.com/blur88/erp2/issues/182)) ([662fdbb](https://github.com/blur88/erp2/commit/662fdbb310f997345f346b2f44a0ce378ded9ac7))
+* **ui:** replace meta slot with titleBadge — render status chips inline with title ([ab1547d](https://github.com/blur88/erp2/commit/ab1547d6d3d7d3758939f90a23f1f2dfef3fbab0))
+
 # [1.25.0](https://github.com/blur88/erp2/compare/v1.24.0...v1.25.0) (2026-03-24)
 
 
