@@ -112,8 +112,9 @@ const TrialBalancePage: React.FC = () => {
         variant="report"
         title="Trial Balance"
         subtitle="View account balances and verify debits equal credits as of a specific date"
-        toolbar={
-          <Paper sx={{ p: 3, mb: 3 }}>
+      />
+
+      <Paper sx={{ p: 3, mb: 3 }}>
             <Stack
               direction={{ xs: 'column', md: 'row' }}
               spacing={2}
@@ -176,8 +177,6 @@ const TrialBalancePage: React.FC = () => {
               </Stack>
             </Stack>
           </Paper>
-        }
-      />
 
       {errorMessage && (
         <Alert severity="error" sx={{ mb: 2 }}>

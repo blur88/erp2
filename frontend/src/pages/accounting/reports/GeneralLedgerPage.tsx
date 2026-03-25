@@ -160,8 +160,9 @@ const GeneralLedgerPage: React.FC = () => {
         variant="report"
         title="General Ledger"
         subtitle="View all transactions for a specific account with running balance"
-        toolbar={
-          <Paper sx={{ p: 3, mb: 3 }}>
+      />
+
+      <Paper sx={{ p: 3, mb: 3 }}>
             <Stack
               direction={{ xs: 'column', md: 'row' }}
               spacing={2}
@@ -258,8 +259,6 @@ const GeneralLedgerPage: React.FC = () => {
               </Stack>
             </Stack>
           </Paper>
-        }
-      />
 
       {/* Error Alert */}
       {errorMessage && (

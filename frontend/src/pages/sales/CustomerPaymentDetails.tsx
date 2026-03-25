@@ -530,8 +530,9 @@ const CustomerPaymentDetails: React.FC = () => {
             ? `Individual payment transactions for ${reportData.length} payments`
             : 'View detailed payment transaction records'
         }
-        toolbar={
-          <Box
+      />
+      <Paper sx={{ p: 2, mb: 3 }}>
+        <Box
             sx={{
               display: 'flex',
               flexDirection: isMobile ? 'column' : 'row',
@@ -560,8 +561,7 @@ const CustomerPaymentDetails: React.FC = () => {
               {loading ? 'Generating...' : 'Generate Report'}
             </Button>
           </Box>
-        }
-      />
+        </Paper>
       {/* Split Layout */}
       <Grid container spacing={3} sx={{ alignItems: 'stretch', height: 'calc(100vh - 220px)' }}>
         {/* Left Side - Filters and Display */}

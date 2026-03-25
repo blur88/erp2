@@ -250,8 +250,9 @@ const ProfitAndLossPage: React.FC = () => {
         variant="report"
         title="Profit & Loss Statement"
         subtitle="View your Income Statement showing Revenue - COGS - Expenses = Net Income for a period"
-        toolbar={
-          <Paper sx={{ p: 3, mb: 3 }}>
+      />
+
+      <Paper sx={{ p: 3, mb: 3 }}>
             <Stack
               direction={{ xs: 'column', md: 'row' }}
               spacing={2}
@@ -323,8 +324,6 @@ const ProfitAndLossPage: React.FC = () => {
               </Stack>
             </Stack>
           </Paper>
-        }
-      />
 
       {/* Date Validation Error */}
       {dateError && (

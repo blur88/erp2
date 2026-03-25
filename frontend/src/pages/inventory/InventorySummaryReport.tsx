@@ -686,13 +686,14 @@ const InventorySummaryReport: React.FC = () => {
         subtitle={reportData.length > 0
           ? `${reportData.length} products`
           : 'View comprehensive inventory summary with values and profit potential'}
-        toolbar={
-          <Box sx={{
-            display: 'flex',
-            flexDirection: isMobile ? 'column' : 'row',
-            gap: isMobile ? 1.5 : 1,
-            alignItems: isMobile ? 'stretch' : 'center'
-          }}>
+      />
+      <Paper sx={{ p: 2, mb: 3 }}>
+        <Box sx={{
+          display: 'flex',
+          flexDirection: isMobile ? 'column' : 'row',
+          gap: isMobile ? 1.5 : 1,
+          alignItems: isMobile ? 'stretch' : 'center'
+        }}>
             <Button
               variant="outlined"
               startIcon={!isMobile ? <RefreshIcon /> : undefined}
@@ -714,8 +715,7 @@ const InventorySummaryReport: React.FC = () => {
               {loading ? 'Generating...' : 'Generate Report'}
             </Button>
           </Box>
-        }
-      />
+        </Paper>
       {/* Split Layout */}
       <Grid container spacing={3} sx={{ alignItems: 'stretch', height: 'calc(100vh - 220px)' }}>
         {/* Left Side - Filters and Display */}

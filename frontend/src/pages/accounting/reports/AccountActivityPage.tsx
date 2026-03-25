@@ -249,8 +249,9 @@ const AccountActivityPage: React.FC = () => {
         variant="report"
         title="Account Activity Report"
         subtitle="View journal entries affecting an account with drill-down to source transactions"
-        toolbar={
-          <Paper sx={{ p: 3, mb: 3 }}>
+      />
+
+      <Paper sx={{ p: 3, mb: 3 }}>
             <Stack
               direction={accountActivityToolbarLayout.containerDirection}
               spacing={2}
@@ -373,8 +374,6 @@ const AccountActivityPage: React.FC = () => {
               </Stack>
             </Stack>
           </Paper>
-        }
-      />
 
       {/* Error Alert */}
       {errorMessage && (

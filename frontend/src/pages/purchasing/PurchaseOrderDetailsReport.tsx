@@ -708,8 +708,9 @@ const PurchaseOrderDetailsReport: React.FC = () => {
             ? `${reportData.length} purchase order line items`
             : 'View detailed purchase order line items'
         }
-        toolbar={
-          <Box
+      />
+      <Paper sx={{ p: 2, mb: 3 }}>
+        <Box
             sx={{
               display: 'flex',
               flexDirection: isMobile ? 'column' : 'row',
@@ -738,8 +739,7 @@ const PurchaseOrderDetailsReport: React.FC = () => {
               {loading ? 'Generating...' : 'Generate Report'}
             </Button>
           </Box>
-        }
-      />
+        </Paper>
       {/* Split Layout */}
       <Grid container spacing={3} sx={{ alignItems: 'stretch', height: 'calc(100vh - 220px)' }}>
         {/* Left Side - Filters and Display */}

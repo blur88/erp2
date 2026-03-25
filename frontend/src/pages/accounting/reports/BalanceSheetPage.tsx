@@ -333,8 +333,9 @@ const BalanceSheetPage: React.FC = () => {
         variant="report"
         title="Balance Sheet"
         subtitle="View your financial position showing Assets = Liabilities + Equity as of a specific date"
-        toolbar={
-          <Paper sx={{ p: 3, mb: 3 }}>
+      />
+
+      <Paper sx={{ p: 3, mb: 3 }}>
             <Stack
               direction={{ xs: 'column', md: 'row' }}
               spacing={2}
@@ -397,8 +398,6 @@ const BalanceSheetPage: React.FC = () => {
               </Stack>
             </Stack>
           </Paper>
-        }
-      />
 
       {/* Error Alert */}
       {errorMessage && (
