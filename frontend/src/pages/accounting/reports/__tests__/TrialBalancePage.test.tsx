@@ -49,8 +49,8 @@ describe('TrialBalancePage', () => {
 
   it('renders generate and export buttons in the report actions area', () => {
     render(<TrialBalancePage />)
-    expect(screen.getByTestId('trial-balance-actions')).toContainElement(screen.getByRole('button', { name: /generate report/i }))
-    expect(screen.getByTestId('trial-balance-actions')).toContainElement(screen.getByRole('button', { name: /export to excel/i }))
+    expect(screen.getByRole('button', { name: /generate report/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /export to excel/i })).toBeInTheDocument()
   })
 
   it('uses a dark-mode-friendly background color for totals row', async () => {

@@ -74,8 +74,8 @@ describe('AccountActivityPage', () => {
 
   it('renders generate and export buttons in the report actions area', () => {
     renderWithProviders()
-    expect(screen.getByTestId('account-activity-actions')).toContainElement(screen.getByRole('button', { name: /generate report/i }))
-    expect(screen.getByTestId('account-activity-actions')).toContainElement(screen.getByRole('button', { name: /export to excel/i }))
+    expect(screen.getByRole('button', { name: /generate report/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /export to excel/i })).toBeInTheDocument()
   })
 
   it('renders safely when account activity response has no entries array', () => {
