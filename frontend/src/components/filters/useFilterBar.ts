@@ -1,0 +1,195 @@
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
+
+import { deriveChips } from './filterBar.chips'
+import type { ActiveChip, FilterBarConfig, FilterBarHandlers } from './filterBar.types'
+import { parseFilters, serializeFilters } from './filterBar.url'
+
+function getDefaults<TFilters extends object>(
+  config: FilterBarConfig<TFilters>,
+): TFilters {
+  const defaults: Record<string, unknown> = {}
+
+  if (config.search) defaults.search = ''
+
+  for (const field of [...config.quick, ...config.advanced]) {
+    const key = String(field.field)
+    const configuredDefault = config.defaults?.[field.field]
+    if (configuredDefault !== undefined) {
+      defaults[key] = configuredDefault
+      continue
+    }
+
+    if (field.type === 'select') defaults[key] = null
+    else if (field.type === 'multi-select') defaults[key] = []
+    else if (field.type === 'toggle') defaults[key] = null
+    else if (field.type === 'date-range') defaults[key] = { from: null, to: null }
+    else defaults[key] = { min: null, max: null }
+  }
+
+  return defaults as TFilters
+}
+
+function isEqual(left: unknown, right: unknown): boolean {
+  return JSON.stringify(left) === JSON.stringify(right)
+}
+
+export function useFilterBar<TFilters extends object>(
+  config: FilterBarConfig<TFilters>,
+): {
+  appliedFilters: TFilters
+  draftFilters: TFilters
+  handlers: FilterBarHandlers<TFilters>
+  activeChips: ActiveChip<keyof TFilters>[]
+  hasActiveFilters: boolean
+  hasUnappliedChanges: boolean
+} {
+  const location = useLocation()
+  const navigate = useNavigate()
+  const debounceMs = config.search?.debounceMs ?? 400
+
+  const defaults = useMemo(() => getDefaults(config), [config])
+  const initialFilters = useMemo(() => {
+    const parsed = parseFilters(new URLSearchParams(location.search), config)
+    return { ...defaults, ...parsed }
+  }, [config, defaults, location.search])
+
+  const [appliedFilters, setAppliedFilters] = useState<TFilters>(initialFilters)
+  const [draftFilters, setDraftFilters] = useState<TFilters>(initialFilters)
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const searchDraftRef = useRef<string>(((initialFilters as Record<string, unknown>).search as string | undefined) ?? '')
+
+  useEffect(() => {
+    setAppliedFilters(initialFilters)
+    setDraftFilters(initialFilters)
+    searchDraftRef.current = ((initialFilters as Record<string, unknown>).search as string | undefined) ?? ''
+  }, [initialFilters])
+
+  useEffect(() => {
+    const currentParams = new URLSearchParams(location.search)
+    const nextParams = serializeFilters(appliedFilters, config, currentParams)
+    const nextSearch = nextParams.toString()
+    const currentSearch = currentParams.toString()
+
+    if (nextSearch !== currentSearch) {
+      navigate(
+        {
+          pathname: location.pathname,
+          search: nextSearch ? `?${nextSearch}` : '',
+        },
+        { replace: true },
+      )
+    }
+  }, [appliedFilters, config, location.pathname, location.search, navigate])
+
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current)
+      }
+    }
+  }, [])
+
+  const onSearchChange = useCallback((value: string) => {
+    searchDraftRef.current = value
+    setDraftFilters((prev) => ({ ...prev, search: value }))
+
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current)
+    }
+
+    if (value === '') {
+      setAppliedFilters((prev) => ({ ...prev, search: '' }))
+      return
+    }
+
+    debounceRef.current = setTimeout(() => {
+      setAppliedFilters((prev) => ({ ...prev, search: value }))
+    }, debounceMs)
+  }, [debounceMs])
+
+  const onSearchCommit = useCallback(() => {
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current)
+    }
+
+    setAppliedFilters((prev) => ({
+      ...prev,
+      search: searchDraftRef.current,
+    }))
+  }, [])
+
+  const onQuickFilterChange = useCallback((field: keyof TFilters, value: unknown) => {
+    setDraftFilters((prev) => ({ ...prev, [field]: value }))
+    setAppliedFilters((prev) => ({ ...prev, [field]: value }))
+  }, [])
+
+  const onAdvancedDraftChange = useCallback((field: keyof TFilters, value: unknown) => {
+    setDraftFilters((prev) => ({ ...prev, [field]: value }))
+  }, [])
+
+  const onAdvancedApply = useCallback(() => {
+    setAppliedFilters((prev) => ({ ...prev, ...draftFilters }))
+  }, [draftFilters])
+
+  const onAdvancedCancel = useCallback(() => {
+    const advancedFields = new Set(config.advanced.map((field) => String(field.field)))
+    setDraftFilters((prev) => {
+      const next = { ...prev }
+      for (const field of advancedFields) {
+        ;(next as Record<string, unknown>)[field] = (appliedFilters as Record<string, unknown>)[field]
+      }
+      return next
+    })
+  }, [appliedFilters, config.advanced])
+
+  const onClearField = useCallback((field: keyof TFilters) => {
+    const nextValue = (defaults as Record<string, unknown>)[String(field)]
+    setDraftFilters((prev) => ({ ...prev, [field]: nextValue }))
+    setAppliedFilters((prev) => ({ ...prev, [field]: nextValue }))
+    if (field === 'search') {
+      searchDraftRef.current = String(nextValue ?? '')
+    }
+  }, [defaults])
+
+  const onClearAll = useCallback(() => {
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current)
+    }
+    setDraftFilters(defaults)
+    setAppliedFilters(defaults)
+    searchDraftRef.current = String((defaults as Record<string, unknown>).search ?? '')
+  }, [defaults])
+
+  const activeChips = useMemo(
+    () => deriveChips(appliedFilters, config),
+    [appliedFilters, config],
+  )
+
+  const hasActiveFilters = useMemo(
+    () => !isEqual(appliedFilters, defaults),
+    [appliedFilters, defaults],
+  )
+
+  const hasUnappliedChanges = useMemo(() => {
+    return config.advanced.some((field) => !isEqual(draftFilters[field.field], appliedFilters[field.field]))
+  }, [appliedFilters, config.advanced, draftFilters])
+
+  return {
+    appliedFilters,
+    draftFilters,
+    handlers: {
+      onSearchChange,
+      onSearchCommit,
+      onQuickFilterChange,
+      onAdvancedDraftChange,
+      onAdvancedApply,
+      onAdvancedCancel,
+      onClearField,
+      onClearAll,
+    },
+    activeChips,
+    hasActiveFilters,
+    hasUnappliedChanges,
+  }
+}

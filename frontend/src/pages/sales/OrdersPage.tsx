@@ -1,19 +1,22 @@
-import React, { useCallback, useEffect } from 'react'
-import { Alert, Box, useMediaQuery, useTheme } from '@mui/material'
+import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import { ArrowDownward as ArrowDownIcon, ArrowUpward as ArrowUpIcon, Sort as SortIcon } from '@mui/icons-material'
+import { Alert, Box, Button, Stack, useMediaQuery, useTheme } from '@mui/material'
 import Grid from '@mui/material/GridLegacy'
 import { useStore } from 'react-redux'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 
+import PageHeader from '@/components/common/PageHeader'
+import { FilterBar, useFilterBar } from '@/components/filters'
+import type { DateRangeValue, FilterBarConfig } from '@/components/filters'
 import OrdersDialogs from './components/OrdersDialogs'
 import OrderDetailsPanel from './components/OrderDetailsPanel'
 import OrdersTable from './components/OrdersTable'
-import OrdersToolbar from './components/OrdersToolbar'
 import { useOrdersActions } from './hooks/useOrdersActions'
 import { useOrdersPageState } from './hooks/useOrdersPageState'
 import { useOrdersSelection } from './hooks/useOrdersSelection'
 
 import { useNotification } from '@/hooks/useNotification'
-import { useSearchAndFilter, useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
+import { useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
 import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
 import type { RootState } from '@/store'
 import {
@@ -23,14 +26,19 @@ import {
   useLazyGetSalesOrderQuery,
 } from '@/store/api/salesApi'
 import {
-  clearError,
-  selectOrderFilters,
   selectSalesError,
   selectSelectedOrder,
-  setOrderFilters,
 } from '@/store/slices/salesSlice'
 
-const OrdersPage: React.FC = () => {
+interface SalesOrderFilters {
+  search: string
+  customerId: string | null
+  paymentStatus: 'unpaid' | 'partial' | 'paid' | 'overpaid' | null
+  fulfillmentStatus: 'fulfilled' | 'unfulfilled' | null
+  dateRange: DateRangeValue
+}
+
+export const OrdersPage: React.FC = () => {
   const theme = useTheme()
   const isMobile = useMediaQuery(theme.breakpoints.down('md'))
   const location = useLocation()
@@ -41,71 +49,74 @@ const OrdersPage: React.FC = () => {
   const { showSuccess, showError } = useNotification()
   const error = useAppSelector(selectSalesError)
   const selectedOrder = useAppSelector(selectSelectedOrder)
-  const orderFilters = useAppSelector(selectOrderFilters)
   const [triggerGetSalesOrder] = useLazyGetSalesOrderQuery()
   const [deleteSalesOrder] = useDeleteSalesOrderMutation()
   const pageState = useOrdersPageState()
+  const [sortBy, setSortBy] = useState('orderNumber')
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc')
+  const { data: customersData } = useGetCustomersQuery({ limit: 999999 })
+  const customers = customersData?.data ?? []
 
-  const getDateRange = useCallback((filter: string) => {
-    const today = new Date()
-    const yesterday = new Date(today)
-    yesterday.setDate(yesterday.getDate() - 1)
-    const startOfWeek = new Date(today)
-    startOfWeek.setDate(today.getDate() - today.getDay())
-    const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1)
-    const startOfYear = new Date(today.getFullYear(), 0, 1)
-    const toDateParam = (date: Date) => date.toISOString().split('T')[0]
+  const filterConfig = useMemo<FilterBarConfig<SalesOrderFilters>>(
+    () => ({
+      search: { placeholder: 'Search orders...' },
+      quick: [
+        {
+          field: 'customerId',
+          label: 'Customer',
+          type: 'select',
+          options: customers.map((customer) => ({ value: customer.id, label: customer.name })),
+        },
+        {
+          field: 'paymentStatus',
+          label: 'Payment',
+          type: 'select',
+          options: [
+            { value: 'unpaid', label: 'Unpaid' },
+            { value: 'partial', label: 'Partial' },
+            { value: 'paid', label: 'Paid' },
+            { value: 'overpaid', label: 'Overpaid' },
+          ],
+        },
+      ],
+      advanced: [
+        {
+          field: 'fulfillmentStatus',
+          label: 'Fulfillment',
+          type: 'select',
+          options: [
+            { value: 'fulfilled', label: 'Fulfilled' },
+            { value: 'unfulfilled', label: 'Unfulfilled' },
+          ],
+        },
+        { field: 'dateRange', label: 'Order Date', type: 'date-range', paramKey: 'orderDate' },
+      ],
+      defaults: {
+        search: '',
+        customerId: null,
+        paymentStatus: null,
+        fulfillmentStatus: null,
+        dateRange: { from: null, to: null },
+      },
+    }),
+    [customers],
+  )
 
-    switch (filter) {
-      case 'today':
-        return { fromDate: toDateParam(today), toDate: toDateParam(today) }
-      case 'yesterday':
-        return { fromDate: toDateParam(yesterday), toDate: toDateParam(yesterday) }
-      case 'this_week':
-        return { fromDate: toDateParam(startOfWeek), toDate: toDateParam(today) }
-      case 'this_month':
-        return { fromDate: toDateParam(startOfMonth), toDate: toDateParam(today) }
-      case 'this_year':
-        return { fromDate: toDateParam(startOfYear), toDate: toDateParam(today) }
-      case 'custom':
-        return { fromDate: orderFilters.customFromDate, toDate: orderFilters.customToDate }
-      default:
-        return { fromDate: undefined, toDate: undefined }
-    }
-  }, [orderFilters.customFromDate, orderFilters.customToDate])
-
-  const dateRange = getDateRange(orderFilters.dateFilter)
-  const orderQueryArgs = {
-    sortBy: orderFilters.sortBy,
-    sortOrder: orderFilters.sortOrder,
-    search: orderFilters.search || undefined,
-    customerId: orderFilters.customerId === 'all' ? undefined : orderFilters.customerId,
-    fromDate: dateRange.fromDate,
-    toDate: dateRange.toDate,
-    paymentStatus: orderFilters.paymentStatus === 'all' ? undefined : orderFilters.paymentStatus,
-    fulfillmentStatus: orderFilters.fulfillmentStatus === 'all' ? undefined : orderFilters.fulfillmentStatus,
-  }
+  const filterBar = useFilterBar(filterConfig)
+  const orderQueryArgs = useMemo(() => ({
+    sortBy,
+    sortOrder,
+    search: filterBar.appliedFilters.search || undefined,
+    customerId: filterBar.appliedFilters.customerId || undefined,
+    fromDate: filterBar.appliedFilters.dateRange.from || undefined,
+    toDate: filterBar.appliedFilters.dateRange.to || undefined,
+    paymentStatus: filterBar.appliedFilters.paymentStatus || undefined,
+    fulfillmentStatus: filterBar.appliedFilters.fulfillmentStatus || undefined,
+  }), [filterBar.appliedFilters, sortBy, sortOrder])
 
   const { data: ordersData, isLoading: loading, refetch: refetchOrders } = useGetSalesOrdersQuery(orderQueryArgs)
-  const { data: customersData } = useGetCustomersQuery({ limit: 999999 })
   const orders = ordersData?.data ?? []
-  const customers = customersData?.data ?? []
   const pagination = ordersData?.meta
-
-  const onSearchChange = useCallback((search: string) => {
-    dispatch(setOrderFilters({ search }))
-  }, [dispatch])
-
-  const { searchTerm, setSearchTerm: originalSetSearchTerm, focusSearchInput } = useSearchAndFilter({
-    initialSearchTerm: orderFilters.search,
-    onSearchChange,
-    searchInputRef: pageState.searchInputRef,
-  })
-
-  const setSearchTerm = useCallback((value: string) => {
-    pageState.setShouldPreserveSearchFocus(true)
-    originalSetSearchTerm(value)
-  }, [originalSetSearchTerm, pageState])
 
   useEffect(() => {
     if (pageState.shouldPreserveSearchFocus && pageState.searchInputRef.current && document.activeElement !== pageState.searchInputRef.current) {
@@ -172,12 +183,23 @@ const OrdersPage: React.FC = () => {
   })
 
   const handleSort = useCallback((field: string) => {
-    const newSortOrder = orderFilters.sortBy === field && orderFilters.sortOrder === 'desc' ? 'asc' : 'desc'
-    dispatch(setOrderFilters({ sortBy: field, sortOrder: newSortOrder }))
-  }, [dispatch, orderFilters.sortBy, orderFilters.sortOrder])
+    setSortOrder((prev) => (sortBy === field && prev === 'desc' ? 'asc' : 'desc'))
+    setSortBy(field)
+  }, [sortBy])
+
+  const filterHandlers = useMemo(() => ({
+    ...filterBar.handlers,
+    onSearchChange: (value: string) => {
+      pageState.setShouldPreserveSearchFocus(true)
+      filterBar.handlers.onSearchChange(value)
+    },
+  }), [filterBar.handlers, pageState])
 
   useKeyboardShortcuts({
-    onSearch: focusSearchInput,
+    onSearch: () => {
+      pageState.searchInputRef.current?.focus()
+      pageState.searchInputRef.current?.select()
+    },
     onArrowUp: selection.handleNavigateUp,
     onArrowDown: selection.handleNavigateDown,
     onEnter: selection.handleEnterAction,
@@ -188,17 +210,6 @@ const OrdersPage: React.FC = () => {
     onEscape: selection.handleEscapeAction,
   })
 
-  const resetFilters = useCallback(() => {
-    dispatch(setOrderFilters({
-      dateFilter: 'all',
-      customFromDate: '',
-      customToDate: '',
-      customerId: 'all',
-      paymentStatus: 'all',
-      fulfillmentStatus: 'all',
-    }))
-  }, [dispatch])
-
   const navigateToJournalEntry = useCallback(() => {
     if (selectedOrder) {
       navigate(`/accounting/journal-entries?sourceType=sales_order&sourceId=${selectedOrder.id}`)
@@ -207,20 +218,34 @@ const OrdersPage: React.FC = () => {
 
   return (
     <Box sx={{ p: 3 }}>
-      <OrdersToolbar
-        isMobile={isMobile}
-        ordersCount={orders.length}
-        searchInputRef={pageState.searchInputRef}
-        searchTerm={searchTerm}
-        setSearchTerm={setSearchTerm}
-        orderFilters={orderFilters}
-        customers={customers}
-        onFilterChange={(filters) => dispatch(setOrderFilters(filters))}
-        onClearFilters={resetFilters}
-        onSort={handleSort}
-        onOpenDeleted={() => pageState.setDeletedOrdersDialogOpen(true)}
-        onCreateOrder={() => navigate('/sales/orders/create')}
+      <PageHeader
+        title="Sales Orders"
+        subtitle="Track sales orders and delivery status"
+        secondaryAction={{ label: 'View Deleted', onClick: () => pageState.setDeletedOrdersDialogOpen(true) }}
+        primaryAction={{ label: 'Create Order', onClick: () => navigate('/sales/orders/create') }}
       />
+
+      <Stack direction={isMobile ? 'column' : 'row'} spacing={1} alignItems={isMobile ? 'stretch' : 'center'} sx={{ mb: 3 }}>
+        <Box sx={{ flex: 1 }}>
+          <FilterBar
+            config={filterConfig}
+            draftFilters={filterBar.draftFilters}
+            handlers={filterHandlers}
+            activeChips={filterBar.activeChips}
+            hasActiveFilters={filterBar.hasActiveFilters}
+            hasUnappliedChanges={filterBar.hasUnappliedChanges}
+            searchInputRef={pageState.searchInputRef}
+          />
+        </Box>
+        <Button
+          variant={sortBy === 'orderNumber' ? 'contained' : 'outlined'}
+          size="small"
+          startIcon={sortBy === 'orderNumber' ? sortOrder === 'desc' ? <ArrowDownIcon /> : <ArrowUpIcon /> : <SortIcon />}
+          onClick={() => handleSort('orderNumber')}
+        >
+          Sort
+        </Button>
+      </Stack>
 
       {error && (
         <Alert severity="error" sx={{ mb: 3 }}>

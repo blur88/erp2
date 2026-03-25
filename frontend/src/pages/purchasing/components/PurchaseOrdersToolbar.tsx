@@ -23,15 +23,24 @@ import {
 
 import PageHeader from '@/components/common/PageHeader'
 import { TYPOGRAPHY_STYLES } from '@/constants/typography'
-import type { PurchaseOrdersPageState } from '../hooks/usePurchaseOrdersPageState'
+
+type LegacyPurchaseOrdersFilters = {
+  search: string
+  sortBy: string
+  sortOrder: 'asc' | 'desc'
+  supplierFilter: string
+  dateFilter: string
+  customFromDate: string
+  customToDate: string
+}
 
 interface PurchaseOrdersToolbarProps {
   isMobile: boolean
   ordersCount: number
-  filters: PurchaseOrdersPageState
+  filters: LegacyPurchaseOrdersFilters
   suppliers: Array<{ id: string; companyName: string }>
   searchInputRef: React.RefObject<HTMLInputElement | null>
-  onFilterChange: (updates: Partial<PurchaseOrdersPageState>) => void
+  onFilterChange: (updates: Partial<LegacyPurchaseOrdersFilters>) => void
   onClearFilters: () => void
   onSort: (field: string) => void
   onOpenDeleted: () => void

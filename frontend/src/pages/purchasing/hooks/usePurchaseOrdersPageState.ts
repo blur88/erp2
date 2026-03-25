@@ -1,13 +1,8 @@
 import { useRef, useState } from 'react'
 
 export interface PurchaseOrdersPageState {
-  search: string
   sortBy: string
   sortOrder: 'asc' | 'desc'
-  supplierFilter: string
-  dateFilter: string
-  customFromDate: string
-  customToDate: string
 }
 
 export interface PurchaseJournalEntryRef {
@@ -17,14 +12,9 @@ export interface PurchaseJournalEntryRef {
 }
 
 export function usePurchaseOrdersPageState() {
-  const [filters, setFilters] = useState<PurchaseOrdersPageState>({
-    search: '',
+  const [sorting, setSorting] = useState<PurchaseOrdersPageState>({
     sortBy: 'orderNumber',
     sortOrder: 'asc',
-    supplierFilter: 'all',
-    dateFilter: 'all',
-    customFromDate: '',
-    customToDate: '',
   })
   const [focusedOrderIndex, setFocusedOrderIndex] = useState(-1)
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
@@ -48,8 +38,8 @@ export function usePurchaseOrdersPageState() {
   const userHasNavigatedRef = useRef(false)
 
   return {
-    filters,
-    setFilters,
+    sorting,
+    setSorting,
     focusedOrderIndex,
     setFocusedOrderIndex,
     deleteConfirmOpen,

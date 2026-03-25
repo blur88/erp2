@@ -1,16 +1,18 @@
 import React, { useCallback, useMemo } from 'react'
-import { Alert, Box, useMediaQuery, useTheme } from '@mui/material'
+import { ArrowDownward as ArrowDownIcon, ArrowUpward as ArrowUpIcon, Sort as SortIcon } from '@mui/icons-material'
+import { Alert, Box, Button, Stack, useMediaQuery, useTheme } from '@mui/material'
 import Grid from '@mui/material/GridLegacy'
-import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 
+import PageHeader from '@/components/common/PageHeader'
+import { FilterBar, useFilterBar } from '@/components/filters'
+import type { DateRangeValue, FilterBarConfig } from '@/components/filters'
 import PurchaseOrderDetailsPanel from './components/PurchaseOrderDetailsPanel'
 import PurchaseOrdersDialogs from './components/PurchaseOrdersDialogs'
 import PurchaseOrdersTable from './components/PurchaseOrdersTable'
-import PurchaseOrdersToolbar from './components/PurchaseOrdersToolbar'
 import { usePurchaseOrdersActions } from './hooks/usePurchaseOrdersActions'
 import { usePurchaseOrdersPageState } from './hooks/usePurchaseOrdersPageState'
 import { usePurchaseOrdersSelection } from './hooks/usePurchaseOrdersSelection'
-import { getDateRangeFromFilter } from './utils'
 
 import { useNotification } from '@/hooks/useNotification'
 import { useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
@@ -27,10 +29,15 @@ import {
 } from '@/store/api/purchasingApi'
 import { selectSelectedPurchaseOrder } from '@/store/slices/purchasingSlice'
 
-const PurchaseOrdersPage: React.FC = () => {
+interface PurchaseOrderFilters {
+  search: string
+  supplierId: string | null
+  dateRange: DateRangeValue
+}
+
+export const PurchaseOrdersPage: React.FC = () => {
   const theme = useTheme()
   const isMobile = useMediaQuery(theme.breakpoints.down('md'))
-  const location = useLocation()
   const navigate = useNavigate()
   const dispatch = useAppDispatch()
   const { showSuccess, showError } = useNotification()
@@ -38,21 +45,45 @@ const PurchaseOrdersPage: React.FC = () => {
   const pageState = usePurchaseOrdersPageState()
   const selectedOrder = useAppSelector(selectSelectedPurchaseOrder)
 
-  const queryParams = useMemo(() => {
-    const dateRange = getDateRangeFromFilter(
-      pageState.filters.dateFilter,
-      pageState.filters.customFromDate,
-      pageState.filters.customToDate,
-    )
-    return {
-      sortBy: pageState.filters.sortBy,
-      sortOrder: pageState.filters.sortOrder.toUpperCase(),
-      search: pageState.filters.search,
-      supplierId: pageState.filters.supplierFilter === 'all' ? undefined : pageState.filters.supplierFilter,
-      orderDateFrom: dateRange.fromDate,
-      orderDateTo: dateRange.toDate,
-    }
-  }, [pageState.filters])
+  const { data: suppliersResponse } = useGetSuppliersQuery({})
+  const suppliers = suppliersResponse?.data || []
+
+  const filterConfig = useMemo<FilterBarConfig<PurchaseOrderFilters>>(
+    () => ({
+      search: { placeholder: 'Search purchase orders...' },
+      quick: [
+        {
+          field: 'supplierId',
+          label: 'Supplier',
+          type: 'select',
+          options: suppliers.map((supplier: any) => ({
+            value: supplier.id,
+            label: supplier.companyName ?? supplier.name,
+          })),
+        },
+      ],
+      advanced: [
+        { field: 'dateRange', label: 'Order Date', type: 'date-range', paramKey: 'orderDate' },
+      ],
+      defaults: {
+        search: '',
+        supplierId: null,
+        dateRange: { from: null, to: null },
+      },
+    }),
+    [suppliers],
+  )
+
+  const filterBar = useFilterBar(filterConfig)
+
+  const queryParams = useMemo(() => ({
+    sortBy: pageState.sorting.sortBy,
+    sortOrder: pageState.sorting.sortOrder.toUpperCase(),
+    search: filterBar.appliedFilters.search || undefined,
+    supplierId: filterBar.appliedFilters.supplierId || undefined,
+    orderDateFrom: filterBar.appliedFilters.dateRange.from || undefined,
+    orderDateTo: filterBar.appliedFilters.dateRange.to || undefined,
+  }), [filterBar.appliedFilters, pageState.sorting.sortBy, pageState.sorting.sortOrder])
 
   const {
     data: purchaseOrdersResponse,
@@ -60,7 +91,6 @@ const PurchaseOrdersPage: React.FC = () => {
     error: purchaseOrdersError,
     refetch: refetchOrders,
   } = useGetPurchaseOrdersQuery(queryParams)
-  const { data: suppliersResponse } = useGetSuppliersQuery({})
   const [fetchPurchaseOrder] = useLazyGetPurchaseOrderQuery()
   const [receiveGoods] = useReceiveGoodsMutation()
   const [returnGoods] = useReturnGoodsMutation()
@@ -69,7 +99,6 @@ const PurchaseOrdersPage: React.FC = () => {
   const [deletePurchaseOrder] = useDeletePurchaseOrderMutation()
 
   const purchaseOrders = purchaseOrdersResponse?.data || []
-  const suppliers = suppliersResponse?.data || []
   const pagination = purchaseOrdersResponse?.meta
   const error =
     purchaseOrdersError && typeof purchaseOrdersError === 'object'
@@ -123,7 +152,7 @@ const PurchaseOrdersPage: React.FC = () => {
   })
 
   const handleSort = useCallback((field: string) => {
-    pageState.setFilters((prev) => ({
+    pageState.setSorting((prev) => ({
       ...prev,
       sortBy: field,
       sortOrder: prev.sortBy === field && prev.sortOrder === 'desc' ? 'asc' : 'desc',
@@ -159,18 +188,38 @@ const PurchaseOrdersPage: React.FC = () => {
         </Alert>
       )}
 
-      <PurchaseOrdersToolbar
-        isMobile={isMobile}
-        ordersCount={purchaseOrders.length}
-        filters={pageState.filters}
-        suppliers={suppliers}
-        searchInputRef={pageState.searchInputRef}
-        onFilterChange={(updates) => pageState.setFilters((prev) => ({ ...prev, ...updates }))}
-        onClearFilters={() => pageState.setFilters((prev) => ({ ...prev, dateFilter: 'all', customFromDate: '', customToDate: '', supplierFilter: 'all' }))}
-        onSort={handleSort}
-        onOpenDeleted={() => pageState.setDeletedOrdersDialogOpen(true)}
-        onCreateOrder={() => navigate('/purchasing/orders/create')}
+      <PageHeader
+        title="Purchase Orders"
+        subtitle="Manage supplier purchase orders and procurement"
+        secondaryAction={{ label: 'View Deleted', onClick: () => pageState.setDeletedOrdersDialogOpen(true) }}
+        primaryAction={{ label: 'Create Order', onClick: () => navigate('/purchasing/orders/create') }}
       />
+
+      <Stack direction={isMobile ? 'column' : 'row'} spacing={1} alignItems={isMobile ? 'stretch' : 'center'} sx={{ mb: 3 }}>
+        <Box sx={{ flex: 1 }}>
+          <FilterBar
+            config={filterConfig}
+            draftFilters={filterBar.draftFilters}
+            handlers={filterBar.handlers}
+            activeChips={filterBar.activeChips}
+            hasActiveFilters={filterBar.hasActiveFilters}
+            hasUnappliedChanges={filterBar.hasUnappliedChanges}
+            searchInputRef={pageState.searchInputRef}
+          />
+        </Box>
+        <Button
+          variant={pageState.sorting.sortBy === 'orderNumber' ? 'contained' : 'outlined'}
+          size="small"
+          startIcon={pageState.sorting.sortBy === 'orderNumber'
+            ? pageState.sorting.sortOrder === 'desc'
+              ? <ArrowDownIcon />
+              : <ArrowUpIcon />
+            : <SortIcon />}
+          onClick={() => handleSort('orderNumber')}
+        >
+          Sort
+        </Button>
+      </Stack>
 
       {error && (
         <Alert severity="error" sx={{ mb: 3 }}>
