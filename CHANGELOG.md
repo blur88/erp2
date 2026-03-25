@@ -1,3 +1,14 @@
+# [1.26.0](https://github.com/blur88/erp2/compare/v1.25.1...v1.26.0) (2026-03-25)
+
+
+### Features
+
+* **search:** add optional highlightColor param to highlightText utility ([a8baaab](https://github.com/blur88/erp2/commit/a8baaab39739b5c34eed7a0c71e9836df68e5068))
+* **search:** apply BOOST_EXACT_MATCH to all entity services for exact-match priority ([90fb0bc](https://github.com/blur88/erp2/commit/90fb0bca3264fe8582f3c9983a51222bb6858f19))
+* **search:** lower BOOST_PAGE to 0, add BOOST_EXACT_MATCH constant ([58a01de](https://github.com/blur88/erp2/commit/58a01de53205be03f023c269f5927bbe7b8a79be))
+* **search:** move pages section last, add primary.light highlight color to search results ([7b37320](https://github.com/blur88/erp2/commit/7b373208fd0f3149f4bfa2fe4c057a38e020b6ed))
+* **search:** replace 'Navigation' page descriptions with route-derived category labels ([0ef39ce](https://github.com/blur88/erp2/commit/0ef39ce718700cf5168f45630e5bcce8babd07cc))
+
 ## [1.25.1](https://github.com/blur88/erp2/compare/v1.25.0...v1.25.1) (2026-03-25)
 
 
