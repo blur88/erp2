@@ -49,6 +49,7 @@ function getPageCategory(route: string): string {
   if (r === '/purchasing' || r.startsWith('/purchasing/')) return 'Purchasing';
   if (r === '/inventory' || r.startsWith('/inventory/')) return 'Inventory';
   if (r === '/settings' || r.startsWith('/settings/')) return 'Settings';
+  if (r === '/audit-logs' || r.startsWith('/audit-logs/')) return 'Audit';
 
   return 'Page';
 }
@@ -89,7 +90,7 @@ When `highlightColor` is provided, the highlight span gets both `fontWeight` and
 - Call `useTheme()` to get the MUI theme
 - Pass `theme.palette.primary.light` as `highlightColor` — slightly brighter than `primary.main` for better contrast on the dark `#1E1E1E` background
 - **Label:** bold + color (`highlightWeight = 700`, `highlightColor = primary.light`)
-- **Description:** color only (`highlightWeight = 600` as currently, `highlightColor = primary.light`) — no extra weight to keep visual hierarchy clear
+- **Description:** color only — pass `highlightWeight = 400` (matching the surrounding `variant="caption"` text weight) and `highlightColor = primary.light`. The highlight span must not increase weight relative to the surrounding description text; it adds color only.
 
 **Changes:**
 
@@ -120,7 +121,7 @@ Note: `SearchResultRow` is also rendered for recent searches (with `query=""`). 
 | Vendor Payment | `backend/src/modules/purchasing/services/vendor-payment.service.ts` |
 | Journal Entry | `backend/src/modules/accounting/services/journal-entry.service.ts` |
 
-**What "exact match" means:** Each service computes a `baseScore` using a priority chain (e.g. `phone === q` → `SCORE_EXACT_CODE`, `name === q` → `SCORE_EXACT_NAME`, etc.). Apply `BOOST_EXACT_MATCH` when `baseScore === SCORE_EXACT_CODE || baseScore === SCORE_EXACT_NAME`. This covers all exact matches — name, code, phone, SKU, order number, reference — without needing to re-examine individual fields.
+**What "exact match" means:** Each service computes a single `baseScore` from a priority chain (e.g. `phone === q` → `SCORE_EXACT_CODE`, `name === q` → `SCORE_EXACT_NAME`, etc.) and assigns it once. Apply `BOOST_EXACT_MATCH` after that chain resolves, by checking `baseScore === SCORE_EXACT_CODE || baseScore === SCORE_EXACT_NAME`. The boost is applied once to the already-determined `baseScore` — do not apply it conditionally per field inside the chain itself, which would risk double-stacking if a service ever checks multiple fields.
 
 **Score examples after change:**
 - Exact customer name: `SCORE_EXACT_NAME(95) + BOOST_CUSTOMER(8) + BOOST_EXACT_MATCH(20) = 123`
