@@ -4,7 +4,6 @@ import {
   Box,
   Typography,
   Paper,
-  Button,
   TextField,
   Table,
   TableBody,
@@ -22,7 +21,6 @@ import {
 } from '@mui/material';
 import { alpha } from '@mui/material/styles';
 import {
-  Download as DownloadIcon,
   TrendingUp as TrendingUpIcon,
   TrendingDown as TrendingDownIcon,
 } from '@mui/icons-material';
@@ -250,80 +248,47 @@ const ProfitAndLossPage: React.FC = () => {
         variant="report"
         title="Profit & Loss Statement"
         subtitle="View your Income Statement showing Revenue - COGS - Expenses = Net Income for a period"
+        primaryAction={{ label: loading ? 'Generating...' : 'Generate Report', onClick: handleGenerateReport, disabled: loading }}
+        secondaryAction={{ label: isDownloading ? 'Exporting...' : 'Export to Excel', onClick: handleExportToExcel, disabled: !submitted || loading || isDownloading }}
       />
 
       <Paper sx={{ p: 3, mb: 3 }}>
-            <Stack
-              direction={{ xs: 'column', md: 'row' }}
-              spacing={2}
-              justifyContent="space-between"
-              alignItems={{ xs: 'stretch', md: 'center' }}
-            >
-              <Stack
-                data-testid="profit-loss-filters"
-                direction="row"
-                spacing={2}
-                alignItems="center"
-                flexWrap="wrap"
-              >
-                <TextField
-                  label="Start Date"
-                  type="date"
-                  value={startDate}
-                  onChange={(e) => handleStartDateChange(e.target.value)}
-                  size="small"
-                  InputLabelProps={{ shrink: true }}
-                  sx={{ minWidth: 200 }}
-                />
-                <TextField
-                  label="End Date"
-                  type="date"
-                  value={endDate}
-                  onChange={(e) => handleEndDateChange(e.target.value)}
-                  size="small"
-                  InputLabelProps={{ shrink: true }}
-                  sx={{ minWidth: 200 }}
-                />
-                <FormControlLabel
-                  control={
-                    <Checkbox
-                      checked={includeInactive}
-                      onChange={(e) => handleIncludeInactiveChange(e.target.checked)}
-                    />
-                  }
-                  label="Include Inactive Accounts"
-                />
-              </Stack>
-              <Stack
-                data-testid="profit-loss-actions"
-                direction="row"
-                spacing={2}
-                justifyContent={{ xs: 'stretch', md: 'flex-end' }}
-                flexWrap="wrap"
-              >
-                <Button
-                  variant="contained"
-                  color="primary"
-                  onClick={handleGenerateReport}
-                  disabled={loading}
-                  aria-label="Generate Report"
-                  sx={{ minWidth: 150, flex: { xs: 1, sm: 'initial' } }}
-                >
-                  {loading ? <CircularProgress size={24} /> : 'Generate Report'}
-                </Button>
-                <Button
-                  variant="outlined"
-                  color="secondary"
-                  startIcon={isDownloading ? <CircularProgress size={20} /> : <DownloadIcon />}
-                  onClick={handleExportToExcel}
-                  disabled={!submitted || loading || isDownloading}
-                  sx={{ minWidth: 150, flex: { xs: 1, sm: 'initial' } }}
-                >
-                  Export to Excel
-                </Button>
-              </Stack>
-            </Stack>
-          </Paper>
+        <Stack
+          data-testid="profit-loss-filters"
+          direction="row"
+          spacing={2}
+          alignItems="center"
+          flexWrap="wrap"
+        >
+          <TextField
+            label="Start Date"
+            type="date"
+            value={startDate}
+            onChange={(e) => handleStartDateChange(e.target.value)}
+            size="small"
+            InputLabelProps={{ shrink: true }}
+            sx={{ minWidth: 200 }}
+          />
+          <TextField
+            label="End Date"
+            type="date"
+            value={endDate}
+            onChange={(e) => handleEndDateChange(e.target.value)}
+            size="small"
+            InputLabelProps={{ shrink: true }}
+            sx={{ minWidth: 200 }}
+          />
+          <FormControlLabel
+            control={
+              <Checkbox
+                checked={includeInactive}
+                onChange={(e) => handleIncludeInactiveChange(e.target.checked)}
+              />
+            }
+            label="Include Inactive Accounts"
+          />
+        </Stack>
+      </Paper>
 
       {/* Date Validation Error */}
       {dateError && (

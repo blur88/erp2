@@ -528,36 +528,9 @@ const HistoricalInventoryReport: React.FC = () => {
         subtitle={reportData.length > 0
           ? `${reportData.length} product${reportData.length !== 1 ? 's' : ''} with historical inventory data`
           : 'View product inventory summary based on stock movements up to a target date'}
+        primaryAction={{ label: loading ? 'Generating...' : 'Generate Report', onClick: handleGenerateReport, disabled: loading }}
+        secondaryAction={{ label: 'Clear Filters', onClick: handleClearFilters, disabled: loading }}
       />
-      <Paper sx={{ p: 2, mb: 3 }}>
-        <Box sx={{
-          display: 'flex',
-          flexDirection: isMobile ? 'column' : 'row',
-          gap: isMobile ? 1.5 : 1,
-          alignItems: isMobile ? 'stretch' : 'center'
-        }}>
-            <Button
-              variant="outlined"
-              startIcon={!isMobile ? <RefreshIcon /> : undefined}
-              onClick={handleClearFilters}
-              disabled={loading}
-              size={isMobile ? 'medium' : 'medium'}
-              fullWidth={isMobile}
-            >
-              {isMobile ? 'Clear Filters' : 'Clear Filters'}
-            </Button>
-            <Button
-              variant="contained"
-              startIcon={!isMobile ? <GenerateIcon /> : undefined}
-              onClick={handleGenerateReport}
-              disabled={loading}
-              size="medium"
-              fullWidth={isMobile}
-            >
-              {loading ? 'Generating...' : 'Generate Report'}
-            </Button>
-          </Box>
-        </Paper>
       {/* Split Layout */}
       <Grid container spacing={3} sx={{ alignItems: 'stretch', height: 'calc(100vh - 220px)' }}>
         {/* Left Side - Filters and Display */}
