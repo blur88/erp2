@@ -217,6 +217,45 @@ describe('SearchModal', () => {
     expect(screen.getByText('Journal Entries')).toBeInTheDocument()
   })
 
+  it('renders data result groups before page group', () => {
+    mockUseSearchGlobal.mockReturnValue({
+      data: {
+        results: [
+          {
+            type: 'page',
+            label: 'Sales',
+            description: 'Sales',
+            route: '/sales',
+            score: 90,
+          },
+          {
+            type: 'customer',
+            label: 'Alpha Industries',
+            description: '',
+            route: '/sales/customers/1',
+            score: 103,
+          },
+        ],
+      },
+      isLoading: false,
+      isFetching: false,
+      isError: false,
+    })
+
+    renderModal()
+
+    act(() => {
+      fireEvent.change(screen.getByRole('textbox', { name: /search/i }), {
+        target: { value: 'al' },
+      })
+      vi.advanceTimersByTime(300)
+    })
+
+    const headers = screen.getAllByText(/^(Customers|Pages)$/i)
+    expect(headers[0].textContent).toBe('Customers')
+    expect(headers[1].textContent).toBe('Pages')
+  })
+
   it('shows no-results message when results are empty', () => {
     mockUseSearchGlobal.mockReturnValue({
       data: { query: 'zzz', results: [] },
