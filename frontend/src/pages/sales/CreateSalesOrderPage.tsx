@@ -423,8 +423,9 @@ const CreateSalesOrderPage: React.FC = () => {
           <ArrowBackIcon />
         </IconButton>
         <PageHeader
+          variant="workflow"
           title={isEditMode ? 'Edit Sales Order' : 'Create Sales Order'}
-          showDivider={false}
+          subtitle={isEditMode ? 'Update order details, items, and pricing' : 'Fill in order details, add items, and set pricing'}
         />
 
         {loadingOrder ? (
