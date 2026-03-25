@@ -71,4 +71,26 @@ describe('highlightText', () => {
 
     expect(span?.style.fontWeight).toBe('600')
   })
+
+  it('applies highlightColor when provided', () => {
+    const { container } = render(<>{highlightText('abc and more', 'abc', 700, '#ff0000')}</>)
+    const span = container.querySelector('span')
+
+    expect(span?.style.color).toBe('rgb(255, 0, 0)')
+  })
+
+  it('does not set color when highlightColor is not provided', () => {
+    const { container } = render(<>{highlightText('abc and more', 'abc')}</>)
+    const span = container.querySelector('span')
+
+    expect(span?.style.color).toBe('')
+  })
+
+  it('applies both weight and color when both are provided', () => {
+    const { container } = render(<>{highlightText('abc and more', 'abc', 600, '#0000ff')}</>)
+    const span = container.querySelector('span')
+
+    expect(span?.style.fontWeight).toBe('600')
+    expect(span?.style.color).toBe('rgb(0, 0, 255)')
+  })
 })

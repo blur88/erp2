@@ -8,6 +8,7 @@ export function highlightText(
   text: string,
   query: string,
   highlightWeight = 700,
+  highlightColor?: string,
 ): ReactNode {
   const trimmed = query.trim()
   if (!trimmed) return text
@@ -23,7 +24,14 @@ export function highlightText(
   return (
     <>
       {text.slice(0, start)}
-      <span style={{ fontWeight: highlightWeight }}>{text.slice(start, end)}</span>
+      <span
+        style={{
+          fontWeight: highlightWeight,
+          ...(highlightColor ? { color: highlightColor } : {}),
+        }}
+      >
+        {text.slice(start, end)}
+      </span>
       {text.slice(end)}
     </>
   )
