@@ -168,7 +168,7 @@ function useFilterBar<TFilters extends Record<string, unknown>>(
 interface FilterBarHandlers<TFilters> {
   onSearchChange: (value: string) => void         // debounced → appliedFilters
   onQuickFilterChange: (field: keyof TFilters, value: unknown) => void  // instant → both layers
-  onAdvancedDraftChange: (field: keyof TFilters, value: unknown) => void // draft only
+  onAdvancedDraftChange: (field: keyof TFilters, value: unknown) => void // draft only; implementations must narrow value by field config type before writing state — unknown here is a public API simplification, not a license for untyped state updates
   onAdvancedApply: () => void                     // draft → appliedFilters + URL
   onAdvancedCancel: () => void                    // discard unapplied edits; restore advanced-placement fields in draftFilters to their appliedFilters values; quick fields are unaffected
   onClearField: (field: keyof TFilters) => void   // clears both layers + URL immediately
@@ -223,7 +223,7 @@ frontend/src/components/filters/
   FilterNumberRange.tsx       — number range (min/max inputs)
   ActiveFilterChips.tsx       — removable chip row
   MoreFiltersButton.tsx       — presentational; badge shows active advanced count
-  AdvancedFiltersDrawer.tsx   — right-side MUI Drawer with Apply/Cancel/Reset footer
+  AdvancedFiltersDrawer.tsx   — renders as right-side MUI Drawer on desktop; bottom-anchored drawer/sheet on mobile. Single component, responsive anchor.
   useFilterBar.ts             — hook (pure behavior, no UI dependency)
   filterBar.types.ts          — all shared types
   filterBar.url.ts            — URL parse/serialize helpers
@@ -265,7 +265,7 @@ interface ActiveFilterChipsProps<TFilters> {
 **Layout:**
 - Row 1: `[Search] [Quick filters...] [More Filters] [Reset]` — flex row, wraps on tablet
 - Row 2: `[Active filter chips]` — rendered only when `activeChips.length > 0`
-- Advanced drawer: right-side MUI `<Drawer>`, footer has Apply / Cancel / Reset
+- Advanced drawer: right-side MUI `<Drawer>` on desktop, bottom-anchored on mobile; same component, `anchor` prop switches responsively; footer has Apply / Cancel / Reset
 - Mobile: sticky search + single "Filters (n)" button opens bottom sheet
 - Terminology is consistent: "More Filters" on desktop, "Filters (n)" on mobile
 
@@ -322,7 +322,7 @@ function parseFilters<TFilters>(
 
 **Example URL — Inventory Products:**
 ```
-/inventory/products?search=gundam&status=active&warehouseId=wh-kl&createdAt_from=2024-01-01
+/inventory/products?search=gundam&status=active&warehouseId=wh-kl&stockRange_min=10
 ```
 
 ---
