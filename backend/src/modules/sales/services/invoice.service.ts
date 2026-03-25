@@ -34,6 +34,7 @@ import {
   SCORE_CONTAINS,
   SCORE_FUZZY,
   BOOST_INVOICE,
+  BOOST_EXACT_MATCH,
 } from '../../search/search.constants';
 import { JwtPayload } from '../../auth/strategies/jwt.strategy';
 import { UserRole } from '../../../database/entities/user.entity';
@@ -303,7 +304,10 @@ export class InvoiceService {
       label: inv.invoiceNumber,
       description: inv.customer?.name ?? undefined,
       route: `/sales/invoices/${inv.id}`,
-      score: baseScore + BOOST_INVOICE,
+      score:
+        baseScore +
+        BOOST_INVOICE +
+        (baseScore === SCORE_EXACT_CODE ? BOOST_EXACT_MATCH : 0),
     };
   }
 

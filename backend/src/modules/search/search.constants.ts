@@ -25,7 +25,11 @@ export const BOOST_VENDOR_PAYMENT = 8;
 export const BOOST_SUPPLIER = 7;
 export const BOOST_PRODUCT = 6;
 export const BOOST_JOURNAL = 4;
-export const BOOST_PAGE = 2;
+export const BOOST_PAGE = 0; // intentionally zero - pages remain in formula for consistency but contribute no score boost
+
+// Applied once after baseScore resolves, when baseScore === SCORE_EXACT_CODE or SCORE_EXACT_NAME
+// Only for non-page entities - ensures exact record matches decisively outrank all partial matches
+export const BOOST_EXACT_MATCH = 20;
 
 // Fuzzy fallback score - used only when ILIKE returns no results
 export const SCORE_FUZZY = 40;

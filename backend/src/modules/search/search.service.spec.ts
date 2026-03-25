@@ -204,25 +204,71 @@ describe('SearchService', () => {
   });
 
   describe('searchPages scoring', () => {
-    it('scores an exact page label match as SCORE_PAGE_EXACT + BOOST_PAGE (92)', async () => {
+    it('scores an exact page label match as SCORE_PAGE_EXACT + BOOST_PAGE (90)', async () => {
       // "Dashboard" is an exact match for query "dashboard"
       const result = await service.search('dashboard', { role: UserRole.ADMIN } as any);
       const dashPage = result.results.find((r) => r.route === '/dashboard');
-      expect(dashPage?.score).toBe(92); // SCORE_PAGE_EXACT(90) + BOOST_PAGE(2)
+      expect(dashPage?.score).toBe(90); // SCORE_PAGE_EXACT(90) + BOOST_PAGE(0)
     });
 
-    it('scores a page starts-with match as SCORE_PAGE_STARTSWITH + BOOST_PAGE (77)', async () => {
+    it('scores a page starts-with match as SCORE_PAGE_STARTSWITH + BOOST_PAGE (75)', async () => {
       // "Invoices" starts with "inv"
       const result = await service.search('inv', { role: UserRole.ADMIN } as any);
       const invoicesPage = result.results.find((r) => r.route === '/sales/invoices');
-      expect(invoicesPage?.score).toBe(77); // SCORE_PAGE_STARTSWITH(75) + BOOST_PAGE(2)
+      expect(invoicesPage?.score).toBe(75); // SCORE_PAGE_STARTSWITH(75) + BOOST_PAGE(0)
     });
 
-    it('scores a keyword-only match as SCORE_PAGE_KEYWORD + BOOST_PAGE (52)', async () => {
+    it('scores a keyword-only match as SCORE_PAGE_KEYWORD + BOOST_PAGE (50)', async () => {
       // "Customers" has keyword "clients" — searching "clients" is a keyword match, not label match
       const result = await service.search('clients', { role: UserRole.ADMIN } as any);
       const customersPage = result.results.find((r) => r.route === '/sales/customers');
-      expect(customersPage?.score).toBe(52); // SCORE_PAGE_KEYWORD(50) + BOOST_PAGE(2)
+      expect(customersPage?.score).toBe(50); // SCORE_PAGE_KEYWORD(50) + BOOST_PAGE(0)
+    });
+  });
+
+  describe('page descriptions (getPageCategory)', () => {
+    it('returns "Dashboard" for /dashboard', async () => {
+      const result = await service.search('dashboard', {
+        role: UserRole.ADMIN,
+      } as any);
+      const page = result.results.find((r) => r.route === '/dashboard');
+      expect(page?.description).toBe('Dashboard');
+    });
+
+    it('returns "Sales" for /sales routes', async () => {
+      const result = await service.search('customers', {
+        role: UserRole.ADMIN,
+      } as any);
+      const page = result.results.find((r) => r.route === '/sales/customers');
+      expect(page?.description).toBe('Sales');
+    });
+
+    it('returns "Report" for /reports routes (not "Sales")', async () => {
+      const result = await service.search('product summary', {
+        role: UserRole.ADMIN,
+      } as any);
+      const page = result.results.find((r) =>
+        r.route?.startsWith('/reports/sales/'),
+      );
+      expect(page?.description).toBe('Report');
+    });
+
+    it('returns "Accounting" for /accounting routes', async () => {
+      const result = await service.search('journal', {
+        role: UserRole.ADMIN,
+      } as any);
+      const page = result.results.find((r) =>
+        r.route?.startsWith('/accounting/'),
+      );
+      expect(page?.description).toBe('Accounting');
+    });
+
+    it('returns "Audit" for /audit-logs', async () => {
+      const result = await service.search('audit', {
+        role: UserRole.ADMIN,
+      } as any);
+      const page = result.results.find((r) => r.route === '/audit-logs');
+      expect(page?.description).toBe('Audit');
     });
   });
 

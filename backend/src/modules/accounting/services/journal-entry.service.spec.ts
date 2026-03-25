@@ -29,6 +29,7 @@ import {
   UpdateJournalEntryDto,
   QueryJournalEntriesDto,
 } from '../dto/journal-entry.dto';
+import { UserRole } from '../../../database/entities/user.entity';
 
 describe('JournalEntryService', () => {
   let service: JournalEntryService;
@@ -429,6 +430,39 @@ describe('JournalEntryService', () => {
       expect(queryBuilder.andWhere).toHaveBeenCalledWith('entry.status = :status', {
         status: JournalEntryStatus.POSTED,
       });
+    });
+  });
+
+  describe('searchGlobal', () => {
+    const adminUser = { role: UserRole.ADMIN } as any;
+
+    it('exact reference number match scores SCORE_EXACT_CODE + BOOST_JOURNAL + BOOST_EXACT_MATCH', async () => {
+      journalEntryRepository.createQueryBuilder.mockReturnValue({
+        addSelect: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        setParameter: jest.fn().mockReturnThis(),
+        take: jest.fn().mockReturnThis(),
+        getMany: jest.fn().mockResolvedValue([
+          {
+            id: 'je-1',
+            referenceNumber: 'JE-001',
+            description: 'Manual adjustment',
+          },
+        ]),
+      } as any);
+
+      const results = await service.searchGlobal('JE-001', adminUser);
+
+      expect(results[0]).toMatchObject({
+        type: 'journal_entry',
+        id: 'je-1',
+        label: 'JE-001',
+        description: 'Manual adjustment',
+        route: '/accounting/journal-entries/je-1',
+      });
+      expect(results[0].score).toBe(144);
     });
   });
 

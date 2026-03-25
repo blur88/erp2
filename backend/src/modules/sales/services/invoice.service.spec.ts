@@ -77,6 +77,23 @@ describe('InvoiceService.searchGlobal', () => {
     expect(results[0].score).toBeGreaterThan(0);
   });
 
+  it('exact invoice number match scores SCORE_EXACT_CODE + BOOST_INVOICE + BOOST_EXACT_MATCH', async () => {
+    const mockInvoice = {
+      id: 'inv-1',
+      invoiceNumber: 'INV-001',
+      customer: { name: 'ABC Corp' },
+    };
+    const qb = mockQb();
+    qb.getMany.mockResolvedValue([mockInvoice]);
+    invoiceRepository.createQueryBuilder.mockReturnValue(qb);
+
+    const results = await service.searchGlobal('INV-001', {
+      role: UserRole.SALES_STAFF,
+    } as any);
+
+    expect(results[0].score).toBe(149);
+  });
+
   it('falls back to fuzzy when ILIKE returns empty', async () => {
     const fuzzyInvoice = {
       id: 'inv-2',

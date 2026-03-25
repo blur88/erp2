@@ -222,7 +222,7 @@ describe('SalesOrderService', () => {
       });
     });
 
-    it('exact orderNumber match scores SCORE_EXACT_CODE + BOOST_TRANSACTION', async () => {
+    it('exact orderNumber match scores SCORE_EXACT_CODE + BOOST_TRANSACTION + BOOST_EXACT_MATCH', async () => {
       mockSOQuery({
         id: 'so1',
         orderNumber: 'SO-001',
@@ -231,7 +231,7 @@ describe('SalesOrderService', () => {
 
       const results = await service.searchGlobal('SO-001', adminUser);
 
-      expect(results[0].score).toBe(130);
+      expect(results[0].score).toBe(150);
     });
 
     it('orderNumber startsWith scores SCORE_STARTSWITH_CODE + BOOST_TRANSACTION', async () => {

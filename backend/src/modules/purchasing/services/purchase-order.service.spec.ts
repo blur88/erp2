@@ -279,7 +279,7 @@ describe('PurchaseOrderService', () => {
       });
     });
 
-    it('exact orderNumber match scores SCORE_EXACT_CODE + BOOST_TRANSACTION', async () => {
+    it('exact orderNumber match scores SCORE_EXACT_CODE + BOOST_TRANSACTION + BOOST_EXACT_MATCH', async () => {
       mockPOQuery({
         id: 'po1',
         orderNumber: 'PO-001',
@@ -288,7 +288,7 @@ describe('PurchaseOrderService', () => {
 
       const results = await service.searchGlobal('PO-001', adminUser);
 
-      expect(results[0].score).toBe(130);
+      expect(results[0].score).toBe(150);
     });
 
     it('orderNumber startsWith scores SCORE_STARTSWITH_CODE + BOOST_TRANSACTION', async () => {

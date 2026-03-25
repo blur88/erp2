@@ -31,6 +31,7 @@ import {
   SCORE_CONTAINS,
   SCORE_FUZZY,
   BOOST_JOURNAL,
+  BOOST_EXACT_MATCH,
 } from '../../search/search.constants';
 import { JwtPayload } from '../../auth/strategies/jwt.strategy';
 import { UserRole } from '../../../database/entities/user.entity';
@@ -430,7 +431,10 @@ export class JournalEntryService {
       label: je.referenceNumber,
       description: je.description ?? undefined,
       route: `/accounting/journal-entries/${je.id}`,
-      score: baseScore + BOOST_JOURNAL,
+      score:
+        baseScore +
+        BOOST_JOURNAL +
+        (baseScore === SCORE_EXACT_CODE ? BOOST_EXACT_MATCH : 0),
     };
   }
 

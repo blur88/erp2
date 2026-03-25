@@ -9,6 +9,7 @@ import { PaymentMethodEntity } from '../../../database/entities/payment-method.e
 import { AuditLogService } from '../../audit-logs/services';
 import { AccountingService } from '../../accounting/services/accounting.service';
 import { NotFoundException } from '@nestjs/common';
+import { UserRole } from '../../../database/entities/user.entity';
 
 describe('PaymentService', () => {
   let service: PaymentService;
@@ -48,6 +49,7 @@ describe('PaymentService', () => {
             findOne: jest.fn(),
             save: jest.fn(),
             create: jest.fn(),
+            createQueryBuilder: jest.fn(),
           },
         },
         {
@@ -248,6 +250,37 @@ describe('PaymentService', () => {
       await expect(service.create(createDto)).rejects.toThrow(
         NotFoundException,
       );
+    });
+  });
+
+  describe('searchGlobal', () => {
+    const adminUser = { role: UserRole.ADMIN } as any;
+
+    it('exact payment number match scores SCORE_EXACT_CODE + BOOST_CUSTOMER_PAYMENT + BOOST_EXACT_MATCH', async () => {
+      const mockPayment = {
+        id: 'pay-1',
+        paymentNumber: 'PAY-001',
+      };
+
+      paymentRepository.createQueryBuilder.mockReturnValue({
+        addSelect: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        setParameter: jest.fn().mockReturnThis(),
+        take: jest.fn().mockReturnThis(),
+        getMany: jest.fn().mockResolvedValue([mockPayment]),
+      } as any);
+
+      const results = await service.searchGlobal('PAY-001', adminUser);
+
+      expect(results[0]).toMatchObject({
+        type: 'customer_payment',
+        id: 'pay-1',
+        label: 'PAY-001',
+        route: '/sales/payments/pay-1',
+      });
+      expect(results[0].score).toBe(148);
     });
   });
 

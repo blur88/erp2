@@ -8,6 +8,7 @@ import {
   InputBase,
   Modal,
   Typography,
+  useTheme,
 } from '@mui/material'
 import { useNavigate } from 'react-router-dom'
 
@@ -31,7 +32,6 @@ interface SearchModalProps {
 }
 
 const GROUP_ORDER: GlobalSearchResultType[] = [
-  'page',
   'customer',
   'product',
   'transaction',
@@ -40,6 +40,7 @@ const GROUP_ORDER: GlobalSearchResultType[] = [
   'customer_payment',
   'vendor_payment',
   'journal_entry',
+  'page',
 ]
 
 const GROUP_LABELS: Record<GlobalSearchResultType, string> = {
@@ -89,6 +90,7 @@ function useDebounce(value: string, delay: number) {
 
 export default function SearchModal({ open, onClose }: SearchModalProps) {
   const navigate = useNavigate()
+  const theme = useTheme()
   const inputRef = useRef<HTMLInputElement>(null)
   const currentUser = useAppSelector(selectCurrentUser)
   const userId = currentUser?.id ?? ''
@@ -336,6 +338,7 @@ export default function SearchModal({ open, onClose }: SearchModalProps) {
                   onClick={() => handleSelect(item)}
                   onHover={() => setSelectedIndex(idx)}
                   query=""
+                  highlightColor={theme.palette.primary.light}
                   isRecent={true}
                 />
               ))}
@@ -398,6 +401,7 @@ export default function SearchModal({ open, onClose }: SearchModalProps) {
                     onClick={() => handleSelect(item)}
                     onHover={() => setSelectedIndex(flatIndex)}
                     query={trimmedQuery}
+                    highlightColor={theme.palette.primary.light}
                   />
                 )
               })}
@@ -415,6 +419,7 @@ interface SearchResultRowProps {
   onClick: () => void
   onHover: () => void
   query: string
+  highlightColor: string
   isRecent?: boolean
 }
 
@@ -424,6 +429,7 @@ function SearchResultRow({
   onClick,
   onHover,
   query,
+  highlightColor,
   isRecent = false,
 }: SearchResultRowProps) {
   return (
@@ -449,14 +455,14 @@ function SearchResultRow({
 
       <Box sx={{ minWidth: 0, flex: 1 }}>
         <Typography sx={{ color: '#E0E0E0', fontWeight: 600 }}>
-          {highlightText(item.label, query)}
+          {highlightText(item.label, query, 700, highlightColor)}
         </Typography>
         {item.description && (
           <Typography
             variant="caption"
             sx={{ color: '#A0A0A0', display: 'block', mt: 0.25 }}
           >
-            {highlightText(item.description, query, 600)}
+            {highlightText(item.description, query, 400, highlightColor)}
           </Typography>
         )}
       </Box>
