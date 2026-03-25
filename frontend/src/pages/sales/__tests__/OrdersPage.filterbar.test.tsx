@@ -90,7 +90,7 @@ describe('OrdersPage FilterBar integration', () => {
   })
 
   it('restores filters from URL into the sales orders query', () => {
-    renderPage('/?search=gundam&customerId=cust-1&paymentStatus=paid&fulfillmentStatus=fulfilled&orderDate_from=2024-01-01')
+    renderPage('/?search=gundam&customerId=cust-1&paymentStatus=paid&fulfillmentStatus=fulfilled&createdAt_from=2024-01-01')
     expect(useGetSalesOrdersQuery).toHaveBeenLastCalledWith(
       expect.objectContaining({
         search: 'gundam',

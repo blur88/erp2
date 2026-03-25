@@ -50,12 +50,6 @@ export const ProductsPage: React.FC = () => {
       search: { placeholder: 'Search by name, barcode, or brand...' },
       quick: [
         {
-          field: 'categoryId',
-          label: 'Category',
-          type: 'select',
-          options: (categories as any[]).map((category) => ({ value: category.id, label: category.name })),
-        },
-        {
           field: 'status',
           label: 'Status',
           type: 'select',
@@ -64,8 +58,21 @@ export const ProductsPage: React.FC = () => {
             { value: 'inactive', label: 'Inactive' },
           ],
         },
+        // warehouseId deferred: backend GET /inventory/products does not support warehouseId filtering
       ],
-      advanced: [],
+      advanced: [
+        {
+          field: 'categoryId',
+          label: 'Category',
+          type: 'select',
+          options: (categories as any[]).map((category) => ({ value: category.id, label: category.name })),
+        },
+        {
+          field: 'stockRange',
+          label: 'Stock Qty',
+          type: 'number-range',
+        },
+      ],
       defaults: {
         search: '',
         categoryId: null,
@@ -87,7 +94,9 @@ export const ProductsPage: React.FC = () => {
         : appliedFilters.status === 'inactive'
           ? false
           : undefined,
-  }), [appliedFilters.categoryId, appliedFilters.search, appliedFilters.status])
+    minStock: appliedFilters.stockRange.min ?? undefined,
+    maxStock: appliedFilters.stockRange.max ?? undefined,
+  }), [appliedFilters])
 
   const { data: productsResponse, isFetching: isProductsFetching, refetch: refetchProducts } = useGetProductsQuery(productQueryParams)
   const [deleteProduct] = useDeleteProductMutation()

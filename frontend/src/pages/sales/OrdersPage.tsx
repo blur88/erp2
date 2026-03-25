@@ -89,7 +89,7 @@ export const OrdersPage: React.FC = () => {
             { value: 'unfulfilled', label: 'Unfulfilled' },
           ],
         },
-        { field: 'dateRange', label: 'Order Date', type: 'date-range', paramKey: 'orderDate' },
+        { field: 'dateRange', label: 'Order Date', type: 'date-range', paramKey: 'createdAt' },
       ],
       defaults: {
         search: '',

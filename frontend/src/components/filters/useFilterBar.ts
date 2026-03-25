@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useLocation, useNavigate } from 'react-router-dom'
+import { useLocation } from 'react-router-dom'
 
 import { deriveChips } from './filterBar.chips'
 import type { ActiveChip, FilterBarConfig, FilterBarHandlers } from './filterBar.types'
@@ -45,42 +45,43 @@ export function useFilterBar<TFilters extends object>(
   hasUnappliedChanges: boolean
 } {
   const location = useLocation()
-  const navigate = useNavigate()
   const debounceMs = config.search?.debounceMs ?? 400
 
   const defaults = useMemo(() => getDefaults(config), [config])
+
+  // Capture location.search once on mount into a ref so we can read it
+  // in the initialFilters memo without making it a reactive dependency.
+  // This prevents the location → initialFilters → setState → URL sync → location loop.
+  const mountSearchRef = useRef(location.search)
+
+  // Read URL once on mount — intentionally NOT reactive on location.search
   const initialFilters = useMemo(() => {
-    const parsed = parseFilters(new URLSearchParams(location.search), config)
+    const parsed = parseFilters(new URLSearchParams(mountSearchRef.current), config)
     return { ...defaults, ...parsed }
-  }, [config, defaults, location.search])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []) // mount-only: config and defaults are stable at mount
 
   const [appliedFilters, setAppliedFilters] = useState<TFilters>(initialFilters)
   const [draftFilters, setDraftFilters] = useState<TFilters>(initialFilters)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const searchDraftRef = useRef<string>(((initialFilters as Record<string, unknown>).search as string | undefined) ?? '')
 
+  // Sync appliedFilters → URL via replaceState.
+  // Using replaceState directly (not navigate) avoids triggering a React Router
+  // location update, which would re-run this effect and create a reset loop.
   useEffect(() => {
-    setAppliedFilters(initialFilters)
-    setDraftFilters(initialFilters)
-    searchDraftRef.current = ((initialFilters as Record<string, unknown>).search as string | undefined) ?? ''
-  }, [initialFilters])
-
-  useEffect(() => {
-    const currentParams = new URLSearchParams(location.search)
+    const currentParams = new URLSearchParams(window.location.search)
     const nextParams = serializeFilters(appliedFilters, config, currentParams)
     const nextSearch = nextParams.toString()
     const currentSearch = currentParams.toString()
 
     if (nextSearch !== currentSearch) {
-      navigate(
-        {
-          pathname: location.pathname,
-          search: nextSearch ? `?${nextSearch}` : '',
-        },
-        { replace: true },
-      )
+      const nextUrl = nextSearch
+        ? `${location.pathname}?${nextSearch}`
+        : location.pathname
+      window.history.replaceState(null, '', nextUrl)
     }
-  }, [appliedFilters, config, location.pathname, location.search, navigate])
+  }, [appliedFilters, config, location.pathname])
 
   useEffect(() => {
     return () => {
