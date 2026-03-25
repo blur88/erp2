@@ -66,21 +66,21 @@ export default function PageHeader({
               <ArrowBackIcon />
             </IconButton>
           )}
-          <Box sx={{ minWidth: 0 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Typography
-              variant="h5"
-              sx={{ fontWeight: 700, color: 'text.primary', lineHeight: 1.2 }}
-            >
-              {title}
-            </Typography>
-            {titleBadge}
-          </Box>
-          {subtitle && (
-            <Typography variant="body2" sx={{ mt: 0.5, color: 'text.secondary' }}>
-              {subtitle}
-            </Typography>
-          )}
+          <Box sx={{ minWidth: 0, flex: '1 1 auto' }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Typography
+                variant="h5"
+                sx={{ fontWeight: 700, color: 'text.primary', lineHeight: 1.2 }}
+              >
+                {title}
+              </Typography>
+              {titleBadge}
+            </Box>
+            {subtitle && (
+              <Typography variant="body2" sx={{ mt: 0.5, color: 'text.secondary' }}>
+                {subtitle}
+              </Typography>
+            )}
           </Box>
         </Box>
 

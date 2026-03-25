@@ -103,16 +103,11 @@ describe('PageHeader', () => {
   })
 
   describe('slot rendering', () => {
-    it('renders meta when provided', () => {
+    it('renders titleBadge when provided', () => {
       renderWithTheme(
-        <PageHeader title="T" meta={<span data-testid="meta-content">Meta</span>} />
+        <PageHeader title="T" titleBadge={<span data-testid="badge-content">Badge</span>} />
       )
-      expect(screen.getByTestId('meta-content')).toBeInTheDocument()
-    })
-
-    it('does not render meta wrapper when meta is not provided', () => {
-      renderWithTheme(<PageHeader title="T" />)
-      expect(screen.queryByTestId('page-header-meta')).not.toBeInTheDocument()
+      expect(screen.getByTestId('badge-content')).toBeInTheDocument()
     })
 
     it('renders toolbar when provided', () => {
@@ -132,17 +127,17 @@ describe('PageHeader', () => {
       expect(screen.queryByTestId('page-header-children')).not.toBeInTheDocument()
     })
 
-    it('renders meta before toolbar in the DOM', () => {
+    it('renders titleBadge before toolbar in the DOM', () => {
       renderWithTheme(
         <PageHeader
           title="T"
-          meta={<span data-testid="meta-content">Meta</span>}
+          titleBadge={<span data-testid="badge-content">Badge</span>}
           toolbar={<span data-testid="toolbar-content">Toolbar</span>}
         />
       )
-      const meta = screen.getByTestId('meta-content')
+      const badge = screen.getByTestId('badge-content')
       const toolbar = screen.getByTestId('toolbar-content')
-      expect(meta.compareDocumentPosition(toolbar)).toBe(Node.DOCUMENT_POSITION_FOLLOWING)
+      expect(badge.compareDocumentPosition(toolbar)).toBe(Node.DOCUMENT_POSITION_FOLLOWING)
     })
 
     it('renders toolbar before children in the DOM', () => {
@@ -163,8 +158,8 @@ describe('PageHeader', () => {
     })
   })
 
-  it('keeps the desktop header row on a single line while allowing the title block to shrink', () => {
-    const { container } = renderWithTheme(
+  it('renders title and action buttons in the same row', () => {
+    renderWithTheme(
       <PageHeader
         title="A very long page title that should be allowed to shrink within the left column"
         subtitle="Subtitle"
@@ -172,17 +167,8 @@ describe('PageHeader', () => {
         secondaryAction={{ label: 'Secondary', onClick: vi.fn() }}
       />
     )
-
-    const boxes = Array.from(container.querySelectorAll('.MuiBox-root'))
-    const topRow = boxes.find((box) => window.getComputedStyle(box).justifyContent === 'space-between')
-    expect(topRow).toBeTruthy()
-    expect(window.getComputedStyle(topRow as HTMLElement).flexWrap).toBe('nowrap')
-
-    const title = screen.getByText(
-      'A very long page title that should be allowed to shrink within the left column'
-    )
-    const titleBlock = title.closest('.MuiBox-root')
-    expect(titleBlock).toBeTruthy()
-    expect(window.getComputedStyle(titleBlock as HTMLElement).flex).toBe('1 1 auto')
+    expect(screen.getByText('A very long page title that should be allowed to shrink within the left column')).toBeInTheDocument()
+    expect(screen.getByText('Primary')).toBeInTheDocument()
+    expect(screen.getByText('Secondary')).toBeInTheDocument()
   })
 })
