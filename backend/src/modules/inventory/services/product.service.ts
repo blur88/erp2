@@ -45,6 +45,7 @@ import {
   SCORE_CONTAINS,
   SCORE_FUZZY,
   BOOST_PRODUCT,
+  BOOST_EXACT_MATCH,
 } from '../../search/search.constants';
 import { CategoryService } from './category.service';
 import { StockMovementService } from './stock-movement.service';
@@ -362,7 +363,12 @@ export class ProductService {
       label: product.name,
       description: product.barcode,
       route: `/inventory/products/${product.id}/edit`,
-      score: baseScore + BOOST_PRODUCT,
+      score:
+        baseScore +
+        BOOST_PRODUCT +
+        (baseScore === SCORE_EXACT_CODE || baseScore === SCORE_EXACT_NAME
+          ? BOOST_EXACT_MATCH
+          : 0),
     };
   }
 

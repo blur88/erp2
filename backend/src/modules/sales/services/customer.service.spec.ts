@@ -100,7 +100,7 @@ describe('CustomerService', () => {
       expect(results).toEqual([]);
     });
 
-    it('exact phone match scores SCORE_EXACT_CODE + BOOST_CUSTOMER', async () => {
+    it('exact phone match scores SCORE_EXACT_CODE + BOOST_CUSTOMER + BOOST_EXACT_MATCH', async () => {
       const mockCustomer = {
         id: 'c1',
         name: 'Acme Corp',
@@ -119,10 +119,10 @@ describe('CustomerService', () => {
 
       const results = await service.searchGlobal('0123456789', adminUser);
 
-      expect(results[0].score).toBe(128);
+      expect(results[0].score).toBe(148);
     });
 
-    it('exact name match scores SCORE_EXACT_NAME + BOOST_CUSTOMER', async () => {
+    it('exact name match scores SCORE_EXACT_NAME + BOOST_CUSTOMER + BOOST_EXACT_MATCH', async () => {
       const mockCustomer = { id: 'c1', name: 'acme corp', phone: null };
 
       customerRepository.createQueryBuilder = jest.fn().mockReturnValue({
@@ -137,7 +137,7 @@ describe('CustomerService', () => {
 
       const results = await service.searchGlobal('acme corp', adminUser);
 
-      expect(results[0].score).toBe(103);
+      expect(results[0].score).toBe(123);
     });
 
     it('phone exact match outranks name exact match', async () => {
@@ -152,7 +152,7 @@ describe('CustomerService', () => {
 
       const results = await service.searchGlobal('acme corp', adminUser);
 
-      expect(results[0].score).toBe(128);
+      expect(results[0].score).toBe(148);
     });
 
     it('falls back to fuzzy search when ILIKE returns empty', async () => {

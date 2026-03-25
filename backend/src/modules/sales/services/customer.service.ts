@@ -27,6 +27,7 @@ import {
   SCORE_CONTAINS,
   SCORE_FUZZY,
   BOOST_CUSTOMER,
+  BOOST_EXACT_MATCH,
 } from '../../search/search.constants';
 import { ValidationUtil, BulkOperationUtil, BulkOperationResponse } from '../../../common/utils/validation.util';
 import { TransactionManager, Transactional } from '../../../common/utils/transaction.util';
@@ -202,7 +203,12 @@ export class CustomerService {
       label: customer.name,
       description: customer.phone ?? undefined,
       route: `/sales/customers/${customer.id}`,
-      score: baseScore + BOOST_CUSTOMER,
+      score:
+        baseScore +
+        BOOST_CUSTOMER +
+        (baseScore === SCORE_EXACT_CODE || baseScore === SCORE_EXACT_NAME
+          ? BOOST_EXACT_MATCH
+          : 0),
     };
   }
 

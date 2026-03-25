@@ -30,6 +30,7 @@ import {
   SCORE_CONTAINS,
   SCORE_FUZZY,
   BOOST_TRANSACTION,
+  BOOST_EXACT_MATCH,
 } from '../../search/search.constants';
 // import { CustomerService } from './customer.service';
 import { InventoryIntegrationService } from './inventory-integration.service';
@@ -414,7 +415,10 @@ export class SalesOrderService {
       label: order.orderNumber,
       description: order.customer?.name ?? '',
       route: `/sales/orders/${order.id}/edit`,
-      score: baseScore + BOOST_TRANSACTION,
+      score:
+        baseScore +
+        BOOST_TRANSACTION +
+        (baseScore === SCORE_EXACT_CODE ? BOOST_EXACT_MATCH : 0),
     };
   }
 

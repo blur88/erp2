@@ -14,6 +14,7 @@ import { AuditLogService } from '../../audit-logs/services';
 import { AccountingService } from '../../accounting/services/accounting.service';
 import { SettingsService } from '../../settings/settings.service';
 import { CreateVendorPaymentDto } from '../dto';
+import { UserRole } from '../../../database/entities/user.entity';
 
 describe('VendorPaymentService', () => {
   let service: VendorPaymentService;
@@ -355,6 +356,39 @@ describe('VendorPaymentService', () => {
 
       // Verify accounting entry was still posted
       expect(accountingService.postVendorPaymentEntry).toHaveBeenCalled();
+    });
+  });
+
+  describe('searchGlobal', () => {
+    const adminUser = { role: UserRole.ADMIN } as any;
+
+    it('exact payment number match scores SCORE_EXACT_CODE + BOOST_VENDOR_PAYMENT + BOOST_EXACT_MATCH', async () => {
+      vendorPaymentRepository.createQueryBuilder.mockReturnValue({
+        addSelect: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        setParameter: jest.fn().mockReturnThis(),
+        take: jest.fn().mockReturnThis(),
+        getMany: jest.fn().mockResolvedValue([
+          {
+            id: 'vp-1',
+            paymentNumber: 'VP-001',
+            referenceNumber: 'REF-001',
+          },
+        ]),
+      } as any);
+
+      const results = await service.searchGlobal('VP-001', adminUser);
+
+      expect(results[0]).toMatchObject({
+        type: 'vendor_payment',
+        id: 'vp-1',
+        label: 'VP-001',
+        description: 'REF-001',
+        route: '/purchasing/vendor-payments/vp-1',
+      });
+      expect(results[0].score).toBe(148);
     });
   });
 

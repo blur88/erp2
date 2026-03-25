@@ -26,6 +26,7 @@ import {
   SCORE_CONTAINS,
   SCORE_FUZZY,
   BOOST_TRANSACTION,
+  BOOST_EXACT_MATCH,
 } from '../../search/search.constants';
 import { SupplierService } from './supplier.service';
 import { GoodsReceivedNoteService } from './goods-received-note.service';
@@ -394,7 +395,10 @@ export class PurchaseOrderService {
       label: order.orderNumber,
       description: order.supplier?.companyName ?? '',
       route: `/purchasing/orders/${order.id}/edit`,
-      score: baseScore + BOOST_TRANSACTION,
+      score:
+        baseScore +
+        BOOST_TRANSACTION +
+        (baseScore === SCORE_EXACT_CODE ? BOOST_EXACT_MATCH : 0),
     };
   }
 

@@ -31,6 +31,7 @@ import {
   SCORE_CONTAINS,
   SCORE_FUZZY,
   BOOST_CUSTOMER_PAYMENT,
+  BOOST_EXACT_MATCH,
 } from '../../search/search.constants';
 import { JwtPayload } from '../../auth/strategies/jwt.strategy';
 import { UserRole } from '../../../database/entities/user.entity';
@@ -590,7 +591,10 @@ export class PaymentService {
       label: p.paymentNumber,
       description: undefined,
       route: `/sales/payments/${p.id}`,
-      score: baseScore + BOOST_CUSTOMER_PAYMENT,
+      score:
+        baseScore +
+        BOOST_CUSTOMER_PAYMENT +
+        (baseScore === SCORE_EXACT_CODE ? BOOST_EXACT_MATCH : 0),
     };
   }
 

@@ -169,7 +169,7 @@ describe('ProductService pagination removal', () => {
       expect(results).toEqual([]);
     });
 
-    it('exact barcode match scores SCORE_EXACT_CODE + BOOST_PRODUCT', async () => {
+    it('exact barcode match scores SCORE_EXACT_CODE + BOOST_PRODUCT + BOOST_EXACT_MATCH', async () => {
       const mockProduct = { id: 'p1', name: 'Widget', barcode: 'BC-001' };
       productRepository.createQueryBuilder = jest.fn().mockReturnValue({
         addSelect: jest.fn().mockReturnThis(),
@@ -183,10 +183,10 @@ describe('ProductService pagination removal', () => {
 
       const results = await service.searchGlobal('BC-001', adminUser);
 
-      expect(results[0].score).toBe(126);
+      expect(results[0].score).toBe(146);
     });
 
-    it('exact name match scores SCORE_EXACT_NAME + BOOST_PRODUCT', async () => {
+    it('exact name match scores SCORE_EXACT_NAME + BOOST_PRODUCT + BOOST_EXACT_MATCH', async () => {
       const mockProduct = { id: 'p1', name: 'Widget', barcode: 'BC-999' };
       productRepository.createQueryBuilder = jest.fn().mockReturnValue({
         addSelect: jest.fn().mockReturnThis(),
@@ -200,7 +200,7 @@ describe('ProductService pagination removal', () => {
 
       const results = await service.searchGlobal('widget', adminUser);
 
-      expect(results[0].score).toBe(101);
+      expect(results[0].score).toBe(121);
     });
 
     it('barcode exact match outranks name exact match', async () => {
@@ -214,7 +214,7 @@ describe('ProductService pagination removal', () => {
 
       const results = await service.searchGlobal('widget', adminUser);
 
-      expect(results[0].score).toBe(126);
+      expect(results[0].score).toBe(146);
     });
 
     it('falls back to fuzzy search when ILIKE returns empty', async () => {

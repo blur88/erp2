@@ -25,6 +25,7 @@ import {
   SCORE_CONTAINS,
   SCORE_FUZZY,
   BOOST_VENDOR_PAYMENT,
+  BOOST_EXACT_MATCH,
 } from '../../search/search.constants';
 import { JwtPayload } from '../../auth/strategies/jwt.strategy';
 import { UserRole } from '../../../database/entities/user.entity';
@@ -272,7 +273,10 @@ export class VendorPaymentService {
       label: vp.paymentNumber,
       description: vp.referenceNumber ?? undefined,
       route: `/purchasing/vendor-payments/${vp.id}`,
-      score: baseScore + BOOST_VENDOR_PAYMENT,
+      score:
+        baseScore +
+        BOOST_VENDOR_PAYMENT +
+        (baseScore === SCORE_EXACT_CODE ? BOOST_EXACT_MATCH : 0),
     };
   }
 

@@ -22,6 +22,7 @@ import {
   SCORE_CONTAINS,
   SCORE_FUZZY,
   BOOST_SUPPLIER,
+  BOOST_EXACT_MATCH,
 } from '../../search/search.constants';
 import { JwtPayload } from '../../auth/strategies/jwt.strategy';
 import { UserRole } from '../../../database/entities/user.entity';
@@ -828,7 +829,10 @@ export class SupplierService {
       label: supplier.companyName,
       description: supplier.phone ?? undefined,
       route: `/purchasing/suppliers/${supplier.id}`,
-      score: baseScore + BOOST_SUPPLIER,
+      score:
+        baseScore +
+        BOOST_SUPPLIER +
+        (baseScore === SCORE_EXACT_NAME ? BOOST_EXACT_MATCH : 0),
     };
   }
 }
