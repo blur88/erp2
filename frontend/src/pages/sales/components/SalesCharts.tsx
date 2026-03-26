@@ -39,23 +39,34 @@ ChartJS.register(
 interface SalesTrendChartProps {
     labels: string[]
     data: number[]
+    comparisonData?: number[]
     loading?: boolean
 }
 
-export const SalesTrendChart: React.FC<SalesTrendChartProps> = ({ labels, data, loading = false }) => {
+export const SalesTrendChart: React.FC<SalesTrendChartProps> = ({ labels, data, comparisonData, loading = false }) => {
     const theme = useTheme()
 
     const chartData = {
         labels,
         datasets: [
             {
-                label: 'Sales',
+                label: 'Current Period',
                 data,
                 borderColor: theme.palette.primary.main,
                 backgroundColor: `${theme.palette.primary.main}20`,
                 tension: 0.4,
                 fill: true,
-            }
+            },
+            ...(comparisonData ? [{
+                label: 'Comparison Period',
+                data: comparisonData,
+                borderColor: 'rgba(99, 102, 241, 0.4)',
+                backgroundColor: 'transparent',
+                borderDash: [6, 3],
+                pointRadius: 0,
+                tension: 0.4,
+                fill: false,
+            }] : []),
         ]
     }
 
@@ -63,6 +74,15 @@ export const SalesTrendChart: React.FC<SalesTrendChartProps> = ({ labels, data, 
         responsive: true,
         maintainAspectRatio: false,
         plugins: {
+            tooltip: {
+                callbacks: {
+                    label: function (context: any) {
+                        const label = context.dataset.label ?? ''
+                        const value = context.parsed.y
+                        return `${label}: ${formatCurrency(value)}`
+                    }
+                }
+            },
             legend: {
                 position: 'top' as const,
             }
