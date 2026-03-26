@@ -14,13 +14,12 @@ import {
   Chip,
   IconButton,
   TextField,
-  InputAdornment,
   FormControl,
   InputLabel,
   Select,
   MenuItem,
-  Skeleton,
   Alert,
+  CircularProgress,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -28,11 +27,11 @@ import {
   Grid,
   Divider,
   Link,
+  Stack,
   useTheme,
   useMediaQuery,
 } from '@mui/material'
 import {
-  Search as SearchIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
   Sort as SortIcon,
@@ -44,14 +43,16 @@ import {
 } from '@mui/icons-material'
 import { formatCurrency, formatDate, formatWholeQuantity } from '@/utils/formatters'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
+import { ListSkeleton } from '@/components/common/ListSkeleton'
+import { FilterBar, useFilterBar } from '@/components/filters'
+import type { DateRangeValue, FilterBarConfig } from '@/components/filters'
 import DeletedPaymentsDialog from '@/components/sales/DeletedPaymentsDialog'
 import PageHeader from '@/components/common/PageHeader'
 import { PaymentReceiptPrint } from '@/components/print'
-import { useSearchAndFilter, useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
-import { useNotification } from '@/hooks/useNotification'
+import { useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
 import { useLazyGetJournalEntriesQuery } from '@/store/api/accountingApi'
 import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
-import { useGetPaymentsQuery } from '@/store/api/salesApi'
+import { useGetCustomersQuery, useGetPaymentsQuery } from '@/store/api/salesApi'
 import { setSelectedPayment, selectSelectedPayment } from '@/store/slices/salesSlice'
 import type { InvoiceItem } from '@/types'
 
@@ -95,12 +96,13 @@ interface Payment {
 
 interface PaymentFilters {
   search: string
+  dateRange: DateRangeValue
+  customerId: string | null
+}
+
+interface PaymentSortState {
   sortBy: string
   sortOrder: 'asc' | 'desc'
-  dateFilter: string
-  customFromDate: string
-  customToDate: string
-  customerId: string
 }
 
 
@@ -168,20 +170,13 @@ const PaymentsPage: React.FC = () => {
   const isMobile = useMediaQuery(theme.breakpoints.down('md'))
   const navigate = useNavigate()
   const location = useLocation()
-  const { showSuccess, showError } = useNotification()
   const dispatch = useAppDispatch()
   const selectedPayment = useAppSelector(selectSelectedPayment) as Payment | null
 
-  const [filters, setFilters] = useState<PaymentFilters>({
-    search: '',
+  const [sortState, setSortState] = useState<PaymentSortState>({
     sortBy: 'paymentNumber',
     sortOrder: 'asc',
-    dateFilter: 'all',
-    customFromDate: '',
-    customToDate: '',
-    customerId: 'all'
   })
-
   const [pendingPaymentToSelect, setPendingPaymentToSelect] = useState<string | null>(() => {
     const id = new URLSearchParams(window.location.search).get('highlight')
     return id
@@ -189,15 +184,91 @@ const PaymentsPage: React.FC = () => {
   const [editDialog, setEditDialog] = useState(false)
   const [focusedPaymentIndex, setFocusedPaymentIndex] = useState(-1)
   const [deletedPaymentsDialogOpen, setDeletedPaymentsDialogOpen] = useState(false)
-  const [shouldPreserveSearchFocus, setShouldPreserveSearchFocus] = useState(false)
   const [printDialogOpen, setPrintDialogOpen] = useState(false)
   const [fetchJournalEntries] = useLazyGetJournalEntriesQuery()
   const [journalEntryRef, setJournalEntryRef] = useState<{ referenceNumber: string; id: string } | null>(null)
-  const searchInputRef = useRef<HTMLInputElement>(null)
+  const searchInputRef = useRef<HTMLInputElement | null>(null)
   const paymentListRef = useRef<HTMLDivElement>(null)
   const hasRestoredSelection = useRef(false)
   const selectedPaymentRef = useRef(selectedPayment)
   const previousPathnameRef = useRef(location.pathname)
+  const { data: customersData } = useGetCustomersQuery({ limit: 999999 })
+  const customers = customersData?.data ?? []
+  const presetCustomerId = (location.state as { customerId?: string } | null)?.customerId ?? null
+
+  const filterConfig = useMemo<FilterBarConfig<PaymentFilters>>(
+    () => ({
+      search: { placeholder: 'Search by payment number or customer...' },
+      quick: [
+        {
+          field: 'dateRange',
+          label: 'Date',
+          type: 'date-range',
+          paramKey: 'paymentDate',
+        },
+      ],
+      advanced: [
+        {
+          field: 'customerId',
+          label: 'Customer',
+          type: 'select',
+          options: customers.map((customer) => ({ value: customer.id, label: customer.name })),
+          chipFormatter: (value) => {
+            if (!value) return null as unknown as string
+            const customer = customers.find((entry) => entry.id === value)
+            return `Customer: ${customer?.name ?? value}`
+          },
+        },
+      ],
+      defaults: { search: '', dateRange: { from: null, to: null }, customerId: null },
+    }),
+    [customers],
+  )
+
+  // Inject preset customer into the URL before useFilterBar captures mount search.
+  useMemo(() => {
+    if (presetCustomerId) {
+      const params = new URLSearchParams(window.location.search)
+      if (!params.get('customerId')) {
+        params.set('customerId', presetCustomerId)
+        window.history.replaceState(null, '', `${location.pathname}?${params.toString()}`)
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const { appliedFilters, draftFilters, handlers, activeChips, hasUnappliedChanges } = useFilterBar(filterConfig)
+
+  const visibleActiveChips = useMemo(
+    () => (presetCustomerId ? activeChips.filter((chip) => chip.field !== 'customerId') : activeChips),
+    [activeChips, presetCustomerId],
+  )
+  const hasVisibleActiveFilters = visibleActiveChips.length > 0
+  const filterBarHandlers = useMemo(
+    () => (
+      presetCustomerId
+        ? {
+            ...handlers,
+            onClearAll: () => {
+              handlers.onClearField('search')
+              handlers.onClearField('dateRange')
+            },
+          }
+        : handlers
+    ),
+    [handlers, presetCustomerId],
+  )
+  const paymentQueryArgs = useMemo(
+    () => ({
+      sortBy: sortState.sortBy,
+      sortOrder: sortState.sortOrder,
+      search: appliedFilters.search || undefined,
+      fromDate: appliedFilters.dateRange.from ?? undefined,
+      toDate: appliedFilters.dateRange.to ?? undefined,
+      customerId: appliedFilters.customerId ?? undefined,
+    }),
+    [appliedFilters, sortState],
+  )
 
   // Keep ref in sync with selectedPayment
   useEffect(() => {
@@ -219,88 +290,8 @@ const PaymentsPage: React.FC = () => {
       .catch(() => setJournalEntryRef(null))
   }, [selectedPayment?.id, fetchJournalEntries])
 
-  // Memoize search change callback to prevent unnecessary re-renders
-  const onSearchChange = useCallback((searchTerm: string) => {
-    setFilters((prev: PaymentFilters) => ({ ...prev, search: searchTerm }))
-  }, [])
-
-  // Search and filter functionality
-  const { searchTerm, setSearchTerm: originalSetSearchTerm, focusSearchInput } = useSearchAndFilter({
-    initialSearchTerm: filters.search,
-    onSearchChange,
-    searchInputRef,
-  })
-
-  // Enhanced search term setter that preserves focus
-  const setSearchTerm = useCallback((value: string) => {
-    setShouldPreserveSearchFocus(true)
-    originalSetSearchTerm(value)
-  }, [originalSetSearchTerm])
-
-  // Effect to restore search input focus when needed
-  useEffect(() => {
-    if (shouldPreserveSearchFocus && searchInputRef.current && document.activeElement !== searchInputRef.current) {
-      const timer = setTimeout(() => {
-        searchInputRef.current?.focus()
-        setShouldPreserveSearchFocus(false)
-      }, 0)
-      return () => clearTimeout(timer)
-    } else if (shouldPreserveSearchFocus) {
-      setShouldPreserveSearchFocus(false)
-    }
-  }, [shouldPreserveSearchFocus])
-
-  // Helper function to calculate date ranges
-  const getDateRange = useCallback((filter: string) => {
-    const today = new Date()
-    const yesterday = new Date(today)
-    yesterday.setDate(yesterday.getDate() - 1)
-
-    const startOfWeek = new Date(today)
-    startOfWeek.setDate(today.getDate() - today.getDay())
-
-    const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1)
-    const startOfYear = new Date(today.getFullYear(), 0, 1)
-
-    const formatDate = (date: Date) => date.toISOString().split('T')[0]
-
-    switch (filter) {
-      case 'today':
-        return { fromDate: formatDate(today), toDate: formatDate(today) }
-      case 'yesterday':
-        return { fromDate: formatDate(yesterday), toDate: formatDate(yesterday) }
-      case 'this_week':
-        return { fromDate: formatDate(startOfWeek), toDate: formatDate(today) }
-      case 'this_month':
-        return { fromDate: formatDate(startOfMonth), toDate: formatDate(today) }
-      case 'this_year':
-        return { fromDate: formatDate(startOfYear), toDate: formatDate(today) }
-      case 'custom':
-        return { fromDate: filters.customFromDate, toDate: filters.customToDate }
-      default: // 'all'
-        return { fromDate: undefined, toDate: undefined }
-    }
-  }, [filters.customFromDate, filters.customToDate])
-  const dateRange = useMemo(() => getDateRange(filters.dateFilter), [filters.dateFilter, getDateRange])
-  const queryArgs = useMemo(
-    () => ({
-      sortBy: filters.sortBy,
-      sortOrder: filters.sortOrder,
-      search: filters.search || undefined,
-      customerId: filters.customerId === 'all' ? undefined : filters.customerId,
-      fromDate: dateRange.fromDate,
-      toDate: dateRange.toDate,
-    }),
-    [
-      dateRange.fromDate,
-      dateRange.toDate,
-      filters.customerId,
-      filters.search,
-      filters.sortBy,
-      filters.sortOrder,
-    ],
-  )
-  const { data, isLoading: loading, error, refetch } = useGetPaymentsQuery(queryArgs)
+  const { data, isLoading, isFetching, error, refetch } = useGetPaymentsQuery(paymentQueryArgs)
+  const loading = isLoading || isFetching
   const payments = data?.data ?? []
   const totalPayments = data?.meta.total ?? 0
 
@@ -310,13 +301,13 @@ const PaymentsPage: React.FC = () => {
   const paginatedPayments = payments
 
   const handleSort = useCallback((field: string) => {
-    const newSortOrder = filters.sortBy === field && filters.sortOrder === 'desc' ? 'asc' : 'desc'
-    setFilters((prev: PaymentFilters) => ({
+    const newSortOrder = sortState.sortBy === field && sortState.sortOrder === 'desc' ? 'asc' : 'desc'
+    setSortState((prev: PaymentSortState) => ({
       ...prev,
       sortBy: field,
-      sortOrder: newSortOrder
+      sortOrder: newSortOrder,
     }))
-  }, [filters.sortBy, filters.sortOrder])
+  }, [sortState.sortBy, sortState.sortOrder])
 
   const handlePaymentSelect = useCallback((payment: Payment) => {
     dispatch(setSelectedPayment(payment as any))
@@ -500,7 +491,10 @@ const PaymentsPage: React.FC = () => {
 
   // Setup keyboard shortcuts - only navigation and search
   useKeyboardShortcuts({
-    onSearch: focusSearchInput,
+    onSearch: () => {
+      searchInputRef.current?.focus()
+      searchInputRef.current?.select()
+    },
     onArrowUp: handleNavigateUp,
     onArrowDown: handleNavigateDown,
     onEnter: handleEnterAction,
@@ -535,179 +529,44 @@ const PaymentsPage: React.FC = () => {
       />
       {/* Filters and Search */}
       <Paper sx={{ p: 2, mb: 3 }}>
-      <Box sx={{
-        display: 'flex',
-        flexDirection: isMobile ? 'column' : 'row',
-        gap: isMobile ? 2 : 1,
-        alignItems: isMobile ? 'stretch' : 'center',
-        '& > *': {
-          alignSelf: isMobile ? 'stretch' : 'flex-start'
-        }
-      }}>
-        <TextField
-          inputRef={searchInputRef}
-          placeholder="Search payments..."
-          value={searchTerm}
-          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchTerm(e.target.value)}
-          size="medium"
-          sx={{
-            minWidth: isMobile ? 'auto' : 250,
-            flex: isMobile ? 'none' : 1,
-            maxWidth: isMobile ? 'none' : 400,
-            '& .MuiOutlinedInput-root': {
-              height: TYPOGRAPHY_STYLES.searchField.input.height,
-              fontSize: '0.875rem',
-              '& input': {
-                padding: '8.5px 14px',
-                fontSize: '0.875rem'
-              }
-            }
-          }}
-          slotProps={{
-            input: {
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon sx={{ fontSize: TYPOGRAPHY_STYLES.searchField.icon.fontSize }} />
-                </InputAdornment>
-              ),
-            }
-          }}
-        />
-
-        <FormControl
-          size="medium"
-          sx={{
-            minWidth: isMobile ? 'auto' : 120,
-            '& .MuiOutlinedInput-root': {
-              height: TYPOGRAPHY_STYLES.searchField.input.height,
-              fontSize: '0.875rem'
-            }
-          }}
-        >
-          <InputLabel>Date Filter</InputLabel>
-          <Select
-            value={filters.dateFilter}
-            label="Date Filter"
-            onChange={(e) => {
-              setFilters((prev: PaymentFilters) => ({ ...prev, dateFilter: e.target.value }))
-            }}
-            sx={{
-              fontSize: '0.875rem',
-              '& .MuiSelect-select': {
-                padding: '8.5px 14px',
-                fontSize: '0.875rem'
-              }
-            }}
-            MenuProps={{
-              PaperProps: {
-                sx: {
-                  '& .MuiMenuItem-root': {
-                    fontSize: '0.875rem'
-                  }
-                }
-              }
-            }}
-          >
-            <MenuItem value="all">All</MenuItem>
-            <MenuItem value="today">Today</MenuItem>
-            <MenuItem value="yesterday">Yesterday</MenuItem>
-            <MenuItem value="this_week">This Week</MenuItem>
-            <MenuItem value="this_month">This Month</MenuItem>
-            <MenuItem value="this_year">This Year</MenuItem>
-            <Divider />
-            <MenuItem value="custom">Custom Date Range</MenuItem>
-          </Select>
-        </FormControl>
-
-        {filters.dateFilter === 'custom' && (
-          <>
-            <TextField
-              label="From Date"
-              type="date"
-              value={filters.customFromDate}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                setFilters((prev: PaymentFilters) => ({ ...prev, customFromDate: e.target.value }))
-              }}
-              size="medium"
-              sx={{
-                minWidth: 120,
-                '& .MuiOutlinedInput-root': {
-                  height: TYPOGRAPHY_STYLES.searchField.input.height,
-                  fontSize: '0.875rem'
-                }
-              }}
-              slotProps={{
-                inputLabel: {
-                  shrink: true,
-                }
-              }}
+        <Stack direction={isMobile ? 'column' : 'row'} spacing={1} alignItems={isMobile ? 'stretch' : 'flex-start'}>
+          <Box sx={{ flex: 1 }}>
+            <FilterBar
+              config={filterConfig}
+              draftFilters={draftFilters}
+              handlers={filterBarHandlers}
+              activeChips={visibleActiveChips}
+              hasActiveFilters={hasVisibleActiveFilters}
+              hasUnappliedChanges={hasUnappliedChanges}
+              searchInputRef={searchInputRef}
             />
-            <TextField
-              label="To Date"
-              type="date"
-              value={filters.customToDate}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                setFilters((prev: PaymentFilters) => ({ ...prev, customToDate: e.target.value }))
-              }}
-              size="medium"
-              sx={{
-                minWidth: 120,
-                '& .MuiOutlinedInput-root': {
-                  height: TYPOGRAPHY_STYLES.searchField.input.height,
-                  fontSize: '0.875rem'
-                }
-              }}
-              slotProps={{
-                inputLabel: {
-                  shrink: true,
-                }
-              }}
-            />
-          </>
-        )}
 
-        
-        {(filters.dateFilter !== 'all' || filters.search) && (
+            {presetCustomerId ? (
+              <Stack direction="row" sx={{ mt: '7px' }}>
+                <Chip
+                  label={`Customer: ${customers.find((customer) => customer.id === presetCustomerId)?.name ?? presetCustomerId}`}
+                  size="small"
+                  variant="filled"
+                />
+              </Stack>
+            ) : null}
+          </Box>
+
           <Button
-            variant="outlined"
+            variant={sortState.sortBy === 'paymentNumber' ? 'contained' : 'outlined'}
             size="medium"
-            onClick={() => {
-              setFilters({
-                search: '',
-                sortBy: 'paymentNumber',
-                sortOrder: 'asc',
-                dateFilter: 'all',
-                customFromDate: '',
-                customToDate: '',
-                customerId: 'all'
-              })
-            }}
+            startIcon={sortState.sortBy === 'paymentNumber' ? (sortState.sortOrder === 'desc' ? <ArrowDownIcon /> : <ArrowUpIcon />) : <SortIcon />}
+            onClick={() => handleSort('paymentNumber')}
             sx={{
+              height: TYPOGRAPHY_STYLES.searchField.input.height,
+              fontSize: '0.875rem',
               minWidth: 'auto',
               px: 2,
-              height: TYPOGRAPHY_STYLES.searchField.input.height,
-              fontSize: '0.875rem'
             }}
           >
-            Clear Filters
+            Sort
           </Button>
-        )}
-
-        <Button
-          variant={filters.sortBy === 'paymentNumber' ? 'contained' : 'outlined'}
-          size="medium"
-          startIcon={filters.sortBy === 'paymentNumber' ? (filters.sortOrder === 'desc' ? <ArrowDownIcon /> : <ArrowUpIcon />) : <SortIcon />}
-          onClick={() => handleSort('paymentNumber')}
-          sx={{
-            height: TYPOGRAPHY_STYLES.searchField.input.height,
-            fontSize: '0.875rem',
-            minWidth: 'auto',
-            px: 2
-          }}
-        >
-          Sort
-        </Button>
-      </Box>
+        </Stack>
       </Paper>
       {/* Error Display */}
       {error && (
@@ -736,49 +595,50 @@ const PaymentsPage: React.FC = () => {
             </Box>
 
             <Box sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }} ref={paymentListRef}>
-              <TableContainer sx={{ flex: 1, overflow: 'auto' }}>
-                <Table
-                  size={TABLE_STYLES.size}
-                  sx={{
-                    '& .MuiTableCell-root': {
-                      borderBottom: TABLE_STYLES.cell.border,
-                      py: TABLE_STYLES.cell.padding.py * 0.75,
-                      px: TABLE_STYLES.cell.padding.px * 0.75
-                    }
-                  }}
-                >
-                  <TableHead sx={{ display: 'none' }}>
-                    <TableRow sx={{ '& .MuiTableCell-head': {
-                      fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
-                      backgroundColor: 'grey.50',
-                      color: TYPOGRAPHY_STYLES.tableHeader.color,
-                      fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
-                    } }}>
-                      <TableCell>Payment #</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {loading && paginatedPayments.length === 0 ? (
-                      [...Array(10)].map((_, i) => (
-                        <TableRow key={`skeleton-${i}`}>
-                          <TableCell><Skeleton height={40} /></TableCell>
+              {(isLoading || (isFetching && !data)) ? (
+                <ListSkeleton rows={8} columns={1} />
+              ) : (
+                <Box sx={{ flex: 1, opacity: isFetching ? 0.6 : 1, position: 'relative' }}>
+                  {isFetching ? (
+                    <CircularProgress size={16} sx={{ position: 'absolute', top: 8, right: 8, zIndex: 1 }} />
+                  ) : null}
+                  <TableContainer sx={{ flex: 1, overflow: 'auto' }}>
+                    <Table
+                      size={TABLE_STYLES.size}
+                      sx={{
+                        '& .MuiTableCell-root': {
+                          borderBottom: TABLE_STYLES.cell.border,
+                          py: TABLE_STYLES.cell.padding.py * 0.75,
+                          px: TABLE_STYLES.cell.padding.px * 0.75,
+                        },
+                      }}
+                    >
+                      <TableHead sx={{ display: 'none' }}>
+                        <TableRow sx={{ '& .MuiTableCell-head': {
+                          fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
+                          backgroundColor: 'grey.50',
+                          color: TYPOGRAPHY_STYLES.tableHeader.color,
+                          fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize,
+                        } }}>
+                          <TableCell>Payment #</TableCell>
                         </TableRow>
-                      ))
-                    ) : (
-                      paginatedPayments.map((payment: Payment, index: number) => (
-                        <PaymentRow
-                          key={payment.id}
-                          payment={payment}
-                          index={index}
-                          selectedPaymentId={selectedPayment?.id}
-                          focusedPaymentIndex={focusedPaymentIndex}
-                          onPaymentSelect={handlePaymentSelect}
-                        />
-                      ))
-                    )}
-                  </TableBody>
-                </Table>
-              </TableContainer>
+                      </TableHead>
+                      <TableBody>
+                        {paginatedPayments.map((payment: Payment, index: number) => (
+                          <PaymentRow
+                            key={payment.id}
+                            payment={payment}
+                            index={index}
+                            selectedPaymentId={selectedPayment?.id}
+                            focusedPaymentIndex={focusedPaymentIndex}
+                            onPaymentSelect={handlePaymentSelect}
+                          />
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </TableContainer>
+                </Box>
+              )}
             </Box>
           </Paper>
         </Grid>
