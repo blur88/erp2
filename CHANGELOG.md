@@ -1,3 +1,15 @@
+# [1.27.0](https://github.com/blur88/erp2/compare/v1.26.0...v1.27.0) (2026-03-26)
+
+
+### Bug Fixes
+
+* **filters:** fix URL sync loop and align page filter configs with backend ([04b0685](https://github.com/blur88/erp2/commit/04b068548d6f4f5e80a3c020913fff548da6d868))
+
+
+### Features
+
+* **frontend:** add shared filter bar system ([8c3b9f0](https://github.com/blur88/erp2/commit/8c3b9f071fdf17ca894e8d15b00e67170f399c3c))
+
 # [1.26.0](https://github.com/blur88/erp2/compare/v1.25.1...v1.26.0) (2026-03-25)
 
 
