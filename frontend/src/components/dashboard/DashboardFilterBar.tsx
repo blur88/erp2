@@ -2,7 +2,7 @@ import { Box, Button, CircularProgress, FormControl, InputLabel, MenuItem, Selec
 import { DatePicker } from '@mui/x-date-pickers'
 import { format, parseISO } from 'date-fns'
 import { toMuiDatePickerFormat } from '@/utils/formatters'
-import type { DashboardCompare, DashboardPeriod } from '../hooks/useDashboardFilters'
+import type { DashboardCompare, DashboardPeriod } from '@/hooks/useDashboardFilters'
 
 interface DashboardFilterBarProps {
   period: DashboardPeriod
