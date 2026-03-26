@@ -55,7 +55,7 @@ import type { StockAdjustment } from '@/types'
 
 interface StockAdjustmentFilters {
   search: string
-  status: 'draft' | 'completed' | null
+  status: 'draft' | 'completed' | 'cancelled' | null
   dateRange: DateRangeValue
 }
 
@@ -144,6 +144,7 @@ const StockAdjustmentsPage: React.FC = () => {
           options: [
             { value: 'draft', label: 'Draft' },
             { value: 'completed', label: 'Completed' },
+            { value: 'cancelled', label: 'Cancelled' },
           ],
         },
       ],
