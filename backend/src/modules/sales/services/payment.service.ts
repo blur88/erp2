@@ -153,6 +153,7 @@ export class PaymentService {
       invoiceId,
       fromDate,
       toDate,
+      search,
       sortBy = 'paymentDate',
       sortOrder = 'DESC',
     } = query;
@@ -181,6 +182,13 @@ export class PaymentService {
       .leftJoinAndSelect('payment.paymentMethodEntity', 'paymentMethodEntity')
       .where(where)
       .orderBy(`payment.${sortBy}`, sortOrder);
+
+    if (search) {
+      queryBuilder.andWhere(
+        '(payment.paymentNumber ILIKE :search OR customer.name ILIKE :search)',
+        { search: `%${search}%` }
+      );
+    }
 
     const [payments, total] = await queryBuilder.getManyAndCount();
 
