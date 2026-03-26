@@ -25,11 +25,12 @@ import {
 import { formatCurrency, formatDate, formatNumber } from '@/utils/formatters'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
 import PageHeader from '@/components/common/PageHeader'
+import { DashboardFilterBar } from '@/components/dashboard/DashboardFilterBar'
 import { useNavigate } from 'react-router-dom'
 import api from '@/services/api'
-import { DashboardFilterBar, SalesStatsCards, SalesTrendChart, TopProductsList, TopCustomersList } from './components'
+import { SalesStatsCards, SalesTrendChart, TopProductsList, TopCustomersList } from './components'
 import type { StatItem } from './components'
-import { useDashboardFilters } from './hooks/useDashboardFilters'
+import { useDashboardFilters } from '@/hooks/useDashboardFilters'
 import { useDashboardAnalytics } from './hooks/useDashboardAnalytics'
 
 const SalesPage: React.FC = () => {
@@ -50,7 +51,7 @@ const SalesPage: React.FC = () => {
     reset,
     isDefault,
     resolvedApiParams,
-  } = useDashboardFilters()
+  } = useDashboardFilters('sales')
 
   const { data, isLoading, isFetching, error } = useDashboardAnalytics(resolvedApiParams)
 
