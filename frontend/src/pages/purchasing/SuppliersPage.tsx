@@ -16,7 +16,6 @@ import {
   InputLabel,
   Select,
   MenuItem,
-  InputAdornment,
   Table,
   TableBody,
   TableCell,
@@ -31,26 +30,21 @@ import {
   Stack,
 } from '@mui/material'
 import {
-  Add as AddIcon,
-  Search as SearchIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
   Visibility as ViewIcon,
-  RestoreFromTrash as RestoreIcon,
   Phone as PhoneIcon,
   LocationOn as LocationIcon,
 } from '@mui/icons-material'
 import { useForm, Controller } from 'react-hook-form'
 import { yupResolver } from '@hookform/resolvers/yup'
 import * as yup from 'yup'
+import { ListSkeleton } from '@/components/common/ListSkeleton'
 import PageHeader from '@/components/common/PageHeader'
-import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
+import { FilterBar, useFilterBar } from '@/components/filters'
+import type { FilterBarConfig } from '@/components/filters'
 import { useNotification } from '@/hooks/useNotification'
-import { useSearchAndFilter, useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
-import {
-  selectSupplierFilters,
-  setSupplierFilters,
-} from '@/store/slices/purchasingSlice'
+import { useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
 import {
   useCreateSupplierMutation,
   useDeleteSupplierMutation,
@@ -93,26 +87,77 @@ interface SupplierFormData {
   notes?: string | null
 }
 
+interface SupplierFilters {
+  search: string
+  status: 'active' | 'inactive' | null
+  type: 'local' | 'international' | null
+}
+
 const SuppliersPage: React.FC = () => {
   const theme = useTheme()
   const isMobile = useMediaQuery(theme.breakpoints.down('md'))
-  const dispatch = useAppDispatch()
   const { showSuccess, showError } = useNotification()
+  const searchInputRef = useRef<HTMLInputElement | null>(null)
 
-  // Redux state
-  const filters = useAppSelector(selectSupplierFilters)
+  const filterConfig = useMemo<FilterBarConfig<SupplierFilters>>(
+    () => ({
+      search: { placeholder: 'Search by company name...' },
+      quick: [
+        {
+          field: 'status',
+          label: 'Status',
+          type: 'select',
+          options: [
+            { value: 'active', label: 'Active' },
+            { value: 'inactive', label: 'Inactive' },
+          ],
+        },
+      ],
+      advanced: [
+        {
+          field: 'type',
+          label: 'Type',
+          type: 'select',
+          options: [
+            { value: 'local', label: 'Local' },
+            { value: 'international', label: 'International' },
+          ],
+        },
+      ],
+      defaults: { search: '', status: null, type: null },
+    }),
+    [],
+  )
+
+  const { appliedFilters, draftFilters, handlers, activeChips, hasActiveFilters, hasUnappliedChanges } = useFilterBar(filterConfig)
+
+  const supplierQueryParams = useMemo(
+    () => ({
+      search: appliedFilters.search || undefined,
+      isActive:
+        appliedFilters.status === 'active'
+          ? true
+          : appliedFilters.status === 'inactive'
+            ? false
+            : undefined,
+      type: appliedFilters.type ?? undefined,
+    }),
+    [appliedFilters],
+  )
+
   const {
     data: suppliersResponse,
+    isLoading: isSuppliersLoading,
     isFetching: isSuppliersFetching,
     error: suppliersQueryError,
     refetch: refetchSuppliers,
-  } = useGetSuppliersQuery(filters)
+  } = useGetSuppliersQuery(supplierQueryParams)
   const [createSupplier, { isLoading: isCreatingSupplier }] = useCreateSupplierMutation()
   const [updateSupplier, { isLoading: isUpdatingSupplier }] = useUpdateSupplierMutation()
   const [deleteSupplier, { isLoading: isDeletingSupplier }] = useDeleteSupplierMutation()
   const [checkDuplicateCompanyName] = useLazyCheckDuplicateCompanyNameQuery()
   const suppliers = suppliersResponse?.data || []
-  const loading = isSuppliersFetching || isCreatingSupplier || isUpdatingSupplier || isDeletingSupplier
+  const isMutatingSupplier = isCreatingSupplier || isUpdatingSupplier || isDeletingSupplier
   const error =
     suppliersQueryError && typeof suppliersQueryError === 'object'
       ? ((suppliersQueryError as any).data?.message || (suppliersQueryError as any).data || 'Failed to load suppliers')
@@ -147,22 +192,12 @@ const SuppliersPage: React.FC = () => {
   // Watch company name for real-time validation
   const companyName = watch('companyName')
 
-  // Search and filter functionality
-  const searchHookInitialized = useRef(false)
-  const { searchTerm, setSearchTerm, focusSearchInput } = useSearchAndFilter({
-    initialSearchTerm: filters.search || '',
-    onSearchChange: (searchTerm) => {
-      if (!searchHookInitialized.current) {
-        searchHookInitialized.current = true
-        return
-      }
-      dispatch(setSupplierFilters({ search: searchTerm }))
-    },
-  })
-
   // Keyboard shortcuts - only search
   useKeyboardShortcuts({
-    onSearch: focusSearchInput,
+    onSearch: () => {
+      searchInputRef.current?.focus()
+      searchInputRef.current?.select()
+    },
   })
 
   // Load suppliers on mount and when filters change
@@ -347,87 +382,15 @@ const SuppliersPage: React.FC = () => {
       />
       {/* Filters and Search */}
       <Paper sx={{ p: 2, mb: 3 }}>
-      <Box sx={{
-        display: 'flex',
-        flexDirection: isMobile ? 'column' : 'row',
-        gap: isMobile ? 2 : 1,
-        alignItems: isMobile ? 'stretch' : 'center',
-        '& > *': {
-          alignSelf: isMobile ? 'stretch' : 'flex-start'
-        }
-      }}>
-        <TextField
-          placeholder="Search suppliers..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          size="medium"
-          sx={{
-            minWidth: isMobile ? 'auto' : 250,
-            flex: isMobile ? 'none' : 1,
-            maxWidth: isMobile ? 'none' : 400,
-            '& .MuiOutlinedInput-root': {
-              height: TYPOGRAPHY_STYLES.searchField.input.height,
-              fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
-              '& input': {
-                padding: TYPOGRAPHY_STYLES.searchField.input.padding,
-                fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize
-              }
-            },
-            '& .MuiInputAdornment-root': {
-              '& .MuiSvgIcon-root': {
-                fontSize: TYPOGRAPHY_STYLES.searchField.icon.fontSize,
-                color: TYPOGRAPHY_STYLES.searchField.icon.color
-              }
-            }
-          }}
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <SearchIcon fontSize="small" />
-              </InputAdornment>
-            ),
-          }}
+        <FilterBar
+          config={filterConfig}
+          draftFilters={draftFilters}
+          handlers={handlers}
+          activeChips={activeChips}
+          hasActiveFilters={hasActiveFilters}
+          hasUnappliedChanges={hasUnappliedChanges}
+          searchInputRef={searchInputRef}
         />
-        <FormControl
-          size="medium"
-          sx={{
-            minWidth: isMobile ? 'auto' : 120,
-            flex: 'none'
-          }}
-        >
-          <InputLabel
-            sx={{
-              fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
-              '&.MuiInputLabel-shrunk': {
-                fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize
-              }
-            }}
-          >
-            Type
-          </InputLabel>
-          <Select
-            value={filters.type || 'all'}
-            label="Type"
-            onChange={(e) => dispatch(setSupplierFilters({ type: e.target.value === 'all' ? undefined : e.target.value as SupplierType }))}
-            sx={{
-              height: TYPOGRAPHY_STYLES.searchField.input.height,
-              fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
-              '& .MuiSelect-select': {
-                display: 'flex',
-                alignItems: 'center',
-                fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
-                padding: '8.5px 14px',
-                height: TYPOGRAPHY_STYLES.searchField.input.height,
-                boxSizing: 'border-box'
-              }
-            }}
-          >
-            <MenuItem value="all">All</MenuItem>
-            <MenuItem value={SupplierType.LOCAL}>Local</MenuItem>
-            <MenuItem value={SupplierType.INTERNATIONAL}>International</MenuItem>
-          </Select>
-        </FormControl>
-      </Box>
       </Paper>
       {/* Error Alert */}
       {error && (
@@ -437,265 +400,262 @@ const SuppliersPage: React.FC = () => {
       )}
       {/* Supplier Table */}
       <Paper sx={{ borderRadius: 2, overflow: 'hidden' }}>
-        <TableContainer sx={{ overflowX: 'auto' }}>
-          <Table
-            size={TABLE_STYLES.size}
-            sx={{
-              minWidth: isMobile ? 650 : 800,
-              '& .MuiTableCell-root': {
-                borderBottom: TABLE_STYLES.cell.border,
-                py: TABLE_STYLES.cell.padding.py,
-                px: TABLE_STYLES.cell.padding.px
-              }
-            }}
-          >
-            <TableHead>
-              <TableRow sx={{ '& .MuiTableCell-head': { fontWeight: 600, backgroundColor: 'grey.50', py: 1 } }}>
-                <TableCell sx={{ width: isMobile ? '35%' : '25%' }}>
-                  <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
-                    fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
-                    color: TYPOGRAPHY_STYLES.tableHeader.color,
-                    fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
-                  }}>
-                    Supplier
-                  </Typography>
-                </TableCell>
-                {!isMobile && (
-                  <TableCell sx={{ width: '10%' }}>
-                    <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
-                    fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
-                    color: TYPOGRAPHY_STYLES.tableHeader.color,
-                    fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
-                  }}>
-                      Type
-                    </Typography>
-                  </TableCell>
-                )}
-                <TableCell sx={{ width: isMobile ? '25%' : '15%' }}>
-                  <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
-                    fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
-                    color: TYPOGRAPHY_STYLES.tableHeader.color,
-                    fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
-                  }}>
-                    Contact
-                  </Typography>
-                </TableCell>
-                {!isMobile && (
-                  <TableCell sx={{ width: '12%' }}>
-                    <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
-                      fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
-                      color: TYPOGRAPHY_STYLES.tableHeader.color,
-                      fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
-                    }}>
-                      Phone
-                    </Typography>
-                  </TableCell>
-                )}
-                <TableCell align="right" sx={{ width: isMobile ? '40%' : '15%' }}>
-                  <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
-                    fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
-                    color: TYPOGRAPHY_STYLES.tableHeader.color,
-                    fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
-                  }}>
-                    Actions
-                  </Typography>
-                </TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {loading ? (
-                <TableRow>
-                  <TableCell colSpan={5} align="center">
-                    <CircularProgress />
-                  </TableCell>
-                </TableRow>
-              ) : suppliers.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={5} align="center">
-                    <Typography variant="body2" color="text.secondary">
-                      No suppliers found
-                    </Typography>
-                  </TableCell>
-                </TableRow>
-              ) : (
-                suppliers.map((supplier) => (
-                  <TableRow
-                    key={supplier.id}
-                    hover
-                    tabIndex={0}
-                    sx={{
-                      '&:hover, &:focus-within': {
-                        backgroundColor: 'action.hover',
-                        '& .supplier-actions': {
-                          opacity: 1
-                        }
-                      },
-                      transition: 'background-color 0.2s ease',
-                      cursor: 'default',
-                      height: TABLE_STYLES.row.height
-                    }}
-                  >
-                    <TableCell>
-                      <Box>
-                        <Typography variant={TYPOGRAPHY_STYLES.tableCell.primary.variant} sx={{
-                          fontWeight: 400,
-                          fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
-                          lineHeight: TYPOGRAPHY_STYLES.tableCell.primary.lineHeight
+        {(isSuppliersLoading || (isSuppliersFetching && !suppliersResponse)) ? (
+          <ListSkeleton rows={8} columns={4} />
+        ) : (
+          <Box sx={{ opacity: isSuppliersFetching ? 0.6 : 1, position: 'relative' }}>
+            {isSuppliersFetching && (
+              <CircularProgress size={16} sx={{ position: 'absolute', top: 8, right: 8 }} />
+            )}
+            <TableContainer sx={{ overflowX: 'auto' }}>
+              <Table
+                size={TABLE_STYLES.size}
+                sx={{
+                  minWidth: isMobile ? 650 : 800,
+                  '& .MuiTableCell-root': {
+                    borderBottom: TABLE_STYLES.cell.border,
+                    py: TABLE_STYLES.cell.padding.py,
+                    px: TABLE_STYLES.cell.padding.px,
+                  },
+                }}
+              >
+                <TableHead>
+                  <TableRow sx={{ '& .MuiTableCell-head': { fontWeight: 600, backgroundColor: 'grey.50', py: 1 } }}>
+                    <TableCell sx={{ width: isMobile ? '35%' : '25%' }}>
+                      <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
+                        fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
+                        color: TYPOGRAPHY_STYLES.tableHeader.color,
+                        fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize,
+                      }}>
+                        Supplier
+                      </Typography>
+                    </TableCell>
+                    {!isMobile && (
+                      <TableCell sx={{ width: '10%' }}>
+                        <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
+                          fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
+                          color: TYPOGRAPHY_STYLES.tableHeader.color,
+                          fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize,
                         }}>
-                          {supplier.companyName}
+                          Type
                         </Typography>
-                      </Box>
-                      {isMobile && (
-                        <Box sx={{ mt: 0.5, display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
-                          <Chip
-                            label={supplier.type === SupplierType.LOCAL ? 'Local' : 'International'}
-                            size="small"
-                            color={supplier.type === SupplierType.LOCAL ? 'primary' : 'secondary'}
-                            sx={{ fontSize: TYPOGRAPHY_STYLES.mobile.caption.fontSize }}
-                          />
-                        </Box>
-                      )}
-                    </TableCell>
-                    {!isMobile && (
-                      <TableCell>
-                        <Chip
-                          label={supplier.type === SupplierType.LOCAL ? 'Local' : 'International'}
-                          size="small"
-                          color={supplier.type === SupplierType.LOCAL ? 'primary' : 'secondary'}
-                          sx={{
-                            fontSize: TYPOGRAPHY_STYLES.chip.small.fontSize,
-                            fontWeight: TYPOGRAPHY_STYLES.chip.small.fontWeight,
-                            height: `${TABLE_STYLES.row.height * 0.65}px`,
-                            '& .MuiChip-label': {
-                              fontSize: `${Math.max(10, TABLE_STYLES.row.height * 0.35)}px`,
-                              lineHeight: 1
-                            }
-                          }}
-                        />
                       </TableCell>
                     )}
-                    <TableCell>
-                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25 }}>
-                        {supplier.contactPerson && (
-                          <Typography variant={TYPOGRAPHY_STYLES.tableCell.primary.variant} sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
-                            {supplier.contactPerson}
-                          </Typography>
-                        )}
-                        {isMobile && supplier.phone && (
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                            <PhoneIcon sx={{ fontSize: 14, color: 'text.secondary' }} />
-                            <Typography variant={TYPOGRAPHY_STYLES.tableCell.caption.variant} sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize }}>{supplier.phone}</Typography>
-                          </Box>
-                        )}
-                      </Box>
+                    <TableCell sx={{ width: isMobile ? '25%' : '15%' }}>
+                      <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
+                        fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
+                        color: TYPOGRAPHY_STYLES.tableHeader.color,
+                        fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize,
+                      }}>
+                        Contact
+                      </Typography>
                     </TableCell>
                     {!isMobile && (
-                      <TableCell>
-                        {supplier.phone && (
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                            <PhoneIcon sx={{ fontSize: 14, color: 'text.secondary' }} />
-                            <Typography variant={TYPOGRAPHY_STYLES.tableCell.primary.variant} sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>{supplier.phone}</Typography>
-                          </Box>
-                        )}
+                      <TableCell sx={{ width: '12%' }}>
+                        <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
+                          fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
+                          color: TYPOGRAPHY_STYLES.tableHeader.color,
+                          fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize,
+                        }}>
+                          Phone
+                        </Typography>
                       </TableCell>
                     )}
-                    <TableCell align="right">
-                      <Box
-                        className="supplier-actions"
-                        sx={{
-                          display: 'flex',
-                          justifyContent: 'flex-end',
-                          alignItems: 'center',
-                          height: '100%',
-                          gap: 0.25,
-                          opacity: isMobile ? 1 : 0.7,
-                          transition: 'opacity 0.2s ease'
-                        }}
-                      >
-                        <IconButton
-                          size="small"
-                          title={`Edit ${supplier.companyName}`}
-                          aria-label={`Edit supplier ${supplier.companyName}`}
-                          onClick={() => handleOpenForm(supplier)}
-                          sx={{
-                            height: `${TABLE_STYLES.row.height * 0.75}px`,
-                            width: `${TABLE_STYLES.row.height * 0.75}px`,
-                            minHeight: 20,
-                            minWidth: 20,
-                            p: 0.125,
-                            color: 'primary.main',
-                            '&:hover': {
-                              backgroundColor: 'primary.light',
-                              color: 'primary.dark'
-                            }
-                          }}
-                        >
-                          <EditIcon sx={{
-                            fontSize: `${TABLE_STYLES.row.height * 0.5}px`
-                          }} />
-                        </IconButton>
-                        <IconButton
-                          size="small"
-                          title={`Delete ${supplier.companyName}`}
-                          aria-label={`Delete supplier ${supplier.companyName}`}
-                          onClick={() => {
-                            setSelectedSupplier(supplier)
-                            setIsDeleteConfirmOpen(true)
-                          }}
-                          sx={{
-                            height: `${TABLE_STYLES.row.height * 0.75}px`,
-                            width: `${TABLE_STYLES.row.height * 0.75}px`,
-                            minHeight: 20,
-                            minWidth: 20,
-                            p: 0.125,
-                            color: 'error.main',
-                            '&:hover': {
-                              backgroundColor: 'error.light',
-                              color: 'error.dark'
-                            }
-                          }}
-                        >
-                          <DeleteIcon sx={{
-                            fontSize: `${TABLE_STYLES.row.height * 0.5}px`
-                          }} />
-                        </IconButton>
-                        <IconButton
-                          size="small"
-                          title={`View ${supplier.companyName} details`}
-                          aria-label={`View supplier ${supplier.companyName} details`}
-                          onClick={() => handleViewSupplier(supplier)}
-                          sx={{
-                            height: `${TABLE_STYLES.row.height * 0.75}px`,
-                            width: `${TABLE_STYLES.row.height * 0.75}px`,
-                            minHeight: 20,
-                            minWidth: 20,
-                            p: 0.125,
-                            color: 'info.main',
-                            '&:hover': {
-                              backgroundColor: 'info.light',
-                              color: 'info.dark'
-                            }
-                          }}
-                        >
-                          <ViewIcon sx={{
-                            fontSize: `${TABLE_STYLES.row.height * 0.5}px`
-                          }} />
-                        </IconButton>
-                      </Box>
-                      {isMobile && (
-                        <Box sx={{ mt: 0.25, textAlign: 'right' }}>
-                          <Typography variant={TYPOGRAPHY_STYLES.tableCell.caption.variant} color="text.secondary" sx={{ fontSize: TYPOGRAPHY_STYLES.mobile.caption.fontSize }}>
-                            {supplier.totalOrders} orders • {formatCurrency(supplier.totalPurchases)}
-                          </Typography>
-                        </Box>
-                      )}
+                    <TableCell align="right" sx={{ width: isMobile ? '40%' : '15%' }}>
+                      <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
+                        fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
+                        color: TYPOGRAPHY_STYLES.tableHeader.color,
+                        fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize,
+                      }}>
+                        Actions
+                      </Typography>
                     </TableCell>
                   </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </TableContainer>
+                </TableHead>
+                <TableBody>
+                  {suppliers.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={5} align="center">
+                        <Typography variant="body2" color="text.secondary">
+                          No suppliers found
+                        </Typography>
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    suppliers.map((supplier) => (
+                      <TableRow
+                        key={supplier.id}
+                        hover
+                        tabIndex={0}
+                        sx={{
+                          '&:hover, &:focus-within': {
+                            backgroundColor: 'action.hover',
+                            '& .supplier-actions': {
+                              opacity: 1,
+                            },
+                          },
+                          transition: 'background-color 0.2s ease',
+                          cursor: 'default',
+                          height: TABLE_STYLES.row.height,
+                        }}
+                      >
+                        <TableCell>
+                          <Box>
+                            <Typography variant={TYPOGRAPHY_STYLES.tableCell.primary.variant} sx={{
+                              fontWeight: 400,
+                              fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
+                              lineHeight: TYPOGRAPHY_STYLES.tableCell.primary.lineHeight,
+                            }}>
+                              {supplier.companyName}
+                            </Typography>
+                          </Box>
+                          {isMobile && (
+                            <Box sx={{ mt: 0.5, display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
+                              <Chip
+                                label={supplier.type === SupplierType.LOCAL ? 'Local' : 'International'}
+                                size="small"
+                                color={supplier.type === SupplierType.LOCAL ? 'primary' : 'secondary'}
+                                sx={{ fontSize: TYPOGRAPHY_STYLES.mobile.caption.fontSize }}
+                              />
+                            </Box>
+                          )}
+                        </TableCell>
+                        {!isMobile && (
+                          <TableCell>
+                            <Chip
+                              label={supplier.type === SupplierType.LOCAL ? 'Local' : 'International'}
+                              size="small"
+                              color={supplier.type === SupplierType.LOCAL ? 'primary' : 'secondary'}
+                              sx={{
+                                fontSize: TYPOGRAPHY_STYLES.chip.small.fontSize,
+                                fontWeight: TYPOGRAPHY_STYLES.chip.small.fontWeight,
+                                height: `${TABLE_STYLES.row.height * 0.65}px`,
+                                '& .MuiChip-label': {
+                                  fontSize: `${Math.max(10, TABLE_STYLES.row.height * 0.35)}px`,
+                                  lineHeight: 1,
+                                },
+                              }}
+                            />
+                          </TableCell>
+                        )}
+                        <TableCell>
+                          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25 }}>
+                            {supplier.contactPerson && (
+                              <Typography variant={TYPOGRAPHY_STYLES.tableCell.primary.variant} sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
+                                {supplier.contactPerson}
+                              </Typography>
+                            )}
+                            {isMobile && supplier.phone && (
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                <PhoneIcon sx={{ fontSize: 14, color: 'text.secondary' }} />
+                                <Typography variant={TYPOGRAPHY_STYLES.tableCell.caption.variant} sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize }}>{supplier.phone}</Typography>
+                              </Box>
+                            )}
+                          </Box>
+                        </TableCell>
+                        {!isMobile && (
+                          <TableCell>
+                            {supplier.phone && (
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                <PhoneIcon sx={{ fontSize: 14, color: 'text.secondary' }} />
+                                <Typography variant={TYPOGRAPHY_STYLES.tableCell.primary.variant} sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>{supplier.phone}</Typography>
+                              </Box>
+                            )}
+                          </TableCell>
+                        )}
+                        <TableCell align="right">
+                          <Box
+                            className="supplier-actions"
+                            sx={{
+                              display: 'flex',
+                              justifyContent: 'flex-end',
+                              alignItems: 'center',
+                              height: '100%',
+                              gap: 0.25,
+                              opacity: isMobile ? 1 : 0.7,
+                              transition: 'opacity 0.2s ease',
+                            }}
+                          >
+                            <IconButton
+                              size="small"
+                              title={`Edit ${supplier.companyName}`}
+                              aria-label={`Edit supplier ${supplier.companyName}`}
+                              onClick={() => handleOpenForm(supplier)}
+                              sx={{
+                                height: `${TABLE_STYLES.row.height * 0.75}px`,
+                                width: `${TABLE_STYLES.row.height * 0.75}px`,
+                                minHeight: 20,
+                                minWidth: 20,
+                                p: 0.125,
+                                color: 'primary.main',
+                                '&:hover': {
+                                  backgroundColor: 'primary.light',
+                                  color: 'primary.dark',
+                                },
+                              }}
+                            >
+                              <EditIcon sx={{ fontSize: `${TABLE_STYLES.row.height * 0.5}px` }} />
+                            </IconButton>
+                            <IconButton
+                              size="small"
+                              title={`Delete ${supplier.companyName}`}
+                              aria-label={`Delete supplier ${supplier.companyName}`}
+                              onClick={() => {
+                                setSelectedSupplier(supplier)
+                                setIsDeleteConfirmOpen(true)
+                              }}
+                              sx={{
+                                height: `${TABLE_STYLES.row.height * 0.75}px`,
+                                width: `${TABLE_STYLES.row.height * 0.75}px`,
+                                minHeight: 20,
+                                minWidth: 20,
+                                p: 0.125,
+                                color: 'error.main',
+                                '&:hover': {
+                                  backgroundColor: 'error.light',
+                                  color: 'error.dark',
+                                },
+                              }}
+                            >
+                              <DeleteIcon sx={{ fontSize: `${TABLE_STYLES.row.height * 0.5}px` }} />
+                            </IconButton>
+                            <IconButton
+                              size="small"
+                              title={`View ${supplier.companyName} details`}
+                              aria-label={`View supplier ${supplier.companyName} details`}
+                              onClick={() => handleViewSupplier(supplier)}
+                              sx={{
+                                height: `${TABLE_STYLES.row.height * 0.75}px`,
+                                width: `${TABLE_STYLES.row.height * 0.75}px`,
+                                minHeight: 20,
+                                minWidth: 20,
+                                p: 0.125,
+                                color: 'info.main',
+                                '&:hover': {
+                                  backgroundColor: 'info.light',
+                                  color: 'info.dark',
+                                },
+                              }}
+                            >
+                              <ViewIcon sx={{ fontSize: `${TABLE_STYLES.row.height * 0.5}px` }} />
+                            </IconButton>
+                          </Box>
+                          {isMobile && (
+                            <Box sx={{ mt: 0.25, textAlign: 'right' }}>
+                              <Typography variant={TYPOGRAPHY_STYLES.tableCell.caption.variant} color="text.secondary" sx={{ fontSize: TYPOGRAPHY_STYLES.mobile.caption.fontSize }}>
+                                {supplier.totalOrders} orders • {formatCurrency(supplier.totalPurchases)}
+                              </Typography>
+                            </Box>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </Box>
+        )}
       </Paper>
       {/* Supplier Form Dialog */}
       <Dialog
@@ -932,9 +892,9 @@ const SuppliersPage: React.FC = () => {
             <Button
               type="submit"
               variant="contained"
-              disabled={loading || isCheckingDuplicate || !!companyNameError}
+              disabled={isMutatingSupplier || isCheckingDuplicate || !!companyNameError}
             >
-              {loading ? <CircularProgress size={20} /> : (selectedSupplier ? 'Update' : 'Create')}
+              {isMutatingSupplier ? <CircularProgress size={20} /> : (selectedSupplier ? 'Update' : 'Create')}
             </Button>
           </DialogActions>
         </form>
@@ -1077,7 +1037,7 @@ const SuppliersPage: React.FC = () => {
         onConfirm={handleDelete}
         onCancel={() => setIsDeleteConfirmOpen(false)}
         severity="warning"
-        loading={loading}
+        loading={isMutatingSupplier}
       />
       {/* Deleted Suppliers Dialog */}
       <DeletedSuppliersDialog
