@@ -103,7 +103,7 @@ export function FilterBar<TFilters extends object>({
           <MoreFiltersButton activeCount={activeAdvancedCount} onClick={() => setDrawerOpen(true)} />
         ) : null}
         {hasActiveFilters ? (
-          <Button size="small" onClick={handlers.onClearAll}>
+          <Button size="small" variant="outlined" color="inherit" sx={{ ml: 1 }} onClick={handlers.onClearAll}>
             Reset
           </Button>
         ) : null}

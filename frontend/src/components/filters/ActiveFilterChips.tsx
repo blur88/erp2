@@ -11,7 +11,7 @@ export function ActiveFilterChips<TFilters>({ chips, onRemove }: Props<TFilters>
   if (chips.length === 0) return null
 
   return (
-    <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ pt: 1 }}>
+    <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mt: '7px' }}>
       {chips.map((chip) => (
         <Chip
           key={String(chip.field)}

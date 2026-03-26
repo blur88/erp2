@@ -52,7 +52,10 @@ describe('FilterBar', () => {
     const { rerender } = render(<FilterBar {...baseProps} />)
     expect(screen.queryByRole('button', { name: /reset/i })).not.toBeInTheDocument()
     rerender(<FilterBar {...baseProps} hasActiveFilters={true} />)
-    fireEvent.click(screen.getByRole('button', { name: /reset/i }))
+    const resetButton = screen.getByRole('button', { name: /reset/i })
+    expect(resetButton).toHaveClass('MuiButton-outlined')
+    expect(resetButton).toHaveClass('MuiButton-colorInherit')
+    fireEvent.click(resetButton)
     expect(handlers.onClearAll).toHaveBeenCalled()
   })
 
