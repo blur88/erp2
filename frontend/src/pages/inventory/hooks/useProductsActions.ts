@@ -7,7 +7,7 @@ import type { Product } from '@/types'
 interface UseProductsActionsParams {
   navigate: NavigateFunction
   products: Product[]
-  productFilters: { search?: string; categoryId?: string; lowStock?: boolean; inStock?: boolean }
+  productFilters: { search?: string; categoryId?: string | null }
   selectedProduct: Product | null
   deleteProduct: (id: string) => { unwrap: () => Promise<any> }
   showSuccess: (message: string) => void

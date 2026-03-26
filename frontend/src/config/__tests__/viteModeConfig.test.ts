@@ -1,7 +1,5 @@
 // @vitest-environment node
 
-import os from 'node:os'
-
 import { describe, expect, it, vi } from 'vitest'
 
 describe('vite config in test mode', () => {
@@ -29,7 +27,7 @@ describe('vite config in test mode', () => {
     })
   })
 
-  it('uses available CPU parallelism for Vitest workers instead of a fixed low cap', async () => {
+  it('forces a single Vitest worker to avoid suite hangs in this workspace', async () => {
     const originalVitestEnv = process.env.VITEST
     delete process.env.VITEST
 
@@ -47,7 +45,6 @@ describe('vite config in test mode', () => {
         })
       : viteConfig
 
-    const expectedWorkers = Math.max(2, os.availableParallelism())
-    expect(config.test?.maxWorkers).toBe(expectedWorkers)
+    expect(config.test?.maxWorkers).toBe(1)
   })
 })

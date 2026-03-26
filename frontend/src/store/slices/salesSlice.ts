@@ -7,17 +7,6 @@ interface SalesState {
   selectedOrder: SalesOrder | null
   selectedInvoice: Invoice | null
   selectedPayment: Payment | null
-  orderFilters: {
-    search: string
-    sortBy: string
-    sortOrder: 'asc' | 'desc'
-    dateFilter: string
-    customFromDate: string
-    customToDate: string
-    customerId: string
-    paymentStatus: string
-    fulfillmentStatus: string
-  }
   error: string | null
 }
 
@@ -25,17 +14,6 @@ const initialState: SalesState = {
   selectedOrder: null,
   selectedInvoice: null,
   selectedPayment: null,
-  orderFilters: {
-    search: '',
-    sortBy: 'orderNumber',
-    sortOrder: 'asc',
-    dateFilter: 'all',
-    customFromDate: '',
-    customToDate: '',
-    customerId: 'all',
-    paymentStatus: 'all',
-    fulfillmentStatus: 'all',
-  },
   error: null,
 }
 
@@ -52,9 +30,6 @@ const salesSlice = createSlice({
     setSelectedPayment: (state, action: PayloadAction<Payment | null>) => {
       state.selectedPayment = action.payload
     },
-    setOrderFilters: (state, action: PayloadAction<Partial<SalesState['orderFilters']>>) => {
-      state.orderFilters = { ...state.orderFilters, ...action.payload }
-    },
     clearError: (state) => {
       state.error = null
     },
@@ -65,14 +40,12 @@ export const {
   setSelectedOrder,
   setSelectedInvoice,
   setSelectedPayment,
-  setOrderFilters,
   clearError,
 } = salesSlice.actions
 
 export const selectSelectedOrder = (state: RootState) => state.sales.selectedOrder
 export const selectSelectedInvoice = (state: RootState) => state.sales.selectedInvoice
 export const selectSelectedPayment = (state: RootState) => state.sales.selectedPayment
-export const selectOrderFilters = (state: RootState) => state.sales.orderFilters
 export const selectSalesError = (state: RootState) => state.sales.error
 
 export default salesSlice.reducer

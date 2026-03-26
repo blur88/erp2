@@ -351,48 +351,60 @@ RTK Query endpoint definitions remain unchanged in most cases. The change is tha
 interface InventoryProductFilters {
   search: string
   status: 'active' | 'inactive' | null
-  warehouseId: string | null
   categoryId: string | null
   stockRange: NumberRangeValue
 }
 ```
 
-Quick: status, warehouseId
+Quick: status
 Advanced: categoryId, stockRange
+
+**Backend notes:**
+- `status` maps to `isActive: true/false` in the query (backend field name differs)
+- `stockRange` maps to `minStock`/`maxStock` query params (backend supports these)
+- `warehouseId` deferred: `GET /inventory/products` does not support warehouse filtering. Add to quick filters in a follow-up when backend support is added.
 
 ### Sales Orders
 
 ```ts
 interface SalesOrderFilters {
   search: string
-  status: 'pending' | 'confirmed' | 'shipped' | 'completed' | 'cancelled' | null
-  paymentStatus: 'unpaid' | 'partial' | 'paid' | null
   customerId: string | null
+  paymentStatus: 'unpaid' | 'partial' | 'paid' | 'overpaid' | null
+  fulfillmentStatus: 'fulfilled' | 'unfulfilled' | null
   dateRange: DateRangeValue
 }
 ```
 
-Quick: status, paymentStatus
-Advanced: dateRange (createdAt), customerId
+Quick: customerId, paymentStatus
+Advanced: fulfillmentStatus, dateRange (createdAt)
 
-`dateRange` should use `paramKey: 'createdAt'` → URL keys `createdAt_from`/`createdAt_to`.
+`dateRange` uses `paramKey: 'createdAt'` → URL keys `createdAt_from`/`createdAt_to`.
 
-*Note: dateRange is placed in advanced to preserve Row 1 density. Status and payment status are the primary daily triage filters.*
+**Backend notes:**
+- The Sales Orders API has no generic `status` field. Fulfillment state is exposed as `fulfillmentStatus: 'fulfilled'|'unfulfilled'` (maps to `isFulfilled` boolean). The spec's original `status` field was incorrect.
+- `paymentStatus` valid values are `unpaid|partial|paid|overpaid` (4 values, not 3 as originally spec'd — `overpaid` is a real backend value).
+- `customerId` placed in quick filters (high-frequency triage filter for this page).
+- Backend query params: `fromDate`/`toDate` for date range; `paymentStatus`; `fulfillmentStatus`; `customerId`.
 
 ### Purchase Orders
 
 ```ts
 interface PurchaseOrderFilters {
   search: string
-  status: 'draft' | 'sent' | 'partial' | 'received' | 'cancelled' | null
   supplierId: string | null
   dateRange: DateRangeValue
-  amountRange: NumberRangeValue
 }
 ```
 
-Quick: status, supplierId
-Advanced: dateRange (order date), amountRange
+Quick: supplierId
+Advanced: dateRange (order date)
+
+**Backend notes:**
+- `GET /purchasing/orders` does not support `status` filtering — no status query param exists in `PurchaseOrderQueryDto`. Deferred to a follow-up when backend support is added.
+- `amountRange` deferred: no `minAmount`/`maxAmount` params in the backend endpoint.
+- `dateRange` maps to backend params `orderDateFrom`/`orderDateTo`.
+- `supplierId` is fully supported.
 
 `dateRange` uses `paramKey: 'orderDate'` → URL keys `orderDate_from`/`orderDate_to`.
 

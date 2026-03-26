@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, type RefObject } from 'react'
 import type { Location, NavigateFunction } from 'react-router-dom'
 
-import { setProductFilters, setSelectedProduct } from '@/store/slices/inventorySlice'
+import { setSelectedProduct } from '@/store/slices/inventorySlice'
 import type { AppDispatch } from '@/store'
 import type { Product } from '@/types'
 
@@ -29,10 +29,6 @@ export function useProductsSelection({
   productListRef,
 }: UseProductsSelectionParams) {
   const navigationSelectionId = (location.state as { selectedProductId?: string } | null)?.selectedProductId
-
-  useEffect(() => {
-    dispatch(setProductFilters({ categoryId: selectedCategory === 'all' ? undefined : selectedCategory }))
-  }, [dispatch, selectedCategory])
 
   const prevCategoryRef = useRef(selectedCategory)
   useEffect(() => {
