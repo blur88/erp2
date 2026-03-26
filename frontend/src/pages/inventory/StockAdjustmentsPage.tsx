@@ -12,14 +12,7 @@ import {
   TableRow,
   Button,
   Chip,
-  TextField,
-  InputAdornment,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  Divider,
-  Skeleton,
+  CircularProgress,
   Alert,
   Grid,
   IconButton,
@@ -28,16 +21,16 @@ import {
   Stack,
 } from '@mui/material'
 import {
-  Add as AddIcon,
-  Search as SearchIcon,
   Sort as SortIcon,
   ArrowUpward as ArrowUpIcon,
   ArrowDownward as ArrowDownIcon,
   Delete as DeleteIcon,
   Edit as EditIcon,
-  RestoreFromTrash as RestoreIcon,
 } from '@mui/icons-material'
+import { ListSkeleton } from '@/components/common/ListSkeleton'
 import PageHeader from '@/components/common/PageHeader'
+import { FilterBar, useFilterBar } from '@/components/filters'
+import type { DateRangeValue, FilterBarConfig } from '@/components/filters'
 import DeletedStockAdjustmentsDialog from '@/components/inventory/DeletedStockAdjustmentsDialog'
 import ConfirmationDialog from '@/components/common/ConfirmationDialog'
 import { useLazyGetJournalEntriesQuery } from '@/store/api/accountingApi'
@@ -60,45 +53,15 @@ import { useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
 import type { StockAdjustment } from '@/types'
 
-interface StockAdjustmentsPageState {
+interface StockAdjustmentFilters {
   search: string
-  sortBy: string
-  sortOrder: 'asc' | 'desc'
-  statusFilter: string
-  dateFilter: string
-  customFromDate: string
-  customToDate: string
+  status: 'draft' | 'completed' | null
+  dateRange: DateRangeValue
 }
 
-const getDateRangeFromFilter = (filter: string, customFromDate: string, customToDate: string) => {
-  const today = new Date()
-  const yesterday = new Date(today)
-  yesterday.setDate(yesterday.getDate() - 1)
-
-  const startOfWeek = new Date(today)
-  startOfWeek.setDate(today.getDate() - today.getDay())
-
-  const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1)
-  const startOfYear = new Date(today.getFullYear(), 0, 1)
-
-  const formatLocalDate = (date: Date) => date.toISOString().split('T')[0]
-
-  switch (filter) {
-    case 'today':
-      return { fromDate: formatLocalDate(today), toDate: formatLocalDate(today) }
-    case 'yesterday':
-      return { fromDate: formatLocalDate(yesterday), toDate: formatLocalDate(yesterday) }
-    case 'this_week':
-      return { fromDate: formatLocalDate(startOfWeek), toDate: formatLocalDate(today) }
-    case 'this_month':
-      return { fromDate: formatLocalDate(startOfMonth), toDate: formatLocalDate(today) }
-    case 'this_year':
-      return { fromDate: formatLocalDate(startOfYear), toDate: formatLocalDate(today) }
-    case 'custom':
-      return { fromDate: customFromDate, toDate: customToDate }
-    default:
-      return { fromDate: undefined, toDate: undefined }
-  }
+interface StockAdjustmentsSortState {
+  sortBy: string
+  sortOrder: 'asc' | 'desc'
 }
 
 // Memoized Adjustment Row Component
@@ -164,33 +127,60 @@ const StockAdjustmentsPage: React.FC = () => {
   // Check for newly created adjustment ID from navigation state
   const newAdjustmentId = (location.state as any)?.newAdjustmentId
 
-  const [state, setState] = useState<StockAdjustmentsPageState>({
-    search: '',
+  const [sortState, setSortState] = useState<StockAdjustmentsSortState>({
     sortBy: 'adjustmentNumber',
     sortOrder: 'asc',
-    statusFilter: 'all',
-    dateFilter: 'all',
-    customFromDate: '',
-    customToDate: '',
   })
   const selectedAdjustment = useAppSelector(selectSelectedStockAdjustment)
-  const queryParams = useMemo(() => {
-    const dateRange = getDateRangeFromFilter(state.dateFilter, state.customFromDate, state.customToDate)
-    return {
-      status: state.statusFilter !== 'all' ? state.statusFilter : undefined,
-      fromDate: dateRange.fromDate,
-      toDate: dateRange.toDate,
-      search: state.search || undefined,
-      sortBy: state.sortBy,
-      sortOrder: state.sortOrder.toUpperCase(),
-    }
-  }, [state])
+
+  const filterConfig = useMemo<FilterBarConfig<StockAdjustmentFilters>>(
+    () => ({
+      search: { placeholder: 'Search by adjustment number or notes...' },
+      quick: [
+        {
+          field: 'status',
+          label: 'Status',
+          type: 'select',
+          options: [
+            { value: 'draft', label: 'Draft' },
+            { value: 'completed', label: 'Completed' },
+          ],
+        },
+      ],
+      advanced: [
+        {
+          field: 'dateRange',
+          label: 'Date',
+          type: 'date-range',
+          paramKey: 'adjustmentDate',
+        },
+      ],
+      defaults: { search: '', status: null, dateRange: { from: null, to: null } },
+    }),
+    [],
+  )
+
+  const { appliedFilters, draftFilters, handlers, activeChips, hasActiveFilters, hasUnappliedChanges } = useFilterBar(filterConfig)
+
+  const adjustmentQueryParams = useMemo(
+    () => ({
+      search: appliedFilters.search || undefined,
+      status: appliedFilters.status ?? undefined,
+      fromDate: appliedFilters.dateRange.from ?? undefined,
+      toDate: appliedFilters.dateRange.to ?? undefined,
+      sortBy: sortState.sortBy,
+      sortOrder: sortState.sortOrder.toUpperCase(),
+    }),
+    [appliedFilters, sortState],
+  )
+
   const {
     data: adjustmentsResponse,
-    isFetching: loading,
+    isLoading,
+    isFetching,
     error: listError,
     refetch: refetchAdjustments,
-  } = useGetStockAdjustmentsQuery(queryParams)
+  } = useGetStockAdjustmentsQuery(adjustmentQueryParams)
   const [fetchStockAdjustmentById] = useLazyGetStockAdjustmentQuery()
   const [deleteStockAdjustment] = useDeleteStockAdjustmentMutation()
   const [completeStockAdjustment] = useCompleteStockAdjustmentMutation()
@@ -252,7 +242,7 @@ const StockAdjustmentsPage: React.FC = () => {
   }, [dispatch, fetchStockAdjustmentById, showError])
 
   const handleSort = useCallback((field: string) => {
-    setState(prev => ({
+    setSortState((prev) => ({
       ...prev,
       sortBy: field,
       sortOrder: prev.sortBy === field && prev.sortOrder === 'desc' ? 'asc' : 'desc',
@@ -326,6 +316,7 @@ const StockAdjustmentsPage: React.FC = () => {
 
   const focusSearchInput = useCallback(() => {
     searchInputRef.current?.focus()
+    searchInputRef.current?.select()
   }, [])
 
   const handleEdit = () => {
@@ -471,163 +462,34 @@ const StockAdjustmentsPage: React.FC = () => {
       />
       {/* Filters and Search */}
       <Paper sx={{ p: 2, mb: 3 }}>
-      <Box sx={{
-        display: 'flex',
-        flexDirection: isMobile ? 'column' : 'row',
-        gap: isMobile ? 2 : 1,
-        alignItems: isMobile ? 'stretch' : 'center',
-        '& > *': {
-          alignSelf: isMobile ? 'stretch' : 'flex-start'
-        }
-      }}>
-        <TextField
-          inputRef={searchInputRef}
-          placeholder="Search adjustments..."
-          value={state.search}
-          onChange={(e) => setState(prev => ({ ...prev, search: e.target.value }))}
-          size="medium"
-          sx={{
-            minWidth: isMobile ? 'auto' : 250,
-            flex: isMobile ? 'none' : 1,
-            maxWidth: isMobile ? 'none' : 400,
-            '& .MuiOutlinedInput-root': {
+        <Stack direction={isMobile ? 'column' : 'row'} spacing={1} alignItems={isMobile ? 'stretch' : 'flex-start'}>
+          <Box sx={{ flex: 1 }}>
+            <FilterBar
+              config={filterConfig}
+              draftFilters={draftFilters}
+              handlers={handlers}
+              activeChips={activeChips}
+              hasActiveFilters={hasActiveFilters}
+              hasUnappliedChanges={hasUnappliedChanges}
+              searchInputRef={searchInputRef}
+            />
+          </Box>
+
+          <Button
+            variant={sortState.sortBy === 'adjustmentDate' ? 'contained' : 'outlined'}
+            size="medium"
+            startIcon={sortState.sortBy === 'adjustmentDate' ? (sortState.sortOrder === 'desc' ? <ArrowDownIcon /> : <ArrowUpIcon />) : <SortIcon />}
+            onClick={() => handleSort('adjustmentDate')}
+            sx={{
               height: TYPOGRAPHY_STYLES.searchField.input.height,
               fontSize: '0.875rem',
-            }
-          }}
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <SearchIcon sx={{ fontSize: TYPOGRAPHY_STYLES.searchField.icon.fontSize }} />
-              </InputAdornment>
-            ),
-          }}
-        />
-
-        <FormControl
-          size="medium"
-          sx={{
-            minWidth: isMobile ? 'auto' : 120,
-            width: isMobile ? 'auto' : 120,
-            '& .MuiOutlinedInput-root': {
-              height: TYPOGRAPHY_STYLES.searchField.input.height,
-            }
-          }}
-        >
-          <InputLabel>Date Filter</InputLabel>
-          <Select
-            value={state.dateFilter}
-            label="Date Filter"
-            onChange={(e) => setState(prev => ({ ...prev, dateFilter: e.target.value }))}
-            sx={{ fontSize: '0.875rem' }}
-          >
-            <MenuItem value="all">All</MenuItem>
-            <MenuItem value="today">Today</MenuItem>
-            <MenuItem value="yesterday">Yesterday</MenuItem>
-            <MenuItem value="this_week">This Week</MenuItem>
-            <MenuItem value="this_month">This Month</MenuItem>
-            <MenuItem value="this_year">This Year</MenuItem>
-            <Divider />
-            <MenuItem value="custom">Custom Date Range</MenuItem>
-          </Select>
-        </FormControl>
-
-        {state.dateFilter === 'custom' && (
-          <>
-            <TextField
-              label="From Date"
-              type="date"
-              value={state.customFromDate}
-              onChange={(e) => setState(prev => ({ ...prev, customFromDate: e.target.value }))}
-              size="medium"
-              sx={{
-                minWidth: isMobile ? 'auto' : 120,
-                '& .MuiOutlinedInput-root': {
-                  height: TYPOGRAPHY_STYLES.searchField.input.height,
-                  fontSize: '0.875rem',
-                }
-              }}
-              InputLabelProps={{ shrink: true }}
-            />
-            <TextField
-              label="To Date"
-              type="date"
-              value={state.customToDate}
-              onChange={(e) => setState(prev => ({ ...prev, customToDate: e.target.value }))}
-              size="medium"
-              sx={{
-                minWidth: isMobile ? 'auto' : 120,
-                '& .MuiOutlinedInput-root': {
-                  height: TYPOGRAPHY_STYLES.searchField.input.height,
-                  fontSize: '0.875rem',
-                }
-              }}
-              InputLabelProps={{ shrink: true }}
-            />
-          </>
-        )}
-
-        <FormControl
-          size="medium"
-          sx={{
-            minWidth: isMobile ? 'auto' : 120,
-            width: isMobile ? 'auto' : 120,
-            '& .MuiOutlinedInput-root': {
-              height: TYPOGRAPHY_STYLES.searchField.input.height,
-            }
-          }}
-        >
-          <InputLabel>Status</InputLabel>
-          <Select
-            value={state.statusFilter}
-            label="Status"
-            onChange={(e) => setState(prev => ({ ...prev, statusFilter: e.target.value }))}
-            sx={{ fontSize: '0.875rem' }}
-          >
-            <MenuItem value="all">All</MenuItem>
-            <MenuItem value="draft">Draft</MenuItem>
-            <MenuItem value="completed">Completed</MenuItem>
-            <MenuItem value="cancelled">Cancelled</MenuItem>
-          </Select>
-        </FormControl>
-
-        {(state.dateFilter !== 'all' || state.statusFilter !== 'all') && (
-          <Button
-            variant="outlined"
-            size="medium"
-            onClick={() => setState(prev => ({
-              ...prev,
-              dateFilter: 'all',
-              customFromDate: '',
-              customToDate: '',
-              statusFilter: 'all',
-            }))}
-            sx={{
               minWidth: 'auto',
               px: 2,
-              height: TYPOGRAPHY_STYLES.searchField.input.height,
-              fontSize: '0.875rem'
             }}
           >
-            Clear Filters
+            Sort
           </Button>
-        )}
-
-        <Button
-          variant={state.sortBy === 'adjustmentDate' ? 'contained' : 'outlined'}
-          size="medium"
-          startIcon={state.sortBy === 'adjustmentDate' ? (state.sortOrder === 'desc' ? <ArrowDownIcon /> : <ArrowUpIcon />) : <SortIcon />}
-          onClick={() => handleSort('adjustmentDate')}
-          sx={{
-            height: TYPOGRAPHY_STYLES.searchField.input.height,
-            fontSize: '0.875rem',
-            minWidth: 'auto',
-            px: 2
-          }}
-        >
-          Sort
-        </Button>
-      </Box>
+        </Stack>
       </Paper>
       {/* Error Display */}
       {error && (
@@ -656,41 +518,40 @@ const StockAdjustmentsPage: React.FC = () => {
             </Box>
 
             <Box sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }} ref={adjustmentListRef}>
-              <TableContainer sx={{ flex: 1, overflow: 'auto' }}>
-                <Table
-                  size={TABLE_STYLES.size}
-                  sx={{
-                    '& .MuiTableCell-root': {
-                      borderBottom: TABLE_STYLES.cell.border,
-                      py: TABLE_STYLES.cell.padding.py * 0.75,
-                      px: TABLE_STYLES.cell.padding.px * 0.75
-                    }
-                  }}
-                >
-                  <TableBody>
-                    {loading && adjustments.length === 0 ? (
-                      [...Array(10)].map((_, i) => (
-                        <TableRow key={`skeleton-${i}`}>
-                          <TableCell>
-                            <Skeleton height={40} />
-                          </TableCell>
-                        </TableRow>
-                      ))
-                    ) : (
-                      adjustments.map((adjustment: StockAdjustment, index: number) => (
-                        <AdjustmentRow
-                          key={adjustment.id}
-                          adjustment={adjustment}
-                          index={index}
-                          selectedAdjustmentId={selectedAdjustment?.id}
-                          focusedAdjustmentIndex={focusedAdjustmentIndex}
-                          onAdjustmentSelect={handleAdjustmentSelect}
-                        />
-                      ))
-                    )}
-                  </TableBody>
-                </Table>
-              </TableContainer>
+              {(isLoading || (isFetching && !adjustmentsResponse)) ? (
+                <ListSkeleton rows={8} columns={1} />
+              ) : (
+                <Box sx={{ flex: 1, opacity: isFetching ? 0.6 : 1, position: 'relative' }}>
+                  {isFetching ? (
+                    <CircularProgress size={16} sx={{ position: 'absolute', top: 8, right: 8, zIndex: 1 }} />
+                  ) : null}
+                  <TableContainer sx={{ flex: 1, overflow: 'auto' }}>
+                    <Table
+                      size={TABLE_STYLES.size}
+                      sx={{
+                        '& .MuiTableCell-root': {
+                          borderBottom: TABLE_STYLES.cell.border,
+                          py: TABLE_STYLES.cell.padding.py * 0.75,
+                          px: TABLE_STYLES.cell.padding.px * 0.75,
+                        },
+                      }}
+                    >
+                      <TableBody>
+                        {adjustments.map((adjustment: StockAdjustment, index: number) => (
+                          <AdjustmentRow
+                            key={adjustment.id}
+                            adjustment={adjustment}
+                            index={index}
+                            selectedAdjustmentId={selectedAdjustment?.id}
+                            focusedAdjustmentIndex={focusedAdjustmentIndex}
+                            onAdjustmentSelect={handleAdjustmentSelect}
+                          />
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </TableContainer>
+                </Box>
+              )}
             </Box>
           </Paper>
         </Grid>
