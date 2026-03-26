@@ -174,15 +174,29 @@ When navigated from a customer profile page (via router state):
 `payment.service.ts` `findAll` currently ignores the `search` DTO param. Add:
 
 ```typescript
-if (query.search) {
+// In findAll, add `search` to the existing destructuring at the top of the method:
+const {
+  customerId,
+  invoiceId,
+  fromDate,
+  toDate,
+  search,             // add this
+  sortBy = 'paymentDate',
+  sortOrder = 'DESC',
+} = query;
+
+// Then after the existing .where(where).orderBy(...) call, add:
+if (search) {
   queryBuilder.andWhere(
     '(payment.paymentNumber ILIKE :search OR customer.name ILIKE :search)',
-    { search: `%${query.search}%` }
+    { search: `%${search}%` }
   );
 }
 ```
 
-The `customer` join already exists in `findAll`'s query builder. This unblocks search on the Payments FilterBar without schema changes.
+The `customer` join (`leftJoinAndSelect('payment.customer', 'customer')`) already exists in `findAll`'s query builder. This unblocks search on the Payments FilterBar without schema changes.
+
+**Note for frontend:** When `customerId` filter value is `null`, omit the param entirely from the query string (do not send `isActive=null`). The backend `isActive` DTO param is typed as `boolean | undefined`, not nullable.
 
 ---
 
