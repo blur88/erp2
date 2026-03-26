@@ -576,10 +576,16 @@ export class SalesAnalyticsService {
     let startDate: Date;
     let endDate: Date = new Date(now.setHours(23, 59, 59, 999));
 
-    if (dateRange === DateRange.CUSTOM && customStartDate && customEndDate) {
+    if (customStartDate && customEndDate) {
+      const normalizedStartDate = new Date(customStartDate);
+      normalizedStartDate.setUTCHours(0, 0, 0, 0);
+
+      const normalizedEndDate = new Date(customEndDate);
+      normalizedEndDate.setUTCHours(23, 59, 59, 999);
+
       return {
-        startDate: new Date(customStartDate),
-        endDate: new Date(customEndDate),
+        startDate: normalizedStartDate,
+        endDate: normalizedEndDate,
       };
     }
 

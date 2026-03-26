@@ -38,6 +38,30 @@ describe('SalesAnalyticsService', () => {
     service = module.get<SalesAnalyticsService>(SalesAnalyticsService);
   });
 
+  describe('parseDateRange', () => {
+    it('uses explicit startDate and endDate when provided without dateRange', () => {
+      const result = (service as any).parseDateRange(
+        undefined,
+        d('2026-03-10'),
+        d('2026-03-16'),
+      );
+
+      expect(result.startDate.toISOString().slice(0, 10)).toBe('2026-03-10');
+      expect(result.endDate.toISOString().slice(0, 10)).toBe('2026-03-16');
+    });
+
+    it('treats explicit endDate as inclusive through the end of that day', () => {
+      const result = (service as any).parseDateRange(
+        undefined,
+        d('2026-03-10'),
+        d('2026-03-16'),
+      );
+
+      expect(result.startDate.toISOString()).toBe('2026-03-10T00:00:00.000Z');
+      expect(result.endDate.toISOString()).toBe('2026-03-16T23:59:59.999Z');
+    });
+  });
+
   describe('computeComparePeriod', () => {
     describe('previous_period', () => {
       it('returns window of same day count ending day before start', () => {
