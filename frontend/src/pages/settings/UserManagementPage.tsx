@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   Box,
   Typography,
@@ -123,10 +123,42 @@ const UserManagementPage: React.FC = () => {
   const [updateUser] = useUpdateUserMutation()
   const users = usersResponse?.data ?? []
   const totalCount = usersResponse?.meta?.total ?? 0
-
-  useEffect(() => {
+  const resetPage = useCallback(() => {
     setPage(0)
-  }, [appliedFilters])
+  }, [])
+
+  const filterHandlers = useMemo(
+    () => ({
+      ...handlers,
+      onSearchChange: (value: string) => {
+        resetPage()
+        handlers.onSearchChange(value)
+      },
+      onSearchCommit: () => {
+        resetPage()
+        handlers.onSearchCommit()
+      },
+      onQuickFilterChange: (field: keyof UserFilters, value: unknown) => {
+        resetPage()
+        handlers.onQuickFilterChange(field, value)
+      },
+      onAdvancedDraftChange: handlers.onAdvancedDraftChange,
+      onAdvancedApply: () => {
+        resetPage()
+        handlers.onAdvancedApply()
+      },
+      onAdvancedCancel: handlers.onAdvancedCancel,
+      onClearField: (field: keyof UserFilters) => {
+        resetPage()
+        handlers.onClearField(field)
+      },
+      onClearAll: () => {
+        resetPage()
+        handlers.onClearAll()
+      },
+    }),
+    [handlers, resetPage],
+  )
 
   // Check if user is admin
   useEffect(() => {
@@ -297,7 +329,7 @@ const UserManagementPage: React.FC = () => {
         <FilterBar
           config={filterConfig}
           draftFilters={draftFilters}
-          handlers={handlers}
+          handlers={filterHandlers}
           activeChips={activeChips}
           hasActiveFilters={hasActiveFilters}
           hasUnappliedChanges={hasUnappliedChanges}

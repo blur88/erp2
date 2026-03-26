@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { Provider } from 'react-redux'
 import { configureStore } from '@reduxjs/toolkit'
 import { MemoryRouter } from 'react-router-dom'
@@ -9,7 +9,7 @@ import authReducer from '@/store/slices/authSlice'
 
 const { useGetUsersQuery } = vi.hoisted(() => ({
   useGetUsersQuery: vi.fn(() => ({
-    data: { data: [], meta: { total: 0 } },
+    data: { data: [], meta: { total: 40 } },
     isLoading: false,
     isFetching: false,
     refetch: vi.fn(),
@@ -91,5 +91,30 @@ describe('UserManagementPage FilterBar', () => {
   it('does not render More Filters button (no advanced filters)', () => {
     renderPage()
     expect(screen.queryByText(/more filters/i)).not.toBeInTheDocument()
+  })
+
+  it('resets pagination before querying filtered users', async () => {
+    renderPage()
+
+    fireEvent.click(screen.getByLabelText(/go to next page/i))
+
+    const callsBeforeFilter = useGetUsersQuery.mock.calls.length
+
+    fireEvent.mouseDown(screen.getByRole('combobox', { name: /role/i }))
+    fireEvent.click(screen.getByRole('option', { name: /manager/i }))
+
+    await waitFor(() => {
+      expect(useGetUsersQuery).toHaveBeenCalledWith(
+        expect.objectContaining({ page: 1, role: 'manager' }),
+      )
+    })
+
+    const callsAfterFilter = useGetUsersQuery.mock.calls.slice(callsBeforeFilter)
+    expect(
+      callsAfterFilter.some(([args]) => {
+        const params = args as { page?: number; role?: string }
+        return params?.page === 2 && params?.role === 'manager'
+      }),
+    ).toBe(false)
   })
 })
