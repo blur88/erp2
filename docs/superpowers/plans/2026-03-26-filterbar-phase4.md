@@ -638,24 +638,34 @@ useMemo(() => {
 
 This works because `useFilterBar` captures `location.search` into a ref (`mountSearchRef`) at the top of the hook, which reads `window.location.search` synchronously — so the `replaceState` call above happens first.
 
-**Locked chip rendering:** In `ActiveFilterChips.tsx`, the standard chip always has `onDelete`. To render the locked chip, pass `presetCustomerId` as a prop to `PaymentsPage`'s local render logic and bypass the standard chip for `customerId` when it's locked:
+**Locked chip rendering:** `FilterBar` renders `ActiveFilterChips` internally. To prevent a removable chip for `customerId` appearing inside `FilterBar` when it's locked, pass a filtered `activeChips` to `FilterBar` that excludes `customerId`. Then render the locked chip manually *outside* `<FilterBar>`, below it:
 
-Instead of modifying `ActiveFilterChips`, render the locked chip manually alongside the standard chips:
 ```tsx
-{/* Locked customer chip (when preset from context) */}
-{presetCustomerId && (
-  <Chip
-    label={`Customer: ${customers.find((c) => c.id === presetCustomerId)?.name ?? presetCustomerId}`}
-    size="small"
-    variant="filled"
-  />
-)}
-{/* Standard removable chips — filter out customerId if it's locked */}
-<ActiveFilterChips
-  chips={activeChips.filter((chip) => !(presetCustomerId && chip.field === 'customerId'))}
-  onRemove={handlers.onClearField}
+{/* Pass chips to FilterBar with customerId excluded when locked */}
+<FilterBar
+  config={filterConfig}
+  draftFilters={draftFilters}
+  handlers={handlers}
+  activeChips={presetCustomerId
+    ? activeChips.filter((chip) => chip.field !== 'customerId')
+    : activeChips}
+  hasActiveFilters={hasActiveFilters}
+  hasUnappliedChanges={hasUnappliedChanges}
 />
+
+{/* Render locked customer chip outside FilterBar */}
+{presetCustomerId && (
+  <Stack direction="row" sx={{ mt: '7px' }}>
+    <Chip
+      label={`Customer: ${customers.find((c) => c.id === presetCustomerId)?.name ?? presetCustomerId}`}
+      size="small"
+      variant="filled"
+    />
+  </Stack>
+)}
 ```
+
+This keeps `FilterBar` unchanged while giving the locked chip its own rendering path with no × button.
 
 - [ ] **Step 1: Write the failing tests**
 
