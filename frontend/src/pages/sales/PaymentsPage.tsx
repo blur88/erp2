@@ -231,7 +231,7 @@ const PaymentsPage: React.FC = () => {
       const params = new URLSearchParams(window.location.search)
       if (!params.get('customerId')) {
         params.set('customerId', presetCustomerId)
-        window.history.replaceState(null, '', `${location.pathname}?${params.toString()}`)
+        window.history.replaceState(window.history.state, '', `${location.pathname}?${params.toString()}`)
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
