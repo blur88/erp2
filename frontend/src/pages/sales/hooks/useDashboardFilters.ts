@@ -152,6 +152,22 @@ export function useDashboardFilters() {
     }
   }, [compareWith])
 
+  const setCustomFromOnly = useCallback((from: string | null) => {
+    setPeriodState('custom')
+    setCustomFrom(from)
+    if (from && customTo && DATE_RE.test(from) && DATE_RE.test(customTo) && from <= customTo) {
+      writeUrl('custom', compareWith, from, customTo)
+    }
+  }, [compareWith, customTo])
+
+  const setCustomToOnly = useCallback((to: string | null) => {
+    setPeriodState('custom')
+    setCustomTo(to)
+    if (customFrom && to && DATE_RE.test(customFrom) && DATE_RE.test(to) && customFrom <= to) {
+      writeUrl('custom', compareWith, customFrom, to)
+    }
+  }, [compareWith, customFrom])
+
   const reset = useCallback(() => {
     setPeriodState('this_month')
     setCompareWith(null)
@@ -175,6 +191,8 @@ export function useDashboardFilters() {
     setPeriod,
     setCompare,
     setCustomRange,
+    setCustomFrom: setCustomFromOnly,
+    setCustomTo: setCustomToOnly,
     reset,
     isDefault,
     resolvedApiParams,

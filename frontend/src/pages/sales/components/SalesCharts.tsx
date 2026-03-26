@@ -20,7 +20,7 @@ import {
     Filler,
 } from 'chart.js'
 import { Line, Doughnut } from 'react-chartjs-2'
-import { formatCurrency, formatNumber } from '@/utils/formatters'
+import { formatCurrency, formatNumber, formatSalesPeriodLabel } from '@/utils/formatters'
 import { TYPOGRAPHY_STYLES } from '@/constants/typography'
 
 ChartJS.register(
@@ -40,14 +40,16 @@ interface SalesTrendChartProps {
     labels: string[]
     data: number[]
     comparisonData?: number[]
+    groupBy?: 'day' | 'week' | 'month' | 'quarter' | 'year'
     loading?: boolean
 }
 
-export const SalesTrendChart: React.FC<SalesTrendChartProps> = ({ labels, data, comparisonData, loading = false }) => {
+export const SalesTrendChart: React.FC<SalesTrendChartProps> = ({ labels, data, comparisonData, groupBy = 'day', loading = false }) => {
     const theme = useTheme()
+    const formattedLabels = labels.map((label) => formatSalesPeriodLabel(label, groupBy))
 
     const chartData = {
-        labels,
+        labels: formattedLabels,
         datasets: [
             {
                 label: 'Current Period',

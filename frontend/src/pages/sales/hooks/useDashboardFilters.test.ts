@@ -106,4 +106,30 @@ describe('useDashboardFilters', () => {
     const { result } = renderHook(() => useDashboardFilters())
     expect(result.current.resolvedApiParams.compareWith).toBe('previous_period')
   })
+
+  it('preserves a custom from date before the to date is selected', () => {
+    setUrl('?period=custom')
+    const { result } = renderHook(() => useDashboardFilters())
+
+    act(() => {
+      result.current.setCustomFrom('2026-03-01')
+    })
+
+    expect(result.current.period).toBe('custom')
+    expect(result.current.customFrom).toBe('2026-03-01')
+    expect(result.current.customTo).toBeNull()
+  })
+
+  it('preserves a custom to date before the from date is selected', () => {
+    setUrl('?period=custom')
+    const { result } = renderHook(() => useDashboardFilters())
+
+    act(() => {
+      result.current.setCustomTo('2026-03-31')
+    })
+
+    expect(result.current.period).toBe('custom')
+    expect(result.current.customFrom).toBeNull()
+    expect(result.current.customTo).toBe('2026-03-31')
+  })
 })

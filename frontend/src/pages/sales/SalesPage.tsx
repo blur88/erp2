@@ -45,6 +45,8 @@ const SalesPage: React.FC = () => {
     setPeriod,
     setCompare,
     setCustomRange,
+    setCustomFrom,
+    setCustomTo,
     reset,
     isDefault,
     resolvedApiParams,
@@ -149,6 +151,8 @@ const SalesPage: React.FC = () => {
         onPeriodChange={setPeriod}
         onCompareChange={setCompare}
         onCustomRangeChange={setCustomRange}
+        onCustomFromChange={setCustomFrom}
+        onCustomToChange={setCustomTo}
         onReset={reset}
       />
 
@@ -176,6 +180,7 @@ const SalesPage: React.FC = () => {
               labels={current?.periodData.map((point) => point.period) ?? []}
               data={current?.periodData.map((point) => point.revenue) ?? []}
               comparisonData={comparison?.periodData.map((point) => point.revenue)}
+              groupBy={(resolvedApiParams.groupBy as 'day' | 'week' | 'month' | 'quarter' | 'year' | undefined) ?? 'day'}
               loading={isLoading}
             />
           </Grid>

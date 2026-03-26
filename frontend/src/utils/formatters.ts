@@ -10,6 +10,8 @@ import { formatCurrency as formatCurrencyUtil } from './currency'
  */
 export const formatCurrency = formatCurrencyUtil
 
+const DEFAULT_DATE_FORMAT = 'DD/MM/YYYY'
+
 /**
  * Apply a date format string (e.g. 'DD/MM/YYYY') to a Date object.
  * Returns formatted string.
@@ -37,6 +39,62 @@ const applyDateFormat = (dateObj: Date, fmt: string): string => {
     .replace('YYYY', year)
 }
 
+const getSavedDateFormat = (): string => localStorage.getItem('dateFormat') || DEFAULT_DATE_FORMAT
+
+const parseDateInput = (date: Date | string): Date => {
+  if (date instanceof Date) {
+    return date
+  }
+
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date)
+  if (match) {
+    const [, year, month, day] = match
+    return new Date(Number(year), Number(month) - 1, Number(day))
+  }
+
+  return new Date(date)
+}
+
+const getMonthYearFormat = (fmt: string): string => {
+  const withoutDay = fmt
+    .replace(/(^|[\s/.,-])DD([\s/.,-]|$)/g, '$1$2')
+    .replace(/\s{2,}/g, ' ')
+    .trim()
+
+  return withoutDay.replace(/^[\s/.,-]+|[\s/.,-]+$/g, '') || 'MM/YYYY'
+}
+
+export const toMuiDatePickerFormat = (fmt: string): string =>
+  fmt
+    .replace(/YYYY/g, 'yyyy')
+    .replace(/DD/g, 'dd')
+
+export const formatSalesPeriodLabel = (
+  period: string,
+  groupBy: 'day' | 'week' | 'month' | 'quarter' | 'year' = 'day',
+): string => {
+  if (groupBy === 'day' && /^\d{4}-\d{2}-\d{2}$/.test(period)) {
+    return formatDate(period)
+  }
+
+  if (groupBy === 'month' && /^\d{4}-\d{2}$/.test(period)) {
+    const [year, month] = period.split('-').map(Number)
+    return applyDateFormat(new Date(year, month - 1, 1), getMonthYearFormat(getSavedDateFormat()))
+  }
+
+  if (groupBy === 'week' && /^\d{4}-\d{2}$/.test(period)) {
+    const [year, week] = period.split('-')
+    return `Week ${week}, ${year}`
+  }
+
+  if (groupBy === 'quarter' && /^\d{4}-Q\d$/.test(period)) {
+    const [year, quarter] = period.split('-')
+    return `${quarter} ${year}`
+  }
+
+  return period
+}
+
 /**
  * Apply a time format ('24h' or '12h') to a Date object.
  * Returns formatted time string.
@@ -61,11 +119,11 @@ const applyTimeFormat = (dateObj: Date, fmt: string): string => {
 export const formatDate = (date: Date | string | null | undefined): string => {
   if (!date) return '-'
 
-  const dateObj = typeof date === 'string' ? new Date(date) : date
+  const dateObj = parseDateInput(date)
 
   if (isNaN(dateObj.getTime())) return '-'
 
-  const fmt = localStorage.getItem('dateFormat') || 'DD/MM/YYYY'
+  const fmt = getSavedDateFormat()
   return applyDateFormat(dateObj, fmt)
 }
 
@@ -76,11 +134,11 @@ export const formatDate = (date: Date | string | null | undefined): string => {
 export const formatDateTime = (date: Date | string | null | undefined): string => {
   if (!date) return '-'
 
-  const dateObj = typeof date === 'string' ? new Date(date) : date
+  const dateObj = parseDateInput(date)
 
   if (isNaN(dateObj.getTime())) return '-'
 
-  const dateFmt = localStorage.getItem('dateFormat') || 'DD/MM/YYYY'
+  const dateFmt = getSavedDateFormat()
   const timeFmt = localStorage.getItem('timeFormat') || '24h'
 
   const datePart = applyDateFormat(dateObj, dateFmt)

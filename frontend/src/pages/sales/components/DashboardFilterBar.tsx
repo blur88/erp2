@@ -1,6 +1,7 @@
 import { Box, Button, CircularProgress, FormControl, InputLabel, MenuItem, Select, Tooltip, Typography } from '@mui/material'
 import { DatePicker } from '@mui/x-date-pickers'
-import { parseISO } from 'date-fns'
+import { format, parseISO } from 'date-fns'
+import { toMuiDatePickerFormat } from '@/utils/formatters'
 import type { DashboardCompare, DashboardPeriod } from '../hooks/useDashboardFilters'
 
 interface DashboardFilterBarProps {
@@ -13,6 +14,8 @@ interface DashboardFilterBarProps {
   onPeriodChange: (period: DashboardPeriod) => void
   onCompareChange: (compare: DashboardCompare) => void
   onCustomRangeChange: (from: string, to: string) => void
+  onCustomFromChange: (from: string | null) => void
+  onCustomToChange: (to: string | null) => void
   onReset: () => void
 }
 
@@ -48,10 +51,13 @@ export function DashboardFilterBar({
   onPeriodChange,
   onCompareChange,
   onCustomRangeChange,
+  onCustomFromChange,
+  onCustomToChange,
   onReset,
 }: DashboardFilterBarProps) {
   const ctx = contextLabel(period, compareWith)
   const compareDisabled = period === 'today'
+  const pickerFormat = toMuiDatePickerFormat(localStorage.getItem('dateFormat') || 'DD/MM/YYYY')
 
   return (
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap', mb: 3 }}>
@@ -75,9 +81,18 @@ export function DashboardFilterBar({
           <DatePicker
             label="From"
             value={customFrom ? parseISO(customFrom) : null}
+            format={pickerFormat}
             onChange={(value) => {
-              if (value && customTo) {
-                onCustomRangeChange(value.toISOString().slice(0, 10), customTo)
+              if (!value) {
+                onCustomFromChange(null)
+                return
+              }
+
+              const nextFrom = format(value, 'yyyy-MM-dd')
+              onCustomFromChange(nextFrom)
+
+              if (customTo) {
+                onCustomRangeChange(nextFrom, customTo)
               }
             }}
             slotProps={{ textField: { size: 'small' } }}
@@ -85,9 +100,18 @@ export function DashboardFilterBar({
           <DatePicker
             label="To"
             value={customTo ? parseISO(customTo) : null}
+            format={pickerFormat}
             onChange={(value) => {
-              if (value && customFrom) {
-                onCustomRangeChange(customFrom, value.toISOString().slice(0, 10))
+              if (!value) {
+                onCustomToChange(null)
+                return
+              }
+
+              const nextTo = format(value, 'yyyy-MM-dd')
+              onCustomToChange(nextTo)
+
+              if (customFrom) {
+                onCustomRangeChange(customFrom, nextTo)
               }
             }}
             slotProps={{ textField: { size: 'small' } }}
