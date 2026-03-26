@@ -8,17 +8,17 @@ const VALID_PERIODS: DashboardPeriod[] = ['today', 'last_7_days', 'this_month', 
 const VALID_COMPARES: NonNullable<DashboardCompare>[] = ['previous_period', 'last_month', 'last_year']
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
 
-function parseUrl(): {
+function parseUrl(namespace: string): {
   period: DashboardPeriod
   compareWith: DashboardCompare
   customFrom: string | null
   customTo: string | null
 } {
   const params = new URLSearchParams(window.location.search)
-  const rawPeriod = params.get('period') ?? 'this_month'
-  const rawCompare = params.get('compare')
-  const rawFrom = params.get('from')
-  const rawTo = params.get('to')
+  const rawPeriod = params.get(`${namespace}_period`) ?? 'this_month'
+  const rawCompare = params.get(`${namespace}_compare`)
+  const rawFrom = params.get(`${namespace}_from`)
+  const rawTo = params.get(`${namespace}_to`)
 
   const period: DashboardPeriod = VALID_PERIODS.includes(rawPeriod as DashboardPeriod)
     ? (rawPeriod as DashboardPeriod)
@@ -96,6 +96,7 @@ function toApiParams(
 }
 
 function writeUrl(
+  namespace: string,
   period: DashboardPeriod,
   compareWith: DashboardCompare,
   customFrom: string | null,
@@ -103,24 +104,29 @@ function writeUrl(
 ): void {
   const params = new URLSearchParams()
   if (period !== 'this_month') {
-    params.set('period', period)
+    params.set(`${namespace}_period`, period)
   }
   if (compareWith) {
-    params.set('compare', compareWith)
+    params.set(`${namespace}_compare`, compareWith)
   }
   if (period === 'custom' && customFrom) {
-    params.set('from', customFrom)
+    params.set(`${namespace}_from`, customFrom)
   }
   if (period === 'custom' && customTo) {
-    params.set('to', customTo)
+    params.set(`${namespace}_to`, customTo)
   }
   const search = params.toString()
   const url = search ? `${window.location.pathname}?${search}` : window.location.pathname
   window.history.replaceState(null, '', url)
 }
 
-export function useDashboardFilters() {
-  const initial = useMemo(() => parseUrl(), [])
+export function useDashboardFilters(namespace: string) {
+  if (process.env.NODE_ENV !== 'production' && namespace === '') {
+    console.warn('[useDashboardFilters] namespace must not be an empty string. Use the route path segment (e.g. "sales", "purchasing").')
+  }
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const initial = useMemo(() => parseUrl(namespace), [])
   const [period, setPeriodState] = useState<DashboardPeriod>(initial.period)
   const [compareWith, setCompareWith] = useState<DashboardCompare>(initial.compareWith)
   const [customFrom, setCustomFrom] = useState<string | null>(initial.customFrom)
@@ -135,46 +141,46 @@ export function useDashboardFilters() {
       setCustomFrom(null)
       setCustomTo(null)
     }
-    writeUrl(next, compareWith, nextFrom, nextTo)
-  }, [compareWith, customFrom, customTo])
+    writeUrl(namespace, next, compareWith, nextFrom, nextTo)
+  }, [namespace, compareWith, customFrom, customTo])
 
   const setCompare = useCallback((next: DashboardCompare) => {
     setCompareWith(next)
-    writeUrl(period, next, customFrom, customTo)
-  }, [period, customFrom, customTo])
+    writeUrl(namespace, period, next, customFrom, customTo)
+  }, [namespace, period, customFrom, customTo])
 
   const setCustomRange = useCallback((from: string, to: string) => {
     setCustomFrom(from)
     setCustomTo(to)
     if (DATE_RE.test(from) && DATE_RE.test(to) && from <= to) {
       setPeriodState('custom')
-      writeUrl('custom', compareWith, from, to)
+      writeUrl(namespace, 'custom', compareWith, from, to)
     }
-  }, [compareWith])
+  }, [namespace, compareWith])
 
   const setCustomFromOnly = useCallback((from: string | null) => {
     setPeriodState('custom')
     setCustomFrom(from)
     if (from && customTo && DATE_RE.test(from) && DATE_RE.test(customTo) && from <= customTo) {
-      writeUrl('custom', compareWith, from, customTo)
+      writeUrl(namespace, 'custom', compareWith, from, customTo)
     }
-  }, [compareWith, customTo])
+  }, [namespace, compareWith, customTo])
 
   const setCustomToOnly = useCallback((to: string | null) => {
     setPeriodState('custom')
     setCustomTo(to)
     if (customFrom && to && DATE_RE.test(customFrom) && DATE_RE.test(to) && customFrom <= to) {
-      writeUrl('custom', compareWith, customFrom, to)
+      writeUrl(namespace, 'custom', compareWith, customFrom, to)
     }
-  }, [compareWith, customFrom])
+  }, [namespace, compareWith, customFrom])
 
   const reset = useCallback(() => {
     setPeriodState('this_month')
     setCompareWith(null)
     setCustomFrom(null)
     setCustomTo(null)
-    writeUrl('this_month', null, null, null)
-  }, [])
+    writeUrl(namespace, 'this_month', null, null, null)
+  }, [namespace])
 
   const isDefault = period === 'this_month' && compareWith === null
 
