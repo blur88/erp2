@@ -80,7 +80,7 @@ Applied to all 5 rollout pages:
 | State | Condition | Behavior |
 |-------|-----------|----------|
 | Initial / filter change | `isLoading \|\| (isFetching && !data)` | Render `<ListSkeleton>` replacing the table |
-| Background refetch | `isFetching && data` | Keep existing table visible; apply `opacity: 0.6` + small inline `<CircularProgress size={16}>` in the table toolbar area |
+| Background refetch | `isFetching && data` | Keep existing table visible; apply `opacity: 0.6` (floor — do not go lower) + small inline `<CircularProgress size={16}>` in the table toolbar area |
 
 **Do not use:**
 - Full-screen centered spinners for list layouts
@@ -196,7 +196,7 @@ if (search) {
 
 The `customer` join (`leftJoinAndSelect('payment.customer', 'customer')`) already exists in `findAll`'s query builder. This unblocks search on the Payments FilterBar without schema changes.
 
-**Note for frontend:** When `customerId` filter value is `null`, omit the param entirely from the query string (do not send `isActive=null`). The backend `isActive` DTO param is typed as `boolean | undefined`, not nullable.
+**Note for frontend:** When `customerId` filter value is `null`, omit the param entirely from the query string (do not send `customerId=null`). The backend `customerId` DTO param is typed as `string | undefined`, not nullable. The same rule applies to all filter params in this spec — omit rather than send null/empty string.
 
 ---
 
@@ -228,8 +228,8 @@ The `customer` join (`leftJoinAndSelect('payment.customer', 'customer')`) alread
 | Advanced | — | — | none |
 
 - Search placeholder: "Search by name, email, or username..."
-- Role options: Admin, Manager, Staff, Viewer (from `UserRole` enum)
-- Status options: Active, Inactive, Suspended (from `UserStatus` enum)
+- Role options (from `UserRole` enum, backend values): Admin (`admin`), Manager (`manager`), Sales Staff (`sales_staff`), Inventory Staff (`inventory_staff`), Procurement Staff (`procurement_staff`)
+- Status options (from `UserStatus` enum, backend values): Active (`active`), Inactive (`inactive`), Suspended (`suspended`)
 - No advanced filters → "More Filters" button not rendered
 - URL param keys: `role`, `status`
 - No context presets
@@ -250,6 +250,12 @@ When `customerId` is context-preset:
 
 The `customerId` advanced filter chip must display the customer **name**, not the UUID. Use `chipFormatter` in the filter config to resolve the label from the loaded customer list.
 
+If the selected `customerId` is not yet present in the loaded options (async load in progress or stale URL), the chip renders a fallback label (the cached name from URL state, or the ID itself) until options resolve. No blank chips.
+
+### Date Param Omission
+
+When both `fromDate` and `toDate` are null (date range cleared), omit both params entirely from the query string. Do not send `paymentDate_from=&paymentDate_to=` or similar empty strings. This applies to all date range fields across all pages.
+
 ### URL Robustness
 
 Invalid URL values (deleted customer IDs, unrecognised enum values) fall back silently to the default (null/unset). No error state shown for stale URL params.
@@ -260,9 +266,12 @@ No DTOs are changed in this issue except the one-line search fix in `payment.ser
 
 ---
 
-## Out of Scope for Issue #188
+## Non-Goals (Out of Scope for Issue #188)
 
-- Loading pattern retrofit to existing pages (Products, Orders, Purchase Orders) — follow-up
+- Loading pattern retrofit to existing pages (Products, Orders, Purchase Orders) — follow-up issue
 - Saved filters, default filters per role — architectural goals noted in issue, deferred
 - Analytics/reporting filter reuse — deferred
 - URL robustness edge cases (partial date ranges, manual URL edits) — monitored, not built
+- Server-side pagination sync with filters — not addressed
+- Column-level filtering or sorting changes — not addressed
+- Any new backend DTOs or endpoints — only `payment.service.ts findAll` search fix
