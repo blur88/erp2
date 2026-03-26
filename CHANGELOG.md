@@ -1,3 +1,25 @@
+# [1.28.0](https://github.com/blur88/erp2/compare/v1.27.0...v1.28.0) (2026-03-26)
+
+
+### Bug Fixes
+
+* **filters:** restore FilterBar test scope ([92d1a0e](https://github.com/blur88/erp2/commit/92d1a0e70b2c75a54c01cdbefe0edb1391998586))
+* **inventory:** restore cancelled stock adjustment filter option ([bf8d3c2](https://github.com/blur88/erp2/commit/bf8d3c2052dcb0d6f78794d7fc19c0796b9795fc))
+* **payments:** preserve history state when presetting customer filter ([6b107ae](https://github.com/blur88/erp2/commit/6b107aecba2723aa1730c6fb4f91340790c62ba6))
+* **payments:** wire search param into findAll for payment number and customer name filtering ([c790525](https://github.com/blur88/erp2/commit/c7905253728d9eb5fcdc0fa1dd5b7cea099a2c51))
+* **users:** reset pagination before filtered user queries ([a97d4cd](https://github.com/blur88/erp2/commit/a97d4cdcce0c2b08499a9982289b871e2b9d02f4))
+
+
+### Features
+
+* **common:** add ListSkeleton component for list page loading states ([d35e143](https://github.com/blur88/erp2/commit/d35e143e447b1ff25365e01fb9a64874224095ec))
+* **customers:** migrate CustomersPage to shared FilterBar system ([274bcf9](https://github.com/blur88/erp2/commit/274bcf97e574a60ccc24a6afb631724db707044d))
+* **filters:** polish reset button hierarchy and chip row spacing ([925b956](https://github.com/blur88/erp2/commit/925b956506aba94287a4b177baed155faa8c8f4a))
+* **inventory:** migrate StockAdjustmentsPage to shared FilterBar system ([d05d6f3](https://github.com/blur88/erp2/commit/d05d6f36417f87af8d3c56d802399ebf636627f9))
+* **payments:** migrate PaymentsPage to shared FilterBar with context preset and locked chip ([d1ab165](https://github.com/blur88/erp2/commit/d1ab1657d149b9ba8e6235140da0ad5146e3087c))
+* **suppliers:** migrate SuppliersPage to shared FilterBar system ([8e2d22a](https://github.com/blur88/erp2/commit/8e2d22ac326aa472d665546dd4094ca6c3793b71))
+* **users:** migrate UserManagementPage to shared FilterBar system ([99672de](https://github.com/blur88/erp2/commit/99672de3d578ada82e7d4a16095c683e93d16345))
+
 # [1.27.0](https://github.com/blur88/erp2/compare/v1.26.0...v1.27.0) (2026-03-26)
 
 
