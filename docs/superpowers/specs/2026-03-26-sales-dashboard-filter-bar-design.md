@@ -25,12 +25,15 @@ UI only. Renders Period + Compare dropdowns in a single row. Fires `onChange` in
 State + URL sync. Owns `{ period, compareWith, from?, to? }`. Reads initial values from URL on mount (normalizing invalid state immediately). Writes back via `replaceState`. Single source of truth for custom-range validation.
 
 **`useDashboardAnalytics`** (`src/pages/sales/hooks/useDashboardAnalytics.ts`)
-Data fetching. Receives resolved filter state, calls `/sales/analytics/dashboard`, returns `{ data, isLoading, isFetching, error }`.
+Data fetching. Receives resolved filter state, calls `/sales/analytics/dashboard` (one request), returns `{ data, isLoading, isFetching, error }`.
 
 ### SalesPage simplification
 
-Remove: `fetchSalesData`, `getDateRange`, `period` useState, `previousPeriodRevenue`, `previousPeriodOrders`, all bare `api.get` calls.
-Replace with: `useDashboardFilters` + `useDashboardAnalytics`. KPI cards and `SalesTrendChart` gain optional comparison props.
+Remove: `fetchSalesData`, `getDateRange`, `period` useState, `previousPeriodRevenue`, `previousPeriodOrders`, all bare `api.get` calls for analytics and top-customers.
+
+The separate `api.get('/sales-orders', ...)` call for the Recent Orders table is **kept as-is** — it is unrelated to the analytics endpoint and is not period-scoped.
+
+Replace analytics fetching with: `useDashboardFilters` + `useDashboardAnalytics`. KPI cards and `SalesTrendChart` gain optional comparison props.
 
 ### Backend — additive changes only
 
@@ -44,12 +47,47 @@ Replace with: `useDashboardFilters` + `useDashboardAnalytics`. KPI cards and `Sa
 
 ## URL Contract
 
-| Param | Values | Default | Notes |
+The URL params used in the browser address bar are distinct from the backend DTO field names. `useDashboardFilters` is responsible for mapping between them.
+
+| URL param | Values | Default | Notes |
 |---|---|---|---|
 | `period` | `today`, `last_7_days`, `this_month`, `last_month`, `custom` | `this_month` | |
 | `compare` | `previous_period`, `last_month`, `last_year` | absent = none | `compare=none` never written to URL |
 | `from` | `YYYY-MM-DD` | — | Required when `period=custom` |
 | `to` | `YYYY-MM-DD` | — | Required when `period=custom` |
+
+**Mapping to backend query params:**
+
+The frontend maps URL state → backend DTO fields as follows when calling the API:
+
+| URL state | Backend query param | Notes |
+|---|---|---|
+| `period=today` | `startDate=YYYY-MM-DD&endDate=YYYY-MM-DD` | uses explicit dates, not `dateRange=today` enum — avoids backend timezone ambiguity in `parseDateRange` |
+| `period=last_7_days` | `startDate=...&endDate=...` | no `dateRange` enum match exists; uses explicit dates |
+| `period=this_month` | `dateRange=this_month` | uses existing enum |
+| `period=last_month` | `dateRange=last_month` | uses existing enum |
+| `period=custom` | `startDate=from&endDate=to` | explicit dates from URL |
+| `compare=previous_period` | `compareWith=previous_period` | |
+| `compare=last_month` | `compareWith=last_month` | |
+| `compare=last_year` | `compareWith=last_year` | |
+
+All periods that use explicit `startDate`/`endDate` send dates as `YYYY-MM-DD` strings. `groupBy` is always sent as a separate param (see table below). The existing `DateRange` enum (`today`, `this_month`, `last_month`, etc.) is used only where the URL `period` value has a direct enum match. `today` and `last_7_days` bypass the enum and send explicit dates to avoid any ambiguity in the backend's `parseDateRange` resolver.
+
+**Compare combinations:** All `period + compare` combinations are permitted — no UI guards are applied. When `period=last_month` and `compare=last_month`, the comparison period resolves to two months ago, which is internally consistent. No special-casing is needed.
+
+**`groupBy` mapping per period:**
+
+| Period | groupBy sent to backend |
+|---|---|
+| `today` | `day` |
+| `last_7_days` | `day` |
+| `this_month` | `day` |
+| `last_month` | `day` |
+| `custom` (≤ 31 days) | `day` |
+| `custom` (32–90 days) | `week` |
+| `custom` (> 90 days) | `month` |
+
+The same `groupBy` is used for both current and comparison period data fetches, so both series always have the same point count. The backend is responsible for producing exactly `n` points matching the `groupBy` granularity over the requested date range.
 
 **Custom range validation** (enforced in `useDashboardFilters`, not backend):
 - Valid only when both `from` and `to` are present, parseable, and `from <= to`
@@ -61,7 +99,7 @@ Replace with: `useDashboardFilters` + `useDashboardAnalytics`. KPI cards and `Sa
 - Invalid value → none
 - `compare=none` → treated as absent, normalized out on next write
 
-**Reset behavior:** removes both `period` and `compare` (and `from`/`to`) from URL, restoring defaults.
+**Reset behavior:** removes `period`, `compare`, `from`, and `to` from URL, restoring defaults.
 
 ---
 
@@ -71,7 +109,7 @@ Replace with: `useDashboardFilters` + `useDashboardAnalytics`. KPI cards and `Sa
 
 ```typescript
 class SalesAnalyticsQueryDto {
-  // ... existing fields unchanged ...
+  // ... existing fields unchanged (dateRange, startDate, endDate, groupBy, customerId, salesRepId) ...
   compareWith?: 'previous_period' | 'last_month' | 'last_year'
 }
 ```
@@ -82,10 +120,14 @@ class SalesAnalyticsQueryDto {
 class SalesAnalyticsPeriodBlockDto {
   metrics: SalesMetricsDto
   periodData: PeriodMetricDto[]
-  periodStart: string   // YYYY-MM-DD — date-only, consistent everywhere
+  @Transform(({ value }) => format(value, 'yyyy-MM-dd'))
+  periodStart: string   // YYYY-MM-DD — serialized via class-transformer @Transform, not raw Date
+  @Transform(({ value }) => format(value, 'yyyy-MM-dd'))
   periodEnd: string     // YYYY-MM-DD
 }
 ```
+
+`periodStart` and `periodEnd` are stored internally as `Date` objects but serialized to `YYYY-MM-DD` strings via `class-transformer`'s `@Transform` decorator on the way out. The existing `SalesAnalyticsResponseDto.periodStart` (a raw `Date`) is superseded by this DTO and removed from the updated response shape.
 
 ### Updated response DTO
 
@@ -100,16 +142,33 @@ class SalesAnalyticsResponseDto {
 
 ### Service data flow
 
-Always fetch in parallel:
-- `calculateSalesMetrics(start, end)` → `current.metrics`
-- `getPeriodData(start, end, groupBy)` → `current.periodData`
-- `getTopCustomers(start, end)`
-- `getTopProducts(start, end)`
+One endpoint, one request. `comparison` is computed server-side when `compareWith` is present.
 
-Additionally, when `compareWith` is set:
-- `computeComparePeriod(start, end, compareWith)` → `{ compareStart, compareEnd }`
-- `calculateSalesMetrics(compareStart, compareEnd)` → `comparison.metrics`
-- `getPeriodData(compareStart, compareEnd, groupBy)` → `comparison.periodData`
+`computeComparePeriod` receives the already-resolved `{ start, end }` Date objects (output of `parseDateRange`), not the raw DTO enum values. The service resolves concrete dates first, then passes them through.
+
+**Phase 1 — resolve dates and compute comparison window (synchronous):**
+```
+{ start, end } = parseDateRange(query.dateRange, query.startDate, query.endDate)
+{ compareStart, compareEnd } = compareWith
+  ? computeComparePeriod(start, end, compareWith)
+  : undefined
+```
+
+**Phase 2 — fetch all data in parallel:**
+```
+Promise.all([
+  calculateSalesMetrics(start, end),
+  getPeriodData(start, end, groupBy),
+  getTopCustomers(start, end),
+  getTopProducts(start, end),
+  ...(compareWith ? [
+    calculateSalesMetrics(compareStart, compareEnd),
+    getPeriodData(compareStart, compareEnd, groupBy),
+  ] : []),
+])
+```
+
+Since both periods use the same `groupBy`, the backend guarantees equal point counts in `current.periodData` and `comparison.periodData`.
 
 ### `computeComparePeriod` semantics
 
@@ -119,17 +178,18 @@ Three explicitly separated branches:
 - Window = exact day count of current range
 - `compareEnd` = day before `start`
 - `compareStart` = `compareEnd` minus (day count − 1)
-- Example: current Mar 1–Mar 31 (31 days) → previous Jan 29–Feb 28
+- Example: current Mar 1–Mar 31 (31 days) → compare Jan 29–Feb 28
 
 **`last_month`:**
-- Calendar-aligned: same start/end day, one calendar month back
-- If end day doesn't exist in target month (e.g. Mar 31 → Feb 28), clamp to last day of month
+- Subtract one calendar month from both `start` and `end` independently
+- Clamp each individually: if the resulting day doesn't exist (e.g. Mar 31 → Feb doesn't have 31 days), clamp to the last day of that month
+- Example: Jan 28–Feb 3 → Dec 28–Jan 3. Example: Mar 31–Apr 30 → Feb 28–Mar 30.
 
 **`last_year`:**
 - Calendar-aligned: same start/end date, one year back
 - Leap year edge case: Feb 29 → Feb 28
 
-All dates use `YYYY-MM-DD` format throughout — backend response, chart labels, URL params, comparison calculation.
+All dates use `YYYY-MM-DD` format throughout — backend response, frontend chart labels, URL params, comparison calculation.
 
 ### `useDashboardAnalytics` return shape
 
@@ -165,9 +225,9 @@ All dates use `YYYY-MM-DD` format throughout — backend response, chart labels,
 **Period options:** Today / Last 7 Days / This Month / Last Month / Custom Range
 **Compare options:** No Comparison / Previous Period / Same Period Last Month / Same Period Last Year
 
-Compare is **disabled** when `period=today`. Explicit product decision — `previous_period` for a single day is ambiguous; deferred.
+Compare is **disabled** when `period=today`. Explicit product decision — comparison for a single day is deferred. Note: `period=today` with `groupBy=day` produces a single data point; the line chart will render a degenerate single-point series. This is accepted behavior for this issue — no chart fallback is implemented.
 
-When `period=custom`: two `DatePicker` fields appear inline. Fetch triggers only when both `from` and `to` are valid and `from <= to`. Intermediate edits do not trigger fetch. Invalid range on blur resets to `this_month`.
+When `period=custom`: two `DatePicker` fields appear inline. Fetch triggers only when both `from` and `to` are valid and `from <= to`. Intermediate edits (mid-typing) do not trigger fetch. Invalid range on blur resets to `this_month`.
 
 ### KPI cards — comparison mode
 
@@ -182,12 +242,17 @@ Positive delta = green ▲, negative = red ▼, zero = neutral.
 
 ### Chart — comparison overlay
 
-`SalesTrendChart` accepts optional `comparisonData` series. When present:
+`SalesTrendChart` gains one new optional prop: `comparisonData?: number[]` (parallel array to existing `data: number[]`, same length).
+
+When `comparisonData` is present:
 - Second line: dashed, `alpha(primary, 0.4)`
-- Alignment is **index-based** — comparison series mapped proportionally across current range length, not date-label-matched
-- Both series always have the same point count (backend responsibility)
+- Alignment is **index-based** — point `i` in `comparisonData` corresponds to point `i` in `data`; no date-label matching
+- Both arrays are the same length (guaranteed by backend, as both use the same `groupBy`)
+- Chart tooltips show both values for the hovered index: current period value + comparison value (no comparison date label — index alignment only)
 
 ### Loading & error states
+
+All errors come from a single request (one endpoint, one response). There is no separate "compare fetch" — comparison failure means the whole request failed.
 
 | State | Behavior |
 |---|---|
@@ -195,7 +260,7 @@ Positive delta = green ▲, negative = red ▼, zero = neutral.
 | `isFetching` (filter change, data exists) | Existing data at `opacity: 0.7`, spinner in filter row |
 | Error on first load | Inline error + Retry below filter bar; KPI/chart hidden |
 | Error on refetch | Keep existing data visible; show error banner + Retry; do not blank UI |
-| Compare fetch failure | Suppress comparison overlay silently; current data shown normally |
+| `comparison` absent in response (e.g. `compareWith` not set) | Show current data only; no overlay |
 | `period=custom` invalid URL on mount | Silently normalize to `this_month`; no error shown |
 
 **Opacity:** `0.7` everywhere (standardized).
@@ -215,8 +280,9 @@ Positive delta = green ▲, negative = red ▼, zero = neutral.
 
 ## Testing Notes
 
-- `computeComparePeriod` unit tests must cover: month-boundary edge cases, leap years (Feb 29 → Feb 28), `previous_period` for ranges of 28/29/30/31 days
-- `useDashboardFilters` must be tested for mount-time normalization of invalid URLs
-- KPI delta helper must be tested for division-by-zero cases (`comparison=0`, `current=0`, `current>0`)
-- Chart alignment: verify both series have equal point count for mismatched month lengths
-- Error on refetch: verify existing data is not cleared when a subsequent fetch fails
+- `computeComparePeriod` unit tests must cover: `previous_period` for ranges of 28/29/30/31 days; `last_month` for start/end spanning a month boundary; `last_month` end-day clamping (Mar 31 → Feb 28); `last_year` Feb 29 → Feb 28
+- `useDashboardFilters` must be tested for mount-time normalization of invalid URLs: `period=custom` with missing `from`/`to`, invalid date strings, `from > to`
+- KPI delta helper must be tested for: `comparison=0, current>0` → `"New"`; `comparison=0, current=0` → `0%`; normal positive/negative cases
+- Chart: verify `comparisonData` length always equals `data` length for all period/groupBy combinations
+- Error on refetch: mock a successful first load then a failing second request; verify existing `data` is not cleared and error banner appears
+- `groupBy` mapping: verify each period value maps to the correct `groupBy` when building the API call
