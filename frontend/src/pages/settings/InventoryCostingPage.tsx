@@ -6,7 +6,6 @@ import {
   Grid,
   TextField,
   Button,
-  Divider,
   CircularProgress,
   Alert,
   MenuItem,
@@ -19,13 +18,13 @@ import * as yup from 'yup'
 import { yupResolver } from '@hookform/resolvers/yup'
 import { useNotification } from '@/hooks/useNotification'
 import {
-  useGetPriceCostingSettingsQuery,
-  useUpdatePriceCostingSettingsMutation,
+  useGetRegionalSettingsQuery,
+  useUpdateRegionalSettingsMutation,
 } from '@/store/api/settingsApi'
 import { ApiService } from '@/services/api'
 import PageHeader from '@/components/common/PageHeader'
 
-interface PriceCostingFormData {
+interface InventoryCostingFormData {
   costingMethod: string
 }
 
@@ -40,24 +39,23 @@ const COSTING_METHODS = [
   { value: 'STANDARD', label: 'Standard Cost' },
 ]
 
-const PriceCostingPage: React.FC = () => {
+const InventoryCostingPage: React.FC = () => {
   const { showSuccess, showError } = useNotification()
   const [submitting, setSubmitting] = useState(false)
   const [recalculating, setRecalculating] = useState(false)
   const [savedCostingMethod, setSavedCostingMethod] = useState<string>('')
   const [currentCostingMethod, setCurrentCostingMethod] = useState<string>('')
 
-  const { data: settingsData, isLoading: loading, error: fetchError, refetch } = useGetPriceCostingSettingsQuery()
-  const [updatePriceCostingSettings] = useUpdatePriceCostingSettingsMutation()
+  const { data: settingsData, isLoading: loading, error: fetchError, refetch } = useGetRegionalSettingsQuery()
+  const [updateRegionalSettings] = useUpdateRegionalSettingsMutation()
 
-  const { control, handleSubmit, formState: { errors }, setValue } = useForm<PriceCostingFormData>({
+  const { control, handleSubmit, formState: { errors }, setValue } = useForm<InventoryCostingFormData>({
     resolver: yupResolver(schema) as any,
     defaultValues: {
       costingMethod: 'AVERAGE',
     },
   })
 
-  // Watch costing method changes
   const watchedCostingMethod = useWatch({
     control,
     name: 'costingMethod',
@@ -70,7 +68,6 @@ const PriceCostingPage: React.FC = () => {
     }
   }, [watchedCostingMethod])
 
-  // Populate form when settings load
   useEffect(() => {
     if (settingsData) {
       const settings = settingsData as any
@@ -86,18 +83,13 @@ const PriceCostingPage: React.FC = () => {
 
   const error = fetchError ? ((fetchError as any)?.message || 'Failed to load settings') : null
 
-  const onSubmit = async (data: PriceCostingFormData) => {
+  const onSubmit = async (data: InventoryCostingFormData) => {
     try {
       setSubmitting(true)
 
-      await updatePriceCostingSettings(data).unwrap()
-
-      // Update saved costing method after successful save
+      await updateRegionalSettings(data).unwrap()
       setSavedCostingMethod(data.costingMethod)
-
       showSuccess('Inventory costing settings saved successfully.')
-
-      // Reload settings to get updated data
       refetch()
     } catch (error: any) {
       const errorMessage = error.response?.data?.message || error.message || 'Failed to save settings'
@@ -108,7 +100,6 @@ const PriceCostingPage: React.FC = () => {
   }
 
   const handleCancel = () => {
-    // Reload settings to reset form
     fetchSettings()
   }
 
@@ -119,7 +110,6 @@ const PriceCostingPage: React.FC = () => {
         '/inventory/costing/recalculate'
       )
 
-      // ApiService returns response.data directly, so result is the data itself
       const data = result as any
       if (data.errors > 0) {
         showError(
@@ -142,7 +132,6 @@ const PriceCostingPage: React.FC = () => {
     }
   }
 
-  // Loading state
   if (loading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '400px' }}>
@@ -153,9 +142,7 @@ const PriceCostingPage: React.FC = () => {
 
   return (
     <Box sx={{ p: 3 }}>
-      {/* Page Header */}
       <PageHeader title="Inventory Costing Settings" subtitle="Configure costing method and pricing rules for inventory valuation" />
-      {/* Error Alert */}
       {error && (
         <Alert severity="error" sx={{ mb: 3 }}>
           {error}
@@ -164,18 +151,13 @@ const PriceCostingPage: React.FC = () => {
       <Paper sx={{ p: 4 }}>
         <form onSubmit={handleSubmit(onSubmit)}>
           <Grid container spacing={3}>
-            {/* Costing Method Section */}
             <Grid size={12}>
               <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>
                 Costing Method
               </Typography>
             </Grid>
 
-            <Grid
-              size={{
-                xs: 12,
-                md: 6
-              }}>
+            <Grid size={{ xs: 12, md: 6 }}>
               <Controller
                 name="costingMethod"
                 control={control}
@@ -199,10 +181,8 @@ const PriceCostingPage: React.FC = () => {
               />
             </Grid>
 
-            {/* Action Buttons */}
             <Grid size={12}>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 2, mt: 2 }}>
-                {/* Recalculate Button - Left Side */}
                 <Box>
                   {currentCostingMethod !== savedCostingMethod && (
                     <Alert severity="warning" sx={{ py: 0.5, px: 2 }}>
@@ -213,7 +193,6 @@ const PriceCostingPage: React.FC = () => {
                   )}
                 </Box>
 
-                {/* Action Buttons - Right Side */}
                 <Box sx={{ display: 'flex', gap: 2 }}>
                   <Button
                     variant="outlined"
@@ -249,7 +228,7 @@ const PriceCostingPage: React.FC = () => {
         </form>
       </Paper>
     </Box>
-  );
+  )
 }
 
-export default PriceCostingPage
+export default InventoryCostingPage

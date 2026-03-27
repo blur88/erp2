@@ -5,7 +5,7 @@ import { BackupService } from './backup.service';
 import { BackupLog } from '@database/entities/backup-log.entity';
 import { BackupRetentionSettings } from '@database/entities/backup-settings.entity';
 import { CompanySettings } from '@database/entities/company-settings.entity';
-import { PriceCostingSettings } from '@database/entities/price-costing-settings.entity';
+import { RegionalSettings } from '@database/entities/regional-settings.entity';
 import { DocumentNumberSetting } from '@database/entities/document-number-settings.entity';
 import { PrintSettings } from '@database/entities/print-settings.entity';
 
@@ -59,7 +59,7 @@ describe('BackupService - settings backup', () => {
         { provide: getRepositoryToken(BackupLog), useFactory: mockRepository },
         { provide: getRepositoryToken(BackupRetentionSettings), useFactory: mockRepository },
         { provide: getRepositoryToken(CompanySettings), useFactory: mockRepository },
-        { provide: getRepositoryToken(PriceCostingSettings), useFactory: mockRepository },
+        { provide: getRepositoryToken(RegionalSettings), useFactory: mockRepository },
         { provide: getRepositoryToken(DocumentNumberSetting), useFactory: mockRepository },
         { provide: getRepositoryToken(PrintSettings), useFactory: mockRepository },
       ],
@@ -67,7 +67,7 @@ describe('BackupService - settings backup', () => {
 
     service = module.get<BackupService>(BackupService);
     companySettingsRepo = module.get(getRepositoryToken(CompanySettings));
-    priceCostingSettingsRepo = module.get(getRepositoryToken(PriceCostingSettings));
+    priceCostingSettingsRepo = module.get(getRepositoryToken(RegionalSettings));
     documentNumberSettingRepo = module.get(getRepositoryToken(DocumentNumberSetting));
     printSettingsRepo = module.get(getRepositoryToken(PrintSettings));
   });

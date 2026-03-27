@@ -32,24 +32,26 @@ export interface UpdateCompanySettingsDto {
   miscInfo?: string
 }
 
-export interface PriceCostingSettings {
+export interface RegionalSettings {
   id: string
   currency: string
   costingMethod: string
   dateFormat: string
   timeFormat: string
   numberFormat: string
+  timezone: string
   createdAt: string
   updatedAt: string
   isActive: boolean
 }
 
-export interface UpdatePriceCostingSettingsDto {
+export interface UpdateRegionalSettingsDto {
   currency?: string
   costingMethod?: string
   dateFormat?: string
   timeFormat?: string
   numberFormat?: string
+  timezone?: string
 }
 
 export interface DocumentNumberConfig {
@@ -71,7 +73,7 @@ export interface UpdateDocumentNumberSettingsDto {
 export const settingsApiSlice = createApi({
   reducerPath: 'settingsApi',
   baseQuery: axiosBaseQuery(),
-  tagTypes: ['CompanySettings', 'PriceCostingSettings', 'DocumentNumberSettings'],
+  tagTypes: ['CompanySettings', 'RegionalSettings', 'DocumentNumberSettings'],
   endpoints: (builder) => ({
     getCompanySettings: builder.query<CompanySettings, void>({
       query: () => ({ url: '/settings/company' }),
@@ -97,20 +99,20 @@ export const settingsApiSlice = createApi({
       transformResponse: normalizeSingle<CompanySettings>,
       invalidatesTags: ['CompanySettings'],
     }),
-    getPriceCostingSettings: builder.query<PriceCostingSettings, void>({
+    getRegionalSettings: builder.query<RegionalSettings, void>({
       query: () => ({ url: '/settings/price-costing' }),
-      transformResponse: normalizeSingle<PriceCostingSettings>,
-      providesTags: ['PriceCostingSettings'],
+      transformResponse: normalizeSingle<RegionalSettings>,
+      providesTags: ['RegionalSettings'],
     }),
-    updatePriceCostingSettings: builder.mutation<PriceCostingSettings, UpdatePriceCostingSettingsDto>({
+    updateRegionalSettings: builder.mutation<RegionalSettings, UpdateRegionalSettingsDto>({
       query: (data) => ({ url: '/settings/price-costing', method: 'PUT', data }),
-      transformResponse: normalizeSingle<PriceCostingSettings>,
-      invalidatesTags: ['PriceCostingSettings'],
+      transformResponse: normalizeSingle<RegionalSettings>,
+      invalidatesTags: ['RegionalSettings'],
     }),
     getDefaultCurrency: builder.query<{ currency: string }, void>({
       query: () => ({ url: '/settings/default-currency' }),
       transformResponse: normalizeSingle<{ currency: string }>,
-      providesTags: ['PriceCostingSettings'],
+      providesTags: ['RegionalSettings'],
     }),
     getDocumentNumberSettings: builder.query<DocumentNumberSettings, void>({
       query: () => ({ url: '/settings/document-numbers' }),
@@ -130,8 +132,8 @@ export const {
   useUpdateCompanySettingsMutation,
   useUploadLogoMutation,
   useDeleteLogoMutation,
-  useGetPriceCostingSettingsQuery,
-  useUpdatePriceCostingSettingsMutation,
+  useGetRegionalSettingsQuery,
+  useUpdateRegionalSettingsMutation,
   useGetDefaultCurrencyQuery,
   useGetDocumentNumberSettingsQuery,
   useUpdateDocumentNumberSettingsMutation,

@@ -26,7 +26,7 @@ import { JournalEntryLine } from '../database/entities/journal-entry-line.entity
 import { OwnerEquityTransaction } from '../database/entities/owner-equity-transaction.entity';
 import { Payment } from '../database/entities/payment.entity';
 import { PaymentMethodEntity } from '../database/entities/payment-method.entity';
-import { PriceCostingSettings } from '../database/entities/price-costing-settings.entity';
+import { RegionalSettings } from '../database/entities/regional-settings.entity';
 import { PriceList } from '../database/entities/price-list.entity';
 import { PriceListItem } from '../database/entities/price-list-item.entity';
 import { PrintSettings } from '../database/entities/print-settings.entity';
@@ -89,7 +89,7 @@ export function createDatabaseConfig(configService: ConfigService, allowDefaults
       BankReconciliation, Category, ChartOfAccount, CompanySettings, Customer,
       DocumentNumberSetting, Expense, FiscalPeriod, FundTransfer, GoodsReceivedNote, GoodsReceivedNoteItem,
       Invoice, InvoiceItem, JournalEntry, JournalEntryLine, OwnerEquityTransaction,
-      Payment, PaymentMethodEntity, PriceCostingSettings, PriceList, PriceListItem,
+      Payment, PaymentMethodEntity, RegionalSettings, PriceList, PriceListItem,
       PrintSettings, Product, PurchaseCostHistory, PurchaseOrder, PurchaseOrderItem,
       ReconciledTransaction, RefreshToken, SalesOrder, SalesOrderItem, SearchClick, SearchQuery, Settlement,
       StockAdjustment, StockAdjustmentItem, StockMovement, Supplier, User, VendorPayment,

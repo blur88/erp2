@@ -9,7 +9,7 @@ import { BackupLog } from '@database/entities/backup-log.entity';
 import { BackupSchedule } from '@database/entities/backup-schedule.entity';
 import { BackupRetentionSettings } from '@database/entities/backup-settings.entity';
 import { CompanySettings } from '@database/entities/company-settings.entity';
-import { PriceCostingSettings } from '@database/entities/price-costing-settings.entity';
+import { RegionalSettings } from '@database/entities/regional-settings.entity';
 import { DocumentNumberSetting } from '@database/entities/document-number-settings.entity';
 import { PrintSettings } from '@database/entities/print-settings.entity';
 
@@ -20,7 +20,7 @@ import { PrintSettings } from '@database/entities/print-settings.entity';
       BackupSchedule,
       BackupRetentionSettings,
       CompanySettings,
-      PriceCostingSettings,
+      RegionalSettings,
       DocumentNumberSetting,
       PrintSettings,
     ]),

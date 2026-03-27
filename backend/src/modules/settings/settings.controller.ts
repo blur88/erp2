@@ -28,8 +28,8 @@ import { SettingsService } from './settings.service';
 import {
   UpdateCompanySettingsDto,
   CompanySettingsResponseDto,
-  UpdatePriceCostingSettingsDto,
-  PriceCostingSettingsResponseDto,
+  UpdateRegionalSettingsDto,
+  RegionalSettingsResponseDto,
   UpdateDocumentNumberSettingsDto,
   DocumentNumberSettingsResponseDto,
   GenerateDocumentNumberDto,
@@ -199,12 +199,12 @@ export class SettingsController {
   @ApiResponse({
     status: 200,
     description: 'Price and costing settings retrieved successfully',
-    type: PriceCostingSettingsResponseDto,
+    type: RegionalSettingsResponseDto,
   })
-  async getPriceCostingSettings(): Promise<PriceCostingSettingsResponseDto> {
+  async getRegionalSettings(): Promise<RegionalSettingsResponseDto> {
     try {
       this.logger.log('Fetching price and costing settings');
-      return await this.settingsService.getPriceCostingSettings();
+      return await this.settingsService.getRegionalSettings();
     } catch (error) {
       this.logger.error(`Failed to get price and costing settings: ${error.message}`, error.stack);
       throw error;
@@ -223,15 +223,15 @@ export class SettingsController {
   @ApiResponse({
     status: 200,
     description: 'Price and costing settings updated successfully',
-    type: PriceCostingSettingsResponseDto,
+    type: RegionalSettingsResponseDto,
   })
   @ApiBadRequestResponse({ description: 'Invalid input data' })
-  async updatePriceCostingSettings(
-    @Body(ValidationPipe) updateDto: UpdatePriceCostingSettingsDto,
-  ): Promise<PriceCostingSettingsResponseDto> {
+  async updateRegionalSettings(
+    @Body(ValidationPipe) updateDto: UpdateRegionalSettingsDto,
+  ): Promise<RegionalSettingsResponseDto> {
     try {
       this.logger.log('Updating price and costing settings');
-      return await this.settingsService.updatePriceCostingSettings(updateDto, 'system');
+      return await this.settingsService.updateRegionalSettings(updateDto, 'system');
     } catch (error) {
       this.logger.error(`Failed to update price and costing settings: ${error.message}`, error.stack);
       throw error;

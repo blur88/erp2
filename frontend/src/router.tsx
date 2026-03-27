@@ -54,7 +54,7 @@ const PriceListReport = React.lazy(() => import('./pages/inventory/PriceListRepo
 const ProductCostReport = React.lazy(() => import('./pages/inventory/ProductCostReport'))
 
 const CompanySettingsPage = React.lazy(() => import('./pages/settings/CompanySettingsPage'))
-const PriceCostingPage = React.lazy(() => import('./pages/settings/PriceCostingPage'))
+const InventoryCostingPage = React.lazy(() => import('./pages/settings/InventoryCostingPage'))
 const RegionalSettingsPage = React.lazy(() => import('./pages/settings/RegionalSettingsPage'))
 const PrintSettingsPage = React.lazy(() => import('./pages/settings/PrintSettingsPage'))
 const DocumentNumbersPage = React.lazy(() => import('./pages/settings/DocumentNumbersPage'))
@@ -181,7 +181,7 @@ export const router = createBrowserRouter([
           { path: '/reports/sales/product-customer', element: <ProductCustomerReport />, handle: { title: 'Product Customer Report' } },
 
           { path: '/settings/company', element: <CompanySettingsPage />, handle: { title: 'Company' } },
-          { path: '/settings/price-costing', element: <PriceCostingPage />, handle: { title: 'Inventory Costing' } },
+          { path: '/settings/price-costing', element: <InventoryCostingPage />, handle: { title: 'Inventory Costing' } },
           { path: '/settings/regional', element: <RegionalSettingsPage />, handle: { title: 'Regional' } },
           { path: '/settings/price-lists', element: <PriceListsPage />, handle: { title: 'Price Lists' } },
           { path: '/settings/price-lists/:id', element: <PriceListDetailsPage />, handle: { title: 'Price List Details' } },

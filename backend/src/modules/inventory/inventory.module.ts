@@ -7,7 +7,7 @@ import { Category } from '../../database/entities/category.entity';
 import { StockMovement } from '../../database/entities/stock-movement.entity';
 import { StockAdjustment, StockAdjustmentItem } from '../../database/entities/stock-adjustment.entity';
 import { PurchaseCostHistory } from '../../database/entities/purchase-cost-history.entity';
-import { PriceCostingSettings } from '../../database/entities/price-costing-settings.entity';
+import { RegionalSettings } from '../../database/entities/regional-settings.entity';
 import { PriceList } from '../../database/entities/price-list.entity';
 import { PriceListItem } from '../../database/entities/price-list-item.entity';
 import { Customer } from '../../database/entities/customer.entity';
@@ -60,7 +60,7 @@ import { AccountingModule } from '../accounting/accounting.module';
       StockAdjustment,
       StockAdjustmentItem,
       PurchaseCostHistory,
-      PriceCostingSettings,
+      RegionalSettings,
       PriceList,
       PriceListItem,
       // Related entities for integration
