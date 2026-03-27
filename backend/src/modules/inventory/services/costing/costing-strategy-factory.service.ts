@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { PriceCostingSettings } from '../../../../database/entities/price-costing-settings.entity';
+import { RegionalSettings } from '../../../../database/entities/regional-settings.entity';
 import { IBaseCostingStrategy } from './base-costing-strategy.interface';
 import { AverageCostingStrategy } from './average-costing-strategy.service';
 import { FifoCostingStrategy } from './fifo-costing-strategy.service';
@@ -18,8 +18,8 @@ export class CostingStrategyFactory {
   private readonly strategies: Map<string, IBaseCostingStrategy>;
 
   constructor(
-    @InjectRepository(PriceCostingSettings)
-    private priceCostingSettingsRepository: Repository<PriceCostingSettings>,
+    @InjectRepository(RegionalSettings)
+    private regionalSettingsRepository: Repository<RegionalSettings>,
     private averageStrategy: AverageCostingStrategy,
     private fifoStrategy: FifoCostingStrategy,
     private lifoStrategy: LifoCostingStrategy,
@@ -39,7 +39,7 @@ export class CostingStrategyFactory {
    */
   async getActiveStrategy(): Promise<IBaseCostingStrategy> {
     try {
-      const settings = await this.priceCostingSettingsRepository.findOne({
+      const settings = await this.regionalSettingsRepository.findOne({
         where: { isActive: true },
       });
 
@@ -85,7 +85,7 @@ export class CostingStrategyFactory {
    */
   async getCurrentCostingMethod(): Promise<string> {
     try {
-      const settings = await this.priceCostingSettingsRepository.findOne({
+      const settings = await this.regionalSettingsRepository.findOne({
         where: { isActive: true },
       });
       return settings?.costingMethod || 'AVERAGE';

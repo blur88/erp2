@@ -13,7 +13,37 @@ const DATE_FORMAT_OPTIONS = [
   'MMMM DD, YYYY',
 ] as const;
 
-export class UpdatePriceCostingSettingsDto {
+export const TIMEZONE_LIST = [
+  'UTC',
+  'Asia/Kuala_Lumpur',
+  'Asia/Singapore',
+  'Asia/Jakarta',
+  'Asia/Bangkok',
+  'Asia/Manila',
+  'Asia/Hong_Kong',
+  'Asia/Shanghai',
+  'Asia/Tokyo',
+  'Asia/Seoul',
+  'Asia/Kolkata',
+  'Asia/Dubai',
+  'Asia/Riyadh',
+  'Europe/London',
+  'Europe/Paris',
+  'Europe/Berlin',
+  'Europe/Moscow',
+  'Africa/Cairo',
+  'Africa/Johannesburg',
+  'America/New_York',
+  'America/Chicago',
+  'America/Denver',
+  'America/Los_Angeles',
+  'America/Sao_Paulo',
+  'Australia/Sydney',
+  'Australia/Melbourne',
+  'Pacific/Auckland',
+] as const;
+
+export class UpdateRegionalSettingsDto {
   @ApiProperty({ description: 'Currency code (e.g., MYR, USD)', example: 'MYR', maxLength: 10 })
   @IsString()
   @IsOptional()
@@ -47,4 +77,10 @@ export class UpdatePriceCostingSettingsDto {
   @IsOptional()
   @IsIn(['1,234.56', '1234.56'])
   numberFormat?: string;
+
+  @ApiProperty({ description: 'IANA timezone identifier', example: 'Asia/Kuala_Lumpur', enum: TIMEZONE_LIST })
+  @IsString()
+  @IsOptional()
+  @IsIn(TIMEZONE_LIST)
+  timezone?: string;
 }

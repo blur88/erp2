@@ -7,7 +7,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { CompanySettings } from '../../database/entities/company-settings.entity';
-import { PriceCostingSettings } from '../../database/entities/price-costing-settings.entity';
+import { RegionalSettings } from '../../database/entities/regional-settings.entity';
 import { DocumentNumberSetting } from '../../database/entities/document-number-settings.entity';
 import { SalesOrder } from '../../database/entities/sales-order.entity';
 import { Invoice } from '../../database/entities/invoice.entity';
@@ -23,8 +23,8 @@ import { OwnerEquityTransaction } from '../../database/entities/owner-equity-tra
 import {
   UpdateCompanySettingsDto,
   CompanySettingsResponseDto,
-  UpdatePriceCostingSettingsDto,
-  PriceCostingSettingsResponseDto,
+  UpdateRegionalSettingsDto,
+  RegionalSettingsResponseDto,
   UpdateDocumentNumberSettingsDto,
   DocumentNumberSettingsResponseDto,
 } from './dto';
@@ -44,8 +44,8 @@ export class SettingsService {
   constructor(
     @InjectRepository(CompanySettings)
     private companySettingsRepository: Repository<CompanySettings>,
-    @InjectRepository(PriceCostingSettings)
-    private priceCostingSettingsRepository: Repository<PriceCostingSettings>,
+    @InjectRepository(RegionalSettings)
+    private regionalSettingsRepository: Repository<RegionalSettings>,
     @InjectRepository(DocumentNumberSetting)
     private documentNumberSettingRepository: Repository<DocumentNumberSetting>,
     @InjectRepository(SalesOrder)
@@ -272,18 +272,18 @@ export class SettingsService {
   /**
    * Get price and costing settings (creates default if not exists)
    */
-  async getPriceCostingSettings(): Promise<PriceCostingSettingsResponseDto> {
+  async getRegionalSettings(): Promise<RegionalSettingsResponseDto> {
     try {
-      let settings = await this.priceCostingSettingsRepository.findOne({
+      let settings = await this.regionalSettingsRepository.findOne({
         where: { isActive: true },
       });
 
       // Create default settings if none exist
       if (!settings) {
-        settings = await this.createDefaultPriceCostingSettings();
+        settings = await this.createDefaultRegionalSettings();
       }
 
-      return this.mapToPriceCostingResponseDto(settings);
+      return this.mapToRegionalSettingsResponseDto(settings);
     } catch (error) {
       this.logger.error(
         `Failed to get price and costing settings: ${error.message}`,
@@ -296,18 +296,18 @@ export class SettingsService {
   /**
    * Update price and costing settings
    */
-  async updatePriceCostingSettings(
-    updateDto: UpdatePriceCostingSettingsDto,
+  async updateRegionalSettings(
+    updateDto: UpdateRegionalSettingsDto,
     updatedBy = 'system',
-  ): Promise<PriceCostingSettingsResponseDto> {
+  ): Promise<RegionalSettingsResponseDto> {
     try {
-      let settings = await this.priceCostingSettingsRepository.findOne({
+      let settings = await this.regionalSettingsRepository.findOne({
         where: { isActive: true },
       });
 
       if (!settings) {
         // Create new settings if none exist
-        settings = this.priceCostingSettingsRepository.create({
+        settings = this.regionalSettingsRepository.create({
           ...updateDto,
           isActive: true,
         });
@@ -316,13 +316,13 @@ export class SettingsService {
         Object.assign(settings, updateDto);
       }
 
-      const savedSettings = await this.priceCostingSettingsRepository.save(settings);
+      const savedSettings = await this.regionalSettingsRepository.save(settings);
 
       this.logger.log(
         `Price and costing settings updated by ${updatedBy}`,
       );
 
-      return this.mapToPriceCostingResponseDto(savedSettings);
+      return this.mapToRegionalSettingsResponseDto(savedSettings);
     } catch (error) {
       this.logger.error(
         `Failed to update price and costing settings: ${error.message}`,
@@ -335,14 +335,14 @@ export class SettingsService {
   /**
    * Create default price and costing settings
    */
-  private async createDefaultPriceCostingSettings(): Promise<PriceCostingSettings> {
-    const defaultSettings = this.priceCostingSettingsRepository.create({
+  private async createDefaultRegionalSettings(): Promise<RegionalSettings> {
+    const defaultSettings = this.regionalSettingsRepository.create({
       currency: 'USD',
       costingMethod: 'AVERAGE',
       isActive: true,
     });
 
-    const savedSettings = await this.priceCostingSettingsRepository.save(defaultSettings);
+    const savedSettings = await this.regionalSettingsRepository.save(defaultSettings);
     this.logger.log('Default price and costing settings created');
 
     return savedSettings;
@@ -351,8 +351,8 @@ export class SettingsService {
   /**
    * Map entity to price costing response DTO
    */
-  private mapToPriceCostingResponseDto(settings: PriceCostingSettings): PriceCostingSettingsResponseDto {
-    return plainToInstance(PriceCostingSettingsResponseDto, settings, {
+  private mapToRegionalSettingsResponseDto(settings: RegionalSettings): RegionalSettingsResponseDto {
+    return plainToInstance(RegionalSettingsResponseDto, settings, {
       excludeExtraneousValues: true,
     });
   }
@@ -362,7 +362,7 @@ export class SettingsService {
    */
   async getDefaultCurrency(): Promise<string> {
     try {
-      const settings = await this.priceCostingSettingsRepository.findOne({
+      const settings = await this.regionalSettingsRepository.findOne({
         where: { isActive: true },
       });
 

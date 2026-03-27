@@ -5,7 +5,7 @@ import { MulterModule } from '@nestjs/platform-express';
 import { SettingsService } from './settings.service';
 import { SettingsController } from './settings.controller';
 import { CompanySettings } from '../../database/entities/company-settings.entity';
-import { PriceCostingSettings } from '../../database/entities/price-costing-settings.entity';
+import { RegionalSettings } from '../../database/entities/regional-settings.entity';
 import { DocumentNumberSetting } from '../../database/entities/document-number-settings.entity';
 import { SalesOrder } from '../../database/entities/sales-order.entity';
 import { Invoice } from '../../database/entities/invoice.entity';
@@ -33,7 +33,7 @@ import { PaymentMethodService } from './services/payment-method.service';
     // TypeORM for Settings entities and document number sync
     TypeOrmModule.forFeature([
       CompanySettings,
-      PriceCostingSettings,
+      RegionalSettings,
       DocumentNumberSetting,
       SalesOrder,
       Invoice,

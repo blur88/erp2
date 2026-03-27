@@ -196,19 +196,16 @@ const formatPercentage = (value: number | string | null | undefined, decimals = 
   return `${numericValue.toFixed(decimals)}%`
 }
 
-/**
- * Application timezone constant
- */
-const APP_TIMEZONE = 'Asia/Kuala_Lumpur'
+const getAppTimezone = (): string => localStorage.getItem('timezone') || 'Asia/Kuala_Lumpur'
 
 /**
- * Get current date in Asia/Kuala_Lumpur timezone as YYYY-MM-DD string
+ * Get current date in the selected application timezone as YYYY-MM-DD string
  * Use this instead of new Date().toISOString().split('T')[0] for form defaults
  */
 export const getCurrentDate = (): string => {
   const now = new Date()
   const options: Intl.DateTimeFormatOptions = {
-    timeZone: APP_TIMEZONE,
+    timeZone: getAppTimezone(),
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
@@ -221,13 +218,13 @@ export const getCurrentDate = (): string => {
 }
 
 /**
- * Get date N days ago in Asia/Kuala_Lumpur timezone as YYYY-MM-DD string
+ * Get date N days ago in the selected application timezone as YYYY-MM-DD string
  */
 const getDateDaysAgo = (days: number): string => {
   const date = new Date()
   date.setDate(date.getDate() - days)
   const options: Intl.DateTimeFormatOptions = {
-    timeZone: APP_TIMEZONE,
+    timeZone: getAppTimezone(),
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
