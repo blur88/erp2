@@ -8,6 +8,17 @@ import {
   Product,
   VendorPayment,
 } from '../../../database/entities';
+import { differenceInCalendarDays, subDays, subMonths, subYears } from 'date-fns';
+import {
+  PurchasingAnalyticsQueryDto,
+  PurchasingAnalyticsResponseDto,
+  PurchasingMetricsDto,
+  PurchasingPeriodDataDto,
+  PurchasingPeriodBlockDto,
+  TopSupplierDto,
+  RecentPurchaseOrderDto,
+} from '../dto/purchasing-analytics.dto';
+import { DateRange, GroupByPeriod } from '@/common/dto/analytics.dto';
 
 interface PurchaseOrderSummaryQuery {
   dateFrom?: Date;
@@ -570,5 +581,259 @@ export class PurchasingAnalyticsService {
     );
 
     return { data };
+  }
+
+  async getPurchasingAnalytics(
+    query: PurchasingAnalyticsQueryDto,
+  ): Promise<PurchasingAnalyticsResponseDto> {
+    const { startDate, endDate } = this.parsePurchasingDateRange(
+      query.dateRange,
+      query.startDate,
+      query.endDate,
+    );
+    const groupBy = query.groupBy ?? GroupByPeriod.MONTH;
+    const comparePeriod = query.compareWith
+      ? this.computePurchasingComparePeriod(startDate, endDate, query.compareWith)
+      : null;
+
+    const [metrics, periodData, topSuppliers, recentOrders] = await Promise.all([
+      this.calculatePurchasingMetrics(startDate, endDate),
+      this.getPurchasingPeriodData(startDate, endDate, groupBy),
+      this.getTopSuppliers(startDate, endDate, 5),
+      this.getRecentPurchaseOrders(5),
+    ]);
+
+    const current: PurchasingPeriodBlockDto = {
+      metrics,
+      periodData,
+      periodStart: startDate.toISOString().split('T')[0],
+      periodEnd: endDate.toISOString().split('T')[0],
+    };
+
+    let comparison: PurchasingPeriodBlockDto | undefined;
+    if (comparePeriod) {
+      const [compareMetrics, comparePeriodData] = await Promise.all([
+        this.calculatePurchasingMetrics(comparePeriod.compareStart, comparePeriod.compareEnd),
+        this.getPurchasingPeriodData(comparePeriod.compareStart, comparePeriod.compareEnd, groupBy),
+      ]);
+      comparison = {
+        metrics: compareMetrics,
+        periodData: comparePeriodData,
+        periodStart: comparePeriod.compareStart.toISOString().split('T')[0],
+        periodEnd: comparePeriod.compareEnd.toISOString().split('T')[0],
+      };
+    }
+
+    return { current, comparison, topSuppliers, recentOrders };
+  }
+
+  private async calculatePurchasingMetrics(
+    startDate: Date,
+    endDate: Date,
+  ): Promise<PurchasingMetricsDto> {
+    const [orderStats, supplierStats] = await Promise.all([
+      this.purchaseOrderRepository
+        .createQueryBuilder('po')
+        .where('po.orderDate BETWEEN :startDate AND :endDate', { startDate, endDate })
+        .andWhere('po.deletedAt IS NULL')
+        .select([
+          'COALESCE(SUM(po.totalAmount), 0) as "totalSpent"',
+          'COUNT(*) as "totalOrders"',
+          'COALESCE(AVG(po.totalAmount), 0) as "averageOrderValue"',
+        ])
+        .getRawOne(),
+      this.purchaseOrderRepository
+        .createQueryBuilder('po')
+        .where('po.orderDate BETWEEN :startDate AND :endDate', { startDate, endDate })
+        .andWhere('po.deletedAt IS NULL')
+        .select('COUNT(DISTINCT po.supplierId) as "activeSuppliers"')
+        .getRawOne(),
+    ]);
+
+    return {
+      totalSpent: parseFloat(orderStats.totalSpent) || 0,
+      totalOrders: parseInt(orderStats.totalOrders) || 0,
+      averageOrderValue: parseFloat(orderStats.averageOrderValue) || 0,
+      activeSuppliers: parseInt(supplierStats.activeSuppliers) || 0,
+    };
+  }
+
+  private async getPurchasingPeriodData(
+    startDate: Date,
+    endDate: Date,
+    groupBy: string,
+  ): Promise<PurchasingPeriodDataDto[]> {
+    let dateFormat: string;
+
+    switch (groupBy) {
+      case 'day':
+        dateFormat = 'YYYY-MM-DD';
+        break;
+      case 'week':
+        dateFormat = 'IYYY-IW';
+        break;
+      case 'quarter':
+        dateFormat = 'YYYY-"Q"Q';
+        break;
+      case 'year':
+        dateFormat = 'YYYY';
+        break;
+      default: // month
+        dateFormat = 'YYYY-MM';
+        break;
+    }
+
+    const data = await this.purchaseOrderRepository
+      .createQueryBuilder('po')
+      .where('po.orderDate BETWEEN :startDate AND :endDate', { startDate, endDate })
+      .andWhere('po.deletedAt IS NULL')
+      .select([
+        `TO_CHAR(po.orderDate, '${dateFormat}') as period`,
+        'COUNT(*) as orders',
+        'COALESCE(SUM(po.totalAmount), 0) as spent',
+      ])
+      .groupBy(`TO_CHAR(po.orderDate, '${dateFormat}')`)
+      .orderBy(`TO_CHAR(po.orderDate, '${dateFormat}')`, 'ASC')
+      .getRawMany();
+
+    return data.map((item) => ({
+      period: item.period,
+      spent: parseFloat(item.spent) || 0,
+      orders: parseInt(item.orders) || 0,
+    }));
+  }
+
+  private async getTopSuppliers(
+    startDate: Date,
+    endDate: Date,
+    limit: number,
+  ): Promise<TopSupplierDto[]> {
+    const data = await this.purchaseOrderRepository
+      .createQueryBuilder('po')
+      .leftJoin('po.supplier', 'supplier')
+      .where('po.orderDate BETWEEN :startDate AND :endDate', { startDate, endDate })
+      .andWhere('po.deletedAt IS NULL')
+      .select([
+        'supplier.id as "supplierId"',
+        'supplier.companyName as "supplierName"',
+        'COALESCE(SUM(po.totalAmount), 0) as "totalSpent"',
+        'COUNT(*) as "orderCount"',
+      ])
+      .groupBy('supplier.id')
+      .addGroupBy('supplier.companyName')
+      .orderBy('"totalSpent"', 'DESC')
+      .limit(limit)
+      .getRawMany();
+
+    return data.map((item) => ({
+      supplierId: item.supplierId,
+      supplierName: item.supplierName,
+      totalSpent: parseFloat(item.totalSpent) || 0,
+      orderCount: parseInt(item.orderCount) || 0,
+    }));
+  }
+
+  private async getRecentPurchaseOrders(limit: number): Promise<RecentPurchaseOrderDto[]> {
+    const orders = await this.purchaseOrderRepository
+      .createQueryBuilder('po')
+      .leftJoinAndSelect('po.supplier', 'supplier')
+      .where('po.deletedAt IS NULL')
+      .orderBy('po.orderDate', 'DESC')
+      .limit(limit)
+      .getMany();
+
+    return orders.map((po) => {
+      const date = po.orderDate instanceof Date ? po.orderDate : new Date(po.orderDate);
+      return {
+        orderNumber: po.orderNumber,
+        orderDate: date.toISOString().split('T')[0],
+        supplierName: po.supplier?.companyName || 'N/A',
+        totalAmount: parseFloat(po.totalAmount?.toString() || '0'),
+        status: po.isFullyReceived ? 'received' : 'pending',
+      };
+    });
+  }
+
+  private parsePurchasingDateRange(
+    dateRange?: DateRange,
+    customStartDate?: Date,
+    customEndDate?: Date,
+  ): { startDate: Date; endDate: Date } {
+    const now = new Date();
+    let startDate: Date;
+    let endDate: Date = new Date(new Date().setHours(23, 59, 59, 999));
+
+    if (customStartDate && customEndDate) {
+      const normalizedStartDate = new Date(customStartDate);
+      normalizedStartDate.setUTCHours(0, 0, 0, 0);
+      const normalizedEndDate = new Date(customEndDate);
+      normalizedEndDate.setUTCHours(23, 59, 59, 999);
+      return { startDate: normalizedStartDate, endDate: normalizedEndDate };
+    }
+
+    switch (dateRange) {
+      case DateRange.TODAY:
+        startDate = new Date(now.setHours(0, 0, 0, 0));
+        break;
+      case DateRange.THIS_WEEK:
+        startDate = new Date(now.setDate(now.getDate() - now.getDay()));
+        startDate.setHours(0, 0, 0, 0);
+        break;
+      case DateRange.THIS_MONTH:
+        startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+        break;
+      case DateRange.THIS_QUARTER: {
+        const quarter = Math.floor(now.getMonth() / 3);
+        startDate = new Date(now.getFullYear(), quarter * 3, 1);
+        break;
+      }
+      case DateRange.THIS_YEAR:
+        startDate = new Date(now.getFullYear(), 0, 1);
+        break;
+      case DateRange.LAST_WEEK:
+        startDate = new Date(now.setDate(now.getDate() - now.getDay() - 7));
+        startDate.setHours(0, 0, 0, 0);
+        endDate = new Date(now.setDate(now.getDate() - now.getDay() - 1));
+        endDate.setHours(23, 59, 59, 999);
+        break;
+      case DateRange.LAST_MONTH:
+        startDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+        endDate = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
+        break;
+      case DateRange.LAST_QUARTER: {
+        const lastQuarter = Math.floor(now.getMonth() / 3) - 1;
+        const year = lastQuarter < 0 ? now.getFullYear() - 1 : now.getFullYear();
+        const quarterStart = lastQuarter < 0 ? 3 : lastQuarter;
+        startDate = new Date(year, quarterStart * 3, 1);
+        endDate = new Date(year, quarterStart * 3 + 3, 0, 23, 59, 59, 999);
+        break;
+      }
+      case DateRange.LAST_YEAR:
+        startDate = new Date(now.getFullYear() - 1, 0, 1);
+        endDate = new Date(now.getFullYear() - 1, 11, 31, 23, 59, 59, 999);
+        break;
+      default: // THIS_MONTH
+        startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+        break;
+    }
+
+    return { startDate, endDate };
+  }
+
+  private computePurchasingComparePeriod(
+    start: Date,
+    end: Date,
+    compareWith: 'previous_period' | 'last_month' | 'last_year',
+  ): { compareStart: Date; compareEnd: Date } {
+    if (compareWith === 'previous_period') {
+      const dayCount = differenceInCalendarDays(end, start) + 1;
+      const compareEnd = subDays(start, 1);
+      const compareStart = subDays(compareEnd, dayCount - 1);
+      return { compareStart, compareEnd };
+    }
+    if (compareWith === 'last_month') {
+      return { compareStart: subMonths(start, 1), compareEnd: subMonths(end, 1) };
+    }
+    return { compareStart: subYears(start, 1), compareEnd: subYears(end, 1) };
   }
 }
