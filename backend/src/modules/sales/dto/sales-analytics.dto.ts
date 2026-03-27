@@ -12,20 +12,12 @@ import {
 import { ApiPropertyOptional, ApiProperty } from '@nestjs/swagger';
 import { format } from 'date-fns';
 import { Transform, Type } from 'class-transformer';
-//  enum removed - using fulfillment status instead
+import { DateRange, GroupByPeriod } from '@/common/dto/analytics.dto';
 
-export enum DateRange {
-  TODAY = 'today',
-  THIS_WEEK = 'this_week',
-  THIS_MONTH = 'this_month',
-  THIS_QUARTER = 'this_quarter',
-  THIS_YEAR = 'this_year',
-  LAST_WEEK = 'last_week',
-  LAST_MONTH = 'last_month',
-  LAST_QUARTER = 'last_quarter',
-  LAST_YEAR = 'last_year',
-  CUSTOM = 'custom',
-}
+// Re-export for backward compatibility
+export { DateRange, GroupByPeriod } from '@/common/dto/analytics.dto';
+
+//  enum removed - using fulfillment status instead
 
 enum MetricType {
   REVENUE = 'revenue',
@@ -33,14 +25,6 @@ enum MetricType {
   CUSTOMERS = 'customers',
   AVERAGE_ORDER_VALUE = 'average_order_value',
   CONVERSION_RATE = 'conversion_rate',
-}
-
-export enum GroupByPeriod {
-  DAY = 'day',
-  WEEK = 'week',
-  MONTH = 'month',
-  QUARTER = 'quarter',
-  YEAR = 'year',
 }
 
 export class SalesAnalyticsQueryDto {
