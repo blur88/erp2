@@ -700,6 +700,7 @@ export class InventoryAnalyticsService {
       .createQueryBuilder('product')
       .leftJoin('product.category', 'category')
       .where('product.deletedAt IS NULL')
+      .andWhere('product.isActive = :isActive', { isActive: true })
       .select([
         'COUNT(*) as "totalProducts"',
         'COALESCE(SUM(product.baseCost * product.stockQuantity), 0) as "inventoryValue"',
@@ -791,6 +792,7 @@ export class InventoryAnalyticsService {
       .createQueryBuilder('product')
       .leftJoinAndSelect('product.category', 'category')
       .where('product.deletedAt IS NULL')
+      .andWhere('product.isActive = :isActive', { isActive: true })
       .andWhere('product.stockQuantity <= :threshold', { threshold: 10 })
       .orderBy('product.stockQuantity', 'ASC')
       .limit(limit)
@@ -881,12 +883,16 @@ export class InventoryAnalyticsService {
       case DateRange.THIS_YEAR:
         startDate = new Date(now.getFullYear(), 0, 1);
         break;
-      case DateRange.LAST_WEEK:
-        startDate = new Date(now.setDate(now.getDate() - now.getDay() - 7));
+      case DateRange.LAST_WEEK: {
+        const day = now.getDay();
+        startDate = new Date(now);
+        startDate.setDate(startDate.getDate() - day - 7);
         startDate.setHours(0, 0, 0, 0);
-        endDate = new Date(now.setDate(now.getDate() - now.getDay() - 1));
+        endDate = new Date(now);
+        endDate.setDate(endDate.getDate() - day - 1);
         endDate.setHours(23, 59, 59, 999);
         break;
+      }
       case DateRange.LAST_MONTH:
         startDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
         endDate = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
