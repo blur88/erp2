@@ -636,6 +636,7 @@ export class PurchasingAnalyticsService {
         .createQueryBuilder('po')
         .where('po.orderDate BETWEEN :startDate AND :endDate', { startDate, endDate })
         .andWhere('po.deletedAt IS NULL')
+        .andWhere('po.isActive = :isActive', { isActive: true })
         .select([
           'COALESCE(SUM(po.totalAmount), 0) as "totalSpent"',
           'COUNT(*) as "totalOrders"',
@@ -646,6 +647,7 @@ export class PurchasingAnalyticsService {
         .createQueryBuilder('po')
         .where('po.orderDate BETWEEN :startDate AND :endDate', { startDate, endDate })
         .andWhere('po.deletedAt IS NULL')
+        .andWhere('po.isActive = :isActive', { isActive: true })
         .select('COUNT(DISTINCT po.supplierId) as "activeSuppliers"')
         .getRawOne(),
     ]);
@@ -687,6 +689,7 @@ export class PurchasingAnalyticsService {
       .createQueryBuilder('po')
       .where('po.orderDate BETWEEN :startDate AND :endDate', { startDate, endDate })
       .andWhere('po.deletedAt IS NULL')
+      .andWhere('po.isActive = :isActive', { isActive: true })
       .select([
         `TO_CHAR(po.orderDate, '${dateFormat}') as period`,
         'COUNT(*) as orders',
@@ -713,6 +716,7 @@ export class PurchasingAnalyticsService {
       .leftJoin('po.supplier', 'supplier')
       .where('po.orderDate BETWEEN :startDate AND :endDate', { startDate, endDate })
       .andWhere('po.deletedAt IS NULL')
+      .andWhere('po.isActive = :isActive', { isActive: true })
       .select([
         'supplier.id as "supplierId"',
         'supplier.companyName as "supplierName"',
@@ -738,6 +742,7 @@ export class PurchasingAnalyticsService {
       .createQueryBuilder('po')
       .leftJoinAndSelect('po.supplier', 'supplier')
       .where('po.deletedAt IS NULL')
+      .andWhere('po.isActive = :isActive', { isActive: true })
       .orderBy('po.orderDate', 'DESC')
       .limit(limit)
       .getMany();

@@ -319,7 +319,7 @@ const PurchasingPage: React.FC = () => {
                             </Typography>
                           </Box>
                         </Box>
-                        <Typography variant="body2" color="warning">
+                        <Typography variant="body2" color="warning.main">
                           {formatCurrency(supplier.totalSpent)}
                         </Typography>
                       </Box>
@@ -423,7 +423,7 @@ const PurchasingPage: React.FC = () => {
                           <TableCell align="right">
                             <Typography
                               variant={TYPOGRAPHY_STYLES.tableCell.primary.variant}
-                              color="warning"
+                              color="warning.main"
                               sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}
                             >
                               {formatCurrency(order.totalAmount)}
