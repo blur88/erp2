@@ -13,7 +13,9 @@ import {
   TableHead,
   TableRow,
   Chip,
-  useTheme
+  Alert,
+  Button,
+  useTheme,
 } from '@mui/material'
 import {
   Assignment as PurchasingIcon,
@@ -33,14 +35,16 @@ import {
   Title,
   Tooltip,
   Legend,
-  ArcElement
+  ArcElement,
 } from 'chart.js'
 import { Line } from 'react-chartjs-2'
 import { formatCurrency, formatDate } from '@/utils/formatters'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
 import { useNavigate } from 'react-router-dom'
-import { useGetPurchaseOrdersQuery, useGetSuppliersQuery } from '@/store/api/purchasingApi'
 import PageHeader from '@/components/common/PageHeader'
+import { DashboardFilterBar } from '@/components/dashboard/DashboardFilterBar'
+import { useDashboardFilters } from '@/hooks/useDashboardFilters'
+import { usePurchasingAnalytics } from './hooks/usePurchasingAnalytics'
 
 ChartJS.register(
   CategoryScale,
@@ -51,185 +55,117 @@ ChartJS.register(
   Title,
   Tooltip,
   Legend,
-  ArcElement
+  ArcElement,
 )
 
 const PurchasingPage: React.FC = () => {
   const theme = useTheme()
   const navigate = useNavigate()
 
-  const { data: ordersResponse, isFetching: ordersLoading } = useGetPurchaseOrdersQuery({
-    sortBy: 'orderDate',
-    sortOrder: 'DESC',
-  })
-  const { data: suppliersResponse, isFetching: suppliersLoading } = useGetSuppliersQuery({})
-  const loading = ordersLoading || suppliersLoading
+  const {
+    period,
+    compareWith,
+    customFrom,
+    customTo,
+    setPeriod,
+    setCompare,
+    setCustomRange,
+    setCustomFrom,
+    setCustomTo,
+    reset,
+    isDefault,
+    resolvedApiParams,
+  } = useDashboardFilters('purchasing')
 
-  const allOrders: any[] = ordersResponse?.data || []
-  const suppliersData: any[] = suppliersResponse?.data || []
+  const { data, isLoading, isFetching, error } = usePurchasingAnalytics(resolvedApiParams)
 
-  // Calculate top suppliers from orders
-  const supplierStats: { [key: string]: { name: string, totalSpent: number, orderCount: number } } = {}
-  allOrders.forEach((order: any) => {
-    const supplierId = order.supplier?.id
-    const supplierName = order.supplier?.companyName || 'Unknown Supplier'
-    const amount = parseFloat(order.totalAmount) || 0
-    if (supplierId) {
-      if (!supplierStats[supplierId]) {
-        supplierStats[supplierId] = { name: supplierName, totalSpent: 0, orderCount: 0 }
-      }
-      supplierStats[supplierId].totalSpent += amount
-      supplierStats[supplierId].orderCount += 1
-    }
-  })
+  const current = data?.current
+  const comparison = data?.comparison
+  const topSuppliers = data?.topSuppliers ?? []
+  const recentOrders = data?.recentOrders ?? []
 
-  const topSuppliersData = Object.entries(supplierStats)
-    .map(([id, stats]) => ({
-      supplierId: id,
-      supplierName: stats.name,
-      totalSpent: stats.totalSpent,
-      orderCount: stats.orderCount
-    }))
-    .sort((a, b) => b.totalSpent - a.totalSpent)
-    .slice(0, 5)
+  const stats = [
+    {
+      title: 'Total Spending',
+      value: formatCurrency(current?.metrics.totalSpent ?? 0),
+      icon: PurchasingIcon,
+      color: 'warning',
+      currentValue: current?.metrics.totalSpent,
+      comparisonValue: comparison?.metrics.totalSpent,
+    },
+    {
+      title: 'Purchase Orders',
+      value: String(current?.metrics.totalOrders ?? 0),
+      icon: GRNIcon,
+      color: 'info',
+      currentValue: current?.metrics.totalOrders,
+      comparisonValue: comparison?.metrics.totalOrders,
+    },
+    {
+      title: 'Active Suppliers',
+      value: String(current?.metrics.activeSuppliers ?? 0),
+      icon: SuppliersIcon,
+      color: 'secondary',
+      currentValue: current?.metrics.activeSuppliers,
+      comparisonValue: comparison?.metrics.activeSuppliers,
+    },
+    {
+      title: 'Avg Order Value',
+      value: formatCurrency(current?.metrics.averageOrderValue ?? 0),
+      icon: PaymentsIcon,
+      color: 'success',
+      currentValue: current?.metrics.averageOrderValue,
+      comparisonValue: comparison?.metrics.averageOrderValue,
+    },
+  ]
 
-  const totalSpent = allOrders.reduce((sum: number, order: any) => sum + (parseFloat(order.totalAmount) || 0), 0)
-  const totalOrders = allOrders.length
-  const avgOrderValue = totalOrders > 0 ? totalSpent / totalOrders : 0
-  const activeSuppliers = suppliersData.filter((s: any) => !s.deletedAt).length
-
-  // Generate period data for chart (last 30 days)
-  const periodData: any[] = []
-  const today = new Date()
-  const daysToShow = 30
-  for (let i = daysToShow - 1; i >= 0; i--) {
-    const date = new Date(today)
-    date.setDate(date.getDate() - i)
-    date.setHours(0, 0, 0, 0)
-    const nextDate = new Date(date)
-    nextDate.setDate(nextDate.getDate() + 1)
-    const dayOrders = allOrders.filter((order: any) => {
-      const orderDate = new Date(order.orderDate)
-      return orderDate >= date && orderDate < nextDate
-    })
-    const spent = dayOrders.reduce((sum: number, order: any) => sum + (parseFloat(order.totalAmount) || 0), 0)
-    periodData.push({ period: date.toISOString(), spent, orders: dayOrders.length })
-  }
-
-  // Growth calculations (current vs previous 30 days)
-  const thirtyDaysAgo = new Date(today)
-  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
-  const sixtyDaysAgo = new Date(today)
-  sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60)
-
-  const currentPeriodOrders = allOrders.filter((order: any) => {
-    const orderDate = new Date(order.orderDate)
-    return orderDate >= thirtyDaysAgo && orderDate <= today
-  })
-  const currentSpent = currentPeriodOrders.reduce((sum: number, order: any) => sum + (parseFloat(order.totalAmount) || 0), 0)
-  const currentOrderCount = currentPeriodOrders.length
-
-  const previousPeriodOrders = allOrders.filter((order: any) => {
-    const orderDate = new Date(order.orderDate)
-    return orderDate >= sixtyDaysAgo && orderDate < thirtyDaysAgo
-  })
-  const previousSpent = previousPeriodOrders.reduce((sum: number, order: any) => sum + (parseFloat(order.totalAmount) || 0), 0)
-  const previousOrderCount = previousPeriodOrders.length
-
-  const spentGrowth = previousSpent > 0
-    ? ((currentSpent - previousSpent) / previousSpent) * 100
-    : currentSpent > 0 ? 100 : 0
-  const ordersGrowth = previousOrderCount > 0
-    ? ((currentOrderCount - previousOrderCount) / previousOrderCount) * 100
-    : currentOrderCount > 0 ? 100 : 0
-  const suppliersGrowth = 0
-  const currentAvgOrder = currentOrderCount > 0 ? currentSpent / currentOrderCount : 0
-  const previousAvgOrder = previousOrderCount > 0 ? previousSpent / previousOrderCount : 0
-  const avgOrderGrowth = previousAvgOrder > 0
-    ? ((currentAvgOrder - previousAvgOrder) / previousAvgOrder) * 100
-    : currentAvgOrder > 0 ? 100 : 0
-
-  const purchasingData = {
-    metrics: { totalSpent, totalOrders, averageOrderValue: avgOrderValue, activeSuppliers, spentGrowth, ordersGrowth, suppliersGrowth, avgOrderGrowth },
-    recentOrders: allOrders.slice(0, 5),
-    topSuppliers: topSuppliersData,
-    periodData,
-  }
-
-  // Chart data
   const purchasingTrendData = {
-    labels: purchasingData?.periodData?.map((item: any) => {
-      const date = new Date(item.period)
-      return formatDate(date)
-    }) || [],
+    labels: current?.periodData.map((item) => item.period) ?? [],
     datasets: [
       {
         label: 'Spending',
-        data: purchasingData?.periodData?.map((item: any) => item.spent) || [],
+        data: current?.periodData.map((item) => item.spent) ?? [],
         borderColor: theme.palette.warning.main,
         backgroundColor: `${theme.palette.warning.main}20`,
-        tension: 0.4
-      }
-    ]
+        tension: 0.4,
+      },
+      ...(comparison
+        ? [
+            {
+              label: 'Comparison',
+              data: comparison.periodData.map((item) => item.spent),
+              borderColor: theme.palette.grey[400],
+              backgroundColor: `${theme.palette.grey[400]}20`,
+              borderDash: [4, 4],
+              tension: 0.4,
+            },
+          ]
+        : []),
+    ],
   }
 
   const chartOptions = {
     responsive: true,
     maintainAspectRatio: false,
     plugins: {
-      legend: {
-        position: 'top' as const,
-      }
+      legend: { position: 'top' as const },
     },
     scales: {
       y: {
         beginAtZero: true,
         ticks: {
-          callback: function(value: any) {
+          callback: function (value: any) {
             return formatCurrency(value)
-          }
-        }
-      }
-    }
+          },
+        },
+      },
+    },
   }
 
-  const stats = [
-    {
-      title: 'Total Spending',
-      value: formatCurrency(purchasingData?.metrics?.totalSpent || 0),
-      change: purchasingData?.metrics?.spentGrowth !== undefined ? `${purchasingData.metrics.spentGrowth > 0 ? '+' : ''}${purchasingData.metrics.spentGrowth.toFixed(1)}%` : '+0.0%',
-      trend: (purchasingData?.metrics?.spentGrowth || 0) >= 0 ? 'up' : 'down',
-      icon: PurchasingIcon,
-      color: 'warning'
-    },
-    {
-      title: 'Purchase Orders',
-      value: purchasingData?.metrics?.totalOrders || '0',
-      change: purchasingData?.metrics?.ordersGrowth !== undefined ? `${purchasingData.metrics.ordersGrowth > 0 ? '+' : ''}${purchasingData.metrics.ordersGrowth.toFixed(1)}%` : '+0.0%',
-      trend: (purchasingData?.metrics?.ordersGrowth || 0) >= 0 ? 'up' : 'down',
-      icon: GRNIcon,
-      color: 'info'
-    },
-    {
-      title: 'Active Suppliers',
-      value: purchasingData?.metrics?.activeSuppliers || '0',
-      change: purchasingData?.metrics?.suppliersGrowth !== undefined ? `${purchasingData.metrics.suppliersGrowth > 0 ? '+' : ''}${purchasingData.metrics.suppliersGrowth.toFixed(1)}%` : '+0.0%',
-      trend: (purchasingData?.metrics?.suppliersGrowth || 0) >= 0 ? 'up' : 'down',
-      icon: SuppliersIcon,
-      color: 'secondary'
-    },
-    {
-      title: 'Avg Order Value',
-      value: formatCurrency(purchasingData?.metrics?.averageOrderValue || 0),
-      change: purchasingData?.metrics?.avgOrderGrowth !== undefined ? `${purchasingData.metrics.avgOrderGrowth > 0 ? '+' : ''}${purchasingData.metrics.avgOrderGrowth.toFixed(1)}%` : '+0.0%',
-      trend: (purchasingData?.metrics?.avgOrderGrowth || 0) >= 0 ? 'up' : 'down',
-      icon: PaymentsIcon,
-      color: 'success'
-    }
-  ]
-
-  const recentOrders = purchasingData?.recentOrders || []
-  const topSuppliers = purchasingData?.topSuppliers || []
+  const getDeltaPercent = (current?: number, previous?: number): number | null => {
+    if (current === undefined || previous === undefined || previous === 0) return null
+    return ((current - previous) / previous) * 100
+  }
 
   return (
     <Box sx={{ p: 3 }}>
@@ -239,264 +175,293 @@ const PurchasingPage: React.FC = () => {
         subtitle="Monitor purchasing activities and manage supplier relationships"
         primaryAction={{ label: 'Create Purchase Order', onClick: () => navigate('/purchasing/orders/create') }}
       />
-      {/* Stats Cards */}
-      <Grid container spacing={3} sx={{ mb: 4 }}>
-        {stats.map((stat, index) => (
-          <Grid
-            key={index}
-            size={{
-              xs: 12,
-              sm: 6,
-              lg: 3
-            }}>
-            <Card>
-              <CardContent>
-                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-                  <Box
-                    sx={{
-                      p: 1.5,
-                      borderRadius: 2,
-                      bgcolor: `${stat.color}.light`,
-                      color: `${stat.color}.contrastText`,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                    }}
-                  >
-                    <stat.icon />
-                  </Box>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                    {stat.trend === 'up' ? (
-                      <TrendingUpIcon sx={{ fontSize: 16, color: 'success.main' }} />
-                    ) : (
-                      <TrendingDownIcon sx={{ fontSize: 16, color: 'error.main' }} />
-                    )}
-                    <Typography
-                      variant={TYPOGRAPHY_STYLES.tableCell.caption.variant}
-                      sx={{
-                        color: stat.trend === 'up' ? 'success.main' : 'error.main',
-                        fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight,
-                        fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize
-                      }}
-                    >
-                      {stat.change}
-                    </Typography>
-                  </Box>
-                </Box>
-                <Typography variant={TYPOGRAPHY_STYLES.pageHeader.variant} sx={{ fontWeight: TYPOGRAPHY_STYLES.pageHeader.fontWeight, mb: 0.5 }}>
-                  {stat.value}
-                </Typography>
-                <Typography variant={TYPOGRAPHY_STYLES.tableCell.secondary.variant} color="text.secondary">
-                  {stat.title}
-                </Typography>
-              </CardContent>
-            </Card>
-          </Grid>
-        ))}
-      </Grid>
-      {/* Charts and Analytics */}
-      <Grid container spacing={3} sx={{ mb: 4 }}>
-        <Grid
-          size={{
-            xs: 12,
-            lg: 8
-          }}>
-          <Paper sx={{ p: 3, height: 400 }}>
-            <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{ fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight, mb: 3 }}>
-              Purchasing Trend
-            </Typography>
-            <Box sx={{ height: 300 }}>
-              <Line data={purchasingTrendData} options={chartOptions} />
-            </Box>
-          </Paper>
-        </Grid>
 
-        <Grid
-          size={{
-            xs: 12,
-            lg: 4
-          }}>
-          <Paper sx={{ p: 3 }}>
-            <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{ fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight, mb: 3 }}>
-              Top Suppliers
-            </Typography>
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-              {topSuppliers.length > 0 ? topSuppliers.map((supplier: any, index: number) => (
-                <Box key={supplier.supplierId || index}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <Typography
-                        variant="h6"
+      <DashboardFilterBar
+        period={period}
+        compareWith={compareWith}
+        customFrom={customFrom}
+        customTo={customTo}
+        isFetching={isFetching}
+        isDefault={isDefault}
+        onPeriodChange={setPeriod}
+        onCompareChange={setCompare}
+        onCustomRangeChange={setCustomRange}
+        onCustomFromChange={setCustomFrom}
+        onCustomToChange={setCustomTo}
+        onReset={reset}
+      />
+
+      {error && (
+        <Alert
+          severity="error"
+          sx={{ mb: 2 }}
+          action={<Button size="small" onClick={() => window.location.reload()}>Retry</Button>}
+        >
+          Failed to load dashboard data.
+        </Alert>
+      )}
+
+      <Box sx={{ opacity: isFetching ? 0.7 : 1, transition: 'opacity 0.2s' }}>
+        {/* Stats Cards */}
+        <Grid container spacing={3} sx={{ mb: 4 }}>
+          {stats.map((stat, index) => {
+            const delta = getDeltaPercent(stat.currentValue, stat.comparisonValue)
+            return (
+              <Grid key={index} size={{ xs: 12, sm: 6, lg: 3 }}>
+                <Card>
+                  <CardContent>
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+                      <Box
                         sx={{
-                          width: 24,
-                          height: 24,
-                          borderRadius: '50%',
-                          bgcolor: index === 0 ? 'warning.main' : index === 1 ? 'secondary.main' : 'grey.400',
-                          color: 'white',
+                          p: 1.5,
+                          borderRadius: 2,
+                          bgcolor: `${stat.color}.light`,
+                          color: `${stat.color}.contrastText`,
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
-                          fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize,
-                          fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight
                         }}
                       >
-                        {index + 1}
-                      </Typography>
-                      <Box>
-                        <Typography variant={TYPOGRAPHY_STYLES.tableCell.primary.variant} sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
-                          {supplier.supplierName}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          {supplier.orderCount || 0} orders
+                        <stat.icon />
+                      </Box>
+                      {delta !== null && (
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                          {delta >= 0 ? (
+                            <TrendingUpIcon sx={{ fontSize: 16, color: 'success.main' }} />
+                          ) : (
+                            <TrendingDownIcon sx={{ fontSize: 16, color: 'error.main' }} />
+                          )}
+                          <Typography
+                            variant={TYPOGRAPHY_STYLES.tableCell.caption.variant}
+                            sx={{
+                              color: delta >= 0 ? 'success.main' : 'error.main',
+                              fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight,
+                              fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize,
+                            }}
+                          >
+                            {delta > 0 ? '+' : ''}{delta.toFixed(1)}%
+                          </Typography>
+                        </Box>
+                      )}
+                    </Box>
+                    <Typography
+                      variant={TYPOGRAPHY_STYLES.pageHeader.variant}
+                      sx={{ fontWeight: TYPOGRAPHY_STYLES.pageHeader.fontWeight, mb: 0.5 }}
+                    >
+                      {isLoading ? '—' : stat.value}
+                    </Typography>
+                    <Typography variant={TYPOGRAPHY_STYLES.tableCell.secondary.variant} color="text.secondary">
+                      {stat.title}
+                    </Typography>
+                  </CardContent>
+                </Card>
+              </Grid>
+            )
+          })}
+        </Grid>
+
+        {/* Charts and Analytics */}
+        <Grid container spacing={3} sx={{ mb: 4 }}>
+          <Grid size={{ xs: 12, lg: 8 }}>
+            <Paper sx={{ p: 3, height: 400 }}>
+              <Typography
+                variant={TYPOGRAPHY_STYLES.tableHeader.variant}
+                sx={{ fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight, mb: 3 }}
+              >
+                Purchasing Trend
+              </Typography>
+              <Box sx={{ height: 300 }}>
+                <Line data={purchasingTrendData} options={chartOptions} />
+              </Box>
+            </Paper>
+          </Grid>
+
+          <Grid size={{ xs: 12, lg: 4 }}>
+            <Paper sx={{ p: 3 }}>
+              <Typography
+                variant={TYPOGRAPHY_STYLES.tableHeader.variant}
+                sx={{ fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight, mb: 3 }}
+              >
+                Top Suppliers
+              </Typography>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                {topSuppliers.length > 0 ? (
+                  topSuppliers.map((supplier, index) => (
+                    <Box key={supplier.supplierId}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <Typography
+                            variant="h6"
+                            sx={{
+                              width: 24,
+                              height: 24,
+                              borderRadius: '50%',
+                              bgcolor: index === 0 ? 'warning.main' : index === 1 ? 'secondary.main' : 'grey.400',
+                              color: 'white',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize,
+                              fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight,
+                            }}
+                          >
+                            {index + 1}
+                          </Typography>
+                          <Box>
+                            <Typography
+                              variant={TYPOGRAPHY_STYLES.tableCell.primary.variant}
+                              sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}
+                            >
+                              {supplier.supplierName}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary">
+                              {supplier.orderCount} orders
+                            </Typography>
+                          </Box>
+                        </Box>
+                        <Typography variant="body2" color="warning.main">
+                          {formatCurrency(supplier.totalSpent)}
                         </Typography>
                       </Box>
                     </Box>
-                    <Typography variant="body2" color="warning">
-                      {formatCurrency(supplier.totalSpent || 0)}
-                    </Typography>
-                  </Box>
-                </Box>
-              )) : (
-                <Typography variant={TYPOGRAPHY_STYLES.tableCell.secondary.variant} color="text.secondary" align="center">
-                  No supplier data available
+                  ))
+                ) : (
+                  <Typography
+                    variant={TYPOGRAPHY_STYLES.tableCell.secondary.variant}
+                    color="text.secondary"
+                    align="center"
+                  >
+                    No supplier data available
+                  </Typography>
+                )}
+              </Box>
+            </Paper>
+          </Grid>
+        </Grid>
+
+        {/* Recent Orders */}
+        <Grid container spacing={3}>
+          <Grid size={12}>
+            <Paper sx={{ overflow: 'hidden' }}>
+              <Box sx={{ p: 3, borderBottom: 1, borderColor: 'divider' }}>
+                <Typography
+                  variant={TYPOGRAPHY_STYLES.tableHeader.variant}
+                  sx={{ fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight }}
+                >
+                  Recent Purchase Orders
                 </Typography>
-              )}
-            </Box>
-          </Paper>
-        </Grid>
-      </Grid>
-      {/* Recent Orders */}
-      <Grid container spacing={3}>
-        <Grid size={12}>
-          <Paper sx={{ overflow: 'hidden' }}>
-            <Box sx={{ p: 3, borderBottom: 1, borderColor: 'divider' }}>
-              <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{ fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight }}>
-                Recent Purchase Orders
-              </Typography>
-            </Box>
-            <TableContainer>
-              <Table size={TABLE_STYLES.size}>
-                <TableHead>
-                  <TableRow sx={{ '& .MuiTableCell-head': { fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight, backgroundColor: TABLE_STYLES.header.backgroundColor, py: TABLE_STYLES.header.padding.py } }}>
-                    <TableCell>
-                      <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
-                        fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
-                        color: TYPOGRAPHY_STYLES.tableHeader.color,
-                        fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
-                      }}>
-                        PO Number
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
-                        fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
-                        color: TYPOGRAPHY_STYLES.tableHeader.color,
-                        fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
-                      }}>
-                        Supplier
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
-                        fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
-                        color: TYPOGRAPHY_STYLES.tableHeader.color,
-                        fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
-                      }}>
-                        PO Date
-                      </Typography>
-                    </TableCell>
-                    <TableCell align="right">
-                      <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
-                        fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
-                        color: TYPOGRAPHY_STYLES.tableHeader.color,
-                        fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
-                      }}>
-                        Amount
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
-                        fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
-                        color: TYPOGRAPHY_STYLES.tableHeader.color,
-                        fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
-                      }}>
-                        Status
-                      </Typography>
-                    </TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {recentOrders.length > 0 ? recentOrders.map((order: any) => (
+              </Box>
+              <TableContainer>
+                <Table size={TABLE_STYLES.size}>
+                  <TableHead>
                     <TableRow
-                      key={order.id}
-                      hover
                       sx={{
-                        cursor: 'pointer',
-                        '& .MuiTableCell-root': {
-                          borderBottom: TABLE_STYLES.cell.border,
-                          py: TABLE_STYLES.cell.padding.py,
-                          px: TABLE_STYLES.cell.padding.px
+                        '& .MuiTableCell-head': {
+                          fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
+                          backgroundColor: TABLE_STYLES.header.backgroundColor,
+                          py: TABLE_STYLES.header.padding.py,
                         },
-                        height: TABLE_STYLES.row.height
                       }}
-                      onClick={() => navigate(`/purchasing/orders?poId=${order.id}`)}
                     >
-                      <TableCell>
-                        <Typography variant={TYPOGRAPHY_STYLES.tableCell.primary.variant} sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
-                          {order.orderNumber}
-                        </Typography>
-                      </TableCell>
-                      <TableCell>
-                        <Box>
-                          <Typography variant={TYPOGRAPHY_STYLES.tableCell.primary.variant} sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
-                            {order.supplier?.companyName || 'Unknown'}
+                      {['PO Number', 'Supplier', 'PO Date', 'Amount', 'Status'].map((heading) => (
+                        <TableCell key={heading} align={heading === 'Amount' ? 'right' : 'left'}>
+                          <Typography
+                            variant={TYPOGRAPHY_STYLES.tableHeader.variant}
+                            sx={{
+                              fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
+                              color: TYPOGRAPHY_STYLES.tableHeader.color,
+                              fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize,
+                            }}
+                          >
+                            {heading}
                           </Typography>
-                          <Typography variant={TYPOGRAPHY_STYLES.tableCell.caption.variant} color="text.secondary" sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize }}>
-                            {order.items?.length || 0} item{order.items?.length !== 1 ? 's' : ''}
-                          </Typography>
-                        </Box>
-                      </TableCell>
-                      <TableCell>
-                        <Typography variant={TYPOGRAPHY_STYLES.tableCell.secondary.variant} sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.secondary.fontSize }}>
-                          {order.orderDate ? formatDate(order.orderDate) : 'N/A'}
-                        </Typography>
-                      </TableCell>
-                      <TableCell align="right">
-                        <Typography variant={TYPOGRAPHY_STYLES.tableCell.primary.variant} color="warning" sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
-                          {formatCurrency(order.totalAmount)}
-                        </Typography>
-                      </TableCell>
-                      <TableCell>
-                        <Chip
-                          label={order.isFullyReceived ? 'Received' : 'Pending'}
-                          color={order.isFullyReceived ? 'success' : 'warning'}
-                          size="small"
-                          variant="outlined"
+                        </TableCell>
+                      ))}
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {recentOrders.length > 0 ? (
+                      recentOrders.map((order) => (
+                        <TableRow
+                          key={order.orderNumber}
+                          hover
                           sx={{
-                            fontSize: TYPOGRAPHY_STYLES.chip.small.fontSize,
-                            fontWeight: TYPOGRAPHY_STYLES.chip.small.fontWeight,
-                            height: TYPOGRAPHY_STYLES.chip.small.height
+                            cursor: 'pointer',
+                            '& .MuiTableCell-root': {
+                              borderBottom: TABLE_STYLES.cell.border,
+                              py: TABLE_STYLES.cell.padding.py,
+                              px: TABLE_STYLES.cell.padding.px,
+                            },
+                            height: TABLE_STYLES.row.height,
                           }}
-                        />
-                      </TableCell>
-                    </TableRow>
-                  )) : (
-                    <TableRow>
-                      <TableCell colSpan={5} align="center">
-                        <Typography variant={TYPOGRAPHY_STYLES.tableCell.secondary.variant} color="text.secondary">
-                          No recent purchase orders
-                        </Typography>
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          </Paper>
+                          onClick={() => navigate(`/purchasing/orders?poNumber=${order.orderNumber}`)}
+                        >
+                          <TableCell>
+                            <Typography
+                              variant={TYPOGRAPHY_STYLES.tableCell.primary.variant}
+                              sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}
+                            >
+                              {order.orderNumber}
+                            </Typography>
+                          </TableCell>
+                          <TableCell>
+                            <Typography
+                              variant={TYPOGRAPHY_STYLES.tableCell.primary.variant}
+                              sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}
+                            >
+                              {order.supplierName}
+                            </Typography>
+                          </TableCell>
+                          <TableCell>
+                            <Typography
+                              variant={TYPOGRAPHY_STYLES.tableCell.secondary.variant}
+                              sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.secondary.fontSize }}
+                            >
+                              {formatDate(order.orderDate)}
+                            </Typography>
+                          </TableCell>
+                          <TableCell align="right">
+                            <Typography
+                              variant={TYPOGRAPHY_STYLES.tableCell.primary.variant}
+                              color="warning.main"
+                              sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}
+                            >
+                              {formatCurrency(order.totalAmount)}
+                            </Typography>
+                          </TableCell>
+                          <TableCell>
+                            <Chip
+                              label={order.status === 'received' ? 'Received' : 'Pending'}
+                              color={order.status === 'received' ? 'success' : 'warning'}
+                              size="small"
+                              variant="outlined"
+                              sx={{
+                                fontSize: TYPOGRAPHY_STYLES.chip.small.fontSize,
+                                fontWeight: TYPOGRAPHY_STYLES.chip.small.fontWeight,
+                                height: TYPOGRAPHY_STYLES.chip.small.height,
+                              }}
+                            />
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    ) : (
+                      <TableRow>
+                        <TableCell colSpan={5} align="center">
+                          <Typography variant={TYPOGRAPHY_STYLES.tableCell.secondary.variant} color="text.secondary">
+                            No recent purchase orders
+                          </Typography>
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </Paper>
+          </Grid>
         </Grid>
-      </Grid>
+      </Box>
     </Box>
-  );
+  )
 }
 
 export default PurchasingPage
