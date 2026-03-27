@@ -177,7 +177,7 @@ const InventoryPage: React.FC = () => {
     },
     {
       title: 'Stock In',
-      value: String(current?.metrics.stockMovementsIn ?? 0),
+      value: `${current?.metrics.stockMovementsIn ?? 0} units`,
       icon: ArrowUpwardIcon,
       color: 'info',
       delta: deltaPercent(current?.metrics.stockMovementsIn, comparison?.metrics.stockMovementsIn),
@@ -185,7 +185,7 @@ const InventoryPage: React.FC = () => {
     },
     {
       title: 'Stock Out',
-      value: String(current?.metrics.stockMovementsOut ?? 0),
+      value: `${current?.metrics.stockMovementsOut ?? 0} units`,
       icon: ArrowDownwardIcon,
       color: 'warning',
       delta: deltaPercent(current?.metrics.stockMovementsOut, comparison?.metrics.stockMovementsOut),
