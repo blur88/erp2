@@ -174,6 +174,103 @@ do_jscpd() {
     --reporters console) || true
 }
 
+do_refactor_radar() {
+  echo -e "${BOLD}${YELLOW}--- REFACTOR RADAR (Smart Detection) ---${RESET}"
+  echo ""
+  # ── [1/3] State Cluster Detector ─────────────────────────────────────────
+  echo -e "${BOLD}${YELLOW}[1/3] State Cluster Detector (Frontend)${RESET}"
+  local frontend_pages="$ROOT_DIR/frontend/src/pages"
+  local state_vars=("dateFrom" "dateTo" "loading" "categories" "products" "selectedProduct" "selectedCategory")
+  local cluster_found=0
+
+  while IFS= read -r -d '' file; do
+    local hits=()
+    for var in "${state_vars[@]}"; do
+      if grep -q "useState.*${var}\|${var}.*useState\|const \[${var}" "$file" 2>/dev/null; then
+        hits+=("$var")
+      fi
+    done
+    if [[ ${#hits[@]} -ge 3 ]]; then
+      cluster_found=1
+      local rel="${file#$ROOT_DIR/frontend/src/}"
+      echo -e "  ${RED}⚠  ${rel}${RESET}"
+      echo -e "     Found: $(IFS=', '; echo "${hits[*]}")"
+      echo -e "     ${CYAN}→ Extract into useReportFilters hook${RESET}"
+      echo ""
+    fi
+  done < <(find "$frontend_pages" -name "*.tsx" -print0 2>/dev/null)
+
+  if [[ $cluster_found -eq 0 ]]; then
+    echo -e "  ${GREEN}✓  No state clusters found.${RESET}"
+  fi
+  echo ""
+
+  # ── [2/3] Audit Manualism Detector ───────────────────────────────────────
+  echo -e "${BOLD}${YELLOW}[2/3] Audit Manualism Detector (Backend)${RESET}"
+  local backend_modules="$ROOT_DIR/backend/src/modules"
+  local audit_found=0
+
+  while IFS= read -r -d '' file; do
+    # Must contain both signals to be flagged
+    if grep -q "@CurrentUser('userId')" "$file" 2>/dev/null && \
+       grep -q "currentUserId" "$file" 2>/dev/null; then
+      local count
+      count=$(grep -c "@CurrentUser('userId') currentUserId" "$file" 2>/dev/null)
+      audit_found=1
+      local rel="${file#$ROOT_DIR/backend/src/}"
+      echo -e "  ${RED}⚠  ${rel}${RESET}"
+      echo -e "     ${count} endpoint(s) pass currentUserId manually"
+      echo -e "     ${CYAN}→ Consider a @CurrentUserAudit() interceptor or shared AuditService${RESET}"
+      echo ""
+    fi
+  done < <(find "$backend_modules" -name "*.controller.ts" -print0 2>/dev/null)
+
+  if [[ $audit_found -eq 0 ]]; then
+    echo -e "  ${GREEN}✓  No audit manualism found.${RESET}"
+  fi
+  echo ""
+
+  # ── [3/3] Dependency/Bloat Detector ──────────────────────────────────────
+  echo -e "${BOLD}${YELLOW}[3/3] Dependency/Bloat Detector${RESET}"
+
+  # Frontend: >10 useState calls in a single page component
+  echo -e "  ${BOLD}Frontend bloat (>10 useState calls):${RESET}"
+  local fe_bloat_found=0
+  while IFS= read -r -d '' file; do
+    local count
+    count=$(grep -c "useState" "$file" 2>/dev/null)
+    if [[ $count -gt 10 ]]; then
+      fe_bloat_found=1
+      local rel="${file#$ROOT_DIR/frontend/src/}"
+      echo -e "    ${RED}⚠  ${rel}${RESET}"
+      echo -e "       ${count} useState calls — component may need splitting"
+    fi
+  done < <(find "$frontend_pages" -name "*.tsx" -print0 2>/dev/null)
+  if [[ $fe_bloat_found -eq 0 ]]; then
+    echo -e "    ${GREEN}✓  No issues found.${RESET}"
+  fi
+  echo ""
+
+  # Backend: >5 constructor-injected dependencies
+  echo -e "  ${BOLD}Backend bloat (>5 constructor deps):${RESET}"
+  local be_bloat_found=0
+  while IFS= read -r -d '' file; do
+    local count
+    count=$(awk '/constructor\(/{found=1} found && /private |readonly /{n++} found && /\)/{if(found){print n; n=0; found=0}}' "$file" 2>/dev/null | sort -rn | head -1)
+    count=${count:-0}
+    if [[ $count -gt 5 ]]; then
+      be_bloat_found=1
+      local rel="${file#$ROOT_DIR/backend/src/}"
+      echo -e "    ${RED}⚠  ${rel}${RESET}"
+      echo -e "       ${count} constructor dependencies — consider splitting responsibilities"
+    fi
+  done < <(find "$backend_modules" -name "*.ts" -print0 2>/dev/null)
+  if [[ $be_bloat_found -eq 0 ]]; then
+    echo -e "    ${GREEN}✓  No issues found.${RESET}"
+  fi
+  echo ""
+}
+
 STEPS=(
   "Knip (dead code / unused deps check)"
   "Outdated packages"
@@ -181,6 +278,7 @@ STEPS=(
   "Audit (security vulnerabilities)"
   "Top 5 files by line count"
   "jscpd (copy-paste detection)"
+  "Refactor Radar (Smart Detection)"
   "Docker: prune + rebuild + up"
 )
 
@@ -192,7 +290,8 @@ run_step() {
     3) do_audit ;;
     4) do_top_lines ;;
     5) do_jscpd ;;
-    6) do_docker_rebuild ;;
+    6) do_refactor_radar ;;
+    7) do_docker_rebuild ;;
   esac
 }
 
@@ -216,6 +315,7 @@ prompt_next() {
       5) echo "4" ; return ;;
       6) echo "5" ; return ;;
       7) echo "6" ; return ;;
+      8) echo "7" ; return ;;
       [Rr]) echo "$current" ; return ;;
       [Qq]) echo "-1" ; return ;;
       *) echo -e "${RED}Invalid choice.${RESET}" >&2 ;;
@@ -237,10 +337,10 @@ echo ""
 
 # Pick starting step
 while true; do
-  read -rp "$(echo -e "${BOLD}Start with (1–7): ${RESET}")" start
+  read -rp "$(echo -e "${BOLD}Start with (1–8): ${RESET}")" start
   case "$start" in
-    1|2|3|4|5|6|7) current=$((start-1)) ; break ;;
-    *) echo -e "${RED}Please enter 1–7.${RESET}" ;;
+    1|2|3|4|5|6|7|8) current=$((start-1)) ; break ;;
+    *) echo -e "${RED}Please enter 1–8.${RESET}" ;;
   esac
 done
 
