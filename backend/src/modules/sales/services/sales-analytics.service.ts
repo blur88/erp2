@@ -338,6 +338,14 @@ export class SalesAnalyticsService {
       orderQuery = orderQuery.andWhere('order.createdByUserId = :salesRepId', { salesRepId: query.salesRepId });
     }
 
+    if (query?.isFulfilled !== undefined) {
+      orderQuery = orderQuery.andWhere('order.isFulfilled = :isFulfilled', { isFulfilled: query.isFulfilled });
+    }
+
+    if (query?.paymentStatus) {
+      invoiceQuery = invoiceQuery.andWhere('invoice.status = :paymentStatus', { paymentStatus: query.paymentStatus });
+    }
+
     const [orderStats, invoiceStats, customerStats, paymentStats] = await Promise.all([
       // Order statistics (status column removed, using fulfillment status)
       orderQuery

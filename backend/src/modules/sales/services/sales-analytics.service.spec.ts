@@ -204,4 +204,83 @@ describe('SalesAnalyticsService', () => {
       expect(errors.filter((e) => e.property === 'paymentStatus')).toHaveLength(1);
     });
   });
+
+  describe('getSalesAnalytics filter propagation', () => {
+    function makeChainMock(rawOne: object = {}, rawMany: object[] = []) {
+      const chain: any = {
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        select: jest.fn().mockReturnThis(),
+        addSelect: jest.fn().mockReturnThis(),
+        leftJoin: jest.fn().mockReturnThis(),
+        groupBy: jest.fn().mockReturnThis(),
+        addGroupBy: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        limit: jest.fn().mockReturnThis(),
+        setParameters: jest.fn().mockReturnThis(),
+        getRawOne: jest.fn().mockResolvedValue({
+          totalRevenue: '0',
+          totalOrders: '0',
+          averageOrderValue: '0',
+          completedOrders: '0',
+          confirmedOrders: '0',
+          draftOrders: '0',
+          paidInvoicesAmount: '0',
+          pendingInvoicesAmount: '0',
+          overdueInvoicesAmount: '0',
+          ...rawOne,
+        }),
+        getRawMany: jest.fn().mockResolvedValue(rawMany),
+        getCount: jest.fn().mockResolvedValue(0),
+      };
+
+      return chain;
+    }
+
+    it('applies isFulfilled filter to orderQuery in calculateSalesMetrics', async () => {
+      const orderChain = makeChainMock();
+      const invoiceChain = makeChainMock();
+      const customerChain = makeChainMock();
+      const paymentChain = makeChainMock();
+
+      (service as any).salesOrderRepository.createQueryBuilder = jest.fn().mockReturnValue(orderChain);
+      (service as any).invoiceRepository.createQueryBuilder = jest.fn().mockReturnValue(invoiceChain);
+      (service as any).customerRepository.createQueryBuilder = jest.fn().mockReturnValue(customerChain);
+      (service as any).paymentRepository.createQueryBuilder = jest.fn().mockReturnValue(paymentChain);
+      (service as any).salesOrderItemRepository.createQueryBuilder = jest.fn().mockReturnValue(makeChainMock({}, []));
+
+      await service.getSalesAnalytics({
+        isFulfilled: true,
+        dateRange: undefined,
+      } as any);
+
+      expect(orderChain.andWhere).toHaveBeenCalledWith(
+        'order.isFulfilled = :isFulfilled',
+        { isFulfilled: true },
+      );
+    });
+
+    it('applies paymentStatus filter to invoiceQuery in calculateSalesMetrics', async () => {
+      const orderChain = makeChainMock();
+      const invoiceChain = makeChainMock();
+      const customerChain = makeChainMock();
+      const paymentChain = makeChainMock();
+
+      (service as any).salesOrderRepository.createQueryBuilder = jest.fn().mockReturnValue(orderChain);
+      (service as any).invoiceRepository.createQueryBuilder = jest.fn().mockReturnValue(invoiceChain);
+      (service as any).customerRepository.createQueryBuilder = jest.fn().mockReturnValue(customerChain);
+      (service as any).paymentRepository.createQueryBuilder = jest.fn().mockReturnValue(paymentChain);
+      (service as any).salesOrderItemRepository.createQueryBuilder = jest.fn().mockReturnValue(makeChainMock({}, []));
+
+      await service.getSalesAnalytics({
+        paymentStatus: 'paid' as any,
+        dateRange: undefined,
+      } as any);
+
+      expect(invoiceChain.andWhere).toHaveBeenCalledWith(
+        'invoice.status = :paymentStatus',
+        { paymentStatus: 'paid' },
+      );
+    });
+  });
 });
