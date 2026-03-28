@@ -108,7 +108,7 @@ print(f'  {bold}{\"Package\":<35} {\"Severity\":<10} {\"Via\":<30} Fix{reset}')
 print(f'  {\"-\"*35} {\"-\"*10} {\"-\"*30} {\"-\"*20}')
 for pkg, info in sorted(vulns.items(), key=lambda x: [\"critical\",\"high\",\"moderate\",\"low\",\"info\"].index(x[1].get(\"severity\",\"info\")) if x[1].get(\"severity\",\"info\") in [\"critical\",\"high\",\"moderate\",\"low\",\"info\"] else 99):
     sev  = info.get('severity', '')
-    via  = ', '.join(str(v) if isinstance(v, str) else v.get('source','?') if isinstance(v,dict) else '?' for v in info.get('via', []))[:30]
+    via  = ', '.join(str(v) if not isinstance(v, dict) else v.get('name', str(v.get('source','?'))) for v in info.get('via', []))[:30]
     fix  = info.get('fixAvailable', False)
     fix_str = 'fix available' if fix is True else (fix.get('name','') + '@' + fix.get('version','') if isinstance(fix,dict) else 'manual')
     col  = sev_color.get(sev, reset)
