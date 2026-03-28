@@ -205,7 +205,32 @@ do_refactor_radar() {
   fi
   echo ""
 
-  # detectors 2 and 3 will be added in subsequent tasks
+  # ── [2/3] Audit Manualism Detector ───────────────────────────────────────
+  echo -e "${BOLD}${YELLOW}[2/3] Audit Manualism Detector (Backend)${RESET}"
+  local backend_modules="$ROOT_DIR/backend/src/modules"
+  local audit_found=0
+
+  while IFS= read -r -d '' file; do
+    # Must contain both signals to be flagged
+    if grep -q "@CurrentUser('userId')" "$file" 2>/dev/null && \
+       grep -q "currentUserId" "$file" 2>/dev/null; then
+      local count
+      count=$(grep -c "currentUserId" "$file" 2>/dev/null || echo 0)
+      audit_found=1
+      local rel="${file#$ROOT_DIR/backend/src/}"
+      echo -e "  ${RED}⚠  ${rel}${RESET}"
+      echo -e "     ${count} endpoint(s) pass currentUserId manually"
+      echo -e "     ${CYAN}→ Consider a @CurrentUserAudit() interceptor or shared AuditService${RESET}"
+      echo ""
+    fi
+  done < <(find "$backend_modules" -name "*.controller.ts" -print0 2>/dev/null)
+
+  if [[ $audit_found -eq 0 ]]; then
+    echo -e "  ${GREEN}✓  No audit manualism found.${RESET}"
+  fi
+  echo ""
+
+  # detector 3 will be added in the next task
 }
 
 STEPS=(
