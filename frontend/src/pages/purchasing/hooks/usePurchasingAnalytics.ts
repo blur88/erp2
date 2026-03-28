@@ -88,11 +88,11 @@ export function usePurchasingAnalytics(params: PurchasingAnalyticsParams) {
   const serializedParams = useMemo(() => JSON.stringify(params), [params])
 
   useEffect(() => {
-    fetchAnalytics(params)
+    fetchAnalytics(JSON.parse(serializedParams))
     return () => {
       abortRef.current?.abort()
     }
-  }, [fetchAnalytics, params, serializedParams])
+  }, [fetchAnalytics, serializedParams])
 
   return { data, isLoading, isFetching, error }
 }
