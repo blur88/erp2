@@ -1,3 +1,11 @@
+## [1.30.2](https://github.com/blur88/erp2/compare/v1.30.1...v1.30.2) (2026-03-28)
+
+
+### Internal Changes
+
+* chore(deps): update nginx to 1.28.3 and node to 24.14.1 (security) ([](https://github.com/blur88/erp2/commit/))
+* docs: update vitest fix spec/plan with actual outcome and pre-completed work notes ([](https://github.com/blur88/erp2/commit/))
+
 ## [1.30.1](https://github.com/blur88/erp2/compare/v1.30.0...v1.30.1) (2026-03-28)
 
 
