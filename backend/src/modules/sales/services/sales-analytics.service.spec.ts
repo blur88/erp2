@@ -282,5 +282,51 @@ describe('SalesAnalyticsService', () => {
         { paymentStatus: 'paid' },
       );
     });
+
+    it('applies isFulfilled filter to getPeriodData orderQuery', async () => {
+      const orderChain = makeChainMock({}, []);
+      const invoiceChain = makeChainMock();
+      const customerChain = makeChainMock({}, []);
+      const paymentChain = makeChainMock();
+
+      (service as any).salesOrderRepository.createQueryBuilder = jest.fn().mockReturnValue(orderChain);
+      (service as any).invoiceRepository.createQueryBuilder = jest.fn().mockReturnValue(invoiceChain);
+      (service as any).customerRepository.createQueryBuilder = jest.fn().mockReturnValue(customerChain);
+      (service as any).paymentRepository.createQueryBuilder = jest.fn().mockReturnValue(paymentChain);
+      (service as any).salesOrderItemRepository.createQueryBuilder = jest.fn().mockReturnValue(makeChainMock({}, []));
+
+      await service.getSalesAnalytics({
+        isFulfilled: false,
+        dateRange: undefined,
+      } as any);
+
+      const calls = orderChain.andWhere.mock.calls.filter(
+        (args: any[]) => args[0] === 'order.isFulfilled = :isFulfilled',
+      );
+      expect(calls.length).toBeGreaterThanOrEqual(2);
+    });
+
+    it('applies isFulfilled filter to getTopCustomers orderQuery', async () => {
+      const orderChain = makeChainMock({}, []);
+      const invoiceChain = makeChainMock();
+      const customerChain = makeChainMock({}, []);
+      const paymentChain = makeChainMock();
+
+      (service as any).salesOrderRepository.createQueryBuilder = jest.fn().mockReturnValue(orderChain);
+      (service as any).invoiceRepository.createQueryBuilder = jest.fn().mockReturnValue(invoiceChain);
+      (service as any).customerRepository.createQueryBuilder = jest.fn().mockReturnValue(customerChain);
+      (service as any).paymentRepository.createQueryBuilder = jest.fn().mockReturnValue(paymentChain);
+      (service as any).salesOrderItemRepository.createQueryBuilder = jest.fn().mockReturnValue(makeChainMock({}, []));
+
+      await service.getSalesAnalytics({
+        isFulfilled: true,
+        dateRange: undefined,
+      } as any);
+
+      const orderCalls = orderChain.andWhere.mock.calls.filter(
+        (args: any[]) => args[0] === 'order.isFulfilled = :isFulfilled',
+      );
+      expect(orderCalls.length).toBeGreaterThanOrEqual(3);
+    });
   });
 });

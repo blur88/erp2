@@ -53,9 +53,9 @@ export class SalesAnalyticsService {
 
     const [metrics, periodData, topCustomers, topProducts] = await Promise.all([
       this.calculateSalesMetrics(startDate, endDate, query),
-      this.getPeriodData(startDate, endDate, groupBy),
-      this.getTopCustomers(startDate, endDate, 10),
-      this.getTopProducts(startDate, endDate, 10),
+      this.getPeriodData(startDate, endDate, groupBy, query),
+      this.getTopCustomers(startDate, endDate, 10, query),
+      this.getTopProducts(startDate, endDate, 10, query),
     ]);
 
     const current: SalesAnalyticsPeriodBlockDto = {
@@ -407,7 +407,12 @@ export class SalesAnalyticsService {
     };
   }
 
-  private async getPeriodData(startDate: Date, endDate: Date, groupBy: string): Promise<PeriodMetricDto[]> {
+  private async getPeriodData(
+    startDate: Date,
+    endDate: Date,
+    groupBy: string,
+    query?: SalesAnalyticsQueryDto,
+  ): Promise<PeriodMetricDto[]> {
     let dateFormat: string;
     let dateInterval: string;
 
@@ -434,9 +439,15 @@ export class SalesAnalyticsService {
         break;
     }
 
-    const data = await this.salesOrderRepository
+    let periodQuery = this.salesOrderRepository
       .createQueryBuilder('order')
-      .where('order.orderDate BETWEEN :startDate AND :endDate', { startDate, endDate })
+      .where('order.orderDate BETWEEN :startDate AND :endDate', { startDate, endDate });
+
+    if (query?.isFulfilled !== undefined) {
+      periodQuery = periodQuery.andWhere('order.isFulfilled = :isFulfilled', { isFulfilled: query.isFulfilled });
+    }
+
+    const data = await periodQuery
       .select([
         `TO_CHAR(order.orderDate, '${dateFormat}') as period`,
         'COUNT(*) as orders',
@@ -470,11 +481,22 @@ export class SalesAnalyticsService {
     }));
   }
 
-  private async getTopCustomers(startDate: Date, endDate: Date, limit: number): Promise<TopCustomerDto[]> {
-    const data = await this.salesOrderRepository
+  private async getTopCustomers(
+    startDate: Date,
+    endDate: Date,
+    limit: number,
+    query?: SalesAnalyticsQueryDto,
+  ): Promise<TopCustomerDto[]> {
+    let topCustomersQuery = this.salesOrderRepository
       .createQueryBuilder('order')
       .leftJoin('order.customer', 'customer')
-      .where('order.orderDate BETWEEN :startDate AND :endDate', { startDate, endDate })
+      .where('order.orderDate BETWEEN :startDate AND :endDate', { startDate, endDate });
+
+    if (query?.isFulfilled !== undefined) {
+      topCustomersQuery = topCustomersQuery.andWhere('order.isFulfilled = :isFulfilled', { isFulfilled: query.isFulfilled });
+    }
+
+    const data = await topCustomersQuery
       .select([
         'customer.id as "customerId"',
         'customer.name as "customerName"',
@@ -502,12 +524,23 @@ export class SalesAnalyticsService {
     }));
   }
 
-  private async getTopProducts(startDate: Date, endDate: Date, limit: number): Promise<TopProductDto[]> {
-    const data = await this.salesOrderItemRepository
+  private async getTopProducts(
+    startDate: Date,
+    endDate: Date,
+    limit: number,
+    query?: SalesAnalyticsQueryDto,
+  ): Promise<TopProductDto[]> {
+    let topProductsQuery = this.salesOrderItemRepository
       .createQueryBuilder('item')
       .leftJoin('item.product', 'product')
       .leftJoin('item.salesOrder', 'order')
-      .where('order.orderDate BETWEEN :startDate AND :endDate', { startDate, endDate })
+      .where('order.orderDate BETWEEN :startDate AND :endDate', { startDate, endDate });
+
+    if (query?.isFulfilled !== undefined) {
+      topProductsQuery = topProductsQuery.andWhere('order.isFulfilled = :isFulfilled', { isFulfilled: query.isFulfilled });
+    }
+
+    const data = await topProductsQuery
       .select([
         'product.id as "productId"',
         'product.barcode as "productSku"',
