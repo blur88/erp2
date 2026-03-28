@@ -177,7 +177,35 @@ do_jscpd() {
 do_refactor_radar() {
   echo -e "${BOLD}${YELLOW}--- REFACTOR RADAR (Smart Detection) ---${RESET}"
   echo ""
-  # detectors will be added in subsequent tasks
+  # ── [1/3] State Cluster Detector ─────────────────────────────────────────
+  echo -e "${BOLD}${YELLOW}[1/3] State Cluster Detector (Frontend)${RESET}"
+  local frontend_pages="$ROOT_DIR/frontend/src/pages"
+  local state_vars=("dateFrom" "dateTo" "loading" "categories" "products" "selectedProduct" "selectedCategory")
+  local cluster_found=0
+
+  while IFS= read -r -d '' file; do
+    local hits=()
+    for var in "${state_vars[@]}"; do
+      if grep -q "useState.*${var}\|${var}.*useState\|const \[${var}" "$file" 2>/dev/null; then
+        hits+=("$var")
+      fi
+    done
+    if [[ ${#hits[@]} -ge 3 ]]; then
+      cluster_found=1
+      local rel="${file#$ROOT_DIR/frontend/src/}"
+      echo -e "  ${RED}⚠  ${rel}${RESET}"
+      echo -e "     Found: $(IFS=', '; echo "${hits[*]}")"
+      echo -e "     ${CYAN}→ Extract into useReportFilters hook${RESET}"
+      echo ""
+    fi
+  done < <(find "$frontend_pages" -name "*.tsx" -print0 2>/dev/null)
+
+  if [[ $cluster_found -eq 0 ]]; then
+    echo -e "  ${GREEN}✓  No state clusters found.${RESET}"
+  fi
+  echo ""
+
+  # detectors 2 and 3 will be added in subsequent tasks
 }
 
 STEPS=(
