@@ -1,3 +1,18 @@
+# [1.30.0](https://github.com/blur88/erp2/compare/v1.29.2...v1.30.0) (2026-03-28)
+
+
+### Bug Fixes
+
+* count audit manualism by endpoint ([73fbac7](https://github.com/blur88/erp2/commit/73fbac75577b8b40460005c167d83c339b9a07c2))
+
+
+### Features
+
+* add Audit Manualism detector to Refactor Radar ([15770a4](https://github.com/blur88/erp2/commit/15770a4c5dca04d93e95270f415b1590ef2e8a17))
+* add Dependency/Bloat detector to Refactor Radar ([f3bfe89](https://github.com/blur88/erp2/commit/f3bfe8971a386d070f7e6d634fceb2a7cc35a0bb))
+* add State Cluster detector to Refactor Radar ([3ec9d01](https://github.com/blur88/erp2/commit/3ec9d013626eaf0f4e79f223816ae5e2aa436484))
+* wire Refactor Radar as Step 7 in maintain.sh (stub) ([14b59a7](https://github.com/blur88/erp2/commit/14b59a71636dcd3d334b9ea011d8bd23b38dda73))
+
 ## [1.29.2](https://github.com/blur88/erp2/compare/v1.29.1...v1.29.2) (2026-03-28)
 
 
