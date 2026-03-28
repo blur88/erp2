@@ -1,3 +1,38 @@
+# [1.29.0](https://github.com/blur88/erp2/compare/v1.28.0...v1.29.0) (2026-03-28)
+
+
+### Bug Fixes
+
+* **inventory:** add isActive filter to snapshot/low-stock queries, fix LAST_WEEK date inversion ([6139a92](https://github.com/blur88/erp2/commit/6139a92d5068baf57399bc63b9742f21a6468feb))
+* **inventory:** address code review important issues ([0d2d8fb](https://github.com/blur88/erp2/commit/0d2d8fba96463e03719761ed7147969ee8db2432))
+* **purchasing:** add isActive filter to dashboard queries, fix MUI color token ([9bb6140](https://github.com/blur88/erp2/commit/9bb6140a2cf3e6ea8be3ab14fe5570968c3b53dd))
+* **sales:** align overview dates with regional settings ([5e40679](https://github.com/blur88/erp2/commit/5e40679db746b1ed14d498801a0d31f06927e9ff))
+* **sales:** honor sales overview date filters ([99cb622](https://github.com/blur88/erp2/commit/99cb6221807b6212fd232ab05825046a96adf1fd))
+
+
+### Features
+
+* **inventory:** add GET /inventory/analytics/dashboard endpoint ([c9c40e2](https://github.com/blur88/erp2/commit/c9c40e280876ed1be52a993d1e6310c42283026d))
+* **inventory:** add getInventoryDashboardAnalytics to InventoryAnalyticsService ([197ff30](https://github.com/blur88/erp2/commit/197ff3005fdc326e4a430da0822e4a483e16c778))
+* **inventory:** add InventoryAnalytics DTOs ([396922c](https://github.com/blur88/erp2/commit/396922c20cf5c0d3124d7b85601ff1a6dea1214b))
+* **inventory:** add useInventoryAnalytics hook ([cae92ce](https://github.com/blur88/erp2/commit/cae92ce41ac04c2e29fe623fa6498ee9b4afc5c4))
+* **inventory:** wire DashboardFilterBar and useInventoryAnalytics into InventoryPage ([4b641f0](https://github.com/blur88/erp2/commit/4b641f08e5c4b86794e2c7fa8db65af44dbd20bf))
+* **purchasing:** add GET /purchasing/analytics/dashboard endpoint ([c34ee14](https://github.com/blur88/erp2/commit/c34ee14b8f9266ac46c785bee175709a0de40757))
+* **purchasing:** add getPurchasingAnalytics service method ([d869d32](https://github.com/blur88/erp2/commit/d869d329a6316e21b63525b3bd66951b8a14fcb3))
+* **purchasing:** add PurchasingAnalyticsQueryDto and response DTOs ([b22dde0](https://github.com/blur88/erp2/commit/b22dde0c61a0b11f406e3e705564cbf30d6d44a1))
+* **purchasing:** add usePurchasingAnalytics hook ([a1968bb](https://github.com/blur88/erp2/commit/a1968bbea30fa93403f6350ddc40a5e573fb9633))
+* **purchasing:** integrate DashboardFilterBar and usePurchasingAnalytics hook ([8206ebc](https://github.com/blur88/erp2/commit/8206ebca1e1736530462d0a37e65af589928493c))
+* **sales:** add compareWith query param to dashboard endpoint ([6120881](https://github.com/blur88/erp2/commit/61208818931a1d6ce6ec1db207e9edfa344ed89e))
+* **sales:** add comparison delta display to SalesStatsCards ([3677e7a](https://github.com/blur88/erp2/commit/3677e7a61f4246a6555ed71409d0085fdced35dd))
+* **sales:** add comparison overlay to SalesTrendChart ([5bd00e7](https://github.com/blur88/erp2/commit/5bd00e7ab7cdacb5242582f8b8cb20121dfc2dd9))
+* **sales:** add computeComparePeriod and restructure getSalesAnalytics response ([310759a](https://github.com/blur88/erp2/commit/310759a34ff71b7d090981d9b5c1aba61e8d471b))
+* **sales:** add DashboardFilterBar component ([1c24e23](https://github.com/blur88/erp2/commit/1c24e23041014d8d1032f555ecf47eab2ecb0fd9))
+* **sales:** add useDashboardAnalytics hook with loading state separation ([4a4887c](https://github.com/blur88/erp2/commit/4a4887c12db8e5f5f7222af2f48fef815a87d607))
+* **sales:** add useDashboardFilters hook with URL sync and validation ([a2fec11](https://github.com/blur88/erp2/commit/a2fec11b03e16a5341ba2776c7d58d1317a0f0cb))
+* **sales:** restructure analytics DTO for comparison support ([61d82cc](https://github.com/blur88/erp2/commit/61d82cc8d029058e771fdc5267560d578843749c))
+* **sales:** wire up DashboardFilterBar, useDashboardFilters, useDashboardAnalytics in SalesPage ([01f0567](https://github.com/blur88/erp2/commit/01f0567b8b48f01a467974752780e5592a53ff7a))
+* **settings:** add timezone support and rename regional settings ([fd4a692](https://github.com/blur88/erp2/commit/fd4a69214f6931ca26311192225caf26cd3b3a2d))
+
 # [1.28.0](https://github.com/blur88/erp2/compare/v1.27.0...v1.28.0) (2026-03-26)
 
 
