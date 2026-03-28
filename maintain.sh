@@ -215,7 +215,7 @@ do_refactor_radar() {
     if grep -q "@CurrentUser('userId')" "$file" 2>/dev/null && \
        grep -q "currentUserId" "$file" 2>/dev/null; then
       local count
-      count=$(grep -c "currentUserId" "$file" 2>/dev/null || echo 0)
+      count=$(grep -c "@CurrentUser('userId') currentUserId" "$file" 2>/dev/null)
       audit_found=1
       local rel="${file#$ROOT_DIR/backend/src/}"
       echo -e "  ${RED}⚠  ${rel}${RESET}"
