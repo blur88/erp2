@@ -1,3 +1,10 @@
+## [1.30.1](https://github.com/blur88/erp2/compare/v1.30.0...v1.30.1) (2026-03-28)
+
+
+### Performance Improvements
+
+* **test:** re-enable 2 vitest workers, reduce heap to 1536 MB (closes [#198](https://github.com/blur88/erp2/issues/198)) ([94ffd76](https://github.com/blur88/erp2/commit/94ffd76f2700e41fca20b25500852bd892dee818))
+
 # [1.30.0](https://github.com/blur88/erp2/compare/v1.29.2...v1.30.0) (2026-03-28)
 
 
