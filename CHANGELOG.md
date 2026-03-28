@@ -1,3 +1,10 @@
+## [1.30.3](https://github.com/blur88/erp2/compare/v1.30.2...v1.30.3) (2026-03-28)
+
+
+### Bug Fixes
+
+* **deps:** patch path-to-regexp ReDoS via override (closes [#205](https://github.com/blur88/erp2/issues/205)) ([a10dd4f](https://github.com/blur88/erp2/commit/a10dd4fb96f9a9d8c40d78442b92802ac8df5ddf))
+
 ## [1.30.2](https://github.com/blur88/erp2/compare/v1.30.1...v1.30.2) (2026-03-28)
 
 
