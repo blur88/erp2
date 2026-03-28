@@ -230,7 +230,45 @@ do_refactor_radar() {
   fi
   echo ""
 
-  # detector 3 will be added in the next task
+  # ── [3/3] Dependency/Bloat Detector ──────────────────────────────────────
+  echo -e "${BOLD}${YELLOW}[3/3] Dependency/Bloat Detector${RESET}"
+
+  # Frontend: >10 useState calls in a single page component
+  echo -e "  ${BOLD}Frontend bloat (>10 useState calls):${RESET}"
+  local fe_bloat_found=0
+  while IFS= read -r -d '' file; do
+    local count
+    count=$(grep -c "useState" "$file" 2>/dev/null)
+    if [[ $count -gt 10 ]]; then
+      fe_bloat_found=1
+      local rel="${file#$ROOT_DIR/frontend/src/}"
+      echo -e "    ${RED}⚠  ${rel}${RESET}"
+      echo -e "       ${count} useState calls — component may need splitting"
+    fi
+  done < <(find "$frontend_pages" -name "*.tsx" -print0 2>/dev/null)
+  if [[ $fe_bloat_found -eq 0 ]]; then
+    echo -e "    ${GREEN}✓  No issues found.${RESET}"
+  fi
+  echo ""
+
+  # Backend: >5 constructor-injected dependencies
+  echo -e "  ${BOLD}Backend bloat (>5 constructor deps):${RESET}"
+  local be_bloat_found=0
+  while IFS= read -r -d '' file; do
+    local count
+    count=$(awk '/constructor\(/{found=1} found && /private |readonly /{n++} found && /\)/{if(found){print n; n=0; found=0}}' "$file" 2>/dev/null | sort -rn | head -1)
+    count=${count:-0}
+    if [[ $count -gt 5 ]]; then
+      be_bloat_found=1
+      local rel="${file#$ROOT_DIR/backend/src/}"
+      echo -e "    ${RED}⚠  ${rel}${RESET}"
+      echo -e "       ${count} constructor dependencies — consider splitting responsibilities"
+    fi
+  done < <(find "$backend_modules" -name "*.ts" -print0 2>/dev/null)
+  if [[ $be_bloat_found -eq 0 ]]; then
+    echo -e "    ${GREEN}✓  No issues found.${RESET}"
+  fi
+  echo ""
 }
 
 STEPS=(
