@@ -1,3 +1,10 @@
+## [1.29.2](https://github.com/blur88/erp2/compare/v1.29.1...v1.29.2) (2026-03-28)
+
+
+### Internal Changes
+
+* refactor: update vulnerability source parsing to prioritize name over source in maintain.sh ([](https://github.com/blur88/erp2/commit/))
+
 ## [1.29.1](https://github.com/blur88/erp2/compare/v1.29.0...v1.29.1) (2026-03-28)
 
 
