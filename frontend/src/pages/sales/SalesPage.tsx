@@ -28,6 +28,7 @@ import PageHeader from '@/components/common/PageHeader'
 import { DashboardFilterBar } from '@/components/dashboard/DashboardFilterBar'
 import { useNavigate } from 'react-router-dom'
 import api from '@/services/api'
+import { useGetCustomersQuery } from '@/store/api/salesApi'
 import { SalesStatsCards, SalesTrendChart, TopProductsList, TopCustomersList } from './components'
 import type { StatItem } from './components'
 import { useDashboardFilters } from '@/hooks/useDashboardFilters'
@@ -51,7 +52,20 @@ const SalesPage: React.FC = () => {
     reset,
     isDefault,
     resolvedApiParams,
+    customerId,
+    isFulfilled,
+    paymentStatus,
+    setCustomerId,
+    setFulfilled,
+    setPaymentStatus,
   } = useDashboardFilters('sales')
+
+  // Assumes small customer count (<50). If this grows, replace with an autocomplete + search endpoint.
+  const { data: customersData } = useGetCustomersQuery({})
+  const customerOptions = (customersData?.data ?? []).map((customer: { id: string; name: string }) => ({
+    id: customer.id,
+    name: customer.name,
+  }))
 
   const { data, isLoading, isFetching, error } = useDashboardAnalytics(resolvedApiParams)
 
@@ -155,6 +169,13 @@ const SalesPage: React.FC = () => {
         onCustomFromChange={setCustomFrom}
         onCustomToChange={setCustomTo}
         onReset={reset}
+        customers={customerOptions}
+        customerId={customerId}
+        onCustomerChange={setCustomerId}
+        isFulfilled={isFulfilled}
+        onFulfilledChange={setFulfilled}
+        paymentStatus={paymentStatus}
+        onPaymentStatusChange={setPaymentStatus}
       />
 
       {error && (

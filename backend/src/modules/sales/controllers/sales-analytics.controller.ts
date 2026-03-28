@@ -25,6 +25,7 @@ import {
   DateRange,
   GroupByPeriod,
 } from '../dto/sales-analytics.dto';
+import { InvoiceStatus } from '../../../database/entities/invoice.entity';
 
 @ApiTags('Sales Analytics')
 @Controller('sales/analytics')
@@ -45,6 +46,8 @@ export class SalesAnalyticsController {
     enum: ['previous_period', 'last_month', 'last_year'],
     description: 'Comparison period for delta metrics',
   })
+  @ApiQuery({ name: 'isFulfilled', required: false, description: 'Filter by fulfillment status (true/false)' })
+  @ApiQuery({ name: 'paymentStatus', required: false, enum: InvoiceStatus, description: 'Filter by invoice payment status' })
   @ApiResponse({
     status: 200,
     description: 'Sales analytics retrieved successfully',

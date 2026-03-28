@@ -40,6 +40,9 @@ export interface DashboardAnalyticsParams {
   endDate?: string
   groupBy?: string
   compareWith?: string
+  customerId?: string
+  isFulfilled?: boolean
+  paymentStatus?: string
 }
 
 export function useDashboardAnalytics(params: DashboardAnalyticsParams) {
@@ -80,12 +83,12 @@ export function useDashboardAnalytics(params: DashboardAnalyticsParams) {
   const serializedParams = useMemo(() => JSON.stringify(params), [params])
 
   useEffect(() => {
-    fetchAnalytics(params)
+    fetchAnalytics(JSON.parse(serializedParams))
 
     return () => {
       abortRef.current?.abort()
     }
-  }, [fetchAnalytics, params, serializedParams])
+  }, [fetchAnalytics, serializedParams])
 
   return { data, isLoading, isFetching, error }
 }
