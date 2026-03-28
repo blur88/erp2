@@ -1,3 +1,10 @@
+## [1.30.4](https://github.com/blur88/erp2/compare/v1.30.3...v1.30.4) (2026-03-28)
+
+
+### Bug Fixes
+
+* **deps:** patch picomatch ReDoS via override in backend (closes [#209](https://github.com/blur88/erp2/issues/209)) ([ec07402](https://github.com/blur88/erp2/commit/ec07402e021f7d1b497a427f3236a59d90b3d64c))
+
 ## [1.30.3](https://github.com/blur88/erp2/compare/v1.30.2...v1.30.3) (2026-03-28)
 
 
