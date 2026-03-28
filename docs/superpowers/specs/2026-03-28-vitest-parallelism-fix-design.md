@@ -63,7 +63,7 @@ afterEach(() => {
 ## Architecture
 
 - No new files, no new dependencies
-- Changes confined to `vite.config.ts` and 4 test files
+- Changes confined to `vite.config.ts` (and `viteModeConfig.test.ts` to update the outdated assertion)
 - MSW setup unchanged — already worker-safe
 
 ---
@@ -75,6 +75,12 @@ afterEach(() => {
 3. Total runtime drops from ~7–10 min to ~3–5 min
 
 If a specific test still flakes with 2 workers, investigate and fix that test in isolation — do not reduce `maxWorkers` globally.
+
+## Outcome (2026-03-28)
+
+Criteria 1 and 2 met: 93 files / 568 tests passed across 3 consecutive runs (629s, 633s, 687s).
+
+Criterion 3 not met: actual runtime ~10-11 min, slightly above the original 7-10 min baseline. The 3–5 min target was over-optimistic — on a 4-core machine with heavy jsdom overhead, 2 workers don't yield a proportional speedup due to CPU contention. The primary goal (stable parallelism, no agent-killing hangs) was achieved. Further runtime reduction would require sharding or reducing jsdom test count.
 
 ---
 

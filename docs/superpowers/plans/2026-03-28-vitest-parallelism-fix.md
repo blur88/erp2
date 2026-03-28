@@ -4,7 +4,7 @@
 
 **Goal:** Re-enable parallel Vitest execution with 2 workers to reduce frontend test runtime from ~7-10 min to ~3-5 min.
 
-**Architecture:** Timer isolation in all affected test files (`Sidebar.test.tsx`, `SearchModal.test.tsx`) is already correctly scoped in `beforeEach`/`afterEach`. The only change needed is in `vite.config.ts`: bump `maxWorkers` to 2 and lower the heap allocation from 4096 MB (preemptive) to 1536 MB (safe for 2 workers on 9.7 GB RAM).
+**Architecture:** Timer isolation in all affected test files (`Sidebar.test.tsx`, `SearchModal.test.tsx`) is already correctly scoped in `beforeEach`/`afterEach` — this was completed in prior commit `3a5345d2d` and requires no new work. The only change needed is in `vite.config.ts`: bump `maxWorkers` to 2 and lower the heap allocation from 4096 MB (preemptive) to 1536 MB (safe for 2 workers on 9.7 GB RAM).
 
 **Tech Stack:** Vitest 4.0.18, jsdom, React Testing Library, MSW
 
