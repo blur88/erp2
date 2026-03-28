@@ -1,3 +1,21 @@
+# [1.31.0](https://github.com/blur88/erp2/compare/v1.30.4...v1.31.0) (2026-03-28)
+
+
+### Bug Fixes
+
+* **sales:** address code review issues for sales overview filters ([ba74cd4](https://github.com/blur88/erp2/commit/ba74cd47b8b769dc45986674e0a78a37e0cbf320))
+
+
+### Features
+
+* **sales:** add Customer, Order Status, Payment Status selects to DashboardFilterBar ([5b77f45](https://github.com/blur88/erp2/commit/5b77f4544ed3844adc3ecb659e86fbc8f64979d8))
+* **sales:** add customerId, isFulfilled, paymentStatus to useDashboardFilters ([cd0559f](https://github.com/blur88/erp2/commit/cd0559f637e823a03faaa615d36bc0696c3ef01a))
+* **sales:** add isFulfilled and paymentStatus to SalesAnalyticsQueryDto ([4ceea1c](https://github.com/blur88/erp2/commit/4ceea1c9c01c79204e88efad252b15e5da7d9037))
+* **sales:** apply isFulfilled and paymentStatus filters in calculateSalesMetrics ([4a1cf18](https://github.com/blur88/erp2/commit/4a1cf188e99f7e562981899b892b3f05c1b81c7a))
+* **sales:** extend DashboardAnalyticsParams with customerId, isFulfilled, paymentStatus ([0b7589e](https://github.com/blur88/erp2/commit/0b7589edaaad85dc0d4a627176ce68d6e24332b1))
+* **sales:** propagate isFulfilled filter to getPeriodData, getTopCustomers, getTopProducts ([410bcc3](https://github.com/blur88/erp2/commit/410bcc31bdf52b2ab1881e5792a9669327d61ce9))
+* **sales:** wire customer, order status, payment status filters in SalesPage ([272c1bb](https://github.com/blur88/erp2/commit/272c1bb4a4b69cdd6ed19ac6c5acda54f2ea8501))
+
 ## [1.30.4](https://github.com/blur88/erp2/compare/v1.30.3...v1.30.4) (2026-03-28)
 
 
