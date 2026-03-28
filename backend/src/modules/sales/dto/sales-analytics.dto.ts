@@ -13,6 +13,7 @@ import { ApiPropertyOptional, ApiProperty } from '@nestjs/swagger';
 import { format } from 'date-fns';
 import { Transform, Type } from 'class-transformer';
 import { DateRange, GroupByPeriod } from '@/common/dto/analytics.dto';
+import { InvoiceStatus } from '../../../database/entities/invoice.entity';
 
 // Re-export for backward compatibility
 export { DateRange, GroupByPeriod } from '@/common/dto/analytics.dto';
@@ -84,6 +85,27 @@ export class SalesAnalyticsQueryDto {
   @IsOptional()
   @IsIn(['previous_period', 'last_month', 'last_year'])
   compareWith?: 'previous_period' | 'last_month' | 'last_year';
+
+  @ApiPropertyOptional({
+    description: 'Filter by fulfillment status',
+    example: true,
+  })
+  @IsOptional()
+  @IsBoolean()
+  @Transform(({ value }) => {
+    if (value === 'true' || value === true) return true;
+    if (value === 'false' || value === false) return false;
+    return undefined;
+  })
+  isFulfilled?: boolean;
+
+  @ApiPropertyOptional({
+    description: 'Filter by invoice payment status',
+    enum: InvoiceStatus,
+  })
+  @IsOptional()
+  @IsEnum(InvoiceStatus)
+  paymentStatus?: InvoiceStatus;
 }
 
 export class SalesMetricsDto {

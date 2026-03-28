@@ -170,4 +170,38 @@ describe('SalesAnalyticsService', () => {
       expect(result.comparison).toBeUndefined();
     });
   });
+
+  describe('SalesAnalyticsQueryDto validation', () => {
+    it('accepts isFulfilled=true as boolean after transform', async () => {
+      const { plainToInstance } = await import('class-transformer');
+      const { validate } = await import('class-validator');
+      const { SalesAnalyticsQueryDto } = await import('../dto/sales-analytics.dto');
+      const dto = plainToInstance(SalesAnalyticsQueryDto, { isFulfilled: 'true' });
+      const errors = await validate(dto);
+
+      expect(errors.filter((e) => e.property === 'isFulfilled')).toHaveLength(0);
+      expect(dto.isFulfilled).toBe(true);
+    });
+
+    it('accepts paymentStatus=paid as valid InvoiceStatus', async () => {
+      const { plainToInstance } = await import('class-transformer');
+      const { validate } = await import('class-validator');
+      const { SalesAnalyticsQueryDto } = await import('../dto/sales-analytics.dto');
+      const dto = plainToInstance(SalesAnalyticsQueryDto, { paymentStatus: 'paid' });
+      const errors = await validate(dto);
+
+      expect(errors.filter((e) => e.property === 'paymentStatus')).toHaveLength(0);
+      expect(dto.paymentStatus).toBe('paid');
+    });
+
+    it('rejects paymentStatus=invalid', async () => {
+      const { plainToInstance } = await import('class-transformer');
+      const { validate } = await import('class-validator');
+      const { SalesAnalyticsQueryDto } = await import('../dto/sales-analytics.dto');
+      const dto = plainToInstance(SalesAnalyticsQueryDto, { paymentStatus: 'invalid' });
+      const errors = await validate(dto);
+
+      expect(errors.filter((e) => e.property === 'paymentStatus')).toHaveLength(1);
+    });
+  });
 });
