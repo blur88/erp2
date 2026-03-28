@@ -40,6 +40,9 @@ export interface DashboardAnalyticsParams {
   endDate?: string
   groupBy?: string
   compareWith?: string
+  customerId?: string
+  isFulfilled?: boolean
+  paymentStatus?: string
 }
 
 export function useDashboardAnalytics(params: DashboardAnalyticsParams) {

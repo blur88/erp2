@@ -4,6 +4,16 @@ import { subDays, format } from 'date-fns'
 export type DashboardPeriod = 'today' | 'last_7_days' | 'this_month' | 'last_month' | 'custom'
 export type DashboardCompare = 'previous_period' | 'last_month' | 'last_year' | null
 export type PaymentStatusFilter = 'draft' | 'partial_paid' | 'paid'
+export interface DashboardResolvedApiParams {
+  dateRange?: string
+  startDate?: string
+  endDate?: string
+  groupBy?: string
+  compareWith?: string
+  customerId?: string
+  isFulfilled?: boolean
+  paymentStatus?: PaymentStatusFilter
+}
 
 const VALID_PERIODS: DashboardPeriod[] = ['today', 'last_7_days', 'this_month', 'last_month', 'custom']
 const VALID_COMPARES: NonNullable<DashboardCompare>[] = ['previous_period', 'last_month', 'last_year']
@@ -240,7 +250,7 @@ export function useDashboardFilters(namespace: string) {
     && paymentStatus === null
 
   const resolvedApiParams = useMemo(
-    () => ({
+    (): DashboardResolvedApiParams => ({
       ...toApiParams(period, compareWith, customFrom, customTo),
       ...(customerId ? { customerId } : {}),
       ...(isFulfilled !== null ? { isFulfilled } : {}),
