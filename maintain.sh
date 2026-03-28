@@ -174,6 +174,12 @@ do_jscpd() {
     --reporters console) || true
 }
 
+do_refactor_radar() {
+  echo -e "${BOLD}${YELLOW}--- REFACTOR RADAR (Smart Detection) ---${RESET}"
+  echo ""
+  # detectors will be added in subsequent tasks
+}
+
 STEPS=(
   "Knip (dead code / unused deps check)"
   "Outdated packages"
@@ -181,6 +187,7 @@ STEPS=(
   "Audit (security vulnerabilities)"
   "Top 5 files by line count"
   "jscpd (copy-paste detection)"
+  "Refactor Radar (Smart Detection)"
   "Docker: prune + rebuild + up"
 )
 
@@ -192,7 +199,8 @@ run_step() {
     3) do_audit ;;
     4) do_top_lines ;;
     5) do_jscpd ;;
-    6) do_docker_rebuild ;;
+    6) do_refactor_radar ;;
+    7) do_docker_rebuild ;;
   esac
 }
 
@@ -216,6 +224,7 @@ prompt_next() {
       5) echo "4" ; return ;;
       6) echo "5" ; return ;;
       7) echo "6" ; return ;;
+      8) echo "7" ; return ;;
       [Rr]) echo "$current" ; return ;;
       [Qq]) echo "-1" ; return ;;
       *) echo -e "${RED}Invalid choice.${RESET}" >&2 ;;
@@ -237,10 +246,10 @@ echo ""
 
 # Pick starting step
 while true; do
-  read -rp "$(echo -e "${BOLD}Start with (1–7): ${RESET}")" start
+  read -rp "$(echo -e "${BOLD}Start with (1–8): ${RESET}")" start
   case "$start" in
-    1|2|3|4|5|6|7) current=$((start-1)) ; break ;;
-    *) echo -e "${RED}Please enter 1–7.${RESET}" ;;
+    1|2|3|4|5|6|7|8) current=$((start-1)) ; break ;;
+    *) echo -e "${RED}Please enter 1–8.${RESET}" ;;
   esac
 done
 
