@@ -328,5 +328,54 @@ describe('SalesAnalyticsService', () => {
       );
       expect(orderCalls.length).toBeGreaterThanOrEqual(3);
     });
+
+    it('applies paymentStatus filter to getTopCustomers via invoice join', async () => {
+      const orderChain = makeChainMock({}, []);
+      const invoiceChain = makeChainMock();
+      const customerChain = makeChainMock({}, []);
+      const paymentChain = makeChainMock();
+
+      (service as any).salesOrderRepository.createQueryBuilder = jest.fn().mockReturnValue(orderChain);
+      (service as any).invoiceRepository.createQueryBuilder = jest.fn().mockReturnValue(invoiceChain);
+      (service as any).customerRepository.createQueryBuilder = jest.fn().mockReturnValue(customerChain);
+      (service as any).paymentRepository.createQueryBuilder = jest.fn().mockReturnValue(paymentChain);
+      (service as any).salesOrderItemRepository.createQueryBuilder = jest.fn().mockReturnValue(makeChainMock({}, []));
+
+      await service.getSalesAnalytics({
+        paymentStatus: 'paid' as any,
+        dateRange: undefined,
+      } as any);
+
+      // getTopCustomers joins order.invoices and filters by invoice.status
+      const invoiceStatusCalls = orderChain.andWhere.mock.calls.filter(
+        (args: any[]) => args[0] === 'invoice.status = :paymentStatus',
+      );
+      expect(invoiceStatusCalls.length).toBeGreaterThanOrEqual(1);
+    });
+
+    it('applies paymentStatus filter to getTopProducts via invoice join', async () => {
+      const orderChain = makeChainMock({}, []);
+      const invoiceChain = makeChainMock();
+      const customerChain = makeChainMock({}, []);
+      const paymentChain = makeChainMock();
+      const itemChain = makeChainMock({}, []);
+
+      (service as any).salesOrderRepository.createQueryBuilder = jest.fn().mockReturnValue(orderChain);
+      (service as any).invoiceRepository.createQueryBuilder = jest.fn().mockReturnValue(invoiceChain);
+      (service as any).customerRepository.createQueryBuilder = jest.fn().mockReturnValue(customerChain);
+      (service as any).paymentRepository.createQueryBuilder = jest.fn().mockReturnValue(paymentChain);
+      (service as any).salesOrderItemRepository.createQueryBuilder = jest.fn().mockReturnValue(itemChain);
+
+      await service.getSalesAnalytics({
+        paymentStatus: 'paid' as any,
+        dateRange: undefined,
+      } as any);
+
+      // getTopProducts joins order.invoices and filters by invoice.status
+      const invoiceStatusCalls = itemChain.andWhere.mock.calls.filter(
+        (args: any[]) => args[0] === 'invoice.status = :paymentStatus',
+      );
+      expect(invoiceStatusCalls.length).toBeGreaterThanOrEqual(1);
+    });
   });
 });

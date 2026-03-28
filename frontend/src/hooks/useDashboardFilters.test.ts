@@ -169,10 +169,16 @@ describe('useDashboardFilters', () => {
       expect(result.current.paymentStatus).toBeNull()
     })
 
-    it('reads customerId from URL on mount', () => {
-      setUrl('?sales_customer=abc-123')
+    it('reads valid UUID customerId from URL on mount', () => {
+      setUrl('?sales_customer=550e8400-e29b-41d4-a716-446655440000')
       const { result } = renderHook(() => useDashboardFilters('sales'))
-      expect(result.current.customerId).toBe('abc-123')
+      expect(result.current.customerId).toBe('550e8400-e29b-41d4-a716-446655440000')
+    })
+
+    it('ignores non-UUID customerId value from URL', () => {
+      setUrl('?sales_customer=not-a-uuid')
+      const { result } = renderHook(() => useDashboardFilters('sales'))
+      expect(result.current.customerId).toBeNull()
     })
 
     it('reads isFulfilled=true from URL on mount', () => {
@@ -202,14 +208,32 @@ describe('useDashboardFilters', () => {
     it('setCustomerId writes to URL and updates state', () => {
       setUrl('')
       const { result } = renderHook(() => useDashboardFilters('sales'))
-      act(() => { result.current.setCustomerId('uuid-999') })
-      expect(result.current.customerId).toBe('uuid-999')
+      act(() => { result.current.setCustomerId('550e8400-e29b-41d4-a716-446655440000') })
+      expect(result.current.customerId).toBe('550e8400-e29b-41d4-a716-446655440000')
+      const replaceState = window.history.replaceState as ReturnType<typeof vi.fn>
+      expect(replaceState).toHaveBeenCalled()
+    })
+
+    it('setFulfilled writes to URL and updates state', () => {
+      setUrl('')
+      const { result } = renderHook(() => useDashboardFilters('sales'))
+      act(() => { result.current.setFulfilled(true) })
+      expect(result.current.isFulfilled).toBe(true)
+      const replaceState = window.history.replaceState as ReturnType<typeof vi.fn>
+      expect(replaceState).toHaveBeenCalled()
+    })
+
+    it('setPaymentStatus writes to URL and updates state', () => {
+      setUrl('')
+      const { result } = renderHook(() => useDashboardFilters('sales'))
+      act(() => { result.current.setPaymentStatus('paid') })
+      expect(result.current.paymentStatus).toBe('paid')
       const replaceState = window.history.replaceState as ReturnType<typeof vi.fn>
       expect(replaceState).toHaveBeenCalled()
     })
 
     it('reset clears all three new filters', () => {
-      setUrl('?sales_customer=abc&sales_fulfilled=true&sales_payment=paid')
+      setUrl('?sales_customer=550e8400-e29b-41d4-a716-446655440000&sales_fulfilled=true&sales_payment=paid')
       const { result } = renderHook(() => useDashboardFilters('sales'))
       act(() => { result.current.reset() })
       expect(result.current.customerId).toBeNull()
@@ -218,15 +242,15 @@ describe('useDashboardFilters', () => {
     })
 
     it('isDefault is false when customerId is set', () => {
-      setUrl('?sales_customer=abc')
+      setUrl('?sales_customer=550e8400-e29b-41d4-a716-446655440000')
       const { result } = renderHook(() => useDashboardFilters('sales'))
       expect(result.current.isDefault).toBe(false)
     })
 
     it('resolvedApiParams includes customerId when set', () => {
-      setUrl('?sales_customer=abc-123')
+      setUrl('?sales_customer=550e8400-e29b-41d4-a716-446655440000')
       const { result } = renderHook(() => useDashboardFilters('sales'))
-      expect(result.current.resolvedApiParams.customerId).toBe('abc-123')
+      expect(result.current.resolvedApiParams.customerId).toBe('550e8400-e29b-41d4-a716-446655440000')
     })
 
     it('resolvedApiParams includes isFulfilled when set', () => {

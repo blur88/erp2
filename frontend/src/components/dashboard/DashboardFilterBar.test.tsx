@@ -93,4 +93,32 @@ describe('DashboardFilterBar', () => {
     await userEvent.click(screen.getByText('All Customers'))
     expect(onCustomerChange).toHaveBeenCalledWith(null)
   })
+
+  it('calls onFulfilledChange with true when Fulfilled is selected', async () => {
+    const onFulfilledChange = vi.fn()
+    wrap(
+      <DashboardFilterBar
+        {...baseProps()}
+        isFulfilled={null}
+        onFulfilledChange={onFulfilledChange}
+      />,
+    )
+    await userEvent.click(screen.getByLabelText('Order Status'))
+    await userEvent.click(screen.getByText('Fulfilled'))
+    expect(onFulfilledChange).toHaveBeenCalledWith(true)
+  })
+
+  it('calls onPaymentStatusChange with paid when Paid is selected', async () => {
+    const onPaymentStatusChange = vi.fn()
+    wrap(
+      <DashboardFilterBar
+        {...baseProps()}
+        paymentStatus={null}
+        onPaymentStatusChange={onPaymentStatusChange}
+      />,
+    )
+    await userEvent.click(screen.getByLabelText('Payment Status'))
+    await userEvent.click(screen.getByText('Paid'))
+    expect(onPaymentStatusChange).toHaveBeenCalledWith('paid')
+  })
 })

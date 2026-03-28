@@ -496,6 +496,12 @@ export class SalesAnalyticsService {
       topCustomersQuery = topCustomersQuery.andWhere('order.isFulfilled = :isFulfilled', { isFulfilled: query.isFulfilled });
     }
 
+    if (query?.paymentStatus) {
+      topCustomersQuery = topCustomersQuery
+        .leftJoin('order.invoices', 'invoice')
+        .andWhere('invoice.status = :paymentStatus', { paymentStatus: query.paymentStatus });
+    }
+
     const data = await topCustomersQuery
       .select([
         'customer.id as "customerId"',
@@ -538,6 +544,12 @@ export class SalesAnalyticsService {
 
     if (query?.isFulfilled !== undefined) {
       topProductsQuery = topProductsQuery.andWhere('order.isFulfilled = :isFulfilled', { isFulfilled: query.isFulfilled });
+    }
+
+    if (query?.paymentStatus) {
+      topProductsQuery = topProductsQuery
+        .leftJoin('order.invoices', 'invoice')
+        .andWhere('invoice.status = :paymentStatus', { paymentStatus: query.paymentStatus });
     }
 
     const data = await topProductsQuery

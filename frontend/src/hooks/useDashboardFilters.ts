@@ -19,6 +19,7 @@ const VALID_PERIODS: DashboardPeriod[] = ['today', 'last_7_days', 'this_month', 
 const VALID_COMPARES: NonNullable<DashboardCompare>[] = ['previous_period', 'last_month', 'last_year']
 const VALID_PAYMENT_STATUSES: PaymentStatusFilter[] = ['draft', 'partial_paid', 'paid']
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 function parseUrl(namespace: string): {
   period: DashboardPeriod
@@ -47,7 +48,7 @@ function parseUrl(namespace: string): {
       ? (rawCompare as NonNullable<DashboardCompare>)
       : null
 
-  const customerId = rawCustomer
+  const customerId = rawCustomer && UUID_RE.test(rawCustomer) ? rawCustomer : null
 
   const isFulfilled: boolean | null =
     rawFulfilled === 'true' ? true : rawFulfilled === 'false' ? false : null

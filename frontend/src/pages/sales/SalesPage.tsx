@@ -60,6 +60,7 @@ const SalesPage: React.FC = () => {
     setPaymentStatus,
   } = useDashboardFilters('sales')
 
+  // Assumes small customer count (<50). If this grows, replace with an autocomplete + search endpoint.
   const { data: customersData } = useGetCustomersQuery({})
   const customerOptions = (customersData?.data ?? []).map((customer: { id: string; name: string }) => ({
     id: customer.id,
