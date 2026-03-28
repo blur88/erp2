@@ -1,33 +1,30 @@
 import React, { useMemo } from 'react'
 import {
+  Alert,
   Box,
-  Typography,
-  Paper,
   Button,
-  Grid,
   Card,
   CardContent,
+  Chip,
+  CircularProgress,
+  Grid,
+  Paper,
   Table,
   TableBody,
   TableCell,
   TableContainer,
   TableHead,
   TableRow,
-  Chip,
+  Typography,
   useTheme,
-  CircularProgress,
-  Alert
 } from '@mui/material'
 import {
-  Inventory2 as InventoryIcon,
-  Category as CategoryIcon,
-  TrendingUp as TrendingUpIcon,
-  TrendingDown as TrendingDownIcon,
-  Warning as WarningIcon,
+  ArrowDownward as ArrowDownwardIcon,
+  ArrowUpward as ArrowUpwardIcon,
   ErrorOutline as OutOfStockIcon,
-  Add as AddIcon,
-  Timeline as TimelineIcon,
-  Assessment as AssessmentIcon
+  Inventory2 as InventoryIcon,
+  TrendingUp as TrendingUpIcon,
+  Warning as WarningIcon,
 } from '@mui/icons-material'
 import {
   Chart as ChartJS,
@@ -35,200 +32,168 @@ import {
   LinearScale,
   PointElement,
   LineElement,
-  BarElement,
   Title,
   Tooltip,
   Legend,
-  ArcElement
+  ArcElement,
 } from 'chart.js'
-import { Bar, Doughnut } from 'react-chartjs-2'
+import { Doughnut, Line } from 'react-chartjs-2'
 import { format } from 'date-fns'
+import { useNavigate } from 'react-router-dom'
 import PageHeader from '@/components/common/PageHeader'
+import { DashboardFilterBar } from '@/components/dashboard/DashboardFilterBar'
+import { useDashboardFilters } from '@/hooks/useDashboardFilters'
+import { useInventoryAnalytics } from './hooks/useInventoryAnalytics'
 import { formatCurrency } from '@/utils/formatters'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
-import { useNavigate } from 'react-router-dom'
-import {
-  useGetDashboardStatsQuery,
-  useGetOutOfStockProductsQuery,
-  useGetStockMovementsQuery,
-} from '@/store/api/inventoryApi'
 
 ChartJS.register(
   CategoryScale,
   LinearScale,
   PointElement,
   LineElement,
-  BarElement,
   Title,
   Tooltip,
   Legend,
-  ArcElement
+  ArcElement,
 )
+
+function deltaPercent(current: number | undefined, previous: number | undefined): string | null {
+  if (current === undefined || previous === undefined || previous === 0) {
+    return null
+  }
+
+  const pct = ((current - previous) / previous) * 100
+  return `${pct >= 0 ? '+' : ''}${pct.toFixed(1)}%`
+}
 
 const InventoryPage: React.FC = () => {
   const theme = useTheme()
   const navigate = useNavigate()
-  const {
-    data: dashboardStats,
-    isLoading: statsLoading,
-    error: statsError,
-  } = useGetDashboardStatsQuery()
-  const {
-    data: stockMovementsResponse,
-    isLoading: movementsLoading,
-    error: movementsError,
-  } = useGetStockMovementsQuery({
-    limit: 5,
-    sortBy: 'movementDate',
-    sortOrder: 'desc',
-  })
-  const {
-    data: outOfStockProducts = [],
-    isLoading: outOfStockLoading,
-    error: outOfStockError,
-  } = useGetOutOfStockProductsQuery()
 
-  const loading = statsLoading || movementsLoading || outOfStockLoading
-  const error = statsError || movementsError || outOfStockError ? 'Failed to load inventory data' : null
-  const inventoryData = useMemo(
+  const {
+    period,
+    compareWith,
+    customFrom,
+    customTo,
+    setPeriod,
+    setCompare,
+    setCustomRange,
+    setCustomFrom,
+    setCustomTo,
+    reset,
+    isDefault,
+    resolvedApiParams,
+  } = useDashboardFilters('inventory')
+
+  const { data, isLoading, isFetching, error } = useInventoryAnalytics(resolvedApiParams)
+
+  const current = data?.current
+  const comparison = data?.comparison
+  const recentMovements = data?.recentMovements ?? []
+  const lowStockAlerts = data?.lowStockAlerts ?? []
+
+  const stockHealthData = useMemo(
     () => ({
-      stats: dashboardStats || {
-        totalProducts: 0,
-        totalCategories: 0,
-        inventoryValue: 0,
-        lowStockCount: 0,
-        outOfStockCount: 0,
-        recentMovements: 0,
-        categoryBreakdown: [],
-        stockHealthMetrics: {
-          inStockPercentage: 0,
-          outOfStockPercentage: 0,
-          averageValue: 0,
+      labels: ['In Stock', 'Out of Stock'],
+      datasets: [
+        {
+          data: [
+            Math.max((current?.metrics.totalProducts ?? 0) - (current?.metrics.outOfStockCount ?? 0), 0),
+            current?.metrics.outOfStockCount ?? 0,
+          ],
+          backgroundColor: [theme.palette.success.main, theme.palette.error.main],
+          borderWidth: 2,
+          borderColor: theme.palette.background.paper,
         },
-      },
-      recentMovements: stockMovementsResponse?.data || [],
-      outOfStockAlerts: outOfStockProducts.slice(0, 5),
+      ],
     }),
-    [dashboardStats, stockMovementsResponse?.data, outOfStockProducts],
+    [current?.metrics.outOfStockCount, current?.metrics.totalProducts, theme],
   )
 
-  // Chart data for category breakdown
-  const categoryBreakdownData = {
-    labels: inventoryData?.stats?.categoryBreakdown?.map((item: any) => item.category) || [],
-    datasets: [
-      {
-        label: 'Inventory Value',
-        data: inventoryData?.stats?.categoryBreakdown?.map((item: any) => item.value) || [],
-        backgroundColor: [
-          theme.palette.primary.main,
-          theme.palette.secondary.main,
-          theme.palette.success.main,
-          theme.palette.warning.main,
-          theme.palette.info.main,
-          theme.palette.error.main,
-        ],
-        borderWidth: 2,
-        borderColor: theme.palette.background.paper
-      }
-    ]
-  }
+  const movementTrendData = useMemo(
+    () => ({
+      labels: current?.periodData.map((point) => point.period) ?? [],
+      datasets: [
+        {
+          label: 'Stock In',
+          data: current?.periodData.map((point) => point.movementsIn) ?? [],
+          borderColor: theme.palette.success.main,
+          backgroundColor: `${theme.palette.success.main}20`,
+          tension: 0.35,
+        },
+        {
+          label: 'Stock Out',
+          data: current?.periodData.map((point) => point.movementsOut) ?? [],
+          borderColor: theme.palette.error.main,
+          backgroundColor: `${theme.palette.error.main}20`,
+          tension: 0.35,
+        },
+      ],
+    }),
+    [current?.periodData, theme],
+  )
 
-  const stockHealthData = {
-    labels: ['In Stock', 'Out of Stock'],
-    datasets: [
-      {
-        data: [
-          inventoryData?.stats?.stockHealthMetrics?.inStockPercentage || 0,
-          inventoryData?.stats?.stockHealthMetrics?.outOfStockPercentage || 0
-        ],
-        backgroundColor: [
-          theme.palette.success.main,
-          theme.palette.error.main
-        ],
-        borderWidth: 2,
-        borderColor: theme.palette.background.paper
-      }
-    ]
+  const lineChartOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { position: 'top' as const },
+    },
+    scales: {
+      y: {
+        beginAtZero: true,
+      },
+    },
   }
 
   const doughnutOptions = {
     responsive: true,
     maintainAspectRatio: false,
     plugins: {
-      legend: {
-        position: 'bottom' as const,
-      },
+      legend: { position: 'bottom' as const },
       tooltip: {
         callbacks: {
-          label: function(context: any) {
-            const label = context.label || '';
-            const value = context.parsed || 0;
-            return `${label}: ${value}%`;
-          }
-        }
-      }
-    }
-  }
-
-  const barChartOptions = {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: {
-      legend: {
-        display: false
-      }
+          label(context: any) {
+            return `${context.label}: ${context.parsed}`
+          },
+        },
+      },
     },
-    scales: {
-      y: {
-        beginAtZero: true,
-        ticks: {
-          callback: function(value: any) {
-            return formatCurrency(value)
-          }
-        }
-      }
-    }
   }
 
   const stats = [
     {
       title: 'Total Products',
-      value: inventoryData?.stats?.totalProducts || '0',
-      change: '+0.0%',
-      trend: 'up',
+      value: String(current?.metrics.totalProducts ?? 0),
       icon: InventoryIcon,
-      color: 'primary'
-    },
-    {
-      title: 'Categories',
-      value: inventoryData?.stats?.totalCategories || '0',
-      change: '+0.0%',
-      trend: 'up',
-      icon: CategoryIcon,
-      color: 'secondary'
+      color: 'primary',
     },
     {
       title: 'Inventory Value',
-      value: formatCurrency(inventoryData?.stats?.inventoryValue || 0),
-      change: '+0.0%',
-      trend: 'up',
+      value: formatCurrency(current?.metrics.inventoryValue ?? 0),
       icon: TrendingUpIcon,
-      color: 'success'
+      color: 'success',
     },
     {
-      title: 'Out of Stock',
-      value: inventoryData?.stats?.outOfStockCount || '0',
-      change: inventoryData?.stats?.outOfStockCount > 0 ? `${inventoryData.stats.outOfStockCount} items` : 'All stocked',
-      trend: inventoryData?.stats?.outOfStockCount > 0 ? 'down' : 'up',
-      icon: OutOfStockIcon,
-      color: 'error'
-    }
+      title: 'Stock In',
+      value: `${current?.metrics.stockMovementsIn ?? 0} units`,
+      icon: ArrowUpwardIcon,
+      color: 'info',
+      delta: deltaPercent(current?.metrics.stockMovementsIn, comparison?.metrics.stockMovementsIn),
+      deltaPositiveIsGood: true,
+    },
+    {
+      title: 'Stock Out',
+      value: `${current?.metrics.stockMovementsOut ?? 0} units`,
+      icon: ArrowDownwardIcon,
+      color: 'warning',
+      delta: deltaPercent(current?.metrics.stockMovementsOut, comparison?.metrics.stockMovementsOut),
+      deltaPositiveIsGood: false,
+    },
   ]
 
-  const recentMovements = inventoryData?.recentMovements || []
-  const outOfStockAlerts = inventoryData?.outOfStockAlerts || []
-
-  if (loading) {
+  if (isLoading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 400 }}>
         <CircularProgress size={60} />
@@ -238,314 +203,365 @@ const InventoryPage: React.FC = () => {
 
   return (
     <Box sx={{ p: 3 }}>
-      {/* Header */}
       <PageHeader
+        variant="overview"
         title="Inventory Overview"
         subtitle="Monitor stock levels, track movements, and manage inventory health"
         secondaryAction={{ label: 'Manage Categories', onClick: () => navigate('/inventory/categories') }}
         primaryAction={{ label: 'Add Product', onClick: () => navigate('/inventory/products') }}
       />
-      {/* Error Alert */}
+
+      <DashboardFilterBar
+        period={period}
+        compareWith={compareWith}
+        customFrom={customFrom}
+        customTo={customTo}
+        isFetching={isFetching}
+        isDefault={isDefault}
+        onPeriodChange={setPeriod}
+        onCompareChange={setCompare}
+        onCustomRangeChange={setCustomRange}
+        onCustomFromChange={setCustomFrom}
+        onCustomToChange={setCustomTo}
+        onReset={reset}
+      />
+
       {error && (
-        <Alert severity="error" sx={{ mb: 4 }}>
-          {error}
+        <Alert
+          severity="error"
+          sx={{ mb: 2 }}
+          action={
+            <Button size="small" onClick={() => window.location.reload()}>
+              Retry
+            </Button>
+          }
+        >
+          Failed to load inventory dashboard data.
         </Alert>
       )}
-      {/* Stats Cards */}
-      <Grid container spacing={3} sx={{ mb: 4 }}>
-        {stats.map((stat, index) => (
-          <Grid
-            key={index}
-            size={{
-              xs: 12,
-              sm: 6,
-              lg: 3
-            }}>
-            <Card>
-              <CardContent>
-                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-                  <Box
-                    sx={{
-                      p: 1.5,
-                      borderRadius: 2,
-                      bgcolor: `${stat.color}.light`,
-                      color: `${stat.color}.contrastText`,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                    }}
-                  >
-                    <stat.icon />
-                  </Box>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                    {stat.trend === 'up' ? (
-                      <TrendingUpIcon sx={{ fontSize: 16, color: 'success.main' }} />
-                    ) : (
-                      <TrendingDownIcon sx={{ fontSize: 16, color: 'error.main' }} />
-                    )}
-                    <Typography
-                      variant={TYPOGRAPHY_STYLES.tableCell.caption.variant}
-                      sx={{
-                        color: stat.trend === 'up' ? 'success.main' : 'error.main',
-                        fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight,
-                        fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize
-                      }}
-                    >
-                      {stat.change}
-                    </Typography>
-                  </Box>
-                </Box>
-                <Typography variant={TYPOGRAPHY_STYLES.pageHeader.variant} sx={{ fontWeight: TYPOGRAPHY_STYLES.pageHeader.fontWeight, mb: 0.5 }}>
-                  {stat.value}
-                </Typography>
-                <Typography variant={TYPOGRAPHY_STYLES.tableCell.secondary.variant} color="text.secondary">
-                  {stat.title}
-                </Typography>
-              </CardContent>
-            </Card>
-          </Grid>
-        ))}
-      </Grid>
-      {/* Charts and Analytics */}
-      <Grid container spacing={3} sx={{ mb: 4 }}>
-        <Grid
-          size={{
-            xs: 12,
-            lg: 6
-          }}>
-          <Paper sx={{ p: 3, height: 400 }}>
-            <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{ fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight, mb: 3 }}>
-              Category Value Distribution
-            </Typography>
-            <Box sx={{ height: 300 }}>
-              {inventoryData?.stats?.categoryBreakdown && inventoryData.stats.categoryBreakdown.length > 0 ? (
-                <Bar data={categoryBreakdownData} options={barChartOptions} />
-              ) : (
-                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
-                  <Typography variant={TYPOGRAPHY_STYLES.tableCell.secondary.variant} color="text.secondary">
-                    No category data available
-                  </Typography>
-                </Box>
-              )}
-            </Box>
-          </Paper>
-        </Grid>
 
-        <Grid
-          size={{
-            xs: 12,
-            lg: 6
-          }}>
-          <Paper sx={{ p: 3, height: 400 }}>
-            <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{ fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight, mb: 3 }}>
-              Stock Health Status
-            </Typography>
-            <Box sx={{ height: 300 }}>
-              <Doughnut data={stockHealthData} options={doughnutOptions} />
-            </Box>
-          </Paper>
-        </Grid>
-      </Grid>
-      {/* Recent Stock Movements and Low Stock Alerts */}
-      <Grid container spacing={3}>
-        <Grid
-          size={{
-            xs: 12,
-            lg: 8
-          }}>
-          <Paper sx={{ overflow: 'hidden' }}>
-            <Box sx={{ p: 3, borderBottom: 1, borderColor: 'divider', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{ fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight }}>
-                Recent Stock Movements
-              </Typography>
-              <Chip
-                label={`${inventoryData?.stats?.recentMovements || 0} total`}
-                color="info"
-                size="small"
-              />
-            </Box>
-            <TableContainer>
-              <Table size={TABLE_STYLES.size}>
-                <TableHead>
-                  <TableRow sx={{ '& .MuiTableCell-head': { fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight, backgroundColor: TABLE_STYLES.header.backgroundColor, py: TABLE_STYLES.header.padding.py } }}>
-                    <TableCell>
-                      <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
-                        fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
-                        color: TYPOGRAPHY_STYLES.tableHeader.color,
-                        fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
-                      }}>
-                        Date
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
-                        fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
-                        color: TYPOGRAPHY_STYLES.tableHeader.color,
-                        fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
-                      }}>
-                        Product
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
-                        fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
-                        color: TYPOGRAPHY_STYLES.tableHeader.color,
-                        fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
-                      }}>
-                        Type
-                      </Typography>
-                    </TableCell>
-                    <TableCell align="right">
-                      <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
-                        fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
-                        color: TYPOGRAPHY_STYLES.tableHeader.color,
-                        fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
-                      }}>
-                        Quantity
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
-                        fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
-                        color: TYPOGRAPHY_STYLES.tableHeader.color,
-                        fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
-                      }}>
-                        Reference
-                      </Typography>
-                    </TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {recentMovements.length > 0 ? recentMovements.map((movement: any) => (
-                    <TableRow
-                      key={movement.id}
-                      hover
+      <Box sx={{ opacity: isFetching ? 0.7 : 1, transition: 'opacity 0.2s' }}>
+        <Grid container spacing={3} sx={{ mb: 4 }}>
+          {stats.map((stat) => (
+            <Grid key={stat.title} size={{ xs: 12, sm: 6, lg: 3 }}>
+              <Card>
+                <CardContent>
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+                    <Box
                       sx={{
-                        '& .MuiTableCell-root': {
-                          borderBottom: TABLE_STYLES.cell.border,
-                          py: TABLE_STYLES.cell.padding.py,
-                          px: TABLE_STYLES.cell.padding.px
-                        },
-                        height: TABLE_STYLES.row.height
+                        p: 1.5,
+                        borderRadius: 2,
+                        bgcolor: `${stat.color}.light`,
+                        color: `${stat.color}.contrastText`,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
                       }}
                     >
-                      <TableCell>
-                        <Typography variant={TYPOGRAPHY_STYLES.tableCell.secondary.variant} sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.secondary.fontSize }}>
-                          {movement.movementDate ? format(new Date(movement.movementDate), 'MMM dd, yyyy') : 'N/A'}
-                        </Typography>
-                      </TableCell>
-                      <TableCell>
-                        <Typography variant={TYPOGRAPHY_STYLES.tableCell.primary.variant} sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
-                          {movement.product?.name || 'Unknown'}
-                        </Typography>
-                      </TableCell>
-                      <TableCell>
-                        <Chip
-                          label={movement.movementType?.replace('_', ' ') || 'N/A'}
-                          color={
-                            movement.movementType === 'IN' ? 'success' :
-                            movement.movementType === 'OUT' ? 'error' :
-                            'default'
-                          }
-                          size="small"
-                          variant="outlined"
-                          sx={{
-                            fontSize: TYPOGRAPHY_STYLES.chip.small.fontSize,
-                            fontWeight: TYPOGRAPHY_STYLES.chip.small.fontWeight,
-                            height: TYPOGRAPHY_STYLES.chip.small.height
-                          }}
-                        />
-                      </TableCell>
-                      <TableCell align="right">
+                      <stat.icon />
+                    </Box>
+                    {'delta' in stat && stat.delta && (
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                        {stat.delta.startsWith('+') ? (
+                          <TrendingUpIcon
+                            sx={{
+                              fontSize: 16,
+                              color: stat.deltaPositiveIsGood ? 'success.main' : 'error.main',
+                            }}
+                          />
+                        ) : (
+                          <TrendingUpIcon
+                            sx={{
+                              fontSize: 16,
+                              color: stat.deltaPositiveIsGood ? 'error.main' : 'success.main',
+                              transform: 'rotate(180deg)',
+                            }}
+                          />
+                        )}
                         <Typography
-                          variant={TYPOGRAPHY_STYLES.tableCell.primary.variant}
+                          variant={TYPOGRAPHY_STYLES.tableCell.caption.variant}
                           sx={{
+                            color: stat.delta.startsWith('+')
+                              ? stat.deltaPositiveIsGood
+                                ? 'success.main'
+                                : 'error.main'
+                              : stat.deltaPositiveIsGood
+                                ? 'error.main'
+                                : 'success.main',
                             fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight,
-                            fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
-                            color: movement.quantity > 0 ? 'success.main' : 'error.main'
+                            fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize,
                           }}
                         >
-                          {movement.quantity > 0 ? '+' : ''}{movement.quantity}
+                          {stat.delta}
                         </Typography>
-                      </TableCell>
-                      <TableCell>
-                        <Typography variant={TYPOGRAPHY_STYLES.tableCell.secondary.variant} sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.secondary.fontSize }}>
-                          {movement.referenceNumber || 'N/A'}
-                        </Typography>
-                      </TableCell>
-                    </TableRow>
-                  )) : (
-                    <TableRow>
-                      <TableCell colSpan={5} align="center">
-                        <Typography variant={TYPOGRAPHY_STYLES.tableCell.secondary.variant} color="text.secondary">
-                          No recent stock movements
-                        </Typography>
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          </Paper>
+                      </Box>
+                    )}
+                  </Box>
+                  <Typography
+                    variant={TYPOGRAPHY_STYLES.pageHeader.variant}
+                    sx={{ fontWeight: TYPOGRAPHY_STYLES.pageHeader.fontWeight, mb: 0.5 }}
+                  >
+                    {stat.value}
+                  </Typography>
+                  <Typography variant={TYPOGRAPHY_STYLES.tableCell.secondary.variant} color="text.secondary">
+                    {stat.title}
+                  </Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+          ))}
         </Grid>
 
-        <Grid
-          size={{
-            xs: 12,
-            lg: 4
-          }}>
-          <Paper sx={{ p: 3 }}>
-            <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{ fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight, mb: 3 }}>
-              Out of Stock Items
-            </Typography>
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-              {outOfStockAlerts.length > 0 ? outOfStockAlerts.slice(0, 5).map((alert: any, index: number) => (
-                <Box key={alert.id || index}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <Box
-                        sx={{
-                          width: 24,
-                          height: 24,
-                          borderRadius: '50%',
-                          bgcolor: 'error.main',
-                          color: 'white',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                        }}
-                      >
-                        <OutOfStockIcon sx={{ fontSize: 14 }} />
-                      </Box>
-                      <Box>
-                        <Typography variant={TYPOGRAPHY_STYLES.tableCell.primary.variant} sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
-                          {alert.name || 'Unknown Product'}
-                        </Typography>
-                      </Box>
-                    </Box>
-                    <Chip
-                      label="Out"
-                      color="error"
-                      size="small"
-                      sx={{
-                        fontSize: TYPOGRAPHY_STYLES.chip.small.fontSize,
-                        fontWeight: TYPOGRAPHY_STYLES.chip.small.fontWeight,
-                        height: TYPOGRAPHY_STYLES.chip.small.height
-                      }}
-                    />
+        <Grid container spacing={3} sx={{ mb: 4 }}>
+          <Grid size={{ xs: 12, lg: 6 }}>
+            <Paper sx={{ p: 3, height: 400 }}>
+              <Typography
+                variant={TYPOGRAPHY_STYLES.tableHeader.variant}
+                sx={{ fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight, mb: 3 }}
+              >
+                Stock Movement Trend
+              </Typography>
+              <Box sx={{ height: 300 }}>
+                {current?.periodData && current.periodData.length > 0 ? (
+                  <Line data={movementTrendData} options={lineChartOptions} />
+                ) : (
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
+                    <Typography variant={TYPOGRAPHY_STYLES.tableCell.secondary.variant} color="text.secondary">
+                      No movement data for this period
+                    </Typography>
                   </Box>
-                </Box>
-              )) : (
-                <Typography variant={TYPOGRAPHY_STYLES.tableCell.secondary.variant} color="text.secondary" align="center">
-                  All products in stock
-                </Typography>
-              )}
-            </Box>
-          </Paper>
+                )}
+              </Box>
+            </Paper>
+          </Grid>
+
+          <Grid size={{ xs: 12, lg: 6 }}>
+            <Paper sx={{ p: 3, height: 400 }}>
+              <Typography
+                variant={TYPOGRAPHY_STYLES.tableHeader.variant}
+                sx={{ fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight, mb: 3 }}
+              >
+                Stock Health Status
+              </Typography>
+              <Box sx={{ height: 300 }}>
+                <Doughnut data={stockHealthData} options={doughnutOptions} />
+              </Box>
+            </Paper>
+          </Grid>
         </Grid>
-      </Grid>
+
+        <Grid container spacing={3}>
+          <Grid size={{ xs: 12, lg: 8 }}>
+            <Paper sx={{ overflow: 'hidden' }}>
+              <Box
+                sx={{
+                  p: 3,
+                  borderBottom: 1,
+                  borderColor: 'divider',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                }}
+              >
+                <Typography
+                  variant={TYPOGRAPHY_STYLES.tableHeader.variant}
+                  sx={{ fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight }}
+                >
+                  Recent Stock Movements
+                </Typography>
+                <Chip
+                  label={`${current?.metrics.stockMovementsIn ?? 0} in / ${current?.metrics.stockMovementsOut ?? 0} out`}
+                  color="info"
+                  size="small"
+                />
+              </Box>
+              <TableContainer>
+                <Table size={TABLE_STYLES.size}>
+                  <TableHead>
+                    <TableRow
+                      sx={{
+                        '& .MuiTableCell-head': {
+                          fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
+                          backgroundColor: TABLE_STYLES.header.backgroundColor,
+                          py: TABLE_STYLES.header.padding.py,
+                        },
+                      }}
+                    >
+                      {['Date', 'Product', 'Type', 'Quantity', 'Reference'].map((column) => (
+                        <TableCell key={column} align={column === 'Quantity' ? 'right' : 'left'}>
+                          <Typography
+                            variant={TYPOGRAPHY_STYLES.tableHeader.variant}
+                            sx={{
+                              fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
+                              color: TYPOGRAPHY_STYLES.tableHeader.color,
+                              fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize,
+                            }}
+                          >
+                            {column}
+                          </Typography>
+                        </TableCell>
+                      ))}
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {recentMovements.length > 0 ? (
+                      recentMovements.map((movement) => (
+                        <TableRow
+                          key={`${movement.movementDate}-${movement.productName}-${movement.referenceNumber}`}
+                          hover
+                          sx={{
+                            '& .MuiTableCell-root': {
+                              borderBottom: TABLE_STYLES.cell.border,
+                              py: TABLE_STYLES.cell.padding.py,
+                              px: TABLE_STYLES.cell.padding.px,
+                            },
+                            height: TABLE_STYLES.row.height,
+                          }}
+                        >
+                          <TableCell>
+                            <Typography
+                              variant={TYPOGRAPHY_STYLES.tableCell.secondary.variant}
+                              sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.secondary.fontSize }}
+                            >
+                              {movement.movementDate ? format(new Date(movement.movementDate), 'MMM dd, yyyy') : 'N/A'}
+                            </Typography>
+                          </TableCell>
+                          <TableCell>
+                            <Typography
+                              variant={TYPOGRAPHY_STYLES.tableCell.primary.variant}
+                              sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}
+                            >
+                              {movement.productName}
+                            </Typography>
+                          </TableCell>
+                          <TableCell>
+                            <Chip
+                              label={movement.movementType.replace(/_/g, ' ')}
+                              color={movement.quantity > 0 ? 'success' : movement.quantity < 0 ? 'error' : 'default'}
+                              size="small"
+                              variant="outlined"
+                              sx={{
+                                fontSize: TYPOGRAPHY_STYLES.chip.small.fontSize,
+                                fontWeight: TYPOGRAPHY_STYLES.chip.small.fontWeight,
+                                height: TYPOGRAPHY_STYLES.chip.small.height,
+                              }}
+                            />
+                          </TableCell>
+                          <TableCell align="right">
+                            <Typography
+                              variant={TYPOGRAPHY_STYLES.tableCell.primary.variant}
+                              sx={{
+                                fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight,
+                                fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
+                                color: movement.quantity > 0 ? 'success.main' : 'error.main',
+                              }}
+                            >
+                              {movement.quantity > 0 ? '+' : ''}
+                              {movement.quantity}
+                            </Typography>
+                          </TableCell>
+                          <TableCell>
+                            <Typography
+                              variant={TYPOGRAPHY_STYLES.tableCell.secondary.variant}
+                              sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.secondary.fontSize }}
+                            >
+                              {movement.referenceNumber}
+                            </Typography>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    ) : (
+                      <TableRow>
+                        <TableCell colSpan={5} align="center">
+                          <Typography variant={TYPOGRAPHY_STYLES.tableCell.secondary.variant} color="text.secondary">
+                            No movements in this period
+                          </Typography>
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </Paper>
+          </Grid>
+
+          <Grid size={{ xs: 12, lg: 4 }}>
+            <Paper sx={{ p: 3 }}>
+              <Typography
+                variant={TYPOGRAPHY_STYLES.tableHeader.variant}
+                sx={{ fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight, mb: 3 }}
+              >
+                Low Stock Alerts
+              </Typography>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                {lowStockAlerts.length > 0 ? (
+                  lowStockAlerts.map((alert) => (
+                    <Box
+                      key={alert.productId}
+                      sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2 }}
+                    >
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
+                        <Box
+                          sx={{
+                            width: 24,
+                            height: 24,
+                            borderRadius: '50%',
+                            bgcolor: alert.status === 'out_of_stock' ? 'error.main' : 'warning.main',
+                            color: 'white',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            flexShrink: 0,
+                          }}
+                        >
+                          {alert.status === 'out_of_stock' ? (
+                            <OutOfStockIcon sx={{ fontSize: 14 }} />
+                          ) : (
+                            <WarningIcon sx={{ fontSize: 14 }} />
+                          )}
+                        </Box>
+                        <Box sx={{ minWidth: 0 }}>
+                          <Typography
+                            variant={TYPOGRAPHY_STYLES.tableCell.primary.variant}
+                            sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}
+                            noWrap
+                          >
+                            {alert.productName}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary" noWrap>
+                            {alert.categoryName} {alert.stockQuantity} units
+                          </Typography>
+                        </Box>
+                      </Box>
+                      <Chip
+                        label={alert.status === 'out_of_stock' ? 'Out' : 'Low'}
+                        color={alert.status === 'out_of_stock' ? 'error' : 'warning'}
+                        size="small"
+                        sx={{
+                          fontSize: TYPOGRAPHY_STYLES.chip.small.fontSize,
+                          fontWeight: TYPOGRAPHY_STYLES.chip.small.fontWeight,
+                          height: TYPOGRAPHY_STYLES.chip.small.height,
+                          flexShrink: 0,
+                        }}
+                      />
+                    </Box>
+                  ))
+                ) : (
+                  <Typography
+                    variant={TYPOGRAPHY_STYLES.tableCell.secondary.variant}
+                    color="text.secondary"
+                    align="center"
+                  >
+                    All products well stocked
+                  </Typography>
+                )}
+              </Box>
+            </Paper>
+          </Grid>
+        </Grid>
+      </Box>
     </Box>
-  );
+  )
 }
 
 export default InventoryPage

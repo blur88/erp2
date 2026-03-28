@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { differenceInCalendarDays, subDays, subMonths, subYears } from 'date-fns';
 import { Repository, Between } from 'typeorm';
 import { SalesOrder } from '../../../database/entities/sales-order.entity';
 import { Invoice, InvoiceStatus } from '../../../database/entities/invoice.entity';
@@ -22,6 +23,8 @@ import {
   RevenueReportQueryDto,
   RevenueReportResponseDto,
   RevenueDataDto,
+  GroupByPeriod,
+  SalesAnalyticsPeriodBlockDto,
 } from '../dto/sales-analytics.dto';
 import { SalesAnalyticsReportService } from './sales-analytics-report.service';
 
@@ -43,27 +46,45 @@ export class SalesAnalyticsService {
 
   async getSalesAnalytics(query: SalesAnalyticsQueryDto): Promise<SalesAnalyticsResponseDto> {
     const { startDate, endDate } = this.parseDateRange(query.dateRange, query.startDate, query.endDate);
+    const groupBy = query.groupBy ?? GroupByPeriod.MONTH;
+    const comparePeriod = query.compareWith
+      ? this.computeComparePeriod(startDate, endDate, query.compareWith)
+      : null;
 
-    // Get metrics in parallel
-    const [
-      metrics,
-      periodData,
-      topCustomers,
-      topProducts,
-    ] = await Promise.all([
+    const [metrics, periodData, topCustomers, topProducts] = await Promise.all([
       this.calculateSalesMetrics(startDate, endDate, query),
-      this.getPeriodData(startDate, endDate, query.groupBy || 'month'),
+      this.getPeriodData(startDate, endDate, groupBy),
       this.getTopCustomers(startDate, endDate, 10),
       this.getTopProducts(startDate, endDate, 10),
     ]);
 
-    return {
+    const current: SalesAnalyticsPeriodBlockDto = {
       metrics,
       periodData,
+      periodStart: startDate as unknown as string,
+      periodEnd: endDate as unknown as string,
+    };
+
+    let comparison: SalesAnalyticsPeriodBlockDto | undefined;
+    if (comparePeriod) {
+      const [compareMetrics, comparePeriodData] = await Promise.all([
+        this.calculateSalesMetrics(comparePeriod.compareStart, comparePeriod.compareEnd),
+        this.getPeriodData(comparePeriod.compareStart, comparePeriod.compareEnd, groupBy),
+      ]);
+
+      comparison = {
+        metrics: compareMetrics,
+        periodData: comparePeriodData,
+        periodStart: comparePeriod.compareStart as unknown as string,
+        periodEnd: comparePeriod.compareEnd as unknown as string,
+      };
+    }
+
+    return {
+      current,
+      comparison,
       topCustomers,
       topProducts,
-      periodStart: startDate,
-      periodEnd: endDate,
     };
   }
 
@@ -555,10 +576,16 @@ export class SalesAnalyticsService {
     let startDate: Date;
     let endDate: Date = new Date(now.setHours(23, 59, 59, 999));
 
-    if (dateRange === DateRange.CUSTOM && customStartDate && customEndDate) {
+    if (customStartDate && customEndDate) {
+      const normalizedStartDate = new Date(customStartDate);
+      normalizedStartDate.setUTCHours(0, 0, 0, 0);
+
+      const normalizedEndDate = new Date(customEndDate);
+      normalizedEndDate.setUTCHours(23, 59, 59, 999);
+
       return {
-        startDate: new Date(customStartDate),
-        endDate: new Date(customEndDate),
+        startDate: normalizedStartDate,
+        endDate: normalizedEndDate,
       };
     }
 
@@ -607,6 +634,31 @@ export class SalesAnalyticsService {
     }
 
     return { startDate, endDate };
+  }
+
+  private computeComparePeriod(
+    start: Date,
+    end: Date,
+    compareWith: 'previous_period' | 'last_month' | 'last_year',
+  ): { compareStart: Date; compareEnd: Date } {
+    if (compareWith === 'previous_period') {
+      const dayCount = differenceInCalendarDays(end, start) + 1;
+      const compareEnd = subDays(start, 1);
+      const compareStart = subDays(compareEnd, dayCount - 1);
+      return { compareStart, compareEnd };
+    }
+
+    if (compareWith === 'last_month') {
+      return {
+        compareStart: subMonths(start, 1),
+        compareEnd: subMonths(end, 1),
+      };
+    }
+
+    return {
+      compareStart: subYears(start, 1),
+      compareEnd: subYears(end, 1),
+    };
   }
 
   async getProductSummary(query: {

@@ -2,7 +2,7 @@
 
 import { describe, expect, it } from 'vitest'
 
-import { formatDate, formatDateTime, formatWholeQuantity } from './formatters'
+import { formatDate, formatDateTime, formatSalesPeriodLabel, formatWholeQuantity, toMuiDatePickerFormat } from './formatters'
 
 describe('formatWholeQuantity', () => {
   it('removes decimal places from numeric quantities', () => {
@@ -36,5 +36,20 @@ describe('formatDateTime', () => {
     localStorage.setItem('timeFormat', '24h')
 
     expect(formatDateTime(new Date(2026, 1, 22, 14, 30))).toBe('22 February 2026 14:30')
+  })
+})
+
+describe('toMuiDatePickerFormat', () => {
+  it('maps saved regional date tokens to date-fns picker tokens', () => {
+    expect(toMuiDatePickerFormat('DD/MM/YYYY')).toBe('dd/MM/yyyy')
+    expect(toMuiDatePickerFormat('MMMM DD, YYYY')).toBe('MMMM dd, yyyy')
+  })
+})
+
+describe('formatSalesPeriodLabel', () => {
+  it('formats daily sales period labels using the saved regional date format', () => {
+    localStorage.setItem('dateFormat', 'DD/MM/YYYY')
+
+    expect(formatSalesPeriodLabel('2026-03-27')).toBe('27/03/2026')
   })
 })

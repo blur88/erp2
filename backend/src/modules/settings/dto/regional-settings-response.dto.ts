@@ -1,12 +1,12 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { Expose } from 'class-transformer';
 
-export class PriceCostingSettingsResponseDto {
+export class RegionalSettingsResponseDto {
   @ApiProperty({ description: 'Settings ID' })
   @Expose()
   id: string;
 
-  @ApiProperty({ description: 'Currency code', example: 'USD' })
+  @ApiProperty({ description: 'Currency code', example: 'MYR' })
   @Expose()
   currency: string;
 
@@ -29,6 +29,10 @@ export class PriceCostingSettingsResponseDto {
   @ApiProperty({ description: 'Number display format', example: '1,234.56' })
   @Expose()
   numberFormat: string;
+
+  @ApiProperty({ description: 'IANA timezone identifier', example: 'Asia/Kuala_Lumpur' })
+  @Expose()
+  timezone: string;
 
   @ApiProperty({ description: 'Creation timestamp' })
   @Expose()

@@ -13,7 +13,7 @@ import * as crypto from 'crypto';
 import { BackupLog } from '@database/entities/backup-log.entity';
 import { BackupRetentionSettings } from '@database/entities/backup-settings.entity';
 import { CompanySettings } from '@database/entities/company-settings.entity';
-import { PriceCostingSettings } from '@database/entities/price-costing-settings.entity';
+import { RegionalSettings } from '@database/entities/regional-settings.entity';
 import { DocumentNumberSetting } from '@database/entities/document-number-settings.entity';
 import { PrintSettings } from '@database/entities/print-settings.entity';
 import { CreateBackupDto, BackupDatabase } from './dto/create-backup.dto';
@@ -36,8 +36,8 @@ export class BackupService implements OnModuleDestroy {
     private readonly backupSettingsRepository: Repository<BackupRetentionSettings>,
     @InjectRepository(CompanySettings)
     private readonly companySettingsRepository: Repository<CompanySettings>,
-    @InjectRepository(PriceCostingSettings)
-    private readonly priceCostingSettingsRepository: Repository<PriceCostingSettings>,
+    @InjectRepository(RegionalSettings)
+    private readonly priceCostingSettingsRepository: Repository<RegionalSettings>,
     @InjectRepository(DocumentNumberSetting)
     private readonly documentNumberSettingRepository: Repository<DocumentNumberSetting>,
     @InjectRepository(PrintSettings)

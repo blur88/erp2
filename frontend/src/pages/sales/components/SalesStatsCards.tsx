@@ -16,16 +16,31 @@ import { TYPOGRAPHY_STYLES } from '@/constants/typography'
 export interface StatItem {
     title: string
     value: string | number
-    change: string
-    trend: 'up' | 'down'
+    change?: string
+    trend?: 'up' | 'down'
     icon: React.ElementType
     color: string
     onClick?: () => void
+    currentValue?: number
+    comparisonValue?: number
 }
 
 interface SalesStatsCardsProps {
     stats: StatItem[]
     loading?: boolean
+}
+
+function computeDelta(current: number, comparison: number): { label: string; direction: 'up' | 'down' | 'neutral' } {
+    if (comparison === 0 && current > 0) return { label: 'New', direction: 'up' }
+    if (comparison === 0 && current === 0) return { label: '0%', direction: 'neutral' }
+
+    const pct = ((current - comparison) / comparison) * 100
+    const label = `${pct >= 0 ? '+' : ''}${pct.toFixed(1)}%`
+
+    return {
+        label,
+        direction: pct > 0 ? 'up' : pct < 0 ? 'down' : 'neutral',
+    }
 }
 
 const SalesStatsCards: React.FC<SalesStatsCardsProps> = ({ stats, loading = false }) => {
@@ -66,6 +81,12 @@ const SalesStatsCards: React.FC<SalesStatsCardsProps> = ({ stats, loading = fals
                         sm: 6,
                         lg: 3
                     }}>
+                    {(() => {
+                        const delta = stat.currentValue != null && stat.comparisonValue != null
+                            ? computeDelta(stat.currentValue, stat.comparisonValue)
+                            : null
+
+                        return (
                     <Card
                         sx={{
                             cursor: stat.onClick ? 'pointer' : 'default',
@@ -93,21 +114,32 @@ const SalesStatsCards: React.FC<SalesStatsCardsProps> = ({ stats, loading = fals
                                     <stat.icon />
                                 </Box>
                                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                                    {stat.trend === 'up' ? (
-                                        <TrendingUpIcon sx={{ fontSize: 16, color: 'success.main' }} />
-                                    ) : (
-                                        <TrendingDownIcon sx={{ fontSize: 16, color: 'error.main' }} />
-                                    )}
-                                    <Typography
-                                        variant={TYPOGRAPHY_STYLES.tableCell.caption.variant}
-                                        sx={{
-                                            color: stat.trend === 'up' ? 'success.main' : 'error.main',
-                                            fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight,
-                                            fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize
-                                        }}
-                                    >
-                                        {stat.change}
-                                    </Typography>
+                                    {delta ? (
+                                        <Typography
+                                            variant="body2"
+                                            color={delta.direction === 'up' ? 'success.main' : delta.direction === 'down' ? 'error.main' : 'text.secondary'}
+                                        >
+                                            {delta.direction === 'up' ? '▲' : delta.direction === 'down' ? '▼' : ''} {delta.label}
+                                        </Typography>
+                                    ) : stat.change ? (
+                                        <>
+                                            {stat.trend === 'up' ? (
+                                                <TrendingUpIcon sx={{ fontSize: 16, color: 'success.main' }} />
+                                            ) : stat.trend === 'down' ? (
+                                                <TrendingDownIcon sx={{ fontSize: 16, color: 'error.main' }} />
+                                            ) : null}
+                                            <Typography
+                                                variant={TYPOGRAPHY_STYLES.tableCell.caption.variant}
+                                                sx={{
+                                                    color: stat.trend === 'up' ? 'success.main' : stat.trend === 'down' ? 'error.main' : 'text.secondary',
+                                                    fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight,
+                                                    fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize
+                                                }}
+                                            >
+                                                {stat.change}
+                                            </Typography>
+                                        </>
+                                    ) : null}
                                 </Box>
                             </Box>
                             <Typography variant={TYPOGRAPHY_STYLES.pageHeader.variant} sx={{ fontWeight: TYPOGRAPHY_STYLES.pageHeader.fontWeight, mb: 0.5 }}>
@@ -118,6 +150,8 @@ const SalesStatsCards: React.FC<SalesStatsCardsProps> = ({ stats, loading = fals
                             </Typography>
                         </CardContent>
                     </Card>
+                        )
+                    })()}
                 </Grid>
             ))}
         </Grid>

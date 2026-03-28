@@ -1,6 +1,7 @@
 import {
   IsOptional,
   IsEnum,
+  IsIn,
   IsUUID,
   IsDate,
   IsInt,
@@ -9,21 +10,14 @@ import {
   IsBoolean,
 } from 'class-validator';
 import { ApiPropertyOptional, ApiProperty } from '@nestjs/swagger';
+import { format } from 'date-fns';
 import { Transform, Type } from 'class-transformer';
-//  enum removed - using fulfillment status instead
+import { DateRange, GroupByPeriod } from '@/common/dto/analytics.dto';
 
-export enum DateRange {
-  TODAY = 'today',
-  THIS_WEEK = 'this_week',
-  THIS_MONTH = 'this_month',
-  THIS_QUARTER = 'this_quarter',
-  THIS_YEAR = 'this_year',
-  LAST_WEEK = 'last_week',
-  LAST_MONTH = 'last_month',
-  LAST_QUARTER = 'last_quarter',
-  LAST_YEAR = 'last_year',
-  CUSTOM = 'custom',
-}
+// Re-export for backward compatibility
+export { DateRange, GroupByPeriod } from '@/common/dto/analytics.dto';
+
+//  enum removed - using fulfillment status instead
 
 enum MetricType {
   REVENUE = 'revenue',
@@ -31,14 +25,6 @@ enum MetricType {
   CUSTOMERS = 'customers',
   AVERAGE_ORDER_VALUE = 'average_order_value',
   CONVERSION_RATE = 'conversion_rate',
-}
-
-export enum GroupByPeriod {
-  DAY = 'day',
-  WEEK = 'week',
-  MONTH = 'month',
-  QUARTER = 'quarter',
-  YEAR = 'year',
 }
 
 export class SalesAnalyticsQueryDto {
@@ -93,6 +79,11 @@ export class SalesAnalyticsQueryDto {
   @IsOptional()
   @IsEnum(GroupByPeriod)
   groupBy?: GroupByPeriod;
+
+  @ApiPropertyOptional({ enum: ['previous_period', 'last_month', 'last_year'] })
+  @IsOptional()
+  @IsIn(['previous_period', 'last_month', 'last_year'])
+  compareWith?: 'previous_period' | 'last_month' | 'last_year';
 }
 
 export class SalesMetricsDto {
@@ -147,6 +138,22 @@ export class PeriodMetricDto {
   averageOrderValue!: number;
 }
 
+export class SalesAnalyticsPeriodBlockDto {
+  @ApiProperty({ type: SalesMetricsDto })
+  metrics!: SalesMetricsDto;
+
+  @ApiProperty({ type: [PeriodMetricDto] })
+  periodData!: PeriodMetricDto[];
+
+  @ApiProperty({ example: '2026-03-01' })
+  @Transform(({ value }) => (value instanceof Date ? format(value, 'yyyy-MM-dd') : value))
+  periodStart!: string;
+
+  @ApiProperty({ example: '2026-03-31' })
+  @Transform(({ value }) => (value instanceof Date ? format(value, 'yyyy-MM-dd') : value))
+  periodEnd!: string;
+}
+
 export class TopCustomerDto {
   @ApiProperty({ example: 'uuid-string', description: 'Customer ID' })
   customerId!: string;
@@ -194,23 +201,17 @@ export class TopProductDto {
 }
 
 export class SalesAnalyticsResponseDto {
-  @ApiProperty({ type: SalesMetricsDto, description: 'Sales metrics' })
-  metrics!: SalesMetricsDto;
+  @ApiProperty({ type: SalesAnalyticsPeriodBlockDto })
+  current!: SalesAnalyticsPeriodBlockDto;
 
-  @ApiProperty({ type: [PeriodMetricDto], description: 'Period data' })
-  periodData!: PeriodMetricDto[];
+  @ApiPropertyOptional({ type: SalesAnalyticsPeriodBlockDto })
+  comparison?: SalesAnalyticsPeriodBlockDto;
 
-  @ApiProperty({ type: [TopCustomerDto], description: 'Top customers' })
+  @ApiProperty({ type: [TopCustomerDto] })
   topCustomers!: TopCustomerDto[];
 
-  @ApiProperty({ type: [TopProductDto], description: 'Top products' })
+  @ApiProperty({ type: [TopProductDto] })
   topProducts!: TopProductDto[];
-
-  @ApiProperty({ example: '2023-01-01T00:00:00Z', description: 'Period start' })
-  periodStart!: Date;
-
-  @ApiProperty({ example: '2023-12-31T23:59:59Z', description: 'Period end' })
-  periodEnd!: Date;
 }
 
 export class SalesPipelineQueryDto {

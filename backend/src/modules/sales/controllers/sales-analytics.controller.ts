@@ -39,6 +39,12 @@ export class SalesAnalyticsController {
   @ApiQuery({ name: 'customerId', required: false, description: 'Filter by customer ID' })
   @ApiQuery({ name: 'salesRepId', required: false, description: 'Filter by sales representative ID' })
   @ApiQuery({ name: 'groupBy', required: false, enum: ['day', 'week', 'month', 'quarter', 'year'], description: 'Group results by period' })
+  @ApiQuery({
+    name: 'compareWith',
+    required: false,
+    enum: ['previous_period', 'last_month', 'last_year'],
+    description: 'Comparison period for delta metrics',
+  })
   @ApiResponse({
     status: 200,
     description: 'Sales analytics retrieved successfully',
@@ -276,8 +282,8 @@ export class SalesAnalyticsController {
     });
 
     // Calculate trends and growth
-    const trends = analytics.periodData.map((current, index) => {
-      const previous = analytics.periodData[index - 1];
+    const trends = analytics.current.periodData.map((current, index) => {
+      const previous = analytics.current.periodData[index - 1];
       const growthPercentage = previous?.revenue 
         ? ((current.revenue - previous.revenue) / previous.revenue) * 100 
         : 0;

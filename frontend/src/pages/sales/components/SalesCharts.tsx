@@ -20,7 +20,7 @@ import {
     Filler,
 } from 'chart.js'
 import { Line, Doughnut } from 'react-chartjs-2'
-import { formatCurrency, formatNumber } from '@/utils/formatters'
+import { formatCurrency, formatNumber, formatSalesPeriodLabel } from '@/utils/formatters'
 import { TYPOGRAPHY_STYLES } from '@/constants/typography'
 
 ChartJS.register(
@@ -39,23 +39,36 @@ ChartJS.register(
 interface SalesTrendChartProps {
     labels: string[]
     data: number[]
+    comparisonData?: number[]
+    groupBy?: 'day' | 'week' | 'month' | 'quarter' | 'year'
     loading?: boolean
 }
 
-export const SalesTrendChart: React.FC<SalesTrendChartProps> = ({ labels, data, loading = false }) => {
+export const SalesTrendChart: React.FC<SalesTrendChartProps> = ({ labels, data, comparisonData, groupBy = 'day', loading = false }) => {
     const theme = useTheme()
+    const formattedLabels = labels.map((label) => formatSalesPeriodLabel(label, groupBy))
 
     const chartData = {
-        labels,
+        labels: formattedLabels,
         datasets: [
             {
-                label: 'Sales',
+                label: 'Current Period',
                 data,
                 borderColor: theme.palette.primary.main,
                 backgroundColor: `${theme.palette.primary.main}20`,
                 tension: 0.4,
                 fill: true,
-            }
+            },
+            ...(comparisonData ? [{
+                label: 'Comparison Period',
+                data: comparisonData,
+                borderColor: 'rgba(99, 102, 241, 0.4)',
+                backgroundColor: 'transparent',
+                borderDash: [6, 3],
+                pointRadius: 0,
+                tension: 0.4,
+                fill: false,
+            }] : []),
         ]
     }
 
@@ -63,6 +76,15 @@ export const SalesTrendChart: React.FC<SalesTrendChartProps> = ({ labels, data, 
         responsive: true,
         maintainAspectRatio: false,
         plugins: {
+            tooltip: {
+                callbacks: {
+                    label: function (context: any) {
+                        const label = context.dataset.label ?? ''
+                        const value = context.parsed.y
+                        return `${label}: ${formatCurrency(value)}`
+                    }
+                }
+            },
             legend: {
                 position: 'top' as const,
             }

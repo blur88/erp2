@@ -17,8 +17,8 @@ import * as yup from 'yup'
 import { yupResolver } from '@hookform/resolvers/yup'
 import { useNotification } from '@/hooks/useNotification'
 import {
-  useGetPriceCostingSettingsQuery,
-  useUpdatePriceCostingSettingsMutation,
+  useGetRegionalSettingsQuery,
+  useUpdateRegionalSettingsMutation,
 } from '@/store/api/settingsApi'
 
 interface RegionalFormData {
@@ -26,6 +26,7 @@ interface RegionalFormData {
   dateFormat: string
   timeFormat: string
   numberFormat: string
+  timezone: string
 }
 
 const schema = yup.object({
@@ -33,6 +34,7 @@ const schema = yup.object({
   dateFormat: yup.string().required('Date format is required'),
   timeFormat: yup.string().required('Time format is required'),
   numberFormat: yup.string().required('Number format is required'),
+  timezone: yup.string().required('Timezone is required'),
 })
 
 const CURRENCIES = [
@@ -72,6 +74,36 @@ const NUMBER_FORMATS = [
   { value: '1234.56', label: '1234.56 (no thousands separator)' },
 ]
 
+const TIMEZONES = [
+  { value: 'UTC', label: 'UTC' },
+  { value: 'Asia/Kuala_Lumpur', label: 'Asia/Kuala_Lumpur (UTC+8)' },
+  { value: 'Asia/Singapore', label: 'Asia/Singapore (UTC+8)' },
+  { value: 'Asia/Jakarta', label: 'Asia/Jakarta (UTC+7)' },
+  { value: 'Asia/Bangkok', label: 'Asia/Bangkok (UTC+7)' },
+  { value: 'Asia/Manila', label: 'Asia/Manila (UTC+8)' },
+  { value: 'Asia/Hong_Kong', label: 'Asia/Hong_Kong (UTC+8)' },
+  { value: 'Asia/Shanghai', label: 'Asia/Shanghai (UTC+8)' },
+  { value: 'Asia/Tokyo', label: 'Asia/Tokyo (UTC+9)' },
+  { value: 'Asia/Seoul', label: 'Asia/Seoul (UTC+9)' },
+  { value: 'Asia/Kolkata', label: 'Asia/Kolkata (UTC+5:30)' },
+  { value: 'Asia/Dubai', label: 'Asia/Dubai (UTC+4)' },
+  { value: 'Asia/Riyadh', label: 'Asia/Riyadh (UTC+3)' },
+  { value: 'Europe/London', label: 'Europe/London (UTC+0/+1)' },
+  { value: 'Europe/Paris', label: 'Europe/Paris (UTC+1/+2)' },
+  { value: 'Europe/Berlin', label: 'Europe/Berlin (UTC+1/+2)' },
+  { value: 'Europe/Moscow', label: 'Europe/Moscow (UTC+3)' },
+  { value: 'Africa/Cairo', label: 'Africa/Cairo (UTC+2)' },
+  { value: 'Africa/Johannesburg', label: 'Africa/Johannesburg (UTC+2)' },
+  { value: 'America/New_York', label: 'America/New_York (UTC-5/-4)' },
+  { value: 'America/Chicago', label: 'America/Chicago (UTC-6/-5)' },
+  { value: 'America/Denver', label: 'America/Denver (UTC-7/-6)' },
+  { value: 'America/Los_Angeles', label: 'America/Los_Angeles (UTC-8/-7)' },
+  { value: 'America/Sao_Paulo', label: 'America/Sao_Paulo (UTC-3)' },
+  { value: 'Australia/Sydney', label: 'Australia/Sydney (UTC+10/+11)' },
+  { value: 'Australia/Melbourne', label: 'Australia/Melbourne (UTC+10/+11)' },
+  { value: 'Pacific/Auckland', label: 'Pacific/Auckland (UTC+12/+13)' },
+]
+
 const MONTHS_FULL = [
   'January', 'February', 'March', 'April', 'May', 'June',
   'July', 'August', 'September', 'October', 'November', 'December',
@@ -108,8 +140,8 @@ const RegionalSettingsPage: React.FC = () => {
   const { showSuccess, showError } = useNotification()
   const [submitting, setSubmitting] = useState(false)
 
-  const { data: settingsData, isLoading: loading, error: fetchError, refetch } = useGetPriceCostingSettingsQuery()
-  const [updatePriceCostingSettings] = useUpdatePriceCostingSettingsMutation()
+  const { data: settingsData, isLoading: loading, error: fetchError, refetch } = useGetRegionalSettingsQuery()
+  const [updateRegionalSettings] = useUpdateRegionalSettingsMutation()
 
   const { control, handleSubmit, formState: { errors }, setValue } = useForm<RegionalFormData>({
     resolver: yupResolver(schema) as any,
@@ -118,6 +150,7 @@ const RegionalSettingsPage: React.FC = () => {
       dateFormat: 'DD/MM/YYYY',
       timeFormat: '24h',
       numberFormat: '1,234.56',
+      timezone: 'Asia/Kuala_Lumpur',
     },
   })
 
@@ -130,6 +163,7 @@ const RegionalSettingsPage: React.FC = () => {
       setValue('dateFormat', s.dateFormat || 'DD/MM/YYYY')
       setValue('timeFormat', s.timeFormat || '24h')
       setValue('numberFormat', s.numberFormat || '1,234.56')
+      setValue('timezone', s.timezone || 'Asia/Kuala_Lumpur')
     }
   }, [settingsData, setValue])
 
@@ -140,13 +174,14 @@ const RegionalSettingsPage: React.FC = () => {
   const onSubmit = async (data: RegionalFormData) => {
     try {
       setSubmitting(true)
-      await updatePriceCostingSettings(data).unwrap()
+      await updateRegionalSettings(data).unwrap()
 
       // Update localStorage immediately so formatters reflect new values
       localStorage.setItem('defaultCurrency', data.currency)
       localStorage.setItem('dateFormat', data.dateFormat)
       localStorage.setItem('timeFormat', data.timeFormat)
       localStorage.setItem('numberFormat', data.numberFormat)
+      localStorage.setItem('timezone', data.timezone)
 
       // Notify currency-aware components
       window.dispatchEvent(new Event('currencyChanged'))
@@ -288,6 +323,34 @@ const RegionalSettingsPage: React.FC = () => {
                     helperText={errors.numberFormat?.message || 'How numbers are displayed throughout the system'}
                   >
                     {NUMBER_FORMATS.map(opt => (
+                      <MenuItem key={opt.value} value={opt.value}>{opt.label}</MenuItem>
+                    ))}
+                  </TextField>
+                )}
+              />
+            </Grid>
+
+            <Grid size={12}><Divider sx={{ my: 1 }} /></Grid>
+
+            {/* Timezone */}
+            <Grid size={12}>
+              <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>Timezone</Typography>
+            </Grid>
+            <Grid size={{ xs: 12, md: 6 }}>
+              <Controller
+                name="timezone"
+                control={control}
+                render={({ field }) => (
+                  <TextField
+                    {...field}
+                    select
+                    label="Timezone"
+                    fullWidth
+                    required
+                    error={!!errors.timezone}
+                    helperText={errors.timezone?.message || 'The timezone used for date-based reports and analytics'}
+                  >
+                    {TIMEZONES.map(opt => (
                       <MenuItem key={opt.value} value={opt.value}>{opt.label}</MenuItem>
                     ))}
                   </TextField>
