@@ -15,10 +15,7 @@ Frontend Vitest runs take 7–10 minutes sequentially (`maxWorkers: 1`), causing
 
 Several test files call `vi.useFakeTimers()` inside helper functions guarded by `try/finally`. If a test throws before the `finally` block executes (or Vitest worker shutdown races with cleanup), fake timers can leak across tests running in parallel workers. This causes `waitFor()` and timer-dependent assertions in sibling tests to hang or time out.
 
-Affected files (verified in current codebase):
-- `src/components/common/__tests__/Sidebar.test.tsx` — still has inline `vi.useFakeTimers()` in helper function
-
-The other three files identified from git history (`CreateSalesOrderPage`, `CreatePurchaseOrderPage`, `CreateStockAdjustmentPage`) have already been cleaned up.
+All affected files have already been cleaned up in previous commits. Both files that use fake timers (`Sidebar.test.tsx`, `SearchModal.test.tsx`) correctly scope `vi.useFakeTimers()` in `beforeEach` and `vi.useRealTimers()` in `afterEach`. No test file changes are required.
 
 MSW (`server.listen/resetHandlers/close`) is already correctly scoped in `beforeAll/afterEach/afterAll` in `setupTests.ts` — each worker gets its own module scope, so no changes needed there.
 
