@@ -680,6 +680,8 @@ export class InventoryAnalyticsService {
         .where('po.supplierId = :supplierId', { supplierId: query.supplierId })
         .select('DISTINCT poi.productId', 'productId')
         .getRawMany();
+      // Pass empty array rather than early-returning — applyProductFilters uses
+      // `1 = 0` to short-circuit all sub-queries, which PostgreSQL optimises away.
       filters.productIds = items.map((row: any) => row.productId as string);
     }
 
@@ -885,6 +887,7 @@ export class InventoryAnalyticsService {
       .where('movement.movementDate BETWEEN :startDate AND :endDate', { startDate, endDate });
 
     if (filters.categoryId || filters.productIds !== undefined || filters.stockStatus) {
+      // product is already joined unconditionally via leftJoinAndSelect above
       this.applyProductFilters(qb, filters);
     }
 
