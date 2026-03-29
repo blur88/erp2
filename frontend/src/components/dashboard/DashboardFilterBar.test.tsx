@@ -123,12 +123,12 @@ describe('DashboardFilterBar', () => {
     expect(onPaymentStatusChange).toHaveBeenCalledWith('paid')
   })
 
-  it('renders Reset as a low-emphasis text button when filters are not default', () => {
+  it('renders Reset as an outlined button with left margin when filters are not default', () => {
     wrap(<DashboardFilterBar {...baseProps()} isDefault={false} />)
 
     const resetButton = screen.getByRole('button', { name: 'Reset' })
 
-    expect(resetButton).toHaveClass('MuiButton-text')
-    expect(resetButton).toHaveStyle({ marginLeft: '16px', opacity: '0.8' })
+    expect(resetButton).toHaveClass('MuiButton-outlined')
+    expect(resetButton).toHaveStyle({ marginLeft: '16px' })
   })
 })
