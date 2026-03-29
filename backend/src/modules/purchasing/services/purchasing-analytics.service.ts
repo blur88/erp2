@@ -655,10 +655,14 @@ export class PurchasingAnalyticsService {
       if (filters.supplierId) {
         qb.andWhere('po.supplierId = :supplierId', { supplierId: filters.supplierId });
       }
-      if (filters.status) {
-        qb.andWhere('po.isFullyReceived = :isFullyReceived', {
-          isFullyReceived: filters.status === 'received',
-        });
+      if (filters.status === 'received') {
+        qb.andWhere(
+          'NOT EXISTS (SELECT 1 FROM purchase_order_items poi WHERE poi."purchaseOrderId" = po.id AND poi."receivedQuantity" < poi.quantity AND poi."deletedAt" IS NULL)',
+        );
+      } else if (filters.status === 'pending') {
+        qb.andWhere(
+          'EXISTS (SELECT 1 FROM purchase_order_items poi WHERE poi."purchaseOrderId" = po.id AND poi."receivedQuantity" < poi.quantity AND poi."deletedAt" IS NULL)',
+        );
       }
       return qb;
     };
@@ -734,10 +738,14 @@ export class PurchasingAnalyticsService {
       if (filters.supplierId) {
         qb.andWhere('po.supplierId = :supplierId', { supplierId: filters.supplierId });
       }
-      if (filters.status) {
-        qb.andWhere('po.isFullyReceived = :isFullyReceived', {
-          isFullyReceived: filters.status === 'received',
-        });
+      if (filters.status === 'received') {
+        qb.andWhere(
+          'NOT EXISTS (SELECT 1 FROM purchase_order_items poi WHERE poi."purchaseOrderId" = po.id AND poi."receivedQuantity" < poi.quantity AND poi."deletedAt" IS NULL)',
+        );
+      } else if (filters.status === 'pending') {
+        qb.andWhere(
+          'EXISTS (SELECT 1 FROM purchase_order_items poi WHERE poi."purchaseOrderId" = po.id AND poi."receivedQuantity" < poi.quantity AND poi."deletedAt" IS NULL)',
+        );
       }
 
       const orders = await qb.getMany();
@@ -801,10 +809,14 @@ export class PurchasingAnalyticsService {
     if (filters.supplierId) {
       qb.andWhere('po.supplierId = :supplierId', { supplierId: filters.supplierId });
     }
-    if (filters.status) {
-      qb.andWhere('po.isFullyReceived = :isFullyReceived', {
-        isFullyReceived: filters.status === 'received',
-      });
+    if (filters.status === 'received') {
+      qb.andWhere(
+        'NOT EXISTS (SELECT 1 FROM purchase_order_items poi WHERE poi."purchaseOrderId" = po.id AND poi."receivedQuantity" < poi.quantity AND poi."deletedAt" IS NULL)',
+      );
+    } else if (filters.status === 'pending') {
+      qb.andWhere(
+        'EXISTS (SELECT 1 FROM purchase_order_items poi WHERE poi."purchaseOrderId" = po.id AND poi."receivedQuantity" < poi.quantity AND poi."deletedAt" IS NULL)',
+      );
     }
 
     const data = await qb
@@ -840,10 +852,14 @@ export class PurchasingAnalyticsService {
     if (filters.supplierId) {
       qb.andWhere('po.supplierId = :supplierId', { supplierId: filters.supplierId });
     }
-    if (filters.status) {
-      qb.andWhere('po.isFullyReceived = :isFullyReceived', {
-        isFullyReceived: filters.status === 'received',
-      });
+    if (filters.status === 'received') {
+      qb.andWhere(
+        'NOT EXISTS (SELECT 1 FROM purchase_order_items poi WHERE poi."purchaseOrderId" = po.id AND poi."receivedQuantity" < poi.quantity AND poi."deletedAt" IS NULL)',
+      );
+    } else if (filters.status === 'pending') {
+      qb.andWhere(
+        'EXISTS (SELECT 1 FROM purchase_order_items poi WHERE poi."purchaseOrderId" = po.id AND poi."receivedQuantity" < poi.quantity AND poi."deletedAt" IS NULL)',
+      );
     }
 
     const data = await qb
@@ -874,6 +890,7 @@ export class PurchasingAnalyticsService {
     const qb = this.purchaseOrderRepository
       .createQueryBuilder('po')
       .leftJoinAndSelect('po.supplier', 'supplier')
+      .leftJoinAndSelect('po.items', 'items')
       .leftJoinAndSelect('po.vendorPayments', 'vendorPayments')
       .where('po.deletedAt IS NULL')
       .andWhere('po.isActive = :isActive', { isActive: true });
@@ -881,10 +898,14 @@ export class PurchasingAnalyticsService {
     if (filters.supplierId) {
       qb.andWhere('po.supplierId = :supplierId', { supplierId: filters.supplierId });
     }
-    if (filters.status) {
-      qb.andWhere('po.isFullyReceived = :isFullyReceived', {
-        isFullyReceived: filters.status === 'received',
-      });
+    if (filters.status === 'received') {
+      qb.andWhere(
+        'NOT EXISTS (SELECT 1 FROM purchase_order_items poi WHERE poi."purchaseOrderId" = po.id AND poi."receivedQuantity" < poi.quantity AND poi."deletedAt" IS NULL)',
+      );
+    } else if (filters.status === 'pending') {
+      qb.andWhere(
+        'EXISTS (SELECT 1 FROM purchase_order_items poi WHERE poi."purchaseOrderId" = po.id AND poi."receivedQuantity" < poi.quantity AND poi."deletedAt" IS NULL)',
+      );
     }
 
     const orders = await qb
@@ -912,7 +933,7 @@ export class PurchasingAnalyticsService {
         orderDate: date.toISOString().split('T')[0],
         supplierName: po.supplier?.companyName || 'N/A',
         totalAmount: total,
-        status: (po.isFullyReceived ? 'received' : 'pending') as 'received' | 'pending',
+        status: (po.isFullyReceived() ? 'received' : 'pending') as 'received' | 'pending',
         computedPaymentStatus,
       };
     });

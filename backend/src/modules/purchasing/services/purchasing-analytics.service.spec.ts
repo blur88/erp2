@@ -76,7 +76,7 @@ describe('PurchasingAnalyticsService', () => {
       expect(andWhereCalls.some((call) => call.includes('supplierId'))).toBe(true);
     });
 
-    it('passes status=received as isFullyReceived=true WHERE clause', async () => {
+    it('passes status=received as NOT EXISTS subquery WHERE clause', async () => {
       const qb = makeChainableQb([], [], {
         totalSpent: '0', totalOrders: '0', averageOrderValue: '0', activeSuppliers: '0',
       });
@@ -86,16 +86,10 @@ describe('PurchasingAnalyticsService', () => {
       await service.getPurchasingAnalytics(query);
 
       const andWhereCalls: string[] = qb.andWhere.mock.calls.map((c: any[]) => c[0]);
-      expect(andWhereCalls.some((call) => call.includes('isFullyReceived'))).toBe(true);
-
-      // Verify the parameter value is true
-      const isFullyReceivedCall = qb.andWhere.mock.calls.find((c: any[]) =>
-        typeof c[0] === 'string' && c[0].includes('isFullyReceived'),
-      );
-      expect(isFullyReceivedCall?.[1]?.isFullyReceived).toBe(true);
+      expect(andWhereCalls.some((call) => typeof call === 'string' && call.includes('NOT EXISTS'))).toBe(true);
     });
 
-    it('passes status=pending as isFullyReceived=false WHERE clause', async () => {
+    it('passes status=pending as EXISTS subquery WHERE clause', async () => {
       const qb = makeChainableQb([], [], {
         totalSpent: '0', totalOrders: '0', averageOrderValue: '0', activeSuppliers: '0',
       });
@@ -104,10 +98,9 @@ describe('PurchasingAnalyticsService', () => {
       const query = { ...baseQuery(), status: 'pending' as const };
       await service.getPurchasingAnalytics(query);
 
-      const isFullyReceivedCall = qb.andWhere.mock.calls.find((c: any[]) =>
-        typeof c[0] === 'string' && c[0].includes('isFullyReceived'),
-      );
-      expect(isFullyReceivedCall?.[1]?.isFullyReceived).toBe(false);
+      const andWhereCalls: string[] = qb.andWhere.mock.calls.map((c: any[]) => c[0]);
+      // EXISTS but NOT "NOT EXISTS"
+      expect(andWhereCalls.some((call) => typeof call === 'string' && call.includes('EXISTS') && !call.includes('NOT EXISTS'))).toBe(true);
     });
   });
 
@@ -119,7 +112,8 @@ describe('PurchasingAnalyticsService', () => {
           orderDate: new Date('2026-03-01'),
           supplier: { companyName: 'Supplier A' },
           totalAmount: '1000',
-          isFullyReceived: false,
+          items: [],
+          isFullyReceived: () => false,
           vendorPayments: [{ amount: '1000' }], // fully paid
         },
         {
@@ -127,7 +121,8 @@ describe('PurchasingAnalyticsService', () => {
           orderDate: new Date('2026-03-02'),
           supplier: { companyName: 'Supplier B' },
           totalAmount: '500',
-          isFullyReceived: false,
+          items: [],
+          isFullyReceived: () => false,
           vendorPayments: [], // unpaid
         },
         {
@@ -135,7 +130,8 @@ describe('PurchasingAnalyticsService', () => {
           orderDate: new Date('2026-03-03'),
           supplier: { companyName: 'Supplier C' },
           totalAmount: '300',
-          isFullyReceived: false,
+          items: [],
+          isFullyReceived: () => false,
           vendorPayments: [{ amount: '150' }], // partial
         },
       ];
@@ -159,7 +155,8 @@ describe('PurchasingAnalyticsService', () => {
           orderDate: new Date('2026-03-01'),
           supplier: { companyName: 'Supplier A' },
           totalAmount: '1000',
-          isFullyReceived: false,
+          items: [],
+          isFullyReceived: () => false,
           vendorPayments: [{ amount: '1000' }], // paid
         },
         {
@@ -167,7 +164,8 @@ describe('PurchasingAnalyticsService', () => {
           orderDate: new Date('2026-03-02'),
           supplier: { companyName: 'Supplier B' },
           totalAmount: '500',
-          isFullyReceived: false,
+          items: [],
+          isFullyReceived: () => false,
           vendorPayments: [], // unpaid
         },
       ];
@@ -191,7 +189,8 @@ describe('PurchasingAnalyticsService', () => {
           orderDate: new Date('2026-03-01'),
           supplier: { companyName: 'Supplier A' },
           totalAmount: '1000',
-          isFullyReceived: false,
+          items: [],
+          isFullyReceived: () => false,
           vendorPayments: [{ amount: '1000' }], // paid
         },
         {
@@ -199,7 +198,8 @@ describe('PurchasingAnalyticsService', () => {
           orderDate: new Date('2026-03-02'),
           supplier: { companyName: 'Supplier B' },
           totalAmount: '500',
-          isFullyReceived: false,
+          items: [],
+          isFullyReceived: () => false,
           vendorPayments: [{ amount: '250' }], // partial
         },
       ];
@@ -240,7 +240,8 @@ describe('PurchasingAnalyticsService', () => {
           orderDate: new Date('2026-03-05'),
           supplier: { companyName: 'Supplier A' },
           totalAmount: '1000',
-          isFullyReceived: false,
+          items: [],
+          isFullyReceived: () => false,
           vendorPayments: [{ amount: '1000' }], // paid
         },
         {
@@ -248,7 +249,8 @@ describe('PurchasingAnalyticsService', () => {
           orderDate: new Date('2026-03-10'),
           supplier: { companyName: 'Supplier B' },
           totalAmount: '500',
-          isFullyReceived: false,
+          items: [],
+          isFullyReceived: () => false,
           vendorPayments: [], // unpaid — should be excluded
         },
         {
@@ -256,7 +258,8 @@ describe('PurchasingAnalyticsService', () => {
           orderDate: new Date('2026-02-15'),
           supplier: { companyName: 'Supplier C' },
           totalAmount: '800',
-          isFullyReceived: false,
+          items: [],
+          isFullyReceived: () => false,
           vendorPayments: [{ amount: '800' }], // paid, different month
         },
       ];
