@@ -3,6 +3,8 @@ import { PATH_METADATA, METHOD_METADATA } from '@nestjs/common/constants';
 import { RequestMethod } from '@nestjs/common';
 
 import { SettingsController } from './settings.controller';
+import { RegionalSettingsResponseDto } from './dto/regional-settings-response.dto';
+import { UpdateRegionalSettingsDto } from './dto/update-regional-settings.dto';
 
 describe('SettingsController regional settings routes', () => {
   it('uses /settings/regional for the GET regional settings endpoint', () => {
@@ -18,5 +20,19 @@ describe('SettingsController regional settings routes', () => {
     expect(Reflect.getMetadata(METHOD_METADATA, SettingsController.prototype.updateRegionalSettings)).toBe(
       RequestMethod.PUT,
     );
+  });
+});
+
+describe('SettingsController lowStockThreshold', () => {
+  it('UpdateRegionalSettingsDto accepts lowStockThreshold as optional integer >= 0', () => {
+    const dto = new UpdateRegionalSettingsDto();
+    dto.lowStockThreshold = 5;
+    expect(dto.lowStockThreshold).toBe(5);
+  });
+
+  it('RegionalSettingsResponseDto exposes lowStockThreshold', () => {
+    const dto = new RegionalSettingsResponseDto();
+    (dto as any).lowStockThreshold = 10;
+    expect(dto.lowStockThreshold).toBe(10);
   });
 });
