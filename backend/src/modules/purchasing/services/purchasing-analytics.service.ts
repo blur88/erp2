@@ -30,6 +30,12 @@ interface PurchaseOrderSummaryQuery {
   paymentStatus?: string;
 }
 
+interface PurchasingAnalyticsFilters {
+  supplierId?: string;
+  status?: 'received' | 'pending';
+  paymentStatus?: 'paid' | 'partial' | 'unpaid';
+}
+
 export interface PurchaseOrderSummaryItem {
   orderNumber: string;
   orderDate: string;
@@ -596,11 +602,17 @@ export class PurchasingAnalyticsService {
       ? this.computePurchasingComparePeriod(startDate, endDate, query.compareWith)
       : null;
 
+    const filters: PurchasingAnalyticsFilters = {
+      supplierId: query.supplierId,
+      status: query.status,
+      paymentStatus: query.paymentStatus,
+    };
+
     const [metrics, periodData, topSuppliers, recentOrders] = await Promise.all([
-      this.calculatePurchasingMetrics(startDate, endDate),
-      this.getPurchasingPeriodData(startDate, endDate, groupBy),
-      this.getTopSuppliers(startDate, endDate, 5),
-      this.getRecentPurchaseOrders(5),
+      this.calculatePurchasingMetrics(startDate, endDate, filters),
+      this.getPurchasingPeriodData(startDate, endDate, groupBy, filters),
+      this.getTopSuppliers(startDate, endDate, 5, filters),
+      this.getRecentPurchaseOrders(5, filters),
     ]);
 
     const current: PurchasingPeriodBlockDto = {
@@ -613,8 +625,8 @@ export class PurchasingAnalyticsService {
     let comparison: PurchasingPeriodBlockDto | undefined;
     if (comparePeriod) {
       const [compareMetrics, comparePeriodData] = await Promise.all([
-        this.calculatePurchasingMetrics(comparePeriod.compareStart, comparePeriod.compareEnd),
-        this.getPurchasingPeriodData(comparePeriod.compareStart, comparePeriod.compareEnd, groupBy),
+        this.calculatePurchasingMetrics(comparePeriod.compareStart, comparePeriod.compareEnd, filters),
+        this.getPurchasingPeriodData(comparePeriod.compareStart, comparePeriod.compareEnd, groupBy, filters),
       ]);
       comparison = {
         metrics: compareMetrics,
@@ -630,24 +642,36 @@ export class PurchasingAnalyticsService {
   private async calculatePurchasingMetrics(
     startDate: Date,
     endDate: Date,
+    filters: PurchasingAnalyticsFilters = {},
   ): Promise<PurchasingMetricsDto> {
-    const [orderStats, supplierStats] = await Promise.all([
+    const baseQb = () =>
       this.purchaseOrderRepository
         .createQueryBuilder('po')
         .where('po.orderDate BETWEEN :startDate AND :endDate', { startDate, endDate })
         .andWhere('po.deletedAt IS NULL')
-        .andWhere('po.isActive = :isActive', { isActive: true })
+        .andWhere('po.isActive = :isActive', { isActive: true });
+
+    const applyFilters = (qb: ReturnType<typeof baseQb>) => {
+      if (filters.supplierId) {
+        qb.andWhere('po.supplierId = :supplierId', { supplierId: filters.supplierId });
+      }
+      if (filters.status) {
+        qb.andWhere('po.isFullyReceived = :isFullyReceived', {
+          isFullyReceived: filters.status === 'received',
+        });
+      }
+      return qb;
+    };
+
+    const [orderStats, supplierStats] = await Promise.all([
+      applyFilters(baseQb())
         .select([
           'COALESCE(SUM(po.totalAmount), 0) as "totalSpent"',
           'COUNT(*) as "totalOrders"',
           'COALESCE(AVG(po.totalAmount), 0) as "averageOrderValue"',
         ])
         .getRawOne(),
-      this.purchaseOrderRepository
-        .createQueryBuilder('po')
-        .where('po.orderDate BETWEEN :startDate AND :endDate', { startDate, endDate })
-        .andWhere('po.deletedAt IS NULL')
-        .andWhere('po.isActive = :isActive', { isActive: true })
+      applyFilters(baseQb())
         .select('COUNT(DISTINCT po.supplierId) as "activeSuppliers"')
         .getRawOne(),
     ]);
@@ -664,6 +688,7 @@ export class PurchasingAnalyticsService {
     startDate: Date,
     endDate: Date,
     groupBy: string,
+    filters: PurchasingAnalyticsFilters = {},
   ): Promise<PurchasingPeriodDataDto[]> {
     let dateFormat: string;
 
@@ -685,11 +710,22 @@ export class PurchasingAnalyticsService {
         break;
     }
 
-    const data = await this.purchaseOrderRepository
+    const qb = this.purchaseOrderRepository
       .createQueryBuilder('po')
       .where('po.orderDate BETWEEN :startDate AND :endDate', { startDate, endDate })
       .andWhere('po.deletedAt IS NULL')
-      .andWhere('po.isActive = :isActive', { isActive: true })
+      .andWhere('po.isActive = :isActive', { isActive: true });
+
+    if (filters.supplierId) {
+      qb.andWhere('po.supplierId = :supplierId', { supplierId: filters.supplierId });
+    }
+    if (filters.status) {
+      qb.andWhere('po.isFullyReceived = :isFullyReceived', {
+        isFullyReceived: filters.status === 'received',
+      });
+    }
+
+    const data = await qb
       .select([
         `TO_CHAR(po.orderDate, '${dateFormat}') as period`,
         'COUNT(*) as orders',
@@ -710,13 +746,25 @@ export class PurchasingAnalyticsService {
     startDate: Date,
     endDate: Date,
     limit: number,
+    filters: PurchasingAnalyticsFilters = {},
   ): Promise<TopSupplierDto[]> {
-    const data = await this.purchaseOrderRepository
+    const qb = this.purchaseOrderRepository
       .createQueryBuilder('po')
       .leftJoin('po.supplier', 'supplier')
       .where('po.orderDate BETWEEN :startDate AND :endDate', { startDate, endDate })
       .andWhere('po.deletedAt IS NULL')
-      .andWhere('po.isActive = :isActive', { isActive: true })
+      .andWhere('po.isActive = :isActive', { isActive: true });
+
+    if (filters.supplierId) {
+      qb.andWhere('po.supplierId = :supplierId', { supplierId: filters.supplierId });
+    }
+    if (filters.status) {
+      qb.andWhere('po.isFullyReceived = :isFullyReceived', {
+        isFullyReceived: filters.status === 'received',
+      });
+    }
+
+    const data = await qb
       .select([
         'supplier.id as "supplierId"',
         'supplier.companyName as "supplierName"',
@@ -737,26 +785,63 @@ export class PurchasingAnalyticsService {
     }));
   }
 
-  private async getRecentPurchaseOrders(limit: number): Promise<RecentPurchaseOrderDto[]> {
-    const orders = await this.purchaseOrderRepository
+  private async getRecentPurchaseOrders(
+    limit: number,
+    filters: PurchasingAnalyticsFilters = {},
+  ): Promise<RecentPurchaseOrderDto[]> {
+    const fetchLimit = filters.paymentStatus ? limit * 5 : limit;
+
+    const qb = this.purchaseOrderRepository
       .createQueryBuilder('po')
       .leftJoinAndSelect('po.supplier', 'supplier')
+      .leftJoinAndSelect('po.vendorPayments', 'vendorPayments')
       .where('po.deletedAt IS NULL')
-      .andWhere('po.isActive = :isActive', { isActive: true })
+      .andWhere('po.isActive = :isActive', { isActive: true });
+
+    if (filters.supplierId) {
+      qb.andWhere('po.supplierId = :supplierId', { supplierId: filters.supplierId });
+    }
+    if (filters.status) {
+      qb.andWhere('po.isFullyReceived = :isFullyReceived', {
+        isFullyReceived: filters.status === 'received',
+      });
+    }
+
+    const orders = await qb
       .orderBy('po.orderDate', 'DESC')
-      .limit(limit)
+      .limit(fetchLimit)
       .getMany();
 
-    return orders.map((po) => {
+    const mapped = orders.map((po) => {
       const date = po.orderDate instanceof Date ? po.orderDate : new Date(po.orderDate);
+      const paidAmount = (po.vendorPayments ?? []).reduce(
+        (sum, vp) => sum + parseFloat(vp.amount?.toString() || '0'),
+        0,
+      );
+      const total = parseFloat(po.totalAmount?.toString() || '0');
+      let computedPaymentStatus: 'paid' | 'partial' | 'unpaid';
+      if (paidAmount >= total && total > 0) {
+        computedPaymentStatus = 'paid';
+      } else if (paidAmount > 0) {
+        computedPaymentStatus = 'partial';
+      } else {
+        computedPaymentStatus = 'unpaid';
+      }
       return {
         orderNumber: po.orderNumber,
         orderDate: date.toISOString().split('T')[0],
         supplierName: po.supplier?.companyName || 'N/A',
-        totalAmount: parseFloat(po.totalAmount?.toString() || '0'),
-        status: po.isFullyReceived ? 'received' : 'pending',
+        totalAmount: total,
+        status: (po.isFullyReceived ? 'received' : 'pending') as 'received' | 'pending',
+        computedPaymentStatus,
       };
     });
+
+    const filtered = filters.paymentStatus
+      ? mapped.filter((order) => order.computedPaymentStatus === filters.paymentStatus)
+      : mapped;
+
+    return filtered.slice(0, limit).map(({ computedPaymentStatus: _, ...rest }) => rest);
   }
 
   private parsePurchasingDateRange(
