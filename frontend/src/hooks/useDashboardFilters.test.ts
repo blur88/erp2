@@ -335,4 +335,89 @@ describe('useDashboardFilters', () => {
       expect(result.current.resolvedApiParams.paymentStatus).toBe('unpaid')
     })
   })
+
+  describe('new filters: categoryId, stockStatus', () => {
+    it('returns null for categoryId and stockStatus when URL is empty', () => {
+      setUrl('')
+      const { result } = renderHook(() => useDashboardFilters('inventory'))
+      expect(result.current.categoryId).toBeNull()
+      expect(result.current.stockStatus).toBeNull()
+    })
+
+    it('reads valid UUID categoryId from URL on mount', () => {
+      setUrl('?inventory_category=550e8400-e29b-41d4-a716-446655440010')
+      const { result } = renderHook(() => useDashboardFilters('inventory'))
+      expect(result.current.categoryId).toBe('550e8400-e29b-41d4-a716-446655440010')
+    })
+
+    it('ignores non-UUID categoryId from URL', () => {
+      setUrl('?inventory_category=not-a-uuid')
+      const { result } = renderHook(() => useDashboardFilters('inventory'))
+      expect(result.current.categoryId).toBeNull()
+    })
+
+    it('reads valid stockStatus from URL on mount', () => {
+      setUrl('?inventory_stock_status=low_stock')
+      const { result } = renderHook(() => useDashboardFilters('inventory'))
+      expect(result.current.stockStatus).toBe('low_stock')
+    })
+
+    it('ignores invalid stockStatus value from URL', () => {
+      setUrl('?inventory_stock_status=garbage')
+      const { result } = renderHook(() => useDashboardFilters('inventory'))
+      expect(result.current.stockStatus).toBeNull()
+    })
+
+    it('setCategoryId updates state and writes to URL', () => {
+      setUrl('')
+      const replaceState = vi.fn()
+      vi.stubGlobal('history', { replaceState })
+      const { result } = renderHook(() => useDashboardFilters('inventory'))
+      act(() => { result.current.setCategoryId('550e8400-e29b-41d4-a716-446655440010') })
+      expect(result.current.categoryId).toBe('550e8400-e29b-41d4-a716-446655440010')
+      expect(replaceState).toHaveBeenCalled()
+    })
+
+    it('setStockStatus updates state and writes to URL', () => {
+      setUrl('')
+      const replaceState = vi.fn()
+      vi.stubGlobal('history', { replaceState })
+      const { result } = renderHook(() => useDashboardFilters('inventory'))
+      act(() => { result.current.setStockStatus('in_stock') })
+      expect(result.current.stockStatus).toBe('in_stock')
+      expect(replaceState).toHaveBeenCalled()
+    })
+
+    it('reset clears categoryId and stockStatus', () => {
+      setUrl('?inventory_category=550e8400-e29b-41d4-a716-446655440010&inventory_stock_status=in_stock')
+      const { result } = renderHook(() => useDashboardFilters('inventory'))
+      act(() => { result.current.reset() })
+      expect(result.current.categoryId).toBeNull()
+      expect(result.current.stockStatus).toBeNull()
+    })
+
+    it('isDefault is false when categoryId is set', () => {
+      setUrl('?inventory_category=550e8400-e29b-41d4-a716-446655440010')
+      const { result } = renderHook(() => useDashboardFilters('inventory'))
+      expect(result.current.isDefault).toBe(false)
+    })
+
+    it('isDefault is false when stockStatus is set', () => {
+      setUrl('?inventory_stock_status=out_of_stock')
+      const { result } = renderHook(() => useDashboardFilters('inventory'))
+      expect(result.current.isDefault).toBe(false)
+    })
+
+    it('resolvedApiParams includes categoryId when set', () => {
+      setUrl('?inventory_category=550e8400-e29b-41d4-a716-446655440010')
+      const { result } = renderHook(() => useDashboardFilters('inventory'))
+      expect(result.current.resolvedApiParams.categoryId).toBe('550e8400-e29b-41d4-a716-446655440010')
+    })
+
+    it('resolvedApiParams includes stockStatus when set', () => {
+      setUrl('?inventory_stock_status=low_stock')
+      const { result } = renderHook(() => useDashboardFilters('inventory'))
+      expect(result.current.resolvedApiParams.stockStatus).toBe('low_stock')
+    })
+  })
 })

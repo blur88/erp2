@@ -51,6 +51,16 @@ describe('DashboardFilterBar', () => {
     expect(screen.queryByLabelText('Payment Status')).toBeNull()
   })
 
+  it('does not render Category select when categories prop is absent', () => {
+    wrap(<DashboardFilterBar {...baseProps()} />)
+    expect(screen.queryByLabelText('Category')).toBeNull()
+  })
+
+  it('does not render Stock Status select when stockStatus prop is absent', () => {
+    wrap(<DashboardFilterBar {...baseProps()} />)
+    expect(screen.queryByLabelText('Stock Status')).toBeNull()
+  })
+
   it('renders Customer select when customers prop is provided', () => {
     wrap(
       <DashboardFilterBar
@@ -106,6 +116,29 @@ describe('DashboardFilterBar', () => {
       />,
     )
     expect(screen.getByLabelText('Payment Status')).toBeTruthy()
+  })
+
+  it('renders Category select when categories prop is provided', () => {
+    wrap(
+      <DashboardFilterBar
+        {...baseProps()}
+        categories={[{ id: 'cat1', name: 'Electronics' }]}
+        categoryId={null}
+        onCategoryChange={vi.fn()}
+      />,
+    )
+    expect(screen.getByLabelText('Category')).toBeTruthy()
+  })
+
+  it('renders Stock Status select when stockStatus prop is provided', () => {
+    wrap(
+      <DashboardFilterBar
+        {...baseProps()}
+        stockStatus={null}
+        onStockStatusChange={vi.fn()}
+      />,
+    )
+    expect(screen.getByLabelText('Stock Status')).toBeTruthy()
   })
 
   it('renders custom payment status labels when paymentStatusOptions are provided', () => {
@@ -166,6 +199,35 @@ describe('DashboardFilterBar', () => {
     await userEvent.click(screen.getByLabelText('Supplier'))
     await userEvent.click(screen.getByText('All Suppliers'))
     expect(onSupplierChange).toHaveBeenCalledWith(null)
+  })
+
+  it('calls onCategoryChange with null when All Categories is selected', async () => {
+    const onCategoryChange = vi.fn()
+    wrap(
+      <DashboardFilterBar
+        {...baseProps()}
+        categories={[{ id: 'cat1', name: 'Electronics' }]}
+        categoryId="cat1"
+        onCategoryChange={onCategoryChange}
+      />,
+    )
+    await userEvent.click(screen.getByLabelText('Category'))
+    await userEvent.click(screen.getByText('All Categories'))
+    expect(onCategoryChange).toHaveBeenCalledWith(null)
+  })
+
+  it('calls onStockStatusChange with low_stock when Low Stock is selected', async () => {
+    const onStockStatusChange = vi.fn()
+    wrap(
+      <DashboardFilterBar
+        {...baseProps()}
+        stockStatus={null}
+        onStockStatusChange={onStockStatusChange}
+      />,
+    )
+    await userEvent.click(screen.getByLabelText('Stock Status'))
+    await userEvent.click(screen.getByText('Low Stock'))
+    expect(onStockStatusChange).toHaveBeenCalledWith('low_stock')
   })
 
   it('calls onStatusChange with pending when Pending is selected', async () => {
