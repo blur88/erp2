@@ -39,9 +39,13 @@ lowStockThreshold: number;
 Generate: `npm run migration:generate --name=AddLowStockThresholdToRegionalSettings`
 
 ### 5. Hardcoded replacements
-Replace all hardcoded `10` thresholds by injecting `RegionalSettings` (or passing the value as a parameter) in:
-- `inventory-analytics.service.ts` lines ~736, ~845, ~938 (3 occurrences)
-- `integration.service.ts` line ~370 (1 occurrence)
+Inject `RegionalSettings` (or pass `lowStockThreshold` as a parameter) to replace all hardcoded `10` in:
+- `inventory-analytics.service.ts` — lines ~736, ~845, ~934, ~938 (4 occurrences: lowStockCount, alerts, in_stock filter, low_stock filter)
+- `product.service.ts` — lines ~1180, ~1203, ~1204, ~1327, ~1330 (5 occurrences: filter query, stockStatus mapping, isLowStock flag, count)
+- `integration.service.ts` — lines ~344, ~370 (2 occurrences: reorder query and default)
+- `sales/inventory-integration.service.ts` — line ~391 (1 occurrence: sales low stock check)
+
+Note: `product.service.ts` line ~1202 has `reorderLevel: 10` as a per-product default — this is a separate concept and must NOT be changed.
 
 ---
 
@@ -73,8 +77,8 @@ Add entry under the "Business" group in Settings:
 
 ### 4. Hardcoded replacements — frontend
 Replace hardcoded `10` with the value from `useGetRegionalSettingsQuery` in:
-- `exportUtils.ts` — 3 occurrences (pass `threshold` as a parameter from callers; caller is `useProductsActions.ts`)
-- `components/inventory/ProductDetailsTab.tsx` line ~27 — local `getStockStatus` function (read threshold from RTK Query hook)
+- `exportUtils.ts` — 3 occurrences (lines ~27, ~175, ~322 — pass `threshold` as a parameter; caller is `useProductsActions.ts`)
+- `components/inventory/ProductDetailsTab.tsx` — line ~27 in local `getStockStatus` function (read threshold from RTK Query hook)
 
 ---
 
