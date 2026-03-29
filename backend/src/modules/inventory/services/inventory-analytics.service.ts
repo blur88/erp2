@@ -5,6 +5,7 @@ import { Product, Category, StockMovement, PriceListItem as PriceListItemEntity 
 import { PurchaseCostHistory } from '../../../database/entities/purchase-cost-history.entity';
 import { PurchaseOrderItem } from '../../../database/entities/purchase-order-item.entity';
 import { differenceInCalendarDays, subDays, subMonths, subYears } from 'date-fns';
+import { SettingsService } from '../../settings/settings.service';
 import {
   InventoryAnalyticsQueryDto,
   InventoryAnalyticsResponseDto,
@@ -130,6 +131,7 @@ export class InventoryAnalyticsService {
     private readonly priceListItemRepository: Repository<PriceListItemEntity>,
     @InjectRepository(PurchaseOrderItem)
     private readonly purchaseOrderItemRepository: Repository<PurchaseOrderItem>,
+    private readonly settingsService: SettingsService,
   ) {}
 
   async getInventorySummary(
@@ -724,6 +726,7 @@ export class InventoryAnalyticsService {
   private async getInventorySnapshotMetrics(
     filters: InventoryDashboardFilters = {},
   ): Promise<Omit<InventoryMetricsDto, 'stockMovementsIn' | 'stockMovementsOut'>> {
+    const threshold = await this.getLowStockThreshold();
     const qb = this.productRepository
       .createQueryBuilder('product')
       .leftJoin('product.category', 'category')
@@ -733,10 +736,10 @@ export class InventoryAnalyticsService {
         'COUNT(*) as "totalProducts"',
         'COALESCE(SUM(product.baseCost * product.stockQuantity), 0) as "inventoryValue"',
         'SUM(CASE WHEN product.stockQuantity <= 0 THEN 1 ELSE 0 END) as "outOfStockCount"',
-        'SUM(CASE WHEN product.stockQuantity > 0 AND product.stockQuantity <= 10 THEN 1 ELSE 0 END) as "lowStockCount"',
+        `SUM(CASE WHEN product.stockQuantity > 0 AND product.stockQuantity <= ${threshold} THEN 1 ELSE 0 END) as "lowStockCount"`,
       ]);
 
-    this.applyProductFilters(qb, filters);
+    this.applyProductFilters(qb, filters, 'product', threshold);
     const products = await qb.getRawOne();
 
     const totalCategories = await this.categoryRepository
@@ -759,13 +762,14 @@ export class InventoryAnalyticsService {
     endDate: Date,
     filters: InventoryDashboardFilters = {},
   ): Promise<Pick<InventoryMetricsDto, 'stockMovementsIn' | 'stockMovementsOut'>> {
+    const threshold = await this.getLowStockThreshold();
     const qb = this.stockMovementRepository
       .createQueryBuilder('movement')
       .where('movement.movementDate BETWEEN :startDate AND :endDate', { startDate, endDate });
 
     if (filters.categoryId || filters.productIds !== undefined || filters.stockStatus) {
       qb.innerJoin('movement.product', 'product');
-      this.applyProductFilters(qb, filters);
+      this.applyProductFilters(qb, filters, 'product', threshold);
     }
 
     qb.select([
@@ -787,6 +791,7 @@ export class InventoryAnalyticsService {
     groupBy: GroupByPeriod,
     filters: InventoryDashboardFilters = {},
   ): Promise<InventoryPeriodDataDto[]> {
+    const threshold = await this.getLowStockThreshold();
     let dateFormat: string;
 
     switch (groupBy) {
@@ -813,7 +818,7 @@ export class InventoryAnalyticsService {
 
     if (filters.categoryId || filters.productIds !== undefined || filters.stockStatus) {
       qb.innerJoin('movement.product', 'product');
-      this.applyProductFilters(qb, filters);
+      this.applyProductFilters(qb, filters, 'product', threshold);
     }
 
     qb.select([
@@ -837,12 +842,13 @@ export class InventoryAnalyticsService {
     limit: number,
     filters: InventoryDashboardFilters = {},
   ): Promise<LowStockAlertDto[]> {
+    const threshold = await this.getLowStockThreshold();
     const qb = this.productRepository
       .createQueryBuilder('product')
       .leftJoinAndSelect('product.category', 'category')
       .where('product.deletedAt IS NULL')
       .andWhere('product.isActive = :isActive', { isActive: true })
-      .andWhere('product.stockQuantity <= :threshold', { threshold: 10 });
+      .andWhere('product.stockQuantity <= :threshold', { threshold });
 
     if (filters.categoryId) {
       qb.andWhere('product.categoryId = :categoryId', { categoryId: filters.categoryId });
@@ -877,6 +883,7 @@ export class InventoryAnalyticsService {
     limit: number,
     filters: InventoryDashboardFilters = {},
   ): Promise<RecentMovementDto[]> {
+    const threshold = await this.getLowStockThreshold();
     const qb = this.stockMovementRepository
       .createQueryBuilder('movement')
       .leftJoinAndSelect('movement.product', 'product')
@@ -888,7 +895,7 @@ export class InventoryAnalyticsService {
 
     if (filters.categoryId || filters.productIds !== undefined || filters.stockStatus) {
       // product is already joined unconditionally via leftJoinAndSelect above
-      this.applyProductFilters(qb, filters);
+      this.applyProductFilters(qb, filters, 'product', threshold);
     }
 
     qb.orderBy('movement.movementDate', 'DESC').limit(limit);
@@ -919,6 +926,7 @@ export class InventoryAnalyticsService {
     qb: import('typeorm').SelectQueryBuilder<any>,
     filters: InventoryDashboardFilters,
     productAlias: string = 'product',
+    lowStockThreshold: number = 10,
   ): void {
     if (filters.categoryId) {
       qb.andWhere(`${productAlias}.categoryId = :categoryId`, { categoryId: filters.categoryId });
@@ -931,15 +939,20 @@ export class InventoryAnalyticsService {
       }
     }
     if (filters.stockStatus === 'in_stock') {
-      qb.andWhere(`${productAlias}.stockQuantity > :inStockThreshold`, { inStockThreshold: 10 });
+      qb.andWhere(`${productAlias}.stockQuantity > :inStockThreshold`, { inStockThreshold: lowStockThreshold });
     } else if (filters.stockStatus === 'low_stock') {
       qb.andWhere(
         `${productAlias}.stockQuantity > :lowStockMin AND ${productAlias}.stockQuantity <= :lowStockMax`,
-        { lowStockMin: 0, lowStockMax: 10 },
+        { lowStockMin: 0, lowStockMax: lowStockThreshold },
       );
     } else if (filters.stockStatus === 'out_of_stock') {
       qb.andWhere(`${productAlias}.stockQuantity <= :outOfStockThreshold`, { outOfStockThreshold: 0 });
     }
+  }
+
+  private async getLowStockThreshold(): Promise<number> {
+    const settings = await this.settingsService.getRegionalSettings();
+    return settings.lowStockThreshold ?? 10;
   }
 
   private resolveInventoryDateRange(
