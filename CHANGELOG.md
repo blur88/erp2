@@ -1,3 +1,12 @@
+## [1.31.4](https://github.com/blur88/erp2/compare/v1.31.3...v1.31.4) (2026-03-29)
+
+
+### Internal Changes
+
+* refactor: move DashboardFilterBar to filters folder (#212) ([](https://github.com/blur88/erp2/commit/))
+* docs: add implementation plan for DashboardFilterBar folder move (#212) ([](https://github.com/blur88/erp2/commit/))
+* docs: add design spec for DashboardFilterBar folder move (issue #212) ([](https://github.com/blur88/erp2/commit/))
+
 ## [1.31.3](https://github.com/blur88/erp2/compare/v1.31.2...v1.31.3) (2026-03-29)
 
 
