@@ -53,6 +53,9 @@ export interface InventoryAnalyticsParams {
   endDate?: string
   groupBy?: string
   compareWith?: string
+  categoryId?: string
+  supplierId?: string
+  stockStatus?: string
 }
 
 export function useInventoryAnalytics(params: InventoryAnalyticsParams) {
