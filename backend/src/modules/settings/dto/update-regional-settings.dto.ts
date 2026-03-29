@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsString, IsOptional, IsIn, MaxLength } from 'class-validator';
+import { IsString, IsOptional, IsIn, MaxLength, IsInt, Min } from 'class-validator';
 
 const DATE_FORMAT_OPTIONS = [
   'DD/MM/YYYY',
@@ -83,4 +83,10 @@ export class UpdateRegionalSettingsDto {
   @IsOptional()
   @IsIn(TIMEZONE_LIST)
   timezone?: string;
+
+  @ApiProperty({ description: 'Low stock threshold quantity', example: 10 })
+  @IsInt()
+  @IsOptional()
+  @Min(0)
+  lowStockThreshold?: number;
 }
