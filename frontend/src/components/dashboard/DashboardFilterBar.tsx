@@ -218,7 +218,12 @@ export function DashboardFilterBar({
       )}
 
       {!isDefault && (
-        <Button variant="outlined" color="inherit" size="small" onClick={onReset}>
+        <Button
+          variant="outlined"
+          size="small"
+          onClick={onReset}
+          sx={{ height: 40 }}
+        >
           Reset
         </Button>
       )}
