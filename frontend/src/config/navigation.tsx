@@ -559,11 +559,11 @@ export const menuSections: MenuSection[] = [
             roles: ADMIN_ONLY,
           },
           {
-            id: 'price-costing-settings',
+            id: 'inventory-costing-settings',
             title: 'Inventory Costing',
             icon: <PriceCostingIcon />,
             group: 'Business',
-            path: '/settings/price-costing',
+            path: '/settings/inventory-costing',
             roles: ADMIN_ONLY,
           },
           {

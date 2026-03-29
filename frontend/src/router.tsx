@@ -181,7 +181,8 @@ export const router = createBrowserRouter([
           { path: '/reports/sales/product-customer', element: <ProductCustomerReport />, handle: { title: 'Product Customer Report' } },
 
           { path: '/settings/company', element: <CompanySettingsPage />, handle: { title: 'Company' } },
-          { path: '/settings/price-costing', element: <InventoryCostingPage />, handle: { title: 'Inventory Costing' } },
+          { path: '/settings/price-costing', element: <Navigate to="/settings/inventory-costing" replace /> },
+          { path: '/settings/inventory-costing', element: <InventoryCostingPage />, handle: { title: 'Inventory Costing' } },
           { path: '/settings/regional', element: <RegionalSettingsPage />, handle: { title: 'Regional' } },
           { path: '/settings/price-lists', element: <PriceListsPage />, handle: { title: 'Price Lists' } },
           { path: '/settings/price-lists/:id', element: <PriceListDetailsPage />, handle: { title: 'Price List Details' } },

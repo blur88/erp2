@@ -321,7 +321,7 @@ const STATIC_PAGES: Array<{
   {
     label: 'Inventory Costing',
     keywords: ['costing', 'price costing', 'settings'],
-    route: '/settings/price-costing',
+    route: '/settings/inventory-costing',
     roles: ADMIN_ONLY,
   },
   {

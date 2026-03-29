@@ -189,40 +189,40 @@ export class SettingsController {
   }
 
   /**
-   * Get price and costing settings
+   * Get regional settings
    */
-  @Get('price-costing')
+  @Get('regional')
   @ApiOperation({
-    summary: 'Get price and costing settings',
-    description: 'Retrieve current price and costing settings',
+    summary: 'Get regional settings',
+    description: 'Retrieve current regional settings',
   })
   @ApiResponse({
     status: 200,
-    description: 'Price and costing settings retrieved successfully',
+    description: 'Regional settings retrieved successfully',
     type: RegionalSettingsResponseDto,
   })
   async getRegionalSettings(): Promise<RegionalSettingsResponseDto> {
     try {
-      this.logger.log('Fetching price and costing settings');
+      this.logger.log('Fetching regional settings');
       return await this.settingsService.getRegionalSettings();
     } catch (error) {
-      this.logger.error(`Failed to get price and costing settings: ${error.message}`, error.stack);
+      this.logger.error(`Failed to get regional settings: ${error.message}`, error.stack);
       throw error;
     }
   }
 
   /**
-   * Update price and costing settings
+   * Update regional settings
    */
-  @Put('price-costing')
+  @Put('regional')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
-    summary: 'Update price and costing settings',
-    description: 'Update price and costing settings information',
+    summary: 'Update regional settings',
+    description: 'Update regional settings information',
   })
   @ApiResponse({
     status: 200,
-    description: 'Price and costing settings updated successfully',
+    description: 'Regional settings updated successfully',
     type: RegionalSettingsResponseDto,
   })
   @ApiBadRequestResponse({ description: 'Invalid input data' })
@@ -230,10 +230,10 @@ export class SettingsController {
     @Body(ValidationPipe) updateDto: UpdateRegionalSettingsDto,
   ): Promise<RegionalSettingsResponseDto> {
     try {
-      this.logger.log('Updating price and costing settings');
+      this.logger.log('Updating regional settings');
       return await this.settingsService.updateRegionalSettings(updateDto, 'system');
     } catch (error) {
-      this.logger.error(`Failed to update price and costing settings: ${error.message}`, error.stack);
+      this.logger.error(`Failed to update regional settings: ${error.message}`, error.stack);
       throw error;
     }
   }

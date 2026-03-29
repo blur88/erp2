@@ -100,12 +100,12 @@ export const settingsApiSlice = createApi({
       invalidatesTags: ['CompanySettings'],
     }),
     getRegionalSettings: builder.query<RegionalSettings, void>({
-      query: () => ({ url: '/settings/price-costing' }),
+      query: () => ({ url: '/settings/regional' }),
       transformResponse: normalizeSingle<RegionalSettings>,
       providesTags: ['RegionalSettings'],
     }),
     updateRegionalSettings: builder.mutation<RegionalSettings, UpdateRegionalSettingsDto>({
-      query: (data) => ({ url: '/settings/price-costing', method: 'PUT', data }),
+      query: (data) => ({ url: '/settings/regional', method: 'PUT', data }),
       transformResponse: normalizeSingle<RegionalSettings>,
       invalidatesTags: ['RegionalSettings'],
     }),
