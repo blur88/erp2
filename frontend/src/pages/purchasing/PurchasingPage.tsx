@@ -44,6 +44,7 @@ import { useNavigate } from 'react-router-dom'
 import PageHeader from '@/components/common/PageHeader'
 import { DashboardFilterBar } from '@/components/filters/DashboardFilterBar'
 import { useDashboardFilters } from '@/hooks/useDashboardFilters'
+import { useGetSuppliersQuery } from '@/store/api/purchasingApi'
 import { usePurchasingAnalytics } from './hooks/usePurchasingAnalytics'
 
 ChartJS.register(
@@ -67,15 +68,27 @@ const PurchasingPage: React.FC = () => {
     compareWith,
     customFrom,
     customTo,
+    supplierId,
+    status,
+    paymentStatus,
     setPeriod,
     setCompare,
     setCustomRange,
     setCustomFrom,
     setCustomTo,
+    setSupplierId,
+    setStatus,
+    setPaymentStatus,
     reset,
     isDefault,
     resolvedApiParams,
   } = useDashboardFilters('purchasing')
+
+  const { data: suppliersData } = useGetSuppliersQuery({})
+  const supplierOptions = suppliersData?.data?.map((supplier) => ({
+    id: supplier.id,
+    name: supplier.companyName,
+  })) ?? []
 
   const { data, isLoading, isFetching, error } = usePurchasingAnalytics(resolvedApiParams)
 
@@ -189,6 +202,18 @@ const PurchasingPage: React.FC = () => {
         onCustomFromChange={setCustomFrom}
         onCustomToChange={setCustomTo}
         onReset={reset}
+        suppliers={supplierOptions}
+        supplierId={supplierId}
+        onSupplierChange={setSupplierId}
+        status={status}
+        onStatusChange={setStatus}
+        paymentStatus={paymentStatus}
+        onPaymentStatusChange={setPaymentStatus}
+        paymentStatusOptions={[
+          { value: 'paid', label: 'Paid' },
+          { value: 'partial', label: 'Partially Paid' },
+          { value: 'unpaid', label: 'Unpaid' },
+        ]}
       />
 
       {error && (
