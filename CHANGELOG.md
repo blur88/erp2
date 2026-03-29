@@ -1,3 +1,15 @@
+# [1.33.0](https://github.com/blur88/erp2/compare/v1.32.0...v1.33.0) (2026-03-29)
+
+
+### Features
+
+* **inventory:** add Category and Stock Status dropdowns to DashboardFilterBar ([#219](https://github.com/blur88/erp2/issues/219)) ([436d9bb](https://github.com/blur88/erp2/commit/436d9bbeed0b8d91ba9dc5f28fb3908d8b973656))
+* **inventory:** add categoryId and stockStatus to useDashboardFilters ([#219](https://github.com/blur88/erp2/issues/219)) ([b077165](https://github.com/blur88/erp2/commit/b077165ff4c94df0837d5c57f1f5a43ada2d014b))
+* **inventory:** add categoryId, supplierId, stockStatus to InventoryAnalyticsParams ([#219](https://github.com/blur88/erp2/issues/219)) ([b63952f](https://github.com/blur88/erp2/commit/b63952f599ec3eab9f166c680e272069ebfbcf23))
+* **inventory:** add categoryId, supplierId, stockStatus to InventoryAnalyticsQueryDto ([#219](https://github.com/blur88/erp2/issues/219)) ([614c008](https://github.com/blur88/erp2/commit/614c008363f9663bf7be88909a2816db5a6982a0))
+* **inventory:** thread categoryId/supplierId/stockStatus filters through dashboard analytics service ([#219](https://github.com/blur88/erp2/issues/219)) ([b7be084](https://github.com/blur88/erp2/commit/b7be084701e579a96eb2f6c5dceae953c5dcd827))
+* **inventory:** wire Supplier, Category, and Stock Status filters into InventoryPage ([#219](https://github.com/blur88/erp2/issues/219)) ([016fb7c](https://github.com/blur88/erp2/commit/016fb7cdc7b19aca2784bbb83ea91a7d975060ad))
+
 # [1.32.0](https://github.com/blur88/erp2/compare/v1.31.4...v1.32.0) (2026-03-29)
 
 
