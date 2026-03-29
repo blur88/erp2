@@ -49,6 +49,9 @@ export interface PurchasingAnalyticsParams {
   endDate?: string
   groupBy?: string
   compareWith?: string
+  supplierId?: string
+  status?: string
+  paymentStatus?: string
 }
 
 export function usePurchasingAnalytics(params: PurchasingAnalyticsParams) {
