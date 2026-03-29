@@ -1,3 +1,21 @@
+# [1.32.0](https://github.com/blur88/erp2/compare/v1.31.4...v1.32.0) (2026-03-29)
+
+
+### Bug Fixes
+
+* **purchasing:** address code review issues ([#217](https://github.com/blur88/erp2/issues/217)) ([06191f6](https://github.com/blur88/erp2/commit/06191f676dbe548dc915de0093cba403ff130897))
+* **purchasing:** replace isFullyReceived WHERE clause with subquery ([#217](https://github.com/blur88/erp2/issues/217)) ([8666c5e](https://github.com/blur88/erp2/commit/8666c5e8d7679aa757f7db75de3a514a17a73a93))
+
+
+### Features
+
+* **filters:** add supplier, order status, and configurable payment status to DashboardFilterBar ([#217](https://github.com/blur88/erp2/issues/217)) ([e3d869a](https://github.com/blur88/erp2/commit/e3d869a54a4d831edc39fcb066d8e732344c02e1))
+* **filters:** add supplierId and status to useDashboardFilters ([#217](https://github.com/blur88/erp2/issues/217)) ([c60ec58](https://github.com/blur88/erp2/commit/c60ec58ef22f9e3f46757049cd9642f9f801fc1b))
+* **purchasing:** add supplierId/status/paymentStatus to analytics DTO ([#217](https://github.com/blur88/erp2/issues/217)) ([abbda92](https://github.com/blur88/erp2/commit/abbda928b9f613b5fbe6a135fddafd7b6c1a4216))
+* **purchasing:** add supplierId/status/paymentStatus to PurchasingAnalyticsParams ([#217](https://github.com/blur88/erp2/issues/217)) ([3f13a73](https://github.com/blur88/erp2/commit/3f13a73f0ac0f006a74c171de793c0eef6871ea7))
+* **purchasing:** thread supplierId/status/paymentStatus filters through analytics service ([#217](https://github.com/blur88/erp2/issues/217)) ([012593e](https://github.com/blur88/erp2/commit/012593ee423b8db8f821cd0118cb107b20d478fb))
+* **purchasing:** wire supplier/status/paymentStatus filters to PurchasingPage ([#217](https://github.com/blur88/erp2/issues/217)) ([53498ba](https://github.com/blur88/erp2/commit/53498ba11e3673cf9981988c53190780bde74c98))
+
 ## [1.31.4](https://github.com/blur88/erp2/compare/v1.31.3...v1.31.4) (2026-03-29)
 
 
