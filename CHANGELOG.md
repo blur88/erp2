@@ -1,3 +1,10 @@
+## [1.31.3](https://github.com/blur88/erp2/compare/v1.31.2...v1.31.3) (2026-03-29)
+
+
+### Bug Fixes
+
+* **dashboard:** remove redundant filter context label from filter bar ([#215](https://github.com/blur88/erp2/issues/215)) ([a0fea0f](https://github.com/blur88/erp2/commit/a0fea0f23d5c864d3103f56def9d0e5452250cb6))
+
 ## [1.31.2](https://github.com/blur88/erp2/compare/v1.31.1...v1.31.2) (2026-03-29)
 
 
