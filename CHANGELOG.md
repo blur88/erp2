@@ -1,3 +1,12 @@
+## [1.31.1](https://github.com/blur88/erp2/compare/v1.31.0...v1.31.1) (2026-03-29)
+
+
+### Internal Changes
+
+* refactor: rename price_costing_settings → regional_settings across full stack (#197) ([](https://github.com/blur88/erp2/commit/))
+* docs: add regional settings rename implementation plan (#197) ([](https://github.com/blur88/erp2/commit/))
+* docs: add regional settings rename design spec (issue #197) ([](https://github.com/blur88/erp2/commit/))
+
 # [1.31.0](https://github.com/blur88/erp2/compare/v1.30.4...v1.31.0) (2026-03-28)
 
 
