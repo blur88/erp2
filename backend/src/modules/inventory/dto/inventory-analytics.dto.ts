@@ -1,4 +1,4 @@
-import { IsOptional, IsEnum, IsIn, IsDate } from 'class-validator';
+import { IsOptional, IsEnum, IsIn, IsDate, IsUUID } from 'class-validator';
 import { ApiPropertyOptional, ApiProperty } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
 import { DateRange, GroupByPeriod } from '@/common/dto/analytics.dto';
@@ -32,6 +32,21 @@ export class InventoryAnalyticsQueryDto {
   @IsOptional()
   @IsEnum(GroupByPeriod)
   groupBy?: GroupByPeriod;
+
+  @ApiPropertyOptional({ description: 'Filter by category ID' })
+  @IsOptional()
+  @IsUUID()
+  categoryId?: string;
+
+  @ApiPropertyOptional({ description: 'Filter by supplier ID' })
+  @IsOptional()
+  @IsUUID()
+  supplierId?: string;
+
+  @ApiPropertyOptional({ enum: ['in_stock', 'low_stock', 'out_of_stock'] })
+  @IsOptional()
+  @IsIn(['in_stock', 'low_stock', 'out_of_stock'])
+  stockStatus?: 'in_stock' | 'low_stock' | 'out_of_stock';
 }
 
 export class InventoryMetricsDto {
