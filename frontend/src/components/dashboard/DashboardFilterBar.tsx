@@ -1,4 +1,4 @@
-import { Box, Button, CircularProgress, FormControl, InputLabel, MenuItem, Select, Tooltip, Typography } from '@mui/material'
+import { Box, Button, CircularProgress, FormControl, InputLabel, MenuItem, Select, Tooltip } from '@mui/material'
 import { DatePicker } from '@mui/x-date-pickers'
 import { format, parseISO } from 'date-fns'
 import { toMuiDatePickerFormat } from '@/utils/formatters'
@@ -26,28 +26,6 @@ interface DashboardFilterBarProps {
   onPaymentStatusChange?: (value: PaymentStatusFilter | null) => void
 }
 
-const PERIOD_LABELS: Record<DashboardPeriod, string> = {
-  today: 'Today',
-  last_7_days: 'Last 7 Days',
-  this_month: 'This Month',
-  last_month: 'Last Month',
-  custom: 'Custom Range',
-}
-
-const COMPARE_LABELS: Record<NonNullable<DashboardCompare>, string> = {
-  previous_period: 'Previous Period',
-  last_month: 'Same Period Last Month',
-  last_year: 'Same Period Last Year',
-}
-
-function contextLabel(period: DashboardPeriod, compareWith: DashboardCompare): string {
-  const periodLabel = PERIOD_LABELS[period]
-  if (!compareWith) {
-    return ''
-  }
-  return `Showing: ${periodLabel} vs ${COMPARE_LABELS[compareWith]}`
-}
-
 export function DashboardFilterBar({
   period,
   compareWith,
@@ -69,7 +47,6 @@ export function DashboardFilterBar({
   paymentStatus,
   onPaymentStatusChange,
 }: DashboardFilterBarProps) {
-  const ctx = contextLabel(period, compareWith)
   const compareDisabled = period === 'today'
   const pickerFormat = toMuiDatePickerFormat(localStorage.getItem('dateFormat') || 'DD/MM/YYYY')
 
@@ -205,12 +182,6 @@ export function DashboardFilterBar({
             <MenuItem value="draft">Draft</MenuItem>
           </Select>
         </FormControl>
-      )}
-
-      {ctx && (
-        <Typography variant="body2" color="text.secondary" sx={{ flex: 1 }}>
-          {ctx}
-        </Typography>
       )}
 
       {isFetching && (
