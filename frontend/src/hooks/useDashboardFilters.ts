@@ -3,7 +3,7 @@ import { subDays, format } from 'date-fns'
 
 export type DashboardPeriod = 'today' | 'last_7_days' | 'this_month' | 'last_month' | 'custom'
 export type DashboardCompare = 'previous_period' | 'last_month' | 'last_year' | null
-export type PaymentStatusFilter = 'draft' | 'partial_paid' | 'paid'
+export type PaymentStatusFilter = 'draft' | 'partial_paid' | 'paid' | 'partial' | 'unpaid'
 export interface DashboardResolvedApiParams {
   dateRange?: string
   startDate?: string
@@ -11,13 +11,15 @@ export interface DashboardResolvedApiParams {
   groupBy?: string
   compareWith?: string
   customerId?: string
+  supplierId?: string
+  status?: string
   isFulfilled?: boolean
-  paymentStatus?: PaymentStatusFilter
+  paymentStatus?: string
 }
 
 const VALID_PERIODS: DashboardPeriod[] = ['today', 'last_7_days', 'this_month', 'last_month', 'custom']
 const VALID_COMPARES: NonNullable<DashboardCompare>[] = ['previous_period', 'last_month', 'last_year']
-const VALID_PAYMENT_STATUSES: PaymentStatusFilter[] = ['draft', 'partial_paid', 'paid']
+const VALID_PAYMENT_STATUSES: PaymentStatusFilter[] = ['draft', 'partial_paid', 'paid', 'partial', 'unpaid']
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
@@ -27,7 +29,9 @@ function parseUrl(namespace: string): {
   customFrom: string | null
   customTo: string | null
   customerId: string | null
+  supplierId: string | null
   isFulfilled: boolean | null
+  status: string | null
   paymentStatus: PaymentStatusFilter | null
 } {
   const params = new URLSearchParams(window.location.search)
@@ -36,7 +40,9 @@ function parseUrl(namespace: string): {
   const rawFrom = params.get(`${namespace}_from`)
   const rawTo = params.get(`${namespace}_to`)
   const rawCustomer = params.get(`${namespace}_customer`) ?? null
+  const rawSupplier = params.get(`${namespace}_supplier`) ?? null
   const rawFulfilled = params.get(`${namespace}_fulfilled`)
+  const rawStatus = params.get(`${namespace}_status`) ?? null
   const rawPayment = params.get(`${namespace}_payment`)
 
   const period: DashboardPeriod = VALID_PERIODS.includes(rawPeriod as DashboardPeriod)
@@ -49,9 +55,12 @@ function parseUrl(namespace: string): {
       : null
 
   const customerId = rawCustomer && UUID_RE.test(rawCustomer) ? rawCustomer : null
+  const supplierId = rawSupplier && UUID_RE.test(rawSupplier) ? rawSupplier : null
 
   const isFulfilled: boolean | null =
     rawFulfilled === 'true' ? true : rawFulfilled === 'false' ? false : null
+
+  const status: string | null = rawStatus
 
   const paymentStatus: PaymentStatusFilter | null =
     rawPayment && VALID_PAYMENT_STATUSES.includes(rawPayment as PaymentStatusFilter)
@@ -64,13 +73,43 @@ function parseUrl(namespace: string): {
     const rangeOk = fromOk && toOk && rawFrom <= rawTo
 
     if (!rangeOk) {
-      return { period: 'this_month', compareWith, customFrom: null, customTo: null, customerId, isFulfilled, paymentStatus }
+      return {
+        period: 'this_month',
+        compareWith,
+        customFrom: null,
+        customTo: null,
+        customerId,
+        supplierId,
+        isFulfilled,
+        status,
+        paymentStatus,
+      }
     }
 
-    return { period: 'custom', compareWith, customFrom: rawFrom, customTo: rawTo, customerId, isFulfilled, paymentStatus }
+    return {
+      period: 'custom',
+      compareWith,
+      customFrom: rawFrom,
+      customTo: rawTo,
+      customerId,
+      supplierId,
+      isFulfilled,
+      status,
+      paymentStatus,
+    }
   }
 
-  return { period, compareWith, customFrom: null, customTo: null, customerId, isFulfilled, paymentStatus }
+  return {
+    period,
+    compareWith,
+    customFrom: null,
+    customTo: null,
+    customerId,
+    supplierId,
+    isFulfilled,
+    status,
+    paymentStatus,
+  }
 }
 
 function toApiParams(
@@ -131,7 +170,9 @@ function writeUrl(
   customFrom: string | null,
   customTo: string | null,
   customerId: string | null,
+  supplierId: string | null,
   isFulfilled: boolean | null,
+  status: string | null,
   paymentStatus: PaymentStatusFilter | null,
 ): void {
   const params = new URLSearchParams()
@@ -150,8 +191,14 @@ function writeUrl(
   if (customerId) {
     params.set(`${namespace}_customer`, customerId)
   }
+  if (supplierId) {
+    params.set(`${namespace}_supplier`, supplierId)
+  }
   if (isFulfilled !== null) {
     params.set(`${namespace}_fulfilled`, String(isFulfilled))
+  }
+  if (status !== null) {
+    params.set(`${namespace}_status`, status)
   }
   if (paymentStatus) {
     params.set(`${namespace}_payment`, paymentStatus)
@@ -173,65 +220,78 @@ export function useDashboardFilters(namespace: string) {
   const [customFrom, setCustomFrom] = useState<string | null>(initial.customFrom)
   const [customTo, setCustomTo] = useState<string | null>(initial.customTo)
   const [customerId, setCustomerIdState] = useState<string | null>(initial.customerId)
+  const [supplierId, setSupplierIdState] = useState<string | null>(initial.supplierId)
   const [isFulfilled, setIsFulfilledState] = useState<boolean | null>(initial.isFulfilled)
+  const [status, setStatusState] = useState<string | null>(initial.status)
   const [paymentStatus, setPaymentStatusState] = useState<PaymentStatusFilter | null>(initial.paymentStatus)
 
   const setPeriod = useCallback((next: DashboardPeriod) => {
-    const nextFrom = next === 'custom' ? customFrom : null
-    const nextTo = next === 'custom' ? customTo : null
-
     setPeriodState(next)
+    let nextFrom = customFrom
+    let nextTo = customTo
     if (next !== 'custom') {
       setCustomFrom(null)
       setCustomTo(null)
+      nextFrom = null
+      nextTo = null
     }
-    writeUrl(namespace, next, compareWith, nextFrom, nextTo, customerId, isFulfilled, paymentStatus)
-  }, [namespace, compareWith, customFrom, customTo, customerId, isFulfilled, paymentStatus])
+    writeUrl(namespace, next, compareWith, nextFrom, nextTo, customerId, supplierId, isFulfilled, status, paymentStatus)
+  }, [namespace, compareWith, customFrom, customTo, customerId, supplierId, isFulfilled, status, paymentStatus])
 
   const setCompare = useCallback((next: DashboardCompare) => {
     setCompareWith(next)
-    writeUrl(namespace, period, next, customFrom, customTo, customerId, isFulfilled, paymentStatus)
-  }, [namespace, period, customFrom, customTo, customerId, isFulfilled, paymentStatus])
+    writeUrl(namespace, period, next, customFrom, customTo, customerId, supplierId, isFulfilled, status, paymentStatus)
+  }, [namespace, period, customFrom, customTo, customerId, supplierId, isFulfilled, status, paymentStatus])
 
   const setCustomRange = useCallback((from: string, to: string) => {
     setCustomFrom(from)
     setCustomTo(to)
     if (DATE_RE.test(from) && DATE_RE.test(to) && from <= to) {
       setPeriodState('custom')
-      writeUrl(namespace, 'custom', compareWith, from, to, customerId, isFulfilled, paymentStatus)
+      writeUrl(namespace, 'custom', compareWith, from, to, customerId, supplierId, isFulfilled, status, paymentStatus)
     }
-  }, [namespace, compareWith, customerId, isFulfilled, paymentStatus])
+  }, [namespace, compareWith, customerId, supplierId, isFulfilled, status, paymentStatus])
 
   const setCustomFromOnly = useCallback((from: string | null) => {
     setPeriodState('custom')
     setCustomFrom(from)
     if (from && customTo && DATE_RE.test(from) && DATE_RE.test(customTo) && from <= customTo) {
-      writeUrl(namespace, 'custom', compareWith, from, customTo, customerId, isFulfilled, paymentStatus)
+      writeUrl(namespace, 'custom', compareWith, from, customTo, customerId, supplierId, isFulfilled, status, paymentStatus)
     }
-  }, [namespace, compareWith, customTo, customerId, isFulfilled, paymentStatus])
+  }, [namespace, compareWith, customTo, customerId, supplierId, isFulfilled, status, paymentStatus])
 
   const setCustomToOnly = useCallback((to: string | null) => {
     setPeriodState('custom')
     setCustomTo(to)
     if (customFrom && to && DATE_RE.test(customFrom) && DATE_RE.test(to) && customFrom <= to) {
-      writeUrl(namespace, 'custom', compareWith, customFrom, to, customerId, isFulfilled, paymentStatus)
+      writeUrl(namespace, 'custom', compareWith, customFrom, to, customerId, supplierId, isFulfilled, status, paymentStatus)
     }
-  }, [namespace, compareWith, customFrom, customerId, isFulfilled, paymentStatus])
+  }, [namespace, compareWith, customFrom, customerId, supplierId, isFulfilled, status, paymentStatus])
 
   const setCustomerId = useCallback((next: string | null) => {
     setCustomerIdState(next)
-    writeUrl(namespace, period, compareWith, customFrom, customTo, next, isFulfilled, paymentStatus)
-  }, [namespace, period, compareWith, customFrom, customTo, isFulfilled, paymentStatus])
+    writeUrl(namespace, period, compareWith, customFrom, customTo, next, supplierId, isFulfilled, status, paymentStatus)
+  }, [namespace, period, compareWith, customFrom, customTo, supplierId, isFulfilled, status, paymentStatus])
+
+  const setSupplierId = useCallback((next: string | null) => {
+    setSupplierIdState(next)
+    writeUrl(namespace, period, compareWith, customFrom, customTo, customerId, next, isFulfilled, status, paymentStatus)
+  }, [namespace, period, compareWith, customFrom, customTo, customerId, isFulfilled, status, paymentStatus])
 
   const setFulfilled = useCallback((next: boolean | null) => {
     setIsFulfilledState(next)
-    writeUrl(namespace, period, compareWith, customFrom, customTo, customerId, next, paymentStatus)
-  }, [namespace, period, compareWith, customFrom, customTo, customerId, paymentStatus])
+    writeUrl(namespace, period, compareWith, customFrom, customTo, customerId, supplierId, next, status, paymentStatus)
+  }, [namespace, period, compareWith, customFrom, customTo, customerId, supplierId, status, paymentStatus])
+
+  const setStatus = useCallback((next: string | null) => {
+    setStatusState(next)
+    writeUrl(namespace, period, compareWith, customFrom, customTo, customerId, supplierId, isFulfilled, next, paymentStatus)
+  }, [namespace, period, compareWith, customFrom, customTo, customerId, supplierId, isFulfilled, paymentStatus])
 
   const setPaymentStatus = useCallback((next: PaymentStatusFilter | null) => {
     setPaymentStatusState(next)
-    writeUrl(namespace, period, compareWith, customFrom, customTo, customerId, isFulfilled, next)
-  }, [namespace, period, compareWith, customFrom, customTo, customerId, isFulfilled])
+    writeUrl(namespace, period, compareWith, customFrom, customTo, customerId, supplierId, isFulfilled, status, next)
+  }, [namespace, period, compareWith, customFrom, customTo, customerId, supplierId, isFulfilled, status])
 
   const reset = useCallback(() => {
     setPeriodState('this_month')
@@ -239,25 +299,31 @@ export function useDashboardFilters(namespace: string) {
     setCustomFrom(null)
     setCustomTo(null)
     setCustomerIdState(null)
+    setSupplierIdState(null)
     setIsFulfilledState(null)
+    setStatusState(null)
     setPaymentStatusState(null)
-    writeUrl(namespace, 'this_month', null, null, null, null, null, null)
+    writeUrl(namespace, 'this_month', null, null, null, null, null, null, null, null)
   }, [namespace])
 
   const isDefault = period === 'this_month'
     && compareWith === null
     && customerId === null
+    && supplierId === null
     && isFulfilled === null
+    && status === null
     && paymentStatus === null
 
   const resolvedApiParams = useMemo(
     (): DashboardResolvedApiParams => ({
       ...toApiParams(period, compareWith, customFrom, customTo),
       ...(customerId ? { customerId } : {}),
+      ...(supplierId ? { supplierId } : {}),
       ...(isFulfilled !== null ? { isFulfilled } : {}),
+      ...(status !== null ? { status } : {}),
       ...(paymentStatus ? { paymentStatus } : {}),
     }),
-    [period, compareWith, customFrom, customTo, customerId, isFulfilled, paymentStatus],
+    [period, compareWith, customFrom, customTo, customerId, supplierId, isFulfilled, status, paymentStatus],
   )
 
   return {
@@ -266,7 +332,9 @@ export function useDashboardFilters(namespace: string) {
     customFrom,
     customTo,
     customerId,
+    supplierId,
     isFulfilled,
+    status,
     paymentStatus,
     setPeriod,
     setCompare,
@@ -274,7 +342,9 @@ export function useDashboardFilters(namespace: string) {
     setCustomFrom: setCustomFromOnly,
     setCustomTo: setCustomToOnly,
     setCustomerId,
+    setSupplierId,
     setFulfilled,
+    setStatus,
     setPaymentStatus,
     reset,
     isDefault,

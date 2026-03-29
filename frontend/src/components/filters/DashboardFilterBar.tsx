@@ -2,7 +2,7 @@ import { Box, Button, CircularProgress, FormControl, InputLabel, MenuItem, Selec
 import { DatePicker } from '@mui/x-date-pickers'
 import { format, parseISO } from 'date-fns'
 import { toMuiDatePickerFormat } from '@/utils/formatters'
-import type { DashboardCompare, DashboardPeriod, PaymentStatusFilter } from '@/hooks/useDashboardFilters'
+import type { DashboardCompare, DashboardPeriod } from '@/hooks/useDashboardFilters'
 
 interface DashboardFilterBarProps {
   period: DashboardPeriod
@@ -20,10 +20,16 @@ interface DashboardFilterBarProps {
   customers?: { id: string; name: string }[]
   customerId?: string | null
   onCustomerChange?: (id: string | null) => void
+  suppliers?: { id: string; name: string }[]
+  supplierId?: string | null
+  onSupplierChange?: (id: string | null) => void
   isFulfilled?: boolean | null
   onFulfilledChange?: (value: boolean | null) => void
-  paymentStatus?: PaymentStatusFilter | null
-  onPaymentStatusChange?: (value: PaymentStatusFilter | null) => void
+  status?: string | null
+  onStatusChange?: (value: string | null) => void
+  paymentStatus?: string | null
+  onPaymentStatusChange?: (value: string | null) => void
+  paymentStatusOptions?: { value: string; label: string }[]
 }
 
 export function DashboardFilterBar({
@@ -42,13 +48,24 @@ export function DashboardFilterBar({
   customers,
   customerId,
   onCustomerChange,
+  suppliers,
+  supplierId,
+  onSupplierChange,
   isFulfilled,
   onFulfilledChange,
+  status,
+  onStatusChange,
   paymentStatus,
   onPaymentStatusChange,
+  paymentStatusOptions,
 }: DashboardFilterBarProps) {
   const compareDisabled = period === 'today'
   const pickerFormat = toMuiDatePickerFormat(localStorage.getItem('dateFormat') || 'DD/MM/YYYY')
+  const resolvedPaymentStatusOptions = paymentStatusOptions ?? [
+    { value: 'paid', label: 'Paid' },
+    { value: 'partial_paid', label: 'Partially Paid' },
+    { value: 'draft', label: 'Draft' },
+  ]
 
   return (
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap', mb: 3 }}>
@@ -146,6 +163,24 @@ export function DashboardFilterBar({
         </FormControl>
       )}
 
+      {suppliers !== undefined && onSupplierChange && (
+        <FormControl size="small" sx={{ minWidth: 170 }}>
+          <InputLabel id="dashboard-supplier-label">Supplier</InputLabel>
+          <Select
+            labelId="dashboard-supplier-label"
+            id="dashboard-supplier"
+            value={supplierId ?? ''}
+            label="Supplier"
+            onChange={(e) => onSupplierChange(e.target.value || null)}
+          >
+            <MenuItem value="">All Suppliers</MenuItem>
+            {suppliers.map((supplier) => (
+              <MenuItem key={supplier.id} value={supplier.id}>{supplier.name}</MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+      )}
+
       {isFulfilled !== undefined && onFulfilledChange && (
         <FormControl size="small" sx={{ minWidth: 150 }}>
           <InputLabel id="dashboard-order-status-label">Order Status</InputLabel>
@@ -166,6 +201,23 @@ export function DashboardFilterBar({
         </FormControl>
       )}
 
+      {status !== undefined && onStatusChange && (
+        <FormControl size="small" sx={{ minWidth: 150 }}>
+          <InputLabel id="dashboard-purchasing-order-status-label">Order Status</InputLabel>
+          <Select
+            labelId="dashboard-purchasing-order-status-label"
+            id="dashboard-order-status-purchasing"
+            value={status ?? ''}
+            label="Order Status"
+            onChange={(e) => onStatusChange(e.target.value || null)}
+          >
+            <MenuItem value="">All</MenuItem>
+            <MenuItem value="received">Received</MenuItem>
+            <MenuItem value="pending">Pending</MenuItem>
+          </Select>
+        </FormControl>
+      )}
+
       {paymentStatus !== undefined && onPaymentStatusChange && (
         <FormControl size="small" sx={{ minWidth: 170 }}>
           <InputLabel id="dashboard-payment-status-label">Payment Status</InputLabel>
@@ -174,12 +226,12 @@ export function DashboardFilterBar({
             id="dashboard-payment-status"
             value={paymentStatus ?? ''}
             label="Payment Status"
-            onChange={(e) => onPaymentStatusChange((e.target.value || null) as PaymentStatusFilter | null)}
+            onChange={(e) => onPaymentStatusChange(e.target.value || null)}
           >
             <MenuItem value="">All</MenuItem>
-            <MenuItem value="paid">Paid</MenuItem>
-            <MenuItem value="partial_paid">Partially Paid</MenuItem>
-            <MenuItem value="draft">Draft</MenuItem>
+            {resolvedPaymentStatusOptions.map((option) => (
+              <MenuItem key={option.value} value={option.value}>{option.label}</MenuItem>
+            ))}
           </Select>
         </FormControl>
       )}

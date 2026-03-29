@@ -30,6 +30,12 @@ interface PurchaseOrderSummaryQuery {
   paymentStatus?: string;
 }
 
+interface PurchasingAnalyticsFilters {
+  supplierId?: string;
+  status?: 'received' | 'pending';
+  paymentStatus?: 'paid' | 'partial' | 'unpaid';
+}
+
 export interface PurchaseOrderSummaryItem {
   orderNumber: string;
   orderDate: string;
@@ -596,11 +602,17 @@ export class PurchasingAnalyticsService {
       ? this.computePurchasingComparePeriod(startDate, endDate, query.compareWith)
       : null;
 
+    const filters: PurchasingAnalyticsFilters = {
+      supplierId: query.supplierId,
+      status: query.status,
+      paymentStatus: query.paymentStatus,
+    };
+
     const [metrics, periodData, topSuppliers, recentOrders] = await Promise.all([
-      this.calculatePurchasingMetrics(startDate, endDate),
-      this.getPurchasingPeriodData(startDate, endDate, groupBy),
-      this.getTopSuppliers(startDate, endDate, 5),
-      this.getRecentPurchaseOrders(5),
+      this.calculatePurchasingMetrics(startDate, endDate, filters),
+      this.getPurchasingPeriodData(startDate, endDate, groupBy, filters),
+      this.getTopSuppliers(startDate, endDate, 5, filters),
+      this.getRecentPurchaseOrders(5, filters),
     ]);
 
     const current: PurchasingPeriodBlockDto = {
@@ -613,8 +625,8 @@ export class PurchasingAnalyticsService {
     let comparison: PurchasingPeriodBlockDto | undefined;
     if (comparePeriod) {
       const [compareMetrics, comparePeriodData] = await Promise.all([
-        this.calculatePurchasingMetrics(comparePeriod.compareStart, comparePeriod.compareEnd),
-        this.getPurchasingPeriodData(comparePeriod.compareStart, comparePeriod.compareEnd, groupBy),
+        this.calculatePurchasingMetrics(comparePeriod.compareStart, comparePeriod.compareEnd, filters),
+        this.getPurchasingPeriodData(comparePeriod.compareStart, comparePeriod.compareEnd, groupBy, filters),
       ]);
       comparison = {
         metrics: compareMetrics,
@@ -630,24 +642,40 @@ export class PurchasingAnalyticsService {
   private async calculatePurchasingMetrics(
     startDate: Date,
     endDate: Date,
+    filters: PurchasingAnalyticsFilters = {},
   ): Promise<PurchasingMetricsDto> {
-    const [orderStats, supplierStats] = await Promise.all([
+    const baseQb = () =>
       this.purchaseOrderRepository
         .createQueryBuilder('po')
         .where('po.orderDate BETWEEN :startDate AND :endDate', { startDate, endDate })
         .andWhere('po.deletedAt IS NULL')
-        .andWhere('po.isActive = :isActive', { isActive: true })
+        .andWhere('po.isActive = :isActive', { isActive: true });
+
+    const applyFilters = (qb: ReturnType<typeof baseQb>) => {
+      if (filters.supplierId) {
+        qb.andWhere('po.supplierId = :supplierId', { supplierId: filters.supplierId });
+      }
+      if (filters.status === 'received') {
+        qb.andWhere(
+          'NOT EXISTS (SELECT 1 FROM purchase_order_items poi WHERE poi."purchaseOrderId" = po.id AND poi."receivedQuantity" < poi.quantity AND poi."deletedAt" IS NULL)',
+        );
+      } else if (filters.status === 'pending') {
+        qb.andWhere(
+          'EXISTS (SELECT 1 FROM purchase_order_items poi WHERE poi."purchaseOrderId" = po.id AND poi."receivedQuantity" < poi.quantity AND poi."deletedAt" IS NULL)',
+        );
+      }
+      return qb;
+    };
+
+    const [orderStats, supplierStats] = await Promise.all([
+      applyFilters(baseQb())
         .select([
           'COALESCE(SUM(po.totalAmount), 0) as "totalSpent"',
           'COUNT(*) as "totalOrders"',
           'COALESCE(AVG(po.totalAmount), 0) as "averageOrderValue"',
         ])
         .getRawOne(),
-      this.purchaseOrderRepository
-        .createQueryBuilder('po')
-        .where('po.orderDate BETWEEN :startDate AND :endDate', { startDate, endDate })
-        .andWhere('po.deletedAt IS NULL')
-        .andWhere('po.isActive = :isActive', { isActive: true })
+      applyFilters(baseQb())
         .select('COUNT(DISTINCT po.supplierId) as "activeSuppliers"')
         .getRawOne(),
     ]);
@@ -664,9 +692,96 @@ export class PurchasingAnalyticsService {
     startDate: Date,
     endDate: Date,
     groupBy: string,
+    filters: PurchasingAnalyticsFilters = {},
   ): Promise<PurchasingPeriodDataDto[]> {
-    let dateFormat: string;
+    const formatPeriodKey = (date: Date): string => {
+      const y = date.getFullYear();
+      const m = String(date.getMonth() + 1).padStart(2, '0');
+      const d = String(date.getDate()).padStart(2, '0');
+      switch (groupBy) {
+        case 'day':
+          return `${y}-${m}-${d}`;
+        case 'week': {
+          // ISO week: IYYY-IW
+          const jan4 = new Date(y, 0, 4);
+          const startOfWeek1 = new Date(jan4);
+          startOfWeek1.setDate(jan4.getDate() - ((jan4.getDay() + 6) % 7));
+          const diffMs = date.getTime() - startOfWeek1.getTime();
+          const isoWeek = Math.floor(diffMs / 604800000) + 1;
+          const isoYear =
+            isoWeek < 1
+              ? y - 1
+              : isoWeek > 52 && date < new Date(y + 1, 0, 4)
+              ? y
+              : y;
+          return `${isoYear}-${String(isoWeek).padStart(2, '0')}`;
+        }
+        case 'quarter':
+          return `${y}-Q${Math.ceil((date.getMonth() + 1) / 3)}`;
+        case 'year':
+          return `${y}`;
+        default: // month
+          return `${y}-${m}`;
+      }
+    };
 
+    // When paymentStatus filter is active, payment status is a computed field (no DB column).
+    // Load full orders with vendor payments, compute per-order, filter, then aggregate in-app.
+    if (filters.paymentStatus) {
+      const qb = this.purchaseOrderRepository
+        .createQueryBuilder('po')
+        .leftJoinAndSelect('po.vendorPayments', 'vendorPayments')
+        .where('po.orderDate BETWEEN :startDate AND :endDate', { startDate, endDate })
+        .andWhere('po.deletedAt IS NULL')
+        .andWhere('po.isActive = :isActive', { isActive: true });
+
+      if (filters.supplierId) {
+        qb.andWhere('po.supplierId = :supplierId', { supplierId: filters.supplierId });
+      }
+      if (filters.status === 'received') {
+        qb.andWhere(
+          'NOT EXISTS (SELECT 1 FROM purchase_order_items poi WHERE poi."purchaseOrderId" = po.id AND poi."receivedQuantity" < poi.quantity AND poi."deletedAt" IS NULL)',
+        );
+      } else if (filters.status === 'pending') {
+        qb.andWhere(
+          'EXISTS (SELECT 1 FROM purchase_order_items poi WHERE poi."purchaseOrderId" = po.id AND poi."receivedQuantity" < poi.quantity AND poi."deletedAt" IS NULL)',
+        );
+      }
+
+      const orders = await qb.getMany();
+
+      const periodMap = new Map<string, { spent: number; orders: number }>();
+
+      for (const po of orders) {
+        const paidAmount = (po.vendorPayments || []).reduce(
+          (sum, payment) => sum + parseFloat(payment.amount?.toString() || '0'),
+          0,
+        );
+        const total = parseFloat(po.totalAmount?.toString() || '0');
+        let computedStatus: 'paid' | 'partial' | 'unpaid';
+        if (paidAmount >= total && total > 0) {
+          computedStatus = 'paid';
+        } else if (paidAmount > 0) {
+          computedStatus = 'partial';
+        } else {
+          computedStatus = 'unpaid';
+        }
+
+        if (computedStatus !== filters.paymentStatus) continue;
+
+        const orderDate = po.orderDate instanceof Date ? po.orderDate : new Date(po.orderDate);
+        const key = formatPeriodKey(orderDate);
+        const existing = periodMap.get(key) ?? { spent: 0, orders: 0 };
+        periodMap.set(key, { spent: existing.spent + total, orders: existing.orders + 1 });
+      }
+
+      return Array.from(periodMap.entries())
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([period, agg]) => ({ period, spent: agg.spent, orders: agg.orders }));
+    }
+
+    // Fast SQL aggregate path when no paymentStatus filter
+    let dateFormat: string;
     switch (groupBy) {
       case 'day':
         dateFormat = 'YYYY-MM-DD';
@@ -685,11 +800,26 @@ export class PurchasingAnalyticsService {
         break;
     }
 
-    const data = await this.purchaseOrderRepository
+    const qb = this.purchaseOrderRepository
       .createQueryBuilder('po')
       .where('po.orderDate BETWEEN :startDate AND :endDate', { startDate, endDate })
       .andWhere('po.deletedAt IS NULL')
-      .andWhere('po.isActive = :isActive', { isActive: true })
+      .andWhere('po.isActive = :isActive', { isActive: true });
+
+    if (filters.supplierId) {
+      qb.andWhere('po.supplierId = :supplierId', { supplierId: filters.supplierId });
+    }
+    if (filters.status === 'received') {
+      qb.andWhere(
+        'NOT EXISTS (SELECT 1 FROM purchase_order_items poi WHERE poi."purchaseOrderId" = po.id AND poi."receivedQuantity" < poi.quantity AND poi."deletedAt" IS NULL)',
+      );
+    } else if (filters.status === 'pending') {
+      qb.andWhere(
+        'EXISTS (SELECT 1 FROM purchase_order_items poi WHERE poi."purchaseOrderId" = po.id AND poi."receivedQuantity" < poi.quantity AND poi."deletedAt" IS NULL)',
+      );
+    }
+
+    const data = await qb
       .select([
         `TO_CHAR(po.orderDate, '${dateFormat}') as period`,
         'COUNT(*) as orders',
@@ -710,13 +840,29 @@ export class PurchasingAnalyticsService {
     startDate: Date,
     endDate: Date,
     limit: number,
+    filters: PurchasingAnalyticsFilters = {},
   ): Promise<TopSupplierDto[]> {
-    const data = await this.purchaseOrderRepository
+    const qb = this.purchaseOrderRepository
       .createQueryBuilder('po')
       .leftJoin('po.supplier', 'supplier')
       .where('po.orderDate BETWEEN :startDate AND :endDate', { startDate, endDate })
       .andWhere('po.deletedAt IS NULL')
-      .andWhere('po.isActive = :isActive', { isActive: true })
+      .andWhere('po.isActive = :isActive', { isActive: true });
+
+    if (filters.supplierId) {
+      qb.andWhere('po.supplierId = :supplierId', { supplierId: filters.supplierId });
+    }
+    if (filters.status === 'received') {
+      qb.andWhere(
+        'NOT EXISTS (SELECT 1 FROM purchase_order_items poi WHERE poi."purchaseOrderId" = po.id AND poi."receivedQuantity" < poi.quantity AND poi."deletedAt" IS NULL)',
+      );
+    } else if (filters.status === 'pending') {
+      qb.andWhere(
+        'EXISTS (SELECT 1 FROM purchase_order_items poi WHERE poi."purchaseOrderId" = po.id AND poi."receivedQuantity" < poi.quantity AND poi."deletedAt" IS NULL)',
+      );
+    }
+
+    const data = await qb
       .select([
         'supplier.id as "supplierId"',
         'supplier.companyName as "supplierName"',
@@ -737,26 +883,66 @@ export class PurchasingAnalyticsService {
     }));
   }
 
-  private async getRecentPurchaseOrders(limit: number): Promise<RecentPurchaseOrderDto[]> {
-    const orders = await this.purchaseOrderRepository
+  private async getRecentPurchaseOrders(
+    limit: number,
+    filters: PurchasingAnalyticsFilters = {},
+  ): Promise<RecentPurchaseOrderDto[]> {
+    const qb = this.purchaseOrderRepository
       .createQueryBuilder('po')
       .leftJoinAndSelect('po.supplier', 'supplier')
+      .leftJoinAndSelect('po.items', 'items')
+      .leftJoinAndSelect('po.vendorPayments', 'vendorPayments')
       .where('po.deletedAt IS NULL')
-      .andWhere('po.isActive = :isActive', { isActive: true })
+      .andWhere('po.isActive = :isActive', { isActive: true });
+
+    if (filters.supplierId) {
+      qb.andWhere('po.supplierId = :supplierId', { supplierId: filters.supplierId });
+    }
+    if (filters.status === 'received') {
+      qb.andWhere(
+        'NOT EXISTS (SELECT 1 FROM purchase_order_items poi WHERE poi."purchaseOrderId" = po.id AND poi."receivedQuantity" < poi.quantity AND poi."deletedAt" IS NULL)',
+      );
+    } else if (filters.status === 'pending') {
+      qb.andWhere(
+        'EXISTS (SELECT 1 FROM purchase_order_items poi WHERE poi."purchaseOrderId" = po.id AND poi."receivedQuantity" < poi.quantity AND poi."deletedAt" IS NULL)',
+      );
+    }
+
+    const orders = await qb
       .orderBy('po.orderDate', 'DESC')
-      .limit(limit)
+      .limit(filters.paymentStatus ? undefined : limit)
       .getMany();
 
-    return orders.map((po) => {
+    const mapped = orders.map((po) => {
       const date = po.orderDate instanceof Date ? po.orderDate : new Date(po.orderDate);
+      const paidAmount = (po.vendorPayments ?? []).reduce(
+        (sum, vp) => sum + parseFloat(vp.amount?.toString() || '0'),
+        0,
+      );
+      const total = parseFloat(po.totalAmount?.toString() || '0');
+      let computedPaymentStatus: 'paid' | 'partial' | 'unpaid';
+      if (paidAmount >= total && total > 0) {
+        computedPaymentStatus = 'paid';
+      } else if (paidAmount > 0) {
+        computedPaymentStatus = 'partial';
+      } else {
+        computedPaymentStatus = 'unpaid';
+      }
       return {
         orderNumber: po.orderNumber,
         orderDate: date.toISOString().split('T')[0],
         supplierName: po.supplier?.companyName || 'N/A',
-        totalAmount: parseFloat(po.totalAmount?.toString() || '0'),
-        status: po.isFullyReceived ? 'received' : 'pending',
+        totalAmount: total,
+        status: (po.isFullyReceived() ? 'received' : 'pending') as 'received' | 'pending',
+        computedPaymentStatus,
       };
     });
+
+    const filtered = filters.paymentStatus
+      ? mapped.filter((order) => order.computedPaymentStatus === filters.paymentStatus)
+      : mapped;
+
+    return filtered.slice(0, limit).map(({ computedPaymentStatus: _, ...rest }) => rest);
   }
 
   private parsePurchasingDateRange(
