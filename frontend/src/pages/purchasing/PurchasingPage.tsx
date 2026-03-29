@@ -42,7 +42,7 @@ import { formatCurrency, formatDate } from '@/utils/formatters'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
 import { useNavigate } from 'react-router-dom'
 import PageHeader from '@/components/common/PageHeader'
-import { DashboardFilterBar } from '@/components/dashboard/DashboardFilterBar'
+import { DashboardFilterBar } from '@/components/filters/DashboardFilterBar'
 import { useDashboardFilters } from '@/hooks/useDashboardFilters'
 import { usePurchasingAnalytics } from './hooks/usePurchasingAnalytics'
 

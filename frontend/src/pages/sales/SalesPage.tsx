@@ -25,7 +25,7 @@ import {
 import { formatCurrency, formatDate, formatNumber } from '@/utils/formatters'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
 import PageHeader from '@/components/common/PageHeader'
-import { DashboardFilterBar } from '@/components/dashboard/DashboardFilterBar'
+import { DashboardFilterBar } from '@/components/filters/DashboardFilterBar'
 import { useNavigate } from 'react-router-dom'
 import api from '@/services/api'
 import { useGetCustomersQuery } from '@/store/api/salesApi'

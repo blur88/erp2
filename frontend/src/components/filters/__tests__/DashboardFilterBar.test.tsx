@@ -5,7 +5,7 @@ import userEvent from '@testing-library/user-event'
 import { vi, describe, it, expect } from 'vitest'
 import { LocalizationProvider } from '@mui/x-date-pickers'
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns'
-import { DashboardFilterBar } from './DashboardFilterBar'
+import { DashboardFilterBar } from '../DashboardFilterBar'
 
 function baseProps() {
   return {
