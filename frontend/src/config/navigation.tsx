@@ -52,6 +52,7 @@ import {
   Timeline as TimelineIcon,
   MenuBook as MenuBookIcon,
   Language as RegionalIcon,
+  WarningAmber as StockLevelIcon,
 } from '@mui/icons-material';
 import type { AuthUser } from '../store/slices/authSlice';
 
@@ -564,6 +565,14 @@ export const menuSections: MenuSection[] = [
             icon: <PriceCostingIcon />,
             group: 'Business',
             path: '/settings/inventory-costing',
+            roles: ADMIN_ONLY,
+          },
+          {
+            id: 'stock-level-settings',
+            title: 'Stock Levels',
+            icon: <StockLevelIcon />,
+            group: 'Business',
+            path: '/settings/stock-levels',
             roles: ADMIN_ONLY,
           },
           {
