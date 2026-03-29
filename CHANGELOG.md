@@ -1,3 +1,10 @@
+## [1.33.2](https://github.com/blur88/erp2/compare/v1.33.1...v1.33.2) (2026-03-29)
+
+
+### Bug Fixes
+
+* **dashboard:** keep Reset button beside filters, spinner after ([#222](https://github.com/blur88/erp2/issues/222)) ([94056a1](https://github.com/blur88/erp2/commit/94056a15f082c3819c5d5e7d3b0a373761f0425c))
+
 ## [1.33.1](https://github.com/blur88/erp2/compare/v1.33.0...v1.33.1) (2026-03-29)
 
 
