@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import '@testing-library/jest-dom/vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { vi, describe, it, expect } from 'vitest'
@@ -120,5 +121,14 @@ describe('DashboardFilterBar', () => {
     await userEvent.click(screen.getByLabelText('Payment Status'))
     await userEvent.click(screen.getByText('Paid'))
     expect(onPaymentStatusChange).toHaveBeenCalledWith('paid')
+  })
+
+  it('renders Reset as a low-emphasis text button when filters are not default', () => {
+    wrap(<DashboardFilterBar {...baseProps()} isDefault={false} />)
+
+    const resetButton = screen.getByRole('button', { name: 'Reset' })
+
+    expect(resetButton).toHaveClass('MuiButton-text')
+    expect(resetButton).toHaveStyle({ marginLeft: '16px', opacity: '0.8' })
   })
 })

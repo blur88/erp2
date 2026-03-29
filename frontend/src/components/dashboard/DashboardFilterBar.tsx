@@ -218,7 +218,13 @@ export function DashboardFilterBar({
       )}
 
       {!isDefault && (
-        <Button variant="outlined" color="inherit" size="small" onClick={onReset}>
+        <Button
+          variant="text"
+          color="inherit"
+          size="small"
+          onClick={onReset}
+          sx={{ ml: 2, opacity: 0.8, '&:hover': { opacity: 1, backgroundColor: 'transparent' } }}
+        >
           Reset
         </Button>
       )}
