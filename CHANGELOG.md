@@ -1,3 +1,13 @@
+## [1.31.2](https://github.com/blur88/erp2/compare/v1.31.1...v1.31.2) (2026-03-29)
+
+
+### Bug Fixes
+
+* **dashboard:** improve Reset button visual hierarchy ([#211](https://github.com/blur88/erp2/issues/211)) ([7517d81](https://github.com/blur88/erp2/commit/7517d81e3600000ab72c1abb54948af4c0da1d17))
+* **dashboard:** match Reset button height to filter inputs ([#211](https://github.com/blur88/erp2/issues/211)) ([1c2f4ef](https://github.com/blur88/erp2/commit/1c2f4ef345040d4bde7ced137d1f39caf4ac6fcf))
+* **dashboard:** revert Reset to outlined style matching PageHeader actions ([#211](https://github.com/blur88/erp2/issues/211)) ([f232fca](https://github.com/blur88/erp2/commit/f232fcaa298e0978978518fb9354a21083415cee))
+* **dashboard:** use consistent gap spacing for Reset button ([#211](https://github.com/blur88/erp2/issues/211)) ([ce0b0fb](https://github.com/blur88/erp2/commit/ce0b0fb88da3a77dc776b71cb173ba4bf4165a1c))
+
 ## [1.31.1](https://github.com/blur88/erp2/compare/v1.31.0...v1.31.1) (2026-03-29)
 
 
