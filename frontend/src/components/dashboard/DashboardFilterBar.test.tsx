@@ -129,6 +129,6 @@ describe('DashboardFilterBar', () => {
     const resetButton = screen.getByRole('button', { name: 'Reset' })
 
     expect(resetButton).toHaveClass('MuiButton-outlined')
-    expect(resetButton).toHaveStyle({ marginLeft: '16px' })
+    expect(resetButton).toHaveStyle({ height: '40px' })
   })
 })
