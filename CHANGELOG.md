@@ -1,3 +1,10 @@
+## [1.33.1](https://github.com/blur88/erp2/compare/v1.33.0...v1.33.1) (2026-03-29)
+
+
+### Bug Fixes
+
+* **dashboard:** prevent Reset button flicker during filter fetch ([#222](https://github.com/blur88/erp2/issues/222)) ([81731ac](https://github.com/blur88/erp2/commit/81731ac0bcbdff29ea3e7e115c6d228a0553c10b))
+
 # [1.33.0](https://github.com/blur88/erp2/compare/v1.32.0...v1.33.0) (2026-03-29)
 
 
