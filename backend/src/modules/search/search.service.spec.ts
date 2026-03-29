@@ -270,6 +270,14 @@ describe('SearchService', () => {
       const page = result.results.find((r) => r.route === '/audit-logs');
       expect(page?.description).toBe('Audit');
     });
+
+    it('routes Inventory Costing searches to /settings/inventory-costing', async () => {
+      const result = await service.search('inventory costing', {
+        role: UserRole.ADMIN,
+      } as any);
+      const page = result.results.find((r) => r.label === 'Inventory Costing');
+      expect(page?.route).toBe('/settings/inventory-costing');
+    });
   });
 
   describe('searchPages role filtering', () => {

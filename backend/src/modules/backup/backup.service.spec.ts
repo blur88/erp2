@@ -47,7 +47,7 @@ jest.mock('ioredis', () => ({
 describe('BackupService - settings backup', () => {
   let service: BackupService;
   let companySettingsRepo: ReturnType<typeof mockRepository>;
-  let priceCostingSettingsRepo: ReturnType<typeof mockRepository>;
+  let regionalSettingsRepo: ReturnType<typeof mockRepository>;
   let documentNumberSettingRepo: ReturnType<typeof mockRepository>;
   let printSettingsRepo: ReturnType<typeof mockRepository>;
 
@@ -67,7 +67,7 @@ describe('BackupService - settings backup', () => {
 
     service = module.get<BackupService>(BackupService);
     companySettingsRepo = module.get(getRepositoryToken(CompanySettings));
-    priceCostingSettingsRepo = module.get(getRepositoryToken(RegionalSettings));
+    regionalSettingsRepo = module.get(getRepositoryToken(RegionalSettings));
     documentNumberSettingRepo = module.get(getRepositoryToken(DocumentNumberSetting));
     printSettingsRepo = module.get(getRepositoryToken(PrintSettings));
   });
@@ -149,7 +149,7 @@ describe('BackupService - settings backup', () => {
         phone: '', email: '', website: '', miscInfo: '', isActive: true,
       });
 
-      priceCostingSettingsRepo.findOne.mockResolvedValue({
+      regionalSettingsRepo.findOne.mockResolvedValue({
         currency: 'MYR', costingMethod: 'AVERAGE',
         dateFormat: 'DD/MM/YYYY', timeFormat: '24h', numberFormat: '1,234.56',
         isActive: true,
@@ -177,7 +177,7 @@ describe('BackupService - settings backup', () => {
       const data = JSON.parse(jsonStr);
 
       expect(data.companySettings.name).toBe('Acme Corp');
-      expect(data.priceCostingSettings.currency).toBe('MYR');
+      expect(data.regionalSettings.currency).toBe('MYR');
       expect(data.documentNumberSettings.configurations[0].nextNumber).toBe(42);
       expect(data.printSettings.salesOrderTemplate).toEqual({ title: 'Sales Order' });
       expect(data.timestamp).toBeDefined();
@@ -191,7 +191,7 @@ describe('BackupService - settings backup', () => {
         state: 'Selangor', postalCode: '47500', country: 'Malaysia',
         phone: '03-99999999', email: 'restore@corp.com', website: '', miscInfo: '',
       },
-      priceCostingSettings: {
+      regionalSettings: {
         currency: 'USD', costingMethod: 'FIFO',
         dateFormat: 'MM/DD/YYYY', timeFormat: '12h', numberFormat: '1,234.56',
       },
@@ -219,8 +219,8 @@ describe('BackupService - settings backup', () => {
       companySettingsRepo.findOne.mockResolvedValue(existing);
       companySettingsRepo.save.mockResolvedValue({ ...existing, ...mockSettingsJson.companySettings });
 
-      priceCostingSettingsRepo.findOne.mockResolvedValue({ id: 'uuid-2', isActive: true });
-      priceCostingSettingsRepo.save.mockResolvedValue({});
+      regionalSettingsRepo.findOne.mockResolvedValue({ id: 'uuid-2', isActive: true });
+      regionalSettingsRepo.save.mockResolvedValue({});
       documentNumberSettingRepo.findOne.mockResolvedValue({
         id: 'uuid-3',
         documentName: 'Sales Orders',
@@ -241,8 +241,8 @@ describe('BackupService - settings backup', () => {
       companySettingsRepo.create.mockReturnValue({ name: 'Restored Corp' });
       companySettingsRepo.save.mockResolvedValue({ name: 'Restored Corp' });
 
-      priceCostingSettingsRepo.findOne.mockResolvedValue({ id: 'uuid-2', isActive: true });
-      priceCostingSettingsRepo.save.mockResolvedValue({});
+      regionalSettingsRepo.findOne.mockResolvedValue({ id: 'uuid-2', isActive: true });
+      regionalSettingsRepo.save.mockResolvedValue({});
       documentNumberSettingRepo.findOne.mockResolvedValue({
         id: 'uuid-3',
         documentName: 'Sales Orders',
@@ -268,8 +268,8 @@ describe('BackupService - settings backup', () => {
 
       companySettingsRepo.findOne.mockResolvedValue({ id: 'uuid-1', isActive: true });
       companySettingsRepo.save.mockResolvedValue({});
-      priceCostingSettingsRepo.findOne.mockResolvedValue({ id: 'uuid-2', isActive: true });
-      priceCostingSettingsRepo.save.mockResolvedValue({});
+      regionalSettingsRepo.findOne.mockResolvedValue({ id: 'uuid-2', isActive: true });
+      regionalSettingsRepo.save.mockResolvedValue({});
       documentNumberSettingRepo.findOne.mockResolvedValue({
         id: 'uuid-3',
         documentName: 'Sales Orders',
@@ -282,6 +282,37 @@ describe('BackupService - settings backup', () => {
 
       const savedArg = companySettingsRepo.save.mock.calls[0][0];
       expect(savedArg.logoUrl).toBeUndefined();
+    });
+
+    it('restores regional settings from old backup using priceCostingSettings key', async () => {
+      const oldBackupJson = {
+        companySettings: {},
+        priceCostingSettings: {
+          currency: 'USD', costingMethod: 'FIFO',
+          dateFormat: 'MM/DD/YYYY', timeFormat: '12h', numberFormat: '1,234.56',
+        },
+        documentNumberSettings: { configurations: [] },
+        printSettings: {},
+        timestamp: '2025-01-01T00:00:00.000Z',
+      };
+      jest.spyOn(require('fs/promises'), 'readFile').mockResolvedValue(JSON.stringify(oldBackupJson));
+
+      companySettingsRepo.findOne.mockResolvedValue({ id: 'uuid-1', isActive: true });
+      companySettingsRepo.save.mockResolvedValue({});
+      regionalSettingsRepo.findOne.mockResolvedValue({ id: 'uuid-2', isActive: true });
+      regionalSettingsRepo.save.mockResolvedValue({});
+      documentNumberSettingRepo.findOne.mockResolvedValue(null);
+      documentNumberSettingRepo.create.mockReturnValue({});
+      documentNumberSettingRepo.save.mockResolvedValue({});
+      printSettingsRepo.findOne.mockResolvedValue({ id: 'uuid-4' });
+      printSettingsRepo.save.mockResolvedValue({});
+
+      await (service as any).restoreSettings('/tmp/restore');
+
+      expect(regionalSettingsRepo.findOne).toHaveBeenCalledWith({ where: { isActive: true } });
+      expect(regionalSettingsRepo.save).toHaveBeenCalledWith(
+        expect.objectContaining({ currency: 'USD', costingMethod: 'FIFO' }),
+      );
     });
 
     it('logs warning and skips if no settings file found', async () => {

@@ -77,6 +77,14 @@ describe('TopBar breadcrumbs', () => {
     expect(inventoryLink).toBeInTheDocument()
     expect(inventoryLink).toHaveAttribute('href', '/inventory')
   })
+
+  it('shows inventory costing for the renamed settings path', () => {
+    mockUseMatches.mockReturnValue([{ handle: { title: 'Inventory Costing' } }])
+
+    renderTopBar('/settings/inventory-costing')
+
+    expect(screen.getByText('Inventory Costing')).toBeInTheDocument()
+  })
 })
 
 describe('TopBar search', () => {

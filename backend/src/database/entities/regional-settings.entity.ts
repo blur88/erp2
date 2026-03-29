@@ -1,7 +1,7 @@
 import { Entity, Column } from 'typeorm';
 import { BaseEntity } from './base.entity';
 
-@Entity('price_costing_settings')
+@Entity('regional_settings')
 export class RegionalSettings extends BaseEntity {
   @Column({ type: 'varchar', length: 10, default: 'MYR' })
   currency: string;

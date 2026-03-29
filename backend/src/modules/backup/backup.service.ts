@@ -37,7 +37,7 @@ export class BackupService implements OnModuleDestroy {
     @InjectRepository(CompanySettings)
     private readonly companySettingsRepository: Repository<CompanySettings>,
     @InjectRepository(RegionalSettings)
-    private readonly priceCostingSettingsRepository: Repository<RegionalSettings>,
+    private readonly regionalSettingsRepository: Repository<RegionalSettings>,
     @InjectRepository(DocumentNumberSetting)
     private readonly documentNumberSettingRepository: Repository<DocumentNumberSetting>,
     @InjectRepository(PrintSettings)
@@ -288,17 +288,17 @@ export class BackupService implements OnModuleDestroy {
     const filename = `settings_${timestamp}.json`;
     const filepath = path.join(tempDir, filename);
 
-    const [companySettings, priceCostingSettings, documentNumberSettings, printSettings] =
+    const [companySettings, regionalSettings, documentNumberSettings, printSettings] =
       await Promise.all([
         this.getCompanySettings(),
-        this.getPriceCostingSettings(),
+        this.getRegionalSettings(),
         this.getDocumentNumberSettings(),
         this.getPrintSettings(),
       ]);
 
     const settings = {
       companySettings,
-      priceCostingSettings,
+      regionalSettings,
       documentNumberSettings,
       printSettings,
       timestamp: new Date().toISOString(),
@@ -444,8 +444,8 @@ export class BackupService implements OnModuleDestroy {
     };
   }
 
-  private async getPriceCostingSettings(): Promise<any> {
-    const settings = await this.priceCostingSettingsRepository.findOne({
+  private async getRegionalSettings(): Promise<any> {
+    const settings = await this.regionalSettingsRepository.findOne({
       where: { isActive: true },
     });
 
@@ -800,7 +800,7 @@ export class BackupService implements OnModuleDestroy {
 
     // Restore each settings type independently - failures are non-fatal
     await this.restoreCompanySettings(settings.companySettings);
-    await this.restorePriceCostingSettings(settings.priceCostingSettings);
+    await this.restoreRegionalSettings(settings.regionalSettings ?? settings.priceCostingSettings);
     await this.restoreDocumentNumberSettings(settings.documentNumberSettings);
     await this.restorePrintSettingsData(settings.printSettings);
 
@@ -828,23 +828,23 @@ export class BackupService implements OnModuleDestroy {
     }
   }
 
-  private async restorePriceCostingSettings(data: any): Promise<void> {
+  private async restoreRegionalSettings(data: any): Promise<void> {
     if (!data || Object.keys(data).length === 0) return;
 
     try {
-      const existing = await this.priceCostingSettingsRepository.findOne({ where: { isActive: true } });
+      const existing = await this.regionalSettingsRepository.findOne({ where: { isActive: true } });
 
       if (existing) {
         Object.assign(existing, data);
-        await this.priceCostingSettingsRepository.save(existing);
+        await this.regionalSettingsRepository.save(existing);
       } else {
-        const created = this.priceCostingSettingsRepository.create({ ...data, isActive: true });
-        await this.priceCostingSettingsRepository.save(created);
+        const created = this.regionalSettingsRepository.create({ ...data, isActive: true });
+        await this.regionalSettingsRepository.save(created);
       }
 
-      this.logger.log('Price costing settings restored');
+      this.logger.log('Regional settings restored');
     } catch (error) {
-      this.logger.warn(`Failed to restore price costing settings: ${error.message}`);
+      this.logger.warn(`Failed to restore regional settings: ${error.message}`);
     }
   }
 

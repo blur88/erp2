@@ -80,7 +80,7 @@ These files import the entity for TypeORM entity registration — update the imp
 - `backend/src/modules/backup/backup.service.spec.ts`
 - `backend/src/modules/inventory/services/costing/costing-strategy-factory.service.ts`
 
-**Note on `backup.service.ts` and `backup.service.spec.ts`:** These files also contain internal private method names (`getPriceCostingSettings`, `restorePriceCostingSettings`) and JSON backup data keys (`priceCostingSettings`) that reference the old name. Do NOT rename these — they are internal implementation details of the backup format and renaming them would break existing backup files. Only update the entity import.
+**Note on `backup.service.ts` and `backup.service.spec.ts`:** These have been renamed as part of issue #197. The restore logic uses `settings.regionalSettings ?? settings.priceCostingSettings` for backward compatibility with old backup files.
 
 Note: `purchasing.module.ts` does NOT reference `PriceCostingSettings` — do not touch it.
 

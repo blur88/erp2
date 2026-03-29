@@ -157,7 +157,7 @@ The migration consists of two TypeORM migrations:
    - Creates necessary indexes
 
 2. **Data Migration** (`1768232000000-MigratePriceListData.ts`):
-   - Migrates pricing schemes from `price_costing_settings` to `price_lists`
+   - Migrates pricing schemes from `regional_settings` to `price_lists`
    - Migrates product pricing tiers from JSONB to `price_list_items`
    - Links customers to appropriate price lists
    - Validates data integrity
@@ -175,7 +175,7 @@ docker compose exec postgres psql -U erp_user -d erp_db -c "
 "
 
 docker compose exec postgres psql -U erp_user -d erp_db -c "
-  SELECT * FROM price_costing_settings LIMIT 1;
+  SELECT * FROM regional_settings LIMIT 1;
 "
 ```
 
@@ -604,7 +604,7 @@ npm run migration:run
 ```bash
 # Check source data
 docker compose exec postgres psql -U erp_user -d erp_db -c "
-  SELECT * FROM price_costing_settings;
+  SELECT * FROM regional_settings;
 "
 
 # Check products have pricingTiers
