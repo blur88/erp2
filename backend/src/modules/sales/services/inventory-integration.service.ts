@@ -12,6 +12,7 @@ import { StockMovement, StockMovementType } from '../../../database/entities/sto
 import { SalesOrder } from '../../../database/entities/sales-order.entity';
 import { SalesOrderItem } from '../../../database/entities/sales-order-item.entity';
 import { BaseCostCalculatorService } from '../../inventory/services/base-cost-calculator.service';
+import { SettingsService } from '../../settings/settings.service';
 
 export interface StockItem {
   productId: string;
@@ -67,6 +68,7 @@ export class InventoryIntegrationService {
     private readonly salesOrderItemRepository: Repository<SalesOrderItem>,
     @Inject(forwardRef(() => BaseCostCalculatorService))
     private readonly baseCostCalculator: BaseCostCalculatorService,
+    private readonly settingsService: SettingsService,
   ) {}
 
   async checkAvailability(items: StockItem[]): Promise<AvailabilityCheck> {
@@ -374,6 +376,7 @@ export class InventoryIntegrationService {
     totalReservations: number;
     reservationValue: number;
   }> {
+    const { lowStockThreshold } = await this.settingsService.getRegionalSettings();
     const products = await this.productRepository.find({
       where: { isActive: true },
     });
@@ -387,8 +390,7 @@ export class InventoryIntegrationService {
       const stockValue = Number(product.stockQuantity) * Number(product.baseCost || 0);
       totalStockValue += stockValue;
 
-      // Check if low stock (using simple threshold since reorderLevel was removed)
-      if (Number(product.stockQuantity) <= 10) {
+      if (Number(product.stockQuantity) <= lowStockThreshold) {
         lowStockProducts++;
       }
 
