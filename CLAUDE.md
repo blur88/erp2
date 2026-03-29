@@ -29,7 +29,7 @@ cd backend && npm run test
 # Run a single backend test file (path relative to backend/)
 cd backend && npx jest src/path/to/file.spec.ts --no-coverage
 
-# Run all frontend tests
+# Run all frontend tests (slow — takes ~12 minutes for 95 files; do NOT assume hung)
 cd frontend && npm run test
 
 # Run a single frontend test file (path relative to frontend/)
