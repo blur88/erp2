@@ -222,7 +222,7 @@ export function DashboardFilterBar({
           variant="outlined"
           size="small"
           onClick={onReset}
-          sx={{ ml: 2 }}
+          sx={{ ml: 2, height: 40 }}
         >
           Reset
         </Button>
