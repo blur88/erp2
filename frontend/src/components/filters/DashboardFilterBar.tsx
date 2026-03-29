@@ -30,6 +30,11 @@ interface DashboardFilterBarProps {
   paymentStatus?: string | null
   onPaymentStatusChange?: (value: string | null) => void
   paymentStatusOptions?: { value: string; label: string }[]
+  categories?: { id: string; name: string }[]
+  categoryId?: string | null
+  onCategoryChange?: (id: string | null) => void
+  stockStatus?: string | null
+  onStockStatusChange?: (value: string | null) => void
 }
 
 export function DashboardFilterBar({
@@ -58,6 +63,11 @@ export function DashboardFilterBar({
   paymentStatus,
   onPaymentStatusChange,
   paymentStatusOptions,
+  categories,
+  categoryId,
+  onCategoryChange,
+  stockStatus,
+  onStockStatusChange,
 }: DashboardFilterBarProps) {
   const compareDisabled = period === 'today'
   const pickerFormat = toMuiDatePickerFormat(localStorage.getItem('dateFormat') || 'DD/MM/YYYY')
@@ -177,6 +187,42 @@ export function DashboardFilterBar({
             {suppliers.map((supplier) => (
               <MenuItem key={supplier.id} value={supplier.id}>{supplier.name}</MenuItem>
             ))}
+          </Select>
+        </FormControl>
+      )}
+
+      {categories !== undefined && onCategoryChange && (
+        <FormControl size="small" sx={{ minWidth: 170 }}>
+          <InputLabel id="dashboard-category-label">Category</InputLabel>
+          <Select
+            labelId="dashboard-category-label"
+            id="dashboard-category"
+            value={categoryId ?? ''}
+            label="Category"
+            onChange={(e) => onCategoryChange(e.target.value || null)}
+          >
+            <MenuItem value="">All Categories</MenuItem>
+            {categories.map((category) => (
+              <MenuItem key={category.id} value={category.id}>{category.name}</MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+      )}
+
+      {stockStatus !== undefined && onStockStatusChange && (
+        <FormControl size="small" sx={{ minWidth: 150 }}>
+          <InputLabel id="dashboard-stock-status-label">Stock Status</InputLabel>
+          <Select
+            labelId="dashboard-stock-status-label"
+            id="dashboard-stock-status"
+            value={stockStatus ?? ''}
+            label="Stock Status"
+            onChange={(e) => onStockStatusChange(e.target.value || null)}
+          >
+            <MenuItem value="">All</MenuItem>
+            <MenuItem value="in_stock">In Stock</MenuItem>
+            <MenuItem value="low_stock">Low Stock</MenuItem>
+            <MenuItem value="out_of_stock">Out of Stock</MenuItem>
           </Select>
         </FormControl>
       )}
