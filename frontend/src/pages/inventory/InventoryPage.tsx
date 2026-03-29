@@ -43,6 +43,8 @@ import { useNavigate } from 'react-router-dom'
 import PageHeader from '@/components/common/PageHeader'
 import { DashboardFilterBar } from '@/components/filters/DashboardFilterBar'
 import { useDashboardFilters } from '@/hooks/useDashboardFilters'
+import { useGetCategoriesQuery } from '@/store/api/inventoryApi'
+import { useGetSuppliersQuery } from '@/store/api/purchasingApi'
 import { useInventoryAnalytics } from './hooks/useInventoryAnalytics'
 import { formatCurrency } from '@/utils/formatters'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
@@ -76,15 +78,33 @@ const InventoryPage: React.FC = () => {
     compareWith,
     customFrom,
     customTo,
+    supplierId,
+    categoryId,
+    stockStatus,
     setPeriod,
     setCompare,
     setCustomRange,
     setCustomFrom,
     setCustomTo,
+    setSupplierId,
+    setCategoryId,
+    setStockStatus,
     reset,
     isDefault,
     resolvedApiParams,
   } = useDashboardFilters('inventory')
+
+  const { data: suppliersData } = useGetSuppliersQuery({})
+  const { data: categoriesData } = useGetCategoriesQuery({})
+
+  const supplierOptions = suppliersData?.data?.map((supplier) => ({
+    id: supplier.id,
+    name: supplier.companyName,
+  })) ?? []
+  const categoryOptions = (categoriesData ?? []).map((category) => ({
+    id: category.id,
+    name: category.name,
+  }))
 
   const { data, isLoading, isFetching, error } = useInventoryAnalytics(resolvedApiParams)
 
@@ -224,6 +244,14 @@ const InventoryPage: React.FC = () => {
         onCustomFromChange={setCustomFrom}
         onCustomToChange={setCustomTo}
         onReset={reset}
+        suppliers={supplierOptions}
+        supplierId={supplierId}
+        onSupplierChange={setSupplierId}
+        categories={categoryOptions}
+        categoryId={categoryId}
+        onCategoryChange={setCategoryId}
+        stockStatus={stockStatus}
+        onStockStatusChange={setStockStatus}
       />
 
       {error && (
