@@ -6,6 +6,7 @@ import { Category } from '../../../database/entities/category.entity';
 import { StockMovement } from '../../../database/entities/stock-movement.entity';
 import { PurchaseCostHistory } from '../../../database/entities/purchase-cost-history.entity';
 import { PriceListItem } from '../../../database/entities/price-list-item.entity';
+import { PurchaseOrderItem } from '../../../database/entities/purchase-order-item.entity';
 
 const mockRepo = () => ({ find: jest.fn(), count: jest.fn(), createQueryBuilder: jest.fn() });
 
@@ -13,6 +14,7 @@ function makeQb(rawResult: any = {}, manyResult: any[] = []) {
   const qb: any = {
     where: jest.fn().mockReturnThis(),
     andWhere: jest.fn().mockReturnThis(),
+    innerJoin: jest.fn().mockReturnThis(),
     leftJoin: jest.fn().mockReturnThis(),
     leftJoinAndSelect: jest.fn().mockReturnThis(),
     select: jest.fn().mockReturnThis(),
@@ -35,11 +37,13 @@ describe('InventoryAnalyticsService.getInventoryDashboardAnalytics', () => {
   let productRepo: any;
   let categoryRepo: any;
   let stockMovementRepo: any;
+  let purchaseOrderItemRepo: any;
 
   beforeEach(async () => {
     productRepo = mockRepo();
     categoryRepo = mockRepo();
     stockMovementRepo = mockRepo();
+    purchaseOrderItemRepo = mockRepo();
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -49,6 +53,7 @@ describe('InventoryAnalyticsService.getInventoryDashboardAnalytics', () => {
         { provide: getRepositoryToken(StockMovement), useValue: stockMovementRepo },
         { provide: getRepositoryToken(PurchaseCostHistory), useValue: mockRepo() },
         { provide: getRepositoryToken(PriceListItem), useValue: mockRepo() },
+        { provide: getRepositoryToken(PurchaseOrderItem), useValue: purchaseOrderItemRepo },
       ],
     }).compile();
 
@@ -137,5 +142,116 @@ describe('InventoryAnalyticsService.getInventoryDashboardAnalytics', () => {
     expect(typeof result.current.metrics.stockMovementsIn).toBe('number');
     expect(result.current.metrics.stockMovementsIn).toBe(42);
     expect(result.current.metrics.stockMovementsOut).toBe(18);
+  });
+
+  describe('dashboard filters', () => {
+    function setupDefaultMocksWithFilters() {
+      purchaseOrderItemRepo.createQueryBuilder = jest.fn().mockImplementation(() =>
+        makeQb({}, []),
+      );
+      productRepo.createQueryBuilder.mockImplementation(() =>
+        makeQb({ totalProducts: '3', inventoryValue: '600', lowStockCount: '0', outOfStockCount: '0' }, []),
+      );
+      categoryRepo.createQueryBuilder.mockImplementation(() =>
+        makeQb({ totalCategories: '1' }, []),
+      );
+      stockMovementRepo.createQueryBuilder.mockImplementation(() =>
+        makeQb({ movementsIn: '0', movementsOut: '0' }, []),
+      );
+    }
+
+    it('passes categoryId andWhere to productRepo query builders', async () => {
+      setupDefaultMocksWithFilters();
+      const categoryId = '550e8400-e29b-41d4-a716-446655440010';
+
+      await service.getInventoryDashboardAnalytics({ categoryId });
+
+      const productQbCalls = productRepo.createQueryBuilder.mock.results;
+      expect(productQbCalls.length).toBeGreaterThan(0);
+      const firstQb = productQbCalls[0].value;
+      expect(firstQb.andWhere).toHaveBeenCalledWith(
+        'product.categoryId = :categoryId',
+        { categoryId },
+      );
+    });
+
+    it('returns zeroed metrics when supplierId resolves to no products', async () => {
+      purchaseOrderItemRepo.createQueryBuilder = jest.fn().mockImplementation(() =>
+        makeQb({}, []),
+      );
+      productRepo.createQueryBuilder.mockImplementation(() =>
+        makeQb({ totalProducts: '0', inventoryValue: '0', lowStockCount: '0', outOfStockCount: '0' }, []),
+      );
+      categoryRepo.createQueryBuilder.mockImplementation(() =>
+        makeQb({ totalCategories: '0' }, []),
+      );
+      stockMovementRepo.createQueryBuilder.mockImplementation(() =>
+        makeQb({ movementsIn: '0', movementsOut: '0' }, []),
+      );
+
+      const result = await service.getInventoryDashboardAnalytics({
+        supplierId: '550e8400-e29b-41d4-a716-446655440020',
+      });
+
+      expect(result.current.metrics.totalProducts).toBe(0);
+      expect(result.lowStockAlerts).toEqual([]);
+      expect(result.recentMovements).toEqual([]);
+    });
+
+    it('passes stockStatus in_stock andWhere to productRepo with stockQuantity > 10', async () => {
+      setupDefaultMocksWithFilters();
+
+      await service.getInventoryDashboardAnalytics({ stockStatus: 'in_stock' });
+
+      const productQbCalls = productRepo.createQueryBuilder.mock.results;
+      const firstQb = productQbCalls[0].value;
+      expect(firstQb.andWhere).toHaveBeenCalledWith(
+        'product.stockQuantity > :inStockThreshold',
+        { inStockThreshold: 10 },
+      );
+    });
+
+    it('passes stockStatus low_stock andWhere to productRepo with 0 < stockQuantity <= 10', async () => {
+      setupDefaultMocksWithFilters();
+
+      await service.getInventoryDashboardAnalytics({ stockStatus: 'low_stock' });
+
+      const productQbCalls = productRepo.createQueryBuilder.mock.results;
+      const firstQb = productQbCalls[0].value;
+      expect(firstQb.andWhere).toHaveBeenCalledWith(
+        'product.stockQuantity > :lowStockMin AND product.stockQuantity <= :lowStockMax',
+        { lowStockMin: 0, lowStockMax: 10 },
+      );
+    });
+
+    it('passes stockStatus out_of_stock andWhere to productRepo with stockQuantity <= 0', async () => {
+      setupDefaultMocksWithFilters();
+
+      await service.getInventoryDashboardAnalytics({ stockStatus: 'out_of_stock' });
+
+      const productQbCalls = productRepo.createQueryBuilder.mock.results;
+      const firstQb = productQbCalls[0].value;
+      expect(firstQb.andWhere).toHaveBeenCalledWith(
+        'product.stockQuantity <= :outOfStockThreshold',
+        { outOfStockThreshold: 0 },
+      );
+    });
+
+    it('applies both categoryId and stockStatus together', async () => {
+      setupDefaultMocksWithFilters();
+      const categoryId = '550e8400-e29b-41d4-a716-446655440010';
+
+      await service.getInventoryDashboardAnalytics({ categoryId, stockStatus: 'in_stock' });
+
+      const firstQb = productRepo.createQueryBuilder.mock.results[0].value;
+      expect(firstQb.andWhere).toHaveBeenCalledWith(
+        'product.categoryId = :categoryId',
+        { categoryId },
+      );
+      expect(firstQb.andWhere).toHaveBeenCalledWith(
+        'product.stockQuantity > :inStockThreshold',
+        { inStockThreshold: 10 },
+      );
+    });
   });
 });

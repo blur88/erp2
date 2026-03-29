@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Between, MoreThan, In } from 'typeorm';
 import { Product, Category, StockMovement, PriceListItem as PriceListItemEntity } from '../../../database/entities';
 import { PurchaseCostHistory } from '../../../database/entities/purchase-cost-history.entity';
+import { PurchaseOrderItem } from '../../../database/entities/purchase-order-item.entity';
 import { differenceInCalendarDays, subDays, subMonths, subYears } from 'date-fns';
 import {
   InventoryAnalyticsQueryDto,
@@ -108,6 +109,12 @@ export interface ProductCostItem {
   averageCost: number;
 }
 
+interface InventoryDashboardFilters {
+  categoryId?: string;
+  productIds?: string[];
+  stockStatus?: 'in_stock' | 'low_stock' | 'out_of_stock';
+}
+
 @Injectable()
 export class InventoryAnalyticsService {
   constructor(
@@ -121,6 +128,8 @@ export class InventoryAnalyticsService {
     private readonly purchaseCostHistoryRepository: Repository<PurchaseCostHistory>,
     @InjectRepository(PriceListItemEntity)
     private readonly priceListItemRepository: Repository<PriceListItemEntity>,
+    @InjectRepository(PurchaseOrderItem)
+    private readonly purchaseOrderItemRepository: Repository<PurchaseOrderItem>,
   ) {}
 
   async getInventorySummary(
@@ -659,13 +668,28 @@ export class InventoryAnalyticsService {
       ? this.computeInventoryComparePeriod(startDate, endDate, query.compareWith)
       : null;
 
+    const filters: InventoryDashboardFilters = {
+      categoryId: query.categoryId,
+      stockStatus: query.stockStatus,
+    };
+
+    if (query.supplierId) {
+      const items = await this.purchaseOrderItemRepository
+        .createQueryBuilder('poi')
+        .innerJoin('poi.purchaseOrder', 'po')
+        .where('po.supplierId = :supplierId', { supplierId: query.supplierId })
+        .select('DISTINCT poi.productId', 'productId')
+        .getRawMany();
+      filters.productIds = items.map((row: any) => row.productId as string);
+    }
+
     const [snapshotMetrics, movementTotals, periodData, lowStockAlerts, recentMovements] =
       await Promise.all([
-        this.getInventorySnapshotMetrics(),
-        this.getInventoryMovementTotals(startDate, endDate),
-        this.getInventoryPeriodData(startDate, endDate, groupBy),
-        this.getLowStockAlerts(10),
-        this.getRecentMovements(startDate, endDate, 5),
+        this.getInventorySnapshotMetrics(filters),
+        this.getInventoryMovementTotals(startDate, endDate, filters),
+        this.getInventoryPeriodData(startDate, endDate, groupBy, filters),
+        this.getLowStockAlerts(10, filters),
+        this.getRecentMovements(startDate, endDate, 5, filters),
       ]);
 
     const currentMetrics: InventoryMetricsDto = { ...snapshotMetrics, ...movementTotals };
@@ -680,8 +704,8 @@ export class InventoryAnalyticsService {
     let comparison: InventoryPeriodBlockDto | undefined;
     if (comparePeriod) {
       const [compareMovementTotals, comparePeriodData] = await Promise.all([
-        this.getInventoryMovementTotals(comparePeriod.compareStart, comparePeriod.compareEnd),
-        this.getInventoryPeriodData(comparePeriod.compareStart, comparePeriod.compareEnd, groupBy),
+        this.getInventoryMovementTotals(comparePeriod.compareStart, comparePeriod.compareEnd, filters),
+        this.getInventoryPeriodData(comparePeriod.compareStart, comparePeriod.compareEnd, groupBy, filters),
       ]);
       const compareMetrics: InventoryMetricsDto = { ...snapshotMetrics, ...compareMovementTotals };
       comparison = {
@@ -695,8 +719,10 @@ export class InventoryAnalyticsService {
     return { current, comparison, lowStockAlerts, recentMovements };
   }
 
-  private async getInventorySnapshotMetrics(): Promise<Omit<InventoryMetricsDto, 'stockMovementsIn' | 'stockMovementsOut'>> {
-    const products = await this.productRepository
+  private async getInventorySnapshotMetrics(
+    filters: InventoryDashboardFilters = {},
+  ): Promise<Omit<InventoryMetricsDto, 'stockMovementsIn' | 'stockMovementsOut'>> {
+    const qb = this.productRepository
       .createQueryBuilder('product')
       .leftJoin('product.category', 'category')
       .where('product.deletedAt IS NULL')
@@ -706,8 +732,10 @@ export class InventoryAnalyticsService {
         'COALESCE(SUM(product.baseCost * product.stockQuantity), 0) as "inventoryValue"',
         'SUM(CASE WHEN product.stockQuantity <= 0 THEN 1 ELSE 0 END) as "outOfStockCount"',
         'SUM(CASE WHEN product.stockQuantity > 0 AND product.stockQuantity <= 10 THEN 1 ELSE 0 END) as "lowStockCount"',
-      ])
-      .getRawOne();
+      ]);
+
+    this.applyProductFilters(qb, filters);
+    const products = await qb.getRawOne();
 
     const totalCategories = await this.categoryRepository
       .createQueryBuilder('category')
@@ -727,15 +755,23 @@ export class InventoryAnalyticsService {
   private async getInventoryMovementTotals(
     startDate: Date,
     endDate: Date,
+    filters: InventoryDashboardFilters = {},
   ): Promise<Pick<InventoryMetricsDto, 'stockMovementsIn' | 'stockMovementsOut'>> {
-    const result = await this.stockMovementRepository
+    const qb = this.stockMovementRepository
       .createQueryBuilder('movement')
-      .where('movement.movementDate BETWEEN :startDate AND :endDate', { startDate, endDate })
-      .select([
-        'COALESCE(SUM(CASE WHEN movement.quantity > 0 THEN movement.quantity ELSE 0 END), 0) as "movementsIn"',
-        'COALESCE(SUM(CASE WHEN movement.quantity < 0 THEN ABS(movement.quantity) ELSE 0 END), 0) as "movementsOut"',
-      ])
-      .getRawOne();
+      .where('movement.movementDate BETWEEN :startDate AND :endDate', { startDate, endDate });
+
+    if (filters.categoryId || filters.productIds !== undefined || filters.stockStatus) {
+      qb.innerJoin('movement.product', 'product');
+      this.applyProductFilters(qb, filters);
+    }
+
+    qb.select([
+      'COALESCE(SUM(CASE WHEN movement.quantity > 0 THEN movement.quantity ELSE 0 END), 0) as "movementsIn"',
+      'COALESCE(SUM(CASE WHEN movement.quantity < 0 THEN ABS(movement.quantity) ELSE 0 END), 0) as "movementsOut"',
+    ]);
+
+    const result = await qb.getRawOne();
 
     return {
       stockMovementsIn: parseFloat(result?.movementsIn) || 0,
@@ -747,6 +783,7 @@ export class InventoryAnalyticsService {
     startDate: Date,
     endDate: Date,
     groupBy: GroupByPeriod,
+    filters: InventoryDashboardFilters = {},
   ): Promise<InventoryPeriodDataDto[]> {
     let dateFormat: string;
 
@@ -768,17 +805,24 @@ export class InventoryAnalyticsService {
         break;
     }
 
-    const data = await this.stockMovementRepository
+    const qb = this.stockMovementRepository
       .createQueryBuilder('movement')
-      .where('movement.movementDate BETWEEN :startDate AND :endDate', { startDate, endDate })
-      .select([
+      .where('movement.movementDate BETWEEN :startDate AND :endDate', { startDate, endDate });
+
+    if (filters.categoryId || filters.productIds !== undefined || filters.stockStatus) {
+      qb.innerJoin('movement.product', 'product');
+      this.applyProductFilters(qb, filters);
+    }
+
+    qb.select([
         `TO_CHAR(movement.movementDate, '${dateFormat}') as period`,
         'COALESCE(SUM(CASE WHEN movement.quantity > 0 THEN movement.quantity ELSE 0 END), 0) as "movementsIn"',
         'COALESCE(SUM(CASE WHEN movement.quantity < 0 THEN ABS(movement.quantity) ELSE 0 END), 0) as "movementsOut"',
       ])
       .groupBy(`TO_CHAR(movement.movementDate, '${dateFormat}')`)
-      .orderBy(`TO_CHAR(movement.movementDate, '${dateFormat}')`, 'ASC')
-      .getRawMany();
+      .orderBy(`TO_CHAR(movement.movementDate, '${dateFormat}')`, 'ASC');
+
+    const data = await qb.getRawMany();
 
     return data.map((item) => ({
       period: item.period,
@@ -787,16 +831,31 @@ export class InventoryAnalyticsService {
     }));
   }
 
-  private async getLowStockAlerts(limit: number): Promise<LowStockAlertDto[]> {
-    const products = await this.productRepository
+  private async getLowStockAlerts(
+    limit: number,
+    filters: InventoryDashboardFilters = {},
+  ): Promise<LowStockAlertDto[]> {
+    const qb = this.productRepository
       .createQueryBuilder('product')
       .leftJoinAndSelect('product.category', 'category')
       .where('product.deletedAt IS NULL')
       .andWhere('product.isActive = :isActive', { isActive: true })
-      .andWhere('product.stockQuantity <= :threshold', { threshold: 10 })
-      .orderBy('product.stockQuantity', 'ASC')
-      .limit(limit)
-      .getMany();
+      .andWhere('product.stockQuantity <= :threshold', { threshold: 10 });
+
+    if (filters.categoryId) {
+      qb.andWhere('product.categoryId = :categoryId', { categoryId: filters.categoryId });
+    }
+    if (filters.productIds !== undefined) {
+      if (filters.productIds.length === 0) {
+        qb.andWhere('1 = 0');
+      } else {
+        qb.andWhere('product.id IN (:...productIds)', { productIds: filters.productIds });
+      }
+    }
+
+    qb.orderBy('product.stockQuantity', 'ASC').limit(limit);
+
+    const products = await qb.getMany();
 
     return products.map((product) => ({
       productId: product.id,
@@ -814,18 +873,24 @@ export class InventoryAnalyticsService {
     startDate: Date,
     endDate: Date,
     limit: number,
+    filters: InventoryDashboardFilters = {},
   ): Promise<RecentMovementDto[]> {
-    const { entities: movements, raw: rawResults } = await this.stockMovementRepository
+    const qb = this.stockMovementRepository
       .createQueryBuilder('movement')
       .leftJoinAndSelect('movement.product', 'product')
       .leftJoin('sales_orders', 'so', 'movement.referenceType = \'sales_order\' AND movement.referenceId = so.id')
       .leftJoin('purchase_orders', 'po', 'movement.referenceType = \'purchase_order\' AND movement.referenceId = po.id')
       .leftJoin('stock_adjustments', 'sa', 'movement.referenceType = \'stock_adjustment\' AND movement.referenceId = sa.id')
       .addSelect('COALESCE(so.orderNumber, po.orderNumber, sa.adjustmentNumber, \'-\')', 'orderNumberResolved')
-      .where('movement.movementDate BETWEEN :startDate AND :endDate', { startDate, endDate })
-      .orderBy('movement.movementDate', 'DESC')
-      .limit(limit)
-      .getRawAndEntities();
+      .where('movement.movementDate BETWEEN :startDate AND :endDate', { startDate, endDate });
+
+    if (filters.categoryId || filters.productIds !== undefined || filters.stockStatus) {
+      this.applyProductFilters(qb, filters);
+    }
+
+    qb.orderBy('movement.movementDate', 'DESC').limit(limit);
+
+    const { entities: movements, raw: rawResults } = await qb.getRawAndEntities();
 
     const orderNumberMap = new Map<string, string>();
     rawResults.forEach((raw: any) => {
@@ -845,6 +910,33 @@ export class InventoryAnalyticsService {
         referenceNumber: orderNumberMap.get(movement.id) || '-',
       };
     });
+  }
+
+  private applyProductFilters(
+    qb: import('typeorm').SelectQueryBuilder<any>,
+    filters: InventoryDashboardFilters,
+    productAlias: string = 'product',
+  ): void {
+    if (filters.categoryId) {
+      qb.andWhere(`${productAlias}.categoryId = :categoryId`, { categoryId: filters.categoryId });
+    }
+    if (filters.productIds !== undefined) {
+      if (filters.productIds.length === 0) {
+        qb.andWhere('1 = 0');
+      } else {
+        qb.andWhere(`${productAlias}.id IN (:...productIds)`, { productIds: filters.productIds });
+      }
+    }
+    if (filters.stockStatus === 'in_stock') {
+      qb.andWhere(`${productAlias}.stockQuantity > :inStockThreshold`, { inStockThreshold: 10 });
+    } else if (filters.stockStatus === 'low_stock') {
+      qb.andWhere(
+        `${productAlias}.stockQuantity > :lowStockMin AND ${productAlias}.stockQuantity <= :lowStockMax`,
+        { lowStockMin: 0, lowStockMax: 10 },
+      );
+    } else if (filters.stockStatus === 'out_of_stock') {
+      qb.andWhere(`${productAlias}.stockQuantity <= :outOfStockThreshold`, { outOfStockThreshold: 0 });
+    }
   }
 
   private resolveInventoryDateRange(
