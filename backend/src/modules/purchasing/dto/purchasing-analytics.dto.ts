@@ -1,5 +1,5 @@
 // backend/src/modules/purchasing/dto/purchasing-analytics.dto.ts
-import { IsOptional, IsEnum, IsIn, IsDate } from 'class-validator';
+import { IsOptional, IsEnum, IsIn, IsDate, IsUUID } from 'class-validator';
 import { ApiPropertyOptional, ApiProperty } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
 import { DateRange, GroupByPeriod } from '@/common/dto/analytics.dto';
@@ -33,6 +33,21 @@ export class PurchasingAnalyticsQueryDto {
   @IsOptional()
   @IsEnum(GroupByPeriod)
   groupBy?: GroupByPeriod;
+
+  @ApiPropertyOptional({ description: 'Filter by supplier ID' })
+  @IsOptional()
+  @IsUUID()
+  supplierId?: string;
+
+  @ApiPropertyOptional({ enum: ['received', 'pending'] })
+  @IsOptional()
+  @IsIn(['received', 'pending'])
+  status?: 'received' | 'pending';
+
+  @ApiPropertyOptional({ enum: ['paid', 'partial', 'unpaid'] })
+  @IsOptional()
+  @IsIn(['paid', 'partial', 'unpaid'])
+  paymentStatus?: 'paid' | 'partial' | 'unpaid';
 }
 
 export class PurchasingMetricsDto {
