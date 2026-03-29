@@ -282,19 +282,18 @@ export function DashboardFilterBar({
         </FormControl>
       )}
 
-      <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 2 }}>
-        {isFetching && <CircularProgress size={16} />}
-        {!isDefault && (
-          <Button
-            variant="outlined"
-            size="small"
-            onClick={onReset}
-            sx={{ height: 40 }}
-          >
-            Reset
-          </Button>
-        )}
-      </Box>
+      {!isDefault && (
+        <Button
+          variant="outlined"
+          size="small"
+          onClick={onReset}
+          sx={{ height: 40 }}
+        >
+          Reset
+        </Button>
+      )}
+
+      {isFetching && <CircularProgress size={16} />}
     </Box>
   )
 }
