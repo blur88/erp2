@@ -277,9 +277,10 @@ describe('useDashboardFilters', () => {
     })
 
     it('reset clears all filter extensions', () => {
-      setUrl('?purchasing_supplier=550e8400-e29b-41d4-a716-446655440001&purchasing_status=received&purchasing_payment=partial')
-      const { result } = renderHook(() => useDashboardFilters('purchasing'))
+      setUrl('?sales_customer=550e8400-e29b-41d4-a716-446655440000&purchasing_supplier=550e8400-e29b-41d4-a716-446655440001&purchasing_status=received&purchasing_payment=partial')
+      const { result } = renderHook(() => useDashboardFilters('sales'))
       act(() => { result.current.reset() })
+      expect(result.current.customerId).toBeNull()
       expect(result.current.supplierId).toBeNull()
       expect(result.current.isFulfilled).toBeNull()
       expect(result.current.status).toBeNull()

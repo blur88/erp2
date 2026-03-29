@@ -203,9 +203,9 @@ export function DashboardFilterBar({
 
       {status !== undefined && onStatusChange && (
         <FormControl size="small" sx={{ minWidth: 150 }}>
-          <InputLabel id="dashboard-order-status-label">Order Status</InputLabel>
+          <InputLabel id="dashboard-purchasing-order-status-label">Order Status</InputLabel>
           <Select
-            labelId="dashboard-order-status-label"
+            labelId="dashboard-purchasing-order-status-label"
             id="dashboard-order-status-purchasing"
             value={status ?? ''}
             label="Order Status"

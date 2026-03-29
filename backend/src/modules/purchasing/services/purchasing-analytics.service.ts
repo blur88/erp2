@@ -690,8 +690,90 @@ export class PurchasingAnalyticsService {
     groupBy: string,
     filters: PurchasingAnalyticsFilters = {},
   ): Promise<PurchasingPeriodDataDto[]> {
-    let dateFormat: string;
+    const formatPeriodKey = (date: Date): string => {
+      const y = date.getFullYear();
+      const m = String(date.getMonth() + 1).padStart(2, '0');
+      const d = String(date.getDate()).padStart(2, '0');
+      switch (groupBy) {
+        case 'day':
+          return `${y}-${m}-${d}`;
+        case 'week': {
+          // ISO week: IYYY-IW
+          const jan4 = new Date(y, 0, 4);
+          const startOfWeek1 = new Date(jan4);
+          startOfWeek1.setDate(jan4.getDate() - ((jan4.getDay() + 6) % 7));
+          const diffMs = date.getTime() - startOfWeek1.getTime();
+          const isoWeek = Math.floor(diffMs / 604800000) + 1;
+          const isoYear =
+            isoWeek < 1
+              ? y - 1
+              : isoWeek > 52 && date < new Date(y + 1, 0, 4)
+              ? y
+              : y;
+          return `${isoYear}-${String(isoWeek).padStart(2, '0')}`;
+        }
+        case 'quarter':
+          return `${y}-Q${Math.ceil((date.getMonth() + 1) / 3)}`;
+        case 'year':
+          return `${y}`;
+        default: // month
+          return `${y}-${m}`;
+      }
+    };
 
+    // When paymentStatus filter is active, payment status is a computed field (no DB column).
+    // Load full orders with vendor payments, compute per-order, filter, then aggregate in-app.
+    if (filters.paymentStatus) {
+      const qb = this.purchaseOrderRepository
+        .createQueryBuilder('po')
+        .leftJoinAndSelect('po.vendorPayments', 'vendorPayments')
+        .where('po.orderDate BETWEEN :startDate AND :endDate', { startDate, endDate })
+        .andWhere('po.deletedAt IS NULL')
+        .andWhere('po.isActive = :isActive', { isActive: true });
+
+      if (filters.supplierId) {
+        qb.andWhere('po.supplierId = :supplierId', { supplierId: filters.supplierId });
+      }
+      if (filters.status) {
+        qb.andWhere('po.isFullyReceived = :isFullyReceived', {
+          isFullyReceived: filters.status === 'received',
+        });
+      }
+
+      const orders = await qb.getMany();
+
+      const periodMap = new Map<string, { spent: number; orders: number }>();
+
+      for (const po of orders) {
+        const paidAmount = (po.vendorPayments || []).reduce(
+          (sum, payment) => sum + parseFloat(payment.amount?.toString() || '0'),
+          0,
+        );
+        const total = parseFloat(po.totalAmount?.toString() || '0');
+        let computedStatus: 'paid' | 'partial' | 'unpaid';
+        if (paidAmount >= total && total > 0) {
+          computedStatus = 'paid';
+        } else if (paidAmount > 0) {
+          computedStatus = 'partial';
+        } else {
+          computedStatus = 'unpaid';
+        }
+
+        if (computedStatus !== filters.paymentStatus) continue;
+
+        const orderDate = po.orderDate instanceof Date ? po.orderDate : new Date(po.orderDate);
+        const key = formatPeriodKey(orderDate);
+        const existing = periodMap.get(key) ?? { spent: 0, orders: 0 };
+        periodMap.set(key, { spent: existing.spent + total, orders: existing.orders + 1 });
+      }
+
+      return Array.from(periodMap.entries())
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([period, agg]) => ({ period, spent: agg.spent, orders: agg.orders }));
+    }
+
+    // Fast SQL aggregate path when no paymentStatus filter
+    let dateFormat: string;
     switch (groupBy) {
       case 'day':
         dateFormat = 'YYYY-MM-DD';
@@ -789,8 +871,6 @@ export class PurchasingAnalyticsService {
     limit: number,
     filters: PurchasingAnalyticsFilters = {},
   ): Promise<RecentPurchaseOrderDto[]> {
-    const fetchLimit = filters.paymentStatus ? limit * 5 : limit;
-
     const qb = this.purchaseOrderRepository
       .createQueryBuilder('po')
       .leftJoinAndSelect('po.supplier', 'supplier')
@@ -809,7 +889,7 @@ export class PurchasingAnalyticsService {
 
     const orders = await qb
       .orderBy('po.orderDate', 'DESC')
-      .limit(fetchLimit)
+      .limit(filters.paymentStatus ? undefined : limit)
       .getMany();
 
     const mapped = orders.map((po) => {
