@@ -17,6 +17,8 @@ export function FilterPeriod({ value, customFrom, customTo, onChange }: FilterPe
   const [internalFrom, setInternalFrom] = useState<string | null>(customFrom)
   const [internalTo, setInternalTo] = useState<string | null>(customTo)
   const pickerFormat = toMuiDatePickerFormat(localStorage.getItem('dateFormat') || 'DD/MM/YYYY')
+  const labelId = 'dashboard-period-label'
+  const selectId = 'dashboard-period'
 
   const handleKeyChange = (key: PeriodKey) => {
     if (key !== 'custom') {
@@ -48,8 +50,10 @@ export function FilterPeriod({ value, customFrom, customTo, onChange }: FilterPe
   return (
     <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
       <FormControl size="small" sx={{ minWidth: 150 }}>
-        <InputLabel>Period</InputLabel>
+        <InputLabel id={labelId}>Period</InputLabel>
         <Select
+          labelId={labelId}
+          id={selectId}
           value={value}
           label="Period"
           onChange={(event) => handleKeyChange(event.target.value as PeriodKey)}
