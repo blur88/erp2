@@ -1,10 +1,13 @@
 import { useCallback, useMemo, useState } from 'react'
-import { subDays, format } from 'date-fns'
 
-export type DashboardPeriod = 'today' | 'last_7_days' | 'this_month' | 'last_month' | 'custom'
+import { PERIOD_KEYS, type PeriodKey } from '@/constants/periods'
+import { getPeriodDateRange, getStartOfWeek } from '@/utils/dateRange'
+
+export type DashboardPeriod = PeriodKey
 export type DashboardCompare = 'previous_period' | 'last_month' | 'last_year' | null
 export type PaymentStatusFilter = 'draft' | 'partial_paid' | 'paid' | 'partial' | 'unpaid'
 export type StockStatusFilter = 'in_stock' | 'low_stock' | 'out_of_stock'
+
 export interface DashboardResolvedApiParams {
   dateRange?: string
   startDate?: string
@@ -20,7 +23,6 @@ export interface DashboardResolvedApiParams {
   stockStatus?: string
 }
 
-const VALID_PERIODS: DashboardPeriod[] = ['today', 'last_7_days', 'this_month', 'last_month', 'custom']
 const VALID_COMPARES: NonNullable<DashboardCompare>[] = ['previous_period', 'last_month', 'last_year']
 const VALID_PAYMENT_STATUSES: PaymentStatusFilter[] = ['draft', 'partial_paid', 'paid', 'partial', 'unpaid']
 const VALID_STOCK_STATUSES: StockStatusFilter[] = ['in_stock', 'low_stock', 'out_of_stock']
@@ -53,7 +55,7 @@ function parseUrl(namespace: string): {
   const rawCategory = params.get(`${namespace}_category`) ?? null
   const rawStockStatus = params.get(`${namespace}_stock_status`) ?? null
 
-  const period: DashboardPeriod = VALID_PERIODS.includes(rawPeriod as DashboardPeriod)
+  const period: DashboardPeriod = (PERIOD_KEYS as readonly string[]).includes(rawPeriod)
     ? (rawPeriod as DashboardPeriod)
     : 'this_month'
 
@@ -64,12 +66,9 @@ function parseUrl(namespace: string): {
 
   const customerId = rawCustomer && UUID_RE.test(rawCustomer) ? rawCustomer : null
   const supplierId = rawSupplier && UUID_RE.test(rawSupplier) ? rawSupplier : null
-
   const isFulfilled: boolean | null =
     rawFulfilled === 'true' ? true : rawFulfilled === 'false' ? false : null
-
   const status: string | null = rawStatus
-
   const paymentStatus: PaymentStatusFilter | null =
     rawPayment && VALID_PAYMENT_STATUSES.includes(rawPayment as PaymentStatusFilter)
       ? (rawPayment as PaymentStatusFilter)
@@ -131,54 +130,48 @@ function parseUrl(namespace: string): {
   }
 }
 
+function groupByForRange(from: string, to: string): string {
+  const days = Math.round((new Date(to).getTime() - new Date(from).getTime()) / 86400000) + 1
+  if (days <= 31) {
+    return 'day'
+  }
+  if (days <= 90) {
+    return 'week'
+  }
+  return 'month'
+}
+
 function toApiParams(
   period: DashboardPeriod,
   compareWith: DashboardCompare,
   customFrom: string | null,
   customTo: string | null,
 ): Record<string, string | undefined> {
-  const now = new Date()
-  const todayStr = format(now, 'yyyy-MM-dd')
-
-  const groupByForCustom = (from: string, to: string): string => {
-    const days = Math.round((new Date(to).getTime() - new Date(from).getTime()) / 86400000) + 1
-    if (days <= 31) {
-      return 'day'
-    }
-    if (days <= 90) {
-      return 'week'
-    }
-    return 'month'
-  }
-
   const compareParam = compareWith ?? undefined
 
-  switch (period) {
-    case 'today':
-      return { startDate: todayStr, endDate: todayStr, groupBy: 'day', compareWith: compareParam }
-    case 'last_7_days':
+  if (period === 'custom') {
+    if (customFrom && customTo) {
       return {
-        startDate: format(subDays(now, 6), 'yyyy-MM-dd'),
-        endDate: todayStr,
-        groupBy: 'day',
+        startDate: customFrom,
+        endDate: customTo,
+        groupBy: groupByForRange(customFrom, customTo),
         compareWith: compareParam,
       }
-    case 'this_month':
-      return { dateRange: 'this_month', groupBy: 'day', compareWith: compareParam }
-    case 'last_month':
-      return { dateRange: 'last_month', groupBy: 'day', compareWith: compareParam }
-    case 'custom':
-      if (customFrom && customTo) {
-        return {
-          startDate: customFrom,
-          endDate: customTo,
-          groupBy: groupByForCustom(customFrom, customTo),
-          compareWith: compareParam,
-        }
-      }
-      return { dateRange: 'this_month', groupBy: 'day', compareWith: compareParam }
-    default:
-      return { dateRange: 'this_month', groupBy: 'day', compareWith: compareParam }
+    }
+
+    return { dateRange: 'this_month', groupBy: 'day', compareWith: compareParam }
+  }
+
+  if (period === 'this_month' || period === 'last_month') {
+    return { dateRange: period, groupBy: 'day', compareWith: compareParam }
+  }
+
+  const { from, to } = getPeriodDateRange(period, getStartOfWeek())
+  return {
+    startDate: from,
+    endDate: to,
+    groupBy: groupByForRange(from, to),
+    compareWith: compareParam,
   }
 }
 
@@ -230,6 +223,7 @@ function writeUrl(
   if (stockStatus) {
     params.set(`${namespace}_stock_status`, stockStatus)
   }
+
   const search = params.toString()
   const url = search ? `${window.location.pathname}?${search}` : window.location.pathname
   window.history.replaceState(null, '', url)
@@ -237,7 +231,7 @@ function writeUrl(
 
 export function useDashboardFilters(namespace: string) {
   if (process.env.NODE_ENV !== 'production' && namespace === '') {
-    console.warn('[useDashboardFilters] namespace must not be an empty string. Use the route path segment (e.g. "sales", "purchasing").')
+    console.warn('[useDashboardFilters] namespace must not be an empty string.')
   }
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -258,13 +252,28 @@ export function useDashboardFilters(namespace: string) {
     setPeriodState(next)
     let nextFrom = customFrom
     let nextTo = customTo
+
     if (next !== 'custom') {
       setCustomFrom(null)
       setCustomTo(null)
       nextFrom = null
       nextTo = null
     }
-    writeUrl(namespace, next, compareWith, nextFrom, nextTo, customerId, supplierId, isFulfilled, status, paymentStatus, categoryId, stockStatus)
+
+    writeUrl(
+      namespace,
+      next,
+      compareWith,
+      nextFrom,
+      nextTo,
+      customerId,
+      supplierId,
+      isFulfilled,
+      status,
+      paymentStatus,
+      categoryId,
+      stockStatus,
+    )
   }, [namespace, compareWith, customFrom, customTo, customerId, supplierId, isFulfilled, status, paymentStatus, categoryId, stockStatus])
 
   const setCompare = useCallback((next: DashboardCompare) => {
@@ -275,6 +284,7 @@ export function useDashboardFilters(namespace: string) {
   const setCustomRange = useCallback((from: string, to: string) => {
     setCustomFrom(from)
     setCustomTo(to)
+
     if (DATE_RE.test(from) && DATE_RE.test(to) && from <= to) {
       setPeriodState('custom')
       writeUrl(namespace, 'custom', compareWith, from, to, customerId, supplierId, isFulfilled, status, paymentStatus, categoryId, stockStatus)
@@ -284,6 +294,7 @@ export function useDashboardFilters(namespace: string) {
   const setCustomFromOnly = useCallback((from: string | null) => {
     setPeriodState('custom')
     setCustomFrom(from)
+
     if (from && customTo && DATE_RE.test(from) && DATE_RE.test(customTo) && from <= customTo) {
       writeUrl(namespace, 'custom', compareWith, from, customTo, customerId, supplierId, isFulfilled, status, paymentStatus, categoryId, stockStatus)
     }
@@ -292,6 +303,7 @@ export function useDashboardFilters(namespace: string) {
   const setCustomToOnly = useCallback((to: string | null) => {
     setPeriodState('custom')
     setCustomTo(to)
+
     if (customFrom && to && DATE_RE.test(customFrom) && DATE_RE.test(to) && customFrom <= to) {
       writeUrl(namespace, 'custom', compareWith, customFrom, to, customerId, supplierId, isFulfilled, status, paymentStatus, categoryId, stockStatus)
     }
