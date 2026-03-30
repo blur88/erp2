@@ -47,8 +47,7 @@ const SalesPage: React.FC = () => {
     setPeriod,
     setCompare,
     setCustomRange,
-    setCustomFrom,
-    setCustomTo,
+
     reset,
     isDefault,
     resolvedApiParams,

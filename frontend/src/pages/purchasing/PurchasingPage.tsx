@@ -74,8 +74,7 @@ const PurchasingPage: React.FC = () => {
     setPeriod,
     setCompare,
     setCustomRange,
-    setCustomFrom,
-    setCustomTo,
+
     setSupplierId,
     setStatus,
     setPaymentStatus,

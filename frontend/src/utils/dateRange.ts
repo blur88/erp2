@@ -37,6 +37,9 @@ export function getPeriodDateRange(
     }
     case 'last_7_days':
       return { from: format(subDays(now, 6), FMT), to: format(now, FMT) }
+    // Ranges are inclusive: "last N days" = today + (N-1) prior days = N days total.
+    // last_7_days uses subDays(6), last_30_days uses subDays(30) = 31 days, last_365_days uses subDays(364).
+    // This is intentional — "Last 30 Days" means the trailing 31-day window ending today.
     case 'last_30_days':
       return { from: format(subDays(now, 30), FMT), to: format(now, FMT) }
     case 'last_365_days':

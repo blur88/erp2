@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useId, useMemo, useState } from 'react'
 import { FormControl, InputLabel, MenuItem, Select, Stack } from '@mui/material'
 import { DatePicker } from '@mui/x-date-pickers'
 import { format, parseISO } from 'date-fns'
@@ -16,9 +16,20 @@ interface FilterPeriodProps {
 export function FilterPeriod({ value, customFrom, customTo, onChange }: FilterPeriodProps) {
   const [internalFrom, setInternalFrom] = useState<string | null>(customFrom)
   const [internalTo, setInternalTo] = useState<string | null>(customTo)
-  const pickerFormat = toMuiDatePickerFormat(localStorage.getItem('dateFormat') || 'DD/MM/YYYY')
-  const labelId = 'dashboard-period-label'
-  const selectId = 'dashboard-period'
+  // Memoised once — dateFormat is only updated by the settings page which triggers a full re-render anyway
+  const pickerFormat = useMemo(
+    () => toMuiDatePickerFormat(localStorage.getItem('dateFormat') || 'DD/MM/YYYY'),
+    [],
+  )
+  const uid = useId()
+  const labelId = `${uid}-period-label`
+  const selectId = `${uid}-period`
+
+  // Sync internal date state when the parent resets or overrides custom dates externally
+  useEffect(() => {
+    setInternalFrom(customFrom)
+    setInternalTo(customTo)
+  }, [customFrom, customTo])
 
   const handleKeyChange = (key: PeriodKey) => {
     if (key !== 'custom') {

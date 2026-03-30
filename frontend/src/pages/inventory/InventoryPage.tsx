@@ -84,8 +84,7 @@ const InventoryPage: React.FC = () => {
     setPeriod,
     setCompare,
     setCustomRange,
-    setCustomFrom,
-    setCustomTo,
+
     setSupplierId,
     setCategoryId,
     setStockStatus,

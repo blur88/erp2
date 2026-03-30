@@ -145,6 +145,24 @@ describe('inferPeriodKey', () => {
     expect(inferPeriodKey('2026-02-28', '2026-03-30')).toBe('last_30_days')
   })
 
+  it('infers this_week with weekStartsOn=1 (Mon)', () => {
+    // 2026-03-30 is Monday → this week is Mon Mar 30 – Sun Apr 05
+    expect(inferPeriodKey('2026-03-30', '2026-04-05', 1)).toBe('this_week')
+  })
+
+  it('infers this_week with weekStartsOn=0 (Sun)', () => {
+    // week started Sun Mar 29 – Sat Apr 04
+    expect(inferPeriodKey('2026-03-29', '2026-04-04', 0)).toBe('this_week')
+  })
+
+  it('infers last_week with weekStartsOn=1 (Mon)', () => {
+    expect(inferPeriodKey('2026-03-23', '2026-03-29', 1)).toBe('last_week')
+  })
+
+  it('infers last_week with weekStartsOn=0 (Sun)', () => {
+    expect(inferPeriodKey('2026-03-22', '2026-03-28', 0)).toBe('last_week')
+  })
+
   it('falls back to custom for an arbitrary range', () => {
     expect(inferPeriodKey('2026-01-15', '2026-02-10')).toBe('custom')
   })
