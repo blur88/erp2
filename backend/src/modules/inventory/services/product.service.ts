@@ -1157,6 +1157,7 @@ export class ProductService {
    * Get stock summary for products
    */
   async getStockSummary(filters?: Partial<QueryProductsDto>): Promise<ProductStockSummaryDto[]> {
+    const { lowStockThreshold } = await this.settingsService.getRegionalSettings();
     const queryBuilder = this.productRepository
       .createQueryBuilder('product')
       .leftJoinAndSelect('product.category', 'category')
@@ -1177,7 +1178,7 @@ export class ProductService {
     }
 
     if (filters?.lowStock) {
-      queryBuilder.andWhere('product.stockQuantity <= 10');
+      queryBuilder.andWhere('product.stockQuantity <= :lowStockThreshold', { lowStockThreshold });
     }
 
     if (filters?.outOfStock) {
@@ -1199,9 +1200,9 @@ export class ProductService {
       stockQuantity: Number(result.product_stockQuantity),
       availableQuantity: Number(result.product_stockQuantity),
       reservedQuantity: 0, // Simplified model doesn't track reserved stock
-      reorderLevel: 10, // Default threshold 
-      stockStatus: Number(result.product_stockQuantity) <= 0 ? 'out_of_stock' : Number(result.product_stockQuantity) <= 10 ? 'low_stock' : 'in_stock',
-      isLowStock: Number(result.product_stockQuantity) <= 10,
+      reorderLevel: lowStockThreshold,
+      stockStatus: Number(result.product_stockQuantity) <= 0 ? 'out_of_stock' : Number(result.product_stockQuantity) <= lowStockThreshold ? 'low_stock' : 'in_stock',
+      isLowStock: Number(result.product_stockQuantity) <= lowStockThreshold,
       isOutOfStock: Number(result.product_stockQuantity) <= 0,
       categoryName: result.category_name,
       lastMovementDate: result.lastMovementDate ? new Date(result.lastMovementDate) : undefined,
@@ -1293,6 +1294,7 @@ export class ProductService {
     };
   }> {
     this.logger.log('Fetching dashboard statistics');
+    const { lowStockThreshold } = await this.settingsService.getRegionalSettings();
 
     // Get total products count
     const totalProducts = await this.productRepository.count({
@@ -1324,10 +1326,10 @@ export class ProductService {
       // Calculate inventory value at cost
       inventoryValue += stock * cost;
 
-      // Count low stock and out of stock (using simple threshold of 10)
+      // Count low stock and out of stock using the configured threshold
       if (stock <= 0) {
         outOfStockCount++;
-      } else if (stock <= 10) {
+      } else if (stock <= lowStockThreshold) {
         lowStockCount++;
       }
 

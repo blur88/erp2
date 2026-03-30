@@ -7,6 +7,7 @@ import { StockMovement } from '../../../database/entities/stock-movement.entity'
 import { PurchaseCostHistory } from '../../../database/entities/purchase-cost-history.entity';
 import { PriceListItem } from '../../../database/entities/price-list-item.entity';
 import { PurchaseOrderItem } from '../../../database/entities/purchase-order-item.entity';
+import { SettingsService } from '../../settings/settings.service';
 
 const mockRepo = () => ({ find: jest.fn(), count: jest.fn(), createQueryBuilder: jest.fn() });
 
@@ -38,12 +39,16 @@ describe('InventoryAnalyticsService.getInventoryDashboardAnalytics', () => {
   let categoryRepo: any;
   let stockMovementRepo: any;
   let purchaseOrderItemRepo: any;
+  let settingsService: { getRegionalSettings: jest.Mock };
 
   beforeEach(async () => {
     productRepo = mockRepo();
     categoryRepo = mockRepo();
     stockMovementRepo = mockRepo();
     purchaseOrderItemRepo = mockRepo();
+    settingsService = {
+      getRegionalSettings: jest.fn().mockResolvedValue({ lowStockThreshold: 10 }),
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -54,6 +59,7 @@ describe('InventoryAnalyticsService.getInventoryDashboardAnalytics', () => {
         { provide: getRepositoryToken(PurchaseCostHistory), useValue: mockRepo() },
         { provide: getRepositoryToken(PriceListItem), useValue: mockRepo() },
         { provide: getRepositoryToken(PurchaseOrderItem), useValue: purchaseOrderItemRepo },
+        { provide: SettingsService, useValue: settingsService },
       ],
     }).compile();
 

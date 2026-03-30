@@ -14,25 +14,29 @@ import { Product, PriceListItem } from '@/types'
 import { formatCurrency } from '@/utils/currency'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
 import { useGetProductPriceListItemsQuery } from '@/store/api/priceListApi'
+import { useGetRegionalSettingsQuery } from '@/store/api/settingsApi'
 
 interface ProductDetailsTabProps {
   product: Product
 }
 
-const getStockStatus = (product: Product) => {
-  const stock = product.stockQuantity || 0
-
-  if (stock <= 0) {
-    return { label: 'Out of Stock', color: 'error' as const }
-  } else if (stock <= 10) {
-    return { label: 'Low Stock', color: 'warning' as const }
-  } else {
-    return { label: 'In Stock', color: 'success' as const }
-  }
-}
-
 const ProductDetailsTab: React.FC<ProductDetailsTabProps> = ({ product }) => {
   const { data: priceListItems = [], isLoading: loading } = useGetProductPriceListItemsQuery(product.id)
+  const { data: regionalSettings } = useGetRegionalSettingsQuery()
+  const lowStockThreshold = regionalSettings?.lowStockThreshold ?? 10
+
+  const getStockStatus = () => {
+    const stock = product.stockQuantity || 0
+
+    if (stock <= 0) {
+      return { label: 'Out of Stock', color: 'error' as const }
+    }
+    if (stock <= lowStockThreshold) {
+      return { label: 'Low Stock', color: 'warning' as const }
+    }
+
+    return { label: 'In Stock', color: 'success' as const }
+  }
 
   // Calculate margin for a price
   const calculateMargin = (price: number, baseCost: number): number => {
@@ -355,8 +359,8 @@ const ProductDetailsTab: React.FC<ProductDetailsTabProps> = ({ product }) => {
                         {product.stockQuantity || 0}
                       </Typography>
                       <Chip
-                        label={getStockStatus(product).label}
-                        color={getStockStatus(product).color}
+                        label={getStockStatus().label}
+                        color={getStockStatus().color}
                         size="small"
                         variant="outlined"
                         sx={{

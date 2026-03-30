@@ -34,6 +34,10 @@ export class RegionalSettingsResponseDto {
   @Expose()
   timezone: string;
 
+  @ApiProperty({ description: 'Low stock threshold quantity', example: 10 })
+  @Expose()
+  lowStockThreshold: number;
+
   @ApiProperty({ description: 'Creation timestamp' })
   @Expose()
   createdAt: Date;

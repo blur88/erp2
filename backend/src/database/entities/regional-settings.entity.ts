@@ -20,4 +20,7 @@ export class RegionalSettings extends BaseEntity {
 
   @Column({ type: 'varchar', length: 100, default: 'Asia/Kuala_Lumpur' })
   timezone: string;
+
+  @Column({ type: 'int', default: 10 })
+  lowStockThreshold: number;
 }

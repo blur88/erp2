@@ -55,6 +55,7 @@ const ProductCostReport = React.lazy(() => import('./pages/inventory/ProductCost
 
 const CompanySettingsPage = React.lazy(() => import('./pages/settings/CompanySettingsPage'))
 const InventoryCostingPage = React.lazy(() => import('./pages/settings/InventoryCostingPage'))
+const StockLevelSettingsPage = React.lazy(() => import('./pages/settings/StockLevelSettingsPage'))
 const RegionalSettingsPage = React.lazy(() => import('./pages/settings/RegionalSettingsPage'))
 const PrintSettingsPage = React.lazy(() => import('./pages/settings/PrintSettingsPage'))
 const DocumentNumbersPage = React.lazy(() => import('./pages/settings/DocumentNumbersPage'))
@@ -183,6 +184,7 @@ export const router = createBrowserRouter([
           { path: '/settings/company', element: <CompanySettingsPage />, handle: { title: 'Company' } },
           { path: '/settings/price-costing', element: <Navigate to="/settings/inventory-costing" replace /> },
           { path: '/settings/inventory-costing', element: <InventoryCostingPage />, handle: { title: 'Inventory Costing' } },
+          { path: '/settings/stock-levels', element: <StockLevelSettingsPage />, handle: { title: 'Stock Levels' } },
           { path: '/settings/regional', element: <RegionalSettingsPage />, handle: { title: 'Regional' } },
           { path: '/settings/price-lists', element: <PriceListsPage />, handle: { title: 'Price Lists' } },
           { path: '/settings/price-lists/:id', element: <PriceListDetailsPage />, handle: { title: 'Price List Details' } },

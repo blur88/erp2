@@ -45,7 +45,7 @@ Inject `RegionalSettings` (or pass `lowStockThreshold` as a parameter) to replac
 - `integration.service.ts` — lines ~344, ~370 (2 occurrences: reorder query and default)
 - `sales/inventory-integration.service.ts` — line ~391 (1 occurrence: sales low stock check)
 
-Note: `product.service.ts` line ~1202 has `reorderLevel: 10` as a per-product default — this is a separate concept and must NOT be changed.
+Note: `product.service.ts` line ~1202 had `reorderLevel: 10` as a static placeholder (the `Product` entity has no per-product `reorderLevel` column). This was changed to `lowStockThreshold` during implementation, which is correct — the field was always a static constant, so tying it to the configurable threshold is more accurate.
 
 ---
 

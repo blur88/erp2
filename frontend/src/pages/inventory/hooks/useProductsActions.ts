@@ -1,6 +1,7 @@
 import { useCallback } from 'react'
 import type { NavigateFunction } from 'react-router-dom'
 
+import { useGetRegionalSettingsQuery } from '@/store/api/settingsApi'
 import { exportProducts } from '@/utils/exportUtils'
 import type { Product } from '@/types'
 
@@ -33,6 +34,8 @@ export function useProductsActions({
   setIsExporting,
   dispatchSetSelectedProduct,
 }: UseProductsActionsParams) {
+  const { data: regionalSettings } = useGetRegionalSettingsQuery()
+
   const handleAddProduct = useCallback(() => {
     navigate('/inventory/products/create')
   }, [navigate])
@@ -89,6 +92,7 @@ export function useProductsActions({
           search: productFilters.search || undefined,
           category: productFilters.categoryId || undefined,
         },
+        lowStockThreshold: regionalSettings?.lowStockThreshold ?? 10,
       })
       showSuccess(`Products exported successfully as ${format.toUpperCase()}`)
     } catch (error: any) {
@@ -97,7 +101,7 @@ export function useProductsActions({
     } finally {
       setIsExporting(false)
     }
-  }, [handleExportClose, productFilters.categoryId, productFilters.search, products, setIsExporting, showError, showSuccess])
+  }, [handleExportClose, productFilters.categoryId, productFilters.search, products, regionalSettings?.lowStockThreshold, setIsExporting, showError, showSuccess])
 
   return {
     handleAddProduct,

@@ -10,6 +10,7 @@ interface ExportData {
     search?: string
     category?: string
   }
+  lowStockThreshold?: number
 }
 
 // Format currency for export
@@ -20,16 +21,16 @@ const formatCurrencyForExport = (value: number | null | undefined): string => {
 }
 
 // Get stock status text
-const getStockStatusText = (product: Product): string => {
+const getStockStatusText = (product: Product, threshold: number): string => {
   const stock = product.stockQuantity || 0
 
   if (stock <= 0) return 'Out of Stock'
-  if (stock <= 10) return 'Low Stock'
+  if (stock <= threshold) return 'Low Stock'
   return 'In Stock'
 }
 
 // Prepare data for export
-const prepareExportData = (products: Product[]) => {
+const prepareExportData = (products: Product[], threshold: number) => {
   return products.map((product, index) => {
     const row: any = {
       '#': index + 1,
@@ -50,7 +51,7 @@ const prepareExportData = (products: Product[]) => {
 
     // Add stock and status info
     row['Current Stock'] = product.stockQuantity || 0
-    row['Stock Status'] = getStockStatusText(product)
+    row['Stock Status'] = getStockStatusText(product, threshold)
     row['Status'] = product.isActive ? 'Active' : 'Inactive'
     row['Notes'] = product.notes || ''
     row['Created Date'] = formatDate(product.createdAt)
@@ -76,9 +77,9 @@ const generateFilename = (format: string, filters?: ExportData['filters']): stri
 }
 
 // CSV Export
-const exportToCSV = ({ products, filters }: ExportData): void => {
+const exportToCSV = ({ products, filters, lowStockThreshold = 10 }: ExportData): void => {
   try {
-    const exportData = prepareExportData(products)
+    const exportData = prepareExportData(products, lowStockThreshold)
 
     if (exportData.length === 0) {
       throw new Error('No data to export')
@@ -121,9 +122,9 @@ const exportToCSV = ({ products, filters }: ExportData): void => {
 }
 
 // Excel Export
-const exportToExcel = ({ products, filters }: ExportData): void => {
+const exportToExcel = ({ products, filters, lowStockThreshold = 10 }: ExportData): void => {
   try {
-    const exportData = prepareExportData(products)
+    const exportData = prepareExportData(products, lowStockThreshold)
 
     if (exportData.length === 0) {
       throw new Error('No data to export')
@@ -172,7 +173,7 @@ const exportToExcel = ({ products, filters }: ExportData): void => {
       {
         Metric: 'Low Stock Items', Value: products.filter(p => {
           const stock = p.stockQuantity || 0
-          return stock > 0 && stock <= 10
+          return stock > 0 && stock <= lowStockThreshold
         }).length
       },
       { Metric: 'Export Date', Value: formatDate(new Date()) },
@@ -199,7 +200,7 @@ const exportToExcel = ({ products, filters }: ExportData): void => {
 }
 
 // PDF Export
-const exportToPDF = ({ products, filters }: ExportData): void => {
+const exportToPDF = ({ products, filters, lowStockThreshold = 10 }: ExportData): void => {
   try {
     if (products.length === 0) {
       throw new Error('No data to export')
@@ -244,7 +245,7 @@ const exportToPDF = ({ products, filters }: ExportData): void => {
       product.category?.name || 'No Category',
       formatCurrencyForExport(product.baseCost),
       product.stockQuantity || 0,
-      getStockStatusText(product),
+      getStockStatusText(product, lowStockThreshold),
       product.isActive ? 'Active' : 'Inactive'
     ])
 
@@ -319,7 +320,7 @@ const exportToPDF = ({ products, filters }: ExportData): void => {
       `Out of Stock: ${products.filter(p => (p.stockQuantity || 0) <= 0).length}`,
       `Low Stock: ${products.filter(p => {
         const stock = p.stockQuantity || 0
-        return stock > 0 && stock <= 10
+        return stock > 0 && stock <= lowStockThreshold
       }).length}`
     ]
 

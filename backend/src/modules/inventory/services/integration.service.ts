@@ -14,6 +14,7 @@ import { SalesOrderItem } from '../../../database/entities/sales-order-item.enti
 import { StockMovementService } from './stock-movement.service';
 import { ProductService } from './product.service';
 import { PricingService } from './pricing.service';
+import { SettingsService } from '../../settings/settings.service';
 
 export interface SalesOrderIntegration {
   orderId: string;
@@ -70,6 +71,7 @@ export class IntegrationService {
     @Inject(forwardRef(() => ProductService))
     private readonly productService: ProductService,
     private readonly pricingService: PricingService,
+    private readonly settingsService: SettingsService,
   ) {}
 
   /**
@@ -337,13 +339,13 @@ export class IntegrationService {
     averageDailyUsage: number;
     leadTimeDays: number;
   }>> {
+    const { lowStockThreshold } = await this.settingsService.getRegionalSettings();
     // Get products below reorder level
     const products = await this.productRepository
       .createQueryBuilder('product')
       .leftJoinAndSelect('product.category', 'category')
-      .where('product.stockQuantity <= 10')
+      .where('product.stockQuantity <= :lowStockThreshold', { lowStockThreshold })
       .andWhere('product.isActive = true')
-      .andWhere('10 > 0')
       .getMany();
 
     const reorderRecommendations = [];
@@ -367,7 +369,7 @@ export class IntegrationService {
         sku: product.barcode,
         name: product.name,
         currentStock: Number(product.stockQuantity),
-        reorderLevel: Number(10),
+        reorderLevel: lowStockThreshold,
         optimalStockLevel: Number(product.stockQuantity),
         recommendedOrderQuantity,
         averageDailyUsage,
