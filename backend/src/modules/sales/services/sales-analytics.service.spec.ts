@@ -205,6 +205,288 @@ describe('SalesAnalyticsService', () => {
     });
   });
 
+  describe('getPeriodData filter propagation', () => {
+    function makeQbChain() {
+      const qb: any = {};
+      qb.where = jest.fn().mockReturnValue(qb);
+      qb.andWhere = jest.fn().mockReturnValue(qb);
+      qb.leftJoin = jest.fn().mockReturnValue(qb);
+      qb.select = jest.fn().mockReturnValue(qb);
+      qb.groupBy = jest.fn().mockReturnValue(qb);
+      qb.orderBy = jest.fn().mockReturnValue(qb);
+      qb.getRawMany = jest.fn().mockResolvedValue([]);
+      return qb;
+    }
+
+    function makeCustomerQbChain() {
+      const qb: any = {};
+      qb.where = jest.fn().mockReturnValue(qb);
+      qb.select = jest.fn().mockReturnValue(qb);
+      qb.groupBy = jest.fn().mockReturnValue(qb);
+      qb.orderBy = jest.fn().mockReturnValue(qb);
+      qb.getRawMany = jest.fn().mockResolvedValue([]);
+      return qb;
+    }
+
+    const start = new Date('2026-03-01T00:00:00.000Z');
+    const end = new Date('2026-03-31T23:59:59.999Z');
+
+    it('applies customerId filter when provided', async () => {
+      const qb = makeQbChain();
+      const customerQb = makeCustomerQbChain();
+      (service as any).salesOrderRepository.createQueryBuilder = jest.fn().mockReturnValue(qb);
+      (service as any).customerRepository.createQueryBuilder = jest.fn().mockReturnValue(customerQb);
+
+      await (service as any).getPeriodData(start, end, 'month', { customerId: 'cust-1' });
+
+      expect(qb.andWhere).toHaveBeenCalledWith('order.customerId = :customerId', { customerId: 'cust-1' });
+    });
+
+    it('applies salesRepId filter when provided', async () => {
+      const qb = makeQbChain();
+      const customerQb = makeCustomerQbChain();
+      (service as any).salesOrderRepository.createQueryBuilder = jest.fn().mockReturnValue(qb);
+      (service as any).customerRepository.createQueryBuilder = jest.fn().mockReturnValue(customerQb);
+
+      await (service as any).getPeriodData(start, end, 'month', { salesRepId: 'rep-1' });
+
+      expect(qb.andWhere).toHaveBeenCalledWith('order.createdByUserId = :salesRepId', { salesRepId: 'rep-1' });
+    });
+
+    it('applies paymentStatus filter with invoice join when provided', async () => {
+      const qb = makeQbChain();
+      const customerQb = makeCustomerQbChain();
+      (service as any).salesOrderRepository.createQueryBuilder = jest.fn().mockReturnValue(qb);
+      (service as any).customerRepository.createQueryBuilder = jest.fn().mockReturnValue(customerQb);
+
+      await (service as any).getPeriodData(start, end, 'month', { paymentStatus: 'paid' as any });
+
+      expect(qb.leftJoin).toHaveBeenCalledWith('order.invoices', 'invoice');
+      expect(qb.andWhere).toHaveBeenCalledWith('invoice.status = :paymentStatus', { paymentStatus: 'paid' });
+    });
+
+    it('applies no extra andWhere calls when query has no filters', async () => {
+      const qb = makeQbChain();
+      const customerQb = makeCustomerQbChain();
+      (service as any).salesOrderRepository.createQueryBuilder = jest.fn().mockReturnValue(qb);
+      (service as any).customerRepository.createQueryBuilder = jest.fn().mockReturnValue(customerQb);
+
+      await (service as any).getPeriodData(start, end, 'month', {});
+
+      const andWhereCalls = qb.andWhere.mock.calls.map((c: any[]) => c[0] as string);
+      expect(andWhereCalls).not.toContain(expect.stringContaining('customerId'));
+      expect(andWhereCalls).not.toContain(expect.stringContaining('salesRepId'));
+      expect(andWhereCalls).not.toContain(expect.stringContaining('paymentStatus'));
+    });
+  });
+
+  describe('getTopCustomers filter propagation', () => {
+    function makeQbChain() {
+      const qb: any = {};
+      qb.leftJoin = jest.fn().mockReturnValue(qb);
+      qb.where = jest.fn().mockReturnValue(qb);
+      qb.andWhere = jest.fn().mockReturnValue(qb);
+      qb.select = jest.fn().mockReturnValue(qb);
+      qb.groupBy = jest.fn().mockReturnValue(qb);
+      qb.addGroupBy = jest.fn().mockReturnValue(qb);
+      qb.orderBy = jest.fn().mockReturnValue(qb);
+      qb.limit = jest.fn().mockReturnValue(qb);
+      qb.getRawMany = jest.fn().mockResolvedValue([]);
+      return qb;
+    }
+
+    const start = new Date('2026-03-01T00:00:00.000Z');
+    const end = new Date('2026-03-31T23:59:59.999Z');
+
+    it('applies salesRepId filter when provided', async () => {
+      const qb = makeQbChain();
+      (service as any).salesOrderRepository.createQueryBuilder = jest.fn().mockReturnValue(qb);
+
+      await (service as any).getTopCustomers(start, end, 10, { salesRepId: 'rep-1' });
+
+      expect(qb.andWhere).toHaveBeenCalledWith('order.createdByUserId = :salesRepId', { salesRepId: 'rep-1' });
+    });
+
+    it('does not add salesRepId andWhere when not provided', async () => {
+      const qb = makeQbChain();
+      (service as any).salesOrderRepository.createQueryBuilder = jest.fn().mockReturnValue(qb);
+
+      await (service as any).getTopCustomers(start, end, 10, {});
+
+      const andWhereCalls = qb.andWhere.mock.calls.map((c: any[]) => c[0] as string);
+      expect(andWhereCalls).not.toContain(expect.stringContaining('salesRepId'));
+    });
+  });
+
+  describe('getTopProducts filter propagation', () => {
+    function makeQbChain() {
+      const qb: any = {};
+      qb.leftJoin = jest.fn().mockReturnValue(qb);
+      qb.where = jest.fn().mockReturnValue(qb);
+      qb.andWhere = jest.fn().mockReturnValue(qb);
+      qb.select = jest.fn().mockReturnValue(qb);
+      qb.groupBy = jest.fn().mockReturnValue(qb);
+      qb.addGroupBy = jest.fn().mockReturnValue(qb);
+      qb.orderBy = jest.fn().mockReturnValue(qb);
+      qb.limit = jest.fn().mockReturnValue(qb);
+      qb.getRawMany = jest.fn().mockResolvedValue([]);
+      return qb;
+    }
+
+    const start = new Date('2026-03-01T00:00:00.000Z');
+    const end = new Date('2026-03-31T23:59:59.999Z');
+
+    it('applies customerId filter when provided', async () => {
+      const qb = makeQbChain();
+      (service as any).salesOrderItemRepository.createQueryBuilder = jest.fn().mockReturnValue(qb);
+
+      await (service as any).getTopProducts(start, end, 10, { customerId: 'cust-1' });
+
+      expect(qb.andWhere).toHaveBeenCalledWith('order.customerId = :customerId', { customerId: 'cust-1' });
+    });
+
+    it('applies salesRepId filter when provided', async () => {
+      const qb = makeQbChain();
+      (service as any).salesOrderItemRepository.createQueryBuilder = jest.fn().mockReturnValue(qb);
+
+      await (service as any).getTopProducts(start, end, 10, { salesRepId: 'rep-1' });
+
+      expect(qb.andWhere).toHaveBeenCalledWith('order.createdByUserId = :salesRepId', { salesRepId: 'rep-1' });
+    });
+
+    it('applies both customerId and salesRepId when both provided', async () => {
+      const qb = makeQbChain();
+      (service as any).salesOrderItemRepository.createQueryBuilder = jest.fn().mockReturnValue(qb);
+
+      await (service as any).getTopProducts(start, end, 10, { customerId: 'cust-1', salesRepId: 'rep-1' });
+
+      expect(qb.andWhere).toHaveBeenCalledWith('order.customerId = :customerId', { customerId: 'cust-1' });
+      expect(qb.andWhere).toHaveBeenCalledWith('order.createdByUserId = :salesRepId', { salesRepId: 'rep-1' });
+    });
+
+    it('applies no extra andWhere calls when query has no filters', async () => {
+      const qb = makeQbChain();
+      (service as any).salesOrderItemRepository.createQueryBuilder = jest.fn().mockReturnValue(qb);
+
+      await (service as any).getTopProducts(start, end, 10, {});
+
+      const andWhereCalls = qb.andWhere.mock.calls.map((c: any[]) => c[0] as string);
+      expect(andWhereCalls).not.toContain(expect.stringContaining('customerId'));
+      expect(andWhereCalls).not.toContain(expect.stringContaining('salesRepId'));
+    });
+  });
+
+  describe('fillPeriodGaps', () => {
+    const zero = { revenue: 0, orders: 0, newCustomers: 0, averageOrderValue: 0 };
+
+    describe('day groupBy', () => {
+      it('fills missing days with zeros', () => {
+        const start = new Date('2026-03-01T00:00:00.000Z');
+        const end = new Date('2026-03-05T23:59:59.999Z');
+        const sparse = [
+          { period: '2026-03-01', revenue: 100, orders: 2, newCustomers: 1, averageOrderValue: 50 },
+          { period: '2026-03-05', revenue: 200, orders: 3, newCustomers: 0, averageOrderValue: 66.67 },
+        ];
+
+        const result = (service as any).fillPeriodGaps(sparse, start, end, 'day');
+
+        expect(result).toHaveLength(5);
+        expect(result[0]).toEqual({ period: '2026-03-01', revenue: 100, orders: 2, newCustomers: 1, averageOrderValue: 50 });
+        expect(result[1]).toEqual({ period: '2026-03-02', ...zero });
+        expect(result[2]).toEqual({ period: '2026-03-03', ...zero });
+        expect(result[3]).toEqual({ period: '2026-03-04', ...zero });
+        expect(result[4]).toEqual({ period: '2026-03-05', revenue: 200, orders: 3, newCustomers: 0, averageOrderValue: 66.67 });
+      });
+
+      it('handles empty DB result - all zeros', () => {
+        const start = new Date('2026-03-01T00:00:00.000Z');
+        const end = new Date('2026-03-03T23:59:59.999Z');
+
+        const result = (service as any).fillPeriodGaps([], start, end, 'day');
+
+        expect(result).toHaveLength(3);
+        result.forEach((r: any) => expect(r).toMatchObject(zero));
+      });
+
+      it('handles single-day range with one order', () => {
+        const start = new Date('2026-03-15T00:00:00.000Z');
+        const end = new Date('2026-03-15T23:59:59.999Z');
+        const sparse = [{ period: '2026-03-15', revenue: 50, orders: 1, newCustomers: 0, averageOrderValue: 50 }];
+
+        const result = (service as any).fillPeriodGaps(sparse, start, end, 'day');
+
+        expect(result).toHaveLength(1);
+        expect(result[0]).toEqual({ period: '2026-03-15', revenue: 50, orders: 1, newCustomers: 0, averageOrderValue: 50 });
+      });
+    });
+
+    describe('week groupBy', () => {
+      it('fills missing weeks with zeros', () => {
+        const start = new Date('2026-03-02T00:00:00.000Z');
+        const end = new Date('2026-03-22T23:59:59.999Z');
+        const sparse = [
+          { period: '2026-11', revenue: 100, orders: 2, newCustomers: 0, averageOrderValue: 50 },
+        ];
+
+        const result = (service as any).fillPeriodGaps(sparse, start, end, 'week');
+
+        expect(result).toHaveLength(3);
+        expect(result[0]).toEqual({ period: '2026-10', ...zero });
+        expect(result[1]).toEqual({ period: '2026-11', revenue: 100, orders: 2, newCustomers: 0, averageOrderValue: 50 });
+        expect(result[2]).toEqual({ period: '2026-12', ...zero });
+      });
+    });
+
+    describe('month groupBy', () => {
+      it('fills missing months with zeros', () => {
+        const start = new Date('2026-01-01T00:00:00.000Z');
+        const end = new Date('2026-03-31T23:59:59.999Z');
+        const sparse = [
+          { period: '2026-02', revenue: 500, orders: 5, newCustomers: 2, averageOrderValue: 100 },
+        ];
+
+        const result = (service as any).fillPeriodGaps(sparse, start, end, 'month');
+
+        expect(result).toHaveLength(3);
+        expect(result[0]).toEqual({ period: '2026-01', ...zero });
+        expect(result[1]).toEqual({ period: '2026-02', revenue: 500, orders: 5, newCustomers: 2, averageOrderValue: 100 });
+        expect(result[2]).toEqual({ period: '2026-03', ...zero });
+      });
+    });
+
+    describe('quarter groupBy', () => {
+      it('fills missing quarters with zeros', () => {
+        const start = new Date('2026-01-01T00:00:00.000Z');
+        const end = new Date('2026-06-30T23:59:59.999Z');
+        const sparse = [
+          { period: '2026-Q1', revenue: 1000, orders: 10, newCustomers: 3, averageOrderValue: 100 },
+        ];
+
+        const result = (service as any).fillPeriodGaps(sparse, start, end, 'quarter');
+
+        expect(result).toHaveLength(2);
+        expect(result[0]).toEqual({ period: '2026-Q1', revenue: 1000, orders: 10, newCustomers: 3, averageOrderValue: 100 });
+        expect(result[1]).toEqual({ period: '2026-Q2', ...zero });
+      });
+    });
+
+    describe('year groupBy', () => {
+      it('fills missing years with zeros', () => {
+        const start = new Date('2025-01-01T00:00:00.000Z');
+        const end = new Date('2026-12-31T23:59:59.999Z');
+        const sparse = [
+          { period: '2025', revenue: 5000, orders: 50, newCustomers: 10, averageOrderValue: 100 },
+        ];
+
+        const result = (service as any).fillPeriodGaps(sparse, start, end, 'year');
+
+        expect(result).toHaveLength(2);
+        expect(result[0]).toEqual({ period: '2025', revenue: 5000, orders: 50, newCustomers: 10, averageOrderValue: 100 });
+        expect(result[1]).toEqual({ period: '2026', ...zero });
+      });
+    });
+  });
+
   describe('getSalesAnalytics filter propagation', () => {
     function makeChainMock(rawOne: object = {}, rawMany: object[] = []) {
       const chain: any = {

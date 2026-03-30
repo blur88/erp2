@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { differenceInCalendarDays, subDays, subMonths, subYears } from 'date-fns';
+import { addDays, addMonths, addWeeks, addYears, differenceInCalendarDays, format, getISOWeek, getISOWeekYear, subDays, subMonths, subYears } from 'date-fns';
 import { Repository, Between } from 'typeorm';
 import { SalesOrder } from '../../../database/entities/sales-order.entity';
 import { Invoice, InvoiceStatus } from '../../../database/entities/invoice.entity';
@@ -447,6 +447,20 @@ export class SalesAnalyticsService {
       periodQuery = periodQuery.andWhere('order.isFulfilled = :isFulfilled', { isFulfilled: query.isFulfilled });
     }
 
+    if (query?.customerId) {
+      periodQuery = periodQuery.andWhere('order.customerId = :customerId', { customerId: query.customerId });
+    }
+
+    if (query?.salesRepId) {
+      periodQuery = periodQuery.andWhere('order.createdByUserId = :salesRepId', { salesRepId: query.salesRepId });
+    }
+
+    if (query?.paymentStatus) {
+      periodQuery = periodQuery
+        .leftJoin('order.invoices', 'invoice')
+        .andWhere('invoice.status = :paymentStatus', { paymentStatus: query.paymentStatus });
+    }
+
     const data = await periodQuery
       .select([
         `TO_CHAR(order.orderDate, '${dateFormat}') as period`,
@@ -472,13 +486,15 @@ export class SalesAnalyticsService {
 
     const customerMap = new Map(customerData.map(item => [item.period, parseInt(item.newCustomers)]));
 
-    return data.map(item => ({
+    const mapped = data.map(item => ({
       period: item.period,
       revenue: parseFloat(item.revenue) || 0,
       orders: parseInt(item.orders) || 0,
       newCustomers: customerMap.get(item.period) || 0,
       averageOrderValue: parseFloat(item.averageOrderValue) || 0,
     }));
+
+    return this.fillPeriodGaps(mapped, startDate, endDate, groupBy);
   }
 
   private async getTopCustomers(
@@ -500,6 +516,10 @@ export class SalesAnalyticsService {
       topCustomersQuery = topCustomersQuery
         .leftJoin('order.invoices', 'invoice')
         .andWhere('invoice.status = :paymentStatus', { paymentStatus: query.paymentStatus });
+    }
+
+    if (query?.salesRepId) {
+      topCustomersQuery = topCustomersQuery.andWhere('order.createdByUserId = :salesRepId', { salesRepId: query.salesRepId });
     }
 
     const data = await topCustomersQuery
@@ -550,6 +570,14 @@ export class SalesAnalyticsService {
       topProductsQuery = topProductsQuery
         .leftJoin('order.invoices', 'invoice')
         .andWhere('invoice.status = :paymentStatus', { paymentStatus: query.paymentStatus });
+    }
+
+    if (query?.customerId) {
+      topProductsQuery = topProductsQuery.andWhere('order.customerId = :customerId', { customerId: query.customerId });
+    }
+
+    if (query?.salesRepId) {
+      topProductsQuery = topProductsQuery.andWhere('order.createdByUserId = :salesRepId', { salesRepId: query.salesRepId });
     }
 
     const data = await topProductsQuery
@@ -618,6 +646,61 @@ export class SalesAnalyticsService {
       orders: parseInt(item.orders) || 0,
       averageOrderValue: parseFloat(item.averageOrderValue) || 0,
     }));
+  }
+
+  private fillPeriodGaps(
+    data: PeriodMetricDto[],
+    startDate: Date,
+    endDate: Date,
+    groupBy: string,
+  ): PeriodMetricDto[] {
+    const dataMap = new Map(data.map(item => [item.period, item]));
+    const labels: string[] = [];
+    let cursor = new Date(startDate);
+
+    while (cursor <= endDate) {
+      let label: string;
+
+      switch (groupBy) {
+        case 'day':
+          label = format(cursor, 'yyyy-MM-dd');
+          cursor = addDays(cursor, 1);
+          break;
+        case 'week': {
+          const isoYear = getISOWeekYear(cursor);
+          const isoWeek = String(getISOWeek(cursor)).padStart(2, '0');
+          label = `${isoYear}-${isoWeek}`;
+          cursor = addWeeks(cursor, 1);
+          break;
+        }
+        case 'quarter': {
+          const q = Math.floor(cursor.getMonth() / 3) + 1;
+          label = `${cursor.getFullYear()}-Q${q}`;
+          cursor = addMonths(cursor, 3);
+          break;
+        }
+        case 'year':
+          label = String(cursor.getFullYear());
+          cursor = addYears(cursor, 1);
+          break;
+        default:
+          label = format(cursor, 'yyyy-MM');
+          cursor = addMonths(cursor, 1);
+          break;
+      }
+
+      labels.push(label);
+    }
+
+    return labels.map(label =>
+      dataMap.get(label) ?? {
+        period: label,
+        revenue: 0,
+        orders: 0,
+        newCustomers: 0,
+        averageOrderValue: 0,
+      },
+    );
   }
 
   private parseDateRange(
