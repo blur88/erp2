@@ -516,6 +516,10 @@ export class SalesAnalyticsService {
         .andWhere('invoice.status = :paymentStatus', { paymentStatus: query.paymentStatus });
     }
 
+    if (query?.salesRepId) {
+      topCustomersQuery = topCustomersQuery.andWhere('order.createdByUserId = :salesRepId', { salesRepId: query.salesRepId });
+    }
+
     const data = await topCustomersQuery
       .select([
         'customer.id as "customerId"',
