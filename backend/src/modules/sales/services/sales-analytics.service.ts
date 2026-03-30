@@ -486,13 +486,15 @@ export class SalesAnalyticsService {
 
     const customerMap = new Map(customerData.map(item => [item.period, parseInt(item.newCustomers)]));
 
-    return data.map(item => ({
+    const mapped = data.map(item => ({
       period: item.period,
       revenue: parseFloat(item.revenue) || 0,
       orders: parseInt(item.orders) || 0,
       newCustomers: customerMap.get(item.period) || 0,
       averageOrderValue: parseFloat(item.averageOrderValue) || 0,
     }));
+
+    return this.fillPeriodGaps(mapped, startDate, endDate, groupBy);
   }
 
   private async getTopCustomers(
