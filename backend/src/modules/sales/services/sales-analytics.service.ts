@@ -570,6 +570,14 @@ export class SalesAnalyticsService {
         .andWhere('invoice.status = :paymentStatus', { paymentStatus: query.paymentStatus });
     }
 
+    if (query?.customerId) {
+      topProductsQuery = topProductsQuery.andWhere('order.customerId = :customerId', { customerId: query.customerId });
+    }
+
+    if (query?.salesRepId) {
+      topProductsQuery = topProductsQuery.andWhere('order.createdByUserId = :salesRepId', { salesRepId: query.salesRepId });
+    }
+
     const data = await topProductsQuery
       .select([
         'product.id as "productId"',

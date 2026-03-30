@@ -318,6 +318,64 @@ describe('SalesAnalyticsService', () => {
     });
   });
 
+  describe('getTopProducts filter propagation', () => {
+    function makeQbChain() {
+      const qb: any = {};
+      qb.leftJoin = jest.fn().mockReturnValue(qb);
+      qb.where = jest.fn().mockReturnValue(qb);
+      qb.andWhere = jest.fn().mockReturnValue(qb);
+      qb.select = jest.fn().mockReturnValue(qb);
+      qb.groupBy = jest.fn().mockReturnValue(qb);
+      qb.addGroupBy = jest.fn().mockReturnValue(qb);
+      qb.orderBy = jest.fn().mockReturnValue(qb);
+      qb.limit = jest.fn().mockReturnValue(qb);
+      qb.getRawMany = jest.fn().mockResolvedValue([]);
+      return qb;
+    }
+
+    const start = new Date('2026-03-01T00:00:00.000Z');
+    const end = new Date('2026-03-31T23:59:59.999Z');
+
+    it('applies customerId filter when provided', async () => {
+      const qb = makeQbChain();
+      (service as any).salesOrderItemRepository.createQueryBuilder = jest.fn().mockReturnValue(qb);
+
+      await (service as any).getTopProducts(start, end, 10, { customerId: 'cust-1' });
+
+      expect(qb.andWhere).toHaveBeenCalledWith('order.customerId = :customerId', { customerId: 'cust-1' });
+    });
+
+    it('applies salesRepId filter when provided', async () => {
+      const qb = makeQbChain();
+      (service as any).salesOrderItemRepository.createQueryBuilder = jest.fn().mockReturnValue(qb);
+
+      await (service as any).getTopProducts(start, end, 10, { salesRepId: 'rep-1' });
+
+      expect(qb.andWhere).toHaveBeenCalledWith('order.createdByUserId = :salesRepId', { salesRepId: 'rep-1' });
+    });
+
+    it('applies both customerId and salesRepId when both provided', async () => {
+      const qb = makeQbChain();
+      (service as any).salesOrderItemRepository.createQueryBuilder = jest.fn().mockReturnValue(qb);
+
+      await (service as any).getTopProducts(start, end, 10, { customerId: 'cust-1', salesRepId: 'rep-1' });
+
+      expect(qb.andWhere).toHaveBeenCalledWith('order.customerId = :customerId', { customerId: 'cust-1' });
+      expect(qb.andWhere).toHaveBeenCalledWith('order.createdByUserId = :salesRepId', { salesRepId: 'rep-1' });
+    });
+
+    it('applies no extra andWhere calls when query has no filters', async () => {
+      const qb = makeQbChain();
+      (service as any).salesOrderItemRepository.createQueryBuilder = jest.fn().mockReturnValue(qb);
+
+      await (service as any).getTopProducts(start, end, 10, {});
+
+      const andWhereCalls = qb.andWhere.mock.calls.map((c: any[]) => c[0] as string);
+      expect(andWhereCalls).not.toContain(expect.stringContaining('customerId'));
+      expect(andWhereCalls).not.toContain(expect.stringContaining('salesRepId'));
+    });
+  });
+
   describe('getSalesAnalytics filter propagation', () => {
     function makeChainMock(rawOne: object = {}, rawMany: object[] = []) {
       const chain: any = {
