@@ -18,8 +18,6 @@ function baseProps() {
     onPeriodChange: vi.fn(),
     onCompareChange: vi.fn(),
     onCustomRangeChange: vi.fn(),
-    onCustomFromChange: vi.fn(),
-    onCustomToChange: vi.fn(),
     onReset: vi.fn(),
   }
 }
@@ -284,5 +282,22 @@ describe('DashboardFilterBar', () => {
 
     expect(resetButton).toHaveClass('MuiButton-outlined')
     expect(resetButton).toHaveStyle({ height: '40px' })
+  })
+
+  it('renders all period options including Yesterday and This Week', async () => {
+    wrap(<DashboardFilterBar {...baseProps()} />)
+    await userEvent.click(screen.getByLabelText('Period'))
+    expect(screen.getByText('Yesterday')).toBeTruthy()
+    expect(screen.getByText('This Week')).toBeTruthy()
+    expect(screen.getByText('Last Week')).toBeTruthy()
+    expect(screen.getByText('This Year')).toBeTruthy()
+  })
+
+  it('calls onPeriodChange when a preset is selected', async () => {
+    const onPeriodChange = vi.fn()
+    wrap(<DashboardFilterBar {...baseProps()} onPeriodChange={onPeriodChange} />)
+    await userEvent.click(screen.getByLabelText('Period'))
+    await userEvent.click(screen.getByText('Yesterday'))
+    expect(onPeriodChange).toHaveBeenCalledWith('yesterday')
   })
 })

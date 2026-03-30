@@ -47,8 +47,7 @@ const SalesPage: React.FC = () => {
     setPeriod,
     setCompare,
     setCustomRange,
-    setCustomFrom,
-    setCustomTo,
+
     reset,
     isDefault,
     resolvedApiParams,
@@ -166,8 +165,6 @@ const SalesPage: React.FC = () => {
         onPeriodChange={setPeriod}
         onCompareChange={setCompare}
         onCustomRangeChange={setCustomRange}
-        onCustomFromChange={setCustomFrom}
-        onCustomToChange={setCustomTo}
         onReset={reset}
         customers={customerOptions}
         customerId={customerId}

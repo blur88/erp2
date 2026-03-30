@@ -36,3 +36,17 @@ describe('SettingsController lowStockThreshold', () => {
     expect(dto.lowStockThreshold).toBe(10);
   });
 });
+
+describe('SettingsController startOfWeek', () => {
+  it('UpdateRegionalSettingsDto accepts startOfWeek as optional integer 0 or 1', () => {
+    const dto = new UpdateRegionalSettingsDto();
+    dto.startOfWeek = 0;
+    expect(dto.startOfWeek).toBe(0);
+  });
+
+  it('RegionalSettingsResponseDto exposes startOfWeek', () => {
+    const dto = new RegionalSettingsResponseDto();
+    (dto as any).startOfWeek = 1;
+    expect(dto.startOfWeek).toBe(1);
+  });
+});

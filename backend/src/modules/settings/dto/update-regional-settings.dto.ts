@@ -89,4 +89,10 @@ export class UpdateRegionalSettingsDto {
   @IsOptional()
   @Min(0)
   lowStockThreshold?: number;
+
+  @ApiProperty({ description: 'Start of week: 0 = Sunday, 1 = Monday', example: 1, enum: [0, 1] })
+  @IsInt()
+  @IsOptional()
+  @IsIn([0, 1])
+  startOfWeek?: number;
 }

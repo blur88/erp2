@@ -27,6 +27,7 @@ interface RegionalFormData {
   timeFormat: string
   numberFormat: string
   timezone: string
+  startOfWeek: number
 }
 
 const schema = yup.object({
@@ -35,6 +36,7 @@ const schema = yup.object({
   timeFormat: yup.string().required('Time format is required'),
   numberFormat: yup.string().required('Number format is required'),
   timezone: yup.string().required('Timezone is required'),
+  startOfWeek: yup.number().oneOf([0, 1]).required('Start of week is required'),
 })
 
 const CURRENCIES = [
@@ -151,6 +153,7 @@ const RegionalSettingsPage: React.FC = () => {
       timeFormat: '24h',
       numberFormat: '1,234.56',
       timezone: 'Asia/Kuala_Lumpur',
+      startOfWeek: 1,
     },
   })
 
@@ -164,6 +167,7 @@ const RegionalSettingsPage: React.FC = () => {
       setValue('timeFormat', s.timeFormat || '24h')
       setValue('numberFormat', s.numberFormat || '1,234.56')
       setValue('timezone', s.timezone || 'Asia/Kuala_Lumpur')
+      setValue('startOfWeek', s.startOfWeek ?? 1)
     }
   }, [settingsData, setValue])
 
@@ -182,6 +186,7 @@ const RegionalSettingsPage: React.FC = () => {
       localStorage.setItem('timeFormat', data.timeFormat)
       localStorage.setItem('numberFormat', data.numberFormat)
       localStorage.setItem('timezone', data.timezone)
+      localStorage.setItem('startOfWeek', String(data.startOfWeek))
 
       // Notify currency-aware components
       window.dispatchEvent(new Event('currencyChanged'))
@@ -297,6 +302,26 @@ const RegionalSettingsPage: React.FC = () => {
                     {TIME_FORMATS.map(opt => (
                       <MenuItem key={opt.value} value={opt.value}>{opt.label}</MenuItem>
                     ))}
+                  </TextField>
+                )}
+              />
+            </Grid>
+            <Grid size={{ xs: 12, md: 6 }}>
+              <Controller
+                name="startOfWeek"
+                control={control}
+                render={({ field }) => (
+                  <TextField
+                    {...field}
+                    select
+                    label="Start of Week"
+                    fullWidth
+                    required
+                    error={!!errors.startOfWeek}
+                    helperText={errors.startOfWeek?.message || 'Which day the week starts on'}
+                  >
+                    <MenuItem value={1}>Monday</MenuItem>
+                    <MenuItem value={0}>Sunday</MenuItem>
                   </TextField>
                 )}
               />

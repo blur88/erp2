@@ -17,5 +17,6 @@ export const useRegionalSettings = (isAuthenticated: boolean) => {
     if (s.numberFormat) localStorage.setItem('numberFormat', s.numberFormat)
     if (s.currency) localStorage.setItem('defaultCurrency', s.currency)
     if (s.timezone) localStorage.setItem('timezone', s.timezone)
+    if (s.startOfWeek === 0 || s.startOfWeek === 1) localStorage.setItem('startOfWeek', String(s.startOfWeek))
   }, [isAuthenticated, data])
 }

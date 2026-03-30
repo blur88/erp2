@@ -1,8 +1,8 @@
 import { Box, Button, CircularProgress, FormControl, InputLabel, MenuItem, Select, Tooltip } from '@mui/material'
-import { DatePicker } from '@mui/x-date-pickers'
-import { format, parseISO } from 'date-fns'
-import { toMuiDatePickerFormat } from '@/utils/formatters'
+
 import type { DashboardCompare, DashboardPeriod } from '@/hooks/useDashboardFilters'
+
+import { FilterPeriod } from './FilterPeriod'
 
 interface DashboardFilterBarProps {
   period: DashboardPeriod
@@ -14,8 +14,6 @@ interface DashboardFilterBarProps {
   onPeriodChange: (period: DashboardPeriod) => void
   onCompareChange: (compare: DashboardCompare) => void
   onCustomRangeChange: (from: string, to: string) => void
-  onCustomFromChange: (from: string | null) => void
-  onCustomToChange: (to: string | null) => void
   onReset: () => void
   customers?: { id: string; name: string }[]
   customerId?: string | null
@@ -47,8 +45,6 @@ export function DashboardFilterBar({
   onPeriodChange,
   onCompareChange,
   onCustomRangeChange,
-  onCustomFromChange,
-  onCustomToChange,
   onReset,
   customers,
   customerId,
@@ -70,7 +66,6 @@ export function DashboardFilterBar({
   onStockStatusChange,
 }: DashboardFilterBarProps) {
   const compareDisabled = period === 'today'
-  const pickerFormat = toMuiDatePickerFormat(localStorage.getItem('dateFormat') || 'DD/MM/YYYY')
   const resolvedPaymentStatusOptions = paymentStatusOptions ?? [
     { value: 'paid', label: 'Paid' },
     { value: 'partial_paid', label: 'Partially Paid' },
@@ -79,63 +74,18 @@ export function DashboardFilterBar({
 
   return (
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap', mb: 3 }}>
-      <FormControl size="small" sx={{ minWidth: 150 }}>
-        <InputLabel>Period</InputLabel>
-        <Select
-          value={period}
-          label="Period"
-          onChange={(event) => onPeriodChange(event.target.value as DashboardPeriod)}
-        >
-          <MenuItem value="today">Today</MenuItem>
-          <MenuItem value="last_7_days">Last 7 Days</MenuItem>
-          <MenuItem value="this_month">This Month</MenuItem>
-          <MenuItem value="last_month">Last Month</MenuItem>
-          <MenuItem value="custom">Custom Range</MenuItem>
-        </Select>
-      </FormControl>
-
-      {period === 'custom' && (
-        <>
-          <DatePicker
-            label="From"
-            value={customFrom ? parseISO(customFrom) : null}
-            format={pickerFormat}
-            onChange={(value) => {
-              if (!value) {
-                onCustomFromChange(null)
-                return
-              }
-
-              const nextFrom = format(value, 'yyyy-MM-dd')
-              onCustomFromChange(nextFrom)
-
-              if (customTo) {
-                onCustomRangeChange(nextFrom, customTo)
-              }
-            }}
-            slotProps={{ textField: { size: 'small' } }}
-          />
-          <DatePicker
-            label="To"
-            value={customTo ? parseISO(customTo) : null}
-            format={pickerFormat}
-            onChange={(value) => {
-              if (!value) {
-                onCustomToChange(null)
-                return
-              }
-
-              const nextTo = format(value, 'yyyy-MM-dd')
-              onCustomToChange(nextTo)
-
-              if (customFrom) {
-                onCustomRangeChange(customFrom, nextTo)
-              }
-            }}
-            slotProps={{ textField: { size: 'small' } }}
-          />
-        </>
-      )}
+      <FilterPeriod
+        value={period}
+        customFrom={customFrom}
+        customTo={customTo}
+        onChange={(key, from, to) => {
+          if (key === 'custom' && from && to) {
+            onCustomRangeChange(from, to)
+          } else {
+            onPeriodChange(key)
+          }
+        }}
+      />
 
       <Tooltip title={compareDisabled ? 'Comparison is not available for Today' : ''} placement="top">
         <span>
@@ -283,12 +233,7 @@ export function DashboardFilterBar({
       )}
 
       {!isDefault && (
-        <Button
-          variant="outlined"
-          size="small"
-          onClick={onReset}
-          sx={{ height: 40 }}
-        >
+        <Button variant="outlined" size="small" onClick={onReset} sx={{ height: 40 }}>
           Reset
         </Button>
       )}

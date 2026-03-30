@@ -101,6 +101,64 @@ describe('useDashboardFilters', () => {
     expect(result.current.resolvedApiParams.groupBy).toBe('day')
   })
 
+  it('accepts yesterday as a valid period from URL', () => {
+    setUrl('?sales_period=yesterday')
+    const { result } = renderHook(() => useDashboardFilters('sales'))
+    expect(result.current.period).toBe('yesterday')
+  })
+
+  it('accepts this_week as a valid period from URL', () => {
+    setUrl('?sales_period=this_week')
+    const { result } = renderHook(() => useDashboardFilters('sales'))
+    expect(result.current.period).toBe('this_week')
+  })
+
+  it('accepts last_week as a valid period from URL', () => {
+    setUrl('?sales_period=last_week')
+    const { result } = renderHook(() => useDashboardFilters('sales'))
+    expect(result.current.period).toBe('last_week')
+  })
+
+  it('accepts this_year as a valid period from URL', () => {
+    setUrl('?sales_period=this_year')
+    const { result } = renderHook(() => useDashboardFilters('sales'))
+    expect(result.current.period).toBe('this_year')
+  })
+
+  it('accepts last_year as a valid period from URL', () => {
+    setUrl('?sales_period=last_year')
+    const { result } = renderHook(() => useDashboardFilters('sales'))
+    expect(result.current.period).toBe('last_year')
+  })
+
+  it('accepts last_30_days as a valid period from URL', () => {
+    setUrl('?sales_period=last_30_days')
+    const { result } = renderHook(() => useDashboardFilters('sales'))
+    expect(result.current.period).toBe('last_30_days')
+  })
+
+  it('accepts last_365_days as a valid period from URL', () => {
+    setUrl('?sales_period=last_365_days')
+    const { result } = renderHook(() => useDashboardFilters('sales'))
+    expect(result.current.period).toBe('last_365_days')
+  })
+
+  it('resolvedApiParams maps yesterday to explicit startDate/endDate', () => {
+    setUrl('?sales_period=yesterday')
+    const { result } = renderHook(() => useDashboardFilters('sales'))
+    expect(result.current.resolvedApiParams.startDate).toBeDefined()
+    expect(result.current.resolvedApiParams.endDate).toBeDefined()
+    expect(result.current.resolvedApiParams.startDate).toBe(result.current.resolvedApiParams.endDate)
+  })
+
+  it('resolvedApiParams maps this_week to explicit startDate/endDate', () => {
+    setUrl('?sales_period=this_week')
+    const { result } = renderHook(() => useDashboardFilters('sales'))
+    expect(result.current.resolvedApiParams.startDate).toBeDefined()
+    expect(result.current.resolvedApiParams.endDate).toBeDefined()
+    expect(result.current.resolvedApiParams.groupBy).toBe('day')
+  })
+
   it('resolvedApiParams includes compareWith when set', () => {
     setUrl('?sales_period=this_month&sales_compare=previous_period')
     const { result } = renderHook(() => useDashboardFilters('sales'))

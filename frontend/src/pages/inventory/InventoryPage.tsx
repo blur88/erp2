@@ -84,8 +84,7 @@ const InventoryPage: React.FC = () => {
     setPeriod,
     setCompare,
     setCustomRange,
-    setCustomFrom,
-    setCustomTo,
+
     setSupplierId,
     setCategoryId,
     setStockStatus,
@@ -241,8 +240,6 @@ const InventoryPage: React.FC = () => {
         onPeriodChange={setPeriod}
         onCompareChange={setCompare}
         onCustomRangeChange={setCustomRange}
-        onCustomFromChange={setCustomFrom}
-        onCustomToChange={setCustomTo}
         onReset={reset}
         suppliers={supplierOptions}
         supplierId={supplierId}
