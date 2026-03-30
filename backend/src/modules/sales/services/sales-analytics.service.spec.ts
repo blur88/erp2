@@ -205,6 +205,81 @@ describe('SalesAnalyticsService', () => {
     });
   });
 
+  describe('getPeriodData filter propagation', () => {
+    function makeQbChain() {
+      const qb: any = {};
+      qb.where = jest.fn().mockReturnValue(qb);
+      qb.andWhere = jest.fn().mockReturnValue(qb);
+      qb.leftJoin = jest.fn().mockReturnValue(qb);
+      qb.select = jest.fn().mockReturnValue(qb);
+      qb.groupBy = jest.fn().mockReturnValue(qb);
+      qb.orderBy = jest.fn().mockReturnValue(qb);
+      qb.getRawMany = jest.fn().mockResolvedValue([]);
+      return qb;
+    }
+
+    function makeCustomerQbChain() {
+      const qb: any = {};
+      qb.where = jest.fn().mockReturnValue(qb);
+      qb.select = jest.fn().mockReturnValue(qb);
+      qb.groupBy = jest.fn().mockReturnValue(qb);
+      qb.orderBy = jest.fn().mockReturnValue(qb);
+      qb.getRawMany = jest.fn().mockResolvedValue([]);
+      return qb;
+    }
+
+    const start = new Date('2026-03-01T00:00:00.000Z');
+    const end = new Date('2026-03-31T23:59:59.999Z');
+
+    it('applies customerId filter when provided', async () => {
+      const qb = makeQbChain();
+      const customerQb = makeCustomerQbChain();
+      (service as any).salesOrderRepository.createQueryBuilder = jest.fn().mockReturnValue(qb);
+      (service as any).customerRepository.createQueryBuilder = jest.fn().mockReturnValue(customerQb);
+
+      await (service as any).getPeriodData(start, end, 'month', { customerId: 'cust-1' });
+
+      expect(qb.andWhere).toHaveBeenCalledWith('order.customerId = :customerId', { customerId: 'cust-1' });
+    });
+
+    it('applies salesRepId filter when provided', async () => {
+      const qb = makeQbChain();
+      const customerQb = makeCustomerQbChain();
+      (service as any).salesOrderRepository.createQueryBuilder = jest.fn().mockReturnValue(qb);
+      (service as any).customerRepository.createQueryBuilder = jest.fn().mockReturnValue(customerQb);
+
+      await (service as any).getPeriodData(start, end, 'month', { salesRepId: 'rep-1' });
+
+      expect(qb.andWhere).toHaveBeenCalledWith('order.createdByUserId = :salesRepId', { salesRepId: 'rep-1' });
+    });
+
+    it('applies paymentStatus filter with invoice join when provided', async () => {
+      const qb = makeQbChain();
+      const customerQb = makeCustomerQbChain();
+      (service as any).salesOrderRepository.createQueryBuilder = jest.fn().mockReturnValue(qb);
+      (service as any).customerRepository.createQueryBuilder = jest.fn().mockReturnValue(customerQb);
+
+      await (service as any).getPeriodData(start, end, 'month', { paymentStatus: 'paid' as any });
+
+      expect(qb.leftJoin).toHaveBeenCalledWith('order.invoices', 'invoice');
+      expect(qb.andWhere).toHaveBeenCalledWith('invoice.status = :paymentStatus', { paymentStatus: 'paid' });
+    });
+
+    it('applies no extra andWhere calls when query has no filters', async () => {
+      const qb = makeQbChain();
+      const customerQb = makeCustomerQbChain();
+      (service as any).salesOrderRepository.createQueryBuilder = jest.fn().mockReturnValue(qb);
+      (service as any).customerRepository.createQueryBuilder = jest.fn().mockReturnValue(customerQb);
+
+      await (service as any).getPeriodData(start, end, 'month', {});
+
+      const andWhereCalls = qb.andWhere.mock.calls.map((c: any[]) => c[0] as string);
+      expect(andWhereCalls).not.toContain(expect.stringContaining('customerId'));
+      expect(andWhereCalls).not.toContain(expect.stringContaining('salesRepId'));
+      expect(andWhereCalls).not.toContain(expect.stringContaining('paymentStatus'));
+    });
+  });
+
   describe('getSalesAnalytics filter propagation', () => {
     function makeChainMock(rawOne: object = {}, rawMany: object[] = []) {
       const chain: any = {

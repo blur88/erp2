@@ -447,6 +447,20 @@ export class SalesAnalyticsService {
       periodQuery = periodQuery.andWhere('order.isFulfilled = :isFulfilled', { isFulfilled: query.isFulfilled });
     }
 
+    if (query?.customerId) {
+      periodQuery = periodQuery.andWhere('order.customerId = :customerId', { customerId: query.customerId });
+    }
+
+    if (query?.salesRepId) {
+      periodQuery = periodQuery.andWhere('order.createdByUserId = :salesRepId', { salesRepId: query.salesRepId });
+    }
+
+    if (query?.paymentStatus) {
+      periodQuery = periodQuery
+        .leftJoin('order.invoices', 'invoice')
+        .andWhere('invoice.status = :paymentStatus', { paymentStatus: query.paymentStatus });
+    }
+
     const data = await periodQuery
       .select([
         `TO_CHAR(order.orderDate, '${dateFormat}') as period`,
