@@ -1,3 +1,21 @@
+# [1.35.0](https://github.com/blur88/erp2/compare/v1.34.0...v1.35.0) (2026-03-30)
+
+
+### Bug Fixes
+
+* **FilterPeriod:** sync internal date state on external reset, unique IDs, memo pickerFormat ([d53aea3](https://github.com/blur88/erp2/commit/d53aea3095f29149dc90d36a6d476bdf35093ccf))
+
+
+### Features
+
+* **DashboardFilterBar:** replace hardcoded period Select with FilterPeriod component ([2cdba41](https://github.com/blur88/erp2/commit/2cdba41e7bf0df290bb5312d8dd71caa97c47f8a))
+* **dateRange:** add getPeriodDateRange, inferPeriodKey, getStartOfWeek utilities ([d9c920e](https://github.com/blur88/erp2/commit/d9c920ea68fe3158a87ca8252c091db264d35cdd))
+* **FilterPeriod:** add standalone period filter component ([f4fe1d0](https://github.com/blur88/erp2/commit/f4fe1d07c30f4946d179e1d06d10915c3e330e6f))
+* **periods:** add period constants and PeriodKey type ([a3db9d5](https://github.com/blur88/erp2/commit/a3db9d52571f5eb672981231fc84ca90928b68f8))
+* **settings:** add Start of Week dropdown to Regional Settings page ([25e2f63](https://github.com/blur88/erp2/commit/25e2f6315201f7305b0e2922686e3528fdccbb44))
+* **settings:** add startOfWeek field to regional settings ([54d1b62](https://github.com/blur88/erp2/commit/54d1b629af1bb0eb3435d1c57552f397a1b84e4f))
+* **useDashboardFilters:** expand to full PeriodKey set, delegate date math to getPeriodDateRange ([5c5d398](https://github.com/blur88/erp2/commit/5c5d3989252c13dde2e64f0c73984fbe0de01673))
+
 # [1.34.0](https://github.com/blur88/erp2/compare/v1.33.2...v1.34.0) (2026-03-30)
 
 
