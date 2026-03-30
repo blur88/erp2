@@ -29,3 +29,10 @@ export const PERIOD_LABELS: Record<PeriodKey, string> = {
   last_365_days: 'Last 365 Days',
   custom: 'Custom Range',
 }
+
+export const PERIOD_GROUPS: PeriodKey[][] = [
+  ['today', 'this_week', 'this_month', 'this_year'],
+  ['yesterday', 'last_week', 'last_month', 'last_year'],
+  ['last_7_days', 'last_30_days', 'last_365_days'],
+  ['custom'],
+]
