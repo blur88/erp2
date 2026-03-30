@@ -1,3 +1,11 @@
+# [1.37.0](https://github.com/blur88/erp2/compare/v1.36.0...v1.37.0) (2026-03-30)
+
+
+### Features
+
+* **filter-period:** add dividers between period groups ([#230](https://github.com/blur88/erp2/issues/230)) ([a8c8084](https://github.com/blur88/erp2/commit/a8c8084d4f0e7e252f7867d67cab3aecedc717c0))
+* **periods:** add PERIOD_GROUPS constant for grouped display order ([9ecfa7a](https://github.com/blur88/erp2/commit/9ecfa7a1d71e0ee39b972b7fd5c1f5cc92cb2aff))
+
 # [1.36.0](https://github.com/blur88/erp2/compare/v1.35.0...v1.36.0) (2026-03-30)
 
 
