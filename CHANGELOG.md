@@ -1,3 +1,18 @@
+# [1.36.0](https://github.com/blur88/erp2/compare/v1.35.0...v1.36.0) (2026-03-30)
+
+
+### Bug Fixes
+
+* **sales-analytics:** propagate customerId/salesRepId filters to getTopProducts ([1d09bca](https://github.com/blur88/erp2/commit/1d09bcafdf6902ed85f3fedbe8b4c5c4acea2d4f))
+* **sales-analytics:** propagate customerId/salesRepId/paymentStatus filters to getPeriodData ([beccabd](https://github.com/blur88/erp2/commit/beccabdc66636e963f47fd671d50e17c2f0b962f))
+* **sales-analytics:** propagate salesRepId filter to getTopCustomers ([2a8a476](https://github.com/blur88/erp2/commit/2a8a47631b1f51c662b28f44580a7baaccf30d45))
+* **sales-analytics:** wire fillPeriodGaps into getPeriodData for zero-filled trend chart ([48979bc](https://github.com/blur88/erp2/commit/48979bc29c5069e2c24df11dd525c1db12f73e37))
+
+
+### Features
+
+* **sales-analytics:** add fillPeriodGaps method for zero-filled period series ([2b8c2a0](https://github.com/blur88/erp2/commit/2b8c2a06573a1cd1905cbd745cb2dbecc44edcae))
+
 # [1.35.0](https://github.com/blur88/erp2/compare/v1.34.0...v1.35.0) (2026-03-30)
 
 
