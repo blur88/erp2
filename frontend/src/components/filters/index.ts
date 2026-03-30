@@ -1,4 +1,5 @@
 export { FilterBar } from './FilterBar'
+export { FilterPeriod } from './FilterPeriod'
 export { useFilterBar } from './useFilterBar'
 export type {
   ActiveChip,
