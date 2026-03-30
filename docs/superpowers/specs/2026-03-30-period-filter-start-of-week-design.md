@@ -121,8 +121,9 @@ interface FilterPeriodProps {
 - Reads `getStartOfWeek()` internally — parent does not need to pass it
 - Uses `pickerFormat` from `localStorage.getItem('dateFormat')` (same pattern as current `DashboardFilterBar`)
 
+**Internal state:** `FilterPeriod` holds `internalFrom` and `internalTo` as local state while the user is filling in a custom range. Once both dates are valid and `from <= to`, it fires `onChange('custom', from, to)` to the parent. This avoids the parent receiving half-filled custom ranges.
+
 **What it does NOT own:**
-- No state — fully controlled by parent
 - No URL sync
 - No compare logic
 
