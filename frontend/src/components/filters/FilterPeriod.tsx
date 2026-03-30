@@ -1,9 +1,9 @@
 import { useEffect, useId, useMemo, useState } from 'react'
-import { FormControl, InputLabel, MenuItem, Select, Stack } from '@mui/material'
+import { Divider, FormControl, InputLabel, MenuItem, Select, Stack } from '@mui/material'
 import { DatePicker } from '@mui/x-date-pickers'
 import { format, parseISO } from 'date-fns'
 
-import { PERIOD_KEYS, PERIOD_LABELS, type PeriodKey } from '@/constants/periods'
+import { PERIOD_GROUPS, PERIOD_LABELS, type PeriodKey } from '@/constants/periods'
 import { toMuiDatePickerFormat } from '@/utils/formatters'
 
 interface FilterPeriodProps {
@@ -69,11 +69,16 @@ export function FilterPeriod({ value, customFrom, customTo, onChange }: FilterPe
           label="Period"
           onChange={(event) => handleKeyChange(event.target.value as PeriodKey)}
         >
-          {PERIOD_KEYS.map((key) => (
-            <MenuItem key={key} value={key}>
-              {PERIOD_LABELS[key]}
-            </MenuItem>
-          ))}
+          {PERIOD_GROUPS.map((group, groupIndex) => [
+            ...group.map((key) => (
+              <MenuItem key={key} value={key}>
+                {PERIOD_LABELS[key]}
+              </MenuItem>
+            )),
+            groupIndex < PERIOD_GROUPS.length - 1 ? (
+              <Divider key={`divider-${groupIndex}`} />
+            ) : null,
+          ])}
         </Select>
       </FormControl>
 
