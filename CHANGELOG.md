@@ -1,3 +1,23 @@
+# [1.34.0](https://github.com/blur88/erp2/compare/v1.33.2...v1.34.0) (2026-03-30)
+
+
+### Bug Fixes
+
+* **inventory:** guard SQL template literal threshold with Math.floor ([33fe11f](https://github.com/blur88/erp2/commit/33fe11faed0bbe858090a5a8f8d5e56483ddf187))
+
+
+### Features
+
+* **inventory:** use configurable lowStockThreshold in analytics service ([e1c368c](https://github.com/blur88/erp2/commit/e1c368c4f68a91fdc38ae97f1b61e27ffbbd3128))
+* **inventory:** use configurable lowStockThreshold in export utilities ([ffff101](https://github.com/blur88/erp2/commit/ffff1017b0445d5aeac11cc89290c49d67877e24))
+* **inventory:** use configurable lowStockThreshold in integration services ([16cfd9a](https://github.com/blur88/erp2/commit/16cfd9ac412b9dcc3f2203fc8b8bb681df7033ec))
+* **inventory:** use configurable lowStockThreshold in product service ([cdd503f](https://github.com/blur88/erp2/commit/cdd503f38e390adab230a8ac206962fe29dbd66a))
+* **inventory:** use configurable lowStockThreshold in ProductDetailsTab ([9c06b30](https://github.com/blur88/erp2/commit/9c06b30d99f417728f7f9d044c816110e9ff222c))
+* **settings:** add lowStockThreshold to frontend RTK Query types ([2e0ec0c](https://github.com/blur88/erp2/commit/2e0ec0cbd0a50c43a68465d32fef4ef06bdfe812))
+* **settings:** add lowStockThreshold to regional settings entity and DTOs ([5d63213](https://github.com/blur88/erp2/commit/5d6321374482f42de8e740e6c77ac1f0052b09f8))
+* **settings:** add stock levels route and navigation entry ([d4f5910](https://github.com/blur88/erp2/commit/d4f59102e5aa39a14cf4b9b3ebab83d9db008847))
+* **settings:** add StockLevelSettingsPage ([e7a549d](https://github.com/blur88/erp2/commit/e7a549d211c3aaefe73b2e9fdd3e10518d7b8751))
+
 ## [1.33.2](https://github.com/blur88/erp2/compare/v1.33.1...v1.33.2) (2026-03-29)
 
 
