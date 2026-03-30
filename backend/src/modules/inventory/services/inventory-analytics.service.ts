@@ -727,6 +727,7 @@ export class InventoryAnalyticsService {
     filters: InventoryDashboardFilters = {},
   ): Promise<Omit<InventoryMetricsDto, 'stockMovementsIn' | 'stockMovementsOut'>> {
     const threshold = await this.getLowStockThreshold();
+    const safeThreshold = Math.floor(Number(threshold));
     const qb = this.productRepository
       .createQueryBuilder('product')
       .leftJoin('product.category', 'category')
@@ -736,7 +737,7 @@ export class InventoryAnalyticsService {
         'COUNT(*) as "totalProducts"',
         'COALESCE(SUM(product.baseCost * product.stockQuantity), 0) as "inventoryValue"',
         'SUM(CASE WHEN product.stockQuantity <= 0 THEN 1 ELSE 0 END) as "outOfStockCount"',
-        `SUM(CASE WHEN product.stockQuantity > 0 AND product.stockQuantity <= ${threshold} THEN 1 ELSE 0 END) as "lowStockCount"`,
+        `SUM(CASE WHEN product.stockQuantity > 0 AND product.stockQuantity <= ${safeThreshold} THEN 1 ELSE 0 END) as "lowStockCount"`,
       ]);
 
     this.applyProductFilters(qb, filters, 'product', threshold);
