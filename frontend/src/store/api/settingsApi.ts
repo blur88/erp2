@@ -41,6 +41,7 @@ export interface RegionalSettings {
   numberFormat: string
   timezone: string
   lowStockThreshold: number
+  startOfWeek: number
   createdAt: string
   updatedAt: string
   isActive: boolean
@@ -54,6 +55,7 @@ export interface UpdateRegionalSettingsDto {
   numberFormat?: string
   timezone?: string
   lowStockThreshold?: number
+  startOfWeek?: number
 }
 
 export interface DocumentNumberConfig {
