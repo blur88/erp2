@@ -38,6 +38,10 @@ export class RegionalSettingsResponseDto {
   @Expose()
   lowStockThreshold: number;
 
+  @ApiProperty({ description: 'Start of week: 0 = Sunday, 1 = Monday', example: 1 })
+  @Expose()
+  startOfWeek: number;
+
   @ApiProperty({ description: 'Creation timestamp' })
   @Expose()
   createdAt: Date;

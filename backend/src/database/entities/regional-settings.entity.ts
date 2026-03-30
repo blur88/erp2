@@ -23,4 +23,7 @@ export class RegionalSettings extends BaseEntity {
 
   @Column({ type: 'int', default: 10 })
   lowStockThreshold: number;
+
+  @Column({ type: 'int', default: 1 })
+  startOfWeek: number;
 }

@@ -47,4 +47,38 @@ describe('UpdateRegionalSettingsDto', () => {
     const errors = await validate(dto);
     expect(errors.length).toBeGreaterThan(0);
   });
+
+  describe('startOfWeek', () => {
+    it('accepts 0 (Sunday)', async () => {
+      const dto = new UpdateRegionalSettingsDto();
+      dto.startOfWeek = 0;
+
+      const errors = await validate(dto);
+      expect(errors).toHaveLength(0);
+    });
+
+    it('accepts 1 (Monday)', async () => {
+      const dto = new UpdateRegionalSettingsDto();
+      dto.startOfWeek = 1;
+
+      const errors = await validate(dto);
+      expect(errors).toHaveLength(0);
+    });
+
+    it('rejects 2', async () => {
+      const dto = new UpdateRegionalSettingsDto();
+      dto.startOfWeek = 2;
+
+      const errors = await validate(dto);
+      expect(errors.length).toBeGreaterThan(0);
+    });
+
+    it('rejects -1', async () => {
+      const dto = new UpdateRegionalSettingsDto();
+      dto.startOfWeek = -1;
+
+      const errors = await validate(dto);
+      expect(errors.length).toBeGreaterThan(0);
+    });
+  });
 });
