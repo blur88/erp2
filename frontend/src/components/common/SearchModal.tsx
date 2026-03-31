@@ -254,8 +254,8 @@ export default function SearchModal({ open, onClose }: SearchModalProps) {
           transform: 'translate(-50%, 0)',
           width: { xs: '92vw', sm: 560 },
           maxHeight: '70vh',
-          bgcolor: '#1E1E1E',
-          border: '1px solid #2A2A2A',
+          bgcolor: theme.palette.background.paper,
+          border: `1px solid ${theme.palette.divider}`,
           borderRadius: '12px',
           overflow: 'hidden',
           outline: 'none',
@@ -270,10 +270,10 @@ export default function SearchModal({ open, onClose }: SearchModalProps) {
             gap: 1.5,
             px: 2,
             py: 1.5,
-            bgcolor: '#232323',
+            bgcolor: theme.palette.divider,
           }}
         >
-          <SearchIcon sx={{ color: '#6B7280', fontSize: 20, flexShrink: 0 }} />
+          <SearchIcon sx={{ color: theme.palette.text.secondary, fontSize: 20, flexShrink: 0 }} />
           <InputBase
             inputRef={inputRef}
             value={query}
@@ -282,9 +282,9 @@ export default function SearchModal({ open, onClose }: SearchModalProps) {
             placeholder="Search pages, customers, products, transactions..."
             fullWidth
             sx={{
-              color: '#E0E0E0',
+              color: theme.palette.text.primary,
               fontSize: '0.9375rem',
-              '& input::placeholder': { color: '#6B7280' },
+              '& input::placeholder': { color: theme.palette.text.secondary },
             }}
             inputProps={{ 'aria-label': 'search' }}
           />
@@ -293,13 +293,13 @@ export default function SearchModal({ open, onClose }: SearchModalProps) {
           )}
         </Box>
 
-        <Divider sx={{ bgcolor: '#2A2A2A' }} />
+        <Divider sx={{ bgcolor: theme.palette.divider }} />
 
         <Box sx={{ overflowY: 'auto', maxHeight: 'calc(70vh - 61px)' }}>
           {showHelp && (
             <Typography
               variant="body2"
-              sx={{ color: '#A0A0A0', textAlign: 'center', px: 3, py: 4 }}
+              sx={{ color: theme.palette.text.secondary, textAlign: 'center', px: 3, py: 4 }}
             >
               Type at least 2 characters to search pages, customers, products,
               and transactions.
@@ -309,7 +309,7 @@ export default function SearchModal({ open, onClose }: SearchModalProps) {
           {showRecent && recentSearches.length === 0 && (
             <Typography
               variant="body2"
-              sx={{ color: '#A0A0A0', textAlign: 'center', px: 3, py: 4 }}
+              sx={{ color: theme.palette.text.secondary, textAlign: 'center', px: 3, py: 4 }}
             >
               Start typing to search
             </Typography>
@@ -323,7 +323,7 @@ export default function SearchModal({ open, onClose }: SearchModalProps) {
                   display: 'block',
                   px: 2,
                   py: 1,
-                  color: '#6B7280',
+                  color: theme.palette.text.secondary,
                   textTransform: 'uppercase',
                   letterSpacing: '0.08em',
                 }}
@@ -354,7 +354,7 @@ export default function SearchModal({ open, onClose }: SearchModalProps) {
           {showError && (
             <Typography
               variant="body2"
-              sx={{ color: '#F87171', textAlign: 'center', px: 3, py: 4 }}
+              sx={{ color: theme.palette.error.light, textAlign: 'center', px: 3, py: 4 }}
             >
               Search unavailable, please try again.
             </Typography>
@@ -362,12 +362,12 @@ export default function SearchModal({ open, onClose }: SearchModalProps) {
 
           {showEmpty && (
             <Box sx={{ textAlign: 'center', px: 3, py: 4 }}>
-              <Typography variant="body2" sx={{ color: '#A0A0A0' }}>
+              <Typography variant="body2" sx={{ color: theme.palette.text.secondary }}>
                 No results for "{trimmedQuery}"
               </Typography>
               <Typography
                 variant="caption"
-                sx={{ color: '#6B7280', mt: 0.5, display: 'block' }}
+                sx={{ color: theme.palette.text.secondary, mt: 0.5, display: 'block' }}
               >
                 Try searching by name, code, SKU, or order number
               </Typography>
@@ -382,7 +382,7 @@ export default function SearchModal({ open, onClose }: SearchModalProps) {
                   display: 'block',
                   px: 2,
                   py: 1,
-                  color: '#6B7280',
+                  color: theme.palette.text.secondary,
                   textTransform: 'uppercase',
                   letterSpacing: '0.08em',
                 }}
@@ -443,24 +443,24 @@ function SearchResultRow({
         px: 2,
         py: 1.25,
         cursor: 'pointer',
-        bgcolor: isSelected ? 'rgba(255, 255, 255, 0.08)' : 'transparent',
+        bgcolor: isSelected ? 'action.selected' : 'transparent',
         '&:hover': {
-          bgcolor: 'rgba(255, 255, 255, 0.08)',
+          bgcolor: 'action.selected',
         },
       }}
     >
       {isRecent && (
-        <HistoryIcon sx={{ color: '#6B7280', fontSize: 16, flexShrink: 0 }} />
+        <HistoryIcon sx={{ color: 'text.secondary', fontSize: 16, flexShrink: 0 }} />
       )}
 
       <Box sx={{ minWidth: 0, flex: 1 }}>
-        <Typography sx={{ color: '#E0E0E0', fontWeight: 600 }}>
+        <Typography sx={{ color: 'text.primary', fontWeight: 600 }}>
           {highlightText(item.label, query, 700, highlightColor)}
         </Typography>
         {item.description && (
           <Typography
             variant="caption"
-            sx={{ color: '#A0A0A0', display: 'block', mt: 0.25 }}
+            sx={{ color: 'text.secondary', display: 'block', mt: 0.25 }}
           >
             {highlightText(item.description, query, 400, highlightColor)}
           </Typography>
@@ -471,8 +471,8 @@ function SearchResultRow({
         <Typography
           variant="caption"
           sx={{
-            color: '#6B7280',
-            bgcolor: 'rgba(255, 255, 255, 0.05)',
+            color: 'text.secondary',
+            bgcolor: 'action.hover',
             borderRadius: '999px',
             px: 1,
             py: 0.5,

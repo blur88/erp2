@@ -229,13 +229,13 @@ const TopBar: React.FC<TopBarProps> = ({ collapsed, onMobileMenuOpen }) => {
         sx={{
           width: { lg: `calc(100% - ${sidebarWidth}px)` },
           ml: { lg: `${sidebarWidth}px` },
-          bgcolor: '#1E1E1E',
+          bgcolor: theme.palette.background.paper,
           color: 'text.primary',
           boxShadow: 'none',
           boxSizing: 'border-box',
           height: TOPBAR_HEIGHT,
           minHeight: TOPBAR_HEIGHT,
-          borderBottom: '1px solid #2A2A2A',
+          borderBottom: `1px solid ${theme.palette.divider}`,
           transition: 'width 0.22s ease, margin-left 0.22s ease',
         }}
       >
@@ -254,12 +254,12 @@ const TopBar: React.FC<TopBarProps> = ({ collapsed, onMobileMenuOpen }) => {
 
           <Box sx={{ flexGrow: 1, overflow: 'hidden', display: 'flex', alignItems: 'center', height: '100%' }}>
             {isMobile ? (
-              <Typography noWrap sx={{ fontSize: '0.875rem', color: '#E0E0E0', fontWeight: 500 }}>
+              <Typography noWrap sx={{ fontSize: '0.875rem', color: theme.palette.text.primary, fontWeight: 500 }}>
                 {leafLabel}
               </Typography>
             ) : breadcrumbs.length > 0 ? (
               <Breadcrumbs
-                separator={<NavigateNextIcon sx={{ fontSize: 14, color: '#5A5A5A', mx: 0.5 }} />}
+                separator={<NavigateNextIcon sx={{ fontSize: 14, color: theme.palette.text.secondary, mx: 0.5 }} />}
                 aria-label="breadcrumb"
                 sx={{
                   display: 'flex',
@@ -275,7 +275,7 @@ const TopBar: React.FC<TopBarProps> = ({ collapsed, onMobileMenuOpen }) => {
                     return (
                       <Typography
                         key={segment.path}
-                        sx={{ fontSize: '13px', color: '#E0E0E0', fontWeight: 500, display: 'flex', alignItems: 'center', lineHeight: 1.4 }}
+                        sx={{ fontSize: '13px', color: theme.palette.text.primary, fontWeight: 500, display: 'flex', alignItems: 'center', lineHeight: 1.4 }}
                       >
                         {segment.label}
                       </Typography>
@@ -292,12 +292,12 @@ const TopBar: React.FC<TopBarProps> = ({ collapsed, onMobileMenuOpen }) => {
                         sx={{
                           fontSize: '13px',
                           fontWeight: 400,
-                          color: '#8A8A8A',
+                          color: theme.palette.text.secondary,
                           display: 'flex',
                           alignItems: 'center',
                           lineHeight: 1.4,
                           transition: 'color 0.15s ease',
-                          '&:hover': { color: '#CFCFCF' },
+                          '&:hover': { color: theme.palette.text.primary },
                         }}
                       >
                         {segment.label}
@@ -308,7 +308,7 @@ const TopBar: React.FC<TopBarProps> = ({ collapsed, onMobileMenuOpen }) => {
                   return (
                     <Typography
                       key={segment.path}
-                      sx={{ fontSize: '13px', fontWeight: 400, color: '#8A8A8A', display: 'flex', alignItems: 'center', lineHeight: 1.4 }}
+                      sx={{ fontSize: '13px', fontWeight: 400, color: theme.palette.text.secondary, display: 'flex', alignItems: 'center', lineHeight: 1.4 }}
                     >
                       {segment.label}
                     </Typography>
@@ -330,28 +330,28 @@ const TopBar: React.FC<TopBarProps> = ({ collapsed, onMobileMenuOpen }) => {
                 width: 220,
                 px: 1.5,
                 py: 0.75,
-                bgcolor: '#232323',
-                border: '1px solid #2A2A2A',
+                bgcolor: theme.palette.divider,
+                border: `1px solid ${theme.palette.divider}`,
                 borderRadius: '8px',
                 cursor: 'pointer',
-                '&:hover': { borderColor: '#3A3A3A' },
+                '&:hover': { borderColor: theme.palette.grey[700] },
               }}
             >
-              <SearchIcon sx={{ fontSize: 16, color: '#6B7280', flexShrink: 0 }} />
-              <Typography sx={{ fontSize: '0.8125rem', color: '#6B7280', flexGrow: 1 }}>
+              <SearchIcon sx={{ fontSize: 16, color: theme.palette.text.secondary, flexShrink: 0 }} />
+              <Typography sx={{ fontSize: '0.8125rem', color: theme.palette.text.secondary, flexGrow: 1 }}>
                 Search...
               </Typography>
               <Box
                 component="kbd"
                 sx={{
-                  bgcolor: '#1A1A1A',
-                  border: '1px solid #3A3A3A',
+                  bgcolor: theme.palette.background.default,
+                  border: `1px solid ${theme.palette.grey[700]}`,
                   borderRadius: '4px',
                   px: 0.75,
                   py: 0.25,
                   fontFamily: 'monospace',
                   fontSize: '11px',
-                  color: '#6B7280',
+                  color: theme.palette.text.secondary,
                   flexShrink: 0,
                 }}
               >
@@ -365,7 +365,7 @@ const TopBar: React.FC<TopBarProps> = ({ collapsed, onMobileMenuOpen }) => {
               <IconButton
                 onClick={(event) => setNotificationAnchorEl(event.currentTarget)}
                 color="inherit"
-                sx={{ '&:hover': { bgcolor: '#2A2A2A', borderRadius: '8px' } }}
+                sx={{ '&:hover': { bgcolor: theme.palette.action.hover, borderRadius: '8px' } }}
               >
                 <Badge badgeContent={unreadCount} color="error">
                   <NotificationsIcon />
