@@ -44,7 +44,7 @@ const useSidebarColors = () => {
   const theme = useTheme()
 
   return {
-    bg: '#0D0D0D',
+    bg: theme.palette.background.sidebar,
     activeBg: theme.palette.action.selected,
     hoverBg: theme.palette.action.hover,
     text: theme.palette.text.secondary,

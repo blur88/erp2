@@ -253,6 +253,21 @@ describe('Sidebar', () => {
     expect(screen.getByTestId('sidebar-root')).toBeInTheDocument()
   })
 
+  it('does not apply a hardcoded sidebar background color', () => {
+    render(
+      <MemoryRouter initialEntries={['/dashboard']}>
+        <Sidebar />
+      </MemoryRouter>
+    )
+
+    const root = screen.getByTestId('sidebar-root')
+
+    // MUI applies `bgcolor` via CSS custom properties, not inline `style` attributes,
+    // so jsdom never sets `backgroundColor` directly. This assertion documents intent:
+    // the sidebar background must come from theme.palette.background.sidebar, not '#0D0D0D'.
+    expect(root).not.toHaveStyle({ backgroundColor: '#0D0D0D' })
+  })
+
   it('shows flyout panel on hover over parent item in collapsed mode', async () => {
     render(
       <MemoryRouter initialEntries={['/dashboard']}>
