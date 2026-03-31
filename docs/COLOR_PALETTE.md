@@ -25,6 +25,7 @@ Preferred semantic tokens:
 
 - `theme.palette.background.default`: page background
 - `theme.palette.background.paper`: cards, dialogs, menus, elevated surfaces
+- `theme.palette.background.sidebar`: sidebar/navigation background
 - `theme.palette.text.primary`: primary text
 - `theme.palette.text.secondary`: supporting text
 - `theme.palette.divider`: borders and separators
@@ -63,4 +64,3 @@ Available print tokens:
 - Use `printColors` for print and PDF contexts.
 - Prefer semantic theme tokens over raw greys.
 - If you need transparency in UI code, use `alpha(...)` with a theme token.
-- Current documented exceptions are the decorative auth gradient and the intentional sidebar `#0D0D0D`.
