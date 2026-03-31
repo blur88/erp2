@@ -12,6 +12,7 @@ import {
   Divider,
   Grid,
 } from '@mui/material'
+import { printColors } from '@/styles/printTokens'
 
 interface PrintSettings {
   logoUrl?: string
@@ -89,11 +90,11 @@ const BasePrintTemplate: React.FC<BasePrintTemplateProps> = ({
   return (
     <Box
       sx={{
-        bgcolor: '#ffffff',
-        color: '#000000',
+        bgcolor: printColors.background,
+        color: printColors.text,
         '@media print': {
-          bgcolor: '#ffffff',
-          color: '#000000',
+          bgcolor: printColors.background,
+          color: printColors.text,
         },
       }}
     >
@@ -103,8 +104,8 @@ const BasePrintTemplate: React.FC<BasePrintTemplateProps> = ({
           width: '210mm',
           minHeight: '297mm',
           mx: 'auto',
-          bgcolor: '#ffffff',
-          color: '#000000',
+          bgcolor: printColors.background,
+          color: printColors.text,
           boxShadow: 'none',
           '@media print': {
             boxShadow: 'none',
@@ -118,28 +119,28 @@ const BasePrintTemplate: React.FC<BasePrintTemplateProps> = ({
         <Box sx={{ display: 'flex', alignItems: 'flex-start', mb: 3, gap: 2 }}>
           {/* Company Info */}
           <Box sx={{ flex: 1 }}>
-            <Typography variant="h5" sx={{ fontWeight: 700, mb: 1, color: '#000000' }}>
+            <Typography variant="h5" sx={{ fontWeight: 700, mb: 1, color: printColors.text }}>
               {settings?.companyName || 'Company Name'}
             </Typography>
-            <Typography variant="body2" sx={{ color: '#000000', mb: 0.5 }}>
+            <Typography variant="body2" sx={{ color: printColors.text, mb: 0.5 }}>
               {settings?.address || 'Address'}
             </Typography>
-            <Typography variant="body2" sx={{ color: '#000000', mb: 0.5 }}>
+            <Typography variant="body2" sx={{ color: printColors.text, mb: 0.5 }}>
               {settings?.postalCode || ''}, {settings?.city || 'City'}
             </Typography>
-            <Typography variant="body2" sx={{ color: '#000000', mb: 1 }}>
+            <Typography variant="body2" sx={{ color: printColors.text, mb: 1 }}>
               {settings?.state || 'State'}, {settings?.country || 'Country'}
             </Typography>
-            <Typography variant="body2" sx={{ color: '#000000', mb: 0.5 }}>
+            <Typography variant="body2" sx={{ color: printColors.text, mb: 0.5 }}>
               {settings?.phone ? `Tel: ${settings.phone}` : 'Tel: '}
             </Typography>
             {settings?.email && (
-              <Typography variant="body2" sx={{ color: '#000000', mb: 0.5 }}>
+              <Typography variant="body2" sx={{ color: printColors.text, mb: 0.5 }}>
                 Email: {settings.email}
               </Typography>
             )}
             {settings?.website && (
-              <Typography variant="body2" sx={{ color: '#000000' }}>
+              <Typography variant="body2" sx={{ color: printColors.text }}>
                 Website: {settings.website}
               </Typography>
             )}
@@ -173,22 +174,22 @@ const BasePrintTemplate: React.FC<BasePrintTemplateProps> = ({
               variant="h4"
               sx={{
                 fontWeight: 700,
-                color: '#000000',
+                color: printColors.text,
                 mb: 1,
               }}
             >
               {documentTitle.toUpperCase()}
             </Typography>
-            <Typography variant="body2" sx={{ color: '#000000', mb: 0.5 }}>
+            <Typography variant="body2" sx={{ color: printColors.text, mb: 0.5 }}>
               <strong>Document No:</strong> {documentNumber}
             </Typography>
-            <Typography variant="body2" sx={{ color: '#000000' }}>
+            <Typography variant="body2" sx={{ color: printColors.text }}>
               <strong>Date:</strong> {documentDate}
             </Typography>
           </Box>
         </Box>
 
-        <Divider sx={{ mb: 3, borderColor: '#000000' }} />
+        <Divider sx={{ mb: 3, borderColor: printColors.border }} />
 
         {/* Recipient Details */}
         <Grid container spacing={3} sx={{ mb: 3 }}>
@@ -196,27 +197,27 @@ const BasePrintTemplate: React.FC<BasePrintTemplateProps> = ({
             {/* Empty space for alignment */}
           </Grid>
           <Grid size={6}>
-            <Box sx={{ border: '1px solid #000000', p: 2, borderRadius: 1 }}>
-              <Typography variant="body2" sx={{ color: '#000000', fontWeight: 600, mb: 0.5 }}>
+            <Box sx={{ border: `1px solid ${printColors.border}`, p: 2, borderRadius: 1 }}>
+              <Typography variant="body2" sx={{ color: printColors.text, fontWeight: 600, mb: 0.5 }}>
                 {recipient.name}
               </Typography>
               {recipient.address && (
-                <Typography variant="body2" sx={{ color: '#000000', mb: 0.5 }}>
+                <Typography variant="body2" sx={{ color: printColors.text, mb: 0.5 }}>
                   {recipient.address}
                 </Typography>
               )}
               {(recipient.postalCode || recipient.city) && (
-                <Typography variant="body2" sx={{ color: '#000000', mb: 0.5 }}>
+                <Typography variant="body2" sx={{ color: printColors.text, mb: 0.5 }}>
                   {recipient.postalCode}, {recipient.city}
                 </Typography>
               )}
               {(recipient.state || recipient.country) && (
-                <Typography variant="body2" sx={{ color: '#000000', mb: 0.5 }}>
+                <Typography variant="body2" sx={{ color: printColors.text, mb: 0.5 }}>
                   {recipient.state}, {recipient.country}
                 </Typography>
               )}
               {recipient.phone && (
-                <Typography variant="body2" sx={{ color: '#000000' }}>
+                <Typography variant="body2" sx={{ color: printColors.text }}>
                   Phone: {recipient.phone}
                 </Typography>
               )}
@@ -225,27 +226,27 @@ const BasePrintTemplate: React.FC<BasePrintTemplateProps> = ({
         </Grid>
 
         {/* Items Table */}
-        <TableContainer sx={{ mb: 3, border: '1px solid #000000' }}>
+        <TableContainer sx={{ mb: 3, border: `1px solid ${printColors.border}` }}>
           <Table size="small">
             <TableHead>
-              <TableRow sx={{ bgcolor: '#f0f0f0' }}>
-                <TableCell sx={{ fontWeight: 600, color: '#000000', border: '1px solid #000000' }}>
+              <TableRow sx={{ bgcolor: printColors.tableRowAlt }}>
+                <TableCell sx={{ fontWeight: 600, color: printColors.text, border: `1px solid ${printColors.border}` }}>
                   Product
                 </TableCell>
-                <TableCell align="right" sx={{ fontWeight: 600, color: '#000000', border: '1px solid #000000' }}>
+                <TableCell align="right" sx={{ fontWeight: 600, color: printColors.text, border: `1px solid ${printColors.border}` }}>
                   Qty
                 </TableCell>
                 {showPricing && (
                   <>
-                    <TableCell align="right" sx={{ fontWeight: 600, color: '#000000', border: '1px solid #000000' }}>
+                    <TableCell align="right" sx={{ fontWeight: 600, color: printColors.text, border: `1px solid ${printColors.border}` }}>
                       Unit Price
                     </TableCell>
                     {showDiscount && (
-                      <TableCell align="right" sx={{ fontWeight: 600, color: '#000000', border: '1px solid #000000' }}>
+                      <TableCell align="right" sx={{ fontWeight: 600, color: printColors.text, border: `1px solid ${printColors.border}` }}>
                         Discount
                       </TableCell>
                     )}
-                    <TableCell align="right" sx={{ fontWeight: 600, color: '#000000', border: '1px solid #000000' }}>
+                    <TableCell align="right" sx={{ fontWeight: 600, color: printColors.text, border: `1px solid ${printColors.border}` }}>
                       Amount
                     </TableCell>
                   </>
@@ -255,23 +256,23 @@ const BasePrintTemplate: React.FC<BasePrintTemplateProps> = ({
             <TableBody>
               {items.map((item, index) => (
                 <TableRow key={index}>
-                  <TableCell sx={{ color: '#000000', border: '1px solid #000000' }}>
+                  <TableCell sx={{ color: printColors.text, border: `1px solid ${printColors.border}` }}>
                     {item.description}
                   </TableCell>
-                  <TableCell align="right" sx={{ color: '#000000', border: '1px solid #000000' }}>
+                  <TableCell align="right" sx={{ color: printColors.text, border: `1px solid ${printColors.border}` }}>
                     {item.quantity}
                   </TableCell>
                   {showPricing && (
                     <>
-                      <TableCell align="right" sx={{ color: '#000000', border: '1px solid #000000' }}>
+                      <TableCell align="right" sx={{ color: printColors.text, border: `1px solid ${printColors.border}` }}>
                         {currency} {Number(item.unitPrice || 0).toFixed(2)}
                       </TableCell>
                       {showDiscount && (
-                        <TableCell align="right" sx={{ color: '#000000', border: '1px solid #000000' }}>
+                        <TableCell align="right" sx={{ color: printColors.text, border: `1px solid ${printColors.border}` }}>
                           {item.discountDisplay || '-'}
                         </TableCell>
                       )}
-                      <TableCell align="right" sx={{ color: '#000000', border: '1px solid #000000' }}>
+                      <TableCell align="right" sx={{ color: printColors.text, border: `1px solid ${printColors.border}` }}>
                         {currency} {Number(item.amount || 0).toFixed(2)}
                       </TableCell>
                     </>
@@ -285,50 +286,50 @@ const BasePrintTemplate: React.FC<BasePrintTemplateProps> = ({
         {/* Totals */}
         {showPricing ? (
           <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 3 }}>
-            <Box sx={{ width: 300, border: '1px solid #000000', p: 2 }}>
+            <Box sx={{ width: 300, border: `1px solid ${printColors.border}`, p: 2 }}>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                <Typography variant="body2" sx={{ color: '#000000' }}>
+                <Typography variant="body2" sx={{ color: printColors.text }}>
                   Subtotal:
                 </Typography>
-                <Typography variant="body2" sx={{ color: '#000000' }}>
+                <Typography variant="body2" sx={{ color: printColors.text }}>
                   {currency} {Number(totals.subtotal || 0).toFixed(2)}
                 </Typography>
               </Box>
               {totals.shipping !== undefined && (
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                  <Typography variant="body2" sx={{ color: '#000000' }}>
+                  <Typography variant="body2" sx={{ color: printColors.text }}>
                     Shipping Cost:
                   </Typography>
-                  <Typography variant="body2" sx={{ color: '#000000' }}>
+                  <Typography variant="body2" sx={{ color: printColors.text }}>
                     {currency} {Number(totals.shipping || 0).toFixed(2)}
                   </Typography>
                 </Box>
               )}
-              <Divider sx={{ my: 1, borderColor: '#000000' }} />
+              <Divider sx={{ my: 1, borderColor: printColors.border }} />
               <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                <Typography variant="body1" sx={{ fontWeight: 700, color: '#000000' }}>
+                <Typography variant="body1" sx={{ fontWeight: 700, color: printColors.text }}>
                   Total:
                 </Typography>
-                <Typography variant="body1" sx={{ fontWeight: 700, color: '#000000' }}>
+                <Typography variant="body1" sx={{ fontWeight: 700, color: printColors.text }}>
                   {currency} {Number(totals.total || 0).toFixed(2)}
                 </Typography>
               </Box>
               {totals.paid !== undefined && (
                 <>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                    <Typography variant="body2" sx={{ color: '#000000' }}>
+                    <Typography variant="body2" sx={{ color: printColors.text }}>
                       Paid:
                     </Typography>
-                    <Typography variant="body2" sx={{ color: '#000000' }}>
+                    <Typography variant="body2" sx={{ color: printColors.text }}>
                       {currency} {Number(totals.paid || 0).toFixed(2)}
                     </Typography>
                   </Box>
-                  <Divider sx={{ my: 1, borderColor: '#000000' }} />
+                  <Divider sx={{ my: 1, borderColor: printColors.border }} />
                   <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <Typography variant="body1" sx={{ fontWeight: 700, color: '#000000' }}>
+                    <Typography variant="body1" sx={{ fontWeight: 700, color: printColors.text }}>
                       Balance:
                     </Typography>
-                    <Typography variant="body1" sx={{ fontWeight: 700, color: '#000000' }}>
+                    <Typography variant="body1" sx={{ fontWeight: 700, color: printColors.text }}>
                       {currency} {Number(totals.balance || 0).toFixed(2)}
                     </Typography>
                   </Box>
@@ -338,12 +339,12 @@ const BasePrintTemplate: React.FC<BasePrintTemplateProps> = ({
           </Box>
         ) : (
           <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 3 }}>
-            <Box sx={{ width: 300, border: '1px solid #000000', p: 2 }}>
+            <Box sx={{ width: 300, border: `1px solid ${printColors.border}`, p: 2 }}>
               <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                <Typography variant="body1" sx={{ fontWeight: 700, color: '#000000' }}>
+                <Typography variant="body1" sx={{ fontWeight: 700, color: printColors.text }}>
                   Total Quantity:
                 </Typography>
-                <Typography variant="body1" sx={{ fontWeight: 700, color: '#000000' }}>
+                <Typography variant="body1" sx={{ fontWeight: 700, color: printColors.text }}>
                   {totalQuantity}
                 </Typography>
               </Box>
@@ -354,10 +355,10 @@ const BasePrintTemplate: React.FC<BasePrintTemplateProps> = ({
         {/* Notes */}
         {notes && (
           <Box sx={{ mb: 3 }}>
-            <Typography variant="body2" sx={{ fontWeight: 600, mb: 1, color: '#000000' }}>
+            <Typography variant="body2" sx={{ fontWeight: 600, mb: 1, color: printColors.text }}>
               Notes:
             </Typography>
-            <Typography variant="body2" sx={{ color: '#000000' }}>
+            <Typography variant="body2" sx={{ color: printColors.text }}>
               {notes}
             </Typography>
           </Box>
@@ -366,8 +367,8 @@ const BasePrintTemplate: React.FC<BasePrintTemplateProps> = ({
         {/* Per-page footer */}
         {perPageFooter && (
           <>
-            <Divider sx={{ my: 2, borderColor: '#000000' }} />
-            <Typography variant="caption" sx={{ color: '#000000' }} align="center" display="block">
+            <Divider sx={{ my: 2, borderColor: printColors.border }} />
+            <Typography variant="caption" sx={{ color: printColors.text }} align="center" display="block">
               {perPageFooter}
             </Typography>
           </>
@@ -376,9 +377,9 @@ const BasePrintTemplate: React.FC<BasePrintTemplateProps> = ({
         {/* End of document footer */}
         {endOfDocFooter && (
           <>
-            <Divider sx={{ my: 2, borderColor: '#000000' }} />
-            <Box sx={{ bgcolor: '#f0f0f0', p: 2, borderRadius: 1, border: '1px solid #000000' }}>
-              <Typography variant="body2" sx={{ color: '#000000' }} align="center">
+            <Divider sx={{ my: 2, borderColor: printColors.border }} />
+            <Box sx={{ bgcolor: printColors.tableRowAlt, p: 2, borderRadius: 1, border: `1px solid ${printColors.border}` }}>
+              <Typography variant="body2" sx={{ color: printColors.text }} align="center">
                 {endOfDocFooter}
               </Typography>
             </Box>
