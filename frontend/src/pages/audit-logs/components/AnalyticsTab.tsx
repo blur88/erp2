@@ -2,6 +2,7 @@ import React from 'react'
 import {
   Box, Paper, Typography, GridLegacy as Grid, CircularProgress,
 } from '@mui/material'
+import { useTheme } from '@mui/material/styles'
 import {
   Chart as ChartJS,
   CategoryScale, LinearScale, BarElement, ArcElement,
@@ -12,23 +13,25 @@ import type { AuditLogStatistics } from '@/store/api/auditLogApi'
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, Title, Tooltip, Legend)
 
-const ACTION_COLORS: Record<string, string> = {
-  CREATE: '#4caf50',
-  UPDATE: '#2196f3',
-  DELETE: '#f44336',
-  RESTORE: '#ff9800',
-  BULK_DELETE: '#e91e63',
-  BULK_RESTORE: '#ff5722',
-  EXPORT: '#9c27b0',
-  IMPORT: '#00bcd4',
-}
-
 interface AnalyticsTabProps {
   statistics: AuditLogStatistics | null
   loading: boolean
 }
 
 const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ statistics, loading }) => {
+  const theme = useTheme()
+
+  const actionPalette: Record<string, string> = {
+    CREATE: theme.palette.success.main,
+    UPDATE: theme.palette.primary.main,
+    DELETE: theme.palette.error.main,
+    RESTORE: theme.palette.warning.main,
+    BULK_DELETE: theme.palette.secondary.main,
+    BULK_RESTORE: theme.palette.error.light,
+    EXPORT: theme.palette.secondary.light,
+    IMPORT: theme.palette.info.main,
+  }
+
   if (loading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
@@ -47,7 +50,7 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ statistics, loading }) => {
 
   const actionLabels = statistics.byAction.map((a) => a.action)
   const actionCounts = statistics.byAction.map((a) => Number(a.count))
-  const actionColors = actionLabels.map((l) => ACTION_COLORS[l] ?? '#9e9e9e')
+  const actionColors = actionLabels.map((l) => actionPalette[l] ?? theme.palette.grey[500])
 
   const entityLabels = statistics.byEntityType.map((e) => e.entityType)
   const entityCounts = statistics.byEntityType.map((e) => Number(e.count))
@@ -122,7 +125,7 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ statistics, loading }) => {
               datasets: [{
                 label: 'Actions',
                 data: userCounts,
-                backgroundColor: '#2196f3',
+                backgroundColor: theme.palette.primary.main,
               }],
             }}
             options={horizontalBarOptions}
@@ -142,7 +145,7 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ statistics, loading }) => {
               datasets: [{
                 label: 'Count',
                 data: entityCounts,
-                backgroundColor: '#9c27b0',
+                backgroundColor: theme.palette.secondary.main,
               }],
             }}
             options={horizontalBarOptions}

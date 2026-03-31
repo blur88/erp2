@@ -14,6 +14,7 @@ import {
   CircularProgress,
   Link,
 } from '@mui/material';
+import { useTheme } from '@mui/material/styles';
 import {
   Visibility,
   VisibilityOff,
@@ -38,6 +39,7 @@ const schema = yup.object({
 });
 
 const LoginPage: React.FC = () => {
+  const theme = useTheme();
   const navigate = useNavigate();
   const location = useLocation();
   const dispatch = useAppDispatch();
@@ -141,7 +143,7 @@ const LoginPage: React.FC = () => {
               mb: 2,
             }}
           >
-            <LockIcon sx={{ fontSize: 32, color: 'white' }} />
+            <LockIcon sx={{ fontSize: 32, color: theme.palette.common.white }} />
           </Box>
           <Typography variant="h4" component="h1" fontWeight="bold" gutterBottom>
             Welcome Back

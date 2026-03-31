@@ -6,6 +6,7 @@ import {
   Backdrop,
   Paper,
 } from '@mui/material'
+import { alpha, useTheme } from '@mui/material/styles'
 
 interface LoadingSpinnerProps {
   message?: string
@@ -24,6 +25,8 @@ const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({
   fullScreen = false,
   sx = {},
 }) => {
+  const theme = useTheme()
+
   const content = (
     <Box
       sx={{
@@ -49,7 +52,7 @@ const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({
       <Backdrop
         open
         sx={{
-          color: '#fff',
+          color: theme.palette.text.primary,
           zIndex: (theme) => theme.zIndex.drawer + 1,
         }}
       >
@@ -67,7 +70,7 @@ const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({
           left: 0,
           right: 0,
           bottom: 0,
-          bgcolor: 'rgba(255, 255, 255, 0.8)',
+          bgcolor: alpha(theme.palette.common.white, 0.8),
           backdropFilter: 'blur(2px)',
           display: 'flex',
           alignItems: 'center',

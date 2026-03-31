@@ -382,10 +382,10 @@ const CreateStockAdjustmentPage: React.FC = () => {
                               border: 'none',
                             },
                             '&:hover fieldset': {
-                              border: '1px solid #1976d2',
+                              border: `1px solid ${theme.palette.primary.main}`,
                             },
                             '&.Mui-focused fieldset': {
-                              border: '1px solid #1976d2',
+                              border: `1px solid ${theme.palette.primary.main}`,
                             },
                             backgroundColor: 'transparent',
                             fontSize: '0.875rem',

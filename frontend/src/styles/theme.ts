@@ -290,8 +290,7 @@ const darkTheme = createTheme({
     },
     grey: {
       ...colors.grey,
-      // Override grey.50 for dark mode to use a darker shade
-      50: colors.grey[800], // Map grey.50 to grey.800 for dark mode
+      50: colors.grey[800],
     },
     background: {
       default: '#121212',

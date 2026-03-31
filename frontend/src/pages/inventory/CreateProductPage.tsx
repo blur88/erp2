@@ -14,6 +14,7 @@ import {
   MenuItem,
   Chip,
 } from '@mui/material'
+import { useTheme } from '@mui/material/styles'
 
 import { useForm, Controller } from 'react-hook-form'
 import { yupResolver } from '@hookform/resolvers/yup'
@@ -36,6 +37,7 @@ const PriceListPriceField: React.FC<{
   baseCost: number
   onChange: (value: number) => void
 }> = ({ priceList, currency, value, baseCost, onChange }) => {
+  const theme = useTheme()
   const [localValue, setLocalValue] = useState(value > 0 ? value.toFixed(2) : '')
   const [isFocused, setIsFocused] = useState(false)
 
@@ -95,7 +97,7 @@ const PriceListPriceField: React.FC<{
           type="text"
           slotProps={{
             input: {
-              startAdornment: <span style={{ marginRight: '4px', fontSize: '0.75rem', color: '#666' }}>{currency}</span>
+              startAdornment: <span style={{ marginRight: '4px', fontSize: '0.75rem', color: theme.palette.text.secondary }}>{currency}</span>
             }
           }}
           sx={{
@@ -166,6 +168,7 @@ const productSchema = yup.object({
 })
 
 const CreateProductPage: React.FC = () => {
+  const theme = useTheme()
   const navigate = useNavigate()
   const { id } = useParams<{ id: string }>()
   const isEditMode = !!id
@@ -624,7 +627,7 @@ const CreateProductPage: React.FC = () => {
                                 size="small"
                                 slotProps={{
                                   input: {
-                                    startAdornment: <span style={{ marginRight: '4px', fontSize: '0.75rem', color: '#666' }}>{currency}</span>
+                                    startAdornment: <span style={{ marginRight: '4px', fontSize: '0.75rem', color: theme.palette.text.secondary }}>{currency}</span>
                                   }
                                 }}
                                 sx={{

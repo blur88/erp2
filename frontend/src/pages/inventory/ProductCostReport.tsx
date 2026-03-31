@@ -44,6 +44,7 @@ import { formatCurrency, formatDate, formatDateTime } from '@/utils/formatters'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
 import { ApiService } from '@/services/api'
 import { useGetProductsQuery, useGetCategoriesQuery } from '@/store/api/inventoryApi'
+import { printColors } from '@/styles/printTokens'
 
 interface ProductCostItem {
   productName: string
@@ -378,7 +379,7 @@ const ProductCostReport: React.FC = () => {
         // Reset subtotals for new group
         groupSubtotals = { quantityChange: 0, costChange: 0 }
         const groupLabel = getPdfGroupLabel(row)
-        tableRows += `<tr style="background-color: #d3d3d3; font-weight: bold;"><td colspan="${selectedColumns.length}">${groupLabel}</td></tr>`
+        tableRows += `<tr style="background-color: ${printColors.groupRow}; font-weight: bold;"><td colspan="${selectedColumns.length}">${groupLabel}</td></tr>`
         prevGroupKey = currentGroupKey
       }
 
@@ -435,9 +436,9 @@ const ProductCostReport: React.FC = () => {
             h1 { text-align: center; margin-bottom: 10px; }
             .header-info { text-align: center; margin-bottom: 20px; font-size: 14px; }
             table { width: 100%; border-collapse: collapse; font-size: 11px; }
-            th, td { border: 1px solid #ddd; padding: 6px; text-align: left; }
-            th { background-color: #1976d2; color: white; font-weight: bold; }
-            tr:nth-child(even) { background-color: #f9f9f9; }
+            th, td { border: 1px solid ${printColors.tableBorder}; padding: 6px; text-align: left; }
+            th { background-color: ${printColors.tableHeaderBg}; color: ${printColors.background}; font-weight: bold; }
+            tr:nth-child(even) { background-color: ${printColors.tableRowAlt}; }
             .text-right { text-align: right; }
             @media print {
               body { margin: 0; padding: 20px 20px 40px 20px; }
@@ -825,7 +826,7 @@ const ProductCostReport: React.FC = () => {
                     <TableHead>
                       <TableRow sx={{ '& .MuiTableCell-head': {
                         fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
-                        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                        backgroundColor: theme.palette.action.hover,
                         color: TYPOGRAPHY_STYLES.tableHeader.color,
                         fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize,
                         textAlign: 'center',
@@ -894,7 +895,7 @@ const ProductCostReport: React.FC = () => {
                           if (showGroupHeader) {
                             rows.push(
                               <TableRow key={`header-${idx}`} sx={{
-                                backgroundColor: 'rgba(255, 255, 255, 0.08)',
+                                backgroundColor: theme.palette.action.selected,
                                 '& .MuiTableCell-root': {
                                   fontWeight: 700,
                                   fontSize: '0.85rem',

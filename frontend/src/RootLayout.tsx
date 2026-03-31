@@ -74,10 +74,6 @@ export default function RootLayout() {
   }
 
   useEffect(() => {
-    document.documentElement.setAttribute('data-theme', 'dark')
-  }, [])
-
-  useEffect(() => {
     if (!isAuthenticated) {
       setShowIdleWarning(false)
     }

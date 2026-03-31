@@ -570,10 +570,10 @@ const CreateSalesOrderPage: React.FC = () => {
                                 border: 'none',
                               },
                               '&:hover fieldset': {
-                                border: '1px solid #1976d2',
+                                border: `1px solid ${theme.palette.primary.main}`,
                               },
                               '&.Mui-focused fieldset': {
-                                border: '1px solid #1976d2',
+                                border: `1px solid ${theme.palette.primary.main}`,
                               },
                               backgroundColor: 'transparent',
                               fontSize: '0.875rem',
@@ -745,7 +745,7 @@ const CreateSalesOrderPage: React.FC = () => {
                                           style: { textAlign: 'right', fontSize: '0.875rem' }
                                         }}
                                         InputProps={{
-                                          startAdornment: <span style={{ marginRight: '4px', fontSize: '0.75rem', color: '#666' }}>{currency}</span>
+                                          startAdornment: <span style={{ marginRight: '4px', fontSize: '0.75rem', color: theme.palette.text.secondary }}>{currency}</span>
                                         }}
                                         error={!!errors.items?.[index]?.unitPrice}
                                       />
@@ -961,7 +961,7 @@ const CreateSalesOrderPage: React.FC = () => {
                                 },
                               }}
                               InputProps={{
-                                startAdornment: <span style={{ marginRight: '4px', fontSize: '0.75rem', color: '#666' }}>{currency}</span>
+                                startAdornment: <span style={{ marginRight: '4px', fontSize: '0.75rem', color: theme.palette.text.secondary }}>{currency}</span>
                               }}
                             />
                           );

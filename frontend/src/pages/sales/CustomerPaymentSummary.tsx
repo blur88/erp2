@@ -25,6 +25,7 @@ import {
   FormControlLabel,
   Checkbox,
 } from '@mui/material'
+import { alpha } from '@mui/material/styles'
 import {
   PictureAsPdf as PdfIcon,
   TableChart as ExcelIcon,
@@ -33,6 +34,7 @@ import {
   AccountBalanceWallet as PaymentSummaryIcon,
 } from '@mui/icons-material'
 import PageHeader from '@/components/common/PageHeader'
+import { printColors } from '@/styles/printTokens'
 import { formatCurrency, formatDate, formatDateTime } from '@/utils/formatters'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
 import api from '@/services/api'
@@ -254,7 +256,7 @@ const CustomerPaymentSummary: React.FC = () => {
 
     // Add totals
     if (totals) {
-      tableRows += '<tr style="background-color: rgba(76, 175, 80, 0.2); font-weight: bold; border-top: 3px solid #4caf50;">'
+      tableRows += `<tr style="background-color: ${printColors.successRow}; font-weight: bold; border-top: 3px solid ${printColors.border};">`
       selectedColumns.forEach((col, idx) => {
         if (idx === 0) {
           tableRows += '<td style="font-weight: 800;">GRAND TOTAL</td>'
@@ -291,9 +293,9 @@ const CustomerPaymentSummary: React.FC = () => {
             h1 { text-align: center; margin-bottom: 10px; }
             .header-info { text-align: center; margin-bottom: 20px; font-size: 14px; }
             table { width: 100%; border-collapse: collapse; font-size: 11px; }
-            th, td { border: 1px solid #ddd; padding: 6px; text-align: left; }
-            th { background-color: #1976d2; color: white; font-weight: bold; }
-            tr:nth-child(even) { background-color: #f9f9f9; }
+            th, td { border: 1px solid ${printColors.tableBorder}; padding: 6px; text-align: left; }
+            th { background-color: ${printColors.tableHeaderBg}; color: ${printColors.background}; font-weight: bold; }
+            tr:nth-child(even) { background-color: ${printColors.tableRowAlt}; }
             .text-right { text-align: right; }
             @media print {
               body { margin: 0; padding: 20px 20px 40px 20px; }
@@ -311,7 +313,7 @@ const CustomerPaymentSummary: React.FC = () => {
                 text-align: center;
                 font-size: 10px;
                 padding: 10px;
-                border-top: 1px solid #ddd;
+                border-top: 1px solid ${printColors.tableBorder};
               }
             }
             .footer {
@@ -754,7 +756,7 @@ const CustomerPaymentSummary: React.FC = () => {
                   <TableHead>
                     <TableRow sx={{ '& .MuiTableCell-head': {
                       fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
-                      backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                      backgroundColor: theme.palette.action.hover,
                       color: TYPOGRAPHY_STYLES.tableHeader.color,
                       fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize,
                       textAlign: 'center',
@@ -817,7 +819,7 @@ const CustomerPaymentSummary: React.FC = () => {
                     {totals && (
                       <TableRow
                         sx={{
-                          backgroundColor: 'rgba(76, 175, 80, 0.3)',
+                          backgroundColor: alpha(theme.palette.success.main, 0.3),
                           '& .MuiTableCell-root': {
                             fontWeight: 800,
                             fontSize: '0.9rem',

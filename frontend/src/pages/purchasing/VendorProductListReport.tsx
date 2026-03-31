@@ -29,6 +29,7 @@ import {
   DialogActions,
   IconButton,
 } from '@mui/material'
+import { alpha } from '@mui/material/styles'
 import {
   PictureAsPdf as PdfIcon,
   TableChart as ExcelIcon,
@@ -42,6 +43,7 @@ import {
   KeyboardDoubleArrowLeft as KeyboardDoubleArrowLeftIcon,
 } from '@mui/icons-material'
 import PageHeader from '@/components/common/PageHeader'
+import { printColors } from '@/styles/printTokens'
 import { formatCurrency, formatDate, formatDateTime } from '@/utils/formatters'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
 import api from '@/services/api'
@@ -425,7 +427,7 @@ const VendorProductListReport: React.FC = () => {
 
       if (groupBy !== 'none' && currentGroupKey !== prevGroupKey) {
         const groupLabel = getPdfGroupLabel(row)
-        tableRows += `<tr style="background-color: #d3d3d3; font-weight: bold;"><td colspan="${selectedColumns.length}">${groupLabel}</td></tr>`
+        tableRows += `<tr style="background-color: ${printColors.groupRow}; font-weight: bold;"><td colspan="${selectedColumns.length}">${groupLabel}</td></tr>`
         prevGroupKey = currentGroupKey
       }
 
@@ -492,9 +494,9 @@ const VendorProductListReport: React.FC = () => {
             h1 { text-align: center; margin-bottom: 10px; }
             .header-info { text-align: center; margin-bottom: 20px; font-size: 14px; }
             table { width: 100%; border-collapse: collapse; font-size: 11px; }
-            th, td { border: 1px solid #ddd; padding: 6px; text-align: left; }
-            th { background-color: #1976d2; color: white; font-weight: bold; }
-            tr:nth-child(even) { background-color: #f9f9f9; }
+            th, td { border: 1px solid ${printColors.tableBorder}; padding: 6px; text-align: left; }
+            th { background-color: ${printColors.tableHeaderBg}; color: ${printColors.background}; font-weight: bold; }
+            tr:nth-child(even) { background-color: ${printColors.tableRowAlt}; }
             .text-right { text-align: right; }
             @media print {
               body { margin: 0; padding: 20px 20px 40px 20px; }
@@ -941,7 +943,7 @@ const VendorProductListReport: React.FC = () => {
                     <TableHead>
                       <TableRow sx={{ '& .MuiTableCell-head': {
                         fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
-                        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                        backgroundColor: theme.palette.action.hover,
                         color: TYPOGRAPHY_STYLES.tableHeader.color,
                         fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize,
                         textAlign: 'center',
@@ -983,7 +985,7 @@ const VendorProductListReport: React.FC = () => {
                           <React.Fragment key={`${row.orderNumber}-${row.productName}-${idx}`}>
                             {showGroupHeader && (
                               <TableRow sx={{
-                                backgroundColor: 'rgba(255, 255, 255, 0.08)',
+                                backgroundColor: theme.palette.action.selected,
                                 '& .MuiTableCell-root': {
                                   fontWeight: 700,
                                   fontSize: '0.85rem',

@@ -23,6 +23,7 @@ import {
   useMediaQuery,
   Chip,
 } from '@mui/material'
+import { alpha } from '@mui/material/styles'
 import {
   PictureAsPdf as PdfIcon,
   TableChart as ExcelIcon,
@@ -31,6 +32,7 @@ import {
   Receipt as OrderIcon,
 } from '@mui/icons-material'
 import PageHeader from '@/components/common/PageHeader'
+import { printColors } from '@/styles/printTokens'
 import { formatCurrency, formatDate, formatDateTime } from '@/utils/formatters'
 import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
 import api from '@/services/api'
@@ -330,7 +332,7 @@ const SalesOrderSummary: React.FC = () => {
         const groupLabel = groupBy === 'customerName' ? `Customer: ${currentGroupValue}` :
                           groupBy === 'inventoryStatus' ? `Inventory: ${currentGroupValue}` :
                           groupBy === 'paymentStatus' ? `Payment: ${currentGroupValue}` : currentGroupValue
-        tableRows += `<tr style="background-color: #d3d3d3; font-weight: bold;"><td colspan="${selectedColumns.length}">${groupLabel}</td></tr>`
+        tableRows += `<tr style="background-color: ${printColors.groupRow}; font-weight: bold;"><td colspan="${selectedColumns.length}">${groupLabel}</td></tr>`
         prevGroupValue = currentGroupValue
       }
 
@@ -379,7 +381,7 @@ const SalesOrderSummary: React.FC = () => {
           balanceDue: groupData.reduce((sum, r) => sum + r.balanceDue, 0),
         }
 
-        tableRows += '<tr style="background-color: rgba(33, 150, 243, 0.1); font-weight: bold; border-top: 2px solid #1976d2;">'
+        tableRows += `<tr style="background-color: ${printColors.infoRow}; font-weight: bold; border-top: 2px solid ${printColors.tableHeaderBg};">`
         selectedColumns.forEach((col, colIdx) => {
           if (colIdx === 0) {
             tableRows += '<td style="font-weight: bold;">Subtotal</td>'
@@ -401,7 +403,7 @@ const SalesOrderSummary: React.FC = () => {
 
     // Add totals
     if (totals) {
-      tableRows += '<tr style="background-color: rgba(76, 175, 80, 0.2); font-weight: bold; border-top: 3px solid #4caf50;">'
+      tableRows += `<tr style="background-color: ${printColors.successRow}; font-weight: bold; border-top: 3px solid ${printColors.border};">`
       selectedColumns.forEach((col, idx) => {
         if (idx === 0) {
           tableRows += '<td style="font-weight: 800;">GRAND TOTAL</td>'
@@ -438,9 +440,9 @@ const SalesOrderSummary: React.FC = () => {
             h1 { text-align: center; margin-bottom: 10px; }
             .header-info { text-align: center; margin-bottom: 20px; font-size: 14px; }
             table { width: 100%; border-collapse: collapse; font-size: 11px; }
-            th, td { border: 1px solid #ddd; padding: 6px; text-align: left; }
-            th { background-color: #1976d2; color: white; font-weight: bold; }
-            tr:nth-child(even) { background-color: #f9f9f9; }
+            th, td { border: 1px solid ${printColors.tableBorder}; padding: 6px; text-align: left; }
+            th { background-color: ${printColors.tableHeaderBg}; color: ${printColors.background}; font-weight: bold; }
+            tr:nth-child(even) { background-color: ${printColors.tableRowAlt}; }
             .text-right { text-align: right; }
             @media print {
               body { margin: 0; padding: 20px 20px 40px 20px; }
@@ -458,7 +460,7 @@ const SalesOrderSummary: React.FC = () => {
                 text-align: center;
                 font-size: 10px;
                 padding: 10px;
-                border-top: 1px solid #ddd;
+                border-top: 1px solid ${printColors.tableBorder};
               }
             }
             .footer {
@@ -909,7 +911,7 @@ const SalesOrderSummary: React.FC = () => {
                   <TableHead>
                     <TableRow sx={{ '& .MuiTableCell-head': {
                       fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
-                      backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                      backgroundColor: theme.palette.action.hover,
                       color: TYPOGRAPHY_STYLES.tableHeader.color,
                       fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize,
                       textAlign: 'center',
@@ -991,7 +993,7 @@ const SalesOrderSummary: React.FC = () => {
                         <React.Fragment key={`${row.orderNumber}-${idx}`}>
                           {showGroupHeader && (
                             <TableRow sx={{
-                              backgroundColor: 'rgba(255, 255, 255, 0.08)',
+                              backgroundColor: theme.palette.action.selected,
                               '& .MuiTableCell-root': {
                                 fontWeight: 700,
                                 fontSize: '0.85rem',
@@ -1055,7 +1057,7 @@ const SalesOrderSummary: React.FC = () => {
                           {showGroupFooter && groupSubtotals && (
                             <>
                               <TableRow sx={{
-                                backgroundColor: 'rgba(33, 150, 243, 0.2)',
+                                backgroundColor: alpha(theme.palette.primary.main, 0.2),
                                 '& .MuiTableCell-root': {
                                   fontWeight: 700,
                                   fontSize: '0.85rem',
@@ -1091,7 +1093,7 @@ const SalesOrderSummary: React.FC = () => {
                     {totals && (
                       <TableRow
                         sx={{
-                          backgroundColor: 'rgba(76, 175, 80, 0.3)',
+                          backgroundColor: alpha(theme.palette.success.main, 0.3),
                           '& .MuiTableCell-root': {
                             fontWeight: 800,
                             fontSize: '0.9rem',
