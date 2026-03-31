@@ -84,19 +84,6 @@ const DATE_FILTER_OPTIONS = [
     { value: 'custom', label: 'Custom Date Range' },
 ]
 
-// Line colors mapping
-const LINE_COLORS: { [key: string]: string } = {
-    sales_completed: '#4caf50',
-    cogs: '#f44336',
-    sales_profit: '#2196f3',
-    sales_orders: '#9c27b0',
-    purchase_orders: '#ff9800',
-    cash_in: '#00bcd4',
-    cash_out: '#e91e63',
-    net_cash_flow: '#3f51b5',
-    inventory_value: '#795548',
-}
-
 interface ChartFilters {
     selectedLines: string[]
     dateFilter: string
@@ -119,6 +106,17 @@ interface BusinessPerformanceChartProps {
 const BusinessPerformanceChart: React.FC<BusinessPerformanceChartProps> = ({ rawData }) => {
     const theme = useTheme()
     const chartRef = useRef<any>(null)
+    const lineColors: Record<string, string> = {
+        sales_completed: theme.palette.success.main,
+        cogs: theme.palette.error.main,
+        sales_profit: theme.palette.primary.main,
+        sales_orders: theme.palette.secondary.main,
+        purchase_orders: theme.palette.warning.main,
+        cash_in: theme.palette.info.main,
+        cash_out: theme.palette.secondary.light,
+        net_cash_flow: theme.palette.primary.dark,
+        inventory_value: theme.palette.warning.dark,
+    }
 
     const [chartFilters, setChartFilters] = React.useState<ChartFilters>({
         selectedLines: ['sales_completed', 'cogs', 'sales_profit'],
@@ -300,7 +298,7 @@ const BusinessPerformanceChart: React.FC<BusinessPerformanceChartProps> = ({ raw
             })
 
             const lineOption = LINE_OPTIONS.find(o => o.value === lineType)
-            const color = LINE_COLORS[lineType] || theme.palette.primary.main
+            const color = lineColors[lineType] || theme.palette.primary.main
 
             return {
                 label: lineOption?.label || lineType,
