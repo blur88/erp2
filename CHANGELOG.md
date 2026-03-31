@@ -1,3 +1,21 @@
+## [1.37.1](https://github.com/blur88/erp2/compare/v1.37.0...v1.37.1) (2026-03-31)
+
+
+### Internal Changes
+
+* style: use shared print and theme color tokens in sales reports ([](https://github.com/blur88/erp2/commit/))
+* style: finish chart, analytics, preview, and palette docs cleanup ([](https://github.com/blur88/erp2/commit/))
+* style: use shared print and theme color tokens in purchasing reports ([](https://github.com/blur88/erp2/commit/))
+* style: use shared print and theme color tokens in inventory reports ([](https://github.com/blur88/erp2/commit/))
+* style: replace hardcoded colors in interactive pages ([](https://github.com/blur88/erp2/commit/))
+* style: replace hardcoded colors in Sidebar, TopBar, SearchModal ([](https://github.com/blur88/erp2/commit/))
+* style: replace hardcoded colors in shared utility components ([](https://github.com/blur88/erp2/commit/))
+* style: add printTokens.ts for explicit print color constants ([](https://github.com/blur88/erp2/commit/))
+* style: remove data-theme attribute, clean up theme.ts comment ([](https://github.com/blur88/erp2/commit/))
+* style: remove light-mode conditionals from global.css, fix status colors ([](https://github.com/blur88/erp2/commit/))
+* docs: add color palette implementation plan (issue #232) ([](https://github.com/blur88/erp2/commit/))
+* docs: add color palette standardization design spec (issue #232) ([](https://github.com/blur88/erp2/commit/))
+
 # [1.37.0](https://github.com/blur88/erp2/compare/v1.36.0...v1.37.0) (2026-03-30)
 
 
