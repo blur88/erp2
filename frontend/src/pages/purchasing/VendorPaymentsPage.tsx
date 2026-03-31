@@ -779,7 +779,6 @@ const VendorPaymentsPage: React.FC = () => {
                                     border: 'none',
                                     background: 'none',
                                     padding: 0,
-                                    fontFamily: 'inherit',
                                     '&:hover': {
                                       color: 'primary.dark'
                                     }
@@ -807,7 +806,6 @@ const VendorPaymentsPage: React.FC = () => {
                                     border: 'none',
                                     background: 'none',
                                     padding: 0,
-                                    fontFamily: 'inherit',
                                     '&:hover': {
                                       color: 'primary.dark'
                                     }
@@ -835,7 +833,6 @@ const VendorPaymentsPage: React.FC = () => {
                                     border: 'none',
                                     background: 'none',
                                     padding: 0,
-                                    fontFamily: 'inherit',
                                     '&:hover': {
                                       color: 'primary.dark'
                                     }

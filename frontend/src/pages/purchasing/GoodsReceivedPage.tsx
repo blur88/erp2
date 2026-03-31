@@ -701,7 +701,6 @@ const GoodsReceivedPage: React.FC = () => {
                                       border: 'none',
                                       background: 'none',
                                       padding: 0,
-                                      fontFamily: 'inherit',
                                       '&:hover': {
                                         color: 'primary.dark'
                                       }
@@ -728,7 +727,6 @@ const GoodsReceivedPage: React.FC = () => {
                                         border: 'none',
                                         background: 'none',
                                         padding: 0,
-                                        fontFamily: 'inherit',
                                         '&:hover': {
                                           color: 'primary.dark'
                                         }
@@ -762,7 +760,6 @@ const GoodsReceivedPage: React.FC = () => {
                                     border: 'none',
                                     background: 'none',
                                     padding: 0,
-                                    fontFamily: 'inherit',
                                     '&:hover': {
                                       color: 'primary.dark'
                                     }
