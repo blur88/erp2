@@ -1,3 +1,13 @@
+## [1.37.3](https://github.com/blur88/erp2/compare/v1.37.2...v1.37.3) (2026-03-31)
+
+
+### Internal Changes
+
+* chore(frontend): bump vite, vitest, typescript-eslint, tanstack-query to latest ([](https://github.com/blur88/erp2/commit/))
+* chore(backend): bump typescript-eslint to 8.58.0, ts-node to 10.9.2 ([](https://github.com/blur88/erp2/commit/))
+* docs: add implementation plan for dependency upgrades (TS 5.9.3 baseline) ([](https://github.com/blur88/erp2/commit/))
+* docs: add design spec for dependency upgrades (TS 5.9.3 baseline) ([](https://github.com/blur88/erp2/commit/))
+
 ## [1.37.2](https://github.com/blur88/erp2/compare/v1.37.1...v1.37.2) (2026-03-31)
 
 
