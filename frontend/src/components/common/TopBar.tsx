@@ -349,7 +349,6 @@ const TopBar: React.FC<TopBarProps> = ({ collapsed, onMobileMenuOpen }) => {
                   borderRadius: '4px',
                   px: 0.75,
                   py: 0.25,
-                  fontFamily: 'monospace',
                   fontSize: '11px',
                   color: theme.palette.text.secondary,
                   flexShrink: 0,
