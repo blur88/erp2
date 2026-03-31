@@ -435,8 +435,9 @@ const SalesOrderSummary: React.FC = () => {
       <html>
         <head>
           <title>${reportTitle}</title>
+          <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:400,500,700&display=swap" />
           <style>
-            body { font-family: Arial, sans-serif; margin: 20px; }
+            body { font-family: 'Roboto', sans-serif; margin: 20px; }
             h1 { text-align: center; margin-bottom: 10px; }
             .header-info { text-align: center; margin-bottom: 20px; font-size: 14px; }
             table { width: 100%; border-collapse: collapse; font-size: 11px; }
