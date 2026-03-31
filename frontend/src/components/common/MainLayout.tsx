@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
 import { Box, Drawer } from '@mui/material'
+import { useTheme } from '@mui/material/styles'
 
 import { DRAWER_WIDTH_COLLAPSED, DRAWER_WIDTH_EXPANDED } from '@/constants/layout'
 
@@ -8,6 +9,7 @@ import Sidebar from './Sidebar'
 import TopBar from './TopBar'
 
 const MainLayout: React.FC = () => {
+  const theme = useTheme()
   const location = useLocation()
   const [mobileOpen, setMobileOpen] = useState(false)
   const [collapsed, setCollapsed] = useState<boolean>(() => {
@@ -64,7 +66,7 @@ const MainLayout: React.FC = () => {
           sx={{
             display: { xs: 'none', lg: 'block' },
             '& .MuiDrawer-paper': {
-              bgcolor: '#0F172A',
+              bgcolor: theme.palette.background.default,
               boxSizing: 'border-box',
               width: collapsed ? DRAWER_WIDTH_COLLAPSED : DRAWER_WIDTH_EXPANDED,
               transition: 'width 0.22s ease',

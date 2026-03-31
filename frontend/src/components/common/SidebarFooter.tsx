@@ -1,5 +1,6 @@
 import React from 'react'
 import { Box } from '@mui/material'
+import { useTheme } from '@mui/material/styles'
 import SidebarUserMenu from './SidebarUserMenu'
 
 interface SidebarFooterProps {
@@ -7,11 +8,13 @@ interface SidebarFooterProps {
 }
 
 const SidebarFooter: React.FC<SidebarFooterProps> = ({ collapsed }) => {
+  const theme = useTheme()
+
   return (
     <Box
       sx={{
-        backgroundColor: '#141414',
-        borderTop: '1px solid #1F2937',
+        backgroundColor: theme.palette.background.default,
+        borderTop: `1px solid ${theme.palette.divider}`,
         py: 1,
         display: 'flex',
         flexDirection: 'column',

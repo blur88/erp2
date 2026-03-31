@@ -14,6 +14,7 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material'
+import { useTheme } from '@mui/material/styles'
 import {
   CloudQueue as NginxIcon,
   Computer as BackendIcon,
@@ -48,6 +49,7 @@ const statusPulse = keyframes`
 `
 
 const SystemStatus: React.FC = () => {
+  const theme = useTheme()
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null)
   const [health, setHealth] = useState<HealthResponse | null>(null)
   const [loading, setLoading] = useState(false)
@@ -108,13 +110,13 @@ const SystemStatus: React.FC = () => {
   const getDotColor = (status: 'healthy' | 'degraded' | 'unhealthy' | 'unknown'): string => {
     switch (status) {
       case 'healthy':
-        return '#22C55E'
+        return theme.palette.success.main
       case 'degraded':
-        return '#F59E0B'
+        return theme.palette.warning.main
       case 'unhealthy':
-        return '#EF4444'
+        return theme.palette.error.main
       default:
-        return '#6B7280'
+        return theme.palette.text.secondary
     }
   }
 
@@ -149,10 +151,10 @@ const SystemStatus: React.FC = () => {
           onClick={handleClick}
           color="inherit"
           size="small"
-          sx={{ '&:hover': { bgcolor: '#2A2A2A', borderRadius: '8px' } }}
+          sx={{ '&:hover': { bgcolor: theme.palette.action.hover, borderRadius: '8px' } }}
         >
           <Box sx={{ position: 'relative', display: 'inline-flex' }}>
-            <DnsRoundedIcon sx={{ fontSize: 22, color: '#A0A0A0' }} />
+            <DnsRoundedIcon sx={{ fontSize: 22, color: theme.palette.text.secondary }} />
             <Box
               sx={{
                 position: 'absolute',

@@ -8,6 +8,7 @@ import {
   MenuItem,
   Typography,
 } from '@mui/material'
+import { alpha, useTheme } from '@mui/material/styles'
 import {
   Logout as LogoutIcon,
   Settings as SettingsIcon,
@@ -22,23 +23,12 @@ import {
 } from '@/store/slices/authSlice'
 import { persistor } from '@/store'
 
-// Local color constants intentionally duplicate the sidebar palette.
-// The original sidebar colors are module-private, so this keeps the scope
-// small for the sidebar footer refactor.
-const COLORS = {
-  icon: '#6B7280',
-  hoverText: '#CBD5E1',
-  text: '#9CA3AF',
-  mutedText: '#6B7280',
-  menuBg: '#1E1E1E',
-  border: '#1F2937',
-} as const
-
 interface SidebarUserMenuProps {
   collapsed: boolean
 }
 
 const SidebarUserMenu: React.FC<SidebarUserMenuProps> = ({ collapsed }) => {
+  const theme = useTheme()
   const dispatch = useAppDispatch()
   const navigate = useNavigate()
   const user = useSelector(selectCurrentUser)
@@ -149,7 +139,7 @@ const SidebarUserMenu: React.FC<SidebarUserMenuProps> = ({ collapsed }) => {
             textAlign: 'left',
             transition: 'background-color 0.15s ease, transform 0.15s ease',
             '&:hover': {
-              backgroundColor: '#1E1E1E',
+              backgroundColor: theme.palette.action.hover,
               transform: 'translateX(1px)',
             },
           }}
@@ -162,7 +152,7 @@ const SidebarUserMenu: React.FC<SidebarUserMenuProps> = ({ collapsed }) => {
             <Typography
               noWrap
               sx={{
-                color: '#FFFFFF',
+                color: theme.palette.common.white,
                 fontSize: '0.875rem',
                 lineHeight: 1.3,
                 overflow: 'hidden',
@@ -173,7 +163,7 @@ const SidebarUserMenu: React.FC<SidebarUserMenuProps> = ({ collapsed }) => {
             </Typography>
             <Typography
               sx={{
-                color: COLORS.mutedText,
+                color: theme.palette.text.secondary,
                 fontSize: '0.7rem',
                 lineHeight: 1.2,
                 mt: '4px',
@@ -192,29 +182,29 @@ const SidebarUserMenu: React.FC<SidebarUserMenuProps> = ({ collapsed }) => {
         PaperProps={{
           sx: {
             minWidth: 220,
-            bgcolor: COLORS.menuBg,
+            bgcolor: theme.palette.background.paper,
             borderRadius: 1,
-            boxShadow: '0 4px 20px rgba(0,0,0,0.4)',
+            boxShadow: `0 4px 20px ${alpha(theme.palette.common.black, 0.4)}`,
           },
         }}
         anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
         transformOrigin={{ vertical: 'bottom', horizontal: 'right' }}
       >
         <Box sx={{ px: 2, py: 1, cursor: 'default', userSelect: 'none' }}>
-          <Typography sx={{ color: '#D1D5DB', fontSize: '0.8rem', fontWeight: 500 }}>
+          <Typography sx={{ color: theme.palette.text.primary, fontSize: '0.8rem', fontWeight: 500 }}>
             {username}
           </Typography>
         </Box>
 
-        <Divider sx={{ borderColor: COLORS.border }} />
+        <Divider sx={{ borderColor: theme.palette.divider }} />
 
         <MenuItem
           onClick={handleSettingsClick}
           sx={{
             minHeight: 40,
             alignItems: 'center',
-            '& .MuiListItemIcon-root': { color: COLORS.icon },
-            '&:hover .MuiListItemIcon-root': { color: COLORS.hoverText },
+            '& .MuiListItemIcon-root': { color: theme.palette.text.secondary },
+            '&:hover .MuiListItemIcon-root': { color: theme.palette.grey[300] },
           }}
         >
           <ListItemIcon>
@@ -228,8 +218,8 @@ const SidebarUserMenu: React.FC<SidebarUserMenuProps> = ({ collapsed }) => {
           sx={{
             minHeight: 40,
             alignItems: 'center',
-            '& .MuiListItemIcon-root': { color: COLORS.icon },
-            '&:hover .MuiListItemIcon-root': { color: COLORS.hoverText },
+            '& .MuiListItemIcon-root': { color: theme.palette.text.secondary },
+            '&:hover .MuiListItemIcon-root': { color: theme.palette.grey[300] },
           }}
         >
           <ListItemIcon>
@@ -238,10 +228,10 @@ const SidebarUserMenu: React.FC<SidebarUserMenuProps> = ({ collapsed }) => {
           Logout
         </MenuItem>
 
-        <Divider sx={{ borderColor: COLORS.border }} />
+        <Divider sx={{ borderColor: theme.palette.divider }} />
 
         <Box sx={{ px: 2, py: 1, mt: '4px' }}>
-          <Typography sx={{ color: COLORS.mutedText, fontSize: '0.65rem', opacity: 0.7, letterSpacing: '0.02em' }}>
+          <Typography sx={{ color: theme.palette.text.secondary, fontSize: '0.65rem', opacity: 0.7, letterSpacing: '0.02em' }}>
             v{version}
           </Typography>
         </Box>
