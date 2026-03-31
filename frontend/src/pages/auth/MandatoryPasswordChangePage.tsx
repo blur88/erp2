@@ -12,6 +12,7 @@ import {
   IconButton,
   LinearProgress,
 } from '@mui/material';
+import { useTheme } from '@mui/material/styles';
 import {
   Visibility,
   VisibilityOff,
@@ -44,6 +45,7 @@ const passwordSchema = yup.object({
 });
 
 const MandatoryPasswordChangePage: React.FC = () => {
+  const theme = useTheme();
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const { loading, error, user, refreshToken } = useAppSelector((state) => state.auth);
@@ -308,7 +310,7 @@ const MandatoryPasswordChangePage: React.FC = () => {
           sx={{
             mt: 3,
             p: 2,
-            bgcolor: 'info.light',
+            bgcolor: theme.palette.info.light,
             borderRadius: 2,
           }}
         >
