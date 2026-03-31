@@ -164,4 +164,15 @@ describe('LoginPage', () => {
     expect(screen.getByText(/username:/i)).toBeInTheDocument();
     expect(screen.getByText(/password:/i)).toBeInTheDocument();
   });
+
+  it('does not apply a hardcoded gradient background', async () => {
+    await renderLoginPage();
+
+    const allElements = document.querySelectorAll('*');
+    const hasGradient = Array.from(allElements).some(el =>
+      (el as HTMLElement).style?.background?.includes('667eea')
+    );
+
+    expect(hasGradient).toBe(false);
+  });
 });
