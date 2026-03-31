@@ -253,6 +253,18 @@ describe('Sidebar', () => {
     expect(screen.getByTestId('sidebar-root')).toBeInTheDocument()
   })
 
+  it('does not apply a hardcoded sidebar background color', () => {
+    render(
+      <MemoryRouter initialEntries={['/dashboard']}>
+        <Sidebar />
+      </MemoryRouter>
+    )
+
+    const root = screen.getByTestId('sidebar-root')
+
+    expect(root).not.toHaveStyle({ backgroundColor: '#0D0D0D' })
+  })
+
   it('shows flyout panel on hover over parent item in collapsed mode', async () => {
     render(
       <MemoryRouter initialEntries={['/dashboard']}>
