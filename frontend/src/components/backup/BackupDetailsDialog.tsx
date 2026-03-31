@@ -74,7 +74,7 @@ const BackupDetailsDialog: React.FC<BackupDetailsDialogProps> = ({ open, onClose
             </Typography>
             <Typography
               variant="body1"
-              sx={{ fontFamily: 'monospace', wordBreak: 'break-all' }}
+              sx={{ wordBreak: 'break-all' }}
             >
               {currentBackup.filename}
             </Typography>
@@ -168,7 +168,7 @@ const BackupDetailsDialog: React.FC<BackupDetailsDialogProps> = ({ open, onClose
             </Typography>
             <Typography
               variant="body2"
-              sx={{ fontFamily: 'monospace', wordBreak: 'break-all' }}
+              sx={{ wordBreak: 'break-all' }}
             >
               {currentBackup.filepath}
             </Typography>
@@ -183,7 +183,6 @@ const BackupDetailsDialog: React.FC<BackupDetailsDialogProps> = ({ open, onClose
                 </Typography>
                 <Box
                   sx={{
-                    fontFamily: 'monospace',
                     fontSize: '0.875rem',
                     backgroundColor: 'grey.100',
                     color: 'grey.900',
@@ -212,7 +211,6 @@ const BackupDetailsDialog: React.FC<BackupDetailsDialogProps> = ({ open, onClose
                   variant="body2"
                   color="error"
                   sx={{
-                    fontFamily: 'monospace',
                     backgroundColor: 'error.light',
                     p: 2,
                     borderRadius: 1,

@@ -135,7 +135,7 @@ const BackupList: React.FC<BackupListProps> = ({ backups }) => {
               paginatedBackups.map((backup) => (
                 <TableRow key={backup.id} hover>
                   <TableCell>
-                    <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
+                    <Typography variant="body2">
                       {backup.filename}
                     </Typography>
                   </TableCell>
