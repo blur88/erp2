@@ -1,6 +1,12 @@
 import { createTheme, ThemeOptions } from '@mui/material/styles'
 import { alpha } from '@mui/material/styles'
 
+declare module '@mui/material/styles' {
+  interface TypeBackground {
+    sidebar: string
+  }
+}
+
 // Color palette
 const colors = {
   primary: {
@@ -295,6 +301,7 @@ const darkTheme = createTheme({
     background: {
       default: '#121212',
       paper: '#1e1e1e',
+      sidebar: '#0D0D0D',
     },
     text: {
       primary: '#ffffff',
