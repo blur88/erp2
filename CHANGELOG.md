@@ -1,3 +1,10 @@
+## [1.37.2](https://github.com/blur88/erp2/compare/v1.37.1...v1.37.2) (2026-03-31)
+
+
+### Internal Changes
+
+* chore: update dependency lockfiles across root and sub-projects ([](https://github.com/blur88/erp2/commit/))
+
 ## [1.37.1](https://github.com/blur88/erp2/compare/v1.37.0...v1.37.1) (2026-03-31)
 
 
