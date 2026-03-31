@@ -1,3 +1,13 @@
+# [1.38.0](https://github.com/blur88/erp2/compare/v1.37.3...v1.38.0) (2026-03-31)
+
+
+### Features
+
+* consume theme.palette.background.sidebar in Sidebar ([#236](https://github.com/blur88/erp2/issues/236)) ([ba41ff8](https://github.com/blur88/erp2/commit/ba41ff8f31e643a5d52d07e6bed91eb140f3a330))
+* extend MUI TypeBackground with sidebar token ([#236](https://github.com/blur88/erp2/issues/236)) ([3401484](https://github.com/blur88/erp2/commit/3401484d358363519c9312aa74d56bfa24b560b6))
+* replace auth gradient with theme.palette.background.default in LoginPage ([#236](https://github.com/blur88/erp2/issues/236)) ([6aeaf5f](https://github.com/blur88/erp2/commit/6aeaf5fcedc701de8cc7d6b82da5f2652452de01))
+* replace auth gradient with theme.palette.background.default in MandatoryPasswordChangePage ([#236](https://github.com/blur88/erp2/issues/236)) ([b4a5b9b](https://github.com/blur88/erp2/commit/b4a5b9b4e09acbcadc4f54212284a25ecbcc0ef2))
+
 ## [1.37.3](https://github.com/blur88/erp2/compare/v1.37.2...v1.37.3) (2026-03-31)
 
 
