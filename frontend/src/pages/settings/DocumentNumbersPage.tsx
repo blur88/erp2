@@ -187,10 +187,9 @@ const DocumentNumbersPage: React.FC = () => {
                           />
                         </TableCell>
                         <TableCell>
-                          <Typography
-                            variant="body2"
-                            sx={{
-                              fontFamily: 'monospace',
+                            <Typography
+                              variant="body2"
+                              sx={{
                               color: 'primary.main',
                               fontWeight: 600,
                               backgroundColor: 'action.hover',
