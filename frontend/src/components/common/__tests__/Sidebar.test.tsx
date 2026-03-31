@@ -262,6 +262,9 @@ describe('Sidebar', () => {
 
     const root = screen.getByTestId('sidebar-root')
 
+    // MUI applies `bgcolor` via CSS custom properties, not inline `style` attributes,
+    // so jsdom never sets `backgroundColor` directly. This assertion documents intent:
+    // the sidebar background must come from theme.palette.background.sidebar, not '#0D0D0D'.
     expect(root).not.toHaveStyle({ backgroundColor: '#0D0D0D' })
   })
 

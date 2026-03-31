@@ -32,6 +32,9 @@ describe('MandatoryPasswordChangePage', () => {
   it('does not apply a hardcoded gradient background', () => {
     renderPage()
 
+    // MUI applies `bgcolor` via CSS custom properties, not inline `style` attributes,
+    // so jsdom never sets `style.background` for sx-prop colors. This assertion documents
+    // intent: the gradient (#667eea) must not be present as a literal inline style.
     const allElements = document.querySelectorAll('*')
     const hasGradient = Array.from(allElements).some(el =>
       (el as HTMLElement).style?.background?.includes('667eea')
