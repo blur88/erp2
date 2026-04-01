@@ -12,9 +12,6 @@ html {
 body {
   margin: 0;
   padding: 0;
-  line-height: 1.5;
-  color: #ffffff;
-  background-color: #121212;
 }
 
 /* Scrollbar styling */
@@ -40,23 +37,6 @@ body {
 html {
   scrollbar-width: thin;
   scrollbar-color: #616161 transparent;
-}
-
-/* Remove default button styles */
-button {
-  border: none;
-  margin: 0;
-  padding: 0;
-  width: auto;
-  overflow: visible;
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  line-height: normal;
-  -webkit-font-smoothing: inherit;
-  -moz-osx-font-smoothing: inherit;
-  -webkit-appearance: none;
-  appearance: none;
 }
 
 /* Focus styles */
