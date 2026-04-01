@@ -12,8 +12,6 @@ export function useProductsPageState() {
   const [exportMenuAnchor, setExportMenuAnchor] = useState<HTMLElement | null>(null)
   const [isExporting, setIsExporting] = useState(false)
   const [currentTab, setCurrentTab] = useState(0)
-  const [selectedCategory, setSelectedCategory] = useState('all')
-
   const productListRef = useRef<HTMLDivElement>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
 
@@ -36,8 +34,6 @@ export function useProductsPageState() {
     setIsExporting,
     currentTab,
     setCurrentTab,
-    selectedCategory,
-    setSelectedCategory,
     productListRef,
     searchInputRef,
   }

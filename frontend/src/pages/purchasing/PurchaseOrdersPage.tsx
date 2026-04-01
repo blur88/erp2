@@ -6,7 +6,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 
 import PageHeader from '@/components/common/PageHeader'
 import { FilterBar, useFilterBar } from '@/components/filters'
-import type { DateRangeValue, FilterBarConfig } from '@/components/filters'
+import type { FilterBarConfig } from '@/components/filters'
 import PurchaseOrderDetailsPanel from './components/PurchaseOrderDetailsPanel'
 import PurchaseOrdersDialogs from './components/PurchaseOrdersDialogs'
 import PurchaseOrdersTable from './components/PurchaseOrdersTable'
@@ -32,7 +32,6 @@ import { selectSelectedPurchaseOrder } from '@/store/slices/purchasingSlice'
 interface PurchaseOrderFilters {
   search: string
   supplierId: string | null
-  dateRange: DateRangeValue
 }
 
 export const PurchaseOrdersPage: React.FC = () => {
@@ -62,13 +61,9 @@ export const PurchaseOrdersPage: React.FC = () => {
           })),
         },
       ],
-      advanced: [
-        { field: 'dateRange', label: 'Order Date', type: 'date-range', paramKey: 'orderDate' },
-      ],
       defaults: {
         search: '',
         supplierId: null,
-        dateRange: { from: null, to: null },
       },
     }),
     [suppliers],
@@ -81,8 +76,6 @@ export const PurchaseOrdersPage: React.FC = () => {
     sortOrder: pageState.sorting.sortOrder.toUpperCase(),
     search: filterBar.appliedFilters.search || undefined,
     supplierId: filterBar.appliedFilters.supplierId || undefined,
-    orderDateFrom: filterBar.appliedFilters.dateRange.from || undefined,
-    orderDateTo: filterBar.appliedFilters.dateRange.to || undefined,
   }), [filterBar.appliedFilters, pageState.sorting.sortBy, pageState.sorting.sortOrder])
 
   const {
@@ -201,9 +194,7 @@ export const PurchaseOrdersPage: React.FC = () => {
             config={filterConfig}
             draftFilters={filterBar.draftFilters}
             handlers={filterBar.handlers}
-            activeChips={filterBar.activeChips}
             hasActiveFilters={filterBar.hasActiveFilters}
-            hasUnappliedChanges={filterBar.hasUnappliedChanges}
             searchInputRef={pageState.searchInputRef}
           />
         </Box>

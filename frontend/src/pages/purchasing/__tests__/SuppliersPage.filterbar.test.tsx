@@ -59,9 +59,9 @@ describe('SuppliersPage FilterBar', () => {
   })
 
   it('restores filters from URL and passes them to query', () => {
-    renderPage('/?search=acme&status=inactive&type=international')
+    renderPage('/?search=acme&status=inactive')
     expect(useGetSuppliersQuery).toHaveBeenLastCalledWith(
-      expect.objectContaining({ search: 'acme', isActive: false, type: 'international' }),
+      expect.objectContaining({ search: 'acme', isActive: false }),
     )
   })
 

@@ -30,7 +30,7 @@ import {
 import { ListSkeleton } from '@/components/common/ListSkeleton'
 import PageHeader from '@/components/common/PageHeader'
 import { FilterBar, useFilterBar } from '@/components/filters'
-import type { DateRangeValue, FilterBarConfig } from '@/components/filters'
+import type { FilterBarConfig } from '@/components/filters'
 import DeletedStockAdjustmentsDialog from '@/components/inventory/DeletedStockAdjustmentsDialog'
 import ConfirmationDialog from '@/components/common/ConfirmationDialog'
 import { useLazyGetJournalEntriesQuery } from '@/store/api/accountingApi'
@@ -56,7 +56,6 @@ import type { StockAdjustment } from '@/types'
 interface StockAdjustmentFilters {
   search: string
   status: 'draft' | 'completed' | 'cancelled' | null
-  dateRange: DateRangeValue
 }
 
 interface StockAdjustmentsSortState {
@@ -148,27 +147,17 @@ const StockAdjustmentsPage: React.FC = () => {
           ],
         },
       ],
-      advanced: [
-        {
-          field: 'dateRange',
-          label: 'Date',
-          type: 'date-range',
-          paramKey: 'adjustmentDate',
-        },
-      ],
-      defaults: { search: '', status: null, dateRange: { from: null, to: null } },
+      defaults: { search: '', status: null },
     }),
     [],
   )
 
-  const { appliedFilters, draftFilters, handlers, activeChips, hasActiveFilters, hasUnappliedChanges } = useFilterBar(filterConfig)
+  const { appliedFilters, draftFilters, handlers, hasActiveFilters } = useFilterBar(filterConfig)
 
   const adjustmentQueryParams = useMemo(
     () => ({
       search: appliedFilters.search || undefined,
       status: appliedFilters.status ?? undefined,
-      fromDate: appliedFilters.dateRange.from ?? undefined,
-      toDate: appliedFilters.dateRange.to ?? undefined,
       sortBy: sortState.sortBy,
       sortOrder: sortState.sortOrder.toUpperCase(),
     }),
@@ -469,9 +458,7 @@ const StockAdjustmentsPage: React.FC = () => {
               config={filterConfig}
               draftFilters={draftFilters}
               handlers={handlers}
-              activeChips={activeChips}
               hasActiveFilters={hasActiveFilters}
-              hasUnappliedChanges={hasUnappliedChanges}
               searchInputRef={searchInputRef}
             />
           </Box>

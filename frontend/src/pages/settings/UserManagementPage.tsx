@@ -97,12 +97,11 @@ const UserManagementPage: React.FC = () => {
           ],
         },
       ],
-      advanced: [],
       defaults: { search: '', role: null, status: null },
     }),
     [],
   )
-  const { appliedFilters, draftFilters, handlers, activeChips, hasActiveFilters, hasUnappliedChanges } =
+  const { appliedFilters, draftFilters, handlers, hasActiveFilters } =
     useFilterBar(filterConfig)
 
   const userQueryParams = useMemo(
@@ -142,12 +141,6 @@ const UserManagementPage: React.FC = () => {
         resetPage()
         handlers.onQuickFilterChange(field, value)
       },
-      onAdvancedDraftChange: handlers.onAdvancedDraftChange,
-      onAdvancedApply: () => {
-        resetPage()
-        handlers.onAdvancedApply()
-      },
-      onAdvancedCancel: handlers.onAdvancedCancel,
       onClearField: (field: keyof UserFilters) => {
         resetPage()
         handlers.onClearField(field)
@@ -330,9 +323,7 @@ const UserManagementPage: React.FC = () => {
           config={filterConfig}
           draftFilters={draftFilters}
           handlers={filterHandlers}
-          activeChips={activeChips}
           hasActiveFilters={hasActiveFilters}
-          hasUnappliedChanges={hasUnappliedChanges}
         />
       </Paper>
 

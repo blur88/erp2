@@ -15,7 +15,7 @@ interface ProductsDialogsProps {
   exportMenuAnchor: HTMLElement | null
   isExporting: boolean
   products: Product[]
-  productFilters: { search?: string; categoryId?: string }
+  productFilters: { search?: string }
   calculatorPanelOpen: boolean
   deletedProductsDialogOpen: boolean
   importDialogOpen: boolean
@@ -99,12 +99,6 @@ const ProductsDialogs: React.FC<ProductsDialogsProps> = ({
                 <>
                   <br />
                   Search: "{productFilters.search}"
-                </>
-              )}
-              {productFilters.categoryId && (
-                <>
-                  <br />
-                  Category filter applied
                 </>
               )}
             </Typography>

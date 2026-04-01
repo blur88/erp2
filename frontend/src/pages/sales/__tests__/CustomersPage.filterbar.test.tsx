@@ -57,9 +57,9 @@ describe('CustomersPage FilterBar', () => {
   })
 
   it('restores filters from URL and passes them to query', () => {
-    renderPage('/?search=acme&status=active&type=business')
+    renderPage('/?search=acme&status=active')
     expect(useGetCustomersQuery).toHaveBeenLastCalledWith(
-      expect.objectContaining({ search: 'acme', isActive: true, type: 'business' }),
+      expect.objectContaining({ search: 'acme', isActive: true }),
     )
   })
 

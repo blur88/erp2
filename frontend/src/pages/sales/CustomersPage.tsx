@@ -96,7 +96,6 @@ interface CustomerFormData {
 interface CustomerFilters {
   search: string
   status: 'active' | 'inactive' | null
-  type: 'individual' | 'business' | null
 }
 
 interface CustomerSortState {
@@ -140,23 +139,12 @@ const CustomersPage: React.FC = () => {
           ],
         },
       ],
-      advanced: [
-        {
-          field: 'type',
-          label: 'Type',
-          type: 'select',
-          options: [
-            { value: 'individual', label: 'Individual' },
-            { value: 'business', label: 'Business' },
-          ],
-        },
-      ],
-      defaults: { search: '', status: null, type: null },
+      defaults: { search: '', status: null },
     }),
     [],
   )
 
-  const { appliedFilters, draftFilters, handlers, activeChips, hasActiveFilters, hasUnappliedChanges } = useFilterBar(filterConfig)
+  const { appliedFilters, draftFilters, handlers, hasActiveFilters } = useFilterBar(filterConfig)
 
   const customerQueryParams = useMemo(
     () => ({
@@ -167,7 +155,6 @@ const CustomersPage: React.FC = () => {
           : appliedFilters.status === 'inactive'
             ? false
             : undefined,
-      type: appliedFilters.type ?? undefined,
       sortBy: sortState.sortBy,
       sortOrder: sortState.sortOrder,
       limit: 999999,
@@ -440,9 +427,7 @@ const CustomersPage: React.FC = () => {
           config={filterConfig}
           draftFilters={draftFilters}
           handlers={handlers}
-          activeChips={activeChips}
           hasActiveFilters={hasActiveFilters}
-          hasUnappliedChanges={hasUnappliedChanges}
           searchInputRef={searchInputRef}
         />
       </Paper>

@@ -60,9 +60,9 @@ describe('StockAdjustmentsPage FilterBar', () => {
   })
 
   it('restores filters from URL and passes to query', () => {
-    renderPage('/?status=draft&adjustmentDate_from=2026-01-01')
+    renderPage('/?status=draft')
     expect(useGetStockAdjustmentsQuery).toHaveBeenLastCalledWith(
-      expect.objectContaining({ status: 'draft', fromDate: '2026-01-01' }),
+      expect.objectContaining({ status: 'draft' }),
     )
   })
 

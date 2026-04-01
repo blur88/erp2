@@ -52,22 +52,13 @@ export interface FilterBarConfig<TFilters> {
     paramKey?: string
   }
   quick: FilterFieldConfig<TFilters>[]
-  advanced: FilterFieldConfig<TFilters>[]
   defaults?: Partial<TFilters>
-}
-
-export interface ActiveChip<TField = string> {
-  field: TField
-  label: string
 }
 
 export interface FilterBarHandlers<TFilters> {
   onSearchChange: (value: string) => void
   onSearchCommit: () => void
   onQuickFilterChange: (field: keyof TFilters, value: unknown) => void
-  onAdvancedDraftChange: (field: keyof TFilters, value: unknown) => void
-  onAdvancedApply: () => void
-  onAdvancedCancel: () => void
   onClearField: (field: keyof TFilters) => void
   onClearAll: () => void
 }

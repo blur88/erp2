@@ -5,7 +5,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 
 import PageHeader from '@/components/common/PageHeader'
 import { FilterBar, useFilterBar } from '@/components/filters'
-import type { FilterBarConfig, NumberRangeValue } from '@/components/filters'
+import type { FilterBarConfig } from '@/components/filters'
 import ProductDetailsPanel from './components/ProductDetailsPanel'
 import ProductsDialogs from './components/ProductsDialogs'
 import ProductsTable from './components/ProductsTable'
@@ -18,7 +18,6 @@ import { useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
 import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
 import {
   useDeleteProductMutation,
-  useGetCategoriesQuery,
   useGetProductsQuery,
 } from '@/store/api/inventoryApi'
 import {
@@ -28,9 +27,7 @@ import {
 
 interface InventoryProductFilters {
   search: string
-  categoryId: string | null
   status: 'active' | 'inactive' | null
-  stockRange: NumberRangeValue
 }
 
 export const ProductsPage: React.FC = () => {
@@ -43,8 +40,6 @@ export const ProductsPage: React.FC = () => {
 
   const selectedProduct = useAppSelector(selectSelectedProduct)
   const pageState = useProductsPageState()
-  const { data: categories = [], refetch: refetchCategories } = useGetCategoriesQuery({ includeProductCount: true })
-
   const filterConfig = useMemo<FilterBarConfig<InventoryProductFilters>>(
     () => ({
       search: { placeholder: 'Search by name, barcode, or brand...' },
@@ -60,42 +55,24 @@ export const ProductsPage: React.FC = () => {
         },
         // warehouseId deferred: backend GET /inventory/products does not support warehouseId filtering
       ],
-      advanced: [
-        {
-          field: 'categoryId',
-          label: 'Category',
-          type: 'select',
-          options: (categories as any[]).map((category) => ({ value: category.id, label: category.name })),
-        },
-        {
-          field: 'stockRange',
-          label: 'Stock Qty',
-          type: 'number-range',
-        },
-      ],
       defaults: {
         search: '',
-        categoryId: null,
         status: null,
-        stockRange: { min: null, max: null },
       },
     }),
-    [categories],
+    [],
   )
 
-  const { appliedFilters, draftFilters, handlers, activeChips, hasActiveFilters, hasUnappliedChanges } = useFilterBar(filterConfig)
+  const { appliedFilters, draftFilters, handlers, hasActiveFilters } = useFilterBar(filterConfig)
 
   const productQueryParams = useMemo(() => ({
     search: appliedFilters.search || undefined,
-    categoryId: appliedFilters.categoryId || undefined,
     isActive:
       appliedFilters.status === 'active'
         ? true
         : appliedFilters.status === 'inactive'
           ? false
           : undefined,
-    minStock: appliedFilters.stockRange.min ?? undefined,
-    maxStock: appliedFilters.stockRange.max ?? undefined,
   }), [appliedFilters])
 
   const { data: productsResponse, isFetching: isProductsFetching, refetch: refetchProducts } = useGetProductsQuery(productQueryParams)
@@ -110,7 +87,7 @@ export const ProductsPage: React.FC = () => {
     selectedProduct,
     focusedProductIndex: pageState.focusedProductIndex,
     setFocusedProductIndex: pageState.setFocusedProductIndex,
-    selectedCategory: draftFilters.categoryId ?? 'all',
+    selectedCategory: 'all',
     productListRef: pageState.productListRef,
   })
 
@@ -168,9 +145,7 @@ export const ProductsPage: React.FC = () => {
             config={filterConfig}
             draftFilters={draftFilters}
             handlers={handlers}
-            activeChips={activeChips}
             hasActiveFilters={hasActiveFilters}
-            hasUnappliedChanges={hasUnappliedChanges}
             searchInputRef={pageState.searchInputRef}
           />
         </Box>
@@ -208,7 +183,6 @@ export const ProductsPage: React.FC = () => {
         products={products}
         productFilters={{
           search: appliedFilters.search,
-          categoryId: appliedFilters.categoryId ?? undefined,
         }}
         calculatorPanelOpen={pageState.calculatorPanelOpen}
         deletedProductsDialogOpen={pageState.deletedProductsDialogOpen}
@@ -222,7 +196,6 @@ export const ProductsPage: React.FC = () => {
         onCloseImportDialog={() => pageState.setImportDialogOpen(false)}
         onImportSuccess={() => {
           void refetchProducts()
-          void refetchCategories()
         }}
         onConfirmDelete={() => void actions.handleConfirmDelete(pageState.productToDelete)}
         onCancelDelete={actions.handleCancelDelete}

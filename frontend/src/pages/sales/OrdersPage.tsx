@@ -7,7 +7,7 @@ import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 
 import PageHeader from '@/components/common/PageHeader'
 import { FilterBar, useFilterBar } from '@/components/filters'
-import type { DateRangeValue, FilterBarConfig } from '@/components/filters'
+import type { FilterBarConfig } from '@/components/filters'
 import OrdersDialogs from './components/OrdersDialogs'
 import OrderDetailsPanel from './components/OrderDetailsPanel'
 import OrdersTable from './components/OrdersTable'
@@ -34,8 +34,6 @@ interface SalesOrderFilters {
   search: string
   customerId: string | null
   paymentStatus: 'unpaid' | 'partial' | 'paid' | 'overpaid' | null
-  fulfillmentStatus: 'fulfilled' | 'unfulfilled' | null
-  dateRange: DateRangeValue
 }
 
 export const OrdersPage: React.FC = () => {
@@ -79,40 +77,23 @@ export const OrdersPage: React.FC = () => {
           ],
         },
       ],
-      advanced: [
-        {
-          field: 'fulfillmentStatus',
-          label: 'Fulfillment',
-          type: 'select',
-          options: [
-            { value: 'fulfilled', label: 'Fulfilled' },
-            { value: 'unfulfilled', label: 'Unfulfilled' },
-          ],
-        },
-        { field: 'dateRange', label: 'Order Date', type: 'date-range', paramKey: 'createdAt' },
-      ],
       defaults: {
         search: '',
         customerId: null,
         paymentStatus: null,
-        fulfillmentStatus: null,
-        dateRange: { from: null, to: null },
       },
     }),
     [customers],
   )
 
-  const filterBar = useFilterBar(filterConfig)
+  const { appliedFilters, draftFilters, handlers, hasActiveFilters } = useFilterBar(filterConfig)
   const orderQueryArgs = useMemo(() => ({
     sortBy,
     sortOrder,
-    search: filterBar.appliedFilters.search || undefined,
-    customerId: filterBar.appliedFilters.customerId || undefined,
-    fromDate: filterBar.appliedFilters.dateRange.from || undefined,
-    toDate: filterBar.appliedFilters.dateRange.to || undefined,
-    paymentStatus: filterBar.appliedFilters.paymentStatus || undefined,
-    fulfillmentStatus: filterBar.appliedFilters.fulfillmentStatus || undefined,
-  }), [filterBar.appliedFilters, sortBy, sortOrder])
+    search: appliedFilters.search || undefined,
+    customerId: appliedFilters.customerId || undefined,
+    paymentStatus: appliedFilters.paymentStatus || undefined,
+  }), [appliedFilters, sortBy, sortOrder])
 
   const { data: ordersData, isLoading: loading, refetch: refetchOrders } = useGetSalesOrdersQuery(orderQueryArgs)
   const orders = ordersData?.data ?? []
@@ -188,12 +169,12 @@ export const OrdersPage: React.FC = () => {
   }, [sortBy])
 
   const filterHandlers = useMemo(() => ({
-    ...filterBar.handlers,
+    ...handlers,
     onSearchChange: (value: string) => {
       pageState.setShouldPreserveSearchFocus(true)
-      filterBar.handlers.onSearchChange(value)
+      handlers.onSearchChange(value)
     },
-  }), [filterBar.handlers, pageState])
+  }), [handlers, pageState])
 
   useKeyboardShortcuts({
     onSearch: () => {
@@ -229,11 +210,9 @@ export const OrdersPage: React.FC = () => {
         <Box sx={{ flex: 1 }}>
           <FilterBar
             config={filterConfig}
-            draftFilters={filterBar.draftFilters}
+            draftFilters={draftFilters}
             handlers={filterHandlers}
-            activeChips={filterBar.activeChips}
-            hasActiveFilters={filterBar.hasActiveFilters}
-            hasUnappliedChanges={filterBar.hasUnappliedChanges}
+            hasActiveFilters={hasActiveFilters}
             searchInputRef={pageState.searchInputRef}
           />
         </Box>
