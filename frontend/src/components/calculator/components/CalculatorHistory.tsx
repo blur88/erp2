@@ -27,7 +27,6 @@ export const CalculatorHistory: React.FC<CalculatorHistoryProps> = ({
               variant="caption"
               sx={{
                 display: 'block',
-                fontFamily: 'monospace',
                 color: 'text.secondary',
                 py: 0.25,
               }}

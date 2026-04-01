@@ -99,7 +99,6 @@ const RestoreConfirmationDialog: React.FC<RestoreConfirmationDialogProps> = ({
                 <ListItemText
                   primary="Filename"
                   secondary={currentBackup.filename}
-                  secondaryTypographyProps={{ sx: { fontFamily: 'monospace' } }}
                 />
               </ListItem>
               <ListItem>

@@ -124,7 +124,7 @@ const PurchaseOrderDetailsPanel: React.FC<PurchaseOrderDetailsPanelProps> = ({
                         ? selectedOrder.goodsReceivedNotes.map((grn: any, index: number) => (
                             <Box key={grn.id} component="span">
                               {index > 0 && ', '}
-                              <Typography component="button" onClick={() => onNavigateToGoodsReceived(grn.id)} sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize, color: 'primary.main', cursor: 'pointer', textDecoration: 'none', border: 'none', background: 'none', padding: 0, fontFamily: 'inherit' }}>
+                              <Typography component="button" onClick={() => onNavigateToGoodsReceived(grn.id)} sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize, color: 'primary.main', cursor: 'pointer', textDecoration: 'none', border: 'none', background: 'none', padding: 0 }}>
                                 {grn.grnNumber}
                               </Typography>
                             </Box>
@@ -139,7 +139,7 @@ const PurchaseOrderDetailsPanel: React.FC<PurchaseOrderDetailsPanelProps> = ({
                         ? selectedOrder.vendorPayments.map((payment: any, index: number) => (
                             <Box key={payment.id} component="span">
                               {index > 0 && ', '}
-                              <Typography component="button" onClick={() => onNavigateToVendorPayment(payment.id)} sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize, color: 'primary.main', cursor: 'pointer', textDecoration: 'none', border: 'none', background: 'none', padding: 0, fontFamily: 'inherit' }}>
+                              <Typography component="button" onClick={() => onNavigateToVendorPayment(payment.id)} sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize, color: 'primary.main', cursor: 'pointer', textDecoration: 'none', border: 'none', background: 'none', padding: 0 }}>
                                 {payment.paymentNumber}
                               </Typography>
                             </Box>
@@ -153,7 +153,7 @@ const PurchaseOrderDetailsPanel: React.FC<PurchaseOrderDetailsPanelProps> = ({
                       {journalEntryRefLoading ? (
                         <Typography sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize, color: 'text.secondary', fontStyle: 'italic' }}>Loading...</Typography>
                       ) : journalEntryRef ? (
-                        <Typography component="button" onClick={onNavigateToJournalEntry} sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize, color: 'primary.main', cursor: 'pointer', textDecoration: 'none', border: 'none', background: 'none', padding: 0, fontFamily: 'inherit' }}>
+                        <Typography component="button" onClick={onNavigateToJournalEntry} sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize, color: 'primary.main', cursor: 'pointer', textDecoration: 'none', border: 'none', background: 'none', padding: 0 }}>
                           {journalEntryRef.referenceNumber}
                         </Typography>
                       ) : (

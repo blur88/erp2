@@ -42,7 +42,6 @@ export const CalculatorDisplay: React.FC<CalculatorDisplayProps> = ({
               fontSize: compact ? '1.2rem' : '1.5rem',
               fontWeight: 600,
               color: 'text.primary',
-              fontFamily: 'monospace',
             }
           }
         }}

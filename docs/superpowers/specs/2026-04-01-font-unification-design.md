@@ -9,7 +9,7 @@ Font declarations are scattered across the codebase:
 - `global.css` duplicates the font stack already defined in `theme.ts`
 - 13 components hardcode `fontFamily: 'monospace'`
 - 18 components hardcode `fontFamily: 'inherit'` to work around browser button font defaults
-- 17 print report files use `font-family: Arial, sans-serif` instead of Roboto
+- 19 print report files use `font-family: Arial, sans-serif` instead of Roboto
 
 ## Design
 
@@ -71,7 +71,7 @@ Remove all per-component `fontFamily: 'inherit'` props — the `MuiButtonBase` t
 
 Each print report opens a `window.open()` HTML document. Add the Google Fonts Roboto CDN `<link>` to each print window `<head>`, and change `font-family: Arial, sans-serif` to `'Roboto', sans-serif`.
 
-The 17 files are:
+The 19 files are:
 - `src/pages/purchasing/VendorProductListReport.tsx`
 - `src/pages/purchasing/VendorPaymentDetailsReport.tsx`
 - `src/pages/purchasing/PurchaseOrderStatusReport.tsx`

@@ -157,7 +157,6 @@ const InvoiceDetailsPanel: React.FC<InvoiceDetailsPanelProps> = ({
                             border: 'none',
                             background: 'none',
                             padding: 0,
-                            fontFamily: 'inherit',
                             '&:hover': { color: 'primary.dark' },
                           }}
                         >
@@ -185,7 +184,6 @@ const InvoiceDetailsPanel: React.FC<InvoiceDetailsPanelProps> = ({
                                 border: 'none',
                                 background: 'none',
                                 padding: 0,
-                                fontFamily: 'inherit',
                                 '&:hover': { color: 'primary.dark' },
                               }}
                             >
@@ -226,7 +224,6 @@ const InvoiceDetailsPanel: React.FC<InvoiceDetailsPanelProps> = ({
                             border: 'none',
                             background: 'none',
                             padding: 0,
-                            fontFamily: 'inherit',
                             '&:hover': { color: 'primary.dark' },
                           }}
                         >

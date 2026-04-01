@@ -109,7 +109,6 @@ const IdleWarningDialog: React.FC<IdleWarningDialogProps> = ({
             sx={{
               fontWeight: 700,
               color: `${getColor()}.main`,
-              fontFamily: 'monospace',
             }}
           >
             {formatTime(remainingSeconds)}

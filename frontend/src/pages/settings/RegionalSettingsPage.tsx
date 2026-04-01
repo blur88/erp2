@@ -389,7 +389,7 @@ const RegionalSettingsPage: React.FC = () => {
             <Grid size={12}>
               <Typography variant="h6" sx={{ fontWeight: 600, mb: 1 }}>Preview</Typography>
               <Paper variant="outlined" sx={{ p: 2, bgcolor: 'action.hover' }}>
-                <Typography variant="body1" fontFamily="monospace">
+                <Typography variant="body1">
                   {preview}
                 </Typography>
               </Paper>

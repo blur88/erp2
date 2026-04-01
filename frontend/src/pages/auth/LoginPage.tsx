@@ -245,7 +245,7 @@ const LoginPage: React.FC = () => {
             <Typography variant="subtitle2" color="info.dark" gutterBottom fontWeight="bold">
               Default Admin Credentials:
             </Typography>
-            <Box sx={{ mt: 1.5, p: 1.5, bgcolor: 'background.paper', borderRadius: 1, fontFamily: 'monospace' }}>
+            <Box sx={{ mt: 1.5, p: 1.5, bgcolor: 'background.paper', borderRadius: 1 }}>
               <Typography variant="body2" color="text.primary">
                 <strong>Username:</strong> admin
               </Typography>

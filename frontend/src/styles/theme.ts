@@ -86,15 +86,7 @@ const colors = {
 // Common theme options
 const baseThemeOptions: ThemeOptions = {
   typography: {
-    fontFamily: [
-      '"Roboto"',
-      '-apple-system',
-      'BlinkMacSystemFont',
-      '"Segoe UI"',
-      '"Helvetica Neue"',
-      'Arial',
-      'sans-serif',
-    ].join(','),
+    fontFamily: '"Roboto", sans-serif',
     h1: {
       fontSize: '2.5rem',
       fontWeight: 600,
@@ -253,6 +245,13 @@ const baseThemeOptions: ThemeOptions = {
         paper: {
           borderRight: 'none',
           boxShadow: '0px 0px 20px rgba(0, 0, 0, 0.08)',
+        },
+      },
+    },
+    MuiButtonBase: {
+      styleOverrides: {
+        root: {
+          fontFamily: 'inherit',
         },
       },
     },
