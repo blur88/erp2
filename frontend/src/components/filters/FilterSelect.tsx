@@ -17,6 +17,7 @@ interface Props {
   value: string | null | string[]
   options: FilterOption[]
   onChange: (value: string | null | string[]) => void
+  /** Only applies to type="select" — has no effect on multi-select */
   emptyLabel?: string
   minWidth?: number
 }
