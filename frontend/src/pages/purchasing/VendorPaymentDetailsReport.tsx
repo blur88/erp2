@@ -483,7 +483,7 @@ const VendorPaymentDetailsReport: React.FC = () => {
 
               <Box sx={{ p: 2, overflow: 'auto', flex: 1 }}>
                 <Stack spacing={2}>
-                  <Typography variant="body2" color="text.secondary" sx={{ mb: 1, fontSize: '0.75rem' }}>
+                  <Typography variant="caption" color="text.secondary" sx={{ mb: 1 }}>
                     Payment Date
                   </Typography>
                   <TextField

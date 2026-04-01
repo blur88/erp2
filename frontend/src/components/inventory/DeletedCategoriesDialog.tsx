@@ -411,7 +411,7 @@ const DeletedCategoriesDialog: React.FC<DeletedCategoriesDialogProps> = ({
                       </TableCell>
                       {!isMobile && (
                         <TableCell>
-                          <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
+                          <Typography variant="caption" color="text.secondary">
                             {category.deletedAt ? formatDate(category.deletedAt) : 'Unknown'}
                           </Typography>
                         </TableCell>

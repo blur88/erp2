@@ -254,7 +254,7 @@ const TopBar: React.FC<TopBarProps> = ({ collapsed, onMobileMenuOpen }) => {
 
           <Box sx={{ flexGrow: 1, overflow: 'hidden', display: 'flex', alignItems: 'center', height: '100%' }}>
             {isMobile ? (
-              <Typography noWrap sx={{ fontSize: '0.875rem', color: theme.palette.text.primary, fontWeight: 500 }}>
+              <Typography noWrap variant="body2" sx={{ color: theme.palette.text.primary, fontWeight: 500 }}>
                 {leafLabel}
               </Typography>
             ) : breadcrumbs.length > 0 ? (

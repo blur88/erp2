@@ -433,7 +433,7 @@ const DeletedCustomersDialog: React.FC<DeletedCustomersDialogProps> = ({ open, o
                       )}
                       {!isMobile && (
                         <TableCell>
-                          <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
+                          <Typography variant="caption" color="text.secondary">
                             {customer.deletedAt ? formatDate(customer.deletedAt) : 'Unknown'}
                           </Typography>
                         </TableCell>

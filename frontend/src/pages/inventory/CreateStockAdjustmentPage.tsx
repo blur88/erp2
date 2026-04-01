@@ -515,7 +515,7 @@ const CreateStockAdjustmentPage: React.FC = () => {
                               />
                             </TableCell>
                             <TableCell align="center" sx={{ padding: '2px 8px !important' }}>
-                              <Typography variant="body2" sx={{ fontSize: '0.875rem', color: 'text.secondary' }}>
+                              <Typography variant="body2" sx={{ color: 'text.secondary' }}>
                                 {formatNumberWithCommas(watchedItems[index]?.oldQuantity || 0)}
                               </Typography>
                             </TableCell>
@@ -551,7 +551,7 @@ const CreateStockAdjustmentPage: React.FC = () => {
                               </IconButton>
                             </TableCell>
                             <TableCell sx={{ width: 40, padding: '2px !important' }}>
-                              <Typography variant="caption" sx={{ color: theme.palette.text.secondary, fontSize: '0.75rem' }}>
+                              <Typography variant="caption" sx={{ color: theme.palette.text.secondary }}>
                                 {index + 1}
                               </Typography>
                             </TableCell>

@@ -613,7 +613,7 @@ const CustomerPaymentByOrder: React.FC = () => {
                   </Select>
                 </FormControl>
 
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 1, fontSize: '0.75rem' }}>
+                <Typography variant="caption" color="text.secondary" sx={{ mb: 1 }}>
                   Order Date
                 </Typography>
                 <TextField
@@ -680,7 +680,7 @@ const CustomerPaymentByOrder: React.FC = () => {
                     />
                   }
                   label={
-                    <Typography sx={{ fontSize: '0.75rem' }}>
+                    <Typography variant="caption">
                       Show Only Owing
                     </Typography>
                   }

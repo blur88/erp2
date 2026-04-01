@@ -436,7 +436,7 @@ const DeletedSuppliersDialog: React.FC<DeletedSuppliersDialogProps> = ({ open, o
                       )}
                       {!isMobile && (
                         <TableCell>
-                          <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
+                          <Typography variant="caption" color="text.secondary">
                             {supplier.deletedAt ? formatDate(supplier.deletedAt.toString()) : 'Unknown'}
                           </Typography>
                         </TableCell>

@@ -381,29 +381,29 @@ const AccountMappingsPage: React.FC = () => {
                   }
                 }}>
                   <TableCell>
-                    <Typography variant="caption" sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                    <Typography variant="caption" sx={{ fontWeight: 600, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                       Category
                     </Typography>
                   </TableCell>
                   <TableCell>
-                    <Typography variant="caption" sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                    <Typography variant="caption" sx={{ fontWeight: 600, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                       Mapping Type
                     </Typography>
                   </TableCell>
                   <TableCell>
-                    <Typography variant="caption" sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                    <Typography variant="caption" sx={{ fontWeight: 600, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                       Assigned Account
                     </Typography>
                   </TableCell>
                   {!isMobile && (
                     <TableCell>
-                      <Typography variant="caption" sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                      <Typography variant="caption" sx={{ fontWeight: 600, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                         Description
                       </Typography>
                     </TableCell>
                   )}
                   <TableCell align="right">
-                    <Typography variant="caption" sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                    <Typography variant="caption" sx={{ fontWeight: 600, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                       Actions
                     </Typography>
                   </TableCell>
@@ -473,7 +473,7 @@ const AccountMappingsPage: React.FC = () => {
                         </TableCell>
                         {!isMobile && (
                           <TableCell>
-                            <Typography variant="body2" sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>
+                            <Typography variant="caption" sx={{ color: 'text.secondary' }}>
                               {mapping?.description || mappingInfo.description}
                             </Typography>
                           </TableCell>

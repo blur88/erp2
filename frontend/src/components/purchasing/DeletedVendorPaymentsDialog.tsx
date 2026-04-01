@@ -204,14 +204,14 @@ const DeletedVendorPaymentsDialog: React.FC<DeletedVendorPaymentsDialogProps> = 
                         )}
                         {!isMobile && (
                           <TableCell>
-                            <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
+                            <Typography variant="caption" color="text.secondary">
                               {payment.paymentDate ? formatDate(payment.paymentDate) : 'Unknown'}
                             </Typography>
                           </TableCell>
                         )}
                         {!isMobile && (
                           <TableCell>
-                            <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
+                            <Typography variant="caption" color="text.secondary">
                               {payment.deletedAt ? formatDate(payment.deletedAt) : 'Unknown'}
                             </Typography>
                           </TableCell>

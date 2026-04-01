@@ -189,14 +189,14 @@ const DeletedPaymentsDialog: React.FC<DeletedPaymentsDialogProps> = ({ open, onC
                         </TableCell>
                         {!isMobile && (
                           <TableCell align="right">
-                            <Typography variant="body2" sx={{ fontWeight: 500, fontSize: '0.75rem' }} color="primary">
+                            <Typography variant="caption" sx={{ fontWeight: 500 }} color="primary">
                               {formatCurrency(payment.amount)}
                             </Typography>
                           </TableCell>
                         )}
                         {!isMobile && (
                           <TableCell>
-                            <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
+                            <Typography variant="caption" color="text.secondary">
                               {payment.deletedAt ? formatDate(payment.deletedAt) : 'Unknown'}
                             </Typography>
                           </TableCell>

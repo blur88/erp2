@@ -403,7 +403,7 @@ const DeletedProductsDialog: React.FC<DeletedProductsDialogProps> = ({ open, onC
                       </TableCell>
                       {!isMobile && (
                         <TableCell align="right">
-                          <Typography variant="body2" sx={{ fontWeight: 500, fontSize: '0.75rem' }} color="primary">
+                          <Typography variant="caption" sx={{ fontWeight: 500 }} color="primary">
                             {product.pricingTiers && Object.keys(product.pricingTiers).length > 0
                               ? formatCurrency(Object.values(product.pricingTiers)[0] as number)
                               : '-'}
@@ -412,7 +412,7 @@ const DeletedProductsDialog: React.FC<DeletedProductsDialogProps> = ({ open, onC
                       )}
                       {!isMobile && (
                         <TableCell>
-                          <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
+                          <Typography variant="caption" color="text.secondary">
                             {(product as any).deletedAt ? formatDate((product as any).deletedAt) : 'Unknown'}
                           </Typography>
                         </TableCell>

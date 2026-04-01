@@ -401,21 +401,21 @@ const DeletedOrdersDialog: React.FC<DeletedOrdersDialogProps> = ({ open, onClose
                       </TableCell>
                       {!isMobile && (
                         <TableCell>
-                          <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>
+                          <Typography variant="caption">
                             {formatDate(order.orderDate)}
                           </Typography>
                         </TableCell>
                       )}
                       {!isMobile && (
                         <TableCell align="right">
-                          <Typography variant="body2" sx={{ fontWeight: 500, fontSize: '0.75rem' }} color="primary">
+                          <Typography variant="caption" sx={{ fontWeight: 500 }} color="primary">
                             {formatCurrency(order.totalAmount)}
                           </Typography>
                         </TableCell>
                       )}
                       {!isMobile && (
                         <TableCell>
-                          <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
+                          <Typography variant="caption" color="text.secondary">
                             {order.deletedAt ? formatDate(order.deletedAt) : 'Unknown'}
                           </Typography>
                         </TableCell>

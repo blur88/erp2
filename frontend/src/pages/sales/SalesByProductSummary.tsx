@@ -809,7 +809,7 @@ const SalesByProductSummary: React.FC = () => {
 
               <Box sx={{ p: 2, overflow: 'auto', flex: 1 }}>
                 <Stack spacing={2}>
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 1, fontSize: '0.75rem' }}>
+                <Typography variant="caption" color="text.secondary" sx={{ mb: 1 }}>
                   SO Date Range
                 </Typography>
                 <TextField
@@ -1466,7 +1466,7 @@ const SalesByProductSummary: React.FC = () => {
                       {getFilteredProducts().length === 0 ? (
                         <TableRow>
                           <TableCell colSpan={2} align="center" sx={{ py: 4 }}>
-                            <Typography color="text.secondary" sx={{ fontSize: '0.75rem' }}>
+                            <Typography variant="caption" color="text.secondary">
                               {products.length === 0 ? 'No products available' : 'No products found'}
                             </Typography>
                           </TableCell>
@@ -1589,7 +1589,7 @@ const SalesByProductSummary: React.FC = () => {
                       {getSelectedProductsList().length === 0 ? (
                         <TableRow>
                           <TableCell colSpan={2} align="center" sx={{ py: 4 }}>
-                            <Typography color="text.secondary" sx={{ fontSize: '0.75rem' }}>
+                            <Typography variant="caption" color="text.secondary">
                               No products selected
                             </Typography>
                           </TableCell>

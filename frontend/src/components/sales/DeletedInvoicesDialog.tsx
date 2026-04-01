@@ -202,14 +202,14 @@ const DeletedInvoicesDialog: React.FC<DeletedInvoicesDialogProps> = ({ open, onC
                         </TableCell>
                         {!isMobile && (
                           <TableCell align="right">
-                            <Typography variant="body2" sx={{ fontWeight: 500, fontSize: '0.75rem' }} color="primary">
+                            <Typography variant="caption" sx={{ fontWeight: 500 }} color="primary">
                               {formatCurrency(invoice.totalAmount || 0)}
                             </Typography>
                           </TableCell>
                         )}
                         {!isMobile && (
                           <TableCell>
-                            <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
+                            <Typography variant="caption" color="text.secondary">
                               {invoice.deletedAt ? formatDate(invoice.deletedAt) : 'Unknown'}
                             </Typography>
                           </TableCell>

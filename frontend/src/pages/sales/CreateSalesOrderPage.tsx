@@ -830,7 +830,7 @@ const CreateSalesOrderPage: React.FC = () => {
                                 </Box>
                               </TableCell>
                               <TableCell align="right" sx={{ padding: '2px 8px !important' }}>
-                                <Typography variant="body2" fontWeight="600" sx={{ fontSize: '0.875rem' }}>
+                                <Typography variant="body2" fontWeight="600">
                                   {formatCurrency(watchedItems[index]?.totalPrice || 0)}
                                 </Typography>
                               </TableCell>
@@ -849,7 +849,7 @@ const CreateSalesOrderPage: React.FC = () => {
                                 </IconButton>
                               </TableCell>
                               <TableCell sx={{ width: 40, padding: '2px !important' }}>
-                                <Typography variant="caption" sx={{ color: theme.palette.text.secondary, fontSize: '0.75rem' }}>
+                                <Typography variant="caption" sx={{ color: theme.palette.text.secondary }}>
                                   {index + 1}
                                 </Typography>
                               </TableCell>
@@ -909,12 +909,12 @@ const CreateSalesOrderPage: React.FC = () => {
                     <Typography variant="h6" gutterBottom>SO Summary</Typography>
 
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                      <Typography sx={{ fontSize: '0.875rem' }}>Sub-total:</Typography>
-                      <Typography sx={{ fontSize: '0.875rem' }}>{formatCurrency(totals.subtotal)}</Typography>
+                      <Typography variant="body2">Sub-total:</Typography>
+                      <Typography variant="body2">{formatCurrency(totals.subtotal)}</Typography>
                     </Box>
 
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                      <Typography sx={{ fontSize: '0.875rem' }}>Shipping:</Typography>
+                      <Typography variant="body2">Shipping:</Typography>
                       <Controller
                         name="shipping"
                         control={control}
@@ -969,8 +969,8 @@ const CreateSalesOrderPage: React.FC = () => {
                     </Box>
 
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3, pt: 1, borderTop: `1px solid ${theme.palette.divider}` }}>
-                      <Typography variant="h6" sx={{ fontSize: '0.875rem', fontWeight: 600 }}>Total:</Typography>
-                      <Typography variant="h6" sx={{ fontSize: '0.875rem', fontWeight: 600 }}>{formatCurrency(totals.totalAmount)}</Typography>
+                      <Typography variant="h6" sx={{ fontWeight: 600 }}>Total:</Typography>
+                      <Typography variant="h6" sx={{ fontWeight: 600 }}>{formatCurrency(totals.totalAmount)}</Typography>
                     </Box>
 
                     <Box sx={{ display: 'flex', gap: 2, mt: 'auto' }}>

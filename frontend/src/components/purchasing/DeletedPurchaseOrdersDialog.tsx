@@ -396,21 +396,21 @@ const DeletedPurchaseOrdersDialog: React.FC<DeletedPurchaseOrdersDialogProps> = 
                       </TableCell>
                       {!isMobile && (
                         <TableCell>
-                          <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>
+                          <Typography variant="caption">
                             {formatDate(order.orderDate)}
                           </Typography>
                         </TableCell>
                       )}
                       {!isMobile && (
                         <TableCell align="right">
-                          <Typography variant="body2" sx={{ fontWeight: 500, fontSize: '0.75rem' }} color="primary">
+                          <Typography variant="caption" sx={{ fontWeight: 500 }} color="primary">
                             {formatCurrency((order as any).totalAmount || order.total || 0)}
                           </Typography>
                         </TableCell>
                       )}
                       {!isMobile && (
                         <TableCell>
-                          <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
+                          <Typography variant="caption" color="text.secondary">
                             {(order as any).deletedAt ? formatDate((order as any).deletedAt) : 'Unknown'}
                           </Typography>
                         </TableCell>

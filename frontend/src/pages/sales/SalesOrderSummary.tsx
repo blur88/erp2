@@ -675,7 +675,7 @@ const SalesOrderSummary: React.FC = () => {
                   </Select>
                 </FormControl>
 
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 1, fontSize: '0.75rem' }}>
+                <Typography variant="caption" color="text.secondary" sx={{ mb: 1 }}>
                   Invoice Date
                 </Typography>
                 <TextField

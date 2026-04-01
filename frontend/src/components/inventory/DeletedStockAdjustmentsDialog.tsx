@@ -432,7 +432,7 @@ const DeletedStockAdjustmentsDialog: React.FC<DeletedStockAdjustmentsDialogProps
                       </TableCell>
                       {!isMobile && (
                         <TableCell>
-                          <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>
+                          <Typography variant="caption">
                             {formatDate(adjustment.adjustmentDate)}
                           </Typography>
                         </TableCell>
@@ -449,14 +449,14 @@ const DeletedStockAdjustmentsDialog: React.FC<DeletedStockAdjustmentsDialogProps
                       )}
                       {!isMobile && (
                         <TableCell align="center">
-                          <Typography variant="body2" sx={{ fontSize: '0.75rem', fontWeight: 500 }}>
+                          <Typography variant="caption" sx={{ fontWeight: 500 }}>
                             {adjustment.itemCount || 0}
                           </Typography>
                         </TableCell>
                       )}
                       {!isMobile && (
                         <TableCell>
-                          <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
+                          <Typography variant="caption" color="text.secondary">
                             {(adjustment as any).deletedAt ? formatDate((adjustment as any).deletedAt) : 'Unknown'}
                           </Typography>
                         </TableCell>

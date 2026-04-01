@@ -190,14 +190,14 @@ const DeletedGRNsDialog: React.FC<DeletedGRNsDialogProps> = ({ open, onClose }) 
                         </TableCell>
                         {!isMobile && (
                           <TableCell>
-                            <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
+                            <Typography variant="caption" color="text.secondary">
                               {grn.receiptDate ? formatDate(grn.receiptDate) : 'Unknown'}
                             </Typography>
                           </TableCell>
                         )}
                         {!isMobile && (
                           <TableCell>
-                            <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
+                            <Typography variant="caption" color="text.secondary">
                               {grn.deletedAt ? formatDate(grn.deletedAt) : 'Unknown'}
                             </Typography>
                           </TableCell>
