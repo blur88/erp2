@@ -5,7 +5,7 @@ import { FilterSelect } from './FilterSelect'
 import type {
   FilterBarConfig,
   FilterBarHandlers,
-} from './filterBar.types'
+} from '@/types/filterBar.types'
 
 interface Props<TFilters extends object> {
   config: FilterBarConfig<TFilters>
