@@ -16,10 +16,8 @@ const config: FilterBarConfig<TestFilters> = {
   search: { placeholder: 'Search...' },
   quick: [
     { field: 'status', label: 'Status', type: 'select', options: [{ value: 'active', label: 'Active' }, { value: 'inactive', label: 'Inactive' }] },
-    { field: 'toggle', label: 'Toggle', type: 'toggle' },
-  ],
-  advanced: [
     { field: 'tags', label: 'Tags', type: 'multi-select', options: [{ value: 'a', label: 'A' }, { value: 'b', label: 'B' }] },
+    { field: 'toggle', label: 'Toggle', type: 'toggle' },
     { field: 'dateRange', label: 'Date', type: 'date-range', paramKey: 'created' },
     { field: 'amountRange', label: 'Amount', type: 'number-range', paramKey: 'amount' },
   ],

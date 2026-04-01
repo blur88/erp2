@@ -9,7 +9,6 @@ import { useFilterBar } from '../useFilterBar'
 interface Filters {
   search: string
   status: string | null
-  tags: string[]
 }
 
 const config: FilterBarConfig<Filters> = {
@@ -17,10 +16,7 @@ const config: FilterBarConfig<Filters> = {
   quick: [
     { field: 'status', label: 'Status', type: 'select', options: [{ value: 'active', label: 'Active' }] },
   ],
-  advanced: [
-    { field: 'tags', label: 'Tags', type: 'multi-select', options: [{ value: 'a', label: 'A' }, { value: 'b', label: 'B' }] },
-  ],
-  defaults: { search: '', status: null, tags: [] },
+  defaults: { search: '', status: null },
 }
 
 function makeWrapper(initialUrl = '/') {
@@ -32,8 +28,8 @@ function makeWrapper(initialUrl = '/') {
 describe('useFilterBar', () => {
   it('starts from defaults when URL is empty', () => {
     const { result } = renderHook(() => useFilterBar(config), { wrapper: makeWrapper() })
-    expect(result.current.appliedFilters).toEqual({ search: '', status: null, tags: [] })
-    expect(result.current.draftFilters).toEqual({ search: '', status: null, tags: [] })
+    expect(result.current.appliedFilters).toEqual({ search: '', status: null })
+    expect(result.current.draftFilters).toEqual({ search: '', status: null })
   })
 
   it('restores filters from URL', () => {
@@ -61,30 +57,12 @@ describe('useFilterBar', () => {
     expect(result.current.appliedFilters.search).toBe('gun')
   })
 
-  it('supports advanced draft, apply, cancel, and clear', () => {
+  it('clears all filters', () => {
     const { result } = renderHook(() => useFilterBar(config), { wrapper: makeWrapper() })
-
     act(() => {
-      result.current.handlers.onAdvancedDraftChange('tags', ['a'])
+      result.current.handlers.onQuickFilterChange('status', 'active')
     })
-    expect(result.current.appliedFilters.tags).toEqual([])
-    expect(result.current.hasUnappliedChanges).toBe(true)
-
-    act(() => {
-      result.current.handlers.onAdvancedCancel()
-    })
-    expect(result.current.draftFilters.tags).toEqual([])
-
-    act(() => {
-      result.current.handlers.onAdvancedDraftChange('tags', ['a', 'b'])
-    })
-
-    act(() => {
-      result.current.handlers.onAdvancedApply()
-    })
-    expect(result.current.appliedFilters.tags).toEqual(['a', 'b'])
-    expect(result.current.activeChips).toEqual([{ field: 'tags', label: 'Tags: 2 selected' }])
-
+    expect(result.current.hasActiveFilters).toBe(true)
     act(() => {
       result.current.handlers.onClearAll()
     })

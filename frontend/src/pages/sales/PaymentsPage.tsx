@@ -45,7 +45,7 @@ import { formatCurrency, formatDate, formatWholeQuantity } from '@/utils/formatt
 import { TABLE_STYLES } from '@/constants/tableStyles'
 import { ListSkeleton } from '@/components/common/ListSkeleton'
 import { FilterBar, useFilterBar } from '@/components/filters'
-import type { DateRangeValue, FilterBarConfig } from '@/components/filters'
+import type { FilterBarConfig } from '@/components/filters'
 import DeletedPaymentsDialog from '@/components/sales/DeletedPaymentsDialog'
 import PageHeader from '@/components/common/PageHeader'
 import { PaymentReceiptPrint } from '@/components/print'
@@ -96,8 +96,6 @@ interface Payment {
 
 interface PaymentFilters {
   search: string
-  dateRange: DateRangeValue
-  customerId: string | null
 }
 
 interface PaymentSortState {
@@ -199,51 +197,13 @@ const PaymentsPage: React.FC = () => {
   const filterConfig = useMemo<FilterBarConfig<PaymentFilters>>(
     () => ({
       search: { placeholder: 'Search by payment number or customer...' },
-      quick: [
-        {
-          field: 'dateRange',
-          label: 'Date',
-          type: 'date-range',
-          paramKey: 'paymentDate',
-        },
-      ],
-      advanced: [
-        {
-          field: 'customerId',
-          label: 'Customer',
-          type: 'select',
-          options: customers.map((customer) => ({ value: customer.id, label: customer.name })),
-          chipFormatter: (value) => {
-            if (!value) return null as unknown as string
-            const customer = customers.find((entry) => entry.id === value)
-            return `Customer: ${customer?.name ?? value}`
-          },
-        },
-      ],
-      defaults: { search: '', dateRange: { from: null, to: null }, customerId: null },
+      quick: [],
+      defaults: { search: '' },
     }),
-    [customers],
+    [],
   )
 
-  // Inject preset customer into the URL before useFilterBar captures mount search.
-  useMemo(() => {
-    if (presetCustomerId) {
-      const params = new URLSearchParams(window.location.search)
-      if (!params.get('customerId')) {
-        params.set('customerId', presetCustomerId)
-        window.history.replaceState(window.history.state, '', `${location.pathname}?${params.toString()}`)
-      }
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
-  const { appliedFilters, draftFilters, handlers, activeChips, hasUnappliedChanges } = useFilterBar(filterConfig)
-
-  const visibleActiveChips = useMemo(
-    () => (presetCustomerId ? activeChips.filter((chip) => chip.field !== 'customerId') : activeChips),
-    [activeChips, presetCustomerId],
-  )
-  const hasVisibleActiveFilters = visibleActiveChips.length > 0
+  const { appliedFilters, draftFilters, handlers, hasActiveFilters } = useFilterBar(filterConfig)
   const filterBarHandlers = useMemo(
     () => (
       presetCustomerId
@@ -251,7 +211,6 @@ const PaymentsPage: React.FC = () => {
             ...handlers,
             onClearAll: () => {
               handlers.onClearField('search')
-              handlers.onClearField('dateRange')
             },
           }
         : handlers
@@ -263,9 +222,6 @@ const PaymentsPage: React.FC = () => {
       sortBy: sortState.sortBy,
       sortOrder: sortState.sortOrder,
       search: appliedFilters.search || undefined,
-      fromDate: appliedFilters.dateRange.from ?? undefined,
-      toDate: appliedFilters.dateRange.to ?? undefined,
-      customerId: appliedFilters.customerId ?? undefined,
     }),
     [appliedFilters, sortState],
   )
@@ -535,9 +491,7 @@ const PaymentsPage: React.FC = () => {
               config={filterConfig}
               draftFilters={draftFilters}
               handlers={filterBarHandlers}
-              activeChips={visibleActiveChips}
-              hasActiveFilters={hasVisibleActiveFilters}
-              hasUnappliedChanges={hasUnappliedChanges}
+              hasActiveFilters={hasActiveFilters}
               searchInputRef={searchInputRef}
             />
 

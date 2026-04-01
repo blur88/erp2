@@ -26,7 +26,7 @@ export function getManagedParamKeys<TFilters>(
     keys.push(config.search.paramKey ?? 'search')
   }
 
-  for (const field of [...config.quick, ...config.advanced]) {
+  for (const field of config.quick) {
     const key = effectiveKey(field)
     if (field.type === 'date-range') {
       keys.push(`${key}_from`, `${key}_to`)
@@ -65,7 +65,7 @@ export function serializeFilters<TFilters extends object>(
     }
   }
 
-  for (const field of [...config.quick, ...config.advanced]) {
+  for (const field of config.quick) {
     const key = effectiveKey(field)
     const value = filters[field.field]
     const defaultValue = defaults[String(field.field)]
@@ -126,7 +126,7 @@ export function parseFilters<TFilters extends object>(
     result.search = searchParams.get(searchKey) ?? (defaults.search ?? '')
   }
 
-  for (const field of [...config.quick, ...config.advanced]) {
+  for (const field of config.quick) {
     const key = effectiveKey(field)
     const fieldKey = String(field.field)
     const defaultValue = defaults[fieldKey]
