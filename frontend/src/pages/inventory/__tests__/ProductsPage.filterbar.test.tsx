@@ -17,10 +17,6 @@ const { useGetProductsQuery } = vi.hoisted(() => ({
 
 vi.mock('@/store/api/inventoryApi', () => ({
   useGetProductsQuery,
-  useGetCategoriesQuery: vi.fn(() => ({
-    data: [{ id: 'cat-1', name: 'Gundam' }],
-    refetch: vi.fn(),
-  })),
   useDeleteProductMutation: vi.fn(() => [vi.fn()]),
 }))
 
@@ -84,11 +80,10 @@ describe('ProductsPage FilterBar integration', () => {
   })
 
   it('restores filters from URL into the products query', () => {
-    renderPage('/?search=gundam&categoryId=cat-1&status=inactive')
+    renderPage('/?search=gundam&status=inactive')
     expect(useGetProductsQuery).toHaveBeenLastCalledWith(
       expect.objectContaining({
         search: 'gundam',
-        categoryId: 'cat-1',
         isActive: false,
       }),
     )

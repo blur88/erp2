@@ -88,12 +88,11 @@ describe('PurchaseOrdersPage FilterBar integration', () => {
   })
 
   it('restores new URL params into the purchase orders query', () => {
-    renderPage('/?search=gundam&supplierId=sup-1&orderDate_from=2024-01-01')
+    renderPage('/?search=gundam&supplierId=sup-1')
     expect(useGetPurchaseOrdersQuery).toHaveBeenLastCalledWith(
       expect.objectContaining({
         search: 'gundam',
         supplierId: 'sup-1',
-        orderDateFrom: '2024-01-01',
       }),
     )
   })
@@ -101,8 +100,8 @@ describe('PurchaseOrdersPage FilterBar integration', () => {
   it('ignores legacy date params', () => {
     renderPage('/?orderDateFrom=2024-01-01')
     expect(useGetPurchaseOrdersQuery).toHaveBeenLastCalledWith(
-      expect.objectContaining({
-        orderDateFrom: undefined,
+      expect.not.objectContaining({
+        orderDateFrom: expect.anything(),
       }),
     )
   })

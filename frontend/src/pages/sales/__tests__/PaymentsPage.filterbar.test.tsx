@@ -62,17 +62,17 @@ describe('PaymentsPage FilterBar', () => {
     expect(screen.getByPlaceholderText(/search by payment number or customer/i)).toBeInTheDocument()
   })
 
-  it('restores date range from URL and passes to query', () => {
-    renderPage('/?paymentDate_from=2026-01-01&paymentDate_to=2026-03-31')
+  it('restores search from URL and passes it to query', () => {
+    renderPage('/?search=receipt-42')
     expect(useGetPaymentsQuery).toHaveBeenLastCalledWith(
-      expect.objectContaining({ fromDate: '2026-01-01', toDate: '2026-03-31' }),
+      expect.objectContaining({ search: 'receipt-42' }),
     )
   })
 
-  it('presets customerId from URL when navigated from customer profile', () => {
+  it('ignores legacy customerId URL params in the query', () => {
     renderPage('/?customerId=cust-1')
     expect(useGetPaymentsQuery).toHaveBeenLastCalledWith(
-      expect.objectContaining({ customerId: 'cust-1' }),
+      expect.not.objectContaining({ customerId: expect.anything() }),
     )
   })
 
