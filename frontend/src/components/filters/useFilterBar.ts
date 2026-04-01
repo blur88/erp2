@@ -20,10 +20,7 @@ function getDefaults<TFilters extends object>(
     }
 
     if (field.type === 'select') defaults[key] = null
-    else if (field.type === 'multi-select') defaults[key] = []
-    else if (field.type === 'toggle') defaults[key] = null
-    else if (field.type === 'date-range') defaults[key] = { from: null, to: null }
-    else defaults[key] = { min: null, max: null }
+    else defaults[key] = []
   }
 
   return defaults as TFilters

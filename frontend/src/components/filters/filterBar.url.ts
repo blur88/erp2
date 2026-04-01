@@ -1,17 +1,7 @@
 import type {
-  DateRangeValue,
   FilterBarConfig,
   FilterFieldConfig,
-  NumberRangeValue,
 } from './filterBar.types'
-
-const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/
-
-function isValidDate(value: string): boolean {
-  if (!ISO_DATE_RE.test(value)) return false
-  const parsed = new Date(value)
-  return !Number.isNaN(parsed.getTime())
-}
 
 function effectiveKey<TFilters>(field: FilterFieldConfig<TFilters>): string {
   return field.paramKey ?? String(field.field)
@@ -27,16 +17,7 @@ export function getManagedParamKeys<TFilters>(
   }
 
   for (const field of config.quick) {
-    const key = effectiveKey(field)
-    if (field.type === 'date-range') {
-      keys.push(`${key}_from`, `${key}_to`)
-      continue
-    }
-    if (field.type === 'number-range') {
-      keys.push(`${key}_min`, `${key}_max`)
-      continue
-    }
-    keys.push(key)
+    keys.push(effectiveKey(field))
   }
 
   return keys
@@ -83,28 +64,6 @@ export function serializeFilters<TFilters extends object>(
       }
       continue
     }
-
-    if (field.type === 'toggle') {
-      if (value !== null && value !== undefined) {
-        orderedEntries.push([key, String(value)])
-      }
-      continue
-    }
-
-    if (field.type === 'date-range') {
-      const range = value as DateRangeValue | undefined
-      if (range?.from) orderedEntries.push([`${key}_from`, range.from])
-      if (range?.to) orderedEntries.push([`${key}_to`, range.to])
-      continue
-    }
-
-    const range = value as NumberRangeValue | undefined
-    if (range?.min !== null && range?.min !== undefined) {
-      orderedEntries.push([`${key}_min`, String(range.min)])
-    }
-    if (range?.max !== null && range?.max !== undefined) {
-      orderedEntries.push([`${key}_max`, String(range.max)])
-    }
   }
 
   for (const [key, value] of orderedEntries) {
@@ -147,33 +106,6 @@ export function parseFilters<TFilters extends object>(
       result[fieldKey] = searchParams.getAll(key).filter((value) => validOptions.has(value))
       continue
     }
-
-    if (field.type === 'toggle') {
-      const raw = searchParams.get(key)
-      if (raw === 'true') result[fieldKey] = true
-      else if (raw === 'false') result[fieldKey] = false
-      else result[fieldKey] = defaultValue ?? null
-      continue
-    }
-
-    if (field.type === 'date-range') {
-      const from = searchParams.get(`${key}_from`)
-      const to = searchParams.get(`${key}_to`)
-      result[fieldKey] = {
-        from: from && isValidDate(from) ? from : null,
-        to: to && isValidDate(to) ? to : null,
-      } satisfies DateRangeValue
-      continue
-    }
-
-    const minRaw = searchParams.get(`${key}_min`)
-    const maxRaw = searchParams.get(`${key}_max`)
-    const min = minRaw === null ? null : Number(minRaw)
-    const max = maxRaw === null ? null : Number(maxRaw)
-    result[fieldKey] = {
-      min: min !== null && !Number.isNaN(min) ? min : null,
-      max: max !== null && !Number.isNaN(max) ? max : null,
-    } satisfies NumberRangeValue
   }
 
   return result as TFilters

@@ -1,14 +1,8 @@
-export type DateRangeValue = { from: string | null; to: string | null }
-export type NumberRangeValue = { min: number | null; max: number | null }
-
 export type FilterOption = { value: string; label: string }
 
 export type FilterFieldType =
   | 'select'
   | 'multi-select'
-  | 'date-range'
-  | 'number-range'
-  | 'toggle'
 
 interface BaseFilterFieldConfig<TFilters, K extends keyof TFilters> {
   field: K
@@ -24,26 +18,8 @@ export interface SelectFilterFieldConfig<TFilters, K extends keyof TFilters>
   options: FilterOption[]
 }
 
-export interface DateRangeFilterFieldConfig<TFilters, K extends keyof TFilters>
-  extends BaseFilterFieldConfig<TFilters, K> {
-  type: 'date-range'
-}
-
-export interface NumberRangeFilterFieldConfig<TFilters, K extends keyof TFilters>
-  extends BaseFilterFieldConfig<TFilters, K> {
-  type: 'number-range'
-}
-
-export interface ToggleFilterFieldConfig<TFilters, K extends keyof TFilters>
-  extends BaseFilterFieldConfig<TFilters, K> {
-  type: 'toggle'
-}
-
 export type FilterFieldConfig<TFilters> =
-  | SelectFilterFieldConfig<TFilters, keyof TFilters>
-  | DateRangeFilterFieldConfig<TFilters, keyof TFilters>
-  | NumberRangeFilterFieldConfig<TFilters, keyof TFilters>
-  | ToggleFilterFieldConfig<TFilters, keyof TFilters>
+  SelectFilterFieldConfig<TFilters, keyof TFilters>
 
 export interface FilterBarConfig<TFilters> {
   search?: {
