@@ -1,3 +1,10 @@
+# [1.40.0](https://github.com/blur88/erp2/compare/v1.39.4...v1.40.0) (2026-04-01)
+
+
+### Features
+
+* add emptyLabel and minWidth props to FilterSelect ([#244](https://github.com/blur88/erp2/issues/244)) ([e217420](https://github.com/blur88/erp2/commit/e217420e7fed74db187c53dd987e2d3ec3b42913))
+
 ## [1.39.4](https://github.com/blur88/erp2/compare/v1.39.3...v1.39.4) (2026-04-01)
 
 
