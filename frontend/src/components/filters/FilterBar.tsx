@@ -1,11 +1,8 @@
 import { Button, Stack } from '@mui/material'
 
-import { FilterDateRange } from './FilterDateRange'
 import { FilterSearch } from './FilterSearch'
 import { FilterSelect } from './FilterSelect'
-import { FilterToggle } from './FilterToggle'
 import type {
-  DateRangeValue,
   FilterBarConfig,
   FilterBarHandlers,
 } from './filterBar.types'
@@ -40,29 +37,7 @@ function renderQuickField<TFilters extends object>(
     )
   }
 
-  if (field.type === 'date-range') {
-    return (
-      <FilterDateRange
-        key={String(field.field)}
-        label={field.label}
-        value={value as DateRangeValue}
-        onChange={onChange}
-      />
-    )
-  }
-
-  if (field.type === 'number-range') {
-    return null
-  }
-
-  return (
-    <FilterToggle
-      key={String(field.field)}
-      label={field.label}
-      value={value as boolean | null}
-      onChange={onChange}
-    />
-  )
+  return null
 }
 
 export function FilterBar<TFilters extends object>({
