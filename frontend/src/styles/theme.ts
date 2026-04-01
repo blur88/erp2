@@ -7,6 +7,23 @@ declare module '@mui/material/styles' {
   }
 }
 
+declare module '@mui/material/styles' {
+  interface TypographyVariants {
+    tableHeader: React.CSSProperties
+    tableCaption: React.CSSProperties
+  }
+  interface TypographyVariantsOptions {
+    tableHeader?: React.CSSProperties
+    tableCaption?: React.CSSProperties
+  }
+}
+declare module '@mui/material/Typography' {
+  interface TypographyPropsVariantOverrides {
+    tableHeader: true
+    tableCaption: true
+  }
+}
+
 // Color palette
 const colors = {
   primary: {
@@ -153,6 +170,18 @@ const baseThemeOptions: ThemeOptions = {
       textTransform: 'uppercase',
       letterSpacing: '0.08em',
       lineHeight: 1.5,
+    },
+    tableHeader: {
+      fontSize: '0.75rem',
+      fontWeight: 600,
+      textTransform: 'uppercase' as const,
+      letterSpacing: '0.08em',
+      lineHeight: 1.5,
+    },
+    tableCaption: {
+      fontSize: '0.7rem',
+      fontWeight: 400,
+      lineHeight: 1.2,
     },
   },
   shape: {
