@@ -23,9 +23,9 @@ import {
   LockOpen as UnlockIcon,
 } from '@mui/icons-material'
 import { ListSkeleton } from '@/components/common/ListSkeleton'
-import { FilterBar, useFilterBar } from '@/components/filters'
-import type { FilterBarConfig } from '@/components/filters'
+import { FilterBar } from '@/components/filters'
 import PageHeader from '@/components/common/PageHeader'
+import { useFilterBar } from '@/hooks/useFilterBar'
 import { useAppSelector } from '@/hooks/useRedux'
 import { useNotification } from '@/hooks/useNotification'
 import {
@@ -40,6 +40,7 @@ import UserFormDialog from '@/components/settings/UserFormDialog'
 import ConfirmationDialog from '@/components/common/ConfirmationDialog'
 import { TABLE_STYLES } from '@/constants/tableStyles'
 import { formatDateTime } from '@/utils/formatters'
+import type { FilterBarConfig } from '@/types/filterBar.types'
 
 interface UserFilters {
   search: string

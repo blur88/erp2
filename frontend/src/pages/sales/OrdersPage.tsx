@@ -6,8 +6,7 @@ import { useStore } from 'react-redux'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 
 import PageHeader from '@/components/common/PageHeader'
-import { FilterBar, useFilterBar } from '@/components/filters'
-import type { FilterBarConfig } from '@/components/filters'
+import { FilterBar } from '@/components/filters'
 import OrdersDialogs from './components/OrdersDialogs'
 import OrderDetailsPanel from './components/OrderDetailsPanel'
 import OrdersTable from './components/OrdersTable'
@@ -15,6 +14,7 @@ import { useOrdersActions } from './hooks/useOrdersActions'
 import { useOrdersPageState } from './hooks/useOrdersPageState'
 import { useOrdersSelection } from './hooks/useOrdersSelection'
 
+import { useFilterBar } from '@/hooks/useFilterBar'
 import { useNotification } from '@/hooks/useNotification'
 import { useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
 import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
@@ -29,6 +29,7 @@ import {
   selectSalesError,
   selectSelectedOrder,
 } from '@/store/slices/salesSlice'
+import type { FilterBarConfig } from '@/types/filterBar.types'
 
 interface SalesOrderFilters {
   search: string

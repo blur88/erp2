@@ -45,8 +45,8 @@ import { useForm, Controller } from 'react-hook-form'
 import { yupResolver } from '@hookform/resolvers/yup'
 import * as yup from 'yup'
 import { ListSkeleton } from '@/components/common/ListSkeleton'
-import { FilterBar, useFilterBar } from '@/components/filters'
-import type { FilterBarConfig } from '@/components/filters'
+import { FilterBar } from '@/components/filters'
+import { useFilterBar } from '@/hooks/useFilterBar'
 import { useNotification } from '@/hooks/useNotification'
 import { useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
 import {
@@ -65,6 +65,7 @@ import PriceListSelector from '@/components/price-lists/PriceListSelector'
 import ConfirmationDialog from '@/components/common/ConfirmationDialog'
 import PageHeader from '@/components/common/PageHeader'
 import { TABLE_STYLES } from '@/constants/tableStyles'
+import type { FilterBarConfig } from '@/types/filterBar.types'
 
 // Form validation schema
 const customerSchema = yup.object({
