@@ -41,8 +41,8 @@ import { yupResolver } from '@hookform/resolvers/yup'
 import * as yup from 'yup'
 import { ListSkeleton } from '@/components/common/ListSkeleton'
 import PageHeader from '@/components/common/PageHeader'
-import { FilterBar, useFilterBar } from '@/components/filters'
-import type { FilterBarConfig } from '@/components/filters'
+import { FilterBar } from '@/components/filters'
+import { useFilterBar } from '@/hooks/useFilterBar'
 import { useNotification } from '@/hooks/useNotification'
 import { useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
 import {
@@ -59,6 +59,7 @@ import { formatDate } from '@/utils/formatters'
 import DeletedSuppliersDialog from '@/components/purchasing/DeletedSuppliersDialog'
 import ConfirmationDialog from '@/components/common/ConfirmationDialog'
 import { TABLE_STYLES } from '@/constants/tableStyles'
+import type { FilterBarConfig } from '@/types/filterBar.types'
 
 // Form validation schema
 const supplierSchema = yup.object({

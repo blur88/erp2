@@ -3,8 +3,8 @@ import React from 'react'
 import { MemoryRouter } from 'react-router-dom'
 import { describe, expect, it } from 'vitest'
 
-import type { FilterBarConfig } from '../filterBar.types'
-import { useFilterBar } from '../useFilterBar'
+import type { FilterBarConfig } from '@/types/filterBar.types'
+import { useFilterBar } from '@/hooks/useFilterBar'
 
 interface Filters {
   search: string

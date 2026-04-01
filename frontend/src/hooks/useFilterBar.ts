@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation } from 'react-router-dom'
 
-import type { FilterBarConfig, FilterBarHandlers } from './filterBar.types'
-import { parseFilters, serializeFilters } from './filterBar.url'
+import type { FilterBarConfig, FilterBarHandlers } from '@/types/filterBar.types'
+import { parseFilters, serializeFilters } from '@/utils/filterBar.url'
 
 function getDefaults<TFilters extends object>(
   config: FilterBarConfig<TFilters>,
@@ -49,7 +49,7 @@ export function useFilterBar<TFilters extends object>(
     const parsed = parseFilters(new URLSearchParams(mountSearchRef.current), config)
     return { ...defaults, ...parsed }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []) // mount-only
+  }, [])
 
   const [appliedFilters, setAppliedFilters] = useState<TFilters>(initialFilters)
   const [draftFilters, setDraftFilters] = useState<TFilters>(initialFilters)

@@ -8,7 +8,7 @@ import {
   Select,
 } from '@mui/material'
 
-import type { FilterOption } from './filterBar.types'
+import type { FilterOption } from '@/types/filterBar.types'
 
 interface Props {
   field: string

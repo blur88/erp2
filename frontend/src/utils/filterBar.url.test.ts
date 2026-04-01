@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
-import type { FilterBarConfig } from '../filterBar.types'
-import { getManagedParamKeys, parseFilters, serializeFilters } from '../filterBar.url'
+import type { FilterBarConfig } from '@/types/filterBar.types'
+import { getManagedParamKeys, parseFilters, serializeFilters } from '@/utils/filterBar.url'
 
 interface TestFilters {
   search: string

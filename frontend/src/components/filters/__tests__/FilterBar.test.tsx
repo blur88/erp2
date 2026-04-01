@@ -1,8 +1,8 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 
+import type { FilterBarConfig, FilterBarHandlers } from '@/types/filterBar.types'
 import { FilterBar } from '../FilterBar'
-import type { FilterBarConfig, FilterBarHandlers } from '../filterBar.types'
 
 interface Filters {
   search: string

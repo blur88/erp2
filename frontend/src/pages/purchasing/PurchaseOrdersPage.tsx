@@ -5,8 +5,7 @@ import Grid from '@mui/material/GridLegacy'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 
 import PageHeader from '@/components/common/PageHeader'
-import { FilterBar, useFilterBar } from '@/components/filters'
-import type { FilterBarConfig } from '@/components/filters'
+import { FilterBar } from '@/components/filters'
 import PurchaseOrderDetailsPanel from './components/PurchaseOrderDetailsPanel'
 import PurchaseOrdersDialogs from './components/PurchaseOrdersDialogs'
 import PurchaseOrdersTable from './components/PurchaseOrdersTable'
@@ -14,6 +13,7 @@ import { usePurchaseOrdersActions } from './hooks/usePurchaseOrdersActions'
 import { usePurchaseOrdersPageState } from './hooks/usePurchaseOrdersPageState'
 import { usePurchaseOrdersSelection } from './hooks/usePurchaseOrdersSelection'
 
+import { useFilterBar } from '@/hooks/useFilterBar'
 import { useNotification } from '@/hooks/useNotification'
 import { useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
 import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
@@ -28,6 +28,7 @@ import {
   useReturnGoodsMutation,
 } from '@/store/api/purchasingApi'
 import { selectSelectedPurchaseOrder } from '@/store/slices/purchasingSlice'
+import type { FilterBarConfig } from '@/types/filterBar.types'
 
 interface PurchaseOrderFilters {
   search: string

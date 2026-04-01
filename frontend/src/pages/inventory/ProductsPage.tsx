@@ -4,8 +4,8 @@ import Grid from '@mui/material/GridLegacy'
 import { useLocation, useNavigate } from 'react-router-dom'
 
 import PageHeader from '@/components/common/PageHeader'
-import { FilterBar, useFilterBar } from '@/components/filters'
-import type { FilterBarConfig } from '@/components/filters'
+import { FilterBar } from '@/components/filters'
+import { useFilterBar } from '@/hooks/useFilterBar'
 import ProductDetailsPanel from './components/ProductDetailsPanel'
 import ProductsDialogs from './components/ProductsDialogs'
 import ProductsTable from './components/ProductsTable'
@@ -24,6 +24,7 @@ import {
   selectSelectedProduct,
   setSelectedProduct,
 } from '@/store/slices/inventorySlice'
+import type { FilterBarConfig } from '@/types/filterBar.types'
 
 interface InventoryProductFilters {
   search: string

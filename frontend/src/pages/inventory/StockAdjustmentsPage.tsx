@@ -29,10 +29,10 @@ import {
 } from '@mui/icons-material'
 import { ListSkeleton } from '@/components/common/ListSkeleton'
 import PageHeader from '@/components/common/PageHeader'
-import { FilterBar, useFilterBar } from '@/components/filters'
-import type { FilterBarConfig } from '@/components/filters'
+import { FilterBar } from '@/components/filters'
 import DeletedStockAdjustmentsDialog from '@/components/inventory/DeletedStockAdjustmentsDialog'
 import ConfirmationDialog from '@/components/common/ConfirmationDialog'
+import { useFilterBar } from '@/hooks/useFilterBar'
 import { useLazyGetJournalEntriesQuery } from '@/store/api/accountingApi'
 import type { JournalEntry } from '@/types'
 import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
@@ -52,6 +52,7 @@ import { useNotification } from '@/hooks/useNotification'
 import { useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
 import { TABLE_STYLES } from '@/constants/tableStyles'
 import type { StockAdjustment } from '@/types'
+import type { FilterBarConfig } from '@/types/filterBar.types'
 
 interface StockAdjustmentFilters {
   search: string
