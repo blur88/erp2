@@ -3,6 +3,7 @@ import { Box, Button, CircularProgress, FormControl, InputLabel, MenuItem, Selec
 import type { DashboardCompare, DashboardPeriod } from '@/hooks/useDashboardFilters'
 
 import { FilterPeriod } from './FilterPeriod'
+import { FilterSelect } from './FilterSelect'
 
 interface DashboardFilterBarProps {
   period: DashboardPeriod
@@ -106,57 +107,42 @@ export function DashboardFilterBar({
       </Tooltip>
 
       {customers !== undefined && onCustomerChange && (
-        <FormControl size="small" sx={{ minWidth: 170 }}>
-          <InputLabel id="dashboard-customer-label">Customer</InputLabel>
-          <Select
-            labelId="dashboard-customer-label"
-            id="dashboard-customer"
-            value={customerId ?? ''}
-            label="Customer"
-            onChange={(e) => onCustomerChange(e.target.value || null)}
-          >
-            <MenuItem value="">All Customers</MenuItem>
-            {customers.map((customer) => (
-              <MenuItem key={customer.id} value={customer.id}>{customer.name}</MenuItem>
-            ))}
-          </Select>
-        </FormControl>
+        <FilterSelect
+          field="customer"
+          label="Customer"
+          type="select"
+          value={customerId ?? null}
+          options={customers.map((c) => ({ value: c.id, label: c.name }))}
+          onChange={(v) => onCustomerChange(v as string | null)}
+          emptyLabel="All Customers"
+          minWidth={170}
+        />
       )}
 
       {suppliers !== undefined && onSupplierChange && (
-        <FormControl size="small" sx={{ minWidth: 170 }}>
-          <InputLabel id="dashboard-supplier-label">Supplier</InputLabel>
-          <Select
-            labelId="dashboard-supplier-label"
-            id="dashboard-supplier"
-            value={supplierId ?? ''}
-            label="Supplier"
-            onChange={(e) => onSupplierChange(e.target.value || null)}
-          >
-            <MenuItem value="">All Suppliers</MenuItem>
-            {suppliers.map((supplier) => (
-              <MenuItem key={supplier.id} value={supplier.id}>{supplier.name}</MenuItem>
-            ))}
-          </Select>
-        </FormControl>
+        <FilterSelect
+          field="supplier"
+          label="Supplier"
+          type="select"
+          value={supplierId ?? null}
+          options={suppliers.map((s) => ({ value: s.id, label: s.name }))}
+          onChange={(v) => onSupplierChange(v as string | null)}
+          emptyLabel="All Suppliers"
+          minWidth={170}
+        />
       )}
 
       {categories !== undefined && onCategoryChange && (
-        <FormControl size="small" sx={{ minWidth: 170 }}>
-          <InputLabel id="dashboard-category-label">Category</InputLabel>
-          <Select
-            labelId="dashboard-category-label"
-            id="dashboard-category"
-            value={categoryId ?? ''}
-            label="Category"
-            onChange={(e) => onCategoryChange(e.target.value || null)}
-          >
-            <MenuItem value="">All Categories</MenuItem>
-            {categories.map((category) => (
-              <MenuItem key={category.id} value={category.id}>{category.name}</MenuItem>
-            ))}
-          </Select>
-        </FormControl>
+        <FilterSelect
+          field="category"
+          label="Category"
+          type="select"
+          value={categoryId ?? null}
+          options={categories.map((c) => ({ value: c.id, label: c.name }))}
+          onChange={(v) => onCategoryChange(v as string | null)}
+          emptyLabel="All Categories"
+          minWidth={170}
+        />
       )}
 
       {stockStatus !== undefined && onStockStatusChange && (
