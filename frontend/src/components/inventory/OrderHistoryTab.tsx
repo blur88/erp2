@@ -16,7 +16,6 @@ import { ApiService } from '@/services/api'
 import { useNotification } from '@/hooks/useNotification'
 import { formatCurrency } from '@/utils/currency'
 import { formatDate as formatDisplayDate } from '@/utils/formatters'
-import { TYPOGRAPHY_STYLES } from '@/constants/typography'
 import { TABLE_STYLES } from '@/constants/tableStyles'
 
 interface OrderHistoryTabProps {
@@ -100,13 +99,13 @@ const OrderHistoryTab: React.FC<OrderHistoryTabProps> = ({ productId }) => {
             label={order.paymentStatus === 'paid' ? 'Paid' : order.paymentStatus === 'partial' ? 'Partial' : 'Pending'}
             color={paymentColor as any}
             size="small"
-            sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize }}
+            sx={{ fontSize: '0.7rem' }}
           />
           <Chip
             label={order.fulfillmentStatus === 'fulfilled' ? 'Fulfilled' : 'Pending'}
             color={fulfillmentColor as any}
             size="small"
-            sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize }}
+            sx={{ fontSize: '0.7rem' }}
           />
         </Box>
       )
@@ -127,13 +126,13 @@ const OrderHistoryTab: React.FC<OrderHistoryTabProps> = ({ productId }) => {
             label={order.paymentStatus === 'paid' ? 'Paid' : order.paymentStatus === 'partial' ? 'Partial' : 'Pending'}
             color={paymentColor as any}
             size="small"
-            sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize }}
+            sx={{ fontSize: '0.7rem' }}
           />
           <Chip
             label={order.receivedStatus === 'received' ? 'Received' : 'Pending Delivery'}
             color={receivedColor as any}
             size="small"
-            sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize }}
+            sx={{ fontSize: '0.7rem' }}
           />
         </Box>
       )
@@ -174,25 +173,25 @@ const OrderHistoryTab: React.FC<OrderHistoryTabProps> = ({ productId }) => {
         >
           <TableHead>
             <TableRow>
-              <TableCell sx={{ fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight }}>
+              <TableCell sx={{ fontWeight: 600 }}>
                 Type
               </TableCell>
-              <TableCell sx={{ fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight }}>
+              <TableCell sx={{ fontWeight: 600 }}>
                 Order #
               </TableCell>
-              <TableCell sx={{ fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight }}>
+              <TableCell sx={{ fontWeight: 600 }}>
                 Customer/Vendor
               </TableCell>
-              <TableCell sx={{ fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight }}>
+              <TableCell sx={{ fontWeight: 600 }}>
                 Date
               </TableCell>
-              <TableCell sx={{ fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight }}>
+              <TableCell sx={{ fontWeight: 600 }}>
                 Order Status
               </TableCell>
-              <TableCell sx={{ fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight }} align="right">
+              <TableCell sx={{ fontWeight: 600 }} align="right">
                 Quantity
               </TableCell>
-              <TableCell sx={{ fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight }} align="right">
+              <TableCell sx={{ fontWeight: 600 }} align="right">
                 Sub-Total
               </TableCell>
             </TableRow>
@@ -202,32 +201,32 @@ const OrderHistoryTab: React.FC<OrderHistoryTabProps> = ({ productId }) => {
               <TableRow key={order.id} hover>
                 <TableCell>
                   <Typography
-                    variant={TYPOGRAPHY_STYLES.tableCell.primary.variant}
-                    sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}
+                    variant="body2"
+                    sx={{ fontSize: '0.8rem' }}
                   >
                     {getOrderTypeLabel(order.type)}
                   </Typography>
                 </TableCell>
                 <TableCell>
                   <Typography
-                    variant={TYPOGRAPHY_STYLES.tableCell.primary.variant}
-                    sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}
+                    variant="body2"
+                    sx={{ fontSize: '0.8rem' }}
                   >
                     {order.orderNumber}
                   </Typography>
                 </TableCell>
                 <TableCell>
                   <Typography
-                    variant={TYPOGRAPHY_STYLES.tableCell.primary.variant}
-                    sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}
+                    variant="body2"
+                    sx={{ fontSize: '0.8rem' }}
                   >
                     {order.customerOrVendor}
                   </Typography>
                 </TableCell>
                 <TableCell>
                   <Typography
-                    variant={TYPOGRAPHY_STYLES.tableCell.primary.variant}
-                    sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}
+                    variant="body2"
+                    sx={{ fontSize: '0.8rem' }}
                   >
                     {formatDate(order.date)}
                   </Typography>
@@ -235,18 +234,18 @@ const OrderHistoryTab: React.FC<OrderHistoryTabProps> = ({ productId }) => {
                 <TableCell>{getStatusChip(order)}</TableCell>
                 <TableCell align="right">
                   <Typography
-                    variant={TYPOGRAPHY_STYLES.tableCell.primary.variant}
-                    sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}
+                    variant="body2"
+                    sx={{ fontSize: '0.8rem' }}
                   >
                     {Math.floor(order.quantity)}
                   </Typography>
                 </TableCell>
                 <TableCell align="right">
                   <Typography
-                    variant={TYPOGRAPHY_STYLES.tableCell.primary.variant}
+                    variant="body2"
                     sx={{
-                      fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
-                      fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight,
+                      fontSize: '0.8rem',
+                      fontWeight: 600,
                     }}
                   >
                     {formatCurrency(order.subTotal)}

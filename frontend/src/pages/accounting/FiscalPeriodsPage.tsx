@@ -38,7 +38,6 @@ import ConfirmationDialog from '@/components/common/ConfirmationDialog'
 import GeneratePeriodsDialog from '@/components/accounting/GeneratePeriodsDialog'
 import FiscalPeriodFormDialog from '@/components/accounting/FiscalPeriodFormDialog'
 import AccountMappingWarning from '@/components/accounting/AccountMappingWarning'
-import { TYPOGRAPHY_STYLES } from '@/constants/typography'
 import { TABLE_STYLES } from '@/constants/tableStyles'
 import {
   useCloseFiscalPeriodMutation,
@@ -306,17 +305,17 @@ const FiscalPeriodsPage: React.FC = () => {
             flex: isMobile ? 'none' : 1,
             maxWidth: isMobile ? 'none' : 400,
             '& .MuiOutlinedInput-root': {
-              height: TYPOGRAPHY_STYLES.searchField.input.height,
-              fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
+              height: '40px',
+              fontSize: '0.875rem',
               '& input': {
-                padding: TYPOGRAPHY_STYLES.searchField.input.padding,
-                fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize
+                padding: '8.5px 14px',
+                fontSize: '0.875rem'
               }
             },
             '& .MuiInputAdornment-root': {
               '& .MuiSvgIcon-root': {
-                fontSize: TYPOGRAPHY_STYLES.searchField.icon.fontSize,
-                color: TYPOGRAPHY_STYLES.searchField.icon.color
+                fontSize: '1.25rem',
+                color: 'action.active'
               }
             }
           }}
@@ -338,9 +337,9 @@ const FiscalPeriodsPage: React.FC = () => {
         >
           <InputLabel
             sx={{
-              fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
+              fontSize: '0.875rem',
               '&.MuiInputLabel-shrunk': {
-                fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize
+                fontSize: '0.7rem'
               }
             }}
           >
@@ -351,8 +350,8 @@ const FiscalPeriodsPage: React.FC = () => {
             label="Year"
             onChange={(e) => setYearFilter(e.target.value)}
             sx={{
-              height: TYPOGRAPHY_STYLES.searchField.input.height,
-              fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
+              height: '40px',
+              fontSize: '0.875rem',
             }}
           >
             <MenuItem value="all">All Years</MenuItem>
@@ -373,9 +372,9 @@ const FiscalPeriodsPage: React.FC = () => {
         >
           <InputLabel
             sx={{
-              fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
+              fontSize: '0.875rem',
               '&.MuiInputLabel-shrunk': {
-                fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize
+                fontSize: '0.7rem'
               }
             }}
           >
@@ -386,8 +385,8 @@ const FiscalPeriodsPage: React.FC = () => {
             label="Status"
             onChange={(e) => setStatusFilter(e.target.value)}
             sx={{
-              height: TYPOGRAPHY_STYLES.searchField.input.height,
-              fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
+              height: '40px',
+              fontSize: '0.875rem',
             }}
           >
             <MenuItem value="all">All</MenuItem>
@@ -438,64 +437,64 @@ const FiscalPeriodsPage: React.FC = () => {
               <TableHead>
                 <TableRow sx={{ '& .MuiTableCell-head': { fontWeight: 600, backgroundColor: 'grey.50', py: 1 } }}>
                   <TableCell sx={{ width: '12%' }}>
-                    <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
-                      fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
-                      color: TYPOGRAPHY_STYLES.tableHeader.color,
-                      fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
+                    <Typography variant="tableHeader" sx={{
+                      fontWeight: 600,
+                      color: 'text.primary',
+                      fontSize: '0.8rem'
                     }}>
                       Code
                     </Typography>
                   </TableCell>
                   <TableCell sx={{ width: '20%' }}>
-                    <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
-                      fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
-                      color: TYPOGRAPHY_STYLES.tableHeader.color,
-                      fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
+                    <Typography variant="tableHeader" sx={{
+                      fontWeight: 600,
+                      color: 'text.primary',
+                      fontSize: '0.8rem'
                     }}>
                       Name
                     </Typography>
                   </TableCell>
                   <TableCell sx={{ width: '15%' }}>
-                    <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
-                      fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
-                      color: TYPOGRAPHY_STYLES.tableHeader.color,
-                      fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
+                    <Typography variant="tableHeader" sx={{
+                      fontWeight: 600,
+                      color: 'text.primary',
+                      fontSize: '0.8rem'
                     }}>
                       Start Date
                     </Typography>
                   </TableCell>
                   <TableCell sx={{ width: '15%' }}>
-                    <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
-                      fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
-                      color: TYPOGRAPHY_STYLES.tableHeader.color,
-                      fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
+                    <Typography variant="tableHeader" sx={{
+                      fontWeight: 600,
+                      color: 'text.primary',
+                      fontSize: '0.8rem'
                     }}>
                       End Date
                     </Typography>
                   </TableCell>
                   <TableCell sx={{ width: '10%' }}>
-                    <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
-                      fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
-                      color: TYPOGRAPHY_STYLES.tableHeader.color,
-                      fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
+                    <Typography variant="tableHeader" sx={{
+                      fontWeight: 600,
+                      color: 'text.primary',
+                      fontSize: '0.8rem'
                     }}>
                       Duration
                     </Typography>
                   </TableCell>
                   <TableCell sx={{ width: '10%' }}>
-                    <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
-                      fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
-                      color: TYPOGRAPHY_STYLES.tableHeader.color,
-                      fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
+                    <Typography variant="tableHeader" sx={{
+                      fontWeight: 600,
+                      color: 'text.primary',
+                      fontSize: '0.8rem'
                     }}>
                       Status
                     </Typography>
                   </TableCell>
                   <TableCell align="right" sx={{ width: '18%' }}>
-                    <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
-                      fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
-                      color: TYPOGRAPHY_STYLES.tableHeader.color,
-                      fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
+                    <Typography variant="tableHeader" sx={{
+                      fontWeight: 600,
+                      color: 'text.primary',
+                      fontSize: '0.8rem'
                     }}>
                       Actions
                     </Typography>
@@ -519,38 +518,38 @@ const FiscalPeriodsPage: React.FC = () => {
                     }}
                   >
                     <TableCell>
-                      <Typography variant={TYPOGRAPHY_STYLES.tableCell.primary.variant} sx={{
-                        fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
-                        fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight,
+                      <Typography variant="body2" sx={{
+                        fontSize: '0.8rem',
+                        fontWeight: 600,
                       }}>
                         {period.code}
                       </Typography>
                     </TableCell>
                     <TableCell>
-                      <Typography variant={TYPOGRAPHY_STYLES.tableCell.secondary.variant} sx={{
-                        fontSize: TYPOGRAPHY_STYLES.tableCell.secondary.fontSize,
-                        lineHeight: TYPOGRAPHY_STYLES.tableCell.secondary.lineHeight,
+                      <Typography variant="body2" sx={{
+                        fontSize: '0.8rem',
+                        lineHeight: 1.2,
                       }}>
                         {period.name}
                       </Typography>
                     </TableCell>
                     <TableCell>
-                      <Typography variant={TYPOGRAPHY_STYLES.tableCell.caption.variant} color="text.secondary" sx={{
-                        fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize
+                      <Typography variant="tableCaption" color="text.secondary" sx={{
+                        fontSize: '0.7rem'
                       }}>
                         {format(new Date(period.startDate), 'MMM dd, yyyy')}
                       </Typography>
                     </TableCell>
                     <TableCell>
-                      <Typography variant={TYPOGRAPHY_STYLES.tableCell.caption.variant} color="text.secondary" sx={{
-                        fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize
+                      <Typography variant="tableCaption" color="text.secondary" sx={{
+                        fontSize: '0.7rem'
                       }}>
                         {format(new Date(period.endDate), 'MMM dd, yyyy')}
                       </Typography>
                     </TableCell>
                     <TableCell>
-                      <Typography variant={TYPOGRAPHY_STYLES.tableCell.caption.variant} color="text.secondary" sx={{
-                        fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize
+                      <Typography variant="tableCaption" color="text.secondary" sx={{
+                        fontSize: '0.7rem'
                       }}>
                         {period.durationDays} days
                       </Typography>
@@ -561,7 +560,7 @@ const FiscalPeriodsPage: React.FC = () => {
                         size="small"
                         color={getStatusBadgeColor(period.status) as any}
                         sx={{
-                          fontSize: TYPOGRAPHY_STYLES.chip.small.fontSize,
+                          fontSize: '0.7rem',
                           fontWeight: 500,
                           height: `${TABLE_STYLES.row.height * 0.65}px`,
                         }}

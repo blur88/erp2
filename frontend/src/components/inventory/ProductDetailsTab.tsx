@@ -12,7 +12,6 @@ import {
 } from '@mui/material'
 import { Product, PriceListItem } from '@/types'
 import { formatCurrency } from '@/utils/currency'
-import { TYPOGRAPHY_STYLES } from '@/constants/typography'
 import { TABLE_STYLES } from '@/constants/tableStyles'
 import { useGetProductPriceListItemsQuery } from '@/store/api/priceListApi'
 import { useGetRegionalSettingsQuery } from '@/store/api/settingsApi'
@@ -83,9 +82,9 @@ const ProductDetailsTab: React.FC<ProductDetailsTabProps> = ({ product }) => {
                     py: TABLE_STYLES.cell.padding.py * 0.67
                   }}>
                     <Typography variant="h6" sx={{
-                      fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
+                      fontWeight: 600,
                       color: 'primary.main',
-                      fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
+                      fontSize: '0.8rem'
                     }}>
                       Basic Information
                     </Typography>
@@ -93,45 +92,45 @@ const ProductDetailsTab: React.FC<ProductDetailsTabProps> = ({ product }) => {
                 </TableRow>
                 <TableRow sx={{ backgroundColor: 'grey.50' }}>
                   <TableCell sx={{
-                    fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight,
+                    fontWeight: 600,
                     color: 'text.secondary',
-                    fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize
+                    fontSize: '0.8rem'
                   }}>
                     Product Name
                   </TableCell>
-                  <TableCell sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
+                  <TableCell sx={{ fontSize: '0.8rem' }}>
                     {product.name}
                   </TableCell>
                 </TableRow>
                 <TableRow>
-                  <TableCell sx={{ fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight, color: 'text.secondary', fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
+                  <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem' }}>
                     Barcode
                   </TableCell>
-                  <TableCell sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
+                  <TableCell sx={{ fontSize: '0.8rem' }}>
                     {product.barcode || 'No barcode'}
                   </TableCell>
                 </TableRow>
                 <TableRow sx={{ backgroundColor: 'grey.50' }}>
-                  <TableCell sx={{ fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight, color: 'text.secondary', fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
+                  <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem' }}>
                     Type
                   </TableCell>
-                  <TableCell sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
+                  <TableCell sx={{ fontSize: '0.8rem' }}>
                     {product.type === 'Stocked Product' ? 'Stocked Product' : 'Service'}
                   </TableCell>
                 </TableRow>
                 <TableRow>
-                  <TableCell sx={{ fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight, color: 'text.secondary', fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
+                  <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem' }}>
                     Category
                   </TableCell>
-                  <TableCell sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
+                  <TableCell sx={{ fontSize: '0.8rem' }}>
                     {product.category?.name || 'No Category'}
                   </TableCell>
                 </TableRow>
                 <TableRow sx={{ backgroundColor: 'grey.50' }}>
-                  <TableCell sx={{ fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight, color: 'text.secondary', fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
+                  <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem' }}>
                     Description
                   </TableCell>
-                  <TableCell sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
+                  <TableCell sx={{ fontSize: '0.8rem' }}>
                     {product.description || 'No description'}
                   </TableCell>
                 </TableRow>
@@ -169,25 +168,25 @@ const ProductDetailsTab: React.FC<ProductDetailsTabProps> = ({ product }) => {
                     py: TABLE_STYLES.cell.padding.py * 0.67
                   }}>
                     <Typography variant="h6" sx={{
-                      fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
+                      fontWeight: 600,
                       color: 'primary.main',
-                      fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
+                      fontSize: '0.8rem'
                     }}>
                       Pricing & Margins
                     </Typography>
                   </TableCell>
                 </TableRow>
                 <TableRow sx={{ backgroundColor: 'grey.50' }}>
-                  <TableCell sx={{ fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight, color: 'text.secondary', fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
+                  <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem' }}>
                     Base Cost
                   </TableCell>
-                  <TableCell colSpan={2} sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
+                  <TableCell colSpan={2} sx={{ fontSize: '0.8rem' }}>
                     {formatCurrency(product.baseCost)}
                   </TableCell>
                 </TableRow>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={3} sx={{ textAlign: 'center', fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
+                    <TableCell colSpan={3} sx={{ textAlign: 'center', fontSize: '0.8rem' }}>
                       Loading price lists...
                     </TableCell>
                   </TableRow>
@@ -199,13 +198,13 @@ const ProductDetailsTab: React.FC<ProductDetailsTabProps> = ({ product }) => {
 
                     return (
                       <TableRow key={item.id} sx={{ backgroundColor: isEvenRow ? 'transparent' : 'grey.50' }}>
-                        <TableCell sx={{ fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight, color: 'text.secondary', fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
+                        <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem' }}>
                           {item.priceList?.name || 'Unknown'} Price
                         </TableCell>
-                        <TableCell sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
+                        <TableCell sx={{ fontSize: '0.8rem' }}>
                           {formatCurrency(item.price)}
                         </TableCell>
-                        <TableCell sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
+                        <TableCell sx={{ fontSize: '0.8rem' }}>
                           {item.price > 0 && (
                             <Chip
                               label={`${margin.toFixed(1)}%`}
@@ -213,9 +212,9 @@ const ProductDetailsTab: React.FC<ProductDetailsTabProps> = ({ product }) => {
                               variant="outlined"
                               color={getMarginColor(margin)}
                               sx={{
-                                fontSize: TYPOGRAPHY_STYLES.chip.extraSmall.fontSize,
-                                fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight,
-                                height: TYPOGRAPHY_STYLES.chip.extraSmall.height,
+                                fontSize: '0.65rem',
+                                fontWeight: 600,
+                                height: 18,
                                 minWidth: 42
                               }}
                             />
@@ -226,7 +225,7 @@ const ProductDetailsTab: React.FC<ProductDetailsTabProps> = ({ product }) => {
                   })
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={3} sx={{ textAlign: 'center', fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize, color: 'text.secondary', fontStyle: 'italic' }}>
+                    <TableCell colSpan={3} sx={{ textAlign: 'center', fontSize: '0.8rem', color: 'text.secondary', fontStyle: 'italic' }}>
                       No price lists configured for this product
                     </TableCell>
                   </TableRow>
@@ -272,9 +271,9 @@ const ProductDetailsTab: React.FC<ProductDetailsTabProps> = ({ product }) => {
                     py: TABLE_STYLES.cell.padding.py * 0.67
                   }}>
                     <Typography variant="h6" sx={{
-                      fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
+                      fontWeight: 600,
                       color: 'primary.main',
-                      fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
+                      fontSize: '0.8rem'
                     }}>
                       Notes
                     </Typography>
@@ -294,14 +293,14 @@ const ProductDetailsTab: React.FC<ProductDetailsTabProps> = ({ product }) => {
                     }}>
                       {product.notes ? (
                         <Typography variant="body2" sx={{
-                          fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
+                          fontSize: '0.8rem',
                           lineHeight: 1.4,
                           whiteSpace: 'pre-wrap'
                         }}>
                           {product.notes}
                         </Typography>
                       ) : (
-                        <Typography variant={TYPOGRAPHY_STYLES.tableCell.secondary.variant} color="text.secondary" sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize, fontStyle: 'italic' }}>
+                        <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.7rem', fontStyle: 'italic' }}>
                           No notes available
                         </Typography>
                       )}
@@ -342,21 +341,21 @@ const ProductDetailsTab: React.FC<ProductDetailsTabProps> = ({ product }) => {
                     py: TABLE_STYLES.cell.padding.py * 0.67
                   }}>
                     <Typography variant="h6" sx={{
-                      fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
+                      fontWeight: 600,
                       color: 'primary.main',
-                      fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
+                      fontSize: '0.8rem'
                     }}>
                       Stock Information
                     </Typography>
                   </TableCell>
                 </TableRow>
                 <TableRow sx={{ backgroundColor: 'grey.50' }}>
-                  <TableCell sx={{ fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight, color: 'text.secondary', fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
+                  <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem' }}>
                     Current Stock
                   </TableCell>
-                  <TableCell colSpan={2} sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
+                  <TableCell colSpan={2} sx={{ fontSize: '0.8rem' }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <Typography variant={TYPOGRAPHY_STYLES.tableCell.primary.variant} sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
+                      <Typography variant="body2" sx={{ fontSize: '0.8rem' }}>
                         {product.stockQuantity || 0}
                       </Typography>
                       <Chip
@@ -365,7 +364,7 @@ const ProductDetailsTab: React.FC<ProductDetailsTabProps> = ({ product }) => {
                         size="small"
                         variant="outlined"
                         sx={{
-                          fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize,
+                          fontSize: '0.7rem',
                           fontWeight: 500,
                           height: 20
                         }}

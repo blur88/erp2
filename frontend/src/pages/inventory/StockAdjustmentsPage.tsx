@@ -50,7 +50,6 @@ import {
 import { formatDate } from '@/utils/formatters'
 import { useNotification } from '@/hooks/useNotification'
 import { useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
-import { TYPOGRAPHY_STYLES } from '@/constants/typography'
 import { TABLE_STYLES } from '@/constants/tableStyles'
 import type { StockAdjustment } from '@/types'
 
@@ -101,11 +100,11 @@ const AdjustmentRow = memo(({ adjustment, index, selectedAdjustmentId, focusedAd
     >
       <TableCell>
         <Typography
-          variant={TYPOGRAPHY_STYLES.tableCell.secondary.variant}
+          variant="body2"
           sx={{
-            fontWeight: TYPOGRAPHY_STYLES.tableCell.secondary.fontWeight,
-            fontSize: TYPOGRAPHY_STYLES.tableCell.secondary.fontSize,
-            lineHeight: TYPOGRAPHY_STYLES.tableCell.secondary.lineHeight
+            fontWeight: 400,
+            fontSize: '0.8rem',
+            lineHeight: 1.2
           }}
         >
           {adjustment.adjustmentNumber}
@@ -483,7 +482,7 @@ const StockAdjustmentsPage: React.FC = () => {
             startIcon={sortState.sortBy === 'adjustmentDate' ? (sortState.sortOrder === 'desc' ? <ArrowDownIcon /> : <ArrowUpIcon />) : <SortIcon />}
             onClick={() => handleSort('adjustmentDate')}
             sx={{
-              height: TYPOGRAPHY_STYLES.searchField.input.height,
+              height: '40px',
               fontSize: '0.875rem',
               minWidth: 'auto',
               px: 2,
@@ -509,9 +508,9 @@ const StockAdjustmentsPage: React.FC = () => {
           }}>
           <Paper sx={{ height: 'calc(100vh - 300px)', display: 'flex', flexDirection: 'column' }}>
             <Box sx={{ p: TABLE_STYLES.cell.padding.px, borderBottom: TABLE_STYLES.cell.border }}>
-              <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
-                fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
-                fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize,
+              <Typography variant="tableHeader" sx={{
+                fontWeight: 600,
+                fontSize: '0.8rem',
                 textTransform: 'uppercase',
                 letterSpacing: '0.5px'
               }}>
@@ -568,9 +567,9 @@ const StockAdjustmentsPage: React.FC = () => {
             <Paper sx={{ height: 'calc(100vh - 300px)', display: 'flex', flexDirection: 'column' }}>
               <Box sx={{ p: TABLE_STYLES.cell.padding.px, borderBottom: TABLE_STYLES.cell.border, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
-                    fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
-                    fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize,
+                  <Typography variant="tableHeader" sx={{
+                    fontWeight: 600,
+                    fontSize: '0.8rem',
                     textTransform: 'uppercase',
                     letterSpacing: '0.5px'
                   }}>
@@ -675,9 +674,9 @@ const StockAdjustmentsPage: React.FC = () => {
                               borderTop: TABLE_STYLES.cell.border
                             }}>
                               <Typography variant="h6" sx={{
-                                fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
+                                fontWeight: 600,
                                 color: 'primary.main',
-                                fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
+                                fontSize: '0.8rem'
                               }}>
                                 SA Information
                               </Typography>
@@ -685,35 +684,35 @@ const StockAdjustmentsPage: React.FC = () => {
                           </TableRow>
                           <TableRow sx={{ backgroundColor: 'grey.50' }}>
                             <TableCell sx={{
-                              fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight,
+                              fontWeight: 600,
                               color: 'text.secondary',
-                              fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize
+                              fontSize: '0.8rem'
                             }}>
                               Date
                             </TableCell>
-                            <TableCell sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
+                            <TableCell sx={{ fontSize: '0.8rem' }}>
                               {formatDate(selectedAdjustment.adjustmentDate)}
                             </TableCell>
                           </TableRow>
                           <TableRow>
-                            <TableCell sx={{ fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight, color: 'text.secondary', fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
+                            <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem' }}>
                               Item Count
                             </TableCell>
-                            <TableCell sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
+                            <TableCell sx={{ fontSize: '0.8rem' }}>
                               {selectedAdjustment.itemCount}
                             </TableCell>
                           </TableRow>
                           {selectedAdjustment.status === 'completed' && (
                             <>
                               <TableRow sx={{ backgroundColor: 'grey.50' }}>
-                                <TableCell sx={{ fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight, color: 'text.secondary', fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
+                                <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem' }}>
                                   Journal Entry
                                 </TableCell>
-                                <TableCell sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
+                                <TableCell sx={{ fontSize: '0.8rem' }}>
                                   {journalEntry ? (
                                     <Typography
                                       component="span"
-                                      sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize, fontWeight: 600, color: 'primary.main', cursor: 'pointer', '&:hover': { textDecoration: 'underline' } }}
+                                      sx={{ fontSize: '0.8rem', fontWeight: 600, color: 'primary.main', cursor: 'pointer', '&:hover': { textDecoration: 'underline' } }}
                                       onClick={() => navigate(`/accounting/journal-entries/${journalEntry.id}`)}
                                     >
                                       {journalEntry.referenceNumber}
@@ -758,9 +757,9 @@ const StockAdjustmentsPage: React.FC = () => {
                               borderTop: TABLE_STYLES.cell.border
                             }}>
                               <Typography variant="h6" sx={{
-                                fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
+                                fontWeight: 600,
                                 color: 'primary.main',
-                                fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
+                                fontSize: '0.8rem'
                               }}>
                                 SA Confirmation
                               </Typography>
@@ -768,21 +767,21 @@ const StockAdjustmentsPage: React.FC = () => {
                           </TableRow>
                           <TableRow sx={{ backgroundColor: 'grey.50' }}>
                             <TableCell sx={{
-                              fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight,
+                              fontWeight: 600,
                               color: 'text.secondary',
-                              fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize
+                              fontSize: '0.8rem'
                             }}>
                               Created At
                             </TableCell>
-                            <TableCell sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
+                            <TableCell sx={{ fontSize: '0.8rem' }}>
                               {formatDate(selectedAdjustment.createdAt)}
                             </TableCell>
                           </TableRow>
                           <TableRow>
-                            <TableCell sx={{ fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight, color: 'text.secondary', fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
+                            <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem' }}>
                               Updated At
                             </TableCell>
-                            <TableCell sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
+                            <TableCell sx={{ fontSize: '0.8rem' }}>
                               {formatDate(selectedAdjustment.updatedAt)}
                             </TableCell>
                           </TableRow>
@@ -854,9 +853,9 @@ const StockAdjustmentsPage: React.FC = () => {
                           py: TABLE_STYLES.cell.padding.py * 0.67,
                           borderTop: TABLE_STYLES.cell.border
                         }}>
-                          <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
-                            fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
-                            fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize,
+                          <Typography variant="tableHeader" sx={{
+                            fontWeight: 600,
+                            fontSize: '0.8rem',
                             textTransform: 'uppercase',
                             letterSpacing: '0.5px'
                           }}>
@@ -884,10 +883,10 @@ const StockAdjustmentsPage: React.FC = () => {
                       >
                         <TableHead>
                           <TableRow sx={{ '& .MuiTableCell-head': {
-                            fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
+                            fontWeight: 600,
                             backgroundColor: 'grey.50',
-                            color: TYPOGRAPHY_STYLES.tableHeader.color,
-                            fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
+                            color: 'text.primary',
+                            fontSize: '0.8rem'
                           } }}>
                             <TableCell sx={{ width: '40%' }}>
                               Product
@@ -917,29 +916,29 @@ const StockAdjustmentsPage: React.FC = () => {
                               }}
                             >
                               <TableCell sx={{
-                                fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
-                                lineHeight: TYPOGRAPHY_STYLES.tableCell.primary.lineHeight
+                                fontSize: '0.8rem',
+                                lineHeight: 1.2
                               }}>
                                 {item.product?.name || 'Unknown Product'}
                               </TableCell>
                               <TableCell align="center" sx={{
-                                fontSize: TYPOGRAPHY_STYLES.tableCell.secondary.fontSize,
-                                fontWeight: TYPOGRAPHY_STYLES.tableCell.secondary.fontWeight,
-                                lineHeight: TYPOGRAPHY_STYLES.tableCell.secondary.lineHeight,
+                                fontSize: '0.8rem',
+                                fontWeight: 400,
+                                lineHeight: 1.2,
                                 color: 'text.secondary'
                               }}>
                                 {Number(item.oldQuantity).toLocaleString()}
                               </TableCell>
                               <TableCell align="center" sx={{
-                                fontSize: TYPOGRAPHY_STYLES.tableCell.secondary.fontSize,
-                                fontWeight: TYPOGRAPHY_STYLES.tableCell.secondary.fontWeight,
-                                lineHeight: TYPOGRAPHY_STYLES.tableCell.secondary.lineHeight
+                                fontSize: '0.8rem',
+                                fontWeight: 400,
+                                lineHeight: 1.2
                               }}>
                                 {Number(item.newQuantity).toLocaleString()}
                               </TableCell>
                               <TableCell align="center" sx={{
-                                fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
-                                lineHeight: TYPOGRAPHY_STYLES.tableCell.primary.lineHeight,
+                                fontSize: '0.8rem',
+                                lineHeight: 1.2,
                                 fontWeight: 600,
                                 color: Number(item.difference) > 0
                                   ? 'success.main'
@@ -973,9 +972,9 @@ const StockAdjustmentsPage: React.FC = () => {
 
               {/* NOTES Section - below items */}
               <Box sx={{ mt: 1 }}>
-                <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
-                  fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
-                  fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize,
+                <Typography variant="tableHeader" sx={{
+                  fontWeight: 600,
+                  fontSize: '0.8rem',
                   textTransform: 'uppercase',
                   letterSpacing: '0.5px',
                   mb: 1
@@ -987,7 +986,7 @@ const StockAdjustmentsPage: React.FC = () => {
                   p: 2,
                   backgroundColor: 'grey.50',
                   borderRadius: 1,
-                  fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
+                  fontSize: '0.8rem',
                   whiteSpace: 'pre-wrap',
                   wordBreak: 'break-word'
                 }}>

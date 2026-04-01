@@ -14,7 +14,6 @@ import { DragIndicator as DragIndicatorIcon } from '@mui/icons-material'
 
 import type { Product } from '@/types'
 import { TABLE_STYLES } from '@/constants/tableStyles'
-import { TYPOGRAPHY_STYLES } from '@/constants/typography'
 
 interface ProductsTableProps {
   products: Product[]
@@ -40,10 +39,10 @@ const ProductsTable: React.FC<ProductsTableProps> = ({
       <Box sx={{ p: TABLE_STYLES.cell.padding.px, borderBottom: TABLE_STYLES.cell.border }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <Typography
-            variant={TYPOGRAPHY_STYLES.tableHeader.variant}
+            variant="tableHeader"
             sx={{
-              fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
-              fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize,
+              fontWeight: 600,
+              fontSize: '0.8rem',
               textTransform: 'uppercase',
               letterSpacing: '0.5px',
             }}
@@ -75,7 +74,7 @@ const ProductsTable: React.FC<ProductsTableProps> = ({
           </Box>
         ) : products.length === 0 ? (
           <Box sx={{ p: 4, textAlign: 'center', flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Typography variant={TYPOGRAPHY_STYLES.tableCell.primary.variant} color="text.secondary">
+            <Typography variant="body2" color="text.secondary">
               No products found. Create your first product to get started.
             </Typography>
           </Box>
@@ -121,12 +120,12 @@ const ProductsTable: React.FC<ProductsTableProps> = ({
                     >
                       <TableCell sx={{ py: TABLE_STYLES.cell.padding.py }}>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                          <DragIndicatorIcon sx={{ color: 'text.secondary', fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize }} />
+                          <DragIndicatorIcon sx={{ color: 'text.secondary', fontSize: '0.875rem' }} />
                           <Typography
-                            variant={TYPOGRAPHY_STYLES.tableCell.secondary.variant}
+                            variant="body2"
                             sx={{
                               fontSize: '0.8rem',
-                              lineHeight: TYPOGRAPHY_STYLES.tableCell.secondary.lineHeight,
+                              lineHeight: 1.2,
                               fontWeight: 400,
                             }}
                           >

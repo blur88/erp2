@@ -10,7 +10,6 @@ import {
     TrendingUp as TrendingUpIcon,
     TrendingDown as TrendingDownIcon,
 } from '@mui/icons-material'
-import { TYPOGRAPHY_STYLES } from '@/constants/typography'
 
 interface StatItem {
     title: string
@@ -70,21 +69,21 @@ const DashboardStats: React.FC<DashboardStatsProps> = ({ stats }) => {
                                         <TrendingDownIcon sx={{ fontSize: 16, color: 'error.main' }} />
                                     )}
                                     <Typography
-                                        variant={TYPOGRAPHY_STYLES.tableCell.caption.variant}
+                                        variant="tableCaption"
                                         sx={{
                                             color: stat.trend === 'up' ? 'success.main' : 'error.main',
-                                            fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight,
-                                            fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize
+                                            fontWeight: 600,
+                                            fontSize: '0.7rem'
                                         }}
                                     >
                                         {stat.change}
                                     </Typography>
                                 </Box>
                             </Box>
-                            <Typography variant={TYPOGRAPHY_STYLES.pageHeader.variant} sx={{ fontWeight: TYPOGRAPHY_STYLES.pageHeader.fontWeight, mb: 0.5 }}>
+                            <Typography variant="h4" sx={{ fontWeight: 700, mb: 0.5 }}>
                                 {stat.value}
                             </Typography>
-                            <Typography variant={TYPOGRAPHY_STYLES.tableCell.secondary.variant} color="text.secondary">
+                            <Typography variant="body2" color="text.secondary">
                                 {stat.title}
                             </Typography>
                         </CardContent>

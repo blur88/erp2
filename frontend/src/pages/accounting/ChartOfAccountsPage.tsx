@@ -38,7 +38,6 @@ import ConfirmationDialog from '@/components/common/ConfirmationDialog'
 import ChartOfAccountFormDialog from '@/components/accounting/ChartOfAccountFormDialog'
 import AccountMappingWarning from '@/components/accounting/AccountMappingWarning'
 import DeletedAccountsDialog from '@/components/accounting/DeletedAccountsDialog'
-import { TYPOGRAPHY_STYLES } from '@/constants/typography'
 import { TABLE_STYLES } from '@/constants/tableStyles'
 import {
   useDeleteChartOfAccountMutation,
@@ -241,17 +240,17 @@ const ChartOfAccountsPage: React.FC = () => {
               flex: isMobile ? 'none' : 1,
               maxWidth: isMobile ? 'none' : 400,
               '& .MuiOutlinedInput-root': {
-                height: TYPOGRAPHY_STYLES.searchField.input.height,
-                fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
+                height: '40px',
+                fontSize: '0.875rem',
                 '& input': {
-                  padding: TYPOGRAPHY_STYLES.searchField.input.padding,
-                  fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize
+                  padding: '8.5px 14px',
+                  fontSize: '0.875rem'
                 }
               },
               '& .MuiInputAdornment-root': {
                 '& .MuiSvgIcon-root': {
-                  fontSize: TYPOGRAPHY_STYLES.searchField.icon.fontSize,
-                  color: TYPOGRAPHY_STYLES.searchField.icon.color
+                  fontSize: '1.25rem',
+                  color: 'action.active'
                 }
               }
             }}
@@ -273,9 +272,9 @@ const ChartOfAccountsPage: React.FC = () => {
           >
             <InputLabel
               sx={{
-                fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
+                fontSize: '0.875rem',
                 '&.MuiInputLabel-shrunk': {
-                  fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize
+                  fontSize: '0.7rem'
                 }
               }}
             >
@@ -286,8 +285,8 @@ const ChartOfAccountsPage: React.FC = () => {
               label="Account Type"
               onChange={(e) => setTypeFilter(e.target.value)}
               sx={{
-                height: TYPOGRAPHY_STYLES.searchField.input.height,
-                fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
+                height: '40px',
+                fontSize: '0.875rem',
               }}
             >
               <MenuItem value="all">All Types</MenuItem>
@@ -308,9 +307,9 @@ const ChartOfAccountsPage: React.FC = () => {
           >
             <InputLabel
               sx={{
-                fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
+                fontSize: '0.875rem',
                 '&.MuiInputLabel-shrunk': {
-                  fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize
+                  fontSize: '0.7rem'
                 }
               }}
             >
@@ -321,8 +320,8 @@ const ChartOfAccountsPage: React.FC = () => {
               label="Status"
               onChange={(e) => setActiveFilter(e.target.value)}
               sx={{
-                height: TYPOGRAPHY_STYLES.searchField.input.height,
-                fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
+                height: '40px',
+                fontSize: '0.875rem',
               }}
             >
               <MenuItem value="all">All</MenuItem>
@@ -500,55 +499,55 @@ const ChartOfAccountsPage: React.FC = () => {
               <TableHead>
                 <TableRow sx={{ '& .MuiTableCell-head': { fontWeight: 600, backgroundColor: 'grey.50', py: 1 } }}>
                   <TableCell sx={{ width: '15%' }}>
-                    <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
-                      fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
-                      color: TYPOGRAPHY_STYLES.tableHeader.color,
-                      fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
+                    <Typography variant="tableHeader" sx={{
+                      fontWeight: 600,
+                      color: 'text.primary',
+                      fontSize: '0.8rem'
                     }}>
                       Code
                     </Typography>
                   </TableCell>
                   <TableCell sx={{ width: '30%' }}>
-                    <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
-                      fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
-                      color: TYPOGRAPHY_STYLES.tableHeader.color,
-                      fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
+                    <Typography variant="tableHeader" sx={{
+                      fontWeight: 600,
+                      color: 'text.primary',
+                      fontSize: '0.8rem'
                     }}>
                       Account Name
                     </Typography>
                   </TableCell>
                   <TableCell sx={{ width: '15%' }}>
-                    <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
-                      fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
-                      color: TYPOGRAPHY_STYLES.tableHeader.color,
-                      fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
+                    <Typography variant="tableHeader" sx={{
+                      fontWeight: 600,
+                      color: 'text.primary',
+                      fontSize: '0.8rem'
                     }}>
                       Type
                     </Typography>
                   </TableCell>
                   <TableCell sx={{ width: '20%' }}>
-                    <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
-                      fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
-                      color: TYPOGRAPHY_STYLES.tableHeader.color,
-                      fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
+                    <Typography variant="tableHeader" sx={{
+                      fontWeight: 600,
+                      color: 'text.primary',
+                      fontSize: '0.8rem'
                     }}>
                       Parent Account
                     </Typography>
                   </TableCell>
                   <TableCell sx={{ width: '10%' }}>
-                    <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
-                      fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
-                      color: TYPOGRAPHY_STYLES.tableHeader.color,
-                      fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
+                    <Typography variant="tableHeader" sx={{
+                      fontWeight: 600,
+                      color: 'text.primary',
+                      fontSize: '0.8rem'
                     }}>
                       Status
                     </Typography>
                   </TableCell>
                   <TableCell align="right" sx={{ width: '10%' }}>
-                    <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
-                      fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
-                      color: TYPOGRAPHY_STYLES.tableHeader.color,
-                      fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
+                    <Typography variant="tableHeader" sx={{
+                      fontWeight: 600,
+                      color: 'text.primary',
+                      fontSize: '0.8rem'
                     }}>
                       Actions
                     </Typography>
@@ -575,9 +574,9 @@ const ChartOfAccountsPage: React.FC = () => {
                       }}
                     >
                       <TableCell>
-                        <Typography variant={TYPOGRAPHY_STYLES.tableCell.primary.variant} sx={{
-                          fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
-                          fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight,
+                        <Typography variant="body2" sx={{
+                          fontSize: '0.8rem',
+                          fontWeight: 600,
                         }}>
                           {account.code}
                         </Typography>
@@ -588,9 +587,9 @@ const ChartOfAccountsPage: React.FC = () => {
                           alignItems: 'center',
                           pl: indentLevel * 2
                         }}>
-                          <Typography variant={TYPOGRAPHY_STYLES.tableCell.secondary.variant} sx={{
-                            fontSize: TYPOGRAPHY_STYLES.tableCell.secondary.fontSize,
-                            lineHeight: TYPOGRAPHY_STYLES.tableCell.secondary.lineHeight,
+                          <Typography variant="body2" sx={{
+                            fontSize: '0.8rem',
+                            lineHeight: 1.2,
                             fontWeight: indentLevel === 0 ? 600 : 400,
                           }}>
                             {account.name}
@@ -603,15 +602,15 @@ const ChartOfAccountsPage: React.FC = () => {
                           size="small"
                           color={getAccountTypeBadgeColor(account.type) as any}
                           sx={{
-                            fontSize: TYPOGRAPHY_STYLES.chip.small.fontSize,
+                            fontSize: '0.7rem',
                             fontWeight: 500,
                             height: `${TABLE_STYLES.row.height * 0.65}px`,
                           }}
                         />
                       </TableCell>
                       <TableCell>
-                        <Typography variant={TYPOGRAPHY_STYLES.tableCell.caption.variant} color="text.secondary" sx={{
-                          fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize
+                        <Typography variant="tableCaption" color="text.secondary" sx={{
+                          fontSize: '0.7rem'
                         }}>
                           {findParentName(account.parentId)}
                         </Typography>
@@ -623,7 +622,7 @@ const ChartOfAccountsPage: React.FC = () => {
                           color={account.isActive ? 'success' : 'default'}
                           variant="outlined"
                           sx={{
-                            fontSize: TYPOGRAPHY_STYLES.chip.small.fontSize,
+                            fontSize: '0.7rem',
                             fontWeight: 500,
                             height: `${TABLE_STYLES.row.height * 0.65}px`,
                           }}

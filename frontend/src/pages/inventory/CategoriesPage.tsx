@@ -42,7 +42,6 @@ import DeletedCategoriesDialog from '@/components/inventory/DeletedCategoriesDia
 import { SmartCategoryDeleteDialog } from '@/components/inventory/SmartCategoryDeleteDialog'
 import ConfirmationDialog from '@/components/common/ConfirmationDialog'
 import type { Category } from '@/types'
-import { TYPOGRAPHY_STYLES } from '@/constants/typography'
 import { TABLE_STYLES } from '@/constants/tableStyles'
 import { formatDate } from '@/utils/formatters'
 import {
@@ -325,16 +324,16 @@ const CategoriesPage: React.FC = () => {
         <DragIndicatorIcon
           sx={{
             color: 'text.secondary',
-            fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize
+            fontSize: '0.875rem'
           }}
         />
 
         {/* Category Name */}
         <Typography
-          variant={TYPOGRAPHY_STYLES.tableCell.secondary.variant}
+          variant="body2"
           sx={{
             fontSize: '0.8rem',
-            lineHeight: TYPOGRAPHY_STYLES.tableCell.secondary.lineHeight,
+            lineHeight: 1.2,
             fontWeight: 400,
             color: 'text.primary',
             wordBreak: 'break-word'
@@ -378,17 +377,17 @@ const CategoriesPage: React.FC = () => {
             width: isMobile ? '100%' : 'auto',
             maxWidth: isMobile ? 'none' : 400,
             '& .MuiOutlinedInput-root': {
-              height: TYPOGRAPHY_STYLES.searchField.input.height,
-              fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
+              height: '40px',
+              fontSize: '0.875rem',
               '& input': {
-                padding: TYPOGRAPHY_STYLES.searchField.input.padding,
-                fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize
+                padding: '8.5px 14px',
+                fontSize: '0.875rem'
               }
             },
             '& .MuiInputAdornment-root': {
               '& .MuiSvgIcon-root': {
-                fontSize: TYPOGRAPHY_STYLES.searchField.icon.fontSize,
-                color: TYPOGRAPHY_STYLES.searchField.icon.color
+                fontSize: '1.25rem',
+                color: 'action.active'
               }
             }
           }}
@@ -432,39 +431,39 @@ const CategoriesPage: React.FC = () => {
               <TableHead>
                 <TableRow sx={{ '& .MuiTableCell-head': { fontWeight: 600, backgroundColor: 'grey.50', py: 1 } }}>
                   <TableCell sx={{ width: isMobile ? '45%' : '40%' }}>
-                    <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
-                      fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
-                      color: TYPOGRAPHY_STYLES.tableHeader.color,
-                      fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
+                    <Typography variant="tableHeader" sx={{
+                      fontWeight: 600,
+                      color: 'text.primary',
+                      fontSize: '0.8rem'
                     }}>
                       Category Hierarchy
                     </Typography>
                   </TableCell>
                   <TableCell sx={{ width: isMobile ? '15%' : '15%' }}>
-                    <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
-                      fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
-                      color: TYPOGRAPHY_STYLES.tableHeader.color,
-                      fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
+                    <Typography variant="tableHeader" sx={{
+                      fontWeight: 600,
+                      color: 'text.primary',
+                      fontSize: '0.8rem'
                     }}>
                       Products
                     </Typography>
                   </TableCell>
                   {!isMobile && (
                     <TableCell sx={{ width: '20%' }}>
-                      <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
-                        fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
-                        color: TYPOGRAPHY_STYLES.tableHeader.color,
-                        fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
+                      <Typography variant="tableHeader" sx={{
+                        fontWeight: 600,
+                        color: 'text.primary',
+                        fontSize: '0.8rem'
                       }}>
                         Created Date
                       </Typography>
                     </TableCell>
                   )}
                   <TableCell align="right" sx={{ width: isMobile ? '40%' : '25%' }}>
-                    <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
-                      fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
-                      color: TYPOGRAPHY_STYLES.tableHeader.color,
-                      fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
+                    <Typography variant="tableHeader" sx={{
+                      fontWeight: 600,
+                      color: 'text.primary',
+                      fontSize: '0.8rem'
                     }}>
                       Actions
                     </Typography>
@@ -499,7 +498,7 @@ const CategoriesPage: React.FC = () => {
                         color={category.productCount && category.productCount > 0 ? 'primary' : 'default'}
                         variant="outlined"
                         sx={{
-                          fontSize: TYPOGRAPHY_STYLES.chip.small.fontSize,
+                          fontSize: '0.7rem',
                           fontWeight: 500,
                           height: `${TABLE_STYLES.row.height * 0.65}px`, // Scale to 65% of row height for better proportion
                           minWidth: `${TABLE_STYLES.row.height * 1.8}px`, // Scale min width proportionally
@@ -512,7 +511,7 @@ const CategoriesPage: React.FC = () => {
                     </TableCell>
                     {!isMobile && (
                       <TableCell>
-                        <Typography variant={TYPOGRAPHY_STYLES.tableCell.caption.variant} color="text.secondary" sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize }}>
+                        <Typography variant="tableCaption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
                           {formatDate(category.createdAt)}
                         </Typography>
                       </TableCell>
@@ -581,7 +580,7 @@ const CategoriesPage: React.FC = () => {
                           display: 'block', 
                           textAlign: 'right', 
                           mt: 0.25, // Reduced margin
-                          fontSize: TYPOGRAPHY_STYLES.mobile.caption.fontSize
+                          fontSize: '0.65rem'
                         }}>
                           {formatDate(category.createdAt)}
                         </Typography>

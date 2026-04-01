@@ -14,7 +14,6 @@ import {
     PersonAdd as CustomerIcon,
 } from '@mui/icons-material'
 import { useNavigate } from 'react-router-dom'
-import { TYPOGRAPHY_STYLES } from '@/constants/typography'
 
 const QuickActions: React.FC = () => {
     const navigate = useNavigate()
@@ -49,8 +48,8 @@ const QuickActions: React.FC = () => {
     return (
         <Paper sx={{ p: 2, mb: 4 }}>
             <Typography
-                variant={TYPOGRAPHY_STYLES.tableHeader.variant}
-                sx={{ fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight, mb: 2 }}
+                variant="tableHeader"
+                sx={{ fontWeight: 600, mb: 2 }}
             >
                 Quick Actions
             </Typography>

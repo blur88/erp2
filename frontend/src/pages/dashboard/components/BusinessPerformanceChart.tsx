@@ -34,7 +34,6 @@ import zoomPlugin from 'chartjs-plugin-zoom'
 import { Line } from 'react-chartjs-2'
 import { format, startOfWeek, startOfMonth, startOfYear, eachDayOfInterval, eachWeekOfInterval, eachMonthOfInterval, eachYearOfInterval, endOfDay, endOfWeek, endOfMonth, endOfYear, isWithinInterval, subDays } from 'date-fns'
 import { formatCurrency, formatDate } from '@/utils/formatters'
-import { TYPOGRAPHY_STYLES } from '@/constants/typography'
 
 ChartJS.register(
     CategoryScale,
@@ -437,7 +436,7 @@ const BusinessPerformanceChart: React.FC<BusinessPerformanceChartProps> = ({ raw
 
     return (
         <Paper sx={{ p: 3, mb: 4 }}>
-            <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{ fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight, mb: 2 }}>
+            <Typography variant="tableHeader" sx={{ fontWeight: 600, mb: 2 }}>
                 Business Performance
             </Typography>
 

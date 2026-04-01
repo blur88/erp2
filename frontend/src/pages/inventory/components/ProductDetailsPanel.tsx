@@ -6,7 +6,6 @@ import ProductDetailsTab from '@/components/inventory/ProductDetailsTab'
 import MovementHistoryTab from '@/components/inventory/MovementHistoryTab'
 import OrderHistoryTab from '@/components/inventory/OrderHistoryTab'
 import { TABLE_STYLES } from '@/constants/tableStyles'
-import { TYPOGRAPHY_STYLES } from '@/constants/typography'
 import type { Product } from '@/types'
 
 interface ProductDetailsPanelProps {
@@ -51,9 +50,9 @@ const ProductDetailsPanel: React.FC<ProductDetailsPanelProps> = ({
                 flex: 1,
                 '& .MuiTab-root': {
                   minHeight: 40,
-                  fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
+                  fontSize: '0.8rem',
                   textTransform: 'none',
-                  fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight,
+                  fontWeight: 600,
                 },
               }}
             >

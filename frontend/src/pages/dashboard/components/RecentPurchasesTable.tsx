@@ -13,7 +13,6 @@ import {
 } from '@mui/material'
 import { useNavigate } from 'react-router-dom'
 import { formatCurrency } from '@/utils/formatters'
-import { TYPOGRAPHY_STYLES } from '@/constants/typography'
 import { TABLE_STYLES } from '@/constants/tableStyles'
 
 interface PurchaseOrder {
@@ -37,7 +36,7 @@ const RecentPurchasesTable: React.FC<RecentPurchasesTableProps> = ({ orders, tot
     return (
         <Paper sx={{ overflow: 'hidden' }}>
             <Box sx={{ p: 3, borderBottom: 1, borderColor: 'divider', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{ fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight }}>
+                <Typography variant="tableHeader" sx={{ fontWeight: 600 }}>
                     Recent Purchase Orders
                 </Typography>
                 <Chip
@@ -49,24 +48,24 @@ const RecentPurchasesTable: React.FC<RecentPurchasesTableProps> = ({ orders, tot
             <TableContainer>
                 <Table size={TABLE_STYLES.size}>
                     <TableHead>
-                        <TableRow sx={{ '& .MuiTableCell-head': { fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight, backgroundColor: TABLE_STYLES.header.backgroundColor, py: TABLE_STYLES.header.padding.py } }}>
+                        <TableRow sx={{ '& .MuiTableCell-head': { fontWeight: 600, backgroundColor: TABLE_STYLES.header.backgroundColor, py: TABLE_STYLES.header.padding.py } }}>
                             <TableCell>
-                                <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{ fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight, fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize }}>
+                                <Typography variant="tableHeader" sx={{ fontWeight: 600, fontSize: '0.8rem' }}>
                                     PO Number
                                 </Typography>
                             </TableCell>
                             <TableCell>
-                                <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{ fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight, fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize }}>
+                                <Typography variant="tableHeader" sx={{ fontWeight: 600, fontSize: '0.8rem' }}>
                                     Supplier
                                 </Typography>
                             </TableCell>
                             <TableCell align="right">
-                                <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{ fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight, fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize }}>
+                                <Typography variant="tableHeader" sx={{ fontWeight: 600, fontSize: '0.8rem' }}>
                                     Amount
                                 </Typography>
                             </TableCell>
                             <TableCell>
-                                <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{ fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight, fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize }}>
+                                <Typography variant="tableHeader" sx={{ fontWeight: 600, fontSize: '0.8rem' }}>
                                     Status
                                 </Typography>
                             </TableCell>
@@ -90,17 +89,17 @@ const RecentPurchasesTable: React.FC<RecentPurchasesTableProps> = ({ orders, tot
                                     onClick={() => navigate(`/purchasing/orders?poId=${order.id}`)}
                                 >
                                     <TableCell>
-                                        <Typography variant={TYPOGRAPHY_STYLES.tableCell.primary.variant} sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
+                                        <Typography variant="body2" sx={{ fontSize: '0.8rem' }}>
                                             {order.orderNumber}
                                         </Typography>
                                     </TableCell>
                                     <TableCell>
-                                        <Typography variant={TYPOGRAPHY_STYLES.tableCell.primary.variant} sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
+                                        <Typography variant="body2" sx={{ fontSize: '0.8rem' }}>
                                             {order.supplier?.companyName || 'Unknown'}
                                         </Typography>
                                     </TableCell>
                                     <TableCell align="right">
-                                        <Typography variant={TYPOGRAPHY_STYLES.tableCell.primary.variant} color="warning.main" sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
+                                        <Typography variant="body2" color="warning.main" sx={{ fontSize: '0.8rem' }}>
                                             {formatCurrency(order.totalAmount)}
                                         </Typography>
                                     </TableCell>
@@ -111,9 +110,9 @@ const RecentPurchasesTable: React.FC<RecentPurchasesTableProps> = ({ orders, tot
                                             size="small"
                                             variant="outlined"
                                             sx={{
-                                                fontSize: TYPOGRAPHY_STYLES.chip.small.fontSize,
-                                                fontWeight: TYPOGRAPHY_STYLES.chip.small.fontWeight,
-                                                height: TYPOGRAPHY_STYLES.chip.small.height
+                                                fontSize: '0.7rem',
+                                                fontWeight: 500,
+                                                height: 20
                                             }}
                                         />
                                     </TableCell>
@@ -122,7 +121,7 @@ const RecentPurchasesTable: React.FC<RecentPurchasesTableProps> = ({ orders, tot
                         ) : (
                             <TableRow>
                                 <TableCell colSpan={4} align="center">
-                                    <Typography variant={TYPOGRAPHY_STYLES.tableCell.secondary.variant} color="text.secondary">
+                                    <Typography variant="body2" color="text.secondary">
                                         No recent purchase orders
                                     </Typography>
                                 </TableCell>

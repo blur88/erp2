@@ -47,7 +47,6 @@ import { useGetCategoriesQuery } from '@/store/api/inventoryApi'
 import { useGetSuppliersQuery } from '@/store/api/purchasingApi'
 import { useInventoryAnalytics } from './hooks/useInventoryAnalytics'
 import { formatCurrency } from '@/utils/formatters'
-import { TYPOGRAPHY_STYLES } from '@/constants/typography'
 import { TABLE_STYLES } from '@/constants/tableStyles'
 
 ChartJS.register(
@@ -305,7 +304,7 @@ const InventoryPage: React.FC = () => {
                           />
                         )}
                         <Typography
-                          variant={TYPOGRAPHY_STYLES.tableCell.caption.variant}
+                          variant="tableCaption"
                           sx={{
                             color: stat.delta.startsWith('+')
                               ? stat.deltaPositiveIsGood
@@ -314,8 +313,8 @@ const InventoryPage: React.FC = () => {
                               : stat.deltaPositiveIsGood
                                 ? 'error.main'
                                 : 'success.main',
-                            fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight,
-                            fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize,
+                            fontWeight: 600,
+                            fontSize: '0.7rem',
                           }}
                         >
                           {stat.delta}
@@ -324,12 +323,12 @@ const InventoryPage: React.FC = () => {
                     )}
                   </Box>
                   <Typography
-                    variant={TYPOGRAPHY_STYLES.pageHeader.variant}
-                    sx={{ fontWeight: TYPOGRAPHY_STYLES.pageHeader.fontWeight, mb: 0.5 }}
+                    variant="h4"
+                    sx={{ fontWeight: 700, mb: 0.5 }}
                   >
                     {stat.value}
                   </Typography>
-                  <Typography variant={TYPOGRAPHY_STYLES.tableCell.secondary.variant} color="text.secondary">
+                  <Typography variant="body2" color="text.secondary">
                     {stat.title}
                   </Typography>
                 </CardContent>
@@ -342,8 +341,8 @@ const InventoryPage: React.FC = () => {
           <Grid size={{ xs: 12, lg: 6 }}>
             <Paper sx={{ p: 3, height: 400 }}>
               <Typography
-                variant={TYPOGRAPHY_STYLES.tableHeader.variant}
-                sx={{ fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight, mb: 3 }}
+                variant="tableHeader"
+                sx={{ fontWeight: 600, mb: 3 }}
               >
                 Stock Movement Trend
               </Typography>
@@ -352,7 +351,7 @@ const InventoryPage: React.FC = () => {
                   <Line data={movementTrendData} options={lineChartOptions} />
                 ) : (
                   <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
-                    <Typography variant={TYPOGRAPHY_STYLES.tableCell.secondary.variant} color="text.secondary">
+                    <Typography variant="body2" color="text.secondary">
                       No movement data for this period
                     </Typography>
                   </Box>
@@ -364,8 +363,8 @@ const InventoryPage: React.FC = () => {
           <Grid size={{ xs: 12, lg: 6 }}>
             <Paper sx={{ p: 3, height: 400 }}>
               <Typography
-                variant={TYPOGRAPHY_STYLES.tableHeader.variant}
-                sx={{ fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight, mb: 3 }}
+                variant="tableHeader"
+                sx={{ fontWeight: 600, mb: 3 }}
               >
                 Stock Health Status
               </Typography>
@@ -390,8 +389,8 @@ const InventoryPage: React.FC = () => {
                 }}
               >
                 <Typography
-                  variant={TYPOGRAPHY_STYLES.tableHeader.variant}
-                  sx={{ fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight }}
+                  variant="tableHeader"
+                  sx={{ fontWeight: 600 }}
                 >
                   Recent Stock Movements
                 </Typography>
@@ -407,7 +406,7 @@ const InventoryPage: React.FC = () => {
                     <TableRow
                       sx={{
                         '& .MuiTableCell-head': {
-                          fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
+                          fontWeight: 600,
                           backgroundColor: TABLE_STYLES.header.backgroundColor,
                           py: TABLE_STYLES.header.padding.py,
                         },
@@ -416,11 +415,11 @@ const InventoryPage: React.FC = () => {
                       {['Date', 'Product', 'Type', 'Quantity', 'Reference'].map((column) => (
                         <TableCell key={column} align={column === 'Quantity' ? 'right' : 'left'}>
                           <Typography
-                            variant={TYPOGRAPHY_STYLES.tableHeader.variant}
+                            variant="tableHeader"
                             sx={{
-                              fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
-                              color: TYPOGRAPHY_STYLES.tableHeader.color,
-                              fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize,
+                              fontWeight: 600,
+                              color: 'text.primary',
+                              fontSize: '0.8rem',
                             }}
                           >
                             {column}
@@ -446,16 +445,16 @@ const InventoryPage: React.FC = () => {
                         >
                           <TableCell>
                             <Typography
-                              variant={TYPOGRAPHY_STYLES.tableCell.secondary.variant}
-                              sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.secondary.fontSize }}
+                              variant="body2"
+                              sx={{ fontSize: '0.8rem' }}
                             >
                               {movement.movementDate ? format(new Date(movement.movementDate), 'MMM dd, yyyy') : 'N/A'}
                             </Typography>
                           </TableCell>
                           <TableCell>
                             <Typography
-                              variant={TYPOGRAPHY_STYLES.tableCell.primary.variant}
-                              sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}
+                              variant="body2"
+                              sx={{ fontSize: '0.8rem' }}
                             >
                               {movement.productName}
                             </Typography>
@@ -467,18 +466,18 @@ const InventoryPage: React.FC = () => {
                               size="small"
                               variant="outlined"
                               sx={{
-                                fontSize: TYPOGRAPHY_STYLES.chip.small.fontSize,
-                                fontWeight: TYPOGRAPHY_STYLES.chip.small.fontWeight,
-                                height: TYPOGRAPHY_STYLES.chip.small.height,
+                                fontSize: '0.7rem',
+                                fontWeight: 500,
+                                height: 20,
                               }}
                             />
                           </TableCell>
                           <TableCell align="right">
                             <Typography
-                              variant={TYPOGRAPHY_STYLES.tableCell.primary.variant}
+                              variant="body2"
                               sx={{
-                                fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight,
-                                fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
+                                fontWeight: 600,
+                                fontSize: '0.8rem',
                                 color: movement.quantity > 0 ? 'success.main' : 'error.main',
                               }}
                             >
@@ -488,8 +487,8 @@ const InventoryPage: React.FC = () => {
                           </TableCell>
                           <TableCell>
                             <Typography
-                              variant={TYPOGRAPHY_STYLES.tableCell.secondary.variant}
-                              sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.secondary.fontSize }}
+                              variant="body2"
+                              sx={{ fontSize: '0.8rem' }}
                             >
                               {movement.referenceNumber}
                             </Typography>
@@ -499,7 +498,7 @@ const InventoryPage: React.FC = () => {
                     ) : (
                       <TableRow>
                         <TableCell colSpan={5} align="center">
-                          <Typography variant={TYPOGRAPHY_STYLES.tableCell.secondary.variant} color="text.secondary">
+                          <Typography variant="body2" color="text.secondary">
                             No movements in this period
                           </Typography>
                         </TableCell>
@@ -514,8 +513,8 @@ const InventoryPage: React.FC = () => {
           <Grid size={{ xs: 12, lg: 4 }}>
             <Paper sx={{ p: 3 }}>
               <Typography
-                variant={TYPOGRAPHY_STYLES.tableHeader.variant}
-                sx={{ fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight, mb: 3 }}
+                variant="tableHeader"
+                sx={{ fontWeight: 600, mb: 3 }}
               >
                 Low Stock Alerts
               </Typography>
@@ -548,8 +547,8 @@ const InventoryPage: React.FC = () => {
                         </Box>
                         <Box sx={{ minWidth: 0 }}>
                           <Typography
-                            variant={TYPOGRAPHY_STYLES.tableCell.primary.variant}
-                            sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}
+                            variant="body2"
+                            sx={{ fontSize: '0.8rem' }}
                             noWrap
                           >
                             {alert.productName}
@@ -564,9 +563,9 @@ const InventoryPage: React.FC = () => {
                         color={alert.status === 'out_of_stock' ? 'error' : 'warning'}
                         size="small"
                         sx={{
-                          fontSize: TYPOGRAPHY_STYLES.chip.small.fontSize,
-                          fontWeight: TYPOGRAPHY_STYLES.chip.small.fontWeight,
-                          height: TYPOGRAPHY_STYLES.chip.small.height,
+                          fontSize: '0.7rem',
+                          fontWeight: 500,
+                          height: 20,
                           flexShrink: 0,
                         }}
                       />
@@ -574,7 +573,7 @@ const InventoryPage: React.FC = () => {
                   ))
                 ) : (
                   <Typography
-                    variant={TYPOGRAPHY_STYLES.tableCell.secondary.variant}
+                    variant="body2"
                     color="text.secondary"
                     align="center"
                   >

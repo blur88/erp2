@@ -9,7 +9,6 @@ import {
 } from '@mui/material'
 import { Warning as WarningIcon } from '@mui/icons-material'
 import { Doughnut } from 'react-chartjs-2'
-import { TYPOGRAPHY_STYLES } from '@/constants/typography'
 
 interface StockHealthMetrics {
     inStockPercentage: number
@@ -80,7 +79,7 @@ const InventoryOverview: React.FC<InventoryOverviewProps> = ({
             {/* Stock Health */}
             <Grid size={{ xs: 12, sm: 6 }}>
                 <Paper sx={{ p: 3, height: '100%' }}>
-                    <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{ fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight, mb: 2 }}>
+                    <Typography variant="tableHeader" sx={{ fontWeight: 600, mb: 2 }}>
                         Stock Health
                     </Typography>
                     <Box sx={{ height: 150 }}>
@@ -98,7 +97,7 @@ const InventoryOverview: React.FC<InventoryOverviewProps> = ({
             <Grid size={{ xs: 12, sm: 6 }}>
                 <Paper sx={{ p: 3, height: '100%' }}>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-                        <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{ fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight }}>
+                        <Typography variant="tableHeader" sx={{ fontWeight: 600 }}>
                             Stock Alerts
                         </Typography>
                         {outOfStockCount > 0 && (
@@ -124,7 +123,7 @@ const InventoryOverview: React.FC<InventoryOverviewProps> = ({
                                     }}
                                 >
                                     <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                        <Typography variant={TYPOGRAPHY_STYLES.tableCell.primary.variant} sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
+                                        <Typography variant="body2" sx={{ fontSize: '0.8rem' }}>
                                             {item.name || 'Unknown Product'}
                                         </Typography>
                                         <Chip
@@ -132,9 +131,9 @@ const InventoryOverview: React.FC<InventoryOverviewProps> = ({
                                             color="error"
                                             size="small"
                                             sx={{
-                                                fontSize: TYPOGRAPHY_STYLES.chip.small.fontSize,
-                                                fontWeight: TYPOGRAPHY_STYLES.chip.small.fontWeight,
-                                                height: TYPOGRAPHY_STYLES.chip.small.height
+                                                fontSize: '0.7rem',
+                                                fontWeight: 500,
+                                                height: 20
                                             }}
                                         />
                                     </Box>
@@ -142,7 +141,7 @@ const InventoryOverview: React.FC<InventoryOverviewProps> = ({
                             ))
                         ) : (
                             <Box sx={{ textAlign: 'center', py: 3 }}>
-                                <Typography variant={TYPOGRAPHY_STYLES.tableCell.secondary.variant} color="success.main">
+                                <Typography variant="body2" color="success.main">
                                     All products are in stock
                                 </Typography>
                             </Box>

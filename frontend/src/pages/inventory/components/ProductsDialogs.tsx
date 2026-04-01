@@ -9,7 +9,6 @@ import ConfirmationDialog from '@/components/common/ConfirmationDialog'
 import SlidingCalculatorPanel from '@/components/calculator/SlidingCalculatorPanel'
 import DeletedProductsDialog from '@/components/inventory/DeletedProductsDialog'
 import ProductImportDialog from '@/components/inventory/ProductImportDialog'
-import { TYPOGRAPHY_STYLES } from '@/constants/typography'
 import type { Product } from '@/types'
 
 interface ProductsDialogsProps {
@@ -60,7 +59,7 @@ const ProductsDialogs: React.FC<ProductsDialogsProps> = ({
         slotProps={{ paper: { sx: { minWidth: 200 } } }}
       >
         <MenuItem onClick={() => onExport('csv')} disabled={isExporting}>
-          <TableChartIcon sx={{ mr: 1, fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize }} />
+          <TableChartIcon sx={{ mr: 1, fontSize: '0.8rem' }} />
           <Box>
             <Typography variant="body2" sx={{ fontWeight: 500 }}>
               Export as CSV
@@ -71,7 +70,7 @@ const ProductsDialogs: React.FC<ProductsDialogsProps> = ({
           </Box>
         </MenuItem>
         <MenuItem onClick={() => onExport('excel')} disabled={isExporting}>
-          <TableChartIcon sx={{ mr: 1, fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize, color: 'success.main' }} />
+          <TableChartIcon sx={{ mr: 1, fontSize: '0.8rem', color: 'success.main' }} />
           <Box>
             <Typography variant="body2" sx={{ fontWeight: 500 }}>
               Export as Excel
@@ -82,7 +81,7 @@ const ProductsDialogs: React.FC<ProductsDialogsProps> = ({
           </Box>
         </MenuItem>
         <MenuItem onClick={() => onExport('pdf')} disabled={isExporting}>
-          <PictureAsPdfIcon sx={{ mr: 1, fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize, color: 'error.main' }} />
+          <PictureAsPdfIcon sx={{ mr: 1, fontSize: '0.8rem', color: 'error.main' }} />
           <Box>
             <Typography variant="body2" sx={{ fontWeight: 500 }}>
               Export as PDF

@@ -18,7 +18,6 @@ import { useNotification } from '@/hooks/useNotification'
 import { StockMovement, StockMovementType } from '@/types'
 import { formatCurrency } from '@/utils/currency'
 import { formatDate as formatDisplayDate } from '@/utils/formatters'
-import { TYPOGRAPHY_STYLES } from '@/constants/typography'
 import { TABLE_STYLES } from '@/constants/tableStyles'
 
 interface MovementHistoryTabProps {
@@ -176,22 +175,22 @@ const MovementHistoryTab: React.FC<MovementHistoryTabProps> = ({ productId }) =>
         >
           <TableHead>
             <TableRow>
-              <TableCell sx={{ fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight }}>
+              <TableCell sx={{ fontWeight: 600 }}>
                 Transaction Type
               </TableCell>
-              <TableCell sx={{ fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight }}>
+              <TableCell sx={{ fontWeight: 600 }}>
                 Date
               </TableCell>
-              <TableCell sx={{ fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight }}>
+              <TableCell sx={{ fontWeight: 600 }}>
                 Order Number
               </TableCell>
-              <TableCell sx={{ fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight }} align="right">
+              <TableCell sx={{ fontWeight: 600 }} align="right">
                 Qty Before
               </TableCell>
-              <TableCell sx={{ fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight }} align="right">
+              <TableCell sx={{ fontWeight: 600 }} align="right">
                 Qty
               </TableCell>
-              <TableCell sx={{ fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight }} align="right">
+              <TableCell sx={{ fontWeight: 600 }} align="right">
                 Qty After
               </TableCell>
             </TableRow>
@@ -201,50 +200,50 @@ const MovementHistoryTab: React.FC<MovementHistoryTabProps> = ({ productId }) =>
               <TableRow key={movement.id} hover>
                 <TableCell>
                   <Typography
-                    variant={TYPOGRAPHY_STYLES.tableCell.primary.variant}
-                    sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}
+                    variant="body2"
+                    sx={{ fontSize: '0.8rem' }}
                   >
                     {getMovementTypeLabel(movement.movementType)}
                   </Typography>
                 </TableCell>
                 <TableCell>
                   <Typography
-                    variant={TYPOGRAPHY_STYLES.tableCell.primary.variant}
-                    sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}
+                    variant="body2"
+                    sx={{ fontSize: '0.8rem' }}
                   >
                     {formatDate(movement.movementDate)}
                   </Typography>
                 </TableCell>
                 <TableCell>
                   <Typography
-                    variant={TYPOGRAPHY_STYLES.tableCell.primary.variant}
-                    sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}
+                    variant="body2"
+                    sx={{ fontSize: '0.8rem' }}
                   >
                     {getOrderNumber(movement) || '-'}
                   </Typography>
                 </TableCell>
                 <TableCell align="right">
                   <Typography
-                    variant={TYPOGRAPHY_STYLES.tableCell.primary.variant}
-                    sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}
+                    variant="body2"
+                    sx={{ fontSize: '0.8rem' }}
                   >
                     {Number(movement.previousBalance)}
                   </Typography>
                 </TableCell>
                 <TableCell align="right">
                   <Typography
-                    variant={TYPOGRAPHY_STYLES.tableCell.primary.variant}
-                    sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}
+                    variant="body2"
+                    sx={{ fontSize: '0.8rem' }}
                   >
                     {Number(movement.quantity)}
                   </Typography>
                 </TableCell>
                 <TableCell align="right">
                   <Typography
-                    variant={TYPOGRAPHY_STYLES.tableCell.primary.variant}
+                    variant="body2"
                     sx={{
-                      fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
-                      fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight,
+                      fontSize: '0.8rem',
+                      fontWeight: 600,
                     }}
                   >
                     {Number(movement.newBalance)}
