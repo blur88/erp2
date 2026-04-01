@@ -39,7 +39,6 @@ import {
   useGetProfitAndLossQuery,
 } from '@/store/api/accountingApi';
 import { formatCurrency, formatDate, getCurrentDate } from '@/utils/formatters';
-import { TYPOGRAPHY_STYLES } from '@/constants/typography';
 import type { JournalEntry } from '@/types';
 import { useKeyboardShortcuts } from '@/hooks/useSearchAndFilter';
 

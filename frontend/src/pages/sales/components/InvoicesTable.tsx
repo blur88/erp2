@@ -15,7 +15,6 @@ import {
 import type { InvoiceListItem } from '../hooks/useInvoicesPageState'
 
 import { TABLE_STYLES } from '@/constants/tableStyles'
-import { TYPOGRAPHY_STYLES } from '@/constants/typography'
 
 interface InvoiceRowProps {
   invoice: InvoiceListItem
@@ -51,11 +50,11 @@ const InvoiceRow = memo(({ invoice, index, selectedInvoiceId, focusedInvoiceInde
     >
       <TableCell>
         <Typography
-          variant={TYPOGRAPHY_STYLES.tableCell.secondary.variant}
+          variant="body2"
           sx={{
-            fontWeight: TYPOGRAPHY_STYLES.tableCell.secondary.fontWeight,
-            fontSize: TYPOGRAPHY_STYLES.tableCell.secondary.fontSize,
-            lineHeight: TYPOGRAPHY_STYLES.tableCell.secondary.lineHeight,
+            fontWeight: 400,
+            fontSize: '0.8rem',
+            lineHeight: 1.2,
           }}
         >
           {invoice.invoiceNumber}
@@ -90,10 +89,10 @@ const InvoicesTable: React.FC<InvoicesTableProps> = ({
     <Paper sx={{ height: 'calc(100vh - 300px)', display: 'flex', flexDirection: 'column' }}>
       <Box sx={{ p: TABLE_STYLES.cell.padding.px, borderBottom: TABLE_STYLES.cell.border }}>
         <Typography
-          variant={TYPOGRAPHY_STYLES.tableHeader.variant}
+          variant="tableHeader"
           sx={{
-            fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
-            fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize,
+            fontWeight: 600,
+            fontSize: '0.8rem',
             textTransform: 'uppercase',
             letterSpacing: '0.5px',
           }}
@@ -118,10 +117,10 @@ const InvoicesTable: React.FC<InvoicesTableProps> = ({
               <TableRow
                 sx={{
                   '& .MuiTableCell-head': {
-                    fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
+                    fontWeight: 600,
                     backgroundColor: 'grey.50',
-                    color: TYPOGRAPHY_STYLES.tableHeader.color,
-                    fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize,
+                    color: 'text.primary',
+                    fontSize: '0.8rem',
                   },
                 }}
               />

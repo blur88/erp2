@@ -39,7 +39,6 @@ import {
 } from 'chart.js'
 import { Line } from 'react-chartjs-2'
 import { formatCurrency, formatDate } from '@/utils/formatters'
-import { TYPOGRAPHY_STYLES } from '@/constants/typography'
 import { TABLE_STYLES } from '@/constants/tableStyles'
 import { useNavigate } from 'react-router-dom'
 import PageHeader from '@/components/common/PageHeader'
@@ -255,11 +254,11 @@ const PurchasingPage: React.FC = () => {
                             <TrendingDownIcon sx={{ fontSize: 16, color: 'error.main' }} />
                           )}
                           <Typography
-                            variant={TYPOGRAPHY_STYLES.tableCell.caption.variant}
+                            variant="tableCaption"
                             sx={{
                               color: delta >= 0 ? 'success.main' : 'error.main',
-                              fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight,
-                              fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize,
+                              fontWeight: 600,
+                              fontSize: '0.7rem',
                             }}
                           >
                             {delta > 0 ? '+' : ''}{delta.toFixed(1)}%
@@ -268,12 +267,12 @@ const PurchasingPage: React.FC = () => {
                       )}
                     </Box>
                     <Typography
-                      variant={TYPOGRAPHY_STYLES.pageHeader.variant}
-                      sx={{ fontWeight: TYPOGRAPHY_STYLES.pageHeader.fontWeight, mb: 0.5 }}
+                      variant="h4"
+                      sx={{ fontWeight: 700, mb: 0.5 }}
                     >
                       {isLoading ? '—' : stat.value}
                     </Typography>
-                    <Typography variant={TYPOGRAPHY_STYLES.tableCell.secondary.variant} color="text.secondary">
+                    <Typography variant="body2" color="text.secondary">
                       {stat.title}
                     </Typography>
                   </CardContent>
@@ -288,8 +287,8 @@ const PurchasingPage: React.FC = () => {
           <Grid size={{ xs: 12, lg: 8 }}>
             <Paper sx={{ p: 3, height: 400 }}>
               <Typography
-                variant={TYPOGRAPHY_STYLES.tableHeader.variant}
-                sx={{ fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight, mb: 3 }}
+                variant="tableHeader"
+                sx={{ fontWeight: 600, mb: 3 }}
               >
                 Purchasing Trend
               </Typography>
@@ -302,8 +301,8 @@ const PurchasingPage: React.FC = () => {
           <Grid size={{ xs: 12, lg: 4 }}>
             <Paper sx={{ p: 3 }}>
               <Typography
-                variant={TYPOGRAPHY_STYLES.tableHeader.variant}
-                sx={{ fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight, mb: 3 }}
+                variant="tableHeader"
+                sx={{ fontWeight: 600, mb: 3 }}
               >
                 Top Suppliers
               </Typography>
@@ -324,16 +323,16 @@ const PurchasingPage: React.FC = () => {
                               display: 'flex',
                               alignItems: 'center',
                               justifyContent: 'center',
-                              fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize,
-                              fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight,
+                              fontSize: '0.7rem',
+                              fontWeight: 600,
                             }}
                           >
                             {index + 1}
                           </Typography>
                           <Box>
                             <Typography
-                              variant={TYPOGRAPHY_STYLES.tableCell.primary.variant}
-                              sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}
+                              variant="body2"
+                              sx={{ fontSize: '0.8rem' }}
                             >
                               {supplier.supplierName}
                             </Typography>
@@ -350,7 +349,7 @@ const PurchasingPage: React.FC = () => {
                   ))
                 ) : (
                   <Typography
-                    variant={TYPOGRAPHY_STYLES.tableCell.secondary.variant}
+                    variant="body2"
                     color="text.secondary"
                     align="center"
                   >
@@ -368,8 +367,8 @@ const PurchasingPage: React.FC = () => {
             <Paper sx={{ overflow: 'hidden' }}>
               <Box sx={{ p: 3, borderBottom: 1, borderColor: 'divider' }}>
                 <Typography
-                  variant={TYPOGRAPHY_STYLES.tableHeader.variant}
-                  sx={{ fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight }}
+                  variant="tableHeader"
+                  sx={{ fontWeight: 600 }}
                 >
                   Recent Purchase Orders
                 </Typography>
@@ -380,7 +379,7 @@ const PurchasingPage: React.FC = () => {
                     <TableRow
                       sx={{
                         '& .MuiTableCell-head': {
-                          fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
+                          fontWeight: 600,
                           backgroundColor: TABLE_STYLES.header.backgroundColor,
                           py: TABLE_STYLES.header.padding.py,
                         },
@@ -389,11 +388,11 @@ const PurchasingPage: React.FC = () => {
                       {['PO Number', 'Supplier', 'PO Date', 'Amount', 'Status'].map((heading) => (
                         <TableCell key={heading} align={heading === 'Amount' ? 'right' : 'left'}>
                           <Typography
-                            variant={TYPOGRAPHY_STYLES.tableHeader.variant}
+                            variant="tableHeader"
                             sx={{
-                              fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
-                              color: TYPOGRAPHY_STYLES.tableHeader.color,
-                              fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize,
+                              fontWeight: 600,
+                              color: 'text.primary',
+                              fontSize: '0.8rem',
                             }}
                           >
                             {heading}
@@ -421,33 +420,33 @@ const PurchasingPage: React.FC = () => {
                         >
                           <TableCell>
                             <Typography
-                              variant={TYPOGRAPHY_STYLES.tableCell.primary.variant}
-                              sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}
+                              variant="body2"
+                              sx={{ fontSize: '0.8rem' }}
                             >
                               {order.orderNumber}
                             </Typography>
                           </TableCell>
                           <TableCell>
                             <Typography
-                              variant={TYPOGRAPHY_STYLES.tableCell.primary.variant}
-                              sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}
+                              variant="body2"
+                              sx={{ fontSize: '0.8rem' }}
                             >
                               {order.supplierName}
                             </Typography>
                           </TableCell>
                           <TableCell>
                             <Typography
-                              variant={TYPOGRAPHY_STYLES.tableCell.secondary.variant}
-                              sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.secondary.fontSize }}
+                              variant="body2"
+                              sx={{ fontSize: '0.8rem' }}
                             >
                               {formatDate(order.orderDate)}
                             </Typography>
                           </TableCell>
                           <TableCell align="right">
                             <Typography
-                              variant={TYPOGRAPHY_STYLES.tableCell.primary.variant}
+                              variant="body2"
                               color="warning.main"
-                              sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}
+                              sx={{ fontSize: '0.8rem' }}
                             >
                               {formatCurrency(order.totalAmount)}
                             </Typography>
@@ -459,9 +458,9 @@ const PurchasingPage: React.FC = () => {
                               size="small"
                               variant="outlined"
                               sx={{
-                                fontSize: TYPOGRAPHY_STYLES.chip.small.fontSize,
-                                fontWeight: TYPOGRAPHY_STYLES.chip.small.fontWeight,
-                                height: TYPOGRAPHY_STYLES.chip.small.height,
+                                fontSize: '0.7rem',
+                                fontWeight: 500,
+                                height: 20,
                               }}
                             />
                           </TableCell>
@@ -470,7 +469,7 @@ const PurchasingPage: React.FC = () => {
                     ) : (
                       <TableRow>
                         <TableCell colSpan={5} align="center">
-                          <Typography variant={TYPOGRAPHY_STYLES.tableCell.secondary.variant} color="text.secondary">
+                          <Typography variant="body2" color="text.secondary">
                             No recent purchase orders
                           </Typography>
                         </TableCell>

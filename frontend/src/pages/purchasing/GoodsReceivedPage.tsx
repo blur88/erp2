@@ -36,7 +36,6 @@ import {
 } from '@mui/icons-material'
 import PageHeader from '@/components/common/PageHeader'
 import { formatDate } from '@/utils/formatters'
-import { TYPOGRAPHY_STYLES } from '@/constants/typography'
 import { TABLE_STYLES } from '@/constants/tableStyles'
 import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
 import {
@@ -127,11 +126,11 @@ const GRNRow = memo(({ grn, index, selectedGRNId, focusedGRNIndex, onGRNSelect }
     >
       <TableCell>
         <Typography
-          variant={TYPOGRAPHY_STYLES.tableCell.secondary.variant}
+          variant="body2"
           sx={{
-            fontWeight: TYPOGRAPHY_STYLES.tableCell.secondary.fontWeight,
-            fontSize: TYPOGRAPHY_STYLES.tableCell.secondary.fontSize,
-            lineHeight: TYPOGRAPHY_STYLES.tableCell.secondary.lineHeight
+            fontWeight: 400,
+            fontSize: '0.8rem',
+            lineHeight: 1.2
           }}
         >
           {grn.grnNumber}
@@ -372,7 +371,7 @@ const GoodsReceivedPage: React.FC = () => {
             flex: isMobile ? 'none' : 1,
             maxWidth: isMobile ? 'none' : 400,
             '& .MuiOutlinedInput-root': {
-              height: TYPOGRAPHY_STYLES.searchField.input.height,
+              height: '40px',
               fontSize: '0.875rem',
               '& input': {
                 padding: '8.5px 14px',
@@ -383,7 +382,7 @@ const GoodsReceivedPage: React.FC = () => {
           InputProps={{
             startAdornment: (
               <InputAdornment position="start">
-                <SearchIcon sx={{ fontSize: TYPOGRAPHY_STYLES.searchField.icon.fontSize }} />
+                <SearchIcon sx={{ fontSize: '1.25rem' }} />
               </InputAdornment>
             ),
           }}
@@ -395,7 +394,7 @@ const GoodsReceivedPage: React.FC = () => {
             minWidth: isMobile ? 'auto' : 120,
             width: isMobile ? 'auto' : 120,
             '& .MuiOutlinedInput-root': {
-              height: TYPOGRAPHY_STYLES.searchField.input.height,
+              height: '40px',
             }
           }}
         >
@@ -428,7 +427,7 @@ const GoodsReceivedPage: React.FC = () => {
               sx={{
                 minWidth: isMobile ? 'auto' : 120,
                 '& .MuiOutlinedInput-root': {
-                  height: TYPOGRAPHY_STYLES.searchField.input.height,
+                  height: '40px',
                   fontSize: '0.875rem',
                 }
               }}
@@ -443,7 +442,7 @@ const GoodsReceivedPage: React.FC = () => {
               sx={{
                 minWidth: isMobile ? 'auto' : 120,
                 '& .MuiOutlinedInput-root': {
-                  height: TYPOGRAPHY_STYLES.searchField.input.height,
+                  height: '40px',
                   fontSize: '0.875rem',
                 }
               }}
@@ -458,7 +457,7 @@ const GoodsReceivedPage: React.FC = () => {
             minWidth: isMobile ? 'auto' : 120,
             width: isMobile ? 'auto' : 120,
             '& .MuiOutlinedInput-root': {
-              height: TYPOGRAPHY_STYLES.searchField.input.height,
+              height: '40px',
               fontSize: '0.875rem'
             }
           }}
@@ -500,7 +499,7 @@ const GoodsReceivedPage: React.FC = () => {
             sx={{
               minWidth: 'auto',
               px: 2,
-              height: TYPOGRAPHY_STYLES.searchField.input.height,
+              height: '40px',
               fontSize: '0.875rem'
             }}
           >
@@ -514,7 +513,7 @@ const GoodsReceivedPage: React.FC = () => {
           startIcon={filters.sortBy === 'grnNumber' ? (filters.sortOrder === 'asc' ? <ArrowUpIcon /> : <ArrowDownIcon />) : <SortIcon />}
           onClick={() => handleSort('grnNumber')}
           sx={{
-            height: TYPOGRAPHY_STYLES.searchField.input.height,
+            height: '40px',
             fontSize: '0.875rem',
             minWidth: 'auto',
             px: 2
@@ -540,9 +539,9 @@ const GoodsReceivedPage: React.FC = () => {
           }}>
           <Paper sx={{ height: 'calc(100vh - 300px)', display: 'flex', flexDirection: 'column' }}>
             <Box sx={{ p: TABLE_STYLES.cell.padding.px, borderBottom: TABLE_STYLES.cell.border }}>
-              <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
-                fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
-                fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize,
+              <Typography variant="tableHeader" sx={{
+                fontWeight: 600,
+                fontSize: '0.8rem',
                 textTransform: 'uppercase',
                 letterSpacing: '0.5px'
               }}>
@@ -605,9 +604,9 @@ const GoodsReceivedPage: React.FC = () => {
                 alignItems: 'center'
               }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                  <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
-                    fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
-                    fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize,
+                  <Typography variant="tableHeader" sx={{
+                    fontWeight: 600,
+                    fontSize: '0.8rem',
                     textTransform: 'uppercase',
                     letterSpacing: '0.5px'
                   }}>
@@ -824,9 +823,9 @@ const GoodsReceivedPage: React.FC = () => {
 
                 {/* GRN Items Section */}
                 <Box sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-                  <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
-                    fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
-                    fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize,
+                  <Typography variant="tableHeader" sx={{
+                    fontWeight: 600,
+                    fontSize: '0.8rem',
                     textTransform: 'uppercase',
                     letterSpacing: '0.5px',
                     mb: 1
@@ -848,10 +847,10 @@ const GoodsReceivedPage: React.FC = () => {
                       >
                         <TableHead>
                           <TableRow sx={{ '& .MuiTableCell-head': {
-                            fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
+                            fontWeight: 600,
                             backgroundColor: 'grey.50',
-                            color: TYPOGRAPHY_STYLES.tableHeader.color,
-                            fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
+                            color: 'text.primary',
+                            fontSize: '0.8rem'
                           } }}>
                             <TableCell sx={{ width: '50%' }}>Product</TableCell>
                             <TableCell align="center" sx={{ width: '25%' }}>Ordered</TableCell>

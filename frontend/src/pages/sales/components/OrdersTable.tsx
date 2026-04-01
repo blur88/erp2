@@ -12,7 +12,6 @@ import {
 } from '@mui/material'
 
 import { TABLE_STYLES } from '@/constants/tableStyles'
-import { TYPOGRAPHY_STYLES } from '@/constants/typography'
 import type { SalesOrder } from '@/types'
 
 interface OrderRowProps {
@@ -49,11 +48,11 @@ const OrderRow = memo(({ order, index, selectedOrderId, focusedOrderIndex, onOrd
     >
       <TableCell>
         <Typography
-          variant={TYPOGRAPHY_STYLES.tableCell.secondary.variant}
+          variant="body2"
           sx={{
-            fontWeight: TYPOGRAPHY_STYLES.tableCell.secondary.fontWeight,
-            fontSize: TYPOGRAPHY_STYLES.tableCell.secondary.fontSize,
-            lineHeight: TYPOGRAPHY_STYLES.tableCell.secondary.lineHeight,
+            fontWeight: 400,
+            fontSize: '0.8rem',
+            lineHeight: 1.2,
           }}
         >
           {order.orderNumber}
@@ -89,10 +88,10 @@ const OrdersTable: React.FC<OrdersTableProps> = ({
       <Box sx={{ p: TABLE_STYLES.cell.padding.px, borderBottom: TABLE_STYLES.cell.border }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <Typography
-            variant={TYPOGRAPHY_STYLES.tableHeader.variant}
+            variant="tableHeader"
             sx={{
-              fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
-              fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize,
+              fontWeight: 600,
+              fontSize: '0.8rem',
               textTransform: 'uppercase',
               letterSpacing: '0.5px',
             }}

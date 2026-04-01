@@ -22,7 +22,6 @@ import {
 } from '@mui/icons-material'
 
 import PageHeader from '@/components/common/PageHeader'
-import { TYPOGRAPHY_STYLES } from '@/constants/typography'
 
 interface ProductsToolbarProps {
   isMobile: boolean
@@ -99,16 +98,16 @@ const ProductsToolbar: React.FC<ProductsToolbarProps> = ({
               flex: isMobile ? 'none' : 1,
               maxWidth: isMobile ? 'none' : 400,
               '& .MuiOutlinedInput-root': {
-                height: TYPOGRAPHY_STYLES.searchField.input.height,
-                fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
+                height: '40px',
+                fontSize: '0.875rem',
                 '& input': {
-                  padding: TYPOGRAPHY_STYLES.searchField.input.padding,
-                  fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
+                  padding: '8.5px 14px',
+                  fontSize: '0.875rem',
                 },
               },
               '& .MuiInputAdornment-root .MuiSvgIcon-root': {
-                fontSize: TYPOGRAPHY_STYLES.searchField.icon.fontSize,
-                color: TYPOGRAPHY_STYLES.searchField.icon.color,
+                fontSize: '1.25rem',
+                color: 'action.active',
               },
             }}
             InputProps={{
@@ -123,9 +122,9 @@ const ProductsToolbar: React.FC<ProductsToolbarProps> = ({
           <FormControl size="medium" sx={{ minWidth: isMobile ? 'auto' : 120, flex: 'none' }}>
             <InputLabel
               sx={{
-                fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
+                fontSize: '0.875rem',
                 '&.MuiInputLabel-shrunk': {
-                  fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize,
+                  fontSize: '0.7rem',
                 },
               }}
             >
@@ -152,23 +151,23 @@ const ProductsToolbar: React.FC<ProductsToolbarProps> = ({
                 sx: { zIndex: 9999 },
               }}
               sx={{
-                height: TYPOGRAPHY_STYLES.searchField.input.height,
-                fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
+                height: '40px',
+                fontSize: '0.875rem',
                 '& .MuiSelect-select': {
                   display: 'flex',
                   alignItems: 'center',
-                  fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
-                  padding: TYPOGRAPHY_STYLES.searchField.input.padding,
-                  height: TYPOGRAPHY_STYLES.searchField.input.height,
+                  fontSize: '0.875rem',
+                  padding: '8.5px 14px',
+                  height: '40px',
                   boxSizing: 'border-box',
                 },
               }}
             >
-              <MenuItem value="all" sx={{ fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize }}>
+              <MenuItem value="all" sx={{ fontSize: '0.875rem' }}>
                 All
               </MenuItem>
               {categories.map((category: any) => (
-                <MenuItem key={category.id} value={category.id} sx={{ fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize }}>
+                <MenuItem key={category.id} value={category.id} sx={{ fontSize: '0.875rem' }}>
                   {category.name}
                 </MenuItem>
               ))}
@@ -184,9 +183,9 @@ const ProductsToolbar: React.FC<ProductsToolbarProps> = ({
             disabled={isExporting || !hasProducts}
             sx={{
               flex: 'none',
-              height: TYPOGRAPHY_STYLES.searchField.input.height,
-              fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
-              fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight,
+              height: '40px',
+              fontSize: '0.875rem',
+              fontWeight: 600,
             }}
           >
             {isExporting ? 'Exporting...' : 'Export'}
@@ -199,9 +198,9 @@ const ProductsToolbar: React.FC<ProductsToolbarProps> = ({
             onClick={onImport}
             sx={{
               flex: 'none',
-              height: TYPOGRAPHY_STYLES.searchField.input.height,
-              fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
-              fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight,
+              height: '40px',
+              fontSize: '0.875rem',
+              fontWeight: 600,
               color: 'success.main',
               borderColor: 'success.main',
               '&:hover': {
@@ -220,9 +219,9 @@ const ProductsToolbar: React.FC<ProductsToolbarProps> = ({
             onClick={onToggleCalculator}
             sx={{
               flex: 'none',
-              height: TYPOGRAPHY_STYLES.searchField.input.height,
-              fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
-              fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight,
+              height: '40px',
+              fontSize: '0.875rem',
+              fontWeight: 600,
               color: calculatorPanelOpen ? 'info.dark' : 'info.main',
               borderColor: calculatorPanelOpen ? 'info.dark' : 'info.main',
               backgroundColor: calculatorPanelOpen ? 'info.light' : 'transparent',

@@ -23,7 +23,6 @@ import {
   Payment as PaymentsIcon,
 } from '@mui/icons-material'
 import { formatCurrency, formatDate, formatNumber } from '@/utils/formatters'
-import { TYPOGRAPHY_STYLES } from '@/constants/typography'
 import { TABLE_STYLES } from '@/constants/tableStyles'
 import PageHeader from '@/components/common/PageHeader'
 import { DashboardFilterBar } from '@/components/filters/DashboardFilterBar'
@@ -225,21 +224,21 @@ const SalesPage: React.FC = () => {
         >
           <Paper sx={{ overflow: 'hidden' }}>
             <Box sx={{ p: 3, borderBottom: 1, borderColor: 'divider' }}>
-              <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{ fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight }}>
+              <Typography variant="tableHeader" sx={{ fontWeight: 600 }}>
                 Recent Orders
               </Typography>
             </Box>
             <TableContainer>
               <Table size={TABLE_STYLES.size}>
                 <TableHead>
-                  <TableRow sx={{ '& .MuiTableCell-head': { fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight, backgroundColor: TABLE_STYLES.header.backgroundColor, py: TABLE_STYLES.header.padding.py } }}>
+                  <TableRow sx={{ '& .MuiTableCell-head': { fontWeight: 600, backgroundColor: TABLE_STYLES.header.backgroundColor, py: TABLE_STYLES.header.padding.py } }}>
                     <TableCell>
                       <Typography
-                        variant={TYPOGRAPHY_STYLES.tableHeader.variant}
+                        variant="tableHeader"
                         sx={{
-                          fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
-                          color: TYPOGRAPHY_STYLES.tableHeader.color,
-                          fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize,
+                          fontWeight: 600,
+                          color: 'text.primary',
+                          fontSize: '0.8rem',
                         }}
                       >
                         Order ID
@@ -247,11 +246,11 @@ const SalesPage: React.FC = () => {
                     </TableCell>
                     <TableCell>
                       <Typography
-                        variant={TYPOGRAPHY_STYLES.tableHeader.variant}
+                        variant="tableHeader"
                         sx={{
-                          fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
-                          color: TYPOGRAPHY_STYLES.tableHeader.color,
-                          fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize,
+                          fontWeight: 600,
+                          color: 'text.primary',
+                          fontSize: '0.8rem',
                         }}
                       >
                         Customer
@@ -259,11 +258,11 @@ const SalesPage: React.FC = () => {
                     </TableCell>
                     <TableCell>
                       <Typography
-                        variant={TYPOGRAPHY_STYLES.tableHeader.variant}
+                        variant="tableHeader"
                         sx={{
-                          fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
-                          color: TYPOGRAPHY_STYLES.tableHeader.color,
-                          fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize,
+                          fontWeight: 600,
+                          color: 'text.primary',
+                          fontSize: '0.8rem',
                         }}
                       >
                         Date
@@ -271,11 +270,11 @@ const SalesPage: React.FC = () => {
                     </TableCell>
                     <TableCell align="right">
                       <Typography
-                        variant={TYPOGRAPHY_STYLES.tableHeader.variant}
+                        variant="tableHeader"
                         sx={{
-                          fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
-                          color: TYPOGRAPHY_STYLES.tableHeader.color,
-                          fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize,
+                          fontWeight: 600,
+                          color: 'text.primary',
+                          fontSize: '0.8rem',
                         }}
                       >
                         Amount
@@ -283,11 +282,11 @@ const SalesPage: React.FC = () => {
                     </TableCell>
                     <TableCell>
                       <Typography
-                        variant={TYPOGRAPHY_STYLES.tableHeader.variant}
+                        variant="tableHeader"
                         sx={{
-                          fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
-                          color: TYPOGRAPHY_STYLES.tableHeader.color,
-                          fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize,
+                          fontWeight: 600,
+                          color: 'text.primary',
+                          fontSize: '0.8rem',
                         }}
                       >
                         Status
@@ -330,7 +329,7 @@ const SalesPage: React.FC = () => {
                       onClick={() => navigate('/sales/orders', { state: { highlightOrderId: order.id } })}
                     >
                       <TableCell>
-                        <Typography variant={TYPOGRAPHY_STYLES.tableCell.primary.variant} sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
+                        <Typography variant="body2" sx={{ fontSize: '0.8rem' }}>
                           {order.orderNumber}
                         </Typography>
                       </TableCell>
@@ -340,22 +339,22 @@ const SalesPage: React.FC = () => {
                             {order.customer?.name?.charAt(0) || 'U'}
                           </Avatar>
                           <Box>
-                            <Typography variant={TYPOGRAPHY_STYLES.tableCell.primary.variant} sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
+                            <Typography variant="body2" sx={{ fontSize: '0.8rem' }}>
                               {order.customer?.name || 'Unknown'}
                             </Typography>
-                            <Typography variant={TYPOGRAPHY_STYLES.tableCell.caption.variant} color="text.secondary" sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize }}>
+                            <Typography variant="tableCaption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
                               {order.items?.length || 0} item{order.items?.length !== 1 ? 's' : ''}
                             </Typography>
                           </Box>
                         </Box>
                       </TableCell>
                       <TableCell>
-                        <Typography variant={TYPOGRAPHY_STYLES.tableCell.secondary.variant} sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.secondary.fontSize }}>
+                        <Typography variant="body2" sx={{ fontSize: '0.8rem' }}>
                           {formatDate(order.orderDate)}
                         </Typography>
                       </TableCell>
                       <TableCell align="right">
-                        <Typography variant={TYPOGRAPHY_STYLES.tableCell.primary.variant} color="primary" sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
+                        <Typography variant="body2" color="primary" sx={{ fontSize: '0.8rem' }}>
                           {formatCurrency(order.totalAmount)}
                         </Typography>
                       </TableCell>
@@ -366,9 +365,9 @@ const SalesPage: React.FC = () => {
                           size="small"
                           variant="outlined"
                           sx={{
-                            fontSize: TYPOGRAPHY_STYLES.chip.small.fontSize,
-                            fontWeight: TYPOGRAPHY_STYLES.chip.small.fontWeight,
-                            height: TYPOGRAPHY_STYLES.chip.small.height,
+                            fontSize: '0.7rem',
+                            fontWeight: 500,
+                            height: 20,
                           }}
                         />
                       </TableCell>
@@ -376,7 +375,7 @@ const SalesPage: React.FC = () => {
                   )) : (
                     <TableRow>
                       <TableCell colSpan={5} align="center">
-                        <Typography variant={TYPOGRAPHY_STYLES.tableCell.secondary.variant} color="text.secondary">
+                        <Typography variant="body2" color="text.secondary">
                           No recent orders
                         </Typography>
                       </TableCell>

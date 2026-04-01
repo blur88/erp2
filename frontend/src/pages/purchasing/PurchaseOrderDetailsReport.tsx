@@ -54,7 +54,6 @@ import PageHeader from '@/components/common/PageHeader'
 import { printColors } from '@/styles/printTokens'
 import { PRINT_STYLES } from '@/styles/printStyles'
 import { formatCurrency, formatDate, formatDateTime } from '@/utils/formatters'
-import { TYPOGRAPHY_STYLES } from '@/constants/typography'
 import { TABLE_STYLES } from '@/constants/tableStyles'
 import api from '@/services/api'
 
@@ -716,9 +715,9 @@ const PurchaseOrderDetailsReport: React.FC = () => {
             {/* Filters Section */}
             <Paper sx={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
               <Box sx={{ p: TABLE_STYLES.cell.padding.px, borderBottom: TABLE_STYLES.cell.border, flexShrink: 0 }}>
-                <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
-                  fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
-                  fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize,
+                <Typography variant="tableHeader" sx={{
+                  fontWeight: 600,
+                  fontSize: '0.8rem',
                   textTransform: 'uppercase',
                   letterSpacing: '0.5px'
                 }}>
@@ -858,9 +857,9 @@ const PurchaseOrderDetailsReport: React.FC = () => {
             {/* Display Section */}
             <Paper sx={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
               <Box sx={{ p: TABLE_STYLES.cell.padding.px, borderBottom: TABLE_STYLES.cell.border, flexShrink: 0 }}>
-                <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
-                  fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
-                  fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize,
+                <Typography variant="tableHeader" sx={{
+                  fontWeight: 600,
+                  fontSize: '0.8rem',
                   textTransform: 'uppercase',
                   letterSpacing: '0.5px'
                 }}>
@@ -989,9 +988,9 @@ const PurchaseOrderDetailsReport: React.FC = () => {
           ) : (
             <Paper sx={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
               <Box sx={{ p: TABLE_STYLES.cell.padding.px, borderBottom: TABLE_STYLES.cell.border, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
-                <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
-                  fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
-                  fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize,
+                <Typography variant="tableHeader" sx={{
+                  fontWeight: 600,
+                  fontSize: '0.8rem',
                   textTransform: 'uppercase',
                   letterSpacing: '0.5px'
                 }}>
@@ -1033,10 +1032,10 @@ const PurchaseOrderDetailsReport: React.FC = () => {
                 >
                   <TableHead>
                     <TableRow sx={{ '& .MuiTableCell-head': {
-                      fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
+                      fontWeight: 600,
                       backgroundColor: theme.palette.action.hover,
-                      color: TYPOGRAPHY_STYLES.tableHeader.color,
-                      fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize,
+                      color: 'text.primary',
+                      fontSize: '0.8rem',
                       textAlign: 'center',
                       position: 'sticky',
                       top: 0,

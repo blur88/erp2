@@ -38,7 +38,6 @@ import {
 import type { User } from '@/types'
 import UserFormDialog from '@/components/settings/UserFormDialog'
 import ConfirmationDialog from '@/components/common/ConfirmationDialog'
-import { TYPOGRAPHY_STYLES } from '@/constants/typography'
 import { TABLE_STYLES } from '@/constants/tableStyles'
 import { formatDateTime } from '@/utils/formatters'
 

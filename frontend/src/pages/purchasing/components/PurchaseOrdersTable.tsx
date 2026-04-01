@@ -12,7 +12,6 @@ import {
 } from '@mui/material'
 
 import { TABLE_STYLES } from '@/constants/tableStyles'
-import { TYPOGRAPHY_STYLES } from '@/constants/typography'
 import type { PurchaseOrder } from '@/types'
 
 interface OrderRowProps {
@@ -46,7 +45,7 @@ const OrderRow = memo(({ order, index, selectedOrderId, focusedOrderIndex, onOrd
       }}
     >
       <TableCell>
-        <Typography variant={TYPOGRAPHY_STYLES.tableCell.secondary.variant} sx={{ fontWeight: TYPOGRAPHY_STYLES.tableCell.secondary.fontWeight, fontSize: TYPOGRAPHY_STYLES.tableCell.secondary.fontSize, lineHeight: TYPOGRAPHY_STYLES.tableCell.secondary.lineHeight }}>
+        <Typography variant="body2" sx={{ fontWeight: 400, fontSize: '0.8rem', lineHeight: 1.2 }}>
           {order.orderNumber}
         </Typography>
       </TableCell>
@@ -78,7 +77,7 @@ const PurchaseOrdersTable: React.FC<PurchaseOrdersTableProps> = ({
   return (
     <Paper sx={{ height: 'calc(100vh - 300px)', display: 'flex', flexDirection: 'column' }}>
       <Box sx={{ p: TABLE_STYLES.cell.padding.px, borderBottom: TABLE_STYLES.cell.border }}>
-        <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{ fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight, fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+        <Typography variant="tableHeader" sx={{ fontWeight: 600, fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
           PO List ({total})
         </Typography>
       </Box>

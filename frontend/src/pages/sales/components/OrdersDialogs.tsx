@@ -27,7 +27,6 @@ import BlockedSalesOrderDialog from '@/components/sales/BlockedSalesOrderDialog'
 import DeletedOrdersDialog from '@/components/sales/DeletedOrdersDialog'
 import { SalesOrderPrint } from '@/components/print'
 import { TABLE_STYLES } from '@/constants/tableStyles'
-import { TYPOGRAPHY_STYLES } from '@/constants/typography'
 import type { SalesOrder } from '@/types'
 import { formatCurrency, formatDate } from '@/utils/formatters'
 
@@ -157,7 +156,7 @@ const OrdersDialogs: React.FC<OrdersDialogsProps> = ({
                       <TableContainer>
                         <Table size={TABLE_STYLES.size} sx={{ '& .MuiTableCell-root': { borderBottom: TABLE_STYLES.cell.border, py: TABLE_STYLES.cell.padding.py, px: TABLE_STYLES.cell.padding.px } }}>
                           <TableHead>
-                            <TableRow sx={{ '& .MuiTableCell-head': { fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight, backgroundColor: 'grey.50', color: TYPOGRAPHY_STYLES.tableHeader.color, fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize } }}>
+                            <TableRow sx={{ '& .MuiTableCell-head': { fontWeight: 600, backgroundColor: 'grey.50', color: 'text.primary', fontSize: '0.8rem' } }}>
                               <TableCell sx={{ width: '30%' }}>Product</TableCell>
                               <TableCell sx={{ width: '15%' }}>SKU/Barcode</TableCell>
                               <TableCell align="center" sx={{ width: '11%' }}>Quantity</TableCell>
@@ -169,15 +168,15 @@ const OrdersDialogs: React.FC<OrdersDialogsProps> = ({
                           <TableBody>
                             {selectedOrder.items.map((item: any, index: number) => (
                               <TableRow key={index} hover sx={{ '&:hover': { backgroundColor: 'action.hover' }, transition: 'background-color 0.2s ease', height: TABLE_STYLES.row.height }}>
-                                <TableCell sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize, lineHeight: TYPOGRAPHY_STYLES.tableCell.primary.lineHeight }}>
+                                <TableCell sx={{ fontSize: '0.8rem', lineHeight: 1.2 }}>
                                   {item.product?.name || 'Unknown Product'}
                                   {item.description && (
-                                    <Typography sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize, color: 'text.secondary', display: 'block' }}>
+                                    <Typography sx={{ fontSize: '0.7rem', color: 'text.secondary', display: 'block' }}>
                                       {item.description}
                                     </Typography>
                                   )}
                                 </TableCell>
-                                <TableCell sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.secondary.fontSize, fontWeight: TYPOGRAPHY_STYLES.tableCell.secondary.fontWeight, lineHeight: TYPOGRAPHY_STYLES.tableCell.secondary.lineHeight }}>
+                                <TableCell sx={{ fontSize: '0.8rem', fontWeight: 400, lineHeight: 1.2 }}>
                                   {item.product?.barcode || item.product?.sku || 'N/A'}
                                 </TableCell>
                                 <TableCell align="center">{item.quantity || 0}</TableCell>

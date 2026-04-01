@@ -37,7 +37,6 @@ import {
   useGetPriceListQuery,
 } from '@/store/api/priceListApi'
 import type { PriceListItem } from '@/types'
-import { TYPOGRAPHY_STYLES } from '@/constants/typography'
 import { TABLE_STYLES } from '@/constants/tableStyles'
 import { formatCurrency } from '@/utils/currency'
 import { formatDate as formatDisplayDate } from '@/utils/formatters'
@@ -200,7 +199,7 @@ const PriceListDetailsPage: React.FC = () => {
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
           <Box>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1 }}>
-              <Typography variant={TYPOGRAPHY_STYLES.pageHeader.variant} sx={{ fontWeight: TYPOGRAPHY_STYLES.pageHeader.fontWeight }}>
+              <Typography variant="h4" sx={{ fontWeight: 700 }}>
                 {selectedPriceList.name}
               </Typography>
               {selectedPriceList.isDefault && (

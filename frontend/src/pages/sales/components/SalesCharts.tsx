@@ -21,7 +21,6 @@ import {
 } from 'chart.js'
 import { Line, Doughnut } from 'react-chartjs-2'
 import { formatCurrency, formatNumber, formatSalesPeriodLabel } from '@/utils/formatters'
-import { TYPOGRAPHY_STYLES } from '@/constants/typography'
 
 ChartJS.register(
     CategoryScale,
@@ -112,7 +111,7 @@ export const SalesTrendChart: React.FC<SalesTrendChartProps> = ({ labels, data, 
 
     return (
         <Paper sx={{ p: 3, height: 400 }}>
-            <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{ fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight, mb: 3 }}>
+            <Typography variant="tableHeader" sx={{ fontWeight: 600, mb: 3 }}>
                 Sales Trend
             </Typography>
             <Box sx={{ height: 300 }}>
@@ -178,7 +177,7 @@ const OrderStatusChart: React.FC<OrderStatusChartProps> = ({ ordersByStatus, loa
     if (!ordersByStatus || ordersByStatus.length === 0) {
         return (
             <Paper sx={{ p: 3, height: 400 }}>
-                <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{ fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight, mb: 3 }}>
+                <Typography variant="tableHeader" sx={{ fontWeight: 600, mb: 3 }}>
                     Order Status
                 </Typography>
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 300 }}>
@@ -190,7 +189,7 @@ const OrderStatusChart: React.FC<OrderStatusChartProps> = ({ ordersByStatus, loa
 
     return (
         <Paper sx={{ p: 3, height: 400 }}>
-            <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{ fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight, mb: 3 }}>
+            <Typography variant="tableHeader" sx={{ fontWeight: 600, mb: 3 }}>
                 Order Status
             </Typography>
             <Box sx={{ height: 300 }}>
@@ -231,7 +230,7 @@ export const TopProductsList: React.FC<TopProductsListProps> = ({ products, load
 
     return (
         <Paper sx={{ p: 3, height: 400 }}>
-            <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{ fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight, mb: 3 }}>
+            <Typography variant="tableHeader" sx={{ fontWeight: 600, mb: 3 }}>
                 Top Products
             </Typography>
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
@@ -250,14 +249,14 @@ export const TopProductsList: React.FC<TopProductsListProps> = ({ products, load
                                         display: 'flex',
                                         alignItems: 'center',
                                         justifyContent: 'center',
-                                        fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize,
-                                        fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight
+                                        fontSize: '0.7rem',
+                                        fontWeight: 600
                                     }}
                                 >
                                     {index + 1}
                                 </Typography>
                                 <Box>
-                                    <Typography variant={TYPOGRAPHY_STYLES.tableCell.primary.variant} sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
+                                    <Typography variant="body2" sx={{ fontSize: '0.8rem' }}>
                                         {product.productName}
                                     </Typography>
                                     <Typography variant="caption" color="text.secondary">
@@ -271,7 +270,7 @@ export const TopProductsList: React.FC<TopProductsListProps> = ({ products, load
                         </Box>
                     </Box>
                 )) : (
-                    <Typography variant={TYPOGRAPHY_STYLES.tableCell.secondary.variant} color="text.secondary" align="center">
+                    <Typography variant="body2" color="text.secondary" align="center">
                         No product data available
                     </Typography>
                 )}
@@ -315,7 +314,7 @@ export const TopCustomersList: React.FC<TopCustomersListProps> = ({ customers, l
 
     return (
         <Paper sx={{ p: 3 }}>
-            <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{ fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight, mb: 3 }}>
+            <Typography variant="tableHeader" sx={{ fontWeight: 600, mb: 3 }}>
                 Top Customers
             </Typography>
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
@@ -334,14 +333,14 @@ export const TopCustomersList: React.FC<TopCustomersListProps> = ({ customers, l
                                         display: 'flex',
                                         alignItems: 'center',
                                         justifyContent: 'center',
-                                        fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize,
-                                        fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight
+                                        fontSize: '0.7rem',
+                                        fontWeight: 600
                                     }}
                                 >
                                     {index + 1}
                                 </Typography>
                                 <Box>
-                                    <Typography variant={TYPOGRAPHY_STYLES.tableCell.primary.variant} sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
+                                    <Typography variant="body2" sx={{ fontSize: '0.8rem' }}>
                                         {customer.customerName || customer.name}
                                     </Typography>
                                     <Typography variant="caption" color="text.secondary">
@@ -355,7 +354,7 @@ export const TopCustomersList: React.FC<TopCustomersListProps> = ({ customers, l
                         </Box>
                     </Box>
                 )) : (
-                    <Typography variant={TYPOGRAPHY_STYLES.tableCell.secondary.variant} color="text.secondary" align="center">
+                    <Typography variant="body2" color="text.secondary" align="center">
                         No customer data available
                     </Typography>
                 )}

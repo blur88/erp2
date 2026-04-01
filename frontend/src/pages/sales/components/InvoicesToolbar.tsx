@@ -21,7 +21,6 @@ import {
 import type { InvoiceFilters } from '../hooks/useInvoicesPageState'
 
 import PageHeader from '@/components/common/PageHeader'
-import { TYPOGRAPHY_STYLES } from '@/constants/typography'
 
 interface InvoicesToolbarProps {
   isMobile: boolean
@@ -79,18 +78,18 @@ const InvoicesToolbar: React.FC<InvoicesToolbarProps> = ({
               flex: isMobile ? 'none' : 1,
               maxWidth: isMobile ? 'none' : 400,
               '& .MuiOutlinedInput-root': {
-                height: TYPOGRAPHY_STYLES.searchField.input.height,
-                fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
+                height: '40px',
+                fontSize: '0.875rem',
                 '& input': {
-                  padding: TYPOGRAPHY_STYLES.searchField.input.padding,
-                  fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
+                  padding: '8.5px 14px',
+                  fontSize: '0.875rem',
                 },
               },
             }}
             InputProps={{
               startAdornment: (
                 <InputAdornment position="start">
-                  <SearchIcon sx={{ fontSize: TYPOGRAPHY_STYLES.searchField.icon.fontSize }} />
+                  <SearchIcon sx={{ fontSize: '1.25rem' }} />
                 </InputAdornment>
               ),
             }}
@@ -101,8 +100,8 @@ const InvoicesToolbar: React.FC<InvoicesToolbarProps> = ({
             sx={{
               minWidth: isMobile ? 'auto' : 120,
               '& .MuiOutlinedInput-root': {
-                height: TYPOGRAPHY_STYLES.searchField.input.height,
-                fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
+                height: '40px',
+                fontSize: '0.875rem',
               },
             }}
           >
@@ -112,17 +111,17 @@ const InvoicesToolbar: React.FC<InvoicesToolbarProps> = ({
               label="Date Filter"
               onChange={(event) => onFilterChange({ dateFilter: event.target.value })}
               sx={{
-                fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
+                fontSize: '0.875rem',
                 '& .MuiSelect-select': {
-                  padding: TYPOGRAPHY_STYLES.searchField.input.padding,
-                  fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
+                  padding: '8.5px 14px',
+                  fontSize: '0.875rem',
                 },
               }}
               MenuProps={{
                 PaperProps: {
                   sx: {
                     '& .MuiMenuItem-root': {
-                      fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
+                      fontSize: '0.875rem',
                     },
                   },
                 },
@@ -150,11 +149,11 @@ const InvoicesToolbar: React.FC<InvoicesToolbarProps> = ({
                 sx={{
                   minWidth: 120,
                   '& .MuiOutlinedInput-root': {
-                    height: TYPOGRAPHY_STYLES.searchField.input.height,
-                    fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
+                    height: '40px',
+                    fontSize: '0.875rem',
                     '& input': {
-                      padding: TYPOGRAPHY_STYLES.searchField.input.padding,
-                      fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
+                      padding: '8.5px 14px',
+                      fontSize: '0.875rem',
                     },
                   },
                 }}
@@ -169,11 +168,11 @@ const InvoicesToolbar: React.FC<InvoicesToolbarProps> = ({
                 sx={{
                   minWidth: 120,
                   '& .MuiOutlinedInput-root': {
-                    height: TYPOGRAPHY_STYLES.searchField.input.height,
-                    fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
+                    height: '40px',
+                    fontSize: '0.875rem',
                     '& input': {
-                      padding: TYPOGRAPHY_STYLES.searchField.input.padding,
-                      fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
+                      padding: '8.5px 14px',
+                      fontSize: '0.875rem',
                     },
                   },
                 }}
@@ -190,8 +189,8 @@ const InvoicesToolbar: React.FC<InvoicesToolbarProps> = ({
               sx={{
                 minWidth: 'auto',
                 px: 2,
-                height: TYPOGRAPHY_STYLES.searchField.input.height,
-                fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
+                height: '40px',
+                fontSize: '0.875rem',
               }}
             >
               Clear Filters
@@ -210,8 +209,8 @@ const InvoicesToolbar: React.FC<InvoicesToolbarProps> = ({
             }
             onClick={() => onSort('invoiceNumber')}
             sx={{
-              height: TYPOGRAPHY_STYLES.searchField.input.height,
-              fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
+              height: '40px',
+              fontSize: '0.875rem',
               minWidth: 'auto',
               px: 2,
             }}

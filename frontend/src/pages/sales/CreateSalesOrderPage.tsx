@@ -40,7 +40,6 @@ import PageHeader from '@/components/common/PageHeader'
 import type { RootState } from '@/store'
 import { setSelectedOrder } from '@/store/slices/salesSlice'
 import { useCurrency } from '@/hooks/useCurrency'
-import { TYPOGRAPHY_STYLES } from '@/constants/typography'
 
 interface OrderItem {
   productId: string

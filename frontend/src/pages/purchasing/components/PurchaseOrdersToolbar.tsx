@@ -22,7 +22,6 @@ import {
 } from '@mui/material'
 
 import PageHeader from '@/components/common/PageHeader'
-import { TYPOGRAPHY_STYLES } from '@/constants/typography'
 
 type LegacyPurchaseOrdersFilters = {
   search: string
@@ -82,18 +81,18 @@ const PurchaseOrdersToolbar: React.FC<PurchaseOrdersToolbarProps> = ({
               flex: isMobile ? 'none' : 1,
               maxWidth: isMobile ? 'none' : 400,
               '& .MuiOutlinedInput-root': {
-                height: TYPOGRAPHY_STYLES.searchField.input.height,
-                fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
+                height: '40px',
+                fontSize: '0.875rem',
                 '& input': {
-                  padding: TYPOGRAPHY_STYLES.searchField.input.padding,
-                  fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
+                  padding: '8.5px 14px',
+                  fontSize: '0.875rem',
                 },
               },
             }}
             InputProps={{
               startAdornment: (
                 <InputAdornment position="start">
-                  <SearchIcon sx={{ fontSize: TYPOGRAPHY_STYLES.searchField.icon.fontSize }} />
+                  <SearchIcon sx={{ fontSize: '1.25rem' }} />
                 </InputAdornment>
               ),
             }}
@@ -104,8 +103,8 @@ const PurchaseOrdersToolbar: React.FC<PurchaseOrdersToolbarProps> = ({
             sx={{
               minWidth: isMobile ? 'auto' : 120,
               '& .MuiOutlinedInput-root': {
-                height: TYPOGRAPHY_STYLES.searchField.input.height,
-                fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
+                height: '40px',
+                fontSize: '0.875rem',
               },
             }}
           >
@@ -133,11 +132,11 @@ const PurchaseOrdersToolbar: React.FC<PurchaseOrdersToolbarProps> = ({
                 sx={{
                   minWidth: isMobile ? 'auto' : 120,
                   '& .MuiOutlinedInput-root': {
-                    height: TYPOGRAPHY_STYLES.searchField.input.height,
-                    fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
+                    height: '40px',
+                    fontSize: '0.875rem',
                     '& input': {
-                      padding: TYPOGRAPHY_STYLES.searchField.input.padding,
-                      fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
+                      padding: '8.5px 14px',
+                      fontSize: '0.875rem',
                     },
                   },
                 }}
@@ -152,11 +151,11 @@ const PurchaseOrdersToolbar: React.FC<PurchaseOrdersToolbarProps> = ({
                 sx={{
                   minWidth: isMobile ? 'auto' : 120,
                   '& .MuiOutlinedInput-root': {
-                    height: TYPOGRAPHY_STYLES.searchField.input.height,
-                    fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
+                    height: '40px',
+                    fontSize: '0.875rem',
                     '& input': {
-                      padding: TYPOGRAPHY_STYLES.searchField.input.padding,
-                      fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
+                      padding: '8.5px 14px',
+                      fontSize: '0.875rem',
                     },
                   },
                 }}
@@ -170,8 +169,8 @@ const PurchaseOrdersToolbar: React.FC<PurchaseOrdersToolbarProps> = ({
             sx={{
               minWidth: isMobile ? 'auto' : 120,
               '& .MuiOutlinedInput-root': {
-                height: TYPOGRAPHY_STYLES.searchField.input.height,
-                fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize,
+                height: '40px',
+                fontSize: '0.875rem',
               },
             }}
           >
@@ -191,7 +190,7 @@ const PurchaseOrdersToolbar: React.FC<PurchaseOrdersToolbarProps> = ({
               variant="outlined"
               size="medium"
               onClick={onClearFilters}
-              sx={{ height: TYPOGRAPHY_STYLES.searchField.input.height, fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize }}
+              sx={{ height: '40px', fontSize: '0.875rem' }}
             >
               Clear Filters
             </Button>
@@ -202,7 +201,7 @@ const PurchaseOrdersToolbar: React.FC<PurchaseOrdersToolbarProps> = ({
             size="medium"
             startIcon={filters.sortBy === 'orderNumber' ? filters.sortOrder === 'desc' ? <ArrowDownIcon /> : <ArrowUpIcon /> : <SortIcon />}
             onClick={() => onSort('orderNumber')}
-            sx={{ height: TYPOGRAPHY_STYLES.searchField.input.height, fontSize: TYPOGRAPHY_STYLES.searchField.input.fontSize }}
+            sx={{ height: '40px', fontSize: '0.875rem' }}
           >
             Sort
           </Button>

@@ -14,7 +14,6 @@ import {
 } from '@mui/icons-material'
 import PageHeader from '@/components/common/PageHeader'
 import { formatCurrency } from '@/utils/formatters'
-import { TYPOGRAPHY_STYLES } from '@/constants/typography'
 import { useNavigate } from 'react-router-dom'
 import { useCurrency } from '@/hooks/useCurrency'
 import {

@@ -19,7 +19,6 @@ import { Print as PrintIcon } from '@mui/icons-material'
 import type { InvoiceJournalEntryRef, InvoiceListItem } from '../hooks/useInvoicesPageState'
 
 import { TABLE_STYLES } from '@/constants/tableStyles'
-import { TYPOGRAPHY_STYLES } from '@/constants/typography'
 import { formatCurrency, formatDate } from '@/utils/formatters'
 import type { InvoiceItem } from '@/types'
 
@@ -67,10 +66,10 @@ const InvoiceDetailsPanel: React.FC<InvoiceDetailsPanelProps> = ({
       >
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
           <Typography
-            variant={TYPOGRAPHY_STYLES.tableHeader.variant}
+            variant="tableHeader"
             sx={{
-              fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
-              fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize,
+              fontWeight: 600,
+              fontSize: '0.8rem',
               textTransform: 'uppercase',
               letterSpacing: '0.5px',
             }}
@@ -309,10 +308,10 @@ const InvoiceDetailsPanel: React.FC<InvoiceDetailsPanelProps> = ({
 
         <Box sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
           <Typography
-            variant={TYPOGRAPHY_STYLES.tableHeader.variant}
+            variant="tableHeader"
             sx={{
-              fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
-              fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize,
+              fontWeight: 600,
+              fontSize: '0.8rem',
               textTransform: 'uppercase',
               letterSpacing: '0.5px',
               mb: 1,
@@ -337,10 +336,10 @@ const InvoiceDetailsPanel: React.FC<InvoiceDetailsPanelProps> = ({
                   <TableRow
                     sx={{
                       '& .MuiTableCell-head': {
-                        fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
+                        fontWeight: 600,
                         backgroundColor: 'grey.50',
-                        color: TYPOGRAPHY_STYLES.tableHeader.color,
-                        fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize,
+                        color: 'text.primary',
+                        fontSize: '0.8rem',
                       },
                     }}
                   >
@@ -400,10 +399,10 @@ const InvoiceDetailsPanel: React.FC<InvoiceDetailsPanelProps> = ({
         {selectedInvoice.notes && (
           <Box sx={{ mt: 1 }}>
             <Typography
-              variant={TYPOGRAPHY_STYLES.tableHeader.variant}
+              variant="tableHeader"
               sx={{
-                fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
-                fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize,
+                fontWeight: 600,
+                fontSize: '0.8rem',
                 textTransform: 'uppercase',
                 letterSpacing: '0.5px',
                 mb: 1,
@@ -417,7 +416,7 @@ const InvoiceDetailsPanel: React.FC<InvoiceDetailsPanelProps> = ({
                 p: 2,
                 backgroundColor: 'grey.50',
                 borderRadius: 1,
-                fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
+                fontSize: '0.8rem',
                 whiteSpace: 'pre-wrap',
                 wordBreak: 'break-word',
               }}

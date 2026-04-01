@@ -42,7 +42,6 @@ import {
   Print as PrintIcon,
 } from '@mui/icons-material'
 import { formatCurrency, formatDate, formatWholeQuantity } from '@/utils/formatters'
-import { TYPOGRAPHY_STYLES } from '@/constants/typography'
 import { TABLE_STYLES } from '@/constants/tableStyles'
 import { ListSkeleton } from '@/components/common/ListSkeleton'
 import { FilterBar, useFilterBar } from '@/components/filters'
@@ -150,11 +149,11 @@ const PaymentRow = memo(({ payment, index, selectedPaymentId, focusedPaymentInde
     >
       <TableCell>
         <Typography
-          variant={TYPOGRAPHY_STYLES.tableCell.secondary.variant}
+          variant="body2"
           sx={{
-            fontWeight: TYPOGRAPHY_STYLES.tableCell.secondary.fontWeight,
-            fontSize: TYPOGRAPHY_STYLES.tableCell.secondary.fontSize,
-            lineHeight: TYPOGRAPHY_STYLES.tableCell.secondary.lineHeight
+            fontWeight: 400,
+            fontSize: '0.8rem',
+            lineHeight: 1.2
           }}
         >
           {payment.paymentNumber}
@@ -559,7 +558,7 @@ const PaymentsPage: React.FC = () => {
             startIcon={sortState.sortBy === 'paymentNumber' ? (sortState.sortOrder === 'desc' ? <ArrowDownIcon /> : <ArrowUpIcon />) : <SortIcon />}
             onClick={() => handleSort('paymentNumber')}
             sx={{
-              height: TYPOGRAPHY_STYLES.searchField.input.height,
+              height: '40px',
               fontSize: '0.875rem',
               minWidth: 'auto',
               px: 2,
@@ -585,9 +584,9 @@ const PaymentsPage: React.FC = () => {
           }}>
           <Paper sx={{ height: 'calc(100vh - 300px)', display: 'flex', flexDirection: 'column' }}>
             <Box sx={{ p: TABLE_STYLES.cell.padding.px, borderBottom: TABLE_STYLES.cell.border }}>
-              <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
-                fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
-                fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize,
+              <Typography variant="tableHeader" sx={{
+                fontWeight: 600,
+                fontSize: '0.8rem',
                 textTransform: 'uppercase',
                 letterSpacing: '0.5px'
               }}>
@@ -616,10 +615,10 @@ const PaymentsPage: React.FC = () => {
                     >
                       <TableHead sx={{ display: 'none' }}>
                         <TableRow sx={{ '& .MuiTableCell-head': {
-                          fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
+                          fontWeight: 600,
                           backgroundColor: 'grey.50',
-                          color: TYPOGRAPHY_STYLES.tableHeader.color,
-                          fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize,
+                          color: 'text.primary',
+                          fontSize: '0.8rem',
                         } }}>
                           <TableCell>Payment #</TableCell>
                         </TableRow>
@@ -661,9 +660,9 @@ const PaymentsPage: React.FC = () => {
                 alignItems: 'center'
               }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                  <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
-                    fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
-                    fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize,
+                  <Typography variant="tableHeader" sx={{
+                    fontWeight: 600,
+                    fontSize: '0.8rem',
                     textTransform: 'uppercase',
                     letterSpacing: '0.5px'
                   }}>
@@ -899,9 +898,9 @@ const PaymentsPage: React.FC = () => {
 
                 {/* Payment Items Section */}
                 <Box sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-                  <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
-                    fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
-                    fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize,
+                  <Typography variant="tableHeader" sx={{
+                    fontWeight: 600,
+                    fontSize: '0.8rem',
                     textTransform: 'uppercase',
                     letterSpacing: '0.5px',
                     mb: 1
@@ -923,10 +922,10 @@ const PaymentsPage: React.FC = () => {
                       >
                         <TableHead>
                           <TableRow sx={{ '& .MuiTableCell-head': {
-                            fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
+                            fontWeight: 600,
                             backgroundColor: 'grey.50',
-                            color: TYPOGRAPHY_STYLES.tableHeader.color,
-                            fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize
+                            color: 'text.primary',
+                            fontSize: '0.8rem'
                           } }}>
                             <TableCell sx={{ width: '40%' }}>Product</TableCell>
                             <TableCell align="center" sx={{ width: '12%' }}>Quantity</TableCell>
@@ -980,9 +979,9 @@ const PaymentsPage: React.FC = () => {
                 {/* Payment Notes Section */}
                 {selectedPayment.notes && (
                   <Box sx={{ mt: 1 }}>
-                    <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{
-                      fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight,
-                      fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize,
+                    <Typography variant="tableHeader" sx={{
+                      fontWeight: 600,
+                      fontSize: '0.8rem',
                       textTransform: 'uppercase',
                       letterSpacing: '0.5px',
                       mb: 1
@@ -994,7 +993,7 @@ const PaymentsPage: React.FC = () => {
                       p: 2,
                       backgroundColor: 'grey.50',
                       borderRadius: 1,
-                      fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize,
+                      fontSize: '0.8rem',
                       whiteSpace: 'pre-wrap',
                       wordBreak: 'break-word'
                     }}>

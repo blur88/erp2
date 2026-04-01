@@ -22,7 +22,6 @@ import {
 import Grid from '@mui/material/GridLegacy'
 
 import { TABLE_STYLES } from '@/constants/tableStyles'
-import { TYPOGRAPHY_STYLES } from '@/constants/typography'
 import type { PurchaseOrder } from '@/types'
 import { formatCurrency, formatDate } from '@/utils/formatters'
 
@@ -81,7 +80,7 @@ const PurchaseOrderDetailsPanel: React.FC<PurchaseOrderDetailsPanelProps> = ({
   return (
     <Paper sx={{ height: 'calc(100vh - 300px)', display: 'flex', flexDirection: 'column' }}>
       <Box sx={{ p: TABLE_STYLES.cell.padding.px, borderBottom: TABLE_STYLES.cell.border, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{ fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight, fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+        <Typography variant="tableHeader" sx={{ fontWeight: 600, fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
           PO Details - {selectedOrder.orderNumber}
         </Typography>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25 }}>
@@ -105,27 +104,27 @@ const PurchaseOrderDetailsPanel: React.FC<PurchaseOrderDetailsPanelProps> = ({
                 <TableBody>
                   <TableRow>
                     <TableCell colSpan={2} sx={{ pb: TABLE_STYLES.cell.padding.py * 0.67, py: TABLE_STYLES.cell.padding.py * 0.67, borderTop: TABLE_STYLES.cell.border }}>
-                      <Typography variant="h6" sx={{ fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight, color: 'primary.main', fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize }}>
+                      <Typography variant="h6" sx={{ fontWeight: 600, color: 'primary.main', fontSize: '0.8rem' }}>
                         PO Information
                       </Typography>
                     </TableCell>
                   </TableRow>
                   <TableRow sx={{ backgroundColor: 'grey.50' }}>
-                    <TableCell sx={{ fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight, color: 'text.secondary', fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>Supplier</TableCell>
-                    <TableCell sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>{selectedOrder.supplier?.companyName || 'N/A'}</TableCell>
+                    <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem' }}>Supplier</TableCell>
+                    <TableCell sx={{ fontSize: '0.8rem' }}>{selectedOrder.supplier?.companyName || 'N/A'}</TableCell>
                   </TableRow>
                   <TableRow>
-                    <TableCell sx={{ fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight, color: 'text.secondary', fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>PO Date</TableCell>
-                    <TableCell sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>{formatDate(selectedOrder.orderDate)}</TableCell>
+                    <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem' }}>PO Date</TableCell>
+                    <TableCell sx={{ fontSize: '0.8rem' }}>{formatDate(selectedOrder.orderDate)}</TableCell>
                   </TableRow>
                   <TableRow sx={{ backgroundColor: 'grey.50' }}>
-                    <TableCell sx={{ fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight, color: 'text.secondary', fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>GRN No</TableCell>
-                    <TableCell sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
+                    <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem' }}>GRN No</TableCell>
+                    <TableCell sx={{ fontSize: '0.8rem' }}>
                       {selectedOrder.goodsReceivedNotes && selectedOrder.goodsReceivedNotes.length > 0
                         ? selectedOrder.goodsReceivedNotes.map((grn: any, index: number) => (
                             <Box key={grn.id} component="span">
                               {index > 0 && ', '}
-                              <Typography component="button" onClick={() => onNavigateToGoodsReceived(grn.id)} sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize, color: 'primary.main', cursor: 'pointer', textDecoration: 'none', border: 'none', background: 'none', padding: 0 }}>
+                              <Typography component="button" onClick={() => onNavigateToGoodsReceived(grn.id)} sx={{ fontSize: '0.8rem', color: 'primary.main', cursor: 'pointer', textDecoration: 'none', border: 'none', background: 'none', padding: 0 }}>
                                 {grn.grnNumber}
                               </Typography>
                             </Box>
@@ -134,13 +133,13 @@ const PurchaseOrderDetailsPanel: React.FC<PurchaseOrderDetailsPanelProps> = ({
                     </TableCell>
                   </TableRow>
                   <TableRow>
-                    <TableCell sx={{ fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight, color: 'text.secondary', fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>VP No</TableCell>
-                    <TableCell sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
+                    <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem' }}>VP No</TableCell>
+                    <TableCell sx={{ fontSize: '0.8rem' }}>
                       {selectedOrder.vendorPayments && selectedOrder.vendorPayments.length > 0
                         ? selectedOrder.vendorPayments.map((payment: any, index: number) => (
                             <Box key={payment.id} component="span">
                               {index > 0 && ', '}
-                              <Typography component="button" onClick={() => onNavigateToVendorPayment(payment.id)} sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize, color: 'primary.main', cursor: 'pointer', textDecoration: 'none', border: 'none', background: 'none', padding: 0 }}>
+                              <Typography component="button" onClick={() => onNavigateToVendorPayment(payment.id)} sx={{ fontSize: '0.8rem', color: 'primary.main', cursor: 'pointer', textDecoration: 'none', border: 'none', background: 'none', padding: 0 }}>
                                 {payment.paymentNumber}
                               </Typography>
                             </Box>
@@ -149,16 +148,16 @@ const PurchaseOrderDetailsPanel: React.FC<PurchaseOrderDetailsPanelProps> = ({
                     </TableCell>
                   </TableRow>
                   <TableRow sx={{ backgroundColor: 'grey.50' }}>
-                    <TableCell sx={{ fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight, color: 'text.secondary', fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>Journal Entry No</TableCell>
-                    <TableCell sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>
+                    <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem' }}>Journal Entry No</TableCell>
+                    <TableCell sx={{ fontSize: '0.8rem' }}>
                       {journalEntryRefLoading ? (
-                        <Typography sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize, color: 'text.secondary', fontStyle: 'italic' }}>Loading...</Typography>
+                        <Typography sx={{ fontSize: '0.8rem', color: 'text.secondary', fontStyle: 'italic' }}>Loading...</Typography>
                       ) : journalEntryRef ? (
-                        <Typography component="button" onClick={onNavigateToJournalEntry} sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize, color: 'primary.main', cursor: 'pointer', textDecoration: 'none', border: 'none', background: 'none', padding: 0 }}>
+                        <Typography component="button" onClick={onNavigateToJournalEntry} sx={{ fontSize: '0.8rem', color: 'primary.main', cursor: 'pointer', textDecoration: 'none', border: 'none', background: 'none', padding: 0 }}>
                           {journalEntryRef.referenceNumber}
                         </Typography>
                       ) : (
-                        <Typography sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize, color: 'text.secondary', fontStyle: 'italic' }}>Pending</Typography>
+                        <Typography sx={{ fontSize: '0.8rem', color: 'text.secondary', fontStyle: 'italic' }}>Pending</Typography>
                       )}
                     </TableCell>
                   </TableRow>
@@ -173,30 +172,30 @@ const PurchaseOrderDetailsPanel: React.FC<PurchaseOrderDetailsPanelProps> = ({
                 <TableBody>
                   <TableRow>
                     <TableCell colSpan={2} sx={{ pb: TABLE_STYLES.cell.padding.py * 0.67, py: TABLE_STYLES.cell.padding.py * 0.67, borderTop: TABLE_STYLES.cell.border }}>
-                      <Typography variant="h6" sx={{ fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight, color: 'primary.main', fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize }}>
+                      <Typography variant="h6" sx={{ fontWeight: 600, color: 'primary.main', fontSize: '0.8rem' }}>
                         Payment and Receiving
                       </Typography>
                     </TableCell>
                   </TableRow>
                   <TableRow sx={{ backgroundColor: 'grey.50' }}>
-                    <TableCell sx={{ fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight, color: 'text.secondary', fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>Sub-total</TableCell>
-                    <TableCell sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>{formatCurrency((selectedOrder as any).subtotal || 0)}</TableCell>
+                    <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem' }}>Sub-total</TableCell>
+                    <TableCell sx={{ fontSize: '0.8rem' }}>{formatCurrency((selectedOrder as any).subtotal || 0)}</TableCell>
                   </TableRow>
                   <TableRow>
-                    <TableCell sx={{ fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight, color: 'text.secondary', fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>Shipping</TableCell>
-                    <TableCell sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>{formatCurrency(selectedOrder.shippingAmount || 0)}</TableCell>
+                    <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem' }}>Shipping</TableCell>
+                    <TableCell sx={{ fontSize: '0.8rem' }}>{formatCurrency(selectedOrder.shippingAmount || 0)}</TableCell>
                   </TableRow>
                   <TableRow sx={{ backgroundColor: 'grey.50', borderTop: TABLE_STYLES.cell.border }}>
-                    <TableCell sx={{ fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight, color: 'text.secondary', fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>Total</TableCell>
-                    <TableCell sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>{formatCurrency(selectedOrder.totalAmount || 0)}</TableCell>
+                    <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem' }}>Total</TableCell>
+                    <TableCell sx={{ fontSize: '0.8rem' }}>{formatCurrency(selectedOrder.totalAmount || 0)}</TableCell>
                   </TableRow>
                   <TableRow>
-                    <TableCell sx={{ fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight, color: 'text.secondary', fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>Paid</TableCell>
-                    <TableCell sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>{formatCurrency(selectedOrder.paidAmount || 0)}</TableCell>
+                    <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem' }}>Paid</TableCell>
+                    <TableCell sx={{ fontSize: '0.8rem' }}>{formatCurrency(selectedOrder.paidAmount || 0)}</TableCell>
                   </TableRow>
                   <TableRow sx={{ backgroundColor: 'grey.50' }}>
-                    <TableCell sx={{ fontWeight: TYPOGRAPHY_STYLES.tableCell.primary.fontWeight, color: 'text.secondary', fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>Balance</TableCell>
-                    <TableCell sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize }}>{formatCurrency(Math.max(0, (selectedOrder.totalAmount || 0) - (selectedOrder.paidAmount || 0)))}</TableCell>
+                    <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem' }}>Balance</TableCell>
+                    <TableCell sx={{ fontSize: '0.8rem' }}>{formatCurrency(Math.max(0, (selectedOrder.totalAmount || 0) - (selectedOrder.paidAmount || 0)))}</TableCell>
                   </TableRow>
                   <TableRow>
                     <TableCell colSpan={2} sx={{ textAlign: 'center' }}>
@@ -243,14 +242,14 @@ const PurchaseOrderDetailsPanel: React.FC<PurchaseOrderDetailsPanelProps> = ({
           <Grid item xs={12}>
             <Box sx={{ borderTop: '2px solid', borderColor: 'divider', my: 1 }} />
             <Box sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-              <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{ fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight, fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize, textTransform: 'uppercase', letterSpacing: '0.5px', mb: 1 }}>
+              <Typography variant="tableHeader" sx={{ fontWeight: 600, fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.5px', mb: 1 }}>
                 PO Items
               </Typography>
               {selectedOrder.items && selectedOrder.items.length > 0 ? (
                 <TableContainer sx={{ flex: 1, overflow: 'auto' }}>
                   <Table size={TABLE_STYLES.size} sx={{ '& .MuiTableCell-root': { borderBottom: TABLE_STYLES.cell.border, py: TABLE_STYLES.cell.padding.py, px: TABLE_STYLES.cell.padding.px } }}>
                     <TableHead>
-                      <TableRow sx={{ '& .MuiTableCell-head': { fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight, backgroundColor: 'grey.50', color: TYPOGRAPHY_STYLES.tableHeader.color, fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize } }}>
+                      <TableRow sx={{ '& .MuiTableCell-head': { fontWeight: 600, backgroundColor: 'grey.50', color: 'text.primary', fontSize: '0.8rem' } }}>
                         <TableCell sx={{ width: '35%' }}>Product</TableCell>
                         <TableCell align="center" sx={{ width: '13%' }}>Quantity</TableCell>
                         <TableCell align="center" sx={{ width: '13%' }}>Price</TableCell>
@@ -269,7 +268,7 @@ const PurchaseOrderDetailsPanel: React.FC<PurchaseOrderDetailsPanelProps> = ({
                               <Box component="span">
                                 {`-${formatCurrency(item.discountAmount)}`}
                                 {item.discountPercent > 0 && (
-                                  <Typography component="span" sx={{ fontSize: TYPOGRAPHY_STYLES.tableCell.caption.fontSize, color: 'text.secondary', ml: 0.5 }}>
+                                  <Typography component="span" sx={{ fontSize: '0.7rem', color: 'text.secondary', ml: 0.5 }}>
                                     ({item.discountPercent}%)
                                   </Typography>
                                 )}
@@ -292,10 +291,10 @@ const PurchaseOrderDetailsPanel: React.FC<PurchaseOrderDetailsPanelProps> = ({
             <Grid item xs={12}>
               <Box sx={{ borderTop: '2px solid', borderColor: 'divider', my: 1 }} />
               <Box sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-                <Typography variant={TYPOGRAPHY_STYLES.tableHeader.variant} sx={{ fontWeight: TYPOGRAPHY_STYLES.tableHeader.fontWeight, fontSize: TYPOGRAPHY_STYLES.tableHeader.fontSize, textTransform: 'uppercase', letterSpacing: '0.5px', mb: 1 }}>
+                <Typography variant="tableHeader" sx={{ fontWeight: 600, fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.5px', mb: 1 }}>
                   Notes
                 </Typography>
-                <Box sx={{ p: 2, backgroundColor: 'grey.50', borderRadius: 1, fontSize: TYPOGRAPHY_STYLES.tableCell.primary.fontSize, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+                <Box sx={{ p: 2, backgroundColor: 'grey.50', borderRadius: 1, fontSize: '0.8rem', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
                   {selectedOrder.notes}
                 </Box>
               </Box>
