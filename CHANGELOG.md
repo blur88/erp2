@@ -1,3 +1,11 @@
+## [1.39.3](https://github.com/blur88/erp2/compare/v1.39.2...v1.39.3) (2026-04-01)
+
+
+### Internal Changes
+
+* refactor: remove FilterDateRange, FilterNumberRange, FilterToggle and dead types (#243) ([](https://github.com/blur88/erp2/commit/))
+* docs: add spec and plan for removing unused filter types (#243) ([](https://github.com/blur88/erp2/commit/))
+
 ## [1.39.2](https://github.com/blur88/erp2/compare/v1.39.1...v1.39.2) (2026-04-01)
 
 
