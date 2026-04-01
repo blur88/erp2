@@ -1,3 +1,10 @@
+## [1.39.1](https://github.com/blur88/erp2/compare/v1.39.0...v1.39.1) (2026-04-01)
+
+
+### Bug Fixes
+
+* forward presetCustomerId to payments query after filter simplification ([#242](https://github.com/blur88/erp2/issues/242)) ([f8489a0](https://github.com/blur88/erp2/commit/f8489a0a70541cd140876535fc43fa87809c705f))
+
 # [1.39.0](https://github.com/blur88/erp2/compare/v1.38.1...v1.39.0) (2026-04-01)
 
 
