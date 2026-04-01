@@ -1,3 +1,15 @@
+## [1.39.4](https://github.com/blur88/erp2/compare/v1.39.3...v1.39.4) (2026-04-01)
+
+
+### Internal Changes
+
+* refactor: update page imports after filter system relocation (#245) ([](https://github.com/blur88/erp2/commit/))
+* refactor: update components/filters internal imports (#245) ([](https://github.com/blur88/erp2/commit/))
+* refactor: move useFilterBar to hooks/ (#245) ([](https://github.com/blur88/erp2/commit/))
+* refactor: move filterBar.url to utils/ (#245) ([](https://github.com/blur88/erp2/commit/))
+* docs: add implementation plan for filter system relocation (#245) ([](https://github.com/blur88/erp2/commit/))
+* docs: add spec for filter system relocation (#245) ([](https://github.com/blur88/erp2/commit/))
+
 ## [1.39.3](https://github.com/blur88/erp2/compare/v1.39.2...v1.39.3) (2026-04-01)
 
 
