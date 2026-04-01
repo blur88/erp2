@@ -192,21 +192,15 @@ export function DashboardFilterBar({
       )}
 
       {paymentStatus !== undefined && onPaymentStatusChange && (
-        <FormControl size="small" sx={{ minWidth: 170 }}>
-          <InputLabel id="dashboard-payment-status-label">Payment Status</InputLabel>
-          <Select
-            labelId="dashboard-payment-status-label"
-            id="dashboard-payment-status"
-            value={paymentStatus ?? ''}
-            label="Payment Status"
-            onChange={(e) => onPaymentStatusChange(e.target.value || null)}
-          >
-            <MenuItem value="">All</MenuItem>
-            {resolvedPaymentStatusOptions.map((option) => (
-              <MenuItem key={option.value} value={option.value}>{option.label}</MenuItem>
-            ))}
-          </Select>
-        </FormControl>
+        <FilterSelect
+          field="paymentStatus"
+          label="Payment Status"
+          type="select"
+          value={paymentStatus ?? null}
+          options={resolvedPaymentStatusOptions}
+          onChange={(v) => onPaymentStatusChange(v as string | null)}
+          minWidth={170}
+        />
       )}
 
       {!isDefault && (
