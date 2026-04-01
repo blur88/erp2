@@ -1,3 +1,11 @@
+# [1.39.0](https://github.com/blur88/erp2/compare/v1.38.1...v1.39.0) (2026-04-01)
+
+
+### Features
+
+* add tableHeader and tableCaption custom MUI typography variants ([0117391](https://github.com/blur88/erp2/commit/0117391ba49a1c6fb17703c6ea26098936924bd8))
+* extract shared print stylesheet, migrate all 11 report files ([8f45978](https://github.com/blur88/erp2/commit/8f4597842c5f28044a6dbacc306a69701b7f0807))
+
 ## [1.38.1](https://github.com/blur88/erp2/compare/v1.38.0...v1.38.1) (2026-04-01)
 
 
