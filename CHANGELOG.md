@@ -1,3 +1,21 @@
+## [1.38.1](https://github.com/blur88/erp2/compare/v1.38.0...v1.38.1) (2026-04-01)
+
+
+### Internal Changes
+
+* docs: fix print report file count in font unification spec (17→19) ([](https://github.com/blur88/erp2/commit/))
+* style: use Roboto font in all print report windows ([](https://github.com/blur88/erp2/commit/))
+* style: remove redundant fontFamily inherit from sales pages ([](https://github.com/blur88/erp2/commit/))
+* style: remove redundant fontFamily inherit from purchasing pages ([](https://github.com/blur88/erp2/commit/))
+* style: remove hardcoded monospace font from TopBar and Calculator ([](https://github.com/blur88/erp2/commit/))
+* style: remove hardcoded monospace font from backup components ([](https://github.com/blur88/erp2/commit/))
+* style: remove hardcoded monospace font from auth components ([](https://github.com/blur88/erp2/commit/))
+* style: remove hardcoded monospace font from settings pages ([](https://github.com/blur88/erp2/commit/))
+* style: simplify theme font stack and add MuiButtonBase font override ([](https://github.com/blur88/erp2/commit/))
+* style: remove redundant font-family from global.css body rule ([](https://github.com/blur88/erp2/commit/))
+* docs: add font unification implementation plan (issue #238) ([](https://github.com/blur88/erp2/commit/))
+* docs: add font unification design spec (issue #238) ([](https://github.com/blur88/erp2/commit/))
+
 # [1.38.0](https://github.com/blur88/erp2/compare/v1.37.3...v1.38.0) (2026-03-31)
 
 
