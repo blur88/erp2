@@ -146,58 +146,49 @@ export function DashboardFilterBar({
       )}
 
       {stockStatus !== undefined && onStockStatusChange && (
-        <FormControl size="small" sx={{ minWidth: 150 }}>
-          <InputLabel id="dashboard-stock-status-label">Stock Status</InputLabel>
-          <Select
-            labelId="dashboard-stock-status-label"
-            id="dashboard-stock-status"
-            value={stockStatus ?? ''}
-            label="Stock Status"
-            onChange={(e) => onStockStatusChange(e.target.value || null)}
-          >
-            <MenuItem value="">All</MenuItem>
-            <MenuItem value="in_stock">In Stock</MenuItem>
-            <MenuItem value="low_stock">Low Stock</MenuItem>
-            <MenuItem value="out_of_stock">Out of Stock</MenuItem>
-          </Select>
-        </FormControl>
+        <FilterSelect
+          field="stockStatus"
+          label="Stock Status"
+          type="select"
+          value={stockStatus ?? null}
+          options={[
+            { value: 'in_stock', label: 'In Stock' },
+            { value: 'low_stock', label: 'Low Stock' },
+            { value: 'out_of_stock', label: 'Out of Stock' },
+          ]}
+          onChange={(v) => onStockStatusChange(v as string | null)}
+          minWidth={150}
+        />
       )}
 
       {isFulfilled !== undefined && onFulfilledChange && (
-        <FormControl size="small" sx={{ minWidth: 150 }}>
-          <InputLabel id="dashboard-order-status-label">Order Status</InputLabel>
-          <Select
-            labelId="dashboard-order-status-label"
-            id="dashboard-order-status"
-            value={isFulfilled === null ? '' : String(isFulfilled)}
-            label="Order Status"
-            onChange={(e) => {
-              const value = e.target.value
-              onFulfilledChange(value === '' ? null : value === 'true')
-            }}
-          >
-            <MenuItem value="">All</MenuItem>
-            <MenuItem value="true">Fulfilled</MenuItem>
-            <MenuItem value="false">Pending</MenuItem>
-          </Select>
-        </FormControl>
+        <FilterSelect
+          field="isFulfilled"
+          label="Order Status"
+          type="select"
+          value={isFulfilled === null ? null : String(isFulfilled)}
+          options={[
+            { value: 'true', label: 'Fulfilled' },
+            { value: 'false', label: 'Pending' },
+          ]}
+          onChange={(v) => onFulfilledChange(v === null ? null : v === 'true')}
+          minWidth={150}
+        />
       )}
 
       {status !== undefined && onStatusChange && (
-        <FormControl size="small" sx={{ minWidth: 150 }}>
-          <InputLabel id="dashboard-purchasing-order-status-label">Order Status</InputLabel>
-          <Select
-            labelId="dashboard-purchasing-order-status-label"
-            id="dashboard-order-status-purchasing"
-            value={status ?? ''}
-            label="Order Status"
-            onChange={(e) => onStatusChange(e.target.value || null)}
-          >
-            <MenuItem value="">All</MenuItem>
-            <MenuItem value="received">Received</MenuItem>
-            <MenuItem value="pending">Pending</MenuItem>
-          </Select>
-        </FormControl>
+        <FilterSelect
+          field="status"
+          label="Order Status"
+          type="select"
+          value={status ?? null}
+          options={[
+            { value: 'received', label: 'Received' },
+            { value: 'pending', label: 'Pending' },
+          ]}
+          onChange={(v) => onStatusChange(v as string | null)}
+          minWidth={150}
+        />
       )}
 
       {paymentStatus !== undefined && onPaymentStatusChange && (
