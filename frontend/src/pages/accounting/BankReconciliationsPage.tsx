@@ -29,7 +29,7 @@ import { format } from 'date-fns';
 import ConfirmationDialog from '@/components/common/ConfirmationDialog';
 import BankReconciliationFormDialog from '@/components/accounting/BankReconciliationFormDialog';
 import { useNotification } from '@/hooks/useNotification';
-import { TABLE_STYLES } from '@/constants/typography';
+import { TABLE_STYLES } from '@/constants/tableStyles';
 import {
   useDeleteBankReconciliationMutation,
   useGetBankReconciliationsQuery,

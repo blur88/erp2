@@ -18,7 +18,8 @@ import { Print as PrintIcon } from '@mui/icons-material'
 
 import type { InvoiceJournalEntryRef, InvoiceListItem } from '../hooks/useInvoicesPageState'
 
-import { TABLE_STYLES, TYPOGRAPHY_STYLES } from '@/constants/typography'
+import { TABLE_STYLES } from '@/constants/tableStyles'
+import { TYPOGRAPHY_STYLES } from '@/constants/typography'
 import { formatCurrency, formatDate } from '@/utils/formatters'
 import type { InvoiceItem } from '@/types'
 

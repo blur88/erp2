@@ -13,7 +13,8 @@ import {
 } from '@mui/material'
 import { useNavigate } from 'react-router-dom'
 import { formatCurrency } from '@/utils/formatters'
-import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
+import { TYPOGRAPHY_STYLES } from '@/constants/typography'
+import { TABLE_STYLES } from '@/constants/tableStyles'
 
 interface SalesOrder {
     id: string

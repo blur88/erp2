@@ -64,7 +64,8 @@ import DeletedCustomersDialog from '@/components/sales/DeletedCustomersDialog'
 import PriceListSelector from '@/components/price-lists/PriceListSelector'
 import ConfirmationDialog from '@/components/common/ConfirmationDialog'
 import PageHeader from '@/components/common/PageHeader'
-import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
+import { TYPOGRAPHY_STYLES } from '@/constants/typography'
+import { TABLE_STYLES } from '@/constants/tableStyles'
 
 // Form validation schema
 const customerSchema = yup.object({

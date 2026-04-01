@@ -14,7 +14,8 @@ import {
 
 import type { InvoiceListItem } from '../hooks/useInvoicesPageState'
 
-import { TABLE_STYLES, TYPOGRAPHY_STYLES } from '@/constants/typography'
+import { TABLE_STYLES } from '@/constants/tableStyles'
+import { TYPOGRAPHY_STYLES } from '@/constants/typography'
 
 interface InvoiceRowProps {
   invoice: InvoiceListItem

@@ -36,7 +36,8 @@ import {
 } from '@mui/icons-material'
 import PageHeader from '@/components/common/PageHeader'
 import { formatDate } from '@/utils/formatters'
-import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
+import { TYPOGRAPHY_STYLES } from '@/constants/typography'
+import { TABLE_STYLES } from '@/constants/tableStyles'
 import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
 import {
   setSelectedGRN,

@@ -58,7 +58,8 @@ import { formatCurrency } from '@/utils/currency'
 import { formatDate } from '@/utils/formatters'
 import DeletedSuppliersDialog from '@/components/purchasing/DeletedSuppliersDialog'
 import ConfirmationDialog from '@/components/common/ConfirmationDialog'
-import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
+import { TYPOGRAPHY_STYLES } from '@/constants/typography'
+import { TABLE_STYLES } from '@/constants/tableStyles'
 
 // Form validation schema
 const supplierSchema = yup.object({

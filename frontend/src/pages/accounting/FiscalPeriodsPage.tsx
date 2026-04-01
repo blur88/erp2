@@ -38,7 +38,8 @@ import ConfirmationDialog from '@/components/common/ConfirmationDialog'
 import GeneratePeriodsDialog from '@/components/accounting/GeneratePeriodsDialog'
 import FiscalPeriodFormDialog from '@/components/accounting/FiscalPeriodFormDialog'
 import AccountMappingWarning from '@/components/accounting/AccountMappingWarning'
-import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
+import { TYPOGRAPHY_STYLES } from '@/constants/typography'
+import { TABLE_STYLES } from '@/constants/tableStyles'
 import {
   useCloseFiscalPeriodMutation,
   useDeleteFiscalPeriodMutation,

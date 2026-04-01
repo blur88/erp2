@@ -47,7 +47,8 @@ import { useGetCategoriesQuery } from '@/store/api/inventoryApi'
 import { useGetSuppliersQuery } from '@/store/api/purchasingApi'
 import { useInventoryAnalytics } from './hooks/useInventoryAnalytics'
 import { formatCurrency } from '@/utils/formatters'
-import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
+import { TYPOGRAPHY_STYLES } from '@/constants/typography'
+import { TABLE_STYLES } from '@/constants/tableStyles'
 
 ChartJS.register(
   CategoryScale,

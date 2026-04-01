@@ -5,7 +5,8 @@ import { Delete as DeleteIcon, Edit as EditIcon } from '@mui/icons-material'
 import ProductDetailsTab from '@/components/inventory/ProductDetailsTab'
 import MovementHistoryTab from '@/components/inventory/MovementHistoryTab'
 import OrderHistoryTab from '@/components/inventory/OrderHistoryTab'
-import { TABLE_STYLES, TYPOGRAPHY_STYLES } from '@/constants/typography'
+import { TABLE_STYLES } from '@/constants/tableStyles'
+import { TYPOGRAPHY_STYLES } from '@/constants/typography'
 import type { Product } from '@/types'
 
 interface ProductDetailsPanelProps {

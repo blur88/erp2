@@ -37,7 +37,8 @@ import {
   useGetPriceListQuery,
 } from '@/store/api/priceListApi'
 import type { PriceListItem } from '@/types'
-import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
+import { TYPOGRAPHY_STYLES } from '@/constants/typography'
+import { TABLE_STYLES } from '@/constants/tableStyles'
 import { formatCurrency } from '@/utils/currency'
 import { formatDate as formatDisplayDate } from '@/utils/formatters'
 

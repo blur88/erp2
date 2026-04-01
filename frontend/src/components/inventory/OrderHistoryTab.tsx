@@ -16,7 +16,8 @@ import { ApiService } from '@/services/api'
 import { useNotification } from '@/hooks/useNotification'
 import { formatCurrency } from '@/utils/currency'
 import { formatDate as formatDisplayDate } from '@/utils/formatters'
-import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
+import { TYPOGRAPHY_STYLES } from '@/constants/typography'
+import { TABLE_STYLES } from '@/constants/tableStyles'
 
 interface OrderHistoryTabProps {
   productId: string

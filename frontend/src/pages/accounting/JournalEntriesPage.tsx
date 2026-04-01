@@ -48,7 +48,7 @@ import { JournalEntry, JournalEntryStatus } from '@/types'
 import { formatCurrency, formatDate } from '@/utils/formatters'
 import ConfirmationDialog from '@/components/common/ConfirmationDialog'
 import AccountMappingWarning from '@/components/accounting/AccountMappingWarning'
-import { TABLE_STYLES } from '@/constants/typography'
+import { TABLE_STYLES } from '@/constants/tableStyles'
 import { useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
 import { getErrorMessage } from '@/utils/errorMessage'
 

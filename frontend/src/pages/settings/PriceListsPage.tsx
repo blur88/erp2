@@ -50,7 +50,7 @@ import type { PriceList } from '@/types'
 import PriceListFormDialog from '@/components/settings/PriceListFormDialog'
 import PriceListCopyDialog from '@/components/settings/PriceListCopyDialog'
 import ConfirmationDialog from '@/components/common/ConfirmationDialog'
-import { TABLE_STYLES } from '@/constants/typography'
+import { TABLE_STYLES } from '@/constants/tableStyles'
 import { formatDate as formatDisplayDate } from '@/utils/formatters'
 
 const PriceListsPage: React.FC = () => {

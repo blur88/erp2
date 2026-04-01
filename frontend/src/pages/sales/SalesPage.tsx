@@ -23,7 +23,8 @@ import {
   Payment as PaymentsIcon,
 } from '@mui/icons-material'
 import { formatCurrency, formatDate, formatNumber } from '@/utils/formatters'
-import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
+import { TYPOGRAPHY_STYLES } from '@/constants/typography'
+import { TABLE_STYLES } from '@/constants/tableStyles'
 import PageHeader from '@/components/common/PageHeader'
 import { DashboardFilterBar } from '@/components/filters/DashboardFilterBar'
 import { useNavigate } from 'react-router-dom'

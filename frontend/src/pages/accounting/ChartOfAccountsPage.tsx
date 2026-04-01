@@ -38,7 +38,8 @@ import ConfirmationDialog from '@/components/common/ConfirmationDialog'
 import ChartOfAccountFormDialog from '@/components/accounting/ChartOfAccountFormDialog'
 import AccountMappingWarning from '@/components/accounting/AccountMappingWarning'
 import DeletedAccountsDialog from '@/components/accounting/DeletedAccountsDialog'
-import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
+import { TYPOGRAPHY_STYLES } from '@/constants/typography'
+import { TABLE_STYLES } from '@/constants/tableStyles'
 import {
   useDeleteChartOfAccountMutation,
   useGetChartOfAccountsQuery,

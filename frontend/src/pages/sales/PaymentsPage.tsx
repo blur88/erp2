@@ -42,7 +42,8 @@ import {
   Print as PrintIcon,
 } from '@mui/icons-material'
 import { formatCurrency, formatDate, formatWholeQuantity } from '@/utils/formatters'
-import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
+import { TYPOGRAPHY_STYLES } from '@/constants/typography'
+import { TABLE_STYLES } from '@/constants/tableStyles'
 import { ListSkeleton } from '@/components/common/ListSkeleton'
 import { FilterBar, useFilterBar } from '@/components/filters'
 import type { DateRangeValue, FilterBarConfig } from '@/components/filters'

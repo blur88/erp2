@@ -42,7 +42,8 @@ import DeletedCategoriesDialog from '@/components/inventory/DeletedCategoriesDia
 import { SmartCategoryDeleteDialog } from '@/components/inventory/SmartCategoryDeleteDialog'
 import ConfirmationDialog from '@/components/common/ConfirmationDialog'
 import type { Category } from '@/types'
-import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
+import { TYPOGRAPHY_STYLES } from '@/constants/typography'
+import { TABLE_STYLES } from '@/constants/tableStyles'
 import { formatDate } from '@/utils/formatters'
 import {
   setCategoryFilters,

@@ -21,7 +21,8 @@ import {
 } from '@mui/material'
 import Grid from '@mui/material/GridLegacy'
 
-import { TABLE_STYLES, TYPOGRAPHY_STYLES } from '@/constants/typography'
+import { TABLE_STYLES } from '@/constants/tableStyles'
+import { TYPOGRAPHY_STYLES } from '@/constants/typography'
 import type { PurchaseOrder } from '@/types'
 import { formatCurrency, formatDate } from '@/utils/formatters'
 

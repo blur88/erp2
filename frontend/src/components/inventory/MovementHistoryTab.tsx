@@ -18,7 +18,8 @@ import { useNotification } from '@/hooks/useNotification'
 import { StockMovement, StockMovementType } from '@/types'
 import { formatCurrency } from '@/utils/currency'
 import { formatDate as formatDisplayDate } from '@/utils/formatters'
-import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
+import { TYPOGRAPHY_STYLES } from '@/constants/typography'
+import { TABLE_STYLES } from '@/constants/tableStyles'
 
 interface MovementHistoryTabProps {
   productId: string

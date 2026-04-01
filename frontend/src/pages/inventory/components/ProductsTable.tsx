@@ -13,7 +13,8 @@ import {
 import { DragIndicator as DragIndicatorIcon } from '@mui/icons-material'
 
 import type { Product } from '@/types'
-import { TABLE_STYLES, TYPOGRAPHY_STYLES } from '@/constants/typography'
+import { TABLE_STYLES } from '@/constants/tableStyles'
+import { TYPOGRAPHY_STYLES } from '@/constants/typography'
 
 interface ProductsTableProps {
   products: Product[]

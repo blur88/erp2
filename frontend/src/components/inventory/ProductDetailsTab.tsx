@@ -12,7 +12,8 @@ import {
 } from '@mui/material'
 import { Product, PriceListItem } from '@/types'
 import { formatCurrency } from '@/utils/currency'
-import { TYPOGRAPHY_STYLES, TABLE_STYLES } from '@/constants/typography'
+import { TYPOGRAPHY_STYLES } from '@/constants/typography'
+import { TABLE_STYLES } from '@/constants/tableStyles'
 import { useGetProductPriceListItemsQuery } from '@/store/api/priceListApi'
 import { useGetRegionalSettingsQuery } from '@/store/api/settingsApi'
 
