@@ -1,7 +1,7 @@
 import type {
   FilterBarConfig,
   FilterFieldConfig,
-} from './filterBar.types'
+} from '@/types/filterBar.types'
 
 function effectiveKey<TFilters>(field: FilterFieldConfig<TFilters>): string {
   return field.paramKey ?? String(field.field)
