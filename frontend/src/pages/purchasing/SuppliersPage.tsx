@@ -90,7 +90,6 @@ interface SupplierFormData {
 interface SupplierFilters {
   search: string
   status: 'active' | 'inactive' | null
-  type: 'local' | 'international' | null
 }
 
 const SuppliersPage: React.FC = () => {
@@ -113,23 +112,12 @@ const SuppliersPage: React.FC = () => {
           ],
         },
       ],
-      advanced: [
-        {
-          field: 'type',
-          label: 'Type',
-          type: 'select',
-          options: [
-            { value: 'local', label: 'Local' },
-            { value: 'international', label: 'International' },
-          ],
-        },
-      ],
-      defaults: { search: '', status: null, type: null },
+      defaults: { search: '', status: null },
     }),
     [],
   )
 
-  const { appliedFilters, draftFilters, handlers, activeChips, hasActiveFilters, hasUnappliedChanges } = useFilterBar(filterConfig)
+  const { appliedFilters, draftFilters, handlers, hasActiveFilters } = useFilterBar(filterConfig)
 
   const supplierQueryParams = useMemo(
     () => ({
@@ -140,7 +128,6 @@ const SuppliersPage: React.FC = () => {
           : appliedFilters.status === 'inactive'
             ? false
             : undefined,
-      type: appliedFilters.type ?? undefined,
     }),
     [appliedFilters],
   )
@@ -386,9 +373,7 @@ const SuppliersPage: React.FC = () => {
           config={filterConfig}
           draftFilters={draftFilters}
           handlers={handlers}
-          activeChips={activeChips}
           hasActiveFilters={hasActiveFilters}
-          hasUnappliedChanges={hasUnappliedChanges}
           searchInputRef={searchInputRef}
         />
       </Paper>
