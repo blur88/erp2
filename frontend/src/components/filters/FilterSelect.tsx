@@ -17,15 +17,18 @@ interface Props {
   value: string | null | string[]
   options: FilterOption[]
   onChange: (value: string | null | string[]) => void
+  /** Only applies to type="select" — has no effect on multi-select */
+  emptyLabel?: string
+  minWidth?: number
 }
 
-export function FilterSelect({ field, label, type, value, options, onChange }: Props) {
+export function FilterSelect({ field, label, type, value, options, onChange, emptyLabel, minWidth }: Props) {
   const labelId = `filter-${field}-label`
 
   if (type === 'multi-select') {
     const selected = (value as string[]) ?? []
     return (
-      <FormControl size="small" sx={{ minWidth: 140 }}>
+      <FormControl size="small" sx={{ minWidth: minWidth ?? 140 }}>
         <InputLabel id={labelId}>{label}</InputLabel>
         <Select
           labelId={labelId}
@@ -47,7 +50,7 @@ export function FilterSelect({ field, label, type, value, options, onChange }: P
   }
 
   return (
-    <FormControl size="small" sx={{ minWidth: 140 }}>
+    <FormControl size="small" sx={{ minWidth: minWidth ?? 140 }}>
       <InputLabel id={labelId}>{label}</InputLabel>
       <Select
         labelId={labelId}
@@ -55,9 +58,7 @@ export function FilterSelect({ field, label, type, value, options, onChange }: P
         label={label}
         onChange={(event) => onChange(event.target.value === '' ? null : event.target.value)}
       >
-        <MenuItem value="">
-          <em>All</em>
-        </MenuItem>
+        <MenuItem value="">{emptyLabel ?? 'All'}</MenuItem>
         {options.map((option) => (
           <MenuItem key={option.value} value={option.value}>
             {option.label}

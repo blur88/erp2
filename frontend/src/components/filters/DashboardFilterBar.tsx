@@ -3,6 +3,7 @@ import { Box, Button, CircularProgress, FormControl, InputLabel, MenuItem, Selec
 import type { DashboardCompare, DashboardPeriod } from '@/hooks/useDashboardFilters'
 
 import { FilterPeriod } from './FilterPeriod'
+import { FilterSelect } from './FilterSelect'
 
 interface DashboardFilterBarProps {
   period: DashboardPeriod
@@ -106,130 +107,100 @@ export function DashboardFilterBar({
       </Tooltip>
 
       {customers !== undefined && onCustomerChange && (
-        <FormControl size="small" sx={{ minWidth: 170 }}>
-          <InputLabel id="dashboard-customer-label">Customer</InputLabel>
-          <Select
-            labelId="dashboard-customer-label"
-            id="dashboard-customer"
-            value={customerId ?? ''}
-            label="Customer"
-            onChange={(e) => onCustomerChange(e.target.value || null)}
-          >
-            <MenuItem value="">All Customers</MenuItem>
-            {customers.map((customer) => (
-              <MenuItem key={customer.id} value={customer.id}>{customer.name}</MenuItem>
-            ))}
-          </Select>
-        </FormControl>
+        <FilterSelect
+          field="customer"
+          label="Customer"
+          type="select"
+          value={customerId ?? null}
+          options={customers.map((c) => ({ value: c.id, label: c.name }))}
+          onChange={(v) => onCustomerChange(v as string | null)}
+          emptyLabel="All Customers"
+          minWidth={170}
+        />
       )}
 
       {suppliers !== undefined && onSupplierChange && (
-        <FormControl size="small" sx={{ minWidth: 170 }}>
-          <InputLabel id="dashboard-supplier-label">Supplier</InputLabel>
-          <Select
-            labelId="dashboard-supplier-label"
-            id="dashboard-supplier"
-            value={supplierId ?? ''}
-            label="Supplier"
-            onChange={(e) => onSupplierChange(e.target.value || null)}
-          >
-            <MenuItem value="">All Suppliers</MenuItem>
-            {suppliers.map((supplier) => (
-              <MenuItem key={supplier.id} value={supplier.id}>{supplier.name}</MenuItem>
-            ))}
-          </Select>
-        </FormControl>
+        <FilterSelect
+          field="supplier"
+          label="Supplier"
+          type="select"
+          value={supplierId ?? null}
+          options={suppliers.map((s) => ({ value: s.id, label: s.name }))}
+          onChange={(v) => onSupplierChange(v as string | null)}
+          emptyLabel="All Suppliers"
+          minWidth={170}
+        />
       )}
 
       {categories !== undefined && onCategoryChange && (
-        <FormControl size="small" sx={{ minWidth: 170 }}>
-          <InputLabel id="dashboard-category-label">Category</InputLabel>
-          <Select
-            labelId="dashboard-category-label"
-            id="dashboard-category"
-            value={categoryId ?? ''}
-            label="Category"
-            onChange={(e) => onCategoryChange(e.target.value || null)}
-          >
-            <MenuItem value="">All Categories</MenuItem>
-            {categories.map((category) => (
-              <MenuItem key={category.id} value={category.id}>{category.name}</MenuItem>
-            ))}
-          </Select>
-        </FormControl>
+        <FilterSelect
+          field="category"
+          label="Category"
+          type="select"
+          value={categoryId ?? null}
+          options={categories.map((c) => ({ value: c.id, label: c.name }))}
+          onChange={(v) => onCategoryChange(v as string | null)}
+          emptyLabel="All Categories"
+          minWidth={170}
+        />
       )}
 
       {stockStatus !== undefined && onStockStatusChange && (
-        <FormControl size="small" sx={{ minWidth: 150 }}>
-          <InputLabel id="dashboard-stock-status-label">Stock Status</InputLabel>
-          <Select
-            labelId="dashboard-stock-status-label"
-            id="dashboard-stock-status"
-            value={stockStatus ?? ''}
-            label="Stock Status"
-            onChange={(e) => onStockStatusChange(e.target.value || null)}
-          >
-            <MenuItem value="">All</MenuItem>
-            <MenuItem value="in_stock">In Stock</MenuItem>
-            <MenuItem value="low_stock">Low Stock</MenuItem>
-            <MenuItem value="out_of_stock">Out of Stock</MenuItem>
-          </Select>
-        </FormControl>
+        <FilterSelect
+          field="stockStatus"
+          label="Stock Status"
+          type="select"
+          value={stockStatus ?? null}
+          options={[
+            { value: 'in_stock', label: 'In Stock' },
+            { value: 'low_stock', label: 'Low Stock' },
+            { value: 'out_of_stock', label: 'Out of Stock' },
+          ]}
+          onChange={(v) => onStockStatusChange(v as string | null)}
+          minWidth={150}
+        />
       )}
 
       {isFulfilled !== undefined && onFulfilledChange && (
-        <FormControl size="small" sx={{ minWidth: 150 }}>
-          <InputLabel id="dashboard-order-status-label">Order Status</InputLabel>
-          <Select
-            labelId="dashboard-order-status-label"
-            id="dashboard-order-status"
-            value={isFulfilled === null ? '' : String(isFulfilled)}
-            label="Order Status"
-            onChange={(e) => {
-              const value = e.target.value
-              onFulfilledChange(value === '' ? null : value === 'true')
-            }}
-          >
-            <MenuItem value="">All</MenuItem>
-            <MenuItem value="true">Fulfilled</MenuItem>
-            <MenuItem value="false">Pending</MenuItem>
-          </Select>
-        </FormControl>
+        <FilterSelect
+          field="isFulfilled"
+          label="Order Status"
+          type="select"
+          value={isFulfilled === null ? null : String(isFulfilled)}
+          options={[
+            { value: 'true', label: 'Fulfilled' },
+            { value: 'false', label: 'Pending' },
+          ]}
+          onChange={(v) => onFulfilledChange(v === null ? null : v === 'true')}
+          minWidth={150}
+        />
       )}
 
       {status !== undefined && onStatusChange && (
-        <FormControl size="small" sx={{ minWidth: 150 }}>
-          <InputLabel id="dashboard-purchasing-order-status-label">Order Status</InputLabel>
-          <Select
-            labelId="dashboard-purchasing-order-status-label"
-            id="dashboard-order-status-purchasing"
-            value={status ?? ''}
-            label="Order Status"
-            onChange={(e) => onStatusChange(e.target.value || null)}
-          >
-            <MenuItem value="">All</MenuItem>
-            <MenuItem value="received">Received</MenuItem>
-            <MenuItem value="pending">Pending</MenuItem>
-          </Select>
-        </FormControl>
+        <FilterSelect
+          field="status"
+          label="Order Status"
+          type="select"
+          value={status ?? null}
+          options={[
+            { value: 'received', label: 'Received' },
+            { value: 'pending', label: 'Pending' },
+          ]}
+          onChange={(v) => onStatusChange(v as string | null)}
+          minWidth={150}
+        />
       )}
 
       {paymentStatus !== undefined && onPaymentStatusChange && (
-        <FormControl size="small" sx={{ minWidth: 170 }}>
-          <InputLabel id="dashboard-payment-status-label">Payment Status</InputLabel>
-          <Select
-            labelId="dashboard-payment-status-label"
-            id="dashboard-payment-status"
-            value={paymentStatus ?? ''}
-            label="Payment Status"
-            onChange={(e) => onPaymentStatusChange(e.target.value || null)}
-          >
-            <MenuItem value="">All</MenuItem>
-            {resolvedPaymentStatusOptions.map((option) => (
-              <MenuItem key={option.value} value={option.value}>{option.label}</MenuItem>
-            ))}
-          </Select>
-        </FormControl>
+        <FilterSelect
+          field="paymentStatus"
+          label="Payment Status"
+          type="select"
+          value={paymentStatus ?? null}
+          options={resolvedPaymentStatusOptions}
+          onChange={(v) => onPaymentStatusChange(v as string | null)}
+          minWidth={170}
+        />
       )}
 
       {!isDefault && (
