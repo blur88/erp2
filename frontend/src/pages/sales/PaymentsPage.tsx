@@ -222,8 +222,9 @@ const PaymentsPage: React.FC = () => {
       sortBy: sortState.sortBy,
       sortOrder: sortState.sortOrder,
       search: appliedFilters.search || undefined,
+      customerId: presetCustomerId ?? undefined,
     }),
-    [appliedFilters, sortState],
+    [appliedFilters, sortState, presetCustomerId],
   )
 
   // Keep ref in sync with selectedPayment
