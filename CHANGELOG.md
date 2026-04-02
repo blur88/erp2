@@ -1,3 +1,10 @@
+## [1.40.4](https://github.com/blur88/erp2/compare/v1.40.3...v1.40.4) (2026-04-02)
+
+
+### Bug Fixes
+
+* **deps:** update package versions in package-lock.json for backend and frontend ([7054828](https://github.com/blur88/erp2/commit/70548283fc6cf0527ba16352041b5487a1ba1aea))
+
 ## [1.40.3](https://github.com/blur88/erp2/compare/v1.40.2...v1.40.3) (2026-04-02)
 
 
