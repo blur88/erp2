@@ -1,23 +1,36 @@
+import { PERIOD_KEYS, type PeriodKey } from '@/constants/periods'
 import type {
   FilterBarConfig,
   FilterFieldConfig,
+  PeriodValue,
 } from '@/types/filterBar.types'
 
-function effectiveKey<TFilters>(field: FilterFieldConfig<TFilters>): string {
-  return field.paramKey ?? String(field.field)
+function prefixed(key: string, namespace?: string): string {
+  return namespace ? `${namespace}_${key}` : key
+}
+
+function effectiveKey<TFilters>(field: FilterFieldConfig<TFilters>, namespace?: string): string {
+  const base = field.paramKey ?? String(field.field)
+  return prefixed(base, namespace)
 }
 
 export function getManagedParamKeys<TFilters>(
   config: FilterBarConfig<TFilters>,
 ): string[] {
+  const ns = config.namespace
   const keys: string[] = []
 
   if (config.search) {
-    keys.push(config.search.paramKey ?? 'search')
+    keys.push(prefixed(config.search.paramKey ?? 'search', ns))
   }
 
   for (const field of config.quick) {
-    keys.push(effectiveKey(field))
+    const key = effectiveKey(field, ns)
+    keys.push(key)
+    if (field.type === 'period') {
+      keys.push(`${key}_from`)
+      keys.push(`${key}_to`)
+    }
   }
 
   return keys
@@ -28,6 +41,7 @@ export function serializeFilters<TFilters extends object>(
   config: FilterBarConfig<TFilters>,
   currentSearchParams: URLSearchParams,
 ): URLSearchParams {
+  const ns = config.namespace
   const result = new URLSearchParams(currentSearchParams)
 
   for (const key of getManagedParamKeys(config)) {
@@ -38,7 +52,7 @@ export function serializeFilters<TFilters extends object>(
   const orderedEntries: Array<[string, string]> = []
 
   if (config.search) {
-    const searchKey = config.search.paramKey ?? 'search'
+    const searchKey = prefixed(config.search.paramKey ?? 'search', ns)
     const searchValue = ((filters as Record<string, unknown>).search as string | undefined) ?? ''
     const defaultSearch = (defaults.search as string | undefined) ?? ''
     if (searchValue && searchValue !== defaultSearch) {
@@ -47,7 +61,7 @@ export function serializeFilters<TFilters extends object>(
   }
 
   for (const field of config.quick) {
-    const key = effectiveKey(field)
+    const key = effectiveKey(field, ns)
     const value = filters[field.field]
     const defaultValue = defaults[String(field.field)]
 
@@ -64,6 +78,17 @@ export function serializeFilters<TFilters extends object>(
       }
       continue
     }
+
+    if (field.type === 'period') {
+      const period = value as PeriodValue | undefined
+      const defaultPeriod = defaultValue as PeriodValue | undefined
+      if (!period || period.key === (defaultPeriod?.key ?? 'this_month')) continue
+      orderedEntries.push([key, period.key])
+      if (period.key === 'custom' && period.from && period.to) {
+        orderedEntries.push([`${key}_from`, period.from])
+        orderedEntries.push([`${key}_to`, period.to])
+      }
+    }
   }
 
   for (const [key, value] of orderedEntries) {
@@ -77,16 +102,17 @@ export function parseFilters<TFilters extends object>(
   searchParams: URLSearchParams,
   config: FilterBarConfig<TFilters>,
 ): TFilters {
+  const ns = config.namespace
   const defaults = (config.defaults ?? {}) as Record<string, unknown>
   const result: Record<string, unknown> = {}
 
   if (config.search) {
-    const searchKey = config.search.paramKey ?? 'search'
+    const searchKey = prefixed(config.search.paramKey ?? 'search', ns)
     result.search = searchParams.get(searchKey) ?? (defaults.search ?? '')
   }
 
   for (const field of config.quick) {
-    const key = effectiveKey(field)
+    const key = effectiveKey(field, ns)
     const fieldKey = String(field.field)
     const defaultValue = defaults[fieldKey]
 
@@ -105,6 +131,30 @@ export function parseFilters<TFilters extends object>(
       const validOptions = new Set(field.options.map((option) => option.value))
       result[fieldKey] = searchParams.getAll(key).filter((value) => validOptions.has(value))
       continue
+    }
+
+    if (field.type === 'period') {
+      const defaultPeriod = (defaultValue as PeriodValue | undefined) ?? {
+        key: 'this_month' as PeriodKey,
+        from: null,
+        to: null,
+      }
+      const raw = searchParams.get(key)
+      if (raw === null || !(PERIOD_KEYS as readonly string[]).includes(raw)) {
+        result[fieldKey] = defaultPeriod
+        continue
+      }
+
+      const periodKey = raw as PeriodKey
+      if (periodKey === 'custom') {
+        result[fieldKey] = {
+          key: 'custom',
+          from: searchParams.get(`${key}_from`) ?? null,
+          to: searchParams.get(`${key}_to`) ?? null,
+        } satisfies PeriodValue
+      } else {
+        result[fieldKey] = { key: periodKey, from: null, to: null } satisfies PeriodValue
+      }
     }
   }
 
