@@ -795,7 +795,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                 onMouseEnter={handleFlyoutMouseEnter}
                 onMouseLeave={handleFlyoutMouseLeave}
                 sx={{
-                  bgcolor: colors.hoverBg,
+                  bgcolor: 'background.paper',
                   minWidth: 240,
                   maxWidth: 280,
                   maxHeight: 'calc(100vh - 24px)',
