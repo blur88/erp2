@@ -1,10 +1,12 @@
 import { render, screen } from '@testing-library/react'
 import { Provider } from 'react-redux'
 import { MemoryRouter } from 'react-router-dom'
+import { ThemeProvider } from '@mui/material/styles'
 import { configureStore } from '@reduxjs/toolkit'
 import { describe, expect, it } from 'vitest'
 import SidebarFooter from '../SidebarFooter'
 import authReducer from '@/store/slices/authSlice'
+import { darkTheme } from '@/styles/theme'
 
 const makeStore = (authOverrides = {}) =>
   configureStore({
@@ -42,11 +44,13 @@ const makeStore = (authOverrides = {}) =>
 // has no Redux or router dependencies.
 const renderFooter = (props = {}, authOverrides = {}) =>
   render(
-    <Provider store={makeStore(authOverrides)}>
-      <MemoryRouter>
-        <SidebarFooter collapsed={false} {...props} />
-      </MemoryRouter>
-    </Provider>
+    <ThemeProvider theme={darkTheme}>
+      <Provider store={makeStore(authOverrides)}>
+        <MemoryRouter>
+          <SidebarFooter collapsed={false} {...props} />
+        </MemoryRouter>
+      </Provider>
+    </ThemeProvider>
   )
 
 describe('SidebarFooter (layout shell)', () => {
@@ -68,5 +72,12 @@ describe('SidebarFooter (layout shell)', () => {
   it('passes collapsed=true to SidebarUserMenu', () => {
     renderFooter({ collapsed: true })
     expect(screen.getByRole('button', { name: /open user menu/i })).toBeInTheDocument()
+  })
+
+  it('uses the sidebar background token for the footer shell', () => {
+    const { container } = renderFooter()
+    const footer = container.firstChild as HTMLElement
+
+    expect(window.getComputedStyle(footer).backgroundColor).toBe('rgb(13, 13, 13)')
   })
 })

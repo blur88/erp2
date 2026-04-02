@@ -1,10 +1,12 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { ThemeProvider } from '@mui/material/styles'
 import { Provider } from 'react-redux'
 import { MemoryRouter } from 'react-router-dom'
 import { configureStore } from '@reduxjs/toolkit'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import SidebarUserMenu from '../SidebarUserMenu'
 import authReducer from '@/store/slices/authSlice'
+import { darkTheme } from '@/styles/theme'
 
 vi.mock('@/store', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/store')>()
@@ -55,11 +57,13 @@ const renderMenu = (props = {}, authOverrides = {}) => {
   return {
     store,
     ...render(
-      <Provider store={store}>
-        <MemoryRouter>
-          <SidebarUserMenu collapsed={false} {...props} />
-        </MemoryRouter>
-      </Provider>
+      <ThemeProvider theme={darkTheme}>
+        <Provider store={store}>
+          <MemoryRouter>
+            <SidebarUserMenu collapsed={false} {...props} />
+          </MemoryRouter>
+        </Provider>
+      </ThemeProvider>
     ),
   }
 }
@@ -121,5 +125,19 @@ describe('SidebarUserMenu', () => {
     await screen.findByRole('menu')
     fireEvent.keyDown(screen.getByRole('menu'), { key: 'Escape' })
     await waitFor(() => expect(screen.queryByRole('menu')).not.toBeInTheDocument())
+  })
+
+  it('uses the refined expanded trigger pill layout', () => {
+    renderMenu()
+
+    const trigger = screen.getByRole('button', { name: /open user menu/i })
+    const styles = window.getComputedStyle(trigger)
+
+    expect(styles.alignSelf).toBe('stretch')
+    expect(styles.borderRadius).toBe('8px')
+    expect(styles.marginLeft).toBe('8px')
+    expect(styles.marginRight).toBe('8px')
+    expect(styles.marginBottom).toBe('4px')
+    expect(styles.transform).toBe('translateX(0)')
   })
 })

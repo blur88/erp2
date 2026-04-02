@@ -130,17 +130,22 @@ const SidebarUserMenu: React.FC<SidebarUserMenuProps> = ({ collapsed }) => {
           sx={{
             display: 'flex',
             alignItems: 'center',
-            width: '100%',
+            alignSelf: 'stretch',
             height: '40px',
             px: 2,
+            mx: 1,
+            mb: 0.5,
+            borderRadius: 1,
             cursor: 'pointer',
             background: 'transparent',
             border: 'none',
             textAlign: 'left',
+            boxSizing: 'border-box',
+            transform: 'translateX(0)',
             transition: 'background-color 0.15s ease, transform 0.15s ease',
             '&:hover': {
               backgroundColor: theme.palette.action.hover,
-              transform: 'translateX(1px)',
+              transform: 'translateX(4px)',
             },
           }}
           onClick={handleAvatarClick}

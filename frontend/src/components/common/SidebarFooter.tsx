@@ -13,7 +13,7 @@ const SidebarFooter: React.FC<SidebarFooterProps> = ({ collapsed }) => {
   return (
     <Box
       sx={{
-        backgroundColor: theme.palette.background.default,
+        backgroundColor: theme.palette.background.sidebar,
         borderTop: `1px solid ${theme.palette.divider}`,
         py: 1,
         display: 'flex',
