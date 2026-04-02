@@ -78,6 +78,9 @@ describe('SidebarFooter (layout shell)', () => {
     const { container } = renderFooter()
     const footer = container.firstChild as HTMLElement
 
-    expect(window.getComputedStyle(footer).backgroundColor).toBe('rgb(13, 13, 13)')
+    // Derive expected value from the theme token so this test survives palette changes
+    const hex = darkTheme.palette.background.sidebar // e.g. '#0D0D0D'
+    const [r, g, b] = [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16))
+    expect(window.getComputedStyle(footer).backgroundColor).toBe(`rgb(${r}, ${g}, ${b})`)
   })
 })

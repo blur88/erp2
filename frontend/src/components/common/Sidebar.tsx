@@ -425,7 +425,6 @@ const Sidebar: React.FC<SidebarProps> = ({
         ? {
             bgcolor: colors.activeBg,
             boxShadow: `inset 0 0 0 1px ${colors.outline}`,
-            transform: 'translateX(4px)',
             '&::before': {
               content: '""',
               position: 'absolute',
@@ -563,7 +562,7 @@ const Sidebar: React.FC<SidebarProps> = ({
               mx: 1,
               mb: 0.5,
               position: 'relative',
-              transform: 'translateX(0)',
+              transform: isActive && !hasChildren ? 'translateX(4px)' : 'translateX(0)',
               transition: 'background-color 0.18s ease, transform 0.18s ease',
               ...activeLeafSx,
               ...activeParentSx,

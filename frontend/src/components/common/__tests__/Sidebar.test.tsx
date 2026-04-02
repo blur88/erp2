@@ -380,6 +380,20 @@ describe('Sidebar', () => {
     expect(styles.transform).toContain('4')
   })
 
+  it('does not apply translateX to the active collapsed rail icon button', () => {
+    renderSidebarWithTheme(
+      <MemoryRouter initialEntries={['/dashboard']}>
+        <Sidebar collapsed={true} />
+      </MemoryRouter>
+    )
+
+    // Dashboard is a leaf item active at /dashboard; in collapsed mode it renders
+    // as a centered rail icon — horizontal shift must not be applied.
+    const dashboardButton = screen.getByRole('button', { name: 'Dashboard' })
+    const styles = window.getComputedStyle(dashboardButton)
+    expect(styles.transform).not.toContain('4px')
+  })
+
   it('matches flyout item dimensions and type scale to the expanded sidebar pills', async () => {
     renderSidebarWithTheme(
       <MemoryRouter initialEntries={['/dashboard']}>
