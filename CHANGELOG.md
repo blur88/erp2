@@ -1,3 +1,17 @@
+# [1.41.0](https://github.com/blur88/erp2/compare/v1.40.4...v1.41.0) (2026-04-02)
+
+
+### Bug Fixes
+
+* **filter:** compare full PeriodValue (key+from+to) when checking default in serializeFilters ([4cbd153](https://github.com/blur88/erp2/commit/4cbd1536a2b6b197c97c7177679b8c280291061a))
+
+
+### Features
+
+* **filter:** add period serialize/parse and URL namespace support to filterBar.url ([84411ed](https://github.com/blur88/erp2/commit/84411ed3e9b354096970ad1b90b73f1c7c9848d0))
+* **filter:** add PeriodValue type, PeriodFilterFieldConfig, and namespace to FilterBarConfig ([d15b022](https://github.com/blur88/erp2/commit/d15b02206268167bbed62566622a4f1fde325d2f))
+* **filter:** wire FilterPeriod into FilterBar config system with PeriodValue state ([d7dfe11](https://github.com/blur88/erp2/commit/d7dfe1190f8215d0f1a6ffae169f43bbe53a6f08))
+
 ## [1.40.4](https://github.com/blur88/erp2/compare/v1.40.3...v1.40.4) (2026-04-02)
 
 
