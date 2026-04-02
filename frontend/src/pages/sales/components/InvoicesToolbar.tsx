@@ -7,7 +7,6 @@ import {
   InputAdornment,
   InputLabel,
   MenuItem,
-  Paper,
   Select,
   TextField,
 } from '@mui/material'
@@ -55,7 +54,7 @@ const InvoicesToolbar: React.FC<InvoicesToolbarProps> = ({
         secondaryAction={{ label: 'View Deleted', onClick: onOpenDeleted }}
       />
 
-      <Paper sx={{ p: 2, mb: 3 }}>
+      <Box sx={{ mb: 3 }}>
         <Box
           sx={{
             display: 'flex',
@@ -218,7 +217,7 @@ const InvoicesToolbar: React.FC<InvoicesToolbarProps> = ({
             Sort
           </Button>
         </Box>
-      </Paper>
+      </Box>
     </>
   )
 }

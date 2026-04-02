@@ -1,16 +1,10 @@
-import React, { useState } from 'react'
+import React, { useMemo, useState } from 'react'
 import {
   Box,
   Typography,
   Paper,
   Button,
-  TextField,
   IconButton,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  InputAdornment,
   Table,
   TableBody,
   TableCell,
@@ -22,10 +16,8 @@ import {
   CircularProgress,
   Chip,
   Tooltip,
-  Stack,
 } from '@mui/material'
 import {
-  Search as SearchIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
   ContentCopy as CopyIcon,
@@ -35,36 +27,93 @@ import {
 } from '@mui/icons-material'
 import { useNavigate } from 'react-router-dom'
 import PageHeader from '@/components/common/PageHeader'
+import { FilterBar } from '@/components/filters'
 import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
+import { useFilterBar } from '@/hooks/useFilterBar'
 import { useNotification } from '@/hooks/useNotification'
-import {
-  setFilters,
-  setPagination,
-} from '@/store/slices/priceListSlice'
+import { setPagination } from '@/store/slices/priceListSlice'
 import {
   useDeletePriceListMutation,
   useGetPriceListsQuery,
   useSetDefaultPriceListMutation,
 } from '@/store/api/priceListApi'
 import type { PriceList } from '@/types'
+import type { FilterBarConfig } from '@/types/filterBar.types'
 import PriceListFormDialog from '@/components/settings/PriceListFormDialog'
 import PriceListCopyDialog from '@/components/settings/PriceListCopyDialog'
 import ConfirmationDialog from '@/components/common/ConfirmationDialog'
 import { TABLE_STYLES } from '@/constants/tableStyles'
 import { formatDate as formatDisplayDate } from '@/utils/formatters'
 
+interface PriceListFilters {
+  search: string
+  status: 'active' | 'inactive' | null
+}
+
 const PriceListsPage: React.FC = () => {
   const navigate = useNavigate()
   const dispatch = useAppDispatch()
   const { showSuccess, showError } = useNotification()
+  const filterConfig = useMemo<FilterBarConfig<PriceListFilters>>(
+    () => ({
+      search: { placeholder: 'Search by code or name...' },
+      fields: [
+        {
+          field: 'status',
+          label: 'Status',
+          type: 'select',
+          options: [
+            { value: 'active', label: 'Active' },
+            { value: 'inactive', label: 'Inactive' },
+          ],
+        },
+      ],
+      defaults: {
+        search: '',
+        status: null,
+      },
+    }),
+    [],
+  )
+  const { appliedFilters, draftFilters, handlers, hasActiveFilters } = useFilterBar(filterConfig)
+  const filterHandlers = useMemo(
+    () => ({
+      ...handlers,
+      onSearchChange: (value: string) => {
+        dispatch(setPagination({ page: 1 }))
+        handlers.onSearchChange(value)
+      },
+      onSearchCommit: () => {
+        dispatch(setPagination({ page: 1 }))
+        handlers.onSearchCommit()
+      },
+      onQuickFilterChange: (field: keyof PriceListFilters, value: unknown) => {
+        dispatch(setPagination({ page: 1 }))
+        handlers.onQuickFilterChange(field, value)
+      },
+      onClearField: (field: keyof PriceListFilters) => {
+        dispatch(setPagination({ page: 1 }))
+        handlers.onClearField(field)
+      },
+      onClearAll: () => {
+        dispatch(setPagination({ page: 1 }))
+        handlers.onClearAll()
+      },
+    }),
+    [dispatch, handlers],
+  )
 
   const pagination = useAppSelector((state) => state.priceLists.pagination)
-  const filters = useAppSelector((state) => state.priceLists.filters)
   const { data: priceListResponse, isLoading: loading, error, refetch } = useGetPriceListsQuery({
     page: pagination.page,
     limit: pagination.limit,
-    search: filters.search || undefined,
-    isActive: filters.isActive,
+    search: appliedFilters.search || undefined,
+    isActive:
+      appliedFilters.status === 'active'
+        ? true
+        : appliedFilters.status === 'inactive'
+          ? false
+          : undefined,
   })
   const [deletePriceList] = useDeletePriceListMutation()
   const [setDefaultPriceList] = useSetDefaultPriceListMutation()
@@ -88,17 +137,6 @@ const PriceListsPage: React.FC = () => {
   })
 
   // Handlers
-  const handleSearch = (event: React.ChangeEvent<HTMLInputElement>) => {
-    dispatch(setFilters({ search: event.target.value }))
-    dispatch(setPagination({ page: 1 }))
-  }
-
-  const handleActiveFilterChange = (event: any) => {
-    const value = event.target.value
-    dispatch(setFilters({ isActive: value === 'all' ? undefined : value === 'true' }))
-    dispatch(setPagination({ page: 1 }))
-  }
-
   const handlePageChange = (_event: unknown, newPage: number) => {
     dispatch(setPagination({ page: newPage + 1 }))
   }
@@ -211,37 +249,14 @@ const PriceListsPage: React.FC = () => {
       />
 
       {/* Filters */}
-      <Paper sx={{ p: 2, mb: 3 }}>
-        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-          <TextField
-            placeholder="Search by code or name..."
-            value={filters.search}
-            onChange={handleSearch}
-            slotProps={{
-              input: {
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon />
-                  </InputAdornment>
-                ),
-              },
-            }}
-            sx={{ flexGrow: 1 }}
-          />
-          <FormControl sx={{ minWidth: 150 }}>
-            <InputLabel>Status</InputLabel>
-            <Select
-              value={filters.isActive === undefined ? 'all' : filters.isActive ? 'true' : 'false'}
-              onChange={handleActiveFilterChange}
-              label="Status"
-            >
-              <MenuItem value="all">All</MenuItem>
-              <MenuItem value="true">Active</MenuItem>
-              <MenuItem value="false">Inactive</MenuItem>
-            </Select>
-          </FormControl>
-        </Stack>
-      </Paper>
+      <Box sx={{ mb: 3 }}>
+        <FilterBar
+          config={filterConfig}
+          draftFilters={draftFilters}
+          handlers={filterHandlers}
+          hasActiveFilters={hasActiveFilters}
+        />
+      </Box>
 
       {/* Error Alert */}
       {error && <Alert severity="error" sx={{ mb: 2 }}>Failed to load price lists</Alert>}

@@ -86,7 +86,7 @@ const BackupManagement: React.FC = () => {
         subtitle="Create, manage, and restore database backups"
       />
 
-      <Paper sx={{ p: 2, mb: 3 }}>
+      <Box sx={{ mb: 3 }}>
         <Box sx={{ display: 'flex', gap: 2 }}>
             {tabValue === 0 && (
               <>
@@ -121,7 +121,7 @@ const BackupManagement: React.FC = () => {
               </Button>
             )}
           </Box>
-        </Paper>
+        </Box>
 
       <Paper sx={{ p: 3 }}>
         <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>

@@ -361,7 +361,7 @@ const JournalEntriesPage: React.FC = () => {
       />
 
       {/* Filters */}
-      <Paper sx={{ p: 2, mb: 3 }}>
+      <Box sx={{ mb: 3 }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
           <Box sx={{ display: 'flex', gap: 1 }}>
             {selectedIds.size > 0 && (
@@ -472,7 +472,7 @@ const JournalEntriesPage: React.FC = () => {
             />
           </GridLegacy>
         </GridLegacy>
-      </Paper>
+      </Box>
 
       {/* Error Alert */}
       {errorMessage && (

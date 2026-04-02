@@ -176,7 +176,7 @@ const BankReconciliationsPage: React.FC = () => {
         primaryAction={{ label: 'New Reconciliation', onClick: handleOpenCreate }}
       />
 
-      <Paper sx={{ p: 2, mb: 3 }}>
+      <Box sx={{ mb: 3 }}>
         <Box sx={{ display: 'flex', gap: 2, flexDirection: isMobile ? 'column' : 'row' }}>
           <FormControl fullWidth>
             <InputLabel>Account</InputLabel>
@@ -211,7 +211,7 @@ const BankReconciliationsPage: React.FC = () => {
             </Select>
           </FormControl>
         </Box>
-      </Paper>
+      </Box>
 
       <Paper sx={{ p: 0 }}>
         {loading ? (

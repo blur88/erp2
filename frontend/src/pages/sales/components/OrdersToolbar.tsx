@@ -13,7 +13,6 @@ import {
   InputAdornment,
   InputLabel,
   MenuItem,
-  Paper,
   Select,
   TextField,
 } from '@mui/material'
@@ -76,7 +75,7 @@ const OrdersToolbar: React.FC<OrdersToolbarProps> = ({
         primaryAction={{ label: 'Create Order', onClick: onCreateOrder }}
       />
 
-      <Paper sx={{ p: 2, mb: 3 }}>
+      <Box sx={{ mb: 3 }}>
         <Box
           sx={{
             display: 'flex',
@@ -292,7 +291,7 @@ const OrdersToolbar: React.FC<OrdersToolbarProps> = ({
             Sort
           </Button>
         </Box>
-      </Paper>
+      </Box>
     </>
   )
 }

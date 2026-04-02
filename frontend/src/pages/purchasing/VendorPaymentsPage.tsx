@@ -346,7 +346,7 @@ const VendorPaymentsPage: React.FC = () => {
         secondaryAction={{ label: 'View Deleted', onClick: () => setDeletedPaymentsDialogOpen(true) }}
       />
       {/* Filters and Search */}
-      <Paper sx={{ p: 2, mb: 3 }}>
+      <Box sx={{ mb: 3 }}>
       <Box sx={{
         display: 'flex',
         flexDirection: isMobile ? 'column' : 'row',
@@ -553,7 +553,7 @@ const VendorPaymentsPage: React.FC = () => {
           Sort
         </Button>
       </Box>
-      </Paper>
+      </Box>
       {/* Error Display */}
       {error && (
         <Alert severity="error" sx={{ mb: 3 }}>

@@ -228,7 +228,7 @@ const FundTransfersPage: React.FC = () => {
         </CardContent>
       </Card>
 
-      <Paper sx={{ p: 2, mb: 2 }}>
+      <Box sx={{ mb: 2 }}>
         <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
           <TextField
             label="Start Date"
@@ -259,7 +259,7 @@ const FundTransfersPage: React.FC = () => {
             </Select>
           </FormControl>
         </Stack>
-      </Paper>
+      </Box>
 
       {isLoading ? (
         <Box display="flex" justifyContent="center" mt={4}>

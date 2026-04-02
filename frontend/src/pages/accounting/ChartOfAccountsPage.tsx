@@ -218,7 +218,7 @@ const ChartOfAccountsPage: React.FC = () => {
       />
 
       {/* Search / Filter */}
-      <Paper sx={{ p: 2, mb: 3 }}>
+      <Box sx={{ mb: 3 }}>
         <Box
           sx={{
             display: 'flex',
@@ -350,7 +350,7 @@ const ChartOfAccountsPage: React.FC = () => {
             </Button>
           )}
         </Box>
-      </Paper>
+      </Box>
 
       {/* Code Range Guide */}
       <Paper variant="outlined" sx={{ mb: 3, borderColor: 'info.light' }}>
