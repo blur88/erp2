@@ -127,7 +127,7 @@ export class User extends BaseEntity {
     comment: 'Whether the user account is active',
   })
   @IsBoolean()
-  isActive: boolean;
+  declare isActive: boolean;
 
   @Column({
     type: 'timestamptz',

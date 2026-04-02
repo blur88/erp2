@@ -1,6 +1,6 @@
 import { ConflictException, INestApplication, NotFoundException, ValidationPipe } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
-import * as request from 'supertest';
+import request from 'supertest';
 import { AccountMappingController } from '../../src/modules/accounting/controllers/account-mapping.controller';
 import { AccountMappingService } from '../../src/modules/accounting/services/account-mapping.service';
 import { MappingType } from '../../src/database/entities/account-mapping.entity';

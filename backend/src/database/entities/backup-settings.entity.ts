@@ -24,5 +24,5 @@ export class BackupRetentionSettings extends BaseEntity {
   maximumTotalSize: number | null;
 
   @Column({ type: 'boolean', default: true, comment: 'Only one active settings record should exist' })
-  isActive: boolean;
+  declare isActive: boolean;
 }

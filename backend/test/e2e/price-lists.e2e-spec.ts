@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
-import * as request from 'supertest';
+import request from 'supertest';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { PriceListsModule } from '../../src/modules/price-lists/price-lists.module';
 import { PriceList } from '../../src/database/entities/price-list.entity';

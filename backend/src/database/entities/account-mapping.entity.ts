@@ -71,7 +71,7 @@ export class AccountMapping extends BaseEntity {
     comment: 'Whether the mapping is active',
   })
   @IsBoolean()
-  isActive: boolean;
+  declare isActive: boolean;
 
   // Relationships
   @ManyToOne(() => ChartOfAccount, (account) => account.accountMappings, {
