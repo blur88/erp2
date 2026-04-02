@@ -1,3 +1,14 @@
+## [1.40.2](https://github.com/blur88/erp2/compare/v1.40.1...v1.40.2) (2026-04-02)
+
+
+### Internal Changes
+
+* chore: upgrade TypeScript to 6.0.2, ts-jest to 29.4.9 ([](https://github.com/blur88/erp2/commit/))
+* docs: update TS6 plan — remove webpack, fix compression+isActive TS6 errors ([](https://github.com/blur88/erp2/commit/))
+* docs: update TS6 upgrade plan with two TS6 compatibility fixes ([](https://github.com/blur88/erp2/commit/))
+* docs: add TypeScript 6.x upgrade implementation plan ([](https://github.com/blur88/erp2/commit/))
+* docs: add TypeScript 6.x upgrade design spec (issue #235) ([](https://github.com/blur88/erp2/commit/))
+
 ## [1.40.1](https://github.com/blur88/erp2/compare/v1.40.0...v1.40.1) (2026-04-02)
 
 
