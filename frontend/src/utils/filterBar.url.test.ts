@@ -141,6 +141,24 @@ describe('serializeFilters — period field', () => {
     )
     expect(params.toString()).toBe('')
   })
+
+  it('serializes custom range even when default key is also custom', () => {
+    const customDefaultConfig: FilterBarConfig<PeriodFilters> = {
+      fields: [{ field: 'period', label: 'Period', type: 'period' }],
+      defaults: {
+        period: { key: 'custom', from: '2026-01-01', to: '2026-01-31' },
+      },
+    }
+    // Same key ('custom') but different from/to — must NOT be omitted
+    const params = serializeFilters(
+      { period: { key: 'custom', from: '2026-03-01', to: '2026-03-31' } },
+      customDefaultConfig,
+      new URLSearchParams(),
+    )
+    expect(params.get('period')).toBe('custom')
+    expect(params.get('period_from')).toBe('2026-03-01')
+    expect(params.get('period_to')).toBe('2026-03-31')
+  })
 })
 
 describe('parseFilters — period field', () => {

@@ -82,12 +82,19 @@ export function serializeFilters<TFilters extends object>(
     if (field.type === 'period') {
       const period = value as PeriodValue | undefined
       const defaultPeriod = defaultValue as PeriodValue | undefined
-      if (!period || period.key === (defaultPeriod?.key ?? 'this_month')) continue
+      const defaultKey = defaultPeriod?.key ?? 'this_month'
+      const defaultFrom = defaultPeriod?.from ?? null
+      const defaultTo = defaultPeriod?.to ?? null
+      const isDefault =
+        !period ||
+        (period.key === defaultKey && period.from === defaultFrom && period.to === defaultTo)
+      if (isDefault) continue
       orderedEntries.push([key, period.key])
       if (period.key === 'custom' && period.from && period.to) {
         orderedEntries.push([`${key}_from`, period.from])
         orderedEntries.push([`${key}_to`, period.to])
       }
+      continue
     }
   }
 
