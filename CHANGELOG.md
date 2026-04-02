@@ -1,3 +1,10 @@
+## [1.40.3](https://github.com/blur88/erp2/compare/v1.40.2...v1.40.3) (2026-04-02)
+
+
+### Bug Fixes
+
+* **deps:** pin lodash to ^4.18.1 via overrides to resolve high-severity vulns ([fabb789](https://github.com/blur88/erp2/commit/fabb789e2e7e61b0bb7bc46a8f6ac5718722d065)), closes [hi#severity](https://github.com/hi/issues/severity)
+
 ## [1.40.2](https://github.com/blur88/erp2/compare/v1.40.1...v1.40.2) (2026-04-02)
 
 
