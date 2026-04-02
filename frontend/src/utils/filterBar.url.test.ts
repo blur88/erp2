@@ -11,7 +11,7 @@ interface TestFilters {
 
 const config: FilterBarConfig<TestFilters> = {
   search: { placeholder: 'Search...' },
-  quick: [
+  fields: [
     { field: 'status', label: 'Status', type: 'select', options: [{ value: 'active', label: 'Active' }, { value: 'inactive', label: 'Inactive' }] },
     { field: 'tags', label: 'Tags', type: 'multi-select', options: [{ value: 'a', label: 'A' }, { value: 'b', label: 'B' }] },
   ],
@@ -102,7 +102,7 @@ interface PeriodFilters {
 }
 
 const periodConfig: FilterBarConfig<PeriodFilters> = {
-  quick: [
+  fields: [
     { field: 'period', label: 'Period', type: 'period' },
   ],
   defaults: {
@@ -188,7 +188,7 @@ interface NamespacedFilters {
 
 const namespacedConfig: FilterBarConfig<NamespacedFilters> = {
   search: { placeholder: 'Search...' },
-  quick: [
+  fields: [
     { field: 'status', label: 'Status', type: 'select', options: [{ value: 'active', label: 'Active' }] },
   ],
   defaults: { search: '', status: null },

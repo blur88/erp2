@@ -13,7 +13,7 @@ interface Filters {
 
 const config: FilterBarConfig<Filters> = {
   search: { placeholder: 'Search...' },
-  quick: [
+  fields: [
     { field: 'status', label: 'Status', type: 'select', options: [{ value: 'active', label: 'Active' }] },
   ],
   defaults: { search: '', status: null },
@@ -57,7 +57,7 @@ describe('FilterBar — period field', () => {
     }
 
     const periodConfig: FilterBarConfig<PeriodFilters> = {
-      quick: [{ field: 'period', label: 'Period', type: 'period' }],
+      fields: [{ field: 'period', label: 'Period', type: 'period' }],
     }
 
     const periodHandlers: FilterBarHandlers<PeriodFilters> = {

@@ -24,7 +24,7 @@ export function getManagedParamKeys<TFilters>(
     keys.push(prefixed(config.search.paramKey ?? 'search', ns))
   }
 
-  for (const field of config.quick) {
+  for (const field of config.fields) {
     const key = effectiveKey(field, ns)
     keys.push(key)
     if (field.type === 'period') {
@@ -60,7 +60,7 @@ export function serializeFilters<TFilters extends object>(
     }
   }
 
-  for (const field of config.quick) {
+  for (const field of config.fields) {
     const key = effectiveKey(field, ns)
     const value = filters[field.field]
     const defaultValue = defaults[String(field.field)]
@@ -111,7 +111,7 @@ export function parseFilters<TFilters extends object>(
     result.search = searchParams.get(searchKey) ?? (defaults.search ?? '')
   }
 
-  for (const field of config.quick) {
+  for (const field of config.fields) {
     const key = effectiveKey(field, ns)
     const fieldKey = String(field.field)
     const defaultValue = defaults[fieldKey]

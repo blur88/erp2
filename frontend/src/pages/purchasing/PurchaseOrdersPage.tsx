@@ -51,7 +51,7 @@ export const PurchaseOrdersPage: React.FC = () => {
   const filterConfig = useMemo<FilterBarConfig<PurchaseOrderFilters>>(
     () => ({
       search: { placeholder: 'Search purchase orders...' },
-      quick: [
+      fields: [
         {
           field: 'supplierId',
           label: 'Supplier',

@@ -18,7 +18,7 @@ interface Props<TFilters extends object> {
 }
 
 function renderQuickField<TFilters extends object>(
-  field: FilterBarConfig<TFilters>['quick'][number],
+  field: FilterBarConfig<TFilters>['fields'][number],
   draftFilters: TFilters,
   handlers: FilterBarHandlers<TFilters>,
 ) {
@@ -75,7 +75,7 @@ export function FilterBar<TFilters extends object>({
           inputRef={searchInputRef}
         />
       ) : null}
-      {config.quick.map((field) => renderQuickField(field, draftFilters, handlers))}
+      {config.fields.map((field) => renderQuickField(field, draftFilters, handlers))}
       {hasActiveFilters ? (
         <Button size="small" variant="outlined" color="inherit" sx={{ ml: 1 }} onClick={handlers.onClearAll}>
           Reset

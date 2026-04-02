@@ -59,7 +59,7 @@ export const OrdersPage: React.FC = () => {
   const filterConfig = useMemo<FilterBarConfig<SalesOrderFilters>>(
     () => ({
       search: { placeholder: 'Search orders...' },
-      quick: [
+      fields: [
         {
           field: 'customerId',
           label: 'Customer',

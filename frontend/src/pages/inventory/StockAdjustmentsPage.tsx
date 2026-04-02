@@ -136,7 +136,7 @@ const StockAdjustmentsPage: React.FC = () => {
   const filterConfig = useMemo<FilterBarConfig<StockAdjustmentFilters>>(
     () => ({
       search: { placeholder: 'Search by adjustment number or notes...' },
-      quick: [
+      fields: [
         {
           field: 'status',
           label: 'Status',

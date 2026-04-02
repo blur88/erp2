@@ -42,7 +42,7 @@ export interface FilterBarConfig<TFilters> {
     debounceMs?: number
     paramKey?: string
   }
-  quick: FilterFieldConfig<TFilters>[]
+  fields: FilterFieldConfig<TFilters>[]
   defaults?: Partial<TFilters>
   namespace?: string
 }

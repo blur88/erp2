@@ -11,7 +11,7 @@ function getDefaults<TFilters extends object>(
 
   if (config.search) defaults.search = ''
 
-  for (const field of config.quick) {
+  for (const field of config.fields) {
     const key = String(field.field)
     const configuredDefault = config.defaults?.[field.field]
     if (configuredDefault !== undefined) {
