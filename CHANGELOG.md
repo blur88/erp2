@@ -1,3 +1,10 @@
+## [1.41.1](https://github.com/blur88/erp2/compare/v1.41.0...v1.41.1) (2026-04-02)
+
+
+### Bug Fixes
+
+* **sidebar:** use opaque background.paper for rail flyout panel ([2d557a1](https://github.com/blur88/erp2/commit/2d557a12139676bebc32bcc2a15ad7815b60bf4b)), closes [#255](https://github.com/blur88/erp2/issues/255)
+
 # [1.41.0](https://github.com/blur88/erp2/compare/v1.40.4...v1.41.0) (2026-04-02)
 
 
