@@ -285,7 +285,7 @@ const FiscalPeriodsPage: React.FC = () => {
       />
 
       {/* Filters and Search */}
-      <Paper sx={{ p: 2, mb: 3 }}>
+      <Box sx={{ mb: 3 }}>
       <Box sx={{
         display: 'flex',
         flexDirection: isMobile ? 'column' : 'row',
@@ -395,7 +395,7 @@ const FiscalPeriodsPage: React.FC = () => {
           </Select>
         </FormControl>
       </Box>
-      </Paper>
+      </Box>
 
       {/* Periods Table */}
       <Paper sx={{ borderRadius: 2, overflow: 'hidden' }}>

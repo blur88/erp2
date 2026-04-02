@@ -6,7 +6,6 @@ import {
   InputAdornment,
   InputLabel,
   MenuItem,
-  Paper,
   Select,
   TextField,
   Typography,
@@ -76,7 +75,7 @@ const ProductsToolbar: React.FC<ProductsToolbarProps> = ({
         />
       </Box>
 
-      <Paper sx={{ p: 2, mb: 3 }}>
+      <Box sx={{ mb: 3 }}>
         <Box
           sx={{
             display: 'flex',
@@ -235,7 +234,7 @@ const ProductsToolbar: React.FC<ProductsToolbarProps> = ({
             {calculatorPanelOpen ? 'Close Calculator' : 'Calculator'}
           </Button>
         </Box>
-      </Paper>
+      </Box>
     </>
   )
 }

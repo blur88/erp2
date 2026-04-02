@@ -282,7 +282,7 @@ const ExpensesPage: React.FC = () => {
         </CardContent>
       </Card>
 
-      <Paper sx={{ p: 2, mb: 2 }}>
+      <Box sx={{ mb: 2 }}>
         <Stack direction="row" alignItems="flex-start" spacing={1}>
           <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} sx={{ flex: 1, flexWrap: 'wrap' }}>
           <TextField
@@ -332,7 +332,7 @@ const ExpensesPage: React.FC = () => {
             <RefreshIcon />
           </IconButton>
         </Stack>
-      </Paper>
+      </Box>
 
       {selectedIds.size > 0 && (
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2, p: 1.5, bgcolor: 'action.selected', borderRadius: 1 }}>

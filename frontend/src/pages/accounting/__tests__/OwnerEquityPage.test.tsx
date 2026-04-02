@@ -1,6 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { BrowserRouter } from 'react-router-dom'
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 
 import OwnerEquityPage from '../OwnerEquityPage'
 
@@ -121,5 +123,11 @@ describe('OwnerEquityPage', () => {
     expect(screen.getAllByText('Status').length).toBeGreaterThan(0)
     expect(screen.getByLabelText('Start Date')).toBeInTheDocument()
     expect(screen.getByLabelText('End Date')).toBeInTheDocument()
+  })
+
+  it('does not use the legacy Paper filter wrapper', () => {
+    const source = readFileSync(resolve(import.meta.dirname, '../OwnerEquityPage.tsx'), 'utf8')
+
+    expect(source).not.toContain('<Paper sx={{ p: 2, mb: 2 }}>')
   })
 })

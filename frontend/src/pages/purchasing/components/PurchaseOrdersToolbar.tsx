@@ -15,7 +15,6 @@ import {
   InputAdornment,
   InputLabel,
   MenuItem,
-  Paper,
   Select,
   TextField,
   Typography,
@@ -68,7 +67,7 @@ const PurchaseOrdersToolbar: React.FC<PurchaseOrdersToolbarProps> = ({
         primaryAction={{ label: 'Create Order', onClick: onCreateOrder }}
       />
 
-      <Paper sx={{ p: 2, mb: 3 }}>
+      <Box sx={{ mb: 3 }}>
         <Box sx={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: isMobile ? 2 : 1, alignItems: isMobile ? 'stretch' : 'center', '& > *': { alignSelf: isMobile ? 'stretch' : 'flex-start' } }}>
           <TextField
             inputRef={searchInputRef}
@@ -206,7 +205,7 @@ const PurchaseOrdersToolbar: React.FC<PurchaseOrdersToolbarProps> = ({
             Sort
           </Button>
         </Box>
-      </Paper>
+      </Box>
     </>
   )
 }

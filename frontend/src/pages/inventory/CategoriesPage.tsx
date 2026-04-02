@@ -366,7 +366,7 @@ const CategoriesPage: React.FC = () => {
         }}
       />
       {/* Search / Filter */}
-      <Paper sx={{ p: 2, mb: 3 }}>
+      <Box sx={{ mb: 3 }}>
         <TextField
           placeholder="Search categories by name..."
           value={searchTerm}
@@ -399,7 +399,7 @@ const CategoriesPage: React.FC = () => {
             ),
           }}
         />
-      </Paper>
+      </Box>
       {/* Categories Content */}
       <Paper sx={{ borderRadius: 2, overflow: 'hidden' }}>
         {isCategoriesFetching ? (

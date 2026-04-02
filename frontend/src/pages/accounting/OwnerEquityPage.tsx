@@ -228,7 +228,7 @@ const OwnerEquityPage: React.FC = () => {
         primaryAction={{ label: 'New Transaction', onClick: openCreate }}
       />
 
-      <Paper sx={{ p: 2, mb: 2 }}>
+      <Box sx={{ mb: 2 }}>
         <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
           <TextField
             inputRef={searchRef}
@@ -264,7 +264,7 @@ const OwnerEquityPage: React.FC = () => {
           <TextField label="Start Date" type="date" size="small" value={startDate} onChange={(e) => setStartDate(e.target.value)} InputLabelProps={{ shrink: true }} />
           <TextField label="End Date" type="date" size="small" value={endDate} onChange={(e) => setEndDate(e.target.value)} InputLabelProps={{ shrink: true }} />
         </Stack>
-      </Paper>
+      </Box>
 
       <Paper>
         <TableContainer>

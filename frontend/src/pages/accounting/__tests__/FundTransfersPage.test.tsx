@@ -1,6 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { BrowserRouter } from 'react-router-dom'
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 
 import FundTransfersPage from '../FundTransfersPage'
 
@@ -141,5 +143,11 @@ describe('FundTransfersPage', () => {
   it('renders Cancel button for ACTIVE transfer', () => {
     renderPage()
     expect(screen.getByRole('button', { name: /cancel/i })).toBeInTheDocument()
+  })
+
+  it('does not use the legacy Paper filter wrapper', () => {
+    const source = readFileSync(resolve(import.meta.dirname, '../FundTransfersPage.tsx'), 'utf8')
+
+    expect(source).not.toContain('<Paper sx={{ p: 2, mb: 2 }}>')
   })
 })
