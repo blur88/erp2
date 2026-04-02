@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation } from 'react-router-dom'
 
-import type { FilterBarConfig, FilterBarHandlers } from '@/types/filterBar.types'
+import type { FilterBarConfig, FilterBarHandlers, PeriodValue } from '@/types/filterBar.types'
 import { parseFilters, serializeFilters } from '@/utils/filterBar.url'
 
 function getDefaults<TFilters extends object>(
@@ -11,7 +11,7 @@ function getDefaults<TFilters extends object>(
 
   if (config.search) defaults.search = ''
 
-  for (const field of config.quick) {
+  for (const field of config.fields) {
     const key = String(field.field)
     const configuredDefault = config.defaults?.[field.field]
     if (configuredDefault !== undefined) {
@@ -20,7 +20,10 @@ function getDefaults<TFilters extends object>(
     }
 
     if (field.type === 'select') defaults[key] = null
-    else defaults[key] = []
+    else if (field.type === 'multi-select') defaults[key] = []
+    else if (field.type === 'period') {
+      defaults[key] = { key: 'this_month', from: null, to: null } satisfies PeriodValue
+    }
   }
 
   return defaults as TFilters

@@ -129,7 +129,7 @@ const CustomersPage: React.FC = () => {
   const filterConfig = useMemo<FilterBarConfig<CustomerFilters>>(
     () => ({
       search: { placeholder: 'Search by name or phone...' },
-      quick: [
+      fields: [
         {
           field: 'status',
           label: 'Status',

@@ -44,7 +44,7 @@ export const ProductsPage: React.FC = () => {
   const filterConfig = useMemo<FilterBarConfig<InventoryProductFilters>>(
     () => ({
       search: { placeholder: 'Search by name, barcode, or brand...' },
-      quick: [
+      fields: [
         {
           field: 'status',
           label: 'Status',

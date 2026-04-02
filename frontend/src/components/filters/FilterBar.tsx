@@ -1,10 +1,12 @@
 import { Button, Stack } from '@mui/material'
 
+import { FilterPeriod } from './FilterPeriod'
 import { FilterSearch } from './FilterSearch'
 import { FilterSelect } from './FilterSelect'
 import type {
   FilterBarConfig,
   FilterBarHandlers,
+  PeriodValue,
 } from '@/types/filterBar.types'
 
 interface Props<TFilters extends object> {
@@ -16,7 +18,7 @@ interface Props<TFilters extends object> {
 }
 
 function renderQuickField<TFilters extends object>(
-  field: FilterBarConfig<TFilters>['quick'][number],
+  field: FilterBarConfig<TFilters>['fields'][number],
   draftFilters: TFilters,
   handlers: FilterBarHandlers<TFilters>,
 ) {
@@ -33,6 +35,21 @@ function renderQuickField<TFilters extends object>(
         value={value as string | null | string[]}
         options={field.options}
         onChange={onChange}
+      />
+    )
+  }
+
+  if (field.type === 'period') {
+    const periodValue = value as PeriodValue
+    return (
+      <FilterPeriod
+        key={String(field.field)}
+        value={periodValue.key}
+        customFrom={periodValue.from}
+        customTo={periodValue.to}
+        onChange={(key, from, to) =>
+          onChange({ key, from: from ?? null, to: to ?? null } satisfies PeriodValue)
+        }
       />
     )
   }
@@ -58,7 +75,7 @@ export function FilterBar<TFilters extends object>({
           inputRef={searchInputRef}
         />
       ) : null}
-      {config.quick.map((field) => renderQuickField(field, draftFilters, handlers))}
+      {config.fields.map((field) => renderQuickField(field, draftFilters, handlers))}
       {hasActiveFilters ? (
         <Button size="small" variant="outlined" color="inherit" sx={{ ml: 1 }} onClick={handlers.onClearAll}>
           Reset

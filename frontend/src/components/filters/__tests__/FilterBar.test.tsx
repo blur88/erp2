@@ -1,7 +1,9 @@
+import { LocalizationProvider } from '@mui/x-date-pickers'
+import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns'
 import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 
-import type { FilterBarConfig, FilterBarHandlers } from '@/types/filterBar.types'
+import type { FilterBarConfig, FilterBarHandlers, PeriodValue } from '@/types/filterBar.types'
 import { FilterBar } from '../FilterBar'
 
 interface Filters {
@@ -11,7 +13,7 @@ interface Filters {
 
 const config: FilterBarConfig<Filters> = {
   search: { placeholder: 'Search...' },
-  quick: [
+  fields: [
     { field: 'status', label: 'Status', type: 'select', options: [{ value: 'active', label: 'Active' }] },
   ],
   defaults: { search: '', status: null },
@@ -45,5 +47,38 @@ describe('FilterBar', () => {
     rerender(<FilterBar {...baseProps} hasActiveFilters={true} />)
     fireEvent.click(screen.getByRole('button', { name: /reset/i }))
     expect(handlers.onClearAll).toHaveBeenCalled()
+  })
+})
+
+describe('FilterBar — period field', () => {
+  it('renders FilterPeriod when type is period', () => {
+    interface PeriodFilters {
+      period: PeriodValue
+    }
+
+    const periodConfig: FilterBarConfig<PeriodFilters> = {
+      fields: [{ field: 'period', label: 'Period', type: 'period' }],
+    }
+
+    const periodHandlers: FilterBarHandlers<PeriodFilters> = {
+      onSearchChange: vi.fn(),
+      onSearchCommit: vi.fn(),
+      onQuickFilterChange: vi.fn(),
+      onClearField: vi.fn(),
+      onClearAll: vi.fn(),
+    }
+
+    render(
+      <LocalizationProvider dateAdapter={AdapterDateFns}>
+        <FilterBar
+          config={periodConfig}
+          draftFilters={{ period: { key: 'this_month', from: null, to: null } }}
+          handlers={periodHandlers}
+          hasActiveFilters={false}
+        />
+      </LocalizationProvider>,
+    )
+
+    expect(screen.getByLabelText(/period/i)).toBeInTheDocument()
   })
 })

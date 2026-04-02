@@ -1,8 +1,17 @@
+import type { PeriodKey } from '@/constants/periods'
+
 export type FilterOption = { value: string; label: string }
+
+export type PeriodValue = {
+  key: PeriodKey
+  from: string | null
+  to: string | null
+}
 
 export type FilterFieldType =
   | 'select'
   | 'multi-select'
+  | 'period'
 
 interface BaseFilterFieldConfig<TFilters, K extends keyof TFilters> {
   field: K
@@ -18,8 +27,14 @@ export interface SelectFilterFieldConfig<TFilters, K extends keyof TFilters>
   options: FilterOption[]
 }
 
+export interface PeriodFilterFieldConfig<TFilters, K extends keyof TFilters>
+  extends BaseFilterFieldConfig<TFilters, K> {
+  type: 'period'
+}
+
 export type FilterFieldConfig<TFilters> =
-  SelectFilterFieldConfig<TFilters, keyof TFilters>
+  | SelectFilterFieldConfig<TFilters, keyof TFilters>
+  | PeriodFilterFieldConfig<TFilters, keyof TFilters>
 
 export interface FilterBarConfig<TFilters> {
   search?: {
@@ -27,8 +42,9 @@ export interface FilterBarConfig<TFilters> {
     debounceMs?: number
     paramKey?: string
   }
-  quick: FilterFieldConfig<TFilters>[]
+  fields: FilterFieldConfig<TFilters>[]
   defaults?: Partial<TFilters>
+  namespace?: string
 }
 
 export interface FilterBarHandlers<TFilters> {

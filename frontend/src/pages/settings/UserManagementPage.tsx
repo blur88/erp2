@@ -74,7 +74,7 @@ const UserManagementPage: React.FC = () => {
   const filterConfig = useMemo<FilterBarConfig<UserFilters>>(
     () => ({
       search: { placeholder: 'Search by name, email, or username...' },
-      quick: [
+      fields: [
         {
           field: 'role',
           label: 'Role',

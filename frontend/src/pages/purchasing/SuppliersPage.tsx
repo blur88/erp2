@@ -102,7 +102,7 @@ const SuppliersPage: React.FC = () => {
   const filterConfig = useMemo<FilterBarConfig<SupplierFilters>>(
     () => ({
       search: { placeholder: 'Search by company name...' },
-      quick: [
+      fields: [
         {
           field: 'status',
           label: 'Status',

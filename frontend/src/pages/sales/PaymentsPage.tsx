@@ -198,7 +198,7 @@ const PaymentsPage: React.FC = () => {
   const filterConfig = useMemo<FilterBarConfig<PaymentFilters>>(
     () => ({
       search: { placeholder: 'Search by payment number or customer...' },
-      quick: [],
+      fields: [],
       defaults: { search: '' },
     }),
     [],
