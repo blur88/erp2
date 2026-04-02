@@ -319,14 +319,14 @@ const UserManagementPage: React.FC = () => {
       )}
 
       {/* Filters */}
-      <Paper sx={{ p: 2, mb: 3 }}>
+      <Box sx={{ mb: 3 }}>
         <FilterBar
           config={filterConfig}
           draftFilters={draftFilters}
           handlers={filterHandlers}
           hasActiveFilters={hasActiveFilters}
         />
-      </Paper>
+      </Box>
 
       {/* Error Alert */}
       {error && (

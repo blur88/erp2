@@ -452,7 +452,7 @@ const StockAdjustmentsPage: React.FC = () => {
         primaryAction={{ label: 'New Adjustment', onClick: () => navigate('/inventory/stock-adjustments/create') }}
       />
       {/* Filters and Search */}
-      <Paper sx={{ p: 2, mb: 3 }}>
+      <Box sx={{ mb: 3 }}>
         <Stack direction={isMobile ? 'column' : 'row'} spacing={1} alignItems={isMobile ? 'stretch' : 'flex-start'}>
           <Box sx={{ flex: 1 }}>
             <FilterBar
@@ -479,7 +479,7 @@ const StockAdjustmentsPage: React.FC = () => {
             Sort
           </Button>
         </Stack>
-      </Paper>
+      </Box>
       {/* Error Display */}
       {error && (
         <Alert severity="error" sx={{ mb: 3 }}>

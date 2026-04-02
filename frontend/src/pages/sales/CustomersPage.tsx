@@ -423,7 +423,7 @@ const CustomersPage: React.FC = () => {
         primaryAction={{ label: 'New Customer', onClick: () => handleOpenForm() }}
       />
       {/* Filters and Search */}
-      <Paper sx={{ p: 2, mb: 3 }}>
+      <Box sx={{ mb: 3 }}>
         <FilterBar
           config={filterConfig}
           draftFilters={draftFilters}
@@ -431,7 +431,7 @@ const CustomersPage: React.FC = () => {
           hasActiveFilters={hasActiveFilters}
           searchInputRef={searchInputRef}
         />
-      </Paper>
+      </Box>
       {/* Error Alert */}
       {(pageError || error) && (
         <Alert severity="error" sx={{ mb: 3 }} onClose={() => setPageError(null)}>
