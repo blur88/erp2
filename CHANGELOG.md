@@ -1,3 +1,11 @@
+## [1.41.3](https://github.com/blur88/erp2/compare/v1.41.2...v1.41.3) (2026-04-02)
+
+
+### Bug Fixes
+
+* **frontend:** remove gray filter wrappers ([5512408](https://github.com/blur88/erp2/commit/55124088b621ae166903465160f605565702a5ab))
+* remove Paper wrapper from FilterBars, migrate PriceListsPage ([#258](https://github.com/blur88/erp2/issues/258)) ([cd13d1f](https://github.com/blur88/erp2/commit/cd13d1f85fad3d0ad90688825822ab0948c93dd9))
+
 ## [1.41.2](https://github.com/blur88/erp2/compare/v1.41.1...v1.41.2) (2026-04-02)
 
 
