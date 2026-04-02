@@ -3,7 +3,7 @@ import React from 'react'
 import { MemoryRouter } from 'react-router-dom'
 import { describe, expect, it } from 'vitest'
 
-import type { FilterBarConfig } from '@/types/filterBar.types'
+import type { FilterBarConfig, PeriodValue } from '@/types/filterBar.types'
 import { useFilterBar } from '@/hooks/useFilterBar'
 
 interface Filters {
@@ -67,5 +67,43 @@ describe('useFilterBar', () => {
       result.current.handlers.onClearAll()
     })
     expect(result.current.hasActiveFilters).toBe(false)
+  })
+})
+
+describe('useFilterBar — period field', () => {
+  it('defaults period to this_month when no default configured', () => {
+    interface PeriodFilters {
+      period: PeriodValue
+    }
+
+    const periodConfig: FilterBarConfig<PeriodFilters> = {
+      quick: [{ field: 'period', label: 'Period', type: 'period' }],
+    }
+
+    const { result } = renderHook(() => useFilterBar(periodConfig), { wrapper: makeWrapper() })
+
+    expect(result.current.appliedFilters.period).toEqual({
+      key: 'this_month',
+      from: null,
+      to: null,
+    })
+  })
+
+  it('updates period value via onQuickFilterChange', () => {
+    interface PeriodFilters {
+      period: PeriodValue
+    }
+
+    const periodConfig: FilterBarConfig<PeriodFilters> = {
+      quick: [{ field: 'period', label: 'Period', type: 'period' }],
+    }
+
+    const { result } = renderHook(() => useFilterBar(periodConfig), { wrapper: makeWrapper() })
+
+    act(() => {
+      result.current.handlers.onQuickFilterChange('period', { key: 'last_week', from: null, to: null })
+    })
+
+    expect(result.current.appliedFilters.period).toEqual({ key: 'last_week', from: null, to: null })
   })
 })
