@@ -1,3 +1,12 @@
+## [1.41.2](https://github.com/blur88/erp2/compare/v1.41.1...v1.41.2) (2026-04-02)
+
+
+### Bug Fixes
+
+* **sidebar:** align footer and user menu pills ([5ed178b](https://github.com/blur88/erp2/commit/5ed178be5141cb0e139ac2c1704ba3c7854c75a9))
+* **sidebar:** refine pill — opacity 13%, radius 8px, translateX hover, sync flyout dimensions ([276a24c](https://github.com/blur88/erp2/commit/276a24c37e8a30054822b2de2a7419a140c796d5))
+* **sidebar:** remove translateX from collapsed active rail icon button ([8f4328e](https://github.com/blur88/erp2/commit/8f4328e0e760dfc249eb3394e13e9681f3489d70))
+
 ## [1.41.1](https://github.com/blur88/erp2/compare/v1.41.0...v1.41.1) (2026-04-02)
 
 
