@@ -6,10 +6,9 @@
     "emitDecoratorMetadata": true,
     "experimentalDecorators": true,
     "allowSyntheticDefaultImports": true,
-    "target": "ES2018",
+    "target": "ES2025",
     "sourceMap": true,
     "outDir": "./dist",
-    "baseUrl": "./",
     "incremental": true,
     "skipLibCheck": true,
     "strictNullChecks": false,
@@ -19,12 +18,13 @@
     "noFallthroughCasesInSwitch": false,
     "strict": false,
     "strictPropertyInitialization": false,
+    "types": ["node", "jest", "multer", "archiver", "bcrypt", "compression", "express", "supertest"],
     "paths": {
-      "@/*": ["src/*"],
-      "@modules/*": ["src/modules/*"],
-      "@common/*": ["src/common/*"],
-      "@config/*": ["src/config/*"],
-      "@database/*": ["src/database/*"]
+      "@/*": ["./src/*"],
+      "@modules/*": ["./src/modules/*"],
+      "@common/*": ["./src/common/*"],
+      "@config/*": ["./src/config/*"],
+      "@database/*": ["./src/database/*"]
     }
   },
   "exclude": [

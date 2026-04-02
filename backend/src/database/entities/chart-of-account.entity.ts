@@ -77,7 +77,7 @@ export class ChartOfAccount extends BaseEntity {
     comment: 'Whether the account is active',
   })
   @IsBoolean()
-  isActive: boolean;
+  declare isActive: boolean;
 
   @Column({
     type: 'boolean',

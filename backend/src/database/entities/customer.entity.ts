@@ -137,7 +137,7 @@ export class Customer extends BaseEntity {
     comment: 'Whether the customer is active',
   })
   @IsBoolean()
-  isActive: boolean;
+  declare isActive: boolean;
 
   // Normalized price list relationship
   @Column({

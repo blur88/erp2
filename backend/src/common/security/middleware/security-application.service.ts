@@ -1,7 +1,7 @@
 import { INestApplication } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import helmet from 'helmet';
-import * as compression from 'compression';
+import compression from 'compression';
 import { SecurityConfig, SecurityConfigBuilder } from '../config/security.config';
 
 /**

@@ -82,7 +82,7 @@ export class Product extends BaseEntity {
     comment: 'Whether the product is active for sales',
   })
   @IsBoolean()
-  isActive: boolean;
+  declare isActive: boolean;
 
 
   // Pricing - Multi-level pricing support

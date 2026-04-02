@@ -56,7 +56,7 @@ export class PriceListItem extends BaseEntity {
   @Column({ type: 'boolean', default: true })
   @IsBoolean()
   @IsOptional()
-  isActive: boolean;
+  declare isActive: boolean;
 
   @Column({ type: 'timestamp', nullable: true })
   @IsDate()
