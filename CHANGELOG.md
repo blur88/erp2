@@ -1,3 +1,10 @@
+## [1.40.1](https://github.com/blur88/erp2/compare/v1.40.0...v1.40.1) (2026-04-02)
+
+
+### Internal Changes
+
+* chore: update package versions to 1.40.0 and lodash to 4.18.1 ([](https://github.com/blur88/erp2/commit/))
+
 # [1.40.0](https://github.com/blur88/erp2/compare/v1.39.4...v1.40.0) (2026-04-01)
 
 
