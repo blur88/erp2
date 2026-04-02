@@ -34,9 +34,23 @@ Both are dev-only sub-dependencies of `semantic-release`. `npm audit fix` resolv
 
 ## Approach
 
-### Root: `npm audit fix`
+### Root: Deferred (upstream blocker)
 
-Standard audit fix. Only dev dependencies affected; no app code or production behavior changes.
+`picomatch` and `brace-expansion` are bundled inside `npm@11.12.1`, which is pulled by
+`@semantic-release/npm@13.1.5`. Bundled dependencies cannot be overridden from outside the
+package — npm `overrides` in `package.json` only affect the top-level dependency resolution
+tree, not the private bundled tree inside `node_modules/npm/node_modules/`.
+
+`npm@11.12.1` is the latest published version as of 2026-04-02. No fix is available until npm
+publishes a new release with patched versions of `brace-expansion` (needs >=5.0.5) and
+`picomatch` (needs >=4.0.4) in its bundled tree.
+
+**Impact:** Dev/CI-only. `npm audit --omit=dev` returns 0 vulnerabilities. These packages are
+only executed during the `semantic-release` publish step in CI — not in production, not in
+the Docker image. Risk is low and limited to CI environment.
+
+**Action:** Monitor npm releases. When `npm` ships a version with patched bundled deps,
+`@semantic-release/npm` will pick it up automatically on the next `npm install`.
 
 ### Backend: npm `overrides`
 
