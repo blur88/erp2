@@ -45,7 +45,7 @@ const useSidebarColors = () => {
 
   return {
     bg: theme.palette.background.sidebar,
-    activeBg: theme.palette.action.selected,
+    activeBg: alpha(theme.palette.primary.main, 0.13),
     hoverBg: theme.palette.action.hover,
     text: theme.palette.text.secondary,
     activeText: theme.palette.text.primary,
@@ -304,16 +304,18 @@ const Sidebar: React.FC<SidebarProps> = ({
             pl: 1.5 + level * 2,
             pr: 1.5,
             py: 0,
-            height: 36,
-            borderRadius: 2,
-            mx: 0.5,
+            height: 40,
+            borderRadius: 1,
+            mx: 1,
             mb: 0.25,
             position: 'relative',
-            transition: 'background-color 0.18s ease',
+            transform: 'translateX(0)',
+            transition: 'background-color 0.18s ease, transform 0.18s ease',
             // Leaf active: pill background + left accent bar
             ...(isActive && !hasChildren && {
               bgcolor: colors.activeBg,
               boxShadow: `inset 0 0 0 1px ${colors.outline}`,
+              transform: 'translateX(4px)',
               '&::before': {
                 content: '""',
                 position: 'absolute',
@@ -331,7 +333,7 @@ const Sidebar: React.FC<SidebarProps> = ({
               '& .MuiListItemIcon-root': { color: colors.activeText },
               '& .MuiListItemText-primary': { color: colors.activeText },
             }),
-            '&:hover': { bgcolor: colors.hoverBg },
+            '&:hover': { bgcolor: colors.hoverBg, transform: 'translateX(4px)' },
             ...(!isActive && {
               '&:hover .MuiListItemIcon-root': { color: colors.hoverText },
               '&:hover .MuiListItemText-primary': { color: colors.hoverText },
@@ -352,7 +354,7 @@ const Sidebar: React.FC<SidebarProps> = ({
             primary={item.title}
             sx={{
               '& .MuiListItemText-primary': {
-                fontSize: '0.8125rem',
+                fontSize: '0.875rem',
                 fontWeight: isActive && !hasChildren ? 600 : 400,
                 color: isActive ? colors.activeText : colors.text,
                 transition: 'color 0.18s ease',
@@ -423,6 +425,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         ? {
             bgcolor: colors.activeBg,
             boxShadow: `inset 0 0 0 1px ${colors.outline}`,
+            transform: 'translateX(4px)',
             '&::before': {
               content: '""',
               position: 'absolute',
@@ -556,14 +559,15 @@ const Sidebar: React.FC<SidebarProps> = ({
               pl: 2 + level * 2,
               py: 0,
               height: 40,
-              borderRadius: 2,
+              borderRadius: 1,
               mx: 1,
               mb: 0.5,
               position: 'relative',
-              transition: 'background-color 0.18s ease',
+              transform: 'translateX(0)',
+              transition: 'background-color 0.18s ease, transform 0.18s ease',
               ...activeLeafSx,
               ...activeParentSx,
-              '&:hover': { bgcolor: colors.hoverBg },
+              '&:hover': { bgcolor: colors.hoverBg, transform: 'translateX(4px)' },
               ...(!isActive && {
                 '&:hover .MuiListItemIcon-root': { color: colors.hoverText },
                 '&:hover .MuiListItemText-primary': { color: colors.hoverText },

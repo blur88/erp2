@@ -1,7 +1,9 @@
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { ThemeProvider, alpha } from '@mui/material/styles'
 import { MemoryRouter, useLocation } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import Sidebar from '../Sidebar'
+import { darkTheme } from '@/styles/theme'
 
 const mockUseGetCompanySettingsQuery = vi.fn()
 const mockUseAppSelector = vi.fn()
@@ -39,6 +41,9 @@ vi.mock('../SidebarFooter', () => ({
 }))
 
 describe('Sidebar', () => {
+  const renderSidebarWithTheme = (ui: React.ReactElement) =>
+    render(<ThemeProvider theme={darkTheme}>{ui}</ThemeProvider>)
+
   beforeEach(() => {
     localStorage.clear()
     vi.useFakeTimers({ shouldAdvanceTime: true })
@@ -358,6 +363,40 @@ describe('Sidebar', () => {
     fireEvent.mouseLeave(salesButton)
 
     expect(screen.getByTestId('sidebar-root')).toBeInTheDocument()
+  })
+
+  it('styles the active expanded leaf as the refined sidebar pill', () => {
+    renderSidebarWithTheme(
+      <MemoryRouter initialEntries={['/dashboard']}>
+        <Sidebar />
+      </MemoryRouter>
+    )
+
+    const dashboardButton = screen.getByRole('button', { name: 'Dashboard' })
+    const styles = window.getComputedStyle(dashboardButton)
+
+    expect(styles.backgroundColor).toBe(alpha(darkTheme.palette.primary.main, 0.13))
+    expect(styles.borderRadius).toBe('8px')
+    expect(styles.transform).toContain('4')
+  })
+
+  it('matches flyout item dimensions and type scale to the expanded sidebar pills', async () => {
+    renderSidebarWithTheme(
+      <MemoryRouter initialEntries={['/dashboard']}>
+        <Sidebar collapsed={true} />
+      </MemoryRouter>
+    )
+
+    await openCollapsedFlyout('sales')
+
+    const customersButton = screen.getByRole('button', { name: 'Customers' })
+    const buttonStyles = window.getComputedStyle(customersButton)
+    const labelStyles = window.getComputedStyle(within(customersButton).getByText('Customers'))
+
+    expect(buttonStyles.height).toBe('40px')
+    expect(buttonStyles.borderRadius).toBe('8px')
+    expect(buttonStyles.transform).toBe('translateX(0)')
+    expect(labelStyles.fontSize).toBe('0.875rem')
   })
 
   it('closes flyout when Escape is pressed', async () => {
