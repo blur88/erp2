@@ -7,7 +7,7 @@ import { PERIOD_GROUPS, PERIOD_LABELS, type PeriodKey } from '@/constants/period
 import { toMuiDatePickerFormat } from '@/utils/formatters'
 
 interface FilterPeriodProps {
-  value: PeriodKey
+  value: PeriodKey | null
   customFrom: string | null
   customTo: string | null
   onChange: (key: PeriodKey, from?: string, to?: string) => void
@@ -61,12 +61,13 @@ export function FilterPeriod({ value, customFrom, customTo, onChange }: FilterPe
   return (
     <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
       <FormControl size="small" sx={{ minWidth: 150 }}>
-        <InputLabel id={labelId}>Period</InputLabel>
+        <InputLabel id={labelId} shrink={value !== null}>Period</InputLabel>
         <Select
           labelId={labelId}
           id={selectId}
-          value={value}
+          value={value ?? ''}
           label="Period"
+          displayEmpty
           onChange={(event) => handleKeyChange(event.target.value as PeriodKey)}
         >
           {PERIOD_GROUPS.map((group, groupIndex) => [
