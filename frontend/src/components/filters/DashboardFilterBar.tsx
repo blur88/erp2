@@ -75,7 +75,7 @@ export function DashboardFilterBar({
   ]
 
   return (
-    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', mb: 3 }}>
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', mb: 2 }}>
       <FilterPeriod
         value={period}
         customFrom={customFrom}

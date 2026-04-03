@@ -29,6 +29,12 @@ function wrap(ui: React.ReactElement) {
 }
 
 describe('DashboardFilterBar', () => {
+  it('uses a 16px bottom margin on the root filter row', () => {
+    const { container } = wrap(<DashboardFilterBar {...baseProps()} />)
+
+    expect(window.getComputedStyle(container.firstElementChild as Element).marginBottom).toBe('16px')
+  })
+
   it('does not render Customer select when customers prop is absent', () => {
     wrap(<DashboardFilterBar {...baseProps()} />)
     expect(screen.queryByLabelText('Customer')).toBeNull()
