@@ -68,6 +68,7 @@ export function FilterPeriod({ value, customFrom, customTo, onChange }: FilterPe
           value={value ?? ''}
           label="Period"
           displayEmpty
+          notched={value !== null}
           onChange={(event) => handleKeyChange(event.target.value as PeriodKey)}
         >
           {PERIOD_GROUPS.map((group, groupIndex) => [
