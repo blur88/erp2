@@ -118,6 +118,17 @@ describe('OrdersPage FilterBar integration', () => {
     expect(screen.getByText('OrderWorkspaceCard')).toBeInTheDocument()
   })
 
+  it('renders the workspace inside a shrinkable flex wrapper', () => {
+    renderPage()
+
+    const workspaceMarker = screen.getByText('MasterDetailWorkspace')
+    const workspaceWrapper = workspaceMarker.parentElement?.parentElement
+
+    expect(workspaceWrapper).not.toBeNull()
+    expect(window.getComputedStyle(workspaceWrapper as HTMLElement).flexGrow).toBe('1')
+    expect(window.getComputedStyle(workspaceWrapper as HTMLElement).minHeight).toBe('0px')
+  })
+
   it('restores filters from URL into the sales orders query', () => {
     renderPage('/?search=gundam&customerId=cust-1&paymentStatus=paid')
     expect(useGetSalesOrdersQuery).toHaveBeenLastCalledWith(

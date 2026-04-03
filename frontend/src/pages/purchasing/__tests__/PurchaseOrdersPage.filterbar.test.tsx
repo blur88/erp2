@@ -116,6 +116,17 @@ describe('PurchaseOrdersPage FilterBar integration', () => {
     expect(screen.getByText('PurchaseOrderWorkspaceCard')).toBeInTheDocument()
   })
 
+  it('renders the workspace inside a shrinkable flex wrapper', () => {
+    renderPage()
+
+    const workspaceMarker = screen.getByText('MasterDetailWorkspace')
+    const workspaceWrapper = workspaceMarker.parentElement?.parentElement
+
+    expect(workspaceWrapper).not.toBeNull()
+    expect(window.getComputedStyle(workspaceWrapper as HTMLElement).flexGrow).toBe('1')
+    expect(window.getComputedStyle(workspaceWrapper as HTMLElement).minHeight).toBe('0px')
+  })
+
   it('restores new URL params into the purchase orders query', () => {
     renderPage('/?search=gundam&supplierId=sup-1')
     expect(useGetPurchaseOrdersQuery).toHaveBeenLastCalledWith(

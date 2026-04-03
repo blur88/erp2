@@ -235,7 +235,7 @@ export const OrdersPage: React.FC = () => {
   }, [navigate, selectedOrder])
 
   return (
-    <Box sx={{ p: 3 }}>
+    <Box sx={{ p: 3, flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
       <PageHeader
         title="Sales Orders"
         subtitle="Track sales orders and delivery status"
@@ -260,40 +260,42 @@ export const OrdersPage: React.FC = () => {
         </Alert>
       )}
 
-      <MasterDetailWorkspace
-        isMobile={isMobile}
-        listSlot={(
-          <OrdersTable
-            orders={orders}
-            loading={loading}
-            total={pagination?.total || 0}
-            selectedOrderId={selectedOrder?.id}
-            focusedOrderIndex={pageState.focusedOrderIndex}
-            onOrderSelect={selection.handleOrderSelect}
-            orderListRef={pageState.orderListRef}
-          />
-        )}
-        headerSlot={(
-          <OrderContextHeader
-            selectedOrder={selectedOrder}
-            isLoading={pageState.isLoading}
-            journalEntryRef={pageState.journalEntryRef}
-            journalEntryRefLoading={pageState.journalEntryRefLoading}
-            onEditOrder={actions.handleEditOrder}
-            onDeleteOrder={() => selectedOrder && void actions.handleOrderAction('delete', selectedOrder.id)}
-            onPrintOrder={() => pageState.setPrintDialogOpen(true)}
-            onNavigateToInvoice={selection.handleNavigateToInvoice}
-            onNavigateToPayment={selection.handleNavigateToPayment}
-            onNavigateToJournalEntry={navigateToJournalEntry}
-            onRefundOrder={actions.handleRefundOrder}
-            onUnpayOrder={actions.handleUnpayOrder}
-            onOpenPaymentDialog={actions.openPaymentDialog}
-            onFulfillOrder={actions.handleFulfillOrder}
-            onUnfulfillOrder={actions.handleUnfulfillOrder}
-          />
-        )}
-        workspaceSlot={<OrderWorkspaceCard selectedOrder={selectedOrder} />}
-      />
+      <Box sx={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+        <MasterDetailWorkspace
+          isMobile={isMobile}
+          listSlot={(
+            <OrdersTable
+              orders={orders}
+              loading={loading}
+              total={pagination?.total || 0}
+              selectedOrderId={selectedOrder?.id}
+              focusedOrderIndex={pageState.focusedOrderIndex}
+              onOrderSelect={selection.handleOrderSelect}
+              orderListRef={pageState.orderListRef}
+            />
+          )}
+          headerSlot={(
+            <OrderContextHeader
+              selectedOrder={selectedOrder}
+              isLoading={pageState.isLoading}
+              journalEntryRef={pageState.journalEntryRef}
+              journalEntryRefLoading={pageState.journalEntryRefLoading}
+              onEditOrder={actions.handleEditOrder}
+              onDeleteOrder={() => selectedOrder && void actions.handleOrderAction('delete', selectedOrder.id)}
+              onPrintOrder={() => pageState.setPrintDialogOpen(true)}
+              onNavigateToInvoice={selection.handleNavigateToInvoice}
+              onNavigateToPayment={selection.handleNavigateToPayment}
+              onNavigateToJournalEntry={navigateToJournalEntry}
+              onRefundOrder={actions.handleRefundOrder}
+              onUnpayOrder={actions.handleUnpayOrder}
+              onOpenPaymentDialog={actions.openPaymentDialog}
+              onFulfillOrder={actions.handleFulfillOrder}
+              onUnfulfillOrder={actions.handleUnfulfillOrder}
+            />
+          )}
+          workspaceSlot={<OrderWorkspaceCard selectedOrder={selectedOrder} />}
+        />
+      </Box>
 
       <OrdersDialogs
         selectedOrder={selectedOrder}

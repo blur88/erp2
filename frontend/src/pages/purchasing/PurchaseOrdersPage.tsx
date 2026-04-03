@@ -175,7 +175,7 @@ export const PurchaseOrdersPage: React.FC = () => {
   }, [navigate, pageState.journalEntryRef])
 
   return (
-    <Box sx={{ p: 3 }}>
+    <Box sx={{ p: 3, flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
       <PageHeader
         title="Purchase Orders"
         subtitle="Manage supplier purchase orders and procurement"
@@ -205,39 +205,41 @@ export const PurchaseOrdersPage: React.FC = () => {
         </Alert>
       )}
 
-      <MasterDetailWorkspace
-        isMobile={isMobile}
-        listSlot={(
-          <PurchaseOrdersTable
-            purchaseOrders={purchaseOrders}
-            loading={loading}
-            total={pagination?.total || 0}
-            selectedOrderId={selectedOrder?.id}
-            focusedOrderIndex={pageState.focusedOrderIndex}
-            onOrderSelect={selection.handleOrderSelect}
-            orderListRef={pageState.orderListRef}
-          />
-        )}
-        headerSlot={(
-          <PurchaseOrderContextHeader
-            selectedOrder={selectedOrder}
-            isLoading={pageState.isLoading}
-            journalEntryRef={pageState.journalEntryRef}
-            journalEntryRefLoading={pageState.journalEntryRefLoading}
-            onEditClick={actions.handleEditClick}
-            onDeleteClick={actions.handleDeleteClick}
-            onPrint={() => pageState.setPrintDialogOpen(true)}
-            onNavigateToGoodsReceived={navigateToGoodsReceived}
-            onNavigateToVendorPayment={navigateToVendorPayment}
-            onNavigateToJournalEntry={navigateToJournalEntry}
-            onUnpay={actions.handleUnpay}
-            onOpenPaymentDialog={actions.handleOpenPaymentDialog}
-            onReturn={actions.handleReturn}
-            onReceive={actions.handleReceive}
-          />
-        )}
-        workspaceSlot={<PurchaseOrderWorkspaceCard selectedOrder={selectedOrder} />}
-      />
+      <Box sx={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+        <MasterDetailWorkspace
+          isMobile={isMobile}
+          listSlot={(
+            <PurchaseOrdersTable
+              purchaseOrders={purchaseOrders}
+              loading={loading}
+              total={pagination?.total || 0}
+              selectedOrderId={selectedOrder?.id}
+              focusedOrderIndex={pageState.focusedOrderIndex}
+              onOrderSelect={selection.handleOrderSelect}
+              orderListRef={pageState.orderListRef}
+            />
+          )}
+          headerSlot={(
+            <PurchaseOrderContextHeader
+              selectedOrder={selectedOrder}
+              isLoading={pageState.isLoading}
+              journalEntryRef={pageState.journalEntryRef}
+              journalEntryRefLoading={pageState.journalEntryRefLoading}
+              onEditClick={actions.handleEditClick}
+              onDeleteClick={actions.handleDeleteClick}
+              onPrint={() => pageState.setPrintDialogOpen(true)}
+              onNavigateToGoodsReceived={navigateToGoodsReceived}
+              onNavigateToVendorPayment={navigateToVendorPayment}
+              onNavigateToJournalEntry={navigateToJournalEntry}
+              onUnpay={actions.handleUnpay}
+              onOpenPaymentDialog={actions.handleOpenPaymentDialog}
+              onReturn={actions.handleReturn}
+              onReceive={actions.handleReceive}
+            />
+          )}
+          workspaceSlot={<PurchaseOrderWorkspaceCard selectedOrder={selectedOrder} />}
+        />
+      </Box>
 
       <PurchaseOrdersDialogs
         selectedOrder={selectedOrder}
