@@ -64,6 +64,11 @@ export const OrdersPage: React.FC = () => {
       search: { placeholder: 'Search orders...' },
       fields: [
         {
+          field: 'period',
+          label: 'Period',
+          type: 'period',
+        },
+        {
           field: 'customerId',
           label: 'Customer',
           type: 'select',
@@ -81,11 +86,6 @@ export const OrdersPage: React.FC = () => {
           ],
         },
         {
-          field: 'period',
-          label: 'Period',
-          type: 'period',
-        },
-        {
           field: 'fulfillmentStatus',
           label: 'Fulfillment',
           type: 'select',
@@ -99,7 +99,7 @@ export const OrdersPage: React.FC = () => {
         search: '',
         customerId: null,
         paymentStatus: null,
-        period: { key: 'this_month', from: null, to: null },
+        period: { key: null, from: null, to: null },
         fulfillmentStatus: null,
       },
     }),
@@ -110,8 +110,11 @@ export const OrdersPage: React.FC = () => {
   const weekStartsOn = getStartOfWeek()
   const dateRange = useMemo(() => {
     const period = appliedFilters.period
-    if (!period || period.key === 'custom') {
-      return { fromDate: period?.from ?? undefined, toDate: period?.to ?? undefined }
+    if (!period || period.key === null) {
+      return { fromDate: undefined, toDate: undefined }
+    }
+    if (period.key === 'custom') {
+      return { fromDate: period.from ?? undefined, toDate: period.to ?? undefined }
     }
 
     const range = getPeriodDateRange(period.key, weekStartsOn)

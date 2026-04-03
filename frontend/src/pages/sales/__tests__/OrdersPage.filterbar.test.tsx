@@ -129,6 +129,28 @@ describe('OrdersPage FilterBar integration', () => {
     )
   })
 
+  it('sends no fromDate or toDate when period is not selected (default)', () => {
+    renderPage()
+
+    expect(useGetSalesOrdersQuery).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        fromDate: undefined,
+        toDate: undefined,
+      }),
+    )
+  })
+
+  it('period filter appears before customer filter in the DOM', () => {
+    renderPage()
+
+    const periodLabel = screen.getAllByText('Period')[0]
+    const customerLabel = screen.getAllByText('Customer')[0]
+
+    expect(
+      periodLabel.compareDocumentPosition(customerLabel) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
+  })
+
   it('restores period=this_week from URL and resolves to fromDate/toDate in the query', () => {
     renderPage('/?period=this_week')
     expect(useGetSalesOrdersQuery).toHaveBeenLastCalledWith(

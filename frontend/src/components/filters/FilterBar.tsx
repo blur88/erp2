@@ -55,7 +55,7 @@ function renderQuickField<TFilters extends object>(
         customFrom={periodValue.from}
         customTo={periodValue.to}
         onChange={(key, from, to) =>
-          onChange({ key, from: from ?? null, to: to ?? null } satisfies PeriodValue)
+          onChange({ key, from: from ?? null, to: to ?? null } as PeriodValue)
         }
       />
     )
