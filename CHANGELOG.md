@@ -1,3 +1,15 @@
+# [1.46.0](https://github.com/blur88/erp2/compare/v1.45.2...v1.46.0) (2026-04-03)
+
+
+### Features
+
+* add compare field type and isFetching prop types to FilterBar ([e8b0c5d](https://github.com/blur88/erp2/commit/e8b0c5d898e01ab38711f49b4e731f9eae8486e4))
+* add compare field type support to filterBar.url serialize/parse ([27c525a](https://github.com/blur88/erp2/commit/27c525ac4c108bc4b5f2c5c73c6abc8974a48a04))
+* add resolveApiParams utility for dashboard filter -> API param translation ([40afb9c](https://github.com/blur88/erp2/commit/40afb9c8e459cae0fffb6b70c06e5871ca0a5b4f))
+* migrate PurchasingPage to FilterBar + useFilterBar, remove DashboardFilterBar usage ([801cd64](https://github.com/blur88/erp2/commit/801cd64453c668f52d6144b505a791c2767271ed))
+* migrate SalesPage to FilterBar + useFilterBar, remove DashboardFilterBar usage ([8c8f602](https://github.com/blur88/erp2/commit/8c8f602de0893410c4bb3cf54e66c501bca1471d))
+* render compare field and isFetching spinner in FilterBar ([d63f972](https://github.com/blur88/erp2/commit/d63f97267656bff44ea635e4f74e1d9a5d086e5a))
+
 ## [1.45.2](https://github.com/blur88/erp2/compare/v1.45.1...v1.45.2) (2026-04-03)
 
 
