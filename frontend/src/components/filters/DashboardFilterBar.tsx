@@ -1,6 +1,7 @@
-import { Box, Button, CircularProgress, FormControl, InputLabel, MenuItem, Select, Tooltip } from '@mui/material'
+import { Box, CircularProgress, FormControl, InputLabel, MenuItem, Select, Tooltip } from '@mui/material'
 
 import type { DashboardCompare, DashboardPeriod } from '@/hooks/useDashboardFilters'
+import { AppButton } from '@/components/common/AppButton'
 
 import { FilterPeriod } from './FilterPeriod'
 import { FilterSelect } from './FilterSelect'
@@ -204,9 +205,9 @@ export function DashboardFilterBar({
       )}
 
       {!isDefault && (
-        <Button variant="outlined" size="small" onClick={onReset} sx={{ height: 40 }}>
+        <AppButton size="filter" variant="outlined" onClick={onReset}>
           Reset
-        </Button>
+        </AppButton>
       )}
 
       {isFetching && <CircularProgress size={16} />}

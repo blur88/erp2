@@ -1,6 +1,8 @@
 import type { ReactNode } from 'react'
-import { Box, Button, IconButton, Typography, useTheme } from '@mui/material'
 import ArrowBackIcon from '@mui/icons-material/ArrowBack'
+import { Box, IconButton, Typography, useTheme } from '@mui/material'
+
+import { AppButton } from './AppButton'
 
 type PageHeaderAction = {
   label: string
@@ -97,24 +99,24 @@ export default function PageHeader({
             }}
           >
             {secondaryAction && (
-              <Button
+              <AppButton
                 type="button"
                 variant="outlined"
                 disabled={secondaryAction.disabled}
                 onClick={secondaryAction.onClick}
               >
                 {secondaryAction.label}
-              </Button>
+              </AppButton>
             )}
             {primaryAction && (
-              <Button
+              <AppButton
                 type="button"
-                variant="contained"
+                variant="primary"
                 disabled={primaryAction.disabled}
                 onClick={primaryAction.onClick}
               >
                 {primaryAction.label}
-              </Button>
+              </AppButton>
             )}
           </Box>
         )}

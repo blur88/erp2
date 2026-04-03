@@ -1,13 +1,9 @@
-import {
-  ArrowDownward as ArrowDownIcon,
-  ArrowUpward as ArrowUpIcon,
-  Sort as SortIcon,
-} from '@mui/icons-material'
-import { Button, Stack } from '@mui/material'
+import { Stack } from '@mui/material'
 
 import { FilterPeriod } from './FilterPeriod'
 import { FilterSearch } from './FilterSearch'
 import { FilterSelect } from './FilterSelect'
+import { AppButton } from '@/components/common/AppButton'
 import type {
   FilterBarConfig,
   FilterBarHandlers,
@@ -85,26 +81,18 @@ export function FilterBar<TFilters extends object>({
       ) : null}
       {config.fields.map((field) => renderQuickField(field, draftFilters, handlers))}
       {hasActiveFilters ? (
-        <Button size="small" variant="outlined" color="inherit" sx={{ ml: 1 }} onClick={handlers.onClearAll}>
+        <AppButton size="filter" variant="outlined" sx={{ ml: 1 }} onClick={handlers.onClearAll}>
           Reset
-        </Button>
+        </AppButton>
       ) : null}
       {sort ? (
-        <Button
-          size="small"
-          variant={sort.sortBy === sort.field ? 'contained' : 'outlined'}
-          color={sort.sortBy === sort.field ? 'primary' : 'inherit'}
-          startIcon={
-            sort.sortBy === sort.field
-              ? sort.sortOrder === 'desc'
-                ? <ArrowDownIcon />
-                : <ArrowUpIcon />
-              : <SortIcon />
-          }
+        <AppButton
+          size="filter"
+          sortConfig={{ field: sort.field, sortBy: sort.sortBy, sortOrder: sort.sortOrder }}
           onClick={() => sort.onSort(sort.field)}
         >
           Sort
-        </Button>
+        </AppButton>
       ) : null}
     </Stack>
   )
