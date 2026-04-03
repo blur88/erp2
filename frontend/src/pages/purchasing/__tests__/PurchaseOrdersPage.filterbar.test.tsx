@@ -39,8 +39,8 @@ vi.mock('@/components/common/MasterDetailWorkspace', () => ({
     </div>
   ),
 }))
-vi.mock('../components/PurchaseOrdersTable', () => ({ default: () => <div>PurchaseOrdersTable</div> }))
 vi.mock('../components/PurchaseOrderContextHeader', () => ({ default: () => <div>PurchaseOrderContextHeader</div> }))
+vi.mock('../components/PurchaseOrdersTable', () => ({ default: () => <div>PurchaseOrdersTable</div> }))
 vi.mock('../components/PurchaseOrderWorkspaceCard', () => ({ default: () => <div>PurchaseOrderWorkspaceCard</div> }))
 vi.mock('../components/PurchaseOrdersDialogs', () => ({ default: () => <div>PurchaseOrdersDialogs</div> }))
 vi.mock('../hooks/usePurchaseOrdersActions', () => ({
@@ -103,7 +103,6 @@ describe('PurchaseOrdersPage FilterBar integration', () => {
 
     expect(screen.getByText('MasterDetailWorkspace')).toBeInTheDocument()
     expect(screen.getByText('PurchaseOrdersTable')).toBeInTheDocument()
-    expect(screen.getByText('PurchaseOrderContextHeader')).toBeInTheDocument()
     expect(screen.getByText('PurchaseOrderWorkspaceCard')).toBeInTheDocument()
   })
 

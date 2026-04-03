@@ -6,7 +6,6 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import InvoiceDetailsPanel from './components/InvoiceDetailsPanel'
 import InvoicesDialogs from './components/InvoicesDialogs'
 import InvoicesTable from './components/InvoicesTable'
-import InvoicesToolbar from './components/InvoicesToolbar'
 import { useInvoicesActions } from './hooks/useInvoicesActions'
 import { type InvoiceListItem, useInvoicesPageState } from './hooks/useInvoicesPageState'
 import { useInvoicesSelection } from './hooks/useInvoicesSelection'
@@ -181,28 +180,6 @@ const InvoicesPage: React.FC = () => {
 
   return (
     <Box sx={{ p: 3 }}>
-      <InvoicesToolbar
-        isMobile={isMobile}
-        total={pagination.total || 0}
-        filters={pageState.filters}
-        searchInputRef={pageState.searchInputRef}
-        searchTerm={searchTerm}
-        setSearchTerm={setSearchTerm}
-        onFilterChange={(updates) => pageState.setFilters((prev) => ({ ...prev, ...updates }))}
-        onResetFilters={() =>
-          pageState.setFilters({
-            search: '',
-            sortBy: 'invoiceNumber',
-            sortOrder: 'asc',
-            dateFilter: 'all',
-            customFromDate: '',
-            customToDate: '',
-          })
-        }
-        onSort={handleSort}
-        onOpenDeleted={actions.handleViewDeletedAction}
-      />
-
       {error && (
         <Alert severity="error" sx={{ mb: 3 }}>
           Failed to load invoices.
