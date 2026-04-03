@@ -443,7 +443,7 @@ const StockAdjustmentsPage: React.FC = () => {
   })
 
   return (
-    <Box sx={{ p: 3 }}>
+    <Box sx={{ p: 3, flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
       {/* Header */}
       <PageHeader
         title="Stock Adjustments"
@@ -487,14 +487,20 @@ const StockAdjustmentsPage: React.FC = () => {
         </Alert>
       )}
       {/* Split Layout */}
-      <Grid container spacing={3}>
+      <Box
+        data-testid="stock-adjustments-content-region"
+        sx={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}
+      >
+        <Grid container spacing={3} sx={{ flex: 1, minHeight: 0 }}>
         {/* Left Side - Adjustment List */}
         <Grid
           size={{
             xs: 12,
             md: 3
-          }}>
-          <Paper sx={{ height: 'calc(100vh - 300px)', display: 'flex', flexDirection: 'column' }}>
+          }}
+          sx={{ display: 'flex', flexDirection: 'column', minHeight: 0 }}
+        >
+          <Paper sx={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
             <Box sx={{ p: TABLE_STYLES.cell.padding.px, borderBottom: TABLE_STYLES.cell.border }}>
               <Typography variant="tableHeader" sx={{
                 fontWeight: 600,
@@ -506,11 +512,11 @@ const StockAdjustmentsPage: React.FC = () => {
               </Typography>
             </Box>
 
-            <Box sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }} ref={adjustmentListRef}>
+            <Box sx={{ flex: 1, minHeight: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }} ref={adjustmentListRef}>
               {(isLoading || (isFetching && !adjustmentsResponse)) ? (
                 <ListSkeleton rows={8} columns={1} />
               ) : (
-                <Box sx={{ flex: 1, opacity: isFetching ? 0.6 : 1, position: 'relative' }}>
+                <Box sx={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', opacity: isFetching ? 0.6 : 1, position: 'relative' }}>
                   {isFetching ? (
                     <CircularProgress size={16} sx={{ position: 'absolute', top: 8, right: 8, zIndex: 1 }} />
                   ) : null}
@@ -550,9 +556,11 @@ const StockAdjustmentsPage: React.FC = () => {
           size={{
             xs: 12,
             md: 9
-          }}>
+          }}
+          sx={{ display: 'flex', flexDirection: 'column', minHeight: 0 }}
+        >
           {selectedAdjustment ? (
-            <Paper sx={{ height: 'calc(100vh - 300px)', display: 'flex', flexDirection: 'column' }}>
+            <Paper sx={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
               <Box sx={{ p: TABLE_STYLES.cell.padding.px, borderBottom: TABLE_STYLES.cell.border, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   <Typography variant="tableHeader" sx={{
@@ -629,7 +637,7 @@ const StockAdjustmentsPage: React.FC = () => {
                 </Box>
               </Box>
 
-            <Box sx={{ flex: 1, overflow: 'auto', p: TABLE_STYLES.cell.padding.px }}>
+            <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto', p: TABLE_STYLES.cell.padding.px }}>
               {/* SA Details Section */}
               <Box>
                 <Grid container spacing={3}>
@@ -856,7 +864,7 @@ const StockAdjustmentsPage: React.FC = () => {
                 </TableContainer>
 
                 {/* SA Items Table */}
-                <Box sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+                <Box sx={{ flex: 1, minHeight: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
                   {selectedAdjustment.items && selectedAdjustment.items.length > 0 ? (
                     <TableContainer sx={{ flex: 1, overflow: 'auto' }}>
                       <Table
@@ -984,14 +992,15 @@ const StockAdjustmentsPage: React.FC = () => {
             </Box>
             </Paper>
           ) : (
-            <Paper sx={{ height: 'calc(100vh - 300px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Paper sx={{ flex: 1, minHeight: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <Typography variant="h6" color="text.secondary">
                 Select an adjustment to view details
               </Typography>
             </Paper>
           )}
         </Grid>
-      </Grid>
+        </Grid>
+      </Box>
       {/* Deleted Stock Adjustments Dialog */}
       <DeletedStockAdjustmentsDialog
         open={showDeletedDialog}

@@ -26,7 +26,7 @@ const ProductDetailsPanel: React.FC<ProductDetailsPanelProps> = ({
   onDeleteProduct,
 }) => {
   return (
-    <Paper sx={{ height: 'calc(100vh - 300px)', display: 'flex', flexDirection: 'column' }}>
+    <Paper sx={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
       {products.length === 0 ? (
         <Box sx={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
           <Typography variant="body1" color="text.secondary" textAlign="center">
@@ -114,7 +114,7 @@ const ProductDetailsPanel: React.FC<ProductDetailsPanelProps> = ({
             </Box>
           </Box>
 
-          <Box sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+          <Box sx={{ flex: 1, minHeight: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
             {currentTab === 0 && (
               <Box sx={{ flex: 1, overflow: 'auto', p: TABLE_STYLES.cell.padding.px }}>
                 <ProductDetailsTab product={selectedProduct} />

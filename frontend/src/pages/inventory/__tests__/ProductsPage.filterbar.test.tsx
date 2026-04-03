@@ -91,6 +91,15 @@ describe('ProductsPage FilterBar integration', () => {
     expect(window.getComputedStyle(filterWrapper as HTMLElement).marginBottom).toBe('16px')
   })
 
+  it('renders the products content region as a shrinkable flex container', () => {
+    renderPage()
+
+    const contentRegion = screen.getByTestId('products-content-region')
+
+    expect(window.getComputedStyle(contentRegion).flexGrow).toBe('1')
+    expect(window.getComputedStyle(contentRegion).minHeight).toBe('0px')
+  })
+
   it('restores filters from URL into the products query', () => {
     renderPage('/?search=gundam&status=inactive')
     expect(useGetProductsQuery).toHaveBeenLastCalledWith(

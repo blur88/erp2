@@ -72,4 +72,13 @@ describe('StockAdjustmentsPage FilterBar', () => {
       expect.not.objectContaining({ status: expect.anything() }),
     )
   })
+
+  it('renders the stock adjustments content region as a shrinkable flex container', () => {
+    renderPage()
+
+    const contentRegion = screen.getByTestId('stock-adjustments-content-region')
+
+    expect(window.getComputedStyle(contentRegion).flexGrow).toBe('1')
+    expect(window.getComputedStyle(contentRegion).minHeight).toBe('0px')
+  })
 })

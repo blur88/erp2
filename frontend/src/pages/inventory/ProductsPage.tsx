@@ -125,7 +125,7 @@ export const ProductsPage: React.FC = () => {
   const contentMarginRight = pageState.calculatorPanelOpen ? { xs: '0px', md: '320px' } : '0px'
 
   return (
-    <Box sx={{ p: 3 }}>
+    <Box sx={{ p: 3, flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
       <Box sx={{ mb: 3, transition: 'margin-right 0.3s ease-in-out', marginRight: contentMarginRight }}>
         <PageHeader
           title="Products"
@@ -152,9 +152,19 @@ export const ProductsPage: React.FC = () => {
         </Box>
       </Stack>
 
-      <Box sx={{ transition: 'margin-right 0.3s ease-in-out', marginRight: contentMarginRight }}>
-        <Grid container spacing={3}>
-          <Grid item xs={12} md={3}>
+      <Box
+        data-testid="products-content-region"
+        sx={{
+          flex: 1,
+          minHeight: 0,
+          display: 'flex',
+          flexDirection: 'column',
+          transition: 'margin-right 0.3s ease-in-out',
+          marginRight: contentMarginRight,
+        }}
+      >
+        <Grid container spacing={3} sx={{ flex: 1, minHeight: 0 }}>
+          <Grid item xs={12} md={3} sx={{ display: 'flex', flexDirection: 'column', minHeight: 0 }}>
             <ProductsTable
               products={products}
               loading={isProductsFetching}
@@ -165,7 +175,7 @@ export const ProductsPage: React.FC = () => {
               onProductSelect={selection.handleProductSelect}
             />
           </Grid>
-          <Grid item xs={12} md={9}>
+          <Grid item xs={12} md={9} sx={{ display: 'flex', flexDirection: 'column', minHeight: 0 }}>
             <ProductDetailsPanel
               products={products}
               selectedProduct={selectedProduct}

@@ -35,7 +35,7 @@ const ProductsTable: React.FC<ProductsTableProps> = ({
   onProductSelect,
 }) => {
   return (
-    <Paper sx={{ height: 'calc(100vh - 300px)', display: 'flex', flexDirection: 'column' }}>
+    <Paper sx={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
       <Box sx={{ p: TABLE_STYLES.cell.padding.px, borderBottom: TABLE_STYLES.cell.border }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <Typography
@@ -55,6 +55,7 @@ const ProductsTable: React.FC<ProductsTableProps> = ({
       <Box
         sx={{
           flex: 1,
+          minHeight: 0,
           overflow: 'hidden',
           display: 'flex',
           flexDirection: 'column',
@@ -79,7 +80,7 @@ const ProductsTable: React.FC<ProductsTableProps> = ({
             </Typography>
           </Box>
         ) : (
-          <TableContainer sx={{ flex: 1, overflowX: 'auto' }}>
+          <TableContainer sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
             <Table
               size={TABLE_STYLES.size}
               stickyHeader
