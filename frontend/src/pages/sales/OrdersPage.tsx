@@ -1,14 +1,15 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { ArrowDownward as ArrowDownIcon, ArrowUpward as ArrowUpIcon, Sort as SortIcon } from '@mui/icons-material'
 import { Alert, Box, Button, Stack, useMediaQuery, useTheme } from '@mui/material'
-import Grid from '@mui/material/GridLegacy'
 import { useStore } from 'react-redux'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 
+import MasterDetailWorkspace from '@/components/common/MasterDetailWorkspace'
 import PageHeader from '@/components/common/PageHeader'
 import { FilterBar } from '@/components/filters'
+import OrderContextHeader from './components/OrderContextHeader'
 import OrdersDialogs from './components/OrdersDialogs'
-import OrderDetailsPanel from './components/OrderDetailsPanel'
+import OrderWorkspaceCard from './components/OrderWorkspaceCard'
 import OrdersTable from './components/OrdersTable'
 import { useOrdersActions } from './hooks/useOrdersActions'
 import { useOrdersPageState } from './hooks/useOrdersPageState'
@@ -233,8 +234,9 @@ export const OrdersPage: React.FC = () => {
         </Alert>
       )}
 
-      <Grid container spacing={3}>
-        <Grid item xs={12} md={3}>
+      <MasterDetailWorkspace
+        isMobile={isMobile}
+        listSlot={(
           <OrdersTable
             orders={orders}
             loading={loading}
@@ -244,9 +246,9 @@ export const OrdersPage: React.FC = () => {
             onOrderSelect={selection.handleOrderSelect}
             orderListRef={pageState.orderListRef}
           />
-        </Grid>
-        <Grid item xs={12} md={9}>
-          <OrderDetailsPanel
+        )}
+        headerSlot={(
+          <OrderContextHeader
             selectedOrder={selectedOrder}
             isLoading={pageState.isLoading}
             journalEntryRef={pageState.journalEntryRef}
@@ -263,8 +265,9 @@ export const OrdersPage: React.FC = () => {
             onFulfillOrder={actions.handleFulfillOrder}
             onUnfulfillOrder={actions.handleUnfulfillOrder}
           />
-        </Grid>
-      </Grid>
+        )}
+        workspaceSlot={<OrderWorkspaceCard selectedOrder={selectedOrder} />}
+      />
 
       <OrdersDialogs
         selectedOrder={selectedOrder}

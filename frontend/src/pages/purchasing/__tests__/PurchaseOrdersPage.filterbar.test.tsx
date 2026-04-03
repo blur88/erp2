@@ -29,8 +29,19 @@ vi.mock('@/store/api/purchasingApi', () => ({
   useDeletePurchaseOrderMutation: vi.fn(() => [vi.fn()]),
 }))
 
+vi.mock('@/components/common/MasterDetailWorkspace', () => ({
+  default: ({ listSlot, headerSlot, workspaceSlot }: any) => (
+    <div>
+      <div>MasterDetailWorkspace</div>
+      <div>{listSlot}</div>
+      <div>{headerSlot}</div>
+      <div>{workspaceSlot}</div>
+    </div>
+  ),
+}))
 vi.mock('../components/PurchaseOrdersTable', () => ({ default: () => <div>PurchaseOrdersTable</div> }))
-vi.mock('../components/PurchaseOrderDetailsPanel', () => ({ default: () => <div>PurchaseOrderDetailsPanel</div> }))
+vi.mock('../components/PurchaseOrderContextHeader', () => ({ default: () => <div>PurchaseOrderContextHeader</div> }))
+vi.mock('../components/PurchaseOrderWorkspaceCard', () => ({ default: () => <div>PurchaseOrderWorkspaceCard</div> }))
 vi.mock('../components/PurchaseOrdersDialogs', () => ({ default: () => <div>PurchaseOrdersDialogs</div> }))
 vi.mock('../hooks/usePurchaseOrdersActions', () => ({
   usePurchaseOrdersActions: () => ({
@@ -85,6 +96,15 @@ describe('PurchaseOrdersPage FilterBar integration', () => {
   it('renders the shared filter search input', () => {
     renderPage()
     expect(screen.getByPlaceholderText(/search purchase orders/i)).toBeInTheDocument()
+  })
+
+  it('renders the master-detail workspace with split purchasing detail cards', () => {
+    renderPage()
+
+    expect(screen.getByText('MasterDetailWorkspace')).toBeInTheDocument()
+    expect(screen.getByText('PurchaseOrdersTable')).toBeInTheDocument()
+    expect(screen.getByText('PurchaseOrderContextHeader')).toBeInTheDocument()
+    expect(screen.getByText('PurchaseOrderWorkspaceCard')).toBeInTheDocument()
   })
 
   it('restores new URL params into the purchase orders query', () => {

@@ -5,7 +5,6 @@ import {
   Print as PrintIcon,
 } from '@mui/icons-material'
 import {
-  Alert,
   Box,
   Button,
   IconButton,
@@ -15,7 +14,6 @@ import {
   TableBody,
   TableCell,
   TableContainer,
-  TableHead,
   TableRow,
   Typography,
 } from '@mui/material'
@@ -30,7 +28,7 @@ interface JournalEntryRef {
   referenceNumber: string
 }
 
-interface OrderDetailsPanelProps {
+interface OrderContextHeaderProps {
   selectedOrder: SalesOrder | null
   isLoading: boolean
   journalEntryRef: JournalEntryRef | null
@@ -56,7 +54,28 @@ const actionIconSx = {
   p: 0.125,
 }
 
-const OrderDetailsPanel: React.FC<OrderDetailsPanelProps> = ({
+const detailTableSx = {
+  tableLayout: 'fixed',
+  '& .MuiTableCell-root': {
+    border: 'none',
+    py: TABLE_STYLES.cell.padding.py,
+    px: TABLE_STYLES.cell.padding.px,
+    '&:nth-of-type(1)': { width: '40%' },
+    '&:nth-of-type(2)': { width: '60%' },
+  },
+}
+
+const labelCellSx = {
+  fontWeight: 600,
+  color: 'text.secondary',
+  fontSize: '0.8rem',
+}
+
+const valueCellSx = {
+  fontSize: '0.8rem',
+}
+
+const OrderContextHeader: React.FC<OrderContextHeaderProps> = ({
   selectedOrder,
   isLoading,
   journalEntryRef,
@@ -75,7 +94,7 @@ const OrderDetailsPanel: React.FC<OrderDetailsPanelProps> = ({
 }) => {
   if (!selectedOrder) {
     return (
-      <Paper sx={{ height: 'calc(100vh - 300px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <Paper sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', p: 4 }}>
         <Typography variant="h6" color="text.secondary">
           Select an order to view details
         </Typography>
@@ -96,8 +115,16 @@ const OrderDetailsPanel: React.FC<OrderDetailsPanelProps> = ({
   const isOverpaid = (selectedOrder.paidAmount || 0) > (selectedOrder.totalAmount || 0)
 
   return (
-    <Paper sx={{ height: 'calc(100vh - 300px)', display: 'flex', flexDirection: 'column' }}>
-      <Box sx={{ p: TABLE_STYLES.cell.padding.px, borderBottom: TABLE_STYLES.cell.border, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+    <Paper sx={{ overflow: 'hidden' }}>
+      <Box
+        sx={{
+          p: TABLE_STYLES.cell.padding.px,
+          borderBottom: TABLE_STYLES.cell.border,
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+        }}
+      >
         <Typography
           variant="tableHeader"
           sx={{
@@ -122,23 +149,11 @@ const OrderDetailsPanel: React.FC<OrderDetailsPanelProps> = ({
         </Box>
       </Box>
 
-      <Box sx={{ flex: 1, overflow: 'auto', p: TABLE_STYLES.cell.padding.px }}>
+      <Box sx={{ p: TABLE_STYLES.cell.padding.px }}>
         <Grid container spacing={3}>
           <Grid item xs={12} md={6}>
             <TableContainer>
-              <Table
-                size={TABLE_STYLES.size}
-                sx={{
-                  tableLayout: 'fixed',
-                  '& .MuiTableCell-root': {
-                    border: 'none',
-                    py: TABLE_STYLES.cell.padding.py,
-                    px: TABLE_STYLES.cell.padding.px,
-                    '&:nth-of-type(1)': { width: '40%' },
-                    '&:nth-of-type(2)': { width: '60%' },
-                  },
-                }}
-              >
+              <Table size={TABLE_STYLES.size} sx={detailTableSx}>
                 <TableBody>
                   <TableRow>
                     <TableCell colSpan={2} sx={{ pb: TABLE_STYLES.cell.padding.py * 0.67, py: TABLE_STYLES.cell.padding.py * 0.67, borderTop: TABLE_STYLES.cell.border }}>
@@ -148,20 +163,16 @@ const OrderDetailsPanel: React.FC<OrderDetailsPanelProps> = ({
                     </TableCell>
                   </TableRow>
                   <TableRow sx={{ backgroundColor: 'grey.50' }}>
-                    <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem' }}>
-                      Customer Name
-                    </TableCell>
-                    <TableCell sx={{ fontSize: '0.8rem' }}>
-                      {selectedOrder.customer?.name || 'Unknown Customer'}
-                    </TableCell>
+                    <TableCell sx={labelCellSx}>Customer Name</TableCell>
+                    <TableCell sx={valueCellSx}>{selectedOrder.customer?.name || 'Unknown Customer'}</TableCell>
                   </TableRow>
                   <TableRow>
-                    <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem' }}>SO Date</TableCell>
-                    <TableCell sx={{ fontSize: '0.8rem' }}>{formatDate(selectedOrder.orderDate)}</TableCell>
+                    <TableCell sx={labelCellSx}>SO Date</TableCell>
+                    <TableCell sx={valueCellSx}>{formatDate(selectedOrder.orderDate)}</TableCell>
                   </TableRow>
                   <TableRow sx={{ backgroundColor: 'grey.50' }}>
-                    <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem' }}>Invoice No</TableCell>
-                    <TableCell sx={{ fontSize: '0.8rem' }}>
+                    <TableCell sx={labelCellSx}>Invoice No</TableCell>
+                    <TableCell sx={valueCellSx}>
                       {selectedOrder.invoices && selectedOrder.invoices.length > 0 ? (
                         selectedOrder.invoices.map((invoice: any, index: number) => (
                           <Box key={invoice.id} component="span">
@@ -179,8 +190,8 @@ const OrderDetailsPanel: React.FC<OrderDetailsPanelProps> = ({
                     </TableCell>
                   </TableRow>
                   <TableRow>
-                    <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem' }}>Payment No</TableCell>
-                    <TableCell sx={{ fontSize: '0.8rem' }}>
+                    <TableCell sx={labelCellSx}>Payment No</TableCell>
+                    <TableCell sx={valueCellSx}>
                       {allPayments.length === 0 ? (
                         <Typography sx={{ fontSize: '0.8rem', color: 'text.secondary', fontStyle: 'italic' }}>
                           No payments
@@ -199,8 +210,8 @@ const OrderDetailsPanel: React.FC<OrderDetailsPanelProps> = ({
                     </TableCell>
                   </TableRow>
                   <TableRow sx={{ backgroundColor: 'grey.50' }}>
-                    <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem' }}>Journal Entry No</TableCell>
-                    <TableCell sx={{ fontSize: '0.8rem' }}>
+                    <TableCell sx={labelCellSx}>Journal Entry No</TableCell>
+                    <TableCell sx={valueCellSx}>
                       {!selectedOrder.isFulfilled ? (
                         <Typography sx={{ fontSize: '0.8rem', color: 'text.secondary', fontStyle: 'italic' }}>Not fulfilled</Typography>
                       ) : journalEntryRefLoading ? (
@@ -221,19 +232,7 @@ const OrderDetailsPanel: React.FC<OrderDetailsPanelProps> = ({
 
           <Grid item xs={12} md={6}>
             <TableContainer>
-              <Table
-                size={TABLE_STYLES.size}
-                sx={{
-                  tableLayout: 'fixed',
-                  '& .MuiTableCell-root': {
-                    border: 'none',
-                    py: TABLE_STYLES.cell.padding.py,
-                    px: TABLE_STYLES.cell.padding.px,
-                    '&:nth-of-type(1)': { width: '40%' },
-                    '&:nth-of-type(2)': { width: '60%' },
-                  },
-                }}
-              >
+              <Table size={TABLE_STYLES.size} sx={detailTableSx}>
                 <TableBody>
                   <TableRow>
                     <TableCell colSpan={2} sx={{ pb: TABLE_STYLES.cell.padding.py * 0.67, py: TABLE_STYLES.cell.padding.py * 0.67, borderTop: TABLE_STYLES.cell.border }}>
@@ -243,26 +242,26 @@ const OrderDetailsPanel: React.FC<OrderDetailsPanelProps> = ({
                     </TableCell>
                   </TableRow>
                   <TableRow sx={{ backgroundColor: 'grey.50' }}>
-                    <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem' }}>Sub-total</TableCell>
-                    <TableCell sx={{ fontSize: '0.8rem' }}>
+                    <TableCell sx={labelCellSx}>Sub-total</TableCell>
+                    <TableCell sx={valueCellSx}>
                       {formatCurrency(selectedOrder.items?.reduce((sum: number, item: any) => sum + (Number(item.totalAmount) || 0), 0) || 0)}
                     </TableCell>
                   </TableRow>
                   <TableRow>
-                    <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem' }}>Shipping</TableCell>
-                    <TableCell sx={{ fontSize: '0.8rem' }}>{formatCurrency((selectedOrder as any).shippingAmount || 0)}</TableCell>
+                    <TableCell sx={labelCellSx}>Shipping</TableCell>
+                    <TableCell sx={valueCellSx}>{formatCurrency((selectedOrder as any).shippingAmount || 0)}</TableCell>
                   </TableRow>
                   <TableRow sx={{ backgroundColor: 'grey.50' }}>
-                    <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem' }}>Total</TableCell>
-                    <TableCell sx={{ fontSize: '0.8rem' }}>{formatCurrency(selectedOrder.totalAmount || 0)}</TableCell>
+                    <TableCell sx={labelCellSx}>Total</TableCell>
+                    <TableCell sx={valueCellSx}>{formatCurrency(selectedOrder.totalAmount || 0)}</TableCell>
                   </TableRow>
                   <TableRow>
-                    <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem' }}>Paid</TableCell>
-                    <TableCell sx={{ fontSize: '0.8rem' }}>{formatCurrency(selectedOrder.paidAmount || 0)}</TableCell>
+                    <TableCell sx={labelCellSx}>Paid</TableCell>
+                    <TableCell sx={valueCellSx}>{formatCurrency(selectedOrder.paidAmount || 0)}</TableCell>
                   </TableRow>
                   <TableRow sx={{ backgroundColor: 'grey.50' }}>
-                    <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem' }}>Balance</TableCell>
-                    <TableCell sx={{ fontSize: '0.8rem' }}>{balance < 0 ? `-${formatCurrency(Math.abs(balance))}` : formatCurrency(balance)}</TableCell>
+                    <TableCell sx={labelCellSx}>Balance</TableCell>
+                    <TableCell sx={valueCellSx}>{balance < 0 ? `-${formatCurrency(Math.abs(balance))}` : formatCurrency(balance)}</TableCell>
                   </TableRow>
                   <TableRow>
                     <TableCell colSpan={2} sx={{ textAlign: 'center' }}>
@@ -295,84 +294,9 @@ const OrderDetailsPanel: React.FC<OrderDetailsPanelProps> = ({
             </TableContainer>
           </Grid>
         </Grid>
-
-        <Box sx={{ borderTop: '2px solid', borderColor: 'divider', pageBreakBefore: 'always', '@media print': { pageBreakBefore: 'always' } }} />
-
-        <Box sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-          <TableContainer>
-            <Table size={TABLE_STYLES.size} sx={{ tableLayout: 'fixed', '& .MuiTableCell-root': { border: 'none', py: TABLE_STYLES.cell.padding.py, px: TABLE_STYLES.cell.padding.px } }}>
-              <TableBody>
-                <TableRow>
-                  <TableCell colSpan={3} sx={{ pb: TABLE_STYLES.cell.padding.py * 0.67, py: TABLE_STYLES.cell.padding.py * 0.67, borderTop: TABLE_STYLES.cell.border }}>
-                    <Typography variant="tableHeader" sx={{ fontWeight: 600, fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                      SO Items
-                    </Typography>
-                  </TableCell>
-                </TableRow>
-              </TableBody>
-            </Table>
-          </TableContainer>
-
-          <Box sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-            {selectedOrder.items && selectedOrder.items.length > 0 ? (
-              <TableContainer sx={{ flex: 1, overflow: 'auto' }}>
-                <Table size={TABLE_STYLES.size} sx={{ '& .MuiTableCell-root': { borderBottom: TABLE_STYLES.cell.border, py: TABLE_STYLES.cell.padding.py, px: TABLE_STYLES.cell.padding.px } }}>
-                  <TableHead>
-                    <TableRow sx={{ '& .MuiTableCell-head': { fontWeight: 600, backgroundColor: 'grey.50', color: 'text.primary', fontSize: '0.8rem' } }}>
-                      <TableCell sx={{ width: '40%' }}>Product</TableCell>
-                      <TableCell align="center" sx={{ width: '12%' }}>Quantity</TableCell>
-                      <TableCell align="right" sx={{ width: '16%' }}>Unit Price</TableCell>
-                      <TableCell align="right" sx={{ width: '16%' }}>Discount</TableCell>
-                      <TableCell align="right" sx={{ width: '16%' }}>Total</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {selectedOrder.items.map((item: any, index: number) => (
-                      <TableRow key={index} hover sx={{ '&:hover': { backgroundColor: 'action.hover' }, transition: 'background-color 0.2s ease', height: TABLE_STYLES.row.height }}>
-                        <TableCell sx={{ fontSize: '0.8rem', lineHeight: 1.2 }}>
-                          {item.product?.name || 'Unknown Product'}
-                          {item.description && (
-                            <Typography sx={{ fontSize: '0.7rem', color: 'text.secondary', display: 'block' }}>
-                              {item.description}
-                            </Typography>
-                          )}
-                        </TableCell>
-                        <TableCell align="center" sx={{ fontSize: '0.8rem', fontWeight: 400, lineHeight: 1.2 }}>
-                          {item.quantity || 0}
-                        </TableCell>
-                        <TableCell align="right" sx={{ fontSize: '0.8rem', fontWeight: 400, lineHeight: 1.2 }}>
-                          {formatCurrency(item.unitPrice || 0)}
-                        </TableCell>
-                        <TableCell align="right" sx={{ fontSize: '0.8rem', fontWeight: 400, lineHeight: 1.2 }}>
-                          {item.discountType === 'percentage' && item.discountPercent ? `${item.discountPercent}%` : item.discountAmount ? `-${formatCurrency(item.discountAmount)}` : '-'}
-                        </TableCell>
-                        <TableCell align="right" sx={{ fontSize: '0.8rem', lineHeight: 1.2 }}>
-                          {formatCurrency(item.totalAmount || item.quantity * item.unitPrice || 0)}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </TableContainer>
-            ) : (
-              <Alert severity="info">No items in this order</Alert>
-            )}
-          </Box>
-        </Box>
-
-        {selectedOrder.notes && (
-          <Box sx={{ mt: 1 }}>
-            <Typography variant="tableHeader" sx={{ fontWeight: 600, fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.5px', mb: 1 }}>
-              NOTES
-            </Typography>
-            <Box sx={{ p: 2, backgroundColor: 'grey.50', borderRadius: 1, fontSize: '0.8rem', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
-              {selectedOrder.notes}
-            </Box>
-          </Box>
-        )}
       </Box>
     </Paper>
   )
 }
 
-export default OrderDetailsPanel
+export default OrderContextHeader
