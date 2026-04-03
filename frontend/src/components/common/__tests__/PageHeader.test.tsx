@@ -88,6 +88,11 @@ describe('PageHeader', () => {
     expect(screen.getByTestId('page-header-divider')).toBeInTheDocument()
   })
 
+  it('uses 16px bottom spacing below the header', () => {
+    renderWithTheme(<PageHeader title="Sales Orders" />)
+    expect(getComputedStyle(screen.getByTestId('page-header-divider')).marginBottom).toBe('16px')
+  })
+
   it('hides divider when showDivider is false', () => {
     renderWithTheme(<PageHeader title="Create Sales Order" showDivider={false} />)
     expect(screen.queryByTestId('page-header-divider')).not.toBeInTheDocument()
