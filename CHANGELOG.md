@@ -1,3 +1,10 @@
+# [1.42.0](https://github.com/blur88/erp2/compare/v1.41.3...v1.42.0) (2026-04-03)
+
+
+### Features
+
+* master-detail-items workspace layout ([#260](https://github.com/blur88/erp2/issues/260)) ([#261](https://github.com/blur88/erp2/issues/261)) ([28d2c37](https://github.com/blur88/erp2/commit/28d2c37e7a990fc1a5ff59c758b32120330119e1))
+
 ## [1.41.3](https://github.com/blur88/erp2/compare/v1.41.2...v1.41.3) (2026-04-02)
 
 
