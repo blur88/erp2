@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
-import { ArrowDownward as ArrowDownIcon, ArrowUpward as ArrowUpIcon, Sort as SortIcon } from '@mui/icons-material'
-import { Alert, Box, Button, Stack, useMediaQuery, useTheme } from '@mui/material'
+import { Alert, Box, useMediaQuery, useTheme } from '@mui/material'
 import { useStore } from 'react-redux'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 
@@ -30,12 +29,15 @@ import {
   selectSalesError,
   selectSelectedOrder,
 } from '@/store/slices/salesSlice'
-import type { FilterBarConfig } from '@/types/filterBar.types'
+import type { FilterBarConfig, PeriodValue } from '@/types/filterBar.types'
+import { getPeriodDateRange, getStartOfWeek } from '@/utils/dateRange'
 
 interface SalesOrderFilters {
   search: string
   customerId: string | null
   paymentStatus: 'unpaid' | 'partial' | 'paid' | 'overpaid' | null
+  period: PeriodValue
+  fulfillmentStatus: 'fulfilled' | 'unfulfilled' | null
 }
 
 export const OrdersPage: React.FC = () => {
@@ -78,24 +80,53 @@ export const OrdersPage: React.FC = () => {
             { value: 'overpaid', label: 'Overpaid' },
           ],
         },
+        {
+          field: 'period',
+          label: 'Period',
+          type: 'period',
+        },
+        {
+          field: 'fulfillmentStatus',
+          label: 'Fulfillment',
+          type: 'select',
+          options: [
+            { value: 'unfulfilled', label: 'Unfulfilled' },
+            { value: 'fulfilled', label: 'Fulfilled' },
+          ],
+        },
       ],
       defaults: {
         search: '',
         customerId: null,
         paymentStatus: null,
+        fulfillmentStatus: null,
       },
     }),
     [customers],
   )
 
   const { appliedFilters, draftFilters, handlers, hasActiveFilters } = useFilterBar(filterConfig)
+  const weekStartsOn = getStartOfWeek()
+  const dateRange = useMemo(() => {
+    const period = appliedFilters.period
+    if (!period || period.key === 'custom') {
+      return { fromDate: period?.from ?? undefined, toDate: period?.to ?? undefined }
+    }
+
+    const range = getPeriodDateRange(period.key, weekStartsOn)
+    return { fromDate: range.from, toDate: range.to }
+  }, [appliedFilters.period, weekStartsOn])
+
   const orderQueryArgs = useMemo(() => ({
     sortBy,
     sortOrder,
     search: appliedFilters.search || undefined,
     customerId: appliedFilters.customerId || undefined,
     paymentStatus: appliedFilters.paymentStatus || undefined,
-  }), [appliedFilters, sortBy, sortOrder])
+    fulfillmentStatus: appliedFilters.fulfillmentStatus || undefined,
+    fromDate: dateRange.fromDate,
+    toDate: dateRange.toDate,
+  }), [appliedFilters, dateRange, sortBy, sortOrder])
 
   const { data: ordersData, isLoading: loading, refetch: refetchOrders } = useGetSalesOrdersQuery(orderQueryArgs)
   const orders = ordersData?.data ?? []
@@ -208,25 +239,16 @@ export const OrdersPage: React.FC = () => {
         primaryAction={{ label: 'Create Order', onClick: () => navigate('/sales/orders/create') }}
       />
 
-      <Stack direction={isMobile ? 'column' : 'row'} spacing={1} alignItems={isMobile ? 'stretch' : 'center'} sx={{ mb: 3 }}>
-        <Box sx={{ flex: 1 }}>
-          <FilterBar
-            config={filterConfig}
-            draftFilters={draftFilters}
-            handlers={filterHandlers}
-            hasActiveFilters={hasActiveFilters}
-            searchInputRef={pageState.searchInputRef}
-          />
-        </Box>
-        <Button
-          variant={sortBy === 'orderNumber' ? 'contained' : 'outlined'}
-          size="small"
-          startIcon={sortBy === 'orderNumber' ? sortOrder === 'desc' ? <ArrowDownIcon /> : <ArrowUpIcon /> : <SortIcon />}
-          onClick={() => handleSort('orderNumber')}
-        >
-          Sort
-        </Button>
-      </Stack>
+      <Box sx={{ mb: 3 }}>
+        <FilterBar
+          config={filterConfig}
+          draftFilters={draftFilters}
+          handlers={filterHandlers}
+          hasActiveFilters={hasActiveFilters}
+          searchInputRef={pageState.searchInputRef}
+          sort={{ field: 'orderNumber', sortBy, sortOrder, onSort: handleSort }}
+        />
+      </Box>
 
       {error && (
         <Alert severity="error" sx={{ mb: 3 }}>
