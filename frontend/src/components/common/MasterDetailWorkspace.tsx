@@ -25,7 +25,7 @@ const MasterDetailWorkspace: React.FC<MasterDetailWorkspaceProps> = ({
   }
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'row', height: 'calc(100vh - 300px)', gap: 3 }}>
+    <Box sx={{ display: 'flex', flexDirection: 'row', flex: 1, minHeight: 0, gap: 3 }}>
       <Box
         sx={{
           width: '25%',
@@ -33,13 +33,14 @@ const MasterDetailWorkspace: React.FC<MasterDetailWorkspaceProps> = ({
           overflow: 'hidden',
           display: 'flex',
           flexDirection: 'column',
+          minHeight: 0,
         }}
       >
         {listSlot}
       </Box>
-      <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 2, overflow: 'hidden' }}>
+      <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 2, overflow: 'hidden', minHeight: 0 }}>
         {headerSlot}
-        <Box sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+        <Box sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
           {workspaceSlot}
         </Box>
       </Box>

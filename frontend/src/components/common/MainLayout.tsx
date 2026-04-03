@@ -83,6 +83,8 @@ const MainLayout: React.FC = () => {
         component="main"
         sx={{
           flexGrow: 1,
+          display: 'flex',
+          flexDirection: 'column',
           pt: 8,
           px: { xs: 2, sm: 3 },
           pb: 3,
@@ -92,7 +94,9 @@ const MainLayout: React.FC = () => {
           maxWidth: '100%',
         }}
       >
-        <Outlet />
+        <Box sx={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+          <Outlet />
+        </Box>
       </Box>
     </Box>
   )
