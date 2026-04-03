@@ -1,3 +1,12 @@
+## [1.42.2](https://github.com/blur88/erp2/compare/v1.42.1...v1.42.2) (2026-04-03)
+
+
+### Internal Changes
+
+* chore(deps): upgrade react-router-dom to 7.14.0 (#263) ([](https://github.com/blur88/erp2/commit/))
+* docs: add implementation plan for react-router-dom v7.14.0 upgrade (#263) ([](https://github.com/blur88/erp2/commit/))
+* docs: add design spec for react-router-dom v7.14.0 upgrade (#263) ([](https://github.com/blur88/erp2/commit/))
+
 ## [1.42.1](https://github.com/blur88/erp2/compare/v1.42.0...v1.42.1) (2026-04-03)
 
 
