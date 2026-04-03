@@ -214,7 +214,7 @@ const PurchaseOrderContextHeader: React.FC<PurchaseOrderContextHeaderProps> = ({
                   </TableRow>
                   <TableRow sx={{ backgroundColor: 'grey.50' }}>
                     <TableCell sx={labelCellSx}>Sub-total</TableCell>
-                    <TableCell sx={valueCellSx}>{formatCurrency((selectedOrder as any).subtotal || 0)}</TableCell>
+                    <TableCell sx={valueCellSx}>{formatCurrency(selectedOrder.subtotal || 0)}</TableCell>
                   </TableRow>
                   <TableRow>
                     <TableCell sx={labelCellSx}>Shipping</TableCell>
