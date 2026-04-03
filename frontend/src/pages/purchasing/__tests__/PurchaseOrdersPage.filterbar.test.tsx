@@ -127,6 +127,14 @@ describe('PurchaseOrdersPage FilterBar integration', () => {
     expect(window.getComputedStyle(workspaceWrapper as HTMLElement).minHeight).toBe('0px')
   })
 
+  it('does not add extra page-root bottom padding beyond MainLayout', () => {
+    renderPage()
+
+    const pageRoot = screen.getByTestId('purchase-orders-page-root')
+
+    expect(window.getComputedStyle(pageRoot).paddingBottom).toBe('0px')
+  })
+
   it('restores new URL params into the purchase orders query', () => {
     renderPage('/?search=gundam&supplierId=sup-1')
     expect(useGetPurchaseOrdersQuery).toHaveBeenLastCalledWith(

@@ -100,6 +100,14 @@ describe('ProductsPage FilterBar integration', () => {
     expect(window.getComputedStyle(contentRegion).minHeight).toBe('0px')
   })
 
+  it('does not add extra page-root bottom padding beyond MainLayout', () => {
+    renderPage()
+
+    const pageRoot = screen.getByTestId('products-page-root')
+
+    expect(window.getComputedStyle(pageRoot).paddingBottom).toBe('0px')
+  })
+
   it('restores filters from URL into the products query', () => {
     renderPage('/?search=gundam&status=inactive')
     expect(useGetProductsQuery).toHaveBeenLastCalledWith(

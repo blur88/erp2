@@ -235,7 +235,7 @@ export const OrdersPage: React.FC = () => {
   }, [navigate, selectedOrder])
 
   return (
-    <Box sx={{ p: 3, flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+    <Box data-testid="orders-page-root" sx={{ p: 0, flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
       <PageHeader
         title="Sales Orders"
         subtitle="Track sales orders and delivery status"

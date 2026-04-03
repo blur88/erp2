@@ -129,6 +129,14 @@ describe('OrdersPage FilterBar integration', () => {
     expect(window.getComputedStyle(workspaceWrapper as HTMLElement).minHeight).toBe('0px')
   })
 
+  it('does not add extra page-root bottom padding beyond MainLayout', () => {
+    renderPage()
+
+    const pageRoot = screen.getByTestId('orders-page-root')
+
+    expect(window.getComputedStyle(pageRoot).paddingBottom).toBe('0px')
+  })
+
   it('restores filters from URL into the sales orders query', () => {
     renderPage('/?search=gundam&customerId=cust-1&paymentStatus=paid')
     expect(useGetSalesOrdersQuery).toHaveBeenLastCalledWith(

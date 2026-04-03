@@ -81,4 +81,12 @@ describe('StockAdjustmentsPage FilterBar', () => {
     expect(window.getComputedStyle(contentRegion).flexGrow).toBe('1')
     expect(window.getComputedStyle(contentRegion).minHeight).toBe('0px')
   })
+
+  it('does not add extra page-root bottom padding beyond MainLayout', () => {
+    renderPage()
+
+    const pageRoot = screen.getByTestId('stock-adjustments-page-root')
+
+    expect(window.getComputedStyle(pageRoot).paddingBottom).toBe('0px')
+  })
 })

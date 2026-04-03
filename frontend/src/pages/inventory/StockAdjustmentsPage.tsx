@@ -443,7 +443,7 @@ const StockAdjustmentsPage: React.FC = () => {
   })
 
   return (
-    <Box sx={{ p: 3, flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+    <Box data-testid="stock-adjustments-page-root" sx={{ p: 0, flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
       {/* Header */}
       <PageHeader
         title="Stock Adjustments"
