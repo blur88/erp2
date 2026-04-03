@@ -22,7 +22,7 @@ function getDefaults<TFilters extends object>(
     if (field.type === 'select') defaults[key] = null
     else if (field.type === 'multi-select') defaults[key] = []
     else if (field.type === 'period') {
-      defaults[key] = { key: 'this_month', from: null, to: null } satisfies PeriodValue
+      defaults[key] = { key: null, from: null, to: null } satisfies PeriodValue
     }
   }
 

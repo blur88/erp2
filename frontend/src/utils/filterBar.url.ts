@@ -1,4 +1,4 @@
-import { PERIOD_KEYS, type PeriodKey } from '@/constants/periods'
+import { PERIOD_KEYS } from '@/constants/periods'
 import type {
   FilterBarConfig,
   FilterFieldConfig,
@@ -82,13 +82,14 @@ export function serializeFilters<TFilters extends object>(
     if (field.type === 'period') {
       const period = value as PeriodValue | undefined
       const defaultPeriod = defaultValue as PeriodValue | undefined
-      const defaultKey = defaultPeriod?.key ?? 'this_month'
+      const defaultKey = defaultPeriod?.key ?? null
       const defaultFrom = defaultPeriod?.from ?? null
       const defaultTo = defaultPeriod?.to ?? null
       const isDefault =
         !period ||
         (period.key === defaultKey && period.from === defaultFrom && period.to === defaultTo)
       if (isDefault) continue
+      if (period.key === null) continue
       orderedEntries.push([key, period.key])
       if (period.key === 'custom' && period.from && period.to) {
         orderedEntries.push([`${key}_from`, period.from])
@@ -142,7 +143,7 @@ export function parseFilters<TFilters extends object>(
 
     if (field.type === 'period') {
       const defaultPeriod = (defaultValue as PeriodValue | undefined) ?? {
-        key: 'this_month' as PeriodKey,
+        key: null,
         from: null,
         to: null,
       }

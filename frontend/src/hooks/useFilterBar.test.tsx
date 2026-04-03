@@ -71,7 +71,7 @@ describe('useFilterBar', () => {
 })
 
 describe('useFilterBar — period field', () => {
-  it('defaults period to this_month when no default configured', () => {
+  it('defaults period key to null when no default is configured', () => {
     interface PeriodFilters {
       period: PeriodValue
     }
@@ -82,11 +82,7 @@ describe('useFilterBar — period field', () => {
 
     const { result } = renderHook(() => useFilterBar(periodConfig), { wrapper: makeWrapper() })
 
-    expect(result.current.appliedFilters.period).toEqual({
-      key: 'this_month',
-      from: null,
-      to: null,
-    })
+    expect(result.current.appliedFilters.period.key).toBeNull()
   })
 
   it('updates period value via onQuickFilterChange', () => {
