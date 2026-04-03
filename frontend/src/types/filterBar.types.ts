@@ -3,7 +3,7 @@ import type { PeriodKey } from '@/constants/periods'
 export type FilterOption = { value: string; label: string }
 
 export type PeriodValue = {
-  key: PeriodKey
+  key: PeriodKey | null
   from: string | null
   to: string | null
 }
