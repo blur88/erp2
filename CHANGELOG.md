@@ -1,3 +1,19 @@
+# [1.44.0](https://github.com/blur88/erp2/compare/v1.43.0...v1.44.0) (2026-04-03)
+
+
+### Bug Fixes
+
+* sync Select notched prop with label shrink to fix border gap ([#266](https://github.com/blur88/erp2/issues/266)) ([162c547](https://github.com/blur88/erp2/commit/162c547998511a4989c29a84e9e0fc3cb6c2eb44))
+* widen FilterPeriod onChange to PeriodKey | null; add hasActiveFilters period tests ([#266](https://github.com/blur88/erp2/issues/266)) ([2148779](https://github.com/blur88/erp2/commit/2148779b3f6834fff19dcf09a08db6e3de461d5f))
+
+
+### Features
+
+* allow null key in PeriodValue type ([#266](https://github.com/blur88/erp2/issues/266)) ([6e46d06](https://github.com/blur88/erp2/commit/6e46d068695d0d152887131fec299ff40c38bddd))
+* default period filter key to null in useFilterBar ([#266](https://github.com/blur88/erp2/issues/266)) ([2f0929f](https://github.com/blur88/erp2/commit/2f0929fac45fc93553dff95dc8c88ae26c9aa2c5))
+* FilterPeriod handles null key as unselected placeholder ([#266](https://github.com/blur88/erp2/issues/266)) ([00d4499](https://github.com/blur88/erp2/commit/00d4499621c8e54a502e245bc9b0ec8e4d04c8cf))
+* move period filter first, default to no selection on Sales Orders ([#266](https://github.com/blur88/erp2/issues/266)) ([e53c4d7](https://github.com/blur88/erp2/commit/e53c4d7d6dff03067e76457b92c3220f0f0866fa))
+
 # [1.43.0](https://github.com/blur88/erp2/compare/v1.42.4...v1.43.0) (2026-04-03)
 
 
