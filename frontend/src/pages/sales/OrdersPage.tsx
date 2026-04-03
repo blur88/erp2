@@ -99,6 +99,7 @@ export const OrdersPage: React.FC = () => {
         search: '',
         customerId: null,
         paymentStatus: null,
+        period: { key: 'this_month', from: null, to: null },
         fulfillmentStatus: null,
       },
     }),
