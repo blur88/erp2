@@ -142,5 +142,23 @@ describe('SalesOrderQueryService', () => {
       );
       expect(searchCall).toBeDefined();
     });
+
+    it('uses EXISTS subquery in count so an order with multiple matching items counts as 1', async () => {
+      const mainQb = makeQueryBuilder();
+      const countQb = makeQueryBuilder();
+      let callCount = 0;
+      salesOrderRepository.createQueryBuilder.mockImplementation(() => {
+        callCount++;
+        return callCount === 1 ? mainQb : countQb;
+      });
+
+      await service.findAll({ search: 'Widget' });
+
+      const countAndWhereCalls: string[] = countQb.andWhere.mock.calls.map((c: any[]) => c[0]);
+      const existsCall = countAndWhereCalls.find(
+        (c) => typeof c === 'string' && c.includes('EXISTS'),
+      );
+      expect(existsCall).toBeDefined();
+    });
   });
 });

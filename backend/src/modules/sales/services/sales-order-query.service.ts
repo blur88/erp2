@@ -161,7 +161,8 @@ export class SalesOrderQueryService {
     const countQuery = this.salesOrderRepository
       .createQueryBuilder('order')
       .where('order.deletedAt IS NULL')
-      .select('COUNT(order.id)', 'count');
+      .select('COUNT(order.id)', 'count')
+      .leftJoin('order.customer', 'customer');
 
     if (customerId) {
       countQuery.andWhere('order.customerId = :customerId', { customerId });
@@ -175,7 +176,17 @@ export class SalesOrderQueryService {
       countQuery.andWhere('order.orderDate <= :toDate', { toDate: endDate });
     }
     if (search) {
-      countQuery.andWhere('order.orderNumber ILIKE :search', { search: `%${search}%` });
+      countQuery.andWhere(
+        `(order.orderNumber ILIKE :search
+          OR customer.name ILIKE :search
+          OR EXISTS (
+            SELECT 1 FROM sales_order_items i
+            JOIN products p ON p.id = i."productId"
+            WHERE i."salesOrderId" = order.id
+            AND p.name ILIKE :search
+          ))`,
+        { search: `%${search}%` },
+      );
     }
 
     if (paymentStatus && paymentStatus !== 'all') {
