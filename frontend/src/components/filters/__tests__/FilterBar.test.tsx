@@ -1,6 +1,7 @@
 import { LocalizationProvider } from '@mui/x-date-pickers'
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns'
 import { fireEvent, render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 
 import type { FilterBarConfig, FilterBarHandlers, PeriodValue } from '@/types/filterBar.types'
@@ -118,5 +119,133 @@ describe('FilterBar — period field', () => {
     )
 
     expect(screen.getByLabelText(/period/i)).toBeInTheDocument()
+  })
+})
+
+interface DashFilters {
+  period: PeriodValue
+  compareWith: 'previous_period' | 'last_month' | 'last_year' | null
+}
+
+const dashConfig: FilterBarConfig<DashFilters> = {
+  fields: [
+    { field: 'period', label: 'Period', type: 'period' },
+    { field: 'compareWith', label: 'Compare', type: 'compare' },
+  ],
+  defaults: {
+    period: { key: 'this_month', from: null, to: null },
+    compareWith: null,
+  },
+}
+
+const dashHandlers: FilterBarHandlers<DashFilters> = {
+  onSearchChange: vi.fn(),
+  onSearchCommit: vi.fn(),
+  onQuickFilterChange: vi.fn(),
+  onClearField: vi.fn(),
+  onClearAll: vi.fn(),
+}
+
+function wrapWithProvider(ui: React.ReactElement) {
+  return render(
+    <LocalizationProvider dateAdapter={AdapterDateFns}>{ui}</LocalizationProvider>,
+  )
+}
+
+describe('FilterBar — compare field', () => {
+  it('renders the Compare select', () => {
+    wrapWithProvider(
+      <FilterBar
+        config={dashConfig}
+        draftFilters={{ period: { key: 'this_month', from: null, to: null }, compareWith: null }}
+        handlers={dashHandlers}
+        hasActiveFilters={false}
+      />,
+    )
+    expect(screen.getByLabelText('Compare')).toBeInTheDocument()
+  })
+
+  it('compare select is enabled when period is this_month', () => {
+    wrapWithProvider(
+      <FilterBar
+        config={dashConfig}
+        draftFilters={{ period: { key: 'this_month', from: null, to: null }, compareWith: null }}
+        handlers={dashHandlers}
+        hasActiveFilters={false}
+      />,
+    )
+    const select = screen.getByLabelText('Compare')
+    expect(select).not.toHaveAttribute('aria-disabled', 'true')
+  })
+
+  it('compare select is disabled when period is today', () => {
+    wrapWithProvider(
+      <FilterBar
+        config={dashConfig}
+        draftFilters={{ period: { key: 'today', from: null, to: null }, compareWith: null }}
+        handlers={dashHandlers}
+        hasActiveFilters={false}
+      />,
+    )
+    const select = screen.getByLabelText('Compare')
+    expect(select).toHaveAttribute('aria-disabled', 'true')
+  })
+
+  it('calls onQuickFilterChange with previous_period when that option is selected', async () => {
+    const onQuickFilterChange = vi.fn()
+    wrapWithProvider(
+      <FilterBar
+        config={dashConfig}
+        draftFilters={{ period: { key: 'this_month', from: null, to: null }, compareWith: null }}
+        handlers={{ ...dashHandlers, onQuickFilterChange }}
+        hasActiveFilters={false}
+      />,
+    )
+    await userEvent.click(screen.getByLabelText('Compare'))
+    await userEvent.click(screen.getByText('Previous Period'))
+    expect(onQuickFilterChange).toHaveBeenCalledWith('compareWith', 'previous_period')
+  })
+
+  it('calls onQuickFilterChange with null when No Comparison is selected', async () => {
+    const onQuickFilterChange = vi.fn()
+    wrapWithProvider(
+      <FilterBar
+        config={dashConfig}
+        draftFilters={{ period: { key: 'this_month', from: null, to: null }, compareWith: 'last_year' }}
+        handlers={{ ...dashHandlers, onQuickFilterChange }}
+        hasActiveFilters={false}
+      />,
+    )
+    await userEvent.click(screen.getByLabelText('Compare'))
+    await userEvent.click(screen.getByText('No Comparison'))
+    expect(onQuickFilterChange).toHaveBeenCalledWith('compareWith', null)
+  })
+})
+
+describe('FilterBar — isFetching', () => {
+  it('renders CircularProgress when isFetching is true', () => {
+    render(
+      <FilterBar
+        config={config}
+        draftFilters={{ search: '', status: null }}
+        handlers={handlers}
+        hasActiveFilters={false}
+        isFetching={true}
+      />,
+    )
+    expect(document.querySelector('.MuiCircularProgress-root')).toBeInTheDocument()
+  })
+
+  it('does not render CircularProgress when isFetching is false', () => {
+    render(
+      <FilterBar
+        config={config}
+        draftFilters={{ search: '', status: null }}
+        handlers={handlers}
+        hasActiveFilters={false}
+        isFetching={false}
+      />,
+    )
+    expect(document.querySelector('.MuiCircularProgress-root')).not.toBeInTheDocument()
   })
 })

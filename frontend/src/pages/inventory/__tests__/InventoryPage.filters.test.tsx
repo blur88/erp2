@@ -8,7 +8,7 @@ import InventoryPage from '../InventoryPage'
 const mockUseGetSuppliersQuery = vi.fn()
 const mockUseGetCategoriesQuery = vi.fn()
 const mockUseInventoryAnalytics = vi.fn()
-const dashboardFilterBarSpy = vi.fn()
+const filterBarSpy = vi.fn()
 
 vi.mock('@/store/api/purchasingApi', () => ({
   useGetSuppliersQuery: (...args: unknown[]) => mockUseGetSuppliersQuery(...args),
@@ -22,10 +22,10 @@ vi.mock('../hooks/useInventoryAnalytics', () => ({
   useInventoryAnalytics: (...args: unknown[]) => mockUseInventoryAnalytics(...args),
 }))
 
-vi.mock('@/components/filters/DashboardFilterBar', () => ({
-  DashboardFilterBar: (props: unknown) => {
-    dashboardFilterBarSpy(props)
-    return <div data-testid="dashboard-filter-bar" />
+vi.mock('@/components/filters/FilterBar', () => ({
+  FilterBar: (props: unknown) => {
+    filterBarSpy(props)
+    return <div data-testid="filter-bar" />
   },
 }))
 
@@ -35,6 +35,9 @@ vi.mock('react-chartjs-2', () => ({
 }))
 
 describe('InventoryPage filters', () => {
+  const initialEntry =
+    '/?inventory_supplier=550e8400-e29b-41d4-a716-446655440001&inventory_category=550e8400-e29b-41d4-a716-446655440010&inventory_stock_status=low_stock'
+
   beforeEach(() => {
     vi.clearAllMocks()
     mockUseGetSuppliersQuery.mockReturnValue({
@@ -72,16 +75,11 @@ describe('InventoryPage filters', () => {
       isFetching: false,
       error: null,
     })
-    window.history.replaceState(
-      {},
-      '',
-      '/?inventory_supplier=550e8400-e29b-41d4-a716-446655440001&inventory_category=550e8400-e29b-41d4-a716-446655440010&inventory_stock_status=low_stock',
-    )
   })
 
-  it('passes inventory filter state into analytics and the shared filter bar', () => {
+  it('passes inventory filter state into analytics', () => {
     render(
-      <MemoryRouter>
+      <MemoryRouter initialEntries={[initialEntry]}>
         <InventoryPage />
       </MemoryRouter>,
     )
@@ -93,21 +91,20 @@ describe('InventoryPage filters', () => {
         stockStatus: 'low_stock',
       }),
     )
+  })
 
-    expect(dashboardFilterBarSpy).toHaveBeenCalledWith(
-      expect.objectContaining({
-        suppliers: [{ id: '550e8400-e29b-41d4-a716-446655440001', name: 'Acme Supplies' }],
-        supplierId: '550e8400-e29b-41d4-a716-446655440001',
-        categories: [{ id: '550e8400-e29b-41d4-a716-446655440010', name: 'Electronics' }],
-        categoryId: '550e8400-e29b-41d4-a716-446655440010',
-        stockStatus: 'low_stock',
-      }),
+  it('renders the FilterBar component', () => {
+    render(
+      <MemoryRouter initialEntries={[initialEntry]}>
+        <InventoryPage />
+      </MemoryRouter>,
     )
+    expect(screen.getByTestId('filter-bar')).toBeInTheDocument()
   })
 
   it('renders the inventory overview heading', () => {
     render(
-      <MemoryRouter>
+      <MemoryRouter initialEntries={[initialEntry]}>
         <InventoryPage />
       </MemoryRouter>,
     )

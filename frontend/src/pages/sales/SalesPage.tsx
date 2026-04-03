@@ -25,46 +25,91 @@ import {
 import { formatCurrency, formatDate, formatNumber } from '@/utils/formatters'
 import { TABLE_STYLES } from '@/constants/tableStyles'
 import PageHeader from '@/components/common/PageHeader'
-import { DashboardFilterBar } from '@/components/filters/DashboardFilterBar'
+import { FilterBar } from '@/components/filters/FilterBar'
+import { useFilterBar } from '@/hooks/useFilterBar'
 import { useNavigate } from 'react-router-dom'
 import api from '@/services/api'
 import { useGetCustomersQuery } from '@/store/api/salesApi'
 import { SalesStatsCards, SalesTrendChart, TopProductsList, TopCustomersList } from './components'
 import type { StatItem } from './components'
-import { useDashboardFilters } from '@/hooks/useDashboardFilters'
 import { useDashboardAnalytics } from './hooks/useDashboardAnalytics'
+import { resolveApiParams } from '@/utils/dashboardApiParams'
+import type { DashboardCompare } from '@/utils/dashboardApiParams'
+import type { FilterBarConfig, PeriodValue } from '@/types/filterBar.types'
 
 const SalesPage: React.FC = () => {
   const navigate = useNavigate()
   const [recentOrders, setRecentOrders] = useState<any[]>([])
   const [recentOrdersLoading, setRecentOrdersLoading] = useState(true)
 
-  const {
-    period,
-    compareWith,
-    customFrom,
-    customTo,
-    setPeriod,
-    setCompare,
-    setCustomRange,
-
-    reset,
-    isDefault,
-    resolvedApiParams,
-    customerId,
-    isFulfilled,
-    paymentStatus,
-    setCustomerId,
-    setFulfilled,
-    setPaymentStatus,
-  } = useDashboardFilters('sales')
+  type SalesDashboardFilters = {
+    period: PeriodValue
+    compareWith: DashboardCompare
+    customerId: string | null
+    isFulfilled: string | null
+    paymentStatus: string | null
+  }
 
   // Assumes small customer count (<50). If this grows, replace with an autocomplete + search endpoint.
   const { data: customersData } = useGetCustomersQuery({})
   const customerOptions = (customersData?.data ?? []).map((customer: { id: string; name: string }) => ({
-    id: customer.id,
-    name: customer.name,
+    value: customer.id,
+    label: customer.name,
   }))
+
+  const salesConfig: FilterBarConfig<SalesDashboardFilters> = {
+    namespace: 'sales',
+    fields: [
+      {
+        field: 'period',
+        label: 'Period',
+        type: 'period',
+      },
+      {
+        field: 'compareWith',
+        label: 'Compare',
+        type: 'compare',
+      },
+      {
+        field: 'customerId',
+        label: 'Customer',
+        type: 'select',
+        paramKey: 'customer',
+        options: [{ value: '', label: 'All Customers' }, ...customerOptions],
+      },
+      {
+        field: 'isFulfilled',
+        label: 'Order Status',
+        type: 'select',
+        paramKey: 'fulfilled',
+        options: [
+          { value: 'true', label: 'Fulfilled' },
+          { value: 'false', label: 'Pending' },
+        ],
+      },
+      {
+        field: 'paymentStatus',
+        label: 'Payment Status',
+        type: 'select',
+        paramKey: 'payment',
+        options: [
+          { value: 'paid', label: 'Paid' },
+          { value: 'partial_paid', label: 'Partially Paid' },
+          { value: 'draft', label: 'Draft' },
+        ],
+      },
+    ],
+    defaults: {
+      period: { key: 'this_month', from: null, to: null },
+      compareWith: null,
+      customerId: null,
+      isFulfilled: null,
+      paymentStatus: null,
+    },
+  }
+
+  const { appliedFilters, draftFilters, handlers, hasActiveFilters } = useFilterBar(salesConfig)
+  const resolvedApiParams = resolveApiParams(appliedFilters)
 
   const { data, isLoading, isFetching, error } = useDashboardAnalytics(resolvedApiParams)
 
@@ -155,24 +200,12 @@ const SalesPage: React.FC = () => {
         primaryAction={{ label: 'Create Order', onClick: () => navigate('/sales/orders/create') }}
       />
 
-      <DashboardFilterBar
-        period={period}
-        compareWith={compareWith}
-        customFrom={customFrom}
-        customTo={customTo}
+      <FilterBar
+        config={salesConfig}
+        draftFilters={draftFilters}
+        handlers={handlers}
+        hasActiveFilters={hasActiveFilters}
         isFetching={isFetching}
-        isDefault={isDefault}
-        onPeriodChange={setPeriod}
-        onCompareChange={setCompare}
-        onCustomRangeChange={setCustomRange}
-        onReset={reset}
-        customers={customerOptions}
-        customerId={customerId}
-        onCustomerChange={setCustomerId}
-        isFulfilled={isFulfilled}
-        onFulfilledChange={setFulfilled}
-        paymentStatus={paymentStatus}
-        onPaymentStatusChange={setPaymentStatus}
       />
 
       {error && (

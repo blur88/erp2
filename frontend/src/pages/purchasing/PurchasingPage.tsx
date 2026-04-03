@@ -42,10 +42,13 @@ import { formatCurrency, formatDate } from '@/utils/formatters'
 import { TABLE_STYLES } from '@/constants/tableStyles'
 import { useNavigate } from 'react-router-dom'
 import PageHeader from '@/components/common/PageHeader'
-import { DashboardFilterBar } from '@/components/filters/DashboardFilterBar'
-import { useDashboardFilters } from '@/hooks/useDashboardFilters'
+import { FilterBar } from '@/components/filters/FilterBar'
+import { useFilterBar } from '@/hooks/useFilterBar'
 import { useGetSuppliersQuery } from '@/store/api/purchasingApi'
 import { usePurchasingAnalytics } from './hooks/usePurchasingAnalytics'
+import { resolveApiParams } from '@/utils/dashboardApiParams'
+import type { DashboardCompare } from '@/utils/dashboardApiParams'
+import type { FilterBarConfig, PeriodValue } from '@/types/filterBar.types'
 
 ChartJS.register(
   CategoryScale,
@@ -63,31 +66,73 @@ const PurchasingPage: React.FC = () => {
   const theme = useTheme()
   const navigate = useNavigate()
 
-  const {
-    period,
-    compareWith,
-    customFrom,
-    customTo,
-    supplierId,
-    status,
-    paymentStatus,
-    setPeriod,
-    setCompare,
-    setCustomRange,
-
-    setSupplierId,
-    setStatus,
-    setPaymentStatus,
-    reset,
-    isDefault,
-    resolvedApiParams,
-  } = useDashboardFilters('purchasing')
+  type PurchasingDashboardFilters = {
+    period: PeriodValue
+    compareWith: DashboardCompare
+    supplierId: string | null
+    status: string | null
+    paymentStatus: string | null
+  }
 
   const { data: suppliersData } = useGetSuppliersQuery({})
   const supplierOptions = suppliersData?.data?.map((supplier) => ({
-    id: supplier.id,
-    name: supplier.companyName,
+    value: supplier.id,
+    label: supplier.companyName,
   })) ?? []
+
+  const purchasingConfig: FilterBarConfig<PurchasingDashboardFilters> = {
+    namespace: 'purchasing',
+    fields: [
+      {
+        field: 'period',
+        label: 'Period',
+        type: 'period',
+      },
+      {
+        field: 'compareWith',
+        label: 'Compare',
+        type: 'compare',
+      },
+      {
+        field: 'supplierId',
+        label: 'Supplier',
+        type: 'select',
+        paramKey: 'supplier',
+        options: [{ value: '', label: 'All Suppliers' }, ...supplierOptions],
+      },
+      {
+        field: 'status',
+        label: 'Order Status',
+        type: 'select',
+        paramKey: 'status',
+        options: [
+          { value: 'received', label: 'Received' },
+          { value: 'pending', label: 'Pending' },
+        ],
+      },
+      {
+        field: 'paymentStatus',
+        label: 'Payment Status',
+        type: 'select',
+        paramKey: 'payment',
+        options: [
+          { value: 'paid', label: 'Paid' },
+          { value: 'partial', label: 'Partially Paid' },
+          { value: 'unpaid', label: 'Unpaid' },
+        ],
+      },
+    ],
+    defaults: {
+      period: { key: 'this_month', from: null, to: null },
+      compareWith: null,
+      supplierId: null,
+      status: null,
+      paymentStatus: null,
+    },
+  }
+
+  const { appliedFilters, draftFilters, handlers, hasActiveFilters } = useFilterBar(purchasingConfig)
+  const resolvedApiParams = resolveApiParams(appliedFilters)
 
   const { data, isLoading, isFetching, error } = usePurchasingAnalytics(resolvedApiParams)
 
@@ -188,29 +233,12 @@ const PurchasingPage: React.FC = () => {
         primaryAction={{ label: 'Create Purchase Order', onClick: () => navigate('/purchasing/orders/create') }}
       />
 
-      <DashboardFilterBar
-        period={period}
-        compareWith={compareWith}
-        customFrom={customFrom}
-        customTo={customTo}
+      <FilterBar
+        config={purchasingConfig}
+        draftFilters={draftFilters}
+        handlers={handlers}
+        hasActiveFilters={hasActiveFilters}
         isFetching={isFetching}
-        isDefault={isDefault}
-        onPeriodChange={setPeriod}
-        onCompareChange={setCompare}
-        onCustomRangeChange={setCustomRange}
-        onReset={reset}
-        suppliers={supplierOptions}
-        supplierId={supplierId}
-        onSupplierChange={setSupplierId}
-        status={status}
-        onStatusChange={setStatus}
-        paymentStatus={paymentStatus}
-        onPaymentStatusChange={setPaymentStatus}
-        paymentStatusOptions={[
-          { value: 'paid', label: 'Paid' },
-          { value: 'partial', label: 'Partially Paid' },
-          { value: 'unpaid', label: 'Unpaid' },
-        ]}
       />
 
       {error && (

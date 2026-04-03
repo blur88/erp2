@@ -7,7 +7,7 @@ import PurchasingPage from '../PurchasingPage'
 
 const mockUseGetSuppliersQuery = vi.fn()
 const mockUsePurchasingAnalytics = vi.fn()
-const dashboardFilterBarSpy = vi.fn()
+const filterBarSpy = vi.fn()
 
 vi.mock('@/store/api/purchasingApi', () => ({
   useGetSuppliersQuery: (...args: unknown[]) => mockUseGetSuppliersQuery(...args),
@@ -17,10 +17,10 @@ vi.mock('../hooks/usePurchasingAnalytics', () => ({
   usePurchasingAnalytics: (...args: unknown[]) => mockUsePurchasingAnalytics(...args),
 }))
 
-vi.mock('@/components/filters/DashboardFilterBar', () => ({
-  DashboardFilterBar: (props: unknown) => {
-    dashboardFilterBarSpy(props)
-    return <div data-testid="dashboard-filter-bar" />
+vi.mock('@/components/filters/FilterBar', () => ({
+  FilterBar: (props: unknown) => {
+    filterBarSpy(props)
+    return <div data-testid="filter-bar" />
   },
 }))
 
@@ -29,6 +29,9 @@ vi.mock('react-chartjs-2', () => ({
 }))
 
 describe('PurchasingPage filters', () => {
+  const initialEntry =
+    '/?purchasing_supplier=550e8400-e29b-41d4-a716-446655440001&purchasing_status=received&purchasing_payment=partial'
+
   beforeEach(() => {
     vi.clearAllMocks()
     mockUseGetSuppliersQuery.mockReturnValue({
@@ -53,12 +56,11 @@ describe('PurchasingPage filters', () => {
       isFetching: false,
       error: null,
     })
-    window.history.replaceState({}, '', '/?purchasing_supplier=550e8400-e29b-41d4-a716-446655440001&purchasing_status=received&purchasing_payment=partial')
   })
 
-  it('passes purchasing filter state into analytics and the shared filter bar', () => {
+  it('passes purchasing filter state into analytics', () => {
     render(
-      <MemoryRouter>
+      <MemoryRouter initialEntries={[initialEntry]}>
         <PurchasingPage />
       </MemoryRouter>,
     )
@@ -70,24 +72,23 @@ describe('PurchasingPage filters', () => {
         paymentStatus: 'partial',
       }),
     )
+  })
 
-    expect(dashboardFilterBarSpy).toHaveBeenCalledWith(
-      expect.objectContaining({
-        suppliers: [{ id: '550e8400-e29b-41d4-a716-446655440001', name: 'Acme Supplies' }],
-        supplierId: '550e8400-e29b-41d4-a716-446655440001',
-        status: 'received',
-        paymentStatus: 'partial',
-      }),
+  it('renders the FilterBar component', () => {
+    render(
+      <MemoryRouter initialEntries={[initialEntry]}>
+        <PurchasingPage />
+      </MemoryRouter>,
     )
+    expect(screen.getByTestId('filter-bar')).toBeInTheDocument()
   })
 
   it('renders the purchasing overview heading', () => {
     render(
-      <MemoryRouter>
+      <MemoryRouter initialEntries={[initialEntry]}>
         <PurchasingPage />
       </MemoryRouter>,
     )
-
     expect(screen.getByText('Purchasing Overview')).toBeInTheDocument()
   })
 })

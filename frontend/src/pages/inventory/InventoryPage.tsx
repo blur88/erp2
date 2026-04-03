@@ -41,13 +41,16 @@ import { Doughnut, Line } from 'react-chartjs-2'
 import { format } from 'date-fns'
 import { useNavigate } from 'react-router-dom'
 import PageHeader from '@/components/common/PageHeader'
-import { DashboardFilterBar } from '@/components/filters/DashboardFilterBar'
-import { useDashboardFilters } from '@/hooks/useDashboardFilters'
+import { FilterBar } from '@/components/filters/FilterBar'
+import { useFilterBar } from '@/hooks/useFilterBar'
 import { useGetCategoriesQuery } from '@/store/api/inventoryApi'
 import { useGetSuppliersQuery } from '@/store/api/purchasingApi'
 import { useInventoryAnalytics } from './hooks/useInventoryAnalytics'
 import { formatCurrency } from '@/utils/formatters'
 import { TABLE_STYLES } from '@/constants/tableStyles'
+import { resolveApiParams } from '@/utils/dashboardApiParams'
+import type { DashboardCompare } from '@/utils/dashboardApiParams'
+import type { FilterBarConfig, PeriodValue } from '@/types/filterBar.types'
 
 ChartJS.register(
   CategoryScale,
@@ -73,37 +76,76 @@ const InventoryPage: React.FC = () => {
   const theme = useTheme()
   const navigate = useNavigate()
 
-  const {
-    period,
-    compareWith,
-    customFrom,
-    customTo,
-    supplierId,
-    categoryId,
-    stockStatus,
-    setPeriod,
-    setCompare,
-    setCustomRange,
-
-    setSupplierId,
-    setCategoryId,
-    setStockStatus,
-    reset,
-    isDefault,
-    resolvedApiParams,
-  } = useDashboardFilters('inventory')
+  type InventoryDashboardFilters = {
+    period: PeriodValue
+    compareWith: DashboardCompare
+    supplierId: string | null
+    categoryId: string | null
+    stockStatus: string | null
+  }
 
   const { data: suppliersData } = useGetSuppliersQuery({})
   const { data: categoriesData } = useGetCategoriesQuery({})
 
   const supplierOptions = suppliersData?.data?.map((supplier) => ({
-    id: supplier.id,
-    name: supplier.companyName,
+    value: supplier.id,
+    label: supplier.companyName,
   })) ?? []
   const categoryOptions = (categoriesData ?? []).map((category) => ({
-    id: category.id,
-    name: category.name,
+    value: category.id,
+    label: category.name,
   }))
+
+  const inventoryConfig: FilterBarConfig<InventoryDashboardFilters> = {
+    namespace: 'inventory',
+    fields: [
+      {
+        field: 'period',
+        label: 'Period',
+        type: 'period',
+      },
+      {
+        field: 'compareWith',
+        label: 'Compare',
+        type: 'compare',
+      },
+      {
+        field: 'supplierId',
+        label: 'Supplier',
+        type: 'select',
+        paramKey: 'supplier',
+        options: [{ value: '', label: 'All Suppliers' }, ...supplierOptions],
+      },
+      {
+        field: 'categoryId',
+        label: 'Category',
+        type: 'select',
+        paramKey: 'category',
+        options: [{ value: '', label: 'All Categories' }, ...categoryOptions],
+      },
+      {
+        field: 'stockStatus',
+        label: 'Stock Status',
+        type: 'select',
+        paramKey: 'stock_status',
+        options: [
+          { value: 'in_stock', label: 'In Stock' },
+          { value: 'low_stock', label: 'Low Stock' },
+          { value: 'out_of_stock', label: 'Out of Stock' },
+        ],
+      },
+    ],
+    defaults: {
+      period: { key: 'this_month', from: null, to: null },
+      compareWith: null,
+      supplierId: null,
+      categoryId: null,
+      stockStatus: null,
+    },
+  }
+
+  const { appliedFilters, draftFilters, handlers, hasActiveFilters } = useFilterBar(inventoryConfig)
+  const resolvedApiParams = resolveApiParams(appliedFilters)
 
   const { data, isLoading, isFetching, error } = useInventoryAnalytics(resolvedApiParams)
 
@@ -230,25 +272,12 @@ const InventoryPage: React.FC = () => {
         primaryAction={{ label: 'Add Product', onClick: () => navigate('/inventory/products') }}
       />
 
-      <DashboardFilterBar
-        period={period}
-        compareWith={compareWith}
-        customFrom={customFrom}
-        customTo={customTo}
+      <FilterBar
+        config={inventoryConfig}
+        draftFilters={draftFilters}
+        handlers={handlers}
+        hasActiveFilters={hasActiveFilters}
         isFetching={isFetching}
-        isDefault={isDefault}
-        onPeriodChange={setPeriod}
-        onCompareChange={setCompare}
-        onCustomRangeChange={setCustomRange}
-        onReset={reset}
-        suppliers={supplierOptions}
-        supplierId={supplierId}
-        onSupplierChange={setSupplierId}
-        categories={categoryOptions}
-        categoryId={categoryId}
-        onCategoryChange={setCategoryId}
-        stockStatus={stockStatus}
-        onStockStatusChange={setStockStatus}
       />
 
       {error && (
