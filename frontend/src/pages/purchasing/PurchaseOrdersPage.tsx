@@ -5,6 +5,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import MasterDetailWorkspace from '@/components/common/MasterDetailWorkspace'
 import PageHeader from '@/components/common/PageHeader'
 import { FilterBar } from '@/components/filters'
+import PurchaseOrderContextHeader from './components/PurchaseOrderContextHeader'
 import PurchaseOrdersDialogs from './components/PurchaseOrdersDialogs'
 import PurchaseOrdersTable from './components/PurchaseOrdersTable'
 import PurchaseOrderWorkspaceCard from './components/PurchaseOrderWorkspaceCard'
@@ -217,7 +218,24 @@ export const PurchaseOrdersPage: React.FC = () => {
             orderListRef={pageState.orderListRef}
           />
         )}
-        headerSlot={null}
+        headerSlot={(
+          <PurchaseOrderContextHeader
+            selectedOrder={selectedOrder}
+            isLoading={pageState.isLoading}
+            journalEntryRef={pageState.journalEntryRef}
+            journalEntryRefLoading={pageState.journalEntryRefLoading}
+            onEditClick={actions.handleEditClick}
+            onDeleteClick={actions.handleDeleteClick}
+            onPrint={() => pageState.setPrintDialogOpen(true)}
+            onNavigateToGoodsReceived={navigateToGoodsReceived}
+            onNavigateToVendorPayment={navigateToVendorPayment}
+            onNavigateToJournalEntry={navigateToJournalEntry}
+            onUnpay={actions.handleUnpay}
+            onOpenPaymentDialog={actions.handleOpenPaymentDialog}
+            onReturn={actions.handleReturn}
+            onReceive={actions.handleReceive}
+          />
+        )}
         workspaceSlot={<PurchaseOrderWorkspaceCard selectedOrder={selectedOrder} />}
       />
 

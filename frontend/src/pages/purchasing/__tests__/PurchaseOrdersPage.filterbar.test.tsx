@@ -39,6 +39,7 @@ vi.mock('@/components/common/MasterDetailWorkspace', () => ({
     </div>
   ),
 }))
+vi.mock('../components/PurchaseOrderContextHeader', () => ({ default: () => <div>PurchaseOrderContextHeader</div> }))
 vi.mock('../components/PurchaseOrdersTable', () => ({ default: () => <div>PurchaseOrdersTable</div> }))
 vi.mock('../components/PurchaseOrderWorkspaceCard', () => ({ default: () => <div>PurchaseOrderWorkspaceCard</div> }))
 vi.mock('../components/PurchaseOrdersDialogs', () => ({ default: () => <div>PurchaseOrdersDialogs</div> }))

@@ -34,6 +34,7 @@ vi.mock('@/components/common/MasterDetailWorkspace', () => ({
     </div>
   ),
 }))
+vi.mock('../components/OrderContextHeader', () => ({ default: () => <div>OrderContextHeader</div> }))
 vi.mock('../components/OrdersTable', () => ({ default: () => <div>OrdersTable</div> }))
 vi.mock('../components/OrderWorkspaceCard', () => ({ default: () => <div>OrderWorkspaceCard</div> }))
 vi.mock('../components/OrdersDialogs', () => ({ default: () => <div>OrdersDialogs</div> }))

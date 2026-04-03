@@ -80,11 +80,6 @@ export function FilterBar<TFilters extends object>({
         />
       ) : null}
       {config.fields.map((field) => renderQuickField(field, draftFilters, handlers))}
-      {hasActiveFilters ? (
-        <AppButton size="filter" variant="outlined" sx={{ ml: 1 }} onClick={handlers.onClearAll}>
-          Reset
-        </AppButton>
-      ) : null}
       {sort ? (
         <AppButton
           size="filter"
@@ -92,6 +87,11 @@ export function FilterBar<TFilters extends object>({
           onClick={() => sort.onSort(sort.field)}
         >
           Sort
+        </AppButton>
+      ) : null}
+      {hasActiveFilters ? (
+        <AppButton size="filter" variant="outlined" onClick={handlers.onClearAll}>
+          Reset
         </AppButton>
       ) : null}
     </Stack>
