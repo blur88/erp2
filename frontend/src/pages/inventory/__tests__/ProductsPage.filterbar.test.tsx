@@ -79,6 +79,16 @@ describe('ProductsPage FilterBar integration', () => {
     expect(screen.getByPlaceholderText(/search by name, barcode, or brand/i)).toBeInTheDocument()
   })
 
+  it('uses a 16px bottom margin below the filter bar wrapper', () => {
+    renderPage()
+
+    const filterRow = screen.getByPlaceholderText(/search by name, barcode, or brand/i).closest('.MuiStack-root')
+    const filterWrapper = filterRow?.parentElement?.closest('.MuiStack-root')
+
+    expect(filterWrapper).not.toBeNull()
+    expect(window.getComputedStyle(filterWrapper as HTMLElement).marginBottom).toBe('16px')
+  })
+
   it('restores filters from URL into the products query', () => {
     renderPage('/?search=gundam&status=inactive')
     expect(useGetProductsQuery).toHaveBeenLastCalledWith(

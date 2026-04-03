@@ -139,7 +139,7 @@ export const ProductsPage: React.FC = () => {
         direction={isMobile ? 'column' : 'row'}
         spacing={1}
         alignItems={isMobile ? 'stretch' : 'center'}
-        sx={{ mb: 3, transition: 'margin-right 0.3s ease-in-out', marginRight: contentMarginRight }}
+        sx={{ mb: 2, transition: 'margin-right 0.3s ease-in-out', marginRight: contentMarginRight }}
       >
         <Box sx={{ flex: 1 }}>
           <FilterBar
