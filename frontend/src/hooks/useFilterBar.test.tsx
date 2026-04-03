@@ -102,4 +102,36 @@ describe('useFilterBar — period field', () => {
 
     expect(result.current.appliedFilters.period).toEqual({ key: 'last_week', from: null, to: null })
   })
+
+  it('hasActiveFilters is false when period key is null (default)', () => {
+    interface PeriodFilters {
+      period: PeriodValue
+    }
+
+    const periodConfig: FilterBarConfig<PeriodFilters> = {
+      fields: [{ field: 'period', label: 'Period', type: 'period' }],
+    }
+
+    const { result } = renderHook(() => useFilterBar(periodConfig), { wrapper: makeWrapper() })
+
+    expect(result.current.hasActiveFilters).toBe(false)
+  })
+
+  it('hasActiveFilters is true after period key is set', () => {
+    interface PeriodFilters {
+      period: PeriodValue
+    }
+
+    const periodConfig: FilterBarConfig<PeriodFilters> = {
+      fields: [{ field: 'period', label: 'Period', type: 'period' }],
+    }
+
+    const { result } = renderHook(() => useFilterBar(periodConfig), { wrapper: makeWrapper() })
+
+    act(() => {
+      result.current.handlers.onQuickFilterChange('period', { key: 'this_week', from: null, to: null })
+    })
+
+    expect(result.current.hasActiveFilters).toBe(true)
+  })
 })

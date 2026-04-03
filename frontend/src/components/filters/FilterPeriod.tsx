@@ -10,7 +10,7 @@ interface FilterPeriodProps {
   value: PeriodKey | null
   customFrom: string | null
   customTo: string | null
-  onChange: (key: PeriodKey, from?: string, to?: string) => void
+  onChange: (key: PeriodKey | null, from?: string, to?: string) => void
 }
 
 export function FilterPeriod({ value, customFrom, customTo, onChange }: FilterPeriodProps) {
@@ -31,8 +31,8 @@ export function FilterPeriod({ value, customFrom, customTo, onChange }: FilterPe
     setInternalTo(customTo)
   }, [customFrom, customTo])
 
-  const handleKeyChange = (key: PeriodKey) => {
-    if (key !== 'custom') {
+  const handleKeyChange = (key: PeriodKey | null) => {
+    if (key === null || key !== 'custom') {
       setInternalFrom(null)
       setInternalTo(null)
       onChange(key)
