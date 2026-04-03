@@ -54,3 +54,10 @@ export interface FilterBarHandlers<TFilters> {
   onClearField: (field: keyof TFilters) => void
   onClearAll: () => void
 }
+
+export interface FilterBarSortConfig {
+  field: string
+  sortBy: string
+  sortOrder: 'asc' | 'desc'
+  onSort: (field: string) => void
+}

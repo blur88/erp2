@@ -41,6 +41,25 @@ describe('FilterBar', () => {
     expect(screen.getByLabelText(/status/i)).toBeInTheDocument()
   })
 
+  it('renders the optional sort button and calls onSort', () => {
+    const onSort = vi.fn()
+
+    render(
+      <FilterBar
+        {...baseProps}
+        sort={{
+          field: 'orderNumber',
+          sortBy: 'orderNumber',
+          sortOrder: 'desc',
+          onSort,
+        }}
+      />,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: /sort/i }))
+    expect(onSort).toHaveBeenCalledWith('orderNumber')
+  })
+
   it('shows reset only with active filters', () => {
     const { rerender } = render(<FilterBar {...baseProps} />)
     expect(screen.queryByRole('button', { name: /reset/i })).not.toBeInTheDocument()
