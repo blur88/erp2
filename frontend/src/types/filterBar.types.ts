@@ -12,6 +12,7 @@ export type FilterFieldType =
   | 'select'
   | 'multi-select'
   | 'period'
+  | 'compare'
 
 interface BaseFilterFieldConfig<TFilters, K extends keyof TFilters> {
   field: K
@@ -32,9 +33,15 @@ export interface PeriodFilterFieldConfig<TFilters, K extends keyof TFilters>
   type: 'period'
 }
 
+export interface CompareFilterFieldConfig<TFilters, K extends keyof TFilters>
+  extends BaseFilterFieldConfig<TFilters, K> {
+  type: 'compare'
+}
+
 export type FilterFieldConfig<TFilters> =
   | SelectFilterFieldConfig<TFilters, keyof TFilters>
   | PeriodFilterFieldConfig<TFilters, keyof TFilters>
+  | CompareFilterFieldConfig<TFilters, keyof TFilters>
 
 export interface FilterBarConfig<TFilters> {
   search?: {
