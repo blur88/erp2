@@ -1,3 +1,10 @@
+# [1.43.0](https://github.com/blur88/erp2/compare/v1.42.4...v1.43.0) (2026-04-03)
+
+
+### Features
+
+* modernize Sales Orders filter bar ([#265](https://github.com/blur88/erp2/issues/265)) ([#267](https://github.com/blur88/erp2/issues/267)) ([955ff25](https://github.com/blur88/erp2/commit/955ff258cef73c4af6ab862369bc4d3361e9de23))
+
 ## [1.42.4](https://github.com/blur88/erp2/compare/v1.42.3...v1.42.4) (2026-04-03)
 
 
