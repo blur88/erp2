@@ -24,8 +24,19 @@ vi.mock('@/store/api/salesApi', () => ({
   useDeleteSalesOrderMutation: vi.fn(() => [vi.fn()]),
 }))
 
+vi.mock('@/components/common/MasterDetailWorkspace', () => ({
+  default: ({ listSlot, headerSlot, workspaceSlot }: any) => (
+    <div>
+      <div>MasterDetailWorkspace</div>
+      <div>{listSlot}</div>
+      <div>{headerSlot}</div>
+      <div>{workspaceSlot}</div>
+    </div>
+  ),
+}))
 vi.mock('../components/OrdersTable', () => ({ default: () => <div>OrdersTable</div> }))
-vi.mock('../components/OrderDetailsPanel', () => ({ default: () => <div>OrderDetailsPanel</div> }))
+vi.mock('../components/OrderContextHeader', () => ({ default: () => <div>OrderContextHeader</div> }))
+vi.mock('../components/OrderWorkspaceCard', () => ({ default: () => <div>OrderWorkspaceCard</div> }))
 vi.mock('../components/OrdersDialogs', () => ({ default: () => <div>OrdersDialogs</div> }))
 vi.mock('../hooks/useOrdersActions', () => ({
   useOrdersActions: () => ({
@@ -87,6 +98,15 @@ describe('OrdersPage FilterBar integration', () => {
   it('renders the shared filter search input', () => {
     renderPage()
     expect(screen.getByPlaceholderText(/search orders/i)).toBeInTheDocument()
+  })
+
+  it('renders the master-detail workspace with split sales detail cards', () => {
+    renderPage()
+
+    expect(screen.getByText('MasterDetailWorkspace')).toBeInTheDocument()
+    expect(screen.getByText('OrdersTable')).toBeInTheDocument()
+    expect(screen.getByText('OrderContextHeader')).toBeInTheDocument()
+    expect(screen.getByText('OrderWorkspaceCard')).toBeInTheDocument()
   })
 
   it('restores filters from URL into the sales orders query', () => {

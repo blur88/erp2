@@ -1,14 +1,15 @@
 import React, { useCallback, useMemo } from 'react'
 import { ArrowDownward as ArrowDownIcon, ArrowUpward as ArrowUpIcon, Sort as SortIcon } from '@mui/icons-material'
 import { Alert, Box, Button, Stack, useMediaQuery, useTheme } from '@mui/material'
-import Grid from '@mui/material/GridLegacy'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 
+import MasterDetailWorkspace from '@/components/common/MasterDetailWorkspace'
 import PageHeader from '@/components/common/PageHeader'
 import { FilterBar } from '@/components/filters'
-import PurchaseOrderDetailsPanel from './components/PurchaseOrderDetailsPanel'
+import PurchaseOrderContextHeader from './components/PurchaseOrderContextHeader'
 import PurchaseOrdersDialogs from './components/PurchaseOrdersDialogs'
 import PurchaseOrdersTable from './components/PurchaseOrdersTable'
+import PurchaseOrderWorkspaceCard from './components/PurchaseOrderWorkspaceCard'
 import { usePurchaseOrdersActions } from './hooks/usePurchaseOrdersActions'
 import { usePurchaseOrdersPageState } from './hooks/usePurchaseOrdersPageState'
 import { usePurchaseOrdersSelection } from './hooks/usePurchaseOrdersSelection'
@@ -176,12 +177,6 @@ export const PurchaseOrdersPage: React.FC = () => {
 
   return (
     <Box sx={{ p: 3 }}>
-      {import.meta.env.DEV && (
-        <Alert severity="info" sx={{ mb: 2 }}>
-          Debug: PurchaseOrdersPage loaded | Orders: {purchaseOrders.length} | Loading: {String(loading)} | Error: {error || 'None'}
-        </Alert>
-      )}
-
       <PageHeader
         title="Purchase Orders"
         subtitle="Manage supplier purchase orders and procurement"
@@ -219,8 +214,9 @@ export const PurchaseOrdersPage: React.FC = () => {
         </Alert>
       )}
 
-      <Grid container spacing={3}>
-        <Grid item xs={12} md={3}>
+      <MasterDetailWorkspace
+        isMobile={isMobile}
+        listSlot={(
           <PurchaseOrdersTable
             purchaseOrders={purchaseOrders}
             loading={loading}
@@ -230,9 +226,9 @@ export const PurchaseOrdersPage: React.FC = () => {
             onOrderSelect={selection.handleOrderSelect}
             orderListRef={pageState.orderListRef}
           />
-        </Grid>
-        <Grid item xs={12} md={9}>
-          <PurchaseOrderDetailsPanel
+        )}
+        headerSlot={(
+          <PurchaseOrderContextHeader
             selectedOrder={selectedOrder}
             isLoading={pageState.isLoading}
             journalEntryRef={pageState.journalEntryRef}
@@ -248,8 +244,9 @@ export const PurchaseOrdersPage: React.FC = () => {
             onReturn={actions.handleReturn}
             onReceive={actions.handleReceive}
           />
-        </Grid>
-      </Grid>
+        )}
+        workspaceSlot={<PurchaseOrderWorkspaceCard selectedOrder={selectedOrder} />}
+      />
 
       <PurchaseOrdersDialogs
         selectedOrder={selectedOrder}
