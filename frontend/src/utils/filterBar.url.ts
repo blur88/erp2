@@ -1,4 +1,4 @@
-import { PERIOD_KEYS } from '@/constants/periods'
+import { PERIOD_KEYS, type PeriodKey } from '@/constants/periods'
 import type {
   FilterBarConfig,
   FilterFieldConfig,
@@ -146,7 +146,7 @@ export function parseFilters<TFilters extends object>(
         key: null,
         from: null,
         to: null,
-      }
+      } satisfies PeriodValue
       const raw = searchParams.get(key)
       if (raw === null || !(PERIOD_KEYS as readonly string[]).includes(raw)) {
         result[fieldKey] = defaultPeriod
