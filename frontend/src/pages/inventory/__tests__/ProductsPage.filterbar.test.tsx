@@ -82,8 +82,10 @@ describe('ProductsPage FilterBar integration', () => {
   it('uses a 16px bottom margin below the filter bar wrapper', () => {
     renderPage()
 
-    const filterRow = screen.getByPlaceholderText(/search by name, barcode, or brand/i).closest('.MuiStack-root')
-    const filterWrapper = filterRow?.parentElement?.closest('.MuiStack-root')
+    const filterWrapper = screen
+      .getByPlaceholderText(/search by name, barcode, or brand/i)
+      .closest('.MuiBox-root')
+      ?.parentElement
 
     expect(filterWrapper).not.toBeNull()
     expect(window.getComputedStyle(filterWrapper as HTMLElement).marginBottom).toBe('16px')
