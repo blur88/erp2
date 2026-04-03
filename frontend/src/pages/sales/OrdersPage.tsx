@@ -6,7 +6,6 @@ import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import MasterDetailWorkspace from '@/components/common/MasterDetailWorkspace'
 import PageHeader from '@/components/common/PageHeader'
 import { FilterBar } from '@/components/filters'
-import OrderContextHeader from './components/OrderContextHeader'
 import OrdersDialogs from './components/OrdersDialogs'
 import OrderWorkspaceCard from './components/OrderWorkspaceCard'
 import OrdersTable from './components/OrdersTable'
@@ -273,25 +272,7 @@ export const OrdersPage: React.FC = () => {
             orderListRef={pageState.orderListRef}
           />
         )}
-        headerSlot={(
-          <OrderContextHeader
-            selectedOrder={selectedOrder}
-            isLoading={pageState.isLoading}
-            journalEntryRef={pageState.journalEntryRef}
-            journalEntryRefLoading={pageState.journalEntryRefLoading}
-            onEditOrder={actions.handleEditOrder}
-            onDeleteOrder={() => selectedOrder && void actions.handleOrderAction('delete', selectedOrder.id)}
-            onPrintOrder={() => pageState.setPrintDialogOpen(true)}
-            onNavigateToInvoice={selection.handleNavigateToInvoice}
-            onNavigateToPayment={selection.handleNavigateToPayment}
-            onNavigateToJournalEntry={navigateToJournalEntry}
-            onRefundOrder={actions.handleRefundOrder}
-            onUnpayOrder={actions.handleUnpayOrder}
-            onOpenPaymentDialog={actions.openPaymentDialog}
-            onFulfillOrder={actions.handleFulfillOrder}
-            onUnfulfillOrder={actions.handleUnfulfillOrder}
-          />
-        )}
+        headerSlot={null}
         workspaceSlot={<OrderWorkspaceCard selectedOrder={selectedOrder} />}
       />
 

@@ -12,10 +12,6 @@ const filesToKeepFlat = [
   'src/pages/inventory/CategoriesPage.tsx',
   'src/pages/purchasing/VendorPaymentsPage.tsx',
   'src/pages/purchasing/GoodsReceivedPage.tsx',
-  'src/pages/sales/components/OrdersToolbar.tsx',
-  'src/pages/sales/components/InvoicesToolbar.tsx',
-  'src/pages/inventory/components/ProductsToolbar.tsx',
-  'src/pages/purchasing/components/PurchaseOrdersToolbar.tsx',
 ]
 
 describe('filter sections use flat wrappers', () => {

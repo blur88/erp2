@@ -35,7 +35,6 @@ vi.mock('@/components/common/MasterDetailWorkspace', () => ({
   ),
 }))
 vi.mock('../components/OrdersTable', () => ({ default: () => <div>OrdersTable</div> }))
-vi.mock('../components/OrderContextHeader', () => ({ default: () => <div>OrderContextHeader</div> }))
 vi.mock('../components/OrderWorkspaceCard', () => ({ default: () => <div>OrderWorkspaceCard</div> }))
 vi.mock('../components/OrdersDialogs', () => ({ default: () => <div>OrdersDialogs</div> }))
 vi.mock('../hooks/useOrdersActions', () => ({
@@ -105,7 +104,6 @@ describe('OrdersPage FilterBar integration', () => {
 
     expect(screen.getByText('MasterDetailWorkspace')).toBeInTheDocument()
     expect(screen.getByText('OrdersTable')).toBeInTheDocument()
-    expect(screen.getByText('OrderContextHeader')).toBeInTheDocument()
     expect(screen.getByText('OrderWorkspaceCard')).toBeInTheDocument()
   })
 
