@@ -1,3 +1,14 @@
+## [1.45.2](https://github.com/blur88/erp2/compare/v1.45.1...v1.45.2) (2026-04-03)
+
+
+### Bug Fixes
+
+* reduce CustomersPage filter bar bottom margin to 16px ([#272](https://github.com/blur88/erp2/issues/272)) ([4f63075](https://github.com/blur88/erp2/commit/4f63075c65dda5ad2819d1be2e633acf4fef9f9e))
+* reduce DashboardFilterBar bottom margin to 16px (closes part of [#272](https://github.com/blur88/erp2/issues/272)) ([9942b5e](https://github.com/blur88/erp2/commit/9942b5e45233110568aea4587524036e70207095))
+* reduce OrdersPage filter bar bottom margin to 16px ([#272](https://github.com/blur88/erp2/issues/272)) ([9376baa](https://github.com/blur88/erp2/commit/9376baa3ff303070baddaaabf4f3ac67a2df9aad))
+* reduce ProductsPage filter bar bottom margin to 16px ([#272](https://github.com/blur88/erp2/issues/272)) ([a11bc1b](https://github.com/blur88/erp2/commit/a11bc1bcf4c5822cb2fb6d39f88af92ea3088cc4))
+* reduce PurchaseOrdersPage filter bar bottom margin to 16px ([#272](https://github.com/blur88/erp2/issues/272)) ([ad20d07](https://github.com/blur88/erp2/commit/ad20d07aaa89e2c0d5aefc1aa29167b566d3d9ff))
+
 ## [1.45.1](https://github.com/blur88/erp2/compare/v1.45.0...v1.45.1) (2026-04-03)
 
 
