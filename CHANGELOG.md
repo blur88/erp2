@@ -1,3 +1,10 @@
+## [1.42.4](https://github.com/blur88/erp2/compare/v1.42.3...v1.42.4) (2026-04-03)
+
+
+### Bug Fixes
+
+* remove redundant height and unnecessary as-any cast in order table components ([9f7b543](https://github.com/blur88/erp2/commit/9f7b543116d8ae593a7ed3d08777ebb67817e2c8)), closes [#262](https://github.com/blur88/erp2/issues/262)
+
 ## [1.42.3](https://github.com/blur88/erp2/compare/v1.42.2...v1.42.3) (2026-04-03)
 
 
