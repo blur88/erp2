@@ -97,6 +97,13 @@ export function serializeFilters<TFilters extends object>(
       }
       continue
     }
+
+    if (field.type === 'compare') {
+      if (value !== null && value !== undefined) {
+        orderedEntries.push([key, String(value)])
+      }
+      continue
+    }
   }
 
   for (const [key, value] of orderedEntries) {
@@ -163,6 +170,13 @@ export function parseFilters<TFilters extends object>(
       } else {
         result[fieldKey] = { key: periodKey, from: null, to: null } satisfies PeriodValue
       }
+      continue
+    }
+
+    if (field.type === 'compare') {
+      const validCompares = ['previous_period', 'last_month', 'last_year']
+      const raw = searchParams.get(key)
+      result[fieldKey] = raw && validCompares.includes(raw) ? raw : (defaultValue ?? null)
     }
   }
 

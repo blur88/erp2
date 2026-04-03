@@ -265,3 +265,71 @@ describe('getManagedParamKeys — namespace', () => {
     expect(keys).not.toContain('status')
   })
 })
+
+type CompareFilters = {
+  period: PeriodValue
+  compareWith: 'previous_period' | 'last_month' | 'last_year' | null
+}
+
+const compareConfig: FilterBarConfig<CompareFilters> = {
+  namespace: 'sales',
+  fields: [
+    { field: 'period', label: 'Period', type: 'period' },
+    { field: 'compareWith', label: 'Compare', type: 'compare' },
+  ],
+  defaults: {
+    period: { key: 'this_month', from: null, to: null },
+    compareWith: null,
+  },
+}
+
+describe('compare field type — serializeFilters', () => {
+  it('omits compareWith when null', () => {
+    const params = serializeFilters(
+      { period: { key: 'this_month', from: null, to: null }, compareWith: null },
+      compareConfig,
+      new URLSearchParams(),
+    )
+    expect(params.get('sales_compareWith')).toBeNull()
+  })
+
+  it('serializes compareWith when set', () => {
+    const params = serializeFilters(
+      { period: { key: 'this_month', from: null, to: null }, compareWith: 'previous_period' },
+      compareConfig,
+      new URLSearchParams(),
+    )
+    expect(params.get('sales_compareWith')).toBe('previous_period')
+  })
+})
+
+describe('compare field type — parseFilters', () => {
+  it('returns null when param is absent', () => {
+    const result = parseFilters<CompareFilters>(new URLSearchParams(), compareConfig)
+    expect(result.compareWith).toBeNull()
+  })
+
+  it('parses valid compare value', () => {
+    const result = parseFilters<CompareFilters>(
+      new URLSearchParams('sales_compareWith=last_year'),
+      compareConfig,
+    )
+    expect(result.compareWith).toBe('last_year')
+  })
+
+  it('rejects invalid compare value and returns null', () => {
+    const result = parseFilters<CompareFilters>(
+      new URLSearchParams('sales_compareWith=garbage'),
+      compareConfig,
+    )
+    expect(result.compareWith).toBeNull()
+  })
+})
+
+describe('compare field type — getManagedParamKeys', () => {
+  it('includes compareWith as a single key (no _from/_to suffix)', () => {
+    const keys = getManagedParamKeys(compareConfig)
+    expect(keys).toContain('sales_compareWith')
+    expect(keys.filter((k) => k.startsWith('sales_compareWith'))).toHaveLength(1)
+  })
+})
