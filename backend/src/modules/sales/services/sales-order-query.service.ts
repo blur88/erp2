@@ -115,9 +115,10 @@ export class SalesOrderQueryService {
     }
 
     if (search) {
-      queryBuilder = queryBuilder.andWhere('order.orderNumber ILIKE :search', {
-        search: `%${search}%`,
-      });
+      queryBuilder = queryBuilder.andWhere(
+        '(order.orderNumber ILIKE :search OR customer.name ILIKE :search OR product.name ILIKE :search)',
+        { search: `%${search}%` },
+      );
     }
 
     if (paymentStatus && paymentStatus !== 'all') {
