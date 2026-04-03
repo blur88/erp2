@@ -42,7 +42,7 @@ export default function PageHeader({
     <Box
       data-testid={showDivider ? 'page-header-divider' : undefined}
       sx={{
-        mb: 4,
+        mb: 2,
         pb: 2,
         ...(showDivider && {
           borderBottom: `1px solid ${theme.palette.divider}`,
