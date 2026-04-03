@@ -243,7 +243,7 @@ export const OrdersPage: React.FC = () => {
         primaryAction={{ label: 'Create Order', onClick: () => navigate('/sales/orders/create') }}
       />
 
-      <Box sx={{ mb: 3 }}>
+      <Box sx={{ mb: 2 }}>
         <FilterBar
           config={filterConfig}
           draftFilters={draftFilters}

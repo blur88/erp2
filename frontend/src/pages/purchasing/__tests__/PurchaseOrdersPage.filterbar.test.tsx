@@ -98,6 +98,16 @@ describe('PurchaseOrdersPage FilterBar integration', () => {
     expect(screen.getByPlaceholderText(/search purchase orders/i)).toBeInTheDocument()
   })
 
+  it('uses a 16px bottom margin below the filter bar wrapper', () => {
+    renderPage()
+
+    const filterRow = screen.getByPlaceholderText(/search purchase orders/i).closest('.MuiStack-root')
+    const filterWrapper = filterRow?.parentElement
+
+    expect(filterWrapper).not.toBeNull()
+    expect(window.getComputedStyle(filterWrapper as HTMLElement).marginBottom).toBe('16px')
+  })
+
   it('renders the master-detail workspace with split purchasing detail cards', () => {
     renderPage()
 

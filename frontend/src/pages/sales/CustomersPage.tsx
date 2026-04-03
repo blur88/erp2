@@ -423,7 +423,7 @@ const CustomersPage: React.FC = () => {
         primaryAction={{ label: 'New Customer', onClick: () => handleOpenForm() }}
       />
       {/* Filters and Search */}
-      <Box sx={{ mb: 3 }}>
+      <Box sx={{ mb: 2 }}>
         <FilterBar
           config={filterConfig}
           draftFilters={draftFilters}
