@@ -1,4 +1,4 @@
-import { Stack } from '@mui/material'
+import { CircularProgress, FormControl, InputLabel, MenuItem, Select, Stack, Tooltip } from '@mui/material'
 
 import { FilterPeriod } from './FilterPeriod'
 import { FilterSearch } from './FilterSearch'
@@ -18,12 +18,14 @@ interface Props<TFilters extends object> {
   hasActiveFilters: boolean
   searchInputRef?: React.RefObject<HTMLInputElement | null>
   sort?: FilterBarSortConfig
+  isFetching?: boolean
 }
 
 function renderQuickField<TFilters extends object>(
   field: FilterBarConfig<TFilters>['fields'][number],
   draftFilters: TFilters,
   handlers: FilterBarHandlers<TFilters>,
+  config: FilterBarConfig<TFilters>,
 ) {
   const value = draftFilters[field.field]
   const onChange = (nextValue: unknown) => handlers.onQuickFilterChange(field.field, nextValue)
@@ -57,6 +59,41 @@ function renderQuickField<TFilters extends object>(
     )
   }
 
+  if (field.type === 'compare') {
+    const periodField = config.fields.find((configField) => configField.type === 'period')
+    const periodValue = periodField ? (draftFilters[periodField.field] as PeriodValue) : null
+    const compareDisabled = periodValue?.key === 'today'
+    const selectId = `${String(field.field)}-select`
+    const labelId = `${String(field.field)}-label`
+
+    return (
+      <Tooltip
+        key={String(field.field)}
+        title={compareDisabled ? 'Comparison is not available for Today' : ''}
+        placement="top"
+      >
+        <span>
+          <FormControl size="small" sx={{ minWidth: 210 }} disabled={compareDisabled}>
+            <InputLabel id={labelId}>{field.label}</InputLabel>
+            <Select
+              id={selectId}
+              labelId={labelId}
+              disabled={compareDisabled}
+              value={(value as string | null) ?? ''}
+              label={field.label}
+              onChange={(event) => onChange((event.target.value || null) as string | null)}
+            >
+              <MenuItem value="">No Comparison</MenuItem>
+              <MenuItem value="previous_period">Previous Period</MenuItem>
+              <MenuItem value="last_month">Same Period Last Month</MenuItem>
+              <MenuItem value="last_year">Same Period Last Year</MenuItem>
+            </Select>
+          </FormControl>
+        </span>
+      </Tooltip>
+    )
+  }
+
   return null
 }
 
@@ -67,6 +104,7 @@ export function FilterBar<TFilters extends object>({
   hasActiveFilters,
   searchInputRef,
   sort,
+  isFetching,
 }: Props<TFilters>) {
   return (
     <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
@@ -79,7 +117,7 @@ export function FilterBar<TFilters extends object>({
           inputRef={searchInputRef}
         />
       ) : null}
-      {config.fields.map((field) => renderQuickField(field, draftFilters, handlers))}
+      {config.fields.map((field) => renderQuickField(field, draftFilters, handlers, config))}
       {sort ? (
         <AppButton
           size="filter"
@@ -94,6 +132,7 @@ export function FilterBar<TFilters extends object>({
           Reset
         </AppButton>
       ) : null}
+      {isFetching ? <CircularProgress size={16} /> : null}
     </Stack>
   )
 }
