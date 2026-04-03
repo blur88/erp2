@@ -56,6 +56,16 @@ describe('CustomersPage FilterBar', () => {
     expect(screen.getByPlaceholderText(/search by name or phone/i)).toBeInTheDocument()
   })
 
+  it('uses a 16px bottom margin below the filter bar wrapper', () => {
+    renderPage()
+
+    const filterRow = screen.getByPlaceholderText(/search by name or phone/i).closest('.MuiStack-root')
+    const filterWrapper = filterRow?.parentElement
+
+    expect(filterWrapper).not.toBeNull()
+    expect(window.getComputedStyle(filterWrapper as HTMLElement).marginBottom).toBe('16px')
+  })
+
   it('restores filters from URL and passes them to query', () => {
     renderPage('/?search=acme&status=active')
     expect(useGetCustomersQuery).toHaveBeenLastCalledWith(
