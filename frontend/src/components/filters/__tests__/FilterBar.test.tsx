@@ -41,6 +41,44 @@ describe('FilterBar', () => {
     expect(screen.getByLabelText(/status/i)).toBeInTheDocument()
   })
 
+  it('renders the optional sort button and calls onSort', () => {
+    const onSort = vi.fn()
+
+    render(
+      <FilterBar
+        {...baseProps}
+        sort={{
+          field: 'orderNumber',
+          sortBy: 'orderNumber',
+          sortOrder: 'desc',
+          onSort,
+        }}
+      />,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: /sort/i }))
+    expect(onSort).toHaveBeenCalledWith('orderNumber')
+  })
+
+  it('renders sort button in inactive state when sortBy differs from field', () => {
+    render(
+      <FilterBar
+        {...baseProps}
+        sort={{
+          field: 'orderNumber',
+          sortBy: 'orderDate',
+          sortOrder: 'asc',
+          onSort: vi.fn(),
+        }}
+      />,
+    )
+
+    const btn = screen.getByRole('button', { name: /sort/i })
+    expect(btn).toBeInTheDocument()
+    // inactive: MUI outlined variant has no contained class
+    expect(btn.className).not.toMatch(/MuiButton-contained/)
+  })
+
   it('shows reset only with active filters', () => {
     const { rerender } = render(<FilterBar {...baseProps} />)
     expect(screen.queryByRole('button', { name: /reset/i })).not.toBeInTheDocument()

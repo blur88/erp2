@@ -99,4 +99,66 @@ describe('SalesOrderQueryService', () => {
       ],
     });
   });
+
+  describe('findAll', () => {
+    function makeQueryBuilder() {
+      const qb: any = {
+        leftJoinAndSelect: jest.fn().mockReturnThis(),
+        select: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        skip: jest.fn().mockReturnThis(),
+        take: jest.fn().mockReturnThis(),
+        leftJoin: jest.fn().mockReturnThis(),
+        getMany: jest.fn().mockResolvedValue([]),
+        getRawOne: jest.fn().mockResolvedValue({ count: '0' }),
+      };
+      return qb;
+    }
+
+    it('searches customer name with ILIKE', async () => {
+      const qb = makeQueryBuilder();
+      salesOrderRepository.createQueryBuilder.mockReturnValue(qb);
+
+      await service.findAll({ search: 'Acme' });
+
+      const andWhereCalls: string[] = qb.andWhere.mock.calls.map((c: any[]) => c[0]);
+      const searchCall = andWhereCalls.find(
+        (c) => typeof c === 'string' && c.includes('customer.name ILIKE'),
+      );
+      expect(searchCall).toBeDefined();
+    });
+
+    it('searches product name with ILIKE in main query', async () => {
+      const qb = makeQueryBuilder();
+      salesOrderRepository.createQueryBuilder.mockReturnValue(qb);
+
+      await service.findAll({ search: 'Widget' });
+
+      const andWhereCalls: string[] = qb.andWhere.mock.calls.map((c: any[]) => c[0]);
+      const searchCall = andWhereCalls.find(
+        (c) => typeof c === 'string' && c.includes('product.name ILIKE'),
+      );
+      expect(searchCall).toBeDefined();
+    });
+
+    it('uses EXISTS subquery in count so an order with multiple matching items counts as 1', async () => {
+      const mainQb = makeQueryBuilder();
+      const countQb = makeQueryBuilder();
+      let callCount = 0;
+      salesOrderRepository.createQueryBuilder.mockImplementation(() => {
+        callCount++;
+        return callCount === 1 ? mainQb : countQb;
+      });
+
+      await service.findAll({ search: 'Widget' });
+
+      const countAndWhereCalls: string[] = countQb.andWhere.mock.calls.map((c: any[]) => c[0]);
+      const existsCall = countAndWhereCalls.find(
+        (c) => typeof c === 'string' && c.includes('EXISTS'),
+      );
+      expect(existsCall).toBeDefined();
+    });
+  });
 });

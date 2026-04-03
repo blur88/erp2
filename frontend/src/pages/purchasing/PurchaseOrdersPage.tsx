@@ -1,6 +1,5 @@
 import React, { useCallback, useMemo } from 'react'
-import { ArrowDownward as ArrowDownIcon, ArrowUpward as ArrowUpIcon, Sort as SortIcon } from '@mui/icons-material'
-import { Alert, Box, Button, Stack, useMediaQuery, useTheme } from '@mui/material'
+import { Alert, Box, useMediaQuery, useTheme } from '@mui/material'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 
 import MasterDetailWorkspace from '@/components/common/MasterDetailWorkspace'
@@ -184,29 +183,21 @@ export const PurchaseOrdersPage: React.FC = () => {
         primaryAction={{ label: 'Create Order', onClick: () => navigate('/purchasing/orders/create') }}
       />
 
-      <Stack direction={isMobile ? 'column' : 'row'} spacing={1} alignItems={isMobile ? 'stretch' : 'center'} sx={{ mb: 3 }}>
-        <Box sx={{ flex: 1 }}>
-          <FilterBar
-            config={filterConfig}
-            draftFilters={filterBar.draftFilters}
-            handlers={filterBar.handlers}
-            hasActiveFilters={filterBar.hasActiveFilters}
-            searchInputRef={pageState.searchInputRef}
-          />
-        </Box>
-        <Button
-          variant={pageState.sorting.sortBy === 'orderNumber' ? 'contained' : 'outlined'}
-          size="small"
-          startIcon={pageState.sorting.sortBy === 'orderNumber'
-            ? pageState.sorting.sortOrder === 'desc'
-              ? <ArrowDownIcon />
-              : <ArrowUpIcon />
-            : <SortIcon />}
-          onClick={() => handleSort('orderNumber')}
-        >
-          Sort
-        </Button>
-      </Stack>
+      <Box sx={{ mb: 3 }}>
+        <FilterBar
+          config={filterConfig}
+          draftFilters={filterBar.draftFilters}
+          handlers={filterBar.handlers}
+          hasActiveFilters={filterBar.hasActiveFilters}
+          searchInputRef={pageState.searchInputRef}
+          sort={{
+            field: 'orderNumber',
+            sortBy: pageState.sorting.sortBy,
+            sortOrder: pageState.sorting.sortOrder,
+            onSort: handleSort,
+          }}
+        />
+      </Box>
 
       {error && (
         <Alert severity="error" sx={{ mb: 3 }}>

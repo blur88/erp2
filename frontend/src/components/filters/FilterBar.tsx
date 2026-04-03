@@ -1,3 +1,8 @@
+import {
+  ArrowDownward as ArrowDownIcon,
+  ArrowUpward as ArrowUpIcon,
+  Sort as SortIcon,
+} from '@mui/icons-material'
 import { Button, Stack } from '@mui/material'
 
 import { FilterPeriod } from './FilterPeriod'
@@ -6,6 +11,7 @@ import { FilterSelect } from './FilterSelect'
 import type {
   FilterBarConfig,
   FilterBarHandlers,
+  FilterBarSortConfig,
   PeriodValue,
 } from '@/types/filterBar.types'
 
@@ -15,6 +21,7 @@ interface Props<TFilters extends object> {
   handlers: FilterBarHandlers<TFilters>
   hasActiveFilters: boolean
   searchInputRef?: React.RefObject<HTMLInputElement | null>
+  sort?: FilterBarSortConfig
 }
 
 function renderQuickField<TFilters extends object>(
@@ -63,6 +70,7 @@ export function FilterBar<TFilters extends object>({
   handlers,
   hasActiveFilters,
   searchInputRef,
+  sort,
 }: Props<TFilters>) {
   return (
     <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
@@ -79,6 +87,23 @@ export function FilterBar<TFilters extends object>({
       {hasActiveFilters ? (
         <Button size="small" variant="outlined" color="inherit" sx={{ ml: 1 }} onClick={handlers.onClearAll}>
           Reset
+        </Button>
+      ) : null}
+      {sort ? (
+        <Button
+          size="small"
+          variant={sort.sortBy === sort.field ? 'contained' : 'outlined'}
+          color={sort.sortBy === sort.field ? 'primary' : 'inherit'}
+          startIcon={
+            sort.sortBy === sort.field
+              ? sort.sortOrder === 'desc'
+                ? <ArrowDownIcon />
+                : <ArrowUpIcon />
+              : <SortIcon />
+          }
+          onClick={() => sort.onSort(sort.field)}
+        >
+          Sort
         </Button>
       ) : null}
     </Stack>

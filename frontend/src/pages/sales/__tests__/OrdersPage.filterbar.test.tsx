@@ -119,4 +119,23 @@ describe('OrdersPage FilterBar integration', () => {
       }),
     )
   })
+
+  it('restores fulfillmentStatus=fulfilled from URL and passes it to the query', () => {
+    renderPage('/?fulfillmentStatus=fulfilled')
+    expect(useGetSalesOrdersQuery).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        fulfillmentStatus: 'fulfilled',
+      }),
+    )
+  })
+
+  it('restores period=this_week from URL and resolves to fromDate/toDate in the query', () => {
+    renderPage('/?period=this_week')
+    expect(useGetSalesOrdersQuery).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        fromDate: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
+        toDate: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
+      }),
+    )
+  })
 })
