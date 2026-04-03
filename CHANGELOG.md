@@ -1,3 +1,10 @@
+## [1.45.1](https://github.com/blur88/erp2/compare/v1.45.0...v1.45.1) (2026-04-03)
+
+
+### Bug Fixes
+
+* reduce PageHeader bottom margin from 32px to 16px (closes [#271](https://github.com/blur88/erp2/issues/271)) ([4830383](https://github.com/blur88/erp2/commit/4830383c4d5631ab7cdff359394544ef0ac7cf65))
+
 # [1.45.0](https://github.com/blur88/erp2/compare/v1.44.0...v1.45.0) (2026-04-03)
 
 
