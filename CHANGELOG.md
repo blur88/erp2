@@ -1,3 +1,15 @@
+# [1.45.0](https://github.com/blur88/erp2/compare/v1.44.0...v1.45.0) (2026-04-03)
+
+
+### Bug Fixes
+
+* restore context header components and fix FilterBar button order/spacing ([de7baee](https://github.com/blur88/erp2/commit/de7baee98bbefdfd5063ae594b25572af2c0c521))
+
+
+### Features
+
+* add AppButton component with sort, loading, and filter-size support ([dd97a8b](https://github.com/blur88/erp2/commit/dd97a8b33fb418270e8657087419b691b39bb900))
+
 # [1.44.0](https://github.com/blur88/erp2/compare/v1.43.0...v1.44.0) (2026-04-03)
 
 
