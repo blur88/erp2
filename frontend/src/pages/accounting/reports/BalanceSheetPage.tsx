@@ -326,7 +326,7 @@ const BalanceSheetPage: React.FC = () => {
       : Math.abs(totalAssets - totalLiabilitiesAndEquity) < 0.01;
 
   return (
-    <Box sx={{ p: 3 }}>
+    <>
       <PageHeader
         variant="report"
         title="Balance Sheet"
@@ -625,7 +625,7 @@ const BalanceSheetPage: React.FC = () => {
           </Typography>
         </Paper>
       )}
-    </Box>
+    </>
   );
 };
 

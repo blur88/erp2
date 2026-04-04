@@ -243,7 +243,7 @@ const ProfitAndLossPage: React.FC = () => {
   };
 
   return (
-    <Box sx={{ p: 3 }}>
+    <>
       <PageHeader
         variant="report"
         title="Profit & Loss Statement"
@@ -522,7 +522,7 @@ const ProfitAndLossPage: React.FC = () => {
           </Typography>
         </Paper>
       )}
-    </Box>
+    </>
   );
 };
 

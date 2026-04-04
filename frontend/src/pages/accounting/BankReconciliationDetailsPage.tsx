@@ -187,15 +187,15 @@ const BankReconciliationDetailsPage: React.FC = () => {
 
   if (!reconciliation) {
     return (
-      <Box sx={{ p: 3 }}>
+      <>
         <Alert severity="error">Bank reconciliation not found</Alert>
         <Button onClick={handleBack} sx={{ mt: 2 }}>Back</Button>
-      </Box>
+      </>
     );
   }
 
   return (
-    <Box sx={{ p: 3 }}>
+    <>
       <PageHeader
         variant="workflow"
         title={reconciliation.account ? `${reconciliation.account.code} - ${reconciliation.account.name}` : 'Bank Reconciliation'}
@@ -340,7 +340,7 @@ const BankReconciliationDetailsPage: React.FC = () => {
           </Table>
         </TableContainer>
       </Paper>
-    </Box>
+    </>
   );
 };
 

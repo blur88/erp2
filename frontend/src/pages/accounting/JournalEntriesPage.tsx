@@ -349,7 +349,7 @@ const JournalEntriesPage: React.FC = () => {
   const someSelected = selectedIds.size > 0 && selectedIds.size < selectableEntries.length
 
   return (
-    <Box sx={{ p: 3 }}>
+    <>
       {/* Account Mapping Warning */}
       <AccountMappingWarning context="system" />
 
@@ -696,7 +696,7 @@ const JournalEntriesPage: React.FC = () => {
         onCancel={() => setIsBulkDeleteConfirmOpen(false)}
         loading={actionLoading}
       />
-    </Box>
+    </>
   )
 }
 

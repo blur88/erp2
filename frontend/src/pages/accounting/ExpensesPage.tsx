@@ -268,7 +268,7 @@ const ExpensesPage: React.FC = () => {
   })
 
   return (
-    <Box sx={{ p: 3 }}>
+    <>
       <PageHeader
         title="Expenses"
         subtitle="Record and manage business expense transactions"
@@ -469,7 +469,7 @@ const ExpensesPage: React.FC = () => {
           <Button variant="contained" onClick={save}>Save</Button>
         </DialogActions>
       </Dialog>
-    </Box>
+    </>
   )
 }
 

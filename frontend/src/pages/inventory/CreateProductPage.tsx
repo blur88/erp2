@@ -7,7 +7,6 @@ import {
   TextField,
   Typography,
   Alert,
-  Container,
   Card,
   CardContent,
 
@@ -387,8 +386,7 @@ const CreateProductPage: React.FC = () => {
   }
 
   return (
-    <Container maxWidth="xl">
-      <Box sx={{ py: 3 }}>
+    <>
         {/* Header */}
         <PageHeader
           variant="workflow"
@@ -820,8 +818,7 @@ const CreateProductPage: React.FC = () => {
             </Grid>
           </form>
         )}
-      </Box>
-    </Container>
+    </>
   );
 }
 

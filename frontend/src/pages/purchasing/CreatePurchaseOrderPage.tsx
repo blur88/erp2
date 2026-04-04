@@ -16,7 +16,6 @@ import {
   Paper,
   Autocomplete,
   Alert,
-  Container,
   Card,
   CardContent,
   MenuItem,
@@ -338,8 +337,7 @@ const CreatePurchaseOrderPage: React.FC = () => {
   }, [JSON.stringify(watchedItems), watchedShipping])
 
   return (
-    <Container maxWidth="xl">
-      <Box sx={{ py: 3 }}>
+    <>
         {/* Header */}
         <PageHeader
           variant="workflow"
@@ -917,8 +915,7 @@ const CreatePurchaseOrderPage: React.FC = () => {
           </Grid>
         </form>
         )}
-      </Box>
-    </Container>
+    </>
   );
 }
 

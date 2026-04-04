@@ -443,7 +443,7 @@ const StockAdjustmentsPage: React.FC = () => {
   })
 
   return (
-    <Box sx={{ p: 3 }}>
+    <>
       {/* Header */}
       <PageHeader
         title="Stock Adjustments"
@@ -1030,7 +1030,7 @@ const StockAdjustmentsPage: React.FC = () => {
         onCancel={handleCancelCancelDialog}
         severity="warning"
       />
-    </Box>
+    </>
   );
 }
 

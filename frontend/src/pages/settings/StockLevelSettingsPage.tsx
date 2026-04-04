@@ -86,7 +86,7 @@ const StockLevelSettingsPage: React.FC = () => {
   }
 
   return (
-    <Box sx={{ p: 3 }}>
+    <>
       <PageHeader
         title="Stock Level Settings"
         subtitle="Configure thresholds for low stock classification across all products"
@@ -151,7 +151,7 @@ const StockLevelSettingsPage: React.FC = () => {
           </Grid>
         </form>
       </Paper>
-    </Box>
+    </>
   )
 }
 

@@ -771,7 +771,7 @@ const SalesByProductSummary: React.FC = () => {
   }
 
   return (
-    <Box sx={{ p: 3, width: '100%' }}>
+    <>
       <PageHeader
         variant="report"
         title={reportTitle}
@@ -1671,7 +1671,7 @@ const SalesByProductSummary: React.FC = () => {
           </Button>
         </DialogActions>
       </Dialog>
-    </Box>
+    </>
   );
 }
 

@@ -281,7 +281,7 @@ const UserManagementPage: React.FC = () => {
   }
 
   return (
-    <Box sx={{ p: 3 }}>
+    <>
       {/* Header */}
       <PageHeader
         title="User Management"
@@ -671,7 +671,7 @@ const UserManagementPage: React.FC = () => {
         onConfirm={handleConfirmAction}
         onCancel={handleConfirmClose}
       />
-    </Box>
+    </>
   )
 }
 

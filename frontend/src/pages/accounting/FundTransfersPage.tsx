@@ -205,7 +205,7 @@ const FundTransfersPage: React.FC = () => {
   }
 
   return (
-    <Box sx={{ p: 3 }}>
+    <>
       <PageHeader
         title="Fund Transfers"
         subtitle="Move funds between accounts and review transfer history"
@@ -478,7 +478,7 @@ const FundTransfersPage: React.FC = () => {
           </Button>
         </DialogActions>
       </Dialog>
-    </Box>
+    </>
   )
 }
 

@@ -195,7 +195,7 @@ const CompanySettingsPage: React.FC = () => {
   }
 
   return (
-    <Box sx={{ p: 3 }}>
+    <>
       {/* Page Header */}
       <PageHeader title="Company Settings" subtitle="Configure your company profile and business information" />
       {/* Error Alert */}
@@ -565,7 +565,7 @@ const CompanySettingsPage: React.FC = () => {
           </Grid>
         </form>
       </Paper>
-    </Box>
+    </>
   );
 }
 

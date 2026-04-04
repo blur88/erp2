@@ -175,7 +175,7 @@ export const PurchaseOrdersPage: React.FC = () => {
   }, [navigate, pageState.journalEntryRef])
 
   return (
-    <Box sx={{ p: 3 }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
       <PageHeader
         title="Purchase Orders"
         subtitle="Manage supplier purchase orders and procurement"

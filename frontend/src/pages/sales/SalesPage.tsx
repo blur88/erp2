@@ -193,7 +193,7 @@ const SalesPage: React.FC = () => {
   ]
 
   return (
-    <Box sx={{ p: 3 }}>
+    <>
       <PageHeader
         title="Sales Overview"
         subtitle="Monitor sales performance and manage customer relationships"
@@ -429,7 +429,7 @@ const SalesPage: React.FC = () => {
           <TopCustomersList customers={topCustomers as any[]} loading={isLoading} />
         </Grid>
       </Grid>
-    </Box>
+    </>
   )
 }
 

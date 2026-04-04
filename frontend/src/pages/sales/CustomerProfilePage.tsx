@@ -166,7 +166,7 @@ const CustomerProfilePage: React.FC = () => {
 
   if (loading) {
     return (
-      <Box sx={{ p: 3, display: 'flex', justifyContent: 'center', pt: 10 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'center', pt: 10 }}>
         <CircularProgress />
       </Box>
     )
@@ -174,14 +174,14 @@ const CustomerProfilePage: React.FC = () => {
 
   if (error || !customer) {
     return (
-      <Box sx={{ p: 3 }}>
+      <>
         <Alert severity="error" sx={{ mb: 2 }}>
           {error ?? 'Customer not found.'}
         </Alert>
         <Button startIcon={<BackIcon />} onClick={() => navigate('/sales/customers')}>
           Back to Customers
         </Button>
-      </Box>
+      </>
     )
   }
 
@@ -194,7 +194,7 @@ const CustomerProfilePage: React.FC = () => {
     .join('\n')
 
   return (
-    <Box sx={{ p: 3 }}>
+    <>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Button startIcon={<BackIcon />} onClick={() => navigate('/sales/customers')}>
           Back to Customers
@@ -426,7 +426,7 @@ const CustomerProfilePage: React.FC = () => {
         severity="warning"
         loading={deleteLoading}
       />
-    </Box>
+    </>
   )
 }
 

@@ -354,7 +354,7 @@ const JournalEntryFormPage: React.FC = () => {
   }
 
   return (
-    <Box sx={{ p: 3 }}>
+    <>
       {/* Header */}
       <PageHeader
         variant="workflow"
@@ -691,7 +691,7 @@ const JournalEntryFormPage: React.FC = () => {
           </Grid>
         </Grid>
       </form>
-    </Box>
+    </>
   )
 }
 

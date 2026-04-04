@@ -360,7 +360,7 @@ const SuppliersPage: React.FC = () => {
 
 
   return (
-    <Box sx={{ p: 3 }}>
+    <>
       {/* Header */}
       <PageHeader
         title="Suppliers"
@@ -1030,7 +1030,7 @@ const SuppliersPage: React.FC = () => {
         open={isDeletedDialogOpen}
         onClose={() => setIsDeletedDialogOpen(false)}
       />
-    </Box>
+    </>
   );
 }
 

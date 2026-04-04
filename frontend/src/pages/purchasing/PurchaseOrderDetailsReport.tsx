@@ -690,7 +690,7 @@ const PurchaseOrderDetailsReport: React.FC = () => {
   }
 
   return (
-    <Box sx={{ p: 3 }}>
+    <>
       <PageHeader
         variant="report"
         title={reportTitle}
@@ -1545,7 +1545,7 @@ const PurchaseOrderDetailsReport: React.FC = () => {
           </Button>
         </DialogActions>
       </Dialog>
-    </Box>
+    </>
   );
 }
 

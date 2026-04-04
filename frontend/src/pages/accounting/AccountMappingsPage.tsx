@@ -282,7 +282,7 @@ const AccountMappingsPage: React.FC = () => {
   }
 
   return (
-    <Box sx={{ p: 3 }}>
+    <>
       <PageHeader
         title="Account Mappings"
         subtitle="Configure default account assignments for transactions"
@@ -562,7 +562,7 @@ const AccountMappingsPage: React.FC = () => {
         severity="warning"
         loading={clearing}
       />
-    </Box>
+    </>
   )
 }
 

@@ -16,7 +16,6 @@ import {
   Paper,
   Autocomplete,
   Alert,
-  Container,
   Card,
   CardContent,
   useTheme,
@@ -277,8 +276,7 @@ const CreateStockAdjustmentPage: React.FC = () => {
   }
 
   return (
-    <Container maxWidth="xl">
-      <Box sx={{ py: 3 }}>
+    <>
         {/* Header */}
         <PageHeader
           variant="workflow"
@@ -615,8 +613,7 @@ const CreateStockAdjustmentPage: React.FC = () => {
             </Grid>
           </form>
         )}
-      </Box>
-    </Container>
+    </>
   );
 }
 

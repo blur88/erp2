@@ -536,7 +536,7 @@ const ProductCostReport: React.FC = () => {
   }
 
   return (
-    <Box sx={{ p: 3 }}>
+    <>
       <PageHeader
         variant="report"
         title="Product Cost Report"
@@ -1253,7 +1253,7 @@ const ProductCostReport: React.FC = () => {
           </Button>
         </DialogActions>
       </Dialog>
-    </Box>
+    </>
   );
 }
 
