@@ -1,3 +1,22 @@
+## [1.46.1](https://github.com/blur88/erp2/compare/v1.46.0...v1.46.1) (2026-04-04)
+
+
+### Bug Fixes
+
+* **accounting:** remove redundant root p:3 wrappers from all accounting pages ([d2f0cf1](https://github.com/blur88/erp2/commit/d2f0cf1a0f5ae6e0b30eb7116c374be1cf715ce8))
+* **accounting:** remove root p:3 from multi-return-path pages ([8a9f3d6](https://github.com/blur88/erp2/commit/8a9f3d67d830b388496c109e388d5917059fc11b))
+* **dashboard,audit:** remove redundant root p:3 wrappers ([33f9b2b](https://github.com/blur88/erp2/commit/33f9b2bafe063eac29837448ce7668d536b58909))
+* **inventory:** remove Container+py:3 wrapper from create/edit pages ([7bd7711](https://github.com/blur88/erp2/commit/7bd7711e27d59b25ee133c6bc2bbe5803128c581))
+* **inventory:** remove redundant root p:3 wrappers from list and report pages ([3f9505f](https://github.com/blur88/erp2/commit/3f9505f9af85c9b4a9387fbdbfbf173d06ca3266))
+* **layout:** adjust MasterDetailWorkspace height calc for pt:11 layout change ([b409f13](https://github.com/blur88/erp2/commit/b409f13c9bf7fc77308acffc1ce7e1468ad6763d))
+* **layout:** set pt:11 in MainLayout for 24px gap below AppBar ([1650d76](https://github.com/blur88/erp2/commit/1650d76573e273d2c282ffea9b45b5677a6c42f4))
+* **layout:** use flex chain instead of calc() for MasterDetailWorkspace height ([9fe938d](https://github.com/blur88/erp2/commit/9fe938dc444d42ffb9df3007258b52398f5f4742))
+* **purchasing:** remove Container+py:3 wrapper from create purchase order page ([a67a844](https://github.com/blur88/erp2/commit/a67a844f022202efa3e2fadf2399187ae525c9ac))
+* **purchasing:** remove redundant root p:3 wrappers from list and report pages ([3f19ad6](https://github.com/blur88/erp2/commit/3f19ad65ca6e959babcd3cdec2b93cff7c7c9778))
+* **sales:** remove Container/p:3 wrappers from create order and customer profile pages ([4903b07](https://github.com/blur88/erp2/commit/4903b07e3db7578f4aa8e16de286fe5105777679))
+* **sales:** remove redundant root p:3 wrappers from list and report pages ([ff141ba](https://github.com/blur88/erp2/commit/ff141ba952cbafca53c97106d2405ada1feadf47))
+* **settings:** remove redundant root p:3 wrappers from all settings pages ([cd1726a](https://github.com/blur88/erp2/commit/cd1726a0217cdedffd08067c4d40d8a4fce7afbf))
+
 # [1.46.0](https://github.com/blur88/erp2/compare/v1.45.2...v1.46.0) (2026-04-03)
 
 
