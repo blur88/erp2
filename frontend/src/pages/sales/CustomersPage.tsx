@@ -419,19 +419,19 @@ const CustomersPage: React.FC = () => {
       <PageHeader
         title="Customers"
         subtitle="View customer profiles and client account details"
+        variant="workflow"
         secondaryAction={{ label: 'View Deleted', onClick: () => setIsDeletedDialogOpen(true) }}
         primaryAction={{ label: 'New Customer', onClick: () => handleOpenForm() }}
+        toolbar={(
+          <FilterBar
+            config={filterConfig}
+            draftFilters={draftFilters}
+            handlers={handlers}
+            hasActiveFilters={hasActiveFilters}
+            searchInputRef={searchInputRef}
+          />
+        )}
       />
-      {/* Filters and Search */}
-      <Box sx={{ mb: 2 }}>
-        <FilterBar
-          config={filterConfig}
-          draftFilters={draftFilters}
-          handlers={handlers}
-          hasActiveFilters={hasActiveFilters}
-          searchInputRef={searchInputRef}
-        />
-      </Box>
       {/* Error Alert */}
       {(pageError || error) && (
         <Alert severity="error" sx={{ mb: 3 }} onClose={() => setPageError(null)}>

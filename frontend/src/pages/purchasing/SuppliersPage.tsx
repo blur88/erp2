@@ -365,19 +365,19 @@ const SuppliersPage: React.FC = () => {
       <PageHeader
         title="Suppliers"
         subtitle="Manage your suppliers and vendor relationships"
+        variant="workflow"
         secondaryAction={{ label: 'View Deleted', onClick: () => setIsDeletedDialogOpen(true) }}
         primaryAction={{ label: 'Add Supplier', onClick: () => handleOpenForm() }}
+        toolbar={(
+          <FilterBar
+            config={filterConfig}
+            draftFilters={draftFilters}
+            handlers={handlers}
+            hasActiveFilters={hasActiveFilters}
+            searchInputRef={searchInputRef}
+          />
+        )}
       />
-      {/* Filters and Search */}
-      <Box sx={{ mb: 3 }}>
-        <FilterBar
-          config={filterConfig}
-          draftFilters={draftFilters}
-          handlers={handlers}
-          hasActiveFilters={hasActiveFilters}
-          searchInputRef={searchInputRef}
-        />
-      </Box>
       {/* Error Alert */}
       {error && (
         <Alert severity="error" sx={{ mb: 3 }}>
