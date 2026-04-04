@@ -1,3 +1,10 @@
+## [1.47.1](https://github.com/blur88/erp2/compare/v1.47.0...v1.47.1) (2026-04-04)
+
+
+### Bug Fixes
+
+* **tests:** remove stale marginBottom assertions after FilterBar moved to PageHeader toolbar ([dd7860b](https://github.com/blur88/erp2/commit/dd7860b7284c6ac9f3858d5b13a84dcfe0dbeb27)), closes [#284](https://github.com/blur88/erp2/issues/284)
+
 # [1.47.0](https://github.com/blur88/erp2/compare/v1.46.1...v1.47.0) (2026-04-04)
 
 
