@@ -242,7 +242,7 @@ const AccountActivityPage: React.FC = () => {
   };
 
   return (
-    <Box sx={{ p: 3 }}>
+    <>
       <PageHeader
         variant="report"
         title="Account Activity Report"
@@ -714,7 +714,7 @@ const AccountActivityPage: React.FC = () => {
           </Typography>
         </Paper>
       )}
-    </Box>
+    </>
   );
 };
 

@@ -81,7 +81,7 @@ const SettlementsPage: React.FC = () => {
   };
 
   return (
-    <Box sx={{ p: 3 }}>
+    <>
       <PageHeader
         title="Settlements"
         subtitle="Settle pending payments by payment method"
@@ -154,7 +154,7 @@ const SettlementsPage: React.FC = () => {
           <Button variant="contained" color="error" onClick={onCancel}>Cancel Settlement</Button>
         </DialogActions>
       </Dialog>
-    </Box>
+    </>
   );
 };
 

@@ -199,7 +199,7 @@ const ChartOfAccountsPage: React.FC = () => {
   }
 
   return (
-    <Box sx={{ p: 3 }}>
+    <>
       {/* Account Mapping Warning */}
       <AccountMappingWarning context="system" />
 
@@ -734,7 +734,7 @@ const ChartOfAccountsPage: React.FC = () => {
         onClose={() => setDeletedDialogOpen(false)}
         onChanged={() => refetch()}
       />
-    </Box>
+    </>
   )
 }
 

@@ -227,7 +227,7 @@ const AccountingDashboardPage: React.FC = () => {
   });
 
   return (
-    <Box sx={{ p: 3 }}>
+    <>
       <PageHeader
         variant="overview"
         title="Accounting Dashboard"
@@ -584,7 +584,7 @@ const AccountingDashboardPage: React.FC = () => {
           </Paper>
         </Grid>
       </Grid>
-    </Box>
+    </>
   );
 };
 

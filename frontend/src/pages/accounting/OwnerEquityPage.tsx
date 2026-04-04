@@ -220,7 +220,7 @@ const OwnerEquityPage: React.FC = () => {
   })
 
   return (
-    <Box sx={{ p: 3 }}>
+    <>
       <PageHeader
         title="Owner Equity"
         subtitle="Track owner contributions and equity transactions"
@@ -395,7 +395,7 @@ const OwnerEquityPage: React.FC = () => {
           </Button>
         </DialogActions>
       </Dialog>
-    </Box>
+    </>
   )
 }
 

@@ -167,7 +167,7 @@ const BankReconciliationsPage: React.FC = () => {
       : periods.find((period: any) => period.id === periodFilter)?.name || periodFilter;
 
   return (
-    <Box sx={{ p: 3 }}>
+    <>
       <PageHeader
         variant="workflow"
         title="Bank Reconciliations"
@@ -291,7 +291,7 @@ const BankReconciliationsPage: React.FC = () => {
         onClose={handleFormClose}
         onSuccess={handleFormSuccess}
       />
-    </Box>
+    </>
   );
 };
 

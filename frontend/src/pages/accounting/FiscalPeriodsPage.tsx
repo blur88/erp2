@@ -273,7 +273,7 @@ const FiscalPeriodsPage: React.FC = () => {
   }, [periods])
 
   return (
-    <Box sx={{ p: 3 }}>
+    <>
       {/* Account Mapping Warning */}
       <AccountMappingWarning context="system" />
 
@@ -730,7 +730,7 @@ const FiscalPeriodsPage: React.FC = () => {
         onCancel={handleCancelReopen}
         severity="info"
       />
-    </Box>
+    </>
   )
 }
 

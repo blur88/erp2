@@ -105,7 +105,7 @@ const TrialBalancePage: React.FC = () => {
     : calculateTotals();
 
   return (
-    <Box sx={{ p: 3 }}>
+    <>
       <PageHeader
         variant="report"
         title="Trial Balance"
@@ -242,7 +242,7 @@ const TrialBalancePage: React.FC = () => {
           </TableContainer>
         </Paper>
       )}
-    </Box>
+    </>
   );
 };
 
