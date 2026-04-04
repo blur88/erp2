@@ -372,7 +372,7 @@ const DashboardPage: React.FC = () => {
   }
 
   return (
-    <Box sx={{ p: 3 }}>
+    <>
       <PageHeader
         variant="overview"
         title="Dashboard"
@@ -416,7 +416,7 @@ const DashboardPage: React.FC = () => {
         totalCategories={dashboardData?.inventory.totalCategories || 0}
         outOfStockCount={dashboardData?.inventory.outOfStockCount || 0}
       />
-    </Box>
+    </>
   )
 }
 

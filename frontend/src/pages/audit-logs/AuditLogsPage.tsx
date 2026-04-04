@@ -130,7 +130,7 @@ const AuditLogsPage: React.FC = () => {
   const entityTypes = statistics?.byEntityType.map((e) => e.entityType) ?? []
 
   return (
-    <Box sx={{ display: 'flex', height: '100%', gap: 2, p: 3 }}>
+    <Box sx={{ display: 'flex', height: '100%', gap: 2 }}>
       {/* Sidebar */}
       <Box sx={{ flexShrink: 0, width: sidebarCollapsed ? 48 : 260, transition: 'width 0.2s' }}>
         <FilterSidebar entityTypes={entityTypes} onApply={handleApply} />
