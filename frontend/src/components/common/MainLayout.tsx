@@ -83,7 +83,7 @@ const MainLayout: React.FC = () => {
         component="main"
         sx={{
           flexGrow: 1,
-          pt: 8,
+          pt: 11,
           px: { xs: 2, sm: 3 },
           pb: 3,
           bgcolor: 'background.default',

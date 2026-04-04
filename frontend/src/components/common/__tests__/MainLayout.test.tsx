@@ -1,4 +1,4 @@
-import { render } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import { Provider } from 'react-redux'
 import { configureStore } from '@reduxjs/toolkit'
 import { describe, it, vi } from 'vitest'
@@ -26,5 +26,17 @@ describe('MainLayout', () => {
         </MemoryRouter>
       </Provider>
     )
+  })
+
+  it('applies a 24px gap below the app bar', () => {
+    render(
+      <Provider store={makeStore()}>
+        <MemoryRouter>
+          <MainLayout />
+        </MemoryRouter>
+      </Provider>
+    )
+
+    expect(screen.getByRole('main')).toHaveStyle({ paddingTop: '88px' })
   })
 })
