@@ -225,7 +225,7 @@ const PurchasingPage: React.FC = () => {
   }
 
   return (
-    <Box sx={{ p: 3 }}>
+    <>
       <PageHeader
         variant="overview"
         title="Purchasing Overview"
@@ -510,7 +510,7 @@ const PurchasingPage: React.FC = () => {
           </Grid>
         </Grid>
       </Box>
-    </Box>
+    </>
   )
 }
 

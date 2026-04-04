@@ -338,7 +338,7 @@ const VendorPaymentsPage: React.FC = () => {
   })
 
   return (
-    <Box sx={{ p: 3 }}>
+    <>
       {/* Header */}
       <PageHeader
         title="Vendor Payments"
@@ -992,7 +992,7 @@ const VendorPaymentsPage: React.FC = () => {
           payment={selectedPayment}
         />
       )}
-    </Box>
+    </>
   );
 }
 

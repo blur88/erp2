@@ -342,7 +342,7 @@ const GoodsReceivedPage: React.FC = () => {
   })
 
   return (
-    <Box sx={{ p: 3 }}>
+    <>
       {/* Header */}
       <PageHeader
         title="Goods Received Notes"
@@ -910,7 +910,7 @@ const GoodsReceivedPage: React.FC = () => {
           grn={selectedGRN}
         />
       )}
-    </Box>
+    </>
   );
 }
 
