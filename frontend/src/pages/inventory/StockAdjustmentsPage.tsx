@@ -16,8 +16,6 @@ import {
   Alert,
   Grid,
   IconButton,
-  useTheme,
-  useMediaQuery,
   Stack,
 } from '@mui/material'
 import {
@@ -117,8 +115,6 @@ const AdjustmentRow = memo(({ adjustment, index, selectedAdjustmentId, focusedAd
 AdjustmentRow.displayName = 'AdjustmentRow'
 
 const StockAdjustmentsPage: React.FC = () => {
-  const theme = useTheme()
-  const isMobile = useMediaQuery(theme.breakpoints.down('md'))
   const navigate = useNavigate()
   const location = useLocation()
   const dispatch = useAppDispatch()
@@ -448,37 +444,35 @@ const StockAdjustmentsPage: React.FC = () => {
       <PageHeader
         title="Stock Adjustments"
         subtitle="View and manage stock adjustment history"
+        variant="workflow"
         secondaryAction={{ label: 'View Deleted', onClick: () => setShowDeletedDialog(true) }}
         primaryAction={{ label: 'New Adjustment', onClick: () => navigate('/inventory/stock-adjustments/create') }}
+        toolbar={(
+          <FilterBar
+            config={filterConfig}
+            draftFilters={draftFilters}
+            handlers={handlers}
+            hasActiveFilters={hasActiveFilters}
+            searchInputRef={searchInputRef}
+          />
+        )}
       />
-      {/* Filters and Search */}
-      <Box sx={{ mb: 3 }}>
-        <Stack direction={isMobile ? 'column' : 'row'} spacing={1} alignItems={isMobile ? 'stretch' : 'flex-start'}>
-          <Box sx={{ flex: 1 }}>
-            <FilterBar
-              config={filterConfig}
-              draftFilters={draftFilters}
-              handlers={handlers}
-              hasActiveFilters={hasActiveFilters}
-              searchInputRef={searchInputRef}
-            />
-          </Box>
-
-          <Button
-            variant={sortState.sortBy === 'adjustmentDate' ? 'contained' : 'outlined'}
-            size="medium"
-            startIcon={sortState.sortBy === 'adjustmentDate' ? (sortState.sortOrder === 'desc' ? <ArrowDownIcon /> : <ArrowUpIcon />) : <SortIcon />}
-            onClick={() => handleSort('adjustmentDate')}
-            sx={{
-              height: '40px',
-              fontSize: '0.875rem',
-              minWidth: 'auto',
-              px: 2,
-            }}
-          >
-            Sort
-          </Button>
-        </Stack>
+      {/* Sort button */}
+      <Box sx={{ mb: 3, display: 'flex', justifyContent: 'flex-end' }}>
+        <Button
+          variant={sortState.sortBy === 'adjustmentDate' ? 'contained' : 'outlined'}
+          size="medium"
+          startIcon={sortState.sortBy === 'adjustmentDate' ? (sortState.sortOrder === 'desc' ? <ArrowDownIcon /> : <ArrowUpIcon />) : <SortIcon />}
+          onClick={() => handleSort('adjustmentDate')}
+          sx={{
+            height: '40px',
+            fontSize: '0.875rem',
+            minWidth: 'auto',
+            px: 2,
+          }}
+        >
+          Sort
+        </Button>
       </Box>
       {/* Error Display */}
       {error && (
