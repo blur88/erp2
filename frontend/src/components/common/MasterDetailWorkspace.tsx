@@ -25,7 +25,7 @@ const MasterDetailWorkspace: React.FC<MasterDetailWorkspaceProps> = ({
   }
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'row', height: 'calc(100vh - 324px)', gap: 3 }}>
+    <Box sx={{ display: 'flex', flexDirection: 'row', flex: 1, minHeight: 0, gap: 3 }}>
       <Box
         sx={{
           width: '25%',
