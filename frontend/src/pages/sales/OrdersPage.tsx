@@ -235,7 +235,7 @@ export const OrdersPage: React.FC = () => {
   }, [navigate, selectedOrder])
 
   return (
-    <Box sx={{ p: 3 }}>
+    <>
       <PageHeader
         title="Sales Orders"
         subtitle="Track sales orders and delivery status"
@@ -320,7 +320,7 @@ export const OrdersPage: React.FC = () => {
         onSubmitPayments={actions.handleRecordPayments}
         isLoading={pageState.isLoading}
       />
-    </Box>
+    </>
   )
 }
 

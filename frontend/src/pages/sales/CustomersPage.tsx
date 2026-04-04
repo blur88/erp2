@@ -415,7 +415,7 @@ const CustomersPage: React.FC = () => {
   }
 
   return (
-    <Box sx={{ p: 3 }}>
+    <>
       <PageHeader
         title="Customers"
         subtitle="View customer profiles and client account details"
@@ -1065,7 +1065,7 @@ const CustomersPage: React.FC = () => {
         open={isDeletedDialogOpen}
         onClose={() => setIsDeletedDialogOpen(false)}
       />
-    </Box>
+    </>
   );
 }
 

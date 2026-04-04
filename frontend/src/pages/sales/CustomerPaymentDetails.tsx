@@ -524,7 +524,7 @@ const CustomerPaymentDetails: React.FC = () => {
   }
 
   return (
-    <Box sx={{ p: 3 }}>
+    <>
       <PageHeader
         variant="report"
         title={reportTitle}
@@ -963,7 +963,7 @@ const CustomerPaymentDetails: React.FC = () => {
           )}
         </Grid>
       </Grid>
-    </Box>
+    </>
   );
 }
 

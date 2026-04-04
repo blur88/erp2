@@ -795,7 +795,7 @@ const CustomerOrderHistory: React.FC = () => {
   }
 
   return (
-    <Box sx={{ p: 3 }}>
+    <>
       <PageHeader
         variant="report"
         title={reportTitle}
@@ -1672,7 +1672,7 @@ const CustomerOrderHistory: React.FC = () => {
           </Button>
         </DialogActions>
       </Dialog>
-    </Box>
+    </>
   );
 }
 

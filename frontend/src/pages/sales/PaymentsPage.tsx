@@ -478,7 +478,7 @@ const PaymentsPage: React.FC = () => {
 
 
   return (
-    <Box sx={{ p: 3 }}>
+    <>
       {/* Header */}
       <PageHeader
         title="Payments"
@@ -992,7 +992,7 @@ const PaymentsPage: React.FC = () => {
           payment={selectedPayment}
         />
       )}
-    </Box>
+    </>
   );
 }
 

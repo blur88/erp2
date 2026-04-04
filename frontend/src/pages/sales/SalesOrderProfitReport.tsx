@@ -565,7 +565,7 @@ const SalesOrderProfitReport: React.FC = () => {
   }
 
   return (
-    <Box sx={{ p: 3 }}>
+    <>
       <PageHeader
         variant="report"
         title={reportTitle}
@@ -1123,7 +1123,7 @@ const SalesOrderProfitReport: React.FC = () => {
           )}
         </Grid>
       </Grid>
-    </Box>
+    </>
   );
 }
 

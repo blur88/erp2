@@ -179,7 +179,7 @@ const InvoicesPage: React.FC = () => {
   }, [navigate, pageState.journalEntryRef])
 
   return (
-    <Box sx={{ p: 3 }}>
+    <>
       {error && (
         <Alert severity="error" sx={{ mb: 3 }}>
           Failed to load invoices.
@@ -222,7 +222,7 @@ const InvoicesPage: React.FC = () => {
         onCloseDeletedInvoicesDialog={() => pageState.setDeletedInvoicesDialogOpen(false)}
         onClosePrintDialog={() => pageState.setPrintDialogOpen(false)}
       />
-    </Box>
+    </>
   )
 }
 
