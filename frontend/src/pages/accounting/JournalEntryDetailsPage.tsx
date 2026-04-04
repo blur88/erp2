@@ -169,12 +169,12 @@ const JournalEntryDetailsPage: React.FC = () => {
 
   if (!entry) {
     return (
-      <Box sx={{ p: 3 }}>
+      <>
         <Alert severity="error">Journal entry not found</Alert>
         <Button onClick={handleBack} sx={{ mt: 2 }}>
           Back to List
         </Button>
-      </Box>
+      </>
     )
   }
 
@@ -185,7 +185,7 @@ const JournalEntryDetailsPage: React.FC = () => {
   const difference = entry.totalDebits - entry.totalCredits
 
   return (
-    <Box sx={{ p: 3 }}>
+    <>
       <PageHeader
         variant="workflow"
         title={entry.referenceNumber}
@@ -512,7 +512,7 @@ const JournalEntryDetailsPage: React.FC = () => {
           </Button>
         </DialogActions>
       </Dialog>
-    </Box>
+    </>
   )
 }
 
