@@ -1,3 +1,15 @@
+# [1.47.0](https://github.com/blur88/erp2/compare/v1.46.1...v1.47.0) (2026-04-04)
+
+
+### Features
+
+* **layout:** migrate CustomersPage and SuppliersPage FilterBar to toolbar slot ([49bd73d](https://github.com/blur88/erp2/commit/49bd73d500f2f8bd7cf8e35c463daa0de08774c2))
+* **layout:** migrate OrdersPage and PurchaseOrdersPage FilterBar to toolbar slot ([bc72c6f](https://github.com/blur88/erp2/commit/bc72c6fe7b0791ec7aa62026a6049d11912b48d9))
+* **layout:** migrate overview dashboards FilterBar to PageHeader toolbar slot ([e9e938a](https://github.com/blur88/erp2/commit/e9e938a9006217bc668dbe1b45bad7498b1ab138))
+* **layout:** migrate PaymentsPage and StockAdjustmentsPage FilterBar to toolbar slot ([7f86a4c](https://github.com/blur88/erp2/commit/7f86a4cc616ac963d21ac4c4bc8cbd9b629beda0))
+* **layout:** migrate ProductsPage FilterBar to toolbar slot ([ec99946](https://github.com/blur88/erp2/commit/ec9994693ef82e5ff2b49536958754adb3e5899b))
+* **layout:** migrate UserManagementPage and PriceListsPage FilterBar to toolbar slot ([3f0ed51](https://github.com/blur88/erp2/commit/3f0ed51ebcd8b5a540a6947c761f4bb57838499e))
+
 ## [1.46.1](https://github.com/blur88/erp2/compare/v1.46.0...v1.46.1) (2026-04-04)
 
 
