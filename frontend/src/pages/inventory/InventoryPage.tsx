@@ -270,14 +270,15 @@ const InventoryPage: React.FC = () => {
         subtitle="Monitor stock levels, track movements, and manage inventory health"
         secondaryAction={{ label: 'Manage Categories', onClick: () => navigate('/inventory/categories') }}
         primaryAction={{ label: 'Add Product', onClick: () => navigate('/inventory/products') }}
-      />
-
-      <FilterBar
-        config={inventoryConfig}
-        draftFilters={draftFilters}
-        handlers={handlers}
-        hasActiveFilters={hasActiveFilters}
-        isFetching={isFetching}
+        toolbar={
+          <FilterBar
+            config={inventoryConfig}
+            draftFilters={draftFilters}
+            handlers={handlers}
+            hasActiveFilters={hasActiveFilters}
+            isFetching={isFetching}
+          />
+        }
       />
 
       {error && (

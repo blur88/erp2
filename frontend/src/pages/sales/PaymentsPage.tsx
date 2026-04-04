@@ -28,8 +28,6 @@ import {
   Divider,
   Link,
   Stack,
-  useTheme,
-  useMediaQuery,
 } from '@mui/material'
 import {
   Edit as EditIcon,
@@ -165,8 +163,6 @@ const PaymentRow = memo(({ payment, index, selectedPaymentId, focusedPaymentInde
 PaymentRow.displayName = 'PaymentRow'
 
 const PaymentsPage: React.FC = () => {
-  const theme = useTheme()
-  const isMobile = useMediaQuery(theme.breakpoints.down('md'))
   const navigate = useNavigate()
   const location = useLocation()
   const dispatch = useAppDispatch()
@@ -483,46 +479,45 @@ const PaymentsPage: React.FC = () => {
       <PageHeader
         title="Payments"
         subtitle="Review customer payments and transaction history"
+        variant="workflow"
         secondaryAction={{ label: 'View Deleted', onClick: () => setDeletedPaymentsDialogOpen(true) }}
+        toolbar={(
+          <FilterBar
+            config={filterConfig}
+            draftFilters={draftFilters}
+            handlers={filterBarHandlers}
+            hasActiveFilters={hasActiveFilters}
+            searchInputRef={searchInputRef}
+          />
+        )}
       />
-      {/* Filters and Search */}
-      <Box sx={{ mb: 3 }}>
-        <Stack direction={isMobile ? 'column' : 'row'} spacing={1} alignItems={isMobile ? 'stretch' : 'flex-start'}>
-          <Box sx={{ flex: 1 }}>
-            <FilterBar
-              config={filterConfig}
-              draftFilters={draftFilters}
-              handlers={filterBarHandlers}
-              hasActiveFilters={hasActiveFilters}
-              searchInputRef={searchInputRef}
+      {/* Preset customer chip + sort button */}
+      <Box sx={{ mb: 3, display: 'flex', alignItems: 'flex-start', gap: 1 }}>
+        {presetCustomerId ? (
+          <Stack direction="row" sx={{ flex: 1 }}>
+            <Chip
+              label={`Customer: ${customers.find((customer) => customer.id === presetCustomerId)?.name ?? presetCustomerId}`}
+              size="small"
+              variant="filled"
             />
-
-            {presetCustomerId ? (
-              <Stack direction="row" sx={{ mt: '7px' }}>
-                <Chip
-                  label={`Customer: ${customers.find((customer) => customer.id === presetCustomerId)?.name ?? presetCustomerId}`}
-                  size="small"
-                  variant="filled"
-                />
-              </Stack>
-            ) : null}
-          </Box>
-
-          <Button
-            variant={sortState.sortBy === 'paymentNumber' ? 'contained' : 'outlined'}
-            size="medium"
-            startIcon={sortState.sortBy === 'paymentNumber' ? (sortState.sortOrder === 'desc' ? <ArrowDownIcon /> : <ArrowUpIcon />) : <SortIcon />}
-            onClick={() => handleSort('paymentNumber')}
-            sx={{
-              height: '40px',
-              fontSize: '0.875rem',
-              minWidth: 'auto',
-              px: 2,
-            }}
-          >
-            Sort
-          </Button>
-        </Stack>
+          </Stack>
+        ) : (
+          <Box sx={{ flex: 1 }} />
+        )}
+        <Button
+          variant={sortState.sortBy === 'paymentNumber' ? 'contained' : 'outlined'}
+          size="medium"
+          startIcon={sortState.sortBy === 'paymentNumber' ? (sortState.sortOrder === 'desc' ? <ArrowDownIcon /> : <ArrowUpIcon />) : <SortIcon />}
+          onClick={() => handleSort('paymentNumber')}
+          sx={{
+            height: '40px',
+            fontSize: '0.875rem',
+            minWidth: 'auto',
+            px: 2,
+          }}
+        >
+          Sort
+        </Button>
       </Box>
       {/* Error Display */}
       {error && (

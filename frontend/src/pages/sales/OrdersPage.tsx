@@ -239,20 +239,20 @@ export const OrdersPage: React.FC = () => {
       <PageHeader
         title="Sales Orders"
         subtitle="Track sales orders and delivery status"
+        variant="workflow"
         secondaryAction={{ label: 'View Deleted', onClick: () => pageState.setDeletedOrdersDialogOpen(true) }}
         primaryAction={{ label: 'Create Order', onClick: () => navigate('/sales/orders/create') }}
+        toolbar={(
+          <FilterBar
+            config={filterConfig}
+            draftFilters={draftFilters}
+            handlers={filterHandlers}
+            hasActiveFilters={hasActiveFilters}
+            searchInputRef={pageState.searchInputRef}
+            sort={{ field: 'orderNumber', sortBy, sortOrder, onSort: handleSort }}
+          />
+        )}
       />
-
-      <Box sx={{ mb: 2 }}>
-        <FilterBar
-          config={filterConfig}
-          draftFilters={draftFilters}
-          handlers={filterHandlers}
-          hasActiveFilters={hasActiveFilters}
-          searchInputRef={pageState.searchInputRef}
-          sort={{ field: 'orderNumber', sortBy, sortOrder, onSort: handleSort }}
-        />
-      </Box>
 
       {error && (
         <Alert severity="error" sx={{ mb: 3 }}>

@@ -197,15 +197,17 @@ const SalesPage: React.FC = () => {
       <PageHeader
         title="Sales Overview"
         subtitle="Monitor sales performance and manage customer relationships"
+        variant="overview"
         primaryAction={{ label: 'Create Order', onClick: () => navigate('/sales/orders/create') }}
-      />
-
-      <FilterBar
-        config={salesConfig}
-        draftFilters={draftFilters}
-        handlers={handlers}
-        hasActiveFilters={hasActiveFilters}
-        isFetching={isFetching}
+        toolbar={
+          <FilterBar
+            config={salesConfig}
+            draftFilters={draftFilters}
+            handlers={handlers}
+            hasActiveFilters={hasActiveFilters}
+            isFetching={isFetching}
+          />
+        }
       />
 
       {error && (

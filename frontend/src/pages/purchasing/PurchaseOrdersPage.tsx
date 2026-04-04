@@ -179,25 +179,25 @@ export const PurchaseOrdersPage: React.FC = () => {
       <PageHeader
         title="Purchase Orders"
         subtitle="Manage supplier purchase orders and procurement"
+        variant="workflow"
         secondaryAction={{ label: 'View Deleted', onClick: () => pageState.setDeletedOrdersDialogOpen(true) }}
         primaryAction={{ label: 'Create Order', onClick: () => navigate('/purchasing/orders/create') }}
+        toolbar={(
+          <FilterBar
+            config={filterConfig}
+            draftFilters={filterBar.draftFilters}
+            handlers={filterBar.handlers}
+            hasActiveFilters={filterBar.hasActiveFilters}
+            searchInputRef={pageState.searchInputRef}
+            sort={{
+              field: 'orderNumber',
+              sortBy: pageState.sorting.sortBy,
+              sortOrder: pageState.sorting.sortOrder,
+              onSort: handleSort,
+            }}
+          />
+        )}
       />
-
-      <Box sx={{ mb: 2 }}>
-        <FilterBar
-          config={filterConfig}
-          draftFilters={filterBar.draftFilters}
-          handlers={filterBar.handlers}
-          hasActiveFilters={filterBar.hasActiveFilters}
-          searchInputRef={pageState.searchInputRef}
-          sort={{
-            field: 'orderNumber',
-            sortBy: pageState.sorting.sortBy,
-            sortOrder: pageState.sorting.sortOrder,
-            onSort: handleSort,
-          }}
-        />
-      </Box>
 
       {error && (
         <Alert severity="error" sx={{ mb: 3 }}>
