@@ -351,7 +351,7 @@ const CategoriesPage: React.FC = () => {
 
 
   return (
-    <Box sx={{ p: 3 }}>
+    <>
       <PageHeader
         variant="structure"
         title="Categories"
@@ -692,7 +692,7 @@ const CategoriesPage: React.FC = () => {
         onCancel={handleCancelDelete}
         severity="warning"
       />
-    </Box>
+    </>
   );
 }
 

@@ -670,7 +670,7 @@ const InventorySummaryReport: React.FC = () => {
   }
 
   return (
-    <Box sx={{ p: 3 }}>
+    <>
       <PageHeader
         variant="report"
         title="Inventory Summary"
@@ -1435,7 +1435,7 @@ const InventorySummaryReport: React.FC = () => {
           </Button>
         </DialogActions>
       </Dialog>
-    </Box>
+    </>
   );
 }
 

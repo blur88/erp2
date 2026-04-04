@@ -125,7 +125,7 @@ export const ProductsPage: React.FC = () => {
   const contentMarginRight = pageState.calculatorPanelOpen ? { xs: '0px', md: '320px' } : '0px'
 
   return (
-    <Box sx={{ p: 3 }}>
+    <>
       <Box sx={{ mb: 3, transition: 'margin-right 0.3s ease-in-out', marginRight: contentMarginRight }}>
         <PageHeader
           title="Products"
@@ -201,7 +201,7 @@ export const ProductsPage: React.FC = () => {
         onConfirmDelete={() => void actions.handleConfirmDelete(pageState.productToDelete)}
         onCancelDelete={actions.handleCancelDelete}
       />
-    </Box>
+    </>
   )
 }
 

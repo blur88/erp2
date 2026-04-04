@@ -263,7 +263,7 @@ const InventoryPage: React.FC = () => {
   }
 
   return (
-    <Box sx={{ p: 3 }}>
+    <>
       <PageHeader
         variant="overview"
         title="Inventory Overview"
@@ -614,7 +614,7 @@ const InventoryPage: React.FC = () => {
           </Grid>
         </Grid>
       </Box>
-    </Box>
+    </>
   )
 }
 
