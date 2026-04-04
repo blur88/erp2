@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react'
-import { Box, Stack, useMediaQuery, useTheme } from '@mui/material'
+import { Box } from '@mui/material'
 import Grid from '@mui/material/GridLegacy'
 import { useLocation, useNavigate } from 'react-router-dom'
 
@@ -36,9 +36,6 @@ export const ProductsPage: React.FC = () => {
   const navigate = useNavigate()
   const location = useLocation()
   const { showSuccess, showError } = useNotification()
-  const theme = useTheme()
-  const isMobile = useMediaQuery(theme.breakpoints.down('md'))
-
   const selectedProduct = useAppSelector(selectSelectedProduct)
   const pageState = useProductsPageState()
   const filterConfig = useMemo<FilterBarConfig<InventoryProductFilters>>(
@@ -130,27 +127,20 @@ export const ProductsPage: React.FC = () => {
         <PageHeader
           title="Products"
           subtitle="Manage your product catalog and inventory"
+          variant="workflow"
           secondaryAction={{ label: 'View Deleted', onClick: () => pageState.setDeletedProductsDialogOpen(true) }}
           primaryAction={{ label: 'Add Product', onClick: actions.handleAddProduct }}
+          toolbar={(
+            <FilterBar
+              config={filterConfig}
+              draftFilters={draftFilters}
+              handlers={handlers}
+              hasActiveFilters={hasActiveFilters}
+              searchInputRef={pageState.searchInputRef}
+            />
+          )}
         />
       </Box>
-
-      <Stack
-        direction={isMobile ? 'column' : 'row'}
-        spacing={1}
-        alignItems={isMobile ? 'stretch' : 'center'}
-        sx={{ mb: 2, transition: 'margin-right 0.3s ease-in-out', marginRight: contentMarginRight }}
-      >
-        <Box sx={{ flex: 1 }}>
-          <FilterBar
-            config={filterConfig}
-            draftFilters={draftFilters}
-            handlers={handlers}
-            hasActiveFilters={hasActiveFilters}
-            searchInputRef={pageState.searchInputRef}
-          />
-        </Box>
-      </Stack>
 
       <Box sx={{ transition: 'margin-right 0.3s ease-in-out', marginRight: contentMarginRight }}>
         <Grid container spacing={3}>
