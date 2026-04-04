@@ -94,7 +94,7 @@ const roles: RoleInfo[] = [
 
 const RoleManagementPage: React.FC = () => {
   return (
-    <Box sx={{ p: 3 }}>
+    <>
       {/* Header */}
       <PageHeader
         title="Roles & Permissions"
@@ -180,7 +180,7 @@ const RoleManagementPage: React.FC = () => {
           administrators can manage user accounts and assign roles.
         </Typography>
       </Paper>
-    </Box>
+    </>
   )
 }
 

@@ -239,7 +239,7 @@ const PriceListsPage: React.FC = () => {
 
   // Format date
   return (
-    <Box sx={{ p: 3 }}>
+    <>
       {/* Header */}
       <PageHeader
         title="Price Lists"
@@ -634,7 +634,7 @@ const PriceListsPage: React.FC = () => {
         onConfirm={handleConfirmAction}
         onCancel={handleConfirmClose}
       />
-    </Box>
+    </>
   )
 }
 

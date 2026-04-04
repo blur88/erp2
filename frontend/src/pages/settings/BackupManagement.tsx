@@ -79,7 +79,7 @@ const BackupManagement: React.FC = () => {
   };
 
   return (
-    <Box sx={{ p: 3 }}>
+    <>
       <PageHeader
         variant="system"
         title="Backup & Restore Management"
@@ -182,7 +182,7 @@ const BackupManagement: React.FC = () => {
           {error}
         </Alert>
       </Snackbar>
-    </Box>
+    </>
   );
 };
 

@@ -90,7 +90,7 @@ const PaymentMethodsPage: React.FC = () => {
   };
 
   return (
-    <Box sx={{ p: 3 }}>
+    <>
       <PageHeader
         title={title}
         subtitle="Manage payment methods and configurations"
@@ -205,7 +205,7 @@ const PaymentMethodsPage: React.FC = () => {
       </Dialog>
 
       <DeletedPaymentMethodsDialog open={deletedOpen} onClose={() => setDeletedOpen(false)} />
-    </Box>
+    </>
   );
 };
 

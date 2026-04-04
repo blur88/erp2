@@ -11,7 +11,7 @@ import PageHeader from '@/components/common/PageHeader'
 
 const SecuritySettingsPage: React.FC = () => {
   return (
-    <Box sx={{ p: 3 }}>
+    <>
       {/* Header */}
       <PageHeader
         title="Security Settings"
@@ -304,7 +304,7 @@ const SecuritySettingsPage: React.FC = () => {
           </Box>
         </Box>
       </Paper>
-    </Box>
+    </>
   )
 }
 

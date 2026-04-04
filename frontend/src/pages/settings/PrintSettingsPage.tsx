@@ -75,14 +75,14 @@ const PrintSettingsPage: React.FC = () => {
 
   if (error) {
     return (
-      <Box sx={{ p: 3 }}>
+      <>
         <Alert severity="error">{error}</Alert>
-      </Box>
+      </>
     )
   }
 
   return (
-    <Box sx={{ p: 3 }}>
+    <>
       {/* Header */}
       <PageHeader
         title="Print Settings"
@@ -112,7 +112,7 @@ const PrintSettingsPage: React.FC = () => {
           />
         </TabPanel>
       </Paper>
-    </Box>
+    </>
   )
 }
 

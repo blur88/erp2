@@ -189,7 +189,7 @@ const PriceListDetailsPage: React.FC = () => {
   }
 
   return (
-    <Box sx={{ p: 3 }}>
+    <>
       {/* Header */}
       <Box sx={{ mb: 3 }}>
         <Button startIcon={<BackIcon />} onClick={() => navigate('/settings/price-lists')} sx={{ mb: 2 }}>
@@ -564,7 +564,7 @@ const PriceListDetailsPage: React.FC = () => {
           </Button>
         </DialogActions>
       </Dialog>
-    </Box>
+    </>
   )
 }
 
