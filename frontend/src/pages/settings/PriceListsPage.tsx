@@ -244,19 +244,18 @@ const PriceListsPage: React.FC = () => {
       <PageHeader
         title="Price Lists"
         subtitle="Manage pricing structures and product prices"
+        variant="workflow"
         secondaryAction={{ label: 'Refresh', onClick: () => refetch() }}
         primaryAction={{ label: 'Add Price List', onClick: handleAddPriceList }}
+        toolbar={(
+          <FilterBar
+            config={filterConfig}
+            draftFilters={draftFilters}
+            handlers={filterHandlers}
+            hasActiveFilters={hasActiveFilters}
+          />
+        )}
       />
-
-      {/* Filters */}
-      <Box sx={{ mb: 3 }}>
-        <FilterBar
-          config={filterConfig}
-          draftFilters={draftFilters}
-          handlers={filterHandlers}
-          hasActiveFilters={hasActiveFilters}
-        />
-      </Box>
 
       {/* Error Alert */}
       {error && <Alert severity="error" sx={{ mb: 2 }}>Failed to load price lists</Alert>}

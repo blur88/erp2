@@ -286,6 +286,7 @@ const UserManagementPage: React.FC = () => {
       <PageHeader
         title="User Management"
         subtitle="Manage system users and access control"
+        variant="workflow"
         secondaryAction={{
           label: 'Refresh',
           onClick: () => {
@@ -294,6 +295,14 @@ const UserManagementPage: React.FC = () => {
           },
         }}
         primaryAction={{ label: 'Add User', onClick: handleAddUser }}
+        toolbar={(
+          <FilterBar
+            config={filterConfig}
+            draftFilters={draftFilters}
+            handlers={filterHandlers}
+            hasActiveFilters={hasActiveFilters}
+          />
+        )}
       />
 
       {/* Statistics Cards */}
@@ -317,16 +326,6 @@ const UserManagementPage: React.FC = () => {
           </Paper>
         </Box>
       )}
-
-      {/* Filters */}
-      <Box sx={{ mb: 3 }}>
-        <FilterBar
-          config={filterConfig}
-          draftFilters={draftFilters}
-          handlers={filterHandlers}
-          hasActiveFilters={hasActiveFilters}
-        />
-      </Box>
 
       {/* Error Alert */}
       {error && (
