@@ -231,14 +231,15 @@ const PurchasingPage: React.FC = () => {
         title="Purchasing Overview"
         subtitle="Monitor purchasing activities and manage supplier relationships"
         primaryAction={{ label: 'Create Purchase Order', onClick: () => navigate('/purchasing/orders/create') }}
-      />
-
-      <FilterBar
-        config={purchasingConfig}
-        draftFilters={draftFilters}
-        handlers={handlers}
-        hasActiveFilters={hasActiveFilters}
-        isFetching={isFetching}
+        toolbar={
+          <FilterBar
+            config={purchasingConfig}
+            draftFilters={draftFilters}
+            handlers={handlers}
+            hasActiveFilters={hasActiveFilters}
+            isFetching={isFetching}
+          />
+        }
       />
 
       {error && (
