@@ -1,3 +1,12 @@
+# [1.50.0](https://github.com/blur88/erp2/compare/v1.49.2...v1.50.0) (2026-04-05)
+
+
+### Features
+
+* **purchasing:** add paymentStatus and status filters to findAll ([0f80e1c](https://github.com/blur88/erp2/commit/0f80e1c5ca49d9126457e23fa66294259bcbe983))
+* **purchasing:** add period, paymentStatus, and status filters to PurchaseOrdersPage ([7a1e24a](https://github.com/blur88/erp2/commit/7a1e24a69caf7e0f241cde432fceb9c1f90b669d))
+* **purchasing:** add status and paymentStatus to PurchaseOrderQueryDto ([cd77cc7](https://github.com/blur88/erp2/commit/cd77cc7a3346c81c229b4207136dab2ab5a80b0a))
+
 ## [1.49.2](https://github.com/blur88/erp2/compare/v1.49.1...v1.49.2) (2026-04-05)
 
 
