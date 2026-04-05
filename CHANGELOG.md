@@ -1,3 +1,16 @@
+# [1.49.0](https://github.com/blur88/erp2/compare/v1.48.0...v1.49.0) (2026-04-05)
+
+
+### Bug Fixes
+
+* **filters:** add isLoading comment to FilterSupplier and test invalid purchasing-status URL value ([18218bb](https://github.com/blur88/erp2/commit/18218bb71bf4f76d91d18386c6757ebdcab85f38))
+
+
+### Features
+
+* **filters:** add FilterSupplier and FilterPurchasingStatus components ([331aa3e](https://github.com/blur88/erp2/commit/331aa3eef61682968f611315746c80726749bc54))
+* **filters:** register supplier and purchasing-status filter types ([41ac4df](https://github.com/blur88/erp2/commit/41ac4df7b3664d3b9d651db2273b50800c819a79))
+
 # [1.48.0](https://github.com/blur88/erp2/compare/v1.47.6...v1.48.0) (2026-04-05)
 
 
