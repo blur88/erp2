@@ -20,7 +20,6 @@ import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
 import {
   useDeletePurchaseOrderMutation,
   useGetPurchaseOrdersQuery,
-  useGetSuppliersQuery,
   useLazyGetPurchaseOrderQuery,
   useMarkPurchaseOrderAsUnpaidMutation,
   useReceiveGoodsMutation,
@@ -45,9 +44,6 @@ export const PurchaseOrdersPage: React.FC = () => {
   const pageState = usePurchaseOrdersPageState()
   const selectedOrder = useAppSelector(selectSelectedPurchaseOrder)
 
-  const { data: suppliersResponse } = useGetSuppliersQuery({})
-  const suppliers = suppliersResponse?.data || []
-
   const filterConfig = useMemo<FilterBarConfig<PurchaseOrderFilters>>(
     () => ({
       search: { placeholder: 'Search purchase orders...' },
@@ -55,11 +51,7 @@ export const PurchaseOrdersPage: React.FC = () => {
         {
           field: 'supplierId',
           label: 'Supplier',
-          type: 'select',
-          options: suppliers.map((supplier: any) => ({
-            value: supplier.id,
-            label: supplier.companyName ?? supplier.name,
-          })),
+          type: 'supplier',
         },
       ],
       defaults: {
@@ -67,7 +59,7 @@ export const PurchaseOrdersPage: React.FC = () => {
         supplierId: null,
       },
     }),
-    [suppliers],
+    [],
   )
 
   const filterBar = useFilterBar(filterConfig)

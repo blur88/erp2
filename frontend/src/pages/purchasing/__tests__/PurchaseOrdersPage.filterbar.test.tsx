@@ -16,6 +16,8 @@ const { useGetPurchaseOrdersQuery } = vi.hoisted(() => ({
   })),
 }))
 
+const filterBarSpy = vi.fn()
+
 vi.mock('@/store/api/purchasingApi', () => ({
   useGetPurchaseOrdersQuery,
   useGetSuppliersQuery: vi.fn(() => ({
@@ -27,6 +29,17 @@ vi.mock('@/store/api/purchasingApi', () => ({
   useMarkPurchaseOrderAsUnpaidMutation: vi.fn(() => [vi.fn()]),
   useRecordOrderPaymentsMutation: vi.fn(() => [vi.fn()]),
   useDeletePurchaseOrderMutation: vi.fn(() => [vi.fn()]),
+}))
+
+vi.mock('@/components/filters', () => ({
+  FilterBar: (props: unknown) => {
+    filterBarSpy(props)
+    return (
+      <div>
+        <input placeholder="Search purchase orders..." />
+      </div>
+    )
+  },
 }))
 
 vi.mock('@/components/common/MasterDetailWorkspace', () => ({
@@ -113,6 +126,25 @@ describe('PurchaseOrdersPage FilterBar integration', () => {
         search: 'gundam',
         supplierId: 'sup-1',
       }),
+    )
+  })
+
+  it('configures the supplier filter with the named supplier type', () => {
+    renderPage()
+
+    const latestProps = filterBarSpy.mock.calls.at(-1)?.[0] as {
+      config: {
+        fields: Array<{ field: string; type: string }>
+      }
+    }
+
+    expect(latestProps.config.fields).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          field: 'supplierId',
+          type: 'supplier',
+        }),
+      ]),
     )
   })
 
