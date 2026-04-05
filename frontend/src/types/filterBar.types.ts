@@ -18,6 +18,9 @@ export type FilterFieldType =
   | 'payment-status'
   | 'supplier'
   | 'purchasing-status'
+  | 'category'
+  | 'product-type'
+  | 'stock-status'
 
 interface BaseFilterFieldConfig<TFilters, K extends keyof TFilters> {
   field: K
@@ -69,6 +72,21 @@ export interface PurchasingStatusFilterFieldConfig<TFilters, K extends keyof TFi
   type: 'purchasing-status'
 }
 
+export interface CategoryFilterFieldConfig<TFilters, K extends keyof TFilters>
+  extends BaseFilterFieldConfig<TFilters, K> {
+  type: 'category'
+}
+
+export interface ProductTypeFilterFieldConfig<TFilters, K extends keyof TFilters>
+  extends BaseFilterFieldConfig<TFilters, K> {
+  type: 'product-type'
+}
+
+export interface StockStatusFilterFieldConfig<TFilters, K extends keyof TFilters>
+  extends BaseFilterFieldConfig<TFilters, K> {
+  type: 'stock-status'
+}
+
 export type FilterFieldConfig<TFilters> =
   | SelectFilterFieldConfig<TFilters, keyof TFilters>
   | PeriodFilterFieldConfig<TFilters, keyof TFilters>
@@ -78,6 +96,9 @@ export type FilterFieldConfig<TFilters> =
   | PaymentStatusFilterFieldConfig<TFilters, keyof TFilters>
   | SupplierFilterFieldConfig<TFilters, keyof TFilters>
   | PurchasingStatusFilterFieldConfig<TFilters, keyof TFilters>
+  | CategoryFilterFieldConfig<TFilters, keyof TFilters>
+  | ProductTypeFilterFieldConfig<TFilters, keyof TFilters>
+  | StockStatusFilterFieldConfig<TFilters, keyof TFilters>
 
 export interface FilterBarConfig<TFilters> {
   search?: {
