@@ -4,8 +4,6 @@ import {
   IsOptional,
   IsEnum,
   MaxLength,
-  IsInt,
-  Min,
   Matches,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
@@ -250,26 +248,6 @@ export class QueryCustomersDto {
   @Transform(({ value }) => value?.toUpperCase())
   @IsEnum(['ASC', 'DESC'])
   sortOrder?: 'ASC' | 'DESC';
-
-  @ApiPropertyOptional({
-    description: 'Page number',
-    example: 1,
-  })
-  @IsOptional()
-  @IsInt()
-  @Min(1)
-  @Transform(({ value }) => parseInt(value))
-  page?: number;
-
-  @ApiPropertyOptional({
-    description: 'Items per page',
-    example: 20,
-  })
-  @IsOptional()
-  @IsInt()
-  @Min(1)
-  @Transform(({ value }) => parseInt(value))
-  limit?: number;
 }
 
 export class CustomerResponseDto {
