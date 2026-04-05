@@ -1,3 +1,10 @@
+## [1.47.3](https://github.com/blur88/erp2/compare/v1.47.2...v1.47.3) (2026-04-05)
+
+
+### Bug Fixes
+
+* **deps:** resolve ERESOLVE peer dep warnings (closes [#286](https://github.com/blur88/erp2/issues/286)) ([eb6f836](https://github.com/blur88/erp2/commit/eb6f836ff3774bf890dd95ee92277e49d4d1667f))
+
 ## [1.47.2](https://github.com/blur88/erp2/compare/v1.47.1...v1.47.2) (2026-04-05)
 
 
