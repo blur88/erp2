@@ -1,3 +1,10 @@
+## [1.47.5](https://github.com/blur88/erp2/compare/v1.47.4...v1.47.5) (2026-04-05)
+
+
+### Internal Changes
+
+* chore(deps): update eslint to 10.2.0 (closes #287) ([](https://github.com/blur88/erp2/commit/))
+
 ## [1.47.4](https://github.com/blur88/erp2/compare/v1.47.3...v1.47.4) (2026-04-05)
 
 
