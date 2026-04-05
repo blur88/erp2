@@ -27,11 +27,15 @@ import {
   useReturnGoodsMutation,
 } from '@/store/api/purchasingApi'
 import { selectSelectedPurchaseOrder } from '@/store/slices/purchasingSlice'
-import type { FilterBarConfig } from '@/types/filterBar.types'
+import type { FilterBarConfig, PeriodValue } from '@/types/filterBar.types'
+import { getPeriodDateRange, getStartOfWeek } from '@/utils/dateRange'
 
 interface PurchaseOrderFilters {
   search: string
   supplierId: string | null
+  paymentStatus: 'unpaid' | 'partial' | 'paid' | 'overpaid' | null
+  period: PeriodValue
+  status: 'draft' | 'received' | null
 }
 
 export const PurchaseOrdersPage: React.FC = () => {
@@ -49,27 +53,62 @@ export const PurchaseOrdersPage: React.FC = () => {
       search: { placeholder: 'Search purchase orders...' },
       fields: [
         {
+          field: 'period',
+          label: 'Period',
+          type: 'period',
+        },
+        {
           field: 'supplierId',
           label: 'Supplier',
           type: 'supplier',
+        },
+        {
+          field: 'paymentStatus',
+          label: 'Payment',
+          type: 'payment-status',
+        },
+        {
+          field: 'status',
+          label: 'Order Status',
+          type: 'purchasing-status',
         },
       ],
       defaults: {
         search: '',
         supplierId: null,
+        paymentStatus: null,
+        period: { key: null, from: null, to: null },
+        status: null,
       },
     }),
     [],
   )
 
   const filterBar = useFilterBar(filterConfig)
+  const weekStartsOn = getStartOfWeek()
+  const dateRange = useMemo(() => {
+    const period = filterBar.appliedFilters.period
+    if (!period || period.key === null) {
+      return { fromDate: undefined, toDate: undefined }
+    }
+    if (period.key === 'custom') {
+      return { fromDate: period.from ?? undefined, toDate: period.to ?? undefined }
+    }
+
+    const range = getPeriodDateRange(period.key, weekStartsOn)
+    return { fromDate: range.from, toDate: range.to }
+  }, [filterBar.appliedFilters.period, weekStartsOn])
 
   const queryParams = useMemo(() => ({
     sortBy: pageState.sorting.sortBy,
     sortOrder: pageState.sorting.sortOrder.toUpperCase(),
     search: filterBar.appliedFilters.search || undefined,
     supplierId: filterBar.appliedFilters.supplierId || undefined,
-  }), [filterBar.appliedFilters, pageState.sorting.sortBy, pageState.sorting.sortOrder])
+    paymentStatus: filterBar.appliedFilters.paymentStatus || undefined,
+    status: filterBar.appliedFilters.status || undefined,
+    orderDateFrom: dateRange.fromDate,
+    orderDateTo: dateRange.toDate,
+  }), [dateRange, filterBar.appliedFilters, pageState.sorting.sortBy, pageState.sorting.sortOrder])
 
   const {
     data: purchaseOrdersResponse,

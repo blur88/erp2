@@ -264,6 +264,8 @@ export class PurchaseOrderService {
       supplierId,
       orderDateFrom,
       orderDateTo,
+      status,
+      paymentStatus,
       sortBy = 'orderDate',
       sortOrder = 'DESC',
     } = query;
@@ -301,6 +303,31 @@ export class PurchaseOrderService {
       queryBuilder.andWhere('po.orderDate <= :orderDateTo', {
         orderDateTo: new Date(orderDateTo)
       });
+    }
+
+    if (paymentStatus) {
+      switch (paymentStatus) {
+        case 'unpaid':
+          queryBuilder.andWhere('(po.paidAmount = 0 OR po.paidAmount IS NULL)');
+          break;
+        case 'partial':
+          queryBuilder.andWhere(
+            'po.paidAmount > 0 AND po.paidAmount < po.totalAmount',
+          );
+          break;
+        case 'paid':
+          queryBuilder.andWhere(
+            'po.paidAmount >= po.totalAmount AND po.paidAmount > 0',
+          );
+          break;
+        case 'overpaid':
+          queryBuilder.andWhere('po.paidAmount > po.totalAmount');
+          break;
+      }
+    }
+
+    if (status) {
+      queryBuilder.andWhere('grns.status = :grnStatus', { grnStatus: status });
     }
 
     // Apply sorting

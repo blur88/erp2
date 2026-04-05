@@ -132,6 +132,16 @@ export class PurchaseOrderQueryDto {
   @IsDateString()
   orderDateTo?: string;
 
+  @ApiPropertyOptional({ description: 'Filter by GRN status', enum: ['draft', 'received'] })
+  @IsOptional()
+  @IsEnum(['draft', 'received'])
+  status?: 'draft' | 'received';
+
+  @ApiPropertyOptional({ description: 'Filter by payment status', enum: ['unpaid', 'partial', 'paid', 'overpaid'] })
+  @IsOptional()
+  @IsEnum(['unpaid', 'partial', 'paid', 'overpaid'])
+  paymentStatus?: 'unpaid' | 'partial' | 'paid' | 'overpaid';
+
   @ApiPropertyOptional({ description: 'Sort by field', default: 'orderDate' })
   @IsOptional()
   @IsString()

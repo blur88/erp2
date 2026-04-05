@@ -316,6 +316,146 @@ describe('PurchaseOrderService', () => {
     });
   });
 
+  describe('findAll', () => {
+    function createFindAllQueryBuilder(orders: PurchaseOrder[] = []) {
+      return {
+        leftJoinAndSelect: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        addOrderBy: jest.fn().mockReturnThis(),
+        skip: jest.fn().mockReturnThis(),
+        take: jest.fn().mockReturnThis(),
+        getCount: jest.fn().mockResolvedValue(orders.length),
+        getMany: jest.fn().mockResolvedValue(orders),
+      };
+    }
+
+    function createFindAllOrder(overrides: Partial<PurchaseOrder> = {}): PurchaseOrder {
+      return {
+        id: 'po-findall-1',
+        orderNumber: 'PO-000101',
+        orderDate: new Date('2026-04-01'),
+        subtotal: 100,
+        discountPercent: 0,
+        discountAmount: 0,
+        shippingAmount: 0,
+        totalAmount: 100,
+        paidAmount: 0,
+        notes: '',
+        supplier: {
+          id: 'supplier-1',
+          companyName: 'Supplier A',
+        },
+        items: [],
+        goodsReceivedNotes: [],
+        vendorPayments: [],
+        isFullyReceived: jest.fn().mockReturnValue(false),
+        getTotalReceivedQuantity: jest.fn().mockReturnValue(0),
+        getTotalOrderedQuantity: jest.fn().mockReturnValue(0),
+        ...overrides,
+      } as unknown as PurchaseOrder;
+    }
+
+    it('adds unpaid paymentStatus filter', async () => {
+      const queryBuilder = createFindAllQueryBuilder([
+        createFindAllOrder({ paidAmount: 0, totalAmount: 100 }),
+      ]);
+      purchaseOrderRepository.createQueryBuilder.mockReturnValue(queryBuilder as any);
+
+      const result = await service.findAll({ paymentStatus: 'unpaid' });
+
+      expect(queryBuilder.andWhere).toHaveBeenCalledWith(
+        '(po.paidAmount = 0 OR po.paidAmount IS NULL)',
+      );
+      result.orders.forEach((order) => {
+        expect(Number(order.paidAmount)).toBe(0);
+      });
+    });
+
+    it('adds partial paymentStatus filter', async () => {
+      const queryBuilder = createFindAllQueryBuilder([
+        createFindAllOrder({ paidAmount: 40, totalAmount: 100 }),
+      ]);
+      purchaseOrderRepository.createQueryBuilder.mockReturnValue(queryBuilder as any);
+
+      const result = await service.findAll({ paymentStatus: 'partial' });
+
+      expect(queryBuilder.andWhere).toHaveBeenCalledWith(
+        'po.paidAmount > 0 AND po.paidAmount < po.totalAmount',
+      );
+      result.orders.forEach((order) => {
+        expect(Number(order.paidAmount)).toBeGreaterThan(0);
+        expect(Number(order.paidAmount)).toBeLessThan(Number(order.totalAmount));
+      });
+    });
+
+    it('adds paid paymentStatus filter', async () => {
+      const queryBuilder = createFindAllQueryBuilder([
+        createFindAllOrder({ paidAmount: 100, totalAmount: 100 }),
+      ]);
+      purchaseOrderRepository.createQueryBuilder.mockReturnValue(queryBuilder as any);
+
+      const result = await service.findAll({ paymentStatus: 'paid' });
+
+      expect(queryBuilder.andWhere).toHaveBeenCalledWith(
+        'po.paidAmount >= po.totalAmount AND po.paidAmount > 0',
+      );
+      result.orders.forEach((order) => {
+        expect(Number(order.paidAmount)).toBeGreaterThanOrEqual(Number(order.totalAmount));
+      });
+    });
+
+    it('adds overpaid paymentStatus filter', async () => {
+      const queryBuilder = createFindAllQueryBuilder([
+        createFindAllOrder({ paidAmount: 120, totalAmount: 100 }),
+      ]);
+      purchaseOrderRepository.createQueryBuilder.mockReturnValue(queryBuilder as any);
+
+      const result = await service.findAll({ paymentStatus: 'overpaid' });
+
+      expect(queryBuilder.andWhere).toHaveBeenCalledWith('po.paidAmount > po.totalAmount');
+      result.orders.forEach((order) => {
+        expect(Number(order.paidAmount)).toBeGreaterThan(Number(order.totalAmount));
+      });
+    });
+
+    it('adds draft status filter', async () => {
+      const queryBuilder = createFindAllQueryBuilder([
+        createFindAllOrder({
+          goodsReceivedNotes: [{ id: 'grn-1', grnNumber: 'GRN-1', status: GrnStatus.DRAFT, receivedDate: new Date('2026-04-01') }] as any,
+        }),
+      ]);
+      purchaseOrderRepository.createQueryBuilder.mockReturnValue(queryBuilder as any);
+
+      const result = await service.findAll({ status: 'draft' });
+
+      expect(queryBuilder.andWhere).toHaveBeenCalledWith('grns.status = :grnStatus', {
+        grnStatus: 'draft',
+      });
+      result.orders.forEach((order) => {
+        expect(order.goodsReceivedNotes?.[0]?.status).toBe('draft');
+      });
+    });
+
+    it('adds received status filter', async () => {
+      const queryBuilder = createFindAllQueryBuilder([
+        createFindAllOrder({
+          goodsReceivedNotes: [{ id: 'grn-2', grnNumber: 'GRN-2', status: GrnStatus.RECEIVED, receivedDate: new Date('2026-04-02') }] as any,
+        }),
+      ]);
+      purchaseOrderRepository.createQueryBuilder.mockReturnValue(queryBuilder as any);
+
+      const result = await service.findAll({ status: 'received' });
+
+      expect(queryBuilder.andWhere).toHaveBeenCalledWith('grns.status = :grnStatus', {
+        grnStatus: 'received',
+      });
+      result.orders.forEach((order) => {
+        expect(order.goodsReceivedNotes?.[0]?.status).toBe('received');
+      });
+    });
+  });
+
   describe('receiveGoods', () => {
     it('posts accounting entry after receiving goods', async () => {
       grnRepository.findOne
