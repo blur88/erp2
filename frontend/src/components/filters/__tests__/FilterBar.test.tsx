@@ -15,6 +15,12 @@ vi.mock('@/store/api/salesApi', () => ({
   })),
 }))
 
+vi.mock('@/store/api/purchasingApi', () => ({
+  useGetSuppliersQuery: vi.fn(() => ({
+    data: { data: [{ id: 's1', companyName: 'Anaheim Electronics' }] },
+  })),
+}))
+
 interface Filters {
   search: string
   status: string | null
@@ -312,6 +318,62 @@ describe('FilterBar — custom filter field types', () => {
     )
 
     expect(screen.getByLabelText(/payment/i)).toBeInTheDocument()
+  })
+
+  it('renders FilterSupplier when type=supplier', () => {
+    interface SupplierFilters {
+      supplierId: string | null
+    }
+
+    const supplierConfig: FilterBarConfig<SupplierFilters> = {
+      fields: [{ field: 'supplierId', label: 'Supplier', type: 'supplier' }],
+    }
+
+    render(
+      <Provider store={configureStore({ reducer: {} })}>
+        <FilterBar
+          config={supplierConfig}
+          draftFilters={{ supplierId: null }}
+          handlers={{
+            onSearchChange: vi.fn(),
+            onSearchCommit: vi.fn(),
+            onQuickFilterChange: vi.fn(),
+            onClearField: vi.fn(),
+            onClearAll: vi.fn(),
+          }}
+          hasActiveFilters={false}
+        />
+      </Provider>,
+    )
+
+    expect(screen.getByLabelText(/supplier/i)).toBeInTheDocument()
+  })
+
+  it('renders FilterPurchasingStatus when type=purchasing-status', () => {
+    interface PurchasingStatusFilters {
+      status: string | null
+    }
+
+    const purchasingStatusConfig: FilterBarConfig<PurchasingStatusFilters> = {
+      fields: [{ field: 'status', label: 'Order Status', type: 'purchasing-status' }],
+    }
+
+    render(
+      <FilterBar
+        config={purchasingStatusConfig}
+        draftFilters={{ status: null }}
+        handlers={{
+          onSearchChange: vi.fn(),
+          onSearchCommit: vi.fn(),
+          onQuickFilterChange: vi.fn(),
+          onClearField: vi.fn(),
+          onClearAll: vi.fn(),
+        }}
+        hasActiveFilters={false}
+      />,
+    )
+
+    expect(screen.getByLabelText(/order status/i)).toBeInTheDocument()
   })
 })
 

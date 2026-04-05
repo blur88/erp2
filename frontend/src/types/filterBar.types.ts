@@ -16,6 +16,8 @@ export type FilterFieldType =
   | 'customer'
   | 'order-status'
   | 'payment-status'
+  | 'supplier'
+  | 'purchasing-status'
 
 interface BaseFilterFieldConfig<TFilters, K extends keyof TFilters> {
   field: K
@@ -57,6 +59,16 @@ export interface PaymentStatusFilterFieldConfig<TFilters, K extends keyof TFilte
   includeOverpaid?: boolean
 }
 
+export interface SupplierFilterFieldConfig<TFilters, K extends keyof TFilters>
+  extends BaseFilterFieldConfig<TFilters, K> {
+  type: 'supplier'
+}
+
+export interface PurchasingStatusFilterFieldConfig<TFilters, K extends keyof TFilters>
+  extends BaseFilterFieldConfig<TFilters, K> {
+  type: 'purchasing-status'
+}
+
 export type FilterFieldConfig<TFilters> =
   | SelectFilterFieldConfig<TFilters, keyof TFilters>
   | PeriodFilterFieldConfig<TFilters, keyof TFilters>
@@ -64,6 +76,8 @@ export type FilterFieldConfig<TFilters> =
   | CustomerFilterFieldConfig<TFilters, keyof TFilters>
   | OrderStatusFilterFieldConfig<TFilters, keyof TFilters>
   | PaymentStatusFilterFieldConfig<TFilters, keyof TFilters>
+  | SupplierFilterFieldConfig<TFilters, keyof TFilters>
+  | PurchasingStatusFilterFieldConfig<TFilters, keyof TFilters>
 
 export interface FilterBarConfig<TFilters> {
   search?: {
