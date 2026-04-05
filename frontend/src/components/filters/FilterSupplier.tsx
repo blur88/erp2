@@ -11,7 +11,7 @@ interface Props {
 export function FilterSupplier({ value, onChange }: Props) {
   const uid = useId()
   // isLoading kept intentionally — options will be empty until data arrives (acceptable UX)
-  const { data } = useGetSuppliersQuery({ limit: 999999 })
+  const { data } = useGetSuppliersQuery({})
   const options = (data?.data ?? []).map((supplier) => ({
     value: supplier.id,
     label: supplier.companyName,

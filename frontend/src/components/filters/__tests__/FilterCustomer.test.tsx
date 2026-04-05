@@ -7,7 +7,7 @@ import { describe, expect, it, vi } from 'vitest'
 
 import { FilterCustomer } from '../FilterCustomer'
 
-vi.mock('@/store/api/salesApi', () => ({
+const { useGetCustomersQuery } = vi.hoisted(() => ({
   useGetCustomersQuery: vi.fn(() => ({
     data: {
       data: [
@@ -16,6 +16,10 @@ vi.mock('@/store/api/salesApi', () => ({
       ],
     },
   })),
+}))
+
+vi.mock('@/store/api/salesApi', () => ({
+  useGetCustomersQuery,
 }))
 
 function renderWithStore(ui: ReactElement) {
@@ -34,5 +38,10 @@ describe('FilterCustomer', () => {
     await userEvent.click(screen.getByRole('combobox'))
     expect(await screen.findByText('Amuro Ray')).toBeInTheDocument()
     expect(await screen.findByText('Char Aznable')).toBeInTheDocument()
+  })
+
+  it('requests customers without a limit override', () => {
+    renderWithStore(<FilterCustomer value={null} onChange={vi.fn()} />)
+    expect(useGetCustomersQuery).toHaveBeenCalledWith({})
   })
 })

@@ -11,7 +11,7 @@ interface Props {
 export function FilterCustomer({ value, onChange }: Props) {
   const uid = useId()
   // isLoading kept intentionally — options will be empty until data arrives (acceptable UX)
-  const { data } = useGetCustomersQuery({ limit: 999999 })
+  const { data } = useGetCustomersQuery({})
   const options = (data?.data ?? []).map((customer) => ({
     value: customer.id,
     label: customer.name,

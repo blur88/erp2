@@ -69,4 +69,11 @@ describe('CustomersPage FilterBar', () => {
       expect.not.objectContaining({ isActive: expect.anything() }),
     )
   })
+
+  it('does not pass a limit override to the customers query', () => {
+    renderPage('/')
+    expect(useGetCustomersQuery).toHaveBeenLastCalledWith(
+      expect.not.objectContaining({ limit: expect.anything() }),
+    )
+  })
 })
