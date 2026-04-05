@@ -304,6 +304,14 @@ describe('parseFilters — purchasing named types', () => {
       status: 'received',
     })
   })
+
+  it('rejects invalid purchasing-status value and falls back to null', () => {
+    const result = parseFilters(
+      new URLSearchParams('purchasing_status=shipped'),
+      purchasingConfig,
+    )
+    expect(result.status).toBeNull()
+  })
 })
 
 describe('getManagedParamKeys — namespace', () => {
