@@ -5,8 +5,10 @@ import { FilterCustomer } from './FilterCustomer'
 import { FilterOrderStatus } from './FilterOrderStatus'
 import { FilterPaymentStatus } from './FilterPaymentStatus'
 import { FilterPeriod } from './FilterPeriod'
+import { FilterPurchasingStatus } from './FilterPurchasingStatus'
 import { FilterSearch } from './FilterSearch'
 import { FilterSelect } from './FilterSelect'
+import { FilterSupplier } from './FilterSupplier'
 import { AppButton } from '@/components/common/AppButton'
 import type {
   FilterBarConfig,
@@ -104,6 +106,26 @@ function renderQuickField<TFilters extends object>(
         value={(value as string | null) ?? null}
         onChange={onChange}
         includeOverpaid={field.includeOverpaid}
+      />
+    )
+  }
+
+  if (field.type === 'supplier') {
+    return (
+      <FilterSupplier
+        key={String(field.field)}
+        value={(value as string | null) ?? null}
+        onChange={onChange}
+      />
+    )
+  }
+
+  if (field.type === 'purchasing-status') {
+    return (
+      <FilterPurchasingStatus
+        key={String(field.field)}
+        value={(value as string | null) ?? null}
+        onChange={onChange}
       />
     )
   }
