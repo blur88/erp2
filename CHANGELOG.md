@@ -1,3 +1,10 @@
+## [1.47.6](https://github.com/blur88/erp2/compare/v1.47.5...v1.47.6) (2026-04-05)
+
+
+### Internal Changes
+
+* chore(deps): update nginx to 1.29.7-alpine-slim ([](https://github.com/blur88/erp2/commit/))
+
 ## [1.47.5](https://github.com/blur88/erp2/compare/v1.47.4...v1.47.5) (2026-04-05)
 
 
