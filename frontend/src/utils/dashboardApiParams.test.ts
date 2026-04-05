@@ -141,31 +141,31 @@ describe('resolveApiParams', () => {
     expect(result.supplierId).toBe('550e8400-e29b-41d4-a716-446655440001')
   })
 
-  it('passes through isFulfilled=true when set', () => {
+  it('passes through fulfillmentStatus=fulfilled when set', () => {
     const result = resolveApiParams({
       period: { key: 'this_month', from: null, to: null },
       compareWith: null,
-      isFulfilled: 'true',
+      fulfillmentStatus: 'fulfilled',
     })
-    expect(result.isFulfilled).toBe(true)
+    expect(result.fulfillmentStatus).toBe('fulfilled')
   })
 
-  it('passes through isFulfilled=false when set', () => {
+  it('passes through fulfillmentStatus=unfulfilled when set', () => {
     const result = resolveApiParams({
       period: { key: 'this_month', from: null, to: null },
       compareWith: null,
-      isFulfilled: 'false',
+      fulfillmentStatus: 'unfulfilled',
     })
-    expect(result.isFulfilled).toBe(false)
+    expect(result.fulfillmentStatus).toBe('unfulfilled')
   })
 
-  it('omits isFulfilled when null', () => {
+  it('omits fulfillmentStatus when null', () => {
     const result = resolveApiParams({
       period: { key: 'this_month', from: null, to: null },
       compareWith: null,
-      isFulfilled: null,
+      fulfillmentStatus: null,
     })
-    expect(result.isFulfilled).toBeUndefined()
+    expect(result.fulfillmentStatus).toBeUndefined()
   })
 
   it('passes through status when set', () => {

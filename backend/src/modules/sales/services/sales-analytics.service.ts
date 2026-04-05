@@ -28,6 +28,25 @@ import {
 } from '../dto/sales-analytics.dto';
 import { SalesAnalyticsReportService } from './sales-analytics-report.service';
 
+function translatePaymentStatus(
+  status: 'unpaid' | 'partial' | 'paid' | 'overpaid',
+): InvoiceStatus {
+  switch (status) {
+    case 'unpaid':
+      return InvoiceStatus.DRAFT;
+    case 'partial':
+      return InvoiceStatus.PARTIAL_PAID;
+    case 'paid':
+    case 'overpaid':
+      return InvoiceStatus.PAID;
+  }
+}
+
+/** Returns true when the query requires the extra overpaid predicate (paidAmount > totalAmount). */
+function isOverpaidFilter(status: string | undefined): boolean {
+  return status === 'overpaid';
+}
+
 @Injectable()
 export class SalesAnalyticsService {
   constructor(
@@ -338,12 +357,20 @@ export class SalesAnalyticsService {
       orderQuery = orderQuery.andWhere('order.createdByUserId = :salesRepId', { salesRepId: query.salesRepId });
     }
 
-    if (query?.isFulfilled !== undefined) {
-      orderQuery = orderQuery.andWhere('order.isFulfilled = :isFulfilled', { isFulfilled: query.isFulfilled });
+    if (query?.fulfillmentStatus !== undefined) {
+      orderQuery = orderQuery.andWhere('order.isFulfilled = :isFulfilled', {
+        isFulfilled: query.fulfillmentStatus === 'fulfilled',
+      });
     }
 
     if (query?.paymentStatus) {
-      invoiceQuery = invoiceQuery.andWhere('invoice.status = :paymentStatus', { paymentStatus: query.paymentStatus });
+      const invoiceStatus = translatePaymentStatus(query.paymentStatus);
+      invoiceQuery = invoiceQuery.andWhere('invoice.status = :paymentStatus', {
+        paymentStatus: invoiceStatus,
+      });
+      if (isOverpaidFilter(query.paymentStatus)) {
+        invoiceQuery = invoiceQuery.andWhere('invoice.paidAmount > invoice.totalAmount');
+      }
     }
 
     const [orderStats, invoiceStats, customerStats, paymentStats] = await Promise.all([
@@ -443,8 +470,10 @@ export class SalesAnalyticsService {
       .createQueryBuilder('order')
       .where('order.orderDate BETWEEN :startDate AND :endDate', { startDate, endDate });
 
-    if (query?.isFulfilled !== undefined) {
-      periodQuery = periodQuery.andWhere('order.isFulfilled = :isFulfilled', { isFulfilled: query.isFulfilled });
+    if (query?.fulfillmentStatus !== undefined) {
+      periodQuery = periodQuery.andWhere('order.isFulfilled = :isFulfilled', {
+        isFulfilled: query.fulfillmentStatus === 'fulfilled',
+      });
     }
 
     if (query?.customerId) {
@@ -456,9 +485,13 @@ export class SalesAnalyticsService {
     }
 
     if (query?.paymentStatus) {
+      const invoiceStatus = translatePaymentStatus(query.paymentStatus);
       periodQuery = periodQuery
         .leftJoin('order.invoices', 'invoice')
-        .andWhere('invoice.status = :paymentStatus', { paymentStatus: query.paymentStatus });
+        .andWhere('invoice.status = :paymentStatus', { paymentStatus: invoiceStatus });
+      if (isOverpaidFilter(query.paymentStatus)) {
+        periodQuery = periodQuery.andWhere('invoice.paidAmount > invoice.totalAmount');
+      }
     }
 
     const data = await periodQuery
@@ -508,14 +541,20 @@ export class SalesAnalyticsService {
       .leftJoin('order.customer', 'customer')
       .where('order.orderDate BETWEEN :startDate AND :endDate', { startDate, endDate });
 
-    if (query?.isFulfilled !== undefined) {
-      topCustomersQuery = topCustomersQuery.andWhere('order.isFulfilled = :isFulfilled', { isFulfilled: query.isFulfilled });
+    if (query?.fulfillmentStatus !== undefined) {
+      topCustomersQuery = topCustomersQuery.andWhere('order.isFulfilled = :isFulfilled', {
+        isFulfilled: query.fulfillmentStatus === 'fulfilled',
+      });
     }
 
     if (query?.paymentStatus) {
+      const invoiceStatus = translatePaymentStatus(query.paymentStatus);
       topCustomersQuery = topCustomersQuery
         .leftJoin('order.invoices', 'invoice')
-        .andWhere('invoice.status = :paymentStatus', { paymentStatus: query.paymentStatus });
+        .andWhere('invoice.status = :paymentStatus', { paymentStatus: invoiceStatus });
+      if (isOverpaidFilter(query.paymentStatus)) {
+        topCustomersQuery = topCustomersQuery.andWhere('invoice.paidAmount > invoice.totalAmount');
+      }
     }
 
     if (query?.salesRepId) {
@@ -562,14 +601,20 @@ export class SalesAnalyticsService {
       .leftJoin('item.salesOrder', 'order')
       .where('order.orderDate BETWEEN :startDate AND :endDate', { startDate, endDate });
 
-    if (query?.isFulfilled !== undefined) {
-      topProductsQuery = topProductsQuery.andWhere('order.isFulfilled = :isFulfilled', { isFulfilled: query.isFulfilled });
+    if (query?.fulfillmentStatus !== undefined) {
+      topProductsQuery = topProductsQuery.andWhere('order.isFulfilled = :isFulfilled', {
+        isFulfilled: query.fulfillmentStatus === 'fulfilled',
+      });
     }
 
     if (query?.paymentStatus) {
+      const invoiceStatus = translatePaymentStatus(query.paymentStatus);
       topProductsQuery = topProductsQuery
         .leftJoin('order.invoices', 'invoice')
-        .andWhere('invoice.status = :paymentStatus', { paymentStatus: query.paymentStatus });
+        .andWhere('invoice.status = :paymentStatus', { paymentStatus: invoiceStatus });
+      if (isOverpaidFilter(query.paymentStatus)) {
+        topProductsQuery = topProductsQuery.andWhere('invoice.paidAmount > invoice.totalAmount');
+      }
     }
 
     if (query?.customerId) {

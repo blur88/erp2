@@ -33,7 +33,18 @@ interface PurchaseOrderSummaryQuery {
 interface PurchasingAnalyticsFilters {
   supplierId?: string;
   status?: 'received' | 'pending';
-  paymentStatus?: 'paid' | 'partial' | 'unpaid';
+  paymentStatus?: 'unpaid' | 'partial' | 'paid' | 'overpaid';
+}
+
+function derivePaymentStatus(
+  paidAmount: number,
+  totalAmount: number,
+): 'unpaid' | 'partial' | 'paid' | 'overpaid' {
+  if (totalAmount <= 0) return 'unpaid';
+  if (paidAmount > totalAmount) return 'overpaid';
+  if (paidAmount === totalAmount) return 'paid';
+  if (paidAmount > 0) return 'partial';
+  return 'unpaid';
 }
 
 export interface PurchaseOrderSummaryItem {
@@ -170,12 +181,7 @@ export class PurchasingAnalyticsService {
           0,
         );
 
-        let paymentStatus = 'unpaid';
-        if (paidAmount >= totalAmount && totalAmount > 0) {
-          paymentStatus = 'paid';
-        } else if (paidAmount > 0) {
-          paymentStatus = 'partial';
-        }
+        const paymentStatus = derivePaymentStatus(paidAmount, totalAmount);
 
         return paymentStatus === query.paymentStatus;
       });
@@ -194,12 +200,7 @@ export class PurchasingAnalyticsService {
       const balance = totalAmount - paidAmount;
 
       // Determine payment status
-      let paymentStatus = 'unpaid';
-      if (paidAmount >= totalAmount && totalAmount > 0) {
-        paymentStatus = 'paid';
-      } else if (paidAmount > 0) {
-        paymentStatus = 'partial';
-      }
+      const paymentStatus = derivePaymentStatus(paidAmount, totalAmount);
 
       // Safely handle orderDate conversion
       let orderDateStr = '';
@@ -301,12 +302,7 @@ export class PurchasingAnalyticsService {
         0,
       );
 
-      let paymentStatus = 'unpaid';
-      if (paidAmount >= totalAmount && totalAmount > 0) {
-        paymentStatus = 'paid';
-      } else if (paidAmount > 0) {
-        paymentStatus = 'partial';
-      }
+      const paymentStatus = derivePaymentStatus(paidAmount, totalAmount);
 
       // Check payment status filter
       if (query.paymentStatus && query.paymentStatus !== 'all' && paymentStatus !== query.paymentStatus) {
@@ -496,12 +492,7 @@ export class PurchasingAnalyticsService {
         const totalAmount = parseFloat(item.purchaseOrder?.totalAmount?.toString() || '0');
         const paidAmount = parseFloat(item.purchaseOrder?.paidAmount?.toString() || '0');
 
-        let paymentStatus = 'unpaid';
-        if (paidAmount >= totalAmount && totalAmount > 0) {
-          paymentStatus = 'paid';
-        } else if (paidAmount > 0) {
-          paymentStatus = 'partial';
-        }
+        const paymentStatus = derivePaymentStatus(paidAmount, totalAmount);
 
         return paymentStatus === query.paymentStatus;
       });
@@ -531,12 +522,7 @@ export class PurchasingAnalyticsService {
         // Calculate payment status for the PO
         const totalAmount = parseFloat(item.purchaseOrder?.totalAmount?.toString() || '0');
         const paidAmount = parseFloat(item.purchaseOrder?.paidAmount?.toString() || '0');
-        let poPaymentStatus = 'unpaid';
-        if (paidAmount >= totalAmount && totalAmount > 0) {
-          poPaymentStatus = 'paid';
-        } else if (paidAmount > 0) {
-          poPaymentStatus = 'partial';
-        }
+        const poPaymentStatus = derivePaymentStatus(paidAmount, totalAmount);
 
         // Note: Product pricing has been migrated to PriceList system
         // Setting pricing fields to 0 as they are no longer stored on Product entity
@@ -758,14 +744,7 @@ export class PurchasingAnalyticsService {
           0,
         );
         const total = parseFloat(po.totalAmount?.toString() || '0');
-        let computedStatus: 'paid' | 'partial' | 'unpaid';
-        if (paidAmount >= total && total > 0) {
-          computedStatus = 'paid';
-        } else if (paidAmount > 0) {
-          computedStatus = 'partial';
-        } else {
-          computedStatus = 'unpaid';
-        }
+        const computedStatus = derivePaymentStatus(paidAmount, total);
 
         if (computedStatus !== filters.paymentStatus) continue;
 
@@ -920,20 +899,17 @@ export class PurchasingAnalyticsService {
         0,
       );
       const total = parseFloat(po.totalAmount?.toString() || '0');
-      let computedPaymentStatus: 'paid' | 'partial' | 'unpaid';
-      if (paidAmount >= total && total > 0) {
-        computedPaymentStatus = 'paid';
-      } else if (paidAmount > 0) {
-        computedPaymentStatus = 'partial';
-      } else {
-        computedPaymentStatus = 'unpaid';
-      }
+      const computedPaymentStatus = derivePaymentStatus(paidAmount, total);
+      const isReceived =
+        typeof po.isFullyReceived === 'function'
+          ? po.isFullyReceived()
+          : Boolean(po.isFullyReceived);
       return {
         orderNumber: po.orderNumber,
         orderDate: date.toISOString().split('T')[0],
         supplierName: po.supplier?.companyName || 'N/A',
         totalAmount: total,
-        status: (po.isFullyReceived() ? 'received' : 'pending') as 'received' | 'pending',
+        status: (isReceived ? 'received' : 'pending') as 'received' | 'pending',
         computedPaymentStatus,
       };
     });

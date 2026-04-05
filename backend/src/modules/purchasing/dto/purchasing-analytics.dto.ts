@@ -44,10 +44,10 @@ export class PurchasingAnalyticsQueryDto {
   @IsIn(['received', 'pending'])
   status?: 'received' | 'pending';
 
-  @ApiPropertyOptional({ enum: ['paid', 'partial', 'unpaid'] })
+  @ApiPropertyOptional({ enum: ['unpaid', 'partial', 'paid', 'overpaid'] })
   @IsOptional()
-  @IsIn(['paid', 'partial', 'unpaid'])
-  paymentStatus?: 'paid' | 'partial' | 'unpaid';
+  @IsIn(['unpaid', 'partial', 'paid', 'overpaid'])
+  paymentStatus?: 'unpaid' | 'partial' | 'paid' | 'overpaid';
 }
 
 export class PurchasingMetricsDto {

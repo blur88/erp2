@@ -21,7 +21,6 @@ import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
 import type { RootState } from '@/store'
 import {
   useDeleteSalesOrderMutation,
-  useGetCustomersQuery,
   useGetSalesOrdersQuery,
   useLazyGetSalesOrderQuery,
 } from '@/store/api/salesApi'
@@ -56,8 +55,6 @@ export const OrdersPage: React.FC = () => {
   const pageState = useOrdersPageState()
   const [sortBy, setSortBy] = useState('orderNumber')
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc')
-  const { data: customersData } = useGetCustomersQuery({ limit: 999999 })
-  const customers = customersData?.data ?? []
 
   const filterConfig = useMemo<FilterBarConfig<SalesOrderFilters>>(
     () => ({
@@ -71,28 +68,17 @@ export const OrdersPage: React.FC = () => {
         {
           field: 'customerId',
           label: 'Customer',
-          type: 'select',
-          options: customers.map((customer) => ({ value: customer.id, label: customer.name })),
+          type: 'customer',
         },
         {
           field: 'paymentStatus',
           label: 'Payment',
-          type: 'select',
-          options: [
-            { value: 'unpaid', label: 'Unpaid' },
-            { value: 'partial', label: 'Partial' },
-            { value: 'paid', label: 'Paid' },
-            { value: 'overpaid', label: 'Overpaid' },
-          ],
+          type: 'payment-status',
         },
         {
           field: 'fulfillmentStatus',
-          label: 'Fulfillment',
-          type: 'select',
-          options: [
-            { value: 'unfulfilled', label: 'Unfulfilled' },
-            { value: 'fulfilled', label: 'Fulfilled' },
-          ],
+          label: 'Order Status',
+          type: 'order-status',
         },
       ],
       defaults: {
@@ -103,7 +89,7 @@ export const OrdersPage: React.FC = () => {
         fulfillmentStatus: null,
       },
     }),
-    [customers],
+    [],
   )
 
   const { appliedFilters, draftFilters, handlers, hasActiveFilters } = useFilterBar(filterConfig)

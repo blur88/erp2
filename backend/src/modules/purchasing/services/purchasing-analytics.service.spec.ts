@@ -105,6 +105,42 @@ describe('PurchasingAnalyticsService', () => {
   });
 
   describe('getRecentPurchaseOrders — paymentStatus post-query filtering', () => {
+    it('filters to orders where paidAmount > totalAmount when paymentStatus=overpaid', async () => {
+      const orders = [
+        {
+          orderNumber: 'PO-0001',
+          orderDate: new Date('2026-03-01'),
+          supplier: { companyName: 'Acme' },
+          totalAmount: '1000',
+          vendorPayments: [{ amount: '1100' }],
+          isFullyReceived: true,
+          shippingAmount: '0',
+        },
+        {
+          orderNumber: 'PO-0002',
+          orderDate: new Date('2026-03-02'),
+          supplier: { companyName: 'Beta' },
+          totalAmount: '500',
+          vendorPayments: [{ amount: '500' }],
+          isFullyReceived: false,
+          shippingAmount: '0',
+        },
+      ];
+      const qb = makeChainableQb([], orders, {
+        totalSpent: '1500',
+        totalOrders: '2',
+        averageOrderValue: '750',
+        activeSuppliers: '2',
+      });
+      purchaseOrderRepository.createQueryBuilder.mockReturnValue(qb);
+
+      const query = { ...baseQuery(), paymentStatus: 'overpaid' as const };
+      const result = await service.getPurchasingAnalytics(query);
+
+      expect(result.recentOrders).toHaveLength(1);
+      expect(result.recentOrders[0].orderNumber).toBe('PO-0001');
+    });
+
     it('returns only paid orders when paymentStatus=paid filter is active', async () => {
       const mockOrders = [
         {

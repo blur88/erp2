@@ -13,6 +13,9 @@ export type FilterFieldType =
   | 'multi-select'
   | 'period'
   | 'compare'
+  | 'customer'
+  | 'order-status'
+  | 'payment-status'
 
 interface BaseFilterFieldConfig<TFilters, K extends keyof TFilters> {
   field: K
@@ -38,10 +41,29 @@ export interface CompareFilterFieldConfig<TFilters, K extends keyof TFilters>
   type: 'compare'
 }
 
+export interface CustomerFilterFieldConfig<TFilters, K extends keyof TFilters>
+  extends BaseFilterFieldConfig<TFilters, K> {
+  type: 'customer'
+}
+
+export interface OrderStatusFilterFieldConfig<TFilters, K extends keyof TFilters>
+  extends BaseFilterFieldConfig<TFilters, K> {
+  type: 'order-status'
+}
+
+export interface PaymentStatusFilterFieldConfig<TFilters, K extends keyof TFilters>
+  extends BaseFilterFieldConfig<TFilters, K> {
+  type: 'payment-status'
+  includeOverpaid?: boolean
+}
+
 export type FilterFieldConfig<TFilters> =
   | SelectFilterFieldConfig<TFilters, keyof TFilters>
   | PeriodFilterFieldConfig<TFilters, keyof TFilters>
   | CompareFilterFieldConfig<TFilters, keyof TFilters>
+  | CustomerFilterFieldConfig<TFilters, keyof TFilters>
+  | OrderStatusFilterFieldConfig<TFilters, keyof TFilters>
+  | PaymentStatusFilterFieldConfig<TFilters, keyof TFilters>
 
 export interface FilterBarConfig<TFilters> {
   search?: {
