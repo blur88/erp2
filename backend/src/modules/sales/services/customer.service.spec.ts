@@ -2,7 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { CustomerService } from './customer.service';
-import { Customer } from '../../../database/entities/customer.entity';
+import { Customer, CustomerType } from '../../../database/entities/customer.entity';
 import { SalesOrder } from '../../../database/entities/sales-order.entity';
 import { Invoice } from '../../../database/entities/invoice.entity';
 import { AuditLogService } from '../../audit-logs/services';
@@ -13,6 +13,30 @@ describe('CustomerService', () => {
   let service: CustomerService;
   let customerRepository: jest.Mocked<Repository<Customer>>;
   const adminUser = { role: UserRole.ADMIN } as any;
+  const createCustomer = (id: string, overrides: Partial<Customer> = {}): Customer =>
+    ({
+      id,
+      type: CustomerType.BUSINESS,
+      name: `Customer ${id}`,
+      phone: '0123456789',
+      streetAddress: null,
+      city: null,
+      state: null,
+      postalCode: null,
+      country: null,
+      isActive: true,
+      priceListId: null,
+      priceList: null,
+      totalSales: 500,
+      totalOrders: 3,
+      lastPurchaseDate: null,
+      firstPurchaseDate: null,
+      notes: null,
+      createdAt: new Date('2026-04-05T00:00:00.000Z'),
+      updatedAt: new Date('2026-04-05T00:00:00.000Z'),
+      deletedAt: null,
+      ...overrides,
+    }) as Customer;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -48,6 +72,56 @@ describe('CustomerService', () => {
 
     service = module.get<CustomerService>(CustomerService);
     customerRepository = module.get(getRepositoryToken(Customer));
+  });
+
+  describe('pagination removal', () => {
+    it('findAll returns all matching customers with total-only metadata', async () => {
+      const qb = {
+        leftJoinAndSelect: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        skip: jest.fn().mockReturnThis(),
+        take: jest.fn().mockReturnThis(),
+        getMany: jest.fn().mockResolvedValue([createCustomer('1'), createCustomer('2')]),
+      };
+      customerRepository.createQueryBuilder.mockReturnValue(qb as any);
+
+      const result = await service.findAll({ search: 'Customer' });
+
+      expect(qb.skip).not.toHaveBeenCalled();
+      expect(qb.take).not.toHaveBeenCalled();
+      expect(result).toEqual({
+        data: expect.arrayContaining([
+          expect.objectContaining({ id: '1', name: 'Customer 1' }),
+          expect.objectContaining({ id: '2', name: 'Customer 2' }),
+        ]),
+        total: 2,
+      });
+    });
+
+    it('findDeleted returns all deleted customers without offset/limit pagination', async () => {
+      const qb = {
+        where: jest.fn().mockReturnThis(),
+        withDeleted: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        offset: jest.fn().mockReturnThis(),
+        limit: jest.fn().mockReturnThis(),
+        getMany: jest.fn().mockResolvedValue([
+          createCustomer('deleted-1', { deletedAt: new Date('2026-04-05T00:00:00.000Z') }),
+        ]),
+      };
+      customerRepository.createQueryBuilder.mockReturnValue(qb as any);
+
+      const result = await service.findDeleted({});
+
+      expect(qb.offset).not.toHaveBeenCalled();
+      expect(qb.limit).not.toHaveBeenCalled();
+      expect(result).toEqual({
+        data: [expect.objectContaining({ id: 'deleted-1', name: 'Customer deleted-1' })],
+        total: 1,
+      });
+    });
   });
 
   describe('searchGlobal', () => {

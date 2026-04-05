@@ -7,7 +7,7 @@ import { describe, expect, it, vi } from 'vitest'
 
 import { FilterSupplier } from '../FilterSupplier'
 
-vi.mock('@/store/api/purchasingApi', () => ({
+const { useGetSuppliersQuery } = vi.hoisted(() => ({
   useGetSuppliersQuery: vi.fn(() => ({
     data: {
       data: [
@@ -16,6 +16,10 @@ vi.mock('@/store/api/purchasingApi', () => ({
       ],
     },
   })),
+}))
+
+vi.mock('@/store/api/purchasingApi', () => ({
+  useGetSuppliersQuery,
 }))
 
 function renderWithStore(ui: ReactElement) {
@@ -34,5 +38,10 @@ describe('FilterSupplier', () => {
     await userEvent.click(screen.getByRole('combobox'))
     expect(await screen.findByText('Anaheim Electronics')).toBeInTheDocument()
     expect(await screen.findByText('Zeonic')).toBeInTheDocument()
+  })
+
+  it('requests suppliers without a limit override', () => {
+    renderWithStore(<FilterSupplier value={null} onChange={vi.fn()} />)
+    expect(useGetSuppliersQuery).toHaveBeenCalledWith({})
   })
 })

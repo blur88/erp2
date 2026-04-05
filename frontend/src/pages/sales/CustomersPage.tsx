@@ -158,7 +158,6 @@ const CustomersPage: React.FC = () => {
             : undefined,
       sortBy: sortState.sortBy,
       sortOrder: sortState.sortOrder,
-      limit: 999999,
     }),
     [appliedFilters, sortState],
   )

@@ -10,11 +10,10 @@ import {
   MaxLength,
   MinLength,
   Min,
-  Max,
   IsDateString,
   IsUUID,
 } from 'class-validator';
-import { Type, Transform } from 'class-transformer';
+import { Transform } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 import { SupplierType } from '../../../database/entities/supplier.entity';
 
@@ -85,21 +84,6 @@ export class UpdateSupplierDto extends PartialType(CreateSupplierDto) {
 }
 
 export class SupplierQueryDto {
-  @ApiPropertyOptional({ description: 'Page number', default: 1 })
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  page?: number = 1;
-
-  @ApiPropertyOptional({ description: 'Items per page', default: 10 })
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  @Max(1000)
-  limit?: number = 10;
-
   @ApiPropertyOptional({ description: 'Search term' })
   @IsOptional()
   @IsString()
@@ -210,21 +194,6 @@ export class SupplierListResponseDto {
 
   @ApiProperty({ description: 'Total count' })
   total!: number;
-
-  @ApiProperty({ description: 'Current page' })
-  page!: number;
-
-  @ApiProperty({ description: 'Items per page' })
-  limit!: number;
-
-  @ApiProperty({ description: 'Total pages' })
-  totalPages!: number;
-
-  @ApiProperty({ description: 'Has next page' })
-  hasNext!: boolean;
-
-  @ApiProperty({ description: 'Has previous page' })
-  hasPrev!: boolean;
 }
 
 class SupplierAnalyticsDto {
