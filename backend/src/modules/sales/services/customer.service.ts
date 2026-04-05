@@ -91,8 +91,6 @@ export class CustomerService {
       isActive,
       sortBy = 'name',
       sortOrder = 'ASC',
-      page = 1,
-      limit = 20,
     } = query;
 
     const where: FindOptionsWhere<Customer> = {};
@@ -126,17 +124,11 @@ export class CustomerService {
       queryBuilder.orderBy(`customer.${sortBy}`, sortOrder);
     }
 
-    // Apply pagination
-    queryBuilder.skip((page - 1) * limit).take(limit);
-
-    const [customers, total] = await queryBuilder.getManyAndCount();
+    const customers = await queryBuilder.getMany();
 
     return {
       data: customers.map(customer => this.mapToResponseDto(customer)),
-      total,
-      page,
-      limit,
-      totalPages: Math.ceil(total / limit),
+      total: customers.length,
     };
   }
 
@@ -217,8 +209,6 @@ export class CustomerService {
       search,
       sortBy = 'name',
       sortOrder = 'ASC',
-      page = 1,
-      limit = 20,
     } = query;
 
     const queryBuilder = this.customerRepository
@@ -241,17 +231,11 @@ export class CustomerService {
       queryBuilder.orderBy(`customer.${sortBy}`, sortOrder);
     }
 
-    // Add pagination
-    queryBuilder.offset((page - 1) * limit).limit(limit);
-
-    const [customers, total] = await queryBuilder.getManyAndCount();
+    const customers = await queryBuilder.getMany();
 
     return {
       data: customers.map(customer => this.mapToResponseDto(customer)),
-      total,
-      page,
-      limit,
-      totalPages: Math.ceil(total / limit),
+      total: customers.length,
     };
   }
 
