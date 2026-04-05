@@ -1,5 +1,9 @@
-import { CircularProgress, FormControl, InputLabel, MenuItem, Select, Stack, Tooltip } from '@mui/material'
+import { CircularProgress, Stack } from '@mui/material'
 
+import { FilterCompare } from './FilterCompare'
+import { FilterCustomer } from './FilterCustomer'
+import { FilterOrderStatus } from './FilterOrderStatus'
+import { FilterPaymentStatus } from './FilterPaymentStatus'
 import { FilterPeriod } from './FilterPeriod'
 import { FilterSearch } from './FilterSearch'
 import { FilterSelect } from './FilterSelect'
@@ -62,35 +66,45 @@ function renderQuickField<TFilters extends object>(
   if (field.type === 'compare') {
     const periodField = config.fields.find((configField) => configField.type === 'period')
     const periodValue = periodField ? (draftFilters[periodField.field] as PeriodValue) : null
-    const compareDisabled = periodValue?.key === 'today'
-    const selectId = `${String(field.field)}-select`
-    const labelId = `${String(field.field)}-label`
 
     return (
-      <Tooltip
+      <FilterCompare
         key={String(field.field)}
-        title={compareDisabled ? 'Comparison is not available for Today' : ''}
-        placement="top"
-      >
-        <span>
-          <FormControl size="small" sx={{ minWidth: 210 }} disabled={compareDisabled}>
-            <InputLabel id={labelId}>{field.label}</InputLabel>
-            <Select
-              id={selectId}
-              labelId={labelId}
-              disabled={compareDisabled}
-              value={(value as string | null) ?? ''}
-              label={field.label}
-              onChange={(event) => onChange((event.target.value || null) as string | null)}
-            >
-              <MenuItem value="">No Comparison</MenuItem>
-              <MenuItem value="previous_period">Previous Period</MenuItem>
-              <MenuItem value="last_month">Same Period Last Month</MenuItem>
-              <MenuItem value="last_year">Same Period Last Year</MenuItem>
-            </Select>
-          </FormControl>
-        </span>
-      </Tooltip>
+        value={(value as string | null) ?? null}
+        onChange={onChange}
+        periodValue={periodValue}
+      />
+    )
+  }
+
+  if (field.type === 'customer') {
+    return (
+      <FilterCustomer
+        key={String(field.field)}
+        value={(value as string | null) ?? null}
+        onChange={onChange}
+      />
+    )
+  }
+
+  if (field.type === 'order-status') {
+    return (
+      <FilterOrderStatus
+        key={String(field.field)}
+        value={(value as string | null) ?? null}
+        onChange={onChange}
+      />
+    )
+  }
+
+  if (field.type === 'payment-status') {
+    return (
+      <FilterPaymentStatus
+        key={String(field.field)}
+        value={(value as string | null) ?? null}
+        onChange={onChange}
+        includeOverpaid={field.includeOverpaid}
+      />
     )
   }
 

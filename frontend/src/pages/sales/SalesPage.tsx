@@ -29,7 +29,6 @@ import { FilterBar } from '@/components/filters/FilterBar'
 import { useFilterBar } from '@/hooks/useFilterBar'
 import { useNavigate } from 'react-router-dom'
 import api from '@/services/api'
-import { useGetCustomersQuery } from '@/store/api/salesApi'
 import { SalesStatsCards, SalesTrendChart, TopProductsList, TopCustomersList } from './components'
 import type { StatItem } from './components'
 import { useDashboardAnalytics } from './hooks/useDashboardAnalytics'
@@ -46,16 +45,9 @@ const SalesPage: React.FC = () => {
     period: PeriodValue
     compareWith: DashboardCompare
     customerId: string | null
-    isFulfilled: string | null
+    fulfillmentStatus: string | null
     paymentStatus: string | null
   }
-
-  // Assumes small customer count (<50). If this grows, replace with an autocomplete + search endpoint.
-  const { data: customersData } = useGetCustomersQuery({})
-  const customerOptions = (customersData?.data ?? []).map((customer: { id: string; name: string }) => ({
-    value: customer.id,
-    label: customer.name,
-  }))
 
   const salesConfig: FilterBarConfig<SalesDashboardFilters> = {
     namespace: 'sales',
@@ -73,37 +65,27 @@ const SalesPage: React.FC = () => {
       {
         field: 'customerId',
         label: 'Customer',
-        type: 'select',
+        type: 'customer',
         paramKey: 'customer',
-        options: [{ value: '', label: 'All Customers' }, ...customerOptions],
       },
       {
-        field: 'isFulfilled',
+        field: 'fulfillmentStatus',
         label: 'Order Status',
-        type: 'select',
+        type: 'order-status',
         paramKey: 'fulfilled',
-        options: [
-          { value: 'true', label: 'Fulfilled' },
-          { value: 'false', label: 'Pending' },
-        ],
       },
       {
         field: 'paymentStatus',
         label: 'Payment Status',
-        type: 'select',
+        type: 'payment-status',
         paramKey: 'payment',
-        options: [
-          { value: 'paid', label: 'Paid' },
-          { value: 'partial_paid', label: 'Partially Paid' },
-          { value: 'draft', label: 'Draft' },
-        ],
       },
     ],
     defaults: {
       period: { key: 'this_month', from: null, to: null },
       compareWith: null,
       customerId: null,
-      isFulfilled: null,
+      fulfillmentStatus: null,
       paymentStatus: null,
     },
   }

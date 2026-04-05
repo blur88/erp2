@@ -64,8 +64,13 @@ export function serializeFilters<TFilters extends object>(
     const key = effectiveKey(field, ns)
     const value = filters[field.field]
     const defaultValue = defaults[String(field.field)]
+    const isSingleValueField =
+      field.type === 'select' ||
+      field.type === 'customer' ||
+      field.type === 'order-status' ||
+      field.type === 'payment-status'
 
-    if (field.type === 'select') {
+    if (isSingleValueField) {
       if (value !== null && value !== undefined && value !== defaultValue) {
         orderedEntries.push([key, String(value)])
       }
@@ -130,14 +135,31 @@ export function parseFilters<TFilters extends object>(
     const key = effectiveKey(field, ns)
     const fieldKey = String(field.field)
     const defaultValue = defaults[fieldKey]
+    const isSingleValueField =
+      field.type === 'select' ||
+      field.type === 'customer' ||
+      field.type === 'order-status' ||
+      field.type === 'payment-status'
 
-    if (field.type === 'select') {
+    if (isSingleValueField) {
       const raw = searchParams.get(key)
       if (raw === null) {
         result[fieldKey] = defaultValue ?? null
-      } else {
+      } else if (field.type === 'select') {
+        // Validate against declared options so stale/hand-crafted URLs can't inject unknown values.
         const valid = field.options.find((option) => option.value === raw)
         result[fieldKey] = valid ? raw : (defaultValue ?? null)
+      } else if (field.type === 'order-status') {
+        // Fixed value set — validate to prevent bogus URL values reaching the API.
+        const VALID_ORDER_STATUS = ['fulfilled', 'unfulfilled']
+        result[fieldKey] = VALID_ORDER_STATUS.includes(raw) ? raw : (defaultValue ?? null)
+      } else if (field.type === 'payment-status') {
+        // Fixed value set — validate to prevent bogus URL values reaching the API.
+        const VALID_PAYMENT_STATUS = ['unpaid', 'partial', 'paid', 'overpaid']
+        result[fieldKey] = VALID_PAYMENT_STATUS.includes(raw) ? raw : (defaultValue ?? null)
+      } else {
+        // 'customer' — free-form UUID; no option list to validate against.
+        result[fieldKey] = raw
       }
       continue
     }

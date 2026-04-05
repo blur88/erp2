@@ -7,14 +7,11 @@ import {
   IsInt,
   Min,
   IsString,
-  IsBoolean,
 } from 'class-validator';
 import { ApiPropertyOptional, ApiProperty } from '@nestjs/swagger';
 import { format } from 'date-fns';
 import { Transform, Type } from 'class-transformer';
 import { DateRange, GroupByPeriod } from '@/common/dto/analytics.dto';
-import { InvoiceStatus } from '../../../database/entities/invoice.entity';
-
 // Re-export for backward compatibility
 export { DateRange, GroupByPeriod } from '@/common/dto/analytics.dto';
 
@@ -88,24 +85,19 @@ export class SalesAnalyticsQueryDto {
 
   @ApiPropertyOptional({
     description: 'Filter by fulfillment status',
-    example: true,
+    enum: ['fulfilled', 'unfulfilled'],
   })
   @IsOptional()
-  @IsBoolean()
-  @Transform(({ value }) => {
-    if (value === 'true' || value === true) return true;
-    if (value === 'false' || value === false) return false;
-    return undefined;
-  })
-  isFulfilled?: boolean;
+  @IsIn(['fulfilled', 'unfulfilled'])
+  fulfillmentStatus?: 'fulfilled' | 'unfulfilled';
 
   @ApiPropertyOptional({
-    description: 'Filter by invoice payment status',
-    enum: InvoiceStatus,
+    description: 'Filter by payment status',
+    enum: ['unpaid', 'partial', 'paid', 'overpaid'],
   })
   @IsOptional()
-  @IsEnum(InvoiceStatus)
-  paymentStatus?: InvoiceStatus;
+  @IsIn(['unpaid', 'partial', 'paid', 'overpaid'])
+  paymentStatus?: 'unpaid' | 'partial' | 'paid' | 'overpaid';
 }
 
 export class SalesMetricsDto {

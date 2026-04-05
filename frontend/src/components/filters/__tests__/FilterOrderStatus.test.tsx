@@ -1,0 +1,24 @@
+import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { describe, expect, it, vi } from 'vitest'
+
+import { FilterOrderStatus } from '../FilterOrderStatus'
+
+describe('FilterOrderStatus', () => {
+  it('renders with Order Status label', () => {
+    render(<FilterOrderStatus value={null} onChange={vi.fn()} />)
+    expect(screen.getByLabelText(/order status/i)).toBeInTheDocument()
+  })
+
+  it('shows Unfulfilled and Fulfilled options', async () => {
+    render(<FilterOrderStatus value={null} onChange={vi.fn()} />)
+    await userEvent.click(screen.getByRole('combobox'))
+    expect(await screen.findByText('Unfulfilled')).toBeInTheDocument()
+    expect(await screen.findByText('Fulfilled')).toBeInTheDocument()
+  })
+
+  it('displays the selected value', () => {
+    render(<FilterOrderStatus value="fulfilled" onChange={vi.fn()} />)
+    expect(screen.getByRole('combobox')).toBeInTheDocument()
+  })
+})

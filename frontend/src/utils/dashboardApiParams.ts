@@ -12,7 +12,7 @@ export interface DashboardResolvedApiParams {
   customerId?: string
   supplierId?: string
   status?: string
-  isFulfilled?: boolean
+  fulfillmentStatus?: string
   paymentStatus?: string
   categoryId?: string
   stockStatus?: string
@@ -23,7 +23,7 @@ export interface DashboardFilterBase {
   compareWith: DashboardCompare
   customerId?: string | null
   supplierId?: string | null
-  isFulfilled?: string | null
+  fulfillmentStatus?: string | null
   status?: string | null
   paymentStatus?: string | null
   categoryId?: string | null
@@ -80,18 +80,10 @@ export function resolveApiParams(filters: DashboardFilterBase): DashboardResolve
     ...base,
     ...(filters.customerId ? { customerId: filters.customerId } : {}),
     ...(filters.supplierId ? { supplierId: filters.supplierId } : {}),
-    ...(filters.isFulfilled !== null && filters.isFulfilled !== undefined
-      ? { isFulfilled: filters.isFulfilled === 'true' }
-      : {}),
-    ...(filters.status !== null && filters.status !== undefined ? { status: filters.status } : {}),
-    ...(filters.paymentStatus !== null && filters.paymentStatus !== undefined
-      ? { paymentStatus: filters.paymentStatus }
-      : {}),
-    ...(filters.categoryId !== null && filters.categoryId !== undefined
-      ? { categoryId: filters.categoryId }
-      : {}),
-    ...(filters.stockStatus !== null && filters.stockStatus !== undefined
-      ? { stockStatus: filters.stockStatus }
-      : {}),
+    ...(filters.fulfillmentStatus != null ? { fulfillmentStatus: filters.fulfillmentStatus } : {}),
+    ...(filters.status != null ? { status: filters.status } : {}),
+    ...(filters.paymentStatus != null ? { paymentStatus: filters.paymentStatus } : {}),
+    ...(filters.categoryId != null ? { categoryId: filters.categoryId } : {}),
+    ...(filters.stockStatus != null ? { stockStatus: filters.stockStatus } : {}),
   }
 }

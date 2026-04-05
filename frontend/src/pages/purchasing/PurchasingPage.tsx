@@ -113,13 +113,8 @@ const PurchasingPage: React.FC = () => {
       {
         field: 'paymentStatus',
         label: 'Payment Status',
-        type: 'select',
+        type: 'payment-status',
         paramKey: 'payment',
-        options: [
-          { value: 'paid', label: 'Paid' },
-          { value: 'partial', label: 'Partially Paid' },
-          { value: 'unpaid', label: 'Unpaid' },
-        ],
       },
     ],
     defaults: {

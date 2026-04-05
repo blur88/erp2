@@ -7,6 +7,7 @@ import { Payment } from '../../../database/entities/payment.entity';
 import { Customer } from '../../../database/entities/customer.entity';
 import { SalesOrderItem } from '../../../database/entities/sales-order-item.entity';
 import { SalesAnalyticsReportService } from './sales-analytics-report.service';
+import { SalesAnalyticsQueryDto } from '../dto/sales-analytics.dto';
 
 const d = (s: string) => new Date(`${s}T00:00:00.000Z`);
 
@@ -17,6 +18,35 @@ function makeRepoMock() {
     findOne: jest.fn().mockResolvedValue(null),
     count: jest.fn().mockResolvedValue(0),
   };
+}
+
+/**
+ * Standalone query-builder mock used by the canonical-params describe blocks.
+ * Simpler than makeChainMock (no rawMany defaults) so each test can configure
+ * exactly what it needs without noise.
+ * Use makeChainMock (in getSalesAnalytics filter propagation) for full-service tests.
+ */
+function makeChainableQb(rawOneResult: any = {}) {
+  const qb: any = {
+    where: jest.fn().mockReturnThis(),
+    andWhere: jest.fn().mockReturnThis(),
+    leftJoin: jest.fn().mockReturnThis(),
+    leftJoinAndSelect: jest.fn().mockReturnThis(),
+    select: jest.fn().mockReturnThis(),
+    addSelect: jest.fn().mockReturnThis(),
+    setParameters: jest.fn().mockReturnThis(),
+    groupBy: jest.fn().mockReturnThis(),
+    addGroupBy: jest.fn().mockReturnThis(),
+    orderBy: jest.fn().mockReturnThis(),
+    addOrderBy: jest.fn().mockReturnThis(),
+    limit: jest.fn().mockReturnThis(),
+    take: jest.fn().mockReturnThis(),
+    getRawMany: jest.fn().mockResolvedValue([]),
+    getRawOne: jest.fn().mockResolvedValue(rawOneResult),
+    getMany: jest.fn().mockResolvedValue([]),
+    getCount: jest.fn().mockResolvedValue(0),
+  };
+  return qb;
 }
 
 describe('SalesAnalyticsService', () => {
@@ -172,21 +202,35 @@ describe('SalesAnalyticsService', () => {
   });
 
   describe('SalesAnalyticsQueryDto validation', () => {
-    it('accepts isFulfilled=true as boolean after transform', async () => {
-      const { plainToInstance } = await import('class-transformer');
-      const { validate } = await import('class-validator');
-      const { SalesAnalyticsQueryDto } = await import('../dto/sales-analytics.dto');
-      const dto = plainToInstance(SalesAnalyticsQueryDto, { isFulfilled: 'true' });
-      const errors = await validate(dto);
+    it('accepts fulfillmentStatus=fulfilled without validation error', () => {
+      const dto = new SalesAnalyticsQueryDto();
+      dto.fulfillmentStatus = 'fulfilled';
 
-      expect(errors.filter((e) => e.property === 'isFulfilled')).toHaveLength(0);
-      expect(dto.isFulfilled).toBe(true);
+      expect(dto.fulfillmentStatus).toBe('fulfilled');
     });
 
-    it('accepts paymentStatus=paid as valid InvoiceStatus', async () => {
+    it('accepts paymentStatus=unpaid without validation error', () => {
+      const dto = new SalesAnalyticsQueryDto();
+      dto.paymentStatus = 'unpaid';
+
+      expect(dto.paymentStatus).toBe('unpaid');
+    });
+
+    it('accepts fulfillmentStatus=fulfilled as valid canonical value', async () => {
       const { plainToInstance } = await import('class-transformer');
       const { validate } = await import('class-validator');
-      const { SalesAnalyticsQueryDto } = await import('../dto/sales-analytics.dto');
+      const dto = plainToInstance(SalesAnalyticsQueryDto, {
+        fulfillmentStatus: 'fulfilled',
+      });
+      const errors = await validate(dto);
+
+      expect(errors.filter((e) => e.property === 'fulfillmentStatus')).toHaveLength(0);
+      expect(dto.fulfillmentStatus).toBe('fulfilled');
+    });
+
+    it('accepts paymentStatus=paid as valid canonical value', async () => {
+      const { plainToInstance } = await import('class-transformer');
+      const { validate } = await import('class-validator');
       const dto = plainToInstance(SalesAnalyticsQueryDto, { paymentStatus: 'paid' });
       const errors = await validate(dto);
 
@@ -253,16 +297,20 @@ describe('SalesAnalyticsService', () => {
       expect(qb.andWhere).toHaveBeenCalledWith('order.createdByUserId = :salesRepId', { salesRepId: 'rep-1' });
     });
 
-    it('applies paymentStatus filter with invoice join when provided', async () => {
+    it('applies paymentStatus filter with translated invoice join when provided', async () => {
       const qb = makeQbChain();
       const customerQb = makeCustomerQbChain();
       (service as any).salesOrderRepository.createQueryBuilder = jest.fn().mockReturnValue(qb);
       (service as any).customerRepository.createQueryBuilder = jest.fn().mockReturnValue(customerQb);
 
-      await (service as any).getPeriodData(start, end, 'month', { paymentStatus: 'paid' as any });
+      await (service as any).getPeriodData(start, end, 'month', {
+        paymentStatus: 'unpaid',
+      } as any);
 
       expect(qb.leftJoin).toHaveBeenCalledWith('order.invoices', 'invoice');
-      expect(qb.andWhere).toHaveBeenCalledWith('invoice.status = :paymentStatus', { paymentStatus: 'paid' });
+      expect(qb.andWhere).toHaveBeenCalledWith('invoice.status = :paymentStatus', {
+        paymentStatus: 'draft',
+      });
     });
 
     it('applies no extra andWhere calls when query has no filters', async () => {
@@ -277,6 +325,151 @@ describe('SalesAnalyticsService', () => {
       expect(andWhereCalls).not.toContain(expect.stringContaining('customerId'));
       expect(andWhereCalls).not.toContain(expect.stringContaining('salesRepId'));
       expect(andWhereCalls).not.toContain(expect.stringContaining('paymentStatus'));
+    });
+  });
+
+  describe('calculateSalesMetrics — fulfillmentStatus translation', () => {
+    it('adds isFulfilled=true WHERE when fulfillmentStatus=fulfilled', async () => {
+      const orderQb = makeChainableQb({
+        totalRevenue: '0',
+        totalOrders: '0',
+        averageOrderValue: '0',
+        completedOrders: '0',
+        confirmedOrders: '0',
+        draftOrders: '0',
+      });
+      const invoiceQb = makeChainableQb({
+        paidInvoicesAmount: '0',
+        pendingInvoicesAmount: '0',
+        overdueInvoicesAmount: '0',
+      });
+      const module2 = await Test.createTestingModule({
+        providers: [
+          SalesAnalyticsService,
+          {
+            provide: getRepositoryToken(SalesOrder),
+            useValue: { createQueryBuilder: jest.fn().mockReturnValue(orderQb) },
+          },
+          {
+            provide: getRepositoryToken(Invoice),
+            useValue: { createQueryBuilder: jest.fn().mockReturnValue(invoiceQb) },
+          },
+          {
+            provide: getRepositoryToken(Payment),
+            useValue: { createQueryBuilder: jest.fn().mockReturnValue(makeChainableQb()) },
+          },
+          {
+            provide: getRepositoryToken(Customer),
+            useValue: { createQueryBuilder: jest.fn().mockReturnValue(makeChainableQb()) },
+          },
+          { provide: getRepositoryToken(SalesOrderItem), useValue: makeRepoMock() },
+          { provide: SalesAnalyticsReportService, useValue: { getProductSummary: jest.fn() } },
+        ],
+      }).compile();
+      const svc = module2.get<SalesAnalyticsService>(SalesAnalyticsService);
+
+      const query = new SalesAnalyticsQueryDto();
+      query.fulfillmentStatus = 'fulfilled';
+      await (svc as any).calculateSalesMetrics(new Date(), new Date(), query);
+
+      const andWhereCalls: string[] = orderQb.andWhere.mock.calls.map((c: any[]) => c[0]);
+      expect(andWhereCalls.some((call) => call.includes('isFulfilled'))).toBe(true);
+    });
+
+    it('adds isFulfilled=false WHERE when fulfillmentStatus=unfulfilled', async () => {
+      const orderQb = makeChainableQb({
+        totalRevenue: '0',
+        totalOrders: '0',
+        averageOrderValue: '0',
+        completedOrders: '0',
+        confirmedOrders: '0',
+        draftOrders: '0',
+      });
+      const invoiceQb = makeChainableQb({
+        paidInvoicesAmount: '0',
+        pendingInvoicesAmount: '0',
+        overdueInvoicesAmount: '0',
+      });
+      const module2 = await Test.createTestingModule({
+        providers: [
+          SalesAnalyticsService,
+          {
+            provide: getRepositoryToken(SalesOrder),
+            useValue: { createQueryBuilder: jest.fn().mockReturnValue(orderQb) },
+          },
+          {
+            provide: getRepositoryToken(Invoice),
+            useValue: { createQueryBuilder: jest.fn().mockReturnValue(invoiceQb) },
+          },
+          {
+            provide: getRepositoryToken(Payment),
+            useValue: { createQueryBuilder: jest.fn().mockReturnValue(makeChainableQb()) },
+          },
+          {
+            provide: getRepositoryToken(Customer),
+            useValue: { createQueryBuilder: jest.fn().mockReturnValue(makeChainableQb()) },
+          },
+          { provide: getRepositoryToken(SalesOrderItem), useValue: makeRepoMock() },
+          { provide: SalesAnalyticsReportService, useValue: { getProductSummary: jest.fn() } },
+        ],
+      }).compile();
+      const svc = module2.get<SalesAnalyticsService>(SalesAnalyticsService);
+
+      const query = new SalesAnalyticsQueryDto();
+      query.fulfillmentStatus = 'unfulfilled';
+      await (svc as any).calculateSalesMetrics(new Date(), new Date(), query);
+
+      const andWhereCalls: string[] = orderQb.andWhere.mock.calls.map((c: any[]) => c[0]);
+      expect(andWhereCalls.some((call) => call.includes('isFulfilled'))).toBe(true);
+    });
+  });
+
+  describe('calculateSalesMetrics — paymentStatus translation', () => {
+    it('maps paymentStatus=unpaid to invoice.status=draft in WHERE clause', async () => {
+      const orderQb = makeChainableQb({
+        totalRevenue: '0',
+        totalOrders: '0',
+        averageOrderValue: '0',
+        completedOrders: '0',
+        confirmedOrders: '0',
+        draftOrders: '0',
+      });
+      const invoiceQb = makeChainableQb({
+        paidInvoicesAmount: '0',
+        pendingInvoicesAmount: '0',
+        overdueInvoicesAmount: '0',
+      });
+      const module2 = await Test.createTestingModule({
+        providers: [
+          SalesAnalyticsService,
+          {
+            provide: getRepositoryToken(SalesOrder),
+            useValue: { createQueryBuilder: jest.fn().mockReturnValue(orderQb) },
+          },
+          {
+            provide: getRepositoryToken(Invoice),
+            useValue: { createQueryBuilder: jest.fn().mockReturnValue(invoiceQb) },
+          },
+          {
+            provide: getRepositoryToken(Payment),
+            useValue: { createQueryBuilder: jest.fn().mockReturnValue(makeChainableQb()) },
+          },
+          {
+            provide: getRepositoryToken(Customer),
+            useValue: { createQueryBuilder: jest.fn().mockReturnValue(makeChainableQb()) },
+          },
+          { provide: getRepositoryToken(SalesOrderItem), useValue: makeRepoMock() },
+          { provide: SalesAnalyticsReportService, useValue: { getProductSummary: jest.fn() } },
+        ],
+      }).compile();
+      const svc = module2.get<SalesAnalyticsService>(SalesAnalyticsService);
+
+      const query = new SalesAnalyticsQueryDto();
+      query.paymentStatus = 'unpaid';
+      await (svc as any).calculateSalesMetrics(new Date(), new Date(), query);
+
+      const andWhereCalls: string[] = invoiceQb.andWhere.mock.calls.map((c: any[]) => c[0]);
+      expect(andWhereCalls.some((call) => call.includes('invoice.status'))).toBe(true);
     });
   });
 
@@ -519,7 +712,7 @@ describe('SalesAnalyticsService', () => {
       return chain;
     }
 
-    it('applies isFulfilled filter to orderQuery in calculateSalesMetrics', async () => {
+    it('applies fulfillmentStatus filter to orderQuery in calculateSalesMetrics', async () => {
       const orderChain = makeChainMock();
       const invoiceChain = makeChainMock();
       const customerChain = makeChainMock();
@@ -532,7 +725,7 @@ describe('SalesAnalyticsService', () => {
       (service as any).salesOrderItemRepository.createQueryBuilder = jest.fn().mockReturnValue(makeChainMock({}, []));
 
       await service.getSalesAnalytics({
-        isFulfilled: true,
+        fulfillmentStatus: 'fulfilled',
         dateRange: undefined,
       } as any);
 
@@ -554,18 +747,15 @@ describe('SalesAnalyticsService', () => {
       (service as any).paymentRepository.createQueryBuilder = jest.fn().mockReturnValue(paymentChain);
       (service as any).salesOrderItemRepository.createQueryBuilder = jest.fn().mockReturnValue(makeChainMock({}, []));
 
-      await service.getSalesAnalytics({
-        paymentStatus: 'paid' as any,
-        dateRange: undefined,
-      } as any);
+      await service.getSalesAnalytics({ paymentStatus: 'unpaid', dateRange: undefined } as any);
 
       expect(invoiceChain.andWhere).toHaveBeenCalledWith(
         'invoice.status = :paymentStatus',
-        { paymentStatus: 'paid' },
+        { paymentStatus: 'draft' },
       );
     });
 
-    it('applies isFulfilled filter to getPeriodData orderQuery', async () => {
+    it('applies fulfillmentStatus filter to getPeriodData orderQuery', async () => {
       const orderChain = makeChainMock({}, []);
       const invoiceChain = makeChainMock();
       const customerChain = makeChainMock({}, []);
@@ -578,7 +768,7 @@ describe('SalesAnalyticsService', () => {
       (service as any).salesOrderItemRepository.createQueryBuilder = jest.fn().mockReturnValue(makeChainMock({}, []));
 
       await service.getSalesAnalytics({
-        isFulfilled: false,
+        fulfillmentStatus: 'unfulfilled',
         dateRange: undefined,
       } as any);
 
@@ -588,7 +778,7 @@ describe('SalesAnalyticsService', () => {
       expect(calls.length).toBeGreaterThanOrEqual(2);
     });
 
-    it('applies isFulfilled filter to getTopCustomers orderQuery', async () => {
+    it('applies fulfillmentStatus filter to getTopCustomers orderQuery', async () => {
       const orderChain = makeChainMock({}, []);
       const invoiceChain = makeChainMock();
       const customerChain = makeChainMock({}, []);
@@ -601,7 +791,7 @@ describe('SalesAnalyticsService', () => {
       (service as any).salesOrderItemRepository.createQueryBuilder = jest.fn().mockReturnValue(makeChainMock({}, []));
 
       await service.getSalesAnalytics({
-        isFulfilled: true,
+        fulfillmentStatus: 'fulfilled',
         dateRange: undefined,
       } as any);
 
@@ -658,6 +848,32 @@ describe('SalesAnalyticsService', () => {
         (args: any[]) => args[0] === 'invoice.status = :paymentStatus',
       );
       expect(invoiceStatusCalls.length).toBeGreaterThanOrEqual(1);
+    });
+
+    it('adds paidAmount > totalAmount predicate when paymentStatus=overpaid (calculateSalesMetrics)', async () => {
+      const orderChain = makeChainMock();
+      const invoiceChain = makeChainMock();
+      const customerChain = makeChainMock();
+      const paymentChain = makeChainMock();
+
+      (service as any).salesOrderRepository.createQueryBuilder = jest.fn().mockReturnValue(orderChain);
+      (service as any).invoiceRepository.createQueryBuilder = jest.fn().mockReturnValue(invoiceChain);
+      (service as any).customerRepository.createQueryBuilder = jest.fn().mockReturnValue(customerChain);
+      (service as any).paymentRepository.createQueryBuilder = jest.fn().mockReturnValue(paymentChain);
+      (service as any).salesOrderItemRepository.createQueryBuilder = jest.fn().mockReturnValue(makeChainMock({}, []));
+
+      await service.getSalesAnalytics({ paymentStatus: 'overpaid' as any, dateRange: undefined } as any);
+
+      // Must set invoice.status = PAID
+      expect(invoiceChain.andWhere).toHaveBeenCalledWith(
+        'invoice.status = :paymentStatus',
+        { paymentStatus: 'paid' },
+      );
+      // AND additionally constrain to invoices where paidAmount exceeds totalAmount
+      const overpaidCalls = invoiceChain.andWhere.mock.calls.filter(
+        (args: any[]) => args[0] === 'invoice.paidAmount > invoice.totalAmount',
+      );
+      expect(overpaidCalls.length).toBeGreaterThanOrEqual(1);
     });
   });
 });

@@ -1,2 +1,6 @@
 export { FilterBar } from './FilterBar'
+export { FilterCompare } from './FilterCompare'
+export { FilterCustomer } from './FilterCustomer'
+export { FilterOrderStatus } from './FilterOrderStatus'
+export { FilterPaymentStatus } from './FilterPaymentStatus'
 export { FilterPeriod } from './FilterPeriod'

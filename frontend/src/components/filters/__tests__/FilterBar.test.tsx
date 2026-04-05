@@ -1,11 +1,19 @@
 import { LocalizationProvider } from '@mui/x-date-pickers'
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns'
+import { configureStore } from '@reduxjs/toolkit'
 import { fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { Provider } from 'react-redux'
 import { describe, expect, it, vi } from 'vitest'
 
 import type { FilterBarConfig, FilterBarHandlers, PeriodValue } from '@/types/filterBar.types'
 import { FilterBar } from '../FilterBar'
+
+vi.mock('@/store/api/salesApi', () => ({
+  useGetCustomersQuery: vi.fn(() => ({
+    data: { data: [{ id: 'c1', name: 'Amuro Ray' }] },
+  })),
+}))
 
 interface Filters {
   search: string
@@ -219,6 +227,91 @@ describe('FilterBar — compare field', () => {
     await userEvent.click(screen.getByLabelText('Compare'))
     await userEvent.click(screen.getByText('No Comparison'))
     expect(onQuickFilterChange).toHaveBeenCalledWith('compareWith', null)
+  })
+})
+
+describe('FilterBar — custom filter field types', () => {
+  it('renders FilterCustomer when type=customer', () => {
+    interface CustomerFilters {
+      customerId: string | null
+    }
+
+    const customerConfig: FilterBarConfig<CustomerFilters> = {
+      fields: [{ field: 'customerId', label: 'Customer', type: 'customer' }],
+    }
+
+    render(
+      <Provider store={configureStore({ reducer: {} })}>
+        <FilterBar
+          config={customerConfig}
+          draftFilters={{ customerId: null }}
+          handlers={{
+            onSearchChange: vi.fn(),
+            onSearchCommit: vi.fn(),
+            onQuickFilterChange: vi.fn(),
+            onClearField: vi.fn(),
+            onClearAll: vi.fn(),
+          }}
+          hasActiveFilters={false}
+        />
+      </Provider>,
+    )
+
+    expect(screen.getByLabelText(/customer/i)).toBeInTheDocument()
+  })
+
+  it('renders FilterOrderStatus when type=order-status', () => {
+    interface StatusFilters {
+      fulfillmentStatus: string | null
+    }
+
+    const statusConfig: FilterBarConfig<StatusFilters> = {
+      fields: [{ field: 'fulfillmentStatus', label: 'Order Status', type: 'order-status' }],
+    }
+
+    render(
+      <FilterBar
+        config={statusConfig}
+        draftFilters={{ fulfillmentStatus: null }}
+        handlers={{
+          onSearchChange: vi.fn(),
+          onSearchCommit: vi.fn(),
+          onQuickFilterChange: vi.fn(),
+          onClearField: vi.fn(),
+          onClearAll: vi.fn(),
+        }}
+        hasActiveFilters={false}
+      />,
+    )
+
+    expect(screen.getByLabelText(/order status/i)).toBeInTheDocument()
+  })
+
+  it('renders FilterPaymentStatus when type=payment-status', () => {
+    interface PaymentFilters {
+      paymentStatus: string | null
+    }
+
+    const paymentConfig: FilterBarConfig<PaymentFilters> = {
+      fields: [{ field: 'paymentStatus', label: 'Payment', type: 'payment-status' }],
+    }
+
+    render(
+      <FilterBar
+        config={paymentConfig}
+        draftFilters={{ paymentStatus: null }}
+        handlers={{
+          onSearchChange: vi.fn(),
+          onSearchCommit: vi.fn(),
+          onQuickFilterChange: vi.fn(),
+          onClearField: vi.fn(),
+          onClearAll: vi.fn(),
+        }}
+        hasActiveFilters={false}
+      />,
+    )
+
+    expect(screen.getByLabelText(/payment/i)).toBeInTheDocument()
   })
 })
 
