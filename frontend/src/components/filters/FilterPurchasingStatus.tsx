@@ -3,7 +3,7 @@ import { useId } from 'react'
 import { FilterSelect } from './FilterSelect'
 
 const PURCHASING_STATUS_OPTIONS = [
-  { value: 'pending', label: 'Pending' },
+  { value: 'draft', label: 'Draft' },
   { value: 'received', label: 'Received' },
 ]
 

@@ -10,10 +10,10 @@ describe('FilterPurchasingStatus', () => {
     expect(screen.getByLabelText(/order status/i)).toBeInTheDocument()
   })
 
-  it('shows Pending and Received options', async () => {
+  it('shows Draft and Received options', async () => {
     render(<FilterPurchasingStatus value={null} onChange={vi.fn()} />)
     await userEvent.click(screen.getByRole('combobox'))
-    expect(await screen.findByText('Pending')).toBeInTheDocument()
+    expect(await screen.findByText('Draft')).toBeInTheDocument()
     expect(await screen.findByText('Received')).toBeInTheDocument()
   })
 })
