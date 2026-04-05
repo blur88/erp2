@@ -1,3 +1,10 @@
+## [1.49.2](https://github.com/blur88/erp2/compare/v1.49.1...v1.49.2) (2026-04-05)
+
+
+### Bug Fixes
+
+* guard isActive transform against null/empty-string inputs in SupplierQueryDto and QueryCustomersDto ([bf397cc](https://github.com/blur88/erp2/commit/bf397ccb2d463c2f9c80bf0d0aed0444fe9208d2)), closes [#297](https://github.com/blur88/erp2/issues/297)
+
 ## [1.49.1](https://github.com/blur88/erp2/compare/v1.49.0...v1.49.1) (2026-04-05)
 
 
