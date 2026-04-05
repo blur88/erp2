@@ -70,7 +70,10 @@ export function serializeFilters<TFilters extends object>(
       field.type === 'order-status' ||
       field.type === 'payment-status' ||
       field.type === 'supplier' ||
-      field.type === 'purchasing-status'
+      field.type === 'purchasing-status' ||
+      field.type === 'category' ||
+      field.type === 'product-type' ||
+      field.type === 'stock-status'
 
     if (isSingleValueField) {
       if (value !== null && value !== undefined && value !== defaultValue) {
@@ -143,7 +146,10 @@ export function parseFilters<TFilters extends object>(
       field.type === 'order-status' ||
       field.type === 'payment-status' ||
       field.type === 'supplier' ||
-      field.type === 'purchasing-status'
+      field.type === 'purchasing-status' ||
+      field.type === 'category' ||
+      field.type === 'product-type' ||
+      field.type === 'stock-status'
 
     if (isSingleValueField) {
       const raw = searchParams.get(key)
@@ -165,7 +171,7 @@ export function parseFilters<TFilters extends object>(
         const VALID_PAYMENT_STATUS = ['unpaid', 'partial', 'paid', 'overpaid']
         result[fieldKey] = VALID_PAYMENT_STATUS.includes(raw) ? raw : (defaultValue ?? null)
       } else {
-        // 'customer' and 'supplier' are free-form identifiers; no option list to validate against.
+        // These field types are free-form identifiers or page-level mapped values with no option list to validate against.
         result[fieldKey] = raw
       }
       continue

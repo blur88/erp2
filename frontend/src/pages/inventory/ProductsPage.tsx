@@ -28,7 +28,9 @@ import type { FilterBarConfig } from '@/types/filterBar.types'
 
 interface InventoryProductFilters {
   search: string
-  status: 'active' | 'inactive' | null
+  categoryId: string | null
+  type: 'goods' | 'service' | null
+  stockStatus: 'low_stock' | 'out_of_stock' | null
 }
 
 export const ProductsPage: React.FC = () => {
@@ -42,20 +44,16 @@ export const ProductsPage: React.FC = () => {
     () => ({
       search: { placeholder: 'Search by name, barcode, or brand...' },
       fields: [
-        {
-          field: 'status',
-          label: 'Status',
-          type: 'select',
-          options: [
-            { value: 'active', label: 'Active' },
-            { value: 'inactive', label: 'Inactive' },
-          ],
-        },
+        { field: 'categoryId', label: 'Category', type: 'category' },
+        { field: 'type', label: 'Product Type', type: 'product-type' },
+        { field: 'stockStatus', label: 'Stock Status', type: 'stock-status' },
         // warehouseId deferred: backend GET /inventory/products does not support warehouseId filtering
       ],
       defaults: {
         search: '',
-        status: null,
+        categoryId: null,
+        type: null,
+        stockStatus: null,
       },
     }),
     [],
@@ -63,15 +61,31 @@ export const ProductsPage: React.FC = () => {
 
   const { appliedFilters, draftFilters, handlers, hasActiveFilters } = useFilterBar(filterConfig)
 
-  const productQueryParams = useMemo(() => ({
-    search: appliedFilters.search || undefined,
-    isActive:
-      appliedFilters.status === 'active'
-        ? true
-        : appliedFilters.status === 'inactive'
-          ? false
-          : undefined,
-  }), [appliedFilters])
+  const productQueryParams = useMemo(() => {
+    const params: Record<string, string | boolean> = {}
+
+    if (appliedFilters.search) {
+      params.search = appliedFilters.search
+    }
+
+    if (appliedFilters.categoryId) {
+      params.categoryId = appliedFilters.categoryId
+    }
+
+    if (appliedFilters.type === 'goods') {
+      params.type = 'Stocked Product'
+    } else if (appliedFilters.type === 'service') {
+      params.type = 'Service'
+    }
+
+    if (appliedFilters.stockStatus === 'low_stock') {
+      params.lowStock = true
+    } else if (appliedFilters.stockStatus === 'out_of_stock') {
+      params.outOfStock = true
+    }
+
+    return params
+  }, [appliedFilters])
 
   const { data: productsResponse, isFetching: isProductsFetching, refetch: refetchProducts } = useGetProductsQuery(productQueryParams)
   const [deleteProduct] = useDeleteProductMutation()
