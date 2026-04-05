@@ -5,7 +5,7 @@
 
 ## Overview
 
-Refactor the `ProductsPage` filter bar to align with the standard `FilterBar` system and add three new filters: Category, Product Type, and Stock Status.
+Refactor the `ProductsPage` filter bar to align with the standard `FilterBar` system, add three new filters (Category, Product Type, Stock Status), and remove the existing Status filter.
 
 ## Current State
 
@@ -55,17 +55,18 @@ Three new components in `frontend/src/components/filters/`:
 **`frontend/src/pages/inventory/ProductsPage.tsx`:**
 
 ### Updated `InventoryProductFilters` interface
+Remove `status`. Final shape:
 ```typescript
 interface InventoryProductFilters {
   search: string
   categoryId: string | null
   type: 'goods' | 'service' | null
   stockStatus: 'low_stock' | 'out_of_stock' | null
-  status: 'active' | 'inactive' | null
 }
 ```
 
-### Updated `filterConfig` fields (after existing `status` field)
+### Updated `filterConfig` fields
+Remove the existing `status` select field. Add:
 ```typescript
 { field: 'categoryId', label: 'Category', type: 'category' },
 { field: 'type', label: 'Product Type', type: 'product-type' },
@@ -79,18 +80,14 @@ defaults: {
   categoryId: null,
   type: null,
   stockStatus: null,
-  status: null,
 }
 ```
 
 ### Updated `productQueryParams` mapping
+Remove `isActive` mapping. The API default (`isActive: true` set in `inventoryApi.ts`) is retained as-is.
 ```typescript
 const productQueryParams = useMemo(() => ({
   search: appliedFilters.search || undefined,
-  isActive:
-    appliedFilters.status === 'active' ? true
-    : appliedFilters.status === 'inactive' ? false
-    : undefined,
   categoryId: appliedFilters.categoryId ?? undefined,
   type: appliedFilters.type ?? undefined,
   lowStock: appliedFilters.stockStatus === 'low_stock' ? true : undefined,
