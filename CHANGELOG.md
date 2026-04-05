@@ -1,3 +1,10 @@
+## [1.49.1](https://github.com/blur88/erp2/compare/v1.49.0...v1.49.1) (2026-04-05)
+
+
+### Bug Fixes
+
+* remove stale limit:999999 from PaymentsPage and stale @ApiQuery page/limit decorators from controllers ([3d40efd](https://github.com/blur88/erp2/commit/3d40efd0125f84b8d552c88719dc08d97540d910))
+
 # [1.49.0](https://github.com/blur88/erp2/compare/v1.48.0...v1.49.0) (2026-04-05)
 
 
