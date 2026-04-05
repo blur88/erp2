@@ -187,7 +187,7 @@ const PaymentsPage: React.FC = () => {
   const hasRestoredSelection = useRef(false)
   const selectedPaymentRef = useRef(selectedPayment)
   const previousPathnameRef = useRef(location.pathname)
-  const { data: customersData } = useGetCustomersQuery({ limit: 999999 })
+  const { data: customersData } = useGetCustomersQuery({})
   const customers = customersData?.data ?? []
   const presetCustomerId = (location.state as { customerId?: string } | null)?.customerId ?? null
 

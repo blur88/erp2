@@ -62,17 +62,15 @@ export class SupplierController {
   }
 
   @Get()
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Get all suppliers',
-    description: 'Retrieve suppliers with advanced filtering, searching, and pagination capabilities.'
+    description: 'Retrieve suppliers with advanced filtering and searching capabilities.'
   })
   @ApiResponse({
     status: 200,
     description: 'Suppliers retrieved successfully',
     type: SupplierListResponseDto,
   })
-  @ApiQuery({ name: 'page', required: false, type: Number, description: 'Page number (default: 1)' })
-  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Items per page (default: 10, max: 100)' })
   @ApiQuery({ name: 'search', required: false, type: String, description: 'Search by company name, code, contact person, or email' })
   @ApiQuery({ name: 'type', required: false, enum: ['local', 'international'], description: 'Filter by supplier type' })
   @ApiQuery({ name: 'status', required: false, enum: ['active', 'inactive', 'suspended', 'blacklisted'], description: 'Filter by status' })

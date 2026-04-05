@@ -65,8 +65,6 @@ export class CustomerController {
   @ApiQuery({ name: 'isActive', required: false, type: Boolean, description: 'Filter by active status' })
   @ApiQuery({ name: 'sortBy', required: false, description: 'Sort field' })
   @ApiQuery({ name: 'sortOrder', required: false, enum: ['ASC', 'DESC'], description: 'Sort order' })
-  @ApiQuery({ name: 'page', required: false, type: Number, description: 'Page number' })
-  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Items per page' })
   async getAllCustomers(@Query() query: QueryCustomersDto) {
     return this.customerService.findAll(query);
   }
@@ -90,8 +88,6 @@ export class CustomerController {
     type: [CustomerResponseDto],
   })
   @ApiQuery({ name: 'search', required: false, description: 'Search customers by name, email, or phone' })
-  @ApiQuery({ name: 'page', required: false, type: Number, description: 'Page number' })
-  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Items per page' })
   async getDeletedCustomers(@Query() query: QueryCustomersDto) {
     return this.customerService.findDeleted(query);
   }
