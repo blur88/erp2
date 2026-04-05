@@ -23,7 +23,9 @@ function getDefaults<TFilters extends object>(
       field.type === 'select' ||
       field.type === 'customer' ||
       field.type === 'order-status' ||
-      field.type === 'payment-status'
+      field.type === 'payment-status' ||
+      field.type === 'supplier' ||
+      field.type === 'purchasing-status'
     ) {
       defaults[key] = null
     }

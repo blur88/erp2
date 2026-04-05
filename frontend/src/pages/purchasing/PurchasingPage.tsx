@@ -44,7 +44,6 @@ import { useNavigate } from 'react-router-dom'
 import PageHeader from '@/components/common/PageHeader'
 import { FilterBar } from '@/components/filters/FilterBar'
 import { useFilterBar } from '@/hooks/useFilterBar'
-import { useGetSuppliersQuery } from '@/store/api/purchasingApi'
 import { usePurchasingAnalytics } from './hooks/usePurchasingAnalytics'
 import { resolveApiParams } from '@/utils/dashboardApiParams'
 import type { DashboardCompare } from '@/utils/dashboardApiParams'
@@ -74,12 +73,6 @@ const PurchasingPage: React.FC = () => {
     paymentStatus: string | null
   }
 
-  const { data: suppliersData } = useGetSuppliersQuery({})
-  const supplierOptions = suppliersData?.data?.map((supplier) => ({
-    value: supplier.id,
-    label: supplier.companyName,
-  })) ?? []
-
   const purchasingConfig: FilterBarConfig<PurchasingDashboardFilters> = {
     namespace: 'purchasing',
     fields: [
@@ -96,19 +89,14 @@ const PurchasingPage: React.FC = () => {
       {
         field: 'supplierId',
         label: 'Supplier',
-        type: 'select',
+        type: 'supplier',
         paramKey: 'supplier',
-        options: [{ value: '', label: 'All Suppliers' }, ...supplierOptions],
       },
       {
         field: 'status',
         label: 'Order Status',
-        type: 'select',
+        type: 'purchasing-status',
         paramKey: 'status',
-        options: [
-          { value: 'received', label: 'Received' },
-          { value: 'pending', label: 'Pending' },
-        ],
       },
       {
         field: 'paymentStatus',

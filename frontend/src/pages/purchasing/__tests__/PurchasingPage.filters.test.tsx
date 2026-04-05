@@ -91,4 +91,33 @@ describe('PurchasingPage filters', () => {
     )
     expect(screen.getByText('Purchasing Overview')).toBeInTheDocument()
   })
+
+  it('configures supplier and status filters with the named purchasing filter types', () => {
+    render(
+      <MemoryRouter initialEntries={[initialEntry]}>
+        <PurchasingPage />
+      </MemoryRouter>,
+    )
+
+    const latestProps = filterBarSpy.mock.calls.at(-1)?.[0] as {
+      config: {
+        fields: Array<{ field: string; type: string; paramKey?: string }>
+      }
+    }
+
+    expect(latestProps.config.fields).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          field: 'supplierId',
+          type: 'supplier',
+          paramKey: 'supplier',
+        }),
+        expect.objectContaining({
+          field: 'status',
+          type: 'purchasing-status',
+          paramKey: 'status',
+        }),
+      ]),
+    )
+  })
 })

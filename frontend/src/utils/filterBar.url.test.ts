@@ -257,6 +257,55 @@ describe('parseFilters — namespace', () => {
   })
 })
 
+interface PurchasingFilters {
+  supplierId: string | null
+  status: string | null
+}
+
+const purchasingConfig: FilterBarConfig<PurchasingFilters> = {
+  fields: [
+    { field: 'supplierId', label: 'Supplier', type: 'supplier', paramKey: 'supplier' },
+    { field: 'status', label: 'Order Status', type: 'purchasing-status', paramKey: 'status' },
+  ],
+  defaults: {
+    supplierId: null,
+    status: null,
+  },
+  namespace: 'purchasing',
+}
+
+describe('serializeFilters — purchasing named types', () => {
+  it('serializes supplier and purchasing-status filters like single-value fields', () => {
+    const params = serializeFilters(
+      {
+        supplierId: '550e8400-e29b-41d4-a716-446655440001',
+        status: 'received',
+      },
+      purchasingConfig,
+      new URLSearchParams(),
+    )
+
+    expect(params.get('purchasing_supplier')).toBe('550e8400-e29b-41d4-a716-446655440001')
+    expect(params.get('purchasing_status')).toBe('received')
+  })
+})
+
+describe('parseFilters — purchasing named types', () => {
+  it('parses supplier and purchasing-status filters from namespaced params', () => {
+    const result = parseFilters(
+      new URLSearchParams(
+        'purchasing_supplier=550e8400-e29b-41d4-a716-446655440001&purchasing_status=received',
+      ),
+      purchasingConfig,
+    )
+
+    expect(result).toEqual({
+      supplierId: '550e8400-e29b-41d4-a716-446655440001',
+      status: 'received',
+    })
+  })
+})
+
 describe('getManagedParamKeys — namespace', () => {
   it('returns prefixed keys', () => {
     const keys = getManagedParamKeys(namespacedConfig)

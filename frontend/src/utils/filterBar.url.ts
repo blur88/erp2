@@ -68,7 +68,9 @@ export function serializeFilters<TFilters extends object>(
       field.type === 'select' ||
       field.type === 'customer' ||
       field.type === 'order-status' ||
-      field.type === 'payment-status'
+      field.type === 'payment-status' ||
+      field.type === 'supplier' ||
+      field.type === 'purchasing-status'
 
     if (isSingleValueField) {
       if (value !== null && value !== undefined && value !== defaultValue) {
@@ -139,7 +141,9 @@ export function parseFilters<TFilters extends object>(
       field.type === 'select' ||
       field.type === 'customer' ||
       field.type === 'order-status' ||
-      field.type === 'payment-status'
+      field.type === 'payment-status' ||
+      field.type === 'supplier' ||
+      field.type === 'purchasing-status'
 
     if (isSingleValueField) {
       const raw = searchParams.get(key)
@@ -153,12 +157,15 @@ export function parseFilters<TFilters extends object>(
         // Fixed value set — validate to prevent bogus URL values reaching the API.
         const VALID_ORDER_STATUS = ['fulfilled', 'unfulfilled']
         result[fieldKey] = VALID_ORDER_STATUS.includes(raw) ? raw : (defaultValue ?? null)
+      } else if (field.type === 'purchasing-status') {
+        const VALID_PURCHASING_STATUS = ['pending', 'received']
+        result[fieldKey] = VALID_PURCHASING_STATUS.includes(raw) ? raw : (defaultValue ?? null)
       } else if (field.type === 'payment-status') {
         // Fixed value set — validate to prevent bogus URL values reaching the API.
         const VALID_PAYMENT_STATUS = ['unpaid', 'partial', 'paid', 'overpaid']
         result[fieldKey] = VALID_PAYMENT_STATUS.includes(raw) ? raw : (defaultValue ?? null)
       } else {
-        // 'customer' — free-form UUID; no option list to validate against.
+        // 'customer' and 'supplier' are free-form identifiers; no option list to validate against.
         result[fieldKey] = raw
       }
       continue
