@@ -157,11 +157,6 @@ export class SupplierService {
     return {
       suppliers: supplierDtos,
       total,
-      page: 1,
-      limit: total,
-      totalPages: 1,
-      hasNext: false,
-      hasPrev: false,
     };
   }
 
@@ -567,16 +562,11 @@ export class SupplierService {
     this.logger.log('Finding deleted suppliers');
 
     const {
-      page = 1,
-      limit = 10,
       search,
       type,
       sortBy = 'companyName',
       sortOrder = 'ASC',
     } = query;
-
-    const skip = (page - 1) * Math.min(limit, 100);
-    const take = Math.min(limit, 100);
 
     const queryBuilder = this.supplierRepository
       .createQueryBuilder('supplier')
@@ -595,27 +585,15 @@ export class SupplierService {
       queryBuilder.andWhere('supplier.type = :type', { type });
     }
 
-    // Count total
-    const total = await queryBuilder.getCount();
-
-    // Apply sorting and pagination
     const validSortFields = ['companyName', 'type', 'createdAt', 'deletedAt'];
     const sortField = validSortFields.includes(sortBy) ? sortBy : 'companyName';
     queryBuilder.orderBy(`supplier.${sortField}`, sortOrder as 'ASC' | 'DESC');
-    queryBuilder.skip(skip).take(take);
 
     const suppliers = await queryBuilder.getMany();
 
-    const totalPages = Math.ceil(total / take);
-
     return {
       suppliers: suppliers.map(supplier => this.mapToResponseDto(supplier)),
-      total,
-      page,
-      limit: take,
-      totalPages,
-      hasNext: page < totalPages,
-      hasPrev: page > 1,
+      total: suppliers.length,
     };
   }
 
