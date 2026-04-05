@@ -1,3 +1,15 @@
+# [1.48.0](https://github.com/blur88/erp2/compare/v1.47.6...v1.48.0) (2026-04-05)
+
+
+### Bug Fixes
+
+* **tests:** update dashboardApiParams.test.ts isFulfilled → fulfillmentStatus ([c6107b0](https://github.com/blur88/erp2/commit/c6107b00c892e9b0cb40beb554a1572afd37fdbe))
+
+
+### Features
+
+* **filters:** standalone filter components and backend alignment ([#277](https://github.com/blur88/erp2/issues/277)) ([69cd67b](https://github.com/blur88/erp2/commit/69cd67ba6956565a4bf893db38b3b5e9b91f82dd))
+
 ## [1.47.6](https://github.com/blur88/erp2/compare/v1.47.5...v1.47.6) (2026-04-05)
 
 
