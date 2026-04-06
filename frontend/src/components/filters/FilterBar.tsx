@@ -1,13 +1,16 @@
 import { CircularProgress, Stack } from '@mui/material'
 
 import { FilterCompare } from './FilterCompare'
+import { FilterCategory } from './FilterCategory'
 import { FilterCustomer } from './FilterCustomer'
 import { FilterOrderStatus } from './FilterOrderStatus'
 import { FilterPaymentStatus } from './FilterPaymentStatus'
 import { FilterPeriod } from './FilterPeriod'
+import { FilterProductType } from './FilterProductType'
 import { FilterPurchasingStatus } from './FilterPurchasingStatus'
 import { FilterSearch } from './FilterSearch'
 import { FilterSelect } from './FilterSelect'
+import { FilterStockStatus } from './FilterStockStatus'
 import { FilterSupplier } from './FilterSupplier'
 import { AppButton } from '@/components/common/AppButton'
 import type {
@@ -123,6 +126,36 @@ function renderQuickField<TFilters extends object>(
   if (field.type === 'purchasing-status') {
     return (
       <FilterPurchasingStatus
+        key={String(field.field)}
+        value={(value as string | null) ?? null}
+        onChange={onChange}
+      />
+    )
+  }
+
+  if (field.type === 'category') {
+    return (
+      <FilterCategory
+        key={String(field.field)}
+        value={(value as string | null) ?? null}
+        onChange={onChange}
+      />
+    )
+  }
+
+  if (field.type === 'product-type') {
+    return (
+      <FilterProductType
+        key={String(field.field)}
+        value={(value as string | null) ?? null}
+        onChange={onChange}
+      />
+    )
+  }
+
+  if (field.type === 'stock-status') {
+    return (
+      <FilterStockStatus
         key={String(field.field)}
         value={(value as string | null) ?? null}
         onChange={onChange}

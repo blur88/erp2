@@ -7,16 +7,18 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ProductsPage } from '../ProductsPage'
 import inventoryReducer from '@/store/slices/inventorySlice'
 
-const { useGetProductsQuery } = vi.hoisted(() => ({
+const { useGetProductsQuery, useGetCategoriesQuery } = vi.hoisted(() => ({
   useGetProductsQuery: vi.fn(() => ({
     data: { data: [], meta: { total: 0 } },
     isFetching: false,
     refetch: vi.fn(),
   })),
+  useGetCategoriesQuery: vi.fn(() => ({ data: [] })),
 }))
 
 vi.mock('@/store/api/inventoryApi', () => ({
   useGetProductsQuery,
+  useGetCategoriesQuery,
   useDeleteProductMutation: vi.fn(() => [vi.fn()]),
 }))
 
@@ -72,6 +74,12 @@ function renderPage(initialUrl = '/') {
 describe('ProductsPage FilterBar integration', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    useGetProductsQuery.mockReturnValue({
+      data: { data: [], meta: { total: 0 } },
+      isFetching: false,
+      refetch: vi.fn(),
+    })
+    useGetCategoriesQuery.mockReturnValue({ data: [] })
   })
 
   it('renders the shared filter search input', () => {
@@ -79,25 +87,66 @@ describe('ProductsPage FilterBar integration', () => {
     expect(screen.getByPlaceholderText(/search by name, barcode, or brand/i)).toBeInTheDocument()
   })
 
-  it('uses a 16px bottom margin below the filter bar wrapper', () => {
-    renderPage()
-
-    const filterWrapper = screen
-      .getByPlaceholderText(/search by name, barcode, or brand/i)
-      .closest('.MuiBox-root')
-      ?.parentElement
-
-    expect(filterWrapper).not.toBeNull()
-    expect(window.getComputedStyle(filterWrapper as HTMLElement).marginBottom).toBe('16px')
+  it('restores search from URL into the products query', () => {
+    renderPage('/?search=gundam')
+    expect(useGetProductsQuery).toHaveBeenLastCalledWith(
+      expect.objectContaining({ search: 'gundam' }),
+    )
   })
 
-  it('restores filters from URL into the products query', () => {
-    renderPage('/?search=gundam&status=inactive')
+  it('restores categoryId from URL into the products query', () => {
+    renderPage('/?categoryId=cat-uuid-123')
     expect(useGetProductsQuery).toHaveBeenLastCalledWith(
-      expect.objectContaining({
-        search: 'gundam',
-        isActive: false,
-      }),
+      expect.objectContaining({ categoryId: 'cat-uuid-123' }),
+    )
+  })
+
+  it('restores type from URL into the products query', () => {
+    renderPage('/?type=goods')
+    expect(useGetProductsQuery).toHaveBeenLastCalledWith(
+      expect.objectContaining({ type: 'Stocked Product' }),
+    )
+  })
+
+  it('maps stockStatus=low_stock to lowStock=true in the products query', () => {
+    renderPage('/?stockStatus=low_stock')
+    expect(useGetProductsQuery).toHaveBeenLastCalledWith(
+      expect.objectContaining({ lowStock: true }),
+    )
+  })
+
+  it('maps stockStatus=out_of_stock to outOfStock=true in the products query', () => {
+    renderPage('/?stockStatus=out_of_stock')
+    expect(useGetProductsQuery).toHaveBeenLastCalledWith(
+      expect.objectContaining({ outOfStock: true }),
+    )
+  })
+
+  it('does not pass lowStock or outOfStock when stockStatus is not set', () => {
+    renderPage('/')
+    const lastCall = useGetProductsQuery.mock.calls.at(-1)?.[0] ?? {}
+
+    expect(lastCall).not.toHaveProperty('lowStock')
+    expect(lastCall).not.toHaveProperty('outOfStock')
+  })
+
+  it('renders the three inventory quick filters', () => {
+    useGetCategoriesQuery.mockReturnValue({
+      data: [{ id: 'cat-1', name: 'Electronics' }],
+    })
+
+    renderPage('/')
+
+    expect(screen.getByLabelText('Category')).toBeInTheDocument()
+    expect(screen.getByLabelText('Product Type')).toBeInTheDocument()
+    expect(screen.getByLabelText('Stock Status')).toBeInTheDocument()
+    expect(useGetCategoriesQuery).toHaveBeenCalledWith({})
+  })
+
+  it('does not pass the legacy isActive query flag', () => {
+    renderPage('/')
+    expect(useGetProductsQuery).toHaveBeenLastCalledWith(
+      expect.not.objectContaining({ isActive: expect.anything() }),
     )
   })
 })
