@@ -1,3 +1,15 @@
+# [1.51.0](https://github.com/blur88/erp2/compare/v1.50.0...v1.51.0) (2026-04-06)
+
+
+### Features
+
+* **filters:** add category, product-type, stock-status to FilterFieldType ([fc34d56](https://github.com/blur88/erp2/commit/fc34d564ffb3c4e2579fee9d2db88b2e29b124af))
+* **filters:** add FilterCategory component ([a908ad0](https://github.com/blur88/erp2/commit/a908ad05d337dbc7849ebaf1cdd90e9619758200))
+* **filters:** add FilterProductType component ([c001419](https://github.com/blur88/erp2/commit/c001419b93ee8224e51857210c38fc899b2d985e))
+* **filters:** add FilterStockStatus component ([7222988](https://github.com/blur88/erp2/commit/7222988baba4e10cd1891c71617c34ecef712fa8))
+* **filters:** register FilterCategory, FilterProductType, FilterStockStatus in FilterBar ([d15e68f](https://github.com/blur88/erp2/commit/d15e68f573f5ff59244ed6c4c0e326632e94e740))
+* **inventory:** update ProductsPage filter bar with category, type, stockStatus filters ([a841880](https://github.com/blur88/erp2/commit/a8418802c3a76abaf50b37802cd317eb5c90222b))
+
 # [1.50.0](https://github.com/blur88/erp2/compare/v1.49.2...v1.50.0) (2026-04-05)
 
 
