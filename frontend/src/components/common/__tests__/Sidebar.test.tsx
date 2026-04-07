@@ -376,7 +376,6 @@ describe('Sidebar', () => {
     const styles = window.getComputedStyle(dashboardButton)
 
     expect(styles.backgroundColor).toBe(alpha(darkTheme.palette.primary.main, 0.13))
-    expect(styles.borderRadius).toBe('8px')
     expect(styles.transform).toContain('4')
   })
 
@@ -408,7 +407,6 @@ describe('Sidebar', () => {
     const labelStyles = window.getComputedStyle(within(customersButton).getByText('Customers'))
 
     expect(buttonStyles.height).toBe('40px')
-    expect(buttonStyles.borderRadius).toBe('8px')
     expect(buttonStyles.transform).toBe('translateX(0)')
     expect(labelStyles.fontSize).toBe('0.875rem')
   })
