@@ -1,3 +1,28 @@
+# [1.52.0](https://github.com/blur88/erp2/compare/v1.51.1...v1.52.0) (2026-04-07)
+
+
+### Bug Fixes
+
+* **deps:** downgrade jsdom to 28.1.0 to fix ERR_REQUIRE_ASYNC_MODULE in tests ([e374067](https://github.com/blur88/erp2/commit/e374067cf9ca7a43f9d6d693ab4cde63a631b997))
+* **sales:** address code review issues from [#303](https://github.com/blur88/erp2/issues/303) implementation ([8f80dbf](https://github.com/blur88/erp2/commit/8f80dbf9d0a84cbf987442c4e9164535117646a2))
+
+
+### Features
+
+* **sales:** add customer create edit routes to router ([96e2107](https://github.com/blur88/erp2/commit/96e2107eeb0ac568fc62959ce3b57179ec1d86ff))
+* **sales:** add CustomerContextHeader component ([d6cd57b](https://github.com/blur88/erp2/commit/d6cd57ba5c899b7b3faebd00ba7f769dc00f3fb6))
+* **sales:** add CustomerFormPage for create edit customer routes ([97308ca](https://github.com/blur88/erp2/commit/97308ca3c0ae7c6422ea0bfd7b5b6cb7bf51b226))
+* **sales:** add CustomerList component for master pane ([6b85125](https://github.com/blur88/erp2/commit/6b8512596c2fb2f18984fb927596ecfcb8947bc9))
+* **sales:** add CustomerWorkspaceCard with full profile tabs ([6b67053](https://github.com/blur88/erp2/commit/6b670531eb0306fc4d4416b41eafb692970d4150))
+* **sales:** add selectedCustomer state to salesSlice ([be27a21](https://github.com/blur88/erp2/commit/be27a2147fcf5f95570f436ced2b41b083172d19))
+* **sales:** add useCustomersActions hook ([4da739b](https://github.com/blur88/erp2/commit/4da739bd428b220221dfeebcce3f105955e68684))
+* **sales:** add useCustomersPageState hook ([a5d9b56](https://github.com/blur88/erp2/commit/a5d9b56df25728349595608b653483fb3cc3354a))
+* **sales:** add useCustomersSelection hook with keyboard navigation ([12debd1](https://github.com/blur88/erp2/commit/12debd1bda51b8cc76d3174ee1bc2baf165aa132))
+* **sales:** close [#303](https://github.com/blur88/erp2/issues/303) - Customers page Master-Detail layout complete ([ae6fba7](https://github.com/blur88/erp2/commit/ae6fba7ba8ed04700d6a739dbe5bf7b7bec13772))
+* **sales:** refactor CustomersPage to MasterDetail layout ([bb4b549](https://github.com/blur88/erp2/commit/bb4b54959bd281a31d30d93d3b0599091a5a393a))
+* **sales:** remove CustomerProfilePage content now in CustomerWorkspaceCard ([d3bce3a](https://github.com/blur88/erp2/commit/d3bce3ac285c577b3983e64d0efb4563394ca334))
+* **sales:** wire CustomersPage Edit New to CustomerFormPage routes, remove inline dialog ([22e1f33](https://github.com/blur88/erp2/commit/22e1f336c0c6d4df8b46503a9ebd14a21b7db8e8))
+
 ## [1.51.1](https://github.com/blur88/erp2/compare/v1.51.0...v1.51.1) (2026-04-06)
 
 
