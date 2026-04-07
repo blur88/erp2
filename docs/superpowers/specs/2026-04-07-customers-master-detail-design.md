@@ -141,6 +141,5 @@ Logic extracted directly from `CustomerProfilePage` — no new API endpoints req
 
 1. **Extract `CustomerFormPage`** — Create + Edit routes, remove Dialog from CustomersPage. CustomersPage still works as-is (View action still navigates to CustomerProfilePage temporarily).
 2. **Extract `CustomerWorkspaceCard`** — Pull profile content out of `CustomerProfilePage` into a reusable component.
-3. **Refactor `CustomersPage`** — Replace table with `MasterDetailWorkspace`, wire up new components and hooks, delete `CustomerProfilePage`, update router.
-4. **Redux + keyboard nav** — Add `selectedCustomer` to `salesSlice`, implement `useCustomersSelection` with full keyboard support.
-5. **Tests** — Update existing filter tests, write `CustomerFormPage.test.tsx` and `CustomersPage.test.tsx`.
+3. **Refactor `CustomersPage`** — Add `selectedCustomer` to `salesSlice`, implement `useCustomersSelection`/`useCustomersActions`/`useCustomersPageState` hooks, replace table with `MasterDetailWorkspace`, wire keyboard nav, delete `CustomerProfilePage`, update router. Also remove the `location.state.editCustomerId` handling in `CustomersPage` — this was only needed to support navigating back from `CustomerProfilePage`'s edit flow, which no longer exists.
+4. **Tests** — Update existing filter tests, write `CustomerFormPage.test.tsx` and `CustomersPage.test.tsx`.
