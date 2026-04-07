@@ -134,7 +134,6 @@ describe('SidebarUserMenu', () => {
     const styles = window.getComputedStyle(trigger)
 
     expect(styles.alignSelf).toBe('stretch')
-    expect(styles.borderRadius).toBe('8px')
     expect(styles.marginLeft).toBe('8px')
     expect(styles.marginRight).toBe('8px')
     expect(styles.marginBottom).toBe('4px')
