@@ -1,12 +1,8 @@
 import React, { useEffect, useState } from 'react'
 import {
-  Alert,
   Box,
-  Chip,
   CircularProgress,
-  Divider,
   Paper,
-  Stack,
   Tab,
   Table,
   TableBody,
@@ -19,32 +15,15 @@ import {
 } from '@mui/material'
 import {
   AccountBalance as InvoiceIcon,
-  LocationOn as LocationIcon,
-  Phone as PhoneIcon,
   ShoppingCart as OrdersIcon,
-  Star as StarIcon,
-  TrendingUp as SalesIcon,
 } from '@mui/icons-material'
 import { useNavigate } from 'react-router-dom'
 
 import { TABLE_STYLES } from '@/constants/tableStyles'
 import api from '@/services/api'
 import type { Customer } from '@/types'
-import { CustomerType } from '@/types'
 import { formatCurrency } from '@/utils/currency'
 import { formatDate } from '@/utils/formatters'
-import SalesStatsCards from './SalesStatsCards'
-import type { StatItem } from './SalesStatsCards'
-
-interface CustomerStatistics {
-  orders: {
-    totalOrders: number
-    totalSales: number
-    averageOrderValue: number
-    firstOrderDate: string | null
-    lastOrderDate: string | null
-  }
-}
 
 interface SalesOrderItem {
   id: string
@@ -74,8 +53,21 @@ interface TabPanelProps {
 
 function TabPanel({ children, value, index }: TabPanelProps) {
   return (
-    <Box role="tabpanel" hidden={value !== index} sx={{ pt: 2, overflow: 'auto' }}>
-      {value === index && children}
+    <Box
+      role="tabpanel"
+      hidden={value !== index}
+      sx={{
+        flex: 1,
+        overflow: 'auto',
+        display: value === index ? 'flex' : 'none',
+        flexDirection: 'column',
+      }}
+    >
+      {value === index && (
+        <Box sx={{ p: TABLE_STYLES.cell.padding.px, flex: 1 }}>
+          {children}
+        </Box>
+      )}
     </Box>
   )
 }
@@ -87,49 +79,35 @@ interface CustomerWorkspaceCardProps {
 const CustomerWorkspaceCard: React.FC<CustomerWorkspaceCardProps> = ({ selectedCustomer }) => {
   const navigate = useNavigate()
 
-  const [statistics, setStatistics] = useState<CustomerStatistics | null>(null)
   const [orders, setOrders] = useState<SalesOrderItem[]>([])
   const [invoices, setInvoices] = useState<OutstandingInvoice[]>([])
   const [totalOutstanding, setTotalOutstanding] = useState(0)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
   const [tabValue, setTabValue] = useState(0)
   const [ordersLoaded, setOrdersLoaded] = useState(false)
   const [invoicesLoaded, setInvoicesLoaded] = useState(false)
 
   useEffect(() => {
     if (!selectedCustomer) {
-      setStatistics(null)
       setOrders([])
       setInvoices([])
       setTotalOutstanding(0)
       setTabValue(0)
       setOrdersLoaded(false)
       setInvoicesLoaded(false)
-      setError(null)
       return
     }
 
-    setLoading(true)
-    setStatistics(null)
     setTabValue(0)
     setOrdersLoaded(false)
     setInvoicesLoaded(false)
     setOrders([])
     setInvoices([])
-    setError(null)
-
-    api.get(`/customers/${selectedCustomer.id}/statistics`)
-      .then((res) => {
-        setStatistics(res.data?.data ?? res.data)
-      })
-      .catch(() => setError('Failed to load customer statistics.'))
-      .finally(() => setLoading(false))
   }, [selectedCustomer?.id])
 
   useEffect(() => {
-    if (tabValue === 1 && !ordersLoaded && selectedCustomer?.id) {
-      api.get(`/customers/${selectedCustomer.id}/sales-history`)
+    if (tabValue === 0 && !ordersLoaded && selectedCustomer?.id) {
+      api
+        .get(`/customers/${selectedCustomer.id}/sales-history`)
         .then((res: any) => setOrders(res.data?.orders ?? res.data ?? []))
         .catch(() => {})
         .finally(() => setOrdersLoaded(true))
@@ -137,8 +115,9 @@ const CustomerWorkspaceCard: React.FC<CustomerWorkspaceCardProps> = ({ selectedC
   }, [tabValue, ordersLoaded, selectedCustomer?.id])
 
   useEffect(() => {
-    if (tabValue === 2 && !invoicesLoaded && selectedCustomer?.id) {
-      api.get(`/customers/${selectedCustomer.id}/outstanding-invoices`)
+    if (tabValue === 1 && !invoicesLoaded && selectedCustomer?.id) {
+      api
+        .get(`/customers/${selectedCustomer.id}/outstanding-invoices`)
         .then((res: any) => {
           const data = res.data?.data ?? res.data
           setInvoices(data?.invoices ?? [])
@@ -153,129 +132,24 @@ const CustomerWorkspaceCard: React.FC<CustomerWorkspaceCardProps> = ({ selectedC
     return <Paper sx={{ flex: 1 }} />
   }
 
-  if (loading) {
-    return (
-      <Paper sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <CircularProgress />
-      </Paper>
-    )
-  }
-
-  if (error) {
-    return <Alert severity="error">{error}</Alert>
-  }
-
-  const fullAddress = [
-    selectedCustomer.streetAddress,
-    [selectedCustomer.city, selectedCustomer.state, selectedCustomer.postalCode].filter(Boolean).join(', '),
-    selectedCustomer.country,
-  ].filter(Boolean).join('\n')
-
-  const stats: StatItem[] = [
-    {
-      title: 'Total Orders',
-      value: selectedCustomer.totalOrders ?? 0,
-      icon: OrdersIcon,
-      color: 'primary',
-    },
-    {
-      title: 'Total Sales',
-      value: formatCurrency(selectedCustomer.totalSales ?? 0),
-      icon: SalesIcon,
-      color: 'success',
-    },
-    {
-      title: 'Avg Order Value',
-      value: formatCurrency(statistics?.orders.averageOrderValue ?? 0),
-      icon: StarIcon,
-      color: 'info',
-    },
-    {
-      title: 'Outstanding',
-      value: formatCurrency(totalOutstanding),
-      icon: InvoiceIcon,
-      color: totalOutstanding > 0 ? 'warning' : 'success',
-    },
-  ]
-
   return (
-    <Paper sx={{ overflow: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: 2, p: 2 }}>
-      <Stack spacing={0.5}>
-        <Stack direction="row" spacing={1} flexWrap="wrap">
-          <Chip
-            label={selectedCustomer.isActive ? 'Active' : 'Inactive'}
-            color={selectedCustomer.isActive ? 'success' : 'default'}
-            size="small"
-          />
-          <Chip
-            label={selectedCustomer.type === CustomerType.BUSINESS ? 'Business' : 'Individual'}
-            size="small"
-            variant="outlined"
-          />
-        </Stack>
-        {selectedCustomer.phone && (
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <PhoneIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
-            <Typography variant="body2">{selectedCustomer.phone}</Typography>
-          </Box>
-        )}
-        {fullAddress && (
-          <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
-            <LocationIcon sx={{ fontSize: 16, color: 'text.secondary', mt: 0.2 }} />
-            <Typography variant="body2" sx={{ whiteSpace: 'pre-line' }}>{fullAddress}</Typography>
-          </Box>
-        )}
-      </Stack>
-
-      <SalesStatsCards stats={stats} />
-
+    <Paper sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
       <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
         <Tabs value={tabValue} onChange={(_, value) => setTabValue(value)}>
-          <Tab label="Overview" />
-          <Tab label="Orders" />
-          <Tab label="Invoices" />
+          <Tab icon={<OrdersIcon sx={{ fontSize: 16 }} />} iconPosition="start" label="Orders" />
+          <Tab icon={<InvoiceIcon sx={{ fontSize: 16 }} />} iconPosition="start" label="Invoices" />
         </Tabs>
       </Box>
 
       <TabPanel value={tabValue} index={0}>
-        <Stack spacing={1.5}>
-          {selectedCustomer.priceList && (
-            <Box sx={{ display: 'flex', gap: 2 }}>
-              <Typography color="text.secondary" sx={{ minWidth: 140 }}>Price List:</Typography>
-              <Chip label={selectedCustomer.priceList.name} size="small" />
-            </Box>
-          )}
-          {statistics?.orders.firstOrderDate && (
-            <Box sx={{ display: 'flex', gap: 2 }}>
-              <Typography color="text.secondary" sx={{ minWidth: 140 }}>First Purchase:</Typography>
-              <Typography>{formatDate(statistics.orders.firstOrderDate)}</Typography>
-            </Box>
-          )}
-          {selectedCustomer.lastPurchaseDate && (
-            <Box sx={{ display: 'flex', gap: 2 }}>
-              <Typography color="text.secondary" sx={{ minWidth: 140 }}>Last Purchase:</Typography>
-              <Typography>{formatDate(selectedCustomer.lastPurchaseDate)}</Typography>
-            </Box>
-          )}
-          {selectedCustomer.notes && (
-            <>
-              <Divider />
-              <Box>
-                <Typography color="text.secondary" gutterBottom>Notes:</Typography>
-                <Typography>{selectedCustomer.notes}</Typography>
-              </Box>
-            </>
-          )}
-        </Stack>
-      </TabPanel>
-
-      <TabPanel value={tabValue} index={1}>
         {!ordersLoaded ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
             <CircularProgress />
           </Box>
         ) : orders.length === 0 ? (
-          <Typography color="text.secondary" sx={{ py: 4, textAlign: 'center' }}>No orders found.</Typography>
+          <Typography color="text.secondary" sx={{ py: 4, textAlign: 'center' }}>
+            No orders found.
+          </Typography>
         ) : (
           <TableContainer component={Paper} variant="outlined">
             <Table size={TABLE_STYLES.size}>
@@ -296,15 +170,24 @@ const CustomerWorkspaceCard: React.FC<CustomerWorkspaceCardProps> = ({ selectedC
                     onClick={() => navigate(`/sales/orders/${order.id}/edit`)}
                   >
                     <TableCell>
-                      <Typography variant="body2" color="primary" fontWeight={600}>{order.orderNumber}</Typography>
+                      <Typography variant="body2" color="primary" fontWeight={600}>
+                        {order.orderNumber}
+                      </Typography>
                     </TableCell>
                     <TableCell>{formatDate(order.orderDate)}</TableCell>
                     <TableCell>
-                      <Chip
-                        label={order.isFulfilled ? 'Fulfilled' : order.isPaid ? 'Paid' : 'Pending'}
-                        size="small"
-                        color={order.isFulfilled ? 'success' : order.isPaid ? 'primary' : 'default'}
-                      />
+                      <Typography
+                        variant="body2"
+                        sx={{
+                          color: order.isFulfilled
+                            ? 'success.main'
+                            : order.isPaid
+                              ? 'primary.main'
+                              : 'text.secondary',
+                        }}
+                      >
+                        {order.isFulfilled ? 'Fulfilled' : order.isPaid ? 'Paid' : 'Pending'}
+                      </Typography>
                     </TableCell>
                     <TableCell align="right">{formatCurrency(order.totalAmount)}</TableCell>
                   </TableRow>
@@ -315,13 +198,15 @@ const CustomerWorkspaceCard: React.FC<CustomerWorkspaceCardProps> = ({ selectedC
         )}
       </TabPanel>
 
-      <TabPanel value={tabValue} index={2}>
+      <TabPanel value={tabValue} index={1}>
         {!invoicesLoaded ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
             <CircularProgress />
           </Box>
         ) : invoices.length === 0 ? (
-          <Typography color="text.secondary" sx={{ py: 4, textAlign: 'center' }}>No outstanding invoices.</Typography>
+          <Typography color="text.secondary" sx={{ py: 4, textAlign: 'center' }}>
+            No outstanding invoices.
+          </Typography>
         ) : (
           <>
             <Box sx={{ mb: 2, display: 'flex', justifyContent: 'flex-end' }}>
@@ -348,14 +233,20 @@ const CustomerWorkspaceCard: React.FC<CustomerWorkspaceCardProps> = ({ selectedC
                       onClick={() => invoice.salesOrderId && navigate(`/sales/orders/${invoice.salesOrderId}/edit`)}
                     >
                       <TableCell>
-                        <Typography variant="body2" color={invoice.salesOrderId ? 'primary' : 'text.primary'} fontWeight={600}>
+                        <Typography
+                          variant="body2"
+                          color={invoice.salesOrderId ? 'primary' : 'text.primary'}
+                          fontWeight={600}
+                        >
                           {invoice.invoiceNumber}
                         </Typography>
                       </TableCell>
                       <TableCell>{formatDate(invoice.invoiceDate)}</TableCell>
                       <TableCell align="right">{formatCurrency(invoice.totalAmount)}</TableCell>
                       <TableCell align="right">
-                        <Typography fontWeight={600} color="error.main">{formatCurrency(invoice.balanceDue)}</Typography>
+                        <Typography fontWeight={600} color="error.main">
+                          {formatCurrency(invoice.balanceDue)}
+                        </Typography>
                       </TableCell>
                     </TableRow>
                   ))}
