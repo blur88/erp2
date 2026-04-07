@@ -62,7 +62,7 @@ vi.mock('../components/CustomerContextHeader', () => ({
 }))
 
 vi.mock('../components/CustomerList', () => ({
-  default: ({ customers, onSelect }: any) => (
+  default: ({ customers, onSelect, total: _total }: any) => (
     <div data-testid="customer-list">
       {customers.map((customer: any) => (
         <div key={customer.id} data-testid={`customer-item-${customer.id}`} onClick={() => onSelect(customer)}>
@@ -102,6 +102,8 @@ vi.mock('../hooks/useCustomersPageState', () => ({
     setDeletedCustomersDialogOpen: vi.fn(),
     focusedCustomerIndex: -1,
     setFocusedCustomerIndex: vi.fn(),
+    shouldPreserveSearchFocus: false,
+    setShouldPreserveSearchFocus: vi.fn(),
     customerListRef: { current: null },
     searchInputRef: { current: null },
   }),

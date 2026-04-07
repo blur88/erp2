@@ -20,7 +20,6 @@ import {
 import {
   AccountBalance as InvoiceIcon,
   LocationOn as LocationIcon,
-  People as CustomersIcon,
   Phone as PhoneIcon,
   ShoppingCart as OrdersIcon,
   Star as StarIcon,
@@ -151,14 +150,7 @@ const CustomerWorkspaceCard: React.FC<CustomerWorkspaceCardProps> = ({ selectedC
   }, [tabValue, invoicesLoaded, selectedCustomer?.id])
 
   if (!selectedCustomer) {
-    return (
-      <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flex: 1, gap: 2, color: 'text.secondary' }}>
-        <CustomersIcon sx={{ fontSize: 64, opacity: 0.3 }} />
-        <Typography variant="h6" color="text.secondary">
-          Select a customer to view details
-        </Typography>
-      </Box>
-    )
+    return <Paper sx={{ flex: 1 }} />
   }
 
   if (loading) {
@@ -207,35 +199,33 @@ const CustomerWorkspaceCard: React.FC<CustomerWorkspaceCardProps> = ({ selectedC
   ]
 
   return (
-    <Box sx={{ overflow: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: 2 }}>
-      <Paper sx={{ p: 2 }}>
-        <Stack spacing={0.5}>
-          <Stack direction="row" spacing={1} flexWrap="wrap">
-            <Chip
-              label={selectedCustomer.isActive ? 'Active' : 'Inactive'}
-              color={selectedCustomer.isActive ? 'success' : 'default'}
-              size="small"
-            />
-            <Chip
-              label={selectedCustomer.type === CustomerType.BUSINESS ? 'Business' : 'Individual'}
-              size="small"
-              variant="outlined"
-            />
-          </Stack>
-          {selectedCustomer.phone && (
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <PhoneIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
-              <Typography variant="body2">{selectedCustomer.phone}</Typography>
-            </Box>
-          )}
-          {fullAddress && (
-            <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
-              <LocationIcon sx={{ fontSize: 16, color: 'text.secondary', mt: 0.2 }} />
-              <Typography variant="body2" sx={{ whiteSpace: 'pre-line' }}>{fullAddress}</Typography>
-            </Box>
-          )}
+    <Paper sx={{ overflow: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: 2, p: 2 }}>
+      <Stack spacing={0.5}>
+        <Stack direction="row" spacing={1} flexWrap="wrap">
+          <Chip
+            label={selectedCustomer.isActive ? 'Active' : 'Inactive'}
+            color={selectedCustomer.isActive ? 'success' : 'default'}
+            size="small"
+          />
+          <Chip
+            label={selectedCustomer.type === CustomerType.BUSINESS ? 'Business' : 'Individual'}
+            size="small"
+            variant="outlined"
+          />
         </Stack>
-      </Paper>
+        {selectedCustomer.phone && (
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <PhoneIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
+            <Typography variant="body2">{selectedCustomer.phone}</Typography>
+          </Box>
+        )}
+        {fullAddress && (
+          <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
+            <LocationIcon sx={{ fontSize: 16, color: 'text.secondary', mt: 0.2 }} />
+            <Typography variant="body2" sx={{ whiteSpace: 'pre-line' }}>{fullAddress}</Typography>
+          </Box>
+        )}
+      </Stack>
 
       <SalesStatsCards stats={stats} />
 
@@ -375,7 +365,7 @@ const CustomerWorkspaceCard: React.FC<CustomerWorkspaceCardProps> = ({ selectedC
           </>
         )}
       </TabPanel>
-    </Box>
+    </Paper>
   )
 }
 

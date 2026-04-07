@@ -4,6 +4,7 @@ export function useCustomersPageState() {
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
   const [deletedCustomersDialogOpen, setDeletedCustomersDialogOpen] = useState(false)
   const [focusedCustomerIndex, setFocusedCustomerIndex] = useState(-1)
+  const [shouldPreserveSearchFocus, setShouldPreserveSearchFocus] = useState(false)
 
   const customerListRef = useRef<HTMLDivElement>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
@@ -15,6 +16,8 @@ export function useCustomersPageState() {
     setDeletedCustomersDialogOpen,
     focusedCustomerIndex,
     setFocusedCustomerIndex,
+    shouldPreserveSearchFocus,
+    setShouldPreserveSearchFocus,
     customerListRef,
     searchInputRef,
   }
