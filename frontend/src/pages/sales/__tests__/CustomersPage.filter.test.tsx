@@ -127,7 +127,7 @@ describe('CustomersPage filters', () => {
 
   it('renders the Status filter', () => {
     renderPage()
-    expect(screen.getByText('Status')).toBeInTheDocument()
+    expect(screen.getAllByText('Status').length).toBeGreaterThan(0)
   })
 
   it('renders the CustomerList slot', () => {

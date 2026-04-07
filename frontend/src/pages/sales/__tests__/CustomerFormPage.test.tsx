@@ -8,12 +8,14 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import CustomerFormPage from '../CustomerFormPage'
 import salesReducer from '@/store/slices/salesSlice'
 
-const mockNavigate = vi.fn()
-const mockCreateCustomer = vi.fn()
-const mockUpdateCustomer = vi.fn()
-const mockShowSuccess = vi.fn()
-const mockShowError = vi.fn()
-const mockApiGet = vi.fn()
+const { mockNavigate, mockCreateCustomer, mockUpdateCustomer, mockShowSuccess, mockShowError, mockApiGet } = vi.hoisted(() => ({
+  mockNavigate: vi.fn(),
+  mockCreateCustomer: vi.fn(),
+  mockUpdateCustomer: vi.fn(),
+  mockShowSuccess: vi.fn(),
+  mockShowError: vi.fn(),
+  mockApiGet: vi.fn(),
+}))
 
 vi.mock('react-router-dom', async (importOriginal) => {
   const actual = await importOriginal<typeof import('react-router-dom')>()
