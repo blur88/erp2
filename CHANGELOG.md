@@ -1,3 +1,15 @@
+# [1.53.0](https://github.com/blur88/erp2/compare/v1.52.0...v1.53.0) (2026-04-07)
+
+
+### Bug Fixes
+
+* **sales:** wrap CustomerWorkspaceCard loading state in Paper for visual consistency ([d487553](https://github.com/blur88/erp2/commit/d487553272234d085622850270eb73962d0e3b5c))
+
+
+### Features
+
+* **sales:** close [#305](https://github.com/blur88/erp2/issues/305) - Customers page UI modernization ([f92a74d](https://github.com/blur88/erp2/commit/f92a74d26347ca8de09bd6511f4476cc0c06c75e))
+
 # [1.52.0](https://github.com/blur88/erp2/compare/v1.51.1...v1.52.0) (2026-04-07)
 
 
