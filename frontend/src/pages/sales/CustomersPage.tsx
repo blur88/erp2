@@ -1,12 +1,10 @@
-import React, { useMemo, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { Alert, Box, useMediaQuery, useTheme } from '@mui/material'
 import { useNavigate } from 'react-router-dom'
 
-import ConfirmationDialog from '@/components/common/ConfirmationDialog'
 import MasterDetailWorkspace from '@/components/common/MasterDetailWorkspace'
 import PageHeader from '@/components/common/PageHeader'
 import { FilterBar } from '@/components/filters'
-import DeletedCustomersDialog from '@/components/sales/DeletedCustomersDialog'
 import { useFilterBar } from '@/hooks/useFilterBar'
 import { useNotification } from '@/hooks/useNotification'
 import { useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
@@ -15,6 +13,7 @@ import { useGetCustomersQuery } from '@/store/api/salesApi'
 import { selectSelectedCustomer } from '@/store/slices/salesSlice'
 import type { FilterBarConfig } from '@/types/filterBar.types'
 import CustomerContextHeader from './components/CustomerContextHeader'
+import CustomersDialogs from './components/CustomersDialogs'
 import CustomerList from './components/CustomerList'
 import CustomerWorkspaceCard from './components/CustomerWorkspaceCard'
 import { useCustomersActions } from './hooks/useCustomersActions'
@@ -36,6 +35,8 @@ const CustomersPage: React.FC = () => {
   const [pageError, setPageError] = useState<string | null>(null)
 
   const pageState = useCustomersPageState()
+  const [sortBy, setSortBy] = useState('name')
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc')
 
   const filterConfig = useMemo<FilterBarConfig<CustomerFilters>>(
     () => ({
@@ -58,6 +59,19 @@ const CustomersPage: React.FC = () => {
 
   const { appliedFilters, draftFilters, handlers, hasActiveFilters } = useFilterBar(filterConfig)
 
+  const handleSort = useCallback((field: string) => {
+    setSortOrder((prev) => (sortBy === field && prev === 'desc' ? 'asc' : 'desc'))
+    setSortBy(field)
+  }, [sortBy])
+
+  const filterHandlers = useMemo(() => ({
+    ...handlers,
+    onSearchChange: (value: string) => {
+      pageState.setShouldPreserveSearchFocus(true)
+      handlers.onSearchChange(value)
+    },
+  }), [handlers, pageState])
+
   const customerQueryParams = useMemo(
     () => ({
       search: appliedFilters.search || undefined,
@@ -67,15 +81,28 @@ const CustomersPage: React.FC = () => {
           : appliedFilters.status === 'inactive'
             ? false
             : undefined,
-      sortBy: 'name',
-      sortOrder: 'ASC' as const,
+      sortBy,
+      sortOrder: sortOrder.toUpperCase() as 'ASC' | 'DESC',
     }),
-    [appliedFilters],
+    [appliedFilters, sortBy, sortOrder],
   )
 
   const { data: customersResponse, isLoading, isFetching, error, refetch } = useGetCustomersQuery(customerQueryParams)
   const customers = customersResponse?.data ?? []
   const loading = isLoading || isFetching
+
+  useEffect(() => {
+    if (pageState.shouldPreserveSearchFocus && pageState.searchInputRef.current && document.activeElement !== pageState.searchInputRef.current) {
+      const timer = setTimeout(() => {
+        pageState.searchInputRef.current?.focus()
+        pageState.setShouldPreserveSearchFocus(false)
+      }, 0)
+      return () => clearTimeout(timer)
+    }
+    if (pageState.shouldPreserveSearchFocus) {
+      pageState.setShouldPreserveSearchFocus(false)
+    }
+  }, [loading, pageState])
 
   const selection = useCustomersSelection({
     dispatch,
@@ -128,9 +155,10 @@ const CustomersPage: React.FC = () => {
           <FilterBar
             config={filterConfig}
             draftFilters={draftFilters}
-            handlers={handlers}
+            handlers={filterHandlers}
             hasActiveFilters={hasActiveFilters}
             searchInputRef={pageState.searchInputRef}
+            sort={{ field: 'name', sortBy, sortOrder, onSort: handleSort }}
           />
         )}
       />
@@ -147,35 +175,30 @@ const CustomersPage: React.FC = () => {
           <CustomerList
             customers={customers}
             loading={loading}
+            total={customers.length}
             selectedCustomerId={selectedCustomer?.id}
             focusedIndex={pageState.focusedCustomerIndex}
             onSelect={selection.handleCustomerSelect}
-            listRef={pageState.customerListRef}
+            customerListRef={pageState.customerListRef}
           />
         )}
         headerSlot={(
           <CustomerContextHeader
             selectedCustomer={selectedCustomer}
+            onEdit={() => navigate(`/sales/customers/${selectedCustomer!.id}/edit`)}
             onDelete={() => pageState.setDeleteConfirmOpen(true)}
           />
         )}
         workspaceSlot={<CustomerWorkspaceCard selectedCustomer={selectedCustomer} />}
       />
 
-      <ConfirmationDialog
-        open={pageState.deleteConfirmOpen}
-        title="Confirm Delete"
-        message={`Are you sure you want to delete "${selectedCustomer?.name}"? This will move it to deleted items.`}
-        confirmText="Delete Customer"
-        cancelText="Cancel"
-        onConfirm={actions.handleDelete}
-        onCancel={actions.handleCancelDelete}
-        severity="warning"
-      />
-
-      <DeletedCustomersDialog
-        open={pageState.deletedCustomersDialogOpen}
-        onClose={() => pageState.setDeletedCustomersDialogOpen(false)}
+      <CustomersDialogs
+        selectedCustomer={selectedCustomer}
+        deleteConfirmOpen={pageState.deleteConfirmOpen}
+        onConfirmDelete={actions.handleDelete}
+        onCancelDelete={actions.handleCancelDelete}
+        deletedCustomersDialogOpen={pageState.deletedCustomersDialogOpen}
+        onCloseDeletedCustomersDialog={() => pageState.setDeletedCustomersDialogOpen(false)}
       />
     </Box>
   )

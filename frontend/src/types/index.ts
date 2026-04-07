@@ -160,6 +160,7 @@ export interface Customer {
   type: CustomerType;
   name: string;
   phone?: string;
+  email?: string;
   // Address Information
   streetAddress?: string;
   city?: string;
