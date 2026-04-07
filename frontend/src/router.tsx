@@ -18,7 +18,6 @@ const CreateStockAdjustmentPage = React.lazy(() => import('./pages/inventory/Cre
 
 const SalesPage = React.lazy(() => import('./pages/sales/SalesPage'))
 const CustomersPage = React.lazy(() => import('./pages/sales/CustomersPage'))
-const CustomerProfilePage = React.lazy(() => import('./pages/sales/CustomerProfilePage'))
 const CustomerFormPage = React.lazy(() => import('./pages/sales/CustomerFormPage'))
 const OrdersPage = React.lazy(() => import('./pages/sales/OrdersPage'))
 const CreateSalesOrderPage = React.lazy(() => import('./pages/sales/CreateSalesOrderPage'))
@@ -147,7 +146,6 @@ export const router = createBrowserRouter([
           { path: '/sales/customers', element: <CustomersPage />, handle: { title: 'Customers' } },
           { path: '/sales/customers/create', element: <CustomerFormPage />, handle: { title: 'New Customer' } },
           { path: '/sales/customers/:id/edit', element: <CustomerFormPage />, handle: { title: 'Edit Customer' } },
-          { path: '/sales/customers/:id', element: <CustomerProfilePage />, handle: { title: 'Customer Profile' } },
           { path: '/sales/orders', element: <OrdersPage />, handle: { title: 'Sales Orders' } },
           { path: '/sales/orders/create', element: <CreateSalesOrderPage />, handle: { title: 'Create Sales Order' } },
           { path: '/sales/orders/:id/edit', element: <CreateSalesOrderPage />, handle: { title: 'Edit Sales Order' } },
