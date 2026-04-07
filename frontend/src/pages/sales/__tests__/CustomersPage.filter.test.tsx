@@ -120,14 +120,18 @@ function renderPage() {
 }
 
 describe('CustomersPage filters', () => {
-  it('renders Type filter', async () => {
+  it('renders the search input', () => {
     renderPage()
-    expect(screen.getAllByText('Type').length).toBeGreaterThan(0)
+    expect(screen.getByPlaceholderText(/search by name or phone/i)).toBeInTheDocument()
   })
 
-  it('Name column header has sort indicator', () => {
+  it('renders the Status filter', () => {
     renderPage()
-    const nameHeader = screen.getByText('Name')
-    expect(nameHeader.closest('th') ?? nameHeader).toBeTruthy()
+    expect(screen.getByText('Status')).toBeInTheDocument()
+  })
+
+  it('renders the CustomerList slot', () => {
+    renderPage()
+    expect(screen.getByTestId('customer-list')).toBeInTheDocument()
   })
 })

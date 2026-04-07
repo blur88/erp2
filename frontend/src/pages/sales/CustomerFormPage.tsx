@@ -64,7 +64,6 @@ const CustomerFormPage: React.FC = () => {
   const [customer, setCustomer] = useState<Customer | null>(null)
   const [loadingCustomer, setLoadingCustomer] = useState(isEdit)
   const [loadError, setLoadError] = useState<string | null>(null)
-  const [phoneValue, setPhoneValue] = useState('')
   const [isCheckingPhone, setIsCheckingPhone] = useState(false)
   const [phoneError, setPhoneError] = useState<string | null>(null)
 
@@ -107,7 +106,7 @@ const CustomerFormPage: React.FC = () => {
           country: c.country || null,
           notes: c.notes || null,
         })
-        setPhoneValue(c.phone || '')
+
       })
       .catch(() => setLoadError('Customer not found.'))
       .finally(() => setLoadingCustomer(false))
@@ -271,7 +270,6 @@ const CustomerFormPage: React.FC = () => {
                     helperText={errors.phone?.message || phoneError}
                     onChange={(e) => {
                       field.onChange(e)
-                      setPhoneValue(e.target.value)
                       debouncedPhoneCheck(e.target.value)
                     }}
                     InputProps={{

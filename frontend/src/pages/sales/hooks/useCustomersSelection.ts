@@ -1,4 +1,4 @@
-import { useCallback, useEffect, type RefObject } from 'react'
+import { useCallback, useEffect, useRef, type RefObject } from 'react'
 import type { NavigateFunction } from 'react-router-dom'
 
 import type { AppDispatch } from '@/store'
@@ -28,8 +28,11 @@ export function useCustomersSelection({
   setDeleteConfirmOpen,
   setDeletedCustomersDialogOpen,
 }: UseCustomersSelectionParams) {
+  const hasAutoSelected = useRef(false)
+
   useEffect(() => {
-    if (customers.length > 0 && focusedCustomerIndex === -1 && !selectedCustomer) {
+    if (customers.length > 0 && !hasAutoSelected.current && focusedCustomerIndex === -1 && !selectedCustomer) {
+      hasAutoSelected.current = true
       setFocusedCustomerIndex(0)
       dispatch(setSelectedCustomer(customers[0]))
     } else if (customers.length === 0) {
