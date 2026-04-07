@@ -155,9 +155,9 @@ const CustomerWorkspaceCard: React.FC<CustomerWorkspaceCardProps> = ({ selectedC
 
   if (loading) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', pt: 6 }}>
+      <Paper sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <CircularProgress />
-      </Box>
+      </Paper>
     )
   }
 
