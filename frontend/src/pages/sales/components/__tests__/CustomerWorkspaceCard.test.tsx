@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 
 import CustomerWorkspaceCard from '../CustomerWorkspaceCard'
 import { CustomerType } from '@/types'
@@ -22,6 +22,7 @@ vi.mock('react-router-dom', async (importOriginal) => {
 
 describe('CustomerWorkspaceCard', () => {
   beforeEach(() => {
+    mockedApi.get.mockReset()
     mockedApi.get.mockImplementation((url: string) => {
       if (url.includes('/sales-history')) {
         return Promise.resolve({ data: { orders: [] } })
@@ -38,7 +39,7 @@ describe('CustomerWorkspaceCard', () => {
     })
   })
 
-  it('renders only the orders and invoices tabs', async () => {
+  it('renders only the orders and invoices tabs and lazy-loads each tab once', async () => {
     render(
       <CustomerWorkspaceCard
         selectedCustomer={{
@@ -62,5 +63,22 @@ describe('CustomerWorkspaceCard', () => {
     expect(screen.getByRole('tab', { name: /invoices/i })).toBeInTheDocument()
     expect(screen.queryByRole('tab', { name: /overview/i })).not.toBeInTheDocument()
     expect(screen.getAllByRole('tab')).toHaveLength(2)
+    expect(mockedApi.get).toHaveBeenCalledWith('/customers/customer-1/sales-history')
+    expect(mockedApi.get).not.toHaveBeenCalledWith('/customers/customer-1/outstanding-invoices')
+
+    fireEvent.click(screen.getByRole('tab', { name: /invoices/i }))
+
+    await waitFor(() => {
+      expect(mockedApi.get).toHaveBeenCalledWith('/customers/customer-1/outstanding-invoices')
+    })
+
+    fireEvent.click(screen.getByRole('tab', { name: /orders/i }))
+    fireEvent.click(screen.getByRole('tab', { name: /invoices/i }))
+
+    expect(
+      mockedApi.get.mock.calls.filter(
+        ([url]) => url === '/customers/customer-1/outstanding-invoices',
+      ),
+    ).toHaveLength(1)
   })
 })
