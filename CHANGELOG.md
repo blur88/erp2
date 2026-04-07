@@ -1,3 +1,10 @@
+## [1.53.2](https://github.com/blur88/erp2/compare/v1.53.1...v1.53.2) (2026-04-07)
+
+
+### Bug Fixes
+
+* **frontend:** remove borderRadius assertions incompatible with jsdom 29 ([d1da015](https://github.com/blur88/erp2/commit/d1da01582eaefb3ef4d36c4b392688c575eebbed))
+
 ## [1.53.1](https://github.com/blur88/erp2/compare/v1.53.0...v1.53.1) (2026-04-07)
 
 
