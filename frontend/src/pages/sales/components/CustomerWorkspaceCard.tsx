@@ -55,7 +55,6 @@ function TabPanel({ children, value, index }: TabPanelProps) {
   return (
     <Box
       role="tabpanel"
-      hidden={value !== index}
       sx={{
         flex: 1,
         overflow: 'auto',
