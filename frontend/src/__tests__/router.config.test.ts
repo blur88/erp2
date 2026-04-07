@@ -14,16 +14,11 @@ describe('router settings paths', () => {
     expect(routerSource).toContain("{ path: '/settings/inventory-costing', element: <InventoryCostingPage />, handle: { title: 'Inventory Costing' } }")
   })
 
-  it('defines customer create and edit routes before the generic customer details route', () => {
+  it('defines customer create and edit routes and removes the old customer profile route', () => {
     expect(routerSource).toContain("const CustomerFormPage = React.lazy(() => import('./pages/sales/CustomerFormPage'))")
     expect(routerSource).toContain("{ path: '/sales/customers/create', element: <CustomerFormPage />, handle: { title: 'New Customer' } }")
     expect(routerSource).toContain("{ path: '/sales/customers/:id/edit', element: <CustomerFormPage />, handle: { title: 'Edit Customer' } }")
-
-    const createIndex = routerSource.indexOf("{ path: '/sales/customers/create'")
-    const detailsIndex = routerSource.indexOf("{ path: '/sales/customers/:id'")
-
-    expect(createIndex).toBeGreaterThan(-1)
-    expect(detailsIndex).toBeGreaterThan(-1)
-    expect(createIndex).toBeLessThan(detailsIndex)
+    expect(routerSource).not.toContain('CustomerProfilePage')
+    expect(routerSource).not.toContain("{ path: '/sales/customers/:id', element: <CustomerProfilePage />, handle: { title: 'Customer Profile' } }")
   })
 })

@@ -1,8 +1,8 @@
 import { render, screen } from '@testing-library/react'
 import { Provider } from 'react-redux'
 import { configureStore } from '@reduxjs/toolkit'
-import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { MemoryRouter } from 'react-router-dom'
 
 import CustomersPage from '../CustomersPage'
 import salesReducer from '@/store/slices/salesSlice'
@@ -31,8 +31,80 @@ vi.mock('@/hooks/useNotification', () => ({
   useNotification: () => ({ showSuccess: vi.fn(), showError: vi.fn() }),
 }))
 
+vi.mock('react-router-dom', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('react-router-dom')>()
+  return {
+    ...actual,
+    useNavigate: () => vi.fn(),
+  }
+})
+
 vi.mock('@/components/sales/DeletedCustomersDialog', () => ({
   default: () => <div>DeletedCustomersDialog</div>,
+}))
+
+vi.mock('@/components/common/MasterDetailWorkspace', () => ({
+  default: ({ listSlot, headerSlot, workspaceSlot }: any) => (
+    <div>
+      <div>{listSlot}</div>
+      <div>{headerSlot}</div>
+      <div>{workspaceSlot}</div>
+    </div>
+  ),
+}))
+
+vi.mock('../components/CustomerWorkspaceCard', () => ({
+  default: () => <div data-testid="customer-workspace-card" />,
+}))
+
+vi.mock('../components/CustomerContextHeader', () => ({
+  default: () => <div data-testid="customer-context-header" />,
+}))
+
+vi.mock('../components/CustomerList', () => ({
+  default: ({ customers, onSelect }: any) => (
+    <div data-testid="customer-list">
+      {customers.map((customer: any) => (
+        <div key={customer.id} data-testid={`customer-item-${customer.id}`} onClick={() => onSelect(customer)}>
+          {customer.name}
+        </div>
+      ))}
+    </div>
+  ),
+}))
+
+vi.mock('../hooks/useCustomersSelection', () => ({
+  useCustomersSelection: () => ({
+    handleCustomerSelect: vi.fn(),
+    handleNavigateUp: vi.fn(),
+    handleNavigateDown: vi.fn(),
+    handleNavigateToFirst: vi.fn(),
+    handleNavigateToLast: vi.fn(),
+    handlePageUpNavigation: vi.fn(),
+    handlePageDownNavigation: vi.fn(),
+    handleEnterAction: vi.fn(),
+    handleEscapeAction: vi.fn(),
+  }),
+}))
+
+vi.mock('../hooks/useCustomersActions', () => ({
+  useCustomersActions: () => ({
+    handleDelete: vi.fn(),
+    handleCancelDelete: vi.fn(),
+  }),
+}))
+
+vi.mock('../hooks/useCustomersPageState', () => ({
+  useCustomersPageState: () => ({
+    deleteConfirmOpen: false,
+    setDeleteConfirmOpen: vi.fn(),
+    deletedCustomersDialogOpen: false,
+    setDeletedCustomersDialogOpen: vi.fn(),
+    focusedCustomerIndex: -1,
+    setFocusedCustomerIndex: vi.fn(),
+    customerListRef: { current: null },
+    searchInputRef: { current: null },
+  }),
 }))
 
 function renderPage(initialUrl = '/') {
