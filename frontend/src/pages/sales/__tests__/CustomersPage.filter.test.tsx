@@ -1,8 +1,8 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { Provider } from 'react-redux'
-import { MemoryRouter } from 'react-router-dom'
 import { configureStore } from '@reduxjs/toolkit'
+import { MemoryRouter } from 'react-router-dom'
 import salesReducer from '@/store/slices/salesSlice'
 import { salesApiSlice } from '@/store/api/salesApi'
 import CustomersPage from '../CustomersPage'
@@ -10,6 +10,14 @@ import CustomersPage from '../CustomersPage'
 vi.mock('@/hooks/useNotification', () => ({
   useNotification: () => ({ showSuccess: vi.fn(), showError: vi.fn() }),
 }))
+
+vi.mock('react-router-dom', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('react-router-dom')>()
+  return {
+    ...actual,
+    useNavigate: () => vi.fn(),
+  }
+})
 
 vi.mock('@/store/api/salesApi', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/store/api/salesApi')>()
@@ -26,6 +34,70 @@ vi.mock('@/store/api/salesApi', async (importOriginal) => {
     useDeleteCustomerMutation: vi.fn(() => [vi.fn()]),
   }
 })
+
+vi.mock('@/components/common/MasterDetailWorkspace', () => ({
+  default: ({ listSlot, headerSlot, workspaceSlot }: any) => (
+    <div>
+      <div>{listSlot}</div>
+      <div>{headerSlot}</div>
+      <div>{workspaceSlot}</div>
+    </div>
+  ),
+}))
+
+vi.mock('../components/CustomerWorkspaceCard', () => ({
+  default: () => <div data-testid="customer-workspace-card" />,
+}))
+
+vi.mock('../components/CustomerContextHeader', () => ({
+  default: () => <div data-testid="customer-context-header" />,
+}))
+
+vi.mock('../components/CustomerList', () => ({
+  default: ({ customers, onSelect }: any) => (
+    <div data-testid="customer-list">
+      {customers.map((customer: any) => (
+        <div key={customer.id} data-testid={`customer-item-${customer.id}`} onClick={() => onSelect(customer)}>
+          {customer.name}
+        </div>
+      ))}
+    </div>
+  ),
+}))
+
+vi.mock('../hooks/useCustomersSelection', () => ({
+  useCustomersSelection: () => ({
+    handleCustomerSelect: vi.fn(),
+    handleNavigateUp: vi.fn(),
+    handleNavigateDown: vi.fn(),
+    handleNavigateToFirst: vi.fn(),
+    handleNavigateToLast: vi.fn(),
+    handlePageUpNavigation: vi.fn(),
+    handlePageDownNavigation: vi.fn(),
+    handleEnterAction: vi.fn(),
+    handleEscapeAction: vi.fn(),
+  }),
+}))
+
+vi.mock('../hooks/useCustomersActions', () => ({
+  useCustomersActions: () => ({
+    handleDelete: vi.fn(),
+    handleCancelDelete: vi.fn(),
+  }),
+}))
+
+vi.mock('../hooks/useCustomersPageState', () => ({
+  useCustomersPageState: () => ({
+    deleteConfirmOpen: false,
+    setDeleteConfirmOpen: vi.fn(),
+    deletedCustomersDialogOpen: false,
+    setDeletedCustomersDialogOpen: vi.fn(),
+    focusedCustomerIndex: -1,
+    setFocusedCustomerIndex: vi.fn(),
+    customerListRef: { current: null },
+    searchInputRef: { current: null },
+  }),
+}))
 
 function makeStore() {
   return configureStore({
@@ -48,14 +120,18 @@ function renderPage() {
 }
 
 describe('CustomersPage filters', () => {
-  it('renders Type filter', async () => {
+  it('renders the search input', () => {
     renderPage()
-    expect(screen.getAllByText('Type').length).toBeGreaterThan(0)
+    expect(screen.getByPlaceholderText(/search by name or phone/i)).toBeInTheDocument()
   })
 
-  it('Name column header has sort indicator', () => {
+  it('renders the Status filter', () => {
     renderPage()
-    const nameHeader = screen.getByText('Name')
-    expect(nameHeader.closest('th') ?? nameHeader).toBeTruthy()
+    expect(screen.getAllByText('Status').length).toBeGreaterThan(0)
+  })
+
+  it('renders the CustomerList slot', () => {
+    renderPage()
+    expect(screen.getByTestId('customer-list')).toBeInTheDocument()
   })
 })
