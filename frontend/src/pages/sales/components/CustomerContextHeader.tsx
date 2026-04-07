@@ -5,7 +5,6 @@ import {
 } from '@mui/icons-material'
 import {
   Box,
-  Chip,
   IconButton,
   Paper,
   Table,
@@ -15,10 +14,12 @@ import {
   TableRow,
   Typography,
 } from '@mui/material'
+import Grid from '@mui/material/GridLegacy'
 
 import { TABLE_STYLES } from '@/constants/tableStyles'
 import type { Customer } from '@/types'
 import { CustomerType } from '@/types'
+import { formatCurrency, formatDate } from '@/utils/formatters'
 
 interface CustomerContextHeaderProps {
   selectedCustomer: Customer | null
@@ -93,67 +94,140 @@ const CustomerContextHeader: React.FC<CustomerContextHeaderProps> = ({
           Customer - {selectedCustomer.name}
         </Typography>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25 }}>
-          <IconButton size="small" title="Edit Customer" onClick={onEdit} sx={{ ...actionIconSx, color: 'primary.main' }}>
+          <IconButton
+            size="small"
+            title="Edit Customer"
+            onClick={onEdit}
+            sx={{ ...actionIconSx, color: 'primary.main' }}
+          >
             <EditIcon sx={{ fontSize: `${TABLE_STYLES.row.height * 0.5}px` }} />
           </IconButton>
-          <IconButton size="small" title="Delete Customer" onClick={onDelete} sx={{ ...actionIconSx, color: 'error.main' }}>
+          <IconButton
+            size="small"
+            title="Delete Customer"
+            onClick={onDelete}
+            sx={{ ...actionIconSx, color: 'error.main' }}
+          >
             <DeleteIcon sx={{ fontSize: `${TABLE_STYLES.row.height * 0.5}px` }} />
           </IconButton>
         </Box>
       </Box>
 
       <Box sx={{ p: TABLE_STYLES.cell.padding.px }}>
-        <TableContainer>
-          <Table size={TABLE_STYLES.size} sx={detailTableSx}>
-            <TableBody>
-              <TableRow>
-                <TableCell colSpan={2} sx={{ pb: TABLE_STYLES.cell.padding.py * 0.67, py: TABLE_STYLES.cell.padding.py * 0.67, borderTop: TABLE_STYLES.cell.border }}>
-                  <Typography variant="h6" sx={{ fontWeight: 600, color: 'primary.main', fontSize: '0.8rem' }}>
-                    Customer Information
-                  </Typography>
-                </TableCell>
-              </TableRow>
-              <TableRow sx={{ backgroundColor: 'grey.50' }}>
-                <TableCell sx={labelCellSx}>Type</TableCell>
-                <TableCell sx={valueCellSx}>
-                  <Chip
-                    label={selectedCustomer.type === CustomerType.BUSINESS ? 'Business' : 'Individual'}
-                    size="small"
-                    variant="outlined"
-                    sx={{ fontSize: '0.75rem' }}
-                  />
-                </TableCell>
-              </TableRow>
-              <TableRow>
-                <TableCell sx={labelCellSx}>Status</TableCell>
-                <TableCell sx={valueCellSx}>
-                  <Chip
-                    label={selectedCustomer.isActive ? 'Active' : 'Inactive'}
-                    size="small"
-                    color={selectedCustomer.isActive ? 'success' : 'default'}
-                    sx={{ fontSize: '0.75rem' }}
-                  />
-                </TableCell>
-              </TableRow>
-              <TableRow sx={{ backgroundColor: 'grey.50' }}>
-                <TableCell sx={labelCellSx}>Phone</TableCell>
-                <TableCell sx={valueCellSx}>{selectedCustomer.phone || '—'}</TableCell>
-              </TableRow>
-              <TableRow>
-                <TableCell sx={labelCellSx}>Email</TableCell>
-                <TableCell sx={valueCellSx}>{selectedCustomer.email || '—'}</TableCell>
-              </TableRow>
-              <TableRow sx={{ backgroundColor: 'grey.50' }}>
-                <TableCell sx={labelCellSx}>Price List</TableCell>
-                <TableCell sx={valueCellSx}>
-                  {selectedCustomer.priceList
-                    ? <Chip label={selectedCustomer.priceList.name} size="small" sx={{ fontSize: '0.75rem' }} />
-                    : '—'}
-                </TableCell>
-              </TableRow>
-            </TableBody>
-          </Table>
-        </TableContainer>
+        <Grid container spacing={3}>
+          <Grid item xs={12} md={6}>
+            <TableContainer>
+              <Table size={TABLE_STYLES.size} sx={detailTableSx}>
+                <TableBody>
+                  <TableRow>
+                    <TableCell
+                      colSpan={2}
+                      sx={{
+                        pb: TABLE_STYLES.cell.padding.py * 0.67,
+                        py: TABLE_STYLES.cell.padding.py * 0.67,
+                        borderTop: TABLE_STYLES.cell.border,
+                      }}
+                    >
+                      <Typography
+                        variant="h6"
+                        sx={{ fontWeight: 600, color: 'primary.main', fontSize: '0.8rem' }}
+                      >
+                        Customer Information
+                      </Typography>
+                    </TableCell>
+                  </TableRow>
+                  <TableRow sx={{ backgroundColor: 'grey.50' }}>
+                    <TableCell sx={labelCellSx}>Type</TableCell>
+                    <TableCell sx={valueCellSx}>
+                      {selectedCustomer.type === CustomerType.BUSINESS ? 'Business' : 'Individual'}
+                    </TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell sx={labelCellSx}>Status</TableCell>
+                    <TableCell
+                      sx={{
+                        ...valueCellSx,
+                        color: selectedCustomer.isActive ? 'success.main' : 'text.disabled',
+                      }}
+                    >
+                      {selectedCustomer.isActive ? 'Active' : 'Inactive'}
+                    </TableCell>
+                  </TableRow>
+                  <TableRow sx={{ backgroundColor: 'grey.50' }}>
+                    <TableCell sx={labelCellSx}>Phone</TableCell>
+                    <TableCell sx={valueCellSx}>{selectedCustomer.phone || '—'}</TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell sx={labelCellSx}>Email</TableCell>
+                    <TableCell sx={valueCellSx}>{selectedCustomer.email || '—'}</TableCell>
+                  </TableRow>
+                  <TableRow sx={{ backgroundColor: 'grey.50' }}>
+                    <TableCell sx={labelCellSx}>Price List</TableCell>
+                    <TableCell sx={valueCellSx}>{selectedCustomer.priceList?.name || '—'}</TableCell>
+                  </TableRow>
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </Grid>
+
+          <Grid item xs={12} md={6}>
+            <TableContainer>
+              <Table size={TABLE_STYLES.size} sx={detailTableSx}>
+                <TableBody>
+                  <TableRow>
+                    <TableCell
+                      colSpan={2}
+                      sx={{
+                        pb: TABLE_STYLES.cell.padding.py * 0.67,
+                        py: TABLE_STYLES.cell.padding.py * 0.67,
+                        borderTop: TABLE_STYLES.cell.border,
+                      }}
+                    >
+                      <Typography
+                        variant="h6"
+                        sx={{ fontWeight: 600, color: 'primary.main', fontSize: '0.8rem' }}
+                      >
+                        Account Summary
+                      </Typography>
+                    </TableCell>
+                  </TableRow>
+                  <TableRow sx={{ backgroundColor: 'grey.50' }}>
+                    <TableCell sx={labelCellSx}>Total Orders</TableCell>
+                    <TableCell sx={valueCellSx}>{selectedCustomer.totalOrders ?? 0}</TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell sx={labelCellSx}>Total Sales</TableCell>
+                    <TableCell sx={valueCellSx}>
+                      {formatCurrency(selectedCustomer.totalSales ?? 0)}
+                    </TableCell>
+                  </TableRow>
+                  <TableRow sx={{ backgroundColor: 'grey.50' }}>
+                    <TableCell sx={labelCellSx}>Avg Order Value</TableCell>
+                    <TableCell sx={valueCellSx}>
+                      {formatCurrency(selectedCustomer.averageOrderValue ?? 0)}
+                    </TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell sx={labelCellSx}>First Purchase</TableCell>
+                    <TableCell sx={valueCellSx}>
+                      {selectedCustomer.firstPurchaseDate
+                        ? formatDate(selectedCustomer.firstPurchaseDate)
+                        : '—'}
+                    </TableCell>
+                  </TableRow>
+                  <TableRow sx={{ backgroundColor: 'grey.50' }}>
+                    <TableCell sx={labelCellSx}>Last Purchase</TableCell>
+                    <TableCell sx={valueCellSx}>
+                      {selectedCustomer.lastPurchaseDate
+                        ? formatDate(selectedCustomer.lastPurchaseDate)
+                        : '—'}
+                    </TableCell>
+                  </TableRow>
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </Grid>
+        </Grid>
       </Box>
     </Paper>
   )
