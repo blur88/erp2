@@ -809,6 +809,7 @@ export class SupplierService {
       id: supplier.id,
       type: supplier.type,
       companyName: supplier.companyName,
+      isActive: supplier.isActive,
       contactPerson: supplier.contactPerson,
       phone: supplier.phone,
       streetAddress: supplier.streetAddress,

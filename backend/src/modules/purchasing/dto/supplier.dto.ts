@@ -124,6 +124,9 @@ export class SupplierResponseDto {
   @ApiProperty({ description: 'Company name' })
   companyName!: string;
 
+  @ApiProperty({ description: 'Whether the supplier is active' })
+  isActive!: boolean;
+
   @ApiProperty({ description: 'Contact person name' })
   contactPerson?: string;
 
