@@ -326,6 +326,14 @@ export const salesApiSlice = createApi({
       query: (paymentIds) => ({ url: '/payments/bulk-restore', method: 'POST', data: { paymentIds } }),
       invalidatesTags: ['Payment', 'DeletedPayment', 'Invoice', 'SalesOrder'],
     }),
+    getCustomerPayments: builder.query<Payment[], string>({
+      query: (id) => ({ url: `/payments/customer/${id}` }),
+      transformResponse: (response: any): Payment[] => {
+        if (Array.isArray(response)) return response
+        return response?.data ?? []
+      },
+      providesTags: (_result, _error, id) => [{ type: 'Payment', id }],
+    }),
   }),
 })
 
@@ -383,4 +391,5 @@ export const {
   useGetDeletedPaymentsQuery,
   useRestorePaymentMutation,
   useBulkRestorePaymentsMutation,
+  useGetCustomerPaymentsQuery,
 } = salesApiSlice
