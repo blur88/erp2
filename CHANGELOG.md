@@ -1,3 +1,10 @@
+## [1.54.1](https://github.com/blur88/erp2/compare/v1.54.0...v1.54.1) (2026-04-08)
+
+
+### Internal Changes
+
+* chore: update lockfiles for dependency consistency across monorepo packages ([](https://github.com/blur88/erp2/commit/))
+
 # [1.54.0](https://github.com/blur88/erp2/compare/v1.53.2...v1.54.0) (2026-04-08)
 
 
