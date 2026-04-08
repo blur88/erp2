@@ -23,6 +23,8 @@ import { useCustomersSelection } from './hooks/useCustomersSelection'
 interface CustomerFilters {
   search: string
   status: 'active' | 'inactive' | null
+  type: 'individual' | 'business' | null
+  priceListId: string | null
 }
 
 const CustomersPage: React.FC = () => {
@@ -51,8 +53,22 @@ const CustomersPage: React.FC = () => {
             { value: 'inactive', label: 'Inactive' },
           ],
         },
+        {
+          field: 'type',
+          label: 'Customer Type',
+          type: 'select',
+          options: [
+            { value: 'individual', label: 'Individual' },
+            { value: 'business', label: 'Business' },
+          ],
+        },
+        {
+          field: 'priceListId',
+          label: 'Price List',
+          type: 'price-list',
+        },
       ],
-      defaults: { search: '', status: null },
+      defaults: { search: '', status: null, type: null, priceListId: null },
     }),
     [],
   )
@@ -81,6 +97,8 @@ const CustomersPage: React.FC = () => {
           : appliedFilters.status === 'inactive'
             ? false
             : undefined,
+      type: appliedFilters.type ?? undefined,
+      priceListId: appliedFilters.priceListId ?? undefined,
       sortBy,
       sortOrder: sortOrder.toUpperCase() as 'ASC' | 'DESC',
     }),
