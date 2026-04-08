@@ -1,3 +1,16 @@
+# [1.56.0](https://github.com/blur88/erp2/compare/v1.55.1...v1.56.0) (2026-04-08)
+
+
+### Bug Fixes
+
+* **sales:** address code review findings on customer payments tab ([a96c006](https://github.com/blur88/erp2/commit/a96c00604c3e09e2a142b41b2c22d45f73c194dd))
+
+
+### Features
+
+* **sales:** add getCustomerPayments RTK Query endpoint ([c20d7a7](https://github.com/blur88/erp2/commit/c20d7a736be8eab2dbb7ab1a4dc8aa7af0565a12))
+* **sales:** add Payments tab to CustomerWorkspaceCard ([580d661](https://github.com/blur88/erp2/commit/580d66106c734f7e72d2434039db134fb6bf24f2))
+
 ## [1.55.1](https://github.com/blur88/erp2/compare/v1.55.0...v1.55.1) (2026-04-08)
 
 
