@@ -1,12 +1,13 @@
 import { createSlice, type PayloadAction } from '@reduxjs/toolkit'
 
 import type { RootState } from '@/store'
-import type { GoodsReceivedNote, PurchaseOrder, SupplierType, VendorPayment } from '@/types'
+import type { GoodsReceivedNote, PurchaseOrder, Supplier, SupplierType, VendorPayment } from '@/types'
 
 interface PurchasingState {
   selectedPurchaseOrder: PurchaseOrder | null
   selectedGRN: GoodsReceivedNote | null
   selectedVendorPayment: VendorPayment | null
+  selectedSupplier: Supplier | null
   supplierFilters: {
     search?: string
     type?: SupplierType
@@ -21,6 +22,7 @@ const initialState: PurchasingState = {
   selectedPurchaseOrder: null,
   selectedGRN: null,
   selectedVendorPayment: null,
+  selectedSupplier: null,
   supplierFilters: {
     search: '',
     sortBy: 'companyName',
@@ -42,6 +44,9 @@ const purchasingSlice = createSlice({
     setSelectedVendorPayment: (state, action: PayloadAction<VendorPayment | null>) => {
       state.selectedVendorPayment = action.payload
     },
+    setSelectedSupplier: (state, action: PayloadAction<Supplier | null>) => {
+      state.selectedSupplier = action.payload
+    },
     updatePurchaseOrderInPlace: (state, action: PayloadAction<PurchaseOrder>) => {
       state.selectedPurchaseOrder = action.payload
     },
@@ -55,6 +60,7 @@ export const {
   setSelectedPurchaseOrder,
   setSelectedGRN,
   setSelectedVendorPayment,
+  setSelectedSupplier,
   updatePurchaseOrderInPlace,
   setSupplierFilters,
 } = purchasingSlice.actions
@@ -62,6 +68,7 @@ export const {
 export const selectSelectedPurchaseOrder = (state: RootState) => state.purchasing.selectedPurchaseOrder
 export const selectSelectedGRN = (state: RootState) => state.purchasing.selectedGRN
 export const selectSelectedVendorPayment = (state: RootState) => state.purchasing.selectedVendorPayment
+export const selectSelectedSupplier = (state: RootState) => state.purchasing.selectedSupplier
 export const selectSupplierFilters = (state: RootState) => state.purchasing.supplierFilters
 
 export default purchasingSlice.reducer

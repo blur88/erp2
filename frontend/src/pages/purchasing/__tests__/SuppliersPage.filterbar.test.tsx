@@ -32,6 +32,84 @@ vi.mock('@/hooks/useNotification', () => ({
   useNotification: () => ({ showSuccess: vi.fn(), showError: vi.fn() }),
 }))
 
+vi.mock('react-router-dom', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('react-router-dom')>()
+  return {
+    ...actual,
+    useNavigate: () => vi.fn(),
+  }
+})
+
+vi.mock('@/components/common/MasterDetailWorkspace', () => ({
+  default: ({ listSlot, headerSlot, workspaceSlot }: any) => (
+    <div>
+      <div>{listSlot}</div>
+      <div>{headerSlot}</div>
+      <div>{workspaceSlot}</div>
+    </div>
+  ),
+}))
+
+vi.mock('../components/SupplierWorkspaceCard', () => ({
+  default: () => <div data-testid="supplier-workspace-card" />,
+}))
+
+vi.mock('../components/SupplierContextHeader', () => ({
+  default: () => <div data-testid="supplier-context-header" />,
+}))
+
+vi.mock('../components/SupplierList', () => ({
+  default: ({ suppliers, onSelect }: any) => (
+    <div data-testid="supplier-list">
+      {suppliers.map((supplier: any) => (
+        <div key={supplier.id} data-testid={`supplier-item-${supplier.id}`} onClick={() => onSelect(supplier)}>
+          {supplier.companyName}
+        </div>
+      ))}
+    </div>
+  ),
+}))
+
+vi.mock('../components/SuppliersDialogs', () => ({
+  default: () => <div data-testid="suppliers-dialogs" />,
+}))
+
+vi.mock('../hooks/useSuppliersSelection', () => ({
+  useSuppliersSelection: () => ({
+    handleSupplierSelect: vi.fn(),
+    handleNavigateUp: vi.fn(),
+    handleNavigateDown: vi.fn(),
+    handleNavigateToFirst: vi.fn(),
+    handleNavigateToLast: vi.fn(),
+    handlePageUpNavigation: vi.fn(),
+    handlePageDownNavigation: vi.fn(),
+    handleEnterAction: vi.fn(),
+    handleEscapeAction: vi.fn(),
+  }),
+}))
+
+vi.mock('../hooks/useSuppliersActions', () => ({
+  useSuppliersActions: () => ({
+    handleDelete: vi.fn(),
+    handleCancelDelete: vi.fn(),
+  }),
+}))
+
+vi.mock('../hooks/useSuppliersPageState', () => ({
+  useSuppliersPageState: () => ({
+    deleteConfirmOpen: false,
+    setDeleteConfirmOpen: vi.fn(),
+    deletedSuppliersDialogOpen: false,
+    setDeletedSuppliersDialogOpen: vi.fn(),
+    focusedSupplierIndex: -1,
+    setFocusedSupplierIndex: vi.fn(),
+    shouldPreserveSearchFocus: false,
+    setShouldPreserveSearchFocus: vi.fn(),
+    supplierListRef: { current: null },
+    searchInputRef: { current: null },
+  }),
+}))
+
 vi.mock('@/components/purchasing/DeletedSuppliersDialog', () => ({
   default: () => <div>DeletedSuppliersDialog</div>,
 }))

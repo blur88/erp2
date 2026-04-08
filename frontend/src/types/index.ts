@@ -313,6 +313,12 @@ export interface Supplier {
   companyName: string;
   contactPerson?: string;
   phone?: string;
+  isActive: boolean;
+  streetAddress?: string | null;
+  city?: string | null;
+  state?: string | null;
+  postalCode?: string | null;
+  country?: string | null;
   // Metrics
   totalPurchases: number;
   totalOrders: number;

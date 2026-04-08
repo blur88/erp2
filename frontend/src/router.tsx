@@ -36,6 +36,7 @@ const ProductCustomerReport = React.lazy(() => import('./pages/sales/ProductCust
 
 const PurchasingPage = React.lazy(() => import('./pages/purchasing/PurchasingPage'))
 const SuppliersPage = React.lazy(() => import('./pages/purchasing/SuppliersPage'))
+const SupplierFormPage = React.lazy(() => import('./pages/purchasing/SupplierFormPage'))
 const PurchaseOrdersPage = React.lazy(() => import('./pages/purchasing/PurchaseOrdersPage'))
 const CreatePurchaseOrderPage = React.lazy(() => import('./pages/purchasing/CreatePurchaseOrderPage'))
 const GoodsReceivedPage = React.lazy(() => import('./pages/purchasing/GoodsReceivedPage'))
@@ -153,6 +154,8 @@ export const router = createBrowserRouter([
           { path: '/sales/payments', element: <PaymentsPage />, handle: { title: 'Payments' } },
 
           { path: '/purchasing', element: <PurchasingPage />, handle: { title: 'Purchasing' } },
+          { path: '/purchasing/suppliers/create', element: <SupplierFormPage />, handle: { title: 'New Supplier' } },
+          { path: '/purchasing/suppliers/:id/edit', element: <SupplierFormPage />, handle: { title: 'Edit Supplier' } },
           { path: '/purchasing/suppliers', element: <SuppliersPage />, handle: { title: 'Suppliers' } },
           { path: '/purchasing/orders', element: <PurchaseOrdersPage />, handle: { title: 'Purchase Orders' } },
           { path: '/purchasing/orders/create', element: <CreatePurchaseOrderPage />, handle: { title: 'Create Purchase Order' } },

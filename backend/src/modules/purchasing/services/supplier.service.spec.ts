@@ -3,6 +3,9 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { SupplierService } from './supplier.service';
 import { Supplier, SupplierType } from '../../../database/entities/supplier.entity';
+import { PurchaseOrder } from '../../../database/entities/purchase-order.entity';
+import { GoodsReceivedNote } from '../../../database/entities/goods-received-note.entity';
+import { VendorPayment } from '../../../database/entities/vendor-payment.entity';
 import { AuditLogService } from '../../audit-logs/services';
 import { UserRole } from '../../../database/entities/user.entity';
 
@@ -43,6 +46,24 @@ describe('SupplierService', () => {
           provide: getRepositoryToken(Supplier),
           useValue: {
             createQueryBuilder: jest.fn(),
+          },
+        },
+        {
+          provide: getRepositoryToken(PurchaseOrder),
+          useValue: {
+            findAndCount: jest.fn(),
+          },
+        },
+        {
+          provide: getRepositoryToken(GoodsReceivedNote),
+          useValue: {
+            findAndCount: jest.fn(),
+          },
+        },
+        {
+          provide: getRepositoryToken(VendorPayment),
+          useValue: {
+            findAndCount: jest.fn(),
           },
         },
         {
