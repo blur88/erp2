@@ -27,6 +27,12 @@ vi.mock('@/store/api/salesApi', async (importOriginal) => {
   }
 })
 
+vi.mock('@/store/api/priceListApi', () => ({
+  useGetPriceListsQuery: vi.fn(() => ({
+    data: { data: [] },
+  })),
+}))
+
 vi.mock('@/hooks/useNotification', () => ({
   useNotification: () => ({ showSuccess: vi.fn(), showError: vi.fn() }),
 }))
@@ -131,16 +137,25 @@ describe('CustomersPage FilterBar', () => {
   })
 
   it('restores filters from URL and passes them to query', () => {
-    renderPage('/?search=acme&status=active')
+    renderPage('/?search=acme&status=active&type=business&priceListId=pl1')
     expect(useGetCustomersQuery).toHaveBeenLastCalledWith(
-      expect.objectContaining({ search: 'acme', isActive: true }),
+      expect.objectContaining({
+        search: 'acme',
+        isActive: true,
+        type: 'business',
+        priceListId: 'pl1',
+      }),
     )
   })
 
   it('passes no isActive when status is unset', () => {
     renderPage('/')
     expect(useGetCustomersQuery).toHaveBeenLastCalledWith(
-      expect.not.objectContaining({ isActive: expect.anything() }),
+      expect.not.objectContaining({
+        isActive: expect.anything(),
+        type: expect.anything(),
+        priceListId: expect.anything(),
+      }),
     )
   })
 

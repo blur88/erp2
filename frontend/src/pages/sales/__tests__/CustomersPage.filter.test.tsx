@@ -35,6 +35,12 @@ vi.mock('@/store/api/salesApi', async (importOriginal) => {
   }
 })
 
+vi.mock('@/store/api/priceListApi', () => ({
+  useGetPriceListsQuery: vi.fn(() => ({
+    data: { data: [] },
+  })),
+}))
+
 vi.mock('@/components/common/MasterDetailWorkspace', () => ({
   default: ({ listSlot, headerSlot, workspaceSlot }: any) => (
     <div>
@@ -130,6 +136,16 @@ describe('CustomersPage filters', () => {
   it('renders the Status filter', () => {
     renderPage()
     expect(screen.getAllByText('Status').length).toBeGreaterThan(0)
+  })
+
+  it('renders the Customer Type filter', () => {
+    renderPage()
+    expect(screen.getAllByText('Customer Type').length).toBeGreaterThan(0)
+  })
+
+  it('renders the Price List filter', () => {
+    renderPage()
+    expect(screen.getAllByText('Price List').length).toBeGreaterThan(0)
   })
 
   it('renders the CustomerList slot', () => {

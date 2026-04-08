@@ -88,6 +88,7 @@ export class CustomerService {
     const {
       search,
       type,
+      priceListId,
       isActive,
       sortBy = 'name',
       sortOrder = 'ASC',
@@ -95,7 +96,7 @@ export class CustomerService {
 
     const where: FindOptionsWhere<Customer> = {};
 
-    if (type) where.type = type;
+    if (type !== undefined && type !== null) where.type = type;
     // pricingScheme removed in Phase 8 - use priceListId instead
     if (isActive !== undefined) where.isActive = isActive;
 
@@ -108,6 +109,10 @@ export class CustomerService {
     Object.entries(where).forEach(([key, value]) => {
       queryBuilder.andWhere(`customer.${key} = :${key}`, { [key]: value });
     });
+
+    if (priceListId) {
+      queryBuilder.andWhere('customer.priceListId = :priceListId', { priceListId });
+    }
 
     // Apply search conditions
     if (search) {

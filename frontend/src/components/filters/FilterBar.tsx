@@ -6,6 +6,7 @@ import { FilterCustomer } from './FilterCustomer'
 import { FilterOrderStatus } from './FilterOrderStatus'
 import { FilterPaymentStatus } from './FilterPaymentStatus'
 import { FilterPeriod } from './FilterPeriod'
+import { FilterPriceList } from './FilterPriceList'
 import { FilterProductType } from './FilterProductType'
 import { FilterPurchasingStatus } from './FilterPurchasingStatus'
 import { FilterSearch } from './FilterSearch'
@@ -119,6 +120,16 @@ function renderQuickField<TFilters extends object>(
         key={String(field.field)}
         value={(value as string | null) ?? null}
         onChange={onChange}
+      />
+    )
+  }
+
+  if (field.type === 'price-list') {
+    return (
+      <FilterPriceList
+        key={String(field.field)}
+        value={(value as string | null) ?? null}
+        onChange={onChange as (value: string | null) => void}
       />
     )
   }

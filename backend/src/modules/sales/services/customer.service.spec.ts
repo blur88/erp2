@@ -124,6 +124,42 @@ describe('CustomerService', () => {
     });
   });
 
+  describe('findAll filters', () => {
+    it('applies priceListId filter via query builder', async () => {
+      const qb = {
+        leftJoinAndSelect: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        getMany: jest.fn().mockResolvedValue([]),
+      };
+      customerRepository.createQueryBuilder.mockReturnValue(qb as any);
+
+      await service.findAll({ priceListId: 'pl-uuid-1' });
+
+      expect(qb.andWhere).toHaveBeenCalledWith(
+        'customer.priceListId = :priceListId',
+        { priceListId: 'pl-uuid-1' },
+      );
+    });
+
+    it('applies type filter via where condition', async () => {
+      const qb = {
+        leftJoinAndSelect: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        getMany: jest.fn().mockResolvedValue([]),
+      };
+      customerRepository.createQueryBuilder.mockReturnValue(qb as any);
+
+      await service.findAll({ type: CustomerType.INDIVIDUAL });
+
+      expect(qb.andWhere).toHaveBeenCalledWith(
+        'customer.type = :type',
+        { type: CustomerType.INDIVIDUAL },
+      );
+    });
+  });
+
   describe('searchGlobal', () => {
     it('returns matching customers as GlobalSearchResultDto', async () => {
       const customer = {
