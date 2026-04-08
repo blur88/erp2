@@ -5,6 +5,9 @@ import {
   Supplier,
   SupplierType,
 } from '../../../database/entities/supplier.entity';
+import { PurchaseOrder } from '../../../database/entities/purchase-order.entity';
+import { GoodsReceivedNote } from '../../../database/entities/goods-received-note.entity';
+import { VendorPayment } from '../../../database/entities/vendor-payment.entity';
 import {
   CreateSupplierDto,
   UpdateSupplierDto,
@@ -34,6 +37,12 @@ export class SupplierService {
   constructor(
     @InjectRepository(Supplier)
     private readonly supplierRepository: Repository<Supplier>,
+    @InjectRepository(PurchaseOrder)
+    private readonly purchaseOrderRepository: Repository<PurchaseOrder>,
+    @InjectRepository(GoodsReceivedNote)
+    private readonly grnRepository: Repository<GoodsReceivedNote>,
+    @InjectRepository(VendorPayment)
+    private readonly vendorPaymentRepository: Repository<VendorPayment>,
     private readonly auditLogService: AuditLogService,
   ) {}
 
@@ -758,6 +767,38 @@ export class SupplierService {
 
     this.logger.log(`Bulk permanent delete completed: ${deletedCount} deleted, ${failedIds.length} failed`);
     return { deletedCount, failedIds };
+  }
+
+  async getSupplierPurchaseOrders(supplierId: string): Promise<{ data: PurchaseOrder[]; total: number }> {
+    const [data, total] = await this.purchaseOrderRepository.findAndCount({
+      where: { supplierId },
+      order: { orderDate: 'DESC' },
+      take: 50,
+    });
+
+    return { data, total };
+  }
+
+  async getSupplierGRNs(supplierId: string): Promise<{ data: GoodsReceivedNote[]; total: number }> {
+    const [data, total] = await this.grnRepository.findAndCount({
+      where: { supplierId },
+      relations: ['purchaseOrder'],
+      order: { receivedDate: 'DESC' },
+      take: 50,
+    });
+
+    return { data, total };
+  }
+
+  async getSupplierPayments(supplierId: string): Promise<{ data: VendorPayment[]; total: number }> {
+    const [data, total] = await this.vendorPaymentRepository.findAndCount({
+      where: { supplierId },
+      relations: ['paymentMethodEntity'],
+      order: { paymentDate: 'DESC' },
+      take: 50,
+    });
+
+    return { data, total };
   }
 
   /**

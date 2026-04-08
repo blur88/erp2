@@ -146,6 +146,33 @@ export class SupplierController {
     return await this.supplierService.findDeleted(query);
   }
 
+  @Get(':id/purchase-orders')
+  @ApiOperation({ summary: 'Get purchase orders for a supplier' })
+  @ApiResponse({ status: 200, description: 'Purchase orders retrieved successfully' })
+  async getSupplierPurchaseOrders(
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<{ data: any[]; total: number }> {
+    return await this.supplierService.getSupplierPurchaseOrders(id);
+  }
+
+  @Get(':id/grns')
+  @ApiOperation({ summary: 'Get goods received notes for a supplier' })
+  @ApiResponse({ status: 200, description: 'GRNs retrieved successfully' })
+  async getSupplierGRNs(
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<{ data: any[]; total: number }> {
+    return await this.supplierService.getSupplierGRNs(id);
+  }
+
+  @Get(':id/payments')
+  @ApiOperation({ summary: 'Get vendor payments for a supplier' })
+  @ApiResponse({ status: 200, description: 'Payments retrieved successfully' })
+  async getSupplierPayments(
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<{ data: any[]; total: number }> {
+    return await this.supplierService.getSupplierPayments(id);
+  }
+
   @Get(':id')
   @ApiOperation({
     summary: 'Get supplier by ID',
