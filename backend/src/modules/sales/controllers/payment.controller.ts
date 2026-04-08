@@ -203,7 +203,6 @@ export class PaymentController {
   @Get('customer/:customerId')
   @ApiOperation({ summary: 'Get payments by customer' })
   @ApiParam({ name: 'customerId', description: 'Customer ID', type: 'string' })
-  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Limit number of results' })
   @ApiResponse({
     status: 200,
     description: 'Customer payments retrieved successfully',
@@ -211,9 +210,8 @@ export class PaymentController {
   })
   async getPaymentsByCustomer(
     @Param('customerId', ParseUUIDPipe) customerId: string,
-    @Query('limit') limit?: number,
   ): Promise<PaymentSummaryDto[]> {
-    return this.paymentService.getPaymentsByCustomer(customerId, limit);
+    return this.paymentService.getPaymentsByCustomer(customerId);
   }
 
   @Get('invoice/:invoiceId')

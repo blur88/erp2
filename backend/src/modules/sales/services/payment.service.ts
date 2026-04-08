@@ -288,11 +288,10 @@ export class PaymentService {
     return this.mapToResponseDto(await this.findPaymentWithRelations(payment.id));
   }
 
-  async getPaymentsByCustomer(customerId: string, limit: number = 10): Promise<PaymentSummaryDto[]> {
+  async getPaymentsByCustomer(customerId: string): Promise<PaymentSummaryDto[]> {
     const payments = await this.paymentRepository.find({
       where: { customerId },
       order: { paymentDate: 'DESC' },
-      take: limit,
     });
 
     return payments.map(payment => ({

@@ -5,6 +5,26 @@ import type { Customer, Invoice, PaginatedResponse, Payment, SalesOrder } from '
 import { axiosBaseQuery } from './baseQuery'
 import { normalizeSingle } from './normalizers'
 
+export interface SalesOrderItem {
+  id: string
+  orderNumber: string
+  orderDate: string
+  isFulfilled: boolean
+  isPaid: boolean
+  totalAmount: number
+  itemsCount: number
+}
+
+export interface OutstandingInvoice {
+  id: string
+  invoiceNumber: string
+  invoiceDate: string
+  totalAmount: number
+  paidAmount: number
+  balanceDue: number
+  salesOrderId: string | null
+}
+
 const defaultMeta = {
   total: 0,
 }
@@ -326,6 +346,32 @@ export const salesApiSlice = createApi({
       query: (paymentIds) => ({ url: '/payments/bulk-restore', method: 'POST', data: { paymentIds } }),
       invalidatesTags: ['Payment', 'DeletedPayment', 'Invoice', 'SalesOrder'],
     }),
+    getCustomerPayments: builder.query<Payment[], string>({
+      query: (id) => ({ url: `/payments/customer/${id}` }),
+      transformResponse: (response: any): Payment[] => {
+        if (Array.isArray(response)) return response
+        return response?.data ?? []
+      },
+      providesTags: ['Payment'],
+    }),
+    getCustomerSalesHistory: builder.query<{ orders: SalesOrderItem[] }, string>({
+      query: (id) => ({ url: `/customers/${id}/sales-history` }),
+      transformResponse: (response: any) => ({
+        orders: response?.orders ?? [],
+      }),
+      providesTags: (_result, _error, id) => [{ type: 'Customer', id }, 'SalesOrder'],
+    }),
+    getCustomerOutstandingInvoices: builder.query<{ invoices: OutstandingInvoice[]; totalOutstanding: number }, string>({
+      query: (id) => ({ url: `/customers/${id}/outstanding-invoices` }),
+      transformResponse: (response: any) => {
+        const data = response?.data ?? response
+        return {
+          invoices: data?.invoices ?? [],
+          totalOutstanding: data?.totalOutstanding ?? 0,
+        }
+      },
+      providesTags: (_result, _error, id) => [{ type: 'Customer', id }, 'Invoice'],
+    }),
   }),
 })
 
@@ -383,4 +429,7 @@ export const {
   useGetDeletedPaymentsQuery,
   useRestorePaymentMutation,
   useBulkRestorePaymentsMutation,
+  useGetCustomerPaymentsQuery,
+  useGetCustomerSalesHistoryQuery,
+  useGetCustomerOutstandingInvoicesQuery,
 } = salesApiSlice

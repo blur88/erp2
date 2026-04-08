@@ -4,12 +4,14 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import CustomerWorkspaceCard from '../CustomerWorkspaceCard'
 import { CustomerType } from '@/types'
 
-const mockedApi = vi.hoisted(() => ({
-  get: vi.fn(),
-}))
+const mockUseGetCustomerSalesHistoryQuery = vi.hoisted(() => vi.fn())
+const mockUseGetCustomerOutstandingInvoicesQuery = vi.hoisted(() => vi.fn())
+const mockUseGetCustomerPaymentsQuery = vi.hoisted(() => vi.fn())
 
-vi.mock('@/services/api', () => ({
-  default: mockedApi,
+vi.mock('@/store/api/salesApi', () => ({
+  useGetCustomerSalesHistoryQuery: mockUseGetCustomerSalesHistoryQuery,
+  useGetCustomerOutstandingInvoicesQuery: mockUseGetCustomerOutstandingInvoicesQuery,
+  useGetCustomerPaymentsQuery: mockUseGetCustomerPaymentsQuery,
 }))
 
 vi.mock('react-router-dom', async (importOriginal) => {
@@ -20,65 +22,137 @@ vi.mock('react-router-dom', async (importOriginal) => {
   }
 })
 
+const mockCustomer = {
+  id: 'customer-1',
+  type: CustomerType.BUSINESS,
+  name: 'Acme Supplies',
+  isActive: true,
+  totalSales: 0,
+  totalOrders: 0,
+  averageOrderValue: 0,
+  createdAt: new Date('2026-01-01T00:00:00.000Z'),
+  updatedAt: new Date('2026-01-01T00:00:00.000Z'),
+}
+
 describe('CustomerWorkspaceCard', () => {
   beforeEach(() => {
-    mockedApi.get.mockReset()
-    mockedApi.get.mockImplementation((url: string) => {
-      if (url.includes('/sales-history')) {
-        return Promise.resolve({ data: { orders: [] } })
-      }
+    mockUseGetCustomerSalesHistoryQuery.mockReset()
+    mockUseGetCustomerOutstandingInvoicesQuery.mockReset()
+    mockUseGetCustomerPaymentsQuery.mockReset()
 
-      return Promise.resolve({
-        data: {
-          data: {
-            invoices: [],
-            totalOutstanding: 0,
-          },
-        },
-      })
+    mockUseGetCustomerSalesHistoryQuery.mockReturnValue({ data: undefined, isLoading: false, isError: false })
+    mockUseGetCustomerOutstandingInvoicesQuery.mockReturnValue({ data: undefined, isLoading: false, isError: false })
+    mockUseGetCustomerPaymentsQuery.mockReturnValue({ data: undefined, isLoading: false, isError: false })
+  })
+
+  it('renders nothing when no customer is selected', () => {
+    const { container } = render(<CustomerWorkspaceCard selectedCustomer={null} />)
+    expect(container.querySelector('[role="tabpanel"]')).not.toBeInTheDocument()
+  })
+
+  it('renders Orders, Invoices, and Payments tabs', () => {
+    render(<CustomerWorkspaceCard selectedCustomer={mockCustomer} />)
+
+    expect(screen.getByRole('tab', { name: /orders/i })).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: /invoices/i })).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: /payments/i })).toBeInTheDocument()
+    expect(screen.getAllByRole('tab')).toHaveLength(3)
+  })
+
+  it('loads orders on initial render, other tabs only when clicked', () => {
+    render(<CustomerWorkspaceCard selectedCustomer={mockCustomer} />)
+
+    expect(mockUseGetCustomerSalesHistoryQuery).toHaveBeenCalledWith('customer-1', { skip: false })
+    expect(mockUseGetCustomerOutstandingInvoicesQuery).toHaveBeenCalledWith('customer-1', { skip: true })
+    expect(mockUseGetCustomerPaymentsQuery).toHaveBeenCalledWith('customer-1', { skip: true })
+  })
+
+  it('shows orders empty state when no orders', () => {
+    mockUseGetCustomerSalesHistoryQuery.mockReturnValue({ data: { orders: [] }, isLoading: false, isError: false })
+
+    render(<CustomerWorkspaceCard selectedCustomer={mockCustomer} />)
+
+    expect(screen.getByText('No orders found.')).toBeInTheDocument()
+  })
+
+  it('renders order rows', () => {
+    mockUseGetCustomerSalesHistoryQuery.mockReturnValue({
+      data: {
+        orders: [{ id: 'o-1', orderNumber: 'SO-001', orderDate: '2026-01-10', isFulfilled: false, isPaid: false, totalAmount: 500, itemsCount: 2 }],
+      },
+      isLoading: false,
+      isError: false,
+    })
+
+    render(<CustomerWorkspaceCard selectedCustomer={mockCustomer} />)
+
+    expect(screen.getByText('SO-001')).toBeInTheDocument()
+  })
+
+  it('shows invoices when Invoices tab clicked', async () => {
+    mockUseGetCustomerOutstandingInvoicesQuery.mockReturnValue({
+      data: {
+        invoices: [
+          { id: 'inv-1', invoiceNumber: 'INV-001', invoiceDate: '2026-01-05', totalAmount: 1000, paidAmount: 0, balanceDue: 1000, salesOrderId: null },
+        ],
+        totalOutstanding: 1000,
+      },
+      isLoading: false,
+      isError: false,
+    })
+
+    render(<CustomerWorkspaceCard selectedCustomer={mockCustomer} />)
+
+    fireEvent.click(screen.getByRole('tab', { name: /invoices/i }))
+
+    await waitFor(() => {
+      expect(screen.getByText('INV-001')).toBeInTheDocument()
     })
   })
 
-  it('renders only the orders and invoices tabs and lazy-loads each tab once', async () => {
-    render(
-      <CustomerWorkspaceCard
-        selectedCustomer={{
-          id: 'customer-1',
-          type: CustomerType.BUSINESS,
-          name: 'Acme Supplies',
-          isActive: true,
-          totalSales: 0,
-          totalOrders: 0,
-          averageOrderValue: 0,
-          createdAt: new Date('2026-01-01T00:00:00.000Z'),
-          updatedAt: new Date('2026-01-01T00:00:00.000Z'),
-        }}
-      />,
-    )
+  it('shows payments empty state when Payments tab clicked with no data', async () => {
+    mockUseGetCustomerPaymentsQuery.mockReturnValue({ data: [], isLoading: false, isError: false })
+
+    render(<CustomerWorkspaceCard selectedCustomer={mockCustomer} />)
+
+    fireEvent.click(screen.getByRole('tab', { name: /payments/i }))
 
     await waitFor(() => {
-      expect(screen.getByRole('tab', { name: /orders/i })).toBeInTheDocument()
+      expect(screen.getByText('No payments found.')).toBeInTheDocument()
+    })
+  })
+
+  it('renders payment rows', async () => {
+    mockUseGetCustomerPaymentsQuery.mockReturnValue({
+      data: [{ id: 'pay-1', paymentNumber: 'PAY-001', paymentDate: '2026-01-15', status: 'completed', amount: 1500 }],
+      isLoading: false,
+      isError: false,
     })
 
-    expect(screen.getByRole('tab', { name: /invoices/i })).toBeInTheDocument()
-    expect(screen.queryByRole('tab', { name: /overview/i })).not.toBeInTheDocument()
-    expect(screen.getAllByRole('tab')).toHaveLength(2)
-    expect(mockedApi.get).toHaveBeenCalledWith('/customers/customer-1/sales-history')
-    expect(mockedApi.get).not.toHaveBeenCalledWith('/customers/customer-1/outstanding-invoices')
+    render(<CustomerWorkspaceCard selectedCustomer={mockCustomer} />)
 
-    fireEvent.click(screen.getByRole('tab', { name: /invoices/i }))
+    fireEvent.click(screen.getByRole('tab', { name: /payments/i }))
 
     await waitFor(() => {
-      expect(mockedApi.get).toHaveBeenCalledWith('/customers/customer-1/outstanding-invoices')
+      expect(screen.getByText('PAY-001')).toBeInTheDocument()
     })
 
-    fireEvent.click(screen.getByRole('tab', { name: /orders/i }))
-    fireEvent.click(screen.getByRole('tab', { name: /invoices/i }))
+    expect(screen.getByText('completed')).toBeInTheDocument()
+  })
 
-    expect(
-      mockedApi.get.mock.calls.filter(
-        ([url]) => url === '/customers/customer-1/outstanding-invoices',
-      ),
-    ).toHaveLength(1)
+  it('shows error state for each tab on fetch failure', async () => {
+    mockUseGetCustomerSalesHistoryQuery.mockReturnValue({ data: undefined, isLoading: false, isError: true })
+    mockUseGetCustomerOutstandingInvoicesQuery.mockReturnValue({ data: undefined, isLoading: false, isError: true })
+    mockUseGetCustomerPaymentsQuery.mockReturnValue({ data: undefined, isLoading: false, isError: true })
+
+    render(<CustomerWorkspaceCard selectedCustomer={mockCustomer} />)
+
+    expect(screen.getByText('Failed to load orders.')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('tab', { name: /invoices/i }))
+    await waitFor(() => expect(screen.getByText('Failed to load invoices.')).toBeInTheDocument())
+
+    fireEvent.click(screen.getByRole('tab', { name: /payments/i }))
+    await waitFor(() => expect(screen.getByText('Failed to load payments.')).toBeInTheDocument())
   })
 })
