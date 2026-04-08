@@ -429,13 +429,12 @@ export class CustomerService {
 
 
 
-  async getSalesHistory(customerId: string, limit: number = 10) {
+  async getSalesHistory(customerId: string) {
     await this.findCustomerEntity(customerId); // Verify customer exists
 
     const orders = await this.salesOrderRepository.find({
       where: { customerId },
       order: { orderDate: 'DESC' },
-      take: limit,
       relations: ['items'],
     });
 

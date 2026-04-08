@@ -181,9 +181,8 @@ export class CustomerController {
   @ApiResponse({ status: 404, description: 'Customer not found' })
   async getCustomerSalesHistory(
     @Param('id', ParseUUIDPipe) id: string,
-    @Query('limit') limit?: number,
   ) {
-    return this.customerService.getSalesHistory(id, limit);
+    return this.customerService.getSalesHistory(id);
   }
 
   @Get(':id/outstanding-invoices')

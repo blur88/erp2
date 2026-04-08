@@ -21,31 +21,14 @@ import {
 import { useNavigate } from 'react-router-dom'
 
 import { TABLE_STYLES } from '@/constants/tableStyles'
-import api from '@/services/api'
-import { useGetCustomerPaymentsQuery } from '@/store/api/salesApi'
+import {
+  useGetCustomerOutstandingInvoicesQuery,
+  useGetCustomerPaymentsQuery,
+  useGetCustomerSalesHistoryQuery,
+} from '@/store/api/salesApi'
 import type { Customer } from '@/types'
 import { formatCurrency } from '@/utils/currency'
 import { formatDate } from '@/utils/formatters'
-
-interface SalesOrderItem {
-  id: string
-  orderNumber: string
-  orderDate: string
-  isFulfilled: boolean
-  isPaid: boolean
-  totalAmount: number
-  itemsCount: number
-}
-
-interface OutstandingInvoice {
-  id: string
-  invoiceNumber: string
-  invoiceDate: string
-  totalAmount: number
-  paidAmount: number
-  balanceDue: number
-  salesOrderId: string | null
-}
 
 interface TabPanelProps {
   children?: React.ReactNode
@@ -79,62 +62,28 @@ interface CustomerWorkspaceCardProps {
 
 const CustomerWorkspaceCard: React.FC<CustomerWorkspaceCardProps> = ({ selectedCustomer }) => {
   const navigate = useNavigate()
-
-  const [orders, setOrders] = useState<SalesOrderItem[]>([])
-  const [invoices, setInvoices] = useState<OutstandingInvoice[]>([])
-  const [totalOutstanding, setTotalOutstanding] = useState(0)
   const [tabValue, setTabValue] = useState(0)
-  const [ordersLoaded, setOrdersLoaded] = useState(false)
-  const [invoicesLoaded, setInvoicesLoaded] = useState(false)
+
   const customerId = selectedCustomer?.id ?? ''
 
+  useEffect(() => {
+    setTabValue(0)
+  }, [customerId])
+
+  const { data: ordersData, isLoading: ordersLoading, isError: ordersError } = useGetCustomerSalesHistoryQuery(customerId, {
+    skip: !customerId || tabValue !== 0,
+  })
+  const { data: invoicesData, isLoading: invoicesLoading, isError: invoicesError } = useGetCustomerOutstandingInvoicesQuery(customerId, {
+    skip: !customerId || tabValue !== 1,
+  })
   const { data: paymentsData, isLoading: paymentsLoading, isError: paymentsError } = useGetCustomerPaymentsQuery(customerId, {
     skip: !customerId || tabValue !== 2,
   })
 
+  const orders = ordersData?.orders ?? []
+  const invoices = invoicesData?.invoices ?? []
+  const totalOutstanding = invoicesData?.totalOutstanding ?? 0
   const payments = paymentsData ?? []
-
-  useEffect(() => {
-    if (!selectedCustomer) {
-      setOrders([])
-      setInvoices([])
-      setTotalOutstanding(0)
-      setTabValue(0)
-      setOrdersLoaded(false)
-      setInvoicesLoaded(false)
-      return
-    }
-
-    setTabValue(0)
-    setOrdersLoaded(false)
-    setInvoicesLoaded(false)
-    setOrders([])
-    setInvoices([])
-  }, [selectedCustomer?.id])
-
-  useEffect(() => {
-    if (tabValue === 0 && !ordersLoaded && selectedCustomer?.id) {
-      api
-        .get(`/customers/${selectedCustomer.id}/sales-history`)
-        .then((res: any) => setOrders(res.data?.orders ?? res.data ?? []))
-        .catch(() => {})
-        .finally(() => setOrdersLoaded(true))
-    }
-  }, [tabValue, ordersLoaded, selectedCustomer?.id])
-
-  useEffect(() => {
-    if (tabValue === 1 && !invoicesLoaded && selectedCustomer?.id) {
-      api
-        .get(`/customers/${selectedCustomer.id}/outstanding-invoices`)
-        .then((res: any) => {
-          const data = res.data?.data ?? res.data
-          setInvoices(data?.invoices ?? [])
-          setTotalOutstanding(data?.totalOutstanding ?? 0)
-        })
-        .catch(() => {})
-        .finally(() => setInvoicesLoaded(true))
-    }
-  }, [tabValue, invoicesLoaded, selectedCustomer?.id])
 
   if (!selectedCustomer) {
     return <Paper sx={{ flex: 1 }} />
@@ -151,10 +100,14 @@ const CustomerWorkspaceCard: React.FC<CustomerWorkspaceCardProps> = ({ selectedC
       </Box>
 
       <TabPanel value={tabValue} index={0}>
-        {!ordersLoaded ? (
+        {ordersLoading ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
             <CircularProgress />
           </Box>
+        ) : ordersError ? (
+          <Typography color="error.main" sx={{ py: 4, textAlign: 'center' }}>
+            Failed to load orders.
+          </Typography>
         ) : orders.length === 0 ? (
           <Typography color="text.secondary" sx={{ py: 4, textAlign: 'center' }}>
             No orders found.
@@ -208,10 +161,14 @@ const CustomerWorkspaceCard: React.FC<CustomerWorkspaceCardProps> = ({ selectedC
       </TabPanel>
 
       <TabPanel value={tabValue} index={1}>
-        {!invoicesLoaded ? (
+        {invoicesLoading ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
             <CircularProgress />
           </Box>
+        ) : invoicesError ? (
+          <Typography color="error.main" sx={{ py: 4, textAlign: 'center' }}>
+            Failed to load invoices.
+          </Typography>
         ) : invoices.length === 0 ? (
           <Typography color="text.secondary" sx={{ py: 4, textAlign: 'center' }}>
             No outstanding invoices.
