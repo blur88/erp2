@@ -15,12 +15,14 @@ import {
 } from '@mui/material'
 import {
   AccountBalance as InvoiceIcon,
+  Payment as PaymentIcon,
   ShoppingCart as OrdersIcon,
 } from '@mui/icons-material'
 import { useNavigate } from 'react-router-dom'
 
 import { TABLE_STYLES } from '@/constants/tableStyles'
 import api from '@/services/api'
+import { useGetCustomerPaymentsQuery } from '@/store/api/salesApi'
 import type { Customer } from '@/types'
 import { formatCurrency } from '@/utils/currency'
 import { formatDate } from '@/utils/formatters'
@@ -84,6 +86,13 @@ const CustomerWorkspaceCard: React.FC<CustomerWorkspaceCardProps> = ({ selectedC
   const [tabValue, setTabValue] = useState(0)
   const [ordersLoaded, setOrdersLoaded] = useState(false)
   const [invoicesLoaded, setInvoicesLoaded] = useState(false)
+  const customerId = selectedCustomer?.id ?? ''
+
+  const { data: paymentsData, isLoading: paymentsLoading } = useGetCustomerPaymentsQuery(customerId, {
+    skip: !customerId || tabValue !== 2,
+  })
+
+  const payments = paymentsData ?? []
 
   useEffect(() => {
     if (!selectedCustomer) {
@@ -137,6 +146,7 @@ const CustomerWorkspaceCard: React.FC<CustomerWorkspaceCardProps> = ({ selectedC
         <Tabs value={tabValue} onChange={(_, value) => setTabValue(value)}>
           <Tab icon={<OrdersIcon sx={{ fontSize: 16 }} />} iconPosition="start" label="Orders" />
           <Tab icon={<InvoiceIcon sx={{ fontSize: 16 }} />} iconPosition="start" label="Invoices" />
+          <Tab icon={<PaymentIcon sx={{ fontSize: 16 }} />} iconPosition="start" label="Payments" />
         </Tabs>
       </Box>
 
@@ -253,6 +263,45 @@ const CustomerWorkspaceCard: React.FC<CustomerWorkspaceCardProps> = ({ selectedC
               </Table>
             </TableContainer>
           </>
+        )}
+      </TabPanel>
+
+      <TabPanel value={tabValue} index={2}>
+        {paymentsLoading ? (
+          <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+            <CircularProgress />
+          </Box>
+        ) : payments.length === 0 ? (
+          <Typography color="text.secondary" sx={{ py: 4, textAlign: 'center' }}>
+            No payments found.
+          </Typography>
+        ) : (
+          <TableContainer component={Paper} variant="outlined">
+            <Table size={TABLE_STYLES.size}>
+              <TableHead>
+                <TableRow sx={{ '& .MuiTableCell-head': { fontWeight: 600, backgroundColor: 'grey.50' } }}>
+                  <TableCell>Payment #</TableCell>
+                  <TableCell>Date</TableCell>
+                  <TableCell>Status</TableCell>
+                  <TableCell align="right">Amount</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {payments.map((payment) => (
+                  <TableRow key={payment.id}>
+                    <TableCell>
+                      <Typography variant="body2" fontWeight={600}>
+                        {payment.paymentNumber}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>{formatDate(payment.paymentDate)}</TableCell>
+                    <TableCell>{payment.status}</TableCell>
+                    <TableCell align="right">{formatCurrency(payment.amount)}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
         )}
       </TabPanel>
     </Paper>
