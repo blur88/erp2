@@ -1,3 +1,18 @@
+# [1.57.0](https://github.com/blur88/erp2/compare/v1.56.0...v1.57.0) (2026-04-08)
+
+
+### Bug Fixes
+
+* **sales:** align type filter guard and add type filter regression test ([ffab3ca](https://github.com/blur88/erp2/commit/ffab3cada33c0138e0c49972d5dbea8fd4344f07))
+* **sales:** apply priceListId filter in CustomerService.findAll ([836743f](https://github.com/blur88/erp2/commit/836743f4496fffc490dda4f23eecfba998783d55))
+
+
+### Features
+
+* **filters:** add FilterPriceList component ([272e161](https://github.com/blur88/erp2/commit/272e1613b3bf878d9ecebb11fc58355586a72c42))
+* **filters:** register price-list filter type in FilterBar system ([51fdc56](https://github.com/blur88/erp2/commit/51fdc56ab1c3c0cfdd7571a1e30596c590a07d83))
+* **sales:** add Customer Type and Price List filters to CustomersPage ([43e6272](https://github.com/blur88/erp2/commit/43e6272b6b442f47691dd71df1b7234658084e6e))
+
 # [1.56.0](https://github.com/blur88/erp2/compare/v1.55.1...v1.56.0) (2026-04-08)
 
 
