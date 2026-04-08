@@ -1,3 +1,24 @@
+# [1.55.0](https://github.com/blur88/erp2/compare/v1.54.1...v1.55.0) (2026-04-08)
+
+
+### Bug Fixes
+
+* **purchasing:** add isActive to SupplierResponseDto and mapToResponseDto ([5e84144](https://github.com/blur88/erp2/commit/5e8414484a46084ec782baa773a509af11aa6e3f)), closes [#312](https://github.com/blur88/erp2/issues/312)
+
+
+### Features
+
+* **purchasing:** add per-supplier purchase orders, GRNs, payments endpoints ([a145638](https://github.com/blur88/erp2/commit/a145638ddcc7f039a03c9e84ffb89c8b6d1edfed))
+* **purchasing:** add RTK Query hooks for supplier history endpoints ([b6a6f22](https://github.com/blur88/erp2/commit/b6a6f225b6db6e738fe63ea54b05c195ce39a5b9))
+* **purchasing:** add Supplier address fields, isActive, selectedSupplier state ([dedf67c](https://github.com/blur88/erp2/commit/dedf67c2ab66b567e984f9bdac8f55c87e65ebed))
+* **purchasing:** add SupplierContextHeader component with tests ([822cf91](https://github.com/blur88/erp2/commit/822cf91b92678c10c50fd35b2d34ca9c619d7ee7))
+* **purchasing:** add SupplierFormPage route component ([ff11675](https://github.com/blur88/erp2/commit/ff11675a7238304c0fb045a619b341a088526fc4))
+* **purchasing:** add SupplierList component ([8a1e61b](https://github.com/blur88/erp2/commit/8a1e61b8e622abbb6309821a6a016b228a2c67ef))
+* **purchasing:** add SuppliersDialogs component ([1aee29a](https://github.com/blur88/erp2/commit/1aee29abd3303a559ab2a16101e1c88aa0df21cc))
+* **purchasing:** add SupplierWorkspaceCard component with tests ([48b8824](https://github.com/blur88/erp2/commit/48b8824c34255ebcc8afc8c9d764f0bc480c7f49))
+* **purchasing:** add useSuppliersPageState, useSuppliersActions, useSuppliersSelection hooks ([e5dd8df](https://github.com/blur88/erp2/commit/e5dd8df129ab6df83d719fec5f18871a6ab1e168))
+* **purchasing:** refactor SuppliersPage to MasterDetailWorkspace pattern ([b2db5e7](https://github.com/blur88/erp2/commit/b2db5e7e237fad5aa713b10a167f8042b1d85469))
+
 ## [1.54.1](https://github.com/blur88/erp2/compare/v1.54.0...v1.54.1) (2026-04-08)
 
 
