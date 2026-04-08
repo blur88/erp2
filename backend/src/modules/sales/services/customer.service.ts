@@ -96,7 +96,7 @@ export class CustomerService {
 
     const where: FindOptionsWhere<Customer> = {};
 
-    if (type) where.type = type;
+    if (type !== undefined && type !== null) where.type = type;
     // pricingScheme removed in Phase 8 - use priceListId instead
     if (isActive !== undefined) where.isActive = isActive;
 
