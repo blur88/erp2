@@ -82,6 +82,18 @@ export const purchasingApiSlice = createApi({
       transformResponse: (response: any) => normalizeNamedCollection<Supplier>(response, 'suppliers'),
       providesTags: ['DeletedSupplier'],
     }),
+    getSupplierPurchaseOrders: builder.query<{ data: PurchaseOrder[]; total: number }, string>({
+      query: (id) => ({ url: `/purchasing/suppliers/${id}/purchase-orders` }),
+      providesTags: (_result, _error, id) => [{ type: 'Supplier', id }],
+    }),
+    getSupplierGRNs: builder.query<{ data: GoodsReceivedNote[]; total: number }, string>({
+      query: (id) => ({ url: `/purchasing/suppliers/${id}/grns` }),
+      providesTags: (_result, _error, id) => [{ type: 'Supplier', id }],
+    }),
+    getSupplierPayments: builder.query<{ data: VendorPayment[]; total: number }, string>({
+      query: (id) => ({ url: `/purchasing/suppliers/${id}/payments` }),
+      providesTags: (_result, _error, id) => [{ type: 'Supplier', id }],
+    }),
     restoreSupplier: builder.mutation<Supplier, string>({
       query: (id) => ({ url: `/purchasing/suppliers/${id}/restore`, method: 'POST' }),
       transformResponse: normalizeSingle<Supplier>,
@@ -228,6 +240,9 @@ export const {
   useUpdateSupplierMutation,
   useDeleteSupplierMutation,
   useGetDeletedSuppliersQuery,
+  useGetSupplierPurchaseOrdersQuery,
+  useGetSupplierGRNsQuery,
+  useGetSupplierPaymentsQuery,
   useRestoreSupplierMutation,
   usePermanentDeleteSupplierMutation,
   useBulkRestoreSuppliersMutation,
