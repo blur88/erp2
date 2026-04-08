@@ -1,3 +1,10 @@
+## [1.55.1](https://github.com/blur88/erp2/compare/v1.55.0...v1.55.1) (2026-04-08)
+
+
+### Internal Changes
+
+* chore: update dependency lockfiles for backend and frontend projects ([](https://github.com/blur88/erp2/commit/))
+
 # [1.55.0](https://github.com/blur88/erp2/compare/v1.54.1...v1.55.0) (2026-04-08)
 
 
