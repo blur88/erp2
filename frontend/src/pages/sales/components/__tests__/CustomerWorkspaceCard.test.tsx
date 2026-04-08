@@ -57,7 +57,7 @@ describe('CustomerWorkspaceCard', () => {
       })
     })
 
-    mockUseGetCustomerPaymentsQuery.mockReturnValue({ data: undefined, isLoading: false })
+    mockUseGetCustomerPaymentsQuery.mockReturnValue({ data: undefined, isLoading: false, isError: false })
   })
 
   it('renders Orders, Invoices, and Payments tabs', async () => {
@@ -95,21 +95,35 @@ describe('CustomerWorkspaceCard', () => {
     ).toHaveLength(1)
   })
 
-  it('does not fetch payments until Payments tab is clicked', async () => {
+  it('does not show payments content until Payments tab is clicked', async () => {
     render(<CustomerWorkspaceCard selectedCustomer={mockCustomer} />)
 
     await waitFor(() => {
       expect(screen.getByRole('tab', { name: /orders/i })).toBeInTheDocument()
     })
 
-    expect(mockUseGetCustomerPaymentsQuery).toHaveBeenCalledWith('customer-1', { skip: true })
+    // Payments tab panel is hidden — no spinner, no empty state
+    expect(screen.queryByRole('progressbar')).not.toBeInTheDocument()
+    expect(screen.queryByText('No payments found.')).not.toBeInTheDocument()
 
-    mockUseGetCustomerPaymentsQuery.mockReturnValue({ data: [], isLoading: false })
+    mockUseGetCustomerPaymentsQuery.mockReturnValue({ data: [], isLoading: false, isError: false })
 
     fireEvent.click(screen.getByRole('tab', { name: /payments/i }))
 
     await waitFor(() => {
       expect(screen.getByText('No payments found.')).toBeInTheDocument()
+    })
+  })
+
+  it('shows error message when payments fetch fails', async () => {
+    mockUseGetCustomerPaymentsQuery.mockReturnValue({ data: undefined, isLoading: false, isError: true })
+
+    render(<CustomerWorkspaceCard selectedCustomer={mockCustomer} />)
+
+    fireEvent.click(screen.getByRole('tab', { name: /payments/i }))
+
+    await waitFor(() => {
+      expect(screen.getByText('Failed to load payments.')).toBeInTheDocument()
     })
   })
 
@@ -125,6 +139,7 @@ describe('CustomerWorkspaceCard', () => {
         },
       ],
       isLoading: false,
+      isError: false,
     })
 
     render(<CustomerWorkspaceCard selectedCustomer={mockCustomer} />)

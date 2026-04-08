@@ -327,12 +327,12 @@ export const salesApiSlice = createApi({
       invalidatesTags: ['Payment', 'DeletedPayment', 'Invoice', 'SalesOrder'],
     }),
     getCustomerPayments: builder.query<Payment[], string>({
-      query: (id) => ({ url: `/payments/customer/${id}` }),
+      query: (id) => ({ url: `/payments/customer/${id}`, params: { limit: 200 } }),
       transformResponse: (response: any): Payment[] => {
         if (Array.isArray(response)) return response
         return response?.data ?? []
       },
-      providesTags: (_result, _error, id) => [{ type: 'Payment', id }],
+      providesTags: ['Payment'],
     }),
   }),
 })

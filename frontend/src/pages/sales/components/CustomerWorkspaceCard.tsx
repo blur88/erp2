@@ -88,7 +88,7 @@ const CustomerWorkspaceCard: React.FC<CustomerWorkspaceCardProps> = ({ selectedC
   const [invoicesLoaded, setInvoicesLoaded] = useState(false)
   const customerId = selectedCustomer?.id ?? ''
 
-  const { data: paymentsData, isLoading: paymentsLoading } = useGetCustomerPaymentsQuery(customerId, {
+  const { data: paymentsData, isLoading: paymentsLoading, isError: paymentsError } = useGetCustomerPaymentsQuery(customerId, {
     skip: !customerId || tabValue !== 2,
   })
 
@@ -271,6 +271,10 @@ const CustomerWorkspaceCard: React.FC<CustomerWorkspaceCardProps> = ({ selectedC
           <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
             <CircularProgress />
           </Box>
+        ) : paymentsError ? (
+          <Typography color="error.main" sx={{ py: 4, textAlign: 'center' }}>
+            Failed to load payments.
+          </Typography>
         ) : payments.length === 0 ? (
           <Typography color="text.secondary" sx={{ py: 4, textAlign: 'center' }}>
             No payments found.
