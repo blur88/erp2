@@ -1,3 +1,16 @@
+# [1.54.0](https://github.com/blur88/erp2/compare/v1.53.2...v1.54.0) (2026-04-08)
+
+
+### Bug Fixes
+
+* **frontend:** remove redundant hidden attr on TabPanel; add missing CustomerContextHeader test cases ([013127b](https://github.com/blur88/erp2/commit/013127bb603c4c7ce3526bc48d3b984456abeb90))
+
+
+### Features
+
+* **frontend:** redesign CustomerContextHeader to 2-column grid layout (closes [#310](https://github.com/blur88/erp2/issues/310) partial) ([c03560b](https://github.com/blur88/erp2/commit/c03560be22f7f78d1d152fb6ae2fdf48698107fd))
+* **frontend:** refactor CustomerWorkspaceCard — remove stats/overview, fix scroll, closes [#310](https://github.com/blur88/erp2/issues/310) ([e2cd2d1](https://github.com/blur88/erp2/commit/e2cd2d1b5124a072194b321521b3e35537d28107))
+
 ## [1.53.2](https://github.com/blur88/erp2/compare/v1.53.1...v1.53.2) (2026-04-07)
 
 
