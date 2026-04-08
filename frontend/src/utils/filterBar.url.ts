@@ -73,7 +73,8 @@ export function serializeFilters<TFilters extends object>(
       field.type === 'purchasing-status' ||
       field.type === 'category' ||
       field.type === 'product-type' ||
-      field.type === 'stock-status'
+      field.type === 'stock-status' ||
+      field.type === 'price-list'
 
     if (isSingleValueField) {
       if (value !== null && value !== undefined && value !== defaultValue) {
@@ -149,7 +150,8 @@ export function parseFilters<TFilters extends object>(
       field.type === 'purchasing-status' ||
       field.type === 'category' ||
       field.type === 'product-type' ||
-      field.type === 'stock-status'
+      field.type === 'stock-status' ||
+      field.type === 'price-list'
 
     if (isSingleValueField) {
       const raw = searchParams.get(key)

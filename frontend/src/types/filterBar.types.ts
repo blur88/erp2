@@ -21,6 +21,7 @@ export type FilterFieldType =
   | 'category'
   | 'product-type'
   | 'stock-status'
+  | 'price-list'
 
 interface BaseFilterFieldConfig<TFilters, K extends keyof TFilters> {
   field: K
@@ -87,6 +88,11 @@ export interface StockStatusFilterFieldConfig<TFilters, K extends keyof TFilters
   type: 'stock-status'
 }
 
+export interface PriceListFilterFieldConfig<TFilters, K extends keyof TFilters>
+  extends BaseFilterFieldConfig<TFilters, K> {
+  type: 'price-list'
+}
+
 export type FilterFieldConfig<TFilters> =
   | SelectFilterFieldConfig<TFilters, keyof TFilters>
   | PeriodFilterFieldConfig<TFilters, keyof TFilters>
@@ -99,6 +105,7 @@ export type FilterFieldConfig<TFilters> =
   | CategoryFilterFieldConfig<TFilters, keyof TFilters>
   | ProductTypeFilterFieldConfig<TFilters, keyof TFilters>
   | StockStatusFilterFieldConfig<TFilters, keyof TFilters>
+  | PriceListFilterFieldConfig<TFilters, keyof TFilters>
 
 export interface FilterBarConfig<TFilters> {
   search?: {
