@@ -88,6 +88,7 @@ export class CustomerService {
     const {
       search,
       type,
+      priceListId,
       isActive,
       sortBy = 'name',
       sortOrder = 'ASC',
@@ -108,6 +109,10 @@ export class CustomerService {
     Object.entries(where).forEach(([key, value]) => {
       queryBuilder.andWhere(`customer.${key} = :${key}`, { [key]: value });
     });
+
+    if (priceListId) {
+      queryBuilder.andWhere('customer.priceListId = :priceListId', { priceListId });
+    }
 
     // Apply search conditions
     if (search) {
