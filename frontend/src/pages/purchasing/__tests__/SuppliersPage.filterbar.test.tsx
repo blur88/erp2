@@ -149,4 +149,18 @@ describe('SuppliersPage FilterBar', () => {
       expect.not.objectContaining({ isActive: expect.anything() }),
     )
   })
+
+  it('passes type=local to query when type filter is set', () => {
+    renderPage('/?type=local')
+    expect(useGetSuppliersQuery).toHaveBeenLastCalledWith(
+      expect.objectContaining({ type: 'local' }),
+    )
+  })
+
+  it('does not pass type when type filter is unset', () => {
+    renderPage('/')
+    expect(useGetSuppliersQuery).toHaveBeenLastCalledWith(
+      expect.not.objectContaining({ type: expect.anything() }),
+    )
+  })
 })

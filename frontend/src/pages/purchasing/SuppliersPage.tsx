@@ -24,6 +24,7 @@ import { useSuppliersSelection } from './hooks/useSuppliersSelection'
 interface SupplierFilters {
   search: string
   status: 'active' | 'inactive' | null
+  type: 'local' | 'international' | null
 }
 
 const SuppliersPage: React.FC = () => {
@@ -42,8 +43,9 @@ const SuppliersPage: React.FC = () => {
       search: { placeholder: 'Search by company name...' },
       fields: [
         { field: 'status', label: 'Status', type: 'status' },
+        { field: 'type', label: 'Supplier Type', type: 'supplier-type' },
       ],
-      defaults: { search: '', status: null },
+      defaults: { search: '', status: null, type: null },
     }),
     [],
   )
@@ -67,6 +69,7 @@ const SuppliersPage: React.FC = () => {
           : appliedFilters.status === 'inactive'
             ? false
             : undefined,
+      type: appliedFilters.type ?? undefined,
     }),
     [appliedFilters],
   )
