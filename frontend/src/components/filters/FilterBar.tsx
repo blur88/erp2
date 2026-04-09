@@ -1,16 +1,19 @@
 import { CircularProgress, Stack } from '@mui/material'
 
-import { FilterCompare } from './FilterCompare'
 import { FilterCategory } from './FilterCategory'
+import { FilterCompare } from './FilterCompare'
 import { FilterCustomer } from './FilterCustomer'
+import { FilterCustomerType } from './FilterCustomerType'
 import { FilterOrderStatus } from './FilterOrderStatus'
 import { FilterPaymentStatus } from './FilterPaymentStatus'
 import { FilterPeriod } from './FilterPeriod'
 import { FilterPriceList } from './FilterPriceList'
 import { FilterProductType } from './FilterProductType'
 import { FilterPurchasingStatus } from './FilterPurchasingStatus'
+import { FilterRole } from './FilterRole'
 import { FilterSearch } from './FilterSearch'
-import { FilterSelect } from './FilterSelect'
+import { FilterStatus } from './FilterStatus'
+import { FilterStockAdjustmentStatus } from './FilterStockAdjustmentStatus'
 import { FilterStockStatus } from './FilterStockStatus'
 import { FilterSupplier } from './FilterSupplier'
 import { AppButton } from '@/components/common/AppButton'
@@ -39,16 +42,47 @@ function renderQuickField<TFilters extends object>(
 ) {
   const value = draftFilters[field.field]
   const onChange = (nextValue: unknown) => handlers.onQuickFilterChange(field.field, nextValue)
+  const fieldKey = String(field.field)
 
-  if (field.type === 'select' || field.type === 'multi-select') {
+  if (field.type === 'status') {
     return (
-      <FilterSelect
-        key={String(field.field)}
-        field={String(field.field)}
-        label={field.label}
-        type={field.type}
-        value={value as string | null | string[]}
-        options={field.options}
+      <FilterStatus
+        key={fieldKey}
+        field={fieldKey}
+        value={(value as string | null) ?? null}
+        onChange={onChange}
+      />
+    )
+  }
+
+  if (field.type === 'customer-type') {
+    return (
+      <FilterCustomerType
+        key={fieldKey}
+        field={fieldKey}
+        value={(value as string | null) ?? null}
+        onChange={onChange}
+      />
+    )
+  }
+
+  if (field.type === 'role') {
+    return (
+      <FilterRole
+        key={fieldKey}
+        field={fieldKey}
+        value={(value as string | null) ?? null}
+        onChange={onChange}
+      />
+    )
+  }
+
+  if (field.type === 'stock-adjustment-status') {
+    return (
+      <FilterStockAdjustmentStatus
+        key={fieldKey}
+        field={fieldKey}
+        value={(value as string | null) ?? null}
         onChange={onChange}
       />
     )
@@ -58,7 +92,7 @@ function renderQuickField<TFilters extends object>(
     const periodValue = value as PeriodValue
     return (
       <FilterPeriod
-        key={String(field.field)}
+        key={fieldKey}
         value={periodValue.key}
         customFrom={periodValue.from}
         customTo={periodValue.to}
@@ -75,7 +109,7 @@ function renderQuickField<TFilters extends object>(
 
     return (
       <FilterCompare
-        key={String(field.field)}
+        key={fieldKey}
         value={(value as string | null) ?? null}
         onChange={onChange}
         periodValue={periodValue}
@@ -86,7 +120,8 @@ function renderQuickField<TFilters extends object>(
   if (field.type === 'customer') {
     return (
       <FilterCustomer
-        key={String(field.field)}
+        key={fieldKey}
+        field={fieldKey}
         value={(value as string | null) ?? null}
         onChange={onChange}
       />
@@ -96,7 +131,8 @@ function renderQuickField<TFilters extends object>(
   if (field.type === 'order-status') {
     return (
       <FilterOrderStatus
-        key={String(field.field)}
+        key={fieldKey}
+        field={fieldKey}
         value={(value as string | null) ?? null}
         onChange={onChange}
       />
@@ -106,7 +142,8 @@ function renderQuickField<TFilters extends object>(
   if (field.type === 'payment-status') {
     return (
       <FilterPaymentStatus
-        key={String(field.field)}
+        key={fieldKey}
+        field={fieldKey}
         value={(value as string | null) ?? null}
         onChange={onChange}
         includeOverpaid={field.includeOverpaid}
@@ -117,7 +154,8 @@ function renderQuickField<TFilters extends object>(
   if (field.type === 'supplier') {
     return (
       <FilterSupplier
-        key={String(field.field)}
+        key={fieldKey}
+        field={fieldKey}
         value={(value as string | null) ?? null}
         onChange={onChange}
       />
@@ -127,7 +165,8 @@ function renderQuickField<TFilters extends object>(
   if (field.type === 'price-list') {
     return (
       <FilterPriceList
-        key={String(field.field)}
+        key={fieldKey}
+        field={fieldKey}
         value={(value as string | null) ?? null}
         onChange={onChange as (value: string | null) => void}
       />
@@ -137,7 +176,8 @@ function renderQuickField<TFilters extends object>(
   if (field.type === 'purchasing-status') {
     return (
       <FilterPurchasingStatus
-        key={String(field.field)}
+        key={fieldKey}
+        field={fieldKey}
         value={(value as string | null) ?? null}
         onChange={onChange}
       />
@@ -147,7 +187,8 @@ function renderQuickField<TFilters extends object>(
   if (field.type === 'category') {
     return (
       <FilterCategory
-        key={String(field.field)}
+        key={fieldKey}
+        field={fieldKey}
         value={(value as string | null) ?? null}
         onChange={onChange}
       />
@@ -157,7 +198,8 @@ function renderQuickField<TFilters extends object>(
   if (field.type === 'product-type') {
     return (
       <FilterProductType
-        key={String(field.field)}
+        key={fieldKey}
+        field={fieldKey}
         value={(value as string | null) ?? null}
         onChange={onChange}
       />
@@ -167,7 +209,8 @@ function renderQuickField<TFilters extends object>(
   if (field.type === 'stock-status') {
     return (
       <FilterStockStatus
-        key={String(field.field)}
+        key={fieldKey}
+        field={fieldKey}
         value={(value as string | null) ?? null}
         onChange={onChange}
       />
