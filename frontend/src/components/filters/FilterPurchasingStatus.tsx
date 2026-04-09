@@ -1,5 +1,3 @@
-import { useId } from 'react'
-
 import { FilterSelect } from './FilterSelect'
 
 const PURCHASING_STATUS_OPTIONS = [
@@ -8,21 +6,19 @@ const PURCHASING_STATUS_OPTIONS = [
 ]
 
 interface Props {
+  field: string
   value: string | null
   onChange: (value: string | null) => void
 }
 
-export function FilterPurchasingStatus({ value, onChange }: Props) {
-  const uid = useId()
-
+export function FilterPurchasingStatus({ field, value, onChange }: Props) {
   return (
     <FilterSelect
-      field={uid}
+      field={field}
       label="Order Status"
-      type="select"
       value={value}
       options={PURCHASING_STATUS_OPTIONS}
-      onChange={onChange as (value: string | null | string[]) => void}
+      onChange={onChange}
     />
   )
 }

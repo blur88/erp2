@@ -1,5 +1,3 @@
-import { useId } from 'react'
-
 import { FilterSelect } from './FilterSelect'
 
 const PRODUCT_TYPE_OPTIONS = [
@@ -8,21 +6,19 @@ const PRODUCT_TYPE_OPTIONS = [
 ]
 
 interface Props {
+  field: string
   value: string | null
   onChange: (value: string | null) => void
 }
 
-export function FilterProductType({ value, onChange }: Props) {
-  const uid = useId()
-
+export function FilterProductType({ field, value, onChange }: Props) {
   return (
     <FilterSelect
-      field={uid}
+      field={field}
       label="Product Type"
-      type="select"
       value={value}
       options={PRODUCT_TYPE_OPTIONS}
-      onChange={onChange as (value: string | null | string[]) => void}
+      onChange={onChange}
     />
   )
 }

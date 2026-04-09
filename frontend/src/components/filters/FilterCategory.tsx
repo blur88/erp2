@@ -1,16 +1,14 @@
-import { useId } from 'react'
-
 import { useGetCategoriesQuery } from '@/store/api/inventoryApi'
 
 import { FilterSelect } from './FilterSelect'
 
 interface Props {
+  field: string
   value: string | null
   onChange: (value: string | null) => void
 }
 
-export function FilterCategory({ value, onChange }: Props) {
-  const uid = useId()
+export function FilterCategory({ field, value, onChange }: Props) {
   const { data } = useGetCategoriesQuery({})
   const options = [...(data ?? [])]
     .sort((left, right) => left.name.localeCompare(right.name))
@@ -18,12 +16,11 @@ export function FilterCategory({ value, onChange }: Props) {
 
   return (
     <FilterSelect
-      field={uid}
+      field={field}
       label="Category"
-      type="select"
       value={value}
       options={options}
-      onChange={onChange as (value: string | null | string[]) => void}
+      onChange={onChange}
     />
   )
 }
