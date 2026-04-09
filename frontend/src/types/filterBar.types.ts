@@ -12,6 +12,7 @@ export type FilterFieldType =
   | 'status'
   | 'user-status'
   | 'customer-type'
+  | 'supplier-type'
   | 'role'
   | 'stock-adjustment-status'
   | 'period'
@@ -42,6 +43,11 @@ export interface StatusFilterFieldConfig<TFilters, K extends keyof TFilters>
 export interface CustomerTypeFilterFieldConfig<TFilters, K extends keyof TFilters>
   extends BaseFilterFieldConfig<TFilters, K> {
   type: 'customer-type'
+}
+
+export interface SupplierTypeFilterFieldConfig<TFilters, K extends keyof TFilters>
+  extends BaseFilterFieldConfig<TFilters, K> {
+  type: 'supplier-type'
 }
 
 export interface UserStatusFilterFieldConfig<TFilters, K extends keyof TFilters>
@@ -119,6 +125,7 @@ export type FilterFieldConfig<TFilters> =
   | StatusFilterFieldConfig<TFilters, keyof TFilters>
   | UserStatusFilterFieldConfig<TFilters, keyof TFilters>
   | CustomerTypeFilterFieldConfig<TFilters, keyof TFilters>
+  | SupplierTypeFilterFieldConfig<TFilters, keyof TFilters>
   | RoleFilterFieldConfig<TFilters, keyof TFilters>
   | StockAdjustmentStatusFilterFieldConfig<TFilters, keyof TFilters>
   | PeriodFilterFieldConfig<TFilters, keyof TFilters>
