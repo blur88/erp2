@@ -1,3 +1,10 @@
+## [1.57.1](https://github.com/blur88/erp2/compare/v1.57.0...v1.57.1) (2026-04-09)
+
+
+### Bug Fixes
+
+* remove hardcoded timezone, add tz-aware date range resolver (issue [#318](https://github.com/blur88/erp2/issues/318)) ([83d5882](https://github.com/blur88/erp2/commit/83d588298af5c203835a8f35f062e501df1e3817))
+
 # [1.57.0](https://github.com/blur88/erp2/compare/v1.56.0...v1.57.0) (2026-04-08)
 
 
