@@ -1,3 +1,13 @@
+# [1.59.0](https://github.com/blur88/erp2/compare/v1.58.2...v1.59.0) (2026-04-09)
+
+
+### Features
+
+* **filters:** add FilterSupplierType component ([37cd0e7](https://github.com/blur88/erp2/commit/37cd0e7063da09a5de0083c9eb1f64e1c39bb48e))
+* **filters:** add supplier-type to FilterFieldType ([8d303aa](https://github.com/blur88/erp2/commit/8d303aa28c991a6c61241a4bf659d879d2b80007))
+* **filters:** register supplier-type in FilterBar ([6299a3f](https://github.com/blur88/erp2/commit/6299a3f7881b6f588f76d5a4c0de4438c4ad8d6a))
+* **suppliers:** add supplier type filter to SuppliersPage ([db30a2d](https://github.com/blur88/erp2/commit/db30a2db32bbefc70c6d8cf2f6a4a7db35774933)), closes [#323](https://github.com/blur88/erp2/issues/323)
+
 ## [1.58.2](https://github.com/blur88/erp2/compare/v1.58.1...v1.58.2) (2026-04-09)
 
 
