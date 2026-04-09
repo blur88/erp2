@@ -9,6 +9,7 @@ import {
   VendorPayment,
 } from '../../../database/entities';
 import { differenceInCalendarDays, subDays, subMonths, subYears } from 'date-fns';
+import { SettingsService } from '../../settings/settings.service';
 import {
   PurchasingAnalyticsQueryDto,
   PurchasingAnalyticsResponseDto,
@@ -18,7 +19,8 @@ import {
   TopSupplierDto,
   RecentPurchaseOrderDto,
 } from '../dto/purchasing-analytics.dto';
-import { DateRange, GroupByPeriod } from '@/common/dto/analytics.dto';
+import { GroupByPeriod } from '@/common/dto/analytics.dto';
+import { resolveDateRange } from '@/common/utils/date-range.util';
 
 interface PurchaseOrderSummaryQuery {
   dateFrom?: Date;
@@ -120,6 +122,7 @@ export class PurchasingAnalyticsService {
     private readonly productRepository: Repository<Product>,
     @InjectRepository(VendorPayment)
     private readonly vendorPaymentRepository: Repository<VendorPayment>,
+    private readonly settingsService: SettingsService,
   ) {}
 
   async getPurchaseOrderSummary(
@@ -578,7 +581,9 @@ export class PurchasingAnalyticsService {
   async getPurchasingAnalytics(
     query: PurchasingAnalyticsQueryDto,
   ): Promise<PurchasingAnalyticsResponseDto> {
-    const { startDate, endDate } = this.parsePurchasingDateRange(
+    const { timezone } = await this.settingsService.getRegionalSettings();
+    const { startDate, endDate } = resolveDateRange(
+      timezone,
       query.dateRange,
       query.startDate,
       query.endDate,
@@ -919,72 +924,6 @@ export class PurchasingAnalyticsService {
       : mapped;
 
     return filtered.slice(0, limit).map(({ computedPaymentStatus: _, ...rest }) => rest);
-  }
-
-  private parsePurchasingDateRange(
-    dateRange?: DateRange,
-    customStartDate?: Date,
-    customEndDate?: Date,
-  ): { startDate: Date; endDate: Date } {
-    const now = new Date();
-    let startDate: Date;
-    let endDate: Date = new Date(new Date().setHours(23, 59, 59, 999));
-
-    if (customStartDate && customEndDate) {
-      const normalizedStartDate = new Date(customStartDate);
-      normalizedStartDate.setUTCHours(0, 0, 0, 0);
-      const normalizedEndDate = new Date(customEndDate);
-      normalizedEndDate.setUTCHours(23, 59, 59, 999);
-      return { startDate: normalizedStartDate, endDate: normalizedEndDate };
-    }
-
-    switch (dateRange) {
-      case DateRange.TODAY:
-        startDate = new Date(now.setHours(0, 0, 0, 0));
-        break;
-      case DateRange.THIS_WEEK:
-        startDate = new Date(now.setDate(now.getDate() - now.getDay()));
-        startDate.setHours(0, 0, 0, 0);
-        break;
-      case DateRange.THIS_MONTH:
-        startDate = new Date(now.getFullYear(), now.getMonth(), 1);
-        break;
-      case DateRange.THIS_QUARTER: {
-        const quarter = Math.floor(now.getMonth() / 3);
-        startDate = new Date(now.getFullYear(), quarter * 3, 1);
-        break;
-      }
-      case DateRange.THIS_YEAR:
-        startDate = new Date(now.getFullYear(), 0, 1);
-        break;
-      case DateRange.LAST_WEEK:
-        startDate = new Date(now.setDate(now.getDate() - now.getDay() - 7));
-        startDate.setHours(0, 0, 0, 0);
-        endDate = new Date(now.setDate(now.getDate() - now.getDay() - 1));
-        endDate.setHours(23, 59, 59, 999);
-        break;
-      case DateRange.LAST_MONTH:
-        startDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-        endDate = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
-        break;
-      case DateRange.LAST_QUARTER: {
-        const lastQuarter = Math.floor(now.getMonth() / 3) - 1;
-        const year = lastQuarter < 0 ? now.getFullYear() - 1 : now.getFullYear();
-        const quarterStart = lastQuarter < 0 ? 3 : lastQuarter;
-        startDate = new Date(year, quarterStart * 3, 1);
-        endDate = new Date(year, quarterStart * 3 + 3, 0, 23, 59, 59, 999);
-        break;
-      }
-      case DateRange.LAST_YEAR:
-        startDate = new Date(now.getFullYear() - 1, 0, 1);
-        endDate = new Date(now.getFullYear() - 1, 11, 31, 23, 59, 59, 999);
-        break;
-      default: // THIS_MONTH
-        startDate = new Date(now.getFullYear(), now.getMonth(), 1);
-        break;
-    }
-
-    return { startDate, endDate };
   }
 
   private computePurchasingComparePeriod(

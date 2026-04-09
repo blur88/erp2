@@ -126,7 +126,7 @@ export function createDatabaseConfig(configService: ConfigService, allowDefaults
       ),
 
       // Timezone configuration for PostgreSQL
-      timezone: 'Asia/Kuala_Lumpur',
+      timezone: 'UTC',
     },
   };
 }

@@ -8,6 +8,7 @@ import { Customer } from '../../../database/entities/customer.entity';
 import { SalesOrderItem } from '../../../database/entities/sales-order-item.entity';
 import { SalesAnalyticsReportService } from './sales-analytics-report.service';
 import { SalesAnalyticsQueryDto } from '../dto/sales-analytics.dto';
+import { SettingsService } from '../../settings/settings.service';
 
 const d = (s: string) => new Date(`${s}T00:00:00.000Z`);
 
@@ -51,8 +52,12 @@ function makeChainableQb(rawOneResult: any = {}) {
 
 describe('SalesAnalyticsService', () => {
   let service: SalesAnalyticsService;
+  const settingsService = {
+    getRegionalSettings: jest.fn().mockResolvedValue({ timezone: 'UTC' }),
+  };
 
   beforeEach(async () => {
+    settingsService.getRegionalSettings.mockResolvedValue({ timezone: 'UTC' });
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         SalesAnalyticsService,
@@ -62,34 +67,11 @@ describe('SalesAnalyticsService', () => {
         { provide: getRepositoryToken(Customer), useValue: makeRepoMock() },
         { provide: getRepositoryToken(SalesOrderItem), useValue: makeRepoMock() },
         { provide: SalesAnalyticsReportService, useValue: { getProductSummary: jest.fn() } },
+        { provide: SettingsService, useValue: settingsService },
       ],
     }).compile();
 
     service = module.get<SalesAnalyticsService>(SalesAnalyticsService);
-  });
-
-  describe('parseDateRange', () => {
-    it('uses explicit startDate and endDate when provided without dateRange', () => {
-      const result = (service as any).parseDateRange(
-        undefined,
-        d('2026-03-10'),
-        d('2026-03-16'),
-      );
-
-      expect(result.startDate.toISOString().slice(0, 10)).toBe('2026-03-10');
-      expect(result.endDate.toISOString().slice(0, 10)).toBe('2026-03-16');
-    });
-
-    it('treats explicit endDate as inclusive through the end of that day', () => {
-      const result = (service as any).parseDateRange(
-        undefined,
-        d('2026-03-10'),
-        d('2026-03-16'),
-      );
-
-      expect(result.startDate.toISOString()).toBe('2026-03-10T00:00:00.000Z');
-      expect(result.endDate.toISOString()).toBe('2026-03-16T23:59:59.999Z');
-    });
   });
 
   describe('computeComparePeriod', () => {
@@ -143,10 +125,6 @@ describe('SalesAnalyticsService', () => {
 
   describe('getSalesAnalytics', () => {
     beforeEach(() => {
-      jest.spyOn(service as any, 'parseDateRange').mockReturnValue({
-        startDate: d('2026-03-01'),
-        endDate: d('2026-03-31'),
-      });
       jest.spyOn(service as any, 'calculateSalesMetrics').mockResolvedValue({
         totalRevenue: 100,
         totalOrders: 10,
@@ -189,6 +167,7 @@ describe('SalesAnalyticsService', () => {
       expect(result.comparison).toBeDefined();
       expect(result.topCustomers).toBeDefined();
       expect(result.topProducts).toBeDefined();
+      expect(settingsService.getRegionalSettings).toHaveBeenCalled();
     });
 
     it('omits comparison block when compareWith is not set', async () => {
@@ -364,6 +343,7 @@ describe('SalesAnalyticsService', () => {
           },
           { provide: getRepositoryToken(SalesOrderItem), useValue: makeRepoMock() },
           { provide: SalesAnalyticsReportService, useValue: { getProductSummary: jest.fn() } },
+          { provide: SettingsService, useValue: settingsService },
         ],
       }).compile();
       const svc = module2.get<SalesAnalyticsService>(SalesAnalyticsService);
@@ -411,6 +391,7 @@ describe('SalesAnalyticsService', () => {
           },
           { provide: getRepositoryToken(SalesOrderItem), useValue: makeRepoMock() },
           { provide: SalesAnalyticsReportService, useValue: { getProductSummary: jest.fn() } },
+          { provide: SettingsService, useValue: settingsService },
         ],
       }).compile();
       const svc = module2.get<SalesAnalyticsService>(SalesAnalyticsService);
@@ -460,6 +441,7 @@ describe('SalesAnalyticsService', () => {
           },
           { provide: getRepositoryToken(SalesOrderItem), useValue: makeRepoMock() },
           { provide: SalesAnalyticsReportService, useValue: { getProductSummary: jest.fn() } },
+          { provide: SettingsService, useValue: settingsService },
         ],
       }).compile();
       const svc = module2.get<SalesAnalyticsService>(SalesAnalyticsService);
