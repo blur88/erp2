@@ -23,6 +23,7 @@ function getDefaults<TFilters extends object>(
       field.type === 'status' ||
       field.type === 'user-status' ||
       field.type === 'customer-type' ||
+      field.type === 'supplier-type' ||
       field.type === 'role' ||
       field.type === 'stock-adjustment-status' ||
       field.type === 'customer' ||

@@ -68,6 +68,7 @@ export function serializeFilters<TFilters extends object>(
       field.type === 'status' ||
       field.type === 'user-status' ||
       field.type === 'customer-type' ||
+      field.type === 'supplier-type' ||
       field.type === 'role' ||
       field.type === 'stock-adjustment-status' ||
       field.type === 'customer' ||
@@ -142,6 +143,7 @@ export function parseFilters<TFilters extends object>(
       field.type === 'status' ||
       field.type === 'user-status' ||
       field.type === 'customer-type' ||
+      field.type === 'supplier-type' ||
       field.type === 'role' ||
       field.type === 'stock-adjustment-status' ||
       field.type === 'customer' ||
@@ -167,6 +169,9 @@ export function parseFilters<TFilters extends object>(
       } else if (field.type === 'customer-type') {
         const VALID_CUSTOMER_TYPE = ['individual', 'business']
         result[fieldKey] = VALID_CUSTOMER_TYPE.includes(raw) ? raw : (defaultValue ?? null)
+      } else if (field.type === 'supplier-type') {
+        const VALID_SUPPLIER_TYPE = ['local', 'international']
+        result[fieldKey] = VALID_SUPPLIER_TYPE.includes(raw) ? raw : (defaultValue ?? null)
       } else if (field.type === 'role') {
         const VALID_ROLE = ['admin', 'manager', 'sales_staff', 'inventory_staff', 'procurement_staff']
         result[fieldKey] = VALID_ROLE.includes(raw) ? raw : (defaultValue ?? null)
