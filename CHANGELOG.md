@@ -1,3 +1,10 @@
+## [1.57.2](https://github.com/blur88/erp2/compare/v1.57.1...v1.57.2) (2026-04-09)
+
+
+### Internal Changes
+
+* chore: update frontend and root package-lock.json dependencies ([](https://github.com/blur88/erp2/commit/))
+
 ## [1.57.1](https://github.com/blur88/erp2/compare/v1.57.0...v1.57.1) (2026-04-09)
 
 
