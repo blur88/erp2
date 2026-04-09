@@ -1,3 +1,15 @@
+# [1.58.0](https://github.com/blur88/erp2/compare/v1.57.3...v1.58.0) (2026-04-09)
+
+
+### Bug Fixes
+
+* fix FilterSelect MUI label clipping and remove unused multi-select branch ([#320](https://github.com/blur88/erp2/issues/320)) ([b68a78d](https://github.com/blur88/erp2/commit/b68a78dbb1b94f3ac49c3b91a47677a3b1ec15a6))
+
+
+### Features
+
+* add FilterStatus, FilterCustomerType, FilterRole, FilterStockAdjustmentStatus ([#320](https://github.com/blur88/erp2/issues/320)) ([95c7bfc](https://github.com/blur88/erp2/commit/95c7bfcfff57d1fb8d6290003a496a06417ff6fc))
+
 ## [1.57.3](https://github.com/blur88/erp2/compare/v1.57.2...v1.57.3) (2026-04-09)
 
 
