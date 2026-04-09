@@ -6,6 +6,7 @@ import { PurchaseCostHistory } from '../../../database/entities/purchase-cost-hi
 import { PurchaseOrderItem } from '../../../database/entities/purchase-order-item.entity';
 import { differenceInCalendarDays, subDays, subMonths, subYears } from 'date-fns';
 import { SettingsService } from '../../settings/settings.service';
+import { resolveDateRange } from '@/common/utils/date-range.util';
 import {
   InventoryAnalyticsQueryDto,
   InventoryAnalyticsResponseDto,
@@ -15,7 +16,7 @@ import {
   LowStockAlertDto,
   RecentMovementDto,
 } from '../dto/inventory-analytics.dto';
-import { DateRange, GroupByPeriod } from '@/common/dto/analytics.dto';
+import { GroupByPeriod } from '@/common/dto/analytics.dto';
 
 export interface InventorySummaryQuery {
   productIds?: string[];
@@ -660,7 +661,9 @@ export class InventoryAnalyticsService {
   async getInventoryDashboardAnalytics(
     query: InventoryAnalyticsQueryDto,
   ): Promise<InventoryAnalyticsResponseDto> {
-    const { startDate, endDate } = this.resolveInventoryDateRange(
+    const { timezone } = await this.settingsService.getRegionalSettings();
+    const { startDate, endDate } = resolveDateRange(
+      timezone,
       query.dateRange,
       query.startDate,
       query.endDate,
@@ -954,76 +957,6 @@ export class InventoryAnalyticsService {
   private async getLowStockThreshold(): Promise<number> {
     const settings = await this.settingsService.getRegionalSettings();
     return settings.lowStockThreshold ?? 10;
-  }
-
-  private resolveInventoryDateRange(
-    dateRange?: DateRange,
-    customStartDate?: Date,
-    customEndDate?: Date,
-  ): { startDate: Date; endDate: Date } {
-    const now = new Date();
-    let startDate: Date;
-    let endDate = new Date(new Date().setHours(23, 59, 59, 999));
-
-    if (customStartDate && customEndDate) {
-      const normalizedStart = new Date(customStartDate);
-      normalizedStart.setUTCHours(0, 0, 0, 0);
-      const normalizedEnd = new Date(customEndDate);
-      normalizedEnd.setUTCHours(23, 59, 59, 999);
-      return { startDate: normalizedStart, endDate: normalizedEnd };
-    }
-
-    switch (dateRange) {
-      case DateRange.TODAY:
-        startDate = new Date(now.setHours(0, 0, 0, 0));
-        break;
-      case DateRange.THIS_WEEK:
-        startDate = new Date(now.setDate(now.getDate() - now.getDay()));
-        startDate.setHours(0, 0, 0, 0);
-        break;
-      case DateRange.THIS_MONTH:
-        startDate = new Date(now.getFullYear(), now.getMonth(), 1);
-        break;
-      case DateRange.THIS_QUARTER: {
-        const quarter = Math.floor(now.getMonth() / 3);
-        startDate = new Date(now.getFullYear(), quarter * 3, 1);
-        break;
-      }
-      case DateRange.THIS_YEAR:
-        startDate = new Date(now.getFullYear(), 0, 1);
-        break;
-      case DateRange.LAST_WEEK: {
-        const day = now.getDay();
-        startDate = new Date(now);
-        startDate.setDate(startDate.getDate() - day - 7);
-        startDate.setHours(0, 0, 0, 0);
-        endDate = new Date(now);
-        endDate.setDate(endDate.getDate() - day - 1);
-        endDate.setHours(23, 59, 59, 999);
-        break;
-      }
-      case DateRange.LAST_MONTH:
-        startDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-        endDate = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
-        break;
-      case DateRange.LAST_QUARTER: {
-        const lastQuarter = Math.floor(now.getMonth() / 3) - 1;
-        const year = lastQuarter < 0 ? now.getFullYear() - 1 : now.getFullYear();
-        const quarterStart = lastQuarter < 0 ? 3 : lastQuarter;
-        startDate = new Date(year, quarterStart * 3, 1);
-        endDate = new Date(year, quarterStart * 3 + 3, 0, 23, 59, 59, 999);
-        break;
-      }
-      case DateRange.LAST_YEAR:
-        startDate = new Date(now.getFullYear() - 1, 0, 1);
-        endDate = new Date(now.getFullYear() - 1, 11, 31, 23, 59, 59, 999);
-        break;
-      default:
-        startDate = new Date(now.getFullYear(), now.getMonth(), 1);
-        break;
-    }
-
-    return { startDate, endDate };
   }
 
   private computeInventoryComparePeriod(

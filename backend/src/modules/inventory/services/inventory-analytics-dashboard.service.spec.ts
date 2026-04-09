@@ -47,7 +47,7 @@ describe('InventoryAnalyticsService.getInventoryDashboardAnalytics', () => {
     stockMovementRepo = mockRepo();
     purchaseOrderItemRepo = mockRepo();
     settingsService = {
-      getRegionalSettings: jest.fn().mockResolvedValue({ lowStockThreshold: 10 }),
+      getRegionalSettings: jest.fn().mockResolvedValue({ lowStockThreshold: 10, timezone: 'UTC' }),
     };
 
     const module: TestingModule = await Test.createTestingModule({

@@ -10,6 +10,7 @@ import {
 import { PurchasingAnalyticsService } from './purchasing-analytics.service';
 import { PurchasingAnalyticsQueryDto } from '../dto/purchasing-analytics.dto';
 import { DateRange } from '@/common/dto/analytics.dto';
+import { SettingsService } from '../../settings/settings.service';
 
 function makeChainableQb(rawManyResult: any[] = [], manyResult: any[] = [], rawOneResult: any = {}) {
   const qb: any = {
@@ -34,9 +35,13 @@ function makeChainableQb(rawManyResult: any[] = [], manyResult: any[] = [], rawO
 describe('PurchasingAnalyticsService', () => {
   let service: PurchasingAnalyticsService;
   let purchaseOrderRepository: { createQueryBuilder: jest.Mock };
+  let settingsService: { getRegionalSettings: jest.Mock };
 
   beforeEach(async () => {
     purchaseOrderRepository = { createQueryBuilder: jest.fn() };
+    settingsService = {
+      getRegionalSettings: jest.fn().mockResolvedValue({ timezone: 'UTC' }),
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -46,6 +51,7 @@ describe('PurchasingAnalyticsService', () => {
         { provide: getRepositoryToken(Supplier), useValue: { createQueryBuilder: jest.fn() } },
         { provide: getRepositoryToken(Product), useValue: { createQueryBuilder: jest.fn() } },
         { provide: getRepositoryToken(VendorPayment), useValue: { createQueryBuilder: jest.fn() } },
+        { provide: SettingsService, useValue: settingsService },
       ],
     }).compile();
 
