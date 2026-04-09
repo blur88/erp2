@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { Alert, Box, useMediaQuery, useTheme } from '@mui/material'
 import { useNavigate } from 'react-router-dom'
 
@@ -37,6 +37,13 @@ const SuppliersPage: React.FC = () => {
   const [pageError, setPageError] = useState<string | null>(null)
 
   const pageState = useSuppliersPageState()
+  const [sortBy, setSortBy] = useState('companyName')
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc')
+
+  const handleSort = useCallback((field: string) => {
+    setSortOrder((prev) => (sortBy === field && prev === 'desc' ? 'asc' : 'desc'))
+    setSortBy(field)
+  }, [sortBy])
 
   const filterConfig = useMemo<FilterBarConfig<SupplierFilters>>(
     () => ({
@@ -67,11 +74,13 @@ const SuppliersPage: React.FC = () => {
         appliedFilters.status === 'active'
           ? true
           : appliedFilters.status === 'inactive'
-            ? false
+          ? false
             : undefined,
       type: appliedFilters.type ?? undefined,
+      sortBy,
+      sortOrder: sortOrder.toUpperCase() as 'ASC' | 'DESC',
     }),
-    [appliedFilters],
+    [appliedFilters, sortBy, sortOrder],
   )
 
   const { data: suppliersResponse, isLoading, isFetching, error, refetch } = useGetSuppliersQuery(supplierQueryParams)
@@ -150,6 +159,7 @@ const SuppliersPage: React.FC = () => {
             handlers={filterHandlers}
             hasActiveFilters={hasActiveFilters}
             searchInputRef={pageState.searchInputRef}
+            sort={{ field: 'companyName', sortBy, sortOrder, onSort: handleSort }}
           />
         )}
       />

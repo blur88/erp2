@@ -163,4 +163,16 @@ describe('SuppliersPage FilterBar', () => {
       expect.not.objectContaining({ type: expect.anything() }),
     )
   })
+
+  it('renders a Sort button', () => {
+    renderPage()
+    expect(screen.getByRole('button', { name: /sort/i })).toBeInTheDocument()
+  })
+
+  it('passes default sortBy=companyName and sortOrder=ASC to query', () => {
+    renderPage()
+    expect(useGetSuppliersQuery).toHaveBeenLastCalledWith(
+      expect.objectContaining({ sortBy: 'companyName', sortOrder: 'ASC' }),
+    )
+  })
 })
