@@ -1,3 +1,10 @@
+## [1.58.2](https://github.com/blur88/erp2/compare/v1.58.1...v1.58.2) (2026-04-09)
+
+
+### Bug Fixes
+
+* use ESNext instead of ES2025 in tsconfig to resolve IDE TS errors ([2065353](https://github.com/blur88/erp2/commit/2065353cb85e3b7f090e5e8209fbf8bafa9e8693)), closes [#322](https://github.com/blur88/erp2/issues/322)
+
 ## [1.58.1](https://github.com/blur88/erp2/compare/v1.58.0...v1.58.1) (2026-04-09)
 
 
