@@ -37,13 +37,6 @@ const SuppliersPage: React.FC = () => {
   const [pageError, setPageError] = useState<string | null>(null)
 
   const pageState = useSuppliersPageState()
-  const [sortBy, setSortBy] = useState('companyName')
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc')
-
-  const handleSort = useCallback((field: string) => {
-    setSortOrder((prev) => (sortBy === field && prev === 'desc' ? 'asc' : 'desc'))
-    setSortBy(field)
-  }, [sortBy])
 
   const filterConfig = useMemo<FilterBarConfig<SupplierFilters>>(
     () => ({
@@ -58,6 +51,14 @@ const SuppliersPage: React.FC = () => {
   )
 
   const { appliedFilters, draftFilters, handlers, hasActiveFilters } = useFilterBar(filterConfig)
+
+  const [sortBy, setSortBy] = useState('companyName')
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc')
+
+  const handleSort = useCallback((field: string) => {
+    setSortOrder((prev) => (sortBy === field && prev === 'desc' ? 'asc' : 'desc'))
+    setSortBy(field)
+  }, [sortBy])
 
   const filterHandlers = useMemo(() => ({
     ...handlers,
@@ -74,7 +75,7 @@ const SuppliersPage: React.FC = () => {
         appliedFilters.status === 'active'
           ? true
           : appliedFilters.status === 'inactive'
-          ? false
+            ? false
             : undefined,
       type: appliedFilters.type ?? undefined,
       sortBy,
