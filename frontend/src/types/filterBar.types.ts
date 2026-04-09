@@ -9,8 +9,11 @@ export type PeriodValue = {
 }
 
 export type FilterFieldType =
-  | 'select'
-  | 'multi-select'
+  | 'status'
+  | 'user-status'
+  | 'customer-type'
+  | 'role'
+  | 'stock-adjustment-status'
   | 'period'
   | 'compare'
   | 'customer'
@@ -31,10 +34,29 @@ interface BaseFilterFieldConfig<TFilters, K extends keyof TFilters> {
   chipFormatter?: (value: TFilters[K], filters: TFilters) => string
 }
 
-export interface SelectFilterFieldConfig<TFilters, K extends keyof TFilters>
+export interface StatusFilterFieldConfig<TFilters, K extends keyof TFilters>
   extends BaseFilterFieldConfig<TFilters, K> {
-  type: 'select' | 'multi-select'
-  options: FilterOption[]
+  type: 'status'
+}
+
+export interface CustomerTypeFilterFieldConfig<TFilters, K extends keyof TFilters>
+  extends BaseFilterFieldConfig<TFilters, K> {
+  type: 'customer-type'
+}
+
+export interface UserStatusFilterFieldConfig<TFilters, K extends keyof TFilters>
+  extends BaseFilterFieldConfig<TFilters, K> {
+  type: 'user-status'
+}
+
+export interface RoleFilterFieldConfig<TFilters, K extends keyof TFilters>
+  extends BaseFilterFieldConfig<TFilters, K> {
+  type: 'role'
+}
+
+export interface StockAdjustmentStatusFilterFieldConfig<TFilters, K extends keyof TFilters>
+  extends BaseFilterFieldConfig<TFilters, K> {
+  type: 'stock-adjustment-status'
 }
 
 export interface PeriodFilterFieldConfig<TFilters, K extends keyof TFilters>
@@ -94,7 +116,11 @@ export interface PriceListFilterFieldConfig<TFilters, K extends keyof TFilters>
 }
 
 export type FilterFieldConfig<TFilters> =
-  | SelectFilterFieldConfig<TFilters, keyof TFilters>
+  | StatusFilterFieldConfig<TFilters, keyof TFilters>
+  | UserStatusFilterFieldConfig<TFilters, keyof TFilters>
+  | CustomerTypeFilterFieldConfig<TFilters, keyof TFilters>
+  | RoleFilterFieldConfig<TFilters, keyof TFilters>
+  | StockAdjustmentStatusFilterFieldConfig<TFilters, keyof TFilters>
   | PeriodFilterFieldConfig<TFilters, keyof TFilters>
   | CompareFilterFieldConfig<TFilters, keyof TFilters>
   | CustomerFilterFieldConfig<TFilters, keyof TFilters>

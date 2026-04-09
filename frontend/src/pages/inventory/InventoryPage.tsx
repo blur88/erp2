@@ -43,8 +43,6 @@ import { useNavigate } from 'react-router-dom'
 import PageHeader from '@/components/common/PageHeader'
 import { FilterBar } from '@/components/filters/FilterBar'
 import { useFilterBar } from '@/hooks/useFilterBar'
-import { useGetCategoriesQuery } from '@/store/api/inventoryApi'
-import { useGetSuppliersQuery } from '@/store/api/purchasingApi'
 import { useInventoryAnalytics } from './hooks/useInventoryAnalytics'
 import { formatCurrency } from '@/utils/formatters'
 import { TABLE_STYLES } from '@/constants/tableStyles'
@@ -84,18 +82,6 @@ const InventoryPage: React.FC = () => {
     stockStatus: string | null
   }
 
-  const { data: suppliersData } = useGetSuppliersQuery({})
-  const { data: categoriesData } = useGetCategoriesQuery({})
-
-  const supplierOptions = suppliersData?.data?.map((supplier) => ({
-    value: supplier.id,
-    label: supplier.companyName,
-  })) ?? []
-  const categoryOptions = (categoriesData ?? []).map((category) => ({
-    value: category.id,
-    label: category.name,
-  }))
-
   const inventoryConfig: FilterBarConfig<InventoryDashboardFilters> = {
     namespace: 'inventory',
     fields: [
@@ -112,27 +98,20 @@ const InventoryPage: React.FC = () => {
       {
         field: 'supplierId',
         label: 'Supplier',
-        type: 'select',
+        type: 'supplier',
         paramKey: 'supplier',
-        options: [{ value: '', label: 'All Suppliers' }, ...supplierOptions],
       },
       {
         field: 'categoryId',
         label: 'Category',
-        type: 'select',
+        type: 'category',
         paramKey: 'category',
-        options: [{ value: '', label: 'All Categories' }, ...categoryOptions],
       },
       {
         field: 'stockStatus',
         label: 'Stock Status',
-        type: 'select',
+        type: 'stock-status',
         paramKey: 'stock_status',
-        options: [
-          { value: 'in_stock', label: 'In Stock' },
-          { value: 'low_stock', label: 'Low Stock' },
-          { value: 'out_of_stock', label: 'Out of Stock' },
-        ],
       },
     ],
     defaults: {

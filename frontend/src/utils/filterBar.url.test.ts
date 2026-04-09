@@ -6,26 +6,23 @@ import { getManagedParamKeys, parseFilters, serializeFilters } from '@/utils/fil
 interface TestFilters {
   search: string
   status: string | null
-  tags: string[]
 }
 
 const config: FilterBarConfig<TestFilters> = {
   search: { placeholder: 'Search...' },
   fields: [
-    { field: 'status', label: 'Status', type: 'select', options: [{ value: 'active', label: 'Active' }, { value: 'inactive', label: 'Inactive' }] },
-    { field: 'tags', label: 'Tags', type: 'multi-select', options: [{ value: 'a', label: 'A' }, { value: 'b', label: 'B' }] },
+    { field: 'status', label: 'Status', type: 'status' },
   ],
   defaults: {
     search: '',
     status: null,
-    tags: [],
   },
 }
 
 describe('serializeFilters', () => {
   it('omits default values', () => {
     const params = serializeFilters(
-      { search: '', status: null, tags: [] },
+      { search: '', status: null },
       config,
       new URLSearchParams(),
     )
@@ -34,34 +31,25 @@ describe('serializeFilters', () => {
 
   it('serializes search', () => {
     const params = serializeFilters(
-      { search: 'gundam', status: null, tags: [] },
+      { search: 'gundam', status: null },
       config,
       new URLSearchParams(),
     )
     expect(params.get('search')).toBe('gundam')
   })
 
-  it('serializes select value', () => {
+  it('serializes status value', () => {
     const params = serializeFilters(
-      { search: '', status: 'active', tags: [] },
+      { search: '', status: 'active' },
       config,
       new URLSearchParams(),
     )
     expect(params.get('status')).toBe('active')
   })
 
-  it('serializes multi-select as repeated params', () => {
-    const params = serializeFilters(
-      { search: '', status: null, tags: ['a', 'b'] },
-      config,
-      new URLSearchParams(),
-    )
-    expect(params.getAll('tags')).toEqual(['a', 'b'])
-  })
-
   it('preserves unrelated params', () => {
     const params = serializeFilters(
-      { search: 'x', status: null, tags: [] },
+      { search: 'x', status: null },
       config,
       new URLSearchParams('tab=archived&sort=desc'),
     )
@@ -76,23 +64,18 @@ describe('parseFilters', () => {
     expect(parseFilters(new URLSearchParams(), config)).toEqual({
       search: '',
       status: null,
-      tags: [],
     })
   })
 
-  it('drops invalid select values', () => {
+  it('drops invalid status values', () => {
     expect(parseFilters(new URLSearchParams('status=unknown'), config).status).toBeNull()
-  })
-
-  it('parses multi-select repeated params and drops invalid values', () => {
-    expect(parseFilters(new URLSearchParams('tags=a&tags=b&tags=nope'), config).tags).toEqual(['a', 'b'])
   })
 })
 
 describe('getManagedParamKeys', () => {
   it('returns all managed keys', () => {
     expect(getManagedParamKeys(config)).toEqual(
-      expect.arrayContaining(['search', 'status', 'tags']),
+      expect.arrayContaining(['search', 'status']),
     )
   })
 })
@@ -207,7 +190,7 @@ interface NamespacedFilters {
 const namespacedConfig: FilterBarConfig<NamespacedFilters> = {
   search: { placeholder: 'Search...' },
   fields: [
-    { field: 'status', label: 'Status', type: 'select', options: [{ value: 'active', label: 'Active' }] },
+    { field: 'status', label: 'Status', type: 'status' },
   ],
   defaults: { search: '', status: null },
   namespace: 'orders',

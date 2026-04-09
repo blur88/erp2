@@ -41,15 +41,7 @@ const SuppliersPage: React.FC = () => {
     () => ({
       search: { placeholder: 'Search by company name...' },
       fields: [
-        {
-          field: 'status',
-          label: 'Status',
-          type: 'select',
-          options: [
-            { value: 'active', label: 'Active' },
-            { value: 'inactive', label: 'Inactive' },
-          ],
-        },
+        { field: 'status', label: 'Status', type: 'status' },
       ],
       defaults: { search: '', status: null },
     }),

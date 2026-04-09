@@ -1,4 +1,3 @@
-import { useId } from 'react'
 import { FilterSelect } from './FilterSelect'
 
 const PAYMENT_STATUS_OPTIONS = [
@@ -9,25 +8,24 @@ const PAYMENT_STATUS_OPTIONS = [
 ]
 
 interface Props {
+  field: string
   value: string | null
   onChange: (value: string | null) => void
   includeOverpaid?: boolean
 }
 
-export function FilterPaymentStatus({ value, onChange, includeOverpaid = true }: Props) {
-  const uid = useId()
+export function FilterPaymentStatus({ field, value, onChange, includeOverpaid = true }: Props) {
   const options = includeOverpaid
     ? PAYMENT_STATUS_OPTIONS
     : PAYMENT_STATUS_OPTIONS.filter((option) => option.value !== 'overpaid')
 
   return (
     <FilterSelect
-      field={uid}
+      field={field}
       label="Payment"
-      type="select"
       value={value}
       options={options}
-      onChange={onChange as (value: string | null | string[]) => void}
+      onChange={onChange}
     />
   )
 }

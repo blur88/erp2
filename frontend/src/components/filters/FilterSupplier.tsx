@@ -1,15 +1,14 @@
-import { useId } from 'react'
 import { useGetSuppliersQuery } from '@/store/api/purchasingApi'
 
 import { FilterSelect } from './FilterSelect'
 
 interface Props {
+  field: string
   value: string | null
   onChange: (value: string | null) => void
 }
 
-export function FilterSupplier({ value, onChange }: Props) {
-  const uid = useId()
+export function FilterSupplier({ field, value, onChange }: Props) {
   // isLoading kept intentionally — options will be empty until data arrives (acceptable UX)
   const { data } = useGetSuppliersQuery({})
   const options = (data?.data ?? []).map((supplier) => ({
@@ -19,12 +18,11 @@ export function FilterSupplier({ value, onChange }: Props) {
 
   return (
     <FilterSelect
-      field={uid}
+      field={field}
       label="Supplier"
-      type="select"
       value={value}
       options={options}
-      onChange={onChange as (value: string | null | string[]) => void}
+      onChange={onChange}
     />
   )
 }

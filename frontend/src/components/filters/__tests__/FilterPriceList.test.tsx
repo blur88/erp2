@@ -29,19 +29,19 @@ function renderWithStore(ui: ReactElement) {
 
 describe('FilterPriceList', () => {
   it('renders with Price List label', () => {
-    renderWithStore(<FilterPriceList value={null} onChange={vi.fn()} />)
+    renderWithStore(<FilterPriceList field="priceListId" value={null} onChange={vi.fn()} />)
     expect(screen.getByLabelText(/price list/i)).toBeInTheDocument()
   })
 
   it('shows price list names as options', async () => {
-    renderWithStore(<FilterPriceList value={null} onChange={vi.fn()} />)
+    renderWithStore(<FilterPriceList field="priceListId" value={null} onChange={vi.fn()} />)
     await userEvent.click(screen.getByRole('combobox'))
     expect(await screen.findByText('Retail')).toBeInTheDocument()
     expect(await screen.findByText('Wholesale')).toBeInTheDocument()
   })
 
   it('queries only active price lists', () => {
-    renderWithStore(<FilterPriceList value={null} onChange={vi.fn()} />)
+    renderWithStore(<FilterPriceList field="priceListId" value={null} onChange={vi.fn()} />)
     expect(useGetPriceListsQuery).toHaveBeenCalledWith({ page: 1, limit: 200, isActive: true })
   })
 })

@@ -1,8 +1,6 @@
 import {
-  Checkbox,
   FormControl,
   InputLabel,
-  ListItemText,
   MenuItem,
   OutlinedInput,
   Select,
@@ -13,49 +11,24 @@ import type { FilterOption } from '@/types/filterBar.types'
 interface Props {
   field: string
   label: string
-  type: 'select' | 'multi-select'
-  value: string | null | string[]
+  value: string | null
   options: FilterOption[]
-  onChange: (value: string | null | string[]) => void
-  /** Only applies to type="select" — has no effect on multi-select */
+  onChange: (value: string | null) => void
   emptyLabel?: string
   minWidth?: number
 }
 
-export function FilterSelect({ field, label, type, value, options, onChange, emptyLabel, minWidth }: Props) {
+export function FilterSelect({ field, label, value, options, onChange, emptyLabel, minWidth }: Props) {
   const labelId = `filter-${field}-label`
 
-  if (type === 'multi-select') {
-    const selected = (value as string[]) ?? []
-    return (
-      <FormControl size="small" sx={{ minWidth: minWidth ?? 140 }}>
-        <InputLabel id={labelId}>{label}</InputLabel>
-        <Select
-          labelId={labelId}
-          multiple
-          value={selected}
-          input={<OutlinedInput label={label} />}
-          renderValue={(selectedValues) => `${label}: ${selectedValues.length}`}
-          onChange={(event) => onChange(event.target.value as string[])}
-        >
-          {options.map((option) => (
-            <MenuItem key={option.value} value={option.value}>
-              <Checkbox checked={selected.includes(option.value)} />
-              <ListItemText primary={option.label} />
-            </MenuItem>
-          ))}
-        </Select>
-      </FormControl>
-    )
-  }
-
   return (
-    <FormControl size="small" sx={{ minWidth: minWidth ?? 140 }}>
-      <InputLabel id={labelId}>{label}</InputLabel>
+    <FormControl size="small" sx={{ minWidth: minWidth ?? 160 }}>
+      <InputLabel id={labelId} shrink>{label}</InputLabel>
       <Select
         labelId={labelId}
         value={value ?? ''}
-        label={label}
+        displayEmpty
+        input={<OutlinedInput label={label} notched />}
         onChange={(event) => onChange(event.target.value === '' ? null : event.target.value)}
       >
         <MenuItem value="">{emptyLabel ?? 'All'}</MenuItem>

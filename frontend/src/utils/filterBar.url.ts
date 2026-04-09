@@ -65,7 +65,11 @@ export function serializeFilters<TFilters extends object>(
     const value = filters[field.field]
     const defaultValue = defaults[String(field.field)]
     const isSingleValueField =
-      field.type === 'select' ||
+      field.type === 'status' ||
+      field.type === 'user-status' ||
+      field.type === 'customer-type' ||
+      field.type === 'role' ||
+      field.type === 'stock-adjustment-status' ||
       field.type === 'customer' ||
       field.type === 'order-status' ||
       field.type === 'payment-status' ||
@@ -79,13 +83,6 @@ export function serializeFilters<TFilters extends object>(
     if (isSingleValueField) {
       if (value !== null && value !== undefined && value !== defaultValue) {
         orderedEntries.push([key, String(value)])
-      }
-      continue
-    }
-
-    if (field.type === 'multi-select') {
-      for (const item of (value as string[] | undefined) ?? []) {
-        orderedEntries.push([key, item])
       }
       continue
     }
@@ -142,7 +139,11 @@ export function parseFilters<TFilters extends object>(
     const fieldKey = String(field.field)
     const defaultValue = defaults[fieldKey]
     const isSingleValueField =
-      field.type === 'select' ||
+      field.type === 'status' ||
+      field.type === 'user-status' ||
+      field.type === 'customer-type' ||
+      field.type === 'role' ||
+      field.type === 'stock-adjustment-status' ||
       field.type === 'customer' ||
       field.type === 'order-status' ||
       field.type === 'payment-status' ||
@@ -157,31 +158,39 @@ export function parseFilters<TFilters extends object>(
       const raw = searchParams.get(key)
       if (raw === null) {
         result[fieldKey] = defaultValue ?? null
-      } else if (field.type === 'select') {
-        // Validate against declared options so stale/hand-crafted URLs can't inject unknown values.
-        const valid = field.options.find((option) => option.value === raw)
-        result[fieldKey] = valid ? raw : (defaultValue ?? null)
+      } else if (field.type === 'status') {
+        const VALID_STATUS = ['active', 'inactive']
+        result[fieldKey] = VALID_STATUS.includes(raw) ? raw : (defaultValue ?? null)
+      } else if (field.type === 'user-status') {
+        const VALID_USER_STATUS = ['active', 'inactive', 'suspended']
+        result[fieldKey] = VALID_USER_STATUS.includes(raw) ? raw : (defaultValue ?? null)
+      } else if (field.type === 'customer-type') {
+        const VALID_CUSTOMER_TYPE = ['individual', 'business']
+        result[fieldKey] = VALID_CUSTOMER_TYPE.includes(raw) ? raw : (defaultValue ?? null)
+      } else if (field.type === 'role') {
+        const VALID_ROLE = ['admin', 'manager', 'sales_staff', 'inventory_staff', 'procurement_staff']
+        result[fieldKey] = VALID_ROLE.includes(raw) ? raw : (defaultValue ?? null)
+      } else if (field.type === 'stock-adjustment-status') {
+        const VALID_STOCK_ADJUSTMENT_STATUS = ['draft', 'completed', 'cancelled']
+        result[fieldKey] = VALID_STOCK_ADJUSTMENT_STATUS.includes(raw) ? raw : (defaultValue ?? null)
       } else if (field.type === 'order-status') {
-        // Fixed value set — validate to prevent bogus URL values reaching the API.
         const VALID_ORDER_STATUS = ['fulfilled', 'unfulfilled']
         result[fieldKey] = VALID_ORDER_STATUS.includes(raw) ? raw : (defaultValue ?? null)
       } else if (field.type === 'purchasing-status') {
-        const VALID_PURCHASING_STATUS = ['pending', 'received']
+        const VALID_PURCHASING_STATUS = ['draft', 'received']
         result[fieldKey] = VALID_PURCHASING_STATUS.includes(raw) ? raw : (defaultValue ?? null)
       } else if (field.type === 'payment-status') {
-        // Fixed value set — validate to prevent bogus URL values reaching the API.
         const VALID_PAYMENT_STATUS = ['unpaid', 'partial', 'paid', 'overpaid']
         result[fieldKey] = VALID_PAYMENT_STATUS.includes(raw) ? raw : (defaultValue ?? null)
+      } else if (field.type === 'product-type') {
+        const VALID_PRODUCT_TYPE = ['goods', 'service']
+        result[fieldKey] = VALID_PRODUCT_TYPE.includes(raw) ? raw : (defaultValue ?? null)
+      } else if (field.type === 'stock-status') {
+        const VALID_STOCK_STATUS = ['in_stock', 'low_stock', 'out_of_stock']
+        result[fieldKey] = VALID_STOCK_STATUS.includes(raw) ? raw : (defaultValue ?? null)
       } else {
-        // These field types are free-form identifiers or page-level mapped values with no option list to validate against.
         result[fieldKey] = raw
       }
-      continue
-    }
-
-    if (field.type === 'multi-select') {
-      const validOptions = new Set(field.options.map((option) => option.value))
-      result[fieldKey] = searchParams.getAll(key).filter((value) => validOptions.has(value))
       continue
     }
 

@@ -1,8 +1,8 @@
 import { FilterSelect } from './FilterSelect'
 
-const PRODUCT_TYPE_OPTIONS = [
-  { value: 'goods', label: 'Goods' },
-  { value: 'service', label: 'Service' },
+const STATUS_OPTIONS = [
+  { value: 'active', label: 'Active' },
+  { value: 'inactive', label: 'Inactive' },
 ]
 
 interface Props {
@@ -11,13 +11,13 @@ interface Props {
   onChange: (value: string | null) => void
 }
 
-export function FilterProductType({ field, value, onChange }: Props) {
+export function FilterStatus({ field, value, onChange }: Props) {
   return (
     <FilterSelect
       field={field}
-      label="Product Type"
+      label="Status"
       value={value}
-      options={PRODUCT_TYPE_OPTIONS}
+      options={STATUS_OPTIONS}
       onChange={onChange}
     />
   )

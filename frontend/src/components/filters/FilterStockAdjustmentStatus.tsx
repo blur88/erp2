@@ -1,8 +1,9 @@
 import { FilterSelect } from './FilterSelect'
 
-const PURCHASING_STATUS_OPTIONS = [
+const STOCK_ADJUSTMENT_STATUS_OPTIONS = [
   { value: 'draft', label: 'Draft' },
-  { value: 'received', label: 'Received' },
+  { value: 'completed', label: 'Completed' },
+  { value: 'cancelled', label: 'Cancelled' },
 ]
 
 interface Props {
@@ -11,13 +12,13 @@ interface Props {
   onChange: (value: string | null) => void
 }
 
-export function FilterPurchasingStatus({ field, value, onChange }: Props) {
+export function FilterStockAdjustmentStatus({ field, value, onChange }: Props) {
   return (
     <FilterSelect
       field={field}
-      label="Order Status"
+      label="Status"
       value={value}
-      options={PURCHASING_STATUS_OPTIONS}
+      options={STOCK_ADJUSTMENT_STATUS_OPTIONS}
       onChange={onChange}
     />
   )

@@ -133,16 +133,7 @@ const StockAdjustmentsPage: React.FC = () => {
     () => ({
       search: { placeholder: 'Search by adjustment number or notes...' },
       fields: [
-        {
-          field: 'status',
-          label: 'Status',
-          type: 'select',
-          options: [
-            { value: 'draft', label: 'Draft' },
-            { value: 'completed', label: 'Completed' },
-            { value: 'cancelled', label: 'Cancelled' },
-          ],
-        },
+        { field: 'status', label: 'Status', type: 'stock-adjustment-status' },
       ],
       defaults: { search: '', status: null },
     }),
