@@ -10,6 +10,7 @@ export type PeriodValue = {
 
 export type FilterFieldType =
   | 'status'
+  | 'user-status'
   | 'customer-type'
   | 'role'
   | 'stock-adjustment-status'
@@ -41,6 +42,11 @@ export interface StatusFilterFieldConfig<TFilters, K extends keyof TFilters>
 export interface CustomerTypeFilterFieldConfig<TFilters, K extends keyof TFilters>
   extends BaseFilterFieldConfig<TFilters, K> {
   type: 'customer-type'
+}
+
+export interface UserStatusFilterFieldConfig<TFilters, K extends keyof TFilters>
+  extends BaseFilterFieldConfig<TFilters, K> {
+  type: 'user-status'
 }
 
 export interface RoleFilterFieldConfig<TFilters, K extends keyof TFilters>
@@ -111,6 +117,7 @@ export interface PriceListFilterFieldConfig<TFilters, K extends keyof TFilters>
 
 export type FilterFieldConfig<TFilters> =
   | StatusFilterFieldConfig<TFilters, keyof TFilters>
+  | UserStatusFilterFieldConfig<TFilters, keyof TFilters>
   | CustomerTypeFilterFieldConfig<TFilters, keyof TFilters>
   | RoleFilterFieldConfig<TFilters, keyof TFilters>
   | StockAdjustmentStatusFilterFieldConfig<TFilters, keyof TFilters>

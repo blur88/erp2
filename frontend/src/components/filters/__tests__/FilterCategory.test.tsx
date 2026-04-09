@@ -16,7 +16,7 @@ describe('FilterCategory', () => {
   it('renders a Category select with no options while loading', () => {
     useGetCategoriesQuery.mockReturnValue({ data: undefined })
 
-    render(<FilterCategory value={null} onChange={vi.fn()} />)
+    render(<FilterCategory field="category" value={null} onChange={vi.fn()} />)
 
     expect(screen.getByLabelText('Category')).toBeInTheDocument()
   })
@@ -31,7 +31,7 @@ describe('FilterCategory', () => {
     })
     const user = userEvent.setup()
 
-    render(<FilterCategory value={null} onChange={vi.fn()} />)
+    render(<FilterCategory field="category" value={null} onChange={vi.fn()} />)
 
     await user.click(screen.getByLabelText('Category'))
 
@@ -46,7 +46,7 @@ describe('FilterCategory', () => {
     const user = userEvent.setup()
     const onChange = vi.fn()
 
-    render(<FilterCategory value={null} onChange={onChange} />)
+    render(<FilterCategory field="category" value={null} onChange={onChange} />)
 
     await user.click(screen.getByLabelText('Category'))
     await user.click(screen.getByRole('option', { name: 'Electronics' }))
@@ -61,7 +61,7 @@ describe('FilterCategory', () => {
     const user = userEvent.setup()
     const onChange = vi.fn()
 
-    render(<FilterCategory value="abc-123" onChange={onChange} />)
+    render(<FilterCategory field="category" value="abc-123" onChange={onChange} />)
 
     await user.click(screen.getByLabelText('Category'))
     await user.click(screen.getByRole('option', { name: 'All' }))

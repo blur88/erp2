@@ -3,6 +3,7 @@ import { FilterSelect } from './FilterSelect'
 const STOCK_ADJUSTMENT_STATUS_OPTIONS = [
   { value: 'draft', label: 'Draft' },
   { value: 'completed', label: 'Completed' },
+  { value: 'cancelled', label: 'Cancelled' },
 ]
 
 interface Props {

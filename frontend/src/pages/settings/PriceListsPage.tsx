@@ -58,15 +58,7 @@ const PriceListsPage: React.FC = () => {
     () => ({
       search: { placeholder: 'Search by code or name...' },
       fields: [
-        {
-          field: 'status',
-          label: 'Status',
-          type: 'select',
-          options: [
-            { value: 'active', label: 'Active' },
-            { value: 'inactive', label: 'Inactive' },
-          ],
-        },
+        { field: 'status', label: 'Status', type: 'status' },
       ],
       defaults: {
         search: '',

@@ -29,19 +29,19 @@ function renderWithStore(ui: ReactElement) {
 
 describe('FilterCustomer', () => {
   it('renders with Customer label', () => {
-    renderWithStore(<FilterCustomer value={null} onChange={vi.fn()} />)
+    renderWithStore(<FilterCustomer field="customerId" value={null} onChange={vi.fn()} />)
     expect(screen.getByLabelText(/customer/i)).toBeInTheDocument()
   })
 
   it('shows customer names as options', async () => {
-    renderWithStore(<FilterCustomer value={null} onChange={vi.fn()} />)
+    renderWithStore(<FilterCustomer field="customerId" value={null} onChange={vi.fn()} />)
     await userEvent.click(screen.getByRole('combobox'))
     expect(await screen.findByText('Amuro Ray')).toBeInTheDocument()
     expect(await screen.findByText('Char Aznable')).toBeInTheDocument()
   })
 
   it('requests customers without a limit override', () => {
-    renderWithStore(<FilterCustomer value={null} onChange={vi.fn()} />)
+    renderWithStore(<FilterCustomer field="customerId" value={null} onChange={vi.fn()} />)
     expect(useGetCustomersQuery).toHaveBeenCalledWith({})
   })
 })

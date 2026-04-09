@@ -6,12 +6,12 @@ import { FilterPurchasingStatus } from '../FilterPurchasingStatus'
 
 describe('FilterPurchasingStatus', () => {
   it('renders with Order Status label', () => {
-    render(<FilterPurchasingStatus value={null} onChange={vi.fn()} />)
+    render(<FilterPurchasingStatus field="purchasingStatus" value={null} onChange={vi.fn()} />)
     expect(screen.getByLabelText(/order status/i)).toBeInTheDocument()
   })
 
   it('shows Draft and Received options', async () => {
-    render(<FilterPurchasingStatus value={null} onChange={vi.fn()} />)
+    render(<FilterPurchasingStatus field="purchasingStatus" value={null} onChange={vi.fn()} />)
     await userEvent.click(screen.getByRole('combobox'))
     expect(await screen.findByText('Draft')).toBeInTheDocument()
     expect(await screen.findByText('Received')).toBeInTheDocument()

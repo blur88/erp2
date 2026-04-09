@@ -14,7 +14,7 @@ interface Filters {
 const config: FilterBarConfig<Filters> = {
   search: { placeholder: '', debounceMs: 0 },
   fields: [
-    { field: 'status', label: 'Status', type: 'select', options: [{ value: 'active', label: 'Active' }] },
+    { field: 'status', label: 'Status', type: 'status' },
   ],
   defaults: { search: '', status: null },
 }

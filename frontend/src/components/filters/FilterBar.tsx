@@ -16,6 +16,7 @@ import { FilterStatus } from './FilterStatus'
 import { FilterStockAdjustmentStatus } from './FilterStockAdjustmentStatus'
 import { FilterStockStatus } from './FilterStockStatus'
 import { FilterSupplier } from './FilterSupplier'
+import { FilterUserStatus } from './FilterUserStatus'
 import { AppButton } from '@/components/common/AppButton'
 import type {
   FilterBarConfig,
@@ -58,6 +59,17 @@ function renderQuickField<TFilters extends object>(
   if (field.type === 'customer-type') {
     return (
       <FilterCustomerType
+        key={fieldKey}
+        field={fieldKey}
+        value={(value as string | null) ?? null}
+        onChange={onChange}
+      />
+    )
+  }
+
+  if (field.type === 'user-status') {
+    return (
+      <FilterUserStatus
         key={fieldKey}
         field={fieldKey}
         value={(value as string | null) ?? null}

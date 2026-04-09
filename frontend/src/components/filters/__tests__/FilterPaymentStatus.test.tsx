@@ -6,12 +6,12 @@ import { FilterPaymentStatus } from '../FilterPaymentStatus'
 
 describe('FilterPaymentStatus', () => {
   it('renders with Payment label', () => {
-    render(<FilterPaymentStatus value={null} onChange={vi.fn()} />)
+    render(<FilterPaymentStatus field="paymentStatus" value={null} onChange={vi.fn()} />)
     expect(screen.getByLabelText(/payment/i)).toBeInTheDocument()
   })
 
   it('shows all four options by default', async () => {
-    render(<FilterPaymentStatus value={null} onChange={vi.fn()} />)
+    render(<FilterPaymentStatus field="paymentStatus" value={null} onChange={vi.fn()} />)
     await userEvent.click(screen.getByRole('combobox'))
     expect(await screen.findByText('Unpaid')).toBeInTheDocument()
     expect(await screen.findByText('Partial')).toBeInTheDocument()
@@ -20,7 +20,7 @@ describe('FilterPaymentStatus', () => {
   })
 
   it('hides Overpaid when includeOverpaid=false', async () => {
-    render(<FilterPaymentStatus value={null} onChange={vi.fn()} includeOverpaid={false} />)
+    render(<FilterPaymentStatus field="paymentStatus" value={null} onChange={vi.fn()} includeOverpaid={false} />)
     await userEvent.click(screen.getByRole('combobox'))
     expect(await screen.findByText('Paid')).toBeInTheDocument()
     expect(screen.queryByText('Overpaid')).not.toBeInTheDocument()

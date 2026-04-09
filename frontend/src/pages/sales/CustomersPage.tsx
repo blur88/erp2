@@ -44,24 +44,8 @@ const CustomersPage: React.FC = () => {
     () => ({
       search: { placeholder: 'Search by name or phone...' },
       fields: [
-        {
-          field: 'status',
-          label: 'Status',
-          type: 'select',
-          options: [
-            { value: 'active', label: 'Active' },
-            { value: 'inactive', label: 'Inactive' },
-          ],
-        },
-        {
-          field: 'type',
-          label: 'Customer Type',
-          type: 'select',
-          options: [
-            { value: 'individual', label: 'Individual' },
-            { value: 'business', label: 'Business' },
-          ],
-        },
+        { field: 'status', label: 'Status', type: 'status' },
+        { field: 'type', label: 'Customer Type', type: 'customer-type' },
         {
           field: 'priceListId',
           label: 'Price List',

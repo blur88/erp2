@@ -1,6 +1,7 @@
 import { FilterSelect } from './FilterSelect'
 
 const STOCK_STATUS_OPTIONS = [
+  { value: 'in_stock', label: 'In Stock' },
   { value: 'low_stock', label: 'Low Stock' },
   { value: 'out_of_stock', label: 'Out of Stock' },
 ]

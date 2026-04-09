@@ -6,14 +6,14 @@ import { FilterProductType } from '../FilterProductType'
 
 describe('FilterProductType', () => {
   it('renders a Product Type select', () => {
-    render(<FilterProductType value={null} onChange={vi.fn()} />)
+    render(<FilterProductType field="productType" value={null} onChange={vi.fn()} />)
     expect(screen.getByLabelText('Product Type')).toBeInTheDocument()
   })
 
   it('calls onChange with "goods" when Goods is selected', async () => {
     const user = userEvent.setup()
     const onChange = vi.fn()
-    render(<FilterProductType value={null} onChange={onChange} />)
+    render(<FilterProductType field="productType" value={null} onChange={onChange} />)
 
     await user.click(screen.getByLabelText('Product Type'))
     await user.click(screen.getByRole('option', { name: 'Goods' }))
@@ -24,7 +24,7 @@ describe('FilterProductType', () => {
   it('calls onChange with "service" when Service is selected', async () => {
     const user = userEvent.setup()
     const onChange = vi.fn()
-    render(<FilterProductType value={null} onChange={onChange} />)
+    render(<FilterProductType field="productType" value={null} onChange={onChange} />)
 
     await user.click(screen.getByLabelText('Product Type'))
     await user.click(screen.getByRole('option', { name: 'Service' }))
@@ -35,7 +35,7 @@ describe('FilterProductType', () => {
   it('calls onChange with null when All is selected', async () => {
     const user = userEvent.setup()
     const onChange = vi.fn()
-    render(<FilterProductType value="goods" onChange={onChange} />)
+    render(<FilterProductType field="productType" value="goods" onChange={onChange} />)
 
     await user.click(screen.getByLabelText('Product Type'))
     await user.click(screen.getByRole('option', { name: 'All' }))

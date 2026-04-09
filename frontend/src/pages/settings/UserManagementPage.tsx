@@ -75,28 +75,8 @@ const UserManagementPage: React.FC = () => {
     () => ({
       search: { placeholder: 'Search by name, email, or username...' },
       fields: [
-        {
-          field: 'role',
-          label: 'Role',
-          type: 'select',
-          options: [
-            { value: 'admin', label: 'Admin' },
-            { value: 'manager', label: 'Manager' },
-            { value: 'sales_staff', label: 'Sales Staff' },
-            { value: 'inventory_staff', label: 'Inventory Staff' },
-            { value: 'procurement_staff', label: 'Procurement Staff' },
-          ],
-        },
-        {
-          field: 'status',
-          label: 'Status',
-          type: 'select',
-          options: [
-            { value: 'active', label: 'Active' },
-            { value: 'inactive', label: 'Inactive' },
-            { value: 'suspended', label: 'Suspended' },
-          ],
-        },
+        { field: 'role', label: 'Role', type: 'role' },
+        { field: 'status', label: 'Status', type: 'user-status' },
       ],
       defaults: { search: '', role: null, status: null },
     }),

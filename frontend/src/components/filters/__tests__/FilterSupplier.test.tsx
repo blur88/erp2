@@ -29,19 +29,19 @@ function renderWithStore(ui: ReactElement) {
 
 describe('FilterSupplier', () => {
   it('renders with Supplier label', () => {
-    renderWithStore(<FilterSupplier value={null} onChange={vi.fn()} />)
+    renderWithStore(<FilterSupplier field="supplierId" value={null} onChange={vi.fn()} />)
     expect(screen.getByLabelText(/supplier/i)).toBeInTheDocument()
   })
 
   it('shows supplier names as options', async () => {
-    renderWithStore(<FilterSupplier value={null} onChange={vi.fn()} />)
+    renderWithStore(<FilterSupplier field="supplierId" value={null} onChange={vi.fn()} />)
     await userEvent.click(screen.getByRole('combobox'))
     expect(await screen.findByText('Anaheim Electronics')).toBeInTheDocument()
     expect(await screen.findByText('Zeonic')).toBeInTheDocument()
   })
 
   it('requests suppliers without a limit override', () => {
-    renderWithStore(<FilterSupplier value={null} onChange={vi.fn()} />)
+    renderWithStore(<FilterSupplier field="supplierId" value={null} onChange={vi.fn()} />)
     expect(useGetSuppliersQuery).toHaveBeenCalledWith({})
   })
 })

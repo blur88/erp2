@@ -20,7 +20,11 @@ function getDefaults<TFilters extends object>(
     }
 
     if (
-      field.type === 'select' ||
+      field.type === 'status' ||
+      field.type === 'user-status' ||
+      field.type === 'customer-type' ||
+      field.type === 'role' ||
+      field.type === 'stock-adjustment-status' ||
       field.type === 'customer' ||
       field.type === 'order-status' ||
       field.type === 'payment-status' ||
@@ -28,11 +32,11 @@ function getDefaults<TFilters extends object>(
       field.type === 'purchasing-status' ||
       field.type === 'category' ||
       field.type === 'product-type' ||
-      field.type === 'stock-status'
+      field.type === 'stock-status' ||
+      field.type === 'price-list'
     ) {
       defaults[key] = null
     }
-    else if (field.type === 'multi-select') defaults[key] = []
     else if (field.type === 'period') {
       defaults[key] = { key: null, from: null, to: null } satisfies PeriodValue
     }

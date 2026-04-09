@@ -6,19 +6,19 @@ import { FilterOrderStatus } from '../FilterOrderStatus'
 
 describe('FilterOrderStatus', () => {
   it('renders with Order Status label', () => {
-    render(<FilterOrderStatus value={null} onChange={vi.fn()} />)
+    render(<FilterOrderStatus field="orderStatus" value={null} onChange={vi.fn()} />)
     expect(screen.getByLabelText(/order status/i)).toBeInTheDocument()
   })
 
   it('shows Unfulfilled and Fulfilled options', async () => {
-    render(<FilterOrderStatus value={null} onChange={vi.fn()} />)
+    render(<FilterOrderStatus field="orderStatus" value={null} onChange={vi.fn()} />)
     await userEvent.click(screen.getByRole('combobox'))
     expect(await screen.findByText('Unfulfilled')).toBeInTheDocument()
     expect(await screen.findByText('Fulfilled')).toBeInTheDocument()
   })
 
   it('displays the selected value', () => {
-    render(<FilterOrderStatus value="fulfilled" onChange={vi.fn()} />)
+    render(<FilterOrderStatus field="orderStatus" value="fulfilled" onChange={vi.fn()} />)
     expect(screen.getByRole('combobox')).toBeInTheDocument()
   })
 })
