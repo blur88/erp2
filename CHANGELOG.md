@@ -1,3 +1,10 @@
+## [1.57.3](https://github.com/blur88/erp2/compare/v1.57.2...v1.57.3) (2026-04-09)
+
+
+### Internal Changes
+
+* chore: update @tanstack and vitest packages to latest versions ([](https://github.com/blur88/erp2/commit/))
+
 ## [1.57.2](https://github.com/blur88/erp2/compare/v1.57.1...v1.57.2) (2026-04-09)
 
 
