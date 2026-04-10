@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import { Provider } from 'react-redux'
 import { configureStore } from '@reduxjs/toolkit'
 import { MemoryRouter } from 'react-router-dom'
@@ -161,6 +161,33 @@ describe('SuppliersPage FilterBar', () => {
     renderPage('/')
     expect(useGetSuppliersQuery).toHaveBeenLastCalledWith(
       expect.not.objectContaining({ type: expect.anything() }),
+    )
+  })
+
+  it('renders a Sort button', () => {
+    renderPage()
+    expect(screen.getByRole('button', { name: /sort/i })).toBeInTheDocument()
+  })
+
+  it('passes default sortBy=companyName and sortOrder=ASC to query', () => {
+    renderPage()
+    expect(useGetSuppliersQuery).toHaveBeenLastCalledWith(
+      expect.objectContaining({ sortBy: 'companyName', sortOrder: 'ASC' }),
+    )
+  })
+
+  it('toggles sortOrder to DESC after clicking Sort, then back to ASC on second click', () => {
+    renderPage()
+    const sortButton = screen.getByRole('button', { name: /sort/i })
+
+    fireEvent.click(sortButton)
+    expect(useGetSuppliersQuery).toHaveBeenLastCalledWith(
+      expect.objectContaining({ sortBy: 'companyName', sortOrder: 'DESC' }),
+    )
+
+    fireEvent.click(sortButton)
+    expect(useGetSuppliersQuery).toHaveBeenLastCalledWith(
+      expect.objectContaining({ sortBy: 'companyName', sortOrder: 'ASC' }),
     )
   })
 })
