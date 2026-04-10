@@ -116,3 +116,124 @@ describe('InvoiceService.searchGlobal', () => {
     expect(results[0].score).toBe(49);
   });
 });
+
+describe('InvoiceService.findAll - new filter params', () => {
+  let service: InvoiceService;
+  let invoiceRepository: {
+    createQueryBuilder: jest.Mock;
+    findAndCount: jest.Mock;
+  };
+
+  const mockQb = () => ({
+    leftJoinAndSelect: jest.fn().mockReturnThis(),
+    leftJoin: jest.fn().mockReturnThis(),
+    where: jest.fn().mockReturnThis(),
+    andWhere: jest.fn().mockReturnThis(),
+    orWhere: jest.fn().mockReturnThis(),
+    orderBy: jest.fn().mockReturnThis(),
+    skip: jest.fn().mockReturnThis(),
+    take: jest.fn().mockReturnThis(),
+    getManyAndCount: jest.fn().mockResolvedValue([[], 0]),
+  });
+
+  beforeEach(async () => {
+    invoiceRepository = {
+      createQueryBuilder: jest.fn().mockReturnValue(mockQb()),
+      findAndCount: jest.fn().mockResolvedValue([[], 0]),
+    };
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        InvoiceService,
+        { provide: getRepositoryToken(Invoice), useValue: invoiceRepository },
+        { provide: getRepositoryToken(Customer), useValue: { findOne: jest.fn() } },
+        { provide: getRepositoryToken(SalesOrder), useValue: {} },
+        { provide: getRepositoryToken(Payment), useValue: {} },
+        { provide: getRepositoryToken(Product), useValue: {} },
+        { provide: getRepositoryToken(InvoiceItem), useValue: {} },
+        { provide: AuditLogService, useValue: { log: jest.fn(), createLog: jest.fn() } },
+      ],
+    }).compile();
+
+    service = module.get(InvoiceService);
+  });
+
+  it('calls andWhere with paidAmount = 0 when paymentStatus=unpaid', async () => {
+    const qb = mockQb();
+    invoiceRepository.createQueryBuilder.mockReturnValue(qb);
+
+    await service.findAll({ paymentStatus: 'unpaid' } as any);
+
+    const calls = qb.andWhere.mock.calls.map((c: any[]) => c[0]);
+    expect(calls.some((c: string) => c.includes('paidAmount = 0'))).toBe(true);
+  });
+
+  it('calls andWhere with partial condition when paymentStatus=partial', async () => {
+    const qb = mockQb();
+    invoiceRepository.createQueryBuilder.mockReturnValue(qb);
+
+    await service.findAll({ paymentStatus: 'partial' } as any);
+
+    const calls = qb.andWhere.mock.calls.map((c: any[]) => c[0]);
+    expect(
+      calls.some(
+        (c: string) =>
+          c.includes('paidAmount > 0') && c.includes('paidAmount < invoice.totalAmount'),
+      ),
+    ).toBe(true);
+  });
+
+  it('calls andWhere with paid condition when paymentStatus=paid', async () => {
+    const qb = mockQb();
+    invoiceRepository.createQueryBuilder.mockReturnValue(qb);
+
+    await service.findAll({ paymentStatus: 'paid' } as any);
+
+    const calls = qb.andWhere.mock.calls.map((c: any[]) => c[0]);
+    expect(calls.some((c: string) => c.includes('paidAmount >= invoice.totalAmount'))).toBe(
+      true,
+    );
+  });
+
+  it('calls andWhere with overpaid condition when paymentStatus=overpaid', async () => {
+    const qb = mockQb();
+    invoiceRepository.createQueryBuilder.mockReturnValue(qb);
+
+    await service.findAll({ paymentStatus: 'overpaid' } as any);
+
+    const calls = qb.andWhere.mock.calls.map((c: any[]) => c[0]);
+    expect(calls.some((c: string) => c.includes('paidAmount > invoice.totalAmount'))).toBe(
+      true,
+    );
+  });
+
+  it('calls andWhere with isFulfilled = true when fulfillmentStatus=fulfilled', async () => {
+    const qb = mockQb();
+    invoiceRepository.createQueryBuilder.mockReturnValue(qb);
+
+    await service.findAll({ fulfillmentStatus: 'fulfilled' } as any);
+
+    const calls = qb.andWhere.mock.calls.map((c: any[]) => c[0]);
+    expect(calls.some((c: string) => c.includes('isFulfilled = true'))).toBe(true);
+  });
+
+  it('calls andWhere with isFulfilled = false when fulfillmentStatus=unfulfilled', async () => {
+    const qb = mockQb();
+    invoiceRepository.createQueryBuilder.mockReturnValue(qb);
+
+    await service.findAll({ fulfillmentStatus: 'unfulfilled' } as any);
+
+    const calls = qb.andWhere.mock.calls.map((c: any[]) => c[0]);
+    expect(calls.some((c: string) => c.includes('isFulfilled = false'))).toBe(true);
+  });
+
+  it('applies no paymentStatus andWhere when paymentStatus is undefined', async () => {
+    const qb = mockQb();
+    invoiceRepository.createQueryBuilder.mockReturnValue(qb);
+
+    await service.findAll({} as any);
+
+    const calls = qb.andWhere.mock.calls.map((c: any[]) => c[0]);
+    expect(calls.some((c: string) => c.includes('paidAmount'))).toBe(false);
+  });
+});

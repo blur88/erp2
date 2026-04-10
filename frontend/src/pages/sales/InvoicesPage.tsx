@@ -26,6 +26,8 @@ interface InvoiceFilters {
   search: string
   period: PeriodValue
   customerId: string | null
+  paymentStatus: 'unpaid' | 'partial' | 'paid' | 'overpaid' | null
+  fulfillmentStatus: 'fulfilled' | 'unfulfilled' | null
 }
 
 const InvoicesPage: React.FC = () => {
@@ -46,11 +48,15 @@ const InvoicesPage: React.FC = () => {
       fields: [
         { field: 'period', label: 'Period', type: 'period' },
         { field: 'customerId', label: 'Customer', type: 'customer' },
+        { field: 'paymentStatus', label: 'Payment', type: 'payment-status' },
+        { field: 'fulfillmentStatus', label: 'Order Status', type: 'order-status' },
       ],
       defaults: {
         search: '',
         period: { key: null, from: null, to: null },
         customerId: null,
+        paymentStatus: null,
+        fulfillmentStatus: null,
       },
     }),
     [],
@@ -79,8 +85,18 @@ const InvoicesPage: React.FC = () => {
       fromDate: dateRange.fromDate,
       toDate: dateRange.toDate,
       customerId: appliedFilters.customerId || undefined,
+      paymentStatus: appliedFilters.paymentStatus || undefined,
+      fulfillmentStatus: appliedFilters.fulfillmentStatus || undefined,
     }),
-    [appliedFilters.search, appliedFilters.customerId, dateRange, sortBy, sortOrder],
+    [
+      appliedFilters.search,
+      appliedFilters.customerId,
+      appliedFilters.paymentStatus,
+      appliedFilters.fulfillmentStatus,
+      dateRange,
+      sortBy,
+      sortOrder,
+    ],
   )
 
   const { data, isLoading: loading, error, refetch } = useGetInvoicesQuery(queryArgs)

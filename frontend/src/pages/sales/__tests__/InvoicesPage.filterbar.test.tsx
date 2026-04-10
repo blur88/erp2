@@ -139,4 +139,22 @@ describe('InvoicesPage FilterBar integration', () => {
       }),
     )
   })
+
+  it('restores paymentStatus=paid from URL and passes it to the query', () => {
+    renderPage('/?paymentStatus=paid')
+    expect(useGetInvoicesQuery).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        paymentStatus: 'paid',
+      }),
+    )
+  })
+
+  it('restores fulfillmentStatus=fulfilled from URL and passes it to the query', () => {
+    renderPage('/?fulfillmentStatus=fulfilled')
+    expect(useGetInvoicesQuery).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        fulfillmentStatus: 'fulfilled',
+      }),
+    )
+  })
 })
