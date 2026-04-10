@@ -1,3 +1,12 @@
+# [1.62.0](https://github.com/blur88/erp2/compare/v1.61.1...v1.62.0) (2026-04-10)
+
+
+### Features
+
+* **invoices:** add paymentStatus and fulfillmentStatus filter controls to InvoicesPage ([6b6a925](https://github.com/blur88/erp2/commit/6b6a92538622b251853ce1077291c71833e33255))
+* **invoices:** add paymentStatus and fulfillmentStatus to QueryInvoicesDto ([a4dce40](https://github.com/blur88/erp2/commit/a4dce402b227a4b903937c35edced0e8737dadba))
+* **invoices:** migrate findAll to QueryBuilder; add paymentStatus and fulfillmentStatus filters ([baa5f59](https://github.com/blur88/erp2/commit/baa5f594c4d3fd658a7ca2cc016677f30472b353))
+
 ## [1.61.1](https://github.com/blur88/erp2/compare/v1.61.0...v1.61.1) (2026-04-10)
 
 
