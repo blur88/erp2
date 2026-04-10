@@ -1,20 +1,32 @@
-import React, { useCallback, useEffect, useMemo } from 'react'
+import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { Alert, Box, useMediaQuery, useTheme } from '@mui/material'
-import Grid from '@mui/material/GridLegacy'
 import { useLocation, useNavigate } from 'react-router-dom'
 
-import InvoiceDetailsPanel from './components/InvoiceDetailsPanel'
+import InvoiceContextHeader from './components/InvoiceContextHeader'
 import InvoicesDialogs from './components/InvoicesDialogs'
 import InvoicesTable from './components/InvoicesTable'
+import InvoiceWorkspaceCard from './components/InvoiceWorkspaceCard'
 import { useInvoicesActions } from './hooks/useInvoicesActions'
 import { type InvoiceListItem, useInvoicesPageState } from './hooks/useInvoicesPageState'
 import { useInvoicesSelection } from './hooks/useInvoicesSelection'
 
+import MasterDetailWorkspace from '@/components/common/MasterDetailWorkspace'
+import PageHeader from '@/components/common/PageHeader'
+import { FilterBar } from '@/components/filters/FilterBar'
+import { useFilterBar } from '@/hooks/useFilterBar'
 import { useNotification } from '@/hooks/useNotification'
-import { useKeyboardShortcuts, useSearchAndFilter } from '@/hooks/useSearchAndFilter'
+import { useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
 import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
 import { useGetInvoicesQuery } from '@/store/api/salesApi'
 import { selectSelectedInvoice } from '@/store/slices/salesSlice'
+import type { FilterBarConfig, PeriodValue } from '@/types/filterBar.types'
+import { getPeriodDateRange, getStartOfWeek } from '@/utils/dateRange'
+
+interface InvoiceFilters {
+  search: string
+  period: PeriodValue
+  customerId: string | null
+}
 
 const InvoicesPage: React.FC = () => {
   const theme = useTheme()
@@ -25,73 +37,50 @@ const InvoicesPage: React.FC = () => {
   const { showError } = useNotification()
   const selectedInvoice = useAppSelector(selectSelectedInvoice) as InvoiceListItem | null
   const pageState = useInvoicesPageState()
+  const [sortBy, setSortBy] = useState('invoiceNumber')
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc')
 
-  const onSearchChange = useCallback((search: string) => {
-    pageState.setFilters((prev) => ({ ...prev, search }))
-  }, [pageState])
+  const filterConfig = useMemo<FilterBarConfig<InvoiceFilters>>(
+    () => ({
+      search: { placeholder: 'Search invoices...' },
+      fields: [
+        { field: 'period', label: 'Period', type: 'period' },
+        { field: 'customerId', label: 'Customer', type: 'customer' },
+      ],
+      defaults: {
+        search: '',
+        period: { key: null, from: null, to: null },
+        customerId: null,
+      },
+    }),
+    [],
+  )
 
-  const { searchTerm, setSearchTerm: originalSetSearchTerm, focusSearchInput } = useSearchAndFilter({
-    initialSearchTerm: pageState.filters.search,
-    onSearchChange,
-    searchInputRef: pageState.searchInputRef,
-  })
+  const { appliedFilters, draftFilters, handlers, hasActiveFilters } = useFilterBar(filterConfig)
 
-  const setSearchTerm = useCallback((value: string) => {
-    pageState.setShouldPreserveSearchFocus(true)
-    originalSetSearchTerm(value)
-  }, [originalSetSearchTerm, pageState])
-
-  useEffect(() => {
-    if (pageState.shouldPreserveSearchFocus && pageState.searchInputRef.current && document.activeElement !== pageState.searchInputRef.current) {
-      const timer = setTimeout(() => {
-        pageState.searchInputRef.current?.focus()
-        pageState.setShouldPreserveSearchFocus(false)
-      }, 0)
-      return () => clearTimeout(timer)
+  const weekStartsOn = getStartOfWeek()
+  const dateRange = useMemo(() => {
+    const period = appliedFilters.period
+    if (!period || period.key === null) {
+      return { fromDate: undefined, toDate: undefined }
     }
-    if (pageState.shouldPreserveSearchFocus) {
-      pageState.setShouldPreserveSearchFocus(false)
+    if (period.key === 'custom') {
+      return { fromDate: period.from ?? undefined, toDate: period.to ?? undefined }
     }
-  }, [pageState])
+    const range = getPeriodDateRange(period.key, weekStartsOn)
+    return { fromDate: range.from, toDate: range.to }
+  }, [appliedFilters.period, weekStartsOn])
 
-  const getDateRange = useCallback((filter: string) => {
-    const today = new Date()
-    const yesterday = new Date(today)
-    yesterday.setDate(yesterday.getDate() - 1)
-    const startOfWeek = new Date(today)
-    startOfWeek.setDate(today.getDate() - today.getDay())
-    const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1)
-    const startOfYear = new Date(today.getFullYear(), 0, 1)
-    const toDateParam = (date: Date) => date.toISOString().split('T')[0]
-
-    switch (filter) {
-      case 'today':
-        return { fromDate: toDateParam(today), toDate: toDateParam(today) }
-      case 'yesterday':
-        return { fromDate: toDateParam(yesterday), toDate: toDateParam(yesterday) }
-      case 'this_week':
-        return { fromDate: toDateParam(startOfWeek), toDate: toDateParam(today) }
-      case 'this_month':
-        return { fromDate: toDateParam(startOfMonth), toDate: toDateParam(today) }
-      case 'this_year':
-        return { fromDate: toDateParam(startOfYear), toDate: toDateParam(today) }
-      case 'custom':
-        return { fromDate: pageState.filters.customFromDate, toDate: pageState.filters.customToDate }
-      default:
-        return { fromDate: undefined, toDate: undefined }
-    }
-  }, [pageState.filters.customFromDate, pageState.filters.customToDate])
-
-  const dateRange = useMemo(() => getDateRange(pageState.filters.dateFilter), [getDateRange, pageState.filters.dateFilter])
   const queryArgs = useMemo(
     () => ({
-      search: pageState.filters.search || undefined,
-      sortBy: pageState.filters.sortBy,
-      sortOrder: pageState.filters.sortOrder,
+      search: appliedFilters.search || undefined,
+      sortBy,
+      sortOrder: sortOrder.toUpperCase() as 'ASC' | 'DESC',
       fromDate: dateRange.fromDate,
       toDate: dateRange.toDate,
+      customerId: appliedFilters.customerId || undefined,
     }),
-    [dateRange.fromDate, dateRange.toDate, pageState.filters.search, pageState.filters.sortBy, pageState.filters.sortOrder],
+    [appliedFilters.search, appliedFilters.customerId, dateRange, sortBy, sortOrder],
   )
 
   const { data, isLoading: loading, error, refetch } = useGetInvoicesQuery(queryArgs)
@@ -118,6 +107,32 @@ const InvoicesPage: React.FC = () => {
       }),
     [invoices],
   )
+
+  const handleSort = useCallback((field: string) => {
+    setSortOrder((prev) => (sortBy === field && prev === 'desc' ? 'asc' : 'desc'))
+    setSortBy(field)
+  }, [sortBy])
+
+  const filterHandlers = useMemo(() => ({
+    ...handlers,
+    onSearchChange: (value: string) => {
+      pageState.setShouldPreserveSearchFocus(true)
+      handlers.onSearchChange(value)
+    },
+  }), [handlers, pageState])
+
+  useEffect(() => {
+    if (pageState.shouldPreserveSearchFocus && pageState.searchInputRef.current && document.activeElement !== pageState.searchInputRef.current) {
+      const timer = setTimeout(() => {
+        pageState.searchInputRef.current?.focus()
+        pageState.setShouldPreserveSearchFocus(false)
+      }, 0)
+      return () => clearTimeout(timer)
+    }
+    if (pageState.shouldPreserveSearchFocus) {
+      pageState.setShouldPreserveSearchFocus(false)
+    }
+  }, [loading, pageState])
 
   const selection = useInvoicesSelection({
     dispatch,
@@ -154,7 +169,10 @@ const InvoicesPage: React.FC = () => {
   }, [location.pathname, pageState.previousPathnameRef, refetch])
 
   useKeyboardShortcuts({
-    onSearch: focusSearchInput,
+    onSearch: () => {
+      pageState.searchInputRef.current?.focus()
+      pageState.searchInputRef.current?.select()
+    },
     onArrowUp: selection.handleNavigateUp,
     onArrowDown: selection.handleNavigateDown,
     onEnter: selection.handleEnterAction,
@@ -165,29 +183,39 @@ const InvoicesPage: React.FC = () => {
     onEscape: selection.handleEscapeAction,
   })
 
-  const handleSort = useCallback((field: string) => {
-    pageState.setFilters((prev) => ({
-      ...prev,
-      sortBy: field,
-      sortOrder: prev.sortBy === field && prev.sortOrder === 'desc' ? 'asc' : 'desc',
-    }))
-  }, [pageState])
-
   const navigateToJournalEntry = useCallback(() => {
     if (!pageState.journalEntryRef) return
     navigate(`/accounting/journal-entries?sourceType=${pageState.journalEntryRef.sourceType}&sourceId=${pageState.journalEntryRef.sourceId}`)
   }, [navigate, pageState.journalEntryRef])
 
   return (
-    <>
+    <Box sx={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
+      <PageHeader
+        title="Invoices"
+        subtitle="Track and manage customer invoices"
+        variant="workflow"
+        secondaryAction={{ label: 'View Deleted', onClick: () => pageState.setDeletedInvoicesDialogOpen(true) }}
+        toolbar={(
+          <FilterBar
+            config={filterConfig}
+            draftFilters={draftFilters}
+            handlers={filterHandlers}
+            hasActiveFilters={hasActiveFilters}
+            searchInputRef={pageState.searchInputRef}
+            sort={{ field: 'invoiceNumber', sortBy, sortOrder, onSort: handleSort }}
+          />
+        )}
+      />
+
       {error && (
         <Alert severity="error" sx={{ mb: 3 }}>
           Failed to load invoices.
         </Alert>
       )}
 
-      <Grid container spacing={3}>
-        <Grid item xs={12} md={3}>
+      <MasterDetailWorkspace
+        isMobile={isMobile}
+        listSlot={(
           <InvoicesTable
             invoices={normalizedInvoices}
             loading={loading}
@@ -197,9 +225,9 @@ const InvoicesPage: React.FC = () => {
             onInvoiceSelect={selection.handleInvoiceSelect}
             invoiceListRef={pageState.invoiceListRef}
           />
-        </Grid>
-        <Grid item xs={12} md={9}>
-          <InvoiceDetailsPanel
+        )}
+        headerSlot={(
+          <InvoiceContextHeader
             selectedInvoice={selectedInvoice}
             journalEntryRef={pageState.journalEntryRef}
             journalEntryRefLoading={pageState.journalEntryRefLoading}
@@ -208,8 +236,9 @@ const InvoicesPage: React.FC = () => {
             onNavigateToPayment={selection.handleNavigateToPayment}
             onNavigateToJournalEntry={navigateToJournalEntry}
           />
-        </Grid>
-      </Grid>
+        )}
+        workspaceSlot={<InvoiceWorkspaceCard selectedInvoice={selectedInvoice} />}
+      />
 
       <InvoicesDialogs
         createDialog={pageState.createDialog}
@@ -222,7 +251,7 @@ const InvoicesPage: React.FC = () => {
         onCloseDeletedInvoicesDialog={() => pageState.setDeletedInvoicesDialogOpen(false)}
         onClosePrintDialog={() => pageState.setPrintDialogOpen(false)}
       />
-    </>
+    </Box>
   )
 }
 

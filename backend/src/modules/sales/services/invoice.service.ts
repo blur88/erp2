@@ -6,7 +6,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, FindOptionsWhere, FindManyOptions, MoreThanOrEqual, LessThanOrEqual, ILike, In } from 'typeorm';
+import { Repository, FindOptionsWhere, FindManyOptions, MoreThanOrEqual, LessThanOrEqual, Between, ILike, In } from 'typeorm';
 import {
   Invoice,
   InvoiceStatus
@@ -188,19 +188,16 @@ export class InvoiceService {
     if (salesOrderId) where.salesOrderId = salesOrderId;
     if (status) where.status = status;
 
-    if (fromDate) {
+    if (fromDate && toDate) {
+      const endDate = new Date(toDate);
+      endDate.setHours(23, 59, 59, 999);
+      where.invoiceDate = Between(new Date(fromDate), endDate);
+    } else if (fromDate) {
       where.invoiceDate = MoreThanOrEqual(new Date(fromDate));
-    }
-    if (toDate) {
+    } else if (toDate) {
       const endDate = new Date(toDate);
       endDate.setHours(23, 59, 59, 999);
       where.invoiceDate = LessThanOrEqual(endDate);
-    }
-    if (fromDate && toDate) {
-      where.invoiceDate = {
-        ...MoreThanOrEqual(new Date(fromDate)),
-        ...LessThanOrEqual(new Date(toDate)),
-      } as any;
     }
 
     const searchConditions = [];
