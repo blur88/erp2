@@ -261,7 +261,9 @@ const ChartOfAccountFormDialog: React.FC<ChartOfAccountFormDialogProps> = ({
                   border: '1px solid',
                   borderColor: 'info.light'
                 }}>
-                  <Typography variant="caption" color="info.dark">
+                  <Typography variant="caption" sx={{
+                    color: "info.dark"
+                  }}>
                     {getAccountTypeDescription(watchedType)}
                   </Typography>
                 </Box>
@@ -363,7 +365,7 @@ const ChartOfAccountFormDialog: React.FC<ChartOfAccountFormDialogProps> = ({
         </DialogActions>
       </form>
     </Dialog>
-  )
+  );
 }
 
 export default ChartOfAccountFormDialog

@@ -7,10 +7,8 @@ import {
     Typography,
     Skeleton,
 } from '@mui/material'
-import {
-    TrendingUp as TrendingUpIcon,
-    TrendingDown as TrendingDownIcon,
-} from '@mui/icons-material'
+import { default as TrendingUpIcon } from '@mui/icons-material/TrendingUp'
+import { default as TrendingDownIcon } from '@mui/icons-material/TrendingDown'
 
 export interface StatItem {
     title: string
@@ -86,75 +84,77 @@ const SalesStatsCards: React.FC<SalesStatsCardsProps> = ({ stats, loading = fals
                             : null
 
                         return (
-                    <Card
-                        sx={{
-                            cursor: stat.onClick ? 'pointer' : 'default',
-                            transition: 'all 0.2s ease-in-out',
-                            '&:hover': stat.onClick ? {
-                                transform: 'translateY(-4px)',
-                                boxShadow: 6,
-                            } : {}
-                        }}
-                        onClick={stat.onClick}
-                    >
-                        <CardContent>
-                            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-                                <Box
-                                    sx={{
-                                        p: 1.5,
-                                        borderRadius: 2,
-                                        bgcolor: `${stat.color}.light`,
-                                        color: `${stat.color}.contrastText`,
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                    }}
-                                >
-                                    <stat.icon />
-                                </Box>
-                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                                    {delta ? (
-                                        <Typography
-                                            variant="body2"
-                                            color={delta.direction === 'up' ? 'success.main' : delta.direction === 'down' ? 'error.main' : 'text.secondary'}
+                            <Card
+                                sx={{
+                                    cursor: stat.onClick ? 'pointer' : 'default',
+                                    transition: 'all 0.2s ease-in-out',
+                                    '&:hover': stat.onClick ? {
+                                        transform: 'translateY(-4px)',
+                                        boxShadow: 6,
+                                    } : {}
+                                }}
+                                onClick={stat.onClick}
+                            >
+                                <CardContent>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+                                        <Box
+                                            sx={{
+                                                p: 1.5,
+                                                borderRadius: 2,
+                                                bgcolor: `${stat.color}.light`,
+                                                color: `${stat.color}.contrastText`,
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                            }}
                                         >
-                                            {delta.direction === 'up' ? '▲' : delta.direction === 'down' ? '▼' : ''} {delta.label}
-                                        </Typography>
-                                    ) : stat.change ? (
-                                        <>
-                                            {stat.trend === 'up' ? (
-                                                <TrendingUpIcon sx={{ fontSize: 16, color: 'success.main' }} />
-                                            ) : stat.trend === 'down' ? (
-                                                <TrendingDownIcon sx={{ fontSize: 16, color: 'error.main' }} />
+                                            <stat.icon />
+                                        </Box>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                            {delta ? (
+                                                <Typography
+                                                    variant="body2"
+                                                    color={delta.direction === 'up' ? 'success.main' : delta.direction === 'down' ? 'error.main' : 'text.secondary'}
+                                                >
+                                                    {delta.direction === 'up' ? '▲' : delta.direction === 'down' ? '▼' : ''} {delta.label}
+                                                </Typography>
+                                            ) : stat.change ? (
+                                                <>
+                                                    {stat.trend === 'up' ? (
+                                                        <TrendingUpIcon sx={{ fontSize: 16, color: 'success.main' }} />
+                                                    ) : stat.trend === 'down' ? (
+                                                        <TrendingDownIcon sx={{ fontSize: 16, color: 'error.main' }} />
+                                                    ) : null}
+                                                    <Typography
+                                                        variant="tableCaption"
+                                                        sx={{
+                                                            color: stat.trend === 'up' ? 'success.main' : stat.trend === 'down' ? 'error.main' : 'text.secondary',
+                                                            fontWeight: 600,
+                                                            fontSize: '0.7rem'
+                                                        }}
+                                                    >
+                                                        {stat.change}
+                                                    </Typography>
+                                                </>
                                             ) : null}
-                                            <Typography
-                                                variant="tableCaption"
-                                                sx={{
-                                                    color: stat.trend === 'up' ? 'success.main' : stat.trend === 'down' ? 'error.main' : 'text.secondary',
-                                                    fontWeight: 600,
-                                                    fontSize: '0.7rem'
-                                                }}
-                                            >
-                                                {stat.change}
-                                            </Typography>
-                                        </>
-                                    ) : null}
-                                </Box>
-                            </Box>
-                            <Typography variant="h4" sx={{ fontWeight: 700, mb: 0.5 }}>
-                                {stat.value}
-                            </Typography>
-                            <Typography variant="body2" color="text.secondary">
-                                {stat.title}
-                            </Typography>
-                        </CardContent>
-                    </Card>
-                        )
+                                        </Box>
+                                    </Box>
+                                    <Typography variant="h4" sx={{ fontWeight: 700, mb: 0.5 }}>
+                                        {stat.value}
+                                    </Typography>
+                                    <Typography variant="body2" sx={{
+                                        color: "text.secondary"
+                                    }}>
+                                        {stat.title}
+                                    </Typography>
+                                </CardContent>
+                            </Card>
+                        );
                     })()}
                 </Grid>
             ))}
         </Grid>
-    )
+    );
 }
 
 export default SalesStatsCards

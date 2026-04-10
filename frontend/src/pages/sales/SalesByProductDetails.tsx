@@ -37,19 +37,17 @@ import {
   OutlinedInput,
 } from '@mui/material'
 import { alpha } from '@mui/material/styles'
-import {
-  PictureAsPdf as PdfIcon,
-  TableChart as ExcelIcon,
-  Refresh as RefreshIcon,
-  PlayArrow as GenerateIcon,
-  ListAlt as DetailIcon,
-  Close as CloseIcon,
-  KeyboardArrowRight as KeyboardArrowRightIcon,
-  KeyboardArrowLeft as KeyboardArrowLeftIcon,
-  KeyboardDoubleArrowRight as KeyboardDoubleArrowRightIcon,
-  KeyboardDoubleArrowLeft as KeyboardDoubleArrowLeftIcon,
-  ViewColumn as ViewColumnIcon,
-} from '@mui/icons-material'
+import { default as PdfIcon } from '@mui/icons-material/PictureAsPdf'
+import { default as ExcelIcon } from '@mui/icons-material/TableChart'
+import { default as RefreshIcon } from '@mui/icons-material/Refresh'
+import { default as GenerateIcon } from '@mui/icons-material/PlayArrow'
+import { default as DetailIcon } from '@mui/icons-material/ListAlt'
+import { default as CloseIcon } from '@mui/icons-material/Close'
+import { default as KeyboardArrowRightIcon } from '@mui/icons-material/KeyboardArrowRight'
+import { default as KeyboardArrowLeftIcon } from '@mui/icons-material/KeyboardArrowLeft'
+import { default as KeyboardDoubleArrowRightIcon } from '@mui/icons-material/KeyboardDoubleArrowRight'
+import { default as KeyboardDoubleArrowLeftIcon } from '@mui/icons-material/KeyboardDoubleArrowLeft'
+import { default as ViewColumnIcon } from '@mui/icons-material/ViewColumn'
 import PageHeader from '@/components/common/PageHeader'
 import { printColors } from '@/styles/printTokens'
 import { formatCurrency, formatDate, formatDateTime } from '@/utils/formatters'
@@ -851,7 +849,12 @@ const SalesByProductDetails: React.FC = () => {
 
               <Box sx={{ p: 2, overflow: 'auto', flex: 1 }}>
                 <Stack spacing={2}>
-                <Typography variant="caption" color="text.secondary" sx={{ mb: 1 }}>
+                <Typography
+                  variant="caption"
+                  sx={{
+                    color: "text.secondary",
+                    mb: 1
+                  }}>
                   Invoice Date Range
                 </Typography>
                 <TextField
@@ -859,8 +862,10 @@ const SalesByProductDetails: React.FC = () => {
                   type="date"
                   value={dateFrom}
                   onChange={(e) => setDateFrom(e.target.value)}
-                  InputLabelProps={{ shrink: true, sx: { fontSize: '0.75rem' } }}
-                  inputProps={{ sx: { fontSize: '0.75rem' } }}
+                  slotProps={{
+  inputLabel: { shrink: true, sx: { fontSize: '0.75rem' } },
+  htmlInput: { sx: { fontSize: '0.75rem' } },
+}}
                   size="small"
                   fullWidth
                 />
@@ -870,8 +875,10 @@ const SalesByProductDetails: React.FC = () => {
                   type="date"
                   value={dateTo}
                   onChange={(e) => setDateTo(e.target.value)}
-                  InputLabelProps={{ shrink: true, sx: { fontSize: '0.75rem' } }}
-                  inputProps={{ sx: { fontSize: '0.75rem' } }}
+                  slotProps={{
+  inputLabel: { shrink: true, sx: { fontSize: '0.75rem' } },
+  htmlInput: { sx: { fontSize: '0.75rem' } },
+}}
                   size="small"
                   fullWidth
                 />
@@ -882,7 +889,7 @@ const SalesByProductDetails: React.FC = () => {
                     value={selectedProduct}
                     label="Products"
                     onChange={(e) => handleProductSelectChange(e.target.value)}
-                    MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } }}
+                    MenuProps={{ slotProps: { paper: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } } }}
                   >
                     <MenuItem value="all">All Products</MenuItem>
                     <MenuItem value="select">Select Products</MenuItem>
@@ -912,7 +919,7 @@ const SalesByProductDetails: React.FC = () => {
                     value={selectedCategory}
                     label="Category"
                     onChange={(e) => setSelectedCategory(e.target.value)}
-                    MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } }}
+                    MenuProps={{ slotProps: { paper: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } } }}
                   >
                     <MenuItem value="">All Categories</MenuItem>
                     {categories.map((category) => (
@@ -965,7 +972,7 @@ const SalesByProductDetails: React.FC = () => {
                       }
                     }}
                     renderValue={(selected) => `${selected.length} column${selected.length !== 1 ? 's' : ''} selected`}
-                    MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } }}
+                    MenuProps={{ slotProps: { paper: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } } }}
                   >
                     <MenuItem value="all">All</MenuItem>
                     <MenuItem value="productName">Product</MenuItem>
@@ -987,7 +994,7 @@ const SalesByProductDetails: React.FC = () => {
                     value={groupBy}
                     label="Group By"
                     onChange={(e) => setGroupBy(e.target.value)}
-                    MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } }}
+                    MenuProps={{ slotProps: { paper: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } } }}
                   >
                     <MenuItem value="none">None</MenuItem>
                     <MenuItem value="category-product">Category, Product</MenuItem>
@@ -1001,7 +1008,7 @@ const SalesByProductDetails: React.FC = () => {
                     value={sortBy1}
                     label="Sort By"
                     onChange={(e) => setSortBy1(e.target.value)}
-                    MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } }}
+                    MenuProps={{ slotProps: { paper: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } } }}
                   >
                     <MenuItem value="productName">Product</MenuItem>
                     <MenuItem value="category">Category</MenuItem>
@@ -1020,8 +1027,10 @@ const SalesByProductDetails: React.FC = () => {
                   label="Report Title"
                   value={reportTitle}
                   onChange={(e) => setReportTitle(e.target.value)}
-                  InputLabelProps={{ sx: { fontSize: '0.75rem' } }}
-                  inputProps={{ sx: { fontSize: '0.75rem' } }}
+                  slotProps={{
+  inputLabel: { sx: { fontSize: '0.75rem' } },
+  htmlInput: { sx: { fontSize: '0.75rem' } },
+}}
                   size="small"
                   fullWidth
                 />
@@ -1047,10 +1056,17 @@ const SalesByProductDetails: React.FC = () => {
                   ) : (
                     <>
                       <DetailIcon sx={{ fontSize: 80, color: 'text.disabled', mb: 2 }} />
-                      <Typography variant="h6" color="text.secondary" sx={{ mb: 1 }}>
+                      <Typography
+                        variant="h6"
+                        sx={{
+                          color: "text.secondary",
+                          mb: 1
+                        }}>
                         No Report Generated
                       </Typography>
-                      <Typography variant="body2" color="text.secondary">
+                      <Typography variant="body2" sx={{
+                        color: "text.secondary"
+                      }}>
                         Configure the filters on the left and click "Generate Report" to view transaction details by product.
                       </Typography>
                     </>
@@ -1412,9 +1428,7 @@ const SalesByProductDetails: React.FC = () => {
         onClose={handleProductDialogClose}
         maxWidth="lg"
         fullWidth
-        PaperProps={{
-          sx: { height: '90vh', maxHeight: '90vh' }
-        }}
+        slotProps={{ paper: { sx: { height: '90vh', maxHeight: '90vh' } } }}
       >
         <DialogTitle sx={{
           display: 'flex',
@@ -1464,7 +1478,9 @@ const SalesByProductDetails: React.FC = () => {
                       {getFilteredProducts().length === 0 ? (
                         <TableRow>
                           <TableCell colSpan={2} align="center" sx={{ py: 4 }}>
-                            <Typography variant="caption" color="text.secondary">
+                            <Typography variant="caption" sx={{
+                              color: "text.secondary"
+                            }}>
                               {products.length === 0 ? 'No products available' : 'No products found'}
                             </Typography>
                           </TableCell>
@@ -1587,7 +1603,9 @@ const SalesByProductDetails: React.FC = () => {
                       {getSelectedProductsList().length === 0 ? (
                         <TableRow>
                           <TableCell colSpan={2} align="center" sx={{ py: 4 }}>
-                            <Typography variant="caption" color="text.secondary">
+                            <Typography variant="caption" sx={{
+                              color: "text.secondary"
+                            }}>
                               No products selected
                             </Typography>
                           </TableCell>
@@ -1654,7 +1672,12 @@ const SalesByProductDetails: React.FC = () => {
           </Box>
         </DialogContent>
         <DialogActions sx={{ p: 2, borderTop: '1px solid', borderColor: 'divider' }}>
-          <Typography variant="body2" color="text.secondary" sx={{ mr: 'auto' }}>
+          <Typography
+            variant="body2"
+            sx={{
+              color: "text.secondary",
+              mr: 'auto'
+            }}>
             {selectedProducts.length} product{selectedProducts.length !== 1 ? 's' : ''} selected
           </Typography>
           <Button onClick={handleProductDialogClose}>

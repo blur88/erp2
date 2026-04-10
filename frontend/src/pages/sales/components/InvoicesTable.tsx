@@ -102,7 +102,9 @@ const InvoicesTable: React.FC<InvoicesTableProps> = ({
           </Typography>
           {loading && invoices.length > 0 && (
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <Typography variant="caption" color="text.secondary">
+              <Typography variant="caption" sx={{
+                color: "text.secondary"
+              }}>
                 Searching...
               </Typography>
               <Box sx={{ width: 16, height: 16 }}>
@@ -112,7 +114,6 @@ const InvoicesTable: React.FC<InvoicesTableProps> = ({
           )}
         </Box>
       </Box>
-
       <Box sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }} ref={invoiceListRef}>
         <TableContainer sx={{ flex: 1, overflow: 'auto' }}>
           <Table
@@ -161,7 +162,7 @@ const InvoicesTable: React.FC<InvoicesTableProps> = ({
         </TableContainer>
       </Box>
     </Paper>
-  )
+  );
 }
 
 export default InvoicesTable

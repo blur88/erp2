@@ -100,7 +100,9 @@ const CustomerList: React.FC<CustomerListProps> = ({
           </Typography>
           {loading && customers.length > 0 && (
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <Typography variant="caption" color="text.secondary">
+              <Typography variant="caption" sx={{
+                color: "text.secondary"
+              }}>
                 Searching...
               </Typography>
               <Box sx={{ width: 16, height: 16 }}>
@@ -110,7 +112,6 @@ const CustomerList: React.FC<CustomerListProps> = ({
           )}
         </Box>
       </Box>
-
       <Box sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }} ref={customerListRef}>
         <TableContainer sx={{ flex: 1, overflow: 'auto' }}>
           <Table
@@ -136,7 +137,13 @@ const CustomerList: React.FC<CustomerListProps> = ({
                   ? (
                       <TableRow>
                         <TableCell>
-                          <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 2 }}>
+                          <Typography
+                            variant="body2"
+                            sx={{
+                              color: "text.secondary",
+                              textAlign: 'center',
+                              py: 2
+                            }}>
                             No customers found
                           </Typography>
                         </TableCell>
@@ -157,7 +164,7 @@ const CustomerList: React.FC<CustomerListProps> = ({
         </TableContainer>
       </Box>
     </Paper>
-  )
+  );
 }
 
 export default CustomerList

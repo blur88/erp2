@@ -13,7 +13,7 @@ import {
   ListItem,
   ListItemText,
 } from '@mui/material';
-import { Warning as WarningIcon } from '@mui/icons-material';
+import { default as WarningIcon } from '@mui/icons-material/Warning';
 import { useAppSelector } from '@/hooks/useRedux';
 import { formatDateTime } from '@/utils/formatters';
 import { useRestoreBackupMutation } from '@/store/api/backupApi';
@@ -54,8 +54,8 @@ const RestoreConfirmationDialog: React.FC<RestoreConfirmationDialogProps> = ({
     }
   };
 
-  const handleClose = () => {
-    if (!restoreInProgress) {
+  const handleClose = (_event?: object, reason?: 'backdropClick' | 'escapeKeyDown') => {
+    if (!restoreInProgress && reason !== 'escapeKeyDown') {
       setConfirmText('');
       setNote('');
       onClose();
@@ -70,7 +70,6 @@ const RestoreConfirmationDialog: React.FC<RestoreConfirmationDialogProps> = ({
       onClose={handleClose}
       maxWidth="sm"
       fullWidth
-      disableEscapeKeyDown={restoreInProgress}
     >
       <DialogTitle>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -80,7 +79,9 @@ const RestoreConfirmationDialog: React.FC<RestoreConfirmationDialogProps> = ({
       </DialogTitle>
       <DialogContent>
         <Alert severity="error" sx={{ mb: 3 }}>
-          <Typography variant="body2" fontWeight="bold" gutterBottom>
+          <Typography variant="body2" gutterBottom sx={{
+            fontWeight: "bold"
+          }}>
             WARNING: This action will overwrite your current data!
           </Typography>
           <Typography variant="body2">

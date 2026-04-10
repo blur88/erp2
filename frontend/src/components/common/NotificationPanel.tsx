@@ -16,17 +16,15 @@ import {
   Badge,
   Tooltip,
 } from '@mui/material'
-import {
-  Close as CloseIcon,
-  MarkEmailRead as MarkReadIcon,
-  Delete as DeleteIcon,
-  Info as InfoIcon,
-  Warning as WarningIcon,
-  Error as ErrorIcon,
-  CheckCircle as SuccessIcon,
-  ContentCopy as CopyIcon,
-  Check as CheckIcon,
-} from '@mui/icons-material'
+import { default as CloseIcon } from '@mui/icons-material/Close'
+import { default as MarkReadIcon } from '@mui/icons-material/MarkEmailRead'
+import { default as DeleteIcon } from '@mui/icons-material/Delete'
+import { default as InfoIcon } from '@mui/icons-material/Info'
+import { default as WarningIcon } from '@mui/icons-material/Warning'
+import { default as ErrorIcon } from '@mui/icons-material/Error'
+import { default as SuccessIcon } from '@mui/icons-material/CheckCircle'
+import { default as CopyIcon } from '@mui/icons-material/ContentCopy'
+import { default as CheckIcon } from '@mui/icons-material/Check'
 import { formatDistanceToNow } from 'date-fns'
 
 import { copyToClipboard } from '@/utils/clipboard'
@@ -133,13 +131,15 @@ const NotificationPanel: React.FC<NotificationPanelProps> = ({
         vertical: 'top',
         horizontal: 'right',
       }}
-      PaperProps={{
-        ref: popoverRef,
-        sx: {
-          width: 400,
-          maxHeight: 600,
-          overflow: 'hidden',
-          mt: 1,
+      slotProps={{
+        paper: {
+          ref: popoverRef,
+          sx: {
+            width: 400,
+            maxHeight: 600,
+            overflow: 'hidden',
+            mt: 1,
+          },
         },
       }}
     >
@@ -180,7 +180,6 @@ const NotificationPanel: React.FC<NotificationPanelProps> = ({
           </IconButton>
         </Box>
       </Box>
-
       {/* Content */}
       <Box sx={{ maxHeight: 500, overflow: 'auto' }}>
         {recentNotifications.length === 0 ? (
@@ -193,7 +192,9 @@ const NotificationPanel: React.FC<NotificationPanelProps> = ({
               textAlign: 'center',
             }}
           >
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant="body2" sx={{
+              color: "text.secondary"
+            }}>
               No notifications yet
             </Typography>
           </Box>
@@ -241,23 +242,25 @@ const NotificationPanel: React.FC<NotificationPanelProps> = ({
                       <Box>
                         <Typography
                           variant="body2"
-                          color="text.secondary"
-                          sx={{ mb: 0.5 }}
-                        >
+                          sx={{
+                            color: "text.secondary",
+                            mb: 0.5
+                          }}>
                           {notification.message}
                         </Typography>
                         <Typography
                           variant="caption"
-                          color="text.disabled"
-                          sx={{ fontSize: '0.7rem' }}
-                        >
+                          sx={{
+                            color: "text.disabled",
+                            fontSize: '0.7rem'
+                          }}>
                           {formatDistanceToNow(new Date(notification.timestamp), {
                             addSuffix: true,
                           })}
                         </Typography>
                       </Box>
                     }
-                    secondaryTypographyProps={{ component: 'div' }}
+                    slotProps={{ secondary: { component: 'div' } }}
                   />
 
                   <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
@@ -299,7 +302,6 @@ const NotificationPanel: React.FC<NotificationPanelProps> = ({
           </List>
         )}
       </Box>
-
       {/* Footer */}
       {notifications.length > 10 && (
         <>
@@ -317,7 +319,7 @@ const NotificationPanel: React.FC<NotificationPanelProps> = ({
         </>
       )}
     </Popover>
-  )
+  );
 }
 
 export default NotificationPanel

@@ -212,13 +212,17 @@ const AccountMappingDialog: React.FC<AccountMappingDialogProps> = ({
               {/* Selected Account Info */}
               {selectedAccount && (
                 <Box sx={{ p: 2, bgcolor: 'grey.50', borderRadius: 1 }}>
-                  <Typography variant="caption" color="text.secondary" gutterBottom>
+                  <Typography variant="caption" gutterBottom sx={{
+                    color: "text.secondary"
+                  }}>
                     Selected Account Details
                   </Typography>
                   <Typography variant="body2" sx={{ fontWeight: 500 }}>
                     {selectedAccount.fullCode} - {selectedAccount.name}
                   </Typography>
-                  <Typography variant="body2" color="text.secondary">
+                  <Typography variant="body2" sx={{
+                    color: "text.secondary"
+                  }}>
                     Type: {selectedAccount.type}
                   </Typography>
                 </Box>
@@ -253,7 +257,7 @@ const AccountMappingDialog: React.FC<AccountMappingDialogProps> = ({
         </DialogActions>
       </form>
     </Dialog>
-  )
+  );
 }
 
 export default AccountMappingDialog

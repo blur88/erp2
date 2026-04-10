@@ -21,13 +21,11 @@ import {
   DialogActions,
   InputAdornment,
 } from '@mui/material'
-import {
-  ArrowBack as BackIcon,
-  Edit as EditIcon,
-  Save as SaveIcon,
-  Refresh as RefreshIcon,
-  TrendingUp as AdjustIcon,
-} from '@mui/icons-material'
+import { default as BackIcon } from '@mui/icons-material/ArrowBack'
+import { default as EditIcon } from '@mui/icons-material/Edit'
+import { default as SaveIcon } from '@mui/icons-material/Save'
+import { default as RefreshIcon } from '@mui/icons-material/Refresh'
+import { default as AdjustIcon } from '@mui/icons-material/TrendingUp'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useNotification } from '@/hooks/useNotification'
 import {
@@ -211,11 +209,18 @@ const PriceListDetailsPage: React.FC = () => {
                 size="small"
               />
             </Box>
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant="body2" sx={{
+              color: "text.secondary"
+            }}>
               Code: {selectedPriceList.code}
             </Typography>
             {selectedPriceList.description && (
-              <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+              <Typography
+                variant="body2"
+                sx={{
+                  color: "text.secondary",
+                  mt: 1
+                }}>
                 {selectedPriceList.description}
               </Typography>
             )}
@@ -261,19 +266,25 @@ const PriceListDetailsPage: React.FC = () => {
         <Paper sx={{ p: 2, mb: 2 }}>
           <Stack direction="row" spacing={4}>
             <Box>
-              <Typography variant="caption" color="text.secondary">
+              <Typography variant="caption" sx={{
+                color: "text.secondary"
+              }}>
                 Effective From
               </Typography>
               <Typography variant="body2">{formatDisplayDate(selectedPriceList.effectiveFrom)}</Typography>
             </Box>
             <Box>
-              <Typography variant="caption" color="text.secondary">
+              <Typography variant="caption" sx={{
+                color: "text.secondary"
+              }}>
                 Effective To
               </Typography>
               <Typography variant="body2">{formatDisplayDate(selectedPriceList.effectiveTo)}</Typography>
             </Box>
             <Box>
-              <Typography variant="caption" color="text.secondary">
+              <Typography variant="caption" sx={{
+                color: "text.secondary"
+              }}>
                 Total Items
               </Typography>
               <Typography variant="body2">{priceListItems.length}</Typography>
@@ -281,10 +292,8 @@ const PriceListDetailsPage: React.FC = () => {
           </Stack>
         </Paper>
       </Box>
-
       {/* Error Alert */}
       {error && <Alert severity="error" sx={{ mb: 2 }}>Failed to load price list data</Alert>}
-
       {/* Price List Items Table */}
       <Paper sx={{ borderRadius: 2, overflow: 'hidden' }}>
         <TableContainer sx={{ overflowX: 'auto' }}>
@@ -350,7 +359,9 @@ const PriceListDetailsPage: React.FC = () => {
               ) : priceListItems.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={7} align="center" sx={{ py: 8 }}>
-                    <Typography color="text.secondary">No items in this price list</Typography>
+                    <Typography sx={{
+                      color: "text.secondary"
+                    }}>No items in this price list</Typography>
                   </TableCell>
                 </TableRow>
               ) : (
@@ -493,12 +504,16 @@ const PriceListDetailsPage: React.FC = () => {
           </Table>
         </TableContainer>
       </Paper>
-
       {/* Percentage Adjustment Dialog */}
       <Dialog open={adjustmentDialogOpen} onClose={() => setAdjustmentDialogOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle>Apply Percentage Adjustment</DialogTitle>
         <DialogContent dividers>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+          <Typography
+            variant="body2"
+            sx={{
+              color: "text.secondary",
+              mb: 3
+            }}>
             Apply a percentage increase or decrease to all prices in this price list.
           </Typography>
 
@@ -565,7 +580,7 @@ const PriceListDetailsPage: React.FC = () => {
         </DialogActions>
       </Dialog>
     </>
-  )
+  );
 }
 
 export default PriceListDetailsPage

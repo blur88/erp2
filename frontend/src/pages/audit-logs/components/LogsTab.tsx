@@ -48,7 +48,9 @@ const LogsTab: React.FC<LogsTabProps> = ({
               ) : logs.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={6} align="center" sx={{ py: 6 }}>
-                    <Typography variant="body2" color="text.secondary">
+                    <Typography variant="body2" sx={{
+                      color: "text.secondary"
+                    }}>
                       No audit logs found
                     </Typography>
                   </TableCell>
@@ -72,7 +74,7 @@ const LogsTab: React.FC<LogsTabProps> = ({
         />
       </Paper>
     </>
-  )
+  );
 }
 
 export default LogsTab

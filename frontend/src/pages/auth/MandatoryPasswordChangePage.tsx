@@ -13,12 +13,10 @@ import {
   LinearProgress,
 } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
-import {
-  Visibility,
-  VisibilityOff,
-  Warning as WarningIcon,
-  Lock as LockIcon,
-} from '@mui/icons-material';
+import { default as Visibility } from '@mui/icons-material/Visibility'
+import { default as VisibilityOff } from '@mui/icons-material/VisibilityOff'
+import { default as WarningIcon } from '@mui/icons-material/Warning'
+import { default as LockIcon } from '@mui/icons-material/Lock';
 import { useForm, Controller } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
@@ -133,17 +131,23 @@ const MandatoryPasswordChangePage: React.FC = () => {
             >
               <LockIcon sx={{ fontSize: 32, color: 'warning.dark' }} />
             </Box>
-            <Typography variant="h4" component="h1" gutterBottom fontWeight="bold">
+            <Typography variant="h4" component="h1" gutterBottom sx={{
+              fontWeight: "bold"
+            }}>
               Password Change Required
             </Typography>
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant="body2" sx={{
+              color: "text.secondary"
+            }}>
               {user?.username ? `Logged in as: ${user.username}` : ''}
             </Typography>
           </Box>
 
           {/* Warning Alert */}
           <Alert severity="warning" icon={<WarningIcon />} sx={{ mb: 3 }}>
-            <Typography variant="body2" fontWeight="medium">
+            <Typography variant="body2" sx={{
+              fontWeight: "medium"
+            }}>
               For security reasons, you must change your password before accessing the application.
             </Typography>
             <Typography variant="body2" sx={{ mt: 1 }}>
@@ -181,17 +185,19 @@ const MandatoryPasswordChangePage: React.FC = () => {
                   error={!!errors.currentPassword}
                   helperText={errors.currentPassword?.message}
                   disabled={loading}
-                  InputProps={{
-                    endAdornment: (
-                      <InputAdornment position="end">
-                        <IconButton
-                          onClick={() => setShowCurrentPassword(!showCurrentPassword)}
-                          edge="end"
-                        >
-                          {showCurrentPassword ? <VisibilityOff /> : <Visibility />}
-                        </IconButton>
-                      </InputAdornment>
-                    ),
+                  slotProps={{
+                    input: {
+                      endAdornment: (
+                        <InputAdornment position="end">
+                          <IconButton
+                            onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                            edge="end"
+                          >
+                            {showCurrentPassword ? <VisibilityOff /> : <Visibility />}
+                          </IconButton>
+                        </InputAdornment>
+                      ),
+                    },
                   }}
                 />
               )}
@@ -211,17 +217,19 @@ const MandatoryPasswordChangePage: React.FC = () => {
                   error={!!errors.newPassword}
                   helperText={errors.newPassword?.message}
                   disabled={loading}
-                  InputProps={{
-                    endAdornment: (
-                      <InputAdornment position="end">
-                        <IconButton
-                          onClick={() => setShowNewPassword(!showNewPassword)}
-                          edge="end"
-                        >
-                          {showNewPassword ? <VisibilityOff /> : <Visibility />}
-                        </IconButton>
-                      </InputAdornment>
-                    ),
+                  slotProps={{
+                    input: {
+                      endAdornment: (
+                        <InputAdornment position="end">
+                          <IconButton
+                            onClick={() => setShowNewPassword(!showNewPassword)}
+                            edge="end"
+                          >
+                            {showNewPassword ? <VisibilityOff /> : <Visibility />}
+                          </IconButton>
+                        </InputAdornment>
+                      ),
+                    },
                   }}
                 />
               )}
@@ -241,17 +249,19 @@ const MandatoryPasswordChangePage: React.FC = () => {
                   error={!!errors.newPasswordConfirmation}
                   helperText={errors.newPasswordConfirmation?.message}
                   disabled={loading}
-                  InputProps={{
-                    endAdornment: (
-                      <InputAdornment position="end">
-                        <IconButton
-                          onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                          edge="end"
-                        >
-                          {showConfirmPassword ? <VisibilityOff /> : <Visibility />}
-                        </IconButton>
-                      </InputAdornment>
-                    ),
+                  slotProps={{
+                    input: {
+                      endAdornment: (
+                        <InputAdornment position="end">
+                          <IconButton
+                            onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                            edge="end"
+                          >
+                            {showConfirmPassword ? <VisibilityOff /> : <Visibility />}
+                          </IconButton>
+                        </InputAdornment>
+                      ),
+                    },
                   }}
                 />
               )}
@@ -259,19 +269,45 @@ const MandatoryPasswordChangePage: React.FC = () => {
 
             {/* Password Requirements */}
             <Box sx={{ mt: 2, mb: 3 }}>
-              <Typography variant="caption" color="text.secondary" display="block" gutterBottom>
+              <Typography
+                variant="caption"
+                gutterBottom
+                sx={{
+                  color: "text.secondary",
+                  display: "block"
+                }}>
                 Password Requirements:
               </Typography>
-              <Typography variant="caption" color="text.secondary" display="block">
+              <Typography
+                variant="caption"
+                sx={{
+                  color: "text.secondary",
+                  display: "block"
+                }}>
                 • At least 8 characters long
               </Typography>
-              <Typography variant="caption" color="text.secondary" display="block">
+              <Typography
+                variant="caption"
+                sx={{
+                  color: "text.secondary",
+                  display: "block"
+                }}>
                 • Contains uppercase and lowercase letters
               </Typography>
-              <Typography variant="caption" color="text.secondary" display="block">
+              <Typography
+                variant="caption"
+                sx={{
+                  color: "text.secondary",
+                  display: "block"
+                }}>
                 • Contains at least one number
               </Typography>
-              <Typography variant="caption" color="text.secondary" display="block">
+              <Typography
+                variant="caption"
+                sx={{
+                  color: "text.secondary",
+                  display: "block"
+                }}>
                 • Contains at least one special character (@$!%*?&#.)
               </Typography>
             </Box>
@@ -314,7 +350,12 @@ const MandatoryPasswordChangePage: React.FC = () => {
             borderRadius: 2,
           }}
         >
-          <Typography variant="body2" color="info.dark" textAlign="center">
+          <Typography
+            variant="body2"
+            sx={{
+              color: "info.dark",
+              textAlign: "center"
+            }}>
             Your password will be securely encrypted and stored. After changing your password,
             all active sessions will be terminated and you will need to log in again.
           </Typography>

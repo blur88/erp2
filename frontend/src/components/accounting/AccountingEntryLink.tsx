@@ -8,7 +8,7 @@ import {
   Link,
   Typography,
 } from '@mui/material'
-import { AccountBalance as AccountBalanceIcon } from '@mui/icons-material'
+import { default as AccountBalanceIcon } from '@mui/icons-material/AccountBalance'
 
 interface AccountingEntryLinkProps {
   sourceType: string

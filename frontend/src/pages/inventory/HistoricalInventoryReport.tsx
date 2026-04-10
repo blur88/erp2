@@ -29,17 +29,15 @@ import {
   IconButton,
 } from '@mui/material'
 import { alpha } from '@mui/material/styles'
-import {
-  PictureAsPdf as PdfIcon,
-  TableChart as ExcelIcon,
-  Refresh as RefreshIcon,
-  PlayArrow as GenerateIcon,
-  Close as CloseIcon,
-  KeyboardArrowRight as KeyboardArrowRightIcon,
-  KeyboardArrowLeft as KeyboardArrowLeftIcon,
-  KeyboardDoubleArrowRight as KeyboardDoubleArrowRightIcon,
-  KeyboardDoubleArrowLeft as KeyboardDoubleArrowLeftIcon,
-} from '@mui/icons-material'
+import { default as PdfIcon } from '@mui/icons-material/PictureAsPdf'
+import { default as ExcelIcon } from '@mui/icons-material/TableChart'
+import { default as RefreshIcon } from '@mui/icons-material/Refresh'
+import { default as GenerateIcon } from '@mui/icons-material/PlayArrow'
+import { default as CloseIcon } from '@mui/icons-material/Close'
+import { default as KeyboardArrowRightIcon } from '@mui/icons-material/KeyboardArrowRight'
+import { default as KeyboardArrowLeftIcon } from '@mui/icons-material/KeyboardArrowLeft'
+import { default as KeyboardDoubleArrowRightIcon } from '@mui/icons-material/KeyboardDoubleArrowRight'
+import { default as KeyboardDoubleArrowLeftIcon } from '@mui/icons-material/KeyboardDoubleArrowLeft'
 import PageHeader from '@/components/common/PageHeader'
 import { formatCurrency, formatDate, formatDateTime } from '@/utils/formatters'
 import { TABLE_STYLES } from '@/constants/tableStyles'
@@ -557,7 +555,7 @@ const HistoricalInventoryReport: React.FC = () => {
                           setProductDialogOpen(true)
                         }
                       }}
-                      MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } }}
+                      MenuProps={{ slotProps: { paper: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } } }}
                     >
                       <MenuItem value="all">All Products</MenuItem>
                       <MenuItem value="select">Select Products</MenuItem>
@@ -589,7 +587,7 @@ const HistoricalInventoryReport: React.FC = () => {
                       value={selectedCategory}
                       label="Category"
                       onChange={(e) => setSelectedCategory(e.target.value)}
-                      MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } }}
+                      MenuProps={{ slotProps: { paper: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } } }}
                     >
                       <MenuItem value="">All Categories</MenuItem>
                       {categories.map((category) => (
@@ -671,7 +669,7 @@ const HistoricalInventoryReport: React.FC = () => {
                           setSelectedColumns(value as string[])
                         }
                       }}
-                      MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } }}
+                      MenuProps={{ slotProps: { paper: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } } }}
                       renderValue={(selected) => `${selected.length} column${selected.length !== 1 ? 's' : ''} selected`}
                     >
                       <MenuItem value="all">All</MenuItem>
@@ -689,7 +687,7 @@ const HistoricalInventoryReport: React.FC = () => {
                       value={groupBy}
                       label="Group By"
                       onChange={(e) => setGroupBy(e.target.value)}
-                      MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } }}
+                      MenuProps={{ slotProps: { paper: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } } }}
                     >
                       <MenuItem value="none">None</MenuItem>
                       <MenuItem value="categoryName">Category</MenuItem>
@@ -702,7 +700,7 @@ const HistoricalInventoryReport: React.FC = () => {
                       value={sortBy1}
                       label="Sort By"
                       onChange={(e) => setSortBy1(e.target.value)}
-                      MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } }}
+                      MenuProps={{ slotProps: { paper: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } } }}
                     >
                       <MenuItem value="productName">Products</MenuItem>
                       <MenuItem value="categoryName">Category</MenuItem>
@@ -744,10 +742,17 @@ const HistoricalInventoryReport: React.FC = () => {
                     <CircularProgress />
                   ) : (
                     <>
-                      <Typography variant="h6" color="text.secondary" sx={{ mb: 1 }}>
+                      <Typography
+                        variant="h6"
+                        sx={{
+                          color: "text.secondary",
+                          mb: 1
+                        }}>
                         No Report Generated
                       </Typography>
-                      <Typography variant="body2" color="text.secondary">
+                      <Typography variant="body2" sx={{
+                        color: "text.secondary"
+                      }}>
                         Configure the filters on the left and click "Generate Report" to view historical inventory movements.
                       </Typography>
                     </>
@@ -1053,7 +1058,9 @@ const HistoricalInventoryReport: React.FC = () => {
                       {getFilteredProducts().length === 0 ? (
                         <TableRow>
                           <TableCell colSpan={2} align="center" sx={{ py: 4 }}>
-                            <Typography variant="caption" color="text.secondary">
+                            <Typography variant="caption" sx={{
+                              color: "text.secondary"
+                            }}>
                               {products.length === 0 ? 'No products available' : 'No products found'}
                             </Typography>
                           </TableCell>
@@ -1176,7 +1183,9 @@ const HistoricalInventoryReport: React.FC = () => {
                       {getSelectedProductsList().length === 0 ? (
                         <TableRow>
                           <TableCell colSpan={2} align="center" sx={{ py: 4 }}>
-                            <Typography variant="caption" color="text.secondary">
+                            <Typography variant="caption" sx={{
+                              color: "text.secondary"
+                            }}>
                               No products selected
                             </Typography>
                           </TableCell>
@@ -1243,7 +1252,12 @@ const HistoricalInventoryReport: React.FC = () => {
           </Box>
         </DialogContent>
         <DialogActions sx={{ p: 2, borderTop: '1px solid', borderColor: 'divider' }}>
-          <Typography variant="body2" color="text.secondary" sx={{ mr: 'auto' }}>
+          <Typography
+            variant="body2"
+            sx={{
+              color: "text.secondary",
+              mr: 'auto'
+            }}>
             {selectedProducts.length} product{selectedProducts.length !== 1 ? 's' : ''} selected
           </Typography>
           <Button onClick={handleProductDialogClose}>

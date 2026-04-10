@@ -18,11 +18,9 @@ import {
   Paper,
 } from '@mui/material'
 import { alpha, useTheme } from '@mui/material/styles'
-import {
-  ExpandMore,
-  ChevronLeft,
-  ChevronRight,
-} from '@mui/icons-material'
+import { default as ExpandMore } from '@mui/icons-material/ExpandMore'
+import { default as ChevronLeft } from '@mui/icons-material/ChevronLeft'
+import { default as ChevronRight } from '@mui/icons-material/ChevronRight'
 import { useAppSelector } from '@/hooks/useRedux'
 import { TOPBAR_HEIGHT } from '@/constants/layout'
 import { useGetCompanySettingsQuery } from '@/store/api/settingsApi'
@@ -863,9 +861,13 @@ const Sidebar: React.FC<SidebarProps> = ({
                                 >
                                   <ListItemText
                                     primary={group}
-                                    primaryTypographyProps={{
-                                      variant: 'body2',
-                                      fontWeight: isGroupActive ? 600 : 500,
+                                    slotProps={{
+                                      primary: {
+                                        variant: 'body2',
+                                        sx: {
+                                          fontWeight: isGroupActive ? 600 : 500,
+                                        },
+                                      },
                                     }}
                                   />
                                   <Box

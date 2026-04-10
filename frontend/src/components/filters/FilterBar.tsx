@@ -254,7 +254,14 @@ export function FilterBar<TFilters extends object>({
   isFetching,
 }: Props<TFilters>) {
   return (
-    <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
+    <Stack
+      direction="row"
+      spacing={1}
+      useFlexGap
+      sx={{
+        alignItems: "center",
+        flexWrap: "wrap"
+      }}>
       {config.search ? (
         <FilterSearch
           value={((draftFilters as Record<string, unknown>).search as string | undefined) ?? ''}
@@ -281,5 +288,5 @@ export function FilterBar<TFilters extends object>({
       ) : null}
       {isFetching ? <CircularProgress size={16} /> : null}
     </Stack>
-  )
+  );
 }

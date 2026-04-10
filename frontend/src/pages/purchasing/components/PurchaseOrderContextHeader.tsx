@@ -1,9 +1,7 @@
 import React from 'react'
-import {
-  Delete as DeleteIcon,
-  Edit as EditIcon,
-  Print as PrintIcon,
-} from '@mui/icons-material'
+import { default as DeleteIcon } from '@mui/icons-material/Delete'
+import { default as EditIcon } from '@mui/icons-material/Edit'
+import { default as PrintIcon } from '@mui/icons-material/Print'
 import {
   Box,
   Button,
@@ -17,7 +15,7 @@ import {
   TableRow,
   Typography,
 } from '@mui/material'
-import Grid from '@mui/material/GridLegacy'
+import Grid from '@mui/material/Grid'
 
 import { TABLE_STYLES } from '@/constants/tableStyles'
 import type { PurchaseOrder } from '@/types'
@@ -90,11 +88,13 @@ const PurchaseOrderContextHeader: React.FC<PurchaseOrderContextHeaderProps> = ({
   if (!selectedOrder) {
     return (
       <Paper sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', p: 4 }}>
-        <Typography variant="h6" color="text.secondary">
+        <Typography variant="h6" sx={{
+          color: "text.secondary"
+        }}>
           Select a purchase order to view details
         </Typography>
       </Paper>
-    )
+    );
   }
 
   const isReceived = !!(
@@ -130,10 +130,9 @@ const PurchaseOrderContextHeader: React.FC<PurchaseOrderContextHeaderProps> = ({
           </IconButton>
         </Box>
       </Box>
-
       <Box sx={{ p: TABLE_STYLES.cell.padding.px }}>
         <Grid container spacing={3}>
-          <Grid item xs={12} md={6}>
+          <Grid size={{ xs: 12, md: 6 }}>
             <TableContainer>
               <Table size={TABLE_STYLES.size} sx={detailTableSx}>
                 <TableBody>
@@ -201,7 +200,7 @@ const PurchaseOrderContextHeader: React.FC<PurchaseOrderContextHeaderProps> = ({
             </TableContainer>
           </Grid>
 
-          <Grid item xs={12} md={6}>
+          <Grid size={{ xs: 12, md: 6 }}>
             <TableContainer>
               <Table size={TABLE_STYLES.size} sx={detailTableSx}>
                 <TableBody>
@@ -234,7 +233,13 @@ const PurchaseOrderContextHeader: React.FC<PurchaseOrderContextHeaderProps> = ({
                   </TableRow>
                   <TableRow>
                     <TableCell colSpan={2} sx={{ textAlign: 'center' }}>
-                      <Stack direction="row" spacing={1} alignItems="center" justifyContent="center">
+                      <Stack
+                        direction="row"
+                        spacing={1}
+                        sx={{
+                          alignItems: "center",
+                          justifyContent: "center"
+                        }}>
                         <Button
                           variant="contained"
                           size="small"
@@ -276,7 +281,7 @@ const PurchaseOrderContextHeader: React.FC<PurchaseOrderContextHeaderProps> = ({
         </Grid>
       </Box>
     </Paper>
-  )
+  );
 }
 
 export default PurchaseOrderContextHeader

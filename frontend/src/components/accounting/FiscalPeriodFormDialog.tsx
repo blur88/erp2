@@ -186,8 +186,10 @@ const FiscalPeriodFormDialog: React.FC<FiscalPeriodFormDialogProps> = ({
             fullWidth
             required
             disabled={submitting}
-            InputLabelProps={{
-              shrink: true,
+            slotProps={{
+              inputLabel: {
+                shrink: true,
+              },
             }}
           />
 
@@ -201,8 +203,10 @@ const FiscalPeriodFormDialog: React.FC<FiscalPeriodFormDialogProps> = ({
             fullWidth
             required
             disabled={submitting}
-            InputLabelProps={{
-              shrink: true,
+            slotProps={{
+              inputLabel: {
+                shrink: true,
+              },
             }}
           />
         </Box>

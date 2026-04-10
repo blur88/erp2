@@ -61,7 +61,7 @@ const getMonthYearFormat = (fmt: string): string => {
     .replace(/\s{2,}/g, ' ')
     .trim()
 
-  return withoutDay.replace(/^[\s/.,-]+|[\s/.,-]+$/g, '') || 'MM/YYYY'
+  return withoutDay.replace(/^[\s/.,-]+|[\s/.,-]+$/g, '') || 'MM/YYYY';
 }
 
 export const toMuiDatePickerFormat = (fmt: string): string =>

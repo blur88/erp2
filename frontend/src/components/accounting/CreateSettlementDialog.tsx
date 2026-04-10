@@ -113,7 +113,7 @@ const CreateSettlementDialog: React.FC<CreateSettlementDialogProps> = ({ open, o
               type="date"
               value={settlementDate}
               onChange={(e) => setSettlementDate(e.target.value)}
-              InputLabelProps={{ shrink: true }}
+              slotProps={{ inputLabel: { shrink: true } }}
               fullWidth
             />
           </Stack>
@@ -178,7 +178,9 @@ const CreateSettlementDialog: React.FC<CreateSettlementDialogProps> = ({ open, o
                 {!pendingPayments.length && (
                   <TableRow>
                     <TableCell colSpan={5}>
-                      <Typography color="text.secondary">No pending payments for selected method.</Typography>
+                      <Typography sx={{
+                        color: "text.secondary"
+                      }}>No pending payments for selected method.</Typography>
                     </TableCell>
                   </TableRow>
                 )}

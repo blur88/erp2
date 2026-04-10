@@ -8,7 +8,8 @@ import {
   CircularProgress,
   Box,
 } from '@mui/material'
-import { Print as PrintIcon, Close as CloseIcon } from '@mui/icons-material'
+import { default as PrintIcon } from '@mui/icons-material/Print'
+import { default as CloseIcon } from '@mui/icons-material/Close'
 import BasePrintTemplate from './BasePrintTemplate'
 import { useGetPrintSettingsQuery } from '@/store/api/printSettingsApi'
 import { useCurrency } from '@/hooks/useCurrency'

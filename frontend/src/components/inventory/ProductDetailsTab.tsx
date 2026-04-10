@@ -300,7 +300,13 @@ const ProductDetailsTab: React.FC<ProductDetailsTabProps> = ({ product }) => {
                           {product.notes}
                         </Typography>
                       ) : (
-                        <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.7rem', fontStyle: 'italic' }}>
+                        <Typography
+                          variant="body2"
+                          sx={{
+                            color: "text.secondary",
+                            fontSize: '0.7rem',
+                            fontStyle: 'italic'
+                          }}>
                           No notes available
                         </Typography>
                       )}

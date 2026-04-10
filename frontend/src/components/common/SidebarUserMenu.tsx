@@ -9,10 +9,8 @@ import {
   Typography,
 } from '@mui/material'
 import { alpha, useTheme } from '@mui/material/styles'
-import {
-  Logout as LogoutIcon,
-  Settings as SettingsIcon,
-} from '@mui/icons-material'
+import { default as LogoutIcon } from '@mui/icons-material/Logout'
+import { default as SettingsIcon } from '@mui/icons-material/Settings'
 import { useSelector } from 'react-redux'
 import { useNavigate } from 'react-router-dom'
 import { useAppDispatch } from '@/hooks/useRedux'
@@ -184,12 +182,14 @@ const SidebarUserMenu: React.FC<SidebarUserMenuProps> = ({ collapsed }) => {
         anchorEl={menuAnchorEl}
         open={Boolean(menuAnchorEl)}
         onClose={handleMenuClose}
-        PaperProps={{
-          sx: {
-            minWidth: 220,
-            bgcolor: theme.palette.background.paper,
-            borderRadius: 1,
-            boxShadow: `0 4px 20px ${alpha(theme.palette.common.black, 0.4)}`,
+        slotProps={{
+          paper: {
+            sx: {
+              minWidth: 220,
+              bgcolor: theme.palette.background.paper,
+              borderRadius: 1,
+              boxShadow: `0 4px 20px ${alpha(theme.palette.common.black, 0.4)}`,
+            },
           },
         }}
         anchorOrigin={{ vertical: 'top', horizontal: 'right' }}

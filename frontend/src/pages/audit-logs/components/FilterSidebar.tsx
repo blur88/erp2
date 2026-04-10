@@ -4,9 +4,11 @@ import {
   Paper, Stack, TextField, Tooltip, Typography, Autocomplete,
   Dialog, DialogTitle, DialogContent, DialogActions,
 } from '@mui/material'
-import {
-  ChevronLeft, ChevronRight, FilterList, Save, Clear,
-} from '@mui/icons-material'
+import { default as ChevronLeft } from '@mui/icons-material/ChevronLeft'
+import { default as ChevronRight } from '@mui/icons-material/ChevronRight'
+import { default as FilterList } from '@mui/icons-material/FilterList'
+import { default as Save } from '@mui/icons-material/Save'
+import { default as Clear } from '@mui/icons-material/Clear'
 import { format, subDays, startOfMonth } from 'date-fns'
 import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
 import {
@@ -113,8 +115,16 @@ const FilterSidebar: React.FC<FilterSidebarProps> = ({ entityTypes, onApply }) =
   return (
     <Paper sx={{ p: 2, height: '100%', minWidth: 240 }}>
       {/* Header */}
-      <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
-        <Typography variant="subtitle1" fontWeight={600}>
+      <Stack
+        direction="row"
+        sx={{
+          justifyContent: "space-between",
+          alignItems: "center",
+          mb: 2
+        }}>
+        <Typography variant="subtitle1" sx={{
+          fontWeight: 600
+        }}>
           <FilterList sx={{ mr: 0.5, fontSize: 18, verticalAlign: 'middle' }} />
           Filters
         </Typography>
@@ -124,16 +134,26 @@ const FilterSidebar: React.FC<FilterSidebarProps> = ({ entityTypes, onApply }) =
           </IconButton>
         </Tooltip>
       </Stack>
-
       {/* Saved presets */}
       {presets.length > 0 && (
         <>
-          <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
+          <Typography
+            variant="caption"
+            sx={{
+              color: "text.secondary",
+              fontWeight: 600
+            }}>
             Saved Presets
           </Typography>
           <Stack spacing={0.5} sx={{ mb: 2, mt: 0.5 }}>
             {presets.map((p) => (
-              <Stack key={p.name} direction="row" justifyContent="space-between" alignItems="center">
+              <Stack
+                key={p.name}
+                direction="row"
+                sx={{
+                  justifyContent: "space-between",
+                  alignItems: "center"
+                }}>
                 <Button size="small" variant="text" onClick={() => handleLoadPreset(p)} sx={{ textAlign: 'left', justifyContent: 'flex-start' }}>
                   {p.name}
                 </Button>
@@ -146,7 +166,6 @@ const FilterSidebar: React.FC<FilterSidebarProps> = ({ entityTypes, onApply }) =
           <Divider sx={{ mb: 2 }} />
         </>
       )}
-
       {/* Search */}
       <TextField
         fullWidth size="small" label="Search description"
@@ -154,9 +173,13 @@ const FilterSidebar: React.FC<FilterSidebarProps> = ({ entityTypes, onApply }) =
         onChange={(e) => handleFilter({ search: e.target.value })}
         sx={{ mb: 2 }}
       />
-
       {/* Action chips */}
-      <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>Action</Typography>
+      <Typography
+        variant="caption"
+        sx={{
+          color: "text.secondary",
+          fontWeight: 600
+        }}>Action</Typography>
       <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 0.5, mb: 2 }}>
         {Object.values(AuditAction).map((a) => (
           <Chip
@@ -169,7 +192,6 @@ const FilterSidebar: React.FC<FilterSidebarProps> = ({ entityTypes, onApply }) =
           />
         ))}
       </Box>
-
       {/* Entity Type */}
       <Autocomplete
         freeSolo
@@ -180,7 +202,6 @@ const FilterSidebar: React.FC<FilterSidebarProps> = ({ entityTypes, onApply }) =
         renderInput={(params) => <TextField {...params} label="Entity Type" />}
         sx={{ mb: 2 }}
       />
-
       {/* User */}
       <TextField
         fullWidth size="small" label="Username"
@@ -188,7 +209,6 @@ const FilterSidebar: React.FC<FilterSidebarProps> = ({ entityTypes, onApply }) =
         onChange={(e) => handleFilter({ username: e.target.value })}
         sx={{ mb: 2 }}
       />
-
       {/* IP Address */}
       <TextField
         fullWidth size="small" label="IP Address"
@@ -196,9 +216,13 @@ const FilterSidebar: React.FC<FilterSidebarProps> = ({ entityTypes, onApply }) =
         onChange={(e) => handleFilter({ ipAddress: e.target.value })}
         sx={{ mb: 2 }}
       />
-
       {/* Date range presets */}
-      <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>Date Range</Typography>
+      <Typography
+        variant="caption"
+        sx={{
+          color: "text.secondary",
+          fontWeight: 600
+        }}>Date Range</Typography>
       <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 0.5, mb: 1 }}>
         {DATE_PRESETS.map((p) => (
           <Chip
@@ -211,24 +235,22 @@ const FilterSidebar: React.FC<FilterSidebarProps> = ({ entityTypes, onApply }) =
           />
         ))}
       </Box>
-
       {(activeDatePreset === 'Custom' || (!activeDatePreset && (filters.startDate || filters.endDate))) && (
         <Stack spacing={1} sx={{ mb: 2 }}>
           <TextField
             fullWidth size="small" type="date" label="Start Date"
             value={filters.startDate || ''}
             onChange={(e) => handleFilter({ startDate: e.target.value })}
-            InputLabelProps={{ shrink: true }}
+            slotProps={{ inputLabel: { shrink: true } }}
           />
           <TextField
             fullWidth size="small" type="date" label="End Date"
             value={filters.endDate || ''}
             onChange={(e) => handleFilter({ endDate: e.target.value })}
-            InputLabelProps={{ shrink: true }}
+            slotProps={{ inputLabel: { shrink: true } }}
           />
         </Stack>
       )}
-
       {/* Action buttons */}
       <Divider sx={{ my: 2 }} />
       <Stack spacing={1}>
@@ -240,7 +262,6 @@ const FilterSidebar: React.FC<FilterSidebarProps> = ({ entityTypes, onApply }) =
           Clear All
         </Button>
       </Stack>
-
       {/* Save preset dialog */}
       <Dialog open={saveDialogOpen} onClose={() => setSaveDialogOpen(false)}>
         <DialogTitle>Save Filter Preset</DialogTitle>
@@ -258,7 +279,7 @@ const FilterSidebar: React.FC<FilterSidebarProps> = ({ entityTypes, onApply }) =
         </DialogActions>
       </Dialog>
     </Paper>
-  )
+  );
 }
 
 export default FilterSidebar

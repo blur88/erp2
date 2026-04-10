@@ -26,13 +26,11 @@ import {
   Checkbox,
 } from '@mui/material'
 import { alpha } from '@mui/material/styles'
-import {
-  PictureAsPdf as PdfIcon,
-  TableChart as ExcelIcon,
-  Refresh as RefreshIcon,
-  PlayArrow as GenerateIcon,
-  AccountBalanceWallet as PaymentSummaryIcon,
-} from '@mui/icons-material'
+import { default as PdfIcon } from '@mui/icons-material/PictureAsPdf'
+import { default as ExcelIcon } from '@mui/icons-material/TableChart'
+import { default as RefreshIcon } from '@mui/icons-material/Refresh'
+import { default as GenerateIcon } from '@mui/icons-material/PlayArrow'
+import { default as PaymentSummaryIcon } from '@mui/icons-material/AccountBalanceWallet'
 import PageHeader from '@/components/common/PageHeader'
 import { printColors } from '@/styles/printTokens'
 import { formatCurrency, formatDate, formatDateTime } from '@/utils/formatters'
@@ -513,7 +511,7 @@ const CustomerPaymentSummary: React.FC = () => {
                     value={selectedCustomer}
                     label="Customer"
                     onChange={(e) => setSelectedCustomer(e.target.value)}
-                    MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } }}
+                    MenuProps={{ slotProps: { paper: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } } }}
                   >
                     <MenuItem value="">All Customers</MenuItem>
                     {customers.map((customer) => (
@@ -524,7 +522,12 @@ const CustomerPaymentSummary: React.FC = () => {
                   </Select>
                 </FormControl>
 
-                <Typography variant="caption" color="text.secondary" sx={{ mb: 1 }}>
+                <Typography
+                  variant="caption"
+                  sx={{
+                    color: "text.secondary",
+                    mb: 1
+                  }}>
                   Payment Date
                 </Typography>
                 <TextField
@@ -532,8 +535,10 @@ const CustomerPaymentSummary: React.FC = () => {
                   type="date"
                   value={dateFrom}
                   onChange={(e) => setDateFrom(e.target.value)}
-                  InputLabelProps={{ shrink: true, sx: { fontSize: '0.75rem' } }}
-                  inputProps={{ sx: { fontSize: '0.75rem' } }}
+                  slotProps={{
+  inputLabel: { shrink: true, sx: { fontSize: '0.75rem' } },
+  htmlInput: { sx: { fontSize: '0.75rem' } },
+}}
                   size="small"
                   fullWidth
                 />
@@ -543,8 +548,10 @@ const CustomerPaymentSummary: React.FC = () => {
                   type="date"
                   value={dateTo}
                   onChange={(e) => setDateTo(e.target.value)}
-                  InputLabelProps={{ shrink: true, sx: { fontSize: '0.75rem' } }}
-                  inputProps={{ sx: { fontSize: '0.75rem' } }}
+                  slotProps={{
+  inputLabel: { shrink: true, sx: { fontSize: '0.75rem' } },
+  htmlInput: { sx: { fontSize: '0.75rem' } },
+}}
                   size="small"
                   fullWidth
                 />
@@ -555,7 +562,7 @@ const CustomerPaymentSummary: React.FC = () => {
                     value={paymentStatus}
                     label="Payment Status"
                     onChange={(e) => setPaymentStatus(e.target.value)}
-                    MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } }}
+                    MenuProps={{ slotProps: { paper: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } } }}
                   >
                     <MenuItem value="all">All</MenuItem>
                     <MenuItem value="unpaid">Unpaid</MenuItem>
@@ -637,7 +644,7 @@ const CustomerPaymentSummary: React.FC = () => {
                         setSelectedColumns(value as string[])
                       }
                     }}
-                    MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } }}
+                    MenuProps={{ slotProps: { paper: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } } }}
                     renderValue={(selected) => `${selected.length} column${selected.length !== 1 ? 's' : ''} selected`}
                   >
                     <MenuItem value="all">All</MenuItem>
@@ -656,7 +663,7 @@ const CustomerPaymentSummary: React.FC = () => {
                     value={sortBy1}
                     label="Sort By"
                     onChange={(e) => setSortBy1(e.target.value)}
-                    MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } }}
+                    MenuProps={{ slotProps: { paper: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } } }}
                   >
                     <MenuItem value="customerName">Customer</MenuItem>
                     <MenuItem value="lastOrderDate">Last Order</MenuItem>
@@ -671,8 +678,10 @@ const CustomerPaymentSummary: React.FC = () => {
                   label="Report Title"
                   value={reportTitle}
                   onChange={(e) => setReportTitle(e.target.value)}
-                  InputLabelProps={{ sx: { fontSize: '0.75rem' } }}
-                  inputProps={{ sx: { fontSize: '0.75rem' } }}
+                  slotProps={{
+  inputLabel: { sx: { fontSize: '0.75rem' } },
+  htmlInput: { sx: { fontSize: '0.75rem' } },
+}}
                   size="small"
                   fullWidth
                 />
@@ -698,10 +707,17 @@ const CustomerPaymentSummary: React.FC = () => {
                   ) : (
                     <>
                       <PaymentSummaryIcon sx={{ fontSize: 80, color: 'text.disabled', mb: 2 }} />
-                      <Typography variant="h6" color="text.secondary" sx={{ mb: 1 }}>
+                      <Typography
+                        variant="h6"
+                        sx={{
+                          color: "text.secondary",
+                          mb: 1
+                        }}>
                         No Report Generated
                       </Typography>
-                      <Typography variant="body2" color="text.secondary">
+                      <Typography variant="body2" sx={{
+                        color: "text.secondary"
+                      }}>
                         Configure the filters on the left and click "Generate Report" to view customer payment summary.
                       </Typography>
                     </>

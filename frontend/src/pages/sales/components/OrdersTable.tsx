@@ -100,7 +100,9 @@ const OrdersTable: React.FC<OrdersTableProps> = ({
           </Typography>
           {loading && orders.length > 0 && (
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <Typography variant="caption" color="text.secondary">
+              <Typography variant="caption" sx={{
+                color: "text.secondary"
+              }}>
                 Searching...
               </Typography>
               <Box sx={{ width: 16, height: 16 }}>
@@ -110,7 +112,6 @@ const OrdersTable: React.FC<OrdersTableProps> = ({
           )}
         </Box>
       </Box>
-
       <Box sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }} ref={orderListRef}>
         <TableContainer sx={{ flex: 1, overflow: 'auto' }}>
           <Table
@@ -147,7 +148,7 @@ const OrdersTable: React.FC<OrdersTableProps> = ({
         </TableContainer>
       </Box>
     </Paper>
-  )
+  );
 }
 
 export default OrdersTable

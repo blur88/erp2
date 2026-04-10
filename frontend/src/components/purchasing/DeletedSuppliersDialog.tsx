@@ -25,14 +25,12 @@ import {
   useTheme,
   useMediaQuery,
 } from '@mui/material'
-import {
-  Search as SearchIcon,
-  Restore as RestoreIcon,
-  Close as CloseIcon,
-  Business as BusinessIcon,
-  Phone as PhoneIcon,
-  DeleteForever as DeleteForeverIcon,
-} from '@mui/icons-material'
+import { default as SearchIcon } from '@mui/icons-material/Search'
+import { default as RestoreIcon } from '@mui/icons-material/Restore'
+import { default as CloseIcon } from '@mui/icons-material/Close'
+import { default as BusinessIcon } from '@mui/icons-material/Business'
+import { default as PhoneIcon } from '@mui/icons-material/Phone'
+import { default as DeleteForeverIcon } from '@mui/icons-material/DeleteForever'
 import {
   useBulkPermanentDeleteSuppliersMutation,
   useBulkRestoreSuppliersMutation,
@@ -228,10 +226,15 @@ const DeletedSuppliersDialog: React.FC<DeletedSuppliersDialogProps> = ({ open, o
       onClose={onClose}
       maxWidth="lg"
       fullWidth
-      PaperProps={{ sx: { height: '80vh' } }}
+      slotProps={{ paper: { sx: { height: '80vh' } } }}
     >
       <DialogTitle>
-        <Box display="flex" justifyContent="space-between" alignItems="center">
+        <Box
+          sx={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center"
+          }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <BusinessIcon sx={{ color: 'error.main' }} />
             <Typography variant={isMobile ? "h6" : "h5"} sx={{ fontWeight: 700 }}>
@@ -242,11 +245,15 @@ const DeletedSuppliersDialog: React.FC<DeletedSuppliersDialogProps> = ({ open, o
             <CloseIcon />
           </IconButton>
         </Box>
-        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+        <Typography
+          variant="body2"
+          sx={{
+            color: "text.secondary",
+            mt: 0.5
+          }}>
           Manage soft-deleted suppliers ({filteredSuppliers.length} {searchTerm ? 'found' : 'total'})
         </Typography>
       </DialogTitle>
-
       <DialogContent>
         <Box sx={{ mb: 3 }}>
           <Alert severity="info" sx={{ mb: 2 }}>
@@ -261,12 +268,14 @@ const DeletedSuppliersDialog: React.FC<DeletedSuppliersDialogProps> = ({ open, o
               placeholder="Search deleted suppliers..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon />
-                  </InputAdornment>
-                ),
+              slotProps={{
+                input: {
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon />
+                    </InputAdornment>
+                  ),
+                },
               }}
               sx={{ flex: 1, minWidth: '300px' }}
             />
@@ -361,7 +370,9 @@ const DeletedSuppliersDialog: React.FC<DeletedSuppliersDialogProps> = ({ open, o
                 {filteredSuppliers.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={isMobile ? 5 : 6} align="center" sx={{ py: 4 }}>
-                      <Typography variant="body1" color="text.secondary">
+                      <Typography variant="body1" sx={{
+                        color: "text.secondary"
+                      }}>
                         {searchTerm ? 'No deleted suppliers match your search.' : 'No deleted suppliers found.'}
                       </Typography>
                     </TableCell>
@@ -397,7 +408,12 @@ const DeletedSuppliersDialog: React.FC<DeletedSuppliersDialogProps> = ({ open, o
                           </Typography>
                           {isMobile && supplier.contactPerson && (
                             <Box sx={{ mt: 0.25, display: 'flex', gap: 0.5, alignItems: 'center' }}>
-                              <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
+                              <Typography
+                                variant="caption"
+                                sx={{
+                                  color: "text.secondary",
+                                  fontSize: '0.65rem'
+                                }}>
                                 {supplier.contactPerson}
                               </Typography>
                             </Box>
@@ -436,7 +452,9 @@ const DeletedSuppliersDialog: React.FC<DeletedSuppliersDialogProps> = ({ open, o
                       )}
                       {!isMobile && (
                         <TableCell>
-                          <Typography variant="caption" color="text.secondary">
+                          <Typography variant="caption" sx={{
+                            color: "text.secondary"
+                          }}>
                             {supplier.deletedAt ? formatDate(supplier.deletedAt.toString()) : 'Unknown'}
                           </Typography>
                         </TableCell>
@@ -492,12 +510,15 @@ const DeletedSuppliersDialog: React.FC<DeletedSuppliersDialogProps> = ({ open, o
                           </Tooltip>
                         </Box>
                         {isMobile && supplier.deletedAt && (
-                          <Typography variant="caption" color="text.secondary" sx={{
-                            display: 'block',
-                            textAlign: 'right',
-                            mt: 0.25,
-                            fontSize: '0.65rem'
-                          }}>
+                          <Typography
+                            variant="caption"
+                            sx={{
+                              color: "text.secondary",
+                              display: 'block',
+                              textAlign: 'right',
+                              mt: 0.25,
+                              fontSize: '0.65rem'
+                            }}>
                             {formatDate(supplier.deletedAt)}
                           </Typography>
                         )}
@@ -510,13 +531,11 @@ const DeletedSuppliersDialog: React.FC<DeletedSuppliersDialogProps> = ({ open, o
           </TableContainer>
         )}
       </DialogContent>
-
       <DialogActions>
         <Button onClick={onClose} variant="outlined">
           Close
         </Button>
       </DialogActions>
-
       {/* Permanent Delete Confirmation Dialog */}
       <Dialog
         open={Boolean(confirmDelete)}
@@ -525,7 +544,12 @@ const DeletedSuppliersDialog: React.FC<DeletedSuppliersDialogProps> = ({ open, o
         fullWidth
       >
         <DialogTitle color="error">
-          <Box display="flex" alignItems="center" gap={1}>
+          <Box
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              gap: 1
+            }}>
             <DeleteForeverIcon color="error" />
             Permanently Delete Supplier
           </Box>
@@ -544,11 +568,18 @@ const DeletedSuppliersDialog: React.FC<DeletedSuppliersDialogProps> = ({ open, o
                 <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
                   {confirmDelete.companyName}
                 </Typography>
-                <Typography variant="body2" color="text.secondary">
+                <Typography variant="body2" sx={{
+                  color: "text.secondary"
+                }}>
                   Contact: {confirmDelete.contactPerson || 'N/A'}
                 </Typography>
               </Box>
-              <Typography variant="body2" sx={{ mt: 2 }} color="text.secondary">
+              <Typography
+                variant="body2"
+                sx={{
+                  color: "text.secondary",
+                  mt: 2
+                }}>
                 This will permanently remove the supplier and all related data from the database.
               </Typography>
             </Box>
@@ -573,7 +604,6 @@ const DeletedSuppliersDialog: React.FC<DeletedSuppliersDialogProps> = ({ open, o
           </Button>
         </DialogActions>
       </Dialog>
-
       {/* Bulk Restore Confirmation Dialog */}
       <Dialog
         open={showBulkRestoreConfirm}
@@ -582,7 +612,12 @@ const DeletedSuppliersDialog: React.FC<DeletedSuppliersDialogProps> = ({ open, o
         fullWidth
       >
         <DialogTitle color="success">
-          <Box display="flex" alignItems="center" gap={1}>
+          <Box
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              gap: 1
+            }}>
             <RestoreIcon color="success" />
             Bulk Restore Suppliers
           </Box>
@@ -614,7 +649,12 @@ const DeletedSuppliersDialog: React.FC<DeletedSuppliersDialogProps> = ({ open, o
             </Box>
           )}
 
-          <Typography variant="body2" sx={{ mt: 2 }} color="text.secondary">
+          <Typography
+            variant="body2"
+            sx={{
+              color: "text.secondary",
+              mt: 2
+            }}>
             This will move the selected suppliers back to the active suppliers list and make them available for purchase orders.
           </Typography>
         </DialogContent>
@@ -637,7 +677,6 @@ const DeletedSuppliersDialog: React.FC<DeletedSuppliersDialogProps> = ({ open, o
           </Button>
         </DialogActions>
       </Dialog>
-
       {/* Bulk Delete Confirmation Dialog */}
       <Dialog
         open={showBulkConfirm}
@@ -646,7 +685,12 @@ const DeletedSuppliersDialog: React.FC<DeletedSuppliersDialogProps> = ({ open, o
         fullWidth
       >
         <DialogTitle color="error">
-          <Box display="flex" alignItems="center" gap={1}>
+          <Box
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              gap: 1
+            }}>
             <DeleteForeverIcon color="error" />
             Bulk Permanent Delete
           </Box>
@@ -678,7 +722,12 @@ const DeletedSuppliersDialog: React.FC<DeletedSuppliersDialogProps> = ({ open, o
             </Box>
           )}
 
-          <Typography variant="body2" sx={{ mt: 2 }} color="text.secondary">
+          <Typography
+            variant="body2"
+            sx={{
+              color: "text.secondary",
+              mt: 2
+            }}>
             This will permanently remove all selected suppliers and their data from the database.
           </Typography>
         </DialogContent>
@@ -702,7 +751,7 @@ const DeletedSuppliersDialog: React.FC<DeletedSuppliersDialogProps> = ({ open, o
         </DialogActions>
       </Dialog>
     </Dialog>
-  )
+  );
 }
 
 export default DeletedSuppliersDialog

@@ -13,7 +13,7 @@ import {
   Box,
   CircularProgress,
 } from '@mui/material';
-import { Warning as WarningIcon } from '@mui/icons-material';
+import { default as WarningIcon } from '@mui/icons-material/Warning';
 
 interface Category {
   id: string;
@@ -95,7 +95,12 @@ export const SmartCategoryDeleteDialog: React.FC<SmartCategoryDeleteDialogProps>
   const renderOptionsStep = () => (
     <>
       <DialogTitle>
-        <Box display="flex" alignItems="center" gap={1}>
+        <Box
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            gap: 1
+          }}>
           <WarningIcon color="warning" />
           Category Contains Products
         </Box>
@@ -107,7 +112,12 @@ export const SmartCategoryDeleteDialog: React.FC<SmartCategoryDeleteDialogProps>
           <strong>{productCount} product{productCount === 1 ? '' : 's'}</strong>.
         </Typography>
 
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+        <Typography
+          variant="body2"
+          sx={{
+            color: "text.secondary",
+            mb: 3
+          }}>
           What would you like to do?
         </Typography>
 
@@ -117,10 +127,14 @@ export const SmartCategoryDeleteDialog: React.FC<SmartCategoryDeleteDialogProps>
             control={<Radio />}
             label={
               <Box>
-                <Typography variant="body2" fontWeight="medium">
+                <Typography variant="body2" sx={{
+                  fontWeight: "medium"
+                }}>
                   I'll handle the products myself
                 </Typography>
-                <Typography variant="caption" color="text.secondary">
+                <Typography variant="caption" sx={{
+                  color: "text.secondary"
+                }}>
                   Move or delete products manually, then try deleting the category again
                 </Typography>
               </Box>
@@ -133,10 +147,14 @@ export const SmartCategoryDeleteDialog: React.FC<SmartCategoryDeleteDialogProps>
             control={<Radio />}
             label={
               <Box>
-                <Typography variant="body2" fontWeight="medium">
+                <Typography variant="body2" sx={{
+                  fontWeight: "medium"
+                }}>
                   Move all products to "Uncategorized" and delete category
                 </Typography>
-                <Typography variant="caption" color="text.secondary">
+                <Typography variant="caption" sx={{
+                  color: "text.secondary"
+                }}>
                   Products will be automatically moved to the "Uncategorized" category
                 </Typography>
               </Box>
@@ -177,7 +195,9 @@ export const SmartCategoryDeleteDialog: React.FC<SmartCategoryDeleteDialogProps>
           </Typography>
         </Box>
 
-        <Typography variant="body2" color="text.secondary">
+        <Typography variant="body2" sx={{
+          color: "text.secondary"
+        }}>
           This action can be undone by restoring the category from the deleted categories list.
           Products moved to "Uncategorized" will need to be reorganized manually.
         </Typography>
@@ -203,7 +223,13 @@ export const SmartCategoryDeleteDialog: React.FC<SmartCategoryDeleteDialogProps>
       <DialogTitle>Deleting Category...</DialogTitle>
 
       <DialogContent>
-        <Box display="flex" alignItems="center" gap={2} py={3}>
+        <Box
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            gap: 2,
+            py: 3
+          }}>
           <CircularProgress size={24} />
           <Typography>
             Deleting category and moving products to "Uncategorized"...

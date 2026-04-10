@@ -26,14 +26,12 @@ import {
   useTheme,
   useMediaQuery,
 } from '@mui/material'
-import {
-  Search as SearchIcon,
-  RestoreFromTrash as RestoreIcon,
-  Sort as SortIcon,
-  ArrowUpward as ArrowUpIcon,
-  ArrowDownward as ArrowDownIcon,
-  Print as PrintIcon,
-} from '@mui/icons-material'
+import { default as SearchIcon } from '@mui/icons-material/Search'
+import { default as RestoreIcon } from '@mui/icons-material/RestoreFromTrash'
+import { default as SortIcon } from '@mui/icons-material/Sort'
+import { default as ArrowUpIcon } from '@mui/icons-material/ArrowUpward'
+import { default as ArrowDownIcon } from '@mui/icons-material/ArrowDownward'
+import { default as PrintIcon } from '@mui/icons-material/Print'
 import PageHeader from '@/components/common/PageHeader'
 import { formatDate } from '@/utils/formatters'
 import { TABLE_STYLES } from '@/constants/tableStyles'
@@ -379,12 +377,14 @@ const GoodsReceivedPage: React.FC = () => {
               }
             }
           }}
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <SearchIcon sx={{ fontSize: '1.25rem' }} />
-              </InputAdornment>
-            ),
+          slotProps={{
+            input: {
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon sx={{ fontSize: '1.25rem' }} />
+                </InputAdornment>
+              ),
+            },
           }}
         />
 
@@ -431,7 +431,7 @@ const GoodsReceivedPage: React.FC = () => {
                   fontSize: '0.875rem',
                 }
               }}
-              InputLabelProps={{ shrink: true }}
+              slotProps={{ inputLabel: { shrink: true } }}
             />
             <TextField
               label="To Date"
@@ -446,7 +446,7 @@ const GoodsReceivedPage: React.FC = () => {
                   fontSize: '0.875rem',
                 }
               }}
-              InputLabelProps={{ shrink: true }}
+              slotProps={{ inputLabel: { shrink: true } }}
             />
           </>
         )}
@@ -890,7 +890,9 @@ const GoodsReceivedPage: React.FC = () => {
             </Paper>
           ) : (
             <Paper sx={{ height: 'calc(100vh - 300px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Typography variant="h6" color="text.secondary">
+              <Typography variant="h6" sx={{
+                color: "text.secondary"
+              }}>
                 Select a GRN to view details
               </Typography>
             </Paper>

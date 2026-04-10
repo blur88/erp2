@@ -204,7 +204,7 @@ const BankReconciliationFormDialog: React.FC<BankReconciliationFormDialogProps> 
             fullWidth
             required
             disabled={submitting}
-            InputLabelProps={{ shrink: true }}
+            slotProps={{ inputLabel: { shrink: true } }}
           />
 
           <TextField
@@ -217,7 +217,7 @@ const BankReconciliationFormDialog: React.FC<BankReconciliationFormDialogProps> 
             fullWidth
             required
             disabled={submitting}
-            inputProps={{ step: '0.0001' }}
+            slotProps={{ htmlInput: { step: '0.0001' } }}
           />
         </Box>
       </DialogContent>

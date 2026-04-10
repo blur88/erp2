@@ -18,13 +18,11 @@ import {
   Stack,
   Chip,
   Divider,
-  GridLegacy as Grid,
+  Grid,
 } from '@mui/material';
 import { alpha, useTheme } from '@mui/material/styles';
-import {
-  CheckCircle as CheckCircleIcon,
-  Cancel as CancelIcon,
-} from '@mui/icons-material';
+import { default as CheckCircleIcon } from '@mui/icons-material/CheckCircle'
+import { default as CancelIcon } from '@mui/icons-material/Cancel';
 import PageHeader from '@/components/common/PageHeader';
 import { formatDate } from '@/utils/formatters';
 import { useGetBalanceSheetQuery } from '@/store/api/accountingApi';
@@ -97,7 +95,6 @@ const BalanceSheetSection: React.FC<SectionProps> = ({ title, accounts, subtotal
         </Typography>
         <Divider sx={{ mt: 1 }} />
       </Box>
-
       {/* Accounts Table */}
       <TableContainer>
         <Table size="small">
@@ -225,7 +222,9 @@ const BalanceSheetSection: React.FC<SectionProps> = ({ title, accounts, subtotal
               <>
                 <TableRow>
                   <TableCell colSpan={3} align="center" sx={{ py: 2 }}>
-                    <Typography variant="body2" color="text.secondary">
+                    <Typography variant="body2" sx={{
+                      color: "text.secondary"
+                    }}>
                       No accounts in this section
                     </Typography>
                   </TableCell>
@@ -334,22 +333,22 @@ const BalanceSheetPage: React.FC = () => {
         primaryAction={{ label: loading ? 'Generating...' : 'Generate Report', onClick: handleGenerateReport, disabled: loading }}
         secondaryAction={{ label: isDownloading ? 'Exporting...' : 'Export to Excel', onClick: handleExportToExcel, disabled: !submitted || loading || isDownloading }}
       />
-
       <Paper sx={{ p: 3, mb: 3 }}>
         <Stack
           data-testid="balance-sheet-filters"
           direction="row"
           spacing={2}
-          alignItems="center"
-          flexWrap="wrap"
-        >
+          sx={{
+            alignItems: "center",
+            flexWrap: "wrap"
+          }}>
           <TextField
             label="As Of Date"
             type="date"
             value={asOfDate}
             onChange={(e) => handleAsOfDateChange(e.target.value)}
             size="small"
-            InputLabelProps={{ shrink: true }}
+            slotProps={{ inputLabel: { shrink: true } }}
             sx={{ minWidth: 200 }}
           />
           <FormControlLabel
@@ -363,21 +362,18 @@ const BalanceSheetPage: React.FC = () => {
           />
         </Stack>
       </Paper>
-
       {/* Error Alert */}
       {errorMessage && (
         <Alert severity="error" sx={{ mb: 2 }}>
           {errorMessage}
         </Alert>
       )}
-
       {/* Loading State */}
       {loading && submitted && !data && (
         <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 8 }}>
           <CircularProgress />
         </Box>
       )}
-
       {/* Balance Sheet Report */}
       {!loading && data && (
         <Paper>
@@ -386,7 +382,9 @@ const BalanceSheetPage: React.FC = () => {
             <Typography variant="h6" sx={{ fontWeight: 600, mb: 1 }}>
               Balance Sheet Report
             </Typography>
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant="body2" sx={{
+              color: "text.secondary"
+            }}>
               As of: {formatDate(asOfDate)}
             </Typography>
             {/* Balance Status Indicator */}
@@ -413,9 +411,9 @@ const BalanceSheetPage: React.FC = () => {
 
           {/* Three Sections in Grid Layout */}
           <Box sx={{ p: 3 }}>
-            <Grid container spacing={3} alignItems="stretch">
+            <Grid container spacing={3} sx={{ alignItems: 'stretch' }}>
               {/* Assets Section */}
-              <Grid item xs={12} md={4} sx={{ display: 'flex' }}>
+              <Grid size={{ xs: 12, md: 4 }} sx={{ display: 'flex' }}>
                 <Paper
                   variant="outlined"
                   data-testid="balance-sheet-section-assets"
@@ -431,7 +429,7 @@ const BalanceSheetPage: React.FC = () => {
               </Grid>
 
               {/* Liabilities Section */}
-              <Grid item xs={12} md={4} sx={{ display: 'flex' }}>
+              <Grid size={{ xs: 12, md: 4 }} sx={{ display: 'flex' }}>
                 <Paper
                   variant="outlined"
                   data-testid="balance-sheet-section-liabilities"
@@ -447,7 +445,7 @@ const BalanceSheetPage: React.FC = () => {
               </Grid>
 
               {/* Equity Section */}
-              <Grid item xs={12} md={4} sx={{ display: 'flex' }}>
+              <Grid size={{ xs: 12, md: 4 }} sx={{ display: 'flex' }}>
                 <Paper
                   variant="outlined"
                   data-testid="balance-sheet-section-equity"
@@ -476,7 +474,7 @@ const BalanceSheetPage: React.FC = () => {
           >
             <Grid container spacing={2}>
               {/* Total Assets */}
-              <Grid item xs={12} md={4} sx={{ display: 'flex' }}>
+              <Grid size={{ xs: 12, md: 4 }} sx={{ display: 'flex' }}>
                 <Paper
                   variant="outlined"
                   data-testid="balance-sheet-total-assets"
@@ -488,7 +486,12 @@ const BalanceSheetPage: React.FC = () => {
                     borderColor: 'primary.main',
                   }}
                 >
-                  <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                  <Typography
+                    variant="body2"
+                    sx={{
+                      color: "text.secondary",
+                      mb: 0.5
+                    }}>
                     Total Assets
                   </Typography>
                   <Typography
@@ -501,7 +504,7 @@ const BalanceSheetPage: React.FC = () => {
               </Grid>
 
               {/* Total Liabilities & Equity */}
-              <Grid item xs={12} md={4} sx={{ display: 'flex' }}>
+              <Grid size={{ xs: 12, md: 4 }} sx={{ display: 'flex' }}>
                 <Paper
                   variant="outlined"
                   data-testid="balance-sheet-total-liabilities-equity"
@@ -513,7 +516,12 @@ const BalanceSheetPage: React.FC = () => {
                     borderColor: 'success.main',
                   }}
                 >
-                  <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                  <Typography
+                    variant="body2"
+                    sx={{
+                      color: "text.secondary",
+                      mb: 0.5
+                    }}>
                     Total Liabilities & Equity
                   </Typography>
                   <Typography
@@ -526,7 +534,7 @@ const BalanceSheetPage: React.FC = () => {
               </Grid>
 
               {/* Balance Check */}
-              <Grid item xs={12} md={4} sx={{ display: 'flex' }}>
+              <Grid size={{ xs: 12, md: 4 }} sx={{ display: 'flex' }}>
                 <Paper
                   variant="outlined"
                   data-testid="balance-sheet-balance-check"
@@ -540,7 +548,12 @@ const BalanceSheetPage: React.FC = () => {
                     borderColor: isBalanced ? 'success.main' : 'error.main',
                   }}
                 >
-                  <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                  <Typography
+                    variant="body2"
+                    sx={{
+                      color: "text.secondary",
+                      mb: 0.5
+                    }}>
                     Balance Check
                   </Typography>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -591,7 +604,9 @@ const BalanceSheetPage: React.FC = () => {
               backgroundColor: tone.surfaceStrong,
             }}
           >
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant="body2" sx={{
+              color: "text.secondary"
+            }}>
               Total Accounts: {
                 assetAccounts.length + liabilityAccounts.length + equityAccounts.length
               }
@@ -616,11 +631,12 @@ const BalanceSheetPage: React.FC = () => {
           </Box>
         </Paper>
       )}
-
       {/* Empty State - No Data Loaded */}
       {!loading && !data && !error && (
         <Paper sx={{ p: 6, textAlign: 'center' }}>
-          <Typography variant="body1" color="text.secondary">
+          <Typography variant="body1" sx={{
+            color: "text.secondary"
+          }}>
             Click "Generate Report" to view the Balance Sheet
           </Typography>
         </Paper>

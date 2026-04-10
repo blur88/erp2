@@ -28,14 +28,12 @@ import {
   TextField,
   Typography,
 } from '@mui/material'
-import {
-  Add as AddIcon,
-  Delete as DeleteIcon,
-  Edit as EditIcon,
-  PostAdd as PostIcon,
-  Refresh as RefreshIcon,
-  Search as SearchIcon,
-} from '@mui/icons-material'
+import { default as AddIcon } from '@mui/icons-material/Add'
+import { default as DeleteIcon } from '@mui/icons-material/Delete'
+import { default as EditIcon } from '@mui/icons-material/Edit'
+import { default as PostIcon } from '@mui/icons-material/PostAdd'
+import { default as RefreshIcon } from '@mui/icons-material/Refresh'
+import { default as SearchIcon } from '@mui/icons-material/Search'
 import PageHeader from '@/components/common/PageHeader'
 import { useNotification } from '@/hooks/useNotification'
 import {
@@ -274,16 +272,18 @@ const ExpensesPage: React.FC = () => {
         subtitle="Record and manage business expense transactions"
         primaryAction={{ label: 'New Expense', onClick: openCreate }}
       />
-
       <Card sx={{ mb: 2 }}>
         <CardContent>
-          <Typography variant="subtitle2" color="text.secondary">Total Expenses (Current Filter)</Typography>
+          <Typography variant="subtitle2" sx={{
+            color: "text.secondary"
+          }}>Total Expenses (Current Filter)</Typography>
           <Typography variant="h5" sx={{ fontWeight: 700 }}>{formatCurrency(totalExpenses)}</Typography>
         </CardContent>
       </Card>
-
       <Box sx={{ mb: 2 }}>
-        <Stack direction="row" alignItems="flex-start" spacing={1}>
+        <Stack direction="row" spacing={1} sx={{
+          alignItems: "flex-start"
+        }}>
           <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} sx={{ flex: 1, flexWrap: 'wrap' }}>
           <TextField
             inputRef={searchRef}
@@ -291,12 +291,14 @@ const ExpensesPage: React.FC = () => {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             size="small"
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon fontSize="small" />
-                </InputAdornment>
-              ),
+            slotProps={{
+              input: {
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon fontSize="small" />
+                  </InputAdornment>
+                ),
+              },
             }}
           />
           <FormControl size="small" sx={{ minWidth: 220 }}>
@@ -325,15 +327,14 @@ const ExpensesPage: React.FC = () => {
               <MenuItem value="posted">Posted</MenuItem>
             </Select>
           </FormControl>
-          <TextField label="Start Date" type="date" size="small" value={startDate} onChange={(e) => setStartDate(e.target.value)} InputLabelProps={{ shrink: true }} />
-          <TextField label="End Date" type="date" size="small" value={endDate} onChange={(e) => setEndDate(e.target.value)} InputLabelProps={{ shrink: true }} />
+          <TextField label="Start Date" type="date" size="small" value={startDate} onChange={(e) => setStartDate(e.target.value)} slotProps={{ inputLabel: { shrink: true } }} />
+          <TextField label="End Date" type="date" size="small" value={endDate} onChange={(e) => setEndDate(e.target.value)} slotProps={{ inputLabel: { shrink: true } }} />
           </Stack>
           <IconButton onClick={() => refetch()} size="small" sx={{ mt: 0.5 }}>
             <RefreshIcon />
           </IconButton>
         </Stack>
       </Box>
-
       {selectedIds.size > 0 && (
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2, p: 1.5, bgcolor: 'action.selected', borderRadius: 1 }}>
           <Button variant="contained" size="small" startIcon={<PostIcon />} onClick={onBulkPost}>
@@ -344,7 +345,6 @@ const ExpensesPage: React.FC = () => {
           </Button>
         </Box>
       )}
-
       <Paper>
         <TableContainer>
           {loading && (
@@ -429,7 +429,9 @@ const ExpensesPage: React.FC = () => {
               {!filteredRows.length && !loading && (
                 <TableRow>
                   <TableCell colSpan={10}>
-                    <Typography color="text.secondary">No expenses found.</Typography>
+                    <Typography sx={{
+                      color: "text.secondary"
+                    }}>No expenses found.</Typography>
                   </TableCell>
                 </TableRow>
               )}
@@ -437,12 +439,11 @@ const ExpensesPage: React.FC = () => {
           </Table>
         </TableContainer>
       </Paper>
-
       <Dialog open={dialogOpen} onClose={resetDialog} maxWidth="sm" fullWidth>
         <DialogTitle>{form.id ? 'Edit Expense' : 'New Expense'}</DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 1 }}>
-            <TextField label="Date" type="date" size="small" value={form.expenseDate} onChange={(e) => setForm((f) => ({ ...f, expenseDate: e.target.value }))} InputLabelProps={{ shrink: true }} />
+            <TextField label="Date" type="date" size="small" value={form.expenseDate} onChange={(e) => setForm((f) => ({ ...f, expenseDate: e.target.value }))} slotProps={{ inputLabel: { shrink: true } }} />
             <FormControl fullWidth size="small">
               <InputLabel>Expense Account</InputLabel>
               <Select value={form.expenseAccountId} label="Expense Account" onChange={(e) => setForm((f) => ({ ...f, expenseAccountId: e.target.value }))}>
@@ -470,7 +471,7 @@ const ExpensesPage: React.FC = () => {
         </DialogActions>
       </Dialog>
     </>
-  )
+  );
 }
 
 export default ExpensesPage

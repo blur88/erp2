@@ -6,10 +6,8 @@ import {
     CardContent,
     Typography,
 } from '@mui/material'
-import {
-    TrendingUp as TrendingUpIcon,
-    TrendingDown as TrendingDownIcon,
-} from '@mui/icons-material'
+import { default as TrendingUpIcon } from '@mui/icons-material/TrendingUp'
+import { default as TrendingDownIcon } from '@mui/icons-material/TrendingDown'
 
 interface StatItem {
     title: string
@@ -83,7 +81,9 @@ const DashboardStats: React.FC<DashboardStatsProps> = ({ stats }) => {
                             <Typography variant="h4" sx={{ fontWeight: 700, mb: 0.5 }}>
                                 {stat.value}
                             </Typography>
-                            <Typography variant="body2" color="text.secondary">
+                            <Typography variant="body2" sx={{
+                                color: "text.secondary"
+                            }}>
                                 {stat.title}
                             </Typography>
                         </CardContent>
@@ -91,7 +91,7 @@ const DashboardStats: React.FC<DashboardStatsProps> = ({ stats }) => {
                 </Grid>
             ))}
         </Grid>
-    )
+    );
 }
 
 export default DashboardStats

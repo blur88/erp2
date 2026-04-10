@@ -116,7 +116,7 @@ const StockLevelSettingsPage: React.FC = () => {
                     type="number"
                     fullWidth
                     required
-                    inputProps={{ min: 0, step: 1 }}
+                    slotProps={{ htmlInput: { min: 0, step: 1 } }}
                     error={!!errors.lowStockThreshold}
                     helperText={
                       errors.lowStockThreshold?.message ||

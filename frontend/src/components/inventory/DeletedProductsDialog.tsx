@@ -26,13 +26,11 @@ import {
   useTheme,
   useMediaQuery,
 } from '@mui/material'
-import {
-  Search as SearchIcon,
-  Restore as RestoreIcon,
-  Close as CloseIcon,
-  DeleteForever as DeleteForeverIcon,
-  Inventory2 as ProductIcon,
-} from '@mui/icons-material'
+import { default as SearchIcon } from '@mui/icons-material/Search'
+import { default as RestoreIcon } from '@mui/icons-material/Restore'
+import { default as CloseIcon } from '@mui/icons-material/Close'
+import { default as DeleteForeverIcon } from '@mui/icons-material/DeleteForever'
+import { default as ProductIcon } from '@mui/icons-material/Inventory2'
 import {
   useBulkPermanentDeleteProductsMutation,
   useBulkRestoreProductsMutation,
@@ -214,10 +212,15 @@ const DeletedProductsDialog: React.FC<DeletedProductsDialogProps> = ({ open, onC
       onClose={onClose}
       maxWidth="lg"
       fullWidth
-      PaperProps={{ sx: { height: '80vh' } }}
+      slotProps={{ paper: { sx: { height: '80vh' } } }}
     >
       <DialogTitle>
-        <Box display="flex" justifyContent="space-between" alignItems="center">
+        <Box
+          sx={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center"
+          }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <ProductIcon sx={{ color: 'error.main' }} />
             <Typography variant={isMobile ? "h6" : "h5"} sx={{ fontWeight: 700 }}>
@@ -228,11 +231,15 @@ const DeletedProductsDialog: React.FC<DeletedProductsDialogProps> = ({ open, onC
             <CloseIcon />
           </IconButton>
         </Box>
-        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+        <Typography
+          variant="body2"
+          sx={{
+            color: "text.secondary",
+            mt: 0.5
+          }}>
           Manage soft-deleted products ({filteredProducts.length} {searchTerm ? 'found' : 'total'})
         </Typography>
       </DialogTitle>
-
       <DialogContent>
         <Box sx={{ mb: 3 }}>
           <Alert severity="info" sx={{ mb: 2 }}>
@@ -247,12 +254,14 @@ const DeletedProductsDialog: React.FC<DeletedProductsDialogProps> = ({ open, onC
               placeholder="Search deleted products..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon />
-                  </InputAdornment>
-                ),
+              slotProps={{
+                input: {
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon />
+                    </InputAdornment>
+                  ),
+                },
               }}
               sx={{ flex: 1, minWidth: '300px' }}
             />
@@ -347,7 +356,9 @@ const DeletedProductsDialog: React.FC<DeletedProductsDialogProps> = ({ open, onC
                 {filteredProducts.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={isMobile ? 5 : 7} align="center" sx={{ py: 4 }}>
-                      <Typography variant="body1" color="text.secondary">
+                      <Typography variant="body1" sx={{
+                        color: "text.secondary"
+                      }}>
                         {searchTerm ? 'No deleted products match your search.' : 'No deleted products found.'}
                       </Typography>
                     </TableCell>
@@ -382,7 +393,15 @@ const DeletedProductsDialog: React.FC<DeletedProductsDialogProps> = ({ open, onC
                             {product.name}
                           </Typography>
                           {isMobile && product.pricingTiers && Object.keys(product.pricingTiers).length > 0 && (
-                            <Typography variant="caption" color="primary.main" sx={{ fontSize: '0.65rem', fontWeight: 500, mt: 0.25, display: 'block' }}>
+                            <Typography
+                              variant="caption"
+                              sx={{
+                                color: "primary.main",
+                                fontSize: '0.65rem',
+                                fontWeight: 500,
+                                mt: 0.25,
+                                display: 'block'
+                              }}>
                               {formatCurrency(Object.values(product.pricingTiers)[0] as number)}
                             </Typography>
                           )}
@@ -412,7 +431,9 @@ const DeletedProductsDialog: React.FC<DeletedProductsDialogProps> = ({ open, onC
                       )}
                       {!isMobile && (
                         <TableCell>
-                          <Typography variant="caption" color="text.secondary">
+                          <Typography variant="caption" sx={{
+                            color: "text.secondary"
+                          }}>
                             {(product as any).deletedAt ? formatDate((product as any).deletedAt) : 'Unknown'}
                           </Typography>
                         </TableCell>
@@ -464,12 +485,15 @@ const DeletedProductsDialog: React.FC<DeletedProductsDialogProps> = ({ open, onC
                           </Tooltip>
                         </Box>
                         {isMobile && (product as any).deletedAt && (
-                          <Typography variant="caption" color="text.secondary" sx={{ 
-                            display: 'block', 
-                            textAlign: 'right', 
-                            mt: 0.25,
-                            fontSize: '0.65rem'
-                          }}>
+                          <Typography
+                            variant="caption"
+                            sx={{
+                              color: "text.secondary",
+                              display: 'block',
+                              textAlign: 'right',
+                              mt: 0.25,
+                              fontSize: '0.65rem'
+                            }}>
                             {formatDate((product as any).deletedAt)}
                           </Typography>
                         )}
@@ -482,13 +506,11 @@ const DeletedProductsDialog: React.FC<DeletedProductsDialogProps> = ({ open, onC
           </TableContainer>
         )}
       </DialogContent>
-
       <DialogActions>
         <Button onClick={onClose} variant="outlined">
           Close
         </Button>
       </DialogActions>
-
       {/* Permanent Delete Confirmation Dialog */}
       <Dialog
         open={Boolean(confirmDelete)}
@@ -497,7 +519,12 @@ const DeletedProductsDialog: React.FC<DeletedProductsDialogProps> = ({ open, onC
         fullWidth
       >
         <DialogTitle color="error">
-          <Box display="flex" alignItems="center" gap={1}>
+          <Box
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              gap: 1
+            }}>
             <DeleteForeverIcon color="error" />
             Permanently Delete Product
           </Box>
@@ -516,11 +543,18 @@ const DeletedProductsDialog: React.FC<DeletedProductsDialogProps> = ({ open, onC
                 <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
                   {confirmDelete.name}
                 </Typography>
-                <Typography variant="body2" color="text.secondary">
+                <Typography variant="body2" sx={{
+                  color: "text.secondary"
+                }}>
                   Category: {confirmDelete.category?.name || 'No Category'}
                 </Typography>
               </Box>
-              <Typography variant="body2" sx={{ mt: 2 }} color="text.secondary">
+              <Typography
+                variant="body2"
+                sx={{
+                  color: "text.secondary",
+                  mt: 2
+                }}>
                 This will permanently remove the product and all its data from the database.
                 The barcode "{confirmDelete.barcode}" will become available for reuse.
               </Typography>
@@ -546,7 +580,6 @@ const DeletedProductsDialog: React.FC<DeletedProductsDialogProps> = ({ open, onC
           </Button>
         </DialogActions>
       </Dialog>
-
       {/* Bulk Restore Confirmation Dialog */}
       <Dialog
         open={showBulkRestoreConfirm}
@@ -555,7 +588,12 @@ const DeletedProductsDialog: React.FC<DeletedProductsDialogProps> = ({ open, onC
         fullWidth
       >
         <DialogTitle color="success">
-          <Box display="flex" alignItems="center" gap={1}>
+          <Box
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              gap: 1
+            }}>
             <RestoreIcon color="success" />
             Bulk Restore Products
           </Box>
@@ -587,7 +625,12 @@ const DeletedProductsDialog: React.FC<DeletedProductsDialogProps> = ({ open, onC
             </Box>
           )}
           
-          <Typography variant="body2" sx={{ mt: 2 }} color="text.secondary">
+          <Typography
+            variant="body2"
+            sx={{
+              color: "text.secondary",
+              mt: 2
+            }}>
             This will move the selected products back to the active products list and make them available for orders and inventory management.
           </Typography>
         </DialogContent>
@@ -610,7 +653,6 @@ const DeletedProductsDialog: React.FC<DeletedProductsDialogProps> = ({ open, onC
           </Button>
         </DialogActions>
       </Dialog>
-
       {/* Bulk Delete Confirmation Dialog */}
       <Dialog
         open={showBulkConfirm}
@@ -619,7 +661,12 @@ const DeletedProductsDialog: React.FC<DeletedProductsDialogProps> = ({ open, onC
         fullWidth
       >
         <DialogTitle color="error">
-          <Box display="flex" alignItems="center" gap={1}>
+          <Box
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              gap: 1
+            }}>
             <DeleteForeverIcon color="error" />
             Bulk Permanent Delete
           </Box>
@@ -651,7 +698,12 @@ const DeletedProductsDialog: React.FC<DeletedProductsDialogProps> = ({ open, onC
             </Box>
           )}
           
-          <Typography variant="body2" sx={{ mt: 2 }} color="text.secondary">
+          <Typography
+            variant="body2"
+            sx={{
+              color: "text.secondary",
+              mt: 2
+            }}>
             This will permanently remove all selected products and their data from the database.
             Their barcodes will become available for reuse.
           </Typography>
@@ -676,7 +728,7 @@ const DeletedProductsDialog: React.FC<DeletedProductsDialogProps> = ({ open, onC
         </DialogActions>
       </Dialog>
     </Dialog>
-  )
+  );
 }
 
 export default DeletedProductsDialog

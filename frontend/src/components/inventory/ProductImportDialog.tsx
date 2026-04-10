@@ -28,16 +28,14 @@ import {
   useTheme,
   useMediaQuery,
 } from '@mui/material';
-import {
-  CloudUpload as CloudUploadIcon,
-  CheckCircle as CheckCircleIcon,
-  Error as ErrorIcon,
-  Warning as WarningIcon,
-  Download as DownloadIcon,
-  ExpandMore as ExpandMoreIcon,
-  ExpandLess as ExpandLessIcon,
-  Close as CloseIcon,
-} from '@mui/icons-material';
+import { default as CloudUploadIcon } from '@mui/icons-material/CloudUpload'
+import { default as CheckCircleIcon } from '@mui/icons-material/CheckCircle'
+import { default as ErrorIcon } from '@mui/icons-material/Error'
+import { default as WarningIcon } from '@mui/icons-material/Warning'
+import { default as DownloadIcon } from '@mui/icons-material/Download'
+import { default as ExpandMoreIcon } from '@mui/icons-material/ExpandMore'
+import { default as ExpandLessIcon } from '@mui/icons-material/ExpandLess'
+import { default as CloseIcon } from '@mui/icons-material/Close';
 import { useNotification } from '@/hooks/useNotification';
 import { ApiService } from '@/services/api';
 
@@ -186,7 +184,6 @@ const ProductImportDialog: React.FC<ProductImportDialogProps> = ({
         <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
           Import Results
         </Typography>
-        
         {/* Summary Cards */}
         <Box sx={{ display: 'flex', gap: 1, mb: 2, flexWrap: 'wrap' }}>
           <Chip
@@ -221,14 +218,17 @@ const ProductImportDialog: React.FC<ProductImportDialogProps> = ({
             />
           )}
         </Box>
-
         {/* Progress Summary */}
         <Box sx={{ mb: 2 }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant="body2" sx={{
+              color: "text.secondary"
+            }}>
               Processed: {importResult.totalRows} rows
             </Typography>
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant="body2" sx={{
+              color: "text.secondary"
+            }}>
               {Math.round(((importResult.successCount + importResult.updatedCount + importResult.skippedCount) / importResult.totalRows) * 100)}% Complete
             </Typography>
           </Box>
@@ -239,7 +239,6 @@ const ProductImportDialog: React.FC<ProductImportDialogProps> = ({
             sx={{ height: 6, borderRadius: 3 }}
           />
         </Box>
-
         {/* Errors Section */}
         {hasErrors && (
           <Box sx={{ mb: 2 }}>
@@ -277,7 +276,6 @@ const ProductImportDialog: React.FC<ProductImportDialogProps> = ({
             </Collapse>
           </Box>
         )}
-
         {/* Warnings Section */}
         {hasWarnings && (
           <Box sx={{ mb: 2 }}>
@@ -322,10 +320,12 @@ const ProductImportDialog: React.FC<ProductImportDialogProps> = ({
       maxWidth="md"
       fullWidth
       fullScreen={isMobile}
-      PaperProps={{
-        sx: {
-          maxHeight: isMobile ? '100vh' : '90vh',
-          width: isMobile ? '100vw' : 'auto',
+      slotProps={{
+        paper: {
+          sx: {
+            maxHeight: isMobile ? '100vh' : '90vh',
+            width: isMobile ? '100vw' : 'auto',
+          }
         }
       }}
     >
@@ -339,7 +339,6 @@ const ProductImportDialog: React.FC<ProductImportDialogProps> = ({
           </IconButton>
         )}
       </DialogTitle>
-
       <DialogContent sx={{ pb: 2 }}>
         {!importResult ? (
           <>
@@ -360,7 +359,9 @@ const ProductImportDialog: React.FC<ProductImportDialogProps> = ({
                 >
                   Download Template
                 </Button>
-                <Typography variant="caption" color="text.secondary">
+                <Typography variant="caption" sx={{
+                  color: "text.secondary"
+                }}>
                   Download the CSV template with required headers and sample data
                 </Typography>
               </Box>
@@ -389,7 +390,9 @@ const ProductImportDialog: React.FC<ProductImportDialogProps> = ({
 
               {file && (
                 <Box sx={{ mt: 1 }}>
-                  <Typography variant="body2" color="text.secondary">
+                  <Typography variant="body2" sx={{
+                    color: "text.secondary"
+                  }}>
                     Selected: {file.name} ({(file.size / 1024).toFixed(2)} KB)
                   </Typography>
                 </Box>
@@ -427,7 +430,9 @@ const ProductImportDialog: React.FC<ProductImportDialogProps> = ({
                 label={
                   <Box>
                     <Typography variant="body2">Skip Duplicates</Typography>
-                    <Typography variant="caption" color="text.secondary">
+                    <Typography variant="caption" sx={{
+                      color: "text.secondary"
+                    }}>
                       Skip products with duplicate names or barcodes
                     </Typography>
                   </Box>
@@ -449,7 +454,9 @@ const ProductImportDialog: React.FC<ProductImportDialogProps> = ({
                 label={
                   <Box>
                     <Typography variant="body2">Update Existing</Typography>
-                    <Typography variant="caption" color="text.secondary">
+                    <Typography variant="caption" sx={{
+                      color: "text.secondary"
+                    }}>
                       Update existing products when duplicates are found
                     </Typography>
                   </Box>
@@ -461,7 +468,13 @@ const ProductImportDialog: React.FC<ProductImportDialogProps> = ({
             {importing && (
               <Box sx={{ mt: 2 }}>
                 <LinearProgress />
-                <Typography variant="body2" color="text.secondary" sx={{ mt: 1, textAlign: 'center' }}>
+                <Typography
+                  variant="body2"
+                  sx={{
+                    color: "text.secondary",
+                    mt: 1,
+                    textAlign: 'center'
+                  }}>
                   Importing products, please wait...
                 </Typography>
               </Box>
@@ -471,7 +484,6 @@ const ProductImportDialog: React.FC<ProductImportDialogProps> = ({
           renderImportResults()
         )}
       </DialogContent>
-
       <DialogActions sx={{ px: 3, pb: 2 }}>
         <Button onClick={handleClose} disabled={importing}>
           {importResult ? 'Close' : 'Cancel'}

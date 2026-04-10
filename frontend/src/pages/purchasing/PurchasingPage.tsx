@@ -17,14 +17,12 @@ import {
   Button,
   useTheme,
 } from '@mui/material'
-import {
-  Assignment as PurchasingIcon,
-  LocalShipping as SuppliersIcon,
-  Inventory2 as GRNIcon,
-  Payment as PaymentsIcon,
-  TrendingUp as TrendingUpIcon,
-  TrendingDown as TrendingDownIcon,
-} from '@mui/icons-material'
+import { default as PurchasingIcon } from '@mui/icons-material/Assignment'
+import { default as SuppliersIcon } from '@mui/icons-material/LocalShipping'
+import { default as GRNIcon } from '@mui/icons-material/Inventory2'
+import { default as PaymentsIcon } from '@mui/icons-material/Payment'
+import { default as TrendingUpIcon } from '@mui/icons-material/TrendingUp'
+import { default as TrendingDownIcon } from '@mui/icons-material/TrendingDown'
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -224,7 +222,6 @@ const PurchasingPage: React.FC = () => {
           />
         }
       />
-
       {error && (
         <Alert
           severity="error"
@@ -234,7 +231,6 @@ const PurchasingPage: React.FC = () => {
           Failed to load dashboard data.
         </Alert>
       )}
-
       <Box sx={{ opacity: isFetching ? 0.7 : 1, transition: 'opacity 0.2s' }}>
         {/* Stats Cards */}
         <Grid container spacing={3} sx={{ mb: 4 }}>
@@ -284,13 +280,15 @@ const PurchasingPage: React.FC = () => {
                     >
                       {isLoading ? '—' : stat.value}
                     </Typography>
-                    <Typography variant="body2" color="text.secondary">
+                    <Typography variant="body2" sx={{
+                      color: "text.secondary"
+                    }}>
                       {stat.title}
                     </Typography>
                   </CardContent>
                 </Card>
               </Grid>
-            )
+            );
           })}
         </Grid>
 
@@ -348,12 +346,16 @@ const PurchasingPage: React.FC = () => {
                             >
                               {supplier.supplierName}
                             </Typography>
-                            <Typography variant="caption" color="text.secondary">
+                            <Typography variant="caption" sx={{
+                              color: "text.secondary"
+                            }}>
                               {supplier.orderCount} orders
                             </Typography>
                           </Box>
                         </Box>
-                        <Typography variant="body2" color="warning.main">
+                        <Typography variant="body2" sx={{
+                          color: "warning.main"
+                        }}>
                           {formatCurrency(supplier.totalSpent)}
                         </Typography>
                       </Box>
@@ -362,8 +364,10 @@ const PurchasingPage: React.FC = () => {
                 ) : (
                   <Typography
                     variant="body2"
-                    color="text.secondary"
                     align="center"
+                    sx={{
+                      color: "text.secondary"
+                    }}
                   >
                     No supplier data available
                   </Typography>
@@ -457,9 +461,10 @@ const PurchasingPage: React.FC = () => {
                           <TableCell align="right">
                             <Typography
                               variant="body2"
-                              color="warning.main"
-                              sx={{ fontSize: '0.8rem' }}
-                            >
+                              sx={{
+                                color: "warning.main",
+                                fontSize: '0.8rem'
+                              }}>
                               {formatCurrency(order.totalAmount)}
                             </Typography>
                           </TableCell>
@@ -481,7 +486,9 @@ const PurchasingPage: React.FC = () => {
                     ) : (
                       <TableRow>
                         <TableCell colSpan={5} align="center">
-                          <Typography variant="body2" color="text.secondary">
+                          <Typography variant="body2" sx={{
+                            color: "text.secondary"
+                          }}>
                             No recent purchase orders
                           </Typography>
                         </TableCell>
@@ -495,7 +502,7 @@ const PurchasingPage: React.FC = () => {
         </Grid>
       </Box>
     </>
-  )
+  );
 }
 
 export default PurchasingPage

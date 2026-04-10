@@ -21,9 +21,7 @@ import {
   useTheme,
   useMediaQuery,
 } from '@mui/material';
-import {
-  Delete as DeleteIcon,
-} from '@mui/icons-material';
+import { default as DeleteIcon } from '@mui/icons-material/Delete';
 import PageHeader from '@/components/common/PageHeader';
 import { format } from 'date-fns';
 import ConfirmationDialog from '@/components/common/ConfirmationDialog';

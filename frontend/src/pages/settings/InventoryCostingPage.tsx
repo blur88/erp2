@@ -10,9 +10,7 @@ import {
   Alert,
   MenuItem,
 } from '@mui/material'
-import {
-  Calculate as CalculateIcon,
-} from '@mui/icons-material'
+import { default as CalculateIcon } from '@mui/icons-material/Calculate'
 import { useForm, Controller, useWatch } from 'react-hook-form'
 import * as yup from 'yup'
 import { yupResolver } from '@hookform/resolvers/yup'

@@ -13,11 +13,9 @@ import {
   Tabs,
   Typography,
 } from '@mui/material'
-import {
-  AccountBalance as InvoiceIcon,
-  Payment as PaymentIcon,
-  ShoppingCart as OrdersIcon,
-} from '@mui/icons-material'
+import { default as InvoiceIcon } from '@mui/icons-material/AccountBalance'
+import { default as PaymentIcon } from '@mui/icons-material/Payment'
+import { default as OrdersIcon } from '@mui/icons-material/ShoppingCart'
 import { useNavigate } from 'react-router-dom'
 
 import { TABLE_STYLES } from '@/constants/tableStyles'
@@ -98,18 +96,27 @@ const CustomerWorkspaceCard: React.FC<CustomerWorkspaceCardProps> = ({ selectedC
           <Tab icon={<PaymentIcon sx={{ fontSize: 16 }} />} iconPosition="start" label="Payments" />
         </Tabs>
       </Box>
-
       <TabPanel value={tabValue} index={0}>
         {ordersLoading ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
             <CircularProgress />
           </Box>
         ) : ordersError ? (
-          <Typography color="error.main" sx={{ py: 4, textAlign: 'center' }}>
+          <Typography
+            sx={{
+              color: "error.main",
+              py: 4,
+              textAlign: 'center'
+            }}>
             Failed to load orders.
           </Typography>
         ) : orders.length === 0 ? (
-          <Typography color="text.secondary" sx={{ py: 4, textAlign: 'center' }}>
+          <Typography
+            sx={{
+              color: "text.secondary",
+              py: 4,
+              textAlign: 'center'
+            }}>
             No orders found.
           </Typography>
         ) : (
@@ -132,7 +139,9 @@ const CustomerWorkspaceCard: React.FC<CustomerWorkspaceCardProps> = ({ selectedC
                     onClick={() => navigate(`/sales/orders/${order.id}/edit`)}
                   >
                     <TableCell>
-                      <Typography variant="body2" color="primary" fontWeight={600}>
+                      <Typography variant="body2" color="primary" sx={{
+                        fontWeight: 600
+                      }}>
                         {order.orderNumber}
                       </Typography>
                     </TableCell>
@@ -159,24 +168,35 @@ const CustomerWorkspaceCard: React.FC<CustomerWorkspaceCardProps> = ({ selectedC
           </TableContainer>
         )}
       </TabPanel>
-
       <TabPanel value={tabValue} index={1}>
         {invoicesLoading ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
             <CircularProgress />
           </Box>
         ) : invoicesError ? (
-          <Typography color="error.main" sx={{ py: 4, textAlign: 'center' }}>
+          <Typography
+            sx={{
+              color: "error.main",
+              py: 4,
+              textAlign: 'center'
+            }}>
             Failed to load invoices.
           </Typography>
         ) : invoices.length === 0 ? (
-          <Typography color="text.secondary" sx={{ py: 4, textAlign: 'center' }}>
+          <Typography
+            sx={{
+              color: "text.secondary",
+              py: 4,
+              textAlign: 'center'
+            }}>
             No outstanding invoices.
           </Typography>
         ) : (
           <>
             <Box sx={{ mb: 2, display: 'flex', justifyContent: 'flex-end' }}>
-              <Typography variant="subtitle2" color="text.secondary">
+              <Typography variant="subtitle2" sx={{
+                color: "text.secondary"
+              }}>
                 Total Outstanding: <strong>{formatCurrency(totalOutstanding)}</strong>
               </Typography>
             </Box>
@@ -202,7 +222,9 @@ const CustomerWorkspaceCard: React.FC<CustomerWorkspaceCardProps> = ({ selectedC
                         <Typography
                           variant="body2"
                           color={invoice.salesOrderId ? 'primary' : 'text.primary'}
-                          fontWeight={600}
+                          sx={{
+                            fontWeight: 600
+                          }}
                         >
                           {invoice.invoiceNumber}
                         </Typography>
@@ -210,7 +232,11 @@ const CustomerWorkspaceCard: React.FC<CustomerWorkspaceCardProps> = ({ selectedC
                       <TableCell>{formatDate(invoice.invoiceDate)}</TableCell>
                       <TableCell align="right">{formatCurrency(invoice.totalAmount)}</TableCell>
                       <TableCell align="right">
-                        <Typography fontWeight={600} color="error.main">
+                        <Typography
+                          sx={{
+                            fontWeight: 600,
+                            color: "error.main"
+                          }}>
                           {formatCurrency(invoice.balanceDue)}
                         </Typography>
                       </TableCell>
@@ -222,18 +248,27 @@ const CustomerWorkspaceCard: React.FC<CustomerWorkspaceCardProps> = ({ selectedC
           </>
         )}
       </TabPanel>
-
       <TabPanel value={tabValue} index={2}>
         {paymentsLoading ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
             <CircularProgress />
           </Box>
         ) : paymentsError ? (
-          <Typography color="error.main" sx={{ py: 4, textAlign: 'center' }}>
+          <Typography
+            sx={{
+              color: "error.main",
+              py: 4,
+              textAlign: 'center'
+            }}>
             Failed to load payments.
           </Typography>
         ) : payments.length === 0 ? (
-          <Typography color="text.secondary" sx={{ py: 4, textAlign: 'center' }}>
+          <Typography
+            sx={{
+              color: "text.secondary",
+              py: 4,
+              textAlign: 'center'
+            }}>
             No payments found.
           </Typography>
         ) : (
@@ -251,7 +286,9 @@ const CustomerWorkspaceCard: React.FC<CustomerWorkspaceCardProps> = ({ selectedC
                 {payments.map((payment) => (
                   <TableRow key={payment.id}>
                     <TableCell>
-                      <Typography variant="body2" fontWeight={600}>
+                      <Typography variant="body2" sx={{
+                        fontWeight: 600
+                      }}>
                         {payment.paymentNumber}
                       </Typography>
                     </TableCell>
@@ -266,7 +303,7 @@ const CustomerWorkspaceCard: React.FC<CustomerWorkspaceCardProps> = ({ selectedC
         )}
       </TabPanel>
     </Paper>
-  )
+  );
 }
 
 export default CustomerWorkspaceCard

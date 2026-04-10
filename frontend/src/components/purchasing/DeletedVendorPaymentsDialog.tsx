@@ -21,11 +21,9 @@ import {
   useTheme,
   useMediaQuery,
 } from '@mui/material'
-import {
-  Search as SearchIcon,
-  Close as CloseIcon,
-  Payment as PaymentIcon,
-} from '@mui/icons-material'
+import { default as SearchIcon } from '@mui/icons-material/Search'
+import { default as CloseIcon } from '@mui/icons-material/Close'
+import { default as PaymentIcon } from '@mui/icons-material/Payment'
 import { useGetDeletedVendorPaymentsQuery } from '@/store/api/purchasingApi'
 import { formatCurrency, formatDate } from '@/utils/formatters'
 
@@ -60,10 +58,15 @@ const DeletedVendorPaymentsDialog: React.FC<DeletedVendorPaymentsDialogProps> = 
         onClose={handleClose}
         maxWidth="lg"
         fullWidth
-        PaperProps={{ sx: { height: '80vh' } }}
+        slotProps={{ paper: { sx: { height: '80vh' } } }}
       >
         <DialogTitle>
-          <Box display="flex" justifyContent="space-between" alignItems="center">
+          <Box
+            sx={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center"
+            }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               <PaymentIcon sx={{ color: 'error.main' }} />
               <Typography variant={isMobile ? "h6" : "h5"} sx={{ fontWeight: 700 }}>
@@ -74,7 +77,12 @@ const DeletedVendorPaymentsDialog: React.FC<DeletedVendorPaymentsDialogProps> = 
               <CloseIcon />
             </IconButton>
           </Box>
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+          <Typography
+            variant="body2"
+            sx={{
+              color: "text.secondary",
+              mt: 0.5
+            }}>
             Manage soft-deleted vendor payments ({filteredPayments.length} {searchTerm ? 'found' : 'total'})
           </Typography>
         </DialogTitle>
@@ -90,12 +98,14 @@ const DeletedVendorPaymentsDialog: React.FC<DeletedVendorPaymentsDialogProps> = 
               placeholder="Search deleted payments..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon />
-                  </InputAdornment>
-                ),
+              slotProps={{
+                input: {
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon />
+                    </InputAdornment>
+                  ),
+                },
               }}
             />
           </Box>
@@ -157,7 +167,9 @@ const DeletedVendorPaymentsDialog: React.FC<DeletedVendorPaymentsDialogProps> = 
                   {filteredPayments.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={isMobile ? 2 : 5} align="center" sx={{ py: 4 }}>
-                        <Typography variant="body1" color="text.secondary">
+                        <Typography variant="body1" sx={{
+                          color: "text.secondary"
+                        }}>
                           {searchTerm ? 'No deleted payments match your search.' : 'No deleted payments found.'}
                         </Typography>
                       </TableCell>
@@ -180,10 +192,21 @@ const DeletedVendorPaymentsDialog: React.FC<DeletedVendorPaymentsDialogProps> = 
                             </Typography>
                             {isMobile && (
                               <Box sx={{ mt: 0.25, display: 'flex', gap: 0.5, alignItems: 'center' }}>
-                                <Typography variant="caption" color="success.main" sx={{ fontSize: '0.65rem', fontWeight: 600 }}>
+                                <Typography
+                                  variant="caption"
+                                  sx={{
+                                    color: "success.main",
+                                    fontSize: '0.65rem',
+                                    fontWeight: 600
+                                  }}>
                                   {formatCurrency(payment.amount)}
                                 </Typography>
-                                <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
+                                <Typography
+                                  variant="caption"
+                                  sx={{
+                                    color: "text.secondary",
+                                    fontSize: '0.65rem'
+                                  }}>
                                   • {payment.paymentDate ? formatDate(payment.paymentDate) : 'Unknown'}
                                 </Typography>
                               </Box>
@@ -204,14 +227,18 @@ const DeletedVendorPaymentsDialog: React.FC<DeletedVendorPaymentsDialogProps> = 
                         )}
                         {!isMobile && (
                           <TableCell>
-                            <Typography variant="caption" color="text.secondary">
+                            <Typography variant="caption" sx={{
+                              color: "text.secondary"
+                            }}>
                               {payment.paymentDate ? formatDate(payment.paymentDate) : 'Unknown'}
                             </Typography>
                           </TableCell>
                         )}
                         {!isMobile && (
                           <TableCell>
-                            <Typography variant="caption" color="text.secondary">
+                            <Typography variant="caption" sx={{
+                              color: "text.secondary"
+                            }}>
                               {payment.deletedAt ? formatDate(payment.deletedAt) : 'Unknown'}
                             </Typography>
                           </TableCell>
@@ -232,7 +259,7 @@ const DeletedVendorPaymentsDialog: React.FC<DeletedVendorPaymentsDialogProps> = 
         </DialogActions>
       </Dialog>
     </>
-  )
+  );
 }
 
 export default DeletedVendorPaymentsDialog

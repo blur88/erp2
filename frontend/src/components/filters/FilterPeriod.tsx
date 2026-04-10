@@ -59,7 +59,14 @@ export function FilterPeriod({ value, customFrom, customTo, onChange }: FilterPe
   }
 
   return (
-    <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
+    <Stack
+      direction="row"
+      spacing={1}
+      useFlexGap
+      sx={{
+        alignItems: "center",
+        flexWrap: "wrap"
+      }}>
       <FormControl size="small" sx={{ minWidth: 150 }}>
         <InputLabel id={labelId} shrink={value !== null}>Period</InputLabel>
         <Select
@@ -83,7 +90,6 @@ export function FilterPeriod({ value, customFrom, customTo, onChange }: FilterPe
           ])}
         </Select>
       </FormControl>
-
       {value === 'custom' && (
         <>
           <DatePicker
@@ -107,5 +113,5 @@ export function FilterPeriod({ value, customFrom, customTo, onChange }: FilterPe
         </>
       )}
     </Stack>
-  )
+  );
 }

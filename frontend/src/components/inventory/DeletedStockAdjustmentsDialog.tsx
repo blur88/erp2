@@ -26,13 +26,11 @@ import {
   useTheme,
   useMediaQuery,
 } from '@mui/material'
-import {
-  Search as SearchIcon,
-  Restore as RestoreIcon,
-  Delete as DeleteIcon,
-  Close as CloseIcon,
-  Assessment as AssessmentIcon,
-} from '@mui/icons-material'
+import { default as SearchIcon } from '@mui/icons-material/Search'
+import { default as RestoreIcon } from '@mui/icons-material/Restore'
+import { default as DeleteIcon } from '@mui/icons-material/Delete'
+import { default as CloseIcon } from '@mui/icons-material/Close'
+import { default as AssessmentIcon } from '@mui/icons-material/Assessment'
 import {
   useBulkPermanentDeleteStockAdjustmentsMutation,
   useGetDeletedStockAdjustmentsQuery,
@@ -228,10 +226,15 @@ const DeletedStockAdjustmentsDialog: React.FC<DeletedStockAdjustmentsDialogProps
         onClose={onClose}
         maxWidth="lg"
         fullWidth
-        PaperProps={{ sx: { height: '80vh' } }}
+        slotProps={{ paper: { sx: { height: '80vh' } } }}
       >
         <DialogTitle>
-          <Box display="flex" justifyContent="space-between" alignItems="center">
+          <Box
+            sx={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center"
+            }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               <AssessmentIcon sx={{ color: 'error.main' }} />
               <Typography variant={isMobile ? "h6" : "h5"} sx={{ fontWeight: 700 }}>
@@ -242,7 +245,12 @@ const DeletedStockAdjustmentsDialog: React.FC<DeletedStockAdjustmentsDialogProps
               <CloseIcon />
             </IconButton>
           </Box>
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+          <Typography
+            variant="body2"
+            sx={{
+              color: "text.secondary",
+              mt: 0.5
+            }}>
             Manage soft-deleted stock adjustments ({filteredAdjustments.length} {searchTerm ? 'found' : 'total'})
           </Typography>
         </DialogTitle>
@@ -259,12 +267,14 @@ const DeletedStockAdjustmentsDialog: React.FC<DeletedStockAdjustmentsDialogProps
                 placeholder="Search deleted adjustments..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <SearchIcon />
-                    </InputAdornment>
-                  ),
+                slotProps={{
+                  input: {
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <SearchIcon />
+                      </InputAdornment>
+                    ),
+                  },
                 }}
                 sx={{ flex: 1, minWidth: '300px' }}
               />
@@ -359,7 +369,12 @@ const DeletedStockAdjustmentsDialog: React.FC<DeletedStockAdjustmentsDialogProps
                   <TableRow>
                     <TableCell colSpan={isMobile ? 5 : 8} align="center" sx={{ py: 4 }}>
                       <CircularProgress size={32} />
-                      <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
+                      <Typography
+                        variant="body2"
+                        sx={{
+                          color: "text.secondary",
+                          mt: 2
+                        }}>
                         Loading deleted stock adjustments...
                       </Typography>
                     </TableCell>
@@ -368,11 +383,18 @@ const DeletedStockAdjustmentsDialog: React.FC<DeletedStockAdjustmentsDialogProps
                   <TableRow>
                     <TableCell colSpan={isMobile ? 5 : 8} align="center" sx={{ py: 4 }}>
                       <AssessmentIcon sx={{ fontSize: 48, color: 'action.disabled', mb: 1 }} />
-                      <Typography variant="body1" color="text.secondary">
+                      <Typography variant="body1" sx={{
+                        color: "text.secondary"
+                      }}>
                         {searchTerm ? 'No matching deleted stock adjustments found' : 'No deleted stock adjustments'}
                       </Typography>
                       {searchTerm && (
-                        <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                        <Typography
+                          variant="body2"
+                          sx={{
+                            color: "text.secondary",
+                            mt: 1
+                          }}>
                           Try adjusting your search criteria
                         </Typography>
                       )}
@@ -410,7 +432,12 @@ const DeletedStockAdjustmentsDialog: React.FC<DeletedStockAdjustmentsDialogProps
                           </Typography>
                           {isMobile && (
                             <Box sx={{ mt: 0.25, display: 'flex', gap: 0.5, alignItems: 'center' }}>
-                              <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
+                              <Typography
+                                variant="caption"
+                                sx={{
+                                  color: "text.secondary",
+                                  fontSize: '0.65rem'
+                                }}>
                                 {formatDate(adjustment.adjustmentDate)}
                               </Typography>
                               <Chip
@@ -456,7 +483,9 @@ const DeletedStockAdjustmentsDialog: React.FC<DeletedStockAdjustmentsDialogProps
                       )}
                       {!isMobile && (
                         <TableCell>
-                          <Typography variant="caption" color="text.secondary">
+                          <Typography variant="caption" sx={{
+                            color: "text.secondary"
+                          }}>
                             {(adjustment as any).deletedAt ? formatDate((adjustment as any).deletedAt) : 'Unknown'}
                           </Typography>
                         </TableCell>
@@ -519,7 +548,9 @@ const DeletedStockAdjustmentsDialog: React.FC<DeletedStockAdjustmentsDialogProps
 
         <DialogActions sx={{ px: 3, py: 2 }}>
           <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant="body2" sx={{
+              color: "text.secondary"
+            }}>
               {selectedCount > 0 ? `${selectedCount} selected` : `${filteredAdjustments.length} total`}
             </Typography>
           </Box>
@@ -528,7 +559,6 @@ const DeletedStockAdjustmentsDialog: React.FC<DeletedStockAdjustmentsDialogProps
           </Button>
         </DialogActions>
       </Dialog>
-
       {/* Bulk Restore Confirmation Dialog */}
       <Dialog open={showBulkRestoreConfirm} onClose={() => setShowBulkRestoreConfirm(false)}>
         <DialogTitle>Confirm Bulk Restore</DialogTitle>
@@ -551,7 +581,6 @@ const DeletedStockAdjustmentsDialog: React.FC<DeletedStockAdjustmentsDialogProps
           </Button>
         </DialogActions>
       </Dialog>
-
       {/* Bulk Delete Confirmation Dialog */}
       <Dialog open={showBulkDeleteConfirm} onClose={() => setShowBulkDeleteConfirm(false)}>
         <DialogTitle>Confirm Bulk Permanent Delete</DialogTitle>
@@ -577,7 +606,6 @@ const DeletedStockAdjustmentsDialog: React.FC<DeletedStockAdjustmentsDialogProps
           </Button>
         </DialogActions>
       </Dialog>
-
       {/* Single Delete Confirmation Dialog */}
       <Dialog open={!!showDeleteConfirm} onClose={() => setShowDeleteConfirm(null)}>
         <DialogTitle>Confirm Permanent Delete</DialogTitle>
@@ -604,7 +632,7 @@ const DeletedStockAdjustmentsDialog: React.FC<DeletedStockAdjustmentsDialogProps
         </DialogActions>
       </Dialog>
     </>
-  )
+  );
 }
 
 export default DeletedStockAdjustmentsDialog

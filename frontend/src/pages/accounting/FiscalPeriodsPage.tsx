@@ -22,14 +22,12 @@ import {
   useTheme,
   useMediaQuery,
 } from '@mui/material'
-import {
-  Edit as EditIcon,
-  Delete as DeleteIcon,
-  Search as SearchIcon,
-  LockOpen as ReopenIcon,
-  Lock as CloseIcon,
-  AutoAwesome as GenerateIcon,
-} from '@mui/icons-material'
+import { default as EditIcon } from '@mui/icons-material/Edit'
+import { default as DeleteIcon } from '@mui/icons-material/Delete'
+import { default as SearchIcon } from '@mui/icons-material/Search'
+import { default as ReopenIcon } from '@mui/icons-material/LockOpen'
+import { default as CloseIcon } from '@mui/icons-material/Lock'
+import { default as GenerateIcon } from '@mui/icons-material/AutoAwesome'
 import { format } from 'date-fns'
 import { useNotification } from '@/hooks/useNotification'
 import { useSearchAndFilter, useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
@@ -276,14 +274,12 @@ const FiscalPeriodsPage: React.FC = () => {
     <>
       {/* Account Mapping Warning */}
       <AccountMappingWarning context="system" />
-
       <PageHeader
         title="Fiscal Periods"
         subtitle="Manage accounting periods and year boundaries"
         secondaryAction={{ label: 'Generate Periods', onClick: handleGeneratePeriods }}
         primaryAction={{ label: 'Add Period', onClick: handleAddPeriod }}
       />
-
       {/* Filters and Search */}
       <Box sx={{ mb: 3 }}>
       <Box sx={{
@@ -319,12 +315,14 @@ const FiscalPeriodsPage: React.FC = () => {
               }
             }
           }}
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <SearchIcon fontSize="small" />
-              </InputAdornment>
-            ),
+          slotProps={{
+            input: {
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon fontSize="small" />
+                </InputAdornment>
+              ),
+            },
           }}
         />
 
@@ -396,7 +394,6 @@ const FiscalPeriodsPage: React.FC = () => {
         </FormControl>
       </Box>
       </Box>
-
       {/* Periods Table */}
       <Paper sx={{ borderRadius: 2, overflow: 'hidden' }}>
         {loading ? (
@@ -405,7 +402,12 @@ const FiscalPeriodsPage: React.FC = () => {
           </Box>
         ) : periods.length === 0 ? (
           <Box sx={{ p: 4, textAlign: 'center' }}>
-            <Typography variant="body1" color="text.secondary" sx={{ mb: 2 }}>
+            <Typography
+              variant="body1"
+              sx={{
+                color: "text.secondary",
+                mb: 2
+              }}>
               No fiscal periods found. {searchTerm || statusFilter !== 'all' || yearFilter !== 'all' ? 'Try adjusting your filters.' : 'Generate periods to get started.'}
             </Typography>
             {!searchTerm && statusFilter === 'all' && yearFilter === 'all' && (
@@ -534,23 +536,32 @@ const FiscalPeriodsPage: React.FC = () => {
                       </Typography>
                     </TableCell>
                     <TableCell>
-                      <Typography variant="tableCaption" color="text.secondary" sx={{
-                        fontSize: '0.7rem'
-                      }}>
+                      <Typography
+                        variant="tableCaption"
+                        sx={{
+                          color: "text.secondary",
+                          fontSize: '0.7rem'
+                        }}>
                         {format(new Date(period.startDate), 'MMM dd, yyyy')}
                       </Typography>
                     </TableCell>
                     <TableCell>
-                      <Typography variant="tableCaption" color="text.secondary" sx={{
-                        fontSize: '0.7rem'
-                      }}>
+                      <Typography
+                        variant="tableCaption"
+                        sx={{
+                          color: "text.secondary",
+                          fontSize: '0.7rem'
+                        }}>
                         {format(new Date(period.endDate), 'MMM dd, yyyy')}
                       </Typography>
                     </TableCell>
                     <TableCell>
-                      <Typography variant="tableCaption" color="text.secondary" sx={{
-                        fontSize: '0.7rem'
-                      }}>
+                      <Typography
+                        variant="tableCaption"
+                        sx={{
+                          color: "text.secondary",
+                          fontSize: '0.7rem'
+                        }}>
                         {period.durationDays} days
                       </Typography>
                     </TableCell>
@@ -679,7 +690,6 @@ const FiscalPeriodsPage: React.FC = () => {
           </TableContainer>
         )}
       </Paper>
-
       {/* Form Dialog */}
       <FiscalPeriodFormDialog
         open={formDialogOpen}
@@ -687,14 +697,12 @@ const FiscalPeriodsPage: React.FC = () => {
         onClose={handleFormClose}
         onSuccess={handleFormSuccess}
       />
-
       {/* Generate Periods Dialog */}
       <GeneratePeriodsDialog
         open={generateDialogOpen}
         onClose={() => setGenerateDialogOpen(false)}
         onSubmit={handleGenerateSubmit}
       />
-
       {/* Delete Confirmation Dialog */}
       <ConfirmationDialog
         open={deleteConfirmOpen}
@@ -706,7 +714,6 @@ const FiscalPeriodsPage: React.FC = () => {
         onCancel={handleCancelDelete}
         severity="error"
       />
-
       {/* Close Confirmation Dialog */}
       <ConfirmationDialog
         open={closeConfirmOpen}
@@ -718,7 +725,6 @@ const FiscalPeriodsPage: React.FC = () => {
         onCancel={handleCancelClose}
         severity="warning"
       />
-
       {/* Reopen Confirmation Dialog */}
       <ConfirmationDialog
         open={reopenConfirmOpen}
@@ -731,7 +737,7 @@ const FiscalPeriodsPage: React.FC = () => {
         severity="info"
       />
     </>
-  )
+  );
 }
 
 export default FiscalPeriodsPage

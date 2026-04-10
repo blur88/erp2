@@ -1,6 +1,7 @@
 import React from 'react'
 import { Box, IconButton, Paper, Tab, Tabs, Typography } from '@mui/material'
-import { Delete as DeleteIcon, Edit as EditIcon } from '@mui/icons-material'
+import { default as DeleteIcon } from '@mui/icons-material/Delete'
+import { default as EditIcon } from '@mui/icons-material/Edit'
 
 import ProductDetailsTab from '@/components/inventory/ProductDetailsTab'
 import MovementHistoryTab from '@/components/inventory/MovementHistoryTab'
@@ -29,13 +30,23 @@ const ProductDetailsPanel: React.FC<ProductDetailsPanelProps> = ({
     <Paper sx={{ height: 'calc(100vh - 300px)', display: 'flex', flexDirection: 'column' }}>
       {products.length === 0 ? (
         <Box sx={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-          <Typography variant="body1" color="text.secondary" textAlign="center">
+          <Typography
+            variant="body1"
+            sx={{
+              color: "text.secondary",
+              textAlign: "center"
+            }}>
             No products available. Create your first product to get started.
           </Typography>
         </Box>
       ) : !selectedProduct ? (
         <Box sx={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-          <Typography variant="body1" color="text.secondary" textAlign="center">
+          <Typography
+            variant="body1"
+            sx={{
+              color: "text.secondary",
+              textAlign: "center"
+            }}>
             Select a product from the list to view its details
           </Typography>
         </Box>
@@ -126,7 +137,7 @@ const ProductDetailsPanel: React.FC<ProductDetailsPanelProps> = ({
         </>
       )}
     </Paper>
-  )
+  );
 }
 
 export default ProductDetailsPanel

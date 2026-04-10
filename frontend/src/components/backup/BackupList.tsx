@@ -13,12 +13,10 @@ import {
   Tooltip,
   TablePagination,
 } from '@mui/material';
-import {
-  Download as DownloadIcon,
-  Restore as RestoreIcon,
-  Delete as DeleteIcon,
-  Info as InfoIcon,
-} from '@mui/icons-material';
+import { default as DownloadIcon } from '@mui/icons-material/Download'
+import { default as RestoreIcon } from '@mui/icons-material/Restore'
+import { default as DeleteIcon } from '@mui/icons-material/Delete'
+import { default as InfoIcon } from '@mui/icons-material/Info';
 import { useAppDispatch } from '@/hooks/useRedux';
 import type { BackupLog } from '@/store/api/backupApi';
 import { useDeleteBackupMutation } from '@/store/api/backupApi';

@@ -21,11 +21,9 @@ import {
   useTheme,
   useMediaQuery,
 } from '@mui/material'
-import {
-  Search as SearchIcon,
-  Close as CloseIcon,
-  LocalShipping as GRNIcon,
-} from '@mui/icons-material'
+import { default as SearchIcon } from '@mui/icons-material/Search'
+import { default as CloseIcon } from '@mui/icons-material/Close'
+import { default as GRNIcon } from '@mui/icons-material/LocalShipping'
 import { useGetDeletedGRNsQuery } from '@/store/api/purchasingApi'
 import { formatCurrency, formatDate } from '@/utils/formatters'
 
@@ -60,10 +58,15 @@ const DeletedGRNsDialog: React.FC<DeletedGRNsDialogProps> = ({ open, onClose }) 
         onClose={handleClose}
         maxWidth="lg"
         fullWidth
-        PaperProps={{ sx: { height: '80vh' } }}
+        slotProps={{ paper: { sx: { height: '80vh' } } }}
       >
         <DialogTitle>
-          <Box display="flex" justifyContent="space-between" alignItems="center">
+          <Box
+            sx={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center"
+            }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               <GRNIcon sx={{ color: 'error.main' }} />
               <Typography variant={isMobile ? "h6" : "h5"} sx={{ fontWeight: 700 }}>
@@ -74,7 +77,12 @@ const DeletedGRNsDialog: React.FC<DeletedGRNsDialogProps> = ({ open, onClose }) 
               <CloseIcon />
             </IconButton>
           </Box>
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+          <Typography
+            variant="body2"
+            sx={{
+              color: "text.secondary",
+              mt: 0.5
+            }}>
             Manage soft-deleted GRNs ({filteredGRNs.length} {searchTerm ? 'found' : 'total'})
           </Typography>
         </DialogTitle>
@@ -90,12 +98,14 @@ const DeletedGRNsDialog: React.FC<DeletedGRNsDialogProps> = ({ open, onClose }) 
               placeholder="Search deleted GRNs..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon />
-                  </InputAdornment>
-                ),
+              slotProps={{
+                input: {
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon />
+                    </InputAdornment>
+                  ),
+                },
               }}
             />
           </Box>
@@ -150,7 +160,9 @@ const DeletedGRNsDialog: React.FC<DeletedGRNsDialogProps> = ({ open, onClose }) 
                   {filteredGRNs.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={isMobile ? 2 : 4} align="center" sx={{ py: 4 }}>
-                        <Typography variant="body1" color="text.secondary">
+                        <Typography variant="body1" sx={{
+                          color: "text.secondary"
+                        }}>
                           {searchTerm ? 'No deleted GRNs match your search.' : 'No deleted GRNs found.'}
                         </Typography>
                       </TableCell>
@@ -173,10 +185,20 @@ const DeletedGRNsDialog: React.FC<DeletedGRNsDialogProps> = ({ open, onClose }) 
                             </Typography>
                             {isMobile && (
                               <Box sx={{ mt: 0.25, display: 'flex', gap: 0.5, alignItems: 'center' }}>
-                                <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
+                                <Typography
+                                  variant="caption"
+                                  sx={{
+                                    color: "text.secondary",
+                                    fontSize: '0.65rem'
+                                  }}>
                                   {grn.receiptDate ? formatDate(grn.receiptDate) : 'Unknown'}
                                 </Typography>
-                                <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
+                                <Typography
+                                  variant="caption"
+                                  sx={{
+                                    color: "text.secondary",
+                                    fontSize: '0.65rem'
+                                  }}>
                                   • {grn.deletedAt ? formatDate(grn.deletedAt) : 'Unknown'}
                                 </Typography>
                               </Box>
@@ -190,14 +212,18 @@ const DeletedGRNsDialog: React.FC<DeletedGRNsDialogProps> = ({ open, onClose }) 
                         </TableCell>
                         {!isMobile && (
                           <TableCell>
-                            <Typography variant="caption" color="text.secondary">
+                            <Typography variant="caption" sx={{
+                              color: "text.secondary"
+                            }}>
                               {grn.receiptDate ? formatDate(grn.receiptDate) : 'Unknown'}
                             </Typography>
                           </TableCell>
                         )}
                         {!isMobile && (
                           <TableCell>
-                            <Typography variant="caption" color="text.secondary">
+                            <Typography variant="caption" sx={{
+                              color: "text.secondary"
+                            }}>
                               {grn.deletedAt ? formatDate(grn.deletedAt) : 'Unknown'}
                             </Typography>
                           </TableCell>
@@ -218,7 +244,7 @@ const DeletedGRNsDialog: React.FC<DeletedGRNsDialogProps> = ({ open, onClose }) 
         </DialogActions>
       </Dialog>
     </>
-  )
+  );
 }
 
 export default DeletedGRNsDialog

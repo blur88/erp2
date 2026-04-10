@@ -62,26 +62,31 @@ const TopPerformers: React.FC<TopPerformersProps> = ({ topProducts, topSuppliers
                                                 <Typography variant="body2" sx={{ fontSize: '0.8rem' }}>
                                                     {product.productName}
                                                 </Typography>
-                                                <Typography variant="caption" color="text.secondary">
+                                                <Typography variant="caption" sx={{
+                                                    color: "text.secondary"
+                                                }}>
                                                     {product.quantitySold || 0} sold
                                                 </Typography>
                                             </Box>
                                         </Box>
-                                        <Typography variant="body2" color="success.main">
+                                        <Typography variant="body2" sx={{
+                                            color: "success.main"
+                                        }}>
                                             {formatCurrency(product.totalRevenue || 0)}
                                         </Typography>
                                     </Box>
                                 </Box>
                             ))
                         ) : (
-                            <Typography variant="body2" color="text.secondary" align="center">
+                            <Typography variant="body2" align="center" sx={{
+                                color: "text.secondary"
+                            }}>
                                 No sales data available
                             </Typography>
                         )}
                     </Box>
                 </Paper>
             </Grid>
-
             {/* Top Suppliers */}
             <Grid size={{ xs: 12, sm: 6 }}>
                 <Paper sx={{ p: 3, height: '100%' }}>
@@ -115,19 +120,25 @@ const TopPerformers: React.FC<TopPerformersProps> = ({ topProducts, topSuppliers
                                                 <Typography variant="body2" sx={{ fontSize: '0.8rem' }}>
                                                     {supplier.supplierName}
                                                 </Typography>
-                                                <Typography variant="caption" color="text.secondary">
+                                                <Typography variant="caption" sx={{
+                                                    color: "text.secondary"
+                                                }}>
                                                     {supplier.orderCount || 0} orders
                                                 </Typography>
                                             </Box>
                                         </Box>
-                                        <Typography variant="body2" color="warning.main">
+                                        <Typography variant="body2" sx={{
+                                            color: "warning.main"
+                                        }}>
                                             {formatCurrency(supplier.totalSpent || 0)}
                                         </Typography>
                                     </Box>
                                 </Box>
                             ))
                         ) : (
-                            <Typography variant="body2" color="text.secondary" align="center">
+                            <Typography variant="body2" align="center" sx={{
+                                color: "text.secondary"
+                            }}>
                                 No supplier data available
                             </Typography>
                         )}
@@ -135,7 +146,7 @@ const TopPerformers: React.FC<TopPerformersProps> = ({ topProducts, topSuppliers
                 </Paper>
             </Grid>
         </Grid>
-    )
+    );
 }
 
 export default TopPerformers

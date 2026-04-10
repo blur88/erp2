@@ -16,7 +16,8 @@ import {
   Alert,
   CircularProgress,
 } from '@mui/material'
-import { Delete as DeleteIcon, Add as AddIcon } from '@mui/icons-material'
+import { default as DeleteIcon } from '@mui/icons-material/Delete'
+import { default as AddIcon } from '@mui/icons-material/Add'
 import { useGetActivePaymentMethodsQuery } from '@/store/api/paymentMethodsApi'
 
 interface PaymentLine {
@@ -124,16 +125,24 @@ export default function PaymentDialog({
       <DialogContent>
         {/* Order Summary */}
         <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1, mt: 1 }}>
-          <Typography variant="body2" color="text.secondary">Order Total</Typography>
+          <Typography variant="body2" sx={{
+            color: "text.secondary"
+          }}>Order Total</Typography>
           <Typography variant="body2">{formatCurrency(totalAmount)}</Typography>
         </Box>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-          <Typography variant="body2" color="text.secondary">Previously Paid</Typography>
+          <Typography variant="body2" sx={{
+            color: "text.secondary"
+          }}>Previously Paid</Typography>
           <Typography variant="body2">{formatCurrency(paidAmount)}</Typography>
         </Box>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
-          <Typography variant="body2" fontWeight="bold">Outstanding Balance</Typography>
-          <Typography variant="body2" fontWeight="bold">{formatCurrency(outstandingBalance)}</Typography>
+          <Typography variant="body2" sx={{
+            fontWeight: "bold"
+          }}>Outstanding Balance</Typography>
+          <Typography variant="body2" sx={{
+            fontWeight: "bold"
+          }}>{formatCurrency(outstandingBalance)}</Typography>
         </Box>
 
         <Divider sx={{ mb: 2 }} />
@@ -203,11 +212,17 @@ export default function PaymentDialog({
 
         {/* Totals */}
         <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-          <Typography variant="body2" fontWeight="bold">Total Payment</Typography>
-          <Typography variant="body2" fontWeight="bold">{formatCurrency(totalEntered)}</Typography>
+          <Typography variant="body2" sx={{
+            fontWeight: "bold"
+          }}>Total Payment</Typography>
+          <Typography variant="body2" sx={{
+            fontWeight: "bold"
+          }}>{formatCurrency(totalEntered)}</Typography>
         </Box>
         <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-          <Typography variant="body2" color="text.secondary">Remaining</Typography>
+          <Typography variant="body2" sx={{
+            color: "text.secondary"
+          }}>Remaining</Typography>
           <Typography variant="body2" color={remaining < 0 ? 'error.main' : 'text.secondary'}>
             {formatCurrency(Math.abs(remaining))}{remaining < 0 ? ' (overpayment)' : ''}
           </Typography>
@@ -223,7 +238,6 @@ export default function PaymentDialog({
           <Alert severity="error" sx={{ mt: 2 }}>{error}</Alert>
         )}
       </DialogContent>
-
       <DialogActions>
         <Button onClick={onClose} disabled={submitting}>Cancel</Button>
         <Button
@@ -236,5 +250,5 @@ export default function PaymentDialog({
         </Button>
       </DialogActions>
     </Dialog>
-  )
+  );
 }

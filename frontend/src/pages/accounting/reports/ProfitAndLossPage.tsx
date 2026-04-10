@@ -20,10 +20,8 @@ import {
   Chip,
 } from '@mui/material';
 import { alpha } from '@mui/material/styles';
-import {
-  TrendingUp as TrendingUpIcon,
-  TrendingDown as TrendingDownIcon,
-} from '@mui/icons-material';
+import { default as TrendingUpIcon } from '@mui/icons-material/TrendingUp'
+import { default as TrendingDownIcon } from '@mui/icons-material/TrendingDown';
 import PageHeader from '@/components/common/PageHeader';
 import { formatDate } from '@/utils/formatters';
 import { useGetProfitAndLossQuery } from '@/store/api/accountingApi';
@@ -78,7 +76,6 @@ export const ProfitAndLossSection: React.FC<SectionProps> = ({ title, accounts, 
           {title}
         </Typography>
       </Box>
-
       {/* Accounts Table */}
       <TableContainer>
         <Table size="small">
@@ -151,7 +148,9 @@ export const ProfitAndLossSection: React.FC<SectionProps> = ({ title, accounts, 
             ) : (
               <TableRow>
                 <TableCell colSpan={3} align="center" sx={{ py: 2 }}>
-                  <Typography variant="body2" color="text.secondary">
+                  <Typography variant="body2" sx={{
+                    color: "text.secondary"
+                  }}>
                     No accounts in this section
                   </Typography>
                 </TableCell>
@@ -251,22 +250,22 @@ const ProfitAndLossPage: React.FC = () => {
         primaryAction={{ label: loading ? 'Generating...' : 'Generate Report', onClick: handleGenerateReport, disabled: loading }}
         secondaryAction={{ label: isDownloading ? 'Exporting...' : 'Export to Excel', onClick: handleExportToExcel, disabled: !submitted || loading || isDownloading }}
       />
-
       <Paper sx={{ p: 3, mb: 3 }}>
         <Stack
           data-testid="profit-loss-filters"
           direction="row"
           spacing={2}
-          alignItems="center"
-          flexWrap="wrap"
-        >
+          sx={{
+            alignItems: "center",
+            flexWrap: "wrap"
+          }}>
           <TextField
             label="Start Date"
             type="date"
             value={startDate}
             onChange={(e) => handleStartDateChange(e.target.value)}
             size="small"
-            InputLabelProps={{ shrink: true }}
+            slotProps={{ inputLabel: { shrink: true } }}
             sx={{ minWidth: 200 }}
           />
           <TextField
@@ -275,7 +274,7 @@ const ProfitAndLossPage: React.FC = () => {
             value={endDate}
             onChange={(e) => handleEndDateChange(e.target.value)}
             size="small"
-            InputLabelProps={{ shrink: true }}
+            slotProps={{ inputLabel: { shrink: true } }}
             sx={{ minWidth: 200 }}
           />
           <FormControlLabel
@@ -289,28 +288,24 @@ const ProfitAndLossPage: React.FC = () => {
           />
         </Stack>
       </Paper>
-
       {/* Date Validation Error */}
       {dateError && (
         <Alert severity="error" sx={{ mb: 2 }} onClose={() => setDateError('')}>
           {dateError}
         </Alert>
       )}
-
       {/* API Error Alert */}
       {errorMessage && (
         <Alert severity="error" sx={{ mb: 2 }}>
           {errorMessage}
         </Alert>
       )}
-
       {/* Loading State */}
       {loading && submitted && !data && (
         <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 8 }}>
           <CircularProgress />
         </Box>
       )}
-
       {/* Profit & Loss Report */}
       {!loading && data && (
         <Paper>
@@ -319,7 +314,9 @@ const ProfitAndLossPage: React.FC = () => {
             <Typography variant="h6" sx={{ fontWeight: 600, mb: 1 }}>
               Profit & Loss Statement
             </Typography>
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant="body2" sx={{
+              color: "text.secondary"
+            }}>
               For the period from{' '}
               {formatDate(data.startDate || startDate)}{' '}
               to{' '}
@@ -377,7 +374,12 @@ const ProfitAndLossPage: React.FC = () => {
                   borderWidth: 2,
                 }}
               >
-                <Stack direction="row" justifyContent="space-between" alignItems="center">
+                <Stack
+                  direction="row"
+                  sx={{
+                    justifyContent: "space-between",
+                    alignItems: "center"
+                  }}>
                   <Typography variant="h6" sx={{ fontWeight: 700, color: 'info.main' }}>
                     Gross Profit (Revenue - COGS)
                   </Typography>
@@ -414,7 +416,12 @@ const ProfitAndLossPage: React.FC = () => {
                   borderWidth: 2,
                 }}
               >
-                <Stack direction="row" justifyContent="space-between" alignItems="center">
+                <Stack
+                  direction="row"
+                  sx={{
+                    justifyContent: "space-between",
+                    alignItems: "center"
+                  }}>
                   <Typography variant="h6" sx={{ fontWeight: 700, color: 'success.main' }}>
                     Operating Income (Gross Profit - Expenses)
                   </Typography>
@@ -444,7 +451,12 @@ const ProfitAndLossPage: React.FC = () => {
                   color: data.netIncome >= 0 ? 'success.contrastText' : 'error.contrastText',
                 }}
               >
-                <Stack direction="row" justifyContent="space-between" alignItems="center">
+                <Stack
+                  direction="row"
+                  sx={{
+                    justifyContent: "space-between",
+                    alignItems: "center"
+                  }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                     {data.netIncome >= 0 ? (
                       <TrendingUpIcon sx={{ fontSize: 40, color: 'inherit' }} />
@@ -487,7 +499,9 @@ const ProfitAndLossPage: React.FC = () => {
               backgroundColor: 'grey.50',
             }}
           >
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant="body2" sx={{
+              color: "text.secondary"
+            }}>
               Total Accounts:{' '}
               {data.revenue.accounts.length +
                 data.cogs.accounts.length +
@@ -513,11 +527,12 @@ const ProfitAndLossPage: React.FC = () => {
           </Box>
         </Paper>
       )}
-
       {/* Empty State - No Data Loaded */}
       {!loading && !data && !error && (
         <Paper sx={{ p: 6, textAlign: 'center' }}>
-          <Typography variant="body1" color="text.secondary">
+          <Typography variant="body1" sx={{
+            color: "text.secondary"
+          }}>
             Click "Generate Report" to view the Profit & Loss Statement
           </Typography>
         </Paper>

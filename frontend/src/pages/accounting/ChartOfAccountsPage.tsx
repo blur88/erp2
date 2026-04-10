@@ -24,13 +24,11 @@ import {
   Collapse,
   Grid,
 } from '@mui/material'
-import {
-  Edit as EditIcon,
-  Delete as DeleteIcon,
-  Search as SearchIcon,
-  CloudUpload as SeedIcon,
-  Info as InfoIcon,
-} from '@mui/icons-material'
+import { default as EditIcon } from '@mui/icons-material/Edit'
+import { default as DeleteIcon } from '@mui/icons-material/Delete'
+import { default as SearchIcon } from '@mui/icons-material/Search'
+import { default as SeedIcon } from '@mui/icons-material/CloudUpload'
+import { default as InfoIcon } from '@mui/icons-material/Info'
 import PageHeader from '@/components/common/PageHeader'
 import { useNotification } from '@/hooks/useNotification'
 import { useSearchAndFilter, useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
@@ -202,7 +200,6 @@ const ChartOfAccountsPage: React.FC = () => {
     <>
       {/* Account Mapping Warning */}
       <AccountMappingWarning context="system" />
-
       <PageHeader
         variant="structure"
         title="Chart of Accounts"
@@ -216,7 +213,6 @@ const ChartOfAccountsPage: React.FC = () => {
           onClick: () => setDeletedDialogOpen(true),
         }}
       />
-
       {/* Search / Filter */}
       <Box sx={{ mb: 3 }}>
         <Box
@@ -254,12 +250,14 @@ const ChartOfAccountsPage: React.FC = () => {
                 }
               }
             }}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon fontSize="small" />
-                </InputAdornment>
-              ),
+            slotProps={{
+              input: {
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon fontSize="small" />
+                  </InputAdornment>
+                ),
+              },
             }}
           />
 
@@ -351,7 +349,6 @@ const ChartOfAccountsPage: React.FC = () => {
           )}
         </Box>
       </Box>
-
       {/* Code Range Guide */}
       <Paper variant="outlined" sx={{ mb: 3, borderColor: 'info.light' }}>
         <Box
@@ -372,7 +369,9 @@ const ChartOfAccountsPage: React.FC = () => {
             <Typography variant="body2" sx={{ fontWeight: 600, color: 'info.main' }}>
               Account Code Reference
             </Typography>
-            <Typography variant="caption" color="text.secondary">
+            <Typography variant="caption" sx={{
+              color: "text.secondary"
+            }}>
               — click to {codeGuideOpen ? 'hide' : 'show'} code range guide
             </Typography>
           </Box>
@@ -448,7 +447,9 @@ const ChartOfAccountsPage: React.FC = () => {
                         {label}
                       </Typography>
                     </Box>
-                    <Typography variant="caption" color="text.secondary">
+                    <Typography variant="caption" sx={{
+                      color: "text.secondary"
+                    }}>
                       {desc}
                     </Typography>
                   </Box>
@@ -458,7 +459,6 @@ const ChartOfAccountsPage: React.FC = () => {
           </Box>
         </Collapse>
       </Paper>
-
       {/* Accounts Table */}
       <Paper sx={{ borderRadius: 2, overflow: 'hidden' }}>
         {loading ? (
@@ -467,7 +467,12 @@ const ChartOfAccountsPage: React.FC = () => {
           </Box>
         ) : accounts.length === 0 ? (
           <Box sx={{ p: 4, textAlign: 'center' }}>
-            <Typography variant="body1" color="text.secondary" sx={{ mb: 2 }}>
+            <Typography
+              variant="body1"
+              sx={{
+                color: "text.secondary",
+                mb: 2
+              }}>
               No accounts found. {searchTerm || typeFilter !== 'all' ? 'Try adjusting your filters.' : 'Seed default accounts to get started.'}
             </Typography>
             {!searchTerm && typeFilter === 'all' && (
@@ -609,9 +614,12 @@ const ChartOfAccountsPage: React.FC = () => {
                         />
                       </TableCell>
                       <TableCell>
-                        <Typography variant="tableCaption" color="text.secondary" sx={{
-                          fontSize: '0.7rem'
-                        }}>
+                        <Typography
+                          variant="tableCaption"
+                          sx={{
+                            color: "text.secondary",
+                            fontSize: '0.7rem'
+                          }}>
                           {findParentName(account.parentId)}
                         </Typography>
                       </TableCell>
@@ -688,14 +696,13 @@ const ChartOfAccountsPage: React.FC = () => {
                         </Box>
                       </TableCell>
                     </TableRow>
-                  )
+                  );
                 })}
               </TableBody>
             </Table>
           </TableContainer>
         )}
       </Paper>
-
       {/* Form Dialog */}
       <ChartOfAccountFormDialog
         open={formDialogOpen}
@@ -703,7 +710,6 @@ const ChartOfAccountsPage: React.FC = () => {
         onClose={handleFormClose}
         onSuccess={handleFormSuccess}
       />
-
       {/* Delete Confirmation Dialog */}
       <ConfirmationDialog
         open={deleteConfirmOpen}
@@ -715,7 +721,6 @@ const ChartOfAccountsPage: React.FC = () => {
         onCancel={handleCancelDelete}
         severity="error"
       />
-
       {/* Seed Confirmation Dialog */}
       <ConfirmationDialog
         open={seedConfirmOpen}
@@ -727,7 +732,6 @@ const ChartOfAccountsPage: React.FC = () => {
         onCancel={handleCancelSeed}
         severity="info"
       />
-
       {/* Deleted Accounts Dialog */}
       <DeletedAccountsDialog
         open={deletedDialogOpen}
@@ -735,7 +739,7 @@ const ChartOfAccountsPage: React.FC = () => {
         onChanged={() => refetch()}
       />
     </>
-  )
+  );
 }
 
 export default ChartOfAccountsPage

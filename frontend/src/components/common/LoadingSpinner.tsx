@@ -40,7 +40,12 @@ const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({
     >
       <CircularProgress size={size} />
       {message && (
-        <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center' }}>
+        <Typography
+          variant="body2"
+          sx={{
+            color: "text.secondary",
+            textAlign: 'center'
+          }}>
           {message}
         </Typography>
       )}

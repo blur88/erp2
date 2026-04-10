@@ -8,10 +8,8 @@ import {
   useMediaQuery,
   Divider,
 } from '@mui/material'
-import {
-  Close as CloseIcon,
-  Calculate as CalculateIcon,
-} from '@mui/icons-material'
+import { default as CloseIcon } from '@mui/icons-material/Close'
+import { default as CalculateIcon } from '@mui/icons-material/Calculate'
 import { useCalculator } from './hooks/useCalculator'
 import { useKeyboardHandler } from './hooks/useKeyboardHandler'
 import { CalculatorDisplay, CalculatorGrid, CalculatorHistory } from './components'
@@ -96,16 +94,27 @@ const SlidingCalculatorPanel: React.FC<SlidingCalculatorPanelProps> = ({ isOpen,
         {/* Keyboard shortcuts help */}
         <Divider />
         <Box sx={{ p: 2, backgroundColor: 'grey.50' }}>
-          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
+          <Typography
+            variant="caption"
+            sx={{
+              color: "text.secondary",
+              display: 'block',
+              mb: 0.5
+            }}>
             Keyboard shortcuts:
           </Typography>
-          <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
+          <Typography
+            variant="caption"
+            sx={{
+              color: "text.secondary",
+              fontSize: '0.7rem'
+            }}>
             Numbers (0-9) • Operators (+, -, *, /) • Enter/= (equals) • Esc (clear) • Backspace • Delete (CE)
           </Typography>
         </Box>
       </Box>
     </Drawer>
-  )
+  );
 }
 
 export default SlidingCalculatorPanel

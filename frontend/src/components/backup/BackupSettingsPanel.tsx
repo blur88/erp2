@@ -14,7 +14,8 @@ import {
   CircularProgress,
   InputAdornment,
 } from '@mui/material';
-import { Save as SaveIcon, Refresh as RefreshIcon } from '@mui/icons-material';
+import { default as SaveIcon } from '@mui/icons-material/Save'
+import { default as RefreshIcon } from '@mui/icons-material/Refresh';
 import type { BackupSettings, UpdateBackupSettingsDto } from '@/store/api/backupApi';
 import {
   useGetBackupSettingsQuery,
@@ -139,7 +140,12 @@ const BackupSettingsPanel: React.FC<BackupSettingsPanelProps> = ({ onCleanupComp
           <Typography variant="h6" gutterBottom>
             Backup Retention Settings
           </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+          <Typography
+            variant="body2"
+            sx={{
+              color: "text.secondary",
+              mb: 3
+            }}>
             Configure automatic backup cleanup and retention policies
           </Typography>
 
@@ -156,7 +162,13 @@ const BackupSettingsPanel: React.FC<BackupSettingsPanelProps> = ({ onCleanupComp
                 }
                 label="Enable Automatic Cleanup"
               />
-              <Typography variant="caption" display="block" color="text.secondary" sx={{ ml: 4 }}>
+              <Typography
+                variant="caption"
+                sx={{
+                  display: "block",
+                  color: "text.secondary",
+                  ml: 4
+                }}>
                 Automatically delete old backups based on retention policies
               </Typography>
             </Grid>
@@ -171,7 +183,7 @@ const BackupSettingsPanel: React.FC<BackupSettingsPanelProps> = ({ onCleanupComp
                 onChange={(e) => setSettings({ ...settings, cleanupTime: e.target.value })}
                 disabled={!settings.autoCleanupEnabled}
                 helperText="Time of day to run automatic cleanup (24-hour format)"
-                InputLabelProps={{ shrink: true }}
+                slotProps={{ inputLabel: { shrink: true } }}
               />
             </Grid>
 
@@ -185,7 +197,7 @@ const BackupSettingsPanel: React.FC<BackupSettingsPanelProps> = ({ onCleanupComp
                 onChange={(e) => setSettings({ ...settings, retentionDays: parseInt(e.target.value) || 30 })}
                 disabled={!settings.autoCleanupEnabled}
                 helperText="Delete backups older than this many days (1-365)"
-                InputProps={{ inputProps: { min: 1, max: 365 } }}
+                slotProps={{ htmlInput: { min: 1, max: 365 } }}
               />
             </Grid>
 
@@ -202,7 +214,7 @@ const BackupSettingsPanel: React.FC<BackupSettingsPanelProps> = ({ onCleanupComp
                 }}
                 disabled={!settings.autoCleanupEnabled}
                 helperText="Maximum number of backups to keep (leave empty for unlimited)"
-                InputProps={{ inputProps: { min: 1 } }}
+                slotProps={{ htmlInput: { min: 1 } }}
               />
             </Grid>
 
@@ -211,7 +223,9 @@ const BackupSettingsPanel: React.FC<BackupSettingsPanelProps> = ({ onCleanupComp
               <Box sx={{ p: 2, bgcolor: 'background.default', borderRadius: 1 }}>
                 <Grid container spacing={2}>
                   <Grid size={{ xs: 12, md: 4 }}>
-                    <Typography variant="caption" color="text.secondary">
+                    <Typography variant="caption" sx={{
+                      color: "text.secondary"
+                    }}>
                       Current Total Size
                     </Typography>
                     <Typography variant="h6" color={currentTotalSize > 0 ? 'primary' : 'text.secondary'}>
@@ -219,7 +233,9 @@ const BackupSettingsPanel: React.FC<BackupSettingsPanelProps> = ({ onCleanupComp
                     </Typography>
                   </Grid>
                   <Grid size={{ xs: 12, md: 4 }}>
-                    <Typography variant="caption" color="text.secondary">
+                    <Typography variant="caption" sx={{
+                      color: "text.secondary"
+                    }}>
                       Maximum Limit
                     </Typography>
                     <Typography variant="h6" color="primary">
@@ -227,7 +243,9 @@ const BackupSettingsPanel: React.FC<BackupSettingsPanelProps> = ({ onCleanupComp
                     </Typography>
                   </Grid>
                   <Grid size={{ xs: 12, md: 4 }}>
-                    <Typography variant="caption" color="text.secondary">
+                    <Typography variant="caption" sx={{
+                      color: "text.secondary"
+                    }}>
                       Space Left
                     </Typography>
                     <Typography
@@ -262,7 +280,13 @@ const BackupSettingsPanel: React.FC<BackupSettingsPanelProps> = ({ onCleanupComp
                           }}
                         />
                       </Box>
-                      <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
+                      <Typography
+                        variant="caption"
+                        sx={{
+                          color: "text.secondary",
+                          mt: 0.5,
+                          display: 'block'
+                        }}>
                         {((currentTotalSize / (10 * 1024 * 1024)) * 100).toFixed(1)}% used
                         {currentTotalSize > (10 * 1024 * 1024) && ' - Over limit!'}
                       </Typography>
@@ -296,7 +320,6 @@ const BackupSettingsPanel: React.FC<BackupSettingsPanelProps> = ({ onCleanupComp
           </Grid>
         </CardContent>
       </Card>
-
       <Snackbar
         open={snackbar.open}
         autoHideDuration={6000}

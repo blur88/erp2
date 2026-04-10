@@ -1,6 +1,7 @@
 import React from 'react'
 import { Grid } from '@mui/material'
-import { Clear as ClearIcon, Backspace as BackspaceIcon } from '@mui/icons-material'
+import { default as ClearIcon } from '@mui/icons-material/Clear'
+import { default as BackspaceIcon } from '@mui/icons-material/Backspace'
 import { CalculatorButton, ButtonVariant } from './CalculatorButton'
 import { useCalculator } from '../hooks/useCalculator'
 

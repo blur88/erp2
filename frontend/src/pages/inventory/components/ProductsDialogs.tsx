@@ -1,9 +1,7 @@
 import React from 'react'
 import { Box, Menu, MenuItem, Typography } from '@mui/material'
-import {
-  PictureAsPdf as PictureAsPdfIcon,
-  TableChart as TableChartIcon,
-} from '@mui/icons-material'
+import { default as PictureAsPdfIcon } from '@mui/icons-material/PictureAsPdf'
+import { default as TableChartIcon } from '@mui/icons-material/TableChart'
 
 import ConfirmationDialog from '@/components/common/ConfirmationDialog'
 import SlidingCalculatorPanel from '@/components/calculator/SlidingCalculatorPanel'
@@ -64,7 +62,9 @@ const ProductsDialogs: React.FC<ProductsDialogsProps> = ({
             <Typography variant="body2" sx={{ fontWeight: 500 }}>
               Export as CSV
             </Typography>
-            <Typography variant="caption" color="text.secondary">
+            <Typography variant="caption" sx={{
+              color: "text.secondary"
+            }}>
               Comma-separated values
             </Typography>
           </Box>
@@ -75,7 +75,9 @@ const ProductsDialogs: React.FC<ProductsDialogsProps> = ({
             <Typography variant="body2" sx={{ fontWeight: 500 }}>
               Export as Excel
             </Typography>
-            <Typography variant="caption" color="text.secondary">
+            <Typography variant="caption" sx={{
+              color: "text.secondary"
+            }}>
               With summary & formatting
             </Typography>
           </Box>
@@ -86,14 +88,18 @@ const ProductsDialogs: React.FC<ProductsDialogsProps> = ({
             <Typography variant="body2" sx={{ fontWeight: 500 }}>
               Export as PDF
             </Typography>
-            <Typography variant="caption" color="text.secondary">
+            <Typography variant="caption" sx={{
+              color: "text.secondary"
+            }}>
               Formatted report
             </Typography>
           </Box>
         </MenuItem>
         {products.length > 0 && (
           <Box sx={{ px: 2, py: 1, borderTop: '1px solid', borderColor: 'divider' }}>
-            <Typography variant="caption" color="text.secondary">
+            <Typography variant="caption" sx={{
+              color: "text.secondary"
+            }}>
               {products.length} product{products.length !== 1 ? 's' : ''} will be exported
               {productFilters.search && (
                 <>
@@ -105,7 +111,6 @@ const ProductsDialogs: React.FC<ProductsDialogsProps> = ({
           </Box>
         )}
       </Menu>
-
       <SlidingCalculatorPanel isOpen={calculatorPanelOpen} onClose={onCloseCalculator} />
       <DeletedProductsDialog open={deletedProductsDialogOpen} onClose={onCloseDeletedProductsDialog} />
       <ProductImportDialog open={importDialogOpen} onClose={onCloseImportDialog} onImportSuccess={onImportSuccess} />
@@ -120,7 +125,7 @@ const ProductsDialogs: React.FC<ProductsDialogsProps> = ({
         severity="warning"
       />
     </>
-  )
+  );
 }
 
 export default ProductsDialogs

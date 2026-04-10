@@ -25,12 +25,10 @@ import {
   Chip,
   Stack,
 } from '@mui/material'
-import {
-  Add as AddIcon,
-  Delete as DeleteIcon,
-  Save as SaveIcon,
-  PostAdd as PostIcon,
-} from '@mui/icons-material'
+import { default as AddIcon } from '@mui/icons-material/Add'
+import { default as DeleteIcon } from '@mui/icons-material/Delete'
+import { default as SaveIcon } from '@mui/icons-material/Save'
+import { default as PostIcon } from '@mui/icons-material/PostAdd'
 import { useForm, useFieldArray, Controller, useWatch } from 'react-hook-form'
 import { yupResolver } from '@hookform/resolvers/yup'
 import * as yup from 'yup'
@@ -362,21 +360,18 @@ const JournalEntryFormPage: React.FC = () => {
         subtitle={isEditMode ? 'Update journal entry lines and amounts' : 'Record a manual double-entry accounting transaction'}
         backAction={handleBack}
       />
-
       {/* Error Alert */}
       {errorMessage && (
         <Alert severity="error" sx={{ mb: 2 }}>
           {errorMessage}
         </Alert>
       )}
-
       {Math.abs(totalDebits - totalCredits) > 0.01 && (totalDebits > 0 || totalCredits > 0) && (
         <Alert severity="warning" sx={{ mb: 2 }}>
           Entry is out of balance by {formatCurrency(Math.abs(totalDebits - totalCredits))}. Total Debits:{' '}
           {formatCurrency(totalDebits)}, Total Credits: {formatCurrency(totalCredits)}
         </Alert>
       )}
-
       <form onSubmit={handleSubmit(onSubmit)}>
         <Grid container spacing={3}>
           {/* Entry Header */}
@@ -400,7 +395,7 @@ const JournalEntryFormPage: React.FC = () => {
                           required
                           error={!!errors.entryDate}
                           helperText={errors.entryDate?.message}
-                          InputLabelProps={{ shrink: true }}
+                          slotProps={{ inputLabel: { shrink: true } }}
                         />
                       )}
                     />
@@ -426,7 +421,7 @@ const JournalEntryFormPage: React.FC = () => {
                       fullWidth
                       label="Fiscal Period"
                       value={getFiscalPeriodDisplay()}
-                      InputProps={{ readOnly: true }}
+                      slotProps={{ input: { readOnly: true } }}
                       helperText="Based on entry date"
                     />
                   </Grid>
@@ -530,7 +525,7 @@ const JournalEntryFormPage: React.FC = () => {
                                   fullWidth
                                   type="number"
                                   size="small"
-                                  inputProps={{ min: 0, step: 0.01 }}
+                                  slotProps={{ htmlInput: { min: 0, step: 0.01 } }}
                                   error={!!errors.lines?.[index]?.debitAmount}
                                   onChange={(e) => {
                                     const value = parseFloat(e.target.value) || 0
@@ -553,7 +548,7 @@ const JournalEntryFormPage: React.FC = () => {
                                   fullWidth
                                   type="number"
                                   size="small"
-                                  inputProps={{ min: 0, step: 0.01 }}
+                                  slotProps={{ htmlInput: { min: 0, step: 0.01 } }}
                                   error={!!errors.lines?.[index]?.creditAmount}
                                   onChange={(e) => {
                                     const value = parseFloat(e.target.value) || 0
@@ -609,7 +604,9 @@ const JournalEntryFormPage: React.FC = () => {
                 <Grid container spacing={2}>
                   <Grid size={{ xs: 12, md: 3 }}>
                     <Box sx={{ p: 2, bgcolor: 'grey.50', borderRadius: 1 }}>
-                      <Typography variant="body2" color="text.secondary" gutterBottom>
+                      <Typography variant="body2" gutterBottom sx={{
+                        color: "text.secondary"
+                      }}>
                         Total Debits
                       </Typography>
                       <Typography variant="h6">
@@ -619,7 +616,9 @@ const JournalEntryFormPage: React.FC = () => {
                   </Grid>
                   <Grid size={{ xs: 12, md: 3 }}>
                     <Box sx={{ p: 2, bgcolor: 'grey.50', borderRadius: 1 }}>
-                      <Typography variant="body2" color="text.secondary" gutterBottom>
+                      <Typography variant="body2" gutterBottom sx={{
+                        color: "text.secondary"
+                      }}>
                         Total Credits
                       </Typography>
                       <Typography variant="h6">
@@ -629,7 +628,9 @@ const JournalEntryFormPage: React.FC = () => {
                   </Grid>
                   <Grid size={{ xs: 12, md: 3 }}>
                     <Box sx={{ p: 2, bgcolor: 'grey.50', borderRadius: 1 }}>
-                      <Typography variant="body2" color="text.secondary" gutterBottom>
+                      <Typography variant="body2" gutterBottom sx={{
+                        color: "text.secondary"
+                      }}>
                         Difference
                       </Typography>
                       <Typography
@@ -644,7 +645,9 @@ const JournalEntryFormPage: React.FC = () => {
                   </Grid>
                   <Grid size={{ xs: 12, md: 3 }}>
                     <Box sx={{ p: 2, bgcolor: isBalanced ? 'success.50' : 'error.50', borderRadius: 1 }}>
-                      <Typography variant="body2" color="text.secondary" gutterBottom>
+                      <Typography variant="body2" gutterBottom sx={{
+                        color: "text.secondary"
+                      }}>
                         Status
                       </Typography>
                       <Chip
@@ -661,7 +664,9 @@ const JournalEntryFormPage: React.FC = () => {
 
           {/* Action Buttons */}
           <Grid size={12}>
-            <Stack direction="row" spacing={2} justifyContent="flex-end">
+            <Stack direction="row" spacing={2} sx={{
+              justifyContent: "flex-end"
+            }}>
               <Button variant="outlined" onClick={handleBack} disabled={submitting}>
                 Cancel
               </Button>
@@ -692,7 +697,7 @@ const JournalEntryFormPage: React.FC = () => {
         </Grid>
       </form>
     </>
-  )
+  );
 }
 
 export default JournalEntryFormPage

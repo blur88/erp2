@@ -17,11 +17,9 @@ import {
   Chip,
   Tooltip,
 } from '@mui/material'
-import {
-  Edit as EditIcon,
-  Delete as DeleteIcon,
-  LockOpen as UnlockIcon,
-} from '@mui/icons-material'
+import { default as EditIcon } from '@mui/icons-material/Edit'
+import { default as DeleteIcon } from '@mui/icons-material/Delete'
+import { default as UnlockIcon } from '@mui/icons-material/LockOpen'
 import { ListSkeleton } from '@/components/common/ListSkeleton'
 import { FilterBar } from '@/components/filters'
 import PageHeader from '@/components/common/PageHeader'
@@ -284,36 +282,47 @@ const UserManagementPage: React.FC = () => {
           />
         )}
       />
-
       {/* Statistics Cards */}
       {statistics && (
         <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', md: 'repeat(4, 1fr)' }, gap: 2, mb: 3 }}>
           <Paper sx={{ p: 2 }}>
-            <Typography variant="body2" color="text.secondary">Total Users</Typography>
+            <Typography variant="body2" sx={{
+              color: "text.secondary"
+            }}>Total Users</Typography>
             <Typography variant="h4">{statistics.total}</Typography>
           </Paper>
           <Paper sx={{ p: 2 }}>
-            <Typography variant="body2" color="text.secondary">Active</Typography>
-            <Typography variant="h4" color="success.main">{statistics.active}</Typography>
+            <Typography variant="body2" sx={{
+              color: "text.secondary"
+            }}>Active</Typography>
+            <Typography variant="h4" sx={{
+              color: "success.main"
+            }}>{statistics.active}</Typography>
           </Paper>
           <Paper sx={{ p: 2 }}>
-            <Typography variant="body2" color="text.secondary">Inactive</Typography>
-            <Typography variant="h4" color="error.main">{statistics.inactive}</Typography>
+            <Typography variant="body2" sx={{
+              color: "text.secondary"
+            }}>Inactive</Typography>
+            <Typography variant="h4" sx={{
+              color: "error.main"
+            }}>{statistics.inactive}</Typography>
           </Paper>
           <Paper sx={{ p: 2 }}>
-            <Typography variant="body2" color="text.secondary">Locked</Typography>
-            <Typography variant="h4" color="warning.main">{statistics.locked}</Typography>
+            <Typography variant="body2" sx={{
+              color: "text.secondary"
+            }}>Locked</Typography>
+            <Typography variant="h4" sx={{
+              color: "warning.main"
+            }}>{statistics.locked}</Typography>
           </Paper>
         </Box>
       )}
-
       {/* Error Alert */}
       {error && (
         <Alert severity="error" sx={{ mb: 2 }}>
           Failed to load users
         </Alert>
       )}
-
       {/* Users Table */}
       <Paper sx={{ borderRadius: 2, overflow: 'hidden' }}>
         {(isLoading || (isFetching && !usersResponse)) ? (
@@ -431,7 +440,9 @@ const UserManagementPage: React.FC = () => {
                   {users.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={8} align="center" sx={{ py: 8 }}>
-                        <Typography color="text.secondary">No users found</Typography>
+                        <Typography sx={{
+                          color: "text.secondary"
+                        }}>No users found</Typography>
                       </TableCell>
                     </TableRow>
                   ) : (
@@ -515,7 +526,13 @@ const UserManagementPage: React.FC = () => {
                             {formatDate(user.lastLoginAt)}
                           </Typography>
                           {user.lastLoginIp && (
-                            <Typography variant="caption" display="block" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
+                            <Typography
+                              variant="caption"
+                              sx={{
+                                display: "block",
+                                color: "text.secondary",
+                                fontSize: '0.7rem'
+                              }}>
                               {user.lastLoginIp}
                             </Typography>
                           )}
@@ -632,7 +649,6 @@ const UserManagementPage: React.FC = () => {
           onRowsPerPageChange={handleRowsPerPageChange}
         />
       </Paper>
-
       {/* User Form Dialog */}
       <UserFormDialog
         open={formDialogOpen}
@@ -641,7 +657,6 @@ const UserManagementPage: React.FC = () => {
         onClose={handleFormClose}
         onSuccess={handleFormSuccess}
       />
-
       {/* Confirmation Dialog */}
       <ConfirmationDialog
         open={confirmDialog.open}
@@ -651,7 +666,7 @@ const UserManagementPage: React.FC = () => {
         onCancel={handleConfirmClose}
       />
     </>
-  )
+  );
 }
 
 export default UserManagementPage

@@ -20,15 +20,13 @@ import {
   Stack,
 } from '@mui/material';
 import { alpha } from '@mui/material/styles';
-import {
-  AccountBalance as AccountBalanceIcon,
-  Receipt as ReceiptIcon,
-  PieChart as PieChartIcon,
-  TrendingUp as TrendingUpIcon,
-  TrendingDown as TrendingDownIcon,
-  Add as AddIcon,
-  AccountBalanceWallet as AccountBalanceWalletIcon,
-} from '@mui/icons-material';
+import { default as AccountBalanceIcon } from '@mui/icons-material/AccountBalance'
+import { default as ReceiptIcon } from '@mui/icons-material/Receipt'
+import { default as PieChartIcon } from '@mui/icons-material/PieChart'
+import { default as TrendingUpIcon } from '@mui/icons-material/TrendingUp'
+import { default as TrendingDownIcon } from '@mui/icons-material/TrendingDown'
+import { default as AddIcon } from '@mui/icons-material/Add'
+import { default as AccountBalanceWalletIcon } from '@mui/icons-material/AccountBalanceWallet';
 import PageHeader from '@/components/common/PageHeader';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -98,7 +96,12 @@ const SummaryCard: React.FC<SummaryCardProps> = ({
               {icon}
             </Box>
             <Box sx={{ flex: 1 }}>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+              <Typography
+                variant="body2"
+                sx={{
+                  color: "text.secondary",
+                  mb: 0.5
+                }}>
                 {title}
               </Typography>
               {loading ? (
@@ -117,7 +120,9 @@ const SummaryCard: React.FC<SummaryCardProps> = ({
               )}
             </Box>
           </Box>
-          <Typography variant="caption" color="text.secondary">
+          <Typography variant="caption" sx={{
+            color: "text.secondary"
+          }}>
             {subtitle}
           </Typography>
         </Box>
@@ -242,14 +247,12 @@ const AccountingDashboardPage: React.FC = () => {
           ) : undefined
         }
       />
-
       {/* Error Alert */}
       {hasError && (
         <Alert severity="error" sx={{ mb: 4 }}>
           {errorMessage}
         </Alert>
       )}
-
       {/* Section 1: Financial Summary Cards */}
       <Grid container spacing={3} sx={{ mb: 4 }}>
         <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
@@ -303,7 +306,6 @@ const AccountingDashboardPage: React.FC = () => {
           />
         </Grid>
       </Grid>
-
       {pendingSummary.length > 0 && (
         <Box sx={{ mt: 1, mb: 4 }}>
           <Typography variant="h6" sx={{ mb: 2 }}>
@@ -314,13 +316,17 @@ const AccountingDashboardPage: React.FC = () => {
               <Grid size={{ xs: 12, sm: 6, md: 4 }} key={item.paymentMethodId}>
                 <Card>
                   <CardContent>
-                    <Typography variant="subtitle2" color="text.secondary">
+                    <Typography variant="subtitle2" sx={{
+                      color: "text.secondary"
+                    }}>
                       {item.paymentMethodName}
                     </Typography>
                     <Typography variant="h5" sx={{ fontWeight: 700 }}>
                       {formatCurrency(item.pendingAmount)}
                     </Typography>
-                    <Typography variant="caption" color="text.secondary">
+                    <Typography variant="caption" sx={{
+                      color: "text.secondary"
+                    }}>
                       {item.pendingCount} payment{item.pendingCount !== 1 ? 's' : ''} pending
                     </Typography>
                   </CardContent>
@@ -330,7 +336,6 @@ const AccountingDashboardPage: React.FC = () => {
           </Grid>
         </Box>
       )}
-
       {/* Section 2: Quick Actions */}
       <Paper sx={{ p: 3, mb: 4 }}>
         <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>
@@ -401,7 +406,6 @@ const AccountingDashboardPage: React.FC = () => {
           </Grid>
         </Grid>
       </Paper>
-
       <Grid container spacing={3}>
         {/* Section 3: Recent Journal Entries */}
         <Grid size={{ xs: 12, lg: 8 }}>
@@ -411,7 +415,9 @@ const AccountingDashboardPage: React.FC = () => {
                 <Typography variant="h6" sx={{ fontWeight: 600 }}>
                   Recent Journal Entries
                 </Typography>
-                <Typography variant="caption" color="text.secondary">
+                <Typography variant="caption" sx={{
+                  color: "text.secondary"
+                }}>
                   Last 10 entries
                 </Typography>
               </Box>
@@ -432,7 +438,9 @@ const AccountingDashboardPage: React.FC = () => {
               </Box>
             ) : recentEntries.length === 0 ? (
               <Box sx={{ textAlign: 'center', py: 4 }}>
-                <Typography variant="body2" color="text.secondary">
+                <Typography variant="body2" sx={{
+                  color: "text.secondary"
+                }}>
                   No journal entries found
                 </Typography>
               </Box>
@@ -514,7 +522,12 @@ const AccountingDashboardPage: React.FC = () => {
               </Box>
             ) : !currentPeriod ? (
               <Box sx={{ textAlign: 'center', py: 2 }}>
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                <Typography
+                  variant="body2"
+                  sx={{
+                    color: "text.secondary",
+                    mb: 2
+                  }}>
                   No active fiscal period
                 </Typography>
                 <Button
@@ -539,7 +552,9 @@ const AccountingDashboardPage: React.FC = () => {
                 </Box>
                 <Stack spacing={1.5} sx={{ mb: 2 }}>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <Typography variant="body2" color="text.secondary">
+                    <Typography variant="body2" sx={{
+                      color: "text.secondary"
+                    }}>
                       Start Date:
                     </Typography>
                     <Typography variant="body2" sx={{ fontWeight: 600 }}>
@@ -547,7 +562,9 @@ const AccountingDashboardPage: React.FC = () => {
                     </Typography>
                   </Box>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <Typography variant="body2" color="text.secondary">
+                    <Typography variant="body2" sx={{
+                      color: "text.secondary"
+                    }}>
                       End Date:
                     </Typography>
                     <Typography variant="body2" sx={{ fontWeight: 600 }}>
@@ -556,7 +573,9 @@ const AccountingDashboardPage: React.FC = () => {
                   </Box>
                   {isCurrentPeriodOpen && daysRemaining !== null && (
                     <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <Typography variant="body2" color="text.secondary">
+                      <Typography variant="body2" sx={{
+                        color: "text.secondary"
+                      }}>
                         Days Remaining:
                       </Typography>
                       <Typography

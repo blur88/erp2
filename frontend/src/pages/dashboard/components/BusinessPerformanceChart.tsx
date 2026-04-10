@@ -456,9 +456,11 @@ const BusinessPerformanceChart: React.FC<BusinessPerformanceChartProps> = ({ raw
                         }}
                         sx={{ fontSize: '0.75rem', '& .MuiSelect-select': { py: 0.75 } }}
                         MenuProps={{
-                            PaperProps: {
-                                style: {
-                                    maxHeight: 300,
+                            slotProps: {
+                                paper: {
+                                    style: {
+                                        maxHeight: 300,
+                                    },
                                 },
                             },
                         }}
@@ -466,7 +468,7 @@ const BusinessPerformanceChart: React.FC<BusinessPerformanceChartProps> = ({ raw
                         {LINE_OPTIONS.map((option) => (
                             <MenuItem key={option.value} value={option.value} sx={{ fontSize: '0.75rem', py: 0.5 }}>
                                 <Checkbox checked={chartFilters.selectedLines.includes(option.value)} size="small" sx={{ p: 0.5 }} />
-                                <ListItemText primary={option.label} primaryTypographyProps={{ fontSize: '0.75rem' }} />
+                                <ListItemText primary={option.label} slotProps={{ primary: { sx: { fontSize: '0.75rem' } } }} />
                             </MenuItem>
                         ))}
                     </Select>
@@ -502,8 +504,10 @@ const BusinessPerformanceChart: React.FC<BusinessPerformanceChartProps> = ({ raw
                             size="small"
                             value={chartFilters.customFromDate}
                             onChange={(e) => setChartFilters(prev => ({ ...prev, customFromDate: e.target.value }))}
-                            InputLabelProps={{ shrink: true, sx: { fontSize: '0.75rem' } }}
-                            InputProps={{ sx: { fontSize: '0.75rem', '& input': { py: 0.75 } } }}
+                            slotProps={{
+                                inputLabel: { shrink: true, sx: { fontSize: '0.75rem' } },
+                                input: { sx: { fontSize: '0.75rem', '& input': { py: 0.75 } } },
+                            }}
                             sx={{ minWidth: 130 }}
                         />
                         <TextField
@@ -512,8 +516,10 @@ const BusinessPerformanceChart: React.FC<BusinessPerformanceChartProps> = ({ raw
                             size="small"
                             value={chartFilters.customToDate}
                             onChange={(e) => setChartFilters(prev => ({ ...prev, customToDate: e.target.value }))}
-                            InputLabelProps={{ shrink: true, sx: { fontSize: '0.75rem' } }}
-                            InputProps={{ sx: { fontSize: '0.75rem', '& input': { py: 0.75 } } }}
+                            slotProps={{
+                                inputLabel: { shrink: true, sx: { fontSize: '0.75rem' } },
+                                input: { sx: { fontSize: '0.75rem', '& input': { py: 0.75 } } },
+                            }}
                             sx={{ minWidth: 130 }}
                         />
                     </>

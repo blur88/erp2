@@ -29,16 +29,14 @@ import {
   Link,
   Stack,
 } from '@mui/material'
-import {
-  Edit as EditIcon,
-  Delete as DeleteIcon,
-  Sort as SortIcon,
-  ArrowUpward as ArrowUpIcon,
-  ArrowDownward as ArrowDownIcon,
-  Receipt as InvoiceIcon,
-  ShoppingCart as OrderIcon,
-  Print as PrintIcon,
-} from '@mui/icons-material'
+import { default as EditIcon } from '@mui/icons-material/Edit'
+import { default as DeleteIcon } from '@mui/icons-material/Delete'
+import { default as SortIcon } from '@mui/icons-material/Sort'
+import { default as ArrowUpIcon } from '@mui/icons-material/ArrowUpward'
+import { default as ArrowDownIcon } from '@mui/icons-material/ArrowDownward'
+import { default as InvoiceIcon } from '@mui/icons-material/Receipt'
+import { default as OrderIcon } from '@mui/icons-material/ShoppingCart'
+import { default as PrintIcon } from '@mui/icons-material/Print'
 import { formatCurrency, formatDate, formatWholeQuantity } from '@/utils/formatters'
 import { TABLE_STYLES } from '@/constants/tableStyles'
 import { ListSkeleton } from '@/components/common/ListSkeleton'
@@ -956,7 +954,9 @@ const PaymentsPage: React.FC = () => {
             </Paper>
           ) : (
             <Paper sx={{ height: 'calc(100vh - 300px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Typography variant="h6" color="text.secondary">
+              <Typography variant="h6" sx={{
+                color: "text.secondary"
+              }}>
                 Select a payment to view details
               </Typography>
             </Paper>

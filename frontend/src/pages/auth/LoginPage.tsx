@@ -15,12 +15,10 @@ import {
   Link,
 } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
-import {
-  Visibility,
-  VisibilityOff,
-  Lock as LockIcon,
-  Login as LoginIcon,
-} from '@mui/icons-material';
+import { default as Visibility } from '@mui/icons-material/Visibility'
+import { default as VisibilityOff } from '@mui/icons-material/VisibilityOff'
+import { default as LockIcon } from '@mui/icons-material/Lock'
+import { default as LoginIcon } from '@mui/icons-material/Login';
 import { useForm, Controller } from 'react-hook-form';
 import * as yup from 'yup';
 import { yupResolver } from '@hookform/resolvers/yup';
@@ -145,10 +143,14 @@ const LoginPage: React.FC = () => {
           >
             <LockIcon sx={{ fontSize: 32, color: theme.palette.common.white }} />
           </Box>
-          <Typography variant="h4" component="h1" fontWeight="bold" gutterBottom>
+          <Typography variant="h4" component="h1" gutterBottom sx={{
+            fontWeight: "bold"
+          }}>
             Welcome Back
           </Typography>
-          <Typography variant="body2" color="text.secondary">
+          <Typography variant="body2" sx={{
+            color: "text.secondary"
+          }}>
             Sign in to your ERP account
           </Typography>
         </Box>
@@ -195,18 +197,20 @@ const LoginPage: React.FC = () => {
                   error={!!errors.password}
                   helperText={errors.password?.message}
                   autoComplete="current-password"
-                  InputProps={{
-                    endAdornment: (
-                      <InputAdornment position="end">
-                        <IconButton
-                          aria-label="toggle password visibility"
-                          onClick={handleTogglePasswordVisibility}
-                          edge="end"
-                        >
-                          {showPassword ? <VisibilityOff /> : <Visibility />}
-                        </IconButton>
-                      </InputAdornment>
-                    ),
+                  slotProps={{
+                    input: {
+                      endAdornment: (
+                        <InputAdornment position="end">
+                          <IconButton
+                            aria-label="toggle password visibility"
+                            onClick={handleTogglePasswordVisibility}
+                            edge="end"
+                          >
+                            {showPassword ? <VisibilityOff /> : <Visibility />}
+                          </IconButton>
+                        </InputAdornment>
+                      ),
+                    },
                   }}
                 />
               )}
@@ -242,19 +246,31 @@ const LoginPage: React.FC = () => {
         {/* Default Admin Credentials Info - Only show if password hasn't been changed */}
         {showDefaultCredentials && (
           <Box sx={{ mt: 3, p: 2.5, bgcolor: 'info.lighter', borderRadius: 1, border: 1, borderColor: 'info.light' }}>
-            <Typography variant="subtitle2" color="info.dark" gutterBottom fontWeight="bold">
+            <Typography
+              variant="subtitle2"
+              gutterBottom
+              sx={{
+                color: "info.dark",
+                fontWeight: "bold"
+              }}>
               Default Admin Credentials:
             </Typography>
             <Box sx={{ mt: 1.5, p: 1.5, bgcolor: 'background.paper', borderRadius: 1 }}>
-              <Typography variant="body2" color="text.primary">
+              <Typography variant="body2" sx={{
+                color: "text.primary"
+              }}>
                 <strong>Username:</strong> admin
               </Typography>
-              <Typography variant="body2" color="text.primary">
+              <Typography variant="body2" sx={{
+                color: "text.primary"
+              }}>
                 <strong>Password:</strong> Admin@123!
               </Typography>
             </Box>
             <Alert severity="warning" sx={{ mt: 2 }} icon={false}>
-              <Typography variant="caption" fontWeight="medium">
+              <Typography variant="caption" sx={{
+                fontWeight: "medium"
+              }}>
                 You will be required to change this password immediately after first login for security reasons.
               </Typography>
             </Alert>

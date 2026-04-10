@@ -272,12 +272,14 @@ const CustomerFormPage: React.FC = () => {
                       field.onChange(e)
                       debouncedPhoneCheck(e.target.value)
                     }}
-                    InputProps={{
-                      endAdornment: isCheckingPhone ? (
-                        <InputAdornment position="end">
-                          <CircularProgress size={20} />
-                        </InputAdornment>
-                      ) : undefined,
+                    slotProps={{
+                      input: {
+                        endAdornment: isCheckingPhone ? (
+                          <InputAdornment position="end">
+                            <CircularProgress size={20} />
+                          </InputAdornment>
+                        ) : undefined,
+                      },
                     }}
                   />
                 )}

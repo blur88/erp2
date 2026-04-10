@@ -13,12 +13,10 @@ import {
   useMediaQuery,
   useTheme,
 } from '@mui/material'
-import {
-  Menu as MenuIcon,
-  NavigateNext as NavigateNextIcon,
-  Notifications as NotificationsIcon,
-  Search as SearchIcon,
-} from '@mui/icons-material'
+import { default as MenuIcon } from '@mui/icons-material/Menu'
+import { default as NavigateNextIcon } from '@mui/icons-material/NavigateNext'
+import { default as NotificationsIcon } from '@mui/icons-material/Notifications'
+import { default as SearchIcon } from '@mui/icons-material/Search'
 
 import { DRAWER_WIDTH_COLLAPSED, DRAWER_WIDTH_EXPANDED, TOPBAR_HEIGHT } from '@/constants/layout'
 import { useAppSelector } from '@/hooks/useRedux'

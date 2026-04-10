@@ -23,16 +23,14 @@ import {
   DialogActions,
   TextField,
 } from '@mui/material'
-import GridLegacy from '@mui/material/GridLegacy'
-import {
-  ArrowBack as ArrowBackIcon,
-  Edit as EditIcon,
-  PostAdd as PostIcon,
-  Undo as ReverseIcon,
-  Delete as DeleteIcon,
-  CheckCircle as CheckCircleIcon,
-  Warning as WarningIcon,
-} from '@mui/icons-material'
+import Grid from '@mui/material/Grid'
+import { default as ArrowBackIcon } from '@mui/icons-material/ArrowBack'
+import { default as EditIcon } from '@mui/icons-material/Edit'
+import { default as PostIcon } from '@mui/icons-material/PostAdd'
+import { default as ReverseIcon } from '@mui/icons-material/Undo'
+import { default as DeleteIcon } from '@mui/icons-material/Delete'
+import { default as CheckCircleIcon } from '@mui/icons-material/CheckCircle'
+import { default as WarningIcon } from '@mui/icons-material/Warning'
 import PageHeader from '@/components/common/PageHeader'
 import { useNotification } from '@/hooks/useNotification'
 import {
@@ -192,13 +190,20 @@ const JournalEntryDetailsPage: React.FC = () => {
         subtitle="Journal Entry Details"
         titleBadge={<Chip size="small" label={`Status: ${entry.status}`} />}
       />
-
       <Box sx={{ mb: 3 }}>
-        <Stack direction="row" spacing={1} sx={{ mb: 2 }} alignItems="center">
+        <Stack
+          direction="row"
+          spacing={1}
+          sx={{
+            alignItems: "center",
+            mb: 2
+          }}>
           <IconButton onClick={handleBack}>
             <ArrowBackIcon />
           </IconButton>
-          <Typography variant="body2" color="text.secondary">
+          <Typography variant="body2" sx={{
+            color: "text.secondary"
+          }}>
             Back to List
           </Typography>
         </Stack>
@@ -243,36 +248,40 @@ const JournalEntryDetailsPage: React.FC = () => {
           </Button>
         </Stack>
       </Box>
-
       {/* Error Alert */}
       {errorMessage && (
         <Alert severity="error" sx={{ mb: 2 }}>
           {errorMessage}
         </Alert>
       )}
-
       {/* Entry Header Card */}
       <Card sx={{ mb: 3 }}>
         <CardContent>
-          <GridLegacy container spacing={3}>
-            <GridLegacy item xs={12} md={3}>
-              <Typography variant="body2" color="text.secondary" gutterBottom>
+          <Grid container spacing={3}>
+            <Grid size={{ xs: 12, md: 3 }}>
+              <Typography variant="body2" gutterBottom sx={{
+                color: "text.secondary"
+              }}>
                 Reference Number
               </Typography>
               <Typography variant="h6" sx={{ fontWeight: 600 }}>
                 {entry.referenceNumber}
               </Typography>
-            </GridLegacy>
-            <GridLegacy item xs={12} md={3}>
-              <Typography variant="body2" color="text.secondary" gutterBottom>
+            </Grid>
+            <Grid size={{ xs: 12, md: 3 }}>
+              <Typography variant="body2" gutterBottom sx={{
+                color: "text.secondary"
+              }}>
                 Date
               </Typography>
               <Typography variant="body1">
                 {formatDate(entry.entryDate)}
               </Typography>
-            </GridLegacy>
-            <GridLegacy item xs={12} md={3}>
-              <Typography variant="body2" color="text.secondary" gutterBottom>
+            </Grid>
+            <Grid size={{ xs: 12, md: 3 }}>
+              <Typography variant="body2" gutterBottom sx={{
+                color: "text.secondary"
+              }}>
                 Status
               </Typography>
               <Chip
@@ -280,9 +289,11 @@ const JournalEntryDetailsPage: React.FC = () => {
                 color={getStatusColor(entry.status)}
                 size="small"
               />
-            </GridLegacy>
-            <GridLegacy item xs={12} md={3}>
-              <Typography variant="body2" color="text.secondary" gutterBottom>
+            </Grid>
+            <Grid size={{ xs: 12, md: 3 }}>
+              <Typography variant="body2" gutterBottom sx={{
+                color: "text.secondary"
+              }}>
                 Fiscal Period
               </Typography>
               <Typography variant="body1">
@@ -290,27 +301,33 @@ const JournalEntryDetailsPage: React.FC = () => {
                   ? `${entry.fiscalPeriod.code} - ${entry.fiscalPeriod.name}`
                   : 'N/A'}
               </Typography>
-            </GridLegacy>
-            <GridLegacy item xs={12}>
-              <Typography variant="body2" color="text.secondary" gutterBottom>
+            </Grid>
+            <Grid size={{ xs: 12 }}>
+              <Typography variant="body2" gutterBottom sx={{
+                color: "text.secondary"
+              }}>
                 Description
               </Typography>
               <Typography variant="body1">{entry.description}</Typography>
-            </GridLegacy>
+            </Grid>
             {entry.sourceType && (
-              <GridLegacy item xs={12} md={6}>
-                <Typography variant="body2" color="text.secondary" gutterBottom>
+              <Grid size={{ xs: 12, md: 6 }}>
+                <Typography variant="body2" gutterBottom sx={{
+                  color: "text.secondary"
+                }}>
                   Source
                 </Typography>
                 <Typography variant="body1">
                   {entry.sourceType}
                   {entry.sourceId && ` (${entry.sourceId})`}
                 </Typography>
-              </GridLegacy>
+              </Grid>
             )}
             {entry.reversalOf && (
-              <GridLegacy item xs={12} md={6}>
-                <Typography variant="body2" color="text.secondary" gutterBottom>
+              <Grid size={{ xs: 12, md: 6 }}>
+                <Typography variant="body2" gutterBottom sx={{
+                  color: "text.secondary"
+                }}>
                   Reverses Entry
                 </Typography>
                 <Typography
@@ -320,11 +337,13 @@ const JournalEntryDetailsPage: React.FC = () => {
                 >
                   {entry.reversalOf.referenceNumber}
                 </Typography>
-              </GridLegacy>
+              </Grid>
             )}
             {entry.reversedBy && (
-              <GridLegacy item xs={12} md={6}>
-                <Typography variant="body2" color="text.secondary" gutterBottom>
+              <Grid size={{ xs: 12, md: 6 }}>
+                <Typography variant="body2" gutterBottom sx={{
+                  color: "text.secondary"
+                }}>
                   Reversed By
                 </Typography>
                 <Typography
@@ -334,27 +353,38 @@ const JournalEntryDetailsPage: React.FC = () => {
                 >
                   {entry.reversedBy.referenceNumber}
                 </Typography>
-              </GridLegacy>
+              </Grid>
             )}
-          </GridLegacy>
+          </Grid>
         </CardContent>
       </Card>
-
       {/* Balance Validation Card */}
       <Card sx={{ mb: 3, bgcolor: isBalanced ? 'success.50' : 'error.50' }}>
         <CardContent>
-          <Stack direction="row" spacing={2} alignItems="center">
+          <Stack direction="row" spacing={2} sx={{
+            alignItems: "center"
+          }}>
             {isBalanced ? (
               <>
                 <CheckCircleIcon color="success" />
-                <Typography variant="body1" color="success.main" sx={{ fontWeight: 600 }}>
+                <Typography
+                  variant="body1"
+                  sx={{
+                    color: "success.main",
+                    fontWeight: 600
+                  }}>
                   Entry is Balanced
                 </Typography>
               </>
             ) : (
               <>
                 <WarningIcon color="error" />
-                <Typography variant="body1" color="error.main" sx={{ fontWeight: 600 }}>
+                <Typography
+                  variant="body1"
+                  sx={{
+                    color: "error.main",
+                    fontWeight: 600
+                  }}>
                   Entry is Unbalanced - Difference: {formatCurrency(Math.abs(difference))}
                 </Typography>
               </>
@@ -362,7 +392,6 @@ const JournalEntryDetailsPage: React.FC = () => {
           </Stack>
         </CardContent>
       </Card>
-
       {/* Line Items Card */}
       <Card>
         <CardContent>
@@ -423,7 +452,9 @@ const JournalEntryDetailsPage: React.FC = () => {
                 ) : (
                   <TableRow>
                     <TableCell colSpan={4} align="center">
-                      <Typography color="text.secondary">No line items</Typography>
+                      <Typography sx={{
+                        color: "text.secondary"
+                      }}>No line items</Typography>
                     </TableCell>
                   </TableRow>
                 )}
@@ -432,7 +463,6 @@ const JournalEntryDetailsPage: React.FC = () => {
           </TableContainer>
         </CardContent>
       </Card>
-
       {/* Post Confirmation Dialog */}
       <Dialog open={postDialogOpen} onClose={() => setPostDialogOpen(false)}>
         <DialogTitle>Post Journal Entry</DialogTitle>
@@ -456,7 +486,6 @@ const JournalEntryDetailsPage: React.FC = () => {
           </Button>
         </DialogActions>
       </Dialog>
-
       {/* Reverse Confirmation Dialog */}
       <Dialog open={reverseDialogOpen} onClose={() => setReverseDialogOpen(false)}>
         <DialogTitle>Reverse Journal Entry</DialogTitle>
@@ -471,7 +500,7 @@ const JournalEntryDetailsPage: React.FC = () => {
             type="date"
             value={reverseDate}
             onChange={(e) => setReverseDate(e.target.value)}
-            InputLabelProps={{ shrink: true }}
+            slotProps={{ inputLabel: { shrink: true } }}
             sx={{ mt: 2 }}
           />
         </DialogContent>
@@ -489,7 +518,6 @@ const JournalEntryDetailsPage: React.FC = () => {
           </Button>
         </DialogActions>
       </Dialog>
-
       {/* Delete Confirmation Dialog */}
       <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)}>
         <DialogTitle>Delete Journal Entry</DialogTitle>
@@ -513,7 +541,7 @@ const JournalEntryDetailsPage: React.FC = () => {
         </DialogActions>
       </Dialog>
     </>
-  )
+  );
 }
 
 export default JournalEntryDetailsPage

@@ -23,13 +23,11 @@ import {
   useTheme,
   useMediaQuery,
 } from '@mui/material'
-import {
-  Search as SearchIcon,
-  Restore as RestoreIcon,
-  Delete as DeleteIcon,
-  Close as CloseIcon,
-  Description as OrderIcon,
-} from '@mui/icons-material'
+import { default as SearchIcon } from '@mui/icons-material/Search'
+import { default as RestoreIcon } from '@mui/icons-material/Restore'
+import { default as DeleteIcon } from '@mui/icons-material/Delete'
+import { default as CloseIcon } from '@mui/icons-material/Close'
+import { default as OrderIcon } from '@mui/icons-material/Description'
 import {
   useBulkPermanentDeletePurchaseOrdersMutation,
   useBulkRestorePurchaseOrdersMutation,
@@ -205,10 +203,15 @@ const DeletedPurchaseOrdersDialog: React.FC<DeletedPurchaseOrdersDialogProps> = 
       onClose={handleClose}
       maxWidth="lg"
       fullWidth
-      PaperProps={{ sx: { height: '80vh' } }}
+      slotProps={{ paper: { sx: { height: '80vh' } } }}
     >
       <DialogTitle>
-        <Box display="flex" justifyContent="space-between" alignItems="center">
+        <Box
+          sx={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center"
+          }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <OrderIcon sx={{ color: 'error.main' }} />
             <Typography variant={isMobile ? "h6" : "h5"} sx={{ fontWeight: 700 }}>
@@ -219,11 +222,15 @@ const DeletedPurchaseOrdersDialog: React.FC<DeletedPurchaseOrdersDialogProps> = 
             <CloseIcon />
           </IconButton>
         </Box>
-        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+        <Typography
+          variant="body2"
+          sx={{
+            color: "text.secondary",
+            mt: 0.5
+          }}>
           Manage soft-deleted purchase orders ({filteredOrders.length} {searchTerm ? 'found' : 'total'})
         </Typography>
       </DialogTitle>
-
       <DialogContent>
         <Box sx={{ mb: 3 }}>
           <Alert severity="info" sx={{ mb: 2 }}>
@@ -236,12 +243,14 @@ const DeletedPurchaseOrdersDialog: React.FC<DeletedPurchaseOrdersDialogProps> = 
               placeholder="Search deleted orders..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon />
-                  </InputAdornment>
-                ),
+              slotProps={{
+                input: {
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon />
+                    </InputAdornment>
+                  ),
+                },
               }}
               sx={{ flex: 1, minWidth: '300px' }}
             />
@@ -343,7 +352,9 @@ const DeletedPurchaseOrdersDialog: React.FC<DeletedPurchaseOrdersDialogProps> = 
                 {filteredOrders.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={isMobile ? 5 : 7} align="center" sx={{ py: 4 }}>
-                      <Typography variant="body1" color="text.secondary">
+                      <Typography variant="body1" sx={{
+                        color: "text.secondary"
+                      }}>
                         {searchTerm ? 'No deleted orders match your search.' : 'No deleted orders found.'}
                       </Typography>
                     </TableCell>
@@ -379,10 +390,21 @@ const DeletedPurchaseOrdersDialog: React.FC<DeletedPurchaseOrdersDialogProps> = 
                           </Typography>
                           {isMobile && (
                             <Box sx={{ mt: 0.25, display: 'flex', gap: 0.5, alignItems: 'center' }}>
-                              <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
+                              <Typography
+                                variant="caption"
+                                sx={{
+                                  color: "text.secondary",
+                                  fontSize: '0.65rem'
+                                }}>
                                 {formatDate(order.orderDate)}
                               </Typography>
-                              <Typography variant="caption" color="primary.main" sx={{ fontSize: '0.65rem', fontWeight: 500 }}>
+                              <Typography
+                                variant="caption"
+                                sx={{
+                                  color: "primary.main",
+                                  fontSize: '0.65rem',
+                                  fontWeight: 500
+                                }}>
                                 • {formatCurrency((order as any).totalAmount || order.total || 0)}
                               </Typography>
                             </Box>
@@ -410,7 +432,9 @@ const DeletedPurchaseOrdersDialog: React.FC<DeletedPurchaseOrdersDialogProps> = 
                       )}
                       {!isMobile && (
                         <TableCell>
-                          <Typography variant="caption" color="text.secondary">
+                          <Typography variant="caption" sx={{
+                            color: "text.secondary"
+                          }}>
                             {(order as any).deletedAt ? formatDate((order as any).deletedAt) : 'Unknown'}
                           </Typography>
                         </TableCell>
@@ -462,12 +486,15 @@ const DeletedPurchaseOrdersDialog: React.FC<DeletedPurchaseOrdersDialogProps> = 
                           </Tooltip>
                         </Box>
                         {isMobile && (order as any).deletedAt && (
-                          <Typography variant="caption" color="text.secondary" sx={{
-                            display: 'block',
-                            textAlign: 'right',
-                            mt: 0.25,
-                            fontSize: '0.65rem'
-                          }}>
+                          <Typography
+                            variant="caption"
+                            sx={{
+                              color: "text.secondary",
+                              display: 'block',
+                              textAlign: 'right',
+                              mt: 0.25,
+                              fontSize: '0.65rem'
+                            }}>
                             {formatDate((order as any).deletedAt)}
                           </Typography>
                         )}
@@ -480,13 +507,11 @@ const DeletedPurchaseOrdersDialog: React.FC<DeletedPurchaseOrdersDialogProps> = 
           </TableContainer>
         )}
       </DialogContent>
-
       <DialogActions>
         <Button onClick={handleClose} variant="outlined">
           Close
         </Button>
       </DialogActions>
-
       {/* Bulk Restore Confirmation Dialog */}
       <Dialog
         open={showBulkRestoreConfirm}
@@ -495,7 +520,12 @@ const DeletedPurchaseOrdersDialog: React.FC<DeletedPurchaseOrdersDialogProps> = 
         fullWidth
       >
         <DialogTitle color="success">
-          <Box display="flex" alignItems="center" gap={1}>
+          <Box
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              gap: 1
+            }}>
             <RestoreIcon color="success" />
             Bulk Restore Orders
           </Box>
@@ -527,7 +557,12 @@ const DeletedPurchaseOrdersDialog: React.FC<DeletedPurchaseOrdersDialogProps> = 
             </Box>
           )}
 
-          <Typography variant="body2" sx={{ mt: 2 }} color="text.secondary">
+          <Typography
+            variant="body2"
+            sx={{
+              color: "text.secondary",
+              mt: 2
+            }}>
             This will move the selected orders back to the active orders list and make them available for processing.
           </Typography>
         </DialogContent>
@@ -550,7 +585,6 @@ const DeletedPurchaseOrdersDialog: React.FC<DeletedPurchaseOrdersDialogProps> = 
           </Button>
         </DialogActions>
       </Dialog>
-
       {/* Bulk Delete Confirmation Dialog */}
       <Dialog
         open={showBulkDeleteConfirm}
@@ -559,7 +593,12 @@ const DeletedPurchaseOrdersDialog: React.FC<DeletedPurchaseOrdersDialogProps> = 
         fullWidth
       >
         <DialogTitle color="error">
-          <Box display="flex" alignItems="center" gap={1}>
+          <Box
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              gap: 1
+            }}>
             <DeleteIcon color="error" />
             Permanent Delete Orders
           </Box>
@@ -591,7 +630,12 @@ const DeletedPurchaseOrdersDialog: React.FC<DeletedPurchaseOrdersDialogProps> = 
             </Box>
           )}
 
-          <Typography variant="body2" sx={{ mt: 2 }} color="text.secondary">
+          <Typography
+            variant="body2"
+            sx={{
+              color: "text.secondary",
+              mt: 2
+            }}>
             These orders will be permanently removed from the database and cannot be recovered.
           </Typography>
         </DialogContent>
@@ -614,7 +658,6 @@ const DeletedPurchaseOrdersDialog: React.FC<DeletedPurchaseOrdersDialogProps> = 
           </Button>
         </DialogActions>
       </Dialog>
-
       {/* Individual Delete Confirmation Dialog */}
       <Dialog
         open={!!showDeleteConfirm}
@@ -623,7 +666,12 @@ const DeletedPurchaseOrdersDialog: React.FC<DeletedPurchaseOrdersDialogProps> = 
         fullWidth
       >
         <DialogTitle color="error">
-          <Box display="flex" alignItems="center" gap={1}>
+          <Box
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              gap: 1
+            }}>
             <DeleteIcon color="error" />
             Permanent Delete Order
           </Box>
@@ -654,7 +702,12 @@ const DeletedPurchaseOrdersDialog: React.FC<DeletedPurchaseOrdersDialogProps> = 
                 </Typography>
               </Box>
 
-              <Typography variant="body2" sx={{ mt: 2 }} color="text.secondary">
+              <Typography
+                variant="body2"
+                sx={{
+                  color: "text.secondary",
+                  mt: 2
+                }}>
                 This order will be permanently removed from the database and cannot be recovered.
               </Typography>
             </>
@@ -680,7 +733,7 @@ const DeletedPurchaseOrdersDialog: React.FC<DeletedPurchaseOrdersDialogProps> = 
         </DialogActions>
       </Dialog>
     </Dialog>
-  )
+  );
 }
 
 export default DeletedPurchaseOrdersDialog

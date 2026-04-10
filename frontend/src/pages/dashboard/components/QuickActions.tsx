@@ -6,13 +6,11 @@ import {
     Button,
     Grid,
 } from '@mui/material'
-import {
-    Add as AddIcon,
-    ShoppingCart as SalesOrderIcon,
-    LocalShipping as PurchaseOrderIcon,
-    Inventory as ProductIcon,
-    PersonAdd as CustomerIcon,
-} from '@mui/icons-material'
+import { default as AddIcon } from '@mui/icons-material/Add'
+import { default as SalesOrderIcon } from '@mui/icons-material/ShoppingCart'
+import { default as PurchaseOrderIcon } from '@mui/icons-material/LocalShipping'
+import { default as ProductIcon } from '@mui/icons-material/Inventory'
+import { default as CustomerIcon } from '@mui/icons-material/PersonAdd'
 import { useNavigate } from 'react-router-dom'
 
 const QuickActions: React.FC = () => {

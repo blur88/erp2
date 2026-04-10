@@ -221,13 +221,11 @@ const RegionalSettingsPage: React.FC = () => {
   return (
     <>
       <PageHeader title="Regional Settings" subtitle="Configure locale, currency, date format, and timezone preferences" />
-
       {error && (
         <Alert severity="error" sx={{ mb: 3 }}>
           {error}
         </Alert>
       )}
-
       <Paper sx={{ p: 4 }}>
         <form onSubmit={handleSubmit(onSubmit)}>
           <Grid container spacing={3}>
@@ -393,7 +391,9 @@ const RegionalSettingsPage: React.FC = () => {
                   {preview}
                 </Typography>
               </Paper>
-              <Typography variant="caption" color="text.secondary">
+              <Typography variant="caption" sx={{
+                color: "text.secondary"
+              }}>
                 This preview shows how dates, times, and numbers will appear across all pages.
               </Typography>
             </Grid>
@@ -425,7 +425,7 @@ const RegionalSettingsPage: React.FC = () => {
         </form>
       </Paper>
     </>
-  )
+  );
 }
 
 export default RegionalSettingsPage

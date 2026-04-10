@@ -1,8 +1,6 @@
 import React, { useMemo, useState } from 'react';
-import {
-  Delete as DeleteIcon,
-  Edit as EditIcon,
-} from '@mui/icons-material';
+import { default as DeleteIcon } from '@mui/icons-material/Delete'
+import { default as EditIcon } from '@mui/icons-material/Edit';
 import {
   Box,
   Button,
@@ -103,7 +101,6 @@ const PaymentMethodsPage: React.FC = () => {
           },
         }}
       />
-
       <Paper>
         <TableContainer>
           <Table>
@@ -170,7 +167,9 @@ const PaymentMethodsPage: React.FC = () => {
               {!methods.length && !loading && (
                 <TableRow>
                   <TableCell colSpan={7}>
-                    <Typography color="text.secondary">No payment methods found.</Typography>
+                    <Typography sx={{
+                      color: "text.secondary"
+                    }}>No payment methods found.</Typography>
                   </TableCell>
                 </TableRow>
               )}
@@ -178,7 +177,6 @@ const PaymentMethodsPage: React.FC = () => {
           </Table>
         </TableContainer>
       </Paper>
-
       <PaymentMethodFormDialog
         open={formOpen}
         onClose={() => {
@@ -188,7 +186,6 @@ const PaymentMethodsPage: React.FC = () => {
         onSubmit={selected ? onUpdate : onCreate}
         initialData={selected}
       />
-
       <Dialog open={deleteOpen} onClose={() => setDeleteOpen(false)}>
         <DialogTitle>Delete Payment Method</DialogTitle>
         <DialogContent>
@@ -203,7 +200,6 @@ const PaymentMethodsPage: React.FC = () => {
           </Button>
         </DialogActions>
       </Dialog>
-
       <DeletedPaymentMethodsDialog open={deletedOpen} onClose={() => setDeletedOpen(false)} />
     </>
   );

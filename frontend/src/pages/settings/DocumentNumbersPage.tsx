@@ -14,9 +14,7 @@ import {
   TableRow,
   TextField,
 } from '@mui/material'
-import {
-  Save as SaveIcon,
-} from '@mui/icons-material'
+import { default as SaveIcon } from '@mui/icons-material/Save'
 import PageHeader from '@/components/common/PageHeader'
 import { useNotification } from '@/hooks/useNotification'
 import {
@@ -173,7 +171,7 @@ const DocumentNumbersPage: React.FC = () => {
                             onChange={(e) => handleConfigChange(index, 'prefix', e.target.value.toUpperCase())}
                             size="small"
                             fullWidth
-                            inputProps={{ maxLength: 10 }}
+                            slotProps={{ htmlInput: { maxLength: 10 } }}
                           />
                         </TableCell>
                         <TableCell>
@@ -183,7 +181,7 @@ const DocumentNumbersPage: React.FC = () => {
                             onChange={(e) => handleConfigChange(index, 'nextNumber', e.target.value)}
                             size="small"
                             fullWidth
-                            inputProps={{ min: 1 }}
+                            slotProps={{ htmlInput: { min: 1 } }}
                           />
                         </TableCell>
                         <TableCell>

@@ -25,13 +25,11 @@ import {
   TextField,
   Typography,
 } from '@mui/material'
-import {
-  Delete as DeleteIcon,
-  Edit as EditIcon,
-  PostAdd as PostIcon,
-  Search as SearchIcon,
-  Undo as UndoIcon,
-} from '@mui/icons-material'
+import { default as DeleteIcon } from '@mui/icons-material/Delete'
+import { default as EditIcon } from '@mui/icons-material/Edit'
+import { default as PostIcon } from '@mui/icons-material/PostAdd'
+import { default as SearchIcon } from '@mui/icons-material/Search'
+import { default as UndoIcon } from '@mui/icons-material/Undo'
 import PageHeader from '@/components/common/PageHeader'
 import { useNotification } from '@/hooks/useNotification'
 import {
@@ -227,7 +225,6 @@ const OwnerEquityPage: React.FC = () => {
         secondaryAction={{ label: 'Refresh', onClick: () => refetch() }}
         primaryAction={{ label: 'New Transaction', onClick: openCreate }}
       />
-
       <Box sx={{ mb: 2 }}>
         <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
           <TextField
@@ -236,12 +233,14 @@ const OwnerEquityPage: React.FC = () => {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             size="small"
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon fontSize="small" />
-                </InputAdornment>
-              ),
+            slotProps={{
+              input: {
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon fontSize="small" />
+                  </InputAdornment>
+                ),
+              },
             }}
           />
           <FormControl size="small" sx={{ minWidth: 200 }}>
@@ -261,11 +260,10 @@ const OwnerEquityPage: React.FC = () => {
               <MenuItem value="reversed">Reversed</MenuItem>
             </Select>
           </FormControl>
-          <TextField label="Start Date" type="date" size="small" value={startDate} onChange={(e) => setStartDate(e.target.value)} InputLabelProps={{ shrink: true }} />
-          <TextField label="End Date" type="date" size="small" value={endDate} onChange={(e) => setEndDate(e.target.value)} InputLabelProps={{ shrink: true }} />
+          <TextField label="Start Date" type="date" size="small" value={startDate} onChange={(e) => setStartDate(e.target.value)} slotProps={{ inputLabel: { shrink: true } }} />
+          <TextField label="End Date" type="date" size="small" value={endDate} onChange={(e) => setEndDate(e.target.value)} slotProps={{ inputLabel: { shrink: true } }} />
         </Stack>
       </Box>
-
       <Paper>
         <TableContainer>
           {loading && (
@@ -342,7 +340,9 @@ const OwnerEquityPage: React.FC = () => {
               {!filteredRows.length && !loading && (
                 <TableRow>
                   <TableCell colSpan={8}>
-                    <Typography color="text.secondary">No owner equity transactions found.</Typography>
+                    <Typography sx={{
+                      color: "text.secondary"
+                    }}>No owner equity transactions found.</Typography>
                   </TableCell>
                 </TableRow>
               )}
@@ -350,7 +350,6 @@ const OwnerEquityPage: React.FC = () => {
           </Table>
         </TableContainer>
       </Paper>
-
       <Dialog open={dialogOpen} onClose={resetDialog} maxWidth="sm" fullWidth>
         <DialogTitle>{form.id ? 'Edit Transaction' : 'New Transaction'}</DialogTitle>
         <DialogContent>
@@ -362,7 +361,7 @@ const OwnerEquityPage: React.FC = () => {
                 <MenuItem value="owner_drawing">Owner Drawing</MenuItem>
               </Select>
             </FormControl>
-            <TextField label="Date" type="date" size="small" value={form.transactionDate} onChange={(e) => setForm((f) => ({ ...f, transactionDate: e.target.value }))} InputLabelProps={{ shrink: true }} />
+            <TextField label="Date" type="date" size="small" value={form.transactionDate} onChange={(e) => setForm((f) => ({ ...f, transactionDate: e.target.value }))} slotProps={{ inputLabel: { shrink: true } }} />
             <TextField label="Amount" size="small" type="number" value={form.amount} onChange={(e) => setForm((f) => ({ ...f, amount: e.target.value }))} />
             <FormControl fullWidth size="small">
               <InputLabel>Payment Method</InputLabel>
@@ -380,7 +379,6 @@ const OwnerEquityPage: React.FC = () => {
           <Button variant="contained" onClick={save}>Save</Button>
         </DialogActions>
       </Dialog>
-
       <Dialog open={!!reverseConfirmId} onClose={() => setReverseConfirmId(null)} maxWidth="xs" fullWidth>
         <DialogTitle>Reverse Transaction</DialogTitle>
         <DialogContent>
@@ -396,7 +394,7 @@ const OwnerEquityPage: React.FC = () => {
         </DialogActions>
       </Dialog>
     </>
-  )
+  );
 }
 
 export default OwnerEquityPage

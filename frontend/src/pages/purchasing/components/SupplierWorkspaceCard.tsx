@@ -13,11 +13,9 @@ import {
   Tabs,
   Typography,
 } from '@mui/material'
-import {
-  LocalShipping as GRNIcon,
-  Payment as PaymentIcon,
-  ShoppingCart as OrdersIcon,
-} from '@mui/icons-material'
+import { default as GRNIcon } from '@mui/icons-material/LocalShipping'
+import { default as PaymentIcon } from '@mui/icons-material/Payment'
+import { default as OrdersIcon } from '@mui/icons-material/ShoppingCart'
 import { useNavigate } from 'react-router-dom'
 
 import { TABLE_STYLES } from '@/constants/tableStyles'
@@ -97,14 +95,18 @@ const SupplierWorkspaceCard: React.FC<SupplierWorkspaceCardProps> = ({ selectedS
           <Tab icon={<PaymentIcon sx={{ fontSize: 16 }} />} iconPosition="start" label="Payments" />
         </Tabs>
       </Box>
-
       <TabPanel value={tabValue} index={0}>
         {posLoading ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
             <CircularProgress />
           </Box>
         ) : purchaseOrders.length === 0 ? (
-          <Typography color="text.secondary" sx={{ py: 4, textAlign: 'center' }}>
+          <Typography
+            sx={{
+              color: "text.secondary",
+              py: 4,
+              textAlign: 'center'
+            }}>
             No purchase orders found.
           </Typography>
         ) : (
@@ -127,13 +129,17 @@ const SupplierWorkspaceCard: React.FC<SupplierWorkspaceCardProps> = ({ selectedS
                     onClick={() => navigate(`/purchasing/orders/${po.id}/edit`)}
                   >
                     <TableCell>
-                      <Typography variant="body2" color="primary" fontWeight={600}>
+                      <Typography variant="body2" color="primary" sx={{
+                        fontWeight: 600
+                      }}>
                         {po.orderNumber}
                       </Typography>
                     </TableCell>
                     <TableCell>{formatDate(po.orderDate)}</TableCell>
                     <TableCell>
-                      <Typography variant="body2" color="text.secondary">
+                      <Typography variant="body2" sx={{
+                        color: "text.secondary"
+                      }}>
                         {po.receivedDate ? 'Received' : po.paidAmount ? 'Paid' : 'Pending'}
                       </Typography>
                     </TableCell>
@@ -145,14 +151,18 @@ const SupplierWorkspaceCard: React.FC<SupplierWorkspaceCardProps> = ({ selectedS
           </TableContainer>
         )}
       </TabPanel>
-
       <TabPanel value={tabValue} index={1}>
         {grnsLoading ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
             <CircularProgress />
           </Box>
         ) : grns.length === 0 ? (
-          <Typography color="text.secondary" sx={{ py: 4, textAlign: 'center' }}>
+          <Typography
+            sx={{
+              color: "text.secondary",
+              py: 4,
+              textAlign: 'center'
+            }}>
             No GRNs found.
           </Typography>
         ) : (
@@ -175,7 +185,9 @@ const SupplierWorkspaceCard: React.FC<SupplierWorkspaceCardProps> = ({ selectedS
                     onClick={() => grn.purchaseOrder?.id && navigate(`/purchasing/orders/${grn.purchaseOrder.id}/edit`)}
                   >
                     <TableCell>
-                      <Typography variant="body2" color="primary" fontWeight={600}>
+                      <Typography variant="body2" color="primary" sx={{
+                        fontWeight: 600
+                      }}>
                         {grn.grnNumber}
                       </Typography>
                     </TableCell>
@@ -196,14 +208,18 @@ const SupplierWorkspaceCard: React.FC<SupplierWorkspaceCardProps> = ({ selectedS
           </TableContainer>
         )}
       </TabPanel>
-
       <TabPanel value={tabValue} index={2}>
         {paymentsLoading ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
             <CircularProgress />
           </Box>
         ) : payments.length === 0 ? (
-          <Typography color="text.secondary" sx={{ py: 4, textAlign: 'center' }}>
+          <Typography
+            sx={{
+              color: "text.secondary",
+              py: 4,
+              textAlign: 'center'
+            }}>
             No payments found.
           </Typography>
         ) : (
@@ -221,7 +237,9 @@ const SupplierWorkspaceCard: React.FC<SupplierWorkspaceCardProps> = ({ selectedS
                 {payments.map((payment) => (
                   <TableRow key={payment.id}>
                     <TableCell>
-                      <Typography variant="body2" fontWeight={600}>
+                      <Typography variant="body2" sx={{
+                        fontWeight: 600
+                      }}>
                         {payment.paymentNumber}
                       </Typography>
                     </TableCell>
@@ -236,7 +254,7 @@ const SupplierWorkspaceCard: React.FC<SupplierWorkspaceCardProps> = ({ selectedS
         )}
       </TabPanel>
     </Paper>
-  )
+  );
 }
 
 export default SupplierWorkspaceCard
