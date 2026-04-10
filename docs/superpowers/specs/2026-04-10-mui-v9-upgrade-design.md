@@ -63,14 +63,7 @@ Changes per file:
 2. Remove `item` prop from child Grid elements (no longer needed)
 3. Replace breakpoint props (`xs`, `sm`, `md`, `lg`, `xl`) with the `size` prop: `size={{ xs: 12, md: 3 }}`
 
-**Approach:** Run the MUI codemod first to automate prop renaming, then do a manual pass to fix import names and any edge cases:
-
-```bash
-cd frontend
-npx @mui/codemod@9.0.0 v7.0.0/grid-v2-props src/
-```
-
-After the codemod, manually update imports in the 9 affected files (the codemod handles props but not the import path/alias rename from `GridLegacy` to `Grid`).
+**Approach:** The codemod targets `Grid` imports from `@mui/material`, not `GridLegacy` imports from `@mui/material/GridLegacy`. Because our files already use the `GridLegacy` alias, the codemod will not match them — do the migration manually for all 9 files. The changes are mechanical and the file count is small enough that manual is faster than adapting the codemod.
 
 ---
 
