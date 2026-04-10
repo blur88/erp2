@@ -101,6 +101,25 @@ describe('PaymentService', () => {
     expect(service).toBeDefined();
   });
 
+  describe('findAll', () => {
+    it('filters payments by status when status is provided', async () => {
+      const mockPayments = [
+        { id: '1', status: 'completed', paymentNumber: 'PAY-001' },
+      ];
+      jest.spyOn(paymentRepository, 'createQueryBuilder').mockReturnValue({
+        leftJoinAndSelect: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        getManyAndCount: jest.fn().mockResolvedValue([mockPayments, 1]),
+      } as any);
+
+      const result = await service.findAll({ status: 'completed' as any });
+
+      expect(result.data).toHaveLength(1);
+    });
+  });
+
   describe('create', () => {
     it('should post accounting entry successfully', async () => {
       // Arrange
