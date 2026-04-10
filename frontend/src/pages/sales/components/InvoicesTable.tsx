@@ -88,17 +88,29 @@ const InvoicesTable: React.FC<InvoicesTableProps> = ({
   return (
     <Paper sx={{ height: 'calc(100vh - 300px)', display: 'flex', flexDirection: 'column' }}>
       <Box sx={{ p: TABLE_STYLES.cell.padding.px, borderBottom: TABLE_STYLES.cell.border }}>
-        <Typography
-          variant="tableHeader"
-          sx={{
-            fontWeight: 600,
-            fontSize: '0.8rem',
-            textTransform: 'uppercase',
-            letterSpacing: '0.5px',
-          }}
-        >
-          Invoice List ({total})
-        </Typography>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Typography
+            variant="tableHeader"
+            sx={{
+              fontWeight: 600,
+              fontSize: '0.8rem',
+              textTransform: 'uppercase',
+              letterSpacing: '0.5px',
+            }}
+          >
+            Invoice List ({total})
+          </Typography>
+          {loading && invoices.length > 0 && (
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Typography variant="caption" color="text.secondary">
+                Searching...
+              </Typography>
+              <Box sx={{ width: 16, height: 16 }}>
+                <Skeleton variant="circular" width={16} height={16} />
+              </Box>
+            </Box>
+          )}
+        </Box>
       </Box>
 
       <Box sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }} ref={invoiceListRef}>
