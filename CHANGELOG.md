@@ -1,3 +1,22 @@
+# [1.64.0](https://github.com/blur88/erp2/compare/v1.63.0...v1.64.0) (2026-04-10)
+
+
+### Bug Fixes
+
+* address code review issues in payments page refactor ([9c26e82](https://github.com/blur88/erp2/commit/9c26e827c10bb3263dc9e410ae5b24ce77a92d1c))
+
+
+### Features
+
+* add PaymentContextHeader component ([a134cc8](https://github.com/blur88/erp2/commit/a134cc8fd26b715f90861c5fde60747deb78b560))
+* add PaymentsDialogs component ([56db46c](https://github.com/blur88/erp2/commit/56db46c4dd3d8285a44aa3baf755a93264dd350b))
+* add PaymentsTable component ([3b96c40](https://github.com/blur88/erp2/commit/3b96c40613257386d489051e707038e6b40aea57))
+* add PaymentWorkspaceCard component ([9f5a94e](https://github.com/blur88/erp2/commit/9f5a94ea8c7724d068aac173c1e04296d743b0b6))
+* add status filter to payments backend endpoint ([dd5d13e](https://github.com/blur88/erp2/commit/dd5d13e6e96071db20cd92ba53a6e54ac152ff8c))
+* add transaction-status filter type and FilterTransactionStatus component ([968c4e7](https://github.com/blur88/erp2/commit/968c4e763cdc959718407bdf2926df8f6c6242f8))
+* add usePaymentsPageState hook ([8267356](https://github.com/blur88/erp2/commit/82673561e56e9e67c8fc578a688ea22425bf9171))
+* add usePaymentsSelection hook ([1506bd5](https://github.com/blur88/erp2/commit/1506bd58d763c9b4d8c65bb96c55447d11c478b5))
+
 # [1.63.0](https://github.com/blur88/erp2/compare/v1.62.0...v1.63.0) (2026-04-10)
 
 
