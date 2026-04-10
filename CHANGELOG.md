@@ -1,3 +1,10 @@
+# [1.63.0](https://github.com/blur88/erp2/compare/v1.62.0...v1.63.0) (2026-04-10)
+
+
+### Features
+
+* upgrade MUI v7 → v9 with full migration ([7fa9b45](https://github.com/blur88/erp2/commit/7fa9b455d1f3f7490a10b060b72d8ff4e61a70f9)), closes [#330](https://github.com/blur88/erp2/issues/330)
+
 # [1.62.0](https://github.com/blur88/erp2/compare/v1.61.1...v1.62.0) (2026-04-10)
 
 
