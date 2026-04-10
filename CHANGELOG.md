@@ -1,3 +1,19 @@
+# [1.61.0](https://github.com/blur88/erp2/compare/v1.60.0...v1.61.0) (2026-04-10)
+
+
+### Bug Fixes
+
+* **invoices:** uppercase sortOrder for invoice API validation ([08f73ec](https://github.com/blur88/erp2/commit/08f73ec5de6475fe107fb9f48ae2c6f16ec73b2f))
+* **invoices:** use Between for date range query in invoice service ([b3e46ea](https://github.com/blur88/erp2/commit/b3e46ea78b65904dc47aa24f148bdfd3d2e05cf2))
+* **invoices:** use height 100% on InvoicesTable to match MasterDetailWorkspace layout ([5c69734](https://github.com/blur88/erp2/commit/5c69734ad0c0d8170c3c7793b1a8589c0cef354b))
+
+
+### Features
+
+* **invoices:** add InvoiceContextHeader component ([c6078a7](https://github.com/blur88/erp2/commit/c6078a74198cb00f3f6c89e1f469d7f841a0fd62))
+* **invoices:** add InvoiceWorkspaceCard component ([44534d8](https://github.com/blur88/erp2/commit/44534d8bc269fcf122198d6ce271c1324e60b431))
+* **invoices:** add searching spinner to InvoicesTable ([612fee9](https://github.com/blur88/erp2/commit/612fee929020035e5ca07984de41227c4fac1aad))
+
 # [1.60.0](https://github.com/blur88/erp2/compare/v1.59.0...v1.60.0) (2026-04-10)
 
 
