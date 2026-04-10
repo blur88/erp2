@@ -1,3 +1,15 @@
+# [1.60.0](https://github.com/blur88/erp2/compare/v1.59.0...v1.60.0) (2026-04-10)
+
+
+### Bug Fixes
+
+* **suppliers:** tidy sort declaration order, fix ternary indent, add toggle test ([#325](https://github.com/blur88/erp2/issues/325)) ([07db947](https://github.com/blur88/erp2/commit/07db947539d11cef74edba23565d76ee16e3ec8f))
+
+
+### Features
+
+* **suppliers:** add sort button to SuppliersPage ([#325](https://github.com/blur88/erp2/issues/325)) ([1e8d08e](https://github.com/blur88/erp2/commit/1e8d08ebdf1391c8ff3ce23356a85a62edabca36))
+
 # [1.59.0](https://github.com/blur88/erp2/compare/v1.58.2...v1.59.0) (2026-04-09)
 
 
