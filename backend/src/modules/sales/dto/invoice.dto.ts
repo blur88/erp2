@@ -151,6 +151,24 @@ export class QueryInvoicesDto {
   unpaid?: boolean;
 
   @ApiPropertyOptional({
+    description: 'Filter by payment status',
+    enum: ['unpaid', 'partial', 'paid', 'overpaid'],
+    example: 'unpaid',
+  })
+  @IsOptional()
+  @IsEnum(['unpaid', 'partial', 'paid', 'overpaid'])
+  paymentStatus?: 'unpaid' | 'partial' | 'paid' | 'overpaid';
+
+  @ApiPropertyOptional({
+    description: 'Filter by fulfillment status of linked sales order',
+    enum: ['fulfilled', 'unfulfilled'],
+    example: 'fulfilled',
+  })
+  @IsOptional()
+  @IsEnum(['fulfilled', 'unfulfilled'])
+  fulfillmentStatus?: 'fulfilled' | 'unfulfilled';
+
+  @ApiPropertyOptional({
     description: 'Sort field',
     example: 'invoiceDate',
   })
@@ -379,4 +397,3 @@ export class VoidInvoiceDto {
   @IsString()
   reason: string;
 }
-
