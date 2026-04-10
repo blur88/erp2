@@ -6,7 +6,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, FindOptionsWhere, FindManyOptions, MoreThanOrEqual, LessThanOrEqual, Between, ILike, In } from 'typeorm';
+import { Repository, MoreThanOrEqual, In } from 'typeorm';
 import {
   Invoice,
   InvoiceStatus
@@ -176,55 +176,105 @@ export class InvoiceService {
       status,
       fromDate,
       toDate,
-      overdue,
       unpaid,
+      paymentStatus,
+      fulfillmentStatus,
       sortBy = 'invoiceDate',
       sortOrder = 'DESC',
     } = query;
 
-    const where: FindOptionsWhere<Invoice> = {};
+    let qb = this.invoiceRepository
+      .createQueryBuilder('invoice')
+      .leftJoinAndSelect('invoice.customer', 'customer')
+      .leftJoinAndSelect('invoice.salesOrder', 'salesOrder')
+      .leftJoinAndSelect('invoice.payments', 'payments')
+      .leftJoinAndSelect('invoice.items', 'items')
+      .leftJoinAndSelect('items.product', 'product')
+      .where('invoice.deletedAt IS NULL');
 
-    if (customerId) where.customerId = customerId;
-    if (salesOrderId) where.salesOrderId = salesOrderId;
-    if (status) where.status = status;
+    if (customerId) {
+      qb = qb.andWhere('invoice.customerId = :customerId', { customerId });
+    }
+
+    if (salesOrderId) {
+      qb = qb.andWhere('invoice.salesOrderId = :salesOrderId', { salesOrderId });
+    }
+
+    if (status) {
+      qb = qb.andWhere('invoice.status = :status', { status });
+    }
 
     if (fromDate && toDate) {
       const endDate = new Date(toDate);
       endDate.setHours(23, 59, 59, 999);
-      where.invoiceDate = Between(new Date(fromDate), endDate);
+      qb = qb.andWhere('invoice.invoiceDate BETWEEN :fromDate AND :toDate', {
+        fromDate: new Date(fromDate),
+        toDate: endDate,
+      });
     } else if (fromDate) {
-      where.invoiceDate = MoreThanOrEqual(new Date(fromDate));
+      qb = qb.andWhere('invoice.invoiceDate >= :fromDate', {
+        fromDate: new Date(fromDate),
+      });
     } else if (toDate) {
       const endDate = new Date(toDate);
       endDate.setHours(23, 59, 59, 999);
-      where.invoiceDate = LessThanOrEqual(endDate);
+      qb = qb.andWhere('invoice.invoiceDate <= :toDate', { toDate: endDate });
     }
 
-    const searchConditions = [];
     if (search) {
-      searchConditions.push(
-        { invoiceNumber: ILike(`%${search}%`) },
-        { customer: { name: ILike(`%${search}%`) } },
+      qb = qb.andWhere(
+        '(invoice.invoiceNumber ILIKE :search OR customer.name ILIKE :search)',
+        { search: `%${search}%` },
       );
     }
 
-    const findOptions: FindManyOptions<Invoice> = {
-      where: searchConditions.length > 0 ? searchConditions.map(condition => ({ ...where, ...condition })) : where,
-      relations: ['customer', 'salesOrder', 'payments', 'items', 'items.product'],
-      order: { [sortBy]: sortOrder },
-    };
-
-    let [invoices, total] = await this.invoiceRepository.findAndCount(findOptions);
-
-    // Filter unpaid invoices if requested (overdue filtering removed as it depends on dueDate)
     if (unpaid !== undefined) {
-      invoices = invoices.filter(invoice => (Number(invoice.balanceDue) > 0) === unpaid);
-      total = invoices.length;
+      if (unpaid) {
+        qb = qb.andWhere('invoice.balanceDue > 0');
+      } else {
+        qb = qb.andWhere('invoice.balanceDue <= 0');
+      }
     }
+
+    if (paymentStatus) {
+      switch (paymentStatus) {
+        case 'unpaid':
+          qb = qb.andWhere('invoice.paidAmount = 0');
+          break;
+        case 'partial':
+          qb = qb.andWhere(
+            'invoice.paidAmount > 0 AND invoice.paidAmount < invoice.totalAmount',
+          );
+          break;
+        case 'paid':
+          qb = qb.andWhere(
+            'invoice.paidAmount >= invoice.totalAmount AND invoice.paidAmount > 0',
+          );
+          break;
+        case 'overpaid':
+          qb = qb.andWhere('invoice.paidAmount > invoice.totalAmount');
+          break;
+      }
+    }
+
+    if (fulfillmentStatus) {
+      switch (fulfillmentStatus) {
+        case 'fulfilled':
+          qb = qb.andWhere('salesOrder.isFulfilled = true');
+          break;
+        case 'unfulfilled':
+          qb = qb.andWhere('salesOrder.isFulfilled = false');
+          break;
+      }
+    }
+
+    qb = qb.orderBy(`invoice.${sortBy}`, sortOrder as 'ASC' | 'DESC');
+
+    const [invoices, total] = await qb.getManyAndCount();
 
     // Map invoices to response DTOs with product information
     const data = await Promise.all(
-      invoices.map(invoice => this.mapToResponseDto(invoice))
+      invoices.map(invoice => this.mapToResponseDto(invoice)),
     );
 
     return {
