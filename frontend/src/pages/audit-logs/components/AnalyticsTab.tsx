@@ -1,6 +1,6 @@
 import React from 'react'
 import {
-  Box, Paper, Typography, GridLegacy as Grid, CircularProgress,
+  Box, Paper, Typography, Grid, CircularProgress,
 } from '@mui/material'
 import { useTheme } from '@mui/material/styles'
 import {
@@ -42,10 +42,14 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ statistics, loading }) => {
 
   if (!statistics) {
     return (
-      <Typography color="text.secondary" sx={{ py: 4, textAlign: 'center' }}>
-        No statistics available.
-      </Typography>
-    )
+      <Typography
+        sx={{
+          color: "text.secondary",
+          py: 4,
+          textAlign: 'center'
+        }}>No statistics available.
+              </Typography>
+    );
   }
 
   const actionLabels = statistics.byAction.map((a) => a.action)
@@ -74,9 +78,11 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ statistics, loading }) => {
   return (
     <Grid container spacing={3}>
       {/* Actions Breakdown */}
-      <Grid item xs={12} md={6}>
+      <Grid size={{ xs: 12, md: 6 }}>
         <Paper sx={{ p: 2 }}>
-          <Typography variant="subtitle1" fontWeight={600} gutterBottom>
+          <Typography variant="subtitle1" gutterBottom sx={{
+            fontWeight: 600
+          }}>
             Actions Breakdown
           </Typography>
           <Doughnut
@@ -92,11 +98,12 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ statistics, loading }) => {
           />
         </Paper>
       </Grid>
-
       {/* Activity by Action (bar) */}
-      <Grid item xs={12} md={6}>
+      <Grid size={{ xs: 12, md: 6 }}>
         <Paper sx={{ p: 2 }}>
-          <Typography variant="subtitle1" fontWeight={600} gutterBottom>
+          <Typography variant="subtitle1" gutterBottom sx={{
+            fontWeight: 600
+          }}>
             Activity by Action
           </Typography>
           <Bar
@@ -112,11 +119,12 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ statistics, loading }) => {
           />
         </Paper>
       </Grid>
-
       {/* Top Users */}
-      <Grid item xs={12} md={6}>
+      <Grid size={{ xs: 12, md: 6 }}>
         <Paper sx={{ p: 2 }}>
-          <Typography variant="subtitle1" fontWeight={600} gutterBottom>
+          <Typography variant="subtitle1" gutterBottom sx={{
+            fontWeight: 600
+          }}>
             Top Users
           </Typography>
           <Bar
@@ -132,11 +140,12 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ statistics, loading }) => {
           />
         </Paper>
       </Grid>
-
       {/* Activity by Entity Type */}
-      <Grid item xs={12} md={6}>
+      <Grid size={{ xs: 12, md: 6 }}>
         <Paper sx={{ p: 2 }}>
-          <Typography variant="subtitle1" fontWeight={600} gutterBottom>
+          <Typography variant="subtitle1" gutterBottom sx={{
+            fontWeight: 600
+          }}>
             Activity by Entity Type
           </Typography>
           <Bar
@@ -153,7 +162,7 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ statistics, loading }) => {
         </Paper>
       </Grid>
     </Grid>
-  )
+  );
 }
 
 export default AnalyticsTab

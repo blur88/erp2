@@ -10,7 +10,7 @@ import {
   TableRow,
   Typography,
 } from '@mui/material'
-import { DragIndicator as DragIndicatorIcon } from '@mui/icons-material'
+import { default as DragIndicatorIcon } from '@mui/icons-material/DragIndicator'
 
 import type { Product } from '@/types'
 import { TABLE_STYLES } from '@/constants/tableStyles'
@@ -51,7 +51,6 @@ const ProductsTable: React.FC<ProductsTableProps> = ({
           </Typography>
         </Box>
       </Box>
-
       <Box
         sx={{
           flex: 1,
@@ -74,7 +73,9 @@ const ProductsTable: React.FC<ProductsTableProps> = ({
           </Box>
         ) : products.length === 0 ? (
           <Box sx={{ p: 4, textAlign: 'center', flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant="body2" sx={{
+              color: "text.secondary"
+            }}>
               No products found. Create your first product to get started.
             </Typography>
           </Box>
@@ -142,7 +143,7 @@ const ProductsTable: React.FC<ProductsTableProps> = ({
         )}
       </Box>
     </Paper>
-  )
+  );
 }
 
 export default ProductsTable

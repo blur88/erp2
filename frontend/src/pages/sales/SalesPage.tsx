@@ -16,12 +16,10 @@ import {
   TableRow,
   Typography,
 } from '@mui/material'
-import {
-  PointOfSale as SalesIcon,
-  People as CustomersIcon,
-  Receipt as OrdersIcon,
-  Payment as PaymentsIcon,
-} from '@mui/icons-material'
+import { default as SalesIcon } from '@mui/icons-material/PointOfSale'
+import { default as CustomersIcon } from '@mui/icons-material/People'
+import { default as OrdersIcon } from '@mui/icons-material/Receipt'
+import { default as PaymentsIcon } from '@mui/icons-material/Payment'
 import { formatCurrency, formatDate, formatNumber } from '@/utils/formatters'
 import { TABLE_STYLES } from '@/constants/tableStyles'
 import PageHeader from '@/components/common/PageHeader'
@@ -191,7 +189,6 @@ const SalesPage: React.FC = () => {
           />
         }
       />
-
       {error && (
         <Alert
           severity="error"
@@ -201,7 +198,6 @@ const SalesPage: React.FC = () => {
           Failed to load dashboard data.
         </Alert>
       )}
-
       <Box sx={{ opacity: isFetching ? 0.7 : 1, transition: 'opacity 0.2s' }}>
         <SalesStatsCards stats={stats} loading={isLoading} />
 
@@ -231,7 +227,6 @@ const SalesPage: React.FC = () => {
           </Grid>
         </Grid>
       </Box>
-
       <Grid container spacing={3}>
         <Grid
           size={{
@@ -359,7 +354,12 @@ const SalesPage: React.FC = () => {
                             <Typography variant="body2" sx={{ fontSize: '0.8rem' }}>
                               {order.customer?.name || 'Unknown'}
                             </Typography>
-                            <Typography variant="tableCaption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
+                            <Typography
+                              variant="tableCaption"
+                              sx={{
+                                color: "text.secondary",
+                                fontSize: '0.7rem'
+                              }}>
                               {order.items?.length || 0} item{order.items?.length !== 1 ? 's' : ''}
                             </Typography>
                           </Box>
@@ -392,7 +392,9 @@ const SalesPage: React.FC = () => {
                   )) : (
                     <TableRow>
                       <TableCell colSpan={5} align="center">
-                        <Typography variant="body2" color="text.secondary">
+                        <Typography variant="body2" sx={{
+                          color: "text.secondary"
+                        }}>
                           No recent orders
                         </Typography>
                       </TableCell>
@@ -414,7 +416,7 @@ const SalesPage: React.FC = () => {
         </Grid>
       </Grid>
     </>
-  )
+  );
 }
 
 export default SalesPage

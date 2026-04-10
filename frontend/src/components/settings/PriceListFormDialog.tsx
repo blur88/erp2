@@ -291,7 +291,14 @@ const PriceListFormDialog: React.FC<PriceListFormDialogProps> = ({ open, priceLi
                   />
                 )}
               />
-              <Typography variant="caption" color="text.secondary" display="block" sx={{ ml: 4, mt: -1 }}>
+              <Typography
+                variant="caption"
+                sx={{
+                  color: "text.secondary",
+                  display: "block",
+                  ml: 4,
+                  mt: -1
+                }}>
                 The default price list is used when no specific price list is assigned
               </Typography>
             </Grid>
@@ -304,7 +311,14 @@ const PriceListFormDialog: React.FC<PriceListFormDialogProps> = ({ open, priceLi
                   <FormControlLabel control={<Switch {...field} checked={field.value} />} label="Active" />
                 )}
               />
-              <Typography variant="caption" color="text.secondary" display="block" sx={{ ml: 4, mt: -1 }}>
+              <Typography
+                variant="caption"
+                sx={{
+                  color: "text.secondary",
+                  display: "block",
+                  ml: 4,
+                  mt: -1
+                }}>
                 Inactive price lists cannot be used in transactions
               </Typography>
             </Grid>
@@ -320,7 +334,7 @@ const PriceListFormDialog: React.FC<PriceListFormDialogProps> = ({ open, priceLi
         </DialogActions>
       </form>
     </Dialog>
-  )
+  );
 }
 
 export default PriceListFormDialog

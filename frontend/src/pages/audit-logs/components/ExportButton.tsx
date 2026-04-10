@@ -2,7 +2,8 @@ import React, { useState } from 'react'
 import {
   Button, Menu, MenuItem, CircularProgress,
 } from '@mui/material'
-import { GetApp, KeyboardArrowDown } from '@mui/icons-material'
+import { default as GetApp } from '@mui/icons-material/GetApp'
+import { default as KeyboardArrowDown } from '@mui/icons-material/KeyboardArrowDown'
 import * as XLSX from 'xlsx'
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'

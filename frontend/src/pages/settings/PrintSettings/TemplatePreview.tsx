@@ -339,7 +339,13 @@ const TemplatePreview: React.FC<TemplatePreviewProps> = ({ template, settings })
         {footers.perPage && (
           <>
             <Divider sx={{ my: 2, borderColor: printColors.border }} />
-            <Typography variant="caption" sx={{ color: printColors.text }} align="center" display="block">
+            <Typography
+              variant="caption"
+              align="center"
+              sx={{
+                display: "block",
+                color: printColors.text
+              }}>
               {footers.perPage}
             </Typography>
           </>

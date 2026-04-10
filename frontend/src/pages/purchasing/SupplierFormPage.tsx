@@ -231,8 +231,10 @@ const SupplierFormPage: React.FC = () => {
                     label="Company Name"
                     error={!!errors.companyName || !!companyNameError}
                     helperText={errors.companyName?.message || companyNameError || (isCheckingDuplicate ? 'Checking availability...' : '')}
-                    InputProps={{
-                      endAdornment: isCheckingDuplicate ? <CircularProgress size={20} /> : null,
+                    slotProps={{
+                      input: {
+                        endAdornment: isCheckingDuplicate ? <CircularProgress size={20} /> : null,
+                      },
                     }}
                   />
                 )}

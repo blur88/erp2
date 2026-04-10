@@ -181,10 +181,12 @@ const OrderStatusChart: React.FC<OrderStatusChartProps> = ({ ordersByStatus, loa
                     Order Status
                 </Typography>
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 300 }}>
-                    <Typography color="text.secondary">No order data available</Typography>
+                    <Typography sx={{
+                        color: "text.secondary"
+                    }}>No order data available</Typography>
                 </Box>
             </Paper>
-        )
+        );
     }
 
     return (
@@ -259,7 +261,9 @@ export const TopProductsList: React.FC<TopProductsListProps> = ({ products, load
                                     <Typography variant="body2" sx={{ fontSize: '0.8rem' }}>
                                         {product.productName}
                                     </Typography>
-                                    <Typography variant="caption" color="text.secondary">
+                                    <Typography variant="caption" sx={{
+                                        color: "text.secondary"
+                                    }}>
                                         {formatNumber(product.quantity || 0)} sold
                                     </Typography>
                                 </Box>
@@ -270,13 +274,15 @@ export const TopProductsList: React.FC<TopProductsListProps> = ({ products, load
                         </Box>
                     </Box>
                 )) : (
-                    <Typography variant="body2" color="text.secondary" align="center">
+                    <Typography variant="body2" align="center" sx={{
+                        color: "text.secondary"
+                    }}>
                         No product data available
                     </Typography>
                 )}
             </Box>
         </Paper>
-    )
+    );
 }
 
 interface TopCustomersListProps {
@@ -343,7 +349,9 @@ export const TopCustomersList: React.FC<TopCustomersListProps> = ({ customers, l
                                     <Typography variant="body2" sx={{ fontSize: '0.8rem' }}>
                                         {customer.customerName || customer.name}
                                     </Typography>
-                                    <Typography variant="caption" color="text.secondary">
+                                    <Typography variant="caption" sx={{
+                                        color: "text.secondary"
+                                    }}>
                                         {formatNumber(customer.totalOrders || customer.orderCount || customer.orders || 0)} orders
                                     </Typography>
                                 </Box>
@@ -354,11 +362,13 @@ export const TopCustomersList: React.FC<TopCustomersListProps> = ({ customers, l
                         </Box>
                     </Box>
                 )) : (
-                    <Typography variant="body2" color="text.secondary" align="center">
+                    <Typography variant="body2" align="center" sx={{
+                        color: "text.secondary"
+                    }}>
                         No customer data available
                     </Typography>
                 )}
             </Box>
         </Paper>
-    )
+    );
 }

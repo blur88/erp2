@@ -9,7 +9,9 @@ import {
   Snackbar,
   CircularProgress,
 } from '@mui/material';
-import { Add as AddIcon, Backup as BackupIcon, CloudUpload as UploadIcon } from '@mui/icons-material';
+import { default as AddIcon } from '@mui/icons-material/Add'
+import { default as BackupIcon } from '@mui/icons-material/Backup'
+import { default as UploadIcon } from '@mui/icons-material/CloudUpload';
 import PageHeader from '@/components/common/PageHeader';
 import { useGetBackupsQuery, useGetSchedulesQuery } from '@/store/api/backupApi';
 import BackupList from '@/components/backup/BackupList';

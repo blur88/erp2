@@ -12,11 +12,9 @@ import {
   CircularProgress,
   Alert,
 } from '@mui/material'
-import {
-  BusinessCenter as CompanyIcon,
-  Upload as UploadIcon,
-  Delete as DeleteIcon,
-} from '@mui/icons-material'
+import { default as CompanyIcon } from '@mui/icons-material/BusinessCenter'
+import { default as UploadIcon } from '@mui/icons-material/Upload'
+import { default as DeleteIcon } from '@mui/icons-material/Delete'
 import { useForm, Controller } from 'react-hook-form'
 import * as yup from 'yup'
 import { yupResolver } from '@hookform/resolvers/yup'

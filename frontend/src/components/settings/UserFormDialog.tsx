@@ -15,10 +15,8 @@ import {
   IconButton,
   InputAdornment,
 } from '@mui/material'
-import {
-  Visibility as VisibilityIcon,
-  VisibilityOff as VisibilityOffIcon,
-} from '@mui/icons-material'
+import { default as VisibilityIcon } from '@mui/icons-material/Visibility'
+import { default as VisibilityOffIcon } from '@mui/icons-material/VisibilityOff'
 import { useForm, Controller } from 'react-hook-form'
 import { yupResolver } from '@hookform/resolvers/yup'
 import * as yup from 'yup'
@@ -454,7 +452,14 @@ const UserFormDialog: React.FC<UserFormDialogProps> = ({ open, user, currentUser
                       </Typography>
                     )}
                     {!canEditRole && isSelfEdit && (
-                      <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, ml: 1.5, display: 'block' }}>
+                      <Typography
+                        variant="caption"
+                        sx={{
+                          color: "text.secondary",
+                          mt: 0.5,
+                          ml: 1.5,
+                          display: 'block'
+                        }}>
                         You cannot change your own role
                       </Typography>
                     )}
@@ -481,7 +486,14 @@ const UserFormDialog: React.FC<UserFormDialogProps> = ({ open, user, currentUser
                       </Typography>
                     )}
                     {!canEditStatus && isSelfEdit && (
-                      <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, ml: 1.5, display: 'block' }}>
+                      <Typography
+                        variant="caption"
+                        sx={{
+                          color: "text.secondary",
+                          mt: 0.5,
+                          ml: 1.5,
+                          display: 'block'
+                        }}>
                         You cannot change your own status
                       </Typography>
                     )}
@@ -521,7 +533,7 @@ const UserFormDialog: React.FC<UserFormDialogProps> = ({ open, user, currentUser
         </DialogActions>
       </form>
     </Dialog>
-  )
+  );
 }
 
 export default UserFormDialog

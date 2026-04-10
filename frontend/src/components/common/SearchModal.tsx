@@ -286,7 +286,7 @@ export default function SearchModal({ open, onClose }: SearchModalProps) {
               fontSize: '0.9375rem',
               '& input::placeholder': { color: theme.palette.text.secondary },
             }}
-            inputProps={{ 'aria-label': 'search' }}
+            slotProps={{ input: { 'aria-label': 'search' } }}
           />
           {(isLoading || isFetching) && !showLoading && (
             <CircularProgress size={16} />

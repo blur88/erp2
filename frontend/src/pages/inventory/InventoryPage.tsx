@@ -18,14 +18,12 @@ import {
   Typography,
   useTheme,
 } from '@mui/material'
-import {
-  ArrowDownward as ArrowDownwardIcon,
-  ArrowUpward as ArrowUpwardIcon,
-  ErrorOutline as OutOfStockIcon,
-  Inventory2 as InventoryIcon,
-  TrendingUp as TrendingUpIcon,
-  Warning as WarningIcon,
-} from '@mui/icons-material'
+import { default as ArrowDownwardIcon } from '@mui/icons-material/ArrowDownward'
+import { default as ArrowUpwardIcon } from '@mui/icons-material/ArrowUpward'
+import { default as OutOfStockIcon } from '@mui/icons-material/ErrorOutlined'
+import { default as InventoryIcon } from '@mui/icons-material/Inventory2'
+import { default as TrendingUpIcon } from '@mui/icons-material/TrendingUp'
+import { default as WarningIcon } from '@mui/icons-material/Warning'
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -259,7 +257,6 @@ const InventoryPage: React.FC = () => {
           />
         }
       />
-
       {error && (
         <Alert
           severity="error"
@@ -273,7 +270,6 @@ const InventoryPage: React.FC = () => {
           Failed to load inventory dashboard data.
         </Alert>
       )}
-
       <Box sx={{ opacity: isFetching ? 0.7 : 1, transition: 'opacity 0.2s' }}>
         <Grid container spacing={3} sx={{ mb: 4 }}>
           {stats.map((stat) => (
@@ -337,7 +333,9 @@ const InventoryPage: React.FC = () => {
                   >
                     {stat.value}
                   </Typography>
-                  <Typography variant="body2" color="text.secondary">
+                  <Typography variant="body2" sx={{
+                    color: "text.secondary"
+                  }}>
                     {stat.title}
                   </Typography>
                 </CardContent>
@@ -360,7 +358,9 @@ const InventoryPage: React.FC = () => {
                   <Line data={movementTrendData} options={lineChartOptions} />
                 ) : (
                   <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
-                    <Typography variant="body2" color="text.secondary">
+                    <Typography variant="body2" sx={{
+                      color: "text.secondary"
+                    }}>
                       No movement data for this period
                     </Typography>
                   </Box>
@@ -507,7 +507,9 @@ const InventoryPage: React.FC = () => {
                     ) : (
                       <TableRow>
                         <TableCell colSpan={5} align="center">
-                          <Typography variant="body2" color="text.secondary">
+                          <Typography variant="body2" sx={{
+                            color: "text.secondary"
+                          }}>
                             No movements in this period
                           </Typography>
                         </TableCell>
@@ -562,7 +564,9 @@ const InventoryPage: React.FC = () => {
                           >
                             {alert.productName}
                           </Typography>
-                          <Typography variant="caption" color="text.secondary" noWrap>
+                          <Typography variant="caption" noWrap sx={{
+                            color: "text.secondary"
+                          }}>
                             {alert.categoryName} {alert.stockQuantity} units
                           </Typography>
                         </Box>
@@ -583,8 +587,10 @@ const InventoryPage: React.FC = () => {
                 ) : (
                   <Typography
                     variant="body2"
-                    color="text.secondary"
                     align="center"
+                    sx={{
+                      color: "text.secondary"
+                    }}
                   >
                     All products well stocked
                   </Typography>
@@ -595,7 +601,7 @@ const InventoryPage: React.FC = () => {
         </Grid>
       </Box>
     </>
-  )
+  );
 }
 
 export default InventoryPage

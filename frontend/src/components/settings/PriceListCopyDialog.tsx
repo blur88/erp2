@@ -128,7 +128,12 @@ const PriceListCopyDialog: React.FC<PriceListCopyDialogProps> = ({ open, priceLi
       <DialogTitle>Copy Price List</DialogTitle>
       <form onSubmit={handleSubmit(onSubmit)}>
         <DialogContent dividers>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+          <Typography
+            variant="body2"
+            sx={{
+              color: "text.secondary",
+              mb: 3
+            }}>
             Create a copy of "{priceList?.name}" with all its items. You can modify the details below.
           </Typography>
 
@@ -241,7 +246,7 @@ const PriceListCopyDialog: React.FC<PriceListCopyDialogProps> = ({ open, priceLi
         </DialogActions>
       </form>
     </Dialog>
-  )
+  );
 }
 
 export default PriceListCopyDialog

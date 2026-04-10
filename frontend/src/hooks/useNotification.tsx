@@ -1,6 +1,8 @@
 import React, { createContext, useContext, useCallback } from 'react'
 import { Snackbar, Alert, AlertColor, IconButton } from '@mui/material'
-import { ContentCopy as CopyIcon, Check as CheckIcon, Close as CloseIcon } from '@mui/icons-material'
+import { default as CopyIcon } from '@mui/icons-material/ContentCopy'
+import { default as CheckIcon } from '@mui/icons-material/Check'
+import { default as CloseIcon } from '@mui/icons-material/Close'
 import { useAppDispatch, useAppSelector } from './useRedux'
 import {
   addNotification,

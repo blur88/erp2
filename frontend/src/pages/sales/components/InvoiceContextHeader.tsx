@@ -1,5 +1,5 @@
 import React from 'react'
-import { Print as PrintIcon } from '@mui/icons-material'
+import { default as PrintIcon } from '@mui/icons-material/Print'
 import {
   Box,
   Chip,
@@ -13,7 +13,7 @@ import {
   TableRow,
   Typography,
 } from '@mui/material'
-import Grid from '@mui/material/GridLegacy'
+import Grid from '@mui/material/Grid'
 
 import type { InvoiceJournalEntryRef, InvoiceListItem } from '../hooks/useInvoicesPageState'
 
@@ -82,11 +82,13 @@ const InvoiceContextHeader: React.FC<InvoiceContextHeaderProps> = ({
   if (!selectedInvoice) {
     return (
       <Paper sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', p: 4 }}>
-        <Typography variant="h6" color="text.secondary">
+        <Typography variant="h6" sx={{
+          color: "text.secondary"
+        }}>
           Select an invoice to view details
         </Typography>
       </Paper>
-    )
+    );
   }
 
   const isOverpaid = (selectedInvoice.paidAmount || 0) > (selectedInvoice.totalAmount || 0)
@@ -137,7 +139,7 @@ const InvoiceContextHeader: React.FC<InvoiceContextHeaderProps> = ({
 
       <Box sx={{ p: TABLE_STYLES.cell.padding.px }}>
         <Grid container spacing={3}>
-          <Grid item xs={12} md={6}>
+          <Grid size={{ xs: 12, md: 6 }}>
             <TableContainer>
               <Table size={TABLE_STYLES.size} sx={detailTableSx}>
                 <TableBody>
@@ -220,7 +222,7 @@ const InvoiceContextHeader: React.FC<InvoiceContextHeaderProps> = ({
             </TableContainer>
           </Grid>
 
-          <Grid item xs={12} md={6}>
+          <Grid size={{ xs: 12, md: 6 }}>
             <TableContainer>
               <Table size={TABLE_STYLES.size} sx={detailTableSx}>
                 <TableBody>

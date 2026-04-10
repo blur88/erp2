@@ -9,7 +9,7 @@ import {
   Chip,
   Box,
 } from '@mui/material'
-import { Star as StarIcon } from '@mui/icons-material'
+import { default as StarIcon } from '@mui/icons-material/Star'
 import { useGetEffectivePriceListsQuery, useGetPriceListsQuery } from '@/store/api/priceListApi'
 import type { PriceList } from '@/types'
 

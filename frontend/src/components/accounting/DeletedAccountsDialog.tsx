@@ -25,13 +25,11 @@ import {
   useTheme,
   useMediaQuery,
 } from '@mui/material'
-import {
-  Search as SearchIcon,
-  Restore as RestoreIcon,
-  Close as CloseIcon,
-  AccountBalance as AccountIcon,
-  DeleteForever as DeleteForeverIcon,
-} from '@mui/icons-material'
+import { default as SearchIcon } from '@mui/icons-material/Search'
+import { default as RestoreIcon } from '@mui/icons-material/Restore'
+import { default as CloseIcon } from '@mui/icons-material/Close'
+import { default as AccountIcon } from '@mui/icons-material/AccountBalance'
+import { default as DeleteForeverIcon } from '@mui/icons-material/DeleteForever'
 import {
   useBulkPermanentDeleteChartOfAccountsMutation,
   useBulkRestoreChartOfAccountsMutation,
@@ -231,7 +229,12 @@ const DeletedAccountsDialog: React.FC<DeletedAccountsDialogProps> = ({ open, onC
           <Typography variant="h6" component="span">
             Deleted Accounts
           </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+          <Typography
+            variant="body2"
+            sx={{
+              color: "text.secondary",
+              mt: 0.5
+            }}>
             View and restore soft-deleted chart of accounts
           </Typography>
         </Box>
@@ -239,7 +242,6 @@ const DeletedAccountsDialog: React.FC<DeletedAccountsDialogProps> = ({ open, onC
           <CloseIcon />
         </IconButton>
       </DialogTitle>
-
       <DialogContent dividers>
         {/* Search */}
         <Box sx={{ mb: 3 }}>
@@ -250,12 +252,14 @@ const DeletedAccountsDialog: React.FC<DeletedAccountsDialogProps> = ({ open, onC
               placeholder="Search by code or name..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon fontSize="small" />
-                  </InputAdornment>
-                ),
+              slotProps={{
+                input: {
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon fontSize="small" />
+                    </InputAdornment>
+                  ),
+                },
               }}
               sx={{ flex: 1, minWidth: 280 }}
             />
@@ -307,10 +311,14 @@ const DeletedAccountsDialog: React.FC<DeletedAccountsDialogProps> = ({ open, onC
         {!loading && filteredAccounts.length === 0 && (
           <Box sx={{ textAlign: 'center', py: 8 }}>
             <AccountIcon sx={{ fontSize: 64, color: 'text.disabled', mb: 2 }} />
-            <Typography variant="h6" color="text.secondary" gutterBottom>
+            <Typography variant="h6" gutterBottom sx={{
+              color: "text.secondary"
+            }}>
               {searchTerm ? 'No matching deleted accounts' : 'No deleted accounts'}
             </Typography>
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant="body2" sx={{
+              color: "text.secondary"
+            }}>
               {searchTerm
                 ? 'Try adjusting your search terms'
                 : 'Deleted accounts will appear here and can be restored'
@@ -331,7 +339,7 @@ const DeletedAccountsDialog: React.FC<DeletedAccountsDialogProps> = ({ open, onC
                       checked={allSelected}
                       indeterminate={partiallySelected}
                       onChange={(e) => handleSelectAll(e.target.checked)}
-                      inputProps={{ 'aria-label': 'Select all deleted accounts' }}
+                      slotProps={{ input: { 'aria-label': 'Select all deleted accounts' } }}
                     />
                   </TableCell>
                   <TableCell sx={{ fontWeight: 600 }}>Code</TableCell>
@@ -355,12 +363,14 @@ const DeletedAccountsDialog: React.FC<DeletedAccountsDialogProps> = ({ open, onC
                         size="small"
                         checked={selectedAccounts.has(account.id)}
                         onChange={(e) => handleSelectAccount(account.id, e.target.checked)}
-                        inputProps={{ 'aria-label': `Select account ${account.code}` }}
+                        slotProps={{ input: { 'aria-label': `Select account ${account.code}` } }}
                         disabled={bulkRestoring || bulkDeleting}
                       />
                     </TableCell>
                     <TableCell>
-                      <Typography variant="body2" fontWeight={500}>
+                      <Typography variant="body2" sx={{
+                        fontWeight: 500
+                      }}>
                         {account.code}
                       </Typography>
                     </TableCell>
@@ -378,7 +388,9 @@ const DeletedAccountsDialog: React.FC<DeletedAccountsDialogProps> = ({ open, onC
                       />
                     </TableCell>
                     <TableCell>
-                      <Typography variant="body2" color="text.secondary">
+                      <Typography variant="body2" sx={{
+                        color: "text.secondary"
+                      }}>
                         {account.deletedAt ? formatDate(account.deletedAt) : '-'}
                       </Typography>
                     </TableCell>
@@ -425,13 +437,11 @@ const DeletedAccountsDialog: React.FC<DeletedAccountsDialogProps> = ({ open, onC
           </TableContainer>
         )}
       </DialogContent>
-
       <DialogActions sx={{ px: 3, py: 2 }}>
         <Button onClick={onClose} variant="outlined">
           Close
         </Button>
       </DialogActions>
-
       {/* Permanent Delete Confirmation Dialog */}
       <ConfirmationDialog
         open={!!confirmDeleteAccount}
@@ -447,7 +457,6 @@ const DeletedAccountsDialog: React.FC<DeletedAccountsDialogProps> = ({ open, onC
         onCancel={() => setConfirmDeleteAccount(null)}
         severity="error"
       />
-
       <ConfirmationDialog
         open={showBulkRestoreConfirm}
         title="Restore Selected Accounts"
@@ -459,7 +468,6 @@ const DeletedAccountsDialog: React.FC<DeletedAccountsDialogProps> = ({ open, onC
         severity="info"
         loading={bulkRestoring}
       />
-
       <ConfirmationDialog
         open={showBulkDeleteConfirm}
         title="Permanently Delete Selected Accounts"
@@ -472,7 +480,7 @@ const DeletedAccountsDialog: React.FC<DeletedAccountsDialogProps> = ({ open, onC
         loading={bulkDeleting}
       />
     </Dialog>
-  )
+  );
 }
 
 export default DeletedAccountsDialog

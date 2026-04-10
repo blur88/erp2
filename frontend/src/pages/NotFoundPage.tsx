@@ -7,11 +7,9 @@ import {
   Container,
   Paper,
 } from '@mui/material'
-import {
-  Home as HomeIcon,
-  ArrowBack as ArrowBackIcon,
-  SearchOff as SearchOffIcon,
-} from '@mui/icons-material'
+import { default as HomeIcon } from '@mui/icons-material/Home'
+import { default as ArrowBackIcon } from '@mui/icons-material/ArrowBack'
+import { default as SearchOffIcon } from '@mui/icons-material/SearchOff'
 
 const NotFoundPage: React.FC = () => {
   const navigate = useNavigate()
@@ -81,9 +79,12 @@ const NotFoundPage: React.FC = () => {
 
           <Typography
             variant="body1"
-            color="text.secondary"
-            sx={{ mb: 4, maxWidth: 400, mx: 'auto' }}
-          >
+            sx={{
+              color: "text.secondary",
+              mb: 4,
+              maxWidth: 400,
+              mx: 'auto'
+            }}>
             The page you are looking for might have been removed, had its name changed, 
             or is temporarily unavailable.
           </Typography>
@@ -119,7 +120,9 @@ const NotFoundPage: React.FC = () => {
 
           {/* Help Text */}
           <Box sx={{ mt: 4, pt: 3, borderTop: 1, borderColor: 'divider' }}>
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant="body2" sx={{
+              color: "text.secondary"
+            }}>
               If you believe this is an error, please contact the system administrator
               or try refreshing the page.
             </Typography>
@@ -127,7 +130,7 @@ const NotFoundPage: React.FC = () => {
         </Paper>
       </Box>
     </Container>
-  )
+  );
 }
 
 export default NotFoundPage

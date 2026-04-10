@@ -10,7 +10,7 @@ import {
   CircularProgress,
   Button
 } from '@mui/material'
-import { Add } from '@mui/icons-material'
+import { default as Add } from '@mui/icons-material/Add'
 import { Category } from '@/types'
 import { ApiService } from '@/services/api'
 
@@ -188,17 +188,19 @@ const CategorySelector: React.FC<CategorySelectorProps> = ({
           }
         }}
         MenuProps={{
-          PaperProps: {
-            style: {
-              maxHeight: 'none',
-              maxWidth: 'none',
-              overflow: 'visible'
-            },
-            sx: {
-              '& .MuiList-root': {
-                maxHeight: '400px',
-                overflow: 'auto',
-                padding: 0
+          slotProps: {
+            paper: {
+              style: {
+                maxHeight: 'none',
+                maxWidth: 'none',
+                overflow: 'visible'
+              },
+              sx: {
+                '& .MuiList-root': {
+                  maxHeight: '400px',
+                  overflow: 'auto',
+                  padding: 0
+                }
               }
             }
           },
@@ -270,20 +272,21 @@ const CategorySelector: React.FC<CategorySelectorProps> = ({
           ))
         ) : !loading && (
           <MenuItem disabled>
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant="body2" sx={{
+              color: "text.secondary"
+            }}>
               No categories found
             </Typography>
           </MenuItem>
         )}
       </Select>
-
       {helperText && (
         <Typography variant="caption" color={error ? 'error' : 'text.secondary'} sx={{ mt: 0.5, ml: 1.5 }}>
           {helperText}
         </Typography>
       )}
     </FormControl>
-  )
+  );
 }
 
 export default CategorySelector

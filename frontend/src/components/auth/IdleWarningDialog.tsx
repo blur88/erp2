@@ -10,11 +10,9 @@ import {
   LinearProgress,
   Alert,
 } from '@mui/material'
-import {
-  Timer as TimerIcon,
-  Logout as LogoutIcon,
-  TouchApp as TouchAppIcon,
-} from '@mui/icons-material'
+import { default as TimerIcon } from '@mui/icons-material/Timer'
+import { default as LogoutIcon } from '@mui/icons-material/Logout'
+import { default as TouchAppIcon } from '@mui/icons-material/TouchApp'
 
 interface IdleWarningDialogProps {
   /** Whether the dialog is open */
@@ -65,10 +63,12 @@ const IdleWarningDialog: React.FC<IdleWarningDialogProps> = ({
       onClose={onStayLoggedIn} // Allow closing by clicking outside
       maxWidth="sm"
       fullWidth
-      PaperProps={{
-        sx: {
-          borderTop: 4,
-          borderColor: `${getColor()}.main`,
+      slotProps={{
+        paper: {
+          sx: {
+            borderTop: 4,
+            borderColor: `${getColor()}.main`,
+          },
         },
       }}
     >
@@ -79,13 +79,14 @@ const IdleWarningDialog: React.FC<IdleWarningDialogProps> = ({
             <Typography variant="h6" sx={{ fontWeight: 600 }}>
               Session Timeout Warning
             </Typography>
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant="body2" sx={{
+              color: "text.secondary"
+            }}>
               You've been inactive for a while
             </Typography>
           </Box>
         </Box>
       </DialogTitle>
-
       <DialogContent>
         {/* Warning Alert */}
         <Alert severity={getColor()} sx={{ mb: 3 }}>
@@ -113,7 +114,12 @@ const IdleWarningDialog: React.FC<IdleWarningDialogProps> = ({
           >
             {formatTime(remainingSeconds)}
           </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+          <Typography
+            variant="body2"
+            sx={{
+              color: "text.secondary",
+              mt: 1
+            }}>
             minutes remaining
           </Typography>
         </Box>
@@ -144,7 +150,9 @@ const IdleWarningDialog: React.FC<IdleWarningDialogProps> = ({
               <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.5 }}>
                 Want to keep working?
               </Typography>
-              <Typography variant="body2" color="text.secondary">
+              <Typography variant="body2" sx={{
+                color: "text.secondary"
+              }}>
                 Click "Stay Logged In" below to continue your session, or simply interact with
                 the application (move your mouse, press any key).
               </Typography>
@@ -152,7 +160,6 @@ const IdleWarningDialog: React.FC<IdleWarningDialogProps> = ({
           </Box>
         </Box>
       </DialogContent>
-
       <DialogActions sx={{ px: 3, pb: 3, gap: 1 }}>
         <Button
           onClick={onLogout}
@@ -174,7 +181,7 @@ const IdleWarningDialog: React.FC<IdleWarningDialogProps> = ({
         </Button>
       </DialogActions>
     </Dialog>
-  )
+  );
 }
 
 export default IdleWarningDialog

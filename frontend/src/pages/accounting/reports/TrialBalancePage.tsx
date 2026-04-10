@@ -18,10 +18,8 @@ import {
   Stack,
   Chip,
 } from '@mui/material';
-import {
-  CheckCircle as CheckCircleIcon,
-  Cancel as CancelIcon,
-} from '@mui/icons-material';
+import { default as CheckCircleIcon } from '@mui/icons-material/CheckCircle'
+import { default as CancelIcon } from '@mui/icons-material/Cancel';
 import PageHeader from '@/components/common/PageHeader';
 import { formatDate } from '@/utils/formatters';
 import { useGetTrialBalanceQuery } from '@/store/api/accountingApi';
@@ -113,22 +111,22 @@ const TrialBalancePage: React.FC = () => {
         primaryAction={{ label: loading ? 'Generating...' : 'Generate Report', onClick: handleGenerateReport, disabled: loading }}
         secondaryAction={{ label: isDownloading ? 'Exporting...' : 'Export to Excel', onClick: handleExportToExcel, disabled: !submitted || loading || isDownloading }}
       />
-
       <Paper sx={{ p: 3, mb: 3 }}>
         <Stack
           data-testid="trial-balance-filters"
           direction="row"
           spacing={2}
-          alignItems="center"
-          flexWrap="wrap"
-        >
+          sx={{
+            alignItems: "center",
+            flexWrap: "wrap"
+          }}>
           <TextField
             label="As Of Date"
             type="date"
             value={asOfDate}
             onChange={(e) => handleAsOfDateChange(e.target.value)}
             size="small"
-            InputLabelProps={{ shrink: true }}
+            slotProps={{ inputLabel: { shrink: true } }}
             sx={{ minWidth: 200 }}
           />
           <FormControlLabel
@@ -142,19 +140,16 @@ const TrialBalancePage: React.FC = () => {
           />
         </Stack>
       </Paper>
-
       {errorMessage && (
         <Alert severity="error" sx={{ mb: 2 }}>
           {errorMessage}
         </Alert>
       )}
-
       {loading && submitted && !data && (
         <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 8 }}>
           <CircularProgress />
         </Box>
       )}
-
       {!loading && data && (
         <Paper>
           {/* Report Header */}
@@ -162,7 +157,9 @@ const TrialBalancePage: React.FC = () => {
             <Typography variant="h6" sx={{ fontWeight: 600, mb: 1 }}>
               Trial Balance Report
             </Typography>
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant="body2" sx={{
+              color: "text.secondary"
+            }}>
               As of: {asOfDate ? formatDate(asOfDate) : 'N/A'}
             </Typography>
             {/* Balance Status Indicator */}

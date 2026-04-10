@@ -31,9 +31,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material'
-import {
-  Cancel as CancelIcon,
-} from '@mui/icons-material'
+import { default as CancelIcon } from '@mui/icons-material/Cancel'
 import PageHeader from '@/components/common/PageHeader'
 import { useNotification } from '@/hooks/useNotification'
 import {
@@ -216,10 +214,11 @@ const FundTransfersPage: React.FC = () => {
             : undefined
         }
       />
-
       <Card sx={{ mb: 2 }}>
         <CardContent>
-          <Typography variant="subtitle2" color="text.secondary">
+          <Typography variant="subtitle2" sx={{
+            color: "text.secondary"
+          }}>
             Transfers (Current Filter)
           </Typography>
           <Typography variant="h5" sx={{ fontWeight: 700 }}>
@@ -227,7 +226,6 @@ const FundTransfersPage: React.FC = () => {
           </Typography>
         </CardContent>
       </Card>
-
       <Box sx={{ mb: 2 }}>
         <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
           <TextField
@@ -236,7 +234,7 @@ const FundTransfersPage: React.FC = () => {
             size="small"
             value={startDate}
             onChange={(event) => setStartDate(event.target.value)}
-            InputLabelProps={{ shrink: true }}
+            slotProps={{ inputLabel: { shrink: true } }}
           />
           <TextField
             label="End Date"
@@ -244,7 +242,7 @@ const FundTransfersPage: React.FC = () => {
             size="small"
             value={endDate}
             onChange={(event) => setEndDate(event.target.value)}
-            InputLabelProps={{ shrink: true }}
+            slotProps={{ inputLabel: { shrink: true } }}
           />
           <FormControl size="small" sx={{ minWidth: 160 }}>
             <InputLabel>Status</InputLabel>
@@ -260,9 +258,13 @@ const FundTransfersPage: React.FC = () => {
           </FormControl>
         </Stack>
       </Box>
-
       {isLoading ? (
-        <Box display="flex" justifyContent="center" mt={4}>
+        <Box
+          sx={{
+            display: "flex",
+            justifyContent: "center",
+            mt: 4
+          }}>
           <CircularProgress />
         </Box>
       ) : (
@@ -330,7 +332,6 @@ const FundTransfersPage: React.FC = () => {
           </Table>
         </TableContainer>
       )}
-
       <Dialog
         open={dialogOpen && canManageTransfers}
         onClose={resetForm}
@@ -339,7 +340,11 @@ const FundTransfersPage: React.FC = () => {
       >
         <DialogTitle>New Fund Transfer</DialogTitle>
         <DialogContent>
-          <Stack gap={2} sx={{ mt: 1 }}>
+          <Stack
+            sx={{
+              gap: 2,
+              mt: 1
+            }}>
             <Autocomplete
               options={cashAccounts}
               getOptionLabel={(option) => `${option.code} - ${option.name}`}
@@ -401,7 +406,7 @@ const FundTransfersPage: React.FC = () => {
               fullWidth
               label="Amount *"
               type="number"
-              inputProps={{ min: 0.01, step: 0.01 }}
+              slotProps={{ htmlInput: { min: 0.01, step: 0.01 } }}
               value={form.amount}
               onChange={(event) =>
                 setForm((current) => ({
@@ -422,7 +427,7 @@ const FundTransfersPage: React.FC = () => {
                   transferDate: event.target.value,
                 }))
               }
-              InputLabelProps={{ shrink: true }}
+              slotProps={{ inputLabel: { shrink: true } }}
             />
 
             <TextField
@@ -451,7 +456,6 @@ const FundTransfersPage: React.FC = () => {
           </Button>
         </DialogActions>
       </Dialog>
-
       <Dialog
         open={Boolean(cancelTarget)}
         onClose={() => setCancelTarget(null)}
@@ -479,7 +483,7 @@ const FundTransfersPage: React.FC = () => {
         </DialogActions>
       </Dialog>
     </>
-  )
+  );
 }
 
 export default FundTransfersPage

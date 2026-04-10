@@ -24,12 +24,10 @@ import {
   useMediaQuery,
   InputAdornment,
 } from '@mui/material'
-import {
-  Edit as EditIcon,
-  Delete as DeleteIcon,
-  DragIndicator as DragIndicatorIcon,
-  Search as SearchIcon,
-} from '@mui/icons-material'
+import { default as EditIcon } from '@mui/icons-material/Edit'
+import { default as DeleteIcon } from '@mui/icons-material/Delete'
+import { default as DragIndicatorIcon } from '@mui/icons-material/DragIndicator'
+import { default as SearchIcon } from '@mui/icons-material/Search'
 import PageHeader from '@/components/common/PageHeader'
 import { useForm, Controller } from 'react-hook-form'
 import { yupResolver } from '@hookform/resolvers/yup'
@@ -391,12 +389,14 @@ const CategoriesPage: React.FC = () => {
               }
             }
           }}
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <SearchIcon fontSize="small" />
-              </InputAdornment>
-            ),
+          slotProps={{
+            input: {
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon fontSize="small" />
+                </InputAdornment>
+              ),
+            },
           }}
         />
       </Box>
@@ -408,7 +408,9 @@ const CategoriesPage: React.FC = () => {
           </Box>
         ) : categories.length === 0 ? (
           <Box sx={{ p: 4, textAlign: 'center' }}>
-            <Typography variant="body1" color="text.secondary">
+            <Typography variant="body1" sx={{
+              color: "text.secondary"
+            }}>
               No categories found. Create your first category to get started.
             </Typography>
           </Box>
@@ -511,7 +513,12 @@ const CategoriesPage: React.FC = () => {
                     </TableCell>
                     {!isMobile && (
                       <TableCell>
-                        <Typography variant="tableCaption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
+                        <Typography
+                          variant="tableCaption"
+                          sx={{
+                            color: "text.secondary",
+                            fontSize: '0.7rem'
+                          }}>
                           {formatDate(category.createdAt)}
                         </Typography>
                       </TableCell>
@@ -576,12 +583,18 @@ const CategoriesPage: React.FC = () => {
                       </Box>
                       {/* Mobile-only date indicator */}
                       {isMobile && (
-                        <Typography variant="caption" color="text.secondary" sx={{ 
-                          display: 'block', 
-                          textAlign: 'right', 
-                          mt: 0.25, // Reduced margin
-                          fontSize: '0.65rem'
-                        }}>
+                        <Typography
+                          variant="caption"
+                          sx={{
+                            color: "text.secondary",
+                            display: 'block',
+                            textAlign: 'right',
+
+                            // Reduced margin
+                            mt: 0.25,
+
+                            fontSize: '0.65rem'
+                          }}>
                           {formatDate(category.createdAt)}
                         </Typography>
                       )}
@@ -603,7 +616,12 @@ const CategoriesPage: React.FC = () => {
         <DialogTitle>
           {editMode ? 'Edit Category' : 'Add New Category'}
           {parentCategory && (
-            <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+            <Typography
+              variant="body2"
+              sx={{
+                color: "text.secondary",
+                mt: 1
+              }}>
               Parent: {parentCategory.name}
             </Typography>
           )}

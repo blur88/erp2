@@ -7,7 +7,7 @@ import {
     Grid,
     useTheme,
 } from '@mui/material'
-import { Warning as WarningIcon } from '@mui/icons-material'
+import { default as WarningIcon } from '@mui/icons-material/Warning'
 import { Doughnut } from 'react-chartjs-2'
 
 interface StockHealthMetrics {
@@ -86,13 +86,14 @@ const InventoryOverview: React.FC<InventoryOverviewProps> = ({
                         <Doughnut data={stockHealthData} options={doughnutOptions} />
                     </Box>
                     <Box sx={{ mt: 1, textAlign: 'center' }}>
-                        <Typography variant="caption" color="text.secondary">
+                        <Typography variant="caption" sx={{
+                            color: "text.secondary"
+                        }}>
                             {totalProducts} products • {totalCategories} categories
                         </Typography>
                     </Box>
                 </Paper>
             </Grid>
-
             {/* Low Stock Alerts */}
             <Grid size={{ xs: 12, sm: 6 }}>
                 <Paper sx={{ p: 3, height: '100%' }}>
@@ -141,7 +142,9 @@ const InventoryOverview: React.FC<InventoryOverviewProps> = ({
                             ))
                         ) : (
                             <Box sx={{ textAlign: 'center', py: 3 }}>
-                                <Typography variant="body2" color="success.main">
+                                <Typography variant="body2" sx={{
+                                    color: "success.main"
+                                }}>
                                     All products are in stock
                                 </Typography>
                             </Box>
@@ -150,7 +153,7 @@ const InventoryOverview: React.FC<InventoryOverviewProps> = ({
                 </Paper>
             </Grid>
         </Grid>
-    )
+    );
 }
 
 export default InventoryOverview

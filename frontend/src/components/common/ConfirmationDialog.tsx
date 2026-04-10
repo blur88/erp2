@@ -9,11 +9,9 @@ import {
   Box,
   useTheme
 } from '@mui/material'
-import {
-  Warning as WarningIcon,
-  Error as ErrorIcon,
-  Info as InfoIcon
-} from '@mui/icons-material'
+import { default as WarningIcon } from '@mui/icons-material/Warning'
+import { default as ErrorIcon } from '@mui/icons-material/Error'
+import { default as InfoIcon } from '@mui/icons-material/Info'
 
 interface ConfirmationDialogProps {
   open: boolean
@@ -68,28 +66,35 @@ const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({
       onClose={onCancel}
       maxWidth="sm"
       fullWidth
-      PaperProps={{
-        sx: {
-          borderRadius: 2,
-          p: 1
+      slotProps={{
+        paper: {
+          sx: {
+            borderRadius: 2,
+            p: 1
+          }
         }
       }}
     >
       <DialogTitle>
-        <Box display="flex" alignItems="center" gap={2}>
+        <Box
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            gap: 2
+          }}>
           {getSeverityIcon()}
           <Typography variant="h6" component="div">
             {title}
           </Typography>
         </Box>
       </DialogTitle>
-
       <DialogContent>
-        <Typography variant="body1" color="text.secondary">
+        <Typography variant="body1" sx={{
+          color: "text.secondary"
+        }}>
           {message}
         </Typography>
       </DialogContent>
-
       <DialogActions sx={{ p: 3, pt: 1 }}>
         <Button
           onClick={onCancel}
@@ -115,7 +120,7 @@ const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({
         </Button>
       </DialogActions>
     </Dialog>
-  )
+  );
 }
 
 export default ConfirmationDialog

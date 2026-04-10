@@ -1,8 +1,6 @@
 import React from 'react'
-import {
-  Delete as DeleteIcon,
-  Edit as EditIcon,
-} from '@mui/icons-material'
+import { default as DeleteIcon } from '@mui/icons-material/Delete'
+import { default as EditIcon } from '@mui/icons-material/Edit'
 import {
   Box,
   IconButton,
@@ -14,7 +12,7 @@ import {
   TableRow,
   Typography,
 } from '@mui/material'
-import Grid from '@mui/material/GridLegacy'
+import Grid from '@mui/material/Grid'
 
 import { TABLE_STYLES } from '@/constants/tableStyles'
 import type { Supplier } from '@/types'
@@ -57,11 +55,13 @@ const SupplierContextHeader: React.FC<SupplierContextHeaderProps> = ({
   if (!selectedSupplier) {
     return (
       <Paper sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', p: 4 }}>
-        <Typography variant="h6" color="text.secondary">
+        <Typography variant="h6" sx={{
+          color: "text.secondary"
+        }}>
           Select a supplier to view details
         </Typography>
       </Paper>
-    )
+    );
   }
 
   const addressParts = [
@@ -116,7 +116,7 @@ const SupplierContextHeader: React.FC<SupplierContextHeaderProps> = ({
 
       <Box sx={{ p: TABLE_STYLES.cell.padding.px }}>
         <Grid container spacing={3}>
-          <Grid item xs={12} md={6}>
+          <Grid size={{ xs: 12, md: 6 }}>
             <TableContainer>
               <Table size={TABLE_STYLES.size} sx={detailTableSx}>
                 <TableBody>
@@ -159,7 +159,7 @@ const SupplierContextHeader: React.FC<SupplierContextHeaderProps> = ({
             </TableContainer>
           </Grid>
 
-          <Grid item xs={12} md={6}>
+          <Grid size={{ xs: 12, md: 6 }}>
             <TableContainer>
               <Table size={TABLE_STYLES.size} sx={detailTableSx}>
                 <TableBody>

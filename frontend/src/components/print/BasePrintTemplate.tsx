@@ -368,7 +368,13 @@ const BasePrintTemplate: React.FC<BasePrintTemplateProps> = ({
         {perPageFooter && (
           <>
             <Divider sx={{ my: 2, borderColor: printColors.border }} />
-            <Typography variant="caption" sx={{ color: printColors.text }} align="center" display="block">
+            <Typography
+              variant="caption"
+              align="center"
+              sx={{
+                display: "block",
+                color: printColors.text
+              }}>
               {perPageFooter}
             </Typography>
           </>

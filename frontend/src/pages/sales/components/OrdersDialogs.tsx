@@ -18,7 +18,7 @@ import {
   TableRow,
   Typography,
 } from '@mui/material'
-import Grid from '@mui/material/GridLegacy'
+import Grid from '@mui/material/Grid'
 
 import AccountingEntryLink from '@/components/accounting/AccountingEntryLink'
 import ConfirmationDialog from '@/components/common/ConfirmationDialog'
@@ -90,7 +90,7 @@ const OrdersDialogs: React.FC<OrdersDialogsProps> = ({
         <DialogContent>
           {selectedOrder && (
             <Grid container spacing={3}>
-              <Grid item xs={12} md={6}>
+              <Grid size={{ xs: 12, md: 6 }}>
                 <Card>
                   <CardContent>
                     <Typography variant="h6" gutterBottom>
@@ -98,24 +98,32 @@ const OrdersDialogs: React.FC<OrdersDialogsProps> = ({
                     </Typography>
                     <Stack spacing={1}>
                       <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <Typography color="text.secondary">SO Date:</Typography>
+                        <Typography sx={{
+                          color: "text.secondary"
+                        }}>SO Date:</Typography>
                         <Typography>{formatDate(selectedOrder.orderDate)}</Typography>
                       </Box>
                       {selectedOrder.requiredDate && (
                         <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                          <Typography color="text.secondary">Required Date:</Typography>
+                          <Typography sx={{
+                            color: "text.secondary"
+                          }}>Required Date:</Typography>
                           <Typography>{formatDate(selectedOrder.requiredDate)}</Typography>
                         </Box>
                       )}
                       {selectedOrder.shippedDate && (
                         <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                          <Typography color="text.secondary">Shipped Date:</Typography>
+                          <Typography sx={{
+                            color: "text.secondary"
+                          }}>Shipped Date:</Typography>
                           <Typography>{formatDate(selectedOrder.shippedDate)}</Typography>
                         </Box>
                       )}
                       {selectedOrder.deliveredDate && (
                         <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                          <Typography color="text.secondary">Delivered Date:</Typography>
+                          <Typography sx={{
+                            color: "text.secondary"
+                          }}>Delivered Date:</Typography>
                           <Typography>{formatDate(selectedOrder.deliveredDate)}</Typography>
                         </Box>
                       )}
@@ -124,7 +132,7 @@ const OrdersDialogs: React.FC<OrdersDialogsProps> = ({
                 </Card>
               </Grid>
 
-              <Grid item xs={12} md={6}>
+              <Grid size={{ xs: 12, md: 6 }}>
                 <Card>
                   <CardContent>
                     <Typography variant="h6" gutterBottom>
@@ -132,12 +140,16 @@ const OrdersDialogs: React.FC<OrdersDialogsProps> = ({
                     </Typography>
                     <Stack spacing={1}>
                       <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <Typography color="text.secondary">Name:</Typography>
+                        <Typography sx={{
+                          color: "text.secondary"
+                        }}>Name:</Typography>
                         <Typography>{selectedOrder.customer?.name}</Typography>
                       </Box>
                       {(selectedOrder.customer as any)?.email && (
                         <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                          <Typography color="text.secondary">Email:</Typography>
+                          <Typography sx={{
+                            color: "text.secondary"
+                          }}>Email:</Typography>
                           <Typography>{(selectedOrder.customer as any).email}</Typography>
                         </Box>
                       )}
@@ -146,7 +158,7 @@ const OrdersDialogs: React.FC<OrdersDialogsProps> = ({
                 </Card>
               </Grid>
 
-              <Grid item xs={12}>
+              <Grid size={{ xs: 12 }}>
                 <Card>
                   <CardContent>
                     <Typography variant="h6" gutterBottom>
@@ -198,14 +210,16 @@ const OrdersDialogs: React.FC<OrdersDialogsProps> = ({
               </Grid>
 
               {selectedOrder.isFulfilled && (
-                <Grid item xs={12}>
+                <Grid size={{ xs: 12 }}>
                   <Card sx={{ bgcolor: 'info.lighter', borderLeft: '4px solid', borderColor: 'info.main' }}>
                     <CardContent>
                       <Typography variant="h6" gutterBottom>
                         Accounting Information
                       </Typography>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
-                        <Typography variant="body2" color="text.secondary">
+                        <Typography variant="body2" sx={{
+                          color: "text.secondary"
+                        }}>
                           This sales order has been posted to the accounting system
                         </Typography>
                         <AccountingEntryLink sourceType="sales_order" sourceId={selectedOrder.id} variant="button" label="View Journal Entry" />
@@ -215,7 +229,7 @@ const OrdersDialogs: React.FC<OrdersDialogsProps> = ({
                 </Grid>
               )}
 
-              <Grid item xs={12}>
+              <Grid size={{ xs: 12 }}>
                 <Card>
                   <CardContent>
                     <Typography variant="h6" gutterBottom>
@@ -235,7 +249,6 @@ const OrdersDialogs: React.FC<OrdersDialogsProps> = ({
           <Button onClick={onCloseViewDialog}>Close</Button>
         </DialogActions>
       </Dialog>
-
       {selectedOrder && (
         <BlockedSalesOrderDialog
           open={blockedDialogOpen}
@@ -253,9 +266,7 @@ const OrdersDialogs: React.FC<OrdersDialogsProps> = ({
           loading={isLoading}
         />
       )}
-
       <DeletedOrdersDialog open={deletedOrdersDialogOpen} onClose={onCloseDeletedOrdersDialog} />
-
       <ConfirmationDialog
         open={deleteConfirmOpen}
         title="Confirm Delete"
@@ -266,9 +277,7 @@ const OrdersDialogs: React.FC<OrdersDialogsProps> = ({
         onCancel={onCancelDelete}
         severity="warning"
       />
-
       {selectedOrder && <SalesOrderPrint open={printDialogOpen} onClose={onClosePrintDialog} salesOrder={selectedOrder} />}
-
       {selectedOrder && (
         <PaymentDialog
           open={paymentDialogOpen}
@@ -280,7 +289,7 @@ const OrdersDialogs: React.FC<OrdersDialogsProps> = ({
         />
       )}
     </>
-  )
+  );
 }
 
 export default OrdersDialogs

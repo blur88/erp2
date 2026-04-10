@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react'
 import { Box } from '@mui/material'
-import Grid from '@mui/material/GridLegacy'
+import Grid from '@mui/material/Grid'
 import { useLocation, useNavigate } from 'react-router-dom'
 
 import PageHeader from '@/components/common/PageHeader'
@@ -158,7 +158,7 @@ export const ProductsPage: React.FC = () => {
 
       <Box sx={{ transition: 'margin-right 0.3s ease-in-out', marginRight: contentMarginRight }}>
         <Grid container spacing={3}>
-          <Grid item xs={12} md={3}>
+          <Grid size={{ xs: 12, md: 3 }}>
             <ProductsTable
               products={products}
               loading={isProductsFetching}
@@ -169,7 +169,7 @@ export const ProductsPage: React.FC = () => {
               onProductSelect={selection.handleProductSelect}
             />
           </Grid>
-          <Grid item xs={12} md={9}>
+          <Grid size={{ xs: 12, md: 9 }}>
             <ProductDetailsPanel
               products={products}
               selectedProduct={selectedProduct}

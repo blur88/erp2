@@ -27,13 +27,11 @@ import {
   Checkbox,
   Divider,
 } from '@mui/material'
-import {
-  Search as SearchIcon,
-  Restore as RestoreIcon,
-  Close as CloseIcon,
-  Category as CategoryIcon,
-  DeleteForever as DeleteForeverIcon,
-} from '@mui/icons-material'
+import { default as SearchIcon } from '@mui/icons-material/Search'
+import { default as RestoreIcon } from '@mui/icons-material/Restore'
+import { default as CloseIcon } from '@mui/icons-material/Close'
+import { default as CategoryIcon } from '@mui/icons-material/Category'
+import { default as DeleteForeverIcon } from '@mui/icons-material/DeleteForever'
 import { useNotification } from '@/hooks/useNotification'
 import type { Category } from '@/types'
 import {
@@ -236,10 +234,15 @@ const DeletedCategoriesDialog: React.FC<DeletedCategoriesDialogProps> = ({
       onClose={onClose}
       maxWidth="md"
       fullWidth
-      PaperProps={{ sx: { height: '70vh' } }}
+      slotProps={{ paper: { sx: { height: '70vh' } } }}
     >
       <DialogTitle>
-        <Box display="flex" justifyContent="space-between" alignItems="center">
+        <Box
+          sx={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center"
+          }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <CategoryIcon sx={{ color: 'error.main' }} />
             <Typography variant={isMobile ? "h6" : "h5"} sx={{ fontWeight: 700 }}>
@@ -250,11 +253,15 @@ const DeletedCategoriesDialog: React.FC<DeletedCategoriesDialogProps> = ({
             <CloseIcon />
           </IconButton>
         </Box>
-        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+        <Typography
+          variant="body2"
+          sx={{
+            color: "text.secondary",
+            mt: 0.5
+          }}>
           Restore soft-deleted categories ({filteredCategories.length} {searchTerm ? 'found' : 'total'})
         </Typography>
       </DialogTitle>
-
       <DialogContent>
         <Box sx={{ mb: 3 }}>
           <Alert severity="info" sx={{ mb: 2 }}>
@@ -269,12 +276,14 @@ const DeletedCategoriesDialog: React.FC<DeletedCategoriesDialogProps> = ({
               placeholder="Search deleted categories..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon />
-                  </InputAdornment>
-                ),
+              slotProps={{
+                input: {
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon />
+                    </InputAdornment>
+                  ),
+                },
               }}
               sx={{ flex: 1, minWidth: '300px' }}
             />
@@ -362,7 +371,9 @@ const DeletedCategoriesDialog: React.FC<DeletedCategoriesDialogProps> = ({
                 {filteredCategories.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={isMobile ? 4 : 5} align="center" sx={{ py: 4 }}>
-                      <Typography variant="body1" color="text.secondary">
+                      <Typography variant="body1" sx={{
+                        color: "text.secondary"
+                      }}>
                         {searchTerm ? 'No deleted categories match your search.' : 'No deleted categories found.'}
                       </Typography>
                     </TableCell>
@@ -411,7 +422,9 @@ const DeletedCategoriesDialog: React.FC<DeletedCategoriesDialogProps> = ({
                       </TableCell>
                       {!isMobile && (
                         <TableCell>
-                          <Typography variant="caption" color="text.secondary">
+                          <Typography variant="caption" sx={{
+                            color: "text.secondary"
+                          }}>
                             {category.deletedAt ? formatDate(category.deletedAt) : 'Unknown'}
                           </Typography>
                         </TableCell>
@@ -463,12 +476,15 @@ const DeletedCategoriesDialog: React.FC<DeletedCategoriesDialogProps> = ({
                           </Tooltip>
                         </Box>
                         {isMobile && category.deletedAt && (
-                          <Typography variant="caption" color="text.secondary" sx={{ 
-                            display: 'block', 
-                            textAlign: 'right', 
-                            mt: 0.25,
-                            fontSize: '0.65rem'
-                          }}>
+                          <Typography
+                            variant="caption"
+                            sx={{
+                              color: "text.secondary",
+                              display: 'block',
+                              textAlign: 'right',
+                              mt: 0.25,
+                              fontSize: '0.65rem'
+                            }}>
                             {formatDate(category.deletedAt)}
                           </Typography>
                         )}
@@ -481,13 +497,11 @@ const DeletedCategoriesDialog: React.FC<DeletedCategoriesDialogProps> = ({
           </TableContainer>
         )}
       </DialogContent>
-
       <DialogActions>
         <Button onClick={onClose} variant="outlined">
           Close
         </Button>
       </DialogActions>
-
       {/* Permanent Delete Confirmation Dialog */}
       <Dialog
         open={confirmDialogOpen}
@@ -535,7 +549,6 @@ const DeletedCategoriesDialog: React.FC<DeletedCategoriesDialogProps> = ({
           </Button>
         </DialogActions>
       </Dialog>
-
       {/* Bulk Restore Confirmation Dialog */}
       <Dialog
         open={showBulkRestoreConfirm}
@@ -544,7 +557,12 @@ const DeletedCategoriesDialog: React.FC<DeletedCategoriesDialogProps> = ({
         fullWidth
       >
         <DialogTitle color="success">
-          <Box display="flex" alignItems="center" gap={1}>
+          <Box
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              gap: 1
+            }}>
             <RestoreIcon color="success" />
             Bulk Restore Categories
           </Box>
@@ -576,7 +594,12 @@ const DeletedCategoriesDialog: React.FC<DeletedCategoriesDialogProps> = ({
             </Box>
           )}
           
-          <Typography variant="body2" sx={{ mt: 2 }} color="text.secondary">
+          <Typography
+            variant="body2"
+            sx={{
+              color: "text.secondary",
+              mt: 2
+            }}>
             This will move the selected categories back to the active categories list.
           </Typography>
         </DialogContent>
@@ -599,7 +622,6 @@ const DeletedCategoriesDialog: React.FC<DeletedCategoriesDialogProps> = ({
           </Button>
         </DialogActions>
       </Dialog>
-
       {/* Bulk Delete Confirmation Dialog */}
       <Dialog
         open={showBulkConfirm}
@@ -608,7 +630,12 @@ const DeletedCategoriesDialog: React.FC<DeletedCategoriesDialogProps> = ({
         fullWidth
       >
         <DialogTitle color="error">
-          <Box display="flex" alignItems="center" gap={1}>
+          <Box
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              gap: 1
+            }}>
             <DeleteForeverIcon color="error" />
             Bulk Permanent Delete
           </Box>
@@ -640,7 +667,12 @@ const DeletedCategoriesDialog: React.FC<DeletedCategoriesDialogProps> = ({
             </Box>
           )}
           
-          <Typography variant="body2" sx={{ mt: 2 }} color="text.secondary">
+          <Typography
+            variant="body2"
+            sx={{
+              color: "text.secondary",
+              mt: 2
+            }}>
             This will permanently remove all selected categories and their data from the database.
             Categories must not have any subcategories or products assigned.
           </Typography>
@@ -665,7 +697,7 @@ const DeletedCategoriesDialog: React.FC<DeletedCategoriesDialogProps> = ({
         </DialogActions>
       </Dialog>
     </Dialog>
-  )
+  );
 }
 
 export default DeletedCategoriesDialog

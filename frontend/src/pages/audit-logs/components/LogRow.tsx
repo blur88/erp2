@@ -3,7 +3,9 @@ import {
   TableRow, TableCell, Chip, Box, Typography, Collapse,
   IconButton, Link, Divider, Stack,
 } from '@mui/material'
-import { KeyboardArrowDown, KeyboardArrowRight, OpenInNew } from '@mui/icons-material'
+import { default as KeyboardArrowDown } from '@mui/icons-material/KeyboardArrowDown'
+import { default as KeyboardArrowRight } from '@mui/icons-material/KeyboardArrowRight'
+import { default as OpenInNew } from '@mui/icons-material/OpenInNew'
 import { format } from 'date-fns'
 import { useNavigate } from 'react-router-dom'
 import type { AuditLog } from '@/types'
@@ -103,26 +105,37 @@ const LogRow: React.FC<LogRowProps> = ({ log, priceListNameById }) => {
           <Typography variant="body2" noWrap>{log.description}</Typography>
         </TableCell>
       </TableRow>
-
       {/* Expanded detail row */}
       <TableRow>
         <TableCell colSpan={6} sx={{ p: 0, border: expanded ? undefined : 'none' }}>
           <Collapse in={expanded} unmountOnExit>
             <Box sx={{ p: 2, bgcolor: 'background.default' }}>
               {/* Metadata strip */}
-              <Stack direction="row" spacing={3} sx={{ mb: 2 }} flexWrap="wrap">
+              <Stack
+                direction="row"
+                spacing={3}
+                sx={{
+                  flexWrap: "wrap",
+                  mb: 2
+                }}>
                 {log.ipAddress && (
-                  <Typography variant="caption" color="text.secondary">
+                  <Typography variant="caption" sx={{
+                    color: "text.secondary"
+                  }}>
                     IP: <strong>{log.ipAddress}</strong>
                   </Typography>
                 )}
                 {log.userAgent && (
-                  <Typography variant="caption" color="text.secondary">
+                  <Typography variant="caption" sx={{
+                    color: "text.secondary"
+                  }}>
                     Browser: <strong>{parseUserAgent(log.userAgent)}</strong>
                   </Typography>
                 )}
                 {log.entityId && (
-                  <Typography variant="caption" color="text.secondary">
+                  <Typography variant="caption" sx={{
+                    color: "text.secondary"
+                  }}>
                     Entity ID: {log.entityId}
                   </Typography>
                 )}
@@ -148,13 +161,20 @@ const LogRow: React.FC<LogRowProps> = ({ log, priceListNameById }) => {
                   priceListNameById={priceListNameById}
                 />
               ) : (
-                <Typography variant="body2" color="text.secondary">{log.description}</Typography>
+                <Typography variant="body2" sx={{
+                  color: "text.secondary"
+                }}>{log.description}</Typography>
               )}
 
               {/* Metadata */}
               {log.metadata && (
                 <Box sx={{ mt: 2 }}>
-                  <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      color: "text.secondary",
+                      fontWeight: 600
+                    }}>
                     Metadata
                   </Typography>
                   <Box sx={{ fontSize: '0.75rem', mt: 0.5, overflow: 'auto', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
@@ -167,7 +187,7 @@ const LogRow: React.FC<LogRowProps> = ({ log, priceListNameById }) => {
         </TableCell>
       </TableRow>
     </>
-  )
+  );
 }
 
 export default LogRow

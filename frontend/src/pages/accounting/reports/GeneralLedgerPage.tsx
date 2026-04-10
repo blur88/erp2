@@ -19,12 +19,10 @@ import {
   Autocomplete,
   Card,
   CardContent,
-  GridLegacy as Grid,
+  Grid,
 } from '@mui/material';
 import { alpha, useTheme } from '@mui/material/styles';
-import {
-  Receipt as ReceiptIcon,
-} from '@mui/icons-material';
+import { default as ReceiptIcon } from '@mui/icons-material/Receipt';
 import PageHeader from '@/components/common/PageHeader';
 import { formatDate, formatDateTime } from '@/utils/formatters';
 import { useGetChartOfAccountsQuery, useGetGeneralLedgerQuery } from '@/store/api/accountingApi';
@@ -161,15 +159,15 @@ const GeneralLedgerPage: React.FC = () => {
         primaryAction={{ label: loading ? 'Generating...' : 'Generate Report', onClick: handleGenerateReport, disabled: loading }}
         secondaryAction={{ label: isDownloading ? 'Exporting...' : 'Export to Excel', onClick: handleExportToExcel, disabled: !submitted || loading || isDownloading }}
       />
-
       <Paper sx={{ p: 3, mb: 3 }}>
         <Stack
           data-testid="general-ledger-filters"
           direction="row"
           spacing={2}
-          alignItems="flex-start"
-          flexWrap="wrap"
-        >
+          sx={{
+            alignItems: "flex-start",
+            flexWrap: "wrap"
+          }}>
           {/* Account Selector */}
           <Autocomplete
             options={accounts}
@@ -204,7 +202,7 @@ const GeneralLedgerPage: React.FC = () => {
               setSubmitted(false);
             }}
             size="small"
-            InputLabelProps={{ shrink: true }}
+            slotProps={{ inputLabel: { shrink: true } }}
             sx={{ minWidth: 180 }}
           />
 
@@ -218,36 +216,35 @@ const GeneralLedgerPage: React.FC = () => {
               setSubmitted(false);
             }}
             size="small"
-            InputLabelProps={{ shrink: true }}
+            slotProps={{ inputLabel: { shrink: true } }}
             sx={{ minWidth: 180 }}
           />
         </Stack>
       </Paper>
-
       {/* Error Alert */}
       {errorMessage && (
         <Alert severity="error" sx={{ mb: 2 }}>
           {errorMessage}
         </Alert>
       )}
-
       {/* Loading State */}
       {loading && submitted && !data && (
         <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 8 }}>
           <CircularProgress />
         </Box>
       )}
-
       {/* General Ledger Report */}
       {!loading && data && (
         <Paper>
           {/* Account Header Card */}
           <Box sx={{ p: 3, borderBottom: 1, borderColor: 'divider', backgroundColor: tone.surfaceSoft }}>
             <Grid container spacing={2}>
-              <Grid item xs={12} md={3}>
+              <Grid size={{ xs: 12, md: 3 }}>
                 <Card variant="outlined" sx={getLedgerMetricCardSx()}>
                   <CardContent>
-                    <Typography variant="body2" color="text.secondary" gutterBottom>
+                    <Typography variant="body2" gutterBottom sx={{
+                      color: "text.secondary"
+                    }}>
                       Account Code
                     </Typography>
                     <Typography
@@ -259,10 +256,12 @@ const GeneralLedgerPage: React.FC = () => {
                   </CardContent>
                 </Card>
               </Grid>
-              <Grid item xs={12} md={5}>
+              <Grid size={{ xs: 12, md: 5 }}>
                 <Card variant="outlined" sx={getLedgerMetricCardSx()}>
                   <CardContent>
-                    <Typography variant="body2" color="text.secondary" gutterBottom>
+                    <Typography variant="body2" gutterBottom sx={{
+                      color: "text.secondary"
+                    }}>
                       Account Name
                     </Typography>
                     <Typography variant="h6" sx={{ fontWeight: 600 }}>
@@ -271,10 +270,12 @@ const GeneralLedgerPage: React.FC = () => {
                   </CardContent>
                 </Card>
               </Grid>
-              <Grid item xs={12} md={2}>
+              <Grid size={{ xs: 12, md: 2 }}>
                 <Card variant="outlined" sx={getLedgerMetricCardSx()}>
                   <CardContent>
-                    <Typography variant="body2" color="text.secondary" gutterBottom>
+                    <Typography variant="body2" gutterBottom sx={{
+                      color: "text.secondary"
+                    }}>
                       Account Type
                     </Typography>
                     <Chip
@@ -286,7 +287,7 @@ const GeneralLedgerPage: React.FC = () => {
                   </CardContent>
                 </Card>
               </Grid>
-              <Grid item xs={12} md={2}>
+              <Grid size={{ xs: 12, md: 2 }}>
                 <Card
                   variant="outlined"
                   sx={{
@@ -295,7 +296,9 @@ const GeneralLedgerPage: React.FC = () => {
                   }}
                 >
                   <CardContent>
-                    <Typography variant="body2" color="text.secondary" gutterBottom>
+                    <Typography variant="body2" gutterBottom sx={{
+                      color: "text.secondary"
+                    }}>
                       Opening Balance
                     </Typography>
                     <Typography
@@ -314,7 +317,9 @@ const GeneralLedgerPage: React.FC = () => {
 
             {/* Report Period */}
             <Box sx={{ mt: 2 }}>
-              <Typography variant="body2" color="text.secondary">
+              <Typography variant="body2" sx={{
+                color: "text.secondary"
+              }}>
                 Period: {formatDateForDisplay(data.startDate)} to {formatDateForDisplay(data.endDate)}
               </Typography>
             </Box>
@@ -473,10 +478,17 @@ const GeneralLedgerPage: React.FC = () => {
             ) : (
               <Box sx={{ py: 6, textAlign: 'center' }}>
                 <ReceiptIcon sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
-                <Typography variant="h6" color="text.secondary">
+                <Typography variant="h6" sx={{
+                  color: "text.secondary"
+                }}>
                   No transactions found for the selected period
                 </Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                <Typography
+                  variant="body2"
+                  sx={{
+                    color: "text.secondary",
+                    mt: 1
+                  }}>
                   Try selecting a different date range
                 </Typography>
               </Box>
@@ -494,10 +506,12 @@ const GeneralLedgerPage: React.FC = () => {
               }}
             >
               <Grid container spacing={2}>
-                <Grid item xs={12} md={3}>
+                <Grid size={{ xs: 12, md: 3 }}>
                   <Card variant="outlined" sx={getLedgerMetricCardSx()}>
                     <CardContent>
-                      <Typography variant="body2" color="text.secondary" gutterBottom>
+                      <Typography variant="body2" gutterBottom sx={{
+                        color: "text.secondary"
+                      }}>
                         Opening Balance
                       </Typography>
                       <Typography
@@ -512,10 +526,12 @@ const GeneralLedgerPage: React.FC = () => {
                     </CardContent>
                   </Card>
                 </Grid>
-                <Grid item xs={12} md={3}>
+                <Grid size={{ xs: 12, md: 3 }}>
                   <Card variant="outlined" sx={getLedgerMetricCardSx()}>
                     <CardContent>
-                      <Typography variant="body2" color="text.secondary" gutterBottom>
+                      <Typography variant="body2" gutterBottom sx={{
+                        color: "text.secondary"
+                      }}>
                         Total Debits
                       </Typography>
                       <Typography
@@ -530,10 +546,12 @@ const GeneralLedgerPage: React.FC = () => {
                     </CardContent>
                   </Card>
                 </Grid>
-                <Grid item xs={12} md={3}>
+                <Grid size={{ xs: 12, md: 3 }}>
                   <Card variant="outlined" sx={getLedgerMetricCardSx()}>
                     <CardContent>
-                      <Typography variant="body2" color="text.secondary" gutterBottom>
+                      <Typography variant="body2" gutterBottom sx={{
+                        color: "text.secondary"
+                      }}>
                         Total Credits
                       </Typography>
                       <Typography
@@ -548,7 +566,7 @@ const GeneralLedgerPage: React.FC = () => {
                     </CardContent>
                   </Card>
                 </Grid>
-                <Grid item xs={12} md={3}>
+                <Grid size={{ xs: 12, md: 3 }}>
                   <Card
                     variant="outlined"
                     sx={{
@@ -559,7 +577,9 @@ const GeneralLedgerPage: React.FC = () => {
                     }}
                   >
                     <CardContent>
-                      <Typography variant="body2" color="text.secondary" gutterBottom>
+                      <Typography variant="body2" gutterBottom sx={{
+                        color: "text.secondary"
+                      }}>
                         Closing Balance
                       </Typography>
                       <Typography
@@ -590,24 +610,31 @@ const GeneralLedgerPage: React.FC = () => {
               backgroundColor: tone.surfaceStrong,
             }}
           >
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant="body2" sx={{
+              color: "text.secondary"
+            }}>
               Total Transactions: {data.transactions.length}
             </Typography>
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant="body2" sx={{
+              color: "text.secondary"
+            }}>
               Generated on: {formatDateTime(new Date())}
             </Typography>
           </Box>
         </Paper>
       )}
-
       {/* Empty State - No Account Selected */}
       {!loading && !data && !error && (
         <Paper sx={{ p: 6, textAlign: 'center' }}>
           <ReceiptIcon sx={{ fontSize: 80, color: 'text.secondary', mb: 2 }} />
-          <Typography variant="h6" color="text.secondary" gutterBottom>
+          <Typography variant="h6" gutterBottom sx={{
+            color: "text.secondary"
+          }}>
             Please select an account
           </Typography>
-          <Typography variant="body2" color="text.secondary">
+          <Typography variant="body2" sx={{
+            color: "text.secondary"
+          }}>
             Choose an account from the dropdown above to view its general ledger
           </Typography>
         </Paper>

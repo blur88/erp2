@@ -18,13 +18,11 @@ import {
   IconButton,
   Stack,
 } from '@mui/material'
-import {
-  Sort as SortIcon,
-  ArrowUpward as ArrowUpIcon,
-  ArrowDownward as ArrowDownIcon,
-  Delete as DeleteIcon,
-  Edit as EditIcon,
-} from '@mui/icons-material'
+import { default as SortIcon } from '@mui/icons-material/Sort'
+import { default as ArrowUpIcon } from '@mui/icons-material/ArrowUpward'
+import { default as ArrowDownIcon } from '@mui/icons-material/ArrowDownward'
+import { default as DeleteIcon } from '@mui/icons-material/Delete'
+import { default as EditIcon } from '@mui/icons-material/Edit'
 import { ListSkeleton } from '@/components/common/ListSkeleton'
 import PageHeader from '@/components/common/PageHeader'
 import { FilterBar } from '@/components/filters'
@@ -761,7 +759,13 @@ const StockAdjustmentsPage: React.FC = () => {
                           {(selectedAdjustment.status === 'draft' || selectedAdjustment.status === 'completed') && (
                             <TableRow>
                               <TableCell colSpan={2} sx={{ textAlign: 'center' }}>
-                                <Stack direction="row" spacing={1} alignItems="center" justifyContent="center">
+                                <Stack
+                                  direction="row"
+                                  spacing={1}
+                                  sx={{
+                                    alignItems: "center",
+                                    justifyContent: "center"
+                                  }}>
                                   {selectedAdjustment.status === 'draft' ? (
                                     <Button
                                       variant="contained"
@@ -970,7 +974,9 @@ const StockAdjustmentsPage: React.FC = () => {
             </Paper>
           ) : (
             <Paper sx={{ height: 'calc(100vh - 300px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Typography variant="h6" color="text.secondary">
+              <Typography variant="h6" sx={{
+                color: "text.secondary"
+              }}>
                 Select an adjustment to view details
               </Typography>
             </Paper>

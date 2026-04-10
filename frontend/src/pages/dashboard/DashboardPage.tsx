@@ -6,12 +6,10 @@ import {
   CircularProgress,
   Alert,
 } from '@mui/material'
-import {
-  Inventory2 as InventoryIcon,
-  PointOfSale as SalesIcon,
-  Assignment as PurchasingIcon,
-  People as CustomersIcon,
-} from '@mui/icons-material'
+import { default as InventoryIcon } from '@mui/icons-material/Inventory2'
+import { default as SalesIcon } from '@mui/icons-material/PointOfSale'
+import { default as PurchasingIcon } from '@mui/icons-material/Assignment'
+import { default as CustomersIcon } from '@mui/icons-material/People'
 import PageHeader from '@/components/common/PageHeader'
 import { formatCurrency } from '@/utils/formatters'
 import { useNavigate } from 'react-router-dom'

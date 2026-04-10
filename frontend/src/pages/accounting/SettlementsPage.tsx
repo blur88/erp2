@@ -17,9 +17,7 @@ import {
   TableRow,
   Typography,
 } from '@mui/material';
-import {
-  Cancel as CancelIcon,
-} from '@mui/icons-material';
+import { default as CancelIcon } from '@mui/icons-material/Cancel';
 import PageHeader from '@/components/common/PageHeader'
 import { useNotification } from '@/hooks/useNotification'
 import {
@@ -87,7 +85,6 @@ const SettlementsPage: React.FC = () => {
         subtitle="Settle pending payments by payment method"
         primaryAction={{ label: 'Create Settlement', onClick: () => setDialogOpen(true) }}
       />
-
       <Paper>
         <TableContainer>
           <Table>
@@ -127,7 +124,9 @@ const SettlementsPage: React.FC = () => {
               {!settlements.length && !loading && (
                 <TableRow>
                   <TableCell colSpan={8}>
-                    <Typography color="text.secondary">No settlements found.</Typography>
+                    <Typography sx={{
+                      color: "text.secondary"
+                    }}>No settlements found.</Typography>
                   </TableCell>
                 </TableRow>
               )}
@@ -135,13 +134,11 @@ const SettlementsPage: React.FC = () => {
           </Table>
         </TableContainer>
       </Paper>
-
       <CreateSettlementDialog
         open={dialogOpen}
         onClose={() => setDialogOpen(false)}
         onCreate={onCreate}
       />
-
       <Dialog open={!!cancelTarget} onClose={() => setCancelTarget(null)}>
         <DialogTitle>Cancel Settlement</DialogTitle>
         <DialogContent>

@@ -13,11 +13,9 @@ import {
   Tooltip,
   Switch,
 } from '@mui/material';
-import {
-  Edit as EditIcon,
-  Delete as DeleteIcon,
-  PlayArrow as PlayIcon,
-} from '@mui/icons-material';
+import { default as EditIcon } from '@mui/icons-material/Edit'
+import { default as DeleteIcon } from '@mui/icons-material/Delete'
+import { default as PlayIcon } from '@mui/icons-material/PlayArrow';
 import { useAppDispatch } from '@/hooks/useRedux';
 import type { BackupSchedule } from '@/store/api/backupApi';
 import {
@@ -117,7 +115,9 @@ const BackupScheduleList: React.FC<BackupScheduleListProps> = ({ schedules }) =>
               schedules.filter((schedule) => schedule != null).map((schedule) => (
                 <TableRow key={schedule.id} hover>
                   <TableCell>
-                    <Typography variant="body2" fontWeight="medium">
+                    <Typography variant="body2" sx={{
+                      fontWeight: "medium"
+                    }}>
                       {schedule.name}
                     </Typography>
                   </TableCell>
@@ -181,7 +181,6 @@ const BackupScheduleList: React.FC<BackupScheduleListProps> = ({ schedules }) =>
           </TableBody>
         </Table>
       </TableContainer>
-
       <BackupScheduleDialog
         open={editDialogOpen}
         onClose={() => {

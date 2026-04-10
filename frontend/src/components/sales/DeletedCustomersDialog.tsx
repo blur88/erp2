@@ -28,16 +28,14 @@ import {
   useTheme,
   useMediaQuery,
 } from '@mui/material'
-import {
-  Search as SearchIcon,
-  Restore as RestoreIcon,
-  Close as CloseIcon,
-  Person as PersonIcon,
-  Business as BusinessIcon,
-  Email as EmailIcon,
-  Phone as PhoneIcon,
-  DeleteForever as DeleteForeverIcon,
-} from '@mui/icons-material'
+import { default as SearchIcon } from '@mui/icons-material/Search'
+import { default as RestoreIcon } from '@mui/icons-material/Restore'
+import { default as CloseIcon } from '@mui/icons-material/Close'
+import { default as PersonIcon } from '@mui/icons-material/Person'
+import { default as BusinessIcon } from '@mui/icons-material/Business'
+import { default as EmailIcon } from '@mui/icons-material/Email'
+import { default as PhoneIcon } from '@mui/icons-material/Phone'
+import { default as DeleteForeverIcon } from '@mui/icons-material/DeleteForever'
 import { skipToken } from '@reduxjs/toolkit/query'
 import { useNotification } from '@/hooks/useNotification'
 import type { Customer } from '@/types'
@@ -223,10 +221,15 @@ const DeletedCustomersDialog: React.FC<DeletedCustomersDialogProps> = ({ open, o
       onClose={onClose}
       maxWidth="lg"
       fullWidth
-      PaperProps={{ sx: { height: '80vh' } }}
+      slotProps={{ paper: { sx: { height: '80vh' } } }}
     >
       <DialogTitle>
-        <Box display="flex" justifyContent="space-between" alignItems="center">
+        <Box
+          sx={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center"
+          }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <PersonIcon sx={{ color: 'error.main' }} />
             <Typography variant={isMobile ? "h6" : "h5"} sx={{ fontWeight: 700 }}>
@@ -237,11 +240,15 @@ const DeletedCustomersDialog: React.FC<DeletedCustomersDialogProps> = ({ open, o
             <CloseIcon />
           </IconButton>
         </Box>
-        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+        <Typography
+          variant="body2"
+          sx={{
+            color: "text.secondary",
+            mt: 0.5
+          }}>
           Manage soft-deleted customers ({filteredCustomers.length} {searchTerm ? 'found' : 'total'})
         </Typography>
       </DialogTitle>
-
       <DialogContent>
         <Box sx={{ mb: 3 }}>
           <Alert severity="info" sx={{ mb: 2 }}>
@@ -256,12 +263,14 @@ const DeletedCustomersDialog: React.FC<DeletedCustomersDialogProps> = ({ open, o
               placeholder="Search deleted customers..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon />
-                  </InputAdornment>
-                ),
+              slotProps={{
+                input: {
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon />
+                    </InputAdornment>
+                  ),
+                },
               }}
               sx={{ flex: 1, minWidth: '300px' }}
             />
@@ -356,7 +365,9 @@ const DeletedCustomersDialog: React.FC<DeletedCustomersDialogProps> = ({ open, o
                 {filteredCustomers.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={isMobile ? 5 : 6} align="center" sx={{ py: 4 }}>
-                      <Typography variant="body1" color="text.secondary">
+                      <Typography variant="body1" sx={{
+                        color: "text.secondary"
+                      }}>
                         {searchTerm ? 'No deleted customers match your search.' : 'No deleted customers found.'}
                       </Typography>
                     </TableCell>
@@ -393,7 +404,12 @@ const DeletedCustomersDialog: React.FC<DeletedCustomersDialogProps> = ({ open, o
                           {isMobile && (
                             <Box sx={{ mt: 0.25, display: 'flex', gap: 0.5, alignItems: 'center' }}>
                               {customer.email && (
-                                <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
+                                <Typography
+                                  variant="caption"
+                                  sx={{
+                                    color: "text.secondary",
+                                    fontSize: '0.65rem'
+                                  }}>
                                   {customer.email}
                                 </Typography>
                               )}
@@ -433,7 +449,9 @@ const DeletedCustomersDialog: React.FC<DeletedCustomersDialogProps> = ({ open, o
                       )}
                       {!isMobile && (
                         <TableCell>
-                          <Typography variant="caption" color="text.secondary">
+                          <Typography variant="caption" sx={{
+                            color: "text.secondary"
+                          }}>
                             {customer.deletedAt ? formatDate(customer.deletedAt) : 'Unknown'}
                           </Typography>
                         </TableCell>
@@ -487,12 +505,15 @@ const DeletedCustomersDialog: React.FC<DeletedCustomersDialogProps> = ({ open, o
                           </Tooltip>
                         </Box>
                         {isMobile && customer.deletedAt && (
-                          <Typography variant="caption" color="text.secondary" sx={{
-                            display: 'block',
-                            textAlign: 'right',
-                            mt: 0.25,
-                            fontSize: '0.65rem'
-                          }}>
+                          <Typography
+                            variant="caption"
+                            sx={{
+                              color: "text.secondary",
+                              display: 'block',
+                              textAlign: 'right',
+                              mt: 0.25,
+                              fontSize: '0.65rem'
+                            }}>
                             {formatDate(customer.deletedAt)}
                           </Typography>
                         )}
@@ -505,13 +526,11 @@ const DeletedCustomersDialog: React.FC<DeletedCustomersDialogProps> = ({ open, o
           </TableContainer>
         )}
       </DialogContent>
-
       <DialogActions>
         <Button onClick={onClose} variant="outlined">
           Close
         </Button>
       </DialogActions>
-
       {/* Permanent Delete Confirmation Dialog */}
       <Dialog
         open={Boolean(confirmDelete)}
@@ -520,7 +539,12 @@ const DeletedCustomersDialog: React.FC<DeletedCustomersDialogProps> = ({ open, o
         fullWidth
       >
         <DialogTitle color="error">
-          <Box display="flex" alignItems="center" gap={1}>
+          <Box
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              gap: 1
+            }}>
             <DeleteForeverIcon color="error" />
             Permanently Delete Customer
           </Box>
@@ -539,11 +563,18 @@ const DeletedCustomersDialog: React.FC<DeletedCustomersDialogProps> = ({ open, o
                 <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
                   {confirmDelete.name}
                 </Typography>
-                <Typography variant="body2" color="text.secondary">
+                <Typography variant="body2" sx={{
+                  color: "text.secondary"
+                }}>
                   Phone: {confirmDelete.phone || 'N/A'}
                 </Typography>
               </Box>
-              <Typography variant="body2" sx={{ mt: 2 }} color="text.secondary">
+              <Typography
+                variant="body2"
+                sx={{
+                  color: "text.secondary",
+                  mt: 2
+                }}>
                 This will permanently remove the customer and all related data from the database.
               </Typography>
             </Box>
@@ -568,7 +599,6 @@ const DeletedCustomersDialog: React.FC<DeletedCustomersDialogProps> = ({ open, o
           </Button>
         </DialogActions>
       </Dialog>
-
       {/* Bulk Restore Confirmation Dialog */}
       <Dialog
         open={showBulkRestoreConfirm}
@@ -577,7 +607,12 @@ const DeletedCustomersDialog: React.FC<DeletedCustomersDialogProps> = ({ open, o
         fullWidth
       >
         <DialogTitle color="success">
-          <Box display="flex" alignItems="center" gap={1}>
+          <Box
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              gap: 1
+            }}>
             <RestoreIcon color="success" />
             Bulk Restore Customers
           </Box>
@@ -609,7 +644,12 @@ const DeletedCustomersDialog: React.FC<DeletedCustomersDialogProps> = ({ open, o
             </Box>
           )}
           
-          <Typography variant="body2" sx={{ mt: 2 }} color="text.secondary">
+          <Typography
+            variant="body2"
+            sx={{
+              color: "text.secondary",
+              mt: 2
+            }}>
             This will move the selected customers back to the active customers list and make them available for orders and sales.
           </Typography>
         </DialogContent>
@@ -632,7 +672,6 @@ const DeletedCustomersDialog: React.FC<DeletedCustomersDialogProps> = ({ open, o
           </Button>
         </DialogActions>
       </Dialog>
-
       {/* Bulk Delete Confirmation Dialog */}
       <Dialog
         open={showBulkConfirm}
@@ -641,7 +680,12 @@ const DeletedCustomersDialog: React.FC<DeletedCustomersDialogProps> = ({ open, o
         fullWidth
       >
         <DialogTitle color="error">
-          <Box display="flex" alignItems="center" gap={1}>
+          <Box
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              gap: 1
+            }}>
             <DeleteForeverIcon color="error" />
             Bulk Permanent Delete
           </Box>
@@ -673,7 +717,12 @@ const DeletedCustomersDialog: React.FC<DeletedCustomersDialogProps> = ({ open, o
             </Box>
           )}
           
-          <Typography variant="body2" sx={{ mt: 2 }} color="text.secondary">
+          <Typography
+            variant="body2"
+            sx={{
+              color: "text.secondary",
+              mt: 2
+            }}>
             This will permanently remove all selected customers and their data from the database.
           </Typography>
         </DialogContent>
@@ -697,7 +746,7 @@ const DeletedCustomersDialog: React.FC<DeletedCustomersDialogProps> = ({ open, o
         </DialogActions>
       </Dialog>
     </Dialog>
-  )
+  );
 }
 
 export default DeletedCustomersDialog

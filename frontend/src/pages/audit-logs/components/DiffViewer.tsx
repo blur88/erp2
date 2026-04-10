@@ -95,7 +95,11 @@ const DiffViewer: React.FC<DiffViewerProps> = ({
   }
 
   if (!oldValues && !newValues) {
-    return <Typography variant="body2" color="text.secondary">No value changes recorded.</Typography>
+    return (
+      <Typography variant="body2" sx={{
+        color: "text.secondary"
+      }}>No value changes recorded.</Typography>
+    );
   }
 
   // Both sides: show diff

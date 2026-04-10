@@ -11,10 +11,8 @@ import {
   Alert,
   Paper,
 } from '@mui/material';
-import {
-  CloudUpload as UploadIcon,
-  CheckCircle as CheckIcon,
-} from '@mui/icons-material';
+import { default as UploadIcon } from '@mui/icons-material/CloudUpload'
+import { default as CheckIcon } from '@mui/icons-material/CheckCircle';
 import { useUploadBackupMutation } from '@/store/api/backupApi';
 
 interface UploadBackupDialogProps {

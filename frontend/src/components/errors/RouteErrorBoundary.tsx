@@ -26,7 +26,11 @@ export default function RouteErrorBoundary() {
           <Typography variant="h5" component="h1" gutterBottom>
             App Updated
           </Typography>
-          <Typography color="text.secondary" sx={{ mb: 3 }}>
+          <Typography
+            sx={{
+              color: "text.secondary",
+              mb: 3
+            }}>
             A new version of the app is available. Refresh the page to continue.
           </Typography>
           <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center', flexWrap: 'wrap' }}>
@@ -39,7 +43,7 @@ export default function RouteErrorBoundary() {
           </Box>
         </Paper>
       </Box>
-    )
+    );
   }
 
   return (
@@ -56,7 +60,11 @@ export default function RouteErrorBoundary() {
         <Typography variant="h5" component="h1" gutterBottom>
           Something Went Wrong
         </Typography>
-        <Typography color="text.secondary" sx={{ mb: 3 }}>
+        <Typography
+          sx={{
+            color: "text.secondary",
+            mb: 3
+          }}>
           The app hit an unexpected error. You can reload the page or return to the dashboard.
         </Typography>
         <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center', flexWrap: 'wrap' }}>
@@ -69,5 +77,5 @@ export default function RouteErrorBoundary() {
         </Box>
       </Paper>
     </Box>
-  )
+  );
 }

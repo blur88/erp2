@@ -27,21 +27,25 @@ export const CalculatorDisplay: React.FC<CalculatorDisplayProps> = ({
         variant="outlined"
         fullWidth
         size={compact ? 'small' : 'medium'}
-        InputProps={{
-          readOnly: true,
-          endAdornment: state.operation && (
-            <InputAdornment position="end">
-              <Typography variant="caption" color="text.secondary">
-                {state.operation}
-              </Typography>
-            </InputAdornment>
-          ),
-          sx: {
-            '& input': {
-              textAlign: 'right',
-              fontSize: compact ? '1.2rem' : '1.5rem',
-              fontWeight: 600,
-              color: 'text.primary',
+        slotProps={{
+          input: {
+            readOnly: true,
+            endAdornment: state.operation && (
+              <InputAdornment position="end">
+                <Typography variant="caption" sx={{
+                  color: "text.secondary"
+                }}>
+                  {state.operation}
+                </Typography>
+              </InputAdornment>
+            ),
+            sx: {
+              '& input': {
+                textAlign: 'right',
+                fontSize: compact ? '1.2rem' : '1.5rem',
+                fontWeight: 600,
+                color: 'text.primary',
+              }
             }
           }
         }}
@@ -52,5 +56,5 @@ export const CalculatorDisplay: React.FC<CalculatorDisplayProps> = ({
         }}
       />
     </Paper>
-  )
+  );
 }

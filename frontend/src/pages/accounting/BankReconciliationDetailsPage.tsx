@@ -21,13 +21,11 @@ import {
   Checkbox,
   Paper,
 } from '@mui/material';
-import {
-  ArrowBack as ArrowBackIcon,
-  CheckCircle as CheckCircleIcon,
-  LockOpen as ReopenIcon,
-  Delete as DeleteIcon,
-  Save as SaveIcon,
-} from '@mui/icons-material';
+import { default as ArrowBackIcon } from '@mui/icons-material/ArrowBack'
+import { default as CheckCircleIcon } from '@mui/icons-material/CheckCircle'
+import { default as ReopenIcon } from '@mui/icons-material/LockOpen'
+import { default as DeleteIcon } from '@mui/icons-material/Delete'
+import { default as SaveIcon } from '@mui/icons-material/Save';
 import PageHeader from '@/components/common/PageHeader';
 import { format } from 'date-fns';
 import { useNotification } from '@/hooks/useNotification';
@@ -246,7 +244,7 @@ const BankReconciliationDetailsPage: React.FC = () => {
               type="date"
               value={reconciliationDate}
               onChange={(e) => setReconciliationDate(e.target.value)}
-              InputLabelProps={{ shrink: true }}
+              slotProps={{ inputLabel: { shrink: true } }}
               disabled={!isInProgress}
             />
             <TextField

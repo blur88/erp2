@@ -1,13 +1,11 @@
 import React from 'react'
 import { Box, Typography, Paper, List, ListItem, ListItemIcon, ListItemText, Chip } from '@mui/material'
-import {
-  SupervisorAccount as AdminIcon,
-  Business as ManagerIcon,
-  ShoppingCart as SalesIcon,
-  Inventory as InventoryIcon,
-  LocalShipping as ProcurementIcon,
-  Check as CheckIcon,
-} from '@mui/icons-material'
+import { default as AdminIcon } from '@mui/icons-material/SupervisorAccount'
+import { default as ManagerIcon } from '@mui/icons-material/Business'
+import { default as SalesIcon } from '@mui/icons-material/ShoppingCart'
+import { default as InventoryIcon } from '@mui/icons-material/Inventory'
+import { default as ProcurementIcon } from '@mui/icons-material/LocalShipping'
+import { default as CheckIcon } from '@mui/icons-material/Check'
 import PageHeader from '@/components/common/PageHeader'
 
 interface RolePermission {
@@ -100,18 +98,18 @@ const RoleManagementPage: React.FC = () => {
         title="Roles & Permissions"
         subtitle="Overview of user roles and their permissions"
       />
-
       {/* Information Alert */}
       <Paper sx={{ p: 2, mb: 3, bgcolor: 'info.lighter', borderLeft: 4, borderColor: 'info.main' }}>
         <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.5 }}>
           About Role-Based Access Control
         </Typography>
-        <Typography variant="body2" color="text.secondary">
+        <Typography variant="body2" sx={{
+          color: "text.secondary"
+        }}>
           Roles define what actions users can perform in the system. Each user is assigned exactly one role.
           Admins can assign roles when creating or editing users in User Management.
         </Typography>
       </Paper>
-
       {/* Roles Grid */}
       <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 3 }}>
         {roles.map((role) => (
@@ -141,7 +139,9 @@ const RoleManagementPage: React.FC = () => {
                       color={role.color}
                     />
                   </Box>
-                  <Typography variant="body2" color="text.secondary">
+                  <Typography variant="body2" sx={{
+                    color: "text.secondary"
+                  }}>
                     {role.description}
                   </Typography>
                 </Box>
@@ -160,9 +160,11 @@ const RoleManagementPage: React.FC = () => {
                       </ListItemIcon>
                       <ListItemText
                         primary={permission.description}
-                        primaryTypographyProps={{
-                          variant: 'body2',
-                          sx: { fontSize: '0.875rem' },
+                        slotProps={{
+                          primary: {
+                            variant: 'body2',
+                            sx: { fontSize: '0.875rem' },
+                          },
                         }}
                       />
                     </ListItem>
@@ -172,16 +174,17 @@ const RoleManagementPage: React.FC = () => {
             </Paper>
         ))}
       </Box>
-
       {/* Bottom Note */}
       <Paper sx={{ p: 2, mt: 3, bgcolor: 'grey.50' }}>
-        <Typography variant="body2" color="text.secondary">
+        <Typography variant="body2" sx={{
+          color: "text.secondary"
+        }}>
           <strong>Note:</strong> To modify user roles or create new users, go to Settings → Users. Only
           administrators can manage user accounts and assign roles.
         </Typography>
       </Paper>
     </>
-  )
+  );
 }
 
 export default RoleManagementPage

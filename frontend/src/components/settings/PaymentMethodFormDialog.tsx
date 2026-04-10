@@ -66,7 +66,7 @@ const PaymentMethodFormDialog: React.FC<PaymentMethodFormDialogProps> = ({
             label="Code"
             value={code}
             onChange={(e) => setCode(e.target.value.toUpperCase())}
-            inputProps={{ maxLength: 20 }}
+            slotProps={{ htmlInput: { maxLength: 20 } }}
             disabled={isEdit}
             required
             fullWidth
@@ -75,7 +75,7 @@ const PaymentMethodFormDialog: React.FC<PaymentMethodFormDialogProps> = ({
             label="Name"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            inputProps={{ maxLength: 100 }}
+            slotProps={{ htmlInput: { maxLength: 100 } }}
             required
             fullWidth
           />

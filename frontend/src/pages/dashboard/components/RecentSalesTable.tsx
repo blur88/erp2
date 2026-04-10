@@ -99,7 +99,12 @@ const RecentSalesTable: React.FC<RecentSalesTableProps> = ({ orders, totalOrders
                                         </Typography>
                                     </TableCell>
                                     <TableCell align="right">
-                                        <Typography variant="body2" color="success.main" sx={{ fontSize: '0.8rem' }}>
+                                        <Typography
+                                            variant="body2"
+                                            sx={{
+                                                color: "success.main",
+                                                fontSize: '0.8rem'
+                                            }}>
                                             {formatCurrency(order.totalAmount)}
                                         </Typography>
                                     </TableCell>
@@ -121,7 +126,9 @@ const RecentSalesTable: React.FC<RecentSalesTableProps> = ({ orders, totalOrders
                         ) : (
                             <TableRow>
                                 <TableCell colSpan={4} align="center">
-                                    <Typography variant="body2" color="text.secondary">
+                                    <Typography variant="body2" sx={{
+                                        color: "text.secondary"
+                                    }}>
                                         No recent orders
                                     </Typography>
                                 </TableCell>
@@ -131,7 +138,7 @@ const RecentSalesTable: React.FC<RecentSalesTableProps> = ({ orders, totalOrders
                 </Table>
             </TableContainer>
         </Paper>
-    )
+    );
 }
 
 export default RecentSalesTable

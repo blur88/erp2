@@ -15,14 +15,12 @@ import {
   Typography,
 } from '@mui/material'
 import { useTheme } from '@mui/material/styles'
-import {
-  CloudQueue as NginxIcon,
-  Computer as BackendIcon,
-  DnsRounded as DnsRoundedIcon,
-  InfoOutlined as InfoIcon,
-  Memory as RedisIcon,
-  Storage as DatabaseIcon,
-} from '@mui/icons-material'
+import { default as NginxIcon } from '@mui/icons-material/CloudQueue'
+import { default as BackendIcon } from '@mui/icons-material/Computer'
+import { default as DnsRoundedIcon } from '@mui/icons-material/DnsRounded'
+import { default as InfoIcon } from '@mui/icons-material/InfoOutlined'
+import { default as RedisIcon } from '@mui/icons-material/Memory'
+import { default as DatabaseIcon } from '@mui/icons-material/Storage'
 
 import { ApiService } from '@/services/api'
 
@@ -171,7 +169,6 @@ const SystemStatus: React.FC = () => {
           </Box>
         </IconButton>
       </Tooltip>
-
       <Popover
         open={open}
         anchorEl={anchorEl}
@@ -184,10 +181,12 @@ const SystemStatus: React.FC = () => {
           vertical: 'top',
           horizontal: 'right',
         }}
-        PaperProps={{
-          sx: {
-            width: 350,
-            mt: 1,
+        slotProps={{
+          paper: {
+            sx: {
+              width: 350,
+              mt: 1,
+            },
           },
         }}
       >
@@ -202,7 +201,9 @@ const SystemStatus: React.FC = () => {
           {health && (
             <>
               <Box sx={{ mb: 2 }}>
-                <Typography variant="caption" color="text.secondary">
+                <Typography variant="caption" sx={{
+                  color: "text.secondary"
+                }}>
                   Overall Status
                 </Typography>
                 <Box sx={{ mt: 0.5 }}>
@@ -212,7 +213,12 @@ const SystemStatus: React.FC = () => {
                     size="small"
                     sx={{ fontWeight: 600 }}
                   />
-                  <Typography variant="caption" color="text.secondary" sx={{ ml: 1 }}>
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      color: "text.secondary",
+                      ml: 1
+                    }}>
                     Uptime: {formatUptime(health.uptime)}
                   </Typography>
                 </Box>
@@ -242,7 +248,9 @@ const SystemStatus: React.FC = () => {
                       </Box>
                     }
                     secondary={
-                      <Typography variant="caption" color="text.secondary">
+                      <Typography variant="caption" sx={{
+                        color: "text.secondary"
+                      }}>
                         Web server running
                       </Typography>
                     }
@@ -266,7 +274,9 @@ const SystemStatus: React.FC = () => {
                       </Box>
                     }
                     secondary={
-                      <Typography variant="caption" color="text.secondary">
+                      <Typography variant="caption" sx={{
+                        color: "text.secondary"
+                      }}>
                         {health.services.backend.message}
                       </Typography>
                     }
@@ -290,7 +300,9 @@ const SystemStatus: React.FC = () => {
                       </Box>
                     }
                     secondary={
-                      <Typography variant="caption" color="text.secondary">
+                      <Typography variant="caption" sx={{
+                        color: "text.secondary"
+                      }}>
                         {health.services.database.message}
                       </Typography>
                     }
@@ -314,7 +326,9 @@ const SystemStatus: React.FC = () => {
                       </Box>
                     }
                     secondary={
-                      <Typography variant="caption" color="text.secondary">
+                      <Typography variant="caption" sx={{
+                        color: "text.secondary"
+                      }}>
                         {health.services.redis.message}
                       </Typography>
                     }
@@ -327,7 +341,9 @@ const SystemStatus: React.FC = () => {
           {!health && !loading && (
             <Box sx={{ py: 3, textAlign: 'center' }}>
               <InfoIcon color="disabled" sx={{ fontSize: 32, mb: 1 }} />
-              <Typography variant="body2" color="text.secondary">
+              <Typography variant="body2" sx={{
+                color: "text.secondary"
+              }}>
                 Unable to fetch system health information
               </Typography>
             </Box>
@@ -335,7 +351,7 @@ const SystemStatus: React.FC = () => {
         </Box>
       </Popover>
     </>
-  )
+  );
 }
 
 export default SystemStatus

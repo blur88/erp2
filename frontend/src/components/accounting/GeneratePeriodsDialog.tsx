@@ -93,10 +93,12 @@ const GeneratePeriodsDialog: React.FC<GeneratePeriodsDialogProps> = ({
             helperText={yearError || 'Enter the fiscal year (e.g., 2026)'}
             fullWidth
             required
-            inputProps={{
-              min: 1900,
-              max: 2100,
-              step: 1,
+            slotProps={{
+              htmlInput: {
+                min: 1900,
+                max: 2100,
+                step: 1,
+              },
             }}
           />
 
@@ -115,7 +117,12 @@ const GeneratePeriodsDialog: React.FC<GeneratePeriodsDialogProps> = ({
             </Select>
           </FormControl>
 
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+          <Typography
+            variant="body2"
+            sx={{
+              color: "text.secondary",
+              mt: 1
+            }}>
             Example: Year 2026 starting from January will create periods:
             <br />
             2026-01 (Jan 1 - Jan 31), 2026-02 (Feb 1 - Feb 28), ..., 2026-12 (Dec 1 - Dec 31)
@@ -135,7 +142,7 @@ const GeneratePeriodsDialog: React.FC<GeneratePeriodsDialogProps> = ({
         </Button>
       </DialogActions>
     </Dialog>
-  )
+  );
 }
 
 export default GeneratePeriodsDialog

@@ -150,11 +150,13 @@ const OrderHistoryTab: React.FC<OrderHistoryTabProps> = ({ productId }) => {
   if (orders.length === 0) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 4 }}>
-        <Typography variant="body1" color="text.secondary">
+        <Typography variant="body1" sx={{
+          color: "text.secondary"
+        }}>
           No order history found for this product
         </Typography>
       </Box>
-    )
+    );
   }
 
   return (

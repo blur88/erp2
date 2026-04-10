@@ -8,8 +8,7 @@ import {
   CircularProgress,
   Alert,
 } from '@mui/material'
-import {
-} from '@mui/icons-material'
+
 import { useGetPrintSettingsQuery } from '@/store/api/printSettingsApi'
 import PageHeader from '@/components/common/PageHeader'
 import GeneralTab from './PrintSettings/GeneralTab'

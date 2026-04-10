@@ -18,11 +18,9 @@ import {
   useTheme,
   useMediaQuery,
 } from '@mui/material'
-import {
-  Edit as EditIcon,
-  Add as AddIcon,
-  Clear as ClearIcon,
-} from '@mui/icons-material'
+import { default as EditIcon } from '@mui/icons-material/Edit'
+import { default as AddIcon } from '@mui/icons-material/Add'
+import { default as ClearIcon } from '@mui/icons-material/Clear'
 import { useNotification } from '@/hooks/useNotification'
 import {
   useDeleteAccountMappingMutation,
@@ -287,11 +285,12 @@ const AccountMappingsPage: React.FC = () => {
         title="Account Mappings"
         subtitle="Configure default account assignments for transactions"
       />
-
       {/* Validation Status Alert */}
       {!isValid && validationResult && validationResult.missingMappings.length > 0 && (
         <Alert severity="warning" sx={{ mb: 3 }}>
-          <Typography variant="body2" fontWeight="bold" gutterBottom>
+          <Typography variant="body2" gutterBottom sx={{
+            fontWeight: "bold"
+          }}>
             Configuration Incomplete
           </Typography>
           <Typography variant="body2" gutterBottom>
@@ -311,10 +310,11 @@ const AccountMappingsPage: React.FC = () => {
           </Typography>
         </Alert>
       )}
-
       {isValid && (
         <Alert severity="success" sx={{ mb: 3 }}>
-          <Typography variant="body2" fontWeight="bold">
+          <Typography variant="body2" sx={{
+            fontWeight: "bold"
+          }}>
             All required account mappings are configured.
           </Typography>
           <Typography variant="body2">
@@ -322,7 +322,6 @@ const AccountMappingsPage: React.FC = () => {
           </Typography>
         </Alert>
       )}
-
       {/* Error Alert */}
       {error && (
         <Alert
@@ -337,10 +336,11 @@ const AccountMappingsPage: React.FC = () => {
           {error}
         </Alert>
       )}
-
       {/* Info Alert */}
       <Alert severity="info" sx={{ mb: 3 }}>
-        <Typography variant="body2" fontWeight="bold" gutterBottom>
+        <Typography variant="body2" gutterBottom sx={{
+          fontWeight: "bold"
+        }}>
           About Account Mappings
         </Typography>
         <Typography variant="body2">
@@ -349,7 +349,6 @@ const AccountMappingsPage: React.FC = () => {
           accounts to ensure proper accounting records.
         </Typography>
       </Alert>
-
       {/* Mappings Table */}
       <Paper sx={{ borderRadius: 2, overflow: 'hidden' }}>
         {loading ? (
@@ -447,7 +446,14 @@ const AccountMappingsPage: React.FC = () => {
                             {mappingInfo.label}
                           </Typography>
                           {isMobile && (
-                            <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem', display: 'block', mt: 0.5 }}>
+                            <Typography
+                              variant="caption"
+                              sx={{
+                                color: "text.secondary",
+                                fontSize: '0.7rem',
+                                display: 'block',
+                                mt: 0.5
+                              }}>
                               {mappingInfo.description}
                             </Typography>
                           )}
@@ -458,7 +464,12 @@ const AccountMappingsPage: React.FC = () => {
                               <Typography variant="body2" sx={{ fontSize: '0.8rem', fontWeight: 400 }}>
                                 {mapping.account?.code} - {mapping.account?.name}
                               </Typography>
-                              <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
+                              <Typography
+                                variant="caption"
+                                sx={{
+                                  color: "text.secondary",
+                                  fontSize: '0.7rem'
+                                }}>
                                 {mapping.account?.accountType}
                               </Typography>
                             </Box>
@@ -530,15 +541,14 @@ const AccountMappingsPage: React.FC = () => {
                           )}
                         </TableCell>
                       </TableRow>
-                    )
-                  })
+                    );
+                  });
                 })}
               </TableBody>
             </Table>
           </TableContainer>
         )}
       </Paper>
-
       {/* Account Mapping Dialog */}
       <AccountMappingDialog
         open={dialogOpen}
@@ -547,7 +557,6 @@ const AccountMappingsPage: React.FC = () => {
         mappingType={selectedMappingType || undefined}
         onSaveSuccess={handleSaveSuccess}
       />
-
       <ConfirmationDialog
         open={!!mappingToClear}
         title="Clear Account Mapping"
@@ -563,7 +572,7 @@ const AccountMappingsPage: React.FC = () => {
         loading={clearing}
       />
     </>
-  )
+  );
 }
 
 export default AccountMappingsPage

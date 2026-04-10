@@ -9,12 +9,10 @@ import {
   Divider,
   CircularProgress,
 } from '@mui/material'
-import {
-  Upload as UploadIcon,
-  Delete as DeleteIcon,
-  CloudDownload as ImportIcon,
-  Save as SaveIcon,
-} from '@mui/icons-material'
+import { default as UploadIcon } from '@mui/icons-material/Upload'
+import { default as DeleteIcon } from '@mui/icons-material/Delete'
+import { default as ImportIcon } from '@mui/icons-material/CloudDownload'
+import { default as SaveIcon } from '@mui/icons-material/Save'
 import { useForm, Controller } from 'react-hook-form'
 import * as yup from 'yup'
 import { yupResolver } from '@hookform/resolvers/yup'

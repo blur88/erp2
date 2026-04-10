@@ -1,11 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import {
-  Close as CloseIcon,
-  Delete as DeleteIcon,
-  Payment as PaymentIcon,
-  Restore as RestoreIcon,
-  Search as SearchIcon,
-} from '@mui/icons-material';
+import { default as CloseIcon } from '@mui/icons-material/Close'
+import { default as DeleteIcon } from '@mui/icons-material/Delete'
+import { default as PaymentIcon } from '@mui/icons-material/Payment'
+import { default as RestoreIcon } from '@mui/icons-material/Restore'
+import { default as SearchIcon } from '@mui/icons-material/Search';
 import {
   Alert,
   Box,
@@ -189,10 +187,15 @@ const DeletedPaymentMethodsDialog: React.FC<DeletedPaymentMethodsDialogProps> = 
         onClose={onClose}
         maxWidth="lg"
         fullWidth
-        PaperProps={{ sx: { height: '80vh' } }}
+        slotProps={{ paper: { sx: { height: '80vh' } } }}
       >
         <DialogTitle>
-          <Box display="flex" justifyContent="space-between" alignItems="center">
+          <Box
+            sx={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center"
+            }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               <PaymentIcon sx={{ color: 'error.main' }} />
               <Typography variant="h5" sx={{ fontWeight: 700 }}>
@@ -203,7 +206,12 @@ const DeletedPaymentMethodsDialog: React.FC<DeletedPaymentMethodsDialogProps> = 
               <CloseIcon />
             </IconButton>
           </Box>
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+          <Typography
+            variant="body2"
+            sx={{
+              color: "text.secondary",
+              mt: 0.5
+            }}>
             Manage soft-deleted payment methods ({filteredRows.length} {searchTerm ? 'found' : 'total'})
           </Typography>
         </DialogTitle>
@@ -219,12 +227,14 @@ const DeletedPaymentMethodsDialog: React.FC<DeletedPaymentMethodsDialogProps> = 
                 placeholder="Search deleted payment methods..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <SearchIcon />
-                    </InputAdornment>
-                  ),
+                slotProps={{
+                  input: {
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <SearchIcon />
+                      </InputAdornment>
+                    ),
+                  },
                 }}
                 sx={{ flex: 1, minWidth: '300px' }}
               />
@@ -270,7 +280,7 @@ const DeletedPaymentMethodsDialog: React.FC<DeletedPaymentMethodsDialogProps> = 
                         checked={allSelected}
                         indeterminate={partiallySelected}
                         onChange={(e) => handleSelectAll(e.target.checked)}
-                        inputProps={{ 'aria-label': 'select all deleted payment methods' }}
+                        slotProps={{ input: { 'aria-label': 'select all deleted payment methods' } }}
                       />
                     </TableCell>
                     <TableCell>Code</TableCell>
@@ -285,7 +295,9 @@ const DeletedPaymentMethodsDialog: React.FC<DeletedPaymentMethodsDialogProps> = 
                   {filteredRows.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={7} align="center" sx={{ py: 6 }}>
-                        <Typography color="text.secondary">
+                        <Typography sx={{
+                          color: "text.secondary"
+                        }}>
                           {searchTerm
                             ? 'No deleted payment methods match your search.'
                             : 'No deleted payment methods found.'}
@@ -351,7 +363,6 @@ const DeletedPaymentMethodsDialog: React.FC<DeletedPaymentMethodsDialogProps> = 
           <Button onClick={onClose}>Close</Button>
         </DialogActions>
       </Dialog>
-
       <Dialog open={showBulkRestoreConfirm} onClose={() => setShowBulkRestoreConfirm(false)}>
         <DialogTitle>Restore Selected Payment Methods</DialogTitle>
         <DialogContent>
@@ -366,7 +377,6 @@ const DeletedPaymentMethodsDialog: React.FC<DeletedPaymentMethodsDialogProps> = 
           </Button>
         </DialogActions>
       </Dialog>
-
       <Dialog open={showBulkDeleteConfirm} onClose={() => setShowBulkDeleteConfirm(false)}>
         <DialogTitle>Permanently Delete Selected Payment Methods</DialogTitle>
         <DialogContent>
@@ -381,7 +391,6 @@ const DeletedPaymentMethodsDialog: React.FC<DeletedPaymentMethodsDialogProps> = 
           </Button>
         </DialogActions>
       </Dialog>
-
       <Dialog open={!!showDeleteConfirm} onClose={() => setShowDeleteConfirm(null)}>
         <DialogTitle>Permanently Delete Payment Method</DialogTitle>
         <DialogContent>

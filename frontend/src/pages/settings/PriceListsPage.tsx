@@ -17,14 +17,12 @@ import {
   Chip,
   Tooltip,
 } from '@mui/material'
-import {
-  Edit as EditIcon,
-  Delete as DeleteIcon,
-  ContentCopy as CopyIcon,
-  Star as StarIcon,
-  StarBorder as StarBorderIcon,
-  Visibility as ViewIcon,
-} from '@mui/icons-material'
+import { default as EditIcon } from '@mui/icons-material/Edit'
+import { default as DeleteIcon } from '@mui/icons-material/Delete'
+import { default as CopyIcon } from '@mui/icons-material/ContentCopy'
+import { default as StarIcon } from '@mui/icons-material/Star'
+import { default as StarBorderIcon } from '@mui/icons-material/StarBorder'
+import { default as ViewIcon } from '@mui/icons-material/Visibility'
 import { useNavigate } from 'react-router-dom'
 import PageHeader from '@/components/common/PageHeader'
 import { FilterBar } from '@/components/filters'
@@ -248,10 +246,8 @@ const PriceListsPage: React.FC = () => {
           />
         )}
       />
-
       {/* Error Alert */}
       {error && <Alert severity="error" sx={{ mb: 2 }}>Failed to load price lists</Alert>}
-
       {/* Price Lists Table */}
       <Paper sx={{ borderRadius: 2, overflow: 'hidden' }}>
         <TableContainer sx={{ overflowX: 'auto' }}>
@@ -380,7 +376,9 @@ const PriceListsPage: React.FC = () => {
               ) : priceLists.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={7} align="center" sx={{ py: 8 }}>
-                    <Typography color="text.secondary">No price lists found</Typography>
+                    <Typography sx={{
+                      color: "text.secondary"
+                    }}>No price lists found</Typography>
                   </TableCell>
                 </TableRow>
               ) : (
@@ -600,7 +598,6 @@ const PriceListsPage: React.FC = () => {
           onRowsPerPageChange={handleRowsPerPageChange}
         />
       </Paper>
-
       {/* Price List Form Dialog */}
       <PriceListFormDialog
         open={formDialogOpen}
@@ -608,7 +605,6 @@ const PriceListsPage: React.FC = () => {
         onClose={handleFormClose}
         onSuccess={handleFormSuccess}
       />
-
       {/* Price List Copy Dialog */}
       <PriceListCopyDialog
         open={copyDialogOpen}
@@ -616,7 +612,6 @@ const PriceListsPage: React.FC = () => {
         onClose={handleCopyClose}
         onSuccess={handleCopySuccess}
       />
-
       {/* Confirmation Dialog */}
       <ConfirmationDialog
         open={confirmDialog.open}
@@ -626,7 +621,7 @@ const PriceListsPage: React.FC = () => {
         onCancel={handleConfirmClose}
       />
     </>
-  )
+  );
 }
 
 export default PriceListsPage

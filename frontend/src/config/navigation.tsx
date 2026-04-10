@@ -1,59 +1,57 @@
 import type { ReactNode } from 'react';
-import {
-  Dashboard as DashboardIcon,
-  Inventory as InventoryIcon,
-  PointOfSale as SalesIcon,
-  Assignment as PurchasingIcon,
-  Settings as SettingsIcon,
-  Category as CategoryIcon,
-  ShoppingCart as ProductIcon,
-  People as CustomersIcon,
-  Receipt as OrdersIcon,
-  ReceiptLong as InvoiceIcon,
-  Payment as PaymentsIcon,
-  Business as SuppliersIcon,
-  LocalShipping as GRNIcon,
-  BusinessCenter as CompanyIcon,
-  Description as PurchaseOrderIcon,
-  AccountBalance as VendorPaymentsIcon,
-  SwapVert as StockAdjustmentIcon,
-  SwapHoriz as SwapHorizIcon,
-  PriceChange as PriceCostingIcon,
-  Summarize as SummaryIcon,
-  ListAlt as DetailIcon,
-  TrendingUp as ProfitIcon,
-  AccountBalanceWallet as PaymentSummaryIcon,
-  AccountBalanceWallet as AccountBalanceWalletIcon,
-  ReceiptLongOutlined as PaymentOrderIcon,
-  MonetizationOn as PaymentDetailIcon,
-  History as HistoryIcon,
-  PersonSearch as CustomerProductIcon,
-  Inventory2 as InventorySummaryIcon,
-  Timeline as HistoricalInventoryIcon,
-  CompareArrows as MovementSummaryIcon,
-  AttachMoney as PriceListIcon,
-  TrendingDown as CostReportIcon,
-  Print as PrintIcon,
-  FormatListNumbered as DocumentNumberIcon,
-  Backup as BackupIcon,
-  ManageSearch as AuditIcon,
-  People as PeopleIcon,
-  Security as SecurityIcon,
-  Lock as LockIcon,
-  LocalOffer as PriceTagIcon,
-  AccountBalance as AccountBalanceIcon,
-  AccountBalanceOutlined as AccountBalanceOutlinedIcon,
-  AccountTree as AccountTreeIcon,
-  Description as DescriptionIcon,
-  DateRange as DateRangeIcon,
-  Assessment as AssessmentIcon,
-  ShowChart as ShowChartIcon,
-  ReceiptLong as ReceiptLongIcon,
-  Timeline as TimelineIcon,
-  MenuBook as MenuBookIcon,
-  Language as RegionalIcon,
-  WarningAmber as StockLevelIcon,
-} from '@mui/icons-material';
+import { default as DashboardIcon } from '@mui/icons-material/Dashboard'
+import { default as InventoryIcon } from '@mui/icons-material/Inventory'
+import { default as SalesIcon } from '@mui/icons-material/PointOfSale'
+import { default as PurchasingIcon } from '@mui/icons-material/Assignment'
+import { default as SettingsIcon } from '@mui/icons-material/Settings'
+import { default as CategoryIcon } from '@mui/icons-material/Category'
+import { default as ProductIcon } from '@mui/icons-material/ShoppingCart'
+import { default as CustomersIcon } from '@mui/icons-material/People'
+import { default as OrdersIcon } from '@mui/icons-material/Receipt'
+import { default as InvoiceIcon } from '@mui/icons-material/ReceiptLong'
+import { default as PaymentsIcon } from '@mui/icons-material/Payment'
+import { default as SuppliersIcon } from '@mui/icons-material/Business'
+import { default as GRNIcon } from '@mui/icons-material/LocalShipping'
+import { default as CompanyIcon } from '@mui/icons-material/BusinessCenter'
+import { default as PurchaseOrderIcon } from '@mui/icons-material/Description'
+import { default as VendorPaymentsIcon } from '@mui/icons-material/AccountBalance'
+import { default as StockAdjustmentIcon } from '@mui/icons-material/SwapVert'
+import { default as SwapHorizIcon } from '@mui/icons-material/SwapHoriz'
+import { default as PriceCostingIcon } from '@mui/icons-material/PriceChange'
+import { default as SummaryIcon } from '@mui/icons-material/Summarize'
+import { default as DetailIcon } from '@mui/icons-material/ListAlt'
+import { default as ProfitIcon } from '@mui/icons-material/TrendingUp'
+import { default as PaymentSummaryIcon } from '@mui/icons-material/AccountBalanceWallet'
+import { default as AccountBalanceWalletIcon } from '@mui/icons-material/AccountBalanceWallet'
+import { default as PaymentOrderIcon } from '@mui/icons-material/ReceiptLongOutlined'
+import { default as PaymentDetailIcon } from '@mui/icons-material/MonetizationOn'
+import { default as HistoryIcon } from '@mui/icons-material/History'
+import { default as CustomerProductIcon } from '@mui/icons-material/PersonSearch'
+import { default as InventorySummaryIcon } from '@mui/icons-material/Inventory2'
+import { default as HistoricalInventoryIcon } from '@mui/icons-material/Timeline'
+import { default as MovementSummaryIcon } from '@mui/icons-material/CompareArrows'
+import { default as PriceListIcon } from '@mui/icons-material/AttachMoney'
+import { default as CostReportIcon } from '@mui/icons-material/TrendingDown'
+import { default as PrintIcon } from '@mui/icons-material/Print'
+import { default as DocumentNumberIcon } from '@mui/icons-material/FormatListNumbered'
+import { default as BackupIcon } from '@mui/icons-material/Backup'
+import { default as AuditIcon } from '@mui/icons-material/ManageSearch'
+import { default as PeopleIcon } from '@mui/icons-material/People'
+import { default as SecurityIcon } from '@mui/icons-material/Security'
+import { default as LockIcon } from '@mui/icons-material/Lock'
+import { default as PriceTagIcon } from '@mui/icons-material/LocalOffer'
+import { default as AccountBalanceIcon } from '@mui/icons-material/AccountBalance'
+import { default as AccountBalanceOutlinedIcon } from '@mui/icons-material/AccountBalanceOutlined'
+import { default as AccountTreeIcon } from '@mui/icons-material/AccountTree'
+import { default as DescriptionIcon } from '@mui/icons-material/Description'
+import { default as DateRangeIcon } from '@mui/icons-material/DateRange'
+import { default as AssessmentIcon } from '@mui/icons-material/Assessment'
+import { default as ShowChartIcon } from '@mui/icons-material/ShowChart'
+import { default as ReceiptLongIcon } from '@mui/icons-material/ReceiptLong'
+import { default as TimelineIcon } from '@mui/icons-material/Timeline'
+import { default as MenuBookIcon } from '@mui/icons-material/MenuBook'
+import { default as RegionalIcon } from '@mui/icons-material/Language'
+import { default as StockLevelIcon } from '@mui/icons-material/WarningAmber';
 import type { AuthUser } from '../store/slices/authSlice';
 
 export type Role = AuthUser['role'];

@@ -10,12 +10,10 @@ import {
   Alert,
   Stack,
 } from '@mui/material'
-import {
-  Warning as WarningIcon,
-  Inventory as InventoryIcon,
-  Edit as EditIcon,
-  Payment as PaymentIcon,
-} from '@mui/icons-material'
+import { default as WarningIcon } from '@mui/icons-material/Warning'
+import { default as InventoryIcon } from '@mui/icons-material/Inventory'
+import { default as EditIcon } from '@mui/icons-material/Edit'
+import { default as PaymentIcon } from '@mui/icons-material/Payment'
 
 interface BlockedPurchaseOrderDialogProps {
   open: boolean
@@ -66,9 +64,11 @@ const BlockedPurchaseOrderDialog: React.FC<BlockedPurchaseOrderDialogProps> = ({
       onClose={onClose}
       maxWidth="sm"
       fullWidth
-      PaperProps={{
-        sx: {
-          borderRadius: 2,
+      slotProps={{
+        paper: {
+          sx: {
+            borderRadius: 2,
+          }
         }
       }}
     >
@@ -79,7 +79,9 @@ const BlockedPurchaseOrderDialog: React.FC<BlockedPurchaseOrderDialogProps> = ({
             <Typography variant="h6" component="div">
               {title}
             </Typography>
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant="body2" sx={{
+              color: "text.secondary"
+            }}>
               PO No {orderNumber}
             </Typography>
           </Box>
@@ -108,7 +110,9 @@ const BlockedPurchaseOrderDialog: React.FC<BlockedPurchaseOrderDialogProps> = ({
             border: '1px solid',
             borderColor: 'grey.200'
           }}>
-            <Typography variant="body2" color="text.secondary" gutterBottom>
+            <Typography variant="body2" gutterBottom sx={{
+              color: "text.secondary"
+            }}>
               {blockingReasons.length === 2 ? 'What happens when you unpay/return:' : isReceived ? 'What happens when you return:' : 'What happens when you unpay:'}
             </Typography>
             <Stack spacing={0.5} sx={{ mt: 1.5 }}>

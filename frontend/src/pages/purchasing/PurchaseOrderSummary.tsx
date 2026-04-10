@@ -25,13 +25,11 @@ import {
   Chip,
 } from '@mui/material'
 import { alpha } from '@mui/material/styles'
-import {
-  PictureAsPdf as PdfIcon,
-  TableChart as ExcelIcon,
-  Refresh as RefreshIcon,
-  PlayArrow as GenerateIcon,
-  Summarize as PurchaseOrderIcon,
-} from '@mui/icons-material'
+import { default as PdfIcon } from '@mui/icons-material/PictureAsPdf'
+import { default as ExcelIcon } from '@mui/icons-material/TableChart'
+import { default as RefreshIcon } from '@mui/icons-material/Refresh'
+import { default as GenerateIcon } from '@mui/icons-material/PlayArrow'
+import { default as PurchaseOrderIcon } from '@mui/icons-material/Summarize'
 import PageHeader from '@/components/common/PageHeader'
 import { printColors } from '@/styles/printTokens'
 import { formatCurrency, formatDate, formatDateTime } from '@/utils/formatters'
@@ -592,7 +590,7 @@ const PurchaseOrderSummary: React.FC = () => {
                     value={selectedSupplier}
                     label="Vendor"
                     onChange={(e) => setSelectedSupplier(e.target.value)}
-                    MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } }}
+                    MenuProps={{ slotProps: { paper: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } } }}
                   >
                     <MenuItem value="">All Vendors</MenuItem>
                     {suppliers.map((supplier) => (
@@ -603,7 +601,12 @@ const PurchaseOrderSummary: React.FC = () => {
                   </Select>
                 </FormControl>
 
-                <Typography variant="caption" color="text.secondary" sx={{ mb: 1 }}>
+                <Typography
+                  variant="caption"
+                  sx={{
+                    color: "text.secondary",
+                    mb: 1
+                  }}>
                   PO Date
                 </Typography>
                 <TextField
@@ -611,8 +614,10 @@ const PurchaseOrderSummary: React.FC = () => {
                   type="date"
                   value={dateFrom}
                   onChange={(e) => setDateFrom(e.target.value)}
-                  InputLabelProps={{ shrink: true, sx: { fontSize: '0.75rem' } }}
-                  inputProps={{ sx: { fontSize: '0.75rem' } }}
+                  slotProps={{
+  inputLabel: { shrink: true, sx: { fontSize: '0.75rem' } },
+  htmlInput: { sx: { fontSize: '0.75rem' } },
+}}
                   size="small"
                   fullWidth
                 />
@@ -622,8 +627,10 @@ const PurchaseOrderSummary: React.FC = () => {
                   type="date"
                   value={dateTo}
                   onChange={(e) => setDateTo(e.target.value)}
-                  InputLabelProps={{ shrink: true, sx: { fontSize: '0.75rem' } }}
-                  inputProps={{ sx: { fontSize: '0.75rem' } }}
+                  slotProps={{
+  inputLabel: { shrink: true, sx: { fontSize: '0.75rem' } },
+  htmlInput: { sx: { fontSize: '0.75rem' } },
+}}
                   size="small"
                   fullWidth
                 />
@@ -634,7 +641,7 @@ const PurchaseOrderSummary: React.FC = () => {
                     value={status}
                     label="PO Inventory Status"
                     onChange={(e) => setStatus(e.target.value)}
-                    MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } }}
+                    MenuProps={{ slotProps: { paper: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } } }}
                   >
                     <MenuItem value="all">All</MenuItem>
                     <MenuItem value="received">Received</MenuItem>
@@ -648,7 +655,7 @@ const PurchaseOrderSummary: React.FC = () => {
                     value={paymentStatus}
                     label="PO Payment Status"
                     onChange={(e) => setPaymentStatus(e.target.value)}
-                    MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } }}
+                    MenuProps={{ slotProps: { paper: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } } }}
                   >
                     <MenuItem value="all">All</MenuItem>
                     <MenuItem value="unpaid">Unpaid</MenuItem>
@@ -695,7 +702,7 @@ const PurchaseOrderSummary: React.FC = () => {
                         setSelectedColumns(value as string[])
                       }
                     }}
-                    MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } }}
+                    MenuProps={{ slotProps: { paper: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } } }}
                     renderValue={(selected) => `${selected.length} column${selected.length !== 1 ? 's' : ''} selected`}
                   >
                     <MenuItem value="all">All</MenuItem>
@@ -717,7 +724,7 @@ const PurchaseOrderSummary: React.FC = () => {
                     value={groupBy}
                     label="Group By"
                     onChange={(e) => setGroupBy(e.target.value)}
-                    MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } }}
+                    MenuProps={{ slotProps: { paper: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } } }}
                   >
                     <MenuItem value="none">None</MenuItem>
                     <MenuItem value="supplierName">Vendor</MenuItem>
@@ -732,7 +739,7 @@ const PurchaseOrderSummary: React.FC = () => {
                     value={sortBy1}
                     label="Sort By"
                     onChange={(e) => setSortBy1(e.target.value)}
-                    MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } }}
+                    MenuProps={{ slotProps: { paper: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } } }}
                   >
                     {selectedColumns.includes('orderNumber') && <MenuItem value="orderNumber">PO No</MenuItem>}
                     {selectedColumns.includes('status') && <MenuItem value="status">Inventory Status</MenuItem>}
@@ -750,8 +757,10 @@ const PurchaseOrderSummary: React.FC = () => {
                   label="Report Title"
                   value={reportTitle}
                   onChange={(e) => setReportTitle(e.target.value)}
-                  InputLabelProps={{ sx: { fontSize: '0.75rem' } }}
-                  inputProps={{ sx: { fontSize: '0.75rem' } }}
+                  slotProps={{
+  inputLabel: { sx: { fontSize: '0.75rem' } },
+  htmlInput: { sx: { fontSize: '0.75rem' } },
+}}
                   size="small"
                   fullWidth
                 />
@@ -777,10 +786,17 @@ const PurchaseOrderSummary: React.FC = () => {
                   ) : (
                     <>
                       <PurchaseOrderIcon sx={{ fontSize: 80, color: 'text.disabled', mb: 2 }} />
-                      <Typography variant="h6" color="text.secondary" sx={{ mb: 1 }}>
+                      <Typography
+                        variant="h6"
+                        sx={{
+                          color: "text.secondary",
+                          mb: 1
+                        }}>
                         No Report Generated
                       </Typography>
-                      <Typography variant="body2" color="text.secondary">
+                      <Typography variant="body2" sx={{
+                        color: "text.secondary"
+                      }}>
                         Configure the filters on the left and click "Generate Report" to view purchase order details.
                       </Typography>
                     </>

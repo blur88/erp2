@@ -26,15 +26,13 @@ import {
   Link,
   Checkbox,
 } from '@mui/material'
-import GridLegacy from '@mui/material/GridLegacy'
-import {
-  Add as AddIcon,
-  Search as SearchIcon,
-  Visibility as ViewIcon,
-  Delete as DeleteIcon,
-  PostAdd as PostIcon,
-  Refresh as RefreshIcon,
-} from '@mui/icons-material'
+import Grid from '@mui/material/Grid'
+import { default as AddIcon } from '@mui/icons-material/Add'
+import { default as SearchIcon } from '@mui/icons-material/Search'
+import { default as ViewIcon } from '@mui/icons-material/Visibility'
+import { default as DeleteIcon } from '@mui/icons-material/Delete'
+import { default as PostIcon } from '@mui/icons-material/PostAdd'
+import { default as RefreshIcon } from '@mui/icons-material/Refresh'
 import PageHeader from '@/components/common/PageHeader'
 import { useNotification } from '@/hooks/useNotification'
 import {
@@ -352,14 +350,12 @@ const JournalEntriesPage: React.FC = () => {
     <>
       {/* Account Mapping Warning */}
       <AccountMappingWarning context="system" />
-
       <PageHeader
         variant="workflow"
         title="Journal Entries"
         subtitle={`Manage and post accounting journal entries (${pagination?.total || 0} total)`}
         primaryAction={{ label: 'New Journal Entry', onClick: handleCreateNew }}
       />
-
       {/* Filters */}
       <Box sx={{ mb: 3 }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
@@ -395,25 +391,29 @@ const JournalEntriesPage: React.FC = () => {
             </span>
           </Tooltip>
         </Box>
-        <GridLegacy container spacing={2} alignItems="center">
-          <GridLegacy item xs={12} md={3}>
+        <Grid container spacing={2} sx={{
+          alignItems: "center"
+        }}>
+          <Grid size={{ xs: 12, md: 3 }}>
             <TextField
               fullWidth
               placeholder="Search by reference or description..."
-              inputProps={{ 'data-testid': 'search-input' }}
+              slotProps={{
+                input: {
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon />
+                    </InputAdornment>
+                  ),
+                },
+                htmlInput: { 'data-testid': 'search-input' },
+              }}
               value={filters.search}
               onChange={handleSearchChange}
               size="small"
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon />
-                  </InputAdornment>
-                ),
-              }}
             />
-          </GridLegacy>
-          <GridLegacy item xs={12} md={2}>
+          </Grid>
+          <Grid size={{ xs: 12, md: 2 }}>
             <FormControl fullWidth size="small">
               <InputLabel>Status</InputLabel>
               <Select
@@ -427,8 +427,8 @@ const JournalEntriesPage: React.FC = () => {
                 <MenuItem value={JournalEntryStatus.REVERSED}>Reversed</MenuItem>
               </Select>
             </FormControl>
-          </GridLegacy>
-          <GridLegacy item xs={12} md={2}>
+          </Grid>
+          <Grid size={{ xs: 12, md: 2 }}>
             <FormControl fullWidth size="small">
               <InputLabel>Entry Type</InputLabel>
               <Select
@@ -448,8 +448,8 @@ const JournalEntriesPage: React.FC = () => {
                 <MenuItem value="fund_transfer">Fund Transfers</MenuItem>
               </Select>
             </FormControl>
-          </GridLegacy>
-          <GridLegacy item xs={12} md={2.5}>
+          </Grid>
+          <Grid size={{ xs: 12, md: 2.5 }}>
             <TextField
               fullWidth
               label="Start Date"
@@ -457,10 +457,10 @@ const JournalEntriesPage: React.FC = () => {
               value={filters.startDate}
               onChange={(e) => handleFilterChange('startDate', e.target.value)}
               size="small"
-              InputLabelProps={{ shrink: true }}
+              slotProps={{ inputLabel: { shrink: true } }}
             />
-          </GridLegacy>
-          <GridLegacy item xs={12} md={2.5}>
+          </Grid>
+          <Grid size={{ xs: 12, md: 2.5 }}>
             <TextField
               fullWidth
               label="End Date"
@@ -468,19 +468,17 @@ const JournalEntriesPage: React.FC = () => {
               value={filters.endDate}
               onChange={(e) => handleFilterChange('endDate', e.target.value)}
               size="small"
-              InputLabelProps={{ shrink: true }}
+              slotProps={{ inputLabel: { shrink: true } }}
             />
-          </GridLegacy>
-        </GridLegacy>
+          </Grid>
+        </Grid>
       </Box>
-
       {/* Error Alert */}
       {errorMessage && (
         <Alert severity="error" sx={{ mb: 2 }}>
           {errorMessage}
         </Alert>
       )}
-
       {/* Table */}
       <Paper>
         <TableContainer>
@@ -515,7 +513,9 @@ const JournalEntriesPage: React.FC = () => {
               ) : journalEntries.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={10} align="center" sx={{ py: 4 }}>
-                    <Typography variant="body2" color="text.secondary">
+                    <Typography variant="body2" sx={{
+                      color: "text.secondary"
+                    }}>
                       No journal entries found
                     </Typography>
                   </TableCell>
@@ -595,7 +595,9 @@ const JournalEntriesPage: React.FC = () => {
                       />
                     </TableCell>
                     <TableCell align="center">
-                      <Stack direction="row" spacing={1} justifyContent="center">
+                      <Stack direction="row" spacing={1} sx={{
+                        justifyContent: "center"
+                      }}>
                         <Tooltip title="View Details">
                           <IconButton
                             size="small"
@@ -638,13 +640,14 @@ const JournalEntriesPage: React.FC = () => {
         {/* Pagination Info */}
         {pagination && pagination.total > 0 && (
           <Box sx={{ p: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant="body2" sx={{
+              color: "text.secondary"
+            }}>
               Showing {journalEntries.length} of {pagination.total} entries
             </Typography>
           </Box>
         )}
       </Paper>
-
       {/* Post Confirmation Dialog */}
       <ConfirmationDialog
         open={isPostConfirmOpen}
@@ -659,7 +662,6 @@ const JournalEntriesPage: React.FC = () => {
         }}
         loading={actionLoading}
       />
-
       {/* Delete Confirmation Dialog */}
       <ConfirmationDialog
         open={isDeleteConfirmOpen}
@@ -674,7 +676,6 @@ const JournalEntriesPage: React.FC = () => {
         }}
         loading={actionLoading}
       />
-
       <ConfirmationDialog
         open={isBulkPostConfirmOpen}
         title="Bulk Post Entries"
@@ -685,7 +686,6 @@ const JournalEntriesPage: React.FC = () => {
         onCancel={() => setIsBulkPostConfirmOpen(false)}
         loading={actionLoading}
       />
-
       <ConfirmationDialog
         open={isBulkDeleteConfirmOpen}
         title="Bulk Delete Entries"
@@ -697,7 +697,7 @@ const JournalEntriesPage: React.FC = () => {
         loading={actionLoading}
       />
     </>
-  )
+  );
 }
 
 export default JournalEntriesPage

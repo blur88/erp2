@@ -30,18 +30,16 @@ import {
   IconButton,
 } from '@mui/material'
 import { alpha } from '@mui/material/styles'
-import {
-  PictureAsPdf as PdfIcon,
-  TableChart as ExcelIcon,
-  Refresh as RefreshIcon,
-  PlayArrow as GenerateIcon,
-  Business as ProductIcon,
-  Close as CloseIcon,
-  KeyboardArrowRight as KeyboardArrowRightIcon,
-  KeyboardArrowLeft as KeyboardArrowLeftIcon,
-  KeyboardDoubleArrowRight as KeyboardDoubleArrowRightIcon,
-  KeyboardDoubleArrowLeft as KeyboardDoubleArrowLeftIcon,
-} from '@mui/icons-material'
+import { default as PdfIcon } from '@mui/icons-material/PictureAsPdf'
+import { default as ExcelIcon } from '@mui/icons-material/TableChart'
+import { default as RefreshIcon } from '@mui/icons-material/Refresh'
+import { default as GenerateIcon } from '@mui/icons-material/PlayArrow'
+import { default as ProductIcon } from '@mui/icons-material/Business'
+import { default as CloseIcon } from '@mui/icons-material/Close'
+import { default as KeyboardArrowRightIcon } from '@mui/icons-material/KeyboardArrowRight'
+import { default as KeyboardArrowLeftIcon } from '@mui/icons-material/KeyboardArrowLeft'
+import { default as KeyboardDoubleArrowRightIcon } from '@mui/icons-material/KeyboardDoubleArrowRight'
+import { default as KeyboardDoubleArrowLeftIcon } from '@mui/icons-material/KeyboardDoubleArrowLeft'
 import PageHeader from '@/components/common/PageHeader'
 import { printColors } from '@/styles/printTokens'
 import { PRINT_STYLES } from '@/styles/printStyles'
@@ -664,7 +662,7 @@ const VendorProductListReport: React.FC = () => {
                       value={selectedSupplier}
                       label="Vendor"
                       onChange={(e) => setSelectedSupplier(e.target.value)}
-                      MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } }}
+                      MenuProps={{ slotProps: { paper: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } } }}
                     >
                       <MenuItem value="">All Vendors</MenuItem>
                       {suppliers.map((supplier) => (
@@ -681,7 +679,7 @@ const VendorProductListReport: React.FC = () => {
                       value={selectedCategory}
                       label="Category"
                       onChange={(e) => setSelectedCategory(e.target.value)}
-                      MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } }}
+                      MenuProps={{ slotProps: { paper: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } } }}
                     >
                       <MenuItem value="">All Categories</MenuItem>
                       {categories.map((category) => (
@@ -702,7 +700,7 @@ const VendorProductListReport: React.FC = () => {
                           setProductDialogOpen(true)
                         }
                       }}
-                      MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } }}
+                      MenuProps={{ slotProps: { paper: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } } }}
                     >
                       <MenuItem value="all">All Products</MenuItem>
                       <MenuItem value="select">Select Products</MenuItem>
@@ -752,7 +750,7 @@ const VendorProductListReport: React.FC = () => {
                       value={pricingType}
                       label="Pricing"
                       onChange={(e) => setPricingType(e.target.value)}
-                      MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } }}
+                      MenuProps={{ slotProps: { paper: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } } }}
                     >
                       <MenuItem value="retailPrice">Retail Price</MenuItem>
                       <MenuItem value="wholesalePrice">Wholesale Price</MenuItem>
@@ -798,7 +796,7 @@ const VendorProductListReport: React.FC = () => {
                           setSelectedColumns(value as string[])
                         }
                       }}
-                      MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } }}
+                      MenuProps={{ slotProps: { paper: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } } }}
                       renderValue={(selected) => `${selected.length} column${selected.length !== 1 ? 's' : ''} selected`}
                     >
                       <MenuItem value="all">All</MenuItem>
@@ -817,7 +815,7 @@ const VendorProductListReport: React.FC = () => {
                       value={groupBy}
                       label="Group By"
                       onChange={(e) => setGroupBy(e.target.value)}
-                      MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } }}
+                      MenuProps={{ slotProps: { paper: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } } }}
                     >
                       <MenuItem value="none">None</MenuItem>
                       <MenuItem value="categoryName">Category</MenuItem>
@@ -831,7 +829,7 @@ const VendorProductListReport: React.FC = () => {
                       value={sortBy1}
                       label="Sort By"
                       onChange={(e) => setSortBy1(e.target.value)}
-                      MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } }}
+                      MenuProps={{ slotProps: { paper: { sx: { '& .MuiMenuItem-root': { fontSize: '0.75rem' } } } } }}
                     >
                       <MenuItem value="productName">Products</MenuItem>
                       <MenuItem value="categoryName">Category</MenuItem>
@@ -846,8 +844,10 @@ const VendorProductListReport: React.FC = () => {
                     label="Report Title"
                     value={reportTitle}
                     onChange={(e) => setReportTitle(e.target.value)}
-                    InputLabelProps={{ sx: { fontSize: '0.75rem' } }}
-                    inputProps={{ sx: { fontSize: '0.75rem' } }}
+                    slotProps={{
+  inputLabel: { sx: { fontSize: '0.75rem' } },
+  htmlInput: { sx: { fontSize: '0.75rem' } },
+}}
                     size="small"
                     fullWidth
                   />
@@ -873,10 +873,17 @@ const VendorProductListReport: React.FC = () => {
                   ) : (
                     <>
                       <ProductIcon sx={{ fontSize: 80, color: 'text.disabled', mb: 2 }} />
-                      <Typography variant="h6" color="text.secondary" sx={{ mb: 1 }}>
+                      <Typography
+                        variant="h6"
+                        sx={{
+                          color: "text.secondary",
+                          mb: 1
+                        }}>
                         No Report Generated
                       </Typography>
-                      <Typography variant="body2" color="text.secondary">
+                      <Typography variant="body2" sx={{
+                        color: "text.secondary"
+                      }}>
                         Configure the filters on the left and click "Generate Report" to view vendor product list.
                       </Typography>
                     </>
@@ -1065,9 +1072,7 @@ const VendorProductListReport: React.FC = () => {
         onClose={handleProductDialogClose}
         maxWidth="lg"
         fullWidth
-        PaperProps={{
-          sx: { height: '90vh', maxHeight: '90vh' }
-        }}
+        slotProps={{ paper: { sx: { height: '90vh', maxHeight: '90vh' } } }}
       >
         <DialogTitle sx={{
           display: 'flex',
@@ -1117,7 +1122,9 @@ const VendorProductListReport: React.FC = () => {
                       {getFilteredProducts().length === 0 ? (
                         <TableRow>
                           <TableCell colSpan={2} align="center" sx={{ py: 4 }}>
-                            <Typography variant="caption" color="text.secondary">
+                            <Typography variant="caption" sx={{
+                              color: "text.secondary"
+                            }}>
                               {products.length === 0 ? 'No products available' : 'No products found'}
                             </Typography>
                           </TableCell>
@@ -1240,7 +1247,9 @@ const VendorProductListReport: React.FC = () => {
                       {getSelectedProductsList().length === 0 ? (
                         <TableRow>
                           <TableCell colSpan={2} align="center" sx={{ py: 4 }}>
-                            <Typography variant="caption" color="text.secondary">
+                            <Typography variant="caption" sx={{
+                              color: "text.secondary"
+                            }}>
                               No products selected
                             </Typography>
                           </TableCell>
@@ -1307,7 +1316,12 @@ const VendorProductListReport: React.FC = () => {
           </Box>
         </DialogContent>
         <DialogActions sx={{ p: 2, borderTop: '1px solid', borderColor: 'divider' }}>
-          <Typography variant="body2" color="text.secondary" sx={{ mr: 'auto' }}>
+          <Typography
+            variant="body2"
+            sx={{
+              color: "text.secondary",
+              mr: 'auto'
+            }}>
             {selectedProducts.length} product{selectedProducts.length !== 1 ? 's' : ''} selected
           </Typography>
           <Button onClick={handleProductDialogClose}>

@@ -6,7 +6,7 @@ import ProductsTable from './ProductsTable'
 import type { Product } from '@/types'
 
 const makeProduct = (id: string, name: string): Product =>
-  ({
+  (({
     id,
     name,
     barcode: `SKU-${id}`,
@@ -16,8 +16,8 @@ const makeProduct = (id: string, name: string): Product =>
     isActive: true,
     isOutOfStock: false,
     createdAt: new Date('2026-03-10T00:00:00.000Z'),
-    updatedAt: new Date('2026-03-10T00:00:00.000Z'),
-  }) as Product
+    updatedAt: new Date('2026-03-10T00:00:00.000Z')
+  }) as Product)
 
 describe('ProductsTable', () => {
   it('shows the visible product count from the list instead of external pagination metadata', () => {
