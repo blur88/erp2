@@ -75,7 +75,7 @@ const InvoicesPage: React.FC = () => {
     () => ({
       search: appliedFilters.search || undefined,
       sortBy,
-      sortOrder,
+      sortOrder: sortOrder.toUpperCase() as 'ASC' | 'DESC',
       fromDate: dateRange.fromDate,
       toDate: dateRange.toDate,
       customerId: appliedFilters.customerId || undefined,
