@@ -31,15 +31,6 @@ export interface InvoiceListItem {
   items?: InvoiceItem[]
 }
 
-export interface InvoiceFilters {
-  search: string
-  sortBy: string
-  sortOrder: 'asc' | 'desc'
-  dateFilter: string
-  customFromDate: string
-  customToDate: string
-}
-
 export interface InvoiceJournalEntryRef {
   referenceNumber: string
   sourceType: string
@@ -47,14 +38,6 @@ export interface InvoiceJournalEntryRef {
 }
 
 export function useInvoicesPageState() {
-  const [filters, setFilters] = useState<InvoiceFilters>({
-    search: '',
-    sortBy: 'invoiceNumber',
-    sortOrder: 'asc',
-    dateFilter: 'all',
-    customFromDate: '',
-    customToDate: '',
-  })
   const [createDialog, setCreateDialog] = useState(false)
   const [editDialog, setEditDialog] = useState(false)
   const [focusedInvoiceIndex, setFocusedInvoiceIndex] = useState(-1)
@@ -71,8 +54,6 @@ export function useInvoicesPageState() {
   const selectedInvoiceRef = useRef<InvoiceListItem | null>(null)
 
   return {
-    filters,
-    setFilters,
     createDialog,
     setCreateDialog,
     editDialog,
