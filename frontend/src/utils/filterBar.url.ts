@@ -79,7 +79,8 @@ export function serializeFilters<TFilters extends object>(
       field.type === 'category' ||
       field.type === 'product-type' ||
       field.type === 'stock-status' ||
-      field.type === 'price-list'
+      field.type === 'price-list' ||
+      field.type === 'transaction-status'
 
     if (isSingleValueField) {
       if (value !== null && value !== undefined && value !== defaultValue) {
@@ -154,7 +155,8 @@ export function parseFilters<TFilters extends object>(
       field.type === 'category' ||
       field.type === 'product-type' ||
       field.type === 'stock-status' ||
-      field.type === 'price-list'
+      field.type === 'price-list' ||
+      field.type === 'transaction-status'
 
     if (isSingleValueField) {
       const raw = searchParams.get(key)
@@ -193,6 +195,9 @@ export function parseFilters<TFilters extends object>(
       } else if (field.type === 'stock-status') {
         const VALID_STOCK_STATUS = ['in_stock', 'low_stock', 'out_of_stock']
         result[fieldKey] = VALID_STOCK_STATUS.includes(raw) ? raw : (defaultValue ?? null)
+      } else if (field.type === 'transaction-status') {
+        const VALID_TRANSACTION_STATUS = ['completed', 'pending', 'failed', 'cancelled', 'refunded']
+        result[fieldKey] = VALID_TRANSACTION_STATUS.includes(raw) ? raw : (defaultValue ?? null)
       } else {
         result[fieldKey] = raw
       }

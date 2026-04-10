@@ -17,6 +17,7 @@ import { FilterStockAdjustmentStatus } from './FilterStockAdjustmentStatus'
 import { FilterStockStatus } from './FilterStockStatus'
 import { FilterSupplier } from './FilterSupplier'
 import { FilterSupplierType } from './FilterSupplierType'
+import { FilterTransactionStatus } from './FilterTransactionStatus'
 import { FilterUserStatus } from './FilterUserStatus'
 import { AppButton } from '@/components/common/AppButton'
 import type {
@@ -237,6 +238,17 @@ function renderQuickField<TFilters extends object>(
         field={fieldKey}
         value={(value as string | null) ?? null}
         onChange={onChange}
+      />
+    )
+  }
+
+  if (field.type === 'transaction-status') {
+    return (
+      <FilterTransactionStatus
+        key={fieldKey}
+        field={fieldKey}
+        value={(value as string | null) ?? null}
+        onChange={onChange as (value: string | null) => void}
       />
     )
   }

@@ -34,7 +34,8 @@ function getDefaults<TFilters extends object>(
       field.type === 'category' ||
       field.type === 'product-type' ||
       field.type === 'stock-status' ||
-      field.type === 'price-list'
+      field.type === 'price-list' ||
+      field.type === 'transaction-status'
     ) {
       defaults[key] = null
     }

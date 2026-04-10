@@ -111,6 +111,15 @@ export class QueryPaymentsDto {
   toDate?: Date;
 
   @ApiPropertyOptional({
+    description: 'Filter by payment status',
+    enum: PaymentStatus,
+    example: 'completed',
+  })
+  @IsOptional()
+  @IsEnum(PaymentStatus)
+  status?: PaymentStatus;
+
+  @ApiPropertyOptional({
     description: 'Search by payment number or customer name',
     example: 'PAY-000001',
   })

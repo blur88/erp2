@@ -156,11 +156,13 @@ export class PaymentService {
       search,
       sortBy = 'paymentDate',
       sortOrder = 'DESC',
+      status,
     } = query;
 
     const where: FindOptionsWhere<Payment> = {};
 
     if (customerId) where.customerId = customerId;
+    if (status) where.status = status as PaymentStatus;
     if (invoiceId) where.invoiceId = invoiceId;
 
     if (fromDate || toDate) {

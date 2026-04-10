@@ -12,6 +12,7 @@ const { useGetPaymentsQuery } = vi.hoisted(() => ({
     data: { data: [], meta: { total: 0 } },
     isLoading: false,
     isFetching: false,
+    error: undefined,
     refetch: vi.fn(),
   })),
 }))
@@ -31,12 +32,35 @@ vi.mock('@/hooks/useNotification', () => ({
   useNotification: () => ({ showSuccess: vi.fn(), showError: vi.fn() }),
 }))
 
-vi.mock('@/components/sales/DeletedPaymentsDialog', () => ({
-  default: () => <div>DeletedPaymentsDialog</div>,
+vi.mock('@/components/common/MasterDetailWorkspace', () => ({
+  default: ({ listSlot, headerSlot, workspaceSlot }: any) => (
+    <div>
+      <div>{listSlot}</div>
+      <div>{headerSlot}</div>
+      <div>{workspaceSlot}</div>
+    </div>
+  ),
 }))
 
-vi.mock('@/components/print', () => ({
-  PaymentReceiptPrint: () => <div>PaymentReceiptPrint</div>,
+vi.mock('../components/PaymentsTable', () => ({ default: () => <div>PaymentsTable</div> }))
+vi.mock('../components/PaymentContextHeader', () => ({ default: () => <div>PaymentContextHeader</div> }))
+vi.mock('../components/PaymentWorkspaceCard', () => ({ default: () => <div>PaymentWorkspaceCard</div> }))
+vi.mock('../components/PaymentsDialogs', () => ({ default: () => <div>PaymentsDialogs</div> }))
+vi.mock('../hooks/usePaymentsSelection', () => ({
+  usePaymentsSelection: () => ({
+    handlePaymentSelect: vi.fn(),
+    handleNavigateUp: vi.fn(),
+    handleNavigateDown: vi.fn(),
+    handleEnterAction: vi.fn(),
+    handlePageUpNavigation: vi.fn(),
+    handlePageDownNavigation: vi.fn(),
+    handleNavigateToFirst: vi.fn(),
+    handleNavigateToLast: vi.fn(),
+    handleEscapeAction: vi.fn(),
+    handleOrderClick: vi.fn(),
+    handleInvoiceClick: vi.fn(),
+    handleNavigateToJournalEntry: vi.fn(),
+  }),
 }))
 
 function renderPage(initialUrl = '/', state?: unknown) {
@@ -82,5 +106,34 @@ describe('PaymentsPage FilterBar', () => {
     expect(chip).toBeInTheDocument()
     const chipEl = chip.closest('[class*="MuiChip"]')
     expect(chipEl?.querySelector('[data-testid="CancelIcon"]')).not.toBeInTheDocument()
+  })
+
+  it('passes customerId from location state to query', () => {
+    renderPage('/', { customerId: 'cust-1' })
+    expect(useGetPaymentsQuery).toHaveBeenLastCalledWith(
+      expect.objectContaining({ customerId: 'cust-1' }),
+    )
+  })
+
+  it('renders period filter button', () => {
+    renderPage()
+    expect(screen.getByRole('combobox', { name: /period/i })).toBeInTheDocument()
+  })
+
+  it('renders customer filter button', () => {
+    renderPage()
+    expect(screen.getByRole('combobox', { name: /customer/i })).toBeInTheDocument()
+  })
+
+  it('renders status filter button', () => {
+    renderPage()
+    expect(screen.getByRole('combobox', { name: /status/i })).toBeInTheDocument()
+  })
+
+  it('passes status filter to query when applied', () => {
+    renderPage('/?transactionStatus=completed')
+    expect(useGetPaymentsQuery).toHaveBeenLastCalledWith(
+      expect.objectContaining({ status: 'completed' }),
+    )
   })
 })
