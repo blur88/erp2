@@ -107,7 +107,7 @@ const PaymentsPage: React.FC = () => {
   const totalPayments = data?.meta?.total ?? 0
 
   const handleSort = useCallback((field: string) => {
-    setSortOrder((prev) => (sortBy === field && prev === 'desc' ? 'asc' : 'desc'))
+    setSortOrder((prev) => (sortBy === field && prev === 'asc' ? 'desc' : 'asc'))
     setSortBy(field)
   }, [sortBy])
 
@@ -175,6 +175,7 @@ const PaymentsPage: React.FC = () => {
             label={`Customer: ${customers.find((customer) => customer.id === presetCustomerId)?.name ?? presetCustomerId}`}
             size="small"
             variant="filled"
+            color="primary"
           />
         </Stack>
       )}

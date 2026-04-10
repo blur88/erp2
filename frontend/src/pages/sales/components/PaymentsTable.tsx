@@ -7,7 +7,6 @@ import {
   TableBody,
   TableCell,
   TableContainer,
-  TableHead,
   TableRow,
   Typography,
 } from '@mui/material'
@@ -110,18 +109,6 @@ const PaymentsTable: React.FC<PaymentsTableProps> = ({
               },
             }}
           >
-            <TableHead>
-              <TableRow
-                sx={{
-                  '& .MuiTableCell-head': {
-                    fontWeight: 600,
-                    backgroundColor: 'grey.50',
-                    color: 'text.primary',
-                    fontSize: '0.8rem',
-                  },
-                }}
-              />
-            </TableHead>
             <TableBody>
               {loading && payments.length === 0
                 ? [...Array(10)].map((_, index) => (

@@ -3,6 +3,7 @@ import { default as PrintIcon } from '@mui/icons-material/Print'
 import {
   Box,
   Chip,
+  CircularProgress,
   IconButton,
   Paper,
   Table,
@@ -79,7 +80,7 @@ const getPaymentMethodLabel = (payment: PaymentListItem) => {
 const PaymentContextHeader: React.FC<PaymentContextHeaderProps> = ({
   selectedPayment,
   journalEntryRef,
-  journalEntryRefLoading: _journalEntryRefLoading,
+  journalEntryRefLoading,
   onPrint,
   onOrderClick,
   onInvoiceClick,
@@ -228,7 +229,9 @@ const PaymentContextHeader: React.FC<PaymentContextHeaderProps> = ({
                   <TableRow sx={{ backgroundColor: 'grey.50' }}>
                     <TableCell sx={labelCellSx}>Journal Entry</TableCell>
                     <TableCell sx={valueCellSx}>
-                      {journalEntryRef ? (
+                      {journalEntryRefLoading ? (
+                        <CircularProgress size={12} />
+                      ) : journalEntryRef ? (
                         <Typography
                           component="button"
                           onClick={() => onNavigateToJournalEntry(journalEntryRef)}

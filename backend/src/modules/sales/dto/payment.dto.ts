@@ -112,12 +112,12 @@ export class QueryPaymentsDto {
 
   @ApiPropertyOptional({
     description: 'Filter by payment status',
-    enum: ['pending', 'completed', 'failed', 'cancelled', 'refunded'],
+    enum: PaymentStatus,
     example: 'completed',
   })
   @IsOptional()
-  @IsString()
-  status?: string;
+  @IsEnum(PaymentStatus)
+  status?: PaymentStatus;
 
   @ApiPropertyOptional({
     description: 'Search by payment number or customer name',
