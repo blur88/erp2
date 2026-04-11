@@ -357,4 +357,70 @@ describe('GoodsReceivedNoteService', () => {
       expect(accountingService.postGoodsReceivedEntry).toHaveBeenCalled();
     });
   });
+
+  describe('findAll', () => {
+    const mockQueryBuilder = {
+      leftJoinAndSelect: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      orderBy: jest.fn().mockReturnThis(),
+      getMany: jest.fn().mockResolvedValue([]),
+    };
+
+    beforeEach(() => {
+      grnRepository.createQueryBuilder.mockReturnValue(mockQueryBuilder as any);
+    });
+
+    it('applies supplierId WHERE clause when supplierId is provided', async () => {
+      await service.findAll({ supplierId: 'supplier-123' } as any);
+
+      expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith(
+        'grn.supplierId = :supplierId',
+        { supplierId: 'supplier-123' },
+      );
+    });
+
+    it('applies status WHERE clause when status is provided', async () => {
+      await service.findAll({ status: GrnStatus.RECEIVED } as any);
+
+      expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith(
+        'grn.status = :status',
+        { status: GrnStatus.RECEIVED },
+      );
+    });
+
+    it('does not apply supplierId or status clauses when neither is provided', async () => {
+      await service.findAll({} as any);
+
+      const calls = mockQueryBuilder.andWhere.mock.calls.map(([clause]) => clause as string);
+      expect(calls.some((clause) => clause.includes('supplierId'))).toBe(false);
+      expect(calls.some((clause) => clause.includes('status'))).toBe(false);
+    });
+
+    it('applies receivedDateFrom WHERE clause when provided', async () => {
+      await service.findAll({ receivedDateFrom: '2025-01-01' } as any);
+
+      expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith(
+        'grn.receivedDate >= :receivedDateFrom',
+        { receivedDateFrom: '2025-01-01' },
+      );
+    });
+
+    it('applies receivedDateTo WHERE clause when provided', async () => {
+      await service.findAll({ receivedDateTo: '2025-01-31' } as any);
+
+      expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith(
+        'grn.receivedDate <= :receivedDateTo',
+        { receivedDateTo: '2025-01-31' },
+      );
+    });
+
+    it('does not apply date clauses when neither is provided', async () => {
+      await service.findAll({} as any);
+
+      const calls = mockQueryBuilder.andWhere.mock.calls.map(([clause]) => clause as string);
+      expect(calls.some((clause) => clause.includes('receivedDateFrom'))).toBe(false);
+      expect(calls.some((clause) => clause.includes('receivedDateTo'))).toBe(false);
+    });
+  });
 });

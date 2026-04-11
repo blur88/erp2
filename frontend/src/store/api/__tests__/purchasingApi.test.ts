@@ -12,6 +12,7 @@ describe('purchasingApiSlice', () => {
     expect(purchasingApiSlice.endpoints.createPurchaseOrder).toBeDefined()
     expect(purchasingApiSlice.endpoints.updatePurchaseOrder).toBeDefined()
     expect(purchasingApiSlice.endpoints.getGoodsReceivedNotes).toBeDefined()
+    expect(purchasingApiSlice.endpoints.getGoodsReceivedNote).toBeDefined()
     expect(purchasingApiSlice.endpoints.getVendorPayments).toBeDefined()
     expect(purchasingApiSlice.endpoints.getDeletedGRNs).toBeDefined()
     expect(purchasingApiSlice.endpoints.getDeletedVendorPayments).toBeDefined()
