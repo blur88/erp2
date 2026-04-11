@@ -1,3 +1,16 @@
+# [1.65.0](https://github.com/blur88/erp2/compare/v1.64.1...v1.65.0) (2026-04-11)
+
+
+### Bug Fixes
+
+* address code review issues in GRN page refactor ([db1a272](https://github.com/blur88/erp2/commit/db1a272131b3eeac8c475ebb03bf6ee8d0a0ea41))
+* simplify GRNTable row to match PurchaseOrdersTable pattern ([1316532](https://github.com/blur88/erp2/commit/131653235d71ad74d4a696a90012dc8dbeb419bc))
+
+
+### Features
+
+* add useLazyGetGoodsReceivedNoteQuery to purchasingApi ([6b8915a](https://github.com/blur88/erp2/commit/6b8915a0b7294c637665cdde32ebfefc2e708a48))
+
 ## [1.64.1](https://github.com/blur88/erp2/compare/v1.64.0...v1.64.1) (2026-04-11)
 
 
