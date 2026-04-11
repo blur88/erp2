@@ -219,6 +219,11 @@ export const purchasingApiSlice = createApi({
       transformResponse: (response: any) => normalizeNamedCollection<GoodsReceivedNote>(response, 'grns'),
       providesTags: ['DeletedGRN'],
     }),
+    getGoodsReceivedNote: builder.query<GoodsReceivedNote, string>({
+      query: (id) => ({ url: `/purchasing/goods-received-notes/${id}` }),
+      transformResponse: normalizeSingle<GoodsReceivedNote>,
+      providesTags: (_result, _error, id) => [{ type: 'GoodsReceivedNote', id }],
+    }),
 
     getVendorPayments: builder.query<PaginatedResponse<VendorPayment>, Record<string, unknown> | undefined>({
       query: (params) => ({ url: '/purchasing/vendor-payments', params: params ?? {} }),
@@ -264,6 +269,7 @@ export const {
   useMarkPurchaseOrderAsUnpaidMutation,
   useRecordOrderPaymentsMutation,
   useGetGoodsReceivedNotesQuery,
+  useLazyGetGoodsReceivedNoteQuery,
   useGetDeletedGRNsQuery,
   useGetVendorPaymentsQuery,
   useGetDeletedVendorPaymentsQuery,
