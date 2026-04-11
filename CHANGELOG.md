@@ -1,3 +1,10 @@
+## [1.64.1](https://github.com/blur88/erp2/compare/v1.64.0...v1.64.1) (2026-04-11)
+
+
+### Internal Changes
+
+* chore: update package-lock.json files for backend and frontend dependencies ([](https://github.com/blur88/erp2/commit/))
+
 # [1.64.0](https://github.com/blur88/erp2/compare/v1.63.0...v1.64.0) (2026-04-10)
 
 
