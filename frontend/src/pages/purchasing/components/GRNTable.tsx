@@ -1,7 +1,6 @@
 import React, { memo } from 'react'
 import {
   Box,
-  Chip,
   Paper,
   Skeleton,
   Table,
@@ -14,7 +13,6 @@ import {
 
 import { TABLE_STYLES } from '@/constants/tableStyles'
 import type { GoodsReceivedNote } from '@/types'
-import { formatDate } from '@/utils/formatters'
 
 interface GRNRowProps {
   grn: GoodsReceivedNote
@@ -50,22 +48,6 @@ const GRNRow = memo(({ grn, index, selectedGRNId, focusedGRNIndex, onGRNSelect }
         <Typography variant="body2" sx={{ fontWeight: 400, fontSize: '0.8rem', lineHeight: 1.2 }}>
           {grn.grnNumber}
         </Typography>
-        <Typography variant="body2" sx={{ fontSize: '0.72rem', color: 'text.secondary', lineHeight: 1.2 }}>
-          {grn.supplier?.companyName || '—'}
-        </Typography>
-      </TableCell>
-      <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
-        <Typography variant="body2" sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>
-          {formatDate(grn.receivedDate)}
-        </Typography>
-        <Box sx={{ mt: 0.25 }}>
-          <Chip
-            label={grn.status}
-            size="small"
-            color={grn.status === 'received' ? 'success' : 'default'}
-            sx={{ fontSize: '0.68rem', height: 16 }}
-          />
-        </Box>
       </TableCell>
     </TableRow>
   )
@@ -109,7 +91,7 @@ const GRNTable: React.FC<GRNTableProps> = ({
               {loading && grns.length === 0
                 ? [...Array(10)].map((_, index) => (
                     <TableRow key={`skeleton-${index}`}>
-                      <TableCell colSpan={2}>
+                      <TableCell>
                         <Skeleton height={40} />
                       </TableCell>
                     </TableRow>
