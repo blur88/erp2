@@ -93,7 +93,10 @@ export function useGRNSelection({
         dispatch(setSelectedGRN(grn))
         const index = grns.findIndex((item) => item.id === grn.id)
         setFocusedGRNIndex(index)
-        setSearchParams({})
+        setSearchParams((prev) => {
+          prev.delete('grnId')
+          return prev
+        }, { replace: true })
       }
     }
   }, [dispatch, grns, searchParams, setFocusedGRNIndex, setSearchParams])

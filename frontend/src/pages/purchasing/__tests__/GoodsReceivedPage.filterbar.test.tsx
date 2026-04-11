@@ -138,10 +138,23 @@ describe('GoodsReceivedPage FilterBar integration', () => {
     )
   })
 
-  it('maps period filter to receivedDateFrom/receivedDateTo params', () => {
-    renderPage('/?periodKey=custom&periodFrom=2025-01-01&periodTo=2025-01-31')
+  it('sends no receivedDateFrom or receivedDateTo when period is not selected (default)', () => {
+    renderPage()
     expect(useGetGoodsReceivedNotesQuery).toHaveBeenLastCalledWith(
-      expect.not.objectContaining({ periodKey: expect.anything() }),
+      expect.objectContaining({
+        receivedDateFrom: undefined,
+        receivedDateTo: undefined,
+      }),
+    )
+  })
+
+  it('restores period=this_week from URL and resolves to receivedDateFrom/receivedDateTo in the query', () => {
+    renderPage('/?period=this_week')
+    expect(useGetGoodsReceivedNotesQuery).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        receivedDateFrom: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
+        receivedDateTo: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
+      }),
     )
   })
 })

@@ -239,6 +239,8 @@ export class GoodsReceivedNoteService {
       status,
       supplierId,
       purchaseOrderId,
+      receivedDateFrom,
+      receivedDateTo,
       sortBy = 'grnNumber',
       sortOrder = 'ASC',
     } = query;
@@ -271,6 +273,14 @@ export class GoodsReceivedNoteService {
 
     if (purchaseOrderId) {
       queryBuilder.andWhere('grn.purchaseOrderId = :purchaseOrderId', { purchaseOrderId });
+    }
+
+    if (receivedDateFrom) {
+      queryBuilder.andWhere('grn.receivedDate >= :receivedDateFrom', { receivedDateFrom });
+    }
+
+    if (receivedDateTo) {
+      queryBuilder.andWhere('grn.receivedDate <= :receivedDateTo', { receivedDateTo });
     }
 
     // Apply sorting
