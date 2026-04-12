@@ -1,10 +1,23 @@
 import React from 'react'
 import { default as DeleteIcon } from '@mui/icons-material/Delete'
 import { default as EditIcon } from '@mui/icons-material/Edit'
-import { Box, IconButton, Paper, Typography } from '@mui/material'
+import {
+  Box,
+  Chip,
+  Grid,
+  IconButton,
+  Paper,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableRow,
+  Typography,
+} from '@mui/material'
 
 import { TABLE_STYLES } from '@/constants/tableStyles'
 import type { Category } from '@/types'
+import { formatDate } from '@/utils/formatters'
 
 interface CategoryContextHeaderProps {
   selectedCategory: Category | null
@@ -18,6 +31,27 @@ const actionIconSx = {
   minHeight: 20,
   minWidth: 20,
   p: 0.125,
+}
+
+const detailTableSx = {
+  tableLayout: 'fixed',
+  '& .MuiTableCell-root': {
+    border: 'none',
+    py: TABLE_STYLES.cell.padding.py,
+    px: TABLE_STYLES.cell.padding.px,
+    '&:nth-of-type(1)': { width: '40%' },
+    '&:nth-of-type(2)': { width: '60%' },
+  },
+}
+
+const labelCellSx = {
+  fontWeight: 600,
+  color: 'text.secondary',
+  fontSize: '0.8rem',
+}
+
+const valueCellSx = {
+  fontSize: '0.8rem',
 }
 
 const CategoryContextHeader: React.FC<CategoryContextHeaderProps> = ({
@@ -35,6 +69,10 @@ const CategoryContextHeader: React.FC<CategoryContextHeaderProps> = ({
     )
   }
 
+  const levelLabel = selectedCategory.level === 0 ? 'Root' : `Level ${selectedCategory.level}`
+  const parentLabel = selectedCategory.parent?.name ?? (selectedCategory.isRoot ? 'None' : '—')
+  const productCount = selectedCategory.productCount ?? 0
+
   return (
     <Paper sx={{ overflow: 'hidden' }}>
       <Box
@@ -46,19 +84,12 @@ const CategoryContextHeader: React.FC<CategoryContextHeaderProps> = ({
           alignItems: 'center',
         }}
       >
-        <Box>
-          <Typography
-            variant="tableHeader"
-            sx={{ fontWeight: 600, fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}
-          >
-            Category - {selectedCategory.name}
-          </Typography>
-          {selectedCategory.fullPath && selectedCategory.fullPath !== selectedCategory.name && (
-            <Typography variant="body2" sx={{ color: 'text.secondary', fontSize: '0.75rem', mt: 0.25 }}>
-              {selectedCategory.fullPath}
-            </Typography>
-          )}
-        </Box>
+        <Typography
+          variant="tableHeader"
+          sx={{ fontWeight: 600, fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}
+        >
+          Category - {selectedCategory.name}
+        </Typography>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25 }}>
           <IconButton
             size="small"
@@ -79,6 +110,95 @@ const CategoryContextHeader: React.FC<CategoryContextHeaderProps> = ({
             <DeleteIcon sx={{ fontSize: `${TABLE_STYLES.row.height * 0.5}px` }} />
           </IconButton>
         </Box>
+      </Box>
+
+      <Box sx={{ p: TABLE_STYLES.cell.padding.px }}>
+        <Grid container spacing={3}>
+          <Grid size={{ xs: 12, md: 6 }}>
+            <TableContainer>
+              <Table size={TABLE_STYLES.size} sx={detailTableSx}>
+                <TableBody>
+                  <TableRow>
+                    <TableCell
+                      colSpan={2}
+                      sx={{
+                        pb: TABLE_STYLES.cell.padding.py * 0.67,
+                        py: TABLE_STYLES.cell.padding.py * 0.67,
+                        borderTop: TABLE_STYLES.cell.border,
+                      }}
+                    >
+                      <Typography variant="h6" sx={{ fontWeight: 600, color: 'primary.main', fontSize: '0.8rem' }}>
+                        Category Info
+                      </Typography>
+                    </TableCell>
+                  </TableRow>
+                  <TableRow sx={{ backgroundColor: 'grey.50' }}>
+                    <TableCell sx={labelCellSx}>Category Path</TableCell>
+                    <TableCell sx={valueCellSx}>{selectedCategory.fullPath}</TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell sx={labelCellSx}>Level</TableCell>
+                    <TableCell sx={valueCellSx}>{levelLabel}</TableCell>
+                  </TableRow>
+                  <TableRow sx={{ backgroundColor: 'grey.50' }}>
+                    <TableCell sx={labelCellSx}>Parent Category</TableCell>
+                    <TableCell sx={valueCellSx}>{parentLabel}</TableCell>
+                  </TableRow>
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </Grid>
+
+          <Grid size={{ xs: 12, md: 6 }}>
+            <TableContainer>
+              <Table size={TABLE_STYLES.size} sx={detailTableSx}>
+                <TableBody>
+                  <TableRow>
+                    <TableCell
+                      colSpan={2}
+                      sx={{
+                        pb: TABLE_STYLES.cell.padding.py * 0.67,
+                        py: TABLE_STYLES.cell.padding.py * 0.67,
+                        borderTop: TABLE_STYLES.cell.border,
+                      }}
+                    >
+                      <Typography variant="h6" sx={{ fontWeight: 600, color: 'primary.main', fontSize: '0.8rem' }}>
+                        Summary
+                      </Typography>
+                    </TableCell>
+                  </TableRow>
+                  <TableRow sx={{ backgroundColor: 'grey.50' }}>
+                    <TableCell sx={labelCellSx}>Product Count</TableCell>
+                    <TableCell sx={valueCellSx}>
+                      <Chip
+                        label={`${productCount} ${productCount === 1 ? 'item' : 'items'}`}
+                        size="small"
+                        color={productCount > 0 ? 'primary' : 'default'}
+                        variant="outlined"
+                        sx={{ fontSize: '0.7rem', fontWeight: 500 }}
+                      />
+                    </TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell sx={labelCellSx}>Created</TableCell>
+                    <TableCell sx={valueCellSx}>{formatDate(selectedCategory.createdAt)}</TableCell>
+                  </TableRow>
+                  <TableRow sx={{ backgroundColor: 'grey.50' }}>
+                    <TableCell sx={labelCellSx}>Status</TableCell>
+                    <TableCell
+                      sx={{
+                        ...valueCellSx,
+                        color: selectedCategory.isActive ? 'success.main' : 'text.disabled',
+                      }}
+                    >
+                      {selectedCategory.isActive ? 'Active' : 'Inactive'}
+                    </TableCell>
+                  </TableRow>
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </Grid>
+        </Grid>
       </Box>
     </Paper>
   )

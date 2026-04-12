@@ -1,7 +1,6 @@
 import React, { memo } from 'react'
 import {
   Box,
-  Chip,
   Paper,
   Skeleton,
   Table,
@@ -10,13 +9,10 @@ import {
   TableContainer,
   TableRow,
   Typography,
-  useMediaQuery,
-  useTheme,
 } from '@mui/material'
 import { default as DragIndicatorIcon } from '@mui/icons-material/DragIndicator'
 
 import { TABLE_STYLES } from '@/constants/tableStyles'
-import { formatDate } from '@/utils/formatters'
 import type { Category } from '@/types'
 
 interface CategoryRowProps {
@@ -25,7 +21,6 @@ interface CategoryRowProps {
   selectedCategoryId: string | undefined
   focusedIndex: number
   onSelect: (category: Category) => void
-  isMobile: boolean
 }
 
 const CategoryRow = memo(({
@@ -34,7 +29,6 @@ const CategoryRow = memo(({
   selectedCategoryId,
   focusedIndex,
   onSelect,
-  isMobile,
 }: CategoryRowProps) => {
   const isSelected = selectedCategoryId === category.id
   const isFocused = index === focusedIndex
@@ -72,22 +66,6 @@ const CategoryRow = memo(({
           </Typography>
         </Box>
       </TableCell>
-      <TableCell sx={{ width: isMobile ? '30%' : '35%' }}>
-        <Chip
-          label={`${category.productCount ?? 0} ${(category.productCount ?? 0) === 1 ? 'item' : 'items'}`}
-          size="small"
-          color={category.productCount && category.productCount > 0 ? 'primary' : 'default'}
-          variant="outlined"
-          sx={{ fontSize: '0.7rem', fontWeight: 500 }}
-        />
-      </TableCell>
-      {!isMobile && (
-        <TableCell sx={{ width: '30%' }}>
-          <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.7rem' }}>
-            {formatDate(category.createdAt)}
-          </Typography>
-        </TableCell>
-      )}
     </TableRow>
   )
 })
@@ -111,9 +89,6 @@ const CategoryList: React.FC<CategoryListProps> = ({
   onSelect,
   categoryListRef,
 }) => {
-  const theme = useTheme()
-  const isMobile = useMediaQuery(theme.breakpoints.down('md'))
-
   return (
     <Paper sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
       <Box sx={{ p: TABLE_STYLES.cell.padding.px, borderBottom: TABLE_STYLES.cell.border }}>
@@ -157,7 +132,7 @@ const CategoryList: React.FC<CategoryListProps> = ({
               {loading && categories.length === 0
                 ? [...Array(10)].map((_, index) => (
                     <TableRow key={`skeleton-${index}`}>
-                      <TableCell colSpan={isMobile ? 2 : 3}>
+                      <TableCell colSpan={1}>
                         <Skeleton height={40} />
                       </TableCell>
                     </TableRow>
@@ -165,7 +140,7 @@ const CategoryList: React.FC<CategoryListProps> = ({
                 : categories.length === 0
                   ? (
                       <TableRow>
-                        <TableCell colSpan={isMobile ? 2 : 3}>
+                        <TableCell colSpan={1}>
                           <Typography variant="body2" sx={{ color: 'text.secondary', textAlign: 'center', py: 2 }}>
                             No categories found
                           </Typography>
@@ -180,7 +155,6 @@ const CategoryList: React.FC<CategoryListProps> = ({
                         selectedCategoryId={selectedCategoryId}
                         focusedIndex={focusedIndex}
                         onSelect={onSelect}
-                        isMobile={isMobile}
                       />
                     ))}
             </TableBody>
