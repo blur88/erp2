@@ -1,65 +1,49 @@
 import { useCallback, useEffect, useRef, type RefObject } from 'react'
-import type { Location, NavigateFunction } from 'react-router-dom'
+import { useLocation, type NavigateFunction } from 'react-router-dom'
 
-import { setSelectedProduct } from '@/store/slices/inventorySlice'
 import type { AppDispatch } from '@/store'
+import { setSelectedProduct } from '@/store/slices/inventorySlice'
 import type { Product } from '@/types'
 
 interface UseProductsSelectionParams {
   dispatch: AppDispatch
   navigate: NavigateFunction
-  location: Location
   products: Product[]
   selectedProduct: Product | null
   focusedProductIndex: number
   setFocusedProductIndex: (index: number) => void
-  selectedCategory: string
   productListRef: RefObject<HTMLDivElement | null>
 }
 
 export function useProductsSelection({
   dispatch,
   navigate,
-  location,
   products,
   selectedProduct,
   focusedProductIndex,
   setFocusedProductIndex,
-  selectedCategory,
   productListRef,
 }: UseProductsSelectionParams) {
+  const location = useLocation()
+  const hasAutoSelected = useRef(false)
   const navigationSelectionId = (location.state as { selectedProductId?: string } | null)?.selectedProductId
 
-  const prevCategoryRef = useRef(selectedCategory)
   useEffect(() => {
-    if (prevCategoryRef.current !== selectedCategory) {
-      prevCategoryRef.current = selectedCategory
+    if (
+      products.length > 0 &&
+      !hasAutoSelected.current &&
+      focusedProductIndex === -1 &&
+      !selectedProduct &&
+      !navigationSelectionId
+    ) {
+      hasAutoSelected.current = true
+      setFocusedProductIndex(0)
+      dispatch(setSelectedProduct(products[0]))
+    } else if (products.length === 0) {
+      dispatch(setSelectedProduct(null))
       setFocusedProductIndex(-1)
     }
-  }, [selectedCategory, setFocusedProductIndex])
-
-  useEffect(() => {
-    if (selectedProduct && products.length > 0) {
-      const index = products.findIndex((product) => product.id === selectedProduct.id)
-      if (index >= 0) {
-        setFocusedProductIndex(index)
-      }
-    }
-  }, [products, selectedProduct, setFocusedProductIndex])
-
-  useEffect(() => {
-    if (selectedProduct && products.length > 0) {
-      const updatedProduct = products.find((product) => product.id === selectedProduct.id)
-      if (updatedProduct) {
-        const hasChanged = JSON.stringify(updatedProduct) !== JSON.stringify(selectedProduct)
-        if (hasChanged) {
-          dispatch(setSelectedProduct(updatedProduct))
-        }
-      } else {
-        dispatch(setSelectedProduct(null))
-      }
-    }
-  }, [dispatch, products, selectedProduct])
+  }, [products, dispatch, focusedProductIndex, selectedProduct, navigationSelectionId, setFocusedProductIndex])
 
   useEffect(() => {
     if (navigationSelectionId && products.length > 0) {
@@ -76,18 +60,18 @@ export function useProductsSelection({
   }, [dispatch, location.pathname, navigate, navigationSelectionId, products, setFocusedProductIndex])
 
   useEffect(() => {
-    if (products.length > 0 && focusedProductIndex === -1) {
-      if (selectedProduct) {
-        const index = products.findIndex((product) => product.id === selectedProduct.id)
-        if (index >= 0) {
-          setFocusedProductIndex(index)
+    if (selectedProduct && products.length > 0) {
+      const updatedProduct = products.find((product) => product.id === selectedProduct.id)
+      if (updatedProduct) {
+        const hasChanged = JSON.stringify(updatedProduct) !== JSON.stringify(selectedProduct)
+        if (hasChanged) {
+          dispatch(setSelectedProduct(updatedProduct))
         }
-      } else if (!navigationSelectionId) {
-        setFocusedProductIndex(0)
-        dispatch(setSelectedProduct(products[0]))
+      } else {
+        dispatch(setSelectedProduct(null))
       }
     }
-  }, [dispatch, focusedProductIndex, navigationSelectionId, products, selectedProduct, setFocusedProductIndex])
+  }, [dispatch, products, selectedProduct])
 
   useEffect(() => {
     if (focusedProductIndex >= 0 && productListRef.current) {
@@ -98,60 +82,60 @@ export function useProductsSelection({
     }
   }, [focusedProductIndex, productListRef])
 
-  const selectByIndex = useCallback((index: number) => {
-    setFocusedProductIndex(index)
-    dispatch(setSelectedProduct(products[index]))
-  }, [dispatch, products, setFocusedProductIndex])
+  const selectAtIndex = useCallback(
+    (index: number) => {
+      setFocusedProductIndex(index)
+      dispatch(setSelectedProduct(products[index]))
+    },
+    [dispatch, products, setFocusedProductIndex],
+  )
 
-  const handleProductSelect = useCallback((product: Product, index: number) => {
-    dispatch(setSelectedProduct(product))
-    setFocusedProductIndex(index)
-  }, [dispatch, setFocusedProductIndex])
-
-  const handleProductListFocus = useCallback(() => {
-    if (products.length > 0 && focusedProductIndex === -1) {
-      setFocusedProductIndex(0)
-      dispatch(setSelectedProduct(products[0]))
-    }
-  }, [dispatch, focusedProductIndex, products, setFocusedProductIndex])
+  const handleProductSelect = useCallback(
+    (product: Product) => {
+      const index = products.findIndex((candidate) => candidate.id === product.id)
+      setFocusedProductIndex(index)
+      dispatch(setSelectedProduct(product))
+    },
+    [dispatch, products, setFocusedProductIndex],
+  )
 
   const handleNavigateUp = useCallback(() => {
     if (focusedProductIndex > 0) {
-      selectByIndex(focusedProductIndex - 1)
+      selectAtIndex(focusedProductIndex - 1)
     }
-  }, [focusedProductIndex, selectByIndex])
+  }, [focusedProductIndex, selectAtIndex])
 
   const handleNavigateDown = useCallback(() => {
     if (focusedProductIndex < products.length - 1) {
-      selectByIndex(focusedProductIndex + 1)
+      selectAtIndex(focusedProductIndex + 1)
     }
-  }, [focusedProductIndex, products.length, selectByIndex])
+  }, [focusedProductIndex, products.length, selectAtIndex])
 
-  const handleNavigateHome = useCallback(() => {
+  const handleNavigateToFirst = useCallback(() => {
     if (products.length > 0) {
-      selectByIndex(0)
+      selectAtIndex(0)
     }
-  }, [products.length, selectByIndex])
+  }, [products.length, selectAtIndex])
 
-  const handleNavigateEnd = useCallback(() => {
+  const handleNavigateToLast = useCallback(() => {
     if (products.length > 0) {
-      selectByIndex(products.length - 1)
+      selectAtIndex(products.length - 1)
     }
-  }, [products.length, selectByIndex])
+  }, [products.length, selectAtIndex])
 
   const handlePageUpNavigation = useCallback(() => {
     const newIndex = Math.max(0, focusedProductIndex - 10)
     if (products[newIndex]) {
-      selectByIndex(newIndex)
+      selectAtIndex(newIndex)
     }
-  }, [focusedProductIndex, products, selectByIndex])
+  }, [focusedProductIndex, products, selectAtIndex])
 
   const handlePageDownNavigation = useCallback(() => {
     const newIndex = Math.min(products.length - 1, focusedProductIndex + 10)
     if (products[newIndex]) {
-      selectByIndex(newIndex)
+      selectAtIndex(newIndex)
     }
-  }, [focusedProductIndex, products, selectByIndex])
+  }, [focusedProductIndex, products, selectAtIndex])
 
   const handleEnterAction = useCallback(() => {
     if (focusedProductIndex >= 0 && products[focusedProductIndex]) {
@@ -166,11 +150,10 @@ export function useProductsSelection({
 
   return {
     handleProductSelect,
-    handleProductListFocus,
     handleNavigateUp,
     handleNavigateDown,
-    handleNavigateHome,
-    handleNavigateEnd,
+    handleNavigateToFirst,
+    handleNavigateToLast,
     handlePageUpNavigation,
     handlePageDownNavigation,
     handleEnterAction,
