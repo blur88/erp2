@@ -1,7 +1,6 @@
 import React, { memo } from 'react'
 import {
   Box,
-  Chip,
   Paper,
   Skeleton,
   Table,
@@ -14,7 +13,6 @@ import {
 
 import { TABLE_STYLES } from '@/constants/tableStyles'
 import type { VendorPayment } from '@/types'
-import { formatCurrency, formatDate } from '@/utils/formatters'
 
 interface VendorPaymentRowProps {
   payment: VendorPayment
@@ -22,12 +20,6 @@ interface VendorPaymentRowProps {
   selectedPaymentId?: string
   focusedPaymentIndex: number
   onPaymentSelect: (payment: VendorPayment) => void
-}
-
-const statusColor = (status: VendorPayment['status']): 'default' | 'success' | 'error' => {
-  if (status === 'completed') return 'success'
-  if (status === 'cancelled') return 'error'
-  return 'default'
 }
 
 const VendorPaymentRow = memo(({
@@ -59,28 +51,9 @@ const VendorPaymentRow = memo(({
       }}
     >
       <TableCell>
-        <Typography variant="body2" sx={{ fontWeight: 600, fontSize: '0.8rem', lineHeight: 1.2 }}>
+        <Typography variant="body2" sx={{ fontWeight: 400, fontSize: '0.8rem', lineHeight: 1.2 }}>
           {payment.paymentNumber}
         </Typography>
-        <Typography variant="body2" sx={{ fontSize: '0.75rem', color: 'text.secondary', lineHeight: 1.2 }}>
-          {payment.supplier?.companyName}
-        </Typography>
-      </TableCell>
-      <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
-        <Typography variant="body2" sx={{ fontSize: '0.8rem', lineHeight: 1.2 }}>
-          {formatCurrency(payment.amount)}
-        </Typography>
-        <Typography variant="body2" sx={{ fontSize: '0.75rem', color: 'text.secondary', lineHeight: 1.2 }}>
-          {formatDate(payment.paymentDate)}
-        </Typography>
-      </TableCell>
-      <TableCell align="right" sx={{ width: 90 }}>
-        <Chip
-          label={payment.status}
-          size="small"
-          color={statusColor(payment.status)}
-          sx={{ fontSize: '0.7rem', height: 20, textTransform: 'capitalize' }}
-        />
       </TableCell>
     </TableRow>
   )
@@ -124,7 +97,7 @@ const VendorPaymentTable: React.FC<VendorPaymentTableProps> = ({
               {loading && payments.length === 0
                 ? [...Array(10)].map((_, index) => (
                     <TableRow key={`skeleton-${index}`}>
-                      <TableCell colSpan={3}>
+                      <TableCell>
                         <Skeleton height={40} />
                       </TableCell>
                     </TableRow>
