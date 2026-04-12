@@ -1,3 +1,24 @@
+# [1.66.0](https://github.com/blur88/erp2/compare/v1.65.1...v1.66.0) (2026-04-12)
+
+
+### Bug Fixes
+
+* add vendor-payment-status filter type for VendorPaymentsPage ([1212d8c](https://github.com/blur88/erp2/commit/1212d8cf0560df60a15f095c0e4be4002233714a))
+* send sortOrder lowercase to match vendor-payment DTO validation ([47cff65](https://github.com/blur88/erp2/commit/47cff656d7d9ca4d8790b3614feefd0608613654))
+* show PO items in VendorPaymentWorkspaceCard instead of payment metadata ([b40fa94](https://github.com/blur88/erp2/commit/b40fa94073fcf175ee8be8b09957a98e55d62bbb))
+* simplify VendorPaymentTable row to show payment number only ([c98fe27](https://github.com/blur88/erp2/commit/c98fe27a3eb20ed30ced0a93ab03a28fad0465c6))
+
+
+### Features
+
+* add useLazyGetVendorPaymentQuery to purchasingApi ([7d21621](https://github.com/blur88/erp2/commit/7d216214288f139c9b8eac92585d95a688502cde))
+* add useVendorPaymentsPageState hook ([a6dca93](https://github.com/blur88/erp2/commit/a6dca93b0ab26dfdf5ff6e4168d3ad82e34a7e36))
+* add useVendorPaymentsSelection hook ([6011e98](https://github.com/blur88/erp2/commit/6011e98f9cb10cc9593995caa90b31254ba6519b))
+* add VendorPaymentContextHeader component ([37e4329](https://github.com/blur88/erp2/commit/37e4329f85d45e5d2061ced96e361a2ec823c455))
+* add VendorPaymentsDialogs component ([9c40023](https://github.com/blur88/erp2/commit/9c40023528a0ac7a60d20dd98372d52f3732d0b4))
+* add VendorPaymentTable component ([b64e60d](https://github.com/blur88/erp2/commit/b64e60d351a972fcacb1f3a00ef3365f2b40f27e))
+* add VendorPaymentWorkspaceCard component ([09182c6](https://github.com/blur88/erp2/commit/09182c68498429191b1a44996c066c8fc93f743f))
+
 ## [1.65.1](https://github.com/blur88/erp2/compare/v1.65.0...v1.65.1) (2026-04-11)
 
 
