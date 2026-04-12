@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react'
+import React, { useCallback, useMemo, useState } from 'react'
 import { Box, useMediaQuery, useTheme } from '@mui/material'
 import { useNavigate } from 'react-router-dom'
 
@@ -42,6 +42,13 @@ export const ProductsPage: React.FC = () => {
   const { showSuccess, showError } = useNotification()
   const selectedProduct = useAppSelector(selectSelectedProduct)
   const pageState = useProductsPageState()
+  const [sortBy, setSortBy] = useState('name')
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc')
+
+  const handleSort = useCallback((field: string) => {
+    setSortOrder((prev) => (sortBy === field && prev === 'desc' ? 'asc' : 'desc'))
+    setSortBy(field)
+  }, [sortBy])
 
   const filterConfig = useMemo<FilterBarConfig<InventoryProductFilters>>(
     () => ({
@@ -83,8 +90,11 @@ export const ProductsPage: React.FC = () => {
       params.outOfStock = true
     }
 
+    params.sortBy = sortBy
+    params.sortOrder = sortOrder.toUpperCase()
+
     return params
-  }, [appliedFilters])
+  }, [appliedFilters, sortBy, sortOrder])
 
   const {
     data: productsResponse,
@@ -149,6 +159,7 @@ export const ProductsPage: React.FC = () => {
             handlers={handlers}
             hasActiveFilters={hasActiveFilters}
             searchInputRef={pageState.searchInputRef}
+            sort={{ field: 'name', sortBy, sortOrder, onSort: handleSort }}
           />
         )}
       />
