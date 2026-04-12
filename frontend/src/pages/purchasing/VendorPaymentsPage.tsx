@@ -67,7 +67,7 @@ const VendorPaymentsPage: React.FC = () => {
 
   const queryParams = useMemo(() => ({
     sortBy: pageState.sorting.sortBy,
-    sortOrder: pageState.sorting.sortOrder.toUpperCase(),
+    sortOrder: pageState.sorting.sortOrder,
     search: filterBar.appliedFilters.search || undefined,
     supplierId: filterBar.appliedFilters.supplierId || undefined,
     status: filterBar.appliedFilters.status || undefined,
