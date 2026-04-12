@@ -184,7 +184,7 @@ export function parseFilters<TFilters extends object>(
         const VALID_ORDER_STATUS = ['fulfilled', 'unfulfilled']
         result[fieldKey] = VALID_ORDER_STATUS.includes(raw) ? raw : (defaultValue ?? null)
       } else if (field.type === 'purchasing-status') {
-        const VALID_PURCHASING_STATUS = ['draft', 'received']
+        const VALID_PURCHASING_STATUS = ['draft', 'received', 'pending', 'completed', 'cancelled']
         result[fieldKey] = VALID_PURCHASING_STATUS.includes(raw) ? raw : (defaultValue ?? null)
       } else if (field.type === 'payment-status') {
         const VALID_PAYMENT_STATUS = ['unpaid', 'partial', 'paid', 'overpaid']
