@@ -14,7 +14,7 @@ export interface GRNJournalEntryRef {
 export function useGRNPageState() {
   const [sorting, setSorting] = useState<GRNPageSorting>({
     sortBy: 'grnNumber',
-    sortOrder: 'desc',
+    sortOrder: 'asc',
   })
   const [focusedGRNIndex, setFocusedGRNIndex] = useState(-1)
   const [deletedGRNsOpen, setDeletedGRNsOpen] = useState(false)
