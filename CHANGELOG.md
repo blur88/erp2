@@ -1,3 +1,17 @@
+# [1.67.0](https://github.com/blur88/erp2/compare/v1.66.3...v1.67.0) (2026-04-12)
+
+
+### Bug Fixes
+
+* **inventory:** address post-review issues in ProductsPage refactor ([15a21d1](https://github.com/blur88/erp2/commit/15a21d102f287fccf1f7d5143827804af61db50c))
+
+
+### Features
+
+* **inventory:** add ProductContextHeader component ([cf278b2](https://github.com/blur88/erp2/commit/cf278b2df1e05612ae31735682659e52e1ca3539))
+* **inventory:** add ProductList component (replaces ProductsTable) ([e079099](https://github.com/blur88/erp2/commit/e079099a07ce128ae4bfb1ed7501aa155bc4b8b9))
+* **inventory:** add ProductWorkspaceCard component ([9e6b64b](https://github.com/blur88/erp2/commit/9e6b64b596ebe647735fbfa9d918173eb8eb06f9))
+
 ## [1.66.3](https://github.com/blur88/erp2/compare/v1.66.2...v1.66.3) (2026-04-12)
 
 
