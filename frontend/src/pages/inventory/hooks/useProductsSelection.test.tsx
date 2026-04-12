@@ -1,4 +1,5 @@
 import { renderHook, waitFor } from '@testing-library/react'
+import { MemoryRouter } from 'react-router-dom'
 import { describe, expect, it, vi } from 'vitest'
 
 import { useProductsSelection } from './useProductsSelection'
@@ -16,8 +17,19 @@ const makeProduct = (id: string, name: string): Product =>
     isActive: true,
     isOutOfStock: false,
     createdAt: new Date('2026-03-10T00:00:00.000Z'),
-    updatedAt: new Date('2026-03-10T00:00:00.000Z')
+    updatedAt: new Date('2026-03-10T00:00:00.000Z'),
   }) as Product)
+
+function renderSelectionHook(
+  initialEntry: string | { pathname: string; state?: { selectedProductId?: string } },
+  props: Parameters<typeof useProductsSelection>[0],
+) {
+  return renderHook(() => useProductsSelection(props), {
+    wrapper: ({ children }) => (
+      <MemoryRouter initialEntries={[initialEntry]}>{children}</MemoryRouter>
+    ),
+  })
+}
 
 describe('useProductsSelection', () => {
   it('selects and highlights the product when navigation state id matches a loaded product', async () => {
@@ -27,21 +39,20 @@ describe('useProductsSelection', () => {
     const alpha = makeProduct('1', 'Alpha')
     const beta = makeProduct('2', 'Beta')
 
-    renderHook(() =>
-      useProductsSelection({
+    renderSelectionHook(
+      {
+        pathname: '/inventory/products',
+        state: { selectedProductId: '2' },
+      },
+      {
         dispatch: dispatch as never,
         navigate,
-        location: {
-          pathname: '/inventory/products',
-          state: { selectedProductId: '2' },
-        } as never,
         products: [alpha, beta],
         selectedProduct: null,
         focusedProductIndex: -1,
         setFocusedProductIndex,
-        selectedCategory: 'all',
         productListRef: { current: null },
-      }),
+      },
     )
 
     await waitFor(() => {
@@ -52,31 +63,52 @@ describe('useProductsSelection', () => {
     expect(setFocusedProductIndex).toHaveBeenCalledWith(1)
   })
 
-  it('does not navigate or select when the navigation selection id is missing from the loaded list', async () => {
+  it('does not navigate when there is no navigation state', async () => {
     const dispatch = vi.fn()
     const navigate = vi.fn()
     const setFocusedProductIndex = vi.fn()
 
-    renderHook(() =>
-      useProductsSelection({
+    renderSelectionHook('/inventory/products', {
+      dispatch: dispatch as never,
+      navigate,
+      products: [makeProduct('1', 'Alpha'), makeProduct('2', 'Beta')],
+      selectedProduct: null,
+      focusedProductIndex: -1,
+      setFocusedProductIndex,
+      productListRef: { current: null },
+    })
+
+    await new Promise((resolve) => setTimeout(resolve, 100))
+
+    expect(navigate).not.toHaveBeenCalled()
+  })
+
+  it('does not navigate or select when the navigation selection id is not in the loaded list', async () => {
+    const dispatch = vi.fn()
+    const navigate = vi.fn()
+    const setFocusedProductIndex = vi.fn()
+
+    renderSelectionHook(
+      {
+        pathname: '/inventory/products',
+        state: { selectedProductId: 'missing-id' },
+      },
+      {
         dispatch: dispatch as never,
         navigate,
-        location: {
-          pathname: '/inventory/products',
-          state: { selectedProductId: 'missing-id' },
-        } as never,
         products: [makeProduct('1', 'Alpha'), makeProduct('2', 'Beta')],
         selectedProduct: null,
         focusedProductIndex: -1,
         setFocusedProductIndex,
-        selectedCategory: 'all',
         productListRef: { current: null },
-      }),
+      },
     )
 
-    // Give effects time to run
-    await new Promise((r) => setTimeout(r, 100))
+    await new Promise((resolve) => setTimeout(resolve, 100))
 
     expect(navigate).not.toHaveBeenCalled()
+    expect(dispatch).not.toHaveBeenCalledWith(
+      expect.objectContaining({ payload: expect.objectContaining({ id: 'missing-id' }) }),
+    )
   })
 })
