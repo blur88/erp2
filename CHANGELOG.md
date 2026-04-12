@@ -1,3 +1,10 @@
+## [1.66.3](https://github.com/blur88/erp2/compare/v1.66.2...v1.66.3) (2026-04-12)
+
+
+### Bug Fixes
+
+* align GRN default sort order with Purchase Orders (asc) ([5e5585f](https://github.com/blur88/erp2/commit/5e5585ff26d81e551060e8be8268ade1855c0d7f))
+
 ## [1.66.2](https://github.com/blur88/erp2/compare/v1.66.1...v1.66.2) (2026-04-12)
 
 
