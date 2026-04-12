@@ -126,14 +126,14 @@ describe('VendorPaymentsPage FilterBar integration', () => {
     )
   })
 
-  it('configures the status filter with purchasing-status type', () => {
+  it('configures the status filter with vendor-payment-status type', () => {
     renderPage()
     const latestProps = filterBarSpy.mock.calls.at(-1)?.[0] as {
       config: { fields: Array<{ field: string; type: string }> }
     }
     expect(latestProps.config.fields).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ field: 'status', type: 'purchasing-status' }),
+        expect.objectContaining({ field: 'status', type: 'vendor-payment-status' }),
       ]),
     )
   })

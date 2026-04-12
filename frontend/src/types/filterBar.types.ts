@@ -27,6 +27,7 @@ export type FilterFieldType =
   | 'stock-status'
   | 'price-list'
   | 'transaction-status'
+  | 'vendor-payment-status'
 
 interface BaseFilterFieldConfig<TFilters, K extends keyof TFilters> {
   field: K
@@ -127,6 +128,11 @@ export interface TransactionStatusFilterFieldConfig<TFilters, K extends keyof TF
   type: 'transaction-status'
 }
 
+export interface VendorPaymentStatusFilterFieldConfig<TFilters, K extends keyof TFilters>
+  extends BaseFilterFieldConfig<TFilters, K> {
+  type: 'vendor-payment-status'
+}
+
 export type FilterFieldConfig<TFilters> =
   | StatusFilterFieldConfig<TFilters, keyof TFilters>
   | UserStatusFilterFieldConfig<TFilters, keyof TFilters>
@@ -146,6 +152,7 @@ export type FilterFieldConfig<TFilters> =
   | StockStatusFilterFieldConfig<TFilters, keyof TFilters>
   | PriceListFilterFieldConfig<TFilters, keyof TFilters>
   | TransactionStatusFilterFieldConfig<TFilters, keyof TFilters>
+  | VendorPaymentStatusFilterFieldConfig<TFilters, keyof TFilters>
 
 export interface FilterBarConfig<TFilters> {
   search?: {

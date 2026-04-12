@@ -42,7 +42,7 @@ const VendorPaymentsPage: React.FC = () => {
       fields: [
         { field: 'period', label: 'Period', type: 'period' },
         { field: 'supplierId', label: 'Supplier', type: 'supplier' },
-        { field: 'status', label: 'Status', type: 'purchasing-status' },
+        { field: 'status', label: 'Status', type: 'vendor-payment-status' },
       ],
       defaults: {
         search: '',
