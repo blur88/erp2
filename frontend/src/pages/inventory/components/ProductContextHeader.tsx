@@ -8,8 +8,8 @@ import type { Product } from '@/types'
 
 interface ProductContextHeaderProps {
   selectedProduct: Product | null
-  onEdit: (product: Product) => void
-  onDelete: (product: Product) => void
+  onEdit: () => void
+  onDelete: () => void
 }
 
 const actionIconSx = {
@@ -62,7 +62,7 @@ const ProductContextHeader: React.FC<ProductContextHeaderProps> = ({
             size="small"
             title={`Edit ${selectedProduct.name}`}
             aria-label={`Edit product ${selectedProduct.name}`}
-            onClick={() => onEdit(selectedProduct)}
+            onClick={onEdit}
             sx={{ ...actionIconSx, color: 'primary.main' }}
           >
             <EditIcon sx={{ fontSize: `${TABLE_STYLES.row.height * 0.5}px` }} />
@@ -71,7 +71,7 @@ const ProductContextHeader: React.FC<ProductContextHeaderProps> = ({
             size="small"
             title={`Delete ${selectedProduct.name}`}
             aria-label={`Delete product ${selectedProduct.name}`}
-            onClick={() => onDelete(selectedProduct)}
+            onClick={onDelete}
             sx={{ ...actionIconSx, color: 'error.main' }}
           >
             <DeleteIcon sx={{ fontSize: `${TABLE_STYLES.row.height * 0.5}px` }} />

@@ -168,8 +168,8 @@ export const ProductsPage: React.FC = () => {
         headerSlot={(
           <ProductContextHeader
             selectedProduct={selectedProduct}
-            onEdit={actions.handleEditProduct}
-            onDelete={actions.handleDeleteProduct}
+            onEdit={() => selectedProduct && actions.handleEditProduct(selectedProduct)}
+            onDelete={() => selectedProduct && actions.handleDeleteProduct(selectedProduct)}
           />
         )}
         workspaceSlot={<ProductWorkspaceCard selectedProduct={selectedProduct} />}

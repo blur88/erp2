@@ -63,7 +63,7 @@ describe('useProductsSelection', () => {
     expect(setFocusedProductIndex).toHaveBeenCalledWith(1)
   })
 
-  it('does not navigate or select when the navigation selection id is missing from the loaded list', async () => {
+  it('does not navigate when there is no navigation state', async () => {
     const dispatch = vi.fn()
     const navigate = vi.fn()
     const setFocusedProductIndex = vi.fn()
@@ -81,5 +81,34 @@ describe('useProductsSelection', () => {
     await new Promise((resolve) => setTimeout(resolve, 100))
 
     expect(navigate).not.toHaveBeenCalled()
+  })
+
+  it('does not navigate or select when the navigation selection id is not in the loaded list', async () => {
+    const dispatch = vi.fn()
+    const navigate = vi.fn()
+    const setFocusedProductIndex = vi.fn()
+
+    renderSelectionHook(
+      {
+        pathname: '/inventory/products',
+        state: { selectedProductId: 'missing-id' },
+      },
+      {
+        dispatch: dispatch as never,
+        navigate,
+        products: [makeProduct('1', 'Alpha'), makeProduct('2', 'Beta')],
+        selectedProduct: null,
+        focusedProductIndex: -1,
+        setFocusedProductIndex,
+        productListRef: { current: null },
+      },
+    )
+
+    await new Promise((resolve) => setTimeout(resolve, 100))
+
+    expect(navigate).not.toHaveBeenCalled()
+    expect(dispatch).not.toHaveBeenCalledWith(
+      expect.objectContaining({ payload: expect.objectContaining({ id: 'missing-id' }) }),
+    )
   })
 })
