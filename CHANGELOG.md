@@ -1,3 +1,12 @@
+# [1.69.0](https://github.com/blur88/erp2/compare/v1.68.0...v1.69.0) (2026-04-12)
+
+
+### Features
+
+* **inventory:** add selectedCategory to inventory Redux slice ([08d43c9](https://github.com/blur88/erp2/commit/08d43c9aae4a23dd45a79d070f8ab37efc62ac4a))
+* **inventory:** add useCategoriesPageState hook ([72daea8](https://github.com/blur88/erp2/commit/72daea8274e06640d9836183308d55648d1c2b43))
+* **inventory:** rewrite CategoriesPage using Master-Detail pattern (closes [#344](https://github.com/blur88/erp2/issues/344)) ([0dda0bf](https://github.com/blur88/erp2/commit/0dda0bfeb9603b3bedf38f16175b9d7cb54de052))
+
 # [1.68.0](https://github.com/blur88/erp2/compare/v1.67.0...v1.68.0) (2026-04-12)
 
 
