@@ -230,6 +230,11 @@ export const purchasingApiSlice = createApi({
       transformResponse: (response: any) => normalizeNamedCollection<VendorPayment>(response, 'payments'),
       providesTags: ['VendorPayment'],
     }),
+    getVendorPayment: builder.query<VendorPayment, string>({
+      query: (id) => ({ url: `/purchasing/vendor-payments/${id}` }),
+      transformResponse: normalizeSingle<VendorPayment>,
+      providesTags: (_result, _error, id) => [{ type: 'VendorPayment' as const, id }],
+    }),
     getDeletedVendorPayments: builder.query<PaginatedResponse<VendorPayment>, Record<string, unknown> | undefined>({
       query: (params) => ({ url: '/purchasing/vendor-payments/deleted', params: params ?? {} }),
       transformResponse: (response: any) => normalizeNamedCollection<VendorPayment>(response, 'payments'),
@@ -273,4 +278,5 @@ export const {
   useGetDeletedGRNsQuery,
   useGetVendorPaymentsQuery,
   useGetDeletedVendorPaymentsQuery,
+  useLazyGetVendorPaymentQuery,
 } = purchasingApiSlice
