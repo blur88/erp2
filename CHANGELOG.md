@@ -1,3 +1,15 @@
+# [1.70.0](https://github.com/blur88/erp2/compare/v1.69.0...v1.70.0) (2026-04-12)
+
+
+### Bug Fixes
+
+* **inventory:** address code review feedback on categories master-detail polish ([80511ce](https://github.com/blur88/erp2/commit/80511ce313d0d8fe2b4f62c1538712c4256e80d6))
+
+
+### Features
+
+* **inventory:** polish categories master-detail workspace ([8ed9533](https://github.com/blur88/erp2/commit/8ed9533e9a5783424e262097302c76c662d1d662))
+
 # [1.69.0](https://github.com/blur88/erp2/compare/v1.68.0...v1.69.0) (2026-04-12)
 
 
