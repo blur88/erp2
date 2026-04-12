@@ -62,6 +62,38 @@ describe('CategoryList', () => {
     expect(screen.getByText(/no categories found/i)).toBeInTheDocument()
   })
 
+  it('does not show product count chip in rows', () => {
+    const cat = makeCategory('1', 'Alpha')
+
+    render(
+      <CategoryList
+        categories={[cat]}
+        loading={false}
+        focusedIndex={-1}
+        categoryListRef={{ current: null }}
+        onSelect={vi.fn()}
+      />,
+    )
+
+    expect(screen.queryByText(/item/i)).not.toBeInTheDocument()
+  })
+
+  it('does not show creation date in rows', () => {
+    const cat = makeCategory('1', 'Alpha')
+
+    render(
+      <CategoryList
+        categories={[cat]}
+        loading={false}
+        focusedIndex={-1}
+        categoryListRef={{ current: null }}
+        onSelect={vi.fn()}
+      />,
+    )
+
+    expect(screen.queryByText(/2026/)).not.toBeInTheDocument()
+  })
+
   it('calls onSelect when a row is clicked', async () => {
     const onSelect = vi.fn()
     const alpha = makeCategory('1', 'Alpha')
