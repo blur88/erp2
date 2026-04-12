@@ -1,18 +1,11 @@
 import React, { useMemo } from 'react'
-import { Box } from '@mui/material'
-import Grid from '@mui/material/Grid'
-import { useLocation, useNavigate } from 'react-router-dom'
+import { Box, useMediaQuery, useTheme } from '@mui/material'
+import { useNavigate } from 'react-router-dom'
 
+import MasterDetailWorkspace from '@/components/common/MasterDetailWorkspace'
 import PageHeader from '@/components/common/PageHeader'
 import { FilterBar } from '@/components/filters'
 import { useFilterBar } from '@/hooks/useFilterBar'
-import ProductDetailsPanel from './components/ProductDetailsPanel'
-import ProductsDialogs from './components/ProductsDialogs'
-import ProductsTable from './components/ProductsTable'
-import { useProductsActions } from './hooks/useProductsActions'
-import { useProductsPageState } from './hooks/useProductsPageState'
-import { useProductsSelection } from './hooks/useProductsSelection'
-
 import { useNotification } from '@/hooks/useNotification'
 import { useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
 import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
@@ -26,6 +19,14 @@ import {
 } from '@/store/slices/inventorySlice'
 import type { FilterBarConfig } from '@/types/filterBar.types'
 
+import ProductContextHeader from './components/ProductContextHeader'
+import ProductsDialogs from './components/ProductsDialogs'
+import ProductList from './components/ProductList'
+import ProductWorkspaceCard from './components/ProductWorkspaceCard'
+import { useProductsActions } from './hooks/useProductsActions'
+import { useProductsPageState } from './hooks/useProductsPageState'
+import { useProductsSelection } from './hooks/useProductsSelection'
+
 interface InventoryProductFilters {
   search: string
   categoryId: string | null
@@ -34,12 +35,14 @@ interface InventoryProductFilters {
 }
 
 export const ProductsPage: React.FC = () => {
+  const theme = useTheme()
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'))
   const dispatch = useAppDispatch()
   const navigate = useNavigate()
-  const location = useLocation()
   const { showSuccess, showError } = useNotification()
   const selectedProduct = useAppSelector(selectSelectedProduct)
   const pageState = useProductsPageState()
+
   const filterConfig = useMemo<FilterBarConfig<InventoryProductFilters>>(
     () => ({
       search: { placeholder: 'Search by name, barcode, or brand...' },
@@ -47,7 +50,6 @@ export const ProductsPage: React.FC = () => {
         { field: 'categoryId', label: 'Category', type: 'category' },
         { field: 'type', label: 'Product Type', type: 'product-type' },
         { field: 'stockStatus', label: 'Stock Status', type: 'stock-status' },
-        // warehouseId deferred: backend GET /inventory/products does not support warehouseId filtering
       ],
       defaults: {
         search: '',
@@ -67,17 +69,14 @@ export const ProductsPage: React.FC = () => {
     if (appliedFilters.search) {
       params.search = appliedFilters.search
     }
-
     if (appliedFilters.categoryId) {
       params.categoryId = appliedFilters.categoryId
     }
-
     if (appliedFilters.type === 'goods') {
       params.type = 'Stocked Product'
     } else if (appliedFilters.type === 'service') {
       params.type = 'Service'
     }
-
     if (appliedFilters.stockStatus === 'low_stock') {
       params.lowStock = true
     } else if (appliedFilters.stockStatus === 'out_of_stock') {
@@ -87,19 +86,21 @@ export const ProductsPage: React.FC = () => {
     return params
   }, [appliedFilters])
 
-  const { data: productsResponse, isFetching: isProductsFetching, refetch: refetchProducts } = useGetProductsQuery(productQueryParams)
+  const {
+    data: productsResponse,
+    isFetching: isProductsFetching,
+    refetch: refetchProducts,
+  } = useGetProductsQuery(productQueryParams)
   const [deleteProduct] = useDeleteProductMutation()
   const products = productsResponse?.data || []
 
   const selection = useProductsSelection({
     dispatch,
     navigate,
-    location,
     products,
     selectedProduct,
     focusedProductIndex: pageState.focusedProductIndex,
     setFocusedProductIndex: pageState.setFocusedProductIndex,
-    selectedCategory: 'all',
     productListRef: pageState.productListRef,
   })
 
@@ -128,59 +129,51 @@ export const ProductsPage: React.FC = () => {
     onEnter: selection.handleEnterAction,
     onPageUp: selection.handlePageUpNavigation,
     onPageDown: selection.handlePageDownNavigation,
-    onHome: selection.handleNavigateHome,
-    onEnd: selection.handleNavigateEnd,
+    onHome: selection.handleNavigateToFirst,
+    onEnd: selection.handleNavigateToLast,
     onEscape: selection.handleEscapeAction,
   })
 
-  const contentMarginRight = pageState.calculatorPanelOpen ? { xs: '0px', md: '320px' } : '0px'
-
   return (
-    <>
-      <Box sx={{ mb: 3, transition: 'margin-right 0.3s ease-in-out', marginRight: contentMarginRight }}>
-        <PageHeader
-          title="Products"
-          subtitle="Manage your product catalog and inventory"
-          variant="workflow"
-          secondaryAction={{ label: 'View Deleted', onClick: () => pageState.setDeletedProductsDialogOpen(true) }}
-          primaryAction={{ label: 'Add Product', onClick: actions.handleAddProduct }}
-          toolbar={(
-            <FilterBar
-              config={filterConfig}
-              draftFilters={draftFilters}
-              handlers={handlers}
-              hasActiveFilters={hasActiveFilters}
-              searchInputRef={pageState.searchInputRef}
-            />
-          )}
-        />
-      </Box>
+    <Box sx={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
+      <PageHeader
+        title="Products"
+        subtitle="Manage your product catalog and inventory"
+        variant="workflow"
+        secondaryAction={{ label: 'View Deleted', onClick: () => pageState.setDeletedProductsDialogOpen(true) }}
+        primaryAction={{ label: 'Add Product', onClick: actions.handleAddProduct }}
+        toolbar={(
+          <FilterBar
+            config={filterConfig}
+            draftFilters={draftFilters}
+            handlers={handlers}
+            hasActiveFilters={hasActiveFilters}
+            searchInputRef={pageState.searchInputRef}
+          />
+        )}
+      />
 
-      <Box sx={{ transition: 'margin-right 0.3s ease-in-out', marginRight: contentMarginRight }}>
-        <Grid container spacing={3}>
-          <Grid size={{ xs: 12, md: 3 }}>
-            <ProductsTable
-              products={products}
-              loading={isProductsFetching}
-              selectedProductId={selectedProduct?.id}
-              focusedProductIndex={pageState.focusedProductIndex}
-              productListRef={pageState.productListRef}
-              onFocus={selection.handleProductListFocus}
-              onProductSelect={selection.handleProductSelect}
-            />
-          </Grid>
-          <Grid size={{ xs: 12, md: 9 }}>
-            <ProductDetailsPanel
-              products={products}
-              selectedProduct={selectedProduct}
-              currentTab={pageState.currentTab}
-              onTabChange={pageState.setCurrentTab}
-              onEditProduct={actions.handleEditProduct}
-              onDeleteProduct={actions.handleDeleteProduct}
-            />
-          </Grid>
-        </Grid>
-      </Box>
+      <MasterDetailWorkspace
+        isMobile={isMobile}
+        listSlot={(
+          <ProductList
+            products={products}
+            loading={isProductsFetching}
+            selectedProductId={selectedProduct?.id}
+            focusedIndex={pageState.focusedProductIndex}
+            onSelect={selection.handleProductSelect}
+            productListRef={pageState.productListRef}
+          />
+        )}
+        headerSlot={(
+          <ProductContextHeader
+            selectedProduct={selectedProduct}
+            onEdit={actions.handleEditProduct}
+            onDelete={actions.handleDeleteProduct}
+          />
+        )}
+        workspaceSlot={<ProductWorkspaceCard selectedProduct={selectedProduct} />}
+      />
 
       <ProductsDialogs
         exportMenuAnchor={pageState.exportMenuAnchor}
@@ -205,7 +198,7 @@ export const ProductsPage: React.FC = () => {
         onConfirmDelete={() => void actions.handleConfirmDelete(pageState.productToDelete)}
         onCancelDelete={actions.handleCancelDelete}
       />
-    </>
+    </Box>
   )
 }
 

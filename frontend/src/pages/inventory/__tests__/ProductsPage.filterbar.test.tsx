@@ -22,8 +22,17 @@ vi.mock('@/store/api/inventoryApi', () => ({
   useDeleteProductMutation: vi.fn(() => [vi.fn()]),
 }))
 
-vi.mock('../components/ProductsTable', () => ({ default: () => <div>ProductsTable</div> }))
-vi.mock('../components/ProductDetailsPanel', () => ({ default: () => <div>ProductDetailsPanel</div> }))
+vi.mock('@mui/material', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@mui/material')>()
+  return {
+    ...actual,
+    useMediaQuery: vi.fn(() => false),
+  }
+})
+
+vi.mock('../components/ProductList', () => ({ default: () => <div>ProductList</div> }))
+vi.mock('../components/ProductContextHeader', () => ({ default: () => <div>ProductContextHeader</div> }))
+vi.mock('../components/ProductWorkspaceCard', () => ({ default: () => <div>ProductWorkspaceCard</div> }))
 vi.mock('../components/ProductsDialogs', () => ({ default: () => <div>ProductsDialogs</div> }))
 vi.mock('../hooks/useProductsActions', () => ({
   useProductsActions: () => ({
@@ -40,11 +49,10 @@ vi.mock('../hooks/useProductsActions', () => ({
 vi.mock('../hooks/useProductsSelection', () => ({
   useProductsSelection: () => ({
     handleProductSelect: vi.fn(),
-    handleProductListFocus: vi.fn(),
     handleNavigateUp: vi.fn(),
     handleNavigateDown: vi.fn(),
-    handleNavigateHome: vi.fn(),
-    handleNavigateEnd: vi.fn(),
+    handleNavigateToFirst: vi.fn(),
+    handleNavigateToLast: vi.fn(),
     handlePageUpNavigation: vi.fn(),
     handlePageDownNavigation: vi.fn(),
     handleEnterAction: vi.fn(),
