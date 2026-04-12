@@ -70,7 +70,7 @@ const CategoryContextHeader: React.FC<CategoryContextHeaderProps> = ({
   }
 
   const levelLabel = selectedCategory.level === 0 ? 'Root' : `Level ${selectedCategory.level}`
-  const parentLabel = selectedCategory.parent?.name ?? (selectedCategory.isRoot ? 'None' : '—')
+  const parentLabel = selectedCategory.parent?.name ?? (selectedCategory.isRoot || selectedCategory.level === 0 ? 'None' : '—')
   const productCount = selectedCategory.productCount ?? 0
 
   return (

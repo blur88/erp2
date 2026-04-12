@@ -132,7 +132,7 @@ const CategoryList: React.FC<CategoryListProps> = ({
               {loading && categories.length === 0
                 ? [...Array(10)].map((_, index) => (
                     <TableRow key={`skeleton-${index}`}>
-                      <TableCell colSpan={1}>
+                      <TableCell>
                         <Skeleton height={40} />
                       </TableCell>
                     </TableRow>
@@ -140,7 +140,7 @@ const CategoryList: React.FC<CategoryListProps> = ({
                 : categories.length === 0
                   ? (
                       <TableRow>
-                        <TableCell colSpan={1}>
+                        <TableCell>
                           <Typography variant="body2" sx={{ color: 'text.secondary', textAlign: 'center', py: 2 }}>
                             No categories found
                           </Typography>
