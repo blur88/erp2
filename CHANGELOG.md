@@ -1,3 +1,10 @@
+## [1.66.2](https://github.com/blur88/erp2/compare/v1.66.1...v1.66.2) (2026-04-12)
+
+
+### Bug Fixes
+
+* align GRN default sort field with FilterBar sort config ([505d639](https://github.com/blur88/erp2/commit/505d6395d69865610214ecfcdbca7c52351d91e4)), closes [#338](https://github.com/blur88/erp2/issues/338)
+
 ## [1.66.1](https://github.com/blur88/erp2/compare/v1.66.0...v1.66.1) (2026-04-12)
 
 
