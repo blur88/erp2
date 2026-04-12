@@ -1,3 +1,10 @@
+# [1.68.0](https://github.com/blur88/erp2/compare/v1.67.0...v1.68.0) (2026-04-12)
+
+
+### Features
+
+* **inventory:** add sort button to Products page FilterBar ([5147b3e](https://github.com/blur88/erp2/commit/5147b3ed370c01b59f3d512a4a82ba4fa0614f31)), closes [#341](https://github.com/blur88/erp2/issues/341)
+
 # [1.67.0](https://github.com/blur88/erp2/compare/v1.66.3...v1.67.0) (2026-04-12)
 
 
