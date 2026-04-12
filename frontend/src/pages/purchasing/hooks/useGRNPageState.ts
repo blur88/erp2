@@ -13,7 +13,7 @@ export interface GRNJournalEntryRef {
 
 export function useGRNPageState() {
   const [sorting, setSorting] = useState<GRNPageSorting>({
-    sortBy: 'receivedDate',
+    sortBy: 'grnNumber',
     sortOrder: 'desc',
   })
   const [focusedGRNIndex, setFocusedGRNIndex] = useState(-1)
