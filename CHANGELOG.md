@@ -1,3 +1,17 @@
+# [1.71.0](https://github.com/blur88/erp2/compare/v1.70.0...v1.71.0) (2026-04-13)
+
+
+### Bug Fixes
+
+* **inventory:** address code review feedback on category workspace + header polish ([cc86117](https://github.com/blur88/erp2/commit/cc861170292d18c9949ef9a24c33883878d0de61))
+
+
+### Features
+
+* **inventory:** fix CategoryContextHeader path/parent display, remove status row ([#351](https://github.com/blur88/erp2/issues/351)) ([3d8f04b](https://github.com/blur88/erp2/commit/3d8f04bf856859df5a5070cec5eeba35e5db5b8f))
+* **inventory:** simplify CategoryWorkspaceCard - remove tabs, show products table ([#350](https://github.com/blur88/erp2/issues/350)) ([2480e5d](https://github.com/blur88/erp2/commit/2480e5d82a034798527c8f9c95214c55c7f99da5))
+* **inventory:** wire allCategories prop to CategoryContextHeader in CategoriesPage ([eceb498](https://github.com/blur88/erp2/commit/eceb4981b1920578e6d9f5c59045c970b445ebab))
+
 # [1.70.0](https://github.com/blur88/erp2/compare/v1.69.0...v1.70.0) (2026-04-12)
 
 
