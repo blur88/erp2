@@ -1,3 +1,22 @@
+# [1.72.0](https://github.com/blur88/erp2/compare/v1.71.2...v1.72.0) (2026-04-13)
+
+
+### Bug Fixes
+
+* **inventory:** show Reset button when level filter is active ([#355](https://github.com/blur88/erp2/issues/355)) ([541e81a](https://github.com/blur88/erp2/commit/541e81af20a0ffbf3fc0539beddf3ca2df40fb6b))
+
+
+### Features
+
+* **inventory:** add extra slot to FilterBar, move level filter before sort ([#355](https://github.com/blur88/erp2/issues/355)) ([57e79bf](https://github.com/blur88/erp2/commit/57e79bff21200d977db3d7a4a406095b50e6a803))
+* **inventory:** add level filter and sort button to categories page ([#355](https://github.com/blur88/erp2/issues/355)) ([d029132](https://github.com/blur88/erp2/commit/d0291329be34701263b402d0f39ec22e84030352))
+* **inventory:** remove limit cap from QueryCategoriesDto ([#355](https://github.com/blur88/erp2/issues/355)) ([5a4fd5d](https://github.com/blur88/erp2/commit/5a4fd5dc84277a3ada9697346090b1a9973d0c3d))
+
+
+### Reverts
+
+* remove limit override from categories query and revert backend cap ([0c4ce7e](https://github.com/blur88/erp2/commit/0c4ce7eb0563f23acea89afc2d05c1b0efd9e487))
+
 ## [1.71.2](https://github.com/blur88/erp2/compare/v1.71.1...v1.71.2) (2026-04-13)
 
 
