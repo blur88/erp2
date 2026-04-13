@@ -1,4 +1,5 @@
 export { FilterBar } from './FilterBar'
+export { FilterCategoryLevel } from './FilterCategoryLevel'
 export { FilterCompare } from './FilterCompare'
 export { FilterCustomer } from './FilterCustomer'
 export { FilterOrderStatus } from './FilterOrderStatus'

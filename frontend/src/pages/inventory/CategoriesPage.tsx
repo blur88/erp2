@@ -3,7 +3,7 @@ import { Box, useMediaQuery, useTheme } from '@mui/material'
 
 import MasterDetailWorkspace from '@/components/common/MasterDetailWorkspace'
 import PageHeader from '@/components/common/PageHeader'
-import { FilterBar } from '@/components/filters'
+import { FilterBar, FilterCategoryLevel } from '@/components/filters'
 import { useFilterBar } from '@/hooks/useFilterBar'
 import { useNotification } from '@/hooks/useNotification'
 import { useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
@@ -36,6 +36,14 @@ const CategoriesPage: React.FC = () => {
   const { showSuccess, showError } = useNotification()
   const selectedCategory = useAppSelector(selectSelectedCategory)
   const pageState = useCategoriesPageState()
+  const [sortBy, setSortBy] = useState('name')
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc')
+  const [levelFilter, setLevelFilter] = useState<string | null>(null)
+
+  const handleSort = useCallback((field: string) => {
+    setSortOrder((prev) => (sortBy === field && prev === 'desc' ? 'asc' : 'desc'))
+    setSortBy(field)
+  }, [sortBy])
 
   const filterConfig = useMemo<FilterBarConfig<CategoryFilters>>(
     () => ({
@@ -47,6 +55,10 @@ const CategoriesPage: React.FC = () => {
   )
 
   const { appliedFilters, draftFilters, handlers, hasActiveFilters } = useFilterBar(filterConfig)
+  const categoryHandlers = useMemo(
+    () => ({ ...handlers, onClearAll: () => { handlers.onClearAll(); setLevelFilter(null) } }),
+    [handlers],
+  )
 
   const {
     data: categories = [],
@@ -55,7 +67,13 @@ const CategoriesPage: React.FC = () => {
   } = useGetCategoriesQuery({
     includeProductCount: true,
     search: appliedFilters.search || undefined,
+    sortBy,
+    sortOrder: sortOrder.toUpperCase(),
   })
+
+  const visibleCategories = levelFilter !== null
+    ? categories.filter((category) => String(category.level) === levelFilter)
+    : categories
 
   const [createCategory] = useCreateCategoryMutation()
   const [updateCategory] = useUpdateCategoryMutation()
@@ -79,7 +97,7 @@ const CategoriesPage: React.FC = () => {
 
   const selection = useCategoriesSelection({
     dispatch,
-    categories,
+    categories: visibleCategories,
     selectedCategory,
     focusedCategoryIndex: pageState.focusedCategoryIndex,
     setFocusedCategoryIndex: pageState.setFocusedCategoryIndex,
@@ -129,7 +147,7 @@ const CategoriesPage: React.FC = () => {
       <PageHeader
         variant="workflow"
         title="Categories"
-        subtitle={`Organize your products with categories (${categories.length} ${appliedFilters.search ? 'found' : 'total'})`}
+        subtitle={`Organize your products with categories (${visibleCategories.length} ${appliedFilters.search || levelFilter ? 'found' : 'total'})`}
         primaryAction={{ label: 'Add Category', onClick: () => actions.handleAddCategory() }}
         secondaryAction={{
           label: 'View Deleted',
@@ -139,9 +157,17 @@ const CategoriesPage: React.FC = () => {
           <FilterBar
             config={filterConfig}
             draftFilters={draftFilters}
-            handlers={handlers}
-            hasActiveFilters={hasActiveFilters}
+            handlers={categoryHandlers}
+            hasActiveFilters={hasActiveFilters || levelFilter !== null}
             searchInputRef={pageState.searchInputRef}
+            sort={{ field: 'name', sortBy, sortOrder, onSort: handleSort }}
+            extra={(
+              <FilterCategoryLevel
+                categories={categories}
+                value={levelFilter}
+                onChange={setLevelFilter}
+              />
+            )}
           />
         )}
       />
@@ -150,7 +176,7 @@ const CategoriesPage: React.FC = () => {
         isMobile={isMobile}
         listSlot={(
           <CategoryList
-            categories={categories}
+            categories={visibleCategories}
             loading={isFetching}
             selectedCategoryId={selectedCategory?.id}
             focusedIndex={pageState.focusedCategoryIndex}
