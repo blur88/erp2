@@ -1,22 +1,47 @@
-import React, { useEffect, useState } from 'react'
-import { Box, Paper, Tab, Tabs, Typography } from '@mui/material'
+import React from 'react'
+import {
+  Alert,
+  Box,
+  Chip,
+  CircularProgress,
+  Paper,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Typography,
+} from '@mui/material'
 
 import { TABLE_STYLES } from '@/constants/tableStyles'
+import { useGetProductsQuery } from '@/store/api/inventoryApi'
+import { useGetRegionalSettingsQuery } from '@/store/api/settingsApi'
 import type { Category } from '@/types'
-
-import CategoryProductsList from './CategoryProductsList'
 
 interface CategoryWorkspaceCardProps {
   selectedCategory: Category | null
 }
 
-const CategoryWorkspaceCard: React.FC<CategoryWorkspaceCardProps> = ({ selectedCategory }) => {
-  const [tabValue, setTabValue] = useState(0)
-  const categoryId = selectedCategory?.id ?? ''
+const getStockStatus = (
+  stockQuantity: number,
+  lowStockThreshold: number,
+): { label: string; color: 'error' | 'warning' | 'success' } => {
+  if (stockQuantity <= 0) return { label: 'Out of Stock', color: 'error' }
+  if (stockQuantity <= lowStockThreshold) return { label: 'Low Stock', color: 'warning' }
+  return { label: 'In Stock', color: 'success' }
+}
 
-  useEffect(() => {
-    setTabValue(0)
-  }, [categoryId])
+const CategoryWorkspaceCard: React.FC<CategoryWorkspaceCardProps> = ({ selectedCategory }) => {
+  const categoryId = selectedCategory?.id ?? ''
+  const { data: productsResponse, isLoading, isError } = useGetProductsQuery(
+    { categoryId },
+    { skip: !categoryId },
+  )
+  const { data: regionalSettings } = useGetRegionalSettingsQuery()
+
+  const products = productsResponse?.data ?? []
+  const lowStockThreshold = regionalSettings?.lowStockThreshold ?? 10
 
   if (!selectedCategory) {
     return <Paper sx={{ flex: 1 }} />
@@ -24,44 +49,110 @@ const CategoryWorkspaceCard: React.FC<CategoryWorkspaceCardProps> = ({ selectedC
 
   return (
     <Paper sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-      <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-        <Tabs
-          value={tabValue}
-          onChange={(_, value) => setTabValue(value)}
-          sx={{
-            minHeight: 40,
-            '& .MuiTab-root': { minHeight: 40, fontSize: '0.8rem', textTransform: 'none', fontWeight: 600 },
-          }}
+      <Box sx={{ p: TABLE_STYLES.cell.padding.px, borderBottom: TABLE_STYLES.cell.border }}>
+        <Typography
+          variant="tableHeader"
+          sx={{ fontWeight: 600, fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}
         >
-          <Tab label="Details" />
-          <Tab label="Products" />
-        </Tabs>
+          Category Products
+        </Typography>
       </Box>
 
-      <Box
-        role="tabpanel"
-        sx={{ flex: 1, overflow: 'auto', display: tabValue === 0 ? 'block' : 'none', p: TABLE_STYLES.cell.padding.px }}
-      >
-        {tabValue === 0 && (
-          <Box>
+      <Box sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', p: TABLE_STYLES.cell.padding.px }}>
+        <Box sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+          {isLoading ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+              <CircularProgress />
+            </Box>
+          ) : isError ? (
+            <Alert severity="error">Failed to load products.</Alert>
+          ) : products.length === 0 ? (
+            <Alert severity="info">No products in this category.</Alert>
+          ) : (
+            <TableContainer sx={{ flex: 1, overflow: 'auto' }}>
+              <Table
+                size={TABLE_STYLES.size}
+                sx={{
+                  '& .MuiTableCell-root': {
+                    borderBottom: TABLE_STYLES.cell.border,
+                    py: TABLE_STYLES.cell.padding.py,
+                    px: TABLE_STYLES.cell.padding.px,
+                  },
+                }}
+              >
+                <TableHead>
+                  <TableRow
+                    sx={{
+                      '& .MuiTableCell-head': {
+                        fontWeight: 600,
+                        backgroundColor: 'grey.50',
+                        color: 'text.primary',
+                        fontSize: '0.8rem',
+                      },
+                    }}
+                  >
+                    <TableCell>Name</TableCell>
+                    <TableCell align="right" sx={{ width: '15%' }}>
+                      Stock
+                    </TableCell>
+                    <TableCell align="center" sx={{ width: '25%' }}>
+                      Status
+                    </TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {products.map((product) => {
+                    const stock = product.stockQuantity ?? 0
+                    const status = getStockStatus(stock, lowStockThreshold)
+
+                    return (
+                      <TableRow key={product.id} hover sx={{ height: TABLE_STYLES.row.height }}>
+                        <TableCell sx={{ fontSize: '0.8rem', fontWeight: 600, color: 'primary.main' }}>
+                          {product.name}
+                        </TableCell>
+                        <TableCell align="right" sx={{ fontSize: '0.8rem' }}>
+                          {stock}
+                        </TableCell>
+                        <TableCell align="center">
+                          <Chip
+                            label={status.label}
+                            color={status.color}
+                            size="small"
+                            variant="outlined"
+                            sx={{ fontSize: '0.7rem', fontWeight: 500, height: 20 }}
+                          />
+                        </TableCell>
+                      </TableRow>
+                    )
+                  })}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          )}
+        </Box>
+
+        {selectedCategory.description && (
+          <Box sx={{ mt: 1 }}>
             <Typography
-              variant="caption"
-              sx={{ color: 'text.secondary', fontWeight: 600, fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}
+              variant="tableHeader"
+              sx={{ fontWeight: 600, fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.5px', mb: 1 }}
             >
-              Full Path
+              Notes
             </Typography>
-            <Typography variant="body2" sx={{ fontSize: '0.85rem', mt: 0.25 }}>
-              {selectedCategory.fullPath}
-            </Typography>
+            <Box
+              sx={{
+                p: 2,
+                backgroundColor: 'grey.50',
+                borderRadius: 1,
+                fontSize: '0.8rem',
+                whiteSpace: 'pre-wrap',
+                wordBreak: 'break-word',
+              }}
+            >
+              {selectedCategory.description}
+            </Box>
           </Box>
         )}
-      </Box>
-
-      <Box
-        role="tabpanel"
-        sx={{ flex: 1, overflow: 'auto', display: tabValue === 1 ? 'flex' : 'none', flexDirection: 'column', p: TABLE_STYLES.cell.padding.px }}
-      >
-        {tabValue === 1 && <CategoryProductsList categoryId={selectedCategory.id} />}
       </Box>
     </Paper>
   )
