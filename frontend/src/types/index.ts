@@ -48,6 +48,7 @@ export interface Product {
 export interface Category {
   id: string;
   name: string;
+  description?: string;
   path?: string | null;
   level: number;
   parentId?: string | null;
