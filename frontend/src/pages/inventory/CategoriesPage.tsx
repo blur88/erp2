@@ -161,6 +161,7 @@ const CategoriesPage: React.FC = () => {
         headerSlot={(
           <CategoryContextHeader
             selectedCategory={selectedCategory}
+            allCategories={categories}
             onEdit={() => selectedCategory && actions.handleEditCategory(selectedCategory)}
             onDelete={() => selectedCategory && actions.handleDeleteCategory(selectedCategory)}
           />
