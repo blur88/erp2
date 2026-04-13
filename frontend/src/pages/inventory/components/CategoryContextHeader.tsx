@@ -21,8 +21,23 @@ import { formatDate } from '@/utils/formatters'
 
 interface CategoryContextHeaderProps {
   selectedCategory: Category | null
+  allCategories: Category[]
   onEdit: () => void
   onDelete: () => void
+}
+
+function buildCategoryHierarchy(categoryId: string, allCategories: Category[]): string {
+  const names: string[] = []
+  let current = allCategories.find(c => c.id === categoryId)
+
+  while (current) {
+    names.unshift(current.name)
+    current = current.parentId
+      ? allCategories.find(c => c.id === current.parentId)
+      : undefined
+  }
+
+  return names.length > 0 ? names.join(' > ') : '—'
 }
 
 const actionIconSx = {
@@ -56,6 +71,7 @@ const valueCellSx = {
 
 const CategoryContextHeader: React.FC<CategoryContextHeaderProps> = ({
   selectedCategory,
+  allCategories,
   onEdit,
   onDelete,
 }) => {
@@ -70,8 +86,11 @@ const CategoryContextHeader: React.FC<CategoryContextHeaderProps> = ({
   }
 
   const levelLabel = selectedCategory.level === 0 ? 'Root' : `Level ${selectedCategory.level}`
-  const parentLabel = selectedCategory.parent?.name ?? (selectedCategory.isRoot || selectedCategory.level === 0 ? 'None' : '—')
+  const parentName = selectedCategory.parentId
+    ? allCategories.find(c => c.id === selectedCategory.parentId)?.name ?? '—'
+    : 'None'
   const productCount = selectedCategory.productCount ?? 0
+  const fullHierarchy = buildCategoryHierarchy(selectedCategory.id, allCategories)
 
   return (
     <Paper sx={{ overflow: 'hidden' }}>
@@ -134,7 +153,7 @@ const CategoryContextHeader: React.FC<CategoryContextHeaderProps> = ({
                   </TableRow>
                   <TableRow sx={{ backgroundColor: 'grey.50' }}>
                     <TableCell sx={labelCellSx}>Category Path</TableCell>
-                    <TableCell sx={valueCellSx}>{selectedCategory.fullPath}</TableCell>
+                    <TableCell sx={valueCellSx}>{fullHierarchy}</TableCell>
                   </TableRow>
                   <TableRow>
                     <TableCell sx={labelCellSx}>Level</TableCell>
@@ -142,7 +161,7 @@ const CategoryContextHeader: React.FC<CategoryContextHeaderProps> = ({
                   </TableRow>
                   <TableRow sx={{ backgroundColor: 'grey.50' }}>
                     <TableCell sx={labelCellSx}>Parent Category</TableCell>
-                    <TableCell sx={valueCellSx}>{parentLabel}</TableCell>
+                    <TableCell sx={valueCellSx}>{parentName}</TableCell>
                   </TableRow>
                 </TableBody>
               </Table>
@@ -182,17 +201,6 @@ const CategoryContextHeader: React.FC<CategoryContextHeaderProps> = ({
                   <TableRow>
                     <TableCell sx={labelCellSx}>Created</TableCell>
                     <TableCell sx={valueCellSx}>{formatDate(selectedCategory.createdAt)}</TableCell>
-                  </TableRow>
-                  <TableRow sx={{ backgroundColor: 'grey.50' }}>
-                    <TableCell sx={labelCellSx}>Status</TableCell>
-                    <TableCell
-                      sx={{
-                        ...valueCellSx,
-                        color: selectedCategory.isActive ? 'success.main' : 'text.disabled',
-                      }}
-                    >
-                      {selectedCategory.isActive ? 'Active' : 'Inactive'}
-                    </TableCell>
                   </TableRow>
                 </TableBody>
               </Table>
