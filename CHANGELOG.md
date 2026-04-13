@@ -1,3 +1,11 @@
+## [1.71.2](https://github.com/blur88/erp2/compare/v1.71.1...v1.71.2) (2026-04-13)
+
+
+### Bug Fixes
+
+* **inventory:** normalize CategoryContextHeader row heights ([#354](https://github.com/blur88/erp2/issues/354)) ([45b1ce3](https://github.com/blur88/erp2/commit/45b1ce3dc609fbf7ac687a5aa166a2e2d548456e))
+* **inventory:** remove display:block wrapper causing 1px row height diff in CategoryContextHeader ([#354](https://github.com/blur88/erp2/issues/354)) ([b32e22f](https://github.com/blur88/erp2/commit/b32e22f5954ad21e0958276c65477885520f8706))
+
 ## [1.71.1](https://github.com/blur88/erp2/compare/v1.71.0...v1.71.1) (2026-04-13)
 
 
