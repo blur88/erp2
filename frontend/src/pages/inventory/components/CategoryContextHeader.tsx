@@ -3,7 +3,6 @@ import { default as DeleteIcon } from '@mui/icons-material/Delete'
 import { default as EditIcon } from '@mui/icons-material/Edit'
 import {
   Box,
-  Chip,
   Grid,
   IconButton,
   Paper,
@@ -12,6 +11,7 @@ import {
   TableCell,
   TableContainer,
   TableRow,
+  Tooltip,
   Typography,
 } from '@mui/material'
 
@@ -155,7 +155,21 @@ const CategoryContextHeader: React.FC<CategoryContextHeaderProps> = ({
                   </TableRow>
                   <TableRow sx={{ backgroundColor: 'grey.50' }}>
                     <TableCell sx={labelCellSx}>Category Path</TableCell>
-                    <TableCell sx={valueCellSx}>{fullHierarchy}</TableCell>
+                    <TableCell sx={{ ...valueCellSx, overflow: 'hidden' }}>
+                      <Tooltip title={fullHierarchy} placement="top">
+                        <Box
+                          component="span"
+                          sx={{
+                            display: 'block',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          {fullHierarchy}
+                        </Box>
+                      </Tooltip>
+                    </TableCell>
                   </TableRow>
                   <TableRow>
                     <TableCell sx={labelCellSx}>Level</TableCell>
@@ -191,13 +205,7 @@ const CategoryContextHeader: React.FC<CategoryContextHeaderProps> = ({
                   <TableRow sx={{ backgroundColor: 'grey.50' }}>
                     <TableCell sx={labelCellSx}>Product Count</TableCell>
                     <TableCell sx={valueCellSx}>
-                      <Chip
-                        label={`${productCount} ${productCount === 1 ? 'item' : 'items'}`}
-                        size="small"
-                        color={productCount > 0 ? 'primary' : 'default'}
-                        variant="outlined"
-                        sx={{ fontSize: '0.7rem', fontWeight: 500 }}
-                      />
+                      {productCount} {productCount === 1 ? 'item' : 'items'}
                     </TableCell>
                   </TableRow>
                   <TableRow>
