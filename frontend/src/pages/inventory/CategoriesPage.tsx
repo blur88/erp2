@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useRef, useState } from 'react'
-import { Box, Stack, useMediaQuery, useTheme } from '@mui/material'
+import { Box, useMediaQuery, useTheme } from '@mui/material'
 
 import MasterDetailWorkspace from '@/components/common/MasterDetailWorkspace'
 import PageHeader from '@/components/common/PageHeader'
@@ -150,21 +150,21 @@ const CategoriesPage: React.FC = () => {
           onClick: () => pageState.setDeletedCategoriesDialogOpen(true),
         }}
         toolbar={(
-          <Stack direction="row" spacing={1} useFlexGap sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
-            <FilterBar
-              config={filterConfig}
-              draftFilters={draftFilters}
-              handlers={handlers}
-              hasActiveFilters={hasActiveFilters}
-              searchInputRef={pageState.searchInputRef}
-              sort={{ field: 'name', sortBy, sortOrder, onSort: handleSort }}
-            />
-            <FilterCategoryLevel
-              categories={categories}
-              value={levelFilter}
-              onChange={setLevelFilter}
-            />
-          </Stack>
+          <FilterBar
+            config={filterConfig}
+            draftFilters={draftFilters}
+            handlers={handlers}
+            hasActiveFilters={hasActiveFilters}
+            searchInputRef={pageState.searchInputRef}
+            sort={{ field: 'name', sortBy, sortOrder, onSort: handleSort }}
+            extra={(
+              <FilterCategoryLevel
+                categories={categories}
+                value={levelFilter}
+                onChange={setLevelFilter}
+              />
+            )}
+          />
         )}
       />
 

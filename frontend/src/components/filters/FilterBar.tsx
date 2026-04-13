@@ -36,6 +36,7 @@ interface Props<TFilters extends object> {
   searchInputRef?: React.RefObject<HTMLInputElement | null>
   sort?: FilterBarSortConfig
   isFetching?: boolean
+  extra?: React.ReactNode
 }
 
 function renderQuickField<TFilters extends object>(
@@ -276,6 +277,7 @@ export function FilterBar<TFilters extends object>({
   searchInputRef,
   sort,
   isFetching,
+  extra,
 }: Props<TFilters>) {
   return (
     <Stack
@@ -296,6 +298,7 @@ export function FilterBar<TFilters extends object>({
         />
       ) : null}
       {config.fields.map((field) => renderQuickField(field, draftFilters, handlers, config))}
+      {extra ?? null}
       {sort ? (
         <AppButton
           size="filter"
