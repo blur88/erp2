@@ -55,6 +55,10 @@ const CategoriesPage: React.FC = () => {
   )
 
   const { appliedFilters, draftFilters, handlers, hasActiveFilters } = useFilterBar(filterConfig)
+  const categoryHandlers = useMemo(
+    () => ({ ...handlers, onClearAll: () => { handlers.onClearAll(); setLevelFilter(null) } }),
+    [handlers],
+  )
 
   const {
     data: categories = [],
@@ -153,8 +157,8 @@ const CategoriesPage: React.FC = () => {
           <FilterBar
             config={filterConfig}
             draftFilters={draftFilters}
-            handlers={handlers}
-            hasActiveFilters={hasActiveFilters}
+            handlers={categoryHandlers}
+            hasActiveFilters={hasActiveFilters || levelFilter !== null}
             searchInputRef={pageState.searchInputRef}
             sort={{ field: 'name', sortBy, sortOrder, onSort: handleSort }}
             extra={(
