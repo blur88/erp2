@@ -1,3 +1,10 @@
+## [1.71.1](https://github.com/blur88/erp2/compare/v1.71.0...v1.71.1) (2026-04-13)
+
+
+### Internal Changes
+
+* chore(deps): update package versions in package-lock.json ([](https://github.com/blur88/erp2/commit/))
+
 # [1.71.0](https://github.com/blur88/erp2/compare/v1.70.0...v1.71.0) (2026-04-13)
 
 
