@@ -155,19 +155,9 @@ const CategoryContextHeader: React.FC<CategoryContextHeaderProps> = ({
                   </TableRow>
                   <TableRow sx={{ backgroundColor: 'grey.50' }}>
                     <TableCell sx={labelCellSx}>Category Path</TableCell>
-                    <TableCell sx={{ ...valueCellSx, overflow: 'hidden' }}>
+                    <TableCell sx={{ ...valueCellSx, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       <Tooltip title={fullHierarchy} placement="top">
-                        <Box
-                          component="span"
-                          sx={{
-                            display: 'block',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap',
-                          }}
-                        >
-                          {fullHierarchy}
-                        </Box>
+                        <span>{fullHierarchy}</span>
                       </Tooltip>
                     </TableCell>
                   </TableRow>
