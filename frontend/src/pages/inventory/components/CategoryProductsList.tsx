@@ -15,6 +15,7 @@ import {
 import { TABLE_STYLES } from '@/constants/tableStyles'
 import { useGetProductsQuery } from '@/store/api/inventoryApi'
 import { useGetRegionalSettingsQuery } from '@/store/api/settingsApi'
+import { getStockStatus } from '@/utils/stockUtils'
 
 interface CategoryProductsListProps {
   categoryId: string
@@ -26,14 +27,6 @@ const CategoryProductsList: React.FC<CategoryProductsListProps> = ({ categoryId 
 
   const products = productsResponse?.data ?? []
   const lowStockThreshold = regionalSettings?.lowStockThreshold ?? 10
-
-  const getStockStatus = (
-    stockQuantity: number,
-  ): { label: string; color: 'error' | 'warning' | 'success' } => {
-    if (stockQuantity <= 0) return { label: 'Out of Stock', color: 'error' }
-    if (stockQuantity <= lowStockThreshold) return { label: 'Low Stock', color: 'warning' }
-    return { label: 'In Stock', color: 'success' }
-  }
 
   if (isLoading) {
     return (
@@ -72,7 +65,7 @@ const CategoryProductsList: React.FC<CategoryProductsListProps> = ({ categoryId 
         <TableBody>
           {products.map((product) => {
             const stock = product.stockQuantity ?? 0
-            const status = getStockStatus(stock)
+            const status = getStockStatus(stock, lowStockThreshold)
 
             return (
               <TableRow key={product.id} hover>

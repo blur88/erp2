@@ -18,18 +18,10 @@ import { TABLE_STYLES } from '@/constants/tableStyles'
 import { useGetProductsQuery } from '@/store/api/inventoryApi'
 import { useGetRegionalSettingsQuery } from '@/store/api/settingsApi'
 import type { Category } from '@/types'
+import { getStockStatus } from '@/utils/stockUtils'
 
 interface CategoryWorkspaceCardProps {
   selectedCategory: Category | null
-}
-
-const getStockStatus = (
-  stockQuantity: number,
-  lowStockThreshold: number,
-): { label: string; color: 'error' | 'warning' | 'success' } => {
-  if (stockQuantity <= 0) return { label: 'Out of Stock', color: 'error' }
-  if (stockQuantity <= lowStockThreshold) return { label: 'Low Stock', color: 'warning' }
-  return { label: 'In Stock', color: 'success' }
 }
 
 const CategoryWorkspaceCard: React.FC<CategoryWorkspaceCardProps> = ({ selectedCategory }) => {

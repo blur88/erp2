@@ -28,9 +28,11 @@ interface CategoryContextHeaderProps {
 
 function buildCategoryHierarchy(categoryId: string, allCategories: Category[]): string {
   const names: string[] = []
+  const visited = new Set<string>()
   let current = allCategories.find(c => c.id === categoryId)
 
-  while (current) {
+  while (current && !visited.has(current.id)) {
+    visited.add(current.id)
     names.unshift(current.name)
     current = current.parentId
       ? allCategories.find(c => c.id === current.parentId)

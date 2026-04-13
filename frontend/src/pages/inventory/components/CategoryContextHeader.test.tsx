@@ -50,7 +50,10 @@ describe('CategoryContextHeader', () => {
     )
 
     expect(screen.getByText('Root > Child > Leaf')).toBeInTheDocument()
-    expect(screen.getByText('Child')).toBeInTheDocument()
+    // Parent Category row value should show the parent's name
+    const cells = screen.getAllByRole('cell')
+    const parentLabelIndex = cells.findIndex(cell => cell.textContent === 'Parent Category')
+    expect(cells[parentLabelIndex + 1]).toHaveTextContent('Child')
     expect(screen.queryByText('WRONG LEAF PATH')).not.toBeInTheDocument()
   })
 
