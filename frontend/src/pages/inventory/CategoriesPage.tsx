@@ -65,7 +65,6 @@ const CategoriesPage: React.FC = () => {
     search: appliedFilters.search || undefined,
     sortBy,
     sortOrder: sortOrder.toUpperCase(),
-    limit: 1000,
   })
 
   const visibleCategories = levelFilter !== null
