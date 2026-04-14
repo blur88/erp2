@@ -1,6 +1,7 @@
 import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Like } from 'typeorm';
+import { BaseCrudService } from '../../../common/services/base-crud.service';
 import {
   GoodsReceivedNote,
   GoodsReceivedNoteItem,
@@ -24,7 +25,12 @@ import { AuditLogService } from '../../audit-logs/services';
 import { AccountingService } from '@modules/accounting/services/accounting.service';
 
 @Injectable()
-export class GoodsReceivedNoteService {
+export class GoodsReceivedNoteService extends BaseCrudService<
+  GoodsReceivedNote,
+  CreateGoodsReceivedNoteDto,
+  UpdateGoodsReceivedNoteDto,
+  GoodsReceivedNoteQueryDto
+> {
   private readonly logger = new Logger(GoodsReceivedNoteService.name);
 
   constructor(
@@ -41,9 +47,23 @@ export class GoodsReceivedNoteService {
     private readonly baseCostCalculator: BaseCostCalculatorService,
     private readonly stockMovementService: StockMovementService,
     private readonly settingsService: SettingsService,
-    private readonly auditLogService: AuditLogService,
+    auditLogService: AuditLogService,
     private readonly accountingService: AccountingService,
-  ) {}
+  ) {
+    super(grnRepository, auditLogService);
+  }
+
+  getEntityType(): string {
+    return 'GoodsReceivedNote';
+  }
+
+  buildWhereClause(query: GoodsReceivedNoteQueryDto) {
+    const where: Record<string, unknown> = {};
+    if (query.status) where.status = query.status;
+    if (query.supplierId) where.supplierId = query.supplierId;
+    if (query.purchaseOrderId) where.purchaseOrderId = query.purchaseOrderId;
+    return where as any;
+  }
 
   /**
    * Generate sequential GRN number in format GRN-000001
@@ -379,7 +399,7 @@ export class GoodsReceivedNoteService {
   /**
    * Soft delete GRN and sync deletedAt with associated PO using same timestamp
    */
-  async remove(id: string, userId?: string, username?: string): Promise<void> {
+  async softDelete(id: string, userId?: string, username?: string): Promise<void> {
     this.logger.log(`Soft deleting GRN: ${id}`);
 
     const grn = await this.grnRepository.findOne({

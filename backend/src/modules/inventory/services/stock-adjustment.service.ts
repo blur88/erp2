@@ -8,6 +8,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
+import { BaseCrudService } from '../../../common/services/base-crud.service';
 import {
   StockAdjustment,
   StockAdjustmentItem,
@@ -30,7 +31,12 @@ import { AuditLogService } from '../../audit-logs/services';
 import { AccountingService } from '@modules/accounting/services/accounting.service';
 
 @Injectable()
-export class StockAdjustmentService {
+export class StockAdjustmentService extends BaseCrudService<
+  StockAdjustment,
+  CreateStockAdjustmentDto,
+  UpdateStockAdjustmentDto,
+  QueryStockAdjustmentsDto
+> {
   private readonly logger = new Logger(StockAdjustmentService.name);
 
   constructor(
@@ -46,9 +52,29 @@ export class StockAdjustmentService {
     private readonly stockMovementService: StockMovementService,
     private readonly dataSource: DataSource,
     private readonly settingsService: SettingsService,
-    private readonly auditLogService: AuditLogService,
+    auditLogService: AuditLogService,
     private readonly accountingService: AccountingService,
-  ) {}
+  ) {
+    super(stockAdjustmentRepository, auditLogService);
+  }
+
+  getEntityType(): string {
+    return 'StockAdjustment';
+  }
+
+  buildWhereClause(query: QueryStockAdjustmentsDto) {
+    const where: Record<string, unknown> = {};
+    if (query.status) {
+      where.status = query.status;
+    }
+    return where as any;
+  }
+
+  protected async afterDelete(adjustment: StockAdjustment): Promise<void> {
+    if (adjustment.status !== StockAdjustmentStatus.DRAFT) {
+      throw new BadRequestException('Only draft adjustments can be deleted');
+    }
+  }
 
   /**
    * Generate SA reference number for stock adjustments
@@ -518,41 +544,6 @@ export class StockAdjustmentService {
   /**
    * Delete a stock adjustment (soft delete, only drafts)
    */
-  async remove(id: string, userId?: string, username?: string): Promise<void> {
-    const adjustment = await this.stockAdjustmentRepository.findOne({
-      where: { id },
-    });
-
-    if (!adjustment) {
-      throw new NotFoundException(`Stock adjustment with ID '${id}' not found`);
-    }
-
-    if (adjustment.status !== StockAdjustmentStatus.DRAFT) {
-      throw new BadRequestException('Only draft adjustments can be deleted');
-    }
-
-    await this.stockAdjustmentRepository.softDelete(id);
-
-    // Log audit trail for delete
-    await this.auditLogService.log(
-      'DELETE',
-      'StockAdjustment',
-      `Deleted stock adjustment: ${adjustment.adjustmentNumber}`,
-      {
-        entityId: id,
-        userId: userId || 'system',
-        username,
-        oldValues: {
-          adjustmentNumber: adjustment.adjustmentNumber,
-          status: adjustment.status,
-          totalValue: adjustment.totalValue,
-        },
-      }
-    );
-
-    this.logger.log(`Stock adjustment ${adjustment.adjustmentNumber} deleted successfully`);
-  }
-
   /**
    * Find all deleted stock adjustments (no pagination)
    */

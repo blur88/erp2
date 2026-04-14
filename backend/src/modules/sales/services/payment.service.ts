@@ -8,6 +8,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, FindOptionsWhere, Between } from 'typeorm';
+import { BaseCrudService } from '../../../common/services/base-crud.service';
 import { Payment, PaymentStatus, SettlementStatusEnum } from '../../../database/entities/payment.entity';
 import { Customer } from '../../../database/entities/customer.entity';
 import { Invoice, InvoiceStatus } from '../../../database/entities/invoice.entity';
@@ -37,7 +38,12 @@ import { JwtPayload } from '../../auth/strategies/jwt.strategy';
 import { UserRole } from '../../../database/entities/user.entity';
 
 @Injectable()
-export class PaymentService {
+export class PaymentService extends BaseCrudService<
+  Payment,
+  CreatePaymentDto,
+  UpdatePaymentDto,
+  QueryPaymentsDto
+> {
   private readonly logger = new Logger(PaymentService.name);
 
   constructor(
@@ -49,9 +55,31 @@ export class PaymentService {
     private readonly invoiceRepository: Repository<Invoice>,
     @InjectRepository(PaymentMethodEntity)
     private readonly paymentMethodRepository: Repository<PaymentMethodEntity>,
-    private readonly auditLogService: AuditLogService,
+    auditLogService: AuditLogService,
     private readonly accountingService: AccountingService,
-  ) {}
+  ) {
+    super(paymentRepository, auditLogService);
+  }
+
+  getEntityType(): string {
+    return 'Payment';
+  }
+
+  buildWhereClause(query: QueryPaymentsDto): FindOptionsWhere<Payment> {
+    const where: FindOptionsWhere<Payment> = {};
+
+    if (query.customerId) where.customerId = query.customerId;
+    if (query.status) where.status = query.status as PaymentStatus;
+    if (query.invoiceId) where.invoiceId = query.invoiceId;
+    if (query.fromDate || query.toDate) {
+      where.paymentDate = Between(
+        query.fromDate || new Date('1900-01-01'),
+        query.toDate || new Date(),
+      );
+    }
+
+    return where;
+  }
 
   async create(
     createPaymentDto: CreatePaymentDto,

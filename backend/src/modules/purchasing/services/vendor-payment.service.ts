@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Between, LessThanOrEqual, MoreThanOrEqual } from 'typeorm';
+import { BaseCrudService } from '../../../common/services/base-crud.service';
 import {
   VendorPayment,
   PurchaseOrder,
@@ -31,7 +32,12 @@ import { JwtPayload } from '../../auth/strategies/jwt.strategy';
 import { UserRole } from '../../../database/entities/user.entity';
 
 @Injectable()
-export class VendorPaymentService {
+export class VendorPaymentService extends BaseCrudService<
+  VendorPayment,
+  CreateVendorPaymentDto,
+  UpdateVendorPaymentDto,
+  QueryVendorPaymentsDto
+> {
   private readonly logger = new Logger(VendorPaymentService.name);
 
   constructor(
@@ -43,10 +49,33 @@ export class VendorPaymentService {
     private grnRepository: Repository<GoodsReceivedNote>,
     @InjectRepository(PaymentMethodEntity)
     private paymentMethodRepository: Repository<PaymentMethodEntity>,
-    private readonly auditLogService: AuditLogService,
+    auditLogService: AuditLogService,
     private readonly accountingService: AccountingService,
     private readonly settingsService: SettingsService,
-  ) {}
+  ) {
+    super(vendorPaymentRepository, auditLogService);
+  }
+
+  getEntityType(): string {
+    return 'VendorPayment';
+  }
+
+  buildWhereClause(query: QueryVendorPaymentsDto) {
+    const where: Record<string, unknown> = {};
+    if (query.supplierId) where.supplierId = query.supplierId;
+    if (query.status) where.status = query.status;
+    if (query.paymentMethodId) where.paymentMethodId = query.paymentMethodId;
+    return where as any;
+  }
+
+  protected async afterDelete(vendorPayment: VendorPayment): Promise<void> {
+    vendorPayment.isActive = false;
+    await this.vendorPaymentRepository.save(vendorPayment);
+
+    if (vendorPayment.purchaseOrderId) {
+      await this.purchaseOrderRepository.update(vendorPayment.purchaseOrderId, {});
+    }
+  }
 
   /**
    * Create a new vendor payment
@@ -482,38 +511,6 @@ export class VendorPaymentService {
   /**
    * Soft delete a vendor payment
    */
-  async remove(id: string, userId?: string, username?: string): Promise<void> {
-    const vendorPayment = await this.findOne(id);
-
-    vendorPayment.isActive = false;
-
-    await this.vendorPaymentRepository.save(vendorPayment);
-    await this.vendorPaymentRepository.softDelete(id);
-
-    // Log audit trail for delete
-    await this.auditLogService.log(
-      'DELETE',
-      'VendorPayment',
-      `Deleted vendor payment: ${vendorPayment.paymentNumber}`,
-      {
-        entityId: id,
-        userId: userId || 'system',
-        username,
-        oldValues: {
-          paymentNumber: vendorPayment.paymentNumber,
-          amount: vendorPayment.amount,
-          status: vendorPayment.status,
-        },
-      }
-    );
-
-    // Touch the purchase order to update its updatedAt timestamp
-    if (vendorPayment.purchaseOrderId) {
-      // Force TypeORM to update by using the update query
-      await this.purchaseOrderRepository.update(vendorPayment.purchaseOrderId, {});
-    }
-  }
-
   /**
    * Soft delete a vendor payment during unpay without additional audit logging.
    */
@@ -630,7 +627,7 @@ export class VendorPaymentService {
   /**
    * Hard delete vendor payment
    */
-  async permanentDelete(id: string, userId?: string, username?: string): Promise<{ message: string }> {
+  async permanentDelete(id: string, userId?: string, username?: string): Promise<void> {
     const vendorPayment = await this.vendorPaymentRepository.findOne({
       where: { id },
       withDeleted: true,
@@ -659,7 +656,6 @@ export class VendorPaymentService {
     );
 
     await this.vendorPaymentRepository.remove(vendorPayment);
-    return { message: 'Vendor payment permanently deleted successfully' };
   }
 
 }
