@@ -36,6 +36,20 @@ describe('AppButton - variants', () => {
     expect(btn.className).toMatch(/MuiButton-contained/)
     expect(btn.className).toMatch(/MuiButton-colorError/)
   })
+
+  it('renders warning as contained colorWarning', () => {
+    wrap(<AppButton variant="warning">Revert</AppButton>)
+    const btn = screen.getByRole('button', { name: 'Revert' })
+    expect(btn.className).toMatch(/MuiButton-contained/)
+    expect(btn.className).toMatch(/MuiButton-colorWarning/)
+  })
+
+  it('renders success as contained colorSuccess', () => {
+    wrap(<AppButton variant="success">Restore</AppButton>)
+    const btn = screen.getByRole('button', { name: 'Restore' })
+    expect(btn.className).toMatch(/MuiButton-contained/)
+    expect(btn.className).toMatch(/MuiButton-colorSuccess/)
+  })
 })
 
 describe('AppButton - size=filter', () => {

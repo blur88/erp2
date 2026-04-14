@@ -5,7 +5,7 @@ import SortIcon from '@mui/icons-material/Sort'
 import { CircularProgress } from '@mui/material'
 import Button, { type ButtonProps } from '@mui/material/Button'
 
-type AppButtonVariant = 'primary' | 'secondary' | 'outlined' | 'danger'
+type AppButtonVariant = 'primary' | 'secondary' | 'outlined' | 'danger' | 'warning' | 'success'
 type AppButtonSize = 'filter' | 'small' | 'medium' | 'large'
 
 type SortConfig = {
@@ -57,6 +57,14 @@ export function AppButton({
       case 'danger':
         muiVariant = 'contained'
         muiColor = 'error'
+        break
+      case 'warning':
+        muiVariant = 'contained'
+        muiColor = 'warning'
+        break
+      case 'success':
+        muiVariant = 'contained'
+        muiColor = 'success'
         break
       case 'secondary':
       case 'outlined':
