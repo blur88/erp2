@@ -4,8 +4,6 @@ import { default as EditIcon } from '@mui/icons-material/Edit'
 import { default as PrintIcon } from '@mui/icons-material/Print'
 import {
   Box,
-  Button,
-  IconButton,
   Paper,
   Stack,
   Table,
@@ -17,6 +15,7 @@ import {
 } from '@mui/material'
 import Grid from '@mui/material/Grid'
 
+import { AppButton } from '@/components/common/AppButton'
 import { TABLE_STYLES } from '@/constants/tableStyles'
 import type { SalesOrder } from '@/types'
 import { formatCurrency, formatDate } from '@/utils/formatters'
@@ -42,14 +41,6 @@ interface OrderContextHeaderProps {
   onOpenPaymentDialog: () => void
   onFulfillOrder: () => void
   onUnfulfillOrder: () => void
-}
-
-const actionIconSx = {
-  height: `${TABLE_STYLES.row.height * 0.75}px`,
-  width: `${TABLE_STYLES.row.height * 0.75}px`,
-  minHeight: 20,
-  minWidth: 20,
-  p: 0.125,
 }
 
 const detailTableSx = {
@@ -93,13 +84,11 @@ const OrderContextHeader: React.FC<OrderContextHeaderProps> = ({
   if (!selectedOrder) {
     return (
       <Paper sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', p: 4 }}>
-        <Typography variant="h6" sx={{
-          color: "text.secondary"
-        }}>
+        <Typography variant="h6" sx={{ color: 'text.secondary' }}>
           Select an order to view details
         </Typography>
       </Paper>
-    );
+    )
   }
 
   const allPaymentsWithDuplicates = [
@@ -113,6 +102,21 @@ const OrderContextHeader: React.FC<OrderContextHeaderProps> = ({
   )
   const balance = (selectedOrder.totalAmount || 0) - (selectedOrder.paidAmount || 0)
   const isOverpaid = (selectedOrder.paidAmount || 0) > (selectedOrder.totalAmount || 0)
+
+  const payLabel = isOverpaid
+    ? 'Refund'
+    : selectedOrder.isPaidInFull
+      ? 'Unpay'
+      : selectedOrder.paidAmount > 0
+        ? 'Pay More'
+        : 'Pay'
+  const payVariant: 'primary' | 'warning' =
+    isOverpaid || selectedOrder.isPaidInFull ? 'warning' : 'primary'
+  const payHandler = isOverpaid
+    ? onRefundOrder
+    : selectedOrder.isPaidInFull
+      ? onUnpayOrder
+      : onOpenPaymentDialog
 
   return (
     <Paper sx={{ overflow: 'hidden' }}>
@@ -136,16 +140,34 @@ const OrderContextHeader: React.FC<OrderContextHeaderProps> = ({
         >
           SO Details - {selectedOrder.orderNumber}
         </Typography>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25 }}>
-          <IconButton size="small" title="Edit Order" onClick={onEditOrder} sx={{ ...actionIconSx, color: 'primary.main' }}>
-            <EditIcon sx={{ fontSize: `${TABLE_STYLES.row.height * 0.5}px` }} />
-          </IconButton>
-          <IconButton size="small" title="Delete Order" onClick={onDeleteOrder} sx={{ ...actionIconSx, color: 'error.main' }}>
-            <DeleteIcon sx={{ fontSize: `${TABLE_STYLES.row.height * 0.5}px` }} />
-          </IconButton>
-          <IconButton size="small" title="Print Order" onClick={onPrintOrder} sx={{ ...actionIconSx, color: 'info.main' }}>
-            <PrintIcon sx={{ fontSize: `${TABLE_STYLES.row.height * 0.5}px` }} />
-          </IconButton>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+          <AppButton
+            size="small"
+            variant="secondary"
+            startIcon={<EditIcon />}
+            title="Edit Order"
+            onClick={onEditOrder}
+          >
+            Edit
+          </AppButton>
+          <AppButton
+            size="small"
+            variant="danger"
+            startIcon={<DeleteIcon />}
+            title="Delete Order"
+            onClick={onDeleteOrder}
+          >
+            Delete
+          </AppButton>
+          <AppButton
+            size="small"
+            variant="secondary"
+            startIcon={<PrintIcon />}
+            title="Print Order"
+            onClick={onPrintOrder}
+          >
+            Print
+          </AppButton>
         </Box>
       </Box>
       <Box sx={{ p: TABLE_STYLES.cell.padding.px }}>
@@ -155,15 +177,27 @@ const OrderContextHeader: React.FC<OrderContextHeaderProps> = ({
               <Table size={TABLE_STYLES.size} sx={detailTableSx}>
                 <TableBody>
                   <TableRow>
-                    <TableCell colSpan={2} sx={{ pb: TABLE_STYLES.cell.padding.py * 0.67, py: TABLE_STYLES.cell.padding.py * 0.67, borderTop: TABLE_STYLES.cell.border }}>
-                      <Typography variant="h6" sx={{ fontWeight: 600, color: 'primary.main', fontSize: '0.8rem' }}>
+                    <TableCell
+                      colSpan={2}
+                      sx={{
+                        pb: TABLE_STYLES.cell.padding.py * 0.67,
+                        py: TABLE_STYLES.cell.padding.py * 0.67,
+                        borderTop: TABLE_STYLES.cell.border,
+                      }}
+                    >
+                      <Typography
+                        variant="h6"
+                        sx={{ fontWeight: 600, color: 'primary.main', fontSize: '0.8rem' }}
+                      >
                         SO Information
                       </Typography>
                     </TableCell>
                   </TableRow>
                   <TableRow sx={{ backgroundColor: 'grey.50' }}>
                     <TableCell sx={labelCellSx}>Customer Name</TableCell>
-                    <TableCell sx={valueCellSx}>{selectedOrder.customer?.name || 'Unknown Customer'}</TableCell>
+                    <TableCell sx={valueCellSx}>
+                      {selectedOrder.customer?.name || 'Unknown Customer'}
+                    </TableCell>
                   </TableRow>
                   <TableRow>
                     <TableCell sx={labelCellSx}>SO Date</TableCell>
@@ -175,14 +209,32 @@ const OrderContextHeader: React.FC<OrderContextHeaderProps> = ({
                       {selectedOrder.invoices && selectedOrder.invoices.length > 0 ? (
                         selectedOrder.invoices.map((invoice: any, index: number) => (
                           <Box key={invoice.id} component="span">
-                            <Typography component="button" onClick={(event) => onNavigateToInvoice(invoice, event)} sx={{ fontSize: '0.8rem', color: 'primary.main', cursor: 'pointer', textDecoration: 'none', border: 'none', background: 'none', padding: 0 }}>
+                            <Typography
+                              component="button"
+                              onClick={(event) => onNavigateToInvoice(invoice, event)}
+                              sx={{
+                                fontSize: '0.8rem',
+                                color: 'primary.main',
+                                cursor: 'pointer',
+                                textDecoration: 'none',
+                                border: 'none',
+                                background: 'none',
+                                padding: 0,
+                              }}
+                            >
                               {invoice.invoiceNumber}
                             </Typography>
-                            {index < selectedOrder.invoices!.length - 1 && <Typography component="span" sx={{ fontSize: '0.8rem' }}>,</Typography>}
+                            {index < selectedOrder.invoices!.length - 1 && (
+                              <Typography component="span" sx={{ fontSize: '0.8rem' }}>
+                                ,
+                              </Typography>
+                            )}
                           </Box>
                         ))
                       ) : (
-                        <Typography sx={{ fontSize: '0.8rem', color: 'text.secondary', fontStyle: 'italic' }}>
+                        <Typography
+                          sx={{ fontSize: '0.8rem', color: 'text.secondary', fontStyle: 'italic' }}
+                        >
                           {selectedOrder.isFulfilled ? 'Pending' : 'Not fulfilled'}
                         </Typography>
                       )}
@@ -192,14 +244,31 @@ const OrderContextHeader: React.FC<OrderContextHeaderProps> = ({
                     <TableCell sx={labelCellSx}>Payment No</TableCell>
                     <TableCell sx={valueCellSx}>
                       {allPayments.length === 0 ? (
-                        <Typography sx={{ fontSize: '0.8rem', color: 'text.secondary', fontStyle: 'italic' }}>
+                        <Typography
+                          sx={{ fontSize: '0.8rem', color: 'text.secondary', fontStyle: 'italic' }}
+                        >
                           No payments
                         </Typography>
                       ) : (
                         <Stack spacing={0.75}>
                           {allPayments.map((payment: any) => (
-                            <Box key={payment.id} sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-                              <Typography component="button" onClick={(event) => onNavigateToPayment(payment.id, event)} sx={{ fontSize: '0.8rem', color: 'primary.main', cursor: 'pointer', textDecoration: 'none', border: 'none', background: 'none', padding: 0 }}>
+                            <Box
+                              key={payment.id}
+                              sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}
+                            >
+                              <Typography
+                                component="button"
+                                onClick={(event) => onNavigateToPayment(payment.id, event)}
+                                sx={{
+                                  fontSize: '0.8rem',
+                                  color: 'primary.main',
+                                  cursor: 'pointer',
+                                  textDecoration: 'none',
+                                  border: 'none',
+                                  background: 'none',
+                                  padding: 0,
+                                }}
+                              >
                                 {payment.paymentNumber}
                               </Typography>
                             </Box>
@@ -212,15 +281,39 @@ const OrderContextHeader: React.FC<OrderContextHeaderProps> = ({
                     <TableCell sx={labelCellSx}>Journal Entry No</TableCell>
                     <TableCell sx={valueCellSx}>
                       {!selectedOrder.isFulfilled ? (
-                        <Typography sx={{ fontSize: '0.8rem', color: 'text.secondary', fontStyle: 'italic' }}>Not fulfilled</Typography>
+                        <Typography
+                          sx={{ fontSize: '0.8rem', color: 'text.secondary', fontStyle: 'italic' }}
+                        >
+                          Not fulfilled
+                        </Typography>
                       ) : journalEntryRefLoading ? (
-                        <Typography sx={{ fontSize: '0.8rem', color: 'text.secondary', fontStyle: 'italic' }}>Loading...</Typography>
+                        <Typography
+                          sx={{ fontSize: '0.8rem', color: 'text.secondary', fontStyle: 'italic' }}
+                        >
+                          Loading...
+                        </Typography>
                       ) : journalEntryRef ? (
-                        <Typography component="button" onClick={onNavigateToJournalEntry} sx={{ fontSize: '0.8rem', color: 'primary.main', cursor: 'pointer', textDecoration: 'none', border: 'none', background: 'none', padding: 0 }}>
+                        <Typography
+                          component="button"
+                          onClick={onNavigateToJournalEntry}
+                          sx={{
+                            fontSize: '0.8rem',
+                            color: 'primary.main',
+                            cursor: 'pointer',
+                            textDecoration: 'none',
+                            border: 'none',
+                            background: 'none',
+                            padding: 0,
+                          }}
+                        >
                           {journalEntryRef.referenceNumber}
                         </Typography>
                       ) : (
-                        <Typography sx={{ fontSize: '0.8rem', color: 'text.secondary', fontStyle: 'italic' }}>Pending</Typography>
+                        <Typography
+                          sx={{ fontSize: '0.8rem', color: 'text.secondary', fontStyle: 'italic' }}
+                        >
+                          Pending
+                        </Typography>
                       )}
                     </TableCell>
                   </TableRow>
@@ -234,8 +327,18 @@ const OrderContextHeader: React.FC<OrderContextHeaderProps> = ({
               <Table size={TABLE_STYLES.size} sx={detailTableSx}>
                 <TableBody>
                   <TableRow>
-                    <TableCell colSpan={2} sx={{ pb: TABLE_STYLES.cell.padding.py * 0.67, py: TABLE_STYLES.cell.padding.py * 0.67, borderTop: TABLE_STYLES.cell.border }}>
-                      <Typography variant="h6" sx={{ fontWeight: 600, color: 'primary.main', fontSize: '0.8rem' }}>
+                    <TableCell
+                      colSpan={2}
+                      sx={{
+                        pb: TABLE_STYLES.cell.padding.py * 0.67,
+                        py: TABLE_STYLES.cell.padding.py * 0.67,
+                        borderTop: TABLE_STYLES.cell.border,
+                      }}
+                    >
+                      <Typography
+                        variant="h6"
+                        sx={{ fontWeight: 600, color: 'primary.main', fontSize: '0.8rem' }}
+                      >
                         Payment and Fulfillment
                       </Typography>
                     </TableCell>
@@ -243,54 +346,65 @@ const OrderContextHeader: React.FC<OrderContextHeaderProps> = ({
                   <TableRow sx={{ backgroundColor: 'grey.50' }}>
                     <TableCell sx={labelCellSx}>Sub-total</TableCell>
                     <TableCell sx={valueCellSx}>
-                      {formatCurrency(selectedOrder.items?.reduce((sum: number, item: any) => sum + (Number(item.totalAmount) || 0), 0) || 0)}
+                      {formatCurrency(
+                        selectedOrder.items?.reduce(
+                          (sum: number, item: any) => sum + (Number(item.totalAmount) || 0),
+                          0,
+                        ) || 0,
+                      )}
                     </TableCell>
                   </TableRow>
                   <TableRow>
                     <TableCell sx={labelCellSx}>Shipping</TableCell>
-                    <TableCell sx={valueCellSx}>{formatCurrency((selectedOrder as any).shippingAmount || 0)}</TableCell>
+                    <TableCell sx={valueCellSx}>
+                      {formatCurrency((selectedOrder as any).shippingAmount || 0)}
+                    </TableCell>
                   </TableRow>
                   <TableRow sx={{ backgroundColor: 'grey.50' }}>
                     <TableCell sx={labelCellSx}>Total</TableCell>
-                    <TableCell sx={valueCellSx}>{formatCurrency(selectedOrder.totalAmount || 0)}</TableCell>
+                    <TableCell sx={valueCellSx}>
+                      {formatCurrency(selectedOrder.totalAmount || 0)}
+                    </TableCell>
                   </TableRow>
                   <TableRow>
                     <TableCell sx={labelCellSx}>Paid</TableCell>
-                    <TableCell sx={valueCellSx}>{formatCurrency(selectedOrder.paidAmount || 0)}</TableCell>
+                    <TableCell sx={valueCellSx}>
+                      {formatCurrency(selectedOrder.paidAmount || 0)}
+                    </TableCell>
                   </TableRow>
                   <TableRow sx={{ backgroundColor: 'grey.50' }}>
                     <TableCell sx={labelCellSx}>Balance</TableCell>
-                    <TableCell sx={valueCellSx}>{balance < 0 ? `-${formatCurrency(Math.abs(balance))}` : formatCurrency(balance)}</TableCell>
+                    <TableCell sx={valueCellSx}>
+                      {balance < 0
+                        ? `-${formatCurrency(Math.abs(balance))}`
+                        : formatCurrency(balance)}
+                    </TableCell>
                   </TableRow>
                   <TableRow>
                     <TableCell colSpan={2} sx={{ textAlign: 'center' }}>
                       <Stack
                         direction="row"
                         spacing={1}
-                        sx={{
-                          alignItems: "center",
-                          justifyContent: "center"
-                        }}>
-                        <Button
-                          variant="contained"
+                        sx={{ alignItems: 'center', justifyContent: 'center' }}
+                      >
+                        <AppButton
                           size="small"
-                          color={isOverpaid ? 'warning' : selectedOrder.isPaidInFull ? 'warning' : 'primary'}
-                          onClick={isOverpaid ? onRefundOrder : selectedOrder.isPaidInFull ? onUnpayOrder : onOpenPaymentDialog}
+                          variant={payVariant}
+                          onClick={payHandler}
                           disabled={isLoading || selectedOrder.isFulfilled}
                           sx={{ minWidth: 110 }}
                         >
-                          {isOverpaid ? 'Refund' : selectedOrder.isPaidInFull ? 'Unpay' : selectedOrder.paidAmount > 0 ? 'Pay More' : 'Pay'}
-                        </Button>
-                        <Button
-                          variant="contained"
+                          {payLabel}
+                        </AppButton>
+                        <AppButton
                           size="small"
-                          color={selectedOrder.isFulfilled ? 'warning' : 'success'}
+                          variant={selectedOrder.isFulfilled ? 'warning' : 'success'}
                           onClick={selectedOrder.isFulfilled ? onUnfulfillOrder : onFulfillOrder}
                           disabled={isLoading || (!selectedOrder.isFulfilled && !selectedOrder.isPaidInFull)}
                           sx={{ minWidth: 110 }}
                         >
                           {selectedOrder.isFulfilled ? 'Unfulfill' : 'Fulfill'}
-                        </Button>
+                        </AppButton>
                       </Stack>
                     </TableCell>
                   </TableRow>
@@ -301,7 +415,7 @@ const OrderContextHeader: React.FC<OrderContextHeaderProps> = ({
         </Grid>
       </Box>
     </Paper>
-  );
+  )
 }
 
 export default OrderContextHeader
