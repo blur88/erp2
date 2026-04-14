@@ -3,8 +3,6 @@ import { default as PrintIcon } from '@mui/icons-material/Print'
 import {
   Box,
   Chip,
-  CircularProgress,
-  IconButton,
   Paper,
   Table,
   TableBody,
@@ -17,6 +15,7 @@ import Grid from '@mui/material/Grid'
 
 import type { PaymentJournalEntryRef, PaymentListItem } from '../hooks/usePaymentsPageState'
 
+import { AppButton } from '@/components/common/AppButton'
 import { TABLE_STYLES } from '@/constants/tableStyles'
 import { formatCurrency, formatDate } from '@/utils/formatters'
 
@@ -28,14 +27,6 @@ interface PaymentContextHeaderProps {
   onOrderClick: (orderId: string, event: React.MouseEvent) => void
   onInvoiceClick: (invoiceId: string, event: React.MouseEvent) => void
   onNavigateToJournalEntry: (ref: PaymentJournalEntryRef | null) => void
-}
-
-const actionIconSx = {
-  height: `${TABLE_STYLES.row.height * 0.75}px`,
-  width: `${TABLE_STYLES.row.height * 0.75}px`,
-  minHeight: 20,
-  minWidth: 20,
-  p: 0.125,
 }
 
 const detailTableSx = {
@@ -110,7 +101,12 @@ const PaymentContextHeader: React.FC<PaymentContextHeaderProps> = ({
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
           <Typography
             variant="tableHeader"
-            sx={{ fontWeight: 600, fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}
+            sx={{
+              fontWeight: 600,
+              fontSize: '0.8rem',
+              textTransform: 'uppercase',
+              letterSpacing: '0.5px',
+            }}
           >
             Payment Details - {selectedPayment.paymentNumber}
           </Typography>
@@ -121,14 +117,15 @@ const PaymentContextHeader: React.FC<PaymentContextHeaderProps> = ({
             sx={{ textTransform: 'capitalize', fontSize: '0.75rem', fontWeight: 600 }}
           />
         </Box>
-        <IconButton
+        <AppButton
           size="small"
+          variant="secondary"
+          startIcon={<PrintIcon />}
           title="Print Receipt"
           onClick={onPrint}
-          sx={{ ...actionIconSx, color: 'info.main', '&:hover': { backgroundColor: 'info.light', color: 'info.dark' } }}
         >
-          <PrintIcon sx={{ fontSize: `${TABLE_STYLES.row.height * 0.5}px` }} />
-        </IconButton>
+          Print
+        </AppButton>
       </Box>
 
       <Box sx={{ p: TABLE_STYLES.cell.padding.px }}>
@@ -140,9 +137,16 @@ const PaymentContextHeader: React.FC<PaymentContextHeaderProps> = ({
                   <TableRow>
                     <TableCell
                       colSpan={2}
-                      sx={{ pb: TABLE_STYLES.cell.padding.py * 0.67, py: TABLE_STYLES.cell.padding.py * 0.67, borderTop: TABLE_STYLES.cell.border }}
+                      sx={{
+                        pb: TABLE_STYLES.cell.padding.py * 0.67,
+                        py: TABLE_STYLES.cell.padding.py * 0.67,
+                        borderTop: TABLE_STYLES.cell.border,
+                      }}
                     >
-                      <Typography variant="h6" sx={{ fontWeight: 600, color: 'primary.main', fontSize: '0.8rem' }}>
+                      <Typography
+                        variant="h6"
+                        sx={{ fontWeight: 600, color: 'primary.main', fontSize: '0.8rem' }}
+                      >
                         Payment Information
                       </Typography>
                     </TableCell>
@@ -157,7 +161,9 @@ const PaymentContextHeader: React.FC<PaymentContextHeaderProps> = ({
                   </TableRow>
                   <TableRow sx={{ backgroundColor: 'grey.50' }}>
                     <TableCell sx={labelCellSx}>Payment Date</TableCell>
-                    <TableCell sx={valueCellSx}>{formatDate(selectedPayment.paymentDate)}</TableCell>
+                    <TableCell sx={valueCellSx}>
+                      {formatDate(selectedPayment.paymentDate)}
+                    </TableCell>
                   </TableRow>
                   <TableRow>
                     <TableCell sx={labelCellSx}>Method</TableCell>
@@ -181,9 +187,16 @@ const PaymentContextHeader: React.FC<PaymentContextHeaderProps> = ({
                   <TableRow>
                     <TableCell
                       colSpan={2}
-                      sx={{ pb: TABLE_STYLES.cell.padding.py * 0.67, py: TABLE_STYLES.cell.padding.py * 0.67, borderTop: TABLE_STYLES.cell.border }}
+                      sx={{
+                        pb: TABLE_STYLES.cell.padding.py * 0.67,
+                        py: TABLE_STYLES.cell.padding.py * 0.67,
+                        borderTop: TABLE_STYLES.cell.border,
+                      }}
                     >
-                      <Typography variant="h6" sx={{ fontWeight: 600, color: 'primary.main', fontSize: '0.8rem' }}>
+                      <Typography
+                        variant="h6"
+                        sx={{ fontWeight: 600, color: 'primary.main', fontSize: '0.8rem' }}
+                      >
                         Related Information
                       </Typography>
                     </TableCell>
@@ -200,7 +213,11 @@ const PaymentContextHeader: React.FC<PaymentContextHeaderProps> = ({
                           {selectedPayment.relatedOrderNumber}
                         </Typography>
                       ) : (
-                        <Typography sx={{ fontSize: '0.8rem', color: 'text.secondary', fontStyle: 'italic' }}>N/A</Typography>
+                        <Typography
+                          sx={{ fontSize: '0.8rem', color: 'text.secondary', fontStyle: 'italic' }}
+                        >
+                          N/A
+                        </Typography>
                       )}
                     </TableCell>
                   </TableRow>
@@ -210,13 +227,19 @@ const PaymentContextHeader: React.FC<PaymentContextHeaderProps> = ({
                       {selectedPayment.relatedInvoiceNumber ? (
                         <Typography
                           component="button"
-                          onClick={(event) => onInvoiceClick(selectedPayment.relatedInvoiceId!, event)}
+                          onClick={(event) =>
+                            onInvoiceClick(selectedPayment.relatedInvoiceId!, event)
+                          }
                           sx={linkButtonSx}
                         >
                           {selectedPayment.relatedInvoiceNumber}
                         </Typography>
                       ) : (
-                        <Typography sx={{ fontSize: '0.8rem', color: 'text.secondary', fontStyle: 'italic' }}>N/A</Typography>
+                        <Typography
+                          sx={{ fontSize: '0.8rem', color: 'text.secondary', fontStyle: 'italic' }}
+                        >
+                          N/A
+                        </Typography>
                       )}
                     </TableCell>
                   </TableRow>
@@ -230,7 +253,11 @@ const PaymentContextHeader: React.FC<PaymentContextHeaderProps> = ({
                     <TableCell sx={labelCellSx}>Journal Entry</TableCell>
                     <TableCell sx={valueCellSx}>
                       {journalEntryRefLoading ? (
-                        <CircularProgress size={12} />
+                        <Typography
+                          sx={{ fontSize: '0.8rem', color: 'text.secondary', fontStyle: 'italic' }}
+                        >
+                          Loading...
+                        </Typography>
                       ) : journalEntryRef ? (
                         <Typography
                           component="button"
@@ -240,7 +267,11 @@ const PaymentContextHeader: React.FC<PaymentContextHeaderProps> = ({
                           {journalEntryRef.referenceNumber}
                         </Typography>
                       ) : (
-                        <Typography sx={{ fontSize: '0.8rem', color: 'text.secondary', fontStyle: 'italic' }}>N/A</Typography>
+                        <Typography
+                          sx={{ fontSize: '0.8rem', color: 'text.secondary', fontStyle: 'italic' }}
+                        >
+                          N/A
+                        </Typography>
                       )}
                     </TableCell>
                   </TableRow>
