@@ -156,7 +156,7 @@ const StockAdjustmentsPage: React.FC = () => {
             hasActiveFilters={filterBar.hasActiveFilters}
             searchInputRef={pageState.searchInputRef}
             sort={{
-              field: 'adjustmentDate',
+              field: 'adjustmentNumber',
               sortBy: pageState.sorting.sortBy,
               sortOrder: pageState.sorting.sortOrder,
               onSort: handleSort,
