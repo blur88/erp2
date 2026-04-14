@@ -85,4 +85,17 @@ describe('CustomerContextHeader', () => {
     expect(firstRow!.textContent).toContain('—')
     expect(lastRow!.textContent).toContain('—')
   })
+
+  it('renders labeled edit and delete action buttons', () => {
+    render(
+      <CustomerContextHeader
+        selectedCustomer={baseCustomer}
+        onEdit={vi.fn()}
+        onDelete={vi.fn()}
+      />,
+    )
+
+    expect(screen.getByText('Edit')).toBeInTheDocument()
+    expect(screen.getByText('Delete')).toBeInTheDocument()
+  })
 })

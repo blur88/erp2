@@ -3,7 +3,6 @@ import { default as DeleteIcon } from '@mui/icons-material/Delete'
 import { default as EditIcon } from '@mui/icons-material/Edit'
 import {
   Box,
-  IconButton,
   Paper,
   Table,
   TableBody,
@@ -14,6 +13,7 @@ import {
 } from '@mui/material'
 import Grid from '@mui/material/Grid'
 
+import { AppButton } from '@/components/common/AppButton'
 import { TABLE_STYLES } from '@/constants/tableStyles'
 import type { Customer } from '@/types'
 import { CustomerType } from '@/types'
@@ -23,14 +23,6 @@ interface CustomerContextHeaderProps {
   selectedCustomer: Customer | null
   onEdit: () => void
   onDelete: () => void
-}
-
-const actionIconSx = {
-  height: `${TABLE_STYLES.row.height * 0.75}px`,
-  width: `${TABLE_STYLES.row.height * 0.75}px`,
-  minHeight: 20,
-  minWidth: 20,
-  p: 0.125,
 }
 
 const detailTableSx = {
@@ -62,13 +54,11 @@ const CustomerContextHeader: React.FC<CustomerContextHeaderProps> = ({
   if (!selectedCustomer) {
     return (
       <Paper sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', p: 4 }}>
-        <Typography variant="h6" sx={{
-          color: "text.secondary"
-        }}>
+        <Typography variant="h6" sx={{ color: 'text.secondary' }}>
           Select a customer to view details
         </Typography>
       </Paper>
-    );
+    )
   }
 
   return (
@@ -93,23 +83,25 @@ const CustomerContextHeader: React.FC<CustomerContextHeaderProps> = ({
         >
           Customer - {selectedCustomer.name}
         </Typography>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25 }}>
-          <IconButton
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+          <AppButton
             size="small"
+            variant="secondary"
+            startIcon={<EditIcon />}
             title="Edit Customer"
             onClick={onEdit}
-            sx={{ ...actionIconSx, color: 'primary.main' }}
           >
-            <EditIcon sx={{ fontSize: `${TABLE_STYLES.row.height * 0.5}px` }} />
-          </IconButton>
-          <IconButton
+            Edit
+          </AppButton>
+          <AppButton
             size="small"
+            variant="danger"
+            startIcon={<DeleteIcon />}
             title="Delete Customer"
             onClick={onDelete}
-            sx={{ ...actionIconSx, color: 'error.main' }}
           >
-            <DeleteIcon sx={{ fontSize: `${TABLE_STYLES.row.height * 0.5}px` }} />
-          </IconButton>
+            Delete
+          </AppButton>
         </Box>
       </Box>
 
