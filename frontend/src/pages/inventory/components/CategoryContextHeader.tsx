@@ -4,7 +4,6 @@ import { default as EditIcon } from '@mui/icons-material/Edit'
 import {
   Box,
   Grid,
-  IconButton,
   Paper,
   Table,
   TableBody,
@@ -15,6 +14,7 @@ import {
   Typography,
 } from '@mui/material'
 
+import { AppButton } from '@/components/common/AppButton'
 import { TABLE_STYLES } from '@/constants/tableStyles'
 import type { Category } from '@/types'
 import { formatDate } from '@/utils/formatters'
@@ -40,14 +40,6 @@ function buildCategoryHierarchy(categoryId: string, allCategories: Category[]): 
   }
 
   return names.length > 0 ? names.join(' > ') : '—'
-}
-
-const actionIconSx = {
-  height: `${TABLE_STYLES.row.height * 0.75}px`,
-  width: `${TABLE_STYLES.row.height * 0.75}px`,
-  minHeight: 20,
-  minWidth: 20,
-  p: 0.125,
 }
 
 const detailTableSx = {
@@ -111,25 +103,25 @@ const CategoryContextHeader: React.FC<CategoryContextHeaderProps> = ({
         >
           Category - {selectedCategory.name}
         </Typography>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25 }}>
-          <IconButton
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+          <AppButton
             size="small"
+            variant="secondary"
+            startIcon={<EditIcon />}
             title={`Edit ${selectedCategory.name}`}
-            aria-label={`Edit category ${selectedCategory.name}`}
             onClick={onEdit}
-            sx={{ ...actionIconSx, color: 'primary.main' }}
           >
-            <EditIcon sx={{ fontSize: `${TABLE_STYLES.row.height * 0.5}px` }} />
-          </IconButton>
-          <IconButton
+            Edit
+          </AppButton>
+          <AppButton
             size="small"
+            variant="danger"
+            startIcon={<DeleteIcon />}
             title={`Delete ${selectedCategory.name}`}
-            aria-label={`Delete category ${selectedCategory.name}`}
             onClick={onDelete}
-            sx={{ ...actionIconSx, color: 'error.main' }}
           >
-            <DeleteIcon sx={{ fontSize: `${TABLE_STYLES.row.height * 0.5}px` }} />
-          </IconButton>
+            Delete
+          </AppButton>
         </Box>
       </Box>
 
