@@ -3,7 +3,6 @@ import { default as DeleteIcon } from '@mui/icons-material/Delete'
 import { default as EditIcon } from '@mui/icons-material/Edit'
 import {
   Box,
-  Button,
   Chip,
   CircularProgress,
   IconButton,
@@ -18,6 +17,7 @@ import {
 } from '@mui/material'
 import Grid from '@mui/material/Grid'
 
+import { AppButton } from '@/components/common/AppButton'
 import { TABLE_STYLES } from '@/constants/tableStyles'
 import type { StockAdjustment } from '@/types'
 import { formatCurrency, formatDate } from '@/utils/formatters'
@@ -224,30 +224,28 @@ const StockAdjustmentContextHeader: React.FC<StockAdjustmentContextHeaderProps> 
                   )}
                   <TableRow>
                     <TableCell colSpan={2} sx={{ textAlign: 'center' }}>
-                      <Stack direction="row" spacing={1} sx={{ alignItems: 'center', justifyContent: 'center' }}>
-                        {selectedAdjustment.status === 'draft' && (
-                          <Button
-                            variant="contained"
-                            size="small"
-                            color="primary"
-                            onClick={onComplete}
-                            sx={{ minWidth: 110 }}
-                          >
-                            Complete
-                          </Button>
-                        )}
-                        {selectedAdjustment.status === 'completed' && (
-                          <Button
-                            variant="contained"
-                            size="small"
-                            color="warning"
-                            onClick={onRevert}
-                            sx={{ minWidth: 110 }}
-                          >
-                            Revert to Draft
-                          </Button>
-                        )}
-                      </Stack>
+                        <Stack direction="row" spacing={1} sx={{ alignItems: 'center', justifyContent: 'center' }}>
+                          {selectedAdjustment.status === 'draft' && (
+                            <AppButton
+                              variant="primary"
+                              size="small"
+                              onClick={onComplete}
+                              sx={{ minWidth: 110 }}
+                            >
+                              Complete
+                            </AppButton>
+                          )}
+                          {selectedAdjustment.status === 'completed' && (
+                            <AppButton
+                              variant="warning"
+                              size="small"
+                              onClick={onRevert}
+                              sx={{ minWidth: 110 }}
+                            >
+                              Revert to Draft
+                            </AppButton>
+                          )}
+                        </Stack>
                     </TableCell>
                   </TableRow>
                 </TableBody>
