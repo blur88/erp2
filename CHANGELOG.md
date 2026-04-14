@@ -1,3 +1,17 @@
+## [1.74.2](https://github.com/blur88/erp2/compare/v1.74.1...v1.74.2) (2026-04-14)
+
+
+### Internal Changes
+
+* refactor(sales): replace Button with AppButton in SalesPage error alert ([](https://github.com/blur88/erp2/commit/))
+* refactor(purchasing): replace IconButton with AppButton in VendorPaymentContextHeader ([](https://github.com/blur88/erp2/commit/))
+* refactor(purchasing): replace IconButton with AppButton in GRNContextHeader ([](https://github.com/blur88/erp2/commit/))
+* refactor(purchasing): replace Button/IconButton with AppButton in PurchaseOrderContextHeader ([](https://github.com/blur88/erp2/commit/))
+* refactor(purchasing): replace IconButton with AppButton in SupplierContextHeader ([](https://github.com/blur88/erp2/commit/))
+* refactor(purchasing): replace Button with AppButton in PurchasingPage ([](https://github.com/blur88/erp2/commit/))
+* docs: add implementation plan for purchasing module AppButton standardization (#368) ([](https://github.com/blur88/erp2/commit/))
+* docs: add design spec for purchasing module AppButton standardization (#368) ([](https://github.com/blur88/erp2/commit/))
+
 ## [1.74.1](https://github.com/blur88/erp2/compare/v1.74.0...v1.74.1) (2026-04-14)
 
 
