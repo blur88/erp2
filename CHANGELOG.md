@@ -1,3 +1,10 @@
+## [1.73.1](https://github.com/blur88/erp2/compare/v1.73.0...v1.73.1) (2026-04-14)
+
+
+### Internal Changes
+
+* chore(deps): bump react-router-dom to 7.14.1 ([](https://github.com/blur88/erp2/commit/))
+
 # [1.73.0](https://github.com/blur88/erp2/compare/v1.72.3...v1.73.0) (2026-04-14)
 
 
