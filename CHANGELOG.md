@@ -1,3 +1,10 @@
+## [1.72.1](https://github.com/blur88/erp2/compare/v1.72.0...v1.72.1) (2026-04-14)
+
+
+### Bug Fixes
+
+* **inventory:** correct complete confirmation dialog wording ([#346](https://github.com/blur88/erp2/issues/346)) ([20523ac](https://github.com/blur88/erp2/commit/20523ac10a063065e7b80334266f392f7fb3276f))
+
 # [1.72.0](https://github.com/blur88/erp2/compare/v1.71.2...v1.72.0) (2026-04-13)
 
 
