@@ -56,10 +56,10 @@ const StockAdjustmentsPage: React.FC = () => {
     [],
   )
 
-  const filterBar = useFilterBar(filterConfig)
+  const { appliedFilters, draftFilters, handlers, hasActiveFilters } = useFilterBar(filterConfig)
   const weekStartsOn = getStartOfWeek()
   const dateRange = useMemo(() => {
-    const period = filterBar.appliedFilters.period
+    const period = appliedFilters.period
 
     if (!period || period.key === null) {
       return { fromDate: undefined, toDate: undefined }
@@ -71,18 +71,18 @@ const StockAdjustmentsPage: React.FC = () => {
 
     const range = getPeriodDateRange(period.key, weekStartsOn)
     return { fromDate: range.from, toDate: range.to }
-  }, [filterBar.appliedFilters.period, weekStartsOn])
+  }, [appliedFilters.period, weekStartsOn])
 
   const queryParams = useMemo(
     () => ({
-      search: filterBar.appliedFilters.search || undefined,
-      status: filterBar.appliedFilters.status ?? undefined,
+      search: appliedFilters.search || undefined,
+      status: appliedFilters.status ?? undefined,
       fromDate: dateRange.fromDate,
       toDate: dateRange.toDate,
       sortBy: pageState.sorting.sortBy,
       sortOrder: pageState.sorting.sortOrder.toUpperCase(),
     }),
-    [filterBar.appliedFilters, dateRange, pageState.sorting],
+    [appliedFilters, dateRange, pageState.sorting],
   )
 
   const {
@@ -171,9 +171,9 @@ const StockAdjustmentsPage: React.FC = () => {
         toolbar={(
           <FilterBar
             config={filterConfig}
-            draftFilters={filterBar.draftFilters}
-            handlers={filterBar.handlers}
-            hasActiveFilters={filterBar.hasActiveFilters}
+            draftFilters={draftFilters}
+            handlers={handlers}
+            hasActiveFilters={hasActiveFilters}
             searchInputRef={pageState.searchInputRef}
             sort={{
               field: 'adjustmentNumber',
