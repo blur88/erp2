@@ -3,7 +3,6 @@ import { default as PrintIcon } from '@mui/icons-material/Print'
 import {
   Box,
   Chip,
-  IconButton,
   Paper,
   Stack,
   Table,
@@ -17,6 +16,7 @@ import Grid from '@mui/material/Grid'
 
 import type { InvoiceJournalEntryRef, InvoiceListItem } from '../hooks/useInvoicesPageState'
 
+import { AppButton } from '@/components/common/AppButton'
 import { TABLE_STYLES } from '@/constants/tableStyles'
 import { formatCurrency, formatDate } from '@/utils/formatters'
 
@@ -28,14 +28,6 @@ interface InvoiceContextHeaderProps {
   onNavigateToSalesOrder: (salesOrderId: string, event: React.MouseEvent) => void
   onNavigateToPayment: (paymentId: string, event?: React.MouseEvent) => void
   onNavigateToJournalEntry: () => void
-}
-
-const actionIconSx = {
-  height: `${TABLE_STYLES.row.height * 0.75}px`,
-  width: `${TABLE_STYLES.row.height * 0.75}px`,
-  minHeight: 20,
-  minWidth: 20,
-  p: 0.125,
 }
 
 const detailTableSx = {
@@ -82,25 +74,34 @@ const InvoiceContextHeader: React.FC<InvoiceContextHeaderProps> = ({
   if (!selectedInvoice) {
     return (
       <Paper sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', p: 4 }}>
-        <Typography variant="h6" sx={{
-          color: "text.secondary"
-        }}>
+        <Typography variant="h6" sx={{ color: 'text.secondary' }}>
           Select an invoice to view details
         </Typography>
       </Paper>
-    );
+    )
   }
 
   const isOverpaid = (selectedInvoice.paidAmount || 0) > (selectedInvoice.totalAmount || 0)
   const overpaidAmount = (selectedInvoice.paidAmount || 0) - (selectedInvoice.totalAmount || 0)
 
   const statusChip = isOverpaid ? (
-    <Chip label="Overpaid" size="small" color="info" sx={{ fontSize: '0.75rem', fontWeight: 600 }} />
+    <Chip
+      label="Overpaid"
+      size="small"
+      color="info"
+      sx={{ fontSize: '0.75rem', fontWeight: 600 }}
+    />
   ) : (
     <Chip
       label={selectedInvoice.status === 'partial_paid' ? 'Partial Paid' : selectedInvoice.status}
       size="small"
-      color={selectedInvoice.status === 'paid' ? 'success' : selectedInvoice.status === 'partial_paid' ? 'warning' : 'default'}
+      color={
+        selectedInvoice.status === 'paid'
+          ? 'success'
+          : selectedInvoice.status === 'partial_paid'
+            ? 'warning'
+            : 'default'
+      }
       sx={{ textTransform: 'capitalize', fontSize: '0.75rem', fontWeight: 600 }}
     />
   )
@@ -121,20 +122,26 @@ const InvoiceContextHeader: React.FC<InvoiceContextHeaderProps> = ({
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
           <Typography
             variant="tableHeader"
-            sx={{ fontWeight: 600, fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}
+            sx={{
+              fontWeight: 600,
+              fontSize: '0.8rem',
+              textTransform: 'uppercase',
+              letterSpacing: '0.5px',
+            }}
           >
             Invoice Details - {selectedInvoice.invoiceNumber}
           </Typography>
           {statusChip}
         </Box>
-        <IconButton
+        <AppButton
           size="small"
+          variant="secondary"
+          startIcon={<PrintIcon />}
           title="Print Invoice"
           onClick={onPrint}
-          sx={{ ...actionIconSx, color: 'info.main', '&:hover': { backgroundColor: 'info.light', color: 'info.dark' } }}
         >
-          <PrintIcon sx={{ fontSize: `${TABLE_STYLES.row.height * 0.5}px` }} />
-        </IconButton>
+          Print
+        </AppButton>
       </Box>
 
       <Box sx={{ p: TABLE_STYLES.cell.padding.px }}>
@@ -144,19 +151,33 @@ const InvoiceContextHeader: React.FC<InvoiceContextHeaderProps> = ({
               <Table size={TABLE_STYLES.size} sx={detailTableSx}>
                 <TableBody>
                   <TableRow>
-                    <TableCell colSpan={2} sx={{ pb: TABLE_STYLES.cell.padding.py * 0.67, py: TABLE_STYLES.cell.padding.py * 0.67, borderTop: TABLE_STYLES.cell.border }}>
-                      <Typography variant="h6" sx={{ fontWeight: 600, color: 'primary.main', fontSize: '0.8rem' }}>
+                    <TableCell
+                      colSpan={2}
+                      sx={{
+                        pb: TABLE_STYLES.cell.padding.py * 0.67,
+                        py: TABLE_STYLES.cell.padding.py * 0.67,
+                        borderTop: TABLE_STYLES.cell.border,
+                      }}
+                    >
+                      <Typography
+                        variant="h6"
+                        sx={{ fontWeight: 600, color: 'primary.main', fontSize: '0.8rem' }}
+                      >
                         Invoice Information
                       </Typography>
                     </TableCell>
                   </TableRow>
                   <TableRow sx={{ backgroundColor: 'grey.50' }}>
                     <TableCell sx={labelCellSx}>Customer</TableCell>
-                    <TableCell sx={valueCellSx}>{selectedInvoice.customer?.name || selectedInvoice.customerName}</TableCell>
+                    <TableCell sx={valueCellSx}>
+                      {selectedInvoice.customer?.name || selectedInvoice.customerName}
+                    </TableCell>
                   </TableRow>
                   <TableRow>
                     <TableCell sx={labelCellSx}>Invoice Date</TableCell>
-                    <TableCell sx={valueCellSx}>{formatDate(selectedInvoice.invoiceDate)}</TableCell>
+                    <TableCell sx={valueCellSx}>
+                      {formatDate(selectedInvoice.invoiceDate)}
+                    </TableCell>
                   </TableRow>
                   <TableRow sx={{ backgroundColor: 'grey.50' }}>
                     <TableCell sx={labelCellSx}>Order No</TableCell>
@@ -164,13 +185,17 @@ const InvoiceContextHeader: React.FC<InvoiceContextHeaderProps> = ({
                       {selectedInvoice.salesOrder?.orderNumber ? (
                         <Typography
                           component="button"
-                          onClick={(event) => onNavigateToSalesOrder(selectedInvoice.salesOrder!.id, event)}
+                          onClick={(event) =>
+                            onNavigateToSalesOrder(selectedInvoice.salesOrder!.id, event)
+                          }
                           sx={linkButtonSx}
                         >
                           {selectedInvoice.salesOrder.orderNumber}
                         </Typography>
                       ) : (
-                        <Typography sx={{ fontSize: '0.8rem', color: 'text.secondary', fontStyle: 'italic' }}>
+                        <Typography
+                          sx={{ fontSize: '0.8rem', color: 'text.secondary', fontStyle: 'italic' }}
+                        >
                           None
                         </Typography>
                       )}
@@ -191,13 +216,17 @@ const InvoiceContextHeader: React.FC<InvoiceContextHeaderProps> = ({
                                 {payment.paymentNumber}
                               </Typography>
                               {index < payments.length - 1 && (
-                                <Typography component="span" sx={{ fontSize: '0.8rem' }}>, </Typography>
+                                <Typography component="span" sx={{ fontSize: '0.8rem' }}>
+                                  ,{' '}
+                                </Typography>
                               )}
                             </Box>
                           ))}
                         </Stack>
                       ) : (
-                        <Typography sx={{ fontSize: '0.8rem', color: 'text.secondary', fontStyle: 'italic' }}>
+                        <Typography
+                          sx={{ fontSize: '0.8rem', color: 'text.secondary', fontStyle: 'italic' }}
+                        >
                           No payments
                         </Typography>
                       )}
@@ -207,13 +236,25 @@ const InvoiceContextHeader: React.FC<InvoiceContextHeaderProps> = ({
                     <TableCell sx={labelCellSx}>Journal Entry No</TableCell>
                     <TableCell sx={valueCellSx}>
                       {journalEntryRefLoading ? (
-                        <Typography sx={{ fontSize: '0.8rem', color: 'text.secondary', fontStyle: 'italic' }}>Loading...</Typography>
+                        <Typography
+                          sx={{ fontSize: '0.8rem', color: 'text.secondary', fontStyle: 'italic' }}
+                        >
+                          Loading...
+                        </Typography>
                       ) : journalEntryRef ? (
-                        <Typography component="button" onClick={onNavigateToJournalEntry} sx={linkButtonSx}>
+                        <Typography
+                          component="button"
+                          onClick={onNavigateToJournalEntry}
+                          sx={linkButtonSx}
+                        >
                           {journalEntryRef.referenceNumber}
                         </Typography>
                       ) : (
-                        <Typography sx={{ fontSize: '0.8rem', color: 'text.secondary', fontStyle: 'italic' }}>Pending</Typography>
+                        <Typography
+                          sx={{ fontSize: '0.8rem', color: 'text.secondary', fontStyle: 'italic' }}
+                        >
+                          Pending
+                        </Typography>
                       )}
                     </TableCell>
                   </TableRow>
@@ -227,8 +268,18 @@ const InvoiceContextHeader: React.FC<InvoiceContextHeaderProps> = ({
               <Table size={TABLE_STYLES.size} sx={detailTableSx}>
                 <TableBody>
                   <TableRow>
-                    <TableCell colSpan={2} sx={{ pb: TABLE_STYLES.cell.padding.py * 0.67, py: TABLE_STYLES.cell.padding.py * 0.67, borderTop: TABLE_STYLES.cell.border }}>
-                      <Typography variant="h6" sx={{ fontWeight: 600, color: 'primary.main', fontSize: '0.8rem' }}>
+                    <TableCell
+                      colSpan={2}
+                      sx={{
+                        pb: TABLE_STYLES.cell.padding.py * 0.67,
+                        py: TABLE_STYLES.cell.padding.py * 0.67,
+                        borderTop: TABLE_STYLES.cell.border,
+                      }}
+                    >
+                      <Typography
+                        variant="h6"
+                        sx={{ fontWeight: 600, color: 'primary.main', fontSize: '0.8rem' }}
+                      >
                         Payment Information
                       </Typography>
                     </TableCell>
@@ -236,25 +287,43 @@ const InvoiceContextHeader: React.FC<InvoiceContextHeaderProps> = ({
                   <TableRow sx={{ backgroundColor: 'grey.50' }}>
                     <TableCell sx={labelCellSx}>Sub-total</TableCell>
                     <TableCell sx={valueCellSx}>
-                      {formatCurrency((selectedInvoice.totalAmount || 0) - (selectedInvoice.shippingAmount || 0))}
+                      {formatCurrency(
+                        (selectedInvoice.totalAmount || 0) - (selectedInvoice.shippingAmount || 0),
+                      )}
                     </TableCell>
                   </TableRow>
                   <TableRow>
                     <TableCell sx={labelCellSx}>Shipping</TableCell>
-                    <TableCell sx={valueCellSx}>{formatCurrency(selectedInvoice.shippingAmount || 0)}</TableCell>
+                    <TableCell sx={valueCellSx}>
+                      {formatCurrency(selectedInvoice.shippingAmount || 0)}
+                    </TableCell>
                   </TableRow>
                   <TableRow sx={{ backgroundColor: 'grey.50' }}>
                     <TableCell sx={labelCellSx}>Total Amount</TableCell>
-                    <TableCell sx={valueCellSx}>{formatCurrency(selectedInvoice.totalAmount)}</TableCell>
+                    <TableCell sx={valueCellSx}>
+                      {formatCurrency(selectedInvoice.totalAmount)}
+                    </TableCell>
                   </TableRow>
                   <TableRow>
                     <TableCell sx={labelCellSx}>Paid Amount</TableCell>
-                    <TableCell sx={valueCellSx}>{formatCurrency(selectedInvoice.paidAmount)}</TableCell>
+                    <TableCell sx={valueCellSx}>
+                      {formatCurrency(selectedInvoice.paidAmount)}
+                    </TableCell>
                   </TableRow>
                   <TableRow sx={{ backgroundColor: 'grey.50' }}>
-                    <TableCell sx={labelCellSx}>{isOverpaid ? 'Overpaid Amount' : 'Balance Due'}</TableCell>
-                    <TableCell sx={{ ...valueCellSx, color: isOverpaid ? 'info.main' : 'inherit', fontWeight: isOverpaid ? 600 : 400 }}>
-                      {isOverpaid ? `+${formatCurrency(overpaidAmount)}` : formatCurrency(selectedInvoice.balanceDue)}
+                    <TableCell sx={labelCellSx}>
+                      {isOverpaid ? 'Overpaid Amount' : 'Balance Due'}
+                    </TableCell>
+                    <TableCell
+                      sx={{
+                        ...valueCellSx,
+                        color: isOverpaid ? 'info.main' : 'inherit',
+                        fontWeight: isOverpaid ? 600 : 400,
+                      }}
+                    >
+                      {isOverpaid
+                        ? `+${formatCurrency(overpaidAmount)}`
+                        : formatCurrency(selectedInvoice.balanceDue)}
                     </TableCell>
                   </TableRow>
                 </TableBody>
