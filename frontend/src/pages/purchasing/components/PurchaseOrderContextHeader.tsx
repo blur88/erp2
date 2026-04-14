@@ -4,8 +4,6 @@ import { default as EditIcon } from '@mui/icons-material/Edit'
 import { default as PrintIcon } from '@mui/icons-material/Print'
 import {
   Box,
-  Button,
-  IconButton,
   Paper,
   Stack,
   Table,
@@ -17,6 +15,7 @@ import {
 } from '@mui/material'
 import Grid from '@mui/material/Grid'
 
+import { AppButton } from '@/components/common/AppButton'
 import { TABLE_STYLES } from '@/constants/tableStyles'
 import type { PurchaseOrder } from '@/types'
 import { formatCurrency, formatDate } from '@/utils/formatters'
@@ -38,14 +37,6 @@ interface PurchaseOrderContextHeaderProps {
   onOpenPaymentDialog: (order: PurchaseOrder) => void
   onReturn: () => void
   onReceive: () => void
-}
-
-const actionIconSx = {
-  height: `${TABLE_STYLES.row.height * 0.75}px`,
-  width: `${TABLE_STYLES.row.height * 0.75}px`,
-  minHeight: 20,
-  minWidth: 20,
-  p: 0.125,
 }
 
 const detailTableSx = {
@@ -118,16 +109,34 @@ const PurchaseOrderContextHeader: React.FC<PurchaseOrderContextHeaderProps> = ({
         <Typography variant="tableHeader" sx={{ fontWeight: 600, fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
           PO Details - {selectedOrder.orderNumber}
         </Typography>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25 }}>
-          <IconButton size="small" title="Edit Order" onClick={onEditClick} sx={{ ...actionIconSx, color: 'primary.main' }}>
-            <EditIcon sx={{ fontSize: `${TABLE_STYLES.row.height * 0.5}px` }} />
-          </IconButton>
-          <IconButton size="small" title="Delete Order" onClick={onDeleteClick} sx={{ ...actionIconSx, color: 'error.main' }}>
-            <DeleteIcon sx={{ fontSize: `${TABLE_STYLES.row.height * 0.5}px` }} />
-          </IconButton>
-          <IconButton size="small" title="Print Purchase Order" onClick={onPrint} sx={{ ...actionIconSx, color: 'info.main' }}>
-            <PrintIcon sx={{ fontSize: `${TABLE_STYLES.row.height * 0.5}px` }} />
-          </IconButton>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+          <AppButton
+            size="small"
+            variant="secondary"
+            startIcon={<EditIcon />}
+            title="Edit Order"
+            onClick={onEditClick}
+          >
+            Edit
+          </AppButton>
+          <AppButton
+            size="small"
+            variant="danger"
+            startIcon={<DeleteIcon />}
+            title="Delete Order"
+            onClick={onDeleteClick}
+          >
+            Delete
+          </AppButton>
+          <AppButton
+            size="small"
+            variant="secondary"
+            startIcon={<PrintIcon />}
+            title="Print Purchase Order"
+            onClick={onPrint}
+          >
+            Print
+          </AppButton>
         </Box>
       </Box>
       <Box sx={{ p: TABLE_STYLES.cell.padding.px }}>
@@ -237,28 +246,33 @@ const PurchaseOrderContextHeader: React.FC<PurchaseOrderContextHeaderProps> = ({
                         direction="row"
                         spacing={1}
                         sx={{
-                          alignItems: "center",
-                          justifyContent: "center"
-                        }}>
-                        <Button
-                          variant="contained"
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }}
+                      >
+                        <AppButton
+                          variant={hasPayment ? 'warning' : 'primary'}
                           size="small"
-                          color={hasPayment ? 'warning' : 'primary'}
                           onClick={hasPayment ? onUnpay : () => onOpenPaymentDialog(selectedOrder)}
                           disabled={(hasPayment && isReceived) || isLoading}
                           sx={{ minWidth: 110 }}
                         >
                           {hasPayment ? 'Unpay' : 'Pay'}
-                        </Button>
+                        </AppButton>
                         {isReceived ? (
-                          <Button variant="contained" size="small" color="warning" sx={{ minWidth: 110 }} onClick={onReturn} disabled={!selectedOrder.items || selectedOrder.items.length === 0 || isLoading}>
-                            Return
-                          </Button>
-                        ) : (
-                          <Button
-                            variant="contained"
+                          <AppButton
+                            variant="warning"
                             size="small"
-                            color="success"
+                            sx={{ minWidth: 110 }}
+                            onClick={onReturn}
+                            disabled={!selectedOrder.items || selectedOrder.items.length === 0 || isLoading}
+                          >
+                            Return
+                          </AppButton>
+                        ) : (
+                          <AppButton
+                            variant="success"
+                            size="small"
                             sx={{ minWidth: 110 }}
                             onClick={onReceive}
                             disabled={
@@ -269,7 +283,7 @@ const PurchaseOrderContextHeader: React.FC<PurchaseOrderContextHeaderProps> = ({
                             }
                           >
                             Receive
-                          </Button>
+                          </AppButton>
                         )}
                       </Stack>
                     </TableCell>
