@@ -120,4 +120,39 @@ describe('StockAdjustmentsPage FilterBar', () => {
 
     expect(mockFetchStockAdjustment).not.toHaveBeenCalledWith('adj-1')
   })
+
+  it('sends no fromDate or toDate when period is not selected (default)', () => {
+    renderPage()
+
+    expect(useGetStockAdjustmentsQuery).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        fromDate: undefined,
+        toDate: undefined,
+      }),
+    )
+  })
+
+  it('restores period=this_week from URL and resolves to fromDate/toDate in the query', () => {
+    renderPage('/?period=this_week')
+
+    expect(useGetStockAdjustmentsQuery).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        fromDate: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
+        toDate: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
+      }),
+    )
+  })
+
+  it('sends no fromDate or toDate when period is reset to null', () => {
+    renderPage('/?period=this_week')
+
+    renderPage('/')
+
+    expect(useGetStockAdjustmentsQuery).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        fromDate: undefined,
+        toDate: undefined,
+      }),
+    )
+  })
 })
