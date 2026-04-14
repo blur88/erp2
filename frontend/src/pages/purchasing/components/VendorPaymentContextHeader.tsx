@@ -2,7 +2,6 @@ import React from 'react'
 import { default as PrintIcon } from '@mui/icons-material/Print'
 import {
   Box,
-  IconButton,
   Paper,
   Table,
   TableBody,
@@ -14,6 +13,7 @@ import {
 import Grid from '@mui/material/Grid'
 import { useNavigate } from 'react-router-dom'
 
+import { AppButton } from '@/components/common/AppButton'
 import { TABLE_STYLES } from '@/constants/tableStyles'
 import type { VendorPayment } from '@/types'
 import { formatCurrency, formatDate } from '@/utils/formatters'
@@ -26,14 +26,6 @@ interface VendorPaymentContextHeaderProps {
   journalEntryRefLoading: boolean
   onPrint: () => void
   onNavigateToJournalEntry: () => void
-}
-
-const actionIconSx = {
-  height: `${TABLE_STYLES.row.height * 0.75}px`,
-  width: `${TABLE_STYLES.row.height * 0.75}px`,
-  minHeight: 20,
-  minWidth: 20,
-  p: 0.125,
 }
 
 const detailTableSx = {
@@ -92,10 +84,16 @@ const VendorPaymentContextHeader: React.FC<VendorPaymentContextHeaderProps> = ({
         >
           Payment Details — {selectedPayment.paymentNumber}
         </Typography>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25 }}>
-          <IconButton size="small" title="Print Payment" onClick={onPrint} sx={{ ...actionIconSx, color: 'info.main' }}>
-            <PrintIcon sx={{ fontSize: `${TABLE_STYLES.row.height * 0.5}px` }} />
-          </IconButton>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+          <AppButton
+            size="small"
+            variant="secondary"
+            startIcon={<PrintIcon />}
+            title="Print Payment"
+            onClick={onPrint}
+          >
+            Print
+          </AppButton>
         </Box>
       </Box>
 
