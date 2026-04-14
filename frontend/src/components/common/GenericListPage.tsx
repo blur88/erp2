@@ -11,7 +11,7 @@ import type {
 import MasterDetailWorkspace from './MasterDetailWorkspace'
 import PageHeader from './PageHeader'
 
-interface GenericListPageProps<F extends Record<string, unknown>> {
+interface GenericListPageProps<F extends object> {
   title: string
   subtitle: string
   primaryAction: { label: string; onClick: () => void }
@@ -30,7 +30,7 @@ interface GenericListPageProps<F extends Record<string, unknown>> {
   dialogs?: ReactNode
 }
 
-export default function GenericListPage<F extends Record<string, unknown>>({
+export default function GenericListPage<F extends object>({
   title,
   subtitle,
   primaryAction,
