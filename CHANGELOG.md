@@ -1,3 +1,10 @@
+# [1.73.0](https://github.com/blur88/erp2/compare/v1.72.3...v1.73.0) (2026-04-14)
+
+
+### Features
+
+* **ui:** add warning and success variants to AppButton ([d081de9](https://github.com/blur88/erp2/commit/d081de908c532336b9ea795d928d1d68ac9e63b1))
+
 ## [1.72.3](https://github.com/blur88/erp2/compare/v1.72.2...v1.72.3) (2026-04-14)
 
 
