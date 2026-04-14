@@ -17,7 +17,8 @@ import {
   useUncompleteStockAdjustmentMutation,
 } from '@/store/api/inventoryApi'
 import { selectSelectedStockAdjustment } from '@/store/slices/inventorySlice'
-import type { FilterBarConfig } from '@/types/filterBar.types'
+import type { FilterBarConfig, PeriodValue } from '@/types/filterBar.types'
+import { getPeriodDateRange, getStartOfWeek } from '@/utils/dateRange'
 
 import StockAdjustmentContextHeader from './components/StockAdjustmentContextHeader'
 import StockAdjustmentList from './components/StockAdjustmentList'
@@ -29,6 +30,7 @@ import { useStockAdjustmentsSelection } from './hooks/useStockAdjustmentsSelecti
 
 interface StockAdjustmentFilters {
   search: string
+  period: PeriodValue
   status: 'draft' | 'completed' | 'cancelled' | null
 }
 
@@ -46,23 +48,41 @@ const StockAdjustmentsPage: React.FC = () => {
     () => ({
       search: { placeholder: 'Search by adjustment number or notes...' },
       fields: [
+        { field: 'period', label: 'Period', type: 'period' },
         { field: 'status', label: 'Status', type: 'stock-adjustment-status' },
       ],
-      defaults: { search: '', status: null },
+      defaults: { search: '', period: { key: null, from: null, to: null }, status: null },
     }),
     [],
   )
 
-  const filterBar = useFilterBar(filterConfig)
+  const { appliedFilters, draftFilters, handlers, hasActiveFilters } = useFilterBar(filterConfig)
+  const weekStartsOn = getStartOfWeek()
+  const dateRange = useMemo(() => {
+    const period = appliedFilters.period
+
+    if (!period || period.key === null) {
+      return { fromDate: undefined, toDate: undefined }
+    }
+
+    if (period.key === 'custom') {
+      return { fromDate: period.from ?? undefined, toDate: period.to ?? undefined }
+    }
+
+    const range = getPeriodDateRange(period.key, weekStartsOn)
+    return { fromDate: range.from, toDate: range.to }
+  }, [appliedFilters.period, weekStartsOn])
 
   const queryParams = useMemo(
     () => ({
-      search: filterBar.appliedFilters.search || undefined,
-      status: filterBar.appliedFilters.status ?? undefined,
+      search: appliedFilters.search || undefined,
+      status: appliedFilters.status ?? undefined,
+      fromDate: dateRange.fromDate,
+      toDate: dateRange.toDate,
       sortBy: pageState.sorting.sortBy,
       sortOrder: pageState.sorting.sortOrder.toUpperCase(),
     }),
-    [filterBar.appliedFilters, pageState.sorting],
+    [appliedFilters, dateRange, pageState.sorting],
   )
 
   const {
@@ -151,9 +171,9 @@ const StockAdjustmentsPage: React.FC = () => {
         toolbar={(
           <FilterBar
             config={filterConfig}
-            draftFilters={filterBar.draftFilters}
-            handlers={filterBar.handlers}
-            hasActiveFilters={filterBar.hasActiveFilters}
+            draftFilters={draftFilters}
+            handlers={handlers}
+            hasActiveFilters={hasActiveFilters}
             searchInputRef={pageState.searchInputRef}
             sort={{
               field: 'adjustmentNumber',
