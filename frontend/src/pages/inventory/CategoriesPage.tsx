@@ -1,9 +1,7 @@
 import React, { useCallback, useMemo, useRef, useState } from 'react'
-import { Box, useMediaQuery, useTheme } from '@mui/material'
 
-import MasterDetailWorkspace from '@/components/common/MasterDetailWorkspace'
-import PageHeader from '@/components/common/PageHeader'
-import { FilterBar, FilterCategoryLevel } from '@/components/filters'
+import GenericListPage from '@/components/common/GenericListPage'
+import { FilterCategoryLevel } from '@/components/filters'
 import { useFilterBar } from '@/hooks/useFilterBar'
 import { useNotification } from '@/hooks/useNotification'
 import { useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
@@ -30,8 +28,6 @@ interface CategoryFilters {
 }
 
 const CategoriesPage: React.FC = () => {
-  const theme = useTheme()
-  const isMobile = useMediaQuery(theme.breakpoints.down('md'))
   const dispatch = useAppDispatch()
   const { showSuccess, showError } = useNotification()
   const selectedCategory = useAppSelector(selectSelectedCategory)
@@ -143,83 +139,73 @@ const CategoriesPage: React.FC = () => {
   })
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
-      <PageHeader
-        variant="workflow"
-        title="Categories"
-        subtitle={`Organize your products with categories (${visibleCategories.length} ${appliedFilters.search || levelFilter ? 'found' : 'total'})`}
-        primaryAction={{ label: 'Add Category', onClick: () => actions.handleAddCategory() }}
-        secondaryAction={{
-          label: 'View Deleted',
-          onClick: () => pageState.setDeletedCategoriesDialogOpen(true),
-        }}
-        toolbar={(
-          <FilterBar
-            config={filterConfig}
-            draftFilters={draftFilters}
-            handlers={categoryHandlers}
-            hasActiveFilters={hasActiveFilters || levelFilter !== null}
-            searchInputRef={pageState.searchInputRef}
-            sort={{ field: 'name', sortBy, sortOrder, onSort: handleSort }}
-            extra={(
-              <FilterCategoryLevel
-                categories={categories}
-                value={levelFilter}
-                onChange={setLevelFilter}
-              />
-            )}
-          />
-        )}
-      />
-
-      <MasterDetailWorkspace
-        isMobile={isMobile}
-        listSlot={(
-          <CategoryList
-            categories={visibleCategories}
-            loading={isFetching}
-            selectedCategoryId={selectedCategory?.id}
-            focusedIndex={pageState.focusedCategoryIndex}
-            onSelect={selection.handleCategorySelect}
-            categoryListRef={pageState.categoryListRef}
-          />
-        )}
-        headerSlot={(
-          <CategoryContextHeader
-            selectedCategory={selectedCategory}
-            allCategories={categories}
-            onEdit={() => selectedCategory && actions.handleEditCategory(selectedCategory)}
-            onDelete={() => selectedCategory && actions.handleDeleteCategory(selectedCategory)}
-          />
-        )}
-        workspaceSlot={<CategoryWorkspaceCard selectedCategory={selectedCategory} />}
-      />
-
-      <CategoryDialogs
-        dialogOpen={pageState.dialogOpen}
-        editMode={pageState.editMode}
-        selectedCategory={selectedCategory}
-        submitting={pageState.submitting}
-        categories={categories}
-        onSubmit={actions.onSubmit}
-        onDialogClose={() => pageState.setDialogOpen(false)}
-        onFormReady={handleFormReady}
-        onDuplicateStateChange={handleDuplicateStateChange}
-        deletedCategoriesDialogOpen={pageState.deletedCategoriesDialogOpen}
-        onCloseDeletedCategories={() => pageState.setDeletedCategoriesDialogOpen(false)}
-        onCategoryRestored={() => void refetchCategories()}
-        deleteConfirmOpen={pageState.deleteConfirmOpen}
-        categoryToDelete={pageState.categoryToDelete}
-        onConfirmDelete={() => void actions.handleConfirmDelete(pageState.categoryToDelete)}
-        onCancelDelete={actions.handleCancelDelete}
-        smartDeleteOpen={pageState.smartDeleteOpen}
-        deleteError={pageState.deleteError}
-        onSmartDelete={(moveToUncategorized) =>
-          actions.handleSmartDelete(pageState.categoryToDelete, moveToUncategorized)
-        }
-        onSmartDeleteClose={actions.handleSmartDeleteClose}
-      />
-    </Box>
+    <GenericListPage
+      title="Categories"
+      subtitle={`Organize your products with categories (${visibleCategories.length} ${appliedFilters.search || levelFilter ? 'found' : 'total'})`}
+      primaryAction={{ label: 'Add Category', onClick: () => actions.handleAddCategory() }}
+      secondaryAction={{
+        label: 'View Deleted',
+        onClick: () => pageState.setDeletedCategoriesDialogOpen(true),
+      }}
+      filterConfig={filterConfig}
+      draftFilters={draftFilters}
+      handlers={categoryHandlers}
+      hasActiveFilters={hasActiveFilters || levelFilter !== null}
+      searchInputRef={pageState.searchInputRef}
+      sort={{ field: 'name', sortBy, sortOrder, onSort: handleSort }}
+      filterExtra={(
+        <FilterCategoryLevel
+          categories={categories}
+          value={levelFilter}
+          onChange={setLevelFilter}
+        />
+      )}
+      listSlot={(
+        <CategoryList
+          categories={visibleCategories}
+          loading={isFetching}
+          selectedCategoryId={selectedCategory?.id}
+          focusedIndex={pageState.focusedCategoryIndex}
+          onSelect={selection.handleCategorySelect}
+          categoryListRef={pageState.categoryListRef}
+        />
+      )}
+      headerSlot={(
+        <CategoryContextHeader
+          selectedCategory={selectedCategory}
+          allCategories={categories}
+          onEdit={() => selectedCategory && actions.handleEditCategory(selectedCategory)}
+          onDelete={() => selectedCategory && actions.handleDeleteCategory(selectedCategory)}
+        />
+      )}
+      workspaceSlot={<CategoryWorkspaceCard selectedCategory={selectedCategory} />}
+      dialogs={(
+        <CategoryDialogs
+          dialogOpen={pageState.dialogOpen}
+          editMode={pageState.editMode}
+          selectedCategory={selectedCategory}
+          submitting={pageState.submitting}
+          categories={categories}
+          onSubmit={actions.onSubmit}
+          onDialogClose={() => pageState.setDialogOpen(false)}
+          onFormReady={handleFormReady}
+          onDuplicateStateChange={handleDuplicateStateChange}
+          deletedCategoriesDialogOpen={pageState.deletedCategoriesDialogOpen}
+          onCloseDeletedCategories={() => pageState.setDeletedCategoriesDialogOpen(false)}
+          onCategoryRestored={() => void refetchCategories()}
+          deleteConfirmOpen={pageState.deleteConfirmOpen}
+          categoryToDelete={pageState.categoryToDelete}
+          onConfirmDelete={() => void actions.handleConfirmDelete(pageState.categoryToDelete)}
+          onCancelDelete={actions.handleCancelDelete}
+          smartDeleteOpen={pageState.smartDeleteOpen}
+          deleteError={pageState.deleteError}
+          onSmartDelete={(moveToUncategorized) =>
+            actions.handleSmartDelete(pageState.categoryToDelete, moveToUncategorized)
+          }
+          onSmartDeleteClose={actions.handleSmartDeleteClose}
+        />
+      )}
+    />
   )
 }
 

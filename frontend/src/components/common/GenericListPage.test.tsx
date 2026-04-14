@@ -73,4 +73,23 @@ describe('GenericListPage', () => {
 
     expect(screen.getByTestId('dialogs')).toBeInTheDocument()
   })
+
+  it('renders without a primary action when none is provided', () => {
+    render(<GenericListPage {...baseProps} primaryAction={undefined} />)
+
+    expect(screen.queryByRole('button', { name: 'New Item' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'View Deleted' })).toBeInTheDocument()
+  })
+
+  it('renders filter extra content when provided', () => {
+    render(<GenericListPage {...baseProps} filterExtra={<div>Filter Extra</div>} />)
+
+    expect(screen.getByText('Filter Extra')).toBeInTheDocument()
+  })
+
+  it('renders content above the workspace when provided', () => {
+    render(<GenericListPage {...baseProps} contentSlot={<div>Content Slot</div>} />)
+
+    expect(screen.getByText('Content Slot')).toBeInTheDocument()
+  })
 })

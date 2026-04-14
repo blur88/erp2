@@ -1,10 +1,7 @@
 import React, { useCallback, useMemo } from 'react'
-import { Alert, Box, useMediaQuery, useTheme } from '@mui/material'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 
-import MasterDetailWorkspace from '@/components/common/MasterDetailWorkspace'
-import PageHeader from '@/components/common/PageHeader'
-import { FilterBar } from '@/components/filters'
+import GenericListPage from '@/components/common/GenericListPage'
 import { useFilterBar } from '@/hooks/useFilterBar'
 import { useNotification } from '@/hooks/useNotification'
 import { useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
@@ -35,8 +32,6 @@ interface StockAdjustmentFilters {
 }
 
 const StockAdjustmentsPage: React.FC = () => {
-  const theme = useTheme()
-  const isMobile = useMediaQuery(theme.breakpoints.down('md'))
   const navigate = useNavigate()
   const dispatch = useAppDispatch()
   const { showSuccess, showError } = useNotification()
@@ -161,81 +156,66 @@ const StockAdjustmentsPage: React.FC = () => {
   })
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
-      <PageHeader
-        title="Stock Adjustments"
-        subtitle="View and manage stock adjustment history"
-        variant="workflow"
-        secondaryAction={{ label: 'View Deleted', onClick: () => pageState.setShowDeletedDialog(true) }}
-        primaryAction={{ label: 'New Adjustment', onClick: () => navigate('/inventory/stock-adjustments/create') }}
-        toolbar={(
-          <FilterBar
-            config={filterConfig}
-            draftFilters={draftFilters}
-            handlers={handlers}
-            hasActiveFilters={hasActiveFilters}
-            searchInputRef={pageState.searchInputRef}
-            sort={{
-              field: 'adjustmentNumber',
-              sortBy: pageState.sorting.sortBy,
-              sortOrder: pageState.sorting.sortOrder,
-              onSort: handleSort,
-            }}
-          />
-        )}
-      />
-
-      {error && (
-        <Alert severity="error" sx={{ mb: 3 }}>
-          {error}
-        </Alert>
+    <GenericListPage
+      title="Stock Adjustments"
+      subtitle="View and manage stock adjustment history"
+      secondaryAction={{ label: 'View Deleted', onClick: () => pageState.setShowDeletedDialog(true) }}
+      primaryAction={{ label: 'New Adjustment', onClick: () => navigate('/inventory/stock-adjustments/create') }}
+      filterConfig={filterConfig}
+      draftFilters={draftFilters}
+      handlers={handlers}
+      hasActiveFilters={hasActiveFilters}
+      searchInputRef={pageState.searchInputRef}
+      sort={{
+        field: 'adjustmentNumber',
+        sortBy: pageState.sorting.sortBy,
+        sortOrder: pageState.sorting.sortOrder,
+        onSort: handleSort,
+      }}
+      error={error}
+      listSlot={(
+        <StockAdjustmentList
+          adjustments={adjustments}
+          loading={loading}
+          total={total}
+          selectedAdjustmentId={selectedAdjustment?.id}
+          focusedAdjustmentIndex={pageState.focusedAdjustmentIndex}
+          onSelect={selection.handleAdjustmentSelect}
+          adjustmentListRef={pageState.adjustmentListRef}
+        />
       )}
-
-      <MasterDetailWorkspace
-        isMobile={isMobile}
-        listSlot={(
-          <StockAdjustmentList
-            adjustments={adjustments}
-            loading={loading}
-            total={total}
-            selectedAdjustmentId={selectedAdjustment?.id}
-            focusedAdjustmentIndex={pageState.focusedAdjustmentIndex}
-            onSelect={selection.handleAdjustmentSelect}
-            adjustmentListRef={pageState.adjustmentListRef}
-          />
-        )}
-        headerSlot={(
-          <StockAdjustmentContextHeader
-            selectedAdjustment={selectedAdjustment}
-            journalEntryRef={pageState.journalEntryRef}
-            journalEntryRefLoading={pageState.journalEntryRefLoading}
-            onEdit={actions.handleEdit}
-            onDelete={() => selectedAdjustment && actions.handleDelete(selectedAdjustment.id, selectedAdjustment.adjustmentNumber)}
-            onComplete={() => selectedAdjustment && actions.handleComplete(selectedAdjustment.id, selectedAdjustment.adjustmentNumber)}
-            onRevert={() => selectedAdjustment && actions.handleRevert(selectedAdjustment.id, selectedAdjustment.adjustmentNumber)}
-            onNavigateToJournalEntry={navigateToJournalEntry}
-          />
-        )}
-        workspaceSlot={<StockAdjustmentWorkspaceCard selectedAdjustment={selectedAdjustment} />}
-      />
-
-      <StockAdjustmentsDialogs
-        showDeletedDialog={pageState.showDeletedDialog}
-        onCloseDeletedDialog={() => pageState.setShowDeletedDialog(false)}
-        deleteConfirmOpen={pageState.deleteConfirmOpen}
-        adjustmentToDeleteName={pageState.adjustmentToDeleteName}
-        onConfirmDelete={() => void actions.handleConfirmDelete(pageState.adjustmentToDelete)}
-        onCancelDelete={actions.handleCancelDelete}
-        completeConfirmOpen={pageState.completeConfirmOpen}
-        adjustmentToCompleteName={pageState.adjustmentToCompleteName}
-        onConfirmComplete={() => void actions.handleConfirmComplete(pageState.adjustmentToComplete)}
-        onCancelComplete={actions.handleCancelComplete}
-        revertConfirmOpen={pageState.revertConfirmOpen}
-        adjustmentToRevertName={pageState.adjustmentToRevertName}
-        onConfirmRevert={() => void actions.handleConfirmRevert(pageState.adjustmentToRevert)}
-        onCancelRevert={actions.handleCancelRevert}
-      />
-    </Box>
+      headerSlot={(
+        <StockAdjustmentContextHeader
+          selectedAdjustment={selectedAdjustment}
+          journalEntryRef={pageState.journalEntryRef}
+          journalEntryRefLoading={pageState.journalEntryRefLoading}
+          onEdit={actions.handleEdit}
+          onDelete={() => selectedAdjustment && actions.handleDelete(selectedAdjustment.id, selectedAdjustment.adjustmentNumber)}
+          onComplete={() => selectedAdjustment && actions.handleComplete(selectedAdjustment.id, selectedAdjustment.adjustmentNumber)}
+          onRevert={() => selectedAdjustment && actions.handleRevert(selectedAdjustment.id, selectedAdjustment.adjustmentNumber)}
+          onNavigateToJournalEntry={navigateToJournalEntry}
+        />
+      )}
+      workspaceSlot={<StockAdjustmentWorkspaceCard selectedAdjustment={selectedAdjustment} />}
+      dialogs={(
+        <StockAdjustmentsDialogs
+          showDeletedDialog={pageState.showDeletedDialog}
+          onCloseDeletedDialog={() => pageState.setShowDeletedDialog(false)}
+          deleteConfirmOpen={pageState.deleteConfirmOpen}
+          adjustmentToDeleteName={pageState.adjustmentToDeleteName}
+          onConfirmDelete={() => void actions.handleConfirmDelete(pageState.adjustmentToDelete)}
+          onCancelDelete={actions.handleCancelDelete}
+          completeConfirmOpen={pageState.completeConfirmOpen}
+          adjustmentToCompleteName={pageState.adjustmentToCompleteName}
+          onConfirmComplete={() => void actions.handleConfirmComplete(pageState.adjustmentToComplete)}
+          onCancelComplete={actions.handleCancelComplete}
+          revertConfirmOpen={pageState.revertConfirmOpen}
+          adjustmentToRevertName={pageState.adjustmentToRevertName}
+          onConfirmRevert={() => void actions.handleConfirmRevert(pageState.adjustmentToRevert)}
+          onCancelRevert={actions.handleCancelRevert}
+        />
+      )}
+    />
   )
 }
 

@@ -14,16 +14,18 @@ import PageHeader from './PageHeader'
 interface GenericListPageProps<F extends object> {
   title: string
   subtitle: string
-  primaryAction: { label: string; onClick: () => void }
-  secondaryAction: { label: string; onClick: () => void }
+  primaryAction?: { label: string; onClick: () => void }
+  secondaryAction?: { label: string; onClick: () => void }
   filterConfig: FilterBarConfig<F>
   draftFilters: F
   handlers: FilterBarHandlers<F>
   hasActiveFilters: boolean
   searchInputRef: RefObject<HTMLInputElement | null>
   sort: FilterBarSortConfig
+  filterExtra?: ReactNode
   error?: string | null
   onErrorClose?: () => void
+  contentSlot?: ReactNode
   listSlot: ReactNode
   headerSlot: ReactNode
   workspaceSlot: ReactNode
@@ -41,8 +43,10 @@ export default function GenericListPage<F extends object>({
   hasActiveFilters,
   searchInputRef,
   sort,
+  filterExtra,
   error,
   onErrorClose,
+  contentSlot,
   listSlot,
   headerSlot,
   workspaceSlot,
@@ -67,9 +71,12 @@ export default function GenericListPage<F extends object>({
             hasActiveFilters={hasActiveFilters}
             searchInputRef={searchInputRef}
             sort={sort}
+            extra={filterExtra}
           />
         )}
       />
+
+      {contentSlot}
 
       {error && (
         <Alert severity="error" sx={{ mb: 2 }} onClose={onErrorClose}>

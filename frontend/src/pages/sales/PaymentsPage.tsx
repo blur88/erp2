@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
-import { Alert, Box, Chip, Stack, useMediaQuery, useTheme } from '@mui/material'
+import { Chip, Stack } from '@mui/material'
 import { useLocation, useNavigate } from 'react-router-dom'
 
 import PaymentContextHeader from './components/PaymentContextHeader'
@@ -10,9 +10,7 @@ import type { PaymentListItem } from './hooks/usePaymentsPageState'
 import { usePaymentsPageState } from './hooks/usePaymentsPageState'
 import { usePaymentsSelection } from './hooks/usePaymentsSelection'
 
-import MasterDetailWorkspace from '@/components/common/MasterDetailWorkspace'
-import PageHeader from '@/components/common/PageHeader'
-import { FilterBar } from '@/components/filters/FilterBar'
+import GenericListPage from '@/components/common/GenericListPage'
 import { useFilterBar } from '@/hooks/useFilterBar'
 import { useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
 import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
@@ -29,8 +27,6 @@ interface PaymentFilters {
 }
 
 const PaymentsPage: React.FC = () => {
-  const theme = useTheme()
-  const isMobile = useMediaQuery(theme.breakpoints.down('md'))
   const navigate = useNavigate()
   const location = useLocation()
   const dispatch = useAppDispatch()
@@ -151,25 +147,18 @@ const PaymentsPage: React.FC = () => {
   })
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
-      <PageHeader
-        title="Payments"
-        subtitle="Review customer payments and transaction history"
-        variant="workflow"
-        secondaryAction={{ label: 'View Deleted', onClick: () => pageState.setDeletedPaymentsDialogOpen(true) }}
-        toolbar={(
-          <FilterBar
-            config={filterConfig}
-            draftFilters={draftFilters}
-            handlers={filterBarHandlers}
-            hasActiveFilters={hasActiveFilters}
-            searchInputRef={pageState.searchInputRef}
-            sort={{ field: 'paymentNumber', sortBy, sortOrder, onSort: handleSort }}
-          />
-        )}
-      />
-
-      {presetCustomerId && (
+    <GenericListPage
+      title="Payments"
+      subtitle="Review customer payments and transaction history"
+      secondaryAction={{ label: 'View Deleted', onClick: () => pageState.setDeletedPaymentsDialogOpen(true) }}
+      filterConfig={filterConfig}
+      draftFilters={draftFilters}
+      handlers={filterBarHandlers}
+      hasActiveFilters={hasActiveFilters}
+      searchInputRef={pageState.searchInputRef}
+      sort={{ field: 'paymentNumber', sortBy, sortOrder, onSort: handleSort }}
+      error={error ? 'Failed to load payments.' : null}
+      contentSlot={presetCustomerId ? (
         <Stack direction="row" sx={{ mb: 2 }}>
           <Chip
             label={`Customer: ${customers.find((customer) => customer.id === presetCustomerId)?.name ?? presetCustomerId}`}
@@ -178,49 +167,40 @@ const PaymentsPage: React.FC = () => {
             color="primary"
           />
         </Stack>
+      ) : null}
+      listSlot={(
+        <PaymentsTable
+          payments={payments}
+          loading={loading}
+          total={totalPayments}
+          selectedPaymentId={selectedPayment?.id}
+          focusedPaymentIndex={pageState.focusedPaymentIndex}
+          onPaymentSelect={selection.handlePaymentSelect}
+          paymentListRef={pageState.paymentListRef}
+        />
       )}
-
-      {error && (
-        <Alert severity="error" sx={{ mb: 3 }}>
-          Failed to load payments.
-        </Alert>
+      headerSlot={(
+        <PaymentContextHeader
+          selectedPayment={selectedPayment}
+          journalEntryRef={pageState.journalEntryRef}
+          journalEntryRefLoading={pageState.journalEntryRefLoading}
+          onPrint={() => pageState.setPrintDialogOpen(true)}
+          onOrderClick={selection.handleOrderClick}
+          onInvoiceClick={selection.handleInvoiceClick}
+          onNavigateToJournalEntry={selection.handleNavigateToJournalEntry}
+        />
       )}
-
-      <MasterDetailWorkspace
-        isMobile={isMobile}
-        listSlot={(
-          <PaymentsTable
-            payments={payments}
-            loading={loading}
-            total={totalPayments}
-            selectedPaymentId={selectedPayment?.id}
-            focusedPaymentIndex={pageState.focusedPaymentIndex}
-            onPaymentSelect={selection.handlePaymentSelect}
-            paymentListRef={pageState.paymentListRef}
-          />
-        )}
-        headerSlot={(
-          <PaymentContextHeader
-            selectedPayment={selectedPayment}
-            journalEntryRef={pageState.journalEntryRef}
-            journalEntryRefLoading={pageState.journalEntryRefLoading}
-            onPrint={() => pageState.setPrintDialogOpen(true)}
-            onOrderClick={selection.handleOrderClick}
-            onInvoiceClick={selection.handleInvoiceClick}
-            onNavigateToJournalEntry={selection.handleNavigateToJournalEntry}
-          />
-        )}
-        workspaceSlot={<PaymentWorkspaceCard selectedPayment={selectedPayment} />}
-      />
-
-      <PaymentsDialogs
-        deletedPaymentsDialogOpen={pageState.deletedPaymentsDialogOpen}
-        printDialogOpen={pageState.printDialogOpen}
-        selectedPayment={selectedPayment}
-        onCloseDeletedPaymentsDialog={() => pageState.setDeletedPaymentsDialogOpen(false)}
-        onClosePrintDialog={() => pageState.setPrintDialogOpen(false)}
-      />
-    </Box>
+      workspaceSlot={<PaymentWorkspaceCard selectedPayment={selectedPayment} />}
+      dialogs={(
+        <PaymentsDialogs
+          deletedPaymentsDialogOpen={pageState.deletedPaymentsDialogOpen}
+          printDialogOpen={pageState.printDialogOpen}
+          selectedPayment={selectedPayment}
+          onCloseDeletedPaymentsDialog={() => pageState.setDeletedPaymentsDialogOpen(false)}
+          onClosePrintDialog={() => pageState.setPrintDialogOpen(false)}
+        />
+      )}
+    />
   )
 }
 
