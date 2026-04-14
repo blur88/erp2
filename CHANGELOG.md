@@ -1,3 +1,15 @@
+## [1.74.3](https://github.com/blur88/erp2/compare/v1.74.2...v1.74.3) (2026-04-14)
+
+
+### Internal Changes
+
+* refactor(inventory): replace IconButton with AppButton in StockAdjustmentContextHeader ([](https://github.com/blur88/erp2/commit/))
+* refactor(inventory): replace IconButton with AppButton in CategoryContextHeader ([](https://github.com/blur88/erp2/commit/))
+* refactor(inventory): replace IconButton with AppButton in ProductContextHeader ([](https://github.com/blur88/erp2/commit/))
+* refactor(inventory): replace Button with AppButton in InventoryPage error alert ([](https://github.com/blur88/erp2/commit/))
+* docs: add implementation plan for inventory AppButton standardization (#370) ([](https://github.com/blur88/erp2/commit/))
+* docs: add spec for inventory AppButton standardization (#370) ([](https://github.com/blur88/erp2/commit/))
+
 ## [1.74.2](https://github.com/blur88/erp2/compare/v1.74.1...v1.74.2) (2026-04-14)
 
 
