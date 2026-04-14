@@ -14,7 +14,6 @@ import {
   TableRow,
   Chip,
   Alert,
-  Button,
   useTheme,
 } from '@mui/material'
 import { default as PurchasingIcon } from '@mui/icons-material/Assignment'
@@ -39,6 +38,7 @@ import { Line } from 'react-chartjs-2'
 import { formatCurrency, formatDate } from '@/utils/formatters'
 import { TABLE_STYLES } from '@/constants/tableStyles'
 import { useNavigate } from 'react-router-dom'
+import { AppButton } from '@/components/common/AppButton'
 import PageHeader from '@/components/common/PageHeader'
 import { FilterBar } from '@/components/filters/FilterBar'
 import { useFilterBar } from '@/hooks/useFilterBar'
@@ -226,7 +226,11 @@ const PurchasingPage: React.FC = () => {
         <Alert
           severity="error"
           sx={{ mb: 2 }}
-          action={<Button size="small" onClick={() => window.location.reload()}>Retry</Button>}
+          action={
+            <AppButton size="small" variant="secondary" onClick={() => window.location.reload()}>
+              Retry
+            </AppButton>
+          }
         >
           Failed to load dashboard data.
         </Alert>
