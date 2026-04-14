@@ -1,3 +1,10 @@
+## [1.72.3](https://github.com/blur88/erp2/compare/v1.72.2...v1.72.3) (2026-04-14)
+
+
+### Internal Changes
+
+* chore: update package-lock files across backend, frontend, and root directories ([](https://github.com/blur88/erp2/commit/))
+
 ## [1.72.2](https://github.com/blur88/erp2/compare/v1.72.1...v1.72.2) (2026-04-14)
 
 
