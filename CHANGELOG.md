@@ -1,3 +1,10 @@
+# [1.74.0](https://github.com/blur88/erp2/compare/v1.73.2...v1.74.0) (2026-04-14)
+
+
+### Features
+
+* **inventory:** add Period filter to Stock Adjustments page ([#365](https://github.com/blur88/erp2/issues/365)) ([3157efc](https://github.com/blur88/erp2/commit/3157efca968c5c512b5f14dbb045a6cfe6a3651c))
+
 ## [1.73.2](https://github.com/blur88/erp2/compare/v1.73.1...v1.73.2) (2026-04-14)
 
 
