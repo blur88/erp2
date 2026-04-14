@@ -57,7 +57,7 @@ const StockAdjustmentsDialogs: React.FC<StockAdjustmentsDialogsProps> = ({
       <ConfirmationDialog
         open={completeConfirmOpen}
         title="Confirm Complete"
-        message={`Are you sure you want to complete stock adjustment #${adjustmentToCompleteName}? This will post the stock movements and update inventory levels. This action cannot be undone.`}
+        message={`Are you sure you want to complete stock adjustment #${adjustmentToCompleteName}? This will post the stock movements and update inventory levels. The adjustment can be reverted to draft if needed.`}
         confirmText="Complete"
         cancelText="Cancel"
         onConfirm={onConfirmComplete}
