@@ -3,7 +3,6 @@ import {
   Alert,
   Avatar,
   Box,
-  Button,
   Chip,
   Grid,
   Paper,
@@ -22,6 +21,7 @@ import { default as OrdersIcon } from '@mui/icons-material/Receipt'
 import { default as PaymentsIcon } from '@mui/icons-material/Payment'
 import { formatCurrency, formatDate, formatNumber } from '@/utils/formatters'
 import { TABLE_STYLES } from '@/constants/tableStyles'
+import { AppButton } from '@/components/common/AppButton'
 import PageHeader from '@/components/common/PageHeader'
 import { FilterBar } from '@/components/filters/FilterBar'
 import { useFilterBar } from '@/hooks/useFilterBar'
@@ -193,7 +193,7 @@ const SalesPage: React.FC = () => {
         <Alert
           severity="error"
           sx={{ mb: 2 }}
-          action={<Button size="small" onClick={() => window.location.reload()}>Retry</Button>}
+          action={<AppButton size="small" variant="secondary" onClick={() => window.location.reload()}>Retry</AppButton>}
         >
           Failed to load dashboard data.
         </Alert>
