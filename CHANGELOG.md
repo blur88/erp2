@@ -1,3 +1,10 @@
+## [1.73.2](https://github.com/blur88/erp2/compare/v1.73.1...v1.73.2) (2026-04-14)
+
+
+### Bug Fixes
+
+* **inventory:** align FilterBar sort field with default sort state in StockAdjustmentsPage ([f2a359a](https://github.com/blur88/erp2/commit/f2a359a7d9ebbfeda2458b13670b1dc505aec11b)), closes [#364](https://github.com/blur88/erp2/issues/364)
+
 ## [1.73.1](https://github.com/blur88/erp2/compare/v1.73.0...v1.73.1) (2026-04-14)
 
 
