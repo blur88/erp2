@@ -381,7 +381,7 @@ describe('CreateStockAdjustmentPage submit', { timeout: 60000 }, () => {
     })
   })
 
-  it('navigates back with the edited adjustment id in state so the list can highlight it', async () => {
+  it('navigates back with the edited adjustment id in the saId query param so the list can highlight it', async () => {
     const user = userEvent.setup()
     mockParams.mockReturnValue({ id: 'adj-1' })
     mockFetchAdjustment.mockReturnValue({
@@ -422,8 +422,7 @@ describe('CreateStockAdjustmentPage submit', { timeout: 60000 }, () => {
 
     await waitFor(() => {
       expect(mockNavigate).toHaveBeenCalledWith(
-        '/inventory/stock-adjustments',
-        { state: { newAdjustmentId: 'adj-1' } }
+        '/inventory/stock-adjustments?saId=adj-1'
       )
     })
   })

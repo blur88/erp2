@@ -214,7 +214,7 @@ const CreateStockAdjustmentPage: React.FC = () => {
         const saNumber = updatedAdjustment?.adjustmentNumber || 'N/A'
 
         showSuccess(`Stock adjustment ${saNumber} updated successfully`)
-        navigate('/inventory/stock-adjustments', { state: { newAdjustmentId: id } })
+        navigate(`/inventory/stock-adjustments?saId=${id}`)
       } else {
         // Create mode: Create new adjustment (kept as draft)
         const adjustment = await createStockAdjustment(adjustmentData).unwrap()
@@ -224,7 +224,7 @@ const CreateStockAdjustmentPage: React.FC = () => {
         const status = adjustment?.status || 'draft'
 
         showSuccess(`Stock adjustment ${saNumber} created successfully (${itemsAdjusted} items) - Status: ${status}`)
-        navigate('/inventory/stock-adjustments', { state: { newAdjustmentId: adjustment.id } })
+        navigate(`/inventory/stock-adjustments?saId=${adjustment.id}`)
       }
     } catch (err: any) {
       setError(err.data?.message || err.message || 'Failed to record stock adjustments')
