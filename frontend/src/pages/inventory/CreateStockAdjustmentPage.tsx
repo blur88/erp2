@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import {
   Box,
-  Button,
   Grid,
   TextField,
   Typography,
@@ -26,6 +25,7 @@ import { useForm, useFieldArray, Controller } from 'react-hook-form'
 import { yupResolver } from '@hookform/resolvers/yup'
 import * as yup from 'yup'
 import { ApiService } from '@/services/api'
+import { AppButton } from '@/components/common/AppButton'
 import PageHeader from '@/components/common/PageHeader'
 import {
   useLazyGetStockAdjustmentQuery,
@@ -343,13 +343,13 @@ const CreateStockAdjustmentPage: React.FC = () => {
               <CardContent>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                   <Typography variant="h6">Adjustment Items</Typography>
-                  <Button
+                  <AppButton
+                    variant="outlined"
                     startIcon={<AddIcon />}
                     onClick={addItem}
-                    variant="outlined"
                   >
                     Add Item
-                  </Button>
+                  </AppButton>
                 </Box>
 
                 <TableContainer component={Paper} sx={{ border: `1px solid ${theme.palette.divider}` }}>
@@ -593,20 +593,20 @@ const CreateStockAdjustmentPage: React.FC = () => {
           {/* Action Buttons */}
           <Grid size={12}>
             <Box sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end' }}>
-              <Button
+              <AppButton
                 variant="outlined"
                 onClick={() => navigate('/inventory/stock-adjustments')}
                 disabled={loading}
               >
                 Cancel
-              </Button>
-              <Button
+              </AppButton>
+              <AppButton
+                variant="primary"
                 type="submit"
-                variant="contained"
-                disabled={loading}
+                loading={loading}
               >
-                {loading ? (isEditMode ? 'Updating...' : 'Creating...') : (isEditMode ? 'Update Adjustment' : 'Create Adjustment')}
-              </Button>
+                {isEditMode ? 'Update Adjustment' : 'Create Adjustment'}
+              </AppButton>
             </Box>
           </Grid>
           </Grid>

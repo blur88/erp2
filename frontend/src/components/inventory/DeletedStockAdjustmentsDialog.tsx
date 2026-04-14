@@ -4,7 +4,6 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  Button,
   Table,
   TableBody,
   TableCell,
@@ -37,6 +36,7 @@ import {
   usePermanentDeleteStockAdjustmentMutation,
   useRestoreStockAdjustmentMutation,
 } from '@/store/api/inventoryApi'
+import { AppButton } from '@/components/common/AppButton'
 import { useNotification } from '@/hooks/useNotification'
 import type { StockAdjustment } from '@/types'
 import { formatDate } from '@/utils/formatters'
@@ -281,26 +281,24 @@ const DeletedStockAdjustmentsDialog: React.FC<DeletedStockAdjustmentsDialogProps
 
               {selectedCount > 0 && (
                 <>
-                  <Button
-                    variant="contained"
-                    color="success"
+                  <AppButton
+                    variant="success"
                     startIcon={<RestoreIcon />}
                     onClick={() => setShowBulkRestoreConfirm(true)}
                     disabled={bulkRestoring}
                     sx={{ whiteSpace: 'nowrap' }}
                   >
                     Restore Selected ({selectedCount})
-                  </Button>
-                  <Button
-                    variant="contained"
-                    color="error"
+                  </AppButton>
+                  <AppButton
+                    variant="danger"
                     startIcon={<DeleteIcon />}
                     onClick={() => setShowBulkDeleteConfirm(true)}
                     disabled={bulkDeleting}
                     sx={{ whiteSpace: 'nowrap' }}
                   >
                     Delete Selected ({selectedCount})
-                  </Button>
+                  </AppButton>
                 </>
               )}
             </Box>
@@ -554,9 +552,9 @@ const DeletedStockAdjustmentsDialog: React.FC<DeletedStockAdjustmentsDialogProps
               {selectedCount > 0 ? `${selectedCount} selected` : `${filteredAdjustments.length} total`}
             </Typography>
           </Box>
-          <Button onClick={onClose} variant="outlined">
+          <AppButton variant="outlined" onClick={onClose}>
             Close
-          </Button>
+          </AppButton>
         </DialogActions>
       </Dialog>
       {/* Bulk Restore Confirmation Dialog */}
@@ -568,17 +566,16 @@ const DeletedStockAdjustmentsDialog: React.FC<DeletedStockAdjustmentsDialogProps
           </Typography>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setShowBulkRestoreConfirm(false)} disabled={bulkRestoring}>
+          <AppButton variant="outlined" onClick={() => setShowBulkRestoreConfirm(false)} disabled={bulkRestoring}>
             Cancel
-          </Button>
-          <Button
+          </AppButton>
+          <AppButton
             onClick={handleBulkRestore}
-            variant="contained"
-            color="success"
-            disabled={bulkRestoring}
+            variant="success"
+            loading={bulkRestoring}
           >
-            {bulkRestoring ? 'Restoring...' : 'Restore'}
-          </Button>
+            Restore
+          </AppButton>
         </DialogActions>
       </Dialog>
       {/* Bulk Delete Confirmation Dialog */}
@@ -593,17 +590,16 @@ const DeletedStockAdjustmentsDialog: React.FC<DeletedStockAdjustmentsDialogProps
           </Typography>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setShowBulkDeleteConfirm(false)} disabled={bulkDeleting}>
+          <AppButton variant="outlined" onClick={() => setShowBulkDeleteConfirm(false)} disabled={bulkDeleting}>
             Cancel
-          </Button>
-          <Button
+          </AppButton>
+          <AppButton
             onClick={handleBulkDelete}
-            variant="contained"
-            color="error"
-            disabled={bulkDeleting}
+            variant="danger"
+            loading={bulkDeleting}
           >
-            {bulkDeleting ? 'Deleting...' : 'Permanently Delete'}
-          </Button>
+            Permanently Delete
+          </AppButton>
         </DialogActions>
       </Dialog>
       {/* Single Delete Confirmation Dialog */}
@@ -618,17 +614,20 @@ const DeletedStockAdjustmentsDialog: React.FC<DeletedStockAdjustmentsDialogProps
           </Typography>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setShowDeleteConfirm(null)} disabled={!!deletingId}>
-            Cancel
-          </Button>
-          <Button
-            onClick={() => showDeleteConfirm && handlePermanentDelete(showDeleteConfirm)}
-            variant="contained"
-            color="error"
+          <AppButton
+            variant="outlined"
+            onClick={() => setShowDeleteConfirm(null)}
             disabled={!!deletingId}
           >
-            {deletingId ? 'Deleting...' : 'Permanently Delete'}
-          </Button>
+            Cancel
+          </AppButton>
+          <AppButton
+            onClick={() => showDeleteConfirm && handlePermanentDelete(showDeleteConfirm)}
+            variant="danger"
+            loading={!!deletingId}
+          >
+            Permanently Delete
+          </AppButton>
         </DialogActions>
       </Dialog>
     </>
