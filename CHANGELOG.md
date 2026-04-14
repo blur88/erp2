@@ -1,3 +1,12 @@
+## [1.72.2](https://github.com/blur88/erp2/compare/v1.72.1...v1.72.2) (2026-04-14)
+
+
+### Internal Changes
+
+* refactor(inventory): align stock adjustment detail panels (#359) ([](https://github.com/blur88/erp2/commit/))
+* docs: add implementation plan for StockAdjustmentsPage UI polish (#359) ([](https://github.com/blur88/erp2/commit/))
+* docs: add design spec for StockAdjustmentsPage UI polish (#359) ([](https://github.com/blur88/erp2/commit/))
+
 ## [1.72.1](https://github.com/blur88/erp2/compare/v1.72.0...v1.72.1) (2026-04-14)
 
 
