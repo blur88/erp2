@@ -5,7 +5,6 @@ import {
   Box,
   Chip,
   CircularProgress,
-  IconButton,
   Paper,
   Stack,
   Table,
@@ -33,14 +32,6 @@ interface StockAdjustmentContextHeaderProps {
   onComplete: () => void
   onRevert: () => void
   onNavigateToJournalEntry: () => void
-}
-
-const actionIconSx = {
-  height: `${TABLE_STYLES.row.height * 0.75}px`,
-  width: `${TABLE_STYLES.row.height * 0.75}px`,
-  minHeight: 20,
-  minWidth: 20,
-  p: 0.125,
 }
 
 const detailTableSx = {
@@ -122,23 +113,25 @@ const StockAdjustmentContextHeader: React.FC<StockAdjustmentContextHeaderProps> 
           />
         </Box>
 
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25 }}>
-          <IconButton
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+          <AppButton
             size="small"
+            variant="secondary"
+            startIcon={<EditIcon />}
             title="Edit Adjustment"
             onClick={onEdit}
-            sx={{ ...actionIconSx, color: 'primary.main' }}
           >
-            <EditIcon sx={{ fontSize: `${TABLE_STYLES.row.height * 0.5}px` }} />
-          </IconButton>
-          <IconButton
+            Edit
+          </AppButton>
+          <AppButton
             size="small"
+            variant="danger"
+            startIcon={<DeleteIcon />}
             title="Delete Adjustment"
             onClick={onDelete}
-            sx={{ ...actionIconSx, color: 'error.main' }}
           >
-            <DeleteIcon sx={{ fontSize: `${TABLE_STYLES.row.height * 0.5}px` }} />
-          </IconButton>
+            Delete
+          </AppButton>
         </Box>
       </Box>
 

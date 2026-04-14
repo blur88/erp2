@@ -2,7 +2,6 @@ import React, { useMemo } from 'react'
 import {
   Alert,
   Box,
-  Button,
   Card,
   CardContent,
   Chip,
@@ -38,6 +37,7 @@ import {
 import { Doughnut, Line } from 'react-chartjs-2'
 import { format } from 'date-fns'
 import { useNavigate } from 'react-router-dom'
+import { AppButton } from '@/components/common/AppButton'
 import PageHeader from '@/components/common/PageHeader'
 import { FilterBar } from '@/components/filters/FilterBar'
 import { useFilterBar } from '@/hooks/useFilterBar'
@@ -262,9 +262,9 @@ const InventoryPage: React.FC = () => {
           severity="error"
           sx={{ mb: 2 }}
           action={
-            <Button size="small" onClick={() => window.location.reload()}>
+            <AppButton size="small" variant="secondary" onClick={() => window.location.reload()}>
               Retry
-            </Button>
+            </AppButton>
           }
         >
           Failed to load inventory dashboard data.

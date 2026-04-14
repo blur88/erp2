@@ -1,3 +1,4 @@
+import userEvent from '@testing-library/user-event'
 import { render, screen, within } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 
@@ -133,5 +134,40 @@ describe('CategoryContextHeader', () => {
     )
 
     expect(screen.getByText('0 items')).toBeInTheDocument()
+  })
+
+  it('renders Edit and Delete action buttons', () => {
+    render(
+      <CategoryContextHeader
+        selectedCategory={makeCategory()}
+        allCategories={[makeCategory()]}
+        onEdit={vi.fn()}
+        onDelete={vi.fn()}
+      />,
+    )
+
+    expect(screen.getByTitle('Edit Root')).toBeInTheDocument()
+    expect(screen.getByTitle('Delete Root')).toBeInTheDocument()
+  })
+
+  it('fires onEdit and onDelete callbacks when buttons are clicked', async () => {
+    const onEdit = vi.fn()
+    const onDelete = vi.fn()
+    const user = userEvent.setup()
+
+    render(
+      <CategoryContextHeader
+        selectedCategory={makeCategory()}
+        allCategories={[makeCategory()]}
+        onEdit={onEdit}
+        onDelete={onDelete}
+      />,
+    )
+
+    await user.click(screen.getByTitle('Edit Root'))
+    expect(onEdit).toHaveBeenCalledOnce()
+
+    await user.click(screen.getByTitle('Delete Root'))
+    expect(onDelete).toHaveBeenCalledOnce()
   })
 })
