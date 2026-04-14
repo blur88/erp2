@@ -14,7 +14,7 @@
 
 ### New backend files
 - `backend/src/common/dto/base-query.dto.ts` — shared pagination/search/sort DTO
-- `backend/src/common/dto/base-contact.dto.ts` — shared name/email/phone/address fields
+- `backend/src/common/dto/base-contact.dto.ts` — shared phone/address fields (phone, streetAddress, city, state, postalCode, country)
 - `backend/src/common/services/base-crud.service.ts` — generic abstract service
 - `backend/src/common/services/base-crud.service.spec.ts` — unit tests for base service
 - `backend/src/common/controllers/base-crud.controller.ts` — generic abstract controller
@@ -123,15 +123,13 @@ export class BaseQueryDto {
 
 - [ ] **Step 2: Create BaseContactDto**
 
+Fields match the actual entity columns in `customer.entity.ts` and `supplier.entity.ts`. Neither entity has an `email` column — do not add one here.
+
 ```typescript
 // backend/src/common/dto/base-contact.dto.ts
-import { IsOptional, IsString, IsEmail, MaxLength } from 'class-validator';
+import { IsOptional, IsString, MaxLength } from 'class-validator';
 
 export class BaseContactDto {
-  @IsOptional()
-  @IsEmail()
-  email?: string;
-
   @IsOptional()
   @IsString()
   @MaxLength(20)
@@ -140,12 +138,22 @@ export class BaseContactDto {
   @IsOptional()
   @IsString()
   @MaxLength(255)
-  address?: string;
+  streetAddress?: string;
 
   @IsOptional()
   @IsString()
   @MaxLength(100)
   city?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  state?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(20)
+  postalCode?: string;
 
   @IsOptional()
   @IsString()
@@ -1418,7 +1426,7 @@ export class QueryCustomersDto extends BaseQueryDto {
 
 // Extend CreateCustomerDto from BaseContactDto — add the import and change:
 // export class CreateCustomerDto extends BaseContactDto { ... }
-// Keep all existing fields; remove email/phone/address/city/country from the class
+// Keep all existing fields; remove phone/streetAddress/city/state/postalCode/country from the class
 // body since they are now inherited from BaseContactDto.
 ```
 
