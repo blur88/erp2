@@ -53,7 +53,7 @@ export abstract class BaseCrudService<
 
   protected async afterDelete(_entity: T, _userId: string, _username?: string): Promise<void> {}
 
-  async findAll(query: QueryDto): Promise<{ data: T[]; total: number }> {
+  async findAll(query: QueryDto): Promise<any> {
     const { search, sortBy = 'createdAt', sortOrder = 'ASC' } = query;
     const where = this.buildWhereClause(query);
     const alias = this.getEntityType().toLowerCase();
@@ -81,7 +81,7 @@ export abstract class BaseCrudService<
     };
   }
 
-  async findDeleted(query: QueryDto): Promise<{ data: T[]; total: number }> {
+  async findDeleted(query: QueryDto): Promise<any> {
     const alias = this.getEntityType().toLowerCase();
     let queryBuilder = this.repository
       .createQueryBuilder(alias)
@@ -102,7 +102,7 @@ export abstract class BaseCrudService<
     };
   }
 
-  async findOne(id: string): Promise<T> {
+  async findOne(id: string): Promise<any> {
     const entity = await this.repository.findOne({
       where: { id } as FindOptionsWhere<T>,
     });
@@ -114,7 +114,7 @@ export abstract class BaseCrudService<
     return entity;
   }
 
-  async create(dto: CreateDto, userId: string, username?: string): Promise<T> {
+  async create(dto: CreateDto, userId: string, username?: string): Promise<any> {
     const entity = this.repository.create(dto as never) as unknown as T;
     const savedEntity = (await this.repository.save(entity)) as T;
 
@@ -135,7 +135,7 @@ export abstract class BaseCrudService<
     return savedEntity;
   }
 
-  async update(id: string, dto: UpdateDto, userId: string, username?: string): Promise<T> {
+  async update(id: string, dto: UpdateDto, userId: string, username?: string): Promise<any> {
     const before = await this.findOne(id);
     const oldValues = { ...before };
 
@@ -179,7 +179,7 @@ export abstract class BaseCrudService<
     );
   }
 
-  async restore(id: string, userId: string, username?: string): Promise<T> {
+  async restore(id: string, userId: string, username?: string): Promise<any> {
     const entity = await this.repository.findOne({
       where: { id } as FindOptionsWhere<T>,
       withDeleted: true,
@@ -190,7 +190,13 @@ export abstract class BaseCrudService<
     }
 
     await this.repository.restore(id);
-    const restoredEntity = await this.findOne(id);
+    const restoredEntity = await this.repository.findOne({
+      where: { id } as FindOptionsWhere<T>,
+    });
+
+    if (!restoredEntity) {
+      throw new NotFoundException(`${this.getEntityType()} with id ${id} not found`);
+    }
 
     await this.auditLogService.log(
       'RESTORE',
@@ -206,7 +212,7 @@ export abstract class BaseCrudService<
     return restoredEntity;
   }
 
-  async bulkRestore(ids: string[], userId: string, username?: string): Promise<BaseBulkResult> {
+  async bulkRestore(ids: string[], userId: string, username?: string): Promise<any> {
     let successCount = 0;
     const failedItems: BulkOperationError[] = [];
 
@@ -252,7 +258,7 @@ export abstract class BaseCrudService<
     );
   }
 
-  async bulkPermanentDelete(ids: string[], userId: string, username?: string): Promise<BaseBulkResult> {
+  async bulkPermanentDelete(ids: string[], userId: string, username?: string): Promise<any> {
     let successCount = 0;
     const failedItems: BulkOperationError[] = [];
 

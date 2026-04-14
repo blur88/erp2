@@ -1,6 +1,7 @@
 import { Injectable, Logger, NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, FindOptionsWhere, Like, In, Between } from 'typeorm';
+import { BaseCrudService } from '../../../common/services/base-crud.service';
 import {
   Supplier,
   SupplierType,
@@ -31,7 +32,12 @@ import { JwtPayload } from '../../auth/strategies/jwt.strategy';
 import { UserRole } from '../../../database/entities/user.entity';
 
 @Injectable()
-export class SupplierService {
+export class SupplierService extends BaseCrudService<
+  Supplier,
+  CreateSupplierDto,
+  UpdateSupplierDto,
+  SupplierQueryDto
+> {
   private readonly logger = new Logger(SupplierService.name);
 
   constructor(
@@ -43,8 +49,42 @@ export class SupplierService {
     private readonly grnRepository: Repository<GoodsReceivedNote>,
     @InjectRepository(VendorPayment)
     private readonly vendorPaymentRepository: Repository<VendorPayment>,
-    private readonly auditLogService: AuditLogService,
-  ) {}
+    auditLogService: AuditLogService,
+  ) {
+    super(supplierRepository, auditLogService);
+  }
+
+  getEntityType(): string {
+    return 'Supplier';
+  }
+
+  buildWhereClause(query: SupplierQueryDto): FindOptionsWhere<Supplier> {
+    const where: FindOptionsWhere<Supplier> = {};
+
+    if (query.type) {
+      where.type = query.type;
+    }
+
+    if (query.isActive !== undefined) {
+      where.isActive = query.isActive;
+    }
+
+    return where;
+  }
+
+  protected async afterDelete(entity: Supplier): Promise<void> {
+    const activePurchaseOrdersCount = await this.supplierRepository
+      .createQueryBuilder('supplier')
+      .leftJoin('supplier.purchaseOrders', 'po')
+      .where('supplier.id = :id', { id: entity.id })
+      .andWhere('po.deletedAt IS NULL')
+      .andWhere('po.isActive = :isActive', { isActive: true })
+      .getCount();
+
+    if (activePurchaseOrdersCount > 0) {
+      throw new BadRequestException('Cannot deactivate supplier with active purchase orders');
+    }
+  }
 
   /**
    * Create a new supplier
@@ -600,8 +640,10 @@ export class SupplierService {
 
     const suppliers = await queryBuilder.getMany();
 
+    const supplierDtos = suppliers.map(supplier => this.mapToResponseDto(supplier));
+
     return {
-      suppliers: suppliers.map(supplier => this.mapToResponseDto(supplier)),
+      suppliers: supplierDtos,
       total: suppliers.length,
     };
   }
@@ -722,10 +764,10 @@ export class SupplierService {
     supplierIds: string[],
     userId?: string,
     username?: string,
-  ): Promise<{ restoredCount: number; failedIds: string[] }> {
+  ): Promise<{ successCount: number; failedItems: Array<{ id: string; error: string }> }> {
     this.logger.log(`Bulk restoring ${supplierIds.length} suppliers`);
 
-    const failedIds: string[] = [];
+    const failedItems: Array<{ id: string; error: string }> = [];
     let restoredCount = 0;
 
     for (const id of supplierIds) {
@@ -734,12 +776,15 @@ export class SupplierService {
         restoredCount++;
       } catch (error) {
         this.logger.error(`Failed to restore supplier ${id}:`, error);
-        failedIds.push(id);
+        failedItems.push({
+          id,
+          error: error instanceof Error ? error.message : 'Unknown error',
+        });
       }
     }
 
-    this.logger.log(`Bulk restore completed: ${restoredCount} restored, ${failedIds.length} failed`);
-    return { restoredCount, failedIds };
+    this.logger.log(`Bulk restore completed: ${restoredCount} restored, ${failedItems.length} failed`);
+    return { successCount: restoredCount, failedItems };
   }
 
   /**
@@ -749,10 +794,10 @@ export class SupplierService {
     supplierIds: string[],
     userId?: string,
     username?: string,
-  ): Promise<{ deletedCount: number; failedIds: string[] }> {
+  ): Promise<{ successCount: number; failedItems: Array<{ id: string; error: string }> }> {
     this.logger.log(`Bulk permanently deleting ${supplierIds.length} suppliers`);
 
-    const failedIds: string[] = [];
+    const failedItems: Array<{ id: string; error: string }> = [];
     let deletedCount = 0;
 
     for (const id of supplierIds) {
@@ -761,12 +806,15 @@ export class SupplierService {
         deletedCount++;
       } catch (error) {
         this.logger.error(`Failed to permanently delete supplier ${id}:`, error);
-        failedIds.push(id);
+        failedItems.push({
+          id,
+          error: error instanceof Error ? error.message : 'Unknown error',
+        });
       }
     }
 
-    this.logger.log(`Bulk permanent delete completed: ${deletedCount} deleted, ${failedIds.length} failed`);
-    return { deletedCount, failedIds };
+    this.logger.log(`Bulk permanent delete completed: ${deletedCount} deleted, ${failedItems.length} failed`);
+    return { successCount: deletedCount, failedItems };
   }
 
   async getSupplierPurchaseOrders(supplierId: string): Promise<{ data: PurchaseOrder[]; total: number }> {

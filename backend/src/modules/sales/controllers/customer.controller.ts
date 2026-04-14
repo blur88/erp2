@@ -163,7 +163,7 @@ export class CustomerController {
     @CurrentUser('userId') currentUserId: string,
     @CurrentUser('username') currentUsername: string,
   ): Promise<void> {
-    return this.customerService.delete(id, currentUserId, currentUsername);
+    return this.customerService.softDelete(id, currentUserId, currentUsername);
   }
 
 
