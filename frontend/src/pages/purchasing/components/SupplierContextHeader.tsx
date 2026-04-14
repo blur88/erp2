@@ -3,7 +3,6 @@ import { default as DeleteIcon } from '@mui/icons-material/Delete'
 import { default as EditIcon } from '@mui/icons-material/Edit'
 import {
   Box,
-  IconButton,
   Paper,
   Table,
   TableBody,
@@ -14,6 +13,7 @@ import {
 } from '@mui/material'
 import Grid from '@mui/material/Grid'
 
+import { AppButton } from '@/components/common/AppButton'
 import { TABLE_STYLES } from '@/constants/tableStyles'
 import type { Supplier } from '@/types'
 import { SupplierType } from '@/types'
@@ -23,14 +23,6 @@ interface SupplierContextHeaderProps {
   selectedSupplier: Supplier | null
   onEdit: () => void
   onDelete: () => void
-}
-
-const actionIconSx = {
-  height: `${TABLE_STYLES.row.height * 0.75}px`,
-  width: `${TABLE_STYLES.row.height * 0.75}px`,
-  minHeight: 20,
-  minWidth: 20,
-  p: 0.125,
 }
 
 const detailTableSx = {
@@ -94,23 +86,25 @@ const SupplierContextHeader: React.FC<SupplierContextHeaderProps> = ({
         >
           Supplier - {selectedSupplier.companyName}
         </Typography>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25 }}>
-          <IconButton
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+          <AppButton
             size="small"
+            variant="secondary"
+            startIcon={<EditIcon />}
             title="Edit Supplier"
             onClick={onEdit}
-            sx={{ ...actionIconSx, color: 'primary.main' }}
           >
-            <EditIcon sx={{ fontSize: `${TABLE_STYLES.row.height * 0.5}px` }} />
-          </IconButton>
-          <IconButton
+            Edit
+          </AppButton>
+          <AppButton
             size="small"
+            variant="danger"
+            startIcon={<DeleteIcon />}
             title="Delete Supplier"
             onClick={onDelete}
-            sx={{ ...actionIconSx, color: 'error.main' }}
           >
-            <DeleteIcon sx={{ fontSize: `${TABLE_STYLES.row.height * 0.5}px` }} />
-          </IconButton>
+            Delete
+          </AppButton>
         </Box>
       </Box>
 
