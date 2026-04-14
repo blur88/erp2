@@ -1,3 +1,16 @@
+## [1.74.1](https://github.com/blur88/erp2/compare/v1.74.0...v1.74.1) (2026-04-14)
+
+
+### Internal Changes
+
+* refactor(sales): replace IconButton with AppButton in PaymentContextHeader ([](https://github.com/blur88/erp2/commit/))
+* refactor(sales): replace IconButton with AppButton in InvoiceContextHeader ([](https://github.com/blur88/erp2/commit/))
+* refactor(sales): replace Button/IconButton with AppButton in OrderContextHeader ([](https://github.com/blur88/erp2/commit/))
+* refactor(sales): replace IconButton with AppButton in CustomerContextHeader ([](https://github.com/blur88/erp2/commit/))
+* docs: add implementation plan for sales module AppButton standardization (#367) ([](https://github.com/blur88/erp2/commit/))
+* docs: add design spec for sales module AppButton standardization (#367) ([](https://github.com/blur88/erp2/commit/))
+* docs: add implementation plan for stock adjustments period filter (#365) ([](https://github.com/blur88/erp2/commit/))
+
 # [1.74.0](https://github.com/blur88/erp2/compare/v1.73.2...v1.74.0) (2026-04-14)
 
 
