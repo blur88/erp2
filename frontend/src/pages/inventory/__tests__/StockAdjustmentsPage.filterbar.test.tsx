@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import { Provider } from 'react-redux'
 import { configureStore } from '@reduxjs/toolkit'
 import { MemoryRouter } from 'react-router-dom'
@@ -7,18 +7,19 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import StockAdjustmentsPage from '../StockAdjustmentsPage'
 import inventoryReducer from '@/store/slices/inventorySlice'
 
-const { useGetStockAdjustmentsQuery } = vi.hoisted(() => ({
+const { useGetStockAdjustmentsQuery, mockFetchStockAdjustment } = vi.hoisted(() => ({
   useGetStockAdjustmentsQuery: vi.fn(() => ({
     data: { data: [], meta: { total: 0 } },
     isLoading: false,
     isFetching: false,
     refetch: vi.fn(),
   })),
+  mockFetchStockAdjustment: vi.fn(),
 }))
 
 vi.mock('@/store/api/inventoryApi', () => ({
   useGetStockAdjustmentsQuery,
-  useLazyGetStockAdjustmentQuery: vi.fn(() => [vi.fn(), { data: undefined }]),
+  useLazyGetStockAdjustmentQuery: vi.fn(() => [mockFetchStockAdjustment, { data: undefined }]),
   useCompleteStockAdjustmentMutation: vi.fn(() => [vi.fn(), {}]),
   useDeleteStockAdjustmentMutation: vi.fn(() => [vi.fn(), {}]),
   useUncompleteStockAdjustmentMutation: vi.fn(() => [vi.fn(), {}]),
@@ -52,6 +53,16 @@ function renderPage(initialUrl = '/') {
 describe('StockAdjustmentsPage FilterBar', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mockFetchStockAdjustment.mockReturnValue({
+      unwrap: vi.fn().mockResolvedValue({
+        id: 'adj-1',
+        adjustmentNumber: 'SA-001',
+        adjustmentDate: '2026-03-01T00:00:00.000Z',
+        itemCount: 1,
+        status: 'draft',
+        items: [],
+      }),
+    })
   })
 
   it('renders the search input', () => {
@@ -71,5 +82,42 @@ describe('StockAdjustmentsPage FilterBar', () => {
     expect(useGetStockAdjustmentsQuery).toHaveBeenLastCalledWith(
       expect.not.objectContaining({ status: expect.anything() }),
     )
+  })
+
+  it('loads the adjustment referenced by the saId search param', async () => {
+    useGetStockAdjustmentsQuery.mockReturnValue({
+      data: {
+        data: [
+          {
+            id: 'adj-1',
+            adjustmentNumber: 'SA-001',
+            adjustmentDate: '2026-03-01T00:00:00.000Z',
+            itemCount: 1,
+            status: 'draft',
+            items: [],
+          },
+          {
+            id: 'adj-2',
+            adjustmentNumber: 'SA-002',
+            adjustmentDate: '2026-03-02T00:00:00.000Z',
+            itemCount: 1,
+            status: 'draft',
+            items: [],
+          },
+        ],
+        meta: { total: 2 },
+      },
+      isLoading: false,
+      isFetching: false,
+      refetch: vi.fn(),
+    })
+
+    renderPage('/?saId=adj-2')
+
+    await waitFor(() => {
+      expect(mockFetchStockAdjustment).toHaveBeenCalledWith('adj-2')
+    })
+
+    expect(mockFetchStockAdjustment).not.toHaveBeenCalledWith('adj-1')
   })
 })
