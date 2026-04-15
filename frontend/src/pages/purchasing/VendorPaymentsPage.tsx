@@ -1,9 +1,8 @@
-import React, { useCallback, useMemo } from 'react'
+import React, { useCallback, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 
 import GenericListPage from '@/components/common/GenericListPage'
 import { useFilterBar } from '@/hooks/useFilterBar'
-import { useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
 import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
 import { useGetVendorPaymentsQuery } from '@/store/api/purchasingApi'
 import { selectSelectedVendorPayment } from '@/store/slices/purchasingSlice'
@@ -14,8 +13,7 @@ import VendorPaymentContextHeader from './components/VendorPaymentContextHeader'
 import VendorPaymentsDialogs from './components/VendorPaymentsDialogs'
 import VendorPaymentTable from './components/VendorPaymentTable'
 import VendorPaymentWorkspaceCard from './components/VendorPaymentWorkspaceCard'
-import { useVendorPaymentsPageState } from './hooks/vendorPaymentsPageState'
-import { useVendorPaymentsSelection } from './hooks/vendorPaymentsSelection'
+import { useVendorPaymentsWorkspace } from './hooks/useVendorPaymentsWorkspace'
 
 interface VPFilters {
   search: string
@@ -24,11 +22,19 @@ interface VPFilters {
   status: 'pending' | 'completed' | 'cancelled' | null
 }
 
+interface VPSortingState {
+  sortBy: string
+  sortOrder: 'asc' | 'desc'
+}
+
 const VendorPaymentsPage: React.FC = () => {
   const navigate = useNavigate()
   const dispatch = useAppDispatch()
   const [searchParams, setSearchParams] = useSearchParams()
-  const pageState = useVendorPaymentsPageState()
+  const [sorting, setSorting] = useState<VPSortingState>({
+    sortBy: 'paymentNumber',
+    sortOrder: 'asc',
+  })
   const selectedPayment = useAppSelector(selectSelectedVendorPayment)
 
   const filterConfig = useMemo<FilterBarConfig<VPFilters>>(
@@ -61,19 +67,20 @@ const VendorPaymentsPage: React.FC = () => {
   }, [filterBar.appliedFilters.period, weekStartsOn])
 
   const queryParams = useMemo(() => ({
-    sortBy: pageState.sorting.sortBy,
-    sortOrder: pageState.sorting.sortOrder,
+    sortBy: sorting.sortBy,
+    sortOrder: sorting.sortOrder,
     search: filterBar.appliedFilters.search || undefined,
     supplierId: filterBar.appliedFilters.supplierId || undefined,
     status: filterBar.appliedFilters.status || undefined,
     startDate: dateRange.startDate,
     endDate: dateRange.endDate,
-  }), [dateRange, filterBar.appliedFilters, pageState.sorting])
+  }), [dateRange, filterBar.appliedFilters, sorting])
 
   const {
     data: paymentsResponse,
     isFetching: loading,
     error: paymentsError,
+    refetch,
   } = useGetVendorPaymentsQuery(queryParams)
 
   const payments = paymentsResponse?.data || []
@@ -82,56 +89,43 @@ const VendorPaymentsPage: React.FC = () => {
     ? ((paymentsError as any).data?.message || (paymentsError as any).data || 'Failed to fetch vendor payments')
     : null
 
-  const selection = useVendorPaymentsSelection({
+  const workspace = useVendorPaymentsWorkspace({
     dispatch,
     payments,
     selectedPayment,
-    focusedPaymentIndex: pageState.focusedPaymentIndex,
-    setFocusedPaymentIndex: pageState.setFocusedPaymentIndex,
+    refetch: () => void refetch(),
     searchParams,
     setSearchParams,
-    paymentListRef: pageState.paymentListRef,
-    searchInputRef: pageState.searchInputRef,
-    userHasNavigatedRef: pageState.userHasNavigatedRef,
-    setJournalEntryRef: pageState.setJournalEntryRef,
-    setJournalEntryRefLoading: pageState.setJournalEntryRefLoading,
   })
 
   const handleSort = useCallback((field: string) => {
-    pageState.setSorting((prev) => ({
-      ...prev,
+    setSorting((prev) => ({
       sortBy: field,
       sortOrder: prev.sortBy === field && prev.sortOrder === 'desc' ? 'asc' : 'desc',
     }))
-  }, [pageState])
-
-  useKeyboardShortcuts({
-    onSearch: selection.focusSearchInput,
-    onArrowUp: selection.handleNavigateUp,
-    onArrowDown: selection.handleNavigateDown,
-  })
+  }, [])
 
   const navigateToJournalEntry = useCallback(() => {
-    if (!pageState.journalEntryRef) return
+    if (!workspace.journalEntryRef) return
     navigate(
-      `/accounting/journal-entries?sourceType=${pageState.journalEntryRef.sourceType}&sourceId=${pageState.journalEntryRef.sourceId}`,
+      `/accounting/journal-entries?sourceType=${workspace.journalEntryRef.sourceType}&sourceId=${workspace.journalEntryRef.sourceId}`,
     )
-  }, [navigate, pageState.journalEntryRef])
+  }, [navigate, workspace.journalEntryRef])
 
   return (
     <GenericListPage
       title="Vendor Payments"
       subtitle="Track and manage payments to suppliers"
-      secondaryAction={{ label: 'View Deleted', onClick: () => pageState.setDeletedPaymentsOpen(true) }}
+      secondaryAction={{ label: 'View Deleted', onClick: () => workspace.setDeletedPaymentsOpen(true) }}
       filterConfig={filterConfig}
       draftFilters={filterBar.draftFilters}
       handlers={filterBar.handlers}
       hasActiveFilters={filterBar.hasActiveFilters}
-      searchInputRef={pageState.searchInputRef}
+      searchInputRef={workspace.searchInputRef}
       sort={{
         field: 'paymentNumber',
-        sortBy: pageState.sorting.sortBy,
-        sortOrder: pageState.sorting.sortOrder,
+        sortBy: sorting.sortBy,
+        sortOrder: sorting.sortOrder,
         onSort: handleSort,
       }}
       error={error}
@@ -141,17 +135,17 @@ const VendorPaymentsPage: React.FC = () => {
           loading={loading}
           total={total}
           selectedPaymentId={selectedPayment?.id}
-          focusedPaymentIndex={pageState.focusedPaymentIndex}
-          onPaymentSelect={selection.handlePaymentSelect}
-          paymentListRef={pageState.paymentListRef}
+          focusedPaymentIndex={workspace.focusedIndex}
+          onPaymentSelect={workspace.handleSelect}
+          paymentListRef={workspace.listRef}
         />
       )}
       headerSlot={(
         <VendorPaymentContextHeader
           selectedPayment={selectedPayment}
-          journalEntryRef={pageState.journalEntryRef}
-          journalEntryRefLoading={pageState.journalEntryRefLoading}
-          onPrint={() => pageState.setPrintDialogOpen(true)}
+          journalEntryRef={workspace.journalEntryRef}
+          journalEntryRefLoading={workspace.journalEntryRefLoading}
+          onPrint={() => workspace.setPrintDialogOpen(true)}
           onNavigateToJournalEntry={navigateToJournalEntry}
         />
       )}
@@ -159,10 +153,10 @@ const VendorPaymentsPage: React.FC = () => {
       dialogs={(
         <VendorPaymentsDialogs
           selectedPayment={selectedPayment}
-          deletedPaymentsOpen={pageState.deletedPaymentsOpen}
-          onCloseDeletedPayments={() => pageState.setDeletedPaymentsOpen(false)}
-          printDialogOpen={pageState.printDialogOpen}
-          onClosePrintDialog={() => pageState.setPrintDialogOpen(false)}
+          deletedPaymentsOpen={workspace.deletedPaymentsOpen}
+          onCloseDeletedPayments={() => workspace.setDeletedPaymentsOpen(false)}
+          printDialogOpen={workspace.printDialogOpen}
+          onClosePrintDialog={() => workspace.setPrintDialogOpen(false)}
         />
       )}
     />
