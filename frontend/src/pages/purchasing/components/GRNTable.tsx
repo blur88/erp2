@@ -1,59 +1,11 @@
-import React, { memo } from 'react'
-import {
-  Box,
-  Paper,
-  Skeleton,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableRow,
-  Typography,
-} from '@mui/material'
+import React from 'react'
 
-import { TABLE_STYLES } from '@/constants/tableStyles'
+import EntityTable, { type ColumnConfig } from '@/components/common/EntityTable'
 import type { GoodsReceivedNote } from '@/types'
 
-interface GRNRowProps {
-  grn: GoodsReceivedNote
-  index: number
-  selectedGRNId?: string
-  focusedGRNIndex: number
-  onGRNSelect: (grn: GoodsReceivedNote) => void
-}
-
-const GRNRow = memo(({ grn, index, selectedGRNId, focusedGRNIndex, onGRNSelect }: GRNRowProps) => {
-  const isSelected = selectedGRNId === grn.id
-  const isFocused = index === focusedGRNIndex
-
-  return (
-    <TableRow
-      hover
-      onClick={() => onGRNSelect(grn)}
-      data-grn-index={index}
-      sx={{
-        cursor: 'pointer',
-        backgroundColor: isSelected ? 'action.selected' : isFocused ? 'action.focus' : 'inherit',
-        '&:hover': { backgroundColor: isSelected ? 'action.selected' : 'action.hover' },
-        transition: 'background-color 0.2s ease',
-        height: TABLE_STYLES.row.height,
-        ...(isFocused && {
-          outline: '2px solid',
-          outlineColor: 'primary.main',
-          outlineOffset: '-2px',
-        }),
-      }}
-    >
-      <TableCell>
-        <Typography variant="body2" sx={{ fontWeight: 400, fontSize: '0.8rem', lineHeight: 1.2 }}>
-          {grn.grnNumber}
-        </Typography>
-      </TableCell>
-    </TableRow>
-  )
-})
-
-GRNRow.displayName = 'GRNRow'
+const COLUMNS: ColumnConfig<GoodsReceivedNote>[] = [
+  { key: 'grnNumber', render: (grn) => grn.grnNumber },
+]
 
 interface GRNTableProps {
   grns: GoodsReceivedNote[]
@@ -73,45 +25,19 @@ const GRNTable: React.FC<GRNTableProps> = ({
   focusedGRNIndex,
   onGRNSelect,
   grnListRef,
-}) => {
-  return (
-    <Paper sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-      <Box sx={{ p: TABLE_STYLES.cell.padding.px, borderBottom: TABLE_STYLES.cell.border }}>
-        <Typography
-          variant="tableHeader"
-          sx={{ fontWeight: 600, fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}
-        >
-          GRN List ({total})
-        </Typography>
-      </Box>
-      <Box sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }} ref={grnListRef}>
-        <TableContainer sx={{ flex: 1, overflow: 'auto' }}>
-          <Table size={TABLE_STYLES.size}>
-            <TableBody>
-              {loading && grns.length === 0
-                ? [...Array(10)].map((_, index) => (
-                    <TableRow key={`skeleton-${index}`}>
-                      <TableCell>
-                        <Skeleton height={40} />
-                      </TableCell>
-                    </TableRow>
-                  ))
-                : grns.map((grn, index) => (
-                    <GRNRow
-                      key={grn.id}
-                      grn={grn}
-                      index={index}
-                      selectedGRNId={selectedGRNId}
-                      focusedGRNIndex={focusedGRNIndex}
-                      onGRNSelect={onGRNSelect}
-                    />
-                  ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      </Box>
-    </Paper>
-  )
-}
+}) => (
+  <EntityTable
+    rows={grns}
+    columns={COLUMNS}
+    loading={loading}
+    total={total}
+    label="GRN List"
+    selectedId={selectedGRNId}
+    focusedIndex={focusedGRNIndex}
+    onSelect={onGRNSelect}
+    listRef={grnListRef}
+    dataAttr="grn"
+  />
+)
 
 export default GRNTable
