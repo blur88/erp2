@@ -362,58 +362,6 @@ export class SupplierService extends BaseCrudService<
   /**
    * Soft delete supplier (deactivate)
    */
-  async remove(id: string, userId?: string, username?: string): Promise<void> {
-    this.logger.log(`Deactivating supplier: ${id}`);
-
-    const supplier = await this.supplierRepository.findOne({ where: { id } });
-
-    if (!supplier) {
-      throw new NotFoundException(`Supplier with ID ${id} not found`);
-    }
-
-    // Check if supplier has any active purchase orders (not soft-deleted)
-    const activePurchaseOrdersCount = await this.supplierRepository
-      .createQueryBuilder('supplier')
-      .leftJoin('supplier.purchaseOrders', 'po')
-      .where('supplier.id = :id', { id })
-      .andWhere('po.deletedAt IS NULL')
-      .andWhere('po.isActive = :isActive', { isActive: true })
-      .getCount();
-
-    if (activePurchaseOrdersCount > 0) {
-      throw new BadRequestException('Cannot deactivate supplier with active purchase orders');
-    }
-
-    try {
-      // Soft delete the supplier using TypeORM's soft delete
-      await this.supplierRepository.softDelete(id);
-
-      // Log audit trail for delete
-      await this.auditLogService.log(
-        'DELETE',
-        'Supplier',
-        `Deleted supplier: ${supplier.companyName}`,
-        {
-          entityId: id,
-          userId: userId || 'system',
-          username,
-          oldValues: {
-            companyName: supplier.companyName,
-            contactPerson: supplier.contactPerson,
-            phone: supplier.phone,
-            type: supplier.type,
-          },
-        }
-      );
-
-      this.logger.log(`Supplier soft deleted successfully: ${id}`);
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      const errorStack = error instanceof Error ? error.stack : undefined;
-      this.logger.error(`Error soft deleting supplier: ${errorMessage}`, errorStack);
-      throw new BadRequestException('Failed to soft delete supplier');
-    }
-  }
 
 
   /**

@@ -176,4 +176,70 @@ describe('BaseCrudService', () => {
       expect.objectContaining({ entityId: 'uuid-1' }),
     );
   });
+
+  it('create saves entity and logs CREATE audit', async () => {
+    const dto: TestCreateDto = { name: 'New Entity' };
+    const saved = { ...mockEntity, name: 'New Entity' };
+    (repo.create as jest.Mock).mockReturnValue(saved);
+    (repo.save as jest.Mock).mockResolvedValue(saved);
+
+    const result = await service.create(dto, 'user-1', 'admin');
+
+    expect(repo.create).toHaveBeenCalledWith(dto);
+    expect(repo.save).toHaveBeenCalledWith(saved);
+    expect(auditLogService.log).toHaveBeenCalledWith(
+      'CREATE',
+      'TestEntity',
+      expect.any(String),
+      expect.objectContaining({
+        entityId: saved.id,
+        userId: 'user-1',
+        username: 'admin',
+        newValues: dto,
+      }),
+    );
+    expect(result).toBe(saved);
+  });
+
+  it('update captures immutable before-snapshot for afterUpdate', async () => {
+    const dto: TestUpdateDto = { name: 'Updated Name' };
+    const original = { ...mockEntity, name: 'Original Name' };
+    const saved = { ...mockEntity, name: 'Updated Name' };
+
+    (repo.findOne as jest.Mock).mockResolvedValue(original);
+    (repo.save as jest.Mock).mockResolvedValue(saved);
+
+    const afterUpdateSpy = jest.spyOn(service as any, 'afterUpdate');
+
+    await service.update('uuid-1', dto, 'user-1', 'admin');
+
+    // The before argument passed to afterUpdate must still show 'Original Name',
+    // not 'Updated Name' — verifying the snapshot is immutable.
+    const [before, after] = afterUpdateSpy.mock.calls[0];
+    expect((before as TestEntity).name).toBe('Original Name');
+    expect((after as TestEntity).name).toBe('Updated Name');
+  });
+
+  it('update logs UPDATE audit with oldValues and newValues', async () => {
+    const dto: TestUpdateDto = { name: 'Updated Name' };
+    const original = { ...mockEntity, name: 'Original Name' };
+    const saved = { ...mockEntity, name: 'Updated Name' };
+
+    (repo.findOne as jest.Mock).mockResolvedValue(original);
+    (repo.save as jest.Mock).mockResolvedValue(saved);
+
+    await service.update('uuid-1', dto, 'user-1', 'admin');
+
+    expect(auditLogService.log).toHaveBeenCalledWith(
+      'UPDATE',
+      'TestEntity',
+      expect.any(String),
+      expect.objectContaining({
+        entityId: 'uuid-1',
+        userId: 'user-1',
+        username: 'admin',
+        newValues: dto,
+      }),
+    );
+  });
 });

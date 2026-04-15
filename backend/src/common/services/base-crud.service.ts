@@ -53,8 +53,20 @@ export abstract class BaseCrudService<
 
   protected async afterDelete(_entity: T, _userId: string, _username?: string): Promise<void> {}
 
+  /**
+   * Allowlist of sort field names accepted by findAll.
+   * Subclasses MUST override this to permit sorting — the base default is ['createdAt'] only.
+   * This prevents SQL column-name injection via the sortBy query parameter.
+   */
+  protected get allowedSortFields(): string[] {
+    return ['createdAt', 'updatedAt'];
+  }
+
   async findAll(query: QueryDto): Promise<any> {
-    const { search, sortBy = 'createdAt', sortOrder = 'ASC' } = query;
+    const { search, sortOrder = 'ASC' } = query;
+    const sortBy = this.allowedSortFields.includes(query.sortBy ?? '')
+      ? query.sortBy!
+      : 'createdAt';
     const where = this.buildWhereClause(query);
     const alias = this.getEntityType().toLowerCase();
 
@@ -136,11 +148,11 @@ export abstract class BaseCrudService<
   }
 
   async update(id: string, dto: UpdateDto, userId: string, username?: string): Promise<any> {
-    const before = await this.findOne(id);
-    const oldValues = { ...before };
+    const fetched = await this.findOne(id);
+    const before = { ...fetched } as T; // immutable snapshot for afterUpdate and audit
 
-    Object.assign(before, dto);
-    const savedEntity = (await this.repository.save(before)) as T;
+    Object.assign(fetched, dto);
+    const savedEntity = (await this.repository.save(fetched)) as T;
 
     await this.auditLogService.log(
       'UPDATE',
@@ -150,7 +162,7 @@ export abstract class BaseCrudService<
         entityId: id,
         userId,
         username,
-        oldValues,
+        oldValues: before,
         newValues: dto,
       },
     );
