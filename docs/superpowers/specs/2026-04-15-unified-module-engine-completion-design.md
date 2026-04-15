@@ -119,7 +119,6 @@ None. The existing interface covers everything domain hooks need. Domain hooks s
 ```ts
 interface ColumnConfig<T> {
   key: string
-  header?: string          // shown in list header count line; first column used for label
   render: (row: T) => React.ReactNode
   width?: string | number
 }
@@ -152,10 +151,10 @@ Single-column (replaces OrdersTable):
 ```tsx
 <EntityTable
   rows={orders}
-  columns={[{ key: 'orderNumber', header: 'SO List', render: (o) => o.orderNumber }]}
+  columns={[{ key: 'orderNumber', render: (o) => o.orderNumber }]}
   loading={loading}
   total={total}
-  label="Orders"
+  label="SO List"
   selectedId={selectedOrderId}
   focusedIndex={focusedOrderIndex}
   onSelect={onOrderSelect}
@@ -167,14 +166,14 @@ Single-column (replaces OrdersTable):
 Multi-column (InvoicesTable with amount):
 ```tsx
 columns={[
-  { key: 'number', header: 'Invoices', render: (inv) => inv.invoiceNumber },
+  { key: 'number', render: (inv) => inv.invoiceNumber },
   { key: 'amount', render: (inv) => formatCurrency(inv.totalAmount), width: 80 },
 ]}
 ```
 
 ### Migration strategy
 
-Each of the 11 existing list component files is replaced by a thin wrapper (~5-10 lines) that calls `EntityTable` with its column config. The wrapper preserves the existing import path so page files need no prop changes. Once all pages are migrated, the wrappers can be removed in a follow-up cleanup.
+Each of the 11 existing list component files is replaced by a thin wrapper (~5-10 lines) that calls `EntityTable` with its column config. The wrapper maps entity-specific prop names (e.g. `focusedOrderIndex`, `onOrderSelect`, `orderListRef`) to `EntityTable`'s generic props (`focusedIndex`, `onSelect`, `listRef`), so page files need no changes. Once all pages are migrated, the wrappers can be removed in a follow-up cleanup.
 
 **Files replaced:** `CustomerList.tsx`, `SupplierList.tsx`, `ProductList.tsx`, `CategoryList.tsx`, `StockAdjustmentList.tsx`, `OrdersTable.tsx`, `InvoicesTable.tsx`, `PaymentsTable.tsx`, `PurchaseOrdersTable.tsx`, `GRNTable.tsx`, `VendorPaymentTable.tsx`
 
