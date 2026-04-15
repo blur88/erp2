@@ -1,3 +1,29 @@
+# [1.75.0](https://github.com/blur88/erp2/compare/v1.74.3...v1.75.0) (2026-04-15)
+
+
+### Bug Fixes
+
+* address remaining code review findings ([51e40e0](https://github.com/blur88/erp2/commit/51e40e08ad6c0c6b338164583acd0af495734523)), closes [#374](https://github.com/blur88/erp2/issues/374)
+* **backend:** address code review findings in base crud service ([de47975](https://github.com/blur88/erp2/commit/de47975f1cae4e3e30d5eef65a8de88289344c56))
+* **backend:** fix findAll hardcoded search field and missing pagination ([bfa6637](https://github.com/blur88/erp2/commit/bfa663786ecc25a12126e90aed6cc1e3ec795d60))
+* **plan:** align BaseContactDto fields with actual repo schema (streetAddress/state/postalCode, no email) ([79832ee](https://github.com/blur88/erp2/commit/79832eedbe3b9e2e59bb8b135a56580679e7e105))
+
+
+### Features
+
+* **backend:** add abstract transaction base entities ([76a80c7](https://github.com/blur88/erp2/commit/76a80c74122a039882ee04664428cafbd87c5692))
+* **backend:** add BaseCrudController with standard CRUD endpoints ([291c1bf](https://github.com/blur88/erp2/commit/291c1bf2791d257030147defd54d3cbdc9f4c0c6))
+* **backend:** add BaseCrudService generic service ([00fa223](https://github.com/blur88/erp2/commit/00fa2231e05aff5d5936de452a054817d99c75a8))
+* **backend:** add BaseQueryDto and BaseContactDto shared DTOs ([2501429](https://github.com/blur88/erp2/commit/25014291f90494e4c4926420beabcf5ed73e700b))
+* **backend:** align invoice and query services with base crud ([aac7818](https://github.com/blur88/erp2/commit/aac7818c2d9edf94c60333370cc54b5fd66e0ac9))
+* **backend:** align product and purchase order services with base crud ([d229aa0](https://github.com/blur88/erp2/commit/d229aa015cdf54e4522781e6a055e2dc2c81cccb))
+* **backend:** migrate customer and supplier delete flows to base crud pilot ([c261985](https://github.com/blur88/erp2/commit/c261985f46d70a17d9b09f150ba4c5063d840104))
+* **backend:** migrate simpler services to base crud pattern ([4ddccfe](https://github.com/blur88/erp2/commit/4ddccfe75fcc863314dfc17181c0b5af28594cea))
+* **frontend:** add shared entity workspace primitives ([f351221](https://github.com/blur88/erp2/commit/f3512219708243ffc513c99cac9c692b2926812a))
+* **frontend:** add transaction form shell and migrate create pages ([7cf7377](https://github.com/blur88/erp2/commit/7cf7377a5b3460e3ebbd83b0809a3268406af725))
+* **frontend:** migrate customer and supplier list pages to generic workspace ([a014c70](https://github.com/blur88/erp2/commit/a014c70b7e375d3cfe2d919f69c224427f47272b))
+* **frontend:** migrate remaining list pages to generic workspace ([518f366](https://github.com/blur88/erp2/commit/518f366e7bbcd1d7f50d08ba9f4784fa071463dd))
+
 ## [1.74.3](https://github.com/blur88/erp2/compare/v1.74.2...v1.74.3) (2026-04-14)
 
 

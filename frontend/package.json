@@ -1,6 +1,6 @@
 {
   "name": "erp-frontend",
-  "version": "1.74.3",
+  "version": "1.75.0",
   "description": "Comprehensive ERP System Frontend",
   "private": true,
   "type": "module",
