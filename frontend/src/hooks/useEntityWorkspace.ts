@@ -87,7 +87,9 @@ export function useEntityWorkspace<T extends { id: string }>(
     }
 
     const focusedRow = listRef.current.querySelector<HTMLElement>(`[data-index="${focusedIndex}"]`)
-    focusedRow?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+    if (focusedRow && typeof focusedRow.scrollIntoView === 'function') {
+      focusedRow.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+    }
   }, [focusedIndex])
 
   useEffect(() => {
