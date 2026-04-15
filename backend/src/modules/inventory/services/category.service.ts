@@ -17,7 +17,9 @@ import {
   Like,
   Not,
   IsNull,
+  FindOptionsWhere,
 } from 'typeorm';
+import { BaseCrudService } from '../../../common/services/base-crud.service';
 import { Category } from '../../../database/entities/category.entity';
 import { Product } from '../../../database/entities/product.entity';
 import {
@@ -36,7 +38,12 @@ import { ValidationUtil, BulkOperationUtil, BulkOperationResponse } from '../../
 import { AuditLogService } from '../../audit-logs/services';
 
 @Injectable()
-export class CategoryService {
+export class CategoryService extends BaseCrudService<
+  Category,
+  CreateCategoryDto,
+  UpdateCategoryDto,
+  QueryCategoriesDto
+> {
   private readonly logger = new Logger(CategoryService.name);
 
   constructor(
@@ -44,8 +51,24 @@ export class CategoryService {
     private readonly categoryRepository: Repository<Category>, // Changed from TreeRepository to Repository
     @InjectRepository(Product)
     private readonly productRepository: Repository<Product>,
-    private readonly auditLogService: AuditLogService,
-  ) {}
+    auditLogService: AuditLogService,
+  ) {
+    super(categoryRepository, auditLogService);
+  }
+
+  getEntityType(): string {
+    return 'Category';
+  }
+
+  buildWhereClause(query: QueryCategoriesDto): FindOptionsWhere<Category> {
+    const where: FindOptionsWhere<Category> = {};
+
+    if (query.parentId !== undefined) {
+      where.parentId = query.parentId;
+    }
+
+    return where;
+  }
 
   /**
    * Create a new category

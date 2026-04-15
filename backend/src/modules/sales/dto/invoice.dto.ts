@@ -18,6 +18,7 @@ import { Transform, Type } from 'class-transformer';
 import {
   InvoiceStatus
 } from '../../../database/entities/invoice.entity';
+import { BaseQueryDto } from '../../../common/dto/base-query.dto';
 
 
 export class CreateInvoiceDto {
@@ -81,15 +82,7 @@ export class UpdateInvoiceDto {
   
   }
 
-export class QueryInvoicesDto {
-  @ApiPropertyOptional({
-    description: 'Search term for invoice number or customer name',
-    example: 'INV-2024',
-  })
-  @IsOptional()
-  @IsString()
-  search?: string;
-
+export class QueryInvoicesDto extends BaseQueryDto {
   @ApiPropertyOptional({
     description: 'Filter by customer ID',
     example: 'uuid-string',
@@ -168,43 +161,6 @@ export class QueryInvoicesDto {
   @IsEnum(['fulfilled', 'unfulfilled'])
   fulfillmentStatus?: 'fulfilled' | 'unfulfilled';
 
-  @ApiPropertyOptional({
-    description: 'Sort field',
-    example: 'invoiceDate',
-  })
-  @IsOptional()
-  @IsString()
-  sortBy?: string;
-
-  @ApiPropertyOptional({
-    description: 'Sort order',
-    enum: ['ASC', 'DESC'],
-    example: 'DESC',
-  })
-  @IsOptional()
-  @Transform(({ value }) => value?.toUpperCase())
-  @IsEnum(['ASC', 'DESC'])
-  sortOrder?: 'ASC' | 'DESC';
-
-  @ApiPropertyOptional({
-    description: 'Page number',
-    example: 1,
-  })
-  @IsOptional()
-  @IsInt()
-  @Min(1)
-  @Transform(({ value }) => parseInt(value))
-  page?: number;
-
-  @ApiPropertyOptional({
-    description: 'Items per page',
-    example: 20,
-  })
-  @IsOptional()
-  @IsInt()
-  @Min(1)
-  @Transform(({ value }) => parseInt(value))
-  limit?: number;
 }
 
 export class InvoiceResponseDto {

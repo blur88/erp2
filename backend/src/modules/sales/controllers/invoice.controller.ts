@@ -205,7 +205,7 @@ export class InvoiceController {
     @CurrentUser('userId') currentUserId: string,
     @CurrentUser('username') currentUsername: string,
   ): Promise<void> {
-    return this.invoiceService.delete(id, currentUserId, currentUsername);
+    return this.invoiceService.softDelete(id, currentUserId, currentUsername);
   }
 
   @Post(':id/send')
