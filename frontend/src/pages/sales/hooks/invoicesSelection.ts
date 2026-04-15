@@ -5,7 +5,7 @@ import { useLazyGetJournalEntriesQuery } from '@/store/api/accountingApi'
 import { clearError, setSelectedInvoice } from '@/store/slices/salesSlice'
 import type { AppDispatch } from '@/store'
 
-import type { InvoiceJournalEntryRef, InvoiceListItem } from './useInvoicesPageState'
+import type { InvoiceJournalEntryRef, InvoiceListItem } from './invoicesPageState'
 
 interface UseInvoicesSelectionParams {
   dispatch: AppDispatch

@@ -74,41 +74,6 @@ vi.mock('../components/SuppliersDialogs', () => ({
   default: () => <div data-testid="suppliers-dialogs" />,
 }))
 
-vi.mock('../hooks/useSuppliersSelection', () => ({
-  useSuppliersSelection: () => ({
-    handleSupplierSelect: vi.fn(),
-    handleNavigateUp: vi.fn(),
-    handleNavigateDown: vi.fn(),
-    handleNavigateToFirst: vi.fn(),
-    handleNavigateToLast: vi.fn(),
-    handlePageUpNavigation: vi.fn(),
-    handlePageDownNavigation: vi.fn(),
-    handleEnterAction: vi.fn(),
-    handleEscapeAction: vi.fn(),
-  }),
-}))
-
-vi.mock('../hooks/useSuppliersActions', () => ({
-  useSuppliersActions: () => ({
-    handleDelete: vi.fn(),
-    handleCancelDelete: vi.fn(),
-  }),
-}))
-
-vi.mock('../hooks/useSuppliersPageState', () => ({
-  useSuppliersPageState: () => ({
-    deleteConfirmOpen: false,
-    setDeleteConfirmOpen: vi.fn(),
-    deletedSuppliersDialogOpen: false,
-    setDeletedSuppliersDialogOpen: vi.fn(),
-    focusedSupplierIndex: -1,
-    setFocusedSupplierIndex: vi.fn(),
-    shouldPreserveSearchFocus: false,
-    setShouldPreserveSearchFocus: vi.fn(),
-    supplierListRef: { current: null },
-    searchInputRef: { current: null },
-  }),
-}))
 
 vi.mock('@/components/purchasing/DeletedSuppliersDialog', () => ({
   default: () => <div>DeletedSuppliersDialog</div>,

@@ -153,7 +153,7 @@ export class VendorPaymentController {
     @CurrentUser('userId') currentUserId: string,
     @CurrentUser('username') currentUsername: string,
   ) {
-    return this.vendorPaymentService.remove(id, currentUserId, currentUsername);
+    return this.vendorPaymentService.softDelete(id, currentUserId, currentUsername);
   }
 
   @Delete(':id/permanent')

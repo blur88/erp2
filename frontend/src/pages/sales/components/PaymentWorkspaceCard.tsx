@@ -12,7 +12,7 @@ import {
   Typography,
 } from '@mui/material'
 
-import type { PaymentListItem } from '../hooks/usePaymentsPageState'
+import type { PaymentListItem } from '../hooks/paymentsPageState'
 
 import { TABLE_STYLES } from '@/constants/tableStyles'
 import { formatCurrency, formatWholeQuantity } from '@/utils/formatters'

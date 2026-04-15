@@ -18,7 +18,7 @@ import { TABLE_STYLES } from '@/constants/tableStyles'
 import type { VendorPayment } from '@/types'
 import { formatCurrency, formatDate } from '@/utils/formatters'
 
-import type { VPJournalEntryRef } from '../hooks/useVendorPaymentsPageState'
+import type { VPJournalEntryRef } from '../hooks/vendorPaymentsPageState'
 
 interface VendorPaymentContextHeaderProps {
   selectedPayment: VendorPayment | null

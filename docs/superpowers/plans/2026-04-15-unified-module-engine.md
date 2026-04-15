@@ -10,11 +10,27 @@
 
 ---
 
+## Execution Status (as of 2026-04-15)
+
+**Completed:** Tasks 1–7, Task 12 (TransactionForm), partial Task 8 (inventory list pages), partial Tasks 13–15 (remaining list pages)
+
+**Partially complete:**
+- Tasks 8–10 (backend service migrations): Customer, Supplier, StockAdjustment, VendorPayment, Payment, GRN done. Product, Category, SalesOrder, Invoice, PurchaseOrder deferred to #374.
+- Tasks 13–15 (frontend page migrations): All 11 list pages use `GenericListPage`. `useEntityWorkspace` fully replaces hook triplets for Customers/Suppliers only; 9 pages retained renamed per-entity hooks — deferred to #374.
+- Task 11 (transaction entity inheritance): `BaseTransactionHeader`/`BaseTransactionItem` created but no entity extends them yet — deferred to #374.
+- Task 17 (dead code deletion): Customer/Supplier hook triplets deleted. Remaining 9 pages' hooks renamed but not deleted — deferred to #374.
+
+**Not started:** Task 18 (final verification — superseded by CI)
+
+Individual step checkboxes were not tracked during execution. See issue #374 for remaining scope.
+
+---
+
 ## File Map
 
 ### New backend files
 - `backend/src/common/dto/base-query.dto.ts` — shared pagination/search/sort DTO
-- `backend/src/common/dto/base-contact.dto.ts` — shared name/email/phone/address fields
+- `backend/src/common/dto/base-contact.dto.ts` — shared phone/address fields (phone, streetAddress, city, state, postalCode, country)
 - `backend/src/common/services/base-crud.service.ts` — generic abstract service
 - `backend/src/common/services/base-crud.service.spec.ts` — unit tests for base service
 - `backend/src/common/controllers/base-crud.controller.ts` — generic abstract controller
@@ -123,15 +139,13 @@ export class BaseQueryDto {
 
 - [ ] **Step 2: Create BaseContactDto**
 
+Fields match the actual entity columns in `customer.entity.ts` and `supplier.entity.ts`. Neither entity has an `email` column — do not add one here.
+
 ```typescript
 // backend/src/common/dto/base-contact.dto.ts
-import { IsOptional, IsString, IsEmail, MaxLength } from 'class-validator';
+import { IsOptional, IsString, MaxLength } from 'class-validator';
 
 export class BaseContactDto {
-  @IsOptional()
-  @IsEmail()
-  email?: string;
-
   @IsOptional()
   @IsString()
   @MaxLength(20)
@@ -140,12 +154,22 @@ export class BaseContactDto {
   @IsOptional()
   @IsString()
   @MaxLength(255)
-  address?: string;
+  streetAddress?: string;
 
   @IsOptional()
   @IsString()
   @MaxLength(100)
   city?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  state?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(20)
+  postalCode?: string;
 
   @IsOptional()
   @IsString()
@@ -1418,7 +1442,7 @@ export class QueryCustomersDto extends BaseQueryDto {
 
 // Extend CreateCustomerDto from BaseContactDto — add the import and change:
 // export class CreateCustomerDto extends BaseContactDto { ... }
-// Keep all existing fields; remove email/phone/address/city/country from the class
+// Keep all existing fields; remove phone/streetAddress/city/state/postalCode/country from the class
 // body since they are now inherited from BaseContactDto.
 ```
 

@@ -168,7 +168,7 @@ export class StockAdjustmentController {
     @CurrentUser('userId') currentUserId: string,
     @CurrentUser('username') currentUsername: string,
   ): Promise<void> {
-    return this.stockAdjustmentService.remove(id, currentUserId, currentUsername);
+    return this.stockAdjustmentService.softDelete(id, currentUserId, currentUsername);
   }
 
   @Post(':id/restore')

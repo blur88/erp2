@@ -6,7 +6,8 @@ import {
   Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, FindOptionsWhere } from 'typeorm';
+import { BaseCrudService } from '../../../common/services/base-crud.service';
 import { SalesOrder } from '../../../database/entities/sales-order.entity';
 import { SalesOrderItem, DiscountType } from '../../../database/entities/sales-order-item.entity';
 import { Customer } from '../../../database/entities/customer.entity';
@@ -46,7 +47,12 @@ import { SalesOrderPaymentService } from './sales-order-payment.service';
 import { SalesOrderQueryService } from './sales-order-query.service';
 
 @Injectable()
-export class SalesOrderService {
+export class SalesOrderService extends BaseCrudService<
+  SalesOrder,
+  CreateSalesOrderDto,
+  UpdateSalesOrderDto,
+  QuerySalesOrdersDto
+> {
   private readonly logger = new Logger(SalesOrderService.name);
 
   constructor(
@@ -71,13 +77,29 @@ export class SalesOrderService {
     private readonly stockMovementService: StockMovementService,
     private readonly baseCostCalculator: BaseCostCalculatorService,
     private readonly settingsService: SettingsService,
-    private readonly auditLogService: AuditLogService,
+    auditLogService: AuditLogService,
     private readonly accountingService: AccountingService,
     private readonly salesOrderFulfillmentService: SalesOrderFulfillmentService,
     private readonly salesOrderLifecycleService: SalesOrderLifecycleService,
     private readonly salesOrderPaymentService: SalesOrderPaymentService,
     private readonly salesOrderQueryService: SalesOrderQueryService,
-  ) {}
+  ) {
+    super(salesOrderRepository, auditLogService);
+  }
+
+  getEntityType(): string {
+    return 'SalesOrder';
+  }
+
+  buildWhereClause(query: QuerySalesOrdersDto): FindOptionsWhere<SalesOrder> {
+    const where: FindOptionsWhere<SalesOrder> = {};
+
+    if (query.customerId) {
+      where.customerId = query.customerId;
+    }
+
+    return where;
+  }
 
   private async generateSequentialOrderNumber(): Promise<string> {
     // Use document number settings to generate order number

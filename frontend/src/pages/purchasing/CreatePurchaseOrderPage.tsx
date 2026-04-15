@@ -28,6 +28,7 @@ import { yupResolver } from '@hookform/resolvers/yup'
 import * as yup from 'yup'
 import { formatCurrency, getCurrentDate } from '@/utils/formatters'
 import PageHeader from '@/components/common/PageHeader'
+import TransactionForm from '@/components/common/TransactionForm'
 import { useNotification } from '@/hooks/useNotification'
 import { useProductSearch } from '@/hooks/useProductSearch'
 import { useAppDispatch } from '@/hooks/useRedux'
@@ -348,13 +349,27 @@ const CreatePurchaseOrderPage: React.FC = () => {
           <Typography>Loading purchase order...</Typography>
         </Box>
       ) : (
-      <form onSubmit={handleSubmit(onSubmit)}>
-        {error && (
+      <TransactionForm
+        mode="custom"
+        entityLabel="Supplier"
+        entityOptions={suppliers.map((supplier: any) => ({ id: supplier.id, name: supplier.companyName }))}
+        lineItemColumns={[
+          { key: 'product', label: 'Product' },
+          { key: 'quantity', label: 'Qty' },
+          { key: 'unitPrice', label: 'Cost Price' },
+          { key: 'discount', label: 'Discount' },
+          { key: 'subtotal', label: 'Sub-total' },
+        ]}
+        onSubmit={handleSubmit(onSubmit)}
+        onCancel={() => navigate('/purchasing/orders')}
+        isSubmitting={loading}
+        hideDefaultActions
+        error={error ? (
           <Alert severity="error" sx={{ mb: 3 }}>
             {error}
           </Alert>
-        )}
-
+        ) : null}
+      >
         <Grid container spacing={3}>
           {/* PO Information Card */}
           <Grid size={12}>
@@ -914,7 +929,7 @@ const CreatePurchaseOrderPage: React.FC = () => {
             </Card>
           </Grid>
         </Grid>
-      </form>
+      </TransactionForm>
       )}
     </>
   );

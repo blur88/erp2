@@ -166,9 +166,10 @@ export class QueryVendorPaymentsDto {
 
   @ApiPropertyOptional({ description: 'Sort order', example: 'asc', default: 'desc' })
   @IsOptional()
+  @Transform(({ value }) => value?.toUpperCase())
   @IsString()
-  @IsIn(['asc', 'desc'])
-  sortOrder?: string;
+  @IsIn(['ASC', 'DESC'])
+  sortOrder?: 'ASC' | 'DESC';
 
   @ApiPropertyOptional({ description: 'Search query', example: 'VP-000001' })
   @IsOptional()

@@ -1,10 +1,7 @@
 import React, { useCallback, useMemo } from 'react'
-import { Alert, Box, useMediaQuery, useTheme } from '@mui/material'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 
-import MasterDetailWorkspace from '@/components/common/MasterDetailWorkspace'
-import PageHeader from '@/components/common/PageHeader'
-import { FilterBar } from '@/components/filters'
+import GenericListPage from '@/components/common/GenericListPage'
 import { useFilterBar } from '@/hooks/useFilterBar'
 import { useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
 import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
@@ -17,8 +14,8 @@ import VendorPaymentContextHeader from './components/VendorPaymentContextHeader'
 import VendorPaymentsDialogs from './components/VendorPaymentsDialogs'
 import VendorPaymentTable from './components/VendorPaymentTable'
 import VendorPaymentWorkspaceCard from './components/VendorPaymentWorkspaceCard'
-import { useVendorPaymentsPageState } from './hooks/useVendorPaymentsPageState'
-import { useVendorPaymentsSelection } from './hooks/useVendorPaymentsSelection'
+import { useVendorPaymentsPageState } from './hooks/vendorPaymentsPageState'
+import { useVendorPaymentsSelection } from './hooks/vendorPaymentsSelection'
 
 interface VPFilters {
   search: string
@@ -28,8 +25,6 @@ interface VPFilters {
 }
 
 const VendorPaymentsPage: React.FC = () => {
-  const theme = useTheme()
-  const isMobile = useMediaQuery(theme.breakpoints.down('md'))
   const navigate = useNavigate()
   const dispatch = useAppDispatch()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -124,68 +119,53 @@ const VendorPaymentsPage: React.FC = () => {
   }, [navigate, pageState.journalEntryRef])
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
-      <PageHeader
-        title="Vendor Payments"
-        subtitle="Track and manage payments to suppliers"
-        variant="workflow"
-        secondaryAction={{ label: 'View Deleted', onClick: () => pageState.setDeletedPaymentsOpen(true) }}
-        toolbar={(
-          <FilterBar
-            config={filterConfig}
-            draftFilters={filterBar.draftFilters}
-            handlers={filterBar.handlers}
-            hasActiveFilters={filterBar.hasActiveFilters}
-            searchInputRef={pageState.searchInputRef}
-            sort={{
-              field: 'paymentNumber',
-              sortBy: pageState.sorting.sortBy,
-              sortOrder: pageState.sorting.sortOrder,
-              onSort: handleSort,
-            }}
-          />
-        )}
-      />
-
-      {error && (
-        <Alert severity="error" sx={{ mb: 3 }}>
-          {error}
-        </Alert>
+    <GenericListPage
+      title="Vendor Payments"
+      subtitle="Track and manage payments to suppliers"
+      secondaryAction={{ label: 'View Deleted', onClick: () => pageState.setDeletedPaymentsOpen(true) }}
+      filterConfig={filterConfig}
+      draftFilters={filterBar.draftFilters}
+      handlers={filterBar.handlers}
+      hasActiveFilters={filterBar.hasActiveFilters}
+      searchInputRef={pageState.searchInputRef}
+      sort={{
+        field: 'paymentNumber',
+        sortBy: pageState.sorting.sortBy,
+        sortOrder: pageState.sorting.sortOrder,
+        onSort: handleSort,
+      }}
+      error={error}
+      listSlot={(
+        <VendorPaymentTable
+          payments={payments}
+          loading={loading}
+          total={total}
+          selectedPaymentId={selectedPayment?.id}
+          focusedPaymentIndex={pageState.focusedPaymentIndex}
+          onPaymentSelect={selection.handlePaymentSelect}
+          paymentListRef={pageState.paymentListRef}
+        />
       )}
-
-      <MasterDetailWorkspace
-        isMobile={isMobile}
-        listSlot={(
-          <VendorPaymentTable
-            payments={payments}
-            loading={loading}
-            total={total}
-            selectedPaymentId={selectedPayment?.id}
-            focusedPaymentIndex={pageState.focusedPaymentIndex}
-            onPaymentSelect={selection.handlePaymentSelect}
-            paymentListRef={pageState.paymentListRef}
-          />
-        )}
-        headerSlot={(
-          <VendorPaymentContextHeader
-            selectedPayment={selectedPayment}
-            journalEntryRef={pageState.journalEntryRef}
-            journalEntryRefLoading={pageState.journalEntryRefLoading}
-            onPrint={() => pageState.setPrintDialogOpen(true)}
-            onNavigateToJournalEntry={navigateToJournalEntry}
-          />
-        )}
-        workspaceSlot={<VendorPaymentWorkspaceCard selectedPayment={selectedPayment} />}
-      />
-
-      <VendorPaymentsDialogs
-        selectedPayment={selectedPayment}
-        deletedPaymentsOpen={pageState.deletedPaymentsOpen}
-        onCloseDeletedPayments={() => pageState.setDeletedPaymentsOpen(false)}
-        printDialogOpen={pageState.printDialogOpen}
-        onClosePrintDialog={() => pageState.setPrintDialogOpen(false)}
-      />
-    </Box>
+      headerSlot={(
+        <VendorPaymentContextHeader
+          selectedPayment={selectedPayment}
+          journalEntryRef={pageState.journalEntryRef}
+          journalEntryRefLoading={pageState.journalEntryRefLoading}
+          onPrint={() => pageState.setPrintDialogOpen(true)}
+          onNavigateToJournalEntry={navigateToJournalEntry}
+        />
+      )}
+      workspaceSlot={<VendorPaymentWorkspaceCard selectedPayment={selectedPayment} />}
+      dialogs={(
+        <VendorPaymentsDialogs
+          selectedPayment={selectedPayment}
+          deletedPaymentsOpen={pageState.deletedPaymentsOpen}
+          onCloseDeletedPayments={() => pageState.setDeletedPaymentsOpen(false)}
+          printDialogOpen={pageState.printDialogOpen}
+          onClosePrintDialog={() => pageState.setPrintDialogOpen(false)}
+        />
+      )}
+    />
   )
 }
 

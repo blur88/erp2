@@ -15,7 +15,7 @@ import {
   Alert,
 } from '@mui/material'
 import { useNavigate, useParams } from 'react-router-dom'
-import { useForm, Controller } from 'react-hook-form'
+import { useForm, Controller, type Control, type FieldErrors } from 'react-hook-form'
 import { yupResolver } from '@hookform/resolvers/yup'
 import * as yup from 'yup'
 import { useNotification } from '@/hooks/useNotification'
@@ -27,6 +27,7 @@ import type { Customer } from '@/types'
 import { CustomerType } from '@/types'
 import api from '@/services/api'
 import PriceListSelector from '@/components/price-lists/PriceListSelector'
+import AddressSection from '@/components/common/AddressSection'
 import PageHeader from '@/components/common/PageHeader'
 
 const customerSchema = yup.object({
@@ -54,6 +55,30 @@ interface CustomerFormData {
   priceListId?: string | null
   notes?: string | null
 }
+
+
+interface CustomerFormActionsProps {
+  disabled: boolean
+  isEdit: boolean
+  isSaving: boolean
+  onCancel: () => void
+}
+
+const CustomerFormActions: React.FC<CustomerFormActionsProps> = ({
+  disabled,
+  isEdit,
+  isSaving,
+  onCancel,
+}) => (
+  <Grid size={12}>
+    <Box sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end', pt: 1 }}>
+      <Button onClick={onCancel}>Cancel</Button>
+      <Button type="submit" variant="contained" disabled={disabled}>
+        {isSaving ? <CircularProgress size={20} /> : (isEdit ? 'Update' : 'Create')}
+      </Button>
+    </Box>
+  </Grid>
+)
 
 const CustomerFormPage: React.FC = () => {
   const { id } = useParams<{ id: string }>()
@@ -286,70 +311,7 @@ const CustomerFormPage: React.FC = () => {
               />
             </Grid>
 
-            <Grid size={12}>
-              <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>Address Information</Typography>
-            </Grid>
-
-            <Grid size={12}>
-              <Controller
-                name="streetAddress"
-                control={control}
-                render={({ field }) => (
-                  <TextField
-                    {...field}
-                    value={field.value || ''}
-                    fullWidth
-                    label="Street Address"
-                    error={!!errors.streetAddress}
-                    helperText={errors.streetAddress?.message}
-                  />
-                )}
-              />
-            </Grid>
-
-            <Grid size={{ xs: 12, md: 6 }}>
-              <Controller
-                name="city"
-                control={control}
-                render={({ field }) => (
-                  <TextField {...field} value={field.value || ''} fullWidth label="City"
-                    error={!!errors.city} helperText={errors.city?.message} />
-                )}
-              />
-            </Grid>
-
-            <Grid size={{ xs: 12, md: 6 }}>
-              <Controller
-                name="state"
-                control={control}
-                render={({ field }) => (
-                  <TextField {...field} value={field.value || ''} fullWidth label="State"
-                    error={!!errors.state} helperText={errors.state?.message} />
-                )}
-              />
-            </Grid>
-
-            <Grid size={{ xs: 12, md: 6 }}>
-              <Controller
-                name="postalCode"
-                control={control}
-                render={({ field }) => (
-                  <TextField {...field} value={field.value || ''} fullWidth label="Postal Code"
-                    error={!!errors.postalCode} helperText={errors.postalCode?.message} />
-                )}
-              />
-            </Grid>
-
-            <Grid size={{ xs: 12, md: 6 }}>
-              <Controller
-                name="country"
-                control={control}
-                render={({ field }) => (
-                  <TextField {...field} value={field.value || ''} fullWidth label="Country"
-                    error={!!errors.country} helperText={errors.country?.message} />
-                )}
-              />
-            </Grid>
+            <AddressSection control={control} errors={errors} />
 
             <Grid size={12}>
               <Controller
@@ -362,18 +324,12 @@ const CustomerFormPage: React.FC = () => {
               />
             </Grid>
 
-            <Grid size={12}>
-              <Box sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end', pt: 1 }}>
-                <Button onClick={() => navigate('/sales/customers')}>Cancel</Button>
-                <Button
-                  type="submit"
-                  variant="contained"
-                  disabled={isSaving || !!phoneError || isCheckingPhone}
-                >
-                  {isSaving ? <CircularProgress size={20} /> : (isEdit ? 'Update' : 'Create')}
-                </Button>
-              </Box>
-            </Grid>
+            <CustomerFormActions
+              disabled={isSaving || !!phoneError || isCheckingPhone}
+              isEdit={isEdit}
+              isSaving={isSaving}
+              onCancel={() => navigate('/sales/customers')}
+            />
           </Grid>
         </form>
       </Paper>

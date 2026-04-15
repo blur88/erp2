@@ -20,7 +20,7 @@ import { TABLE_STYLES } from '@/constants/tableStyles'
 import type { PurchaseOrder } from '@/types'
 import { formatCurrency, formatDate } from '@/utils/formatters'
 
-import type { PurchaseJournalEntryRef } from '../hooks/usePurchaseOrdersPageState'
+import type { PurchaseJournalEntryRef } from '../hooks/purchaseOrdersPageState'
 
 interface PurchaseOrderContextHeaderProps {
   selectedOrder: PurchaseOrder | null

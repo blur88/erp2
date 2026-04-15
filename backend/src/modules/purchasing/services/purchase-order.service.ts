@@ -1,6 +1,7 @@
 import { Injectable, Logger, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, FindOptionsWhere, Like, In, Between } from 'typeorm';
+import { BaseCrudService } from '../../../common/services/base-crud.service';
 import {
   PurchaseOrder,
   PurchaseOrderItem,
@@ -41,7 +42,12 @@ import { AuditLogService } from '../../audit-logs/services';
 import { AccountingService } from '../../accounting/services/accounting.service';
 
 @Injectable()
-export class PurchaseOrderService {
+export class PurchaseOrderService extends BaseCrudService<
+  PurchaseOrder,
+  CreatePurchaseOrderDto,
+  UpdatePurchaseOrderDto,
+  PurchaseOrderQueryDto
+> {
   private readonly logger = new Logger(PurchaseOrderService.name);
 
   constructor(
@@ -63,9 +69,23 @@ export class PurchaseOrderService {
     private readonly baseCostCalculator: BaseCostCalculatorService,
     private readonly stockMovementService: StockMovementService,
     private readonly settingsService: SettingsService,
-    private readonly auditLogService: AuditLogService,
+    auditLogService: AuditLogService,
     private readonly accountingService: AccountingService,
-  ) {}
+  ) {
+    super(purchaseOrderRepository, auditLogService);
+  }
+
+  getEntityType(): string {
+    return 'PurchaseOrder';
+  }
+
+  buildWhereClause(query: PurchaseOrderQueryDto): FindOptionsWhere<PurchaseOrder> {
+    const where: FindOptionsWhere<PurchaseOrder> = {};
+
+    if (query.supplierId) where.supplierId = query.supplierId;
+
+    return where;
+  }
 
   /**
    * Generate sequential purchase order number in format PO-000001

@@ -18,6 +18,7 @@ import {
 } from 'class-validator';
 import { Type, Transform } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
+import { BaseQueryDto } from '../../../common/dto/base-query.dto';
 
 export class CreatePurchaseOrderItemDto {
   @ApiProperty({ description: 'Product ID from catalog' })
@@ -96,27 +97,7 @@ export class CreatePurchaseOrderDto {
 
 export class UpdatePurchaseOrderDto extends PartialType(CreatePurchaseOrderDto) {}
 
-export class PurchaseOrderQueryDto {
-  @ApiPropertyOptional({ description: 'Page number' })
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  page?: number;
-
-  @ApiPropertyOptional({ description: 'Items per page' })
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  @Max(100)
-  limit?: number;
-
-  @ApiPropertyOptional({ description: 'Search term (order number, supplier name)' })
-  @IsOptional()
-  @IsString()
-  search?: string;
-
+export class PurchaseOrderQueryDto extends BaseQueryDto {
   @ApiPropertyOptional({ description: 'Filter by supplier ID' })
   @IsOptional()
   @IsUUID()

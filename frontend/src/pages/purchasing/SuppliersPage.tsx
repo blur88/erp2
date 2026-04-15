@@ -1,25 +1,25 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react'
-import { Alert, Box, useMediaQuery, useTheme } from '@mui/material'
+import React, { useCallback, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
-import MasterDetailWorkspace from '@/components/common/MasterDetailWorkspace'
-import PageHeader from '@/components/common/PageHeader'
-import { FilterBar } from '@/components/filters'
+import GenericListPage from '@/components/common/GenericListPage'
 import { useFilterBar } from '@/hooks/useFilterBar'
 import { useNotification } from '@/hooks/useNotification'
-import { useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
+import { useEntityWorkspace } from '@/hooks/useEntityWorkspace'
 import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
-import { useGetSuppliersQuery } from '@/store/api/purchasingApi'
-import { selectSelectedSupplier } from '@/store/slices/purchasingSlice'
+import {
+  useDeleteSupplierMutation,
+  useGetSuppliersQuery,
+} from '@/store/api/purchasingApi'
+import {
+  selectSelectedSupplier,
+  setSelectedSupplier,
+} from '@/store/slices/purchasingSlice'
 import type { FilterBarConfig } from '@/types/filterBar.types'
 
 import SupplierContextHeader from './components/SupplierContextHeader'
-import SuppliersDialogs from './components/SuppliersDialogs'
 import SupplierList from './components/SupplierList'
+import SuppliersDialogs from './components/SuppliersDialogs'
 import SupplierWorkspaceCard from './components/SupplierWorkspaceCard'
-import { useSuppliersActions } from './hooks/useSuppliersActions'
-import { useSuppliersPageState } from './hooks/useSuppliersPageState'
-import { useSuppliersSelection } from './hooks/useSuppliersSelection'
 
 interface SupplierFilters {
   search: string
@@ -27,182 +27,124 @@ interface SupplierFilters {
   type: 'local' | 'international' | null
 }
 
+const filterConfig: FilterBarConfig<SupplierFilters> = {
+  search: { placeholder: 'Search by company name...' },
+  fields: [
+    { field: 'status', label: 'Status', type: 'status' },
+    { field: 'type', label: 'Supplier Type', type: 'supplier-type' },
+  ],
+  defaults: { search: '', status: null, type: null },
+}
+
 const SuppliersPage: React.FC = () => {
-  const theme = useTheme()
-  const isMobile = useMediaQuery(theme.breakpoints.down('md'))
   const navigate = useNavigate()
   const dispatch = useAppDispatch()
   const { showSuccess, showError } = useNotification()
   const selectedSupplier = useAppSelector(selectSelectedSupplier)
   const [pageError, setPageError] = useState<string | null>(null)
-
-  const pageState = useSuppliersPageState()
-
-  const filterConfig = useMemo<FilterBarConfig<SupplierFilters>>(
-    () => ({
-      search: { placeholder: 'Search by company name...' },
-      fields: [
-        { field: 'status', label: 'Status', type: 'status' },
-        { field: 'type', label: 'Supplier Type', type: 'supplier-type' },
-      ],
-      defaults: { search: '', status: null, type: null },
-    }),
-    [],
-  )
-
-  const { appliedFilters, draftFilters, handlers, hasActiveFilters } = useFilterBar(filterConfig)
-
   const [sortBy, setSortBy] = useState('companyName')
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc')
+
+  const { appliedFilters, draftFilters, handlers, hasActiveFilters } = useFilterBar(filterConfig)
 
   const handleSort = useCallback((field: string) => {
     setSortOrder((prev) => (sortBy === field && prev === 'desc' ? 'asc' : 'desc'))
     setSortBy(field)
   }, [sortBy])
 
+  const queryParams = useMemo(() => ({
+    search: appliedFilters.search || undefined,
+    isActive:
+      appliedFilters.status === 'active'
+        ? true
+        : appliedFilters.status === 'inactive'
+          ? false
+          : undefined,
+    type: appliedFilters.type ?? undefined,
+    sortBy,
+    sortOrder: sortOrder.toUpperCase() as 'ASC' | 'DESC',
+  }), [appliedFilters, sortBy, sortOrder])
+
+  const { data: suppliersResponse, isLoading, isFetching, error, refetch } = useGetSuppliersQuery(queryParams)
+  const [deleteSupplier] = useDeleteSupplierMutation()
+  const suppliers = suppliersResponse?.data ?? []
+
+  const workspace = useEntityWorkspace({
+    entities: suppliers,
+    selectedEntity: selectedSupplier,
+    selectEntity: (supplier) => {
+      dispatch(setSelectedSupplier(supplier))
+    },
+    refetch: () => {
+      void refetch()
+    },
+    navigate,
+    routes: {
+      create: '/purchasing/suppliers/create',
+      edit: (id) => `/purchasing/suppliers/${id}/edit`,
+    },
+    notifications: {
+      showSuccess,
+      showError: (message) => {
+        setPageError(message)
+        showError(message)
+      },
+    },
+    deleteMutation: (id) => deleteSupplier(id).unwrap(),
+  })
+
   const filterHandlers = useMemo(() => ({
     ...handlers,
     onSearchChange: (value: string) => {
-      pageState.setShouldPreserveSearchFocus(true)
+      workspace.setShouldPreserveSearchFocus(true)
       handlers.onSearchChange(value)
     },
-  }), [handlers, pageState])
-
-  const supplierQueryParams = useMemo(
-    () => ({
-      search: appliedFilters.search || undefined,
-      isActive:
-        appliedFilters.status === 'active'
-          ? true
-          : appliedFilters.status === 'inactive'
-            ? false
-            : undefined,
-      type: appliedFilters.type ?? undefined,
-      sortBy,
-      sortOrder: sortOrder.toUpperCase() as 'ASC' | 'DESC',
-    }),
-    [appliedFilters, sortBy, sortOrder],
-  )
-
-  const { data: suppliersResponse, isLoading, isFetching, error, refetch } = useGetSuppliersQuery(supplierQueryParams)
-  const suppliers = suppliersResponse?.data ?? []
-  const loading = isLoading || isFetching
-
-  useEffect(() => {
-    if (
-      pageState.shouldPreserveSearchFocus &&
-      pageState.searchInputRef.current &&
-      document.activeElement !== pageState.searchInputRef.current
-    ) {
-      const timer = setTimeout(() => {
-        pageState.searchInputRef.current?.focus()
-        pageState.setShouldPreserveSearchFocus(false)
-      }, 0)
-      return () => clearTimeout(timer)
-    }
-
-    if (pageState.shouldPreserveSearchFocus) {
-      pageState.setShouldPreserveSearchFocus(false)
-    }
-  }, [loading, pageState])
-
-  const selection = useSuppliersSelection({
-    dispatch,
-    suppliers,
-    selectedSupplier,
-    focusedSupplierIndex: pageState.focusedSupplierIndex,
-    setFocusedSupplierIndex: pageState.setFocusedSupplierIndex,
-    navigate,
-    supplierListRef: pageState.supplierListRef,
-    setDeleteConfirmOpen: pageState.setDeleteConfirmOpen,
-    setDeletedSuppliersDialogOpen: pageState.setDeletedSuppliersDialogOpen,
-  })
-
-  const actions = useSuppliersActions({
-    dispatch,
-    selectedSupplier,
-    refetchSuppliers: () => {
-      void refetch()
-    },
-    showSuccess,
-    showError,
-    setDeleteConfirmOpen: pageState.setDeleteConfirmOpen,
-    setPageError,
-  })
-
-  useKeyboardShortcuts({
-    onSearch: () => {
-      pageState.searchInputRef.current?.focus()
-      pageState.searchInputRef.current?.select()
-    },
-    onArrowUp: selection.handleNavigateUp,
-    onArrowDown: selection.handleNavigateDown,
-    onEnter: selection.handleEnterAction,
-    onPageUp: selection.handlePageUpNavigation,
-    onPageDown: selection.handlePageDownNavigation,
-    onHome: selection.handleNavigateToFirst,
-    onEnd: selection.handleNavigateToLast,
-    onEscape: selection.handleEscapeAction,
-  })
+  }), [handlers, workspace])
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
-      <PageHeader
-        title="Suppliers"
-        subtitle="Manage your suppliers and vendor relationships"
-        variant="workflow"
-        secondaryAction={{ label: 'View Deleted', onClick: () => pageState.setDeletedSuppliersDialogOpen(true) }}
-        primaryAction={{ label: 'New Supplier', onClick: () => navigate('/purchasing/suppliers/create') }}
-        toolbar={(
-          <FilterBar
-            config={filterConfig}
-            draftFilters={draftFilters}
-            handlers={filterHandlers}
-            hasActiveFilters={hasActiveFilters}
-            searchInputRef={pageState.searchInputRef}
-            sort={{ field: 'companyName', sortBy, sortOrder, onSort: handleSort }}
-          />
-        )}
-      />
-
-      {(pageError || error) && (
-        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setPageError(null)}>
-          {pageError || 'Failed to load suppliers.'}
-        </Alert>
+    <GenericListPage
+      title="Suppliers"
+      subtitle="Manage your suppliers and vendor relationships"
+      primaryAction={{ label: 'New Supplier', onClick: () => navigate('/purchasing/suppliers/create') }}
+      secondaryAction={{ label: 'View Deleted', onClick: () => workspace.setDeletedEntitiesDialogOpen(true) }}
+      filterConfig={filterConfig}
+      draftFilters={draftFilters}
+      handlers={filterHandlers}
+      hasActiveFilters={hasActiveFilters}
+      searchInputRef={workspace.searchInputRef}
+      sort={{ field: 'companyName', sortBy, sortOrder, onSort: handleSort }}
+      error={pageError || (error ? 'Failed to load suppliers.' : null)}
+      onErrorClose={() => setPageError(null)}
+      listSlot={(
+        <SupplierList
+          suppliers={suppliers}
+          loading={isLoading || isFetching}
+          total={suppliers.length}
+          selectedSupplierId={selectedSupplier?.id}
+          focusedIndex={workspace.focusedIndex}
+          onSelect={workspace.handleSelect}
+          supplierListRef={workspace.listRef}
+        />
       )}
-
-      <MasterDetailWorkspace
-        isMobile={isMobile}
-        listSlot={(
-          <SupplierList
-            suppliers={suppliers}
-            loading={loading}
-            total={suppliers.length}
-            selectedSupplierId={selectedSupplier?.id}
-            focusedIndex={pageState.focusedSupplierIndex}
-            onSelect={selection.handleSupplierSelect}
-            supplierListRef={pageState.supplierListRef}
-          />
-        )}
-        headerSlot={(
-          <SupplierContextHeader
-            selectedSupplier={selectedSupplier}
-            onEdit={() => navigate(`/purchasing/suppliers/${selectedSupplier!.id}/edit`)}
-            onDelete={() => pageState.setDeleteConfirmOpen(true)}
-          />
-        )}
-        workspaceSlot={<SupplierWorkspaceCard selectedSupplier={selectedSupplier} />}
-      />
-
-      <SuppliersDialogs
-        selectedSupplier={selectedSupplier}
-        deleteConfirmOpen={pageState.deleteConfirmOpen}
-        onConfirmDelete={actions.handleDelete}
-        onCancelDelete={actions.handleCancelDelete}
-        deletedSuppliersDialogOpen={pageState.deletedSuppliersDialogOpen}
-        onCloseDeletedSuppliersDialog={() => pageState.setDeletedSuppliersDialogOpen(false)}
-      />
-    </Box>
+      headerSlot={(
+        <SupplierContextHeader
+          selectedSupplier={selectedSupplier}
+          onEdit={() => navigate(`/purchasing/suppliers/${selectedSupplier!.id}/edit`)}
+          onDelete={() => workspace.setDeleteConfirmOpen(true)}
+        />
+      )}
+      workspaceSlot={<SupplierWorkspaceCard selectedSupplier={selectedSupplier} />}
+      dialogs={(
+        <SuppliersDialogs
+          selectedSupplier={selectedSupplier}
+          deleteConfirmOpen={workspace.deleteConfirmOpen}
+          onConfirmDelete={workspace.handleDelete}
+          onCancelDelete={workspace.handleCancelDelete}
+          deletedSuppliersDialogOpen={workspace.deletedEntitiesDialogOpen}
+          onCloseDeletedSuppliersDialog={() => workspace.setDeletedEntitiesDialogOpen(false)}
+        />
+      )}
+    />
   )
 }
 

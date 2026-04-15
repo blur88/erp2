@@ -56,7 +56,7 @@ vi.mock('../components/PurchaseOrderContextHeader', () => ({ default: () => <div
 vi.mock('../components/PurchaseOrdersTable', () => ({ default: () => <div>PurchaseOrdersTable</div> }))
 vi.mock('../components/PurchaseOrderWorkspaceCard', () => ({ default: () => <div>PurchaseOrderWorkspaceCard</div> }))
 vi.mock('../components/PurchaseOrdersDialogs', () => ({ default: () => <div>PurchaseOrdersDialogs</div> }))
-vi.mock('../hooks/usePurchaseOrdersActions', () => ({
+vi.mock('../hooks/purchaseOrdersActions', () => ({
   usePurchaseOrdersActions: () => ({
     handleEditClick: vi.fn(),
     handleDeleteClick: vi.fn(),
@@ -73,7 +73,7 @@ vi.mock('../hooks/usePurchaseOrdersActions', () => ({
     handleRecordPayments: vi.fn(),
   }),
 }))
-vi.mock('../hooks/usePurchaseOrdersSelection', () => ({
+vi.mock('../hooks/purchaseOrdersSelection', () => ({
   usePurchaseOrdersSelection: () => ({
     handleOrderSelect: vi.fn(),
     handleNavigateUp: vi.fn(),

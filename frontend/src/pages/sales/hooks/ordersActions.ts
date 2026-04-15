@@ -20,7 +20,7 @@ import type { AppDispatch, RootState } from '@/store'
 import type { SalesOrder } from '@/types'
 import { formatCurrency } from '@/utils/formatters'
 
-import type { BlockedOrderAction } from './useOrdersPageState'
+import type { BlockedOrderAction } from './ordersPageState'
 
 interface UseOrdersActionsParams {
   dispatch: AppDispatch

@@ -9,8 +9,10 @@ import {
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
 import { CustomerType } from '../../../database/entities/customer.entity';
+import { BaseContactDto } from '../../../common/dto/base-contact.dto';
+import { BaseQueryDto } from '../../../common/dto/base-query.dto';
 
-export class CreateCustomerDto {
+export class CreateCustomerDto extends BaseContactDto {
   @ApiProperty({
     description: 'Customer type (individual/business)',
     enum: CustomerType,
@@ -27,63 +29,6 @@ export class CreateCustomerDto {
   @IsString()
   @MaxLength(200)
   name: string;
-
-  @ApiPropertyOptional({
-    description: 'Primary phone number',
-    example: '+1234567890',
-  })
-  @IsOptional()
-  @IsString()
-  @MaxLength(20)
-  @Matches(/^[\+]?[\d\s\-\(\)]+$/, {
-    message: 'Phone number must contain only digits, spaces, hyphens, parentheses, and an optional plus sign'
-  })
-  phone?: string;
-
-  @ApiPropertyOptional({
-    description: 'Street address',
-    example: '123 Main Street',
-  })
-  @IsOptional()
-  @IsString()
-  @MaxLength(255)
-  streetAddress?: string;
-
-  @ApiPropertyOptional({
-    description: 'City',
-    example: 'New York',
-  })
-  @IsOptional()
-  @IsString()
-  @MaxLength(100)
-  city?: string;
-
-  @ApiPropertyOptional({
-    description: 'State or province',
-    example: 'NY',
-  })
-  @IsOptional()
-  @IsString()
-  @MaxLength(100)
-  state?: string;
-
-  @ApiPropertyOptional({
-    description: 'Postal or ZIP code',
-    example: '10001',
-  })
-  @IsOptional()
-  @IsString()
-  @MaxLength(20)
-  postalCode?: string;
-
-  @ApiPropertyOptional({
-    description: 'Country',
-    example: 'United States',
-  })
-  @IsOptional()
-  @IsString()
-  @MaxLength(100)
-  country?: string;
 
   @ApiPropertyOptional({
     description: 'Price list ID for this customer',
@@ -196,15 +141,7 @@ export class UpdateCustomerDto {
   notes?: string;
 }
 
-export class QueryCustomersDto {
-  @ApiPropertyOptional({
-    description: 'Search term for customer name, email, or phone',
-    example: 'acme',
-  })
-  @IsOptional()
-  @IsString()
-  search?: string;
-
+export class QueryCustomersDto extends BaseQueryDto {
   @ApiPropertyOptional({
     description: 'Filter by customer type',
     enum: CustomerType,
@@ -222,35 +159,6 @@ export class QueryCustomersDto {
   @IsString()
   priceListId?: string;
 
-  @ApiPropertyOptional({
-    description: 'Filter by active status',
-    example: true,
-  })
-  @IsOptional()
-  @IsBoolean()
-  @Transform(({ value }) => {
-    if (value === undefined || value === null || value === '') return undefined;
-    return value === 'true' || value === true;
-  })
-  isActive?: boolean;
-
-  @ApiPropertyOptional({
-    description: 'Sort field',
-    example: 'name',
-  })
-  @IsOptional()
-  @IsString()
-  sortBy?: string;
-
-  @ApiPropertyOptional({
-    description: 'Sort order',
-    enum: ['ASC', 'DESC'],
-    example: 'ASC',
-  })
-  @IsOptional()
-  @Transform(({ value }) => value?.toUpperCase())
-  @IsEnum(['ASC', 'DESC'])
-  sortOrder?: 'ASC' | 'DESC';
 }
 
 export class CustomerResponseDto {

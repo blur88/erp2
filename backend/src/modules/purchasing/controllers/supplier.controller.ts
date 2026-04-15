@@ -332,7 +332,11 @@ export class SupplierController {
     @CurrentUser('username') currentUsername: string,
   ): Promise<{ restoredCount: number; failedIds: string[] }> {
     this.logger.log(`Bulk restoring ${body.supplierIds.length} suppliers`);
-    return await this.supplierService.bulkRestore(body.supplierIds, currentUserId, currentUsername);
+    const result = await this.supplierService.bulkRestore(body.supplierIds, currentUserId, currentUsername);
+    return {
+      restoredCount: result.successCount,
+      failedIds: result.failedItems.map((item) => item.id),
+    };
   }
 
   @Post('bulk-permanent-delete')
@@ -362,11 +366,15 @@ export class SupplierController {
     @CurrentUser('username') currentUsername: string,
   ): Promise<{ deletedCount: number; failedIds: string[] }> {
     this.logger.log(`Bulk permanently deleting ${body.supplierIds.length} suppliers`);
-    return await this.supplierService.bulkPermanentDelete(
+    const result = await this.supplierService.bulkPermanentDelete(
       body.supplierIds,
       currentUserId,
       currentUsername,
     );
+    return {
+      deletedCount: result.successCount,
+      failedIds: result.failedItems.map((item) => item.id),
+    };
   }
 
   @Delete(':id/permanent')
@@ -402,6 +410,6 @@ export class SupplierController {
     @CurrentUser('username') currentUsername: string,
   ): Promise<void> {
     this.logger.log(`Deactivating supplier: ${id}`);
-    await this.supplierService.remove(id, currentUserId, currentUsername);
+    await this.supplierService.softDelete(id, currentUserId, currentUsername);
   }
 }

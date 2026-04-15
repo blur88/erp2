@@ -7,7 +7,7 @@ import { setSelectedGRN } from '@/store/slices/purchasingSlice'
 import type { AppDispatch } from '@/store'
 import type { GoodsReceivedNote } from '@/types'
 
-import type { GRNJournalEntryRef } from './useGRNPageState'
+import type { GRNJournalEntryRef } from './grnPageState'
 
 interface UseGRNSelectionParams {
   dispatch: AppDispatch

@@ -261,4 +261,41 @@ describe('ProductService pagination removal', () => {
       expect(results).toEqual([]);
     });
   });
+
+  describe('softDelete', () => {
+    it('soft deletes a product with no pending sales orders', async () => {
+      productRepository.findOne = jest.fn().mockResolvedValue(createProduct('soft-1'));
+      productRepository.softDelete = jest.fn().mockResolvedValue({ affected: 1 } as any);
+      const itemQb = {
+        leftJoin: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        getCount: jest.fn().mockResolvedValue(0),
+      };
+
+      const salesOrderItemRepository = (service as any).salesOrderItemRepository;
+      salesOrderItemRepository.createQueryBuilder = jest.fn().mockReturnValue(itemQb);
+
+      await service.softDelete('soft-1', 'user-1', 'tester');
+
+      expect(productRepository.softDelete).toHaveBeenCalledWith('soft-1');
+    });
+
+    it('rejects soft delete when product is in a pending sales order', async () => {
+      productRepository.findOne = jest.fn().mockResolvedValue(createProduct('soft-2'));
+      const itemQb = {
+        leftJoin: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        getCount: jest.fn().mockResolvedValue(2),
+      };
+
+      const salesOrderItemRepository = (service as any).salesOrderItemRepository;
+      salesOrderItemRepository.createQueryBuilder = jest.fn().mockReturnValue(itemQb);
+
+      await expect(service.softDelete('soft-2', 'user-1', 'tester')).rejects.toThrow(
+        'Cannot delete',
+      );
+    });
+  });
 });

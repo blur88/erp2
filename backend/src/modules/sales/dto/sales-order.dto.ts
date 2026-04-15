@@ -13,6 +13,7 @@ import {
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform, Type } from 'class-transformer';
 import { DiscountType } from '../../../database/entities/sales-order-item.entity';
+import { BaseQueryDto } from '../../../common/dto/base-query.dto';
 
 export class SalesOrderItemDto {
   @ApiProperty({
@@ -141,15 +142,7 @@ export class UpdateSalesOrderDto {
   items?: SalesOrderItemDto[];
 }
 
-export class QuerySalesOrdersDto {
-  @ApiPropertyOptional({
-    description: 'Search term for order number or customer name',
-    example: 'SO-2024',
-  })
-  @IsOptional()
-  @IsString()
-  search?: string;
-
+export class QuerySalesOrdersDto extends BaseQueryDto {
   @ApiPropertyOptional({
     description: 'Filter by customer ID',
     example: 'uuid-string',
@@ -193,43 +186,6 @@ export class QuerySalesOrdersDto {
   @IsString()
   fulfillmentStatus?: 'all' | 'fulfilled' | 'unfulfilled';
 
-  @ApiPropertyOptional({
-    description: 'Sort field',
-    example: 'orderDate',
-  })
-  @IsOptional()
-  @IsString()
-  sortBy?: string;
-
-  @ApiPropertyOptional({
-    description: 'Sort order',
-    enum: ['ASC', 'DESC'],
-    example: 'DESC',
-  })
-  @IsOptional()
-  @IsString()
-  @Transform(({ value }) => value?.toUpperCase())
-  sortOrder?: 'ASC' | 'DESC';
-
-  @ApiPropertyOptional({
-    description: 'Page number',
-    example: 1,
-  })
-  @IsOptional()
-  @IsInt()
-  @Min(1)
-  @Transform(({ value }) => parseInt(value))
-  page?: number;
-
-  @ApiPropertyOptional({
-    description: 'Items per page',
-    example: 20,
-  })
-  @IsOptional()
-  @IsInt()
-  @Min(1)
-  @Transform(({ value }) => parseInt(value))
-  limit?: number;
 }
 
 export class SalesOrderItemResponseDto {

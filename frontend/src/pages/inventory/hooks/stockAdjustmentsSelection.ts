@@ -7,7 +7,7 @@ import type { AppDispatch } from '@/store'
 import { setSelectedStockAdjustment } from '@/store/slices/inventorySlice'
 import type { StockAdjustment } from '@/types'
 
-import type { StockAdjustmentsJournalEntryRef } from './useStockAdjustmentsPageState'
+import type { StockAdjustmentsJournalEntryRef } from './stockAdjustmentsPageState'
 
 interface UseStockAdjustmentsSelectionParams {
   dispatch: AppDispatch

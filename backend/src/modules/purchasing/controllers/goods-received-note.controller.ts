@@ -253,6 +253,6 @@ export class GoodsReceivedNoteController {
     @CurrentUser('username') currentUsername: string,
   ): Promise<void> {
     this.logger.log(`Soft deleting GRN: ${id}`);
-    await this.grnService.remove(id, currentUserId, currentUsername);
+    await this.grnService.softDelete(id, currentUserId, currentUsername);
   }
 }

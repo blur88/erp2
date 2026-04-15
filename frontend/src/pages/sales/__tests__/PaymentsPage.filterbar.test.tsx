@@ -46,7 +46,7 @@ vi.mock('../components/PaymentsTable', () => ({ default: () => <div>PaymentsTabl
 vi.mock('../components/PaymentContextHeader', () => ({ default: () => <div>PaymentContextHeader</div> }))
 vi.mock('../components/PaymentWorkspaceCard', () => ({ default: () => <div>PaymentWorkspaceCard</div> }))
 vi.mock('../components/PaymentsDialogs', () => ({ default: () => <div>PaymentsDialogs</div> }))
-vi.mock('../hooks/usePaymentsSelection', () => ({
+vi.mock('../hooks/paymentsSelection', () => ({
   usePaymentsSelection: () => ({
     handlePaymentSelect: vi.fn(),
     handleNavigateUp: vi.fn(),

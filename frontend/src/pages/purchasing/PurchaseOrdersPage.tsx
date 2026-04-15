@@ -1,17 +1,14 @@
 import React, { useCallback, useMemo } from 'react'
-import { Alert, Box, useMediaQuery, useTheme } from '@mui/material'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 
-import MasterDetailWorkspace from '@/components/common/MasterDetailWorkspace'
-import PageHeader from '@/components/common/PageHeader'
-import { FilterBar } from '@/components/filters'
+import GenericListPage from '@/components/common/GenericListPage'
 import PurchaseOrderContextHeader from './components/PurchaseOrderContextHeader'
 import PurchaseOrdersDialogs from './components/PurchaseOrdersDialogs'
 import PurchaseOrdersTable from './components/PurchaseOrdersTable'
 import PurchaseOrderWorkspaceCard from './components/PurchaseOrderWorkspaceCard'
-import { usePurchaseOrdersActions } from './hooks/usePurchaseOrdersActions'
-import { usePurchaseOrdersPageState } from './hooks/usePurchaseOrdersPageState'
-import { usePurchaseOrdersSelection } from './hooks/usePurchaseOrdersSelection'
+import { usePurchaseOrdersActions } from './hooks/purchaseOrdersActions'
+import { usePurchaseOrdersPageState } from './hooks/purchaseOrdersPageState'
+import { usePurchaseOrdersSelection } from './hooks/purchaseOrdersSelection'
 
 import { useFilterBar } from '@/hooks/useFilterBar'
 import { useNotification } from '@/hooks/useNotification'
@@ -39,8 +36,6 @@ interface PurchaseOrderFilters {
 }
 
 export const PurchaseOrdersPage: React.FC = () => {
-  const theme = useTheme()
-  const isMobile = useMediaQuery(theme.breakpoints.down('md'))
   const navigate = useNavigate()
   const dispatch = useAppDispatch()
   const { showSuccess, showError } = useNotification()
@@ -206,99 +201,84 @@ export const PurchaseOrdersPage: React.FC = () => {
   }, [navigate, pageState.journalEntryRef])
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
-      <PageHeader
-        title="Purchase Orders"
-        subtitle="Manage supplier purchase orders and procurement"
-        variant="workflow"
-        secondaryAction={{ label: 'View Deleted', onClick: () => pageState.setDeletedOrdersDialogOpen(true) }}
-        primaryAction={{ label: 'Create Order', onClick: () => navigate('/purchasing/orders/create') }}
-        toolbar={(
-          <FilterBar
-            config={filterConfig}
-            draftFilters={filterBar.draftFilters}
-            handlers={filterBar.handlers}
-            hasActiveFilters={filterBar.hasActiveFilters}
-            searchInputRef={pageState.searchInputRef}
-            sort={{
-              field: 'orderNumber',
-              sortBy: pageState.sorting.sortBy,
-              sortOrder: pageState.sorting.sortOrder,
-              onSort: handleSort,
-            }}
-          />
-        )}
-      />
-
-      {error && (
-        <Alert severity="error" sx={{ mb: 3 }}>
-          {error}
-        </Alert>
+    <GenericListPage
+      title="Purchase Orders"
+      subtitle="Manage supplier purchase orders and procurement"
+      secondaryAction={{ label: 'View Deleted', onClick: () => pageState.setDeletedOrdersDialogOpen(true) }}
+      primaryAction={{ label: 'Create Order', onClick: () => navigate('/purchasing/orders/create') }}
+      filterConfig={filterConfig}
+      draftFilters={filterBar.draftFilters}
+      handlers={filterBar.handlers}
+      hasActiveFilters={filterBar.hasActiveFilters}
+      searchInputRef={pageState.searchInputRef}
+      sort={{
+        field: 'orderNumber',
+        sortBy: pageState.sorting.sortBy,
+        sortOrder: pageState.sorting.sortOrder,
+        onSort: handleSort,
+      }}
+      error={error}
+      listSlot={(
+        <PurchaseOrdersTable
+          purchaseOrders={purchaseOrders}
+          loading={loading}
+          total={pagination?.total || 0}
+          selectedOrderId={selectedOrder?.id}
+          focusedOrderIndex={pageState.focusedOrderIndex}
+          onOrderSelect={selection.handleOrderSelect}
+          orderListRef={pageState.orderListRef}
+        />
       )}
-
-      <MasterDetailWorkspace
-        isMobile={isMobile}
-        listSlot={(
-          <PurchaseOrdersTable
-            purchaseOrders={purchaseOrders}
-            loading={loading}
-            total={pagination?.total || 0}
-            selectedOrderId={selectedOrder?.id}
-            focusedOrderIndex={pageState.focusedOrderIndex}
-            onOrderSelect={selection.handleOrderSelect}
-            orderListRef={pageState.orderListRef}
-          />
-        )}
-        headerSlot={(
-          <PurchaseOrderContextHeader
-            selectedOrder={selectedOrder}
-            isLoading={pageState.isLoading}
-            journalEntryRef={pageState.journalEntryRef}
-            journalEntryRefLoading={pageState.journalEntryRefLoading}
-            onEditClick={actions.handleEditClick}
-            onDeleteClick={actions.handleDeleteClick}
-            onPrint={() => pageState.setPrintDialogOpen(true)}
-            onNavigateToGoodsReceived={navigateToGoodsReceived}
-            onNavigateToVendorPayment={navigateToVendorPayment}
-            onNavigateToJournalEntry={navigateToJournalEntry}
-            onUnpay={actions.handleUnpay}
-            onOpenPaymentDialog={actions.handleOpenPaymentDialog}
-            onReturn={actions.handleReturn}
-            onReceive={actions.handleReceive}
-          />
-        )}
-        workspaceSlot={<PurchaseOrderWorkspaceCard selectedOrder={selectedOrder} />}
-      />
-
-      <PurchaseOrdersDialogs
-        selectedOrder={selectedOrder}
-        deleteConfirmOpen={pageState.deleteConfirmOpen}
-        orderToDelete={pageState.orderToDelete}
-        onCancelDelete={() => {
-          pageState.setDeleteConfirmOpen(false)
-          pageState.setOrderToDelete(null)
-        }}
-        onConfirmDelete={() => actions.handleDeleteConfirm(pageState.orderToDelete)}
-        deletedOrdersDialogOpen={pageState.deletedOrdersDialogOpen}
-        onCloseDeletedOrdersDialog={() => pageState.setDeletedOrdersDialogOpen(false)}
-        onRefreshDeletedOrders={loadOrders}
-        blockedDialogOpen={pageState.blockedDialogOpen}
-        blockedDialogType={pageState.blockedDialogType}
-        onCloseBlockedDialog={() => pageState.setBlockedDialogOpen(false)}
-        onReturnAndEdit={actions.handleReturnAndEdit}
-        onReturnOnly={actions.handleReturnOnly}
-        onUnpayAndEdit={actions.handleUnpayAndEdit}
-        onReturnAndDelete={actions.handleReturnAndDelete}
-        onUnpayAndDelete={actions.handleUnpayAndDelete}
-        isLoading={pageState.isLoading}
-        printDialogOpen={pageState.printDialogOpen}
-        onClosePrintDialog={() => pageState.setPrintDialogOpen(false)}
-        paymentDialogOpen={pageState.paymentDialogOpen}
-        paymentDialogOrder={pageState.paymentDialogOrder}
-        onClosePaymentDialog={() => pageState.setPaymentDialogOpen(false)}
-        onSubmitPayments={actions.handleRecordPayments}
-      />
-    </Box>
+      headerSlot={(
+        <PurchaseOrderContextHeader
+          selectedOrder={selectedOrder}
+          isLoading={pageState.isLoading}
+          journalEntryRef={pageState.journalEntryRef}
+          journalEntryRefLoading={pageState.journalEntryRefLoading}
+          onEditClick={actions.handleEditClick}
+          onDeleteClick={actions.handleDeleteClick}
+          onPrint={() => pageState.setPrintDialogOpen(true)}
+          onNavigateToGoodsReceived={navigateToGoodsReceived}
+          onNavigateToVendorPayment={navigateToVendorPayment}
+          onNavigateToJournalEntry={navigateToJournalEntry}
+          onUnpay={actions.handleUnpay}
+          onOpenPaymentDialog={actions.handleOpenPaymentDialog}
+          onReturn={actions.handleReturn}
+          onReceive={actions.handleReceive}
+        />
+      )}
+      workspaceSlot={<PurchaseOrderWorkspaceCard selectedOrder={selectedOrder} />}
+      dialogs={(
+        <PurchaseOrdersDialogs
+          selectedOrder={selectedOrder}
+          deleteConfirmOpen={pageState.deleteConfirmOpen}
+          orderToDelete={pageState.orderToDelete}
+          onCancelDelete={() => {
+            pageState.setDeleteConfirmOpen(false)
+            pageState.setOrderToDelete(null)
+          }}
+          onConfirmDelete={() => actions.handleDeleteConfirm(pageState.orderToDelete)}
+          deletedOrdersDialogOpen={pageState.deletedOrdersDialogOpen}
+          onCloseDeletedOrdersDialog={() => pageState.setDeletedOrdersDialogOpen(false)}
+          onRefreshDeletedOrders={loadOrders}
+          blockedDialogOpen={pageState.blockedDialogOpen}
+          blockedDialogType={pageState.blockedDialogType}
+          onCloseBlockedDialog={() => pageState.setBlockedDialogOpen(false)}
+          onReturnAndEdit={actions.handleReturnAndEdit}
+          onReturnOnly={actions.handleReturnOnly}
+          onUnpayAndEdit={actions.handleUnpayAndEdit}
+          onReturnAndDelete={actions.handleReturnAndDelete}
+          onUnpayAndDelete={actions.handleUnpayAndDelete}
+          isLoading={pageState.isLoading}
+          printDialogOpen={pageState.printDialogOpen}
+          onClosePrintDialog={() => pageState.setPrintDialogOpen(false)}
+          paymentDialogOpen={pageState.paymentDialogOpen}
+          paymentDialogOrder={pageState.paymentDialogOrder}
+          onClosePaymentDialog={() => pageState.setPaymentDialogOpen(false)}
+          onSubmitPayments={actions.handleRecordPayments}
+        />
+      )}
+    />
   )
 }
 

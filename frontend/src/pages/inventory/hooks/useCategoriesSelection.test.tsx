@@ -1,7 +1,7 @@
 import { renderHook, waitFor } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 
-import { useCategoriesSelection } from './useCategoriesSelection'
+import { useCategoriesSelection } from './categoriesSelection'
 
 import type { Category } from '@/types'
 

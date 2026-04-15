@@ -16,8 +16,10 @@ import {
 import { Transform } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 import { SupplierType } from '../../../database/entities/supplier.entity';
+import { BaseContactDto } from '../../../common/dto/base-contact.dto';
+import { BaseQueryDto } from '../../../common/dto/base-query.dto';
 
-export class CreateSupplierDto {
+export class CreateSupplierDto extends BaseContactDto {
   @ApiProperty({ description: 'Supplier type', enum: SupplierType })
   @IsEnum(SupplierType)
   type!: SupplierType;
@@ -34,42 +36,6 @@ export class CreateSupplierDto {
   @MaxLength(200)
   contactPerson?: string;
 
-  @ApiPropertyOptional({ description: 'Primary phone number', maxLength: 20 })
-  @IsOptional()
-  @IsString()
-  @MaxLength(20)
-  phone?: string;
-
-  @ApiPropertyOptional({ description: 'Street address', maxLength: 255 })
-  @IsOptional()
-  @IsString()
-  @MaxLength(255)
-  streetAddress?: string;
-
-  @ApiPropertyOptional({ description: 'City', maxLength: 100 })
-  @IsOptional()
-  @IsString()
-  @MaxLength(100)
-  city?: string;
-
-  @ApiPropertyOptional({ description: 'State/Province', maxLength: 100 })
-  @IsOptional()
-  @IsString()
-  @MaxLength(100)
-  state?: string;
-
-  @ApiPropertyOptional({ description: 'Postal/ZIP code', maxLength: 20 })
-  @IsOptional()
-  @IsString()
-  @MaxLength(20)
-  postalCode?: string;
-
-  @ApiPropertyOptional({ description: 'Country', maxLength: 100 })
-  @IsOptional()
-  @IsString()
-  @MaxLength(100)
-  country?: string;
-
   @ApiPropertyOptional({ description: 'Internal notes' })
   @IsOptional()
   @IsString()
@@ -83,35 +49,11 @@ export class UpdateSupplierDto extends PartialType(CreateSupplierDto) {
   isActive?: boolean;
 }
 
-export class SupplierQueryDto {
-  @ApiPropertyOptional({ description: 'Search term' })
-  @IsOptional()
-  @IsString()
-  search?: string;
-
+export class SupplierQueryDto extends BaseQueryDto {
   @ApiPropertyOptional({ description: 'Filter by type', enum: SupplierType })
   @IsOptional()
   @IsEnum(SupplierType)
   type?: SupplierType;
-
-  @ApiPropertyOptional({ description: 'Filter active suppliers only' })
-  @IsOptional()
-  @Transform(({ value }) => {
-    if (value === undefined || value === null || value === '') return undefined;
-    return value === 'true' || value === true;
-  })
-  @IsBoolean()
-  isActive?: boolean;
-
-  @ApiPropertyOptional({ description: 'Sort by field', default: 'companyName' })
-  @IsOptional()
-  @IsString()
-  sortBy?: string = 'companyName';
-
-  @ApiPropertyOptional({ description: 'Sort order', enum: ['ASC', 'DESC'], default: 'ASC' })
-  @IsOptional()
-  @IsString()
-  sortOrder?: 'ASC' | 'DESC' = 'ASC';
 }
 
 export class SupplierResponseDto {

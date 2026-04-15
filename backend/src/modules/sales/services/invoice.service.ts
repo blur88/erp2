@@ -1,4 +1,5 @@
 import { AuditLogService } from '../../audit-logs/services';
+import { BaseCrudService } from '../../../common/services/base-crud.service';
 import {
   Injectable,
   NotFoundException,
@@ -6,7 +7,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, MoreThanOrEqual, In } from 'typeorm';
+import { Repository, MoreThanOrEqual, In, FindOptionsWhere } from 'typeorm';
 import {
   Invoice,
   InvoiceStatus
@@ -41,7 +42,12 @@ import { UserRole } from '../../../database/entities/user.entity';
 // import { EmailService } from '../../auth/services/email.service'; // Temporarily disabled
 
 @Injectable()
-export class InvoiceService {
+export class InvoiceService extends BaseCrudService<
+  Invoice,
+  CreateInvoiceDto,
+  UpdateInvoiceDto,
+  QueryInvoicesDto
+> {
   constructor(
     @InjectRepository(Invoice)
     private readonly invoiceRepository: Repository<Invoice>,
@@ -55,9 +61,40 @@ export class InvoiceService {
     private readonly productRepository: Repository<Product>,
     @InjectRepository(InvoiceItem)
     private readonly invoiceItemRepository: Repository<InvoiceItem>,
-    private readonly auditLogService: AuditLogService,
+    auditLogService: AuditLogService,
     // private readonly emailService: EmailService, // Temporarily disabled
-  ) {}
+  ) {
+    super(invoiceRepository, auditLogService);
+  }
+
+  getEntityType(): string {
+    return 'Invoice';
+  }
+
+  buildWhereClause(query: QueryInvoicesDto): FindOptionsWhere<Invoice> {
+    const where: FindOptionsWhere<Invoice> = {};
+
+    if (query.customerId) where.customerId = query.customerId;
+    if (query.salesOrderId) where.salesOrderId = query.salesOrderId;
+    if (query.status) where.status = query.status;
+
+    return where;
+  }
+
+  protected async afterDelete(entity: Invoice): Promise<void> {
+    if (entity.status !== InvoiceStatus.DRAFT) {
+      throw new ConflictException('Can only delete invoices that are in DRAFT status');
+    }
+
+    const paymentCount = await this.paymentRepository.count({ where: { invoiceId: entity.id } });
+    if (paymentCount > 0) {
+      throw new ConflictException('Cannot delete invoice with payments');
+    }
+
+    if (Number(entity.paidAmount) > 0) {
+      throw new ConflictException('Cannot delete invoice with recorded payments');
+    }
+  }
 
   private async generateSequentialInvoiceNumber(): Promise<string> {
     // Get all existing invoice numbers that match the sequential format
@@ -586,46 +623,7 @@ export class InvoiceService {
   }
 
   async delete(id: string, userId?: string, username?: string): Promise<void> {
-    const invoice = await this.invoiceRepository.findOne({ where: { id } });
-    if (!invoice) {
-      throw new NotFoundException('Invoice not found');
-    }
-
-    // Can only delete DRAFT invoices (no payments allowed)
-    if (invoice.status !== InvoiceStatus.DRAFT) {
-      throw new ConflictException('Can only delete invoices that are in DRAFT status');
-    }
-
-    // Check if invoice has payments
-    const paymentCount = await this.paymentRepository.count({ where: { invoiceId: id } });
-    if (paymentCount > 0) {
-      throw new ConflictException('Cannot delete invoice with payments');
-    }
-
-    // Check if any payment has been recorded
-    if (Number(invoice.paidAmount) > 0) {
-      throw new ConflictException('Cannot delete invoice with recorded payments');
-    }
-
-    // Soft delete using TypeORM
-    await this.invoiceRepository.softDelete(id);
-
-    // Log audit trail for delete
-    await this.auditLogService.log(
-      'DELETE',
-      'Invoice',
-      `Deleted invoice: ${invoice.invoiceNumber}`,
-      {
-        entityId: id,
-        userId: userId || 'system',
-        username,
-        oldValues: {
-          invoiceNumber: invoice.invoiceNumber,
-          status: invoice.status,
-          totalAmount: invoice.totalAmount,
-        },
-      }
-    );
+    await this.softDelete(id, userId || 'system', username);
   }
 
   async sendInvoice(id: string, sendInvoiceDto: SendInvoiceDto): Promise<InvoiceResponseDto> {

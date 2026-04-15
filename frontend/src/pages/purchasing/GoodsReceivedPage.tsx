@@ -1,10 +1,7 @@
 import React, { useCallback, useMemo } from 'react'
-import { Alert, Box, useMediaQuery, useTheme } from '@mui/material'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 
-import MasterDetailWorkspace from '@/components/common/MasterDetailWorkspace'
-import PageHeader from '@/components/common/PageHeader'
-import { FilterBar } from '@/components/filters'
+import GenericListPage from '@/components/common/GenericListPage'
 import { useFilterBar } from '@/hooks/useFilterBar'
 import { useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
 import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
@@ -17,8 +14,8 @@ import GRNContextHeader from './components/GRNContextHeader'
 import GRNDialogs from './components/GRNDialogs'
 import GRNTable from './components/GRNTable'
 import GRNWorkspaceCard from './components/GRNWorkspaceCard'
-import { useGRNPageState } from './hooks/useGRNPageState'
-import { useGRNSelection } from './hooks/useGRNSelection'
+import { useGRNPageState } from './hooks/grnPageState'
+import { useGRNSelection } from './hooks/grnSelection'
 
 interface GRNFilters {
   search: string
@@ -28,8 +25,6 @@ interface GRNFilters {
 }
 
 export const GoodsReceivedPage: React.FC = () => {
-  const theme = useTheme()
-  const isMobile = useMediaQuery(theme.breakpoints.down('md'))
   const navigate = useNavigate()
   const dispatch = useAppDispatch()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -124,68 +119,53 @@ export const GoodsReceivedPage: React.FC = () => {
   }, [navigate, pageState.journalEntryRef])
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
-      <PageHeader
-        title="Goods Received Notes"
-        subtitle="Track and manage goods received from suppliers"
-        variant="workflow"
-        secondaryAction={{ label: 'View Deleted', onClick: () => pageState.setDeletedGRNsOpen(true) }}
-        toolbar={(
-          <FilterBar
-            config={filterConfig}
-            draftFilters={filterBar.draftFilters}
-            handlers={filterBar.handlers}
-            hasActiveFilters={filterBar.hasActiveFilters}
-            searchInputRef={pageState.searchInputRef}
-            sort={{
-              field: 'grnNumber',
-              sortBy: pageState.sorting.sortBy,
-              sortOrder: pageState.sorting.sortOrder,
-              onSort: handleSort,
-            }}
-          />
-        )}
-      />
-
-      {error && (
-        <Alert severity="error" sx={{ mb: 3 }}>
-          {error}
-        </Alert>
+    <GenericListPage
+      title="Goods Received Notes"
+      subtitle="Track and manage goods received from suppliers"
+      secondaryAction={{ label: 'View Deleted', onClick: () => pageState.setDeletedGRNsOpen(true) }}
+      filterConfig={filterConfig}
+      draftFilters={filterBar.draftFilters}
+      handlers={filterBar.handlers}
+      hasActiveFilters={filterBar.hasActiveFilters}
+      searchInputRef={pageState.searchInputRef}
+      sort={{
+        field: 'grnNumber',
+        sortBy: pageState.sorting.sortBy,
+        sortOrder: pageState.sorting.sortOrder,
+        onSort: handleSort,
+      }}
+      error={error}
+      listSlot={(
+        <GRNTable
+          grns={grns}
+          loading={loading}
+          total={total}
+          selectedGRNId={selectedGRN?.id}
+          focusedGRNIndex={pageState.focusedGRNIndex}
+          onGRNSelect={selection.handleGRNSelect}
+          grnListRef={pageState.grnListRef}
+        />
       )}
-
-      <MasterDetailWorkspace
-        isMobile={isMobile}
-        listSlot={(
-          <GRNTable
-            grns={grns}
-            loading={loading}
-            total={total}
-            selectedGRNId={selectedGRN?.id}
-            focusedGRNIndex={pageState.focusedGRNIndex}
-            onGRNSelect={selection.handleGRNSelect}
-            grnListRef={pageState.grnListRef}
-          />
-        )}
-        headerSlot={(
-          <GRNContextHeader
-            selectedGRN={selectedGRN}
-            journalEntryRef={pageState.journalEntryRef}
-            journalEntryRefLoading={pageState.journalEntryRefLoading}
-            onPrint={() => pageState.setPrintDialogOpen(true)}
-            onNavigateToJournalEntry={navigateToJournalEntry}
-          />
-        )}
-        workspaceSlot={<GRNWorkspaceCard selectedGRN={selectedGRN} />}
-      />
-
-      <GRNDialogs
-        selectedGRN={selectedGRN}
-        deletedGRNsOpen={pageState.deletedGRNsOpen}
-        onCloseDeletedGRNs={() => pageState.setDeletedGRNsOpen(false)}
-        printDialogOpen={pageState.printDialogOpen}
-        onClosePrintDialog={() => pageState.setPrintDialogOpen(false)}
-      />
-    </Box>
+      headerSlot={(
+        <GRNContextHeader
+          selectedGRN={selectedGRN}
+          journalEntryRef={pageState.journalEntryRef}
+          journalEntryRefLoading={pageState.journalEntryRefLoading}
+          onPrint={() => pageState.setPrintDialogOpen(true)}
+          onNavigateToJournalEntry={navigateToJournalEntry}
+        />
+      )}
+      workspaceSlot={<GRNWorkspaceCard selectedGRN={selectedGRN} />}
+      dialogs={(
+        <GRNDialogs
+          selectedGRN={selectedGRN}
+          deletedGRNsOpen={pageState.deletedGRNsOpen}
+          onCloseDeletedGRNs={() => pageState.setDeletedGRNsOpen(false)}
+          printDialogOpen={pageState.printDialogOpen}
+          onClosePrintDialog={() => pageState.setPrintDialogOpen(false)}
+        />
+      )}
+    />
   )
 }
 

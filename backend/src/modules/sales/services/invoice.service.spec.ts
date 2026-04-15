@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { InvoiceService } from './invoice.service';
 import { Invoice } from '../../../database/entities/invoice.entity';
+import { InvoiceStatus } from '../../../database/entities/invoice.entity';
 import { Customer } from '../../../database/entities/customer.entity';
 import { SalesOrder } from '../../../database/entities/sales-order.entity';
 import { Payment } from '../../../database/entities/payment.entity';
@@ -235,5 +236,69 @@ describe('InvoiceService.findAll - new filter params', () => {
 
     const calls = qb.andWhere.mock.calls.map((c: any[]) => c[0]);
     expect(calls.some((c: string) => c.includes('paidAmount'))).toBe(false);
+  });
+});
+
+describe('InvoiceService.softDelete', () => {
+  let service: InvoiceService;
+  let invoiceRepository: {
+    findOne: jest.Mock;
+    softDelete: jest.Mock;
+  };
+  let paymentRepository: {
+    count: jest.Mock;
+  };
+
+  beforeEach(async () => {
+    invoiceRepository = {
+      findOne: jest.fn(),
+      softDelete: jest.fn(),
+    };
+    paymentRepository = {
+      count: jest.fn(),
+    };
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        InvoiceService,
+        { provide: getRepositoryToken(Invoice), useValue: invoiceRepository },
+        { provide: getRepositoryToken(Customer), useValue: { findOne: jest.fn() } },
+        { provide: getRepositoryToken(SalesOrder), useValue: {} },
+        { provide: getRepositoryToken(Payment), useValue: paymentRepository },
+        { provide: getRepositoryToken(Product), useValue: {} },
+        { provide: getRepositoryToken(InvoiceItem), useValue: {} },
+        { provide: AuditLogService, useValue: { log: jest.fn(), createLog: jest.fn() } },
+      ],
+    }).compile();
+
+    service = module.get(InvoiceService);
+  });
+
+  it('soft deletes a draft invoice with no payments', async () => {
+    invoiceRepository.findOne.mockResolvedValue({
+      id: 'inv-1',
+      invoiceNumber: 'INV-001',
+      status: InvoiceStatus.DRAFT,
+      paidAmount: 0,
+    });
+    paymentRepository.count.mockResolvedValue(0);
+    invoiceRepository.softDelete.mockResolvedValue({ affected: 1 });
+
+    await service.softDelete('inv-1', 'user-1', 'tester');
+
+    expect(invoiceRepository.softDelete).toHaveBeenCalledWith('inv-1');
+  });
+
+  it('rejects soft delete when invoice is not draft', async () => {
+    invoiceRepository.findOne.mockResolvedValue({
+      id: 'inv-1',
+      invoiceNumber: 'INV-001',
+      status: InvoiceStatus.PAID,
+      paidAmount: 0,
+    });
+
+    await expect(service.softDelete('inv-1', 'user-1', 'tester')).rejects.toThrow(
+      'Can only delete invoices that are in DRAFT status',
+    );
   });
 });

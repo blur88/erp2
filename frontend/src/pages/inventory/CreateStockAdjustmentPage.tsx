@@ -27,6 +27,7 @@ import * as yup from 'yup'
 import { ApiService } from '@/services/api'
 import { AppButton } from '@/components/common/AppButton'
 import PageHeader from '@/components/common/PageHeader'
+import TransactionForm from '@/components/common/TransactionForm'
 import {
   useLazyGetStockAdjustmentQuery,
   useCreateStockAdjustmentMutation,
@@ -287,13 +288,26 @@ const CreateStockAdjustmentPage: React.FC = () => {
           <Typography>Loading stock adjustment...</Typography>
         </Box>
       ) : (
-        <form onSubmit={handleSubmit(onSubmit)}>
-          {error && (
+        <TransactionForm
+          mode="custom"
+          entityLabel={undefined}
+          entityOptions={[]}
+          lineItemColumns={[
+            { key: 'product', label: 'Product' },
+            { key: 'adjustmentType', label: 'Adjustment Type' },
+            { key: 'quantity', label: 'Quantity' },
+            { key: 'notes', label: 'Notes' },
+          ]}
+          onSubmit={handleSubmit(onSubmit)}
+          onCancel={() => navigate('/inventory/stock-adjustments')}
+          isSubmitting={loading}
+          hideDefaultActions
+          error={error ? (
             <Alert severity="error" sx={{ mb: 3 }}>
               {error}
             </Alert>
-          )}
-
+          ) : null}
+        >
           <Grid container spacing={3}>
           {/* Date Field */}
           <Grid size={12}>
@@ -610,7 +624,7 @@ const CreateStockAdjustmentPage: React.FC = () => {
             </Box>
           </Grid>
           </Grid>
-        </form>
+        </TransactionForm>
       )}
     </>
   );

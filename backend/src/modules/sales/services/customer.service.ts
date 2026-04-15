@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, FindOptionsWhere } from 'typeorm';
+import { BaseCrudService } from '../../../common/services/base-crud.service';
 import { Customer } from '../../../database/entities/customer.entity';
 import { SalesOrder } from '../../../database/entities/sales-order.entity';
 import { Invoice } from '../../../database/entities/invoice.entity';
@@ -34,7 +35,12 @@ import { TransactionManager, Transactional } from '../../../common/utils/transac
 import { AuditLogService } from '../../audit-logs/services';
 
 @Injectable()
-export class CustomerService {
+export class CustomerService extends BaseCrudService<
+  Customer,
+  CreateCustomerDto,
+  UpdateCustomerDto,
+  QueryCustomersDto
+> {
   constructor(
     @InjectRepository(Customer)
     private readonly customerRepository: Repository<Customer>,
@@ -43,8 +49,74 @@ export class CustomerService {
     @InjectRepository(Invoice)
     private readonly invoiceRepository: Repository<Invoice>,
     private readonly transactionManager: TransactionManager,
-    private readonly auditLogService: AuditLogService,
-  ) {}
+    auditLogService: AuditLogService,
+  ) {
+    super(customerRepository, auditLogService);
+  }
+
+  getEntityType(): string {
+    return 'Customer';
+  }
+
+  buildWhereClause(query: QueryCustomersDto): FindOptionsWhere<Customer> {
+    const where: FindOptionsWhere<Customer> = {};
+
+    if (query.type !== undefined && query.type !== null) where.type = query.type;
+    if (query.isActive !== undefined) where.isActive = query.isActive;
+
+    return where;
+  }
+
+  protected applyQueryBuilder(qb: any, query: QueryCustomersDto): any {
+    qb = qb.leftJoinAndSelect('customer.priceList', 'priceList');
+
+    if (query.priceListId) {
+      qb = qb.andWhere('customer.priceListId = :priceListId', { priceListId: query.priceListId });
+    }
+
+    return qb;
+  }
+
+  protected async afterDelete(entity: Customer): Promise<void> {
+    const [activeOrderCount, activeInvoiceCount] = await Promise.all([
+      this.salesOrderRepository.count({ where: { customerId: entity.id } }),
+      this.invoiceRepository.count({ where: { customerId: entity.id } }),
+    ]);
+
+    if (activeOrderCount > 0 || activeInvoiceCount > 0) {
+      const relatedRecords = [];
+      if (activeOrderCount > 0) {
+        relatedRecords.push(`${activeOrderCount} order${activeOrderCount === 1 ? '' : 's'}`);
+      }
+      if (activeInvoiceCount > 0) {
+        relatedRecords.push(`${activeInvoiceCount} invoice${activeInvoiceCount === 1 ? '' : 's'}`);
+      }
+
+      const suggestions = [];
+      if (activeOrderCount > 0) {
+        suggestions.push(`Complete or cancel the ${activeOrderCount} pending order${activeOrderCount === 1 ? '' : 's'} first`);
+      }
+      if (activeInvoiceCount > 0) {
+        suggestions.push(`Resolve the ${activeInvoiceCount} invoice${activeInvoiceCount === 1 ? '' : 's'} first`);
+      }
+      if (suggestions.length === 0) {
+        suggestions.push('Complete all pending business transactions first');
+      }
+
+      throw new BadRequestException({
+        message: `Cannot delete customer '${entity.name}' because they have ${relatedRecords.join(' and ')}.`,
+        error: 'DELETION_PREVENTED_BY_DEPENDENCIES',
+        customerName: entity.name,
+        customerId: entity.id,
+        dependencies: {
+          orders: activeOrderCount,
+          invoices: activeInvoiceCount,
+        },
+        suggestions,
+        details: `Customer '${entity.name}' (${entity.id}) cannot be deleted due to existing business relationships. This is a safety measure to preserve data integrity.`,
+      });
+    }
+  }
 
   async create(
     createCustomerDto: CreateCustomerDto,
@@ -317,84 +389,6 @@ export class CustomerService {
     );
 
     return this.mapToResponseDto(savedCustomer);
-  }
-
-  async delete(id: string, userId?: string, username?: string): Promise<void> {
-    const customer = await this.customerRepository.findOne({ where: { id } });
-    if (!customer) {
-      throw new NotFoundException('Customer not found');
-    }
-
-    // Check if customer has active orders
-    const activeOrderCount = await this.salesOrderRepository.count({
-      where: { customerId: id }
-    });
-
-    // Check if customer has active invoices
-    const activeInvoiceCount = await this.invoiceRepository.count({
-      where: { customerId: id }
-    });
-
-    // Prevent deletion if there are related records
-    if (activeOrderCount > 0 || activeInvoiceCount > 0) {
-      const relatedRecords = [];
-      if (activeOrderCount > 0) {
-        relatedRecords.push(`${activeOrderCount} order${activeOrderCount === 1 ? '' : 's'}`);
-      }
-      if (activeInvoiceCount > 0) {
-        relatedRecords.push(`${activeInvoiceCount} invoice${activeInvoiceCount === 1 ? '' : 's'}`);
-      }
-
-      const errorMessage = `Cannot delete customer '${customer.name}' because they have ${relatedRecords.join(' and ')}.`;
-      const suggestions = [];
-
-      if (activeOrderCount > 0) {
-        suggestions.push(`Complete or cancel the ${activeOrderCount} pending order${activeOrderCount === 1 ? '' : 's'} first`);
-      }
-      if (activeInvoiceCount > 0) {
-        suggestions.push(`Resolve the ${activeInvoiceCount} invoice${activeInvoiceCount === 1 ? '' : 's'} first`);
-      }
-      if (suggestions.length === 0) {
-        suggestions.push('Complete all pending business transactions first');
-      }
-
-      // Create detailed error response
-      const errorResponse = {
-        message: errorMessage,
-        error: 'DELETION_PREVENTED_BY_DEPENDENCIES',
-        customerName: customer.name,
-        customerId: customer.id,
-        dependencies: {
-          orders: activeOrderCount,
-          invoices: activeInvoiceCount
-        },
-        suggestions,
-        details: `Customer '${customer.name}' (${customer.id}) cannot be deleted due to existing business relationships. This is a safety measure to preserve data integrity.`
-      };
-
-      // Use BadRequestException with the full error object
-      throw new BadRequestException(errorResponse);
-    }
-
-    // Use soft delete instead of hard delete
-    await this.customerRepository.softDelete(id);
-
-    // Log audit trail
-    await this.auditLogService.log(
-      'DELETE',
-      'Customer',
-      `Deleted customer: ${customer.name}`,
-      {
-        entityId: id,
-        userId: userId || 'system',
-        username,
-        oldValues: {
-          name: customer.name,
-          phone: customer.phone,
-          type: customer.type,
-        },
-      }
-    );
   }
 
   async restore(id: string, userId?: string, username?: string): Promise<CustomerResponseDto> {

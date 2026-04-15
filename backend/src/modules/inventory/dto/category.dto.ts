@@ -2,15 +2,14 @@ import {
   IsString,
   IsOptional,
   IsUUID,
-  IsNumber,
   IsArray,
   IsBoolean,
   MaxLength,
-  Min,
   ValidateNested,
 } from 'class-validator';
 import { Type, Transform } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
+import { BaseQueryDto } from '../../../common/dto/base-query.dto';
 
 export class CreateCategoryDto {
   @ApiProperty({ description: 'Category name', maxLength: 100 })
@@ -32,32 +31,11 @@ export class UpdateCategoryDto extends PartialType(CreateCategoryDto) {
   name?: string;
 }
 
-export class QueryCategoriesDto {
-  @ApiPropertyOptional({ description: 'Page number', minimum: 1, default: 1 })
-  @IsOptional()
-  @Type(() => Number)
-  @IsNumber()
-  @Min(1)
-  page?: number = 1;
-
-  @ApiPropertyOptional({ description: 'Items per page', minimum: 1, default: 20 })
-  @IsOptional()
-  @Type(() => Number)
-  @IsNumber()
-  @Min(1)
-  limit?: number = 20;
-
-  @ApiPropertyOptional({ description: 'Search term (category name)' })
-  @IsOptional()
-  @IsString()
-  @MaxLength(200)
-  search?: string;
-
+export class QueryCategoriesDto extends BaseQueryDto {
   @ApiPropertyOptional({ description: 'Filter by parent category ID (null for root categories)' })
   @IsOptional()
   @IsUUID(4)
   parentId?: string;
-
 
   @ApiPropertyOptional({ description: 'Include full tree structure (nested children)', default: false })
   @IsOptional()
@@ -78,16 +56,6 @@ export class QueryCategoriesDto {
   })
   @IsBoolean()
   includeProductCount?: boolean;
-
-  @ApiPropertyOptional({ description: 'Sort field', enum: ['name', 'createdAt'] })
-  @IsOptional()
-  @IsString()
-  sortBy?: string;
-
-  @ApiPropertyOptional({ description: 'Sort direction', enum: ['ASC', 'DESC'] })
-  @IsOptional()
-  @IsString()
-  sortOrder?: 'ASC' | 'DESC';
 }
 
 export class CategoryResponseDto {
