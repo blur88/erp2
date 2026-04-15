@@ -237,6 +237,15 @@ describe('InvoiceService.findAll - new filter params', () => {
     const calls = qb.andWhere.mock.calls.map((c: any[]) => c[0]);
     expect(calls.some((c: string) => c.includes('paidAmount'))).toBe(false);
   });
+
+  it('falls back to invoiceDate when sortBy is not allowlisted', async () => {
+    const qb = mockQb();
+    invoiceRepository.createQueryBuilder.mockReturnValue(qb);
+
+    await service.findAll({ sortBy: 'drop table invoices', sortOrder: 'ASC' } as any);
+
+    expect(qb.orderBy).toHaveBeenCalledWith('invoice.invoiceDate', 'ASC');
+  });
 });
 
 describe('InvoiceService.softDelete', () => {
