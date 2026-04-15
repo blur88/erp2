@@ -1,18 +1,13 @@
 import React, { useCallback, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 
 import GenericListPage from '@/components/common/GenericListPage'
 import { useFilterBar } from '@/hooks/useFilterBar'
-import { useNotification } from '@/hooks/useNotification'
-import { useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
 import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
 import {
-  useDeleteProductMutation,
   useGetProductsQuery,
 } from '@/store/api/inventoryApi'
 import {
   selectSelectedProduct,
-  setSelectedProduct,
 } from '@/store/slices/inventorySlice'
 import type { FilterBarConfig } from '@/types/filterBar.types'
 
@@ -20,9 +15,7 @@ import ProductContextHeader from './components/ProductContextHeader'
 import ProductsDialogs from './components/ProductsDialogs'
 import ProductList from './components/ProductList'
 import ProductWorkspaceCard from './components/ProductWorkspaceCard'
-import { useProductsActions } from './hooks/productsActions'
-import { useProductsPageState } from './hooks/productsPageState'
-import { useProductsSelection } from './hooks/productsSelection'
+import { useProductsWorkspace } from './hooks/useProductsWorkspace'
 
 interface InventoryProductFilters {
   search: string
@@ -33,10 +26,7 @@ interface InventoryProductFilters {
 
 export const ProductsPage: React.FC = () => {
   const dispatch = useAppDispatch()
-  const navigate = useNavigate()
-  const { showSuccess, showError } = useNotification()
   const selectedProduct = useAppSelector(selectSelectedProduct)
-  const pageState = useProductsPageState()
   const [sortBy, setSortBy] = useState('name')
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc')
 
@@ -96,102 +86,69 @@ export const ProductsPage: React.FC = () => {
     isFetching: isProductsFetching,
     refetch: refetchProducts,
   } = useGetProductsQuery(productQueryParams)
-  const [deleteProduct] = useDeleteProductMutation()
   const products = productsResponse?.data || []
 
-  const selection = useProductsSelection({
+  const workspace = useProductsWorkspace({
     dispatch,
-    navigate,
-    products,
-    selectedProduct,
-    focusedProductIndex: pageState.focusedProductIndex,
-    setFocusedProductIndex: pageState.setFocusedProductIndex,
-    productListRef: pageState.productListRef,
-  })
-
-  const actions = useProductsActions({
-    navigate,
     products,
     productFilters: appliedFilters,
     selectedProduct,
-    deleteProduct,
-    showSuccess,
-    showError,
-    setDeleteConfirmOpen: pageState.setDeleteConfirmOpen,
-    setProductToDelete: pageState.setProductToDelete,
-    setExportMenuAnchor: pageState.setExportMenuAnchor,
-    setIsExporting: pageState.setIsExporting,
-    dispatchSetSelectedProduct: (product) => dispatch(setSelectedProduct(product)),
-  })
-
-  useKeyboardShortcuts({
-    onSearch: () => {
-      pageState.searchInputRef.current?.focus()
-      pageState.searchInputRef.current?.select()
-    },
-    onArrowUp: selection.handleNavigateUp,
-    onArrowDown: selection.handleNavigateDown,
-    onEnter: selection.handleEnterAction,
-    onPageUp: selection.handlePageUpNavigation,
-    onPageDown: selection.handlePageDownNavigation,
-    onHome: selection.handleNavigateToFirst,
-    onEnd: selection.handleNavigateToLast,
-    onEscape: selection.handleEscapeAction,
+    refetchProducts: () => void refetchProducts(),
   })
 
   return (
     <GenericListPage
       title="Products"
       subtitle="Manage your product catalog and inventory"
-      secondaryAction={{ label: 'View Deleted', onClick: () => pageState.setDeletedProductsDialogOpen(true) }}
-      primaryAction={{ label: 'Add Product', onClick: actions.handleAddProduct }}
+      secondaryAction={{ label: 'View Deleted', onClick: () => workspace.setDeletedProductsDialogOpen(true) }}
+      primaryAction={{ label: 'Add Product', onClick: workspace.handleAddProduct }}
       filterConfig={filterConfig}
       draftFilters={draftFilters}
       handlers={handlers}
       hasActiveFilters={hasActiveFilters}
-      searchInputRef={pageState.searchInputRef}
+      searchInputRef={workspace.searchInputRef}
       sort={{ field: 'name', sortBy, sortOrder, onSort: handleSort }}
       listSlot={(
         <ProductList
           products={products}
           loading={isProductsFetching}
           selectedProductId={selectedProduct?.id}
-          focusedIndex={pageState.focusedProductIndex}
-          onSelect={selection.handleProductSelect}
-          productListRef={pageState.productListRef}
+          focusedIndex={workspace.focusedIndex}
+          onSelect={workspace.handleSelect}
+          productListRef={workspace.listRef}
         />
       )}
       headerSlot={(
         <ProductContextHeader
           selectedProduct={selectedProduct}
-          onEdit={() => selectedProduct && actions.handleEditProduct(selectedProduct)}
-          onDelete={() => selectedProduct && actions.handleDeleteProduct(selectedProduct)}
+          onEdit={() => selectedProduct && workspace.handleEditProduct(selectedProduct)}
+          onDelete={() => selectedProduct && workspace.handleDeleteProduct(selectedProduct)}
         />
       )}
       workspaceSlot={<ProductWorkspaceCard selectedProduct={selectedProduct} />}
       dialogs={(
         <ProductsDialogs
-          exportMenuAnchor={pageState.exportMenuAnchor}
-          isExporting={pageState.isExporting}
+          exportMenuAnchor={workspace.exportMenuAnchor}
+          isExporting={workspace.isExporting}
           products={products}
           productFilters={{
             search: appliedFilters.search,
           }}
-          calculatorPanelOpen={pageState.calculatorPanelOpen}
-          deletedProductsDialogOpen={pageState.deletedProductsDialogOpen}
-          importDialogOpen={pageState.importDialogOpen}
-          deleteConfirmOpen={pageState.deleteConfirmOpen}
-          productToDelete={pageState.productToDelete}
-          onCloseExportMenu={actions.handleExportClose}
-          onExport={actions.handleExport}
-          onCloseCalculator={() => pageState.setCalculatorPanelOpen(false)}
-          onCloseDeletedProductsDialog={() => pageState.setDeletedProductsDialogOpen(false)}
-          onCloseImportDialog={() => pageState.setImportDialogOpen(false)}
+          calculatorPanelOpen={workspace.calculatorPanelOpen}
+          deletedProductsDialogOpen={workspace.deletedProductsDialogOpen}
+          importDialogOpen={workspace.importDialogOpen}
+          deleteConfirmOpen={workspace.deleteConfirmOpen}
+          productToDelete={workspace.productToDelete}
+          onCloseExportMenu={workspace.handleExportClose}
+          onExport={workspace.handleExport}
+          onCloseCalculator={() => workspace.setCalculatorPanelOpen(false)}
+          onCloseDeletedProductsDialog={() => workspace.setDeletedProductsDialogOpen(false)}
+          onCloseImportDialog={() => workspace.setImportDialogOpen(false)}
           onImportSuccess={() => {
             void refetchProducts()
           }}
-          onConfirmDelete={() => void actions.handleConfirmDelete(pageState.productToDelete)}
-          onCancelDelete={actions.handleCancelDelete}
+          onConfirmDelete={() => void workspace.handleConfirmDelete(workspace.productToDelete)}
+          onCancelDelete={workspace.handleCancelDelete}
         />
       )}
     />
