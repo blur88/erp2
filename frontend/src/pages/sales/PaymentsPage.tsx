@@ -1,18 +1,15 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import React, { useCallback, useMemo, useState } from 'react'
 import { Chip, Stack } from '@mui/material'
-import { useLocation, useNavigate } from 'react-router-dom'
+import { useLocation } from 'react-router-dom'
 
 import PaymentContextHeader from './components/PaymentContextHeader'
 import PaymentsDialogs from './components/PaymentsDialogs'
 import PaymentsTable from './components/PaymentsTable'
 import PaymentWorkspaceCard from './components/PaymentWorkspaceCard'
-import type { PaymentListItem } from './hooks/paymentsPageState'
-import { usePaymentsPageState } from './hooks/paymentsPageState'
-import { usePaymentsSelection } from './hooks/paymentsSelection'
+import { type PaymentListItem, usePaymentsWorkspace } from './hooks/usePaymentsWorkspace'
 
 import GenericListPage from '@/components/common/GenericListPage'
 import { useFilterBar } from '@/hooks/useFilterBar'
-import { useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
 import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
 import { useGetCustomersQuery, useGetPaymentsQuery } from '@/store/api/salesApi'
 import { selectSelectedPayment } from '@/store/slices/salesSlice'
@@ -27,11 +24,9 @@ interface PaymentFilters {
 }
 
 const PaymentsPage: React.FC = () => {
-  const navigate = useNavigate()
   const location = useLocation()
   const dispatch = useAppDispatch()
   const selectedPayment = useAppSelector(selectSelectedPayment) as PaymentListItem | null
-  const pageState = usePaymentsPageState()
   const [sortBy, setSortBy] = useState('paymentNumber')
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc')
 
@@ -101,61 +96,31 @@ const PaymentsPage: React.FC = () => {
   const { data, isLoading: loading, error, refetch } = useGetPaymentsQuery(queryArgs)
   const payments = (data?.data ?? []) as PaymentListItem[]
   const totalPayments = data?.meta?.total ?? 0
+  const workspace = usePaymentsWorkspace({
+    dispatch,
+    payments,
+    selectedPayment,
+    refetch,
+  })
 
   const handleSort = useCallback((field: string) => {
     setSortOrder((prev) => (sortBy === field && prev === 'asc' ? 'desc' : 'asc'))
     setSortBy(field)
   }, [sortBy])
 
-  const selection = usePaymentsSelection({
-    dispatch,
-    navigate,
-    payments,
-    selectedPayment,
-    focusedPaymentIndex: pageState.focusedPaymentIndex,
-    setFocusedPaymentIndex: pageState.setFocusedPaymentIndex,
-    location,
-    refetch,
-    paymentListRef: pageState.paymentListRef,
-    searchInputRef: pageState.searchInputRef,
-    hasRestoredSelection: pageState.hasRestoredSelection,
-    selectedPaymentRef: pageState.selectedPaymentRef,
-    setJournalEntryRef: pageState.setJournalEntryRef,
-    setJournalEntryRefLoading: pageState.setJournalEntryRefLoading,
-  })
-
-  useEffect(() => {
-    if (pageState.previousPathnameRef.current !== '/sales/payments' && location.pathname === '/sales/payments') {
-      void refetch()
-    }
-    pageState.previousPathnameRef.current = location.pathname
-  }, [location.pathname, pageState.previousPathnameRef, refetch])
-
-  useKeyboardShortcuts({
-    onSearch: () => {
-      pageState.searchInputRef.current?.focus()
-      pageState.searchInputRef.current?.select()
-    },
-    onArrowUp: selection.handleNavigateUp,
-    onArrowDown: selection.handleNavigateDown,
-    onEnter: selection.handleEnterAction,
-    onPageUp: selection.handlePageUpNavigation,
-    onPageDown: selection.handlePageDownNavigation,
-    onHome: selection.handleNavigateToFirst,
-    onEnd: selection.handleNavigateToLast,
-    onEscape: selection.handleEscapeAction,
-  })
-
   return (
     <GenericListPage
       title="Payments"
       subtitle="Review customer payments and transaction history"
-      secondaryAction={{ label: 'View Deleted', onClick: () => pageState.setDeletedPaymentsDialogOpen(true) }}
+      secondaryAction={{
+        label: 'View Deleted',
+        onClick: () => workspace.setDeletedPaymentsDialogOpen(true),
+      }}
       filterConfig={filterConfig}
       draftFilters={draftFilters}
       handlers={filterBarHandlers}
       hasActiveFilters={hasActiveFilters}
-      searchInputRef={pageState.searchInputRef}
+      searchInputRef={workspace.searchInputRef}
       sort={{ field: 'paymentNumber', sortBy, sortOrder, onSort: handleSort }}
       error={error ? 'Failed to load payments.' : null}
       contentSlot={presetCustomerId ? (
@@ -174,30 +139,30 @@ const PaymentsPage: React.FC = () => {
           loading={loading}
           total={totalPayments}
           selectedPaymentId={selectedPayment?.id}
-          focusedPaymentIndex={pageState.focusedPaymentIndex}
-          onPaymentSelect={selection.handlePaymentSelect}
-          paymentListRef={pageState.paymentListRef}
+          focusedPaymentIndex={workspace.focusedPaymentIndex}
+          onPaymentSelect={workspace.handlePaymentSelect}
+          paymentListRef={workspace.paymentListRef}
         />
       )}
       headerSlot={(
         <PaymentContextHeader
           selectedPayment={selectedPayment}
-          journalEntryRef={pageState.journalEntryRef}
-          journalEntryRefLoading={pageState.journalEntryRefLoading}
-          onPrint={() => pageState.setPrintDialogOpen(true)}
-          onOrderClick={selection.handleOrderClick}
-          onInvoiceClick={selection.handleInvoiceClick}
-          onNavigateToJournalEntry={selection.handleNavigateToJournalEntry}
+          journalEntryRef={workspace.journalEntryRef}
+          journalEntryRefLoading={workspace.journalEntryRefLoading}
+          onPrint={() => workspace.setPrintDialogOpen(true)}
+          onOrderClick={workspace.handleOrderClick}
+          onInvoiceClick={workspace.handleInvoiceClick}
+          onNavigateToJournalEntry={workspace.handleNavigateToJournalEntry}
         />
       )}
       workspaceSlot={<PaymentWorkspaceCard selectedPayment={selectedPayment} />}
       dialogs={(
         <PaymentsDialogs
-          deletedPaymentsDialogOpen={pageState.deletedPaymentsDialogOpen}
-          printDialogOpen={pageState.printDialogOpen}
+          deletedPaymentsDialogOpen={workspace.deletedPaymentsDialogOpen}
+          printDialogOpen={workspace.printDialogOpen}
           selectedPayment={selectedPayment}
-          onCloseDeletedPaymentsDialog={() => pageState.setDeletedPaymentsDialogOpen(false)}
-          onClosePrintDialog={() => pageState.setPrintDialogOpen(false)}
+          onCloseDeletedPaymentsDialog={() => workspace.setDeletedPaymentsDialogOpen(false)}
+          onClosePrintDialog={() => workspace.setPrintDialogOpen(false)}
         />
       )}
     />

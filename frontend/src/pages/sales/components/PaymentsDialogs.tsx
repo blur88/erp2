@@ -1,6 +1,6 @@
 import React from 'react'
 
-import type { PaymentListItem } from '../hooks/paymentsPageState'
+import type { PaymentListItem } from '../hooks/usePaymentsWorkspace'
 
 import { PaymentReceiptPrint } from '@/components/print'
 import DeletedPaymentsDialog from '@/components/sales/DeletedPaymentsDialog'

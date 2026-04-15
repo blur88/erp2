@@ -150,4 +150,23 @@ describe('useEntityWorkspace', () => {
     expect(config.refetch).toHaveBeenCalled()
     expect(result.current.deleteConfirmOpen).toBe(false)
   })
+
+  it('uses custom enter action instead of navigating to edit route', () => {
+    const onEnter = vi.fn()
+    const config = makeConfig({
+      selectedEntity: makeEntity('2'),
+      onEnter,
+    })
+    const { result } = renderHook(() => useEntityWorkspace(config))
+
+    act(() => {
+      result.current.setFocusedIndex(1)
+    })
+    act(() => {
+      result.current.handleEnterAction()
+    })
+
+    expect(onEnter).toHaveBeenCalledTimes(1)
+    expect(config.navigate).not.toHaveBeenCalled()
+  })
 })

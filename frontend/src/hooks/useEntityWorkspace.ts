@@ -19,6 +19,7 @@ export interface UseEntityWorkspaceConfig<T extends { id: string }> {
     showError: (message: string) => void
   }
   deleteMutation: (id: string) => Promise<void>
+  onEnter?: () => void
 }
 
 export interface EntityWorkspaceReturn<T extends { id: string }> {
@@ -56,6 +57,7 @@ export function useEntityWorkspace<T extends { id: string }>(
     routes,
     notifications,
     deleteMutation,
+    onEnter,
   } = config
 
   const [focusedIndex, setFocusedIndex] = useState(-1)
@@ -170,10 +172,15 @@ export function useEntityWorkspace<T extends { id: string }>(
   }, [entities, focusedIndex, selectAtIndex])
 
   const handleEnterAction = useCallback(() => {
+    if (onEnter) {
+      onEnter()
+      return
+    }
+
     if (focusedIndex >= 0 && entities[focusedIndex]) {
       navigate(routes.edit(entities[focusedIndex].id))
     }
-  }, [entities, focusedIndex, navigate, routes])
+  }, [entities, focusedIndex, navigate, onEnter, routes])
 
   const handleEscapeAction = useCallback(() => {
     setFocusedIndex(-1)

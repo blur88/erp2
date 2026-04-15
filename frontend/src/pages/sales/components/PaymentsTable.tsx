@@ -2,7 +2,7 @@ import React from 'react'
 
 import EntityTable, { type ColumnConfig } from '@/components/common/EntityTable'
 
-import type { PaymentListItem } from '../hooks/paymentsPageState'
+import type { PaymentListItem } from '../hooks/usePaymentsWorkspace'
 
 const COLUMNS: ColumnConfig<PaymentListItem>[] = [
   { key: 'paymentNumber', render: (payment) => payment.paymentNumber },
