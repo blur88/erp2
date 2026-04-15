@@ -58,6 +58,7 @@ const EntityRow = memo(function EntityRow<T extends { id: string }>({
     <TableRow
       hover
       onClick={() => onSelect(row)}
+      data-index={index}
       {...{ [`data-${dataAttr}-index`]: index }}
       sx={{
         cursor: 'pointer',
