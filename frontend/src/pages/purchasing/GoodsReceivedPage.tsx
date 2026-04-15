@@ -14,8 +14,8 @@ import GRNContextHeader from './components/GRNContextHeader'
 import GRNDialogs from './components/GRNDialogs'
 import GRNTable from './components/GRNTable'
 import GRNWorkspaceCard from './components/GRNWorkspaceCard'
-import { useGRNPageState } from './hooks/useGRNPageState'
-import { useGRNSelection } from './hooks/useGRNSelection'
+import { useGRNPageState } from './hooks/grnPageState'
+import { useGRNSelection } from './hooks/grnSelection'
 
 interface GRNFilters {
   search: string

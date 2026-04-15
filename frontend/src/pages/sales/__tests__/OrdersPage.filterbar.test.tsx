@@ -38,7 +38,7 @@ vi.mock('../components/OrderContextHeader', () => ({ default: () => <div>OrderCo
 vi.mock('../components/OrdersTable', () => ({ default: () => <div>OrdersTable</div> }))
 vi.mock('../components/OrderWorkspaceCard', () => ({ default: () => <div>OrderWorkspaceCard</div> }))
 vi.mock('../components/OrdersDialogs', () => ({ default: () => <div>OrdersDialogs</div> }))
-vi.mock('../hooks/useOrdersActions', () => ({
+vi.mock('../hooks/ordersActions', () => ({
   useOrdersActions: () => ({
     handleEditOrder: vi.fn(),
     handleOrderAction: vi.fn(),
@@ -55,7 +55,7 @@ vi.mock('../hooks/useOrdersActions', () => ({
     handleConfirmDelete: vi.fn(),
   }),
 }))
-vi.mock('../hooks/useOrdersSelection', () => ({
+vi.mock('../hooks/ordersSelection', () => ({
   useOrdersSelection: () => ({
     handleNavigateUp: vi.fn(),
     handleNavigateDown: vi.fn(),

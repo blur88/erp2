@@ -1,7 +1,7 @@
 import { renderHook } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 
-import { useCategoriesPageState } from './useCategoriesPageState'
+import { useCategoriesPageState } from './categoriesPageState'
 
 describe('useCategoriesPageState', () => {
   it('initializes the category page UI state', () => {

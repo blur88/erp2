@@ -12,7 +12,7 @@ import {
   Typography,
 } from '@mui/material'
 
-import type { InvoiceListItem } from '../hooks/useInvoicesPageState'
+import type { InvoiceListItem } from '../hooks/invoicesPageState'
 
 import { TABLE_STYLES } from '@/constants/tableStyles'
 

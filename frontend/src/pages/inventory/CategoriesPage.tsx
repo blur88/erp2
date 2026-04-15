@@ -19,9 +19,9 @@ import CategoryContextHeader from './components/CategoryContextHeader'
 import CategoryDialogs from './components/CategoryDialogs'
 import CategoryList from './components/CategoryList'
 import CategoryWorkspaceCard from './components/CategoryWorkspaceCard'
-import { useCategoriesActions } from './hooks/useCategoriesActions'
-import { useCategoriesPageState } from './hooks/useCategoriesPageState'
-import { useCategoriesSelection } from './hooks/useCategoriesSelection'
+import { useCategoriesActions } from './hooks/categoriesActions'
+import { useCategoriesPageState } from './hooks/categoriesPageState'
+import { useCategoriesSelection } from './hooks/categoriesSelection'
 
 interface CategoryFilters {
   search: string

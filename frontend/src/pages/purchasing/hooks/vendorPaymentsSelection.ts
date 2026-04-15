@@ -7,7 +7,7 @@ import { useLazyGetVendorPaymentQuery } from '@/store/api/purchasingApi'
 import { setSelectedVendorPayment } from '@/store/slices/purchasingSlice'
 import type { VendorPayment } from '@/types'
 
-import type { VPJournalEntryRef } from './useVendorPaymentsPageState'
+import type { VPJournalEntryRef } from './vendorPaymentsPageState'
 
 interface UseVendorPaymentsSelectionParams {
   dispatch: AppDispatch

@@ -20,9 +20,9 @@ import ProductContextHeader from './components/ProductContextHeader'
 import ProductsDialogs from './components/ProductsDialogs'
 import ProductList from './components/ProductList'
 import ProductWorkspaceCard from './components/ProductWorkspaceCard'
-import { useProductsActions } from './hooks/useProductsActions'
-import { useProductsPageState } from './hooks/useProductsPageState'
-import { useProductsSelection } from './hooks/useProductsSelection'
+import { useProductsActions } from './hooks/productsActions'
+import { useProductsPageState } from './hooks/productsPageState'
+import { useProductsSelection } from './hooks/productsSelection'
 
 interface InventoryProductFilters {
   search: string

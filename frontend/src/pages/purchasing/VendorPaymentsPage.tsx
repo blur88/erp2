@@ -14,8 +14,8 @@ import VendorPaymentContextHeader from './components/VendorPaymentContextHeader'
 import VendorPaymentsDialogs from './components/VendorPaymentsDialogs'
 import VendorPaymentTable from './components/VendorPaymentTable'
 import VendorPaymentWorkspaceCard from './components/VendorPaymentWorkspaceCard'
-import { useVendorPaymentsPageState } from './hooks/useVendorPaymentsPageState'
-import { useVendorPaymentsSelection } from './hooks/useVendorPaymentsSelection'
+import { useVendorPaymentsPageState } from './hooks/vendorPaymentsPageState'
+import { useVendorPaymentsSelection } from './hooks/vendorPaymentsSelection'
 
 interface VPFilters {
   search: string

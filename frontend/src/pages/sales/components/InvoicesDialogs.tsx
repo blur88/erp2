@@ -1,7 +1,7 @@
 import React from 'react'
 import { Button, Dialog, DialogActions, DialogContent, DialogTitle, Typography } from '@mui/material'
 
-import type { InvoiceListItem } from '../hooks/useInvoicesPageState'
+import type { InvoiceListItem } from '../hooks/invoicesPageState'
 
 import DeletedInvoicesDialog from '@/components/sales/DeletedInvoicesDialog'
 import { InvoicePrint } from '@/components/print'

@@ -26,7 +26,7 @@ vi.mock('../components/CategoryList', () => ({ default: () => <div>CategoryList<
 vi.mock('../components/CategoryContextHeader', () => ({ default: () => <div>CategoryContextHeader</div> }))
 vi.mock('../components/CategoryWorkspaceCard', () => ({ default: () => <div>CategoryWorkspaceCard</div> }))
 vi.mock('../components/CategoryDialogs', () => ({ default: () => <div>CategoryDialogs</div> }))
-vi.mock('../hooks/useCategoriesActions', () => ({
+vi.mock('../hooks/categoriesActions', () => ({
   useCategoriesActions: () => ({
     handleAddCategory: vi.fn(),
     handleEditCategory: vi.fn(),
@@ -38,7 +38,7 @@ vi.mock('../hooks/useCategoriesActions', () => ({
     onSubmit: vi.fn(),
   }),
 }))
-vi.mock('../hooks/useCategoriesSelection', () => ({
+vi.mock('../hooks/categoriesSelection', () => ({
   useCategoriesSelection: () => ({
     handleCategorySelect: vi.fn(),
     handleNavigateUp: vi.fn(),

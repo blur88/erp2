@@ -37,14 +37,14 @@ vi.mock('../components/InvoiceContextHeader', () => ({ default: () => <div>Invoi
 vi.mock('../components/InvoiceWorkspaceCard', () => ({ default: () => <div>InvoiceWorkspaceCard</div> }))
 vi.mock('../components/InvoicesTable', () => ({ default: () => <div>InvoicesTable</div> }))
 vi.mock('../components/InvoicesDialogs', () => ({ default: () => <div>InvoicesDialogs</div> }))
-vi.mock('../hooks/useInvoicesActions', () => ({
+vi.mock('../hooks/invoicesActions', () => ({
   useInvoicesActions: () => ({
     handleCreateInvoice: vi.fn(),
     handleEditInvoice: vi.fn(),
     handleDeleteInvoice: vi.fn(),
   }),
 }))
-vi.mock('../hooks/useInvoicesSelection', () => ({
+vi.mock('../hooks/invoicesSelection', () => ({
   useInvoicesSelection: () => ({
     handleNavigateUp: vi.fn(),
     handleNavigateDown: vi.fn(),

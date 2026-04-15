@@ -55,7 +55,7 @@ vi.mock('../components/GRNContextHeader', () => ({ default: () => <div>GRNContex
 vi.mock('../components/GRNTable', () => ({ default: () => <div>GRNTable</div> }))
 vi.mock('../components/GRNWorkspaceCard', () => ({ default: () => <div>GRNWorkspaceCard</div> }))
 vi.mock('../components/GRNDialogs', () => ({ default: () => <div>GRNDialogs</div> }))
-vi.mock('../hooks/useGRNSelection', () => ({
+vi.mock('../hooks/grnSelection', () => ({
   useGRNSelection: () => ({
     handleGRNSelect: vi.fn(),
     handleNavigateUp: vi.fn(),

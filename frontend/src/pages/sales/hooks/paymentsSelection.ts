@@ -1,7 +1,7 @@
 import { useCallback, useEffect, type MutableRefObject, type RefObject } from 'react'
 import type { Location, NavigateFunction } from 'react-router-dom'
 
-import type { PaymentJournalEntryRef, PaymentListItem } from './usePaymentsPageState'
+import type { PaymentJournalEntryRef, PaymentListItem } from './paymentsPageState'
 
 import { useLazyGetJournalEntriesQuery } from '@/store/api/accountingApi'
 import type { AppDispatch } from '@/store'

@@ -21,9 +21,9 @@ import StockAdjustmentContextHeader from './components/StockAdjustmentContextHea
 import StockAdjustmentList from './components/StockAdjustmentList'
 import StockAdjustmentWorkspaceCard from './components/StockAdjustmentWorkspaceCard'
 import StockAdjustmentsDialogs from './components/StockAdjustmentsDialogs'
-import { useStockAdjustmentsActions } from './hooks/useStockAdjustmentsActions'
-import { useStockAdjustmentsPageState } from './hooks/useStockAdjustmentsPageState'
-import { useStockAdjustmentsSelection } from './hooks/useStockAdjustmentsSelection'
+import { useStockAdjustmentsActions } from './hooks/stockAdjustmentsActions'
+import { useStockAdjustmentsPageState } from './hooks/stockAdjustmentsPageState'
+import { useStockAdjustmentsSelection } from './hooks/stockAdjustmentsSelection'
 
 interface StockAdjustmentFilters {
   search: string

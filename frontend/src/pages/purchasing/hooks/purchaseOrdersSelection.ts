@@ -6,7 +6,7 @@ import { setSelectedPurchaseOrder, updatePurchaseOrderInPlace } from '@/store/sl
 import type { AppDispatch } from '@/store'
 import type { PurchaseOrder } from '@/types'
 
-import type { PurchaseJournalEntryRef } from './usePurchaseOrdersPageState'
+import type { PurchaseJournalEntryRef } from './purchaseOrdersPageState'
 
 interface UsePurchaseOrdersSelectionParams {
   dispatch: AppDispatch

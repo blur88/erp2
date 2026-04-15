@@ -2,7 +2,7 @@ import { renderHook, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { describe, expect, it, vi } from 'vitest'
 
-import { useProductsSelection } from './useProductsSelection'
+import { useProductsSelection } from './productsSelection'
 
 import type { Product } from '@/types'
 

@@ -14,7 +14,7 @@ import {
 } from '@mui/material'
 import Grid from '@mui/material/Grid'
 
-import type { InvoiceJournalEntryRef, InvoiceListItem } from '../hooks/useInvoicesPageState'
+import type { InvoiceJournalEntryRef, InvoiceListItem } from '../hooks/invoicesPageState'
 
 import { AppButton } from '@/components/common/AppButton'
 import { TABLE_STYLES } from '@/constants/tableStyles'

@@ -1,6 +1,6 @@
 import { useCallback } from 'react'
 
-import type { InvoiceListItem } from './useInvoicesPageState'
+import type { InvoiceListItem } from './invoicesPageState'
 
 interface UseInvoicesActionsParams {
   selectedInvoice: InvoiceListItem | null

@@ -34,7 +34,7 @@ vi.mock('../components/ProductList', () => ({ default: () => <div>ProductList</d
 vi.mock('../components/ProductContextHeader', () => ({ default: () => <div>ProductContextHeader</div> }))
 vi.mock('../components/ProductWorkspaceCard', () => ({ default: () => <div>ProductWorkspaceCard</div> }))
 vi.mock('../components/ProductsDialogs', () => ({ default: () => <div>ProductsDialogs</div> }))
-vi.mock('../hooks/useProductsActions', () => ({
+vi.mock('../hooks/productsActions', () => ({
   useProductsActions: () => ({
     handleAddProduct: vi.fn(),
     handleEditProduct: vi.fn(),
@@ -46,7 +46,7 @@ vi.mock('../hooks/useProductsActions', () => ({
     handleExport: vi.fn(),
   }),
 }))
-vi.mock('../hooks/useProductsSelection', () => ({
+vi.mock('../hooks/productsSelection', () => ({
   useProductsSelection: () => ({
     handleProductSelect: vi.fn(),
     handleNavigateUp: vi.fn(),

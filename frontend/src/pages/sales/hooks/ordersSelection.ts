@@ -6,7 +6,7 @@ import { clearError, setSelectedOrder } from '@/store/slices/salesSlice'
 import type { AppDispatch } from '@/store'
 import type { SalesOrder } from '@/types'
 
-import type { JournalEntryRef } from './useOrdersPageState'
+import type { JournalEntryRef } from './ordersPageState'
 
 interface UseOrdersSelectionParams {
   dispatch: AppDispatch

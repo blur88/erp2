@@ -79,41 +79,6 @@ vi.mock('../components/CustomerList', () => ({
   ),
 }))
 
-vi.mock('../hooks/useCustomersSelection', () => ({
-  useCustomersSelection: () => ({
-    handleCustomerSelect: vi.fn(),
-    handleNavigateUp: vi.fn(),
-    handleNavigateDown: vi.fn(),
-    handleNavigateToFirst: vi.fn(),
-    handleNavigateToLast: vi.fn(),
-    handlePageUpNavigation: vi.fn(),
-    handlePageDownNavigation: vi.fn(),
-    handleEnterAction: vi.fn(),
-    handleEscapeAction: vi.fn(),
-  }),
-}))
-
-vi.mock('../hooks/useCustomersActions', () => ({
-  useCustomersActions: () => ({
-    handleDelete: vi.fn(),
-    handleCancelDelete: vi.fn(),
-  }),
-}))
-
-vi.mock('../hooks/useCustomersPageState', () => ({
-  useCustomersPageState: () => ({
-    deleteConfirmOpen: false,
-    setDeleteConfirmOpen: vi.fn(),
-    deletedCustomersDialogOpen: false,
-    setDeletedCustomersDialogOpen: vi.fn(),
-    focusedCustomerIndex: -1,
-    setFocusedCustomerIndex: vi.fn(),
-    shouldPreserveSearchFocus: false,
-    setShouldPreserveSearchFocus: vi.fn(),
-    customerListRef: { current: null },
-    searchInputRef: { current: null },
-  }),
-}))
 
 function renderPage(initialUrl = '/') {
   const store = configureStore({ reducer: { sales: salesReducer } })
