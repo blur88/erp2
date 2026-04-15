@@ -20,6 +20,7 @@ export interface UseEntityWorkspaceConfig<T extends { id: string }> {
   }
   deleteMutation: (id: string) => Promise<void>
   onEnter?: () => void
+  onEscape?: () => void
 }
 
 export interface EntityWorkspaceReturn<T extends { id: string }> {
@@ -58,6 +59,7 @@ export function useEntityWorkspace<T extends { id: string }>(
     notifications,
     deleteMutation,
     onEnter,
+    onEscape,
   } = config
 
   const [focusedIndex, setFocusedIndex] = useState(-1)
@@ -183,11 +185,16 @@ export function useEntityWorkspace<T extends { id: string }>(
   }, [entities, focusedIndex, navigate, onEnter, routes])
 
   const handleEscapeAction = useCallback(() => {
+    if (onEscape) {
+      onEscape()
+      return
+    }
+
     setFocusedIndex(-1)
     selectEntity(null)
     setDeleteConfirmOpen(false)
     setDeletedEntitiesDialogOpen(false)
-  }, [selectEntity])
+  }, [onEscape, selectEntity])
 
   const handleDelete = useCallback(async () => {
     if (!selectedEntity) {

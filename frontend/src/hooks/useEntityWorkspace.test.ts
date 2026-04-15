@@ -169,4 +169,20 @@ describe('useEntityWorkspace', () => {
     expect(onEnter).toHaveBeenCalledTimes(1)
     expect(config.navigate).not.toHaveBeenCalled()
   })
+
+  it('uses custom escape action instead of the default selection reset', () => {
+    const onEscape = vi.fn()
+    const config = makeConfig({
+      selectedEntity: makeEntity('2'),
+      onEscape,
+    })
+    const { result } = renderHook(() => useEntityWorkspace(config))
+
+    act(() => {
+      result.current.handleEscapeAction()
+    })
+
+    expect(onEscape).toHaveBeenCalledTimes(1)
+    expect(config.selectEntity).not.toHaveBeenCalledWith(null)
+  })
 })

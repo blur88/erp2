@@ -1,18 +1,13 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react'
-import { useLocation, useNavigate } from 'react-router-dom'
+import React, { useCallback, useMemo, useState } from 'react'
 
 import InvoiceContextHeader from './components/InvoiceContextHeader'
 import InvoicesDialogs from './components/InvoicesDialogs'
 import InvoicesTable from './components/InvoicesTable'
 import InvoiceWorkspaceCard from './components/InvoiceWorkspaceCard'
-import { useInvoicesActions } from './hooks/invoicesActions'
-import { type InvoiceListItem, useInvoicesPageState } from './hooks/invoicesPageState'
-import { useInvoicesSelection } from './hooks/invoicesSelection'
+import { type InvoiceListItem, useInvoicesWorkspace } from './hooks/useInvoicesWorkspace'
 
 import GenericListPage from '@/components/common/GenericListPage'
 import { useFilterBar } from '@/hooks/useFilterBar'
-import { useNotification } from '@/hooks/useNotification'
-import { useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
 import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
 import { useGetInvoicesQuery } from '@/store/api/salesApi'
 import { selectSelectedInvoice } from '@/store/slices/salesSlice'
@@ -28,12 +23,8 @@ interface InvoiceFilters {
 }
 
 const InvoicesPage: React.FC = () => {
-  const navigate = useNavigate()
-  const location = useLocation()
   const dispatch = useAppDispatch()
-  const { showError } = useNotification()
   const selectedInvoice = useAppSelector(selectSelectedInvoice) as InvoiceListItem | null
-  const pageState = useInvoicesPageState()
   const [sortBy, setSortBy] = useState('invoiceNumber')
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc')
 
@@ -124,92 +115,32 @@ const InvoicesPage: React.FC = () => {
     setSortBy(field)
   }, [sortBy])
 
+  const workspace = useInvoicesWorkspace({
+    dispatch,
+    invoices: normalizedInvoices,
+    selectedInvoice,
+    refetch,
+  })
+
   const filterHandlers = useMemo(() => ({
     ...handlers,
     onSearchChange: (value: string) => {
-      pageState.setShouldPreserveSearchFocus(true)
+      workspace.setShouldPreserveSearchFocus(true)
       handlers.onSearchChange(value)
     },
-  }), [handlers, pageState])
-
-  useEffect(() => {
-    if (pageState.shouldPreserveSearchFocus && pageState.searchInputRef.current && document.activeElement !== pageState.searchInputRef.current) {
-      const timer = setTimeout(() => {
-        pageState.searchInputRef.current?.focus()
-        pageState.setShouldPreserveSearchFocus(false)
-      }, 0)
-      return () => clearTimeout(timer)
-    }
-    if (pageState.shouldPreserveSearchFocus) {
-      pageState.setShouldPreserveSearchFocus(false)
-    }
-  }, [loading, pageState])
-
-  const selection = useInvoicesSelection({
-    dispatch,
-    navigate,
-    invoices: normalizedInvoices,
-    selectedInvoice,
-    focusedInvoiceIndex: pageState.focusedInvoiceIndex,
-    setFocusedInvoiceIndex: pageState.setFocusedInvoiceIndex,
-    location,
-    refetch,
-    invoiceListRef: pageState.invoiceListRef,
-    searchInputRef: pageState.searchInputRef,
-    hasRestoredSelection: pageState.hasRestoredSelection,
-    selectedInvoiceRef: pageState.selectedInvoiceRef,
-    setJournalEntryRef: pageState.setJournalEntryRef,
-    setJournalEntryRefLoading: pageState.setJournalEntryRefLoading,
-    setCreateDialog: pageState.setCreateDialog,
-    setEditDialog: pageState.setEditDialog,
-  })
-
-  const actions = useInvoicesActions({
-    selectedInvoice,
-    showError,
-    setCreateDialog: pageState.setCreateDialog,
-    setEditDialog: pageState.setEditDialog,
-    setDeletedInvoicesDialogOpen: pageState.setDeletedInvoicesDialogOpen,
-  })
-
-  useEffect(() => {
-    if (pageState.previousPathnameRef.current !== '/sales/invoices' && location.pathname === '/sales/invoices') {
-      void refetch()
-    }
-    pageState.previousPathnameRef.current = location.pathname
-  }, [location.pathname, pageState.previousPathnameRef, refetch])
-
-  useKeyboardShortcuts({
-    onSearch: () => {
-      pageState.searchInputRef.current?.focus()
-      pageState.searchInputRef.current?.select()
-    },
-    onArrowUp: selection.handleNavigateUp,
-    onArrowDown: selection.handleNavigateDown,
-    onEnter: selection.handleEnterAction,
-    onPageUp: selection.handlePageUpNavigation,
-    onPageDown: selection.handlePageDownNavigation,
-    onHome: selection.handleNavigateToFirst,
-    onEnd: selection.handleNavigateToLast,
-    onEscape: selection.handleEscapeAction,
-  })
-
-  const navigateToJournalEntry = useCallback(() => {
-    if (!pageState.journalEntryRef) return
-    navigate(`/accounting/journal-entries?sourceType=${pageState.journalEntryRef.sourceType}&sourceId=${pageState.journalEntryRef.sourceId}`)
-  }, [navigate, pageState.journalEntryRef])
+  }), [handlers, workspace])
 
   return (
     <GenericListPage
       title="Invoices"
       subtitle="Track and manage customer invoices"
-      primaryAction={{ label: 'New Invoice', onClick: actions.handleAddInvoice }}
-      secondaryAction={{ label: 'View Deleted', onClick: () => pageState.setDeletedInvoicesDialogOpen(true) }}
+      primaryAction={{ label: 'New Invoice', onClick: workspace.handleAddInvoice }}
+      secondaryAction={{ label: 'View Deleted', onClick: () => workspace.setDeletedInvoicesDialogOpen(true) }}
       filterConfig={filterConfig}
       draftFilters={draftFilters}
       handlers={filterHandlers}
       hasActiveFilters={hasActiveFilters}
-      searchInputRef={pageState.searchInputRef}
+      searchInputRef={workspace.searchInputRef}
       sort={{ field: 'invoiceNumber', sortBy, sortOrder, onSort: handleSort }}
       error={error ? 'Failed to load invoices.' : null}
       listSlot={(
@@ -218,34 +149,34 @@ const InvoicesPage: React.FC = () => {
           loading={loading}
           total={pagination.total || 0}
           selectedInvoiceId={selectedInvoice?.id}
-          focusedInvoiceIndex={pageState.focusedInvoiceIndex}
-          onInvoiceSelect={selection.handleInvoiceSelect}
-          invoiceListRef={pageState.invoiceListRef}
+          focusedInvoiceIndex={workspace.focusedInvoiceIndex}
+          onInvoiceSelect={workspace.handleInvoiceSelect}
+          invoiceListRef={workspace.invoiceListRef}
         />
       )}
       headerSlot={(
         <InvoiceContextHeader
           selectedInvoice={selectedInvoice}
-          journalEntryRef={pageState.journalEntryRef}
-          journalEntryRefLoading={pageState.journalEntryRefLoading}
-          onPrint={() => pageState.setPrintDialogOpen(true)}
-          onNavigateToSalesOrder={selection.handleSalesOrderClick}
-          onNavigateToPayment={selection.handleNavigateToPayment}
-          onNavigateToJournalEntry={navigateToJournalEntry}
+          journalEntryRef={workspace.journalEntryRef}
+          journalEntryRefLoading={workspace.journalEntryRefLoading}
+          onPrint={() => workspace.setPrintDialogOpen(true)}
+          onNavigateToSalesOrder={workspace.handleSalesOrderClick}
+          onNavigateToPayment={workspace.handleNavigateToPayment}
+          onNavigateToJournalEntry={workspace.navigateToJournalEntry}
         />
       )}
       workspaceSlot={<InvoiceWorkspaceCard selectedInvoice={selectedInvoice} />}
       dialogs={(
         <InvoicesDialogs
-          createDialog={pageState.createDialog}
-          editDialog={pageState.editDialog}
-          deletedInvoicesDialogOpen={pageState.deletedInvoicesDialogOpen}
-          printDialogOpen={pageState.printDialogOpen}
+          createDialog={workspace.createDialog}
+          editDialog={workspace.editDialog}
+          deletedInvoicesDialogOpen={workspace.deletedInvoicesDialogOpen}
+          printDialogOpen={workspace.printDialogOpen}
           selectedInvoice={selectedInvoice}
-          onCloseCreateDialog={() => pageState.setCreateDialog(false)}
-          onCloseEditDialog={() => pageState.setEditDialog(false)}
-          onCloseDeletedInvoicesDialog={() => pageState.setDeletedInvoicesDialogOpen(false)}
-          onClosePrintDialog={() => pageState.setPrintDialogOpen(false)}
+          onCloseCreateDialog={() => workspace.setCreateDialog(false)}
+          onCloseEditDialog={() => workspace.setEditDialog(false)}
+          onCloseDeletedInvoicesDialog={() => workspace.setDeletedInvoicesDialogOpen(false)}
+          onClosePrintDialog={() => workspace.setPrintDialogOpen(false)}
         />
       )}
     />

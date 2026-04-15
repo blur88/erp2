@@ -37,15 +37,22 @@ vi.mock('../components/InvoiceContextHeader', () => ({ default: () => <div>Invoi
 vi.mock('../components/InvoiceWorkspaceCard', () => ({ default: () => <div>InvoiceWorkspaceCard</div> }))
 vi.mock('../components/InvoicesTable', () => ({ default: () => <div>InvoicesTable</div> }))
 vi.mock('../components/InvoicesDialogs', () => ({ default: () => <div>InvoicesDialogs</div> }))
-vi.mock('../hooks/invoicesActions', () => ({
-  useInvoicesActions: () => ({
-    handleCreateInvoice: vi.fn(),
-    handleEditInvoice: vi.fn(),
-    handleDeleteInvoice: vi.fn(),
-  }),
-}))
-vi.mock('../hooks/invoicesSelection', () => ({
-  useInvoicesSelection: () => ({
+vi.mock('../hooks/useInvoicesWorkspace', () => ({
+  useInvoicesWorkspace: () => ({
+    searchInputRef: { current: null },
+    setShouldPreserveSearchFocus: vi.fn(),
+    focusedInvoiceIndex: -1,
+    invoiceListRef: { current: null },
+    createDialog: false,
+    setCreateDialog: vi.fn(),
+    editDialog: false,
+    setEditDialog: vi.fn(),
+    deletedInvoicesDialogOpen: false,
+    setDeletedInvoicesDialogOpen: vi.fn(),
+    printDialogOpen: false,
+    setPrintDialogOpen: vi.fn(),
+    journalEntryRef: null,
+    journalEntryRefLoading: false,
     handleNavigateUp: vi.fn(),
     handleNavigateDown: vi.fn(),
     handleEnterAction: vi.fn(),
@@ -57,10 +64,9 @@ vi.mock('../hooks/invoicesSelection', () => ({
     handleInvoiceSelect: vi.fn(),
     handleSalesOrderClick: vi.fn(),
     handleNavigateToPayment: vi.fn(),
+    navigateToJournalEntry: vi.fn(),
+    handleAddInvoice: vi.fn(),
   }),
-}))
-vi.mock('@/hooks/useNotification', () => ({
-  useNotification: () => ({ showError: vi.fn() }),
 }))
 
 function renderPage(initialUrl = '/') {

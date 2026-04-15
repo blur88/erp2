@@ -2,7 +2,7 @@ import React from 'react'
 
 import EntityTable, { type ColumnConfig } from '@/components/common/EntityTable'
 
-import type { InvoiceListItem } from '../hooks/invoicesPageState'
+import type { InvoiceListItem } from '../hooks/useInvoicesWorkspace'
 
 const COLUMNS: ColumnConfig<InvoiceListItem>[] = [
   { key: 'invoiceNumber', render: (invoice) => invoice.invoiceNumber },
