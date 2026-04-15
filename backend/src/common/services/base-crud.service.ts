@@ -62,8 +62,26 @@ export abstract class BaseCrudService<
     return ['createdAt', 'updatedAt'];
   }
 
+  /**
+   * Apply search filtering to a query builder.
+   * Default: no-op (search is ignored). Subclasses override to add ILIKE conditions
+   * on the entity's actual searchable columns.
+   *
+   * Example override:
+   *   protected applySearch(qb, search, alias) {
+   *     return qb.andWhere(`${alias}.name ILIKE :search OR ${alias}.phone ILIKE :search`, { search: `%${search}%` });
+   *   }
+   */
+  protected applySearch(
+    queryBuilder: SelectQueryBuilder<T>,
+    _search: string,
+    _alias: string,
+  ): SelectQueryBuilder<T> {
+    return queryBuilder;
+  }
+
   async findAll(query: QueryDto): Promise<any> {
-    const { search, sortOrder = 'ASC' } = query;
+    const { search, sortOrder = 'ASC', page, limit } = query as QueryDto & { page?: number; limit?: number };
     const sortBy = this.allowedSortFields.includes(query.sortBy ?? '')
       ? query.sortBy!
       : 'createdAt';
@@ -77,19 +95,22 @@ export abstract class BaseCrudService<
     });
 
     if (search) {
-      queryBuilder = queryBuilder.andWhere(`${alias}.name ILIKE :search`, {
-        search: `%${search}%`,
-      });
+      queryBuilder = this.applySearch(queryBuilder, search, alias);
     }
 
     queryBuilder = this.applyQueryBuilder(queryBuilder, query);
     queryBuilder = queryBuilder.orderBy(`${alias}.${sortBy}`, sortOrder);
 
-    const entities = await queryBuilder.getMany();
+    if (page && limit) {
+      queryBuilder = queryBuilder.skip((page - 1) * limit).take(limit);
+    }
+
+    const [entities, total] = await queryBuilder.getManyAndCount();
 
     return {
       data: entities,
-      total: entities.length,
+      total,
+      ...(page && limit ? { meta: { page, limit, totalPages: Math.ceil(total / limit) } } : {}),
     };
   }
 
@@ -101,9 +122,7 @@ export abstract class BaseCrudService<
       .where(`${alias}.deletedAt IS NOT NULL`);
 
     if (query.search) {
-      queryBuilder = queryBuilder.andWhere(`${alias}.name ILIKE :search`, {
-        search: `%${query.search}%`,
-      });
+      queryBuilder = this.applySearch(queryBuilder, query.search, alias);
     }
 
     const entities = await queryBuilder.getMany();

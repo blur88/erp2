@@ -64,6 +64,20 @@ describe('BaseCrudService', () => {
     updatedAt: new Date(),
   } as TestEntity;
 
+  const makeQb = (rows: TestEntity[] = [], total = 0) => {
+    const qb: any = {
+      andWhere: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      withDeleted: jest.fn().mockReturnThis(),
+      orderBy: jest.fn().mockReturnThis(),
+      skip: jest.fn().mockReturnThis(),
+      take: jest.fn().mockReturnThis(),
+      getManyAndCount: jest.fn().mockResolvedValue([rows, total]),
+      getMany: jest.fn().mockResolvedValue(rows),
+    };
+    return qb;
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -218,6 +232,56 @@ describe('BaseCrudService', () => {
     const [before, after] = afterUpdateSpy.mock.calls[0];
     expect((before as TestEntity).name).toBe('Original Name');
     expect((after as TestEntity).name).toBe('Updated Name');
+  });
+
+  it('findAll returns data and total via getManyAndCount', async () => {
+    const qb = makeQb([mockEntity], 1);
+    (repo.createQueryBuilder as jest.Mock).mockReturnValue(qb);
+
+    const result = await service.findAll({});
+
+    expect(qb.getManyAndCount).toHaveBeenCalled();
+    expect(result.data).toEqual([mockEntity]);
+    expect(result.total).toBe(1);
+  });
+
+  it('findAll applies pagination when page and limit provided', async () => {
+    const qb = makeQb([mockEntity], 1);
+    (repo.createQueryBuilder as jest.Mock).mockReturnValue(qb);
+
+    await service.findAll({ page: 2, limit: 10 } as any);
+
+    expect(qb.skip).toHaveBeenCalledWith(10); // (page-1) * limit
+    expect(qb.take).toHaveBeenCalledWith(10);
+  });
+
+  it('findAll does not call applySearch when no search term', async () => {
+    const qb = makeQb([mockEntity], 1);
+    (repo.createQueryBuilder as jest.Mock).mockReturnValue(qb);
+    const applySearchSpy = jest.spyOn(service as any, 'applySearch');
+
+    await service.findAll({});
+
+    expect(applySearchSpy).not.toHaveBeenCalled();
+  });
+
+  it('findAll calls applySearch when search term provided', async () => {
+    const qb = makeQb([mockEntity], 1);
+    (repo.createQueryBuilder as jest.Mock).mockReturnValue(qb);
+    const applySearchSpy = jest.spyOn(service as any, 'applySearch').mockReturnValue(qb);
+
+    await service.findAll({ search: 'test' });
+
+    expect(applySearchSpy).toHaveBeenCalledWith(qb, 'test', 'testentity');
+  });
+
+  it('findAll falls back to createdAt when sortBy is not in allowedSortFields', async () => {
+    const qb = makeQb([mockEntity], 1);
+    (repo.createQueryBuilder as jest.Mock).mockReturnValue(qb);
+
+    await service.findAll({ sortBy: 'injected; DROP TABLE--', sortOrder: 'ASC' });
+
+    expect(qb.orderBy).toHaveBeenCalledWith('testentity.createdAt', 'ASC');
   });
 
   it('update logs UPDATE audit with oldValues and newValues', async () => {
