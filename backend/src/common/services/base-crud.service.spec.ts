@@ -176,6 +176,38 @@ describe('BaseCrudService', () => {
     expect(result.failedItems[0].id).toBe('uuid-missing');
   });
 
+  it('findDeleted calls applyQueryBuilder so joins are applied to deleted queries', async () => {
+    class JoinedCrudService extends BaseCrudService<
+      TestEntity,
+      TestCreateDto,
+      TestUpdateDto,
+      TestQueryDto
+    > {
+      getEntityType() {
+        return 'TestEntity';
+      }
+
+      buildWhereClause() {
+        return {};
+      }
+
+      protected applyQueryBuilder(qb: any, _query: TestQueryDto) {
+        return qb.leftJoinAndSelect('testentity.related', 'related');
+      }
+    }
+
+    const joinedService = new JoinedCrudService(repo as any, auditLogService);
+    const qb = {
+      ...makeQb([mockEntity]),
+      leftJoinAndSelect: jest.fn().mockReturnThis(),
+    };
+    (repo.createQueryBuilder as jest.Mock).mockReturnValue(qb);
+
+    await joinedService.findDeleted({});
+
+    expect(qb.leftJoinAndSelect).toHaveBeenCalledWith('testentity.related', 'related');
+  });
+
   it('permanentDelete calls repo.delete and logs audit', async () => {
     (repo.findOne as jest.Mock).mockResolvedValue(mockEntity);
     (repo.delete as jest.Mock).mockResolvedValue(undefined);
