@@ -1,0 +1,89 @@
+import { Test, TestingModule } from '@nestjs/testing';
+import { getRepositoryToken } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+
+import { Category } from '../../../database/entities/category.entity';
+import { Product } from '../../../database/entities/product.entity';
+import { AuditLogService } from '../../audit-logs/services';
+import { CategoryService } from './category.service';
+
+describe('CategoryService', () => {
+  let service: CategoryService;
+  let categoryRepository: jest.Mocked<Repository<Category>>;
+
+  const createCategory = (id: string, overrides: Partial<Category> = {}): Category =>
+    ({
+      id,
+      name: `Category ${id}`,
+      path: `Category ${id}`,
+      level: 0,
+      parentId: null,
+      fullPath: `Category ${id}`,
+      isRoot: true,
+      hasChildren: false,
+      createdAt: new Date('2026-04-01T00:00:00.000Z'),
+      updatedAt: new Date('2026-04-01T00:00:00.000Z'),
+      deletedAt: null,
+      children: [],
+      ...overrides,
+    }) as Category;
+
+  const createQueryBuilder = (categories: Category[] = []) => ({
+    withDeleted: jest.fn().mockReturnThis(),
+    where: jest.fn().mockReturnThis(),
+    andWhere: jest.fn().mockReturnThis(),
+    orderBy: jest.fn().mockReturnThis(),
+    addOrderBy: jest.fn().mockReturnThis(),
+    skip: jest.fn().mockReturnThis(),
+    take: jest.fn().mockReturnThis(),
+    getManyAndCount: jest.fn().mockResolvedValue([categories, categories.length]),
+  });
+
+  beforeEach(async () => {
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        CategoryService,
+        {
+          provide: getRepositoryToken(Category),
+          useValue: {
+            createQueryBuilder: jest.fn(),
+            findAndCount: jest.fn(),
+            findOne: jest.fn(),
+            restore: jest.fn(),
+            update: jest.fn(),
+          },
+        },
+        {
+          provide: getRepositoryToken(Product),
+          useValue: {
+            count: jest.fn().mockResolvedValue(0),
+          },
+        },
+        {
+          provide: AuditLogService,
+          useValue: {
+            log: jest.fn().mockResolvedValue(undefined),
+          },
+        },
+      ],
+    }).compile();
+
+    service = module.get(CategoryService);
+    categoryRepository = module.get(getRepositoryToken(Category));
+  });
+
+  it('findDeleted applies parentId filtering through the shared query builder path', async () => {
+    const qb = createQueryBuilder([
+      createCategory('child-1', { parentId: 'parent-1', isRoot: false, level: 1 }),
+    ]);
+    categoryRepository.createQueryBuilder.mockReturnValue(qb as any);
+    categoryRepository.findAndCount.mockResolvedValue([[], 0] as any);
+
+    await service.findDeleted({ parentId: 'parent-1' });
+
+    expect(categoryRepository.createQueryBuilder).toHaveBeenCalledWith('category');
+    expect(qb.andWhere).toHaveBeenCalledWith('category.parentId = :parentId', {
+      parentId: 'parent-1',
+    });
+  });
+});
