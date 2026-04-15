@@ -34,6 +34,7 @@ import { useNotification } from '@/hooks/useNotification'
 import { useProductSearch } from '@/hooks/useProductSearch'
 import { useAppDispatch } from '@/hooks/useRedux'
 import PageHeader from '@/components/common/PageHeader'
+import TransactionForm from '@/components/common/TransactionForm'
 import type { RootState } from '@/store'
 import { setSelectedOrder } from '@/store/slices/salesSlice'
 import { useCurrency } from '@/hooks/useCurrency'
@@ -424,13 +425,26 @@ const CreateSalesOrderPage: React.FC = () => {
           <Typography>Loading sales order...</Typography>
         </Box>
       ) : (
-        <form onSubmit={handleSubmit(onSubmit)}>
-          {error && (
+        <TransactionForm
+          entityLabel="Customer"
+          entityOptions={customers.map((customer) => ({ id: customer.id, name: customer.name }))}
+          lineItemColumns={[
+            { key: 'product', label: 'Product' },
+            { key: 'quantity', label: 'Qty' },
+            { key: 'unitPrice', label: 'Price' },
+            { key: 'discount', label: 'Discount' },
+            { key: 'subtotal', label: 'Sub-total' },
+          ]}
+          onSubmit={handleSubmit(onSubmit)}
+          onCancel={() => navigate('/sales/orders')}
+          isSubmitting={loading}
+          hideDefaultActions
+          error={error ? (
             <Alert severity="error" sx={{ mb: 3 }}>
               {error}
             </Alert>
-          )}
-
+          ) : null}
+        >
           <Grid container spacing={3}>
             {/* SO Information Card */}
             <Grid size={12}>
@@ -1007,7 +1021,7 @@ const CreateSalesOrderPage: React.FC = () => {
               </Card>
             </Grid>
           </Grid>
-        </form>
+        </TransactionForm>
       )}
     </>
   );

@@ -15,7 +15,7 @@ import {
 } from '@mui/material'
 import { useTheme } from '@mui/material/styles'
 
-import { useForm, Controller } from 'react-hook-form'
+import { useForm, Controller, type Control } from 'react-hook-form'
 import { yupResolver } from '@hookform/resolvers/yup'
 import * as yup from 'yup'
 import { useGetPriceListsQuery, useBulkUpdatePricesMutation, priceListApiSlice } from '@/store/api/priceListApi'
@@ -151,6 +151,66 @@ interface PriceListPrice {
   priceListId: string
   price: number
 }
+
+interface ProductAdditionalInformationCardProps {
+  control: Control<ProductFormData>
+  disabled: boolean
+  isEditMode: boolean
+  loading: boolean
+  onCancel: () => void
+}
+
+const ProductAdditionalInformationCard: React.FC<ProductAdditionalInformationCardProps> = ({
+  control,
+  disabled,
+  isEditMode,
+  loading,
+  onCancel,
+}) => (
+  <Card sx={{ height: '100%' }}>
+    <CardContent sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+      <Typography variant="h6" gutterBottom>Additional Information</Typography>
+
+      <Controller
+        name="notes"
+        control={control}
+        render={({ field }) => (
+          <TextField
+            {...field}
+            label="Notes"
+            multiline
+            rows={6}
+            fullWidth
+            size="small"
+            sx={{
+              mb: 2,
+              '& .MuiInputBase-input': {
+                fontSize: '0.875rem',
+              },
+              '& .MuiInputLabel-root': {
+                fontSize: '0.875rem',
+              }
+            }}
+          />
+        )}
+      />
+
+      <Box sx={{ mt: 'auto' }}>
+        <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
+          <Button variant="outlined" fullWidth onClick={onCancel} disabled={loading}>
+            Cancel
+          </Button>
+          <Button type="submit" variant="contained" fullWidth disabled={disabled}>
+            {loading
+              ? (isEditMode ? 'Updating...' : 'Creating...')
+              : (isEditMode ? 'Update Product' : 'Create Product')
+            }
+          </Button>
+        </Box>
+      </Box>
+    </CardContent>
+  </Card>
+)
 
 const productSchema = yup.object({
   name: yup.string().required('Product name is required').min(2, 'Name must be at least 2 characters'),
@@ -761,68 +821,22 @@ const CreateProductPage: React.FC = () => {
                 xs: 12,
                 md: 4
               }}>
-              <Card sx={{ height: '100%' }}>
-                <CardContent sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-                  <Typography variant="h6" gutterBottom>Additional Information</Typography>
+              <ProductAdditionalInformationCard
+                control={control}
+                disabled={loading || hasNameDuplicate || hasBarcodeDuplicate}
+                isEditMode={isEditMode}
+                loading={loading}
+                onCancel={() => {
+                  if (isEditMode && id) {
+                    navigate('/inventory/products', {
+                      state: { selectedProductId: id }
+                    })
+                    return
+                  }
 
-                  <Controller
-                    name="notes"
-                    control={control}
-                    render={({ field }) => (
-                      <TextField
-                        {...field}
-                        label="Notes"
-                        multiline
-                        rows={6}
-                        fullWidth
-                        size="small"
-                        sx={{
-                          mb: 2,
-                          '& .MuiInputBase-input': {
-                            fontSize: '0.875rem',
-                          },
-                          '& .MuiInputLabel-root': {
-                            fontSize: '0.875rem',
-                          }
-                        }}
-                      />
-                    )}
-                  />
-
-                  <Box sx={{ mt: 'auto' }}>
-                    <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
-                      <Button
-                        variant="outlined"
-                        fullWidth
-                        onClick={() => {
-                          // When canceling in edit mode, navigate back with the product ID to keep it selected
-                          if (isEditMode && id) {
-                            navigate('/inventory/products', {
-                              state: { selectedProductId: id }
-                            })
-                          } else {
-                            navigate('/inventory/products')
-                          }
-                        }}
-                        disabled={loading}
-                      >
-                        Cancel
-                      </Button>
-                      <Button
-                        type="submit"
-                        variant="contained"
-                        fullWidth
-                        disabled={loading || hasNameDuplicate || hasBarcodeDuplicate}
-                      >
-                        {loading
-                          ? (isEditMode ? 'Updating...' : 'Creating...')
-                          : (isEditMode ? 'Update Product' : 'Create Product')
-                        }
-                      </Button>
-                    </Box>
-                  </Box>
-                </CardContent>
-              </Card>
+                  navigate('/inventory/products')
+                }}
+              />
             </Grid>
           </Grid>
         </form>
