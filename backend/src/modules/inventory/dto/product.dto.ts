@@ -15,6 +15,7 @@ import {
 import { Type, Transform } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 import { ProductType } from '../../../database/entities/product.entity';
+import { BaseQueryDto } from '../../../common/dto/base-query.dto';
 
 
 export class CreateProductDto {
@@ -68,13 +69,7 @@ export class CreateProductDto {
 
 export class UpdateProductDto extends PartialType(CreateProductDto) {}
 
-export class QueryProductsDto {
-  @ApiPropertyOptional({ description: 'Search term (product name, barcode, brand)' })
-  @IsOptional()
-  @IsString()
-  @MaxLength(200)
-  search?: string;
-
+export class QueryProductsDto extends BaseQueryDto {
   @ApiPropertyOptional({ description: 'Filter by category ID' })
   @IsOptional()
   @IsUUID(4)
@@ -85,16 +80,6 @@ export class QueryProductsDto {
   @IsEnum(ProductType)
   type?: ProductType;
 
-
-  @ApiPropertyOptional({ description: 'Filter by active status' })
-  @IsOptional()
-  @Transform(({ value }) => {
-    if (value === 'true') return true;
-    if (value === 'false') return false;
-    return value;
-  })
-  @IsBoolean()
-  isActive?: boolean;
 
   @ApiPropertyOptional({ description: 'Filter by low stock items only' })
   @IsOptional()
@@ -115,16 +100,6 @@ export class QueryProductsDto {
   })
   @IsBoolean()
   outOfStock?: boolean;
-
-  @ApiPropertyOptional({ description: 'Sort field', enum: ['name', 'barcode', 'createdAt', 'stockQuantity'] })
-  @IsOptional()
-  @IsString()
-  sortBy?: string;
-
-  @ApiPropertyOptional({ description: 'Sort order', enum: ['ASC', 'DESC'] })
-  @IsOptional()
-  @IsString()
-  sortOrder?: 'ASC' | 'DESC';
 
   @ApiPropertyOptional({ description: 'Filter by brand' })
   @IsOptional()

@@ -13,7 +13,9 @@ import {
   Repository,
   UpdateResult,
   In,
+  FindOptionsWhere,
 } from 'typeorm';
+import { BaseCrudService } from '../../../common/services/base-crud.service';
 import { Product, ProductType } from '../../../database/entities/product.entity';
 import { Category } from '../../../database/entities/category.entity';
 import { SalesOrderItem } from '../../../database/entities/sales-order-item.entity';
@@ -55,7 +57,12 @@ import { SettingsService } from '../../settings/settings.service';
 import { AuditLogService } from '../../audit-logs/services';
 
 @Injectable()
-export class ProductService {
+export class ProductService extends BaseCrudService<
+  Product,
+  CreateProductDto,
+  UpdateProductDto,
+  QueryProductsDto
+> {
   private readonly logger = new Logger(ProductService.name);
 
   constructor(
@@ -83,8 +90,40 @@ export class ProductService {
     private readonly stockMovementService: StockMovementService,
     private readonly baseCostCalculator: BaseCostCalculatorService,
     private readonly settingsService: SettingsService,
-    private readonly auditLogService: AuditLogService,
-  ) {}
+    auditLogService: AuditLogService,
+  ) {
+    super(productRepository, auditLogService);
+  }
+
+  getEntityType(): string {
+    return 'Product';
+  }
+
+  buildWhereClause(query: QueryProductsDto): FindOptionsWhere<Product> {
+    const where: FindOptionsWhere<Product> = {};
+
+    if (query.categoryId) where.categoryId = query.categoryId;
+    if (query.type) where.type = query.type;
+    if (query.isActive !== undefined) where.isActive = query.isActive;
+
+    return where;
+  }
+
+  protected async afterDelete(entity: Product): Promise<void> {
+    const activeSalesOrderItemCount = await this.salesOrderItemRepository
+      .createQueryBuilder('item')
+      .leftJoin('item.salesOrder', 'order')
+      .where('item.productId = :productId', { productId: entity.id })
+      .andWhere('order.isFulfilled = :isFulfilled', { isFulfilled: false })
+      .getCount();
+
+    if (activeSalesOrderItemCount > 0) {
+      throw new ConflictException(
+        `Cannot delete '${entity.name}' - product is in ${activeSalesOrderItemCount} pending sales order(s). ` +
+        `Please fulfill or cancel those orders first.`,
+      );
+    }
+  }
 
   /**
    * Create a new product
@@ -1054,52 +1093,7 @@ export class ProductService {
    */
   async remove(id: string, userId?: string, username?: string): Promise<void> {
     this.logger.log(`Deleting product with ID: ${id}`);
-
-    const product = await this.productRepository.findOne({
-      where: { id },
-    });
-
-    if (!product) {
-      throw new NotFoundException(`Product with ID '${id}' not found`);
-    }
-
-    // Only check for active sales order items (pending orders)
-    // Allow soft delete even if product has stock movements or completed orders
-    const activeSalesOrderItemCount = await this.salesOrderItemRepository
-      .createQueryBuilder('item')
-      .leftJoin('item.salesOrder', 'order')
-      .where('item.productId = :productId', { productId: id })
-      .andWhere('order.isFulfilled = :isFulfilled', { isFulfilled: false })
-      .getCount();
-
-    if (activeSalesOrderItemCount > 0) {
-      throw new ConflictException(
-        `Cannot delete '${product.name}' - product is in ${activeSalesOrderItemCount} pending sales order(s). ` +
-        `Please fulfill or cancel those orders first.`
-      );
-    }
-
-    // Use TypeORM soft delete (sets deletedAt timestamp)
-    await this.productRepository.softDelete(id);
-
-    // Log audit trail for delete
-    await this.auditLogService.log(
-      'DELETE',
-      'Product',
-      `Deleted product: ${product.name} (${product.barcode})`,
-      {
-        entityId: product.id,
-        userId: userId || 'system',
-        username,
-        oldValues: {
-          name: product.name,
-          barcode: product.barcode,
-          baseCost: product.baseCost,
-          stockQuantity: product.stockQuantity,
-        },
-      }
-    );
-
+    await this.softDelete(id, userId || 'system', username);
     this.logger.log(`Product soft-deleted successfully: ${id}`);
   }
 

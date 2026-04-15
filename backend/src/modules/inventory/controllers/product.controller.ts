@@ -537,6 +537,6 @@ export class ProductController {
     @CurrentUser('userId') currentUserId: string,
     @CurrentUser('username') currentUsername: string,
   ): Promise<void> {
-    await this.productService.remove(id, currentUserId, currentUsername);
+    await this.productService.softDelete(id, currentUserId, currentUsername);
   }
 }
