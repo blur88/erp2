@@ -705,66 +705,6 @@ export class SupplierService extends BaseCrudService<
     }
   }
 
-  /**
-   * Bulk restore suppliers
-   */
-  async bulkRestore(
-    supplierIds: string[],
-    userId?: string,
-    username?: string,
-  ): Promise<{ successCount: number; failedItems: Array<{ id: string; error: string }> }> {
-    this.logger.log(`Bulk restoring ${supplierIds.length} suppliers`);
-
-    const failedItems: Array<{ id: string; error: string }> = [];
-    let restoredCount = 0;
-
-    for (const id of supplierIds) {
-      try {
-        await this.restore(id, userId, username);
-        restoredCount++;
-      } catch (error) {
-        this.logger.error(`Failed to restore supplier ${id}:`, error);
-        failedItems.push({
-          id,
-          error: error instanceof Error ? error.message : 'Unknown error',
-        });
-      }
-    }
-
-    this.logger.log(`Bulk restore completed: ${restoredCount} restored, ${failedItems.length} failed`);
-    return { successCount: restoredCount, failedItems };
-  }
-
-  /**
-   * Bulk permanent delete suppliers
-   */
-  async bulkPermanentDelete(
-    supplierIds: string[],
-    userId?: string,
-    username?: string,
-  ): Promise<{ successCount: number; failedItems: Array<{ id: string; error: string }> }> {
-    this.logger.log(`Bulk permanently deleting ${supplierIds.length} suppliers`);
-
-    const failedItems: Array<{ id: string; error: string }> = [];
-    let deletedCount = 0;
-
-    for (const id of supplierIds) {
-      try {
-        await this.permanentDelete(id, userId, username);
-        deletedCount++;
-      } catch (error) {
-        this.logger.error(`Failed to permanently delete supplier ${id}:`, error);
-        failedItems.push({
-          id,
-          error: error instanceof Error ? error.message : 'Unknown error',
-        });
-      }
-    }
-
-    this.logger.log(`Bulk permanent delete completed: ${deletedCount} deleted, ${failedItems.length} failed`);
-    return { successCount: deletedCount, failedItems };
-  }
-
   async getSupplierPurchaseOrders(supplierId: string): Promise<{ data: PurchaseOrder[]; total: number }> {
     const [data, total] = await this.purchaseOrderRepository.findAndCount({
       where: { supplierId },

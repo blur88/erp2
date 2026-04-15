@@ -18,6 +18,7 @@ import { useForm, Controller, type Control, type FieldErrors } from 'react-hook-
 import { yupResolver } from '@hookform/resolvers/yup'
 import * as yup from 'yup'
 
+import AddressSection from '@/components/common/AddressSection'
 import PageHeader from '@/components/common/PageHeader'
 import { useNotification } from '@/hooks/useNotification'
 import api from '@/services/api'
@@ -55,75 +56,6 @@ interface SupplierFormData {
   notes?: string | null
 }
 
-interface SupplierAddressSectionProps {
-  control: Control<SupplierFormData>
-  errors: FieldErrors<SupplierFormData>
-}
-
-const SupplierAddressSection: React.FC<SupplierAddressSectionProps> = ({ control, errors }) => (
-  <>
-    <Grid size={12}>
-      <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>Address Information</Typography>
-    </Grid>
-
-    <Grid size={12}>
-      <Controller
-        name="streetAddress"
-        control={control}
-        render={({ field }) => (
-          <TextField
-            {...field}
-            value={field.value || ''}
-            fullWidth
-            label="Street Address"
-            error={!!errors.streetAddress}
-            helperText={errors.streetAddress?.message}
-          />
-        )}
-      />
-    </Grid>
-
-    <Grid size={{ xs: 12, md: 6 }}>
-      <Controller
-        name="city"
-        control={control}
-        render={({ field }) => (
-          <TextField {...field} value={field.value || ''} fullWidth label="City" error={!!errors.city} helperText={errors.city?.message} />
-        )}
-      />
-    </Grid>
-
-    <Grid size={{ xs: 12, md: 6 }}>
-      <Controller
-        name="state"
-        control={control}
-        render={({ field }) => (
-          <TextField {...field} value={field.value || ''} fullWidth label="State" error={!!errors.state} helperText={errors.state?.message} />
-        )}
-      />
-    </Grid>
-
-    <Grid size={{ xs: 12, md: 6 }}>
-      <Controller
-        name="postalCode"
-        control={control}
-        render={({ field }) => (
-          <TextField {...field} value={field.value || ''} fullWidth label="Postal Code" error={!!errors.postalCode} helperText={errors.postalCode?.message} />
-        )}
-      />
-    </Grid>
-
-    <Grid size={{ xs: 12, md: 6 }}>
-      <Controller
-        name="country"
-        control={control}
-        render={({ field }) => (
-          <TextField {...field} value={field.value || ''} fullWidth label="Country" error={!!errors.country} helperText={errors.country?.message} />
-        )}
-      />
-    </Grid>
-  </>
-)
 
 interface SupplierFormActionsProps {
   disabled: boolean
@@ -368,7 +300,7 @@ const SupplierFormPage: React.FC = () => {
               />
             </Grid>
 
-            <SupplierAddressSection control={control} errors={errors} />
+            <AddressSection control={control} errors={errors} />
 
             <Grid size={12}>
               <Controller

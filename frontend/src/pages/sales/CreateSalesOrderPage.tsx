@@ -426,6 +426,7 @@ const CreateSalesOrderPage: React.FC = () => {
         </Box>
       ) : (
         <TransactionForm
+          mode="custom"
           entityLabel="Customer"
           entityOptions={customers.map((customer) => ({ id: customer.id, name: customer.name }))}
           lineItemColumns={[

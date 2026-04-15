@@ -39,23 +39,45 @@ export interface TransactionFormData {
   items: Record<string, string | number>[]
 }
 
-type TransactionFormSubmitHandler =
-  | ((formData: TransactionFormData) => void | Promise<void>)
-  | ((event?: React.BaseSyntheticEvent) => void | Promise<void>)
-
-interface TransactionFormProps {
-  entityLabel?: EntityLabel
-  entityOptions: TransactionFormOption[]
-  lineItemColumns: TransactionFormColumn[]
-  onSubmit: TransactionFormSubmitHandler
-  onCancel: () => void
-  isSubmitting: boolean
-  children?: React.ReactNode
-  error?: React.ReactNode
-  hideDefaultActions?: boolean
-  submitLabel?: string
-  cancelLabel?: string
-}
+/**
+ * Two modes:
+ *
+ * 'default' — TransactionForm renders its own entity selector + date + notes + line-items table.
+ *   onSubmit receives a TransactionFormData object.
+ *
+ * 'custom' — caller provides children as the form body (e.g. react-hook-form fields).
+ *   onSubmit receives the native form submit event, matching react-hook-form's handleSubmit signature.
+ *   entityOptions / lineItemColumns are ignored in this mode.
+ */
+type TransactionFormProps =
+  | {
+      mode?: 'default'
+      entityLabel?: EntityLabel
+      entityOptions: TransactionFormOption[]
+      lineItemColumns: TransactionFormColumn[]
+      onSubmit: (formData: TransactionFormData) => void | Promise<void>
+      onCancel: () => void
+      isSubmitting: boolean
+      children?: never
+      error?: React.ReactNode
+      hideDefaultActions?: boolean
+      submitLabel?: string
+      cancelLabel?: string
+    }
+  | {
+      mode: 'custom'
+      entityLabel?: EntityLabel
+      entityOptions?: TransactionFormOption[]
+      lineItemColumns?: TransactionFormColumn[]
+      onSubmit: (event?: React.BaseSyntheticEvent) => void | Promise<void>
+      onCancel: () => void
+      isSubmitting: boolean
+      children: React.ReactNode
+      error?: React.ReactNode
+      hideDefaultActions?: boolean
+      submitLabel?: string
+      cancelLabel?: string
+    }
 
 const buildEmptyItem = (columns: TransactionFormColumn[]) =>
   columns.reduce<Record<string, string | number>>((item, column) => {
@@ -64,9 +86,10 @@ const buildEmptyItem = (columns: TransactionFormColumn[]) =>
   }, {})
 
 const TransactionForm: React.FC<TransactionFormProps> = ({
+  mode = 'default',
   entityLabel,
-  entityOptions,
-  lineItemColumns,
+  entityOptions = [],
+  lineItemColumns = [],
   onSubmit,
   onCancel,
   isSubmitting,
@@ -130,7 +153,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
 
-    if (shouldRenderDefaultShell) {
+    if (mode === 'default') {
       await (onSubmit as (formData: TransactionFormData) => void | Promise<void>)({
         entityId,
         transactionDate,
@@ -143,13 +166,11 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
     await (onSubmit as (event?: React.BaseSyntheticEvent) => void | Promise<void>)(event)
   }
 
-  const shouldRenderDefaultShell = !children
-
   return (
     <form onSubmit={handleSubmit}>
       {error}
 
-      {shouldRenderDefaultShell ? (
+      {mode === 'default' ? (
         <Grid container spacing={3}>
           <Grid size={12}>
             <Card>

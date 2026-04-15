@@ -350,6 +350,7 @@ const CreatePurchaseOrderPage: React.FC = () => {
         </Box>
       ) : (
       <TransactionForm
+        mode="custom"
         entityLabel="Supplier"
         entityOptions={suppliers.map((supplier: any) => ({ id: supplier.id, name: supplier.companyName }))}
         lineItemColumns={[

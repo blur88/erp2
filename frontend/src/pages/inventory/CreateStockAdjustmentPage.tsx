@@ -289,6 +289,7 @@ const CreateStockAdjustmentPage: React.FC = () => {
         </Box>
       ) : (
         <TransactionForm
+          mode="custom"
           entityLabel={undefined}
           entityOptions={[]}
           lineItemColumns={[
