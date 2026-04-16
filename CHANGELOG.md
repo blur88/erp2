@@ -1,3 +1,15 @@
+# [1.76.0](https://github.com/blur88/erp2/compare/v1.75.1...v1.76.0) (2026-04-16)
+
+
+### Bug Fixes
+
+* **backend:** call applyQueryBuilder in BaseCrudService.findDeleted so joins apply to deleted queries ([23bd07e](https://github.com/blur88/erp2/commit/23bd07ee1538b38a06823c40bfb490603eb35c80))
+
+
+### Features
+
+* **frontend:** add generic EntityTable component with loading and empty states ([0a55dbd](https://github.com/blur88/erp2/commit/0a55dbde18db7a5c5099d45c001556636f84d34d))
+
 ## [1.75.1](https://github.com/blur88/erp2/compare/v1.75.0...v1.75.1) (2026-04-15)
 
 
