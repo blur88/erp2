@@ -1,53 +1,70 @@
-import { useCallback } from 'react'
+import { useCallback, useState } from 'react'
 
+import { useEntityWorkspace } from '@/hooks/useEntityWorkspace'
+import { useNotification } from '@/hooks/useNotification'
+import {
+  useCreateCategoryMutation,
+  useDeleteCategoryMutation,
+  useUpdateCategoryMutation,
+} from '@/store/api/inventoryApi'
+import type { AppDispatch } from '@/store'
+import { setSelectedCategory } from '@/store/slices/inventorySlice'
 import type { Category } from '@/types'
 
-interface UseCategoriesActionsParams {
+interface CategoryFormData {
+  name: string
+  parentId?: string | null
+}
+
+export interface UseCategoriesWorkspaceConfig {
+  dispatch: AppDispatch
   categories: Category[]
   selectedCategory: Category | null
-  editMode: boolean
   isDuplicateName: boolean
   duplicateNameError: string | null
-  deleteCategory: (id: string) => { unwrap: () => Promise<void> }
-  createCategory: (data: { name: string; parentId: string | null }) => { unwrap: () => Promise<unknown> }
-  updateCategory: (args: {
-    id: string
-    data: { name: string; parentId?: string | null }
-  }) => { unwrap: () => Promise<unknown> }
-  showSuccess: (message: string) => void
-  showError: (message: string) => void
   refetchCategories: () => void
-  setDialogOpen: (open: boolean) => void
-  setEditMode: (mode: boolean) => void
-  setDeleteConfirmOpen: (open: boolean) => void
-  setCategoryToDelete: (category: Category | null) => void
-  setSmartDeleteOpen: (open: boolean) => void
-  setDeleteError: (error: any) => void
-  setSubmitting: (submitting: boolean) => void
   resetForm: (values: { name: string; parentId: string | null }) => void
 }
 
-export function useCategoriesActions({
-  categories: _categories,
+export function useCategoriesWorkspace({
+  dispatch,
+  categories,
   selectedCategory,
-  editMode,
   isDuplicateName,
   duplicateNameError,
-  deleteCategory,
-  createCategory,
-  updateCategory,
-  showSuccess,
-  showError,
   refetchCategories,
-  setDialogOpen,
-  setEditMode,
-  setDeleteConfirmOpen,
-  setCategoryToDelete,
-  setSmartDeleteOpen,
-  setDeleteError,
-  setSubmitting,
   resetForm,
-}: UseCategoriesActionsParams) {
+}: UseCategoriesWorkspaceConfig) {
+  const { showSuccess, showError } = useNotification()
+  const [createCategory] = useCreateCategoryMutation()
+  const [updateCategory] = useUpdateCategoryMutation()
+  const [deleteCategory] = useDeleteCategoryMutation()
+
+  const [dialogOpen, setDialogOpen] = useState(false)
+  const [editMode, setEditMode] = useState(false)
+  const [deletedCategoriesDialogOpen, setDeletedCategoriesDialogOpen] = useState(false)
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
+  const [categoryToDelete, setCategoryToDelete] = useState<Category | null>(null)
+  const [smartDeleteOpen, setSmartDeleteOpen] = useState(false)
+  const [deleteError, setDeleteError] = useState<any>(null)
+  const [submitting, setSubmitting] = useState(false)
+
+  const workspace = useEntityWorkspace({
+    entities: categories,
+    selectedEntity: selectedCategory,
+    selectEntity: (category) => dispatch(setSelectedCategory(category)),
+    refetch: refetchCategories,
+    navigate: (() => undefined) as any,
+    routes: {
+      create: '/inventory/categories/create',
+      edit: (id) => `/inventory/categories/${id}/edit`,
+    },
+    notifications: { showSuccess, showError },
+    deleteMutation: async (id) => {
+      await deleteCategory(id).unwrap()
+    },
+  })
+
   const handleAddCategory = useCallback(
     (parentId?: string) => {
       resetForm({ name: '', parentId: parentId || null })
@@ -55,7 +72,7 @@ export function useCategoriesActions({
       setCategoryToDelete(null)
       setDialogOpen(true)
     },
-    [resetForm, setCategoryToDelete, setDialogOpen, setEditMode],
+    [resetForm],
   )
 
   const handleEditCategory = useCallback(
@@ -64,25 +81,22 @@ export function useCategoriesActions({
       setEditMode(true)
       setDialogOpen(true)
     },
-    [resetForm, setDialogOpen, setEditMode],
+    [resetForm],
   )
 
-  const handleDeleteCategory = useCallback(
-    (category: Category) => {
-      setCategoryToDelete(category)
-      setDeleteError(null)
-      setDeleteConfirmOpen(true)
-    },
-    [setCategoryToDelete, setDeleteConfirmOpen, setDeleteError],
-  )
+  const handleDeleteCategory = useCallback((category: Category) => {
+    setCategoryToDelete(category)
+    setDeleteError(null)
+    setDeleteConfirmOpen(true)
+  }, [])
 
   const handleConfirmDelete = useCallback(
-    async (categoryToDelete: Category | null) => {
-      if (!categoryToDelete) return
+    async (targetCategory: Category | null) => {
+      if (!targetCategory) return
 
       try {
-        await deleteCategory(categoryToDelete.id).unwrap()
-        showSuccess(`Category "${categoryToDelete.name}" deleted successfully.`)
+        await deleteCategory(targetCategory.id).unwrap()
+        showSuccess(`Category "${targetCategory.name}" deleted successfully.`)
         setDeleteConfirmOpen(false)
         setCategoryToDelete(null)
       } catch (error: any) {
@@ -93,7 +107,7 @@ export function useCategoriesActions({
           setDeleteError({
             message: error?.message || error,
             productCount: error?.productCount,
-            categoryName: categoryToDelete.name,
+            categoryName: targetCategory.name,
             suggestions: error?.suggestions,
           })
           setSmartDeleteOpen(true)
@@ -104,20 +118,12 @@ export function useCategoriesActions({
         }
       }
     },
-    [
-      deleteCategory,
-      setCategoryToDelete,
-      setDeleteConfirmOpen,
-      setDeleteError,
-      setSmartDeleteOpen,
-      showError,
-      showSuccess,
-    ],
+    [deleteCategory, showError, showSuccess],
   )
 
   const handleSmartDelete = useCallback(
-    async (categoryToDelete: Category | null, moveToUncategorized: boolean) => {
-      if (!categoryToDelete) return
+    async (targetCategory: Category | null, moveToUncategorized: boolean) => {
+      if (!targetCategory) return
 
       const params = new URLSearchParams()
       params.set('force', 'true')
@@ -126,7 +132,7 @@ export function useCategoriesActions({
       }
 
       const response = await fetch(
-        `/api/inventory/categories/${categoryToDelete.id}?${params.toString()}`,
+        `/api/inventory/categories/${targetCategory.id}?${params.toString()}`,
         { method: 'DELETE', headers: { 'Content-Type': 'application/json' } },
       )
 
@@ -138,13 +144,15 @@ export function useCategoriesActions({
 
       if (result.moved && result.moved > 0) {
         showSuccess(
-          `Category "${categoryToDelete.name}" deleted. ${result.moved} product${result.moved === 1 ? '' : 's'} moved to Uncategorized.`,
+          `Category "${targetCategory.name}" deleted. ${result.moved} product${
+            result.moved === 1 ? '' : 's'
+          } moved to Uncategorized.`,
         )
       } else {
-        showSuccess(result.message || `Category "${categoryToDelete.name}" deleted successfully.`)
+        showSuccess(result.message || `Category "${targetCategory.name}" deleted successfully.`)
       }
 
-      void refetchCategories()
+      refetchCategories()
     },
     [refetchCategories, showSuccess],
   )
@@ -152,16 +160,16 @@ export function useCategoriesActions({
   const handleCancelDelete = useCallback(() => {
     setDeleteConfirmOpen(false)
     setCategoryToDelete(null)
-  }, [setCategoryToDelete, setDeleteConfirmOpen])
+  }, [])
 
   const handleSmartDeleteClose = useCallback(() => {
     setSmartDeleteOpen(false)
     setCategoryToDelete(null)
     setDeleteError(null)
-  }, [setCategoryToDelete, setDeleteError, setSmartDeleteOpen])
+  }, [])
 
   const onSubmit = useCallback(
-    async (data: { name: string; parentId?: string | null }) => {
+    async (data: CategoryFormData) => {
       try {
         setSubmitting(true)
 
@@ -191,7 +199,8 @@ export function useCategoriesActions({
           const message = error?.response?.data?.message || 'Invalid category data'
           showError(`Validation error: ${message}`)
         } else {
-          const message = error?.response?.data?.message || error?.message || 'Failed to save category'
+          const message =
+            error?.response?.data?.message || error?.message || 'Failed to save category'
           showError(`Failed to save category: ${message}`)
         }
       } finally {
@@ -205,8 +214,6 @@ export function useCategoriesActions({
       isDuplicateName,
       resetForm,
       selectedCategory,
-      setDialogOpen,
-      setSubmitting,
       showError,
       showSuccess,
       updateCategory,
@@ -214,6 +221,18 @@ export function useCategoriesActions({
   )
 
   return {
+    ...workspace,
+    dialogOpen,
+    setDialogOpen,
+    editMode,
+    setEditMode,
+    deletedCategoriesDialogOpen,
+    setDeletedCategoriesDialogOpen,
+    deleteConfirmOpen,
+    categoryToDelete,
+    smartDeleteOpen,
+    deleteError,
+    submitting,
     handleAddCategory,
     handleEditCategory,
     handleDeleteCategory,

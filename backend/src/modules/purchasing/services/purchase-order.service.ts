@@ -87,6 +87,96 @@ export class PurchaseOrderService extends BaseCrudService<
     return where;
   }
 
+  protected applyQueryBuilder(qb: any, query: PurchaseOrderQueryDto): any {
+    qb = qb
+      .leftJoinAndSelect('po.supplier', 'supplier')
+      .leftJoinAndSelect('po.items', 'items')
+      .leftJoinAndSelect('items.product', 'product')
+      .leftJoinAndSelect('po.goodsReceivedNotes', 'grns')
+      .leftJoinAndSelect('po.vendorPayments', 'vendorPayments');
+
+    if (query.supplierId) {
+      qb = qb.andWhere('po.supplierId = :supplierId', { supplierId: query.supplierId });
+    }
+    if (query.orderDateFrom) {
+      qb = qb.andWhere('po.orderDate >= :orderDateFrom', {
+        orderDateFrom: new Date(query.orderDateFrom),
+      });
+    }
+    if (query.orderDateTo) {
+      qb = qb.andWhere('po.orderDate <= :orderDateTo', {
+        orderDateTo: new Date(query.orderDateTo),
+      });
+    }
+
+    switch (query.paymentStatus) {
+      case 'unpaid':
+        qb = qb.andWhere('(po.paidAmount = 0 OR po.paidAmount IS NULL)');
+        break;
+      case 'partial':
+        qb = qb.andWhere('po.paidAmount > 0 AND po.paidAmount < po.totalAmount');
+        break;
+      case 'paid':
+        qb = qb.andWhere('po.paidAmount >= po.totalAmount AND po.paidAmount > 0');
+        break;
+      case 'overpaid':
+        qb = qb.andWhere('po.paidAmount > po.totalAmount');
+        break;
+    }
+
+    if (query.status) {
+      qb = qb.andWhere('grns.status = :grnStatus', { grnStatus: query.status });
+    }
+
+    return qb;
+  }
+
+  protected applySearch(qb: any, search: string, _alias: string): any {
+    return qb.andWhere(
+      '(po.orderNumber ILIKE :search OR supplier.companyName ILIKE :search OR po.notes ILIKE :search)',
+      { search: `%${search}%` },
+    );
+  }
+
+  protected get allowedSortFields(): string[] {
+    return ['orderNumber', 'orderDate', 'status', 'priority', 'totalAmount', 'createdAt', 'deletedAt'];
+  }
+
+  private buildPurchaseOrderListQuery(
+    query: PurchaseOrderQueryDto,
+    options: { includeDeleted: boolean },
+  ) {
+    let queryBuilder = this.purchaseOrderRepository.createQueryBuilder('po');
+
+    if (options.includeDeleted) {
+      queryBuilder = queryBuilder.withDeleted().where('po.deletedAt IS NOT NULL');
+    }
+
+    if (query.search) {
+      queryBuilder = this.applySearch(queryBuilder, query.search, 'po');
+    }
+
+    return this.applyQueryBuilder(queryBuilder, query);
+  }
+
+  private applyListOrdering(
+    queryBuilder: any,
+    query: PurchaseOrderQueryDto,
+    defaultSortField: 'orderDate' | 'deletedAt',
+    options: { addSecondaryOrderNumber: boolean },
+  ) {
+    const sortField = this.allowedSortFields.includes(query.sortBy ?? '')
+      ? query.sortBy!
+      : defaultSortField;
+    const sortOrder = query.sortOrder ?? 'DESC';
+
+    queryBuilder.orderBy(`po.${sortField}`, sortOrder);
+
+    if (options.addSecondaryOrderNumber && sortField !== 'orderNumber') {
+      queryBuilder.addOrderBy('po.orderNumber', 'DESC');
+    }
+  }
+
   /**
    * Generate sequential purchase order number in format PO-000001
    * Checks both active and soft-deleted orders to ensure unique numbering
@@ -277,101 +367,16 @@ export class PurchaseOrderService extends BaseCrudService<
   async findAll(query: PurchaseOrderQueryDto): Promise<PurchaseOrderListResponseDto> {
     this.logger.log(`Finding purchase orders with query: ${JSON.stringify(query)}`);
 
-    const {
-      page,
-      limit,
-      search,
-      supplierId,
-      orderDateFrom,
-      orderDateTo,
-      status,
-      paymentStatus,
-      sortBy = 'orderDate',
-      sortOrder = 'DESC',
-    } = query;
+    const page = query.page || 1;
+    const limit = query.limit;
+    const skip = limit ? (page - 1) * limit : 0;
+    const queryBuilder = this.buildPurchaseOrderListQuery(query, { includeDeleted: false });
 
-    // If no pagination params provided, fetch all records
-    const skip = page && limit ? (page - 1) * limit : 0;
-    const queryBuilder = this.purchaseOrderRepository
-      .createQueryBuilder('po')
-      .leftJoinAndSelect('po.supplier', 'supplier')
-      .leftJoinAndSelect('po.items', 'items')
-      .leftJoinAndSelect('items.product', 'product')
-      .leftJoinAndSelect('po.goodsReceivedNotes', 'grns')
-      .leftJoinAndSelect('po.vendorPayments', 'vendorPayments');
+    this.applyListOrdering(queryBuilder, query, 'orderDate', { addSecondaryOrderNumber: true });
 
-    // Apply search filter
-    if (search) {
-      queryBuilder.andWhere(
-        '(po.orderNumber ILIKE :search OR supplier.companyName ILIKE :search OR po.notes ILIKE :search)',
-        { search: `%${search}%` }
-      );
-    }
-
-    // Apply filters
-    if (supplierId) {
-      queryBuilder.andWhere('po.supplierId = :supplierId', { supplierId });
-    }
-
-    if (orderDateFrom) {
-      queryBuilder.andWhere('po.orderDate >= :orderDateFrom', {
-        orderDateFrom: new Date(orderDateFrom)
-      });
-    }
-
-    if (orderDateTo) {
-      queryBuilder.andWhere('po.orderDate <= :orderDateTo', {
-        orderDateTo: new Date(orderDateTo)
-      });
-    }
-
-    if (paymentStatus) {
-      switch (paymentStatus) {
-        case 'unpaid':
-          queryBuilder.andWhere('(po.paidAmount = 0 OR po.paidAmount IS NULL)');
-          break;
-        case 'partial':
-          queryBuilder.andWhere(
-            'po.paidAmount > 0 AND po.paidAmount < po.totalAmount',
-          );
-          break;
-        case 'paid':
-          queryBuilder.andWhere(
-            'po.paidAmount >= po.totalAmount AND po.paidAmount > 0',
-          );
-          break;
-        case 'overpaid':
-          queryBuilder.andWhere('po.paidAmount > po.totalAmount');
-          break;
-      }
-    }
-
-    if (status) {
-      queryBuilder.andWhere('grns.status = :grnStatus', { grnStatus: status });
-    }
-
-    // Apply sorting
-    const validSortFields = [
-      'orderNumber', 'orderDate', 'status', 'priority',
-      'totalAmount', 'createdAt'
-    ];
-
-    if (validSortFields.includes(sortBy)) {
-      queryBuilder.orderBy(`po.${sortBy}`, sortOrder);
-    } else {
-      queryBuilder.orderBy('po.orderDate', 'DESC');
-    }
-
-    // Add secondary sort by orderNumber if not primary sort
-    if (sortBy !== 'orderNumber') {
-      queryBuilder.addOrderBy('po.orderNumber', 'DESC');
-    }
-
-    // Get total count
     const total = await queryBuilder.getCount();
 
-    // Apply pagination only if page and limit are provided
-    if (page && limit) {
+    if (limit) {
       queryBuilder.skip(skip).take(limit);
     }
 
@@ -381,7 +386,7 @@ export class PurchaseOrderService extends BaseCrudService<
     return {
       orders: orderDtos,
       total,
-      page: page || 1,
+      page,
       limit: limit || total,
       totalPages: limit ? Math.ceil(total / limit) : 1,
       hasNext: limit ? page < Math.ceil(total / limit) : false,
@@ -710,31 +715,10 @@ export class PurchaseOrderService extends BaseCrudService<
     const limit = query.limit || 20;
     const skip = (page - 1) * limit;
 
-    const queryBuilder = this.purchaseOrderRepository
-      .createQueryBuilder('po')
-      .leftJoinAndSelect('po.supplier', 'supplier')
-      .leftJoinAndSelect('po.items', 'items')
-      .leftJoinAndSelect('items.product', 'product')
-      .withDeleted() // Include soft-deleted records
-      .where('po.deletedAt IS NOT NULL'); // Only get deleted ones
-
-    // Apply search filter
-    if (query.search) {
-      queryBuilder.andWhere(
-        '(po.orderNumber ILIKE :search OR supplier.companyName ILIKE :search OR po.notes ILIKE :search)',
-        { search: `%${query.search}%` }
-      );
-    }
-
-    // Get total count
+    const queryBuilder = this.buildPurchaseOrderListQuery(query, { includeDeleted: true });
     const total = await queryBuilder.getCount();
 
-    // Apply sorting
-    const sortBy = query.sortBy || 'deletedAt';
-    const sortOrder = query.sortOrder || 'DESC';
-    queryBuilder.orderBy(`po.${sortBy}`, sortOrder as 'ASC' | 'DESC');
-
-    // Apply pagination
+    this.applyListOrdering(queryBuilder, query, 'deletedAt', { addSecondaryOrderNumber: false });
     queryBuilder.skip(skip).take(limit);
 
     const purchaseOrders = await queryBuilder.getMany();

@@ -1,9 +1,8 @@
-import React, { useCallback, useMemo } from 'react'
+import React, { useCallback, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 
 import GenericListPage from '@/components/common/GenericListPage'
 import { useFilterBar } from '@/hooks/useFilterBar'
-import { useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
 import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
 import { useGetGoodsReceivedNotesQuery } from '@/store/api/purchasingApi'
 import { selectSelectedGRN } from '@/store/slices/purchasingSlice'
@@ -14,8 +13,7 @@ import GRNContextHeader from './components/GRNContextHeader'
 import GRNDialogs from './components/GRNDialogs'
 import GRNTable from './components/GRNTable'
 import GRNWorkspaceCard from './components/GRNWorkspaceCard'
-import { useGRNPageState } from './hooks/grnPageState'
-import { useGRNSelection } from './hooks/grnSelection'
+import { useGRNWorkspace } from './hooks/useGRNWorkspace'
 
 interface GRNFilters {
   search: string
@@ -24,11 +22,19 @@ interface GRNFilters {
   status: 'draft' | 'received' | null
 }
 
+interface GRNSortingState {
+  sortBy: string
+  sortOrder: 'asc' | 'desc'
+}
+
 export const GoodsReceivedPage: React.FC = () => {
   const navigate = useNavigate()
   const dispatch = useAppDispatch()
   const [searchParams, setSearchParams] = useSearchParams()
-  const pageState = useGRNPageState()
+  const [sorting, setSorting] = useState<GRNSortingState>({
+    sortBy: 'grnNumber',
+    sortOrder: 'asc',
+  })
   const selectedGRN = useAppSelector(selectSelectedGRN)
 
   const filterConfig = useMemo<FilterBarConfig<GRNFilters>>(
@@ -61,19 +67,20 @@ export const GoodsReceivedPage: React.FC = () => {
   }, [filterBar.appliedFilters.period, weekStartsOn])
 
   const queryParams = useMemo(() => ({
-    sortBy: pageState.sorting.sortBy,
-    sortOrder: pageState.sorting.sortOrder.toUpperCase(),
+    sortBy: sorting.sortBy,
+    sortOrder: sorting.sortOrder.toUpperCase(),
     search: filterBar.appliedFilters.search || undefined,
     supplierId: filterBar.appliedFilters.supplierId || undefined,
     status: filterBar.appliedFilters.status || undefined,
     receivedDateFrom: dateRange.fromDate,
     receivedDateTo: dateRange.toDate,
-  }), [dateRange, filterBar.appliedFilters, pageState.sorting])
+  }), [dateRange, filterBar.appliedFilters, sorting])
 
   const {
     data: grnsResponse,
     isFetching: loading,
     error: grnsError,
+    refetch,
   } = useGetGoodsReceivedNotesQuery(queryParams)
 
   const grns = grnsResponse?.data || []
@@ -82,56 +89,45 @@ export const GoodsReceivedPage: React.FC = () => {
     ? ((grnsError as any).data?.message || (grnsError as any).data || 'Failed to fetch goods received notes')
     : null
 
-  const selection = useGRNSelection({
+  const workspace = useGRNWorkspace({
     dispatch,
     grns,
     selectedGRN,
-    focusedGRNIndex: pageState.focusedGRNIndex,
-    setFocusedGRNIndex: pageState.setFocusedGRNIndex,
+    refetch: () => void refetch(),
     searchParams,
     setSearchParams,
-    grnListRef: pageState.grnListRef,
-    searchInputRef: pageState.searchInputRef,
-    userHasNavigatedRef: pageState.userHasNavigatedRef,
-    setJournalEntryRef: pageState.setJournalEntryRef,
-    setJournalEntryRefLoading: pageState.setJournalEntryRefLoading,
+    sorting,
+    setSorting,
   })
 
   const handleSort = useCallback((field: string) => {
-    pageState.setSorting((prev) => ({
-      ...prev,
+    setSorting((prev) => ({
       sortBy: field,
       sortOrder: prev.sortBy === field && prev.sortOrder === 'desc' ? 'asc' : 'desc',
     }))
-  }, [pageState])
-
-  useKeyboardShortcuts({
-    onSearch: selection.focusSearchInput,
-    onArrowUp: selection.handleNavigateUp,
-    onArrowDown: selection.handleNavigateDown,
-  })
+  }, [])
 
   const navigateToJournalEntry = useCallback(() => {
-    if (!pageState.journalEntryRef) return
+    if (!workspace.journalEntryRef) return
     navigate(
-      `/accounting/journal-entries?sourceType=${pageState.journalEntryRef.sourceType}&sourceId=${pageState.journalEntryRef.sourceId}`,
+      `/accounting/journal-entries?sourceType=${workspace.journalEntryRef.sourceType}&sourceId=${workspace.journalEntryRef.sourceId}`,
     )
-  }, [navigate, pageState.journalEntryRef])
+  }, [navigate, workspace.journalEntryRef])
 
   return (
     <GenericListPage
       title="Goods Received Notes"
       subtitle="Track and manage goods received from suppliers"
-      secondaryAction={{ label: 'View Deleted', onClick: () => pageState.setDeletedGRNsOpen(true) }}
+      secondaryAction={{ label: 'View Deleted', onClick: () => workspace.setDeletedGRNsOpen(true) }}
       filterConfig={filterConfig}
       draftFilters={filterBar.draftFilters}
       handlers={filterBar.handlers}
       hasActiveFilters={filterBar.hasActiveFilters}
-      searchInputRef={pageState.searchInputRef}
+      searchInputRef={workspace.searchInputRef}
       sort={{
         field: 'grnNumber',
-        sortBy: pageState.sorting.sortBy,
-        sortOrder: pageState.sorting.sortOrder,
+        sortBy: sorting.sortBy,
+        sortOrder: sorting.sortOrder,
         onSort: handleSort,
       }}
       error={error}
@@ -141,17 +137,17 @@ export const GoodsReceivedPage: React.FC = () => {
           loading={loading}
           total={total}
           selectedGRNId={selectedGRN?.id}
-          focusedGRNIndex={pageState.focusedGRNIndex}
-          onGRNSelect={selection.handleGRNSelect}
-          grnListRef={pageState.grnListRef}
+          focusedGRNIndex={workspace.focusedIndex}
+          onGRNSelect={workspace.handleSelect}
+          grnListRef={workspace.listRef}
         />
       )}
       headerSlot={(
         <GRNContextHeader
           selectedGRN={selectedGRN}
-          journalEntryRef={pageState.journalEntryRef}
-          journalEntryRefLoading={pageState.journalEntryRefLoading}
-          onPrint={() => pageState.setPrintDialogOpen(true)}
+          journalEntryRef={workspace.journalEntryRef}
+          journalEntryRefLoading={workspace.journalEntryRefLoading}
+          onPrint={() => workspace.setPrintDialogOpen(true)}
           onNavigateToJournalEntry={navigateToJournalEntry}
         />
       )}
@@ -159,10 +155,10 @@ export const GoodsReceivedPage: React.FC = () => {
       dialogs={(
         <GRNDialogs
           selectedGRN={selectedGRN}
-          deletedGRNsOpen={pageState.deletedGRNsOpen}
-          onCloseDeletedGRNs={() => pageState.setDeletedGRNsOpen(false)}
-          printDialogOpen={pageState.printDialogOpen}
-          onClosePrintDialog={() => pageState.setPrintDialogOpen(false)}
+          deletedGRNsOpen={workspace.deletedGRNsOpen}
+          onCloseDeletedGRNs={() => workspace.setDeletedGRNsOpen(false)}
+          printDialogOpen={workspace.printDialogOpen}
+          onClosePrintDialog={() => workspace.setPrintDialogOpen(false)}
         />
       )}
     />

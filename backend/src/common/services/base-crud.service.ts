@@ -125,6 +125,8 @@ export abstract class BaseCrudService<
       queryBuilder = this.applySearch(queryBuilder, query.search, alias);
     }
 
+    queryBuilder = this.applyQueryBuilder(queryBuilder, query);
+
     const entities = await queryBuilder.getMany();
 
     return {

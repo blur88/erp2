@@ -18,7 +18,7 @@ import { TABLE_STYLES } from '@/constants/tableStyles'
 import type { GoodsReceivedNote } from '@/types'
 import { formatDate } from '@/utils/formatters'
 
-import type { GRNJournalEntryRef } from '../hooks/grnPageState'
+import type { GRNJournalEntryRef } from '../hooks/useGRNWorkspace'
 
 interface GRNContextHeaderProps {
   selectedGRN: GoodsReceivedNote | null

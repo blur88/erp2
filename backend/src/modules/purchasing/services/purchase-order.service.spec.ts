@@ -456,6 +456,57 @@ describe('PurchaseOrderService', () => {
     });
   });
 
+  describe('findDeleted', () => {
+    function createDeletedQueryBuilder(orders: PurchaseOrder[] = []) {
+      return {
+        leftJoinAndSelect: jest.fn().mockReturnThis(),
+        withDeleted: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        skip: jest.fn().mockReturnThis(),
+        take: jest.fn().mockReturnThis(),
+        getCount: jest.fn().mockResolvedValue(orders.length),
+        getMany: jest.fn().mockResolvedValue(orders),
+      };
+    }
+
+    function createDeletedOrder(overrides: Partial<PurchaseOrder> = {}): PurchaseOrder {
+      return {
+        id: 'po-deleted-1',
+        orderNumber: 'PO-000201',
+        orderDate: new Date('2026-03-01'),
+        subtotal: 100,
+        discountPercent: 0,
+        discountAmount: 0,
+        shippingAmount: 0,
+        totalAmount: 100,
+        paidAmount: 0,
+        notes: '',
+        supplier: {
+          id: 'supplier-1',
+          companyName: 'Supplier A',
+        },
+        items: [],
+        goodsReceivedNotes: [],
+        vendorPayments: [],
+        isFullyReceived: jest.fn().mockReturnValue(false),
+        getTotalReceivedQuantity: jest.fn().mockReturnValue(0),
+        getTotalOrderedQuantity: jest.fn().mockReturnValue(0),
+        ...overrides,
+      } as unknown as PurchaseOrder;
+    }
+
+    it('falls back to deletedAt when deleted sortBy is not allowlisted', async () => {
+      const queryBuilder = createDeletedQueryBuilder([createDeletedOrder()]);
+      purchaseOrderRepository.createQueryBuilder.mockReturnValue(queryBuilder as any);
+
+      await service.findDeleted({ sortBy: 'drop table purchase_orders', sortOrder: 'ASC' } as any);
+
+      expect(queryBuilder.orderBy).toHaveBeenCalledWith('po.deletedAt', 'ASC');
+    });
+  });
+
   describe('receiveGoods', () => {
     it('posts accounting entry after receiving goods', async () => {
       grnRepository.findOne

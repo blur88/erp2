@@ -1,17 +1,11 @@
-import React, { useCallback, useMemo } from 'react'
+import React, { useCallback, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 
 import GenericListPage from '@/components/common/GenericListPage'
 import { useFilterBar } from '@/hooks/useFilterBar'
-import { useNotification } from '@/hooks/useNotification'
-import { useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
 import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
 import {
-  useCompleteStockAdjustmentMutation,
-  useDeleteStockAdjustmentMutation,
   useGetStockAdjustmentsQuery,
-  useLazyGetStockAdjustmentQuery,
-  useUncompleteStockAdjustmentMutation,
 } from '@/store/api/inventoryApi'
 import { selectSelectedStockAdjustment } from '@/store/slices/inventorySlice'
 import type { FilterBarConfig, PeriodValue } from '@/types/filterBar.types'
@@ -21,9 +15,7 @@ import StockAdjustmentContextHeader from './components/StockAdjustmentContextHea
 import StockAdjustmentList from './components/StockAdjustmentList'
 import StockAdjustmentWorkspaceCard from './components/StockAdjustmentWorkspaceCard'
 import StockAdjustmentsDialogs from './components/StockAdjustmentsDialogs'
-import { useStockAdjustmentsActions } from './hooks/stockAdjustmentsActions'
-import { useStockAdjustmentsPageState } from './hooks/stockAdjustmentsPageState'
-import { useStockAdjustmentsSelection } from './hooks/stockAdjustmentsSelection'
+import { useStockAdjustmentsWorkspace } from './hooks/useStockAdjustmentsWorkspace'
 
 interface StockAdjustmentFilters {
   search: string
@@ -31,13 +23,20 @@ interface StockAdjustmentFilters {
   status: 'draft' | 'completed' | 'cancelled' | null
 }
 
+interface StockAdjustmentsSortingState {
+  sortBy: string
+  sortOrder: 'asc' | 'desc'
+}
+
 const StockAdjustmentsPage: React.FC = () => {
   const navigate = useNavigate()
   const dispatch = useAppDispatch()
-  const { showSuccess, showError } = useNotification()
   const [searchParams, setSearchParams] = useSearchParams()
   const selectedAdjustment = useAppSelector(selectSelectedStockAdjustment)
-  const pageState = useStockAdjustmentsPageState()
+  const [sorting, setSorting] = useState<StockAdjustmentsSortingState>({
+    sortBy: 'adjustmentNumber',
+    sortOrder: 'asc',
+  })
 
   const filterConfig = useMemo<FilterBarConfig<StockAdjustmentFilters>>(
     () => ({
@@ -74,10 +73,10 @@ const StockAdjustmentsPage: React.FC = () => {
       status: appliedFilters.status ?? undefined,
       fromDate: dateRange.fromDate,
       toDate: dateRange.toDate,
-      sortBy: pageState.sorting.sortBy,
-      sortOrder: pageState.sorting.sortOrder.toUpperCase(),
+      sortBy: sorting.sortBy,
+      sortOrder: sorting.sortOrder.toUpperCase(),
     }),
-    [appliedFilters, dateRange, pageState.sorting],
+    [appliedFilters, dateRange, sorting],
   )
 
   const {
@@ -86,10 +85,6 @@ const StockAdjustmentsPage: React.FC = () => {
     error: adjustmentsError,
     refetch: refetchAdjustments,
   } = useGetStockAdjustmentsQuery(queryParams)
-  const [fetchStockAdjustmentById] = useLazyGetStockAdjustmentQuery()
-  const [deleteStockAdjustment] = useDeleteStockAdjustmentMutation()
-  const [completeStockAdjustment] = useCompleteStockAdjustmentMutation()
-  const [uncompleteStockAdjustment] = useUncompleteStockAdjustmentMutation()
 
   const adjustments = adjustmentsResponse?.data || []
   const total = adjustmentsResponse?.meta?.total || 0
@@ -97,79 +92,44 @@ const StockAdjustmentsPage: React.FC = () => {
     ? ((adjustmentsError as any).data?.message || (adjustmentsError as any).data || 'Failed to fetch stock adjustments')
     : null
 
-  const selection = useStockAdjustmentsSelection({
+  const workspace = useStockAdjustmentsWorkspace({
     dispatch,
     adjustments,
     selectedAdjustment,
-    focusedAdjustmentIndex: pageState.focusedAdjustmentIndex,
-    setFocusedAdjustmentIndex: pageState.setFocusedAdjustmentIndex,
+    refetchAdjustments: () => void refetchAdjustments(),
     searchParams,
     setSearchParams,
-    adjustmentListRef: pageState.adjustmentListRef,
-    searchInputRef: pageState.searchInputRef,
-    userHasNavigatedRef: pageState.userHasNavigatedRef,
-    setJournalEntryRef: pageState.setJournalEntryRef,
-    setJournalEntryRefLoading: pageState.setJournalEntryRefLoading,
-  })
-
-  const actions = useStockAdjustmentsActions({
-    dispatch,
-    navigate,
-    selectedAdjustment,
-    deleteStockAdjustment,
-    completeStockAdjustment,
-    uncompleteStockAdjustment,
-    fetchStockAdjustmentById,
-    refetchAdjustments,
-    showSuccess,
-    showError,
-    setDeleteConfirmOpen: pageState.setDeleteConfirmOpen,
-    setAdjustmentToDelete: pageState.setAdjustmentToDelete,
-    setAdjustmentToDeleteName: pageState.setAdjustmentToDeleteName,
-    setCompleteConfirmOpen: pageState.setCompleteConfirmOpen,
-    setAdjustmentToComplete: pageState.setAdjustmentToComplete,
-    setAdjustmentToCompleteName: pageState.setAdjustmentToCompleteName,
-    setRevertConfirmOpen: pageState.setRevertConfirmOpen,
-    setAdjustmentToRevert: pageState.setAdjustmentToRevert,
-    setAdjustmentToRevertName: pageState.setAdjustmentToRevertName,
-    setFocusedAdjustmentIndex: pageState.setFocusedAdjustmentIndex,
   })
 
   const handleSort = useCallback((field: string) => {
-    pageState.setSorting((prev) => ({
+    setSorting((prev) => ({
       sortBy: field,
       sortOrder: prev.sortBy === field && prev.sortOrder === 'desc' ? 'asc' : 'desc',
     }))
-  }, [pageState])
+  }, [])
 
   const navigateToJournalEntry = useCallback(() => {
-    if (!pageState.journalEntryRef) return
+    if (!workspace.journalEntryRef) return
     navigate(
-      `/accounting/journal-entries?sourceType=${pageState.journalEntryRef.sourceType}&sourceId=${pageState.journalEntryRef.sourceId}`,
+      `/accounting/journal-entries?sourceType=${workspace.journalEntryRef.sourceType}&sourceId=${workspace.journalEntryRef.sourceId}`,
     )
-  }, [navigate, pageState.journalEntryRef])
-
-  useKeyboardShortcuts({
-    onSearch: selection.focusSearchInput,
-    onArrowUp: selection.handleNavigateUp,
-    onArrowDown: selection.handleNavigateDown,
-  })
+  }, [navigate, workspace.journalEntryRef])
 
   return (
     <GenericListPage
       title="Stock Adjustments"
       subtitle="View and manage stock adjustment history"
-      secondaryAction={{ label: 'View Deleted', onClick: () => pageState.setShowDeletedDialog(true) }}
+      secondaryAction={{ label: 'View Deleted', onClick: () => workspace.setShowDeletedDialog(true) }}
       primaryAction={{ label: 'New Adjustment', onClick: () => navigate('/inventory/stock-adjustments/create') }}
       filterConfig={filterConfig}
       draftFilters={draftFilters}
       handlers={handlers}
       hasActiveFilters={hasActiveFilters}
-      searchInputRef={pageState.searchInputRef}
+      searchInputRef={workspace.searchInputRef}
       sort={{
         field: 'adjustmentNumber',
-        sortBy: pageState.sorting.sortBy,
-        sortOrder: pageState.sorting.sortOrder,
+        sortBy: sorting.sortBy,
+        sortOrder: sorting.sortOrder,
         onSort: handleSort,
       }}
       error={error}
@@ -179,40 +139,40 @@ const StockAdjustmentsPage: React.FC = () => {
           loading={loading}
           total={total}
           selectedAdjustmentId={selectedAdjustment?.id}
-          focusedAdjustmentIndex={pageState.focusedAdjustmentIndex}
-          onSelect={selection.handleAdjustmentSelect}
-          adjustmentListRef={pageState.adjustmentListRef}
+          focusedAdjustmentIndex={workspace.focusedIndex}
+          onSelect={workspace.handleSelect}
+          adjustmentListRef={workspace.listRef}
         />
       )}
       headerSlot={(
         <StockAdjustmentContextHeader
           selectedAdjustment={selectedAdjustment}
-          journalEntryRef={pageState.journalEntryRef}
-          journalEntryRefLoading={pageState.journalEntryRefLoading}
-          onEdit={actions.handleEdit}
-          onDelete={() => selectedAdjustment && actions.handleDelete(selectedAdjustment.id, selectedAdjustment.adjustmentNumber)}
-          onComplete={() => selectedAdjustment && actions.handleComplete(selectedAdjustment.id, selectedAdjustment.adjustmentNumber)}
-          onRevert={() => selectedAdjustment && actions.handleRevert(selectedAdjustment.id, selectedAdjustment.adjustmentNumber)}
+          journalEntryRef={workspace.journalEntryRef}
+          journalEntryRefLoading={workspace.journalEntryRefLoading}
+          onEdit={workspace.handleEdit}
+          onDelete={() => selectedAdjustment && workspace.handleDelete(selectedAdjustment.id, selectedAdjustment.adjustmentNumber)}
+          onComplete={() => selectedAdjustment && workspace.handleComplete(selectedAdjustment.id, selectedAdjustment.adjustmentNumber)}
+          onRevert={() => selectedAdjustment && workspace.handleRevert(selectedAdjustment.id, selectedAdjustment.adjustmentNumber)}
           onNavigateToJournalEntry={navigateToJournalEntry}
         />
       )}
       workspaceSlot={<StockAdjustmentWorkspaceCard selectedAdjustment={selectedAdjustment} />}
       dialogs={(
         <StockAdjustmentsDialogs
-          showDeletedDialog={pageState.showDeletedDialog}
-          onCloseDeletedDialog={() => pageState.setShowDeletedDialog(false)}
-          deleteConfirmOpen={pageState.deleteConfirmOpen}
-          adjustmentToDeleteName={pageState.adjustmentToDeleteName}
-          onConfirmDelete={() => void actions.handleConfirmDelete(pageState.adjustmentToDelete)}
-          onCancelDelete={actions.handleCancelDelete}
-          completeConfirmOpen={pageState.completeConfirmOpen}
-          adjustmentToCompleteName={pageState.adjustmentToCompleteName}
-          onConfirmComplete={() => void actions.handleConfirmComplete(pageState.adjustmentToComplete)}
-          onCancelComplete={actions.handleCancelComplete}
-          revertConfirmOpen={pageState.revertConfirmOpen}
-          adjustmentToRevertName={pageState.adjustmentToRevertName}
-          onConfirmRevert={() => void actions.handleConfirmRevert(pageState.adjustmentToRevert)}
-          onCancelRevert={actions.handleCancelRevert}
+          showDeletedDialog={workspace.showDeletedDialog}
+          onCloseDeletedDialog={() => workspace.setShowDeletedDialog(false)}
+          deleteConfirmOpen={workspace.deleteConfirmOpen}
+          adjustmentToDeleteName={workspace.adjustmentToDeleteName}
+          onConfirmDelete={() => void workspace.handleConfirmDelete(workspace.adjustmentToDelete)}
+          onCancelDelete={workspace.handleCancelDelete}
+          completeConfirmOpen={workspace.completeConfirmOpen}
+          adjustmentToCompleteName={workspace.adjustmentToCompleteName}
+          onConfirmComplete={() => void workspace.handleConfirmComplete(workspace.adjustmentToComplete)}
+          onCancelComplete={workspace.handleCancelComplete}
+          revertConfirmOpen={workspace.revertConfirmOpen}
+          adjustmentToRevertName={workspace.adjustmentToRevertName}
+          onConfirmRevert={() => void workspace.handleConfirmRevert(workspace.adjustmentToRevert)}
+          onCancelRevert={workspace.handleCancelRevert}
         />
       )}
     />

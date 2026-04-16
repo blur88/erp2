@@ -21,7 +21,7 @@ import { TABLE_STYLES } from '@/constants/tableStyles'
 import type { StockAdjustment } from '@/types'
 import { formatCurrency, formatDate } from '@/utils/formatters'
 
-import type { StockAdjustmentsJournalEntryRef } from '../hooks/stockAdjustmentsPageState'
+import type { StockAdjustmentsJournalEntryRef } from '../hooks/useStockAdjustmentsWorkspace'
 
 interface StockAdjustmentContextHeaderProps {
   selectedAdjustment: StockAdjustment | null

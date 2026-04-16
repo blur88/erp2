@@ -13,7 +13,7 @@ import {
 } from '@mui/material'
 import Grid from '@mui/material/Grid'
 
-import type { PaymentJournalEntryRef, PaymentListItem } from '../hooks/paymentsPageState'
+import type { PaymentJournalEntryRef, PaymentListItem } from '../hooks/usePaymentsWorkspace'
 
 import { AppButton } from '@/components/common/AppButton'
 import { TABLE_STYLES } from '@/constants/tableStyles'

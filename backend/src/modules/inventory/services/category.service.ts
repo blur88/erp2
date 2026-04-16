@@ -14,9 +14,6 @@ import {
   FindManyOptions,
   SelectQueryBuilder,
   In,
-  Like,
-  Not,
-  IsNull,
   FindOptionsWhere,
 } from 'typeorm';
 import { BaseCrudService } from '../../../common/services/base-crud.service';
@@ -68,6 +65,57 @@ export class CategoryService extends BaseCrudService<
     }
 
     return where;
+  }
+
+  protected applyQueryBuilder(qb: any, query: QueryCategoriesDto): any {
+    if (query.includeTree && !query.parentId) {
+      qb = qb.andWhere('category.level = 0');
+    }
+
+    if (query.parentId !== undefined) {
+      if (query.parentId === null) {
+        qb = qb.andWhere('category.parentId IS NULL');
+      } else {
+        qb = qb.andWhere('category.parentId = :parentId', { parentId: query.parentId });
+      }
+    }
+
+    qb = qb
+      .orderBy('UPPER(COALESCE(category.path, category.name))', 'ASC')
+      .addOrderBy('category.level', 'ASC');
+
+    const sortField = ['name', 'createdAt'].includes(query.sortBy ?? '') ? query.sortBy! : 'name';
+    if (sortField === 'name') {
+      qb = qb.addOrderBy('UPPER(category.name)', query.sortOrder ?? 'ASC');
+    } else {
+      qb = qb.addOrderBy(`category.${sortField}`, query.sortOrder ?? 'ASC');
+    }
+
+    return qb;
+  }
+
+  protected applySearch(qb: any, search: string, _alias: string): any {
+    return qb.andWhere('category.name ILIKE :search', { search: `%${search}%` });
+  }
+
+  protected get allowedSortFields(): string[] {
+    return ['name', 'createdAt', 'updatedAt', 'deletedAt'];
+  }
+
+  private buildCategoryListQuery(query: QueryCategoriesDto, options: { includeDeleted: boolean }) {
+    let queryBuilder = this.categoryRepository.createQueryBuilder('category');
+
+    if (options.includeDeleted) {
+      queryBuilder = queryBuilder.withDeleted().where('category.deletedAt IS NOT NULL');
+    } else {
+      queryBuilder = queryBuilder.where('1=1');
+    }
+
+    if (query.search) {
+      queryBuilder = this.applySearch(queryBuilder, query.search, 'category');
+    }
+
+    return this.applyQueryBuilder(queryBuilder, query);
   }
 
   /**
@@ -137,61 +185,10 @@ export class CategoryService extends BaseCrudService<
     const {
       page = 1,
       limit = 20,
-      search,
-      parentId,
       includeTree = false,
       includeProductCount = false,
-      sortBy = 'name',
-      sortOrder = 'ASC',
     } = query;
-
-    let queryBuilder: SelectQueryBuilder<Category>;
-
-    if (includeTree && !parentId) {
-      // For tree view, start with root categories only
-      queryBuilder = this.categoryRepository
-        .createQueryBuilder('category')
-        .where('category.level = 0');
-    } else {
-      queryBuilder = this.categoryRepository
-        .createQueryBuilder('category')
-        .where('1=1');
-    }
-
-    // Apply filters
-    if (search) {
-      queryBuilder.andWhere(
-        '(category.name ILIKE :search)',
-        { search: `%${search}%` },
-      );
-    }
-
-    if (parentId !== undefined) {
-      if (parentId === null) {
-        queryBuilder.andWhere('category.parentId IS NULL');
-      } else {
-        queryBuilder.andWhere('category.parentId = :parentId', { parentId });
-      }
-    }
-
-
-    // Apply hierarchical sorting
-    const validSortFields = ['name', 'createdAt'];
-    const sortField = validSortFields.includes(sortBy) ? sortBy : 'name';
-    
-    // For hierarchical ordering, sort by path first (maintains parent-child relationships)
-    // Use COALESCE to handle null paths and fall back to name - make case-insensitive
-    queryBuilder.orderBy('UPPER(COALESCE(category.path, category.name))', 'ASC');
-
-    // Then sort by level to ensure proper nesting
-    queryBuilder.addOrderBy('category.level', 'ASC');
-
-    // Finally apply the requested sort within each level - make case-insensitive for name field
-    if (sortField === 'name') {
-      queryBuilder.addOrderBy('UPPER(category.name)', sortOrder);
-    } else {
-      queryBuilder.addOrderBy(`category.${sortField}`, sortOrder);
-    }
+    const queryBuilder = this.buildCategoryListQuery(query, { includeDeleted: false });
 
     // Apply pagination
     const offset = (page - 1) * limit;
@@ -201,7 +198,7 @@ export class CategoryService extends BaseCrudService<
 
     let data: CategoryResponseDto[] = [];
 
-    if (includeTree && !parentId) {
+    if (includeTree && !query.parentId) {
       // Load full tree structure for root categories
       const treeData = await Promise.all(
         categories.map(async (category) => {
@@ -241,35 +238,18 @@ export class CategoryService extends BaseCrudService<
     const {
       page = 1,
       limit = 20,
-      search,
-      sortBy = 'deletedAt',
-      sortOrder = 'DESC',
     } = query;
-
-    // Use find method with withDeleted option to properly include soft-deleted records
-    const where: any = {};
-
-    if (search) {
-      where.name = Like(`%${search}%`);
-    }
-
-    // Sorting
-    const allowedSortFields = ['name', 'deletedAt', 'createdAt'];
-    const safeSortBy = allowedSortFields.includes(sortBy) ? sortBy : 'deletedAt';
-    const safeSortOrder = sortOrder?.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
-
     const skip = (page - 1) * limit;
+    const deletedQuery = {
+      ...query,
+      sortBy: this.allowedSortFields.includes(query.sortBy ?? '') ? query.sortBy : 'deletedAt',
+      sortOrder: query.sortOrder ?? 'DESC',
+    } as QueryCategoriesDto;
+    const queryBuilder = this.buildCategoryListQuery(deletedQuery, { includeDeleted: true });
 
-    const [categories, total] = await this.categoryRepository.findAndCount({
-      where: {
-        ...where,
-        deletedAt: Not(IsNull()), // Only include deleted categories
-      },
-      withDeleted: true,
-      order: { [safeSortBy]: safeSortOrder },
-      skip,
-      take: limit,
-    });
+    queryBuilder.skip(skip).take(limit);
+
+    const [categories, total] = await queryBuilder.getManyAndCount();
 
     const data = await Promise.all(
       categories.map(async (category) =>

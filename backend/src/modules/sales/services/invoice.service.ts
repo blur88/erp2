@@ -81,6 +81,89 @@ export class InvoiceService extends BaseCrudService<
     return where;
   }
 
+  protected applyQueryBuilder(qb: any, query: QueryInvoicesDto): any {
+    qb = qb
+      .leftJoinAndSelect('invoice.customer', 'customer')
+      .leftJoinAndSelect('invoice.salesOrder', 'salesOrder')
+      .leftJoinAndSelect('invoice.payments', 'payments')
+      .leftJoinAndSelect('invoice.items', 'items')
+      .leftJoinAndSelect('items.product', 'product');
+
+    if (query.customerId) {
+      qb = qb.andWhere('invoice.customerId = :customerId', { customerId: query.customerId });
+    }
+    if (query.salesOrderId) {
+      qb = qb.andWhere('invoice.salesOrderId = :salesOrderId', { salesOrderId: query.salesOrderId });
+    }
+    if (query.status) {
+      qb = qb.andWhere('invoice.status = :status', { status: query.status });
+    }
+    if (query.fromDate && query.toDate) {
+      const endDate = new Date(query.toDate);
+      endDate.setHours(23, 59, 59, 999);
+      qb = qb.andWhere('invoice.invoiceDate BETWEEN :fromDate AND :toDate', {
+        fromDate: new Date(query.fromDate),
+        toDate: endDate,
+      });
+    } else if (query.fromDate) {
+      qb = qb.andWhere('invoice.invoiceDate >= :fromDate', {
+        fromDate: new Date(query.fromDate),
+      });
+    } else if (query.toDate) {
+      const endDate = new Date(query.toDate);
+      endDate.setHours(23, 59, 59, 999);
+      qb = qb.andWhere('invoice.invoiceDate <= :toDate', { toDate: endDate });
+    }
+    if (query.unpaid !== undefined) {
+      qb = qb.andWhere(query.unpaid ? 'invoice.balanceDue > 0' : 'invoice.balanceDue <= 0');
+    }
+
+    switch (query.paymentStatus) {
+      case 'unpaid':
+        qb = qb.andWhere('invoice.paidAmount = 0 OR invoice.paidAmount IS NULL');
+        break;
+      case 'partial':
+        qb = qb.andWhere('invoice.paidAmount > 0 AND invoice.paidAmount < invoice.totalAmount');
+        break;
+      case 'paid':
+        qb = qb.andWhere('invoice.paidAmount >= invoice.totalAmount AND invoice.paidAmount > 0');
+        break;
+      case 'overpaid':
+        qb = qb.andWhere('invoice.paidAmount > invoice.totalAmount');
+        break;
+    }
+
+    switch (query.fulfillmentStatus) {
+      case 'fulfilled':
+        qb = qb.andWhere('salesOrder.isFulfilled = true');
+        break;
+      case 'unfulfilled':
+        qb = qb.andWhere('salesOrder.isFulfilled = false');
+        break;
+    }
+
+    return qb;
+  }
+
+  protected applySearch(qb: any, search: string, _alias: string): any {
+    return qb.andWhere(
+      '(invoice.invoiceNumber ILIKE :search OR customer.name ILIKE :search)',
+      { search: `%${search}%` },
+    );
+  }
+
+  protected get allowedSortFields(): string[] {
+    return ['invoiceDate', 'invoiceNumber', 'totalAmount', 'createdAt', 'updatedAt', 'deletedAt'];
+  }
+
+  async findAll(query: QueryInvoicesDto): Promise<any> {
+    const normalizedQuery = this.allowedSortFields.includes(query.sortBy ?? '')
+      ? query
+      : { ...query, sortBy: 'invoiceDate' };
+
+    return super.findAll(normalizedQuery);
+  }
+
   protected async afterDelete(entity: Invoice): Promise<void> {
     if (entity.status !== InvoiceStatus.DRAFT) {
       throw new ConflictException('Can only delete invoices that are in DRAFT status');
@@ -203,123 +286,6 @@ export class InvoiceService extends BaseCrudService<
     );
 
     return this.findById(savedInvoice.id);
-  }
-
-  async findAll(query: QueryInvoicesDto) {
-    const {
-      search,
-      customerId,
-      salesOrderId,
-      status,
-      fromDate,
-      toDate,
-      unpaid,
-      paymentStatus,
-      fulfillmentStatus,
-      sortBy = 'invoiceDate',
-      sortOrder = 'DESC',
-    } = query;
-
-    let qb = this.invoiceRepository
-      .createQueryBuilder('invoice')
-      .leftJoinAndSelect('invoice.customer', 'customer')
-      .leftJoinAndSelect('invoice.salesOrder', 'salesOrder')
-      .leftJoinAndSelect('invoice.payments', 'payments')
-      .leftJoinAndSelect('invoice.items', 'items')
-      .leftJoinAndSelect('items.product', 'product')
-      .where('invoice.deletedAt IS NULL');
-
-    if (customerId) {
-      qb = qb.andWhere('invoice.customerId = :customerId', { customerId });
-    }
-
-    if (salesOrderId) {
-      qb = qb.andWhere('invoice.salesOrderId = :salesOrderId', { salesOrderId });
-    }
-
-    if (status) {
-      qb = qb.andWhere('invoice.status = :status', { status });
-    }
-
-    if (fromDate && toDate) {
-      const endDate = new Date(toDate);
-      endDate.setHours(23, 59, 59, 999);
-      qb = qb.andWhere('invoice.invoiceDate BETWEEN :fromDate AND :toDate', {
-        fromDate: new Date(fromDate),
-        toDate: endDate,
-      });
-    } else if (fromDate) {
-      qb = qb.andWhere('invoice.invoiceDate >= :fromDate', {
-        fromDate: new Date(fromDate),
-      });
-    } else if (toDate) {
-      const endDate = new Date(toDate);
-      endDate.setHours(23, 59, 59, 999);
-      qb = qb.andWhere('invoice.invoiceDate <= :toDate', { toDate: endDate });
-    }
-
-    if (search) {
-      qb = qb.andWhere(
-        '(invoice.invoiceNumber ILIKE :search OR customer.name ILIKE :search)',
-        { search: `%${search}%` },
-      );
-    }
-
-    if (unpaid !== undefined) {
-      if (unpaid) {
-        qb = qb.andWhere('invoice.balanceDue > 0');
-      } else {
-        qb = qb.andWhere('invoice.balanceDue <= 0');
-      }
-    }
-
-    if (paymentStatus) {
-      switch (paymentStatus) {
-        case 'unpaid':
-          qb = qb.andWhere('invoice.paidAmount = 0');
-          break;
-        case 'partial':
-          qb = qb.andWhere(
-            'invoice.paidAmount > 0 AND invoice.paidAmount < invoice.totalAmount',
-          );
-          break;
-        case 'paid':
-          qb = qb.andWhere(
-            'invoice.paidAmount >= invoice.totalAmount AND invoice.paidAmount > 0',
-          );
-          break;
-        case 'overpaid':
-          qb = qb.andWhere('invoice.paidAmount > invoice.totalAmount');
-          break;
-      }
-    }
-
-    if (fulfillmentStatus) {
-      switch (fulfillmentStatus) {
-        case 'fulfilled':
-          qb = qb.andWhere('salesOrder.isFulfilled = true');
-          break;
-        case 'unfulfilled':
-          qb = qb.andWhere('salesOrder.isFulfilled = false');
-          break;
-      }
-    }
-
-    qb = qb.orderBy(`invoice.${sortBy}`, sortOrder as 'ASC' | 'DESC');
-
-    const [invoices, total] = await qb.getManyAndCount();
-
-    // Map invoices to response DTOs with product information
-    const data = await Promise.all(
-      invoices.map(invoice => this.mapToResponseDto(invoice)),
-    );
-
-    return {
-      data,
-      meta: {
-        total,
-      },
-    };
   }
 
   async findSummaries(): Promise<InvoiceSummaryDto[]> {
@@ -925,131 +891,6 @@ export class InvoiceService extends BaseCrudService<
         averageValue: parseFloat(averageInvoiceValue.average) || 0,
       },
       generatedAt: new Date(),
-    };
-  }
-
-  async findDeleted(query: QueryInvoicesDto = {}): Promise<any> {
-    const {
-      search,
-      customerId,
-      salesOrderId,
-      sortBy = 'deletedAt',
-      sortOrder = 'DESC',
-    } = query;
-
-    let queryBuilder = this.invoiceRepository
-      .createQueryBuilder('invoice')
-      .withDeleted() // Include soft-deleted records
-      .leftJoinAndSelect('invoice.customer', 'customer')
-      .leftJoinAndSelect('invoice.salesOrder', 'salesOrder')
-      .where('invoice.deletedAt IS NOT NULL'); // Only get soft-deleted invoices
-
-    if (customerId) {
-      queryBuilder = queryBuilder.andWhere('invoice.customerId = :customerId', { customerId });
-    }
-
-    if (salesOrderId) {
-      queryBuilder = queryBuilder.andWhere('invoice.salesOrderId = :salesOrderId', { salesOrderId });
-    }
-
-    if (search) {
-      queryBuilder = queryBuilder.andWhere(
-        '(invoice.invoiceNumber ILIKE :search OR customer.name ILIKE :search)',
-        { search: `%${search}%` }
-      );
-    }
-
-    // Add sorting
-    queryBuilder = queryBuilder.orderBy(`invoice.${sortBy}`, sortOrder as 'ASC' | 'DESC');
-
-    const [invoices, total] = await queryBuilder.getManyAndCount();
-
-    // Map invoices to response DTOs with product information
-    const data = await Promise.all(
-      invoices.map(invoice => this.mapToResponseDto(invoice))
-    );
-
-    return {
-      data,
-      meta: {
-        total,
-      },
-    };
-  }
-
-  async restore(id: string, userId?: string, username?: string): Promise<InvoiceResponseDto> {
-    const invoice = await this.invoiceRepository.findOne({
-      where: { id },
-      withDeleted: true, // Include soft-deleted records
-      relations: ['customer', 'salesOrder'],
-    });
-
-    if (!invoice) {
-      throw new NotFoundException(`Invoice with ID ${id} not found`);
-    }
-
-    if (!invoice.deletedAt) {
-      throw new ConflictException('Invoice is not deleted');
-    }
-
-    // Restore the invoice
-    await this.invoiceRepository.restore(id);
-
-    // Log audit trail for restore
-    await this.auditLogService.log(
-      'RESTORE',
-      'Invoice',
-      `Restored invoice: ${invoice.invoiceNumber}`,
-      {
-        entityId: id,
-        userId: userId || 'system',
-        username,
-        newValues: {
-          invoiceNumber: invoice.invoiceNumber,
-          status: invoice.status,
-          totalAmount: invoice.totalAmount,
-        },
-      }
-    );
-
-    // Return the restored invoice
-    const restoredInvoice = await this.invoiceRepository.findOne({
-      where: { id },
-      relations: ['customer', 'salesOrder'],
-    });
-
-    return this.mapToResponseDto(restoredInvoice);
-  }
-
-  async bulkRestore(
-    invoiceIds: string[],
-    userId?: string,
-    username?: string,
-  ): Promise<{ message: string; restoredCount: number; failedIds: string[] }> {
-    if (!invoiceIds || invoiceIds.length === 0) {
-      return {
-        message: 'No invoices to restore',
-        restoredCount: 0,
-        failedIds: [],
-      };
-    }
-
-    const failedIds = [];
-    let restoredCount = 0;
-
-    for (const id of invoiceIds) {
-      try {
-        await this.restore(id, userId, username);
-        restoredCount++;
-      } catch (error) {
-        failedIds.push(id);
-      }
-    }
-
-    return {
-      message: `Successfully restored ${restoredCount} of ${invoiceIds.length} invoices`,
-      restoredCount,
-      failedIds,
     };
   }
 

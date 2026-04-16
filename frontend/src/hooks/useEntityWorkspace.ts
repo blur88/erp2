@@ -19,6 +19,8 @@ export interface UseEntityWorkspaceConfig<T extends { id: string }> {
     showError: (message: string) => void
   }
   deleteMutation: (id: string) => Promise<void>
+  onEnter?: () => void
+  onEscape?: () => void
 }
 
 export interface EntityWorkspaceReturn<T extends { id: string }> {
@@ -56,6 +58,8 @@ export function useEntityWorkspace<T extends { id: string }>(
     routes,
     notifications,
     deleteMutation,
+    onEnter,
+    onEscape,
   } = config
 
   const [focusedIndex, setFocusedIndex] = useState(-1)
@@ -87,7 +91,9 @@ export function useEntityWorkspace<T extends { id: string }>(
     }
 
     const focusedRow = listRef.current.querySelector<HTMLElement>(`[data-index="${focusedIndex}"]`)
-    focusedRow?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+    if (focusedRow && typeof focusedRow.scrollIntoView === 'function') {
+      focusedRow.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+    }
   }, [focusedIndex])
 
   useEffect(() => {
@@ -168,17 +174,27 @@ export function useEntityWorkspace<T extends { id: string }>(
   }, [entities, focusedIndex, selectAtIndex])
 
   const handleEnterAction = useCallback(() => {
+    if (onEnter) {
+      onEnter()
+      return
+    }
+
     if (focusedIndex >= 0 && entities[focusedIndex]) {
       navigate(routes.edit(entities[focusedIndex].id))
     }
-  }, [entities, focusedIndex, navigate, routes])
+  }, [entities, focusedIndex, navigate, onEnter, routes])
 
   const handleEscapeAction = useCallback(() => {
+    if (onEscape) {
+      onEscape()
+      return
+    }
+
     setFocusedIndex(-1)
     selectEntity(null)
     setDeleteConfirmOpen(false)
     setDeletedEntitiesDialogOpen(false)
-  }, [selectEntity])
+  }, [onEscape, selectEntity])
 
   const handleDelete = useCallback(async () => {
     if (!selectedEntity) {

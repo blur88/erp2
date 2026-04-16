@@ -3,15 +3,8 @@ import React, { useCallback, useMemo, useRef, useState } from 'react'
 import GenericListPage from '@/components/common/GenericListPage'
 import { FilterCategoryLevel } from '@/components/filters'
 import { useFilterBar } from '@/hooks/useFilterBar'
-import { useNotification } from '@/hooks/useNotification'
-import { useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
 import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
-import {
-  useCreateCategoryMutation,
-  useDeleteCategoryMutation,
-  useGetCategoriesQuery,
-  useUpdateCategoryMutation,
-} from '@/store/api/inventoryApi'
+import { useGetCategoriesQuery } from '@/store/api/inventoryApi'
 import { selectSelectedCategory } from '@/store/slices/inventorySlice'
 import type { FilterBarConfig } from '@/types/filterBar.types'
 
@@ -19,9 +12,7 @@ import CategoryContextHeader from './components/CategoryContextHeader'
 import CategoryDialogs from './components/CategoryDialogs'
 import CategoryList from './components/CategoryList'
 import CategoryWorkspaceCard from './components/CategoryWorkspaceCard'
-import { useCategoriesActions } from './hooks/categoriesActions'
-import { useCategoriesPageState } from './hooks/categoriesPageState'
-import { useCategoriesSelection } from './hooks/categoriesSelection'
+import { useCategoriesWorkspace } from './hooks/useCategoriesWorkspace'
 
 interface CategoryFilters {
   search: string
@@ -29,9 +20,7 @@ interface CategoryFilters {
 
 const CategoriesPage: React.FC = () => {
   const dispatch = useAppDispatch()
-  const { showSuccess, showError } = useNotification()
   const selectedCategory = useAppSelector(selectSelectedCategory)
-  const pageState = useCategoriesPageState()
   const [sortBy, setSortBy] = useState('name')
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc')
   const [levelFilter, setLevelFilter] = useState<string | null>(null)
@@ -71,9 +60,6 @@ const CategoriesPage: React.FC = () => {
     ? categories.filter((category) => String(category.level) === levelFilter)
     : categories
 
-  const [createCategory] = useCreateCategoryMutation()
-  const [updateCategory] = useUpdateCategoryMutation()
-  const [deleteCategory] = useDeleteCategoryMutation()
   const [isDuplicateName, setIsDuplicateName] = useState(false)
   const [duplicateNameError, setDuplicateNameError] = useState<string | null>(null)
   const resetFormRef = useRef<((values: { name: string; parentId: string | null }) => void) | null>(null)
@@ -91,67 +77,32 @@ const CategoriesPage: React.FC = () => {
     resetFormRef.current?.(values)
   }, [])
 
-  const selection = useCategoriesSelection({
+  const workspace = useCategoriesWorkspace({
     dispatch,
     categories: visibleCategories,
     selectedCategory,
-    focusedCategoryIndex: pageState.focusedCategoryIndex,
-    setFocusedCategoryIndex: pageState.setFocusedCategoryIndex,
-    categoryListRef: pageState.categoryListRef,
-  })
-
-  const actions = useCategoriesActions({
-    categories,
-    selectedCategory,
-    editMode: pageState.editMode,
     isDuplicateName,
     duplicateNameError,
-    deleteCategory,
-    createCategory,
-    updateCategory,
-    showSuccess,
-    showError,
     refetchCategories: () => {
       void refetchCategories()
     },
-    setDialogOpen: pageState.setDialogOpen,
-    setEditMode: pageState.setEditMode,
-    setDeleteConfirmOpen: pageState.setDeleteConfirmOpen,
-    setCategoryToDelete: pageState.setCategoryToDelete,
-    setSmartDeleteOpen: pageState.setSmartDeleteOpen,
-    setDeleteError: pageState.setDeleteError,
-    setSubmitting: pageState.setSubmitting,
     resetForm,
-  })
-
-  useKeyboardShortcuts({
-    onSearch: () => {
-      pageState.searchInputRef.current?.focus()
-      pageState.searchInputRef.current?.select()
-    },
-    onArrowUp: selection.handleNavigateUp,
-    onArrowDown: selection.handleNavigateDown,
-    onHome: selection.handleNavigateToFirst,
-    onEnd: selection.handleNavigateToLast,
-    onPageUp: selection.handlePageUpNavigation,
-    onPageDown: selection.handlePageDownNavigation,
-    onEscape: selection.handleEscapeAction,
   })
 
   return (
     <GenericListPage
       title="Categories"
       subtitle={`Organize your products with categories (${visibleCategories.length} ${appliedFilters.search || levelFilter ? 'found' : 'total'})`}
-      primaryAction={{ label: 'Add Category', onClick: () => actions.handleAddCategory() }}
+      primaryAction={{ label: 'Add Category', onClick: () => workspace.handleAddCategory() }}
       secondaryAction={{
         label: 'View Deleted',
-        onClick: () => pageState.setDeletedCategoriesDialogOpen(true),
+        onClick: () => workspace.setDeletedCategoriesDialogOpen(true),
       }}
       filterConfig={filterConfig}
       draftFilters={draftFilters}
       handlers={categoryHandlers}
       hasActiveFilters={hasActiveFilters || levelFilter !== null}
-      searchInputRef={pageState.searchInputRef}
+      searchInputRef={workspace.searchInputRef}
       sort={{ field: 'name', sortBy, sortOrder, onSort: handleSort }}
       filterExtra={(
         <FilterCategoryLevel
@@ -165,44 +116,44 @@ const CategoriesPage: React.FC = () => {
           categories={visibleCategories}
           loading={isFetching}
           selectedCategoryId={selectedCategory?.id}
-          focusedIndex={pageState.focusedCategoryIndex}
-          onSelect={selection.handleCategorySelect}
-          categoryListRef={pageState.categoryListRef}
+          focusedIndex={workspace.focusedIndex}
+          onSelect={workspace.handleSelect}
+          categoryListRef={workspace.listRef}
         />
       )}
       headerSlot={(
         <CategoryContextHeader
           selectedCategory={selectedCategory}
           allCategories={categories}
-          onEdit={() => selectedCategory && actions.handleEditCategory(selectedCategory)}
-          onDelete={() => selectedCategory && actions.handleDeleteCategory(selectedCategory)}
+          onEdit={() => selectedCategory && workspace.handleEditCategory(selectedCategory)}
+          onDelete={() => selectedCategory && workspace.handleDeleteCategory(selectedCategory)}
         />
       )}
       workspaceSlot={<CategoryWorkspaceCard selectedCategory={selectedCategory} />}
       dialogs={(
         <CategoryDialogs
-          dialogOpen={pageState.dialogOpen}
-          editMode={pageState.editMode}
+          dialogOpen={workspace.dialogOpen}
+          editMode={workspace.editMode}
           selectedCategory={selectedCategory}
-          submitting={pageState.submitting}
+          submitting={workspace.submitting}
           categories={categories}
-          onSubmit={actions.onSubmit}
-          onDialogClose={() => pageState.setDialogOpen(false)}
+          onSubmit={workspace.onSubmit}
+          onDialogClose={() => workspace.setDialogOpen(false)}
           onFormReady={handleFormReady}
           onDuplicateStateChange={handleDuplicateStateChange}
-          deletedCategoriesDialogOpen={pageState.deletedCategoriesDialogOpen}
-          onCloseDeletedCategories={() => pageState.setDeletedCategoriesDialogOpen(false)}
+          deletedCategoriesDialogOpen={workspace.deletedCategoriesDialogOpen}
+          onCloseDeletedCategories={() => workspace.setDeletedCategoriesDialogOpen(false)}
           onCategoryRestored={() => void refetchCategories()}
-          deleteConfirmOpen={pageState.deleteConfirmOpen}
-          categoryToDelete={pageState.categoryToDelete}
-          onConfirmDelete={() => void actions.handleConfirmDelete(pageState.categoryToDelete)}
-          onCancelDelete={actions.handleCancelDelete}
-          smartDeleteOpen={pageState.smartDeleteOpen}
-          deleteError={pageState.deleteError}
+          deleteConfirmOpen={workspace.deleteConfirmOpen}
+          categoryToDelete={workspace.categoryToDelete}
+          onConfirmDelete={() => void workspace.handleConfirmDelete(workspace.categoryToDelete)}
+          onCancelDelete={workspace.handleCancelDelete}
+          smartDeleteOpen={workspace.smartDeleteOpen}
+          deleteError={workspace.deleteError}
           onSmartDelete={(moveToUncategorized) =>
-            actions.handleSmartDelete(pageState.categoryToDelete, moveToUncategorized)
+            workspace.handleSmartDelete(workspace.categoryToDelete, moveToUncategorized)
           }
-          onSmartDeleteClose={actions.handleSmartDeleteClose}
+          onSmartDeleteClose={workspace.handleSmartDeleteClose}
         />
       )}
     />

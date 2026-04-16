@@ -109,6 +109,89 @@ export class ProductService extends BaseCrudService<
     return where;
   }
 
+  protected applyQueryBuilder(qb: any, query: QueryProductsDto): any {
+    qb = qb
+      .leftJoinAndSelect('product.category', 'category')
+      .leftJoinAndSelect(
+        'product.priceListItems',
+        'priceListItems',
+        'priceListItems.isActive = :isActiveItem',
+        { isActiveItem: true },
+      )
+      .leftJoinAndSelect(
+        'priceListItems.priceList',
+        'priceList',
+        'priceList.isActive = :isActiveList AND priceList.deletedAt IS NULL',
+        { isActiveList: true },
+      );
+
+    if (query.categoryId) {
+      qb = qb.andWhere('product.categoryId = :categoryId', { categoryId: query.categoryId });
+    }
+    if (query.type) {
+      qb = qb.andWhere('product.type = :type', { type: query.type });
+    }
+    if (query.isActive !== undefined) {
+      qb = qb.andWhere('product.isActive = :isActive', { isActive: query.isActive });
+    }
+    if (query.outOfStock) {
+      qb = qb.andWhere('product.stockQuantity <= 0');
+    }
+    if (query.minStock !== undefined) {
+      qb = qb.andWhere('product.stockQuantity >= :minStock', { minStock: query.minStock });
+    }
+    if (query.maxStock !== undefined) {
+      qb = qb.andWhere('product.stockQuantity <= :maxStock', { maxStock: query.maxStock });
+    }
+
+    return qb;
+  }
+
+  protected applySearch(qb: any, search: string, _alias: string): any {
+    return qb.andWhere('(product.name ILIKE :search OR product.barcode ILIKE :search)', {
+      search: `%${search}%`,
+    });
+  }
+
+  protected get allowedSortFields(): string[] {
+    return ['name', 'barcode', 'createdAt', 'stockQuantity', 'deletedAt'];
+  }
+
+  private buildProductListQuery(query: QueryProductsDto, options: { includeDeleted: boolean }) {
+    let queryBuilder = this.productRepository.createQueryBuilder('product');
+
+    if (options.includeDeleted) {
+      queryBuilder = queryBuilder.withDeleted().where('product.deletedAt IS NOT NULL');
+    } else {
+      queryBuilder = queryBuilder.where('product.deletedAt IS NULL');
+    }
+
+    if (query.search) {
+      queryBuilder = this.applySearch(queryBuilder, query.search, 'product');
+    }
+
+    return this.applyQueryBuilder(queryBuilder, query);
+  }
+
+  private applyProductOrdering(
+    queryBuilder: any,
+    query: QueryProductsDto,
+    defaultSortField: 'name' | 'deletedAt',
+  ) {
+    const sortField = this.allowedSortFields.includes(query.sortBy ?? '')
+      ? query.sortBy!
+      : defaultSortField;
+    const sortOrder = query.sortOrder?.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
+
+    if (sortField === 'name') {
+      queryBuilder.addSelect('UPPER(product.name)', 'name_upper');
+      queryBuilder.orderBy('name_upper', sortOrder);
+      return;
+    }
+
+    queryBuilder.orderBy(`product.${sortField}`, sortOrder);
+  }
+
   protected async afterDelete(entity: Product): Promise<void> {
     const activeSalesOrderItemCount = await this.salesOrderItemRepository
       .createQueryBuilder('item')
@@ -260,77 +343,8 @@ export class ProductService extends BaseCrudService<
    * Find all products with filtering and sorting
    */
   async findAll(query: QueryProductsDto): Promise<ProductListResponseDto> {
-    const {
-      search,
-      categoryId,
-      type,
-      isActive,
-      outOfStock,
-      sortBy = 'name',
-      sortOrder = 'ASC',
-      minStock,
-      maxStock,
-      minPrice,
-      maxPrice,
-    } = query;
-
-    const queryBuilder = this.productRepository
-      .createQueryBuilder('product')
-      .leftJoinAndSelect('product.category', 'category')
-      .leftJoinAndSelect('product.priceListItems', 'priceListItems', 'priceListItems.isActive = :isActiveItem', { isActiveItem: true })
-      .leftJoinAndSelect('priceListItems.priceList', 'priceList', 'priceList.isActive = :isActiveList AND priceList.deletedAt IS NULL', { isActiveList: true })
-      .where('product.deletedAt IS NULL');
-
-    // Apply filters
-    if (search) {
-      queryBuilder.andWhere(
-        '(product.name ILIKE :search OR product.barcode ILIKE :search)',
-        { search: `%${search}%` },
-      );
-    }
-
-    if (categoryId) {
-      queryBuilder.andWhere('product.categoryId = :categoryId', { categoryId });
-    }
-
-    if (type) {
-      queryBuilder.andWhere('product.type = :type', { type });
-    }
-
-    if (isActive !== undefined) {
-      queryBuilder.andWhere('product.isActive = :isActive', { isActive });
-    }
-
-    if (outOfStock) {
-      queryBuilder.andWhere('product.stockQuantity <= 0');
-    }
-
-    if (minStock !== undefined) {
-      queryBuilder.andWhere('product.stockQuantity >= :minStock', { minStock });
-    }
-
-    if (maxStock !== undefined) {
-      queryBuilder.andWhere('product.stockQuantity <= :maxStock', { maxStock });
-    }
-
-    // Note: minPrice and maxPrice filters removed - pricing is now in JSONB pricingTiers field
-    // To filter by price, you would need to use JSONB query operators which is complex
-    // Consider implementing price range filtering at the application level if needed
-
-    // Apply sorting
-    const validSortFields = ['name', 'barcode', 'createdAt', 'stockQuantity'];
-    const sortField = validSortFields.includes(sortBy) ? sortBy : 'name';
-    const safeSortOrder = sortOrder?.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
-
-    // Use case-insensitive sorting for text fields
-    if (sortField === 'name') {
-      // Use PostgreSQL ILIKE for case-insensitive sorting by adding a computed column
-      queryBuilder.addSelect('UPPER(product.name)', 'name_upper');
-      queryBuilder.orderBy('name_upper', safeSortOrder);
-    } else {
-      queryBuilder.orderBy(`product.${sortField}`, safeSortOrder);
-    }
-
+    const queryBuilder = this.buildProductListQuery(query, { includeDeleted: false });
+    this.applyProductOrdering(queryBuilder, query, 'name');
     const [products, total] = await queryBuilder.getManyAndCount();
 
     const data = products.map(product => this.toResponseDto(product));
@@ -539,51 +553,8 @@ export class ProductService extends BaseCrudService<
   async findDeleted(query: QueryProductsDto): Promise<ProductListResponseDto> {
     this.logger.log('Fetching deleted products with filters:', query);
 
-    const {
-      search,
-      categoryId,
-      type,
-      sortBy = 'deletedAt',
-      sortOrder = 'DESC',
-    } = query;
-
-    // Use QueryBuilder for consistent case-insensitive search
-    const queryBuilder = this.productRepository
-      .createQueryBuilder('product')
-      .leftJoinAndSelect('product.category', 'category')
-      .withDeleted()
-      .where('product.deletedAt IS NOT NULL');
-
-    // Apply filters
-    if (search) {
-      queryBuilder.andWhere(
-        '(product.name ILIKE :search OR product.barcode ILIKE :search)',
-        { search: `%${search}%` },
-      );
-    }
-
-    if (categoryId) {
-      queryBuilder.andWhere('product.categoryId = :categoryId', { categoryId });
-    }
-
-    if (type) {
-      queryBuilder.andWhere('product.type = :type', { type });
-    }
-
-    // Sorting
-    const allowedSortFields = ['name', 'barcode', 'deletedAt', 'createdAt', 'stockQuantity'];
-    const safeSortBy = allowedSortFields.includes(sortBy) ? sortBy : 'deletedAt';
-    const safeSortOrder = sortOrder?.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
-    // Use case-insensitive sorting for text fields
-    if (safeSortBy === 'name') {
-      // Use PostgreSQL ILIKE for case-insensitive sorting by adding a computed column
-      queryBuilder.addSelect('UPPER(product.name)', 'name_upper');
-      queryBuilder.orderBy('name_upper', safeSortOrder);
-    } else {
-      queryBuilder.orderBy(`product.${safeSortBy}`, safeSortOrder);
-    }
-
-    // Get products and total count
+    const queryBuilder = this.buildProductListQuery(query, { includeDeleted: true });
+    this.applyProductOrdering(queryBuilder, query, 'deletedAt');
     const [deletedProducts, total] = await queryBuilder.getManyAndCount();
 
     const productDtos = deletedProducts.map(product => this.toResponseDto(product));

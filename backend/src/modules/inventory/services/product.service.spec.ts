@@ -120,6 +120,28 @@ describe('ProductService pagination removal', () => {
     expect(result.data).toHaveLength(1);
   });
 
+  it('findDeleted uses the same pricing joins as active product queries', async () => {
+    const qb = createQueryBuilder([
+      createProduct('deleted-2', { deletedAt: new Date('2026-03-11T00:00:00.000Z') }),
+    ]);
+    productRepository.createQueryBuilder.mockReturnValue(qb as any);
+
+    await service.findDeleted({});
+
+    expect(qb.leftJoinAndSelect).toHaveBeenCalledWith(
+      'product.priceListItems',
+      'priceListItems',
+      'priceListItems.isActive = :isActiveItem',
+      { isActiveItem: true },
+    );
+    expect(qb.leftJoinAndSelect).toHaveBeenCalledWith(
+      'priceListItems.priceList',
+      'priceList',
+      'priceList.isActive = :isActiveList AND priceList.deletedAt IS NULL',
+      { isActiveList: true },
+    );
+  });
+
   describe('searchGlobal', () => {
     it('returns matching products as GlobalSearchResultDto', async () => {
       const product = {
