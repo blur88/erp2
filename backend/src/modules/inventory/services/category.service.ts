@@ -30,6 +30,7 @@ import {
   BulkUpdateCategoriesDto,
   CategoryStatsDto,
   CategoryAncestorsDto,
+  CategoryProductDto,
 } from '../dto/category.dto';
 import { ValidationUtil, BulkOperationUtil, BulkOperationResponse } from '../../../common/utils/validation.util';
 import { AuditLogService } from '../../audit-logs/services';
@@ -227,6 +228,21 @@ export class CategoryService extends BaseCrudService<
         hasPreviousPage: page > 1,
       },
     };
+  }
+
+  async getCategoryProducts(id: string): Promise<{ data: CategoryProductDto[] }> {
+    const category = await this.categoryRepository.findOne({ where: { id } });
+
+    if (!category) {
+      throw new NotFoundException(`Category with id ${id} not found`);
+    }
+
+    const products = await this.productRepository.find({
+      where: { categoryId: id },
+      select: ['id', 'name', 'stockQuantity'],
+    });
+
+    return { data: products as CategoryProductDto[] };
   }
 
   /**
