@@ -1,6 +1,6 @@
 {
   "name": "erp-backend",
-  "version": "1.77.0",
+  "version": "1.77.1",
   "description": "ERP System Backend API",
   "author": "ERP Development Team",
   "private": true,

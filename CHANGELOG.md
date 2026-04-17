@@ -1,3 +1,10 @@
+## [1.77.1](https://github.com/blur88/erp2/compare/v1.77.0...v1.77.1) (2026-04-17)
+
+
+### Bug Fixes
+
+* **common:** reset searchTerm on dialog reopen; fix void queryArg for PaymentMethods ([ac454a6](https://github.com/blur88/erp2/commit/ac454a65463d48d4cbb1bb673254906736dfed3e))
+
 # [1.77.0](https://github.com/blur88/erp2/compare/v1.76.2...v1.77.0) (2026-04-17)
 
 
