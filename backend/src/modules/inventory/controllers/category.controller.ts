@@ -32,6 +32,7 @@ import {
   BulkUpdateCategoriesDto,
   CategoryStatsDto,
   CategoryAncestorsDto,
+  CategoryProductDto,
 } from '../dto/category.dto';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 
@@ -141,6 +142,20 @@ export class CategoryController {
     @Query('excludeId') excludeId?: string,
   ) {
     return this.categoryService.checkDuplicate({ name, parentId, excludeId });
+  }
+
+  @Get(':id/products')
+  @ApiOperation({ summary: 'Get products in a category' })
+  @ApiResponse({
+    status: 200,
+    description: 'Category products retrieved successfully',
+  })
+  @ApiResponse({ status: 404, description: 'Category not found' })
+  @ApiParam({ name: 'id', description: 'Category ID' })
+  async getCategoryProducts(
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<{ data: CategoryProductDto[] }> {
+    return this.categoryService.getCategoryProducts(id);
   }
 
   @Get(':id')

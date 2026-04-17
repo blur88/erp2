@@ -5,11 +5,11 @@ import CategoryWorkspaceCard from './CategoryWorkspaceCard'
 
 import type { Category } from '@/types'
 
-const mockUseGetProductsQuery = vi.hoisted(() => vi.fn())
+const mockUseGetCategoryProductsQuery = vi.hoisted(() => vi.fn())
 const mockUseGetRegionalSettingsQuery = vi.hoisted(() => vi.fn())
 
 vi.mock('@/store/api/inventoryApi', () => ({
-  useGetProductsQuery: mockUseGetProductsQuery,
+  useGetCategoryProductsQuery: mockUseGetCategoryProductsQuery,
 }))
 
 vi.mock('@/store/api/settingsApi', () => ({
@@ -40,13 +40,13 @@ const makeProduct = (overrides: Partial<{ id: string; name: string; stockQuantit
 
 describe('CategoryWorkspaceCard', () => {
   beforeEach(() => {
-    mockUseGetProductsQuery.mockReset()
+    mockUseGetCategoryProductsQuery.mockReset()
     mockUseGetRegionalSettingsQuery.mockReset()
     mockUseGetRegionalSettingsQuery.mockReturnValue({ data: { lowStockThreshold: 10 } })
   })
 
   it('renders a products table and notes section instead of tab panels', () => {
-    mockUseGetProductsQuery.mockReturnValue({
+    mockUseGetCategoryProductsQuery.mockReturnValue({
       data: { data: [makeProduct({ name: 'Widget', stockQuantity: 3 })] },
       isLoading: false,
       isError: false,
@@ -66,7 +66,7 @@ describe('CategoryWorkspaceCard', () => {
   })
 
   it('skips the products query when no category is selected', () => {
-    mockUseGetProductsQuery.mockReturnValue({
+    mockUseGetCategoryProductsQuery.mockReturnValue({
       data: undefined,
       isLoading: false,
       isError: false,
@@ -74,7 +74,19 @@ describe('CategoryWorkspaceCard', () => {
 
     render(<CategoryWorkspaceCard selectedCategory={null} />)
 
-    expect(mockUseGetProductsQuery).toHaveBeenCalledWith({ categoryId: '' }, { skip: true })
+    expect(mockUseGetCategoryProductsQuery).toHaveBeenCalledWith('', { skip: true })
     expect(screen.queryByText('Category Products')).not.toBeInTheDocument()
+  })
+
+  it('shows error alert when query fails', () => {
+    mockUseGetCategoryProductsQuery.mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      isError: true,
+    })
+
+    render(<CategoryWorkspaceCard selectedCategory={makeCategory()} />)
+
+    expect(screen.getByText('Failed to load products.')).toBeInTheDocument()
   })
 })

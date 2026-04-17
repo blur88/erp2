@@ -5,6 +5,12 @@ import type { Category, PaginatedResponse, Product, StockAdjustment, StockMoveme
 import { axiosBaseQuery } from './baseQuery'
 import { normalizePaginated, normalizeSingle } from './normalizers'
 
+export interface CategoryProduct {
+  id: string
+  name: string
+  stockQuantity: number
+}
+
 export const inventoryApiSlice = createApi({
   reducerPath: 'inventoryApi',
   baseQuery: axiosBaseQuery(),
@@ -82,6 +88,10 @@ export const inventoryApiSlice = createApi({
       query: (params) => ({ url: '/inventory/categories', params: { includeProductCount: true, ...(params ?? {}) } }),
       transformResponse: (response: any) => (Array.isArray(response) ? response : response?.data ?? []),
       providesTags: ['Category'],
+    }),
+    getCategoryProducts: builder.query<{ data: CategoryProduct[] }, string>({
+      query: (categoryId) => ({ url: `/inventory/categories/${categoryId}/products` }),
+      providesTags: (_result, _error, categoryId) => [{ type: 'Category', id: categoryId }],
     }),
     createCategory: builder.mutation<Category, Partial<Category>>({
       query: (body) => ({ url: '/inventory/categories', method: 'POST', data: body }),
@@ -228,6 +238,7 @@ export const {
   useBulkPermanentDeleteProductsMutation,
   useLazyCheckProductDuplicateQuery,
   useGetCategoriesQuery,
+  useGetCategoryProductsQuery,
   useCreateCategoryMutation,
   useUpdateCategoryMutation,
   useDeleteCategoryMutation,
