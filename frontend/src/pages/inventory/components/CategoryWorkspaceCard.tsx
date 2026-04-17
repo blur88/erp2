@@ -15,7 +15,7 @@ import {
 } from '@mui/material'
 
 import { TABLE_STYLES } from '@/constants/tableStyles'
-import { useGetProductsQuery } from '@/store/api/inventoryApi'
+import { useGetCategoryProductsQuery } from '@/store/api/inventoryApi'
 import { useGetRegionalSettingsQuery } from '@/store/api/settingsApi'
 import type { Category } from '@/types'
 import { getStockStatus } from '@/utils/stockUtils'
@@ -26,8 +26,8 @@ interface CategoryWorkspaceCardProps {
 
 const CategoryWorkspaceCard: React.FC<CategoryWorkspaceCardProps> = ({ selectedCategory }) => {
   const categoryId = selectedCategory?.id ?? ''
-  const { data: productsResponse, isLoading, isError } = useGetProductsQuery(
-    { categoryId },
+  const { data: productsResponse, isLoading, isError } = useGetCategoryProductsQuery(
+    categoryId,
     { skip: !categoryId },
   )
   const { data: regionalSettings } = useGetRegionalSettingsQuery()
