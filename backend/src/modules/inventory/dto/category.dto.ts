@@ -235,3 +235,14 @@ class CategoryPathUpdateDto {
   @IsBoolean()
   forceRecalculate?: boolean;
 }
+
+export class CategoryProductDto {
+  @ApiProperty({ description: 'Product ID' })
+  id: string;
+
+  @ApiProperty({ description: 'Product name' })
+  name: string;
+
+  @ApiProperty({ description: 'Current stock quantity' })
+  stockQuantity: number;
+}
