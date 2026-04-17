@@ -1,36 +1,7 @@
-import React, { useState, useEffect } from 'react'
-import {
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Button,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Paper,
-  TextField,
-  InputAdornment,
-  Box,
-  Typography,
-  Chip,
-  IconButton,
-  Tooltip,
-  Alert,
-  Divider,
-  CircularProgress,
-  Checkbox,
-  useTheme,
-  useMediaQuery,
-} from '@mui/material'
-import { default as SearchIcon } from '@mui/icons-material/Search'
-import { default as RestoreIcon } from '@mui/icons-material/Restore'
-import { default as CloseIcon } from '@mui/icons-material/Close'
-import { default as DeleteForeverIcon } from '@mui/icons-material/DeleteForever'
+import React from 'react'
+import { Chip, Typography } from '@mui/material'
 import { default as ProductIcon } from '@mui/icons-material/Inventory2'
+import GenericDeletedDialog, { type ColumnDef } from '@/components/common/GenericDeletedDialog'
 import {
   useBulkPermanentDeleteProductsMutation,
   useBulkRestoreProductsMutation,
@@ -38,697 +9,84 @@ import {
   usePermanentDeleteProductMutation,
   useRestoreProductMutation,
 } from '@/store/api/inventoryApi'
-import { useNotification } from '@/hooks/useNotification'
-import LoadingSpinner from '@/components/common/LoadingSpinner'
 import type { Product } from '@/types'
 import { formatCurrency } from '@/utils/currency'
-import { formatDate as formatDisplayDate } from '@/utils/formatters'
+import { formatDate } from '@/utils/formatters'
 
 interface DeletedProductsDialogProps {
   open: boolean
   onClose: () => void
 }
 
-const DeletedProductsDialog: React.FC<DeletedProductsDialogProps> = ({ open, onClose }) => {
-  const { showSuccess, showError } = useNotification()
-  const theme = useTheme()
-  const isMobile = useMediaQuery(theme.breakpoints.down('md'))
-  const isTablet = useMediaQuery(theme.breakpoints.down('lg'))
-  const { data: deletedProductsResponse, isFetching: isFetchingDeleted, refetch: refetchDeletedProducts } = useGetDeletedProductsQuery(
-    {},
-    { skip: !open }
-  )
-  const [restoreProduct, { isLoading: isRestoringMutation }] = useRestoreProductMutation()
-  const [bulkRestoreProducts, { isLoading: isBulkRestoringMutation }] = useBulkRestoreProductsMutation()
-  const [permanentDeleteProduct, { isLoading: isPermanentDeletingMutation }] = usePermanentDeleteProductMutation()
-  const [bulkPermanentDeleteProducts, { isLoading: isBulkDeletingMutation }] = useBulkPermanentDeleteProductsMutation()
-  const deletedProducts = deletedProductsResponse?.data || []
-  const loading = isFetchingDeleted || isRestoringMutation || isBulkRestoringMutation || isPermanentDeletingMutation || isBulkDeletingMutation
-  
-  const [searchTerm, setSearchTerm] = useState('')
-  const [restoringId, setRestoringId] = useState<string | null>(null)
-  const [deletingId, setDeletingId] = useState<string | null>(null)
-  const [confirmDelete, setConfirmDelete] = useState<Product | null>(null)
-  const [selectedProducts, setSelectedProducts] = useState<Set<string>>(new Set())
-  const [showBulkConfirm, setShowBulkConfirm] = useState(false)
-  const [bulkDeleting, setBulkDeleting] = useState(false)
-  const [showBulkRestoreConfirm, setShowBulkRestoreConfirm] = useState(false)
-  const [bulkRestoring, setBulkRestoring] = useState(false)
+const columns: ColumnDef<Product & { deletedAt?: string | Date }>[] = [
+  {
+    label: 'Product Name',
+    width: '40%',
+    render: (product) => (
+      <Typography variant="body2" sx={{ fontWeight: 600 }}>
+        {product.name}
+      </Typography>
+    ),
+  },
+  {
+    label: 'Category',
+    width: '20%',
+    render: (product) => (
+      <Chip
+        label={product.category?.name || 'No Category'}
+        size="small"
+        variant="outlined"
+        color={product.category ? 'primary' : 'default'}
+        sx={{ fontSize: '0.7rem', fontWeight: 500, height: 20 }}
+      />
+    ),
+  },
+  {
+    label: 'Price',
+    width: '12%',
+    align: 'right',
+    hideOnMobile: true,
+    render: (product) => (
+      <Typography variant="caption" color="primary" sx={{ fontWeight: 500 }}>
+        {product.pricingTiers && Object.values(product.pricingTiers).length > 0
+          ? formatCurrency(Object.values(product.pricingTiers)[0] as number)
+          : '-'}
+      </Typography>
+    ),
+  },
+  {
+    label: 'Deleted Date',
+    width: '15%',
+    hideOnMobile: true,
+    render: (product) => (
+      <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+        {product.deletedAt ? formatDate(product.deletedAt) : 'Unknown'}
+      </Typography>
+    ),
+  },
+]
 
-  useEffect(() => {
-    if (open) {
-      void refetchDeletedProducts()
-      // Reset selections when dialog opens
-      setSelectedProducts(new Set())
+const DeletedProductsDialog: React.FC<DeletedProductsDialogProps> = ({ open, onClose }) => (
+  <GenericDeletedDialog<Product & { deletedAt?: string | Date }>
+    open={open}
+    onClose={onClose}
+    title="Deleted Products"
+    entityLabel="product"
+    entityLabelPlural="products"
+    icon={<ProductIcon sx={{ color: 'error.main' }} />}
+    columns={columns}
+    getItemLabel={(product) => product.name}
+    searchPlaceholder="Search deleted products..."
+    filterItem={(product, term) =>
+      product.name?.toLowerCase().includes(term) ||
+      (product.barcode?.toLowerCase().includes(term) ?? false)
     }
-  }, [open, refetchDeletedProducts])
-
-  // Filter products based on search term
-  const filteredProducts = deletedProducts.filter(product =>
-    product.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    product.barcode?.toLowerCase().includes(searchTerm.toLowerCase())
-  )
-
-  // Calculate selection state
-  const selectedCount = selectedProducts.size
-  const allSelected = filteredProducts.length > 0 && selectedProducts.size === filteredProducts.length
-  const partiallySelected = selectedProducts.size > 0 && selectedProducts.size < filteredProducts.length
-
-  const handleRestore = async (product: Product) => {
-    setRestoringId(product.id)
-    try {
-      await restoreProduct(product.id).unwrap()
-      showSuccess(`Product "${product.name}" restored successfully`)
-      void refetchDeletedProducts()
-    } catch (error: any) {
-      console.error('Product restore error:', error)
-      const errorMessage = error?.data?.message || error?.message || 'Failed to restore product'
-      showError(errorMessage)
-    } finally {
-      setRestoringId(null)
-    }
-  }
-
-  const handlePermanentDelete = async (product: Product) => {
-    setDeletingId(product.id)
-    try {
-      await permanentDeleteProduct(product.id).unwrap()
-      showSuccess(`Product "${product.name}" permanently deleted`)
-      void refetchDeletedProducts()
-    } catch (error: any) {
-      console.error('Product permanent delete error:', error)
-      const errorMessage = error?.data?.message || error?.message || 'Failed to permanently delete product'
-      showError(errorMessage)
-    } finally {
-      setDeletingId(null)
-      setConfirmDelete(null)
-    }
-  }
-
-  const handleSelectProduct = (productId: string, checked: boolean) => {
-    setSelectedProducts(prev => {
-      const newSet = new Set(prev)
-      if (checked) {
-        newSet.add(productId)
-      } else {
-        newSet.delete(productId)
-      }
-      return newSet
-    })
-  }
-
-  const handleSelectAll = (checked: boolean) => {
-    if (checked) {
-      setSelectedProducts(new Set(filteredProducts.map(p => p.id)))
-    } else {
-      setSelectedProducts(new Set())
-    }
-  }
-
-  const handleBulkRestore = async () => {
-    setBulkRestoring(true)
-    try {
-      const productIds = Array.from(selectedProducts)
-      const payload = await bulkRestoreProducts(productIds).unwrap()
-      const restoredCount = payload?.restoredCount || 0
-      const failedIds = payload?.failedIds || []
-
-      if (restoredCount > 0) {
-        showSuccess(`Successfully restored ${restoredCount} products`)
-      }
-
-      if (failedIds.length > 0) {
-        showError(`Failed to restore ${failedIds.length} products`)
-      }
-
-      void refetchDeletedProducts()
-      setSelectedProducts(new Set())
-    } catch (error: any) {
-      console.error('Bulk restore error:', error)
-      const errorMessage = error?.data?.message || error?.message || 'Failed to bulk restore products'
-      showError(errorMessage)
-    } finally {
-      setBulkRestoring(false)
-      setShowBulkRestoreConfirm(false)
-    }
-  }
-
-  const handleBulkPermanentDelete = async () => {
-    setBulkDeleting(true)
-    try {
-      const productIds = Array.from(selectedProducts)
-      const payload = await bulkPermanentDeleteProducts(productIds).unwrap()
-      const deletedCount = payload?.deletedCount || 0
-      const failedIds = payload?.failedIds || []
-      
-      if (deletedCount > 0) {
-        showSuccess(`Successfully permanently deleted ${deletedCount} products`)
-      }
-      
-      if (failedIds.length > 0) {
-        showError(`Failed to delete ${failedIds.length} products`)
-      }
-      
-      void refetchDeletedProducts()
-      setSelectedProducts(new Set())
-    } catch (error: any) {
-      console.error('Bulk permanent delete error:', error)
-      const errorMessage = error?.data?.message || error?.message || 'Failed to bulk delete products'
-      showError(errorMessage)
-    } finally {
-      setBulkDeleting(false)
-      setShowBulkConfirm(false)
-    }
-  }
-
-  const formatDate = (dateString: string) => {
-    return formatDisplayDate(dateString)
-  }
-
-
-  return (
-    <Dialog
-      open={open}
-      onClose={onClose}
-      maxWidth="lg"
-      fullWidth
-      slotProps={{ paper: { sx: { height: '80vh' } } }}
-    >
-      <DialogTitle>
-        <Box
-          sx={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center"
-          }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <ProductIcon sx={{ color: 'error.main' }} />
-            <Typography variant={isMobile ? "h6" : "h5"} sx={{ fontWeight: 700 }}>
-              Deleted Products
-            </Typography>
-          </Box>
-          <IconButton onClick={onClose} size="small">
-            <CloseIcon />
-          </IconButton>
-        </Box>
-        <Typography
-          variant="body2"
-          sx={{
-            color: "text.secondary",
-            mt: 0.5
-          }}>
-          Manage soft-deleted products ({filteredProducts.length} {searchTerm ? 'found' : 'total'})
-        </Typography>
-      </DialogTitle>
-      <DialogContent>
-        <Box sx={{ mb: 3 }}>
-          <Alert severity="info" sx={{ mb: 2 }}>
-            These products have been soft-deleted. You can restore them or permanently delete them from the database.
-            <br />
-            <strong>Warning:</strong> Permanent deletion cannot be undone!
-          </Alert>
-          
-          <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
-            <TextField
-              fullWidth
-              placeholder="Search deleted products..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              slotProps={{
-                input: {
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <SearchIcon />
-                    </InputAdornment>
-                  ),
-                },
-              }}
-              sx={{ flex: 1, minWidth: '300px' }}
-            />
-            
-            {selectedCount > 0 && (
-              <>
-                <Button
-                  variant="contained"
-                  color="success"
-                  startIcon={<RestoreIcon />}
-                  onClick={() => setShowBulkRestoreConfirm(true)}
-                  disabled={bulkRestoring || bulkDeleting}
-                  sx={{ whiteSpace: 'nowrap' }}
-                >
-                  Restore Selected ({selectedCount})
-                </Button>
-                <Button
-                  variant="contained"
-                  color="error"
-                  startIcon={<DeleteForeverIcon />}
-                  onClick={() => setShowBulkConfirm(true)}
-                  disabled={bulkDeleting || bulkRestoring}
-                  sx={{ whiteSpace: 'nowrap' }}
-                >
-                  Delete Selected ({selectedCount})
-                </Button>
-              </>
-            )}
-          </Box>
-        </Box>
-
-        {loading ? (
-          <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
-            <CircularProgress />
-          </Box>
-        ) : (
-          <TableContainer sx={{ overflowX: 'auto', maxHeight: 400 }}>
-            <Table 
-              size="small" 
-              stickyHeader
-              sx={{ 
-                minWidth: isMobile ? 650 : 800,
-                '& .MuiTableCell-root': { 
-                  borderBottom: '1px solid rgba(224, 224, 224, 0.4)',
-                  py: 0.75,
-                  px: 1.5
-                }
-              }}
-            >
-              <TableHead>
-                <TableRow sx={{ '& .MuiTableCell-head': { fontWeight: 600, backgroundColor: 'grey.50', py: 1 } }}>
-                  <TableCell sx={{ width: '48px', padding: '8px' }}>
-                    <Checkbox
-                      checked={allSelected}
-                      indeterminate={partiallySelected}
-                      onChange={(e) => handleSelectAll(e.target.checked)}
-                      size="small"
-                    />
-                  </TableCell>
-                  <TableCell sx={{ width: isMobile ? '35%' : '40%' }}>
-                    <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.8rem' }}>
-                      Product Name
-                    </Typography>
-                  </TableCell>
-                  <TableCell sx={{ width: isMobile ? '20%' : '20%' }}>
-                    <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.8rem' }}>
-                      Category
-                    </Typography>
-                  </TableCell>
-                  {!isMobile && (
-                    <TableCell align="right" sx={{ width: '12%' }}>
-                      <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.8rem' }}>
-                        Price
-                      </Typography>
-                    </TableCell>
-                  )}
-                  {!isMobile && (
-                    <TableCell sx={{ width: '15%' }}>
-                      <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.8rem' }}>
-                        Deleted Date
-                      </Typography>
-                    </TableCell>
-                  )}
-                  <TableCell align="right" sx={{ width: isMobile ? '45%' : '13%' }}>
-                    <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.8rem' }}>
-                      Actions
-                    </Typography>
-                  </TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {filteredProducts.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={isMobile ? 5 : 7} align="center" sx={{ py: 4 }}>
-                      <Typography variant="body1" sx={{
-                        color: "text.secondary"
-                      }}>
-                        {searchTerm ? 'No deleted products match your search.' : 'No deleted products found.'}
-                      </Typography>
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  filteredProducts.map((product) => (
-                    <TableRow 
-                      key={product.id} 
-                      hover
-                      sx={{
-                        '&:hover, &:focus-within': {
-                          backgroundColor: 'action.hover',
-                          '& .product-actions': {
-                            opacity: 1
-                          }
-                        },
-                        transition: 'background-color 0.2s ease',
-                        cursor: 'default',
-                        height: 48
-                      }}
-                    >
-                      <TableCell sx={{ padding: '8px' }}>
-                        <Checkbox
-                          checked={selectedProducts.has(product.id)}
-                          onChange={(e) => handleSelectProduct(product.id, e.target.checked)}
-                          size="small"
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Box>
-                          <Typography variant="body2" sx={{ fontWeight: 600, lineHeight: 1.2 }}>
-                            {product.name}
-                          </Typography>
-                          {isMobile && product.pricingTiers && Object.keys(product.pricingTiers).length > 0 && (
-                            <Typography
-                              variant="caption"
-                              sx={{
-                                color: "primary.main",
-                                fontSize: '0.65rem',
-                                fontWeight: 500,
-                                mt: 0.25,
-                                display: 'block'
-                              }}>
-                              {formatCurrency(Object.values(product.pricingTiers)[0] as number)}
-                            </Typography>
-                          )}
-                        </Box>
-                      </TableCell>
-                      <TableCell>
-                        <Chip
-                          label={product.category?.name || 'No Category'}
-                          size="small"
-                          variant="outlined"
-                          color={product.category ? 'primary' : 'default'}
-                          sx={{
-                            fontSize: '0.7rem',
-                            fontWeight: 500,
-                            height: 20
-                          }}
-                        />
-                      </TableCell>
-                      {!isMobile && (
-                        <TableCell align="right">
-                          <Typography variant="caption" sx={{ fontWeight: 500 }} color="primary">
-                            {product.pricingTiers && Object.keys(product.pricingTiers).length > 0
-                              ? formatCurrency(Object.values(product.pricingTiers)[0] as number)
-                              : '-'}
-                          </Typography>
-                        </TableCell>
-                      )}
-                      {!isMobile && (
-                        <TableCell>
-                          <Typography variant="caption" sx={{
-                            color: "text.secondary"
-                          }}>
-                            {(product as any).deletedAt ? formatDate((product as any).deletedAt) : 'Unknown'}
-                          </Typography>
-                        </TableCell>
-                      )}
-                      <TableCell align="right">
-                        <Box 
-                          className="product-actions"
-                          sx={{ 
-                            display: 'flex', 
-                            justifyContent: 'flex-end',
-                            gap: 0.25,
-                            opacity: isMobile ? 1 : 0.7,
-                            transition: 'opacity 0.2s ease'
-                          }}
-                        >
-                          <Tooltip title="Restore Product">
-                            <IconButton
-                              onClick={() => handleRestore(product)}
-                              disabled={restoringId === product.id || deletingId === product.id}
-                              size="small"
-                              sx={{
-                                color: 'success.main',
-                                '&:hover': {
-                                  backgroundColor: 'success.light',
-                                  color: 'success.dark'
-                                },
-                                p: 0.5
-                              }}
-                            >
-                              <RestoreIcon fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                          <Tooltip title="Permanently Delete (Cannot be undone)">
-                            <IconButton
-                              onClick={() => setConfirmDelete(product)}
-                              disabled={restoringId === product.id || deletingId === product.id}
-                              size="small"
-                              sx={{
-                                color: 'error.main',
-                                '&:hover': {
-                                  backgroundColor: 'error.light',
-                                  color: 'error.dark'
-                                },
-                                p: 0.5
-                              }}
-                            >
-                              <DeleteForeverIcon fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                        </Box>
-                        {isMobile && (product as any).deletedAt && (
-                          <Typography
-                            variant="caption"
-                            sx={{
-                              color: "text.secondary",
-                              display: 'block',
-                              textAlign: 'right',
-                              mt: 0.25,
-                              fontSize: '0.65rem'
-                            }}>
-                            {formatDate((product as any).deletedAt)}
-                          </Typography>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        )}
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose} variant="outlined">
-          Close
-        </Button>
-      </DialogActions>
-      {/* Permanent Delete Confirmation Dialog */}
-      <Dialog
-        open={Boolean(confirmDelete)}
-        onClose={() => setConfirmDelete(null)}
-        maxWidth="sm"
-        fullWidth
-      >
-        <DialogTitle color="error">
-          <Box
-            sx={{
-              display: "flex",
-              alignItems: "center",
-              gap: 1
-            }}>
-            <DeleteForeverIcon color="error" />
-            Permanently Delete Product
-          </Box>
-        </DialogTitle>
-        <DialogContent>
-          <Alert severity="error" sx={{ mb: 2 }}>
-            This action cannot be undone! The product will be completely removed from the database.
-          </Alert>
-          
-          {confirmDelete && (
-            <Box>
-              <Typography variant="body1" gutterBottom>
-                Are you sure you want to permanently delete this product?
-              </Typography>
-              <Box sx={{ mt: 2, p: 2, bgcolor: 'action.hover', borderRadius: 1 }}>
-                <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-                  {confirmDelete.name}
-                </Typography>
-                <Typography variant="body2" sx={{
-                  color: "text.secondary"
-                }}>
-                  Category: {confirmDelete.category?.name || 'No Category'}
-                </Typography>
-              </Box>
-              <Typography
-                variant="body2"
-                sx={{
-                  color: "text.secondary",
-                  mt: 2
-                }}>
-                This will permanently remove the product and all its data from the database.
-                The barcode "{confirmDelete.barcode}" will become available for reuse.
-              </Typography>
-            </Box>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button 
-            onClick={() => setConfirmDelete(null)} 
-            variant="outlined"
-            disabled={deletingId === confirmDelete?.id}
-          >
-            Cancel
-          </Button>
-          <Button 
-            onClick={() => confirmDelete && handlePermanentDelete(confirmDelete)}
-            variant="contained"
-            color="error"
-            disabled={deletingId === confirmDelete?.id}
-            startIcon={deletingId === confirmDelete?.id ? undefined : <DeleteForeverIcon />}
-          >
-            {deletingId === confirmDelete?.id ? 'Deleting...' : 'Permanently Delete'}
-          </Button>
-        </DialogActions>
-      </Dialog>
-      {/* Bulk Restore Confirmation Dialog */}
-      <Dialog
-        open={showBulkRestoreConfirm}
-        onClose={() => !bulkRestoring && setShowBulkRestoreConfirm(false)}
-        maxWidth="sm"
-        fullWidth
-      >
-        <DialogTitle color="success">
-          <Box
-            sx={{
-              display: "flex",
-              alignItems: "center",
-              gap: 1
-            }}>
-            <RestoreIcon color="success" />
-            Bulk Restore Products
-          </Box>
-        </DialogTitle>
-        <DialogContent>
-          <Alert severity="success" sx={{ mb: 2 }}>
-            This will restore the selected products back to active status and make them available for use.
-          </Alert>
-          
-          <Typography variant="body1" gutterBottom>
-            Are you sure you want to restore <strong>{selectedCount}</strong> selected products?
-          </Typography>
-          
-          {selectedCount <= 5 && (
-            <Box sx={{ mt: 2, p: 2, bgcolor: 'action.hover', borderRadius: 1 }}>
-              <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
-                Products to be restored:
-              </Typography>
-              {Array.from(selectedProducts).slice(0, 5).map(productId => {
-                const product = filteredProducts.find((p: Product) => p.id === productId)
-                return product ? (
-                  <Box key={productId} sx={{ mb: 0.5 }}>
-                    <Typography variant="body2">
-                      • {product.name}
-                    </Typography>
-                  </Box>
-                ) : null
-              })}
-            </Box>
-          )}
-          
-          <Typography
-            variant="body2"
-            sx={{
-              color: "text.secondary",
-              mt: 2
-            }}>
-            This will move the selected products back to the active products list and make them available for orders and inventory management.
-          </Typography>
-        </DialogContent>
-        <DialogActions>
-          <Button 
-            onClick={() => setShowBulkRestoreConfirm(false)} 
-            variant="outlined"
-            disabled={bulkRestoring}
-          >
-            Cancel
-          </Button>
-          <Button 
-            onClick={handleBulkRestore}
-            variant="contained"
-            color="success"
-            disabled={bulkRestoring}
-            startIcon={bulkRestoring ? <CircularProgress size={16} /> : <RestoreIcon />}
-          >
-            {bulkRestoring ? 'Restoring...' : `Restore ${selectedCount} Products`}
-          </Button>
-        </DialogActions>
-      </Dialog>
-      {/* Bulk Delete Confirmation Dialog */}
-      <Dialog
-        open={showBulkConfirm}
-        onClose={() => !bulkDeleting && setShowBulkConfirm(false)}
-        maxWidth="sm"
-        fullWidth
-      >
-        <DialogTitle color="error">
-          <Box
-            sx={{
-              display: "flex",
-              alignItems: "center",
-              gap: 1
-            }}>
-            <DeleteForeverIcon color="error" />
-            Bulk Permanent Delete
-          </Box>
-        </DialogTitle>
-        <DialogContent>
-          <Alert severity="error" sx={{ mb: 2 }}>
-            This action cannot be undone! The selected products will be completely removed from the database.
-          </Alert>
-          
-          <Typography variant="body1" gutterBottom>
-            Are you sure you want to permanently delete <strong>{selectedCount}</strong> selected products?
-          </Typography>
-          
-          {selectedCount <= 5 && (
-            <Box sx={{ mt: 2, p: 2, bgcolor: 'action.hover', borderRadius: 1 }}>
-              <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
-                Products to be deleted:
-              </Typography>
-              {Array.from(selectedProducts).slice(0, 5).map(productId => {
-                const product = filteredProducts.find((p: Product) => p.id === productId)
-                return product ? (
-                  <Box key={productId} sx={{ mb: 0.5 }}>
-                    <Typography variant="body2">
-                      • {product.name}
-                    </Typography>
-                  </Box>
-                ) : null
-              })}
-            </Box>
-          )}
-          
-          <Typography
-            variant="body2"
-            sx={{
-              color: "text.secondary",
-              mt: 2
-            }}>
-            This will permanently remove all selected products and their data from the database.
-            Their barcodes will become available for reuse.
-          </Typography>
-        </DialogContent>
-        <DialogActions>
-          <Button 
-            onClick={() => setShowBulkConfirm(false)} 
-            variant="outlined"
-            disabled={bulkDeleting}
-          >
-            Cancel
-          </Button>
-          <Button 
-            onClick={handleBulkPermanentDelete}
-            variant="contained"
-            color="error"
-            disabled={bulkDeleting}
-            startIcon={bulkDeleting ? <CircularProgress size={16} /> : <DeleteForeverIcon />}
-          >
-            {bulkDeleting ? 'Deleting...' : `Delete ${selectedCount} Products`}
-          </Button>
-        </DialogActions>
-      </Dialog>
-    </Dialog>
-  );
-}
+    useGetDeletedQuery={useGetDeletedProductsQuery}
+    useRestoreMutation={useRestoreProductMutation}
+    usePermanentDeleteMutation={usePermanentDeleteProductMutation}
+    useBulkRestoreMutation={useBulkRestoreProductsMutation}
+    useBulkPermanentDeleteMutation={useBulkPermanentDeleteProductsMutation}
+  />
+)
 
 export default DeletedProductsDialog
