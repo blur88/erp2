@@ -224,4 +224,32 @@ describe('GenericDeletedDialog', () => {
 
     expect(screen.queryAllByRole('checkbox')).toHaveLength(0)
   })
+
+  it('clears search term when dialog is reopened', async () => {
+    const props: GenericDeletedDialogProps<TestEntity> = {
+      open: true,
+      onClose: vi.fn(),
+      title: 'Deleted Items',
+      entityLabel: 'item',
+      icon: <span />,
+      columns,
+      getItemLabel: (item) => item.name,
+      searchPlaceholder: 'Search...',
+      filterItem: (item, term) => item.name.toLowerCase().includes(term),
+      useGetDeletedQuery: makeQueryHook(items),
+      useRestoreMutation: makeMutationHook(),
+      usePermanentDeleteMutation: makeMutationHook(),
+    }
+
+    const { rerender } = render(<GenericDeletedDialog {...props} />)
+
+    await userEvent.type(screen.getByPlaceholderText('Search...'), 'alpha')
+    expect(screen.queryByText('Beta')).not.toBeInTheDocument()
+
+    rerender(<GenericDeletedDialog {...props} open={false} />)
+    rerender(<GenericDeletedDialog {...props} open />)
+
+    expect(screen.getByPlaceholderText('Search...')).toHaveValue('')
+    expect(screen.getByText('Beta')).toBeInTheDocument()
+  })
 })

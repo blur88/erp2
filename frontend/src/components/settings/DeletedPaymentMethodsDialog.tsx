@@ -62,6 +62,7 @@ const DeletedPaymentMethodsDialog: React.FC<DeletedPaymentMethodsDialogProps> = 
       method.code?.toLowerCase().includes(term)
     }
     useGetDeletedQuery={useGetDeletedPaymentMethodsQuery}
+    queryArg={undefined}
     getItems={(data) => (Array.isArray(data) ? data : [])}
     useRestoreMutation={useRestorePaymentMethodMutation}
     usePermanentDeleteMutation={usePermanentDeletePaymentMethodMutation}

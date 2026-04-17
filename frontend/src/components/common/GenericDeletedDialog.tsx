@@ -134,6 +134,7 @@ function GenericDeletedDialog<T extends { id: string }>({
       return
     }
 
+    setSearchTerm('')
     setSelectedItems(new Set())
     void refetch?.()
     // `refetch` can be unstable in tests and some generated hooks; reopening is the event that matters.
