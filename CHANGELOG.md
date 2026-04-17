@@ -1,3 +1,13 @@
+## [1.76.2](https://github.com/blur88/erp2/compare/v1.76.1...v1.76.2) (2026-04-17)
+
+
+### Internal Changes
+
+* chore(deps): bump typescript 6.0.3, @mui/x-date-pickers 9.0.2, eslint-plugin-react-hooks 7.1.0 in frontend ([](https://github.com/blur88/erp2/commit/))
+* chore(deps): bump typescript 6.0.2 → 6.0.3 in backend ([](https://github.com/blur88/erp2/commit/))
+* docs: add implementation plan for issue #377 dep update ([](https://github.com/blur88/erp2/commit/))
+* docs: add design spec for issue #377 dep update ([](https://github.com/blur88/erp2/commit/))
+
 ## [1.76.1](https://github.com/blur88/erp2/compare/v1.76.0...v1.76.1) (2026-04-17)
 
 
