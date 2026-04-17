@@ -1,3 +1,18 @@
+# [1.77.0](https://github.com/blur88/erp2/compare/v1.76.2...v1.77.0) (2026-04-17)
+
+
+### Bug Fixes
+
+* **inventory:** use getCategoryProducts hook in CategoryWorkspaceCard ([4aedcf2](https://github.com/blur88/erp2/commit/4aedcf22acb3efd3521822d0605c7fb7d051ecf4))
+
+
+### Features
+
+* **inventory:** add CategoryProductDto ([b7f6f78](https://github.com/blur88/erp2/commit/b7f6f785685c0416c89aa26733fbda3f13e68000))
+* **inventory:** add GET categories/:id/products endpoint ([2ce2f27](https://github.com/blur88/erp2/commit/2ce2f27f88389c75d6c8c25b9303020edae1c788))
+* **inventory:** add getCategoryProducts RTK Query endpoint ([c553a5b](https://github.com/blur88/erp2/commit/c553a5bad9a2f7983494a274f11d4348759c5954))
+* **inventory:** add getCategoryProducts to CategoryService ([3039000](https://github.com/blur88/erp2/commit/3039000c159d03f2d109baa45853feac26f5cf74))
+
 ## [1.76.2](https://github.com/blur88/erp2/compare/v1.76.1...v1.76.2) (2026-04-17)
 
 
