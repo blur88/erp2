@@ -2,7 +2,6 @@ import React, { useEffect, useState } from 'react'
 import {
   Alert,
   Box,
-  Button,
   Checkbox,
   CircularProgress,
   Dialog,
@@ -10,14 +9,12 @@ import {
   DialogContent,
   DialogTitle,
   IconButton,
-  InputAdornment,
   Table,
   TableBody,
   TableCell,
   TableContainer,
   TableHead,
   TableRow,
-  TextField,
   Tooltip,
   Typography,
   useMediaQuery,
@@ -26,7 +23,8 @@ import {
 import { default as CloseIcon } from '@mui/icons-material/Close'
 import { default as DeleteForeverIcon } from '@mui/icons-material/DeleteForever'
 import { default as RestoreIcon } from '@mui/icons-material/Restore'
-import { default as SearchIcon } from '@mui/icons-material/Search'
+import { AppButton } from '@/components/common/AppButton'
+import { FilterSearch } from '@/components/filters/FilterSearch'
 import { useNotification } from '@/hooks/useNotification'
 
 export interface ColumnDef<T> {
@@ -293,45 +291,37 @@ function GenericDeletedDialog<T extends { id: string }>({
             {infoMessage ?? defaultInfoMessage}
           </Alert>
           <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
-            <TextField
-              fullWidth
-              placeholder={searchPlaceholder}
-              value={searchTerm}
-              onChange={(event) => setSearchTerm(event.target.value)}
-              slotProps={{
-                input: {
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <SearchIcon />
-                    </InputAdornment>
-                  ),
-                },
-              }}
-              sx={{ flex: 1, minWidth: '300px' }}
-            />
+            <Box sx={{ flex: 1, minWidth: '300px' }}>
+              <FilterSearch
+                value={searchTerm}
+                placeholder={searchPlaceholder}
+                onChange={setSearchTerm}
+                onCommit={() => {}}
+              />
+            </Box>
             {hasBulkActions && selectedCount > 0 && (
               <>
                 {bulkRestore && (
-                  <Button
-                    variant="contained"
-                    color="success"
+                  <AppButton
+                    variant="success"
                     startIcon={<RestoreIcon />}
                     onClick={() => setShowBulkRestoreConfirm(true)}
-                    disabled={bulkRestoring || bulkDeleting}
+                    disabled={bulkDeleting}
+                    loading={bulkRestoring}
                   >
                     Restore Selected ({selectedCount})
-                  </Button>
+                  </AppButton>
                 )}
                 {bulkPermanentDelete && (
-                  <Button
-                    variant="contained"
-                    color="error"
+                  <AppButton
+                    variant="danger"
                     startIcon={<DeleteForeverIcon />}
                     onClick={() => setShowBulkDeleteConfirm(true)}
-                    disabled={bulkDeleting || bulkRestoring}
+                    disabled={bulkRestoring}
+                    loading={bulkDeleting}
                   >
                     Delete Selected ({selectedCount})
-                  </Button>
+                  </AppButton>
                 )}
               </>
             )}
@@ -481,9 +471,9 @@ function GenericDeletedDialog<T extends { id: string }>({
       </DialogContent>
 
       <DialogActions>
-        <Button onClick={onClose} variant="outlined">
+        <AppButton onClick={onClose} variant="outlined">
           Close
-        </Button>
+        </AppButton>
       </DialogActions>
 
       <Dialog open={Boolean(confirmDelete)} onClose={() => setConfirmDelete(null)} maxWidth="sm" fullWidth>
@@ -511,18 +501,17 @@ function GenericDeletedDialog<T extends { id: string }>({
           )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setConfirmDelete(null)} variant="outlined" disabled={deletingId === confirmDelete?.id}>
+          <AppButton onClick={() => setConfirmDelete(null)} variant="outlined" disabled={deletingId === confirmDelete?.id}>
             Cancel
-          </Button>
-          <Button
+          </AppButton>
+          <AppButton
             onClick={() => confirmDelete && handlePermanentDelete(confirmDelete)}
-            variant="contained"
-            color="error"
-            disabled={deletingId === confirmDelete?.id}
-            startIcon={deletingId === confirmDelete?.id ? <CircularProgress size={16} /> : <DeleteForeverIcon />}
+            variant="danger"
+            startIcon={<DeleteForeverIcon />}
+            loading={deletingId === confirmDelete?.id}
           >
             {deletingId === confirmDelete?.id ? 'Deleting...' : 'Permanently Delete'}
-          </Button>
+          </AppButton>
         </DialogActions>
       </Dialog>
 
@@ -542,18 +531,17 @@ function GenericDeletedDialog<T extends { id: string }>({
           </Typography>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setShowBulkRestoreConfirm(false)} variant="outlined" disabled={bulkRestoring}>
+          <AppButton onClick={() => setShowBulkRestoreConfirm(false)} variant="outlined" disabled={bulkRestoring}>
             Cancel
-          </Button>
-          <Button
+          </AppButton>
+          <AppButton
             onClick={handleBulkRestore}
-            variant="contained"
-            color="success"
-            disabled={bulkRestoring}
-            startIcon={bulkRestoring ? <CircularProgress size={16} /> : <RestoreIcon />}
+            variant="success"
+            startIcon={<RestoreIcon />}
+            loading={bulkRestoring}
           >
             {bulkRestoring ? 'Restoring...' : `Restore ${selectedCount} ${entityLabelPlural}`}
-          </Button>
+          </AppButton>
         </DialogActions>
       </Dialog>
 
@@ -573,18 +561,17 @@ function GenericDeletedDialog<T extends { id: string }>({
           </Typography>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setShowBulkDeleteConfirm(false)} variant="outlined" disabled={bulkDeleting}>
+          <AppButton onClick={() => setShowBulkDeleteConfirm(false)} variant="outlined" disabled={bulkDeleting}>
             Cancel
-          </Button>
-          <Button
+          </AppButton>
+          <AppButton
             onClick={handleBulkPermanentDelete}
-            variant="contained"
-            color="error"
-            disabled={bulkDeleting}
-            startIcon={bulkDeleting ? <CircularProgress size={16} /> : <DeleteForeverIcon />}
+            variant="danger"
+            startIcon={<DeleteForeverIcon />}
+            loading={bulkDeleting}
           >
             {bulkDeleting ? 'Deleting...' : `Delete ${selectedCount} ${entityLabelPlural}`}
-          </Button>
+          </AppButton>
         </DialogActions>
       </Dialog>
     </Dialog>
