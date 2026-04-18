@@ -1,3 +1,14 @@
+# [1.78.0](https://github.com/blur88/erp2/compare/v1.77.4...v1.78.0) (2026-04-18)
+
+
+### Features
+
+* remove manual invoice create/edit/delete stubs from workspace hook (issue [#387](https://github.com/blur88/erp2/issues/387)) ([805e318](https://github.com/blur88/erp2/commit/805e3187868493a0fdb1dc7b80034c471de2ba58))
+* remove New Invoice button from InvoicesPage (issue [#387](https://github.com/blur88/erp2/issues/387)) ([ed17d2e](https://github.com/blur88/erp2/commit/ed17d2edae24384eab89cfa872c15f4dd943ef2e))
+* remove placeholder create/edit invoice dialogs (issue [#387](https://github.com/blur88/erp2/issues/387)) ([b1d1feb](https://github.com/blur88/erp2/commit/b1d1febae3e99eaa76703c39e72340ee061be734))
+* remove POST /invoices endpoint — invoices auto-created from sales orders (issue [#387](https://github.com/blur88/erp2/issues/387)) ([7413c51](https://github.com/blur88/erp2/commit/7413c515daded23f98f868fe7cd6184d0ea3f2f9))
+* remove unused createInvoice RTK mutation (issue [#387](https://github.com/blur88/erp2/issues/387)) ([f9faf33](https://github.com/blur88/erp2/commit/f9faf33750e81cc0901aba77ba43d4c26897e9a9))
+
 ## [1.77.4](https://github.com/blur88/erp2/compare/v1.77.3...v1.77.4) (2026-04-18)
 
 
