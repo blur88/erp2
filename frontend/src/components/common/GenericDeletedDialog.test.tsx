@@ -95,6 +95,25 @@ describe('GenericDeletedDialog', () => {
     expect(screen.queryByText('Gamma')).not.toBeInTheDocument()
   })
 
+  it('does not show clear button when search is empty', () => {
+    renderDialog()
+
+    expect(screen.queryByRole('button', { name: /clear search/i })).not.toBeInTheDocument()
+  })
+
+  it('clears the search term from the search control', async () => {
+    renderDialog()
+
+    await userEvent.type(screen.getByPlaceholderText('Search...'), 'alpha')
+    expect(screen.queryByText('Beta')).not.toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('button', { name: /clear search/i }))
+
+    expect(screen.getByPlaceholderText('Search...')).toHaveValue('')
+    expect(screen.getByText('Beta')).toBeInTheDocument()
+    expect(screen.getByText('Gamma')).toBeInTheDocument()
+  })
+
   it('calls restore mutation with the item id', async () => {
     const restoreFn = vi.fn(() => ({ unwrap: () => Promise.resolve({}) }))
 
