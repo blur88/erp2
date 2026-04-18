@@ -2,7 +2,6 @@ import { useEffect, useRef, useState, type MouseEvent } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 
 import { useEntityWorkspace } from '@/hooks/useEntityWorkspace'
-import { useNotification } from '@/hooks/useNotification'
 import type { EntityWorkspaceReturn } from '@/hooks/useEntityWorkspace'
 import type { AppDispatch } from '@/store'
 import { useLazyGetJournalEntriesQuery } from '@/store/api/accountingApi'
@@ -59,9 +58,6 @@ export function useInvoicesWorkspace({
 }: UseInvoicesWorkspaceConfig) {
   const navigate = useNavigate()
   const location = useLocation()
-  const { showError } = useNotification()
-  const [createDialog, setCreateDialog] = useState(false)
-  const [editDialog, setEditDialog] = useState(false)
   const [deletedInvoicesDialogOpen, setDeletedInvoicesDialogOpen] = useState(false)
   const [printDialogOpen, setPrintDialogOpen] = useState(false)
   const [journalEntryRef, setJournalEntryRef] = useState<InvoiceJournalEntryRef | null>(null)
@@ -86,16 +82,10 @@ export function useInvoicesWorkspace({
       showError: () => {},
     },
     deleteMutation: async () => {},
-    onEnter: () => {
-      if (selectedInvoice) {
-        setEditDialog(true)
-      }
-    },
+    onEnter: () => {},
     onEscape: () => {
       workspaceRef.current?.setFocusedIndex(-1)
       dispatch(setSelectedInvoice(null))
-      setCreateDialog(false)
-      setEditDialog(false)
     },
   })
   workspaceRef.current = workspace
@@ -244,20 +234,10 @@ export function useInvoicesWorkspace({
     navigate(`/accounting/journal-entries?sourceType=${journalEntryRef.sourceType}&sourceId=${journalEntryRef.sourceId}`)
   }
 
-  const handleDeleteAction = () => {
-    if (selectedInvoice) {
-      showError('Delete functionality will be implemented later')
-    }
-  }
-
   return {
     ...workspace,
     focusedInvoiceIndex: workspace.focusedIndex,
     invoiceListRef: workspace.listRef,
-    createDialog,
-    setCreateDialog,
-    editDialog,
-    setEditDialog,
     deletedInvoicesDialogOpen,
     setDeletedInvoicesDialogOpen,
     printDialogOpen,
@@ -268,17 +248,8 @@ export function useInvoicesWorkspace({
     handleSalesOrderClick,
     handleNavigateToPayment,
     navigateToJournalEntry,
-    handleEditAction: () => {
-      if (selectedInvoice) {
-        setEditDialog(true)
-      }
-    },
-    handleDeleteAction,
     handleViewDeletedAction: () => {
       setDeletedInvoicesDialogOpen(true)
-    },
-    handleAddInvoice: () => {
-      setCreateDialog(true)
     },
   }
 }
