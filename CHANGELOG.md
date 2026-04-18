@@ -1,3 +1,12 @@
+## [1.79.2](https://github.com/blur88/erp2/compare/v1.79.1...v1.79.2) (2026-04-18)
+
+
+### Bug Fixes
+
+* remove GRN number fallback, delegate entirely to document number settings (issue [#391](https://github.com/blur88/erp2/issues/391)) ([3ac736d](https://github.com/blur88/erp2/commit/3ac736d67932128414a5ffd951cdf2ddbd96bab9))
+* remove legacy GRN number generation from PurchaseOrderService.createDraftGrn (issue [#391](https://github.com/blur88/erp2/issues/391)) ([5fe3b12](https://github.com/blur88/erp2/commit/5fe3b129db61701ed0a3b5f64b625e08daf245ca))
+* sync GRN nextNumber accounts for legacy GRN-XXXXXX format (issue [#391](https://github.com/blur88/erp2/issues/391)) ([e9a485e](https://github.com/blur88/erp2/commit/e9a485ede109608108ab90d69898d54b67054387))
+
 ## [1.79.1](https://github.com/blur88/erp2/compare/v1.79.0...v1.79.1) (2026-04-18)
 
 
