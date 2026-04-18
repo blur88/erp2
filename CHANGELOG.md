@@ -1,3 +1,10 @@
+# [1.79.0](https://github.com/blur88/erp2/compare/v1.78.0...v1.79.0) (2026-04-18)
+
+
+### Features
+
+* modernize Customer/Supplier forms and add useFieldDuplicateCheck hook (issue [#389](https://github.com/blur88/erp2/issues/389)) ([d32e944](https://github.com/blur88/erp2/commit/d32e94439bc16541acbd2c2b91299f51a2aa0734))
+
 # [1.78.0](https://github.com/blur88/erp2/compare/v1.77.4...v1.78.0) (2026-04-18)
 
 
