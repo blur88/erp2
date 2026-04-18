@@ -95,6 +95,12 @@ describe('GenericDeletedDialog', () => {
     expect(screen.queryByText('Gamma')).not.toBeInTheDocument()
   })
 
+  it('does not show clear button when search is empty', () => {
+    renderDialog()
+
+    expect(screen.queryByRole('button', { name: /clear search/i })).not.toBeInTheDocument()
+  })
+
   it('clears the search term from the search control', async () => {
     renderDialog()
 
