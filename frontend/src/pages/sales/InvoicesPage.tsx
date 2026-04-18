@@ -134,7 +134,6 @@ const InvoicesPage: React.FC = () => {
     <GenericListPage
       title="Invoices"
       subtitle="Track and manage customer invoices"
-      primaryAction={{ label: 'New Invoice', onClick: workspace.handleAddInvoice }}
       secondaryAction={{ label: 'View Deleted', onClick: () => workspace.setDeletedInvoicesDialogOpen(true) }}
       filterConfig={filterConfig}
       draftFilters={draftFilters}
@@ -168,13 +167,9 @@ const InvoicesPage: React.FC = () => {
       workspaceSlot={<InvoiceWorkspaceCard selectedInvoice={selectedInvoice} />}
       dialogs={(
         <InvoicesDialogs
-          createDialog={workspace.createDialog}
-          editDialog={workspace.editDialog}
           deletedInvoicesDialogOpen={workspace.deletedInvoicesDialogOpen}
           printDialogOpen={workspace.printDialogOpen}
           selectedInvoice={selectedInvoice}
-          onCloseCreateDialog={() => workspace.setCreateDialog(false)}
-          onCloseEditDialog={() => workspace.setEditDialog(false)}
           onCloseDeletedInvoicesDialog={() => workspace.setDeletedInvoicesDialogOpen(false)}
           onClosePrintDialog={() => workspace.setPrintDialogOpen(false)}
         />

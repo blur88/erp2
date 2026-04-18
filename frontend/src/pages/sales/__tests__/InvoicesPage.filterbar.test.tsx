@@ -43,10 +43,6 @@ vi.mock('../hooks/useInvoicesWorkspace', () => ({
     setShouldPreserveSearchFocus: vi.fn(),
     focusedInvoiceIndex: -1,
     invoiceListRef: { current: null },
-    createDialog: false,
-    setCreateDialog: vi.fn(),
-    editDialog: false,
-    setEditDialog: vi.fn(),
     deletedInvoicesDialogOpen: false,
     setDeletedInvoicesDialogOpen: vi.fn(),
     printDialogOpen: false,
@@ -65,7 +61,6 @@ vi.mock('../hooks/useInvoicesWorkspace', () => ({
     handleSalesOrderClick: vi.fn(),
     handleNavigateToPayment: vi.fn(),
     navigateToJournalEntry: vi.fn(),
-    handleAddInvoice: vi.fn(),
   }),
 }))
 
@@ -93,6 +88,11 @@ describe('InvoicesPage FilterBar integration', () => {
   it('renders the shared filter search input', () => {
     renderPage()
     expect(screen.getByPlaceholderText(/search invoices/i)).toBeInTheDocument()
+  })
+
+  it('does not render a New Invoice primary action', () => {
+    renderPage()
+    expect(screen.queryByRole('button', { name: /new invoice/i })).not.toBeInTheDocument()
   })
 
   it('renders the master-detail workspace with split invoice detail cards', () => {
