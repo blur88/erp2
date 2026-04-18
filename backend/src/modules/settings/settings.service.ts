@@ -580,6 +580,18 @@ export class SettingsService {
                 .limit(1)
                 .getOne();
               if (r?.grnNumber) maxNumber = parseInt(r.grnNumber.split('-')[2], 10) || 0;
+
+              const legacy = await this.goodsReceivedNoteRepository
+                .createQueryBuilder('grn')
+                .select('grn.grnNumber')
+                .where("grn.grnNumber ~ '^GRN-\\\\d+$'")
+                .orderBy('grn.grnNumber', 'DESC')
+                .limit(1)
+                .getOne();
+              if (legacy?.grnNumber) {
+                const legacyNum = parseInt(legacy.grnNumber.split('-')[1], 10) || 0;
+                maxNumber = Math.max(maxNumber, legacyNum);
+              }
               break;
             }
             case 'Vendor Payments': {

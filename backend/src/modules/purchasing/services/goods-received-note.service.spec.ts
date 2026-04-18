@@ -356,6 +356,39 @@ describe('GoodsReceivedNoteService', () => {
       // Verify accounting entry was posted
       expect(accountingService.postGoodsReceivedEntry).toHaveBeenCalled();
     });
+
+    it('should use the document number returned by settingsService', async () => {
+      const fullGrn = {
+        ...mockGrn,
+        supplier: mockPurchaseOrder.supplier,
+        purchaseOrder: mockPurchaseOrder,
+      } as GoodsReceivedNote;
+
+      grnRepository.findOne
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce(fullGrn)
+        .mockResolvedValueOnce(fullGrn);
+
+      settingsService.generateDocumentNumber.mockResolvedValue('GRN-26-007');
+      grnRepository.create.mockReturnValue({ ...mockGrn, grnNumber: 'GRN-26-007' } as GoodsReceivedNote);
+
+      await service.create(createDto);
+
+      expect(settingsService.generateDocumentNumber).toHaveBeenCalledWith('Goods Received');
+      expect(grnRepository.create).toHaveBeenCalledWith(
+        expect.objectContaining({ grnNumber: 'GRN-26-007' }),
+      );
+    });
+
+    it('should throw BadRequestException when settingsService.generateDocumentNumber fails', async () => {
+      grnRepository.findOne.mockResolvedValueOnce(null);
+      settingsService.generateDocumentNumber.mockRejectedValue(
+        new Error("Document number config for 'Goods Received' not found"),
+      );
+
+      await expect(service.create(createDto)).rejects.toThrow('Failed to create goods received note');
+      expect(grnRepository.save).not.toHaveBeenCalled();
+    });
   });
 
   describe('findAll', () => {

@@ -1200,23 +1200,7 @@ export class PurchaseOrderService extends BaseCrudService<
     username?: string,
   ): Promise<void> {
     try {
-      // Generate sequential GRN number
-      const grns = await this.grnRepository.find({
-        select: ['grnNumber'],
-        withDeleted: true,
-      });
-
-      let maxNumber = 0;
-      for (const grn of grns) {
-        const match = grn.grnNumber.match(/^GRN-(\d+)$/);
-        if (match) {
-          const num = parseInt(match[1]);
-          if (num > maxNumber) {
-            maxNumber = num;
-          }
-        }
-      }
-      const grnNumber = `GRN-${(maxNumber + 1).toString().padStart(6, '0')}`;
+      const grnNumber = await this.settingsService.generateDocumentNumber('Goods Received');
 
       // Fetch full PO with relations for GRN creation
       const fullPO = await this.purchaseOrderRepository.findOne({
