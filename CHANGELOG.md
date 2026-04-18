@@ -1,3 +1,10 @@
+## [1.77.4](https://github.com/blur88/erp2/compare/v1.77.3...v1.77.4) (2026-04-18)
+
+
+### Internal Changes
+
+* chore(deps): bump eslint-plugin-react-hooks to 7.1.1 ([](https://github.com/blur88/erp2/commit/))
+
 ## [1.77.3](https://github.com/blur88/erp2/compare/v1.77.2...v1.77.3) (2026-04-18)
 
 
