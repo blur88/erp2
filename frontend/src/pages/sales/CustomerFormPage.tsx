@@ -1,7 +1,10 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react'
+import React, { useCallback, useEffect, useState } from 'react'
 import {
+  Alert,
   Box,
   Button,
+  Card,
+  CardContent,
   CircularProgress,
   FormControl,
   Grid,
@@ -11,24 +14,24 @@ import {
   Select,
   TextField,
   Typography,
-  Paper,
-  Alert,
 } from '@mui/material'
 import { useNavigate, useParams } from 'react-router-dom'
-import { useForm, Controller, type Control, type FieldErrors } from 'react-hook-form'
+import { Controller, useForm } from 'react-hook-form'
 import { yupResolver } from '@hookform/resolvers/yup'
 import * as yup from 'yup'
+
+import AddressSection from '@/components/common/AddressSection'
+import PageHeader from '@/components/common/PageHeader'
+import PriceListSelector from '@/components/price-lists/PriceListSelector'
+import { useFieldDuplicateCheck } from '@/hooks/useFieldDuplicateCheck'
 import { useNotification } from '@/hooks/useNotification'
+import api from '@/services/api'
 import {
   useCreateCustomerMutation,
   useUpdateCustomerMutation,
 } from '@/store/api/salesApi'
 import type { Customer } from '@/types'
 import { CustomerType } from '@/types'
-import api from '@/services/api'
-import PriceListSelector from '@/components/price-lists/PriceListSelector'
-import AddressSection from '@/components/common/AddressSection'
-import PageHeader from '@/components/common/PageHeader'
 
 const customerSchema = yup.object({
   name: yup.string().required('Name is required').max(200, 'Name must be less than 200 characters'),
@@ -56,29 +59,10 @@ interface CustomerFormData {
   notes?: string | null
 }
 
-
-interface CustomerFormActionsProps {
-  disabled: boolean
-  isEdit: boolean
-  isSaving: boolean
-  onCancel: () => void
+const fieldSx = {
+  '& .MuiInputBase-input': { fontSize: '0.875rem' },
+  '& .MuiInputLabel-root': { fontSize: '0.875rem' },
 }
-
-const CustomerFormActions: React.FC<CustomerFormActionsProps> = ({
-  disabled,
-  isEdit,
-  isSaving,
-  onCancel,
-}) => (
-  <Grid size={12}>
-    <Box sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end', pt: 1 }}>
-      <Button onClick={onCancel}>Cancel</Button>
-      <Button type="submit" variant="contained" disabled={disabled}>
-        {isSaving ? <CircularProgress size={20} /> : (isEdit ? 'Update' : 'Create')}
-      </Button>
-    </Box>
-  </Grid>
-)
 
 const CustomerFormPage: React.FC = () => {
   const { id } = useParams<{ id: string }>()
@@ -89,101 +73,100 @@ const CustomerFormPage: React.FC = () => {
   const [customer, setCustomer] = useState<Customer | null>(null)
   const [loadingCustomer, setLoadingCustomer] = useState(isEdit)
   const [loadError, setLoadError] = useState<string | null>(null)
-  const [isCheckingPhone, setIsCheckingPhone] = useState(false)
-  const [phoneError, setPhoneError] = useState<string | null>(null)
 
   const [createCustomer, { isLoading: isCreating }] = useCreateCustomerMutation()
   const [updateCustomer, { isLoading: isUpdating }] = useUpdateCustomerMutation()
   const isSaving = isCreating || isUpdating
 
-  const { control, handleSubmit, reset, formState: { errors } } = useForm<CustomerFormData>({
+  const { control, handleSubmit, reset, watch, formState: { errors } } = useForm<CustomerFormData>({
     resolver: yupResolver(customerSchema) as any,
     defaultValues: {
       name: '',
       type: CustomerType.BUSINESS,
-      priceListId: null,
       phone: null,
       streetAddress: null,
       city: null,
       state: null,
       postalCode: null,
       country: null,
+      priceListId: null,
       notes: null,
     },
   })
 
+  const watchedPhone = watch('phone')
+
   useEffect(() => {
-    if (!id) return
+    if (!id) {
+      return
+    }
+
     setLoadingCustomer(true)
+
     api.get(`/customers/${id}`)
       .then((res) => {
-        const c: Customer = res.data?.data ?? res.data
-        setCustomer(c)
+        const currentCustomer: Customer = res.data?.data ?? res.data
+        setCustomer(currentCustomer)
         reset({
-          name: c.name,
-          type: c.type,
-          priceListId: c.priceListId || null,
-          phone: c.phone || null,
-          streetAddress: c.streetAddress || null,
-          city: c.city || null,
-          state: c.state || null,
-          postalCode: c.postalCode || null,
-          country: c.country || null,
-          notes: c.notes || null,
+          name: currentCustomer.name,
+          type: currentCustomer.type,
+          phone: currentCustomer.phone || null,
+          streetAddress: currentCustomer.streetAddress || null,
+          city: currentCustomer.city || null,
+          state: currentCustomer.state || null,
+          postalCode: currentCustomer.postalCode || null,
+          country: currentCustomer.country || null,
+          priceListId: currentCustomer.priceListId || null,
+          notes: currentCustomer.notes || null,
         })
-
       })
       .catch(() => setLoadError('Customer not found.'))
       .finally(() => setLoadingCustomer(false))
   }, [id, reset])
 
-  const checkPhoneDuplicate = useCallback(async (phone: string) => {
-    if (!phone || phone.trim().length === 0) {
-      setPhoneError(null)
-      return
-    }
+  const phoneCheckFn = useCallback(async (phone: string, excludeId?: string) => {
     const normalizedPhone = phone.replace(/[\s\-\(\)\+]/g, '')
-    if (normalizedPhone.length === 0) {
-      setPhoneError(null)
-      return
-    }
-    setIsCheckingPhone(true)
-    setPhoneError(null)
-    try {
-      const [activeResponse, deletedResponse] = await Promise.all([
-        api.get('/customers', { params: { search: phone } }),
-        api.get('/customers/deleted', { params: { search: phone } }),
-      ])
-      const allCustomers = [
-        ...(activeResponse.data?.data || []),
-        ...(deletedResponse.data?.data || []),
-      ]
-      if (allCustomers.length > 0) {
-        const duplicateCustomer = allCustomers.find((c: Customer) => {
-          if (!c.phone) return false
-          const existing = c.phone.replace(/[\s\-\(\)\+]/g, '')
-          return existing === normalizedPhone && (!customer || c.id !== customer.id)
-        })
-        if (duplicateCustomer) {
-          setPhoneError(`Phone number already exists for customer: ${duplicateCustomer.name}`)
-        }
+    const [activeResponse, deletedResponse] = await Promise.all([
+      api.get('/customers', { params: { search: phone } }),
+      api.get('/customers/deleted', { params: { search: phone } }),
+    ])
+    const allCustomers = [
+      ...(activeResponse.data?.data || []),
+      ...(deletedResponse.data?.data || []),
+    ]
+    const duplicateCustomer = allCustomers.find((current: Customer) => {
+      if (!current.phone) {
+        return false
       }
-    } catch {
-      // ignore duplicate check errors
-    } finally {
-      setIsCheckingPhone(false)
-    }
-  }, [customer])
 
-  const debouncedPhoneCheck = useMemo(() => {
-    let timeoutId: ReturnType<typeof setTimeout>
-    return (phone: string) => {
-      clearTimeout(timeoutId)
-      timeoutId = setTimeout(() => checkPhoneDuplicate(phone), 500)
+      return current.phone.replace(/[\s\-\(\)\+]/g, '') === normalizedPhone && current.id !== excludeId
+    })
+
+    return {
+      exists: !!duplicateCustomer,
+      message: duplicateCustomer
+        ? `Phone already exists for customer: ${duplicateCustomer.name}`
+        : undefined,
     }
-  }, [checkPhoneDuplicate])
+  }, [])
+
+  const {
+    isChecking: isCheckingPhone,
+    hasDuplicate: hasPhoneDuplicate,
+    hasChecked: hasCheckedPhone,
+    error: phoneError,
+    successMessage: phoneSuccess,
+  } = useFieldDuplicateCheck(watchedPhone ?? '', phoneCheckFn, {
+    excludeId: customer?.id,
+    skipCheck: !watchedPhone,
+  })
 
   const handleFormSubmit = async (data: CustomerFormData) => {
+    if (hasPhoneDuplicate) {
+      showError(phoneError ?? 'Phone number already exists')
+      return
+    }
+
     const cleanedData = {
       ...data,
       phone: data.phone?.trim() || null,
@@ -194,6 +177,7 @@ const CustomerFormPage: React.FC = () => {
       country: data.country?.trim() || null,
       notes: data.notes?.trim() || null,
     }
+
     try {
       if (isEdit && id) {
         await updateCustomer({ id, data: cleanedData }).unwrap()
@@ -202,6 +186,7 @@ const CustomerFormPage: React.FC = () => {
         await createCustomer(cleanedData).unwrap()
         showSuccess('Customer created successfully')
       }
+
       navigate('/sales/customers')
     } catch (error) {
       showError(`Failed to ${isEdit ? 'update' : 'create'} customer: ${error}`)
@@ -225,114 +210,160 @@ const CustomerFormPage: React.FC = () => {
       <PageHeader
         title={isEdit ? 'Edit Customer' : 'New Customer'}
         subtitle={isEdit ? `Editing ${customer?.name ?? ''}` : 'Add a new customer to your account'}
-        variant="standard"
+        variant="workflow"
+        backAction={() => navigate('/sales/customers')}
       />
-      <Paper sx={{ p: 3, maxWidth: 800 }}>
-        <form onSubmit={handleSubmit(handleFormSubmit)}>
-          <Grid container spacing={2}>
-            <Grid size={12}>
-              <Typography variant="h6" gutterBottom>Basic Information</Typography>
-            </Grid>
 
-            <Grid size={{ xs: 12, md: 6 }}>
-              <Controller
-                name="type"
-                control={control}
-                render={({ field }) => (
-                  <FormControl fullWidth error={!!errors.type}>
-                    <InputLabel>Customer Type</InputLabel>
-                    <Select {...field} label="Customer Type">
-                      <MenuItem value={CustomerType.INDIVIDUAL}>Individual</MenuItem>
-                      <MenuItem value={CustomerType.BUSINESS}>Business</MenuItem>
-                    </Select>
-                  </FormControl>
-                )}
-              />
-            </Grid>
+      <form onSubmit={handleSubmit(handleFormSubmit)}>
+        <Grid container spacing={3}>
+          <Grid size={{ xs: 12, md: 8 }}>
+            <Card>
+              <CardContent>
+                <Typography variant="h6" gutterBottom>Basic Information</Typography>
 
-            <Grid size={{ xs: 12, md: 6 }}>
-              <Controller
-                name="priceListId"
-                control={control}
-                render={({ field }) => (
-                  <PriceListSelector
-                    value={field.value}
-                    onChange={(value) => field.onChange(value)}
-                    error={errors.priceListId?.message}
-                    label="Price List"
-                  />
-                )}
-              />
-            </Grid>
+                <Grid container spacing={2}>
+                  <Grid size={{ xs: 12, md: 6 }}>
+                    <Controller
+                      name="type"
+                      control={control}
+                      render={({ field }) => (
+                        <FormControl fullWidth size="small" error={!!errors.type} sx={fieldSx}>
+                          <InputLabel>Customer Type</InputLabel>
+                          <Select {...field} label="Customer Type">
+                            <MenuItem value={CustomerType.INDIVIDUAL}>Individual</MenuItem>
+                            <MenuItem value={CustomerType.BUSINESS}>Business</MenuItem>
+                          </Select>
+                        </FormControl>
+                      )}
+                    />
+                  </Grid>
 
-            <Grid size={12}>
-              <Controller
-                name="name"
-                control={control}
-                render={({ field }) => (
-                  <TextField
-                    {...field}
-                    fullWidth
-                    label="Customer Name"
-                    error={!!errors.name}
-                    helperText={errors.name?.message}
-                  />
-                )}
-              />
-            </Grid>
+                  <Grid size={12}>
+                    <Controller
+                      name="name"
+                      control={control}
+                      render={({ field }) => (
+                        <TextField
+                          {...field}
+                          fullWidth
+                          size="small"
+                          label="Customer Name"
+                          error={!!errors.name}
+                          helperText={errors.name?.message}
+                          sx={fieldSx}
+                        />
+                      )}
+                    />
+                  </Grid>
 
-            <Grid size={{ xs: 12, md: 6 }}>
-              <Controller
-                name="phone"
-                control={control}
-                render={({ field }) => (
-                  <TextField
-                    {...field}
-                    value={field.value || ''}
-                    fullWidth
-                    label="Phone"
-                    error={!!errors.phone || !!phoneError}
-                    helperText={errors.phone?.message || phoneError}
-                    onChange={(e) => {
-                      field.onChange(e)
-                      debouncedPhoneCheck(e.target.value)
-                    }}
-                    slotProps={{
-                      input: {
-                        endAdornment: isCheckingPhone ? (
-                          <InputAdornment position="end">
-                            <CircularProgress size={20} />
-                          </InputAdornment>
-                        ) : undefined,
-                      },
-                    }}
-                  />
-                )}
-              />
-            </Grid>
+                  <Grid size={{ xs: 12, md: 6 }}>
+                    <Controller
+                      name="phone"
+                      control={control}
+                      render={({ field }) => (
+                        <TextField
+                          {...field}
+                          value={field.value || ''}
+                          fullWidth
+                          size="small"
+                          label="Phone"
+                          error={!!errors.phone || hasPhoneDuplicate}
+                          helperText={
+                            errors.phone?.message
+                            || phoneError
+                            || (hasCheckedPhone && !hasPhoneDuplicate ? phoneSuccess : '')
+                          }
+                          slotProps={{
+                            input: {
+                              endAdornment: isCheckingPhone ? (
+                                <InputAdornment position="end">
+                                  <CircularProgress size={16} />
+                                </InputAdornment>
+                              ) : undefined,
+                            },
+                          }}
+                          sx={{
+                            ...fieldSx,
+                            '& .MuiFormHelperText-root': {
+                              color: hasPhoneDuplicate
+                                ? 'error.main'
+                                : hasCheckedPhone && !hasPhoneDuplicate
+                                  ? 'success.main'
+                                  : undefined,
+                            },
+                          }}
+                        />
+                      )}
+                    />
+                  </Grid>
 
-            <AddressSection control={control} errors={errors} />
-
-            <Grid size={12}>
-              <Controller
-                name="notes"
-                control={control}
-                render={({ field }) => (
-                  <TextField {...field} value={field.value || ''} fullWidth multiline rows={3}
-                    label="Notes" error={!!errors.notes} helperText={errors.notes?.message} />
-                )}
-              />
-            </Grid>
-
-            <CustomerFormActions
-              disabled={isSaving || !!phoneError || isCheckingPhone}
-              isEdit={isEdit}
-              isSaving={isSaving}
-              onCancel={() => navigate('/sales/customers')}
-            />
+                  <AddressSection control={control} errors={errors} />
+                </Grid>
+              </CardContent>
+            </Card>
           </Grid>
-        </form>
-      </Paper>
+
+          <Grid size={{ xs: 12, md: 4 }}>
+            <Card sx={{ height: '100%' }}>
+              <CardContent sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+                <Controller
+                  name="priceListId"
+                  control={control}
+                  render={({ field }) => (
+                    <PriceListSelector
+                      value={field.value}
+                      onChange={(value) => field.onChange(value)}
+                      error={errors.priceListId?.message}
+                      label="Price List"
+                    />
+                  )}
+                />
+
+                <Controller
+                  name="notes"
+                  control={control}
+                  render={({ field }) => (
+                    <TextField
+                      {...field}
+                      value={field.value || ''}
+                      fullWidth
+                      multiline
+                      rows={6}
+                      size="small"
+                      label="Notes"
+                      error={!!errors.notes}
+                      helperText={errors.notes?.message}
+                      sx={{ mt: 2, mb: 2, ...fieldSx }}
+                    />
+                  )}
+                />
+
+                <Box sx={{ mt: 'auto', display: 'flex', flexDirection: 'column', gap: 1 }}>
+                  <Button
+                    variant="outlined"
+                    fullWidth
+                    onClick={() => navigate('/sales/customers')}
+                    disabled={isSaving}
+                  >
+                    Cancel
+                  </Button>
+
+                  <Button
+                    type="submit"
+                    variant="contained"
+                    fullWidth
+                    disabled={isSaving || hasPhoneDuplicate || isCheckingPhone}
+                  >
+                    {isSaving
+                      ? (isEdit ? 'Updating...' : 'Creating...')
+                      : (isEdit ? 'Update Customer' : 'Create Customer')}
+                  </Button>
+                </Box>
+              </CardContent>
+            </Card>
+          </Grid>
+        </Grid>
+      </form>
     </>
   )
 }

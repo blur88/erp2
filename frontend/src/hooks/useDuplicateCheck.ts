@@ -1,5 +1,8 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useCallback } from 'react'
+
 import { useLazyCheckProductDuplicateQuery } from '@/store/api/inventoryApi'
+
+import { useFieldDuplicateCheck } from './useFieldDuplicateCheck'
 
 interface DuplicateCheckResult {
   nameExists: boolean
@@ -34,16 +37,69 @@ interface UseDuplicateCheckReturn {
   hasCheckedBarcode: boolean
 }
 
-export const useDuplicateCheck = (): UseDuplicateCheckReturn => {
+interface UseDuplicateCheckProps {
+  name?: string
+  barcode?: string
+  excludeId?: string
+}
+
+export const useDuplicateCheck = (props?: UseDuplicateCheckProps): UseDuplicateCheckReturn => {
   const [checkDuplicateRequest] = useLazyCheckProductDuplicateQuery()
-  const [isChecking, setIsChecking] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [nameError, setNameError] = useState('')
-  const [barcodeError, setBarcodeError] = useState('')
-  const [hasNameDuplicate, setHasNameDuplicate] = useState(false)
-  const [hasBarcodeDuplicate, setHasBarcodeDuplicate] = useState(false)
-  const [hasCheckedName, setHasCheckedName] = useState(false)
-  const [hasCheckedBarcode, setHasCheckedBarcode] = useState(false)
+
+  const nameCheckFn = useCallback(async (value: string, excludeId?: string) => {
+    const result = await checkDuplicateRequest({ name: value, excludeId }).unwrap()
+
+    if (result.nameExists && result.nameConflict) {
+      const conflict = result.nameConflict
+
+      return {
+        exists: true,
+        message: conflict.isDeleted
+          ? `Product with name '${conflict.name}' was previously deleted. Please choose a different name or restore the deleted product.`
+          : `Product with name '${conflict.name}' already exists`,
+      }
+    }
+
+    return { exists: false }
+  }, [checkDuplicateRequest])
+
+  const barcodeCheckFn = useCallback(async (value: string, excludeId?: string) => {
+    const result = await checkDuplicateRequest({ barcode: value, excludeId }).unwrap()
+
+    if (result.barcodeExists && result.barcodeConflict) {
+      const conflict = result.barcodeConflict
+
+      return {
+        exists: true,
+        message: conflict.isDeleted
+          ? `Product with barcode '${conflict.barcode}' was previously deleted. Please choose a different barcode or restore the deleted product.`
+          : `Product with barcode '${conflict.barcode}' already exists`,
+      }
+    }
+
+    return { exists: false }
+  }, [checkDuplicateRequest])
+
+  const {
+    isChecking: isCheckingName,
+    hasDuplicate: hasNameDuplicate,
+    hasChecked: hasCheckedName,
+    error: nameErrorMessage,
+  } = useFieldDuplicateCheck(props?.name ?? '', nameCheckFn, {
+    excludeId: props?.excludeId,
+    skipCheck: !props?.name,
+  })
+
+  const {
+    isChecking: isCheckingBarcode,
+    hasDuplicate: hasBarcodeDuplicate,
+    hasChecked: hasCheckedBarcode,
+    error: barcodeErrorMessage,
+  } = useFieldDuplicateCheck(props?.barcode ?? '', barcodeCheckFn, {
+    excludeId: props?.excludeId,
+    minLength: 1,
+    skipCheck: !props?.barcode,
+  })
 
   const checkDuplicate = useCallback(async (params: {
     name?: string
@@ -54,68 +110,19 @@ export const useDuplicateCheck = (): UseDuplicateCheckReturn => {
       return null
     }
 
-    setIsChecking(true)
-    setError(null)
-    setNameError('')
-    setBarcodeError('')
-    setHasNameDuplicate(false)
-    setHasBarcodeDuplicate(false)
-    setHasCheckedName(false)
-    setHasCheckedBarcode(false)
-
     try {
-      const result = await checkDuplicateRequest(params).unwrap()
-
-      // Handle name duplicates
-      if (result.nameExists && result.nameConflict) {
-        const conflict = result.nameConflict
-        if (conflict.isDeleted) {
-          setNameError(
-            `Product with name '${conflict.name}' was previously deleted. Please choose a different name or restore the deleted product.`
-          )
-        } else {
-          setNameError(`Product with name '${conflict.name}' already exists`)
-        }
-        setHasNameDuplicate(true)
-      }
-
-      // Handle barcode duplicates
-      if (result.barcodeExists && result.barcodeConflict) {
-        const conflict = result.barcodeConflict
-        if (conflict.isDeleted) {
-          setBarcodeError(
-            `Product with barcode '${conflict.barcode}' was previously deleted. Please choose a different barcode or restore the deleted product.`
-          )
-        } else {
-          setBarcodeError(`Product with barcode '${conflict.barcode}' already exists`)
-        }
-        setHasBarcodeDuplicate(true)
-      }
-
-      // Mark as checked after processing results
-      if (params.name) {
-        setHasCheckedName(true)
-      }
-      if (params.barcode) {
-        setHasCheckedBarcode(true)
-      }
-
-      return result
-    } catch (error: any) {
-      const errorMessage = error?.message || 'Failed to check for duplicates'
-      setError(errorMessage)
+      return await checkDuplicateRequest(params).unwrap()
+    } catch {
       return null
-    } finally {
-      setIsChecking(false)
     }
   }, [checkDuplicateRequest])
 
   return {
     checkDuplicate,
-    isChecking,
-    error,
-    nameError,
-    barcodeError,
+    isChecking: isCheckingName || isCheckingBarcode,
+    error: nameErrorMessage ?? barcodeErrorMessage,
+    nameError: nameErrorMessage ?? '',
+    barcodeError: barcodeErrorMessage ?? '',
     hasNameDuplicate,
     hasBarcodeDuplicate,
     hasCheckedName,

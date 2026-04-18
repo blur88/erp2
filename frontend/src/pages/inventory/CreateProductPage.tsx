@@ -250,17 +250,6 @@ const CreateProductPage: React.FC = () => {
   // Currency hook
   const { currency } = useCurrency()
 
-  // Duplicate detection hook
-  const {
-    checkDuplicate,
-    nameError,
-    barcodeError,
-    hasNameDuplicate,
-    hasBarcodeDuplicate,
-    hasCheckedName,
-    hasCheckedBarcode
-  } = useDuplicateCheck()
-
   const { control, handleSubmit, watch, reset, formState: { errors } } = useForm<ProductFormData>({
     resolver: yupResolver(productSchema) as any,
     defaultValues: {
@@ -281,27 +270,24 @@ const CreateProductPage: React.FC = () => {
   const watchedBarcode = watch('barcode')
   const watchedBaseCost = watch('baseCost')
 
+  // Duplicate detection hook
+  const {
+    nameError,
+    barcodeError,
+    hasNameDuplicate,
+    hasBarcodeDuplicate,
+    hasCheckedName,
+    hasCheckedBarcode
+  } = useDuplicateCheck({
+    name: watchedName,
+    barcode: watchedBarcode,
+    excludeId: isEditMode ? id : undefined,
+  })
+
   // Update price for a specific price list
   const updatePriceListPrice = (priceListId: string, price: number) => {
     setPriceListPrices(prev => ({ ...prev, [priceListId]: price }))
   }
-
-  // Real-time duplicate checking
-  useEffect(() => {
-    const timeoutId = setTimeout(async () => {
-      if ((watchedName && watchedName.trim().length >= 2) ||
-          (watchedBarcode && watchedBarcode.trim().length >= 1)) {
-
-        await checkDuplicate({
-          name: watchedName && watchedName.trim().length >= 2 ? watchedName.trim() : undefined,
-          barcode: watchedBarcode && watchedBarcode.trim().length >= 1 ? watchedBarcode.trim() : undefined,
-          excludeId: isEditMode ? id : undefined,
-        })
-      }
-    }, 500) // Debounce API calls
-
-    return () => clearTimeout(timeoutId)
-  }, [watchedName, watchedBarcode, checkDuplicate, isEditMode, id])
 
   useEffect(() => {
     if (isEditMode && id) {
