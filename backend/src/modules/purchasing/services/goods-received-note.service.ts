@@ -66,42 +66,6 @@ export class GoodsReceivedNoteService extends BaseCrudService<
   }
 
   /**
-   * Generate sequential GRN number in format GRN-000001
-   * Checks both active and soft-deleted GRNs to ensure unique numbering
-   */
-  private async generateSequentialGrnNumber(): Promise<string> {
-    // Use document number settings to generate GRN number
-    try {
-      const grnNumber = await this.settingsService.generateDocumentNumber('Goods Received');
-      this.logger.log(`Generated GRN number: ${grnNumber}`);
-      return grnNumber;
-    } catch (error) {
-      this.logger.error(`Error generating GRN number: ${error.message}`);
-      // Fallback to legacy method
-      const grns = await this.grnRepository.find({
-        select: ['grnNumber'],
-        withDeleted: true,
-      });
-
-      let maxNumber = 0;
-      for (const grn of grns) {
-        const match = grn.grnNumber.match(/^GRN-(\d+)$/);
-        if (match) {
-          const num = parseInt(match[1]);
-          if (num > maxNumber) {
-            maxNumber = num;
-          }
-        }
-      }
-
-      const nextNumber = maxNumber + 1;
-      const fallbackNumber = `GRN-${nextNumber.toString().padStart(6, '0')}`;
-      this.logger.log(`Fallback GRN number: ${fallbackNumber}`);
-      return fallbackNumber;
-    }
-  }
-
-  /**
    * Create a new goods received note
    */
   async create(
@@ -131,8 +95,7 @@ export class GoodsReceivedNoteService extends BaseCrudService<
     }
 
     try {
-      // Generate sequential GRN number
-      const grnNumber = await this.generateSequentialGrnNumber();
+      const grnNumber = await this.settingsService.generateDocumentNumber('Goods Received');
 
       // Create GRN entity first (without items)
       const grn = this.grnRepository.create({
