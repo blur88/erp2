@@ -23,10 +23,6 @@ vi.mock('react-router-dom', async () => {
   }
 })
 
-vi.mock('@/hooks/useNotification', () => ({
-  useNotification: () => ({ showError: vi.fn() }),
-}))
-
 vi.mock('@/store/api/accountingApi', () => ({
   useLazyGetJournalEntriesQuery: () => [fetchJournalEntries],
 }))
