@@ -86,14 +86,17 @@ const CategoryDialogs: React.FC<CategoryDialogsProps> = ({
     defaultValues: { name: '', parentId: null },
   })
 
-  const {
-    checkDuplicate,
-    nameError: duplicateNameError,
-    hasNameDuplicate: isDuplicateName,
-  } = useCategoryDuplicateCheck()
-
   const watchedName = watch('name')
   const watchedParentId = watch('parentId')
+
+  const {
+    nameError: duplicateNameError,
+    hasNameDuplicate: isDuplicateName,
+  } = useCategoryDuplicateCheck({
+    name: watchedName,
+    parentId: watchedParentId || undefined,
+    excludeId: editMode && selectedCategory ? selectedCategory.id : undefined,
+  })
 
   useEffect(() => {
     onFormReady(reset)
@@ -102,20 +105,6 @@ const CategoryDialogs: React.FC<CategoryDialogsProps> = ({
   useEffect(() => {
     onDuplicateStateChange(isDuplicateName, duplicateNameError)
   }, [duplicateNameError, isDuplicateName, onDuplicateStateChange])
-
-  useEffect(() => {
-    const timeoutId = setTimeout(async () => {
-      if (watchedName && watchedName.trim().length >= 2) {
-        await checkDuplicate({
-          name: watchedName.trim(),
-          parentId: watchedParentId || undefined,
-          excludeId: editMode && selectedCategory ? selectedCategory.id : undefined,
-        })
-      }
-    }, 500)
-
-    return () => clearTimeout(timeoutId)
-  }, [watchedName, watchedParentId, editMode, selectedCategory, checkDuplicate])
 
   const findCategoryById = (id: string): Category | null =>
     categories.find((category) => category.id === id) || null

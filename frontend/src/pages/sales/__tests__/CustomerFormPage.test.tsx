@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { Provider } from 'react-redux'
 import { configureStore } from '@reduxjs/toolkit'
@@ -195,5 +195,54 @@ describe('CustomerFormPage - Edit mode', () => {
       })
     })
     expect(mockNavigate).toHaveBeenCalledWith('/sales/customers')
+  })
+})
+
+describe('CustomerFormPage - phone duplicate check', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockCreateCustomer.mockReturnValue({
+      unwrap: vi.fn().mockResolvedValue({ id: 'new-cust' }),
+    })
+  })
+
+  it('shows phone duplicate error when a matching customer exists', async () => {
+    mockApiGet.mockImplementation((url: string) => {
+      if (url === '/customers') {
+        return Promise.resolve({
+          data: { data: [{ id: 'other-cust', name: 'Existing Corp', phone: '555-9999' }] },
+        })
+      }
+
+      return Promise.resolve({ data: { data: [] } })
+    })
+
+    vi.useFakeTimers()
+    renderCreatePage()
+    fireEvent.change(screen.getByLabelText(/phone/i), { target: { value: '555-9999' } })
+
+    await act(async () => {
+      vi.advanceTimersByTime(500)
+      await Promise.resolve()
+    })
+
+    expect(screen.getByText(/phone already exists for customer: existing corp/i)).toBeInTheDocument()
+    vi.useRealTimers()
+  })
+
+  it('shows available message when phone has no match', async () => {
+    mockApiGet.mockResolvedValue({ data: { data: [] } })
+
+    vi.useFakeTimers()
+    renderCreatePage()
+    fireEvent.change(screen.getByLabelText(/phone/i), { target: { value: '555-1234' } })
+
+    await act(async () => {
+      vi.advanceTimersByTime(500)
+      await Promise.resolve()
+    })
+
+    expect(screen.getByText('✓ Available')).toBeInTheDocument()
+    vi.useRealTimers()
   })
 })

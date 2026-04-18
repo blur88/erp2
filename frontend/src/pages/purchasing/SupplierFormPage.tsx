@@ -1,25 +1,28 @@
-import React, { useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useState } from 'react'
 import {
   Alert,
   Box,
   Button,
+  Card,
+  CardContent,
   CircularProgress,
   FormControl,
   Grid,
+  InputAdornment,
   InputLabel,
   MenuItem,
-  Paper,
   Select,
   TextField,
   Typography,
 } from '@mui/material'
 import { useNavigate, useParams } from 'react-router-dom'
-import { useForm, Controller, type Control, type FieldErrors } from 'react-hook-form'
+import { Controller, useForm } from 'react-hook-form'
 import { yupResolver } from '@hookform/resolvers/yup'
 import * as yup from 'yup'
 
 import AddressSection from '@/components/common/AddressSection'
 import PageHeader from '@/components/common/PageHeader'
+import { useFieldDuplicateCheck } from '@/hooks/useFieldDuplicateCheck'
 import { useNotification } from '@/hooks/useNotification'
 import api from '@/services/api'
 import {
@@ -56,29 +59,10 @@ interface SupplierFormData {
   notes?: string | null
 }
 
-
-interface SupplierFormActionsProps {
-  disabled: boolean
-  isEdit: boolean
-  isSaving: boolean
-  onCancel: () => void
+const fieldSx = {
+  '& .MuiInputBase-input': { fontSize: '0.875rem' },
+  '& .MuiInputLabel-root': { fontSize: '0.875rem' },
 }
-
-const SupplierFormActions: React.FC<SupplierFormActionsProps> = ({
-  disabled,
-  isEdit,
-  isSaving,
-  onCancel,
-}) => (
-  <Grid size={12}>
-    <Box sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end', pt: 1 }}>
-      <Button onClick={onCancel}>Cancel</Button>
-      <Button type="submit" variant="contained" disabled={disabled}>
-        {isSaving ? <CircularProgress size={20} /> : (isEdit ? 'Update' : 'Create')}
-      </Button>
-    </Box>
-  </Grid>
-)
 
 const SupplierFormPage: React.FC = () => {
   const { id } = useParams<{ id: string }>()
@@ -89,8 +73,6 @@ const SupplierFormPage: React.FC = () => {
   const [supplier, setSupplier] = useState<Supplier | null>(null)
   const [loadingSupplier, setLoadingSupplier] = useState(isEdit)
   const [loadError, setLoadError] = useState<string | null>(null)
-  const [companyNameError, setCompanyNameError] = useState<string | null>(null)
-  const [isCheckingDuplicate, setIsCheckingDuplicate] = useState(false)
 
   const [createSupplier, { isLoading: isCreating }] = useCreateSupplierMutation()
   const [updateSupplier, { isLoading: isUpdating }] = useUpdateSupplierMutation()
@@ -113,12 +95,15 @@ const SupplierFormPage: React.FC = () => {
     },
   })
 
-  const companyName = watch('companyName')
+  const watchedCompanyName = watch('companyName')
 
   useEffect(() => {
-    if (!id) return
+    if (!id) {
+      return
+    }
 
     setLoadingSupplier(true)
+
     api.get(`/purchasing/suppliers/${id}`)
       .then((res) => {
         const currentSupplier: Supplier = res.data?.data ?? res.data
@@ -140,40 +125,29 @@ const SupplierFormPage: React.FC = () => {
       .finally(() => setLoadingSupplier(false))
   }, [id, reset])
 
-  useEffect(() => {
-    if (supplier && companyName === supplier.companyName) {
-      setCompanyNameError(null)
-      setIsCheckingDuplicate(false)
-      return
+  const companyNameCheckFn = useCallback(async (name: string, excludeId?: string) => {
+    const result = await checkDuplicateCompanyName({ companyName: name, excludeId }).unwrap()
+
+    return {
+      exists: result?.exists ?? false,
+      message: result?.message,
     }
+  }, [checkDuplicateCompanyName])
 
-    const check = async () => {
-      if (!companyName || companyName.trim().length < 2) {
-        setCompanyNameError(null)
-        return
-      }
-
-      setIsCheckingDuplicate(true)
-      try {
-        const result = await checkDuplicateCompanyName({
-          companyName: companyName.trim(),
-          excludeId: supplier?.id,
-        }).unwrap()
-        setCompanyNameError(result?.exists ? (result.message || 'This company name already exists') : null)
-      } catch {
-        setCompanyNameError(null)
-      } finally {
-        setIsCheckingDuplicate(false)
-      }
-    }
-
-    const timer = setTimeout(check, 500)
-    return () => clearTimeout(timer)
-  }, [companyName, supplier, checkDuplicateCompanyName])
+  const {
+    isChecking: isCheckingDuplicate,
+    hasDuplicate: hasCompanyNameDuplicate,
+    hasChecked: hasCheckedCompanyName,
+    error: companyNameError,
+    successMessage: companyNameSuccess,
+  } = useFieldDuplicateCheck(watchedCompanyName ?? '', companyNameCheckFn, {
+    excludeId: supplier?.id,
+    skipCheck: supplier ? watchedCompanyName === supplier.companyName : false,
+  })
 
   const handleFormSubmit = async (data: SupplierFormData) => {
-    if (companyNameError) {
-      showError(companyNameError)
+    if (hasCompanyNameDuplicate) {
+      showError(companyNameError ?? 'Company name already exists')
       return
     }
 
@@ -197,6 +171,7 @@ const SupplierFormPage: React.FC = () => {
         await createSupplier(cleanedData).unwrap()
         showSuccess('Supplier created successfully')
       }
+
       navigate('/purchasing/suppliers')
     } catch (error: any) {
       showError(`Failed to ${isEdit ? 'update' : 'create'} supplier: ${error?.message ?? error}`)
@@ -220,116 +195,166 @@ const SupplierFormPage: React.FC = () => {
       <PageHeader
         title={isEdit ? 'Edit Supplier' : 'New Supplier'}
         subtitle={isEdit ? `Editing ${supplier?.companyName ?? ''}` : 'Add a new supplier to your account'}
-        variant="standard"
+        variant="workflow"
+        backAction={() => navigate('/purchasing/suppliers')}
       />
-      <Paper sx={{ p: 3, maxWidth: 800 }}>
-        <form onSubmit={handleSubmit(handleFormSubmit)}>
-          <Grid container spacing={2}>
-            <Grid size={12}>
-              <Typography variant="h6" gutterBottom>Basic Information</Typography>
-            </Grid>
 
-            <Grid size={{ xs: 12, md: 6 }}>
-              <Controller
-                name="type"
-                control={control}
-                render={({ field }) => (
-                  <FormControl fullWidth error={!!errors.type}>
-                    <InputLabel>Supplier Type</InputLabel>
-                    <Select {...field} label="Supplier Type">
-                      <MenuItem value={SupplierType.LOCAL}>Local</MenuItem>
-                      <MenuItem value={SupplierType.INTERNATIONAL}>International</MenuItem>
-                    </Select>
-                  </FormControl>
-                )}
-              />
-            </Grid>
+      <form onSubmit={handleSubmit(handleFormSubmit)}>
+        <Grid container spacing={3}>
+          <Grid size={{ xs: 12, md: 8 }}>
+            <Card>
+              <CardContent>
+                <Typography variant="h6" gutterBottom>Basic Information</Typography>
 
-            <Grid size={12}>
-              <Controller
-                name="companyName"
-                control={control}
-                render={({ field }) => (
-                  <TextField
-                    {...field}
-                    fullWidth
-                    label="Company Name"
-                    error={!!errors.companyName || !!companyNameError}
-                    helperText={errors.companyName?.message || companyNameError || (isCheckingDuplicate ? 'Checking availability...' : '')}
-                    slotProps={{
-                      input: {
-                        endAdornment: isCheckingDuplicate ? <CircularProgress size={20} /> : null,
-                      },
-                    }}
-                  />
-                )}
-              />
-            </Grid>
+                <Grid container spacing={2}>
+                  <Grid size={{ xs: 12, md: 6 }}>
+                    <Controller
+                      name="type"
+                      control={control}
+                      render={({ field }) => (
+                        <FormControl fullWidth size="small" error={!!errors.type} sx={fieldSx}>
+                          <InputLabel>Supplier Type</InputLabel>
+                          <Select {...field} label="Supplier Type">
+                            <MenuItem value={SupplierType.LOCAL}>Local</MenuItem>
+                            <MenuItem value={SupplierType.INTERNATIONAL}>International</MenuItem>
+                          </Select>
+                        </FormControl>
+                      )}
+                    />
+                  </Grid>
 
-            <Grid size={{ xs: 12, md: 6 }}>
-              <Controller
-                name="contactPerson"
-                control={control}
-                render={({ field }) => (
-                  <TextField
-                    {...field}
-                    value={field.value || ''}
-                    fullWidth
-                    label="Contact Person"
-                    error={!!errors.contactPerson}
-                    helperText={errors.contactPerson?.message}
-                  />
-                )}
-              />
-            </Grid>
+                  <Grid size={12}>
+                    <Controller
+                      name="companyName"
+                      control={control}
+                      render={({ field }) => (
+                        <TextField
+                          {...field}
+                          fullWidth
+                          size="small"
+                          label="Company Name"
+                          error={!!errors.companyName || hasCompanyNameDuplicate}
+                          helperText={
+                            errors.companyName?.message
+                            || companyNameError
+                            || (hasCheckedCompanyName && !hasCompanyNameDuplicate ? companyNameSuccess : '')
+                          }
+                          slotProps={{
+                            input: {
+                              endAdornment: isCheckingDuplicate ? (
+                                <InputAdornment position="end">
+                                  <CircularProgress size={16} />
+                                </InputAdornment>
+                              ) : undefined,
+                            },
+                          }}
+                          sx={{
+                            ...fieldSx,
+                            '& .MuiFormHelperText-root': {
+                              color: hasCompanyNameDuplicate
+                                ? 'error.main'
+                                : hasCheckedCompanyName && !hasCompanyNameDuplicate
+                                  ? 'success.main'
+                                  : undefined,
+                            },
+                          }}
+                        />
+                      )}
+                    />
+                  </Grid>
 
-            <Grid size={{ xs: 12, md: 6 }}>
-              <Controller
-                name="phone"
-                control={control}
-                render={({ field }) => (
-                  <TextField
-                    {...field}
-                    value={field.value || ''}
-                    fullWidth
-                    label="Phone"
-                    error={!!errors.phone}
-                    helperText={errors.phone?.message}
-                  />
-                )}
-              />
-            </Grid>
+                  <Grid size={{ xs: 12, md: 6 }}>
+                    <Controller
+                      name="contactPerson"
+                      control={control}
+                      render={({ field }) => (
+                        <TextField
+                          {...field}
+                          value={field.value || ''}
+                          fullWidth
+                          size="small"
+                          label="Contact Person"
+                          error={!!errors.contactPerson}
+                          helperText={errors.contactPerson?.message}
+                          sx={fieldSx}
+                        />
+                      )}
+                    />
+                  </Grid>
 
-            <AddressSection control={control} errors={errors} />
+                  <Grid size={{ xs: 12, md: 6 }}>
+                    <Controller
+                      name="phone"
+                      control={control}
+                      render={({ field }) => (
+                        <TextField
+                          {...field}
+                          value={field.value || ''}
+                          fullWidth
+                          size="small"
+                          label="Phone"
+                          error={!!errors.phone}
+                          helperText={errors.phone?.message}
+                          sx={fieldSx}
+                        />
+                      )}
+                    />
+                  </Grid>
 
-            <Grid size={12}>
-              <Controller
-                name="notes"
-                control={control}
-                render={({ field }) => (
-                  <TextField
-                    {...field}
-                    value={field.value || ''}
-                    fullWidth
-                    multiline
-                    rows={3}
-                    label="Notes"
-                    error={!!errors.notes}
-                    helperText={errors.notes?.message}
-                  />
-                )}
-              />
-            </Grid>
-
-            <SupplierFormActions
-              disabled={isSaving || isCheckingDuplicate || !!companyNameError}
-              isEdit={isEdit}
-              isSaving={isSaving}
-              onCancel={() => navigate('/purchasing/suppliers')}
-            />
+                  <AddressSection control={control} errors={errors} />
+                </Grid>
+              </CardContent>
+            </Card>
           </Grid>
-        </form>
-      </Paper>
+
+          <Grid size={{ xs: 12, md: 4 }}>
+            <Card sx={{ height: '100%' }}>
+              <CardContent sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+                <Controller
+                  name="notes"
+                  control={control}
+                  render={({ field }) => (
+                    <TextField
+                      {...field}
+                      value={field.value || ''}
+                      fullWidth
+                      multiline
+                      rows={6}
+                      size="small"
+                      label="Notes"
+                      error={!!errors.notes}
+                      helperText={errors.notes?.message}
+                      sx={{ mb: 2, ...fieldSx }}
+                    />
+                  )}
+                />
+
+                <Box sx={{ mt: 'auto', display: 'flex', flexDirection: 'column', gap: 1 }}>
+                  <Button
+                    variant="outlined"
+                    fullWidth
+                    onClick={() => navigate('/purchasing/suppliers')}
+                    disabled={isSaving}
+                  >
+                    Cancel
+                  </Button>
+
+                  <Button
+                    type="submit"
+                    variant="contained"
+                    fullWidth
+                    disabled={isSaving || isCheckingDuplicate || hasCompanyNameDuplicate}
+                  >
+                    {isSaving
+                      ? (isEdit ? 'Updating...' : 'Creating...')
+                      : (isEdit ? 'Update Supplier' : 'Create Supplier')}
+                  </Button>
+                </Box>
+              </CardContent>
+            </Card>
+          </Grid>
+        </Grid>
+      </form>
     </>
   )
 }
