@@ -266,11 +266,6 @@ export const salesApiSlice = createApi({
       transformResponse: normalizeSingle<Invoice>,
       providesTags: (_result, _error, id) => [{ type: 'Invoice', id }],
     }),
-    createInvoice: builder.mutation<Invoice, Partial<Invoice>>({
-      query: (body) => ({ url: '/invoices', method: 'POST', data: body }),
-      transformResponse: normalizeSingle<Invoice>,
-      invalidatesTags: ['Invoice'],
-    }),
     updateInvoice: builder.mutation<Invoice, { id: string; data: Partial<Invoice> }>({
       query: ({ id, data }) => ({ url: `/invoices/${id}`, method: 'PUT', data }),
       transformResponse: normalizeSingle<Invoice>,
@@ -412,7 +407,6 @@ export const {
   useGetInvoicesQuery,
   useGetInvoiceQuery,
   useLazyGetInvoiceQuery,
-  useCreateInvoiceMutation,
   useUpdateInvoiceMutation,
   useDeleteInvoiceMutation,
   useGetDeletedInvoicesQuery,

@@ -22,7 +22,6 @@ import {
 import { Response } from 'express';
 import { InvoiceService } from '../services/invoice.service';
 import {
-  CreateInvoiceDto,
   UpdateInvoiceDto,
   QueryInvoicesDto,
   InvoiceResponseDto,
@@ -37,23 +36,6 @@ import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 @Controller('invoices')
 export class InvoiceController {
   constructor(private readonly invoiceService: InvoiceService) {}
-
-  @Post()
-  @ApiOperation({ summary: 'Create a new invoice' })
-  @ApiResponse({
-    status: 201,
-    description: 'Invoice created successfully',
-    type: InvoiceResponseDto,
-  })
-  @ApiResponse({ status: 400, description: 'Invalid input data' })
-  @ApiResponse({ status: 404, description: 'Customer or sales order not found' })
-  async createInvoice(
-    @Body() createInvoiceDto: CreateInvoiceDto,
-    @CurrentUser('userId') currentUserId: string,
-    @CurrentUser('username') currentUsername: string,
-  ): Promise<InvoiceResponseDto> {
-    return this.invoiceService.create(createInvoiceDto, currentUserId, currentUsername);
-  }
 
   @Get()
   @ApiOperation({ summary: 'Get all invoices with filtering' })

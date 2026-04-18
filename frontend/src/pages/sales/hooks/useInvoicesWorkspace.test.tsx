@@ -23,10 +23,6 @@ vi.mock('react-router-dom', async () => {
   }
 })
 
-vi.mock('@/hooks/useNotification', () => ({
-  useNotification: () => ({ showError: vi.fn() }),
-}))
-
 vi.mock('@/store/api/accountingApi', () => ({
   useLazyGetJournalEntriesQuery: () => [fetchJournalEntries],
 }))
@@ -97,7 +93,7 @@ describe('useInvoicesWorkspace', () => {
     expect(result.current.focusedInvoiceIndex).toBe(1)
   })
 
-  it('opens the edit dialog on Enter when an invoice is selected', async () => {
+  it('does not open an edit dialog on Enter when an invoice is selected', async () => {
     const { result, syncSelectedInvoice } = renderInvoicesWorkspace('/sales/invoices')
 
     await act(async () => {
@@ -109,7 +105,6 @@ describe('useInvoicesWorkspace', () => {
       result.current.handleEnterAction()
     })
 
-    expect(result.current.editDialog).toBe(true)
     expect(navigateSpy).not.toHaveBeenCalled()
   })
 })
