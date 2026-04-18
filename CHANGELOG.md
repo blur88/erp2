@@ -1,3 +1,12 @@
+## [1.77.2](https://github.com/blur88/erp2/compare/v1.77.1...v1.77.2) (2026-04-18)
+
+
+### Internal Changes
+
+* refactor(common): use AppButton and FilterSearch in GenericDeletedDialog ([](https://github.com/blur88/erp2/commit/))
+* docs: add implementation plan for issues #383 and #384 GenericDeletedDialog refactor ([](https://github.com/blur88/erp2/commit/))
+* docs: add design spec for issues #383 and #384 GenericDeletedDialog refactor ([](https://github.com/blur88/erp2/commit/))
+
 ## [1.77.1](https://github.com/blur88/erp2/compare/v1.77.0...v1.77.1) (2026-04-17)
 
 
