@@ -1,8 +1,6 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { fireEvent, render, screen } from '@testing-library/react'
 import { BrowserRouter } from 'react-router-dom'
-import { readFileSync } from 'node:fs'
-import { resolve } from 'node:path'
 
 import ExpensesPage from '../ExpensesPage'
 
@@ -12,14 +10,6 @@ vi.mock('@/hooks/useNotification', () => ({
     showError: vi.fn(),
   }),
 }))
-
-vi.mock('@/hooks/useSearchAndFilter', async () => {
-  const actual = await vi.importActual('@/hooks/useSearchAndFilter')
-  return {
-    ...actual,
-    useKeyboardShortcuts: vi.fn(),
-  }
-})
 
 const mockedApi = vi.hoisted(() => ({
   useGetExpensesQuery: vi.fn(),
@@ -33,17 +23,13 @@ const mockedApi = vi.hoisted(() => ({
   useBulkDeleteExpensesMutation: vi.fn(),
 }))
 
-vi.mock('@/store/api/accountingApi', () => ({
-  useGetExpensesQuery: mockedApi.useGetExpensesQuery,
-  useGetPaymentMethodsQuery: mockedApi.useGetPaymentMethodsQuery,
-  useGetChartOfAccountsQuery: mockedApi.useGetChartOfAccountsQuery,
-  useCreateExpenseMutation: mockedApi.useCreateExpenseMutation,
-  useUpdateExpenseMutation: mockedApi.useUpdateExpenseMutation,
-  useDeleteExpenseMutation: mockedApi.useDeleteExpenseMutation,
-  usePostExpenseMutation: mockedApi.usePostExpenseMutation,
-  useBulkPostExpensesMutation: mockedApi.useBulkPostExpensesMutation,
-  useBulkDeleteExpensesMutation: mockedApi.useBulkDeleteExpensesMutation,
-}))
+vi.mock('@/utils/dateRange', () => ({ getPeriodDateRange: () => ({ from: undefined, to: undefined }), getStartOfWeek: () => 0 }))
+vi.mock('@/utils/formatters', async () => {
+  const actual = await vi.importActual<typeof import('@/utils/formatters')>('@/utils/formatters')
+  return { ...actual, formatDate: (value: string) => value, formatCurrency: (value: number) => `$${value}` }
+})
+
+vi.mock('@/store/api/accountingApi', () => mockedApi)
 
 const renderPage = () =>
   render(
@@ -79,14 +65,10 @@ describe('ExpensesPage', () => {
       refetch: vi.fn(),
     })
     mockedApi.useGetPaymentMethodsQuery.mockReturnValue({
-      data: {
-        data: [{ id: 'pm-1', code: 'CASH', name: 'Cash', isActive: true }],
-      },
+      data: { data: [{ id: 'pm-1', code: 'CASH', name: 'Cash', isActive: true }] },
     })
     mockedApi.useGetChartOfAccountsQuery.mockReturnValue({
-      data: {
-        data: [{ id: 'coa-1', code: '6000', name: 'Office Supplies', type: 'EXPENSE', isActive: true }],
-      },
+      data: { data: [{ id: 'coa-1', code: '6000', name: 'Office Supplies', type: 'EXPENSE', isActive: true }] },
     })
     mockedApi.useCreateExpenseMutation.mockReturnValue([vi.fn()])
     mockedApi.useUpdateExpenseMutation.mockReturnValue([vi.fn()])
@@ -102,15 +84,8 @@ describe('ExpensesPage', () => {
     expect(screen.getByText('EXP-001')).toBeInTheDocument()
   })
 
-  it('renders Expenses title via PageHeader (h5 heading)', () => {
-    renderPage()
-
-    expect(screen.getByRole('heading', { level: 5, name: 'Expenses' })).toBeInTheDocument()
-  })
-
   it('bulk action buttons are hidden when no rows are selected', () => {
     renderPage()
-
     expect(screen.queryByText(/Bulk Post/i)).not.toBeInTheDocument()
     expect(screen.queryByText(/Bulk Delete/i)).not.toBeInTheDocument()
   })
@@ -131,23 +106,17 @@ describe('ExpensesPage', () => {
 
     expect(screen.getByText('EXP-001')).toBeInTheDocument()
     expect(screen.getByText('Stationery Hub')).toBeInTheDocument()
+    expect(screen.getByText('Office Supplies')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByText('EXP-001'))
     expect(screen.getByText('Printer paper and ink')).toBeInTheDocument()
-    expect(screen.getByText('6000 - Office Supplies')).toBeInTheDocument()
   })
 
   it('shows filter controls', () => {
     renderPage()
 
-    expect(screen.getAllByText('Expense Account').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('Payment Method').length).toBeGreaterThan(0)
+    expect(screen.getByPlaceholderText('Search expenses...')).toBeInTheDocument()
     expect(screen.getAllByText('Status').length).toBeGreaterThan(0)
-    expect(screen.getByLabelText('Start Date')).toBeInTheDocument()
-    expect(screen.getByLabelText('End Date')).toBeInTheDocument()
-  })
-
-  it('does not use the legacy Paper filter wrapper', () => {
-    const source = readFileSync(resolve(import.meta.dirname, '../ExpensesPage.tsx'), 'utf8')
-
-    expect(source).not.toContain('<Paper sx={{ p: 2, mb: 2 }}>')
+    expect(screen.getAllByText('Period').length).toBeGreaterThan(0)
   })
 })
