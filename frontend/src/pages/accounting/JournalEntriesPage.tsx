@@ -118,6 +118,7 @@ const JournalEntriesPage: React.FC = () => {
             onSelectAll={() => workspace.handleSelectAll(entries)}
             onPost={(entry) => workspace.setPostTarget(entry)}
             onDelete={(entry) => workspace.setDeleteTarget(entry)}
+            onViewSource={(sourceType, sourceId) => workspace.navigateToSource(sourceType, sourceId)}
             listRef={workspace.listRef}
           />
         )}

@@ -1,5 +1,5 @@
 import type { RefObject } from 'react'
-import { Checkbox, Chip, CircularProgress, Paper, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Tooltip, Typography } from '@mui/material'
+import { Checkbox, Chip, CircularProgress, Link, Paper, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Tooltip, Typography } from '@mui/material'
 import { default as DeleteIcon } from '@mui/icons-material/Delete'
 import { default as PostIcon } from '@mui/icons-material/PostAdd'
 
@@ -19,6 +19,7 @@ interface Props {
   onSelectAll: () => void
   onPost: (entry: JournalEntry) => void
   onDelete: (entry: JournalEntry) => void
+  onViewSource: (sourceType: string, sourceId: string) => void
   listRef?: RefObject<HTMLDivElement | null>
 }
 
@@ -52,6 +53,7 @@ export function JournalEntriesTable({
   onSelectAll,
   onPost,
   onDelete,
+  onViewSource,
   listRef,
 }: Props) {
   const selectableEntries = entries.filter((entry) => entry.status === JournalEntryStatus.DRAFT)
@@ -71,6 +73,7 @@ export function JournalEntriesTable({
               <TableCell sx={{ fontWeight: 600 }}>Date</TableCell>
               <TableCell sx={{ fontWeight: 600 }}>Description</TableCell>
               <TableCell sx={{ fontWeight: 600 }}>Type</TableCell>
+              <TableCell sx={{ fontWeight: 600 }}>Source</TableCell>
               <TableCell sx={{ fontWeight: 600 }} align="right">Debits</TableCell>
               <TableCell sx={{ fontWeight: 600 }} align="right">Credits</TableCell>
               <TableCell sx={{ fontWeight: 600 }}>Status</TableCell>
@@ -80,13 +83,13 @@ export function JournalEntriesTable({
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={9} align="center" sx={{ py: 4 }}>
+                <TableCell colSpan={10} align="center" sx={{ py: 4 }}>
                   <CircularProgress />
                 </TableCell>
               </TableRow>
             ) : entries.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={9} align="center" sx={{ py: 4 }}>
+                <TableCell colSpan={10} align="center" sx={{ py: 4 }}>
                   <Typography variant="body2" color="text.secondary">No journal entries found</Typography>
                 </TableCell>
               </TableRow>
@@ -120,6 +123,17 @@ export function JournalEntriesTable({
                 </TableCell>
                 <TableCell>
                   <Chip label={ENTRY_TYPE_LABELS[entry.sourceType ?? ''] ?? 'Manual Entry'} size="small" />
+                </TableCell>
+                <TableCell onClick={(event) => event.stopPropagation()}>
+                  {entry.sourceType && entry.sourceType !== 'manual' && entry.sourceId && (
+                    <Link
+                      component="button"
+                      variant="body2"
+                      onClick={() => onViewSource(entry.sourceType!, entry.sourceId!)}
+                    >
+                      View Transaction
+                    </Link>
+                  )}
                 </TableCell>
                 <TableCell align="right">
                   <Typography variant="body2">{formatCurrency(entry.totalDebits)}</Typography>

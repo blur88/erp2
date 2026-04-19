@@ -176,5 +176,19 @@ export function useJournalEntriesWorkspace(refetch: () => void) {
     handleBulkDelete,
     navigateToEdit: (entry: JournalEntry) => navigate(`/accounting/journal-entries/${entry.id}/edit`),
     navigateToCreate: () => navigate('/accounting/journal-entries/new'),
+    navigateToSource: (sourceType: string, sourceId: string) => {
+      const routes: Record<string, (id: string) => string> = {
+        sales_order: (id) => `/sales/orders?highlight=${id}`,
+        payment: (id) => `/sales/payments?highlight=${id}`,
+        goods_received_note: (id) => `/purchasing/goods-received?grnId=${id}`,
+        vendor_payment: (id) => `/purchasing/vendor-payments?vpId=${id}`,
+        expense: () => `/accounting/expenses`,
+        owner_equity_transaction: () => `/accounting/owner-equity`,
+        fund_transfer: () => `/accounting/fund-transfers`,
+        stock_adjustment: (id) => `/inventory/stock-adjustments/${id}/edit`,
+      }
+      const route = routes[sourceType]
+      if (route) navigate(route(sourceId))
+    },
   }
 }
