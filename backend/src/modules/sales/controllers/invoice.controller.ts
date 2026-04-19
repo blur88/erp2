@@ -30,6 +30,8 @@ import {
   InvoicePaymentAllocationDto,
   VoidInvoiceDto,
 } from '../dto/invoice.dto';
+import { UserRole } from '../../../database/entities/user.entity';
+import { Auth } from '../../auth/decorators/auth.decorator';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 
 @ApiTags('Invoices')
@@ -175,6 +177,7 @@ export class InvoiceController {
     return this.invoiceService.syncItemsFromSalesOrder(id, currentUserId, currentUsername);
   }
 
+  @Auth(UserRole.ADMIN)
   @Delete(':id')
   @ApiOperation({ summary: 'Delete invoice (soft delete)' })
   @ApiParam({ name: 'id', description: 'Invoice ID', type: 'string' })

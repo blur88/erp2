@@ -27,6 +27,8 @@ import {
   AllocatePaymentDto,
   PaymentSummaryDto,
 } from '../dto/payment.dto';
+import { UserRole } from '../../../database/entities/user.entity';
+import { Auth } from '../../auth/decorators/auth.decorator';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 
 @ApiTags('Payments')
@@ -34,6 +36,7 @@ import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 export class PaymentController {
   constructor(private readonly paymentService: PaymentService) {}
 
+  @Auth(UserRole.ADMIN)
   @Post()
   @ApiOperation({ summary: 'Record a new payment' })
   @ApiResponse({
