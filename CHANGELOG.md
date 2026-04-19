@@ -1,3 +1,23 @@
+# [1.81.0](https://github.com/blur88/erp2/compare/v1.80.0...v1.81.0) (2026-04-19)
+
+
+### Bug Fixes
+
+* address code review issues from PR [#396](https://github.com/blur88/erp2/issues/396) (issue [#395](https://github.com/blur88/erp2/issues/395)) ([2cfe2dd](https://github.com/blur88/erp2/commit/2cfe2ddda76b38fbf42278f95d59608bd7a87e5c))
+* fix CI failures in accounting-auto-posting integration test (issue [#395](https://github.com/blur88/erp2/issues/395)) ([42e2da6](https://github.com/blur88/erp2/commit/42e2da6f0934b3536bb0ce9a0b68472f3de3b2f0))
+
+
+### Features
+
+* add accounting filter field types and components (issue [#395](https://github.com/blur88/erp2/issues/395)) ([98ec9ea](https://github.com/blur88/erp2/commit/98ec9ea589c93e6e71123c7967fc7cf9aaf6d288))
+* extract JournalEntries components and workspace hook (issue [#395](https://github.com/blur88/erp2/issues/395)) ([174c41a](https://github.com/blur88/erp2/commit/174c41a5bc05925a5ee5dfd30378a36c8f9a6476))
+* remove JournalEntryDetailsPage, redirect route to list (issue [#395](https://github.com/blur88/erp2/issues/395)) ([38470c0](https://github.com/blur88/erp2/commit/38470c0f10633807cfa3c93c9dfddcdc30f92f5a))
+* rewrite BankReconciliationsPage with GenericListPage pattern (issue [#395](https://github.com/blur88/erp2/issues/395)) ([cb8b972](https://github.com/blur88/erp2/commit/cb8b9725d5805bd5b30762d9cbbd5bd91534fd80))
+* rewrite ExpensesPage with GenericListPage pattern (issue [#395](https://github.com/blur88/erp2/issues/395)) ([613c7ea](https://github.com/blur88/erp2/commit/613c7eab329bb5519ec1ed497f5b96f8918a9b55))
+* rewrite FiscalPeriods, ChartOfAccounts, AccountMappings pages with GenericListPage pattern (issue [#395](https://github.com/blur88/erp2/issues/395)) ([021f298](https://github.com/blur88/erp2/commit/021f298af72fd880d758b6bd3d2cf89e0e81337e))
+* rewrite FundTransfers, Settlements, OwnerEquity pages with GenericListPage pattern (issue [#395](https://github.com/blur88/erp2/issues/395)) ([1e0897a](https://github.com/blur88/erp2/commit/1e0897accaa17526fe3402fc8acbe55620420e9b))
+* rewrite JournalEntriesPage with GenericListPage pattern (issue [#395](https://github.com/blur88/erp2/issues/395)) ([7d370f7](https://github.com/blur88/erp2/commit/7d370f77344494f78addd61a873b8844b01181cc))
+
 # [1.80.0](https://github.com/blur88/erp2/compare/v1.79.2...v1.80.0) (2026-04-19)
 
 
