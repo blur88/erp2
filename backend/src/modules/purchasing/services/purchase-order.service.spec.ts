@@ -21,6 +21,7 @@ import { StockMovementService } from '../../inventory/services/stock-movement.se
 import { SettingsService } from '../../settings/settings.service';
 import { AuditLogService } from '../../audit-logs/services';
 import { AccountingService } from '../../accounting/services/accounting.service';
+import { PurchaseOrderLifecycleService } from './purchase-order-lifecycle.service';
 
 describe('PurchaseOrderService', () => {
   let module: TestingModule;
@@ -197,6 +198,14 @@ describe('PurchaseOrderService', () => {
             postGoodsReceivedEntry: jest.fn(),
             reverseSourceEntries: jest.fn(),
             postVendorPaymentEntry: jest.fn(),
+          },
+        },
+        {
+          provide: PurchaseOrderLifecycleService,
+          useValue: {
+            assertItemsNotLocked: jest.fn(),
+            assertPermanentDeleteAllowed: jest.fn(),
+            softDelete: jest.fn(),
           },
         },
       ],
