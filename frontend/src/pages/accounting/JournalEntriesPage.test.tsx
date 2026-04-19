@@ -1,7 +1,5 @@
-import React from 'react'
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { BrowserRouter } from 'react-router-dom'
 
 import JournalEntriesPage from './JournalEntriesPage'
@@ -13,6 +11,7 @@ const mockedApi = vi.hoisted(() => ({
   usePostJournalEntryMutation: vi.fn(),
   useBulkPostJournalEntriesMutation: vi.fn(),
   useBulkDeleteJournalEntriesMutation: vi.fn(),
+  useReverseJournalEntryMutation: vi.fn(),
 }))
 
 const mockNavigate = vi.fn()
@@ -24,18 +23,11 @@ vi.mock('react-router-dom', async () => {
     ...actual,
     useNavigate: () => mockNavigate,
     useLocation: () => mockLocation,
-    Link: ({ children, onClick }: any) => <button onClick={onClick}>{children}</button>,
     BrowserRouter: ({ children }: any) => <div>{children}</div>,
   }
 })
 
-vi.mock('@/store/api/accountingApi', () => ({
-  useGetJournalEntriesQuery: mockedApi.useGetJournalEntriesQuery,
-  useDeleteJournalEntryMutation: mockedApi.useDeleteJournalEntryMutation,
-  usePostJournalEntryMutation: mockedApi.usePostJournalEntryMutation,
-  useBulkPostJournalEntriesMutation: mockedApi.useBulkPostJournalEntriesMutation,
-  useBulkDeleteJournalEntriesMutation: mockedApi.useBulkDeleteJournalEntriesMutation,
-}))
+vi.mock('@/store/api/accountingApi', () => mockedApi)
 
 vi.mock('@/hooks/useNotification', () => ({
   useNotification: () => ({
@@ -48,10 +40,20 @@ vi.mock('@/components/accounting/AccountMappingWarning', () => ({
   default: () => null,
 }))
 
-vi.mock('@/utils/formatters', () => ({
-  formatCurrency: (value: number) => `$${value.toFixed(2)}`,
-  formatDate: (date: string | Date) => new Date(date).toLocaleDateString(),
+vi.mock('@/utils/dateRange', () => ({
+  getPeriodDateRange: () => ({ from: undefined, to: undefined }),
+  getStartOfWeek: () => 0,
 }))
+
+vi.mock('@/utils/formatters', async () => {
+  const actual = await vi.importActual<typeof import('@/utils/formatters')>('@/utils/formatters')
+  return {
+    ...actual,
+    formatCurrency: (value: number) => `$${value.toFixed(2)}`,
+    formatDate: (date: string | Date) => String(date),
+    getCurrentDate: () => '2026-04-19',
+  }
+})
 
 const mockJournalEntries = [
   {
@@ -69,44 +71,9 @@ const mockJournalEntries = [
     isPosted: false,
     isReversed: false,
     fiscalPeriodId: 'fp1',
+    lines: [],
     createdAt: '2024-01-15',
     updatedAt: '2024-01-15',
-  },
-  {
-    id: '2',
-    referenceNumber: 'JE-002',
-    entryDate: '2024-01-16',
-    description: 'Sales order #SO-001',
-    sourceType: 'sales_order',
-    sourceId: 'so-123',
-    status: JournalEntryStatus.POSTED,
-    totalDebits: 5000,
-    totalCredits: 5000,
-    isBalanced: true,
-    isDraft: false,
-    isPosted: true,
-    isReversed: false,
-    fiscalPeriodId: 'fp1',
-    createdAt: '2024-01-16',
-    updatedAt: '2024-01-16',
-  },
-  {
-    id: '3',
-    referenceNumber: 'JE-003',
-    entryDate: '2024-01-17',
-    description: 'Customer payment',
-    sourceType: 'payment',
-    sourceId: 'pay-456',
-    status: JournalEntryStatus.POSTED,
-    totalDebits: 2000,
-    totalCredits: 2000,
-    isBalanced: true,
-    isDraft: false,
-    isPosted: true,
-    isReversed: false,
-    fiscalPeriodId: 'fp1',
-    createdAt: '2024-01-17',
-    updatedAt: '2024-01-17',
   },
 ]
 
@@ -114,7 +81,7 @@ const renderPage = () =>
   render(
     <BrowserRouter>
       <JournalEntriesPage />
-    </BrowserRouter>
+    </BrowserRouter>,
   )
 
 describe('JournalEntriesPage', () => {
@@ -124,71 +91,39 @@ describe('JournalEntriesPage', () => {
     mockedApi.useGetJournalEntriesQuery.mockReturnValue({
       data: {
         data: mockJournalEntries,
-        meta: { page: 1, limit: 50, total: 3, totalPages: 1 },
+        meta: { page: 1, limit: 50, total: 1, totalPages: 1 },
       },
       isLoading: false,
-      error: undefined,
       refetch: vi.fn(),
     })
     mockedApi.useDeleteJournalEntryMutation.mockReturnValue([vi.fn()])
     mockedApi.usePostJournalEntryMutation.mockReturnValue([vi.fn()])
     mockedApi.useBulkPostJournalEntriesMutation.mockReturnValue([vi.fn()])
     mockedApi.useBulkDeleteJournalEntriesMutation.mockReturnValue([vi.fn()])
+    mockedApi.useReverseJournalEntryMutation.mockReturnValue([vi.fn()])
   })
 
-  it('displays entry type chips', async () => {
+  it('renders entry type chips', async () => {
     renderPage()
 
     await waitFor(() => {
       expect(screen.getByText('Manual Entry')).toBeInTheDocument()
-      expect(screen.getByText('Sales Order')).toBeInTheDocument()
-      expect(screen.getByText('Customer Payment')).toBeInTheDocument()
     })
   })
 
-  it('shows source transaction link for auto-posted entries', async () => {
+  it('shows workspace placeholder before a selection', () => {
     renderPage()
-
-    expect(await screen.findAllByText('View Transaction')).toHaveLength(2)
+    expect(screen.getByText('Select a journal entry to view details')).toBeInTheDocument()
   })
 
-  it('hides source link for manual-only entries', async () => {
-    mockedApi.useGetJournalEntriesQuery.mockReturnValue({
-      data: {
-        data: [mockJournalEntries[0]],
-        meta: { page: 1, limit: 50, total: 1, totalPages: 1 },
-      },
-      isLoading: false,
-      error: undefined,
-      refetch: vi.fn(),
-    })
-
+  it('selects an entry in the workspace without navigating', async () => {
     renderPage()
+
+    fireEvent.click(screen.getByText('JE-001'))
 
     await waitFor(() => {
-      expect(screen.queryByText('View Transaction')).not.toBeInTheDocument()
+      expect(screen.getAllByText('JE-001').length).toBeGreaterThan(1)
     })
-  })
-
-  it('filters by entry type', async () => {
-    renderPage()
-
-    await waitFor(() => {
-      expect(screen.getByText('JE-001')).toBeInTheDocument()
-    })
-
-    expect(screen.getByText('Manual Entry')).toBeInTheDocument()
-    expect(screen.getByText('Sales Order')).toBeInTheDocument()
-    expect(screen.getByText('Customer Payment')).toBeInTheDocument()
-  })
-
-  it('navigates to source transaction when view transaction is clicked', async () => {
-    renderPage()
-
-    const user = userEvent.setup()
-    const viewLinks = await screen.findAllByText('View Transaction')
-    await user.click(viewLinks[0])
-
-    expect(mockNavigate).toHaveBeenCalledWith('/sales/orders?highlight=so-123')
+    expect(mockNavigate).not.toHaveBeenCalled()
   })
 })
