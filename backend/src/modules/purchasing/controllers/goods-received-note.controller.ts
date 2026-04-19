@@ -30,6 +30,8 @@ import {
   GoodsReceivedNoteResponseDto,
   GoodsReceivedNoteListResponseDto,
 } from '../dto/goods-received-note.dto';
+import { UserRole } from '../../../database/entities/user.entity';
+import { Auth } from '../../auth/decorators/auth.decorator';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 
 @ApiTags('Goods Received Notes')
@@ -40,6 +42,7 @@ export class GoodsReceivedNoteController {
 
   constructor(private readonly grnService: GoodsReceivedNoteService) {}
 
+  @Auth(UserRole.ADMIN)
   @Post()
   @ApiOperation({
     summary: 'Create goods received note',
@@ -221,6 +224,7 @@ export class GoodsReceivedNoteController {
     return await this.grnService.bulkPermanentDelete(body.grnIds, currentUserId, currentUsername);
   }
 
+  @Auth(UserRole.ADMIN)
   @Delete(':id/permanent')
   @ApiOperation({
     summary: 'Permanently delete goods received note',
@@ -238,6 +242,7 @@ export class GoodsReceivedNoteController {
     return await this.grnService.permanentDelete(id, currentUserId, currentUsername);
   }
 
+  @Auth(UserRole.ADMIN)
   @Delete(':id')
   @ApiOperation({
     summary: 'Soft delete goods received note',
