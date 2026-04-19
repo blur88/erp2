@@ -1,3 +1,25 @@
+# [1.80.0](https://github.com/blur88/erp2/compare/v1.79.2...v1.80.0) (2026-04-19)
+
+
+### Bug Fixes
+
+* guard bulk-permanent-delete, skip PARTIAL_PAID in header sync, add lock banner tests (issue [#393](https://github.com/blur88/erp2/issues/393)) ([98925cd](https://github.com/blur88/erp2/commit/98925cd99bb3f90b5740381421ce7219654b03c8))
+
+
+### Features
+
+* add PurchaseOrderLifecycleService with lock and cascade guards (issue [#393](https://github.com/blur88/erp2/issues/393)) ([a7a691e](https://github.com/blur88/erp2/commit/a7a691ea0210ffaa495ec4cde8c047bd373aca05))
+* add sales order item-lock and child header sync lifecycle hooks (issue [#393](https://github.com/blur88/erp2/issues/393)) ([fec52a1](https://github.com/blur88/erp2/commit/fec52a161331dde2edc827f300809499d67139b4))
+* delegate PO soft-delete-perm-delete-item-lock to lifecycle service (issue [#393](https://github.com/blur88/erp2/issues/393)) ([e5b5615](https://github.com/blur88/erp2/commit/e5b561504ff57e90da85ecacfb139a600bfed1c5))
+* enforce item-lock and sync child header on SO update (issue [#393](https://github.com/blur88/erp2/issues/393)) ([50cb8fc](https://github.com/blur88/erp2/commit/50cb8fc5cf93bfb48adf287988246ca84aa352da))
+* register PurchaseOrderLifecycleService in PurchasingModule (issue [#393](https://github.com/blur88/erp2/issues/393)) ([7eab961](https://github.com/blur88/erp2/commit/7eab961eb8446d180348a8c04cb31c44f0eb9270))
+* restrict GRN create/delete to Admin role (issue [#393](https://github.com/blur88/erp2/issues/393)) ([60543b2](https://github.com/blur88/erp2/commit/60543b2d2e80ad5b09ffd2c951881ad1e2e46e5d))
+* restrict Invoice/Payment manual create-delete to Admin role (issue [#393](https://github.com/blur88/erp2/issues/393)) ([0cd1762](https://github.com/blur88/erp2/commit/0cd17625fe88f7469aa2bbd8a503532dea274bfa))
+* restrict VP manual create/delete to Admin role (issue [#393](https://github.com/blur88/erp2/issues/393)) ([f2e0942](https://github.com/blur88/erp2/commit/f2e09422472e6d4f976b57d8471ba574ffaf1df3))
+* show item lock banner on PO workspace when paid or received (issue [#393](https://github.com/blur88/erp2/issues/393)) ([30c4764](https://github.com/blur88/erp2/commit/30c4764820b0fb3acf35cdb64743cfe199bb50de))
+* show item lock banner on SO workspace when paid or fulfilled (issue [#393](https://github.com/blur88/erp2/issues/393)) ([eeaf31b](https://github.com/blur88/erp2/commit/eeaf31bc1febed61089ce948b9a57e35e719d9d1))
+* sync draft GRN supplier from PO on update (issue [#393](https://github.com/blur88/erp2/issues/393)) ([8f1e31b](https://github.com/blur88/erp2/commit/8f1e31bfa859b5e719543fdf064bd901554b40b7))
+
 ## [1.79.2](https://github.com/blur88/erp2/compare/v1.79.1...v1.79.2) (2026-04-18)
 
 
