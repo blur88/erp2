@@ -28,6 +28,14 @@ export type FilterFieldType =
   | 'price-list'
   | 'transaction-status'
   | 'vendor-payment-status'
+  | 'journal-entry-status'
+  | 'journal-entry-type'
+  | 'expense-status'
+  | 'owner-equity-type'
+  | 'fiscal-period-status'
+  | 'bank-reconciliation-status'
+  | 'settlement-status'
+  | 'fund-transfer-status'
 
 interface BaseFilterFieldConfig<TFilters, K extends keyof TFilters> {
   field: K
@@ -133,6 +141,46 @@ export interface VendorPaymentStatusFilterFieldConfig<TFilters, K extends keyof 
   type: 'vendor-payment-status'
 }
 
+export interface JournalEntryStatusFilterFieldConfig<TFilters, K extends keyof TFilters>
+  extends BaseFilterFieldConfig<TFilters, K> {
+  type: 'journal-entry-status'
+}
+
+export interface JournalEntryTypeFilterFieldConfig<TFilters, K extends keyof TFilters>
+  extends BaseFilterFieldConfig<TFilters, K> {
+  type: 'journal-entry-type'
+}
+
+export interface ExpenseStatusFilterFieldConfig<TFilters, K extends keyof TFilters>
+  extends BaseFilterFieldConfig<TFilters, K> {
+  type: 'expense-status'
+}
+
+export interface OwnerEquityTypeFilterFieldConfig<TFilters, K extends keyof TFilters>
+  extends BaseFilterFieldConfig<TFilters, K> {
+  type: 'owner-equity-type'
+}
+
+export interface FiscalPeriodStatusFilterFieldConfig<TFilters, K extends keyof TFilters>
+  extends BaseFilterFieldConfig<TFilters, K> {
+  type: 'fiscal-period-status'
+}
+
+export interface BankReconciliationStatusFilterFieldConfig<TFilters, K extends keyof TFilters>
+  extends BaseFilterFieldConfig<TFilters, K> {
+  type: 'bank-reconciliation-status'
+}
+
+export interface SettlementStatusFilterFieldConfig<TFilters, K extends keyof TFilters>
+  extends BaseFilterFieldConfig<TFilters, K> {
+  type: 'settlement-status'
+}
+
+export interface FundTransferStatusFilterFieldConfig<TFilters, K extends keyof TFilters>
+  extends BaseFilterFieldConfig<TFilters, K> {
+  type: 'fund-transfer-status'
+}
+
 export type FilterFieldConfig<TFilters> =
   | StatusFilterFieldConfig<TFilters, keyof TFilters>
   | UserStatusFilterFieldConfig<TFilters, keyof TFilters>
@@ -153,6 +201,14 @@ export type FilterFieldConfig<TFilters> =
   | PriceListFilterFieldConfig<TFilters, keyof TFilters>
   | TransactionStatusFilterFieldConfig<TFilters, keyof TFilters>
   | VendorPaymentStatusFilterFieldConfig<TFilters, keyof TFilters>
+  | JournalEntryStatusFilterFieldConfig<TFilters, keyof TFilters>
+  | JournalEntryTypeFilterFieldConfig<TFilters, keyof TFilters>
+  | ExpenseStatusFilterFieldConfig<TFilters, keyof TFilters>
+  | OwnerEquityTypeFilterFieldConfig<TFilters, keyof TFilters>
+  | FiscalPeriodStatusFilterFieldConfig<TFilters, keyof TFilters>
+  | BankReconciliationStatusFilterFieldConfig<TFilters, keyof TFilters>
+  | SettlementStatusFilterFieldConfig<TFilters, keyof TFilters>
+  | FundTransferStatusFilterFieldConfig<TFilters, keyof TFilters>
 
 export interface FilterBarConfig<TFilters> {
   search?: {

@@ -13,10 +13,12 @@ const mockedApi = vi.hoisted(() => ({
   useUpdateAccountMappingMutation: vi.fn(),
   useDeleteAccountMappingMutation: vi.fn(),
   useGetJournalEntriesQuery: vi.fn(),
+  useLazyGetJournalEntryQuery: vi.fn(),
   useDeleteJournalEntryMutation: vi.fn(),
   usePostJournalEntryMutation: vi.fn(),
   useBulkPostJournalEntriesMutation: vi.fn(),
   useBulkDeleteJournalEntriesMutation: vi.fn(),
+  useReverseJournalEntryMutation: vi.fn(),
 }))
 
 vi.mock('@/store/api/accountingApi', () => ({
@@ -28,10 +30,12 @@ vi.mock('@/store/api/accountingApi', () => ({
   useUpdateAccountMappingMutation: mockedApi.useUpdateAccountMappingMutation,
   useDeleteAccountMappingMutation: mockedApi.useDeleteAccountMappingMutation,
   useGetJournalEntriesQuery: mockedApi.useGetJournalEntriesQuery,
+  useLazyGetJournalEntryQuery: mockedApi.useLazyGetJournalEntryQuery,
   useDeleteJournalEntryMutation: mockedApi.useDeleteJournalEntryMutation,
   usePostJournalEntryMutation: mockedApi.usePostJournalEntryMutation,
   useBulkPostJournalEntriesMutation: mockedApi.useBulkPostJournalEntriesMutation,
   useBulkDeleteJournalEntriesMutation: mockedApi.useBulkDeleteJournalEntriesMutation,
+  useReverseJournalEntryMutation: mockedApi.useReverseJournalEntryMutation,
 }))
 
 vi.mock('@/hooks/useNotification', () => ({
@@ -41,10 +45,14 @@ vi.mock('@/hooks/useNotification', () => ({
   }),
 }))
 
-vi.mock('@/utils/formatters', () => ({
-  formatCurrency: (value: number) => `$${value.toFixed(2)}`,
-  formatDate: (date: string | Date) => new Date(date).toLocaleDateString(),
-}))
+vi.mock('@/utils/formatters', async () => {
+  const actual = await vi.importActual<typeof import('@/utils/formatters')>('@/utils/formatters')
+  return {
+    ...actual,
+    formatCurrency: (value: number) => `$${value.toFixed(2)}`,
+    formatDate: (date: string | Date) => new Date(date).toLocaleDateString(),
+  }
+})
 
 const mockNavigate = vi.fn()
 vi.mock('react-router-dom', async () => {
@@ -131,10 +139,12 @@ describe('Accounting Auto-Posting Integration Tests', () => {
       error: undefined,
       refetch: mockRefetch,
     })
+    mockedApi.useLazyGetJournalEntryQuery.mockReturnValue([vi.fn().mockResolvedValue({})])
     mockedApi.useDeleteJournalEntryMutation.mockReturnValue([mockDeleteJournalEntry])
     mockedApi.usePostJournalEntryMutation.mockReturnValue([mockPostJournalEntry])
     mockedApi.useBulkPostJournalEntriesMutation.mockReturnValue([mockBulkPostJournalEntries])
     mockedApi.useBulkDeleteJournalEntriesMutation.mockReturnValue([mockBulkDeleteJournalEntries])
+    mockedApi.useReverseJournalEntryMutation.mockReturnValue([vi.fn()])
   })
 
   describe('End-to-End User Flow: Configuring Account Mappings', () => {

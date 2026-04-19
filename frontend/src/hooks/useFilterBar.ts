@@ -36,7 +36,15 @@ function getDefaults<TFilters extends object>(
       field.type === 'stock-status' ||
       field.type === 'price-list' ||
       field.type === 'transaction-status' ||
-      field.type === 'vendor-payment-status'
+      field.type === 'vendor-payment-status' ||
+      field.type === 'journal-entry-status' ||
+      field.type === 'journal-entry-type' ||
+      field.type === 'expense-status' ||
+      field.type === 'owner-equity-type' ||
+      field.type === 'fiscal-period-status' ||
+      field.type === 'bank-reconciliation-status' ||
+      field.type === 'settlement-status' ||
+      field.type === 'fund-transfer-status'
     ) {
       defaults[key] = null
     }

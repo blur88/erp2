@@ -75,10 +75,8 @@ const ChartOfAccountsPage = React.lazy(() => import('./pages/accounting/ChartOfA
 const FiscalPeriodsPage = React.lazy(() => import('./pages/accounting/FiscalPeriodsPage'))
 const JournalEntriesPage = React.lazy(() => import('./pages/accounting/JournalEntriesPage'))
 const JournalEntryFormPage = React.lazy(() => import('./pages/accounting/JournalEntryFormPage'))
-const JournalEntryDetailsPage = React.lazy(() => import('./pages/accounting/JournalEntryDetailsPage'))
 const AccountMappingsPage = React.lazy(() => import('./pages/accounting/AccountMappingsPage'))
 const BankReconciliationsPage = React.lazy(() => import('./pages/accounting/BankReconciliationsPage'))
-const BankReconciliationDetailsPage = React.lazy(() => import('./pages/accounting/BankReconciliationDetailsPage'))
 const SettlementsPage = React.lazy(() => import('./pages/accounting/SettlementsPage'))
 const OwnerEquityPage = React.lazy(() => import('./pages/accounting/OwnerEquityPage'))
 const ExpensesPage = React.lazy(() => import('./pages/accounting/ExpensesPage'))
@@ -209,7 +207,7 @@ export const router = createBrowserRouter([
           { path: '/accounting/journal-entries', element: <JournalEntriesPage />, handle: { title: 'Journal Entries' } },
           { path: '/accounting/journal-entries/new', element: <JournalEntryFormPage />, handle: { title: 'Create Journal Entry' } },
           { path: '/accounting/journal-entries/:id/edit', element: <JournalEntryFormPage />, handle: { title: 'Edit Journal Entry' } },
-          { path: '/accounting/journal-entries/:id', element: <JournalEntryDetailsPage />, handle: { title: 'Journal Entry' } },
+          { path: '/accounting/journal-entries/:id', element: <Navigate to="/accounting/journal-entries" replace /> },
           { path: '/accounting/account-mappings', element: <AccountMappingsPage />, handle: { title: 'Account Mappings' } },
           { path: '/accounting/settlements', element: <SettlementsPage />, handle: { title: 'Settlements' } },
           { path: '/accounting/owner-equity', element: <OwnerEquityPage />, handle: { title: "Owner's Equity" } },
@@ -217,7 +215,7 @@ export const router = createBrowserRouter([
           { path: '/accounting/fund-transfers', element: <FundTransfersPage />, handle: { title: 'Fund Transfers' } },
           { path: '/accounting/bank-reconciliations', element: <BankReconciliationsPage />, handle: { title: 'Bank Reconciliation' } },
           { path: '/accounting/bank-reconciliations/new', element: <BankReconciliationsPage />, handle: { title: 'New Bank Reconciliation' } },
-          { path: '/accounting/bank-reconciliations/:id', element: <BankReconciliationDetailsPage />, handle: { title: 'Bank Reconciliation' } },
+          { path: '/accounting/bank-reconciliations/:id', element: <Navigate to="/accounting/bank-reconciliations" replace /> },
           { path: '/accounting/reports/trial-balance', element: <TrialBalancePage />, handle: { title: 'Trial Balance' } },
           { path: '/accounting/reports/balance-sheet', element: <BalanceSheetPage />, handle: { title: 'Balance Sheet' } },
           { path: '/accounting/reports/profit-loss', element: <ProfitAndLossPage />, handle: { title: 'Profit & Loss' } },
