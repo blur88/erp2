@@ -596,6 +596,10 @@ export class PurchaseOrderService extends BaseCrudService<
         await this.syncDraftGrn(updatedPurchaseOrder.id);
       }
 
+      if (updatePurchaseOrderDto.supplierId !== undefined) {
+        await this.syncDraftGrnHeader(updatedPurchaseOrder.id);
+      }
+
       // Sync GRN date if PO order date changed
       if (orderDateChanged) {
         await this.syncGrnDate(updatedPurchaseOrder.id, new Date(updatePurchaseOrderDto.orderDate));
@@ -1067,6 +1071,34 @@ export class PurchaseOrderService extends BaseCrudService<
     } catch (error) {
       this.logger.error(`Error syncing draft GRN: ${error.message}`, error.stack);
       // Don't throw - GRN sync failure shouldn't block PO update
+    }
+  }
+
+  private async syncDraftGrnHeader(purchaseOrderId: string): Promise<void> {
+    try {
+      const grn = await this.grnRepository.findOne({
+        where: { purchaseOrderId },
+      });
+
+      if (!grn || grn.status !== GrnStatus.DRAFT) {
+        return;
+      }
+
+      const fullPO = await this.purchaseOrderRepository.findOne({
+        where: { id: purchaseOrderId },
+      });
+
+      if (!fullPO) {
+        this.logger.warn(`PO ${purchaseOrderId} not found during GRN header sync`);
+        return;
+      }
+
+      grn.supplierId = fullPO.supplierId;
+
+      await this.grnRepository.save(grn);
+      this.logger.log(`GRN ${grn.grnNumber} header synced from PO ${fullPO.orderNumber}`);
+    } catch (error) {
+      this.logger.error(`Error syncing draft GRN header: ${error.message}`, error.stack);
     }
   }
 

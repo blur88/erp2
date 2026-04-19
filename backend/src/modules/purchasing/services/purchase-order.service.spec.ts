@@ -675,6 +675,45 @@ describe('PurchaseOrderService', () => {
     });
   });
 
+  describe('update', () => {
+    it('syncs the draft GRN supplier when the PO supplier changes without item edits', async () => {
+      const existingPO = {
+        ...mockPurchaseOrder,
+        supplierId: 'supplier-1',
+        orderDate: new Date('2026-01-01'),
+      } as unknown as PurchaseOrder;
+
+      const savedPO = {
+        ...existingPO,
+        supplierId: 'supplier-2',
+      } as unknown as PurchaseOrder;
+
+      const draftGrn = {
+        ...mockDraftGrn,
+        supplierId: 'supplier-1',
+      } as unknown as GoodsReceivedNote;
+
+      purchaseOrderRepository.findOne
+        .mockResolvedValueOnce(existingPO)
+        .mockResolvedValueOnce(savedPO);
+      purchaseOrderRepository.save.mockResolvedValue(savedPO);
+      grnRepository.findOne.mockResolvedValue(draftGrn);
+
+      await service.update(
+        'po-1',
+        { supplierId: 'supplier-2', notes: 'new notes' } as any,
+        'user-1',
+        'admin',
+      );
+
+      expect(grnRepository.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          supplierId: 'supplier-2',
+        }),
+      );
+    });
+  });
+
   describe('returnGoods', () => {
     beforeEach(() => {
       const receivedGrn = {
