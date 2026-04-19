@@ -1,54 +1,22 @@
-import React, { useMemo, useRef, useState } from 'react'
-import {
-  Box,
-  Button,
-  Chip,
-  CircularProgress,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-  FormControl,
-  IconButton,
-  InputAdornment,
-  InputLabel,
-  MenuItem,
-  Paper,
-  Select,
-  Stack,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  TextField,
-  Typography,
-} from '@mui/material'
-import { default as DeleteIcon } from '@mui/icons-material/Delete'
-import { default as EditIcon } from '@mui/icons-material/Edit'
-import { default as PostIcon } from '@mui/icons-material/PostAdd'
-import { default as SearchIcon } from '@mui/icons-material/Search'
-import { default as UndoIcon } from '@mui/icons-material/Undo'
-import PageHeader from '@/components/common/PageHeader'
-import { useNotification } from '@/hooks/useNotification'
+import React, { useMemo, useState } from 'react'
+
+import GenericListPage from '@/components/common/GenericListPage'
+import { useFilterBar } from '@/hooks/useFilterBar'
 import {
   useCreateOwnerEquityTransactionMutation,
-  useDeleteOwnerEquityTransactionMutation,
   useGetOwnerEquityTransactionsQuery,
   useGetPaymentMethodsQuery,
-  usePostOwnerEquityTransactionMutation,
-  useReverseOwnerEquityTransactionMutation,
   useUpdateOwnerEquityTransactionMutation,
 } from '@/store/api/accountingApi'
-import { useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
 import type { OwnerEquityTransaction, PaymentMethodConfig } from '@/types'
-import { formatCurrency, formatDate } from '@/utils/formatters'
+import type { FilterBarConfig, PeriodValue } from '@/types/filterBar.types'
+import { getPeriodDateRange, getStartOfWeek } from '@/utils/dateRange'
 
-const typeLabel: Record<OwnerEquityTransaction['type'], string> = {
-  capital_injection: 'Capital Injection',
-  owner_drawing: 'Owner Drawing',
-}
+import { OwnerEquityContextHeader } from './components/OwnerEquityContextHeader'
+import { OwnerEquityDialogs } from './components/OwnerEquityDialogs'
+import { OwnerEquityTable } from './components/OwnerEquityTable'
+import { OwnerEquityWorkspaceCard } from './components/OwnerEquityWorkspaceCard'
+import { useOwnerEquityWorkspace } from './hooks/useOwnerEquityWorkspace'
 
 type FormState = {
   id?: string
@@ -59,342 +27,96 @@ type FormState = {
   description: string
 }
 
-const OwnerEquityPage: React.FC = () => {
-  const { showError, showSuccess } = useNotification()
-  const searchRef = useRef<HTMLInputElement | null>(null)
+interface OwnerEquityFilters {
+  search: string
+  type: string | null
+  status: string | null
+  period: PeriodValue
+}
 
-  const [typeFilter, setTypeFilter] = useState<string>('')
-  const [statusFilter, setStatusFilter] = useState<string>('')
-  const [startDate, setStartDate] = useState('')
-  const [endDate, setEndDate] = useState('')
-  const [search, setSearch] = useState('')
-  const [dialogOpen, setDialogOpen] = useState(false)
-  const [form, setForm] = useState<FormState>({
-    transactionDate: new Date().toISOString().slice(0, 10),
-    type: 'capital_injection',
-    amount: '',
-    paymentMethodId: '',
-    description: '',
-  })
-  const filters = useMemo(
-    () => ({
-      page: 1,
-      sortBy: 'referenceNumber',
-      sortOrder: 'DESC',
-      type: typeFilter || undefined,
-      status: statusFilter || undefined,
-      startDate: startDate || undefined,
-      endDate: endDate || undefined,
-    }),
-    [typeFilter, statusFilter, startDate, endDate],
-  )
-  const { data: ownerEquityResponse, isLoading: loading, refetch } = useGetOwnerEquityTransactionsQuery(filters)
-  const rows = ownerEquityResponse?.data ?? []
+const filterConfig: FilterBarConfig<OwnerEquityFilters> = {
+  search: { placeholder: 'Search owner equity...' },
+  fields: [
+    { field: 'period', label: 'Period', type: 'period' },
+    { field: 'type', label: 'Type', type: 'owner-equity-type' },
+    { field: 'status', label: 'Status', type: 'expense-status' },
+  ],
+  defaults: { search: '', type: null, status: null, period: { key: null, from: null, to: null } },
+}
+
+const defaultForm = (): FormState => ({
+  transactionDate: new Date().toISOString().slice(0, 10),
+  type: 'capital_injection',
+  amount: '',
+  paymentMethodId: '',
+  description: '',
+})
+
+const OwnerEquityPage: React.FC = () => {
+  const [form, setForm] = useState<FormState>(defaultForm())
+  const { appliedFilters, draftFilters, handlers, hasActiveFilters } = useFilterBar(filterConfig)
+  const weekStartsOn = getStartOfWeek()
+  const dateRange = useMemo(() => {
+    const period = appliedFilters.period
+    if (!period || period.key === null) return { fromDate: undefined, toDate: undefined }
+    if (period.key === 'custom') return { fromDate: period.from ?? undefined, toDate: period.to ?? undefined }
+    const resolved = getPeriodDateRange(period.key, weekStartsOn)
+    return { fromDate: resolved.from, toDate: resolved.to }
+  }, [appliedFilters.period, weekStartsOn])
+  const { data: ownerEquityResponse, isLoading, refetch } = useGetOwnerEquityTransactionsQuery({ page: 1, sortBy: 'referenceNumber', sortOrder: 'DESC', type: appliedFilters.type || undefined, status: appliedFilters.status || undefined, startDate: dateRange.fromDate, endDate: dateRange.toDate })
   const { data: paymentMethodsResponse } = useGetPaymentMethodsQuery({ page: 1, isActive: true })
   const paymentMethods = (paymentMethodsResponse?.data ?? []) as PaymentMethodConfig[]
   const [createOwnerEquityTransaction] = useCreateOwnerEquityTransactionMutation()
   const [updateOwnerEquityTransaction] = useUpdateOwnerEquityTransactionMutation()
-  const [deleteOwnerEquityTransaction] = useDeleteOwnerEquityTransactionMutation()
-  const [postOwnerEquityTransaction] = usePostOwnerEquityTransactionMutation()
-  const [reverseOwnerEquityTransaction] = useReverseOwnerEquityTransactionMutation()
-  const [reverseConfirmId, setReverseConfirmId] = useState<string | null>(null)
-
-  const filteredRows = useMemo(() => {
-    if (!search) return rows
-    const term = search.toLowerCase()
-    return rows.filter((r) =>
-      [r.referenceNumber, r.description, r.paymentMethod?.name]
-        .filter(Boolean)
-        .join(' ')
-        .toLowerCase()
-        .includes(term),
-    )
-  }, [rows, search])
-
-  const resetDialog = () => {
-    setDialogOpen(false)
-    setForm({
-      transactionDate: new Date().toISOString().slice(0, 10),
-      type: 'capital_injection',
-      amount: '',
-      paymentMethodId: '',
-      description: '',
-    })
-  }
+  const workspace = useOwnerEquityWorkspace(() => { void refetch() })
+  const rows = useMemo(() => {
+    const items = ownerEquityResponse?.data ?? []
+    const term = appliedFilters.search.trim().toLowerCase()
+    if (!term) return items
+    return items.filter((item) => [item.referenceNumber, item.description, item.paymentMethod?.name].filter(Boolean).join(' ').toLowerCase().includes(term))
+  }, [appliedFilters.search, ownerEquityResponse?.data])
 
   const openCreate = () => {
-    setForm({
-      transactionDate: new Date().toISOString().slice(0, 10),
-      type: 'capital_injection',
-      amount: '',
-      paymentMethodId: paymentMethods[0]?.id || '',
-      description: '',
-    })
-    setDialogOpen(true)
+    setForm({ ...defaultForm(), paymentMethodId: paymentMethods[0]?.id || '' })
+    workspace.setDialogOpen(true)
   }
 
   const openEdit = (row: OwnerEquityTransaction) => {
-    setForm({
-      id: row.id,
-      transactionDate: row.transactionDate.slice(0, 10),
-      type: row.type,
-      amount: String(row.amount),
-      paymentMethodId: row.paymentMethodId,
-      description: row.description || '',
-    })
-    setDialogOpen(true)
+    setForm({ id: row.id, transactionDate: row.transactionDate.slice(0, 10), type: row.type, amount: String(row.amount), paymentMethodId: row.paymentMethodId, description: row.description || '' })
+    workspace.setDialogOpen(true)
+  }
+
+  const closeDialog = () => {
+    workspace.setDialogOpen(false)
+    setForm(defaultForm())
   }
 
   const save = async () => {
-    if (!form.paymentMethodId || !form.amount || Number(form.amount) <= 0) {
-      showError('Please enter valid amount and payment method')
-      return
-    }
-
-    const payload = {
-      transactionDate: form.transactionDate,
-      type: form.type,
-      amount: Number(form.amount),
-      paymentMethodId: form.paymentMethodId,
-      description: form.description || undefined,
-    }
-
-    try {
-      if (form.id) {
-        await updateOwnerEquityTransaction({ id: form.id, data: payload }).unwrap()
-        showSuccess('Transaction updated')
-      } else {
-        await createOwnerEquityTransaction(payload).unwrap()
-        showSuccess('Transaction created')
-      }
-      resetDialog()
-      refetch()
-    } catch (error: any) {
-      showError(String(error))
-    }
+    if (!form.paymentMethodId || !form.amount || Number(form.amount) <= 0) return
+    const payload = { transactionDate: form.transactionDate, type: form.type, amount: Number(form.amount), paymentMethodId: form.paymentMethodId, description: form.description || undefined }
+    if (form.id) await updateOwnerEquityTransaction({ id: form.id, data: payload }).unwrap()
+    else await createOwnerEquityTransaction(payload).unwrap()
+    closeDialog()
+    void refetch()
   }
-
-  const onDelete = async (id: string) => {
-    if (!window.confirm('Delete this draft transaction?')) return
-    try {
-      await deleteOwnerEquityTransaction(id).unwrap()
-      showSuccess('Transaction deleted')
-      refetch()
-    } catch (error: any) {
-      showError(String(error))
-    }
-  }
-
-  const onPost = async (id: string) => {
-    if (!window.confirm('Post this transaction?')) return
-    try {
-      await postOwnerEquityTransaction(id).unwrap()
-      showSuccess('Transaction posted')
-      refetch()
-    } catch (error: any) {
-      showError(String(error))
-    }
-  }
-
-  const onReverse = async () => {
-    if (!reverseConfirmId) return
-    try {
-      await reverseOwnerEquityTransaction(reverseConfirmId).unwrap()
-      showSuccess('Transaction reversed')
-      setReverseConfirmId(null)
-      refetch()
-    } catch (error: any) {
-      showError(String(error))
-    }
-  }
-
-  useKeyboardShortcuts({
-    onSearch: () => searchRef.current?.focus(),
-    onAdd: openCreate,
-    onRefresh: refetch,
-    onEscape: () => {
-      setDialogOpen(false)
-    },
-  })
 
   return (
-    <>
-      <PageHeader
-        title="Owner Equity"
-        subtitle="Track owner contributions and equity transactions"
-        secondaryAction={{ label: 'Refresh', onClick: () => refetch() }}
-        primaryAction={{ label: 'New Transaction', onClick: openCreate }}
-      />
-      <Box sx={{ mb: 2 }}>
-        <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
-          <TextField
-            inputRef={searchRef}
-            label="Search"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            size="small"
-            slotProps={{
-              input: {
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon fontSize="small" />
-                  </InputAdornment>
-                ),
-              },
-            }}
-          />
-          <FormControl size="small" sx={{ minWidth: 200 }}>
-            <InputLabel>Type</InputLabel>
-            <Select value={typeFilter} label="Type" onChange={(e) => setTypeFilter(e.target.value)}>
-              <MenuItem value="">All</MenuItem>
-              <MenuItem value="capital_injection">Capital Injection</MenuItem>
-              <MenuItem value="owner_drawing">Owner Drawing</MenuItem>
-            </Select>
-          </FormControl>
-          <FormControl size="small" sx={{ minWidth: 180 }}>
-            <InputLabel>Status</InputLabel>
-            <Select value={statusFilter} label="Status" onChange={(e) => setStatusFilter(e.target.value)}>
-              <MenuItem value="">All</MenuItem>
-              <MenuItem value="draft">Draft</MenuItem>
-              <MenuItem value="posted">Posted</MenuItem>
-              <MenuItem value="reversed">Reversed</MenuItem>
-            </Select>
-          </FormControl>
-          <TextField label="Start Date" type="date" size="small" value={startDate} onChange={(e) => setStartDate(e.target.value)} slotProps={{ inputLabel: { shrink: true } }} />
-          <TextField label="End Date" type="date" size="small" value={endDate} onChange={(e) => setEndDate(e.target.value)} slotProps={{ inputLabel: { shrink: true } }} />
-        </Stack>
-      </Box>
-      <Paper>
-        <TableContainer>
-          {loading && (
-            <Box sx={{ display: 'flex', justifyContent: 'center', p: 2 }}>
-              <CircularProgress size={24} />
-            </Box>
-          )}
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableCell>Reference #</TableCell>
-                <TableCell>Date</TableCell>
-                <TableCell>Type</TableCell>
-                <TableCell align="right">Amount</TableCell>
-                <TableCell>Payment Method</TableCell>
-                <TableCell>Description</TableCell>
-                <TableCell>Status</TableCell>
-                <TableCell align="right">Actions</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {filteredRows.map((row) => {
-                const isDraft = row.status === 'draft'
-                return (
-                  <TableRow key={row.id}>
-                    <TableCell>{row.referenceNumber}</TableCell>
-                    <TableCell>{formatDate(row.transactionDate)}</TableCell>
-                    <TableCell>
-                      <Chip
-                        size="small"
-                        label={typeLabel[row.type]}
-                        color={row.type === 'capital_injection' ? 'primary' : 'warning'}
-                      />
-                    </TableCell>
-                    <TableCell align="right">{formatCurrency(Number(row.amount || 0))}</TableCell>
-                    <TableCell>{row.paymentMethod?.name || '-'}</TableCell>
-                    <TableCell>{row.description || '-'}</TableCell>
-                    <TableCell>
-                      <Chip
-                        size="small"
-                        label={row.status}
-                        color={
-                          row.status === 'posted'
-                            ? 'success'
-                            : row.status === 'reversed'
-                              ? 'error'
-                              : 'default'
-                        }
-                      />
-                    </TableCell>
-                    <TableCell align="right">
-                      {isDraft && (
-                        <>
-                          <IconButton size="small" onClick={() => openEdit(row)}>
-                            <EditIcon fontSize="small" />
-                          </IconButton>
-                          <IconButton size="small" onClick={() => onPost(row.id)}>
-                            <PostIcon fontSize="small" />
-                          </IconButton>
-                          <IconButton size="small" color="error" onClick={() => onDelete(row.id)}>
-                            <DeleteIcon fontSize="small" />
-                          </IconButton>
-                        </>
-                      )}
-                      {row.status === 'posted' && (
-                        <IconButton size="small" color="warning" onClick={() => setReverseConfirmId(row.id)}>
-                          <UndoIcon fontSize="small" />
-                        </IconButton>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                )
-              })}
-              {!filteredRows.length && !loading && (
-                <TableRow>
-                  <TableCell colSpan={8}>
-                    <Typography sx={{
-                      color: "text.secondary"
-                    }}>No owner equity transactions found.</Typography>
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      </Paper>
-      <Dialog open={dialogOpen} onClose={resetDialog} maxWidth="sm" fullWidth>
-        <DialogTitle>{form.id ? 'Edit Transaction' : 'New Transaction'}</DialogTitle>
-        <DialogContent>
-          <Stack spacing={2} sx={{ mt: 1 }}>
-            <FormControl fullWidth size="small">
-              <InputLabel>Type</InputLabel>
-              <Select value={form.type} label="Type" onChange={(e) => setForm((f) => ({ ...f, type: e.target.value as FormState['type'] }))}>
-                <MenuItem value="capital_injection">Capital Injection</MenuItem>
-                <MenuItem value="owner_drawing">Owner Drawing</MenuItem>
-              </Select>
-            </FormControl>
-            <TextField label="Date" type="date" size="small" value={form.transactionDate} onChange={(e) => setForm((f) => ({ ...f, transactionDate: e.target.value }))} slotProps={{ inputLabel: { shrink: true } }} />
-            <TextField label="Amount" size="small" type="number" value={form.amount} onChange={(e) => setForm((f) => ({ ...f, amount: e.target.value }))} />
-            <FormControl fullWidth size="small">
-              <InputLabel>Payment Method</InputLabel>
-              <Select value={form.paymentMethodId} label="Payment Method" onChange={(e) => setForm((f) => ({ ...f, paymentMethodId: e.target.value }))}>
-                {paymentMethods.map((pm) => (
-                  <MenuItem key={pm.id} value={pm.id}>{pm.name}</MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-            <TextField label="Description" multiline minRows={2} value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} />
-          </Stack>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={resetDialog}>Cancel</Button>
-          <Button variant="contained" onClick={save}>Save</Button>
-        </DialogActions>
-      </Dialog>
-      <Dialog open={!!reverseConfirmId} onClose={() => setReverseConfirmId(null)} maxWidth="xs" fullWidth>
-        <DialogTitle>Reverse Transaction</DialogTitle>
-        <DialogContent>
-          <Typography>
-            Are you sure you want to reverse this transaction? This will create a reversal journal entry.
-          </Typography>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setReverseConfirmId(null)}>Cancel</Button>
-          <Button variant="contained" color="error" onClick={onReverse}>
-            Confirm
-          </Button>
-        </DialogActions>
-      </Dialog>
-    </>
-  );
+    <GenericListPage
+      title="Owner Equity"
+      subtitle="Track owner contributions and equity transactions"
+      primaryAction={{ label: 'New Transaction', onClick: openCreate }}
+      filterConfig={filterConfig}
+      draftFilters={draftFilters}
+      handlers={handlers}
+      hasActiveFilters={hasActiveFilters}
+      searchInputRef={workspace.searchInputRef}
+      sort={{ field: 'referenceNumber', sortBy: 'referenceNumber', sortOrder: 'desc', onSort: () => {} }}
+      listSlot={<OwnerEquityTable rows={rows} loading={isLoading} selectedId={workspace.selected?.id ?? null} onSelect={workspace.setSelected} onEdit={openEdit} onPost={workspace.setPostTarget} onDelete={workspace.setDeleteTarget} onReverse={workspace.setReverseTarget} listRef={workspace.listRef} />}
+      headerSlot={<OwnerEquityContextHeader selected={workspace.selected} onEdit={() => workspace.selected && openEdit(workspace.selected)} onPost={() => workspace.selected && workspace.setPostTarget(workspace.selected)} onDelete={() => workspace.selected && workspace.setDeleteTarget(workspace.selected)} onReverse={() => workspace.selected && workspace.setReverseTarget(workspace.selected)} />}
+      workspaceSlot={<OwnerEquityWorkspaceCard selected={workspace.selected} />}
+      dialogs={<OwnerEquityDialogs dialogOpen={workspace.dialogOpen} form={form} paymentMethods={paymentMethods} onCloseDialog={closeDialog} onFormChange={(field, value) => setForm((current) => ({ ...current, [field]: value }))} onSave={() => void save()} reverseTarget={workspace.reverseTarget} deleteTarget={workspace.deleteTarget} postTarget={workspace.postTarget} onCancelReverse={() => workspace.setReverseTarget(null)} onCancelDelete={() => workspace.setDeleteTarget(null)} onCancelPost={() => workspace.setPostTarget(null)} onConfirmReverse={() => void workspace.handleReverse()} onConfirmDelete={() => void workspace.handleDelete()} onConfirmPost={() => void workspace.handlePost()} />}
+    />
+  )
 }
 
 export default OwnerEquityPage

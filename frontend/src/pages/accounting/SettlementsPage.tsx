@@ -1,158 +1,77 @@
-import React, { useState } from 'react';
-import {
-  Box,
-  Button,
-  Chip,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-  IconButton,
-  Paper,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Typography,
-} from '@mui/material';
-import { default as CancelIcon } from '@mui/icons-material/Cancel';
-import PageHeader from '@/components/common/PageHeader'
-import { useNotification } from '@/hooks/useNotification'
-import {
-  useCancelSettlementMutation,
-  useCreateSettlementMutation,
-  useGetPendingSettlementSummaryQuery,
-  useGetSettlementsQuery,
-} from '@/store/api/accountingApi';
-import { formatCurrency, formatDate } from '@/utils/formatters'
-import type { Settlement } from '@/types';
-import CreateSettlementDialog from '@/components/accounting/CreateSettlementDialog';
+import React, { useMemo } from 'react'
 
-const statusColor = (status: Settlement['status']) => {
-  if (status === 'completed') return 'success';
-  if (status === 'cancelled') return 'error';
-  return 'default';
-};
+import GenericListPage from '@/components/common/GenericListPage'
+import { useFilterBar } from '@/hooks/useFilterBar'
+import { useCreateSettlementMutation, useGetPendingSettlementSummaryQuery, useGetSettlementsQuery } from '@/store/api/accountingApi'
+import type { FilterBarConfig, PeriodValue } from '@/types/filterBar.types'
+import { getPeriodDateRange, getStartOfWeek } from '@/utils/dateRange'
+
+import { SettlementContextHeader } from './components/SettlementContextHeader'
+import { SettlementsDialogs } from './components/SettlementsDialogs'
+import { SettlementsTable } from './components/SettlementsTable'
+import { SettlementWorkspaceCard } from './components/SettlementWorkspaceCard'
+import { useSettlementsWorkspace } from './hooks/useSettlementsWorkspace'
+
+interface SettlementFilters {
+  search: string
+  status: string | null
+  period: PeriodValue
+}
+
+const filterConfig: FilterBarConfig<SettlementFilters> = {
+  search: { placeholder: 'Search settlements...' },
+  fields: [
+    { field: 'period', label: 'Period', type: 'period' },
+    { field: 'status', label: 'Status', type: 'settlement-status' },
+  ],
+  defaults: { search: '', status: null, period: { key: null, from: null, to: null } },
+}
 
 const SettlementsPage: React.FC = () => {
-  const { showSuccess, showError } = useNotification()
-  const {
-    data: settlementsResponse,
-    isLoading: loading,
-  } = useGetSettlementsQuery({ page: 1 });
-  useGetPendingSettlementSummaryQuery();
-  const [createSettlement] = useCreateSettlementMutation();
-  const [cancelSettlement] = useCancelSettlementMutation();
+  const { appliedFilters, draftFilters, handlers, hasActiveFilters } = useFilterBar(filterConfig)
+  const weekStartsOn = getStartOfWeek()
+  const dateRange = useMemo(() => {
+    const period = appliedFilters.period
+    if (!period || period.key === null) return { fromDate: undefined, toDate: undefined }
+    if (period.key === 'custom') return { fromDate: period.from ?? undefined, toDate: period.to ?? undefined }
+    const resolved = getPeriodDateRange(period.key, weekStartsOn)
+    return { fromDate: resolved.from, toDate: resolved.to }
+  }, [appliedFilters.period, weekStartsOn])
 
-  const settlements = settlementsResponse?.data ?? [];
+  const { data: settlementsResponse, isLoading, refetch } = useGetSettlementsQuery({ page: 1, status: appliedFilters.status || undefined, startDate: dateRange.fromDate, endDate: dateRange.toDate })
+  useGetPendingSettlementSummaryQuery()
+  const [createSettlement] = useCreateSettlementMutation()
+  const workspace = useSettlementsWorkspace(() => { void refetch() })
+  const settlements = useMemo(() => {
+    const rows = settlementsResponse?.data ?? []
+    const term = appliedFilters.search.trim().toLowerCase()
+    if (!term) return rows
+    return rows.filter((row) => [row.settlementNumber, row.reference, row.notes, row.paymentMethod?.name].filter(Boolean).join(' ').toLowerCase().includes(term))
+  }, [appliedFilters.search, settlementsResponse?.data])
 
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [cancelTarget, setCancelTarget] = useState<Settlement | null>(null);
-
-  const onCreate = async (data: {
-    paymentMethodId: string;
-    settlementDate: string;
-    paymentIds: string[];
-    reference?: string;
-    notes?: string;
-  }) => {
-    try {
-      await createSettlement(data).unwrap();
-      setDialogOpen(false);
-      showSuccess('Settlement created successfully');
-    } catch (error: any) {
-      showError(error?.message || String(error) || 'Failed to create settlement');
-    }
-  };
-
-  const onCancel = async () => {
-    if (!cancelTarget) return;
-    try {
-      await cancelSettlement(cancelTarget.id).unwrap();
-      setCancelTarget(null);
-      showSuccess('Settlement cancelled successfully');
-    } catch (error: any) {
-      showError(error?.message || String(error) || 'Failed to cancel settlement');
-    }
-  };
+  const onCreate = async (data: { paymentMethodId: string; settlementDate: string; paymentIds: string[]; reference?: string; notes?: string }) => {
+    await createSettlement(data).unwrap()
+    workspace.setDialogOpen(false)
+    void refetch()
+  }
 
   return (
-    <>
-      <PageHeader
-        title="Settlements"
-        subtitle="Settle pending payments by payment method"
-        primaryAction={{ label: 'Create Settlement', onClick: () => setDialogOpen(true) }}
-      />
-      <Paper>
-        <TableContainer>
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableCell>Settlement #</TableCell>
-                <TableCell>Payment Method</TableCell>
-                <TableCell>Date</TableCell>
-                <TableCell align="right">Total Amount</TableCell>
-                <TableCell align="right">Payments</TableCell>
-                <TableCell>Reference</TableCell>
-                <TableCell>Status</TableCell>
-                <TableCell align="right">Actions</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {settlements.map((s) => (
-                <TableRow key={s.id}>
-                  <TableCell>{s.settlementNumber}</TableCell>
-                  <TableCell>{s.paymentMethod?.name || '-'}</TableCell>
-                  <TableCell>{formatDate(s.settlementDate)}</TableCell>
-                  <TableCell align="right">{formatCurrency(Number(s.totalAmount || 0))}</TableCell>
-                  <TableCell align="right">{s.paymentCount}</TableCell>
-                  <TableCell>{s.reference || '-'}</TableCell>
-                  <TableCell>
-                    <Chip size="small" color={statusColor(s.status) as any} label={s.status} />
-                  </TableCell>
-                  <TableCell align="right">
-                    {s.status === 'completed' && (
-                      <IconButton size="small" onClick={() => setCancelTarget(s)}>
-                        <CancelIcon fontSize="small" />
-                      </IconButton>
-                    )}
-                  </TableCell>
-                </TableRow>
-              ))}
-              {!settlements.length && !loading && (
-                <TableRow>
-                  <TableCell colSpan={8}>
-                    <Typography sx={{
-                      color: "text.secondary"
-                    }}>No settlements found.</Typography>
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      </Paper>
-      <CreateSettlementDialog
-        open={dialogOpen}
-        onClose={() => setDialogOpen(false)}
-        onCreate={onCreate}
-      />
-      <Dialog open={!!cancelTarget} onClose={() => setCancelTarget(null)}>
-        <DialogTitle>Cancel Settlement</DialogTitle>
-        <DialogContent>
-          <Typography>
-            Cancel settlement <strong>{cancelTarget?.settlementNumber}</strong>?
-          </Typography>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setCancelTarget(null)}>No</Button>
-          <Button variant="contained" color="error" onClick={onCancel}>Cancel Settlement</Button>
-        </DialogActions>
-      </Dialog>
-    </>
-  );
-};
+    <GenericListPage
+      title="Settlements"
+      subtitle="Settle pending payments by payment method"
+      primaryAction={{ label: 'Create Settlement', onClick: () => workspace.setDialogOpen(true) }}
+      filterConfig={filterConfig}
+      draftFilters={draftFilters}
+      handlers={handlers}
+      hasActiveFilters={hasActiveFilters}
+      searchInputRef={workspace.searchInputRef}
+      sort={{ field: 'settlementDate', sortBy: 'settlementDate', sortOrder: 'desc', onSort: () => {} }}
+      listSlot={<SettlementsTable settlements={settlements} loading={isLoading} selectedId={workspace.selected?.id ?? null} onSelect={workspace.setSelected} listRef={workspace.listRef} />}
+      headerSlot={<SettlementContextHeader selected={workspace.selected} onCancel={() => workspace.selected && workspace.setCancelTarget(workspace.selected)} />}
+      workspaceSlot={<SettlementWorkspaceCard selected={workspace.selected} />}
+      dialogs={<SettlementsDialogs dialogOpen={workspace.dialogOpen} onCloseDialog={() => workspace.setDialogOpen(false)} onCreate={onCreate} cancelTarget={workspace.cancelTarget} onConfirmCancel={() => void workspace.handleConfirmCancel()} onCancelCancel={() => workspace.setCancelTarget(null)} />}
+    />
+  )
+}
 
-export default SettlementsPage;
+export default SettlementsPage
