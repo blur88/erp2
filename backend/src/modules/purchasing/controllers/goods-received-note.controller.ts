@@ -194,6 +194,7 @@ export class GoodsReceivedNoteController {
     return await this.grnService.bulkRestore(body.grnIds, currentUserId, currentUsername);
   }
 
+  @Auth(UserRole.ADMIN)
   @Post('bulk-permanent-delete')
   @ApiOperation({
     summary: 'Bulk permanent delete goods received notes',

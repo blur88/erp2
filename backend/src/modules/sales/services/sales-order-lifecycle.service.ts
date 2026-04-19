@@ -63,7 +63,7 @@ export class SalesOrderLifecycleService {
       });
 
       for (const invoice of invoices) {
-        if (invoice.status === InvoiceStatus.PAID) {
+        if (invoice.status === InvoiceStatus.PAID || invoice.status === InvoiceStatus.PARTIAL_PAID) {
           continue;
         }
 

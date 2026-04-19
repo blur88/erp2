@@ -25,4 +25,44 @@ describe('PurchaseOrderWorkspaceCard', () => {
     expect(screen.getByText(/Items are locked/i)).toBeInTheDocument()
     expect(screen.getByText(/unpay before editing/i)).toBeInTheDocument()
   })
+
+  it('shows a lock banner when goods have been received', () => {
+    render(
+      <PurchaseOrderWorkspaceCard
+        selectedOrder={{
+          ...baseOrder,
+          paidAmount: 0,
+          goodsReceivedNotes: [{ id: 'grn-1', status: 'received' }],
+        }}
+      />,
+    )
+
+    expect(screen.getByText(/Items are locked/i)).toBeInTheDocument()
+    expect(screen.getByText(/return goods before editing/i)).toBeInTheDocument()
+  })
+
+  it('shows a combined lock banner when both paid and received', () => {
+    render(
+      <PurchaseOrderWorkspaceCard
+        selectedOrder={{
+          ...baseOrder,
+          paidAmount: 10,
+          goodsReceivedNotes: [{ id: 'grn-1', status: 'received' }],
+        }}
+      />,
+    )
+
+    expect(screen.getByText(/Items are locked/i)).toBeInTheDocument()
+    expect(screen.getByText(/return goods and unpay before editing/i)).toBeInTheDocument()
+  })
+
+  it('shows no lock banner when neither paid nor received', () => {
+    render(
+      <PurchaseOrderWorkspaceCard
+        selectedOrder={{ ...baseOrder, paidAmount: 0, goodsReceivedNotes: [] }}
+      />,
+    )
+
+    expect(screen.queryByText(/Items are locked/i)).not.toBeInTheDocument()
+  })
 })
