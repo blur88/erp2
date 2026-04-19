@@ -77,7 +77,6 @@ const JournalEntriesPage = React.lazy(() => import('./pages/accounting/JournalEn
 const JournalEntryFormPage = React.lazy(() => import('./pages/accounting/JournalEntryFormPage'))
 const AccountMappingsPage = React.lazy(() => import('./pages/accounting/AccountMappingsPage'))
 const BankReconciliationsPage = React.lazy(() => import('./pages/accounting/BankReconciliationsPage'))
-const BankReconciliationDetailsPage = React.lazy(() => import('./pages/accounting/BankReconciliationDetailsPage'))
 const SettlementsPage = React.lazy(() => import('./pages/accounting/SettlementsPage'))
 const OwnerEquityPage = React.lazy(() => import('./pages/accounting/OwnerEquityPage'))
 const ExpensesPage = React.lazy(() => import('./pages/accounting/ExpensesPage'))
@@ -216,7 +215,7 @@ export const router = createBrowserRouter([
           { path: '/accounting/fund-transfers', element: <FundTransfersPage />, handle: { title: 'Fund Transfers' } },
           { path: '/accounting/bank-reconciliations', element: <BankReconciliationsPage />, handle: { title: 'Bank Reconciliation' } },
           { path: '/accounting/bank-reconciliations/new', element: <BankReconciliationsPage />, handle: { title: 'New Bank Reconciliation' } },
-          { path: '/accounting/bank-reconciliations/:id', element: <BankReconciliationDetailsPage />, handle: { title: 'Bank Reconciliation' } },
+          { path: '/accounting/bank-reconciliations/:id', element: <Navigate to="/accounting/bank-reconciliations" replace /> },
           { path: '/accounting/reports/trial-balance', element: <TrialBalancePage />, handle: { title: 'Trial Balance' } },
           { path: '/accounting/reports/balance-sheet', element: <BalanceSheetPage />, handle: { title: 'Balance Sheet' } },
           { path: '/accounting/reports/profit-loss', element: <ProfitAndLossPage />, handle: { title: 'Profit & Loss' } },
