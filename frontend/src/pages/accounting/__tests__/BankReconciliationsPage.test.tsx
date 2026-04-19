@@ -14,6 +14,7 @@ vi.mock('@/components/accounting/BankReconciliationFormDialog', () => ({ default
 
 const mockedApi = vi.hoisted(() => ({
   useGetBankReconciliationsQuery: vi.fn(),
+  useLazyGetBankReconciliationQuery: vi.fn(),
   useDeleteBankReconciliationMutation: vi.fn(),
   useCompleteBankReconciliationMutation: vi.fn(),
   useReopenBankReconciliationMutation: vi.fn(),
@@ -27,6 +28,7 @@ describe('BankReconciliationsPage', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockedApi.useGetBankReconciliationsQuery.mockReturnValue({ data: { data: [], meta: { total: 0 } }, isLoading: false, refetch: vi.fn() })
+    mockedApi.useLazyGetBankReconciliationQuery.mockReturnValue([vi.fn().mockResolvedValue({})])
     mockedApi.useDeleteBankReconciliationMutation.mockReturnValue([vi.fn()])
     mockedApi.useCompleteBankReconciliationMutation.mockReturnValue([vi.fn()])
     mockedApi.useReopenBankReconciliationMutation.mockReturnValue([vi.fn()])

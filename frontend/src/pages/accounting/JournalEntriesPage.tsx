@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useState } from 'react'
-import { useLocation } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { Button, Stack } from '@mui/material'
 import { default as DeleteIcon } from '@mui/icons-material/Delete'
 import { default as PostIcon } from '@mui/icons-material/PostAdd'
@@ -41,6 +41,7 @@ const filterConfig: FilterBarConfig<JEFilters> = {
 
 const JournalEntriesPage: React.FC = () => {
   const location = useLocation()
+  const navigate = useNavigate()
   const [sortBy, setSortBy] = useState('createdAt')
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
 
@@ -123,11 +124,11 @@ const JournalEntriesPage: React.FC = () => {
         headerSlot={(
           <JournalEntryContextHeader
             selectedEntry={workspace.selectedEntry}
-            isLoading={false}
             onEdit={() => workspace.selectedEntry && workspace.navigateToEdit(workspace.selectedEntry)}
             onPost={() => workspace.selectedEntry && workspace.setPostTarget(workspace.selectedEntry)}
             onReverse={() => workspace.selectedEntry && workspace.setReverseTarget(workspace.selectedEntry)}
             onDelete={() => workspace.selectedEntry && workspace.setDeleteTarget(workspace.selectedEntry)}
+            onNavigateToSource={(path) => navigate(path)}
           />
         )}
         workspaceSlot={<JournalEntryWorkspaceCard selectedEntry={workspace.selectedEntry} />}

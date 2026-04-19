@@ -4,6 +4,7 @@ import { useNotification } from '@/hooks/useNotification'
 import {
   useCompleteBankReconciliationMutation,
   useDeleteBankReconciliationMutation,
+  useLazyGetBankReconciliationQuery,
   useMarkBankReconciliationClearedMutation,
   useReopenBankReconciliationMutation,
   useUnmarkBankReconciliationClearedMutation,
@@ -21,6 +22,7 @@ export function useBankReconciliationsWorkspace(refetch: () => void) {
   const searchInputRef = useRef<HTMLInputElement | null>(null)
   const listRef = useRef<HTMLDivElement | null>(null)
 
+  const [fetchItem] = useLazyGetBankReconciliationQuery()
   const [markCleared] = useMarkBankReconciliationClearedMutation()
   const [unmarkCleared] = useUnmarkBankReconciliationClearedMutation()
   const [completeReconciliation] = useCompleteBankReconciliationMutation()
@@ -29,7 +31,12 @@ export function useBankReconciliationsWorkspace(refetch: () => void) {
 
   const handleSelect = useCallback(async (item: BankReconciliation) => {
     setSelected(item)
-  }, [])
+    try {
+      const fresh = await fetchItem(item.id).unwrap()
+      setSelected(fresh)
+    }
+    catch { /* keep list-row data */ }
+  }, [fetchItem])
 
   const handleToggleCleared = useCallback(async (txn: ReconciledTransaction) => {
     if (!selected) return

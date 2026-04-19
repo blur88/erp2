@@ -6,6 +6,7 @@ import {
   useBulkDeleteJournalEntriesMutation,
   useBulkPostJournalEntriesMutation,
   useDeleteJournalEntryMutation,
+  useLazyGetJournalEntryQuery,
   usePostJournalEntryMutation,
   useReverseJournalEntryMutation,
 } from '@/store/api/accountingApi'
@@ -27,6 +28,7 @@ export function useJournalEntriesWorkspace(refetch: () => void) {
   const searchInputRef = useRef<HTMLInputElement | null>(null)
   const listRef = useRef<HTMLDivElement | null>(null)
 
+  const [fetchEntry] = useLazyGetJournalEntryQuery()
   const [postJournalEntry] = usePostJournalEntryMutation()
   const [reverseJournalEntry] = useReverseJournalEntryMutation()
   const [deleteJournalEntry] = useDeleteJournalEntryMutation()
@@ -35,7 +37,12 @@ export function useJournalEntriesWorkspace(refetch: () => void) {
 
   const handleSelect = useCallback(async (entry: JournalEntry) => {
     setSelectedEntry(entry)
-  }, [])
+    try {
+      const fresh = await fetchEntry(entry.id).unwrap()
+      setSelectedEntry(fresh)
+    }
+    catch { /* keep list-row data */ }
+  }, [fetchEntry])
 
   const handleToggleCheck = useCallback((id: string) => {
     setSelectedIds((prev) => {

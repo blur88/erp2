@@ -1,7 +1,7 @@
 import { useCallback, useRef, useState } from 'react'
 
 import { useNotification } from '@/hooks/useNotification'
-import { useCancelFundTransferMutation } from '@/store/api/accountingApi'
+import { useCancelFundTransferMutation, useLazyGetFundTransferQuery } from '@/store/api/accountingApi'
 import type { FundTransfer } from '@/types'
 
 export function useFundTransfersWorkspace(refetch: () => void) {
@@ -10,7 +10,17 @@ export function useFundTransfersWorkspace(refetch: () => void) {
   const [cancelTarget, setCancelTarget] = useState<FundTransfer | null>(null)
   const searchInputRef = useRef<HTMLInputElement | null>(null)
   const listRef = useRef<HTMLDivElement | null>(null)
+  const [fetchItem] = useLazyGetFundTransferQuery()
   const [cancelFundTransfer, { isLoading: cancelling }] = useCancelFundTransferMutation()
+
+  const handleSelect = useCallback(async (item: FundTransfer) => {
+    setSelected(item)
+    try {
+      const fresh = await fetchItem(item.id).unwrap()
+      setSelected(fresh)
+    }
+    catch { /* keep list-row data */ }
+  }, [fetchItem])
 
   const handleConfirmCancel = useCallback(async () => {
     if (!cancelTarget) return
@@ -25,5 +35,5 @@ export function useFundTransfersWorkspace(refetch: () => void) {
     }
   }, [cancelFundTransfer, cancelTarget, refetch, showError, showSuccess])
 
-  return { selected, setSelected, cancelTarget, setCancelTarget, cancelling, searchInputRef, listRef, handleConfirmCancel }
+  return { selected, setSelected, handleSelect, cancelTarget, setCancelTarget, cancelling, searchInputRef, listRef, handleConfirmCancel }
 }

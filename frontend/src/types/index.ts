@@ -672,6 +672,8 @@ export interface ChartOfAccount {
   isCashEquivalent?: boolean;
   fullCode: string;
   isParent: boolean;
+  description?: string;
+  currentBalance?: number;
   createdAt: Date | string;
   updatedAt: Date | string;
   deletedAt?: Date | string;

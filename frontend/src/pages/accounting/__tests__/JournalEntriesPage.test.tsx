@@ -25,6 +25,7 @@ vi.mock('@/utils/dateRange', () => ({
 
 const mockedApi = vi.hoisted(() => ({
   useGetJournalEntriesQuery: vi.fn(),
+  useLazyGetJournalEntryQuery: vi.fn(),
   useDeleteJournalEntryMutation: vi.fn(),
   usePostJournalEntryMutation: vi.fn(),
   useBulkPostJournalEntriesMutation: vi.fn(),
@@ -72,6 +73,7 @@ describe('JournalEntriesPage', () => {
       isLoading: false,
       refetch: vi.fn(),
     })
+    mockedApi.useLazyGetJournalEntryQuery.mockReturnValue([vi.fn().mockResolvedValue({ id: '1' })])
     mockedApi.useDeleteJournalEntryMutation.mockReturnValue([vi.fn()])
     mockedApi.usePostJournalEntryMutation.mockReturnValue([vi.fn()])
     mockedApi.useBulkPostJournalEntriesMutation.mockReturnValue([vi.fn()])

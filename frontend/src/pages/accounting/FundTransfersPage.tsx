@@ -1,9 +1,11 @@
-import React, { useEffect, useMemo, useState, useSyncExternalStore } from 'react'
+import React, { useMemo, useState } from 'react'
 
 import GenericListPage from '@/components/common/GenericListPage'
 import { useFilterBar } from '@/hooks/useFilterBar'
+import { useAppSelector } from '@/hooks/useRedux'
 import { useCreateFundTransferMutation, useGetChartOfAccountsQuery, useGetFundTransfersQuery } from '@/store/api/accountingApi'
-import type { ChartOfAccount, FundTransfer } from '@/types'
+import { selectCurrentUser } from '@/store/slices/authSlice'
+import type { ChartOfAccount } from '@/types'
 import type { FilterBarConfig, PeriodValue } from '@/types/filterBar.types'
 import { getCurrentDate } from '@/utils/formatters'
 import { getPeriodDateRange, getStartOfWeek } from '@/utils/dateRange'
@@ -22,10 +24,6 @@ type FormState = {
   description: string
 }
 
-type AppStore = {
-  getState: () => { auth?: { user?: { role?: string } | null } }
-  subscribe: (listener: () => void) => () => void
-}
 
 interface FTFilters {
   search: string
@@ -44,13 +42,9 @@ const filterConfig: FilterBarConfig<FTFilters> = {
 
 const defaultForm: FormState = { sourceAccountId: '', destinationAccountId: '', amount: '', transferDate: getCurrentDate(), description: '' }
 
-const getFallbackStore = (): AppStore | null => {
-  const runtimeStore = (window as any).store as AppStore | undefined
-  return runtimeStore?.getState && runtimeStore?.subscribe ? runtimeStore : null
-}
-
 const FundTransfersPage: React.FC = () => {
-  const [appStore, setAppStore] = useState<AppStore | null>(() => getFallbackStore())
+  const currentUser = useAppSelector(selectCurrentUser)
+  const canManageTransfers = currentUser?.role === 'admin' || currentUser?.role === 'manager'
   const [dialogOpen, setDialogOpen] = useState(false)
   const [form, setForm] = useState<FormState>(defaultForm)
   const { appliedFilters, draftFilters, handlers, hasActiveFilters } = useFilterBar(filterConfig)
@@ -72,16 +66,6 @@ const FundTransfersPage: React.FC = () => {
   const { data, isLoading, refetch } = useGetFundTransfersQuery(filters)
   const { data: accountsResponse } = useGetChartOfAccountsQuery({ isCashEquivalent: true, limit: 200 })
   const [createFundTransfer, { isLoading: creating }] = useCreateFundTransferMutation()
-  const subscribeToRoleChanges = (onStoreChange: () => void) => appStore?.subscribe(onStoreChange) ?? (() => undefined)
-  const getStoreRoleSnapshot = () => appStore?.getState()?.auth?.user?.role ?? null
-  const currentUserRole = useSyncExternalStore(subscribeToRoleChanges, getStoreRoleSnapshot, getStoreRoleSnapshot)
-  const canManageTransfers = currentUserRole === 'admin' || currentUserRole === 'manager'
-
-  useEffect(() => {
-    let active = true
-    import('@/store').then((module) => { if (active) setAppStore(module.store as AppStore) }).catch(() => {})
-    return () => { active = false }
-  }, [])
 
   const workspace = useFundTransfersWorkspace(() => { void refetch() })
   const cashAccounts = useMemo(() => ((accountsResponse?.data ?? []) as ChartOfAccount[]).filter((account) => account.isActive && account.isCashEquivalent), [accountsResponse])
@@ -113,7 +97,7 @@ const FundTransfersPage: React.FC = () => {
       hasActiveFilters={hasActiveFilters}
       searchInputRef={workspace.searchInputRef}
       sort={{ field: 'transferDate', sortBy: 'transferDate', sortOrder: 'desc', onSort: () => {} }}
-      listSlot={<FundTransfersTable transfers={transfers} loading={isLoading} selectedId={workspace.selected?.id ?? null} onSelect={workspace.setSelected} listRef={workspace.listRef} />}
+      listSlot={<FundTransfersTable transfers={transfers} loading={isLoading} selectedId={workspace.selected?.id ?? null} onSelect={workspace.handleSelect} listRef={workspace.listRef} />}
       headerSlot={<FundTransferContextHeader selected={workspace.selected} onCancel={() => workspace.selected && workspace.setCancelTarget(workspace.selected)} canManageTransfers={canManageTransfers} />}
       workspaceSlot={<FundTransferWorkspaceCard selected={workspace.selected} />}
       dialogs={<FundTransfersDialogs dialogOpen={dialogOpen} canManageTransfers={canManageTransfers} creating={creating} form={form} cashAccounts={cashAccounts} availableDestinations={availableDestinations} onCloseDialog={resetForm} onFormChange={(field, value) => setForm((current) => ({ ...current, [field]: value, ...(field === 'sourceAccountId' && value === current.destinationAccountId ? { destinationAccountId: '' } : {}) }))} onCreate={() => void handleCreate()} cancelTarget={workspace.cancelTarget} cancelling={workspace.cancelling} onConfirmCancel={() => void workspace.handleConfirmCancel()} onCancelCancel={() => workspace.setCancelTarget(null)} />}

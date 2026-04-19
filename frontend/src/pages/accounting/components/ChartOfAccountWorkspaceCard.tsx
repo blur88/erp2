@@ -22,8 +22,8 @@ export function ChartOfAccountWorkspaceCard({ selected, allAccounts }: Props) {
         <TableBody>
           <TableRow><TableCell sx={{ ...cellSx, color: 'text.secondary', width: '35%' }}>Account Type</TableCell><TableCell>{selected.type}</TableCell></TableRow>
           <TableRow><TableCell sx={{ ...cellSx, color: 'text.secondary' }}>Parent Account</TableCell><TableCell>{parentName}</TableCell></TableRow>
-          <TableRow><TableCell sx={{ ...cellSx, color: 'text.secondary' }}>Description</TableCell><TableCell>{(selected as any).description || '—'}</TableCell></TableRow>
-          <TableRow><TableCell sx={{ ...cellSx, color: 'text.secondary' }}>Balance</TableCell><TableCell>{String((selected as any).currentBalance ?? '—')}</TableCell></TableRow>
+          <TableRow><TableCell sx={{ ...cellSx, color: 'text.secondary' }}>Description</TableCell><TableCell>{selected.description || '—'}</TableCell></TableRow>
+          <TableRow><TableCell sx={{ ...cellSx, color: 'text.secondary' }}>Balance</TableCell><TableCell>{selected.currentBalance != null ? String(selected.currentBalance) : '—'}</TableCell></TableRow>
         </TableBody>
       </Table>
     </Paper>
