@@ -75,7 +75,6 @@ const ChartOfAccountsPage = React.lazy(() => import('./pages/accounting/ChartOfA
 const FiscalPeriodsPage = React.lazy(() => import('./pages/accounting/FiscalPeriodsPage'))
 const JournalEntriesPage = React.lazy(() => import('./pages/accounting/JournalEntriesPage'))
 const JournalEntryFormPage = React.lazy(() => import('./pages/accounting/JournalEntryFormPage'))
-const JournalEntryDetailsPage = React.lazy(() => import('./pages/accounting/JournalEntryDetailsPage'))
 const AccountMappingsPage = React.lazy(() => import('./pages/accounting/AccountMappingsPage'))
 const BankReconciliationsPage = React.lazy(() => import('./pages/accounting/BankReconciliationsPage'))
 const BankReconciliationDetailsPage = React.lazy(() => import('./pages/accounting/BankReconciliationDetailsPage'))
@@ -209,7 +208,7 @@ export const router = createBrowserRouter([
           { path: '/accounting/journal-entries', element: <JournalEntriesPage />, handle: { title: 'Journal Entries' } },
           { path: '/accounting/journal-entries/new', element: <JournalEntryFormPage />, handle: { title: 'Create Journal Entry' } },
           { path: '/accounting/journal-entries/:id/edit', element: <JournalEntryFormPage />, handle: { title: 'Edit Journal Entry' } },
-          { path: '/accounting/journal-entries/:id', element: <JournalEntryDetailsPage />, handle: { title: 'Journal Entry' } },
+          { path: '/accounting/journal-entries/:id', element: <Navigate to="/accounting/journal-entries" replace /> },
           { path: '/accounting/account-mappings', element: <AccountMappingsPage />, handle: { title: 'Account Mappings' } },
           { path: '/accounting/settlements', element: <SettlementsPage />, handle: { title: 'Settlements' } },
           { path: '/accounting/owner-equity', element: <OwnerEquityPage />, handle: { title: "Owner's Equity" } },
