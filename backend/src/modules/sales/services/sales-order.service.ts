@@ -477,21 +477,11 @@ export class SalesOrderService extends BaseCrudService<
       throw new NotFoundException('Sales order not found');
     }
 
-    // Check if order has been fulfilled - must unfulfill before editing
-    if (order.isFulfilled) {
-      throw new BadRequestException(
-        'Cannot edit sales order that has been fulfilled. Please unfulfill first.'
-      );
-    }
-
-    // Check if order has been paid - must unpay before editing
-    if (Number(order.paidAmount || 0) > 0) {
-      throw new BadRequestException(
-        'Cannot edit sales order that has been paid. Please unpay first.'
-      );
-    }
-
     const { items, customerId, notes } = updateSalesOrderDto;
+
+    if (items) {
+      await this.salesOrderLifecycleService.assertItemsNotLocked(id);
+    }
 
     // Prepare update data for the sales order
     const updateData: any = {};
@@ -575,8 +565,15 @@ export class SalesOrderService extends BaseCrudService<
       await this.salesOrderRepository.update(id, updateData);
     }
 
-    // Automatically update associated invoices if order was modified
-    await this.updateAssociatedInvoices(id);
+    // Keep child documents aligned with order changes without blocking header-only edits.
+    if (items && items.length > 0) {
+      await this.updateAssociatedInvoices(id);
+    } else if (customerId !== undefined || notes !== undefined) {
+      const refreshedOrder = await this.salesOrderRepository.findOne({ where: { id } });
+      if (refreshedOrder) {
+        await this.salesOrderLifecycleService.syncChildHeaderFromSalesOrder(refreshedOrder);
+      }
+    }
 
     // Log audit trail for update
     if (Object.keys(updateData).length > 0) {

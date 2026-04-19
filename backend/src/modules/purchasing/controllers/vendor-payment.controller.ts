@@ -24,6 +24,8 @@ import {
   UpdateVendorPaymentDto,
   QueryVendorPaymentsDto,
 } from '../dto/vendor-payment.dto';
+import { UserRole } from '../../../database/entities/user.entity';
+import { Auth } from '../../auth/decorators/auth.decorator';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 
 @ApiTags('Vendor Payments')
@@ -31,6 +33,7 @@ import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 export class VendorPaymentController {
   constructor(private readonly vendorPaymentService: VendorPaymentService) {}
 
+  @Auth(UserRole.ADMIN)
   @Post()
   @ApiOperation({ summary: 'Create a new vendor payment' })
   @ApiBody({ type: CreateVendorPaymentDto })
@@ -139,6 +142,7 @@ export class VendorPaymentController {
     return this.vendorPaymentService.bulkRestore(paymentIds, currentUserId, currentUsername);
   }
 
+  @Auth(UserRole.ADMIN)
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Soft delete a vendor payment' })
@@ -156,6 +160,7 @@ export class VendorPaymentController {
     return this.vendorPaymentService.softDelete(id, currentUserId, currentUsername);
   }
 
+  @Auth(UserRole.ADMIN)
   @Delete(':id/permanent')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Hard delete a vendor payment' })

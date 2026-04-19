@@ -21,6 +21,7 @@ import { StockMovementService } from '../../inventory/services/stock-movement.se
 import { SettingsService } from '../../settings/settings.service';
 import { AuditLogService } from '../../audit-logs/services';
 import { AccountingService } from '../../accounting/services/accounting.service';
+import { PurchaseOrderLifecycleService } from './purchase-order-lifecycle.service';
 
 describe('PurchaseOrderService', () => {
   let module: TestingModule;
@@ -197,6 +198,14 @@ describe('PurchaseOrderService', () => {
             postGoodsReceivedEntry: jest.fn(),
             reverseSourceEntries: jest.fn(),
             postVendorPaymentEntry: jest.fn(),
+          },
+        },
+        {
+          provide: PurchaseOrderLifecycleService,
+          useValue: {
+            assertItemsNotLocked: jest.fn(),
+            assertPermanentDeleteAllowed: jest.fn(),
+            softDelete: jest.fn(),
           },
         },
       ],
@@ -662,6 +671,45 @@ describe('PurchaseOrderService', () => {
       expect(vendorPaymentRepository.remove).toHaveBeenCalledWith([mockVP1]);
       expect(purchaseOrderRepository.remove.mock.invocationCallOrder[0]).toBeGreaterThan(
         vendorPaymentRepository.remove.mock.invocationCallOrder[0],
+      );
+    });
+  });
+
+  describe('update', () => {
+    it('syncs the draft GRN supplier when the PO supplier changes without item edits', async () => {
+      const existingPO = {
+        ...mockPurchaseOrder,
+        supplierId: 'supplier-1',
+        orderDate: new Date('2026-01-01'),
+      } as unknown as PurchaseOrder;
+
+      const savedPO = {
+        ...existingPO,
+        supplierId: 'supplier-2',
+      } as unknown as PurchaseOrder;
+
+      const draftGrn = {
+        ...mockDraftGrn,
+        supplierId: 'supplier-1',
+      } as unknown as GoodsReceivedNote;
+
+      purchaseOrderRepository.findOne
+        .mockResolvedValueOnce(existingPO)
+        .mockResolvedValueOnce(savedPO);
+      purchaseOrderRepository.save.mockResolvedValue(savedPO);
+      grnRepository.findOne.mockResolvedValue(draftGrn);
+
+      await service.update(
+        'po-1',
+        { supplierId: 'supplier-2', notes: 'new notes' } as any,
+        'user-1',
+        'admin',
+      );
+
+      expect(grnRepository.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          supplierId: 'supplier-2',
+        }),
       );
     });
   });

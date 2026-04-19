@@ -9,7 +9,7 @@ import { ILike, Repository } from 'typeorm';
 
 import { BulkOperationUtil, BulkOperationResponse, ValidationUtil } from '../../../common/utils/validation.util';
 import { Customer } from '../../../database/entities/customer.entity';
-import { Invoice } from '../../../database/entities/invoice.entity';
+import { Invoice, InvoiceStatus } from '../../../database/entities/invoice.entity';
 import { Payment } from '../../../database/entities/payment.entity';
 import { SalesOrderItem } from '../../../database/entities/sales-order-item.entity';
 import { SalesOrder } from '../../../database/entities/sales-order.entity';
@@ -36,6 +36,47 @@ export class SalesOrderLifecycleService {
     private readonly stockMovementService: StockMovementService,
     private readonly auditLogService: AuditLogService,
   ) {}
+
+  async assertItemsNotLocked(id: string): Promise<void> {
+    const order = await this.salesOrderRepository.findOne({ where: { id } });
+    if (!order) {
+      throw new BadRequestException('Sales order not found');
+    }
+
+    if (Number(order.paidAmount || 0) > 0) {
+      throw new BadRequestException(
+        'Cannot edit sales order items that have been paid. Please unpay first.',
+      );
+    }
+
+    if (order.isFulfilled) {
+      throw new BadRequestException(
+        'Cannot edit sales order items that have been fulfilled. Please unfulfill first.',
+      );
+    }
+  }
+
+  async syncChildHeaderFromSalesOrder(order: SalesOrder): Promise<void> {
+    try {
+      const invoices = await this.invoiceRepository.find({
+        where: { salesOrderId: order.id },
+      });
+
+      for (const invoice of invoices) {
+        if (invoice.status === InvoiceStatus.PAID || invoice.status === InvoiceStatus.PARTIAL_PAID) {
+          continue;
+        }
+
+        invoice.customerId = order.customerId;
+        invoice.notes = order.notes;
+        await this.invoiceRepository.save(invoice);
+      }
+    } catch (error) {
+      this.logger.error(
+        `Failed to sync child headers for sales order ${order.orderNumber}: ${error.message}`,
+      );
+    }
+  }
 
   async delete(
     id: string,

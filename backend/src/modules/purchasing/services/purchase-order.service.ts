@@ -40,6 +40,7 @@ import { StockMovementType } from '../../../database/entities/stock-movement.ent
 import { SettingsService } from '../../settings/settings.service';
 import { AuditLogService } from '../../audit-logs/services';
 import { AccountingService } from '../../accounting/services/accounting.service';
+import { PurchaseOrderLifecycleService } from './purchase-order-lifecycle.service';
 
 @Injectable()
 export class PurchaseOrderService extends BaseCrudService<
@@ -71,6 +72,7 @@ export class PurchaseOrderService extends BaseCrudService<
     private readonly settingsService: SettingsService,
     auditLogService: AuditLogService,
     private readonly accountingService: AccountingService,
+    private readonly purchaseOrderLifecycleService: PurchaseOrderLifecycleService,
   ) {
     super(purchaseOrderRepository, auditLogService);
   }
@@ -497,23 +499,8 @@ export class PurchaseOrderService extends BaseCrudService<
       throw new NotFoundException(`Purchase order with ID ${id} not found`);
     }
 
-    // Check if PO has received goods - must return before editing
-    const grn = await this.grnRepository.findOne({
-      where: { purchaseOrderId: id },
-    });
-
-    if (grn && grn.status === GrnStatus.RECEIVED) {
-      throw new BadRequestException(
-        'Cannot edit purchase order with received goods. Please return goods first.'
-      );
-    }
-
-    // Check if PO has been paid - must unpay before editing
-    const payment = await this.vendorPaymentService.findByPurchaseOrder(id);
-    if (payment) {
-      throw new BadRequestException(
-        'Cannot edit purchase order that has been paid. Please unpay first.'
-      );
+    if (updatePurchaseOrderDto.items) {
+      await this.purchaseOrderLifecycleService.assertItemsNotLocked(id);
     }
 
     // Check if order can be modified
@@ -607,6 +594,10 @@ export class PurchaseOrderService extends BaseCrudService<
       // Sync GRN if it exists and is in draft status
       if (updatePurchaseOrderDto.items) {
         await this.syncDraftGrn(updatedPurchaseOrder.id);
+      }
+
+      if (updatePurchaseOrderDto.supplierId !== undefined) {
+        await this.syncDraftGrnHeader(updatedPurchaseOrder.id);
       }
 
       // Sync GRN date if PO order date changed
@@ -865,6 +856,8 @@ export class PurchaseOrderService extends BaseCrudService<
       throw new NotFoundException('Purchase order not found');
     }
 
+    await this.purchaseOrderLifecycleService.assertPermanentDeleteAllowed(id);
+
     // Delete associated stock movements
     try {
       const stockMovementResult = await this.stockMovementService.deleteByReference(
@@ -992,91 +985,7 @@ export class PurchaseOrderService extends BaseCrudService<
    */
   async remove(id: string, userId?: string, username?: string): Promise<void> {
     this.logger.log(`Soft deleting purchase order: ${id}`);
-
-    const purchaseOrder = await this.purchaseOrderRepository.findOne({
-      where: { id },
-    });
-
-    if (!purchaseOrder) {
-      throw new NotFoundException('Purchase order not found');
-    }
-
-    // Check if PO has received goods - must return before deleting
-    const grn = await this.grnRepository.findOne({
-      where: { purchaseOrderId: id },
-    });
-
-    if (grn && grn.status === GrnStatus.RECEIVED) {
-      throw new BadRequestException(
-        'Cannot delete purchase order with received goods. Please return goods first.'
-      );
-    }
-
-    // Check if PO has been paid - must unpay before deleting
-    const payment = await this.vendorPaymentService.findByPurchaseOrder(id);
-    if (payment) {
-      throw new BadRequestException(
-        'Cannot delete purchase order that has been paid. Please unpay first.'
-      );
-    }
-
-    // Use the same deletedAt timestamp for both PO and GRN
-    const deletedAt = new Date();
-
-    // Soft delete associated GRN with same timestamp (reuse the grn variable from above)
-    if (grn) {
-      await this.grnRepository
-        .createQueryBuilder()
-        .update()
-        .set({ deletedAt })
-        .where('id = :id', { id: grn.id })
-        .execute();
-
-      // Log audit trail for automatic GRN deletion
-      await this.auditLogService.log(
-        'DELETE',
-        'GoodsReceivedNote',
-        `Deleted GRN: ${grn.grnNumber} (auto-deleted with PO)`,
-        {
-          entityId: grn.id,
-          userId: userId || 'system',
-          username,
-          oldValues: {
-            grnNumber: grn.grnNumber,
-            purchaseOrderId: grn.purchaseOrderId,
-            status: grn.status,
-          },
-        }
-      );
-
-      this.logger.log(`Associated GRN ${grn.grnNumber} soft deleted with timestamp ${deletedAt.toISOString()}`);
-    }
-
-    // Soft delete PO with same timestamp
-    await this.purchaseOrderRepository
-      .createQueryBuilder()
-      .update()
-      .set({ deletedAt })
-      .where('id = :id', { id })
-      .execute();
-
-    // Log audit trail for delete
-    await this.auditLogService.log(
-      'DELETE',
-      'PurchaseOrder',
-      `Deleted purchase order: ${purchaseOrder.orderNumber}`,
-      {
-        entityId: id,
-        userId: userId || 'system',
-        username,
-        oldValues: {
-          orderNumber: purchaseOrder.orderNumber,
-          totalAmount: purchaseOrder.totalAmount,
-        },
-      }
-    );
-
-    this.logger.log(`Purchase order ${purchaseOrder.orderNumber} soft deleted with timestamp ${deletedAt.toISOString()}`);
+    await this.purchaseOrderLifecycleService.softDelete(id, userId, username);
   }
 
   /**
@@ -1162,6 +1071,34 @@ export class PurchaseOrderService extends BaseCrudService<
     } catch (error) {
       this.logger.error(`Error syncing draft GRN: ${error.message}`, error.stack);
       // Don't throw - GRN sync failure shouldn't block PO update
+    }
+  }
+
+  private async syncDraftGrnHeader(purchaseOrderId: string): Promise<void> {
+    try {
+      const grn = await this.grnRepository.findOne({
+        where: { purchaseOrderId },
+      });
+
+      if (!grn || grn.status !== GrnStatus.DRAFT) {
+        return;
+      }
+
+      const fullPO = await this.purchaseOrderRepository.findOne({
+        where: { id: purchaseOrderId },
+      });
+
+      if (!fullPO) {
+        this.logger.warn(`PO ${purchaseOrderId} not found during GRN header sync`);
+        return;
+      }
+
+      grn.supplierId = fullPO.supplierId;
+
+      await this.grnRepository.save(grn);
+      this.logger.log(`GRN ${grn.grnNumber} header synced from PO ${fullPO.orderNumber}`);
+    } catch (error) {
+      this.logger.error(`Error syncing draft GRN header: ${error.message}`, error.stack);
     }
   }
 

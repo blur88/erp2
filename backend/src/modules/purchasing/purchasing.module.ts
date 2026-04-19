@@ -17,6 +17,7 @@ import {
 // Services
 import { SupplierService } from './services/supplier.service';
 import { PurchaseOrderService } from './services/purchase-order.service';
+import { PurchaseOrderLifecycleService } from './services/purchase-order-lifecycle.service';
 import { GoodsReceivedNoteService } from './services/goods-received-note.service';
 import { VendorPaymentService } from './services/vendor-payment.service';
 import { PurchasingAnalyticsService } from './services/purchasing-analytics.service';
@@ -64,6 +65,7 @@ import { AccountingModule } from '../accounting/accounting.module';
   providers: [
     SupplierService,
     PurchaseOrderService,
+    PurchaseOrderLifecycleService,
     GoodsReceivedNoteService,
     VendorPaymentService,
     PurchasingAnalyticsService,
@@ -72,6 +74,7 @@ import { AccountingModule } from '../accounting/accounting.module';
   exports: [
     SupplierService,
     PurchaseOrderService,
+    PurchaseOrderLifecycleService,
     GoodsReceivedNoteService,
     VendorPaymentService,
     PurchasingAnalyticsService,
