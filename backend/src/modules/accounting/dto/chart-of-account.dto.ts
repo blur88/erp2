@@ -209,3 +209,33 @@ export class BulkChartOfAccountsDto {
   @IsUUID(4, { each: true })
   accountIds: string[];
 }
+
+export class QueryRecentActivityDto {
+  @ApiPropertyOptional({ description: 'Number of recent entries to return', minimum: 1, maximum: 50, default: 10 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(1)
+  @Max(50)
+  limit?: number = 10;
+}
+
+export class RecentActivityItemDto {
+  @ApiProperty({ description: 'Journal entry date' })
+  date: string;
+
+  @ApiProperty({ description: 'Journal entry reference number' })
+  reference: string;
+
+  @ApiProperty({ description: 'Journal entry description' })
+  description: string;
+
+  @ApiPropertyOptional({ description: 'Debit amount (null if credit entry)' })
+  debit: number | null;
+
+  @ApiPropertyOptional({ description: 'Credit amount (null if debit entry)' })
+  credit: number | null;
+
+  @ApiProperty({ description: 'Running balance after this entry' })
+  balance: number;
+}

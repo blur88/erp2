@@ -76,6 +76,7 @@ describe('ChartOfAccountsService', () => {
           provide: getRepositoryToken(JournalEntryLine),
           useValue: {
             count: jest.fn(),
+            createQueryBuilder: jest.fn(),
           },
         },
         {
@@ -602,6 +603,60 @@ describe('ChartOfAccountsService', () => {
       await expect(service.getChildren('non-existent-id')).rejects.toThrow(
         NotFoundException,
       );
+    });
+  });
+
+  describe('getRecentActivity', () => {
+    const accountId = '123e4567-e89b-12d3-a456-426614174000';
+
+    it('should throw NotFoundException when account does not exist', async () => {
+      accountRepository.findOne.mockResolvedValue(null);
+      await expect(service.getRecentActivity(accountId, 10)).rejects.toThrow(NotFoundException);
+    });
+
+    it('should return empty array when no journal entry lines exist', async () => {
+      accountRepository.findOne.mockResolvedValue(mockAccount as ChartOfAccount);
+      const mockQb = {
+        leftJoin: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        addOrderBy: jest.fn().mockReturnThis(),
+        limit: jest.fn().mockReturnThis(),
+        select: jest.fn().mockReturnThis(),
+        getRawMany: jest.fn().mockResolvedValue([]),
+      };
+      journalEntryLineRepository.createQueryBuilder = jest.fn().mockReturnValue(mockQb);
+      const result = await service.getRecentActivity(accountId, 10);
+      expect(result).toEqual([]);
+    });
+
+    it('should return mapped activity items', async () => {
+      accountRepository.findOne.mockResolvedValue(mockAccount as ChartOfAccount);
+      const mockQb = {
+        leftJoin: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        addOrderBy: jest.fn().mockReturnThis(),
+        limit: jest.fn().mockReturnThis(),
+        select: jest.fn().mockReturnThis(),
+        getRawMany: jest.fn().mockResolvedValue([
+          {
+            date: '2026-01-15',
+            reference: 'JE-2026-001',
+            description: 'Test entry',
+            debit: '100.0000',
+            credit: '0.0000',
+          },
+        ]),
+      };
+      journalEntryLineRepository.createQueryBuilder = jest.fn().mockReturnValue(mockQb);
+      const result = await service.getRecentActivity(accountId, 10);
+      expect(result).toHaveLength(1);
+      expect(result[0].reference).toBe('JE-2026-001');
+      expect(result[0].debit).toBe(100);
+      expect(result[0].credit).toBeNull();
     });
   });
 
