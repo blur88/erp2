@@ -59,7 +59,7 @@ export function ChartOfAccountContextHeader({ selected, onEdit, onDelete }: Prop
     )
   }
 
-  const parentName = selected.parent?.name ?? '-'
+  const parentName = selected.parent?.name ?? '—'
 
   return (
     <Paper sx={{ overflow: 'hidden' }}>
@@ -77,7 +77,7 @@ export function ChartOfAccountContextHeader({ selected, onEdit, onDelete }: Prop
             variant="tableHeader"
             sx={{ fontWeight: 600, fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}
           >
-            {selected.code} - {selected.name}
+            {selected.code} — {selected.name}
           </Typography>
         </Stack>
         <Stack direction="row" spacing={0.5}>

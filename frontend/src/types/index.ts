@@ -685,7 +685,6 @@ export interface RecentActivityItem {
   description: string;
   debit: number | null;
   credit: number | null;
-  balance: number;
 }
 
 export enum JournalEntryStatus {

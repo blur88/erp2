@@ -540,7 +540,6 @@ export class ChartOfAccountsService {
       description: row.description ?? '',
       debit: Number(row.debit) > 0 ? Number(row.debit) : null,
       credit: Number(row.credit) > 0 ? Number(row.credit) : null,
-      balance: 0,
     }));
   }
 

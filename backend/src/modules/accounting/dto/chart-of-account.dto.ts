@@ -235,7 +235,4 @@ export class RecentActivityItemDto {
 
   @ApiPropertyOptional({ description: 'Credit amount (null if debit entry)' })
   credit: number | null;
-
-  @ApiProperty({ description: 'Running balance after this entry' })
-  balance: number;
 }

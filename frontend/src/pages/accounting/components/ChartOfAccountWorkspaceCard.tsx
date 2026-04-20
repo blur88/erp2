@@ -44,8 +44,8 @@ const tdSx = {
   border: 'none',
 }
 
-function SubAccountsTable({ children }: { children: ChartOfAccount[] }) {
-  if (children.length === 0) {
+function SubAccountsTable({ accounts }: { accounts: ChartOfAccount[] }) {
+  if (accounts.length === 0) {
     return (
       <Box sx={{ p: TABLE_STYLES.cell.padding.px }}>
         <Typography variant="body2" sx={{ color: 'text.secondary', fontStyle: 'italic' }}>
@@ -65,7 +65,7 @@ function SubAccountsTable({ children }: { children: ChartOfAccount[] }) {
         </TableRow>
       </TableHead>
       <TableBody>
-        {children.map((child, index) => (
+        {accounts.map((child, index) => (
           <TableRow key={child.id} sx={index % 2 === 1 ? { backgroundColor: 'grey.50' } : {}}>
             <TableCell sx={tdSx}>{child.code}</TableCell>
             <TableCell sx={tdSx}>{child.name}</TableCell>
@@ -129,10 +129,10 @@ function RecentActivityTable({ accountId }: { accountId: string }) {
               {item.description}
             </TableCell>
             <TableCell sx={{ ...tdSx, textAlign: 'right' }}>
-              {item.debit != null ? formatCurrency(item.debit) : '-'}
+              {item.debit != null ? formatCurrency(item.debit) : '—'}
             </TableCell>
             <TableCell sx={{ ...tdSx, textAlign: 'right' }}>
-              {item.credit != null ? formatCurrency(item.credit) : '-'}
+              {item.credit != null ? formatCurrency(item.credit) : '—'}
             </TableCell>
           </TableRow>
         ))}
@@ -160,7 +160,7 @@ export function ChartOfAccountWorkspaceCard({ selected }: Props) {
         </Typography>
       </Box>
       {isHeader ? (
-        <SubAccountsTable children={selected.children ?? []} />
+        <SubAccountsTable accounts={selected.children ?? []} />
       ) : (
         <RecentActivityTable accountId={selected.id} />
       )}
