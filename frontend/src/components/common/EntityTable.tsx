@@ -17,6 +17,7 @@ export interface ColumnConfig<T> {
   key: string
   render: (row: T) => React.ReactNode
   width?: string | number
+  raw?: boolean
 }
 
 export interface EntityTableProps<T extends { id: string }> {
@@ -81,12 +82,16 @@ const EntityRow = memo(function EntityRow<T extends { id: string }>({
     >
       {columns.map((column) => (
         <TableCell key={column.key} width={column.width}>
-          <Typography
-            variant="body2"
-            sx={{ fontWeight: 400, fontSize: '0.8rem', lineHeight: 1.2 }}
-          >
-            {column.render(row)}
-          </Typography>
+          {column.raw
+            ? column.render(row)
+            : (
+                <Typography
+                  variant="body2"
+                  sx={{ fontWeight: 400, fontSize: '0.8rem', lineHeight: 1.2 }}
+                >
+                  {column.render(row)}
+                </Typography>
+              )}
         </TableCell>
       ))}
     </TableRow>

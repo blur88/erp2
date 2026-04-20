@@ -1,9 +1,12 @@
-import { Box, Chip, Paper, Stack, Typography } from '@mui/material'
 import { default as DeleteIcon } from '@mui/icons-material/Delete'
 import { default as EditIcon } from '@mui/icons-material/Edit'
+import { Box, Chip, Paper, Stack, Typography } from '@mui/material'
 
 import { AppButton } from '@/components/common/AppButton'
+import { TABLE_STYLES } from '@/constants/tableStyles'
 import type { ChartOfAccount } from '@/types'
+
+import { ACCOUNT_TYPE_COLORS } from '../utils/accountTypeColors'
 
 interface Props {
   selected: ChartOfAccount | null
@@ -12,18 +15,48 @@ interface Props {
 }
 
 export function ChartOfAccountContextHeader({ selected, onEdit, onDelete }: Props) {
-  if (!selected) return <Paper sx={{ p: 2 }}><Typography variant="body2" color="text.secondary">Select an account to view details</Typography></Paper>
+  if (!selected) {
+    return (
+      <Paper sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', p: 4 }}>
+        <Typography variant="h6" sx={{ color: 'text.secondary' }}>
+          Select an account to view details
+        </Typography>
+      </Paper>
+    )
+  }
 
   return (
-    <Paper>
-      <Box sx={{ px: 2, py: 1.5, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+    <Paper sx={{ overflow: 'hidden' }}>
+      <Box
+        sx={{
+          p: TABLE_STYLES.cell.padding.px,
+          borderBottom: TABLE_STYLES.cell.border,
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+        }}
+      >
         <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
-          <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>{selected.code} - {selected.name}</Typography>
-          <Chip size="small" label={selected.type} color="primary" variant="outlined" />
+          <Typography
+            variant="tableHeader"
+            sx={{ fontWeight: 600, fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}
+          >
+            {selected.code} - {selected.name}
+          </Typography>
+          <Chip
+            size="small"
+            label={selected.type.charAt(0) + selected.type.slice(1).toLowerCase()}
+            color={ACCOUNT_TYPE_COLORS[selected.type]}
+            variant="outlined"
+          />
         </Stack>
         <Stack direction="row" spacing={0.5}>
-          <AppButton size="small" variant="outlined" startIcon={<EditIcon />} onClick={onEdit}>Edit</AppButton>
-          <AppButton size="small" variant="danger" startIcon={<DeleteIcon />} onClick={onDelete}>Delete</AppButton>
+          <AppButton size="small" variant="outlined" startIcon={<EditIcon />} onClick={onEdit}>
+            Edit
+          </AppButton>
+          <AppButton size="small" variant="danger" startIcon={<DeleteIcon />} onClick={onDelete}>
+            Delete
+          </AppButton>
         </Stack>
       </Box>
     </Paper>
