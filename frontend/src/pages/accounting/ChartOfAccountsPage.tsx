@@ -66,7 +66,7 @@ const ChartOfAccountsPage: React.FC = () => {
       <AccountMappingWarning context="system" />
       <GenericListPage
         title="Chart of Accounts"
-        subtitle={`Manage your accounting structure and account hierarchy (${filteredAccounts.length} total)`}
+        subtitle={`Manage your accounting structure and account hierarchy (${appliedFilters.search ? `${filteredAccounts.length} of ${accounts.length}` : `${accounts.length} total`})`}
         primaryAction={{
           label: 'Add Account',
           onClick: () => {

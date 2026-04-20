@@ -42,11 +42,7 @@ describe('ChartOfAccountsPage', () => {
       isLoading: false,
       refetch: vi.fn(),
     })
-    mockedApi.useGetChartOfAccountsQuery.mockReturnValue({
-      data: { data: [mockAccount] },
-      isLoading: false,
-      refetch: vi.fn(),
-    })
+    mockedApi.useGetChartOfAccountsQuery.mockReturnValue({ data: { data: [] }, isLoading: false, refetch: vi.fn() })
     mockedApi.useDeleteChartOfAccountMutation.mockReturnValue([vi.fn()])
     mockedApi.useSeedDefaultChartOfAccountsMutation.mockReturnValue([vi.fn()])
     mockedApi.useCreateChartOfAccountMutation.mockReturnValue([vi.fn()])

@@ -4,20 +4,14 @@ import { Box, Chip, Paper, Stack, Typography } from '@mui/material'
 
 import { AppButton } from '@/components/common/AppButton'
 import { TABLE_STYLES } from '@/constants/tableStyles'
-import type { AccountType, ChartOfAccount } from '@/types'
+import type { ChartOfAccount } from '@/types'
+
+import { ACCOUNT_TYPE_COLORS } from '../utils/accountTypeColors'
 
 interface Props {
   selected: ChartOfAccount | null
   onEdit: () => void
   onDelete: () => void
-}
-
-const TYPE_COLORS: Record<AccountType, 'success' | 'error' | 'primary' | 'info' | 'warning'> = {
-  ASSET: 'success',
-  LIABILITY: 'error',
-  EQUITY: 'primary',
-  REVENUE: 'info',
-  EXPENSE: 'warning',
 }
 
 export function ChartOfAccountContextHeader({ selected, onEdit, onDelete }: Props) {
@@ -52,7 +46,7 @@ export function ChartOfAccountContextHeader({ selected, onEdit, onDelete }: Prop
           <Chip
             size="small"
             label={selected.type.charAt(0) + selected.type.slice(1).toLowerCase()}
-            color={TYPE_COLORS[selected.type]}
+            color={ACCOUNT_TYPE_COLORS[selected.type]}
             variant="outlined"
           />
         </Stack>

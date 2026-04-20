@@ -1,8 +1,10 @@
-import type { RefObject } from 'react'
+import { useRef, type RefObject } from 'react'
 import { Chip } from '@mui/material'
 
 import EntityTable, { type ColumnConfig } from '@/components/common/EntityTable'
-import type { AccountType, ChartOfAccount } from '@/types'
+import type { ChartOfAccount } from '@/types'
+
+import { ACCOUNT_TYPE_COLORS } from '../utils/accountTypeColors'
 
 interface Props {
   accounts: ChartOfAccount[]
@@ -10,14 +12,6 @@ interface Props {
   selectedId: string | null
   onSelect: (item: ChartOfAccount) => void
   listRef?: RefObject<HTMLDivElement | null>
-}
-
-const TYPE_COLORS: Record<AccountType, 'success' | 'error' | 'primary' | 'info' | 'warning'> = {
-  ASSET: 'success',
-  LIABILITY: 'error',
-  EQUITY: 'primary',
-  REVENUE: 'info',
-  EXPENSE: 'warning',
 }
 
 const COLUMNS: ColumnConfig<ChartOfAccount>[] = [
@@ -30,7 +24,7 @@ const COLUMNS: ColumnConfig<ChartOfAccount>[] = [
       <Chip
         size="small"
         label={account.type.charAt(0) + account.type.slice(1).toLowerCase()}
-        color={TYPE_COLORS[account.type]}
+        color={ACCOUNT_TYPE_COLORS[account.type]}
         variant="outlined"
       />
     ),
@@ -56,6 +50,7 @@ export function ChartOfAccountsTable({
   onSelect,
   listRef,
 }: Props) {
+  const fallbackRef = useRef<HTMLDivElement | null>(null)
   return (
     <EntityTable
       rows={accounts}
@@ -66,7 +61,7 @@ export function ChartOfAccountsTable({
       selectedId={selectedId ?? undefined}
       focusedIndex={-1}
       onSelect={onSelect}
-      listRef={listRef ?? { current: null }}
+      listRef={listRef ?? fallbackRef}
       dataAttr="account"
     />
   )
