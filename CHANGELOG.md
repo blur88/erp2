@@ -1,3 +1,19 @@
+# [1.82.0](https://github.com/blur88/erp2/compare/v1.81.1...v1.82.0) (2026-04-20)
+
+
+### Bug Fixes
+
+* **accounting:** address code review issues from PR [#398](https://github.com/blur88/erp2/issues/398) (issue [#397](https://github.com/blur88/erp2/issues/397)) ([14b4ecf](https://github.com/blur88/erp2/commit/14b4ecf8631fd9a2af362ee92d214262cd3822de))
+
+
+### Features
+
+* **accounting:** align ChartOfAccountContextHeader styling to sales page standard (issue [#397](https://github.com/blur88/erp2/issues/397)) ([4e52a08](https://github.com/blur88/erp2/commit/4e52a0877c3e6457569d4430875ef9ef2bf93822))
+* **accounting:** align ChartOfAccountWorkspaceCard styling and add missing fields (issue [#397](https://github.com/blur88/erp2/issues/397)) ([ffc269e](https://github.com/blur88/erp2/commit/ffc269ed6ab8cbb54a56853f1e6241d6898390fb))
+* **accounting:** migrate ChartOfAccountsTable to EntityTable with type badge colors (issue [#397](https://github.com/blur88/erp2/issues/397)) ([a975fd1](https://github.com/blur88/erp2/commit/a975fd1bc9452da70dc034e652788c383050af64))
+* **accounting:** switch COA page to hierarchy endpoint with client-side search (issue [#397](https://github.com/blur88/erp2/issues/397)) ([7f8ff24](https://github.com/blur88/erp2/commit/7f8ff24338cf7c3aa592f8ead5dc2f417eef81d4))
+* **ui:** add raw flag to EntityTable ColumnConfig for unwrapped cell rendering ([5a15ad4](https://github.com/blur88/erp2/commit/5a15ad44ffe2c7f1fd418e0c6a1b8aab40c7f41f))
+
 ## [1.81.1](https://github.com/blur88/erp2/compare/v1.81.0...v1.81.1) (2026-04-20)
 
 
