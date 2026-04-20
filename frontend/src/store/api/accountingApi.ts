@@ -729,6 +729,7 @@ export const {
   useGetChartOfAccountsQuery,
   useGetChartOfAccountsHierarchyQuery,
   useGetChartOfAccountQuery,
+  useGetChartOfAccountRecentActivityQuery,
   useLazyGetChartOfAccountQuery,
   useGetDeletedChartOfAccountsQuery,
   useGetJournalEntriesQuery,

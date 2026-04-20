@@ -11,6 +11,7 @@ const mockedApi = vi.hoisted(() => ({
   useSeedDefaultChartOfAccountsMutation: vi.fn(),
   useCreateChartOfAccountMutation: vi.fn(),
   useUpdateChartOfAccountMutation: vi.fn(),
+  useGetChartOfAccountRecentActivityQuery: vi.fn(),
 }))
 
 vi.mock('@/store/api/accountingApi', () => mockedApi)
@@ -47,6 +48,10 @@ describe('ChartOfAccountsPage', () => {
     mockedApi.useSeedDefaultChartOfAccountsMutation.mockReturnValue([vi.fn()])
     mockedApi.useCreateChartOfAccountMutation.mockReturnValue([vi.fn()])
     mockedApi.useUpdateChartOfAccountMutation.mockReturnValue([vi.fn()])
+    mockedApi.useGetChartOfAccountRecentActivityQuery.mockReturnValue({
+      data: [],
+      isLoading: false,
+    })
   })
 
   it('renders page title', () => {
