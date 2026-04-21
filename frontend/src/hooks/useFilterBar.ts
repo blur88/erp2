@@ -44,7 +44,8 @@ function getDefaults<TFilters extends object>(
       field.type === 'fiscal-period-status' ||
       field.type === 'bank-reconciliation-status' ||
       field.type === 'settlement-status' ||
-      field.type === 'fund-transfer-status'
+      field.type === 'fund-transfer-status' ||
+      field.type === 'account-type'
     ) {
       defaults[key] = null
     }

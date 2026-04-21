@@ -36,6 +36,7 @@ export type FilterFieldType =
   | 'bank-reconciliation-status'
   | 'settlement-status'
   | 'fund-transfer-status'
+  | 'account-type'
 
 interface BaseFilterFieldConfig<TFilters, K extends keyof TFilters> {
   field: K
@@ -181,6 +182,11 @@ export interface FundTransferStatusFilterFieldConfig<TFilters, K extends keyof T
   type: 'fund-transfer-status'
 }
 
+export interface AccountTypeFilterFieldConfig<TFilters, K extends keyof TFilters>
+  extends BaseFilterFieldConfig<TFilters, K> {
+  type: 'account-type'
+}
+
 export type FilterFieldConfig<TFilters> =
   | StatusFilterFieldConfig<TFilters, keyof TFilters>
   | UserStatusFilterFieldConfig<TFilters, keyof TFilters>
@@ -209,6 +215,7 @@ export type FilterFieldConfig<TFilters> =
   | BankReconciliationStatusFilterFieldConfig<TFilters, keyof TFilters>
   | SettlementStatusFilterFieldConfig<TFilters, keyof TFilters>
   | FundTransferStatusFilterFieldConfig<TFilters, keyof TFilters>
+  | AccountTypeFilterFieldConfig<TFilters, keyof TFilters>
 
 export interface FilterBarConfig<TFilters> {
   search?: {
