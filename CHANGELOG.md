@@ -1,3 +1,11 @@
+## [1.83.4](https://github.com/blur88/erp2/compare/v1.83.3...v1.83.4) (2026-04-21)
+
+
+### Bug Fixes
+
+* **layout:** constrain main content area height so list panels scroll independently (issue [#403](https://github.com/blur88/erp2/issues/403)) ([e98d5d2](https://github.com/blur88/erp2/commit/e98d5d240dcae25009314bc053ae53c89ebb0118))
+* **layout:** pin outer shell to 100vh so short pages fill the screen (issue [#403](https://github.com/blur88/erp2/issues/403)) ([ff19056](https://github.com/blur88/erp2/commit/ff19056fb00850fba3183654c4ce43879ed10332))
+
 ## [1.83.3](https://github.com/blur88/erp2/compare/v1.83.2...v1.83.3) (2026-04-21)
 
 
