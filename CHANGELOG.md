@@ -1,3 +1,10 @@
+## [1.83.2](https://github.com/blur88/erp2/compare/v1.83.1...v1.83.2) (2026-04-21)
+
+
+### Bug Fixes
+
+* **accounting:** correct column name in getRecentActivity query ([83e8fba](https://github.com/blur88/erp2/commit/83e8fbaee9ae28f67c722d8ddcca9f28faea792f)), closes [#401](https://github.com/blur88/erp2/issues/401)
+
 ## [1.83.1](https://github.com/blur88/erp2/compare/v1.83.0...v1.83.1) (2026-04-21)
 
 
