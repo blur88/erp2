@@ -1,3 +1,10 @@
+## [1.83.3](https://github.com/blur88/erp2/compare/v1.83.2...v1.83.3) (2026-04-21)
+
+
+### Bug Fixes
+
+* **entity-table:** remove border-bottom from last table row ([b09bb63](https://github.com/blur88/erp2/commit/b09bb632b1a10e98cbe9c1fc61e38f82aca387ac))
+
 ## [1.83.2](https://github.com/blur88/erp2/compare/v1.83.1...v1.83.2) (2026-04-21)
 
 
