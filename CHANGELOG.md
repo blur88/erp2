@@ -1,3 +1,12 @@
+# [1.84.0](https://github.com/blur88/erp2/compare/v1.83.5...v1.84.0) (2026-04-21)
+
+
+### Features
+
+* **accounting:** add account type, status filters and sort to COA page (issue [#405](https://github.com/blur88/erp2/issues/405)) ([3b705f3](https://github.com/blur88/erp2/commit/3b705f312006511dc5daddf60e14a46b4d6dcb24))
+* **filter-bar:** add account-type filter field type (issue [#405](https://github.com/blur88/erp2/issues/405)) ([78afe53](https://github.com/blur88/erp2/commit/78afe535ea33dfa4dbf85c1ae16382b55e47313a))
+* **filter-bar:** add FilterAccountType component (issue [#405](https://github.com/blur88/erp2/issues/405)) ([19e4bca](https://github.com/blur88/erp2/commit/19e4bca2d45ee52a657da51d0f6125dc1bf5081a))
+
 ## [1.83.5](https://github.com/blur88/erp2/compare/v1.83.4...v1.83.5) (2026-04-21)
 
 
