@@ -89,7 +89,8 @@ export function serializeFilters<TFilters extends object>(
       field.type === 'fiscal-period-status' ||
       field.type === 'bank-reconciliation-status' ||
       field.type === 'settlement-status' ||
-      field.type === 'fund-transfer-status'
+      field.type === 'fund-transfer-status' ||
+      field.type === 'account-type'
 
     if (isSingleValueField) {
       if (value !== null && value !== undefined && value !== defaultValue) {
@@ -174,7 +175,8 @@ export function parseFilters<TFilters extends object>(
       field.type === 'fiscal-period-status' ||
       field.type === 'bank-reconciliation-status' ||
       field.type === 'settlement-status' ||
-      field.type === 'fund-transfer-status'
+      field.type === 'fund-transfer-status' ||
+      field.type === 'account-type'
 
     if (isSingleValueField) {
       const raw = searchParams.get(key)
@@ -240,6 +242,9 @@ export function parseFilters<TFilters extends object>(
       } else if (field.type === 'settlement-status' || field.type === 'fund-transfer-status') {
         const VALID_COMPLETION_STATUS = ['pending', 'completed', 'cancelled']
         result[fieldKey] = VALID_COMPLETION_STATUS.includes(raw) ? raw : (defaultValue ?? null)
+      } else if (field.type === 'account-type') {
+        const VALID_ACCOUNT_TYPE = ['ASSET', 'LIABILITY', 'EQUITY', 'REVENUE', 'EXPENSE']
+        result[fieldKey] = VALID_ACCOUNT_TYPE.includes(raw) ? raw : (defaultValue ?? null)
       } else {
         result[fieldKey] = raw
       }
