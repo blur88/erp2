@@ -39,4 +39,16 @@ describe('MainLayout', () => {
 
     expect(screen.getByRole('main')).toHaveStyle({ paddingTop: '88px' })
   })
+
+  it('constrains the main content area to the layout height', () => {
+    render(
+      <Provider store={makeStore()}>
+        <MemoryRouter>
+          <MainLayout />
+        </MemoryRouter>
+      </Provider>
+    )
+
+    expect(screen.getByRole('main')).toHaveStyle({ height: '100%' })
+  })
 })
