@@ -34,7 +34,7 @@ const MainLayout: React.FC = () => {
   }
 
   return (
-    <Box sx={{ display: 'flex', minHeight: '100vh' }}>
+    <Box sx={{ display: 'flex', minHeight: '100vh', height: '100vh' }}>
       <TopBar collapsed={collapsed} onMobileMenuOpen={handleDrawerToggle} />
 
       <Box
