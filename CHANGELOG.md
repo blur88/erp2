@@ -1,3 +1,19 @@
+# [1.83.0](https://github.com/blur88/erp2/compare/v1.82.0...v1.83.0) (2026-04-21)
+
+
+### Bug Fixes
+
+* **accounting:** address code review issues from PR [#399](https://github.com/blur88/erp2/issues/399) ([c0c474d](https://github.com/blur88/erp2/commit/c0c474d72432fc915ae9e655bf5c47f0ba34d2da))
+
+
+### Features
+
+* **accounting:** add getRecentActivity endpoint for COA (issue [#399](https://github.com/blur88/erp2/issues/399)) ([6539339](https://github.com/blur88/erp2/commit/653933968a1ffd53e4d45d939bbeb5c061c5f7c7))
+* **accounting:** add RTK Query endpoint for COA recent activity (issue [#399](https://github.com/blur88/erp2/issues/399)) ([0020a0b](https://github.com/blur88/erp2/commit/0020a0b892bfd7518cba460ec6c8b96a77b77370))
+* **accounting:** context-aware workspace card with sub-accounts and recent activity (issue [#399](https://github.com/blur88/erp2/issues/399)) ([4fee34e](https://github.com/blur88/erp2/commit/4fee34e91fc6d3c1d4d941f00a1fd98195696b30))
+* **accounting:** redesign COA context header to 2-column grid (issue [#399](https://github.com/blur88/erp2/issues/399)) ([1cf754c](https://github.com/blur88/erp2/commit/1cf754ce5c323c5049970781fabba9528415cb06))
+* **accounting:** simplify COA list to code and name only (issue [#399](https://github.com/blur88/erp2/issues/399)) ([cd3e34b](https://github.com/blur88/erp2/commit/cd3e34bd8d0c1648a2342a7835f0a520ab04fe28))
+
 # [1.82.0](https://github.com/blur88/erp2/compare/v1.81.1...v1.82.0) (2026-04-20)
 
 
