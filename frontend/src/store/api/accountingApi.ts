@@ -11,6 +11,7 @@ import type {
   PaginatedResponse,
   PaymentMethodConfig,
   PendingSettlementSummary,
+  RecentActivityItem,
   Settlement,
 } from '@/types'
 import type {
@@ -253,6 +254,10 @@ export const accountingApiSlice = createApi({
       query: (id) => ({ url: `/accounting/chart-of-accounts/${id}` }),
       transformResponse: normalizeSingle<ChartOfAccount>,
       providesTags: (_result, _error, id) => [{ type: 'ChartOfAccount', id }],
+    }),
+    getChartOfAccountRecentActivity: builder.query<RecentActivityItem[], { id: string; limit?: number }>({
+      query: ({ id, limit = 10 }) => ({ url: `/accounting/chart-of-accounts/${id}/recent-activity`, params: { limit } }),
+      providesTags: (_result, _error, { id }) => [{ type: 'ChartOfAccount', id }],
     }),
     getDeletedChartOfAccounts: builder.query<PaginatedResponse<ChartOfAccount>, Record<string, unknown> | undefined>({
       query: (params) => ({ url: '/accounting/chart-of-accounts/deleted', params: params ?? {} }),
@@ -724,6 +729,7 @@ export const {
   useGetChartOfAccountsQuery,
   useGetChartOfAccountsHierarchyQuery,
   useGetChartOfAccountQuery,
+  useGetChartOfAccountRecentActivityQuery,
   useLazyGetChartOfAccountQuery,
   useGetDeletedChartOfAccountsQuery,
   useGetJournalEntriesQuery,

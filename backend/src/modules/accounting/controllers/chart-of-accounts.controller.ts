@@ -23,6 +23,8 @@ import {
   ChartOfAccountListResponseDto,
   ChartOfAccountHierarchyDto,
   BulkChartOfAccountsDto,
+  QueryRecentActivityDto,
+  RecentActivityItemDto,
 } from '../dto/chart-of-account.dto';
 
 @ApiTags('Chart of Accounts')
@@ -66,6 +68,22 @@ export class ChartOfAccountsController {
   })
   async getHierarchy(): Promise<ChartOfAccountHierarchyDto> {
     return this.chartOfAccountsService.getAccountHierarchy();
+  }
+
+  @Get(':id/recent-activity')
+  @ApiOperation({ summary: 'Get recent posted journal entries for an account' })
+  @ApiParam({ name: 'id', description: 'Account ID' })
+  @ApiResponse({
+    status: 200,
+    description: 'Returns recent activity items',
+    type: [RecentActivityItemDto],
+  })
+  @ApiResponse({ status: 404, description: 'Account not found' })
+  async getRecentActivity(
+    @Param('id') id: string,
+    @Query() query: QueryRecentActivityDto,
+  ): Promise<RecentActivityItemDto[]> {
+    return this.chartOfAccountsService.getRecentActivity(id, query.limit ?? 10);
   }
 
   @Get(':id')

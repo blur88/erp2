@@ -21,6 +21,7 @@ import {
   ChartOfAccountResponseDto,
   ChartOfAccountListResponseDto,
   ChartOfAccountHierarchyDto,
+  RecentActivityItemDto,
 } from '../dto/chart-of-account.dto';
 import { AuditLogService } from '../../audit-logs/services';
 
@@ -508,6 +509,38 @@ export class ChartOfAccountsService {
     });
 
     return children.map((child) => this.toResponseDto(child));
+  }
+
+  async getRecentActivity(id: string, limit: number): Promise<RecentActivityItemDto[]> {
+    const account = await this.accountRepository.findOne({ where: { id } });
+    if (!account) {
+      throw new NotFoundException(`Account with ID '${id}' not found`);
+    }
+
+    const rows = await this.journalEntryLineRepository
+      .createQueryBuilder('jel')
+      .leftJoin('jel.journalEntry', 'je')
+      .where('jel.accountId = :id', { id })
+      .andWhere('je.status = :status', { status: 'POSTED' })
+      .orderBy('je.date', 'DESC')
+      .addOrderBy('jel.id', 'DESC')
+      .limit(limit)
+      .select([
+        'je.date AS date',
+        'je.referenceNumber AS reference',
+        'je.description AS description',
+        'jel.debitAmount AS debit',
+        'jel.creditAmount AS credit',
+      ])
+      .getRawMany();
+
+    return rows.map((row) => ({
+      date: row.date instanceof Date ? row.date.toISOString().split('T')[0] : String(row.date).split('T')[0],
+      reference: row.reference,
+      description: row.description ?? '',
+      debit: Number(row.debit) > 0 ? Number(row.debit) : null,
+      credit: Number(row.credit) > 0 ? Number(row.credit) : null,
+    }));
   }
 
   /**

@@ -1,76 +1,169 @@
-import { Box, Paper, Table, TableBody, TableCell, TableRow, Typography } from '@mui/material'
+import {
+  Box,
+  Chip,
+  Paper,
+  Skeleton,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableRow,
+  Typography,
+} from '@mui/material'
 
 import { TABLE_STYLES } from '@/constants/tableStyles'
+import { useGetChartOfAccountRecentActivityQuery } from '@/store/api/accountingApi'
 import type { ChartOfAccount } from '@/types'
-import { formatDate } from '@/utils/formatters'
+import { formatCurrency, formatDate } from '@/utils/formatters'
+
+import { ACCOUNT_TYPE_COLORS } from '../utils/accountTypeColors'
 
 interface Props {
   selected: ChartOfAccount | null
-  allAccounts: ChartOfAccount[]
 }
 
-const labelSx = {
-  border: 'none',
-  py: TABLE_STYLES.cell.padding.py,
+const headerSx = {
   px: TABLE_STYLES.cell.padding.px,
-  color: 'text.secondary',
-  width: '40%',
+  py: 1,
+  borderBottom: TABLE_STYLES.cell.border,
+}
+
+const thSx = {
   fontWeight: 600,
-  fontSize: '0.8rem',
-}
-
-const valueSx = {
-  border: 'none',
+  fontSize: '0.75rem',
+  color: 'text.secondary',
   py: TABLE_STYLES.cell.padding.py,
   px: TABLE_STYLES.cell.padding.px,
-  fontSize: '0.8rem',
+  borderBottom: TABLE_STYLES.cell.border,
 }
 
-const rows: { label: string; getValue: (account: ChartOfAccount, allAccounts: ChartOfAccount[]) => string }[] = [
-  {
-    label: 'Account Type',
-    getValue: (account) => account.type.charAt(0) + account.type.slice(1).toLowerCase(),
-  },
-  {
-    label: 'Parent Account',
-    getValue: (account, allAccounts) =>
-      account.parentId ? allAccounts.find((item) => item.id === account.parentId)?.name ?? '—' : '—',
-  },
-  { label: 'Description', getValue: (account) => account.description || '—' },
-  {
-    label: 'Balance',
-    getValue: (account) => (account.currentBalance != null ? String(account.currentBalance) : '—'),
-  },
-  { label: 'Cash Equivalent', getValue: (account) => (account.isCashEquivalent ? 'Yes' : 'No') },
-  { label: 'Created', getValue: (account) => formatDate(account.createdAt) },
-  { label: 'Updated', getValue: (account) => formatDate(account.updatedAt) },
-]
+const tdSx = {
+  fontSize: '0.8rem',
+  py: TABLE_STYLES.cell.padding.py,
+  px: TABLE_STYLES.cell.padding.px,
+  border: 'none',
+}
 
-export function ChartOfAccountWorkspaceCard({ selected, allAccounts }: Props) {
+function SubAccountsTable({ accounts }: { accounts: ChartOfAccount[] }) {
+  if (accounts.length === 0) {
+    return (
+      <Box sx={{ p: TABLE_STYLES.cell.padding.px }}>
+        <Typography variant="body2" sx={{ color: 'text.secondary', fontStyle: 'italic' }}>
+          No sub-accounts.
+        </Typography>
+      </Box>
+    )
+  }
+
+  return (
+    <Table size={TABLE_STYLES.size}>
+      <TableHead>
+        <TableRow>
+          <TableCell sx={thSx}>Code</TableCell>
+          <TableCell sx={thSx}>Name</TableCell>
+          <TableCell sx={thSx}>Type</TableCell>
+        </TableRow>
+      </TableHead>
+      <TableBody>
+        {accounts.map((child, index) => (
+          <TableRow key={child.id} sx={index % 2 === 1 ? { backgroundColor: 'grey.50' } : {}}>
+            <TableCell sx={tdSx}>{child.code}</TableCell>
+            <TableCell sx={tdSx}>{child.name}</TableCell>
+            <TableCell sx={{ ...tdSx }}>
+              <Chip
+                size="small"
+                label={child.type.charAt(0) + child.type.slice(1).toLowerCase()}
+                color={ACCOUNT_TYPE_COLORS[child.type]}
+                variant="outlined"
+              />
+            </TableCell>
+          </TableRow>
+        ))}
+      </TableBody>
+    </Table>
+  )
+}
+
+function RecentActivityTable({ accountId }: { accountId: string }) {
+  const { data: activity = [], isLoading } = useGetChartOfAccountRecentActivityQuery(
+    { id: accountId, limit: 10 },
+  )
+
+  if (isLoading) {
+    return (
+      <Box sx={{ p: TABLE_STYLES.cell.padding.px }}>
+        {[...Array(5)].map((_, i) => (
+          <Skeleton key={i} variant="text" height={28} />
+        ))}
+      </Box>
+    )
+  }
+
+  if (activity.length === 0) {
+    return (
+      <Box sx={{ p: TABLE_STYLES.cell.padding.px }}>
+        <Typography variant="body2" sx={{ color: 'text.secondary', fontStyle: 'italic' }}>
+          No recent activity.
+        </Typography>
+      </Box>
+    )
+  }
+
+  return (
+    <Table size={TABLE_STYLES.size}>
+      <TableHead>
+        <TableRow>
+          <TableCell sx={thSx}>Date</TableCell>
+          <TableCell sx={thSx}>Reference</TableCell>
+          <TableCell sx={thSx}>Description</TableCell>
+          <TableCell sx={{ ...thSx, textAlign: 'right' }}>Debit</TableCell>
+          <TableCell sx={{ ...thSx, textAlign: 'right' }}>Credit</TableCell>
+        </TableRow>
+      </TableHead>
+      <TableBody>
+        {activity.map((item, index) => (
+          <TableRow key={`${item.reference}-${index}`} sx={index % 2 === 1 ? { backgroundColor: 'grey.50' } : {}}>
+            <TableCell sx={tdSx}>{formatDate(item.date)}</TableCell>
+            <TableCell sx={tdSx}>{item.reference}</TableCell>
+            <TableCell sx={{ ...tdSx, maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {item.description}
+            </TableCell>
+            <TableCell sx={{ ...tdSx, textAlign: 'right' }}>
+              {item.debit != null ? formatCurrency(item.debit) : '—'}
+            </TableCell>
+            <TableCell sx={{ ...tdSx, textAlign: 'right' }}>
+              {item.credit != null ? formatCurrency(item.credit) : '—'}
+            </TableCell>
+          </TableRow>
+        ))}
+      </TableBody>
+    </Table>
+  )
+}
+
+export function ChartOfAccountWorkspaceCard({ selected }: Props) {
   if (!selected) {
     return <Paper sx={{ flex: 1 }} />
   }
 
+  const isHeader = (selected.children?.length ?? 0) > 0
+  const sectionTitle = isHeader ? 'Sub-Accounts' : 'Recent Activity'
+
   return (
     <Paper sx={{ flex: 1 }}>
-      <Box sx={{ px: TABLE_STYLES.cell.padding.px, py: 1, borderBottom: TABLE_STYLES.cell.border }}>
+      <Box sx={headerSx}>
         <Typography
           variant="tableHeader"
           sx={{ fontWeight: 600, fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}
         >
-          Details
+          {sectionTitle}
         </Typography>
       </Box>
-      <Table size={TABLE_STYLES.size} sx={{ '& .MuiTableCell-root': { border: 'none' } }}>
-        <TableBody>
-          {rows.map(({ label, getValue }, index) => (
-            <TableRow key={label} sx={index % 2 === 1 ? { backgroundColor: 'grey.50' } : {}}>
-              <TableCell sx={labelSx}>{label}</TableCell>
-              <TableCell sx={valueSx}>{getValue(selected, allAccounts)}</TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+      {isHeader ? (
+        <SubAccountsTable accounts={selected.children ?? []} />
+      ) : (
+        <RecentActivityTable accountId={selected.id} />
+      )}
     </Paper>
   )
 }

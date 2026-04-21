@@ -679,6 +679,14 @@ export interface ChartOfAccount {
   deletedAt?: Date | string;
 }
 
+export interface RecentActivityItem {
+  date: string;
+  reference: string;
+  description: string;
+  debit: number | null;
+  credit: number | null;
+}
+
 export enum JournalEntryStatus {
   DRAFT = 'DRAFT',
   POSTED = 'POSTED',

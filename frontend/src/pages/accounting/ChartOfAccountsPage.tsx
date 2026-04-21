@@ -98,9 +98,7 @@ const ChartOfAccountsPage: React.FC = () => {
             onDelete={() => workspace.selected && workspace.setDeleteTarget(workspace.selected)}
           />
         }
-        workspaceSlot={
-          <ChartOfAccountWorkspaceCard selected={workspace.selected} allAccounts={accounts} />
-        }
+        workspaceSlot={<ChartOfAccountWorkspaceCard selected={workspace.selected} />}
         dialogs={
           <ChartOfAccountsDialogs
             formDialogOpen={workspace.formDialogOpen}
