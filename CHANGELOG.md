@@ -1,3 +1,10 @@
+## [1.83.1](https://github.com/blur88/erp2/compare/v1.83.0...v1.83.1) (2026-04-21)
+
+
+### Internal Changes
+
+* chore: update dependency lockfiles across root and sub-packages ([](https://github.com/blur88/erp2/commit/))
+
 # [1.83.0](https://github.com/blur88/erp2/compare/v1.82.0...v1.83.0) (2026-04-21)
 
 
