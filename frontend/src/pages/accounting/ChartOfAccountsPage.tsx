@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react'
+import React, { useMemo, useState } from 'react'
 
 import AccountMappingWarning from '@/components/accounting/AccountMappingWarning'
 import GenericListPage from '@/components/common/GenericListPage'
@@ -15,12 +15,17 @@ import { useChartOfAccountsWorkspace } from './hooks/useChartOfAccountsWorkspace
 
 interface CoaFilters {
   search: string
+  accountType: string | null
+  isActive: string | null
 }
 
 const filterConfig: FilterBarConfig<CoaFilters> = {
   search: { placeholder: 'Search by code or name...' },
-  fields: [],
-  defaults: { search: '' },
+  fields: [
+    { field: 'accountType', label: 'Account Type', type: 'account-type' },
+    { field: 'isActive', label: 'Status', type: 'status' },
+  ],
+  defaults: { search: '', accountType: null, isActive: null },
 }
 
 const ChartOfAccountsPage: React.FC = () => {
@@ -29,6 +34,7 @@ const ChartOfAccountsPage: React.FC = () => {
   const workspace = useChartOfAccountsWorkspace(() => {
     void refetch()
   })
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc')
 
   const accounts = useMemo(() => {
     const result: ChartOfAccount[] = []
@@ -47,26 +53,40 @@ const ChartOfAccountsPage: React.FC = () => {
     return result
   }, [hierarchyData])
 
-  const filteredAccounts = useMemo(
-    () =>
-      appliedFilters.search
-        ? accounts.filter((account) => {
-            const searchTerm = appliedFilters.search.toLowerCase()
-            return (
-              account.code.toLowerCase().includes(searchTerm) ||
-              account.name.toLowerCase().includes(searchTerm)
-            )
-          })
-        : accounts,
-    [accounts, appliedFilters.search],
-  )
+  const filteredAccounts = useMemo(() => {
+    let result = accounts
+
+    if (appliedFilters.search) {
+      const searchTerm = appliedFilters.search.toLowerCase()
+      result = result.filter(
+        (account) =>
+          account.code.toLowerCase().includes(searchTerm) ||
+          account.name.toLowerCase().includes(searchTerm),
+      )
+    }
+
+    if (appliedFilters.accountType) {
+      result = result.filter((account) => account.type === appliedFilters.accountType)
+    }
+
+    if (appliedFilters.isActive) {
+      const isActive = appliedFilters.isActive === 'active'
+      result = result.filter((account) => account.isActive === isActive)
+    }
+
+    return [...result].sort((left, right) =>
+      sortOrder === 'asc'
+        ? left.code.localeCompare(right.code)
+        : right.code.localeCompare(left.code),
+    )
+  }, [accounts, appliedFilters, sortOrder])
 
   return (
     <>
       <AccountMappingWarning context="system" />
       <GenericListPage
         title="Chart of Accounts"
-        subtitle={`Manage your accounting structure and account hierarchy (${appliedFilters.search ? `${filteredAccounts.length} of ${accounts.length}` : `${accounts.length} total`})`}
+        subtitle={`Manage your accounting structure and account hierarchy (${hasActiveFilters ? `${filteredAccounts.length} of ${accounts.length}` : `${accounts.length} total`})`}
         primaryAction={{
           label: 'Add Account',
           onClick: () => {
@@ -80,7 +100,12 @@ const ChartOfAccountsPage: React.FC = () => {
         handlers={handlers}
         hasActiveFilters={hasActiveFilters}
         searchInputRef={workspace.searchInputRef}
-        sort={{ field: 'code', sortBy: 'code', sortOrder: 'asc', onSort: () => {} }}
+        sort={{
+          field: 'code',
+          sortBy: 'code',
+          sortOrder,
+          onSort: () => setSortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc')),
+        }}
         error={(error as any)?.data ?? null}
         listSlot={
           <ChartOfAccountsTable
