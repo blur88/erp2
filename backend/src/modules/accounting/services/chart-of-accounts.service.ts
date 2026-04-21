@@ -522,11 +522,11 @@ export class ChartOfAccountsService {
       .leftJoin('jel.journalEntry', 'je')
       .where('jel.accountId = :id', { id })
       .andWhere('je.status = :status', { status: 'POSTED' })
-      .orderBy('je.date', 'DESC')
+      .orderBy('je.entryDate', 'DESC')
       .addOrderBy('jel.id', 'DESC')
       .limit(limit)
       .select([
-        'je.date AS date',
+        'je.entryDate AS date',
         'je.referenceNumber AS reference',
         'je.description AS description',
         'jel.debitAmount AS debit',
