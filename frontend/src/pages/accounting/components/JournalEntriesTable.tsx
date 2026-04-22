@@ -28,6 +28,7 @@ function statusColor(status: JournalEntryStatus) {
 interface Props {
   entries: JournalEntry[]
   loading: boolean
+  total: number
   selectedEntryId: string | null
   onSelect: (entry: JournalEntry) => void
   onViewSource?: (sourceType: string, sourceId: string) => void
@@ -37,6 +38,7 @@ interface Props {
 export function JournalEntriesTable({
   entries,
   loading,
+  total,
   selectedEntryId,
   onSelect,
   onViewSource,
@@ -111,7 +113,7 @@ export function JournalEntriesTable({
       rows={entries}
       columns={columns}
       loading={loading}
-      total={entries.length}
+      total={total}
       label="Journal Entries"
       selectedId={selectedEntryId ?? undefined}
       focusedIndex={-1}

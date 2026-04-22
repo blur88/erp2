@@ -73,6 +73,7 @@ export const JournalEntriesPage: React.FC = () => {
 
   const { data, isLoading, refetch } = useGetJournalEntriesQuery(queryArgs)
   const entries = data?.data ?? []
+  const pagination = data?.meta
   const workspace = useJournalEntriesWorkspace(() => {
     void refetch()
   })
@@ -109,6 +110,7 @@ export const JournalEntriesPage: React.FC = () => {
           <JournalEntriesTable
             entries={entries}
             loading={isLoading}
+            total={pagination?.total ?? entries.length}
             selectedEntryId={workspace.selectedEntry?.id ?? null}
             onSelect={workspace.handleSelect}
             onViewSource={workspace.navigateToSource}

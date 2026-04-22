@@ -41,6 +41,7 @@ describe('JournalEntriesTable', () => {
   const defaultProps = {
     entries: [],
     loading: false,
+    total: 0,
     selectedEntryId: null,
     onSelect: vi.fn(),
   }
