@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import {
   Box,
-  Button,
   Grid,
   TextField,
   Typography,
@@ -22,6 +21,7 @@ import { useGetPriceListsQuery, useBulkUpdatePricesMutation, priceListApiSlice }
 import { useCreateProductMutation, useLazyGetProductQuery, useUpdateProductMutation } from '@/store/api/inventoryApi'
 import { useDispatch } from 'react-redux'
 import { useNotification } from '@/hooks/useNotification'
+import { AppButton } from '@/components/common/AppButton'
 import PageHeader from '@/components/common/PageHeader'
 import CategorySelector from '@/components/inventory/CategorySelector'
 import { Category, PriceList } from '@/types'
@@ -197,15 +197,15 @@ const ProductAdditionalInformationCard: React.FC<ProductAdditionalInformationCar
 
       <Box sx={{ mt: 'auto' }}>
         <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
-          <Button variant="outlined" fullWidth onClick={onCancel} disabled={loading}>
+          <AppButton variant="secondary" fullWidth onClick={onCancel} disabled={loading}>
             Cancel
-          </Button>
-          <Button type="submit" variant="contained" fullWidth disabled={disabled}>
+          </AppButton>
+          <AppButton variant="primary" type="submit" fullWidth disabled={disabled}>
             {loading
               ? (isEditMode ? 'Updating...' : 'Creating...')
               : (isEditMode ? 'Update Product' : 'Create Product')
             }
-          </Button>
+          </AppButton>
         </Box>
       </Box>
     </CardContent>

@@ -1,6 +1,5 @@
 import React, { useEffect } from 'react'
 import {
-  Button,
   Dialog,
   DialogActions,
   DialogContent,
@@ -14,6 +13,7 @@ import { Controller, useForm, type UseFormReset } from 'react-hook-form'
 import * as yup from 'yup'
 
 import ConfirmationDialog from '@/components/common/ConfirmationDialog'
+import { AppButton } from '@/components/common/AppButton'
 import CategorySelector from '@/components/inventory/CategorySelector'
 import DeletedCategoriesDialog from '@/components/inventory/DeletedCategoriesDialog'
 import { SmartCategoryDeleteDialog } from '@/components/inventory/SmartCategoryDeleteDialog'
@@ -159,12 +159,12 @@ const CategoryDialogs: React.FC<CategoryDialogsProps> = ({
             </Grid>
           </DialogContent>
           <DialogActions>
-            <Button onClick={onDialogClose} disabled={submitting}>
+            <AppButton variant="secondary" onClick={onDialogClose} disabled={submitting}>
               Cancel
-            </Button>
-            <Button type="submit" variant="contained" disabled={submitting}>
+            </AppButton>
+            <AppButton variant="primary" type="submit" disabled={submitting}>
               {submitting ? 'Saving...' : editMode ? 'Update' : 'Create'}
-            </Button>
+            </AppButton>
           </DialogActions>
         </form>
       </Dialog>
