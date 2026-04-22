@@ -40,7 +40,7 @@ const filterConfig: FilterBarConfig<JEFilters> = {
   },
 }
 
-const JournalEntriesPage: React.FC = () => {
+export const JournalEntriesPage: React.FC = () => {
   const location = useLocation()
   const navigate = useNavigate()
   const [sortBy, setSortBy] = useState('createdAt')
@@ -89,7 +89,7 @@ const JournalEntriesPage: React.FC = () => {
       <AccountMappingWarning context="system" />
       <GenericListPage
         title="Journal Entries"
-        subtitle={`Manage and post accounting journal entries (${pagination?.total ?? 0} total)`}
+        subtitle="Manage and post accounting journal entries"
         primaryAction={{ label: 'New Journal Entry', onClick: workspace.navigateToCreate }}
         filterConfig={filterConfig}
         draftFilters={draftFilters}
