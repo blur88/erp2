@@ -113,7 +113,6 @@ export const JournalEntriesPage: React.FC = () => {
             total={pagination?.total ?? entries.length}
             selectedEntryId={workspace.selectedEntry?.id ?? null}
             onSelect={workspace.handleSelect}
-            onViewSource={workspace.navigateToSource}
             listRef={workspace.listRef}
           />
         )}
