@@ -1,3 +1,10 @@
+## [1.87.1](https://github.com/blur88/erp2/compare/v1.87.0...v1.87.1) (2026-04-22)
+
+
+### Bug Fixes
+
+* **accounting:** pass server total to EntityTable header count (issue [#416](https://github.com/blur88/erp2/issues/416)) ([ed5c41b](https://github.com/blur88/erp2/commit/ed5c41b49cdf120a10eb6660661ae726713d7d96))
+
 # [1.87.0](https://github.com/blur88/erp2/compare/v1.86.1...v1.87.0) (2026-04-22)
 
 
