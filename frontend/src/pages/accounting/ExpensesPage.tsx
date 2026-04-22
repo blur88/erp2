@@ -1,6 +1,5 @@
 import React, { useMemo, useState } from 'react'
 import {
-  Button,
   Dialog,
   DialogActions,
   DialogContent,
@@ -12,6 +11,7 @@ import {
   Stack,
   TextField,
 } from '@mui/material'
+import { AppButton } from '@/components/common/AppButton'
 import { default as DeleteIcon } from '@mui/icons-material/Delete'
 import { default as PostIcon } from '@mui/icons-material/PostAdd'
 
@@ -177,12 +177,12 @@ const ExpensesPage: React.FC = () => {
       sort={{ field: 'expenseDate', sortBy: 'expenseDate', sortOrder: 'desc', onSort: () => {} }}
       contentSlot={workspace.selectedIds.size > 0 ? (
         <Stack direction="row" spacing={1} sx={{ mb: 1 }}>
-          <Button size="small" variant="contained" startIcon={<PostIcon />} onClick={() => workspace.setBulkPostOpen(true)}>
+          <AppButton size="small" variant="primary" startIcon={<PostIcon />} onClick={() => workspace.setBulkPostOpen(true)}>
             Bulk Post ({workspace.selectedIds.size})
-          </Button>
-          <Button size="small" variant="outlined" color="error" startIcon={<DeleteIcon />} onClick={() => workspace.setBulkDeleteOpen(true)}>
+          </AppButton>
+          <AppButton size="small" variant="danger" startIcon={<DeleteIcon />} onClick={() => workspace.setBulkDeleteOpen(true)}>
             Bulk Delete ({workspace.selectedIds.size})
-          </Button>
+          </AppButton>
         </Stack>
       ) : null}
       listSlot={(
@@ -253,8 +253,8 @@ const ExpensesPage: React.FC = () => {
               </Stack>
             </DialogContent>
             <DialogActions>
-              <Button onClick={closeForm}>Cancel</Button>
-              <Button variant="contained" onClick={() => void save()}>Save</Button>
+              <AppButton variant="outlined" onClick={closeForm}>Cancel</AppButton>
+              <AppButton variant="primary" onClick={() => void save()}>Save</AppButton>
             </DialogActions>
           </Dialog>
         </>

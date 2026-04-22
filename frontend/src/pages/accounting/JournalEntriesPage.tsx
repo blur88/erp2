@@ -1,6 +1,7 @@
 import React, { useCallback, useMemo, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { Button, Stack } from '@mui/material'
+import { Stack } from '@mui/material'
+import { AppButton } from '@/components/common/AppButton'
 import { default as DeleteIcon } from '@mui/icons-material/Delete'
 import { default as PostIcon } from '@mui/icons-material/PostAdd'
 
@@ -98,12 +99,12 @@ const JournalEntriesPage: React.FC = () => {
         sort={{ field: 'createdAt', sortBy, sortOrder, onSort: handleSort }}
         contentSlot={workspace.selectedIds.size > 0 ? (
           <Stack direction="row" spacing={1} sx={{ mb: 1 }}>
-            <Button size="small" variant="contained" startIcon={<PostIcon />} onClick={() => workspace.setBulkPostOpen(true)}>
+            <AppButton size="small" variant="primary" startIcon={<PostIcon />} onClick={() => workspace.setBulkPostOpen(true)}>
               Post Selected ({workspace.selectedIds.size})
-            </Button>
-            <Button size="small" variant="outlined" color="error" startIcon={<DeleteIcon />} onClick={() => workspace.setBulkDeleteOpen(true)}>
+            </AppButton>
+            <AppButton size="small" variant="danger" startIcon={<DeleteIcon />} onClick={() => workspace.setBulkDeleteOpen(true)}>
               Delete Selected ({workspace.selectedIds.size})
-            </Button>
+            </AppButton>
           </Stack>
         ) : null}
         listSlot={(

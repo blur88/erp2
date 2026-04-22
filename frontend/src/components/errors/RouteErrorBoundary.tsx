@@ -1,9 +1,11 @@
-import { Box, Button, Paper, Typography } from '@mui/material'
-import { Link, useRouteError } from 'react-router-dom'
+import { Box, Paper, Typography } from '@mui/material'
+import { AppButton } from '@/components/common/AppButton'
+import { useNavigate, useRouteError } from 'react-router-dom'
 import { classifyRouteError } from '@/utils/routeErrorClassification'
 
 export default function RouteErrorBoundary() {
   const error = useRouteError()
+  const navigate = useNavigate()
   const { type } = classifyRouteError(error)
   // classifyRouteError also returns `message` for future use; UI uses hard-coded copy per spec.
   // Log unexpected errors for observability (chunk-load failures are deployment-related, not bugs).
@@ -34,12 +36,12 @@ export default function RouteErrorBoundary() {
             A new version of the app is available. Refresh the page to continue.
           </Typography>
           <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center', flexWrap: 'wrap' }}>
-            <Button variant="contained" onClick={() => window.location.reload()}>
+            <AppButton variant="primary" onClick={() => window.location.reload()}>
               Refresh Page
-            </Button>
-            <Button variant="outlined" component={Link} to="/">
+            </AppButton>
+            <AppButton variant="outlined" onClick={() => navigate('/')}>
               Go to Dashboard
-            </Button>
+            </AppButton>
           </Box>
         </Paper>
       </Box>
@@ -68,12 +70,12 @@ export default function RouteErrorBoundary() {
           The app hit an unexpected error. You can reload the page or return to the dashboard.
         </Typography>
         <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center', flexWrap: 'wrap' }}>
-          <Button variant="contained" onClick={() => window.location.reload()}>
+          <AppButton variant="primary" onClick={() => window.location.reload()}>
             Reload Page
-          </Button>
-          <Button variant="outlined" component={Link} to="/">
+          </AppButton>
+          <AppButton variant="outlined" onClick={() => navigate('/')}>
             Go Home
-          </Button>
+          </AppButton>
         </Box>
       </Paper>
     </Box>

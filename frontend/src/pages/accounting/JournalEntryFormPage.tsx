@@ -2,7 +2,6 @@ import React, { useState, useEffect, useMemo } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import {
   Box,
-  Button,
   Grid,
   TextField,
   Typography,
@@ -25,6 +24,7 @@ import {
   Chip,
   Stack,
 } from '@mui/material'
+import { AppButton } from '@/components/common/AppButton'
 import { default as AddIcon } from '@mui/icons-material/Add'
 import { default as DeleteIcon } from '@mui/icons-material/Delete'
 import { default as SaveIcon } from '@mui/icons-material/Save'
@@ -456,9 +456,9 @@ const JournalEntryFormPage: React.FC = () => {
                   <Typography variant="h6" sx={{ fontWeight: 600 }}>
                     Line Items
                   </Typography>
-                  <Button variant="outlined" startIcon={<AddIcon />} onClick={handleAddLine}>
+                  <AppButton variant="outlined" startIcon={<AddIcon />} onClick={handleAddLine}>
                     Add Line
-                  </Button>
+                  </AppButton>
                 </Box>
 
                 {errors.lines && typeof errors.lines.message === 'string' && (
@@ -667,30 +667,28 @@ const JournalEntryFormPage: React.FC = () => {
             <Stack direction="row" spacing={2} sx={{
               justifyContent: "flex-end"
             }}>
-              <Button variant="outlined" onClick={handleBack} disabled={submitting}>
+              <AppButton variant="outlined" onClick={handleBack} disabled={submitting}>
                 Cancel
-              </Button>
-              <Button
-                variant="contained"
-                color="primary"
+              </AppButton>
+              <AppButton
+                variant="primary"
                 startIcon={<SaveIcon />}
                 type="submit"
                 disabled={submitting || !isBalanced}
                 onClick={() => setShouldPost(false)}
               >
                 {submitting ? 'Saving...' : isEditMode ? 'Update Draft' : 'Save as Draft'}
-              </Button>
+              </AppButton>
               {!isEditMode && (
-                <Button
-                  variant="contained"
-                  color="success"
+                <AppButton
+                  variant="success"
                   startIcon={<PostIcon />}
                   type="submit"
                   disabled={submitting || !isBalanced}
                   onClick={() => setShouldPost(true)}
                 >
                   {submitting ? 'Saving...' : 'Save and Post'}
-                </Button>
+                </AppButton>
               )}
             </Stack>
           </Grid>

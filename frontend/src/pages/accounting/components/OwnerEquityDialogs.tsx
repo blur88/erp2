@@ -1,4 +1,5 @@
-import { Button, Dialog, DialogActions, DialogContent, DialogTitle, FormControl, InputLabel, MenuItem, Select, Stack, TextField } from '@mui/material'
+import { Dialog, DialogActions, DialogContent, DialogTitle, FormControl, InputLabel, MenuItem, Select, Stack, TextField } from '@mui/material'
+import { AppButton } from '@/components/common/AppButton'
 import ConfirmationDialog from '@/components/common/ConfirmationDialog'
 import type { OwnerEquityTransaction, PaymentMethodConfig } from '@/types'
 
@@ -70,7 +71,7 @@ export function OwnerEquityDialogs({
             <TextField label="Description" multiline minRows={2} value={form.description} onChange={(event) => onFormChange('description', event.target.value)} />
           </Stack>
         </DialogContent>
-        <DialogActions><Button onClick={onCloseDialog}>Cancel</Button><Button variant="contained" onClick={onSave}>Save</Button></DialogActions>
+        <DialogActions><AppButton variant="outlined" onClick={onCloseDialog}>Cancel</AppButton><AppButton variant="primary" onClick={onSave}>Save</AppButton></DialogActions>
       </Dialog>
       <ConfirmationDialog open={!!postTarget} title="Post Transaction" message={`Post transaction ${postTarget?.referenceNumber}?`} confirmText="Post" cancelText="Cancel" onConfirm={onConfirmPost} onCancel={onCancelPost} />
       <ConfirmationDialog open={!!deleteTarget} title="Delete Transaction" message={`Delete transaction ${deleteTarget?.referenceNumber}?`} confirmText="Delete" cancelText="Cancel" onConfirm={onConfirmDelete} onCancel={onCancelDelete} severity="error" />
