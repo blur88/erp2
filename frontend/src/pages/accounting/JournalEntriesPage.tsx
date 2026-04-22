@@ -25,26 +25,29 @@ interface JEFilters {
   period: PeriodValue
 }
 
-const filterConfig: FilterBarConfig<JEFilters> = {
-  search: { placeholder: 'Search by reference or description...' },
-  fields: [
-    { field: 'period', label: 'Period', type: 'period' },
-    { field: 'status', label: 'Status', type: 'journal-entry-status' },
-    { field: 'entryType', label: 'Entry Type', type: 'journal-entry-type' },
-  ],
-  defaults: {
-    search: '',
-    status: null,
-    entryType: null,
-    period: { key: null, from: null, to: null },
-  },
-}
-
 export const JournalEntriesPage: React.FC = () => {
   const location = useLocation()
   const navigate = useNavigate()
   const [sortBy, setSortBy] = useState('createdAt')
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
+
+  const filterConfig = useMemo<FilterBarConfig<JEFilters>>(
+    () => ({
+      search: { placeholder: 'Search by reference or description...' },
+      fields: [
+        { field: 'period', label: 'Period', type: 'period' },
+        { field: 'status', label: 'Status', type: 'journal-entry-status' },
+        { field: 'entryType', label: 'Entry Type', type: 'journal-entry-type' },
+      ],
+      defaults: {
+        search: '',
+        status: null,
+        entryType: null,
+        period: { key: null, from: null, to: null },
+      },
+    }),
+    [],
+  )
 
   const { appliedFilters, draftFilters, handlers, hasActiveFilters } = useFilterBar(filterConfig)
 
