@@ -1,3 +1,10 @@
+# [1.87.0](https://github.com/blur88/erp2/compare/v1.86.1...v1.87.0) (2026-04-22)
+
+
+### Features
+
+* **accounting:** add named export and static subtitle to JournalEntriesPage (issue [#414](https://github.com/blur88/erp2/issues/414)) ([dd2e6da](https://github.com/blur88/erp2/commit/dd2e6daec037881a11c61c08b4179547b39c69c4))
+
 ## [1.86.1](https://github.com/blur88/erp2/compare/v1.86.0...v1.86.1) (2026-04-22)
 
 
