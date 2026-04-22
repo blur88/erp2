@@ -1,9 +1,5 @@
 import React, { useCallback, useMemo, useState } from 'react'
-import { useLocation, useNavigate } from 'react-router-dom'
-import { Stack } from '@mui/material'
-import { AppButton } from '@/components/common/AppButton'
-import { default as DeleteIcon } from '@mui/icons-material/Delete'
-import { default as PostIcon } from '@mui/icons-material/PostAdd'
+import { useLocation } from 'react-router-dom'
 
 import AccountMappingWarning from '@/components/accounting/AccountMappingWarning'
 import GenericListPage from '@/components/common/GenericListPage'
@@ -30,7 +26,6 @@ export const JournalEntriesPage: React.FC = () => {
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
 
   const location = useLocation()
-  const navigate = useNavigate()
 
   const filterConfig = useMemo<FilterBarConfig<JEFilters>>(
     () => ({
@@ -74,7 +69,7 @@ export const JournalEntriesPage: React.FC = () => {
     endDate: dateRange.toDate,
     sortBy,
     sortOrder: sortOrder.toUpperCase() as 'ASC' | 'DESC',
-  }), [appliedFilters, dateRange, sortBy, sortOrder, sourceTypeParam, sourceIdParam])
+  }), [appliedFilters, dateRange, sortBy, sortOrder, sourceIdParam, sourceTypeParam])
 
   const { data, isLoading, refetch } = useGetJournalEntriesQuery(queryArgs)
   const entries = data?.data ?? []
@@ -111,29 +106,14 @@ export const JournalEntriesPage: React.FC = () => {
         hasActiveFilters={hasActiveFilters}
         searchInputRef={workspace.searchInputRef}
         sort={{ field: 'createdAt', sortBy, sortOrder, onSort: handleSort }}
-        contentSlot={workspace.selectedIds.size > 0 ? (
-          <Stack direction="row" spacing={1} sx={{ mb: 1 }}>
-            <AppButton size="small" variant="primary" startIcon={<PostIcon />} onClick={() => workspace.setBulkPostOpen(true)}>
-              Post Selected ({workspace.selectedIds.size})
-            </AppButton>
-            <AppButton size="small" variant="danger" startIcon={<DeleteIcon />} onClick={() => workspace.setBulkDeleteOpen(true)}>
-              Delete Selected ({workspace.selectedIds.size})
-            </AppButton>
-          </Stack>
-        ) : null}
         listSlot={(
           <JournalEntriesTable
             entries={entries}
             loading={isLoading}
-            total={pagination?.total ?? 0}
+            total={pagination?.total ?? entries.length}
             selectedEntryId={workspace.selectedEntry?.id ?? null}
-            selectedIds={workspace.selectedIds}
             onSelect={workspace.handleSelect}
-            onToggleCheck={workspace.handleToggleCheck}
-            onSelectAll={() => workspace.handleSelectAll(entries)}
-            onPost={(entry) => workspace.setPostTarget(entry)}
-            onDelete={(entry) => workspace.setDeleteTarget(entry)}
-            onViewSource={(sourceType, sourceId) => workspace.navigateToSource(sourceType, sourceId)}
+            onViewSource={workspace.navigateToSource}
             listRef={workspace.listRef}
           />
         )}
@@ -144,7 +124,7 @@ export const JournalEntriesPage: React.FC = () => {
             onPost={() => workspace.selectedEntry && workspace.setPostTarget(workspace.selectedEntry)}
             onReverse={() => workspace.selectedEntry && workspace.setReverseTarget(workspace.selectedEntry)}
             onDelete={() => workspace.selectedEntry && workspace.setDeleteTarget(workspace.selectedEntry)}
-            onNavigateToSource={(path) => navigate(path)}
+            onViewSource={workspace.navigateToSource}
           />
         )}
         workspaceSlot={<JournalEntryWorkspaceCard selectedEntry={workspace.selectedEntry} />}
@@ -153,19 +133,13 @@ export const JournalEntriesPage: React.FC = () => {
             postTarget={workspace.postTarget}
             deleteTarget={workspace.deleteTarget}
             reverseTarget={workspace.reverseTarget}
-            bulkPostIds={workspace.bulkPostOpen ? workspace.selectedIds : new Set<string>()}
-            bulkDeleteIds={workspace.bulkDeleteOpen ? workspace.selectedIds : new Set<string>()}
             actionLoading={workspace.actionLoading}
             onConfirmPost={workspace.handleConfirmPost}
             onConfirmDelete={workspace.handleConfirmDelete}
             onConfirmReverse={workspace.handleConfirmReverse}
-            onConfirmBulkPost={workspace.handleBulkPost}
-            onConfirmBulkDelete={workspace.handleBulkDelete}
             onCancelPost={() => workspace.setPostTarget(null)}
             onCancelDelete={() => workspace.setDeleteTarget(null)}
             onCancelReverse={() => workspace.setReverseTarget(null)}
-            onCancelBulkPost={() => workspace.setBulkPostOpen(false)}
-            onCancelBulkDelete={() => workspace.setBulkDeleteOpen(false)}
           />
         )}
       />

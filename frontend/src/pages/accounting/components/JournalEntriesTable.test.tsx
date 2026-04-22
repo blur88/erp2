@@ -9,8 +9,18 @@ vi.mock('@/utils/formatters', () => ({
   formatDate: (date: string) => date,
 }))
 
-vi.mock('@/components/common/AppButton', () => ({
-  AppButton: ({ onClick, children, startIcon }: any) => <button onClick={onClick}>{children}{startIcon}</button>,
+vi.mock('@/components/common/EntityTable', () => ({
+  default: ({ rows, loading, label, onSelect }: any) => (
+    <div>
+      {loading && <div>Loading...</div>}
+      {rows.length === 0 && <div>No {label} found</div>}
+      {rows.map((row: any) => (
+        <div key={row.id} onClick={() => onSelect(row)} data-testid={`row-${row.id}`}>
+          {row.referenceNumber}
+        </div>
+      ))}
+    </div>
+  ),
 }))
 
 const makeEntry = (overrides = {}) => ({
@@ -21,9 +31,9 @@ const makeEntry = (overrides = {}) => ({
   status: JournalEntryStatus.DRAFT,
   totalDebits: 100,
   totalCredits: 100,
-  isBalanced: true,
   sourceType: 'manual',
   sourceId: null,
+  lines: [],
   ...overrides,
 })
 
@@ -33,27 +43,22 @@ describe('JournalEntriesTable', () => {
     loading: false,
     total: 0,
     selectedEntryId: null,
-    selectedIds: new Set<string>(),
     onSelect: vi.fn(),
-    onToggleCheck: vi.fn(),
-    onSelectAll: vi.fn(),
-    onPost: vi.fn(),
-    onDelete: vi.fn(),
   }
 
   it('shows empty state when no entries', () => {
     render(<JournalEntriesTable {...defaultProps} />)
-    expect(screen.getByText('No journal entries found')).toBeInTheDocument()
+    expect(screen.getByText('No Journal Entries found')).toBeInTheDocument()
   })
 
   it('renders entry rows', () => {
-    render(<JournalEntriesTable {...defaultProps} entries={[makeEntry()]} total={1} />)
+    render(<JournalEntriesTable {...defaultProps} entries={[makeEntry()]} />)
     expect(screen.getByText('JE-001')).toBeInTheDocument()
   })
 
   it('calls onSelect when row is clicked', () => {
     const onSelect = vi.fn()
-    render(<JournalEntriesTable {...defaultProps} entries={[makeEntry()]} total={1} onSelect={onSelect} />)
+    render(<JournalEntriesTable {...defaultProps} entries={[makeEntry()]} onSelect={onSelect} />)
     fireEvent.click(screen.getByText('JE-001'))
     expect(onSelect).toHaveBeenCalledWith(expect.objectContaining({ id: '1' }))
   })

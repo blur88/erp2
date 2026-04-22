@@ -15,7 +15,7 @@ vi.mock('@/utils/formatters', async () => {
     ...actual,
     formatCurrency: (value: number) => `$${value}`,
     formatDate: (date: string) => date,
-    getCurrentDate: () => '2026-04-19',
+    getCurrentDate: () => '2026-04-22',
   }
 })
 vi.mock('@/utils/dateRange', () => ({
@@ -28,8 +28,6 @@ const mockedApi = vi.hoisted(() => ({
   useLazyGetJournalEntryQuery: vi.fn(),
   useDeleteJournalEntryMutation: vi.fn(),
   usePostJournalEntryMutation: vi.fn(),
-  useBulkPostJournalEntriesMutation: vi.fn(),
-  useBulkDeleteJournalEntriesMutation: vi.fn(),
   useReverseJournalEntryMutation: vi.fn(),
 }))
 
@@ -76,8 +74,6 @@ describe('JournalEntriesPage', () => {
     mockedApi.useLazyGetJournalEntryQuery.mockReturnValue([vi.fn().mockResolvedValue({ id: '1' })])
     mockedApi.useDeleteJournalEntryMutation.mockReturnValue([vi.fn()])
     mockedApi.usePostJournalEntryMutation.mockReturnValue([vi.fn()])
-    mockedApi.useBulkPostJournalEntriesMutation.mockReturnValue([vi.fn()])
-    mockedApi.useBulkDeleteJournalEntriesMutation.mockReturnValue([vi.fn()])
     mockedApi.useReverseJournalEntryMutation.mockReturnValue([vi.fn()])
   })
 
@@ -91,13 +87,13 @@ describe('JournalEntriesPage', () => {
     expect(screen.getByText('JE-001')).toBeInTheDocument()
   })
 
-  it('clicking a row selects it instead of navigating', async () => {
+  it('clicking a row selects it and shows details in the context header', async () => {
     render(<BrowserRouter><JournalEntriesPage /></BrowserRouter>)
 
     fireEvent.click(screen.getByText('JE-001'))
 
     await waitFor(() => {
-      expect(screen.getAllByText('JE-001').length).toBeGreaterThan(1)
+      expect(screen.getByText('JE Details - JE-001')).toBeInTheDocument()
     })
     expect(mockNavigate).not.toHaveBeenCalled()
   })
