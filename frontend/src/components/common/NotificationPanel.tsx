@@ -10,7 +10,6 @@ import {
   ListItemIcon,
   IconButton,
   Divider,
-  Button,
   Avatar,
   Chip,
   Badge,
@@ -32,6 +31,7 @@ import { useNotifications } from '@/hooks/useNotification'
 import { useAppDispatch } from '@/hooks/useRedux'
 import { markAsRead, markAllAsRead, removeNotification } from '@/store/slices/notificationSlice'
 import type { Notification } from '@/types'
+import { AppButton } from '@/components/common/AppButton'
 
 interface NotificationPanelProps {
   anchorEl: HTMLElement | null
@@ -166,14 +166,14 @@ const NotificationPanel: React.FC<NotificationPanelProps> = ({
         </Typography>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           {unreadNotifications.length > 0 && (
-            <Button
+            <AppButton
               size="small"
               startIcon={<MarkReadIcon />}
               onClick={handleMarkAllAsRead}
               sx={{ fontSize: '0.75rem' }}
             >
               Mark all read
-            </Button>
+            </AppButton>
           )}
           <IconButton size="small" onClick={onClose}>
             <CloseIcon />
@@ -307,14 +307,14 @@ const NotificationPanel: React.FC<NotificationPanelProps> = ({
         <>
           <Divider />
           <Box sx={{ p: 2, textAlign: 'center' }}>
-            <Button
+            <AppButton
               size="small"
               onClick={onClose}
               fullWidth
               sx={{ fontSize: '0.875rem' }}
             >
               View All Notifications
-            </Button>
+            </AppButton>
           </Box>
         </>
       )}

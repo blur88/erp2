@@ -4,7 +4,6 @@ import DeleteIcon from '@mui/icons-material/Delete'
 import {
   Autocomplete,
   Box,
-  Button,
   Card,
   CardContent,
   Grid,
@@ -19,6 +18,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material'
+import { AppButton } from '@/components/common/AppButton'
 
 type EntityLabel = 'Customer' | 'Supplier'
 
@@ -227,9 +227,13 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
               <CardContent>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                   <Typography variant="h6">Line Items</Typography>
-                  <Button variant="outlined" startIcon={<AddIcon />} onClick={handleAddLineItem}>
+                  <AppButton
+                    variant="secondary"
+                    startIcon={<AddIcon />}
+                    onClick={handleAddLineItem}
+                  >
                     Add Line Item
-                  </Button>
+                  </AppButton>
                 </Box>
 
                 <TableContainer component={Paper}>
@@ -292,12 +296,12 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
 
       {!hideDefaultActions ? (
         <Box sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end', mt: 3 }}>
-          <Button variant="outlined" onClick={onCancel}>
+          <AppButton variant="secondary" onClick={onCancel}>
             {cancelLabel}
-          </Button>
-          <Button type="submit" variant="contained" disabled={isSubmitting}>
+          </AppButton>
+          <AppButton type="submit" variant="primary" disabled={isSubmitting}>
             {submitLabel}
-          </Button>
+          </AppButton>
         </Box>
       ) : null}
     </form>
