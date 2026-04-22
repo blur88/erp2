@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react'
-import { Alert, Button } from '@mui/material'
+import { Alert } from '@mui/material'
+import { AppButton } from '@/components/common/AppButton'
 
 import GenericListPage from '@/components/common/GenericListPage'
 import { useFilterBar } from '@/hooks/useFilterBar'
@@ -98,7 +99,7 @@ const AccountMappingsPage: React.FC = () => {
         sort={{ field: 'mappingType', sortBy: 'mappingType', sortOrder: 'asc', onSort: () => {} }}
         error={(error as any)?.data ?? null}
         onErrorClose={() => {}}
-        filterExtra={<Button size="small" onClick={() => { void refetchMappings(); void refetchValidation() }}>Refresh</Button>}
+        filterExtra={<AppButton size="small" variant="outlined" onClick={() => { void refetchMappings(); void refetchValidation() }}>Refresh</AppButton>}
         listSlot={<AccountMappingsTable mappings={tableRows} loading={isLoading} selectedId={workspace.selected?.id ?? null} onSelect={workspace.setSelected} listRef={workspace.listRef} />}
         headerSlot={<AccountMappingContextHeader selected={workspace.selected} label={selectedMeta?.label || 'Account Mapping'} category={selectedMeta?.category || ''} onEdit={() => { workspace.setSelectedMapping(workspace.selected); workspace.setSelectedMappingType(null); workspace.setDialogOpen(true) }} onDelete={() => workspace.selected && workspace.setMappingToClear(workspace.selected)} />}
         workspaceSlot={<AccountMappingWorkspaceCard selected={workspace.selected} />}

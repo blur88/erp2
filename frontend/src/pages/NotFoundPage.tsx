@@ -3,10 +3,10 @@ import { useNavigate } from 'react-router-dom'
 import {
   Box,
   Typography,
-  Button,
   Container,
   Paper,
 } from '@mui/material'
+import { AppButton } from '@/components/common/AppButton'
 import { default as HomeIcon } from '@mui/icons-material/Home'
 import { default as ArrowBackIcon } from '@mui/icons-material/ArrowBack'
 import { default as SearchOffIcon } from '@mui/icons-material/SearchOff'
@@ -98,16 +98,16 @@ const NotFoundPage: React.FC = () => {
               justifyContent: 'center',
             }}
           >
-            <Button
-              variant="contained"
+            <AppButton
+              variant="primary"
               size="large"
               startIcon={<HomeIcon />}
               onClick={handleGoHome}
               sx={{ minWidth: 150 }}
             >
               Go Home
-            </Button>
-            <Button
+            </AppButton>
+            <AppButton
               variant="outlined"
               size="large"
               startIcon={<ArrowBackIcon />}
@@ -115,7 +115,7 @@ const NotFoundPage: React.FC = () => {
               sx={{ minWidth: 150 }}
             >
               Go Back
-            </Button>
+            </AppButton>
           </Box>
 
           {/* Help Text */}

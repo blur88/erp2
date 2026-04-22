@@ -1,4 +1,5 @@
-import { Button, Dialog, DialogActions, DialogContent, DialogTitle, TextField, Typography } from '@mui/material'
+import { Dialog, DialogActions, DialogContent, DialogTitle, TextField, Typography } from '@mui/material'
+import { AppButton } from '@/components/common/AppButton'
 import type { ChartOfAccount, FundTransfer } from '@/types'
 import ConfirmationDialog from '@/components/common/ConfirmationDialog'
 
@@ -57,8 +58,8 @@ export function FundTransfersDialogs({
           <TextField fullWidth label="Description" multiline rows={2} value={form.description} onChange={(event) => onFormChange('description', event.target.value)} />
         </DialogContent>
         <DialogActions>
-          <Button onClick={onCloseDialog}>Cancel</Button>
-          <Button variant="contained" onClick={onCreate} disabled={creating}>{creating ? 'Creating...' : 'Create Transfer'}</Button>
+          <AppButton variant="outlined" onClick={onCloseDialog}>Cancel</AppButton>
+          <AppButton variant="primary" onClick={onCreate} disabled={creating}>{creating ? 'Creating...' : 'Create Transfer'}</AppButton>
         </DialogActions>
       </Dialog>
       <ConfirmationDialog

@@ -1,10 +1,10 @@
 import React, { useMemo } from 'react';
+import { AppButton } from '@/components/common/AppButton'
 import {
   Box,
   Grid,
   Typography,
   Paper,
-  Button,
   Table,
   TableBody,
   TableCell,
@@ -343,66 +343,65 @@ const AccountingDashboardPage: React.FC = () => {
         </Typography>
         <Grid container spacing={2}>
           <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-            <Button
-              variant="contained"
-              color="primary"
+            <AppButton
+              variant="primary"
               fullWidth
               startIcon={<AddIcon />}
               onClick={() => navigate('/accounting/journal-entries/new')}
               sx={{ py: 1.5 }}
             >
               New Journal Entry
-            </Button>
+            </AppButton>
           </Grid>
           <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-            <Button
+            <AppButton
               variant="outlined"
               fullWidth
               onClick={() => navigate('/accounting/reports/trial-balance')}
               sx={{ py: 1.5 }}
             >
               View Trial Balance
-            </Button>
+            </AppButton>
           </Grid>
           <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-            <Button
+            <AppButton
               variant="outlined"
               fullWidth
               onClick={() => navigate('/accounting/reports/balance-sheet')}
               sx={{ py: 1.5 }}
             >
               View Balance Sheet
-            </Button>
+            </AppButton>
           </Grid>
           <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-            <Button
+            <AppButton
               variant="outlined"
               fullWidth
               onClick={() => navigate('/accounting/reports/profit-loss')}
               sx={{ py: 1.5 }}
             >
               View Profit & Loss
-            </Button>
+            </AppButton>
           </Grid>
           <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-            <Button
+            <AppButton
               variant="outlined"
               fullWidth
               onClick={() => navigate('/accounting/chart-of-accounts')}
               sx={{ py: 1.5 }}
             >
               View Chart of Accounts
-            </Button>
+            </AppButton>
           </Grid>
           <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-            <Button
+            <AppButton
               variant="outlined"
               fullWidth
               onClick={() => navigate('/accounting/fiscal-periods')}
               sx={{ py: 1.5 }}
             >
               Manage Fiscal Periods
-            </Button>
+            </AppButton>
           </Grid>
         </Grid>
       </Paper>
@@ -421,13 +420,13 @@ const AccountingDashboardPage: React.FC = () => {
                   Last 10 entries
                 </Typography>
               </Box>
-              <Button
+              <AppButton
                 variant="outlined"
                 size="small"
                 onClick={() => navigate('/accounting/journal-entries')}
               >
                 View All
-              </Button>
+              </AppButton>
             </Box>
 
             {journalEntriesLoading ? (
@@ -530,13 +529,13 @@ const AccountingDashboardPage: React.FC = () => {
                   }}>
                   No active fiscal period
                 </Typography>
-                <Button
+                <AppButton
                   variant="outlined"
                   size="small"
                   onClick={() => navigate('/accounting/fiscal-periods')}
                 >
                   Create Period
-                </Button>
+                </AppButton>
               </Box>
             ) : (
               <Box>
@@ -590,14 +589,14 @@ const AccountingDashboardPage: React.FC = () => {
                     </Box>
                   )}
                 </Stack>
-                <Button
+                <AppButton
                   variant="outlined"
                   fullWidth
                   size="small"
                   onClick={() => navigate('/accounting/fiscal-periods')}
                 >
                   Manage Periods
-                </Button>
+                </AppButton>
               </Box>
             )}
           </Paper>
