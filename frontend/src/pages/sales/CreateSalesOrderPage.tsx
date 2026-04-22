@@ -3,7 +3,6 @@ import { useStore } from 'react-redux'
 import { useNavigate, useParams } from 'react-router-dom'
 import {
   Box,
-  Button,
   Grid,
   TextField,
   Typography,
@@ -30,6 +29,7 @@ import * as yup from 'yup'
 import { useCreateSalesOrderMutation, useUpdateSalesOrderMutation, useLazyGetSalesOrderQuery, useGetCustomersQuery } from '@/store/api/salesApi'
 import { patchSalesOrderCaches } from '@/store/api/salesOrderCache'
 import { formatCurrency, getCurrentDate } from '@/utils/formatters'
+import { AppButton } from '@/components/common/AppButton'
 import { useNotification } from '@/hooks/useNotification'
 import { useProductSearch } from '@/hooks/useProductSearch'
 import { useAppDispatch } from '@/hooks/useRedux'
@@ -545,13 +545,13 @@ const CreateSalesOrderPage: React.FC = () => {
                 <CardContent>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                     <Typography variant="h6">SO Items</Typography>
-                    <Button
+                    <AppButton
+                      variant="secondary"
                       startIcon={<AddIcon />}
                       onClick={addItem}
-                      variant="outlined"
                     >
                       Add Item
-                    </Button>
+                    </AppButton>
                   </Box>
 
                   <TableContainer component={Paper} sx={{ border: `1px solid ${theme.palette.divider}` }}>
@@ -998,17 +998,17 @@ const CreateSalesOrderPage: React.FC = () => {
                   </Box>
 
                   <Box sx={{ display: 'flex', gap: 2, mt: 'auto' }}>
-                    <Button
-                      variant="outlined"
+                    <AppButton
+                      variant="secondary"
                       fullWidth
                       onClick={() => navigate('/sales/orders')}
                       disabled={loading}
                     >
                       Cancel
-                    </Button>
-                    <Button
+                    </AppButton>
+                    <AppButton
+                      variant="primary"
                       type="submit"
-                      variant="contained"
                       fullWidth
                       disabled={loading}
                     >
@@ -1016,7 +1016,7 @@ const CreateSalesOrderPage: React.FC = () => {
                         ? (isEditMode ? 'Updating...' : 'Creating...')
                         : (isEditMode ? 'Update Order' : 'Create Order')
                       }
-                    </Button>
+                    </AppButton>
                   </Box>
                 </CardContent>
               </Card>

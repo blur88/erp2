@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useState } from 'react'
 import {
   Alert,
   Box,
-  Button,
   Card,
   CardContent,
   CircularProgress,
@@ -21,6 +20,7 @@ import { yupResolver } from '@hookform/resolvers/yup'
 import * as yup from 'yup'
 
 import AddressSection from '@/components/common/AddressSection'
+import { AppButton } from '@/components/common/AppButton'
 import PageHeader from '@/components/common/PageHeader'
 import PriceListSelector from '@/components/price-lists/PriceListSelector'
 import { useFieldDuplicateCheck } from '@/hooks/useFieldDuplicateCheck'
@@ -339,25 +339,25 @@ const CustomerFormPage: React.FC = () => {
                 />
 
                 <Box sx={{ mt: 'auto', display: 'flex', flexDirection: 'column', gap: 1 }}>
-                  <Button
-                    variant="outlined"
+                  <AppButton
+                    variant="secondary"
                     fullWidth
                     onClick={() => navigate('/sales/customers')}
                     disabled={isSaving}
                   >
                     Cancel
-                  </Button>
+                  </AppButton>
 
-                  <Button
+                  <AppButton
+                    variant="primary"
                     type="submit"
-                    variant="contained"
                     fullWidth
                     disabled={isSaving || hasPhoneDuplicate || isCheckingPhone}
                   >
                     {isSaving
                       ? (isEdit ? 'Updating...' : 'Creating...')
                       : (isEdit ? 'Update Customer' : 'Create Customer')}
-                  </Button>
+                  </AppButton>
                 </Box>
               </CardContent>
             </Card>
