@@ -1,8 +1,9 @@
 import React from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Alert, AlertTitle, Typography, Button } from '@mui/material'
+import { Alert, AlertTitle, Typography } from '@mui/material'
 import { useValidateAccountMappingsQuery } from '@/store/api/accountingApi'
 import { MappingType } from '@/types/accountMapping'
+import { AppButton } from '@/components/common/AppButton'
 
 interface AccountMappingWarningProps {
   context?: 'transaction' | 'system'
@@ -58,14 +59,14 @@ const AccountMappingWarning: React.FC<AccountMappingWarningProps> = ({
             ))}
           </ul>
         )}
-        <Button
-          variant="contained"
+        <AppButton
+          variant="primary"
           size="small"
           onClick={() => navigate('/accounting/account-mappings')}
           sx={{ mt: 1 }}
         >
           Configure Account Mappings
-        </Button>
+        </AppButton>
       </Alert>
     )
   }
