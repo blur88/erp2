@@ -25,26 +25,30 @@ interface JEFilters {
   period: PeriodValue
 }
 
-const filterConfig: FilterBarConfig<JEFilters> = {
-  search: { placeholder: 'Search by reference or description...' },
-  fields: [
-    { field: 'period', label: 'Period', type: 'period' },
-    { field: 'status', label: 'Status', type: 'journal-entry-status' },
-    { field: 'entryType', label: 'Entry Type', type: 'journal-entry-type' },
-  ],
-  defaults: {
-    search: '',
-    status: null,
-    entryType: null,
-    period: { key: null, from: null, to: null },
-  },
-}
-
-const JournalEntriesPage: React.FC = () => {
-  const location = useLocation()
-  const navigate = useNavigate()
+export const JournalEntriesPage: React.FC = () => {
   const [sortBy, setSortBy] = useState('createdAt')
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
+
+  const location = useLocation()
+  const navigate = useNavigate()
+
+  const filterConfig = useMemo<FilterBarConfig<JEFilters>>(
+    () => ({
+      search: { placeholder: 'Search by reference or description...' },
+      fields: [
+        { field: 'period', label: 'Period', type: 'period' },
+        { field: 'status', label: 'Status', type: 'journal-entry-status' },
+        { field: 'entryType', label: 'Entry Type', type: 'journal-entry-type' },
+      ],
+      defaults: {
+        search: '',
+        status: null,
+        entryType: null,
+        period: { key: null, from: null, to: null },
+      },
+    }),
+    [],
+  )
 
   const { appliedFilters, draftFilters, handlers, hasActiveFilters } = useFilterBar(filterConfig)
 
@@ -79,6 +83,16 @@ const JournalEntriesPage: React.FC = () => {
     void refetch()
   })
 
+  const filterHandlers = useMemo(() => ({
+    ...handlers,
+    onSearchChange: (value: string) => {
+      handlers.onSearchChange(value)
+      window.setTimeout(() => {
+        workspace.searchInputRef.current?.focus()
+      }, 0)
+    },
+  }), [handlers, workspace])
+
   const handleSort = useCallback((field: string) => {
     setSortOrder((prev) => (sortBy === field && prev === 'desc' ? 'asc' : 'desc'))
     setSortBy(field)
@@ -89,11 +103,11 @@ const JournalEntriesPage: React.FC = () => {
       <AccountMappingWarning context="system" />
       <GenericListPage
         title="Journal Entries"
-        subtitle={`Manage and post accounting journal entries (${pagination?.total ?? 0} total)`}
+        subtitle="Manage and post accounting journal entries"
         primaryAction={{ label: 'New Journal Entry', onClick: workspace.navigateToCreate }}
         filterConfig={filterConfig}
         draftFilters={draftFilters}
-        handlers={handlers}
+        handlers={filterHandlers}
         hasActiveFilters={hasActiveFilters}
         searchInputRef={workspace.searchInputRef}
         sort={{ field: 'createdAt', sortBy, sortOrder, onSort: handleSort }}
