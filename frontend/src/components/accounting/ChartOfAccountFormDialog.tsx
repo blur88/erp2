@@ -4,7 +4,6 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  Button,
   TextField,
   Grid,
   FormControl,
@@ -16,6 +15,7 @@ import {
   Typography,
   Box,
 } from '@mui/material'
+import { AppButton } from '@/components/common/AppButton'
 import { useForm, Controller } from 'react-hook-form'
 import { yupResolver } from '@hookform/resolvers/yup'
 import * as yup from 'yup'
@@ -352,16 +352,16 @@ const ChartOfAccountFormDialog: React.FC<ChartOfAccountFormDialogProps> = ({
           </Grid>
         </DialogContent>
         <DialogActions>
-          <Button onClick={onClose} disabled={submitting}>
+          <AppButton variant="secondary" onClick={onClose} disabled={submitting}>
             Cancel
-          </Button>
-          <Button
+          </AppButton>
+          <AppButton
+            variant="primary"
             type="submit"
-            variant="contained"
             disabled={submitting}
           >
             {submitting ? 'Saving...' : account ? 'Update' : 'Create'}
-          </Button>
+          </AppButton>
         </DialogActions>
       </form>
     </Dialog>

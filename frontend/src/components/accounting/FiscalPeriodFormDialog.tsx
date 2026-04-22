@@ -4,7 +4,6 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  Button,
   TextField,
   Box,
 } from '@mui/material'
@@ -16,6 +15,7 @@ import {
 } from '@/store/api/accountingApi'
 import { FiscalPeriod } from '@/types'
 import { getErrorMessage } from '@/utils/errorMessage'
+import { AppButton } from '@/components/common/AppButton'
 
 interface FiscalPeriodFormDialogProps {
   open: boolean
@@ -212,16 +212,16 @@ const FiscalPeriodFormDialog: React.FC<FiscalPeriodFormDialogProps> = ({
         </Box>
       </DialogContent>
       <DialogActions>
-        <Button onClick={handleClose} color="inherit" disabled={submitting}>
+        <AppButton variant="secondary" onClick={handleClose} disabled={submitting}>
           Cancel
-        </Button>
-        <Button
+        </AppButton>
+        <AppButton
+          variant="primary"
           onClick={handleSubmit}
-          variant="contained"
           disabled={submitting}
         >
           {period ? 'Update' : 'Create'}
-        </Button>
+        </AppButton>
       </DialogActions>
     </Dialog>
   )

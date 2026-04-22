@@ -4,7 +4,6 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  Button,
   TextField,
   FormControl,
   InputLabel,
@@ -15,6 +14,7 @@ import {
   CircularProgress,
   Alert,
 } from '@mui/material'
+import { AppButton } from '@/components/common/AppButton'
 import { useNotification } from '@/hooks/useNotification'
 import {
   useCreateAccountMappingMutation,
@@ -244,16 +244,16 @@ const AccountMappingDialog: React.FC<AccountMappingDialogProps> = ({
         </DialogContent>
 
         <DialogActions>
-          <Button onClick={onClose} disabled={submitting}>
+          <AppButton variant="secondary" onClick={onClose} disabled={submitting}>
             Cancel
-          </Button>
-          <Button
+          </AppButton>
+          <AppButton
+            variant="primary"
             type="submit"
-            variant="contained"
             disabled={submitting || loadingAccounts || !formData.accountId}
           >
             {submitting ? 'Saving...' : mapping ? 'Update' : 'Create'}
-          </Button>
+          </AppButton>
         </DialogActions>
       </form>
     </Dialog>

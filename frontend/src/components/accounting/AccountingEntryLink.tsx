@@ -2,13 +2,13 @@ import React from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Box,
-  Button,
   Alert,
   AlertTitle,
   Link,
   Typography,
 } from '@mui/material'
 import { default as AccountBalanceIcon } from '@mui/icons-material/AccountBalance'
+import { AppButton } from '@/components/common/AppButton'
 
 interface AccountingEntryLinkProps {
   sourceType: string
@@ -40,9 +40,9 @@ const AccountingEntryLink: React.FC<AccountingEntryLinkProps> = ({
       <Alert severity="info" sx={{ mt: 2 }}>
         <AlertTitle>Accounting Information</AlertTitle>
         {message}
-        <Button variant="text" size="small" sx={{ ml: 2 }} onClick={handleClick}>
+        <AppButton variant="text" size="small" sx={{ ml: 2 }} onClick={handleClick}>
           {label}
-        </Button>
+        </AppButton>
       </Alert>
     )
   }
@@ -112,14 +112,14 @@ const AccountingEntryLink: React.FC<AccountingEntryLinkProps> = ({
 
   // Default: button variant
   return (
-    <Button
-      variant="outlined"
+    <AppButton
+      variant="secondary"
       size="small"
       startIcon={<AccountBalanceIcon />}
       onClick={handleClick}
     >
       {label}
-    </Button>
+    </AppButton>
   )
 }
 

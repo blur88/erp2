@@ -4,7 +4,6 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  Button,
   TextField,
   Box,
   FormControl,
@@ -22,6 +21,7 @@ import {
 } from '@/store/api/accountingApi';
 import { BankReconciliation, FiscalPeriodStatus } from '@/types';
 import { getErrorMessage } from '@/utils/errorMessage';
+import { AppButton } from '@/components/common/AppButton';
 
 interface BankReconciliationFormDialogProps {
   open: boolean;
@@ -222,12 +222,12 @@ const BankReconciliationFormDialog: React.FC<BankReconciliationFormDialogProps> 
         </Box>
       </DialogContent>
       <DialogActions>
-        <Button onClick={handleClose} color="inherit" disabled={submitting}>
+        <AppButton variant="secondary" onClick={handleClose} disabled={submitting}>
           Cancel
-        </Button>
-        <Button onClick={handleSubmit} variant="contained" disabled={submitting}>
+        </AppButton>
+        <AppButton variant="primary" onClick={handleSubmit} disabled={submitting}>
           {reconciliation ? 'Update' : 'Create'}
-        </Button>
+        </AppButton>
       </DialogActions>
     </Dialog>
   );

@@ -4,7 +4,6 @@ import {
   Typography,
   Paper,
   Grid,
-  Button,
   FormControl,
   InputLabel,
   Select,
@@ -28,6 +27,7 @@ import { default as ExcelIcon } from '@mui/icons-material/TableChart'
 import { default as RefreshIcon } from '@mui/icons-material/Refresh'
 import { default as GenerateIcon } from '@mui/icons-material/PlayArrow'
 import { default as PaymentIcon } from '@mui/icons-material/MonetizationOn'
+import { AppButton } from '@/components/common/AppButton'
 import PageHeader from '@/components/common/PageHeader'
 import { printColors } from '@/styles/printTokens'
 import { PRINT_STYLES } from '@/styles/printStyles'
@@ -674,20 +674,20 @@ const VendorPaymentDetailsReport: React.FC = () => {
                   Report Preview ({reportData.length} payments)
                 </Typography>
                 <Box sx={{ display: 'flex', gap: 1 }}>
-                  <Button
-                    size="small"
+                  <AppButton
+                    size="filter"
                     startIcon={<ExcelIcon />}
                     onClick={handleExportExcel}
                   >
                     Excel
-                  </Button>
-                  <Button
-                    size="small"
+                  </AppButton>
+                  <AppButton
+                    size="filter"
                     startIcon={<PdfIcon />}
                     onClick={handleExportPDF}
                   >
                     PDF
-                  </Button>
+                  </AppButton>
                 </Box>
               </Box>
 

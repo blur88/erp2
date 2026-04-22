@@ -4,7 +4,6 @@ import {
   Typography,
   Paper,
   Grid,
-  Button,
   FormControl,
   InputLabel,
   Select,
@@ -29,6 +28,7 @@ import {
   IconButton,
 } from '@mui/material'
 import { alpha } from '@mui/material/styles'
+import { AppButton } from '@/components/common/AppButton'
 import { default as PdfIcon } from '@mui/icons-material/PictureAsPdf'
 import { default as ExcelIcon } from '@mui/icons-material/TableChart'
 import { default as RefreshIcon } from '@mui/icons-material/Refresh'
@@ -1064,20 +1064,20 @@ const ProductCustomerReport: React.FC = () => {
                   Report Preview ({reportData.length} records)
                 </Typography>
                 <Box sx={{ display: 'flex', gap: 1 }}>
-                  <Button
-                    size="small"
+                  <AppButton
+                    size="filter"
                     startIcon={<ExcelIcon />}
                     onClick={handleExportExcel}
                   >
                     Excel
-                  </Button>
-                  <Button
-                    size="small"
+                  </AppButton>
+                  <AppButton
+                    size="filter"
                     startIcon={<PdfIcon />}
                     onClick={handleExportPDF}
                   >
                     PDF
-                  </Button>
+                  </AppButton>
                 </Box>
               </Box>
 
@@ -1393,13 +1393,13 @@ const ProductCustomerReport: React.FC = () => {
           <Typography variant="h6" sx={{ fontWeight: 600 }}>
             Select Products
           </Typography>
-          <Button
+          <AppButton
             size="small"
             onClick={handleProductDialogClose}
             sx={{ minWidth: 'auto', p: 0.5 }}
           >
             <CloseIcon />
-          </Button>
+          </AppButton>
         </DialogTitle>
         <DialogContent sx={{ p: 2, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
           <Grid container spacing={1} sx={{ flex: 1, minHeight: 0 }}>
@@ -1633,12 +1633,12 @@ const ProductCustomerReport: React.FC = () => {
             }}>
             {selectedProducts.length} product{selectedProducts.length !== 1 ? 's' : ''} selected
           </Typography>
-          <Button onClick={handleProductDialogClose}>
+          <AppButton variant="secondary" onClick={handleProductDialogClose}>
             Cancel
-          </Button>
-          <Button onClick={handleProductDialogClose} variant="contained">
+          </AppButton>
+          <AppButton variant="primary" onClick={handleProductDialogClose}>
             Done
-          </Button>
+          </AppButton>
         </DialogActions>
       </Dialog>
     </>

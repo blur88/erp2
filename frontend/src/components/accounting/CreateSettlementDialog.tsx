@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   Box,
-  Button,
   Checkbox,
   Dialog,
   DialogActions,
@@ -20,6 +19,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
+import { AppButton } from '@/components/common/AppButton';
 import type { PaymentMethodConfig } from '@/types';
 import {
   useGetPaymentMethodsQuery,
@@ -192,14 +192,14 @@ const CreateSettlementDialog: React.FC<CreateSettlementDialogProps> = ({ open, o
         </Stack>
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>Cancel</Button>
-        <Button
-          variant="contained"
+        <AppButton variant="secondary" onClick={onClose}>Cancel</AppButton>
+        <AppButton
+          variant="primary"
           onClick={handleSubmit}
           disabled={!paymentMethodId || !selectedIds.length}
         >
           Create Settlement
-        </Button>
+        </AppButton>
       </DialogActions>
     </Dialog>
   );

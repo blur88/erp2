@@ -2,7 +2,6 @@ import React from 'react'
 import {
   Alert,
   Box,
-  Button,
   Card,
   CardContent,
   Dialog,
@@ -21,6 +20,7 @@ import {
 import Grid from '@mui/material/Grid'
 
 import AccountingEntryLink from '@/components/accounting/AccountingEntryLink'
+import { AppButton } from '@/components/common/AppButton'
 import ConfirmationDialog from '@/components/common/ConfirmationDialog'
 import PaymentDialog from '@/components/sales/PaymentDialog'
 import BlockedSalesOrderDialog from '@/components/sales/BlockedSalesOrderDialog'
@@ -246,7 +246,7 @@ const OrdersDialogs: React.FC<OrdersDialogsProps> = ({
           )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={onCloseViewDialog}>Close</Button>
+          <AppButton variant="secondary" onClick={onCloseViewDialog}>Close</AppButton>
         </DialogActions>
       </Dialog>
       {selectedOrder && (

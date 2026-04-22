@@ -4,7 +4,6 @@ import {
   Typography,
   Paper,
   Grid,
-  Button,
   FormControl,
   InputLabel,
   Select,
@@ -24,6 +23,7 @@ import {
   Chip,
 } from '@mui/material'
 import { alpha } from '@mui/material/styles'
+import { AppButton } from '@/components/common/AppButton'
 import { default as PdfIcon } from '@mui/icons-material/PictureAsPdf'
 import { default as ExcelIcon } from '@mui/icons-material/TableChart'
 import { default as RefreshIcon } from '@mui/icons-material/Refresh'
@@ -886,20 +886,20 @@ const SalesOrderSummary: React.FC = () => {
                   Report Preview ({reportData.length} orders)
                 </Typography>
                 <Box sx={{ display: 'flex', gap: 1 }}>
-                  <Button
-                    size="small"
+                  <AppButton
+                    size="filter"
                     startIcon={<ExcelIcon />}
                     onClick={handleExportExcel}
                   >
                     Excel
-                  </Button>
-                  <Button
-                    size="small"
+                  </AppButton>
+                  <AppButton
+                    size="filter"
                     startIcon={<PdfIcon />}
                     onClick={handleExportPDF}
                   >
                     PDF
-                  </Button>
+                  </AppButton>
                 </Box>
               </Box>
 

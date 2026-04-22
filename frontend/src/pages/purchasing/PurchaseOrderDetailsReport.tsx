@@ -5,7 +5,6 @@ import {
   Typography,
   Paper,
   Grid,
-  Button,
   IconButton,
   FormControl,
   InputLabel,
@@ -48,6 +47,7 @@ import { default as KeyboardArrowRightIcon } from '@mui/icons-material/KeyboardA
 import { default as KeyboardArrowLeftIcon } from '@mui/icons-material/KeyboardArrowLeft'
 import { default as KeyboardDoubleArrowRightIcon } from '@mui/icons-material/KeyboardDoubleArrowRight'
 import { default as KeyboardDoubleArrowLeftIcon } from '@mui/icons-material/KeyboardDoubleArrowLeft'
+import { AppButton } from '@/components/common/AppButton'
 import PageHeader from '@/components/common/PageHeader'
 import { printColors } from '@/styles/printTokens'
 import { PRINT_STYLES } from '@/styles/printStyles'
@@ -1013,20 +1013,20 @@ const PurchaseOrderDetailsReport: React.FC = () => {
                   Report Preview ({reportData.length} records)
                 </Typography>
                 <Box sx={{ display: 'flex', gap: 1 }}>
-                  <Button
-                    size="small"
+                  <AppButton
+                    size="filter"
                     startIcon={<ExcelIcon />}
                     onClick={handleExportExcel}
                   >
                     Excel
-                  </Button>
-                  <Button
-                    size="small"
+                  </AppButton>
+                  <AppButton
+                    size="filter"
                     startIcon={<PdfIcon />}
                     onClick={handleExportPDF}
                   >
                     PDF
-                  </Button>
+                  </AppButton>
                 </Box>
               </Box>
 
@@ -1317,13 +1317,13 @@ const PurchaseOrderDetailsReport: React.FC = () => {
           <Typography variant="h6" sx={{ fontWeight: 600 }}>
             Select Products
           </Typography>
-          <Button
+          <AppButton
             size="small"
             onClick={handleProductDialogClose}
             sx={{ minWidth: 'auto', p: 0.5 }}
           >
             <CloseIcon />
-          </Button>
+          </AppButton>
         </DialogTitle>
         <DialogContent sx={{ p: 2, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
           <Grid container spacing={1} sx={{ flex: 1, minHeight: 0 }}>
@@ -1557,15 +1557,15 @@ const PurchaseOrderDetailsReport: React.FC = () => {
             }}>
             {selectedProducts.length} product{selectedProducts.length !== 1 ? 's' : ''} selected
           </Typography>
-          <Button onClick={handleProductDialogClose}>
+          <AppButton variant="secondary" onClick={handleProductDialogClose}>
             Cancel
-          </Button>
-          <Button
-            variant="contained"
+          </AppButton>
+          <AppButton
+            variant="primary"
             onClick={handleProductDialogConfirm}
           >
             Apply
-          </Button>
+          </AppButton>
         </DialogActions>
       </Dialog>
     </>

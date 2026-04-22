@@ -4,7 +4,6 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  Button,
   TextField,
   FormControl,
   InputLabel,
@@ -14,6 +13,7 @@ import {
   Typography,
   Alert,
 } from '@mui/material'
+import { AppButton } from '@/components/common/AppButton'
 
 interface GeneratePeriodsDialogProps {
   open: boolean
@@ -130,16 +130,16 @@ const GeneratePeriodsDialog: React.FC<GeneratePeriodsDialogProps> = ({
         </Box>
       </DialogContent>
       <DialogActions>
-        <Button onClick={handleClose} color="inherit">
+        <AppButton variant="secondary" onClick={handleClose}>
           Cancel
-        </Button>
-        <Button
+        </AppButton>
+        <AppButton
+          variant="primary"
           onClick={handleSubmit}
-          variant="contained"
           disabled={!!yearError || isNaN(year)}
         >
           Generate Periods
-        </Button>
+        </AppButton>
       </DialogActions>
     </Dialog>
   );

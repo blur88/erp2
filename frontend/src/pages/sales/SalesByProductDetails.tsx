@@ -4,7 +4,6 @@ import {
   Typography,
   Paper,
   Grid,
-  Button,
   IconButton,
   FormControl,
   InputLabel,
@@ -37,6 +36,7 @@ import {
   OutlinedInput,
 } from '@mui/material'
 import { alpha } from '@mui/material/styles'
+import { AppButton } from '@/components/common/AppButton'
 import { default as PdfIcon } from '@mui/icons-material/PictureAsPdf'
 import { default as ExcelIcon } from '@mui/icons-material/TableChart'
 import { default as RefreshIcon } from '@mui/icons-material/Refresh'
@@ -1086,20 +1086,20 @@ const SalesByProductDetails: React.FC = () => {
                   Report Preview ({reportData.length} transactions)
                 </Typography>
                 <Box sx={{ display: 'flex', gap: 1 }}>
-                  <Button
-                    size="small"
+                  <AppButton
+                    size="filter"
                     startIcon={<ExcelIcon />}
                     onClick={handleExportExcel}
                   >
                     Excel
-                  </Button>
-                  <Button
-                    size="small"
+                  </AppButton>
+                  <AppButton
+                    size="filter"
                     startIcon={<PdfIcon />}
                     onClick={handleExportPDF}
                   >
                     PDF
-                  </Button>
+                  </AppButton>
                 </Box>
               </Box>
 
@@ -1440,13 +1440,13 @@ const SalesByProductDetails: React.FC = () => {
           <Typography variant="h6" sx={{ fontWeight: 600 }}>
             Select Products
           </Typography>
-          <Button
+          <AppButton
             size="small"
             onClick={handleProductDialogClose}
             sx={{ minWidth: 'auto', p: 0.5 }}
           >
             <CloseIcon />
-          </Button>
+          </AppButton>
         </DialogTitle>
         <DialogContent sx={{ p: 2, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
           <Grid container spacing={1} sx={{ flex: 1, minHeight: 0 }}>
@@ -1680,16 +1680,16 @@ const SalesByProductDetails: React.FC = () => {
             }}>
             {selectedProducts.length} product{selectedProducts.length !== 1 ? 's' : ''} selected
           </Typography>
-          <Button onClick={handleProductDialogClose}>
+          <AppButton variant="secondary" onClick={handleProductDialogClose}>
             Cancel
-          </Button>
-          <Button
-            variant="contained"
+          </AppButton>
+          <AppButton
+            variant="primary"
             onClick={handleProductDialogConfirm}
             disabled={selectedProducts.length === 0}
           >
             Apply
-          </Button>
+          </AppButton>
         </DialogActions>
       </Dialog>
     </>
