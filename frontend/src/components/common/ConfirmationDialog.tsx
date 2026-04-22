@@ -4,7 +4,6 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  Button,
   Typography,
   Box,
   useTheme
@@ -12,6 +11,7 @@ import {
 import { default as WarningIcon } from '@mui/icons-material/Warning'
 import { default as ErrorIcon } from '@mui/icons-material/Error'
 import { default as InfoIcon } from '@mui/icons-material/Info'
+import { AppButton } from '@/components/common/AppButton'
 
 interface ConfirmationDialogProps {
   open: boolean
@@ -46,17 +46,6 @@ const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({
         return <InfoIcon sx={{ color: theme.palette.info.main, fontSize: 32 }} />
       default:
         return <WarningIcon sx={{ color: theme.palette.warning.main, fontSize: 32 }} />
-    }
-  }
-
-  const getSeverityColor = () => {
-    switch (severity) {
-      case 'error':
-        return theme.palette.error.main
-      case 'info':
-        return theme.palette.info.main
-      default:
-        return theme.palette.warning.main
     }
   }
 
@@ -96,28 +85,21 @@ const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({
         </Typography>
       </DialogContent>
       <DialogActions sx={{ p: 3, pt: 1 }}>
-        <Button
+        <AppButton
+          variant="secondary"
           onClick={onCancel}
-          variant="outlined"
           disabled={loading}
         >
           {cancelText}
-        </Button>
-        <Button
+        </AppButton>
+        <AppButton
+          variant={severity === 'error' ? 'danger' : severity}
           onClick={onConfirm}
-          variant="contained"
-          color={severity === 'error' ? 'error' : 'warning'}
           disabled={loading}
-          sx={{
-            bgcolor: getSeverityColor(),
-            '&:hover': {
-              bgcolor: getSeverityColor(),
-              filter: 'brightness(0.9)'
-            }
-          }}
+          loading={loading}
         >
-          {loading ? 'Processing...' : confirmText}
-        </Button>
+          {confirmText}
+        </AppButton>
       </DialogActions>
     </Dialog>
   );
