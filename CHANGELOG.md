@@ -1,3 +1,16 @@
+# [1.85.0](https://github.com/blur88/erp2/compare/v1.84.1...v1.85.0) (2026-04-22)
+
+
+### Features
+
+* **ui:** add text and info variants to AppButton (issue [#407](https://github.com/blur88/erp2/issues/407)) ([321cfb9](https://github.com/blur88/erp2/commit/321cfb9ca56142369a994fab9ec748f9b0241bbf))
+* **ui:** migrate accounting components to AppButton (issue [#407](https://github.com/blur88/erp2/issues/407)) ([a33ccfd](https://github.com/blur88/erp2/commit/a33ccfd28fc2ccf01596743b0a5c4c080dbfbd5e))
+* **ui:** migrate ConfirmationDialog to AppButton (issue [#407](https://github.com/blur88/erp2/issues/407)) ([973382b](https://github.com/blur88/erp2/commit/973382b08dd0d285b1c7e380ff32be5cb41ea98a))
+* **ui:** migrate inventory pages to AppButton (issue [#407](https://github.com/blur88/erp2/issues/407)) ([927d527](https://github.com/blur88/erp2/commit/927d5276c5943a938701e298b88574730ec69da9))
+* **ui:** migrate NotificationPanel and TransactionForm to AppButton (issue [#407](https://github.com/blur88/erp2/issues/407)) ([2ee1db7](https://github.com/blur88/erp2/commit/2ee1db71a73bccb93e81359644d5977302ef15b9))
+* **ui:** migrate purchasing pages to AppButton (issue [#407](https://github.com/blur88/erp2/issues/407)) ([5d88b44](https://github.com/blur88/erp2/commit/5d88b44861e12ce10f675e50b4b665e92c8384a8))
+* **ui:** migrate sales pages to AppButton (issue [#407](https://github.com/blur88/erp2/issues/407)) ([75990f1](https://github.com/blur88/erp2/commit/75990f14e345ef5448602ea305d2ecb48dc23583))
+
 ## [1.84.1](https://github.com/blur88/erp2/compare/v1.84.0...v1.84.1) (2026-04-22)
 
 
