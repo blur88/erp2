@@ -16,7 +16,7 @@ export function JournalEntryWorkspaceCard({ selectedEntry }: Props) {
 
   return (
     <Paper sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-      <Box sx={{ px: 2, py: 1, borderBottom: TABLE_STYLES.cell.border }}>
+      <Box sx={{ px: TABLE_STYLES.cell.padding.px, py: 1, borderBottom: TABLE_STYLES.cell.border }}>
         <Typography variant="tableHeader" sx={{ fontWeight: 600, fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
           Ledger Lines
         </Typography>
