@@ -1,3 +1,10 @@
+# [1.86.0](https://github.com/blur88/erp2/compare/v1.85.0...v1.86.0) (2026-04-22)
+
+
+### Features
+
+* **ui:** migrate accounting & common pages to AppButton (issue [#411](https://github.com/blur88/erp2/issues/411)) ([b57c6a6](https://github.com/blur88/erp2/commit/b57c6a6ea36ee24288592ddde8b1203ca8e79fbc))
+
 # [1.85.0](https://github.com/blur88/erp2/compare/v1.84.1...v1.85.0) (2026-04-22)
 
 
