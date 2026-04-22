@@ -1,3 +1,10 @@
+## [1.84.1](https://github.com/blur88/erp2/compare/v1.84.0...v1.84.1) (2026-04-22)
+
+
+### Internal Changes
+
+* chore(deps): update react-router-dom to 7.14.2 (issue #406) ([](https://github.com/blur88/erp2/commit/))
+
 # [1.84.0](https://github.com/blur88/erp2/compare/v1.83.5...v1.84.0) (2026-04-21)
 
 
