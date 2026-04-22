@@ -47,11 +47,9 @@ describe('RouteErrorBoundary', () => {
       expect(screen.getByRole('button', { name: /refresh page/i })).toBeInTheDocument()
     })
 
-    it('renders "Go to Dashboard" link pointing to /', () => {
+    it('renders "Go to Dashboard" button', () => {
       renderWithError(new Error('Importing a module script failed'))
-      const link = screen.getByRole('link', { name: /go to dashboard/i })
-      expect(link).toBeInTheDocument()
-      expect(link).toHaveAttribute('href', '/')
+      expect(screen.getByRole('button', { name: /go to dashboard/i })).toBeInTheDocument()
     })
   })
 
@@ -66,11 +64,9 @@ describe('RouteErrorBoundary', () => {
       expect(screen.getByRole('button', { name: /reload page/i })).toBeInTheDocument()
     })
 
-    it('renders "Go Home" link pointing to /', () => {
+    it('renders "Go Home" button', () => {
       renderWithError(new Error('something broke'))
-      const link = screen.getByRole('link', { name: /go home/i })
-      expect(link).toBeInTheDocument()
-      expect(link).toHaveAttribute('href', '/')
+      expect(screen.getByRole('button', { name: /go home/i })).toBeInTheDocument()
     })
   })
 })
