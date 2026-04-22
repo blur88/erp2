@@ -26,10 +26,11 @@ interface JEFilters {
 }
 
 export const JournalEntriesPage: React.FC = () => {
-  const location = useLocation()
-  const navigate = useNavigate()
   const [sortBy, setSortBy] = useState('createdAt')
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
+
+  const location = useLocation()
+  const navigate = useNavigate()
 
   const filterConfig = useMemo<FilterBarConfig<JEFilters>>(
     () => ({
@@ -82,6 +83,16 @@ export const JournalEntriesPage: React.FC = () => {
     void refetch()
   })
 
+  const filterHandlers = useMemo(() => ({
+    ...handlers,
+    onSearchChange: (value: string) => {
+      handlers.onSearchChange(value)
+      window.setTimeout(() => {
+        workspace.searchInputRef.current?.focus()
+      }, 0)
+    },
+  }), [handlers, workspace])
+
   const handleSort = useCallback((field: string) => {
     setSortOrder((prev) => (sortBy === field && prev === 'desc' ? 'asc' : 'desc'))
     setSortBy(field)
@@ -96,7 +107,7 @@ export const JournalEntriesPage: React.FC = () => {
         primaryAction={{ label: 'New Journal Entry', onClick: workspace.navigateToCreate }}
         filterConfig={filterConfig}
         draftFilters={draftFilters}
-        handlers={handlers}
+        handlers={filterHandlers}
         hasActiveFilters={hasActiveFilters}
         searchInputRef={workspace.searchInputRef}
         sort={{ field: 'createdAt', sortBy, sortOrder, onSort: handleSort }}
