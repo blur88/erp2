@@ -1,3 +1,12 @@
+## [1.87.5](https://github.com/blur88/erp2/compare/v1.87.4...v1.87.5) (2026-04-23)
+
+
+### Bug Fixes
+
+* **db:** set migrationsTransactionMode to 'each' to allow CONCURRENTLY migrations ([3f65c9d](https://github.com/blur88/erp2/commit/3f65c9d4552f2e27a4cae3437d5885a375ed5905))
+* **deps:** force uuid>=14.0.0 to resolve GHSA-w5hq-g745-h8pq (issue [#422](https://github.com/blur88/erp2/issues/422)) ([64c79e9](https://github.com/blur88/erp2/commit/64c79e938f5d3c9283d862555bddf4adef4ab9d6))
+* **test:** add uuid shim and typeorm src transform to E2E jest config ([01d0c76](https://github.com/blur88/erp2/commit/01d0c765c314ee417ae998be2a003137e5723870))
+
 ## [1.87.4](https://github.com/blur88/erp2/compare/v1.87.3...v1.87.4) (2026-04-23)
 
 
