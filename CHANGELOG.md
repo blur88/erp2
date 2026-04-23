@@ -1,3 +1,13 @@
+## [1.87.3](https://github.com/blur88/erp2/compare/v1.87.2...v1.87.3) (2026-04-23)
+
+
+### Internal Changes
+
+* refactor(accounting): replace Chip components with plain text in JournalEntryContextHeader (issue #420) ([](https://github.com/blur88/erp2/commit/))
+* refactor(accounting): normalize JournalEntriesTable column style to match Sales module (issue #420) ([](https://github.com/blur88/erp2/commit/))
+* docs: add implementation plan for issue #420 JE UI normalization ([](https://github.com/blur88/erp2/commit/))
+* docs: add design spec for issue #420 JE UI normalization ([](https://github.com/blur88/erp2/commit/))
+
 ## [1.87.2](https://github.com/blur88/erp2/compare/v1.87.1...v1.87.2) (2026-04-23)
 
 
