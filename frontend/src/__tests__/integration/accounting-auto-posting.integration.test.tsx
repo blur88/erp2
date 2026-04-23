@@ -1,6 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { Provider } from 'react-redux'
+import { configureStore } from '@reduxjs/toolkit'
 import { BrowserRouter, MemoryRouter, Route, Routes } from 'react-router-dom'
 import { JournalEntryStatus } from '@/types'
 
@@ -67,6 +69,7 @@ import AccountMappingWarning from '@/components/accounting/AccountMappingWarning
 import AccountingEntryLink from '@/components/accounting/AccountingEntryLink'
 import AccountMappingsPage from '@/pages/accounting/AccountMappingsPage'
 import JournalEntriesPage from '@/pages/accounting/JournalEntriesPage'
+import accountingReducer from '@/store/slices/accountingSlice'
 
 const createUser = () => {
   return (userEvent as any).setup ? (userEvent as any).setup() : userEvent
@@ -77,12 +80,20 @@ const renderWithRouter = (component: React.ReactElement) => {
 }
 
 const renderJournalEntriesPage = (initialEntryUrl = '/accounting/journal-entries') => {
+  const store = configureStore({
+    reducer: {
+      accounting: accountingReducer,
+    },
+  })
+
   return render(
-    <MemoryRouter initialEntries={[initialEntryUrl]}>
-      <Routes>
-        <Route path="*" element={<JournalEntriesPage />} />
-      </Routes>
-    </MemoryRouter>,
+    <Provider store={store}>
+      <MemoryRouter initialEntries={[initialEntryUrl]}>
+        <Routes>
+          <Route path="*" element={<JournalEntriesPage />} />
+        </Routes>
+      </MemoryRouter>
+    </Provider>,
   )
 }
 
