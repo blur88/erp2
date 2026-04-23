@@ -59,7 +59,8 @@
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
     "socket.io": "^4.8.1",
-    "typeorm": "^0.3.17"
+    "typeorm": "^0.3.17",
+    "uuid": "^14.0.0"
   },
   "devDependencies": {
     "@nestjs/cli": "^11.0.0",
@@ -89,6 +90,7 @@
     "typescript": "6.0.3"
   },
   "overrides": {
+    "uuid": "$uuid",
     "body-parser": "2.2.1",
     "tar": "7.5.4",
     "js-yaml": "4.1.1",
@@ -139,6 +141,7 @@
       ]
     ],
     "moduleNameMapper": {
+      "^uuid$": "<rootDir>/test/shims/uuid.ts",
       "^@/(.*)$": "<rootDir>/src/$1",
       "^@modules/(.*)$": "<rootDir>/src/modules/$1",
       "^@common/(.*)$": "<rootDir>/src/common/$1",
