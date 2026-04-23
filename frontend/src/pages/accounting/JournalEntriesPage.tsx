@@ -4,7 +4,9 @@ import { useLocation } from 'react-router-dom'
 import AccountMappingWarning from '@/components/accounting/AccountMappingWarning'
 import GenericListPage from '@/components/common/GenericListPage'
 import { useFilterBar } from '@/hooks/useFilterBar'
+import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
 import { useGetJournalEntriesQuery } from '@/store/api/accountingApi'
+import { selectSelectedJournalEntry } from '@/store/slices/accountingSlice'
 import type { FilterBarConfig, PeriodValue } from '@/types/filterBar.types'
 import { getPeriodDateRange, getStartOfWeek } from '@/utils/dateRange'
 
@@ -25,6 +27,8 @@ export const JournalEntriesPage: React.FC = () => {
   const [sortBy, setSortBy] = useState('createdAt')
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
 
+  const dispatch = useAppDispatch()
+  const selectedEntry = useAppSelector(selectSelectedJournalEntry)
   const location = useLocation()
 
   const filterConfig = useMemo<FilterBarConfig<JEFilters>>(
@@ -74,17 +78,20 @@ export const JournalEntriesPage: React.FC = () => {
   const { data, isLoading, refetch } = useGetJournalEntriesQuery(queryArgs)
   const entries = data?.data ?? []
   const pagination = data?.meta
-  const workspace = useJournalEntriesWorkspace(() => {
-    void refetch()
+  const workspace = useJournalEntriesWorkspace({
+    dispatch,
+    entries,
+    selectedEntry,
+    refetch: () => {
+      void refetch()
+    },
   })
 
   const filterHandlers = useMemo(() => ({
     ...handlers,
     onSearchChange: (value: string) => {
       handlers.onSearchChange(value)
-      window.setTimeout(() => {
-        workspace.searchInputRef.current?.focus()
-      }, 0)
+      workspace.setShouldPreserveSearchFocus(true)
     },
   }), [handlers, workspace])
 
@@ -111,22 +118,23 @@ export const JournalEntriesPage: React.FC = () => {
             entries={entries}
             loading={isLoading}
             total={pagination?.total ?? entries.length}
-            selectedEntryId={workspace.selectedEntry?.id ?? null}
+            selectedEntryId={selectedEntry?.id ?? null}
+            focusedIndex={workspace.focusedIndex}
             onSelect={workspace.handleSelect}
             listRef={workspace.listRef}
           />
         )}
         headerSlot={(
           <JournalEntryContextHeader
-            selectedEntry={workspace.selectedEntry}
-            onEdit={() => workspace.selectedEntry && workspace.navigateToEdit(workspace.selectedEntry)}
-            onPost={() => workspace.selectedEntry && workspace.setPostTarget(workspace.selectedEntry)}
-            onReverse={() => workspace.selectedEntry && workspace.setReverseTarget(workspace.selectedEntry)}
-            onDelete={() => workspace.selectedEntry && workspace.setDeleteTarget(workspace.selectedEntry)}
+            selectedEntry={selectedEntry}
+            onEdit={() => selectedEntry && workspace.navigateToEdit(selectedEntry)}
+            onPost={() => selectedEntry && workspace.setPostTarget(selectedEntry)}
+            onReverse={() => selectedEntry && workspace.setReverseTarget(selectedEntry)}
+            onDelete={() => selectedEntry && workspace.setDeleteTarget(selectedEntry)}
             onViewSource={workspace.navigateToSource}
           />
         )}
-        workspaceSlot={<JournalEntryWorkspaceCard selectedEntry={workspace.selectedEntry} />}
+        workspaceSlot={<JournalEntryWorkspaceCard selectedEntry={selectedEntry} />}
         dialogs={(
           <JournalEntriesDialogs
             postTarget={workspace.postTarget}

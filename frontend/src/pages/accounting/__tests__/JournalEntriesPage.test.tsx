@@ -1,8 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { Provider } from 'react-redux'
+import { configureStore } from '@reduxjs/toolkit'
 import { BrowserRouter } from 'react-router-dom'
 
 import JournalEntriesPage from '../JournalEntriesPage'
+import accountingReducer from '@/store/slices/accountingSlice'
 import { JournalEntryStatus } from '@/types'
 
 vi.mock('@/hooks/useNotification', () => ({
@@ -63,6 +66,20 @@ const mockEntry = {
   updatedAt: '2026-01-01',
 }
 
+function makeStore() {
+  return configureStore({ reducer: { accounting: accountingReducer } })
+}
+
+function renderPage() {
+  return render(
+    <Provider store={makeStore()}>
+      <BrowserRouter>
+        <JournalEntriesPage />
+      </BrowserRouter>
+    </Provider>,
+  )
+}
+
 describe('JournalEntriesPage', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -81,17 +98,17 @@ describe('JournalEntriesPage', () => {
   })
 
   it('renders the page title', () => {
-    render(<BrowserRouter><JournalEntriesPage /></BrowserRouter>)
+    renderPage()
     expect(screen.getByText('Journal Entries')).toBeInTheDocument()
   })
 
   it('renders journal entry rows', () => {
-    render(<BrowserRouter><JournalEntriesPage /></BrowserRouter>)
+    renderPage()
     expect(screen.getByText('JE-001')).toBeInTheDocument()
   })
 
   it('clicking a row selects it and shows details in the context header', async () => {
-    render(<BrowserRouter><JournalEntriesPage /></BrowserRouter>)
+    renderPage()
 
     fireEvent.click(screen.getByText('JE-001'))
 
@@ -102,7 +119,7 @@ describe('JournalEntriesPage', () => {
   })
 
   it('renders journal entry details without chip styling', async () => {
-    const { container } = render(<BrowserRouter><JournalEntriesPage /></BrowserRouter>)
+    const { container } = renderPage()
 
     fireEvent.click(screen.getByText('JE-001'))
 
