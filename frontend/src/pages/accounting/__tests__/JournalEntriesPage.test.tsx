@@ -71,7 +71,10 @@ describe('JournalEntriesPage', () => {
       isLoading: false,
       refetch: vi.fn(),
     })
-    mockedApi.useLazyGetJournalEntryQuery.mockReturnValue([vi.fn().mockResolvedValue({ id: '1' })])
+    mockedApi.useLazyGetJournalEntryQuery.mockReturnValue([
+      vi.fn().mockResolvedValue({ data: mockEntry }),
+      { data: mockEntry, isLoading: false, isFetching: false },
+    ])
     mockedApi.useDeleteJournalEntryMutation.mockReturnValue([vi.fn()])
     mockedApi.usePostJournalEntryMutation.mockReturnValue([vi.fn()])
     mockedApi.useReverseJournalEntryMutation.mockReturnValue([vi.fn()])
