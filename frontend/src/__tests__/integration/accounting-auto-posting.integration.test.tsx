@@ -301,7 +301,7 @@ describe('Accounting Auto-Posting Integration Tests', () => {
       })
     })
 
-    it('displays both manual and auto-posted entries with correct type labels', async () => {
+    it('displays all entries as reference numbers in the list', async () => {
       renderJournalEntriesPage()
 
       await waitFor(() => {
@@ -309,23 +309,9 @@ describe('Accounting Auto-Posting Integration Tests', () => {
         expect(screen.getByText('JE-2026-002')).toBeInTheDocument()
         expect(screen.getByText('JE-2026-003')).toBeInTheDocument()
       })
-
-      expect(screen.getByText('Manual Entry')).toBeInTheDocument()
-      expect(screen.getByText('Sales Order')).toBeInTheDocument()
-      expect(screen.getByText('Customer Payment')).toBeInTheDocument()
     })
 
-    it('shows "View Transaction" link only for auto-posted entries', async () => {
-      renderJournalEntriesPage()
-
-      await waitFor(() => {
-        expect(screen.getByText('JE-2026-002')).toBeInTheDocument()
-      })
-
-      expect(screen.getAllByText('View Transaction')).toHaveLength(2)
-    })
-
-    it('navigates to source transaction when clicking View Transaction', async () => {
+    it('shows source link in context header when an auto-posted entry is selected', async () => {
       const user = createUser()
 
       renderJournalEntriesPage()
@@ -334,7 +320,29 @@ describe('Accounting Auto-Posting Integration Tests', () => {
         expect(screen.getByText('JE-2026-002')).toBeInTheDocument()
       })
 
-      await user.click(screen.getAllByText('View Transaction')[0])
+      await user.click(screen.getByText('JE-2026-002'))
+
+      await waitFor(() => {
+        expect(screen.getByText('View Sales Order')).toBeInTheDocument()
+      })
+    })
+
+    it('navigates to source transaction when clicking source link in context header', async () => {
+      const user = createUser()
+
+      renderJournalEntriesPage()
+
+      await waitFor(() => {
+        expect(screen.getByText('JE-2026-002')).toBeInTheDocument()
+      })
+
+      await user.click(screen.getByText('JE-2026-002'))
+
+      await waitFor(() => {
+        expect(screen.getByText('View Sales Order')).toBeInTheDocument()
+      })
+
+      await user.click(screen.getByText('View Sales Order'))
 
       expect(mockNavigate).toHaveBeenCalledWith('/sales/orders?highlight=so-123')
     })
