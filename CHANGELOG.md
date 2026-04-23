@@ -1,3 +1,10 @@
+## [1.87.6](https://github.com/blur88/erp2/compare/v1.87.5...v1.87.6) (2026-04-23)
+
+
+### Internal Changes
+
+* chore(deps): update package-lock dependencies and sync versions ([](https://github.com/blur88/erp2/commit/))
+
 ## [1.87.5](https://github.com/blur88/erp2/compare/v1.87.4...v1.87.5) (2026-04-23)
 
 
