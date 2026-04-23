@@ -1,19 +1,10 @@
 import { useRef, type RefObject } from 'react'
-import { Typography } from '@mui/material'
 
 import EntityTable, { type ColumnConfig } from '@/components/common/EntityTable'
 import { JournalEntry } from '@/types'
 
 const COLUMNS: ColumnConfig<JournalEntry>[] = [
-  {
-    key: 'referenceNumber',
-    raw: true,
-    render: (entry) => (
-      <Typography variant="body2" sx={{ fontWeight: 500, color: 'primary.main', fontSize: '0.8rem' }}>
-        {entry.referenceNumber}
-      </Typography>
-    ),
-  },
+  { key: 'referenceNumber', render: (entry) => entry.referenceNumber },
 ]
 
 interface Props {
