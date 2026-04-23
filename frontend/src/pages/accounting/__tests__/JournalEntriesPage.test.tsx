@@ -71,7 +71,10 @@ describe('JournalEntriesPage', () => {
       isLoading: false,
       refetch: vi.fn(),
     })
-    mockedApi.useLazyGetJournalEntryQuery.mockReturnValue([vi.fn().mockResolvedValue({ id: '1' })])
+    mockedApi.useLazyGetJournalEntryQuery.mockReturnValue([
+      vi.fn().mockResolvedValue({ data: mockEntry }),
+      { data: mockEntry, isLoading: false, isFetching: false },
+    ])
     mockedApi.useDeleteJournalEntryMutation.mockReturnValue([vi.fn()])
     mockedApi.usePostJournalEntryMutation.mockReturnValue([vi.fn()])
     mockedApi.useReverseJournalEntryMutation.mockReturnValue([vi.fn()])
@@ -96,5 +99,17 @@ describe('JournalEntriesPage', () => {
       expect(screen.getByText('JE Details - JE-001')).toBeInTheDocument()
     })
     expect(mockNavigate).not.toHaveBeenCalled()
+  })
+
+  it('renders journal entry details without chip styling', async () => {
+    const { container } = render(<BrowserRouter><JournalEntriesPage /></BrowserRouter>)
+
+    fireEvent.click(screen.getByText('JE-001'))
+
+    await waitFor(() => {
+      expect(screen.getByText('JE Details - JE-001')).toBeInTheDocument()
+    })
+
+    expect(container.querySelector('.MuiChip-root')).not.toBeInTheDocument()
   })
 })
