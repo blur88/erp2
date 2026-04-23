@@ -1,3 +1,11 @@
+## [1.87.2](https://github.com/blur88/erp2/compare/v1.87.1...v1.87.2) (2026-04-23)
+
+
+### Internal Changes
+
+* refactor(accounting): reduce JournalEntriesTable to single referenceNumber column (issue #418) ([](https://github.com/blur88/erp2/commit/))
+* docs: add implementation plan for issue #418 JournalEntriesTable minimalist refactor ([](https://github.com/blur88/erp2/commit/))
+
 ## [1.87.1](https://github.com/blur88/erp2/compare/v1.87.0...v1.87.1) (2026-04-22)
 
 
