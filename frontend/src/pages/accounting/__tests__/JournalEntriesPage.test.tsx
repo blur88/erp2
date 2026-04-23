@@ -97,4 +97,16 @@ describe('JournalEntriesPage', () => {
     })
     expect(mockNavigate).not.toHaveBeenCalled()
   })
+
+  it('renders journal entry details without chip styling', async () => {
+    const { container } = render(<BrowserRouter><JournalEntriesPage /></BrowserRouter>)
+
+    fireEvent.click(screen.getByText('JE-001'))
+
+    await waitFor(() => {
+      expect(screen.getByText('JE Details - JE-001')).toBeInTheDocument()
+    })
+
+    expect(container.querySelector('.MuiChip-root')).not.toBeInTheDocument()
+  })
 })

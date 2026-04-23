@@ -1,4 +1,4 @@
-import { Box, Chip, Link, Paper, Table, TableBody, TableCell, TableContainer, TableRow, Typography } from '@mui/material'
+import { Box, Link, Paper, Table, TableBody, TableCell, TableContainer, TableRow, Typography } from '@mui/material'
 import Grid from '@mui/material/Grid'
 import { default as DeleteIcon } from '@mui/icons-material/Delete'
 import { default as EditIcon } from '@mui/icons-material/Edit'
@@ -51,12 +51,6 @@ const sectionHeaderCellSx = {
   pb: TABLE_STYLES.cell.padding.py * 0.67,
   py: TABLE_STYLES.cell.padding.py * 0.67,
   borderTop: TABLE_STYLES.cell.border,
-}
-
-function statusColor(status: JournalEntryStatus) {
-  if (status === JournalEntryStatus.POSTED) return 'success' as const
-  if (status === JournalEntryStatus.REVERSED) return 'error' as const
-  return 'default' as const
 }
 
 interface Props {
@@ -154,10 +148,7 @@ export function JournalEntryContextHeader({
                   <TableRow sx={{ backgroundColor: 'grey.50' }}>
                     <TableCell sx={labelCellSx}>Type</TableCell>
                     <TableCell sx={valueCellSx}>
-                      <Chip
-                        size="small"
-                        label={ENTRY_TYPE_LABELS[selectedEntry.sourceType ?? ''] ?? 'Manual Entry'}
-                      />
+                      {ENTRY_TYPE_LABELS[selectedEntry.sourceType ?? ''] ?? 'Manual Entry'}
                     </TableCell>
                   </TableRow>
                   <TableRow>
@@ -192,9 +183,7 @@ export function JournalEntryContextHeader({
                   </TableRow>
                   <TableRow sx={{ backgroundColor: 'grey.50' }}>
                     <TableCell sx={labelCellSx}>Status</TableCell>
-                    <TableCell sx={valueCellSx}>
-                      <Chip label={selectedEntry.status} color={statusColor(selectedEntry.status)} size="small" />
-                    </TableCell>
+                    <TableCell sx={valueCellSx}>{selectedEntry.status}</TableCell>
                   </TableRow>
                   <TableRow>
                     <TableCell sx={labelCellSx}>Debits</TableCell>
@@ -207,9 +196,7 @@ export function JournalEntryContextHeader({
                   {!isBalanced && (
                     <TableRow>
                       <TableCell sx={labelCellSx}>Balance</TableCell>
-                      <TableCell sx={valueCellSx}>
-                        <Chip label="Unbalanced" color="warning" size="small" />
-                      </TableCell>
+                      <TableCell sx={valueCellSx}>Unbalanced</TableCell>
                     </TableRow>
                   )}
                 </TableBody>
