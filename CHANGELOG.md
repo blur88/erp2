@@ -1,3 +1,16 @@
+# [1.88.0](https://github.com/blur88/erp2/compare/v1.87.6...v1.88.0) (2026-04-24)
+
+
+### Features
+
+* **accounting:** add accountingSlice with selectedJournalEntry and selectedAccount ([77213e2](https://github.com/blur88/erp2/commit/77213e2eb1047f900c73aa5219ad650eeac99fc0))
+* **accounting:** add focusedIndex prop to ChartOfAccountsTable ([68c8fc0](https://github.com/blur88/erp2/commit/68c8fc00ea96320434ea1c1dad535f1c971ba1e3))
+* **accounting:** add focusedIndex prop to JournalEntriesTable ([5466435](https://github.com/blur88/erp2/commit/54664354770d77ec9455be93d4b9d1f41dd68ad7))
+* **accounting:** refactor useChartOfAccountsWorkspace to wrap useEntityWorkspace with Redux ([c00eda4](https://github.com/blur88/erp2/commit/c00eda4d130738607ac6f05b979ecf7ff76f5aba))
+* **accounting:** refactor useJournalEntriesWorkspace to wrap useEntityWorkspace with Redux ([af32e00](https://github.com/blur88/erp2/commit/af32e00d18a41869c298589f30eba8855b1224d0))
+* **accounting:** wire ChartOfAccountsPage to Redux accountingSlice with keyboard nav ([ba70075](https://github.com/blur88/erp2/commit/ba70075a8e93ae474d5bcfcd5f56b3ba0aad9570))
+* **accounting:** wire JournalEntriesPage to Redux accountingSlice with keyboard nav ([fb3fba6](https://github.com/blur88/erp2/commit/fb3fba6746007af6f95e31d4193c9b9036d2f78f))
+
 ## [1.87.6](https://github.com/blur88/erp2/compare/v1.87.5...v1.87.6) (2026-04-23)
 
 
