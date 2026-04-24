@@ -105,6 +105,19 @@ onNavigate: (customer) => {
 
 No changes needed. All four tables already pass `focusedIndex` to the shared `EntityTable` component which handles highlight styling uniformly.
 
+## Test Updates Required
+
+The filterbar tests for Orders, Invoices, and Payments mock the six navigation handlers directly. After removing them from `useOrdersWorkspace` return and confirming they are no longer in `useInvoicesWorkspace`/`usePaymentsWorkspace` return either, these mocks must be removed:
+
+- `frontend/src/pages/sales/__tests__/OrdersPage.filterbar.test.tsx` — remove `handleNavigateUp/Down/ToFirst/ToLast/PageUp/PageDown` from mock
+- `frontend/src/pages/sales/__tests__/InvoicesPage.filterbar.test.tsx` — same
+- `frontend/src/pages/sales/__tests__/PaymentsPage.filterbar.test.tsx` — same
+
+New unit tests should be added to `useEntityWorkspace.test.ts` covering:
+- `onNavigate` is called on keyboard navigation (arrow up/down, pgUp/pgDn, home/end)
+- `onNavigate` is NOT called on `handleSelect` (click)
+- `onNavigate` is optional (no crash when omitted)
+
 ## What Does NOT Change
 
 - Click (`handleSelect` / row `onClick`) behavior on any page.
