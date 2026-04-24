@@ -16,6 +16,7 @@ import purchasingSlice from './slices/purchasingSlice'
 import backupSlice from './slices/backupSlice'
 import auditLogSlice from './slices/auditLogSlice'
 import priceListSlice from './slices/priceListSlice'
+import accountingSlice from './slices/accountingSlice'
 import { auditLogApiSlice } from './api/auditLogApi'
 import { backupApiSlice } from './api/backupApi'
 import { priceListApiSlice } from './api/priceListApi'
@@ -39,6 +40,7 @@ const rootReducer = combineReducers({
   backup: backupSlice,
   auditLogs: auditLogSlice,
   priceLists: priceListSlice,
+  accounting: accountingSlice,
   [auditLogApiSlice.reducerPath]: auditLogApiSlice.reducer,
   [backupApiSlice.reducerPath]: backupApiSlice.reducer,
   [priceListApiSlice.reducerPath]: priceListApiSlice.reducer,

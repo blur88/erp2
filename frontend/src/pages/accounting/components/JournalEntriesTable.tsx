@@ -12,6 +12,7 @@ interface Props {
   loading: boolean
   total: number
   selectedEntryId: string | null
+  focusedIndex: number
   onSelect: (entry: JournalEntry) => void
   listRef?: RefObject<HTMLDivElement | null>
 }
@@ -21,6 +22,7 @@ export function JournalEntriesTable({
   loading,
   total,
   selectedEntryId,
+  focusedIndex,
   onSelect,
   listRef,
 }: Props) {
@@ -34,7 +36,7 @@ export function JournalEntriesTable({
       total={total}
       label="Journal Entries"
       selectedId={selectedEntryId ?? undefined}
-      focusedIndex={-1}
+      focusedIndex={focusedIndex}
       onSelect={onSelect}
       listRef={listRef ?? fallbackRef}
       dataAttr="entry"

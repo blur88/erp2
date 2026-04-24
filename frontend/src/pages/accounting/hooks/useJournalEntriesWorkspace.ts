@@ -1,14 +1,17 @@
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
+import { useEntityWorkspace } from '@/hooks/useEntityWorkspace'
 import { useNotification } from '@/hooks/useNotification'
+import type { AppDispatch } from '@/store'
 import {
   useDeleteJournalEntryMutation,
   useLazyGetJournalEntryQuery,
   usePostJournalEntryMutation,
   useReverseJournalEntryMutation,
 } from '@/store/api/accountingApi'
-import { JournalEntry } from '@/types'
+import { setSelectedJournalEntry } from '@/store/slices/accountingSlice'
+import type { JournalEntry } from '@/types'
 import { getErrorMessage } from '@/utils/errorMessage'
 
 export const SOURCE_ROUTES: Record<string, (id: string) => string> = {
@@ -22,33 +25,70 @@ export const SOURCE_ROUTES: Record<string, (id: string) => string> = {
   stock_adjustment: (id) => `/inventory/stock-adjustments/${id}/edit`,
 }
 
-export function useJournalEntriesWorkspace(refetch: () => void) {
+interface UseJournalEntriesWorkspaceConfig {
+  dispatch: AppDispatch
+  entries: JournalEntry[]
+  selectedEntry: JournalEntry | null
+  refetch: () => void
+}
+
+export function useJournalEntriesWorkspace({
+  dispatch,
+  entries,
+  selectedEntry,
+  refetch,
+}: UseJournalEntriesWorkspaceConfig) {
   const navigate = useNavigate()
   const { showSuccess, showError } = useNotification()
 
-  const [selectedEntry, setSelectedEntry] = useState<JournalEntry | null>(null)
   const [postTarget, setPostTarget] = useState<JournalEntry | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<JournalEntry | null>(null)
   const [reverseTarget, setReverseTarget] = useState<JournalEntry | null>(null)
   const [actionLoading, setActionLoading] = useState(false)
-  const searchInputRef = useRef<HTMLInputElement | null>(null)
-  const listRef = useRef<HTMLDivElement | null>(null)
 
   const [fetchEntry] = useLazyGetJournalEntryQuery()
   const [postJournalEntry] = usePostJournalEntryMutation()
   const [reverseJournalEntry] = useReverseJournalEntryMutation()
   const [deleteJournalEntry] = useDeleteJournalEntryMutation()
 
-  const handleSelect = useCallback(async (entry: JournalEntry) => {
-    setSelectedEntry(entry)
+  const selectAndLoadEntry = useCallback(async (entry: JournalEntry) => {
+    dispatch(setSelectedJournalEntry(entry))
     try {
       const fresh = await fetchEntry(entry.id).unwrap()
-      setSelectedEntry(fresh)
+      dispatch(setSelectedJournalEntry(fresh))
     }
     catch {
       /* keep list-row data */
     }
-  }, [fetchEntry])
+  }, [dispatch, fetchEntry])
+
+  const workspace = useEntityWorkspace({
+    entities: entries,
+    selectedEntity: selectedEntry,
+    selectEntity: (entry) => {
+      if (entry) {
+        void selectAndLoadEntry(entry)
+        return
+      }
+
+      dispatch(setSelectedJournalEntry(null))
+    },
+    refetch,
+    navigate,
+    routes: {
+      create: '/accounting/journal-entries/new',
+      edit: (id) => `/accounting/journal-entries/${id}/edit`,
+    },
+    notifications: { showSuccess: () => {}, showError: () => {} },
+    deleteMutation: async () => {},
+    onEscape: () => {
+      workspace.setFocusedIndex(-1)
+      dispatch(setSelectedJournalEntry(null))
+      setPostTarget(null)
+      setDeleteTarget(null)
+      setReverseTarget(null)
+    },
+  })
 
   const handleConfirmPost = useCallback(async () => {
     if (!postTarget) return
@@ -57,7 +97,7 @@ export function useJournalEntriesWorkspace(refetch: () => void) {
       await postJournalEntry(postTarget.id).unwrap()
       showSuccess(`Journal entry ${postTarget.referenceNumber} posted`)
       setPostTarget(null)
-      setSelectedEntry(null)
+      dispatch(setSelectedJournalEntry(null))
       refetch()
     }
     catch (error: unknown) {
@@ -66,7 +106,7 @@ export function useJournalEntriesWorkspace(refetch: () => void) {
     finally {
       setActionLoading(false)
     }
-  }, [postTarget, postJournalEntry, refetch, showError, showSuccess])
+  }, [dispatch, postTarget, postJournalEntry, refetch, showError, showSuccess])
 
   const handleConfirmReverse = useCallback(async (reverseDate: string) => {
     if (!reverseTarget) return
@@ -75,7 +115,7 @@ export function useJournalEntriesWorkspace(refetch: () => void) {
       const result = await reverseJournalEntry({ id: reverseTarget.id, reverseDate }).unwrap()
       showSuccess(`Journal entry ${reverseTarget.referenceNumber} reversed`)
       setReverseTarget(null)
-      setSelectedEntry(result)
+      dispatch(setSelectedJournalEntry(result))
       refetch()
     }
     catch (error: unknown) {
@@ -84,7 +124,7 @@ export function useJournalEntriesWorkspace(refetch: () => void) {
     finally {
       setActionLoading(false)
     }
-  }, [refetch, reverseJournalEntry, reverseTarget, showError, showSuccess])
+  }, [dispatch, refetch, reverseJournalEntry, reverseTarget, showError, showSuccess])
 
   const handleConfirmDelete = useCallback(async () => {
     if (!deleteTarget) return
@@ -93,7 +133,7 @@ export function useJournalEntriesWorkspace(refetch: () => void) {
       await deleteJournalEntry(deleteTarget.id).unwrap()
       showSuccess(`Journal entry ${deleteTarget.referenceNumber} deleted`)
       setDeleteTarget(null)
-      setSelectedEntry(null)
+      dispatch(setSelectedJournalEntry(null))
       refetch()
     }
     catch (error: unknown) {
@@ -102,9 +142,10 @@ export function useJournalEntriesWorkspace(refetch: () => void) {
     finally {
       setActionLoading(false)
     }
-  }, [deleteJournalEntry, deleteTarget, refetch, showError, showSuccess])
+  }, [deleteJournalEntry, deleteTarget, dispatch, refetch, showError, showSuccess])
 
   return {
+    ...workspace,
     selectedEntry,
     postTarget,
     setPostTarget,
@@ -113,9 +154,6 @@ export function useJournalEntriesWorkspace(refetch: () => void) {
     reverseTarget,
     setReverseTarget,
     actionLoading,
-    searchInputRef,
-    listRef,
-    handleSelect,
     handleConfirmPost,
     handleConfirmReverse,
     handleConfirmDelete,

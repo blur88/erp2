@@ -10,12 +10,17 @@ vi.mock('@/utils/formatters', () => ({
 }))
 
 vi.mock('@/components/common/EntityTable', () => ({
-  default: ({ rows, loading, label, onSelect }: any) => (
+  default: ({ rows, loading, label, onSelect, focusedIndex }: any) => (
     <div>
       {loading && <div>Loading...</div>}
       {rows.length === 0 && <div>No {label} found</div>}
-      {rows.map((row: any) => (
-        <div key={row.id} onClick={() => onSelect(row)} data-testid={`row-${row.id}`}>
+      {rows.map((row: any, index: number) => (
+        <div
+          key={row.id}
+          onClick={() => onSelect(row)}
+          data-testid={`row-${row.id}`}
+          data-focused={index === focusedIndex ? 'true' : 'false'}
+        >
           {row.referenceNumber}
         </div>
       ))}
@@ -61,5 +66,17 @@ describe('JournalEntriesTable', () => {
     render(<JournalEntriesTable {...defaultProps} entries={[makeEntry()]} onSelect={onSelect} />)
     fireEvent.click(screen.getByText('JE-001'))
     expect(onSelect).toHaveBeenCalledWith(expect.objectContaining({ id: '1' }))
+  })
+
+  it('passes focusedIndex to EntityTable', () => {
+    render(
+      <JournalEntriesTable
+        {...defaultProps}
+        entries={[makeEntry()]}
+        focusedIndex={0}
+      />,
+    )
+
+    expect(screen.getByTestId('row-1')).toHaveAttribute('data-focused', 'true')
   })
 })

@@ -1,20 +1,59 @@
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 
+import { useEntityWorkspace } from '@/hooks/useEntityWorkspace'
 import { useNotification } from '@/hooks/useNotification'
+import type { AppDispatch } from '@/store'
 import { useDeleteChartOfAccountMutation, useSeedDefaultChartOfAccountsMutation } from '@/store/api/accountingApi'
+import { setSelectedAccount } from '@/store/slices/accountingSlice'
 import type { ChartOfAccount } from '@/types'
 
-export function useChartOfAccountsWorkspace(refetch: () => void) {
+interface UseChartOfAccountsWorkspaceConfig {
+  dispatch: AppDispatch
+  accounts: ChartOfAccount[]
+  selectedAccount: ChartOfAccount | null
+  refetch: () => void
+}
+
+export function useChartOfAccountsWorkspace({
+  dispatch,
+  accounts,
+  selectedAccount,
+  refetch,
+}: UseChartOfAccountsWorkspaceConfig) {
+  const navigate = useNavigate()
   const { showSuccess, showError } = useNotification()
-  const [selected, setSelected] = useState<ChartOfAccount | null>(null)
   const [formDialogOpen, setFormDialogOpen] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<ChartOfAccount | null>(null)
   const [seedConfirmOpen, setSeedConfirmOpen] = useState(false)
   const [deletedDialogOpen, setDeletedDialogOpen] = useState(false)
-  const searchInputRef = useRef<HTMLInputElement | null>(null)
-  const listRef = useRef<HTMLDivElement | null>(null)
   const [deleteChartOfAccount] = useDeleteChartOfAccountMutation()
   const [seedDefaultChartOfAccounts] = useSeedDefaultChartOfAccountsMutation()
+
+  const workspace = useEntityWorkspace({
+    entities: accounts,
+    selectedEntity: selectedAccount,
+    selectEntity: (account) => dispatch(setSelectedAccount(account)),
+    refetch,
+    navigate,
+    routes: {
+      create: '',
+      edit: () => '',
+    },
+    notifications: { showSuccess: () => {}, showError: () => {} },
+    deleteMutation: async () => {},
+    onEnter: () => {
+      if (selectedAccount) {
+        setFormDialogOpen(true)
+      }
+    },
+    onEscape: () => {
+      workspace.setFocusedIndex(-1)
+      dispatch(setSelectedAccount(null))
+      setFormDialogOpen(false)
+      setDeleteTarget(null)
+    },
+  })
 
   const handleDelete = useCallback(async () => {
     if (!deleteTarget) return
@@ -22,12 +61,14 @@ export function useChartOfAccountsWorkspace(refetch: () => void) {
       await deleteChartOfAccount(deleteTarget.id).unwrap()
       showSuccess(`Account "${deleteTarget.name}" deleted successfully`)
       setDeleteTarget(null)
-      if (selected?.id === deleteTarget.id) setSelected(null)
+      if (selectedAccount?.id === deleteTarget.id) {
+        dispatch(setSelectedAccount(null))
+      }
       refetch()
     } catch (error: any) {
       showError(error || 'Failed to delete account')
     }
-  }, [deleteChartOfAccount, deleteTarget, refetch, selected?.id, showError, showSuccess])
+  }, [deleteChartOfAccount, deleteTarget, dispatch, refetch, selectedAccount?.id, showError, showSuccess])
 
   const handleSeed = useCallback(async () => {
     try {
@@ -41,5 +82,19 @@ export function useChartOfAccountsWorkspace(refetch: () => void) {
     }
   }, [refetch, seedDefaultChartOfAccounts, showError, showSuccess])
 
-  return { selected, setSelected, formDialogOpen, setFormDialogOpen, deleteTarget, setDeleteTarget, seedConfirmOpen, setSeedConfirmOpen, deletedDialogOpen, setDeletedDialogOpen, searchInputRef, listRef, handleDelete, handleSeed }
+  return {
+    ...workspace,
+    selected: selectedAccount,
+    setSelected: (account: ChartOfAccount | null) => dispatch(setSelectedAccount(account)),
+    formDialogOpen,
+    setFormDialogOpen,
+    deleteTarget,
+    setDeleteTarget,
+    seedConfirmOpen,
+    setSeedConfirmOpen,
+    deletedDialogOpen,
+    setDeletedDialogOpen,
+    handleDelete,
+    handleSeed,
+  }
 }
