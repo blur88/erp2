@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate, type SetURLSearchParams } from 'react-router-dom'
 
 import { useEntityWorkspace } from '@/hooks/useEntityWorkspace'
@@ -42,10 +42,15 @@ export function useGRNWorkspace({
   const [fetchJournalEntries] = useLazyGetJournalEntriesQuery()
   const [fetchGRN] = useLazyGetGoodsReceivedNoteQuery()
 
+  const selectGRN = useCallback(
+    (grn: GoodsReceivedNote | null) => dispatch(setSelectedGRN(grn)),
+    [dispatch],
+  )
+
   const workspace = useEntityWorkspace({
     entities: grns,
     selectedEntity: selectedGRN,
-    selectEntity: (grn) => dispatch(setSelectedGRN(grn)),
+    selectEntity: selectGRN,
     refetch,
     navigate,
     routes: {

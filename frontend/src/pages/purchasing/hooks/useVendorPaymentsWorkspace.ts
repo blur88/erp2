@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate, type SetURLSearchParams } from 'react-router-dom'
 
 import { useEntityWorkspace } from '@/hooks/useEntityWorkspace'
@@ -40,10 +40,15 @@ export function useVendorPaymentsWorkspace({
   const [fetchPayment] = useLazyGetVendorPaymentQuery()
   const [fetchJournalEntries] = useLazyGetJournalEntriesQuery()
 
+  const selectPayment = useCallback(
+    (payment: VendorPayment | null) => dispatch(setSelectedVendorPayment(payment)),
+    [dispatch],
+  )
+
   const workspace = useEntityWorkspace({
     entities: payments,
     selectedEntity: selectedPayment,
-    selectEntity: (payment) => dispatch(setSelectedVendorPayment(payment)),
+    selectEntity: selectPayment,
     refetch,
     navigate,
     routes: {
