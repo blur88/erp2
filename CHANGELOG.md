@@ -1,3 +1,12 @@
+## [1.90.1](https://github.com/blur88/erp2/compare/v1.90.0...v1.90.1) (2026-04-25)
+
+
+### Bug Fixes
+
+* enable scroll on SalesPage (closes [#434](https://github.com/blur88/erp2/issues/434) scroll) ([8322597](https://github.com/blur88/erp2/commit/832259747edf93bf2b21d8c49eec8280f1b23b7e))
+* normalize sortOrder to uppercase in BaseQueryDto ([d66c095](https://github.com/blur88/erp2/commit/d66c095481eb3b840cc65a781dea03aea045590b))
+* use uppercase DESC in fetchRecentOrders (closes [#434](https://github.com/blur88/erp2/issues/434) 500) ([4e1a147](https://github.com/blur88/erp2/commit/4e1a147a3f88000502f995ec44f7024604e9c212))
+
 # [1.90.0](https://github.com/blur88/erp2/compare/v1.89.0...v1.90.0) (2026-04-25)
 
 
