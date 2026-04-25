@@ -3,6 +3,7 @@ import { render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { useLayoutScroll } from '@/contexts/LayoutScrollContext'
 import InventoryPage from '../InventoryPage'
 
 const mockUseGetSuppliersQuery = vi.fn()
@@ -32,6 +33,10 @@ vi.mock('@/components/filters/FilterBar', () => ({
 vi.mock('react-chartjs-2', () => ({
   Line: () => <div data-testid="inventory-line-chart" />,
   Doughnut: () => <div data-testid="inventory-doughnut-chart" />,
+}))
+
+vi.mock('@/contexts/LayoutScrollContext', () => ({
+  useLayoutScroll: vi.fn(),
 }))
 
 describe('InventoryPage filters', () => {
@@ -75,6 +80,15 @@ describe('InventoryPage filters', () => {
       isFetching: false,
       error: null,
     })
+  })
+
+  it('enables layout scroll', () => {
+    render(
+      <MemoryRouter initialEntries={['/']}>
+        <InventoryPage />
+      </MemoryRouter>,
+    )
+    expect(useLayoutScroll).toHaveBeenCalledWith(true)
   })
 
   it('passes inventory filter state into analytics', () => {

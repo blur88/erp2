@@ -39,6 +39,7 @@ import {
 import { formatCurrency, formatDate, getCurrentDate } from '@/utils/formatters';
 import type { JournalEntry } from '@/types';
 import { useKeyboardShortcuts } from '@/hooks/useSearchAndFilter';
+import { useLayoutScroll } from '@/contexts/LayoutScrollContext';
 
 // Summary Card Component
 interface SummaryCardProps {
@@ -158,6 +159,7 @@ const getEntryTypeChip = (type: string) => {
 };
 
 const AccountingDashboardPage: React.FC = () => {
+  useLayoutScroll(true);
   const navigate = useNavigate();
 
   // Calculate YTD date range
