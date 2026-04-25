@@ -65,10 +65,15 @@ export function useStockAdjustmentsWorkspace({
   const [completeStockAdjustment] = useCompleteStockAdjustmentMutation()
   const [uncompleteStockAdjustment] = useUncompleteStockAdjustmentMutation()
 
+  const selectAdjustment = useCallback(
+    (adjustment: StockAdjustment | null) => dispatch(setSelectedStockAdjustment(adjustment)),
+    [dispatch],
+  )
+
   const workspace = useEntityWorkspace({
     entities: adjustments,
     selectedEntity: selectedAdjustment,
-    selectEntity: (adjustment) => dispatch(setSelectedStockAdjustment(adjustment)),
+    selectEntity: selectAdjustment,
     refetch: refetchAdjustments,
     navigate,
     routes: {

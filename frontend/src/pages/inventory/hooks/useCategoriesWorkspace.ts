@@ -49,10 +49,15 @@ export function useCategoriesWorkspace({
   const [deleteError, setDeleteError] = useState<any>(null)
   const [submitting, setSubmitting] = useState(false)
 
+  const selectCategory = useCallback(
+    (category: Category | null) => dispatch(setSelectedCategory(category)),
+    [dispatch],
+  )
+
   const workspace = useEntityWorkspace({
     entities: categories,
     selectedEntity: selectedCategory,
-    selectEntity: (category) => dispatch(setSelectedCategory(category)),
+    selectEntity: selectCategory,
     refetch: refetchCategories,
     navigate: (() => undefined) as any,
     routes: {

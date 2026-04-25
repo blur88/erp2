@@ -48,10 +48,15 @@ export function useProductsWorkspace({
     return { id: navigationSelectionId } as Product
   }, [navigationSelectionId, selectedProduct])
 
+  const selectProduct = useCallback(
+    (product: Product | null) => dispatch(setSelectedProduct(product)),
+    [dispatch],
+  )
+
   const workspace = useEntityWorkspace({
     entities: products,
     selectedEntity: pendingSelectedProduct,
-    selectEntity: (product) => dispatch(setSelectedProduct(product)),
+    selectEntity: selectProduct,
     refetch: refetchProducts,
     navigate,
     routes: {
