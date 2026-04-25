@@ -4,6 +4,7 @@ import { BrowserRouter } from 'react-router-dom';
 import { ThemeProvider } from '@mui/material/styles';
 
 import AccountingDashboardPage from '../AccountingDashboardPage';
+import { useLayoutScroll } from '@/contexts/LayoutScrollContext';
 import { darkTheme } from '@/styles/theme';
 
 vi.mock('@/utils/formatters', () => ({
@@ -35,6 +36,10 @@ vi.mock('@/store/api/accountingApi', () => ({
   useGetJournalEntriesQuery: mockedApi.useGetJournalEntriesQuery,
   useGetCurrentFiscalPeriodQuery: mockedApi.useGetCurrentFiscalPeriodQuery,
   useGetPendingSettlementSummaryQuery: mockedApi.useGetPendingSettlementSummaryQuery,
+}));
+
+vi.mock('@/contexts/LayoutScrollContext', () => ({
+  useLayoutScroll: vi.fn(),
 }));
 
 const renderWithProviders = (useDarkTheme = false) => {
@@ -174,5 +179,12 @@ describe('AccountingDashboardPage', () => {
     expect(screen.getByText('$2222.22')).toBeInTheDocument();
     expect(screen.getByText('$3333.33')).toBeInTheDocument();
     expect(screen.getByText('$4444.44')).toBeInTheDocument();
+  });
+});
+
+describe('AccountingDashboardPage scroll', () => {
+  it('enables layout scroll', () => {
+    renderWithProviders();
+    expect(useLayoutScroll).toHaveBeenCalledWith(true);
   });
 });
