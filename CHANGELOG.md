@@ -1,3 +1,10 @@
+## [1.90.5](https://github.com/blur88/erp2/compare/v1.90.4...v1.90.5) (2026-04-25)
+
+
+### Bug Fixes
+
+* add optional chaining to accountingSlice selectors (closes [#441](https://github.com/blur88/erp2/issues/441)) ([f189530](https://github.com/blur88/erp2/commit/f189530ef9e4f655356cd1f3a4e9c48ebbd778a4))
+
 ## [1.90.4](https://github.com/blur88/erp2/compare/v1.90.3...v1.90.4) (2026-04-25)
 
 
