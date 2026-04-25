@@ -70,6 +70,8 @@ interface DashboardData {
   }
 }
 
+const asArray = <T,>(value: unknown): T[] => (Array.isArray(value) ? value : [])
+
 const DashboardPage: React.FC = () => {
   const navigate = useNavigate()
   const { currency } = useCurrency()
@@ -88,10 +90,11 @@ const DashboardPage: React.FC = () => {
   const { data: inventoryStats, isLoading: inventoryLoading, error: inventoryError } = useGetDashboardStatsQuery()
   const { data: outOfStock = [], isLoading: outOfStockLoading, error: outOfStockError } = useGetOutOfStockProductsQuery()
   const { data: paymentsResponse, isLoading: paymentsLoading, error: paymentsError } = useGetPaymentsQuery({})
-  const salesOrders = salesOrdersResponse?.data ?? []
-  const purchaseOrders = purchaseOrdersResponse?.data ?? []
-  const suppliers = suppliersResponse?.data ?? []
-  const payments = paymentsResponse?.data ?? []
+  const salesOrders = asArray<any>(salesOrdersResponse?.data)
+  const purchaseOrders = asArray<any>(purchaseOrdersResponse?.data)
+  const suppliers = asArray<any>(suppliersResponse?.data)
+  const payments = asArray<any>(paymentsResponse?.data)
+  const outOfStockProducts = asArray<any>(outOfStock)
 
   const loading =
     salesLoading ||
@@ -300,8 +303,8 @@ const DashboardPage: React.FC = () => {
         totalProducts: inventoryStats?.totalProducts || 0,
         totalCategories: inventoryStats?.totalCategories || 0,
         inventoryValue: inventoryStats?.inventoryValue || 0,
-        outOfStockCount: inventoryStats?.outOfStockCount || outOfStock.length,
-        lowStockItems: outOfStock.slice(0, 5),
+        outOfStockCount: inventoryStats?.outOfStockCount || outOfStockProducts.length,
+        lowStockItems: outOfStockProducts.slice(0, 5),
         stockHealthMetrics: inventoryStats?.stockHealthMetrics || {
           inStockPercentage: 100,
           outOfStockPercentage: 0,
@@ -314,7 +317,7 @@ const DashboardPage: React.FC = () => {
         inventoryValue: inventoryStats?.inventoryValue || 0,
       },
     }
-  }, [inventoryStats, outOfStock, payments, purchaseOrders, salesOrders, suppliers])
+  }, [inventoryStats, outOfStockProducts, payments, purchaseOrders, salesOrders, suppliers])
 
   const stats = [
     {
