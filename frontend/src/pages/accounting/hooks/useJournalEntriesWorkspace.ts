@@ -62,10 +62,8 @@ export function useJournalEntriesWorkspace({
     }
   }, [dispatch, fetchEntry])
 
-  const workspace = useEntityWorkspace({
-    entities: entries,
-    selectedEntity: selectedEntry,
-    selectEntity: (entry) => {
+  const selectEntry = useCallback(
+    (entry: JournalEntry | null) => {
       if (entry) {
         void selectAndLoadEntry(entry)
         return
@@ -73,6 +71,13 @@ export function useJournalEntriesWorkspace({
 
       dispatch(setSelectedJournalEntry(null))
     },
+    [dispatch, selectAndLoadEntry],
+  )
+
+  const workspace = useEntityWorkspace({
+    entities: entries,
+    selectedEntity: selectedEntry,
+    selectEntity: selectEntry,
     refetch,
     navigate,
     routes: {

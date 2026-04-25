@@ -30,10 +30,15 @@ export function useChartOfAccountsWorkspace({
   const [deleteChartOfAccount] = useDeleteChartOfAccountMutation()
   const [seedDefaultChartOfAccounts] = useSeedDefaultChartOfAccountsMutation()
 
+  const selectAccount = useCallback(
+    (account: ChartOfAccount | null) => dispatch(setSelectedAccount(account)),
+    [dispatch],
+  )
+
   const workspace = useEntityWorkspace({
     entities: accounts,
     selectedEntity: selectedAccount,
-    selectEntity: (account) => dispatch(setSelectedAccount(account)),
+    selectEntity: selectAccount,
     refetch,
     navigate,
     routes: {
