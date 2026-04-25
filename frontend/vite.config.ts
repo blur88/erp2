@@ -108,7 +108,7 @@ export default defineConfig(({ mode }) => {
               },
               {
                 name: 'redux',
-                test: /node_modules[\\/](@reduxjs[\\/]toolkit|react-redux)[\\/]/,
+                test: /node_modules[\\/](@reduxjs[\\/]toolkit|react-redux|redux|redux-persist)[\\/]/,
                 priority: 10,
               },
             ],
