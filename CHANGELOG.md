@@ -1,3 +1,10 @@
+## [1.90.2](https://github.com/blur88/erp2/compare/v1.90.1...v1.90.2) (2026-04-25)
+
+
+### Bug Fixes
+
+* add optional chaining to slice selectors to survive redux-persist hydration gap (closes [#435](https://github.com/blur88/erp2/issues/435)) ([9e1f229](https://github.com/blur88/erp2/commit/9e1f229564dd6ee600109501e3de68933f8f1675))
+
 ## [1.90.1](https://github.com/blur88/erp2/compare/v1.90.0...v1.90.1) (2026-04-25)
 
 
