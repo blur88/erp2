@@ -14,6 +14,7 @@ import {
   selectSelectedCustomer,
   setSelectedCustomer,
 } from '@/store/slices/salesSlice'
+import type { Customer } from '@/types'
 import type { FilterBarConfig } from '@/types/filterBar.types'
 
 import CustomerContextHeader from './components/CustomerContextHeader'
@@ -72,12 +73,18 @@ const CustomersPage: React.FC = () => {
   const [deleteCustomer] = useDeleteCustomerMutation()
   const customers = customersResponse?.data ?? []
 
+  const selectCustomer = useCallback(
+    (customer: Customer | null) => {
+      dispatch(setSelectedCustomer(customer))
+    },
+    [dispatch],
+  )
+
   const workspace = useEntityWorkspace({
     entities: customers,
     selectedEntity: selectedCustomer,
-    selectEntity: (customer) => {
-      dispatch(setSelectedCustomer(customer))
-    },
+    selectEntity: selectCustomer,
+    isFetching,
     refetch: () => {
       void refetch()
     },
