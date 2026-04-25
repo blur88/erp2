@@ -23,6 +23,7 @@ import { formatCurrency, formatDate, formatNumber } from '@/utils/formatters'
 import { TABLE_STYLES } from '@/constants/tableStyles'
 import { AppButton } from '@/components/common/AppButton'
 import PageHeader from '@/components/common/PageHeader'
+import GenericOverviewPage from '@/components/common/GenericOverviewPage'
 import { FilterBar } from '@/components/filters/FilterBar'
 import { useFilterBar } from '@/hooks/useFilterBar'
 import { useNavigate } from 'react-router-dom'
@@ -173,7 +174,7 @@ const SalesPage: React.FC = () => {
   ]
 
   return (
-    <>
+    <GenericOverviewPage>
       <PageHeader
         title="Sales Overview"
         subtitle="Monitor sales performance and manage customer relationships"
@@ -415,7 +416,7 @@ const SalesPage: React.FC = () => {
           <TopCustomersList customers={topCustomers as any[]} loading={isLoading} />
         </Grid>
       </Grid>
-    </>
+    </GenericOverviewPage>
   );
 }
 
