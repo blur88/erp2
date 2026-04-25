@@ -1,3 +1,22 @@
+# [1.89.0](https://github.com/blur88/erp2/compare/v1.88.1...v1.89.0) (2026-04-25)
+
+
+### Bug Fixes
+
+* **dashboard:** guard against non-array stock responses ([f141c28](https://github.com/blur88/erp2/commit/f141c28c8b829702edde140fba9d1da105a7705f))
+* **frontend:** isolate axios chunk for auth API ([b79d030](https://github.com/blur88/erp2/commit/b79d0301dd4ab2ed3d2ba496416c9360e175781b))
+* **frontend:** isolate redux persistence chunk ([46fbdcb](https://github.com/blur88/erp2/commit/46fbdcbf265f7aa35b552a5c7cacc85551935ea8))
+* **frontend:** isolate RTK Query API chunk ([c6a4154](https://github.com/blur88/erp2/commit/c6a41547880a3de783e5ad26427bff773e31f832))
+* **nginx:** disable keepalive recycling on WebSocket proxy path ([d9f81f0](https://github.com/blur88/erp2/commit/d9f81f0d30d2e6a98c2bc01e6ea340057fe8db78))
+* **notifications:** tolerate missing slice state ([4c372c2](https://github.com/blur88/erp2/commit/4c372c2a7f333b00c9a8126c85f1399b85cbc9eb))
+* **websocket:** debounce reconnect toast only show if down over 5s ([93b09e7](https://github.com/blur88/erp2/commit/93b09e799be5b1f41812180522e5160bca0854d5))
+
+
+### Features
+
+* **websocket:** add root namespace gateway with heartbeat config ([41cff75](https://github.com/blur88/erp2/commit/41cff751c0eec7727577c4ebb6a6d0661afb9503))
+* **websocket:** register AppWebSocketGateway in DashboardModule ([d7c1aad](https://github.com/blur88/erp2/commit/d7c1aadcb98779df15ed03bba9bd046777bdd17d))
+
 ## [1.88.2](https://github.com/blur88/erp2/compare/v1.88.1...v1.88.2) (2026-04-25)
 
 
