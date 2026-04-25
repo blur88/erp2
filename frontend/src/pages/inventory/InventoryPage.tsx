@@ -44,6 +44,7 @@ import { useFilterBar } from '@/hooks/useFilterBar'
 import { useInventoryAnalytics } from './hooks/useInventoryAnalytics'
 import { formatCurrency } from '@/utils/formatters'
 import { TABLE_STYLES } from '@/constants/tableStyles'
+import { useLayoutScroll } from '@/contexts/LayoutScrollContext'
 import { resolveApiParams } from '@/utils/dashboardApiParams'
 import type { DashboardCompare } from '@/utils/dashboardApiParams'
 import type { FilterBarConfig, PeriodValue } from '@/types/filterBar.types'
@@ -69,6 +70,7 @@ function deltaPercent(current: number | undefined, previous: number | undefined)
 }
 
 const InventoryPage: React.FC = () => {
+  useLayoutScroll(true)
   const theme = useTheme()
   const navigate = useNavigate()
 
