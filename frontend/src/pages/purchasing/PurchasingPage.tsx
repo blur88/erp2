@@ -40,6 +40,7 @@ import { TABLE_STYLES } from '@/constants/tableStyles'
 import { useNavigate } from 'react-router-dom'
 import { AppButton } from '@/components/common/AppButton'
 import PageHeader from '@/components/common/PageHeader'
+import GenericOverviewPage from '@/components/common/GenericOverviewPage'
 import { FilterBar } from '@/components/filters/FilterBar'
 import { useFilterBar } from '@/hooks/useFilterBar'
 import { usePurchasingAnalytics } from './hooks/usePurchasingAnalytics'
@@ -206,7 +207,7 @@ const PurchasingPage: React.FC = () => {
   }
 
   return (
-    <>
+    <GenericOverviewPage>
       <PageHeader
         variant="overview"
         title="Purchasing Overview"
@@ -505,7 +506,7 @@ const PurchasingPage: React.FC = () => {
           </Grid>
         </Grid>
       </Box>
-    </>
+    </GenericOverviewPage>
   );
 }
 
