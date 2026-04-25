@@ -33,8 +33,10 @@ import { useDashboardAnalytics } from './hooks/useDashboardAnalytics'
 import { resolveApiParams } from '@/utils/dashboardApiParams'
 import type { DashboardCompare } from '@/utils/dashboardApiParams'
 import type { FilterBarConfig, PeriodValue } from '@/types/filterBar.types'
+import { useLayoutScroll } from '@/contexts/LayoutScrollContext'
 
 const SalesPage: React.FC = () => {
+  useLayoutScroll(true)
   const navigate = useNavigate()
   const [recentOrders, setRecentOrders] = useState<any[]>([])
   const [recentOrdersLoading, setRecentOrdersLoading] = useState(true)
