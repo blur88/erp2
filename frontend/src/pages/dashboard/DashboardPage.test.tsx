@@ -2,10 +2,15 @@ import { describe, expect, it, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import ThemeWrapper from '@/components/common/ThemeWrapper'
+import { useLayoutScroll } from '@/contexts/LayoutScrollContext'
 import DashboardPage from './DashboardPage'
 
 vi.mock('@/hooks/useCurrency', () => ({
   useCurrency: () => ({ currency: 'USD' }),
+}))
+
+vi.mock('@/contexts/LayoutScrollContext', () => ({
+  useLayoutScroll: vi.fn(),
 }))
 
 vi.mock('@/store/api/salesApi', () => ({
@@ -78,5 +83,17 @@ describe('DashboardPage', () => {
 
     expect(screen.getByText('Dashboard')).toBeInTheDocument()
     expect(screen.getByText('Inventory overview')).toBeInTheDocument()
+  })
+
+  it('opts in to layout scrolling', () => {
+    render(
+      <ThemeWrapper>
+        <MemoryRouter>
+          <DashboardPage />
+        </MemoryRouter>
+      </ThemeWrapper>,
+    )
+
+    expect(useLayoutScroll).toHaveBeenCalledWith(true)
   })
 })

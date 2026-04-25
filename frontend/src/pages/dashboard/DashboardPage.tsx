@@ -11,6 +11,7 @@ import { default as SalesIcon } from '@mui/icons-material/PointOfSale'
 import { default as PurchasingIcon } from '@mui/icons-material/Assignment'
 import { default as CustomersIcon } from '@mui/icons-material/People'
 import PageHeader from '@/components/common/PageHeader'
+import { useLayoutScroll } from '@/contexts/LayoutScrollContext'
 import { formatCurrency } from '@/utils/formatters'
 import { useNavigate } from 'react-router-dom'
 import { useCurrency } from '@/hooks/useCurrency'
@@ -73,6 +74,8 @@ interface DashboardData {
 const asArray = <T,>(value: unknown): T[] => (Array.isArray(value) ? value : [])
 
 const DashboardPage: React.FC = () => {
+  useLayoutScroll(true)
+
   const navigate = useNavigate()
   const { currency } = useCurrency()
 

@@ -4,9 +4,33 @@ import { Box, Drawer } from '@mui/material'
 import { useTheme } from '@mui/material/styles'
 
 import { DRAWER_WIDTH_COLLAPSED, DRAWER_WIDTH_EXPANDED } from '@/constants/layout'
+import { LayoutScrollProvider, useLayoutScrollContext } from '@/contexts/LayoutScrollContext'
 
 import Sidebar from './Sidebar'
 import TopBar from './TopBar'
+
+const MainContent: React.FC = () => {
+  const scrollEnabled = useLayoutScrollContext()
+  return (
+    <Box
+      component="main"
+      sx={{
+        flexGrow: 1,
+        display: 'flex',
+        flexDirection: 'column',
+        pt: 11,
+        px: { xs: 2, sm: 3 },
+        pb: 3,
+        bgcolor: 'background.default',
+        height: '100%',
+        overflow: scrollEnabled ? 'auto' : 'hidden',
+        maxWidth: '100%',
+      }}
+    >
+      <Outlet />
+    </Box>
+  )
+}
 
 const MainLayout: React.FC = () => {
   const theme = useTheme()
@@ -79,23 +103,9 @@ const MainLayout: React.FC = () => {
         </Drawer>
       </Box>
 
-      <Box
-        component="main"
-        sx={{
-          flexGrow: 1,
-          display: 'flex',
-          flexDirection: 'column',
-          pt: 11,
-          px: { xs: 2, sm: 3 },
-          pb: 3,
-          bgcolor: 'background.default',
-          height: '100%',
-          overflow: 'hidden',
-          maxWidth: '100%',
-        }}
-      >
-        <Outlet />
-      </Box>
+      <LayoutScrollProvider>
+        <MainContent />
+      </LayoutScrollProvider>
     </Box>
   )
 }

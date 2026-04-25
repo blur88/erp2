@@ -1,9 +1,10 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import { Provider } from 'react-redux'
 import { configureStore } from '@reduxjs/toolkit'
 import { describe, it, vi } from 'vitest'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, Route, Routes } from 'react-router-dom'
 
+import { useLayoutScroll } from '@/contexts/LayoutScrollContext'
 import MainLayout from '../MainLayout'
 
 vi.mock('../Sidebar', () => ({ default: () => <div data-testid="sidebar" /> }))
@@ -15,6 +16,11 @@ function makeStore() {
       notifications: (state = { notifications: [], unreadCount: 0 }) => state,
     },
   })
+}
+
+const ScrollOptInPage = () => {
+  useLayoutScroll(true)
+  return <div>Scrollable route</div>
 }
 
 describe('MainLayout', () => {
@@ -50,5 +56,23 @@ describe('MainLayout', () => {
     )
 
     expect(screen.getByRole('main')).toHaveStyle({ height: '100%' })
+  })
+
+  it('allows routed pages to opt in to main content scrolling', async () => {
+    render(
+      <Provider store={makeStore()}>
+        <MemoryRouter>
+          <Routes>
+            <Route element={<MainLayout />}>
+              <Route index element={<ScrollOptInPage />} />
+            </Route>
+          </Routes>
+        </MemoryRouter>
+      </Provider>
+    )
+
+    await waitFor(() => {
+      expect(screen.getByRole('main')).toHaveStyle({ overflow: 'auto' })
+    })
   })
 })
