@@ -11,6 +11,7 @@ import { default as SalesIcon } from '@mui/icons-material/PointOfSale'
 import { default as PurchasingIcon } from '@mui/icons-material/Assignment'
 import { default as CustomersIcon } from '@mui/icons-material/People'
 import PageHeader from '@/components/common/PageHeader'
+import GenericOverviewPage from '@/components/common/GenericOverviewPage'
 import { formatCurrency } from '@/utils/formatters'
 import { useNavigate } from 'react-router-dom'
 import { useCurrency } from '@/hooks/useCurrency'
@@ -363,14 +364,16 @@ const DashboardPage: React.FC = () => {
 
   if (loading) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 400 }}>
-        <CircularProgress size={60} />
-      </Box>
+      <GenericOverviewPage>
+        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 400 }}>
+          <CircularProgress size={60} />
+        </Box>
+      </GenericOverviewPage>
     )
   }
 
   return (
-    <>
+    <GenericOverviewPage>
       <PageHeader
         variant="overview"
         title="Dashboard"
@@ -414,7 +417,7 @@ const DashboardPage: React.FC = () => {
         totalCategories={dashboardData?.inventory.totalCategories || 0}
         outOfStockCount={dashboardData?.inventory.outOfStockCount || 0}
       />
-    </>
+    </GenericOverviewPage>
   )
 }
 
