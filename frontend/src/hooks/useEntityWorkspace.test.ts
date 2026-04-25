@@ -185,4 +185,20 @@ describe('useEntityWorkspace', () => {
     expect(onEscape).toHaveBeenCalledTimes(1)
     expect(config.selectEntity).not.toHaveBeenCalledWith(null)
   })
+
+  it('does not clear selection when entities become empty during a fetch', () => {
+    const config = makeConfig({ isFetching: true, entities: [] })
+
+    renderHook(() => useEntityWorkspace(config))
+
+    expect(config.selectEntity).not.toHaveBeenCalled()
+  })
+
+  it('clears selection when entities become empty and not fetching', () => {
+    const config = makeConfig({ isFetching: false, entities: [] })
+
+    renderHook(() => useEntityWorkspace(config))
+
+    expect(config.selectEntity).toHaveBeenCalledWith(null)
+  })
 })

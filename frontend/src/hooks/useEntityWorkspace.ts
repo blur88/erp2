@@ -19,6 +19,7 @@ export interface UseEntityWorkspaceConfig<T extends { id: string }> {
     showError: (message: string) => void
   }
   deleteMutation: (id: string) => Promise<void>
+  isFetching?: boolean
   onEnter?: () => void
   onEscape?: () => void
 }
@@ -58,6 +59,7 @@ export function useEntityWorkspace<T extends { id: string }>(
     routes,
     notifications,
     deleteMutation,
+    isFetching = false,
     onEnter,
     onEscape,
   } = config
@@ -73,9 +75,11 @@ export function useEntityWorkspace<T extends { id: string }>(
 
   useEffect(() => {
     if (entities.length === 0) {
-      hasAutoSelected.current = false
-      setFocusedIndex(-1)
-      selectEntity(null)
+      if (!isFetching) {
+        hasAutoSelected.current = false
+        setFocusedIndex(-1)
+        selectEntity(null)
+      }
       return
     }
 
@@ -83,7 +87,7 @@ export function useEntityWorkspace<T extends { id: string }>(
       hasAutoSelected.current = true
       selectEntity(entities[0])
     }
-  }, [entities, focusedIndex, selectedEntity, selectEntity])
+  }, [entities, focusedIndex, isFetching, selectedEntity, selectEntity])
 
   useEffect(() => {
     if (focusedIndex < 0 || !listRef.current) {
