@@ -1,3 +1,17 @@
+# [1.90.0](https://github.com/blur88/erp2/compare/v1.89.0...v1.90.0) (2026-04-25)
+
+
+### Bug Fixes
+
+* **test:** correctly verify useLayoutScroll cleanup resets context on unmount ([e0f258e](https://github.com/blur88/erp2/commit/e0f258ec609d9bf3546c876771c6b4ad6f598281))
+
+
+### Features
+
+* add LayoutScrollContext for per-page scroll control ([ec2f224](https://github.com/blur88/erp2/commit/ec2f224aee8b3bc8b37801bba0ef7a4a3868185e))
+* enable scroll on DashboardPage (fixes [#432](https://github.com/blur88/erp2/issues/432)) ([7c40c8e](https://github.com/blur88/erp2/commit/7c40c8e76c02088a5c2e8ae89d7692721c8fd7b5))
+* wire LayoutScrollContext into MainLayout ([5500227](https://github.com/blur88/erp2/commit/5500227ef86c1396eca317006aa82cf82c0df2a5))
+
 # [1.89.0](https://github.com/blur88/erp2/compare/v1.88.1...v1.89.0) (2026-04-25)
 
 
