@@ -161,7 +161,10 @@ export const inventoryApiSlice = createApi({
     }),
     getOutOfStockProducts: builder.query<Product[], void>({
       query: () => ({ url: '/inventory/products/out-of-stock' }),
-      transformResponse: (response: any) => (Array.isArray(response) ? response : response?.data ?? []),
+      transformResponse: (response: any) => {
+        const data = response?.data
+        return Array.isArray(response) ? response : Array.isArray(data) ? data : []
+      },
       providesTags: ['Product'],
     }),
 
