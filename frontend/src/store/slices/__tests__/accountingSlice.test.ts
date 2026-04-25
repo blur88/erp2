@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 
 import accountingReducer, {
+  selectSelectedAccount,
+  selectSelectedJournalEntry,
   setSelectedAccount,
   setSelectedJournalEntry,
 } from '@/store/slices/accountingSlice'
@@ -34,5 +36,19 @@ describe('accountingSlice', () => {
     const cleared = accountingReducer(withAccount, setSelectedAccount(null))
 
     expect(cleared.selectedAccount).toBeNull()
+  })
+})
+
+describe('accountingSlice selectors - undefined state resilience', () => {
+  const stateWithoutAccounting = {} as any
+
+  it('selectSelectedJournalEntry returns undefined when accounting slice is absent', () => {
+    expect(() => selectSelectedJournalEntry(stateWithoutAccounting)).not.toThrow()
+    expect(selectSelectedJournalEntry(stateWithoutAccounting)).toBeUndefined()
+  })
+
+  it('selectSelectedAccount returns undefined when accounting slice is absent', () => {
+    expect(() => selectSelectedAccount(stateWithoutAccounting)).not.toThrow()
+    expect(selectSelectedAccount(stateWithoutAccounting)).toBeUndefined()
   })
 })

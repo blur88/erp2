@@ -28,7 +28,7 @@ const accountingSlice = createSlice({
 
 export const { setSelectedJournalEntry, setSelectedAccount } = accountingSlice.actions
 
-export const selectSelectedJournalEntry = (state: RootState) => state.accounting.selectedJournalEntry
-export const selectSelectedAccount = (state: RootState) => state.accounting.selectedAccount
+export const selectSelectedJournalEntry = (state: RootState) => state.accounting?.selectedJournalEntry
+export const selectSelectedAccount = (state: RootState) => state.accounting?.selectedAccount
 
 export default accountingSlice.reducer
