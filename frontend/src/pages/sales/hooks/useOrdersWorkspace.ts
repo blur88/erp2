@@ -89,10 +89,15 @@ export function useOrdersWorkspace({
   const [unfulfillSalesOrder] = useUnfulfillSalesOrderMutation()
   const [fetchJournalEntries] = useLazyGetJournalEntriesQuery()
 
+  const selectOrder = useCallback(
+    (order: SalesOrder | null) => dispatch(setSelectedOrder(order)),
+    [dispatch],
+  )
+
   const workspace = useEntityWorkspace({
     entities: orders,
     selectedEntity: selectedOrder,
-    selectEntity: (order) => dispatch(setSelectedOrder(order)),
+    selectEntity: selectOrder,
     refetch: refetchOrders,
     navigate,
     routes: {

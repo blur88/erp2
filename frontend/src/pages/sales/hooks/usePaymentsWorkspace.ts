@@ -83,10 +83,15 @@ export function usePaymentsWorkspace({
   const hasRestoredSelection = useRef(false)
   const [fetchJournalEntries] = useLazyGetJournalEntriesQuery()
 
+  const selectPayment = useCallback(
+    (payment: PaymentListItem | null) => dispatch(setSelectedPayment(payment as any)),
+    [dispatch],
+  )
+
   const workspace = useEntityWorkspace({
     entities: payments,
     selectedEntity: selectedPayment,
-    selectEntity: (payment) => dispatch(setSelectedPayment(payment as any)),
+    selectEntity: selectPayment,
     refetch,
     navigate,
     routes: {

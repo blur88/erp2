@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type MouseEvent } from 'react'
+import { useCallback, useEffect, useRef, useState, type MouseEvent } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 
 import { useEntityWorkspace } from '@/hooks/useEntityWorkspace'
@@ -67,10 +67,15 @@ export function useInvoicesWorkspace({
   const workspaceRef = useRef<EntityWorkspaceReturn<InvoiceListItem> | null>(null)
   const [fetchJournalEntries] = useLazyGetJournalEntriesQuery()
 
+  const selectInvoice = useCallback(
+    (invoice: InvoiceListItem | null) => dispatch(setSelectedInvoice(invoice as any)),
+    [dispatch],
+  )
+
   const workspace = useEntityWorkspace({
     entities: invoices,
     selectedEntity: selectedInvoice,
-    selectEntity: (invoice) => dispatch(setSelectedInvoice(invoice as any)),
+    selectEntity: selectInvoice,
     refetch,
     navigate,
     routes: {
