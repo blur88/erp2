@@ -1,11 +1,5 @@
-import { configureStore } from '@reduxjs/toolkit'
+import { configureStore, combineReducers } from '@reduxjs/toolkit'
 import { persistStore, persistReducer } from 'redux-persist'
-const storage = {
-  getItem: (key: string) => Promise.resolve(localStorage.getItem(key)),
-  setItem: (key: string, value: string) => Promise.resolve(localStorage.setItem(key, value)),
-  removeItem: (key: string) => Promise.resolve(localStorage.removeItem(key)),
-}
-import { combineReducers } from '@reduxjs/toolkit'
 
 // Import slices
 import authSlice from './slices/authSlice'
@@ -30,6 +24,12 @@ import { paymentMethodsApiSlice } from './api/paymentMethodsApi'
 import { printSettingsApiSlice } from './api/printSettingsApi'
 import { searchApiSlice } from './api/searchApi'
 import { PERSIST_KEY } from './persistKey'
+
+const storage = {
+  getItem: (key: string) => Promise.resolve(localStorage.getItem(key)),
+  setItem: (key: string, value: string) => Promise.resolve(localStorage.setItem(key, value)),
+  removeItem: (key: string) => Promise.resolve(localStorage.removeItem(key)),
+}
 
 const rootReducer = combineReducers({
   auth: authSlice,
