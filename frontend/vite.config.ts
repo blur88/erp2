@@ -92,6 +92,11 @@ export default defineConfig(({ mode }) => {
                 priority: 30,
               },
               {
+                name: 'axios',
+                test: /node_modules[\\/]axios[\\/]/,
+                priority: 25,
+              },
+              {
                 name: 'router',
                 test: /node_modules[\\/](react-router|react-router-dom)[\\/]/,
                 priority: 20,
