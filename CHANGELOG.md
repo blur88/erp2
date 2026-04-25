@@ -1,3 +1,10 @@
+## [1.90.3](https://github.com/blur88/erp2/compare/v1.90.2...v1.90.3) (2026-04-25)
+
+
+### Bug Fixes
+
+* enable scroll on Purchasing Overview page to prevent content clipping (closes [#438](https://github.com/blur88/erp2/issues/438)) ([7a39293](https://github.com/blur88/erp2/commit/7a392934400394fcf59de93279c22095b9c30111))
+
 ## [1.90.2](https://github.com/blur88/erp2/compare/v1.90.1...v1.90.2) (2026-04-25)
 
 
