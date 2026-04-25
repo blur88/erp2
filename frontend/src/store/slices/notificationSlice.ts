@@ -91,8 +91,8 @@ export const {
 
 // Selectors
 export const selectNotifications = (state: RootState) =>
-  state.notifications.notifications
+  state.notifications?.notifications ?? []
 export const selectUnreadCount = (state: RootState) =>
-  state.notifications.unreadCount
+  state.notifications?.unreadCount ?? 0
 
 export default notificationSlice.reducer

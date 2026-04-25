@@ -57,6 +57,13 @@ describe('notificationSlice', () => {
     expect(typeof notifications[0].timestamp).toBe('string')
   })
 
+  it('selectors return defaults when notifications state is missing', () => {
+    const state = {} as ReturnType<typeof store.getState>
+
+    expect(selectNotifications(state)).toEqual([])
+    expect(selectUnreadCount(state)).toBe(0)
+  })
+
   it('should clear all notifications on logout.fulfilled', () => {
     // Add some notifications
     store.dispatch(addNotification({ type: 'success', title: 'A', message: 'msg' }))
