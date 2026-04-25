@@ -27,4 +27,32 @@ describe('vite chunk configuration', () => {
     const axiosGroup = groups.find((group) => group.name === 'axios')
     expect(axiosGroup?.test.test('node_modules/axios/index.js')).toBe(true)
   })
+
+  it('keeps RTK Query API slices out of the app entry chunk so baseQuery is initialized before use', () => {
+    const config =
+      typeof configFactory === 'function'
+        ? configFactory({
+            command: 'build',
+            mode: 'production',
+            isSsrBuild: false,
+            isPreview: false,
+          })
+        : configFactory
+
+    const groups =
+      config.build?.rolldownOptions?.output?.codeSplitting?.groups ?? []
+
+    expect(groups).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          name: 'rtk-api',
+          test: expect.any(RegExp),
+        }),
+      ])
+    )
+
+    const rtkApiGroup = groups.find((group) => group.name === 'rtk-api')
+    expect(rtkApiGroup?.test.test('/home/blur/erp2/frontend/src/store/api/searchApi.ts')).toBe(true)
+    expect(rtkApiGroup?.test.test('/home/blur/erp2/frontend/src/store/api/baseQuery.ts')).toBe(true)
+  })
 })

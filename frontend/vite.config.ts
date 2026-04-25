@@ -97,6 +97,11 @@ export default defineConfig(({ mode }) => {
                 priority: 25,
               },
               {
+                name: 'rtk-api',
+                test: /src[\\/]store[\\/]api[\\/]/,
+                priority: 22,
+              },
+              {
                 name: 'router',
                 test: /node_modules[\\/](react-router|react-router-dom)[\\/]/,
                 priority: 20,
