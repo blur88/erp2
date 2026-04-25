@@ -42,6 +42,7 @@ import { AppButton } from '@/components/common/AppButton'
 import PageHeader from '@/components/common/PageHeader'
 import { FilterBar } from '@/components/filters/FilterBar'
 import { useFilterBar } from '@/hooks/useFilterBar'
+import { useLayoutScroll } from '@/contexts/LayoutScrollContext'
 import { usePurchasingAnalytics } from './hooks/usePurchasingAnalytics'
 import { resolveApiParams } from '@/utils/dashboardApiParams'
 import type { DashboardCompare } from '@/utils/dashboardApiParams'
@@ -111,6 +112,8 @@ const PurchasingPage: React.FC = () => {
       paymentStatus: null,
     },
   }
+
+  useLayoutScroll(true)
 
   const { appliedFilters, draftFilters, handlers, hasActiveFilters } = useFilterBar(purchasingConfig)
   const resolvedApiParams = resolveApiParams(appliedFilters)

@@ -3,11 +3,16 @@ import { render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { useLayoutScroll } from '@/contexts/LayoutScrollContext'
 import PurchasingPage from '../PurchasingPage'
 
 const mockUseGetSuppliersQuery = vi.fn()
 const mockUsePurchasingAnalytics = vi.fn()
 const filterBarSpy = vi.fn()
+
+vi.mock('@/contexts/LayoutScrollContext', () => ({
+  useLayoutScroll: vi.fn(),
+}))
 
 vi.mock('@/store/api/purchasingApi', () => ({
   useGetSuppliersQuery: (...args: unknown[]) => mockUseGetSuppliersQuery(...args),
@@ -119,5 +124,14 @@ describe('PurchasingPage filters', () => {
         }),
       ]),
     )
+  })
+
+  it('enables layout scroll so page content is not clipped', () => {
+    render(
+      <MemoryRouter initialEntries={[initialEntry]}>
+        <PurchasingPage />
+      </MemoryRouter>,
+    )
+    expect(useLayoutScroll).toHaveBeenCalledWith(true)
   })
 })
