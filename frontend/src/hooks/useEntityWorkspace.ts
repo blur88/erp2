@@ -72,6 +72,8 @@ export function useEntityWorkspace<T extends { id: string }>(
   const listRef = useRef<HTMLDivElement>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
   const hasAutoSelected = useRef(false)
+  const focusedIndexRef = useRef(focusedIndex)
+  focusedIndexRef.current = focusedIndex
 
   useEffect(() => {
     if (entities.length === 0) {
@@ -83,11 +85,11 @@ export function useEntityWorkspace<T extends { id: string }>(
       return
     }
 
-    if (!selectedEntity && focusedIndex === -1 && !hasAutoSelected.current) {
+    if (!selectedEntity && focusedIndexRef.current === -1 && !hasAutoSelected.current) {
       hasAutoSelected.current = true
       selectEntity(entities[0])
     }
-  }, [entities, focusedIndex, isFetching, selectedEntity, selectEntity])
+  }, [entities, isFetching, selectedEntity, selectEntity])
 
   useEffect(() => {
     if (focusedIndex < 0 || !listRef.current) {
