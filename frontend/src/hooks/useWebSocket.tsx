@@ -33,6 +33,7 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const [lastMessage, setLastMessage] = useState<WebSocketMessage | null>(null)
   const socketRef = useRef<Socket | null>(null)
   const listenersRef = useRef<Map<string, Set<Function>>>(new Map())
+  const disconnectTimeRef = useRef<number | null>(null)
 
   // Initialize WebSocket connection
   useEffect(() => {
@@ -70,6 +71,7 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
       socket.on('disconnect', (reason) => {
         console.log('WebSocket disconnected:', reason)
+        disconnectTimeRef.current = Date.now()
         setIsConnected(false)
         if (reason === 'io server disconnect') {
           // Server initiated disconnect, try to reconnect
@@ -88,7 +90,11 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       socket.on('reconnect', (attemptNumber) => {
         console.log('WebSocket reconnected after', attemptNumber, 'attempts')
         setIsConnected(true)
-        showNotification('Real-time connection restored', 'success')
+        const downFor = disconnectTimeRef.current ? Date.now() - disconnectTimeRef.current : 0
+        if (downFor > 5000) {
+          showNotification('Real-time connection restored', 'success')
+        }
+        disconnectTimeRef.current = null
       })
 
       socket.on('reconnect_failed', () => {
