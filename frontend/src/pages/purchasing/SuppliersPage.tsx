@@ -14,6 +14,7 @@ import {
   selectSelectedSupplier,
   setSelectedSupplier,
 } from '@/store/slices/purchasingSlice'
+import type { Supplier } from '@/types'
 import type { FilterBarConfig } from '@/types/filterBar.types'
 
 import SupplierContextHeader from './components/SupplierContextHeader'
@@ -69,12 +70,18 @@ const SuppliersPage: React.FC = () => {
   const [deleteSupplier] = useDeleteSupplierMutation()
   const suppliers = suppliersResponse?.data ?? []
 
+  const selectSupplier = useCallback(
+    (supplier: Supplier | null) => {
+      dispatch(setSelectedSupplier(supplier))
+    },
+    [dispatch],
+  )
+
   const workspace = useEntityWorkspace({
     entities: suppliers,
     selectedEntity: selectedSupplier,
-    selectEntity: (supplier) => {
-      dispatch(setSelectedSupplier(supplier))
-    },
+    selectEntity: selectSupplier,
+    isFetching,
     refetch: () => {
       void refetch()
     },
