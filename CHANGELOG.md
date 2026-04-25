@@ -1,3 +1,11 @@
+## [1.90.4](https://github.com/blur88/erp2/compare/v1.90.3...v1.90.4) (2026-04-25)
+
+
+### Bug Fixes
+
+* enable scroll on Accounting Dashboard page (closes [#439](https://github.com/blur88/erp2/issues/439)) ([b3078a5](https://github.com/blur88/erp2/commit/b3078a50f72bde5ecbd3c91364a54edff2d74e6c))
+* enable scroll on Inventory Overview page (closes [#439](https://github.com/blur88/erp2/issues/439) partially) ([3efc5a5](https://github.com/blur88/erp2/commit/3efc5a5b2431406c65cc93bd4ef83ea57670b8e5))
+
 ## [1.90.3](https://github.com/blur88/erp2/compare/v1.90.2...v1.90.3) (2026-04-25)
 
 
