@@ -37,7 +37,7 @@ describe('SupplierContextHeader', () => {
 
   it('renders supplier company name in header', () => {
     render(<SupplierContextHeader selectedSupplier={mockSupplier} onEdit={vi.fn()} onDelete={vi.fn()} />)
-    expect(screen.getByText(/Supplier - Acme Corp/i)).toBeInTheDocument()
+    expect(screen.getByText(/Supplier Details - Acme Corp/i)).toBeInTheDocument()
   })
 
   it('renders contact information', () => {

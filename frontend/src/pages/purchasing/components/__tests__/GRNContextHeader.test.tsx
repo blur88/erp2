@@ -45,7 +45,7 @@ describe('GRNContextHeader', () => {
         />
       </MemoryRouter>,
     )
-    expect(screen.getByText(/GRN Details - GRN-1001/i)).toBeInTheDocument()
+    expect(screen.getByText(/Goods Received Note - GRN-1001/i)).toBeInTheDocument()
   })
 
   it('renders a labeled Print action button', () => {
