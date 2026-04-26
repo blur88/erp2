@@ -29,6 +29,30 @@
 
 * **inventory:** wrap loading branch with GenericOverviewPage (issue [#446](https://github.com/blur88/erp2/issues/446)) ([a9fabd8](https://github.com/blur88/erp2/commit/a9fabd833551911db6fae90eeabeffffb026e5c9))
 * **layout:** move scrollbar to screen edge via negative margin on GenericOverviewPage (issue [#446](https://github.com/blur88/erp2/issues/446)) ([186fc95](https://github.com/blur88/erp2/commit/186fc9528b8ebc397ca673e703b5cdf7c805218c))
+* **workspace:** address code review findings from issue [#448](https://github.com/blur88/erp2/issues/448) ([96585e0](https://github.com/blur88/erp2/commit/96585e0ece65e81a727967f211b100442b6fe205))
+
+
+### Features
+
+* **accounting:** add accountingSlice with selectedAccount state ([fc74223](https://github.com/blur88/erp2/commit/fc7422313f197f4b6b606f9b3c21ab2e9362b0ce))
+* **accounting:** migrate ChartOfAccounts to useEntityWorkspace with Redux selection and keyboard nav ([5e4722a](https://github.com/blur88/erp2/commit/5e4722aa8740e1836cc5530c7d4fd543c1d44571))
+* **accounting:** wrap AccountingDashboardPage with GenericOverviewPage for scroll (issue [#446](https://github.com/blur88/erp2/issues/446)) ([38bb433](https://github.com/blur88/erp2/commit/38bb433ae25579280922456977836c7c71f49060))
+* **dashboard:** wrap with GenericOverviewPage for scroll (issue [#446](https://github.com/blur88/erp2/issues/446)) ([6fb2b33](https://github.com/blur88/erp2/commit/6fb2b33eaefebad2c7425b5f4af4f2a566ca9ce5))
+* **inventory:** wrap InventoryPage with GenericOverviewPage for scroll (issue [#446](https://github.com/blur88/erp2/issues/446)) ([f76b624](https://github.com/blur88/erp2/commit/f76b624a6f35ab27a3688ac7ceed718db62f12ff))
+* **layout:** add GenericOverviewPage scroll container (issue [#446](https://github.com/blur88/erp2/issues/446)) ([0fe9952](https://github.com/blur88/erp2/commit/0fe9952e301f5bdff0c7a5a026b456094bed3a51))
+* **purchasing:** refactor usePurchaseOrdersWorkspace to wrap useEntityWorkspace ([7b1b478](https://github.com/blur88/erp2/commit/7b1b478d3a6ea3e3facb5a9fab0c610544977014))
+* **purchasing:** wrap PurchasingPage with GenericOverviewPage for scroll (issue [#446](https://github.com/blur88/erp2/issues/446)) ([a675d5e](https://github.com/blur88/erp2/commit/a675d5e9b5c2b716e3c5f9ef89440c94b50c5aeb))
+* **sales:** wrap SalesPage with GenericOverviewPage for scroll (issue [#446](https://github.com/blur88/erp2/issues/446)) ([21fd835](https://github.com/blur88/erp2/commit/21fd835553ee7b4275ad02d4238dd0c8091033a1))
+* **workspace:** add highlightParam support to useEntityWorkspace ([b507f45](https://github.com/blur88/erp2/commit/b507f45257daf75fdd984ac87dfd6e40256950f3))
+* **workspace:** add locationStateHighlightKey support to useEntityWorkspace ([791e5cc](https://github.com/blur88/erp2/commit/791e5ccd60269b5c7cdc4fbe89ebd61e983e6602))
+
+# [1.88.0](https://github.com/blur88/erp2/compare/v1.87.0...v1.88.0) (2026-04-26)
+
+
+### Bug Fixes
+
+* **inventory:** wrap loading branch with GenericOverviewPage (issue [#446](https://github.com/blur88/erp2/issues/446)) ([a9fabd8](https://github.com/blur88/erp2/commit/a9fabd833551911db6fae90eeabeffffb026e5c9))
+* **layout:** move scrollbar to screen edge via negative margin on GenericOverviewPage (issue [#446](https://github.com/blur88/erp2/issues/446)) ([186fc95](https://github.com/blur88/erp2/commit/186fc9528b8ebc397ca673e703b5cdf7c805218c))
 
 
 ### Features
