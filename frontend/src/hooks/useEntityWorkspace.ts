@@ -24,6 +24,7 @@ export interface UseEntityWorkspaceConfig<T extends { id: string }> {
   onEscape?: () => void
   highlightParam?: string
   locationStateHighlightKey?: string
+  locationStateHighlightKeys?: string[]
 }
 
 export interface EntityWorkspaceReturn<T extends { id: string }> {
@@ -65,6 +66,7 @@ export function useEntityWorkspace<T extends { id: string }>(
     onEscape,
     highlightParam,
     locationStateHighlightKey,
+    locationStateHighlightKeys,
   } = config
 
   const [focusedIndex, setFocusedIndex] = useState(-1)
@@ -89,11 +91,33 @@ export function useEntityWorkspace<T extends { id: string }>(
       return
     }
 
-    if (!selectedEntity && focusedIndex === -1 && !hasAutoSelected.current) {
+    // Don't auto-select first if we're about to highlight a specific entity from URL/state
+    const pendingHighlightId = highlightParam ? searchParams.get(highlightParam) : null
+    const hasPendingHighlight = pendingHighlightId
+      ? entities.some((e) => e.id === pendingHighlightId)
+      : false
+
+    const pendingStateHighlight = (() => {
+      const keys = [
+        ...(locationStateHighlightKey ? [locationStateHighlightKey] : []),
+        ...(locationStateHighlightKeys ?? []),
+      ]
+      if (keys.length === 0) return false
+      const state = location.state as Record<string, unknown> | null
+      if (!state) return false
+      return keys.some((k) => {
+        const v = state[k]
+        if (!v) return false
+        const id = typeof v === 'string' ? v : (v as { id?: string }).id
+        return id ? entities.some((e) => e.id === id) : false
+      })
+    })()
+
+    if (!selectedEntity && focusedIndex === -1 && !hasAutoSelected.current && !hasPendingHighlight && !pendingStateHighlight) {
       hasAutoSelected.current = true
       selectEntity(entities[0])
     }
-  }, [entities, focusedIndex, selectedEntity, selectEntity])
+  }, [entities, focusedIndex, highlightParam, location.state, locationStateHighlightKey, locationStateHighlightKeys, searchParams, selectedEntity, selectEntity])
 
   useEffect(() => {
     if (focusedIndex < 0 || !listRef.current) {
@@ -153,7 +177,11 @@ export function useEntityWorkspace<T extends { id: string }>(
   }, [entities, highlightParam, searchParams, selectEntity, setSearchParams])
 
   useEffect(() => {
-    if (!locationStateHighlightKey || entities.length === 0 || locationStateConsumedRef.current) {
+    const keys = [
+      ...(locationStateHighlightKey ? [locationStateHighlightKey] : []),
+      ...(locationStateHighlightKeys ?? []),
+    ]
+    if (keys.length === 0 || entities.length === 0 || locationStateConsumedRef.current) {
       return
     }
 
@@ -162,26 +190,23 @@ export function useEntityWorkspace<T extends { id: string }>(
       return
     }
 
-    const value = state[locationStateHighlightKey]
-    if (!value) {
+    for (const key of keys) {
+      const value = state[key]
+      if (!value) continue
+
+      const highlightId = typeof value === 'string' ? value : (value as { id?: string }).id
+      if (!highlightId) continue
+
+      const index = entities.findIndex((e) => e.id === highlightId)
+      if (index < 0) continue
+
+      locationStateConsumedRef.current = true
+      setFocusedIndex(index)
+      selectEntity(entities[index])
+      window.history.replaceState(null, '', window.location.pathname + window.location.search)
       return
     }
-
-    const highlightId = typeof value === 'string' ? value : (value as { id?: string }).id
-    if (!highlightId) {
-      return
-    }
-
-    const index = entities.findIndex((e) => e.id === highlightId)
-    if (index < 0) {
-      return
-    }
-
-    locationStateConsumedRef.current = true
-    setFocusedIndex(index)
-    selectEntity(entities[index])
-    window.history.replaceState(null, '', window.location.pathname + window.location.search)
-  }, [entities, location.state, locationStateHighlightKey, selectEntity])
+  }, [entities, location.state, locationStateHighlightKey, locationStateHighlightKeys, selectEntity])
 
   const selectAtIndex = useCallback((index: number) => {
     const entity = entities[index]

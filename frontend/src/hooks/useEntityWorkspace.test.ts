@@ -248,6 +248,38 @@ describe('highlightParam', () => {
       expect(config.selectEntity).toHaveBeenCalledWith(config.entities[0])
     })
   })
+
+  it('clears the URL param after consuming the highlight', async () => {
+    const config = makeConfig()
+    let capturedSearchParams: URLSearchParams | null = null
+
+    // Intercept setSearchParams to capture what was passed
+    const TestComponent = () => {
+      const [searchParams] = (
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        require('react-router-dom') as typeof import('react-router-dom')
+      ).useSearchParams()
+      capturedSearchParams = searchParams
+      return null
+    }
+
+    const { rerender } = renderHook(
+      () => useEntityWorkspace({ ...config, highlightParam: 'highlight' }),
+      { wrapper: makeWrapper('/entities?highlight=2') },
+    )
+
+    await waitFor(() => {
+      expect(config.selectEntity).toHaveBeenCalledWith(config.entities[1])
+    })
+
+    rerender()
+
+    await waitFor(() => {
+      // After consumption the param should be gone from the URL
+      const url = window.location.search
+      expect(url).not.toContain('highlight=2')
+    })
+  })
 })
 
 describe('locationStateHighlightKey', () => {

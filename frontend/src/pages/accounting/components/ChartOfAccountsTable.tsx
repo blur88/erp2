@@ -37,7 +37,6 @@ export function ChartOfAccountsTable({
       focusedIndex={focusedIndex}
       onSelect={onSelect}
       listRef={listRef ?? fallbackRef}
-      dataAttr="account"
     />
   )
 }

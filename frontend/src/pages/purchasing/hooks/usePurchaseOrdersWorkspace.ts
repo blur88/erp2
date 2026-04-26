@@ -82,12 +82,6 @@ export function usePurchaseOrdersWorkspace({
     deleteMutation: async (id) => {
       await deletePurchaseOrder(id).unwrap()
     },
-    onEnter: () => {
-      const idx = workspace.focusedIndex
-      if (idx >= 0 && purchaseOrders[idx]) {
-        navigate(`/purchasing/orders/${purchaseOrders[idx].id}/edit`)
-      }
-    },
     onEscape: () => {
       dispatch(setSelectedPurchaseOrder(null))
       setDeleteConfirmOpen(false)
@@ -95,6 +89,8 @@ export function usePurchaseOrdersWorkspace({
       setDeletedOrdersDialogOpen(false)
     },
   })
+
+  const { setFocusedIndex } = workspace
 
   // Legacy ?poId= navigation param (cross-page navigation from GRN/VP pages)
   useEffect(() => {
@@ -106,10 +102,10 @@ export function usePurchaseOrdersWorkspace({
     const order = purchaseOrders.find((candidate) => candidate.id === poId)
     if (order) {
       dispatch(setSelectedPurchaseOrder(order))
-      workspace.setFocusedIndex(purchaseOrders.findIndex((candidate) => candidate.id === poId))
+      setFocusedIndex(purchaseOrders.findIndex((candidate) => candidate.id === poId))
       setSearchParams({})
     }
-  }, [dispatch, purchaseOrders, searchParams, setSearchParams, workspace])
+  }, [dispatch, purchaseOrders, searchParams, setFocusedIndex, setSearchParams])
 
   // Journal entry ref loading — domain-specific, stays here
   useEffect(() => {

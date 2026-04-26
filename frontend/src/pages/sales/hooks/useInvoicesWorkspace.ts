@@ -73,6 +73,7 @@ export function useInvoicesWorkspace({
     refetch,
     navigate,
     locationStateHighlightKey: 'highlightInvoice',
+    locationStateHighlightKeys: ['highlightInvoiceId'],
     routes: {
       create: '/sales/invoices/create',
       edit: (id) => `/sales/invoices/${id}/edit`,
@@ -172,17 +173,6 @@ export function useInvoicesWorkspace({
       }
     }
   }, [dispatch, invoices])
-
-  useEffect(() => {
-    const state = location.state as { highlightInvoiceId?: string } | null
-    if (!state?.highlightInvoiceId || invoices.length === 0) return
-    const index = invoices.findIndex((invoice) => invoice.id === state.highlightInvoiceId)
-    if (index >= 0) {
-      dispatch(setSelectedInvoice(invoices[index] as any))
-      workspace.setFocusedIndex(index)
-      window.history.replaceState(null, '', window.location.pathname + window.location.search)
-    }
-  }, [dispatch, invoices, location.state, workspace])
 
   useEffect(() => {
     if (invoices.length === 0) {
