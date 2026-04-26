@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { RefObject } from 'react'
 import type { NavigateFunction } from 'react-router-dom'
+import { useSearchParams } from 'react-router-dom'
 
 import { useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
 
@@ -21,6 +22,8 @@ export interface UseEntityWorkspaceConfig<T extends { id: string }> {
   deleteMutation: (id: string) => Promise<void>
   onEnter?: () => void
   onEscape?: () => void
+  highlightParam?: string
+  locationStateHighlightKey?: string
 }
 
 export interface EntityWorkspaceReturn<T extends { id: string }> {
@@ -60,6 +63,7 @@ export function useEntityWorkspace<T extends { id: string }>(
     deleteMutation,
     onEnter,
     onEscape,
+    highlightParam,
   } = config
 
   const [focusedIndex, setFocusedIndex] = useState(-1)
@@ -67,9 +71,12 @@ export function useEntityWorkspace<T extends { id: string }>(
   const [deletedEntitiesDialogOpen, setDeletedEntitiesDialogOpen] = useState(false)
   const [shouldPreserveSearchFocus, setShouldPreserveSearchFocus] = useState(false)
 
+  const [searchParams, setSearchParams] = useSearchParams()
+
   const listRef = useRef<HTMLDivElement>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
   const hasAutoSelected = useRef(false)
+  const highlightConsumedRef = useRef<string | null>(null)
 
   useEffect(() => {
     if (entities.length === 0) {
@@ -114,6 +121,33 @@ export function useEntityWorkspace<T extends { id: string }>(
       setShouldPreserveSearchFocus(false)
     }
   }, [shouldPreserveSearchFocus])
+
+  useEffect(() => {
+    if (!highlightParam || entities.length === 0) {
+      return
+    }
+
+    const highlightId = searchParams.get(highlightParam)
+    if (!highlightId || highlightConsumedRef.current === highlightId) {
+      return
+    }
+
+    const index = entities.findIndex((e) => e.id === highlightId)
+    if (index < 0) {
+      return
+    }
+
+    highlightConsumedRef.current = highlightId
+    setFocusedIndex(index)
+    selectEntity(entities[index])
+    setSearchParams(
+      (prev) => {
+        prev.delete(highlightParam)
+        return prev
+      },
+      { replace: true },
+    )
+  }, [entities, highlightParam, searchParams, selectEntity, setSearchParams])
 
   const selectAtIndex = useCallback((index: number) => {
     const entity = entities[index]
