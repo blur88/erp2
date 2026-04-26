@@ -1,9 +1,11 @@
-import { Box, Chip, Paper, Stack, Table, TableBody, TableCell, TableRow, Typography } from '@mui/material'
+import { Paper, Stack, Table, TableBody, TableCell, TableRow, Typography } from '@mui/material'
 import { default as DeleteIcon } from '@mui/icons-material/Delete'
 import { default as EditIcon } from '@mui/icons-material/Edit'
 import { default as PostIcon } from '@mui/icons-material/PostAdd'
 
 import { AppButton } from '@/components/common/AppButton'
+import { EntityContextHeaderBar } from '@/components/common/EntityContextHeaderBar'
+import { EntityStatusChip } from '@/components/common/EntityStatusChip'
 import { TABLE_STYLES } from '@/constants/tableStyles'
 import { ExpenseRecord } from '@/types'
 import { formatCurrency, formatDate } from '@/utils/formatters'
@@ -30,21 +32,25 @@ export function ExpenseContextHeader({ selected, onEdit, onPost, onDelete }: Pro
 
   return (
     <Paper>
-      <Box sx={{ px: 2, pt: 1.5, pb: 1, borderBottom: TABLE_STYLES.cell.border }}>
-        <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center' }}>
-          <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
-            <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>{selected.referenceNumber}</Typography>
-            <Chip label={selected.status} color={isDraft ? 'default' : 'success'} size="small" />
-          </Stack>
-          {isDraft && (
+      <EntityContextHeaderBar
+        title={selected.referenceNumber}
+        statusChip={<EntityStatusChip status={selected.status} />}
+        actions={
+          isDraft ? (
             <Stack direction="row" spacing={0.5}>
-              <AppButton size="small" variant="outlined" startIcon={<EditIcon />} onClick={onEdit}>Edit</AppButton>
-              <AppButton size="small" variant="success" startIcon={<PostIcon />} onClick={onPost}>Post</AppButton>
-              <AppButton size="small" variant="danger" startIcon={<DeleteIcon />} onClick={onDelete}>Delete</AppButton>
+              <AppButton size="small" variant="outlined" startIcon={<EditIcon />} onClick={onEdit}>
+                Edit
+              </AppButton>
+              <AppButton size="small" variant="success" startIcon={<PostIcon />} onClick={onPost}>
+                Post
+              </AppButton>
+              <AppButton size="small" variant="danger" startIcon={<DeleteIcon />} onClick={onDelete}>
+                Delete
+              </AppButton>
             </Stack>
-          )}
-        </Stack>
-      </Box>
+          ) : null
+        }
+      />
       <Table size={TABLE_STYLES.size} sx={{ '& .MuiTableCell-root': cellSx }}>
         <TableBody>
           <TableRow>

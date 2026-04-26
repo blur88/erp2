@@ -1,10 +1,12 @@
-import { Box, Chip, Paper, Stack, Table, TableBody, TableCell, TableRow, Typography } from '@mui/material'
+import { Paper, Stack, Table, TableBody, TableCell, TableRow, Typography } from '@mui/material'
 import { default as CheckCircleIcon } from '@mui/icons-material/CheckCircle'
 import { default as DeleteIcon } from '@mui/icons-material/Delete'
 import { default as ReopenIcon } from '@mui/icons-material/LockOpen'
 import { format } from 'date-fns'
 
 import { AppButton } from '@/components/common/AppButton'
+import { EntityContextHeaderBar } from '@/components/common/EntityContextHeaderBar'
+import { EntityStatusChip } from '@/components/common/EntityStatusChip'
 import { TABLE_STYLES } from '@/constants/tableStyles'
 import { BankReconciliation, BankReconciliationStatus } from '@/types'
 import { formatCurrency } from '@/utils/formatters'
@@ -32,19 +34,27 @@ export function BankReconciliationContextHeader({ selected, onComplete, onReopen
 
   return (
     <Paper>
-      <Box sx={{ px: 2, pt: 1.5, pb: 1, borderBottom: TABLE_STYLES.cell.border }}>
-        <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center' }}>
-          <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
-            <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>{selected.account?.name ?? 'Bank Account'}</Typography>
-            <Chip label={selected.status} color={isCompleted ? 'success' : 'warning'} size="small" />
-          </Stack>
+      <EntityContextHeaderBar
+        title={selected.account?.name ?? 'Bank Account'}
+        statusChip={<EntityStatusChip status={selected.status} />}
+        actions={(
           <Stack direction="row" spacing={0.5}>
-            {isInProgress && <AppButton size="small" variant="success" startIcon={<CheckCircleIcon />} onClick={onComplete}>Complete</AppButton>}
-            {isCompleted && <AppButton size="small" variant="outlined" startIcon={<ReopenIcon />} onClick={onReopen}>Reopen</AppButton>}
-            <AppButton size="small" variant="danger" startIcon={<DeleteIcon />} onClick={onDelete}>Delete</AppButton>
+            {isInProgress && (
+              <AppButton size="small" variant="success" startIcon={<CheckCircleIcon />} onClick={onComplete}>
+                Complete
+              </AppButton>
+            )}
+            {isCompleted && (
+              <AppButton size="small" variant="outlined" startIcon={<ReopenIcon />} onClick={onReopen}>
+                Reopen
+              </AppButton>
+            )}
+            <AppButton size="small" variant="danger" startIcon={<DeleteIcon />} onClick={onDelete}>
+              Delete
+            </AppButton>
           </Stack>
-        </Stack>
-      </Box>
+        )}
+      />
       <Table size={TABLE_STYLES.size} sx={{ '& .MuiTableCell-root': cellSx }}>
         <TableBody>
           <TableRow>

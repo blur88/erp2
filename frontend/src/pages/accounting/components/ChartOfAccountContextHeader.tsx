@@ -15,6 +15,7 @@ import {
 import Grid from '@mui/material/Grid'
 
 import { AppButton } from '@/components/common/AppButton'
+import { EntityContextHeaderBar } from '@/components/common/EntityContextHeaderBar'
 import { TABLE_STYLES } from '@/constants/tableStyles'
 import type { ChartOfAccount } from '@/types'
 import { formatDate } from '@/utils/formatters'
@@ -63,32 +64,19 @@ export function ChartOfAccountContextHeader({ selected, onEdit, onDelete }: Prop
 
   return (
     <Paper sx={{ overflow: 'hidden' }}>
-      <Box
-        sx={{
-          p: TABLE_STYLES.cell.padding.px,
-          borderBottom: TABLE_STYLES.cell.border,
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-        }}
-      >
-        <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
-          <Typography
-            variant="tableHeader"
-            sx={{ fontWeight: 600, fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}
-          >
-            {selected.code} — {selected.name}
-          </Typography>
-        </Stack>
-        <Stack direction="row" spacing={0.5}>
-          <AppButton size="small" variant="outlined" startIcon={<EditIcon />} onClick={onEdit}>
-            Edit
-          </AppButton>
-          <AppButton size="small" variant="danger" startIcon={<DeleteIcon />} onClick={onDelete}>
-            Delete
-          </AppButton>
-        </Stack>
-      </Box>
+      <EntityContextHeaderBar
+        title={`${selected.code} — ${selected.name}`}
+        actions={(
+          <Stack direction="row" spacing={0.5}>
+            <AppButton size="small" variant="outlined" startIcon={<EditIcon />} onClick={onEdit}>
+              Edit
+            </AppButton>
+            <AppButton size="small" variant="danger" startIcon={<DeleteIcon />} onClick={onDelete}>
+              Delete
+            </AppButton>
+          </Stack>
+        )}
+      />
 
       <Box sx={{ p: TABLE_STYLES.cell.padding.px }}>
         <Grid container spacing={3}>
