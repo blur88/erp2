@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
+import { useJournalEntryRef } from '@/hooks/useJournalEntryRef'
 import { useEntityWorkspace } from '@/hooks/useEntityWorkspace'
 import type { AppDispatch } from '@/store'
-import { useLazyGetJournalEntriesQuery } from '@/store/api/accountingApi'
 import { useLazyGetVendorPaymentQuery } from '@/store/api/purchasingApi'
 import { setSelectedVendorPayment } from '@/store/slices/purchasingSlice'
 import type { VendorPayment } from '@/types'
@@ -30,10 +30,7 @@ export function useVendorPaymentsWorkspace({
   const navigate = useNavigate()
   const [deletedPaymentsOpen, setDeletedPaymentsOpen] = useState(false)
   const [printDialogOpen, setPrintDialogOpen] = useState(false)
-  const [journalEntryRef, setJournalEntryRef] = useState<VPJournalEntryRef | null>(null)
-  const [journalEntryRefLoading, setJournalEntryRefLoading] = useState(false)
   const [fetchPayment] = useLazyGetVendorPaymentQuery()
-  const [fetchJournalEntries] = useLazyGetJournalEntriesQuery()
 
   const workspace = useEntityWorkspace({
     entities: payments,
@@ -50,53 +47,9 @@ export function useVendorPaymentsWorkspace({
     deleteMutation: async () => {},
   })
 
-  useEffect(() => {
-    if (!selectedPayment?.id) {
-      setJournalEntryRef(null)
-      setJournalEntryRefLoading(false)
-      return
-    }
-
-    let cancelled = false
-    setJournalEntryRefLoading(true)
-
-    ;(async () => {
-      try {
-        const response = await fetchJournalEntries({
-          sourceType: 'vendor_payment',
-          sourceId: selectedPayment.id,
-          sortBy: 'createdAt',
-          sortOrder: 'DESC',
-          limit: 1,
-        }).unwrap()
-
-        if (cancelled) return
-
-        const entry = response.data?.[0]
-        setJournalEntryRef(
-          entry
-            ? {
-                referenceNumber: entry.referenceNumber,
-                sourceType: 'vendor_payment',
-                sourceId: selectedPayment.id,
-              }
-            : null,
-        )
-      } catch {
-        if (!cancelled) {
-          setJournalEntryRef(null)
-        }
-      } finally {
-        if (!cancelled) {
-          setJournalEntryRefLoading(false)
-        }
-      }
-    })()
-
-    return () => {
-      cancelled = true
-    }
-  }, [fetchJournalEntries, selectedPayment?.id])
+  const { journalEntryRef, journalEntryRefLoading } = useJournalEntryRef([
+    { sourceType: 'vendor_payment', sourceId: selectedPayment?.id },
+  ])
 
   const handleSelect = async (payment: VendorPayment) => {
     workspace.handleSelect(payment)

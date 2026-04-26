@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useRef, useState, type MouseEvent } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 
+import { useJournalEntryRef } from '@/hooks/useJournalEntryRef'
 import { useEntityWorkspace } from '@/hooks/useEntityWorkspace'
 import type { AppDispatch } from '@/store'
-import { useLazyGetJournalEntriesQuery } from '@/store/api/accountingApi'
 import { setSelectedPayment } from '@/store/slices/salesSlice'
 
 export interface PaymentJournalEntryRef {
@@ -76,10 +76,7 @@ export function usePaymentsWorkspace({
   const location = useLocation()
   const [deletedPaymentsDialogOpen, setDeletedPaymentsDialogOpen] = useState(false)
   const [printDialogOpen, setPrintDialogOpen] = useState(false)
-  const [journalEntryRef, setJournalEntryRef] = useState<PaymentJournalEntryRef | null>(null)
-  const [journalEntryRefLoading, setJournalEntryRefLoading] = useState(false)
   const selectedPaymentRef = useRef<PaymentListItem | null>(null)
-  const [fetchJournalEntries] = useLazyGetJournalEntriesQuery()
 
   const workspace = useEntityWorkspace({
     entities: payments,
@@ -99,57 +96,13 @@ export function usePaymentsWorkspace({
   })
   const { focusedIndex } = workspace
 
+  const { journalEntryRef, journalEntryRefLoading, navigateToJournalEntry } = useJournalEntryRef([
+    { sourceType: 'payment', sourceId: selectedPayment?.id },
+  ])
+
   useEffect(() => {
     selectedPaymentRef.current = selectedPayment
   }, [selectedPayment])
-
-  useEffect(() => {
-    if (!selectedPayment?.id) {
-      setJournalEntryRef(null)
-      setJournalEntryRefLoading(false)
-      return
-    }
-
-    let cancelled = false
-    setJournalEntryRefLoading(true)
-
-    ;(async () => {
-      try {
-        const response = await fetchJournalEntries({
-          sourceType: 'payment',
-          sourceId: selectedPayment.id,
-          limit: 1,
-        }).unwrap()
-
-        if (cancelled) {
-          return
-        }
-
-        const entry = response?.data?.[0]
-        setJournalEntryRef(
-          entry
-            ? {
-                referenceNumber: entry.referenceNumber,
-                sourceType: 'payment',
-                sourceId: selectedPayment.id,
-              }
-            : null,
-        )
-      } catch {
-        if (!cancelled) {
-          setJournalEntryRef(null)
-        }
-      } finally {
-        if (!cancelled) {
-          setJournalEntryRefLoading(false)
-        }
-      }
-    })()
-
-    return () => {
-      cancelled = true
-    }
-  }, [fetchJournalEntries, selectedPayment?.id])
 
   useEffect(() => {
     if (location.pathname === '/sales/payments') {
@@ -186,13 +139,13 @@ export function usePaymentsWorkspace({
     navigate('/sales/invoices', { state: { highlightInvoiceId: invoiceId } })
   }, [navigate])
 
-  const handleNavigateToJournalEntry = useCallback((journalRef: PaymentJournalEntryRef | null) => {
-    if (!journalRef) {
-      return
-    }
-
-    navigate(`/accounting/journal-entries?sourceType=${journalRef.sourceType}&sourceId=${journalRef.sourceId}`)
-  }, [navigate])
+  const handleNavigateToJournalEntry = useCallback(
+    (journalRef: PaymentJournalEntryRef | null) => {
+      if (!journalRef) return
+      navigateToJournalEntry()
+    },
+    [navigateToJournalEntry],
+  )
 
   return {
     ...workspace,

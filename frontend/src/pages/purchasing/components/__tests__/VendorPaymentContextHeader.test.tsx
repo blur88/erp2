@@ -44,7 +44,7 @@ describe('VendorPaymentContextHeader', () => {
         />
       </MemoryRouter>,
     )
-    expect(screen.getByText(/Payment Details.*VP-1001/i)).toBeInTheDocument()
+    expect(screen.getByText(/Vendor Payment Details - VP-1001/i)).toBeInTheDocument()
   })
 
   it('renders a labeled Print action button', () => {

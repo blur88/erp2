@@ -3,7 +3,6 @@ import { default as DeleteIcon } from '@mui/icons-material/Delete'
 import { default as EditIcon } from '@mui/icons-material/Edit'
 import {
   Box,
-  Chip,
   CircularProgress,
   Paper,
   Stack,
@@ -17,6 +16,8 @@ import {
 import Grid from '@mui/material/Grid'
 
 import { AppButton } from '@/components/common/AppButton'
+import { EntityContextHeaderBar } from '@/components/common/EntityContextHeaderBar'
+import { EntityStatusChip } from '@/components/common/EntityStatusChip'
 import { TABLE_STYLES } from '@/constants/tableStyles'
 import type { StockAdjustment } from '@/types'
 import { formatCurrency, formatDate } from '@/utils/formatters'
@@ -80,60 +81,37 @@ const StockAdjustmentContextHeader: React.FC<StockAdjustmentContextHeaderProps> 
     )
   }
 
-  const statusColor: 'default' | 'success' | 'error' =
-    selectedAdjustment.status === 'completed'
-      ? 'success'
-      : selectedAdjustment.status === 'cancelled'
-        ? 'error'
-        : 'default'
-
   return (
     <Paper sx={{ overflow: 'hidden' }}>
-      <Box
-        sx={{
-          p: TABLE_STYLES.cell.padding.px,
-          borderBottom: TABLE_STYLES.cell.border,
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-        }}
-      >
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Typography
-            variant="tableHeader"
-            sx={{ fontWeight: 600, fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}
-          >
-            SA Details — {selectedAdjustment.adjustmentNumber}
-          </Typography>
-          <Chip
-            label={selectedAdjustment.status}
-            size="small"
-            color={statusColor}
-            sx={{ textTransform: 'capitalize', fontSize: '0.75rem', fontWeight: 600 }}
-          />
-        </Box>
-
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-          <AppButton
-            size="small"
-            variant="secondary"
-            startIcon={<EditIcon />}
-            title="Edit Adjustment"
-            onClick={onEdit}
-          >
-            Edit
-          </AppButton>
-          <AppButton
-            size="small"
-            variant="danger"
-            startIcon={<DeleteIcon />}
-            title="Delete Adjustment"
-            onClick={onDelete}
-          >
-            Delete
-          </AppButton>
-        </Box>
-      </Box>
+      <EntityContextHeaderBar
+        title={`Stock Adjustment - ${selectedAdjustment.adjustmentNumber}`}
+        statusChip={<EntityStatusChip status={selectedAdjustment.status} />}
+        actions={(
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+            <AppButton
+              size="small"
+              variant="secondary"
+              startIcon={<EditIcon />}
+              title="Edit Adjustment"
+              onClick={onEdit}
+            >
+              Edit
+            </AppButton>
+            <AppButton
+              size="small"
+              variant="danger"
+              startIcon={<DeleteIcon />}
+              title="Delete Adjustment"
+              onClick={onDelete}
+            >
+              Delete
+            </AppButton>
+          </Box>
+        )}
+        journalEntryRef={journalEntryRef}
+        journalEntryRefLoading={journalEntryRefLoading}
+        onNavigateToJournalEntry={onNavigateToJournalEntry}
+      />
 
       <Box sx={{ p: TABLE_STYLES.cell.padding.px }}>
         <Grid container spacing={3}>

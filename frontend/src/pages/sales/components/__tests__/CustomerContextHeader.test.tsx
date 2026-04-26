@@ -31,7 +31,7 @@ describe('CustomerContextHeader', () => {
       />,
     )
 
-    expect(screen.getByText('Customer - Acme Supplies')).toBeInTheDocument()
+    expect(screen.getByText('Customer Details - Acme Supplies')).toBeInTheDocument()
     expect(screen.getByText('Customer Information')).toBeInTheDocument()
     expect(screen.getByText('Account Summary')).toBeInTheDocument()
     expect(screen.getByText('Business')).toBeInTheDocument()

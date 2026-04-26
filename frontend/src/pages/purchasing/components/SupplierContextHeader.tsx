@@ -14,6 +14,7 @@ import {
 import Grid from '@mui/material/Grid'
 
 import { AppButton } from '@/components/common/AppButton'
+import { EntityContextHeaderBar } from '@/components/common/EntityContextHeaderBar'
 import { TABLE_STYLES } from '@/constants/tableStyles'
 import type { Supplier } from '@/types'
 import { SupplierType } from '@/types'
@@ -66,47 +67,31 @@ const SupplierContextHeader: React.FC<SupplierContextHeaderProps> = ({
 
   return (
     <Paper sx={{ overflow: 'hidden' }}>
-      <Box
-        sx={{
-          p: TABLE_STYLES.cell.padding.px,
-          borderBottom: TABLE_STYLES.cell.border,
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-        }}
-      >
-        <Typography
-          variant="tableHeader"
-          sx={{
-            fontWeight: 600,
-            fontSize: '0.8rem',
-            textTransform: 'uppercase',
-            letterSpacing: '0.5px',
-          }}
-        >
-          Supplier - {selectedSupplier.companyName}
-        </Typography>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-          <AppButton
-            size="small"
-            variant="secondary"
-            startIcon={<EditIcon />}
-            title="Edit Supplier"
-            onClick={onEdit}
-          >
-            Edit
-          </AppButton>
-          <AppButton
-            size="small"
-            variant="danger"
-            startIcon={<DeleteIcon />}
-            title="Delete Supplier"
-            onClick={onDelete}
-          >
-            Delete
-          </AppButton>
-        </Box>
-      </Box>
+      <EntityContextHeaderBar
+        title={`Supplier Details - ${selectedSupplier.companyName}`}
+        actions={(
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+            <AppButton
+              size="small"
+              variant="secondary"
+              startIcon={<EditIcon />}
+              title="Edit Supplier"
+              onClick={onEdit}
+            >
+              Edit
+            </AppButton>
+            <AppButton
+              size="small"
+              variant="danger"
+              startIcon={<DeleteIcon />}
+              title="Delete Supplier"
+              onClick={onDelete}
+            >
+              Delete
+            </AppButton>
+          </Box>
+        )}
+      />
 
       <Box sx={{ p: TABLE_STYLES.cell.padding.px }}>
         <Grid container spacing={3}>
