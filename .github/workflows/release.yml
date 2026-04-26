@@ -39,9 +39,11 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Capture latest tag before release
+      - name: Capture latest remote tag before release
         id: before_tag
-        run: echo "value=$(git tag --list 'v*' --sort=-v:refname | head -n1)" >> "$GITHUB_OUTPUT"
+        run: |
+          git fetch --tags --force origin
+          echo "value=$(git tag --list 'v*' --sort=-v:refname | head -n1)" >> "$GITHUB_OUTPUT"
 
       - name: Run semantic-release
         run: npx semantic-release
@@ -51,7 +53,7 @@ jobs:
       - name: Detect published release
         id: detect_release
         run: |
-          git fetch --tags origin
+          git fetch --tags --force origin
           before="${{ steps.before_tag.outputs.value }}"
           after="$(git tag --list 'v*' --sort=-v:refname | head -n1)"
 
