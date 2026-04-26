@@ -31,6 +31,12 @@ const makeWrapper = (initialUrl: string) => {
   return wrapper
 }
 
+const makeWrapperWithState = (initialUrl: string, state: Record<string, unknown>) => {
+  const wrapper = ({ children }: PropsWithChildren) =>
+    createElement(MemoryRouter, { initialEntries: [{ pathname: initialUrl, state }] }, children)
+  return wrapper
+}
+
 describe('useEntityWorkspace', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -240,6 +246,34 @@ describe('highlightParam', () => {
     await waitFor(() => {
       // auto-selects first, not the missing highlight
       expect(config.selectEntity).toHaveBeenCalledWith(config.entities[0])
+    })
+  })
+})
+
+describe('locationStateHighlightKey', () => {
+  it('selects entity when location.state contains an id string', async () => {
+    const config = makeConfig()
+    const { result } = renderHook(
+      () => useEntityWorkspace({ ...config, locationStateHighlightKey: 'highlightId' }),
+      { wrapper: makeWrapperWithState('/entities', { highlightId: '3' }) },
+    )
+
+    await waitFor(() => {
+      expect(config.selectEntity).toHaveBeenCalledWith(config.entities[2])
+      expect(result.current.focusedIndex).toBe(2)
+    })
+  })
+
+  it('selects entity when location.state contains an entity object', async () => {
+    const config = makeConfig()
+    const { result } = renderHook(
+      () => useEntityWorkspace({ ...config, locationStateHighlightKey: 'highlightEntity' }),
+      { wrapper: makeWrapperWithState('/entities', { highlightEntity: config.entities[1] }) },
+    )
+
+    await waitFor(() => {
+      expect(config.selectEntity).toHaveBeenCalledWith(config.entities[1])
+      expect(result.current.focusedIndex).toBe(1)
     })
   })
 })

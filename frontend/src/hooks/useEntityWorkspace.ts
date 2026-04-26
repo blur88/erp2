@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { RefObject } from 'react'
 import type { NavigateFunction } from 'react-router-dom'
-import { useSearchParams } from 'react-router-dom'
+import { useLocation, useSearchParams } from 'react-router-dom'
 
 import { useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
 
@@ -64,6 +64,7 @@ export function useEntityWorkspace<T extends { id: string }>(
     onEnter,
     onEscape,
     highlightParam,
+    locationStateHighlightKey,
   } = config
 
   const [focusedIndex, setFocusedIndex] = useState(-1)
@@ -72,11 +73,13 @@ export function useEntityWorkspace<T extends { id: string }>(
   const [shouldPreserveSearchFocus, setShouldPreserveSearchFocus] = useState(false)
 
   const [searchParams, setSearchParams] = useSearchParams()
+  const location = useLocation()
 
   const listRef = useRef<HTMLDivElement>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
   const hasAutoSelected = useRef(false)
   const highlightConsumedRef = useRef<string | null>(null)
+  const locationStateConsumedRef = useRef(false)
 
   useEffect(() => {
     if (entities.length === 0) {
@@ -148,6 +151,37 @@ export function useEntityWorkspace<T extends { id: string }>(
       { replace: true },
     )
   }, [entities, highlightParam, searchParams, selectEntity, setSearchParams])
+
+  useEffect(() => {
+    if (!locationStateHighlightKey || entities.length === 0 || locationStateConsumedRef.current) {
+      return
+    }
+
+    const state = location.state as Record<string, unknown> | null
+    if (!state) {
+      return
+    }
+
+    const value = state[locationStateHighlightKey]
+    if (!value) {
+      return
+    }
+
+    const highlightId = typeof value === 'string' ? value : (value as { id?: string }).id
+    if (!highlightId) {
+      return
+    }
+
+    const index = entities.findIndex((e) => e.id === highlightId)
+    if (index < 0) {
+      return
+    }
+
+    locationStateConsumedRef.current = true
+    setFocusedIndex(index)
+    selectEntity(entities[index])
+    window.history.replaceState(null, '', window.location.pathname + window.location.search)
+  }, [entities, location.state, locationStateHighlightKey, selectEntity])
 
   const selectAtIndex = useCallback((index: number) => {
     const entity = entities[index]
