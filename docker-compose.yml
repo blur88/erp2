@@ -39,7 +39,7 @@ services:
 
   # Redis for caching and sessions
   redis:
-    image: redis:8.6.1-alpine3.23
+    image: redis:8.6.2-alpine3.23
     container_name: erp_redis
     restart: unless-stopped
     command: >

@@ -1,5 +1,5 @@
 # Build stage
-FROM node:24.14.1-alpine3.23 AS builder
+FROM node:24.15.0-alpine3.23 AS builder
 
 # Set working directory
 WORKDIR /app
@@ -28,7 +28,7 @@ ENV VITE_APP_VERSION=$VITE_APP_VERSION
 RUN npm run build
 
 # Production stage
-FROM nginx:1.29.7-alpine-slim AS production
+FROM nginx:1.30.0-alpine3.23-slim AS production
 
 # Update Alpine packages and install curl for health checks
 RUN apk update && \
