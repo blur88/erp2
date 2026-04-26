@@ -13,6 +13,7 @@ import {
   useMediaQuery,
   useTheme,
 } from '@mui/material'
+import { default as KeyboardIcon } from '@mui/icons-material/Keyboard'
 import { default as MenuIcon } from '@mui/icons-material/Menu'
 import { default as NavigateNextIcon } from '@mui/icons-material/NavigateNext'
 import { default as NotificationsIcon } from '@mui/icons-material/Notifications'
@@ -22,6 +23,7 @@ import { DRAWER_WIDTH_COLLAPSED, DRAWER_WIDTH_EXPANDED, TOPBAR_HEIGHT } from '@/
 import { useAppSelector } from '@/hooks/useRedux'
 import { selectUnreadCount } from '@/store/slices/notificationSlice'
 
+import KeyboardShortcutsModal from './KeyboardShortcutsModal'
 import NotificationPanel from './NotificationPanel'
 import SearchModal from './SearchModal'
 import SystemStatus from './SystemStatus'
@@ -144,10 +146,7 @@ const NAVIGABLE_PATHS = new Set([
 ])
 
 type RouteHandle = { title?: string }
-
-type MatchShape = {
-  handle?: RouteHandle | null
-}
+type MatchShape = { handle?: RouteHandle | null }
 
 interface BreadcrumbSegment {
   label: string
@@ -156,9 +155,7 @@ interface BreadcrumbSegment {
 }
 
 function buildBreadcrumbs(pathname: string, matches: MatchShape[]): BreadcrumbSegment[] {
-  const leafMatch = [...matches]
-    .reverse()
-    .find(match => (match.handle as RouteHandle | undefined)?.title)
+  const leafMatch = [...matches].reverse().find(match => (match.handle as RouteHandle | undefined)?.title)
   const leafHandleTitle = (leafMatch?.handle as RouteHandle | undefined)?.title
   const parts = pathname.split('/').filter(Boolean)
   const prefixes = parts.map((_, index) => `/${parts.slice(0, index + 1).join('/')}`)
@@ -166,17 +163,8 @@ function buildBreadcrumbs(pathname: string, matches: MatchShape[]): BreadcrumbSe
   return prefixes.reduce<BreadcrumbSegment[]>((segments, prefix, index) => {
     const isLast = index === prefixes.length - 1
     const label = isLast && leafHandleTitle ? leafHandleTitle : BREADCRUMB_MAP[prefix]
-
-    if (!label) {
-      return segments
-    }
-
-    segments.push({
-      label,
-      path: prefix,
-      isNavigable: NAVIGABLE_PATHS.has(prefix) && !isLast,
-    })
-
+    if (!label) return segments
+    segments.push({ label, path: prefix, isNavigable: NAVIGABLE_PATHS.has(prefix) && !isLast })
     return segments
   }, [])
 }
@@ -194,7 +182,9 @@ const TopBar: React.FC<TopBarProps> = ({ collapsed, onMobileMenuOpen }) => {
   const unreadCount = useAppSelector(selectUnreadCount)
 
   const [notificationAnchorEl, setNotificationAnchorEl] = useState<HTMLElement | null>(null)
+  const [systemStatusAnchorEl, setSystemStatusAnchorEl] = useState<HTMLElement | null>(null)
   const [searchOpen, setSearchOpen] = useState(false)
+  const [shortcutsOpen, setShortcutsOpen] = useState(false)
 
   const sidebarWidth = collapsed ? DRAWER_WIDTH_COLLAPSED : DRAWER_WIDTH_EXPANDED
   const breadcrumbs = buildBreadcrumbs(location.pathname, matches)
@@ -202,17 +192,21 @@ const TopBar: React.FC<TopBarProps> = ({ collapsed, onMobileMenuOpen }) => {
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null
+      const tag = target?.tagName?.toLowerCase()
+      const editable = target?.isContentEditable
+
+      if (tag === 'input' || tag === 'textarea' || editable) return
+
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
-        const target = event.target as HTMLElement | null
-        const tag = target?.tagName?.toLowerCase()
-        const editable = target?.isContentEditable
-
-        if (tag === 'input' || tag === 'textarea' || editable) {
-          return
-        }
-
         event.preventDefault()
         setSearchOpen(true)
+        return
+      }
+
+      if (event.key === '?') {
+        event.preventDefault()
+        setShortcutsOpen(true)
       }
     }
 
@@ -268,46 +262,22 @@ const TopBar: React.FC<TopBarProps> = ({ collapsed, onMobileMenuOpen }) => {
               >
                 {breadcrumbs.map((segment, index) => {
                   const isLast = index === breadcrumbs.length - 1
-
                   if (isLast) {
                     return (
-                      <Typography
-                        key={segment.path}
-                        sx={{ fontSize: '13px', color: theme.palette.text.primary, fontWeight: 500, display: 'flex', alignItems: 'center', lineHeight: 1.4 }}
-                      >
+                      <Typography key={segment.path} sx={{ fontSize: '13px', color: theme.palette.text.primary, fontWeight: 500, display: 'flex', alignItems: 'center', lineHeight: 1.4 }}>
                         {segment.label}
                       </Typography>
                     )
                   }
-
                   if (segment.isNavigable) {
                     return (
-                      <Link
-                        key={segment.path}
-                        component={RouterLink}
-                        to={segment.path}
-                        underline="hover"
-                        sx={{
-                          fontSize: '13px',
-                          fontWeight: 400,
-                          color: theme.palette.text.secondary,
-                          display: 'flex',
-                          alignItems: 'center',
-                          lineHeight: 1.4,
-                          transition: 'color 0.15s ease',
-                          '&:hover': { color: theme.palette.text.primary },
-                        }}
-                      >
+                      <Link key={segment.path} component={RouterLink} to={segment.path} underline="hover" sx={{ fontSize: '13px', fontWeight: 400, color: theme.palette.text.secondary, display: 'flex', alignItems: 'center', lineHeight: 1.4, transition: 'color 0.15s ease', '&:hover': { color: theme.palette.text.primary } }}>
                         {segment.label}
                       </Link>
                     )
                   }
-
                   return (
-                    <Typography
-                      key={segment.path}
-                      sx={{ fontSize: '13px', fontWeight: 400, color: theme.palette.text.secondary, display: 'flex', alignItems: 'center', lineHeight: 1.4 }}
-                    >
+                    <Typography key={segment.path} sx={{ fontSize: '13px', fontWeight: 400, color: theme.palette.text.secondary, display: 'flex', alignItems: 'center', lineHeight: 1.4 }}>
                       {segment.label}
                     </Typography>
                   )
@@ -339,24 +309,28 @@ const TopBar: React.FC<TopBarProps> = ({ collapsed, onMobileMenuOpen }) => {
               <Typography sx={{ fontSize: '0.8125rem', color: theme.palette.text.secondary, flexGrow: 1 }}>
                 Search...
               </Typography>
-              <Box
-                component="kbd"
-                sx={{
-                  bgcolor: theme.palette.background.default,
-                  border: `1px solid ${theme.palette.grey[700]}`,
-                  borderRadius: '4px',
-                  px: 0.75,
-                  py: 0.25,
-                  fontSize: '11px',
-                  color: theme.palette.text.secondary,
-                  flexShrink: 0,
-                }}
-              >
+              <Box component="kbd" sx={{ bgcolor: theme.palette.background.default, border: `1px solid ${theme.palette.grey[700]}`, borderRadius: '4px', px: 0.75, py: 0.25, fontSize: '11px', color: theme.palette.text.secondary, flexShrink: 0 }}>
                 Ctrl+K
               </Box>
             </Box>
 
-            <SystemStatus />
+            <SystemStatus
+              anchorEl={systemStatusAnchorEl}
+              open={Boolean(systemStatusAnchorEl)}
+              onOpen={(e) => setSystemStatusAnchorEl(e.currentTarget)}
+              onClose={() => setSystemStatusAnchorEl(null)}
+            />
+
+            <Tooltip title="Keyboard Shortcuts">
+              <IconButton
+                aria-label="Keyboard Shortcuts"
+                onClick={() => setShortcutsOpen(true)}
+                color="inherit"
+                sx={{ '&:hover': { bgcolor: theme.palette.action.hover, borderRadius: '8px' } }}
+              >
+                <KeyboardIcon />
+              </IconButton>
+            </Tooltip>
 
             <Tooltip title="Notifications">
               <IconButton
@@ -378,8 +352,8 @@ const TopBar: React.FC<TopBarProps> = ({ collapsed, onMobileMenuOpen }) => {
         open={Boolean(notificationAnchorEl)}
         onClose={() => setNotificationAnchorEl(null)}
       />
-
       <SearchModal open={searchOpen} onClose={() => setSearchOpen(false)} />
+      <KeyboardShortcutsModal open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
     </>
   )
 }
