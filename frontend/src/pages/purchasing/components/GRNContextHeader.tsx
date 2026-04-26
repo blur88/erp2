@@ -14,6 +14,8 @@ import Grid from '@mui/material/Grid'
 import { useNavigate } from 'react-router-dom'
 
 import { AppButton } from '@/components/common/AppButton'
+import { EntityContextHeaderBar } from '@/components/common/EntityContextHeaderBar'
+import { EntityStatusChip } from '@/components/common/EntityStatusChip'
 import { TABLE_STYLES } from '@/constants/tableStyles'
 import type { GoodsReceivedNote } from '@/types'
 import { formatDate } from '@/utils/formatters'
@@ -69,22 +71,10 @@ const GRNContextHeader: React.FC<GRNContextHeaderProps> = ({
 
   return (
     <Paper sx={{ overflow: 'hidden' }}>
-      <Box
-        sx={{
-          p: TABLE_STYLES.cell.padding.px,
-          borderBottom: TABLE_STYLES.cell.border,
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-        }}
-      >
-        <Typography
-          variant="tableHeader"
-          sx={{ fontWeight: 600, fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}
-        >
-          GRN Details - {selectedGRN.grnNumber}
-        </Typography>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+      <EntityContextHeaderBar
+        title={`Goods Received Note - ${selectedGRN.grnNumber}`}
+        statusChip={<EntityStatusChip status={selectedGRN.status} />}
+        actions={
           <AppButton
             size="small"
             variant="secondary"
@@ -94,8 +84,11 @@ const GRNContextHeader: React.FC<GRNContextHeaderProps> = ({
           >
             Print
           </AppButton>
-        </Box>
-      </Box>
+        }
+        journalEntryRef={journalEntryRef}
+        journalEntryRefLoading={journalEntryRefLoading}
+        onNavigateToJournalEntry={onNavigateToJournalEntry}
+      />
 
       <Box sx={{ p: TABLE_STYLES.cell.padding.px }}>
         <Grid container spacing={3}>

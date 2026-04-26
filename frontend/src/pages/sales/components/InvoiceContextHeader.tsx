@@ -2,7 +2,6 @@ import React from 'react'
 import { default as PrintIcon } from '@mui/icons-material/Print'
 import {
   Box,
-  Chip,
   Paper,
   Stack,
   Table,
@@ -17,6 +16,8 @@ import Grid from '@mui/material/Grid'
 import type { InvoiceJournalEntryRef, InvoiceListItem } from '../hooks/useInvoicesWorkspace'
 
 import { AppButton } from '@/components/common/AppButton'
+import { EntityContextHeaderBar } from '@/components/common/EntityContextHeaderBar'
+import { EntityStatusChip } from '@/components/common/EntityStatusChip'
 import { TABLE_STYLES } from '@/constants/tableStyles'
 import { formatCurrency, formatDate } from '@/utils/formatters'
 
@@ -84,65 +85,28 @@ const InvoiceContextHeader: React.FC<InvoiceContextHeaderProps> = ({
   const isOverpaid = (selectedInvoice.paidAmount || 0) > (selectedInvoice.totalAmount || 0)
   const overpaidAmount = (selectedInvoice.paidAmount || 0) - (selectedInvoice.totalAmount || 0)
 
-  const statusChip = isOverpaid ? (
-    <Chip
-      label="Overpaid"
-      size="small"
-      color="info"
-      sx={{ fontSize: '0.75rem', fontWeight: 600 }}
-    />
-  ) : (
-    <Chip
-      label={selectedInvoice.status === 'partial_paid' ? 'Partial Paid' : selectedInvoice.status}
-      size="small"
-      color={
-        selectedInvoice.status === 'paid'
-          ? 'success'
-          : selectedInvoice.status === 'partial_paid'
-            ? 'warning'
-            : 'default'
-      }
-      sx={{ textTransform: 'capitalize', fontSize: '0.75rem', fontWeight: 600 }}
-    />
-  )
-
   const payments = (selectedInvoice as any).payments ?? []
 
   return (
     <Paper sx={{ overflow: 'hidden' }}>
-      <Box
-        sx={{
-          p: TABLE_STYLES.cell.padding.px,
-          borderBottom: TABLE_STYLES.cell.border,
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-        }}
-      >
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-          <Typography
-            variant="tableHeader"
-            sx={{
-              fontWeight: 600,
-              fontSize: '0.8rem',
-              textTransform: 'uppercase',
-              letterSpacing: '0.5px',
-            }}
+      <EntityContextHeaderBar
+        title={`Invoice Details - ${selectedInvoice.invoiceNumber}`}
+        statusChip={<EntityStatusChip status={isOverpaid ? 'overpaid' : selectedInvoice.status} />}
+        actions={
+          <AppButton
+            size="small"
+            variant="secondary"
+            startIcon={<PrintIcon />}
+            title="Print Invoice"
+            onClick={onPrint}
           >
-            Invoice Details - {selectedInvoice.invoiceNumber}
-          </Typography>
-          {statusChip}
-        </Box>
-        <AppButton
-          size="small"
-          variant="secondary"
-          startIcon={<PrintIcon />}
-          title="Print Invoice"
-          onClick={onPrint}
-        >
-          Print
-        </AppButton>
-      </Box>
+            Print
+          </AppButton>
+        }
+        journalEntryRef={journalEntryRef}
+        journalEntryRefLoading={journalEntryRefLoading}
+        onNavigateToJournalEntry={onNavigateToJournalEntry}
+      />
 
       <Box sx={{ p: TABLE_STYLES.cell.padding.px }}>
         <Grid container spacing={3}>

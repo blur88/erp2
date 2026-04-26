@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useRef, useState, type MouseEvent } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 
+import { useJournalEntryRef } from '@/hooks/useJournalEntryRef'
 import { useEntityWorkspace } from '@/hooks/useEntityWorkspace'
 import { useNotification } from '@/hooks/useNotification'
 import type { AppDispatch, RootState } from '@/store'
-import { useLazyGetJournalEntriesQuery } from '@/store/api/accountingApi'
 import {
   useCancelSalesOrderMutation,
   useCompleteSalesOrderMutation,
@@ -26,11 +26,6 @@ import type { SalesOrder } from '@/types'
 import { formatCurrency } from '@/utils/formatters'
 
 export type BlockedOrderAction = 'edit' | 'delete'
-
-export interface JournalEntryRef {
-  id: string
-  referenceNumber: string
-}
 
 interface UseOrdersWorkspaceConfig {
   dispatch: AppDispatch
@@ -61,8 +56,6 @@ export function useOrdersWorkspace({
   const [printDialogOpen, setPrintDialogOpen] = useState(false)
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
-  const [journalEntryRef, setJournalEntryRef] = useState<JournalEntryRef | null>(null)
-  const [journalEntryRefLoading, setJournalEntryRefLoading] = useState(false)
 
   const userHasNavigatedRef = useRef(false)
   const hasRefreshedPersistedOrder = useRef(false)
@@ -82,7 +75,6 @@ export function useOrdersWorkspace({
   const [unpaySalesOrder] = useUnpaySalesOrderMutation()
   const [fulfillSalesOrder] = useFulfillSalesOrderMutation()
   const [unfulfillSalesOrder] = useUnfulfillSalesOrderMutation()
-  const [fetchJournalEntries] = useLazyGetJournalEntriesQuery()
 
   const workspace = useEntityWorkspace({
     entities: orders,
@@ -116,41 +108,12 @@ export function useOrdersWorkspace({
   })
   workspaceRef.current = workspace
 
-  useEffect(() => {
-    if (!selectedOrder?.isFulfilled || !selectedOrder?.id) {
-      setJournalEntryRef(null)
-      setJournalEntryRefLoading(false)
-      return
-    }
-
-    let cancelled = false
-    setJournalEntryRefLoading(true)
-
-    fetchJournalEntries({ sourceType: 'sales_order', sourceId: selectedOrder.id, limit: 1 })
-      .unwrap()
-      .then((response) => {
-        if (cancelled) {
-          return
-        }
-
-        const entry = response.data?.[0]
-        setJournalEntryRef(entry ? { id: entry.id, referenceNumber: entry.referenceNumber } : null)
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setJournalEntryRef(null)
-        }
-      })
-      .finally(() => {
-        if (!cancelled) {
-          setJournalEntryRefLoading(false)
-        }
-      })
-
-    return () => {
-      cancelled = true
-    }
-  }, [fetchJournalEntries, selectedOrder?.id, selectedOrder?.isFulfilled])
+  const { journalEntryRef, journalEntryRefLoading } = useJournalEntryRef([
+    {
+      sourceType: 'sales_order',
+      sourceId: selectedOrder?.isFulfilled ? selectedOrder?.id : undefined,
+    },
+  ])
 
   const loadOrders = useCallback(() => {
     refetchOrders()

@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState, type MouseEvent } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 
+import { useJournalEntryRef } from '@/hooks/useJournalEntryRef'
 import { useEntityWorkspace } from '@/hooks/useEntityWorkspace'
 import type { EntityWorkspaceReturn } from '@/hooks/useEntityWorkspace'
 import type { AppDispatch } from '@/store'
-import { useLazyGetJournalEntriesQuery } from '@/store/api/accountingApi'
 import { clearError, setSelectedInvoice } from '@/store/slices/salesSlice'
 import type { InvoiceItem } from '@/types'
 
@@ -60,11 +60,8 @@ export function useInvoicesWorkspace({
   const location = useLocation()
   const [deletedInvoicesDialogOpen, setDeletedInvoicesDialogOpen] = useState(false)
   const [printDialogOpen, setPrintDialogOpen] = useState(false)
-  const [journalEntryRef, setJournalEntryRef] = useState<InvoiceJournalEntryRef | null>(null)
-  const [journalEntryRefLoading, setJournalEntryRefLoading] = useState(false)
   const selectedInvoiceRef = useRef<InvoiceListItem | null>(null)
   const workspaceRef = useRef<EntityWorkspaceReturn<InvoiceListItem> | null>(null)
-  const [fetchJournalEntries] = useLazyGetJournalEntriesQuery()
 
   const workspace = useEntityWorkspace({
     entities: invoices,
@@ -91,73 +88,14 @@ export function useInvoicesWorkspace({
   })
   workspaceRef.current = workspace
 
+  const { journalEntryRef, journalEntryRefLoading, navigateToJournalEntry } = useJournalEntryRef([
+    { sourceType: 'invoice', sourceId: selectedInvoice?.id },
+    { sourceType: 'sales_order', sourceId: selectedInvoice?.salesOrder?.id },
+  ])
+
   useEffect(() => {
     selectedInvoiceRef.current = selectedInvoice
   }, [selectedInvoice])
-
-  useEffect(() => {
-    if (!selectedInvoice?.id) {
-      setJournalEntryRef(null)
-      setJournalEntryRefLoading(false)
-      return
-    }
-
-    let cancelled = false
-    const sources = [
-      { sourceType: 'invoice', sourceId: selectedInvoice.id },
-      { sourceType: 'sales_order', sourceId: selectedInvoice.salesOrder?.id },
-    ].filter((source): source is { sourceType: string; sourceId: string } => Boolean(source.sourceId))
-
-    if (sources.length === 0) {
-      setJournalEntryRef(null)
-      setJournalEntryRefLoading(false)
-      return
-    }
-
-    setJournalEntryRefLoading(true)
-
-    ;(async () => {
-      try {
-        for (const source of sources) {
-          const response = await fetchJournalEntries({
-            sourceType: source.sourceType,
-            sourceId: source.sourceId,
-            limit: 1,
-          }).unwrap()
-
-          if (cancelled) {
-            return
-          }
-
-          const entry = response.data?.[0]
-          if (entry) {
-            setJournalEntryRef({
-              referenceNumber: entry.referenceNumber,
-              sourceType: source.sourceType,
-              sourceId: source.sourceId,
-            })
-            return
-          }
-        }
-
-        if (!cancelled) {
-          setJournalEntryRef(null)
-        }
-      } catch {
-        if (!cancelled) {
-          setJournalEntryRef(null)
-        }
-      } finally {
-        if (!cancelled) {
-          setJournalEntryRefLoading(false)
-        }
-      }
-    })()
-
-    return () => {
-      cancelled = true
-    }
-  }, [fetchJournalEntries, selectedInvoice?.id, selectedInvoice?.salesOrder?.id])
 
   useEffect(() => {
     if (location.pathname === '/sales/invoices') {
@@ -192,14 +130,6 @@ export function useInvoicesWorkspace({
   const handleNavigateToPayment = (paymentId: string, event?: MouseEvent) => {
     event?.stopPropagation()
     navigate('/sales/payments', { state: { highlightPaymentId: paymentId } })
-  }
-
-  const navigateToJournalEntry = () => {
-    if (!journalEntryRef) {
-      return
-    }
-
-    navigate(`/accounting/journal-entries?sourceType=${journalEntryRef.sourceType}&sourceId=${journalEntryRef.sourceId}`)
   }
 
   return {

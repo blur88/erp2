@@ -43,7 +43,7 @@ describe('useEntityWorkspace', () => {
   })
 
   it('initializes with no focused entity and closed dialogs', () => {
-    const { result } = renderHook(() => useEntityWorkspace(makeConfig()), {
+    const { result } = renderHook(() => useEntityWorkspace(makeConfig({ entities: [] })), {
       wrapper: makeWrapper('/entities'),
     })
 

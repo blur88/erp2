@@ -44,7 +44,7 @@ describe('PurchaseOrderContextHeader', () => {
 
   it('renders order number in header', () => {
     render(<PurchaseOrderContextHeader {...defaultProps} />)
-    expect(screen.getByText(/PO Details - PO-1001/i)).toBeInTheDocument()
+    expect(screen.getByText(/Purchase Order Details - PO-1001/i)).toBeInTheDocument()
   })
 
   it('renders header action buttons', () => {
