@@ -2,7 +2,6 @@ import React from 'react'
 import { default as PrintIcon } from '@mui/icons-material/Print'
 import {
   Box,
-  Chip,
   Paper,
   Table,
   TableBody,
@@ -16,6 +15,8 @@ import Grid from '@mui/material/Grid'
 import type { PaymentJournalEntryRef, PaymentListItem } from '../hooks/usePaymentsWorkspace'
 
 import { AppButton } from '@/components/common/AppButton'
+import { EntityContextHeaderBar } from '@/components/common/EntityContextHeaderBar'
+import { EntityStatusChip } from '@/components/common/EntityStatusChip'
 import { TABLE_STYLES } from '@/constants/tableStyles'
 import { formatCurrency, formatDate } from '@/utils/formatters'
 
@@ -54,14 +55,6 @@ const linkButtonSx = {
   '&:hover': { color: 'primary.dark' },
 }
 
-const STATUS_COLORS: Record<string, 'success' | 'warning' | 'error' | 'default'> = {
-  completed: 'success',
-  pending: 'warning',
-  failed: 'error',
-  cancelled: 'default',
-  refunded: 'default',
-}
-
 const getPaymentMethodLabel = (payment: PaymentListItem) => {
   if (payment.paymentMethodEntity?.name) return payment.paymentMethodEntity.name
   if (payment.paymentMethod) return payment.paymentMethod
@@ -89,44 +82,24 @@ const PaymentContextHeader: React.FC<PaymentContextHeaderProps> = ({
 
   return (
     <Paper sx={{ overflow: 'hidden' }}>
-      <Box
-        sx={{
-          p: TABLE_STYLES.cell.padding.px,
-          borderBottom: TABLE_STYLES.cell.border,
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-        }}
-      >
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-          <Typography
-            variant="tableHeader"
-            sx={{
-              fontWeight: 600,
-              fontSize: '0.8rem',
-              textTransform: 'uppercase',
-              letterSpacing: '0.5px',
-            }}
-          >
-            Payment Details - {selectedPayment.paymentNumber}
-          </Typography>
-          <Chip
-            label={selectedPayment.status.charAt(0).toUpperCase() + selectedPayment.status.slice(1)}
-            color={STATUS_COLORS[selectedPayment.status] ?? 'default'}
+      <EntityContextHeaderBar
+        title={`Payment Details - ${selectedPayment.paymentNumber}`}
+        statusChip={<EntityStatusChip status={selectedPayment.status} />}
+        actions={
+          <AppButton
             size="small"
-            sx={{ textTransform: 'capitalize', fontSize: '0.75rem', fontWeight: 600 }}
-          />
-        </Box>
-        <AppButton
-          size="small"
-          variant="secondary"
-          startIcon={<PrintIcon />}
-          title="Print Receipt"
-          onClick={onPrint}
-        >
-          Print
-        </AppButton>
-      </Box>
+            variant="secondary"
+            startIcon={<PrintIcon />}
+            title="Print Receipt"
+            onClick={onPrint}
+          >
+            Print
+          </AppButton>
+        }
+        journalEntryRef={journalEntryRef}
+        journalEntryRefLoading={journalEntryRefLoading}
+        onNavigateToJournalEntry={() => onNavigateToJournalEntry(journalEntryRef)}
+      />
 
       <Box sx={{ p: TABLE_STYLES.cell.padding.px }}>
         <Grid container spacing={3}>

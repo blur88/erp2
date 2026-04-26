@@ -16,14 +16,11 @@ import {
 import Grid from '@mui/material/Grid'
 
 import { AppButton } from '@/components/common/AppButton'
+import { EntityContextHeaderBar } from '@/components/common/EntityContextHeaderBar'
 import { TABLE_STYLES } from '@/constants/tableStyles'
+import type { JournalEntryRef } from '@/hooks/useJournalEntryRef'
 import type { SalesOrder } from '@/types'
 import { formatCurrency, formatDate } from '@/utils/formatters'
-
-interface JournalEntryRef {
-  id: string
-  referenceNumber: string
-}
 
 interface OrderContextHeaderProps {
   selectedOrder: SalesOrder | null
@@ -120,56 +117,43 @@ const OrderContextHeader: React.FC<OrderContextHeaderProps> = ({
 
   return (
     <Paper sx={{ overflow: 'hidden' }}>
-      <Box
-        sx={{
-          p: TABLE_STYLES.cell.padding.px,
-          borderBottom: TABLE_STYLES.cell.border,
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-        }}
-      >
-        <Typography
-          variant="tableHeader"
-          sx={{
-            fontWeight: 600,
-            fontSize: '0.8rem',
-            textTransform: 'uppercase',
-            letterSpacing: '0.5px',
-          }}
-        >
-          SO Details - {selectedOrder.orderNumber}
-        </Typography>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-          <AppButton
-            size="small"
-            variant="secondary"
-            startIcon={<EditIcon />}
-            title="Edit Order"
-            onClick={onEditOrder}
-          >
-            Edit
-          </AppButton>
-          <AppButton
-            size="small"
-            variant="danger"
-            startIcon={<DeleteIcon />}
-            title="Delete Order"
-            onClick={onDeleteOrder}
-          >
-            Delete
-          </AppButton>
-          <AppButton
-            size="small"
-            variant="secondary"
-            startIcon={<PrintIcon />}
-            title="Print Order"
-            onClick={onPrintOrder}
-          >
-            Print
-          </AppButton>
-        </Box>
-      </Box>
+      <EntityContextHeaderBar
+        title={`Order Details - ${selectedOrder.orderNumber}`}
+        actions={(
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+            <AppButton
+              size="small"
+              variant="secondary"
+              startIcon={<EditIcon />}
+              title="Edit Order"
+              onClick={onEditOrder}
+            >
+              Edit
+            </AppButton>
+            <AppButton
+              size="small"
+              variant="danger"
+              startIcon={<DeleteIcon />}
+              title="Delete Order"
+              onClick={onDeleteOrder}
+            >
+              Delete
+            </AppButton>
+            <AppButton
+              size="small"
+              variant="secondary"
+              startIcon={<PrintIcon />}
+              title="Print Order"
+              onClick={onPrintOrder}
+            >
+              Print
+            </AppButton>
+          </Box>
+        )}
+        journalEntryRef={journalEntryRef}
+        journalEntryRefLoading={journalEntryRefLoading}
+        onNavigateToJournalEntry={onNavigateToJournalEntry}
+      />
       <Box sx={{ p: TABLE_STYLES.cell.padding.px }}>
         <Grid container spacing={3}>
           <Grid size={{ xs: 12, md: 6 }}>
