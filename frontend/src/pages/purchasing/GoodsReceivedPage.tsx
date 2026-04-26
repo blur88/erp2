@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useState } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 
 import GenericListPage from '@/components/common/GenericListPage'
 import { useFilterBar } from '@/hooks/useFilterBar'
@@ -30,7 +30,6 @@ interface GRNSortingState {
 export const GoodsReceivedPage: React.FC = () => {
   const navigate = useNavigate()
   const dispatch = useAppDispatch()
-  const [searchParams, setSearchParams] = useSearchParams()
   const [sorting, setSorting] = useState<GRNSortingState>({
     sortBy: 'grnNumber',
     sortOrder: 'asc',
@@ -94,8 +93,6 @@ export const GoodsReceivedPage: React.FC = () => {
     grns,
     selectedGRN,
     refetch: () => void refetch(),
-    searchParams,
-    setSearchParams,
     sorting,
     setSorting,
   })

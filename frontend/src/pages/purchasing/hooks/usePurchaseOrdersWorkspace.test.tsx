@@ -53,7 +53,10 @@ const makePurchaseOrder = (id: string) => ({
   supplier: { id: 'sup-1', companyName: 'Anaheim Electronics' },
 })
 
-const renderPurchaseOrdersWorkspace = (initialUrl = '/purchasing/orders?poId=po-2') => {
+const renderPurchaseOrdersWorkspace = (
+  initialUrl = '/purchasing/orders?poId=po-2',
+  initialPurchaseOrders = [makePurchaseOrder('po-1') as any, makePurchaseOrder('po-2') as any],
+) => {
   const store = configureStore({
     reducer: {
       purchasing: purchasingReducer,
@@ -67,14 +70,14 @@ const renderPurchaseOrdersWorkspace = (initialUrl = '/purchasing/orders?poId=po-
   )
 
   const result = renderHook(
-    () =>
+    ({ purchaseOrders }) =>
       usePurchaseOrdersWorkspace({
         dispatch: store.dispatch,
-        purchaseOrders: [makePurchaseOrder('po-1') as any, makePurchaseOrder('po-2') as any],
+        purchaseOrders,
         selectedOrder: null,
         refetchOrders: vi.fn(),
       }),
-    { wrapper },
+    { wrapper, initialProps: { purchaseOrders: initialPurchaseOrders } },
   )
 
   return { ...result, store }
@@ -93,5 +96,28 @@ describe('usePurchaseOrdersWorkspace', () => {
     })
 
     expect(result.current.focusedOrderIndex).toBe(1)
+  })
+})
+
+describe('highlight deep-link', () => {
+  it('selects and focuses order matching ?highlight= param', async () => {
+    const { rerender, store } = renderPurchaseOrdersWorkspace('/purchasing/orders?highlight=po-2', [])
+
+    const orders = [makePurchaseOrder('po-1') as any, makePurchaseOrder('po-2') as any]
+
+    // Re-render with orders loaded
+    rerender({ purchaseOrders: orders })
+
+    await waitFor(() => {
+      const selected = selectSelectedPurchaseOrder(store.getState())
+      expect(selected?.id).toBe('po-2')
+    })
+  })
+})
+
+describe('keyboard navigation', () => {
+  it('exposes focusedIndex from useEntityWorkspace', () => {
+    const { result } = renderPurchaseOrdersWorkspace('/purchasing/orders')
+    expect(typeof result.current.focusedOrderIndex).toBe('number')
   })
 })

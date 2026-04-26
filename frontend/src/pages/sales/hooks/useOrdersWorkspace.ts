@@ -3,7 +3,6 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 
 import { useEntityWorkspace } from '@/hooks/useEntityWorkspace'
 import { useNotification } from '@/hooks/useNotification'
-import { useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
 import type { AppDispatch, RootState } from '@/store'
 import { useLazyGetJournalEntriesQuery } from '@/store/api/accountingApi'
 import {
@@ -49,7 +48,7 @@ export function useOrdersWorkspace({
   refetchOrders,
 }: UseOrdersWorkspaceConfig) {
   const navigate = useNavigate()
-  const [searchParams, setSearchParams] = useSearchParams()
+  const [searchParams] = useSearchParams()
   const { showSuccess, showError } = useNotification()
 
   const [viewDialog, setViewDialog] = useState(false)
@@ -59,16 +58,12 @@ export function useOrdersWorkspace({
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
   const [orderToDelete, setOrderToDelete] = useState<string | null>(null)
   const [orderToDeleteName, setOrderToDeleteName] = useState('')
-  const [pendingOrderToSelect, setPendingOrderToSelect] = useState<string | null>(
-    () => searchParams.get('highlight'),
-  )
   const [printDialogOpen, setPrintDialogOpen] = useState(false)
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [journalEntryRef, setJournalEntryRef] = useState<JournalEntryRef | null>(null)
   const [journalEntryRefLoading, setJournalEntryRefLoading] = useState(false)
 
-  const processedHighlightRef = useRef<string | null>(null)
   const userHasNavigatedRef = useRef(false)
   const hasRefreshedPersistedOrder = useRef(false)
   const isRefreshingPersistedOrder = useRef(false)
@@ -95,6 +90,7 @@ export function useOrdersWorkspace({
     selectEntity: (order) => dispatch(setSelectedOrder(order)),
     refetch: refetchOrders,
     navigate,
+    highlightParam: 'highlight',
     routes: {
       create: '/sales/orders/create',
       edit: (id) => `/sales/orders/${id}/edit`,
@@ -156,23 +152,12 @@ export function useOrdersWorkspace({
     }
   }, [fetchJournalEntries, selectedOrder?.id, selectedOrder?.isFulfilled])
 
-  useEffect(() => {
-    if (!searchParams.get('highlight')) {
-      return
-    }
-
-    setSearchParams((prev) => {
-      prev.delete('highlight')
-      return prev
-    }, { replace: true })
-  }, [searchParams, setSearchParams])
-
   const loadOrders = useCallback(() => {
     refetchOrders()
   }, [refetchOrders])
 
   useEffect(() => {
-    if (!hasRefreshedPersistedOrder.current && selectedOrder?.id && !pendingOrderToSelect) {
+    if (!hasRefreshedPersistedOrder.current && selectedOrder?.id) {
       isRefreshingPersistedOrder.current = true
       hasRefreshedPersistedOrder.current = true
 
@@ -198,7 +183,7 @@ export function useOrdersWorkspace({
       hasRefreshedPersistedOrder.current = true
       loadOrders()
     }
-  }, [dispatch, loadOrders, orders, pendingOrderToSelect, selectedOrder?.id, triggerGetSalesOrder, workspace])
+  }, [dispatch, loadOrders, orders, selectedOrder?.id, triggerGetSalesOrder, workspace])
 
   useEffect(() => {
     if (hasRefreshedPersistedOrder.current) {
@@ -209,7 +194,7 @@ export function useOrdersWorkspace({
   useEffect(() => {
     if (window.location.pathname === '/sales/orders') {
       loadOrders()
-      if (selectedOrder && !pendingOrderToSelect) {
+      if (selectedOrder) {
         triggerGetSalesOrder(selectedOrder.id)
           .unwrap()
           .then((order) => {
@@ -217,7 +202,7 @@ export function useOrdersWorkspace({
           })
       }
     }
-  }, [dispatch, loadOrders, pendingOrderToSelect, selectedOrder, triggerGetSalesOrder])
+  }, [dispatch, loadOrders, selectedOrder, triggerGetSalesOrder])
 
   useEffect(() => {
     if (orders.length > 0 && selectedOrder && !isRefreshingPersistedOrder.current) {
@@ -254,30 +239,35 @@ export function useOrdersWorkspace({
   }, [dispatch, orders, triggerGetSalesOrder, workspace])
 
   useEffect(() => {
-    const hasHighlightOrderId = !!pendingOrderToSelect || !!processedHighlightRef.current
-
     if (orders.length > 0 && workspace.focusedIndex === -1 && !isRefreshingPersistedOrder.current) {
-      if (selectedOrder && !pendingOrderToSelect) {
+      if (selectedOrder) {
         const orderIndex = orders.findIndex((item) => item.id === selectedOrder.id)
         if (orderIndex >= 0) {
           workspace.setFocusedIndex(orderIndex)
         } else {
           workspace.setFocusedIndex(0)
         }
-      } else if (workspace.searchInputRef.current !== document.activeElement && !hasHighlightOrderId) {
-        workspace.setFocusedIndex(0)
-        dispatch(setSelectedOrder(orders[0]))
-        void triggerGetSalesOrder(orders[0].id).unwrap().then((order) => dispatch(setSelectedOrder(order)))
+      } else if (workspace.searchInputRef.current !== document.activeElement) {
+        // Don't auto-select when useEntityWorkspace is about to highlight a specific order
+        const pendingHighlightId = searchParams.get('highlight')
+        const hasPendingHighlight = pendingHighlightId
+          ? orders.some((o) => o.id === pendingHighlightId)
+          : false
+        if (!hasPendingHighlight) {
+          workspace.setFocusedIndex(0)
+          dispatch(setSelectedOrder(orders[0]))
+          void triggerGetSalesOrder(orders[0].id).unwrap().then((order) => dispatch(setSelectedOrder(order)))
+        }
       }
     } else if (orders.length === 0) {
       dispatch(setSelectedOrder(null))
       dispatch(clearError())
       workspace.setFocusedIndex(-1)
     }
-  }, [dispatch, orders, pendingOrderToSelect, selectedOrder, triggerGetSalesOrder, workspace])
+  }, [dispatch, orders, searchParams, selectedOrder, triggerGetSalesOrder, workspace])
 
   useEffect(() => {
-    if (!processedHighlightRef.current || !selectedOrder || orders.length === 0) {
+    if (!selectedOrder || orders.length === 0) {
       return
     }
 
@@ -286,22 +276,6 @@ export function useOrdersWorkspace({
       workspace.setFocusedIndex(correctIndex)
     }
   }, [orders, selectedOrder, workspace])
-
-  useEffect(() => {
-    if (!pendingOrderToSelect || orders.length === 0) {
-      return
-    }
-
-    const orderIndex = orders.findIndex((item) => item.id === pendingOrderToSelect)
-    if (orderIndex >= 0) {
-      dispatch(setSelectedOrder(orders[orderIndex]))
-      workspace.setFocusedIndex(orderIndex)
-      processedHighlightRef.current = pendingOrderToSelect
-      userHasNavigatedRef.current = false
-      setPendingOrderToSelect(null)
-      void triggerGetSalesOrder(orders[orderIndex].id).unwrap().then((order) => dispatch(setSelectedOrder(order)))
-    }
-  }, [dispatch, orders, pendingOrderToSelect, triggerGetSalesOrder, workspace])
 
   const selectAndLoadOrder = useCallback((index: number) => {
     workspace.setFocusedIndex(index)
@@ -835,21 +809,6 @@ export function useOrdersWorkspace({
       navigate(`/accounting/journal-entries?sourceType=sales_order&sourceId=${selectedOrder.id}`)
     }
   }, [navigate, selectedOrder])
-
-  useKeyboardShortcuts({
-    onSearch: () => {
-      workspace.searchInputRef.current?.focus()
-      workspace.searchInputRef.current?.select()
-    },
-    onArrowUp: handleNavigateUp,
-    onArrowDown: handleNavigateDown,
-    onEnter: workspace.handleEnterAction,
-    onPageUp: handlePageUpNavigation,
-    onPageDown: handlePageDownNavigation,
-    onHome: handleNavigateToFirst,
-    onEnd: handleNavigateToLast,
-    onEscape: workspace.handleEscapeAction,
-  })
 
   return {
     ...workspace,

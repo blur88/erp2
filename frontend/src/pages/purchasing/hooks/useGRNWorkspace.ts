@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from 'react'
-import { useNavigate, type SetURLSearchParams } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 
 import { useEntityWorkspace } from '@/hooks/useEntityWorkspace'
 import type { AppDispatch } from '@/store'
@@ -19,8 +19,6 @@ export interface UseGRNWorkspaceConfig {
   grns: GoodsReceivedNote[]
   selectedGRN: GoodsReceivedNote | null
   refetch: () => void
-  searchParams: URLSearchParams
-  setSearchParams: SetURLSearchParams
   sorting: { sortBy: string; sortOrder: 'asc' | 'desc' }
   setSorting: (sorting: { sortBy: string; sortOrder: 'asc' | 'desc' }) => void
 }
@@ -30,15 +28,12 @@ export function useGRNWorkspace({
   grns,
   selectedGRN,
   refetch,
-  searchParams,
-  setSearchParams,
 }: UseGRNWorkspaceConfig) {
   const navigate = useNavigate()
   const [deletedGRNsOpen, setDeletedGRNsOpen] = useState(false)
   const [printDialogOpen, setPrintDialogOpen] = useState(false)
   const [journalEntryRef, setJournalEntryRef] = useState<GRNJournalEntryRef | null>(null)
   const [journalEntryRefLoading, setJournalEntryRefLoading] = useState(false)
-  const userHasNavigatedRef = useRef(false)
   const [fetchJournalEntries] = useLazyGetJournalEntriesQuery()
   const [fetchGRN] = useLazyGetGoodsReceivedNoteQuery()
 
@@ -48,6 +43,7 @@ export function useGRNWorkspace({
     selectEntity: (grn) => dispatch(setSelectedGRN(grn)),
     refetch,
     navigate,
+    highlightParam: 'grnId',
     routes: {
       create: '/purchasing/grn/create',
       edit: (id) => `/purchasing/grn/${id}/edit`,
@@ -55,7 +51,6 @@ export function useGRNWorkspace({
     notifications: { showSuccess: () => {}, showError: () => {} },
     deleteMutation: async () => {},
   })
-  const { setFocusedIndex } = workspace
 
   useEffect(() => {
     if (!selectedGRN?.id) {
@@ -105,27 +100,8 @@ export function useGRNWorkspace({
     }
   }, [fetchJournalEntries, selectedGRN?.id])
 
-  useEffect(() => {
-    const grnId = searchParams.get('grnId')
-    if (!grnId || userHasNavigatedRef.current || grns.length === 0) {
-      return
-    }
-
-    const grn = grns.find((item) => item.id === grnId)
-    if (grn) {
-      dispatch(setSelectedGRN(grn))
-      setFocusedIndex(grns.findIndex((item) => item.id === grn.id))
-      setSearchParams((prev) => {
-        prev.delete('grnId')
-        return prev
-      }, { replace: true })
-      userHasNavigatedRef.current = true
-    }
-  }, [dispatch, grns, searchParams, setFocusedIndex, setSearchParams])
-
   const handleSelect = async (grn: GoodsReceivedNote) => {
     workspace.handleSelect(grn)
-    userHasNavigatedRef.current = true
 
     try {
       const freshGRN = await fetchGRN(grn.id).unwrap()
@@ -144,6 +120,5 @@ export function useGRNWorkspace({
     setPrintDialogOpen,
     journalEntryRef,
     journalEntryRefLoading,
-    userHasNavigatedRef,
   }
 }
