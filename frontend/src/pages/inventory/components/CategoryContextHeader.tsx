@@ -15,6 +15,7 @@ import {
 } from '@mui/material'
 
 import { AppButton } from '@/components/common/AppButton'
+import { EntityContextHeaderBar } from '@/components/common/EntityContextHeaderBar'
 import { TABLE_STYLES } from '@/constants/tableStyles'
 import type { Category } from '@/types'
 import { formatDate } from '@/utils/formatters'
@@ -88,42 +89,31 @@ const CategoryContextHeader: React.FC<CategoryContextHeaderProps> = ({
 
   return (
     <Paper sx={{ overflow: 'hidden' }}>
-      <Box
-        sx={{
-          p: TABLE_STYLES.cell.padding.px,
-          borderBottom: TABLE_STYLES.cell.border,
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-        }}
-      >
-        <Typography
-          variant="tableHeader"
-          sx={{ fontWeight: 600, fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}
-        >
-          Category - {selectedCategory.name}
-        </Typography>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-          <AppButton
-            size="small"
-            variant="secondary"
-            startIcon={<EditIcon />}
-            title={`Edit ${selectedCategory.name}`}
-            onClick={onEdit}
-          >
-            Edit
-          </AppButton>
-          <AppButton
-            size="small"
-            variant="danger"
-            startIcon={<DeleteIcon />}
-            title={`Delete ${selectedCategory.name}`}
-            onClick={onDelete}
-          >
-            Delete
-          </AppButton>
-        </Box>
-      </Box>
+      <EntityContextHeaderBar
+        title={`Category Details - ${selectedCategory.name}`}
+        actions={(
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+            <AppButton
+              size="small"
+              variant="secondary"
+              startIcon={<EditIcon />}
+              title={`Edit ${selectedCategory.name}`}
+              onClick={onEdit}
+            >
+              Edit
+            </AppButton>
+            <AppButton
+              size="small"
+              variant="danger"
+              startIcon={<DeleteIcon />}
+              title={`Delete ${selectedCategory.name}`}
+              onClick={onDelete}
+            >
+              Delete
+            </AppButton>
+          </Box>
+        )}
+      />
 
       <Box sx={{ p: TABLE_STYLES.cell.padding.px }}>
         <Grid container spacing={3}>
