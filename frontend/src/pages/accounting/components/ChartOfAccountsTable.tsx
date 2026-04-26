@@ -9,6 +9,7 @@ interface Props {
   selectedId: string | null
   onSelect: (item: ChartOfAccount) => void
   listRef?: RefObject<HTMLDivElement | null>
+  focusedIndex?: number
 }
 
 const COLUMNS: ColumnConfig<ChartOfAccount>[] = [
@@ -22,6 +23,7 @@ export function ChartOfAccountsTable({
   selectedId,
   onSelect,
   listRef,
+  focusedIndex = -1,
 }: Props) {
   const fallbackRef = useRef<HTMLDivElement | null>(null)
   return (
@@ -32,7 +34,7 @@ export function ChartOfAccountsTable({
       total={accounts.length}
       label="Accounts"
       selectedId={selectedId ?? undefined}
-      focusedIndex={-1}
+      focusedIndex={focusedIndex}
       onSelect={onSelect}
       listRef={listRef ?? fallbackRef}
       dataAttr="account"

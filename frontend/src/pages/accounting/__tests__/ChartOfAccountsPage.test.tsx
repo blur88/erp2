@@ -2,8 +2,11 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { BrowserRouter } from 'react-router-dom'
+import { configureStore } from '@reduxjs/toolkit'
+import { Provider } from 'react-redux'
 
 import ChartOfAccountsPage from '../ChartOfAccountsPage'
+import accountingReducer from '@/store/slices/accountingSlice'
 
 const mockedApi = vi.hoisted(() => ({
   useGetChartOfAccountsHierarchyQuery: vi.fn(),
@@ -62,15 +65,20 @@ function setup(accounts = [mockAccount]) {
 }
 
 function renderPage() {
+  const store = configureStore({
+    reducer: { accounting: accountingReducer },
+  })
   return render(
-    <BrowserRouter>
-      <ChartOfAccountsPage />
-    </BrowserRouter>,
+    <Provider store={store}>
+      <BrowserRouter>
+        <ChartOfAccountsPage />
+      </BrowserRouter>
+    </Provider>,
   )
 }
 
 function getRenderedAccountCodes() {
-  return Array.from(document.querySelectorAll('tr[data-account-index] td:first-child')).map((cell) =>
+  return Array.from(document.querySelectorAll('tr[data-index] td:first-child')).map((cell) =>
     cell.textContent?.trim() ?? '',
   )
 }
@@ -98,7 +106,7 @@ describe('ChartOfAccountsPage', () => {
 
   it('renders account code from hierarchy data', () => {
     renderPage()
-    expect(screen.getByText('1000')).toBeInTheDocument()
+    expect(getRenderedAccountCodes()).toContain('1000')
   })
 
   it('flattens nested children into table', () => {
@@ -113,8 +121,8 @@ describe('ChartOfAccountsPage', () => {
 
     renderPage()
 
-    expect(screen.getByText('1000')).toBeInTheDocument()
-    expect(screen.getByText('1010')).toBeInTheDocument()
+    expect(getRenderedAccountCodes()).toContain('1000')
+    expect(getRenderedAccountCodes()).toContain('1010')
   })
 
   it('filters by account type and hides non-matching accounts', async () => {
@@ -123,14 +131,14 @@ describe('ChartOfAccountsPage', () => {
 
     renderPage()
 
-    expect(screen.getByText('1000')).toBeInTheDocument()
-    expect(screen.getByText('2000')).toBeInTheDocument()
+    expect(getRenderedAccountCodes()).toContain('1000')
+    expect(getRenderedAccountCodes()).toContain('2000')
 
     await user.click(screen.getByLabelText('Account Type'))
     await user.click(screen.getByRole('option', { name: 'Asset' }))
 
-    expect(screen.getByText('1000')).toBeInTheDocument()
-    expect(screen.queryByText('2000')).not.toBeInTheDocument()
+    expect(getRenderedAccountCodes()).toContain('1000')
+    expect(getRenderedAccountCodes()).not.toContain('2000')
   })
 
   it('filters by active status and hides inactive accounts', async () => {
@@ -139,14 +147,14 @@ describe('ChartOfAccountsPage', () => {
 
     renderPage()
 
-    expect(screen.getByText('1000')).toBeInTheDocument()
-    expect(screen.getByText('3000')).toBeInTheDocument()
+    expect(getRenderedAccountCodes()).toContain('1000')
+    expect(getRenderedAccountCodes()).toContain('3000')
 
     await user.click(screen.getByLabelText('Status'))
     await user.click(screen.getByRole('option', { name: 'Active' }))
 
-    expect(screen.getByText('1000')).toBeInTheDocument()
-    expect(screen.queryByText('3000')).not.toBeInTheDocument()
+    expect(getRenderedAccountCodes()).toContain('1000')
+    expect(getRenderedAccountCodes()).not.toContain('3000')
   })
 
   it('combines account type and status filters', async () => {
@@ -164,9 +172,9 @@ describe('ChartOfAccountsPage', () => {
     await user.click(screen.getByLabelText('Status'))
     await user.click(screen.getByRole('option', { name: 'Active' }))
 
-    expect(screen.getByText('1000')).toBeInTheDocument()
-    expect(screen.queryByText('1100')).not.toBeInTheDocument()
-    expect(screen.queryByText('2000')).not.toBeInTheDocument()
+    expect(getRenderedAccountCodes()).toContain('1000')
+    expect(getRenderedAccountCodes()).not.toContain('1100')
+    expect(getRenderedAccountCodes()).not.toContain('2000')
   })
 
   it('toggles sort order for account codes', async () => {
