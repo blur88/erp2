@@ -132,7 +132,7 @@ describe('EntityTable', () => {
       />,
     )
 
-    const selectedRow = container.querySelector('[data-row-index="0"]')
+    const selectedRow = container.querySelector('[data-index="0"]')
     expect(selectedRow).toBeInTheDocument()
   })
 
