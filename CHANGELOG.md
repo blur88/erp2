@@ -1,3 +1,12 @@
+## [1.88.5](https://github.com/blur88/erp2/compare/v1.88.4...v1.88.5) (2026-04-26)
+
+
+### Internal Changes
+
+* chore(deps): bump NGINX to 1.30.0, Node to 24.15.0, Redis to 8.6.2 ([](https://github.com/blur88/erp2/commit/))
+* docs: add implementation plan for Docker base image bump (issue #454) ([](https://github.com/blur88/erp2/commit/))
+* docs: add design spec for Docker base image bump (issue #454) ([](https://github.com/blur88/erp2/commit/))
+
 ## [1.88.4](https://github.com/blur88/erp2/compare/v1.88.3...v1.88.4) (2026-04-26)
 
 
