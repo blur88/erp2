@@ -1,3 +1,10 @@
+## [1.88.3](https://github.com/blur88/erp2/compare/v1.88.2...v1.88.3) (2026-04-26)
+
+
+### Bug Fixes
+
+* **ci:** force-fetch tags before capture to fix stale tag detection ([51cf162](https://github.com/blur88/erp2/commit/51cf162568666334152ea8fd16ec593904484ef7))
+
 ## [1.88.2](https://github.com/blur88/erp2/compare/v1.88.1...v1.88.2) (2026-04-26)
 
 
