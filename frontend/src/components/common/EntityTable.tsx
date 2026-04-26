@@ -1,5 +1,6 @@
 import React, { memo } from 'react'
 import {
+  alpha,
   Box,
   Paper,
   Skeleton,
@@ -12,6 +13,7 @@ import {
 } from '@mui/material'
 
 import { TABLE_STYLES } from '@/constants/tableStyles'
+import { darkTheme } from '@/styles/theme'
 
 export interface ColumnConfig<T> {
   key: string
@@ -60,16 +62,17 @@ const EntityRow = memo(function EntityRow<T extends { id: string }>({
       hover
       onClick={() => onSelect(row)}
       data-index={index}
-      {...{ [`data-${dataAttr}-index`]: index }}
       sx={{
         cursor: 'pointer',
         backgroundColor: isSelected
-          ? 'action.selected'
+          ? alpha(darkTheme.palette.primary.main, 0.2)
           : isFocused
             ? 'action.focus'
             : 'inherit',
         '&:hover': {
-          backgroundColor: isSelected ? 'action.selected' : 'action.hover',
+          backgroundColor: isSelected
+            ? alpha(darkTheme.palette.primary.main, 0.25)
+            : 'action.hover',
         },
         transition: 'background-color 0.2s ease',
         height: TABLE_STYLES.row.height,

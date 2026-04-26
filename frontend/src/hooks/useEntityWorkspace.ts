@@ -115,6 +115,7 @@ export function useEntityWorkspace<T extends { id: string }>(
 
     if (!selectedEntity && focusedIndex === -1 && !hasAutoSelected.current && !hasPendingHighlight && !pendingStateHighlight) {
       hasAutoSelected.current = true
+      setFocusedIndex(0)
       selectEntity(entities[0])
     }
   }, [entities, focusedIndex, highlightParam, location.state, locationStateHighlightKey, locationStateHighlightKeys, searchParams, selectedEntity, selectEntity])
