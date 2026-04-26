@@ -63,7 +63,6 @@ export function useInvoicesWorkspace({
   const [journalEntryRef, setJournalEntryRef] = useState<InvoiceJournalEntryRef | null>(null)
   const [journalEntryRefLoading, setJournalEntryRefLoading] = useState(false)
   const selectedInvoiceRef = useRef<InvoiceListItem | null>(null)
-  const hasRestoredSelection = useRef(false)
   const workspaceRef = useRef<EntityWorkspaceReturn<InvoiceListItem> | null>(null)
   const [fetchJournalEntries] = useLazyGetJournalEntriesQuery()
 
@@ -73,6 +72,7 @@ export function useInvoicesWorkspace({
     selectEntity: (invoice) => dispatch(setSelectedInvoice(invoice as any)),
     refetch,
     navigate,
+    locationStateHighlightKey: 'highlightInvoice',
     routes: {
       create: '/sales/invoices/create',
       edit: (id) => `/sales/invoices/${id}/edit`,
@@ -174,35 +174,13 @@ export function useInvoicesWorkspace({
   }, [dispatch, invoices])
 
   useEffect(() => {
-    if (!hasRestoredSelection.current && selectedInvoice && invoices.length > 0) {
-      const index = invoices.findIndex((invoice) => invoice.id === selectedInvoice.id)
-      if (index >= 0) {
-        workspace.setFocusedIndex(index)
-        hasRestoredSelection.current = true
-      }
-    }
-  }, [invoices, selectedInvoice, workspace])
-
-  useEffect(() => {
-    const state = location.state as { highlightInvoice?: InvoiceListItem; highlightInvoiceId?: string } | null
-
-    if (state?.highlightInvoice) {
-      dispatch(setSelectedInvoice(state.highlightInvoice as any))
-      const index = invoices.findIndex((invoice) => invoice.id === state.highlightInvoice?.id)
-      if (index >= 0) {
-        workspace.setFocusedIndex(index)
-      }
+    const state = location.state as { highlightInvoiceId?: string } | null
+    if (!state?.highlightInvoiceId || invoices.length === 0) return
+    const index = invoices.findIndex((invoice) => invoice.id === state.highlightInvoiceId)
+    if (index >= 0) {
+      dispatch(setSelectedInvoice(invoices[index] as any))
+      workspace.setFocusedIndex(index)
       window.history.replaceState(null, '', window.location.pathname + window.location.search)
-    } else if (state?.highlightInvoiceId && invoices.length > 0) {
-      const invoice = invoices.find((item) => item.id === state.highlightInvoiceId)
-      if (invoice) {
-        dispatch(setSelectedInvoice(invoice as any))
-        const index = invoices.findIndex((item) => item.id === state.highlightInvoiceId)
-        if (index >= 0) {
-          workspace.setFocusedIndex(index)
-        }
-        window.history.replaceState(null, '', window.location.pathname + window.location.search)
-      }
     }
   }, [dispatch, invoices, location.state, workspace])
 

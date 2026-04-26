@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useState } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 
 import GenericListPage from '@/components/common/GenericListPage'
 import { useFilterBar } from '@/hooks/useFilterBar'
@@ -30,7 +30,6 @@ interface VPSortingState {
 const VendorPaymentsPage: React.FC = () => {
   const navigate = useNavigate()
   const dispatch = useAppDispatch()
-  const [searchParams, setSearchParams] = useSearchParams()
   const [sorting, setSorting] = useState<VPSortingState>({
     sortBy: 'paymentNumber',
     sortOrder: 'asc',
@@ -94,8 +93,6 @@ const VendorPaymentsPage: React.FC = () => {
     payments,
     selectedPayment,
     refetch: () => void refetch(),
-    searchParams,
-    setSearchParams,
   })
 
   const handleSort = useCallback((field: string) => {
