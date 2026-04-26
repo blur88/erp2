@@ -39,6 +39,7 @@ import { format } from 'date-fns'
 import { useNavigate } from 'react-router-dom'
 import { AppButton } from '@/components/common/AppButton'
 import PageHeader from '@/components/common/PageHeader'
+import GenericOverviewPage from '@/components/common/GenericOverviewPage'
 import { FilterBar } from '@/components/filters/FilterBar'
 import { useFilterBar } from '@/hooks/useFilterBar'
 import { useInventoryAnalytics } from './hooks/useInventoryAnalytics'
@@ -233,14 +234,16 @@ const InventoryPage: React.FC = () => {
 
   if (isLoading) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 400 }}>
-        <CircularProgress size={60} />
-      </Box>
+      <GenericOverviewPage>
+        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 400 }}>
+          <CircularProgress size={60} />
+        </Box>
+      </GenericOverviewPage>
     )
   }
 
   return (
-    <>
+    <GenericOverviewPage>
       <PageHeader
         variant="overview"
         title="Inventory Overview"
@@ -600,7 +603,7 @@ const InventoryPage: React.FC = () => {
           </Grid>
         </Grid>
       </Box>
-    </>
+    </GenericOverviewPage>
   );
 }
 

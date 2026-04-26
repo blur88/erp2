@@ -28,6 +28,7 @@ import { default as TrendingDownIcon } from '@mui/icons-material/TrendingDown'
 import { default as AddIcon } from '@mui/icons-material/Add'
 import { default as AccountBalanceWalletIcon } from '@mui/icons-material/AccountBalanceWallet';
 import PageHeader from '@/components/common/PageHeader';
+import GenericOverviewPage from '@/components/common/GenericOverviewPage';
 import { useNavigate } from 'react-router-dom';
 import {
   useGetBalanceSheetQuery,
@@ -232,7 +233,7 @@ const AccountingDashboardPage: React.FC = () => {
   });
 
   return (
-    <>
+    <GenericOverviewPage>
       <PageHeader
         variant="overview"
         title="Accounting Dashboard"
@@ -602,7 +603,7 @@ const AccountingDashboardPage: React.FC = () => {
           </Paper>
         </Grid>
       </Grid>
-    </>
+    </GenericOverviewPage>
   );
 };
 
