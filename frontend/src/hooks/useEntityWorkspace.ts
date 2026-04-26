@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { RefObject } from 'react'
 import type { NavigateFunction } from 'react-router-dom'
+import { useLocation, useSearchParams } from 'react-router-dom'
 
 import { useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
 
@@ -21,6 +22,9 @@ export interface UseEntityWorkspaceConfig<T extends { id: string }> {
   deleteMutation: (id: string) => Promise<void>
   onEnter?: () => void
   onEscape?: () => void
+  highlightParam?: string
+  locationStateHighlightKey?: string
+  locationStateHighlightKeys?: string[]
 }
 
 export interface EntityWorkspaceReturn<T extends { id: string }> {
@@ -60,6 +64,9 @@ export function useEntityWorkspace<T extends { id: string }>(
     deleteMutation,
     onEnter,
     onEscape,
+    highlightParam,
+    locationStateHighlightKey,
+    locationStateHighlightKeys,
   } = config
 
   const [focusedIndex, setFocusedIndex] = useState(-1)
@@ -67,9 +74,14 @@ export function useEntityWorkspace<T extends { id: string }>(
   const [deletedEntitiesDialogOpen, setDeletedEntitiesDialogOpen] = useState(false)
   const [shouldPreserveSearchFocus, setShouldPreserveSearchFocus] = useState(false)
 
+  const [searchParams, setSearchParams] = useSearchParams()
+  const location = useLocation()
+
   const listRef = useRef<HTMLDivElement>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
   const hasAutoSelected = useRef(false)
+  const highlightConsumedRef = useRef<string | null>(null)
+  const locationStateConsumedRef = useRef(false)
 
   useEffect(() => {
     if (entities.length === 0) {
@@ -79,11 +91,33 @@ export function useEntityWorkspace<T extends { id: string }>(
       return
     }
 
-    if (!selectedEntity && focusedIndex === -1 && !hasAutoSelected.current) {
+    // Don't auto-select first if we're about to highlight a specific entity from URL/state
+    const pendingHighlightId = highlightParam ? searchParams.get(highlightParam) : null
+    const hasPendingHighlight = pendingHighlightId
+      ? entities.some((e) => e.id === pendingHighlightId)
+      : false
+
+    const pendingStateHighlight = (() => {
+      const keys = [
+        ...(locationStateHighlightKey ? [locationStateHighlightKey] : []),
+        ...(locationStateHighlightKeys ?? []),
+      ]
+      if (keys.length === 0) return false
+      const state = location.state as Record<string, unknown> | null
+      if (!state) return false
+      return keys.some((k) => {
+        const v = state[k]
+        if (!v) return false
+        const id = typeof v === 'string' ? v : (v as { id?: string }).id
+        return id ? entities.some((e) => e.id === id) : false
+      })
+    })()
+
+    if (!selectedEntity && focusedIndex === -1 && !hasAutoSelected.current && !hasPendingHighlight && !pendingStateHighlight) {
       hasAutoSelected.current = true
       selectEntity(entities[0])
     }
-  }, [entities, focusedIndex, selectedEntity, selectEntity])
+  }, [entities, focusedIndex, highlightParam, location.state, locationStateHighlightKey, locationStateHighlightKeys, searchParams, selectedEntity, selectEntity])
 
   useEffect(() => {
     if (focusedIndex < 0 || !listRef.current) {
@@ -114,6 +148,65 @@ export function useEntityWorkspace<T extends { id: string }>(
       setShouldPreserveSearchFocus(false)
     }
   }, [shouldPreserveSearchFocus])
+
+  useEffect(() => {
+    if (!highlightParam || entities.length === 0) {
+      return
+    }
+
+    const highlightId = searchParams.get(highlightParam)
+    if (!highlightId || highlightConsumedRef.current === highlightId) {
+      return
+    }
+
+    const index = entities.findIndex((e) => e.id === highlightId)
+    if (index < 0) {
+      return
+    }
+
+    highlightConsumedRef.current = highlightId
+    setFocusedIndex(index)
+    selectEntity(entities[index])
+    setSearchParams(
+      (prev) => {
+        prev.delete(highlightParam)
+        return prev
+      },
+      { replace: true },
+    )
+  }, [entities, highlightParam, searchParams, selectEntity, setSearchParams])
+
+  useEffect(() => {
+    const keys = [
+      ...(locationStateHighlightKey ? [locationStateHighlightKey] : []),
+      ...(locationStateHighlightKeys ?? []),
+    ]
+    if (keys.length === 0 || entities.length === 0 || locationStateConsumedRef.current) {
+      return
+    }
+
+    const state = location.state as Record<string, unknown> | null
+    if (!state) {
+      return
+    }
+
+    for (const key of keys) {
+      const value = state[key]
+      if (!value) continue
+
+      const highlightId = typeof value === 'string' ? value : (value as { id?: string }).id
+      if (!highlightId) continue
+
+      const index = entities.findIndex((e) => e.id === highlightId)
+      if (index < 0) continue
+
+      locationStateConsumedRef.current = true
+      setFocusedIndex(index)
+      selectEntity(entities[index])
+      window.history.replaceState(null, '', window.location.pathname + window.location.search)
+      return
+    }
+  }, [entities, location.state, locationStateHighlightKey, locationStateHighlightKeys, selectEntity])
 
   const selectAtIndex = useCallback((index: number) => {
     const entity = entities[index]

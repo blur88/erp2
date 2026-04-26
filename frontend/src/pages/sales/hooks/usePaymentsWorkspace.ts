@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type MouseEvent } from 'react'
-import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 
 import { useEntityWorkspace } from '@/hooks/useEntityWorkspace'
 import type { AppDispatch } from '@/store'
@@ -74,13 +74,11 @@ export function usePaymentsWorkspace({
 }: UsePaymentsWorkspaceConfig) {
   const navigate = useNavigate()
   const location = useLocation()
-  const [searchParams, setSearchParams] = useSearchParams()
   const [deletedPaymentsDialogOpen, setDeletedPaymentsDialogOpen] = useState(false)
   const [printDialogOpen, setPrintDialogOpen] = useState(false)
   const [journalEntryRef, setJournalEntryRef] = useState<PaymentJournalEntryRef | null>(null)
   const [journalEntryRefLoading, setJournalEntryRefLoading] = useState(false)
   const selectedPaymentRef = useRef<PaymentListItem | null>(null)
-  const hasRestoredSelection = useRef(false)
   const [fetchJournalEntries] = useLazyGetJournalEntriesQuery()
 
   const workspace = useEntityWorkspace({
@@ -89,6 +87,8 @@ export function usePaymentsWorkspace({
     selectEntity: (payment) => dispatch(setSelectedPayment(payment as any)),
     refetch,
     navigate,
+    highlightParam: 'highlight',
+    locationStateHighlightKey: 'highlightPaymentId',
     routes: {
       create: '/sales/payments/create',
       edit: (id) => `/sales/payments/${id}/edit`,
@@ -97,7 +97,7 @@ export function usePaymentsWorkspace({
     deleteMutation: async () => {},
     onEnter: () => {},
   })
-  const { focusedIndex, setFocusedIndex } = workspace
+  const { focusedIndex } = workspace
 
   useEffect(() => {
     selectedPaymentRef.current = selectedPayment
@@ -171,49 +171,6 @@ export function usePaymentsWorkspace({
       dispatch(setSelectedPayment(freshPayment as any))
     }
   }, [dispatch, payments])
-
-  useEffect(() => {
-    if (hasRestoredSelection.current || !selectedPayment || payments.length === 0) {
-      return
-    }
-
-    const index = payments.findIndex((payment) => payment.id === selectedPayment.id)
-    if (index >= 0) {
-      setFocusedIndex(index)
-      hasRestoredSelection.current = true
-    }
-  }, [payments, selectedPayment, setFocusedIndex])
-
-  useEffect(() => {
-    const highlightId = searchParams.get('highlight')
-    if (!highlightId || payments.length === 0) {
-      return
-    }
-
-    const index = payments.findIndex((payment) => payment.id === highlightId)
-    if (index >= 0) {
-      dispatch(setSelectedPayment(payments[index] as any))
-      setFocusedIndex(index)
-      setSearchParams((prev) => {
-        prev.delete('highlight')
-        return prev
-      }, { replace: true })
-    }
-  }, [dispatch, payments, searchParams, setFocusedIndex, setSearchParams])
-
-  useEffect(() => {
-    const state = location.state as { highlightPaymentId?: string } | null
-    if (!state?.highlightPaymentId || payments.length === 0) {
-      return
-    }
-
-    const index = payments.findIndex((payment) => payment.id === state.highlightPaymentId)
-    if (index >= 0) {
-      dispatch(setSelectedPayment(payments[index] as any))
-      setFocusedIndex(index)
-      window.history.replaceState(null, '', window.location.pathname + window.location.search)
-    }
-  }, [dispatch, location.state, payments, setFocusedIndex])
 
   const handleSelect = useCallback((payment: PaymentListItem) => {
     workspace.handleSelect(payment)

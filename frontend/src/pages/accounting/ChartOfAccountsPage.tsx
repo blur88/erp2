@@ -3,7 +3,9 @@ import React, { useMemo, useState } from 'react'
 import AccountMappingWarning from '@/components/accounting/AccountMappingWarning'
 import GenericListPage from '@/components/common/GenericListPage'
 import { useFilterBar } from '@/hooks/useFilterBar'
+import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
 import { useGetChartOfAccountsHierarchyQuery } from '@/store/api/accountingApi'
+import { selectSelectedAccount } from '@/store/slices/accountingSlice'
 import type { ChartOfAccount } from '@/types'
 import type { FilterBarConfig } from '@/types/filterBar.types'
 
@@ -31,9 +33,8 @@ const filterConfig: FilterBarConfig<CoaFilters> = {
 const ChartOfAccountsPage: React.FC = () => {
   const { appliedFilters, draftFilters, handlers, hasActiveFilters } = useFilterBar(filterConfig)
   const { data: hierarchyData, isLoading, error, refetch } = useGetChartOfAccountsHierarchyQuery()
-  const workspace = useChartOfAccountsWorkspace(() => {
-    void refetch()
-  })
+  const dispatch = useAppDispatch()
+  const selectedAccount = useAppSelector(selectSelectedAccount)
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc')
 
   const accounts = useMemo(() => {
@@ -81,6 +82,10 @@ const ChartOfAccountsPage: React.FC = () => {
     )
   }, [accounts, appliedFilters, sortOrder])
 
+  const workspace = useChartOfAccountsWorkspace(filteredAccounts, selectedAccount, dispatch, () => {
+    void refetch()
+  })
+
   return (
     <>
       <AccountMappingWarning context="system" />
@@ -111,23 +116,24 @@ const ChartOfAccountsPage: React.FC = () => {
           <ChartOfAccountsTable
             accounts={filteredAccounts}
             loading={isLoading}
-            selectedId={workspace.selected?.id ?? null}
+            selectedId={selectedAccount?.id ?? null}
             onSelect={workspace.setSelected}
             listRef={workspace.listRef}
+            focusedIndex={workspace.focusedIndex}
           />
         }
         headerSlot={
           <ChartOfAccountContextHeader
-            selected={workspace.selected}
+            selected={selectedAccount}
             onEdit={() => workspace.setFormDialogOpen(true)}
-            onDelete={() => workspace.selected && workspace.setDeleteTarget(workspace.selected)}
+            onDelete={() => selectedAccount && workspace.setDeleteTarget(selectedAccount)}
           />
         }
-        workspaceSlot={<ChartOfAccountWorkspaceCard selected={workspace.selected} />}
+        workspaceSlot={<ChartOfAccountWorkspaceCard selected={selectedAccount} />}
         dialogs={
           <ChartOfAccountsDialogs
             formDialogOpen={workspace.formDialogOpen}
-            selected={workspace.selected}
+            selected={selectedAccount}
             onCloseForm={() => workspace.setFormDialogOpen(false)}
             onFormSuccess={() => {
               workspace.setFormDialogOpen(false)

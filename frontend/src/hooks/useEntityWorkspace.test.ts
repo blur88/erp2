@@ -1,4 +1,6 @@
-import { act, renderHook } from '@testing-library/react'
+import { act, renderHook, waitFor } from '@testing-library/react'
+import { createElement, type PropsWithChildren } from 'react'
+import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { useEntityWorkspace } from './useEntityWorkspace'
@@ -23,13 +25,27 @@ const makeConfig = (overrides = {}) => ({
   ...overrides,
 })
 
+const makeWrapper = (initialUrl: string) => {
+  const wrapper = ({ children }: PropsWithChildren) =>
+    createElement(MemoryRouter, { initialEntries: [initialUrl] }, children)
+  return wrapper
+}
+
+const makeWrapperWithState = (initialUrl: string, state: Record<string, unknown>) => {
+  const wrapper = ({ children }: PropsWithChildren) =>
+    createElement(MemoryRouter, { initialEntries: [{ pathname: initialUrl, state }] }, children)
+  return wrapper
+}
+
 describe('useEntityWorkspace', () => {
   beforeEach(() => {
     vi.clearAllMocks()
   })
 
   it('initializes with no focused entity and closed dialogs', () => {
-    const { result } = renderHook(() => useEntityWorkspace(makeConfig()))
+    const { result } = renderHook(() => useEntityWorkspace(makeConfig()), {
+      wrapper: makeWrapper('/entities'),
+    })
 
     expect(result.current.focusedIndex).toBe(-1)
     expect(result.current.deleteConfirmOpen).toBe(false)
@@ -39,14 +55,16 @@ describe('useEntityWorkspace', () => {
   it('auto-selects first entity when none selected', () => {
     const config = makeConfig()
 
-    renderHook(() => useEntityWorkspace(config))
+    renderHook(() => useEntityWorkspace(config), { wrapper: makeWrapper('/entities') })
 
     expect(config.selectEntity).toHaveBeenCalledWith(config.entities[0])
   })
 
   it('handleSelect updates focusedIndex and calls selectEntity', () => {
     const config = makeConfig()
-    const { result } = renderHook(() => useEntityWorkspace(config))
+    const { result } = renderHook(() => useEntityWorkspace(config), {
+      wrapper: makeWrapper('/entities'),
+    })
 
     act(() => {
       result.current.handleSelect(config.entities[1])
@@ -58,7 +76,9 @@ describe('useEntityWorkspace', () => {
 
   it('handleNavigateDown increments focusedIndex', () => {
     const config = makeConfig({ selectedEntity: makeEntity('1') })
-    const { result } = renderHook(() => useEntityWorkspace(config))
+    const { result } = renderHook(() => useEntityWorkspace(config), {
+      wrapper: makeWrapper('/entities'),
+    })
 
     act(() => {
       result.current.setFocusedIndex(0)
@@ -72,7 +92,9 @@ describe('useEntityWorkspace', () => {
 
   it('handleNavigateUp decrements focusedIndex', () => {
     const config = makeConfig({ selectedEntity: makeEntity('2') })
-    const { result } = renderHook(() => useEntityWorkspace(config))
+    const { result } = renderHook(() => useEntityWorkspace(config), {
+      wrapper: makeWrapper('/entities'),
+    })
 
     act(() => {
       result.current.setFocusedIndex(1)
@@ -86,7 +108,9 @@ describe('useEntityWorkspace', () => {
 
   it('handleNavigateToFirst sets focusedIndex to 0', () => {
     const config = makeConfig()
-    const { result } = renderHook(() => useEntityWorkspace(config))
+    const { result } = renderHook(() => useEntityWorkspace(config), {
+      wrapper: makeWrapper('/entities'),
+    })
 
     act(() => {
       result.current.setFocusedIndex(2)
@@ -100,7 +124,9 @@ describe('useEntityWorkspace', () => {
 
   it('handleNavigateToLast sets focusedIndex to last', () => {
     const config = makeConfig()
-    const { result } = renderHook(() => useEntityWorkspace(config))
+    const { result } = renderHook(() => useEntityWorkspace(config), {
+      wrapper: makeWrapper('/entities'),
+    })
 
     act(() => {
       result.current.handleNavigateToLast()
@@ -110,7 +136,9 @@ describe('useEntityWorkspace', () => {
   })
 
   it('setDeleteConfirmOpen controls dialog state', () => {
-    const { result } = renderHook(() => useEntityWorkspace(makeConfig()))
+    const { result } = renderHook(() => useEntityWorkspace(makeConfig()), {
+      wrapper: makeWrapper('/entities'),
+    })
 
     act(() => {
       result.current.setDeleteConfirmOpen(true)
@@ -125,7 +153,9 @@ describe('useEntityWorkspace', () => {
 
   it('handleEscapeAction clears selection and closes dialogs', () => {
     const config = makeConfig()
-    const { result } = renderHook(() => useEntityWorkspace(config))
+    const { result } = renderHook(() => useEntityWorkspace(config), {
+      wrapper: makeWrapper('/entities'),
+    })
 
     act(() => {
       result.current.setDeleteConfirmOpen(true)
@@ -140,7 +170,9 @@ describe('useEntityWorkspace', () => {
 
   it('handleDelete calls deleteMutation and refetch on success', async () => {
     const config = makeConfig({ selectedEntity: makeEntity('1') })
-    const { result } = renderHook(() => useEntityWorkspace(config))
+    const { result } = renderHook(() => useEntityWorkspace(config), {
+      wrapper: makeWrapper('/entities'),
+    })
 
     await act(async () => {
       await result.current.handleDelete()
@@ -157,7 +189,9 @@ describe('useEntityWorkspace', () => {
       selectedEntity: makeEntity('2'),
       onEnter,
     })
-    const { result } = renderHook(() => useEntityWorkspace(config))
+    const { result } = renderHook(() => useEntityWorkspace(config), {
+      wrapper: makeWrapper('/entities'),
+    })
 
     act(() => {
       result.current.setFocusedIndex(1)
@@ -176,7 +210,9 @@ describe('useEntityWorkspace', () => {
       selectedEntity: makeEntity('2'),
       onEscape,
     })
-    const { result } = renderHook(() => useEntityWorkspace(config))
+    const { result } = renderHook(() => useEntityWorkspace(config), {
+      wrapper: makeWrapper('/entities'),
+    })
 
     act(() => {
       result.current.handleEscapeAction()
@@ -184,5 +220,92 @@ describe('useEntityWorkspace', () => {
 
     expect(onEscape).toHaveBeenCalledTimes(1)
     expect(config.selectEntity).not.toHaveBeenCalledWith(null)
+  })
+})
+
+describe('highlightParam', () => {
+  it('selects and focuses entity matching the URL param on mount', async () => {
+    const config = makeConfig()
+    const { result } = renderHook(
+      () => useEntityWorkspace({ ...config, highlightParam: 'highlight' }),
+      { wrapper: makeWrapper('/entities?highlight=2') },
+    )
+
+    await waitFor(() => {
+      expect(config.selectEntity).toHaveBeenCalledWith(config.entities[1])
+      expect(result.current.focusedIndex).toBe(1)
+    })
+  })
+
+  it('does nothing when highlightParam entity is not in the list', async () => {
+    const config = makeConfig()
+    renderHook(() => useEntityWorkspace({ ...config, highlightParam: 'highlight' }), {
+      wrapper: makeWrapper('/entities?highlight=999'),
+    })
+
+    await waitFor(() => {
+      // auto-selects first, not the missing highlight
+      expect(config.selectEntity).toHaveBeenCalledWith(config.entities[0])
+    })
+  })
+
+  it('clears the URL param after consuming the highlight', async () => {
+    const config = makeConfig()
+    let capturedSearchParams: URLSearchParams | null = null
+
+    // Intercept setSearchParams to capture what was passed
+    const TestComponent = () => {
+      const [searchParams] = (
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        require('react-router-dom') as typeof import('react-router-dom')
+      ).useSearchParams()
+      capturedSearchParams = searchParams
+      return null
+    }
+
+    const { rerender } = renderHook(
+      () => useEntityWorkspace({ ...config, highlightParam: 'highlight' }),
+      { wrapper: makeWrapper('/entities?highlight=2') },
+    )
+
+    await waitFor(() => {
+      expect(config.selectEntity).toHaveBeenCalledWith(config.entities[1])
+    })
+
+    rerender()
+
+    await waitFor(() => {
+      // After consumption the param should be gone from the URL
+      const url = window.location.search
+      expect(url).not.toContain('highlight=2')
+    })
+  })
+})
+
+describe('locationStateHighlightKey', () => {
+  it('selects entity when location.state contains an id string', async () => {
+    const config = makeConfig()
+    const { result } = renderHook(
+      () => useEntityWorkspace({ ...config, locationStateHighlightKey: 'highlightId' }),
+      { wrapper: makeWrapperWithState('/entities', { highlightId: '3' }) },
+    )
+
+    await waitFor(() => {
+      expect(config.selectEntity).toHaveBeenCalledWith(config.entities[2])
+      expect(result.current.focusedIndex).toBe(2)
+    })
+  })
+
+  it('selects entity when location.state contains an entity object', async () => {
+    const config = makeConfig()
+    const { result } = renderHook(
+      () => useEntityWorkspace({ ...config, locationStateHighlightKey: 'highlightEntity' }),
+      { wrapper: makeWrapperWithState('/entities', { highlightEntity: config.entities[1] }) },
+    )
+
+    await waitFor(() => {
+      expect(config.selectEntity).toHaveBeenCalledWith(config.entities[1])
+      expect(result.current.focusedIndex).toBe(1)
+    })
   })
 })

@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from 'react'
-import { useNavigate, type SetURLSearchParams } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 
 import { useEntityWorkspace } from '@/hooks/useEntityWorkspace'
 import type { AppDispatch } from '@/store'
@@ -19,8 +19,6 @@ export interface UseVendorPaymentsWorkspaceConfig {
   payments: VendorPayment[]
   selectedPayment: VendorPayment | null
   refetch: () => void
-  searchParams: URLSearchParams
-  setSearchParams: SetURLSearchParams
 }
 
 export function useVendorPaymentsWorkspace({
@@ -28,15 +26,12 @@ export function useVendorPaymentsWorkspace({
   payments,
   selectedPayment,
   refetch,
-  searchParams,
-  setSearchParams,
 }: UseVendorPaymentsWorkspaceConfig) {
   const navigate = useNavigate()
   const [deletedPaymentsOpen, setDeletedPaymentsOpen] = useState(false)
   const [printDialogOpen, setPrintDialogOpen] = useState(false)
   const [journalEntryRef, setJournalEntryRef] = useState<VPJournalEntryRef | null>(null)
   const [journalEntryRefLoading, setJournalEntryRefLoading] = useState(false)
-  const userHasNavigatedRef = useRef(false)
   const [fetchPayment] = useLazyGetVendorPaymentQuery()
   const [fetchJournalEntries] = useLazyGetJournalEntriesQuery()
 
@@ -46,6 +41,7 @@ export function useVendorPaymentsWorkspace({
     selectEntity: (payment) => dispatch(setSelectedVendorPayment(payment)),
     refetch,
     navigate,
+    highlightParam: 'vpId',
     routes: {
       create: '/purchasing/vendor-payments/create',
       edit: (id) => `/purchasing/vendor-payments/${id}/edit`,
@@ -53,7 +49,6 @@ export function useVendorPaymentsWorkspace({
     notifications: { showSuccess: () => {}, showError: () => {} },
     deleteMutation: async () => {},
   })
-  const { setFocusedIndex } = workspace
 
   useEffect(() => {
     if (!selectedPayment?.id) {
@@ -103,27 +98,8 @@ export function useVendorPaymentsWorkspace({
     }
   }, [fetchJournalEntries, selectedPayment?.id])
 
-  useEffect(() => {
-    const paymentId = searchParams.get('vpId')
-    if (!paymentId || userHasNavigatedRef.current || payments.length === 0) {
-      return
-    }
-
-    const payment = payments.find((item) => item.id === paymentId)
-    if (payment) {
-      dispatch(setSelectedVendorPayment(payment))
-      setFocusedIndex(payments.findIndex((item) => item.id === payment.id))
-      setSearchParams((prev) => {
-        prev.delete('vpId')
-        return prev
-      }, { replace: true })
-      userHasNavigatedRef.current = true
-    }
-  }, [dispatch, payments, searchParams, setFocusedIndex, setSearchParams])
-
   const handleSelect = async (payment: VendorPayment) => {
     workspace.handleSelect(payment)
-    userHasNavigatedRef.current = true
 
     try {
       const freshPayment = await fetchPayment(payment.id).unwrap()
@@ -142,6 +118,5 @@ export function useVendorPaymentsWorkspace({
     setPrintDialogOpen,
     journalEntryRef,
     journalEntryRefLoading,
-    userHasNavigatedRef,
   }
 }
