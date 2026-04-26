@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate, type SetURLSearchParams } from 'react-router-dom'
 
+import { useJournalEntryRef } from '@/hooks/useJournalEntryRef'
 import { useEntityWorkspace } from '@/hooks/useEntityWorkspace'
 import { useNotification } from '@/hooks/useNotification'
 import type { AppDispatch } from '@/store'
-import { useLazyGetJournalEntriesQuery } from '@/store/api/accountingApi'
 import {
   useCompleteStockAdjustmentMutation,
   useDeleteStockAdjustmentMutation,
@@ -40,10 +40,6 @@ export function useStockAdjustmentsWorkspace({
   const navigate = useNavigate()
   const { showSuccess, showError } = useNotification()
   const [showDeletedDialog, setShowDeletedDialog] = useState(false)
-  const [journalEntryRef, setJournalEntryRef] = useState<StockAdjustmentsJournalEntryRef | null>(
-    null,
-  )
-  const [journalEntryRefLoading, setJournalEntryRefLoading] = useState(false)
 
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
   const [adjustmentToDelete, setAdjustmentToDelete] = useState<string | null>(null)
@@ -60,7 +56,6 @@ export function useStockAdjustmentsWorkspace({
   const userHasNavigatedRef = useRef(false)
 
   const [fetchAdjustment] = useLazyGetStockAdjustmentQuery()
-  const [fetchJournalEntries] = useLazyGetJournalEntriesQuery()
   const [deleteStockAdjustment] = useDeleteStockAdjustmentMutation()
   const [completeStockAdjustment] = useCompleteStockAdjustmentMutation()
   const [uncompleteStockAdjustment] = useUncompleteStockAdjustmentMutation()
@@ -82,53 +77,9 @@ export function useStockAdjustmentsWorkspace({
   })
   const { setFocusedIndex } = workspace
 
-  useEffect(() => {
-    if (!selectedAdjustment?.id) {
-      setJournalEntryRef(null)
-      setJournalEntryRefLoading(false)
-      return
-    }
-
-    let cancelled = false
-    setJournalEntryRefLoading(true)
-
-    ;(async () => {
-      try {
-        const response = await fetchJournalEntries({
-          sourceType: 'stock_adjustment',
-          sourceId: selectedAdjustment.id,
-          sortBy: 'createdAt',
-          sortOrder: 'DESC',
-          limit: 1,
-        }).unwrap()
-
-        if (cancelled) return
-
-        const entry = response.data?.[0]
-        setJournalEntryRef(
-          entry
-            ? {
-                referenceNumber: entry.referenceNumber,
-                sourceType: 'stock_adjustment',
-                sourceId: selectedAdjustment.id,
-              }
-            : null,
-        )
-      } catch {
-        if (!cancelled) {
-          setJournalEntryRef(null)
-        }
-      } finally {
-        if (!cancelled) {
-          setJournalEntryRefLoading(false)
-        }
-      }
-    })()
-
-    return () => {
-      cancelled = true
-    }
-  }, [fetchJournalEntries, selectedAdjustment?.id])
+  const { journalEntryRef, journalEntryRefLoading } = useJournalEntryRef([
+    { sourceType: 'stock_adjustment', sourceId: selectedAdjustment?.id },
+  ])
 
   useEffect(() => {
     const adjustmentId = searchParams.get('saId')

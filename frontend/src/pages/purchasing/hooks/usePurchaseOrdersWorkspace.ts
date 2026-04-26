@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 
+import { useJournalEntryRef } from '@/hooks/useJournalEntryRef'
 import { useEntityWorkspace } from '@/hooks/useEntityWorkspace'
 import { useNotification } from '@/hooks/useNotification'
 import type { AppDispatch } from '@/store'
-import { useLazyGetJournalEntriesQuery } from '@/store/api/accountingApi'
 import {
   useDeletePurchaseOrderMutation,
   useLazyGetPurchaseOrderQuery,
@@ -56,11 +56,8 @@ export function usePurchaseOrdersWorkspace({
   const [isLoading, setIsLoading] = useState(false)
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false)
   const [paymentDialogOrder, setPaymentDialogOrder] = useState<PurchaseOrder | null>(null)
-  const [journalEntryRef, setJournalEntryRef] = useState<PurchaseJournalEntryRef | null>(null)
-  const [journalEntryRefLoading, setJournalEntryRefLoading] = useState(false)
 
   const [fetchPurchaseOrder] = useLazyGetPurchaseOrderQuery()
-  const [fetchJournalEntries] = useLazyGetJournalEntriesQuery()
   const [receiveGoods] = useReceiveGoodsMutation()
   const [returnGoods] = useReturnGoodsMutation()
   const [markPurchaseOrderAsUnpaid] = useMarkPurchaseOrderAsUnpaidMutation()
@@ -107,73 +104,19 @@ export function usePurchaseOrdersWorkspace({
     }
   }, [dispatch, purchaseOrders, searchParams, setFocusedIndex, setSearchParams])
 
-  // Journal entry ref loading — domain-specific, stays here
-  useEffect(() => {
-    if (!selectedOrder?.id) {
-      setJournalEntryRef(null)
-      setJournalEntryRefLoading(false)
-      return
-    }
-
-    const grnSources = (selectedOrder.goodsReceivedNotes || []).map((grn: any) => ({
+  const journalSources = [
+    ...(selectedOrder?.goodsReceivedNotes ?? []).map((grn: any) => ({
       sourceType: 'goods_received_note',
-      sourceId: grn.id,
-    }))
-    const paymentSources = (selectedOrder.vendorPayments || []).map((payment: any) => ({
+      sourceId: grn.id as string | undefined,
+    })),
+    ...(selectedOrder?.vendorPayments ?? []).map((payment: any) => ({
       sourceType: 'vendor_payment',
-      sourceId: payment.id,
-    }))
-    const sources = [...grnSources, ...paymentSources]
+      sourceId: payment.id as string | undefined,
+    })),
+  ]
 
-    if (sources.length === 0) {
-      setJournalEntryRef(null)
-      setJournalEntryRefLoading(false)
-      return
-    }
-
-    let cancelled = false
-    setJournalEntryRefLoading(true)
-
-    ;(async () => {
-      try {
-        for (const source of sources) {
-          const response = await fetchJournalEntries({
-            sourceType: source.sourceType,
-            sourceId: source.sourceId,
-            sortBy: 'createdAt',
-            sortOrder: 'DESC',
-            limit: 1,
-          }).unwrap()
-
-          if (cancelled) return
-
-          const entry = response.data?.[0]
-          if (entry) {
-            setJournalEntryRef({
-              referenceNumber: entry.referenceNumber,
-              sourceType: source.sourceType,
-              sourceId: source.sourceId,
-            })
-            return
-          }
-        }
-        if (!cancelled) setJournalEntryRef(null)
-      } catch {
-        if (!cancelled) setJournalEntryRef(null)
-      } finally {
-        if (!cancelled) setJournalEntryRefLoading(false)
-      }
-    })()
-
-    return () => {
-      cancelled = true
-    }
-  }, [
-    fetchJournalEntries,
-    selectedOrder?.goodsReceivedNotes,
-    selectedOrder?.id,
-    selectedOrder?.vendorPayments,
-  ])
+  const { journalEntryRef, journalEntryRefLoading, navigateToJournalEntry } =
+    useJournalEntryRef(journalSources)
 
   const handleOrderSelect = useCallback(
     async (order: PurchaseOrder) => {
@@ -507,13 +450,6 @@ export function usePurchaseOrdersWorkspace({
     [navigate],
   )
 
-  const navigateToJournalEntry = useCallback(() => {
-    if (!journalEntryRef) return
-    navigate(
-      `/accounting/journal-entries?sourceType=${journalEntryRef.sourceType}&sourceId=${journalEntryRef.sourceId}`,
-    )
-  }, [journalEntryRef, navigate])
-
   return {
     ...workspace,
     focusedOrderIndex: workspace.focusedIndex,
@@ -554,4 +490,3 @@ export function usePurchaseOrdersWorkspace({
     navigateToJournalEntry,
   }
 }
-
