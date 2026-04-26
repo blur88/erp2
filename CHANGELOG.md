@@ -1,3 +1,10 @@
+## [1.88.2](https://github.com/blur88/erp2/compare/v1.88.1...v1.88.2) (2026-04-26)
+
+
+### Bug Fixes
+
+* **ci:** retrigger docker push for v1.88.1 ([9277eb7](https://github.com/blur88/erp2/commit/9277eb72fd9740d76bcde53abb4e50bd72f130ae))
+
 ## [1.88.1](https://github.com/blur88/erp2/compare/v1.88.0...v1.88.1) (2026-04-26)
 
 
