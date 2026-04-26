@@ -234,9 +234,11 @@ const InventoryPage: React.FC = () => {
 
   if (isLoading) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 400 }}>
-        <CircularProgress size={60} />
-      </Box>
+      <GenericOverviewPage>
+        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 400 }}>
+          <CircularProgress size={60} />
+        </Box>
+      </GenericOverviewPage>
     )
   }
 
