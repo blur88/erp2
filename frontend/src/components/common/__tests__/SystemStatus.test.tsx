@@ -71,4 +71,18 @@ describe('SystemStatus', () => {
 
     expect(onOpen).toHaveBeenCalled()
   })
+
+  it('shows the unable to fetch message when health check fails', async () => {
+    mockGet.mockRejectedValue(new Error('Network error'))
+
+    const anchorEl = document.createElement('button')
+    document.body.appendChild(anchorEl)
+    renderSystemStatus(anchorEl, true)
+
+    await waitFor(() => {
+      expect(screen.getByText(/unable to fetch system health information/i)).toBeInTheDocument()
+    })
+
+    document.body.removeChild(anchorEl)
+  })
 })

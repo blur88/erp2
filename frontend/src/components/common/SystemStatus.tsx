@@ -57,20 +57,19 @@ const SystemStatus: React.FC<SystemStatusProps> = ({ anchorEl, open, onOpen, onC
   const theme = useTheme()
   const [health, setHealth] = useState<HealthResponse | null>(null)
   const [loading, setLoading] = useState(false)
-  const [frontendStatus, setFrontendStatus] = useState<'healthy' | 'unknown'>('healthy')
+  const frontendStatus = 'healthy' as const
 
   const checkHealth = async () => {
     setLoading(true)
     try {
       const response = await ApiService.get<HealthResponse>('/health')
-      const healthData = response as HealthResponse
-      setHealth(healthData)
-      setFrontendStatus('healthy')
+      setHealth(response as HealthResponse)
     } catch (error) {
       setHealth(null)
       console.error('Health check failed:', error)
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
   }
 
   useEffect(() => {
