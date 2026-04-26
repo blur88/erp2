@@ -1,3 +1,10 @@
+## [1.88.4](https://github.com/blur88/erp2/compare/v1.88.3...v1.88.4) (2026-04-26)
+
+
+### Bug Fixes
+
+* **ci:** detect release from semantic-release output instead of tag comparison ([d7bbe7f](https://github.com/blur88/erp2/commit/d7bbe7faf785f7e5f7cd26141b12e366ae071367))
+
 ## [1.88.3](https://github.com/blur88/erp2/compare/v1.88.2...v1.88.3) (2026-04-26)
 
 
