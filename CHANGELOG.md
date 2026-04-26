@@ -1,3 +1,10 @@
+## [1.88.1](https://github.com/blur88/erp2/compare/v1.88.0...v1.88.1) (2026-04-26)
+
+
+### Bug Fixes
+
+* **ci:** prevent release cancellation to avoid orphaned release commits ([bf971b8](https://github.com/blur88/erp2/commit/bf971b8bad5e9058829b98157c5ef30ef83e3f28))
+
 # [1.88.0](https://github.com/blur88/erp2/compare/v1.87.0...v1.88.0) (2026-04-26)
 
 
