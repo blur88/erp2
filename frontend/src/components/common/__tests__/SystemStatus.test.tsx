@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import SystemStatus from '../SystemStatus'
@@ -23,6 +23,13 @@ const healthyResponse = {
   },
 }
 
+function renderSystemStatus(anchorEl: HTMLElement | null = null, open = false) {
+  const onOpen = vi.fn()
+  const onClose = vi.fn()
+  render(<SystemStatus anchorEl={anchorEl} open={open} onOpen={onOpen} onClose={onClose} />)
+  return { onOpen, onClose }
+}
+
 describe('SystemStatus', () => {
   beforeEach(() => {
     mockGet.mockReset()
@@ -30,7 +37,7 @@ describe('SystemStatus', () => {
   })
 
   it('renders an icon button and not a chip text label', () => {
-    render(<SystemStatus />)
+    renderSystemStatus()
 
     expect(screen.queryByText('HEALTHY')).not.toBeInTheDocument()
     expect(screen.queryByText('UNHEALTHY')).not.toBeInTheDocument()
@@ -38,7 +45,7 @@ describe('SystemStatus', () => {
   })
 
   it('shows a system tooltip label after data loads', async () => {
-    render(<SystemStatus />)
+    renderSystemStatus()
 
     await waitFor(() => {
       const button = screen.getByRole('button')
@@ -50,10 +57,18 @@ describe('SystemStatus', () => {
   it('shows unknown status state during initial load', () => {
     mockGet.mockReturnValue(new Promise(() => {}))
 
-    render(<SystemStatus />)
+    renderSystemStatus()
 
     expect(screen.queryByText('HEALTHY')).not.toBeInTheDocument()
     expect(screen.queryByText('UNKNOWN')).not.toBeInTheDocument()
     expect(screen.getByRole('button')).toBeInTheDocument()
+  })
+
+  it('calls onOpen when the icon button is clicked', () => {
+    const { onOpen } = renderSystemStatus()
+
+    fireEvent.click(screen.getByRole('button'))
+
+    expect(onOpen).toHaveBeenCalled()
   })
 })

@@ -41,14 +41,20 @@ interface HealthResponse {
   }
 }
 
+interface SystemStatusProps {
+  anchorEl: HTMLElement | null
+  open: boolean
+  onOpen: (event: React.MouseEvent<HTMLElement>) => void
+  onClose: () => void
+}
+
 const statusPulse = keyframes`
   0%, 100% { opacity: 1; transform: scale(1); }
   50% { opacity: 0.4; transform: scale(1.3); }
 `
 
-const SystemStatus: React.FC = () => {
+const SystemStatus: React.FC<SystemStatusProps> = ({ anchorEl, open, onOpen, onClose }) => {
   const theme = useTheme()
-  const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null)
   const [health, setHealth] = useState<HealthResponse | null>(null)
   const [loading, setLoading] = useState(false)
   const [frontendStatus, setFrontendStatus] = useState<'healthy' | 'unknown'>('healthy')
@@ -69,33 +75,21 @@ const SystemStatus: React.FC = () => {
 
   useEffect(() => {
     checkHealth()
-
     const interval = setInterval(checkHealth, 30000)
-
     return () => clearInterval(interval)
   }, [])
 
   const handleClick = (event: React.MouseEvent<HTMLElement>) => {
-    setAnchorEl(event.currentTarget)
+    onOpen(event)
     void checkHealth()
   }
 
-  const handleClose = () => {
-    setAnchorEl(null)
-  }
-
-  const open = Boolean(anchorEl)
-
   const getStatusColor = (status: string): 'success' | 'error' | 'warning' | 'default' => {
     switch (status) {
-      case 'healthy':
-        return 'success'
-      case 'unhealthy':
-        return 'error'
-      case 'degraded':
-        return 'warning'
-      default:
-        return 'default'
+      case 'healthy': return 'success'
+      case 'unhealthy': return 'error'
+      case 'degraded': return 'warning'
+      default: return 'default'
     }
   }
 
@@ -107,27 +101,19 @@ const SystemStatus: React.FC = () => {
 
   const getDotColor = (status: 'healthy' | 'degraded' | 'unhealthy' | 'unknown'): string => {
     switch (status) {
-      case 'healthy':
-        return theme.palette.success.main
-      case 'degraded':
-        return theme.palette.warning.main
-      case 'unhealthy':
-        return theme.palette.error.main
-      default:
-        return theme.palette.text.secondary
+      case 'healthy': return theme.palette.success.main
+      case 'degraded': return theme.palette.warning.main
+      case 'unhealthy': return theme.palette.error.main
+      default: return theme.palette.text.secondary
     }
   }
 
   const getTooltipText = (status: 'healthy' | 'degraded' | 'unhealthy' | 'unknown'): string => {
     switch (status) {
-      case 'healthy':
-        return 'System: Healthy - All services operational'
-      case 'degraded':
-        return 'System: Degraded - One or more services affected'
-      case 'unhealthy':
-        return 'System: Unhealthy - Backend may be offline'
-      default:
-        return 'System: Unknown - Checking status...'
+      case 'healthy': return 'System: Healthy - All services operational'
+      case 'degraded': return 'System: Degraded - One or more services affected'
+      case 'unhealthy': return 'System: Unhealthy - Backend may be offline'
+      default: return 'System: Unknown - Checking status...'
     }
   }
 
@@ -172,53 +158,24 @@ const SystemStatus: React.FC = () => {
       <Popover
         open={open}
         anchorEl={anchorEl}
-        onClose={handleClose}
-        anchorOrigin={{
-          vertical: 'bottom',
-          horizontal: 'right',
-        }}
-        transformOrigin={{
-          vertical: 'top',
-          horizontal: 'right',
-        }}
-        slotProps={{
-          paper: {
-            sx: {
-              width: 350,
-              mt: 1,
-            },
-          },
-        }}
+        onClose={onClose}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+        transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+        slotProps={{ paper: { sx: { width: 350, mt: 1 } } }}
       >
         <Box sx={{ p: 2 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-            <Typography variant="h6" sx={{ fontWeight: 600 }}>
-              System Status
-            </Typography>
+            <Typography variant="h6" sx={{ fontWeight: 600 }}>System Status</Typography>
             {loading && <CircularProgress size={20} />}
           </Box>
 
           {health && (
             <>
               <Box sx={{ mb: 2 }}>
-                <Typography variant="caption" sx={{
-                  color: "text.secondary"
-                }}>
-                  Overall Status
-                </Typography>
+                <Typography variant="caption" sx={{ color: 'text.secondary' }}>Overall Status</Typography>
                 <Box sx={{ mt: 0.5 }}>
-                  <Chip
-                    label={health.status.toUpperCase()}
-                    color={getStatusColor(health.status)}
-                    size="small"
-                    sx={{ fontWeight: 600 }}
-                  />
-                  <Typography
-                    variant="caption"
-                    sx={{
-                      color: "text.secondary",
-                      ml: 1
-                    }}>
+                  <Chip label={health.status.toUpperCase()} color={getStatusColor(health.status)} size="small" sx={{ fontWeight: 600 }} />
+                  <Typography variant="caption" sx={{ color: 'text.secondary', ml: 1 }}>
                     Uptime: {formatUptime(health.uptime)}
                   </Typography>
                 </Box>
@@ -226,114 +183,28 @@ const SystemStatus: React.FC = () => {
 
               <Divider sx={{ my: 2 }} />
 
-              <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
-                Services
-              </Typography>
+              <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>Services</Typography>
 
               <List sx={{ p: 0 }}>
-                <ListItem sx={{ px: 0, py: 0.5 }}>
-                  <ListItemIcon sx={{ minWidth: 40 }}>
-                    <NginxIcon fontSize="small" color="action" />
-                  </ListItemIcon>
-                  <ListItemText
-                    primary={
-                      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                        <Typography variant="body2">Frontend</Typography>
-                        <Chip
-                          label={frontendStatus.toUpperCase()}
-                          color={getStatusColor(frontendStatus)}
-                          size="small"
-                          sx={{ height: 20, fontSize: '0.65rem' }}
-                        />
-                      </Box>
-                    }
-                    secondary={
-                      <Typography variant="caption" sx={{
-                        color: "text.secondary"
-                      }}>
-                        Web server running
-                      </Typography>
-                    }
-                  />
-                </ListItem>
-
-                <ListItem sx={{ px: 0, py: 0.5 }}>
-                  <ListItemIcon sx={{ minWidth: 40 }}>
-                    <BackendIcon fontSize="small" color="action" />
-                  </ListItemIcon>
-                  <ListItemText
-                    primary={
-                      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                        <Typography variant="body2">Backend API</Typography>
-                        <Chip
-                          label={health.services.backend.status.toUpperCase()}
-                          color={getStatusColor(health.services.backend.status)}
-                          size="small"
-                          sx={{ height: 20, fontSize: '0.65rem' }}
-                        />
-                      </Box>
-                    }
-                    secondary={
-                      <Typography variant="caption" sx={{
-                        color: "text.secondary"
-                      }}>
-                        {health.services.backend.message}
-                      </Typography>
-                    }
-                  />
-                </ListItem>
-
-                <ListItem sx={{ px: 0, py: 0.5 }}>
-                  <ListItemIcon sx={{ minWidth: 40 }}>
-                    <DatabaseIcon fontSize="small" color="action" />
-                  </ListItemIcon>
-                  <ListItemText
-                    primary={
-                      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                        <Typography variant="body2">PostgreSQL</Typography>
-                        <Chip
-                          label={health.services.database.status.toUpperCase()}
-                          color={getStatusColor(health.services.database.status)}
-                          size="small"
-                          sx={{ height: 20, fontSize: '0.65rem' }}
-                        />
-                      </Box>
-                    }
-                    secondary={
-                      <Typography variant="caption" sx={{
-                        color: "text.secondary"
-                      }}>
-                        {health.services.database.message}
-                      </Typography>
-                    }
-                  />
-                </ListItem>
-
-                <ListItem sx={{ px: 0, py: 0.5 }}>
-                  <ListItemIcon sx={{ minWidth: 40 }}>
-                    <RedisIcon fontSize="small" color="action" />
-                  </ListItemIcon>
-                  <ListItemText
-                    primary={
-                      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                        <Typography variant="body2">Redis</Typography>
-                        <Chip
-                          label={health.services.redis.status.toUpperCase()}
-                          color={getStatusColor(health.services.redis.status)}
-                          size="small"
-                          sx={{ height: 20, fontSize: '0.65rem' }}
-                        />
-                      </Box>
-                    }
-                    secondary={
-                      <Typography variant="caption" sx={{
-                        color: "text.secondary"
-                      }}>
-                        {health.services.redis.message}
-                      </Typography>
-                    }
-                  />
-                </ListItem>
+                {[
+                  { icon: <NginxIcon fontSize="small" color="action" />, label: 'Frontend', status: frontendStatus, message: 'Web server running' },
+                  { icon: <BackendIcon fontSize="small" color="action" />, label: 'Backend API', status: health.services.backend.status, message: health.services.backend.message },
+                  { icon: <DatabaseIcon fontSize="small" color="action" />, label: 'PostgreSQL', status: health.services.database.status, message: health.services.database.message },
+                  { icon: <RedisIcon fontSize="small" color="action" />, label: 'Redis', status: health.services.redis.status, message: health.services.redis.message },
+                ].map(({ icon, label, status, message }) => (
+                  <ListItem key={label} sx={{ px: 0, py: 0.5 }}>
+                    <ListItemIcon sx={{ minWidth: 40 }}>{icon}</ListItemIcon>
+                    <ListItemText
+                      primary={
+                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                          <Typography variant="body2">{label}</Typography>
+                          <Chip label={status.toUpperCase()} color={getStatusColor(status)} size="small" sx={{ height: 20, fontSize: '0.65rem' }} />
+                        </Box>
+                      }
+                      secondary={<Typography variant="caption" sx={{ color: 'text.secondary' }}>{message}</Typography>}
+                    />
+                  </ListItem>
+                ))}
               </List>
             </>
           )}
@@ -341,9 +212,7 @@ const SystemStatus: React.FC = () => {
           {!health && !loading && (
             <Box sx={{ py: 3, textAlign: 'center' }}>
               <InfoIcon color="disabled" sx={{ fontSize: 32, mb: 1 }} />
-              <Typography variant="body2" sx={{
-                color: "text.secondary"
-              }}>
+              <Typography variant="body2" sx={{ color: 'text.secondary' }}>
                 Unable to fetch system health information
               </Typography>
             </Box>
@@ -351,7 +220,7 @@ const SystemStatus: React.FC = () => {
         </Box>
       </Popover>
     </>
-  );
+  )
 }
 
 export default SystemStatus
