@@ -21,8 +21,8 @@ jobs:
       pull-requests: write
 
     outputs:
-      new_release_published: ${{ steps.detect_release.outputs.new_release_published }}
-      new_release_version: ${{ steps.detect_release.outputs.new_release_version }}
+      new_release_published: ${{ steps.semantic_release.outputs.new_release_published }}
+      new_release_version: ${{ steps.semantic_release.outputs.new_release_version }}
 
     steps:
       - name: Checkout
@@ -39,31 +39,20 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Capture latest remote tag before release
-        id: before_tag
-        run: |
-          git fetch --tags --force origin
-          echo "value=$(git tag --list 'v*' --sort=-v:refname | head -n1)" >> "$GITHUB_OUTPUT"
-
       - name: Run semantic-release
-        run: npx semantic-release
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Detect published release
-        id: detect_release
+        id: semantic_release
         run: |
-          git fetch --tags --force origin
-          before="${{ steps.before_tag.outputs.value }}"
-          after="$(git tag --list 'v*' --sort=-v:refname | head -n1)"
-
-          if [ -n "$after" ] && [ "$after" != "$before" ]; then
+          npx semantic-release | tee /tmp/sr-output.txt
+          version=$(grep -oP 'The next release version is \K[0-9]+\.[0-9]+\.[0-9]+' /tmp/sr-output.txt | tail -1)
+          if [ -n "$version" ]; then
             echo "new_release_published=true" >> "$GITHUB_OUTPUT"
-            echo "new_release_version=${after#v}" >> "$GITHUB_OUTPUT"
+            echo "new_release_version=$version" >> "$GITHUB_OUTPUT"
           else
             echo "new_release_published=false" >> "$GITHUB_OUTPUT"
             echo "new_release_version=" >> "$GITHUB_OUTPUT"
           fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   build-and-push:
     name: Build & Push Docker Images
