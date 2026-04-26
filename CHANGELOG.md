@@ -16,6 +16,24 @@
 * **purchasing:** wrap PurchasingPage with GenericOverviewPage for scroll (issue [#446](https://github.com/blur88/erp2/issues/446)) ([a675d5e](https://github.com/blur88/erp2/commit/a675d5e9b5c2b716e3c5f9ef89440c94b50c5aeb))
 * **sales:** wrap SalesPage with GenericOverviewPage for scroll (issue [#446](https://github.com/blur88/erp2/issues/446)) ([21fd835](https://github.com/blur88/erp2/commit/21fd835553ee7b4275ad02d4238dd0c8091033a1))
 
+# [1.88.0](https://github.com/blur88/erp2/compare/v1.87.0...v1.88.0) (2026-04-26)
+
+
+### Bug Fixes
+
+* **inventory:** wrap loading branch with GenericOverviewPage (issue [#446](https://github.com/blur88/erp2/issues/446)) ([a9fabd8](https://github.com/blur88/erp2/commit/a9fabd833551911db6fae90eeabeffffb026e5c9))
+* **layout:** move scrollbar to screen edge via negative margin on GenericOverviewPage (issue [#446](https://github.com/blur88/erp2/issues/446)) ([186fc95](https://github.com/blur88/erp2/commit/186fc9528b8ebc397ca673e703b5cdf7c805218c))
+
+
+### Features
+
+* **accounting:** wrap AccountingDashboardPage with GenericOverviewPage for scroll (issue [#446](https://github.com/blur88/erp2/issues/446)) ([38bb433](https://github.com/blur88/erp2/commit/38bb433ae25579280922456977836c7c71f49060))
+* **dashboard:** wrap with GenericOverviewPage for scroll (issue [#446](https://github.com/blur88/erp2/issues/446)) ([6fb2b33](https://github.com/blur88/erp2/commit/6fb2b33eaefebad2c7425b5f4af4f2a566ca9ce5))
+* **inventory:** wrap InventoryPage with GenericOverviewPage for scroll (issue [#446](https://github.com/blur88/erp2/issues/446)) ([f76b624](https://github.com/blur88/erp2/commit/f76b624a6f35ab27a3688ac7ceed718db62f12ff))
+* **layout:** add GenericOverviewPage scroll container (issue [#446](https://github.com/blur88/erp2/issues/446)) ([0fe9952](https://github.com/blur88/erp2/commit/0fe9952e301f5bdff0c7a5a026b456094bed3a51))
+* **purchasing:** wrap PurchasingPage with GenericOverviewPage for scroll (issue [#446](https://github.com/blur88/erp2/issues/446)) ([a675d5e](https://github.com/blur88/erp2/commit/a675d5e9b5c2b716e3c5f9ef89440c94b50c5aeb))
+* **sales:** wrap SalesPage with GenericOverviewPage for scroll (issue [#446](https://github.com/blur88/erp2/issues/446)) ([21fd835](https://github.com/blur88/erp2/commit/21fd835553ee7b4275ad02d4238dd0c8091033a1))
+
 # [1.87.0](https://github.com/blur88/erp2/compare/v1.86.1...v1.87.0) (2026-04-22)
 
 
