@@ -1,7 +1,7 @@
 import { Chip } from '@mui/material'
 
 interface EntityStatusChipProps {
-  status: string
+  status?: string | null
 }
 
 type MuiChipColor = 'default' | 'success' | 'warning' | 'error' | 'info'
@@ -34,12 +34,13 @@ function toTitleCase(str: string): string {
 }
 
 export function EntityStatusChip({ status }: EntityStatusChipProps) {
-  const config = STATUS_MAP[status.toLowerCase()]
+  const normalizedStatus = status?.toString().trim() ?? ''
+  const config = STATUS_MAP[normalizedStatus.toLowerCase()]
   return (
     <Chip
       size="small"
       color={config?.color ?? 'default'}
-      label={config?.label ?? toTitleCase(status)}
+      label={config?.label ?? (normalizedStatus ? toTitleCase(normalizedStatus) : 'Unknown')}
       sx={{ fontSize: '0.75rem', fontWeight: 600, textTransform: 'capitalize' }}
     />
   )
