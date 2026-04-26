@@ -112,7 +112,7 @@ const SalesPage: React.FC = () => {
       try {
         setRecentOrdersLoading(true)
         const response = await api.get('/sales-orders', {
-          params: { limit: 5, sortBy: 'orderDate', sortOrder: 'desc' },
+          params: { limit: 5, sortBy: 'orderDate', sortOrder: 'DESC' },
         })
 
         if (active) {
