@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react'
+import React from 'react'
 import {
   Box,
   Dialog,
@@ -81,21 +81,6 @@ function ShortcutGroup({ label, shortcuts }: { label: string; shortcuts: { key: 
 
 const KeyboardShortcutsModal: React.FC<KeyboardShortcutsModalProps> = ({ open, onClose }) => {
   const theme = useTheme()
-
-  useEffect(() => {
-    if (!open) return undefined
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        onClose()
-      }
-    }
-
-    document.addEventListener('keydown', handleKeyDown)
-    return () => {
-      document.removeEventListener('keydown', handleKeyDown)
-    }
-  }, [open, onClose])
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>

@@ -53,7 +53,8 @@ describe('KeyboardShortcutsModal', () => {
 
   it('calls onClose when Escape is pressed', () => {
     const { onClose } = renderModal()
-    fireEvent.keyDown(document, { key: 'Escape' })
+    const dialog = screen.getByRole('dialog')
+    fireEvent.keyDown(dialog, { key: 'Escape' })
     expect(onClose).toHaveBeenCalled()
   })
 })
