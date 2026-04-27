@@ -123,7 +123,6 @@ module.exports = {
         writerOpts: { transform, finalizeContext },
       },
     ],
-    '@semantic-release/changelog',
     [
       '@semantic-release/npm',
       {
@@ -136,13 +135,6 @@ module.exports = {
       {
         pkgRoot: 'frontend',
         npmPublish: false,
-      },
-    ],
-    [
-      '@semantic-release/git',
-      {
-        assets: ['CHANGELOG.md', 'backend/package.json', 'frontend/package.json'],
-        message: 'chore(release): ${nextRelease.version} [skip ci]',
       },
     ],
     '@semantic-release/github',

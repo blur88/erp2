@@ -43,8 +43,9 @@ jobs:
         id: semantic_release
         run: |
           npx semantic-release | tee /tmp/sr-output.txt
-          version=$(grep -oP 'The next release version is \K[0-9]+\.[0-9]+\.[0-9]+' /tmp/sr-output.txt | tail -1)
-          if [ -n "$version" ]; then
+          exit_code=${PIPESTATUS[0]}
+          version=$(grep -oP 'Published release \K[0-9]+\.[0-9]+\.[0-9]+' /tmp/sr-output.txt | tail -1)
+          if [ $exit_code -eq 0 ] && [ -n "$version" ]; then
             echo "new_release_published=true" >> "$GITHUB_OUTPUT"
             echo "new_release_version=$version" >> "$GITHUB_OUTPUT"
           else
