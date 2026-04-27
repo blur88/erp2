@@ -53,7 +53,7 @@ jobs:
             echo "new_release_version=" >> "$GITHUB_OUTPUT"
           fi
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GH_RELEASE_TOKEN }}
 
   build-and-push:
     name: Build & Push Docker Images

@@ -137,6 +137,13 @@ module.exports = {
         npmPublish: false,
       },
     ],
+    [
+      '@semantic-release/git',
+      {
+        assets: ['backend/package.json', 'frontend/package.json'],
+        message: 'chore(release): ${nextRelease.version} [skip ci]',
+      },
+    ],
     '@semantic-release/github',
   ],
 };
