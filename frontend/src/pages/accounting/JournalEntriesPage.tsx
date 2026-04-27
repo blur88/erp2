@@ -1,9 +1,5 @@
 import React, { useCallback, useMemo, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { Stack } from '@mui/material'
-import { AppButton } from '@/components/common/AppButton'
-import { default as DeleteIcon } from '@mui/icons-material/Delete'
-import { default as PostIcon } from '@mui/icons-material/PostAdd'
 
 import AccountMappingWarning from '@/components/accounting/AccountMappingWarning'
 import GenericListPage from '@/components/common/GenericListPage'
@@ -13,7 +9,6 @@ import type { FilterBarConfig, PeriodValue } from '@/types/filterBar.types'
 import { getPeriodDateRange, getStartOfWeek } from '@/utils/dateRange'
 
 import { JournalEntryContextHeader } from './components/JournalEntryContextHeader'
-import { JournalEntriesDialogs } from './components/JournalEntriesDialogs'
 import { JournalEntriesTable } from './components/JournalEntriesTable'
 import { JournalEntryWorkspaceCard } from './components/JournalEntryWorkspaceCard'
 import { useJournalEntriesWorkspace } from './hooks/useJournalEntriesWorkspace'
@@ -79,9 +74,8 @@ export const JournalEntriesPage: React.FC = () => {
   const { data, isLoading, refetch } = useGetJournalEntriesQuery(queryArgs)
   const entries = data?.data ?? []
   const pagination = data?.meta
-  const workspace = useJournalEntriesWorkspace(() => {
-    void refetch()
-  })
+
+  const workspace = useJournalEntriesWorkspace({ entries, refetch })
 
   const filterHandlers = useMemo(() => ({
     ...handlers,
@@ -103,36 +97,21 @@ export const JournalEntriesPage: React.FC = () => {
       <AccountMappingWarning context="system" />
       <GenericListPage
         title="Journal Entries"
-        subtitle="Manage and post accounting journal entries"
-        primaryAction={{ label: 'New Journal Entry', onClick: workspace.navigateToCreate }}
+        subtitle="View accounting journal entries"
         filterConfig={filterConfig}
         draftFilters={draftFilters}
         handlers={filterHandlers}
         hasActiveFilters={hasActiveFilters}
         searchInputRef={workspace.searchInputRef}
         sort={{ field: 'createdAt', sortBy, sortOrder, onSort: handleSort }}
-        contentSlot={workspace.selectedIds.size > 0 ? (
-          <Stack direction="row" spacing={1} sx={{ mb: 1 }}>
-            <AppButton size="small" variant="primary" startIcon={<PostIcon />} onClick={() => workspace.setBulkPostOpen(true)}>
-              Post Selected ({workspace.selectedIds.size})
-            </AppButton>
-            <AppButton size="small" variant="danger" startIcon={<DeleteIcon />} onClick={() => workspace.setBulkDeleteOpen(true)}>
-              Delete Selected ({workspace.selectedIds.size})
-            </AppButton>
-          </Stack>
-        ) : null}
         listSlot={(
           <JournalEntriesTable
             entries={entries}
             loading={isLoading}
             total={pagination?.total ?? 0}
             selectedEntryId={workspace.selectedEntry?.id ?? null}
-            selectedIds={workspace.selectedIds}
+            focusedIndex={workspace.focusedIndex}
             onSelect={workspace.handleSelect}
-            onToggleCheck={workspace.handleToggleCheck}
-            onSelectAll={() => workspace.handleSelectAll(entries)}
-            onPost={(entry) => workspace.setPostTarget(entry)}
-            onDelete={(entry) => workspace.setDeleteTarget(entry)}
             onViewSource={(sourceType, sourceId) => workspace.navigateToSource(sourceType, sourceId)}
             listRef={workspace.listRef}
           />
@@ -140,34 +119,10 @@ export const JournalEntriesPage: React.FC = () => {
         headerSlot={(
           <JournalEntryContextHeader
             selectedEntry={workspace.selectedEntry}
-            onEdit={() => workspace.selectedEntry && workspace.navigateToEdit(workspace.selectedEntry)}
-            onPost={() => workspace.selectedEntry && workspace.setPostTarget(workspace.selectedEntry)}
-            onReverse={() => workspace.selectedEntry && workspace.setReverseTarget(workspace.selectedEntry)}
-            onDelete={() => workspace.selectedEntry && workspace.setDeleteTarget(workspace.selectedEntry)}
             onNavigateToSource={(path) => navigate(path)}
           />
         )}
         workspaceSlot={<JournalEntryWorkspaceCard selectedEntry={workspace.selectedEntry} />}
-        dialogs={(
-          <JournalEntriesDialogs
-            postTarget={workspace.postTarget}
-            deleteTarget={workspace.deleteTarget}
-            reverseTarget={workspace.reverseTarget}
-            bulkPostIds={workspace.bulkPostOpen ? workspace.selectedIds : new Set<string>()}
-            bulkDeleteIds={workspace.bulkDeleteOpen ? workspace.selectedIds : new Set<string>()}
-            actionLoading={workspace.actionLoading}
-            onConfirmPost={workspace.handleConfirmPost}
-            onConfirmDelete={workspace.handleConfirmDelete}
-            onConfirmReverse={workspace.handleConfirmReverse}
-            onConfirmBulkPost={workspace.handleBulkPost}
-            onConfirmBulkDelete={workspace.handleBulkDelete}
-            onCancelPost={() => workspace.setPostTarget(null)}
-            onCancelDelete={() => workspace.setDeleteTarget(null)}
-            onCancelReverse={() => workspace.setReverseTarget(null)}
-            onCancelBulkPost={() => workspace.setBulkPostOpen(false)}
-            onCancelBulkDelete={() => workspace.setBulkDeleteOpen(false)}
-          />
-        )}
       />
     </>
   )
