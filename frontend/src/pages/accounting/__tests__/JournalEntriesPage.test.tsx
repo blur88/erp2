@@ -85,7 +85,7 @@ describe('JournalEntriesPage', () => {
     render(<BrowserRouter><JournalEntriesPage /></BrowserRouter>)
     fireEvent.click(screen.getAllByText('JE-001')[0])
     await waitFor(() => {
-      expect(screen.getAllByText('JE-001').length).toBeGreaterThan(1)
+      expect(screen.getByText('Journal Entry Details - JE-001')).toBeInTheDocument()
     })
     expect(mockNavigate).not.toHaveBeenCalled()
   })

@@ -5,15 +5,6 @@ import { createRef } from 'react'
 import { JournalEntriesTable } from './JournalEntriesTable'
 import { JournalEntryStatus } from '@/types'
 
-vi.mock('@/utils/formatters', () => ({
-  formatCurrency: (value: number) => `$${value}`,
-  formatDate: (date: string) => date,
-}))
-
-vi.mock('@/components/common/EntityStatusChip', () => ({
-  EntityStatusChip: ({ status }: any) => <span>{status}</span>,
-}))
-
 const makeEntry = (overrides = {}) => ({
   id: '1',
   referenceNumber: 'JE-001',
@@ -39,7 +30,6 @@ describe('JournalEntriesTable', () => {
     selectedEntryId: null,
     focusedIndex: -1,
     onSelect: vi.fn(),
-    onViewSource: vi.fn(),
     listRef,
   }
 
@@ -48,7 +38,7 @@ describe('JournalEntriesTable', () => {
     expect(screen.getByText(/No Journal Entries found/i)).toBeInTheDocument()
   })
 
-  it('renders entry rows', () => {
+  it('renders entry reference number', () => {
     render(<JournalEntriesTable {...defaultProps} entries={[makeEntry()]} total={1} />)
     expect(screen.getByText('JE-001')).toBeInTheDocument()
   })
@@ -65,29 +55,10 @@ describe('JournalEntriesTable', () => {
     expect(screen.queryByRole('checkbox')).not.toBeInTheDocument()
   })
 
-  it('does not render Post or Delete action buttons', () => {
-    render(<JournalEntriesTable {...defaultProps} entries={[makeEntry()]} total={1} />)
-    expect(screen.queryByText('Post')).not.toBeInTheDocument()
-    expect(screen.queryByText('Delete')).not.toBeInTheDocument()
-  })
-
-  it('shows View Source link for non-manual entries with a sourceId', () => {
-    const onViewSource = vi.fn()
-    render(
-      <JournalEntriesTable
-        {...defaultProps}
-        entries={[makeEntry({ sourceType: 'sales_order', sourceId: 'so-1' })]}
-        total={1}
-        onViewSource={onViewSource}
-      />,
-    )
-    const link = screen.getByText('View Source')
-    fireEvent.click(link)
-    expect(onViewSource).toHaveBeenCalledWith('sales_order', 'so-1')
-  })
-
-  it('does not show View Source link for manual entries', () => {
-    render(<JournalEntriesTable {...defaultProps} entries={[makeEntry({ sourceType: 'manual' })]} total={1} />)
+  it('does not render source link, type chip, debits, credits, or status columns', () => {
+    render(<JournalEntriesTable {...defaultProps} entries={[makeEntry({ sourceType: 'sales_order', sourceId: 'so-1' })]} total={1} />)
     expect(screen.queryByText('View Source')).not.toBeInTheDocument()
+    expect(screen.queryByText('Sales Order')).not.toBeInTheDocument()
+    expect(screen.queryByText('$100')).not.toBeInTheDocument()
   })
 })

@@ -15,6 +15,11 @@ import { Payment } from '../../database/entities/payment.entity';
 import { OwnerEquityTransaction } from '../../database/entities/owner-equity-transaction.entity';
 import { Expense } from '../../database/entities/expense.entity';
 import { FundTransfer } from '../../database/entities/fund-transfer.entity';
+import { SalesOrder } from '../../database/entities/sales-order.entity';
+import { PurchaseOrder } from '../../database/entities/purchase-order.entity';
+import { GoodsReceivedNote } from '../../database/entities/goods-received-note.entity';
+import { VendorPayment } from '../../database/entities/vendor-payment.entity';
+import { StockAdjustment } from '../../database/entities/stock-adjustment.entity';
 
 // Services
 import { AccountingService } from './services/accounting.service';
@@ -61,6 +66,11 @@ import { AuditLogsModule } from '../audit-logs/audit-logs.module';
       OwnerEquityTransaction,
       Expense,
       FundTransfer,
+      SalesOrder,
+      PurchaseOrder,
+      GoodsReceivedNote,
+      VendorPayment,
+      StockAdjustment,
     ]),
     SettingsModule,
     AuditLogsModule,

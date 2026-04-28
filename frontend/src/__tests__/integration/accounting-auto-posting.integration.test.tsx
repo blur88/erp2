@@ -282,7 +282,7 @@ describe('Accounting Auto-Posting Integration Tests', () => {
       })
     })
 
-    it('displays both manual and auto-posted entries with correct type labels', async () => {
+    it('displays all entries by reference number in the list', async () => {
       renderJournalEntriesPage()
 
       await waitFor(() => {
@@ -290,34 +290,50 @@ describe('Accounting Auto-Posting Integration Tests', () => {
         expect(screen.getAllByText('JE-2026-002').length).toBeGreaterThan(0)
         expect(screen.getAllByText('JE-2026-003').length).toBeGreaterThan(0)
       })
-
-      expect(screen.getAllByText('Manual Entry').length).toBeGreaterThan(0)
-      expect(screen.getAllByText('Sales Order').length).toBeGreaterThan(0)
-      expect(screen.getAllByText('Customer Payment').length).toBeGreaterThan(0)
     })
 
-    it('shows "View Source" link only for auto-posted entries', async () => {
+    it('does not show type labels or View Source links in the list', async () => {
       renderJournalEntriesPage()
 
       await waitFor(() => {
-        expect(screen.getAllByText('JE-2026-002').length).toBeGreaterThan(0)
+        expect(screen.getAllByText('JE-2026-001').length).toBeGreaterThan(0)
       })
 
-      expect(screen.getAllByText('View Source')).toHaveLength(2)
+      expect(screen.queryByText('View Source')).not.toBeInTheDocument()
+      expect(screen.queryByText('Sales Order')).not.toBeInTheDocument()
+      expect(screen.queryByText('Customer Payment')).not.toBeInTheDocument()
     })
 
-    it('navigates to source transaction when clicking View Source', async () => {
+    it('shows entry details in context header when an entry is selected', async () => {
       const user = createUser()
 
+      mockedApi.useLazyGetJournalEntryQuery.mockReturnValue([
+        vi.fn().mockResolvedValue({
+          id: 'je-2',
+          referenceNumber: 'JE-2026-002',
+          entryDate: '2026-02-02',
+          description: 'Sales order SO-123 fulfillment',
+          sourceType: 'sales_order',
+          sourceId: 'so-123',
+          sourceRefNumber: 'SO-0123',
+          status: JournalEntryStatus.POSTED,
+          totalDebits: 5000,
+          totalCredits: 5000,
+          lines: [],
+        }),
+      ])
+
       renderJournalEntriesPage()
 
       await waitFor(() => {
         expect(screen.getAllByText('JE-2026-002').length).toBeGreaterThan(0)
       })
 
-      await user.click(screen.getAllByText('View Source')[0])
+      await user.click(screen.getAllByText('JE-2026-002')[0])
 
-      expect(mockNavigate).toHaveBeenCalledWith('/sales/orders?highlight=so-123')
+      await waitFor(() => {
+        expect(screen.getByText('Journal Entry Details - JE-2026-002')).toBeInTheDocument()
+      })
     })
   })
 

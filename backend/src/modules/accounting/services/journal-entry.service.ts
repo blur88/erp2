@@ -14,6 +14,15 @@ import {
 import { JournalEntryLine } from '../../../database/entities/journal-entry-line.entity';
 import { FiscalPeriod, FiscalPeriodStatus } from '../../../database/entities/fiscal-period.entity';
 import { ChartOfAccount } from '../../../database/entities/chart-of-account.entity';
+import { SalesOrder } from '../../../database/entities/sales-order.entity';
+import { PurchaseOrder } from '../../../database/entities/purchase-order.entity';
+import { GoodsReceivedNote } from '../../../database/entities/goods-received-note.entity';
+import { Payment } from '../../../database/entities/payment.entity';
+import { VendorPayment } from '../../../database/entities/vendor-payment.entity';
+import { Expense } from '../../../database/entities/expense.entity';
+import { OwnerEquityTransaction } from '../../../database/entities/owner-equity-transaction.entity';
+import { FundTransfer } from '../../../database/entities/fund-transfer.entity';
+import { StockAdjustment } from '../../../database/entities/stock-adjustment.entity';
 import {
   CreateJournalEntryDto,
   UpdateJournalEntryDto,
@@ -53,6 +62,24 @@ export class JournalEntryService {
     private readonly fiscalPeriodRepository: Repository<FiscalPeriod>,
     @InjectRepository(ChartOfAccount)
     private readonly chartOfAccountRepository: Repository<ChartOfAccount>,
+    @InjectRepository(SalesOrder)
+    private readonly salesOrderRepository: Repository<SalesOrder>,
+    @InjectRepository(PurchaseOrder)
+    private readonly purchaseOrderRepository: Repository<PurchaseOrder>,
+    @InjectRepository(GoodsReceivedNote)
+    private readonly grnRepository: Repository<GoodsReceivedNote>,
+    @InjectRepository(Payment)
+    private readonly paymentRepository: Repository<Payment>,
+    @InjectRepository(VendorPayment)
+    private readonly vendorPaymentRepository: Repository<VendorPayment>,
+    @InjectRepository(Expense)
+    private readonly expenseRepository: Repository<Expense>,
+    @InjectRepository(OwnerEquityTransaction)
+    private readonly ownerEquityTransactionRepository: Repository<OwnerEquityTransaction>,
+    @InjectRepository(FundTransfer)
+    private readonly fundTransferRepository: Repository<FundTransfer>,
+    @InjectRepository(StockAdjustment)
+    private readonly stockAdjustmentRepository: Repository<StockAdjustment>,
     private readonly chartOfAccountsService: ChartOfAccountsService,
     private readonly fiscalPeriodService: FiscalPeriodService,
     private readonly settingsService: SettingsService,
@@ -210,7 +237,7 @@ export class JournalEntryService {
 
     const [entries, total] = await queryBuilder.getManyAndCount();
 
-    const data = entries.map((entry) => this.toResponseDto(entry));
+    const data = await Promise.all(entries.map((entry) => this.toResponseDto(entry)));
 
     return {
       data,
@@ -501,7 +528,7 @@ export class JournalEntryService {
     );
 
     this.logger.log(`Journal entry posted successfully: ${id}`);
-    return this.toResponseDto(postedEntry);
+    return await this.toResponseDto(postedEntry);
   }
 
   /**
@@ -812,7 +839,91 @@ export class JournalEntryService {
   /**
    * Convert journal entry entity to response DTO
    */
-  private toResponseDto(entry: JournalEntry): JournalEntryResponseDto {
+  // TODO: batch source lookups to avoid N+1 per JE list response
+  private async resolveSourceRefNumber(
+    sourceType: string | undefined,
+    sourceId: string | undefined,
+  ): Promise<string | undefined> {
+    if (!sourceType || !sourceId) return undefined;
+
+    try {
+      switch (sourceType) {
+        case 'sales_order': {
+          const record = await this.salesOrderRepository.findOne({
+            where: { id: sourceId },
+            select: ['orderNumber'],
+          });
+          return record?.orderNumber;
+        }
+        case 'purchase_order': {
+          const record = await this.purchaseOrderRepository.findOne({
+            where: { id: sourceId },
+            select: ['orderNumber'],
+          });
+          return record?.orderNumber;
+        }
+        case 'payment': {
+          const record = await this.paymentRepository.findOne({
+            where: { id: sourceId },
+            select: ['paymentNumber'],
+          });
+          return record?.paymentNumber;
+        }
+        case 'goods_received_note': {
+          const record = await this.grnRepository.findOne({
+            where: { id: sourceId },
+            select: ['grnNumber'],
+          });
+          return record?.grnNumber;
+        }
+        case 'vendor_payment': {
+          const record = await this.vendorPaymentRepository.findOne({
+            where: { id: sourceId },
+            select: ['paymentNumber'],
+          });
+          return record?.paymentNumber;
+        }
+        case 'expense': {
+          const record = await this.expenseRepository.findOne({
+            where: { id: sourceId },
+            select: ['referenceNumber'],
+          });
+          return record?.referenceNumber;
+        }
+        case 'owner_equity_transaction': {
+          const record = await this.ownerEquityTransactionRepository.findOne({
+            where: { id: sourceId },
+            select: ['referenceNumber'],
+          });
+          return record?.referenceNumber;
+        }
+        case 'fund_transfer': {
+          const record = await this.fundTransferRepository.findOne({
+            where: { id: sourceId },
+            select: ['referenceNumber'],
+          });
+          return record?.referenceNumber;
+        }
+        case 'stock_adjustment': {
+          const record = await this.stockAdjustmentRepository.findOne({
+            where: { id: sourceId },
+            select: ['adjustmentNumber'],
+          });
+          return record?.adjustmentNumber;
+        }
+        // settlement: no dedicated list page, source navigation not supported
+        // opening_balance: synthetic entry with no source entity UUID
+        default:
+          return undefined;
+      }
+    } catch {
+      return undefined;
+    }
+  }
+
+  private async toResponseDto(entry: JournalEntry): Promise<JournalEntryResponseDto> {
+    const sourceRefNumber = await this.resolveSourceRefNumber(entry.sourceType, entry.sourceId);
+
     return {
       id: entry.id,
       entryDate: entry.entryDate,
@@ -824,6 +935,7 @@ export class JournalEntryService {
       reversedById: entry.reversedById,
       sourceType: entry.sourceType,
       sourceId: entry.sourceId,
+      sourceRefNumber,
       isDraft: entry.isDraft,
       isPosted: entry.isPosted,
       isReversed: entry.isReversed,
@@ -842,10 +954,10 @@ export class JournalEntryService {
         ? entry.lines.map((line) => this.toLineResponseDto(line))
         : undefined,
       reversalOf: entry.reversalOf
-        ? this.toResponseDto(entry.reversalOf)
+        ? await this.toResponseDto(entry.reversalOf)
         : undefined,
       reversedBy: entry.reversedBy
-        ? this.toResponseDto(entry.reversedBy)
+        ? await this.toResponseDto(entry.reversedBy)
         : undefined,
       createdAt: entry.createdAt,
       updatedAt: entry.updatedAt,

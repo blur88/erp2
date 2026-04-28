@@ -315,6 +315,9 @@ export class JournalEntryResponseDto {
   @ApiPropertyOptional({ description: 'Source transaction ID' })
   sourceId?: string;
 
+  @ApiPropertyOptional({ description: 'Human-readable reference of the source document' })
+  sourceRefNumber?: string;
+
   @ApiProperty({ description: 'Whether entry is in DRAFT status' })
   isDraft: boolean;
 
