@@ -112,7 +112,6 @@ export const JournalEntriesPage: React.FC = () => {
             selectedEntryId={workspace.selectedEntry?.id ?? null}
             focusedIndex={workspace.focusedIndex}
             onSelect={workspace.handleSelect}
-            onViewSource={(sourceType, sourceId) => workspace.navigateToSource(sourceType, sourceId)}
             listRef={workspace.listRef}
           />
         )}
