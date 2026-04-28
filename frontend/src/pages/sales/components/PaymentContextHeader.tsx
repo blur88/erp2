@@ -98,7 +98,7 @@ const PaymentContextHeader: React.FC<PaymentContextHeaderProps> = ({
           </AppButton>
         }
         journalEntryRefs={journalEntryRefs}
-        journalEntryRefLoading={journalEntryRefsLoading}
+        journalEntryRefsLoading={journalEntryRefsLoading}
         onNavigateToJournalEntry={onNavigateToJournalEntry}
       />
 

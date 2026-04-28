@@ -29,7 +29,7 @@ const mockedApi = vi.hoisted(() => ({
 }))
 
 const mockNavigate = vi.fn()
-const mockLocation = { search: '', pathname: '/accounting/journal-entries' }
+let mockLocation = { search: '', pathname: '/accounting/journal-entries' }
 
 vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual('react-router-dom')
@@ -63,6 +63,7 @@ const mockEntry = {
 describe('JournalEntriesPage', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mockLocation = { search: '', pathname: '/accounting/journal-entries' }
     mockedApi.useGetJournalEntriesQuery.mockReturnValue({
       data: { data: [mockEntry], meta: { total: 1 } },
       isLoading: false,
@@ -99,5 +100,26 @@ describe('JournalEntriesPage', () => {
     render(<BrowserRouter><JournalEntriesPage /></BrowserRouter>)
     expect(screen.queryByText(/post selected/i)).not.toBeInTheDocument()
     expect(screen.queryByText(/delete selected/i)).not.toBeInTheDocument()
+  })
+
+  it('shows Reset button when ?sourceId= URL param is present', () => {
+    mockLocation = { search: '?sourceType=sales_order&sourceId=so-1', pathname: '/accounting/journal-entries' }
+    render(<BrowserRouter><JournalEntriesPage /></BrowserRouter>)
+    expect(screen.getByRole('button', { name: /reset/i })).toBeInTheDocument()
+  })
+
+  it('shows Reset button when ?ids= URL param is present', () => {
+    mockLocation = { search: '?ids=je-1,je-2', pathname: '/accounting/journal-entries' }
+    render(<BrowserRouter><JournalEntriesPage /></BrowserRouter>)
+    expect(screen.getByRole('button', { name: /reset/i })).toBeInTheDocument()
+  })
+
+  it('navigates to clean URL when Reset is clicked with URL params active', async () => {
+    mockLocation = { search: '?ids=je-1,je-2', pathname: '/accounting/journal-entries' }
+    render(<BrowserRouter><JournalEntriesPage /></BrowserRouter>)
+    fireEvent.click(screen.getByRole('button', { name: /reset/i }))
+    await waitFor(() => {
+      expect(mockNavigate).toHaveBeenCalledWith('/accounting/journal-entries', { replace: true })
+    })
   })
 })

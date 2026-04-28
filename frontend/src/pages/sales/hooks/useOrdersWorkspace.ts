@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type MouseEvent } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 
 import { useJournalEntryRefs } from '@/hooks/useJournalEntryRefs'
@@ -108,10 +108,14 @@ export function useOrdersWorkspace({
   })
   workspaceRef.current = workspace
 
-  const invoiceSources = (selectedOrder?.invoices ?? []).map((invoice) => ({
-    sourceType: 'invoice' as const,
-    sourceId: invoice.id,
-  }))
+  const invoiceSources = useMemo(
+    () => (selectedOrder?.invoices ?? []).map((invoice: any) => ({
+      sourceType: 'invoice' as const,
+      sourceId: invoice.id as string,
+    })),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [selectedOrder?.invoices?.map((i: any) => i.id).join(',')],
+  )
 
   const { journalEntryRefs, journalEntryRefsLoading, navigateToJournalEntries } = useJournalEntryRefs([
     {

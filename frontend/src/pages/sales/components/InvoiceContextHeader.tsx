@@ -105,7 +105,7 @@ const InvoiceContextHeader: React.FC<InvoiceContextHeaderProps> = ({
           </AppButton>
         }
         journalEntryRefs={journalEntryRefs}
-        journalEntryRefLoading={journalEntryRefsLoading}
+        journalEntryRefsLoading={journalEntryRefsLoading}
         onNavigateToJournalEntry={onNavigateToJournalEntries}
       />
 

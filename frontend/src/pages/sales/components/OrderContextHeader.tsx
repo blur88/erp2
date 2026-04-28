@@ -151,7 +151,7 @@ const OrderContextHeader: React.FC<OrderContextHeaderProps> = ({
           </Box>
         )}
         journalEntryRefs={journalEntryRefs}
-        journalEntryRefLoading={journalEntryRefsLoading}
+        journalEntryRefsLoading={journalEntryRefsLoading}
         onNavigateToJournalEntry={onNavigateToJournalEntries}
       />
       <Box sx={{ p: TABLE_STYLES.cell.padding.px }}>

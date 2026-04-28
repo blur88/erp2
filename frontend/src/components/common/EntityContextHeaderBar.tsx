@@ -12,7 +12,9 @@ interface EntityContextHeaderBarProps {
   actions?: ReactNode
   journalEntryRef?: JournalEntryRef | null
   journalEntryRefs?: JournalEntryRef[]
+  /** Loading state for either the single-ref or multi-ref path */
   journalEntryRefLoading?: boolean
+  journalEntryRefsLoading?: boolean
   onNavigateToJournalEntry?: () => void
 }
 
@@ -23,8 +25,11 @@ export function EntityContextHeaderBar({
   journalEntryRef,
   journalEntryRefs,
   journalEntryRefLoading,
+  journalEntryRefsLoading,
   onNavigateToJournalEntry,
 }: EntityContextHeaderBarProps) {
+  const isLoading = journalEntryRefsLoading ?? journalEntryRefLoading ?? false
+
   const activeRefs = journalEntryRefs && journalEntryRefs.length > 0
     ? journalEntryRefs
     : journalEntryRef
@@ -63,7 +68,7 @@ export function EntityContextHeaderBar({
       </Box>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
         {actions}
-        {journalEntryRefLoading && activeRefs.length === 0 && (
+        {isLoading && activeRefs.length === 0 && (
           <CircularProgress size={16} sx={{ mx: 0.5 }} />
         )}
         {activeRefs.length > 0 && (
