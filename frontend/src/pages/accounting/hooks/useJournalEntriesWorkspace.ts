@@ -2,7 +2,6 @@ import { useCallback, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 import { useEntityWorkspace } from '@/hooks/useEntityWorkspace'
-import { useNotification } from '@/hooks/useNotification'
 import { useLazyGetJournalEntryQuery } from '@/store/api/accountingApi'
 import { JournalEntry } from '@/types'
 
@@ -13,7 +12,6 @@ interface UseJournalEntriesWorkspaceConfig {
 
 export function useJournalEntriesWorkspace({ entries, refetch }: UseJournalEntriesWorkspaceConfig) {
   const navigate = useNavigate()
-  const { showSuccess, showError } = useNotification()
   const [selectedEntry, setSelectedEntry] = useState<JournalEntry | null>(null)
   const [fetchEntry] = useLazyGetJournalEntryQuery()
 
@@ -27,7 +25,7 @@ export function useJournalEntriesWorkspace({ entries, refetch }: UseJournalEntri
       create: '/accounting/journal-entries',
       edit: () => '/accounting/journal-entries',
     },
-    notifications: { showSuccess, showError },
+    notifications: { showSuccess: () => {}, showError: () => {} },
     deleteMutation: async () => {},
     onEnter: () => {},
   })
