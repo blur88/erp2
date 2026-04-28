@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useState } from 'react'
-import { useLocation, useNavigate } from 'react-router-dom'
+import { useLocation } from 'react-router-dom'
 
 import AccountMappingWarning from '@/components/accounting/AccountMappingWarning'
 import GenericListPage from '@/components/common/GenericListPage'
@@ -25,7 +25,6 @@ export const JournalEntriesPage: React.FC = () => {
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
 
   const location = useLocation()
-  const navigate = useNavigate()
 
   const filterConfig = useMemo<FilterBarConfig<JEFilters>>(
     () => ({
@@ -118,7 +117,6 @@ export const JournalEntriesPage: React.FC = () => {
         headerSlot={(
           <JournalEntryContextHeader
             selectedEntry={workspace.selectedEntry}
-            onNavigateToSource={(path) => navigate(path)}
           />
         )}
         workspaceSlot={<JournalEntryWorkspaceCard selectedEntry={workspace.selectedEntry} />}

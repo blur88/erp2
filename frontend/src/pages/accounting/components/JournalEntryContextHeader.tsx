@@ -1,5 +1,6 @@
-import { Link, Paper, Table, TableBody, TableCell, TableRow, Typography } from '@mui/material'
-import { Chip, Stack } from '@mui/material'
+import { Chip, Paper, Stack, Table, TableBody, TableCell, TableContainer, TableRow, Typography } from '@mui/material'
+import Grid from '@mui/material/Grid'
+import { useNavigate } from 'react-router-dom'
 
 import { EntityContextHeaderBar } from '@/components/common/EntityContextHeaderBar'
 import { EntityStatusChip } from '@/components/common/EntityStatusChip'
@@ -32,15 +33,40 @@ const SOURCE_ROUTES: Record<string, (id: string) => string> = {
   stock_adjustment: (id) => `/inventory/stock-adjustments/${id}/edit`,
 }
 
-const labelSx = { fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem', width: 120, border: 'none', py: TABLE_STYLES.cell.padding.py, px: TABLE_STYLES.cell.padding.px }
-const valueSx = { fontSize: '0.8rem', border: 'none', py: TABLE_STYLES.cell.padding.py, px: TABLE_STYLES.cell.padding.px }
+const detailTableSx = {
+  tableLayout: 'fixed',
+  '& .MuiTableCell-root': {
+    border: 'none',
+    py: TABLE_STYLES.cell.padding.py,
+    px: TABLE_STYLES.cell.padding.px,
+    '&:nth-of-type(1)': { width: '40%' },
+    '&:nth-of-type(2)': { width: '60%' },
+  },
+}
+
+const labelCellSx = {
+  fontWeight: 600,
+  color: 'text.secondary',
+  fontSize: '0.8rem',
+}
+
+const valueCellSx = {
+  fontSize: '0.8rem',
+}
+
+const sectionHeaderCellSx = {
+  pb: TABLE_STYLES.cell.padding.py * 0.67,
+  py: TABLE_STYLES.cell.padding.py * 0.67,
+  borderTop: TABLE_STYLES.cell.border,
+}
 
 interface Props {
   selectedEntry: JournalEntry | null
-  onNavigateToSource: (path: string) => void
 }
 
-export function JournalEntryContextHeader({ selectedEntry, onNavigateToSource }: Props) {
+export function JournalEntryContextHeader({ selectedEntry }: Props) {
+  const navigate = useNavigate()
+
   if (!selectedEntry) {
     return (
       <Paper sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', p: 4 }}>
@@ -51,10 +77,21 @@ export function JournalEntryContextHeader({ selectedEntry, onNavigateToSource }:
     )
   }
 
+  const hasSource =
+    !!selectedEntry.sourceType &&
+    selectedEntry.sourceType !== 'manual' &&
+    !!selectedEntry.sourceId
+
+  const handleNavigateToSource = () => {
+    if (!hasSource) return
+    const route = SOURCE_ROUTES[selectedEntry.sourceType!]
+    if (route) navigate(route(selectedEntry.sourceId!))
+  }
+
   return (
     <Paper sx={{ overflow: 'hidden' }}>
       <EntityContextHeaderBar
-        title={selectedEntry.referenceNumber}
+        title={`Journal Entry Details - ${selectedEntry.referenceNumber}`}
         statusChip={(
           <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
             <EntityStatusChip status={selectedEntry.status} />
@@ -68,36 +105,83 @@ export function JournalEntryContextHeader({ selectedEntry, onNavigateToSource }:
           </Stack>
         )}
       />
-      <Table size={TABLE_STYLES.size} sx={{ '& .MuiTableCell-root': { border: 'none', py: TABLE_STYLES.cell.padding.py, px: TABLE_STYLES.cell.padding.px } }}>
-        <TableBody>
-          <TableRow>
-            <TableCell sx={labelSx}>Date</TableCell>
-            <TableCell sx={valueSx}>{formatDate(selectedEntry.entryDate)}</TableCell>
-            <TableCell sx={labelSx}>Debits</TableCell>
-            <TableCell sx={{ ...valueSx, textAlign: 'right' }}>{formatCurrency(selectedEntry.totalDebits)}</TableCell>
-          </TableRow>
-          <TableRow>
-            <TableCell sx={labelSx}>Description</TableCell>
-            <TableCell sx={valueSx}>{selectedEntry.description}</TableCell>
-            <TableCell sx={labelSx}>Credits</TableCell>
-            <TableCell sx={{ ...valueSx, textAlign: 'right' }}>{formatCurrency(selectedEntry.totalCredits)}</TableCell>
-          </TableRow>
-          {selectedEntry.sourceType && selectedEntry.sourceId && SOURCE_ROUTES[selectedEntry.sourceType] && (
-            <TableRow>
-              <TableCell sx={labelSx}>Source</TableCell>
-              <TableCell colSpan={3} sx={valueSx}>
-                <Link
-                  component="button"
-                  variant="body2"
-                  onClick={() => onNavigateToSource(SOURCE_ROUTES[selectedEntry.sourceType!]!(selectedEntry.sourceId!))}
-                >
-                  View {ENTRY_TYPE_LABELS[selectedEntry.sourceType] ?? selectedEntry.sourceType}
-                </Link>
-              </TableCell>
-            </TableRow>
-          )}
-        </TableBody>
-      </Table>
+      <Grid container spacing={3} sx={{ p: TABLE_STYLES.cell.padding.px }}>
+        <Grid size={{ xs: 12, md: 6 }}>
+          <TableContainer>
+            <Table size={TABLE_STYLES.size} sx={detailTableSx}>
+              <TableBody>
+                <TableRow>
+                  <TableCell colSpan={2} sx={sectionHeaderCellSx}>
+                    <Typography variant="h6" sx={{ fontWeight: 600, color: 'primary.main', fontSize: '0.8rem' }}>
+                      Entry Information
+                    </Typography>
+                  </TableCell>
+                </TableRow>
+                <TableRow sx={{ backgroundColor: 'grey.50' }}>
+                  <TableCell sx={labelCellSx}>Date</TableCell>
+                  <TableCell sx={valueCellSx}>{formatDate(selectedEntry.entryDate)}</TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell sx={labelCellSx}>Description</TableCell>
+                  <TableCell sx={valueCellSx}>{selectedEntry.description}</TableCell>
+                </TableRow>
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </Grid>
+
+        <Grid size={{ xs: 12, md: 6 }}>
+          <TableContainer>
+            <Table size={TABLE_STYLES.size} sx={detailTableSx}>
+              <TableBody>
+                <TableRow>
+                  <TableCell colSpan={2} sx={sectionHeaderCellSx}>
+                    <Typography variant="h6" sx={{ fontWeight: 600, color: 'primary.main', fontSize: '0.8rem' }}>
+                      References & Amounts
+                    </Typography>
+                  </TableCell>
+                </TableRow>
+                {hasSource && (
+                  <TableRow sx={{ backgroundColor: 'grey.50' }}>
+                    <TableCell sx={labelCellSx}>Source</TableCell>
+                    <TableCell sx={valueCellSx}>
+                      {selectedEntry.sourceRefNumber ? (
+                        <Typography
+                          component="button"
+                          onClick={handleNavigateToSource}
+                          sx={{
+                            fontSize: '0.8rem',
+                            color: 'primary.main',
+                            cursor: 'pointer',
+                            textDecoration: 'none',
+                            border: 'none',
+                            background: 'none',
+                            padding: 0,
+                          }}
+                        >
+                          {selectedEntry.sourceRefNumber}
+                        </Typography>
+                      ) : (
+                        <Typography sx={{ fontSize: '0.8rem', color: 'text.secondary', fontStyle: 'italic' }}>
+                          -
+                        </Typography>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                )}
+                <TableRow sx={hasSource ? {} : { backgroundColor: 'grey.50' }}>
+                  <TableCell sx={labelCellSx}>Debits</TableCell>
+                  <TableCell sx={valueCellSx}>{formatCurrency(selectedEntry.totalDebits)}</TableCell>
+                </TableRow>
+                <TableRow sx={hasSource ? { backgroundColor: 'grey.50' } : {}}>
+                  <TableCell sx={labelCellSx}>Credits</TableCell>
+                  <TableCell sx={valueCellSx}>{formatCurrency(selectedEntry.totalCredits)}</TableCell>
+                </TableRow>
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </Grid>
+      </Grid>
     </Paper>
   )
 }
