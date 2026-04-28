@@ -23,6 +23,7 @@ import { Expense } from '../../../database/entities/expense.entity';
 import { OwnerEquityTransaction } from '../../../database/entities/owner-equity-transaction.entity';
 import { FundTransfer } from '../../../database/entities/fund-transfer.entity';
 import { StockAdjustment } from '../../../database/entities/stock-adjustment.entity';
+import { Invoice } from '../../../database/entities/invoice.entity';
 import {
   CreateJournalEntryDto,
   UpdateJournalEntryDto,
@@ -80,6 +81,8 @@ export class JournalEntryService {
     private readonly fundTransferRepository: Repository<FundTransfer>,
     @InjectRepository(StockAdjustment)
     private readonly stockAdjustmentRepository: Repository<StockAdjustment>,
+    @InjectRepository(Invoice)
+    private readonly invoiceRepository: Repository<Invoice>,
     private readonly chartOfAccountsService: ChartOfAccountsService,
     private readonly fiscalPeriodService: FiscalPeriodService,
     private readonly settingsService: SettingsService,
