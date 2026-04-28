@@ -11,6 +11,7 @@ interface EntityContextHeaderBarProps {
   statusChip?: ReactNode
   actions?: ReactNode
   journalEntryRef?: JournalEntryRef | null
+  journalEntryRefs?: JournalEntryRef[]
   journalEntryRefLoading?: boolean
   onNavigateToJournalEntry?: () => void
 }
@@ -20,9 +21,22 @@ export function EntityContextHeaderBar({
   statusChip,
   actions,
   journalEntryRef,
+  journalEntryRefs,
   journalEntryRefLoading,
   onNavigateToJournalEntry,
 }: EntityContextHeaderBarProps) {
+  const activeRefs = journalEntryRefs && journalEntryRefs.length > 0
+    ? journalEntryRefs
+    : journalEntryRef
+      ? [journalEntryRef]
+      : []
+
+  const tooltipTitle = activeRefs.length > 1
+    ? `Journal Entries: ${activeRefs.map((r) => r.referenceNumber).join(', ')}`
+    : activeRefs.length === 1
+      ? `Journal Entry: ${activeRefs[0].referenceNumber}`
+      : ''
+
   return (
     <Box
       sx={{
@@ -49,11 +63,11 @@ export function EntityContextHeaderBar({
       </Box>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
         {actions}
-        {journalEntryRefLoading && !journalEntryRef && (
+        {journalEntryRefLoading && activeRefs.length === 0 && (
           <CircularProgress size={16} sx={{ mx: 0.5 }} />
         )}
-        {journalEntryRef && (
-          <Tooltip title={`Journal Entry: ${journalEntryRef.referenceNumber}`}>
+        {activeRefs.length > 0 && (
+          <Tooltip title={tooltipTitle}>
             <IconButton size="small" onClick={onNavigateToJournalEntry}>
               <MenuBookIcon fontSize="small" />
             </IconButton>
