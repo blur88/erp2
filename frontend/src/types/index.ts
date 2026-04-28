@@ -729,6 +729,7 @@ export interface JournalEntry {
   reversedBy?: JournalEntry;
   sourceType?: string;
   sourceId?: string;
+  sourceRefNumber?: string;
   isDraft: boolean;
   isPosted: boolean;
   isReversed: boolean;
