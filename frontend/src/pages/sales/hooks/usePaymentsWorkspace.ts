@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type MouseEvent } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 
-import { useJournalEntryRef } from '@/hooks/useJournalEntryRef'
+import { useJournalEntryRefs } from '@/hooks/useJournalEntryRefs'
 import { useEntityWorkspace } from '@/hooks/useEntityWorkspace'
 import type { AppDispatch } from '@/store'
 import { setSelectedPayment } from '@/store/slices/salesSlice'
@@ -96,7 +96,7 @@ export function usePaymentsWorkspace({
   })
   const { focusedIndex } = workspace
 
-  const { journalEntryRef, journalEntryRefLoading, navigateToJournalEntry } = useJournalEntryRef([
+  const { journalEntryRefs, journalEntryRefsLoading, navigateToJournalEntries } = useJournalEntryRefs([
     { sourceType: 'payment', sourceId: selectedPayment?.id },
   ])
 
@@ -140,11 +140,10 @@ export function usePaymentsWorkspace({
   }, [navigate])
 
   const handleNavigateToJournalEntry = useCallback(
-    (journalRef: PaymentJournalEntryRef | null) => {
-      if (!journalRef) return
-      navigateToJournalEntry()
+    () => {
+      navigateToJournalEntries()
     },
-    [navigateToJournalEntry],
+    [navigateToJournalEntries],
   )
 
   return {
@@ -155,8 +154,8 @@ export function usePaymentsWorkspace({
     setDeletedPaymentsDialogOpen,
     printDialogOpen,
     setPrintDialogOpen,
-    journalEntryRef,
-    journalEntryRefLoading,
+    journalEntryRefs,
+    journalEntryRefsLoading,
     handleSelect,
     handlePaymentSelect: handleSelect,
     handleOrderClick,
