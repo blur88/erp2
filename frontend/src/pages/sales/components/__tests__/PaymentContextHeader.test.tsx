@@ -19,8 +19,8 @@ describe('PaymentContextHeader', () => {
     render(
       <PaymentContextHeader
         selectedPayment={basePayment}
-        journalEntryRef={null}
-        journalEntryRefLoading={false}
+        journalEntryRefs={[]}
+        journalEntryRefsLoading={false}
         onPrint={vi.fn()}
         onOrderClick={vi.fn()}
         onInvoiceClick={vi.fn()}
