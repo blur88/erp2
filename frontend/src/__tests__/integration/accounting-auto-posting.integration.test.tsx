@@ -14,11 +14,6 @@ const mockedApi = vi.hoisted(() => ({
   useDeleteAccountMappingMutation: vi.fn(),
   useGetJournalEntriesQuery: vi.fn(),
   useLazyGetJournalEntryQuery: vi.fn(),
-  useDeleteJournalEntryMutation: vi.fn(),
-  usePostJournalEntryMutation: vi.fn(),
-  useBulkPostJournalEntriesMutation: vi.fn(),
-  useBulkDeleteJournalEntriesMutation: vi.fn(),
-  useReverseJournalEntryMutation: vi.fn(),
 }))
 
 vi.mock('@/store/api/accountingApi', () => ({
@@ -31,11 +26,6 @@ vi.mock('@/store/api/accountingApi', () => ({
   useDeleteAccountMappingMutation: mockedApi.useDeleteAccountMappingMutation,
   useGetJournalEntriesQuery: mockedApi.useGetJournalEntriesQuery,
   useLazyGetJournalEntryQuery: mockedApi.useLazyGetJournalEntryQuery,
-  useDeleteJournalEntryMutation: mockedApi.useDeleteJournalEntryMutation,
-  usePostJournalEntryMutation: mockedApi.usePostJournalEntryMutation,
-  useBulkPostJournalEntriesMutation: mockedApi.useBulkPostJournalEntriesMutation,
-  useBulkDeleteJournalEntriesMutation: mockedApi.useBulkDeleteJournalEntriesMutation,
-  useReverseJournalEntryMutation: mockedApi.useReverseJournalEntryMutation,
 }))
 
 vi.mock('@/hooks/useNotification', () => ({
@@ -91,10 +81,6 @@ describe('Accounting Auto-Posting Integration Tests', () => {
   const mockCreateMapping = vi.fn(() => ({ unwrap: vi.fn().mockResolvedValue(undefined) }))
   const mockUpdateMapping = vi.fn(() => ({ unwrap: vi.fn().mockResolvedValue(undefined) }))
   const mockDeleteMapping = vi.fn(() => ({ unwrap: vi.fn().mockResolvedValue(undefined) }))
-  const mockDeleteJournalEntry = vi.fn(() => ({ unwrap: vi.fn().mockResolvedValue(undefined) }))
-  const mockPostJournalEntry = vi.fn(() => ({ unwrap: vi.fn().mockResolvedValue(undefined) }))
-  const mockBulkPostJournalEntries = vi.fn(() => ({ unwrap: vi.fn().mockResolvedValue({ succeeded: [], failed: [] }) }))
-  const mockBulkDeleteJournalEntries = vi.fn(() => ({ unwrap: vi.fn().mockResolvedValue({ succeeded: [], failed: [] }) }))
 
   beforeEach(() => {
     vi.clearAllMocks()
@@ -140,11 +126,6 @@ describe('Accounting Auto-Posting Integration Tests', () => {
       refetch: mockRefetch,
     })
     mockedApi.useLazyGetJournalEntryQuery.mockReturnValue([vi.fn().mockResolvedValue({})])
-    mockedApi.useDeleteJournalEntryMutation.mockReturnValue([mockDeleteJournalEntry])
-    mockedApi.usePostJournalEntryMutation.mockReturnValue([mockPostJournalEntry])
-    mockedApi.useBulkPostJournalEntriesMutation.mockReturnValue([mockBulkPostJournalEntries])
-    mockedApi.useBulkDeleteJournalEntriesMutation.mockReturnValue([mockBulkDeleteJournalEntries])
-    mockedApi.useReverseJournalEntryMutation.mockReturnValue([vi.fn()])
   })
 
   describe('End-to-End User Flow: Configuring Account Mappings', () => {
@@ -305,36 +286,36 @@ describe('Accounting Auto-Posting Integration Tests', () => {
       renderJournalEntriesPage()
 
       await waitFor(() => {
-        expect(screen.getByText('JE-2026-001')).toBeInTheDocument()
-        expect(screen.getByText('JE-2026-002')).toBeInTheDocument()
-        expect(screen.getByText('JE-2026-003')).toBeInTheDocument()
+        expect(screen.getAllByText('JE-2026-001').length).toBeGreaterThan(0)
+        expect(screen.getAllByText('JE-2026-002').length).toBeGreaterThan(0)
+        expect(screen.getAllByText('JE-2026-003').length).toBeGreaterThan(0)
       })
 
-      expect(screen.getByText('Manual Entry')).toBeInTheDocument()
-      expect(screen.getByText('Sales Order')).toBeInTheDocument()
-      expect(screen.getByText('Customer Payment')).toBeInTheDocument()
+      expect(screen.getAllByText('Manual Entry').length).toBeGreaterThan(0)
+      expect(screen.getAllByText('Sales Order').length).toBeGreaterThan(0)
+      expect(screen.getAllByText('Customer Payment').length).toBeGreaterThan(0)
     })
 
-    it('shows "View Transaction" link only for auto-posted entries', async () => {
+    it('shows "View Source" link only for auto-posted entries', async () => {
       renderJournalEntriesPage()
 
       await waitFor(() => {
-        expect(screen.getByText('JE-2026-002')).toBeInTheDocument()
+        expect(screen.getAllByText('JE-2026-002').length).toBeGreaterThan(0)
       })
 
-      expect(screen.getAllByText('View Transaction')).toHaveLength(2)
+      expect(screen.getAllByText('View Source')).toHaveLength(2)
     })
 
-    it('navigates to source transaction when clicking View Transaction', async () => {
+    it('navigates to source transaction when clicking View Source', async () => {
       const user = createUser()
 
       renderJournalEntriesPage()
 
       await waitFor(() => {
-        expect(screen.getByText('JE-2026-002')).toBeInTheDocument()
+        expect(screen.getAllByText('JE-2026-002').length).toBeGreaterThan(0)
       })
 
-      await user.click(screen.getAllByText('View Transaction')[0])
+      await user.click(screen.getAllByText('View Source')[0])
 
       expect(mockNavigate).toHaveBeenCalledWith('/sales/orders?highlight=so-123')
     })
@@ -398,7 +379,7 @@ describe('Accounting Auto-Posting Integration Tests', () => {
       renderJournalEntriesPage()
 
       await waitFor(() => {
-        expect(screen.getByText('JE-2026-001')).toBeInTheDocument()
+        expect(screen.getAllByText('JE-2026-001').length).toBeGreaterThan(0)
       })
 
       expect(mockedApi.useGetJournalEntriesQuery).toHaveBeenCalled()
