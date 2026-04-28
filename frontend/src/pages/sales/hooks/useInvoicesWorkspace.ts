@@ -37,12 +37,6 @@ export interface InvoiceListItem {
   items?: InvoiceItem[]
 }
 
-export interface InvoiceJournalEntryRef {
-  referenceNumber: string
-  sourceType: string
-  sourceId: string
-}
-
 export interface UseInvoicesWorkspaceConfig {
   dispatch: AppDispatch
   invoices: InvoiceListItem[]

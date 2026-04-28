@@ -6,12 +6,6 @@ import { useEntityWorkspace } from '@/hooks/useEntityWorkspace'
 import type { AppDispatch } from '@/store'
 import { setSelectedPayment } from '@/store/slices/salesSlice'
 
-export interface PaymentJournalEntryRef {
-  referenceNumber: string
-  sourceType: string
-  sourceId: string
-}
-
 export interface PaymentListItem {
   id: string
   paymentNumber: string

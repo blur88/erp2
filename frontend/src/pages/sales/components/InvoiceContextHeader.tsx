@@ -13,22 +13,23 @@ import {
 } from '@mui/material'
 import Grid from '@mui/material/Grid'
 
-import type { InvoiceJournalEntryRef, InvoiceListItem } from '../hooks/useInvoicesWorkspace'
+import type { InvoiceListItem } from '../hooks/useInvoicesWorkspace'
 
 import { AppButton } from '@/components/common/AppButton'
 import { EntityContextHeaderBar } from '@/components/common/EntityContextHeaderBar'
 import { EntityStatusChip } from '@/components/common/EntityStatusChip'
 import { TABLE_STYLES } from '@/constants/tableStyles'
+import type { JournalEntryRef } from '@/hooks/useJournalEntryRef'
 import { formatCurrency, formatDate } from '@/utils/formatters'
 
 interface InvoiceContextHeaderProps {
   selectedInvoice: InvoiceListItem | null
-  journalEntryRef: InvoiceJournalEntryRef | null
-  journalEntryRefLoading: boolean
+  journalEntryRefs: JournalEntryRef[]
+  journalEntryRefsLoading: boolean
   onPrint: () => void
   onNavigateToSalesOrder: (salesOrderId: string, event: React.MouseEvent) => void
   onNavigateToPayment: (paymentId: string, event?: React.MouseEvent) => void
-  onNavigateToJournalEntry: () => void
+  onNavigateToJournalEntries: () => void
 }
 
 const detailTableSx = {
@@ -65,12 +66,12 @@ const linkButtonSx = {
 
 const InvoiceContextHeader: React.FC<InvoiceContextHeaderProps> = ({
   selectedInvoice,
-  journalEntryRef,
-  journalEntryRefLoading,
+  journalEntryRefs,
+  journalEntryRefsLoading,
   onPrint,
   onNavigateToSalesOrder,
   onNavigateToPayment,
-  onNavigateToJournalEntry,
+  onNavigateToJournalEntries,
 }) => {
   if (!selectedInvoice) {
     return (
@@ -103,9 +104,9 @@ const InvoiceContextHeader: React.FC<InvoiceContextHeaderProps> = ({
             Print
           </AppButton>
         }
-        journalEntryRef={journalEntryRef}
-        journalEntryRefLoading={journalEntryRefLoading}
-        onNavigateToJournalEntry={onNavigateToJournalEntry}
+        journalEntryRefs={journalEntryRefs}
+        journalEntryRefLoading={journalEntryRefsLoading}
+        onNavigateToJournalEntry={onNavigateToJournalEntries}
       />
 
       <Box sx={{ p: TABLE_STYLES.cell.padding.px }}>
@@ -199,20 +200,31 @@ const InvoiceContextHeader: React.FC<InvoiceContextHeaderProps> = ({
                   <TableRow sx={{ backgroundColor: 'grey.50' }}>
                     <TableCell sx={labelCellSx}>Journal Entry No</TableCell>
                     <TableCell sx={valueCellSx}>
-                      {journalEntryRefLoading ? (
+                      {journalEntryRefsLoading ? (
                         <Typography
                           sx={{ fontSize: '0.8rem', color: 'text.secondary', fontStyle: 'italic' }}
                         >
                           Loading...
                         </Typography>
-                      ) : journalEntryRef ? (
-                        <Typography
-                          component="button"
-                          onClick={onNavigateToJournalEntry}
-                          sx={linkButtonSx}
-                        >
-                          {journalEntryRef.referenceNumber}
-                        </Typography>
+                      ) : journalEntryRefs.length > 0 ? (
+                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                          {journalEntryRefs.map((ref, index) => (
+                            <Box key={ref.referenceNumber} component="span">
+                              <Typography
+                                component="button"
+                                onClick={onNavigateToJournalEntries}
+                                sx={linkButtonSx}
+                              >
+                                {ref.referenceNumber}
+                              </Typography>
+                              {index < journalEntryRefs.length - 1 && (
+                                <Typography component="span" sx={{ fontSize: '0.8rem' }}>
+                                  ,{' '}
+                                </Typography>
+                              )}
+                            </Box>
+                          ))}
+                        </Box>
                       ) : (
                         <Typography
                           sx={{ fontSize: '0.8rem', color: 'text.secondary', fontStyle: 'italic' }}

@@ -156,12 +156,12 @@ const InvoicesPage: React.FC = () => {
       headerSlot={(
         <InvoiceContextHeader
           selectedInvoice={selectedInvoice}
-          journalEntryRef={workspace.journalEntryRef}
-          journalEntryRefLoading={workspace.journalEntryRefLoading}
+          journalEntryRefs={workspace.journalEntryRefs}
+          journalEntryRefsLoading={workspace.journalEntryRefsLoading}
           onPrint={() => workspace.setPrintDialogOpen(true)}
           onNavigateToSalesOrder={workspace.handleSalesOrderClick}
           onNavigateToPayment={workspace.handleNavigateToPayment}
-          onNavigateToJournalEntry={workspace.navigateToJournalEntry}
+          onNavigateToJournalEntries={workspace.navigateToJournalEntries}
         />
       )}
       workspaceSlot={<InvoiceWorkspaceCard selectedInvoice={selectedInvoice} />}
