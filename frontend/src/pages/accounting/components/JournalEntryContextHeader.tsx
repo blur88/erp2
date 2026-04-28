@@ -1,14 +1,10 @@
-import { Chip, Link, Paper, Stack, Table, TableBody, TableCell, TableRow, Typography } from '@mui/material'
-import { default as DeleteIcon } from '@mui/icons-material/Delete'
-import { default as EditIcon } from '@mui/icons-material/Edit'
-import { default as PostIcon } from '@mui/icons-material/PostAdd'
-import { default as ReverseIcon } from '@mui/icons-material/Undo'
+import { Link, Paper, Table, TableBody, TableCell, TableRow, Typography } from '@mui/material'
+import { Chip, Stack } from '@mui/material'
 
-import { AppButton } from '@/components/common/AppButton'
 import { EntityContextHeaderBar } from '@/components/common/EntityContextHeaderBar'
 import { EntityStatusChip } from '@/components/common/EntityStatusChip'
 import { TABLE_STYLES } from '@/constants/tableStyles'
-import { JournalEntry, JournalEntryStatus } from '@/types'
+import { JournalEntry } from '@/types'
 import { formatCurrency, formatDate } from '@/utils/formatters'
 
 const ENTRY_TYPE_LABELS: Record<string, string> = {
@@ -36,32 +32,27 @@ const SOURCE_ROUTES: Record<string, (id: string) => string> = {
   stock_adjustment: (id) => `/inventory/stock-adjustments/${id}/edit`,
 }
 
+const labelSx = { fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem', width: 120, border: 'none', py: TABLE_STYLES.cell.padding.py, px: TABLE_STYLES.cell.padding.px }
+const valueSx = { fontSize: '0.8rem', border: 'none', py: TABLE_STYLES.cell.padding.py, px: TABLE_STYLES.cell.padding.px }
+
 interface Props {
   selectedEntry: JournalEntry | null
-  onEdit: () => void
-  onPost: () => void
-  onReverse: () => void
-  onDelete: () => void
   onNavigateToSource: (path: string) => void
 }
 
-const cellSx = { border: 'none', py: TABLE_STYLES.cell.padding.py, px: TABLE_STYLES.cell.padding.px }
-
-export function JournalEntryContextHeader({ selectedEntry, onEdit, onPost, onReverse, onDelete, onNavigateToSource }: Props) {
+export function JournalEntryContextHeader({ selectedEntry, onNavigateToSource }: Props) {
   if (!selectedEntry) {
     return (
-      <Paper sx={{ p: 2 }}>
-        <Typography variant="body2" color="text.secondary">Select a journal entry to view details</Typography>
+      <Paper sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', p: 4 }}>
+        <Typography variant="h6" sx={{ color: 'text.secondary' }}>
+          Select a journal entry to view details
+        </Typography>
       </Paper>
     )
   }
 
-  const isDraft = selectedEntry.status === JournalEntryStatus.DRAFT
-  const isPosted = selectedEntry.status === JournalEntryStatus.POSTED
-  const isBalanced = Math.abs(selectedEntry.totalDebits - selectedEntry.totalCredits) < 0.01
-
   return (
-    <Paper sx={{ p: 0 }}>
+    <Paper sx={{ overflow: 'hidden' }}>
       <EntityContextHeaderBar
         title={selectedEntry.referenceNumber}
         statusChip={(
@@ -74,56 +65,27 @@ export function JournalEntryContextHeader({ selectedEntry, onEdit, onPost, onRev
                 variant="outlined"
               />
             )}
-            {!isBalanced && <Chip label="Unbalanced" color="warning" size="small" />}
-          </Stack>
-        )}
-        actions={(
-          <Stack direction="row" spacing={0.5}>
-            {isDraft && (
-              <>
-                <AppButton size="small" variant="outlined" startIcon={<EditIcon />} onClick={onEdit}>
-                  Edit
-                </AppButton>
-                <AppButton
-                  size="small"
-                  variant="success"
-                  startIcon={<PostIcon />}
-                  onClick={onPost}
-                  disabled={!isBalanced}
-                >
-                  Post
-                </AppButton>
-                <AppButton size="small" variant="danger" startIcon={<DeleteIcon />} onClick={onDelete}>
-                  Delete
-                </AppButton>
-              </>
-            )}
-            {isPosted && (
-              <AppButton size="small" variant="warning" startIcon={<ReverseIcon />} onClick={onReverse}>
-                Reverse
-              </AppButton>
-            )}
           </Stack>
         )}
       />
-      <Table size={TABLE_STYLES.size} sx={{ '& .MuiTableCell-root': cellSx }}>
+      <Table size={TABLE_STYLES.size} sx={{ '& .MuiTableCell-root': { border: 'none', py: TABLE_STYLES.cell.padding.py, px: TABLE_STYLES.cell.padding.px } }}>
         <TableBody>
           <TableRow>
-            <TableCell sx={{ ...cellSx, color: 'text.secondary', width: 120 }}>Date</TableCell>
-            <TableCell>{formatDate(selectedEntry.entryDate)}</TableCell>
-            <TableCell sx={{ ...cellSx, color: 'text.secondary', width: 120 }}>Debits</TableCell>
-            <TableCell align="right">{formatCurrency(selectedEntry.totalDebits)}</TableCell>
+            <TableCell sx={labelSx}>Date</TableCell>
+            <TableCell sx={valueSx}>{formatDate(selectedEntry.entryDate)}</TableCell>
+            <TableCell sx={labelSx}>Debits</TableCell>
+            <TableCell sx={{ ...valueSx, textAlign: 'right' }}>{formatCurrency(selectedEntry.totalDebits)}</TableCell>
           </TableRow>
           <TableRow>
-            <TableCell sx={{ ...cellSx, color: 'text.secondary' }}>Description</TableCell>
-            <TableCell>{selectedEntry.description}</TableCell>
-            <TableCell sx={{ ...cellSx, color: 'text.secondary' }}>Credits</TableCell>
-            <TableCell align="right">{formatCurrency(selectedEntry.totalCredits)}</TableCell>
+            <TableCell sx={labelSx}>Description</TableCell>
+            <TableCell sx={valueSx}>{selectedEntry.description}</TableCell>
+            <TableCell sx={labelSx}>Credits</TableCell>
+            <TableCell sx={{ ...valueSx, textAlign: 'right' }}>{formatCurrency(selectedEntry.totalCredits)}</TableCell>
           </TableRow>
           {selectedEntry.sourceType && selectedEntry.sourceId && SOURCE_ROUTES[selectedEntry.sourceType] && (
             <TableRow>
-              <TableCell sx={{ ...cellSx, color: 'text.secondary' }}>Source</TableCell>
-              <TableCell colSpan={3}>
+              <TableCell sx={labelSx}>Source</TableCell>
+              <TableCell colSpan={3} sx={valueSx}>
                 <Link
                   component="button"
                   variant="body2"

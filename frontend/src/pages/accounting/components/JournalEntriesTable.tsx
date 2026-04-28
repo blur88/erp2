@@ -1,27 +1,10 @@
-import type { RefObject } from 'react'
-import { Checkbox, Chip, CircularProgress, Link, Paper, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Tooltip, Typography } from '@mui/material'
-import { default as DeleteIcon } from '@mui/icons-material/Delete'
-import { default as PostIcon } from '@mui/icons-material/PostAdd'
+import React from 'react'
+import { Chip, Link, Typography } from '@mui/material'
 
-import { AppButton } from '@/components/common/AppButton'
-import { TABLE_STYLES } from '@/constants/tableStyles'
-import { JournalEntry, JournalEntryStatus } from '@/types'
+import EntityTable, { type ColumnConfig } from '@/components/common/EntityTable'
+import { EntityStatusChip } from '@/components/common/EntityStatusChip'
+import { JournalEntry } from '@/types'
 import { formatCurrency, formatDate } from '@/utils/formatters'
-
-interface Props {
-  entries: JournalEntry[]
-  loading: boolean
-  total: number
-  selectedEntryId: string | null
-  selectedIds: Set<string>
-  onSelect: (entry: JournalEntry) => void
-  onToggleCheck: (id: string) => void
-  onSelectAll: () => void
-  onPost: (entry: JournalEntry) => void
-  onDelete: (entry: JournalEntry) => void
-  onViewSource: (sourceType: string, sourceId: string) => void
-  listRef?: RefObject<HTMLDivElement | null>
-}
 
 const ENTRY_TYPE_LABELS: Record<string, string> = {
   manual: 'Manual Entry',
@@ -37,136 +20,115 @@ const ENTRY_TYPE_LABELS: Record<string, string> = {
   fund_transfer: 'Fund Transfer',
 }
 
-function statusColor(status: JournalEntryStatus) {
-  if (status === JournalEntryStatus.POSTED) return 'success' as const
-  if (status === JournalEntryStatus.REVERSED) return 'error' as const
-  return 'default' as const
+interface Props {
+  entries: JournalEntry[]
+  loading: boolean
+  total: number
+  selectedEntryId: string | null
+  focusedIndex: number
+  onSelect: (entry: JournalEntry) => void
+  onViewSource: (sourceType: string, sourceId: string) => void
+  listRef: React.RefObject<HTMLDivElement | null>
 }
 
 export function JournalEntriesTable({
   entries,
   loading,
+  total,
   selectedEntryId,
-  selectedIds,
+  focusedIndex,
   onSelect,
-  onToggleCheck,
-  onSelectAll,
-  onPost,
-  onDelete,
   onViewSource,
   listRef,
 }: Props) {
-  const selectableEntries = entries.filter((entry) => entry.status === JournalEntryStatus.DRAFT)
-  const allSelected = selectableEntries.length > 0 && selectedIds.size === selectableEntries.length
-  const someSelected = selectedIds.size > 0 && selectedIds.size < selectableEntries.length
+  const columns: ColumnConfig<JournalEntry>[] = [
+    {
+      key: 'reference',
+      width: 120,
+      render: (entry) => (
+        <Typography variant="body2" sx={{ fontWeight: 500, color: 'primary.main', fontSize: '0.8rem' }}>
+          {entry.referenceNumber}
+        </Typography>
+      ),
+      raw: true,
+    },
+    {
+      key: 'date',
+      width: 90,
+      render: (entry) => formatDate(entry.entryDate),
+    },
+    {
+      key: 'description',
+      render: (entry) => (
+        <Typography variant="body2" sx={{ maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '0.8rem' }}>
+          {entry.description}
+        </Typography>
+      ),
+      raw: true,
+    },
+    {
+      key: 'type',
+      width: 120,
+      render: (entry) => (
+        <Chip label={ENTRY_TYPE_LABELS[entry.sourceType ?? ''] ?? 'Manual Entry'} size="small" />
+      ),
+      raw: true,
+    },
+    {
+      key: 'source',
+      width: 120,
+      render: (entry) =>
+        entry.sourceType && entry.sourceType !== 'manual' && entry.sourceId ? (
+          <Link
+            component="button"
+            variant="body2"
+            onClick={(e) => { e.stopPropagation(); onViewSource(entry.sourceType!, entry.sourceId!) }}
+          >
+            View Source
+          </Link>
+        ) : null,
+      raw: true,
+    },
+    {
+      key: 'debits',
+      width: 90,
+      render: (entry) => (
+        <Typography variant="body2" sx={{ textAlign: 'right', fontSize: '0.8rem' }}>
+          {formatCurrency(entry.totalDebits)}
+        </Typography>
+      ),
+      raw: true,
+    },
+    {
+      key: 'credits',
+      width: 90,
+      render: (entry) => (
+        <Typography variant="body2" sx={{ textAlign: 'right', fontSize: '0.8rem' }}>
+          {formatCurrency(entry.totalCredits)}
+        </Typography>
+      ),
+      raw: true,
+    },
+    {
+      key: 'status',
+      width: 90,
+      render: (entry) => <EntityStatusChip status={entry.status} />,
+      raw: true,
+    },
+  ]
 
   return (
-    <Paper ref={listRef} sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-      <TableContainer sx={{ flex: 1, overflow: 'auto' }}>
-        <Table size={TABLE_STYLES.size} stickyHeader>
-          <TableHead>
-            <TableRow>
-              <TableCell padding="checkbox">
-                <Checkbox indeterminate={someSelected} checked={allSelected} onChange={onSelectAll} />
-              </TableCell>
-              <TableCell sx={{ fontWeight: 600 }}>Reference</TableCell>
-              <TableCell sx={{ fontWeight: 600 }}>Date</TableCell>
-              <TableCell sx={{ fontWeight: 600 }}>Description</TableCell>
-              <TableCell sx={{ fontWeight: 600 }}>Type</TableCell>
-              <TableCell sx={{ fontWeight: 600 }}>Source</TableCell>
-              <TableCell sx={{ fontWeight: 600 }} align="right">Debits</TableCell>
-              <TableCell sx={{ fontWeight: 600 }} align="right">Credits</TableCell>
-              <TableCell sx={{ fontWeight: 600 }}>Status</TableCell>
-              <TableCell sx={{ fontWeight: 600 }} align="center">Actions</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {loading ? (
-              <TableRow>
-                <TableCell colSpan={10} align="center" sx={{ py: 4 }}>
-                  <CircularProgress />
-                </TableCell>
-              </TableRow>
-            ) : entries.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={10} align="center" sx={{ py: 4 }}>
-                  <Typography variant="body2" color="text.secondary">No journal entries found</Typography>
-                </TableCell>
-              </TableRow>
-            ) : entries.map((entry) => (
-              <TableRow
-                key={entry.id}
-                hover
-                selected={entry.id === selectedEntryId}
-                onClick={() => onSelect(entry)}
-                sx={{ cursor: 'pointer', height: TABLE_STYLES.row.height }}
-              >
-                <TableCell padding="checkbox" onClick={(event) => event.stopPropagation()}>
-                  <Checkbox
-                    disabled={entry.status !== JournalEntryStatus.DRAFT}
-                    checked={selectedIds.has(entry.id)}
-                    onChange={() => onToggleCheck(entry.id)}
-                  />
-                </TableCell>
-                <TableCell>
-                  <Typography variant="body2" sx={{ fontWeight: 500, color: 'primary.main' }}>
-                    {entry.referenceNumber}
-                  </Typography>
-                </TableCell>
-                <TableCell>
-                  <Typography variant="body2">{formatDate(entry.entryDate)}</Typography>
-                </TableCell>
-                <TableCell>
-                  <Typography variant="body2" sx={{ maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {entry.description}
-                  </Typography>
-                </TableCell>
-                <TableCell>
-                  <Chip label={ENTRY_TYPE_LABELS[entry.sourceType ?? ''] ?? 'Manual Entry'} size="small" />
-                </TableCell>
-                <TableCell onClick={(event) => event.stopPropagation()}>
-                  {entry.sourceType && entry.sourceType !== 'manual' && entry.sourceId && (
-                    <Link
-                      component="button"
-                      variant="body2"
-                      onClick={() => onViewSource(entry.sourceType!, entry.sourceId!)}
-                    >
-                      View Transaction
-                    </Link>
-                  )}
-                </TableCell>
-                <TableCell align="right">
-                  <Typography variant="body2">{formatCurrency(entry.totalDebits)}</Typography>
-                </TableCell>
-                <TableCell align="right">
-                  <Typography variant="body2">{formatCurrency(entry.totalCredits)}</Typography>
-                </TableCell>
-                <TableCell>
-                  <Chip label={entry.status} color={statusColor(entry.status)} size="small" />
-                </TableCell>
-                <TableCell align="center" onClick={(event) => event.stopPropagation()}>
-                  <Stack direction="row" spacing={0.5} sx={{ justifyContent: 'center' }}>
-                    {entry.status === JournalEntryStatus.DRAFT && (
-                      <>
-                        <Tooltip title="Post">
-                          <span>
-                            <AppButton size="small" variant="success" onClick={() => onPost(entry)} startIcon={<PostIcon fontSize="small" />} />
-                          </span>
-                        </Tooltip>
-                        <Tooltip title="Delete">
-                          <span>
-                            <AppButton size="small" variant="danger" onClick={() => onDelete(entry)} startIcon={<DeleteIcon fontSize="small" />} />
-                          </span>
-                        </Tooltip>
-                      </>
-                    )}
-                  </Stack>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </TableContainer>
-    </Paper>
+    <EntityTable
+      rows={entries}
+      columns={columns}
+      loading={loading}
+      total={total}
+      label="Journal Entries"
+      selectedId={selectedEntryId ?? undefined}
+      focusedIndex={focusedIndex}
+      onSelect={onSelect}
+      listRef={listRef}
+      dataAttr="journal-entry"
+    />
   )
 }

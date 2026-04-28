@@ -26,11 +26,6 @@ vi.mock('@/utils/dateRange', () => ({
 const mockedApi = vi.hoisted(() => ({
   useGetJournalEntriesQuery: vi.fn(),
   useLazyGetJournalEntryQuery: vi.fn(),
-  useDeleteJournalEntryMutation: vi.fn(),
-  usePostJournalEntryMutation: vi.fn(),
-  useBulkPostJournalEntriesMutation: vi.fn(),
-  useBulkDeleteJournalEntriesMutation: vi.fn(),
-  useReverseJournalEntryMutation: vi.fn(),
 }))
 
 const mockNavigate = vi.fn()
@@ -74,11 +69,6 @@ describe('JournalEntriesPage', () => {
       refetch: vi.fn(),
     })
     mockedApi.useLazyGetJournalEntryQuery.mockReturnValue([vi.fn().mockResolvedValue({ id: '1' })])
-    mockedApi.useDeleteJournalEntryMutation.mockReturnValue([vi.fn()])
-    mockedApi.usePostJournalEntryMutation.mockReturnValue([vi.fn()])
-    mockedApi.useBulkPostJournalEntriesMutation.mockReturnValue([vi.fn()])
-    mockedApi.useBulkDeleteJournalEntriesMutation.mockReturnValue([vi.fn()])
-    mockedApi.useReverseJournalEntryMutation.mockReturnValue([vi.fn()])
   })
 
   it('renders the page title', () => {
@@ -88,17 +78,26 @@ describe('JournalEntriesPage', () => {
 
   it('renders journal entry rows', () => {
     render(<BrowserRouter><JournalEntriesPage /></BrowserRouter>)
-    expect(screen.getByText('JE-001')).toBeInTheDocument()
+    expect(screen.getAllByText('JE-001').length).toBeGreaterThan(0)
   })
 
   it('clicking a row selects it instead of navigating', async () => {
     render(<BrowserRouter><JournalEntriesPage /></BrowserRouter>)
-
-    fireEvent.click(screen.getByText('JE-001'))
-
+    fireEvent.click(screen.getAllByText('JE-001')[0])
     await waitFor(() => {
       expect(screen.getAllByText('JE-001').length).toBeGreaterThan(1)
     })
     expect(mockNavigate).not.toHaveBeenCalled()
+  })
+
+  it('does not render a New Journal Entry button', () => {
+    render(<BrowserRouter><JournalEntriesPage /></BrowserRouter>)
+    expect(screen.queryByText(/new journal entry/i)).not.toBeInTheDocument()
+  })
+
+  it('does not render bulk action buttons', () => {
+    render(<BrowserRouter><JournalEntriesPage /></BrowserRouter>)
+    expect(screen.queryByText(/post selected/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/delete selected/i)).not.toBeInTheDocument()
   })
 })
