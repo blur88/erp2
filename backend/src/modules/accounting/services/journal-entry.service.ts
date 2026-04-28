@@ -180,6 +180,7 @@ export class JournalEntryService {
       endDate,
       sortBy = 'entryDate',
       sortOrder = 'ASC',
+      ids,
     } = query;
 
     const queryBuilder = this.journalEntryRepository
@@ -205,12 +206,19 @@ export class JournalEntryService {
       queryBuilder.andWhere('entry.fiscalPeriodId = :fiscalPeriodId', { fiscalPeriodId });
     }
 
-    if (sourceType) {
-      queryBuilder.andWhere('entry.sourceType = :sourceType', { sourceType });
-    }
+    if (ids) {
+      const idList = ids.split(',').map((s) => s.trim()).filter(Boolean);
+      if (idList.length > 0) {
+        queryBuilder.andWhere('entry.id IN (:...idList)', { idList });
+      }
+    } else {
+      if (sourceType) {
+        queryBuilder.andWhere('entry.sourceType = :sourceType', { sourceType });
+      }
 
-    if (sourceId) {
-      queryBuilder.andWhere('entry.sourceId = :sourceId', { sourceId });
+      if (sourceId) {
+        queryBuilder.andWhere('entry.sourceId = :sourceId', { sourceId });
+      }
     }
 
     if (startDate && endDate) {

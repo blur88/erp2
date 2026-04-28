@@ -278,6 +278,11 @@ export class QueryJournalEntriesDto {
   @IsString()
   sortBy?: string;
 
+  @ApiPropertyOptional({ description: 'Filter by comma-separated entry UUIDs' })
+  @IsOptional()
+  @IsString()
+  ids?: string;
+
   @ApiPropertyOptional({ description: 'Sort direction', enum: ['ASC', 'DESC'] })
   @IsOptional()
   @IsString()

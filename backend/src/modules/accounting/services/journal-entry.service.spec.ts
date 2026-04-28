@@ -475,6 +475,48 @@ describe('JournalEntryService', () => {
         status: JournalEntryStatus.POSTED,
       });
     });
+
+    it('filters by comma-separated ids when ids param is provided', async () => {
+      const andWhereMock = jest.fn().mockReturnThis();
+      const queryBuilder = {
+        leftJoinAndSelect: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        andWhere: andWhereMock,
+        orderBy: jest.fn().mockReturnThis(),
+        addOrderBy: jest.fn().mockReturnThis(),
+        skip: jest.fn().mockReturnThis(),
+        take: jest.fn().mockReturnThis(),
+        getManyAndCount: jest.fn().mockResolvedValue([[], 0]),
+      };
+      journalEntryRepository.createQueryBuilder.mockReturnValue(queryBuilder as any);
+
+      await service.findAll({ ids: 'entry-1,entry-2' });
+
+      expect(andWhereMock).toHaveBeenCalledWith(
+        'entry.id IN (:...idList)',
+        { idList: ['entry-1', 'entry-2'] },
+      );
+    });
+
+    it('does not apply ids filter when ids param is absent', async () => {
+      const andWhereMock = jest.fn().mockReturnThis();
+      const queryBuilder = {
+        leftJoinAndSelect: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        andWhere: andWhereMock,
+        orderBy: jest.fn().mockReturnThis(),
+        addOrderBy: jest.fn().mockReturnThis(),
+        skip: jest.fn().mockReturnThis(),
+        take: jest.fn().mockReturnThis(),
+        getManyAndCount: jest.fn().mockResolvedValue([[], 0]),
+      };
+      journalEntryRepository.createQueryBuilder.mockReturnValue(queryBuilder as any);
+
+      await service.findAll({});
+
+      const calls = andWhereMock.mock.calls.map((c: any[]) => c[0] as string);
+      expect(calls.some((c) => c.includes('id IN'))).toBe(false);
+    });
   });
 
   describe('searchGlobal', () => {
