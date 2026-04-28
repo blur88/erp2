@@ -14,6 +14,15 @@ import {
 import { JournalEntryLine } from '../../../database/entities/journal-entry-line.entity';
 import { FiscalPeriod, FiscalPeriodStatus } from '../../../database/entities/fiscal-period.entity';
 import { ChartOfAccount } from '../../../database/entities/chart-of-account.entity';
+import { SalesOrder } from '../../../database/entities/sales-order.entity';
+import { PurchaseOrder } from '../../../database/entities/purchase-order.entity';
+import { GoodsReceivedNote } from '../../../database/entities/goods-received-note.entity';
+import { Payment } from '../../../database/entities/payment.entity';
+import { VendorPayment } from '../../../database/entities/vendor-payment.entity';
+import { Expense } from '../../../database/entities/expense.entity';
+import { OwnerEquityTransaction } from '../../../database/entities/owner-equity-transaction.entity';
+import { FundTransfer } from '../../../database/entities/fund-transfer.entity';
+import { StockAdjustment } from '../../../database/entities/stock-adjustment.entity';
 import {
   CreateJournalEntryDto,
   UpdateJournalEntryDto,
@@ -53,6 +62,24 @@ export class JournalEntryService {
     private readonly fiscalPeriodRepository: Repository<FiscalPeriod>,
     @InjectRepository(ChartOfAccount)
     private readonly chartOfAccountRepository: Repository<ChartOfAccount>,
+    @InjectRepository(SalesOrder)
+    private readonly salesOrderRepository: Repository<SalesOrder>,
+    @InjectRepository(PurchaseOrder)
+    private readonly purchaseOrderRepository: Repository<PurchaseOrder>,
+    @InjectRepository(GoodsReceivedNote)
+    private readonly grnRepository: Repository<GoodsReceivedNote>,
+    @InjectRepository(Payment)
+    private readonly paymentRepository: Repository<Payment>,
+    @InjectRepository(VendorPayment)
+    private readonly vendorPaymentRepository: Repository<VendorPayment>,
+    @InjectRepository(Expense)
+    private readonly expenseRepository: Repository<Expense>,
+    @InjectRepository(OwnerEquityTransaction)
+    private readonly ownerEquityTransactionRepository: Repository<OwnerEquityTransaction>,
+    @InjectRepository(FundTransfer)
+    private readonly fundTransferRepository: Repository<FundTransfer>,
+    @InjectRepository(StockAdjustment)
+    private readonly stockAdjustmentRepository: Repository<StockAdjustment>,
     private readonly chartOfAccountsService: ChartOfAccountsService,
     private readonly fiscalPeriodService: FiscalPeriodService,
     private readonly settingsService: SettingsService,
