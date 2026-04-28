@@ -1,9 +1,16 @@
 import { describe, expect, it, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 
 import { JournalEntryContextHeader } from './JournalEntryContextHeader'
 import { JournalEntryStatus } from '@/types'
+
+const mockNavigate = vi.fn()
+
+vi.mock('react-router-dom', async (importOriginal) => {
+  const mod = await importOriginal<typeof import('react-router-dom')>()
+  return { ...mod, useNavigate: () => mockNavigate }
+})
 
 vi.mock('@/utils/formatters', () => ({
   formatCurrency: (value: number) => `$${value}`,
@@ -66,11 +73,22 @@ describe('JournalEntryContextHeader', () => {
     expect(screen.getByText('References & Amounts')).toBeInTheDocument()
   })
 
-  it('renders date, description, entry type in left column', () => {
+  it('renders date and description in left column', () => {
     renderHeader(makeEntry())
     expect(screen.getByText('2026-01-01')).toBeInTheDocument()
     expect(screen.getByText('Test entry')).toBeInTheDocument()
-    expect(screen.getByText('Manual Entry')).toBeInTheDocument()
+  })
+
+  it('renders Entry Type row in left column', () => {
+    renderHeader(makeEntry({ sourceType: 'sales_order' }))
+    expect(screen.getByText('Entry Type')).toBeInTheDocument()
+    expect(screen.getAllByText('Sales Order').length).toBeGreaterThanOrEqual(1)
+  })
+
+  it('renders Manual Entry in Entry Type row for manual entries', () => {
+    renderHeader(makeEntry())
+    expect(screen.getByText('Entry Type')).toBeInTheDocument()
+    expect(screen.getAllByText('Manual Entry').length).toBeGreaterThanOrEqual(1)
   })
 
   it('renders debits and credits in right column', () => {
@@ -85,7 +103,7 @@ describe('JournalEntryContextHeader', () => {
 
   it('renders entry type chip in header bar', () => {
     renderHeader(makeEntry({ sourceType: 'sales_order' }))
-    expect(screen.getByText('Sales Order')).toBeInTheDocument()
+    expect(screen.getAllByText('Sales Order').length).toBeGreaterThanOrEqual(1)
   })
 
   it('does not render source row for manual entries', () => {
@@ -105,6 +123,15 @@ describe('JournalEntryContextHeader', () => {
     expect(screen.getByText('SO-0042')).toBeInTheDocument()
     const btn = container.querySelector('button')
     expect(btn).toBeTruthy()
+  })
+
+  it('navigates to source on button click', () => {
+    mockNavigate.mockClear()
+    renderHeader(
+      makeEntry({ sourceType: 'purchase_order', sourceId: 'po-1', sourceRefNumber: 'PO-0007' }),
+    )
+    fireEvent.click(screen.getByText('PO-0007'))
+    expect(mockNavigate).toHaveBeenCalledWith('/purchasing/orders?highlight=po-1')
   })
 
   it('does not render Edit, Post, Delete, or Reverse buttons', () => {

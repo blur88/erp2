@@ -528,7 +528,7 @@ export class JournalEntryService {
     );
 
     this.logger.log(`Journal entry posted successfully: ${id}`);
-    return this.toResponseDto(postedEntry);
+    return await this.toResponseDto(postedEntry);
   }
 
   /**
@@ -839,6 +839,7 @@ export class JournalEntryService {
   /**
    * Convert journal entry entity to response DTO
    */
+  // TODO: batch source lookups to avoid N+1 per JE list response
   private async resolveSourceRefNumber(
     sourceType: string | undefined,
     sourceId: string | undefined,
@@ -910,6 +911,8 @@ export class JournalEntryService {
           });
           return record?.adjustmentNumber;
         }
+        // settlement: no dedicated list page, source navigation not supported
+        // opening_balance: synthetic entry with no source entity UUID
         default:
           return undefined;
       }

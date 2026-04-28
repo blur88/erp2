@@ -24,6 +24,7 @@ const ENTRY_TYPE_LABELS: Record<string, string> = {
 
 const SOURCE_ROUTES: Record<string, (id: string) => string> = {
   sales_order: (id) => `/sales/orders?highlight=${id}`,
+  purchase_order: (id) => `/purchasing/orders?highlight=${id}`,
   payment: (id) => `/sales/payments?highlight=${id}`,
   goods_received_note: (id) => `/purchasing/goods-received?grnId=${id}`,
   vendor_payment: (id) => `/purchasing/vendor-payments?vpId=${id}`,
@@ -125,6 +126,12 @@ export function JournalEntryContextHeader({ selectedEntry }: Props) {
                   <TableCell sx={labelCellSx}>Description</TableCell>
                   <TableCell sx={valueCellSx}>{selectedEntry.description}</TableCell>
                 </TableRow>
+                <TableRow sx={{ backgroundColor: 'grey.50' }}>
+                  <TableCell sx={labelCellSx}>Entry Type</TableCell>
+                  <TableCell sx={valueCellSx}>
+                    {ENTRY_TYPE_LABELS[selectedEntry.sourceType ?? ''] ?? 'Manual Entry'}
+                  </TableCell>
+                </TableRow>
               </TableBody>
             </Table>
           </TableContainer>
@@ -163,7 +170,7 @@ export function JournalEntryContextHeader({ selectedEntry }: Props) {
                         </Typography>
                       ) : (
                         <Typography sx={{ fontSize: '0.8rem', color: 'text.secondary', fontStyle: 'italic' }}>
-                          -
+                          —
                         </Typography>
                       )}
                     </TableCell>
