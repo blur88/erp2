@@ -237,7 +237,7 @@ export class JournalEntryService {
 
     const [entries, total] = await queryBuilder.getManyAndCount();
 
-    const data = entries.map((entry) => this.toResponseDto(entry));
+    const data = await Promise.all(entries.map((entry) => this.toResponseDto(entry)));
 
     return {
       data,
@@ -839,7 +839,88 @@ export class JournalEntryService {
   /**
    * Convert journal entry entity to response DTO
    */
-  private toResponseDto(entry: JournalEntry): JournalEntryResponseDto {
+  private async resolveSourceRefNumber(
+    sourceType: string | undefined,
+    sourceId: string | undefined,
+  ): Promise<string | undefined> {
+    if (!sourceType || !sourceId) return undefined;
+
+    try {
+      switch (sourceType) {
+        case 'sales_order': {
+          const record = await this.salesOrderRepository.findOne({
+            where: { id: sourceId },
+            select: ['orderNumber'],
+          });
+          return record?.orderNumber;
+        }
+        case 'purchase_order': {
+          const record = await this.purchaseOrderRepository.findOne({
+            where: { id: sourceId },
+            select: ['orderNumber'],
+          });
+          return record?.orderNumber;
+        }
+        case 'payment': {
+          const record = await this.paymentRepository.findOne({
+            where: { id: sourceId },
+            select: ['paymentNumber'],
+          });
+          return record?.paymentNumber;
+        }
+        case 'goods_received_note': {
+          const record = await this.grnRepository.findOne({
+            where: { id: sourceId },
+            select: ['grnNumber'],
+          });
+          return record?.grnNumber;
+        }
+        case 'vendor_payment': {
+          const record = await this.vendorPaymentRepository.findOne({
+            where: { id: sourceId },
+            select: ['paymentNumber'],
+          });
+          return record?.paymentNumber;
+        }
+        case 'expense': {
+          const record = await this.expenseRepository.findOne({
+            where: { id: sourceId },
+            select: ['referenceNumber'],
+          });
+          return record?.referenceNumber;
+        }
+        case 'owner_equity_transaction': {
+          const record = await this.ownerEquityTransactionRepository.findOne({
+            where: { id: sourceId },
+            select: ['referenceNumber'],
+          });
+          return record?.referenceNumber;
+        }
+        case 'fund_transfer': {
+          const record = await this.fundTransferRepository.findOne({
+            where: { id: sourceId },
+            select: ['referenceNumber'],
+          });
+          return record?.referenceNumber;
+        }
+        case 'stock_adjustment': {
+          const record = await this.stockAdjustmentRepository.findOne({
+            where: { id: sourceId },
+            select: ['adjustmentNumber'],
+          });
+          return record?.adjustmentNumber;
+        }
+        default:
+          return undefined;
+      }
+    } catch {
+      return undefined;
+    }
+  }
+
+  private async toResponseDto(entry: JournalEntry): Promise<JournalEntryResponseDto> {
+    const sourceRefNumber = await this.resolveSourceRefNumber(entry.sourceType, entry.sourceId);
+
     return {
       id: entry.id,
       entryDate: entry.entryDate,
@@ -851,6 +932,7 @@ export class JournalEntryService {
       reversedById: entry.reversedById,
       sourceType: entry.sourceType,
       sourceId: entry.sourceId,
+      sourceRefNumber,
       isDraft: entry.isDraft,
       isPosted: entry.isPosted,
       isReversed: entry.isReversed,
@@ -869,10 +951,10 @@ export class JournalEntryService {
         ? entry.lines.map((line) => this.toLineResponseDto(line))
         : undefined,
       reversalOf: entry.reversalOf
-        ? this.toResponseDto(entry.reversalOf)
+        ? await this.toResponseDto(entry.reversalOf)
         : undefined,
       reversedBy: entry.reversedBy
-        ? this.toResponseDto(entry.reversedBy)
+        ? await this.toResponseDto(entry.reversedBy)
         : undefined,
       createdAt: entry.createdAt,
       updatedAt: entry.updatedAt,

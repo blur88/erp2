@@ -24,6 +24,15 @@ import {
   ChartOfAccount,
   AccountType,
 } from '../../../database/entities/chart-of-account.entity';
+import { SalesOrder } from '../../../database/entities/sales-order.entity';
+import { PurchaseOrder } from '../../../database/entities/purchase-order.entity';
+import { GoodsReceivedNote } from '../../../database/entities/goods-received-note.entity';
+import { Payment } from '../../../database/entities/payment.entity';
+import { VendorPayment } from '../../../database/entities/vendor-payment.entity';
+import { Expense } from '../../../database/entities/expense.entity';
+import { OwnerEquityTransaction } from '../../../database/entities/owner-equity-transaction.entity';
+import { FundTransfer } from '../../../database/entities/fund-transfer.entity';
+import { StockAdjustment } from '../../../database/entities/stock-adjustment.entity';
 import {
   CreateJournalEntryDto,
   UpdateJournalEntryDto,
@@ -40,6 +49,15 @@ describe('JournalEntryService', () => {
   let chartOfAccountsService: jest.Mocked<ChartOfAccountsService>;
   let fiscalPeriodService: jest.Mocked<FiscalPeriodService>;
   let settingsService: jest.Mocked<SettingsService>;
+  let mockSalesOrderRepo: { findOne: jest.Mock };
+  let mockPurchaseOrderRepo: { findOne: jest.Mock };
+  let mockGrnRepo: { findOne: jest.Mock };
+  let mockPaymentRepo: { findOne: jest.Mock };
+  let mockVendorPaymentRepo: { findOne: jest.Mock };
+  let mockExpenseRepo: { findOne: jest.Mock };
+  let mockOwnerEquityTransactionRepo: { findOne: jest.Mock };
+  let mockFundTransferRepo: { findOne: jest.Mock };
+  let mockStockAdjustmentRepo: { findOne: jest.Mock };
 
   // Test data
   const mockFiscalPeriod: Partial<FiscalPeriod> = {
@@ -111,6 +129,16 @@ describe('JournalEntryService', () => {
   };
 
   beforeEach(async () => {
+    mockSalesOrderRepo = { findOne: jest.fn() };
+    mockPurchaseOrderRepo = { findOne: jest.fn() };
+    mockGrnRepo = { findOne: jest.fn() };
+    mockPaymentRepo = { findOne: jest.fn() };
+    mockVendorPaymentRepo = { findOne: jest.fn() };
+    mockExpenseRepo = { findOne: jest.fn() };
+    mockOwnerEquityTransactionRepo = { findOne: jest.fn() };
+    mockFundTransferRepo = { findOne: jest.fn() };
+    mockStockAdjustmentRepo = { findOne: jest.fn() };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         JournalEntryService,
@@ -149,6 +177,18 @@ describe('JournalEntryService', () => {
             find: jest.fn(),
           },
         },
+        { provide: getRepositoryToken(SalesOrder), useValue: mockSalesOrderRepo },
+        { provide: getRepositoryToken(PurchaseOrder), useValue: mockPurchaseOrderRepo },
+        { provide: getRepositoryToken(GoodsReceivedNote), useValue: mockGrnRepo },
+        { provide: getRepositoryToken(Payment), useValue: mockPaymentRepo },
+        { provide: getRepositoryToken(VendorPayment), useValue: mockVendorPaymentRepo },
+        { provide: getRepositoryToken(Expense), useValue: mockExpenseRepo },
+        {
+          provide: getRepositoryToken(OwnerEquityTransaction),
+          useValue: mockOwnerEquityTransactionRepo,
+        },
+        { provide: getRepositoryToken(FundTransfer), useValue: mockFundTransferRepo },
+        { provide: getRepositoryToken(StockAdjustment), useValue: mockStockAdjustmentRepo },
         {
           provide: ChartOfAccountsService,
           useValue: {
@@ -484,6 +524,67 @@ describe('JournalEntryService', () => {
       journalEntryRepository.findOne.mockResolvedValue(null);
 
       await expect(service.findOne('non-existent')).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('sourceRefNumber resolution', () => {
+    it('resolves sourceRefNumber for sales_order sourceType', async () => {
+      const entry = {
+        ...mockJournalEntry,
+        sourceType: 'sales_order',
+        sourceId: 'so-uuid-1',
+      } as JournalEntry;
+
+      journalEntryRepository.findOne.mockResolvedValue(entry);
+      mockSalesOrderRepo.findOne.mockResolvedValue({ orderNumber: 'SO-0042' });
+
+      const result = await service.findOne('entry-1');
+
+      expect(result.sourceRefNumber).toBe('SO-0042');
+    });
+
+    it('resolves sourceRefNumber for purchase_order sourceType', async () => {
+      const entry = {
+        ...mockJournalEntry,
+        sourceType: 'purchase_order',
+        sourceId: 'po-uuid-1',
+      } as JournalEntry;
+
+      journalEntryRepository.findOne.mockResolvedValue(entry);
+      mockPurchaseOrderRepo.findOne.mockResolvedValue({ orderNumber: 'PO-0007' });
+
+      const result = await service.findOne('entry-1');
+
+      expect(result.sourceRefNumber).toBe('PO-0007');
+    });
+
+    it('returns undefined sourceRefNumber for manual entries', async () => {
+      const entry = {
+        ...mockJournalEntry,
+        sourceType: 'manual',
+        sourceId: undefined,
+      } as JournalEntry;
+
+      journalEntryRepository.findOne.mockResolvedValue(entry);
+
+      const result = await service.findOne('entry-1');
+
+      expect(result.sourceRefNumber).toBeUndefined();
+    });
+
+    it('returns undefined sourceRefNumber when source record not found', async () => {
+      const entry = {
+        ...mockJournalEntry,
+        sourceType: 'sales_order',
+        sourceId: 'so-missing',
+      } as JournalEntry;
+
+      journalEntryRepository.findOne.mockResolvedValue(entry);
+      mockSalesOrderRepo.findOne.mockResolvedValue(null);
+
+      const result = await service.findOne('entry-1');
+
+      expect(result.sourceRefNumber).toBeUndefined();
     });
   });
 
