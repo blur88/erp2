@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useState } from 'react'
-import { useLocation } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 
 import AccountMappingWarning from '@/components/accounting/AccountMappingWarning'
 import GenericListPage from '@/components/common/GenericListPage'
@@ -25,6 +25,7 @@ export const JournalEntriesPage: React.FC = () => {
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
 
   const location = useLocation()
+  const navigate = useNavigate()
 
   const filterConfig = useMemo<FilterBarConfig<JEFilters>>(
     () => ({
@@ -58,17 +59,20 @@ export const JournalEntriesPage: React.FC = () => {
   const urlParams = useMemo(() => new URLSearchParams(location.search), [location.search])
   const sourceTypeParam = urlParams.get('sourceType')
   const sourceIdParam = urlParams.get('sourceId')
+  const idsParam = urlParams.get('ids')
+  const hasUrlFilters = Boolean(sourceIdParam || idsParam)
 
   const queryArgs = useMemo(() => ({
     search: appliedFilters.search || undefined,
     status: appliedFilters.status ? appliedFilters.status.toUpperCase() : undefined,
     sourceType: sourceIdParam ? sourceTypeParam ?? undefined : appliedFilters.entryType || undefined,
     sourceId: sourceIdParam ?? undefined,
+    ids: idsParam ?? undefined,
     startDate: dateRange.fromDate,
     endDate: dateRange.toDate,
     sortBy,
     sortOrder: sortOrder.toUpperCase() as 'ASC' | 'DESC',
-  }), [appliedFilters, dateRange, sortBy, sortOrder, sourceTypeParam, sourceIdParam])
+  }), [appliedFilters, dateRange, sortBy, sortOrder, sourceTypeParam, sourceIdParam, idsParam])
 
   const { data, isLoading, refetch } = useGetJournalEntriesQuery(queryArgs)
   const entries = data?.data ?? []
@@ -76,15 +80,23 @@ export const JournalEntriesPage: React.FC = () => {
 
   const workspace = useJournalEntriesWorkspace({ entries, refetch })
 
+  const handleClearAll = useCallback(() => {
+    handlers.onClearAll()
+    if (hasUrlFilters) {
+      navigate('/accounting/journal-entries', { replace: true })
+    }
+  }, [handlers, hasUrlFilters, navigate])
+
   const filterHandlers = useMemo(() => ({
     ...handlers,
+    onClearAll: handleClearAll,
     onSearchChange: (value: string) => {
       handlers.onSearchChange(value)
       window.setTimeout(() => {
         workspace.searchInputRef.current?.focus()
       }, 0)
     },
-  }), [handlers, workspace])
+  }), [handlers, handleClearAll, workspace])
 
   const handleSort = useCallback((field: string) => {
     setSortOrder((prev) => (sortBy === field && prev === 'desc' ? 'asc' : 'desc'))
@@ -100,7 +112,7 @@ export const JournalEntriesPage: React.FC = () => {
         filterConfig={filterConfig}
         draftFilters={draftFilters}
         handlers={filterHandlers}
-        hasActiveFilters={hasActiveFilters}
+        hasActiveFilters={hasActiveFilters || hasUrlFilters}
         searchInputRef={workspace.searchInputRef}
         sort={{ field: 'createdAt', sortBy, sortOrder, onSort: handleSort }}
         listSlot={(
