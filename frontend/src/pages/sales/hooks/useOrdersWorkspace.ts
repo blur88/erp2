@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type MouseEvent } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 
-import { useJournalEntryRef } from '@/hooks/useJournalEntryRef'
+import { useJournalEntryRefs } from '@/hooks/useJournalEntryRefs'
 import { useEntityWorkspace } from '@/hooks/useEntityWorkspace'
 import { useNotification } from '@/hooks/useNotification'
 import type { AppDispatch, RootState } from '@/store'
@@ -108,11 +108,17 @@ export function useOrdersWorkspace({
   })
   workspaceRef.current = workspace
 
-  const { journalEntryRef, journalEntryRefLoading } = useJournalEntryRef([
+  const invoiceSources = (selectedOrder?.invoices ?? []).map((invoice) => ({
+    sourceType: 'invoice' as const,
+    sourceId: invoice.id,
+  }))
+
+  const { journalEntryRefs, journalEntryRefsLoading, navigateToJournalEntries } = useJournalEntryRefs([
     {
       sourceType: 'sales_order',
       sourceId: selectedOrder?.isFulfilled ? selectedOrder?.id : undefined,
     },
+    ...invoiceSources,
   ])
 
   const loadOrders = useCallback(() => {
@@ -767,12 +773,6 @@ export function useOrdersWorkspace({
     setPaymentDialogOpen(true)
   }, [])
 
-  const navigateToJournalEntry = useCallback(() => {
-    if (selectedOrder) {
-      navigate(`/accounting/journal-entries?sourceType=sales_order&sourceId=${selectedOrder.id}`)
-    }
-  }, [navigate, selectedOrder])
-
   return {
     ...workspace,
     focusedOrderIndex: workspace.focusedIndex,
@@ -792,8 +792,8 @@ export function useOrdersWorkspace({
     paymentDialogOpen,
     setPaymentDialogOpen,
     isLoading,
-    journalEntryRef,
-    journalEntryRefLoading,
+    journalEntryRefs,
+    journalEntryRefsLoading,
     handleOrderSelect,
     handleNavigateUp,
     handleNavigateDown,
@@ -803,7 +803,7 @@ export function useOrdersWorkspace({
     handlePageDownNavigation,
     handleNavigateToInvoice,
     handleNavigateToPayment,
-    navigateToJournalEntry,
+    navigateToJournalEntries,
     handleOrderAction,
     handleConfirmDelete,
     handleCancelDelete,
