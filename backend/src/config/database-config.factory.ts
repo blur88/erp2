@@ -95,7 +95,6 @@ export function createDatabaseConfig(configService: ConfigService, allowDefaults
       StockAdjustment, StockAdjustmentItem, StockMovement, Supplier, User, VendorPayment,
     ],
     migrations: [__dirname + '/../database/migrations/*{.ts,.js}'],
-    migrationsTransactionMode: 'each',
     
     // Security: Disable auto-synchronization in production
     synchronize: !isProduction && isDevelopment && configService.get<string>('DB_SYNCHRONIZE', 'false') === 'true',
