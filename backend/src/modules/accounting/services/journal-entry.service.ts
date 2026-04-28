@@ -23,6 +23,7 @@ import { Expense } from '../../../database/entities/expense.entity';
 import { OwnerEquityTransaction } from '../../../database/entities/owner-equity-transaction.entity';
 import { FundTransfer } from '../../../database/entities/fund-transfer.entity';
 import { StockAdjustment } from '../../../database/entities/stock-adjustment.entity';
+import { Invoice } from '../../../database/entities/invoice.entity';
 import {
   CreateJournalEntryDto,
   UpdateJournalEntryDto,
@@ -80,6 +81,8 @@ export class JournalEntryService {
     private readonly fundTransferRepository: Repository<FundTransfer>,
     @InjectRepository(StockAdjustment)
     private readonly stockAdjustmentRepository: Repository<StockAdjustment>,
+    @InjectRepository(Invoice)
+    private readonly invoiceRepository: Repository<Invoice>,
     private readonly chartOfAccountsService: ChartOfAccountsService,
     private readonly fiscalPeriodService: FiscalPeriodService,
     private readonly settingsService: SettingsService,
@@ -177,6 +180,7 @@ export class JournalEntryService {
       endDate,
       sortBy = 'entryDate',
       sortOrder = 'ASC',
+      ids,
     } = query;
 
     const queryBuilder = this.journalEntryRepository
@@ -202,12 +206,19 @@ export class JournalEntryService {
       queryBuilder.andWhere('entry.fiscalPeriodId = :fiscalPeriodId', { fiscalPeriodId });
     }
 
-    if (sourceType) {
-      queryBuilder.andWhere('entry.sourceType = :sourceType', { sourceType });
-    }
+    if (ids) {
+      const idList = ids.split(',').map((s) => s.trim()).filter(Boolean);
+      if (idList.length > 0) {
+        queryBuilder.andWhere('entry.id IN (:...idList)', { idList });
+      }
+    } else {
+      if (sourceType) {
+        queryBuilder.andWhere('entry.sourceType = :sourceType', { sourceType });
+      }
 
-    if (sourceId) {
-      queryBuilder.andWhere('entry.sourceId = :sourceId', { sourceId });
+      if (sourceId) {
+        queryBuilder.andWhere('entry.sourceId = :sourceId', { sourceId });
+      }
     }
 
     if (startDate && endDate) {
@@ -910,6 +921,13 @@ export class JournalEntryService {
             select: ['adjustmentNumber'],
           });
           return record?.adjustmentNumber;
+        }
+        case 'invoice': {
+          const record = await this.invoiceRepository.findOne({
+            where: { id: sourceId },
+            select: ['invoiceNumber'],
+          });
+          return record?.invoiceNumber;
         }
         // settlement: no dedicated list page, source navigation not supported
         // opening_balance: synthetic entry with no source entity UUID

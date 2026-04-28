@@ -12,22 +12,23 @@ import {
 } from '@mui/material'
 import Grid from '@mui/material/Grid'
 
-import type { PaymentJournalEntryRef, PaymentListItem } from '../hooks/usePaymentsWorkspace'
+import type { PaymentListItem } from '../hooks/usePaymentsWorkspace'
 
 import { AppButton } from '@/components/common/AppButton'
 import { EntityContextHeaderBar } from '@/components/common/EntityContextHeaderBar'
 import { EntityStatusChip } from '@/components/common/EntityStatusChip'
 import { TABLE_STYLES } from '@/constants/tableStyles'
+import type { JournalEntryRef } from '@/hooks/useJournalEntryRef'
 import { formatCurrency, formatDate } from '@/utils/formatters'
 
 interface PaymentContextHeaderProps {
   selectedPayment: PaymentListItem | null
-  journalEntryRef: PaymentJournalEntryRef | null
-  journalEntryRefLoading: boolean
+  journalEntryRefs: JournalEntryRef[]
+  journalEntryRefsLoading: boolean
   onPrint: () => void
   onOrderClick: (orderId: string, event: React.MouseEvent) => void
   onInvoiceClick: (invoiceId: string, event: React.MouseEvent) => void
-  onNavigateToJournalEntry: (ref: PaymentJournalEntryRef | null) => void
+  onNavigateToJournalEntry: () => void
 }
 
 const detailTableSx = {
@@ -63,8 +64,8 @@ const getPaymentMethodLabel = (payment: PaymentListItem) => {
 
 const PaymentContextHeader: React.FC<PaymentContextHeaderProps> = ({
   selectedPayment,
-  journalEntryRef,
-  journalEntryRefLoading,
+  journalEntryRefs,
+  journalEntryRefsLoading,
   onPrint,
   onOrderClick,
   onInvoiceClick,
@@ -96,9 +97,9 @@ const PaymentContextHeader: React.FC<PaymentContextHeaderProps> = ({
             Print
           </AppButton>
         }
-        journalEntryRef={journalEntryRef}
-        journalEntryRefLoading={journalEntryRefLoading}
-        onNavigateToJournalEntry={() => onNavigateToJournalEntry(journalEntryRef)}
+        journalEntryRefs={journalEntryRefs}
+        journalEntryRefsLoading={journalEntryRefsLoading}
+        onNavigateToJournalEntry={onNavigateToJournalEntry}
       />
 
       <Box sx={{ p: TABLE_STYLES.cell.padding.px }}>
@@ -225,20 +226,31 @@ const PaymentContextHeader: React.FC<PaymentContextHeaderProps> = ({
                   <TableRow sx={{ backgroundColor: 'grey.50' }}>
                     <TableCell sx={labelCellSx}>Journal Entry</TableCell>
                     <TableCell sx={valueCellSx}>
-                      {journalEntryRefLoading ? (
+                      {journalEntryRefsLoading ? (
                         <Typography
                           sx={{ fontSize: '0.8rem', color: 'text.secondary', fontStyle: 'italic' }}
                         >
                           Loading...
                         </Typography>
-                      ) : journalEntryRef ? (
-                        <Typography
-                          component="button"
-                          onClick={() => onNavigateToJournalEntry(journalEntryRef)}
-                          sx={linkButtonSx}
-                        >
-                          {journalEntryRef.referenceNumber}
-                        </Typography>
+                      ) : journalEntryRefs.length > 0 ? (
+                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                          {journalEntryRefs.map((ref, index) => (
+                            <Box key={ref.referenceNumber} component="span">
+                              <Typography
+                                component="button"
+                                onClick={onNavigateToJournalEntry}
+                                sx={linkButtonSx}
+                              >
+                                {ref.referenceNumber}
+                              </Typography>
+                              {index < journalEntryRefs.length - 1 && (
+                                <Typography component="span" sx={{ fontSize: '0.8rem' }}>
+                                  ,{' '}
+                                </Typography>
+                              )}
+                            </Box>
+                          ))}
+                        </Box>
                       ) : (
                         <Typography
                           sx={{ fontSize: '0.8rem', color: 'text.secondary', fontStyle: 'italic' }}

@@ -33,6 +33,7 @@ import { Expense } from '../../../database/entities/expense.entity';
 import { OwnerEquityTransaction } from '../../../database/entities/owner-equity-transaction.entity';
 import { FundTransfer } from '../../../database/entities/fund-transfer.entity';
 import { StockAdjustment } from '../../../database/entities/stock-adjustment.entity';
+import { Invoice } from '../../../database/entities/invoice.entity';
 import {
   CreateJournalEntryDto,
   UpdateJournalEntryDto,
@@ -58,6 +59,7 @@ describe('JournalEntryService', () => {
   let mockOwnerEquityTransactionRepo: { findOne: jest.Mock };
   let mockFundTransferRepo: { findOne: jest.Mock };
   let mockStockAdjustmentRepo: { findOne: jest.Mock };
+  let mockInvoiceRepo: { findOne: jest.Mock };
 
   // Test data
   const mockFiscalPeriod: Partial<FiscalPeriod> = {
@@ -138,6 +140,7 @@ describe('JournalEntryService', () => {
     mockOwnerEquityTransactionRepo = { findOne: jest.fn() };
     mockFundTransferRepo = { findOne: jest.fn() };
     mockStockAdjustmentRepo = { findOne: jest.fn() };
+    mockInvoiceRepo = { findOne: jest.fn() };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -189,6 +192,7 @@ describe('JournalEntryService', () => {
         },
         { provide: getRepositoryToken(FundTransfer), useValue: mockFundTransferRepo },
         { provide: getRepositoryToken(StockAdjustment), useValue: mockStockAdjustmentRepo },
+        { provide: getRepositoryToken(Invoice), useValue: mockInvoiceRepo },
         {
           provide: ChartOfAccountsService,
           useValue: {
@@ -471,6 +475,48 @@ describe('JournalEntryService', () => {
         status: JournalEntryStatus.POSTED,
       });
     });
+
+    it('filters by comma-separated ids when ids param is provided', async () => {
+      const andWhereMock = jest.fn().mockReturnThis();
+      const queryBuilder = {
+        leftJoinAndSelect: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        andWhere: andWhereMock,
+        orderBy: jest.fn().mockReturnThis(),
+        addOrderBy: jest.fn().mockReturnThis(),
+        skip: jest.fn().mockReturnThis(),
+        take: jest.fn().mockReturnThis(),
+        getManyAndCount: jest.fn().mockResolvedValue([[], 0]),
+      };
+      journalEntryRepository.createQueryBuilder.mockReturnValue(queryBuilder as any);
+
+      await service.findAll({ ids: 'entry-1,entry-2' });
+
+      expect(andWhereMock).toHaveBeenCalledWith(
+        'entry.id IN (:...idList)',
+        { idList: ['entry-1', 'entry-2'] },
+      );
+    });
+
+    it('does not apply ids filter when ids param is absent', async () => {
+      const andWhereMock = jest.fn().mockReturnThis();
+      const queryBuilder = {
+        leftJoinAndSelect: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        andWhere: andWhereMock,
+        orderBy: jest.fn().mockReturnThis(),
+        addOrderBy: jest.fn().mockReturnThis(),
+        skip: jest.fn().mockReturnThis(),
+        take: jest.fn().mockReturnThis(),
+        getManyAndCount: jest.fn().mockResolvedValue([[], 0]),
+      };
+      journalEntryRepository.createQueryBuilder.mockReturnValue(queryBuilder as any);
+
+      await service.findAll({});
+
+      const calls = andWhereMock.mock.calls.map((c: any[]) => c[0] as string);
+      expect(calls.some((c) => c.includes('id IN'))).toBe(false);
+    });
   });
 
   describe('searchGlobal', () => {
@@ -584,6 +630,40 @@ describe('JournalEntryService', () => {
 
       const result = await service.findOne('entry-1');
 
+      expect(result.sourceRefNumber).toBeUndefined();
+    });
+  });
+
+  describe('resolveSourceRefNumber for invoice', () => {
+    it('returns invoiceNumber when sourceType is invoice', async () => {
+      const mockEntry = {
+        ...mockJournalEntry,
+        sourceType: 'invoice',
+        sourceId: 'invoice-1',
+        lines: [mockJournalEntryLine1, mockJournalEntryLine2],
+      };
+      journalEntryRepository.findOne.mockResolvedValue(mockEntry as JournalEntry);
+      mockInvoiceRepo.findOne.mockResolvedValue({ invoiceNumber: 'INV-0042' });
+
+      const result = await service.findOne('entry-1');
+      expect(result.sourceRefNumber).toBe('INV-0042');
+      expect(mockInvoiceRepo.findOne).toHaveBeenCalledWith({
+        where: { id: 'invoice-1' },
+        select: ['invoiceNumber'],
+      });
+    });
+
+    it('returns undefined when invoice not found', async () => {
+      const mockEntry = {
+        ...mockJournalEntry,
+        sourceType: 'invoice',
+        sourceId: 'invoice-missing',
+        lines: [mockJournalEntryLine1, mockJournalEntryLine2],
+      };
+      journalEntryRepository.findOne.mockResolvedValue(mockEntry as JournalEntry);
+      mockInvoiceRepo.findOne.mockResolvedValue(null);
+
+      const result = await service.findOne('entry-1');
       expect(result.sourceRefNumber).toBeUndefined();
     });
   });

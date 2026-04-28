@@ -13,6 +13,7 @@ import {
   IsDecimal,
   IsDateString,
   ArrayMinSize,
+  Matches,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional, OmitType, PartialType } from '@nestjs/swagger';
@@ -277,6 +278,11 @@ export class QueryJournalEntriesDto {
   @IsOptional()
   @IsString()
   sortBy?: string;
+
+  @ApiPropertyOptional({ description: 'Filter by comma-separated entry UUIDs' })
+  @IsOptional()
+  @Matches(/^[0-9a-f-]+(,[0-9a-f-]+)*$/i, { message: 'ids must be a comma-separated list of UUIDs' })
+  ids?: string;
 
   @ApiPropertyOptional({ description: 'Sort direction', enum: ['ASC', 'DESC'] })
   @IsOptional()

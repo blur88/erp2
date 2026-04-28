@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type MouseEvent } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 
-import { useJournalEntryRef } from '@/hooks/useJournalEntryRef'
+import { useJournalEntryRefs } from '@/hooks/useJournalEntryRefs'
 import { useEntityWorkspace } from '@/hooks/useEntityWorkspace'
 import type { EntityWorkspaceReturn } from '@/hooks/useEntityWorkspace'
 import type { AppDispatch } from '@/store'
@@ -35,12 +35,6 @@ export interface InvoiceListItem {
   issueDate?: Date | string
   dueAmount?: number
   items?: InvoiceItem[]
-}
-
-export interface InvoiceJournalEntryRef {
-  referenceNumber: string
-  sourceType: string
-  sourceId: string
 }
 
 export interface UseInvoicesWorkspaceConfig {
@@ -88,7 +82,7 @@ export function useInvoicesWorkspace({
   })
   workspaceRef.current = workspace
 
-  const { journalEntryRef, journalEntryRefLoading, navigateToJournalEntry } = useJournalEntryRef([
+  const { journalEntryRefs, journalEntryRefsLoading, navigateToJournalEntries } = useJournalEntryRefs([
     { sourceType: 'invoice', sourceId: selectedInvoice?.id },
     { sourceType: 'sales_order', sourceId: selectedInvoice?.salesOrder?.id },
   ])
@@ -140,12 +134,12 @@ export function useInvoicesWorkspace({
     setDeletedInvoicesDialogOpen,
     printDialogOpen,
     setPrintDialogOpen,
-    journalEntryRef,
-    journalEntryRefLoading,
+    journalEntryRefs,
+    journalEntryRefsLoading,
     handleInvoiceSelect,
     handleSalesOrderClick,
     handleNavigateToPayment,
-    navigateToJournalEntry,
+    navigateToJournalEntries,
     handleViewDeletedAction: () => {
       setDeletedInvoicesDialogOpen(true)
     },

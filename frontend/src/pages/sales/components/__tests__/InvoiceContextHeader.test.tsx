@@ -22,12 +22,12 @@ describe('InvoiceContextHeader', () => {
     render(
       <InvoiceContextHeader
         selectedInvoice={baseInvoice}
-        journalEntryRef={null}
-        journalEntryRefLoading={false}
+        journalEntryRefs={[]}
+        journalEntryRefsLoading={false}
         onPrint={vi.fn()}
         onNavigateToSalesOrder={vi.fn()}
         onNavigateToPayment={vi.fn()}
-        onNavigateToJournalEntry={vi.fn()}
+        onNavigateToJournalEntries={vi.fn()}
       />,
     )
 

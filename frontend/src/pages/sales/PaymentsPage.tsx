@@ -147,8 +147,8 @@ const PaymentsPage: React.FC = () => {
       headerSlot={(
         <PaymentContextHeader
           selectedPayment={selectedPayment}
-          journalEntryRef={workspace.journalEntryRef}
-          journalEntryRefLoading={workspace.journalEntryRefLoading}
+          journalEntryRefs={workspace.journalEntryRefs}
+          journalEntryRefsLoading={workspace.journalEntryRefsLoading}
           onPrint={() => workspace.setPrintDialogOpen(true)}
           onOrderClick={workspace.handleOrderClick}
           onInvoiceClick={workspace.handleInvoiceClick}

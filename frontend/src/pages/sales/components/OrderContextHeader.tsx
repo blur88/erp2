@@ -25,14 +25,14 @@ import { formatCurrency, formatDate } from '@/utils/formatters'
 interface OrderContextHeaderProps {
   selectedOrder: SalesOrder | null
   isLoading: boolean
-  journalEntryRef: JournalEntryRef | null
-  journalEntryRefLoading: boolean
+  journalEntryRefs: JournalEntryRef[]
+  journalEntryRefsLoading: boolean
   onEditOrder: () => void
   onDeleteOrder: () => void
   onPrintOrder: () => void
   onNavigateToInvoice: (invoice: any, event?: React.MouseEvent) => void
   onNavigateToPayment: (paymentId: string, event?: React.MouseEvent) => void
-  onNavigateToJournalEntry: () => void
+  onNavigateToJournalEntries: () => void
   onRefundOrder: () => void
   onUnpayOrder: () => void
   onOpenPaymentDialog: () => void
@@ -64,14 +64,14 @@ const valueCellSx = {
 const OrderContextHeader: React.FC<OrderContextHeaderProps> = ({
   selectedOrder,
   isLoading,
-  journalEntryRef,
-  journalEntryRefLoading,
+  journalEntryRefs,
+  journalEntryRefsLoading,
   onEditOrder,
   onDeleteOrder,
   onPrintOrder,
   onNavigateToInvoice,
   onNavigateToPayment,
-  onNavigateToJournalEntry,
+  onNavigateToJournalEntries,
   onRefundOrder,
   onUnpayOrder,
   onOpenPaymentDialog,
@@ -150,9 +150,9 @@ const OrderContextHeader: React.FC<OrderContextHeaderProps> = ({
             </AppButton>
           </Box>
         )}
-        journalEntryRef={journalEntryRef}
-        journalEntryRefLoading={journalEntryRefLoading}
-        onNavigateToJournalEntry={onNavigateToJournalEntry}
+        journalEntryRefs={journalEntryRefs}
+        journalEntryRefsLoading={journalEntryRefsLoading}
+        onNavigateToJournalEntry={onNavigateToJournalEntries}
       />
       <Box sx={{ p: TABLE_STYLES.cell.padding.px }}>
         <Grid container spacing={3}>
@@ -270,28 +270,39 @@ const OrderContextHeader: React.FC<OrderContextHeaderProps> = ({
                         >
                           Not fulfilled
                         </Typography>
-                      ) : journalEntryRefLoading ? (
+                      ) : journalEntryRefsLoading ? (
                         <Typography
                           sx={{ fontSize: '0.8rem', color: 'text.secondary', fontStyle: 'italic' }}
                         >
                           Loading...
                         </Typography>
-                      ) : journalEntryRef ? (
-                        <Typography
-                          component="button"
-                          onClick={onNavigateToJournalEntry}
-                          sx={{
-                            fontSize: '0.8rem',
-                            color: 'primary.main',
-                            cursor: 'pointer',
-                            textDecoration: 'none',
-                            border: 'none',
-                            background: 'none',
-                            padding: 0,
-                          }}
-                        >
-                          {journalEntryRef.referenceNumber}
-                        </Typography>
+                      ) : journalEntryRefs.length > 0 ? (
+                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                          {journalEntryRefs.map((ref, index) => (
+                            <Box key={ref.referenceNumber} component="span">
+                              <Typography
+                                component="button"
+                                onClick={onNavigateToJournalEntries}
+                                sx={{
+                                  fontSize: '0.8rem',
+                                  color: 'primary.main',
+                                  cursor: 'pointer',
+                                  textDecoration: 'none',
+                                  border: 'none',
+                                  background: 'none',
+                                  padding: 0,
+                                }}
+                              >
+                                {ref.referenceNumber}
+                              </Typography>
+                              {index < journalEntryRefs.length - 1 && (
+                                <Typography component="span" sx={{ fontSize: '0.8rem' }}>
+                                  ,
+                                </Typography>
+                              )}
+                            </Box>
+                          ))}
+                        </Box>
                       ) : (
                         <Typography
                           sx={{ fontSize: '0.8rem', color: 'text.secondary', fontStyle: 'italic' }}

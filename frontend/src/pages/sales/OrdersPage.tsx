@@ -158,14 +158,14 @@ export const OrdersPage: React.FC = () => {
         <OrderContextHeader
           selectedOrder={selectedOrder}
           isLoading={workspace.isLoading}
-          journalEntryRef={workspace.journalEntryRef}
-          journalEntryRefLoading={workspace.journalEntryRefLoading}
+          journalEntryRefs={workspace.journalEntryRefs}
+          journalEntryRefsLoading={workspace.journalEntryRefsLoading}
           onEditOrder={workspace.handleEditOrder}
           onDeleteOrder={() => selectedOrder && void workspace.handleOrderAction('delete', selectedOrder.id)}
           onPrintOrder={() => workspace.setPrintDialogOpen(true)}
           onNavigateToInvoice={workspace.handleNavigateToInvoice}
           onNavigateToPayment={workspace.handleNavigateToPayment}
-          onNavigateToJournalEntry={workspace.navigateToJournalEntry}
+          onNavigateToJournalEntries={workspace.navigateToJournalEntries}
           onRefundOrder={workspace.handleRefundOrder}
           onUnpayOrder={workspace.handleUnpayOrder}
           onOpenPaymentDialog={workspace.openPaymentDialog}
