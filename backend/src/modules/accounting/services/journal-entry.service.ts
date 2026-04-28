@@ -914,6 +914,13 @@ export class JournalEntryService {
           });
           return record?.adjustmentNumber;
         }
+        case 'invoice': {
+          const record = await this.invoiceRepository.findOne({
+            where: { id: sourceId },
+            select: ['invoiceNumber'],
+          });
+          return record?.invoiceNumber;
+        }
         // settlement: no dedicated list page, source navigation not supported
         // opening_balance: synthetic entry with no source entity UUID
         default:
