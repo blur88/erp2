@@ -17,14 +17,13 @@ import { AppButton } from '@/components/common/AppButton'
 import { EntityContextHeaderBar } from '@/components/common/EntityContextHeaderBar'
 import { EntityStatusChip } from '@/components/common/EntityStatusChip'
 import { TABLE_STYLES } from '@/constants/tableStyles'
+import type { JournalEntryRef } from '@/hooks/useJournalEntryRef'
 import type { VendorPayment } from '@/types'
 import { formatCurrency, formatDate } from '@/utils/formatters'
 
-import type { VPJournalEntryRef } from '../hooks/useVendorPaymentsWorkspace'
-
 interface VendorPaymentContextHeaderProps {
   selectedPayment: VendorPayment | null
-  journalEntryRef: VPJournalEntryRef | null
+  journalEntryRefs: JournalEntryRef[]
   journalEntryRefLoading: boolean
   onPrint: () => void
   onNavigateToJournalEntry: () => void
@@ -46,7 +45,7 @@ const valueCellSx = { fontSize: '0.8rem' }
 
 const VendorPaymentContextHeader: React.FC<VendorPaymentContextHeaderProps> = ({
   selectedPayment,
-  journalEntryRef,
+  journalEntryRefs,
   journalEntryRefLoading,
   onPrint,
   onNavigateToJournalEntry,
@@ -85,7 +84,7 @@ const VendorPaymentContextHeader: React.FC<VendorPaymentContextHeaderProps> = ({
             Print
           </AppButton>
         }
-        journalEntryRef={journalEntryRef}
+        journalEntryRefs={journalEntryRefs}
         journalEntryRefLoading={journalEntryRefLoading}
         onNavigateToJournalEntry={onNavigateToJournalEntry}
       />
@@ -131,22 +130,29 @@ const VendorPaymentContextHeader: React.FC<VendorPaymentContextHeaderProps> = ({
                         <Typography sx={{ fontSize: '0.8rem', color: 'text.secondary', fontStyle: 'italic' }}>
                           Loading...
                         </Typography>
-                      ) : journalEntryRef ? (
-                        <Typography
-                          component="button"
-                          onClick={onNavigateToJournalEntry}
-                          sx={{
-                            fontSize: '0.8rem',
-                            color: 'primary.main',
-                            cursor: 'pointer',
-                            textDecoration: 'none',
-                            border: 'none',
-                            background: 'none',
-                            padding: 0,
-                          }}
-                        >
-                          {journalEntryRef.referenceNumber}
-                        </Typography>
+                      ) : journalEntryRefs.length > 0 ? (
+                        <>
+                          {journalEntryRefs.map((ref, index) => (
+                            <span key={ref.sourceId}>
+                              <Typography
+                                component="button"
+                                onClick={onNavigateToJournalEntry}
+                                sx={{
+                                  fontSize: '0.8rem',
+                                  color: 'primary.main',
+                                  cursor: 'pointer',
+                                  textDecoration: 'none',
+                                  border: 'none',
+                                  background: 'none',
+                                  padding: 0,
+                                }}
+                              >
+                                {ref.referenceNumber}
+                              </Typography>
+                              {index < journalEntryRefs.length - 1 && <span style={{ marginRight: 4 }}>,</span>}
+                            </span>
+                          ))}
+                        </>
                       ) : (
                         <Typography sx={{ fontSize: '0.8rem', color: 'text.secondary', fontStyle: 'italic' }}>
                           Pending

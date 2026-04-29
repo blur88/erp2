@@ -1,18 +1,12 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
-import { useJournalEntryRef } from '@/hooks/useJournalEntryRef'
+import { useJournalEntryRefs } from '@/hooks/useJournalEntryRefs'
 import { useEntityWorkspace } from '@/hooks/useEntityWorkspace'
 import type { AppDispatch } from '@/store'
 import { useLazyGetVendorPaymentQuery } from '@/store/api/purchasingApi'
 import { setSelectedVendorPayment } from '@/store/slices/purchasingSlice'
 import type { VendorPayment } from '@/types'
-
-export interface VPJournalEntryRef {
-  referenceNumber: string
-  sourceType: string
-  sourceId: string
-}
 
 export interface UseVendorPaymentsWorkspaceConfig {
   dispatch: AppDispatch
@@ -47,9 +41,26 @@ export function useVendorPaymentsWorkspace({
     deleteMutation: async () => {},
   })
 
-  const { journalEntryRef, journalEntryRefLoading } = useJournalEntryRef([
-    { sourceType: 'vendor_payment', sourceId: selectedPayment?.id },
-  ])
+  const vpSources = useMemo(
+    () => [
+      ...(selectedPayment?.purchaseOrder?.goodsReceivedNotes ?? []).map((grn: any) => ({
+        sourceType: 'goods_received_note' as const,
+        sourceId: grn.id as string,
+      })),
+      ...(selectedPayment?.purchaseOrder?.vendorPayments ?? []).map((payment: any) => ({
+        sourceType: 'vendor_payment' as const,
+        sourceId: payment.id as string,
+      })),
+    ],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [
+      (selectedPayment?.purchaseOrder?.goodsReceivedNotes ?? []).map((grn: any) => grn.id).join(','),
+      (selectedPayment?.purchaseOrder?.vendorPayments ?? []).map((payment: any) => payment.id).join(','),
+    ],
+  )
+
+  const { journalEntryRefs, journalEntryRefsLoading, navigateToJournalEntries } =
+    useJournalEntryRefs(vpSources)
 
   const handleSelect = async (payment: VendorPayment) => {
     workspace.handleSelect(payment)
@@ -69,7 +80,8 @@ export function useVendorPaymentsWorkspace({
     setDeletedPaymentsOpen,
     printDialogOpen,
     setPrintDialogOpen,
-    journalEntryRef,
-    journalEntryRefLoading,
+    journalEntryRefs,
+    journalEntryRefsLoading,
+    navigateToJournalEntries,
   }
 }

@@ -23,7 +23,7 @@ describe('GRNContextHeader', () => {
       <MemoryRouter>
         <GRNContextHeader
           selectedGRN={null}
-          journalEntryRef={null}
+          journalEntryRefs={[]}
           journalEntryRefLoading={false}
           onPrint={vi.fn()}
           onNavigateToJournalEntry={vi.fn()}
@@ -38,7 +38,7 @@ describe('GRNContextHeader', () => {
       <MemoryRouter>
         <GRNContextHeader
           selectedGRN={baseGRN}
-          journalEntryRef={null}
+          journalEntryRefs={[]}
           journalEntryRefLoading={false}
           onPrint={vi.fn()}
           onNavigateToJournalEntry={vi.fn()}
@@ -53,7 +53,7 @@ describe('GRNContextHeader', () => {
       <MemoryRouter>
         <GRNContextHeader
           selectedGRN={baseGRN}
-          journalEntryRef={null}
+          journalEntryRefs={[]}
           journalEntryRefLoading={false}
           onPrint={vi.fn()}
           onNavigateToJournalEntry={vi.fn()}
