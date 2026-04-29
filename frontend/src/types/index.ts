@@ -235,6 +235,12 @@ export interface SalesOrder {
     totalAmount: number;
     paidAmount: number;
   }[];
+  payments?: {
+    id: string;
+    paymentNumber: string;
+    amount: number;
+    paymentDate: Date | string;
+  }[];
 }
 
 export interface SalesOrderItem {
