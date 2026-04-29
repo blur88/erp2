@@ -27,7 +27,7 @@ describe('vite config in test mode', () => {
     })
   })
 
-  it('uses 1 Vitest worker with a 6144 MB heap cap in test mode', async () => {
+  it('uses 1 Vitest worker with a 4096 MB heap cap in test mode', async () => {
     const originalVitestEnv = process.env.VITEST
     delete process.env.VITEST
 
@@ -46,6 +46,6 @@ describe('vite config in test mode', () => {
       : viteConfig
 
     expect(config.test?.maxWorkers).toBe(1)
-    expect(config.test?.execArgv).toEqual(['--max-old-space-size=6144'])
+    expect(config.test?.execArgv).toEqual(['--max-old-space-size=4096'])
   })
 })
