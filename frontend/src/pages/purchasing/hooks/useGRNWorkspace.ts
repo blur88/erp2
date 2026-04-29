@@ -1,18 +1,12 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
-import { useJournalEntryRef } from '@/hooks/useJournalEntryRef'
+import { useJournalEntryRefs } from '@/hooks/useJournalEntryRefs'
 import { useEntityWorkspace } from '@/hooks/useEntityWorkspace'
 import type { AppDispatch } from '@/store'
 import { useLazyGetGoodsReceivedNoteQuery } from '@/store/api/purchasingApi'
 import { setSelectedGRN } from '@/store/slices/purchasingSlice'
 import type { GoodsReceivedNote } from '@/types'
-
-export interface GRNJournalEntryRef {
-  referenceNumber: string
-  sourceType: string
-  sourceId: string
-}
 
 export interface UseGRNWorkspaceConfig {
   dispatch: AppDispatch
@@ -49,9 +43,20 @@ export function useGRNWorkspace({
     deleteMutation: async () => {},
   })
 
-  const { journalEntryRef, journalEntryRefLoading } = useJournalEntryRef([
-    { sourceType: 'goods_received_note', sourceId: selectedGRN?.id },
-  ])
+  const grnSources = useMemo(
+    () => [
+      { sourceType: 'goods_received_note' as const, sourceId: selectedGRN?.id },
+      ...(selectedGRN?.purchaseOrder?.vendorPayments ?? []).map((payment: any) => ({
+        sourceType: 'vendor_payment' as const,
+        sourceId: payment.id as string,
+      })),
+    ],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [selectedGRN?.id, (selectedGRN?.purchaseOrder?.vendorPayments ?? []).map((payment: any) => payment.id).join(',')],
+  )
+
+  const { journalEntryRefs, journalEntryRefsLoading, navigateToJournalEntries } =
+    useJournalEntryRefs(grnSources)
 
   const handleSelect = async (grn: GoodsReceivedNote) => {
     workspace.handleSelect(grn)
@@ -71,7 +76,8 @@ export function useGRNWorkspace({
     setDeletedGRNsOpen,
     printDialogOpen,
     setPrintDialogOpen,
-    journalEntryRef,
-    journalEntryRefLoading,
+    journalEntryRefs,
+    journalEntryRefsLoading,
+    navigateToJournalEntries,
   }
 }
