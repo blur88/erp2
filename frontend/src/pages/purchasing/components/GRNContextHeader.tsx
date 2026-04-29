@@ -64,7 +64,7 @@ const GRNContextHeader: React.FC<GRNContextHeaderProps> = ({
 
   const handleNavigateToPO = () => {
     if (selectedGRN.purchaseOrder?.id) {
-      navigate(`/purchasing/purchase-orders?poId=${selectedGRN.purchaseOrder.id}`)
+      navigate(`/purchasing/orders?poId=${selectedGRN.purchaseOrder.id}`)
     }
   }
 

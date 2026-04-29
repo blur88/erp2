@@ -64,7 +64,7 @@ const VendorPaymentContextHeader: React.FC<VendorPaymentContextHeaderProps> = ({
 
   const handleNavigateToPO = () => {
     if (selectedPayment.purchaseOrder?.id) {
-      navigate(`/purchasing/purchase-orders?poId=${selectedPayment.purchaseOrder.id}`)
+      navigate(`/purchasing/orders?poId=${selectedPayment.purchaseOrder.id}`)
     }
   }
 
