@@ -150,12 +150,13 @@ export function usePurchaseOrdersWorkspace({
       showError('No items to receive in this order')
       return
     }
-    if (selectedOrder.goodsReceivedNotes && selectedOrder.goodsReceivedNotes.length > 0) {
-      const grn = selectedOrder.goodsReceivedNotes[0]
-      if (grn.status !== 'draft') {
-        showError('GRN must be in draft status to receive goods')
-        return
-      }
+    if (
+      selectedOrder.goodsReceivedNotes &&
+      selectedOrder.goodsReceivedNotes.length > 0 &&
+      selectedOrder.goodsReceivedNotes[0].status !== 'draft'
+    ) {
+      showError('Goods have already been received for this order')
+      return
     }
     try {
       const response = await receiveGoods(selectedOrder.id).unwrap()
@@ -164,7 +165,8 @@ export function usePurchaseOrdersWorkspace({
       if (updatedOrder) dispatch(setSelectedPurchaseOrder(updatedOrder))
       refetchOrders()
     } catch (error: any) {
-      showError(error?.response?.data?.message || 'Failed to receive goods')
+      const message = error?.data?.message || error?.message || 'Failed to receive goods'
+      showError(message)
     }
   }, [dispatch, receiveGoods, refetchOrders, selectedOrder, showError, showSuccess])
 
@@ -189,7 +191,7 @@ export function usePurchaseOrdersWorkspace({
       if (updatedOrder) dispatch(setSelectedPurchaseOrder(updatedOrder))
       refetchOrders()
     } catch (error: any) {
-      showError(error?.response?.data?.message || 'Failed to return goods')
+      showError(error?.data?.message || error?.message || 'Failed to return goods')
     }
   }, [dispatch, refetchOrders, returnGoods, selectedOrder, showError, showSuccess])
 
@@ -220,7 +222,7 @@ export function usePurchaseOrdersWorkspace({
       refetchOrders()
       navigate(`/purchasing/orders/${selectedOrder.id}/edit`)
     } catch (error: any) {
-      showError(error?.response?.data?.message || 'Failed to return goods')
+      showError(error?.data?.message || error?.message || 'Failed to return goods')
     } finally {
       setIsLoading(false)
     }
@@ -237,7 +239,7 @@ export function usePurchaseOrdersWorkspace({
       setBlockedDialogOpen(false)
       refetchOrders()
     } catch (error: any) {
-      showError(error?.response?.data?.message || 'Failed to return goods')
+      showError(error?.data?.message || error?.message || 'Failed to return goods')
     } finally {
       setIsLoading(false)
     }
@@ -273,7 +275,7 @@ export function usePurchaseOrdersWorkspace({
       refetchOrders()
       navigate(`/purchasing/orders/${selectedOrder.id}/edit`)
     } catch (error: any) {
-      showError(error?.response?.data?.message || 'Failed to prepare order for editing')
+      showError(error?.data?.message || error?.message || 'Failed to prepare order for editing')
     } finally {
       setIsLoading(false)
     }
@@ -299,7 +301,7 @@ export function usePurchaseOrdersWorkspace({
       selectAfterDelete(selectedOrder.id)
       refetchOrders()
     } catch (error: any) {
-      showError(error?.response?.data?.message || 'Failed to return and delete order')
+      showError(error?.data?.message || error?.message || 'Failed to return and delete order')
     } finally {
       setIsLoading(false)
     }
@@ -333,7 +335,7 @@ export function usePurchaseOrdersWorkspace({
       selectAfterDelete(selectedOrder.id)
       refetchOrders()
     } catch (error: any) {
-      showError(error?.response?.data?.message || 'Failed to prepare and delete order')
+      showError(error?.data?.message || error?.message || 'Failed to prepare and delete order')
     } finally {
       setIsLoading(false)
     }
@@ -369,7 +371,7 @@ export function usePurchaseOrdersWorkspace({
       if (error?.response?.status === 404) {
         showError('No payment found for this purchase order')
       } else {
-        showError(error?.response?.data?.message || 'Failed to delete payment')
+        showError(error?.data?.message || error?.message || 'Failed to delete payment')
       }
     } finally {
       setIsLoading(false)
@@ -424,7 +426,7 @@ export function usePurchaseOrdersWorkspace({
         selectAfterDelete(order.id)
         refetchOrders()
       } catch (error: any) {
-        showError(error?.response?.data?.message || 'Failed to delete purchase order')
+        showError(error?.data?.message || error?.message || 'Failed to delete purchase order')
       }
     },
     [deletePurchaseOrder, refetchOrders, selectAfterDelete, showError, showSuccess],
