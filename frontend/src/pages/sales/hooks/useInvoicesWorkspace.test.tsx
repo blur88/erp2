@@ -151,12 +151,30 @@ describe('useInvoicesWorkspace', () => {
     })
   })
 
-  it('does not fetch sales_order JEs directly from invoice', async () => {
-    renderInvoicesWorkspace('/sales/invoices')
+  it('does not fetch sales_order JEs using the invoice salesOrder.id directly — only via fullOrder', async () => {
+    const { result, syncSelectedInvoice } = renderInvoicesWorkspace('/sales/invoices')
 
-    await new Promise((r) => setTimeout(r, 50))
-    expect(fetchJournalEntries).not.toHaveBeenCalledWith(
-      expect.objectContaining({ sourceType: 'sales_order', sourceId: 'order-inv-1' }),
+    await act(async () => {
+      result.current.handleInvoiceSelect(makeInvoice('inv-1'))
+    })
+    syncSelectedInvoice()
+
+    // wait for the full order to load and payment JE fetch to fire
+    await waitFor(() => {
+      expect(triggerGetSalesOrder).toHaveBeenCalledWith('order-inv-1')
+    })
+    await waitFor(() => {
+      expect(fetchJournalEntries).toHaveBeenCalledWith(
+        expect.objectContaining({ sourceType: 'payment' }),
+      )
+    })
+
+    // the sales_order JE fetch must go through fullOrder (sourceId = fullOrder.id = 'order-inv-1')
+    // not hardcoded from selectedInvoice.salesOrder.id — both happen to be the same value,
+    // but the call must only happen once (via fullOrder path, not also via a direct invoice path)
+    const salesOrderCalls = (fetchJournalEntries as ReturnType<typeof vi.fn>).mock.calls.filter(
+      (call: any[]) => call[0]?.sourceType === 'sales_order',
     )
+    expect(salesOrderCalls).toHaveLength(1)
   })
 })

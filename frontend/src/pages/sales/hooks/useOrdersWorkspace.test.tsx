@@ -163,7 +163,7 @@ describe('useOrdersWorkspace', () => {
     })
   })
 
-  it('does not fetch invoice JEs', async () => {
+  it('does not fetch invoice JEs even when order has invoices and is fulfilled', async () => {
     const store = configureStore({ reducer: { sales: salesReducer } })
     const wrapper = ({ children }: PropsWithChildren) => (
       <Provider store={store}>
@@ -171,19 +171,34 @@ describe('useOrdersWorkspace', () => {
       </Provider>
     )
 
+    // fulfilled order with invoices but no payments — ensures the invoice path is gone
+    // even when there is something to fetch
+    const selectedOrder = {
+      ...makeOrder('ord-1'),
+      isFulfilled: true,
+      invoices: [{ id: 'inv-1', invoiceNumber: 'INV-001' }],
+      payments: [],
+    }
+
     renderHook(
       () =>
         useOrdersWorkspace({
           dispatch: store.dispatch,
           getState: () => store.getState() as any,
-          orders: [makeOrder('ord-1') as any],
-          selectedOrder: { ...makeOrder('ord-1'), invoices: [{ id: 'inv-1', invoiceNumber: 'INV-001' }] } as any,
+          orders: [selectedOrder as any],
+          selectedOrder: selectedOrder as any,
           refetchOrders: vi.fn(),
         }),
       { wrapper },
     )
 
-    await new Promise((r) => setTimeout(r, 50))
+    // wait for the sales_order JE fetch to fire (proving the hook is active)
+    await waitFor(() => {
+      expect(fetchJournalEntries).toHaveBeenCalledWith(
+        expect.objectContaining({ sourceType: 'sales_order', sourceId: 'ord-1' }),
+      )
+    })
+
     expect(fetchJournalEntries).not.toHaveBeenCalledWith(
       expect.objectContaining({ sourceType: 'invoice' }),
     )
