@@ -101,6 +101,15 @@ export function mapSalesOrderToResponseDto(order: SalesOrder): SalesOrderRespons
               : undefined,
           })) || [],
       })) || [],
+    payments: (order.invoices ?? []).flatMap(
+      (invoice) =>
+        (invoice.payments ?? []).map((payment) => ({
+          id: payment.id,
+          paymentNumber: payment.paymentNumber,
+          amount: Number(payment.amount),
+          paymentDate: payment.paymentDate,
+        })),
+    ),
     createdAt: order.createdAt,
     updatedAt: order.updatedAt,
     deletedAt: order.deletedAt,

@@ -300,6 +300,14 @@ export class SalesOrderResponseDto {
     totalAmount: number;
     paidAmount: number;
   }[];
+
+  @ApiProperty({ type: 'array', items: { type: 'object' } })
+  payments: {
+    id: string;
+    paymentNumber: string;
+    amount: number;
+    paymentDate: Date | string;
+  }[];
 }
 
 export class SalesOrderSummaryDto {
