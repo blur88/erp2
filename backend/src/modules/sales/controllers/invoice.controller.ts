@@ -27,12 +27,14 @@ import {
   InvoiceResponseDto,
   InvoiceSummaryDto,
   SendInvoiceDto,
+  BatchSendInvoicesDto,
   InvoicePaymentAllocationDto,
   VoidInvoiceDto,
 } from '../dto/invoice.dto';
 import { UserRole } from '../../../database/entities/user.entity';
 import { Auth } from '../../auth/decorators/auth.decorator';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
+import { DateRangeQueryDto } from '../../../common/dto/report-date-query.dto';
 
 @ApiTags('Invoices')
 @Controller('invoices')
@@ -319,8 +321,8 @@ export class InvoiceController {
     description: 'Batch send completed',
   })
   @ApiResponse({ status: 400, description: 'Invalid invoice IDs provided' })
-  async batchSendInvoices(@Body('invoiceIds') invoiceIds: string[]) {
-    return this.invoiceService.batchSendInvoices(invoiceIds);
+  async batchSendInvoices(@Body() dto: BatchSendInvoicesDto) {
+    return this.invoiceService.batchSendInvoices(dto.invoiceIds);
   }
 
   @Get('stats/revenue')
@@ -329,11 +331,8 @@ export class InvoiceController {
     status: 200,
     description: 'Revenue statistics retrieved successfully',
   })
-  async getRevenueStats(
-    @Query('fromDate') fromDate?: string,
-    @Query('toDate') toDate?: string,
-  ) {
-    return this.invoiceService.getRevenueStatistics(fromDate, toDate);
+  async getRevenueStats(@Query() query: DateRangeQueryDto) {
+    return this.invoiceService.getRevenueStatistics(query.fromDate, query.toDate);
   }
 
   @Post(':id/restore')

@@ -30,6 +30,7 @@ import {
 import { UserRole } from '../../../database/entities/user.entity';
 import { Auth } from '../../auth/decorators/auth.decorator';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
+import { PaymentStatisticsQueryDto } from '../../../common/dto/report-date-query.dto';
 
 @ApiTags('Payments')
 @Controller('payments')
@@ -240,15 +241,11 @@ export class PaymentController {
     status: 200,
     description: 'Payment statistics retrieved successfully',
   })
-  async getPaymentStatistics(
-    @Query('customerId') customerId?: string,
-    @Query('fromDate') fromDate?: string,
-    @Query('toDate') toDate?: string,
-  ) {
-    const fromDateObj = fromDate ? new Date(fromDate) : undefined;
-    const toDateObj = toDate ? new Date(toDate) : undefined;
+  async getPaymentStatistics(@Query() query: PaymentStatisticsQueryDto) {
+    const fromDateObj = query.fromDate ? new Date(query.fromDate) : undefined;
+    const toDateObj = query.toDate ? new Date(query.toDate) : undefined;
 
-    return this.paymentService.getPaymentStatistics(customerId, fromDateObj, toDateObj);
+    return this.paymentService.getPaymentStatistics(query.customerId, fromDateObj, toDateObj);
   }
 
   @Post(':id/restore')
