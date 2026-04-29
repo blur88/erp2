@@ -113,7 +113,7 @@ export default defineConfig(({ mode }) => {
       setupFiles: ['./src/test/setup.ts', './src/setupTests.ts'],
       api: false,
       maxWorkers: 2,
-      execArgv: ['--max-old-space-size=5120'],
+      execArgv: ['--max-old-space-size=1536'],
       testTimeout: 30000,
     },
   }
