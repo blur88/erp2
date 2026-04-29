@@ -649,7 +649,7 @@ describe('JournalEntryService', () => {
       expect(result.sourceRefNumber).toBe('INV-0042');
       expect(mockInvoiceRepo.findOne).toHaveBeenCalledWith({
         where: { id: 'invoice-1' },
-        select: ['invoiceNumber'],
+        select: ['id', 'invoiceNumber'],
       });
     });
 

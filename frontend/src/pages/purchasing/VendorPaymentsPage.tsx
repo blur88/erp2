@@ -102,7 +102,7 @@ const VendorPaymentsPage: React.FC = () => {
 
   const navigateToJournalEntry = useCallback(() => {
     workspace.navigateToJournalEntries()
-  }, [workspace])
+  }, [workspace.navigateToJournalEntries])
 
   return (
     <GenericListPage

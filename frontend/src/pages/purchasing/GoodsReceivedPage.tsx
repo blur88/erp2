@@ -104,7 +104,7 @@ export const GoodsReceivedPage: React.FC = () => {
 
   const navigateToJournalEntry = useCallback(() => {
     workspace.navigateToJournalEntries()
-  }, [workspace])
+  }, [workspace.navigateToJournalEntries])
 
   return (
     <GenericListPage
