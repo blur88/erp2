@@ -16,6 +16,7 @@ import { Response } from 'express';
 import { AccountingReportsService } from '../services/accounting-reports.service';
 import { JournalEntryStatus } from '../../../database/entities/journal-entry.entity';
 import { Auth } from '../../auth/decorators/auth.decorator';
+import { AsOfDateQueryDto } from '../../../common/dto/report-date-query.dto';
 
 @ApiTags('Accounting Reports')
 @Controller('accounting/reports')
@@ -57,10 +58,10 @@ export class AccountingReportsController {
     description: 'Invalid date or date is in the future',
   })
   async getTrialBalance(
-    @Query('asOfDate') asOfDate?: string,
+    @Query() query: AsOfDateQueryDto,
     @Query('includeInactive') includeInactive?: string,
   ) {
-    const date = asOfDate ? new Date(asOfDate) : new Date();
+    const date = query.asOfDate ? new Date(query.asOfDate) : new Date();
     const includeInactiveBool = includeInactive === 'true';
 
     if (isNaN(date.getTime())) {
@@ -107,10 +108,10 @@ export class AccountingReportsController {
   })
   async exportTrialBalance(
     @Res() res: Response,
-    @Query('asOfDate') asOfDate?: string,
+    @Query() query: AsOfDateQueryDto,
     @Query('includeInactive') includeInactive?: string,
   ) {
-    const date = asOfDate ? new Date(asOfDate) : new Date();
+    const date = query.asOfDate ? new Date(query.asOfDate) : new Date();
     const includeInactiveBool = includeInactive === 'true';
 
     if (isNaN(date.getTime())) {
@@ -169,10 +170,10 @@ export class AccountingReportsController {
     description: 'Invalid date or date is in the future',
   })
   async getBalanceSheet(
-    @Query('asOfDate') asOfDate?: string,
+    @Query() query: AsOfDateQueryDto,
     @Query('includeInactive') includeInactive?: string,
   ) {
-    const date = asOfDate ? new Date(asOfDate) : new Date();
+    const date = query.asOfDate ? new Date(query.asOfDate) : new Date();
     const includeInactiveBool = includeInactive === 'true';
 
     if (isNaN(date.getTime())) {
@@ -219,10 +220,10 @@ export class AccountingReportsController {
   })
   async exportBalanceSheet(
     @Res() res: Response,
-    @Query('asOfDate') asOfDate?: string,
+    @Query() query: AsOfDateQueryDto,
     @Query('includeInactive') includeInactive?: string,
   ) {
-    const date = asOfDate ? new Date(asOfDate) : new Date();
+    const date = query.asOfDate ? new Date(query.asOfDate) : new Date();
     const includeInactiveBool = includeInactive === 'true';
 
     if (isNaN(date.getTime())) {
