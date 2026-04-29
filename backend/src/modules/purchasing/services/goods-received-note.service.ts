@@ -298,7 +298,7 @@ export class GoodsReceivedNoteService extends BaseCrudService<
 
     const grn = await this.grnRepository.findOne({
       where: { id },
-      relations: ['supplier', 'purchaseOrder', 'items', 'items.product'],
+      relations: ['supplier', 'purchaseOrder', 'purchaseOrder.vendorPayments', 'items', 'items.product'],
     });
 
     if (!grn) {
