@@ -19,6 +19,14 @@ Every page shows the full transaction JE set:
 
 Clicking "View Journal Entries" navigates to `/accounting/journal-entries?ids=je1,je2,...` showing all JEs together. This navigation already works for multiple JEs.
 
+## Bug Fix (already applied)
+
+### `resolveSourceRefNumber` — TypeORM partial select bug
+
+All `findOne` calls in `resolveSourceRefNumber` used `select: ['fieldName']` without including `'id'`. For certain entity names (e.g. `Payment`, `VendorPayment`, `GoodsReceivedNote`) TypeORM generates a broken SQL alias (`column distinctAlias.Payment_id does not exist`). The `try/catch` silently swallowed this, causing `sourceRefNumber` to be `undefined` for all non-`sales_order` JEs.
+
+**Fix**: add `'id'` to the `select` array for all source types in `resolveSourceRefNumber`. Already applied and deployed.
+
 ## Backend Changes
 
 ### Sales Order DTO — add `payments` field

@@ -862,70 +862,70 @@ export class JournalEntryService {
         case 'sales_order': {
           const record = await this.salesOrderRepository.findOne({
             where: { id: sourceId },
-            select: ['orderNumber'],
+            select: ['id', 'orderNumber'],
           });
           return record?.orderNumber;
         }
         case 'purchase_order': {
           const record = await this.purchaseOrderRepository.findOne({
             where: { id: sourceId },
-            select: ['orderNumber'],
+            select: ['id', 'orderNumber'],
           });
           return record?.orderNumber;
         }
         case 'payment': {
           const record = await this.paymentRepository.findOne({
             where: { id: sourceId },
-            select: ['paymentNumber'],
+            select: ['id', 'paymentNumber'],
           });
           return record?.paymentNumber;
         }
         case 'goods_received_note': {
           const record = await this.grnRepository.findOne({
             where: { id: sourceId },
-            select: ['grnNumber'],
+            select: ['id', 'grnNumber'],
           });
           return record?.grnNumber;
         }
         case 'vendor_payment': {
           const record = await this.vendorPaymentRepository.findOne({
             where: { id: sourceId },
-            select: ['paymentNumber'],
+            select: ['id', 'paymentNumber'],
           });
           return record?.paymentNumber;
         }
         case 'expense': {
           const record = await this.expenseRepository.findOne({
             where: { id: sourceId },
-            select: ['referenceNumber'],
+            select: ['id', 'referenceNumber'],
           });
           return record?.referenceNumber;
         }
         case 'owner_equity_transaction': {
           const record = await this.ownerEquityTransactionRepository.findOne({
             where: { id: sourceId },
-            select: ['referenceNumber'],
+            select: ['id', 'referenceNumber'],
           });
           return record?.referenceNumber;
         }
         case 'fund_transfer': {
           const record = await this.fundTransferRepository.findOne({
             where: { id: sourceId },
-            select: ['referenceNumber'],
+            select: ['id', 'referenceNumber'],
           });
           return record?.referenceNumber;
         }
         case 'stock_adjustment': {
           const record = await this.stockAdjustmentRepository.findOne({
             where: { id: sourceId },
-            select: ['adjustmentNumber'],
+            select: ['id', 'adjustmentNumber'],
           });
           return record?.adjustmentNumber;
         }
         case 'invoice': {
           const record = await this.invoiceRepository.findOne({
             where: { id: sourceId },
-            select: ['invoiceNumber'],
+            select: ['id', 'invoiceNumber'],
           });
           return record?.invoiceNumber;
         }
