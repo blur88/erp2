@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 
-import { useJournalEntryRef } from '@/hooks/useJournalEntryRef'
+import { useJournalEntryRefs } from '@/hooks/useJournalEntryRefs'
 import { useEntityWorkspace } from '@/hooks/useEntityWorkspace'
 import { useNotification } from '@/hooks/useNotification'
 import type { AppDispatch } from '@/store'
@@ -22,12 +22,6 @@ import type { PurchaseOrder } from '@/types'
 export interface PurchaseOrdersSorting {
   sortBy: string
   sortOrder: 'asc' | 'desc'
-}
-
-export interface PurchaseJournalEntryRef {
-  referenceNumber: string
-  sourceType: string
-  sourceId: string
 }
 
 export interface UsePurchaseOrdersWorkspaceConfig {
@@ -115,8 +109,8 @@ export function usePurchaseOrdersWorkspace({
     })),
   ]
 
-  const { journalEntryRef, journalEntryRefLoading, navigateToJournalEntry } =
-    useJournalEntryRef(journalSources)
+  const { journalEntryRefs, journalEntryRefsLoading, navigateToJournalEntries } =
+    useJournalEntryRefs(journalSources)
 
   const handleOrderSelect = useCallback(
     async (order: PurchaseOrder) => {
@@ -469,8 +463,8 @@ export function usePurchaseOrdersWorkspace({
     paymentDialogOpen,
     setPaymentDialogOpen,
     paymentDialogOrder,
-    journalEntryRef,
-    journalEntryRefLoading,
+    journalEntryRefs,
+    journalEntryRefsLoading,
     handleOrderSelect,
     handleReceive,
     handleReturn,
@@ -487,6 +481,6 @@ export function usePurchaseOrdersWorkspace({
     handleDeleteConfirm,
     navigateToGoodsReceived,
     navigateToVendorPayment,
-    navigateToJournalEntry,
+    navigateToJournalEntries,
   }
 }

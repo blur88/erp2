@@ -76,8 +76,8 @@ vi.mock('../hooks/usePurchaseOrdersWorkspace', () => ({
     paymentDialogOpen: false,
     setPaymentDialogOpen: vi.fn(),
     paymentDialogOrder: null,
-    journalEntryRef: null,
-    journalEntryRefLoading: false,
+    journalEntryRefs: [],
+    journalEntryRefsLoading: false,
     orderListRef: { current: null },
     searchInputRef: { current: null },
     handleOrderSelect: vi.fn(),
@@ -99,7 +99,7 @@ vi.mock('../hooks/usePurchaseOrdersWorkspace', () => ({
     handleDeleteConfirm: vi.fn(),
     navigateToGoodsReceived: vi.fn(),
     navigateToVendorPayment: vi.fn(),
-    navigateToJournalEntry: vi.fn(),
+    navigateToJournalEntries: vi.fn(),
   }),
 }))
 

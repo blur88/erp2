@@ -22,7 +22,7 @@ const baseOrder = {
 const defaultProps = {
   selectedOrder: baseOrder,
   isLoading: false,
-  journalEntryRef: null,
+  journalEntryRefs: [],
   journalEntryRefLoading: false,
   onEditClick: vi.fn(),
   onDeleteClick: vi.fn(),
