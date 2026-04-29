@@ -13,6 +13,17 @@ const navigateSpy = vi.fn()
 const fetchJournalEntries = vi.fn(() => ({
   unwrap: vi.fn().mockResolvedValue({ data: [] }),
 }))
+const triggerGetSalesOrder = vi.fn((id: string) => ({
+  unwrap: vi.fn().mockResolvedValue({
+    id,
+    orderNumber: `SO-${id}`,
+    isFulfilled: true,
+    payments: [
+      { id: `pay-${id}`, paymentNumber: 'PAY-001', amount: 100, paymentDate: '2026-04-01' },
+    ],
+    invoices: [],
+  }),
+}))
 
 vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual<typeof import('react-router-dom')>('react-router-dom')
@@ -25,6 +36,10 @@ vi.mock('react-router-dom', async () => {
 
 vi.mock('@/store/api/accountingApi', () => ({
   useLazyGetJournalEntriesQuery: () => [fetchJournalEntries],
+}))
+
+vi.mock('@/store/api/salesApi', () => ({
+  useLazyGetSalesOrderQuery: () => [triggerGetSalesOrder],
 }))
 
 const makeInvoice = (id: string): InvoiceListItem => ({
@@ -106,5 +121,42 @@ describe('useInvoicesWorkspace', () => {
     })
 
     expect(navigateSpy).not.toHaveBeenCalled()
+  })
+
+  it('fetches the full sales order when an invoice is selected', async () => {
+    const { result, syncSelectedInvoice } = renderInvoicesWorkspace('/sales/invoices')
+
+    await act(async () => {
+      result.current.handleInvoiceSelect(makeInvoice('inv-1'))
+    })
+    syncSelectedInvoice()
+
+    await waitFor(() => {
+      expect(triggerGetSalesOrder).toHaveBeenCalledWith('order-inv-1')
+    })
+  })
+
+  it('fetches payment JEs from the full order', async () => {
+    const { result, syncSelectedInvoice } = renderInvoicesWorkspace('/sales/invoices')
+
+    await act(async () => {
+      result.current.handleInvoiceSelect(makeInvoice('inv-1'))
+    })
+    syncSelectedInvoice()
+
+    await waitFor(() => {
+      expect(fetchJournalEntries).toHaveBeenCalledWith(
+        expect.objectContaining({ sourceType: 'payment', sourceId: 'pay-order-inv-1' }),
+      )
+    })
+  })
+
+  it('does not fetch sales_order JEs directly from invoice', async () => {
+    renderInvoicesWorkspace('/sales/invoices')
+
+    await new Promise((r) => setTimeout(r, 50))
+    expect(fetchJournalEntries).not.toHaveBeenCalledWith(
+      expect.objectContaining({ sourceType: 'sales_order', sourceId: 'order-inv-1' }),
+    )
   })
 })
