@@ -21,4 +21,16 @@ describe('InvoiceController', () => {
 
     expect(invoiceService.batchSendInvoices).toHaveBeenCalledWith(invoiceIds);
   });
+
+  it('passes validated revenue stats dates to getRevenueStatistics', async () => {
+    await controller.getRevenueStats({
+      fromDate: '2026-01-01',
+      toDate: '2026-01-31',
+    });
+
+    expect(invoiceService.getRevenueStatistics).toHaveBeenCalledWith(
+      '2026-01-01',
+      '2026-01-31',
+    );
+  });
 });
