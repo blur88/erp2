@@ -27,6 +27,7 @@ import {
   InvoiceResponseDto,
   InvoiceSummaryDto,
   SendInvoiceDto,
+  BatchSendInvoicesDto,
   InvoicePaymentAllocationDto,
   VoidInvoiceDto,
 } from '../dto/invoice.dto';
@@ -319,8 +320,8 @@ export class InvoiceController {
     description: 'Batch send completed',
   })
   @ApiResponse({ status: 400, description: 'Invalid invoice IDs provided' })
-  async batchSendInvoices(@Body('invoiceIds') invoiceIds: string[]) {
-    return this.invoiceService.batchSendInvoices(invoiceIds);
+  async batchSendInvoices(@Body() dto: BatchSendInvoicesDto) {
+    return this.invoiceService.batchSendInvoices(dto.invoiceIds);
   }
 
   @Get('stats/revenue')
