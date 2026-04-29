@@ -151,7 +151,7 @@ export function usePurchaseOrdersWorkspace({
     // Always fetch fresh order data before receiving to avoid acting on stale GRN status
     let currentOrder = selectedOrder
     try {
-      currentOrder = await fetchPurchaseOrder(selectedOrder.id).unwrap()
+      currentOrder = await fetchPurchaseOrder(selectedOrder.id, false).unwrap()
       dispatch(setSelectedPurchaseOrder(currentOrder))
       dispatch(updatePurchaseOrderInPlace(currentOrder))
     } catch {
