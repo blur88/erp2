@@ -109,7 +109,7 @@ export function usePurchaseOrdersWorkspace({
     })),
   ]
 
-  const { journalEntryRefs, journalEntryRefsLoading, navigateToJournalEntries } =
+  const { journalEntryRefs, journalEntryRefsLoading, navigateToJournalEntries, refetchRefs } =
     useJournalEntryRefs(journalSources)
 
   const handleOrderSelect = useCallback(
@@ -176,11 +176,12 @@ export function usePurchaseOrdersWorkspace({
       const updatedOrder = (response as any).data || response
       if (updatedOrder) dispatch(setSelectedPurchaseOrder(updatedOrder))
       refetchOrders()
+      refetchRefs()
     } catch (error: any) {
       const message = error?.data?.message || error?.message || 'Failed to receive goods'
       showError(message)
     }
-  }, [dispatch, fetchPurchaseOrder, receiveGoods, refetchOrders, selectedOrder, showError, showSuccess])
+  }, [dispatch, fetchPurchaseOrder, receiveGoods, refetchOrders, refetchRefs, selectedOrder, showError, showSuccess])
 
   const handleReturn = useCallback(async () => {
     if (
@@ -202,10 +203,11 @@ export function usePurchaseOrdersWorkspace({
       const updatedOrder = (response as any).data || response
       if (updatedOrder) dispatch(setSelectedPurchaseOrder(updatedOrder))
       refetchOrders()
+      refetchRefs()
     } catch (error: any) {
       showError(error?.data?.message || error?.message || 'Failed to return goods')
     }
-  }, [dispatch, refetchOrders, returnGoods, selectedOrder, showError, showSuccess])
+  }, [dispatch, refetchOrders, refetchRefs, returnGoods, selectedOrder, showError, showSuccess])
 
   const handleEditClick = useCallback(() => {
     if (!selectedOrder) return

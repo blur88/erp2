@@ -14,11 +14,13 @@ export function useJournalEntryRefs(
   journalEntryRefs: JournalEntryRef[]
   journalEntryRefsLoading: boolean
   navigateToJournalEntries: () => void
+  refetchRefs: () => void
 } {
   const navigate = useNavigate()
   const [fetchJournalEntries] = useLazyGetJournalEntriesQuery()
   const [journalEntryRefs, setJournalEntryRefs] = useState<JournalEntryRefWithId[]>([])
   const [journalEntryRefsLoading, setJournalEntryRefsLoading] = useState(false)
+  const [fetchCounter, setFetchCounter] = useState(0)
 
   const validSources = sources.filter(
     (s): s is { sourceType: string; sourceId: string } => Boolean(s.sourceId),
@@ -69,7 +71,9 @@ export function useJournalEntryRefs(
       cancelled = true
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fetchJournalEntries, sourcesKey])
+  }, [fetchJournalEntries, sourcesKey, fetchCounter])
+
+  const refetchRefs = useCallback(() => setFetchCounter((c) => c + 1), [])
 
   const navigateToJournalEntries = useCallback(() => {
     if (journalEntryRefs.length === 0) return
@@ -85,5 +89,5 @@ export function useJournalEntryRefs(
     navigate(`/accounting/journal-entries?ids=${ids}`)
   }, [journalEntryRefs, navigate])
 
-  return { journalEntryRefs, journalEntryRefsLoading, navigateToJournalEntries }
+  return { journalEntryRefs, journalEntryRefsLoading, navigateToJournalEntries, refetchRefs }
 }
