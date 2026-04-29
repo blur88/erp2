@@ -1,5 +1,4 @@
 import React, { useCallback, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 
 import GenericListPage from '@/components/common/GenericListPage'
 import { useFilterBar } from '@/hooks/useFilterBar'
@@ -28,7 +27,6 @@ interface GRNSortingState {
 }
 
 export const GoodsReceivedPage: React.FC = () => {
-  const navigate = useNavigate()
   const dispatch = useAppDispatch()
   const [sorting, setSorting] = useState<GRNSortingState>({
     sortBy: 'grnNumber',
@@ -105,11 +103,8 @@ export const GoodsReceivedPage: React.FC = () => {
   }, [])
 
   const navigateToJournalEntry = useCallback(() => {
-    if (!workspace.journalEntryRef) return
-    navigate(
-      `/accounting/journal-entries?sourceType=${workspace.journalEntryRef.sourceType}&sourceId=${workspace.journalEntryRef.sourceId}`,
-    )
-  }, [navigate, workspace.journalEntryRef])
+    workspace.navigateToJournalEntries()
+  }, [workspace.navigateToJournalEntries])
 
   return (
     <GenericListPage
@@ -142,8 +137,8 @@ export const GoodsReceivedPage: React.FC = () => {
       headerSlot={(
         <GRNContextHeader
           selectedGRN={selectedGRN}
-          journalEntryRef={workspace.journalEntryRef}
-          journalEntryRefLoading={workspace.journalEntryRefLoading}
+          journalEntryRefs={workspace.journalEntryRefs}
+          journalEntryRefLoading={workspace.journalEntryRefsLoading}
           onPrint={() => workspace.setPrintDialogOpen(true)}
           onNavigateToJournalEntry={navigateToJournalEntry}
         />

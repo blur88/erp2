@@ -13,6 +13,17 @@ const navigateSpy = vi.fn()
 const fetchJournalEntries = vi.fn(() => ({
   unwrap: vi.fn().mockResolvedValue({ data: [] }),
 }))
+const triggerGetSalesOrder = vi.fn((id: string) => ({
+  unwrap: vi.fn().mockResolvedValue({
+    id,
+    orderNumber: `SO-${id}`,
+    isFulfilled: true,
+    payments: [
+      { id: `pay-${id}`, paymentNumber: 'PAY-001', amount: 100, paymentDate: '2026-04-01' },
+    ],
+    invoices: [],
+  }),
+}))
 
 vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual<typeof import('react-router-dom')>('react-router-dom')
@@ -25,6 +36,10 @@ vi.mock('react-router-dom', async () => {
 
 vi.mock('@/store/api/accountingApi', () => ({
   useLazyGetJournalEntriesQuery: () => [fetchJournalEntries],
+}))
+
+vi.mock('@/store/api/salesApi', () => ({
+  useLazyGetSalesOrderQuery: () => [triggerGetSalesOrder],
 }))
 
 const makeInvoice = (id: string): InvoiceListItem => ({
@@ -106,5 +121,60 @@ describe('useInvoicesWorkspace', () => {
     })
 
     expect(navigateSpy).not.toHaveBeenCalled()
+  })
+
+  it('fetches the full sales order when an invoice is selected', async () => {
+    const { result, syncSelectedInvoice } = renderInvoicesWorkspace('/sales/invoices')
+
+    await act(async () => {
+      result.current.handleInvoiceSelect(makeInvoice('inv-1'))
+    })
+    syncSelectedInvoice()
+
+    await waitFor(() => {
+      expect(triggerGetSalesOrder).toHaveBeenCalledWith('order-inv-1')
+    })
+  })
+
+  it('fetches payment JEs from the full order', async () => {
+    const { result, syncSelectedInvoice } = renderInvoicesWorkspace('/sales/invoices')
+
+    await act(async () => {
+      result.current.handleInvoiceSelect(makeInvoice('inv-1'))
+    })
+    syncSelectedInvoice()
+
+    await waitFor(() => {
+      expect(fetchJournalEntries).toHaveBeenCalledWith(
+        expect.objectContaining({ sourceType: 'payment', sourceId: 'pay-order-inv-1' }),
+      )
+    })
+  })
+
+  it('does not fetch sales_order JEs using the invoice salesOrder.id directly — only via fullOrder', async () => {
+    const { result, syncSelectedInvoice } = renderInvoicesWorkspace('/sales/invoices')
+
+    await act(async () => {
+      result.current.handleInvoiceSelect(makeInvoice('inv-1'))
+    })
+    syncSelectedInvoice()
+
+    // wait for the full order to load and payment JE fetch to fire
+    await waitFor(() => {
+      expect(triggerGetSalesOrder).toHaveBeenCalledWith('order-inv-1')
+    })
+    await waitFor(() => {
+      expect(fetchJournalEntries).toHaveBeenCalledWith(
+        expect.objectContaining({ sourceType: 'payment' }),
+      )
+    })
+
+    // the sales_order JE fetch must go through fullOrder (sourceId = fullOrder.id = 'order-inv-1')
+    // not hardcoded from selectedInvoice.salesOrder.id — both happen to be the same value,
+    // but the call must only happen once (via fullOrder path, not also via a direct invoice path)
+    const salesOrderCalls = (fetchJournalEntries as ReturnType<typeof vi.fn>).mock.calls.filter(
+      (call: any[]) => call[0]?.sourceType === 'sales_order',
+    )
+    expect(salesOrderCalls).toHaveLength(1)
   })
 })

@@ -1,4 +1,4 @@
-import { Injectable, Logger, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, BadRequestException, ForbiddenException, HttpException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, FindOptionsWhere, Like, In, Between } from 'typeorm';
 import { BaseCrudService } from '../../../common/services/base-crud.service';
@@ -1350,7 +1350,9 @@ export class PurchaseOrderService extends BaseCrudService<
       return await this.findOne(id);
     } catch (error) {
       this.logger.error(`Error receiving goods: ${error.message}`, error.stack);
-      throw new BadRequestException('Failed to receive goods');
+      if (error instanceof HttpException) throw error;
+      const message = error instanceof Error ? error.message : 'Failed to receive goods';
+      throw new BadRequestException(message);
     }
   }
 
@@ -1470,7 +1472,9 @@ export class PurchaseOrderService extends BaseCrudService<
       return await this.findOne(id);
     } catch (error) {
       this.logger.error(`Error returning goods: ${error.message}`, error.stack);
-      throw new BadRequestException('Failed to return goods');
+      if (error instanceof HttpException) throw error;
+      const message = error instanceof Error ? error.message : 'Failed to return goods';
+      throw new BadRequestException(message);
     }
   }
 

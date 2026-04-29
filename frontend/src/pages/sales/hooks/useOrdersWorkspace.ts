@@ -108,13 +108,13 @@ export function useOrdersWorkspace({
   })
   workspaceRef.current = workspace
 
-  const invoiceSources = useMemo(
-    () => (selectedOrder?.invoices ?? []).map((invoice: any) => ({
-      sourceType: 'invoice' as const,
-      sourceId: invoice.id as string,
+  const paymentSources = useMemo(
+    () => (selectedOrder?.payments ?? []).map((payment) => ({
+      sourceType: 'payment' as const,
+      sourceId: payment.id,
     })),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [selectedOrder?.invoices?.map((i: any) => i.id).join(',')],
+    [selectedOrder?.payments?.map((payment) => payment.id).join(',')],
   )
 
   const { journalEntryRefs, journalEntryRefsLoading, navigateToJournalEntries } = useJournalEntryRefs([
@@ -122,7 +122,7 @@ export function useOrdersWorkspace({
       sourceType: 'sales_order',
       sourceId: selectedOrder?.isFulfilled ? selectedOrder?.id : undefined,
     },
-    ...invoiceSources,
+    ...paymentSources,
   ])
 
   const loadOrders = useCallback(() => {

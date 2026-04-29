@@ -64,6 +64,22 @@ vi.mock('../hooks/vendorPaymentsSelection', () => ({
   }),
 }))
 
+vi.mock('../hooks/useVendorPaymentsWorkspace', () => ({
+  useVendorPaymentsWorkspace: () => ({
+    handleSelect: vi.fn(),
+    focusedIndex: -1,
+    listRef: { current: null },
+    searchInputRef: { current: null },
+    journalEntryRefs: [],
+    journalEntryRefsLoading: false,
+    navigateToJournalEntries: vi.fn(),
+    setDeletedPaymentsOpen: vi.fn(),
+    setPrintDialogOpen: vi.fn(),
+    deletedPaymentsOpen: false,
+    printDialogOpen: false,
+  }),
+}))
+
 function renderPage(initialUrl = '/') {
   const store = configureStore({
     reducer: { purchasing: purchasingReducer },

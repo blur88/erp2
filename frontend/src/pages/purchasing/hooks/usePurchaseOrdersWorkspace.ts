@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 
-import { useJournalEntryRef } from '@/hooks/useJournalEntryRef'
+import { useJournalEntryRefs } from '@/hooks/useJournalEntryRefs'
 import { useEntityWorkspace } from '@/hooks/useEntityWorkspace'
 import { useNotification } from '@/hooks/useNotification'
 import type { AppDispatch } from '@/store'
@@ -22,12 +22,6 @@ import type { PurchaseOrder } from '@/types'
 export interface PurchaseOrdersSorting {
   sortBy: string
   sortOrder: 'asc' | 'desc'
-}
-
-export interface PurchaseJournalEntryRef {
-  referenceNumber: string
-  sourceType: string
-  sourceId: string
 }
 
 export interface UsePurchaseOrdersWorkspaceConfig {
@@ -115,8 +109,8 @@ export function usePurchaseOrdersWorkspace({
     })),
   ]
 
-  const { journalEntryRef, journalEntryRefLoading, navigateToJournalEntry } =
-    useJournalEntryRef(journalSources)
+  const { journalEntryRefs, journalEntryRefsLoading, navigateToJournalEntries, refetchRefs } =
+    useJournalEntryRefs(journalSources)
 
   const handleOrderSelect = useCallback(
     async (order: PurchaseOrder) => {
@@ -152,27 +146,42 @@ export function usePurchaseOrdersWorkspace({
   )
 
   const handleReceive = useCallback(async () => {
-    if (!selectedOrder || !selectedOrder.items || selectedOrder.items.length === 0) {
+    if (!selectedOrder) return
+
+    // Always fetch fresh order data before receiving to avoid acting on stale GRN status
+    let currentOrder = selectedOrder
+    try {
+      currentOrder = await fetchPurchaseOrder(selectedOrder.id, false).unwrap()
+      dispatch(setSelectedPurchaseOrder(currentOrder))
+      dispatch(updatePurchaseOrderInPlace(currentOrder))
+    } catch {
+      // proceed with cached data if fetch fails
+    }
+
+    if (!currentOrder.items || currentOrder.items.length === 0) {
       showError('No items to receive in this order')
       return
     }
-    if (selectedOrder.goodsReceivedNotes && selectedOrder.goodsReceivedNotes.length > 0) {
-      const grn = selectedOrder.goodsReceivedNotes[0]
-      if (grn.status !== 'draft') {
-        showError('GRN must be in draft status to receive goods')
-        return
-      }
+    if (
+      currentOrder.goodsReceivedNotes &&
+      currentOrder.goodsReceivedNotes.length > 0 &&
+      currentOrder.goodsReceivedNotes[0].status !== 'draft'
+    ) {
+      showError('Goods have already been received for this order')
+      return
     }
     try {
-      const response = await receiveGoods(selectedOrder.id).unwrap()
+      const response = await receiveGoods(currentOrder.id).unwrap()
       showSuccess('Goods received successfully. Product quantities updated.')
       const updatedOrder = (response as any).data || response
       if (updatedOrder) dispatch(setSelectedPurchaseOrder(updatedOrder))
       refetchOrders()
+      refetchRefs()
     } catch (error: any) {
-      showError(error?.response?.data?.message || 'Failed to receive goods')
+      const message = error?.data?.message || error?.message || 'Failed to receive goods'
+      showError(message)
     }
-  }, [dispatch, receiveGoods, refetchOrders, selectedOrder, showError, showSuccess])
+  }, [dispatch, fetchPurchaseOrder, receiveGoods, refetchOrders, refetchRefs, selectedOrder, showError, showSuccess])
 
   const handleReturn = useCallback(async () => {
     if (
@@ -194,10 +203,11 @@ export function usePurchaseOrdersWorkspace({
       const updatedOrder = (response as any).data || response
       if (updatedOrder) dispatch(setSelectedPurchaseOrder(updatedOrder))
       refetchOrders()
+      refetchRefs()
     } catch (error: any) {
-      showError(error?.response?.data?.message || 'Failed to return goods')
+      showError(error?.data?.message || error?.message || 'Failed to return goods')
     }
-  }, [dispatch, refetchOrders, returnGoods, selectedOrder, showError, showSuccess])
+  }, [dispatch, refetchOrders, refetchRefs, returnGoods, selectedOrder, showError, showSuccess])
 
   const handleEditClick = useCallback(() => {
     if (!selectedOrder) return
@@ -226,7 +236,7 @@ export function usePurchaseOrdersWorkspace({
       refetchOrders()
       navigate(`/purchasing/orders/${selectedOrder.id}/edit`)
     } catch (error: any) {
-      showError(error?.response?.data?.message || 'Failed to return goods')
+      showError(error?.data?.message || error?.message || 'Failed to return goods')
     } finally {
       setIsLoading(false)
     }
@@ -243,7 +253,7 @@ export function usePurchaseOrdersWorkspace({
       setBlockedDialogOpen(false)
       refetchOrders()
     } catch (error: any) {
-      showError(error?.response?.data?.message || 'Failed to return goods')
+      showError(error?.data?.message || error?.message || 'Failed to return goods')
     } finally {
       setIsLoading(false)
     }
@@ -279,7 +289,7 @@ export function usePurchaseOrdersWorkspace({
       refetchOrders()
       navigate(`/purchasing/orders/${selectedOrder.id}/edit`)
     } catch (error: any) {
-      showError(error?.response?.data?.message || 'Failed to prepare order for editing')
+      showError(error?.data?.message || error?.message || 'Failed to prepare order for editing')
     } finally {
       setIsLoading(false)
     }
@@ -305,7 +315,7 @@ export function usePurchaseOrdersWorkspace({
       selectAfterDelete(selectedOrder.id)
       refetchOrders()
     } catch (error: any) {
-      showError(error?.response?.data?.message || 'Failed to return and delete order')
+      showError(error?.data?.message || error?.message || 'Failed to return and delete order')
     } finally {
       setIsLoading(false)
     }
@@ -339,7 +349,7 @@ export function usePurchaseOrdersWorkspace({
       selectAfterDelete(selectedOrder.id)
       refetchOrders()
     } catch (error: any) {
-      showError(error?.response?.data?.message || 'Failed to prepare and delete order')
+      showError(error?.data?.message || error?.message || 'Failed to prepare and delete order')
     } finally {
       setIsLoading(false)
     }
@@ -375,7 +385,7 @@ export function usePurchaseOrdersWorkspace({
       if (error?.response?.status === 404) {
         showError('No payment found for this purchase order')
       } else {
-        showError(error?.response?.data?.message || 'Failed to delete payment')
+        showError(error?.data?.message || error?.message || 'Failed to delete payment')
       }
     } finally {
       setIsLoading(false)
@@ -430,7 +440,7 @@ export function usePurchaseOrdersWorkspace({
         selectAfterDelete(order.id)
         refetchOrders()
       } catch (error: any) {
-        showError(error?.response?.data?.message || 'Failed to delete purchase order')
+        showError(error?.data?.message || error?.message || 'Failed to delete purchase order')
       }
     },
     [deletePurchaseOrder, refetchOrders, selectAfterDelete, showError, showSuccess],
@@ -469,8 +479,8 @@ export function usePurchaseOrdersWorkspace({
     paymentDialogOpen,
     setPaymentDialogOpen,
     paymentDialogOrder,
-    journalEntryRef,
-    journalEntryRefLoading,
+    journalEntryRefs,
+    journalEntryRefsLoading,
     handleOrderSelect,
     handleReceive,
     handleReturn,
@@ -487,6 +497,6 @@ export function usePurchaseOrdersWorkspace({
     handleDeleteConfirm,
     navigateToGoodsReceived,
     navigateToVendorPayment,
-    navigateToJournalEntry,
+    navigateToJournalEntries,
   }
 }

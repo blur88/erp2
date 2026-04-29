@@ -1,12 +1,13 @@
-import { useEffect, useRef, useState, type MouseEvent } from 'react'
+import { useEffect, useMemo, useRef, useState, type MouseEvent } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 
 import { useJournalEntryRefs } from '@/hooks/useJournalEntryRefs'
 import { useEntityWorkspace } from '@/hooks/useEntityWorkspace'
 import type { EntityWorkspaceReturn } from '@/hooks/useEntityWorkspace'
 import type { AppDispatch } from '@/store'
+import { useLazyGetSalesOrderQuery } from '@/store/api/salesApi'
 import { clearError, setSelectedInvoice } from '@/store/slices/salesSlice'
-import type { InvoiceItem } from '@/types'
+import type { InvoiceItem, SalesOrder } from '@/types'
 
 export interface InvoiceListItem {
   id: string
@@ -56,6 +57,8 @@ export function useInvoicesWorkspace({
   const [printDialogOpen, setPrintDialogOpen] = useState(false)
   const selectedInvoiceRef = useRef<InvoiceListItem | null>(null)
   const workspaceRef = useRef<EntityWorkspaceReturn<InvoiceListItem> | null>(null)
+  const [triggerGetSalesOrder] = useLazyGetSalesOrderQuery()
+  const [fullOrder, setFullOrder] = useState<SalesOrder | null>(null)
 
   const workspace = useEntityWorkspace({
     entities: invoices,
@@ -82,10 +85,33 @@ export function useInvoicesWorkspace({
   })
   workspaceRef.current = workspace
 
-  const { journalEntryRefs, journalEntryRefsLoading, navigateToJournalEntries } = useJournalEntryRefs([
-    { sourceType: 'invoice', sourceId: selectedInvoice?.id },
-    { sourceType: 'sales_order', sourceId: selectedInvoice?.salesOrder?.id },
-  ])
+  useEffect(() => {
+    if (selectedInvoice?.salesOrder?.id) {
+      triggerGetSalesOrder(selectedInvoice.salesOrder.id)
+        .unwrap()
+        .then(setFullOrder)
+        .catch(() => setFullOrder(null))
+    } else {
+      setFullOrder(null)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedInvoice?.salesOrder?.id])
+
+  const jeSourcesKey = [
+    fullOrder?.isFulfilled ? `sales_order:${fullOrder?.id}` : '',
+    ...(fullOrder?.payments ?? []).map((payment) => `payment:${payment.id}`),
+  ].join(',')
+
+  const jeSources = useMemo(
+    () => [
+      { sourceType: 'sales_order' as const, sourceId: fullOrder?.isFulfilled ? fullOrder?.id : undefined },
+      ...(fullOrder?.payments ?? []).map((payment) => ({ sourceType: 'payment' as const, sourceId: payment.id })),
+    ],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [jeSourcesKey],
+  )
+
+  const { journalEntryRefs, journalEntryRefsLoading, navigateToJournalEntries } = useJournalEntryRefs(jeSources)
 
   useEffect(() => {
     selectedInvoiceRef.current = selectedInvoice

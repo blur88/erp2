@@ -68,6 +68,16 @@ function makeOrder(id: string) {
   }
 }
 
+function makeOrderWithPayments(id: string) {
+  return {
+    ...makeOrder(id),
+    isFulfilled: true,
+    payments: [
+      { id: 'pay-1', paymentNumber: 'PAY-001', amount: 100, paymentDate: '2026-04-01' },
+    ],
+  }
+}
+
 const renderOrdersWorkspace = (initialUrl = '/sales/orders?highlight=ord-2') => {
   const store = configureStore({
     reducer: {
@@ -124,5 +134,73 @@ describe('useOrdersWorkspace', () => {
     })
 
     expect(selectSelectedOrder(store.getState())?.items).toHaveLength(1)
+  })
+
+  it('fetches payment JEs when order has payments', async () => {
+    const store = configureStore({ reducer: { sales: salesReducer } })
+    const wrapper = ({ children }: PropsWithChildren) => (
+      <Provider store={store}>
+        <MemoryRouter initialEntries={['/sales/orders']}>{children}</MemoryRouter>
+      </Provider>
+    )
+
+    renderHook(
+      () =>
+        useOrdersWorkspace({
+          dispatch: store.dispatch,
+          getState: () => store.getState() as any,
+          orders: [makeOrderWithPayments('ord-1') as any],
+          selectedOrder: makeOrderWithPayments('ord-1') as any,
+          refetchOrders: vi.fn(),
+        }),
+      { wrapper },
+    )
+
+    await waitFor(() => {
+      expect(fetchJournalEntries).toHaveBeenCalledWith(
+        expect.objectContaining({ sourceType: 'payment', sourceId: 'pay-1' }),
+      )
+    })
+  })
+
+  it('does not fetch invoice JEs even when order has invoices and is fulfilled', async () => {
+    const store = configureStore({ reducer: { sales: salesReducer } })
+    const wrapper = ({ children }: PropsWithChildren) => (
+      <Provider store={store}>
+        <MemoryRouter initialEntries={['/sales/orders']}>{children}</MemoryRouter>
+      </Provider>
+    )
+
+    // fulfilled order with invoices but no payments — ensures the invoice path is gone
+    // even when there is something to fetch
+    const selectedOrder = {
+      ...makeOrder('ord-1'),
+      isFulfilled: true,
+      invoices: [{ id: 'inv-1', invoiceNumber: 'INV-001' }],
+      payments: [],
+    }
+
+    renderHook(
+      () =>
+        useOrdersWorkspace({
+          dispatch: store.dispatch,
+          getState: () => store.getState() as any,
+          orders: [selectedOrder as any],
+          selectedOrder: selectedOrder as any,
+          refetchOrders: vi.fn(),
+        }),
+      { wrapper },
+    )
+
+    // wait for the sales_order JE fetch to fire (proving the hook is active)
+    await waitFor(() => {
+      expect(fetchJournalEntries).toHaveBeenCalledWith(
+        expect.objectContaining({ sourceType: 'sales_order', sourceId: 'ord-1' }),
+      )
+    })
+
+    expect(fetchJournalEntries).not.toHaveBeenCalledWith(
+      expect.objectContaining({ sourceType: 'invoice' }),
+    )
   })
 })

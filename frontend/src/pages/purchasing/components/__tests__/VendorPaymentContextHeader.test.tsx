@@ -22,7 +22,7 @@ describe('VendorPaymentContextHeader', () => {
       <MemoryRouter>
         <VendorPaymentContextHeader
           selectedPayment={null}
-          journalEntryRef={null}
+          journalEntryRefs={[]}
           journalEntryRefLoading={false}
           onPrint={vi.fn()}
           onNavigateToJournalEntry={vi.fn()}
@@ -37,7 +37,7 @@ describe('VendorPaymentContextHeader', () => {
       <MemoryRouter>
         <VendorPaymentContextHeader
           selectedPayment={basePayment}
-          journalEntryRef={null}
+          journalEntryRefs={[]}
           journalEntryRefLoading={false}
           onPrint={vi.fn()}
           onNavigateToJournalEntry={vi.fn()}
@@ -52,7 +52,7 @@ describe('VendorPaymentContextHeader', () => {
       <MemoryRouter>
         <VendorPaymentContextHeader
           selectedPayment={basePayment}
-          journalEntryRef={null}
+          journalEntryRefs={[]}
           journalEntryRefLoading={false}
           onPrint={vi.fn()}
           onNavigateToJournalEntry={vi.fn()}

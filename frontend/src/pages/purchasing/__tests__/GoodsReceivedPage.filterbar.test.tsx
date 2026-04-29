@@ -64,6 +64,22 @@ vi.mock('../hooks/grnSelection', () => ({
   }),
 }))
 
+vi.mock('../hooks/useGRNWorkspace', () => ({
+  useGRNWorkspace: () => ({
+    handleSelect: vi.fn(),
+    focusedIndex: -1,
+    listRef: { current: null },
+    searchInputRef: { current: null },
+    journalEntryRefs: [],
+    journalEntryRefsLoading: false,
+    navigateToJournalEntries: vi.fn(),
+    setDeletedGRNsOpen: vi.fn(),
+    setPrintDialogOpen: vi.fn(),
+    deletedGRNsOpen: false,
+    printDialogOpen: false,
+  }),
+}))
+
 function renderPage(initialUrl = '/') {
   const store = configureStore({
     reducer: { purchasing: purchasingReducer },
