@@ -8,6 +8,7 @@ import {
   IsDateString,
   Min,
   IsArray,
+  ArrayNotEmpty,
   ValidateNested,
   IsInt,
   IsBoolean,
@@ -325,6 +326,18 @@ export class SendInvoiceDto {
   message?: string;
 
   // Mark as sent functionality removed
+}
+
+export class BatchSendInvoicesDto {
+  @ApiProperty({
+    description: 'Invoice IDs to send',
+    type: [String],
+    example: ['550e8400-e29b-41d4-a716-446655440000'],
+  })
+  @IsArray()
+  @ArrayNotEmpty()
+  @IsUUID('4', { each: true })
+  invoiceIds: string[];
 }
 
 export class InvoicePaymentAllocationDto {
