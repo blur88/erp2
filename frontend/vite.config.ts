@@ -112,7 +112,7 @@ export default defineConfig(({ mode }) => {
       environmentMatchGlobs: [['src/**/*.test.ts', 'node']],
       setupFiles: ['./src/test/setup.ts', './src/setupTests.ts'],
       api: false,
-      maxWorkers: 1,
+      maxWorkers: 2,
       execArgv: ['--max-old-space-size=5120'],
       testTimeout: 30000,
     },
