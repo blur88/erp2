@@ -146,20 +146,32 @@ export function usePurchaseOrdersWorkspace({
   )
 
   const handleReceive = useCallback(async () => {
-    if (!selectedOrder || !selectedOrder.items || selectedOrder.items.length === 0) {
+    if (!selectedOrder) return
+
+    // Always fetch fresh order data before receiving to avoid acting on stale GRN status
+    let currentOrder = selectedOrder
+    try {
+      currentOrder = await fetchPurchaseOrder(selectedOrder.id).unwrap()
+      dispatch(setSelectedPurchaseOrder(currentOrder))
+      dispatch(updatePurchaseOrderInPlace(currentOrder))
+    } catch {
+      // proceed with cached data if fetch fails
+    }
+
+    if (!currentOrder.items || currentOrder.items.length === 0) {
       showError('No items to receive in this order')
       return
     }
     if (
-      selectedOrder.goodsReceivedNotes &&
-      selectedOrder.goodsReceivedNotes.length > 0 &&
-      selectedOrder.goodsReceivedNotes[0].status !== 'draft'
+      currentOrder.goodsReceivedNotes &&
+      currentOrder.goodsReceivedNotes.length > 0 &&
+      currentOrder.goodsReceivedNotes[0].status !== 'draft'
     ) {
       showError('Goods have already been received for this order')
       return
     }
     try {
-      const response = await receiveGoods(selectedOrder.id).unwrap()
+      const response = await receiveGoods(currentOrder.id).unwrap()
       showSuccess('Goods received successfully. Product quantities updated.')
       const updatedOrder = (response as any).data || response
       if (updatedOrder) dispatch(setSelectedPurchaseOrder(updatedOrder))
@@ -168,7 +180,7 @@ export function usePurchaseOrdersWorkspace({
       const message = error?.data?.message || error?.message || 'Failed to receive goods'
       showError(message)
     }
-  }, [dispatch, receiveGoods, refetchOrders, selectedOrder, showError, showSuccess])
+  }, [dispatch, fetchPurchaseOrder, receiveGoods, refetchOrders, selectedOrder, showError, showSuccess])
 
   const handleReturn = useCallback(async () => {
     if (
