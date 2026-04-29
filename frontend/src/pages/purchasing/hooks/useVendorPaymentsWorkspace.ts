@@ -43,20 +43,10 @@ export function useVendorPaymentsWorkspace({
 
   const vpSources = useMemo(
     () => [
-      ...(selectedPayment?.purchaseOrder?.goodsReceivedNotes ?? []).map((grn: any) => ({
-        sourceType: 'goods_received_note' as const,
-        sourceId: grn.id as string,
-      })),
-      ...(selectedPayment?.purchaseOrder?.vendorPayments ?? []).map((payment: any) => ({
-        sourceType: 'vendor_payment' as const,
-        sourceId: payment.id as string,
-      })),
+      ...(selectedPayment?.grnId ? [{ sourceType: 'goods_received_note' as const, sourceId: selectedPayment.grnId }] : []),
+      ...(selectedPayment?.id ? [{ sourceType: 'vendor_payment' as const, sourceId: selectedPayment.id }] : []),
     ],
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [
-      (selectedPayment?.purchaseOrder?.goodsReceivedNotes ?? []).map((grn: any) => grn.id).join(','),
-      (selectedPayment?.purchaseOrder?.vendorPayments ?? []).map((payment: any) => payment.id).join(','),
-    ],
+    [selectedPayment?.id, selectedPayment?.grnId],
   )
 
   const { journalEntryRefs, journalEntryRefsLoading, navigateToJournalEntries } =

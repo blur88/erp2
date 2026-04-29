@@ -413,6 +413,7 @@ export interface VendorPayment {
   supplierId: string;
   purchaseOrder?: PurchaseOrder;
   purchaseOrderId?: string;
+  grnId?: string;
   amount: number;
   paymentDate: Date | string;
   paymentMethodId?: string;
