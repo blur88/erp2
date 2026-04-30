@@ -33,6 +33,7 @@ interface UseOrdersWorkspaceConfig {
   orders: SalesOrder[]
   selectedOrder: SalesOrder | null
   refetchOrders: () => void
+  isLoading: boolean
 }
 
 export function useOrdersWorkspace({
@@ -41,6 +42,7 @@ export function useOrdersWorkspace({
   orders,
   selectedOrder,
   refetchOrders,
+  isLoading: ordersLoading,
 }: UseOrdersWorkspaceConfig) {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
@@ -89,6 +91,7 @@ export function useOrdersWorkspace({
     },
     notifications: { showSuccess: () => {}, showError: () => {} },
     deleteMutation: async () => {},
+    isLoading: ordersLoading,
     onEnter: () => {
       if (workspaceRef.current?.focusedIndex != null && workspaceRef.current.focusedIndex >= 0) {
         const order = orders[workspaceRef.current.focusedIndex]
@@ -233,11 +236,14 @@ export function useOrdersWorkspace({
         }
       }
     } else if (orders.length === 0) {
+      if (ordersLoading) {
+        return
+      }
       dispatch(setSelectedOrder(null))
       dispatch(clearError())
       workspace.setFocusedIndex(-1)
     }
-  }, [dispatch, orders, searchParams, selectedOrder, triggerGetSalesOrder, workspace])
+  }, [dispatch, orders, ordersLoading, searchParams, selectedOrder, triggerGetSalesOrder, workspace])
 
   useEffect(() => {
     if (!selectedOrder || orders.length === 0) {

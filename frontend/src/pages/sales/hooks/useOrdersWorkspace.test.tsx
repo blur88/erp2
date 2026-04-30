@@ -99,6 +99,7 @@ const renderOrdersWorkspace = (initialUrl = '/sales/orders?highlight=ord-2') => 
         orders: [makeOrder('ord-1') as any, makeOrder('ord-2') as any],
         selectedOrder: null,
         refetchOrders: vi.fn(),
+        isLoading: false,
       }),
     { wrapper },
   )
@@ -152,6 +153,7 @@ describe('useOrdersWorkspace', () => {
           orders: [makeOrderWithPayments('ord-1') as any],
           selectedOrder: makeOrderWithPayments('ord-1') as any,
           refetchOrders: vi.fn(),
+          isLoading: false,
         }),
       { wrapper },
     )
@@ -188,6 +190,7 @@ describe('useOrdersWorkspace', () => {
           orders: [selectedOrder as any],
           selectedOrder: selectedOrder as any,
           refetchOrders: vi.fn(),
+          isLoading: false,
         }),
       { wrapper },
     )
@@ -202,5 +205,41 @@ describe('useOrdersWorkspace', () => {
     expect(fetchJournalEntries).not.toHaveBeenCalledWith(
       expect.objectContaining({ sourceType: 'invoice' }),
     )
+  })
+
+  it('does not clear the selected order while orders are loading', () => {
+    const selectedOrder = makeOrder('ord-1') as any
+    const store = configureStore({
+      reducer: { sales: salesReducer },
+      preloadedState: {
+        sales: {
+          selectedOrder,
+          selectedInvoice: null,
+          selectedPayment: null,
+          selectedCustomer: null,
+          error: null,
+        },
+      },
+    })
+    const wrapper = ({ children }: PropsWithChildren) => (
+      <Provider store={store}>
+        <MemoryRouter initialEntries={['/sales/orders']}>{children}</MemoryRouter>
+      </Provider>
+    )
+
+    renderHook(
+      () =>
+        useOrdersWorkspace({
+          dispatch: store.dispatch,
+          getState: () => store.getState() as any,
+          orders: [],
+          selectedOrder,
+          refetchOrders: vi.fn(),
+          isLoading: true,
+        }),
+      { wrapper },
+    )
+
+    expect(selectSelectedOrder(store.getState())?.id).toBe('ord-1')
   })
 })

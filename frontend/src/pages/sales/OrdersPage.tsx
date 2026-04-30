@@ -115,6 +115,7 @@ export const OrdersPage: React.FC = () => {
     orders,
     selectedOrder,
     refetchOrders: loadOrders,
+    isLoading: loading,
   })
 
   const handleSort = useCallback((field: string) => {
