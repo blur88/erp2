@@ -161,14 +161,14 @@ export class PurchaseOrderLifecycleService {
       );
     }
 
-    const vendorPayments = await this.vendorPaymentRepository.find({
-      where: { purchaseOrderId },
+    const purchaseOrder = await this.purchaseOrderRepository.findOne({
+      where: { id: purchaseOrderId },
       withDeleted: true,
     });
 
-    if (vendorPayments.length > 0) {
+    if (Number(purchaseOrder?.paidAmount || 0) > 0) {
       throw new BadRequestException(
-        'Cannot permanently delete purchase order with existing vendor payments.',
+        'Cannot permanently delete purchase order that has payments recorded. Please unpay first.',
       );
     }
   }
