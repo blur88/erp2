@@ -64,6 +64,8 @@ export class ProductService extends BaseCrudService<
   QueryProductsDto
 > {
   private readonly logger = new Logger(ProductService.name);
+  private readonly MAX_IMPORT_DATA_ROWS = 1000;
+  private readonly MAX_CSV_LINE_LENGTH = 8192;
 
   constructor(
     @InjectRepository(Product)
@@ -1652,10 +1654,21 @@ export class ProductService extends BaseCrudService<
    * Parse CSV content
    */
   private parseCsvContent(content: string): any[] {
+    if (typeof content !== 'string') {
+      throw new BadRequestException('CSV content must be a string');
+    }
+
     const lines = content.split('\n').filter(line => line.trim());
-    
+
     if (lines.length < 2) {
       throw new BadRequestException('File must contain at least a header row and one data row');
+    }
+
+    const dataRowCount = lines.length - 1;
+    if (dataRowCount > this.MAX_IMPORT_DATA_ROWS) {
+      throw new BadRequestException(
+        `Import file exceeds maximum allowed data rows (${this.MAX_IMPORT_DATA_ROWS})`,
+      );
     }
 
     // Parse header
@@ -1665,7 +1678,7 @@ export class ProductService extends BaseCrudService<
     // Validate required headers
     const requiredHeaders = ['name', 'type', 'categoryname', 'basecost'];
     const missingHeaders = requiredHeaders.filter(req => !headers.includes(req));
-    
+
     if (missingHeaders.length > 0) {
       throw new BadRequestException(`Missing required headers: ${missingHeaders.join(', ')}`);
     }
@@ -1678,7 +1691,7 @@ export class ProductService extends BaseCrudService<
 
       const values = this.parseCsvLine(line);
       const rowData: any = {};
-      
+
       headers.forEach((header, index) => {
         rowData[header] = values[index] || '';
       });
@@ -1693,13 +1706,23 @@ export class ProductService extends BaseCrudService<
    * Parse a single CSV line handling quoted values
    */
   private parseCsvLine(line: string): string[] {
+    if (typeof line !== 'string') {
+      throw new BadRequestException('CSV line must be a string');
+    }
+
+    if (line.length > this.MAX_CSV_LINE_LENGTH) {
+      throw new BadRequestException(
+        `CSV line exceeds maximum allowed length (${this.MAX_CSV_LINE_LENGTH} characters)`,
+      );
+    }
+
     const values = [];
     let currentValue = '';
     let inQuotes = false;
-    
+
     for (let i = 0; i < line.length; i++) {
       const char = line[i];
-      
+
       if (char === '"' && (i === 0 || line[i - 1] === ',')) {
         inQuotes = true;
       } else if (char === '"' && inQuotes && (i === line.length - 1 || line[i + 1] === ',')) {
@@ -1711,7 +1734,7 @@ export class ProductService extends BaseCrudService<
         currentValue += char;
       }
     }
-    
+
     values.push(currentValue.trim());
     return values;
   }
