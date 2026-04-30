@@ -198,6 +198,14 @@ describe('PurchaseOrderLifecycleService', () => {
       });
     });
 
+    it('throws when the purchase order is not found', async () => {
+      const count = jest.fn().mockResolvedValue(0);
+      (poRepository.manager.getRepository as jest.Mock).mockReturnValue({ count });
+      poRepository.findOne.mockResolvedValue(null);
+
+      await expect(service.assertPermanentDeleteAllowed('po-1')).rejects.toThrow(NotFoundException);
+    });
+
     it('throws when the purchase order has a paid amount greater than zero', async () => {
       const count = jest.fn().mockResolvedValue(0);
       (poRepository.manager.getRepository as jest.Mock).mockReturnValue({ count });

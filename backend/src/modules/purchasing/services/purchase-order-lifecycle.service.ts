@@ -166,7 +166,11 @@ export class PurchaseOrderLifecycleService {
       withDeleted: true,
     });
 
-    if (Number(purchaseOrder?.paidAmount || 0) > 0) {
+    if (!purchaseOrder) {
+      throw new NotFoundException('Purchase order not found');
+    }
+
+    if (Number(purchaseOrder.paidAmount || 0) > 0) {
       throw new BadRequestException(
         'Cannot permanently delete purchase order that has payments recorded. Please unpay first.',
       );
