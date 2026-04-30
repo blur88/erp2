@@ -345,10 +345,10 @@ const CreateSalesOrderPage: React.FC = () => {
         navigate(`/sales/orders?highlight=${id}`)
       } else {
         const createdOrder = await createSalesOrder(orderData as any).unwrap()
-        const newOrderId = (createdOrder as any).id
+        dispatch(setSelectedOrder(createdOrder as any))
         showSuccess('Sales order created successfully')
         // Navigate to orders page with the new order selected
-        navigate(`/sales/orders?highlight=${newOrderId}`)
+        navigate(`/sales/orders?highlight=${(createdOrder as any).id}`)
       }
     } catch (err: any) {
       console.error('Error creating sales order:', err)
