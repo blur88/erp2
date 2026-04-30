@@ -29,6 +29,7 @@ export interface UsePurchaseOrdersWorkspaceConfig {
   purchaseOrders: PurchaseOrder[]
   selectedOrder: PurchaseOrder | null
   refetchOrders: () => void
+  isLoading: boolean
 }
 
 export function usePurchaseOrdersWorkspace({
@@ -36,6 +37,7 @@ export function usePurchaseOrdersWorkspace({
   purchaseOrders,
   selectedOrder,
   refetchOrders,
+  isLoading: ordersLoading,
 }: UsePurchaseOrdersWorkspaceConfig) {
   const navigate = useNavigate()
   const { showSuccess, showError } = useNotification()
@@ -73,6 +75,7 @@ export function usePurchaseOrdersWorkspace({
     deleteMutation: async (id) => {
       await deletePurchaseOrder(id).unwrap()
     },
+    isLoading: ordersLoading,
     onEscape: () => {
       dispatch(setSelectedPurchaseOrder(null))
       setDeleteConfirmOpen(false)

@@ -76,6 +76,7 @@ const renderPurchaseOrdersWorkspace = (
         purchaseOrders,
         selectedOrder: null,
         refetchOrders: vi.fn(),
+        isLoading: false,
       }),
     { wrapper, initialProps: { purchaseOrders: initialPurchaseOrders } },
   )
@@ -119,5 +120,47 @@ describe('keyboard navigation', () => {
   it('exposes focusedIndex from useEntityWorkspace', () => {
     const { result } = renderPurchaseOrdersWorkspace('/purchasing/orders')
     expect(typeof result.current.focusedOrderIndex).toBe('number')
+  })
+})
+
+describe('loading state', () => {
+  it('does not clear the selected purchase order while purchase orders are loading', () => {
+    const selectedOrder = makePurchaseOrder('po-1') as any
+    const store = configureStore({
+      reducer: { purchasing: purchasingReducer },
+      preloadedState: {
+        purchasing: {
+          selectedPurchaseOrder: selectedOrder,
+          selectedGRN: null,
+          selectedVendorPayment: null,
+          selectedSupplier: null,
+          supplierFilters: {
+            search: '',
+            sortBy: 'companyName',
+            sortOrder: 'ASC',
+            isActive: true,
+          },
+        },
+      },
+    })
+    const wrapper = ({ children }: PropsWithChildren) => (
+      <Provider store={store}>
+        <MemoryRouter initialEntries={['/purchasing/orders']}>{children}</MemoryRouter>
+      </Provider>
+    )
+
+    renderHook(
+      () =>
+        usePurchaseOrdersWorkspace({
+          dispatch: store.dispatch,
+          purchaseOrders: [],
+          selectedOrder,
+          refetchOrders: vi.fn(),
+          isLoading: true,
+        }),
+      { wrapper },
+    )
+
+    expect(selectSelectedPurchaseOrder(store.getState())?.id).toBe('po-1')
   })
 })
