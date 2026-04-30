@@ -182,7 +182,7 @@ function GenericDeletedDialog<T extends { id: string }>({
       showSuccess(`${entityLabel} "${getItemLabel(item)}" restored successfully`)
       await afterSuccessfulChange()
     } catch (error: any) {
-      showError(error?.data?.message || error?.message || `Failed to restore ${entityLabel}`)
+      showError(error?.data || error?.message || `Failed to restore ${entityLabel}`)
     } finally {
       setRestoringId(null)
     }
@@ -199,7 +199,7 @@ function GenericDeletedDialog<T extends { id: string }>({
       showSuccess(`${entityLabel} "${getItemLabel(item)}" permanently deleted`)
       await afterSuccessfulChange()
     } catch (error: any) {
-      showError(error?.data?.message || error?.message || `Failed to permanently delete ${entityLabel}`)
+      showError(error?.data || error?.message || `Failed to permanently delete ${entityLabel}`)
     } finally {
       setDeletingId(null)
       setConfirmDelete(null)
@@ -228,7 +228,7 @@ function GenericDeletedDialog<T extends { id: string }>({
       setSelectedItems(new Set())
       await afterSuccessfulChange()
     } catch (error: any) {
-      showError(error?.data?.message || error?.message || `Failed to bulk restore ${entityLabelPlural}`)
+      showError(error?.data || error?.message || `Failed to bulk restore ${entityLabelPlural}`)
     } finally {
       setBulkRestoring(false)
       setShowBulkRestoreConfirm(false)
@@ -257,7 +257,7 @@ function GenericDeletedDialog<T extends { id: string }>({
       setSelectedItems(new Set())
       await afterSuccessfulChange()
     } catch (error: any) {
-      showError(error?.data?.message || error?.message || `Failed to bulk delete ${entityLabelPlural}`)
+      showError(error?.data || error?.message || `Failed to bulk delete ${entityLabelPlural}`)
     } finally {
       setBulkDeleting(false)
       setShowBulkDeleteConfirm(false)
