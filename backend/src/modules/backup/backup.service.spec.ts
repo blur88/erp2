@@ -84,6 +84,7 @@ jest.mock('ioredis', () => ({
 
 describe('BackupService - settings backup', () => {
   let service: BackupService;
+  let backupLogRepo: ReturnType<typeof mockRepository>;
   let companySettingsRepo: ReturnType<typeof mockRepository>;
   let regionalSettingsRepo: ReturnType<typeof mockRepository>;
   let documentNumberSettingRepo: ReturnType<typeof mockRepository>;
@@ -104,6 +105,7 @@ describe('BackupService - settings backup', () => {
     }).compile();
 
     service = module.get<BackupService>(BackupService);
+    backupLogRepo = module.get(getRepositoryToken(BackupLog));
     companySettingsRepo = module.get(getRepositoryToken(CompanySettings));
     regionalSettingsRepo = module.get(getRepositoryToken(RegionalSettings));
     documentNumberSettingRepo = module.get(getRepositoryToken(DocumentNumberSetting));
@@ -113,6 +115,65 @@ describe('BackupService - settings backup', () => {
   afterEach(() => {
     jest.restoreAllMocks();
     mockSpawn.mockReset();
+  });
+
+  describe('processUploadedBackup', () => {
+    const fsPromises = require('fs/promises');
+    const nodeCrypto = require('crypto');
+
+    beforeEach(() => {
+      mockConfigService.get.mockImplementation((key: string, defaultVal?: any) => {
+        if (key === 'BACKUP_DIRECTORY') {
+          return '/app/backups';
+        }
+        return defaultVal ?? null;
+      });
+    });
+
+    afterEach(() => {
+      mockConfigService.get.mockImplementation(
+        (_key: string, defaultVal?: any) => defaultVal ?? null,
+      );
+    });
+
+    it('stores uploaded backups under a generated archive filename and preserves the original name in metadata', async () => {
+      jest.spyOn(Date, 'now').mockReturnValue(1770000000000);
+      jest.spyOn(nodeCrypto, 'randomUUID').mockReturnValue('uuid-123');
+      jest.spyOn(fsPromises, 'mkdir').mockResolvedValue(undefined);
+      jest.spyOn(fsPromises, 'rename').mockResolvedValue(undefined);
+      jest.spyOn(fsPromises, 'readFile').mockResolvedValue(
+        JSON.stringify({ description: 'Uploaded backup' }),
+      );
+      jest.spyOn(fsPromises, 'stat').mockResolvedValue({ size: 42 });
+      jest.spyOn(fsPromises, 'readdir').mockResolvedValue([
+        'erp_db_20260430_120000.sql.gz',
+      ]);
+      jest.spyOn(fsPromises, 'rm').mockResolvedValue(undefined);
+      jest.spyOn(service as any, 'extractArchive').mockResolvedValue(undefined);
+      jest.spyOn(service as any, 'calculateChecksum').mockResolvedValue('checksum-123');
+      backupLogRepo.create.mockImplementation((input) => input);
+      backupLogRepo.save.mockImplementation(async (input) => input);
+
+      const result = await service.processUploadedBackup({
+        originalname: 'customer_backup.tar.gz',
+        path: '/app/backups/uploads/upload_1770000000000_uuid-123.tar.gz',
+      } as Express.Multer.File);
+
+      expect(fsPromises.rename).toHaveBeenCalledWith(
+        '/app/backups/uploads/upload_1770000000000_uuid-123.tar.gz',
+        '/app/backups/archives/uploaded_backup_1770000000000_uuid-123.tar.gz',
+      );
+      expect(result.filename).toBe('uploaded_backup_1770000000000_uuid-123.tar.gz');
+      expect(result.filepath).toBe(
+        '/app/backups/archives/uploaded_backup_1770000000000_uuid-123.tar.gz',
+      );
+      expect(result.metadata).toEqual(
+        expect.objectContaining({
+          originalFilename: 'customer_backup.tar.gz',
+          checksum: 'checksum-123',
+        }),
+      );
+    });
   });
 
   describe('command execution', () => {

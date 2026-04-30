@@ -1,4 +1,4 @@
-import { Injectable, Logger, NotFoundException, InternalServerErrorException, OnModuleDestroy } from '@nestjs/common';
+import { BadRequestException, Injectable, InternalServerErrorException, Logger, NotFoundException, OnModuleDestroy } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, LessThan } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
@@ -991,11 +991,19 @@ export class BackupService implements OnModuleDestroy {
     this.logger.log(`Processing uploaded backup: ${file.originalname}`);
 
     const uploadPath = file.path;
-    const archivePath = path.join(this.backupDir, 'archives', file.originalname);
+    const originalFilename = path.basename(file.originalname);
+    const archivesDir = path.resolve(this.backupDir, 'archives');
+    const ext = originalFilename.endsWith('.tar.gz') ? '.tar.gz' : '.tgz';
+    const archiveFilename = `uploaded_backup_${Date.now()}_${crypto.randomUUID()}${ext}`;
+    const archivePath = path.resolve(archivesDir, archiveFilename);
+
+    if (!archivePath.startsWith(`${archivesDir}${path.sep}`)) {
+      throw new BadRequestException('Invalid backup path detected');
+    }
 
     try {
       // Ensure archives directory exists
-      await fs.mkdir(path.join(this.backupDir, 'archives'), { recursive: true });
+      await fs.mkdir(archivesDir, { recursive: true });
 
       // Move file from uploads to archives
       await fs.rename(uploadPath, archivePath);
@@ -1039,7 +1047,7 @@ export class BackupService implements OnModuleDestroy {
 
       // Create backup log entry
       const backupLog = this.backupLogRepository.create({
-        filename: file.originalname,
+        filename: archiveFilename,
         filepath: archivePath,
         backupType: 'manual',
         status: 'completed',
@@ -1050,6 +1058,7 @@ export class BackupService implements OnModuleDestroy {
         size: stats.size,
         metadata: {
           ...metadata,
+          originalFilename,
           checksum,
           uploadedAt: new Date().toISOString(),
         },
@@ -1058,7 +1067,7 @@ export class BackupService implements OnModuleDestroy {
       await this.backupLogRepository.save(backupLog);
 
       this.logger.log(
-        `Uploaded backup processed successfully: ${file.originalname} (${this.formatBytes(stats.size)})`,
+        `Uploaded backup processed successfully: ${archiveFilename} from ${originalFilename} (${this.formatBytes(stats.size)})`,
       );
 
       return backupLog;
