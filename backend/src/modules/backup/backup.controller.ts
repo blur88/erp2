@@ -9,6 +9,7 @@ import {
   StreamableFile,
   UseInterceptors,
   UploadedFile,
+  BadRequestException,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiTags, ApiOperation, ApiResponse, ApiConsumes } from '@nestjs/swagger';
@@ -149,10 +150,14 @@ export class BackupController {
         },
       }),
       fileFilter: (_req, file, cb) => {
+        const safeFilenameRegex = /^[a-zA-Z0-9._-]+$/;
+        if (!safeFilenameRegex.test(file.originalname)) {
+          return cb(new BadRequestException('Invalid filename. Only alphanumeric characters, dots, underscores, and hyphens are allowed.'), false);
+        }
         if (file.originalname.endsWith('.tar.gz') || file.originalname.endsWith('.tgz')) {
           cb(null, true);
         } else {
-          cb(new Error('Only .tar.gz or .tgz files are allowed'), false);
+          cb(new BadRequestException('Only .tar.gz or .tgz files are allowed'), false);
         }
       },
     }),
