@@ -271,4 +271,79 @@ describe('GenericDeletedDialog', () => {
     expect(screen.getByPlaceholderText('Search...')).toHaveValue('')
     expect(screen.getByText('Beta')).toBeInTheDocument()
   })
+
+  describe('error message display', () => {
+    const rtkError = {
+      data: 'Cannot permanently delete purchase order that has payments recorded. Please unpay first.',
+    }
+
+    it('shows backend error message from error.data string on permanent delete', async () => {
+      const permanentDeleteFn = vi.fn(() => ({
+        unwrap: () => Promise.reject(rtkError),
+      }))
+
+      renderDialog({
+        usePermanentDeleteMutation: vi.fn(() => [permanentDeleteFn, { isLoading: false }] as const),
+      })
+
+      await userEvent.click(screen.getAllByRole('button', { name: 'Permanently Delete (Cannot be undone)' })[0])
+      await userEvent.click(screen.getByRole('button', { name: 'Permanently Delete' }))
+
+      await waitFor(() => {
+        expect(notifications.showError).toHaveBeenCalledWith(rtkError.data)
+      })
+    })
+
+    it('shows backend error message from error.data string on restore', async () => {
+      const restoreFn = vi.fn(() => ({
+        unwrap: () => Promise.reject(rtkError),
+      }))
+
+      renderDialog({
+        useRestoreMutation: vi.fn(() => [restoreFn, { isLoading: false }] as const),
+      })
+
+      await userEvent.click(screen.getAllByRole('button', { name: 'Restore item' })[0])
+
+      await waitFor(() => {
+        expect(notifications.showError).toHaveBeenCalledWith(rtkError.data)
+      })
+    })
+
+    it('shows backend error message from error.data string on bulk restore', async () => {
+      const bulkRestoreFn = vi.fn(() => ({
+        unwrap: () => Promise.reject(rtkError),
+      }))
+
+      renderDialog({
+        useBulkRestoreMutation: vi.fn(() => [bulkRestoreFn, { isLoading: false }] as const),
+      })
+
+      await userEvent.click(screen.getAllByRole('checkbox')[1])
+      await userEvent.click(screen.getByRole('button', { name: /Restore Selected \(1\)/i }))
+      await userEvent.click(screen.getByRole('button', { name: /Restore 1 items/i }))
+
+      await waitFor(() => {
+        expect(notifications.showError).toHaveBeenCalledWith(rtkError.data)
+      })
+    })
+
+    it('shows backend error message from error.data string on bulk permanent delete', async () => {
+      const bulkPermanentDeleteFn = vi.fn(() => ({
+        unwrap: () => Promise.reject(rtkError),
+      }))
+
+      renderDialog({
+        useBulkPermanentDeleteMutation: vi.fn(() => [bulkPermanentDeleteFn, { isLoading: false }] as const),
+      })
+
+      await userEvent.click(screen.getAllByRole('checkbox')[1])
+      await userEvent.click(screen.getByRole('button', { name: /Delete Selected \(1\)/i }))
+      await userEvent.click(screen.getByRole('button', { name: /Delete 1 items/i }))
+
+      await waitFor(() => {
+        expect(notifications.showError).toHaveBeenCalledWith(rtkError.data)
+      })
+    })
+  })
 })

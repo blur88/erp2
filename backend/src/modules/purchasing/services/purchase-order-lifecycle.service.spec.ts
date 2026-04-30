@@ -198,19 +198,38 @@ describe('PurchaseOrderLifecycleService', () => {
       });
     });
 
-    it('throws when vendor payments exist for the purchase order', async () => {
+    it('throws when the purchase order is not found', async () => {
       const count = jest.fn().mockResolvedValue(0);
       (poRepository.manager.getRepository as jest.Mock).mockReturnValue({ count });
-      vpRepository.find.mockResolvedValue([mockVendorPayment]);
+      poRepository.findOne.mockResolvedValue(null);
+
+      await expect(service.assertPermanentDeleteAllowed('po-1')).rejects.toThrow(NotFoundException);
+    });
+
+    it('throws when the purchase order has a paid amount greater than zero', async () => {
+      const count = jest.fn().mockResolvedValue(0);
+      (poRepository.manager.getRepository as jest.Mock).mockReturnValue({ count });
+      poRepository.findOne.mockResolvedValue({ ...mockOrder, paidAmount: 50 } as PurchaseOrder);
+      vpRepository.find.mockResolvedValue([]);
 
       await expect(service.assertPermanentDeleteAllowed('po-1')).rejects.toThrow(
-        'Cannot permanently delete purchase order with existing vendor payments.',
+        'Cannot permanently delete purchase order that has payments recorded. Please unpay first.',
       );
     });
 
-    it('resolves when neither stock movements nor vendor payments exist', async () => {
+    it('allows deletion when soft-deleted vendor payments exist but paidAmount is zero', async () => {
       const count = jest.fn().mockResolvedValue(0);
       (poRepository.manager.getRepository as jest.Mock).mockReturnValue({ count });
+      poRepository.findOne.mockResolvedValue({ ...mockOrder, paidAmount: 0 } as PurchaseOrder);
+      vpRepository.find.mockResolvedValue([mockVendorPayment]);
+
+      await expect(service.assertPermanentDeleteAllowed('po-1')).resolves.toBeUndefined();
+    });
+
+    it('resolves when neither stock movements nor paid amount exist', async () => {
+      const count = jest.fn().mockResolvedValue(0);
+      (poRepository.manager.getRepository as jest.Mock).mockReturnValue({ count });
+      poRepository.findOne.mockResolvedValue(mockOrder);
       vpRepository.find.mockResolvedValue([]);
 
       await expect(service.assertPermanentDeleteAllowed('po-1')).resolves.toBeUndefined();
