@@ -19,6 +19,7 @@ const createDeferred = <T,>() => {
 
 const {
   mockDispatch,
+  mockNavigate,
   mockGet,
   mockCreatePurchaseOrder,
   mockUpdatePurchaseOrder,
@@ -26,6 +27,7 @@ const {
   mockParams,
 } = vi.hoisted(() => ({
   mockDispatch: vi.fn(),
+  mockNavigate: vi.fn(),
   mockGet: vi.fn(),
   mockCreatePurchaseOrder: vi.fn(),
   mockUpdatePurchaseOrder: vi.fn(),
@@ -37,7 +39,7 @@ vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual('react-router-dom')
   return {
     ...actual,
-    useNavigate: () => vi.fn(),
+    useNavigate: () => mockNavigate,
     useParams: () => mockParams(),
   }
 })
@@ -55,6 +57,17 @@ vi.mock('@/hooks/useNotification', () => ({
 
 vi.mock('@/hooks/useCurrency', () => ({
   useCurrency: () => ({ currency: '$' }),
+}))
+
+vi.mock('@/store/slices/purchasingSlice', () => ({
+  updatePurchaseOrderInPlace: vi.fn((value) => ({
+    type: 'purchasing/updatePurchaseOrderInPlace',
+    payload: value,
+  })),
+  setSelectedPurchaseOrder: vi.fn((value) => ({
+    type: 'purchasing/setSelectedPurchaseOrder',
+    payload: value,
+  })),
 }))
 
 vi.mock('@/services/api', () => ({
@@ -289,5 +302,48 @@ describe('CreatePurchaseOrderPage', { timeout: 60000 }, () => {
       expect(within(listbox).getByText('Beta Gadget')).toBeInTheDocument()
       expect(within(listbox).queryByText('Alpha Widget')).toBeNull()
     })
+  })
+
+  it('dispatches the created purchase order before navigating back to the orders list', async () => {
+    const createdOrder = { id: 'new-po-id', orderNumber: 'PO-NEW' }
+    mockCreatePurchaseOrder.mockReturnValue({
+      unwrap: vi.fn().mockResolvedValue(createdOrder),
+    })
+
+    render(
+      <BrowserRouter>
+        <CreatePurchaseOrderPage />
+      </BrowserRouter>
+    )
+
+    const supplierInput = screen.getByLabelText(/supplier/i)
+    fireEvent.mouseDown(supplierInput)
+    const supplierListbox = await screen.findByRole('listbox')
+    fireEvent.click(within(supplierListbox).getByText('Acme Supplies'))
+
+    const productInput = screen.getByPlaceholderText('Search by name or barcode...')
+    fireEvent.mouseDown(productInput)
+    const productListbox = await screen.findByRole('listbox')
+    fireEvent.click(within(productListbox).getByText('Alpha Widget'))
+
+    await userEvent.click(screen.getByRole('button', { name: /create order/i }))
+
+    await waitFor(() => {
+      expect(mockDispatch).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: expect.stringContaining('setSelectedPurchaseOrder'),
+          payload: expect.objectContaining({ id: 'new-po-id' }),
+        }),
+      )
+    })
+
+    expect(mockNavigate).toHaveBeenCalledWith('/purchasing/orders?highlight=new-po-id')
+    const dispatchCallIndex = mockDispatch.mock.calls.findIndex((call) =>
+      String(call[0]?.type).includes('setSelectedPurchaseOrder'),
+    )
+    expect(dispatchCallIndex).toBeGreaterThanOrEqual(0)
+    expect(mockDispatch.mock.invocationCallOrder[dispatchCallIndex]).toBeLessThan(
+      mockNavigate.mock.invocationCallOrder[0],
+    )
   })
 })

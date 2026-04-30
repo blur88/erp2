@@ -32,7 +32,7 @@ import TransactionForm from '@/components/common/TransactionForm'
 import { useNotification } from '@/hooks/useNotification'
 import { useProductSearch } from '@/hooks/useProductSearch'
 import { useAppDispatch } from '@/hooks/useRedux'
-import { updatePurchaseOrderInPlace } from '@/store/slices/purchasingSlice'
+import { setSelectedPurchaseOrder, updatePurchaseOrderInPlace } from '@/store/slices/purchasingSlice'
 import {
   useCreatePurchaseOrderMutation,
   useGetSuppliersQuery,
@@ -262,18 +262,17 @@ const CreatePurchaseOrderPage: React.FC = () => {
       if (isEditMode && id) {
         const updatedOrder = await updatePurchaseOrder({ id, data: orderData as any }).unwrap()
 
-        // Update Redux state directly - this will auto-refresh the list
         dispatch(updatePurchaseOrderInPlace(updatedOrder))
+        dispatch(setSelectedPurchaseOrder(updatedOrder as any))
 
         showSuccess('Purchase order updated successfully')
-        // Navigate to orders page with the updated order selected
         navigate(`/purchasing/orders?highlight=${id}`)
       } else {
         const result = await createPurchaseOrder(orderData as any).unwrap()
-        const newOrderId = (result as any).id
+        dispatch(setSelectedPurchaseOrder(result as any))
         showSuccess('Purchase order created successfully')
         // Navigate to orders page with the new order selected
-        navigate(`/purchasing/orders?highlight=${newOrderId}`)
+        navigate(`/purchasing/orders?highlight=${(result as any).id}`)
       }
     } catch (err: any) {
       console.error('Error creating purchase order:', err)

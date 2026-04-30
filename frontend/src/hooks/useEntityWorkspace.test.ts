@@ -221,6 +221,21 @@ describe('useEntityWorkspace', () => {
     expect(onEscape).toHaveBeenCalledTimes(1)
     expect(config.selectEntity).not.toHaveBeenCalledWith(null)
   })
+
+  it('does not clear selection or focused index when entities list is empty but isLoading is true', () => {
+    const config = makeConfig({
+      entities: [],
+      selectedEntity: makeEntity('1'),
+      isLoading: true,
+    })
+
+    const { result } = renderHook(() => useEntityWorkspace(config), {
+      wrapper: makeWrapper('/entities'),
+    })
+
+    expect(config.selectEntity).not.toHaveBeenCalledWith(null)
+    expect(result.current.focusedIndex).toBe(-1)
+  })
 })
 
 describe('highlightParam', () => {

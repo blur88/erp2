@@ -101,7 +101,7 @@ export const OrdersPage: React.FC = () => {
     toDate: dateRange.toDate,
   }), [appliedFilters, dateRange, sortBy, sortOrder])
 
-  const { data: ordersData, isLoading: loading, refetch: refetchOrders } = useGetSalesOrdersQuery(orderQueryArgs)
+  const { data: ordersData, isFetching: loading, refetch: refetchOrders } = useGetSalesOrdersQuery(orderQueryArgs)
   const orders = ordersData?.data ?? []
   const pagination = ordersData?.meta
 
@@ -115,6 +115,7 @@ export const OrdersPage: React.FC = () => {
     orders,
     selectedOrder,
     refetchOrders: loadOrders,
+    isLoading: loading,
   })
 
   const handleSort = useCallback((field: string) => {

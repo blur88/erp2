@@ -13,6 +13,7 @@ const customersResponse = {
 
 const {
   mockDispatch,
+  mockNavigate,
   mockGet,
   mockCreateSalesOrder,
   mockUpdateSalesOrder,
@@ -20,6 +21,7 @@ const {
   mockParams,
 } = vi.hoisted(() => ({
   mockDispatch: vi.fn(),
+  mockNavigate: vi.fn(),
   mockGet: vi.fn(),
   mockCreateSalesOrder: vi.fn(),
   mockUpdateSalesOrder: vi.fn(),
@@ -32,7 +34,7 @@ vi.mock('react-router-dom', async () => {
 
   return {
     ...actual,
-    useNavigate: () => vi.fn(),
+    useNavigate: () => mockNavigate,
     useParams: () => mockParams(),
   }
 })
@@ -210,5 +212,48 @@ describe('CreateSalesOrderPage product search', { timeout: 60000 }, () => {
     await waitFor(() => {
       expect(firstProductInput).toHaveValue('Hydrated Product')
     })
+  })
+
+  it('dispatches the created order before navigating back to the orders list', async () => {
+    const createdOrder = { id: 'new-order-id', orderNumber: 'SO-NEW' }
+    mockCreateSalesOrder.mockReturnValue({
+      unwrap: vi.fn().mockResolvedValue(createdOrder),
+    })
+
+    render(
+      <BrowserRouter>
+        <CreateSalesOrderPage />
+      </BrowserRouter>
+    )
+
+    const customerInput = screen.getByLabelText(/customer/i)
+    fireEvent.mouseDown(customerInput)
+    const customerListbox = await screen.findByRole('listbox')
+    fireEvent.click(within(customerListbox).getByText('Test Customer'))
+
+    const [productInput] = screen.getAllByPlaceholderText('Search by name or barcode...')
+    fireEvent.mouseDown(productInput)
+    const productListbox = await screen.findByRole('listbox')
+    fireEvent.click(within(productListbox).getByText('Alpha Widget'))
+
+    await userEvent.click(screen.getByRole('button', { name: /create order/i }))
+
+    await waitFor(() => {
+      expect(mockDispatch).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: expect.stringContaining('setSelectedOrder'),
+          payload: expect.objectContaining({ id: 'new-order-id' }),
+        }),
+      )
+    })
+
+    expect(mockNavigate).toHaveBeenCalledWith('/sales/orders?highlight=new-order-id')
+    const dispatchCallIndex = mockDispatch.mock.calls.findIndex((call) =>
+      String(call[0]?.type).includes('setSelectedOrder'),
+    )
+    expect(dispatchCallIndex).toBeGreaterThanOrEqual(0)
+    expect(mockDispatch.mock.invocationCallOrder[dispatchCallIndex]).toBeLessThan(
+      mockNavigate.mock.invocationCallOrder[0],
+    )
   })
 })
