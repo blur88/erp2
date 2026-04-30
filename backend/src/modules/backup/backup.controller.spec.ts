@@ -1,8 +1,9 @@
+import { BadRequestException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { UserRole } from '@database/entities/user.entity';
-import { BackupController } from './backup.controller';
+import { BackupController, backupUploadFileFilter } from './backup.controller';
 
 /**
  * Returns the guards applied to a class or method via UseGuards metadata.
@@ -70,5 +71,43 @@ describe('BackupController - auth guards', () => {
       expect(methodRoles).not.toContain(UserRole.SALES_STAFF);
       expect(methodRoles).not.toContain(UserRole.PROCUREMENT_STAFF);
     });
+  });
+});
+
+describe('BackupController - upload fileFilter', () => {
+  function runFileFilter(originalname: string) {
+    const cb = jest.fn();
+
+    backupUploadFileFilter(
+      {},
+      { originalname },
+      cb,
+    );
+
+    return cb;
+  }
+
+  it('rejects filenames containing shell metacharacters', () => {
+    const cb = runFileFilter('backup;rm.tar.gz');
+
+    expect(cb).toHaveBeenCalledWith(expect.any(BadRequestException), false);
+    expect(cb.mock.calls[0][0].message).toBe(
+      'Invalid filename. Only alphanumeric characters, dots, underscores, and hyphens are allowed.',
+    );
+  });
+
+  it('rejects filenames containing path traversal characters', () => {
+    const cb = runFileFilter('../../etc/passwd.tar.gz');
+
+    expect(cb).toHaveBeenCalledWith(expect.any(BadRequestException), false);
+    expect(cb.mock.calls[0][0].message).toBe(
+      'Invalid filename. Only alphanumeric characters, dots, underscores, and hyphens are allowed.',
+    );
+  });
+
+  it('accepts valid tar.gz backup filenames', () => {
+    const cb = runFileFilter('backup_20260430_120000.tar.gz');
+
+    expect(cb).toHaveBeenCalledWith(null, true);
   });
 });
