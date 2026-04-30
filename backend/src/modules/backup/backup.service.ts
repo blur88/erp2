@@ -3,8 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, LessThan } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
 import Redis from 'ioredis';
-import { exec } from 'child_process';
-import { promisify } from 'util';
+import { spawn } from 'child_process';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import * as os from 'os';
@@ -20,8 +19,6 @@ import { CreateBackupDto, BackupDatabase } from './dto/create-backup.dto';
 import { BackupMetadata } from './interfaces/backup-metadata.interface';
 import { UpdateBackupSettingsDto, BackupSettingsResponseDto } from './dto/backup-settings.dto';
 import { plainToInstance } from 'class-transformer';
-
-const execAsync = promisify(exec);
 
 @Injectable()
 export class BackupService implements OnModuleDestroy {
@@ -64,6 +61,33 @@ export class BackupService implements OnModuleDestroy {
     } catch (_error) {
       // Ignore redis shutdown errors during module teardown.
     }
+  }
+
+  private async spawnAsync(
+    command: string,
+    args: string[],
+    options: any = {},
+  ): Promise<{ stdout: string; stderr: string }> {
+    return new Promise((resolve, reject) => {
+      const child = spawn(command, args, options);
+      let stdout = '';
+      let stderr = '';
+
+      child.stdout?.on('data', (data) => (stdout += data));
+      child.stderr?.on('data', (data) => (stderr += data));
+
+      child.on('close', (code) => {
+        if (code === 0) {
+          resolve({ stdout, stderr });
+        } else {
+          reject(new Error(`Command failed with code ${code}: ${stderr}`));
+        }
+      });
+
+      child.on('error', (err) => {
+        reject(err);
+      });
+    });
   }
 
   async createBackup(createBackupDto: CreateBackupDto): Promise<BackupLog> {
