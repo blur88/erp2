@@ -707,7 +707,7 @@ export class BackupService implements OnModuleDestroy {
     const sqlPath = path.join(restoreDir, sqlFile);
 
     // Decompress the SQL file
-    await execAsync(`gunzip "${sqlPath}"`);
+    await this.spawnAsync('gunzip', [sqlPath]);
     const decompressedPath = sqlPath.replace('.gz', '');
 
     const host = this.configService.get<string>('DB_HOST', 'postgres');
@@ -724,17 +724,26 @@ export class BackupService implements OnModuleDestroy {
     };
 
     // Drop existing connections to the database
-    const dropConnectionsCmd = `${psqlPath} -h ${host} -p ${port} -U ${username} -d postgres -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '${database}' AND pid <> pg_backend_pid();"`;
-
     try {
-      await execAsync(dropConnectionsCmd, { env });
+      await this.spawnAsync(psqlPath, [
+        '-h', host,
+        '-p', port,
+        '-U', username,
+        '-d', 'postgres',
+        '-c', `SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '${database}' AND pid <> pg_backend_pid();`,
+      ], { env });
     } catch (error) {
       this.logger.warn('Failed to drop existing connections, continuing...');
     }
 
     // Restore the database
-    const restoreCommand = `${psqlPath} -h ${host} -p ${port} -U ${username} -d ${database} -f "${decompressedPath}"`;
-    await execAsync(restoreCommand, { env });
+    await this.spawnAsync(psqlPath, [
+      '-h', host,
+      '-p', port,
+      '-U', username,
+      '-d', database,
+      '-f', decompressedPath,
+    ], { env });
 
     this.logger.log('PostgreSQL restore completed');
   }
