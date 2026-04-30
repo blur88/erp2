@@ -6,7 +6,7 @@
 
 **Architecture:** 
 1.  **Controller Layer**: Stricter regex for original filenames and system-generated unique temporary filenames.
-2.  **Service Layer**: Normalize paths using `path.basename` and `path.resolve`, and verify the final path is within the allowed `archives/` directory.
+2.  **Service Layer**: Treat the uploaded original filename as metadata only, generate the final archive filename, resolve the destination path, and verify the final path is within the allowed `archives/` directory.
 
 **Tech Stack:** NestJS, Node.js (fs/path), TypeORM
 
@@ -53,7 +53,7 @@ storage: diskStorage({
     // Generate a safe unique name
     const timestamp = Date.now();
     const ext = file.originalname.endsWith('.tar.gz') ? '.tar.gz' : '.tgz';
-    cb(null, `upload_${timestamp}${ext}`);
+    cb(null, `upload_${timestamp}_${crypto.randomUUID()}${ext}`);
   },
 }),
 ```
@@ -73,21 +73,23 @@ git commit -m "fix(backup): sanitize uploaded filenames in controller"
 - Modify: `backend/src/modules/backup/backup.service.ts`
 
 - [ ] **Step 1: Update `processUploadedBackup` path construction**
-Use `path.basename` and `path.resolve` to ensure the destination is safe.
+Generate a final archive filename and use `path.resolve` to ensure the destination is safe. The original upload name is preserved only as metadata/display context.
 
 ```typescript
 async processUploadedBackup(file: Express.Multer.File): Promise<BackupLog> {
   this.logger.log(`Processing uploaded backup: ${file.originalname}`);
 
   const uploadPath = file.path;
-  
-  // SANITIZE: Use basename to strip any path components from user input
-  const safeBasename = path.basename(file.originalname);
+
+  // Preserve the client-provided name only as metadata.
+  const originalFilename = path.basename(file.originalname);
   const archivesDir = path.resolve(this.backupDir, 'archives');
-  const archivePath = path.resolve(archivesDir, safeBasename);
+  const ext = originalFilename.endsWith('.tar.gz') ? '.tar.gz' : '.tgz';
+  const archiveFilename = `uploaded_backup_${Date.now()}_${crypto.randomUUID()}${ext}`;
+  const archivePath = path.resolve(archivesDir, archiveFilename);
 
   // VALIDATE: Ensure the final path is within the archives directory
-  if (!archivePath.startsWith(archivesDir)) {
+  if (!archivePath.startsWith(`${archivesDir}${path.sep}`)) {
     throw new BadRequestException('Invalid backup path detected');
   }
 
@@ -95,7 +97,7 @@ async processUploadedBackup(file: Express.Multer.File): Promise<BackupLog> {
     // Ensure archives directory exists
     await fs.mkdir(archivesDir, { recursive: true });
 
-    // Move file from uploads to archives
+    // Move file from uploads to archives under the generated name
     await fs.rename(uploadPath, archivePath);
     // ... rest of the method
 ```
