@@ -25,6 +25,7 @@ export interface UseEntityWorkspaceConfig<T extends { id: string }> {
   highlightParam?: string
   locationStateHighlightKey?: string
   locationStateHighlightKeys?: string[]
+  isLoading?: boolean
 }
 
 export interface EntityWorkspaceReturn<T extends { id: string }> {
@@ -67,6 +68,7 @@ export function useEntityWorkspace<T extends { id: string }>(
     highlightParam,
     locationStateHighlightKey,
     locationStateHighlightKeys,
+    isLoading = false,
   } = config
 
   const [focusedIndex, setFocusedIndex] = useState(-1)
@@ -87,7 +89,9 @@ export function useEntityWorkspace<T extends { id: string }>(
     if (entities.length === 0) {
       hasAutoSelected.current = false
       setFocusedIndex(-1)
-      selectEntity(null)
+      if (!isLoading) {
+        selectEntity(null)
+      }
       return
     }
 
@@ -118,7 +122,7 @@ export function useEntityWorkspace<T extends { id: string }>(
       setFocusedIndex(0)
       selectEntity(entities[0])
     }
-  }, [entities, focusedIndex, highlightParam, location.state, locationStateHighlightKey, locationStateHighlightKeys, searchParams, selectedEntity, selectEntity])
+  }, [entities, focusedIndex, highlightParam, isLoading, location.state, locationStateHighlightKey, locationStateHighlightKeys, searchParams, selectedEntity, selectEntity])
 
   useEffect(() => {
     if (focusedIndex < 0 || !listRef.current) {
