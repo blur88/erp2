@@ -262,11 +262,10 @@ const CreatePurchaseOrderPage: React.FC = () => {
       if (isEditMode && id) {
         const updatedOrder = await updatePurchaseOrder({ id, data: orderData as any }).unwrap()
 
-        // Update Redux state directly - this will auto-refresh the list
         dispatch(updatePurchaseOrderInPlace(updatedOrder))
+        dispatch(setSelectedPurchaseOrder(updatedOrder as any))
 
         showSuccess('Purchase order updated successfully')
-        // Navigate to orders page with the updated order selected
         navigate(`/purchasing/orders?highlight=${id}`)
       } else {
         const result = await createPurchaseOrder(orderData as any).unwrap()

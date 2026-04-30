@@ -88,8 +88,8 @@ export function useEntityWorkspace<T extends { id: string }>(
   useEffect(() => {
     if (entities.length === 0) {
       hasAutoSelected.current = false
-      setFocusedIndex(-1)
       if (!isLoading) {
+        setFocusedIndex(-1)
         selectEntity(null)
       }
       return

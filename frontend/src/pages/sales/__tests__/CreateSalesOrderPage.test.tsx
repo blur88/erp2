@@ -248,7 +248,11 @@ describe('CreateSalesOrderPage product search', { timeout: 60000 }, () => {
     })
 
     expect(mockNavigate).toHaveBeenCalledWith('/sales/orders?highlight=new-order-id')
-    expect(mockDispatch.mock.invocationCallOrder[0]).toBeLessThan(
+    const dispatchCallIndex = mockDispatch.mock.calls.findIndex((call) =>
+      String(call[0]?.type).includes('setSelectedOrder'),
+    )
+    expect(dispatchCallIndex).toBeGreaterThanOrEqual(0)
+    expect(mockDispatch.mock.invocationCallOrder[dispatchCallIndex]).toBeLessThan(
       mockNavigate.mock.invocationCallOrder[0],
     )
   })

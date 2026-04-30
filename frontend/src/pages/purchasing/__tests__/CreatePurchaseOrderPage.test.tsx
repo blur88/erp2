@@ -338,7 +338,11 @@ describe('CreatePurchaseOrderPage', { timeout: 60000 }, () => {
     })
 
     expect(mockNavigate).toHaveBeenCalledWith('/purchasing/orders?highlight=new-po-id')
-    expect(mockDispatch.mock.invocationCallOrder[0]).toBeLessThan(
+    const dispatchCallIndex = mockDispatch.mock.calls.findIndex((call) =>
+      String(call[0]?.type).includes('setSelectedPurchaseOrder'),
+    )
+    expect(dispatchCallIndex).toBeGreaterThanOrEqual(0)
+    expect(mockDispatch.mock.invocationCallOrder[dispatchCallIndex]).toBeLessThan(
       mockNavigate.mock.invocationCallOrder[0],
     )
   })
