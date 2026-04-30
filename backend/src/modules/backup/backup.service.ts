@@ -235,12 +235,19 @@ export class BackupService implements OnModuleDestroy {
       PGPASSWORD: password,
     };
 
-    const command = `pg_dump -h ${host} -p ${port} -U ${username} -d ${database} -F p --clean --if-exists -f ${filepath}`;
-
-    await execAsync(command, { env });
+    await this.spawnAsync('pg_dump', [
+      '-h', host,
+      '-p', port,
+      '-U', username,
+      '-d', database,
+      '-F', 'p',
+      '--clean',
+      '--if-exists',
+      '-f', filepath,
+    ], { env });
 
     // Compress the SQL file
-    await execAsync(`gzip ${filepath}`);
+    await this.spawnAsync('gzip', [filepath]);
 
     return `${filename}.gz`;
   }
@@ -367,7 +374,7 @@ export class BackupService implements OnModuleDestroy {
 
   private async getPostgreSQLVersion(): Promise<string> {
     try {
-      const { stdout } = await execAsync('psql --version');
+      const { stdout } = await this.spawnAsync('psql', ['--version']);
       return stdout.trim();
     } catch (error) {
       return 'unknown';
@@ -383,9 +390,15 @@ export class BackupService implements OnModuleDestroy {
       const password = this.configService.get<string>('DB_PASSWORD', '');
 
       const env = { ...process.env, PGPASSWORD: password };
-      const command = `psql -h ${host} -p ${port} -U ${username} -d ${database} -t -c "SELECT tablename FROM pg_tables WHERE schemaname='public'"`;
 
-      const { stdout } = await execAsync(command, { env });
+      const { stdout } = await this.spawnAsync('psql', [
+        '-h', host,
+        '-p', port,
+        '-U', username,
+        '-d', database,
+        '-t',
+        '-c', "SELECT tablename FROM pg_tables WHERE schemaname='public'",
+      ], { env });
       return stdout
         .split('\n')
         .map((line) => line.trim())
