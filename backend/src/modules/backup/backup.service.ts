@@ -688,8 +688,7 @@ export class BackupService implements OnModuleDestroy {
   private async extractArchive(archivePath: string, destDir: string): Promise<void> {
     await fs.mkdir(destDir, { recursive: true });
 
-    const command = `tar -xzf "${archivePath}" -C "${destDir}"`;
-    await execAsync(command);
+    await this.spawnAsync('tar', ['-xzf', archivePath, '-C', destDir]);
 
     this.logger.log(`Archive extracted to: ${destDir}`);
   }
