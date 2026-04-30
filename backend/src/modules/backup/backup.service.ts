@@ -3,8 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, LessThan } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
 import Redis from 'ioredis';
-import { exec } from 'child_process';
-import { promisify } from 'util';
+import { spawn, SpawnOptions } from 'child_process';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import * as os from 'os';
@@ -20,8 +19,6 @@ import { CreateBackupDto, BackupDatabase } from './dto/create-backup.dto';
 import { BackupMetadata } from './interfaces/backup-metadata.interface';
 import { UpdateBackupSettingsDto, BackupSettingsResponseDto } from './dto/backup-settings.dto';
 import { plainToInstance } from 'class-transformer';
-
-const execAsync = promisify(exec);
 
 @Injectable()
 export class BackupService implements OnModuleDestroy {
@@ -64,6 +61,35 @@ export class BackupService implements OnModuleDestroy {
     } catch (_error) {
       // Ignore redis shutdown errors during module teardown.
     }
+  }
+
+  private async spawnAsync(
+    command: string,
+    args: string[],
+    options: SpawnOptions = {},
+  ): Promise<{ stdout: string; stderr: string }> {
+    return new Promise((resolve, reject) => {
+      const child = spawn(command, args, options);
+      let stdout = '';
+      let stderr = '';
+
+      child.stdout?.on('data', (data) => (stdout += data));
+      child.stderr?.on('data', (data) => (stderr += data));
+
+      child.on('close', (code, signal) => {
+        if (code === 0) {
+          resolve({ stdout, stderr });
+        } else if (signal) {
+          reject(new Error(`Command killed by signal ${signal}: ${stderr}`));
+        } else {
+          reject(new Error(`Command failed with code ${code}: ${stderr}`));
+        }
+      });
+
+      child.on('error', (err) => {
+        reject(err);
+      });
+    });
   }
 
   async createBackup(createBackupDto: CreateBackupDto): Promise<BackupLog> {
@@ -211,12 +237,19 @@ export class BackupService implements OnModuleDestroy {
       PGPASSWORD: password,
     };
 
-    const command = `pg_dump -h ${host} -p ${port} -U ${username} -d ${database} -F p --clean --if-exists -f ${filepath}`;
-
-    await execAsync(command, { env });
+    await this.spawnAsync('pg_dump', [
+      '-h', host,
+      '-p', port,
+      '-U', username,
+      '-d', database,
+      '-F', 'p',
+      '--clean',
+      '--if-exists',
+      '-f', filepath,
+    ], { env });
 
     // Compress the SQL file
-    await execAsync(`gzip ${filepath}`);
+    await this.spawnAsync('gzip', [filepath]);
 
     return `${filename}.gz`;
   }
@@ -343,7 +376,7 @@ export class BackupService implements OnModuleDestroy {
 
   private async getPostgreSQLVersion(): Promise<string> {
     try {
-      const { stdout } = await execAsync('psql --version');
+      const { stdout } = await this.spawnAsync('psql', ['--version']);
       return stdout.trim();
     } catch (error) {
       return 'unknown';
@@ -359,9 +392,15 @@ export class BackupService implements OnModuleDestroy {
       const password = this.configService.get<string>('DB_PASSWORD', '');
 
       const env = { ...process.env, PGPASSWORD: password };
-      const command = `psql -h ${host} -p ${port} -U ${username} -d ${database} -t -c "SELECT tablename FROM pg_tables WHERE schemaname='public'"`;
 
-      const { stdout } = await execAsync(command, { env });
+      const { stdout } = await this.spawnAsync('psql', [
+        '-h', host,
+        '-p', port,
+        '-U', username,
+        '-d', database,
+        '-t',
+        '-c', "SELECT tablename FROM pg_tables WHERE schemaname='public'",
+      ], { env });
       return stdout
         .split('\n')
         .map((line) => line.trim())
@@ -651,8 +690,7 @@ export class BackupService implements OnModuleDestroy {
   private async extractArchive(archivePath: string, destDir: string): Promise<void> {
     await fs.mkdir(destDir, { recursive: true });
 
-    const command = `tar -xzf "${archivePath}" -C "${destDir}"`;
-    await execAsync(command);
+    await this.spawnAsync('tar', ['-xzf', archivePath, '-C', destDir]);
 
     this.logger.log(`Archive extracted to: ${destDir}`);
   }
@@ -670,7 +708,7 @@ export class BackupService implements OnModuleDestroy {
     const sqlPath = path.join(restoreDir, sqlFile);
 
     // Decompress the SQL file
-    await execAsync(`gunzip "${sqlPath}"`);
+    await this.spawnAsync('gunzip', [sqlPath]);
     const decompressedPath = sqlPath.replace('.gz', '');
 
     const host = this.configService.get<string>('DB_HOST', 'postgres');
@@ -687,17 +725,26 @@ export class BackupService implements OnModuleDestroy {
     };
 
     // Drop existing connections to the database
-    const dropConnectionsCmd = `${psqlPath} -h ${host} -p ${port} -U ${username} -d postgres -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '${database}' AND pid <> pg_backend_pid();"`;
-
     try {
-      await execAsync(dropConnectionsCmd, { env });
+      await this.spawnAsync(psqlPath, [
+        '-h', host,
+        '-p', port,
+        '-U', username,
+        '-d', 'postgres',
+        '-c', `SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '${database}' AND pid <> pg_backend_pid();`,
+      ], { env });
     } catch (error) {
       this.logger.warn('Failed to drop existing connections, continuing...');
     }
 
     // Restore the database
-    const restoreCommand = `${psqlPath} -h ${host} -p ${port} -U ${username} -d ${database} -f "${decompressedPath}"`;
-    await execAsync(restoreCommand, { env });
+    await this.spawnAsync(psqlPath, [
+      '-h', host,
+      '-p', port,
+      '-U', username,
+      '-d', database,
+      '-f', decompressedPath,
+    ], { env });
 
     this.logger.log('PostgreSQL restore completed');
   }

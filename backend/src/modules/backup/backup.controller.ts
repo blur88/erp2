@@ -9,6 +9,7 @@ import {
   StreamableFile,
   UseInterceptors,
   UploadedFile,
+  BadRequestException,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiTags, ApiOperation, ApiResponse, ApiConsumes } from '@nestjs/swagger';
@@ -27,6 +28,28 @@ import { BackupLog } from '@database/entities/backup-log.entity';
 import { BackupSchedule } from '@database/entities/backup-schedule.entity';
 import { Auth } from '../auth/decorators/auth.decorator';
 import { UserRole } from '@database/entities/user.entity';
+
+export const backupUploadFileFilter = (
+  _req: unknown,
+  file: { originalname: string },
+  cb: (error: Error | null, acceptFile: boolean) => void,
+): void => {
+  const safeFilenameRegex = /^[a-zA-Z0-9._-]+$/;
+  if (!safeFilenameRegex.test(file.originalname)) {
+    return cb(
+      new BadRequestException(
+        'Invalid filename. Only alphanumeric characters, dots, underscores, and hyphens are allowed.',
+      ),
+      false,
+    );
+  }
+
+  if (file.originalname.endsWith('.tar.gz') || file.originalname.endsWith('.tgz')) {
+    cb(null, true);
+  } else {
+    cb(new BadRequestException('Only .tar.gz or .tgz files are allowed'), false);
+  }
+};
 
 @ApiTags('Backup')
 @Controller('backup')
@@ -148,13 +171,7 @@ export class BackupController {
           cb(null, file.originalname);
         },
       }),
-      fileFilter: (_req, file, cb) => {
-        if (file.originalname.endsWith('.tar.gz') || file.originalname.endsWith('.tgz')) {
-          cb(null, true);
-        } else {
-          cb(new Error('Only .tar.gz or .tgz files are allowed'), false);
-        }
-      },
+      fileFilter: backupUploadFileFilter,
     }),
   )
   async uploadBackup(

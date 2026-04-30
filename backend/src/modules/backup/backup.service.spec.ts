@@ -1,6 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { ConfigService } from '@nestjs/config';
+import { EventEmitter } from 'events';
+import { spawn } from 'child_process';
 import { BackupService } from './backup.service';
 import { BackupLog } from '@database/entities/backup-log.entity';
 import { BackupRetentionSettings } from '@database/entities/backup-settings.entity';
@@ -8,6 +10,42 @@ import { CompanySettings } from '@database/entities/company-settings.entity';
 import { RegionalSettings } from '@database/entities/regional-settings.entity';
 import { DocumentNumberSetting } from '@database/entities/document-number-settings.entity';
 import { PrintSettings } from '@database/entities/print-settings.entity';
+
+jest.mock('child_process', () => ({
+  spawn: jest.fn(),
+}));
+
+const mockSpawn = spawn as jest.MockedFunction<typeof spawn>;
+
+function mockSuccessfulSpawn(stdout = '') {
+  mockSpawn.mockImplementationOnce(() => {
+    const child = new EventEmitter() as any;
+    child.stdout = new EventEmitter();
+    child.stderr = new EventEmitter();
+
+    process.nextTick(() => {
+      if (stdout) {
+        child.stdout.emit('data', stdout);
+      }
+      child.emit('close', 0);
+    });
+
+    return child;
+  });
+}
+
+function mockFailingSpawn(stderr = 'permission denied', code = 1) {
+  mockSpawn.mockImplementationOnce(() => {
+    const child = new EventEmitter() as any;
+    child.stdout = new EventEmitter();
+    child.stderr = new EventEmitter();
+    process.nextTick(() => {
+      child.stderr.emit('data', stderr);
+      child.emit('close', code);
+    });
+    return child;
+  });
+}
 
 const mockRepository = () => ({
   findOne: jest.fn(),
@@ -74,6 +112,126 @@ describe('BackupService - settings backup', () => {
 
   afterEach(() => {
     jest.restoreAllMocks();
+    mockSpawn.mockReset();
+  });
+
+  describe('command execution', () => {
+    it('uses spawn argument arrays for PostgreSQL backup creation', async () => {
+      mockSuccessfulSpawn();
+      mockSuccessfulSpawn();
+
+      const result = await (service as any).backupPostgreSQL('/tmp/backup dir', '20260430_120000');
+
+      expect(result).toBe('erp_db_20260430_120000.sql.gz');
+      expect(mockSpawn).toHaveBeenNthCalledWith(1, 'pg_dump', [
+        '-h', 'postgres',
+        '-p', '5432',
+        '-U', 'erp_user',
+        '-d', 'erp_db',
+        '-F', 'p',
+        '--clean',
+        '--if-exists',
+        '-f', '/tmp/backup dir/erp_db_20260430_120000.sql',
+      ], expect.objectContaining({
+        env: expect.objectContaining({ PGPASSWORD: '' }),
+      }));
+      expect(mockSpawn).toHaveBeenNthCalledWith(2, 'gzip', [
+        '/tmp/backup dir/erp_db_20260430_120000.sql',
+      ], {});
+    });
+
+    it('uses spawn argument arrays for PostgreSQL version checks', async () => {
+      mockSuccessfulSpawn('psql (PostgreSQL) 16.2\n');
+
+      const result = await (service as any).getPostgreSQLVersion();
+
+      expect(result).toBe('psql (PostgreSQL) 16.2');
+      expect(mockSpawn).toHaveBeenCalledWith('psql', ['--version'], {});
+    });
+
+    it('uses spawn argument arrays for PostgreSQL table listing', async () => {
+      mockSuccessfulSpawn(' customers \n invoices \n\n');
+
+      const result = await (service as any).getPostgreSQLTables();
+
+      expect(result).toEqual(['customers', 'invoices']);
+      expect(mockSpawn).toHaveBeenCalledWith('psql', [
+        '-h', 'postgres',
+        '-p', '5432',
+        '-U', 'erp_user',
+        '-d', 'erp_db',
+        '-t',
+        '-c', "SELECT tablename FROM pg_tables WHERE schemaname='public'",
+      ], expect.objectContaining({
+        env: expect.objectContaining({ PGPASSWORD: '' }),
+      }));
+    });
+
+    it('uses spawn argument arrays for tar extraction', async () => {
+      jest.spyOn(require('fs/promises'), 'mkdir').mockResolvedValue(undefined);
+      mockSuccessfulSpawn();
+
+      await (service as any).extractArchive('/tmp/backup;rm.tar.gz', '/tmp/restore dir');
+
+      expect(mockSpawn).toHaveBeenCalledWith('tar', [
+        '-xzf',
+        '/tmp/backup;rm.tar.gz',
+        '-C',
+        '/tmp/restore dir',
+      ], {});
+    });
+
+    it('uses spawn argument arrays for PostgreSQL restore', async () => {
+      jest.spyOn(require('fs/promises'), 'readdir').mockResolvedValue(['erp_db_20260430_120000.sql.gz']);
+      mockSuccessfulSpawn();
+      mockSuccessfulSpawn();
+      mockSuccessfulSpawn();
+
+      await (service as any).restorePostgreSQL('/tmp/restore dir');
+
+      expect(mockSpawn).toHaveBeenNthCalledWith(1, 'gunzip', [
+        '/tmp/restore dir/erp_db_20260430_120000.sql.gz',
+      ], {});
+      expect(mockSpawn).toHaveBeenNthCalledWith(2, '/usr/bin/psql', [
+        '-h', 'postgres',
+        '-p', '5432',
+        '-U', 'erp_user',
+        '-d', 'postgres',
+        '-c', "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = 'erp_db' AND pid <> pg_backend_pid();",
+      ], expect.objectContaining({
+        env: expect.objectContaining({ PGPASSWORD: '' }),
+      }));
+      expect(mockSpawn).toHaveBeenNthCalledWith(3, '/usr/bin/psql', [
+        '-h', 'postgres',
+        '-p', '5432',
+        '-U', 'erp_user',
+        '-d', 'erp_db',
+        '-f', '/tmp/restore dir/erp_db_20260430_120000.sql',
+      ], expect.objectContaining({
+        env: expect.objectContaining({ PGPASSWORD: '' }),
+      }));
+    });
+
+    it('rejects when a spawned command exits with a non-zero code', async () => {
+      mockFailingSpawn('role "erp_user" does not exist', 1);
+
+      await expect((service as any).backupPostgreSQL('/tmp', '20260430_120000'))
+        .rejects.toThrow('Command failed with code 1');
+    });
+
+    it('rejects when a spawned command is killed by a signal', async () => {
+      jest.spyOn(require('fs/promises'), 'mkdir').mockResolvedValue(undefined);
+      mockSpawn.mockImplementationOnce(() => {
+        const child = new EventEmitter() as any;
+        child.stdout = new EventEmitter();
+        child.stderr = new EventEmitter();
+        process.nextTick(() => child.emit('close', null, 'SIGKILL'));
+        return child;
+      });
+
+      await expect((service as any).extractArchive('/tmp/backup.tar.gz', '/tmp/restore'))
+        .rejects.toThrow('Command killed by signal SIGKILL');
+    });
   });
 
   describe('getCompanySettings', () => {
