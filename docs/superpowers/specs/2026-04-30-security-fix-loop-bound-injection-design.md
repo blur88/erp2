@@ -1,66 +1,90 @@
-# Design Spec: Security Fix for Loop Bound Injection (Alert #42)
+# Design Spec: Issue 484 CSV Import Loop Bound Injection
 
 ## Problem Statement
-The product import's CSV parsing logic in `ProductService.parseCsvLine` iterates over the `.length` property of a user-provided string. While the buffer is converted to a string before parsing, this pattern is vulnerable to "Loop bound injection" (CWE-834, CWE-730). An attacker could provide a crafted file with extremely long lines or manipulated properties to cause a Denial of Service (DoS) by exhausting CPU or memory resources, hanging the Node.js event loop.
 
-## Proposed Changes
+GitHub issue 484 tracks Code Scanning alert 42 for loop bound injection in product CSV import parsing. The vulnerable surface is `ProductService.parseCsvLine`, which loops over `line.length` for input derived from an uploaded file. The current code converts the upload buffer to a string before parsing, but it does not enforce type or resource limits before calling string APIs and iterating over each character.
 
-### 1. Service Layer Hardening (`ProductService`)
-We will add strict resource limits and input validation to the CSV parsing methods.
+The fix should make malformed or excessive import files fail early with a clear client error, while preserving valid product imports and the existing CSV parsing behavior.
 
-#### `parseCsvContent`
--   **Max Rows:** Define a constant `MAX_IMPORT_ROWS = 1000`.
--   **Validation:** Throw a `BadRequestException` if the number of lines in the CSV exceeds this limit.
+## Scope
 
-#### `parseCsvLine`
--   **Type Validation:** Explicitly verify that the `line` parameter is a string.
--   **Max Line Length:** Define a constant `MAX_LINE_LENGTH = 2048` (2KB).
--   **Validation:** Throw a `BadRequestException` if `line.length` exceeds this limit.
+This change is limited to backend product import parsing in `backend/src/modules/inventory/services/product.service.ts` and its unit tests.
 
-### 2. Configuration & Constants
-We will define these limits as private constants within the `ProductService` class to keep them centralized.
+In scope:
+- Validate CSV parser inputs before using `.split()` or `.length`.
+- Limit one import to 1,000 data rows, excluding the header row.
+- Limit each CSV line to 8,192 characters.
+- Add regression tests for the limits and existing quoted CSV parsing.
 
-## Technical Details
+Out of scope:
+- Replacing the hand-written CSV parser with a streaming parser.
+- Adding environment variables for import limits.
+- Changing import DTO validation or frontend upload behavior.
+- Changing the import template format.
 
-### `backend/src/modules/inventory/services/product.service.ts`
+## Recommended Approach
+
+Use fixed private limits inside `ProductService`:
 
 ```typescript
-// Constants to be added to the class
-private readonly MAX_IMPORT_ROWS = 1000;
-private readonly MAX_LINE_LENGTH = 2048;
-
-// Update parseCsvContent
-private parseCsvContent(content: string): any[] {
-  const lines = content.split('\n').filter(line => line.trim());
-
-  if (lines.length > this.MAX_IMPORT_ROWS) {
-    throw new BadRequestException(`Import file exceeds maximum allowed rows (${this.MAX_IMPORT_ROWS})`);
-  }
-  // ... existing logic
-}
-
-// Update parseCsvLine
-private parseCsvLine(line: string): string[] {
-  if (typeof line !== 'string') {
-    throw new InternalServerErrorException('CSV parsing error: expected string input');
-  }
-
-  if (line.length > this.MAX_LINE_LENGTH) {
-    throw new BadRequestException(`CSV line length exceeds maximum allowed limit (${this.MAX_LINE_LENGTH} characters)`);
-  }
-  // ... existing loop logic
-}
+private readonly MAX_IMPORT_DATA_ROWS = 1000;
+private readonly MAX_CSV_LINE_LENGTH = 8192;
 ```
 
-## Verification Plan
+Fixed limits are enough for this security fix. They keep the parser behavior easy to understand and test without adding configuration surface that current deployments do not need.
 
-### Automated Tests
--   **Unit Tests:** Add tests to `backend/src/modules/inventory/services/product.service.spec.ts` (or create a new one if it doesn't exist) to:
-    -   Verify `parseCsvContent` throws when exceeding row limit.
-    -   Verify `parseCsvLine` throws when exceeding character limit.
-    -   Verify `parseCsvLine` still correctly parses valid CSV lines.
+The row limit should apply to data rows only. A file with one header row and 1,000 non-empty data rows is valid. A file with one header row and 1,001 non-empty data rows is rejected.
 
-### Manual Verification
-1.  Upload a CSV with 1,001 rows and verify it is rejected.
-2.  Upload a CSV with a line longer than 2,048 characters and verify it is rejected.
-3.  Upload a standard valid CSV and verify it still imports correctly.
+The line limit should apply to every non-empty line, including the header. A line of exactly 8,192 characters is valid. A line of 8,193 characters is rejected.
+
+## Parser Behavior
+
+`parseCsvContent(content)` should:
+- Throw `BadRequestException` if `content` is not a string.
+- Split content by newline and keep the existing non-empty-line behavior.
+- Throw `BadRequestException` if the filtered file has fewer than two rows.
+- Throw `BadRequestException` if the number of data rows exceeds `MAX_IMPORT_DATA_ROWS`.
+- Call `parseCsvLine` for the header and each data row, so line length validation is centralized.
+- Preserve the existing required-header validation and row mapping.
+
+`parseCsvLine(line)` should:
+- Throw `BadRequestException` if `line` is not a string.
+- Throw `BadRequestException` if `line.length` exceeds `MAX_CSV_LINE_LENGTH`.
+- Preserve the existing quote and comma parsing behavior for valid lines.
+
+These checks intentionally use `BadRequestException` because the failure is caused by invalid import input.
+
+## Error Handling
+
+Error messages should name the violated limit without exposing stack traces or internal implementation details. Suitable messages:
+- `CSV content must be a string`
+- `CSV line must be a string`
+- `Import file exceeds maximum allowed data rows (1000)`
+- `CSV line exceeds maximum allowed length (8192 characters)`
+
+The import flow already surfaces `BadRequestException` responses to the client, so no controller changes are required.
+
+## Testing Plan
+
+Add focused unit coverage in `backend/src/modules/inventory/services/product.service.spec.ts`.
+
+Tests should verify:
+- `parseCsvContent` rejects non-string content.
+- `parseCsvContent` accepts exactly 1,000 data rows plus one header row.
+- `parseCsvContent` rejects 1,001 data rows plus one header row.
+- `parseCsvLine` rejects non-string input.
+- `parseCsvLine` accepts a line exactly 8,192 characters long.
+- `parseCsvLine` rejects a line 8,193 characters long.
+- `parseCsvLine` still parses valid quoted CSV values as it does today.
+
+The targeted verification command is:
+
+```bash
+cd backend && npx jest src/modules/inventory/services/product.service.spec.ts
+```
+
+Before PR, because this touches `backend/src/**`, run:
+
+```bash
+cd backend && npm run lint && npm run test
+```
