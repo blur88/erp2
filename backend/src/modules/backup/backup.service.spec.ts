@@ -34,6 +34,19 @@ function mockSuccessfulSpawn(stdout = '') {
   });
 }
 
+function mockFailingSpawn(stderr = 'permission denied', code = 1) {
+  mockSpawn.mockImplementationOnce(() => {
+    const child = new EventEmitter() as any;
+    child.stdout = new EventEmitter();
+    child.stderr = new EventEmitter();
+    process.nextTick(() => {
+      child.stderr.emit('data', stderr);
+      child.emit('close', code);
+    });
+    return child;
+  });
+}
+
 const mockRepository = () => ({
   findOne: jest.fn(),
   find: jest.fn(),
@@ -197,6 +210,27 @@ describe('BackupService - settings backup', () => {
       ], expect.objectContaining({
         env: expect.objectContaining({ PGPASSWORD: '' }),
       }));
+    });
+
+    it('rejects when a spawned command exits with a non-zero code', async () => {
+      mockFailingSpawn('role "erp_user" does not exist', 1);
+
+      await expect((service as any).backupPostgreSQL('/tmp', '20260430_120000'))
+        .rejects.toThrow('Command failed with code 1');
+    });
+
+    it('rejects when a spawned command is killed by a signal', async () => {
+      jest.spyOn(require('fs/promises'), 'mkdir').mockResolvedValue(undefined);
+      mockSpawn.mockImplementationOnce(() => {
+        const child = new EventEmitter() as any;
+        child.stdout = new EventEmitter();
+        child.stderr = new EventEmitter();
+        process.nextTick(() => child.emit('close', null, 'SIGKILL'));
+        return child;
+      });
+
+      await expect((service as any).extractArchive('/tmp/backup.tar.gz', '/tmp/restore'))
+        .rejects.toThrow('Command killed by signal SIGKILL');
     });
   });
 

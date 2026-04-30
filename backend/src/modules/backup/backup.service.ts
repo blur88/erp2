@@ -3,7 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, LessThan } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
 import Redis from 'ioredis';
-import { spawn } from 'child_process';
+import { spawn, SpawnOptions } from 'child_process';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import * as os from 'os';
@@ -66,7 +66,7 @@ export class BackupService implements OnModuleDestroy {
   private async spawnAsync(
     command: string,
     args: string[],
-    options: any = {},
+    options: SpawnOptions = {},
   ): Promise<{ stdout: string; stderr: string }> {
     return new Promise((resolve, reject) => {
       const child = spawn(command, args, options);
@@ -76,9 +76,11 @@ export class BackupService implements OnModuleDestroy {
       child.stdout?.on('data', (data) => (stdout += data));
       child.stderr?.on('data', (data) => (stderr += data));
 
-      child.on('close', (code) => {
+      child.on('close', (code, signal) => {
         if (code === 0) {
           resolve({ stdout, stderr });
+        } else if (signal) {
+          reject(new Error(`Command killed by signal ${signal}: ${stderr}`));
         } else {
           reject(new Error(`Command failed with code ${code}: ${stderr}`));
         }

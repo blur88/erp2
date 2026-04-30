@@ -110,4 +110,10 @@ describe('BackupController - upload fileFilter', () => {
 
     expect(cb).toHaveBeenCalledWith(null, true);
   });
+
+  it('accepts valid tgz backup filenames', () => {
+    const cb = runFileFilter('backup_20260430_120000.tgz');
+
+    expect(cb).toHaveBeenCalledWith(null, true);
+  });
 });
