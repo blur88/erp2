@@ -16,6 +16,7 @@ import { ApiTags, ApiOperation, ApiResponse, ApiConsumes } from '@nestjs/swagger
 import { Response } from 'express';
 import { diskStorage } from 'multer';
 import * as fs from 'fs';
+import * as crypto from 'crypto';
 import { BackupService } from './backup.service';
 import { BackupSchedulerService } from './backup-scheduler.service';
 import { CreateBackupDto } from './dto/create-backup.dto';
@@ -35,10 +36,10 @@ export const backupUploadFileFilter = (
   cb: (error: Error | null, acceptFile: boolean) => void,
 ): void => {
   const safeFilenameRegex = /^[a-zA-Z0-9._-]+$/;
-  if (!safeFilenameRegex.test(file.originalname)) {
+  if (!safeFilenameRegex.test(file.originalname) || file.originalname.includes('..')) {
     return cb(
       new BadRequestException(
-        'Invalid filename. Only alphanumeric characters, dots, underscores, and hyphens are allowed.',
+        'Invalid filename. Only alphanumeric characters, dots, underscores, and hyphens are allowed, and ".." is prohibited.',
       ),
       false,
     );
@@ -168,7 +169,8 @@ export class BackupController {
           cb(null, uploadPath);
         },
         filename: (_req, file, cb) => {
-          cb(null, file.originalname);
+          const ext = file.originalname.endsWith('.tar.gz') ? '.tar.gz' : '.tgz';
+          cb(null, `upload_${Date.now()}_${crypto.randomUUID()}${ext}`);
         },
       }),
       fileFilter: backupUploadFileFilter,

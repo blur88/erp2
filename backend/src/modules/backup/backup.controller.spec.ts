@@ -91,8 +91,8 @@ describe('BackupController - upload fileFilter', () => {
     const cb = runFileFilter('backup;rm.tar.gz');
 
     expect(cb).toHaveBeenCalledWith(expect.any(BadRequestException), false);
-    expect(cb.mock.calls[0][0].message).toBe(
-      'Invalid filename. Only alphanumeric characters, dots, underscores, and hyphens are allowed.',
+    expect(cb.mock.calls[0][0].message).toContain(
+      'Only alphanumeric characters, dots, underscores, and hyphens are allowed',
     );
   });
 
@@ -100,9 +100,22 @@ describe('BackupController - upload fileFilter', () => {
     const cb = runFileFilter('../../etc/passwd.tar.gz');
 
     expect(cb).toHaveBeenCalledWith(expect.any(BadRequestException), false);
-    expect(cb.mock.calls[0][0].message).toBe(
-      'Invalid filename. Only alphanumeric characters, dots, underscores, and hyphens are allowed.',
+    expect(cb.mock.calls[0][0].message).toContain(
+      'Only alphanumeric characters, dots, underscores, and hyphens are allowed',
     );
+  });
+
+  it('rejects filenames containing parent-directory traversal segments', () => {
+    const cb = runFileFilter('safe..name.tar.gz');
+
+    expect(cb).toHaveBeenCalledWith(expect.any(BadRequestException), false);
+    expect(cb.mock.calls[0][0].message).toContain('".." is prohibited');
+  });
+
+  it('rejects nested traversal filenames even when the extension is valid', () => {
+    const cb = runFileFilter('../../../malicious.tar.gz');
+
+    expect(cb).toHaveBeenCalledWith(expect.any(BadRequestException), false);
   });
 
   it('accepts valid tar.gz backup filenames', () => {

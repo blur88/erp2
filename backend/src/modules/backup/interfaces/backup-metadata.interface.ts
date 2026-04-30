@@ -5,6 +5,7 @@ export interface BackupMetadata {
   settingsIncluded?: boolean;
   description?: string;
   checksum?: string;
+  originalFilename?: string;
   uploadedAt?: string;
   systemInfo?: {
     nodeVersion: string;
