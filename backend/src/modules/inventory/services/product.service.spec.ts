@@ -1,3 +1,4 @@
+import { BadRequestException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -92,6 +93,67 @@ describe('ProductService pagination removal', () => {
 
     service = module.get(ProductService);
     productRepository = module.get(getRepositoryToken(Product));
+  });
+
+  describe('CSV import parser hardening', () => {
+    const requiredHeader = 'name,type,categoryName,baseCost';
+    const validDataRow = 'Widget,GOODS,Hardware,12.50';
+
+    it('parseCsvContent rejects non-string content', () => {
+      expect(() => (service as any).parseCsvContent({ length: 2 })).toThrow(BadRequestException);
+      expect(() => (service as any).parseCsvContent({ length: 2 })).toThrow('CSV content must be a string');
+    });
+
+    it('parseCsvContent accepts exactly 1000 data rows plus a header row', () => {
+      const content = `${requiredHeader}\n${Array.from({ length: 1000 }, () => validDataRow).join('\n')}`;
+
+      const rows = (service as any).parseCsvContent(content);
+
+      expect(rows).toHaveLength(1000);
+      expect(rows[0]).toEqual({
+        name: 'Widget',
+        type: 'GOODS',
+        categoryname: 'Hardware',
+        basecost: '12.50',
+      });
+    });
+
+    it('parseCsvContent rejects 1001 data rows plus a header row', () => {
+      const content = `${requiredHeader}\n${Array.from({ length: 1001 }, () => validDataRow).join('\n')}`;
+
+      expect(() => (service as any).parseCsvContent(content)).toThrow(BadRequestException);
+      expect(() => (service as any).parseCsvContent(content)).toThrow(
+        'Import file exceeds maximum allowed data rows (1000)',
+      );
+    });
+
+    it('parseCsvLine rejects non-string input', () => {
+      expect(() => (service as any).parseCsvLine({ length: 8192 })).toThrow(BadRequestException);
+      expect(() => (service as any).parseCsvLine({ length: 8192 })).toThrow('CSV line must be a string');
+    });
+
+    it('parseCsvLine accepts a line exactly 8192 characters long', () => {
+      const line = 'a'.repeat(8192);
+
+      expect((service as any).parseCsvLine(line)).toEqual([line]);
+    });
+
+    it('parseCsvLine rejects a line longer than 8192 characters', () => {
+      const line = 'a'.repeat(8193);
+
+      expect(() => (service as any).parseCsvLine(line)).toThrow(BadRequestException);
+      expect(() => (service as any).parseCsvLine(line)).toThrow(
+        'CSV line exceeds maximum allowed length (8192 characters)',
+      );
+    });
+
+    it('parseCsvLine preserves quoted comma parsing for valid CSV lines', () => {
+      expect((service as any).parseCsvLine('Widget,"Hardware, Tools",12.50')).toEqual([
+        'Widget',
+        'Hardware, Tools',
+        '12.50',
+      ]);
+    });
   });
 
   it('findAll returns all matching products with total-only metadata', async () => {
