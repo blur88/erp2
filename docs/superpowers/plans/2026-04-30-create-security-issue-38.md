@@ -15,7 +15,7 @@
 **Files:**
 - N/A
 
-- [ ] **Step 1: Execute gh issue create**
+- [x] **Step 1: Execute gh issue create**
 
 Run the following command:
 
@@ -54,7 +54,7 @@ CodeQL has identified multiple Path Injection vulnerabilities (CWE-22, CWE-23) i
 
 Expected: Issue created and URL returned.
 
-- [ ] **Step 2: Commit the plan**
+- [x] **Step 2: Commit the plan**
 
 ```bash
 git add docs/superpowers/plans/2026-04-30-create-security-issue-38.md
