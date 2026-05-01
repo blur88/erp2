@@ -2,7 +2,32 @@ import { DiscountType } from '../../../database/entities/sales-order-item.entity
 import { SalesOrder } from '../../../database/entities/sales-order.entity';
 import { SalesOrderResponseDto } from '../dto/sales-order.dto';
 
-export function mapSalesOrderToResponseDto(order: SalesOrder): SalesOrderResponseDto {
+export function mapSalesOrderToResponseDto(
+  order: SalesOrder,
+  directPayments?: any[],
+): SalesOrderResponseDto {
+  const invoicePayments = (order.invoices ?? []).flatMap(
+    (invoice) =>
+      (invoice.payments ?? []).map((payment) => ({
+        id: payment.id,
+        paymentNumber: payment.paymentNumber,
+        amount: Number(payment.amount),
+        paymentDate: payment.paymentDate,
+      })),
+  );
+
+  const mappedDirectPayments = (directPayments ?? []).map((payment) => ({
+    id: payment.id,
+    paymentNumber: payment.paymentNumber,
+    amount: Number(payment.amount),
+    paymentDate: payment.paymentDate,
+  }));
+
+  const payments = [...invoicePayments, ...mappedDirectPayments].filter(
+    (payment, index, allPayments) =>
+      allPayments.findIndex((candidate) => candidate.id === payment.id) === index,
+  );
+
   return {
     id: order.id,
     orderNumber: order.orderNumber,
@@ -101,15 +126,7 @@ export function mapSalesOrderToResponseDto(order: SalesOrder): SalesOrderRespons
               : undefined,
           })) || [],
       })) || [],
-    payments: (order.invoices ?? []).flatMap(
-      (invoice) =>
-        (invoice.payments ?? []).map((payment) => ({
-          id: payment.id,
-          paymentNumber: payment.paymentNumber,
-          amount: Number(payment.amount),
-          paymentDate: payment.paymentDate,
-        })),
-    ),
+    payments,
     createdAt: order.createdAt,
     updatedAt: order.updatedAt,
     deletedAt: order.deletedAt,

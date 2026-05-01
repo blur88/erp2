@@ -445,9 +445,7 @@ export class SalesOrderQueryService {
         },
       });
 
-      const dto = mapSalesOrderToResponseDto(order);
-      (dto as any).directPayments = directPayments;
-      return dto;
+      return mapSalesOrderToResponseDto(order, directPayments);
     } catch (error) {
       console.error('Failed to fetch direct payments:', error);
       return mapSalesOrderToResponseDto(order);
