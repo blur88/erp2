@@ -74,7 +74,7 @@ SQL/NoSQL detections continue to log-only (no throw).
 | `hello world` | passes (no throw) |
 | `<script>alert(1)</script>` | throws `BadRequestException` |
 | `<img src=x onerror=alert(1)>` | throws `BadRequestException` |
-| `javascript:alert(1)` | passes — plain text URI, not HTML; sanitize-html won't strip this |
+| `javascript:alert(1)` | passes — plain text URI, not HTML; out of scope for this fix (see note below) |
 | `&lt;script&gt;alert(1)&lt;/script&gt;` | passes — already encoded, safe |
 | `SELECT * FROM users` (SQL) | logs only, does not throw |
 
