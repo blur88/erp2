@@ -4,6 +4,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { useJournalEntryRefs } from '@/hooks/useJournalEntryRefs'
 import { useEntityWorkspace } from '@/hooks/useEntityWorkspace'
 import type { AppDispatch } from '@/store'
+import { useLazyGetSalesOrderQuery } from '@/store/api/salesApi'
 import { setSelectedPayment } from '@/store/slices/salesSlice'
 
 export interface PaymentListItem {
@@ -70,6 +71,8 @@ export function usePaymentsWorkspace({
   const location = useLocation()
   const [deletedPaymentsDialogOpen, setDeletedPaymentsDialogOpen] = useState(false)
   const [printDialogOpen, setPrintDialogOpen] = useState(false)
+  const [triggerGetSalesOrder] = useLazyGetSalesOrderQuery()
+  const [relatedOrder, setRelatedOrder] = useState<any>(null)
   const selectedPaymentRef = useRef<PaymentListItem | null>(null)
 
   const workspace = useEntityWorkspace({
@@ -90,8 +93,20 @@ export function usePaymentsWorkspace({
   })
   const { focusedIndex } = workspace
 
+  useEffect(() => {
+    if (selectedPayment?.relatedOrderId) {
+      triggerGetSalesOrder(selectedPayment.relatedOrderId)
+        .unwrap()
+        .then(setRelatedOrder)
+        .catch(() => setRelatedOrder(null))
+    } else {
+      setRelatedOrder(null)
+    }
+  }, [selectedPayment?.relatedOrderId, triggerGetSalesOrder])
+
   const { journalEntryRefs, journalEntryRefsLoading, navigateToJournalEntries } = useJournalEntryRefs([
     { sourceType: 'payment', sourceId: selectedPayment?.id },
+    { sourceType: 'sales_order', sourceId: relatedOrder?.isFulfilled ? relatedOrder?.id : undefined },
   ])
 
   useEffect(() => {

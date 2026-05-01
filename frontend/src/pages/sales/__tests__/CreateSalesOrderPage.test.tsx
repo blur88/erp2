@@ -88,6 +88,7 @@ describe('CreateSalesOrderPage product search', { timeout: 60000 }, () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockParams.mockReturnValue({})
+    customersResponse.data.data = [{ id: 'customer-1', name: 'Test Customer' }]
 
     mockGet.mockImplementation(async (_url: string, config?: { params?: { search?: string } }) => {
       if (config?.params?.search?.startsWith(replacementSearchTerm)) {
@@ -211,6 +212,54 @@ describe('CreateSalesOrderPage product search', { timeout: 60000 }, () => {
 
     await waitFor(() => {
       expect(firstProductInput).toHaveValue('Hydrated Product')
+    })
+  })
+
+  it('preserves edit-mode unit prices when the customer price list differs', async () => {
+    mockParams.mockReturnValue({ id: 'so-1' })
+    customersResponse.data.data = [{ id: 'customer-1', name: 'Test Customer', priceListId: 'vip' }]
+
+    mockFetchSalesOrder.mockReturnValue({
+      unwrap: vi.fn().mockResolvedValue({
+        items: [
+          {
+            productId: 'product-9',
+            quantity: 2,
+            unitPrice: 44,
+            discountType: 'percentage',
+            discountValue: 0,
+            discountPercent: 0,
+            discountAmount: 0,
+            totalPrice: 88,
+            totalAmount: 88,
+            product: {
+              id: 'product-9',
+              name: 'Hydrated Product',
+              baseCost: 44,
+              priceListItems: [{ priceListId: 'vip', price: '99.00' }],
+            },
+          },
+        ],
+        customerId: 'customer-1',
+        orderDate: '2026-03-01T00:00:00.000Z',
+        shippingAmount: 0,
+      }),
+    })
+
+    render(
+      <BrowserRouter>
+        <CreateSalesOrderPage />
+      </BrowserRouter>
+    )
+
+    const [firstProductInput] = await screen.findAllByPlaceholderText('Search by name or barcode...')
+    await waitFor(() => {
+      expect(firstProductInput).toHaveValue('Hydrated Product')
+    })
+
+    await waitFor(() => {
+      expect(screen.getByDisplayValue('44.00')).toBeInTheDocument()
+      expect(screen.queryByDisplayValue('99.00')).not.toBeInTheDocument()
     })
   })
 

@@ -100,6 +100,85 @@ describe('SalesOrderQueryService', () => {
     });
   });
 
+  describe('findById', () => {
+    function makeQueryBuilder(result: SalesOrder | null) {
+      return {
+        leftJoinAndSelect: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        getOne: jest.fn().mockResolvedValue(result),
+      } as any;
+    }
+
+    const baseOrder: SalesOrder = {
+      id: 'order-1',
+      orderNumber: 'SO-000001',
+      customerId: 'customer-1',
+      orderDate: new Date('2026-01-01'),
+      totalAmount: 200,
+      paidAmount: 100,
+      balanceDue: 100,
+      isFulfilled: true,
+      isPaidInFull: false,
+      invoices: [
+        {
+          id: 'invoice-1',
+          invoiceNumber: 'INV-000001',
+          payments: [
+            { id: 'pay-1', paymentNumber: 'PAY-1', amount: 50, paymentDate: new Date(), isActive: true, deletedAt: null } as Payment,
+          ],
+        } as any,
+      ],
+      items: [],
+      customer: { id: 'customer-1', name: 'Acme' } as Customer,
+    } as SalesOrder;
+
+    let paymentRepository: jest.Mocked<Repository<Payment>>;
+
+    beforeEach(() => {
+      paymentRepository = service['paymentRepository'] as jest.Mocked<Repository<Payment>>;
+    });
+
+    it('merges direct payments into dto.payments alongside invoice payments', async () => {
+      salesOrderRepository.createQueryBuilder.mockReturnValue(makeQueryBuilder(baseOrder));
+      paymentRepository.find.mockResolvedValue([
+        { id: 'pay-direct-1', paymentNumber: 'PAY-D1', amount: 50, paymentDate: new Date() } as Payment,
+      ]);
+
+      const result = await service.findById('order-1');
+
+      expect(result.payments).toHaveLength(2);
+      expect(result.payments.map((p) => p.id)).toEqual(expect.arrayContaining(['pay-1', 'pay-direct-1']));
+    });
+
+    it('deduplicates payments that appear in both invoice and direct results', async () => {
+      salesOrderRepository.createQueryBuilder.mockReturnValue(makeQueryBuilder(baseOrder));
+      paymentRepository.find.mockResolvedValue([
+        { id: 'pay-1', paymentNumber: 'PAY-1', amount: 50, paymentDate: new Date() } as Payment,
+      ]);
+
+      const result = await service.findById('order-1');
+
+      expect(result.payments).toHaveLength(1);
+      expect(result.payments[0].id).toBe('pay-1');
+    });
+
+    it('falls back to invoice-only payments when payment repository throws', async () => {
+      salesOrderRepository.createQueryBuilder.mockReturnValue(makeQueryBuilder(baseOrder));
+      paymentRepository.find.mockRejectedValue(new Error('DB error'));
+
+      const result = await service.findById('order-1');
+
+      expect(result.payments).toHaveLength(1);
+      expect(result.payments[0].id).toBe('pay-1');
+    });
+
+    it('throws NotFoundException when order does not exist', async () => {
+      salesOrderRepository.createQueryBuilder.mockReturnValue(makeQueryBuilder(null));
+
+      await expect(service.findById('missing')).rejects.toThrow('Sales order not found');
+    });
+  });
+
   describe('findAll', () => {
     function makeQueryBuilder() {
       const qb: any = {

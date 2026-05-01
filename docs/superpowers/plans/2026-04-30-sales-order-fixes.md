@@ -89,40 +89,39 @@ git commit -m "fix(backend): merge direct payments into sales order DTO payments
 **Files:**
 - Modify: `frontend/src/pages/sales/CreateSalesOrderPage.tsx`
 
-**Context:** The reset effect (lines 230–279) calls `setSelectedCustomer(customer)` at line 252 — before `reset()`, `setOrderToLoad(null)`, and `setLoadingOrder(false)`. Because React batches these updates, the price recalculation effect fires with `selectedCustomer` changed but `orderToLoad` already cleared in the same flush, bypassing the guard. The fix is to move `setSelectedCustomer` to run **after** `setOrderToLoad(null)`.
+**Context:** The reset effect calls `setSelectedCustomer(customer)` before `setOrderToLoad(null)` and `setLoadingOrder(false)`. React 18 automatic batching flushes all state updates from one event/effect in a single render, so when the price effect fires after that render, both guards (`orderToLoad`, `loadingOrder`) are already cleared — the existing guard cannot protect against the overwrite.
 
-- [ ] **Step 1: Reorder state updates in the reset effect**
+**Actual fix (implemented):** Two-part solution:
+1. Reorder so `setSelectedCustomer` runs after `setOrderToLoad(null)` — same render, but with a `skipNextPriceRecalculationRef` ref set to `true` immediately before the customer update.
+2. The price effect checks `skipNextPriceRecalculationRef.current` first and skips exactly one recalculation (the one triggered by edit-mode customer load), then clears the ref.
 
-In the `useEffect` on `[orderToLoad, products, customers, reset]`, move the `setSelectedCustomer` call to after `setOrderToLoad(null)` and `setLoadingOrder(false)`:
+This is more reliable than the state-reorder alone because React 18 batching means the guard state is cleared in the same render flush as `setSelectedCustomer`.
+
+- [x] **Step 1: Add skip ref and reorder state updates** *(implemented)*
 
 ```typescript
 // frontend/src/pages/sales/CreateSalesOrderPage.tsx
+const skipNextPriceRecalculationRef = useRef(false)
+
+// Price effect — check ref first:
 useEffect(() => {
-  if (orderToLoad && products.length > 0) {
-    const itemsToReset = orderToLoad.items?.map((item: any) => {
-      // ... unchanged mapping ...
-    })
+  if (loadingOrder || orderToLoad) return
+  if (skipNextPriceRecalculationRef.current) {
+    skipNextPriceRecalculationRef.current = false
+    return
+  }
+  // ... recalculation logic
+}, [selectedCustomer, setValue, loadingOrder, orderToLoad])
 
-    reset({
-      customerId: orderToLoad.customerId || orderToLoad.customer?.id || '',
-      orderDate: orderToLoad.orderDate ? new Date(orderToLoad.orderDate).toISOString().split('T')[0] : getCurrentDate(),
-      notes: orderToLoad.notes || '',
-      shipping: orderToLoad.shippingAmount || 0,
-      items: itemsToReset || [/* default item */],
-    })
-
-    // Clear guards BEFORE setting customer so the price effect fires
-    // with orderToLoad already null — the guard remains effective
-    setOrderToLoad(null)
-    setLoadingOrder(false)
-
-    // Set customer last: price effect will see orderToLoad === null
-    // but since we're in edit mode and prices are already reset above,
-    // the guard `loadingOrder` covers this transition
-    const customer = customers.find((c) => c.id === (orderToLoad.customerId || orderToLoad.customer?.id))
-    if (customer) {
-      setSelectedCustomer(customer)
-    }
+// Reset effect — set ref before customer update:
+reset({ ... })
+setOrderToLoad(null)
+setLoadingOrder(false)
+const customer = customers.find((c) => c.id === ...)
+if (customer) {
+  skipNextPriceRecalculationRef.current = true
+  setSelectedCustomer(customer)
+}
   }
 }, [orderToLoad, products, customers, reset])
 ```
