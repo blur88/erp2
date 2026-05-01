@@ -338,7 +338,7 @@ const CreateSalesOrderPage: React.FC = () => {
         }),
       }
 
-      console.log('Sending order data:', JSON.stringify(orderData, null, 2))
+
 
       if (isEditMode && id) {
         const updatedOrder = await updateSalesOrder({ id, data: orderData as any }).unwrap()
