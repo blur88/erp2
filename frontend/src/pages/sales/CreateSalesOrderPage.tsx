@@ -100,7 +100,7 @@ const CreateSalesOrderPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null)
   const [orderToLoad, setOrderToLoad] = useState<any>(null)
   const [selectedCustomer, setSelectedCustomer] = useState<any>(null)
-  const skipNextPriceRecalculationRef = useRef(false)
+  const customerChangedByUserRef = useRef(false)
 
   const { control, handleSubmit, watch, setValue, reset, formState: { errors } } = useForm<CreateOrderFormData>({
     resolver: yupResolver(schema) as any,
@@ -183,10 +183,10 @@ const CreateSalesOrderPage: React.FC = () => {
       return
     }
 
-    if (skipNextPriceRecalculationRef.current) {
-      skipNextPriceRecalculationRef.current = false
+    if (!customerChangedByUserRef.current) {
       return
     }
+    customerChangedByUserRef.current = false
 
     if (selectedCustomer && watchedItems && watchedItems.length > 0) {
       watchedItems.forEach((item, index) => {
@@ -278,7 +278,6 @@ const CreateSalesOrderPage: React.FC = () => {
 
       const customer = customers.find(c => c.id === (orderToLoad.customerId || orderToLoad.customer?.id))
       if (customer) {
-        skipNextPriceRecalculationRef.current = true
         setSelectedCustomer(customer)
       }
     }
@@ -474,6 +473,7 @@ const CreateSalesOrderPage: React.FC = () => {
                             value={customers.find(c => c.id === field.value) || null}
                             onChange={(_, value) => {
                               field.onChange(value?.id || '')
+                              customerChangedByUserRef.current = true
                               setSelectedCustomer(value)
                             }}
                             size="small"
