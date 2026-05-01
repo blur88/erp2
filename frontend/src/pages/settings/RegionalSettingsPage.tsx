@@ -194,14 +194,14 @@ const RegionalSettingsPage: React.FC = () => {
       showSuccess('Regional settings saved successfully.')
       refetch()
     } catch (err: any) {
-      const msg = err.response?.data?.message || err.message || 'Failed to save settings'
+      const msg = String(err.response?.data?.message || err.message || 'Failed to save settings')
       showError(msg)
     } finally {
       setSubmitting(false)
     }
   }
 
-  const error = fetchError ? ((fetchError as any)?.message || 'Failed to load settings') : null
+  const error = fetchError ? String((fetchError as any)?.message || 'Failed to load settings') : null
 
   if (loading) {
     return (
