@@ -1,18 +1,4 @@
-/**
- * Security Threat Patterns
- * Defines various security threat detection patterns
- */
 export class ThreatPatterns {
-  // Critical XSS patterns - only the most dangerous ones
-  static readonly CRITICAL_XSS_PATTERNS = [
-    /<script[^>]*>.*?<\/script>/gim,
-    /<iframe[^>]*src\s*=\s*["']?javascript:/gim,
-    /javascript:\s*(alert|eval|document\.)/gim,
-    /vbscript:\s*(alert|eval|document\.)/gim,
-    /data:text\/html[^;]*;base64/gim,
-    /on(load|error|click|focus|blur)\s*=\s*["']?[^"']*\beval\b/gim,
-  ];
-
   // High-risk SQL injection patterns - avoid false positives
   static readonly CRITICAL_SQL_PATTERNS = [
     /\b(UNION\s+SELECT|DROP\s+TABLE|DELETE\s+FROM)\b/gim,
