@@ -190,10 +190,12 @@ const CreateSalesOrderPage: React.FC = () => {
 
     if (selectedCustomer && watchedItems && watchedItems.length > 0) {
       watchedItems.forEach((item, index) => {
-        if (item.productId && item.product) {
-          const productPrice = getProductPrice(item.product, selectedCustomer)
-
-          // Only update if price changed
+        if (item.productId) {
+          // Use the full product from the products list (has priceListItems/baseCost),
+          // not item.product from the form which is the stripped SO-mapper version.
+          const fullProduct = products.find((p) => p.id === item.productId) || item.product
+          if (!fullProduct) return
+          const productPrice = getProductPrice(fullProduct, selectedCustomer)
           if (Number(item.unitPrice) !== productPrice) {
             setValue(`items.${index}.unitPrice`, productPrice)
           }
