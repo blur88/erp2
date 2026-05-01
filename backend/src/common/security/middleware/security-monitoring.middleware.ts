@@ -1,4 +1,4 @@
-import { Injectable, NestMiddleware } from '@nestjs/common';
+import { BadRequestException, Injectable, NestMiddleware } from '@nestjs/common';
 import { Request, Response, NextFunction } from 'express';
 import { ThreatDetector } from '../threat-detection/detector';
 import { RequestValidators } from '../threat-detection/validators';
@@ -51,6 +51,9 @@ export class SecurityMonitoringMiddleware implements NestMiddleware {
 
       next();
     } catch (error) {
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
       this.logger.logError('Security monitoring error:', error);
       // Continue processing even if monitoring fails
       next();
