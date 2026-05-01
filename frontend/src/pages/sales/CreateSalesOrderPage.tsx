@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { useStore } from 'react-redux'
 import { useNavigate, useParams } from 'react-router-dom'
 import {
@@ -100,6 +100,7 @@ const CreateSalesOrderPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null)
   const [orderToLoad, setOrderToLoad] = useState<any>(null)
   const [selectedCustomer, setSelectedCustomer] = useState<any>(null)
+  const skipNextPriceRecalculationRef = useRef(false)
 
   const { control, handleSubmit, watch, setValue, reset, formState: { errors } } = useForm<CreateOrderFormData>({
     resolver: yupResolver(schema) as any,
@@ -182,6 +183,11 @@ const CreateSalesOrderPage: React.FC = () => {
       return
     }
 
+    if (skipNextPriceRecalculationRef.current) {
+      skipNextPriceRecalculationRef.current = false
+      return
+    }
+
     if (selectedCustomer && watchedItems && watchedItems.length > 0) {
       watchedItems.forEach((item, index) => {
         if (item.productId && item.product) {
@@ -246,12 +252,6 @@ const CreateSalesOrderPage: React.FC = () => {
         }
       })
 
-      // Set selected customer for pricing scheme
-      const customer = customers.find(c => c.id === (orderToLoad.customerId || orderToLoad.customer?.id))
-      if (customer) {
-        setSelectedCustomer(customer)
-      }
-
       // Map order data to form
       reset({
         customerId: orderToLoad.customerId || orderToLoad.customer?.id || '',
@@ -275,6 +275,12 @@ const CreateSalesOrderPage: React.FC = () => {
 
       setOrderToLoad(null)
       setLoadingOrder(false)
+
+      const customer = customers.find(c => c.id === (orderToLoad.customerId || orderToLoad.customer?.id))
+      if (customer) {
+        skipNextPriceRecalculationRef.current = true
+        setSelectedCustomer(customer)
+      }
     }
   }, [orderToLoad, products, customers, reset])
 
