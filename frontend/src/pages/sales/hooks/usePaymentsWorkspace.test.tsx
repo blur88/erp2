@@ -13,6 +13,9 @@ const navigateSpy = vi.fn()
 const fetchJournalEntries = vi.fn(() => ({
   unwrap: vi.fn().mockResolvedValue({ data: [] }),
 }))
+const fetchSalesOrder = vi.fn(() => ({
+  unwrap: vi.fn().mockResolvedValue({ id: 'so-1', isFulfilled: true }),
+}))
 
 vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual<typeof import('react-router-dom')>('react-router-dom')
@@ -27,6 +30,10 @@ vi.mock('@/store/api/accountingApi', () => ({
   useLazyGetJournalEntriesQuery: () => [fetchJournalEntries],
 }))
 
+vi.mock('@/store/api/salesApi', () => ({
+  useLazyGetSalesOrderQuery: () => [fetchSalesOrder],
+}))
+
 const makePayment = (id: string): PaymentListItem => ({
   id,
   paymentNumber: `PAY-${id}`,
@@ -36,7 +43,15 @@ const makePayment = (id: string): PaymentListItem => ({
   status: 'completed',
 })
 
-const renderPaymentsWorkspace = (initialUrl = '/sales/payments?highlight=pay-2') => {
+const renderPaymentsWorkspace = ({
+  initialUrl = '/sales/payments?highlight=pay-2',
+  selectedPayment = null,
+  payments = [makePayment('pay-1'), makePayment('pay-2')],
+}: {
+  initialUrl?: string
+  selectedPayment?: PaymentListItem | null
+  payments?: PaymentListItem[]
+} = {}) => {
   const store = configureStore({
     reducer: {
       sales: salesReducer,
@@ -52,8 +67,8 @@ const renderPaymentsWorkspace = (initialUrl = '/sales/payments?highlight=pay-2')
   const result = renderHook(
     () => usePaymentsWorkspace({
       dispatch: store.dispatch,
-      payments: [makePayment('pay-1'), makePayment('pay-2')],
-      selectedPayment: null,
+      payments,
+      selectedPayment,
       refetch: vi.fn(),
     }),
     { wrapper },
@@ -79,7 +94,7 @@ describe('usePaymentsWorkspace', () => {
   })
 
   it('keeps Enter as a no-op for payments', async () => {
-    const { result } = renderPaymentsWorkspace('/sales/payments')
+    const { result } = renderPaymentsWorkspace({ initialUrl: '/sales/payments' })
 
     await act(async () => {
       result.current.handleSelect(makePayment('pay-1'))
@@ -90,5 +105,29 @@ describe('usePaymentsWorkspace', () => {
     })
 
     expect(navigateSpy).not.toHaveBeenCalled()
+  })
+
+  it('includes the fulfilled sales order journal entry source for invoice-linked payments', async () => {
+    const selectedPayment = {
+      ...makePayment('pay-1'),
+      relatedOrderId: 'so-1',
+    }
+
+    renderPaymentsWorkspace({
+      initialUrl: '/sales/payments',
+      selectedPayment,
+      payments: [selectedPayment],
+    })
+
+    await waitFor(() => {
+      expect(fetchSalesOrder).toHaveBeenCalledWith('so-1')
+    })
+
+    await waitFor(() => {
+      expect(fetchJournalEntries).toHaveBeenCalledWith({
+        sourceType: 'sales_order',
+        sourceId: 'so-1',
+      })
+    })
   })
 })
