@@ -319,7 +319,13 @@ export class ThreatDetector {
 
   private detectXssThreats(input: string): boolean {
     const sanitized = sanitizeHtml(input, { allowedTags: [], allowedAttributes: {} });
-    return sanitized !== input;
+    // sanitize-html encodes bare < and > as &lt;/&gt; in plain text (not HTML tags).
+    // Allow that: only block when sanitized output is not simply the bracket-encoded input.
+    return sanitized !== input && sanitized !== this.escapeAngleBrackets(input);
+  }
+
+  private escapeAngleBrackets(input: string): string {
+    return input.replace(/</g, '&lt;').replace(/>/g, '&gt;');
   }
 
   private detectSqlThreats(input: string): boolean {
