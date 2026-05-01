@@ -85,7 +85,8 @@ export class ThreatDetector {
       allowedTags: [],
       allowedAttributes: {},
     });
-
+    // sanitize-html encodes bare < and > as &lt;/&gt; in plain text (not HTML tags).
+    // Allow that: only block when sanitized output is not simply the bracket-encoded input.
     return sanitized !== input && sanitized !== this.escapeAngleBrackets(input);
   }
 

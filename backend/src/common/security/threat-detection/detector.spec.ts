@@ -83,6 +83,18 @@ describe('ThreatDetector', () => {
         ),
       ).not.toThrow();
     });
+
+    // javascript: URIs in plain text strings are not HTML and are not stripped by
+    // sanitize-html. Blocking them is out of scope for this fix (see spec).
+    it('passes javascript: URI as plain text (out of scope for this fix)', () => {
+      expect(() =>
+        detector.detectThreats(
+          { note: 'javascript:alert(1)' },
+          'body',
+          mockReq,
+        ),
+      ).not.toThrow();
+    });
   });
 
   describe('SQL injection detection (log-only, no throw)', () => {
