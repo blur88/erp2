@@ -413,13 +413,13 @@ const VendorProductListReport: React.FC = () => {
 
     const getPdfGroupLabel = (r: any) => {
       if (groupBy === 'productName') {
-        return `Product: ${r.productName}`
+        return `Product: ${escapeHtml(r.productName)}`
       } else if (groupBy === 'supplierName') {
-        return `Vendor: ${r.supplierName}`
+        return `Vendor: ${escapeHtml(r.supplierName)}`
       } else if (groupBy === 'categoryName') {
-        return `Category: ${r.categoryName}`
+        return `Category: ${escapeHtml(r.categoryName)}`
       }
-      return r[groupBy]
+      return escapeHtml(r[groupBy])
     }
 
     sortedData.forEach((row, idx) => {

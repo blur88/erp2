@@ -278,13 +278,13 @@ const PurchaseOrderSummary: React.FC = () => {
 
     const getPdfGroupLabel = (r: any) => {
       if (groupBy === 'supplierName') {
-        return `Vendor: ${r.supplierName}`
+        return `Vendor: ${escapeHtml(r.supplierName)}`
       } else if (groupBy === 'status') {
-        return `Inventory Status: ${r.status.charAt(0).toUpperCase() + r.status.slice(1)}`
+        return `Inventory Status: ${escapeHtml(r.status.charAt(0).toUpperCase() + r.status.slice(1))}`
       } else if (groupBy === 'paymentStatus') {
-        return `Payment Status: ${r.paymentStatus.charAt(0).toUpperCase() + r.paymentStatus.slice(1)}`
+        return `Payment Status: ${escapeHtml(r.paymentStatus.charAt(0).toUpperCase() + r.paymentStatus.slice(1))}`
       }
-      return r[groupBy]
+      return escapeHtml(r[groupBy])
     }
 
     sortedData.forEach((row, idx) => {
@@ -433,7 +433,7 @@ const PurchaseOrderSummary: React.FC = () => {
             </script>
           </div>
           <script>
-            document.title = ${JSON.stringify(escapeHtml(reportTitle))};
+            document.title = ${JSON.stringify(reportTitle)};
 
             window.onload = function() {
               setTimeout(function() {

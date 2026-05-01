@@ -244,13 +244,13 @@ const VendorPaymentDetailsReport: React.FC = () => {
 
     const getPdfGroupLabel = (r: any) => {
       if (groupBy === 'supplierName') {
-        return `Vendor: ${r.supplierName}`
+        return `Vendor: ${escapeHtml(r.supplierName)}`
       } else if (groupBy === 'paymentDate') {
-        return `Payment Date: ${r.paymentDate ? formatDate(r.paymentDate) : 'N/A'}`
+        return `Payment Date: ${r.paymentDate ? escapeHtml(formatDate(r.paymentDate)) : 'N/A'}`
       } else if (groupBy === 'orderNumber') {
-        return `Order No: ${r.orderNumber || 'N/A'}`
+        return `Order No: ${escapeHtml(r.orderNumber || 'N/A')}`
       }
-      return r[groupBy]
+      return escapeHtml(r[groupBy])
     }
 
     sortedData.forEach((row, idx) => {

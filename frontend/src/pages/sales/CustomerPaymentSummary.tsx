@@ -350,7 +350,7 @@ const CustomerPaymentSummary: React.FC = () => {
           </div>
           <script>
             // Set document title for PDF filename
-            document.title = ${JSON.stringify(escapeHtml(reportTitle))};
+            document.title = ${JSON.stringify(reportTitle)};
 
             window.onload = function() {
               // Small delay to ensure content is rendered

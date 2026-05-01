@@ -434,13 +434,13 @@ const PurchaseOrderStatusReport: React.FC = () => {
 
     const getPdfGroupLabel = (r: any) => {
       if (groupBy === 'productName') {
-        return `Product: ${r.productName}`
+        return `Product: ${escapeHtml(r.productName)}`
       } else if (groupBy === 'supplierName') {
-        return `Vendor: ${r.supplierName}`
+        return `Vendor: ${escapeHtml(r.supplierName)}`
       } else if (groupBy === 'orderNumber') {
-        return `Order No.: ${r.orderNumber}`
+        return `Order No.: ${escapeHtml(r.orderNumber)}`
       }
-      return r[groupBy]
+      return escapeHtml(r[groupBy])
     }
 
     sortedData.forEach((row, idx) => {
