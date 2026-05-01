@@ -990,7 +990,12 @@ export class BackupService implements OnModuleDestroy {
   async processUploadedBackup(file: Express.Multer.File): Promise<BackupLog> {
     this.logger.log(`Processing uploaded backup: ${file.originalname}`);
 
-    const uploadPath = file.path;
+    const uploadsDir = path.resolve(this.backupDir, 'uploads');
+    const uploadPath = path.resolve(file.path);
+    if (!uploadPath.startsWith(`${uploadsDir}${path.sep}`)) {
+      throw new BadRequestException('Invalid upload path detected');
+    }
+
     const originalFilename = path.basename(file.originalname);
     const archivesDir = path.resolve(this.backupDir, 'archives');
     const ext = originalFilename.endsWith('.tar.gz') ? '.tar.gz' : '.tgz';
