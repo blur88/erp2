@@ -174,6 +174,15 @@ describe('BackupService - settings backup', () => {
         }),
       );
     });
+
+    it('rejects file.path values that escape the uploads directory', async () => {
+      await expect(
+        service.processUploadedBackup({
+          originalname: 'backup.tar.gz',
+          path: '/app/backups/uploads/../archives/evil.tar.gz',
+        } as Express.Multer.File),
+      ).rejects.toThrow('Invalid upload path detected');
+    });
   });
 
   describe('command execution', () => {
