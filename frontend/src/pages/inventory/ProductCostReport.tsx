@@ -39,6 +39,7 @@ import { default as KeyboardDoubleArrowLeftIcon } from '@mui/icons-material/Keyb
 import { AppButton } from '@/components/common/AppButton'
 import PageHeader from '@/components/common/PageHeader'
 import { formatCurrency, formatDate, formatDateTime } from '@/utils/formatters'
+import { escapeHtml } from '@/utils/security'
 import { TABLE_STYLES } from '@/constants/tableStyles'
 import { ApiService } from '@/services/api'
 import { useGetProductsQuery, useGetCategoriesQuery } from '@/store/api/inventoryApi'
@@ -360,13 +361,13 @@ const ProductCostReport: React.FC = () => {
 
     const getPdfGroupLabel = (r: any) => {
       if (groupBy === 'categoryName') {
-        return `Category: ${r.categoryName}`
+        return `Category: ${escapeHtml(r.categoryName)}`
       } else if (groupBy === 'productName') {
-        return `Product: ${r.productName}`
+        return `Product: ${escapeHtml(r.productName)}`
       } else if (groupBy === 'categoryAndProduct') {
-        return `${r.categoryName} - ${r.productName}`
+        return `${escapeHtml(r.categoryName)} - ${escapeHtml(r.productName)}`
       }
-      return r[groupBy]
+      return escapeHtml(r[groupBy])
     }
 
     let groupSubtotals = { quantityChange: 0, costChange: 0 }
@@ -407,7 +408,7 @@ const ProductCostReport: React.FC = () => {
           displayValue = ''
         }
 
-        tableRows += `<td style="${align}">${displayValue}</td>`
+        tableRows += `<td style="${align}">${escapeHtml(displayValue)}</td>`
       })
       tableRows += '</tr>'
 
@@ -418,10 +419,10 @@ const ProductCostReport: React.FC = () => {
       filterText.push(`<p><strong>Products:</strong> ${selectedProducts.length} selected</p>`)
     }
     if (startDate) {
-      filterText.push(`<p><strong>Start Date:</strong> ${formatDate(new Date(startDate))}</p>`)
+      filterText.push(`<p><strong>Start Date:</strong> ${escapeHtml(formatDate(new Date(startDate)))}</p>`)
     }
     if (endDate) {
-      filterText.push(`<p><strong>End Date:</strong> ${formatDate(new Date(endDate))}</p>`)
+      filterText.push(`<p><strong>End Date:</strong> ${escapeHtml(formatDate(new Date(endDate)))}</p>`)
     }
     const filtersText = filterText.join('')
 
@@ -429,12 +430,12 @@ const ProductCostReport: React.FC = () => {
       <!DOCTYPE html>
       <html>
         <head>
-          <title>${reportTitle}</title>
+          <title>${escapeHtml(reportTitle)}</title>
           <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:400,500,700&display=swap" />
           <style>${PRINT_STYLES}</style>
         </head>
         <body>
-          <h1>${reportTitle}</h1>
+          <h1>${escapeHtml(reportTitle)}</h1>
           <div class="header-info">
             <p style="margin: 5px 0;"><strong>Generated on:</strong> ${formatDateTime(new Date())}</p>
             ${filtersText}
@@ -442,7 +443,7 @@ const ProductCostReport: React.FC = () => {
           <table>
             <thead>
               <tr>
-                ${selectedColumns.map(col => `<th>${columnHeaders[col] || col}</th>`).join('')}
+                ${selectedColumns.map(col => `<th>${escapeHtml(columnHeaders[col] || col)}</th>`).join('')}
               </tr>
             </thead>
             <tbody>

@@ -34,6 +34,7 @@ import { default as PaymentOrderIcon } from '@mui/icons-material/ReceiptLongOutl
 import PageHeader from '@/components/common/PageHeader'
 import { printColors } from '@/styles/printTokens'
 import { formatCurrency, formatDate, formatDateTime } from '@/utils/formatters'
+import { escapeHtml } from '@/utils/security'
 import { TABLE_STYLES } from '@/constants/tableStyles'
 import { ApiService } from '@/services/api'
 
@@ -282,9 +283,9 @@ const CustomerPaymentByOrder: React.FC = () => {
 
       // Add group header if group changed
       if (groupBy !== 'none' && currentGroupValue !== prevGroupValue) {
-        const groupLabel = groupBy === 'customerName' ? `Customer: ${currentGroupValue}` :
-                          groupBy === 'inventoryStatus' ? `Inventory: ${currentGroupValue.charAt(0).toUpperCase() + currentGroupValue.slice(1)}` :
-                          groupBy === 'paymentStatus' ? `Payment: ${currentGroupValue.charAt(0).toUpperCase() + currentGroupValue.slice(1)}` : currentGroupValue
+        const groupLabel = groupBy === 'customerName' ? `Customer: ${escapeHtml(currentGroupValue)}` :
+                          groupBy === 'inventoryStatus' ? `Inventory: ${escapeHtml(currentGroupValue.charAt(0).toUpperCase() + currentGroupValue.slice(1))}` :
+                          groupBy === 'paymentStatus' ? `Payment: ${escapeHtml(currentGroupValue.charAt(0).toUpperCase() + currentGroupValue.slice(1))}` : escapeHtml(currentGroupValue)
         tableRows += `<tr style="background-color: ${printColors.groupRow}; font-weight: bold;"><td colspan="${selectedColumns.length}">${groupLabel}</td></tr>`
         prevGroupValue = currentGroupValue
       }
@@ -301,7 +302,7 @@ const CustomerPaymentByOrder: React.FC = () => {
           displayValue = value ? value.charAt(0).toUpperCase() + value.slice(1) : ''
         }
         const align = (typeof value === 'number') ? 'text-align: right;' : ''
-        tableRows += `<td style="${align}">${displayValue || ''}</td>`
+        tableRows += `<td style="${align}">${escapeHtml(displayValue)}</td>`
       })
       tableRows += '</tr>'
 
@@ -355,18 +356,18 @@ const CustomerPaymentByOrder: React.FC = () => {
     // Build date range text
     let dateRangeText = ''
     if (dateFrom && dateTo) {
-      dateRangeText = `<p><strong>Date Range:</strong> ${formatDate(dateFrom)} - ${formatDate(dateTo)}</p>`
+      dateRangeText = `<p><strong>Date Range:</strong> ${escapeHtml(formatDate(dateFrom))} - ${escapeHtml(formatDate(dateTo))}</p>`
     } else if (dateFrom) {
-      dateRangeText = `<p><strong>Date From:</strong> ${formatDate(dateFrom)}</p>`
+      dateRangeText = `<p><strong>Date From:</strong> ${escapeHtml(formatDate(dateFrom))}</p>`
     } else if (dateTo) {
-      dateRangeText = `<p><strong>Date To:</strong> ${formatDate(dateTo)}</p>`
+      dateRangeText = `<p><strong>Date To:</strong> ${escapeHtml(formatDate(dateTo))}</p>`
     }
 
     const html = `
       <!DOCTYPE html>
       <html>
         <head>
-          <title>${reportTitle}</title>
+          <title>${escapeHtml(reportTitle)}</title>
           <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:400,500,700&display=swap" />
           <style>
             body { font-family: 'Roboto', sans-serif; margin: 20px; }
@@ -407,7 +408,7 @@ const CustomerPaymentByOrder: React.FC = () => {
           </style>
         </head>
         <body>
-          <h1>${reportTitle}</h1>
+          <h1>${escapeHtml(reportTitle)}</h1>
           <div class="header-info">
             <p style="margin: 5px 0;"><strong>Generated on:</strong> ${formatDateTime(new Date())}</p>
             ${dateRangeText}
@@ -415,7 +416,7 @@ const CustomerPaymentByOrder: React.FC = () => {
           <table>
             <thead>
               <tr>
-                ${selectedColumns.map(col => `<th>${columnHeaders[col] || col}</th>`).join('')}
+                ${selectedColumns.map(col => `<th>${escapeHtml(columnHeaders[col] || col)}</th>`).join('')}
               </tr>
             </thead>
             <tbody>
@@ -430,7 +431,7 @@ const CustomerPaymentByOrder: React.FC = () => {
           </div>
           <script>
             // Set document title for PDF filename
-            document.title = '${reportTitle.replace(/'/g, "\\'")}';
+            document.title = ${JSON.stringify(reportTitle)};
 
             window.onload = function() {
               // Small delay to ensure content is rendered

@@ -44,6 +44,7 @@ import PageHeader from '@/components/common/PageHeader'
 import { printColors } from '@/styles/printTokens'
 import { PRINT_STYLES } from '@/styles/printStyles'
 import { formatCurrency, formatDate, formatDateTime } from '@/utils/formatters'
+import { escapeHtml } from '@/utils/security'
 import { TABLE_STYLES } from '@/constants/tableStyles'
 import api from '@/services/api'
 
@@ -326,13 +327,13 @@ const VendorProductListReport: React.FC = () => {
 
     const getExportGroupLabel = (r: any) => {
       if (groupBy === 'productName') {
-        return `Product: ${r.productName}`
+        return `Product: ${escapeHtml(r.productName)}`
       } else if (groupBy === 'supplierName') {
-        return `Vendor: ${r.supplierName}`
+        return `Vendor: ${escapeHtml(r.supplierName)}`
       } else if (groupBy === 'categoryName') {
-        return `Category: ${r.categoryName}`
+        return `Category: ${escapeHtml(r.categoryName)}`
       }
-      return r[groupBy]
+      return escapeHtml(r[groupBy])
     }
 
     sortedData.forEach((row, idx) => {
@@ -412,13 +413,13 @@ const VendorProductListReport: React.FC = () => {
 
     const getPdfGroupLabel = (r: any) => {
       if (groupBy === 'productName') {
-        return `Product: ${r.productName}`
+        return `Product: ${escapeHtml(r.productName)}`
       } else if (groupBy === 'supplierName') {
-        return `Vendor: ${r.supplierName}`
+        return `Vendor: ${escapeHtml(r.supplierName)}`
       } else if (groupBy === 'categoryName') {
-        return `Category: ${r.categoryName}`
+        return `Category: ${escapeHtml(r.categoryName)}`
       }
-      return r[groupBy]
+      return escapeHtml(r[groupBy])
     }
 
     sortedData.forEach((row, idx) => {
@@ -460,7 +461,7 @@ const VendorProductListReport: React.FC = () => {
           }
         }
 
-        tableRows += `<td style="${align}">${displayValue || ''}</td>`
+        tableRows += `<td style="${align}">${escapeHtml(displayValue)}</td>`
       })
       tableRows += '</tr>'
     })
@@ -469,13 +470,13 @@ const VendorProductListReport: React.FC = () => {
     if (selectedSupplier) {
       const supplier = suppliers.find(s => s.id === selectedSupplier)
       if (supplier) {
-        filterText.push(`<p><strong>Vendor:</strong> ${supplier.companyName}</p>`)
+        filterText.push(`<p><strong>Vendor:</strong> ${escapeHtml(supplier.companyName)}</p>`)
       }
     }
     if (selectedCategory) {
       const category = categories.find(c => c.id === selectedCategory)
       if (category) {
-        filterText.push(`<p><strong>Category:</strong> ${category.name}</p>`)
+        filterText.push(`<p><strong>Category:</strong> ${escapeHtml(category.name)}</p>`)
       }
     }
     if (selectedProducts.length > 0) {
@@ -487,12 +488,12 @@ const VendorProductListReport: React.FC = () => {
       <!DOCTYPE html>
       <html>
         <head>
-          <title>${reportTitle}</title>
+          <title>${escapeHtml(reportTitle)}</title>
           <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:400,500,700&display=swap" />
           <style>${PRINT_STYLES}</style>
         </head>
         <body>
-          <h1>${reportTitle}</h1>
+          <h1>${escapeHtml(reportTitle)}</h1>
           <div class="header-info">
             <p style="margin: 5px 0;"><strong>Generated on:</strong> ${formatDateTime(new Date())}</p>
             ${dateRangeText}
@@ -500,7 +501,7 @@ const VendorProductListReport: React.FC = () => {
           <table>
             <thead>
               <tr>
-                ${selectedColumns.map(col => `<th>${columnHeaders[col] || col}</th>`).join('')}
+                ${selectedColumns.map(col => `<th>${escapeHtml(columnHeaders[col] || col)}</th>`).join('')}
               </tr>
             </thead>
             <tbody>

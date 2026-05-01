@@ -33,6 +33,7 @@ import { AppButton } from '@/components/common/AppButton'
 import PageHeader from '@/components/common/PageHeader'
 import { printColors } from '@/styles/printTokens'
 import { formatCurrency, formatDate, formatDateTime } from '@/utils/formatters'
+import { escapeHtml } from '@/utils/security'
 import { TABLE_STYLES } from '@/constants/tableStyles'
 import api from '@/services/api'
 
@@ -165,13 +166,13 @@ const PurchaseOrderSummary: React.FC = () => {
 
     const getExportGroupLabel = (r: any) => {
       if (groupBy === 'supplierName') {
-        return `Vendor: ${r.supplierName}`
+        return `Vendor: ${escapeHtml(r.supplierName)}`
       } else if (groupBy === 'status') {
-        return `Inventory Status: ${r.status.charAt(0).toUpperCase() + r.status.slice(1)}`
+        return `Inventory Status: ${escapeHtml(r.status.charAt(0).toUpperCase() + r.status.slice(1))}`
       } else if (groupBy === 'paymentStatus') {
-        return `Payment Status: ${r.paymentStatus.charAt(0).toUpperCase() + r.paymentStatus.slice(1)}`
+        return `Payment Status: ${escapeHtml(r.paymentStatus.charAt(0).toUpperCase() + r.paymentStatus.slice(1))}`
       }
-      return r[groupBy]
+      return escapeHtml(r[groupBy])
     }
 
     sortedData.forEach((row, idx) => {
@@ -277,13 +278,13 @@ const PurchaseOrderSummary: React.FC = () => {
 
     const getPdfGroupLabel = (r: any) => {
       if (groupBy === 'supplierName') {
-        return `Vendor: ${r.supplierName}`
+        return `Vendor: ${escapeHtml(r.supplierName)}`
       } else if (groupBy === 'status') {
-        return `Inventory Status: ${r.status.charAt(0).toUpperCase() + r.status.slice(1)}`
+        return `Inventory Status: ${escapeHtml(r.status.charAt(0).toUpperCase() + r.status.slice(1))}`
       } else if (groupBy === 'paymentStatus') {
-        return `Payment Status: ${r.paymentStatus.charAt(0).toUpperCase() + r.paymentStatus.slice(1)}`
+        return `Payment Status: ${escapeHtml(r.paymentStatus.charAt(0).toUpperCase() + r.paymentStatus.slice(1))}`
       }
-      return r[groupBy]
+      return escapeHtml(r[groupBy])
     }
 
     sortedData.forEach((row, idx) => {
@@ -307,7 +308,7 @@ const PurchaseOrderSummary: React.FC = () => {
           displayValue = value ? value.charAt(0).toUpperCase() + value.slice(1) : ''
         }
         const align = (typeof value === 'number') ? 'text-align: right;' : ''
-        tableRows += `<td style="${align}">${displayValue || ''}</td>`
+        tableRows += `<td style="${align}">${escapeHtml(displayValue)}</td>`
       })
       tableRows += '</tr>'
 
@@ -358,18 +359,18 @@ const PurchaseOrderSummary: React.FC = () => {
 
     let dateRangeText = ''
     if (dateFrom && dateTo) {
-      dateRangeText = `<p><strong>Date Range:</strong> ${formatDate(dateFrom)} - ${formatDate(dateTo)}</p>`
+      dateRangeText = `<p><strong>Date Range:</strong> ${escapeHtml(formatDate(dateFrom))} - ${escapeHtml(formatDate(dateTo))}</p>`
     } else if (dateFrom) {
-      dateRangeText = `<p><strong>Date From:</strong> ${formatDate(dateFrom)}</p>`
+      dateRangeText = `<p><strong>Date From:</strong> ${escapeHtml(formatDate(dateFrom))}</p>`
     } else if (dateTo) {
-      dateRangeText = `<p><strong>Date To:</strong> ${formatDate(dateTo)}</p>`
+      dateRangeText = `<p><strong>Date To:</strong> ${escapeHtml(formatDate(dateTo))}</p>`
     }
 
     const html = `
       <!DOCTYPE html>
       <html>
         <head>
-          <title>${reportTitle}</title>
+          <title>${escapeHtml(reportTitle)}</title>
           <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:400,500,700&display=swap" />
           <style>
             body { font-family: 'Roboto', sans-serif; margin: 20px; }
@@ -410,7 +411,7 @@ const PurchaseOrderSummary: React.FC = () => {
           </style>
         </head>
         <body>
-          <h1>${reportTitle}</h1>
+          <h1>${escapeHtml(reportTitle)}</h1>
           <div class="header-info">
             <p style="margin: 5px 0;"><strong>Generated on:</strong> ${formatDateTime(new Date())}</p>
             ${dateRangeText}
@@ -418,7 +419,7 @@ const PurchaseOrderSummary: React.FC = () => {
           <table>
             <thead>
               <tr>
-                ${selectedColumns.map(col => `<th>${columnHeaders[col] || col}</th>`).join('')}
+                ${selectedColumns.map(col => `<th>${escapeHtml(columnHeaders[col] || col)}</th>`).join('')}
               </tr>
             </thead>
             <tbody>
@@ -432,7 +433,7 @@ const PurchaseOrderSummary: React.FC = () => {
             </script>
           </div>
           <script>
-            document.title = '${reportTitle.replace(/'/g, "\\'")}';
+            document.title = ${JSON.stringify(reportTitle)};
 
             window.onload = function() {
               setTimeout(function() {

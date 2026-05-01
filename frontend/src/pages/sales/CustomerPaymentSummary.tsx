@@ -34,6 +34,7 @@ import { default as PaymentSummaryIcon } from '@mui/icons-material/AccountBalanc
 import PageHeader from '@/components/common/PageHeader'
 import { printColors } from '@/styles/printTokens'
 import { formatCurrency, formatDate, formatDateTime } from '@/utils/formatters'
+import { escapeHtml } from '@/utils/security'
 import { TABLE_STYLES } from '@/constants/tableStyles'
 import api from '@/services/api'
 
@@ -246,7 +247,7 @@ const CustomerPaymentSummary: React.FC = () => {
             displayValue = formatCurrency(value)
           }
           const align = (typeof value === 'number' || col === 'balance') ? 'text-align: right;' : ''
-          tableRows += `<td style="${align}">${displayValue || ''}</td>`
+          tableRows += `<td style="${align}">${escapeHtml(displayValue)}</td>`
         }
       })
       tableRows += '</tr>'
@@ -274,18 +275,18 @@ const CustomerPaymentSummary: React.FC = () => {
     // Build date range text
     let dateRangeText = ''
     if (dateFrom && dateTo) {
-      dateRangeText = `<p><strong>Date Range:</strong> ${formatDate(dateFrom)} - ${formatDate(dateTo)}</p>`
+      dateRangeText = `<p><strong>Date Range:</strong> ${escapeHtml(formatDate(dateFrom))} - ${escapeHtml(formatDate(dateTo))}</p>`
     } else if (dateFrom) {
-      dateRangeText = `<p><strong>Date From:</strong> ${formatDate(dateFrom)}</p>`
+      dateRangeText = `<p><strong>Date From:</strong> ${escapeHtml(formatDate(dateFrom))}</p>`
     } else if (dateTo) {
-      dateRangeText = `<p><strong>Date To:</strong> ${formatDate(dateTo)}</p>`
+      dateRangeText = `<p><strong>Date To:</strong> ${escapeHtml(formatDate(dateTo))}</p>`
     }
 
     const html = `
       <!DOCTYPE html>
       <html>
         <head>
-          <title>${reportTitle}</title>
+          <title>${escapeHtml(reportTitle)}</title>
           <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:400,500,700&display=swap" />
           <style>
             body { font-family: 'Roboto', sans-serif; margin: 20px; }
@@ -326,7 +327,7 @@ const CustomerPaymentSummary: React.FC = () => {
           </style>
         </head>
         <body>
-          <h1>${reportTitle}</h1>
+          <h1>${escapeHtml(reportTitle)}</h1>
           <div class="header-info">
             <p style="margin: 5px 0;"><strong>Generated on:</strong> ${formatDateTime(new Date())}</p>
             ${dateRangeText}
@@ -334,7 +335,7 @@ const CustomerPaymentSummary: React.FC = () => {
           <table>
             <thead>
               <tr>
-                ${selectedColumns.map(col => `<th>${columnHeaders[col] || col}</th>`).join('')}
+                ${selectedColumns.map(col => `<th>${escapeHtml(columnHeaders[col] || col)}</th>`).join('')}
               </tr>
             </thead>
             <tbody>
@@ -349,7 +350,7 @@ const CustomerPaymentSummary: React.FC = () => {
           </div>
           <script>
             // Set document title for PDF filename
-            document.title = '${reportTitle.replace(/'/g, "\\'")}';
+            document.title = ${JSON.stringify(reportTitle)};
 
             window.onload = function() {
               // Small delay to ensure content is rendered

@@ -51,6 +51,7 @@ import { default as ViewColumnIcon } from '@mui/icons-material/ViewColumn'
 import PageHeader from '@/components/common/PageHeader'
 import { printColors } from '@/styles/printTokens'
 import { formatCurrency, formatDate, formatDateTime } from '@/utils/formatters'
+import { escapeHtml } from '@/utils/security'
 import { TABLE_STYLES } from '@/constants/tableStyles'
 import { ApiService } from '@/services/api'
 
@@ -317,7 +318,7 @@ const SalesByProductSummary: React.FC = () => {
     if (groupedData) {
       Object.entries(groupedData).forEach(([categoryName, items]) => {
         // Category header
-        tableRows += `<tr style="background-color: ${printColors.infoRow}; font-weight: bold;"><td colspan="${selectedColumns.length}">${categoryName}</td></tr>`
+        tableRows += `<tr style="background-color: ${printColors.infoRow}; font-weight: bold;"><td colspan="${selectedColumns.length}">${escapeHtml(categoryName)}</td></tr>`
 
         // Items
         items.forEach(row => {
@@ -330,7 +331,7 @@ const SalesByProductSummary: React.FC = () => {
             } else if (typeof value === 'number') {
               displayValue = formatCurrency(value)
             }
-            tableRows += `<td>${displayValue || ''}</td>`
+            tableRows += `<td>${escapeHtml(displayValue)}</td>`
           })
           tableRows += '</tr>'
         })
@@ -366,7 +367,7 @@ const SalesByProductSummary: React.FC = () => {
           } else if (typeof value === 'number') {
             displayValue = formatCurrency(value)
           }
-          tableRows += `<td>${displayValue || ''}</td>`
+          tableRows += `<td>${escapeHtml(displayValue)}</td>`
         })
         tableRows += '</tr>'
       })
@@ -394,18 +395,18 @@ const SalesByProductSummary: React.FC = () => {
     // Build date range text
     let dateRangeText = ''
     if (dateFrom && dateTo) {
-      dateRangeText = `<p><strong>Date Range:</strong> ${formatDate(dateFrom)} - ${formatDate(dateTo)}</p>`
+      dateRangeText = `<p><strong>Date Range:</strong> ${escapeHtml(formatDate(dateFrom))} - ${escapeHtml(formatDate(dateTo))}</p>`
     } else if (dateFrom) {
-      dateRangeText = `<p><strong>Date From:</strong> ${formatDate(dateFrom)}</p>`
+      dateRangeText = `<p><strong>Date From:</strong> ${escapeHtml(formatDate(dateFrom))}</p>`
     } else if (dateTo) {
-      dateRangeText = `<p><strong>Date To:</strong> ${formatDate(dateTo)}</p>`
+      dateRangeText = `<p><strong>Date To:</strong> ${escapeHtml(formatDate(dateTo))}</p>`
     }
 
     const html = `
       <!DOCTYPE html>
       <html>
         <head>
-          <title>${reportTitle}</title>
+          <title>${escapeHtml(reportTitle)}</title>
           <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:400,500,700&display=swap" />
           <style>
             body { font-family: 'Roboto', sans-serif; margin: 20px; }
@@ -446,7 +447,7 @@ const SalesByProductSummary: React.FC = () => {
           </style>
         </head>
         <body>
-          <h1>${reportTitle}</h1>
+          <h1>${escapeHtml(reportTitle)}</h1>
           <div class="header-info">
             <p style="margin: 5px 0;"><strong>Generated on:</strong> ${formatDateTime(new Date())}</p>
             ${dateRangeText}
@@ -454,7 +455,7 @@ const SalesByProductSummary: React.FC = () => {
           <table>
             <thead>
               <tr>
-                ${selectedColumns.map(col => `<th>${columnHeaders[col] || col}</th>`).join('')}
+                ${selectedColumns.map(col => `<th>${escapeHtml(columnHeaders[col] || col)}</th>`).join('')}
               </tr>
             </thead>
             <tbody>
@@ -469,7 +470,7 @@ const SalesByProductSummary: React.FC = () => {
           </div>
           <script>
             // Set document title for PDF filename
-            document.title = '${reportTitle.replace(/'/g, "\\'")}';
+            document.title = ${JSON.stringify(reportTitle)};
 
             window.onload = function() {
               // Small delay to ensure content is rendered
