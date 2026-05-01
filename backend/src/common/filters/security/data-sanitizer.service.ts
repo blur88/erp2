@@ -33,8 +33,8 @@ export class DataSanitizerService {
    */
   sanitizeUserAgent(userAgent: string): string {
     if (!userAgent) return '[UNKNOWN]';
-    // Keep browser info but remove detailed version numbers
-    return userAgent.replace(/\d+\.\d+\.\d+/g, 'x.x.x');
+    if (userAgent.length > 1000) return '[USER_AGENT_TOO_LONG]';
+    return userAgent.replace(/\d{1,10}\.\d{1,10}\.\d{1,10}/g, 'x.x.x');
   }
 
   /**
