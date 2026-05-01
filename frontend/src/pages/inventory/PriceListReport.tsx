@@ -39,6 +39,7 @@ import { default as KeyboardDoubleArrowLeftIcon } from '@mui/icons-material/Keyb
 import { AppButton } from '@/components/common/AppButton'
 import PageHeader from '@/components/common/PageHeader'
 import { formatCurrency, formatDateTime } from '@/utils/formatters'
+import { escapeHtml } from '@/utils/security'
 import { TABLE_STYLES } from '@/constants/tableStyles'
 import { ApiService } from '@/services/api'
 import { printColors } from '@/styles/printTokens'
@@ -363,9 +364,9 @@ const PriceListReport: React.FC = () => {
 
     const getPdfGroupLabel = (r: any) => {
       if (groupBy === 'categoryName') {
-        return `Category: ${r.categoryName}`
+        return `Category: ${escapeHtml(r.categoryName)}`
       }
-      return r[groupBy]
+      return escapeHtml(r[groupBy])
     }
 
     sortedData.forEach((row) => {
@@ -391,7 +392,7 @@ const PriceListReport: React.FC = () => {
           displayValue = ''
         }
 
-        tableRows += `<td style="${align}">${displayValue}</td>`
+        tableRows += `<td style="${align}">${escapeHtml(displayValue)}</td>`
       })
       tableRows += '</tr>'
     })
@@ -403,19 +404,19 @@ const PriceListReport: React.FC = () => {
     if (selectedCategory) {
       const category = categories.find(c => c.id === selectedCategory)
       if (category) {
-        filterText.push(`<p><strong>Category:</strong> ${category.name}</p>`)
+        filterText.push(`<p><strong>Category:</strong> ${escapeHtml(category.name)}</p>`)
       }
     }
     if (priceListId) {
       const priceList = priceLists.find(pl => pl.id === priceListId)
       if (priceList) {
-        filterText.push(`<p><strong>Price List:</strong> ${priceList.name}</p>`)
+        filterText.push(`<p><strong>Price List:</strong> ${escapeHtml(priceList.name)}</p>`)
       }
     } else {
       filterText.push(`<p><strong>Price List:</strong> Base Cost (No Price List)</p>`)
     }
     if (parseFloat(discountPercent) > 0) {
-      filterText.push(`<p><strong>Discount:</strong> ${discountPercent}%</p>`)
+      filterText.push(`<p><strong>Discount:</strong> ${escapeHtml(discountPercent)}%</p>`)
     }
     const filtersText = filterText.join('')
 
@@ -423,12 +424,12 @@ const PriceListReport: React.FC = () => {
       <!DOCTYPE html>
       <html>
         <head>
-          <title>${reportTitle}</title>
+          <title>${escapeHtml(reportTitle)}</title>
           <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:400,500,700&display=swap" />
           <style>${PRINT_STYLES}</style>
         </head>
         <body>
-          <h1>${reportTitle}</h1>
+          <h1>${escapeHtml(reportTitle)}</h1>
           <div class="header-info">
             <p style="margin: 5px 0;"><strong>Generated on:</strong> ${formatDateTime(new Date())}</p>
             ${filtersText}
@@ -436,7 +437,7 @@ const PriceListReport: React.FC = () => {
           <table>
             <thead>
               <tr>
-                ${selectedColumns.map(col => `<th>${columnHeaders[col] || col}</th>`).join('')}
+                ${selectedColumns.map(col => `<th>${escapeHtml(columnHeaders[col] || col)}</th>`).join('')}
               </tr>
             </thead>
             <tbody>
