@@ -32,6 +32,7 @@ import PageHeader from '@/components/common/PageHeader'
 import { printColors } from '@/styles/printTokens'
 import { PRINT_STYLES } from '@/styles/printStyles'
 import { formatCurrency, formatDate, formatDateTime } from '@/utils/formatters'
+import { escapeHtml } from '@/utils/security'
 import { TABLE_STYLES } from '@/constants/tableStyles'
 import api from '@/services/api'
 
@@ -139,13 +140,13 @@ const VendorPaymentDetailsReport: React.FC = () => {
 
     const getExportGroupLabel = (r: any) => {
       if (groupBy === 'supplierName') {
-        return `Vendor: ${r.supplierName}`
+        return `Vendor: ${escapeHtml(r.supplierName)}`
       } else if (groupBy === 'paymentDate') {
-        return `Payment Date: ${r.paymentDate ? formatDate(r.paymentDate) : 'N/A'}`
+        return `Payment Date: ${r.paymentDate ? escapeHtml(formatDate(r.paymentDate)) : 'N/A'}`
       } else if (groupBy === 'orderNumber') {
-        return `Order No: ${r.orderNumber || 'N/A'}`
+        return `Order No: ${escapeHtml(r.orderNumber || 'N/A')}`
       }
-      return r[groupBy]
+      return escapeHtml(r[groupBy])
     }
 
     sortedData.forEach((row, idx) => {
@@ -271,7 +272,7 @@ const VendorPaymentDetailsReport: React.FC = () => {
           displayValue = formatCurrency(value)
         }
         const align = (typeof value === 'number') ? 'text-align: right;' : ''
-        tableRows += `<td style="${align}">${displayValue || ''}</td>`
+        tableRows += `<td style="${align}">${escapeHtml(displayValue)}</td>`
       })
       tableRows += '</tr>'
 
@@ -319,11 +320,11 @@ const VendorPaymentDetailsReport: React.FC = () => {
 
     const filterText = []
     if (dateFrom && dateTo) {
-      filterText.push(`<p><strong>Payment Date Range:</strong> ${formatDate(dateFrom)} - ${formatDate(dateTo)}</p>`)
+      filterText.push(`<p><strong>Payment Date Range:</strong> ${escapeHtml(formatDate(dateFrom))} - ${escapeHtml(formatDate(dateTo))}</p>`)
     } else if (dateFrom) {
-      filterText.push(`<p><strong>Payment Date From:</strong> ${formatDate(dateFrom)}</p>`)
+      filterText.push(`<p><strong>Payment Date From:</strong> ${escapeHtml(formatDate(dateFrom))}</p>`)
     } else if (dateTo) {
-      filterText.push(`<p><strong>Payment Date To:</strong> ${formatDate(dateTo)}</p>`)
+      filterText.push(`<p><strong>Payment Date To:</strong> ${escapeHtml(formatDate(dateTo))}</p>`)
     }
     const dateRangeText = filterText.join('')
 
@@ -331,12 +332,12 @@ const VendorPaymentDetailsReport: React.FC = () => {
       <!DOCTYPE html>
       <html>
         <head>
-          <title>${reportTitle}</title>
+          <title>${escapeHtml(reportTitle)}</title>
           <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:400,500,700&display=swap" />
           <style>${PRINT_STYLES}</style>
         </head>
         <body>
-          <h1>${reportTitle}</h1>
+          <h1>${escapeHtml(reportTitle)}</h1>
           <div class="header-info">
             <p style="margin: 5px 0;"><strong>Generated on:</strong> ${formatDateTime(new Date())}</p>
             ${dateRangeText}
@@ -344,7 +345,7 @@ const VendorPaymentDetailsReport: React.FC = () => {
           <table>
             <thead>
               <tr>
-                ${selectedColumns.map(col => `<th>${columnHeaders[col] || col}</th>`).join('')}
+                ${selectedColumns.map(col => `<th>${escapeHtml(columnHeaders[col] || col)}</th>`).join('')}
               </tr>
             </thead>
             <tbody>

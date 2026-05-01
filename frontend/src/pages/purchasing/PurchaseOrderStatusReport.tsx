@@ -44,6 +44,7 @@ import PageHeader from '@/components/common/PageHeader'
 import { printColors } from '@/styles/printTokens'
 import { PRINT_STYLES } from '@/styles/printStyles'
 import { formatCurrency, formatDate, formatDateTime } from '@/utils/formatters'
+import { escapeHtml } from '@/utils/security'
 import { TABLE_STYLES } from '@/constants/tableStyles'
 import api from '@/services/api'
 
@@ -319,13 +320,13 @@ const PurchaseOrderStatusReport: React.FC = () => {
 
     const getExportGroupLabel = (r: any) => {
       if (groupBy === 'productName') {
-        return `Product: ${r.productName}`
+        return `Product: ${escapeHtml(r.productName)}`
       } else if (groupBy === 'supplierName') {
-        return `Vendor: ${r.supplierName}`
+        return `Vendor: ${escapeHtml(r.supplierName)}`
       } else if (groupBy === 'orderNumber') {
-        return `Order No.: ${r.orderNumber}`
+        return `Order No.: ${escapeHtml(r.orderNumber)}`
       }
-      return r[groupBy]
+      return escapeHtml(r[groupBy])
     }
 
     sortedData.forEach((row, idx) => {
@@ -463,7 +464,7 @@ const PurchaseOrderStatusReport: React.FC = () => {
           displayValue = value ? value.charAt(0).toUpperCase() + value.slice(1) : ''
         }
         const align = (typeof value === 'number') ? 'text-align: right;' : ''
-        tableRows += `<td style="${align}">${displayValue || ''}</td>`
+        tableRows += `<td style="${align}">${escapeHtml(displayValue)}</td>`
       })
       tableRows += '</tr>'
 
@@ -520,10 +521,10 @@ const PurchaseOrderStatusReport: React.FC = () => {
 
     const filterText = []
     if (status && status !== 'all') {
-      filterText.push(`<p><strong>Inventory Status:</strong> ${status.charAt(0).toUpperCase() + status.slice(1)}</p>`)
+      filterText.push(`<p><strong>Inventory Status:</strong> ${escapeHtml(status.charAt(0).toUpperCase() + status.slice(1))}</p>`)
     }
     if (paymentStatus && paymentStatus !== 'all') {
-      filterText.push(`<p><strong>Payment Status:</strong> ${paymentStatus.charAt(0).toUpperCase() + paymentStatus.slice(1)}</p>`)
+      filterText.push(`<p><strong>Payment Status:</strong> ${escapeHtml(paymentStatus.charAt(0).toUpperCase() + paymentStatus.slice(1))}</p>`)
     }
     const dateRangeText = filterText.join('')
 
@@ -531,12 +532,12 @@ const PurchaseOrderStatusReport: React.FC = () => {
       <!DOCTYPE html>
       <html>
         <head>
-          <title>${reportTitle}</title>
+          <title>${escapeHtml(reportTitle)}</title>
           <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:400,500,700&display=swap" />
           <style>${PRINT_STYLES}</style>
         </head>
         <body>
-          <h1>${reportTitle}</h1>
+          <h1>${escapeHtml(reportTitle)}</h1>
           <div class="header-info">
             <p style="margin: 5px 0;"><strong>Generated on:</strong> ${formatDateTime(new Date())}</p>
             ${dateRangeText}
@@ -544,7 +545,7 @@ const PurchaseOrderStatusReport: React.FC = () => {
           <table>
             <thead>
               <tr>
-                ${selectedColumns.map(col => `<th>${columnHeaders[col] || col}</th>`).join('')}
+                ${selectedColumns.map(col => `<th>${escapeHtml(columnHeaders[col] || col)}</th>`).join('')}
               </tr>
             </thead>
             <tbody>
