@@ -1,6 +1,6 @@
 'use strict';
 
-const { execSync } = require('child_process');
+const { execFileSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const { classifyRelease, buildInternalChangesCommits } = require('./release-notes-helpers.cjs');
@@ -25,8 +25,8 @@ const TARGET_TAGS = [
 const SEMVER_TAG_RE = /^v\d+\.\d+\.\d+$/;
 const CONV_COMMIT_RE = /^([a-z]+)(?:\(([^)]+)\))?!?:\s*(.+)$/;
 
-function run(cmd, opts = {}) {
-  return execSync(cmd, {
+function run(cmd, args = [], opts = {}) {
+  return execFileSync(cmd, args, {
     encoding: 'utf8',
     cwd: REPO_ROOT,
     stdio: ['ignore', 'pipe', 'pipe'],
@@ -48,7 +48,7 @@ function fail(message) {
 }
 
 function getAllReleaseTags() {
-  return run('git tag --sort=version:refname')
+  return run('git', ['tag', '--sort=version:refname'])
     .split('\n')
     .filter(tag => SEMVER_TAG_RE.test(tag));
 }
@@ -63,7 +63,7 @@ function getPreviousTag(currentTag, allTags) {
 }
 
 function getCommitsInRange(previousTag, currentTag) {
-  const output = run(`git log ${previousTag}..${currentTag} --format="%H %s"`);
+  const output = run('git', ['log', `${previousTag}..${currentTag}`, '--format=%H %s']);
   if (!output) {
     return [];
   }
@@ -142,7 +142,7 @@ function patchChangelog(version, markdown) {
 
 function getGitHubReleaseBody(tag) {
   try {
-    return run(`gh release view ${tag} --json body --jq '.body'`);
+    return run('gh', ['release', 'view', tag, '--json', 'body', '--jq', '.body']);
   } catch (error) {
     fail(`Cannot fetch GitHub release for ${tag}: ${error.message}`);
   }
@@ -174,7 +174,7 @@ function updateGitHubRelease(tag, markdown, existingBody = getGitHubReleaseBody(
   fs.writeFileSync(tmpFile, releaseNotes, 'utf8');
 
   try {
-    run(`gh release edit ${tag} --notes-file ${JSON.stringify(tmpFile)}`);
+    run('gh', ['release', 'edit', tag, '--notes-file', tmpFile]);
     log(`Updated GitHub Release ${tag}`);
   } finally {
     if (fs.existsSync(tmpFile)) {
