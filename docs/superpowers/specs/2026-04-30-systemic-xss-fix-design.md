@@ -47,6 +47,7 @@ Update `RegionalSettingsPage.tsx` and other pages flagged by CodeQL to explicitl
 - `frontend/src/pages/purchasing/PurchaseOrderDetailsReport.tsx`
 - `frontend/src/pages/purchasing/PurchaseOrderStatusReport.tsx`
 - `frontend/src/pages/purchasing/PurchaseOrderSummary.tsx`
+- `frontend/src/pages/purchasing/VendorPaymentDetailsReport.tsx`
 - `frontend/src/pages/purchasing/VendorProductListReport.tsx`
 - `frontend/src/pages/sales/CustomerOrderHistory.tsx`
 - `frontend/src/pages/sales/CustomerPaymentByOrder.tsx`
