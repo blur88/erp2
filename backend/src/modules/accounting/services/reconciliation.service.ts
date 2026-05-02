@@ -131,6 +131,7 @@ export class ReconciliationService {
       status,
       sortBy = 'reconciliationDate',
       sortOrder = 'DESC',
+      search,
     } = query;
 
     const queryBuilder = this.reconciliationRepository
@@ -147,6 +148,12 @@ export class ReconciliationService {
     }
     if (status) {
       queryBuilder.andWhere('recon.status = :status', { status });
+    }
+    if (search) {
+      queryBuilder.andWhere(
+        '(account.name ILIKE :search OR account.code ILIKE :search OR fiscalPeriod.name ILIKE :search)',
+        { search: `%${search}%` },
+      );
     }
 
     const validSortFields = ['reconciliationDate', 'createdAt'];

@@ -1,5 +1,7 @@
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 
+import { useEntityWorkspace } from '@/hooks/useEntityWorkspace'
 import { useNotification } from '@/hooks/useNotification'
 import {
   useCompleteBankReconciliationMutation,
@@ -12,15 +14,22 @@ import {
 import { BankReconciliation, ReconciledTransaction } from '@/types'
 import { getErrorMessage } from '@/utils/errorMessage'
 
-export function useBankReconciliationsWorkspace(refetch: () => void) {
+interface UseBankReconciliationsWorkspaceConfig {
+  reconciliations: BankReconciliation[]
+  refetch: () => void
+}
+
+export function useBankReconciliationsWorkspace({
+  reconciliations,
+  refetch,
+}: UseBankReconciliationsWorkspaceConfig) {
+  const navigate = useNavigate()
   const { showSuccess, showError } = useNotification()
   const [selected, setSelected] = useState<BankReconciliation | null>(null)
   const [completeTarget, setCompleteTarget] = useState<BankReconciliation | null>(null)
   const [reopenTarget, setReopenTarget] = useState<BankReconciliation | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<BankReconciliation | null>(null)
   const [actionLoading, setActionLoading] = useState(false)
-  const searchInputRef = useRef<HTMLInputElement | null>(null)
-  const listRef = useRef<HTMLDivElement | null>(null)
 
   const [fetchItem] = useLazyGetBankReconciliationQuery()
   const [markCleared] = useMarkBankReconciliationClearedMutation()
@@ -29,14 +38,29 @@ export function useBankReconciliationsWorkspace(refetch: () => void) {
   const [reopenReconciliation] = useReopenBankReconciliationMutation()
   const [deleteReconciliation] = useDeleteBankReconciliationMutation()
 
+  const workspace = useEntityWorkspace<BankReconciliation>({
+    entities: reconciliations,
+    selectedEntity: selected,
+    selectEntity: setSelected,
+    refetch,
+    navigate,
+    routes: {
+      create: '/accounting/bank-reconciliations',
+      edit: () => '/accounting/bank-reconciliations',
+    },
+    notifications: { showSuccess, showError },
+    deleteMutation: async () => {},
+    onEnter: () => {},
+  })
+
   const handleSelect = useCallback(async (item: BankReconciliation) => {
-    setSelected(item)
+    workspace.handleSelect(item)
     try {
       const fresh = await fetchItem(item.id).unwrap()
       setSelected(fresh)
     }
     catch { /* keep list-row data */ }
-  }, [fetchItem])
+  }, [fetchItem, workspace])
 
   const handleToggleCleared = useCallback(async (txn: ReconciledTransaction) => {
     if (!selected) return
@@ -116,8 +140,9 @@ export function useBankReconciliationsWorkspace(refetch: () => void) {
     deleteTarget,
     setDeleteTarget,
     actionLoading,
-    searchInputRef,
-    listRef,
+    focusedIndex: workspace.focusedIndex,
+    searchInputRef: workspace.searchInputRef,
+    listRef: workspace.listRef,
     handleSelect,
     handleToggleCleared,
     handleConfirmComplete,

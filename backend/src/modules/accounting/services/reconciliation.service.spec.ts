@@ -234,6 +234,18 @@ describe('ReconciliationService', () => {
       expect(result.data).toHaveLength(1);
       expect(result.meta.total).toBe(1);
     });
+
+    it('should search by account and fiscal period fields', async () => {
+      const queryBuilder = createMockQueryBuilder([mockReconciliation], 1);
+      reconciliationRepo.createQueryBuilder.mockReturnValue(queryBuilder as any);
+
+      await service.findAll({ page: 1, limit: 20, search: 'cash' } as any);
+
+      expect(queryBuilder.andWhere).toHaveBeenCalledWith(
+        '(account.name ILIKE :search OR account.code ILIKE :search OR fiscalPeriod.name ILIKE :search)',
+        { search: '%cash%' },
+      );
+    });
   });
 
   describe('update', () => {
