@@ -33,6 +33,7 @@ import PageHeader from '@/components/common/PageHeader'
 import { printColors } from '@/styles/printTokens'
 import { formatCurrency, formatDate, formatDateTime } from '@/utils/formatters'
 import { escapeHtml } from '@/utils/security'
+import { printReport } from '@/utils/printReport'
 import { TABLE_STYLES } from '@/constants/tableStyles'
 import api from '@/services/api'
 
@@ -296,10 +297,6 @@ const SalesOrderSummary: React.FC = () => {
   const handleExportPDF = () => {
     if (sortedData.length === 0) return
 
-    // Create a printable version
-    const printWindow = window.open('', '_blank')
-    if (!printWindow) return
-
     const columnHeaders: { [key: string]: string } = {
       orderNumber: 'Order Number',
       orderDate: 'Order Date',
@@ -489,35 +486,12 @@ const SalesOrderSummary: React.FC = () => {
               ${tableRows}
             </tbody>
           </table>
-          <div class="footer">
-            <script>
-              var pageNum = 1;
-              document.write("Page " + pageNum);
-            </script>
-          </div>
-          <script>
-            // Set document title for PDF filename
-            document.title = ${JSON.stringify(reportTitle)};
-
-            window.onload = function() {
-              // Small delay to ensure content is rendered
-              setTimeout(function() {
-                window.print();
-              }, 250);
-            }
-          </script>
+          <div class="footer"></div>
         </body>
       </html>
     `
 
-    // Write HTML content to the new window
-    // Note: document.write is the standard approach for new window content
-    const doc = printWindow.document
-    doc.open()
-    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-    // @ts-ignore - document.write is deprecated but still the standard for new windows
-    doc.write(html)
-    doc.close()
+    printReport(html, reportTitle)
   }
 
   const calculateTotals = () => {

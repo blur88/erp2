@@ -41,6 +41,7 @@ import { AppButton } from '@/components/common/AppButton'
 import PageHeader from '@/components/common/PageHeader'
 import { formatCurrency, formatDate, formatDateTime } from '@/utils/formatters'
 import { escapeHtml } from '@/utils/security'
+import { printReport } from '@/utils/printReport'
 import { TABLE_STYLES } from '@/constants/tableStyles'
 import { ApiService } from '@/services/api'
 import { useGetProductsQuery, useGetCategoriesQuery } from '@/store/api/inventoryApi'
@@ -320,9 +321,6 @@ const HistoricalInventoryReport: React.FC = () => {
   const handleExportPDF = () => {
     if (sortedData.length === 0) return
 
-    const printWindow = window.open('', '_blank')
-    if (!printWindow) return
-
     const columnHeaders: { [key: string]: string } = {
       productName: 'Products',
       categoryName: 'Category',
@@ -415,20 +413,11 @@ const HistoricalInventoryReport: React.FC = () => {
               ${tableRows}
             </tbody>
           </table>
-          <script>
-            window.onload = function() {
-              setTimeout(function() {
-                window.print();
-              }, 250);
-            }
-          </script>
         </body>
       </html>
     `
 
-    // @ts-ignore - document.write is deprecated but needed for print functionality
-    printWindow.document.write(html)
-    printWindow.document.close()
+    printReport(html, reportTitle)
   }
 
   const getSortedData = () => {

@@ -35,6 +35,7 @@ import PageHeader from '@/components/common/PageHeader'
 import { printColors } from '@/styles/printTokens'
 import { formatCurrency, formatDate, formatDateTime } from '@/utils/formatters'
 import { escapeHtml } from '@/utils/security'
+import { printReport } from '@/utils/printReport'
 import { TABLE_STYLES } from '@/constants/tableStyles'
 import { ApiService } from '@/services/api'
 
@@ -258,10 +259,6 @@ const CustomerPaymentByOrder: React.FC = () => {
   const handleExportPDF = () => {
     if (sortedData.length === 0) return
 
-    // Create a printable version
-    const printWindow = window.open('', '_blank')
-    if (!printWindow) return
-
     const columnHeaders: { [key: string]: string } = {
       orderNumber: 'Order No',
       customerName: 'Customer',
@@ -423,29 +420,12 @@ const CustomerPaymentByOrder: React.FC = () => {
               ${tableRows}
             </tbody>
           </table>
-          <div class="footer">
-            <script>
-              var pageNum = 1;
-              document.write("Page " + pageNum);
-            </script>
-          </div>
-          <script>
-            // Set document title for PDF filename
-            document.title = ${JSON.stringify(reportTitle)};
-
-            window.onload = function() {
-              // Small delay to ensure content is rendered
-              setTimeout(function() {
-                window.print();
-              }, 250);
-            }
-          </script>
+          <div class="footer"></div>
         </body>
       </html>
     `
 
-    printWindow.document.write(html)
-    printWindow.document.close()
+    printReport(html, reportTitle)
   }
 
   const calculateTotals = () => {

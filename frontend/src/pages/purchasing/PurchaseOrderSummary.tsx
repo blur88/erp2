@@ -34,6 +34,7 @@ import PageHeader from '@/components/common/PageHeader'
 import { printColors } from '@/styles/printTokens'
 import { formatCurrency, formatDate, formatDateTime } from '@/utils/formatters'
 import { escapeHtml } from '@/utils/security'
+import { printReport } from '@/utils/printReport'
 import { TABLE_STYLES } from '@/constants/tableStyles'
 import api from '@/services/api'
 
@@ -254,9 +255,6 @@ const PurchaseOrderSummary: React.FC = () => {
   const handleExportPDF = () => {
     if (sortedData.length === 0) return
 
-    const printWindow = window.open('', '_blank')
-    if (!printWindow) return
-
     const columnHeaders: { [key: string]: string } = {
       orderNumber: 'PO No',
       status: 'Inventory Status',
@@ -426,27 +424,12 @@ const PurchaseOrderSummary: React.FC = () => {
               ${tableRows}
             </tbody>
           </table>
-          <div class="footer">
-            <script>
-              var pageNum = 1;
-              document.write("Page " + pageNum);
-            </script>
-          </div>
-          <script>
-            document.title = ${JSON.stringify(reportTitle)};
-
-            window.onload = function() {
-              setTimeout(function() {
-                window.print();
-              }, 250);
-            }
-          </script>
+          <div class="footer"></div>
         </body>
       </html>
     `
 
-    printWindow.document.write(html)
-    printWindow.document.close()
+    printReport(html, reportTitle)
   }
 
   const calculateTotals = () => {
