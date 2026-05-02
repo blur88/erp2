@@ -153,8 +153,6 @@ export function useExpensesWorkspace(refetch: () => void, expenses: ExpenseRecor
     searchInputRef: workspace.searchInputRef,
     formOpen,
     setFormOpen,
-    createOpen: formOpen,
-    setCreateOpen: setFormOpen,
     editTarget,
     setEditTarget,
     postTarget,

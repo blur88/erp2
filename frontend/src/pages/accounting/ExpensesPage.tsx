@@ -1,48 +1,21 @@
-import React, { useMemo, useState } from 'react'
-import {
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-  FormControl,
-  InputLabel,
-  MenuItem,
-  Select,
-  Stack,
-  TextField,
-} from '@mui/material'
-import { AppButton } from '@/components/common/AppButton'
+import React, { useMemo } from 'react'
+import { Stack } from '@mui/material'
 import { default as DeleteIcon } from '@mui/icons-material/Delete'
 import { default as PostIcon } from '@mui/icons-material/PostAdd'
 
+import { AppButton } from '@/components/common/AppButton'
 import GenericListPage from '@/components/common/GenericListPage'
 import { useFilterBar } from '@/hooks/useFilterBar'
-import {
-  useCreateExpenseMutation,
-  useGetChartOfAccountsQuery,
-  useGetExpensesQuery,
-  useGetPaymentMethodsQuery,
-  useUpdateExpenseMutation,
-} from '@/store/api/accountingApi'
-import type { ChartOfAccount, ExpenseRecord } from '@/types'
+import { useGetExpensesQuery } from '@/store/api/accountingApi'
 import type { FilterBarConfig, PeriodValue } from '@/types/filterBar.types'
 import { getPeriodDateRange, getStartOfWeek } from '@/utils/dateRange'
 
 import { ExpenseContextHeader } from './components/ExpenseContextHeader'
+import { ExpenseFormDialog } from './components/ExpenseFormDialog'
 import { ExpensesDialogs } from './components/ExpensesDialogs'
 import { ExpensesTable } from './components/ExpensesTable'
 import { ExpenseWorkspaceCard } from './components/ExpenseWorkspaceCard'
 import { useExpensesWorkspace } from './hooks/useExpensesWorkspace'
-
-type FormState = {
-  id?: string
-  expenseDate: string
-  expenseAccountId: string
-  amount: string
-  paymentMethodId: string
-  vendor: string
-  description: string
-}
 
 interface ExpenseFilters {
   search: string
@@ -63,18 +36,7 @@ const filterConfig: FilterBarConfig<ExpenseFilters> = {
   },
 }
 
-const defaultFormState = (): FormState => ({
-  expenseDate: new Date().toISOString().slice(0, 10),
-  expenseAccountId: '',
-  amount: '',
-  paymentMethodId: '',
-  vendor: '',
-  description: '',
-})
-
 const ExpensesPage: React.FC = () => {
-  const [form, setForm] = useState<FormState>(defaultFormState())
-
   const { appliedFilters, draftFilters, handlers, hasActiveFilters } = useFilterBar(filterConfig)
   const weekStartsOn = getStartOfWeek()
   const dateRange = useMemo(() => {
@@ -98,71 +60,26 @@ const ExpensesPage: React.FC = () => {
 
   const { data: expensesResponse, isLoading, refetch } = useGetExpensesQuery(filters)
   const rows = expensesResponse?.data ?? []
-  const { data: paymentMethodsResponse } = useGetPaymentMethodsQuery({ page: 1, isActive: true })
-  const paymentMethods = paymentMethodsResponse?.data ?? []
-  const { data: expenseAccountsResponse } = useGetChartOfAccountsQuery({ page: 1, type: 'EXPENSE', isActive: true })
-  const expenseAccounts = (expenseAccountsResponse?.data ?? []) as ChartOfAccount[]
-  const [createExpense] = useCreateExpenseMutation()
-  const [updateExpense] = useUpdateExpenseMutation()
 
   const workspace = useExpensesWorkspace(() => {
     void refetch()
-  })
+  }, rows)
 
   const openCreate = () => {
-    setForm({
-      ...defaultFormState(),
-      expenseAccountId: expenseAccounts[0]?.id ?? '',
-      paymentMethodId: paymentMethods[0]?.id ?? '',
-    })
     workspace.setEditTarget(null)
-    workspace.setCreateOpen(true)
+    workspace.setFormOpen(true)
   }
 
-  const openEdit = (row: ExpenseRecord) => {
-    setForm({
-      id: row.id,
-      expenseDate: String(row.expenseDate).slice(0, 10),
-      expenseAccountId: row.expenseAccountId,
-      amount: String(row.amount),
-      paymentMethodId: row.paymentMethodId,
-      vendor: row.vendor || '',
-      description: row.description || '',
-    })
-    workspace.setEditTarget(row)
+  const openEdit = () => {
+    if (!workspace.selected) return
+    workspace.setEditTarget(workspace.selected)
+    workspace.setFormOpen(true)
   }
 
   const closeForm = () => {
-    workspace.setCreateOpen(false)
+    workspace.setFormOpen(false)
     workspace.setEditTarget(null)
-    setForm(defaultFormState())
   }
-
-  const save = async () => {
-    if (!form.expenseAccountId || !form.paymentMethodId || !form.amount || Number(form.amount) <= 0) {
-      return
-    }
-
-    const payload = {
-      expenseDate: form.expenseDate,
-      expenseAccountId: form.expenseAccountId,
-      amount: Number(form.amount),
-      paymentMethodId: form.paymentMethodId,
-      vendor: form.vendor || undefined,
-      description: form.description || undefined,
-    }
-
-    if (form.id) {
-      await updateExpense({ id: form.id, data: payload }).unwrap()
-    } else {
-      await createExpense(payload).unwrap()
-    }
-
-    closeForm()
-    void refetch()
-  }
-
-  const formOpen = workspace.createOpen || workspace.editTarget !== null
 
   return (
     <GenericListPage
@@ -190,20 +107,18 @@ const ExpensesPage: React.FC = () => {
           expenses={rows}
           loading={isLoading}
           selectedId={workspace.selected?.id ?? null}
-          selectedIds={workspace.selectedIds}
-          onSelect={workspace.setSelected}
-          onToggleCheck={workspace.handleToggleCheck}
-          onSelectAll={() => workspace.handleSelectAll(rows)}
-          onPost={(item) => workspace.setPostTarget(item)}
-          onEdit={openEdit}
-          onDelete={(item) => workspace.setDeleteTarget(item)}
+          focusedIndex={workspace.focusedIndex}
+          onSelect={(item) => {
+            workspace.handleSelect(item)
+            workspace.setFocusedIndex(rows.findIndex((row) => row.id === item.id))
+          }}
           listRef={workspace.listRef}
         />
       )}
       headerSlot={(
         <ExpenseContextHeader
           selected={workspace.selected}
-          onEdit={() => workspace.selected && openEdit(workspace.selected)}
+          onEdit={openEdit}
           onPost={() => workspace.selected && workspace.setPostTarget(workspace.selected)}
           onDelete={() => workspace.selected && workspace.setDeleteTarget(workspace.selected)}
         />
@@ -226,37 +141,12 @@ const ExpensesPage: React.FC = () => {
             onCancelBulkPost={() => workspace.setBulkPostOpen(false)}
             onCancelBulkDelete={() => workspace.setBulkDeleteOpen(false)}
           />
-          <Dialog open={formOpen} onClose={closeForm} maxWidth="sm" fullWidth>
-            <DialogTitle>{workspace.editTarget ? 'Edit Expense' : 'New Expense'}</DialogTitle>
-            <DialogContent>
-              <Stack spacing={2} sx={{ mt: 1 }}>
-                <TextField label="Date" type="date" size="small" value={form.expenseDate} onChange={(event) => setForm((current) => ({ ...current, expenseDate: event.target.value }))} slotProps={{ inputLabel: { shrink: true } }} />
-                <FormControl fullWidth size="small">
-                  <InputLabel>Expense Account</InputLabel>
-                  <Select value={form.expenseAccountId} label="Expense Account" onChange={(event) => setForm((current) => ({ ...current, expenseAccountId: event.target.value }))}>
-                    {expenseAccounts.map((account) => (
-                      <MenuItem key={account.id} value={account.id}>{account.code} - {account.name}</MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-                <TextField label="Amount" size="small" type="number" value={form.amount} onChange={(event) => setForm((current) => ({ ...current, amount: event.target.value }))} />
-                <FormControl fullWidth size="small">
-                  <InputLabel>Payment Method</InputLabel>
-                  <Select value={form.paymentMethodId} label="Payment Method" onChange={(event) => setForm((current) => ({ ...current, paymentMethodId: event.target.value }))}>
-                    {paymentMethods.map((paymentMethod) => (
-                      <MenuItem key={paymentMethod.id} value={paymentMethod.id}>{paymentMethod.name}</MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-                <TextField label="Vendor" value={form.vendor} onChange={(event) => setForm((current) => ({ ...current, vendor: event.target.value }))} />
-                <TextField label="Description" multiline minRows={2} value={form.description} onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))} />
-              </Stack>
-            </DialogContent>
-            <DialogActions>
-              <AppButton variant="outlined" onClick={closeForm}>Cancel</AppButton>
-              <AppButton variant="primary" onClick={() => void save()}>Save</AppButton>
-            </DialogActions>
-          </Dialog>
+          <ExpenseFormDialog
+            open={workspace.formOpen}
+            editTarget={workspace.editTarget}
+            onClose={closeForm}
+            onSaved={() => { void refetch() }}
+          />
         </>
       )}
     />
