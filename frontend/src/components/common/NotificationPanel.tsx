@@ -1,6 +1,5 @@
 import React from 'react'
 import {
-  Popover,
   Box,
   Typography,
   ListItemButton,
@@ -10,12 +9,10 @@ import {
   ListItemIcon,
   IconButton,
   Divider,
-  Avatar,
   Chip,
   Badge,
   Tooltip,
 } from '@mui/material'
-import { default as CloseIcon } from '@mui/icons-material/Close'
 import { default as MarkReadIcon } from '@mui/icons-material/MarkEmailRead'
 import { default as DeleteIcon } from '@mui/icons-material/Delete'
 import { default as InfoIcon } from '@mui/icons-material/Info'
@@ -32,6 +29,7 @@ import { useAppDispatch } from '@/hooks/useRedux'
 import { markAsRead, markAllAsRead, removeNotification } from '@/store/slices/notificationSlice'
 import type { Notification } from '@/types'
 import { AppButton } from '@/components/common/AppButton'
+import TopBarUtilityPanel from './TopBarUtilityPanel'
 
 interface NotificationPanelProps {
   anchorEl: HTMLElement | null
@@ -74,7 +72,6 @@ const NotificationPanel: React.FC<NotificationPanelProps> = ({
   const dispatch = useAppDispatch()
   const [copiedId, setCopiedId] = React.useState<string | null>(null)
   const copyTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
-  const popoverRef = React.useRef<HTMLDivElement>(null)
 
   const unreadNotifications = notifications.filter(n => !n.read)
   const recentNotifications = notifications.slice(0, 10)
@@ -95,8 +92,7 @@ const NotificationPanel: React.FC<NotificationPanelProps> = ({
 
   const handleCopy = async (notificationId: string, message: string, event: React.MouseEvent) => {
     event.stopPropagation()
-    const container = popoverRef.current ?? document.body
-    const success = await copyToClipboard(message, container)
+    const success = await copyToClipboard(message, document.body)
     if (success) {
       if (copyTimeoutRef.current) clearTimeout(copyTimeoutRef.current)
       setCopiedId(notificationId)
@@ -114,57 +110,21 @@ const NotificationPanel: React.FC<NotificationPanelProps> = ({
     if (!notification.read) {
       dispatch(markAsRead(notification.id))
     }
-    // Here you could add navigation logic based on notification type
     onClose()
   }
 
   return (
-    <Popover
-      open={open}
-      anchorEl={anchorEl}
+    <TopBarUtilityPanel
+      anchorEl={open ? anchorEl : null}
       onClose={onClose}
-      anchorOrigin={{
-        vertical: 'bottom',
-        horizontal: 'right',
-      }}
-      transformOrigin={{
-        vertical: 'top',
-        horizontal: 'right',
-      }}
-      slotProps={{
-        paper: {
-          ref: popoverRef,
-          sx: {
-            width: 400,
-            maxHeight: 600,
-            overflow: 'hidden',
-            mt: 1,
-          },
-        },
-      }}
-    >
-      {/* Header */}
-      <Box
-        sx={{
-          p: 2,
-          borderBottom: 1,
-          borderColor: 'divider',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-        }}
-      >
-        <Typography variant="h6" sx={{ fontWeight: 600 }}>
-          Notifications
-          {unreadNotifications.length > 0 && (
-            <Badge
-              badgeContent={unreadNotifications.length}
-              color="error"
-              sx={{ ml: 1 }}
-            />
-          )}
-        </Typography>
+      title="Notifications"
+      width={400}
+      maxHeight={600}
+      headerAction={
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          {unreadNotifications.length > 0 && (
+            <Badge badgeContent={unreadNotifications.length} color="error" />
+          )}
           {unreadNotifications.length > 0 && (
             <AppButton
               size="small"
@@ -175,26 +135,13 @@ const NotificationPanel: React.FC<NotificationPanelProps> = ({
               Mark all read
             </AppButton>
           )}
-          <IconButton size="small" onClick={onClose}>
-            <CloseIcon />
-          </IconButton>
         </Box>
-      </Box>
-      {/* Content */}
+      }
+    >
       <Box sx={{ maxHeight: 500, overflow: 'auto' }}>
         {recentNotifications.length === 0 ? (
-          <Box
-            sx={{
-              p: 4,
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              textAlign: 'center',
-            }}
-          >
-            <Typography variant="body2" sx={{
-              color: "text.secondary"
-            }}>
+          <Box sx={{ p: 4, display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
+            <Typography variant="body2" sx={{ color: 'text.secondary' }}>
               No notifications yet
             </Typography>
           </Box>
@@ -208,24 +155,18 @@ const NotificationPanel: React.FC<NotificationPanelProps> = ({
                     py: 2,
                     px: 2,
                     bgcolor: notification.read ? 'transparent' : 'action.hover',
-                    '&:hover': {
-                      bgcolor: 'action.selected',
-                    },
+                    '&:hover': { bgcolor: 'action.selected' },
                   }}
                 >
                   <ListItemIcon sx={{ minWidth: 40 }}>
                     {getNotificationIcon(notification.type)}
                   </ListItemIcon>
-                  
                   <ListItemText
                     primary={
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
                         <Typography
                           variant="subtitle2"
-                          sx={{
-                            fontWeight: notification.read ? 400 : 600,
-                            flexGrow: 1,
-                          }}
+                          sx={{ fontWeight: notification.read ? 400 : 600, flexGrow: 1 }}
                         >
                           {notification.title}
                         </Typography>
@@ -240,29 +181,16 @@ const NotificationPanel: React.FC<NotificationPanelProps> = ({
                     }
                     secondary={
                       <Box>
-                        <Typography
-                          variant="body2"
-                          sx={{
-                            color: "text.secondary",
-                            mb: 0.5
-                          }}>
+                        <Typography variant="body2" sx={{ color: 'text.secondary', mb: 0.5 }}>
                           {notification.message}
                         </Typography>
-                        <Typography
-                          variant="caption"
-                          sx={{
-                            color: "text.disabled",
-                            fontSize: '0.7rem'
-                          }}>
-                          {formatDistanceToNow(new Date(notification.timestamp), {
-                            addSuffix: true,
-                          })}
+                        <Typography variant="caption" sx={{ color: 'text.disabled', fontSize: '0.7rem' }}>
+                          {formatDistanceToNow(new Date(notification.timestamp), { addSuffix: true })}
                         </Typography>
                       </Box>
                     }
                     slotProps={{ secondary: { component: 'div' } }}
                   />
-
                   <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
                     <Tooltip title="Copy message" placement="left">
                       <IconButton
@@ -278,48 +206,33 @@ const NotificationPanel: React.FC<NotificationPanelProps> = ({
                       </IconButton>
                     </Tooltip>
                     {!notification.read && (
-                      <IconButton
-                        size="small"
-                        onClick={(e) => handleMarkAsRead(notification.id, e)}
-                        title="Mark as read"
-                      >
+                      <IconButton size="small" onClick={(e) => handleMarkAsRead(notification.id, e)} title="Mark as read">
                         <MarkReadIcon fontSize="small" />
                       </IconButton>
                     )}
-                    <IconButton
-                      size="small"
-                      onClick={(e) => handleRemoveNotification(notification.id, e)}
-                      title="Remove"
-                    >
+                    <IconButton size="small" onClick={(e) => handleRemoveNotification(notification.id, e)} title="Remove">
                       <DeleteIcon fontSize="small" />
                     </IconButton>
                   </Box>
                 </ListItemButton>
-
                 {index < recentNotifications.length - 1 && <Divider />}
               </React.Fragment>
             ))}
           </List>
         )}
       </Box>
-      {/* Footer */}
       {notifications.length > 10 && (
         <>
           <Divider />
           <Box sx={{ p: 2, textAlign: 'center' }}>
-            <AppButton
-              size="small"
-              onClick={onClose}
-              fullWidth
-              sx={{ fontSize: '0.875rem' }}
-            >
+            <AppButton size="small" onClick={onClose} fullWidth sx={{ fontSize: '0.875rem' }}>
               View All Notifications
             </AppButton>
           </Box>
         </>
       )}
-    </Popover>
-  );
+    </TopBarUtilityPanel>
+  )
 }
 
 export default NotificationPanel
