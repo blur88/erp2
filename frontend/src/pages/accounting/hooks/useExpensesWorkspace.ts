@@ -1,5 +1,7 @@
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 
+import { useEntityWorkspace } from '@/hooks/useEntityWorkspace'
 import { useNotification } from '@/hooks/useNotification'
 import {
   useBulkDeleteExpensesMutation,
@@ -7,27 +9,54 @@ import {
   useDeleteExpenseMutation,
   usePostExpenseMutation,
 } from '@/store/api/accountingApi'
-import { ExpenseRecord } from '@/types'
+import type { ExpenseRecord } from '@/types'
 import { getErrorMessage } from '@/utils/errorMessage'
 
-export function useExpensesWorkspace(refetch: () => void) {
+export function useExpensesWorkspace(refetch: () => void, expenses: ExpenseRecord[] = []) {
+  const navigate = useNavigate()
   const { showSuccess, showError } = useNotification()
   const [selected, setSelected] = useState<ExpenseRecord | null>(null)
-  const [editTarget, setEditTarget] = useState<ExpenseRecord | null>(null)
   const [postTarget, setPostTarget] = useState<ExpenseRecord | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<ExpenseRecord | null>(null)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [bulkPostOpen, setBulkPostOpen] = useState(false)
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false)
   const [actionLoading, setActionLoading] = useState(false)
-  const [createOpen, setCreateOpen] = useState(false)
-  const searchInputRef = useRef<HTMLInputElement | null>(null)
-  const listRef = useRef<HTMLDivElement | null>(null)
+  const [formOpen, setFormOpen] = useState(false)
+  const [editTarget, setEditTarget] = useState<ExpenseRecord | null>(null)
 
   const [postExpense] = usePostExpenseMutation()
   const [deleteExpense] = useDeleteExpenseMutation()
   const [bulkPost] = useBulkPostExpensesMutation()
   const [bulkDelete] = useBulkDeleteExpensesMutation()
+
+  const workspace = useEntityWorkspace<ExpenseRecord>({
+    entities: expenses,
+    selectedEntity: selected,
+    selectEntity: setSelected,
+    refetch,
+    navigate,
+    routes: {
+      create: '/accounting/expenses',
+      edit: () => '/accounting/expenses',
+    },
+    notifications: { showSuccess, showError },
+    deleteMutation: async (id) => {
+      await deleteExpense(id).unwrap()
+    },
+    onEnter: () => {
+      if (selected) setFormOpen(true)
+    },
+    onEscape: () => {
+      setSelected(null)
+      setPostTarget(null)
+      setDeleteTarget(null)
+    },
+  })
+
+  const handleSelect = useCallback((item: ExpenseRecord) => {
+    workspace.handleSelect(item)
+  }, [workspace])
 
   const handleToggleCheck = useCallback((id: string) => {
     setSelectedIds((prev) => {
@@ -39,7 +68,7 @@ export function useExpensesWorkspace(refetch: () => void) {
   }, [])
 
   const handleSelectAll = useCallback((expenses: ExpenseRecord[]) => {
-    const drafts = expenses.filter((expense) => expense.status === 'draft').map((expense) => expense.id)
+    const drafts = expenses.filter((e) => e.status === 'draft').map((e) => e.id)
     setSelectedIds((prev) => (prev.size === drafts.length ? new Set() : new Set(drafts)))
   }, [])
 
@@ -118,6 +147,14 @@ export function useExpensesWorkspace(refetch: () => void) {
   return {
     selected,
     setSelected,
+    focusedIndex: workspace.focusedIndex,
+    setFocusedIndex: workspace.setFocusedIndex,
+    listRef: workspace.listRef,
+    searchInputRef: workspace.searchInputRef,
+    formOpen,
+    setFormOpen,
+    createOpen: formOpen,
+    setCreateOpen: setFormOpen,
     editTarget,
     setEditTarget,
     postTarget,
@@ -129,11 +166,8 @@ export function useExpensesWorkspace(refetch: () => void) {
     setBulkPostOpen,
     bulkDeleteOpen,
     setBulkDeleteOpen,
-    createOpen,
-    setCreateOpen,
     actionLoading,
-    searchInputRef,
-    listRef,
+    handleSelect,
     handleToggleCheck,
     handleSelectAll,
     handleConfirmPost,
