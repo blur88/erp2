@@ -45,6 +45,7 @@ import { printColors } from '@/styles/printTokens'
 import { PRINT_STYLES } from '@/styles/printStyles'
 import { formatCurrency, formatDate, formatDateTime } from '@/utils/formatters'
 import { escapeHtml } from '@/utils/security'
+import { printReport } from '@/utils/printReport'
 import { TABLE_STYLES } from '@/constants/tableStyles'
 import api from '@/services/api'
 
@@ -409,8 +410,6 @@ const PurchaseOrderStatusReport: React.FC = () => {
   const handleExportPDF = () => {
     if (sortedData.length === 0) return
 
-    const printWindow = window.open('', '_blank')
-    if (!printWindow) return
 
     const columnHeaders: { [key: string]: string } = {
       productName: 'Products',
@@ -552,19 +551,11 @@ const PurchaseOrderStatusReport: React.FC = () => {
               ${tableRows}
             </tbody>
           </table>
-          <script>
-            window.onload = function() {
-              setTimeout(function() {
-                window.print();
-              }, 250);
-            }
-          </script>
         </body>
       </html>
     `
 
-    printWindow.document.write(html)
-    printWindow.document.close()
+    printReport(html, reportTitle)
   }
 
   const calculateTotals = () => {
