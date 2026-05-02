@@ -23,10 +23,10 @@ const healthyResponse = {
   },
 }
 
-function renderSystemStatus(anchorEl: HTMLElement | null = null, open = false) {
+function renderSystemStatus(anchorEl: HTMLElement | null = null) {
   const onOpen = vi.fn()
   const onClose = vi.fn()
-  render(<SystemStatus anchorEl={anchorEl} open={open} onOpen={onOpen} onClose={onClose} />)
+  render(<SystemStatus anchorEl={anchorEl} onOpen={onOpen} onClose={onClose} />)
   return { onOpen, onClose }
 }
 
@@ -77,7 +77,7 @@ describe('SystemStatus', () => {
 
     const anchorEl = document.createElement('button')
     document.body.appendChild(anchorEl)
-    renderSystemStatus(anchorEl, true)
+    renderSystemStatus(anchorEl)
 
     await waitFor(() => {
       expect(screen.getByText(/unable to fetch system health information/i)).toBeInTheDocument()

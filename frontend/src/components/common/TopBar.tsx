@@ -23,7 +23,7 @@ import { DRAWER_WIDTH_COLLAPSED, DRAWER_WIDTH_EXPANDED, TOPBAR_HEIGHT } from '@/
 import { useAppSelector } from '@/hooks/useRedux'
 import { selectUnreadCount } from '@/store/slices/notificationSlice'
 
-import KeyboardShortcutsModal from './KeyboardShortcutsModal'
+import KeyboardShortcutsPanel from './KeyboardShortcutsPanel'
 import NotificationPanel from './NotificationPanel'
 import SearchModal from './SearchModal'
 import SystemStatus from './SystemStatus'
@@ -184,7 +184,7 @@ const TopBar: React.FC<TopBarProps> = ({ collapsed, onMobileMenuOpen }) => {
   const [notificationAnchorEl, setNotificationAnchorEl] = useState<HTMLElement | null>(null)
   const [systemStatusAnchorEl, setSystemStatusAnchorEl] = useState<HTMLElement | null>(null)
   const [searchOpen, setSearchOpen] = useState(false)
-  const [shortcutsOpen, setShortcutsOpen] = useState(false)
+  const [shortcutsAnchorEl, setShortcutsAnchorEl] = useState<HTMLElement | null>(null)
 
   const sidebarWidth = collapsed ? DRAWER_WIDTH_COLLAPSED : DRAWER_WIDTH_EXPANDED
   const breadcrumbs = buildBreadcrumbs(location.pathname, matches)
@@ -206,7 +206,8 @@ const TopBar: React.FC<TopBarProps> = ({ collapsed, onMobileMenuOpen }) => {
 
       if (event.key === '?') {
         event.preventDefault()
-        setShortcutsOpen(true)
+        const btn = document.querySelector<HTMLElement>('[aria-label="Keyboard Shortcuts"]')
+        setShortcutsAnchorEl(btn)
       }
     }
 
@@ -316,7 +317,6 @@ const TopBar: React.FC<TopBarProps> = ({ collapsed, onMobileMenuOpen }) => {
 
             <SystemStatus
               anchorEl={systemStatusAnchorEl}
-              open={Boolean(systemStatusAnchorEl)}
               onOpen={(e) => setSystemStatusAnchorEl(e.currentTarget)}
               onClose={() => setSystemStatusAnchorEl(null)}
             />
@@ -324,9 +324,11 @@ const TopBar: React.FC<TopBarProps> = ({ collapsed, onMobileMenuOpen }) => {
             <Tooltip title="Keyboard Shortcuts">
               <IconButton
                 aria-label="Keyboard Shortcuts"
-                onClick={() => setShortcutsOpen(true)}
-                color="inherit"
-                sx={{ '&:hover': { bgcolor: theme.palette.action.hover, borderRadius: '8px' } }}
+                onClick={(e) => setShortcutsAnchorEl(e.currentTarget)}
+                sx={{
+                  color: theme.palette.text.secondary,
+                  '&:hover': { bgcolor: theme.palette.action.hover, borderRadius: '8px' },
+                }}
               >
                 <KeyboardIcon />
               </IconButton>
@@ -335,8 +337,10 @@ const TopBar: React.FC<TopBarProps> = ({ collapsed, onMobileMenuOpen }) => {
             <Tooltip title="Notifications">
               <IconButton
                 onClick={(event) => setNotificationAnchorEl(event.currentTarget)}
-                color="inherit"
-                sx={{ '&:hover': { bgcolor: theme.palette.action.hover, borderRadius: '8px' } }}
+                sx={{
+                  color: theme.palette.text.secondary,
+                  '&:hover': { bgcolor: theme.palette.action.hover, borderRadius: '8px' },
+                }}
               >
                 <Badge badgeContent={unreadCount} color="error">
                   <NotificationsIcon />
@@ -349,11 +353,10 @@ const TopBar: React.FC<TopBarProps> = ({ collapsed, onMobileMenuOpen }) => {
 
       <NotificationPanel
         anchorEl={notificationAnchorEl}
-        open={Boolean(notificationAnchorEl)}
         onClose={() => setNotificationAnchorEl(null)}
       />
       <SearchModal open={searchOpen} onClose={() => setSearchOpen(false)} />
-      <KeyboardShortcutsModal open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
+      <KeyboardShortcutsPanel anchorEl={shortcutsAnchorEl} onClose={() => setShortcutsAnchorEl(null)} />
     </>
   )
 }

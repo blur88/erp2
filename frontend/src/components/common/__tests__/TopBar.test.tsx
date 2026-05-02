@@ -15,8 +15,9 @@ vi.mock('../SystemStatus', () => ({
 vi.mock('../SearchModal', () => ({
   default: ({ open }: { open: boolean }) => (open ? <div data-testid="search-modal" /> : null),
 }))
-vi.mock('../KeyboardShortcutsModal', () => ({
-  default: ({ open }: { open: boolean }) => (open ? <div data-testid="shortcuts-modal" /> : null),
+vi.mock('../KeyboardShortcutsPanel', () => ({
+  default: ({ anchorEl }: { anchorEl: HTMLElement | null }) =>
+    anchorEl ? <div data-testid="shortcuts-modal" /> : null,
 }))
 
 const mockUseMatches = vi.fn()

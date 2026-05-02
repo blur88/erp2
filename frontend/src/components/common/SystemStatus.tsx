@@ -10,7 +10,6 @@ import {
   ListItem,
   ListItemIcon,
   ListItemText,
-  Popover,
   Tooltip,
   Typography,
 } from '@mui/material'
@@ -23,6 +22,7 @@ import { default as RedisIcon } from '@mui/icons-material/Memory'
 import { default as DatabaseIcon } from '@mui/icons-material/Storage'
 
 import { ApiService } from '@/services/api'
+import TopBarUtilityPanel from './TopBarUtilityPanel'
 
 interface ServiceHealth {
   status: 'healthy' | 'unhealthy' | 'unknown'
@@ -43,7 +43,6 @@ interface HealthResponse {
 
 interface SystemStatusProps {
   anchorEl: HTMLElement | null
-  open: boolean
   onOpen: (event: React.MouseEvent<HTMLElement>) => void
   onClose: () => void
 }
@@ -53,7 +52,7 @@ const statusPulse = keyframes`
   50% { opacity: 0.4; transform: scale(1.3); }
 `
 
-const SystemStatus: React.FC<SystemStatusProps> = ({ anchorEl, open, onOpen, onClose }) => {
+const SystemStatus: React.FC<SystemStatusProps> = ({ anchorEl, onOpen, onClose }) => {
   const theme = useTheme()
   const [health, setHealth] = useState<HealthResponse | null>(null)
   const [loading, setLoading] = useState(false)
@@ -132,12 +131,14 @@ const SystemStatus: React.FC<SystemStatusProps> = ({ anchorEl, open, onOpen, onC
       <Tooltip title={tooltipText}>
         <IconButton
           onClick={handleClick}
-          color="inherit"
           size="small"
-          sx={{ '&:hover': { bgcolor: theme.palette.action.hover, borderRadius: '8px' } }}
+          sx={{
+            color: theme.palette.text.secondary,
+            '&:hover': { bgcolor: theme.palette.action.hover, borderRadius: '8px' },
+          }}
         >
           <Box sx={{ position: 'relative', display: 'inline-flex' }}>
-            <DnsRoundedIcon sx={{ fontSize: 22, color: theme.palette.text.secondary }} />
+            <DnsRoundedIcon sx={{ fontSize: 22 }} />
             <Box
               sx={{
                 position: 'absolute',
@@ -154,20 +155,14 @@ const SystemStatus: React.FC<SystemStatusProps> = ({ anchorEl, open, onOpen, onC
           </Box>
         </IconButton>
       </Tooltip>
-      <Popover
-        open={open}
+      <TopBarUtilityPanel
         anchorEl={anchorEl}
         onClose={onClose}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-        transformOrigin={{ vertical: 'top', horizontal: 'right' }}
-        slotProps={{ paper: { sx: { width: 350, mt: 1 } } }}
+        title="System Status"
+        width={350}
+        headerAction={loading ? <CircularProgress size={20} /> : undefined}
       >
         <Box sx={{ p: 2 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-            <Typography variant="h6" sx={{ fontWeight: 600 }}>System Status</Typography>
-            {loading && <CircularProgress size={20} />}
-          </Box>
-
           {health && (
             <>
               <Box sx={{ mb: 2 }}>
@@ -217,7 +212,7 @@ const SystemStatus: React.FC<SystemStatusProps> = ({ anchorEl, open, onOpen, onC
             </Box>
           )}
         </Box>
-      </Popover>
+      </TopBarUtilityPanel>
     </>
   )
 }

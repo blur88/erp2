@@ -1,22 +1,19 @@
 import React from 'react'
 import {
   Box,
-  Dialog,
-  DialogContent,
-  DialogTitle,
   Divider,
-  IconButton,
   Table,
   TableBody,
   TableCell,
   TableRow,
   Typography,
 } from '@mui/material'
-import { default as CloseIcon } from '@mui/icons-material/Close'
 import { useTheme } from '@mui/material/styles'
 
-interface KeyboardShortcutsModalProps {
-  open: boolean
+import TopBarUtilityPanel from './TopBarUtilityPanel'
+
+interface KeyboardShortcutsPanelProps {
+  anchorEl: HTMLElement | null
   onClose: () => void
 }
 
@@ -79,31 +76,23 @@ function ShortcutGroup({ label, shortcuts }: { label: string; shortcuts: { key: 
   )
 }
 
-const KeyboardShortcutsModal: React.FC<KeyboardShortcutsModalProps> = ({ open, onClose }) => {
+const KeyboardShortcutsPanel: React.FC<KeyboardShortcutsPanelProps> = ({ anchorEl, onClose }) => {
   const theme = useTheme()
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
-      <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', pb: 1 }}>
-        <Typography variant="h6" sx={{ fontWeight: 600 }}>Keyboard Shortcuts</Typography>
-        <IconButton aria-label="close" onClick={onClose} size="small">
-          <CloseIcon fontSize="small" />
-        </IconButton>
-      </DialogTitle>
-
-      <DialogContent sx={{ pt: 1 }}>
+    <TopBarUtilityPanel anchorEl={anchorEl} onClose={onClose} title="Keyboard Shortcuts" width={380}>
+      <Box sx={{ p: 2 }}>
         <ShortcutGroup label="List Navigation" shortcuts={LIST_NAVIGATION_SHORTCUTS} />
         <Divider sx={{ my: 2 }} />
         <ShortcutGroup label="Global" shortcuts={GLOBAL_SHORTCUTS} />
-
         <Box sx={{ mt: 2, pt: 2, borderTop: `1px solid ${theme.palette.divider}` }}>
           <Typography variant="caption" sx={{ color: theme.palette.text.disabled }}>
             List navigation shortcuts apply on list and table pages only.
           </Typography>
         </Box>
-      </DialogContent>
-    </Dialog>
+      </Box>
+    </TopBarUtilityPanel>
   )
 }
 
-export default KeyboardShortcutsModal
+export default KeyboardShortcutsPanel
