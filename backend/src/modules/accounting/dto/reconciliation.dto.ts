@@ -81,6 +81,11 @@ export class QueryBankReconciliationsDto {
   @IsEnum(BankReconciliationStatus)
   status?: BankReconciliationStatus;
 
+  @ApiPropertyOptional({ description: 'Search by account name, account code, or fiscal period name' })
+  @IsOptional()
+  @IsString()
+  search?: string;
+
   @ApiPropertyOptional({ description: 'Sort field', enum: ['reconciliationDate', 'createdAt'] })
   @IsOptional()
   @IsString()
