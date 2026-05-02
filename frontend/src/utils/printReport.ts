@@ -11,8 +11,8 @@ export function printReport(html: string, title: string): void {
   if (!printWindow) return
 
   printWindow.document.write(sanitized)
-  printWindow.document.title = title
   printWindow.document.close()
+  printWindow.document.title = title
 
   printWindow.onload = () => {
     setTimeout(() => {

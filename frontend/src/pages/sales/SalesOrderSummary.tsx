@@ -297,7 +297,6 @@ const SalesOrderSummary: React.FC = () => {
   const handleExportPDF = () => {
     if (sortedData.length === 0) return
 
-
     const columnHeaders: { [key: string]: string } = {
       orderNumber: 'Order Number',
       orderDate: 'Order Date',

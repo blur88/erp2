@@ -218,7 +218,6 @@ const CustomerPaymentSummary: React.FC = () => {
   const handleExportPDF = () => {
     if (sortedData.length === 0) return
 
-
     const columnHeaders: { [key: string]: string } = {
       customerName: 'Customer',
       lastOrderDate: 'Last Order',

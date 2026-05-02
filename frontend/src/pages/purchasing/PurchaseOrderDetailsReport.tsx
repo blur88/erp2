@@ -430,7 +430,6 @@ const PurchaseOrderDetailsReport: React.FC = () => {
   const handleExportPDF = () => {
     if (sortedData.length === 0) return
 
-
     const columnHeaders: { [key: string]: string } = {
       productName: 'Products',
       categoryName: 'Category',
