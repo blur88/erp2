@@ -1,4 +1,5 @@
-import { Paper, Stack, Table, TableBody, TableCell, TableRow, Typography } from '@mui/material'
+import { Paper, Stack, Table, TableBody, TableCell, TableContainer, TableRow, Typography } from '@mui/material'
+import Grid from '@mui/material/Grid'
 import { default as CheckCircleIcon } from '@mui/icons-material/CheckCircle'
 import { default as DeleteIcon } from '@mui/icons-material/Delete'
 import { default as ReopenIcon } from '@mui/icons-material/LockOpen'
@@ -18,13 +19,40 @@ interface Props {
   onDelete: () => void
 }
 
-const cellSx = { border: 'none', py: TABLE_STYLES.cell.padding.py, px: TABLE_STYLES.cell.padding.px }
+const detailTableSx = {
+  tableLayout: 'fixed' as const,
+  '& .MuiTableCell-root': {
+    border: 'none',
+    py: TABLE_STYLES.cell.padding.py,
+    px: TABLE_STYLES.cell.padding.px,
+    '&:nth-of-type(1)': { width: '40%' },
+    '&:nth-of-type(2)': { width: '60%' },
+  },
+}
+
+const labelCellSx = {
+  fontWeight: 600,
+  color: 'text.secondary',
+  fontSize: '0.8rem',
+}
+
+const valueCellSx = {
+  fontSize: '0.8rem',
+}
+
+const sectionHeaderCellSx = {
+  pb: TABLE_STYLES.cell.padding.py * 0.67,
+  py: TABLE_STYLES.cell.padding.py * 0.67,
+  borderTop: TABLE_STYLES.cell.border,
+}
 
 export function BankReconciliationContextHeader({ selected, onComplete, onReopen, onDelete }: Props) {
   if (!selected) {
     return (
-      <Paper sx={{ p: 2 }}>
-        <Typography variant="body2" color="text.secondary">Select a reconciliation to view details</Typography>
+      <Paper sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', p: 4 }}>
+        <Typography variant="h6" sx={{ color: 'text.secondary' }}>
+          Select a reconciliation to view details
+        </Typography>
       </Paper>
     )
   }
@@ -33,7 +61,7 @@ export function BankReconciliationContextHeader({ selected, onComplete, onReopen
   const isCompleted = selected.status === BankReconciliationStatus.COMPLETED
 
   return (
-    <Paper>
+    <Paper sx={{ overflow: 'hidden' }}>
       <EntityContextHeaderBar
         title={selected.account?.name ?? 'Bank Account'}
         statusChip={<EntityStatusChip status={selected.status} />}
@@ -55,16 +83,67 @@ export function BankReconciliationContextHeader({ selected, onComplete, onReopen
           </Stack>
         )}
       />
-      <Table size={TABLE_STYLES.size} sx={{ '& .MuiTableCell-root': cellSx }}>
-        <TableBody>
-          <TableRow>
-            <TableCell sx={{ ...cellSx, color: 'text.secondary', width: 140 }}>Period</TableCell>
-            <TableCell>{format(new Date(selected.reconciliationDate), 'MMMM yyyy')}</TableCell>
-            <TableCell sx={{ ...cellSx, color: 'text.secondary', width: 140 }}>Statement Balance</TableCell>
-            <TableCell align="right">{formatCurrency(selected.statementBalance)}</TableCell>
-          </TableRow>
-        </TableBody>
-      </Table>
+      <Grid container spacing={3} sx={{ p: TABLE_STYLES.cell.padding.px }}>
+        <Grid size={{ xs: 12, md: 6 }}>
+          <TableContainer>
+            <Table size={TABLE_STYLES.size} sx={detailTableSx}>
+              <TableBody>
+                <TableRow>
+                  <TableCell colSpan={2} sx={sectionHeaderCellSx}>
+                    <Typography variant="h6" sx={{ fontWeight: 600, color: 'primary.main', fontSize: '0.8rem' }}>
+                      Reconciliation Details
+                    </Typography>
+                  </TableCell>
+                </TableRow>
+                <TableRow sx={{ backgroundColor: 'grey.50' }}>
+                  <TableCell sx={labelCellSx}>Statement Date</TableCell>
+                  <TableCell sx={valueCellSx}>{format(new Date(selected.reconciliationDate), 'MMMM yyyy')}</TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell sx={labelCellSx}>Account</TableCell>
+                  <TableCell sx={valueCellSx}>
+                    {selected.account ? `${selected.account.code} - ${selected.account.name}` : '-'}
+                  </TableCell>
+                </TableRow>
+                <TableRow sx={{ backgroundColor: 'grey.50' }}>
+                  <TableCell sx={labelCellSx}>Fiscal Period</TableCell>
+                  <TableCell sx={valueCellSx}>{selected.fiscalPeriod?.name ?? '-'}</TableCell>
+                </TableRow>
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </Grid>
+
+        <Grid size={{ xs: 12, md: 6 }}>
+          <TableContainer>
+            <Table size={TABLE_STYLES.size} sx={detailTableSx}>
+              <TableBody>
+                <TableRow>
+                  <TableCell colSpan={2} sx={sectionHeaderCellSx}>
+                    <Typography variant="h6" sx={{ fontWeight: 600, color: 'primary.main', fontSize: '0.8rem' }}>
+                      Financial Summary
+                    </Typography>
+                  </TableCell>
+                </TableRow>
+                <TableRow sx={{ backgroundColor: 'grey.50' }}>
+                  <TableCell sx={labelCellSx}>Statement Balance</TableCell>
+                  <TableCell sx={valueCellSx}>{formatCurrency(selected.statementBalance)}</TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell sx={labelCellSx}>Book Balance</TableCell>
+                  <TableCell sx={valueCellSx}>{formatCurrency(selected.bookBalance)}</TableCell>
+                </TableRow>
+                <TableRow sx={{ backgroundColor: 'grey.50' }}>
+                  <TableCell sx={labelCellSx}>Difference</TableCell>
+                  <TableCell sx={{ ...valueCellSx, color: selected.isBalanced ? 'success.main' : 'error.main', fontWeight: 600 }}>
+                    {formatCurrency(selected.difference)}
+                  </TableCell>
+                </TableRow>
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </Grid>
+      </Grid>
     </Paper>
   )
 }

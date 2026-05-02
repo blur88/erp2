@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react'
+import React, { useCallback, useMemo, useState } from 'react'
 
 import BankReconciliationFormDialog from '@/components/accounting/BankReconciliationFormDialog'
 import GenericListPage from '@/components/common/GenericListPage'
@@ -34,6 +34,8 @@ const filterConfig: FilterBarConfig<BRFilters> = {
 
 const BankReconciliationsPage: React.FC = () => {
   const [createOpen, setCreateOpen] = useState(false)
+  const [sortBy, setSortBy] = useState('reconciliationDate')
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
 
   const { appliedFilters, draftFilters, handlers, hasActiveFilters } = useFilterBar(filterConfig)
   const weekStartsOn = getStartOfWeek()
@@ -46,26 +48,37 @@ const BankReconciliationsPage: React.FC = () => {
   }, [appliedFilters.period, weekStartsOn])
 
   const { data, isLoading, refetch } = useGetBankReconciliationsQuery({
+    search: appliedFilters.search || undefined,
     status: appliedFilters.status ? appliedFilters.status.toUpperCase() : undefined,
     startDate: dateRange.fromDate,
     endDate: dateRange.toDate,
+    sortBy,
+    sortOrder: sortOrder.toUpperCase() as 'ASC' | 'DESC',
   })
-  const reconciliations = useMemo(() => {
-    const items = data?.data ?? []
-    const term = appliedFilters.search.trim().toLowerCase()
-    if (!term) return items
-    return items.filter((item) => {
-      const haystack = [item.account?.code, item.account?.name, item.fiscalPeriod?.name, item.status]
-        .filter(Boolean)
-        .join(' ')
-        .toLowerCase()
-      return haystack.includes(term)
-    })
-  }, [data?.data, appliedFilters.search])
+  const reconciliations = data?.data ?? []
+  const total = data?.meta?.total ?? 0
 
-  const workspace = useBankReconciliationsWorkspace(() => {
-    void refetch()
+  const workspace = useBankReconciliationsWorkspace({
+    reconciliations,
+    refetch: () => {
+      void refetch()
+    },
   })
+
+  const handleSort = useCallback((field: string) => {
+    setSortOrder((prev) => (sortBy === field && prev === 'desc' ? 'asc' : 'desc'))
+    setSortBy(field)
+  }, [sortBy])
+
+  const filterHandlers = useMemo(() => ({
+    ...handlers,
+    onSearchChange: (value: string) => {
+      handlers.onSearchChange(value)
+      window.setTimeout(() => {
+        workspace.searchInputRef.current?.focus()
+      }, 0)
+    },
+  }), [handlers, workspace])
 
   return (
     <GenericListPage
@@ -74,15 +87,17 @@ const BankReconciliationsPage: React.FC = () => {
       primaryAction={{ label: 'New Reconciliation', onClick: () => setCreateOpen(true) }}
       filterConfig={filterConfig}
       draftFilters={draftFilters}
-      handlers={handlers}
+      handlers={filterHandlers}
       hasActiveFilters={hasActiveFilters}
       searchInputRef={workspace.searchInputRef}
-      sort={{ field: 'reconciliationDate', sortBy: 'reconciliationDate', sortOrder: 'desc', onSort: () => {} }}
+      sort={{ field: 'reconciliationDate', sortBy, sortOrder, onSort: handleSort }}
       listSlot={(
         <BankReconciliationsTable
           reconciliations={reconciliations}
           loading={isLoading}
+          total={total}
           selectedId={workspace.selected?.id ?? null}
+          focusedIndex={workspace.focusedIndex}
           onSelect={workspace.handleSelect}
           listRef={workspace.listRef}
         />
