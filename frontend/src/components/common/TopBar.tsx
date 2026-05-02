@@ -317,7 +317,6 @@ const TopBar: React.FC<TopBarProps> = ({ collapsed, onMobileMenuOpen }) => {
 
             <SystemStatus
               anchorEl={systemStatusAnchorEl}
-              open={Boolean(systemStatusAnchorEl)}
               onOpen={(e) => setSystemStatusAnchorEl(e.currentTarget)}
               onClose={() => setSystemStatusAnchorEl(null)}
             />
@@ -354,7 +353,6 @@ const TopBar: React.FC<TopBarProps> = ({ collapsed, onMobileMenuOpen }) => {
 
       <NotificationPanel
         anchorEl={notificationAnchorEl}
-        open={Boolean(notificationAnchorEl)}
         onClose={() => setNotificationAnchorEl(null)}
       />
       <SearchModal open={searchOpen} onClose={() => setSearchOpen(false)} />

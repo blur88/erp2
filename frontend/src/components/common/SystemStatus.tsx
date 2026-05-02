@@ -43,7 +43,6 @@ interface HealthResponse {
 
 interface SystemStatusProps {
   anchorEl: HTMLElement | null
-  open: boolean
   onOpen: (event: React.MouseEvent<HTMLElement>) => void
   onClose: () => void
 }
@@ -53,7 +52,7 @@ const statusPulse = keyframes`
   50% { opacity: 0.4; transform: scale(1.3); }
 `
 
-const SystemStatus: React.FC<SystemStatusProps> = ({ anchorEl, open, onOpen, onClose }) => {
+const SystemStatus: React.FC<SystemStatusProps> = ({ anchorEl, onOpen, onClose }) => {
   const theme = useTheme()
   const [health, setHealth] = useState<HealthResponse | null>(null)
   const [loading, setLoading] = useState(false)
@@ -157,7 +156,7 @@ const SystemStatus: React.FC<SystemStatusProps> = ({ anchorEl, open, onOpen, onC
         </IconButton>
       </Tooltip>
       <TopBarUtilityPanel
-        anchorEl={open ? anchorEl : null}
+        anchorEl={anchorEl}
         onClose={onClose}
         title="System Status"
         width={350}

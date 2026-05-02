@@ -33,7 +33,6 @@ import TopBarUtilityPanel from './TopBarUtilityPanel'
 
 interface NotificationPanelProps {
   anchorEl: HTMLElement | null
-  open: boolean
   onClose: () => void
 }
 
@@ -65,7 +64,6 @@ const getNotificationColor = (type: Notification['type']): 'default' | 'primary'
 
 const NotificationPanel: React.FC<NotificationPanelProps> = ({
   anchorEl,
-  open,
   onClose,
 }) => {
   const { notifications } = useNotifications()
@@ -115,7 +113,7 @@ const NotificationPanel: React.FC<NotificationPanelProps> = ({
 
   return (
     <TopBarUtilityPanel
-      anchorEl={open ? anchorEl : null}
+      anchorEl={anchorEl}
       onClose={onClose}
       title="Notifications"
       width={400}
