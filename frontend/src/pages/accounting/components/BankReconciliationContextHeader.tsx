@@ -102,7 +102,7 @@ export function BankReconciliationContextHeader({ selected, onComplete, onReopen
                 <TableRow>
                   <TableCell sx={labelCellSx}>Account</TableCell>
                   <TableCell sx={valueCellSx}>
-                    {selected.account ? `${selected.account.code} - ${selected.account.name}` : '-'}
+                    {selected.account ? `${selected.account.code} — ${selected.account.name}` : '—'}
                   </TableCell>
                 </TableRow>
                 <TableRow sx={{ backgroundColor: 'grey.50' }}>

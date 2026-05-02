@@ -70,15 +70,16 @@ const BankReconciliationsPage: React.FC = () => {
     setSortBy(field)
   }, [sortBy])
 
+  const { searchInputRef } = workspace
   const filterHandlers = useMemo(() => ({
     ...handlers,
     onSearchChange: (value: string) => {
       handlers.onSearchChange(value)
       window.setTimeout(() => {
-        workspace.searchInputRef.current?.focus()
+        searchInputRef.current?.focus()
       }, 0)
     },
-  }), [handlers, workspace])
+  }), [handlers, searchInputRef])
 
   return (
     <GenericListPage
