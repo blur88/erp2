@@ -11,6 +11,7 @@ import {
 
 import { useGetPrintSettingsQuery } from '@/store/api/printSettingsApi'
 import PageHeader from '@/components/common/PageHeader'
+import GenericOverviewPage from '@/components/common/GenericOverviewPage'
 import GeneralTab from './PrintSettings/GeneralTab'
 import TemplatesTab from './PrintSettings/TemplatesTab'
 
@@ -66,22 +67,24 @@ const PrintSettingsPage: React.FC = () => {
 
   if (loading) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 400 }}>
-        <CircularProgress />
-      </Box>
+      <GenericOverviewPage>
+        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 400 }}>
+          <CircularProgress />
+        </Box>
+      </GenericOverviewPage>
     )
   }
 
   if (error) {
     return (
-      <>
+      <GenericOverviewPage>
         <Alert severity="error">{error}</Alert>
-      </>
+      </GenericOverviewPage>
     )
   }
 
   return (
-    <>
+    <GenericOverviewPage>
       {/* Header */}
       <PageHeader
         title="Print Settings"
@@ -111,7 +114,7 @@ const PrintSettingsPage: React.FC = () => {
           />
         </TabPanel>
       </Paper>
-    </>
+    </GenericOverviewPage>
   )
 }
 
