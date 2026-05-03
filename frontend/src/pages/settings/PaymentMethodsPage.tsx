@@ -23,6 +23,7 @@ import {
 import PaymentMethodFormDialog from '@/components/settings/PaymentMethodFormDialog';
 import DeletedPaymentMethodsDialog from '@/components/settings/DeletedPaymentMethodsDialog';
 import PageHeader from '@/components/common/PageHeader';
+import GenericOverviewPage from '@/components/common/GenericOverviewPage';
 import { useNotification } from '@/hooks/useNotification';
 import {
   useCreatePaymentMethodMutation,
@@ -88,7 +89,7 @@ const PaymentMethodsPage: React.FC = () => {
   };
 
   return (
-    <>
+    <GenericOverviewPage>
       <PageHeader
         title={title}
         subtitle="Manage payment methods and configurations"
@@ -201,7 +202,7 @@ const PaymentMethodsPage: React.FC = () => {
         </DialogActions>
       </Dialog>
       <DeletedPaymentMethodsDialog open={deletedOpen} onClose={() => setDeletedOpen(false)} />
-    </>
+    </GenericOverviewPage>
   );
 };
 
