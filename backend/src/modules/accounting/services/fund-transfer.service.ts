@@ -253,7 +253,13 @@ export class FundTransferService {
   async findOne(id: string): Promise<FundTransferResponseDto> {
     const transfer = await this.transferRepository.findOne({
       where: { id },
-      relations: ['sourceAccount', 'destinationAccount', 'journalEntry'],
+      relations: [
+        'sourceAccount',
+        'destinationAccount',
+        'journalEntry',
+        'journalEntry.lines',
+        'journalEntry.lines.account',
+      ],
     });
 
     if (!transfer || transfer.deletedAt) {
@@ -319,6 +325,13 @@ export class FundTransferService {
             id: transfer.journalEntry.id,
             referenceNumber: transfer.journalEntry.referenceNumber,
             status: transfer.journalEntry.status,
+            lines: transfer.journalEntry.lines?.map((line) => ({
+              accountCode: line.account?.code ?? '',
+              accountName: line.account?.name ?? '',
+              debitAmount: Number(line.debitAmount),
+              creditAmount: Number(line.creditAmount),
+              memo: line.memo,
+            })),
           }
         : undefined,
       createdAt: transfer.createdAt,
