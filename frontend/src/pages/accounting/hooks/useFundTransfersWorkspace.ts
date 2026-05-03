@@ -32,15 +32,17 @@ export function useFundTransfersWorkspace(refetch: () => void, transfers: FundTr
     },
   })
 
+  const { handleSelect: workspaceHandleSelect } = workspace
+
   const handleSelect = useCallback(async (item: FundTransfer) => {
     setSelected(item)
-    workspace.handleSelect(item)
+    workspaceHandleSelect(item)
     try {
       const fresh = await fetchItem(item.id).unwrap()
       setSelected(fresh)
     }
     catch { /* keep list-row data */ }
-  }, [fetchItem, workspace])
+  }, [fetchItem, workspaceHandleSelect])
 
   const handleConfirmCancel = useCallback(async () => {
     if (!cancelTarget) return

@@ -28,7 +28,7 @@ lines?: Array<{
   accountName: string
   debitAmount: number
   creditAmount: number
-  description?: string
+  memo?: string
 }>
 ```
 
@@ -61,7 +61,7 @@ journalEntry?: {
     accountName: string
     debitAmount: number
     creditAmount: number
-    description?: string
+    memo?: string
   }>
 }
 ```
