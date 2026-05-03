@@ -7,6 +7,7 @@ import { default as InventoryIcon } from '@mui/icons-material/Inventory'
 import { default as ProcurementIcon } from '@mui/icons-material/LocalShipping'
 import { default as CheckIcon } from '@mui/icons-material/Check'
 import PageHeader from '@/components/common/PageHeader'
+import GenericOverviewPage from '@/components/common/GenericOverviewPage'
 
 interface RolePermission {
   description: string
@@ -92,7 +93,7 @@ const roles: RoleInfo[] = [
 
 const RoleManagementPage: React.FC = () => {
   return (
-    <>
+    <GenericOverviewPage>
       {/* Header */}
       <PageHeader
         title="Roles & Permissions"
@@ -183,7 +184,7 @@ const RoleManagementPage: React.FC = () => {
           administrators can manage user accounts and assign roles.
         </Typography>
       </Paper>
-    </>
+    </GenericOverviewPage>
   );
 }
 
