@@ -12,7 +12,7 @@ import { getPeriodDateRange, getStartOfWeek } from '@/utils/dateRange'
 
 import { FundTransferContextHeader } from './components/FundTransferContextHeader'
 import { FundTransfersDialogs } from './components/FundTransfersDialogs'
-import { FundTransfersTable } from './components/FundTransfersTable'
+import { FundTransfersList } from './components/FundTransfersList'
 import { FundTransferWorkspaceCard } from './components/FundTransferWorkspaceCard'
 import { useFundTransfersWorkspace } from './hooks/useFundTransfersWorkspace'
 
@@ -97,7 +97,7 @@ const FundTransfersPage: React.FC = () => {
       hasActiveFilters={hasActiveFilters}
       searchInputRef={workspace.searchInputRef}
       sort={{ field: 'transferDate', sortBy: 'transferDate', sortOrder: 'desc', onSort: () => {} }}
-      listSlot={<FundTransfersTable transfers={transfers} loading={isLoading} selectedId={workspace.selected?.id ?? null} onSelect={workspace.handleSelect} listRef={workspace.listRef} />}
+      listSlot={<FundTransfersList transfers={transfers} loading={isLoading} selectedId={workspace.selected?.id ?? null} focusedIndex={workspace.focusedIndex} onSelect={workspace.handleSelect} listRef={workspace.listRef} />}
       headerSlot={<FundTransferContextHeader selected={workspace.selected} onCancel={() => workspace.selected && workspace.setCancelTarget(workspace.selected)} canManageTransfers={canManageTransfers} />}
       workspaceSlot={<FundTransferWorkspaceCard selected={workspace.selected} />}
       dialogs={<FundTransfersDialogs dialogOpen={dialogOpen} canManageTransfers={canManageTransfers} creating={creating} form={form} cashAccounts={cashAccounts} availableDestinations={availableDestinations} onCloseDialog={resetForm} onFormChange={(field, value) => setForm((current) => ({ ...current, [field]: value, ...(field === 'sourceAccountId' && value === current.destinationAccountId ? { destinationAccountId: '' } : {}) }))} onCreate={() => void handleCreate()} cancelTarget={workspace.cancelTarget} cancelling={workspace.cancelling} onConfirmCancel={() => void workspace.handleConfirmCancel()} onCancelCancel={() => workspace.setCancelTarget(null)} />}
