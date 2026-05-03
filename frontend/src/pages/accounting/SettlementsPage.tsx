@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react'
+import React, { useCallback, useMemo, useState } from 'react'
 
 import GenericListPage from '@/components/common/GenericListPage'
 import { useFilterBar } from '@/hooks/useFilterBar'
@@ -28,6 +28,9 @@ const filterConfig: FilterBarConfig<SettlementFilters> = {
 }
 
 const SettlementsPage: React.FC = () => {
+  const [sortBy, setSortBy] = useState('settlementDate')
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
+
   const { appliedFilters, draftFilters, handlers, hasActiveFilters } = useFilterBar(filterConfig)
   const weekStartsOn = getStartOfWeek()
   const dateRange = useMemo(() => {
@@ -41,13 +44,28 @@ const SettlementsPage: React.FC = () => {
   const { data: settlementsResponse, isLoading, refetch } = useGetSettlementsQuery({ page: 1, status: appliedFilters.status || undefined, startDate: dateRange.fromDate, endDate: dateRange.toDate })
   useGetPendingSettlementSummaryQuery()
   const [createSettlement] = useCreateSettlementMutation()
-  const workspace = useSettlementsWorkspace(() => { void refetch() })
+
   const settlements = useMemo(() => {
     const rows = settlementsResponse?.data ?? []
     const term = appliedFilters.search.trim().toLowerCase()
     if (!term) return rows
     return rows.filter((row) => [row.settlementNumber, row.reference, row.notes, row.paymentMethod?.name].filter(Boolean).join(' ').toLowerCase().includes(term))
   }, [appliedFilters.search, settlementsResponse?.data])
+
+  const workspace = useSettlementsWorkspace(settlements, () => { void refetch() })
+
+  const filterHandlers = useMemo(() => ({
+    ...handlers,
+    onSearchChange: (value: string) => {
+      handlers.onSearchChange(value)
+      workspace.setShouldPreserveSearchFocus(true)
+    },
+  }), [handlers, workspace])
+
+  const handleSort = useCallback((field: string) => {
+    setSortOrder((prev) => (sortBy === field && prev === 'desc' ? 'asc' : 'desc'))
+    setSortBy(field)
+  }, [sortBy])
 
   const onCreate = async (data: { paymentMethodId: string; settlementDate: string; paymentIds: string[]; reference?: string; notes?: string }) => {
     await createSettlement(data).unwrap()
@@ -62,14 +80,38 @@ const SettlementsPage: React.FC = () => {
       primaryAction={{ label: 'Create Settlement', onClick: () => workspace.setDialogOpen(true) }}
       filterConfig={filterConfig}
       draftFilters={draftFilters}
-      handlers={handlers}
+      handlers={filterHandlers}
       hasActiveFilters={hasActiveFilters}
       searchInputRef={workspace.searchInputRef}
-      sort={{ field: 'settlementDate', sortBy: 'settlementDate', sortOrder: 'desc', onSort: () => {} }}
-      listSlot={<SettlementsTable settlements={settlements} loading={isLoading} selectedId={workspace.selected?.id ?? null} onSelect={workspace.setSelected} listRef={workspace.listRef} />}
-      headerSlot={<SettlementContextHeader selected={workspace.selected} onCancel={() => workspace.selected && workspace.setCancelTarget(workspace.selected)} />}
+      sort={{ field: 'settlementDate', sortBy, sortOrder, onSort: handleSort }}
+      listSlot={(
+        <SettlementsTable
+          settlements={settlements}
+          loading={isLoading}
+          total={settlements.length}
+          selectedId={workspace.selected?.id ?? null}
+          focusedIndex={workspace.focusedIndex}
+          onSelect={workspace.handleSelect}
+          listRef={workspace.listRef}
+        />
+      )}
+      headerSlot={(
+        <SettlementContextHeader
+          selected={workspace.selected}
+          onCancel={() => workspace.selected && workspace.setCancelTarget(workspace.selected)}
+        />
+      )}
       workspaceSlot={<SettlementWorkspaceCard selected={workspace.selected} />}
-      dialogs={<SettlementsDialogs dialogOpen={workspace.dialogOpen} onCloseDialog={() => workspace.setDialogOpen(false)} onCreate={onCreate} cancelTarget={workspace.cancelTarget} onConfirmCancel={() => void workspace.handleConfirmCancel()} onCancelCancel={() => workspace.setCancelTarget(null)} />}
+      dialogs={(
+        <SettlementsDialogs
+          dialogOpen={workspace.dialogOpen}
+          onCloseDialog={() => workspace.setDialogOpen(false)}
+          onCreate={onCreate}
+          cancelTarget={workspace.cancelTarget}
+          onConfirmCancel={() => void workspace.handleConfirmCancel()}
+          onCancelCancel={() => workspace.setCancelTarget(null)}
+        />
+      )}
     />
   )
 }
