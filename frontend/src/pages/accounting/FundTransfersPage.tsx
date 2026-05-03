@@ -67,7 +67,6 @@ const FundTransfersPage: React.FC = () => {
   const { data: accountsResponse } = useGetChartOfAccountsQuery({ isCashEquivalent: true, limit: 200 })
   const [createFundTransfer, { isLoading: creating }] = useCreateFundTransferMutation()
 
-  const workspace = useFundTransfersWorkspace(() => { void refetch() })
   const cashAccounts = useMemo(() => ((accountsResponse?.data ?? []) as ChartOfAccount[]).filter((account) => account.isActive && account.isCashEquivalent), [accountsResponse])
   const availableDestinations = useMemo(() => cashAccounts.filter((account) => account.id !== form.sourceAccountId), [cashAccounts, form.sourceAccountId])
   const transfers = useMemo(() => {
@@ -76,6 +75,7 @@ const FundTransfersPage: React.FC = () => {
     if (!term) return rows
     return rows.filter((row) => [row.referenceNumber, row.description, row.sourceAccount.name, row.destinationAccount.name].filter(Boolean).join(' ').toLowerCase().includes(term))
   }, [appliedFilters.search, data?.data])
+  const workspace = useFundTransfersWorkspace(() => { void refetch() }, transfers)
 
   const resetForm = () => { setDialogOpen(false); setForm(defaultForm) }
 
