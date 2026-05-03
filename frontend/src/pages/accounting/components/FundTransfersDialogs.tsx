@@ -1,4 +1,4 @@
-import { Dialog, DialogActions, DialogContent, DialogTitle, TextField, Typography } from '@mui/material'
+import { Dialog, DialogActions, DialogContent, DialogTitle, MenuItem, TextField, Typography } from '@mui/material'
 import { AppButton } from '@/components/common/AppButton'
 import type { ChartOfAccount, FundTransfer } from '@/types'
 import ConfirmationDialog from '@/components/common/ConfirmationDialog'
@@ -48,10 +48,10 @@ export function FundTransfersDialogs({
         <DialogTitle>New Fund Transfer</DialogTitle>
         <DialogContent>
           <TextField select fullWidth size="small" sx={{ mt: 1, mb: 2 }} label="From Account *" value={form.sourceAccountId} onChange={(event) => onFormChange('sourceAccountId', event.target.value)}>
-            {cashAccounts.map((account) => <option key={account.id} value={account.id}>{account.code} - {account.name}</option>)}
+            {cashAccounts.map((account) => <MenuItem key={account.id} value={account.id}>{account.code} - {account.name}</MenuItem>)}
           </TextField>
           <TextField select fullWidth size="small" sx={{ mb: 2 }} label="To Account *" value={form.destinationAccountId} onChange={(event) => onFormChange('destinationAccountId', event.target.value)} disabled={!form.sourceAccountId}>
-            {availableDestinations.map((account) => <option key={account.id} value={account.id}>{account.code} - {account.name}</option>)}
+            {availableDestinations.map((account) => <MenuItem key={account.id} value={account.id}>{account.code} - {account.name}</MenuItem>)}
           </TextField>
           <TextField fullWidth label="Amount *" type="number" sx={{ mb: 2 }} slotProps={{ htmlInput: { min: 0.01, step: 0.01 } }} value={form.amount} onChange={(event) => onFormChange('amount', event.target.value)} />
           <TextField fullWidth label="Date *" type="date" sx={{ mb: 2 }} value={form.transferDate} onChange={(event) => onFormChange('transferDate', event.target.value)} slotProps={{ inputLabel: { shrink: true } }} />
