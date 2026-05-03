@@ -21,6 +21,7 @@ import {
 } from '@/store/api/settingsApi'
 import { ApiService } from '@/services/api'
 import PageHeader from '@/components/common/PageHeader'
+import GenericOverviewPage from '@/components/common/GenericOverviewPage'
 
 interface InventoryCostingFormData {
   costingMethod: string
@@ -139,7 +140,7 @@ const InventoryCostingPage: React.FC = () => {
   }
 
   return (
-    <>
+    <GenericOverviewPage>
       <PageHeader title="Inventory Costing Settings" subtitle="Configure costing method and pricing rules for inventory valuation" />
       {error && (
         <Alert severity="error" sx={{ mb: 3 }}>
@@ -225,7 +226,7 @@ const InventoryCostingPage: React.FC = () => {
           </Grid>
         </form>
       </Paper>
-    </>
+    </GenericOverviewPage>
   )
 }
 

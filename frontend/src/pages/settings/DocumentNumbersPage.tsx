@@ -16,6 +16,7 @@ import {
 } from '@mui/material'
 import { default as SaveIcon } from '@mui/icons-material/Save'
 import PageHeader from '@/components/common/PageHeader'
+import GenericOverviewPage from '@/components/common/GenericOverviewPage'
 import { useNotification } from '@/hooks/useNotification'
 import {
   useGetDocumentNumberSettingsQuery,
@@ -108,7 +109,7 @@ const DocumentNumbersPage: React.FC = () => {
   }
 
   return (
-    <>
+    <GenericOverviewPage>
       {/* Page Header */}
       <PageHeader title="Document Numbers Settings" subtitle="Configure automatic numbering sequences for orders, invoices, and other documents" />
       {/* Error Alert */}
@@ -230,7 +231,7 @@ const DocumentNumbersPage: React.FC = () => {
           </Button>
         </Box>
       </Paper>
-    </>
+    </GenericOverviewPage>
   );
 }
 

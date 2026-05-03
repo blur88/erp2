@@ -12,6 +12,7 @@ import {
   MenuItem,
 } from '@mui/material'
 import PageHeader from '@/components/common/PageHeader'
+import GenericOverviewPage from '@/components/common/GenericOverviewPage'
 import { useForm, Controller, useWatch } from 'react-hook-form'
 import * as yup from 'yup'
 import { yupResolver } from '@hookform/resolvers/yup'
@@ -219,7 +220,7 @@ const RegionalSettingsPage: React.FC = () => {
   )
 
   return (
-    <>
+    <GenericOverviewPage>
       <PageHeader title="Regional Settings" subtitle="Configure locale, currency, date format, and timezone preferences" />
       {error && (
         <Alert severity="error" sx={{ mb: 3 }}>
@@ -424,7 +425,7 @@ const RegionalSettingsPage: React.FC = () => {
           </Grid>
         </form>
       </Paper>
-    </>
+    </GenericOverviewPage>
   );
 }
 

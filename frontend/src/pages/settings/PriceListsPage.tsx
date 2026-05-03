@@ -25,6 +25,7 @@ import { default as StarBorderIcon } from '@mui/icons-material/StarBorder'
 import { default as ViewIcon } from '@mui/icons-material/Visibility'
 import { useNavigate } from 'react-router-dom'
 import PageHeader from '@/components/common/PageHeader'
+import GenericOverviewPage from '@/components/common/GenericOverviewPage'
 import { FilterBar } from '@/components/filters'
 import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
 import { useFilterBar } from '@/hooks/useFilterBar'
@@ -229,7 +230,7 @@ const PriceListsPage: React.FC = () => {
 
   // Format date
   return (
-    <>
+    <GenericOverviewPage>
       {/* Header */}
       <PageHeader
         title="Price Lists"
@@ -620,7 +621,7 @@ const PriceListsPage: React.FC = () => {
         onConfirm={handleConfirmAction}
         onCancel={handleConfirmClose}
       />
-    </>
+    </GenericOverviewPage>
   );
 }
 

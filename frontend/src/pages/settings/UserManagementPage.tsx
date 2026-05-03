@@ -23,6 +23,7 @@ import { default as UnlockIcon } from '@mui/icons-material/LockOpen'
 import { ListSkeleton } from '@/components/common/ListSkeleton'
 import { FilterBar } from '@/components/filters'
 import PageHeader from '@/components/common/PageHeader'
+import GenericOverviewPage from '@/components/common/GenericOverviewPage'
 import { useFilterBar } from '@/hooks/useFilterBar'
 import { useAppSelector } from '@/hooks/useRedux'
 import { useNotification } from '@/hooks/useNotification'
@@ -259,7 +260,7 @@ const UserManagementPage: React.FC = () => {
   }
 
   return (
-    <>
+    <GenericOverviewPage>
       {/* Header */}
       <PageHeader
         title="User Management"
@@ -665,7 +666,7 @@ const UserManagementPage: React.FC = () => {
         onConfirm={handleConfirmAction}
         onCancel={handleConfirmClose}
       />
-    </>
+    </GenericOverviewPage>
   );
 }
 

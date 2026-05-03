@@ -26,6 +26,7 @@ import {
   useDeleteLogoMutation,
 } from '@/store/api/settingsApi'
 import PageHeader from '@/components/common/PageHeader'
+import GenericOverviewPage from '@/components/common/GenericOverviewPage'
 
 interface CompanyFormData {
   name: string
@@ -193,7 +194,7 @@ const CompanySettingsPage: React.FC = () => {
   }
 
   return (
-    <>
+    <GenericOverviewPage>
       {/* Page Header */}
       <PageHeader title="Company Settings" subtitle="Configure your company profile and business information" />
       {/* Error Alert */}
@@ -563,7 +564,7 @@ const CompanySettingsPage: React.FC = () => {
           </Grid>
         </form>
       </Paper>
-    </>
+    </GenericOverviewPage>
   );
 }
 
