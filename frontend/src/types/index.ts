@@ -529,6 +529,13 @@ export interface FundTransfer {
     id: string;
     referenceNumber: string;
     status: string;
+    lines?: Array<{
+      accountCode: string;
+      accountName: string;
+      debitAmount: number;
+      creditAmount: number;
+      memo?: string;
+    }>;
   };
   createdAt: string;
   updatedAt: string;

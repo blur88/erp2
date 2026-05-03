@@ -80,10 +80,19 @@ type AccountSummary = {
   type: string;
 };
 
+type JournalEntryLineSummary = {
+  accountCode: string;
+  accountName: string;
+  debitAmount: number;
+  creditAmount: number;
+  memo?: string;
+};
+
 type JournalEntrySummary = {
   id: string;
   referenceNumber: string;
   status: string;
+  lines?: JournalEntryLineSummary[];
 };
 
 export class FundTransferResponseDto {
