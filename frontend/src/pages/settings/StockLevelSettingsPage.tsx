@@ -13,6 +13,7 @@ import { Controller, useForm } from 'react-hook-form'
 import { yupResolver } from '@hookform/resolvers/yup'
 import * as yup from 'yup'
 import PageHeader from '@/components/common/PageHeader'
+import GenericOverviewPage from '@/components/common/GenericOverviewPage'
 import { useNotification } from '@/hooks/useNotification'
 import {
   useGetRegionalSettingsQuery,
@@ -86,7 +87,7 @@ const StockLevelSettingsPage: React.FC = () => {
   }
 
   return (
-    <>
+    <GenericOverviewPage>
       <PageHeader
         title="Stock Level Settings"
         subtitle="Configure thresholds for low stock classification across all products"
@@ -151,7 +152,7 @@ const StockLevelSettingsPage: React.FC = () => {
           </Grid>
         </form>
       </Paper>
-    </>
+    </GenericOverviewPage>
   )
 }
 
