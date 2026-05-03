@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import { BrowserRouter } from 'react-router-dom'
 
 import FundTransfersPage from '../FundTransfersPage'
@@ -11,6 +11,9 @@ vi.mock('@/utils/formatters', async () => {
   const actual = await vi.importActual<typeof import('@/utils/formatters')>('@/utils/formatters')
   return { ...actual, formatDate: (value: string) => value, formatCurrency: (value: number) => `$${value}`, getCurrentDate: () => '2026-03-12' }
 })
+vi.mock('@/hooks/useJournalEntryRef', () => ({
+  useJournalEntryRef: () => ({ journalEntryRef: null, journalEntryRefLoading: false, navigateToJournalEntry: vi.fn() }),
+}))
 
 const mockedApi = vi.hoisted(() => ({
   useGetFundTransfersQuery: vi.fn(),
@@ -22,24 +25,71 @@ const mockedApi = vi.hoisted(() => ({
 
 vi.mock('@/store/api/accountingApi', () => mockedApi)
 
+const mockTransfer = {
+  id: 'trf-1',
+  referenceNumber: 'TRF-26-001',
+  transferDate: '2026-03-12',
+  amount: 1000,
+  description: 'Test transfer',
+  status: 'ACTIVE',
+  fiscalPeriodId: 'fp-1',
+  journalEntryId: 'je-1',
+  sourceAccount: { id: 'acc-1', code: '1001', name: 'Cash on Hand', type: 'ASSET' },
+  destinationAccount: { id: 'acc-2', code: '1002', name: 'Petty Cash', type: 'ASSET' },
+  journalEntry: { id: 'je-1', referenceNumber: 'JE-26-001', status: 'posted', lines: [] },
+  createdAt: '2026-03-12',
+  updatedAt: '2026-03-12',
+}
+
 describe('FundTransfersPage', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    mockedApi.useGetFundTransfersQuery.mockReturnValue({ data: { data: [{ id: 'trf-1', referenceNumber: 'TRF-26-001', transferDate: '2026-03-12', amount: 1000, description: 'Test transfer', status: 'ACTIVE', fiscalPeriodId: 'fp-1', journalEntryId: 'je-1', sourceAccount: { id: 'acc-1', code: '1001', name: 'Cash on Hand', type: 'ASSET' }, destinationAccount: { id: 'acc-2', code: '1002', name: 'Petty Cash', type: 'ASSET' }, createdAt: '2026-03-12', updatedAt: '2026-03-12' }], meta: { total: 1 } }, isLoading: false, refetch: vi.fn() })
-    mockedApi.useGetChartOfAccountsQuery.mockReturnValue({ data: { data: [{ id: 'acc-1', code: '1001', name: 'Cash on Hand', type: 'ASSET', isActive: true, isCashEquivalent: true }, { id: 'acc-2', code: '1002', name: 'Petty Cash', type: 'ASSET', isActive: true, isCashEquivalent: true }] }, isLoading: false })
+    mockedApi.useGetFundTransfersQuery.mockReturnValue({
+      data: { data: [mockTransfer], meta: { total: 1 } },
+      isLoading: false,
+      refetch: vi.fn(),
+    })
+    mockedApi.useGetChartOfAccountsQuery.mockReturnValue({
+      data: { data: [
+        { id: 'acc-1', code: '1001', name: 'Cash on Hand', type: 'ASSET', isActive: true, isCashEquivalent: true },
+        { id: 'acc-2', code: '1002', name: 'Petty Cash', type: 'ASSET', isActive: true, isCashEquivalent: true },
+      ]},
+      isLoading: false,
+    })
     mockedApi.useCreateFundTransferMutation.mockReturnValue([vi.fn(), { isLoading: false }])
     mockedApi.useCancelFundTransferMutation.mockReturnValue([vi.fn(), { isLoading: false }])
     mockedApi.useLazyGetFundTransferQuery.mockReturnValue([vi.fn().mockResolvedValue({})])
   })
 
-  it('renders title and transfer row', () => {
+  it('renders page title', () => {
     render(<BrowserRouter><FundTransfersPage /></BrowserRouter>)
     expect(screen.getByText('Fund Transfers')).toBeInTheDocument()
-    expect(screen.getByText('TRF-26-001')).toBeInTheDocument()
   })
 
-  it('renders New Transfer button', () => {
+  it('renders transfer reference number in the narrow list', () => {
+    const { container } = render(<BrowserRouter><FundTransfersPage /></BrowserRouter>)
+    const listRow = container.querySelector('[data-index="0"]')
+    expect(listRow).not.toBeNull()
+    expect(within(listRow as HTMLElement).getByText('TRF-26-001')).toBeInTheDocument()
+  })
+
+  it('does not render date, from/to account, or amount columns in the list', () => {
+    render(<BrowserRouter><FundTransfersPage /></BrowserRouter>)
+    // The narrow EntityTable list should NOT show these fields as column headers
+    expect(screen.queryByRole('columnheader', { name: /date/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('columnheader', { name: /from/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('columnheader', { name: /amount/i })).not.toBeInTheDocument()
+  })
+
+  it('renders New Transfer button for admin', () => {
     render(<BrowserRouter><FundTransfersPage /></BrowserRouter>)
     expect(screen.getByRole('button', { name: /new transfer/i })).toBeInTheDocument()
+  })
+
+  it('shows ACTIVE status chip in list', () => {
+    const { container } = render(<BrowserRouter><FundTransfersPage /></BrowserRouter>)
+    const listRow = container.querySelector('[data-index="0"]')
+    expect(listRow).not.toBeNull()
+    expect(within(listRow as HTMLElement).getByText('ACTIVE')).toBeInTheDocument()
   })
 })
