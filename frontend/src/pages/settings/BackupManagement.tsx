@@ -13,6 +13,7 @@ import { default as AddIcon } from '@mui/icons-material/Add'
 import { default as BackupIcon } from '@mui/icons-material/Backup'
 import { default as UploadIcon } from '@mui/icons-material/CloudUpload';
 import PageHeader from '@/components/common/PageHeader';
+import GenericOverviewPage from '@/components/common/GenericOverviewPage';
 import { useGetBackupsQuery, useGetSchedulesQuery } from '@/store/api/backupApi';
 import BackupList from '@/components/backup/BackupList';
 import BackupScheduleList from '@/components/backup/BackupScheduleList';
@@ -81,7 +82,7 @@ const BackupManagement: React.FC = () => {
   };
 
   return (
-    <>
+    <GenericOverviewPage>
       <PageHeader
         variant="system"
         title="Backup & Restore Management"
@@ -184,7 +185,7 @@ const BackupManagement: React.FC = () => {
           {error}
         </Alert>
       </Snackbar>
-    </>
+    </GenericOverviewPage>
   );
 };
 
