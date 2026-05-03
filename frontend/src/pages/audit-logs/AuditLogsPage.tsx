@@ -9,6 +9,7 @@ import {
   setLimit,
   setActiveTab,
 } from '@/store/slices/auditLogSlice'
+import GenericOverviewPage from '@/components/common/GenericOverviewPage'
 import { useGetAuditLogsQuery, useGetAuditLogStatisticsQuery } from '@/store/api/auditLogApi'
 import { priceListApiSlice } from '@/store/api/priceListApi'
 import FilterSidebar from './components/FilterSidebar'
@@ -130,53 +131,55 @@ const AuditLogsPage: React.FC = () => {
   const entityTypes = statistics?.byEntityType.map((e) => e.entityType) ?? []
 
   return (
-    <Box sx={{ display: 'flex', height: '100%', gap: 2 }}>
-      {/* Sidebar */}
-      <Box sx={{ flexShrink: 0, width: sidebarCollapsed ? 48 : 260, transition: 'width 0.2s' }}>
-        <FilterSidebar entityTypes={entityTypes} onApply={handleApply} />
-      </Box>
-
-      {/* Main content */}
-      <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
-        <PageHeader
-          variant="system"
-          title="Audit Logs"
-          subtitle="View all system changes and user activities"
-        />
-
-        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 3 }}>
-          <ExportButton logs={auditLogs} disabled={loading} />
+    <GenericOverviewPage>
+      <Box sx={{ display: 'flex', gap: 2 }}>
+        {/* Sidebar */}
+        <Box sx={{ flexShrink: 0, width: sidebarCollapsed ? 48 : 260, transition: 'width 0.2s' }}>
+          <FilterSidebar entityTypes={entityTypes} onApply={handleApply} />
         </Box>
 
-        {/* Tabs */}
-        <Tabs
-          value={activeTab}
-          onChange={(_e, val) => dispatch(setActiveTab(val))}
-          sx={{ borderBottom: 1, borderColor: 'divider' }}
-        >
-          <Tab label="Logs" value="logs" />
-          <Tab label="Analytics" value="analytics" />
-        </Tabs>
-
-        {/* Tab content */}
-        {activeTab === 'logs' && (
-          <LogsTab
-            logs={auditLogs}
-            loading={loading}
-            error={error}
-            priceListNameById={priceListNameById}
-            total={logsResponse?.meta?.total ?? 0}
-            page={pagination.page}
-            limit={pagination.limit}
-            onPageChange={handlePageChange}
-            onLimitChange={handleLimitChange}
+        {/* Main content */}
+        <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <PageHeader
+            variant="system"
+            title="Audit Logs"
+            subtitle="View all system changes and user activities"
           />
-        )}
-        {activeTab === 'analytics' && (
-          <AnalyticsTab statistics={statistics} loading={loading} />
-        )}
+
+          <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 3 }}>
+            <ExportButton logs={auditLogs} disabled={loading} />
+          </Box>
+
+          {/* Tabs */}
+          <Tabs
+            value={activeTab}
+            onChange={(_e, val) => dispatch(setActiveTab(val))}
+            sx={{ borderBottom: 1, borderColor: 'divider' }}
+          >
+            <Tab label="Logs" value="logs" />
+            <Tab label="Analytics" value="analytics" />
+          </Tabs>
+
+          {/* Tab content */}
+          {activeTab === 'logs' && (
+            <LogsTab
+              logs={auditLogs}
+              loading={loading}
+              error={error}
+              priceListNameById={priceListNameById}
+              total={logsResponse?.meta?.total ?? 0}
+              page={pagination.page}
+              limit={pagination.limit}
+              onPageChange={handlePageChange}
+              onLimitChange={handleLimitChange}
+            />
+          )}
+          {activeTab === 'analytics' && (
+            <AnalyticsTab statistics={statistics} loading={loading} />
+          )}
+        </Box>
       </Box>
-    </Box>
+    </GenericOverviewPage>
   )
 }
 
