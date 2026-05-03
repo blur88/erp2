@@ -6,10 +6,11 @@ import { default as BlockIcon } from '@mui/icons-material/Block'
 import { default as ScheduleIcon } from '@mui/icons-material/Schedule'
 import { default as InfoIcon } from '@mui/icons-material/Info'
 import PageHeader from '@/components/common/PageHeader'
+import GenericOverviewPage from '@/components/common/GenericOverviewPage'
 
 const SecuritySettingsPage: React.FC = () => {
   return (
-    <>
+    <GenericOverviewPage>
       {/* Header */}
       <PageHeader
         title="Security Settings"
@@ -360,7 +361,7 @@ const SecuritySettingsPage: React.FC = () => {
           </Box>
         </Box>
       </Paper>
-    </>
+    </GenericOverviewPage>
   );
 }
 
