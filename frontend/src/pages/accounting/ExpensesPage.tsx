@@ -1,9 +1,5 @@
 import React, { useMemo } from 'react'
-import { Stack } from '@mui/material'
-import { default as DeleteIcon } from '@mui/icons-material/Delete'
-import { default as PostIcon } from '@mui/icons-material/PostAdd'
 
-import { AppButton } from '@/components/common/AppButton'
 import GenericListPage from '@/components/common/GenericListPage'
 import { useFilterBar } from '@/hooks/useFilterBar'
 import { useGetExpensesQuery } from '@/store/api/accountingApi'
@@ -92,26 +88,13 @@ const ExpensesPage: React.FC = () => {
       hasActiveFilters={hasActiveFilters}
       searchInputRef={workspace.searchInputRef}
       sort={{ field: 'expenseDate', sortBy: 'expenseDate', sortOrder: 'desc', onSort: () => {} }}
-      contentSlot={workspace.selectedIds.size > 0 ? (
-        <Stack direction="row" spacing={1} sx={{ mb: 1 }}>
-          <AppButton size="small" variant="primary" startIcon={<PostIcon />} onClick={() => workspace.setBulkPostOpen(true)}>
-            Bulk Post ({workspace.selectedIds.size})
-          </AppButton>
-          <AppButton size="small" variant="danger" startIcon={<DeleteIcon />} onClick={() => workspace.setBulkDeleteOpen(true)}>
-            Bulk Delete ({workspace.selectedIds.size})
-          </AppButton>
-        </Stack>
-      ) : null}
       listSlot={(
         <ExpensesTable
           expenses={rows}
           loading={isLoading}
           selectedId={workspace.selected?.id ?? null}
           focusedIndex={workspace.focusedIndex}
-          onSelect={(item) => {
-            workspace.handleSelect(item)
-            workspace.setFocusedIndex(rows.findIndex((row) => row.id === item.id))
-          }}
+          onSelect={workspace.handleSelect}
           listRef={workspace.listRef}
         />
       )}
@@ -129,17 +112,11 @@ const ExpensesPage: React.FC = () => {
           <ExpensesDialogs
             postTarget={workspace.postTarget}
             deleteTarget={workspace.deleteTarget}
-            bulkPostIds={workspace.bulkPostOpen ? workspace.selectedIds : new Set<string>()}
-            bulkDeleteIds={workspace.bulkDeleteOpen ? workspace.selectedIds : new Set<string>()}
             actionLoading={workspace.actionLoading}
             onConfirmPost={workspace.handleConfirmPost}
             onConfirmDelete={workspace.handleConfirmDelete}
-            onConfirmBulkPost={workspace.handleBulkPost}
-            onConfirmBulkDelete={workspace.handleBulkDelete}
             onCancelPost={() => workspace.setPostTarget(null)}
             onCancelDelete={() => workspace.setDeleteTarget(null)}
-            onCancelBulkPost={() => workspace.setBulkPostOpen(false)}
-            onCancelBulkDelete={() => workspace.setBulkDeleteOpen(false)}
           />
           <ExpenseFormDialog
             open={workspace.formOpen}

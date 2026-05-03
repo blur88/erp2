@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import { BrowserRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -27,8 +27,6 @@ const mockedApi = vi.hoisted(() => ({
   useUpdateExpenseMutation: vi.fn(),
   useDeleteExpenseMutation: vi.fn(),
   usePostExpenseMutation: vi.fn(),
-  useBulkPostExpensesMutation: vi.fn(),
-  useBulkDeleteExpensesMutation: vi.fn(),
 }))
 
 vi.mock('@/utils/dateRange', () => ({
@@ -42,8 +40,6 @@ vi.mock('@/utils/formatters', async () => {
 })
 
 vi.mock('@/store/api/accountingApi', () => mockedApi)
-
-const expenseListRow = () => screen.getAllByText('EXP-001')[0]
 
 const expense1 = {
   id: 'ex-1',
@@ -86,8 +82,6 @@ describe('ExpensesPage', () => {
     mockedApi.useUpdateExpenseMutation.mockReturnValue([vi.fn()])
     mockedApi.useDeleteExpenseMutation.mockReturnValue([vi.fn()])
     mockedApi.usePostExpenseMutation.mockReturnValue([vi.fn()])
-    mockedApi.useBulkPostExpensesMutation.mockReturnValue([vi.fn()])
-    mockedApi.useBulkDeleteExpensesMutation.mockReturnValue([vi.fn()])
   })
 
   it('renders the page title', () => {
@@ -100,7 +94,7 @@ describe('ExpensesPage', () => {
     expect(screen.getAllByText('EXP-001').length).toBeGreaterThan(0)
   })
 
-  it('bulk action buttons are hidden when no rows are selected', () => {
+  it('bulk action buttons are never shown (feature removed)', () => {
     renderPage()
     expect(screen.queryByText(/Bulk Post/i)).not.toBeInTheDocument()
     expect(screen.queryByText(/Bulk Delete/i)).not.toBeInTheDocument()
@@ -117,8 +111,12 @@ describe('ExpensesPage', () => {
   })
 
   it('selecting a row shows detail in the context header', () => {
-    renderPage()
-    fireEvent.click(expenseListRow())
+    const { container } = renderPage()
+    // Click the row in the list (EntityTable tbody area) by finding the first occurrence
+    // of EXP-001 inside the table body, which is unambiguously in the list panel
+    const tableBody = container.querySelector('tbody')!
+    const listRow = within(tableBody).getByText('EXP-001')
+    fireEvent.click(listRow)
     expect(screen.getByText('Stationery Hub')).toBeInTheDocument()
     expect(screen.getAllByText('Office Supplies').length).toBeGreaterThan(0)
     expect(screen.getByText('$225.5')).toBeInTheDocument()
@@ -138,8 +136,9 @@ describe('ExpensesPage', () => {
   })
 
   it('shows description in workspace card after selecting a row', () => {
-    renderPage()
-    fireEvent.click(expenseListRow())
+    const { container } = renderPage()
+    const tableBody = container.querySelector('tbody')!
+    fireEvent.click(within(tableBody).getByText('EXP-001'))
     expect(screen.getByText('Printer paper and ink')).toBeInTheDocument()
   })
 })

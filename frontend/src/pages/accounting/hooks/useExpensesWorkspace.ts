@@ -4,8 +4,6 @@ import { useNavigate } from 'react-router-dom'
 import { useEntityWorkspace } from '@/hooks/useEntityWorkspace'
 import { useNotification } from '@/hooks/useNotification'
 import {
-  useBulkDeleteExpensesMutation,
-  useBulkPostExpensesMutation,
   useDeleteExpenseMutation,
   usePostExpenseMutation,
 } from '@/store/api/accountingApi'
@@ -18,17 +16,12 @@ export function useExpensesWorkspace(refetch: () => void, expenses: ExpenseRecor
   const [selected, setSelected] = useState<ExpenseRecord | null>(null)
   const [postTarget, setPostTarget] = useState<ExpenseRecord | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<ExpenseRecord | null>(null)
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
-  const [bulkPostOpen, setBulkPostOpen] = useState(false)
-  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false)
   const [actionLoading, setActionLoading] = useState(false)
   const [formOpen, setFormOpen] = useState(false)
   const [editTarget, setEditTarget] = useState<ExpenseRecord | null>(null)
 
   const [postExpense] = usePostExpenseMutation()
   const [deleteExpense] = useDeleteExpenseMutation()
-  const [bulkPost] = useBulkPostExpensesMutation()
-  const [bulkDelete] = useBulkDeleteExpensesMutation()
 
   const workspace = useEntityWorkspace<ExpenseRecord>({
     entities: expenses,
@@ -53,24 +46,6 @@ export function useExpensesWorkspace(refetch: () => void, expenses: ExpenseRecor
       setDeleteTarget(null)
     },
   })
-
-  const handleSelect = useCallback((item: ExpenseRecord) => {
-    workspace.handleSelect(item)
-  }, [workspace])
-
-  const handleToggleCheck = useCallback((id: string) => {
-    setSelectedIds((prev) => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
-    })
-  }, [])
-
-  const handleSelectAll = useCallback((expenses: ExpenseRecord[]) => {
-    const drafts = expenses.filter((e) => e.status === 'draft').map((e) => e.id)
-    setSelectedIds((prev) => (prev.size === drafts.length ? new Set() : new Set(drafts)))
-  }, [])
 
   const handleConfirmPost = useCallback(async () => {
     if (!postTarget) return
@@ -108,47 +83,10 @@ export function useExpensesWorkspace(refetch: () => void, expenses: ExpenseRecor
     }
   }, [deleteTarget, deleteExpense, showSuccess, showError, refetch])
 
-  const handleBulkPost = useCallback(async () => {
-    setActionLoading(true)
-    try {
-      const result = await bulkPost(Array.from(selectedIds)).unwrap()
-      showSuccess(`Posted ${result.posted} expenses`)
-      if (result.failed > 0) showError(`${result.failed} failed`)
-      setSelectedIds(new Set())
-      setBulkPostOpen(false)
-      refetch()
-    }
-    catch (error: unknown) {
-      showError(getErrorMessage(error, 'Bulk post failed'))
-    }
-    finally {
-      setActionLoading(false)
-    }
-  }, [selectedIds, bulkPost, showSuccess, showError, refetch])
-
-  const handleBulkDelete = useCallback(async () => {
-    setActionLoading(true)
-    try {
-      const result = await bulkDelete(Array.from(selectedIds)).unwrap()
-      showSuccess(`Deleted ${result.deleted} expenses`)
-      if (result.failed > 0) showError(`${result.failed} failed`)
-      setSelectedIds(new Set())
-      setBulkDeleteOpen(false)
-      refetch()
-    }
-    catch (error: unknown) {
-      showError(getErrorMessage(error, 'Bulk delete failed'))
-    }
-    finally {
-      setActionLoading(false)
-    }
-  }, [selectedIds, bulkDelete, showSuccess, showError, refetch])
-
   return {
     selected,
     setSelected,
     focusedIndex: workspace.focusedIndex,
-    setFocusedIndex: workspace.setFocusedIndex,
     listRef: workspace.listRef,
     searchInputRef: workspace.searchInputRef,
     formOpen,
@@ -159,18 +97,9 @@ export function useExpensesWorkspace(refetch: () => void, expenses: ExpenseRecor
     setPostTarget,
     deleteTarget,
     setDeleteTarget,
-    selectedIds,
-    bulkPostOpen,
-    setBulkPostOpen,
-    bulkDeleteOpen,
-    setBulkDeleteOpen,
     actionLoading,
-    handleSelect,
-    handleToggleCheck,
-    handleSelectAll,
+    handleSelect: workspace.handleSelect,
     handleConfirmPost,
     handleConfirmDelete,
-    handleBulkPost,
-    handleBulkDelete,
   }
 }

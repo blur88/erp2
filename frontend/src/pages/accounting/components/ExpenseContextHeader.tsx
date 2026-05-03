@@ -40,7 +40,7 @@ const sectionHeaderCellSx = {
 
 export function ExpenseContextHeader({ selected, onEdit, onPost, onDelete }: Props) {
   const { journalEntryRef, navigateToJournalEntry } = useJournalEntryRef(
-    selected?.status === 'posted'
+    selected?.journalEntryId
       ? [{ sourceType: 'expense', sourceId: selected.id }]
       : [],
   )

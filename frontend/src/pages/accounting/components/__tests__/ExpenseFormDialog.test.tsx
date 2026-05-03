@@ -7,6 +7,10 @@ import { ExpenseFormDialog } from '../ExpenseFormDialog'
 const mockCreate = vi.fn()
 const mockUpdate = vi.fn()
 
+vi.mock('@/hooks/useNotification', () => ({
+  useNotification: () => ({ showSuccess: vi.fn(), showError: vi.fn() }),
+}))
+
 vi.mock('@/store/api/accountingApi', () => ({
   useGetPaymentMethodsQuery: () => ({
     data: { data: [{ id: 'pm-1', name: 'Cash', code: 'CASH', isActive: true }] },

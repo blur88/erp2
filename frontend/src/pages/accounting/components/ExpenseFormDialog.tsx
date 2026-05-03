@@ -14,6 +14,7 @@ import {
 } from '@mui/material'
 
 import { AppButton } from '@/components/common/AppButton'
+import { useNotification } from '@/hooks/useNotification'
 import {
   useCreateExpenseMutation,
   useGetChartOfAccountsQuery,
@@ -21,6 +22,7 @@ import {
   useUpdateExpenseMutation,
 } from '@/store/api/accountingApi'
 import type { ChartOfAccount, ExpenseRecord } from '@/types'
+import { getErrorMessage } from '@/utils/errorMessage'
 
 interface Props {
   open: boolean
@@ -60,6 +62,7 @@ export function ExpenseFormDialog({ open, editTarget, onClose, onSaved }: Props)
     [expenseAccountsResponse?.data],
   )
 
+  const { showError } = useNotification()
   const [createExpense] = useCreateExpenseMutation()
   const [updateExpense] = useUpdateExpenseMutation()
 
@@ -99,14 +102,19 @@ export function ExpenseFormDialog({ open, editTarget, onClose, onSaved }: Props)
       vendor: form.vendor || undefined,
       description: form.description || undefined,
     }
-    if (editTarget) {
-      await updateExpense({ id: editTarget.id, data: payload }).unwrap()
+    try {
+      if (editTarget) {
+        await updateExpense({ id: editTarget.id, data: payload }).unwrap()
+      }
+      else {
+        await createExpense(payload).unwrap()
+      }
+      onSaved()
+      onClose()
     }
-    else {
-      await createExpense(payload).unwrap()
+    catch (error: unknown) {
+      showError(getErrorMessage(error, 'Failed to save expense'))
     }
-    onSaved()
-    onClose()
   }
 
   const set = (field: keyof FormState) => (event: ChangeEvent<HTMLInputElement>) =>

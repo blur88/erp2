@@ -10,12 +10,15 @@ vi.mock('@/utils/formatters', async () => {
   return { ...actual, formatDate: (value: string) => value, formatCurrency: (value: number) => `$${value}` }
 })
 
+const mockNavigateToJournalEntry = vi.fn()
+const mockUseJournalEntryRef = vi.fn(() => ({
+  journalEntryRef: null,
+  journalEntryRefLoading: false,
+  navigateToJournalEntry: mockNavigateToJournalEntry,
+}))
+
 vi.mock('@/hooks/useJournalEntryRef', () => ({
-  useJournalEntryRef: () => ({
-    journalEntryRef: null,
-    journalEntryRefLoading: false,
-    navigateToJournalEntry: vi.fn(),
-  }),
+  useJournalEntryRef: (...args: unknown[]) => mockUseJournalEntryRef(...args),
 }))
 
 const draftExpense = {
@@ -102,5 +105,19 @@ describe('ExpenseContextHeader', () => {
     expect(screen.getByText('Office Supplies')).toBeInTheDocument()
     expect(screen.getByText('$225.5')).toBeInTheDocument()
     expect(screen.getByText('Cash')).toBeInTheDocument()
+  })
+
+  it('renders journal entry ref link for posted expense and fires navigate on click', () => {
+    mockUseJournalEntryRef.mockReturnValueOnce({
+      journalEntryRef: { referenceNumber: 'JE-042', sourceType: 'expense', sourceId: 'ex-1' },
+      journalEntryRefLoading: false,
+      navigateToJournalEntry: mockNavigateToJournalEntry,
+    })
+    const postedExpense = { ...draftExpense, status: 'posted' as const, journalEntryId: 'je-42' }
+    renderHeader({ selected: postedExpense })
+    const link = screen.getByText('JE-042')
+    expect(link).toBeInTheDocument()
+    fireEvent.click(link)
+    expect(mockNavigateToJournalEntry).toHaveBeenCalledOnce()
   })
 })
