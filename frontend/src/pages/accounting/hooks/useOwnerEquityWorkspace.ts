@@ -39,12 +39,6 @@ export function useOwnerEquityWorkspace(entities: OwnerEquityTransaction[], refe
     onEnter: () => {
       if (selected) setDialogOpen(true)
     },
-    onEscape: () => {
-      setSelected(null)
-      setPostTarget(null)
-      setDeleteTarget(null)
-      setReverseTarget(null)
-    },
   })
 
   const handlePost = useCallback(async () => {

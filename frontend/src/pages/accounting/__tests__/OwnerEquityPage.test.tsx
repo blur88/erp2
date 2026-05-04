@@ -104,9 +104,9 @@ describe('OwnerEquityPage', () => {
 
   it('navigates the list with keyboard arrow keys', () => {
     render(<BrowserRouter><OwnerEquityPage /></BrowserRouter>)
-    // First item is auto-selected on load
-    expect(screen.getAllByText('EQ-001')[0]).toBeInTheDocument()
-    // ArrowDown moves focus to second item
+    // First item is auto-selected on load — its description should be visible
+    expect(screen.getByText('Initial owner capital')).toBeInTheDocument()
+    // ArrowDown moves selection to second item
     fireEvent.keyDown(document, { key: 'ArrowDown' })
     expect(screen.getByText('Owner withdrawal')).toBeInTheDocument()
   })
