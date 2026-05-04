@@ -1,8 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { BrowserRouter } from 'react-router-dom'
+import { configureStore } from '@reduxjs/toolkit'
+import { Provider } from 'react-redux'
+import { MemoryRouter } from 'react-router-dom'
 
 import { BankReconciliationStatus } from '@/types'
+import accountingReducer, { selectSelectedBankReconciliation } from '@/store/slices/accountingSlice'
 
 import BankReconciliationsPage from '../BankReconciliationsPage'
 
@@ -73,8 +76,20 @@ const mockedApi = vi.hoisted(() => ({
 
 vi.mock('@/store/api/accountingApi', () => mockedApi)
 
-function renderPage() {
-  return render(<BrowserRouter><BankReconciliationsPage /></BrowserRouter>)
+function makeStore() {
+  return configureStore({ reducer: { accounting: accountingReducer } })
+}
+
+function renderPage(initialUrl = '/accounting/bank-reconciliations') {
+  const store = makeStore()
+  const view = render(
+    <Provider store={store}>
+      <MemoryRouter initialEntries={[initialUrl]}>
+        <BankReconciliationsPage />
+      </MemoryRouter>
+    </Provider>,
+  )
+  return { ...view, store }
 }
 
 describe('BankReconciliationsPage', () => {
@@ -152,5 +167,19 @@ describe('BankReconciliationsPage', () => {
     renderPage()
 
     expect(screen.getByText('Select a reconciliation to view details')).toBeInTheDocument()
+  })
+
+  it('auto-selects the reconciliation matching the ?highlight= URL param', async () => {
+    mockedApi.useGetBankReconciliationsQuery.mockReturnValue({
+      data: { data: [MOCK_RECONCILIATION_IN_PROGRESS], meta: { total: 1 } },
+      isLoading: false,
+      refetch: vi.fn(),
+    })
+
+    const { store } = renderPage('/accounting/bank-reconciliations?highlight=rec-1')
+
+    await waitFor(() => {
+      expect(selectSelectedBankReconciliation(store.getState())?.id).toBe('rec-1')
+    })
   })
 })
