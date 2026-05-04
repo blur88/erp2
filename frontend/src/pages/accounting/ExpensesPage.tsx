@@ -2,7 +2,9 @@ import React, { useMemo } from 'react'
 
 import GenericListPage from '@/components/common/GenericListPage'
 import { useFilterBar } from '@/hooks/useFilterBar'
+import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
 import { useGetExpensesQuery } from '@/store/api/accountingApi'
+import { selectSelectedExpense } from '@/store/slices/accountingSlice'
 import type { FilterBarConfig, PeriodValue } from '@/types/filterBar.types'
 import { getPeriodDateRange, getStartOfWeek } from '@/utils/dateRange'
 
@@ -57,9 +59,9 @@ const ExpensesPage: React.FC = () => {
   const { data: expensesResponse, isLoading, refetch } = useGetExpensesQuery(filters)
   const rows = expensesResponse?.data ?? []
 
-  const workspace = useExpensesWorkspace(() => {
-    void refetch()
-  }, rows)
+  const dispatch = useAppDispatch()
+  const selected = useAppSelector(selectSelectedExpense)
+  const workspace = useExpensesWorkspace(() => { void refetch() }, rows, dispatch, selected)
 
   const openCreate = () => {
     workspace.setEditTarget(null)
@@ -67,8 +69,8 @@ const ExpensesPage: React.FC = () => {
   }
 
   const openEdit = () => {
-    if (!workspace.selected) return
-    workspace.setEditTarget(workspace.selected)
+    if (!selected) return
+    workspace.setEditTarget(selected)
     workspace.setFormOpen(true)
   }
 
@@ -92,7 +94,7 @@ const ExpensesPage: React.FC = () => {
         <ExpensesTable
           expenses={rows}
           loading={isLoading}
-          selectedId={workspace.selected?.id ?? null}
+          selectedId={selected?.id ?? null}
           focusedIndex={workspace.focusedIndex}
           onSelect={workspace.handleSelect}
           listRef={workspace.listRef}
@@ -100,13 +102,13 @@ const ExpensesPage: React.FC = () => {
       )}
       headerSlot={(
         <ExpenseContextHeader
-          selected={workspace.selected}
+          selected={selected}
           onEdit={openEdit}
-          onPost={() => workspace.selected && workspace.setPostTarget(workspace.selected)}
-          onDelete={() => workspace.selected && workspace.setDeleteTarget(workspace.selected)}
+          onPost={() => selected && workspace.setPostTarget(selected)}
+          onDelete={() => selected && workspace.setDeleteTarget(selected)}
         />
       )}
-      workspaceSlot={<ExpenseWorkspaceCard selected={workspace.selected} />}
+      workspaceSlot={<ExpenseWorkspaceCard selected={selected} />}
       dialogs={(
         <>
           <ExpensesDialogs
