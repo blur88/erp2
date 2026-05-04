@@ -2,12 +2,14 @@ import React, { useMemo, useState } from 'react'
 
 import GenericListPage from '@/components/common/GenericListPage'
 import { useFilterBar } from '@/hooks/useFilterBar'
+import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
 import {
   useCreateOwnerEquityTransactionMutation,
   useGetOwnerEquityTransactionsQuery,
   useGetPaymentMethodsQuery,
   useUpdateOwnerEquityTransactionMutation,
 } from '@/store/api/accountingApi'
+import { selectSelectedOwnerEquityTransaction } from '@/store/slices/accountingSlice'
 import type { OwnerEquityTransaction, PaymentMethodConfig } from '@/types'
 import type { FilterBarConfig, PeriodValue } from '@/types/filterBar.types'
 import { getPeriodDateRange, getStartOfWeek } from '@/utils/dateRange'
@@ -92,7 +94,9 @@ const OwnerEquityPage: React.FC = () => {
     )
   }, [appliedFilters.search, ownerEquityResponse?.data])
 
-  const workspace = useOwnerEquityWorkspace(rows, () => { void refetch() })
+  const dispatch = useAppDispatch()
+  const selected = useAppSelector(selectSelectedOwnerEquityTransaction)
+  const workspace = useOwnerEquityWorkspace(rows, () => { void refetch() }, dispatch, selected)
 
   const filterHandlers = useMemo(() => ({
     ...handlers,
@@ -155,7 +159,7 @@ const OwnerEquityPage: React.FC = () => {
           transactions={rows}
           loading={isLoading}
           total={rows.length}
-          selectedId={workspace.selected?.id ?? null}
+          selectedId={selected?.id ?? null}
           focusedIndex={workspace.focusedIndex}
           onSelect={workspace.handleSelect}
           listRef={workspace.listRef}
@@ -163,14 +167,14 @@ const OwnerEquityPage: React.FC = () => {
       )}
       headerSlot={(
         <OwnerEquityContextHeader
-          selected={workspace.selected}
-          onEdit={() => workspace.selected && openEdit(workspace.selected)}
-          onPost={() => workspace.selected && workspace.setPostTarget(workspace.selected)}
-          onDelete={() => workspace.selected && workspace.setDeleteTarget(workspace.selected)}
-          onReverse={() => workspace.selected && workspace.setReverseTarget(workspace.selected)}
+          selected={selected}
+          onEdit={() => selected && openEdit(selected)}
+          onPost={() => selected && workspace.setPostTarget(selected)}
+          onDelete={() => selected && workspace.setDeleteTarget(selected)}
+          onReverse={() => selected && workspace.setReverseTarget(selected)}
         />
       )}
-      workspaceSlot={<OwnerEquityWorkspaceCard selected={workspace.selected} />}
+      workspaceSlot={<OwnerEquityWorkspaceCard selected={selected} />}
       dialogs={(
         <OwnerEquityDialogs
           dialogOpen={workspace.dialogOpen}
