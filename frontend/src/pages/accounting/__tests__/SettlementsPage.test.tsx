@@ -61,7 +61,7 @@ describe('SettlementsPage', () => {
   it('renders title and settlement row', () => {
     render(<BrowserRouter><SettlementsPage /></BrowserRouter>)
     expect(screen.getByText('Settlements')).toBeInTheDocument()
-    expect(screen.getAllByText('SET-001').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('SET-001')).toHaveLength(2)
   })
 
   it('renders create action', () => {

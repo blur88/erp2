@@ -41,7 +41,7 @@ const SettlementsPage: React.FC = () => {
     return { fromDate: resolved.from, toDate: resolved.to }
   }, [appliedFilters.period, weekStartsOn])
 
-  const { data: settlementsResponse, isLoading, refetch } = useGetSettlementsQuery({ page: 1, status: appliedFilters.status || undefined, startDate: dateRange.fromDate, endDate: dateRange.toDate })
+  const { data: settlementsResponse, isLoading, refetch } = useGetSettlementsQuery({ page: 1, status: appliedFilters.status || undefined, startDate: dateRange.fromDate, endDate: dateRange.toDate, sortBy, sortOrder })
   useGetPendingSettlementSummaryQuery()
   const [createSettlement] = useCreateSettlementMutation()
 
@@ -60,7 +60,7 @@ const SettlementsPage: React.FC = () => {
       handlers.onSearchChange(value)
       workspace.setShouldPreserveSearchFocus(true)
     },
-  }), [handlers, workspace])
+  }), [handlers, workspace.setShouldPreserveSearchFocus])
 
   const handleSort = useCallback((field: string) => {
     setSortOrder((prev) => (sortBy === field && prev === 'desc' ? 'asc' : 'desc'))
