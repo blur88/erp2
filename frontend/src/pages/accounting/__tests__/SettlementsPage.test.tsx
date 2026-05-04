@@ -13,6 +13,17 @@ const mocked = vi.hoisted(() => ({
   useCancelSettlementMutation: vi.fn(),
 }))
 
+const mockNavigate = vi.fn()
+
+vi.mock('react-router-dom', async () => {
+  const actual = await vi.importActual('react-router-dom')
+  return {
+    ...actual,
+    useNavigate: () => mockNavigate,
+    useLocation: () => ({ search: '', pathname: '/accounting/settlements', state: null }),
+  }
+})
+
 vi.mock('@/hooks/useNotification', () => ({ useNotification: () => ({ showSuccess: mocked.showSuccess, showError: mocked.showError }) }))
 vi.mock('@/utils/dateRange', () => ({ getPeriodDateRange: () => ({ from: undefined, to: undefined }), getStartOfWeek: () => 0 }))
 vi.mock('@/utils/formatters', async () => {
@@ -25,7 +36,23 @@ vi.mock('@/components/accounting/CreateSettlementDialog', () => ({ default: () =
 describe('SettlementsPage', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    mocked.useGetSettlementsQuery.mockReturnValue({ data: { data: [{ id: 's-1', settlementNumber: 'SET-001', paymentMethod: { name: 'Cash' }, settlementDate: '2026-02-26', totalAmount: 120, paymentCount: 1, reference: 'ref', status: 'completed' }] }, isLoading: false, refetch: vi.fn() })
+    mocked.useGetSettlementsQuery.mockReturnValue({
+      data: {
+        data: [{
+          id: 's-1',
+          settlementNumber: 'SET-001',
+          paymentMethod: { name: 'Cash' },
+          settlementDate: '2026-02-26',
+          totalAmount: 120,
+          paymentCount: 1,
+          reference: 'ref',
+          notes: null,
+          status: 'completed',
+        }],
+      },
+      isLoading: false,
+      refetch: vi.fn(),
+    })
     mocked.useGetPendingSettlementSummaryQuery.mockReturnValue({})
     mocked.useCreateSettlementMutation.mockReturnValue([vi.fn()])
     mocked.useCancelSettlementMutation.mockReturnValue([vi.fn()])
@@ -34,7 +61,7 @@ describe('SettlementsPage', () => {
   it('renders title and settlement row', () => {
     render(<BrowserRouter><SettlementsPage /></BrowserRouter>)
     expect(screen.getByText('Settlements')).toBeInTheDocument()
-    expect(screen.getByText('SET-001')).toBeInTheDocument()
+    expect(screen.getAllByText('SET-001')).toHaveLength(2)
   })
 
   it('renders create action', () => {
