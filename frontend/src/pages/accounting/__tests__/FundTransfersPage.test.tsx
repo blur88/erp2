@@ -1,11 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { render, screen, within } from '@testing-library/react'
-import { BrowserRouter } from 'react-router-dom'
+import { render, screen, waitFor, within } from '@testing-library/react'
+import { configureStore } from '@reduxjs/toolkit'
+import { Provider } from 'react-redux'
+import { MemoryRouter } from 'react-router-dom'
 
 import FundTransfersPage from '../FundTransfersPage'
+import accountingReducer, { selectSelectedFundTransfer } from '@/store/slices/accountingSlice'
 
 vi.mock('@/hooks/useNotification', () => ({ useNotification: () => ({ showSuccess: vi.fn(), showError: vi.fn() }) }))
-vi.mock('@/hooks/useRedux', () => ({ useAppSelector: () => ({ role: 'admin' }) }))
+vi.mock('@/store/slices/authSlice', () => ({
+  selectCurrentUser: () => ({ role: 'admin' }),
+}))
 vi.mock('@/utils/dateRange', () => ({ getPeriodDateRange: () => ({ from: undefined, to: undefined }), getStartOfWeek: () => 0 }))
 vi.mock('@/utils/formatters', async () => {
   const actual = await vi.importActual<typeof import('@/utils/formatters')>('@/utils/formatters')
@@ -41,6 +46,22 @@ const mockTransfer = {
   updatedAt: '2026-03-12',
 }
 
+function makeStore() {
+  return configureStore({ reducer: { accounting: accountingReducer } })
+}
+
+function renderPage(initialUrl = '/accounting/fund-transfers') {
+  const store = makeStore()
+  const view = render(
+    <Provider store={store}>
+      <MemoryRouter initialEntries={[initialUrl]}>
+        <FundTransfersPage />
+      </MemoryRouter>
+    </Provider>,
+  )
+  return { ...view, store }
+}
+
 describe('FundTransfersPage', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -62,19 +83,19 @@ describe('FundTransfersPage', () => {
   })
 
   it('renders page title', () => {
-    render(<BrowserRouter><FundTransfersPage /></BrowserRouter>)
+    renderPage()
     expect(screen.getByText('Fund Transfers')).toBeInTheDocument()
   })
 
   it('renders transfer reference number in the narrow list', () => {
-    const { container } = render(<BrowserRouter><FundTransfersPage /></BrowserRouter>)
+    const { container } = renderPage()
     const listRow = container.querySelector('[data-index="0"]')
     expect(listRow).not.toBeNull()
     expect(within(listRow as HTMLElement).getByText('TRF-26-001')).toBeInTheDocument()
   })
 
   it('does not render date, from/to account, or amount columns in the list', () => {
-    render(<BrowserRouter><FundTransfersPage /></BrowserRouter>)
+    renderPage()
     // The narrow EntityTable list should NOT show these fields as column headers
     expect(screen.queryByRole('columnheader', { name: /date/i })).not.toBeInTheDocument()
     expect(screen.queryByRole('columnheader', { name: /from/i })).not.toBeInTheDocument()
@@ -82,14 +103,22 @@ describe('FundTransfersPage', () => {
   })
 
   it('renders New Transfer button for admin', () => {
-    render(<BrowserRouter><FundTransfersPage /></BrowserRouter>)
+    renderPage()
     expect(screen.getByRole('button', { name: /new transfer/i })).toBeInTheDocument()
   })
 
   it('shows ACTIVE status chip in list', () => {
-    const { container } = render(<BrowserRouter><FundTransfersPage /></BrowserRouter>)
+    const { container } = renderPage()
     const listRow = container.querySelector('[data-index="0"]')
     expect(listRow).not.toBeNull()
     expect(within(listRow as HTMLElement).getByText('ACTIVE')).toBeInTheDocument()
+  })
+
+  it('auto-selects the transfer matching the ?highlight= URL param', async () => {
+    const { store } = renderPage('/accounting/fund-transfers?highlight=trf-1')
+
+    await waitFor(() => {
+      expect(selectSelectedFundTransfer(store.getState())?.id).toBe('trf-1')
+    })
   })
 })
