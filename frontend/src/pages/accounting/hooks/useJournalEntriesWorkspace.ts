@@ -1,26 +1,30 @@
-import { useCallback, useState } from 'react'
+import { useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 import { useEntityWorkspace } from '@/hooks/useEntityWorkspace'
+import type { AppDispatch } from '@/store'
 import { useLazyGetJournalEntryQuery } from '@/store/api/accountingApi'
+import { setSelectedJournalEntry } from '@/store/slices/accountingSlice'
 import { JournalEntry } from '@/types'
 
 interface UseJournalEntriesWorkspaceConfig {
   entries: JournalEntry[]
   refetch: () => void
+  dispatch: AppDispatch
+  selectedEntry: JournalEntry | null
 }
 
-export function useJournalEntriesWorkspace({ entries, refetch }: UseJournalEntriesWorkspaceConfig) {
+export function useJournalEntriesWorkspace({ entries, refetch, dispatch, selectedEntry }: UseJournalEntriesWorkspaceConfig) {
   const navigate = useNavigate()
-  const [selectedEntry, setSelectedEntry] = useState<JournalEntry | null>(null)
   const [fetchEntry] = useLazyGetJournalEntryQuery()
 
   const workspace = useEntityWorkspace<JournalEntry>({
     entities: entries,
     selectedEntity: selectedEntry,
-    selectEntity: setSelectedEntry,
+    selectEntity: (entry) => dispatch(setSelectedJournalEntry(entry)),
     refetch,
     navigate,
+    highlightParam: 'highlight',
     routes: {
       create: '/accounting/journal-entries',
       edit: () => '/accounting/journal-entries',
@@ -28,16 +32,19 @@ export function useJournalEntriesWorkspace({ entries, refetch }: UseJournalEntri
     notifications: { showSuccess: () => {}, showError: () => {} },
     deleteMutation: async () => {},
     onEnter: () => {},
+    onEscape: () => {
+      dispatch(setSelectedJournalEntry(null))
+    },
   })
 
   const handleSelect = useCallback(async (entry: JournalEntry) => {
     workspace.handleSelect(entry)
     try {
       const fresh = await fetchEntry(entry.id).unwrap()
-      setSelectedEntry(fresh)
+      dispatch(setSelectedJournalEntry(fresh))
     }
     catch { /* keep list-row data */ }
-  }, [fetchEntry, workspace])
+  }, [fetchEntry, workspace, dispatch])
 
   const navigateToSource = useCallback((sourceType: string, sourceId: string) => {
     const routes: Record<string, (id: string) => string> = {
@@ -56,7 +63,6 @@ export function useJournalEntriesWorkspace({ entries, refetch }: UseJournalEntri
 
   return {
     ...workspace,
-    selectedEntry,
     handleSelect,
     navigateToSource,
   }
