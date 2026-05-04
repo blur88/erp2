@@ -63,18 +63,44 @@ const OwnerEquityPage: React.FC = () => {
     const resolved = getPeriodDateRange(period.key, weekStartsOn)
     return { fromDate: resolved.from, toDate: resolved.to }
   }, [appliedFilters.period, weekStartsOn])
-  const { data: ownerEquityResponse, isLoading, refetch } = useGetOwnerEquityTransactionsQuery({ page: 1, sortBy: 'referenceNumber', sortOrder: 'DESC', type: appliedFilters.type || undefined, status: appliedFilters.status || undefined, startDate: dateRange.fromDate, endDate: dateRange.toDate })
+
+  const { data: ownerEquityResponse, isLoading, refetch } = useGetOwnerEquityTransactionsQuery({
+    page: 1,
+    sortBy: 'referenceNumber',
+    sortOrder: 'DESC',
+    type: appliedFilters.type || undefined,
+    status: appliedFilters.status || undefined,
+    startDate: dateRange.fromDate,
+    endDate: dateRange.toDate,
+  })
   const { data: paymentMethodsResponse } = useGetPaymentMethodsQuery({ page: 1, isActive: true })
   const paymentMethods = (paymentMethodsResponse?.data ?? []) as PaymentMethodConfig[]
+
   const [createOwnerEquityTransaction] = useCreateOwnerEquityTransactionMutation()
   const [updateOwnerEquityTransaction] = useUpdateOwnerEquityTransactionMutation()
-  const workspace = useOwnerEquityWorkspace(() => { void refetch() })
+
   const rows = useMemo(() => {
     const items = ownerEquityResponse?.data ?? []
     const term = appliedFilters.search.trim().toLowerCase()
     if (!term) return items
-    return items.filter((item) => [item.referenceNumber, item.description, item.paymentMethod?.name].filter(Boolean).join(' ').toLowerCase().includes(term))
+    return items.filter((item) =>
+      [item.referenceNumber, item.description, item.paymentMethod?.name]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase()
+        .includes(term),
+    )
   }, [appliedFilters.search, ownerEquityResponse?.data])
+
+  const workspace = useOwnerEquityWorkspace(rows, () => { void refetch() })
+
+  const filterHandlers = useMemo(() => ({
+    ...handlers,
+    onSearchChange: (value: string) => {
+      handlers.onSearchChange(value)
+      workspace.setShouldPreserveSearchFocus(true)
+    },
+  }), [handlers, workspace])
 
   const openCreate = () => {
     setForm({ ...defaultForm(), paymentMethodId: paymentMethods[0]?.id || '' })
@@ -82,7 +108,14 @@ const OwnerEquityPage: React.FC = () => {
   }
 
   const openEdit = (row: OwnerEquityTransaction) => {
-    setForm({ id: row.id, transactionDate: row.transactionDate.slice(0, 10), type: row.type, amount: String(row.amount), paymentMethodId: row.paymentMethodId, description: row.description || '' })
+    setForm({
+      id: row.id,
+      transactionDate: row.transactionDate.slice(0, 10),
+      type: row.type,
+      amount: String(row.amount),
+      paymentMethodId: row.paymentMethodId,
+      description: row.description || '',
+    })
     workspace.setDialogOpen(true)
   }
 
@@ -93,7 +126,13 @@ const OwnerEquityPage: React.FC = () => {
 
   const save = async () => {
     if (!form.paymentMethodId || !form.amount || Number(form.amount) <= 0) return
-    const payload = { transactionDate: form.transactionDate, type: form.type, amount: Number(form.amount), paymentMethodId: form.paymentMethodId, description: form.description || undefined }
+    const payload = {
+      transactionDate: form.transactionDate,
+      type: form.type,
+      amount: Number(form.amount),
+      paymentMethodId: form.paymentMethodId,
+      description: form.description || undefined,
+    }
     if (form.id) await updateOwnerEquityTransaction({ id: form.id, data: payload }).unwrap()
     else await createOwnerEquityTransaction(payload).unwrap()
     closeDialog()
@@ -107,14 +146,50 @@ const OwnerEquityPage: React.FC = () => {
       primaryAction={{ label: 'New Transaction', onClick: openCreate }}
       filterConfig={filterConfig}
       draftFilters={draftFilters}
-      handlers={handlers}
+      handlers={filterHandlers}
       hasActiveFilters={hasActiveFilters}
       searchInputRef={workspace.searchInputRef}
       sort={{ field: 'referenceNumber', sortBy: 'referenceNumber', sortOrder: 'desc', onSort: () => {} }}
-      listSlot={<OwnerEquityTable rows={rows} loading={isLoading} selectedId={workspace.selected?.id ?? null} onSelect={workspace.setSelected} onEdit={openEdit} onPost={workspace.setPostTarget} onDelete={workspace.setDeleteTarget} onReverse={workspace.setReverseTarget} listRef={workspace.listRef} />}
-      headerSlot={<OwnerEquityContextHeader selected={workspace.selected} onEdit={() => workspace.selected && openEdit(workspace.selected)} onPost={() => workspace.selected && workspace.setPostTarget(workspace.selected)} onDelete={() => workspace.selected && workspace.setDeleteTarget(workspace.selected)} onReverse={() => workspace.selected && workspace.setReverseTarget(workspace.selected)} />}
+      listSlot={(
+        <OwnerEquityTable
+          transactions={rows}
+          loading={isLoading}
+          total={rows.length}
+          selectedId={workspace.selected?.id ?? null}
+          focusedIndex={workspace.focusedIndex}
+          onSelect={workspace.handleSelect}
+          listRef={workspace.listRef}
+        />
+      )}
+      headerSlot={(
+        <OwnerEquityContextHeader
+          selected={workspace.selected}
+          onEdit={() => workspace.selected && openEdit(workspace.selected)}
+          onPost={() => workspace.selected && workspace.setPostTarget(workspace.selected)}
+          onDelete={() => workspace.selected && workspace.setDeleteTarget(workspace.selected)}
+          onReverse={() => workspace.selected && workspace.setReverseTarget(workspace.selected)}
+        />
+      )}
       workspaceSlot={<OwnerEquityWorkspaceCard selected={workspace.selected} />}
-      dialogs={<OwnerEquityDialogs dialogOpen={workspace.dialogOpen} form={form} paymentMethods={paymentMethods} onCloseDialog={closeDialog} onFormChange={(field, value) => setForm((current) => ({ ...current, [field]: value }))} onSave={() => void save()} reverseTarget={workspace.reverseTarget} deleteTarget={workspace.deleteTarget} postTarget={workspace.postTarget} onCancelReverse={() => workspace.setReverseTarget(null)} onCancelDelete={() => workspace.setDeleteTarget(null)} onCancelPost={() => workspace.setPostTarget(null)} onConfirmReverse={() => void workspace.handleReverse()} onConfirmDelete={() => void workspace.handleDelete()} onConfirmPost={() => void workspace.handlePost()} />}
+      dialogs={(
+        <OwnerEquityDialogs
+          dialogOpen={workspace.dialogOpen}
+          form={form}
+          paymentMethods={paymentMethods}
+          onCloseDialog={closeDialog}
+          onFormChange={(field, value) => setForm((current) => ({ ...current, [field]: value }))}
+          onSave={() => void save()}
+          reverseTarget={workspace.reverseTarget}
+          deleteTarget={workspace.deleteTarget}
+          postTarget={workspace.postTarget}
+          onCancelReverse={() => workspace.setReverseTarget(null)}
+          onCancelDelete={() => workspace.setDeleteTarget(null)}
+          onCancelPost={() => workspace.setPostTarget(null)}
+          onConfirmReverse={() => void workspace.handleReverse()}
+          onConfirmDelete={() => void workspace.handleDelete()}
+          onConfirmPost={() => void workspace.handlePost()}
+        />
+      )}
     />
   )
 }
