@@ -3,18 +3,24 @@ import { useNavigate } from 'react-router-dom'
 
 import { useEntityWorkspace } from '@/hooks/useEntityWorkspace'
 import { useNotification } from '@/hooks/useNotification'
+import type { AppDispatch } from '@/store'
 import {
   useDeleteOwnerEquityTransactionMutation,
   usePostOwnerEquityTransactionMutation,
   useReverseOwnerEquityTransactionMutation,
 } from '@/store/api/accountingApi'
+import { setSelectedOwnerEquityTransaction } from '@/store/slices/accountingSlice'
 import type { OwnerEquityTransaction } from '@/types'
 
-export function useOwnerEquityWorkspace(entities: OwnerEquityTransaction[], refetch: () => void) {
+export function useOwnerEquityWorkspace(
+  entities: OwnerEquityTransaction[],
+  refetch: () => void,
+  dispatch: AppDispatch,
+  selected: OwnerEquityTransaction | null,
+) {
   const navigate = useNavigate()
   const { showSuccess, showError } = useNotification()
 
-  const [selected, setSelected] = useState<OwnerEquityTransaction | null>(null)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [postTarget, setPostTarget] = useState<OwnerEquityTransaction | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<OwnerEquityTransaction | null>(null)
@@ -27,9 +33,10 @@ export function useOwnerEquityWorkspace(entities: OwnerEquityTransaction[], refe
   const workspace = useEntityWorkspace<OwnerEquityTransaction>({
     entities,
     selectedEntity: selected,
-    selectEntity: setSelected,
+    selectEntity: (entity) => dispatch(setSelectedOwnerEquityTransaction(entity)),
     refetch,
     navigate,
+    highlightParam: 'highlight',
     routes: {
       create: '/accounting/owner-equity',
       edit: () => '/accounting/owner-equity',
@@ -39,50 +46,52 @@ export function useOwnerEquityWorkspace(entities: OwnerEquityTransaction[], refe
     onEnter: () => {
       if (selected) setDialogOpen(true)
     },
+    onEscape: () => {
+      dispatch(setSelectedOwnerEquityTransaction(null))
+    },
   })
 
   const handlePost = useCallback(async () => {
     if (!postTarget) return
     try {
       const next = await postOwnerEquityTransaction(postTarget.id).unwrap()
-      setSelected(next)
+      dispatch(setSelectedOwnerEquityTransaction(next))
       setPostTarget(null)
       showSuccess('Transaction posted')
       refetch()
     } catch (error: any) {
       showError(error?.data?.message || String(error))
     }
-  }, [postOwnerEquityTransaction, postTarget, refetch, showError, showSuccess])
+  }, [postOwnerEquityTransaction, postTarget, refetch, showError, showSuccess, dispatch])
 
   const handleDelete = useCallback(async () => {
     if (!deleteTarget) return
     try {
       await deleteOwnerEquityTransaction(deleteTarget.id).unwrap()
       showSuccess('Transaction deleted')
-      if (selected?.id === deleteTarget.id) setSelected(null)
+      if (selected?.id === deleteTarget.id) dispatch(setSelectedOwnerEquityTransaction(null))
       setDeleteTarget(null)
       refetch()
     } catch (error: any) {
       showError(error?.data?.message || String(error))
     }
-  }, [deleteOwnerEquityTransaction, deleteTarget, refetch, selected?.id, showError, showSuccess])
+  }, [deleteOwnerEquityTransaction, deleteTarget, refetch, selected?.id, showError, showSuccess, dispatch])
 
   const handleReverse = useCallback(async () => {
     if (!reverseTarget) return
     try {
       const next = await reverseOwnerEquityTransaction(reverseTarget.id).unwrap()
-      setSelected(next)
+      dispatch(setSelectedOwnerEquityTransaction(next))
       setReverseTarget(null)
       showSuccess('Transaction reversed')
       refetch()
     } catch (error: any) {
       showError(error?.data?.message || String(error))
     }
-  }, [refetch, reverseOwnerEquityTransaction, reverseTarget, showError, showSuccess])
+  }, [refetch, reverseOwnerEquityTransaction, reverseTarget, showError, showSuccess, dispatch])
 
   return {
     ...workspace,
-    selected,
     dialogOpen,
     setDialogOpen,
     postTarget,
