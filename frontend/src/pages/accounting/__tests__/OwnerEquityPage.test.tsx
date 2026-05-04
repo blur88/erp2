@@ -1,8 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { fireEvent, render, screen } from '@testing-library/react'
-import { BrowserRouter } from 'react-router-dom'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { configureStore } from '@reduxjs/toolkit'
+import { Provider } from 'react-redux'
+import { MemoryRouter } from 'react-router-dom'
 
 import OwnerEquityPage from '../OwnerEquityPage'
+import accountingReducer, { selectSelectedOwnerEquityTransaction } from '@/store/slices/accountingSlice'
 
 const mockNavigate = vi.fn()
 
@@ -68,6 +71,22 @@ const TX_2 = {
   updatedAt: '2026-03-01',
 }
 
+function makeStore() {
+  return configureStore({ reducer: { accounting: accountingReducer } })
+}
+
+function renderPage(initialUrl = '/accounting/owner-equity') {
+  const store = makeStore()
+  const view = render(
+    <Provider store={store}>
+      <MemoryRouter initialEntries={[initialUrl]}>
+        <OwnerEquityPage />
+      </MemoryRouter>
+    </Provider>,
+  )
+  return { ...view, store }
+}
+
 describe('OwnerEquityPage', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -90,24 +109,32 @@ describe('OwnerEquityPage', () => {
   })
 
   it('renders title and transaction rows', () => {
-    render(<BrowserRouter><OwnerEquityPage /></BrowserRouter>)
+    renderPage()
     expect(screen.getByText('Owner Equity')).toBeInTheDocument()
     expect(screen.getAllByText('EQ-001')[0]).toBeInTheDocument()
     expect(screen.getByText('EQ-002')).toBeInTheDocument()
   })
 
   it('shows detail content after clicking a row', () => {
-    render(<BrowserRouter><OwnerEquityPage /></BrowserRouter>)
+    renderPage()
     fireEvent.click(screen.getAllByText('EQ-001')[0])
     expect(screen.getByText('Initial owner capital')).toBeInTheDocument()
   })
 
   it('navigates the list with keyboard arrow keys', () => {
-    render(<BrowserRouter><OwnerEquityPage /></BrowserRouter>)
+    renderPage()
     // First item is auto-selected on load — its description should be visible
     expect(screen.getByText('Initial owner capital')).toBeInTheDocument()
     // ArrowDown moves selection to second item
     fireEvent.keyDown(document, { key: 'ArrowDown' })
     expect(screen.getByText('Owner withdrawal')).toBeInTheDocument()
+  })
+
+  it('auto-selects the transaction matching the ?highlight= URL param', async () => {
+    const { store } = renderPage('/accounting/owner-equity?highlight=tx-1')
+
+    await waitFor(() => {
+      expect(selectSelectedOwnerEquityTransaction(store.getState())?.id).toBe('tx-1')
+    })
   })
 })
