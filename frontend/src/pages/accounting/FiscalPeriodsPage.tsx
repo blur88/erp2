@@ -5,7 +5,7 @@ import GenericListPage from '@/components/common/GenericListPage'
 import { useFilterBar } from '@/hooks/useFilterBar'
 import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
 import { useGetFiscalPeriodsQuery } from '@/store/api/accountingApi'
-import { selectSelectedFiscalPeriod } from '@/store/slices/accountingSlice'
+import { selectSelectedFiscalPeriod, setSelectedFiscalPeriod } from '@/store/slices/accountingSlice'
 import { FiscalPeriodStatus } from '@/types'
 import type { FilterBarConfig } from '@/types/filterBar.types'
 
@@ -50,7 +50,7 @@ const FiscalPeriodsPage: React.FC = () => {
       <GenericListPage
         title="Fiscal Periods"
         subtitle="Manage accounting periods and year boundaries"
-        primaryAction={{ label: 'Add Period', onClick: () => { workspace.setFormDialogOpen(true) } }}
+        primaryAction={{ label: 'Add Period', onClick: () => { dispatch(setSelectedFiscalPeriod(null)); workspace.setFormDialogOpen(true) } }}
         secondaryAction={{ label: 'Generate Periods', onClick: () => workspace.setGenerateDialogOpen(true) }}
         filterConfig={filterConfig}
         draftFilters={draftFilters}

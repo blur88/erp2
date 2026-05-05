@@ -51,6 +51,7 @@ export function useFiscalPeriodsWorkspace(
       dispatch(setSelectedFiscalPeriod(null))
       setCloseTarget(null)
       setReopenTarget(null)
+      setDeleteTarget(null)
     },
   })
 
