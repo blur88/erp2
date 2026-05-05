@@ -183,6 +183,22 @@ describe('useEntityWorkspace', () => {
     expect(result.current.deleteConfirmOpen).toBe(false)
   })
 
+  it('handleDelete returns without side effects when deleteMutation is omitted', async () => {
+    const { deleteMutation, notifications, ...config } = makeConfig({
+      selectedEntity: makeEntity('1'),
+    })
+    const { result } = renderHook(() => useEntityWorkspace(config), {
+      wrapper: makeWrapper('/entities'),
+    })
+
+    await act(async () => {
+      await result.current.handleDelete()
+    })
+
+    expect(config.refetch).not.toHaveBeenCalled()
+    expect(config.selectEntity).not.toHaveBeenCalledWith(null)
+  })
+
   it('uses custom enter action instead of navigating to edit route', () => {
     const onEnter = vi.fn()
     const config = makeConfig({
