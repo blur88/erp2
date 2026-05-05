@@ -37,14 +37,16 @@ export function useJournalEntriesWorkspace({ entries, refetch, dispatch, selecte
     },
   })
 
+  const { handleSelect: workspaceHandleSelect } = workspace
+
   const handleSelect = useCallback(async (entry: JournalEntry) => {
-    workspace.handleSelect(entry)
+    workspaceHandleSelect(entry)
     try {
       const fresh = await fetchEntry(entry.id).unwrap()
       dispatch(setSelectedJournalEntry(fresh))
     }
     catch { /* keep list-row data */ }
-  }, [fetchEntry, workspace, dispatch])
+  }, [fetchEntry, workspaceHandleSelect, dispatch])
 
   const navigateToSource = useCallback((sourceType: string, sourceId: string) => {
     const routes: Record<string, (id: string) => string> = {

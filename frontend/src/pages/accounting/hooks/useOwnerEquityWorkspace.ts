@@ -46,9 +46,6 @@ export function useOwnerEquityWorkspace(
     onEnter: () => {
       if (selected) setDialogOpen(true)
     },
-    onEscape: () => {
-      dispatch(setSelectedOwnerEquityTransaction(null))
-    },
   })
 
   const handlePost = useCallback(async () => {

@@ -65,14 +65,16 @@ export function useBankReconciliationsWorkspace({
     },
   })
 
+  const { handleSelect: workspaceHandleSelect } = workspace
+
   const handleSelect = useCallback(async (item: BankReconciliation) => {
-    workspace.handleSelect(item)
+    workspaceHandleSelect(item)
     try {
       const fresh = await fetchItem(item.id).unwrap()
       dispatch(setSelectedBankReconciliation(fresh))
     }
     catch { /* keep list-row data */ }
-  }, [fetchItem, workspace, dispatch])
+  }, [fetchItem, workspaceHandleSelect, dispatch])
 
   const handleToggleCleared = useCallback(async (txn: ReconciledTransaction) => {
     if (!selected) return
