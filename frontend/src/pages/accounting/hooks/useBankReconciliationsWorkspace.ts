@@ -13,7 +13,7 @@ import {
   useUnmarkBankReconciliationClearedMutation,
 } from '@/store/api/accountingApi'
 import { setSelectedBankReconciliation } from '@/store/slices/accountingSlice'
-import { BankReconciliation, ReconciledTransaction } from '@/types'
+import type { BankReconciliation, ReconciledTransaction } from '@/types'
 import { getErrorMessage } from '@/utils/errorMessage'
 
 interface UseBankReconciliationsWorkspaceConfig {
@@ -55,7 +55,6 @@ export function useBankReconciliationsWorkspace({
       edit: () => '/accounting/bank-reconciliations',
     },
     notifications: { showSuccess, showError },
-    deleteMutation: async () => {},
     onEnter: () => {},
     onEscape: () => {
       dispatch(setSelectedBankReconciliation(null))
