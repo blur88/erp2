@@ -3,7 +3,9 @@ import React, { useCallback, useMemo, useState } from 'react'
 import BankReconciliationFormDialog from '@/components/accounting/BankReconciliationFormDialog'
 import GenericListPage from '@/components/common/GenericListPage'
 import { useFilterBar } from '@/hooks/useFilterBar'
+import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
 import { useGetBankReconciliationsQuery } from '@/store/api/accountingApi'
+import { selectSelectedBankReconciliation } from '@/store/slices/accountingSlice'
 import type { FilterBarConfig, PeriodValue } from '@/types/filterBar.types'
 import { getPeriodDateRange, getStartOfWeek } from '@/utils/dateRange'
 
@@ -58,11 +60,13 @@ const BankReconciliationsPage: React.FC = () => {
   const reconciliations = data?.data ?? []
   const total = data?.meta?.total ?? 0
 
+  const dispatch = useAppDispatch()
+  const selected = useAppSelector(selectSelectedBankReconciliation)
   const workspace = useBankReconciliationsWorkspace({
     reconciliations,
-    refetch: () => {
-      void refetch()
-    },
+    refetch: () => { void refetch() },
+    dispatch,
+    selected,
   })
 
   const handleSort = useCallback((field: string) => {
@@ -97,7 +101,7 @@ const BankReconciliationsPage: React.FC = () => {
           reconciliations={reconciliations}
           loading={isLoading}
           total={total}
-          selectedId={workspace.selected?.id ?? null}
+          selectedId={selected?.id ?? null}
           focusedIndex={workspace.focusedIndex}
           onSelect={workspace.handleSelect}
           listRef={workspace.listRef}
@@ -105,15 +109,15 @@ const BankReconciliationsPage: React.FC = () => {
       )}
       headerSlot={(
         <BankReconciliationContextHeader
-          selected={workspace.selected}
-          onComplete={() => workspace.selected && workspace.setCompleteTarget(workspace.selected)}
-          onReopen={() => workspace.selected && workspace.setReopenTarget(workspace.selected)}
-          onDelete={() => workspace.selected && workspace.setDeleteTarget(workspace.selected)}
+          selected={selected}
+          onComplete={() => selected && workspace.setCompleteTarget(selected)}
+          onReopen={() => selected && workspace.setReopenTarget(selected)}
+          onDelete={() => selected && workspace.setDeleteTarget(selected)}
         />
       )}
       workspaceSlot={(
         <BankReconciliationWorkspaceCard
-          selected={workspace.selected}
+          selected={selected}
           onToggleCleared={workspace.handleToggleCleared}
         />
       )}

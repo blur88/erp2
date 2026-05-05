@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 
 import { useEntityWorkspace } from '@/hooks/useEntityWorkspace'
 import { useNotification } from '@/hooks/useNotification'
+import type { AppDispatch } from '@/store'
 import {
   useCompleteBankReconciliationMutation,
   useDeleteBankReconciliationMutation,
@@ -11,21 +12,25 @@ import {
   useReopenBankReconciliationMutation,
   useUnmarkBankReconciliationClearedMutation,
 } from '@/store/api/accountingApi'
+import { setSelectedBankReconciliation } from '@/store/slices/accountingSlice'
 import { BankReconciliation, ReconciledTransaction } from '@/types'
 import { getErrorMessage } from '@/utils/errorMessage'
 
 interface UseBankReconciliationsWorkspaceConfig {
   reconciliations: BankReconciliation[]
   refetch: () => void
+  dispatch: AppDispatch
+  selected: BankReconciliation | null
 }
 
 export function useBankReconciliationsWorkspace({
   reconciliations,
   refetch,
+  dispatch,
+  selected,
 }: UseBankReconciliationsWorkspaceConfig) {
   const navigate = useNavigate()
   const { showSuccess, showError } = useNotification()
-  const [selected, setSelected] = useState<BankReconciliation | null>(null)
   const [completeTarget, setCompleteTarget] = useState<BankReconciliation | null>(null)
   const [reopenTarget, setReopenTarget] = useState<BankReconciliation | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<BankReconciliation | null>(null)
@@ -41,9 +46,10 @@ export function useBankReconciliationsWorkspace({
   const workspace = useEntityWorkspace<BankReconciliation>({
     entities: reconciliations,
     selectedEntity: selected,
-    selectEntity: setSelected,
+    selectEntity: (entity) => dispatch(setSelectedBankReconciliation(entity)),
     refetch,
     navigate,
+    highlightParam: 'highlight',
     routes: {
       create: '/accounting/bank-reconciliations',
       edit: () => '/accounting/bank-reconciliations',
@@ -51,16 +57,24 @@ export function useBankReconciliationsWorkspace({
     notifications: { showSuccess, showError },
     deleteMutation: async () => {},
     onEnter: () => {},
+    onEscape: () => {
+      dispatch(setSelectedBankReconciliation(null))
+      setCompleteTarget(null)
+      setReopenTarget(null)
+      setDeleteTarget(null)
+    },
   })
 
+  const { handleSelect: workspaceHandleSelect } = workspace
+
   const handleSelect = useCallback(async (item: BankReconciliation) => {
-    workspace.handleSelect(item)
+    workspaceHandleSelect(item)
     try {
       const fresh = await fetchItem(item.id).unwrap()
-      setSelected(fresh)
+      dispatch(setSelectedBankReconciliation(fresh))
     }
     catch { /* keep list-row data */ }
-  }, [fetchItem, workspace])
+  }, [fetchItem, workspaceHandleSelect, dispatch])
 
   const handleToggleCleared = useCallback(async (txn: ReconciledTransaction) => {
     if (!selected) return
@@ -68,13 +82,13 @@ export function useBankReconciliationsWorkspace({
       const fresh = txn.cleared
         ? await unmarkCleared({ id: selected.id, journalEntryLineIds: [txn.journalEntryLineId] }).unwrap()
         : await markCleared({ id: selected.id, journalEntryLineIds: [txn.journalEntryLineId] }).unwrap()
-      setSelected(fresh)
+      dispatch(setSelectedBankReconciliation(fresh))
       refetch()
     }
     catch (error: unknown) {
       showError(getErrorMessage(error, 'Failed to update transaction'))
     }
-  }, [selected, markCleared, unmarkCleared, refetch, showError])
+  }, [selected, markCleared, unmarkCleared, refetch, showError, dispatch])
 
   const handleConfirmComplete = useCallback(async () => {
     if (!completeTarget) return
@@ -83,7 +97,7 @@ export function useBankReconciliationsWorkspace({
       const fresh = await completeReconciliation(completeTarget.id).unwrap()
       showSuccess('Reconciliation completed')
       setCompleteTarget(null)
-      setSelected(fresh)
+      dispatch(setSelectedBankReconciliation(fresh))
       refetch()
     }
     catch (error: unknown) {
@@ -92,7 +106,7 @@ export function useBankReconciliationsWorkspace({
     finally {
       setActionLoading(false)
     }
-  }, [completeTarget, completeReconciliation, showSuccess, showError, refetch])
+  }, [completeTarget, completeReconciliation, showSuccess, showError, refetch, dispatch])
 
   const handleConfirmReopen = useCallback(async () => {
     if (!reopenTarget) return
@@ -101,7 +115,7 @@ export function useBankReconciliationsWorkspace({
       const fresh = await reopenReconciliation(reopenTarget.id).unwrap()
       showSuccess('Reconciliation reopened')
       setReopenTarget(null)
-      setSelected(fresh)
+      dispatch(setSelectedBankReconciliation(fresh))
       refetch()
     }
     catch (error: unknown) {
@@ -110,7 +124,7 @@ export function useBankReconciliationsWorkspace({
     finally {
       setActionLoading(false)
     }
-  }, [reopenTarget, reopenReconciliation, showSuccess, showError, refetch])
+  }, [reopenTarget, reopenReconciliation, showSuccess, showError, refetch, dispatch])
 
   const handleConfirmDelete = useCallback(async () => {
     if (!deleteTarget) return
@@ -119,7 +133,7 @@ export function useBankReconciliationsWorkspace({
       await deleteReconciliation(deleteTarget.id).unwrap()
       showSuccess('Reconciliation deleted')
       setDeleteTarget(null)
-      setSelected(null)
+      dispatch(setSelectedBankReconciliation(null))
       refetch()
     }
     catch (error: unknown) {
@@ -128,11 +142,9 @@ export function useBankReconciliationsWorkspace({
     finally {
       setActionLoading(false)
     }
-  }, [deleteTarget, deleteReconciliation, showSuccess, showError, refetch])
+  }, [deleteTarget, deleteReconciliation, showSuccess, showError, refetch, dispatch])
 
   return {
-    selected,
-    setSelected,
     completeTarget,
     setCompleteTarget,
     reopenTarget,

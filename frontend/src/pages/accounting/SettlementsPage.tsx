@@ -2,7 +2,9 @@ import React, { useCallback, useMemo, useState } from 'react'
 
 import GenericListPage from '@/components/common/GenericListPage'
 import { useFilterBar } from '@/hooks/useFilterBar'
+import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
 import { useCreateSettlementMutation, useGetPendingSettlementSummaryQuery, useGetSettlementsQuery } from '@/store/api/accountingApi'
+import { selectSelectedSettlement } from '@/store/slices/accountingSlice'
 import type { FilterBarConfig, PeriodValue } from '@/types/filterBar.types'
 import { getPeriodDateRange, getStartOfWeek } from '@/utils/dateRange'
 
@@ -52,7 +54,9 @@ const SettlementsPage: React.FC = () => {
     return rows.filter((row) => [row.settlementNumber, row.reference, row.notes, row.paymentMethod?.name].filter(Boolean).join(' ').toLowerCase().includes(term))
   }, [appliedFilters.search, settlementsResponse?.data])
 
-  const workspace = useSettlementsWorkspace(settlements, () => { void refetch() })
+  const dispatch = useAppDispatch()
+  const selected = useAppSelector(selectSelectedSettlement)
+  const workspace = useSettlementsWorkspace(settlements, () => { void refetch() }, dispatch, selected)
 
   const filterHandlers = useMemo(() => ({
     ...handlers,
@@ -89,7 +93,7 @@ const SettlementsPage: React.FC = () => {
           settlements={settlements}
           loading={isLoading}
           total={settlements.length}
-          selectedId={workspace.selected?.id ?? null}
+          selectedId={selected?.id ?? null}
           focusedIndex={workspace.focusedIndex}
           onSelect={workspace.handleSelect}
           listRef={workspace.listRef}
@@ -97,11 +101,11 @@ const SettlementsPage: React.FC = () => {
       )}
       headerSlot={(
         <SettlementContextHeader
-          selected={workspace.selected}
-          onCancel={() => workspace.selected && workspace.setCancelTarget(workspace.selected)}
+          selected={selected}
+          onCancel={() => selected && workspace.setCancelTarget(selected)}
         />
       )}
-      workspaceSlot={<SettlementWorkspaceCard selected={workspace.selected} />}
+      workspaceSlot={<SettlementWorkspaceCard selected={selected} />}
       dialogs={(
         <SettlementsDialogs
           dialogOpen={workspace.dialogOpen}

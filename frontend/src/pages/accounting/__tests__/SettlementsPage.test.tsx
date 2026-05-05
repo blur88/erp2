@@ -1,8 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
-import { BrowserRouter } from 'react-router-dom'
+import { render, screen, waitFor } from '@testing-library/react'
+import { configureStore } from '@reduxjs/toolkit'
+import { Provider } from 'react-redux'
+import { MemoryRouter } from 'react-router-dom'
 
 import SettlementsPage from '../SettlementsPage'
+import accountingReducer, { selectSelectedSettlement } from '@/store/slices/accountingSlice'
 
 const mocked = vi.hoisted(() => ({
   showSuccess: vi.fn(),
@@ -33,6 +36,22 @@ vi.mock('@/utils/formatters', async () => {
 vi.mock('@/store/api/accountingApi', () => mocked)
 vi.mock('@/components/accounting/CreateSettlementDialog', () => ({ default: () => null }))
 
+function makeStore() {
+  return configureStore({ reducer: { accounting: accountingReducer } })
+}
+
+function renderPage(initialUrl = '/accounting/settlements') {
+  const store = makeStore()
+  const view = render(
+    <Provider store={store}>
+      <MemoryRouter initialEntries={[initialUrl]}>
+        <SettlementsPage />
+      </MemoryRouter>
+    </Provider>,
+  )
+  return { ...view, store }
+}
+
 describe('SettlementsPage', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -59,13 +78,21 @@ describe('SettlementsPage', () => {
   })
 
   it('renders title and settlement row', () => {
-    render(<BrowserRouter><SettlementsPage /></BrowserRouter>)
+    renderPage()
     expect(screen.getByText('Settlements')).toBeInTheDocument()
     expect(screen.getAllByText('SET-001')).toHaveLength(2)
   })
 
   it('renders create action', () => {
-    render(<BrowserRouter><SettlementsPage /></BrowserRouter>)
+    renderPage()
     expect(screen.getByRole('button', { name: 'Create Settlement' })).toBeInTheDocument()
+  })
+
+  it('auto-selects the settlement matching the ?highlight= URL param', async () => {
+    const { store } = renderPage('/accounting/settlements?highlight=s-1')
+
+    await waitFor(() => {
+      expect(selectSelectedSettlement(store.getState())?.id).toBe('s-1')
+    })
   })
 })

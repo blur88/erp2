@@ -1,8 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { BrowserRouter } from 'react-router-dom'
+import { configureStore } from '@reduxjs/toolkit'
+import { Provider } from 'react-redux'
+import { MemoryRouter } from 'react-router-dom'
 
 import JournalEntriesPage from '../JournalEntriesPage'
+import accountingReducer, { selectSelectedJournalEntry } from '@/store/slices/accountingSlice'
 import { JournalEntryStatus } from '@/types'
 
 vi.mock('@/hooks/useNotification', () => ({
@@ -60,6 +63,24 @@ const mockEntry = {
   updatedAt: '2026-01-01',
 }
 
+function makeStore() {
+  return configureStore({ reducer: { accounting: accountingReducer } })
+}
+
+function renderPage(initialUrl = '/accounting/journal-entries') {
+  const [pathname, search = ''] = initialUrl.split('?')
+  mockLocation = { pathname, search: search ? `?${search}` : '' }
+  const store = makeStore()
+  render(
+    <Provider store={store}>
+      <MemoryRouter initialEntries={[initialUrl]}>
+        <JournalEntriesPage />
+      </MemoryRouter>
+    </Provider>,
+  )
+  return { store }
+}
+
 describe('JournalEntriesPage', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -73,17 +94,17 @@ describe('JournalEntriesPage', () => {
   })
 
   it('renders the page title', () => {
-    render(<BrowserRouter><JournalEntriesPage /></BrowserRouter>)
+    renderPage()
     expect(screen.getByText('Journal Entries')).toBeInTheDocument()
   })
 
   it('renders journal entry rows', () => {
-    render(<BrowserRouter><JournalEntriesPage /></BrowserRouter>)
+    renderPage()
     expect(screen.getAllByText('JE-001').length).toBeGreaterThan(0)
   })
 
   it('clicking a row selects it instead of navigating', async () => {
-    render(<BrowserRouter><JournalEntriesPage /></BrowserRouter>)
+    renderPage()
     fireEvent.click(screen.getAllByText('JE-001')[0])
     await waitFor(() => {
       expect(screen.getByText('Journal Entry Details - JE-001')).toBeInTheDocument()
@@ -92,34 +113,46 @@ describe('JournalEntriesPage', () => {
   })
 
   it('does not render a New Journal Entry button', () => {
-    render(<BrowserRouter><JournalEntriesPage /></BrowserRouter>)
+    renderPage()
     expect(screen.queryByText(/new journal entry/i)).not.toBeInTheDocument()
   })
 
   it('does not render bulk action buttons', () => {
-    render(<BrowserRouter><JournalEntriesPage /></BrowserRouter>)
+    renderPage()
     expect(screen.queryByText(/post selected/i)).not.toBeInTheDocument()
     expect(screen.queryByText(/delete selected/i)).not.toBeInTheDocument()
   })
 
   it('shows Reset button when ?sourceId= URL param is present', () => {
-    mockLocation = { search: '?sourceType=sales_order&sourceId=so-1', pathname: '/accounting/journal-entries' }
-    render(<BrowserRouter><JournalEntriesPage /></BrowserRouter>)
+    renderPage('/accounting/journal-entries?sourceType=sales_order&sourceId=so-1')
     expect(screen.getByRole('button', { name: /reset/i })).toBeInTheDocument()
   })
 
   it('shows Reset button when ?ids= URL param is present', () => {
-    mockLocation = { search: '?ids=je-1,je-2', pathname: '/accounting/journal-entries' }
-    render(<BrowserRouter><JournalEntriesPage /></BrowserRouter>)
+    renderPage('/accounting/journal-entries?ids=je-1,je-2')
     expect(screen.getByRole('button', { name: /reset/i })).toBeInTheDocument()
   })
 
   it('navigates to clean URL when Reset is clicked with URL params active', async () => {
-    mockLocation = { search: '?ids=je-1,je-2', pathname: '/accounting/journal-entries' }
-    render(<BrowserRouter><JournalEntriesPage /></BrowserRouter>)
+    renderPage('/accounting/journal-entries?ids=je-1,je-2')
     fireEvent.click(screen.getByRole('button', { name: /reset/i }))
     await waitFor(() => {
       expect(mockNavigate).toHaveBeenCalledWith('/accounting/journal-entries', { replace: true })
+    })
+  })
+
+  it('auto-selects the entry matching the ?highlight= URL param', async () => {
+    mockedApi.useGetJournalEntriesQuery.mockReturnValue({
+      data: { data: [mockEntry], meta: { total: 1 } },
+      isLoading: false,
+      refetch: vi.fn(),
+    })
+    mockedApi.useLazyGetJournalEntryQuery.mockReturnValue([vi.fn().mockResolvedValue(mockEntry)])
+
+    const { store } = renderPage('/accounting/journal-entries?highlight=1')
+
+    await waitFor(() => {
+      expect(selectSelectedJournalEntry(store.getState())?.id).toBe('1')
     })
   })
 })

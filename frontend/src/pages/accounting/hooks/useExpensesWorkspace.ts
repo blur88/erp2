@@ -3,17 +3,23 @@ import { useNavigate } from 'react-router-dom'
 
 import { useEntityWorkspace } from '@/hooks/useEntityWorkspace'
 import { useNotification } from '@/hooks/useNotification'
+import type { AppDispatch } from '@/store'
 import {
   useDeleteExpenseMutation,
   usePostExpenseMutation,
 } from '@/store/api/accountingApi'
+import { setSelectedExpense } from '@/store/slices/accountingSlice'
 import type { ExpenseRecord } from '@/types'
 import { getErrorMessage } from '@/utils/errorMessage'
 
-export function useExpensesWorkspace(refetch: () => void, expenses: ExpenseRecord[] = []) {
+export function useExpensesWorkspace(
+  refetch: () => void,
+  expenses: ExpenseRecord[] = [],
+  dispatch: AppDispatch,
+  selected: ExpenseRecord | null,
+) {
   const navigate = useNavigate()
   const { showSuccess, showError } = useNotification()
-  const [selected, setSelected] = useState<ExpenseRecord | null>(null)
   const [postTarget, setPostTarget] = useState<ExpenseRecord | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<ExpenseRecord | null>(null)
   const [actionLoading, setActionLoading] = useState(false)
@@ -26,9 +32,10 @@ export function useExpensesWorkspace(refetch: () => void, expenses: ExpenseRecor
   const workspace = useEntityWorkspace<ExpenseRecord>({
     entities: expenses,
     selectedEntity: selected,
-    selectEntity: setSelected,
+    selectEntity: (entity) => dispatch(setSelectedExpense(entity)),
     refetch,
     navigate,
+    highlightParam: 'highlight',
     routes: {
       create: '/accounting/expenses',
       edit: () => '/accounting/expenses',
@@ -41,7 +48,7 @@ export function useExpensesWorkspace(refetch: () => void, expenses: ExpenseRecor
       if (selected) setFormOpen(true)
     },
     onEscape: () => {
-      setSelected(null)
+      dispatch(setSelectedExpense(null))
       setPostTarget(null)
       setDeleteTarget(null)
     },
@@ -54,7 +61,7 @@ export function useExpensesWorkspace(refetch: () => void, expenses: ExpenseRecor
       await postExpense(postTarget.id).unwrap()
       showSuccess(`Expense ${postTarget.referenceNumber} posted`)
       setPostTarget(null)
-      setSelected(null)
+      dispatch(setSelectedExpense(null))
       refetch()
     }
     catch (error: unknown) {
@@ -63,7 +70,7 @@ export function useExpensesWorkspace(refetch: () => void, expenses: ExpenseRecor
     finally {
       setActionLoading(false)
     }
-  }, [postTarget, postExpense, showSuccess, showError, refetch])
+  }, [postTarget, postExpense, showSuccess, showError, refetch, dispatch])
 
   const handleConfirmDelete = useCallback(async () => {
     if (!deleteTarget) return
@@ -72,7 +79,7 @@ export function useExpensesWorkspace(refetch: () => void, expenses: ExpenseRecor
       await deleteExpense(deleteTarget.id).unwrap()
       showSuccess(`Expense ${deleteTarget.referenceNumber} deleted`)
       setDeleteTarget(null)
-      setSelected(null)
+      dispatch(setSelectedExpense(null))
       refetch()
     }
     catch (error: unknown) {
@@ -81,11 +88,9 @@ export function useExpensesWorkspace(refetch: () => void, expenses: ExpenseRecor
     finally {
       setActionLoading(false)
     }
-  }, [deleteTarget, deleteExpense, showSuccess, showError, refetch])
+  }, [deleteTarget, deleteExpense, showSuccess, showError, refetch, dispatch])
 
   return {
-    selected,
-    setSelected,
     focusedIndex: workspace.focusedIndex,
     listRef: workspace.listRef,
     searchInputRef: workspace.searchInputRef,

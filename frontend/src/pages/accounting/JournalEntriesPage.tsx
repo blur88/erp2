@@ -4,7 +4,9 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import AccountMappingWarning from '@/components/accounting/AccountMappingWarning'
 import GenericListPage from '@/components/common/GenericListPage'
 import { useFilterBar } from '@/hooks/useFilterBar'
+import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
 import { useGetJournalEntriesQuery } from '@/store/api/accountingApi'
+import { selectSelectedJournalEntry } from '@/store/slices/accountingSlice'
 import type { FilterBarConfig, PeriodValue } from '@/types/filterBar.types'
 import { getPeriodDateRange, getStartOfWeek } from '@/utils/dateRange'
 
@@ -78,7 +80,9 @@ export const JournalEntriesPage: React.FC = () => {
   const entries = data?.data ?? []
   const pagination = data?.meta
 
-  const workspace = useJournalEntriesWorkspace({ entries, refetch })
+  const dispatch = useAppDispatch()
+  const selectedEntry = useAppSelector(selectSelectedJournalEntry)
+  const workspace = useJournalEntriesWorkspace({ entries, refetch, dispatch, selectedEntry })
 
   const handleClearAll = useCallback(() => {
     handlers.onClearAll()
@@ -120,7 +124,7 @@ export const JournalEntriesPage: React.FC = () => {
             entries={entries}
             loading={isLoading}
             total={pagination?.total ?? 0}
-            selectedEntryId={workspace.selectedEntry?.id ?? null}
+            selectedEntryId={selectedEntry?.id ?? null}
             focusedIndex={workspace.focusedIndex}
             onSelect={workspace.handleSelect}
             listRef={workspace.listRef}
@@ -128,10 +132,10 @@ export const JournalEntriesPage: React.FC = () => {
         )}
         headerSlot={(
           <JournalEntryContextHeader
-            selectedEntry={workspace.selectedEntry}
+            selectedEntry={selectedEntry}
           />
         )}
-        workspaceSlot={<JournalEntryWorkspaceCard selectedEntry={workspace.selectedEntry} />}
+        workspaceSlot={<JournalEntryWorkspaceCard selectedEntry={selectedEntry} />}
       />
     </>
   )

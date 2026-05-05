@@ -2,8 +2,9 @@ import React, { useMemo, useState } from 'react'
 
 import GenericListPage from '@/components/common/GenericListPage'
 import { useFilterBar } from '@/hooks/useFilterBar'
-import { useAppSelector } from '@/hooks/useRedux'
+import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
 import { useCreateFundTransferMutation, useGetChartOfAccountsQuery, useGetFundTransfersQuery } from '@/store/api/accountingApi'
+import { selectSelectedFundTransfer } from '@/store/slices/accountingSlice'
 import { selectCurrentUser } from '@/store/slices/authSlice'
 import type { ChartOfAccount } from '@/types'
 import type { FilterBarConfig, PeriodValue } from '@/types/filterBar.types'
@@ -44,6 +45,8 @@ const defaultForm: FormState = { sourceAccountId: '', destinationAccountId: '', 
 
 const FundTransfersPage: React.FC = () => {
   const currentUser = useAppSelector(selectCurrentUser)
+  const dispatch = useAppDispatch()
+  const selected = useAppSelector(selectSelectedFundTransfer)
   const canManageTransfers = currentUser?.role === 'admin' || currentUser?.role === 'manager'
   const [dialogOpen, setDialogOpen] = useState(false)
   const [form, setForm] = useState<FormState>(defaultForm)
@@ -75,7 +78,7 @@ const FundTransfersPage: React.FC = () => {
     if (!term) return rows
     return rows.filter((row) => [row.referenceNumber, row.description, row.sourceAccount.name, row.destinationAccount.name].filter(Boolean).join(' ').toLowerCase().includes(term))
   }, [appliedFilters.search, data?.data])
-  const workspace = useFundTransfersWorkspace(() => { void refetch() }, transfers)
+  const workspace = useFundTransfersWorkspace(() => { void refetch() }, transfers, dispatch, selected)
 
   const resetForm = () => { setDialogOpen(false); setForm(defaultForm) }
 
@@ -97,9 +100,9 @@ const FundTransfersPage: React.FC = () => {
       hasActiveFilters={hasActiveFilters}
       searchInputRef={workspace.searchInputRef}
       sort={{ field: 'transferDate', sortBy: 'transferDate', sortOrder: 'desc', onSort: () => {} }}
-      listSlot={<FundTransfersList transfers={transfers} loading={isLoading} selectedId={workspace.selected?.id ?? null} focusedIndex={workspace.focusedIndex} onSelect={workspace.handleSelect} listRef={workspace.listRef} />}
-      headerSlot={<FundTransferContextHeader selected={workspace.selected} onCancel={() => workspace.selected && workspace.setCancelTarget(workspace.selected)} canManageTransfers={canManageTransfers} />}
-      workspaceSlot={<FundTransferWorkspaceCard selected={workspace.selected} />}
+      listSlot={<FundTransfersList transfers={transfers} loading={isLoading} selectedId={selected?.id ?? null} focusedIndex={workspace.focusedIndex} onSelect={workspace.handleSelect} listRef={workspace.listRef} />}
+      headerSlot={<FundTransferContextHeader selected={selected} onCancel={() => selected && workspace.setCancelTarget(selected)} canManageTransfers={canManageTransfers} />}
+      workspaceSlot={<FundTransferWorkspaceCard selected={selected} />}
       dialogs={<FundTransfersDialogs dialogOpen={dialogOpen} canManageTransfers={canManageTransfers} creating={creating} form={form} cashAccounts={cashAccounts} availableDestinations={availableDestinations} onCloseDialog={resetForm} onFormChange={(field, value) => setForm((current) => ({ ...current, [field]: value, ...(field === 'sourceAccountId' && value === current.destinationAccountId ? { destinationAccountId: '' } : {}) }))} onCreate={() => void handleCreate()} cancelTarget={workspace.cancelTarget} cancelling={workspace.cancelling} onConfirmCancel={() => void workspace.handleConfirmCancel()} onCancelCancel={() => workspace.setCancelTarget(null)} />}
     />
   )

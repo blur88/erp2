@@ -1,8 +1,11 @@
-import { fireEvent, render, screen, within } from '@testing-library/react'
-import { BrowserRouter } from 'react-router-dom'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { configureStore } from '@reduxjs/toolkit'
+import { Provider } from 'react-redux'
+import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import ExpensesPage from '../ExpensesPage'
+import accountingReducer, { selectSelectedExpense } from '@/store/slices/accountingSlice'
 
 vi.mock('@/hooks/useNotification', () => ({
   useNotification: () => ({
@@ -57,12 +60,21 @@ const expense1 = {
   updatedAt: '2026-02-15',
 }
 
-const renderPage = () =>
-  render(
-    <BrowserRouter>
-      <ExpensesPage />
-    </BrowserRouter>,
+function makeStore() {
+  return configureStore({ reducer: { accounting: accountingReducer } })
+}
+
+const renderPage = (initialUrl = '/accounting/expenses') => {
+  const store = makeStore()
+  const view = render(
+    <Provider store={store}>
+      <MemoryRouter initialEntries={[initialUrl]}>
+        <ExpensesPage />
+      </MemoryRouter>
+    </Provider>,
   )
+  return { ...view, store }
+}
 
 describe('ExpensesPage', () => {
   beforeEach(() => {
@@ -140,5 +152,19 @@ describe('ExpensesPage', () => {
     const tableBody = container.querySelector('tbody')!
     fireEvent.click(within(tableBody).getByText('EXP-001'))
     expect(screen.getByText('Printer paper and ink')).toBeInTheDocument()
+  })
+
+  it('auto-selects the expense matching the ?highlight= URL param', async () => {
+    mockedApi.useGetExpensesQuery.mockReturnValue({
+      data: { data: [expense1], meta: { total: 1 } },
+      isLoading: false,
+      refetch: vi.fn(),
+    })
+
+    const { store } = renderPage('/accounting/expenses?highlight=ex-1')
+
+    await waitFor(() => {
+      expect(selectSelectedExpense(store.getState())?.id).toBe('ex-1')
+    })
   })
 })

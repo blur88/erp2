@@ -2,7 +2,10 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { BrowserRouter, MemoryRouter, Route, Routes } from 'react-router-dom'
+import { configureStore } from '@reduxjs/toolkit'
+import { Provider } from 'react-redux'
 import { JournalEntryStatus } from '@/types'
+import accountingReducer from '@/store/slices/accountingSlice'
 
 const mockedApi = vi.hoisted(() => ({
   useGetAccountMappingsQuery: vi.fn(),
@@ -67,12 +70,15 @@ const renderWithRouter = (component: React.ReactElement) => {
 }
 
 const renderJournalEntriesPage = (initialEntryUrl = '/accounting/journal-entries') => {
+  const store = configureStore({ reducer: { accounting: accountingReducer } })
   return render(
-    <MemoryRouter initialEntries={[initialEntryUrl]}>
-      <Routes>
-        <Route path="*" element={<JournalEntriesPage />} />
-      </Routes>
-    </MemoryRouter>,
+    <Provider store={store}>
+      <MemoryRouter initialEntries={[initialEntryUrl]}>
+        <Routes>
+          <Route path="*" element={<JournalEntriesPage />} />
+        </Routes>
+      </MemoryRouter>
+    </Provider>,
   )
 }
 
@@ -125,7 +131,7 @@ describe('Accounting Auto-Posting Integration Tests', () => {
       error: undefined,
       refetch: mockRefetch,
     })
-    mockedApi.useLazyGetJournalEntryQuery.mockReturnValue([vi.fn().mockResolvedValue({})])
+    mockedApi.useLazyGetJournalEntryQuery.mockReturnValue([vi.fn(() => ({ unwrap: vi.fn().mockResolvedValue({}) }))])
   })
 
   describe('End-to-End User Flow: Configuring Account Mappings', () => {
@@ -308,19 +314,21 @@ describe('Accounting Auto-Posting Integration Tests', () => {
       const user = createUser()
 
       mockedApi.useLazyGetJournalEntryQuery.mockReturnValue([
-        vi.fn().mockResolvedValue({
-          id: 'je-2',
-          referenceNumber: 'JE-2026-002',
-          entryDate: '2026-02-02',
-          description: 'Sales order SO-123 fulfillment',
-          sourceType: 'sales_order',
-          sourceId: 'so-123',
-          sourceRefNumber: 'SO-0123',
-          status: JournalEntryStatus.POSTED,
-          totalDebits: 5000,
-          totalCredits: 5000,
-          lines: [],
-        }),
+        vi.fn(() => ({
+          unwrap: vi.fn().mockResolvedValue({
+            id: 'je-2',
+            referenceNumber: 'JE-2026-002',
+            entryDate: '2026-02-02',
+            description: 'Sales order SO-123 fulfillment',
+            sourceType: 'sales_order',
+            sourceId: 'so-123',
+            sourceRefNumber: 'SO-0123',
+            status: JournalEntryStatus.POSTED,
+            totalDebits: 5000,
+            totalCredits: 5000,
+            lines: [],
+          }),
+        })),
       ])
 
       renderJournalEntriesPage()
