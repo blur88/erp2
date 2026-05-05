@@ -3,7 +3,9 @@ import React, { useMemo } from 'react'
 import AccountMappingWarning from '@/components/accounting/AccountMappingWarning'
 import GenericListPage from '@/components/common/GenericListPage'
 import { useFilterBar } from '@/hooks/useFilterBar'
+import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
 import { useGetFiscalPeriodsQuery } from '@/store/api/accountingApi'
+import { selectSelectedFiscalPeriod, setSelectedFiscalPeriod } from '@/store/slices/accountingSlice'
 import { FiscalPeriodStatus } from '@/types'
 import type { FilterBarConfig } from '@/types/filterBar.types'
 
@@ -26,9 +28,21 @@ const filterConfig: FilterBarConfig<FiscalPeriodFilters> = {
 
 const FiscalPeriodsPage: React.FC = () => {
   const { appliedFilters, draftFilters, handlers, hasActiveFilters } = useFilterBar(filterConfig)
-  const { data: periodsResponse, isLoading, refetch } = useGetFiscalPeriodsQuery({ page: 1, sortBy: 'startDate', sortOrder: 'DESC', status: appliedFilters.status ? appliedFilters.status.toUpperCase() as FiscalPeriodStatus : undefined, search: appliedFilters.search || undefined })
+
+  const queryParams = useMemo(() => ({
+    page: 1,
+    sortBy: 'startDate',
+    sortOrder: 'DESC' as const,
+    status: appliedFilters.status ? appliedFilters.status.toUpperCase() as FiscalPeriodStatus : undefined,
+    search: appliedFilters.search || undefined,
+  }), [appliedFilters.search, appliedFilters.status])
+
+  const { data: periodsResponse, isLoading, refetch } = useGetFiscalPeriodsQuery(queryParams)
   const periods = periodsResponse?.data ?? []
-  const workspace = useFiscalPeriodsWorkspace(() => { void refetch() })
+
+  const dispatch = useAppDispatch()
+  const selected = useAppSelector(selectSelectedFiscalPeriod)
+  const workspace = useFiscalPeriodsWorkspace(() => { void refetch() }, periods, dispatch, selected)
 
   return (
     <>
@@ -36,7 +50,7 @@ const FiscalPeriodsPage: React.FC = () => {
       <GenericListPage
         title="Fiscal Periods"
         subtitle="Manage accounting periods and year boundaries"
-        primaryAction={{ label: 'Add Period', onClick: () => { workspace.setSelected(null); workspace.setFormDialogOpen(true) } }}
+        primaryAction={{ label: 'Add Period', onClick: () => { dispatch(setSelectedFiscalPeriod(null)); workspace.setFormDialogOpen(true) } }}
         secondaryAction={{ label: 'Generate Periods', onClick: () => workspace.setGenerateDialogOpen(true) }}
         filterConfig={filterConfig}
         draftFilters={draftFilters}
@@ -44,10 +58,47 @@ const FiscalPeriodsPage: React.FC = () => {
         hasActiveFilters={hasActiveFilters}
         searchInputRef={workspace.searchInputRef}
         sort={{ field: 'startDate', sortBy: 'startDate', sortOrder: 'desc', onSort: () => {} }}
-        listSlot={<FiscalPeriodsTable periods={periods} loading={isLoading} selectedId={workspace.selected?.id ?? null} onSelect={workspace.setSelected} listRef={workspace.listRef} />}
-        headerSlot={<FiscalPeriodContextHeader selected={workspace.selected} onClose={() => workspace.selected && workspace.setCloseTarget(workspace.selected)} onReopen={() => workspace.selected && workspace.setReopenTarget(workspace.selected)} onEdit={() => workspace.setFormDialogOpen(true)} onDelete={() => workspace.selected && workspace.setDeleteTarget(workspace.selected)} />}
-        workspaceSlot={<FiscalPeriodWorkspaceCard selected={workspace.selected} />}
-        dialogs={<FiscalPeriodsDialogs formDialogOpen={workspace.formDialogOpen} selected={workspace.selected} onCloseForm={() => workspace.setFormDialogOpen(false)} onFormSuccess={() => { workspace.setFormDialogOpen(false); void refetch() }} generateDialogOpen={workspace.generateDialogOpen} onCloseGenerate={() => workspace.setGenerateDialogOpen(false)} onGenerate={workspace.handleGenerate} deleteTarget={workspace.deleteTarget} closeTarget={workspace.closeTarget} reopenTarget={workspace.reopenTarget} onConfirmDelete={() => void workspace.handleDelete()} onConfirmClose={() => void workspace.handleClose()} onConfirmReopen={() => void workspace.handleReopen()} onCancelDelete={() => workspace.setDeleteTarget(null)} onCancelClose={() => workspace.setCloseTarget(null)} onCancelReopen={() => workspace.setReopenTarget(null)} />}
+        listSlot={(
+          <FiscalPeriodsTable
+            periods={periods}
+            loading={isLoading}
+            total={periodsResponse?.meta?.total ?? periods.length}
+            selectedId={selected?.id ?? null}
+            focusedIndex={workspace.focusedIndex}
+            onSelect={workspace.handleSelect}
+            listRef={workspace.listRef}
+          />
+        )}
+        headerSlot={(
+          <FiscalPeriodContextHeader
+            selected={selected}
+            onClose={() => selected && workspace.setCloseTarget(selected)}
+            onReopen={() => selected && workspace.setReopenTarget(selected)}
+            onEdit={() => workspace.setFormDialogOpen(true)}
+            onDelete={() => selected && workspace.setDeleteTarget(selected)}
+          />
+        )}
+        workspaceSlot={<FiscalPeriodWorkspaceCard selected={selected} />}
+        dialogs={(
+          <FiscalPeriodsDialogs
+            formDialogOpen={workspace.formDialogOpen}
+            selected={selected}
+            onCloseForm={() => workspace.setFormDialogOpen(false)}
+            onFormSuccess={() => { workspace.setFormDialogOpen(false); void refetch() }}
+            generateDialogOpen={workspace.generateDialogOpen}
+            onCloseGenerate={() => workspace.setGenerateDialogOpen(false)}
+            onGenerate={workspace.handleGenerate}
+            deleteTarget={workspace.deleteTarget}
+            closeTarget={workspace.closeTarget}
+            reopenTarget={workspace.reopenTarget}
+            onConfirmDelete={() => void workspace.handleDelete()}
+            onConfirmClose={() => void workspace.handleClose()}
+            onConfirmReopen={() => void workspace.handleReopen()}
+            onCancelDelete={() => workspace.setDeleteTarget(null)}
+            onCancelClose={() => workspace.setCloseTarget(null)}
+            onCancelReopen={() => workspace.setReopenTarget(null)}
+          />
+        )}
       />
     </>
   )
