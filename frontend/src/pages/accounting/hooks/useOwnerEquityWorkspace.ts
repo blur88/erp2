@@ -41,8 +41,6 @@ export function useOwnerEquityWorkspace(
       create: '/accounting/owner-equity',
       edit: () => '/accounting/owner-equity',
     },
-    notifications: { showSuccess: () => {}, showError: () => {} },
-    deleteMutation: async () => {},
     onEnter: () => {
       if (selected) setDialogOpen(true)
     },

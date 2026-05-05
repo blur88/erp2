@@ -87,8 +87,6 @@ export function usePaymentsWorkspace({
       create: '/sales/payments/create',
       edit: (id) => `/sales/payments/${id}/edit`,
     },
-    notifications: { showSuccess: () => {}, showError: () => {} },
-    deleteMutation: async () => {},
     onEnter: () => {},
   })
   const { focusedIndex } = workspace

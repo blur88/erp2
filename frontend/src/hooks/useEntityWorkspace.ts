@@ -15,11 +15,11 @@ export interface UseEntityWorkspaceConfig<T extends { id: string }> {
     create: string
     edit: (id: string) => string
   }
-  notifications: {
+  notifications?: {
     showSuccess: (message: string) => void
     showError: (message: string) => void
   }
-  deleteMutation: (id: string) => Promise<void>
+  deleteMutation?: (id: string) => Promise<void>
   onEnter?: () => void
   onEscape?: () => void
   highlightParam?: string
@@ -298,17 +298,20 @@ export function useEntityWorkspace<T extends { id: string }>(
     if (!selectedEntity) {
       return
     }
+    if (!deleteMutation) {
+      return
+    }
 
     try {
       await deleteMutation(selectedEntity.id)
-      notifications.showSuccess('Deleted successfully')
+      notifications?.showSuccess('Deleted successfully')
       selectEntity(null)
       setFocusedIndex(-1)
       setDeleteConfirmOpen(false)
       refetch()
     } catch (error: any) {
       const message = error?.data?.message || error?.message || 'An unexpected error occurred.'
-      notifications.showError(message)
+      notifications?.showError(message)
     }
   }, [deleteMutation, notifications, refetch, selectEntity, selectedEntity])
 

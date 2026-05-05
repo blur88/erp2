@@ -89,8 +89,6 @@ export function useOrdersWorkspace({
       create: '/sales/orders/create',
       edit: (id) => `/sales/orders/${id}/edit`,
     },
-    notifications: { showSuccess: () => {}, showError: () => {} },
-    deleteMutation: async () => {},
     isLoading: ordersLoading,
     onEnter: () => {
       if (workspaceRef.current?.focusedIndex != null && workspaceRef.current.focusedIndex >= 0) {

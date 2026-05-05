@@ -31,8 +31,6 @@ export function useSettlementsWorkspace(
       create: '/accounting/settlements',
       edit: () => '/accounting/settlements',
     },
-    notifications: { showSuccess: () => {}, showError: () => {} },
-    deleteMutation: async () => {},
     onEnter: () => {},
     onEscape: () => {
       dispatch(setSelectedSettlement(null))

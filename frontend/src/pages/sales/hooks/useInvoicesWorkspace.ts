@@ -72,11 +72,6 @@ export function useInvoicesWorkspace({
       create: '/sales/invoices/create',
       edit: (id) => `/sales/invoices/${id}/edit`,
     },
-    notifications: {
-      showSuccess: () => {},
-      showError: () => {},
-    },
-    deleteMutation: async () => {},
     onEnter: () => {},
     onEscape: () => {
       workspaceRef.current?.setFocusedIndex(-1)
