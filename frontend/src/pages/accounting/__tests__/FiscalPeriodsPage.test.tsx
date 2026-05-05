@@ -15,15 +15,48 @@ const mockedApi = vi.hoisted(() => ({
   useUpdateFiscalPeriodMutation: vi.fn(),
 }))
 
+const mockDispatch = vi.fn()
+
 vi.mock('@/store/api/accountingApi', () => mockedApi)
 vi.mock('@/hooks/useNotification', () => ({ useNotification: () => ({ showSuccess: vi.fn(), showError: vi.fn() }) }))
 vi.mock('@/components/accounting/AccountMappingWarning', () => ({ default: () => null }))
 vi.mock('@/utils/formatters', async () => await vi.importActual('@/utils/formatters'))
+vi.mock('@/hooks/useRedux', () => ({
+  useAppDispatch: () => mockDispatch,
+  useAppSelector: () => null,
+}))
+vi.mock('@/hooks/useEntityWorkspace', () => ({
+  useEntityWorkspace: () => ({
+    focusedIndex: -1,
+    listRef: { current: null },
+    searchInputRef: { current: null },
+    handleSelect: vi.fn(),
+  }),
+}))
 
 describe('FiscalPeriodsPage', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    mockedApi.useGetFiscalPeriodsQuery.mockReturnValue({ data: { data: [{ id: '1', code: '2026-01', name: 'January 2026', startDate: '2026-01-01T00:00:00Z', endDate: '2026-01-31T00:00:00Z', status: FiscalPeriodStatus.OPEN, isOpen: true, isClosed: false, durationDays: 31, createdAt: '2026-01-01T00:00:00Z', updatedAt: '2026-01-01T00:00:00Z' }] }, isLoading: false, refetch: vi.fn() })
+    mockedApi.useGetFiscalPeriodsQuery.mockReturnValue({
+      data: {
+        data: [{
+          id: '1',
+          code: '2026-01',
+          name: 'January 2026',
+          startDate: '2026-01-01T00:00:00Z',
+          endDate: '2026-01-31T00:00:00Z',
+          status: FiscalPeriodStatus.OPEN,
+          isOpen: true,
+          isClosed: false,
+          durationDays: 31,
+          createdAt: '2026-01-01T00:00:00Z',
+          updatedAt: '2026-01-01T00:00:00Z',
+        }],
+        meta: { total: 1 },
+      },
+      isLoading: false,
+      refetch: vi.fn(),
+    })
     mockedApi.useDeleteFiscalPeriodMutation.mockReturnValue([vi.fn()])
     mockedApi.useCloseFiscalPeriodMutation.mockReturnValue([vi.fn()])
     mockedApi.useReopenFiscalPeriodMutation.mockReturnValue([vi.fn()])
