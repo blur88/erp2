@@ -5,7 +5,7 @@ import { useEntityWorkspace } from '@/hooks/useEntityWorkspace'
 import type { AppDispatch } from '@/store'
 import { useLazyGetJournalEntryQuery } from '@/store/api/accountingApi'
 import { setSelectedJournalEntry } from '@/store/slices/accountingSlice'
-import { JournalEntry } from '@/types'
+import type { JournalEntry } from '@/types'
 
 interface UseJournalEntriesWorkspaceConfig {
   entries: JournalEntry[]
@@ -29,8 +29,6 @@ export function useJournalEntriesWorkspace({ entries, refetch, dispatch, selecte
       create: '/accounting/journal-entries',
       edit: () => '/accounting/journal-entries',
     },
-    notifications: { showSuccess: () => {}, showError: () => {} },
-    deleteMutation: async () => {},
     onEnter: () => {},
     onEscape: () => {
       dispatch(setSelectedJournalEntry(null))
