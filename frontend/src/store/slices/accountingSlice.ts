@@ -5,6 +5,7 @@ import type {
   BankReconciliation,
   ChartOfAccount,
   ExpenseRecord,
+  FiscalPeriod,
   FundTransfer,
   JournalEntry,
   OwnerEquityTransaction,
@@ -15,6 +16,7 @@ interface AccountingState {
   selectedAccount: ChartOfAccount | null
   selectedJournalEntry: JournalEntry | null
   selectedExpense: ExpenseRecord | null
+  selectedFiscalPeriod: FiscalPeriod | null
   selectedFundTransfer: FundTransfer | null
   selectedOwnerEquityTransaction: OwnerEquityTransaction | null
   selectedBankReconciliation: BankReconciliation | null
@@ -25,6 +27,7 @@ const initialState: AccountingState = {
   selectedAccount: null,
   selectedJournalEntry: null,
   selectedExpense: null,
+  selectedFiscalPeriod: null,
   selectedFundTransfer: null,
   selectedOwnerEquityTransaction: null,
   selectedBankReconciliation: null,
@@ -43,6 +46,9 @@ const accountingSlice = createSlice({
     },
     setSelectedExpense: (state, action: PayloadAction<ExpenseRecord | null>) => {
       state.selectedExpense = action.payload
+    },
+    setSelectedFiscalPeriod: (state, action: PayloadAction<FiscalPeriod | null>) => {
+      state.selectedFiscalPeriod = action.payload
     },
     setSelectedFundTransfer: (state, action: PayloadAction<FundTransfer | null>) => {
       state.selectedFundTransfer = action.payload
@@ -63,6 +69,7 @@ export const {
   setSelectedAccount,
   setSelectedJournalEntry,
   setSelectedExpense,
+  setSelectedFiscalPeriod,
   setSelectedFundTransfer,
   setSelectedOwnerEquityTransaction,
   setSelectedBankReconciliation,
@@ -72,6 +79,7 @@ export const {
 export const selectSelectedAccount = (state: RootState) => state.accounting.selectedAccount
 export const selectSelectedJournalEntry = (state: RootState) => state.accounting.selectedJournalEntry
 export const selectSelectedExpense = (state: RootState) => state.accounting.selectedExpense
+export const selectSelectedFiscalPeriod = (state: RootState) => state.accounting.selectedFiscalPeriod
 export const selectSelectedFundTransfer = (state: RootState) => state.accounting.selectedFundTransfer
 export const selectSelectedOwnerEquityTransaction = (state: RootState) => state.accounting.selectedOwnerEquityTransaction
 export const selectSelectedBankReconciliation = (state: RootState) => state.accounting.selectedBankReconciliation
