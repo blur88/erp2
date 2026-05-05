@@ -41,9 +41,6 @@ export function useExpensesWorkspace(
       edit: () => '/accounting/expenses',
     },
     notifications: { showSuccess, showError },
-    deleteMutation: async (id) => {
-      await deleteExpense(id).unwrap()
-    },
     onEnter: () => {
       if (selected) setFormOpen(true)
     },
