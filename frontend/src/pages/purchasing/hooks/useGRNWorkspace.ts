@@ -39,8 +39,6 @@ export function useGRNWorkspace({
       create: '/purchasing/grn/create',
       edit: (id) => `/purchasing/grn/${id}/edit`,
     },
-    notifications: { showSuccess: () => {}, showError: () => {} },
-    deleteMutation: async () => {},
   })
 
   const grnSources = useMemo(

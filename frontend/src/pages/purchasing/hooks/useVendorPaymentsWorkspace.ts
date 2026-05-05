@@ -37,8 +37,6 @@ export function useVendorPaymentsWorkspace({
       create: '/purchasing/vendor-payments/create',
       edit: (id) => `/purchasing/vendor-payments/${id}/edit`,
     },
-    notifications: { showSuccess: () => {}, showError: () => {} },
-    deleteMutation: async () => {},
   })
 
   const vpSources = useMemo(
