@@ -18,7 +18,7 @@ function getShortHash(commit) {
 async function getAngularWriterTransform() {
   if (!angularWriterTransformPromise) {
     angularWriterTransformPromise = import('conventional-changelog-angular').then(async module => {
-      const presetExport = await (module.default || module['module.exports'] || module);
+      const presetExport = await (module.default ?? module);
       const preset = typeof presetExport === 'function' ? await presetExport() : presetExport;
 
       return (preset.writer || preset.writerOpts).transform;
