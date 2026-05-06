@@ -1,6 +1,5 @@
 import {
   Box,
-  Chip,
   Paper,
   Skeleton,
   Table,
@@ -69,13 +68,8 @@ function SubAccountsTable({ accounts }: { accounts: ChartOfAccount[] }) {
           <TableRow key={child.id} sx={index % 2 === 1 ? { backgroundColor: 'grey.50' } : {}}>
             <TableCell sx={tdSx}>{child.code}</TableCell>
             <TableCell sx={tdSx}>{child.name}</TableCell>
-            <TableCell sx={{ ...tdSx }}>
-              <Chip
-                size="small"
-                label={child.type.charAt(0) + child.type.slice(1).toLowerCase()}
-                color={ACCOUNT_TYPE_COLORS[child.type]}
-                variant="outlined"
-              />
+            <TableCell sx={{ ...tdSx, color: `${ACCOUNT_TYPE_COLORS[child.type]}.main` }}>
+              {child.type.charAt(0) + child.type.slice(1).toLowerCase()}
             </TableCell>
           </TableRow>
         ))}

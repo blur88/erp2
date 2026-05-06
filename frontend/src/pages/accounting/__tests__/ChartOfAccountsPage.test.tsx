@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { BrowserRouter } from 'react-router-dom'
 import { configureStore } from '@reduxjs/toolkit'
@@ -81,6 +81,18 @@ function getRenderedAccountCodes() {
   return Array.from(document.querySelectorAll('tr[data-index] td:first-child')).map((cell) =>
     cell.textContent?.trim() ?? '',
   )
+}
+
+function getDetailValueCell(label: string) {
+  const row = Array.from(document.querySelectorAll('tr')).find((tableRow) =>
+    tableRow.children[0]?.textContent?.trim() === label,
+  )
+
+  if (!row) {
+    throw new Error(`Detail row "${label}" was not rendered`)
+  }
+
+  return row.children[1] as HTMLElement
 }
 
 describe('ChartOfAccountsPage', () => {
@@ -188,5 +200,39 @@ describe('ChartOfAccountsPage', () => {
     await user.click(screen.getByRole('button', { name: /sort/i }))
 
     expect(getRenderedAccountCodes()).toEqual(['2000', '1000'])
+  })
+
+  it('renders selected account type and status values as plain text instead of chips', async () => {
+    const parent = {
+      ...mockAccount,
+      id: '1',
+      code: '1000',
+      name: 'Cash',
+      children: [{ ...mockLiabilityAccount, id: '2', code: '2010', name: 'Trade Payables', children: [] }],
+    }
+    setup([parent])
+    const user = userEvent.setup()
+
+    renderPage()
+
+    const accountRow = document.querySelector('tr[data-index="0"]')
+    expect(accountRow).not.toBeNull()
+    await user.click(accountRow as HTMLElement)
+
+    const accountTypeCell = getDetailValueCell('Account Type')
+    expect(accountTypeCell).toHaveTextContent('Asset')
+    expect(accountTypeCell.querySelector('.MuiChip-root')).not.toBeInTheDocument()
+
+    const statusCell = getDetailValueCell('Status')
+    expect(statusCell).toHaveTextContent('Active')
+    expect(statusCell.querySelector('.MuiChip-root')).not.toBeInTheDocument()
+
+    const subAccountsSection = screen.getByText('Sub-Accounts').closest('.MuiPaper-root')
+    expect(subAccountsSection).not.toBeNull()
+    const childRow = within(subAccountsSection as HTMLElement).getByText('2010').closest('tr')
+    expect(childRow).not.toBeNull()
+    const childTypeCell = (childRow as HTMLTableRowElement).children[2] as HTMLElement
+    expect(childTypeCell).toHaveTextContent('Liability')
+    expect(childTypeCell.querySelector('.MuiChip-root')).not.toBeInTheDocument()
   })
 })
