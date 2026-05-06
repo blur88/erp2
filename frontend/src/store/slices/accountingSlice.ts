@@ -1,6 +1,7 @@
 import { createSlice, type PayloadAction } from '@reduxjs/toolkit'
 
 import type { RootState } from '@/store'
+import type { AccountMapping } from '@/types/accountMapping'
 import type {
   BankReconciliation,
   ChartOfAccount,
@@ -21,6 +22,7 @@ interface AccountingState {
   selectedOwnerEquityTransaction: OwnerEquityTransaction | null
   selectedBankReconciliation: BankReconciliation | null
   selectedSettlement: Settlement | null
+  selectedAccountMapping: AccountMapping | null
 }
 
 const initialState: AccountingState = {
@@ -32,6 +34,7 @@ const initialState: AccountingState = {
   selectedOwnerEquityTransaction: null,
   selectedBankReconciliation: null,
   selectedSettlement: null,
+  selectedAccountMapping: null,
 }
 
 const accountingSlice = createSlice({
@@ -62,6 +65,9 @@ const accountingSlice = createSlice({
     setSelectedSettlement: (state, action: PayloadAction<Settlement | null>) => {
       state.selectedSettlement = action.payload
     },
+    setSelectedAccountMapping: (state, action: PayloadAction<AccountMapping | null>) => {
+      state.selectedAccountMapping = action.payload
+    },
   },
 })
 
@@ -74,6 +80,7 @@ export const {
   setSelectedOwnerEquityTransaction,
   setSelectedBankReconciliation,
   setSelectedSettlement,
+  setSelectedAccountMapping,
 } = accountingSlice.actions
 
 export const selectSelectedAccount = (state: RootState) => state.accounting.selectedAccount
@@ -84,5 +91,6 @@ export const selectSelectedFundTransfer = (state: RootState) => state.accounting
 export const selectSelectedOwnerEquityTransaction = (state: RootState) => state.accounting.selectedOwnerEquityTransaction
 export const selectSelectedBankReconciliation = (state: RootState) => state.accounting.selectedBankReconciliation
 export const selectSelectedSettlement = (state: RootState) => state.accounting.selectedSettlement
+export const selectSelectedAccountMapping = (state: RootState) => state.accounting.selectedAccountMapping
 
 export default accountingSlice.reducer

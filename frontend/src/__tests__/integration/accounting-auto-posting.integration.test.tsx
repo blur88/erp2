@@ -66,7 +66,12 @@ const createUser = () => {
 }
 
 const renderWithRouter = (component: React.ReactElement) => {
-  return render(<BrowserRouter>{component}</BrowserRouter>)
+  const store = configureStore({ reducer: { accounting: accountingReducer } })
+  return render(
+    <Provider store={store}>
+      <BrowserRouter>{component}</BrowserRouter>
+    </Provider>,
+  )
 }
 
 const renderJournalEntriesPage = (initialEntryUrl = '/accounting/journal-entries') => {
