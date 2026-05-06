@@ -229,10 +229,28 @@ describe('ChartOfAccountsPage', () => {
 
     const subAccountsSection = screen.getByText('Sub-Accounts').closest('.MuiPaper-root')
     expect(subAccountsSection).not.toBeNull()
+    const typeColIndex = within(subAccountsSection as HTMLElement)
+      .getAllByRole('columnheader')
+      .findIndex((th) => th.textContent?.trim() === 'Type')
     const childRow = within(subAccountsSection as HTMLElement).getByText('2010').closest('tr')
     expect(childRow).not.toBeNull()
-    const childTypeCell = (childRow as HTMLTableRowElement).children[2] as HTMLElement
+    const childTypeCell = (childRow as HTMLTableRowElement).children[typeColIndex] as HTMLElement
     expect(childTypeCell).toHaveTextContent('Liability')
     expect(childTypeCell.querySelector('.MuiChip-root')).not.toBeInTheDocument()
+  })
+
+  it('renders inactive status as plain text without a chip', async () => {
+    setup([mockInactiveAccount])
+    const user = userEvent.setup()
+
+    renderPage()
+
+    const accountRow = document.querySelector('tr[data-index="0"]')
+    expect(accountRow).not.toBeNull()
+    await user.click(accountRow as HTMLElement)
+
+    const statusCell = getDetailValueCell('Status')
+    expect(statusCell).toHaveTextContent('Inactive')
+    expect(statusCell.querySelector('.MuiChip-root')).not.toBeInTheDocument()
   })
 })
