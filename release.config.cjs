@@ -18,10 +18,10 @@ function getShortHash(commit) {
 async function getAngularWriterTransform() {
   if (!angularWriterTransformPromise) {
     angularWriterTransformPromise = import('conventional-changelog-angular').then(async module => {
-      const presetFactory = module.default || module;
-      const preset = await presetFactory();
+      const presetExport = await (module.default ?? module);
+      const preset = typeof presetExport === 'function' ? await presetExport() : presetExport;
 
-      return preset.writer.transform;
+      return (preset.writer || preset.writerOpts).transform;
     });
   }
 
