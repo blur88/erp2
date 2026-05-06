@@ -67,7 +67,7 @@ export function useAccountMappingsWorkspace(
       showSuccess(`Mapping "${mappingToClear.mappingType}" cleared successfully`)
       if (selected?.id === mappingToClear.id) dispatch(setSelectedAccountMapping(null))
     } catch (err: any) {
-      showError(err || 'Failed to clear mapping')
+      showError(err?.data?.message || err?.message || 'Failed to clear mapping')
     } finally {
       setClearing(false)
       setMappingToClear(null)

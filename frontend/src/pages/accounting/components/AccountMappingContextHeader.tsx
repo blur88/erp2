@@ -121,7 +121,7 @@ export function AccountMappingContextHeader({ row, onConfigure, onClear }: Props
                   <TableCell sx={labelCellSx}>Account Name</TableCell>
                   <TableCell sx={valueCellSx}>
                     {row.mapping?.account?.name ?? (
-                      <Typography component="span" sx={{ fontStyle: 'italic', color: 'text.secondary', fontSize: '0.8rem' }}>-</Typography>
+                      <Typography component="span" sx={{ fontStyle: 'italic', color: 'text.secondary', fontSize: '0.8rem' }}>—</Typography>
                     )}
                   </TableCell>
                 </TableRow>
@@ -129,7 +129,7 @@ export function AccountMappingContextHeader({ row, onConfigure, onClear }: Props
                   <TableCell sx={labelCellSx}>Account Type</TableCell>
                   <TableCell sx={valueCellSx}>
                     {row.mapping?.account?.accountType ?? (
-                      <Typography component="span" sx={{ fontStyle: 'italic', color: 'text.secondary', fontSize: '0.8rem' }}>-</Typography>
+                      <Typography component="span" sx={{ fontStyle: 'italic', color: 'text.secondary', fontSize: '0.8rem' }}>—</Typography>
                     )}
                   </TableCell>
                 </TableRow>
