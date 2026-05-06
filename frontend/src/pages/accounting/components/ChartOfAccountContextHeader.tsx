@@ -2,7 +2,6 @@ import { default as DeleteIcon } from '@mui/icons-material/Delete'
 import { default as EditIcon } from '@mui/icons-material/Edit'
 import {
   Box,
-  Chip,
   Paper,
   Stack,
   Table,
@@ -108,13 +107,8 @@ export function ChartOfAccountContextHeader({ selected, onEdit, onDelete }: Prop
                   </TableRow>
                   <TableRow sx={{ backgroundColor: 'grey.50' }}>
                     <TableCell sx={labelCellSx}>Account Type</TableCell>
-                    <TableCell sx={valueCellSx}>
-                      <Chip
-                        size="small"
-                        label={selected.type.charAt(0) + selected.type.slice(1).toLowerCase()}
-                        color={ACCOUNT_TYPE_COLORS[selected.type]}
-                        variant="outlined"
-                      />
+                    <TableCell sx={{ ...valueCellSx, color: `${ACCOUNT_TYPE_COLORS[selected.type]}.main` }}>
+                      {selected.type.charAt(0) + selected.type.slice(1).toLowerCase()}
                     </TableCell>
                   </TableRow>
                   <TableRow>
@@ -150,13 +144,8 @@ export function ChartOfAccountContextHeader({ selected, onEdit, onDelete }: Prop
                   </TableRow>
                   <TableRow sx={{ backgroundColor: 'grey.50' }}>
                     <TableCell sx={labelCellSx}>Status</TableCell>
-                    <TableCell sx={valueCellSx}>
-                      <Chip
-                        size="small"
-                        label={selected.isActive ? 'Active' : 'Inactive'}
-                        color={selected.isActive ? 'success' : 'default'}
-                        variant="outlined"
-                      />
+                    <TableCell sx={{ ...valueCellSx, color: selected.isActive ? 'success.main' : 'text.disabled' }}>
+                      {selected.isActive ? 'Active' : 'Inactive'}
                     </TableCell>
                   </TableRow>
                   <TableRow>
