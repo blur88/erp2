@@ -22,7 +22,7 @@ interface JEFilters {
   period: PeriodValue
 }
 
-export const JournalEntriesPage: React.FC = () => {
+const JournalEntriesPage: React.FC = () => {
   const [sortBy, setSortBy] = useState('createdAt')
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
 

@@ -4,7 +4,7 @@ import { configureStore } from '@reduxjs/toolkit'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { GoodsReceivedPage } from '../GoodsReceivedPage'
+import GoodsReceivedPage from '../GoodsReceivedPage'
 import purchasingReducer from '@/store/slices/purchasingSlice'
 
 const { useGetGoodsReceivedNotesQuery } = vi.hoisted(() => ({

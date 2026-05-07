@@ -31,6 +31,7 @@ import { useNavigate } from 'react-router-dom';
 import { formatDate, formatDateTime } from '@/utils/formatters';
 import { useGetAccountActivityQuery, useGetChartOfAccountsQuery } from '@/store/api/accountingApi';
 import type { ChartOfAccount } from '@/types';
+import { JournalEntryStatus } from '@/types';
 import { exportReportExcel } from '@/utils/exportReport';
 import { getErrorMessage } from '@/utils/errorMessage';
 
@@ -92,9 +93,9 @@ const getEntryTypeColor = (entryType: string): 'default' | 'primary' | 'warning'
 // Status chip colors
 const getStatusColor = (status: string): 'default' | 'success' | 'error' => {
   const statusUpper = status.toUpperCase();
-  if (statusUpper === 'DRAFT') return 'default';
-  if (statusUpper === 'POSTED') return 'success';
-  if (statusUpper === 'REVERSED') return 'error';
+  if (statusUpper === JournalEntryStatus.DRAFT) return 'default';
+  if (statusUpper === JournalEntryStatus.POSTED) return 'success';
+  if (statusUpper === JournalEntryStatus.REVERSED) return 'error';
   return 'default';
 };
 
@@ -329,9 +330,9 @@ const AccountActivityPage: React.FC = () => {
                 }}
               >
                 <MenuItem value="ALL">All Statuses</MenuItem>
-                <MenuItem value="DRAFT">Draft</MenuItem>
-                <MenuItem value="POSTED">Posted</MenuItem>
-                <MenuItem value="REVERSED">Reversed</MenuItem>
+                <MenuItem value={JournalEntryStatus.DRAFT}>Draft</MenuItem>
+                <MenuItem value={JournalEntryStatus.POSTED}>Posted</MenuItem>
+                <MenuItem value={JournalEntryStatus.REVERSED}>Reversed</MenuItem>
               </Select>
             </FormControl>
           </Stack>

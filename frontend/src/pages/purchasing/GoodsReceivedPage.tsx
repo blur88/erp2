@@ -26,7 +26,7 @@ interface GRNSortingState {
   sortOrder: 'asc' | 'desc'
 }
 
-export const GoodsReceivedPage: React.FC = () => {
+const GoodsReceivedPage: React.FC = () => {
   const dispatch = useAppDispatch()
   const [sorting, setSorting] = useState<GRNSortingState>({
     sortBy: 'grnNumber',

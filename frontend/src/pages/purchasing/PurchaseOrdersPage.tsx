@@ -25,7 +25,7 @@ interface PurchaseOrderFilters {
   status: 'draft' | 'received' | null
 }
 
-export const PurchaseOrdersPage: React.FC = () => {
+const PurchaseOrdersPage: React.FC = () => {
   const navigate = useNavigate()
   const dispatch = useAppDispatch()
   const selectedOrder = useAppSelector(selectSelectedPurchaseOrder)

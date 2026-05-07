@@ -1,4 +1,5 @@
 import { PERIOD_KEYS, type PeriodKey } from '@/constants/periods'
+import { JournalEntryStatus } from '@/types'
 import type {
   FilterBarConfig,
   FilterFieldConfig,
@@ -222,7 +223,7 @@ export function parseFilters<TFilters extends object>(
         const VALID_TRANSACTION_STATUS = ['completed', 'pending', 'failed', 'cancelled', 'refunded']
         result[fieldKey] = VALID_TRANSACTION_STATUS.includes(raw) ? raw : (defaultValue ?? null)
       } else if (field.type === 'journal-entry-status') {
-        const VALID_JOURNAL_ENTRY_STATUS = ['draft', 'posted', 'reversed', 'DRAFT', 'POSTED', 'REVERSED']
+        const VALID_JOURNAL_ENTRY_STATUS = ['draft', 'posted', 'reversed', JournalEntryStatus.DRAFT, JournalEntryStatus.POSTED, JournalEntryStatus.REVERSED]
         result[fieldKey] = VALID_JOURNAL_ENTRY_STATUS.includes(raw) ? raw : (defaultValue ?? null)
       } else if (field.type === 'journal-entry-type') {
         const VALID_JOURNAL_ENTRY_TYPE = ['manual', 'sales_order', 'payment', 'settlement', 'goods_received_note', 'vendor_payment', 'stock_adjustment', 'owner_equity_transaction', 'expense', 'opening_balance', 'fund_transfer']

@@ -30,7 +30,7 @@ interface SalesOrderFilters {
   fulfillmentStatus: 'fulfilled' | 'unfulfilled' | null
 }
 
-export const OrdersPage: React.FC = () => {
+const OrdersPage: React.FC = () => {
   const navigate = useNavigate()
   const dispatch = useAppDispatch()
   const store = useStore()
