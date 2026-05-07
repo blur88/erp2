@@ -24,7 +24,7 @@ interface InventoryProductFilters {
   stockStatus: 'low_stock' | 'out_of_stock' | null
 }
 
-export const ProductsPage: React.FC = () => {
+const ProductsPage: React.FC = () => {
   const dispatch = useAppDispatch()
   const selectedProduct = useAppSelector(selectSelectedProduct)
   const [sortBy, setSortBy] = useState('name')
