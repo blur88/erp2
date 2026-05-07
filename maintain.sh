@@ -13,6 +13,9 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # ── Step functions ────────────────────────────────────────────────────────────
 
 do_knip() {
+  echo -e "${BOLD}${YELLOW}--- ROOT (semantic-release) ---${RESET}"
+  (cd "$ROOT_DIR" && npx knip) || true
+  echo ""
   echo -e "${BOLD}${YELLOW}--- FRONTEND (React/Vite) ---${RESET}"
   (cd "$ROOT_DIR/frontend" && npx knip) || true
   echo ""
