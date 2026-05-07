@@ -33,5 +33,3 @@ export function ListSkeleton({ rows = 8, columns = 4 }: Props) {
     </TableContainer>
   )
 }
-
-export default ListSkeleton
