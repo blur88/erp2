@@ -1,0 +1,21 @@
+{
+  "$schema": "https://unpkg.com/knip@5/schema.json",
+  "entry": [
+    "release.config.cjs",
+    "scripts/*.cjs",
+    "scripts/__tests__/*.js"
+  ],
+  "project": [
+    "*.cjs",
+    "scripts/**/*.{cjs,js}"
+  ],
+  "ignore": [],
+  "ignoreDependencies": [
+    "conventional-changelog-angular"
+  ],
+  "ignoreBinaries": [
+    "eslint",
+    "semantic-release"
+  ],
+  "ignoreExportsUsedInFile": true
+}
