@@ -17,7 +17,7 @@ interface UseSearchAndFilterReturn {
   focusSearchInput: () => void
 }
 
-export const useSearchAndFilter = ({
+const useSearchAndFilter = ({
   debounceMs = 500,
   initialSearchTerm = '',
   onSearchChange,

@@ -69,6 +69,6 @@ export const selectSelectedPurchaseOrder = (state: RootState) => state.purchasin
 export const selectSelectedGRN = (state: RootState) => state.purchasing.selectedGRN
 export const selectSelectedVendorPayment = (state: RootState) => state.purchasing.selectedVendorPayment
 export const selectSelectedSupplier = (state: RootState) => state.purchasing.selectedSupplier
-export const selectSupplierFilters = (state: RootState) => state.purchasing.supplierFilters
+const selectSupplierFilters = (state: RootState) => state.purchasing.supplierFilters
 
 export default purchasingSlice.reducer

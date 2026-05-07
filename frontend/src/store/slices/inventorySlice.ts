@@ -54,6 +54,6 @@ export const {
 export const selectSelectedProduct = (state: RootState) => state.inventory.selectedProduct
 export const selectSelectedCategory = (state: RootState) => state.inventory.selectedCategory
 export const selectSelectedStockAdjustment = (state: RootState) => state.inventory.selectedStockAdjustment
-export const selectCategoryFilters = (state: RootState) => state.inventory.filters.categories
+const selectCategoryFilters = (state: RootState) => state.inventory.filters.categories
 
 export default inventorySlice.reducer
