@@ -33,14 +33,12 @@ export const FINANCE_ROLES: UserRole[] = [
 
 export const ADMIN_ONLY: UserRole[] = [UserRole.ADMIN];
 
-export const PRODUCT_SEARCH_ROLES: UserRole[] = ALL_ROLES;
-
 export function canSearchCustomers(role: UserRole): boolean {
   return SALES_ROLES.includes(role);
 }
 
 export function canSearchProducts(role: UserRole): boolean {
-  return PRODUCT_SEARCH_ROLES.includes(role);
+  return ALL_ROLES.includes(role);
 }
 
 export function canSearchSalesOrders(role: UserRole): boolean {

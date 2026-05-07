@@ -19,11 +19,6 @@ import {
 } from '@/store/slices/purchasingSlice'
 import type { PurchaseOrder } from '@/types'
 
-export interface PurchaseOrdersSorting {
-  sortBy: string
-  sortOrder: 'asc' | 'desc'
-}
-
 export interface UsePurchaseOrdersWorkspaceConfig {
   dispatch: AppDispatch
   purchaseOrders: PurchaseOrder[]

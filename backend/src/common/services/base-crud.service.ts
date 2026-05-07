@@ -9,11 +9,6 @@ export interface BulkOperationError {
   error: string;
 }
 
-export interface BaseBulkResult {
-  successCount: number;
-  failedItems: BulkOperationError[];
-}
-
 @Injectable()
 export abstract class BaseCrudService<
   T extends BaseEntity,

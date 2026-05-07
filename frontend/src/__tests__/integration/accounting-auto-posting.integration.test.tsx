@@ -59,7 +59,7 @@ vi.mock('react-router-dom', async () => {
 import AccountMappingWarning from '@/components/accounting/AccountMappingWarning'
 import AccountingEntryLink from '@/components/accounting/AccountingEntryLink'
 import AccountMappingsPage from '@/pages/accounting/AccountMappingsPage'
-import JournalEntriesPage from '@/pages/accounting/JournalEntriesPage'
+import { JournalEntriesPage } from '@/pages/accounting/JournalEntriesPage'
 
 const createUser = () => {
   return (userEvent as any).setup ? (userEvent as any).setup() : userEvent

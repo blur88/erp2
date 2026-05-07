@@ -4,7 +4,7 @@ import { configureStore } from '@reduxjs/toolkit'
 import { Provider } from 'react-redux'
 import { MemoryRouter } from 'react-router-dom'
 
-import JournalEntriesPage from '../JournalEntriesPage'
+import { JournalEntriesPage } from '../JournalEntriesPage'
 import accountingReducer, { selectSelectedJournalEntry } from '@/store/slices/accountingSlice'
 import { JournalEntryStatus } from '@/types'
 
