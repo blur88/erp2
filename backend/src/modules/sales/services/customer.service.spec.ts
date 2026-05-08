@@ -344,4 +344,35 @@ describe('CustomerService', () => {
       );
     });
   });
+
+  describe('recalculateAllCustomerTotals', () => {
+    it('uses isFulfilled filter when recalculating', async () => {
+      const customers = [createCustomer('c1'), createCustomer('c2')];
+      customerRepository.find = jest.fn().mockResolvedValue(customers);
+      customerRepository.save = jest.fn().mockResolvedValue({} as Customer);
+
+      const salesOrderRepository: jest.Mocked<Repository<SalesOrder>> = module.get(
+        getRepositoryToken(SalesOrder),
+      );
+
+      const qb = {
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        select: jest.fn().mockReturnThis(),
+        getRawOne: jest.fn().mockResolvedValue({
+          totalOrders: '1',
+          totalSales: '100',
+          firstOrderDate: null,
+          lastOrderDate: null,
+        }),
+      };
+      salesOrderRepository.createQueryBuilder = jest.fn().mockReturnValue(qb);
+
+      await service.recalculateAllCustomerTotals();
+
+      expect(qb.andWhere).toHaveBeenCalledWith('order.isFulfilled = :isFulfilled', {
+        isFulfilled: true,
+      });
+    });
+  });
 });
