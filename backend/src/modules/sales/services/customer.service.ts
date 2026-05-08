@@ -908,11 +908,8 @@ export class CustomerService extends BaseCrudService<
   async recalculateAllCustomerTotals(): Promise<{ updated: number; message: string }> {
     console.log('🔄 Starting recalculation of all customer totals...');
 
-    // Get all customers
-    const customers = await this.customerRepository.find({
-      where: { isActive: true },
-      relations: ['salesOrders']
-    });
+    // Get all customers (including inactive — inactive customers may still have fulfilled orders)
+    const customers = await this.customerRepository.find();
 
     let updatedCount = 0;
 
@@ -967,9 +964,9 @@ export class CustomerService extends BaseCrudService<
    * Update customer metrics for a specific customer based on their sales orders
    */
   async updateCustomerMetrics(customerId: string): Promise<void> {
-    const customer = await this.customerRepository.findOne({ where: { id: customerId } });
+    const customer = await this.customerRepository.findOne({ where: { id: customerId }, withDeleted: true });
     if (!customer) {
-      throw new NotFoundException('Customer not found');
+      throw new NotFoundException(`Customer not found for metric update (customerId: ${customerId}) — possible orphaned order`);
     }
 
     // Calculate actual totals from sales orders

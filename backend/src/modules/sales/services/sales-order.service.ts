@@ -602,11 +602,7 @@ export class SalesOrderService extends BaseCrudService<
     );
 
     if (customerId) {
-      try {
-        await this.customerService.updateCustomerMetrics(customerId);
-      } catch (error) {
-        this.logger.error(`Failed to update customer metrics after delete ${id}: ${error.message}`);
-      }
+      await this.triggerMetricUpdate(customerId, `delete ${id}`);
     }
 
     return result;
@@ -694,6 +690,18 @@ export class SalesOrderService extends BaseCrudService<
 
   // Helper methods
 
+  private async triggerMetricUpdate(customerId: string, context: string): Promise<void> {
+    try {
+      await this.customerService.updateCustomerMetrics(customerId);
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        this.logger.warn(`Customer not found for metric update after ${context} — possible orphaned order (customerId: ${customerId})`);
+      } else {
+        this.logger.error(`Failed to update customer metrics after ${context} (customerId: ${customerId}): ${error.message}`);
+      }
+    }
+  }
+
   private async validateAndProcessItems(items: any[], customer?: Customer) {
     const processedItems = [];
     let lineNumber = 1;
@@ -770,16 +778,23 @@ export class SalesOrderService extends BaseCrudService<
 
   async restore(id: string, userId?: string, username?: string): Promise<SalesOrderResponseDto> {
     const restoredOrder = await this.salesOrderLifecycleService.restore(id, userId, username);
-    try {
-      await this.customerService.updateCustomerMetrics(restoredOrder.customerId);
-    } catch (error) {
-      this.logger.error(`Failed to update customer metrics after restore ${id}: ${error.message}`);
-    }
+    await this.triggerMetricUpdate(restoredOrder.customerId, `restore ${id}`);
     return restoredOrder;
   }
 
   async bulkRestore(ids: string[], userId?: string, username?: string): Promise<BulkOperationResponse> {
-    return this.salesOrderLifecycleService.bulkRestore(ids, userId, username);
+    const orders = ids.length > 0
+      ? await this.salesOrderRepository.find({ where: ids.map(id => ({ id })), withDeleted: true })
+      : [];
+    const customerIds = [...new Set(orders.map(o => o.customerId).filter(Boolean))];
+
+    const result = await this.salesOrderLifecycleService.bulkRestore(ids, userId, username);
+
+    for (const customerId of customerIds) {
+      await this.triggerMetricUpdate(customerId, `bulkRestore`);
+    }
+
+    return result;
   }
 
   async permanentDelete(id: string, userId?: string, username?: string): Promise<void> {
@@ -792,11 +807,7 @@ export class SalesOrderService extends BaseCrudService<
     await this.salesOrderLifecycleService.permanentDelete(id, userId, username);
 
     if (customerId) {
-      try {
-        await this.customerService.updateCustomerMetrics(customerId);
-      } catch (error) {
-        this.logger.error(`Failed to update customer metrics after permanentDelete ${id}: ${error.message}`);
-      }
+      await this.triggerMetricUpdate(customerId, `permanentDelete ${id}`);
     }
   }
 
@@ -805,7 +816,18 @@ export class SalesOrderService extends BaseCrudService<
     userId?: string,
     username?: string,
   ): Promise<BulkOperationResponse> {
-    return this.salesOrderLifecycleService.bulkPermanentDelete(orderIds, userId, username);
+    const orders = orderIds.length > 0
+      ? await this.salesOrderRepository.find({ where: orderIds.map(id => ({ id })), withDeleted: true })
+      : [];
+    const customerIds = [...new Set(orders.map(o => o.customerId).filter(Boolean))];
+
+    const result = await this.salesOrderLifecycleService.bulkPermanentDelete(orderIds, userId, username);
+
+    for (const customerId of customerIds) {
+      await this.triggerMetricUpdate(customerId, `bulkPermanentDelete`);
+    }
+
+    return result;
   }
 
   async updateAssociatedInvoices(salesOrderId: string): Promise<void> {
@@ -922,21 +944,13 @@ export class SalesOrderService extends BaseCrudService<
       userId,
       username,
     );
-    try {
-      await this.customerService.updateCustomerMetrics(savedOrder.customerId);
-    } catch (error) {
-      this.logger.error(`Failed to update customer metrics after fulfillOrder ${id}: ${error.message}`);
-    }
+    await this.triggerMetricUpdate(savedOrder.customerId, `fulfillOrder ${id}`);
     return this.findById(savedOrder.id);
   }
 
   async unfulfillOrder(id: string): Promise<SalesOrderResponseDto> {
     const savedOrder = await this.salesOrderFulfillmentService.unfulfillOrder(id);
-    try {
-      await this.customerService.updateCustomerMetrics(savedOrder.customerId);
-    } catch (error) {
-      this.logger.error(`Failed to update customer metrics after unfulfillOrder ${id}: ${error.message}`);
-    }
+    await this.triggerMetricUpdate(savedOrder.customerId, `unfulfillOrder ${id}`);
     return this.findById(savedOrder.id);
   }
 

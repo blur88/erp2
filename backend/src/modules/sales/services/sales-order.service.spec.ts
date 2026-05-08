@@ -760,4 +760,43 @@ describe('SalesOrderService', () => {
       expect(customerService.updateCustomerMetrics).not.toHaveBeenCalled();
     });
   });
+
+  describe('bulkRestore calls updateCustomerMetrics per unique customer', () => {
+    it('calls updateCustomerMetrics for each unique customerId in the batch', async () => {
+      salesOrderRepository.find = jest.fn().mockResolvedValue([
+        { id: 'o1', customerId: 'c1' } as SalesOrder,
+        { id: 'o2', customerId: 'c2' } as SalesOrder,
+        { id: 'o3', customerId: 'c1' } as SalesOrder, // duplicate customer
+      ]);
+      salesOrderLifecycleService.bulkRestore = jest.fn().mockResolvedValue({
+        success: 3, failed: [],
+      });
+      const customerService = module.get(CustomerService);
+
+      await service.bulkRestore(['o1', 'o2', 'o3']);
+
+      expect(customerService.updateCustomerMetrics).toHaveBeenCalledWith('c1');
+      expect(customerService.updateCustomerMetrics).toHaveBeenCalledWith('c2');
+      expect(customerService.updateCustomerMetrics).toHaveBeenCalledTimes(2); // deduplicated
+    });
+  });
+
+  describe('bulkPermanentDelete calls updateCustomerMetrics per unique customer', () => {
+    it('calls updateCustomerMetrics for each unique customerId in the batch', async () => {
+      salesOrderRepository.find = jest.fn().mockResolvedValue([
+        { id: 'o1', customerId: 'c1' } as SalesOrder,
+        { id: 'o2', customerId: 'c2' } as SalesOrder,
+      ]);
+      salesOrderLifecycleService.bulkPermanentDelete = jest.fn().mockResolvedValue({
+        success: 2, failed: [],
+      });
+      const customerService = module.get(CustomerService);
+
+      await service.bulkPermanentDelete(['o1', 'o2']);
+
+      expect(customerService.updateCustomerMetrics).toHaveBeenCalledWith('c1');
+      expect(customerService.updateCustomerMetrics).toHaveBeenCalledWith('c2');
+      expect(customerService.updateCustomerMetrics).toHaveBeenCalledTimes(2);
+    });
+  });
 });
