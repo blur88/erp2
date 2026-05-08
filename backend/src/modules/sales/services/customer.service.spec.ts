@@ -10,6 +10,7 @@ import { TransactionManager } from '../../../common/utils/transaction.util';
 import { UserRole } from '../../../database/entities/user.entity';
 
 describe('CustomerService', () => {
+  let module: TestingModule;
   let service: CustomerService;
   let customerRepository: jest.Mocked<Repository<Customer>>;
   const adminUser = { role: UserRole.ADMIN } as any;
@@ -39,7 +40,7 @@ describe('CustomerService', () => {
     }) as Customer;
 
   beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
+    module = await Test.createTestingModule({
       providers: [
         CustomerService,
         {
@@ -307,6 +308,40 @@ describe('CustomerService', () => {
       } as any);
 
       expect(results).toEqual([]);
+    });
+  });
+
+  describe('updateCustomerMetrics', () => {
+    it('counts only fulfilled non-deleted orders', async () => {
+      const customer = createCustomer('c1', { totalOrders: 5, totalSales: 500 });
+      customerRepository.findOne = jest.fn().mockResolvedValue(customer);
+      customerRepository.save = jest.fn().mockResolvedValue(customer);
+
+      const salesOrderRepository: jest.Mocked<Repository<SalesOrder>> = module.get(
+        getRepositoryToken(SalesOrder),
+      );
+
+      const qb = {
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        select: jest.fn().mockReturnThis(),
+        getRawOne: jest.fn().mockResolvedValue({
+          totalOrders: '2',
+          totalSales: '300',
+          firstOrderDate: new Date('2026-01-01'),
+          lastOrderDate: new Date('2026-03-01'),
+        }),
+      };
+      salesOrderRepository.createQueryBuilder = jest.fn().mockReturnValue(qb);
+
+      await service.updateCustomerMetrics('c1');
+
+      expect(qb.andWhere).toHaveBeenCalledWith('order.isFulfilled = :isFulfilled', {
+        isFulfilled: true,
+      });
+      expect(customerRepository.save).toHaveBeenCalledWith(
+        expect.objectContaining({ totalOrders: 2, totalSales: 300 }),
+      );
     });
   });
 });
