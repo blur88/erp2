@@ -496,11 +496,11 @@ export class CustomerService extends BaseCrudService<
       .andWhere('order.deletedAt IS NULL')
       .andWhere('order.isFulfilled = :isFulfilled', { isFulfilled: true })
       .select([
-        'COUNT(*) as totalOrders',
-        'COALESCE(AVG(order.totalAmount), 0) as averageOrderValue',
-        'COALESCE(SUM(order.totalAmount), 0) as totalSales',
-        'MIN(order.orderDate) as firstOrderDate',
-        'MAX(order.orderDate) as lastOrderDate',
+        'COUNT(*) as totalorders',
+        'COALESCE(AVG(order.totalAmount), 0) as averageordervalue',
+        'COALESCE(SUM(order.totalAmount), 0) as totalsales',
+        'MIN(order.orderDate) as firstorderdate',
+        'MAX(order.orderDate) as lastorderdate',
       ])
       .getRawOne();
 
@@ -525,11 +525,11 @@ export class CustomerService extends BaseCrudService<
         name: customer.name,
       },
       orders: {
-        totalOrders: parseInt(orderStats.totalOrders) || 0,
-        totalSales: parseFloat(orderStats.totalSales) || 0,
-        averageOrderValue: parseFloat(orderStats.averageOrderValue) || 0,
-        firstOrderDate: orderStats.firstOrderDate,
-        lastOrderDate: orderStats.lastOrderDate,
+        totalOrders: parseInt(orderStats.totalorders) || 0,
+        totalSales: parseFloat(orderStats.totalsales) || 0,
+        averageOrderValue: parseFloat(orderStats.averageordervalue) || 0,
+        firstOrderDate: orderStats.firstorderdate,
+        lastOrderDate: orderStats.lastorderdate,
       },
       payments: {
         totalPayments: paymentStats.totalPayments || 0,
@@ -921,17 +921,17 @@ export class CustomerService extends BaseCrudService<
         .andWhere('order.deletedAt IS NULL')
         .andWhere('order.isFulfilled = :isFulfilled', { isFulfilled: true })
         .select([
-          'COUNT(*) as totalOrders',
-          'COALESCE(SUM(order.totalAmount), 0) as totalSales',
-          'MIN(order.orderDate) as firstOrderDate',
-          'MAX(order.orderDate) as lastOrderDate',
+          'COUNT(*) as totalorders',
+          'COALESCE(SUM(order.totalAmount), 0) as totalsales',
+          'MIN(order.orderDate) as firstorderdate',
+          'MAX(order.orderDate) as lastorderdate',
         ])
         .getRawOne();
 
-      const actualTotalOrders = parseInt(orderStats.totalOrders) || 0;
-      const actualTotalSales = parseFloat(orderStats.totalSales) || 0;
-      const firstOrderDate = orderStats.firstOrderDate;
-      const lastOrderDate = orderStats.lastOrderDate;
+      const actualTotalOrders = parseInt(orderStats.totalorders) || 0;
+      const actualTotalSales = parseFloat(orderStats.totalsales) || 0;
+      const firstOrderDate = orderStats.firstorderdate;
+      const lastOrderDate = orderStats.lastorderdate;
 
       // Check if there's a discrepancy
       const hasDiscrepancy =
@@ -976,17 +976,17 @@ export class CustomerService extends BaseCrudService<
       .andWhere('order.deletedAt IS NULL')
       .andWhere('order.isFulfilled = :isFulfilled', { isFulfilled: true })
       .select([
-        'COUNT(*) as totalOrders',
-        'COALESCE(SUM(order.totalAmount), 0) as totalSales',
-        'MIN(order.orderDate) as firstOrderDate',
-        'MAX(order.orderDate) as lastOrderDate',
+        'COUNT(*) as totalorders',
+        'COALESCE(SUM(order.totalAmount), 0) as totalsales',
+        'MIN(order.orderDate) as firstorderdate',
+        'MAX(order.orderDate) as lastorderdate',
       ])
       .getRawOne();
 
-    customer.totalOrders = parseInt(orderStats.totalOrders) || 0;
-    customer.totalSales = parseFloat(orderStats.totalSales) || 0;
-    customer.firstPurchaseDate = orderStats.firstOrderDate;
-    customer.lastPurchaseDate = orderStats.lastOrderDate;
+    customer.totalOrders = parseInt(orderStats.totalorders) || 0;
+    customer.totalSales = parseFloat(orderStats.totalsales) || 0;
+    customer.firstPurchaseDate = orderStats.firstorderdate;
+    customer.lastPurchaseDate = orderStats.lastorderdate;
 
     await this.customerRepository.save(customer);
   }

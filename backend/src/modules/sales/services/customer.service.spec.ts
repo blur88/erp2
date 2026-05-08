@@ -326,10 +326,10 @@ describe('CustomerService', () => {
         andWhere: jest.fn().mockReturnThis(),
         select: jest.fn().mockReturnThis(),
         getRawOne: jest.fn().mockResolvedValue({
-          totalOrders: '2',
-          totalSales: '300',
-          firstOrderDate: new Date('2026-01-01'),
-          lastOrderDate: new Date('2026-03-01'),
+          totalorders: '2',
+          totalsales: '300',
+          firstorderdate: new Date('2026-01-01'),
+          lastorderdate: new Date('2026-03-01'),
         }),
       };
       salesOrderRepository.createQueryBuilder = jest.fn().mockReturnValue(qb);
@@ -360,10 +360,10 @@ describe('CustomerService', () => {
         andWhere: jest.fn().mockReturnThis(),
         select: jest.fn().mockReturnThis(),
         getRawOne: jest.fn().mockResolvedValue({
-          totalOrders: '1',
-          totalSales: '100',
-          firstOrderDate: null,
-          lastOrderDate: null,
+          totalorders: '1',
+          totalsales: '100',
+          firstorderdate: null,
+          lastorderdate: null,
         }),
       };
       salesOrderRepository.createQueryBuilder = jest.fn().mockReturnValue(qb);
@@ -393,11 +393,11 @@ describe('CustomerService', () => {
         andWhere: jest.fn().mockReturnThis(),
         select: jest.fn().mockReturnThis(),
         getRawOne: jest.fn().mockResolvedValue({
-          totalOrders: '3',
-          averageOrderValue: '100',
-          totalSales: '300',
-          firstOrderDate: new Date('2026-01-01'),
-          lastOrderDate: new Date('2026-03-01'),
+          totalorders: '3',
+          averageordervalue: '100',
+          totalsales: '300',
+          firstorderdate: new Date('2026-01-01'),
+          lastorderdate: new Date('2026-03-01'),
         }),
       };
       salesOrderRepository.createQueryBuilder = jest.fn().mockReturnValue(qb);
