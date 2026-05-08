@@ -22,8 +22,10 @@ import { SalesOrderFulfillmentService } from './sales-order-fulfillment.service'
 import { SalesOrderLifecycleService } from './sales-order-lifecycle.service';
 import { SalesOrderPaymentService } from './sales-order-payment.service';
 import { SalesOrderQueryService } from './sales-order-query.service';
+import { CustomerService } from './customer.service';
 
 describe('SalesOrderService', () => {
+  let module: TestingModule;
   let service: SalesOrderService;
   let salesOrderRepository: jest.Mocked<Repository<SalesOrder>>;
   let accountingService: jest.Mocked<AccountingService>;
@@ -33,6 +35,9 @@ describe('SalesOrderService', () => {
   let settingsService: jest.Mocked<SettingsService>;
   let auditLogService: jest.Mocked<AuditLogService>;
   let dataSource: jest.Mocked<DataSource>;
+  let salesOrderFulfillmentService: jest.Mocked<SalesOrderFulfillmentService>;
+  let salesOrderLifecycleService: jest.Mocked<SalesOrderLifecycleService>;
+  let salesOrderQueryService: jest.Mocked<SalesOrderQueryService>;
   const adminUser = { role: UserRole.ADMIN } as any;
 
   const createMockSalesOrder = (): Partial<SalesOrder> => ({
@@ -67,7 +72,7 @@ describe('SalesOrderService', () => {
       transaction: jest.fn(),
     } as any;
 
-    const module: TestingModule = await Test.createTestingModule({
+    module = await Test.createTestingModule({
       providers: [
         SalesOrderService,
         SalesOrderFulfillmentService,
@@ -161,6 +166,10 @@ describe('SalesOrderService', () => {
             reverseSourceEntries: jest.fn(),
           },
         },
+        {
+          provide: CustomerService,
+          useValue: { updateCustomerMetrics: jest.fn().mockResolvedValue(undefined) },
+        },
       ],
     }).compile();
 
@@ -172,6 +181,9 @@ describe('SalesOrderService', () => {
     baseCostCalculator = module.get(BaseCostCalculatorService);
     settingsService = module.get(SettingsService);
     auditLogService = module.get(AuditLogService);
+    salesOrderFulfillmentService = module.get(SalesOrderFulfillmentService);
+    salesOrderLifecycleService = module.get(SalesOrderLifecycleService);
+    salesOrderQueryService = module.get(SalesOrderQueryService);
   });
 
   it('should be defined', () => {
@@ -627,6 +639,17 @@ describe('SalesOrderService', () => {
   });
 
   describe('unfulfillOrder', () => {
+    it('calls updateCustomerMetrics with the order customerId after unfulfillment', async () => {
+      const mockOrder = { id: 'o1', customerId: 'c1' } as SalesOrder;
+      salesOrderFulfillmentService.unfulfillOrder = jest.fn().mockResolvedValue(mockOrder);
+      salesOrderQueryService.findById = jest.fn().mockResolvedValue({ id: 'o1' } as any);
+      const customerService = module.get(CustomerService);
+
+      await service.unfulfillOrder('o1');
+
+      expect(customerService.updateCustomerMetrics).toHaveBeenCalledWith('c1');
+    });
+
     it('should call reverseSourceEntries with sales_order sourceType when unfulfilling', async () => {
       const mockOrder = {
         id: 'so-123',
@@ -669,6 +692,72 @@ describe('SalesOrderService', () => {
       accountingService.reverseSourceEntries.mockRejectedValue(new Error('No open period'));
 
       await expect(service.unfulfillOrder('so-123')).resolves.toBeDefined();
+    });
+  });
+
+  describe('fulfillOrder calls updateCustomerMetrics', () => {
+    it('calls updateCustomerMetrics with the order customerId after fulfillment', async () => {
+      const mockOrder = { id: 'o1', customerId: 'c1' } as SalesOrder;
+      salesOrderFulfillmentService.fulfillOrder = jest.fn().mockResolvedValue(mockOrder);
+      salesOrderQueryService.findById = jest.fn().mockResolvedValue({ id: 'o1' } as any);
+      const customerService = module.get(CustomerService);
+
+      await service.fulfillOrder('o1', 'user1', 'user1');
+
+      expect(customerService.updateCustomerMetrics).toHaveBeenCalledWith('c1');
+    });
+  });
+
+  describe('delete calls updateCustomerMetrics', () => {
+    it('calls updateCustomerMetrics with the order customerId after delete', async () => {
+      salesOrderRepository.findOne.mockResolvedValue({ id: 'o1', customerId: 'c1' } as SalesOrder);
+      salesOrderLifecycleService.delete = jest.fn().mockResolvedValue({
+        deletedOrderNumber: 'SO-000001',
+        previousOrder: null,
+      });
+      const customerService = module.get(CustomerService);
+
+      await service.delete('o1');
+
+      expect(customerService.updateCustomerMetrics).toHaveBeenCalledWith('c1');
+    });
+  });
+
+  describe('restore calls updateCustomerMetrics', () => {
+    it('calls updateCustomerMetrics with the order customerId after restore', async () => {
+      salesOrderLifecycleService.restore = jest.fn().mockResolvedValue({
+        id: 'o1',
+        customerId: 'c1',
+      } as SalesOrder);
+      const customerService = module.get(CustomerService);
+
+      await service.restore('o1');
+
+      expect(customerService.updateCustomerMetrics).toHaveBeenCalledWith('c1');
+    });
+  });
+
+  describe('permanentDelete calls updateCustomerMetrics', () => {
+    it('calls updateCustomerMetrics with the order customerId after permanent delete', async () => {
+      salesOrderRepository.findOne.mockResolvedValue({ id: 'o1', customerId: 'c1' } as SalesOrder);
+      salesOrderLifecycleService.permanentDelete = jest.fn().mockResolvedValue(undefined);
+      const customerService = module.get(CustomerService);
+
+      await service.permanentDelete('o1');
+
+      expect(customerService.updateCustomerMetrics).toHaveBeenCalledWith('c1');
+    });
+  });
+
+  describe('create does NOT call updateCustomerSalesMetrics', () => {
+    it('does not update customer metrics when an order is created', async () => {
+      const customerService = module.get(CustomerService);
+
+      try {
+        await service.create({ customerId: 'nonexistent', items: [], shippingAmount: 0 });
+      } catch {}
+
+      expect(customerService.updateCustomerMetrics).not.toHaveBeenCalled();
     });
   });
 });
