@@ -494,6 +494,7 @@ export class CustomerService extends BaseCrudService<
       .createQueryBuilder('order')
       .where('order.customerId = :customerId', { customerId })
       .andWhere('order.deletedAt IS NULL')
+      .andWhere('order.isFulfilled = :isFulfilled', { isFulfilled: true })
       .select([
         'COUNT(*) as totalOrders',
         'COALESCE(AVG(order.totalAmount), 0) as averageOrderValue',

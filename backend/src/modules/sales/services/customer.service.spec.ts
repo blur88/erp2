@@ -375,4 +375,39 @@ describe('CustomerService', () => {
       });
     });
   });
+
+  describe('getCustomerStatistics', () => {
+    it('filters order stats to fulfilled orders only', async () => {
+      const customer = createCustomer('c1');
+      customerRepository.findOne = jest.fn().mockResolvedValue(customer);
+
+      const salesOrderRepository: jest.Mocked<Repository<SalesOrder>> = module.get(
+        getRepositoryToken(SalesOrder),
+      );
+      const invoiceRepository: jest.Mocked<Repository<Invoice>> = module.get(
+        getRepositoryToken(Invoice),
+      );
+
+      const qb = {
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        select: jest.fn().mockReturnThis(),
+        getRawOne: jest.fn().mockResolvedValue({
+          totalOrders: '3',
+          averageOrderValue: '100',
+          totalSales: '300',
+          firstOrderDate: new Date('2026-01-01'),
+          lastOrderDate: new Date('2026-03-01'),
+        }),
+      };
+      salesOrderRepository.createQueryBuilder = jest.fn().mockReturnValue(qb);
+      invoiceRepository.count = jest.fn().mockResolvedValue(0);
+
+      await service.getCustomerStatistics('c1');
+
+      expect(qb.andWhere).toHaveBeenCalledWith('order.isFulfilled = :isFulfilled', {
+        isFulfilled: true,
+      });
+    });
+  });
 });
