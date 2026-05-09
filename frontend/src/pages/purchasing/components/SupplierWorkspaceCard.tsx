@@ -89,10 +89,10 @@ const SupplierWorkspaceCard: React.FC<SupplierWorkspaceCardProps> = ({ selectedS
   return (
     <Paper sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
       <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-        <Tabs value={tabValue} onChange={(_, value) => setTabValue(value)}>
-          <Tab icon={<OrdersIcon sx={{ fontSize: 16 }} />} iconPosition="start" label="Purchase Orders" />
-          <Tab icon={<GRNIcon sx={{ fontSize: 16 }} />} iconPosition="start" label="GRNs" />
-          <Tab icon={<PaymentIcon sx={{ fontSize: 16 }} />} iconPosition="start" label="Payments" />
+        <Tabs value={tabValue} onChange={(_, value) => setTabValue(value)} sx={{ minHeight: 36 }}>
+          <Tab icon={<OrdersIcon sx={{ fontSize: 16 }} />} iconPosition="start" label="Purchase Orders" sx={{ minHeight: 36 }} />
+          <Tab icon={<GRNIcon sx={{ fontSize: 16 }} />} iconPosition="start" label="GRNs" sx={{ minHeight: 36 }} />
+          <Tab icon={<PaymentIcon sx={{ fontSize: 16 }} />} iconPosition="start" label="Payments" sx={{ minHeight: 36 }} />
         </Tabs>
       </Box>
       <TabPanel value={tabValue} index={0}>
@@ -126,7 +126,7 @@ const SupplierWorkspaceCard: React.FC<SupplierWorkspaceCardProps> = ({ selectedS
                     key={po.id}
                     hover
                     sx={{ cursor: 'pointer' }}
-                    onClick={() => navigate(`/purchasing/orders/${po.id}/edit`)}
+                    onClick={() => navigate(`/purchasing/orders?highlight=${po.id}`)}
                   >
                     <TableCell>
                       <Typography variant="body2" color="primary" sx={{
@@ -235,7 +235,12 @@ const SupplierWorkspaceCard: React.FC<SupplierWorkspaceCardProps> = ({ selectedS
               </TableHead>
               <TableBody>
                 {payments.map((payment) => (
-                  <TableRow key={payment.id}>
+                  <TableRow
+                    key={payment.id}
+                    hover
+                    sx={{ cursor: 'pointer' }}
+                    onClick={() => navigate(`/purchasing/vendor-payments?vpId=${payment.id}`)}
+                  >
                     <TableCell>
                       <Typography variant="body2" sx={{
                         fontWeight: 600
