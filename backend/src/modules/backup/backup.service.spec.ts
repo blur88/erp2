@@ -3,6 +3,9 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { ConfigService } from '@nestjs/config';
 import { EventEmitter } from 'events';
 import { spawn } from 'child_process';
+import * as os from 'os';
+import * as path from 'path';
+import * as fsCb from 'fs';
 import { BackupService } from './backup.service';
 import { BackupLog } from '@database/entities/backup-log.entity';
 import { BackupRetentionSettings } from '@database/entities/backup-settings.entity';
@@ -551,6 +554,89 @@ describe('BackupService - settings backup', () => {
 
       expect(loggerWarnSpy).toHaveBeenCalledWith(expect.stringContaining('No settings file found'));
       expect(companySettingsRepo.save).not.toHaveBeenCalled();
+    });
+  });
+});
+
+describe('BackupService - createArchive', () => {
+  let service: BackupService;
+  let tempSourceDir: string;
+  let tempOutputPath: string;
+
+  beforeEach(async () => {
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        BackupService,
+        {
+          provide: ConfigService,
+          useValue: { get: jest.fn((_key, def) => def ?? null) },
+        },
+        { provide: getRepositoryToken(BackupLog), useFactory: mockRepository },
+        { provide: getRepositoryToken(BackupRetentionSettings), useFactory: mockRepository },
+        { provide: getRepositoryToken(CompanySettings), useFactory: mockRepository },
+        { provide: getRepositoryToken(RegionalSettings), useFactory: mockRepository },
+        { provide: getRepositoryToken(DocumentNumberSetting), useFactory: mockRepository },
+        { provide: getRepositoryToken(PrintSettings), useFactory: mockRepository },
+      ],
+    }).compile();
+
+    service = module.get<BackupService>(BackupService);
+
+    const uniqueSuffix = `archiver-smoke-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    tempSourceDir = path.join(os.tmpdir(), uniqueSuffix, 'source');
+    tempOutputPath = path.join(os.tmpdir(), uniqueSuffix, 'output.tar.gz');
+
+    await require('fs/promises').mkdir(tempSourceDir, { recursive: true });
+    await require('fs/promises').writeFile(
+      path.join(tempSourceDir, 'test.txt'),
+      'hello archiver v8',
+    );
+  });
+
+  afterEach(async () => {
+    const parentDir = path.dirname(tempSourceDir);
+    await require('fs/promises').rm(parentDir, { recursive: true, force: true });
+  });
+
+  it('resolves to the output path and produces a non-empty .tar.gz file', async () => {
+    const result = await (service as any).createArchive(tempSourceDir, tempOutputPath);
+
+    expect(result).toBe(tempOutputPath);
+
+    const stats = await require('fs/promises').stat(tempOutputPath);
+    expect(stats.size).toBeGreaterThan(0);
+  });
+
+  it('produces a valid tar.gz that contains the source file', async () => {
+    await (service as any).createArchive(tempSourceDir, tempOutputPath);
+
+    await new Promise<void>((resolve, reject) => {
+      const gunzip = require('zlib').createGunzip();
+      const extract = require('tar-stream').extract();
+      const foundFiles: string[] = [];
+
+      extract.on(
+        'entry',
+        (
+          header: { name: string },
+          stream: NodeJS.ReadableStream,
+          next: () => void,
+        ) => {
+          foundFiles.push(header.name);
+          stream.resume();
+          stream.on('end', next);
+        },
+      );
+
+      extract.on('finish', () => {
+        expect(foundFiles).toContain('test.txt');
+        resolve();
+      });
+
+      extract.on('error', reject);
+      gunzip.on('error', reject);
+
+      fsCb.createReadStream(tempOutputPath).pipe(gunzip).pipe(extract);
     });
   });
 });

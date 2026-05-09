@@ -41,7 +41,7 @@
     "@nestjs/websockets": "^11.0.0",
     "@types/archiver": "^7.0.0",
     "@types/bcrypt": "^6.0.0",
-    "archiver": "^7.0.1",
+    "archiver": "8.0.0",
     "bcrypt": "^6.0.0",
     "bull": "^4.11.4",
     "class-transformer": "^0.5.1",
@@ -87,6 +87,7 @@
     "jest-progress-bar-reporter": "^1.0.25",
     "prettier": "^3.0.0",
     "supertest": "^7.2.2",
+    "tar-stream": "^3.0.0",
     "ts-jest": "^29.4.9",
     "ts-loader": "^9.5.4",
     "ts-node": "^10.9.2",
@@ -123,7 +124,7 @@
       "^.+\\.(t|j)s$": "ts-jest"
     },
     "transformIgnorePatterns": [
-      "node_modules/(?!(uuid)/)"
+      "node_modules/(?!(uuid|archiver|is-stream|zip-stream|compress-commons|crc32-stream)/)"
     ],
     "collectCoverageFrom": [
       "src/**/*.(t|j)s",
