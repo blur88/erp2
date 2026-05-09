@@ -123,7 +123,7 @@
       "^.+\\.(t|j)s$": "ts-jest"
     },
     "transformIgnorePatterns": [
-      "node_modules/(?!(uuid)/)"
+      "node_modules/(?!(uuid|archiver|is-stream|zip-stream|compress-commons|crc32-stream)/)"
     ],
     "collectCoverageFrom": [
       "src/**/*.(t|j)s",

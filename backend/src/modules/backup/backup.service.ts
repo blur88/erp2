@@ -7,7 +7,6 @@ import { spawn, SpawnOptions } from 'child_process';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import * as os from 'os';
-const archiver = require('archiver');
 import * as crypto from 'crypto';
 import { BackupLog } from '@database/entities/backup-log.entity';
 import { BackupRetentionSettings } from '@database/entities/backup-settings.entity';
@@ -19,6 +18,28 @@ import { CreateBackupDto, BackupDatabase } from './dto/create-backup.dto';
 import { BackupMetadata } from './interfaces/backup-metadata.interface';
 import { UpdateBackupSettingsDto, BackupSettingsResponseDto } from './dto/backup-settings.dto';
 import { plainToInstance } from 'class-transformer';
+
+type ArchiverInstance = import('archiver').Archiver;
+type TarArchiveConstructor = new (
+  options?: import('archiver').ArchiverOptions,
+) => ArchiverInstance;
+type ArchiverModule = { TarArchive: TarArchiveConstructor };
+
+const importArchiver = new Function(
+  'specifier',
+  'return import(specifier)',
+) as (specifier: string) => Promise<ArchiverModule>;
+
+async function loadArchiver(): Promise<ArchiverModule> {
+  try {
+    return await importArchiver('archiver');
+  } catch (error) {
+    if (process.env.JEST_WORKER_ID) {
+      return require('archiver') as ArchiverModule;
+    }
+    throw error;
+  }
+}
 
 @Injectable()
 export class BackupService implements OnModuleDestroy {
@@ -346,9 +367,11 @@ export class BackupService implements OnModuleDestroy {
     sourceDir: string,
     outputPath: string,
   ): Promise<string> {
+    const { TarArchive } = await loadArchiver();
+
     return new Promise((resolve, reject) => {
       const output = require('fs').createWriteStream(outputPath);
-      const archive = archiver('tar', {
+      const archive = new TarArchive({
         gzip: true,
         gzipOptions: { level: 9 },
       });
