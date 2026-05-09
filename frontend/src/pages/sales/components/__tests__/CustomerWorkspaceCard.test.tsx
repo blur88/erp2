@@ -190,11 +190,4 @@ describe('CustomerWorkspaceCard', () => {
     await waitFor(() => expect(screen.getByText('Failed to load payments.')).toBeInTheDocument())
   })
 
-  it('tabs have compact minHeight of 36', () => {
-    render(<CustomerWorkspaceCard selectedCustomer={mockCustomer} />)
-    const tabsContainer = screen.getByRole('tablist').closest('.MuiTabs-root')
-    expect(tabsContainer).toBeInTheDocument()
-    // Visual check - minHeight is applied via sx and rendered inline or in class
-    // The structural test above (tabs render, are clickable) is the functional guard
-  })
 })

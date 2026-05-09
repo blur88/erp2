@@ -68,13 +68,13 @@ const SupplierWorkspaceCard: React.FC<SupplierWorkspaceCardProps> = ({ selectedS
     setTabValue(0)
   }, [supplierId])
 
-  const { data: posData, isLoading: posLoading } = useGetSupplierPurchaseOrdersQuery(supplierId, {
+  const { data: posData, isLoading: posLoading, isError: posError } = useGetSupplierPurchaseOrdersQuery(supplierId, {
     skip: !supplierId || tabValue !== 0,
   })
-  const { data: grnsData, isLoading: grnsLoading } = useGetSupplierGRNsQuery(supplierId, {
+  const { data: grnsData, isLoading: grnsLoading, isError: grnsError } = useGetSupplierGRNsQuery(supplierId, {
     skip: !supplierId || tabValue !== 1,
   })
-  const { data: paymentsData, isLoading: paymentsLoading } = useGetSupplierPaymentsQuery(supplierId, {
+  const { data: paymentsData, isLoading: paymentsLoading, isError: paymentsError } = useGetSupplierPaymentsQuery(supplierId, {
     skip: !supplierId || tabValue !== 2,
   })
 
@@ -100,6 +100,10 @@ const SupplierWorkspaceCard: React.FC<SupplierWorkspaceCardProps> = ({ selectedS
           <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
             <CircularProgress />
           </Box>
+        ) : posError ? (
+          <Typography sx={{ color: 'error.main', py: 4, textAlign: 'center' }}>
+            Failed to load purchase orders.
+          </Typography>
         ) : purchaseOrders.length === 0 ? (
           <Typography
             sx={{
@@ -156,6 +160,10 @@ const SupplierWorkspaceCard: React.FC<SupplierWorkspaceCardProps> = ({ selectedS
           <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
             <CircularProgress />
           </Box>
+        ) : grnsError ? (
+          <Typography sx={{ color: 'error.main', py: 4, textAlign: 'center' }}>
+            Failed to load GRNs.
+          </Typography>
         ) : grns.length === 0 ? (
           <Typography
             sx={{
@@ -213,6 +221,10 @@ const SupplierWorkspaceCard: React.FC<SupplierWorkspaceCardProps> = ({ selectedS
           <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
             <CircularProgress />
           </Box>
+        ) : paymentsError ? (
+          <Typography sx={{ color: 'error.main', py: 4, textAlign: 'center' }}>
+            Failed to load payments.
+          </Typography>
         ) : payments.length === 0 ? (
           <Typography
             sx={{

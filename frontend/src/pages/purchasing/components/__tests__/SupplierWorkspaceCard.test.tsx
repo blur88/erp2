@@ -143,4 +143,24 @@ describe('SupplierWorkspaceCard', () => {
     await userEvent.click(screen.getByText('VP-001').closest('tr')!)
     expect(mockNavigate).toHaveBeenCalledWith('/purchasing/vendor-payments?vpId=vp-1')
   })
+
+  it('shows error state for each tab on fetch failure', async () => {
+    mockGetSupplierPurchaseOrdersQuery.mockReturnValue({ data: undefined, isLoading: false, isError: true })
+    mockGetSupplierGRNsQuery.mockReturnValue({ data: undefined, isLoading: false, isError: true })
+    mockGetSupplierPaymentsQuery.mockReturnValue({ data: undefined, isLoading: false, isError: true })
+
+    render(
+      <MemoryRouter>
+        <SupplierWorkspaceCard selectedSupplier={mockSupplier} />
+      </MemoryRouter>,
+    )
+
+    expect(screen.getByText('Failed to load purchase orders.')).toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('tab', { name: /grns/i }))
+    expect(screen.getByText('Failed to load GRNs.')).toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('tab', { name: /payments/i }))
+    expect(screen.getByText('Failed to load payments.')).toBeInTheDocument()
+  })
 })
