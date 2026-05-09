@@ -386,7 +386,8 @@ export class BackupService implements OnModuleDestroy {
 
       archive.pipe(output);
       archive.directory(sourceDir, false);
-      archive.finalize();
+      // finalize() returns a Promise in archiver v8; error is handled by archive.on('error')
+      archive.finalize().catch(() => {});
     });
   }
 
