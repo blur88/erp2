@@ -41,7 +41,7 @@
     "@nestjs/websockets": "^11.0.0",
     "@types/archiver": "^7.0.0",
     "@types/bcrypt": "^6.0.0",
-    "archiver": "^7.0.1",
+    "archiver": "8.0.0",
     "bcrypt": "^6.0.0",
     "bull": "^4.11.4",
     "class-transformer": "^0.5.1",
