@@ -215,13 +215,13 @@ const CustomerWorkspaceCard: React.FC<CustomerWorkspaceCardProps> = ({ selectedC
                     <TableRow
                       key={invoice.id}
                       hover
-                      sx={{ cursor: invoice.salesOrderId ? 'pointer' : 'default' }}
-                      onClick={() => invoice.salesOrderId && navigate(`/sales/orders/${invoice.salesOrderId}/edit`)}
+                      sx={{ cursor: 'pointer' }}
+                      onClick={() => navigate('/sales/invoices', { state: { highlightInvoiceId: invoice.id } })}
                     >
                       <TableCell>
                         <Typography
                           variant="body2"
-                          color={invoice.salesOrderId ? 'primary' : 'text.primary'}
+                          color="primary"
                           sx={{
                             fontWeight: 600
                           }}

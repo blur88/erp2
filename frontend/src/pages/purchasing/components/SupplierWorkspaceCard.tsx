@@ -189,8 +189,8 @@ const SupplierWorkspaceCard: React.FC<SupplierWorkspaceCardProps> = ({ selectedS
                   <TableRow
                     key={grn.id}
                     hover
-                    sx={{ cursor: grn.purchaseOrder?.id ? 'pointer' : 'default' }}
-                    onClick={() => grn.purchaseOrder?.id && navigate(`/purchasing/orders/${grn.purchaseOrder.id}/edit`)}
+                    sx={{ cursor: 'pointer' }}
+                    onClick={() => navigate(`/purchasing/goods-received?grnId=${grn.id}`)}
                   >
                     <TableCell>
                       <Typography variant="body2" color="primary" sx={{
