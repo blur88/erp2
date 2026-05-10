@@ -165,6 +165,9 @@ export class CustomerResponseDto {
   @ApiProperty({ example: 'uuid-string' })
   id: string;
 
+  @ApiProperty({ example: 'acme-corporation' })
+  slug: string;
+
   @ApiProperty({ enum: CustomerType, example: CustomerType.BUSINESS })
   type: CustomerType;
 

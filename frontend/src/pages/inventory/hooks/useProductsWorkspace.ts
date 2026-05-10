@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { useLocation, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 
 import { useEntityWorkspace } from '@/hooks/useEntityWorkspace'
 import { useNotification } from '@/hooks/useNotification'
@@ -25,7 +25,6 @@ export function useProductsWorkspace({
   refetchProducts,
 }: UseProductsWorkspaceConfig) {
   const navigate = useNavigate()
-  const location = useLocation()
   const { showSuccess, showError } = useNotification()
   const [deleteProduct] = useDeleteProductMutation()
 
@@ -37,47 +36,27 @@ export function useProductsWorkspace({
   const [exportMenuAnchor, setExportMenuAnchor] = useState<HTMLElement | null>(null)
   const [isExporting, setIsExporting] = useState(false)
 
-  const navigationSelectionId = (location.state as { selectedProductId?: string } | null)
-    ?.selectedProductId
-
-  const pendingSelectedProduct = useMemo(() => {
-    if (selectedProduct || !navigationSelectionId) {
-      return selectedProduct
-    }
-
-    return { id: navigationSelectionId } as Product
-  }, [navigationSelectionId, selectedProduct])
-
   const workspace = useEntityWorkspace({
     entities: products,
-    selectedEntity: pendingSelectedProduct,
+    selectedEntity: selectedProduct,
     selectEntity: (product) => dispatch(setSelectedProduct(product)),
     refetch: refetchProducts,
     navigate,
     routes: {
       create: '/inventory/products/create',
-      edit: (id) => `/inventory/products/${id}/edit`,
+      edit: (id) => {
+        const product = products.find((item) => item.id === id)
+        if (!product?.slug) throw new Error(`Product ${id} not found in list`)
+        return `/inventory/products/${product.slug}/edit`
+      },
     },
+    highlightParam: 'highlight',
     notifications: { showSuccess, showError },
     deleteMutation: async (id) => {
       await deleteProduct(id).unwrap()
     },
   })
   const { setFocusedIndex } = workspace
-
-  useEffect(() => {
-    if (navigationSelectionId && products.length > 0) {
-      const product = products.find((item) => item.id === navigationSelectionId)
-      if (product) {
-        navigate(location.pathname, { replace: true, state: {} })
-        dispatch(setSelectedProduct(product))
-        const index = products.findIndex((item) => item.id === navigationSelectionId)
-        if (index >= 0) {
-          setFocusedIndex(index)
-        }
-      }
-    }
-  }, [dispatch, location.pathname, navigate, navigationSelectionId, products, setFocusedIndex])
 
   useEffect(() => {
     if (selectedProduct && products.length > 0) {
@@ -99,7 +78,7 @@ export function useProductsWorkspace({
 
   const handleEditProduct = useCallback(
     (product: Product) => {
-      navigate(`/inventory/products/${product.id}/edit`)
+      navigate(`/inventory/products/${product.slug}/edit`)
     },
     [navigate],
   )

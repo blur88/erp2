@@ -26,6 +26,7 @@ export type UserRole = 'admin' | 'manager' | 'sales_staff' | 'inventory_staff' |
 // Product and Inventory types
 export interface Product {
   id: string;
+  slug: string;
   name: string;
   description?: string;
   barcode: string;
@@ -158,6 +159,7 @@ export enum CustomerType {
 
 export interface Customer {
   id: string;
+  slug: string;
   type: CustomerType;
   name: string;
   phone?: string;
@@ -316,6 +318,7 @@ export enum SupplierType {
 
 export interface Supplier {
   id: string;
+  slug: string;
   type: SupplierType;
   companyName: string;
   contactPerson?: string;

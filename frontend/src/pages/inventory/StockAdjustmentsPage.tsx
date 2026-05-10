@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useState } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 
 import GenericListPage from '@/components/common/GenericListPage'
 import { useFilterBar } from '@/hooks/useFilterBar'
@@ -31,7 +31,6 @@ interface StockAdjustmentsSortingState {
 const StockAdjustmentsPage: React.FC = () => {
   const navigate = useNavigate()
   const dispatch = useAppDispatch()
-  const [searchParams, setSearchParams] = useSearchParams()
   const selectedAdjustment = useAppSelector(selectSelectedStockAdjustment)
   const [sorting, setSorting] = useState<StockAdjustmentsSortingState>({
     sortBy: 'adjustmentNumber',
@@ -97,8 +96,6 @@ const StockAdjustmentsPage: React.FC = () => {
     adjustments,
     selectedAdjustment,
     refetchAdjustments: () => void refetchAdjustments(),
-    searchParams,
-    setSearchParams,
   })
 
   const handleSort = useCallback((field: string) => {

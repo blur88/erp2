@@ -61,6 +61,14 @@ export class Customer extends BaseEntity {
   @Matches(/^[A-Za-z0-9\s\-\.,'&]+$/, { message: 'Name contains invalid characters' })
   name: string;
 
+  @Column({
+    type: 'varchar',
+    length: 255,
+    nullable: true,
+    comment: 'URL-friendly identifier derived from name',
+  })
+  @Index({ unique: true })
+  slug: string;
 
   @Column({
     type: 'varchar',

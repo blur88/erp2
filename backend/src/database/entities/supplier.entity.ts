@@ -51,6 +51,15 @@ export class Supplier extends BaseEntity {
 
   @Column({
     type: 'varchar',
+    length: 255,
+    nullable: true,
+    comment: 'URL-friendly identifier derived from companyName',
+  })
+  @Index({ unique: true })
+  slug: string;
+
+  @Column({
+    type: 'varchar',
     length: 200,
     nullable: true,
     comment: 'Contact person name',

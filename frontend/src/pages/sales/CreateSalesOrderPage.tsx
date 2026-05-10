@@ -26,7 +26,7 @@ import { default as DeleteIcon } from '@mui/icons-material/Delete'
 import { useForm, useFieldArray, Controller } from 'react-hook-form'
 import { yupResolver } from '@hookform/resolvers/yup'
 import * as yup from 'yup'
-import { useCreateSalesOrderMutation, useUpdateSalesOrderMutation, useLazyGetSalesOrderQuery, useGetCustomersQuery } from '@/store/api/salesApi'
+import { useCreateSalesOrderMutation, useUpdateSalesOrderMutation, useLazyGetSalesOrderByNumberQuery, useGetCustomersQuery } from '@/store/api/salesApi'
 import { patchSalesOrderCaches } from '@/store/api/salesOrderCache'
 import { formatCurrency, getCurrentDate } from '@/utils/formatters'
 import { AppButton } from '@/components/common/AppButton'
@@ -85,13 +85,13 @@ const CreateSalesOrderPage: React.FC = () => {
   const navigate = useNavigate()
   const dispatch = useAppDispatch()
   const store = useStore()
-  const { id } = useParams<{ id: string }>()
-  const isEditMode = !!id
+  const { orderNumber } = useParams<{ orderNumber: string }>()
+  const isEditMode = !!orderNumber
   const { showSuccess, showError } = useNotification()
   const { currency } = useCurrency()
   const [createSalesOrder] = useCreateSalesOrderMutation()
   const [updateSalesOrder] = useUpdateSalesOrderMutation()
-  const [triggerGetSalesOrder] = useLazyGetSalesOrderQuery()
+  const [triggerGetSalesOrderByNumber] = useLazyGetSalesOrderByNumberQuery()
   const { data: customersData } = useGetCustomersQuery({})
   const [customers, setCustomers] = useState<any[]>([])
   const { products, loadProducts, seedProducts } = useProductSearch()
@@ -99,6 +99,7 @@ const CreateSalesOrderPage: React.FC = () => {
   const [loadingOrder, setLoadingOrder] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [orderToLoad, setOrderToLoad] = useState<any>(null)
+  const [editingOrderId, setEditingOrderId] = useState<string | null>(null)
   const [selectedCustomer, setSelectedCustomer] = useState<any>(null)
   const customerChangedByUserRef = useRef(false)
 
@@ -206,15 +207,16 @@ const CreateSalesOrderPage: React.FC = () => {
 
   // Load sales order data in edit mode
   useEffect(() => {
-    if (isEditMode && id) {
-      loadSalesOrder(id)
+    if (isEditMode && orderNumber) {
+      loadSalesOrder(orderNumber)
     }
-  }, [isEditMode, id])
+  }, [isEditMode, orderNumber])
 
-  const loadSalesOrder = async (orderId: string) => {
+  const loadSalesOrder = async (currentOrderNumber: string) => {
     setLoadingOrder(true)
     try {
-      const order = await triggerGetSalesOrder(orderId).unwrap()
+      const order = await triggerGetSalesOrderByNumber(currentOrderNumber).unwrap()
+      setEditingOrderId(order.id)
 
       // Extract products from order items and add to products state
       if (order.items && order.items.length > 0) {
@@ -341,15 +343,15 @@ const CreateSalesOrderPage: React.FC = () => {
 
 
 
-      if (isEditMode && id) {
-        const updatedOrder = await updateSalesOrder({ id, data: orderData as any }).unwrap()
+      if (isEditMode && editingOrderId) {
+        const updatedOrder = await updateSalesOrder({ id: editingOrderId, data: orderData as any }).unwrap()
 
         patchSalesOrderCaches(dispatch, () => store.getState() as RootState, updatedOrder)
         dispatch(setSelectedOrder(updatedOrder))
 
         showSuccess('Sales order updated successfully')
         // Navigate to orders page with the updated order selected
-        navigate(`/sales/orders?highlight=${id}`)
+        navigate(`/sales/orders?highlight=${updatedOrder.id}`)
       } else {
         const createdOrder = await createSalesOrder(orderData as any).unwrap()
         dispatch(setSelectedOrder(createdOrder as any))

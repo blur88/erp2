@@ -84,8 +84,13 @@ const CustomersPage: React.FC = () => {
     navigate,
     routes: {
       create: '/sales/customers/create',
-      edit: (id) => `/sales/customers/${id}/edit`,
+      edit: (id) => {
+        const customer = customers.find((item) => item.id === id)
+        if (!customer?.slug) throw new Error(`Customer ${id} not found in list`)
+        return `/sales/customers/${customer.slug}/edit`
+      },
     },
+    highlightParam: 'highlight',
     notifications: {
       showSuccess,
       showError: (message) => {
@@ -132,7 +137,7 @@ const CustomersPage: React.FC = () => {
       headerSlot={(
         <CustomerContextHeader
           selectedCustomer={selectedCustomer}
-          onEdit={() => navigate(`/sales/customers/${selectedCustomer!.id}/edit`)}
+          onEdit={() => navigate(`/sales/customers/${selectedCustomer!.slug}/edit`)}
           onDelete={() => workspace.setDeleteConfirmOpen(true)}
         />
       )}

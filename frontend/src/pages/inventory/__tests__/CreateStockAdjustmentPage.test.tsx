@@ -43,7 +43,7 @@ vi.mock('@/services/api', () => ({
 }))
 
 vi.mock('@/store/api/inventoryApi', () => ({
-  useLazyGetStockAdjustmentQuery: () => [mockFetchAdjustment],
+  useLazyGetStockAdjustmentByNumberQuery: () => [mockFetchAdjustment],
   useCreateStockAdjustmentMutation: () => [mockCreateAdjustment, { isLoading: false }],
   useUpdateStockAdjustmentMutation: () => [mockUpdateAdjustment, { isLoading: false }],
 }))
@@ -164,7 +164,7 @@ describe('CreateStockAdjustmentPage product search', { timeout: 60000 }, () => {
     let resolveAdjustment!: (v: any) => void
     const adjustmentPromise = new Promise((res) => { resolveAdjustment = res })
 
-    mockParams.mockReturnValue({ id: 'adj-1' })
+    mockParams.mockReturnValue({ adjustmentNumber: 'SA-001' })
     mockFetchAdjustment.mockReturnValue({ unwrap: () => adjustmentPromise })
 
     mockGet.mockImplementation(async () => {
@@ -193,7 +193,7 @@ describe('CreateStockAdjustmentPage product search', { timeout: 60000 }, () => {
   })
 
   it('keeps hydrated edit-mode product visible after search replaces options', async () => {
-    mockParams.mockReturnValue({ id: 'adj-1' })
+    mockParams.mockReturnValue({ adjustmentNumber: 'SA-001' })
     mockFetchAdjustment.mockReturnValue({
       unwrap: async () => ({
         id: 'adj-1',
@@ -330,7 +330,7 @@ describe('CreateStockAdjustmentPage submit', { timeout: 60000 }, () => {
 
   it('calls updateStockAdjustment mutation on submit in edit mode', async () => {
     const user = userEvent.setup()
-    mockParams.mockReturnValue({ id: 'adj-1' })
+    mockParams.mockReturnValue({ adjustmentNumber: 'SA-001' })
     mockFetchAdjustment.mockReturnValue({
       unwrap: async () => ({
         id: 'adj-1',
@@ -383,7 +383,7 @@ describe('CreateStockAdjustmentPage submit', { timeout: 60000 }, () => {
 
   it('navigates back with the edited adjustment id in the saId query param so the list can highlight it', async () => {
     const user = userEvent.setup()
-    mockParams.mockReturnValue({ id: 'adj-1' })
+    mockParams.mockReturnValue({ adjustmentNumber: 'SA-001' })
     mockFetchAdjustment.mockReturnValue({
       unwrap: async () => ({
         id: 'adj-1',
@@ -422,7 +422,7 @@ describe('CreateStockAdjustmentPage submit', { timeout: 60000 }, () => {
 
     await waitFor(() => {
       expect(mockNavigate).toHaveBeenCalledWith(
-        '/inventory/stock-adjustments?saId=adj-1'
+        '/inventory/stock-adjustments?highlight=adj-1'
       )
     })
   })

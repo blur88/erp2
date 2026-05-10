@@ -87,14 +87,18 @@ export function useOrdersWorkspace({
     highlightParam: 'highlight',
     routes: {
       create: '/sales/orders/create',
-      edit: (id) => `/sales/orders/${id}/edit`,
+      edit: (id) => {
+        const order = orders.find((item) => item.id === id)
+        if (!order?.orderNumber) throw new Error(`Sales order ${id} not found in list`)
+        return `/sales/orders/${order.orderNumber}/edit`
+      },
     },
     isLoading: ordersLoading,
     onEnter: () => {
       if (workspaceRef.current?.focusedIndex != null && workspaceRef.current.focusedIndex >= 0) {
         const order = orders[workspaceRef.current.focusedIndex]
         if (order) {
-          navigate(`/sales/orders/${order.id}/edit`)
+          navigate(`/sales/orders/${order.orderNumber}/edit`)
         }
       }
     },
@@ -413,7 +417,7 @@ export function useOrdersWorkspace({
       setBlockedDialogOpen(true)
       return
     }
-    navigate(`/sales/orders/${selectedOrder.id}/edit`)
+    navigate(`/sales/orders/${selectedOrder.orderNumber}/edit`)
   }, [navigate, selectedOrder])
 
   const handleRecordPayments = useCallback(async (
@@ -568,7 +572,7 @@ export function useOrdersWorkspace({
           dispatch(setSelectedOrder(updatedOrder.data))
           showSuccess('Order unfulfilled and unpaid successfully')
           setBlockedDialogOpen(false)
-          navigate(`/sales/orders/${selectedOrder.id}/edit`)
+          navigate(`/sales/orders/${selectedOrder.orderNumber}/edit`)
         } else {
           const errorData = await unpayResponse.json()
           throw new Error(errorData?.message || 'Failed to unpay order')
@@ -579,7 +583,7 @@ export function useOrdersWorkspace({
         dispatch(setSelectedOrder(updatedOrder.data))
         showSuccess('Order unfulfilled successfully')
         setBlockedDialogOpen(false)
-        navigate(`/sales/orders/${selectedOrder.id}/edit`)
+        navigate(`/sales/orders/${selectedOrder.orderNumber}/edit`)
       }
     } catch (error: any) {
       console.error('Error unfulfilling order:', error)
@@ -650,7 +654,7 @@ export function useOrdersWorkspace({
           dispatch(setSelectedOrder(updatedOrder.data))
           showSuccess('Order unfulfilled and unpaid successfully')
           setBlockedDialogOpen(false)
-          navigate(`/sales/orders/${selectedOrder.id}/edit`)
+          navigate(`/sales/orders/${selectedOrder.orderNumber}/edit`)
         } else {
           const errorData = await unpayResponse.json()
           throw new Error(errorData?.message || 'Failed to unpay order')
@@ -671,7 +675,7 @@ export function useOrdersWorkspace({
         dispatch(setSelectedOrder(updatedOrder.data))
         showSuccess('Order unpaid successfully - payment removed')
         setBlockedDialogOpen(false)
-        navigate(`/sales/orders/${selectedOrder.id}/edit`)
+        navigate(`/sales/orders/${selectedOrder.orderNumber}/edit`)
       }
     } catch (error: any) {
       console.error('Error unpaying order:', error)

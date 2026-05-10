@@ -8,13 +8,14 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import CustomerFormPage from '../CustomerFormPage'
 import salesReducer from '@/store/slices/salesSlice'
 
-const { mockNavigate, mockCreateCustomer, mockUpdateCustomer, mockShowSuccess, mockShowError, mockApiGet } = vi.hoisted(() => ({
+const { mockNavigate, mockCreateCustomer, mockUpdateCustomer, mockShowSuccess, mockShowError, mockApiGet, mockFetchCustomerBySlug } = vi.hoisted(() => ({
   mockNavigate: vi.fn(),
   mockCreateCustomer: vi.fn(),
   mockUpdateCustomer: vi.fn(),
   mockShowSuccess: vi.fn(),
   mockShowError: vi.fn(),
   mockApiGet: vi.fn(),
+  mockFetchCustomerBySlug: vi.fn(),
 }))
 
 vi.mock('react-router-dom', async (importOriginal) => {
@@ -31,6 +32,7 @@ vi.mock('@/store/api/salesApi', async (importOriginal) => {
     ...actual,
     useCreateCustomerMutation: vi.fn(() => [mockCreateCustomer, { isLoading: false }]),
     useUpdateCustomerMutation: vi.fn(() => [mockUpdateCustomer, { isLoading: false }]),
+    useLazyGetCustomerBySlugQuery: vi.fn(() => [mockFetchCustomerBySlug]),
   }
 })
 
@@ -67,13 +69,13 @@ function renderCreatePage() {
   )
 }
 
-function renderEditPage(customerId = 'cust-1') {
+function renderEditPage(customerSlug = 'acme-corp') {
   const store = configureStore({ reducer: { sales: salesReducer } })
   return render(
     <Provider store={store}>
-      <MemoryRouter initialEntries={[`/sales/customers/${customerId}/edit`]}>
+      <MemoryRouter initialEntries={[`/sales/customers/${customerSlug}/edit`]}>
         <Routes>
-          <Route path="/sales/customers/:id/edit" element={<CustomerFormPage />} />
+          <Route path="/sales/customers/:slug/edit" element={<CustomerFormPage />} />
         </Routes>
       </MemoryRouter>
     </Provider>,
@@ -90,6 +92,7 @@ describe('CustomerFormPage - Create mode', () => {
       unwrap: vi.fn().mockResolvedValue({ id: 'cust-1' }),
     })
     mockApiGet.mockResolvedValue({ data: { data: [] } })
+    mockFetchCustomerBySlug.mockReturnValue({ unwrap: vi.fn().mockResolvedValue(null) })
   })
 
   it('renders empty form with New Customer heading', () => {
@@ -122,7 +125,7 @@ describe('CustomerFormPage - Create mode', () => {
         expect.objectContaining({ name: 'Test Corp' }),
       )
     })
-    expect(mockNavigate).toHaveBeenCalledWith('/sales/customers')
+    expect(mockNavigate).toHaveBeenCalledWith('/sales/customers?highlight=new-cust')
   })
 
   it('navigates back on Cancel click', async () => {
@@ -149,6 +152,7 @@ describe('CustomerFormPage - Edit mode', () => {
     priceListId: null,
     notes: null,
     isActive: true,
+    slug: 'acme-corp',
   }
 
   beforeEach(() => {
@@ -160,15 +164,16 @@ describe('CustomerFormPage - Edit mode', () => {
       unwrap: vi.fn().mockResolvedValue({ id: 'cust-1' }),
     })
     mockApiGet.mockImplementation((url: string) => {
-      if (url === '/customers/cust-1') {
+      if (url === '/customers/slug/acme-corp') {
         return Promise.resolve({ data: { data: mockCustomer } })
       }
       return Promise.resolve({ data: { data: [] } })
     })
+    mockFetchCustomerBySlug.mockReturnValue({ unwrap: vi.fn().mockResolvedValue(mockCustomer) })
   })
 
   it('shows Edit Customer heading and pre-populates name', async () => {
-    renderEditPage('cust-1')
+    renderEditPage('acme-corp')
 
     await waitFor(() => {
       expect(screen.getByText('Edit Customer')).toBeInTheDocument()
@@ -178,7 +183,7 @@ describe('CustomerFormPage - Edit mode', () => {
 
   it('calls updateCustomer and navigates on successful submit', async () => {
     const user = userEvent.setup()
-    renderEditPage('cust-1')
+    renderEditPage('acme-corp')
 
     await waitFor(() => {
       expect(screen.getByLabelText(/customer name/i)).toHaveValue('Acme Corp')
@@ -194,7 +199,7 @@ describe('CustomerFormPage - Edit mode', () => {
         data: expect.objectContaining({ name: 'Acme Corp Updated' }),
       })
     })
-    expect(mockNavigate).toHaveBeenCalledWith('/sales/customers')
+    expect(mockNavigate).toHaveBeenCalledWith('/sales/customers?highlight=cust-1')
   })
 })
 

@@ -29,6 +29,11 @@ export const inventoryApiSlice = createApi({
       transformResponse: normalizeSingle<Product>,
       providesTags: (_result, _error, id) => [{ type: 'Product', id }],
     }),
+    getProductBySlug: builder.query<Product, string>({
+      query: (slug) => ({ url: `/inventory/products/slug/${slug}` }),
+      transformResponse: normalizeSingle<Product>,
+      providesTags: (result) => result ? [{ type: 'Product', id: result.id }] : [],
+    }),
     getDeletedProducts: builder.query<PaginatedResponse<Product>, Record<string, unknown> | undefined>({
       query: (params) => ({ url: '/inventory/products/deleted', params: params ?? {} }),
       transformResponse: normalizePaginated<Product>,
@@ -175,6 +180,11 @@ export const inventoryApiSlice = createApi({
       transformResponse: normalizeSingle<StockAdjustment>,
       providesTags: (_result, _error, id) => [{ type: 'StockAdjustment', id }],
     }),
+    getStockAdjustmentByNumber: builder.query<StockAdjustment, string>({
+      query: (adjustmentNumber) => ({ url: `/inventory/stock-adjustments/by-number/${adjustmentNumber}` }),
+      transformResponse: normalizeSingle<StockAdjustment>,
+      providesTags: (result) => result ? [{ type: 'StockAdjustment', id: result.id }] : [],
+    }),
     createStockAdjustment: builder.mutation<StockAdjustment, Record<string, unknown>>({
       query: (body) => ({ url: '/inventory/stock-adjustments', method: 'POST', data: body }),
       transformResponse: normalizeSingle<StockAdjustment>,
@@ -227,6 +237,8 @@ export const inventoryApiSlice = createApi({
 export const {
   useGetProductsQuery,
   useGetProductQuery,
+  useGetProductBySlugQuery,
+  useLazyGetProductBySlugQuery,
   useLazyGetProductQuery,
   useGetDeletedProductsQuery,
   useCreateProductMutation,
@@ -253,6 +265,8 @@ export const {
   useGetOutOfStockProductsQuery,
   useGetStockAdjustmentsQuery,
   useGetStockAdjustmentQuery,
+  useGetStockAdjustmentByNumberQuery,
+  useLazyGetStockAdjustmentByNumberQuery,
   useLazyGetStockAdjustmentQuery,
   useCreateStockAdjustmentMutation,
   useUpdateStockAdjustmentMutation,

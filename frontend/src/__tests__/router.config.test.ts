@@ -17,7 +17,7 @@ describe('router settings paths', () => {
   it('defines customer create and edit routes and removes the old customer profile route', () => {
     expect(routerSource).toContain("const CustomerFormPage = React.lazy(() => import('./pages/sales/CustomerFormPage'))")
     expect(routerSource).toContain("{ path: '/sales/customers/create', element: <CustomerFormPage />, handle: { title: 'New Customer' } }")
-    expect(routerSource).toContain("{ path: '/sales/customers/:id/edit', element: <CustomerFormPage />, handle: { title: 'Edit Customer' } }")
+    expect(routerSource).toContain("{ path: '/sales/customers/:slug/edit', element: <CustomerFormPage />, handle: { title: 'Edit Customer' } }")
     expect(routerSource).not.toContain('CustomerProfilePage')
     expect(routerSource).not.toContain("{ path: '/sales/customers/:id', element: <CustomerProfilePage />, handle: { title: 'Customer Profile' } }")
   })

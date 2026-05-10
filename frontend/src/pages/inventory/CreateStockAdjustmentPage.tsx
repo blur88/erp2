@@ -29,7 +29,7 @@ import { AppButton } from '@/components/common/AppButton'
 import PageHeader from '@/components/common/PageHeader'
 import TransactionForm from '@/components/common/TransactionForm'
 import {
-  useLazyGetStockAdjustmentQuery,
+  useLazyGetStockAdjustmentByNumberQuery,
   useCreateStockAdjustmentMutation,
   useUpdateStockAdjustmentMutation,
 } from '@/store/api/inventoryApi'
@@ -67,17 +67,18 @@ const schema = yup.object({
 const CreateStockAdjustmentPage: React.FC = () => {
   const theme = useTheme()
   const navigate = useNavigate()
-  const { id } = useParams<{ id: string }>()
-  const isEditMode = !!id
+  const { adjustmentNumber } = useParams<{ adjustmentNumber: string }>()
+  const isEditMode = !!adjustmentNumber
   const { showSuccess, showError } = useNotification()
   const { products, loadProducts, seedProducts } = useProductSearch()
   const [createStockAdjustment, { isLoading: isCreating }] = useCreateStockAdjustmentMutation()
   const [updateStockAdjustment, { isLoading: isUpdating }] = useUpdateStockAdjustmentMutation()
-  const [triggerGetStockAdjustment] = useLazyGetStockAdjustmentQuery()
+  const [triggerGetStockAdjustmentByNumber] = useLazyGetStockAdjustmentByNumberQuery()
   const loading = isCreating || isUpdating
   const [loadingAdjustment, setLoadingAdjustment] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [adjustmentToLoad, setAdjustmentToLoad] = useState<any>(null)
+  const [editingAdjustmentId, setEditingAdjustmentId] = useState<string | null>(null)
 
   const { control, handleSubmit, watch, setValue, reset, formState: { errors } } = useForm<CreateAdjustmentFormData>({
     resolver: yupResolver(schema) as any,
@@ -108,15 +109,16 @@ const CreateStockAdjustmentPage: React.FC = () => {
 
   // Load stock adjustment data in edit mode
   useEffect(() => {
-    if (isEditMode && id) {
-      loadStockAdjustment(id)
+    if (isEditMode && adjustmentNumber) {
+      loadStockAdjustment(adjustmentNumber)
     }
-  }, [isEditMode, id])
+  }, [adjustmentNumber, isEditMode])
 
-  const loadStockAdjustment = async (adjustmentId: string) => {
+  const loadStockAdjustment = async (currentAdjustmentNumber: string) => {
     setLoadingAdjustment(true)
     try {
-      const adjustment = await triggerGetStockAdjustment(adjustmentId).unwrap()
+      const adjustment = await triggerGetStockAdjustmentByNumber(currentAdjustmentNumber).unwrap()
+      setEditingAdjustmentId(adjustment.id)
 
       // Extract products from adjustment items and add to products state
       if (adjustment.items && adjustment.items.length > 0) {
@@ -209,13 +211,13 @@ const CreateStockAdjustmentPage: React.FC = () => {
         })),
       }
 
-      if (isEditMode && id) {
+      if (isEditMode && editingAdjustmentId) {
         // Edit mode: Update existing adjustment
-        const updatedAdjustment = await updateStockAdjustment({ id, data: adjustmentData }).unwrap()
+        const updatedAdjustment = await updateStockAdjustment({ id: editingAdjustmentId, data: adjustmentData }).unwrap()
         const saNumber = updatedAdjustment?.adjustmentNumber || 'N/A'
 
         showSuccess(`Stock adjustment ${saNumber} updated successfully`)
-        navigate(`/inventory/stock-adjustments?saId=${id}`)
+        navigate(`/inventory/stock-adjustments?highlight=${updatedAdjustment.id}`)
       } else {
         // Create mode: Create new adjustment (kept as draft)
         const adjustment = await createStockAdjustment(adjustmentData).unwrap()
@@ -225,7 +227,7 @@ const CreateStockAdjustmentPage: React.FC = () => {
         const status = adjustment?.status || 'draft'
 
         showSuccess(`Stock adjustment ${saNumber} created successfully (${itemsAdjusted} items) - Status: ${status}`)
-        navigate(`/inventory/stock-adjustments?saId=${adjustment.id}`)
+        navigate(`/inventory/stock-adjustments?highlight=${adjustment.id}`)
       }
     } catch (err: any) {
       setError(err.data?.message || err.message || 'Failed to record stock adjustments')

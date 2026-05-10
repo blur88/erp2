@@ -24,10 +24,10 @@ import { AppButton } from '@/components/common/AppButton'
 import PageHeader from '@/components/common/PageHeader'
 import { useFieldDuplicateCheck } from '@/hooks/useFieldDuplicateCheck'
 import { useNotification } from '@/hooks/useNotification'
-import api from '@/services/api'
 import {
   useCreateSupplierMutation,
   useLazyCheckDuplicateCompanyNameQuery,
+  useLazyGetSupplierBySlugQuery,
   useUpdateSupplierMutation,
 } from '@/store/api/purchasingApi'
 import type { Supplier } from '@/types'
@@ -65,15 +65,16 @@ const fieldSx = {
 }
 
 const SupplierFormPage: React.FC = () => {
-  const { id } = useParams<{ id: string }>()
+  const { slug } = useParams<{ slug: string }>()
   const navigate = useNavigate()
   const { showSuccess, showError } = useNotification()
-  const isEdit = !!id
+  const isEdit = !!slug
 
   const [supplier, setSupplier] = useState<Supplier | null>(null)
   const [loadingSupplier, setLoadingSupplier] = useState(isEdit)
   const [loadError, setLoadError] = useState<string | null>(null)
 
+  const [fetchSupplierBySlug] = useLazyGetSupplierBySlugQuery()
   const [createSupplier, { isLoading: isCreating }] = useCreateSupplierMutation()
   const [updateSupplier, { isLoading: isUpdating }] = useUpdateSupplierMutation()
   const [checkDuplicateCompanyName] = useLazyCheckDuplicateCompanyNameQuery()
@@ -98,15 +99,15 @@ const SupplierFormPage: React.FC = () => {
   const watchedCompanyName = watch('companyName')
 
   useEffect(() => {
-    if (!id) {
+    if (!slug) {
       return
     }
 
     setLoadingSupplier(true)
 
-    api.get(`/purchasing/suppliers/${id}`)
-      .then((res) => {
-        const currentSupplier: Supplier = res.data?.data ?? res.data
+    fetchSupplierBySlug(slug)
+      .unwrap()
+      .then((currentSupplier) => {
         setSupplier(currentSupplier)
         reset({
           companyName: currentSupplier.companyName,
@@ -123,7 +124,7 @@ const SupplierFormPage: React.FC = () => {
       })
       .catch(() => setLoadError('Supplier not found.'))
       .finally(() => setLoadingSupplier(false))
-  }, [id, reset])
+  }, [fetchSupplierBySlug, reset, slug])
 
   const companyNameCheckFn = useCallback(async (name: string, excludeId?: string) => {
     const result = await checkDuplicateCompanyName({ companyName: name, excludeId }).unwrap()
@@ -164,15 +165,16 @@ const SupplierFormPage: React.FC = () => {
     }
 
     try {
-      if (isEdit && id) {
-        await updateSupplier({ id, data: cleanedData }).unwrap()
+      let savedSupplier: Supplier
+      if (isEdit && supplier?.id) {
+        savedSupplier = await updateSupplier({ id: supplier.id, data: cleanedData }).unwrap()
         showSuccess('Supplier updated successfully')
       } else {
-        await createSupplier(cleanedData).unwrap()
+        savedSupplier = await createSupplier(cleanedData).unwrap()
         showSuccess('Supplier created successfully')
       }
 
-      navigate('/purchasing/suppliers')
+      navigate(`/purchasing/suppliers?highlight=${savedSupplier.id}`)
     } catch (error: any) {
       showError(`Failed to ${isEdit ? 'update' : 'create'} supplier: ${error?.message ?? error}`)
     }

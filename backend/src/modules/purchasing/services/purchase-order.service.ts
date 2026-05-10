@@ -479,6 +479,24 @@ export class PurchaseOrderService extends BaseCrudService<
     return this.mapToResponseDto(purchaseOrder);
   }
 
+  async findByOrderNumber(orderNumber: string): Promise<PurchaseOrderResponseDto> {
+    const purchaseOrder = await this.purchaseOrderRepository
+      .createQueryBuilder('po')
+      .leftJoinAndSelect('po.supplier', 'supplier')
+      .leftJoinAndSelect('po.items', 'items')
+      .leftJoinAndSelect('items.product', 'product')
+      .leftJoinAndSelect('po.goodsReceivedNotes', 'grns')
+      .leftJoinAndSelect('po.vendorPayments', 'vendorPayments')
+      .where('po.orderNumber = :orderNumber', { orderNumber })
+      .getOne();
+
+    if (!purchaseOrder) {
+      throw new NotFoundException(`Purchase order '${orderNumber}' not found`);
+    }
+
+    return this.mapToResponseDto(purchaseOrder);
+  }
+
   /**
    * Update purchase order
    */

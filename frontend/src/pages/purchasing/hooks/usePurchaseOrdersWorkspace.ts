@@ -64,7 +64,11 @@ export function usePurchaseOrdersWorkspace({
     highlightParam: 'highlight',
     routes: {
       create: '/purchasing/orders/create',
-      edit: (id) => `/purchasing/orders/${id}/edit`,
+      edit: (id) => {
+        const order = purchaseOrders.find((item) => item.id === id)
+        if (!order?.orderNumber) throw new Error(`Purchase order ${id} not found in list`)
+        return `/purchasing/orders/${order.orderNumber}/edit`
+      },
     },
     notifications: { showSuccess, showError },
     deleteMutation: async (id) => {
@@ -218,7 +222,7 @@ export function usePurchaseOrdersWorkspace({
       setBlockedDialogType('edit')
       setBlockedDialogOpen(true)
     } else {
-      navigate(`/purchasing/orders/${selectedOrder.id}/edit`)
+      navigate(`/purchasing/orders/${selectedOrder.orderNumber}/edit`)
     }
   }, [navigate, selectedOrder])
 
@@ -232,7 +236,7 @@ export function usePurchaseOrdersWorkspace({
       if (updatedOrder) dispatch(setSelectedPurchaseOrder(updatedOrder))
       setBlockedDialogOpen(false)
       refetchOrders()
-      navigate(`/purchasing/orders/${selectedOrder.id}/edit`)
+      navigate(`/purchasing/orders/${selectedOrder.orderNumber}/edit`)
     } catch (error: any) {
       showError(error?.data?.message || error?.message || 'Failed to return goods')
     } finally {
@@ -285,7 +289,7 @@ export function usePurchaseOrdersWorkspace({
       }
       setBlockedDialogOpen(false)
       refetchOrders()
-      navigate(`/purchasing/orders/${selectedOrder.id}/edit`)
+      navigate(`/purchasing/orders/${selectedOrder.orderNumber}/edit`)
     } catch (error: any) {
       showError(error?.data?.message || error?.message || 'Failed to prepare order for editing')
     } finally {

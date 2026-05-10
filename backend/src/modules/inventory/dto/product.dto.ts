@@ -140,6 +140,9 @@ export class ProductResponseDto {
   @ApiProperty({ description: 'Product ID' })
   id: string;
 
+  @ApiProperty({ example: 'steel-bolt-m6' })
+  slug: string;
+
   @ApiProperty({ description: 'Product name' })
   name: string;
 

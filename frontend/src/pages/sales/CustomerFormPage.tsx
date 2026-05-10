@@ -28,6 +28,7 @@ import { useNotification } from '@/hooks/useNotification'
 import api from '@/services/api'
 import {
   useCreateCustomerMutation,
+  useLazyGetCustomerBySlugQuery,
   useUpdateCustomerMutation,
 } from '@/store/api/salesApi'
 import type { Customer } from '@/types'
@@ -65,15 +66,16 @@ const fieldSx = {
 }
 
 const CustomerFormPage: React.FC = () => {
-  const { id } = useParams<{ id: string }>()
+  const { slug } = useParams<{ slug: string }>()
   const navigate = useNavigate()
   const { showSuccess, showError } = useNotification()
-  const isEdit = !!id
+  const isEdit = !!slug
 
   const [customer, setCustomer] = useState<Customer | null>(null)
   const [loadingCustomer, setLoadingCustomer] = useState(isEdit)
   const [loadError, setLoadError] = useState<string | null>(null)
 
+  const [fetchCustomerBySlug] = useLazyGetCustomerBySlugQuery()
   const [createCustomer, { isLoading: isCreating }] = useCreateCustomerMutation()
   const [updateCustomer, { isLoading: isUpdating }] = useUpdateCustomerMutation()
   const isSaving = isCreating || isUpdating
@@ -97,15 +99,15 @@ const CustomerFormPage: React.FC = () => {
   const watchedPhone = watch('phone')
 
   useEffect(() => {
-    if (!id) {
+    if (!slug) {
       return
     }
 
     setLoadingCustomer(true)
 
-    api.get(`/customers/${id}`)
-      .then((res) => {
-        const currentCustomer: Customer = res.data?.data ?? res.data
+    fetchCustomerBySlug(slug)
+      .unwrap()
+      .then((currentCustomer) => {
         setCustomer(currentCustomer)
         reset({
           name: currentCustomer.name,
@@ -122,7 +124,7 @@ const CustomerFormPage: React.FC = () => {
       })
       .catch(() => setLoadError('Customer not found.'))
       .finally(() => setLoadingCustomer(false))
-  }, [id, reset])
+  }, [fetchCustomerBySlug, reset, slug])
 
   const phoneCheckFn = useCallback(async (phone: string, excludeId?: string) => {
     const normalizedPhone = phone.replace(/[\s\-\(\)\+]/g, '')
@@ -179,15 +181,16 @@ const CustomerFormPage: React.FC = () => {
     }
 
     try {
-      if (isEdit && id) {
-        await updateCustomer({ id, data: cleanedData }).unwrap()
+      let savedCustomer: Customer
+      if (isEdit && customer?.id) {
+        savedCustomer = await updateCustomer({ id: customer.id, data: cleanedData }).unwrap()
         showSuccess('Customer updated successfully')
       } else {
-        await createCustomer(cleanedData).unwrap()
+        savedCustomer = await createCustomer(cleanedData).unwrap()
         showSuccess('Customer created successfully')
       }
 
-      navigate('/sales/customers')
+      navigate(`/sales/customers?highlight=${savedCustomer.id}`)
     } catch (error) {
       showError(`Failed to ${isEdit ? 'update' : 'create'} customer: ${error}`)
     }

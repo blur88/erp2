@@ -79,7 +79,7 @@ vi.mock('@/store/api/priceListApi', () => ({
 vi.mock('@/store/api/inventoryApi', () => ({
   useUpdateProductMutation: () => [mockUpdateProduct],
   useCreateProductMutation: () => [mockCreateProduct],
-  useLazyGetProductQuery: () => [mockFetchProduct, { isFetching: false }],
+  useLazyGetProductBySlugQuery: () => [mockFetchProduct, { isFetching: false }],
 }))
 
 describe('CreateProductPage', () => {
@@ -148,7 +148,7 @@ describe('CreateProductPage', () => {
   })
 
   it('uses the RTK Query update mutation when editing a product', async () => {
-    mockRouteParams = { id: 'prod-1' }
+    mockRouteParams = { slug: 'original-product' }
 
     render(
       <BrowserRouter>
@@ -176,7 +176,7 @@ describe('CreateProductPage', () => {
   })
 
   it('invalidates PriceListItem cache for the product after updating prices in edit mode', async () => {
-    mockRouteParams = { id: 'prod-1' }
+    mockRouteParams = { slug: 'original-product' }
     mockFetchProduct.mockReturnValue({
       unwrap: vi.fn().mockResolvedValue({
         id: 'prod-1',

@@ -63,6 +63,11 @@ export const purchasingApiSlice = createApi({
       transformResponse: normalizeSingle<Supplier>,
       providesTags: (_result, _error, id) => [{ type: 'Supplier', id }],
     }),
+    getSupplierBySlug: builder.query<Supplier, string>({
+      query: (slug) => ({ url: `/purchasing/suppliers/slug/${slug}` }),
+      transformResponse: normalizeSingle<Supplier>,
+      providesTags: (result) => result ? [{ type: 'Supplier', id: result.id }] : [],
+    }),
     createSupplier: builder.mutation<Supplier, Partial<Supplier>>({
       query: (body) => ({ url: '/purchasing/suppliers', method: 'POST', data: body }),
       transformResponse: normalizeSingle<Supplier>,
@@ -131,6 +136,11 @@ export const purchasingApiSlice = createApi({
       query: (id) => ({ url: `/purchasing/orders/${id}` }),
       transformResponse: normalizeSingle<PurchaseOrder>,
       providesTags: (_result, _error, id) => [{ type: 'PurchaseOrder', id }],
+    }),
+    getPurchaseOrderByNumber: builder.query<PurchaseOrder, string>({
+      query: (orderNumber) => ({ url: `/purchasing/orders/by-number/${orderNumber}` }),
+      transformResponse: normalizeSingle<PurchaseOrder>,
+      providesTags: (result) => result ? [{ type: 'PurchaseOrder', id: result.id }] : [],
     }),
     createPurchaseOrder: builder.mutation<PurchaseOrder, Partial<PurchaseOrder>>({
       query: (body) => ({ url: '/purchasing/orders', method: 'POST', data: body }),
@@ -246,6 +256,8 @@ export const purchasingApiSlice = createApi({
 export const {
   useGetSuppliersQuery,
   useGetSupplierQuery,
+  useGetSupplierBySlugQuery,
+  useLazyGetSupplierBySlugQuery,
   useCreateSupplierMutation,
   useUpdateSupplierMutation,
   useDeleteSupplierMutation,
@@ -260,6 +272,8 @@ export const {
   useLazyCheckDuplicateCompanyNameQuery,
   useGetPurchaseOrdersQuery,
   useGetPurchaseOrderQuery,
+  useGetPurchaseOrderByNumberQuery,
+  useLazyGetPurchaseOrderByNumberQuery,
   useLazyGetPurchaseOrderQuery,
   useCreatePurchaseOrderMutation,
   useUpdatePurchaseOrderMutation,

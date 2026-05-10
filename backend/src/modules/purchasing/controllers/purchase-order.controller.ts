@@ -106,6 +106,18 @@ export class PurchaseOrderController {
     return this.purchaseOrderService.getSummary();
   }
 
+  @Get('by-number/:orderNumber')
+  @ApiOperation({ summary: 'Get purchase order by order number' })
+  @ApiParam({ name: 'orderNumber', description: 'Purchase order number (e.g. PO-001)', type: 'string' })
+  @ApiResponse({ status: 200, description: 'Purchase order retrieved successfully' })
+  @ApiResponse({ status: 404, description: 'Purchase order not found' })
+  async findByOrderNumber(
+    @Param('orderNumber') orderNumber: string,
+  ): Promise<{ data: PurchaseOrderResponseDto }> {
+    const data = await this.purchaseOrderService.findByOrderNumber(orderNumber);
+    return { data };
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Get purchase order by ID' })
   @ApiParam({ name: 'id', description: 'Purchase order ID', type: 'string' })

@@ -33,6 +33,7 @@ import {
 import { ValidationUtil, BulkOperationUtil, BulkOperationResponse } from '../../../common/utils/validation.util';
 import { TransactionManager, Transactional } from '../../../common/utils/transaction.util';
 import { AuditLogService } from '../../audit-logs/services';
+import { generateBaseSlug } from '../../../common/utils/slug.util';
 
 @Injectable()
 export class CustomerService extends BaseCrudService<
@@ -132,6 +133,7 @@ export class CustomerService extends BaseCrudService<
     const customer = this.customerRepository.create({
       ...createCustomerDto,
     });
+    customer.slug = await this.generateUniqueSlug(createCustomerDto.name);
 
     const savedCustomer = await this.customerRepository.save(customer);
 
@@ -341,6 +343,15 @@ export class CustomerService extends BaseCrudService<
     return this.mapToResponseDto(customer);
   }
 
+  async findBySlug(slug: string): Promise<CustomerResponseDto> {
+    const customer = await this.customerRepository.findOne({
+      where: { slug },
+      relations: ['priceList'],
+    });
+    if (!customer) throw new NotFoundException(`Customer with slug '${slug}' not found`);
+    return this.mapToResponseDto(customer);
+  }
+
   
   async update(
     id: string,
@@ -366,7 +377,11 @@ export class CustomerService extends BaseCrudService<
       await this.validatePhoneUniqueness(updateCustomerDto.phone, id);
     }
 
+    const nameChanged = updateCustomerDto.name !== undefined && updateCustomerDto.name !== customer.name;
     Object.assign(customer, updateCustomerDto);
+    if (nameChanged) {
+      customer.slug = await this.generateUniqueSlug(customer.name, id);
+    }
     const savedCustomer = await this.customerRepository.save(customer);
 
     // Log audit trail
@@ -1040,10 +1055,25 @@ export class CustomerService extends BaseCrudService<
     return customer;
   }
 
+  private async generateUniqueSlug(name: string, excludeId?: string): Promise<string> {
+    const base = generateBaseSlug(name);
+    let slug = base;
+    let counter = 1;
+
+    while (true) {
+      const existing = await this.customerRepository.findOne({
+        where: { slug },
+        withDeleted: true,
+      });
+      if (!existing || existing.id === excludeId) return slug;
+      slug = `${base}-${counter++}`;
+    }
+  }
 
   private mapToResponseDto(customer: Customer): CustomerResponseDto {
     return {
       id: customer.id,
+      slug: customer.slug,
       type: customer.type,
       name: customer.name,
       phone: customer.phone,

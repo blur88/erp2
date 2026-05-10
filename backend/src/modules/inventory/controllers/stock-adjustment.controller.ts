@@ -85,6 +85,17 @@ export class StockAdjustmentController {
     return this.stockAdjustmentService.findAll(query);
   }
 
+  @Get('by-number/:adjustmentNumber')
+  @ApiOperation({ summary: 'Get stock adjustment by adjustment number' })
+  @ApiParam({ name: 'adjustmentNumber', description: 'Adjustment number (e.g. SA-001)', type: 'string' })
+  @ApiResponse({ status: 200, description: 'Stock adjustment retrieved successfully' })
+  @ApiResponse({ status: 404, description: 'Stock adjustment not found' })
+  async findByAdjustmentNumber(
+    @Param('adjustmentNumber') adjustmentNumber: string,
+  ): Promise<StockAdjustmentResponseDto> {
+    return this.stockAdjustmentService.findByAdjustmentNumber(adjustmentNumber);
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Get a stock adjustment by ID' })
   @ApiResponse({

@@ -16,6 +16,7 @@ const {
   mockShowError,
   mockApiGet,
   mockCheckDuplicate,
+  mockFetchSupplierBySlug,
 } = vi.hoisted(() => ({
   mockNavigate: vi.fn(),
   mockCreateSupplier: vi.fn(),
@@ -24,6 +25,7 @@ const {
   mockShowError: vi.fn(),
   mockApiGet: vi.fn(),
   mockCheckDuplicate: vi.fn(),
+  mockFetchSupplierBySlug: vi.fn(),
 }))
 
 vi.mock('react-router-dom', async (importOriginal) => {
@@ -41,6 +43,7 @@ vi.mock('@/store/api/purchasingApi', async (importOriginal) => {
     useCreateSupplierMutation: vi.fn(() => [mockCreateSupplier, { isLoading: false }]),
     useUpdateSupplierMutation: vi.fn(() => [mockUpdateSupplier, { isLoading: false }]),
     useLazyCheckDuplicateCompanyNameQuery: vi.fn(() => [mockCheckDuplicate]),
+    useLazyGetSupplierBySlugQuery: vi.fn(() => [mockFetchSupplierBySlug]),
   }
 })
 
@@ -66,14 +69,14 @@ function renderCreatePage() {
   )
 }
 
-function renderEditPage(supplierId = 'sup-1') {
+function renderEditPage(supplierSlug = 'global-parts-ltd') {
   const store = configureStore({ reducer: { purchasing: purchasingReducer } })
 
   return render(
     <Provider store={store}>
-      <MemoryRouter initialEntries={[`/purchasing/suppliers/${supplierId}/edit`]}>
+      <MemoryRouter initialEntries={[`/purchasing/suppliers/${supplierSlug}/edit`]}>
         <Routes>
-          <Route path="/purchasing/suppliers/:id/edit" element={<SupplierFormPage />} />
+          <Route path="/purchasing/suppliers/:slug/edit" element={<SupplierFormPage />} />
         </Routes>
       </MemoryRouter>
     </Provider>,
@@ -86,6 +89,7 @@ describe('SupplierFormPage - Create mode', () => {
     mockCreateSupplier.mockReturnValue({ unwrap: vi.fn().mockResolvedValue({ id: 'new-sup' }) })
     mockUpdateSupplier.mockReturnValue({ unwrap: vi.fn().mockResolvedValue({ id: 'sup-1' }) })
     mockCheckDuplicate.mockReturnValue({ unwrap: vi.fn().mockResolvedValue({ exists: false }) })
+    mockFetchSupplierBySlug.mockReturnValue({ unwrap: vi.fn().mockResolvedValue(null) })
   })
 
   it('renders empty form with New Supplier heading', () => {
@@ -119,7 +123,7 @@ describe('SupplierFormPage - Create mode', () => {
         expect.objectContaining({ companyName: 'Acme Supplies' }),
       )
     })
-    expect(mockNavigate).toHaveBeenCalledWith('/purchasing/suppliers')
+    expect(mockNavigate).toHaveBeenCalledWith('/purchasing/suppliers?highlight=new-sup')
   })
 
   it('navigates back on Cancel click', async () => {
@@ -146,6 +150,7 @@ describe('SupplierFormPage - Edit mode', () => {
     country: null,
     notes: null,
     isActive: true,
+    slug: 'global-parts-ltd',
   }
 
   beforeEach(() => {
@@ -154,16 +159,17 @@ describe('SupplierFormPage - Edit mode', () => {
     mockUpdateSupplier.mockReturnValue({ unwrap: vi.fn().mockResolvedValue({ id: 'sup-1' }) })
     mockCheckDuplicate.mockReturnValue({ unwrap: vi.fn().mockResolvedValue({ exists: false }) })
     mockApiGet.mockImplementation((url: string) => {
-      if (url === '/purchasing/suppliers/sup-1') {
+      if (url === '/purchasing/suppliers/slug/global-parts-ltd') {
         return Promise.resolve({ data: { data: mockSupplier } })
       }
 
       return Promise.resolve({ data: { data: [] } })
     })
+    mockFetchSupplierBySlug.mockReturnValue({ unwrap: vi.fn().mockResolvedValue(mockSupplier) })
   })
 
   it('shows Edit Supplier heading and pre-populates company name', async () => {
-    renderEditPage('sup-1')
+    renderEditPage('global-parts-ltd')
 
     await waitFor(() => {
       expect(screen.getByText('Edit Supplier')).toBeInTheDocument()
@@ -173,7 +179,7 @@ describe('SupplierFormPage - Edit mode', () => {
 
   it('calls updateSupplier and navigates on successful submit', async () => {
     const user = userEvent.setup()
-    renderEditPage('sup-1')
+    renderEditPage('global-parts-ltd')
 
     await waitFor(() => {
       expect(screen.getByLabelText(/company name/i)).toHaveValue('Global Parts Ltd')
@@ -189,7 +195,7 @@ describe('SupplierFormPage - Edit mode', () => {
         data: expect.objectContaining({ companyName: 'Global Parts Updated' }),
       })
     })
-    expect(mockNavigate).toHaveBeenCalledWith('/purchasing/suppliers')
+    expect(mockNavigate).toHaveBeenCalledWith('/purchasing/suppliers?highlight=sup-1')
   })
 })
 
