@@ -272,6 +272,7 @@ export const {
   useGetPurchaseOrdersQuery,
   useGetPurchaseOrderQuery,
   useGetPurchaseOrderByNumberQuery,
+  useLazyGetPurchaseOrderByNumberQuery,
   useLazyGetPurchaseOrderQuery,
   useCreatePurchaseOrderMutation,
   useUpdatePurchaseOrderMutation,

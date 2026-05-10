@@ -37,7 +37,7 @@ import {
   useCreatePurchaseOrderMutation,
   useGetSuppliersQuery,
   useUpdatePurchaseOrderMutation,
-  useLazyGetPurchaseOrderQuery,
+  useLazyGetPurchaseOrderByNumberQuery,
 } from '@/store/api/purchasingApi'
 import { useCurrency } from '@/hooks/useCurrency'
 
@@ -83,8 +83,8 @@ const CreatePurchaseOrderPage: React.FC = () => {
   const theme = useTheme()
   const navigate = useNavigate()
   const dispatch = useAppDispatch()
-  const { id } = useParams<{ id: string }>()
-  const isEditMode = !!id
+  const { orderNumber } = useParams<{ orderNumber: string }>()
+  const isEditMode = !!orderNumber
   const { showSuccess, showError } = useNotification()
   // Shared options list for all product Autocomplete rows. Replaced (not merged) on each
   // search so the dropdown shows only current results. Selected values survive options
@@ -98,7 +98,8 @@ const CreatePurchaseOrderPage: React.FC = () => {
   const { data: suppliersResponse } = useGetSuppliersQuery({})
   const [createPurchaseOrder] = useCreatePurchaseOrderMutation()
   const [updatePurchaseOrder] = useUpdatePurchaseOrderMutation()
-  const [fetchPurchaseOrder] = useLazyGetPurchaseOrderQuery()
+  const [fetchPurchaseOrderByNumber] = useLazyGetPurchaseOrderByNumberQuery()
+  const [editingOrderId, setEditingOrderId] = useState<string | null>(null)
   const suppliers = suppliersResponse?.data || []
 
   const { control, handleSubmit, watch, setValue, reset, formState: { errors } } = useForm<CreatePurchaseOrderFormData>({
@@ -136,16 +137,17 @@ const CreatePurchaseOrderPage: React.FC = () => {
 
   // Load purchase order data in edit mode
   useEffect(() => {
-    if (isEditMode && id) {
-      loadPurchaseOrder(id)
+    if (isEditMode && orderNumber) {
+      loadPurchaseOrder(orderNumber)
     }
-  }, [isEditMode, id])
+  }, [isEditMode, orderNumber])
 
-  const loadPurchaseOrder = async (orderId: string) => {
+  const loadPurchaseOrder = async (currentOrderNumber: string) => {
     setLoadingOrder(true)
     try {
-      const response = await fetchPurchaseOrder(orderId).unwrap()
+      const response = await fetchPurchaseOrderByNumber(currentOrderNumber).unwrap()
       const order = (response as any).data || response
+      setEditingOrderId(order.id)
 
       // Extract products from order items and add to products state
       if (order.items && order.items.length > 0) {
@@ -259,14 +261,14 @@ const CreatePurchaseOrderPage: React.FC = () => {
         }),
       }
 
-      if (isEditMode && id) {
-        const updatedOrder = await updatePurchaseOrder({ id, data: orderData as any }).unwrap()
+      if (isEditMode && editingOrderId) {
+        const updatedOrder = await updatePurchaseOrder({ id: editingOrderId, data: orderData as any }).unwrap()
 
         dispatch(updatePurchaseOrderInPlace(updatedOrder))
         dispatch(setSelectedPurchaseOrder(updatedOrder as any))
 
         showSuccess('Purchase order updated successfully')
-        navigate(`/purchasing/orders?highlight=${id}`)
+        navigate(`/purchasing/orders?highlight=${updatedOrder.id}`)
       } else {
         const result = await createPurchaseOrder(orderData as any).unwrap()
         dispatch(setSelectedPurchaseOrder(result as any))
