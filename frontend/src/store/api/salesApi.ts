@@ -396,6 +396,7 @@ export const {
   useGetSalesOrdersQuery,
   useGetSalesOrderQuery,
   useGetSalesOrderByNumberQuery,
+  useLazyGetSalesOrderByNumberQuery,
   useLazyGetSalesOrderQuery,
   useCreateSalesOrderMutation,
   useUpdateSalesOrderMutation,
