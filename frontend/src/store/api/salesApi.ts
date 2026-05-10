@@ -92,6 +92,11 @@ export const salesApiSlice = createApi({
       transformResponse: normalizeSingle<Customer>,
       providesTags: (_result, _error, id) => [{ type: 'Customer', id }],
     }),
+    getCustomerBySlug: builder.query<Customer, string>({
+      query: (slug) => ({ url: `/customers/slug/${slug}` }),
+      transformResponse: normalizeSingle<Customer>,
+      providesTags: (result) => result ? [{ type: 'Customer', id: result.id }] : [],
+    }),
     createCustomer: builder.mutation<Customer, Partial<Customer>>({
       query: (body) => ({ url: '/customers', method: 'POST', data: body }),
       transformResponse: normalizeSingle<Customer>,
@@ -142,6 +147,11 @@ export const salesApiSlice = createApi({
       query: (id) => ({ url: `/sales-orders/${id}` }),
       transformResponse: normalizeSingle<SalesOrder>,
       providesTags: (_result, _error, id) => [{ type: 'SalesOrder', id }],
+    }),
+    getSalesOrderByNumber: builder.query<SalesOrder, string>({
+      query: (orderNumber) => ({ url: `/sales-orders/number/${orderNumber}` }),
+      transformResponse: normalizeSingle<SalesOrder>,
+      providesTags: (result) => result ? [{ type: 'SalesOrder', id: result.id }] : [],
     }),
     createSalesOrder: builder.mutation<SalesOrder, Partial<SalesOrder>>({
       query: (body) => ({ url: '/sales-orders', method: 'POST', data: body }),
@@ -373,6 +383,7 @@ export const salesApiSlice = createApi({
 export const {
   useGetCustomersQuery,
   useGetCustomerQuery,
+  useGetCustomerBySlugQuery,
   useLazyGetCustomerQuery,
   useCreateCustomerMutation,
   useUpdateCustomerMutation,
@@ -384,6 +395,7 @@ export const {
   useBulkPermanentDeleteCustomersMutation,
   useGetSalesOrdersQuery,
   useGetSalesOrderQuery,
+  useGetSalesOrderByNumberQuery,
   useLazyGetSalesOrderQuery,
   useCreateSalesOrderMutation,
   useUpdateSalesOrderMutation,
