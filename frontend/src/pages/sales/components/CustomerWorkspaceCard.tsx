@@ -90,10 +90,10 @@ const CustomerWorkspaceCard: React.FC<CustomerWorkspaceCardProps> = ({ selectedC
   return (
     <Paper sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
       <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-        <Tabs value={tabValue} onChange={(_, value) => setTabValue(value)}>
-          <Tab icon={<OrdersIcon sx={{ fontSize: 16 }} />} iconPosition="start" label="Orders" />
-          <Tab icon={<InvoiceIcon sx={{ fontSize: 16 }} />} iconPosition="start" label="Invoices" />
-          <Tab icon={<PaymentIcon sx={{ fontSize: 16 }} />} iconPosition="start" label="Payments" />
+        <Tabs value={tabValue} onChange={(_, value) => setTabValue(value)} sx={{ minHeight: 36 }}>
+          <Tab icon={<OrdersIcon sx={{ fontSize: 16 }} />} iconPosition="start" label="Orders" sx={{ minHeight: 36 }} />
+          <Tab icon={<InvoiceIcon sx={{ fontSize: 16 }} />} iconPosition="start" label="Invoices" sx={{ minHeight: 36 }} />
+          <Tab icon={<PaymentIcon sx={{ fontSize: 16 }} />} iconPosition="start" label="Payments" sx={{ minHeight: 36 }} />
         </Tabs>
       </Box>
       <TabPanel value={tabValue} index={0}>
@@ -136,7 +136,7 @@ const CustomerWorkspaceCard: React.FC<CustomerWorkspaceCardProps> = ({ selectedC
                     key={order.id}
                     hover
                     sx={{ cursor: 'pointer' }}
-                    onClick={() => navigate(`/sales/orders/${order.id}/edit`)}
+                    onClick={() => navigate(`/sales/orders?highlight=${order.id}`)}
                   >
                     <TableCell>
                       <Typography variant="body2" color="primary" sx={{
@@ -284,7 +284,12 @@ const CustomerWorkspaceCard: React.FC<CustomerWorkspaceCardProps> = ({ selectedC
               </TableHead>
               <TableBody>
                 {payments.map((payment) => (
-                  <TableRow key={payment.id}>
+                  <TableRow
+                    key={payment.id}
+                    hover
+                    sx={{ cursor: 'pointer' }}
+                    onClick={() => navigate('/sales/payments', { state: { highlightPaymentId: payment.id } })}
+                  >
                     <TableCell>
                       <Typography variant="body2" sx={{
                         fontWeight: 600

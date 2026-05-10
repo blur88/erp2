@@ -68,13 +68,13 @@ const SupplierWorkspaceCard: React.FC<SupplierWorkspaceCardProps> = ({ selectedS
     setTabValue(0)
   }, [supplierId])
 
-  const { data: posData, isLoading: posLoading } = useGetSupplierPurchaseOrdersQuery(supplierId, {
+  const { data: posData, isLoading: posLoading, isError: posError } = useGetSupplierPurchaseOrdersQuery(supplierId, {
     skip: !supplierId || tabValue !== 0,
   })
-  const { data: grnsData, isLoading: grnsLoading } = useGetSupplierGRNsQuery(supplierId, {
+  const { data: grnsData, isLoading: grnsLoading, isError: grnsError } = useGetSupplierGRNsQuery(supplierId, {
     skip: !supplierId || tabValue !== 1,
   })
-  const { data: paymentsData, isLoading: paymentsLoading } = useGetSupplierPaymentsQuery(supplierId, {
+  const { data: paymentsData, isLoading: paymentsLoading, isError: paymentsError } = useGetSupplierPaymentsQuery(supplierId, {
     skip: !supplierId || tabValue !== 2,
   })
 
@@ -89,10 +89,10 @@ const SupplierWorkspaceCard: React.FC<SupplierWorkspaceCardProps> = ({ selectedS
   return (
     <Paper sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
       <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-        <Tabs value={tabValue} onChange={(_, value) => setTabValue(value)}>
-          <Tab icon={<OrdersIcon sx={{ fontSize: 16 }} />} iconPosition="start" label="Purchase Orders" />
-          <Tab icon={<GRNIcon sx={{ fontSize: 16 }} />} iconPosition="start" label="GRNs" />
-          <Tab icon={<PaymentIcon sx={{ fontSize: 16 }} />} iconPosition="start" label="Payments" />
+        <Tabs value={tabValue} onChange={(_, value) => setTabValue(value)} sx={{ minHeight: 36 }}>
+          <Tab icon={<OrdersIcon sx={{ fontSize: 16 }} />} iconPosition="start" label="Purchase Orders" sx={{ minHeight: 36 }} />
+          <Tab icon={<GRNIcon sx={{ fontSize: 16 }} />} iconPosition="start" label="GRNs" sx={{ minHeight: 36 }} />
+          <Tab icon={<PaymentIcon sx={{ fontSize: 16 }} />} iconPosition="start" label="Payments" sx={{ minHeight: 36 }} />
         </Tabs>
       </Box>
       <TabPanel value={tabValue} index={0}>
@@ -100,6 +100,10 @@ const SupplierWorkspaceCard: React.FC<SupplierWorkspaceCardProps> = ({ selectedS
           <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
             <CircularProgress />
           </Box>
+        ) : posError ? (
+          <Typography sx={{ color: 'error.main', py: 4, textAlign: 'center' }}>
+            Failed to load purchase orders.
+          </Typography>
         ) : purchaseOrders.length === 0 ? (
           <Typography
             sx={{
@@ -126,7 +130,7 @@ const SupplierWorkspaceCard: React.FC<SupplierWorkspaceCardProps> = ({ selectedS
                     key={po.id}
                     hover
                     sx={{ cursor: 'pointer' }}
-                    onClick={() => navigate(`/purchasing/orders/${po.id}/edit`)}
+                    onClick={() => navigate(`/purchasing/orders?highlight=${po.id}`)}
                   >
                     <TableCell>
                       <Typography variant="body2" color="primary" sx={{
@@ -156,6 +160,10 @@ const SupplierWorkspaceCard: React.FC<SupplierWorkspaceCardProps> = ({ selectedS
           <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
             <CircularProgress />
           </Box>
+        ) : grnsError ? (
+          <Typography sx={{ color: 'error.main', py: 4, textAlign: 'center' }}>
+            Failed to load GRNs.
+          </Typography>
         ) : grns.length === 0 ? (
           <Typography
             sx={{
@@ -213,6 +221,10 @@ const SupplierWorkspaceCard: React.FC<SupplierWorkspaceCardProps> = ({ selectedS
           <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
             <CircularProgress />
           </Box>
+        ) : paymentsError ? (
+          <Typography sx={{ color: 'error.main', py: 4, textAlign: 'center' }}>
+            Failed to load payments.
+          </Typography>
         ) : payments.length === 0 ? (
           <Typography
             sx={{
@@ -235,7 +247,12 @@ const SupplierWorkspaceCard: React.FC<SupplierWorkspaceCardProps> = ({ selectedS
               </TableHead>
               <TableBody>
                 {payments.map((payment) => (
-                  <TableRow key={payment.id}>
+                  <TableRow
+                    key={payment.id}
+                    hover
+                    sx={{ cursor: 'pointer' }}
+                    onClick={() => navigate(`/purchasing/vendor-payments?vpId=${payment.id}`)}
+                  >
                     <TableCell>
                       <Typography variant="body2" sx={{
                         fontWeight: 600
