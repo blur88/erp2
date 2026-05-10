@@ -18,7 +18,7 @@ import { useForm, Controller, type Control } from 'react-hook-form'
 import { yupResolver } from '@hookform/resolvers/yup'
 import * as yup from 'yup'
 import { useGetPriceListsQuery, useBulkUpdatePricesMutation, priceListApiSlice } from '@/store/api/priceListApi'
-import { useCreateProductMutation, useLazyGetProductQuery, useUpdateProductMutation } from '@/store/api/inventoryApi'
+import { useCreateProductMutation, useLazyGetProductBySlugQuery, useUpdateProductMutation } from '@/store/api/inventoryApi'
 import { useDispatch } from 'react-redux'
 import { useNotification } from '@/hooks/useNotification'
 import { AppButton } from '@/components/common/AppButton'
@@ -231,20 +231,21 @@ const productSchema = yup.object({
 const CreateProductPage: React.FC = () => {
   const theme = useTheme()
   const navigate = useNavigate()
-  const { id } = useParams<{ id: string }>()
-  const isEditMode = !!id
+  const { slug } = useParams<{ slug: string }>()
+  const isEditMode = !!slug
   const { showSuccess, showError } = useNotification()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null)
   const [priceListPrices, setPriceListPrices] = useState<Record<string, number>>({})
+  const [editingProductId, setEditingProductId] = useState<string | null>(null)
 
   const { data: priceListsData, isLoading: loadingPriceLists } = useGetPriceListsQuery({ isActive: true })
   const priceLists = priceListsData?.data ?? []
   const [bulkUpdatePrices] = useBulkUpdatePricesMutation()
   const [updateProduct] = useUpdateProductMutation()
   const [createProduct] = useCreateProductMutation()
-  const [fetchProduct, { isFetching: isFetchingProduct }] = useLazyGetProductQuery()
+  const [fetchProductBySlug, { isFetching: isFetchingProduct }] = useLazyGetProductBySlugQuery()
   const dispatch = useDispatch()
 
   // Currency hook
@@ -281,7 +282,7 @@ const CreateProductPage: React.FC = () => {
   } = useDuplicateCheck({
     name: watchedName,
     barcode: watchedBarcode,
-    excludeId: isEditMode ? id : undefined,
+    excludeId: isEditMode ? editingProductId ?? undefined : undefined,
   })
 
   // Update price for a specific price list
@@ -290,14 +291,15 @@ const CreateProductPage: React.FC = () => {
   }
 
   useEffect(() => {
-    if (isEditMode && id) {
-      loadProduct(id)
+    if (isEditMode && slug) {
+      loadProduct(slug)
     }
-  }, [isEditMode, id])
+  }, [isEditMode, slug])
 
-  const loadProduct = async (productId: string) => {
+  const loadProduct = async (productSlug: string) => {
     try {
-      const product = await fetchProduct(productId).unwrap()
+      const product = await fetchProductBySlug(productSlug).unwrap()
+      setEditingProductId(product.id)
 
       if (product.category) {
         setSelectedCategory(product.category as Category)
@@ -356,11 +358,11 @@ const CreateProductPage: React.FC = () => {
         isActive: data.isActive,
       }
 
-      let productId = id
+      let productId = editingProductId
 
-      if (isEditMode && id) {
-        await updateProduct({ id, data: productData }).unwrap()
-        productId = id
+      if (isEditMode && editingProductId) {
+        const response = await updateProduct({ id: editingProductId, data: productData }).unwrap()
+        productId = response?.id ?? editingProductId
       } else {
         const response = await createProduct(productData).unwrap()
         productId = response?.id
@@ -394,12 +396,7 @@ const CreateProductPage: React.FC = () => {
 
       showSuccess(isEditMode ? 'Product updated successfully' : 'Product created successfully')
 
-      // Navigate back to products page with the product ID in state
-      // The ProductsPage will handle refreshing the products list
-      navigate('/inventory/products', {
-        state: { selectedProductId: productId },
-        replace: false // Use push navigation so back button works
-      })
+      navigate(`/inventory/products?highlight=${productId}`)
     } catch (err: any) {
       console.error('Error saving product:', err)
       setError(err?.message || 'Failed to save product')
@@ -441,8 +438,8 @@ const CreateProductPage: React.FC = () => {
         title={isEditMode ? 'Edit Product' : 'Create Product'}
         subtitle={isEditMode ? 'Update product details, pricing, and inventory settings' : 'Add a new product with details, pricing, and inventory settings'}
         backAction={() => {
-          if (isEditMode && id) {
-            navigate('/inventory/products', { state: { selectedProductId: id } })
+          if (isEditMode && editingProductId) {
+            navigate(`/inventory/products?highlight=${editingProductId}`)
           } else {
             navigate('/inventory/products')
           }
@@ -813,10 +810,8 @@ const CreateProductPage: React.FC = () => {
                 isEditMode={isEditMode}
                 loading={loading}
                 onCancel={() => {
-                  if (isEditMode && id) {
-                    navigate('/inventory/products', {
-                      state: { selectedProductId: id }
-                    })
+                  if (isEditMode && editingProductId) {
+                    navigate(`/inventory/products?highlight=${editingProductId}`)
                     return
                   }
 
