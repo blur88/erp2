@@ -8,13 +8,14 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import CustomerFormPage from '../CustomerFormPage'
 import salesReducer from '@/store/slices/salesSlice'
 
-const { mockNavigate, mockCreateCustomer, mockUpdateCustomer, mockShowSuccess, mockShowError, mockApiGet } = vi.hoisted(() => ({
+const { mockNavigate, mockCreateCustomer, mockUpdateCustomer, mockShowSuccess, mockShowError, mockApiGet, mockFetchCustomerBySlug } = vi.hoisted(() => ({
   mockNavigate: vi.fn(),
   mockCreateCustomer: vi.fn(),
   mockUpdateCustomer: vi.fn(),
   mockShowSuccess: vi.fn(),
   mockShowError: vi.fn(),
   mockApiGet: vi.fn(),
+  mockFetchCustomerBySlug: vi.fn(),
 }))
 
 vi.mock('react-router-dom', async (importOriginal) => {
@@ -31,6 +32,7 @@ vi.mock('@/store/api/salesApi', async (importOriginal) => {
     ...actual,
     useCreateCustomerMutation: vi.fn(() => [mockCreateCustomer, { isLoading: false }]),
     useUpdateCustomerMutation: vi.fn(() => [mockUpdateCustomer, { isLoading: false }]),
+    useLazyGetCustomerBySlugQuery: vi.fn(() => [mockFetchCustomerBySlug]),
   }
 })
 
@@ -90,6 +92,7 @@ describe('CustomerFormPage - Create mode', () => {
       unwrap: vi.fn().mockResolvedValue({ id: 'cust-1' }),
     })
     mockApiGet.mockResolvedValue({ data: { data: [] } })
+    mockFetchCustomerBySlug.mockReturnValue({ unwrap: vi.fn().mockResolvedValue(null) })
   })
 
   it('renders empty form with New Customer heading', () => {
@@ -166,6 +169,7 @@ describe('CustomerFormPage - Edit mode', () => {
       }
       return Promise.resolve({ data: { data: [] } })
     })
+    mockFetchCustomerBySlug.mockReturnValue({ unwrap: vi.fn().mockResolvedValue(mockCustomer) })
   })
 
   it('shows Edit Customer heading and pre-populates name', async () => {

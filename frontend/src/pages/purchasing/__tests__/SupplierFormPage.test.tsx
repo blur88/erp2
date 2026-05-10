@@ -16,6 +16,7 @@ const {
   mockShowError,
   mockApiGet,
   mockCheckDuplicate,
+  mockFetchSupplierBySlug,
 } = vi.hoisted(() => ({
   mockNavigate: vi.fn(),
   mockCreateSupplier: vi.fn(),
@@ -24,6 +25,7 @@ const {
   mockShowError: vi.fn(),
   mockApiGet: vi.fn(),
   mockCheckDuplicate: vi.fn(),
+  mockFetchSupplierBySlug: vi.fn(),
 }))
 
 vi.mock('react-router-dom', async (importOriginal) => {
@@ -41,6 +43,7 @@ vi.mock('@/store/api/purchasingApi', async (importOriginal) => {
     useCreateSupplierMutation: vi.fn(() => [mockCreateSupplier, { isLoading: false }]),
     useUpdateSupplierMutation: vi.fn(() => [mockUpdateSupplier, { isLoading: false }]),
     useLazyCheckDuplicateCompanyNameQuery: vi.fn(() => [mockCheckDuplicate]),
+    useLazyGetSupplierBySlugQuery: vi.fn(() => [mockFetchSupplierBySlug]),
   }
 })
 
@@ -86,6 +89,7 @@ describe('SupplierFormPage - Create mode', () => {
     mockCreateSupplier.mockReturnValue({ unwrap: vi.fn().mockResolvedValue({ id: 'new-sup' }) })
     mockUpdateSupplier.mockReturnValue({ unwrap: vi.fn().mockResolvedValue({ id: 'sup-1' }) })
     mockCheckDuplicate.mockReturnValue({ unwrap: vi.fn().mockResolvedValue({ exists: false }) })
+    mockFetchSupplierBySlug.mockReturnValue({ unwrap: vi.fn().mockResolvedValue(null) })
   })
 
   it('renders empty form with New Supplier heading', () => {
@@ -161,6 +165,7 @@ describe('SupplierFormPage - Edit mode', () => {
 
       return Promise.resolve({ data: { data: [] } })
     })
+    mockFetchSupplierBySlug.mockReturnValue({ unwrap: vi.fn().mockResolvedValue(mockSupplier) })
   })
 
   it('shows Edit Supplier heading and pre-populates company name', async () => {

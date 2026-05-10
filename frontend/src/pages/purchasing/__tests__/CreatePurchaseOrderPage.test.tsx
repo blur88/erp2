@@ -87,7 +87,7 @@ vi.mock('@/store/api/purchasingApi', () => ({
   }),
   useCreatePurchaseOrderMutation: () => [mockCreatePurchaseOrder],
   useUpdatePurchaseOrderMutation: () => [mockUpdatePurchaseOrder],
-  useLazyGetPurchaseOrderQuery: () => [mockFetchPurchaseOrder],
+  useLazyGetPurchaseOrderByNumberQuery: () => [mockFetchPurchaseOrder],
 }))
 
 describe('CreatePurchaseOrderPage', { timeout: 60000 }, () => {
@@ -115,7 +115,16 @@ describe('CreatePurchaseOrderPage', { timeout: 60000 }, () => {
   })
 
   it('renders PageHeader with title "Edit Purchase Order" in edit mode', async () => {
-    mockParams.mockReturnValue({ id: 'po-test-id' })
+    mockParams.mockReturnValue({ orderNumber: 'PO-TEST' })
+    mockFetchPurchaseOrder.mockReturnValue({
+      unwrap: vi.fn().mockResolvedValue({
+        id: 'po-test-id',
+        supplierId: 'supplier-1',
+        orderDate: '2026-03-01T00:00:00.000Z',
+        shippingAmount: 0,
+        items: [],
+      }),
+    })
 
     render(
       <BrowserRouter>
@@ -190,26 +199,24 @@ describe('CreatePurchaseOrderPage', { timeout: 60000 }, () => {
   })
 
   it('keeps hydrated edit-mode product visible after shared search options are replaced', async () => {
-    mockParams.mockReturnValue({ id: 'po-1' })
+    mockParams.mockReturnValue({ orderNumber: 'PO-1' })
     mockFetchPurchaseOrder.mockReturnValue({
       unwrap: vi.fn().mockResolvedValue({
-        data: {
-          id: 'po-1',
-          supplierId: 'supplier-1',
-          orderDate: '2026-03-01T00:00:00.000Z',
-          shippingAmount: 0,
-          items: [
-            {
-              productId: 'product-9',
-              quantity: 2,
-              unitPrice: 44,
-              discountAmount: 0,
-              discountPercent: 0,
-              totalAmount: 88,
-              product: { id: 'product-9', name: 'Hydrated Product', baseCost: 44 },
-            },
-          ],
-        },
+        id: 'po-1',
+        supplierId: 'supplier-1',
+        orderDate: '2026-03-01T00:00:00.000Z',
+        shippingAmount: 0,
+        items: [
+          {
+            productId: 'product-9',
+            quantity: 2,
+            unitPrice: 44,
+            discountAmount: 0,
+            discountPercent: 0,
+            totalAmount: 88,
+            product: { id: 'product-9', name: 'Hydrated Product', baseCost: 44 },
+          },
+        ],
       }),
     })
 
@@ -220,7 +227,7 @@ describe('CreatePurchaseOrderPage', { timeout: 60000 }, () => {
     )
 
     await waitFor(() => {
-      expect(mockFetchPurchaseOrder).toHaveBeenCalledWith('po-1')
+      expect(mockFetchPurchaseOrder).toHaveBeenCalledWith('PO-1')
     })
 
     const [firstProductInput] = await screen.findAllByPlaceholderText('Search by name or barcode...')
