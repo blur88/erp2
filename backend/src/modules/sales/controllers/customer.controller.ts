@@ -92,6 +92,14 @@ export class CustomerController {
     return this.customerService.findDeleted(query);
   }
 
+  @Get('slug/:slug')
+  @ApiOperation({ summary: 'Get customer by slug' })
+  @ApiParam({ name: 'slug', description: 'Customer slug', type: 'string' })
+  @ApiResponse({ status: 200, description: 'Customer retrieved successfully', type: CustomerResponseDto })
+  @ApiResponse({ status: 404, description: 'Customer not found' })
+  async getCustomerBySlug(@Param('slug') slug: string): Promise<CustomerResponseDto> {
+    return this.customerService.findBySlug(slug);
+  }
 
   @Get(':id')
   @ApiOperation({ summary: 'Get customer by ID' })
