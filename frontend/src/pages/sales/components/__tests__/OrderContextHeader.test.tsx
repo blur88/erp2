@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
+import { MemoryRouter } from 'react-router-dom'
 
 import OrderContextHeader from '../OrderContextHeader'
 
@@ -19,6 +20,7 @@ const baseOrder = {
 describe('OrderContextHeader', () => {
   it('renders labeled action buttons in the header and payment section', () => {
     render(
+      <MemoryRouter>
       <OrderContextHeader
         selectedOrder={baseOrder}
         isLoading={false}
@@ -35,7 +37,8 @@ describe('OrderContextHeader', () => {
         onOpenPaymentDialog={vi.fn()}
         onFulfillOrder={vi.fn()}
         onUnfulfillOrder={vi.fn()}
-      />,
+      />
+      </MemoryRouter>,
     )
 
     expect(screen.getByText('Edit')).toBeInTheDocument()
