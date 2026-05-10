@@ -3,7 +3,8 @@ export function generateBaseSlug(input: string): string {
     .toLowerCase()
     .replace(/[^a-z0-9\s-]/g, '')
     .replace(/[\s-]+/g, '-')
-    .replace(/^-+|-+$/g, '');
+    .replace(/^-+/, '')
+    .replace(/-+$/, '');
 
   return slug || 'entity';
 }
