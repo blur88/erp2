@@ -300,7 +300,7 @@ const CreateStockAdjustmentPage: React.FC = () => {
             { key: 'quantity', label: 'Quantity' },
             { key: 'notes', label: 'Notes' },
           ]}
-          onSubmit={handleSubmit(onSubmit)}
+          onSubmit={handleSubmit(onSubmit, () => showError('Please fix the form errors before submitting.'))}
           onCancel={() => navigate('/inventory/stock-adjustments')}
           isSubmitting={loading}
           hideDefaultActions
@@ -455,6 +455,7 @@ const CreateStockAdjustmentPage: React.FC = () => {
                                       placeholder="Search by name or barcode..."
                                       variant="outlined"
                                       error={!!errors.items?.[index]?.productId}
+                                      helperText={errors.items?.[index]?.productId?.message}
                                       sx={{
                                         '& .MuiInputBase-input': {
                                           textAlign: 'left !important',
