@@ -5,7 +5,7 @@
 
 ## Goal
 
-Tidy the `docs/` folder: consolidate root-level files into logical subdirectories, move all completed superpowers plans/specs into their `completed/` subdirectories, and update `docs/README.md` to reflect the actual structure.
+Tidy the `docs/` folder: consolidate root-level files into logical subdirectories, move all completed superpowers plans/specs into their `completed/` subdirectories, update `docs/README.md` to reflect the actual structure, and gitignore future superpowers plan/spec files to prevent repository flooding.
 
 ## Target Structure
 
@@ -45,6 +45,11 @@ docs/
 ### 3. README update
 - Rewrite `docs/README.md` directory tree to match new structure.
 - Update all internal links to point to new file locations.
+
+### 4. Gitignore superpowers plans/specs
+- Add `docs/superpowers/plans/` and `docs/superpowers/specs/` to `.gitignore` so future agent-generated planning docs are local-only and don't flood git history.
+- Only finalized/summary architectural documents should be committed to the repo going forward.
+- The move to `completed/` in step 2 happens first, so the historical record is preserved before the directories are ignored.
 
 ## Delivery
 
