@@ -8,13 +8,15 @@ import CreateStockAdjustmentPage from '../CreateStockAdjustmentPage'
 
 const replacementSearchTerm = 'B'
 
-const { mockGet, mockNavigate, mockParams, mockFetchAdjustment, mockCreateAdjustment, mockUpdateAdjustment } = vi.hoisted(() => ({
+const { mockGet, mockNavigate, mockParams, mockFetchAdjustment, mockCreateAdjustment, mockUpdateAdjustment, mockShowError, mockShowSuccess } = vi.hoisted(() => ({
   mockGet: vi.fn(),
   mockNavigate: vi.fn(),
   mockParams: vi.fn(() => ({})),
   mockFetchAdjustment: vi.fn(),
   mockCreateAdjustment: vi.fn(),
   mockUpdateAdjustment: vi.fn(),
+  mockShowError: vi.fn(),
+  mockShowSuccess: vi.fn(),
 }))
 
 vi.mock('react-router-dom', async () => {
@@ -29,8 +31,8 @@ vi.mock('react-router-dom', async () => {
 
 vi.mock('@/hooks/useNotification', () => ({
   useNotification: () => ({
-    showSuccess: vi.fn(),
-    showError: vi.fn(),
+    showSuccess: mockShowSuccess,
+    showError: mockShowError,
   }),
 }))
 
@@ -378,6 +380,38 @@ describe('CreateStockAdjustmentPage submit', { timeout: 60000 }, () => {
           }),
         })
       )
+    })
+  })
+
+  it('calls showError when form is submitted with no product selected', async () => {
+    const user = userEvent.setup()
+
+    render(
+      <BrowserRouter>
+        <CreateStockAdjustmentPage />
+      </BrowserRouter>
+    )
+
+    await user.click(screen.getByRole('button', { name: /create adjustment/i }))
+
+    await waitFor(() => {
+      expect(mockShowError).toHaveBeenCalledWith(expect.stringMatching(/fix.*error|error.*fix/i))
+    })
+  })
+
+  it('shows helper text under the product field when submitted with no product selected', async () => {
+    const user = userEvent.setup()
+
+    render(
+      <BrowserRouter>
+        <CreateStockAdjustmentPage />
+      </BrowserRouter>
+    )
+
+    await user.click(screen.getByRole('button', { name: /create adjustment/i }))
+
+    await waitFor(() => {
+      expect(screen.getByText('Product is required')).toBeInTheDocument()
     })
   })
 
