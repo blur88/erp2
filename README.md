@@ -6,7 +6,7 @@ and role-based access control.
 
 ## Tech Stack
 
-- **Frontend**: React 18 + TypeScript + Material-UI v7 + Redux Toolkit + Vite
+- **Frontend**: React 19 + TypeScript 6 + Material-UI v9 + Redux Toolkit + Vite
 - **Backend**: NestJS 11 + TypeORM + PostgreSQL + Redis 8 + Bull Queue
 - **Infrastructure**: Docker + NGINX + Node.js 24
 
@@ -128,7 +128,7 @@ Key endpoint groups:
 ./deploy.sh clean    # remove all containers and volumes
 ```
 
-See `DEPLOYMENT_GUIDE.md` for production configuration and security hardening.
+See [`docs/deployment/DEPLOYMENT_CHECKLIST.md`](docs/deployment/DEPLOYMENT_CHECKLIST.md) for production configuration and security hardening.
 
 ## Contributing
 
