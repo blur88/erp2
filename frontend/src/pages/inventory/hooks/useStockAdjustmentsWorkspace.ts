@@ -34,8 +34,6 @@ export function useStockAdjustmentsWorkspace({
   adjustments,
   selectedAdjustment,
   refetchAdjustments,
-  searchParams,
-  setSearchParams,
 }: UseStockAdjustmentsWorkspaceConfig) {
   const navigate = useNavigate()
   const { showSuccess, showError } = useNotification()
@@ -68,8 +66,12 @@ export function useStockAdjustmentsWorkspace({
     navigate,
     routes: {
       create: '/inventory/stock-adjustments/create',
-      edit: (id) => `/inventory/stock-adjustments/${id}/edit`,
+      edit: (id) => {
+        const adjustment = adjustments.find((item) => item.id === id)
+        return `/inventory/stock-adjustments/${adjustment?.adjustmentNumber ?? id}/edit`
+      },
     },
+    highlightParam: 'highlight',
     notifications: { showSuccess, showError },
     deleteMutation: async (id) => {
       await deleteStockAdjustment(id).unwrap()
@@ -80,30 +82,6 @@ export function useStockAdjustmentsWorkspace({
   const { journalEntryRef, journalEntryRefLoading } = useJournalEntryRef([
     { sourceType: 'stock_adjustment', sourceId: selectedAdjustment?.id },
   ])
-
-  useEffect(() => {
-    const adjustmentId = searchParams.get('saId')
-    if (!adjustmentId || userHasNavigatedRef.current || adjustments.length === 0) {
-      return
-    }
-
-    const adjustment = adjustments.find((item) => item.id === adjustmentId)
-    if (adjustment) {
-      dispatch(setSelectedStockAdjustment(adjustment))
-      setFocusedIndex(adjustments.findIndex((item) => item.id === adjustmentId))
-      setSearchParams((prev) => {
-        prev.delete('saId')
-        return prev
-      }, { replace: true })
-      void fetchAdjustment(adjustmentId)
-        .unwrap()
-        .then((fresh) => {
-          dispatch(setSelectedStockAdjustment(fresh))
-        })
-        .catch(() => {})
-      userHasNavigatedRef.current = true
-    }
-  }, [adjustments, dispatch, fetchAdjustment, searchParams, setFocusedIndex, setSearchParams])
 
   const handleSelect = useCallback(
     async (adjustment: StockAdjustment) => {
@@ -127,7 +105,7 @@ export function useStockAdjustmentsWorkspace({
       return
     }
 
-    navigate(`/inventory/stock-adjustments/${selectedAdjustment.id}/edit`)
+    navigate(`/inventory/stock-adjustments/${selectedAdjustment.adjustmentNumber}/edit`)
   }, [navigate, selectedAdjustment, showError])
 
   const handleDelete = useCallback((id: string, adjustmentNumber: string) => {
