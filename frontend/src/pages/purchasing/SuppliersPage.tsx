@@ -81,8 +81,12 @@ const SuppliersPage: React.FC = () => {
     navigate,
     routes: {
       create: '/purchasing/suppliers/create',
-      edit: (id) => `/purchasing/suppliers/${id}/edit`,
+      edit: (id) => {
+        const supplier = suppliers.find((item) => item.id === id)
+        return `/purchasing/suppliers/${supplier?.slug ?? id}/edit`
+      },
     },
+    highlightParam: 'highlight',
     notifications: {
       showSuccess,
       showError: (message) => {
@@ -129,7 +133,7 @@ const SuppliersPage: React.FC = () => {
       headerSlot={(
         <SupplierContextHeader
           selectedSupplier={selectedSupplier}
-          onEdit={() => navigate(`/purchasing/suppliers/${selectedSupplier!.id}/edit`)}
+          onEdit={() => navigate(`/purchasing/suppliers/${selectedSupplier!.slug}/edit`)}
           onDelete={() => workspace.setDeleteConfirmOpen(true)}
         />
       )}
