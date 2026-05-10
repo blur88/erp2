@@ -46,7 +46,8 @@ export function useProductsWorkspace({
       create: '/inventory/products/create',
       edit: (id) => {
         const product = products.find((item) => item.id === id)
-        return `/inventory/products/${product?.slug ?? id}/edit`
+        if (!product?.slug) throw new Error(`Product ${id} not found in list`)
+        return `/inventory/products/${product.slug}/edit`
       },
     },
     highlightParam: 'highlight',

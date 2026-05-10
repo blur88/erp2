@@ -257,6 +257,7 @@ export const {
   useGetSuppliersQuery,
   useGetSupplierQuery,
   useGetSupplierBySlugQuery,
+  useLazyGetSupplierBySlugQuery,
   useCreateSupplierMutation,
   useUpdateSupplierMutation,
   useDeleteSupplierMutation,

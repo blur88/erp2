@@ -28,6 +28,7 @@ import { useNotification } from '@/hooks/useNotification'
 import api from '@/services/api'
 import {
   useCreateCustomerMutation,
+  useLazyGetCustomerBySlugQuery,
   useUpdateCustomerMutation,
 } from '@/store/api/salesApi'
 import type { Customer } from '@/types'
@@ -74,6 +75,7 @@ const CustomerFormPage: React.FC = () => {
   const [loadingCustomer, setLoadingCustomer] = useState(isEdit)
   const [loadError, setLoadError] = useState<string | null>(null)
 
+  const [fetchCustomerBySlug] = useLazyGetCustomerBySlugQuery()
   const [createCustomer, { isLoading: isCreating }] = useCreateCustomerMutation()
   const [updateCustomer, { isLoading: isUpdating }] = useUpdateCustomerMutation()
   const isSaving = isCreating || isUpdating
@@ -103,9 +105,9 @@ const CustomerFormPage: React.FC = () => {
 
     setLoadingCustomer(true)
 
-    api.get(`/customers/slug/${slug}`)
-      .then((res) => {
-        const currentCustomer: Customer = res.data?.data ?? res.data
+    fetchCustomerBySlug(slug)
+      .unwrap()
+      .then((currentCustomer) => {
         setCustomer(currentCustomer)
         reset({
           name: currentCustomer.name,
@@ -122,7 +124,7 @@ const CustomerFormPage: React.FC = () => {
       })
       .catch(() => setLoadError('Customer not found.'))
       .finally(() => setLoadingCustomer(false))
-  }, [reset, slug])
+  }, [fetchCustomerBySlug, reset, slug])
 
   const phoneCheckFn = useCallback(async (phone: string, excludeId?: string) => {
     const normalizedPhone = phone.replace(/[\s\-\(\)\+]/g, '')

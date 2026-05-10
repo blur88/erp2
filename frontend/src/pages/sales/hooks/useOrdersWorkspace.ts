@@ -89,7 +89,8 @@ export function useOrdersWorkspace({
       create: '/sales/orders/create',
       edit: (id) => {
         const order = orders.find((item) => item.id === id)
-        return `/sales/orders/${order?.orderNumber ?? id}/edit`
+        if (!order?.orderNumber) throw new Error(`Sales order ${id} not found in list`)
+        return `/sales/orders/${order.orderNumber}/edit`
       },
     },
     isLoading: ordersLoading,

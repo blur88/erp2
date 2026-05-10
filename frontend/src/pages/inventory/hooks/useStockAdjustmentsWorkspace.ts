@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { useNavigate, type SetURLSearchParams } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 
 import { useJournalEntryRef } from '@/hooks/useJournalEntryRef'
 import { useEntityWorkspace } from '@/hooks/useEntityWorkspace'
@@ -25,8 +25,6 @@ export interface UseStockAdjustmentsWorkspaceConfig {
   adjustments: StockAdjustment[]
   selectedAdjustment: StockAdjustment | null
   refetchAdjustments: () => void
-  searchParams: URLSearchParams
-  setSearchParams: SetURLSearchParams
 }
 
 export function useStockAdjustmentsWorkspace({
@@ -68,7 +66,8 @@ export function useStockAdjustmentsWorkspace({
       create: '/inventory/stock-adjustments/create',
       edit: (id) => {
         const adjustment = adjustments.find((item) => item.id === id)
-        return `/inventory/stock-adjustments/${adjustment?.adjustmentNumber ?? id}/edit`
+        if (!adjustment?.adjustmentNumber) throw new Error(`Stock adjustment ${id} not found in list`)
+        return `/inventory/stock-adjustments/${adjustment.adjustmentNumber}/edit`
       },
     },
     highlightParam: 'highlight',

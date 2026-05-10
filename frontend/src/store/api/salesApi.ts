@@ -384,6 +384,7 @@ export const {
   useGetCustomersQuery,
   useGetCustomerQuery,
   useGetCustomerBySlugQuery,
+  useLazyGetCustomerBySlugQuery,
   useLazyGetCustomerQuery,
   useCreateCustomerMutation,
   useUpdateCustomerMutation,

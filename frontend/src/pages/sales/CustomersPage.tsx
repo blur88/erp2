@@ -86,7 +86,8 @@ const CustomersPage: React.FC = () => {
       create: '/sales/customers/create',
       edit: (id) => {
         const customer = customers.find((item) => item.id === id)
-        return `/sales/customers/${customer?.slug ?? id}/edit`
+        if (!customer?.slug) throw new Error(`Customer ${id} not found in list`)
+        return `/sales/customers/${customer.slug}/edit`
       },
     },
     highlightParam: 'highlight',

@@ -145,8 +145,7 @@ const CreatePurchaseOrderPage: React.FC = () => {
   const loadPurchaseOrder = async (currentOrderNumber: string) => {
     setLoadingOrder(true)
     try {
-      const response = await fetchPurchaseOrderByNumber(currentOrderNumber).unwrap()
-      const order = (response as any).data || response
+      const order = await fetchPurchaseOrderByNumber(currentOrderNumber).unwrap()
       setEditingOrderId(order.id)
 
       // Extract products from order items and add to products state

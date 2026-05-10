@@ -83,7 +83,8 @@ const SuppliersPage: React.FC = () => {
       create: '/purchasing/suppliers/create',
       edit: (id) => {
         const supplier = suppliers.find((item) => item.id === id)
-        return `/purchasing/suppliers/${supplier?.slug ?? id}/edit`
+        if (!supplier?.slug) throw new Error(`Supplier ${id} not found in list`)
+        return `/purchasing/suppliers/${supplier.slug}/edit`
       },
     },
     highlightParam: 'highlight',

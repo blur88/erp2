@@ -24,10 +24,10 @@ import { AppButton } from '@/components/common/AppButton'
 import PageHeader from '@/components/common/PageHeader'
 import { useFieldDuplicateCheck } from '@/hooks/useFieldDuplicateCheck'
 import { useNotification } from '@/hooks/useNotification'
-import api from '@/services/api'
 import {
   useCreateSupplierMutation,
   useLazyCheckDuplicateCompanyNameQuery,
+  useLazyGetSupplierBySlugQuery,
   useUpdateSupplierMutation,
 } from '@/store/api/purchasingApi'
 import type { Supplier } from '@/types'
@@ -74,6 +74,7 @@ const SupplierFormPage: React.FC = () => {
   const [loadingSupplier, setLoadingSupplier] = useState(isEdit)
   const [loadError, setLoadError] = useState<string | null>(null)
 
+  const [fetchSupplierBySlug] = useLazyGetSupplierBySlugQuery()
   const [createSupplier, { isLoading: isCreating }] = useCreateSupplierMutation()
   const [updateSupplier, { isLoading: isUpdating }] = useUpdateSupplierMutation()
   const [checkDuplicateCompanyName] = useLazyCheckDuplicateCompanyNameQuery()
@@ -104,9 +105,9 @@ const SupplierFormPage: React.FC = () => {
 
     setLoadingSupplier(true)
 
-    api.get(`/purchasing/suppliers/slug/${slug}`)
-      .then((res) => {
-        const currentSupplier: Supplier = res.data?.data ?? res.data
+    fetchSupplierBySlug(slug)
+      .unwrap()
+      .then((currentSupplier) => {
         setSupplier(currentSupplier)
         reset({
           companyName: currentSupplier.companyName,
@@ -123,7 +124,7 @@ const SupplierFormPage: React.FC = () => {
       })
       .catch(() => setLoadError('Supplier not found.'))
       .finally(() => setLoadingSupplier(false))
-  }, [reset, slug])
+  }, [fetchSupplierBySlug, reset, slug])
 
   const companyNameCheckFn = useCallback(async (name: string, excludeId?: string) => {
     const result = await checkDuplicateCompanyName({ companyName: name, excludeId }).unwrap()

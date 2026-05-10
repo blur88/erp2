@@ -410,4 +410,70 @@ describe('CustomerService', () => {
       });
     });
   });
+
+  describe('findBySlug', () => {
+    it('returns customer when slug matches', async () => {
+      const customer = createCustomer('c1', { slug: 'acme-corp', priceList: undefined });
+      customerRepository.findOne.mockResolvedValue(customer);
+
+      const result = await service.findBySlug('acme-corp');
+
+      expect(customerRepository.findOne).toHaveBeenCalledWith({
+        where: { slug: 'acme-corp' },
+        relations: ['priceList'],
+      });
+      expect(result.id).toBe('c1');
+    });
+
+    it('throws NotFoundException when slug does not exist', async () => {
+      customerRepository.findOne.mockResolvedValue(null);
+
+      await expect(service.findBySlug('nonexistent')).rejects.toThrow("Customer with slug 'nonexistent' not found");
+    });
+  });
+
+  describe('generateUniqueSlug (via update)', () => {
+    it('assigns a clean slug when no collision exists', async () => {
+      const existing = createCustomer('c1', { slug: 'old-name', name: 'Old Name' });
+      const updated = createCustomer('c1', { slug: 'new-name', name: 'New Name' });
+      customerRepository.findOne
+        .mockResolvedValueOnce(existing) // findOne for update — loads the customer
+        .mockResolvedValueOnce(null)     // slug uniqueness check: 'new-name' is free
+        .mockResolvedValue(updated);
+      customerRepository.save.mockResolvedValue(updated);
+
+      const result = await service.update('c1', { name: 'New Name' });
+
+      expect(result.slug).toBe('new-name');
+    });
+
+    it('appends counter suffix when base slug is already taken by another entity', async () => {
+      const existing = createCustomer('c1', { slug: 'old-name', name: 'Old Name' });
+      const collision = createCustomer('c2', { slug: 'acme-corp' });
+      const updated = createCustomer('c1', { slug: 'acme-corp-1', name: 'Acme Corp' });
+      customerRepository.findOne
+        .mockResolvedValueOnce(existing)  // findOne for update
+        .mockResolvedValueOnce(collision) // 'acme-corp' taken by c2
+        .mockResolvedValueOnce(null)      // 'acme-corp-1' free
+        .mockResolvedValue(updated);
+      customerRepository.save.mockResolvedValue(updated);
+
+      const result = await service.update('c1', { name: 'Acme Corp' });
+
+      expect(result.slug).toBe('acme-corp-1');
+    });
+
+    it('does not treat itself as a collision when updating with same name', async () => {
+      const existing = createCustomer('c1', { slug: 'acme-corp', name: 'Acme Corp' });
+      customerRepository.findOne
+        .mockResolvedValueOnce(existing) // findOne for update
+        .mockResolvedValueOnce(existing) // slug check: finds 'acme-corp' but id matches excludeId
+        .mockResolvedValue(existing);
+      customerRepository.save.mockResolvedValue(existing);
+
+      const result = await service.update('c1', { name: 'Acme Corp' });
+
+      expect(result.slug).toBe('acme-corp');
+    });
+  });
 });

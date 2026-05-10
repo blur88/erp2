@@ -66,7 +66,8 @@ export function usePurchaseOrdersWorkspace({
       create: '/purchasing/orders/create',
       edit: (id) => {
         const order = purchaseOrders.find((item) => item.id === id)
-        return `/purchasing/orders/${order?.orderNumber ?? id}/edit`
+        if (!order?.orderNumber) throw new Error(`Purchase order ${id} not found in list`)
+        return `/purchasing/orders/${order.orderNumber}/edit`
       },
     },
     notifications: { showSuccess, showError },
