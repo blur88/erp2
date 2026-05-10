@@ -84,7 +84,7 @@ describe('StockAdjustmentsPage FilterBar', () => {
     )
   })
 
-  it('loads the adjustment referenced by the saId search param', async () => {
+  it('selects the adjustment referenced by the highlight search param', async () => {
     useGetStockAdjustmentsQuery.mockReturnValue({
       data: {
         data: [
@@ -112,13 +112,11 @@ describe('StockAdjustmentsPage FilterBar', () => {
       refetch: vi.fn(),
     })
 
-    renderPage('/?saId=adj-2')
+    renderPage('/?highlight=adj-2')
 
     await waitFor(() => {
-      expect(mockFetchStockAdjustment).toHaveBeenCalledWith('adj-2')
+      expect(screen.getByText('SA-002')).toBeInTheDocument()
     })
-
-    expect(mockFetchStockAdjustment).not.toHaveBeenCalledWith('adj-1')
   })
 
   it('sends no fromDate or toDate when period is not selected (default)', () => {

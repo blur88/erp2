@@ -73,7 +73,7 @@ vi.mock('@/store/api/salesApi', () => ({
   useGetCustomersQuery: () => customersResponse,
   useCreateSalesOrderMutation: () => [mockCreateSalesOrder],
   useUpdateSalesOrderMutation: () => [mockUpdateSalesOrder],
-  useLazyGetSalesOrderQuery: () => [mockFetchSalesOrder],
+  useLazyGetSalesOrderByNumberQuery: () => [mockFetchSalesOrder],
 }))
 
 vi.mock('@/store/api/salesOrderCache', () => ({
@@ -162,7 +162,7 @@ describe('CreateSalesOrderPage product search', { timeout: 60000 }, () => {
   })
 
   it('keeps hydrated edit-mode product visible after search replaces options', async () => {
-    mockParams.mockReturnValue({ id: 'so-1' })
+    mockParams.mockReturnValue({ orderNumber: 'SO-1' })
 
     mockFetchSalesOrder.mockReturnValue({
       unwrap: vi.fn().mockResolvedValue({
@@ -216,7 +216,7 @@ describe('CreateSalesOrderPage product search', { timeout: 60000 }, () => {
   })
 
   it('preserves edit-mode unit prices when the customer price list differs', async () => {
-    mockParams.mockReturnValue({ id: 'so-1' })
+    mockParams.mockReturnValue({ orderNumber: 'SO-1' })
     customersResponse.data.data = [{ id: 'customer-1', name: 'Test Customer', priceListId: 'vip' }]
 
     mockFetchSalesOrder.mockReturnValue({
