@@ -31,7 +31,11 @@ export function useProductSearch() {
     const requestId = ++latestRequestRef.current
 
     try {
-      const params: Record<string, string | boolean> = { isActive: true }
+      const params: Record<string, string | boolean> = {
+        isActive: true,
+        sortBy: 'name',
+        sortOrder: 'ASC',
+      }
       const trimmedSearchTerm = searchTerm.trim()
 
       if (trimmedSearchTerm.length >= 1) {

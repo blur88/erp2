@@ -37,7 +37,7 @@ describe('useProductSearch', () => {
 
     expect(result.current.products).toEqual([makeProduct('1', 'Alpha')])
     expect(mockGet).toHaveBeenCalledWith('/inventory/products', {
-      params: { isActive: true },
+      params: { isActive: true, sortBy: 'name', sortOrder: 'ASC' },
     })
   })
 
@@ -48,7 +48,7 @@ describe('useProductSearch', () => {
     await act(() => result.current.loadProducts('apple'))
 
     expect(mockGet).toHaveBeenCalledWith('/inventory/products', {
-      params: { isActive: true, search: 'apple' },
+      params: { isActive: true, sortBy: 'name', sortOrder: 'ASC', search: 'apple' },
     })
   })
 
