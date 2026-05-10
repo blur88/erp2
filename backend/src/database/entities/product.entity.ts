@@ -47,6 +47,15 @@ export class Product extends BaseEntity {
   name: string;
 
   @Column({
+    type: 'varchar',
+    length: 255,
+    nullable: true,
+    comment: 'URL-friendly identifier derived from name',
+  })
+  @Index({ unique: true })
+  slug: string;
+
+  @Column({
     type: 'text',
     nullable: true,
     comment: 'Detailed product description',

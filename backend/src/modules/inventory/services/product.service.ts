@@ -55,6 +55,7 @@ import { BaseCostCalculatorService } from './base-cost-calculator.service';
 import { ValidationUtil, BulkOperationUtil, BulkOperationResponse } from '../../../common/utils/validation.util';
 import { SettingsService } from '../../settings/settings.service';
 import { AuditLogService } from '../../audit-logs/services';
+import { generateBaseSlug } from '../../../common/utils/slug.util';
 
 @Injectable()
 export class ProductService extends BaseCrudService<
@@ -277,6 +278,7 @@ export class ProductService extends BaseCrudService<
       isActive: createProductDto.isActive ?? true,
       type: createProductDto.type || ProductType.GOODS,
     });
+    product.slug = await this.generateUniqueSlug(createProductDto.name);
 
     const savedProduct = await this.productRepository.save(product);
 
@@ -461,6 +463,19 @@ export class ProductService extends BaseCrudService<
 
     if (!product) {
       throw new NotFoundException(`Product with barcode '${barcode}' not found`);
+    }
+
+    return this.toResponseDto(product);
+  }
+
+  async findBySlug(slug: string): Promise<ProductResponseDto> {
+    const product = await this.productRepository.findOne({
+      where: { slug },
+      relations: ['category'],
+    });
+
+    if (!product) {
+      throw new NotFoundException(`Product with slug '${slug}' not found`);
     }
 
     return this.toResponseDto(product);
@@ -922,6 +937,10 @@ export class ProductService extends BaseCrudService<
 
     // Transform DTO fields to match entity fields FIRST
     const updateData: any = { ...updateProductDto };
+    const nameChanged = updateProductDto.name !== undefined && updateProductDto.name !== product.name;
+    if (nameChanged) {
+      updateData.slug = await this.generateUniqueSlug(updateProductDto.name!, id);
+    }
 
     // stockQuantity is handled directly in the DTO
 
@@ -1395,6 +1414,7 @@ export class ProductService extends BaseCrudService<
   private toResponseDto(product: Product): ProductResponseDto {
     return {
       id: product.id,
+      slug: product.slug,
       name: product.name,
       description: product.description,
       barcode: product.barcode,
@@ -1430,6 +1450,21 @@ export class ProductService extends BaseCrudService<
       updatedAt: product.updatedAt,
       deletedAt: product.deletedAt,
     } as any;
+  }
+
+  private async generateUniqueSlug(name: string, excludeId?: string): Promise<string> {
+    const base = generateBaseSlug(name);
+    let slug = base;
+    let counter = 1;
+
+    while (true) {
+      const existing = await this.productRepository.findOne({
+        where: { slug },
+        withDeleted: true,
+      });
+      if (!existing || existing.id === excludeId) return slug;
+      slug = `${base}-${counter++}`;
+    }
   }
 
   /**

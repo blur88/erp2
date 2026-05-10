@@ -176,6 +176,15 @@ export class ProductController {
     return this.productService.findDeleted(query);
   }
 
+  @Get('slug/:slug')
+  @ApiOperation({ summary: 'Get product by slug' })
+  @ApiParam({ name: 'slug', description: 'Product slug', type: 'string' })
+  @ApiResponse({ status: 200, description: 'Product retrieved successfully', type: ProductResponseDto })
+  @ApiResponse({ status: 404, description: 'Product not found' })
+  async getProductBySlug(@Param('slug') slug: string): Promise<ProductResponseDto> {
+    return this.productService.findBySlug(slug);
+  }
+
   @Get('import-template')
   @ApiOperation({ summary: 'Download CSV template for product import' })
   @ApiResponse({
