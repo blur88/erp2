@@ -31,6 +31,8 @@ export function useProductSearch() {
     const requestId = ++latestRequestRef.current
 
     try {
+      // sortBy/sortOrder are explicit rather than relying on backend defaults
+      // so this keeps working if the backend default ever changes.
       const params: Record<string, string | boolean> = {
         isActive: true,
         sortBy: 'name',
