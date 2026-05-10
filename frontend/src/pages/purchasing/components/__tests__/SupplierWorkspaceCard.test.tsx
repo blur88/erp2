@@ -103,6 +103,25 @@ describe('SupplierWorkspaceCard', () => {
     expect(mockNavigate).toHaveBeenCalledWith('/purchasing/orders?highlight=po-1')
   })
 
+  it('clicking a GRN navigates to goods-received with grnId param', async () => {
+    mockGetSupplierGRNsQuery.mockReturnValue({
+      data: {
+        data: [{ id: 'grn-1', grnNumber: 'GRN-001', receivedDate: '2026-01-15', purchaseOrder: { id: 'po-1', orderNumber: 'PO-001' }, status: 'received' }],
+      },
+      isLoading: false,
+    })
+
+    render(
+      <MemoryRouter>
+        <SupplierWorkspaceCard selectedSupplier={mockSupplier} />
+      </MemoryRouter>,
+    )
+
+    await userEvent.click(screen.getByRole('tab', { name: /grns/i }))
+    await userEvent.click(screen.getByText('GRN-001').closest('tr')!)
+    expect(mockNavigate).toHaveBeenCalledWith('/purchasing/goods-received?grnId=grn-1')
+  })
+
   it('switches to GRNs tab on click', async () => {
     render(
       <MemoryRouter>

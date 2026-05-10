@@ -106,6 +106,27 @@ describe('CustomerWorkspaceCard', () => {
     expect(mockNavigate).toHaveBeenCalledWith('/sales/orders?highlight=o-1')
   })
 
+  it('clicking an invoice navigates to sales invoices with highlightInvoiceId state', async () => {
+    mockUseGetCustomerOutstandingInvoicesQuery.mockReturnValue({
+      data: {
+        invoices: [
+          { id: 'inv-1', invoiceNumber: 'INV-001', invoiceDate: '2026-01-05', totalAmount: 1000, paidAmount: 0, balanceDue: 1000, salesOrderId: null },
+        ],
+        totalOutstanding: 1000,
+      },
+      isLoading: false,
+      isError: false,
+    })
+
+    render(<CustomerWorkspaceCard selectedCustomer={mockCustomer} />)
+    fireEvent.click(screen.getByRole('tab', { name: /invoices/i }))
+
+    await waitFor(() => expect(screen.getByText('INV-001')).toBeInTheDocument())
+
+    fireEvent.click(screen.getByText('INV-001').closest('tr')!)
+    expect(mockNavigate).toHaveBeenCalledWith('/sales/invoices', { state: { highlightInvoiceId: 'inv-1' } })
+  })
+
   it('shows invoices when Invoices tab clicked', async () => {
     mockUseGetCustomerOutstandingInvoicesQuery.mockReturnValue({
       data: {
