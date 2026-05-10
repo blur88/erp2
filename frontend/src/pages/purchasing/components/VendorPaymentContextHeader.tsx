@@ -43,6 +43,17 @@ const detailTableSx = {
 const labelCellSx = { fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem' }
 const valueCellSx = { fontSize: '0.8rem' }
 
+const linkButtonSx = {
+  fontSize: '0.8rem',
+  color: 'primary.main',
+  cursor: 'pointer',
+  textDecoration: 'none',
+  border: 'none',
+  background: 'none',
+  padding: 0,
+  '&:hover': { color: 'primary.dark' },
+}
+
 const VendorPaymentContextHeader: React.FC<VendorPaymentContextHeaderProps> = ({
   selectedPayment,
   journalEntryRefs,
@@ -185,7 +196,17 @@ const VendorPaymentContextHeader: React.FC<VendorPaymentContextHeaderProps> = ({
                   </TableRow>
                   <TableRow sx={{ backgroundColor: 'grey.50' }}>
                     <TableCell sx={labelCellSx}>Supplier</TableCell>
-                    <TableCell sx={valueCellSx}>{selectedPayment.supplier?.companyName || '—'}</TableCell>
+                    <TableCell sx={valueCellSx}>
+                      {selectedPayment.supplier?.id ? (
+                        <Typography
+                          component="button"
+                          onClick={() => navigate(`/purchasing/suppliers?highlight=${selectedPayment.supplier!.id}`)}
+                          sx={linkButtonSx}
+                        >
+                          {selectedPayment.supplier.companyName}
+                        </Typography>
+                      ) : '—'}
+                    </TableCell>
                   </TableRow>
                   <TableRow>
                     <TableCell sx={labelCellSx}>Purchase Order</TableCell>

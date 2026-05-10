@@ -13,6 +13,8 @@ import {
 } from '@mui/material'
 import Grid from '@mui/material/Grid'
 
+import { useNavigate } from 'react-router-dom'
+
 import type { InvoiceListItem } from '../hooks/useInvoicesWorkspace'
 
 import { AppButton } from '@/components/common/AppButton'
@@ -73,6 +75,7 @@ const InvoiceContextHeader: React.FC<InvoiceContextHeaderProps> = ({
   onNavigateToPayment,
   onNavigateToJournalEntries,
 }) => {
+  const navigate = useNavigate()
   if (!selectedInvoice) {
     return (
       <Paper sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', p: 4 }}>
@@ -135,7 +138,17 @@ const InvoiceContextHeader: React.FC<InvoiceContextHeaderProps> = ({
                   <TableRow sx={{ backgroundColor: 'grey.50' }}>
                     <TableCell sx={labelCellSx}>Customer</TableCell>
                     <TableCell sx={valueCellSx}>
-                      {selectedInvoice.customer?.name || selectedInvoice.customerName}
+                      {selectedInvoice.customer?.id ? (
+                        <Typography
+                          component="button"
+                          onClick={() => navigate(`/sales/customers?highlight=${selectedInvoice.customer!.id}`)}
+                          sx={linkButtonSx}
+                        >
+                          {selectedInvoice.customer.name}
+                        </Typography>
+                      ) : (
+                        selectedInvoice.customer?.name || selectedInvoice.customerName
+                      )}
                     </TableCell>
                   </TableRow>
                   <TableRow>

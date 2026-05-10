@@ -291,7 +291,7 @@ const CustomerWorkspaceCard: React.FC<CustomerWorkspaceCardProps> = ({ selectedC
                     onClick={() => navigate('/sales/payments', { state: { highlightPaymentId: payment.id } })}
                   >
                     <TableCell>
-                      <Typography variant="body2" sx={{
+                      <Typography variant="body2" color="primary" sx={{
                         fontWeight: 600
                       }}>
                         {payment.paymentNumber}

@@ -14,6 +14,7 @@ import {
   Typography,
 } from '@mui/material'
 import Grid from '@mui/material/Grid'
+import { useNavigate } from 'react-router-dom'
 
 import { AppButton } from '@/components/common/AppButton'
 import { EntityContextHeaderBar } from '@/components/common/EntityContextHeaderBar'
@@ -60,6 +61,17 @@ const valueCellSx = {
   fontSize: '0.8rem',
 }
 
+const linkButtonSx = {
+  fontSize: '0.8rem',
+  color: 'primary.main',
+  cursor: 'pointer',
+  textDecoration: 'none',
+  border: 'none',
+  background: 'none',
+  padding: 0,
+  '&:hover': { color: 'primary.dark' },
+}
+
 const PurchaseOrderContextHeader: React.FC<PurchaseOrderContextHeaderProps> = ({
   selectedOrder,
   isLoading,
@@ -76,6 +88,7 @@ const PurchaseOrderContextHeader: React.FC<PurchaseOrderContextHeaderProps> = ({
   onReturn,
   onReceive,
 }) => {
+  const navigate = useNavigate()
   if (!selectedOrder) {
     return (
       <Paper sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', p: 4 }}>
@@ -149,7 +162,19 @@ const PurchaseOrderContextHeader: React.FC<PurchaseOrderContextHeaderProps> = ({
                   </TableRow>
                   <TableRow sx={{ backgroundColor: 'grey.50' }}>
                     <TableCell sx={labelCellSx}>Supplier</TableCell>
-                    <TableCell sx={valueCellSx}>{selectedOrder.supplier?.companyName || 'N/A'}</TableCell>
+                    <TableCell sx={valueCellSx}>
+                      {selectedOrder.supplier?.id ? (
+                        <Typography
+                          component="button"
+                          onClick={() => navigate(`/purchasing/suppliers?highlight=${selectedOrder.supplier!.id}`)}
+                          sx={linkButtonSx}
+                        >
+                          {selectedOrder.supplier.companyName}
+                        </Typography>
+                      ) : (
+                        'N/A'
+                      )}
+                    </TableCell>
                   </TableRow>
                   <TableRow>
                     <TableCell sx={labelCellSx}>PO Date</TableCell>

@@ -1,5 +1,6 @@
 import React from 'react'
 import { default as PrintIcon } from '@mui/icons-material/Print'
+import { useNavigate } from 'react-router-dom'
 import {
   Box,
   Paper,
@@ -71,6 +72,7 @@ const PaymentContextHeader: React.FC<PaymentContextHeaderProps> = ({
   onInvoiceClick,
   onNavigateToJournalEntry,
 }) => {
+  const navigate = useNavigate()
   if (!selectedPayment) {
     return (
       <Paper sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', p: 4 }}>
@@ -127,7 +129,19 @@ const PaymentContextHeader: React.FC<PaymentContextHeaderProps> = ({
                   </TableRow>
                   <TableRow sx={{ backgroundColor: 'grey.50' }}>
                     <TableCell sx={labelCellSx}>Customer</TableCell>
-                    <TableCell sx={valueCellSx}>{selectedPayment.customerName}</TableCell>
+                    <TableCell sx={valueCellSx}>
+                      {selectedPayment.customer?.id ? (
+                        <Typography
+                          component="button"
+                          onClick={() => navigate(`/sales/customers?highlight=${selectedPayment.customer!.id}`)}
+                          sx={linkButtonSx}
+                        >
+                          {selectedPayment.customer.name}
+                        </Typography>
+                      ) : (
+                        selectedPayment.customerName
+                      )}
+                    </TableCell>
                   </TableRow>
                   <TableRow>
                     <TableCell sx={labelCellSx}>Amount</TableCell>

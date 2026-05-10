@@ -14,6 +14,7 @@ import {
   Typography,
 } from '@mui/material'
 import Grid from '@mui/material/Grid'
+import { useNavigate } from 'react-router-dom'
 
 import { AppButton } from '@/components/common/AppButton'
 import { EntityContextHeaderBar } from '@/components/common/EntityContextHeaderBar'
@@ -61,6 +62,17 @@ const valueCellSx = {
   fontSize: '0.8rem',
 }
 
+const linkButtonSx = {
+  fontSize: '0.8rem',
+  color: 'primary.main',
+  cursor: 'pointer',
+  textDecoration: 'none',
+  border: 'none',
+  background: 'none',
+  padding: 0,
+  '&:hover': { color: 'primary.dark' },
+}
+
 const OrderContextHeader: React.FC<OrderContextHeaderProps> = ({
   selectedOrder,
   isLoading,
@@ -78,6 +90,7 @@ const OrderContextHeader: React.FC<OrderContextHeaderProps> = ({
   onFulfillOrder,
   onUnfulfillOrder,
 }) => {
+  const navigate = useNavigate()
   if (!selectedOrder) {
     return (
       <Paper sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', p: 4 }}>
@@ -180,7 +193,17 @@ const OrderContextHeader: React.FC<OrderContextHeaderProps> = ({
                   <TableRow sx={{ backgroundColor: 'grey.50' }}>
                     <TableCell sx={labelCellSx}>Customer Name</TableCell>
                     <TableCell sx={valueCellSx}>
-                      {selectedOrder.customer?.name || 'Unknown Customer'}
+                      {selectedOrder.customer?.id ? (
+                        <Typography
+                          component="button"
+                          onClick={() => navigate(`/sales/customers?highlight=${selectedOrder.customer!.id}`)}
+                          sx={linkButtonSx}
+                        >
+                          {selectedOrder.customer.name}
+                        </Typography>
+                      ) : (
+                        selectedOrder.customer?.name || 'Unknown Customer'
+                      )}
                     </TableCell>
                   </TableRow>
                   <TableRow>
