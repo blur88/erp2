@@ -274,6 +274,19 @@ export class StockAdjustmentService extends BaseCrudService<
     return this.toResponseDto(adjustment);
   }
 
+  async findByAdjustmentNumber(adjustmentNumber: string): Promise<StockAdjustmentResponseDto> {
+    const adjustment = await this.stockAdjustmentRepository.findOne({
+      where: { adjustmentNumber },
+      relations: ['items', 'items.product'],
+    });
+
+    if (!adjustment) {
+      throw new NotFoundException(`Stock adjustment '${adjustmentNumber}' not found`);
+    }
+
+    return this.toResponseDto(adjustment);
+  }
+
   /**
    * Update a stock adjustment (only in DRAFT status)
    */
