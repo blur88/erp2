@@ -196,5 +196,7 @@ frontend/.turbo/
 
 # Superpowers planning docs — local-only, not committed (see docs/README.md)
 docs/superpowers/plans/*.md
+docs/superpowers/plans/completed/
 !docs/superpowers/plans/README.md
 docs/superpowers/specs/*.md
+docs/superpowers/specs/completed/
