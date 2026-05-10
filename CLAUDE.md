@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-ERP system — NestJS 11 backend + React 19 / Material-UI v7 frontend, served via NGINX in Docker.
+ERP system — NestJS 11 backend + React 19 / Material-UI v9 frontend, served via NGINX in Docker.
 
 - **Databases**: PostgreSQL 18.3 (TypeORM, primary), Redis 8.6 (caching, queues, WebSocket state)
 - **Queue**: Bull Queue (background jobs)
@@ -29,7 +29,7 @@ cd backend && npm run test
 # Run a single backend test file (path relative to backend/)
 cd backend && npx jest src/path/to/file.spec.ts --no-coverage
 
-# Run all frontend tests (slow — takes ~12 minutes for 95 files; do NOT assume hung)
+# Run all frontend tests (slow — takes ~12 minutes for 154 files; do NOT assume hung)
 cd frontend && npm run test
 
 # Run a single frontend test file (path relative to frontend/)
@@ -61,7 +61,7 @@ cd frontend && npm run lint
 
 ## Architecture
 
-**Active modules** (12): `AuthModule`, `UsersModule`, `InventoryModule`, `SalesModule`, `PurchasingModule`, `DashboardModule`, `SettingsModule`, `PrintSettingsModule`, `PriceListsModule`, `AuditLogsModule`, `BackupModule`, `AccountingModule`
+**Active modules** (13): `AuthModule`, `UsersModule`, `InventoryModule`, `SalesModule`, `PurchasingModule`, `DashboardModule`, `SettingsModule`, `PrintSettingsModule`, `PriceListsModule`, `AuditLogsModule`, `BackupModule`, `AccountingModule`, `SearchModule`
 
 Reports are embedded in their business modules (Inventory, Sales, Purchasing) — there is no separate reports module.
 
