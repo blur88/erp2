@@ -43,6 +43,17 @@ const detailTableSx = {
 const labelCellSx = { fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem' }
 const valueCellSx = { fontSize: '0.8rem' }
 
+const linkButtonSx = {
+  fontSize: '0.8rem',
+  color: 'primary.main',
+  cursor: 'pointer',
+  textDecoration: 'none',
+  border: 'none',
+  background: 'none',
+  padding: 0,
+  '&:hover': { color: 'primary.dark' },
+}
+
 const GRNContextHeader: React.FC<GRNContextHeaderProps> = ({
   selectedGRN,
   journalEntryRefs,
@@ -185,7 +196,17 @@ const GRNContextHeader: React.FC<GRNContextHeaderProps> = ({
                   </TableRow>
                   <TableRow sx={{ backgroundColor: 'grey.50' }}>
                     <TableCell sx={labelCellSx}>Supplier</TableCell>
-                    <TableCell sx={valueCellSx}>{selectedGRN.supplier?.companyName || '—'}</TableCell>
+                    <TableCell sx={valueCellSx}>
+                      {selectedGRN.supplier?.id ? (
+                        <Typography
+                          component="button"
+                          onClick={() => navigate(`/purchasing/suppliers?highlight=${selectedGRN.supplier!.id}`)}
+                          sx={linkButtonSx}
+                        >
+                          {selectedGRN.supplier.companyName}
+                        </Typography>
+                      ) : '—'}
+                    </TableCell>
                   </TableRow>
                   <TableRow>
                     <TableCell sx={labelCellSx}>Purchase Order</TableCell>

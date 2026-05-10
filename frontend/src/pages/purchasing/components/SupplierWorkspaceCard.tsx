@@ -254,7 +254,7 @@ const SupplierWorkspaceCard: React.FC<SupplierWorkspaceCardProps> = ({ selectedS
                     onClick={() => navigate(`/purchasing/vendor-payments?vpId=${payment.id}`)}
                   >
                     <TableCell>
-                      <Typography variant="body2" sx={{
+                      <Typography variant="body2" color="primary" sx={{
                         fontWeight: 600
                       }}>
                         {payment.paymentNumber}

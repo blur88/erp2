@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
+import { MemoryRouter } from 'react-router-dom'
 
 import PurchaseOrderContextHeader from '../PurchaseOrderContextHeader'
 
@@ -38,24 +39,24 @@ const defaultProps = {
 
 describe('PurchaseOrderContextHeader', () => {
   it('shows empty state when no order selected', () => {
-    render(<PurchaseOrderContextHeader {...defaultProps} selectedOrder={null} />)
+    render(<MemoryRouter><PurchaseOrderContextHeader {...defaultProps} selectedOrder={null} /></MemoryRouter>)
     expect(screen.getByText('Select a purchase order to view details')).toBeInTheDocument()
   })
 
   it('renders order number in header', () => {
-    render(<PurchaseOrderContextHeader {...defaultProps} />)
+    render(<MemoryRouter><PurchaseOrderContextHeader {...defaultProps} /></MemoryRouter>)
     expect(screen.getByText(/Purchase Order Details - PO-1001/i)).toBeInTheDocument()
   })
 
   it('renders header action buttons', () => {
-    render(<PurchaseOrderContextHeader {...defaultProps} />)
+    render(<MemoryRouter><PurchaseOrderContextHeader {...defaultProps} /></MemoryRouter>)
     expect(screen.getByTitle('Edit Order')).toBeInTheDocument()
     expect(screen.getByTitle('Delete Order')).toBeInTheDocument()
     expect(screen.getByTitle('Print Purchase Order')).toBeInTheDocument()
   })
 
   it('shows Pay button when order has no payment', () => {
-    render(<PurchaseOrderContextHeader {...defaultProps} />)
+    render(<MemoryRouter><PurchaseOrderContextHeader {...defaultProps} /></MemoryRouter>)
     expect(screen.getByText('Pay')).toBeInTheDocument()
   })
 
@@ -64,12 +65,12 @@ describe('PurchaseOrderContextHeader', () => {
       ...baseOrder,
       vendorPayments: [{ id: 'vp-1', paymentNumber: 'VP-001', amount: 100 }],
     }
-    render(<PurchaseOrderContextHeader {...defaultProps} selectedOrder={orderWithPayment} />)
+    render(<MemoryRouter><PurchaseOrderContextHeader {...defaultProps} selectedOrder={orderWithPayment} /></MemoryRouter>)
     expect(screen.getByText('Unpay')).toBeInTheDocument()
   })
 
   it('shows Receive button when order is not yet received', () => {
-    render(<PurchaseOrderContextHeader {...defaultProps} />)
+    render(<MemoryRouter><PurchaseOrderContextHeader {...defaultProps} /></MemoryRouter>)
     expect(screen.getByText('Receive')).toBeInTheDocument()
   })
 
@@ -78,7 +79,7 @@ describe('PurchaseOrderContextHeader', () => {
       ...baseOrder,
       goodsReceivedNotes: [{ id: 'grn-1', grnNumber: 'GRN-001', status: 'received' }],
     }
-    render(<PurchaseOrderContextHeader {...defaultProps} selectedOrder={receivedOrder} />)
+    render(<MemoryRouter><PurchaseOrderContextHeader {...defaultProps} selectedOrder={receivedOrder} /></MemoryRouter>)
     expect(screen.getByText('Return')).toBeInTheDocument()
   })
 })

@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
+import { MemoryRouter } from 'react-router-dom'
 
 import PaymentContextHeader from '../PaymentContextHeader'
 
@@ -17,15 +18,17 @@ const basePayment = {
 describe('PaymentContextHeader', () => {
   it('renders a labeled print action button', () => {
     render(
-      <PaymentContextHeader
-        selectedPayment={basePayment}
-        journalEntryRefs={[]}
-        journalEntryRefsLoading={false}
-        onPrint={vi.fn()}
-        onOrderClick={vi.fn()}
-        onInvoiceClick={vi.fn()}
-        onNavigateToJournalEntry={vi.fn()}
-      />,
+      <MemoryRouter>
+        <PaymentContextHeader
+          selectedPayment={basePayment}
+          journalEntryRefs={[]}
+          journalEntryRefsLoading={false}
+          onPrint={vi.fn()}
+          onOrderClick={vi.fn()}
+          onInvoiceClick={vi.fn()}
+          onNavigateToJournalEntry={vi.fn()}
+        />
+      </MemoryRouter>,
     )
 
     expect(screen.getByText('Print')).toBeInTheDocument()
