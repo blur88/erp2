@@ -146,6 +146,15 @@ export class SupplierController {
     return await this.supplierService.findDeleted(query);
   }
 
+  @Get('slug/:slug')
+  @ApiOperation({ summary: 'Get supplier by slug' })
+  @ApiParam({ name: 'slug', description: 'Supplier slug', type: 'string' })
+  @ApiResponse({ status: 200, description: 'Supplier retrieved successfully', type: SupplierResponseDto })
+  @ApiResponse({ status: 404, description: 'Supplier not found' })
+  async getSupplierBySlug(@Param('slug') slug: string): Promise<SupplierResponseDto> {
+    return this.supplierService.findBySlug(slug);
+  }
+
   @Get(':id/purchase-orders')
   @ApiOperation({ summary: 'Get purchase orders for a supplier' })
   @ApiResponse({ status: 200, description: 'Purchase orders retrieved successfully' })

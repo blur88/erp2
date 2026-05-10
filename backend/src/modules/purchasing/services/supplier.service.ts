@@ -30,6 +30,7 @@ import {
 } from '../../search/search.constants';
 import { JwtPayload } from '../../auth/strategies/jwt.strategy';
 import { UserRole } from '../../../database/entities/user.entity';
+import { generateBaseSlug } from '../../../common/utils/slug.util';
 
 @Injectable()
 export class SupplierService extends BaseCrudService<
@@ -115,6 +116,7 @@ export class SupplierService extends BaseCrudService<
         totalPurchases: 0,
         totalOrders: 0,
       });
+      supplier.slug = await this.generateUniqueSlug(createSupplierDto.companyName);
 
       const savedSupplier = await this.supplierRepository.save(supplier);
       this.logger.log(`Supplier created successfully: ${savedSupplier.id}`);
@@ -257,6 +259,12 @@ export class SupplierService extends BaseCrudService<
     return this.mapToResponseDto(supplier);
   }
 
+  async findBySlug(slug: string): Promise<SupplierResponseDto> {
+    const supplier = await this.supplierRepository.findOne({ where: { slug } });
+    if (!supplier) throw new NotFoundException(`Supplier with slug '${slug}' not found`);
+    return this.mapToResponseDto(supplier);
+  }
+
   /**
    * Update supplier
    */
@@ -297,7 +305,11 @@ export class SupplierService extends BaseCrudService<
         }
       });
 
+      const nameChanged = updateSupplierDto.companyName !== undefined && updateSupplierDto.companyName !== supplier.companyName;
       Object.assign(supplier, updateSupplierDto);
+      if (nameChanged) {
+        supplier.slug = await this.generateUniqueSlug(supplier.companyName, id);
+      }
       const updatedSupplier = await this.supplierRepository.save(supplier);
 
       // Log audit trail for update
@@ -743,6 +755,7 @@ export class SupplierService extends BaseCrudService<
   private mapToResponseDto(supplier: Supplier): SupplierResponseDto {
     return {
       id: supplier.id,
+      slug: supplier.slug,
       type: supplier.type,
       companyName: supplier.companyName,
       isActive: supplier.isActive,
@@ -763,6 +776,21 @@ export class SupplierService extends BaseCrudService<
       updatedAt: supplier.updatedAt,
       deletedAt: supplier.deletedAt,
     };
+  }
+
+  private async generateUniqueSlug(companyName: string, excludeId?: string): Promise<string> {
+    const base = generateBaseSlug(companyName);
+    let slug = base;
+    let counter = 1;
+
+    while (true) {
+      const existing = await this.supplierRepository.findOne({
+        where: { slug },
+        withDeleted: true,
+      });
+      if (!existing || existing.id === excludeId) return slug;
+      slug = `${base}-${counter++}`;
+    }
   }
 
   private mapSupplier(

@@ -60,6 +60,9 @@ export class SupplierResponseDto {
   @ApiProperty({ description: 'Supplier ID' })
   id!: string;
 
+  @ApiProperty({ example: 'acme-supplies' })
+  slug!: string;
+
   @ApiProperty({ description: 'Supplier type' })
   type!: SupplierType;
 
