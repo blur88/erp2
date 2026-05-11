@@ -58,7 +58,7 @@ const schema = yup.object({
     yup.object({
       productId: yup.string().required('Product is required'),
       newQuantity: yup.number().min(0, 'New quantity cannot be negative').required(),
-      oldQuantity: yup.number().min(0).required(),
+      oldQuantity: yup.number().required(),
       difference: yup.number().required(),
     })
   ).min(1, 'At least one item is required'),
