@@ -64,7 +64,7 @@ export function AppButton({
         muiColor = 'primary'
         break
       case 'secondary':
-        muiVariant = 'outlined'
+        muiVariant = 'contained'
         muiColor = 'secondary'
         break
       case 'outlined':

@@ -19,10 +19,10 @@ describe('AppButton - variants', () => {
     expect(btn.className).toMatch(/MuiButton-colorPrimary/)
   })
 
-  it('renders secondary as outlined colorSecondary', () => {
+  it('renders secondary as contained colorSecondary', () => {
     wrap(<AppButton variant="secondary">Cancel</AppButton>)
     const btn = screen.getByRole('button', { name: 'Cancel' })
-    expect(btn.className).toMatch(/MuiButton-outlined/)
+    expect(btn.className).toMatch(/MuiButton-contained/)
     expect(btn.className).toMatch(/MuiButton-colorSecondary/)
   })
 
