@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { validate } from 'class-validator';
 import { getRepositoryToken, getDataSourceToken } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
 import { StockAdjustmentService } from './stock-adjustment.service';
@@ -9,6 +10,7 @@ import { StockMovementService } from './stock-movement.service';
 import { SettingsService } from '../../settings/settings.service';
 import { AuditLogService } from '../../audit-logs/services';
 import { AccountingService } from '../../accounting/services/accounting.service';
+import { StockAdjustmentItemDto } from '../dto/stock-adjustment.dto';
 
 describe('StockAdjustmentService', () => {
   let service: StockAdjustmentService;
@@ -272,5 +274,17 @@ describe('StockAdjustmentService', () => {
       );
       expect(result).toBeDefined();
     });
+  });
+});
+
+describe('StockAdjustmentItemDto', () => {
+  it('allows negative oldQuantity because it is the current stock snapshot', async () => {
+    const dto = new StockAdjustmentItemDto();
+    dto.productId = '123e4567-e89b-42d3-a456-426614174000';
+    dto.oldQuantity = -5;
+    dto.newQuantity = 10;
+    dto.difference = 15;
+
+    await expect(validate(dto)).resolves.toHaveLength(0);
   });
 });

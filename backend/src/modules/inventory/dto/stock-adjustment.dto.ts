@@ -22,7 +22,6 @@ export class StockAdjustmentItemDto {
 
   @ApiProperty({ description: 'Quantity before adjustment' })
   @IsNumber({ maxDecimalPlaces: 4 })
-  @Min(0)
   oldQuantity: number;
 
   @ApiProperty({ description: 'Quantity after adjustment' })
