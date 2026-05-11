@@ -20,7 +20,7 @@ export class StockAdjustmentItemDto {
   @IsUUID(4)
   productId: string;
 
-  @ApiProperty({ description: 'Quantity before adjustment' })
+  @ApiProperty({ description: 'Stock snapshot at adjustment time; can be negative (e.g. oversell)' })
   @IsNumber({ maxDecimalPlaces: 4 })
   oldQuantity: number;
 

@@ -287,4 +287,16 @@ describe('StockAdjustmentItemDto', () => {
 
     await expect(validate(dto)).resolves.toHaveLength(0);
   });
+
+  it('rejects negative newQuantity because target stock must be non-negative', async () => {
+    const dto = new StockAdjustmentItemDto();
+    dto.productId = '123e4567-e89b-42d3-a456-426614174000';
+    dto.oldQuantity = -5;
+    dto.newQuantity = -1;
+    dto.difference = 4;
+
+    const errors = await validate(dto);
+    expect(errors.length).toBeGreaterThan(0);
+    expect(errors.some(e => e.property === 'newQuantity')).toBe(true);
+  });
 });

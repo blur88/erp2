@@ -518,7 +518,8 @@ const CreateStockAdjustmentPage: React.FC = () => {
                                       htmlInput: {
                                         style: { textAlign: 'center', fontSize: '0.875rem' },
                                         inputMode: 'numeric',
-                                        pattern: '[0-9]*'
+                                        pattern: '[0-9]*',
+                                        'data-testid': `items.${index}.newQuantity`,
                                       }
                                     }}
                                     error={!!errors.items?.[index]?.newQuantity}

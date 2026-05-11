@@ -356,10 +356,7 @@ describe('CreateStockAdjustmentPage submit', { timeout: 60000 }, () => {
       expect(productInput).toHaveValue('Overdrawn Widget')
     })
 
-    // Set newQuantity to 10 (different from oldQuantity -5, so difference != 0)
-    const newQtyInput = screen.getAllByRole('textbox').find(
-      (element) => element !== productInput && (element as HTMLInputElement).value === '-5'
-    ) as HTMLInputElement
+    const newQtyInput = screen.getByTestId('items.0.newQuantity') as HTMLInputElement
 
     await user.clear(newQtyInput)
     await user.type(newQtyInput, '10')
