@@ -360,7 +360,7 @@ const CreateStockAdjustmentPage: React.FC = () => {
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                   <Typography variant="h6">Adjustment Items</Typography>
                   <AppButton
-                    variant="outlined"
+                    variant="secondary"
                     startIcon={<AddIcon />}
                     onClick={addItem}
                   >

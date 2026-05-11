@@ -67,7 +67,7 @@ export function ChartOfAccountContextHeader({ selected, onEdit, onDelete }: Prop
         title={`${selected.code} — ${selected.name}`}
         actions={(
           <Stack direction="row" spacing={0.5}>
-            <AppButton size="small" variant="outlined" startIcon={<EditIcon />} onClick={onEdit}>
+            <AppButton size="small" variant="secondary" startIcon={<EditIcon />} onClick={onEdit}>
               Edit
             </AppButton>
             <AppButton size="small" variant="danger" startIcon={<DeleteIcon />} onClick={onDelete}>

@@ -40,7 +40,7 @@ export function FiscalPeriodContextHeader({ selected, onClose, onReopen, onEdit,
                 Reopen
               </AppButton>
             )}
-            <AppButton size="small" variant="outlined" startIcon={<EditIcon />} onClick={onEdit}>
+            <AppButton size="small" variant="secondary" startIcon={<EditIcon />} onClick={onEdit}>
               Edit
             </AppButton>
             <AppButton size="small" variant="danger" startIcon={<DeleteIcon />} onClick={onDelete}>

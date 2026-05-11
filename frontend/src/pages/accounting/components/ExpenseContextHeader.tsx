@@ -65,7 +65,7 @@ export function ExpenseContextHeader({ selected, onEdit, onPost, onDelete }: Pro
         actions={
           isDraft ? (
             <Stack direction="row" spacing={0.5}>
-              <AppButton size="small" variant="outlined" startIcon={<EditIcon />} onClick={onEdit}>
+              <AppButton size="small" variant="secondary" startIcon={<EditIcon />} onClick={onEdit}>
                 Edit
               </AppButton>
               <AppButton size="small" variant="success" startIcon={<PostIcon />} onClick={onPost}>
