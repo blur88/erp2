@@ -12,22 +12,32 @@ function wrap(ui: React.ReactElement) {
 }
 
 describe('AppButton - variants', () => {
-  it('renders primary as contained', () => {
+  it('renders primary as contained colorPrimary', () => {
     wrap(<AppButton variant="primary">Save</AppButton>)
     const btn = screen.getByRole('button', { name: 'Save' })
     expect(btn.className).toMatch(/MuiButton-contained/)
+    expect(btn.className).toMatch(/MuiButton-colorPrimary/)
   })
 
-  it('renders outlined as outlined', () => {
-    wrap(<AppButton variant="outlined">Cancel</AppButton>)
+  it('renders secondary as outlined colorSecondary', () => {
+    wrap(<AppButton variant="secondary">Cancel</AppButton>)
     const btn = screen.getByRole('button', { name: 'Cancel' })
     expect(btn.className).toMatch(/MuiButton-outlined/)
+    expect(btn.className).toMatch(/MuiButton-colorSecondary/)
   })
 
-  it('renders secondary as outlined', () => {
-    wrap(<AppButton variant="secondary">View</AppButton>)
+  it('renders outlined as outlined colorPrimary', () => {
+    wrap(<AppButton variant="outlined">View</AppButton>)
     const btn = screen.getByRole('button', { name: 'View' })
     expect(btn.className).toMatch(/MuiButton-outlined/)
+    expect(btn.className).toMatch(/MuiButton-colorPrimary/)
+  })
+
+  it('renders neutral as outlined colorInherit', () => {
+    wrap(<AppButton variant="neutral">Custom</AppButton>)
+    const btn = screen.getByRole('button', { name: 'Custom' })
+    expect(btn.className).toMatch(/MuiButton-outlined/)
+    expect(btn.className).toMatch(/MuiButton-colorInherit/)
   })
 
   it('renders danger as contained colorError', () => {
@@ -90,10 +100,11 @@ describe('AppButton - sortConfig', () => {
     expect(btn.className).toMatch(/MuiButton-contained/)
   })
 
-  it('renders as outlined when sort is inactive', () => {
+  it('renders as outlined colorPrimary when sort is inactive', () => {
     wrap(<AppButton sortConfig={{ ...baseSortConfig, sortBy: 'other' }}>Sort</AppButton>)
     const btn = screen.getByRole('button', { name: /sort/i })
     expect(btn.className).toMatch(/MuiButton-outlined/)
+    expect(btn.className).toMatch(/MuiButton-colorPrimary/)
   })
 
   it('calls onClick when clicked', () => {

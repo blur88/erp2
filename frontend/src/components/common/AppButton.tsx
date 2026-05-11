@@ -9,6 +9,7 @@ type AppButtonVariant =
   | 'primary'
   | 'secondary'
   | 'outlined'
+  | 'neutral'
   | 'danger'
   | 'warning'
   | 'success'
@@ -48,7 +49,7 @@ export function AppButton({
 
   if (sortConfig != null) {
     muiVariant = isSortActive ? 'contained' : 'outlined'
-    muiColor = isSortActive ? 'primary' : 'inherit'
+    muiColor = isSortActive ? 'primary' : 'primary'
 
     if (isSortActive) {
       resolvedStartIcon =
@@ -61,6 +62,18 @@ export function AppButton({
       case 'primary':
         muiVariant = 'contained'
         muiColor = 'primary'
+        break
+      case 'secondary':
+        muiVariant = 'outlined'
+        muiColor = 'secondary'
+        break
+      case 'outlined':
+        muiVariant = 'outlined'
+        muiColor = 'primary'
+        break
+      case 'neutral':
+        muiVariant = 'outlined'
+        muiColor = 'inherit'
         break
       case 'danger':
         muiVariant = 'contained'
@@ -82,11 +95,9 @@ export function AppButton({
         muiVariant = 'contained'
         muiColor = 'info'
         break
-      case 'secondary':
-      case 'outlined':
       default:
         muiVariant = 'outlined'
-        muiColor = 'inherit'
+        muiColor = 'primary'
         break
     }
   }
