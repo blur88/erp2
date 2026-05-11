@@ -330,6 +330,49 @@ describe('CreateStockAdjustmentPage submit', { timeout: 60000 }, () => {
     })
   })
 
+  it('submits successfully when the selected product has negative stock', async () => {
+    const user = userEvent.setup()
+
+    mockGet.mockImplementation(async (url: string) => {
+      if (url.includes('/inventory/products/')) {
+        return { data: { id: 'product-neg', name: 'Overdrawn Widget', stockQuantity: -5 } }
+      }
+      return { data: [{ id: 'product-neg', name: 'Overdrawn Widget', stockQuantity: -5 }] }
+    })
+
+    render(
+      <BrowserRouter>
+        <CreateStockAdjustmentPage />
+      </BrowserRouter>
+    )
+
+    const productInput = screen.getByPlaceholderText('Search by name or barcode...')
+    await user.click(productInput)
+
+    const listbox = await screen.findByRole('listbox')
+    await user.click(within(listbox).getByText('Overdrawn Widget'))
+
+    await waitFor(() => {
+      expect(productInput).toHaveValue('Overdrawn Widget')
+    })
+
+    const newQtyInput = screen.getByTestId('items.0.newQuantity') as HTMLInputElement
+
+    await user.clear(newQtyInput)
+    await user.type(newQtyInput, '10')
+    await user.click(screen.getByRole('button', { name: /create adjustment/i }))
+
+    await waitFor(() => {
+      expect(mockCreateAdjustment).toHaveBeenCalledWith(
+        expect.objectContaining({
+          items: expect.arrayContaining([
+            expect.objectContaining({ productId: 'product-neg', oldQuantity: -5, newQuantity: 10 }),
+          ]),
+        })
+      )
+    })
+  })
+
   it('calls updateStockAdjustment mutation on submit in edit mode', async () => {
     const user = userEvent.setup()
     mockParams.mockReturnValue({ adjustmentNumber: 'SA-001' })

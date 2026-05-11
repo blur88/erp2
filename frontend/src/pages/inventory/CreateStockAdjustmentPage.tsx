@@ -58,7 +58,7 @@ const schema = yup.object({
     yup.object({
       productId: yup.string().required('Product is required'),
       newQuantity: yup.number().min(0, 'New quantity cannot be negative').required(),
-      oldQuantity: yup.number().min(0).required(),
+      oldQuantity: yup.number().required(),
       difference: yup.number().required(),
     })
   ).min(1, 'At least one item is required'),
@@ -518,7 +518,8 @@ const CreateStockAdjustmentPage: React.FC = () => {
                                       htmlInput: {
                                         style: { textAlign: 'center', fontSize: '0.875rem' },
                                         inputMode: 'numeric',
-                                        pattern: '[0-9]*'
+                                        pattern: '[0-9]*',
+                                        'data-testid': `items.${index}.newQuantity`,
                                       }
                                     }}
                                     error={!!errors.items?.[index]?.newQuantity}
