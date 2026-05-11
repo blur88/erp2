@@ -49,7 +49,7 @@ export function AppButton({
 
   if (sortConfig != null) {
     muiVariant = isSortActive ? 'contained' : 'outlined'
-    muiColor = isSortActive ? 'primary' : 'primary'
+    muiColor = 'primary'
 
     if (isSortActive) {
       resolvedStartIcon =

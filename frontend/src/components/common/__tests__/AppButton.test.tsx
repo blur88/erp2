@@ -60,6 +60,27 @@ describe('AppButton - variants', () => {
     expect(btn.className).toMatch(/MuiButton-contained/)
     expect(btn.className).toMatch(/MuiButton-colorSuccess/)
   })
+
+  it('renders info as contained colorInfo', () => {
+    wrap(<AppButton variant="info">Info</AppButton>)
+    const btn = screen.getByRole('button', { name: 'Info' })
+    expect(btn.className).toMatch(/MuiButton-contained/)
+    expect(btn.className).toMatch(/MuiButton-colorInfo/)
+  })
+
+  it('renders text as text colorInherit', () => {
+    wrap(<AppButton variant="text">Link</AppButton>)
+    const btn = screen.getByRole('button', { name: 'Link' })
+    expect(btn.className).toMatch(/MuiButton-text/)
+    expect(btn.className).toMatch(/MuiButton-colorInherit/)
+  })
+
+  it('renders with no variant as outlined colorPrimary (default)', () => {
+    wrap(<AppButton>Default</AppButton>)
+    const btn = screen.getByRole('button', { name: 'Default' })
+    expect(btn.className).toMatch(/MuiButton-outlined/)
+    expect(btn.className).toMatch(/MuiButton-colorPrimary/)
+  })
 })
 
 describe('AppButton - size=filter', () => {
@@ -94,10 +115,11 @@ describe('AppButton - sortConfig', () => {
     sortOrder: 'asc' as const,
   }
 
-  it('renders as contained when sort is active', () => {
+  it('renders as contained colorPrimary when sort is active', () => {
     wrap(<AppButton sortConfig={baseSortConfig}>Sort</AppButton>)
     const btn = screen.getByRole('button', { name: /sort/i })
     expect(btn.className).toMatch(/MuiButton-contained/)
+    expect(btn.className).toMatch(/MuiButton-colorPrimary/)
   })
 
   it('renders as outlined colorPrimary when sort is inactive', () => {
