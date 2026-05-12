@@ -24,8 +24,8 @@ export default function RootLayout() {
 
   useRegionalSettings(isAuthenticated)
 
-  const IDLE_TIMEOUT = 30 * 60 * 1000
-  const WARNING_TIME = 2 * 60 * 1000
+  const IDLE_TIMEOUT = 12 * 60 * 60 * 1000
+  const WARNING_TIME = 5 * 60 * 1000
 
   const handleAutoLogout = useCallback(async () => {
     setShowIdleWarning(false)
