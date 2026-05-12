@@ -38,9 +38,11 @@ export function EntityContextHeaderBar({
         </Typography>
         {statusChip}
       </Box>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-        {actions}
-      </Box>
+      {actions && (
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+          {actions}
+        </Box>
+      )}
     </Box>
   )
 }
