@@ -95,9 +95,6 @@ const VendorPaymentContextHeader: React.FC<VendorPaymentContextHeaderProps> = ({
             Print
           </AppButton>
         }
-        journalEntryRefs={journalEntryRefs}
-        journalEntryRefLoading={journalEntryRefLoading}
-        onNavigateToJournalEntry={onNavigateToJournalEntry}
       />
 
       <Box sx={{ p: TABLE_STYLES.cell.padding.px }}>

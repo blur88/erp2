@@ -99,9 +99,6 @@ const PaymentContextHeader: React.FC<PaymentContextHeaderProps> = ({
             Print
           </AppButton>
         }
-        journalEntryRefs={journalEntryRefs}
-        journalEntryRefsLoading={journalEntryRefsLoading}
-        onNavigateToJournalEntry={onNavigateToJournalEntry}
       />
 
       <Box sx={{ p: TABLE_STYLES.cell.padding.px }}>

@@ -107,9 +107,6 @@ const InvoiceContextHeader: React.FC<InvoiceContextHeaderProps> = ({
             Print
           </AppButton>
         }
-        journalEntryRefs={journalEntryRefs}
-        journalEntryRefsLoading={journalEntryRefsLoading}
-        onNavigateToJournalEntry={onNavigateToJournalEntries}
       />
 
       <Box sx={{ p: TABLE_STYLES.cell.padding.px }}>
