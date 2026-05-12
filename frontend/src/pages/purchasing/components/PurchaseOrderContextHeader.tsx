@@ -144,9 +144,6 @@ const PurchaseOrderContextHeader: React.FC<PurchaseOrderContextHeaderProps> = ({
             </AppButton>
           </Box>
         )}
-        journalEntryRefs={journalEntryRefs}
-        journalEntryRefLoading={journalEntryRefLoading}
-        onNavigateToJournalEntry={onNavigateToJournalEntry}
       />
       <Box sx={{ p: TABLE_STYLES.cell.padding.px }}>
         <Grid container spacing={3}>

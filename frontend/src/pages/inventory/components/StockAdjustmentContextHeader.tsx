@@ -109,9 +109,6 @@ const StockAdjustmentContextHeader: React.FC<StockAdjustmentContextHeaderProps> 
             </AppButton>
           </Box>
         )}
-        journalEntryRef={journalEntryRef}
-        journalEntryRefLoading={journalEntryRefLoading}
-        onNavigateToJournalEntry={onNavigateToJournalEntry}
       />
 
       <Box sx={{ p: TABLE_STYLES.cell.padding.px }}>

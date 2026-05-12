@@ -164,9 +164,6 @@ const OrderContextHeader: React.FC<OrderContextHeaderProps> = ({
             </AppButton>
           </Box>
         )}
-        journalEntryRefs={journalEntryRefs}
-        journalEntryRefsLoading={journalEntryRefsLoading}
-        onNavigateToJournalEntry={onNavigateToJournalEntries}
       />
       <Box sx={{ p: TABLE_STYLES.cell.padding.px }}>
         <Grid container spacing={3}>

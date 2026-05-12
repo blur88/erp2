@@ -95,9 +95,6 @@ const GRNContextHeader: React.FC<GRNContextHeaderProps> = ({
             Print
           </AppButton>
         }
-        journalEntryRefs={journalEntryRefs}
-        journalEntryRefLoading={journalEntryRefLoading}
-        onNavigateToJournalEntry={onNavigateToJournalEntry}
       />
 
       <Box sx={{ p: TABLE_STYLES.cell.padding.px }}>
