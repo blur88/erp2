@@ -56,7 +56,7 @@ export function AccountMappingContextHeader({ row, onConfigure, onClear }: Props
           <Stack direction="row" spacing={0.5}>
             <AppButton
               size="small"
-              variant="outlined"
+              variant="secondary"
               startIcon={isConfigured ? <EditIcon /> : <SettingsIcon />}
               onClick={onConfigure}
             >

@@ -1,4 +1,5 @@
 import React from 'react'
+import { default as CheckCircleIcon } from '@mui/icons-material/CheckCircle'
 import { default as DeleteIcon } from '@mui/icons-material/Delete'
 import { default as EditIcon } from '@mui/icons-material/Edit'
 import { default as PrintIcon } from '@mui/icons-material/Print'
@@ -300,6 +301,7 @@ const PurchaseOrderContextHeader: React.FC<PurchaseOrderContextHeaderProps> = ({
                           <AppButton
                             variant="success"
                             size="small"
+                            startIcon={<CheckCircleIcon />}
                             sx={{ minWidth: 110 }}
                             onClick={onReceive}
                             disabled={

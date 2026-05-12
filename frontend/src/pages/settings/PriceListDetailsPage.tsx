@@ -21,7 +21,9 @@ import {
   DialogActions,
   InputAdornment,
 } from '@mui/material'
+import { AppButton } from '@/components/common/AppButton'
 import { default as BackIcon } from '@mui/icons-material/ArrowBack'
+import { default as CheckCircleIcon } from '@mui/icons-material/CheckCircle'
 import { default as EditIcon } from '@mui/icons-material/Edit'
 import { default as SaveIcon } from '@mui/icons-material/Save'
 import { default as RefreshIcon } from '@mui/icons-material/Refresh'
@@ -179,9 +181,9 @@ const PriceListDetailsPage: React.FC = () => {
     return (
       <Box>
         <Alert severity="error">Price list not found</Alert>
-        <Button startIcon={<BackIcon />} onClick={() => navigate('/settings/price-lists')} sx={{ mt: 2 }}>
+        <AppButton variant="secondary" startIcon={<BackIcon />} onClick={() => navigate('/settings/price-lists')} sx={{ mt: 2 }}>
           Back to Price Lists
-        </Button>
+        </AppButton>
       </Box>
     )
   }
@@ -190,9 +192,9 @@ const PriceListDetailsPage: React.FC = () => {
     <>
       {/* Header */}
       <Box sx={{ mb: 3 }}>
-        <Button startIcon={<BackIcon />} onClick={() => navigate('/settings/price-lists')} sx={{ mb: 2 }}>
+        <AppButton variant="secondary" startIcon={<BackIcon />} onClick={() => navigate('/settings/price-lists')} sx={{ mb: 2 }}>
           Back to Price Lists
-        </Button>
+        </AppButton>
 
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
           <Box>
@@ -227,36 +229,36 @@ const PriceListDetailsPage: React.FC = () => {
           </Box>
 
           <Box sx={{ display: 'flex', gap: 1 }}>
-            <Button variant="outlined" startIcon={<RefreshIcon />} onClick={loadData}>
+            <AppButton variant="secondary" startIcon={<RefreshIcon />} onClick={loadData}>
               Refresh
-            </Button>
+            </AppButton>
             {!editMode && (
               <>
-                <Button
-                  variant="outlined"
+                <AppButton
+                  variant="secondary"
                   startIcon={<AdjustIcon />}
                   onClick={() => setAdjustmentDialogOpen(true)}
                 >
                   Adjust Prices
-                </Button>
-                <Button variant="contained" startIcon={<EditIcon />} onClick={() => setEditMode(true)}>
+                </AppButton>
+                <AppButton variant="secondary" startIcon={<EditIcon />} onClick={() => setEditMode(true)}>
                   Edit Prices
-                </Button>
+                </AppButton>
               </>
             )}
             {editMode && (
               <>
-                <Button variant="outlined" onClick={() => { setEditMode(false); setEditedItems(new Map()); }}>
+                <AppButton variant="secondary" onClick={() => { setEditMode(false); setEditedItems(new Map()); }}>
                   Cancel
-                </Button>
-                <Button
-                  variant="contained"
+                </AppButton>
+                <AppButton
+                  variant="success"
                   startIcon={<SaveIcon />}
                   onClick={handleSaveChanges}
                   disabled={editedItems.size === 0}
                 >
                   Save Changes ({editedItems.size})
-                </Button>
+                </AppButton>
               </>
             )}
           </Box>
@@ -569,14 +571,15 @@ const PriceListDetailsPage: React.FC = () => {
           </Stack>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setAdjustmentDialogOpen(false)}>Cancel</Button>
-          <Button
-            variant="contained"
+          <AppButton variant="secondary" onClick={() => setAdjustmentDialogOpen(false)}>Cancel</AppButton>
+          <AppButton
+            variant="success"
+            startIcon={<CheckCircleIcon />}
             onClick={handleApplyAdjustment}
             disabled={!adjustmentPercentage || priceListItemsLoading}
           >
             Apply Adjustment
-          </Button>
+          </AppButton>
         </DialogActions>
       </Dialog>
     </>
