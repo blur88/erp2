@@ -38,7 +38,7 @@ interface IdleWarningDialogProps {
 const IdleWarningDialog: React.FC<IdleWarningDialogProps> = ({
   open,
   remainingSeconds,
-  totalWarningSeconds = 120, // Default 2 minutes
+  totalWarningSeconds = 300, // Default 5 minutes
   onStayLoggedIn,
   onLogout,
 }) => {

@@ -346,8 +346,8 @@ export class AuthService {
     });
 
     // Generate refresh token (long-lived)
-    // If "Remember me" is checked: 7 days, otherwise: 1 day
-    const refreshTokenExpiry = rememberMe ? '7d' : '1d';
+    // If "Remember me" is checked: 7 days, otherwise: 2 days (covers 12h idle + buffer)
+    const refreshTokenExpiry = rememberMe ? '7d' : '2d';
     const refreshToken = this.jwtService.sign(payload, {
       expiresIn: this.configService.get('JWT_REFRESH_TOKEN_EXPIRY', refreshTokenExpiry),
     });

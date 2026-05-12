@@ -9,7 +9,7 @@ interface UseIdleTimerOptions {
 
   /**
    * Warning time in milliseconds before logout
-   * @default 120000 (2 minutes)
+   * @default 300000 (5 minutes)
    */
   warningTime?: number
 
@@ -64,8 +64,8 @@ interface UseIdleTimerReturn {
  * @example
  * ```tsx
  * const { isIdle, remainingTime, reset } = useIdleTimer({
- *   timeout: 60 * 60 * 1000, // 60 minutes
- *   warningTime: 2 * 60 * 1000, // 2 minutes warning
+ *   timeout: 12 * 60 * 60 * 1000, // 12 hours
+ *   warningTime: 5 * 60 * 1000, // 5 minutes warning
  *   onTimeout: () => logout(),
  * })
  * ```
@@ -73,7 +73,7 @@ interface UseIdleTimerReturn {
 export function useIdleTimer(options: UseIdleTimerOptions = {}): UseIdleTimerReturn {
   const {
     timeout = 60 * 60 * 1000, // 60 minutes default
-    warningTime = 2 * 60 * 1000, // 2 minutes warning default
+    warningTime = 5 * 60 * 1000, // 5 minutes warning default
     onIdle,
     onTimeout,
     onActive,
