@@ -1,8 +1,8 @@
 import { Chip, Paper, Stack, Table, TableBody, TableCell, TableContainer, TableRow, Typography } from '@mui/material'
 import Grid from '@mui/material/Grid'
+import { default as CheckCircleIcon } from '@mui/icons-material/CheckCircle'
 import { default as DeleteIcon } from '@mui/icons-material/Delete'
 import { default as EditIcon } from '@mui/icons-material/Edit'
-import { default as PostIcon } from '@mui/icons-material/PostAdd'
 import { default as UndoIcon } from '@mui/icons-material/Undo'
 
 import { AppButton } from '@/components/common/AppButton'
@@ -83,7 +83,7 @@ export function OwnerEquityContextHeader({ selected, onEdit, onPost, onDelete, o
                 <AppButton size="small" variant="secondary" startIcon={<EditIcon />} onClick={onEdit}>
                   Edit
                 </AppButton>
-                <AppButton size="small" variant="success" startIcon={<PostIcon />} onClick={onPost}>
+                <AppButton size="small" variant="success" startIcon={<CheckCircleIcon />} onClick={onPost}>
                   Post
                 </AppButton>
                 <AppButton size="small" variant="danger" startIcon={<DeleteIcon />} onClick={onDelete}>

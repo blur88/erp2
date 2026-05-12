@@ -1,4 +1,5 @@
 import React from 'react'
+import { default as CheckCircleIcon } from '@mui/icons-material/CheckCircle'
 import { default as DeleteIcon } from '@mui/icons-material/Delete'
 import { default as EditIcon } from '@mui/icons-material/Edit'
 import {
@@ -198,8 +199,9 @@ const StockAdjustmentContextHeader: React.FC<StockAdjustmentContextHeaderProps> 
                         <Stack direction="row" spacing={1} sx={{ alignItems: 'center', justifyContent: 'center' }}>
                           {selectedAdjustment.status === 'draft' && (
                             <AppButton
-                              variant="primary"
+                              variant="success"
                               size="small"
+                              startIcon={<CheckCircleIcon />}
                               onClick={onComplete}
                               sx={{ minWidth: 110 }}
                             >

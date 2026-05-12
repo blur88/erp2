@@ -1,4 +1,5 @@
 import React from 'react'
+import { default as CheckCircleIcon } from '@mui/icons-material/CheckCircle'
 import { default as DeleteIcon } from '@mui/icons-material/Delete'
 import { default as EditIcon } from '@mui/icons-material/Edit'
 import { default as PrintIcon } from '@mui/icons-material/Print'
@@ -417,6 +418,7 @@ const OrderContextHeader: React.FC<OrderContextHeaderProps> = ({
                         <AppButton
                           size="small"
                           variant={selectedOrder.isFulfilled ? 'warning' : 'success'}
+                          startIcon={selectedOrder.isFulfilled ? undefined : <CheckCircleIcon />}
                           onClick={selectedOrder.isFulfilled ? onUnfulfillOrder : onFulfillOrder}
                           disabled={isLoading || (!selectedOrder.isFulfilled && !selectedOrder.isPaidInFull)}
                           sx={{ minWidth: 110 }}
