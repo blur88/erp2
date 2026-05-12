@@ -7,6 +7,9 @@ import { clearAuth, logout as logoutAction, selectIsAuthenticated, selectRemembe
 import { useIdleTimer } from './hooks/useIdleTimer'
 import IdleWarningDialog from './components/auth/IdleWarningDialog'
 
+const IDLE_TIMEOUT = 12 * 60 * 60 * 1000
+const WARNING_TIME = 5 * 60 * 1000
+
 const PageLoader = () => (
   <Box sx={{ width: '100%', position: 'fixed', top: 0, zIndex: 9999 }}>
     <LinearProgress />
@@ -23,9 +26,6 @@ export default function RootLayout() {
   const [showIdleWarning, setShowIdleWarning] = useState(false)
 
   useRegionalSettings(isAuthenticated)
-
-  const IDLE_TIMEOUT = 12 * 60 * 60 * 1000
-  const WARNING_TIME = 5 * 60 * 1000
 
   const handleAutoLogout = useCallback(async () => {
     setShowIdleWarning(false)
