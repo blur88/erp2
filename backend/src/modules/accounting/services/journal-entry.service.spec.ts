@@ -50,16 +50,16 @@ describe('JournalEntryService', () => {
   let chartOfAccountsService: jest.Mocked<ChartOfAccountsService>;
   let fiscalPeriodService: jest.Mocked<FiscalPeriodService>;
   let settingsService: jest.Mocked<SettingsService>;
-  let mockSalesOrderRepo: { findOne: jest.Mock };
-  let mockPurchaseOrderRepo: { findOne: jest.Mock };
-  let mockGrnRepo: { findOne: jest.Mock };
-  let mockPaymentRepo: { findOne: jest.Mock };
-  let mockVendorPaymentRepo: { findOne: jest.Mock };
-  let mockExpenseRepo: { findOne: jest.Mock };
-  let mockOwnerEquityTransactionRepo: { findOne: jest.Mock };
-  let mockFundTransferRepo: { findOne: jest.Mock };
-  let mockStockAdjustmentRepo: { findOne: jest.Mock };
-  let mockInvoiceRepo: { findOne: jest.Mock };
+  let mockSalesOrderRepo: { findOne: jest.Mock; find: jest.Mock };
+  let mockPurchaseOrderRepo: { findOne: jest.Mock; find: jest.Mock };
+  let mockGrnRepo: { findOne: jest.Mock; find: jest.Mock };
+  let mockPaymentRepo: { findOne: jest.Mock; find: jest.Mock };
+  let mockVendorPaymentRepo: { findOne: jest.Mock; find: jest.Mock };
+  let mockExpenseRepo: { findOne: jest.Mock; find: jest.Mock };
+  let mockOwnerEquityTransactionRepo: { findOne: jest.Mock; find: jest.Mock };
+  let mockFundTransferRepo: { findOne: jest.Mock; find: jest.Mock };
+  let mockStockAdjustmentRepo: { findOne: jest.Mock; find: jest.Mock };
+  let mockInvoiceRepo: { findOne: jest.Mock; find: jest.Mock };
 
   // Test data
   const mockFiscalPeriod: Partial<FiscalPeriod> = {
@@ -131,16 +131,16 @@ describe('JournalEntryService', () => {
   };
 
   beforeEach(async () => {
-    mockSalesOrderRepo = { findOne: jest.fn() };
-    mockPurchaseOrderRepo = { findOne: jest.fn() };
-    mockGrnRepo = { findOne: jest.fn() };
-    mockPaymentRepo = { findOne: jest.fn() };
-    mockVendorPaymentRepo = { findOne: jest.fn() };
-    mockExpenseRepo = { findOne: jest.fn() };
-    mockOwnerEquityTransactionRepo = { findOne: jest.fn() };
-    mockFundTransferRepo = { findOne: jest.fn() };
-    mockStockAdjustmentRepo = { findOne: jest.fn() };
-    mockInvoiceRepo = { findOne: jest.fn() };
+    mockSalesOrderRepo = { findOne: jest.fn(), find: jest.fn() };
+    mockPurchaseOrderRepo = { findOne: jest.fn(), find: jest.fn() };
+    mockGrnRepo = { findOne: jest.fn(), find: jest.fn() };
+    mockPaymentRepo = { findOne: jest.fn(), find: jest.fn() };
+    mockVendorPaymentRepo = { findOne: jest.fn(), find: jest.fn() };
+    mockExpenseRepo = { findOne: jest.fn(), find: jest.fn() };
+    mockOwnerEquityTransactionRepo = { findOne: jest.fn(), find: jest.fn() };
+    mockFundTransferRepo = { findOne: jest.fn(), find: jest.fn() };
+    mockStockAdjustmentRepo = { findOne: jest.fn(), find: jest.fn() };
+    mockInvoiceRepo = { findOne: jest.fn(), find: jest.fn() };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
