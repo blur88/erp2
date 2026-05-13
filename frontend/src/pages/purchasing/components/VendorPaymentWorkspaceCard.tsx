@@ -30,7 +30,7 @@ const VendorPaymentWorkspaceCard: React.FC<VendorPaymentWorkspaceCardProps> = ({
 
   return (
     <Paper sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-      <WorkspaceCardSectionHeader title="PO Items" />
+      <WorkspaceCardSectionHeader title="Purchased Items" />
 
       <Box sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', p: TABLE_STYLES.cell.padding.px }}>
         {items.length > 0 ? (
