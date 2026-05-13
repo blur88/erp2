@@ -14,6 +14,7 @@ import {
 
 import type { InvoiceListItem } from '../hooks/useInvoicesWorkspace'
 
+import { WorkspaceCardSectionHeader } from '@/components/common/WorkspaceCardSectionHeader'
 import { TABLE_STYLES } from '@/constants/tableStyles'
 import type { InvoiceItem } from '@/types'
 import { formatCurrency } from '@/utils/formatters'
@@ -29,32 +30,7 @@ const InvoiceWorkspaceCard: React.FC<InvoiceWorkspaceCardProps> = ({ selectedInv
 
   return (
     <Paper sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-      <TableContainer>
-        <Table
-          size={TABLE_STYLES.size}
-          sx={{
-            tableLayout: 'fixed',
-            '& .MuiTableCell-root': {
-              border: 'none',
-              py: TABLE_STYLES.cell.padding.py,
-              px: TABLE_STYLES.cell.padding.px,
-            },
-          }}
-        >
-          <TableBody>
-            <TableRow>
-              <TableCell colSpan={5} sx={{ pb: TABLE_STYLES.cell.padding.py * 0.67, py: TABLE_STYLES.cell.padding.py * 0.67, borderTop: TABLE_STYLES.cell.border }}>
-                <Typography
-                  variant="tableHeader"
-                  sx={{ fontWeight: 600, fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}
-                >
-                  Invoice Items
-                </Typography>
-              </TableCell>
-            </TableRow>
-          </TableBody>
-        </Table>
-      </TableContainer>
+      <WorkspaceCardSectionHeader title="Invoice Items" />
 
       <Box sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', p: TABLE_STYLES.cell.padding.px }}>
         <Box sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>

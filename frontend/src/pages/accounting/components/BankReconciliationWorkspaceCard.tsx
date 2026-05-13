@@ -1,6 +1,7 @@
 import { Alert, Box, Checkbox, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from '@mui/material'
 import { format } from 'date-fns'
 
+import { WorkspaceCardSectionHeader } from '@/components/common/WorkspaceCardSectionHeader'
 import { TABLE_STYLES } from '@/constants/tableStyles'
 import { BankReconciliation, BankReconciliationStatus, ReconciledTransaction } from '@/types'
 import { formatCurrency } from '@/utils/formatters'
@@ -24,39 +25,7 @@ export function BankReconciliationWorkspaceCard({ selected, onToggleCleared }: P
 
   return (
     <Paper sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-      <TableContainer>
-        <Table
-          size={TABLE_STYLES.size}
-          sx={{
-            tableLayout: 'fixed',
-            '& .MuiTableCell-root': {
-              border: 'none',
-              py: TABLE_STYLES.cell.padding.py,
-              px: TABLE_STYLES.cell.padding.px,
-            },
-          }}
-        >
-          <TableBody>
-            <TableRow>
-              <TableCell
-                colSpan={4}
-                sx={{
-                  pb: TABLE_STYLES.cell.padding.py * 0.67,
-                  py: TABLE_STYLES.cell.padding.py * 0.67,
-                  borderTop: TABLE_STYLES.cell.border,
-                }}
-              >
-                <Typography
-                  variant="tableHeader"
-                  sx={{ fontWeight: 600, fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}
-                >
-                  Transactions
-                </Typography>
-              </TableCell>
-            </TableRow>
-          </TableBody>
-        </Table>
-      </TableContainer>
+      <WorkspaceCardSectionHeader title="Transactions" />
 
       <Box sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', p: TABLE_STYLES.cell.padding.px }}>
         {isCompleted && (
