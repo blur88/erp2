@@ -101,9 +101,12 @@ export function FilterPeriod({ value, customFrom, customTo, onChange }: FilterPe
             }}
             slotProps={{
               textField: {
-                size: 'xs' as any, // DatePicker slots don't pick up module augmentation; sx below is the fallback
+                size: 'small',
                 sx: {
+                  // DatePicker ignores custom size variants; force xs dimensions explicitly
+                  '& .MuiOutlinedInput-root': { height: 32 },
                   '& .MuiOutlinedInput-input': { paddingTop: '4px', paddingBottom: '4px' },
+                  '& .MuiInputLabel-outlined:not(.MuiInputLabel-shrink)': { transform: 'translate(14px, 5px) scale(1)' },
                 },
               },
             }}
@@ -117,9 +120,12 @@ export function FilterPeriod({ value, customFrom, customTo, onChange }: FilterPe
             }}
             slotProps={{
               textField: {
-                size: 'xs' as any, // DatePicker slots don't pick up module augmentation; sx below is the fallback
+                size: 'small',
                 sx: {
+                  // DatePicker ignores custom size variants; force xs dimensions explicitly
+                  '& .MuiOutlinedInput-root': { height: 32 },
                   '& .MuiOutlinedInput-input': { paddingTop: '4px', paddingBottom: '4px' },
+                  '& .MuiInputLabel-outlined:not(.MuiInputLabel-shrink)': { transform: 'translate(14px, 5px) scale(1)' },
                 },
               },
             }}
