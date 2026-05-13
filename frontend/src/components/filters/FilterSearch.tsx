@@ -14,7 +14,7 @@ export function FilterSearch({ value, placeholder = 'Search...', onChange, onCom
   return (
     <TextField
       inputRef={inputRef}
-      size="small"
+      size="xs"
       value={value}
       placeholder={placeholder}
       onChange={(event) => onChange(event.target.value)}
