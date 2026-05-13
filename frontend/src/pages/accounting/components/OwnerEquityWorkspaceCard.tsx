@@ -1,5 +1,6 @@
-import { Box, Paper, Table, TableBody, TableCell, TableRow, Typography } from '@mui/material'
+import { Paper, Table, TableBody, TableCell, TableRow, Typography } from '@mui/material'
 
+import { WorkspaceCardSectionHeader } from '@/components/common/WorkspaceCardSectionHeader'
 import { TABLE_STYLES } from '@/constants/tableStyles'
 import type { OwnerEquityTransaction } from '@/types'
 import { formatDate } from '@/utils/formatters'
@@ -19,11 +20,7 @@ export function OwnerEquityWorkspaceCard({ selected }: Props) {
   if (!selected) return <Paper sx={{ flex: 1 }} />
   return (
     <Paper sx={{ flex: 1 }}>
-      <Box sx={{ px: 2, py: 1, borderBottom: TABLE_STYLES.cell.border }}>
-        <Typography variant="tableHeader" sx={{ fontWeight: 600, fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-          Details
-        </Typography>
-      </Box>
+      <WorkspaceCardSectionHeader title="Details" />
       <Table size={TABLE_STYLES.size} sx={{ '& .MuiTableCell-root': cellSx }}>
         <TableBody>
           <TableRow>

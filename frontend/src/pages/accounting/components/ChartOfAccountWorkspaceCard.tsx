@@ -10,6 +10,7 @@ import {
   Typography,
 } from '@mui/material'
 
+import { WorkspaceCardSectionHeader } from '@/components/common/WorkspaceCardSectionHeader'
 import { TABLE_STYLES } from '@/constants/tableStyles'
 import { useGetChartOfAccountRecentActivityQuery } from '@/store/api/accountingApi'
 import type { ChartOfAccount } from '@/types'
@@ -19,12 +20,6 @@ import { ACCOUNT_TYPE_COLORS } from '../utils/accountTypeColors'
 
 interface Props {
   selected: ChartOfAccount | null
-}
-
-const headerSx = {
-  px: TABLE_STYLES.cell.padding.px,
-  py: 1,
-  borderBottom: TABLE_STYLES.cell.border,
 }
 
 const thSx = {
@@ -145,14 +140,7 @@ export function ChartOfAccountWorkspaceCard({ selected }: Props) {
 
   return (
     <Paper sx={{ flex: 1 }}>
-      <Box sx={headerSx}>
-        <Typography
-          variant="tableHeader"
-          sx={{ fontWeight: 600, fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}
-        >
-          {sectionTitle}
-        </Typography>
-      </Box>
+      <WorkspaceCardSectionHeader title={sectionTitle} />
       {isHeader ? (
         <SubAccountsTable accounts={selected.children ?? []} />
       ) : (
