@@ -12,6 +12,7 @@ import {
   Typography,
 } from '@mui/material'
 
+import { WorkspaceCardSectionHeader } from '@/components/common/WorkspaceCardSectionHeader'
 import { TABLE_STYLES } from '@/constants/tableStyles'
 import type { SalesOrder } from '@/types'
 import { formatCurrency } from '@/utils/formatters'
@@ -25,38 +26,12 @@ const OrderWorkspaceCard: React.FC<OrderWorkspaceCardProps> = ({ selectedOrder }
     return <Paper sx={{ flex: 1 }} />
   }
 
-  const hasPayments = Number(selectedOrder.paidAmount || 0) > 0
-  const isLocked = hasPayments || Boolean(selectedOrder.isFulfilled)
-  const lockReason = hasPayments && selectedOrder.isFulfilled
-    ? 'unpay and unfulfill'
-    : hasPayments
-      ? 'unpay'
-      : 'unfulfill'
-
   return (
     <Paper sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-      <TableContainer>
-        <Table size={TABLE_STYLES.size} sx={{ tableLayout: 'fixed', '& .MuiTableCell-root': { border: 'none', py: TABLE_STYLES.cell.padding.py, px: TABLE_STYLES.cell.padding.px } }}>
-          <TableBody>
-            <TableRow>
-              <TableCell colSpan={3} sx={{ pb: TABLE_STYLES.cell.padding.py * 0.67, py: TABLE_STYLES.cell.padding.py * 0.67, borderTop: TABLE_STYLES.cell.border }}>
-                <Typography variant="tableHeader" sx={{ fontWeight: 600, fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                  SO Items
-                </Typography>
-              </TableCell>
-            </TableRow>
-          </TableBody>
-        </Table>
-      </TableContainer>
+      <WorkspaceCardSectionHeader title="SO Items" />
 
       <Box sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', p: TABLE_STYLES.cell.padding.px }}>
         <Box sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-          {isLocked && (
-            <Alert severity="warning" sx={{ mb: 1, fontSize: '0.8rem', py: 0.5 }}>
-              Items are locked - {lockReason} before editing
-            </Alert>
-          )}
-
           {selectedOrder.items && selectedOrder.items.length > 0 ? (
             <TableContainer sx={{ flex: 1, overflow: 'auto' }}>
               <Table size={TABLE_STYLES.size} sx={{ '& .MuiTableCell-root': { borderBottom: TABLE_STYLES.cell.border, py: TABLE_STYLES.cell.padding.py, px: TABLE_STYLES.cell.padding.px } }}>

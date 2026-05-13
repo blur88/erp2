@@ -15,14 +15,13 @@ const baseOrder = {
 } as any
 
 describe('OrderWorkspaceCard', () => {
-  it('shows a lock banner when the sales order is fulfilled', () => {
-    render(
-      <OrderWorkspaceCard
-        selectedOrder={{ ...baseOrder, isFulfilled: true }}
-      />,
-    )
+  it('renders the SO Items section header', () => {
+    render(<OrderWorkspaceCard selectedOrder={{ ...baseOrder, isFulfilled: false, paidAmount: 0 }} />)
+    expect(screen.getByText('SO Items')).toBeInTheDocument()
+  })
 
-    expect(screen.getByText(/Items are locked/i)).toBeInTheDocument()
-    expect(screen.getByText(/unfulfill before editing/i)).toBeInTheDocument()
+  it('shows no lock alert when fulfilled', () => {
+    render(<OrderWorkspaceCard selectedOrder={{ ...baseOrder, isFulfilled: true }} />)
+    expect(screen.queryByText(/Items are locked/i)).not.toBeInTheDocument()
   })
 })
