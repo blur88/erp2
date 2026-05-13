@@ -6,7 +6,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Between, IsNull } from 'typeorm';
+import { Repository, Between, IsNull, In } from 'typeorm';
 import {
   JournalEntry,
   JournalEntryStatus,
@@ -850,7 +850,135 @@ export class JournalEntryService {
   /**
    * Convert journal entry entity to response DTO
    */
-  // TODO: batch source lookups to avoid N+1 per JE list response
+  private async resolveSourceRefNumbersMany(
+    entries: JournalEntry[],
+  ): Promise<Map<string, string>> {
+    const refMap = new Map<string, string>();
+
+    try {
+      const withSource = entries.filter((entry) => entry.sourceType && entry.sourceId);
+      if (withSource.length === 0) return refMap;
+
+      const grouped = new Map<string, string[]>();
+      for (const entry of withSource) {
+        const ids = grouped.get(entry.sourceType!) ?? [];
+        if (!ids.includes(entry.sourceId!)) ids.push(entry.sourceId!);
+        grouped.set(entry.sourceType!, ids);
+      }
+
+      for (const [sourceType, ids] of grouped.entries()) {
+        switch (sourceType) {
+          case 'sales_order': {
+            const records = await this.salesOrderRepository.find({
+              where: { id: In(ids) },
+              select: ['id', 'orderNumber'],
+            });
+            for (const record of records) {
+              refMap.set(`sales_order:${record.id}`, record.orderNumber);
+            }
+            break;
+          }
+          case 'purchase_order': {
+            const records = await this.purchaseOrderRepository.find({
+              where: { id: In(ids) },
+              select: ['id', 'orderNumber'],
+            });
+            for (const record of records) {
+              refMap.set(`purchase_order:${record.id}`, record.orderNumber);
+            }
+            break;
+          }
+          case 'payment': {
+            const records = await this.paymentRepository.find({
+              where: { id: In(ids) },
+              select: ['id', 'paymentNumber'],
+            });
+            for (const record of records) {
+              refMap.set(`payment:${record.id}`, record.paymentNumber);
+            }
+            break;
+          }
+          case 'goods_received_note': {
+            const records = await this.grnRepository.find({
+              where: { id: In(ids) },
+              select: ['id', 'grnNumber'],
+            });
+            for (const record of records) {
+              refMap.set(`goods_received_note:${record.id}`, record.grnNumber);
+            }
+            break;
+          }
+          case 'vendor_payment': {
+            const records = await this.vendorPaymentRepository.find({
+              where: { id: In(ids) },
+              select: ['id', 'paymentNumber'],
+            });
+            for (const record of records) {
+              refMap.set(`vendor_payment:${record.id}`, record.paymentNumber);
+            }
+            break;
+          }
+          case 'expense': {
+            const records = await this.expenseRepository.find({
+              where: { id: In(ids) },
+              select: ['id', 'referenceNumber'],
+            });
+            for (const record of records) {
+              refMap.set(`expense:${record.id}`, record.referenceNumber);
+            }
+            break;
+          }
+          case 'owner_equity_transaction': {
+            const records = await this.ownerEquityTransactionRepository.find({
+              where: { id: In(ids) },
+              select: ['id', 'referenceNumber'],
+            });
+            for (const record of records) {
+              refMap.set(`owner_equity_transaction:${record.id}`, record.referenceNumber);
+            }
+            break;
+          }
+          case 'fund_transfer': {
+            const records = await this.fundTransferRepository.find({
+              where: { id: In(ids) },
+              select: ['id', 'referenceNumber'],
+            });
+            for (const record of records) {
+              refMap.set(`fund_transfer:${record.id}`, record.referenceNumber);
+            }
+            break;
+          }
+          case 'stock_adjustment': {
+            const records = await this.stockAdjustmentRepository.find({
+              where: { id: In(ids) },
+              select: ['id', 'adjustmentNumber'],
+            });
+            for (const record of records) {
+              refMap.set(`stock_adjustment:${record.id}`, record.adjustmentNumber);
+            }
+            break;
+          }
+          case 'invoice': {
+            const records = await this.invoiceRepository.find({
+              where: { id: In(ids) },
+              select: ['id', 'invoiceNumber'],
+            });
+            for (const record of records) {
+              refMap.set(`invoice:${record.id}`, record.invoiceNumber);
+            }
+            break;
+          }
+          default:
+            break;
+        }
+      }
+    } catch (err) {
+      this.logger.error('resolveSourceRefNumbersMany failed, returning empty map', err);
+    }
+
+    return refMap;
+  }
+
   private async resolveSourceRefNumber(
     sourceType: string | undefined,
     sourceId: string | undefined,
