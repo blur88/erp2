@@ -22,8 +22,8 @@ export function FilterCompare({ value, onChange, periodValue }: Props) {
       placement="top"
     >
       <span>
-        <FormControl size="small" sx={{ minWidth: 210 }} disabled={compareDisabled}>
-          <InputLabel id={labelId}>Compare</InputLabel>
+        <FormControl size="xs" sx={{ minWidth: 210 }} disabled={compareDisabled}>
+          <InputLabel id={labelId} size="xs">Compare</InputLabel>
           <Select
             id={selectId}
             labelId={labelId}
