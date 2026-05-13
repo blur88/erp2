@@ -50,16 +50,16 @@ describe('JournalEntryService', () => {
   let chartOfAccountsService: jest.Mocked<ChartOfAccountsService>;
   let fiscalPeriodService: jest.Mocked<FiscalPeriodService>;
   let settingsService: jest.Mocked<SettingsService>;
-  let mockSalesOrderRepo: { findOne: jest.Mock };
-  let mockPurchaseOrderRepo: { findOne: jest.Mock };
-  let mockGrnRepo: { findOne: jest.Mock };
-  let mockPaymentRepo: { findOne: jest.Mock };
-  let mockVendorPaymentRepo: { findOne: jest.Mock };
-  let mockExpenseRepo: { findOne: jest.Mock };
-  let mockOwnerEquityTransactionRepo: { findOne: jest.Mock };
-  let mockFundTransferRepo: { findOne: jest.Mock };
-  let mockStockAdjustmentRepo: { findOne: jest.Mock };
-  let mockInvoiceRepo: { findOne: jest.Mock };
+  let mockSalesOrderRepo: { findOne: jest.Mock; find: jest.Mock };
+  let mockPurchaseOrderRepo: { findOne: jest.Mock; find: jest.Mock };
+  let mockGrnRepo: { findOne: jest.Mock; find: jest.Mock };
+  let mockPaymentRepo: { findOne: jest.Mock; find: jest.Mock };
+  let mockVendorPaymentRepo: { findOne: jest.Mock; find: jest.Mock };
+  let mockExpenseRepo: { findOne: jest.Mock; find: jest.Mock };
+  let mockOwnerEquityTransactionRepo: { findOne: jest.Mock; find: jest.Mock };
+  let mockFundTransferRepo: { findOne: jest.Mock; find: jest.Mock };
+  let mockStockAdjustmentRepo: { findOne: jest.Mock; find: jest.Mock };
+  let mockInvoiceRepo: { findOne: jest.Mock; find: jest.Mock };
 
   // Test data
   const mockFiscalPeriod: Partial<FiscalPeriod> = {
@@ -131,16 +131,16 @@ describe('JournalEntryService', () => {
   };
 
   beforeEach(async () => {
-    mockSalesOrderRepo = { findOne: jest.fn() };
-    mockPurchaseOrderRepo = { findOne: jest.fn() };
-    mockGrnRepo = { findOne: jest.fn() };
-    mockPaymentRepo = { findOne: jest.fn() };
-    mockVendorPaymentRepo = { findOne: jest.fn() };
-    mockExpenseRepo = { findOne: jest.fn() };
-    mockOwnerEquityTransactionRepo = { findOne: jest.fn() };
-    mockFundTransferRepo = { findOne: jest.fn() };
-    mockStockAdjustmentRepo = { findOne: jest.fn() };
-    mockInvoiceRepo = { findOne: jest.fn() };
+    mockSalesOrderRepo = { findOne: jest.fn(), find: jest.fn() };
+    mockPurchaseOrderRepo = { findOne: jest.fn(), find: jest.fn() };
+    mockGrnRepo = { findOne: jest.fn(), find: jest.fn() };
+    mockPaymentRepo = { findOne: jest.fn(), find: jest.fn() };
+    mockVendorPaymentRepo = { findOne: jest.fn(), find: jest.fn() };
+    mockExpenseRepo = { findOne: jest.fn(), find: jest.fn() };
+    mockOwnerEquityTransactionRepo = { findOne: jest.fn(), find: jest.fn() };
+    mockFundTransferRepo = { findOne: jest.fn(), find: jest.fn() };
+    mockStockAdjustmentRepo = { findOne: jest.fn(), find: jest.fn() };
+    mockInvoiceRepo = { findOne: jest.fn(), find: jest.fn() };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -496,6 +496,37 @@ describe('JournalEntryService', () => {
         'entry.id IN (:...idList)',
         { idList: ['entry-1', 'entry-2'] },
       );
+    });
+
+    it('calls resolveSourceRefNumbersMany once and does not call per-entry findOne on source repos', async () => {
+      const entryWithSource = {
+        ...mockJournalEntry,
+        sourceType: 'sales_order',
+        sourceId: 'so-1',
+        lines: [],
+      };
+
+      const queryBuilder = {
+        leftJoinAndSelect: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        addOrderBy: jest.fn().mockReturnThis(),
+        skip: jest.fn().mockReturnThis(),
+        take: jest.fn().mockReturnThis(),
+        getManyAndCount: jest.fn().mockResolvedValue([[entryWithSource], 1]),
+      };
+      journalEntryRepository.createQueryBuilder.mockReturnValue(queryBuilder as any);
+      mockSalesOrderRepo.find.mockResolvedValue([{ id: 'so-1', orderNumber: 'SO-001' }]);
+
+      const result = await service.findAll({ page: 1, limit: 20 });
+
+      // Batch find was called once, not once per entry
+      expect(mockSalesOrderRepo.find).toHaveBeenCalledTimes(1);
+      // Per-entry findOne was never called
+      expect(mockSalesOrderRepo.findOne).not.toHaveBeenCalled();
+      // The resolved ref number surfaces in the response
+      expect(result.data[0].sourceRefNumber).toBe('SO-001');
     });
 
     it('does not apply ids filter when ids param is absent', async () => {
@@ -926,6 +957,92 @@ describe('JournalEntryService', () => {
       journalEntryRepository.findOne.mockResolvedValue(null);
 
       await expect(service.reverseEntry('non-existent')).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('resolveSourceRefNumbersMany', () => {
+    it('batches lookups by sourceType - one find call per type, correct map keys', async () => {
+      const entries = [
+        {
+          id: 'e1',
+          sourceType: 'sales_order',
+          sourceId: 'so-1',
+        },
+        {
+          id: 'e2',
+          sourceType: 'sales_order',
+          sourceId: 'so-2',
+        },
+        {
+          id: 'e3',
+          sourceType: 'payment',
+          sourceId: 'pay-1',
+        },
+      ] as any[];
+
+      mockSalesOrderRepo.find.mockResolvedValue([
+        { id: 'so-1', orderNumber: 'SO-001' },
+        { id: 'so-2', orderNumber: 'SO-002' },
+      ]);
+      mockPaymentRepo.find.mockResolvedValue([
+        { id: 'pay-1', paymentNumber: 'PAY-001' },
+      ]);
+
+      const map = await (service as any).resolveSourceRefNumbersMany(entries);
+
+      expect(mockSalesOrderRepo.find).toHaveBeenCalledTimes(1);
+      expect(mockSalesOrderRepo.find).toHaveBeenCalledWith({
+        where: { id: expect.anything() },
+        select: ['id', 'orderNumber'],
+      });
+      expect(mockPaymentRepo.find).toHaveBeenCalledTimes(1);
+      expect(map.get('sales_order:so-1')).toBe('SO-001');
+      expect(map.get('sales_order:so-2')).toBe('SO-002');
+      expect(map.get('payment:pay-1')).toBe('PAY-001');
+    });
+
+    it('skips entries with null sourceType or sourceId - no repo calls', async () => {
+      const entries = [
+        { id: 'e1', sourceType: null, sourceId: 'so-1' },
+        { id: 'e2', sourceType: 'sales_order', sourceId: null },
+        { id: 'e3', sourceType: undefined, sourceId: undefined },
+      ] as any[];
+
+      const map = await (service as any).resolveSourceRefNumbersMany(entries);
+
+      expect(mockSalesOrderRepo.find).not.toHaveBeenCalled();
+      expect(map.size).toBe(0);
+    });
+
+    it('returns empty Map when a repo throws - does not rethrow', async () => {
+      const entries = [
+        { id: 'e1', sourceType: 'sales_order', sourceId: 'so-1' },
+      ] as any[];
+
+      mockSalesOrderRepo.find.mockRejectedValue(new Error('DB error'));
+
+      const map = await (service as any).resolveSourceRefNumbersMany(entries);
+
+      expect(map).toBeInstanceOf(Map);
+      expect(map.size).toBe(0);
+    });
+
+    it('preserves partial results when one source type throws and another succeeds', async () => {
+      const entries = [
+        { id: 'e1', sourceType: 'sales_order', sourceId: 'so-1' },
+        { id: 'e2', sourceType: 'payment', sourceId: 'pay-1' },
+      ] as any[];
+
+      mockSalesOrderRepo.find.mockRejectedValue(new Error('DB error'));
+      mockPaymentRepo.find.mockResolvedValue([{ id: 'pay-1', paymentNumber: 'PAY-001' }]);
+
+      const map = await (service as any).resolveSourceRefNumbersMany(entries);
+
+      expect(map).toBeInstanceOf(Map);
+      // payment succeeded even though sales_order failed
+      expect(map.get('payment:pay-1')).toBe('PAY-001');
+      // sales_order entries are absent (not resolved) but did not wipe payment entries
+      expect(map.has('sales_order:so-1')).toBe(false);
     });
   });
 });
