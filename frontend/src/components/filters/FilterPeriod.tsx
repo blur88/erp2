@@ -67,8 +67,8 @@ export function FilterPeriod({ value, customFrom, customTo, onChange }: FilterPe
         alignItems: "center",
         flexWrap: "wrap"
       }}>
-      <FormControl size="small" sx={{ minWidth: 150 }}>
-        <InputLabel id={labelId} shrink={value !== null}>Period</InputLabel>
+      <FormControl size="xs" sx={{ minWidth: 150 }}>
+        <InputLabel id={labelId} size="xs" shrink={value !== null}>Period</InputLabel>
         <Select
           labelId={labelId}
           id={selectId}
@@ -99,7 +99,14 @@ export function FilterPeriod({ value, customFrom, customTo, onChange }: FilterPe
             onChange={(date) => {
               handleFromChange(date ? format(date, 'yyyy-MM-dd') : null)
             }}
-            slotProps={{ textField: { size: 'small' } }}
+            slotProps={{
+              textField: {
+                size: 'xs' as any,
+                sx: {
+                  '& .MuiOutlinedInput-input': { paddingTop: '4px', paddingBottom: '4px' },
+                },
+              },
+            }}
           />
           <DatePicker
             label="To"
@@ -108,7 +115,14 @@ export function FilterPeriod({ value, customFrom, customTo, onChange }: FilterPe
             onChange={(date) => {
               handleToChange(date ? format(date, 'yyyy-MM-dd') : null)
             }}
-            slotProps={{ textField: { size: 'small' } }}
+            slotProps={{
+              textField: {
+                size: 'xs' as any,
+                sx: {
+                  '& .MuiOutlinedInput-input': { paddingTop: '4px', paddingBottom: '4px' },
+                },
+              },
+            }}
           />
         </>
       )}
