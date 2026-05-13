@@ -498,6 +498,37 @@ describe('JournalEntryService', () => {
       );
     });
 
+    it('calls resolveSourceRefNumbersMany once and does not call per-entry findOne on source repos', async () => {
+      const entryWithSource = {
+        ...mockJournalEntry,
+        sourceType: 'sales_order',
+        sourceId: 'so-1',
+        lines: [],
+      };
+
+      const queryBuilder = {
+        leftJoinAndSelect: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        addOrderBy: jest.fn().mockReturnThis(),
+        skip: jest.fn().mockReturnThis(),
+        take: jest.fn().mockReturnThis(),
+        getManyAndCount: jest.fn().mockResolvedValue([[entryWithSource], 1]),
+      };
+      journalEntryRepository.createQueryBuilder.mockReturnValue(queryBuilder as any);
+      mockSalesOrderRepo.find.mockResolvedValue([{ id: 'so-1', orderNumber: 'SO-001' }]);
+
+      const result = await service.findAll({ page: 1, limit: 20 });
+
+      // Batch find was called once, not once per entry
+      expect(mockSalesOrderRepo.find).toHaveBeenCalledTimes(1);
+      // Per-entry findOne was never called
+      expect(mockSalesOrderRepo.findOne).not.toHaveBeenCalled();
+      // The resolved ref number surfaces in the response
+      expect(result.data[0].sourceRefNumber).toBe('SO-001');
+    });
+
     it('does not apply ids filter when ids param is absent', async () => {
       const andWhereMock = jest.fn().mockReturnThis();
       const queryBuilder = {
@@ -994,6 +1025,24 @@ describe('JournalEntryService', () => {
 
       expect(map).toBeInstanceOf(Map);
       expect(map.size).toBe(0);
+    });
+
+    it('preserves partial results when one source type throws and another succeeds', async () => {
+      const entries = [
+        { id: 'e1', sourceType: 'sales_order', sourceId: 'so-1' },
+        { id: 'e2', sourceType: 'payment', sourceId: 'pay-1' },
+      ] as any[];
+
+      mockSalesOrderRepo.find.mockRejectedValue(new Error('DB error'));
+      mockPaymentRepo.find.mockResolvedValue([{ id: 'pay-1', paymentNumber: 'PAY-001' }]);
+
+      const map = await (service as any).resolveSourceRefNumbersMany(entries);
+
+      expect(map).toBeInstanceOf(Map);
+      // payment succeeded even though sales_order failed
+      expect(map.get('payment:pay-1')).toBe('PAY-001');
+      // sales_order entries are absent (not resolved) but did not wipe payment entries
+      expect(map.has('sales_order:so-1')).toBe(false);
     });
   });
 });

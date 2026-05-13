@@ -847,26 +847,26 @@ export class JournalEntryService {
     }
   }
 
-  /**
-   * Convert journal entry entity to response DTO
-   */
+  /** Batch-resolves source reference numbers for a list of entries — one IN query per sourceType. */
   private async resolveSourceRefNumbersMany(
     entries: JournalEntry[],
   ): Promise<Map<string, string>> {
     const refMap = new Map<string, string>();
 
-    try {
-      const withSource = entries.filter((entry) => entry.sourceType && entry.sourceId);
-      if (withSource.length === 0) return refMap;
+    const withSource = entries.filter((entry) => entry.sourceType && entry.sourceId);
+    if (withSource.length === 0) return refMap;
 
-      const grouped = new Map<string, string[]>();
-      for (const entry of withSource) {
-        const ids = grouped.get(entry.sourceType!) ?? [];
-        if (!ids.includes(entry.sourceId!)) ids.push(entry.sourceId!);
-        grouped.set(entry.sourceType!, ids);
-      }
+    // Group unique sourceIds by sourceType using a Set to avoid O(n²) dedup
+    const grouped = new Map<string, Set<string>>();
+    for (const entry of withSource) {
+      if (!grouped.has(entry.sourceType!)) grouped.set(entry.sourceType!, new Set());
+      grouped.get(entry.sourceType!)!.add(entry.sourceId!);
+    }
 
-      for (const [sourceType, ids] of grouped.entries()) {
+    // Fire one IN query per sourceType; failures are caught per-type so partial results are preserved
+    for (const [sourceType, idSet] of grouped.entries()) {
+      const ids = [...idSet];
+      try {
         switch (sourceType) {
           case 'sales_order': {
             const records = await this.salesOrderRepository.find({
@@ -971,9 +971,9 @@ export class JournalEntryService {
           default:
             break;
         }
+      } catch (err) {
+        this.logger.error(`resolveSourceRefNumbersMany failed for sourceType '${sourceType}', skipping`, err);
       }
-    } catch (err) {
-      this.logger.error('resolveSourceRefNumbersMany failed, returning empty map', err);
     }
 
     return refMap;
@@ -1067,6 +1067,7 @@ export class JournalEntryService {
     }
   }
 
+  /** Convert journal entry entity to response DTO. */
   private async toResponseDto(
     entry: JournalEntry,
     sourceRefMap?: Map<string, string>,
@@ -1104,6 +1105,7 @@ export class JournalEntryService {
       lines: entry.lines
         ? entry.lines.map((line) => this.toLineResponseDto(line))
         : undefined,
+      // map not propagated: reversalOf/reversedBy are not loaded in list queries
       reversalOf: entry.reversalOf
         ? await this.toResponseDto(entry.reversalOf)
         : undefined,
