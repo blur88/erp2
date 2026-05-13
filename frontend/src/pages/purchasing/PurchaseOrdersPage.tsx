@@ -175,11 +175,11 @@ const PurchaseOrdersPage: React.FC = () => {
           onReturn={workspace.handleReturn}
           onReceive={workspace.handleReceive}
           isLocked={
-            !!(selectedOrder?.goodsReceivedNotes?.some((grn: any) => grn.status === 'received')) ||
+            !!(selectedOrder?.goodsReceivedNotes?.some((grn) => grn.status === 'received')) ||
             Number(selectedOrder?.paidAmount || 0) > 0
           }
           lockTooltip={(() => {
-            const hasReceivedGoods = !!(selectedOrder?.goodsReceivedNotes?.some((grn: any) => grn.status === 'received'))
+            const hasReceivedGoods = !!(selectedOrder?.goodsReceivedNotes?.some((grn) => grn.status === 'received'))
             const hasPayments = Number(selectedOrder?.paidAmount || 0) > 0
             if (hasReceivedGoods && hasPayments) return 'return goods and unpay before editing'
             if (hasReceivedGoods) return 'return goods before editing'
