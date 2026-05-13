@@ -330,11 +330,8 @@ const baseThemeOptions: ThemeOptions = {
     MuiInputLabel: {
       styleOverrides: {
         root: {
-          '&.MuiInputLabel-sizeXs': {
+          '&.MuiInputLabel-sizeXs:not(.MuiInputLabel-shrink)': {
             top: '-4px',
-            '&.MuiInputLabel-shrink': {
-              top: 0,
-            },
           },
         },
       },
