@@ -24,6 +24,36 @@ declare module '@mui/material/Typography' {
   }
 }
 
+declare module '@mui/material/OutlinedInput' {
+  interface OutlinedInputPropsSizeOverrides {
+    xs: true
+  }
+}
+
+declare module '@mui/material/InputBase' {
+  interface InputBasePropsSizeOverrides {
+    xs: true
+  }
+}
+
+declare module '@mui/material/FormControl' {
+  interface FormControlPropsSizeOverrides {
+    xs: true
+  }
+}
+
+declare module '@mui/material/TextField' {
+  interface TextFieldPropsSizeOverrides {
+    xs: true
+  }
+}
+
+declare module '@mui/material/InputLabel' {
+  interface InputLabelPropsSizeOverrides {
+    xs: true
+  }
+}
+
 // Color palette
 const colors = {
   primary: {
@@ -281,6 +311,28 @@ const baseThemeOptions: ThemeOptions = {
       styleOverrides: {
         root: {
           fontFamily: 'inherit',
+        },
+      },
+    },
+    MuiOutlinedInput: {
+      styleOverrides: {
+        root: {
+          '&.MuiInputBase-sizeXs .MuiOutlinedInput-input': {
+            paddingTop: '4px',
+            paddingBottom: '4px',
+          },
+        },
+      },
+    },
+    MuiInputLabel: {
+      styleOverrides: {
+        root: {
+          '&.MuiInputLabel-sizeXs': {
+            top: '-4px',
+            '&.MuiInputLabel-shrink': {
+              top: 0,
+            },
+          },
         },
       },
     },
