@@ -928,4 +928,72 @@ describe('JournalEntryService', () => {
       await expect(service.reverseEntry('non-existent')).rejects.toThrow(NotFoundException);
     });
   });
+
+  describe('resolveSourceRefNumbersMany', () => {
+    it('batches lookups by sourceType - one find call per type, correct map keys', async () => {
+      const entries = [
+        {
+          id: 'e1',
+          sourceType: 'sales_order',
+          sourceId: 'so-1',
+        },
+        {
+          id: 'e2',
+          sourceType: 'sales_order',
+          sourceId: 'so-2',
+        },
+        {
+          id: 'e3',
+          sourceType: 'payment',
+          sourceId: 'pay-1',
+        },
+      ] as any[];
+
+      mockSalesOrderRepo.find.mockResolvedValue([
+        { id: 'so-1', orderNumber: 'SO-001' },
+        { id: 'so-2', orderNumber: 'SO-002' },
+      ]);
+      mockPaymentRepo.find.mockResolvedValue([
+        { id: 'pay-1', paymentNumber: 'PAY-001' },
+      ]);
+
+      const map = await (service as any).resolveSourceRefNumbersMany(entries);
+
+      expect(mockSalesOrderRepo.find).toHaveBeenCalledTimes(1);
+      expect(mockSalesOrderRepo.find).toHaveBeenCalledWith({
+        where: { id: expect.anything() },
+        select: ['id', 'orderNumber'],
+      });
+      expect(mockPaymentRepo.find).toHaveBeenCalledTimes(1);
+      expect(map.get('sales_order:so-1')).toBe('SO-001');
+      expect(map.get('sales_order:so-2')).toBe('SO-002');
+      expect(map.get('payment:pay-1')).toBe('PAY-001');
+    });
+
+    it('skips entries with null sourceType or sourceId - no repo calls', async () => {
+      const entries = [
+        { id: 'e1', sourceType: null, sourceId: 'so-1' },
+        { id: 'e2', sourceType: 'sales_order', sourceId: null },
+        { id: 'e3', sourceType: undefined, sourceId: undefined },
+      ] as any[];
+
+      const map = await (service as any).resolveSourceRefNumbersMany(entries);
+
+      expect(mockSalesOrderRepo.find).not.toHaveBeenCalled();
+      expect(map.size).toBe(0);
+    });
+
+    it('returns empty Map when a repo throws - does not rethrow', async () => {
+      const entries = [
+        { id: 'e1', sourceType: 'sales_order', sourceId: 'so-1' },
+      ] as any[];
+
+      mockSalesOrderRepo.find.mockRejectedValue(new Error('DB error'));
+
+      const map = await (service as any).resolveSourceRefNumbersMany(entries);
+
+      expect(map).toBeInstanceOf(Map);
+      expect(map.size).toBe(0);
+    });
+  });
 });
