@@ -101,7 +101,7 @@ export function FilterPeriod({ value, customFrom, customTo, onChange }: FilterPe
             }}
             slotProps={{
               textField: {
-                size: 'xs' as any,
+                size: 'xs' as any, // DatePicker slots don't pick up module augmentation; sx below is the fallback
                 sx: {
                   '& .MuiOutlinedInput-input': { paddingTop: '4px', paddingBottom: '4px' },
                 },
@@ -117,7 +117,7 @@ export function FilterPeriod({ value, customFrom, customTo, onChange }: FilterPe
             }}
             slotProps={{
               textField: {
-                size: 'xs' as any,
+                size: 'xs' as any, // DatePicker slots don't pick up module augmentation; sx below is the fallback
                 sx: {
                   '& .MuiOutlinedInput-input': { paddingTop: '4px', paddingBottom: '4px' },
                 },

@@ -317,9 +317,12 @@ const baseThemeOptions: ThemeOptions = {
     MuiOutlinedInput: {
       styleOverrides: {
         root: {
-          '&.MuiInputBase-sizeXs .MuiOutlinedInput-input': {
-            paddingTop: '4px',
-            paddingBottom: '4px',
+          '&.MuiInputBase-sizeXs': {
+            height: 32,
+            '& .MuiOutlinedInput-input': {
+              paddingTop: '4px',
+              paddingBottom: '4px',
+            },
           },
         },
       },
@@ -402,9 +405,12 @@ const darkTheme = createTheme({
     MuiOutlinedInput: {
       styleOverrides: {
         root: {
-          '&.MuiInputBase-sizeXs .MuiOutlinedInput-input': {
-            paddingTop: '4px',
-            paddingBottom: '4px',
+          '&.MuiInputBase-sizeXs': {
+            height: 32,
+            '& .MuiOutlinedInput-input': {
+              paddingTop: '4px',
+              paddingBottom: '4px',
+            },
           },
           '& .MuiOutlinedInput-notchedOutline': {
             borderColor: alpha('#ffffff', 0.23) + ' !important',
