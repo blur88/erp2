@@ -172,6 +172,17 @@ const OrdersPage: React.FC = () => {
           onOpenPaymentDialog={workspace.openPaymentDialog}
           onFulfillOrder={workspace.handleFulfillOrder}
           onUnfulfillOrder={workspace.handleUnfulfillOrder}
+          isLocked={
+            Number(selectedOrder?.paidAmount || 0) > 0 || Boolean(selectedOrder?.isFulfilled)
+          }
+          lockTooltip={(() => {
+            const hasPayments = Number(selectedOrder?.paidAmount || 0) > 0
+            const isFulfilled = Boolean(selectedOrder?.isFulfilled)
+            if (hasPayments && isFulfilled) return 'unpay and unfulfill before editing'
+            if (hasPayments) return 'unpay before editing'
+            if (isFulfilled) return 'unfulfill before editing'
+            return 'unlocked — editable'
+          })()}
         />
       )}
       workspaceSlot={<OrderWorkspaceCard selectedOrder={selectedOrder} />}
