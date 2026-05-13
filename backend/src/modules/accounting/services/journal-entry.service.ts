@@ -1067,8 +1067,13 @@ export class JournalEntryService {
     }
   }
 
-  private async toResponseDto(entry: JournalEntry): Promise<JournalEntryResponseDto> {
-    const sourceRefNumber = await this.resolveSourceRefNumber(entry.sourceType, entry.sourceId);
+  private async toResponseDto(
+    entry: JournalEntry,
+    sourceRefMap?: Map<string, string>,
+  ): Promise<JournalEntryResponseDto> {
+    const sourceRefNumber = sourceRefMap
+      ? sourceRefMap.get(`${entry.sourceType}:${entry.sourceId}`)
+      : await this.resolveSourceRefNumber(entry.sourceType, entry.sourceId);
 
     return {
       id: entry.id,
