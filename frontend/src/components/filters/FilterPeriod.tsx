@@ -104,8 +104,10 @@ export function FilterPeriod({ value, customFrom, customTo, onChange }: FilterPe
                 size: 'small',
                 sx: {
                   // DatePicker ignores custom size variants; force xs dimensions explicitly
-                  '& .MuiOutlinedInput-root': { height: 32 },
-                  '& .MuiOutlinedInput-input': { paddingTop: '4px', paddingBottom: '4px' },
+                  '& .MuiOutlinedInput-root': { height: 32, boxSizing: 'border-box' },
+                  '& .MuiOutlinedInput-input': { paddingTop: '4.5px', paddingBottom: '4.5px' },
+                  '& .MuiInputAdornment-root': { height: 32, maxHeight: 32 },
+                  '& .MuiInputAdornment-root .MuiIconButton-root': { padding: '4px' },
                   '& .MuiInputLabel-outlined:not(.MuiInputLabel-shrink)': { transform: 'translate(14px, 5px) scale(1)' },
                 },
               },
@@ -123,8 +125,10 @@ export function FilterPeriod({ value, customFrom, customTo, onChange }: FilterPe
                 size: 'small',
                 sx: {
                   // DatePicker ignores custom size variants; force xs dimensions explicitly
-                  '& .MuiOutlinedInput-root': { height: 32 },
-                  '& .MuiOutlinedInput-input': { paddingTop: '4px', paddingBottom: '4px' },
+                  '& .MuiOutlinedInput-root': { height: 32, boxSizing: 'border-box' },
+                  '& .MuiOutlinedInput-input': { paddingTop: '4.5px', paddingBottom: '4.5px' },
+                  '& .MuiInputAdornment-root': { height: 32, maxHeight: 32 },
+                  '& .MuiInputAdornment-root .MuiIconButton-root': { padding: '4px' },
                   '& .MuiInputLabel-outlined:not(.MuiInputLabel-shrink)': { transform: 'translate(14px, 5px) scale(1)' },
                 },
               },
