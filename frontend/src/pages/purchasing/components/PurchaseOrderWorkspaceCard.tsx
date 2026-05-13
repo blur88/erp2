@@ -12,6 +12,7 @@ import {
   Typography,
 } from '@mui/material'
 
+import { WorkspaceCardSectionHeader } from '@/components/common/WorkspaceCardSectionHeader'
 import { TABLE_STYLES } from '@/constants/tableStyles'
 import type { PurchaseOrder } from '@/types'
 import { formatCurrency } from '@/utils/formatters'
@@ -25,31 +26,12 @@ const PurchaseOrderWorkspaceCard: React.FC<PurchaseOrderWorkspaceCardProps> = ({
     return <Paper sx={{ flex: 1 }} />
   }
 
-  const hasReceivedGoods = selectedOrder.goodsReceivedNotes?.some((grn) => grn.status === 'received')
-  const hasPayments = Number(selectedOrder.paidAmount || 0) > 0
-  const isLocked = hasReceivedGoods || hasPayments
-  const lockReason = hasReceivedGoods && hasPayments
-    ? 'return goods and unpay'
-    : hasReceivedGoods
-      ? 'return goods'
-      : 'unpay'
-
   return (
     <Paper sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-      <Box sx={{ p: TABLE_STYLES.cell.padding.px, borderBottom: TABLE_STYLES.cell.border }}>
-        <Typography variant="tableHeader" sx={{ fontWeight: 600, fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-          PO Items
-        </Typography>
-      </Box>
+      <WorkspaceCardSectionHeader title="PO Items" />
 
       <Box sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', p: TABLE_STYLES.cell.padding.px }}>
         <Box sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-          {isLocked && (
-            <Alert severity="warning" sx={{ mb: 1, fontSize: '0.8rem', py: 0.5 }}>
-              Items are locked - {lockReason} before editing
-            </Alert>
-          )}
-
           {selectedOrder.items && selectedOrder.items.length > 0 ? (
             <TableContainer sx={{ flex: 1, overflow: 'auto' }}>
               <Table size={TABLE_STYLES.size} sx={{ '& .MuiTableCell-root': { borderBottom: TABLE_STYLES.cell.border, py: TABLE_STYLES.cell.padding.py, px: TABLE_STYLES.cell.padding.px } }}>

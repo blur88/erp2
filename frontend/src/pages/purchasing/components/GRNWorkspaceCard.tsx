@@ -12,6 +12,7 @@ import {
   Typography,
 } from '@mui/material'
 
+import { WorkspaceCardSectionHeader } from '@/components/common/WorkspaceCardSectionHeader'
 import { TABLE_STYLES } from '@/constants/tableStyles'
 import type { GoodsReceivedNote } from '@/types'
 
@@ -26,14 +27,7 @@ const GRNWorkspaceCard: React.FC<GRNWorkspaceCardProps> = ({ selectedGRN }) => {
 
   return (
     <Paper sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-      <Box sx={{ p: TABLE_STYLES.cell.padding.px, borderBottom: TABLE_STYLES.cell.border }}>
-        <Typography
-          variant="tableHeader"
-          sx={{ fontWeight: 600, fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}
-        >
-          GRN Items
-        </Typography>
-      </Box>
+      <WorkspaceCardSectionHeader title="GRN Items" />
 
       <Box sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', p: TABLE_STYLES.cell.padding.px }}>
         {selectedGRN.items && selectedGRN.items.length > 0 ? (

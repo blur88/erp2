@@ -35,6 +35,8 @@ const defaultProps = {
   onOpenPaymentDialog: vi.fn(),
   onReturn: vi.fn(),
   onReceive: vi.fn(),
+  isLocked: false,
+  lockTooltip: 'unlocked — editable',
 }
 
 describe('PurchaseOrderContextHeader', () => {
@@ -81,5 +83,17 @@ describe('PurchaseOrderContextHeader', () => {
     }
     render(<MemoryRouter><PurchaseOrderContextHeader {...defaultProps} selectedOrder={receivedOrder} /></MemoryRouter>)
     expect(screen.getByText('Return')).toBeInTheDocument()
+  })
+
+  it('renders lock icon when isLocked is true', () => {
+    render(<MemoryRouter><PurchaseOrderContextHeader {...defaultProps} isLocked={true} lockTooltip="unpay before editing" /></MemoryRouter>)
+    expect(screen.getByTestId('LockIcon')).toBeInTheDocument()
+    expect(screen.queryByTestId('LockOpenIcon')).not.toBeInTheDocument()
+  })
+
+  it('renders unlock icon when isLocked is false', () => {
+    render(<MemoryRouter><PurchaseOrderContextHeader {...defaultProps} isLocked={false} lockTooltip="unlocked — editable" /></MemoryRouter>)
+    expect(screen.getByTestId('LockOpenIcon')).toBeInTheDocument()
+    expect(screen.queryByTestId('LockIcon')).not.toBeInTheDocument()
   })
 })

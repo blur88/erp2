@@ -19,6 +19,7 @@ import { useNavigate } from 'react-router-dom'
 
 import { AppButton } from '@/components/common/AppButton'
 import { EntityContextHeaderBar } from '@/components/common/EntityContextHeaderBar'
+import { LockStatusIcon } from '@/components/common/LockStatusIcon'
 import { TABLE_STYLES } from '@/constants/tableStyles'
 import type { JournalEntryRef } from '@/hooks/useJournalEntryRef'
 import type { PurchaseOrder } from '@/types'
@@ -39,6 +40,8 @@ interface PurchaseOrderContextHeaderProps {
   onOpenPaymentDialog: (order: PurchaseOrder) => void
   onReturn: () => void
   onReceive: () => void
+  isLocked: boolean
+  lockTooltip: string
 }
 
 const detailTableSx = {
@@ -88,6 +91,8 @@ const PurchaseOrderContextHeader: React.FC<PurchaseOrderContextHeaderProps> = ({
   onOpenPaymentDialog,
   onReturn,
   onReceive,
+  isLocked,
+  lockTooltip,
 }) => {
   const navigate = useNavigate()
   if (!selectedOrder) {
@@ -115,6 +120,7 @@ const PurchaseOrderContextHeader: React.FC<PurchaseOrderContextHeaderProps> = ({
         title={`Purchase Order Details - ${selectedOrder.orderNumber}`}
         actions={(
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+            <LockStatusIcon isLocked={isLocked} tooltipText={lockTooltip} />
             <AppButton
               size="small"
               variant="secondary"

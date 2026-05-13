@@ -12,6 +12,7 @@ import {
   Typography,
 } from '@mui/material'
 
+import { WorkspaceCardSectionHeader } from '@/components/common/WorkspaceCardSectionHeader'
 import { TABLE_STYLES } from '@/constants/tableStyles'
 import type { StockAdjustment } from '@/types'
 
@@ -28,14 +29,7 @@ const StockAdjustmentWorkspaceCard: React.FC<StockAdjustmentWorkspaceCardProps> 
 
   return (
     <Paper sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-      <Box sx={{ p: TABLE_STYLES.cell.padding.px, borderBottom: TABLE_STYLES.cell.border }}>
-        <Typography
-          variant="tableHeader"
-          sx={{ fontWeight: 600, fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}
-        >
-          SA Items
-        </Typography>
-      </Box>
+      <WorkspaceCardSectionHeader title="SA Items" />
 
       <Box
         sx={{
