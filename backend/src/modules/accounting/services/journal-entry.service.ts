@@ -247,8 +247,8 @@ export class JournalEntryService {
     queryBuilder.skip(offset).take(limit);
 
     const [entries, total] = await queryBuilder.getManyAndCount();
-
-    const data = await Promise.all(entries.map((entry) => this.toResponseDto(entry)));
+    const sourceRefMap = await this.resolveSourceRefNumbersMany(entries);
+    const data = await Promise.all(entries.map((entry) => this.toResponseDto(entry, sourceRefMap)));
 
     return {
       data,
