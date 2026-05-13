@@ -330,8 +330,9 @@ const baseThemeOptions: ThemeOptions = {
     MuiInputLabel: {
       styleOverrides: {
         root: {
-          '&.MuiInputLabel-sizeXs:not(.MuiInputLabel-shrink)': {
-            top: '-4px',
+          // outlined unshrunk: MUI default is translate(14px,9px); 32px field center is 4px higher
+          '&.MuiInputLabel-outlined.MuiInputLabel-sizeXs:not(.MuiInputLabel-shrink)': {
+            transform: 'translate(14px, 5px) scale(1)',
           },
         },
       },
