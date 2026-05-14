@@ -95,8 +95,8 @@ describe('FilterPeriod', () => {
 
     await user.click(screen.getByRole('button', { name: /Period/i }))
 
-    expect(screen.getByLabelText('From')).toBeInTheDocument()
-    expect(screen.getByLabelText('To')).toBeInTheDocument()
+    expect(screen.getByRole('group', { name: 'From' })).toBeInTheDocument()
+    expect(screen.getByRole('group', { name: 'To' })).toBeInTheDocument()
   })
 
   it('Apply button is disabled when only one date is set', async () => {
