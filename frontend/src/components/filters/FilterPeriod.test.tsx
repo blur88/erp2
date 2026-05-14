@@ -61,7 +61,7 @@ describe('FilterPeriod', () => {
 
     await user.click(getTrigger())
 
-    expect(screen.getByRole('listbox')).toBeInTheDocument()
+    expect(screen.getByRole('menu')).toBeInTheDocument()
   })
 
   it('renders all selectable period options in the popover', async () => {
@@ -70,9 +70,9 @@ describe('FilterPeriod', () => {
 
     await user.click(getTrigger())
 
-    expect(screen.getByRole('option', { name: 'Today' })).toBeInTheDocument()
-    expect(screen.getByRole('option', { name: 'Yesterday' })).toBeInTheDocument()
-    expect(screen.getByRole('option', { name: 'Last 7 Days' })).toBeInTheDocument()
+    expect(screen.getByRole('menuitem', { name: 'Today' })).toBeInTheDocument()
+    expect(screen.getByRole('menuitem', { name: 'Yesterday' })).toBeInTheDocument()
+    expect(screen.getByRole('menuitem', { name: 'Last 7 Days' })).toBeInTheDocument()
   })
 
   it('"Custom Range" heading is visible but not selectable', async () => {
@@ -83,7 +83,7 @@ describe('FilterPeriod', () => {
 
     // Should appear as text, not as an option role
     expect(screen.getByText('Custom Range')).toBeInTheDocument()
-    expect(screen.queryByRole('option', { name: 'Custom Range' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('menuitem', { name: 'Custom Range' })).not.toBeInTheDocument()
   })
 
   it('calls onChange immediately and closes popover when a preset is clicked', async () => {
@@ -91,10 +91,10 @@ describe('FilterPeriod', () => {
     const { onChange } = renderFilterPeriod('today')
 
     await user.click(getTrigger())
-    await user.click(screen.getByRole('option', { name: 'Yesterday' }))
+    await user.click(screen.getByRole('menuitem', { name: 'Yesterday' }))
 
     expect(onChange).toHaveBeenCalledWith('yesterday')
-    expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument()
   })
 
   it('always shows the From/To date pickers inside the popover', async () => {
@@ -151,6 +151,6 @@ describe('FilterPeriod', () => {
     await user.click(screen.getByRole('button', { name: /Apply/i }))
 
     expect(onChange).toHaveBeenCalledWith('custom', '2024-01-15', '2024-01-31')
-    expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument()
   })
 })

@@ -4,8 +4,7 @@ import {
   Divider,
   FormControl,
   InputLabel,
-  List,
-  ListItemButton,
+  MenuList,
   MenuItem,
   OutlinedInput,
   Popover,
@@ -127,7 +126,7 @@ export function FilterPeriod({ value, customFrom, customTo, onChange }: FilterPe
         transformOrigin={{ vertical: 'top', horizontal: 'left' }}
       >
         <Box sx={{ minWidth: 260, maxHeight: 480, display: 'flex', flexDirection: 'column' }}>
-          <List id="period-listbox" role="listbox" dense disablePadding sx={{ overflowY: 'auto', flexShrink: 1 }}>
+          <MenuList id="period-listbox" disablePadding sx={{ overflowY: 'auto', flexShrink: 1 }}>
             {/* 'custom' is always the last item in the last PERIOD_GROUPS group and renders as a non-interactive heading */}
             {PERIOD_GROUPS.map((group, groupIndex) => [
               ...group.map((key) => {
@@ -153,21 +152,18 @@ export function FilterPeriod({ value, customFrom, customTo, onChange }: FilterPe
                 }
 
                 return (
-                  <ListItemButton
+                  <MenuItem
                     key={key}
-                    role="option"
-                    aria-selected={value === key}
                     selected={value === key}
                     onClick={() => handlePresetClick(key)}
-                    sx={{ py: 0.5, px: 2 }}
                   >
-                    <Typography variant="body2">{PERIOD_LABELS[key]}</Typography>
-                  </ListItemButton>
+                    {PERIOD_LABELS[key]}
+                  </MenuItem>
                 )
               }),
               groupIndex < PERIOD_GROUPS.length - 1 ? <Divider key={`divider-${groupIndex}`} /> : null,
             ])}
-          </List>
+          </MenuList>
 
           <Box sx={{ px: 2, pb: 2, pt: 1, borderTop: 1, borderColor: 'divider' }}>
             <Stack spacing={1.5}>
