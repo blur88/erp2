@@ -132,7 +132,7 @@ describe('FilterBar — period field', () => {
       </LocalizationProvider>,
     )
 
-    expect(screen.getByLabelText(/period/i)).toBeInTheDocument()
+    expect(screen.getByRole('combobox')).toHaveTextContent('This Month')
   })
 })
 
