@@ -24,6 +24,36 @@ declare module '@mui/material/Typography' {
   }
 }
 
+declare module '@mui/material/OutlinedInput' {
+  interface OutlinedInputPropsSizeOverrides {
+    xs: true
+  }
+}
+
+declare module '@mui/material/InputBase' {
+  interface InputBasePropsSizeOverrides {
+    xs: true
+  }
+}
+
+declare module '@mui/material/FormControl' {
+  interface FormControlPropsSizeOverrides {
+    xs: true
+  }
+}
+
+declare module '@mui/material/TextField' {
+  interface TextFieldPropsSizeOverrides {
+    xs: true
+  }
+}
+
+declare module '@mui/material/InputLabel' {
+  interface InputLabelPropsSizeOverrides {
+    xs: true
+  }
+}
+
 // Color palette
 const colors = {
   primary: {
@@ -284,6 +314,29 @@ const baseThemeOptions: ThemeOptions = {
         },
       },
     },
+    MuiOutlinedInput: {
+      styleOverrides: {
+        root: {
+          '&.MuiInputBase-sizeXs': {
+            height: 32,
+            '& .MuiOutlinedInput-input': {
+              paddingTop: '4px',
+              paddingBottom: '4px',
+            },
+          },
+        },
+      },
+    },
+    MuiInputLabel: {
+      styleOverrides: {
+        root: {
+          // outlined unshrunk: MUI default is translate(14px,9px); 32px field center is 4px higher
+          '&.MuiInputLabel-outlined.MuiInputLabel-sizeXs:not(.MuiInputLabel-shrink)': {
+            transform: 'translate(14px, 5px) scale(1)',
+          },
+        },
+      },
+    },
   },
 }
 
@@ -350,6 +403,13 @@ const darkTheme = createTheme({
     MuiOutlinedInput: {
       styleOverrides: {
         root: {
+          '&.MuiInputBase-sizeXs': {
+            height: 32,
+            '& .MuiOutlinedInput-input': {
+              paddingTop: '4px',
+              paddingBottom: '4px',
+            },
+          },
           '& .MuiOutlinedInput-notchedOutline': {
             borderColor: alpha('#ffffff', 0.23) + ' !important',
           },

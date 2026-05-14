@@ -22,13 +22,13 @@ export function FilterSelect({ field, label, value, options, onChange, emptyLabe
   const labelId = `filter-${field}-label`
 
   return (
-    <FormControl size="small" sx={{ minWidth: minWidth ?? 160 }}>
-      <InputLabel id={labelId} shrink>{label}</InputLabel>
+    <FormControl size="xs" sx={{ minWidth: minWidth ?? 160 }}>
+      <InputLabel id={labelId} size="xs" shrink>{label}</InputLabel>
       <Select
         labelId={labelId}
         value={value ?? ''}
         displayEmpty
-        input={<OutlinedInput label={label} notched />}
+        input={<OutlinedInput size="xs" label={label} notched />}
         onChange={(event) => onChange(event.target.value === '' ? null : event.target.value)}
       >
         <MenuItem value="">{emptyLabel ?? 'All'}</MenuItem>

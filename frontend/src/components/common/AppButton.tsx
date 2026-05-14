@@ -115,7 +115,7 @@ export function AppButton({
       size={muiSize}
       disabled={disabled || loading}
       startIcon={resolvedStartIcon}
-      sx={size === 'filter' ? { height: 40, ...((sx as object) ?? {}) } : sx}
+      sx={size === 'filter' ? { height: 32, ...((sx as object) ?? {}) } : sx}
       {...rest}
     >
       {children}
