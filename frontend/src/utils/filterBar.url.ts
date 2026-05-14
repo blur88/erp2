@@ -240,9 +240,12 @@ export function parseFilters<TFilters extends object>(
       } else if (field.type === 'bank-reconciliation-status') {
         const VALID_BANK_RECONCILIATION_STATUS = ['in_progress', 'completed']
         result[fieldKey] = VALID_BANK_RECONCILIATION_STATUS.includes(raw) ? raw : (defaultValue ?? null)
-      } else if (field.type === 'settlement-status' || field.type === 'fund-transfer-status') {
-        const VALID_COMPLETION_STATUS = ['pending', 'completed', 'cancelled']
-        result[fieldKey] = VALID_COMPLETION_STATUS.includes(raw) ? raw : (defaultValue ?? null)
+      } else if (field.type === 'settlement-status') {
+        const VALID_SETTLEMENT_STATUS = ['pending', 'completed', 'cancelled']
+        result[fieldKey] = VALID_SETTLEMENT_STATUS.includes(raw) ? raw : (defaultValue ?? null)
+      } else if (field.type === 'fund-transfer-status') {
+        const VALID_FUND_TRANSFER_STATUS = ['ACTIVE', 'CANCELLED']
+        result[fieldKey] = VALID_FUND_TRANSFER_STATUS.includes(raw) ? raw : (defaultValue ?? null)
       } else if (field.type === 'account-type') {
         const VALID_ACCOUNT_TYPE = ['ASSET', 'LIABILITY', 'EQUITY', 'REVENUE', 'EXPENSE']
         result[fieldKey] = VALID_ACCOUNT_TYPE.includes(raw) ? raw : (defaultValue ?? null)
