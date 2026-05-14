@@ -6,6 +6,7 @@ import {
   InputLabel,
   List,
   ListItemButton,
+  MenuItem,
   OutlinedInput,
   Popover,
   Select,
@@ -113,7 +114,9 @@ export function FilterPeriod({ value, customFrom, customTo, onChange }: FilterPe
           onOpen={handleOpen}
           renderValue={() => triggerLabel}
           aria-controls={open ? 'period-listbox' : undefined}
-        />
+        >
+          <MenuItem value="" />
+        </Select>
       </FormControl>
 
       <Popover
