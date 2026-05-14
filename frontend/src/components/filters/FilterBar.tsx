@@ -7,6 +7,7 @@ import { FilterBankReconciliationStatus } from './FilterBankReconciliationStatus
 import { FilterCompare } from './FilterCompare'
 import { FilterCustomer } from './FilterCustomer'
 import { FilterCustomerType } from './FilterCustomerType'
+import { FilterDestinationAccount } from './FilterDestinationAccount'
 import { FilterFiscalPeriodStatus } from './FilterFiscalPeriodStatus'
 import { FilterFundTransferStatus } from './FilterFundTransferStatus'
 import { FilterJournalEntryStatus } from './FilterJournalEntryStatus'
@@ -21,6 +22,7 @@ import { FilterPurchasingStatus } from './FilterPurchasingStatus'
 import { FilterRole } from './FilterRole'
 import { FilterSearch } from './FilterSearch'
 import { FilterSettlementStatus } from './FilterSettlementStatus'
+import { FilterSourceAccount } from './FilterSourceAccount'
 import { FilterStatus } from './FilterStatus'
 import { FilterStockAdjustmentStatus } from './FilterStockAdjustmentStatus'
 import { FilterStockStatus } from './FilterStockStatus'
@@ -366,6 +368,28 @@ function renderQuickField<TFilters extends object>(
   if (field.type === 'account-type') {
     return (
       <FilterAccountType
+        key={fieldKey}
+        field={fieldKey}
+        value={(value as string | null) ?? null}
+        onChange={onChange}
+      />
+    )
+  }
+
+  if (field.type === 'fund-transfer-source-account') {
+    return (
+      <FilterSourceAccount
+        key={fieldKey}
+        field={fieldKey}
+        value={(value as string | null) ?? null}
+        onChange={onChange}
+      />
+    )
+  }
+
+  if (field.type === 'fund-transfer-destination-account') {
+    return (
+      <FilterDestinationAccount
         key={fieldKey}
         field={fieldKey}
         value={(value as string | null) ?? null}
