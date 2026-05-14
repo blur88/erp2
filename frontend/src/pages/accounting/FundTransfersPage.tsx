@@ -30,6 +30,8 @@ interface FTFilters {
   search: string
   status: string | null
   period: PeriodValue
+  sourceAccountId: string | null
+  destinationAccountId: string | null
 }
 
 const filterConfig: FilterBarConfig<FTFilters> = {
@@ -37,8 +39,10 @@ const filterConfig: FilterBarConfig<FTFilters> = {
   fields: [
     { field: 'period', label: 'Period', type: 'period' },
     { field: 'status', label: 'Status', type: 'fund-transfer-status' },
+    { field: 'sourceAccountId', label: 'Source Account', type: 'fund-transfer-source-account' },
+    { field: 'destinationAccountId', label: 'Destination Account', type: 'fund-transfer-destination-account' },
   ],
-  defaults: { search: '', status: null, period: { key: null, from: null, to: null } },
+  defaults: { search: '', status: null, period: { key: null, from: null, to: null }, sourceAccountId: null, destinationAccountId: null },
 }
 
 const defaultForm: FormState = { sourceAccountId: '', destinationAccountId: '', amount: '', transferDate: getCurrentDate(), description: '' }
@@ -64,7 +68,9 @@ const FundTransfersPage: React.FC = () => {
     startDate: dateRange.fromDate,
     endDate: dateRange.toDate,
     status: appliedFilters.status || undefined,
-  }), [appliedFilters.status, dateRange])
+    sourceAccountId: appliedFilters.sourceAccountId || undefined,
+    destinationAccountId: appliedFilters.destinationAccountId || undefined,
+  }), [appliedFilters.status, appliedFilters.sourceAccountId, appliedFilters.destinationAccountId, dateRange])
 
   const { data, isLoading, refetch } = useGetFundTransfersQuery(filters)
   const { data: accountsResponse } = useGetChartOfAccountsQuery({ isCashEquivalent: true, limit: 200 })

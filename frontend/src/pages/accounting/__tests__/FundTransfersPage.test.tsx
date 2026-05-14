@@ -121,4 +121,14 @@ describe('FundTransfersPage', () => {
       expect(selectSelectedFundTransfer(store.getState())?.id).toBe('trf-1')
     })
   })
+
+  it('renders Source Account filter dropdown', () => {
+    renderPage()
+    expect(screen.getByRole('combobox', { name: /source account/i })).toBeInTheDocument()
+  })
+
+  it('renders Destination Account filter dropdown', () => {
+    renderPage()
+    expect(screen.getByRole('combobox', { name: /destination account/i })).toBeInTheDocument()
+  })
 })
