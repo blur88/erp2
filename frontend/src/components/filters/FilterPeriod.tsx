@@ -127,45 +127,37 @@ export function FilterPeriod({ value, customFrom, customTo, onChange }: FilterPe
       >
         <Box sx={{ minWidth: 260, maxHeight: 480, display: 'flex', flexDirection: 'column' }}>
           <MenuList id="period-listbox" disablePadding sx={{ overflowY: 'auto', flexShrink: 1 }}>
-            {/* 'custom' is always the last item in the last PERIOD_GROUPS group and renders as a non-interactive heading */}
-            {PERIOD_GROUPS.map((group, groupIndex) => [
-              ...group.map((key) => {
-                if (key === 'custom') {
-                  return (
-                    <Typography
-                      key="custom-heading"
-                      variant="caption"
-                      sx={{
-                        px: 2,
-                        pt: 1,
-                        pb: 0.5,
-                        display: 'block',
-                        color: 'text.secondary',
-                        fontWeight: 600,
-                        textTransform: 'uppercase',
-                        letterSpacing: 0.5,
-                      }}
-                    >
-                      Custom Range
-                    </Typography>
-                  )
-                }
-
-                return (
-                  <MenuItem
-                    key={key}
-                    selected={value === key}
-                    onClick={() => handlePresetClick(key)}
-                  >
-                    {PERIOD_LABELS[key]}
-                  </MenuItem>
-                )
-              }),
+            {/* 'custom' is always the last item in the last PERIOD_GROUPS group — skipped here, rendered below with the date pickers */}
+            {PERIOD_GROUPS.flatMap((group, groupIndex) => [
+              ...group.filter((key) => key !== 'custom').map((key) => (
+                <MenuItem
+                  key={key}
+                  selected={value === key}
+                  onClick={() => handlePresetClick(key)}
+                >
+                  {PERIOD_LABELS[key]}
+                </MenuItem>
+              )),
               groupIndex < PERIOD_GROUPS.length - 1 ? <Divider key={`divider-${groupIndex}`} /> : null,
             ])}
           </MenuList>
 
-          <Box sx={{ px: 2, pb: 2, pt: 1, borderTop: 1, borderColor: 'divider' }}>
+          <Divider />
+
+          <Box sx={{ px: 2, pb: 2, pt: 1 }}>
+            <Typography
+              variant="caption"
+              sx={{
+                display: 'block',
+                pb: 1,
+                color: 'text.secondary',
+                fontWeight: 600,
+                textTransform: 'uppercase',
+                letterSpacing: 0.5,
+              }}
+            >
+              Custom Range
+            </Typography>
             <Stack spacing={1.5}>
               <DatePicker
                 label="From"
