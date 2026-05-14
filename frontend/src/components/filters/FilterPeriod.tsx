@@ -1,16 +1,15 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
-  Box,
   Divider,
   FormControl,
   InputLabel,
+  ListSubheader,
   MenuList,
   MenuItem,
   OutlinedInput,
   Popover,
   Select,
   Stack,
-  Typography,
 } from '@mui/material'
 import { DatePicker } from '@mui/x-date-pickers'
 import { format, parseISO } from 'date-fns'
@@ -125,40 +124,27 @@ export function FilterPeriod({ value, customFrom, customTo, onChange }: FilterPe
         anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
         transformOrigin={{ vertical: 'top', horizontal: 'left' }}
       >
-        <Box sx={{ minWidth: 260, maxHeight: 480, display: 'flex', flexDirection: 'column' }}>
-          <MenuList id="period-listbox" disablePadding sx={{ overflowY: 'auto', flexShrink: 1 }}>
-            {/* 'custom' is always the last item in the last PERIOD_GROUPS group — skipped here, rendered below with the date pickers */}
-            {PERIOD_GROUPS.flatMap((group, groupIndex) => [
-              ...group.filter((key) => key !== 'custom').map((key) => (
-                <MenuItem
-                  key={key}
-                  selected={value === key}
-                  onClick={() => handlePresetClick(key)}
-                >
-                  {PERIOD_LABELS[key]}
-                </MenuItem>
-              )),
-              groupIndex < PERIOD_GROUPS.length - 1 ? <Divider key={`divider-${groupIndex}`} /> : null,
-            ])}
-          </MenuList>
+        <MenuList id="period-listbox" disablePadding sx={{ minWidth: 260 }}>
+          {/* 'custom' is always the last item in the last PERIOD_GROUPS group — rendered below as a subheader + pickers */}
+          {PERIOD_GROUPS.flatMap((group, groupIndex) => [
+            ...group.filter((key) => key !== 'custom').map((key) => (
+              <MenuItem
+                key={key}
+                selected={value === key}
+                onClick={() => handlePresetClick(key)}
+              >
+                {PERIOD_LABELS[key]}
+              </MenuItem>
+            )),
+            groupIndex < PERIOD_GROUPS.length - 1 ? <Divider key={`divider-${groupIndex}`} /> : null,
+          ])}
 
           <Divider />
 
-          <Box sx={{ px: 2, pb: 2, pt: 1 }}>
-            <Typography
-              variant="caption"
-              sx={{
-                display: 'block',
-                pb: 1,
-                color: 'text.secondary',
-                fontWeight: 600,
-                textTransform: 'uppercase',
-                letterSpacing: 0.5,
-              }}
-            >
-              Custom Range
-            </Typography>
-            <Stack spacing={1.5}>
+          <ListSubheader sx={{ lineHeight: '32px' }}>Custom Range</ListSubheader>
+
+          <MenuItem disableRipple disableTouchRipple sx={{ cursor: 'default', '&:hover': { bgcolor: 'transparent' } }}>
+            <Stack spacing={1.5} sx={{ width: '100%' }}>
               <DatePicker
                 label="From"
                 value={internalFrom ? parseISO(internalFrom) : null}
@@ -183,8 +169,8 @@ export function FilterPeriod({ value, customFrom, customTo, onChange }: FilterPe
                 Apply
               </AppButton>
             </Stack>
-          </Box>
-        </Box>
+          </MenuItem>
+        </MenuList>
       </Popover>
     </>
   )
