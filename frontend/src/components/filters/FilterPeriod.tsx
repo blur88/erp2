@@ -1,6 +1,17 @@
 import { useEffect, useMemo, useState } from 'react'
-import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown'
-import { Box, Divider, List, ListItemButton, Popover, Stack, Typography } from '@mui/material'
+import {
+  Box,
+  Divider,
+  FormControl,
+  InputLabel,
+  List,
+  ListItemButton,
+  OutlinedInput,
+  Popover,
+  Select,
+  Stack,
+  Typography,
+} from '@mui/material'
 import { DatePicker } from '@mui/x-date-pickers'
 import { format, parseISO } from 'date-fns'
 
@@ -24,14 +35,14 @@ function buildTriggerLabel(
   if (value === 'custom' && customFrom && customTo) {
     const from = format(parseISO(customFrom), displayFormat)
     const to = format(parseISO(customTo), displayFormat)
-    return `Period: ${from} - ${to}`
+    return `${from} - ${to}`
   }
 
   if (value && value !== 'custom') {
-    return `Period: ${PERIOD_LABELS[value]}`
+    return PERIOD_LABELS[value]
   }
 
-  return 'Period'
+  return ''
 }
 
 function toDisplayFormat(storedFormat: string): string {
@@ -66,8 +77,8 @@ export function FilterPeriod({ value, customFrom, customTo, onChange }: FilterPe
   const triggerLabel = buildTriggerLabel(value, customFrom, customTo, displayFormat)
   const applyEnabled = Boolean(internalFrom) && Boolean(internalTo) && internalFrom! <= internalTo!
 
-  const handleOpen = (event: React.MouseEvent<HTMLElement>) => {
-    setAnchorEl(event.currentTarget)
+  const handleOpen = (event: React.SyntheticEvent) => {
+    setAnchorEl(event.currentTarget as HTMLElement)
   }
 
   const handleClose = () => {
@@ -92,17 +103,18 @@ export function FilterPeriod({ value, customFrom, customTo, onChange }: FilterPe
 
   return (
     <>
-      <AppButton
-        size="filter"
-        variant="neutral"
-        endIcon={<ArrowDropDownIcon />}
-        onClick={handleOpen}
-        aria-haspopup="listbox"
-        aria-expanded={open}
-        aria-controls={open ? 'period-listbox' : undefined}
-      >
-        {triggerLabel}
-      </AppButton>
+      <FormControl size="xs" sx={{ minWidth: 160 }}>
+        <InputLabel size="xs" shrink>Period</InputLabel>
+        <Select
+          displayEmpty
+          open={false}
+          value=""
+          input={<OutlinedInput size="xs" label="Period" notched />}
+          onOpen={handleOpen}
+          renderValue={() => triggerLabel}
+          aria-controls={open ? 'period-listbox' : undefined}
+        />
+      </FormControl>
 
       <Popover
         open={open}

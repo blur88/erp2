@@ -27,31 +27,39 @@ function renderFilterPeriod(
   }
 }
 
+// The trigger is an MUI Select rendered as role="combobox"
+const getTrigger = () => screen.getByRole('combobox')
+
 describe('FilterPeriod', () => {
   beforeEach(() => {
     localStorage.clear()
   })
 
-  it('renders the trigger button with a preset label', () => {
+  it('renders the trigger with a preset label', () => {
     renderFilterPeriod('today')
-    expect(screen.getByRole('button', { name: /Period: Today/i })).toBeInTheDocument()
+    expect(getTrigger()).toHaveTextContent('Today')
   })
 
-  it('renders the trigger button with a custom date range label', () => {
+  it('renders the trigger with a custom date range label', () => {
     renderFilterPeriod('custom', '2024-01-15', '2024-01-31')
-    expect(screen.getByRole('button', { name: /15\/01\/2024 - 31\/01\/2024/i })).toBeInTheDocument()
+    expect(getTrigger()).toHaveTextContent('15/01/2024 - 31/01/2024')
   })
 
-  it('renders the trigger button with no label when value is null', () => {
+  it('renders the trigger with empty text when value is null', () => {
     renderFilterPeriod(null)
-    expect(screen.getByRole('button', { name: /Period$/i })).toBeInTheDocument()
+    expect(getTrigger().textContent?.replace(/​/g, '').trim()).toBe('')
   })
 
-  it('opens the popover when the trigger button is clicked', async () => {
+  it('renders the Period floating label', () => {
+    renderFilterPeriod('today')
+    expect(screen.getAllByText('Period').length).toBeGreaterThan(0)
+  })
+
+  it('opens the popover when the trigger is clicked', async () => {
     const user = userEvent.setup()
     renderFilterPeriod('today')
 
-    await user.click(screen.getByRole('button', { name: /Period/i }))
+    await user.click(getTrigger())
 
     expect(screen.getByRole('listbox')).toBeInTheDocument()
   })
@@ -60,7 +68,7 @@ describe('FilterPeriod', () => {
     const user = userEvent.setup()
     renderFilterPeriod('today')
 
-    await user.click(screen.getByRole('button', { name: /Period/i }))
+    await user.click(getTrigger())
 
     expect(screen.getByRole('option', { name: 'Today' })).toBeInTheDocument()
     expect(screen.getByRole('option', { name: 'Yesterday' })).toBeInTheDocument()
@@ -71,7 +79,7 @@ describe('FilterPeriod', () => {
     const user = userEvent.setup()
     renderFilterPeriod('today')
 
-    await user.click(screen.getByRole('button', { name: /Period/i }))
+    await user.click(getTrigger())
 
     // Should appear as text, not as an option role
     expect(screen.getByText('Custom Range')).toBeInTheDocument()
@@ -82,7 +90,7 @@ describe('FilterPeriod', () => {
     const user = userEvent.setup()
     const { onChange } = renderFilterPeriod('today')
 
-    await user.click(screen.getByRole('button', { name: /Period/i }))
+    await user.click(getTrigger())
     await user.click(screen.getByRole('option', { name: 'Yesterday' }))
 
     expect(onChange).toHaveBeenCalledWith('yesterday')
@@ -93,7 +101,7 @@ describe('FilterPeriod', () => {
     const user = userEvent.setup()
     renderFilterPeriod('today')
 
-    await user.click(screen.getByRole('button', { name: /Period/i }))
+    await user.click(getTrigger())
 
     expect(screen.getByRole('group', { name: 'From' })).toBeInTheDocument()
     expect(screen.getByRole('group', { name: 'To' })).toBeInTheDocument()
@@ -103,7 +111,7 @@ describe('FilterPeriod', () => {
     const user = userEvent.setup()
     renderFilterPeriod('custom', '2024-01-15', null)
 
-    await user.click(screen.getByRole('button', { name: /Period/i }))
+    await user.click(getTrigger())
 
     expect(screen.getByRole('button', { name: /Apply/i })).toBeDisabled()
   })
@@ -112,7 +120,7 @@ describe('FilterPeriod', () => {
     const user = userEvent.setup()
     renderFilterPeriod('custom', null, '2024-01-31')
 
-    await user.click(screen.getByRole('button', { name: /Period/i }))
+    await user.click(getTrigger())
 
     expect(screen.getByRole('button', { name: /Apply/i })).toBeDisabled()
   })
@@ -121,7 +129,7 @@ describe('FilterPeriod', () => {
     const user = userEvent.setup()
     renderFilterPeriod('custom', '2024-02-01', '2024-01-01')
 
-    await user.click(screen.getByRole('button', { name: /Period/i }))
+    await user.click(getTrigger())
 
     expect(screen.getByRole('button', { name: /Apply/i })).toBeDisabled()
   })
@@ -130,7 +138,7 @@ describe('FilterPeriod', () => {
     const user = userEvent.setup()
     renderFilterPeriod('custom', '2024-01-15', '2024-01-31')
 
-    await user.click(screen.getByRole('button', { name: /Period/i }))
+    await user.click(getTrigger())
 
     expect(screen.getByRole('button', { name: /Apply/i })).toBeEnabled()
   })
@@ -139,7 +147,7 @@ describe('FilterPeriod', () => {
     const user = userEvent.setup()
     const { onChange } = renderFilterPeriod('custom', '2024-01-15', '2024-01-31')
 
-    await user.click(screen.getByRole('button', { name: /Period/i }))
+    await user.click(getTrigger())
     await user.click(screen.getByRole('button', { name: /Apply/i }))
 
     expect(onChange).toHaveBeenCalledWith('custom', '2024-01-15', '2024-01-31')

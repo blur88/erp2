@@ -132,7 +132,7 @@ describe('FilterBar — period field', () => {
       </LocalizationProvider>,
     )
 
-    expect(screen.getByRole('button', { name: /period: this month/i })).toBeInTheDocument()
+    expect(screen.getByRole('combobox')).toHaveTextContent('This Month')
   })
 })
 
