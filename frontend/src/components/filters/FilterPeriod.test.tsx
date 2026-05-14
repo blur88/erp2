@@ -8,13 +8,23 @@ import { FilterPeriod } from './FilterPeriod'
 
 function renderFilterPeriod(
   value: Parameters<typeof FilterPeriod>[0]['value'] = 'today',
+  customFrom: string | null = null,
+  customTo: string | null = null,
   onChange = vi.fn(),
 ) {
-  return render(
-    <LocalizationProvider dateAdapter={AdapterDateFns}>
-      <FilterPeriod value={value} customFrom={null} customTo={null} onChange={onChange} />
-    </LocalizationProvider>,
-  )
+  return {
+    onChange,
+    ...render(
+      <LocalizationProvider dateAdapter={AdapterDateFns}>
+        <FilterPeriod
+          value={value}
+          customFrom={customFrom}
+          customTo={customTo}
+          onChange={onChange}
+        />
+      </LocalizationProvider>,
+    ),
+  }
 }
 
 describe('FilterPeriod', () => {
@@ -22,70 +32,108 @@ describe('FilterPeriod', () => {
     localStorage.clear()
   })
 
-  it('renders the period select', () => {
-    renderFilterPeriod()
-
-    expect(screen.getByLabelText('Period')).toBeInTheDocument()
+  it('renders the trigger button with a preset label', () => {
+    renderFilterPeriod('today')
+    expect(screen.getByRole('button', { name: /Period: Today/i })).toBeInTheDocument()
   })
 
-  it('shows placeholder label when value is null (no selection)', () => {
+  it('renders the trigger button with a custom date range label', () => {
+    renderFilterPeriod('custom', '2024-01-15', '2024-01-31')
+    expect(screen.getByRole('button', { name: /15\/01\/2024 - 31\/01\/2024/i })).toBeInTheDocument()
+  })
+
+  it('renders the trigger button with no label when value is null', () => {
     renderFilterPeriod(null)
-
-    expect(screen.getByRole('combobox').textContent?.replace(/\u200b/g, '').trim()).toBe('')
-    expect(screen.getAllByText('Period').length).toBeGreaterThan(0)
+    expect(screen.getByRole('button', { name: /Period$/i })).toBeInTheDocument()
   })
 
-  it('renders dividers between groups in the dropdown', async () => {
+  it('opens the popover when the trigger button is clicked', async () => {
     const user = userEvent.setup()
-    renderFilterPeriod()
+    renderFilterPeriod('today')
 
-    await user.click(screen.getByLabelText('Period'))
+    await user.click(screen.getByRole('button', { name: /Period/i }))
 
-    const listbox = screen.getByRole('listbox')
-    const dividers = listbox.querySelectorAll('hr')
-
-    expect(dividers).toHaveLength(3)
+    expect(screen.getByRole('listbox')).toBeInTheDocument()
   })
 
-  it('renders all period options', async () => {
+  it('renders all selectable period options in the popover', async () => {
     const user = userEvent.setup()
-    renderFilterPeriod()
+    renderFilterPeriod('today')
 
-    await user.click(screen.getByLabelText('Period'))
+    await user.click(screen.getByRole('button', { name: /Period/i }))
 
     expect(screen.getByRole('option', { name: 'Today' })).toBeInTheDocument()
     expect(screen.getByRole('option', { name: 'Yesterday' })).toBeInTheDocument()
     expect(screen.getByRole('option', { name: 'Last 7 Days' })).toBeInTheDocument()
-    expect(screen.getByRole('option', { name: 'Custom Range' })).toBeInTheDocument()
   })
 
-  it('calls onChange when an option is selected', async () => {
+  it('"Custom Range" heading is visible but not selectable', async () => {
     const user = userEvent.setup()
-    const onChange = vi.fn()
+    renderFilterPeriod('today')
 
-    render(
-      <LocalizationProvider dateAdapter={AdapterDateFns}>
-        <FilterPeriod value="today" customFrom={null} customTo={null} onChange={onChange} />
-      </LocalizationProvider>,
-    )
+    await user.click(screen.getByRole('button', { name: /Period/i }))
 
-    await user.click(screen.getByLabelText('Period'))
+    // Should appear as text, not as an option role
+    expect(screen.getByText('Custom Range')).toBeInTheDocument()
+    expect(screen.queryByRole('option', { name: 'Custom Range' })).not.toBeInTheDocument()
+  })
+
+  it('calls onChange immediately and closes popover when a preset is clicked', async () => {
+    const user = userEvent.setup()
+    const { onChange } = renderFilterPeriod('today')
+
+    await user.click(screen.getByRole('button', { name: /Period/i }))
     await user.click(screen.getByRole('option', { name: 'Yesterday' }))
 
     expect(onChange).toHaveBeenCalledWith('yesterday')
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
   })
 
-  it('shows date pickers when custom is selected', () => {
-    renderFilterPeriod('custom')
+  it('always shows the From/To date pickers inside the popover', async () => {
+    const user = userEvent.setup()
+    renderFilterPeriod('today')
 
-    expect(screen.getAllByText('From').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('To').length).toBeGreaterThan(0)
+    await user.click(screen.getByRole('button', { name: /Period/i }))
+
+    expect(screen.getByLabelText('From')).toBeInTheDocument()
+    expect(screen.getByLabelText('To')).toBeInTheDocument()
   })
 
-  it('does not show date pickers when value is null', () => {
-    renderFilterPeriod(null)
+  it('Apply button is disabled when only one date is set', async () => {
+    const user = userEvent.setup()
+    renderFilterPeriod('custom', '2024-01-15', null)
 
-    expect(screen.queryByLabelText(/from/i)).not.toBeInTheDocument()
-    expect(screen.queryByLabelText(/to/i)).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /Period/i }))
+
+    expect(screen.getByRole('button', { name: /Apply/i })).toBeDisabled()
+  })
+
+  it('Apply button is disabled when From > To', async () => {
+    const user = userEvent.setup()
+    renderFilterPeriod('custom', '2024-02-01', '2024-01-01')
+
+    await user.click(screen.getByRole('button', { name: /Period/i }))
+
+    expect(screen.getByRole('button', { name: /Apply/i })).toBeDisabled()
+  })
+
+  it('Apply button is enabled when both dates are valid and From <= To', async () => {
+    const user = userEvent.setup()
+    renderFilterPeriod('custom', '2024-01-15', '2024-01-31')
+
+    await user.click(screen.getByRole('button', { name: /Period/i }))
+
+    expect(screen.getByRole('button', { name: /Apply/i })).toBeEnabled()
+  })
+
+  it('clicking Apply calls onChange with custom dates and closes popover', async () => {
+    const user = userEvent.setup()
+    const { onChange } = renderFilterPeriod('custom', '2024-01-15', '2024-01-31')
+
+    await user.click(screen.getByRole('button', { name: /Period/i }))
+    await user.click(screen.getByRole('button', { name: /Apply/i }))
+
+    expect(onChange).toHaveBeenCalledWith('custom', '2024-01-15', '2024-01-31')
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
   })
 })
