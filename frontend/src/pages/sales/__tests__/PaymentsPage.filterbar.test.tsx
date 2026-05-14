@@ -126,7 +126,7 @@ describe('PaymentsPage FilterBar', () => {
 
   it('renders period filter button', () => {
     renderPage()
-    expect(screen.getByRole('combobox', { name: /period/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /period/i })).toBeInTheDocument()
   })
 
   it('renders customer filter button', () => {
