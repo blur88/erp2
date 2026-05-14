@@ -99,9 +99,18 @@ describe('FilterPeriod', () => {
     expect(screen.getByRole('group', { name: 'To' })).toBeInTheDocument()
   })
 
-  it('Apply button is disabled when only one date is set', async () => {
+  it('Apply button is disabled when only From is set', async () => {
     const user = userEvent.setup()
     renderFilterPeriod('custom', '2024-01-15', null)
+
+    await user.click(screen.getByRole('button', { name: /Period/i }))
+
+    expect(screen.getByRole('button', { name: /Apply/i })).toBeDisabled()
+  })
+
+  it('Apply button is disabled when only To is set', async () => {
+    const user = userEvent.setup()
+    renderFilterPeriod('custom', null, '2024-01-31')
 
     await user.click(screen.getByRole('button', { name: /Period/i }))
 
