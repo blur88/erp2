@@ -47,7 +47,7 @@ describe('FilterPeriod', () => {
 
   it('renders the trigger with empty text when value is null', () => {
     renderFilterPeriod(null)
-    expect(getTrigger().textContent?.replace(/​/g, '').trim()).toBe('')
+    expect(getTrigger().textContent?.replace(/\u200b/g, '').trim()).toBe('')
   })
 
   it('renders the Period floating label', () => {
