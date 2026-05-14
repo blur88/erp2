@@ -139,8 +139,6 @@ export function FilterPeriod({ value, customFrom, customTo, onChange }: FilterPe
             groupIndex < PERIOD_GROUPS.length - 1 ? <Divider key={`divider-${groupIndex}`} /> : null,
           ])}
 
-          <Divider />
-
           <ListSubheader sx={{ lineHeight: '32px' }}>Custom Range</ListSubheader>
 
           <MenuItem disableRipple disableTouchRipple sx={{ cursor: 'default', '&:hover': { bgcolor: 'transparent' } }}>
