@@ -6,10 +6,12 @@ import {
   IsNumber,
   IsUUID,
   IsArray,
+  IsBoolean,
+  IsDateString,
   Min,
   Max,
 } from 'class-validator';
-import { Type } from 'class-transformer';
+import { Type, Transform } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { BankReconciliationStatus } from '../../../database/entities/bank-reconciliation.entity';
 
@@ -85,6 +87,22 @@ export class QueryBankReconciliationsDto {
   @IsOptional()
   @IsString()
   search?: string;
+
+  @ApiPropertyOptional({ description: 'Filter by reconciliation date (from), e.g. 2026-01-01' })
+  @IsOptional()
+  @IsDateString()
+  startDate?: string;
+
+  @ApiPropertyOptional({ description: 'Filter by reconciliation date (to), e.g. 2026-12-31' })
+  @IsOptional()
+  @IsDateString()
+  endDate?: string;
+
+  @ApiPropertyOptional({ description: 'Filter by balanced status (difference = 0 when true)' })
+  @IsOptional()
+  @Transform(({ value }) => value === 'true' || value === true)
+  @IsBoolean()
+  isBalanced?: boolean;
 
   @ApiPropertyOptional({ description: 'Sort field', enum: ['reconciliationDate', 'createdAt'] })
   @IsOptional()

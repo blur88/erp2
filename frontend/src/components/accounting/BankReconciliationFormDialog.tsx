@@ -45,7 +45,7 @@ const BankReconciliationFormDialog: React.FC<BankReconciliationFormDialogProps> 
 }) => {
   const { showError } = useNotification();
   const { data: accountsResponse } = useGetChartOfAccountsQuery(
-    { page: 1, isActive: true },
+    { page: 1, isActive: true, isCashEquivalent: true, limit: 200 },
     { skip: !open },
   );
   const { data: periodsResponse } = useGetFiscalPeriodsQuery(
@@ -84,11 +84,6 @@ const BankReconciliationFormDialog: React.FC<BankReconciliationFormDialogProps> 
     }
     setErrors({});
   }, [reconciliation, open]);
-
-  const assetAccounts = useMemo(
-    () => accounts.filter((account: any) => String(account.type).toUpperCase() === 'ASSET'),
-    [accounts],
-  );
 
   const openPeriods = useMemo(
     () => periods.filter((period: any) => period.status === FiscalPeriodStatus.OPEN),
@@ -171,7 +166,7 @@ const BankReconciliationFormDialog: React.FC<BankReconciliationFormDialogProps> 
               label="Account"
               onChange={(e) => handleChange('accountId', e.target.value)}
             >
-              {assetAccounts.map((account: any) => (
+              {accounts.map((account: any) => (
                 <MenuItem key={account.id} value={account.id}>
                   {account.code} - {account.name}
                 </MenuItem>

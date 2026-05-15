@@ -90,6 +90,20 @@ type CreateFundTransferPayload = {
   description?: string
 }
 
+export interface BankReconciliationsParams {
+  search?: string
+  status?: string
+  startDate?: string
+  endDate?: string
+  accountId?: string
+  isBalanced?: boolean
+  sortBy?: string
+  sortOrder?: 'ASC' | 'DESC'
+  page?: number
+  limit?: number
+  [key: string]: unknown
+}
+
 const toNumber = (value: unknown, fallback = 0): number => {
   const parsed = typeof value === 'number' ? value : Number(value)
   return Number.isFinite(parsed) ? parsed : fallback
@@ -293,7 +307,7 @@ export const accountingApiSlice = createApi({
       query: () => ({ url: '/accounting/account-mappings/validate' }),
       providesTags: ['AccountMapping'],
     }),
-    getBankReconciliations: builder.query<PaginatedResponse<BankReconciliation>, Record<string, unknown> | undefined>({
+    getBankReconciliations: builder.query<PaginatedResponse<BankReconciliation>, BankReconciliationsParams | undefined>({
       query: (params) => ({ url: '/accounting/bank-reconciliations', params: params ?? {} }),
       transformResponse: (response: any) => normalizeNamedCollection<BankReconciliation>(response, 'reconciliations'),
       providesTags: ['BankReconciliation'],
