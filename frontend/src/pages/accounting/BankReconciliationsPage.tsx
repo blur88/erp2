@@ -19,6 +19,8 @@ interface BRFilters {
   search: string
   status: string | null
   period: PeriodValue
+  accountId: string | null
+  isBalanced: string | null
 }
 
 const filterConfig: FilterBarConfig<BRFilters> = {
@@ -26,11 +28,15 @@ const filterConfig: FilterBarConfig<BRFilters> = {
   fields: [
     { field: 'period', label: 'Period', type: 'period' },
     { field: 'status', label: 'Status', type: 'bank-reconciliation-status' },
+    { field: 'accountId', label: 'Bank Account', type: 'bank-reconciliation-account' },
+    { field: 'isBalanced', label: 'Balanced', type: 'bank-reconciliation-balanced' },
   ],
   defaults: {
     search: '',
     status: null,
     period: { key: null, from: null, to: null },
+    accountId: null,
+    isBalanced: null,
   },
 }
 
@@ -54,6 +60,11 @@ const BankReconciliationsPage: React.FC = () => {
     status: appliedFilters.status ? appliedFilters.status.toUpperCase() : undefined,
     startDate: dateRange.fromDate,
     endDate: dateRange.toDate,
+    accountId: appliedFilters.accountId ?? undefined,
+    isBalanced:
+      appliedFilters.isBalanced === 'balanced' ? true
+      : appliedFilters.isBalanced === 'unbalanced' ? false
+      : undefined,
     sortBy,
     sortOrder: sortOrder.toUpperCase() as 'ASC' | 'DESC',
   })
