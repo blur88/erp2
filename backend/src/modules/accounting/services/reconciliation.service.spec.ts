@@ -93,6 +93,7 @@ describe('ReconciliationService', () => {
             create: jest.fn(),
             save: jest.fn(),
             softDelete: jest.fn(),
+            restore: jest.fn(),
             createQueryBuilder: jest.fn(),
           },
         },
@@ -249,6 +250,61 @@ describe('ReconciliationService', () => {
       const result = await service.getDeleted();
 
       expect(result).toHaveLength(0);
+    });
+  });
+
+  describe('restore', () => {
+    it('restores a soft-deleted reconciliation', async () => {
+      const deletedRecon = {
+        ...mockReconciliation,
+        deletedAt: new Date('2026-02-01'),
+        isActive: false,
+      };
+      reconciliationRepo.findOne
+        .mockResolvedValueOnce(deletedRecon as any)
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce({
+          ...deletedRecon,
+          deletedAt: null,
+          isActive: true,
+          reconciledTransactions: [],
+        } as any);
+      reconciliationRepo.restore.mockResolvedValue(undefined as any);
+      reconciliationRepo.save.mockResolvedValue({
+        ...deletedRecon,
+        deletedAt: null,
+        isActive: true,
+      } as any);
+
+      const result = await service.restore('recon-001', 'user-1', 'admin');
+
+      expect(reconciliationRepo.restore).toHaveBeenCalledWith('recon-001');
+      expect(result.id).toBe('recon-001');
+    });
+
+    it('throws NotFoundException when id does not exist', async () => {
+      reconciliationRepo.findOne.mockResolvedValue(null);
+
+      await expect(service.restore('bad-id')).rejects.toThrow(NotFoundException);
+    });
+
+    it('throws BadRequestException when reconciliation is not deleted', async () => {
+      reconciliationRepo.findOne.mockResolvedValue(mockReconciliation as any);
+
+      await expect(service.restore('recon-001')).rejects.toThrow(BadRequestException);
+    });
+
+    it('throws BadRequestException when an IN_PROGRESS reconciliation already exists for same account+period', async () => {
+      const deletedRecon = {
+        ...mockReconciliation,
+        deletedAt: new Date('2026-02-01'),
+        isActive: false,
+      };
+      reconciliationRepo.findOne
+        .mockResolvedValueOnce(deletedRecon as any)
+        .mockResolvedValueOnce(mockReconciliation as any);
+
+      await expect(service.restore('recon-001')).rejects.toThrow(BadRequestException);
     });
   });
 

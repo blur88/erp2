@@ -229,6 +229,56 @@ export class ReconciliationService {
     return deleted.map((r) => this.toResponseDto(r));
   }
 
+  async restore(
+    id: string,
+    userId?: string,
+    username?: string,
+  ): Promise<BankReconciliationResponseDto> {
+    const reconciliation = await this.reconciliationRepository.findOne({
+      where: { id } as any,
+      withDeleted: true,
+    });
+
+    if (!reconciliation) {
+      throw new NotFoundException(`Bank reconciliation with ID '${id}' not found`);
+    }
+
+    if (!reconciliation.deletedAt) {
+      throw new BadRequestException('Bank reconciliation is not deleted');
+    }
+
+    const duplicate = await this.reconciliationRepository.findOne({
+      where: {
+        accountId: reconciliation.accountId,
+        fiscalPeriodId: reconciliation.fiscalPeriodId,
+        status: BankReconciliationStatus.IN_PROGRESS,
+      },
+    });
+    if (duplicate) {
+      throw new BadRequestException(
+        'Cannot restore: an in-progress reconciliation already exists for this account and period.',
+      );
+    }
+
+    await this.reconciliationRepository.restore(id);
+
+    await this.reconciliationRepository.save({
+      ...reconciliation,
+      isActive: true,
+      deletedAt: null,
+    } as any);
+
+    await this.auditLogService.log(
+      'UPDATE',
+      'BankReconciliation',
+      'Restored bank reconciliation',
+      { entityId: id, userId: userId ?? 'system', username },
+    );
+
+    this.logger.log(`Bank reconciliation restored: ${id}`);
+    return this.findOne(id);
+  }
+
   /**
    * Update reconciliation (statement balance, date)
    */
