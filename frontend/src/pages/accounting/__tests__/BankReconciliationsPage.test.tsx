@@ -73,6 +73,11 @@ const mockedApi = vi.hoisted(() => ({
   useMarkBankReconciliationClearedMutation: vi.fn(),
   useUnmarkBankReconciliationClearedMutation: vi.fn(),
   useGetChartOfAccountsQuery: vi.fn(),
+  useGetDeletedBankReconciliationsQuery: vi.fn(),
+  useRestoreBankReconciliationMutation: vi.fn(),
+  usePermanentDeleteBankReconciliationMutation: vi.fn(),
+  useBulkRestoreBankReconciliationsMutation: vi.fn(),
+  useBulkPermanentDeleteBankReconciliationsMutation: vi.fn(),
 }))
 
 vi.mock('@/store/api/accountingApi', () => mockedApi)
@@ -105,6 +110,11 @@ describe('BankReconciliationsPage', () => {
     mockedApi.useMarkBankReconciliationClearedMutation.mockReturnValue([vi.fn()])
     mockedApi.useUnmarkBankReconciliationClearedMutation.mockReturnValue([vi.fn()])
     mockedApi.useGetChartOfAccountsQuery.mockReturnValue({ data: { data: [] } })
+    mockedApi.useGetDeletedBankReconciliationsQuery.mockReturnValue({ data: [], isFetching: false, isLoading: false, refetch: vi.fn() })
+    mockedApi.useRestoreBankReconciliationMutation.mockReturnValue([vi.fn()])
+    mockedApi.usePermanentDeleteBankReconciliationMutation.mockReturnValue([vi.fn()])
+    mockedApi.useBulkRestoreBankReconciliationsMutation.mockReturnValue([vi.fn()])
+    mockedApi.useBulkPermanentDeleteBankReconciliationsMutation.mockReturnValue([vi.fn()])
   })
 
   it('renders the page title', () => {
@@ -173,6 +183,48 @@ describe('BankReconciliationsPage', () => {
 
     expect(await screen.findByText('This reconciliation is completed. Reopen it to make changes.')).toBeInTheDocument()
     expect(screen.getByRole('checkbox')).toBeDisabled()
+  })
+
+  it('shows Edit button for IN_PROGRESS reconciliation', async () => {
+    mockedApi.useGetBankReconciliationsQuery.mockReturnValue({
+      data: { data: [MOCK_RECONCILIATION_IN_PROGRESS], meta: { total: 1 } },
+      isLoading: false,
+      refetch: vi.fn(),
+    })
+    mockedApi.useLazyGetBankReconciliationQuery.mockReturnValue([
+      vi.fn(() => ({ unwrap: vi.fn().mockResolvedValue(MOCK_RECONCILIATION_IN_PROGRESS) })),
+    ])
+
+    renderPage()
+    fireEvent.click(screen.getAllByText('Main Checking')[0])
+
+    expect(await screen.findByRole('button', { name: /edit/i })).toBeInTheDocument()
+  })
+
+  it('does not show Edit button for COMPLETED reconciliation', async () => {
+    mockedApi.useGetBankReconciliationsQuery.mockReturnValue({
+      data: { data: [MOCK_RECONCILIATION_COMPLETED], meta: { total: 1 } },
+      isLoading: false,
+      refetch: vi.fn(),
+    })
+    mockedApi.useLazyGetBankReconciliationQuery.mockReturnValue([
+      vi.fn(() => ({ unwrap: vi.fn().mockResolvedValue(MOCK_RECONCILIATION_COMPLETED) })),
+    ])
+
+    renderPage()
+    fireEvent.click(screen.getAllByText('Main Checking')[0])
+
+    await waitFor(() => {
+      expect(screen.queryByRole('button', { name: /edit/i })).not.toBeInTheDocument()
+    })
+  })
+
+  it('opens deleted reconciliations dialog when View Deleted is clicked', async () => {
+    renderPage()
+
+    fireEvent.click(screen.getByRole('button', { name: /view deleted/i }))
+
+    expect(await screen.findByText('Deleted Reconciliations')).toBeInTheDocument()
   })
 
   it('shows empty context header state when nothing is selected', () => {
