@@ -43,6 +43,38 @@ export class ReconciliationController {
     return this.reconciliationService.findAll(query);
   }
 
+  @Get('deleted')
+  @ApiOperation({ summary: 'Get all soft-deleted bank reconciliations' })
+  @ApiResponse({ status: 200, description: 'Returns all deleted bank reconciliations' })
+  async getDeleted(): Promise<BankReconciliationResponseDto[]> {
+    return this.reconciliationService.getDeleted();
+  }
+
+  @Post('bulk-restore')
+  @Auth(UserRole.ADMIN, UserRole.MANAGER)
+  @ApiOperation({ summary: 'Bulk restore soft-deleted bank reconciliations' })
+  @ApiResponse({ status: 200, description: 'Bulk restore result' })
+  async bulkRestore(
+    @Body() body: { ids: string[] },
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
+  ): Promise<{ restoredCount: number; failedIds: string[] }> {
+    return this.reconciliationService.bulkRestore(body.ids, currentUserId, currentUsername);
+  }
+
+  @Delete('bulk-permanent')
+  @Auth(UserRole.ADMIN)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Bulk permanently delete bank reconciliations' })
+  @ApiResponse({ status: 200, description: 'Bulk permanent delete result' })
+  async bulkPermanentDelete(
+    @Body() body: { ids: string[] },
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
+  ): Promise<{ deletedCount: number; failedIds: string[] }> {
+    return this.reconciliationService.bulkPermanentDelete(body.ids, currentUserId, currentUsername);
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Get bank reconciliation by ID with transactions' })
   @ApiParam({ name: 'id', description: 'Bank reconciliation ID' })
@@ -111,6 +143,40 @@ export class ReconciliationController {
     @CurrentUser('username') currentUsername: string,
   ): Promise<void> {
     await this.reconciliationService.remove(id, currentUserId, currentUsername);
+  }
+
+  @Post(':id/restore')
+  @Auth(UserRole.ADMIN, UserRole.MANAGER)
+  @ApiOperation({ summary: 'Restore a soft-deleted bank reconciliation' })
+  @ApiParam({ name: 'id', description: 'Bank reconciliation ID' })
+  @ApiResponse({
+    status: 200,
+    description: 'Bank reconciliation restored',
+    type: BankReconciliationResponseDto,
+  })
+  @ApiResponse({ status: 400, description: 'Not deleted, or duplicate IN_PROGRESS exists' })
+  @ApiResponse({ status: 404, description: 'Bank reconciliation not found' })
+  async restore(
+    @Param('id') id: string,
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
+  ): Promise<BankReconciliationResponseDto> {
+    return this.reconciliationService.restore(id, currentUserId, currentUsername);
+  }
+
+  @Delete(':id/permanent')
+  @Auth(UserRole.ADMIN)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Permanently delete a bank reconciliation' })
+  @ApiParam({ name: 'id', description: 'Bank reconciliation ID' })
+  @ApiResponse({ status: 204, description: 'Bank reconciliation permanently deleted' })
+  @ApiResponse({ status: 404, description: 'Bank reconciliation not found' })
+  async permanentDelete(
+    @Param('id') id: string,
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
+  ): Promise<void> {
+    await this.reconciliationService.permanentDelete(id, currentUserId, currentUsername);
   }
 
   @Post(':id/mark-cleared')
