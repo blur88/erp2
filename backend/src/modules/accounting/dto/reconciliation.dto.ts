@@ -6,6 +6,7 @@ import {
   IsNumber,
   IsUUID,
   IsArray,
+  IsBoolean,
   Min,
   Max,
 } from 'class-validator';
@@ -85,6 +86,22 @@ export class QueryBankReconciliationsDto {
   @IsOptional()
   @IsString()
   search?: string;
+
+  @ApiPropertyOptional({ description: 'Filter by reconciliation date (from), e.g. 2026-01-01' })
+  @IsOptional()
+  @IsString()
+  startDate?: string;
+
+  @ApiPropertyOptional({ description: 'Filter by reconciliation date (to), e.g. 2026-12-31' })
+  @IsOptional()
+  @IsString()
+  endDate?: string;
+
+  @ApiPropertyOptional({ description: 'Filter by balanced status (difference = 0 when true)' })
+  @IsOptional()
+  @Type(() => Boolean)
+  @IsBoolean()
+  isBalanced?: boolean;
 
   @ApiPropertyOptional({ description: 'Sort field', enum: ['reconciliationDate', 'createdAt'] })
   @IsOptional()
