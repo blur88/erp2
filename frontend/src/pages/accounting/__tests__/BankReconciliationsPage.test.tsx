@@ -119,7 +119,7 @@ describe('BankReconciliationsPage', () => {
 
   it('renders the Balanced Status filter dropdown', () => {
     renderPage()
-    expect(screen.getByRole('combobox', { name: /balanced/i })).toBeInTheDocument()
+    expect(screen.getByRole('combobox', { name: /balance status/i })).toBeInTheDocument()
   })
 
   it('shows empty state via EntityTable when no reconciliations', () => {
