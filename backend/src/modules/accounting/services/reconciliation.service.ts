@@ -5,7 +5,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, Not, IsNull } from 'typeorm';
 import {
   BankReconciliation,
   BankReconciliationStatus,
@@ -221,12 +221,11 @@ export class ReconciliationService {
   async getDeleted(): Promise<BankReconciliationResponseDto[]> {
     const records = await this.reconciliationRepository.find({
       withDeleted: true,
-      where: {},
+      where: { deletedAt: Not(IsNull()) },
       relations: ['account', 'fiscalPeriod'],
       order: { deletedAt: 'DESC' },
     });
-    const deleted = records.filter((r) => r.deletedAt !== null && r.deletedAt !== undefined);
-    return deleted.map((r) => this.toResponseDto(r));
+    return records.map((r) => this.toResponseDto(r));
   }
 
   async restore(
@@ -269,7 +268,7 @@ export class ReconciliationService {
     } as any);
 
     await this.auditLogService.log(
-      'UPDATE',
+      'RESTORE',
       'BankReconciliation',
       'Restored bank reconciliation',
       { entityId: id, userId: userId ?? 'system', username },
@@ -287,6 +286,10 @@ export class ReconciliationService {
 
     if (!reconciliation) {
       throw new NotFoundException(`Bank reconciliation with ID '${id}' not found`);
+    }
+
+    if (!reconciliation.deletedAt) {
+      throw new BadRequestException('Bank reconciliation must be soft-deleted before permanent deletion');
     }
 
     await this.reconciliationRepository.delete(id);
