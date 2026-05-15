@@ -246,6 +246,48 @@ describe('ReconciliationService', () => {
         { search: '%cash%' },
       );
     });
+
+    it('should filter by startDate', async () => {
+      const queryBuilder = createMockQueryBuilder([mockReconciliation], 1);
+      reconciliationRepo.createQueryBuilder.mockReturnValue(queryBuilder as any);
+
+      await service.findAll({ page: 1, limit: 20, startDate: '2026-01-01' } as any);
+
+      expect(queryBuilder.andWhere).toHaveBeenCalledWith(
+        'recon.reconciliationDate >= :startDate',
+        { startDate: '2026-01-01' },
+      );
+    });
+
+    it('should filter by endDate', async () => {
+      const queryBuilder = createMockQueryBuilder([mockReconciliation], 1);
+      reconciliationRepo.createQueryBuilder.mockReturnValue(queryBuilder as any);
+
+      await service.findAll({ page: 1, limit: 20, endDate: '2026-12-31' } as any);
+
+      expect(queryBuilder.andWhere).toHaveBeenCalledWith(
+        'recon.reconciliationDate <= :endDate',
+        { endDate: '2026-12-31' },
+      );
+    });
+
+    it('should filter balanced reconciliations (difference = 0)', async () => {
+      const queryBuilder = createMockQueryBuilder([mockReconciliation], 1);
+      reconciliationRepo.createQueryBuilder.mockReturnValue(queryBuilder as any);
+
+      await service.findAll({ page: 1, limit: 20, isBalanced: true } as any);
+
+      expect(queryBuilder.andWhere).toHaveBeenCalledWith('recon.difference = 0');
+    });
+
+    it('should filter unbalanced reconciliations (difference != 0)', async () => {
+      const queryBuilder = createMockQueryBuilder([mockReconciliation], 1);
+      reconciliationRepo.createQueryBuilder.mockReturnValue(queryBuilder as any);
+
+      await service.findAll({ page: 1, limit: 20, isBalanced: false } as any);
+
+      expect(queryBuilder.andWhere).toHaveBeenCalledWith('recon.difference != 0');
+    });
   });
 
   describe('update', () => {
