@@ -166,9 +166,9 @@ export class ReconciliationService {
     }
     if (isBalanced !== undefined) {
       if (isBalanced) {
-        queryBuilder.andWhere('recon.difference = 0');
+        queryBuilder.andWhere('ABS(recon.difference) < 0.01');
       } else {
-        queryBuilder.andWhere('recon.difference != 0');
+        queryBuilder.andWhere('ABS(recon.difference) >= 0.01');
       }
     }
 

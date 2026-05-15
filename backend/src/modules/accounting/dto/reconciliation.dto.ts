@@ -7,6 +7,7 @@ import {
   IsUUID,
   IsArray,
   IsBoolean,
+  IsDateString,
   Min,
   Max,
 } from 'class-validator';
@@ -89,12 +90,12 @@ export class QueryBankReconciliationsDto {
 
   @ApiPropertyOptional({ description: 'Filter by reconciliation date (from), e.g. 2026-01-01' })
   @IsOptional()
-  @IsString()
+  @IsDateString()
   startDate?: string;
 
   @ApiPropertyOptional({ description: 'Filter by reconciliation date (to), e.g. 2026-12-31' })
   @IsOptional()
-  @IsString()
+  @IsDateString()
   endDate?: string;
 
   @ApiPropertyOptional({ description: 'Filter by balanced status (difference = 0 when true)' })

@@ -277,7 +277,7 @@ describe('ReconciliationService', () => {
 
       await service.findAll({ page: 1, limit: 20, isBalanced: true } as any);
 
-      expect(queryBuilder.andWhere).toHaveBeenCalledWith('recon.difference = 0');
+      expect(queryBuilder.andWhere).toHaveBeenCalledWith('ABS(recon.difference) < 0.01');
     });
 
     it('should filter unbalanced reconciliations (difference != 0)', async () => {
@@ -286,7 +286,7 @@ describe('ReconciliationService', () => {
 
       await service.findAll({ page: 1, limit: 20, isBalanced: false } as any);
 
-      expect(queryBuilder.andWhere).toHaveBeenCalledWith('recon.difference != 0');
+      expect(queryBuilder.andWhere).toHaveBeenCalledWith('ABS(recon.difference) >= 0.01');
     });
   });
 

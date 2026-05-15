@@ -45,7 +45,7 @@ const BankReconciliationFormDialog: React.FC<BankReconciliationFormDialogProps> 
 }) => {
   const { showError } = useNotification();
   const { data: accountsResponse } = useGetChartOfAccountsQuery(
-    { page: 1, isActive: true, isCashEquivalent: true },
+    { page: 1, isActive: true, isCashEquivalent: true, limit: 200 },
     { skip: !open },
   );
   const { data: periodsResponse } = useGetFiscalPeriodsQuery(
