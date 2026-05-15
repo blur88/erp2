@@ -11,7 +11,7 @@ import {
   Min,
   Max,
 } from 'class-validator';
-import { Type } from 'class-transformer';
+import { Type, Transform } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { BankReconciliationStatus } from '../../../database/entities/bank-reconciliation.entity';
 
@@ -100,7 +100,7 @@ export class QueryBankReconciliationsDto {
 
   @ApiPropertyOptional({ description: 'Filter by balanced status (difference = 0 when true)' })
   @IsOptional()
-  @Type(() => Boolean)
+  @Transform(({ value }) => value === 'true' || value === true)
   @IsBoolean()
   isBalanced?: boolean;
 
