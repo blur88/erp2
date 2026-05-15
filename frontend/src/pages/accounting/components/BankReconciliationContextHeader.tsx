@@ -2,6 +2,7 @@ import { Paper, Stack, Table, TableBody, TableCell, TableContainer, TableRow, Ty
 import Grid from '@mui/material/Grid'
 import { default as CheckCircleIcon } from '@mui/icons-material/CheckCircle'
 import { default as DeleteIcon } from '@mui/icons-material/Delete'
+import { default as EditIcon } from '@mui/icons-material/Edit'
 import { default as ReopenIcon } from '@mui/icons-material/LockOpen'
 import { format } from 'date-fns'
 
@@ -14,6 +15,7 @@ import { formatCurrency } from '@/utils/formatters'
 
 interface Props {
   selected: BankReconciliation | null
+  onEdit: () => void
   onComplete: () => void
   onReopen: () => void
   onDelete: () => void
@@ -46,7 +48,7 @@ const sectionHeaderCellSx = {
   borderTop: TABLE_STYLES.cell.border,
 }
 
-export function BankReconciliationContextHeader({ selected, onComplete, onReopen, onDelete }: Props) {
+export function BankReconciliationContextHeader({ selected, onEdit, onComplete, onReopen, onDelete }: Props) {
   if (!selected) {
     return (
       <Paper sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', p: 4 }}>
@@ -67,6 +69,11 @@ export function BankReconciliationContextHeader({ selected, onComplete, onReopen
         statusChip={<EntityStatusChip status={selected.status} />}
         actions={(
           <Stack direction="row" spacing={0.5}>
+            {isInProgress && (
+              <AppButton size="small" variant="outlined" startIcon={<EditIcon />} onClick={onEdit}>
+                Edit
+              </AppButton>
+            )}
             {isInProgress && (
               <AppButton size="small" variant="success" startIcon={<CheckCircleIcon />} onClick={onComplete}>
                 Complete

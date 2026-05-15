@@ -1,6 +1,7 @@
 import React, { useCallback, useMemo, useState } from 'react'
 
 import BankReconciliationFormDialog from '@/components/accounting/BankReconciliationFormDialog'
+import DeletedBankReconciliationsDialog from '@/components/accounting/DeletedBankReconciliationsDialog'
 import GenericListPage from '@/components/common/GenericListPage'
 import { useFilterBar } from '@/hooks/useFilterBar'
 import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
@@ -42,6 +43,8 @@ const filterConfig: FilterBarConfig<BRFilters> = {
 
 const BankReconciliationsPage: React.FC = () => {
   const [createOpen, setCreateOpen] = useState(false)
+  const [editOpen, setEditOpen] = useState(false)
+  const [deletedOpen, setDeletedOpen] = useState(false)
   const [sortBy, setSortBy] = useState('reconciliationDate')
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
 
@@ -101,6 +104,7 @@ const BankReconciliationsPage: React.FC = () => {
       title="Bank Reconciliations"
       subtitle="Reconcile bank accounts with your ledger"
       primaryAction={{ label: 'New Reconciliation', onClick: () => setCreateOpen(true) }}
+      secondaryAction={{ label: 'View Deleted', onClick: () => setDeletedOpen(true) }}
       filterConfig={filterConfig}
       draftFilters={draftFilters}
       handlers={filterHandlers}
@@ -121,6 +125,7 @@ const BankReconciliationsPage: React.FC = () => {
       headerSlot={(
         <BankReconciliationContextHeader
           selected={selected}
+          onEdit={() => setEditOpen(true)}
           onComplete={() => selected && workspace.setCompleteTarget(selected)}
           onReopen={() => selected && workspace.setReopenTarget(selected)}
           onDelete={() => selected && workspace.setDeleteTarget(selected)}
@@ -157,6 +162,22 @@ const BankReconciliationsPage: React.FC = () => {
               }}
             />
           )}
+          {editOpen && selected && (
+            <BankReconciliationFormDialog
+              open={editOpen}
+              reconciliation={selected}
+              onClose={() => setEditOpen(false)}
+              onSuccess={() => {
+                setEditOpen(false)
+                void refetch()
+              }}
+            />
+          )}
+          <DeletedBankReconciliationsDialog
+            open={deletedOpen}
+            onClose={() => setDeletedOpen(false)}
+            onChanged={() => { void refetch() }}
+          />
         </>
       )}
     />
