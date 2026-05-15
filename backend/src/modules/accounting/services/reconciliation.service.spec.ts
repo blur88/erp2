@@ -94,6 +94,7 @@ describe('ReconciliationService', () => {
             save: jest.fn(),
             softDelete: jest.fn(),
             restore: jest.fn(),
+            delete: jest.fn(),
             createQueryBuilder: jest.fn(),
           },
         },
@@ -305,6 +306,23 @@ describe('ReconciliationService', () => {
         .mockResolvedValueOnce(mockReconciliation as any);
 
       await expect(service.restore('recon-001')).rejects.toThrow(BadRequestException);
+    });
+  });
+
+  describe('permanentDelete', () => {
+    it('permanently deletes a reconciliation', async () => {
+      const deletedRecon = { ...mockReconciliation, deletedAt: new Date('2026-02-01') };
+      reconciliationRepo.findOne.mockResolvedValue(deletedRecon as any);
+      reconciliationRepo.delete.mockResolvedValue({ affected: 1 } as any);
+
+      await expect(service.permanentDelete('recon-001', 'user-1', 'admin')).resolves.toBeUndefined();
+      expect(reconciliationRepo.delete).toHaveBeenCalledWith('recon-001');
+    });
+
+    it('throws NotFoundException when id does not exist', async () => {
+      reconciliationRepo.findOne.mockResolvedValue(null);
+
+      await expect(service.permanentDelete('bad-id')).rejects.toThrow(NotFoundException);
     });
   });
 

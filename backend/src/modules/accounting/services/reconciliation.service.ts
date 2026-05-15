@@ -279,6 +279,74 @@ export class ReconciliationService {
     return this.findOne(id);
   }
 
+  async permanentDelete(id: string, userId?: string, username?: string): Promise<void> {
+    const reconciliation = await this.reconciliationRepository.findOne({
+      where: { id } as any,
+      withDeleted: true,
+    });
+
+    if (!reconciliation) {
+      throw new NotFoundException(`Bank reconciliation with ID '${id}' not found`);
+    }
+
+    await this.reconciliationRepository.delete(id);
+
+    await this.auditLogService.log(
+      'DELETE',
+      'BankReconciliation',
+      'Permanently deleted bank reconciliation',
+      { entityId: id, userId: userId ?? 'system', username },
+    );
+
+    this.logger.log(`Bank reconciliation permanently deleted: ${id}`);
+  }
+
+  async bulkRestore(
+    ids: string[],
+    userId?: string,
+    username?: string,
+  ): Promise<{ restoredCount: number; failedIds: string[] }> {
+    if (ids.length === 0) return { restoredCount: 0, failedIds: [] };
+
+    let restoredCount = 0;
+    const failedIds: string[] = [];
+
+    for (const id of ids) {
+      try {
+        await this.restore(id, userId, username);
+        restoredCount += 1;
+      } catch (error: any) {
+        this.logger.warn(`Failed to restore bank reconciliation '${id}': ${error.message}`);
+        failedIds.push(id);
+      }
+    }
+
+    return { restoredCount, failedIds };
+  }
+
+  async bulkPermanentDelete(
+    ids: string[],
+    userId?: string,
+    username?: string,
+  ): Promise<{ deletedCount: number; failedIds: string[] }> {
+    if (ids.length === 0) return { deletedCount: 0, failedIds: [] };
+
+    let deletedCount = 0;
+    const failedIds: string[] = [];
+
+    for (const id of ids) {
+      try {
+        await this.permanentDelete(id, userId, username);
+        deletedCount += 1;
+      } catch (error: any) {
+        this.logger.warn(`Failed to permanently delete bank reconciliation '${id}': ${error.message}`);
+        failedIds.push(id);
+      }
+    }
+
+    return { deletedCount, failedIds };
+  }
+
   /**
    * Update reconciliation (statement balance, date)
    */
