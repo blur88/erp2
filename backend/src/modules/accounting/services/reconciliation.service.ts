@@ -132,6 +132,9 @@ export class ReconciliationService {
       sortBy = 'reconciliationDate',
       sortOrder = 'DESC',
       search,
+      startDate,
+      endDate,
+      isBalanced,
     } = query;
 
     const queryBuilder = this.reconciliationRepository
@@ -154,6 +157,19 @@ export class ReconciliationService {
         '(account.name ILIKE :search OR account.code ILIKE :search OR fiscalPeriod.name ILIKE :search)',
         { search: `%${search}%` },
       );
+    }
+    if (startDate) {
+      queryBuilder.andWhere('recon.reconciliationDate >= :startDate', { startDate });
+    }
+    if (endDate) {
+      queryBuilder.andWhere('recon.reconciliationDate <= :endDate', { endDate });
+    }
+    if (isBalanced !== undefined) {
+      if (isBalanced) {
+        queryBuilder.andWhere('recon.difference = 0');
+      } else {
+        queryBuilder.andWhere('recon.difference != 0');
+      }
     }
 
     const validSortFields = ['reconciliationDate', 'createdAt'];
