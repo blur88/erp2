@@ -13,6 +13,6 @@ interface Props {
 
 export function FilterBalancedStatus({ field, value, onChange }: Props) {
   return (
-    <FilterSelect field={field} label="Balanced" value={value} options={OPTIONS} onChange={onChange} />
+    <FilterSelect field={field} label="Balance Status" value={value} options={OPTIONS} onChange={onChange} />
   )
 }

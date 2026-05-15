@@ -90,7 +90,7 @@ type CreateFundTransferPayload = {
   description?: string
 }
 
-export interface BankReconciliationsParams extends Record<string, unknown> {
+export interface BankReconciliationsParams {
   search?: string
   status?: string
   startDate?: string
@@ -101,6 +101,7 @@ export interface BankReconciliationsParams extends Record<string, unknown> {
   sortOrder?: 'ASC' | 'DESC'
   page?: number
   limit?: number
+  [key: string]: unknown
 }
 
 const toNumber = (value: unknown, fallback = 0): number => {

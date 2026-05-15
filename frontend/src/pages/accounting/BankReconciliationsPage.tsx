@@ -29,7 +29,7 @@ const filterConfig: FilterBarConfig<BRFilters> = {
     { field: 'period', label: 'Period', type: 'period' },
     { field: 'status', label: 'Status', type: 'bank-reconciliation-status' },
     { field: 'accountId', label: 'Bank Account', type: 'bank-reconciliation-account' },
-    { field: 'isBalanced', label: 'Balanced', type: 'bank-reconciliation-balanced' },
+    { field: 'isBalanced', label: 'Balance Status', type: 'bank-reconciliation-balanced' },
   ],
   defaults: {
     search: '',
