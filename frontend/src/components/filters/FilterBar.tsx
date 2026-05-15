@@ -1,6 +1,8 @@
 import { CircularProgress, Stack } from '@mui/material'
 
 import { FilterAccountType } from './FilterAccountType'
+import { FilterBalancedStatus } from './FilterBalancedStatus'
+import { FilterBankAccount } from './FilterBankAccount'
 import { FilterCategory } from './FilterCategory'
 import { FilterExpenseStatus } from './FilterExpenseStatus'
 import { FilterBankReconciliationStatus } from './FilterBankReconciliationStatus'
@@ -390,6 +392,28 @@ function renderQuickField<TFilters extends object>(
   if (field.type === 'fund-transfer-destination-account') {
     return (
       <FilterDestinationAccount
+        key={fieldKey}
+        field={fieldKey}
+        value={(value as string | null) ?? null}
+        onChange={onChange}
+      />
+    )
+  }
+
+  if (field.type === 'bank-reconciliation-account') {
+    return (
+      <FilterBankAccount
+        key={fieldKey}
+        field={fieldKey}
+        value={(value as string | null) ?? null}
+        onChange={onChange}
+      />
+    )
+  }
+
+  if (field.type === 'bank-reconciliation-balanced') {
+    return (
+      <FilterBalancedStatus
         key={fieldKey}
         field={fieldKey}
         value={(value as string | null) ?? null}
