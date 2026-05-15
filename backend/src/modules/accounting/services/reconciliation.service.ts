@@ -218,6 +218,17 @@ export class ReconciliationService {
     return this.toResponseDto(reconciliation);
   }
 
+  async getDeleted(): Promise<BankReconciliationResponseDto[]> {
+    const records = await this.reconciliationRepository.find({
+      withDeleted: true,
+      where: {},
+      relations: ['account', 'fiscalPeriod'],
+      order: { deletedAt: 'DESC' },
+    });
+    const deleted = records.filter((r) => r.deletedAt !== null && r.deletedAt !== undefined);
+    return deleted.map((r) => this.toResponseDto(r));
+  }
+
   /**
    * Update reconciliation (statement balance, date)
    */

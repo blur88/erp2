@@ -224,6 +224,34 @@ describe('ReconciliationService', () => {
     });
   });
 
+  describe('getDeleted', () => {
+    it('returns all soft-deleted reconciliations', async () => {
+      const deletedRecon = {
+        ...mockReconciliation,
+        id: 'recon-deleted-1',
+        deletedAt: new Date('2026-02-01'),
+        isActive: false,
+      };
+      reconciliationRepo.find.mockResolvedValue([deletedRecon] as any);
+
+      const result = await service.getDeleted();
+
+      expect(reconciliationRepo.find).toHaveBeenCalledWith(
+        expect.objectContaining({ withDeleted: true }),
+      );
+      expect(result).toHaveLength(1);
+      expect(result[0].id).toBe('recon-deleted-1');
+    });
+
+    it('returns empty array when no deleted reconciliations', async () => {
+      reconciliationRepo.find.mockResolvedValue([]);
+
+      const result = await service.getDeleted();
+
+      expect(result).toHaveLength(0);
+    });
+  });
+
   describe('findAll', () => {
     it('should return paginated reconciliations', async () => {
       reconciliationRepo.createQueryBuilder.mockReturnValue(
