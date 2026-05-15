@@ -72,6 +72,7 @@ const mockedApi = vi.hoisted(() => ({
   useReopenBankReconciliationMutation: vi.fn(),
   useMarkBankReconciliationClearedMutation: vi.fn(),
   useUnmarkBankReconciliationClearedMutation: vi.fn(),
+  useGetChartOfAccountsQuery: vi.fn(),
 }))
 
 vi.mock('@/store/api/accountingApi', () => mockedApi)
@@ -103,11 +104,22 @@ describe('BankReconciliationsPage', () => {
     mockedApi.useReopenBankReconciliationMutation.mockReturnValue([vi.fn()])
     mockedApi.useMarkBankReconciliationClearedMutation.mockReturnValue([vi.fn()])
     mockedApi.useUnmarkBankReconciliationClearedMutation.mockReturnValue([vi.fn()])
+    mockedApi.useGetChartOfAccountsQuery.mockReturnValue({ data: { data: [] } })
   })
 
   it('renders the page title', () => {
     renderPage()
     expect(screen.getByText('Bank Reconciliations')).toBeInTheDocument()
+  })
+
+  it('renders the Bank Account filter dropdown', () => {
+    renderPage()
+    expect(screen.getByRole('combobox', { name: /bank account/i })).toBeInTheDocument()
+  })
+
+  it('renders the Balanced Status filter dropdown', () => {
+    renderPage()
+    expect(screen.getByRole('combobox', { name: /balanced/i })).toBeInTheDocument()
   })
 
   it('shows empty state via EntityTable when no reconciliations', () => {
