@@ -3,6 +3,7 @@ import { FilterSelect } from './FilterSelect'
 const OPTIONS = [
   { value: 'draft', label: 'Draft' },
   { value: 'posted', label: 'Posted' },
+  { value: 'reversed', label: 'Reversed' },
 ]
 
 interface Props {

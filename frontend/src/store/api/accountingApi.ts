@@ -767,6 +767,21 @@ export const accountingApiSlice = createApi({
       query: (ids) => ({ url: '/accounting/expenses/bulk-delete', method: 'POST', data: { ids } }),
       invalidatesTags: ['Expense', 'AccountingReport'],
     }),
+    restoreExpense: builder.mutation<ExpenseRecord, string>({
+      query: (id) => ({ url: `/accounting/expenses/${id}/restore`, method: 'POST' }),
+      transformResponse: normalizeSingle<ExpenseRecord>,
+      invalidatesTags: (_result, _error, id) => [{ type: 'Expense', id }, 'Expense'],
+    }),
+    unpostExpense: builder.mutation<ExpenseRecord, string>({
+      query: (id) => ({ url: `/accounting/expenses/${id}/unpost`, method: 'POST' }),
+      transformResponse: normalizeSingle<ExpenseRecord>,
+      invalidatesTags: (_result, _error, id) => [
+        { type: 'Expense', id },
+        'Expense',
+        'JournalEntry',
+        'AccountingReport',
+      ],
+    }),
     createFundTransfer: builder.mutation<FundTransfer, CreateFundTransferPayload>({
       query: (body) => ({ url: '/accounting/fund-transfers', method: 'POST', data: body }),
       transformResponse: normalizeSingle<FundTransfer>,
@@ -873,6 +888,8 @@ export const {
   usePostExpenseMutation,
   useBulkPostExpensesMutation,
   useBulkDeleteExpensesMutation,
+  useRestoreExpenseMutation,
+  useUnpostExpenseMutation,
   useCreateFundTransferMutation,
   useCancelFundTransferMutation,
 } = accountingApiSlice
