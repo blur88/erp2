@@ -2,6 +2,7 @@ import type { RefObject } from 'react'
 import { Chip } from '@mui/material'
 
 import EntityTable, { type ColumnConfig } from '@/components/common/EntityTable'
+import { formatCurrency, formatDate } from '@/utils/formatters'
 import type { ExpenseRecord } from '@/types'
 
 interface Props {
@@ -14,14 +15,31 @@ interface Props {
 }
 
 function statusColor(status: string) {
-  return status === 'posted' ? 'success' as const : 'default' as const
+  if (status === 'posted') return 'success' as const
+  if (status === 'reversed') return 'error' as const
+  return 'default' as const
 }
 
 const columns: ColumnConfig<ExpenseRecord>[] = [
   {
+    key: 'expenseDate',
+    render: (row) => formatDate(row.expenseDate),
+    width: '15%',
+  },
+  {
     key: 'reference',
     render: (row) => row.referenceNumber,
-    width: '60%',
+    width: '25%',
+  },
+  {
+    key: 'vendor',
+    render: (row) => row.vendor ?? '-',
+    width: '25%',
+  },
+  {
+    key: 'amount',
+    render: (row) => formatCurrency(row.amount),
+    width: '20%',
   },
   {
     key: 'status',
@@ -29,7 +47,7 @@ const columns: ColumnConfig<ExpenseRecord>[] = [
     render: (row) => (
       <Chip label={row.status} color={statusColor(row.status)} size="small" />
     ),
-    width: '40%',
+    width: '15%',
   },
 ]
 
