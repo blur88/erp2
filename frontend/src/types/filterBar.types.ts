@@ -31,6 +31,8 @@ export type FilterFieldType =
   | 'journal-entry-status'
   | 'journal-entry-type'
   | 'expense-status'
+  | 'expense-account'
+  | 'payment-method'
   | 'owner-equity-type'
   | 'fiscal-period-status'
   | 'bank-reconciliation-status'
@@ -161,6 +163,16 @@ export interface ExpenseStatusFilterFieldConfig<TFilters, K extends keyof TFilte
   type: 'expense-status'
 }
 
+export interface ExpenseAccountFilterFieldConfig<TFilters, K extends keyof TFilters>
+  extends BaseFilterFieldConfig<TFilters, K> {
+  type: 'expense-account'
+}
+
+export interface PaymentMethodFilterFieldConfig<TFilters, K extends keyof TFilters>
+  extends BaseFilterFieldConfig<TFilters, K> {
+  type: 'payment-method'
+}
+
 export interface OwnerEquityTypeFilterFieldConfig<TFilters, K extends keyof TFilters>
   extends BaseFilterFieldConfig<TFilters, K> {
   type: 'owner-equity-type'
@@ -234,6 +246,8 @@ export type FilterFieldConfig<TFilters> =
   | JournalEntryStatusFilterFieldConfig<TFilters, keyof TFilters>
   | JournalEntryTypeFilterFieldConfig<TFilters, keyof TFilters>
   | ExpenseStatusFilterFieldConfig<TFilters, keyof TFilters>
+  | ExpenseAccountFilterFieldConfig<TFilters, keyof TFilters>
+  | PaymentMethodFilterFieldConfig<TFilters, keyof TFilters>
   | OwnerEquityTypeFilterFieldConfig<TFilters, keyof TFilters>
   | FiscalPeriodStatusFilterFieldConfig<TFilters, keyof TFilters>
   | BankReconciliationStatusFilterFieldConfig<TFilters, keyof TFilters>

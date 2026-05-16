@@ -30,11 +30,6 @@ export class ExpenseController {
     return this.expenseService.findAll(query);
   }
 
-  @Get(':id')
-  findOne(@Param('id', ParseUUIDPipe) id: string) {
-    return this.expenseService.findOne(id);
-  }
-
   @Post()
   @Auth(UserRole.ADMIN, UserRole.MANAGER)
   create(
@@ -43,6 +38,56 @@ export class ExpenseController {
     @CurrentUser('username') currentUsername: string,
   ) {
     return this.expenseService.create(dto, currentUserId, currentUsername);
+  }
+
+  @Post('bulk-post')
+  @Auth(UserRole.ADMIN, UserRole.MANAGER)
+  bulkPost(
+    @Body() dto: BulkExpenseDto,
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
+  ) {
+    return this.expenseService.bulkPost(dto, currentUserId, currentUsername);
+  }
+
+  @Post('bulk-delete')
+  @Auth(UserRole.ADMIN)
+  bulkDelete(
+    @Body() dto: BulkExpenseDto,
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
+  ) {
+    return this.expenseService.bulkDelete(dto, currentUserId, currentUsername);
+  }
+
+  @Get('deleted')
+  getDeleted() {
+    return this.expenseService.getDeleted();
+  }
+
+  @Delete('bulk-permanent')
+  @Auth(UserRole.ADMIN)
+  bulkPermanentDelete(
+    @Body() dto: BulkExpenseDto,
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
+  ) {
+    return this.expenseService.bulkPermanentDelete(dto, currentUserId, currentUsername);
+  }
+
+  @Post('bulk-restore')
+  @Auth(UserRole.ADMIN)
+  bulkRestore(
+    @Body() dto: BulkExpenseDto,
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
+  ) {
+    return this.expenseService.bulkRestore(dto, currentUserId, currentUsername);
+  }
+
+  @Get(':id')
+  findOne(@Param('id', ParseUUIDPipe) id: string) {
+    return this.expenseService.findOne(id);
   }
 
   @Patch(':id')
@@ -76,23 +121,33 @@ export class ExpenseController {
     return this.expenseService.post(id, currentUserId, currentUsername);
   }
 
-  @Post('bulk-post')
-  @Auth(UserRole.ADMIN, UserRole.MANAGER)
-  bulkPost(
-    @Body() dto: BulkExpenseDto,
+  @Post(':id/restore')
+  @Auth(UserRole.ADMIN)
+  restore(
+    @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser('userId') currentUserId: string,
     @CurrentUser('username') currentUsername: string,
   ) {
-    return this.expenseService.bulkPost(dto, currentUserId, currentUsername);
+    return this.expenseService.restore(id, currentUserId, currentUsername);
   }
 
-  @Post('bulk-delete')
+  @Post(':id/unpost')
   @Auth(UserRole.ADMIN)
-  bulkDelete(
-    @Body() dto: BulkExpenseDto,
+  unpost(
+    @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser('userId') currentUserId: string,
     @CurrentUser('username') currentUsername: string,
   ) {
-    return this.expenseService.bulkDelete(dto, currentUserId, currentUsername);
+    return this.expenseService.unpost(id, currentUserId, currentUsername);
+  }
+
+  @Delete(':id/permanent')
+  @Auth(UserRole.ADMIN)
+  permanentDelete(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
+  ) {
+    return this.expenseService.permanentDelete(id, currentUserId, currentUsername);
   }
 }

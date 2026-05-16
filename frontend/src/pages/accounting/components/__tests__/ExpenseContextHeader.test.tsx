@@ -42,9 +42,12 @@ const renderHeader = (props: Partial<ComponentProps<typeof ExpenseContextHeader>
     <BrowserRouter>
       <ExpenseContextHeader
         selected={null}
+        isAdmin={false}
         onEdit={vi.fn()}
         onPost={vi.fn()}
         onDelete={vi.fn()}
+        onUnpost={vi.fn()}
+        onRestore={vi.fn()}
         {...props}
       />
     </BrowserRouter>,
@@ -71,11 +74,31 @@ describe('ExpenseContextHeader', () => {
     expect(screen.getByText('Delete')).toBeInTheDocument()
   })
 
-  it('does not show action buttons for posted expenses', () => {
-    renderHeader({ selected: { ...draftExpense, status: 'posted' as const } })
+  it('shows Unpost button for posted expenses when isAdmin', () => {
+    renderHeader({ selected: { ...draftExpense, status: 'posted' as const }, isAdmin: true })
+    expect(screen.getByText('Unpost')).toBeInTheDocument()
+    expect(screen.queryByText('Edit')).not.toBeInTheDocument()
+  })
+
+  it('does not show Unpost button for posted expenses when not admin', () => {
+    renderHeader({ selected: { ...draftExpense, status: 'posted' as const }, isAdmin: false })
+    expect(screen.queryByText('Unpost')).not.toBeInTheDocument()
+  })
+
+  it('shows no action buttons for reversed expenses', () => {
+    renderHeader({ selected: { ...draftExpense, status: 'reversed' as const }, isAdmin: true })
     expect(screen.queryByText('Edit')).not.toBeInTheDocument()
     expect(screen.queryByText('Post')).not.toBeInTheDocument()
     expect(screen.queryByText('Delete')).not.toBeInTheDocument()
+    expect(screen.queryByText('Unpost')).not.toBeInTheDocument()
+    expect(screen.queryByText('Restore')).not.toBeInTheDocument()
+  })
+
+  it('shows Restore button for deleted expenses when isAdmin', () => {
+    const deletedExpense = { ...draftExpense, deletedAt: '2026-03-01' }
+    renderHeader({ selected: deletedExpense as any, isAdmin: true })
+    expect(screen.getByText('Restore')).toBeInTheDocument()
+    expect(screen.queryByText('Edit')).not.toBeInTheDocument()
   })
 
   it('calls onEdit when Edit button clicked', () => {
@@ -97,6 +120,21 @@ describe('ExpenseContextHeader', () => {
     renderHeader({ selected: draftExpense, onDelete })
     fireEvent.click(screen.getByText('Delete'))
     expect(onDelete).toHaveBeenCalledOnce()
+  })
+
+  it('calls onUnpost when Unpost clicked', () => {
+    const onUnpost = vi.fn()
+    renderHeader({ selected: { ...draftExpense, status: 'posted' as const }, isAdmin: true, onUnpost })
+    fireEvent.click(screen.getByText('Unpost'))
+    expect(onUnpost).toHaveBeenCalledOnce()
+  })
+
+  it('calls onRestore when Restore clicked', () => {
+    const onRestore = vi.fn()
+    const deletedExpense = { ...draftExpense, deletedAt: '2026-03-01' }
+    renderHeader({ selected: deletedExpense as any, isAdmin: true, onRestore })
+    fireEvent.click(screen.getByText('Restore'))
+    expect(onRestore).toHaveBeenCalledOnce()
   })
 
   it('displays vendor, account, amount and payment method', () => {

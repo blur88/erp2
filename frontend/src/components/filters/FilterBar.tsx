@@ -4,6 +4,7 @@ import { FilterAccountType } from './FilterAccountType'
 import { FilterBalancedStatus } from './FilterBalancedStatus'
 import { FilterBankAccount } from './FilterBankAccount'
 import { FilterCategory } from './FilterCategory'
+import { FilterExpenseAccount } from './FilterExpenseAccount'
 import { FilterExpenseStatus } from './FilterExpenseStatus'
 import { FilterBankReconciliationStatus } from './FilterBankReconciliationStatus'
 import { FilterCompare } from './FilterCompare'
@@ -17,6 +18,7 @@ import { FilterJournalEntryType } from './FilterJournalEntryType'
 import { FilterOrderStatus } from './FilterOrderStatus'
 import { FilterOwnerEquityType } from './FilterOwnerEquityType'
 import { FilterPaymentStatus } from './FilterPaymentStatus'
+import { FilterPaymentMethod } from './FilterPaymentMethod'
 import { FilterPeriod } from './FilterPeriod'
 import { FilterPriceList } from './FilterPriceList'
 import { FilterProductType } from './FilterProductType'
@@ -304,6 +306,28 @@ function renderQuickField<TFilters extends object>(
   if (field.type === 'expense-status') {
     return (
       <FilterExpenseStatus
+        key={fieldKey}
+        field={fieldKey}
+        value={(value as string | null) ?? null}
+        onChange={onChange}
+      />
+    )
+  }
+
+  if (field.type === 'expense-account') {
+    return (
+      <FilterExpenseAccount
+        key={fieldKey}
+        field={fieldKey}
+        value={(value as string | null) ?? null}
+        onChange={onChange}
+      />
+    )
+  }
+
+  if (field.type === 'payment-method') {
+    return (
+      <FilterPaymentMethod
         key={fieldKey}
         field={fieldKey}
         value={(value as string | null) ?? null}

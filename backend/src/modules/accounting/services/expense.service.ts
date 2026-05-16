@@ -5,7 +5,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, Not, IsNull } from 'typeorm';
 import { Expense, ExpenseStatus } from '../../../database/entities/expense.entity';
 import { PaymentMethodEntity } from '../../../database/entities/payment-method.entity';
 import {
@@ -50,15 +50,21 @@ export class ExpenseService {
       startDate,
       endDate,
       search,
-      sortBy = 'expenseDate',
+      sortBy = 'referenceNumber',
       sortOrder = 'DESC',
+      includeDeleted,
     } = query;
 
     const qb = this.expenseRepository
       .createQueryBuilder('e')
       .leftJoinAndSelect('e.paymentMethod', 'paymentMethod')
-      .leftJoinAndSelect('e.expenseAccount', 'expenseAccount')
-      .where('e.deletedAt IS NULL');
+      .leftJoinAndSelect('e.expenseAccount', 'expenseAccount');
+
+    if (!includeDeleted) {
+      qb.where('e.deletedAt IS NULL');
+    } else {
+      qb.withDeleted();
+    }
 
     if (expenseAccountId) {
       qb.andWhere('e.expenseAccountId = :expenseAccountId', { expenseAccountId });
@@ -87,8 +93,8 @@ export class ExpenseService {
       );
     }
 
-    const allowedSortFields = ['expenseDate', 'createdAt', 'amount', 'vendor'];
-    const safeSortBy = allowedSortFields.includes(sortBy) ? sortBy : 'expenseDate';
+    const allowedSortFields = ['referenceNumber', 'expenseDate', 'createdAt', 'amount', 'vendor'];
+    const safeSortBy = allowedSortFields.includes(sortBy) ? sortBy : 'referenceNumber';
     const safeSortOrder = sortOrder === 'ASC' ? 'ASC' : 'DESC';
 
     qb.orderBy(`e.${safeSortBy}`, safeSortOrder).skip((page - 1) * limit).take(limit);
@@ -240,6 +246,10 @@ export class ExpenseService {
       throw new BadRequestException('Cannot delete a posted expense');
     }
 
+    if (expense.status === ExpenseStatus.REVERSED) {
+      throw new BadRequestException('Cannot delete a reversed expense');
+    }
+
     await this.expenseRepository.softDelete(id);
     await this.auditLogService.log(
       'DELETE',
@@ -330,6 +340,140 @@ export class ExpenseService {
     return { deleted, failed };
   }
 
+  async bulkRestore(
+    dto: BulkExpenseDto,
+    userId?: string,
+    username?: string,
+  ): Promise<{ restored: number; failed: number }> {
+    let restored = 0;
+    let failed = 0;
+
+    for (const id of dto.ids) {
+      try {
+        await this.restore(id, userId, username);
+        restored++;
+      } catch (error) {
+        this.logger.error(`Failed to restore expense ${id}: ${error.message}`);
+        failed++;
+      }
+    }
+
+    return { restored, failed };
+  }
+
+  async restore(
+    id: string,
+    userId?: string,
+    username?: string,
+  ): Promise<ExpenseResponseDto> {
+    const expense = await this.expenseRepository.findOne({
+      where: { id },
+      withDeleted: true,
+    });
+
+    if (!expense) {
+      throw new NotFoundException(`Expense ${id} not found`);
+    }
+
+    if (!expense.deletedAt) {
+      throw new BadRequestException('Expense is not deleted');
+    }
+
+    await this.expenseRepository.restore(id);
+    await this.auditLogService.log(
+      'RESTORE',
+      'Expense',
+      `Restored expense: ${expense.referenceNumber}`,
+      { entityId: id, userId: userId ?? 'system', username },
+    );
+    return this.findOne(id);
+  }
+
+  async unpost(
+    id: string,
+    userId?: string,
+    username?: string,
+  ): Promise<ExpenseResponseDto> {
+    const expense = await this.expenseRepository.findOne({
+      where: { id },
+    });
+
+    if (!expense || expense.deletedAt) {
+      throw new NotFoundException(`Expense ${id} not found`);
+    }
+
+    if (expense.status !== ExpenseStatus.POSTED) {
+      throw new BadRequestException('Only posted expenses can be unposted');
+    }
+
+    await this.accountingService.reverseSourceEntries('expense', id, userId ?? 'system');
+
+    expense.status = ExpenseStatus.REVERSED;
+    await this.expenseRepository.save(expense);
+
+    await this.auditLogService.log(
+      'UNPOST',
+      'Expense',
+      `Unposted expense: ${expense.referenceNumber}`,
+      { entityId: id, userId: userId ?? 'system', username },
+    );
+    return this.findOne(id);
+  }
+
+  async getDeleted(): Promise<ExpenseResponseDto[]> {
+    const records = await this.expenseRepository.find({
+      withDeleted: true,
+      where: { deletedAt: Not(IsNull()) },
+      relations: ['paymentMethod', 'expenseAccount'],
+      order: { deletedAt: 'DESC' },
+    });
+    return records.map((r) => this.toResponseDto(r));
+  }
+
+  async permanentDelete(id: string, userId?: string, username?: string): Promise<void> {
+    const expense = await this.expenseRepository.findOne({
+      where: { id },
+      withDeleted: true,
+    });
+
+    if (!expense) {
+      throw new NotFoundException(`Expense ${id} not found`);
+    }
+
+    if (!expense.deletedAt) {
+      throw new BadRequestException('Expense must be soft-deleted before permanent deletion');
+    }
+
+    await this.expenseRepository.delete(id);
+    await this.auditLogService.log(
+      'DELETE',
+      'Expense',
+      `Permanently deleted expense: ${expense.referenceNumber}`,
+      { entityId: id, userId: userId ?? 'system', username },
+    );
+  }
+
+  async bulkPermanentDelete(
+    dto: BulkExpenseDto,
+    userId?: string,
+    username?: string,
+  ): Promise<{ deleted: number; failed: number }> {
+    let deleted = 0;
+    let failed = 0;
+
+    for (const id of dto.ids) {
+      try {
+        await this.permanentDelete(id, userId, username);
+        deleted++;
+      } catch (error) {
+        this.logger.error(`Failed to permanently delete expense ${id}: ${error.message}`);
+        failed++;
+      }
+    }
+
+    return { deleted, failed };
+  }
+
   private toResponseDto(expense: Expense): ExpenseResponseDto {
     return {
       id: expense.id,
@@ -356,6 +500,7 @@ export class ExpenseService {
       vendor: expense.vendor,
       status: expense.status,
       journalEntryId: expense.journalEntryId,
+      deletedAt: expense.deletedAt ?? null,
       createdAt: expense.createdAt,
       updatedAt: expense.updatedAt,
     };

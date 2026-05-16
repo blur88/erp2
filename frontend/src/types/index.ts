@@ -501,8 +501,9 @@ export interface ExpenseRecord {
   };
   description?: string;
   vendor?: string;
-  status: 'draft' | 'posted';
+  status: 'draft' | 'posted' | 'reversed';
   journalEntryId?: string;
+  deletedAt?: string | null;
   createdAt: string;
   updatedAt: string;
 }

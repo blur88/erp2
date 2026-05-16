@@ -25,6 +25,7 @@ describe('ExpenseService', () => {
     leftJoinAndSelect: jest.fn().mockReturnThis(),
     where: jest.fn().mockReturnThis(),
     andWhere: jest.fn().mockReturnThis(),
+    withDeleted: jest.fn().mockReturnThis(),
     orderBy: jest.fn().mockReturnThis(),
     skip: jest.fn().mockReturnThis(),
     take: jest.fn().mockReturnThis(),
@@ -43,6 +44,7 @@ describe('ExpenseService', () => {
             create: jest.fn(),
             save: jest.fn(),
             softDelete: jest.fn(),
+            restore: jest.fn(),
           },
         },
         {
@@ -61,6 +63,7 @@ describe('ExpenseService', () => {
           provide: AccountingService,
           useValue: {
             postExpenseEntry: jest.fn(),
+            reverseSourceEntries: jest.fn(),
           },
         },
         {
@@ -115,6 +118,37 @@ describe('ExpenseService', () => {
     expect(result.data).toHaveLength(1);
     expect(result.meta.total).toBe(1);
     expect(mockQueryBuilder.andWhere).toHaveBeenCalled();
+  });
+
+  describe('findAll with includeDeleted', () => {
+    const row = {
+      id: 'ex-1',
+      referenceNumber: 'EXP-1',
+      expenseDate: new Date('2026-02-01'),
+      expenseAccountId: 'coa-1',
+      amount: 10,
+      paymentMethodId: 'pm-1',
+      status: ExpenseStatus.DRAFT,
+      paymentMethod: { id: 'pm-1', code: 'CASH', name: 'Cash' },
+      expenseAccount: { id: 'coa-1', code: '6000', name: 'Utilities' },
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    } as any;
+
+    beforeEach(() => {
+      mockQueryBuilder.getManyAndCount.mockResolvedValue([[row], 1]);
+    });
+
+    it('does not call withDeleted when includeDeleted is false', async () => {
+      await service.findAll({ includeDeleted: false });
+      expect(mockQueryBuilder.withDeleted).not.toHaveBeenCalled();
+      expect(mockQueryBuilder.where).toHaveBeenCalledWith('e.deletedAt IS NULL');
+    });
+
+    it('calls withDeleted when includeDeleted is true', async () => {
+      await service.findAll({ includeDeleted: true });
+      expect(mockQueryBuilder.withDeleted).toHaveBeenCalled();
+    });
   });
 
   it('findOne returns a single expense with relations', async () => {
@@ -338,5 +372,97 @@ describe('ExpenseService', () => {
     expect(removeSpy).toHaveBeenCalledTimes(2);
     expect(postResult).toEqual({ posted: 2, failed: 0 });
     expect(deleteResult).toEqual({ deleted: 2, failed: 0 });
+  });
+
+  describe('restore', () => {
+    const deletedExpense = {
+      id: 'ex-del',
+      referenceNumber: 'EXP-DEL',
+      expenseDate: new Date('2026-02-01'),
+      expenseAccountId: 'coa-1',
+      amount: 10,
+      paymentMethodId: 'pm-1',
+      status: ExpenseStatus.DRAFT,
+      deletedAt: new Date('2026-03-01'),
+      paymentMethod: { id: 'pm-1', code: 'CASH', name: 'Cash' },
+      expenseAccount: { id: 'coa-1', code: '6000', name: 'Utilities' },
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    } as any;
+
+    it('restores a soft-deleted expense', async () => {
+      expenseRepository.findOne
+        .mockResolvedValueOnce(deletedExpense)
+        .mockResolvedValueOnce({ ...deletedExpense, deletedAt: null });
+      expenseRepository.restore.mockResolvedValue(undefined as any);
+
+      const result = await service.restore('ex-del', 'user-1', 'admin');
+
+      expect(expenseRepository.restore).toHaveBeenCalledWith('ex-del');
+      expect(result.id).toBe('ex-del');
+    });
+
+    it('throws NotFoundException for non-existent id', async () => {
+      expenseRepository.findOne.mockResolvedValue(null);
+      await expect(service.restore('bad-id')).rejects.toThrow(NotFoundException);
+    });
+
+    it('throws BadRequestException if expense is not deleted', async () => {
+      expenseRepository.findOne.mockResolvedValue({ ...deletedExpense, deletedAt: null });
+      await expect(service.restore('ex-del')).rejects.toThrow(BadRequestException);
+    });
+  });
+
+  describe('unpost', () => {
+    const postedExpense = {
+      id: 'ex-posted',
+      referenceNumber: 'EXP-POST',
+      expenseDate: new Date('2026-02-01'),
+      expenseAccountId: 'coa-1',
+      amount: 100,
+      paymentMethodId: 'pm-1',
+      status: ExpenseStatus.POSTED,
+      deletedAt: null,
+      paymentMethod: { id: 'pm-1', code: 'CASH', name: 'Cash' },
+      expenseAccount: { id: 'coa-1', code: '6000', name: 'Utilities' },
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    } as any;
+
+    it('reverses journal entry and sets status to REVERSED', async () => {
+      expenseRepository.findOne
+        .mockResolvedValueOnce(postedExpense)
+        .mockResolvedValueOnce({ ...postedExpense, status: ExpenseStatus.REVERSED });
+      accountingService.reverseSourceEntries.mockResolvedValue(undefined as any);
+      expenseRepository.save.mockResolvedValue({
+        ...postedExpense,
+        status: ExpenseStatus.REVERSED,
+      } as any);
+
+      const result = await service.unpost('ex-posted', 'user-1', 'admin');
+
+      expect(accountingService.reverseSourceEntries).toHaveBeenCalledWith(
+        'expense',
+        'ex-posted',
+        'user-1',
+      );
+      expect(expenseRepository.save).toHaveBeenCalledWith(
+        expect.objectContaining({ status: ExpenseStatus.REVERSED }),
+      );
+      expect(result.status).toBe('reversed');
+    });
+
+    it('throws NotFoundException for non-existent id', async () => {
+      expenseRepository.findOne.mockResolvedValue(null);
+      await expect(service.unpost('bad-id')).rejects.toThrow(NotFoundException);
+    });
+
+    it('throws BadRequestException if status is not POSTED', async () => {
+      expenseRepository.findOne.mockResolvedValue({
+        ...postedExpense,
+        status: ExpenseStatus.DRAFT,
+      });
+      await expect(service.unpost('ex-posted')).rejects.toThrow(BadRequestException);
+    });
   });
 });

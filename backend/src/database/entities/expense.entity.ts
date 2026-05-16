@@ -21,6 +21,7 @@ import { JournalEntry } from './journal-entry.entity';
 export enum ExpenseStatus {
   DRAFT = 'draft',
   POSTED = 'posted',
+  REVERSED = 'reversed',
 }
 
 @Entity('expenses')
