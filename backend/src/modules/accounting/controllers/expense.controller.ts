@@ -67,9 +67,7 @@ export class ExpenseController {
     @CurrentUser('userId') currentUserId: string,
     @CurrentUser('username') currentUsername: string,
   ) {
-    return Promise.all(
-      dto.ids.map((id) => this.expenseService.restore(id, currentUserId, currentUsername)),
-    );
+    return this.expenseService.bulkRestore(dto, currentUserId, currentUsername);
   }
 
   @Get(':id')

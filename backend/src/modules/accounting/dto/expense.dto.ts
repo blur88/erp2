@@ -140,6 +140,7 @@ export class ExpenseResponseDto {
   vendor?: string;
   status: string;
   journalEntryId?: string;
+  deletedAt?: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }

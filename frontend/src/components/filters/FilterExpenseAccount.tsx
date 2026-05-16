@@ -22,7 +22,7 @@ export function FilterExpenseAccount({ field, value, onChange }: Props) {
     () =>
       (data?.data ?? []).map((account) => ({
         value: account.id,
-        label: `${account.code} - ${account.name}`,
+        label: `${account.code} — ${account.name}`,
       })),
     [data],
   )

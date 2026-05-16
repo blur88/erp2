@@ -33,7 +33,7 @@ const columns: ColumnConfig<ExpenseRecord>[] = [
   },
   {
     key: 'vendor',
-    render: (row) => row.vendor ?? '-',
+    render: (row) => row.vendor ?? '—',
     width: '25%',
   },
   {

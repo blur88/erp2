@@ -246,6 +246,10 @@ export class ExpenseService {
       throw new BadRequestException('Cannot delete a posted expense');
     }
 
+    if (expense.status === ExpenseStatus.REVERSED) {
+      throw new BadRequestException('Cannot delete a reversed expense');
+    }
+
     await this.expenseRepository.softDelete(id);
     await this.auditLogService.log(
       'DELETE',
@@ -336,6 +340,27 @@ export class ExpenseService {
     return { deleted, failed };
   }
 
+  async bulkRestore(
+    dto: BulkExpenseDto,
+    userId?: string,
+    username?: string,
+  ): Promise<{ restored: number; failed: number }> {
+    let restored = 0;
+    let failed = 0;
+
+    for (const id of dto.ids) {
+      try {
+        await this.restore(id, userId, username);
+        restored++;
+      } catch (error) {
+        this.logger.error(`Failed to restore expense ${id}: ${error.message}`);
+        failed++;
+      }
+    }
+
+    return { restored, failed };
+  }
+
   async restore(
     id: string,
     userId?: string,
@@ -421,6 +446,7 @@ export class ExpenseService {
       vendor: expense.vendor,
       status: expense.status,
       journalEntryId: expense.journalEntryId,
+      deletedAt: expense.deletedAt ?? null,
       createdAt: expense.createdAt,
       updatedAt: expense.updatedAt,
     };

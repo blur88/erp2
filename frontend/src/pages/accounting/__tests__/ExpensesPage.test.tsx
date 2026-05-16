@@ -177,7 +177,7 @@ describe('ExpensesPage', () => {
     )
   })
 
-  it('passes expenseAccountId to query when account filter applied', () => {
+  it('expenseAccountId defaults to undefined in initial query', () => {
     renderPage()
     expect(mockedApi.useGetExpensesQuery).toHaveBeenCalledWith(
       expect.objectContaining({ expenseAccountId: undefined }),

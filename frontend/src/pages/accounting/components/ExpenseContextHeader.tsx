@@ -70,7 +70,7 @@ export function ExpenseContextHeader({
 
   const isDraft = selected.status === 'draft'
   const isPosted = selected.status === 'posted'
-  const isDeleted = !!(selected as ExpenseRecord & { deletedAt?: string | null }).deletedAt
+  const isDeleted = !!selected.deletedAt
 
   const actions = isDeleted ? (
     isAdmin ? (
