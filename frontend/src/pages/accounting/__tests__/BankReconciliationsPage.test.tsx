@@ -4,7 +4,7 @@ import { configureStore } from '@reduxjs/toolkit'
 import { Provider } from 'react-redux'
 import { MemoryRouter } from 'react-router-dom'
 
-import { BankReconciliationStatus } from '@/types'
+import { BankReconciliationStatus, FiscalPeriodStatus } from '@/types'
 import accountingReducer, { selectSelectedBankReconciliation } from '@/store/slices/accountingSlice'
 
 import BankReconciliationsPage from '../BankReconciliationsPage'
@@ -72,7 +72,10 @@ const mockedApi = vi.hoisted(() => ({
   useReopenBankReconciliationMutation: vi.fn(),
   useMarkBankReconciliationClearedMutation: vi.fn(),
   useUnmarkBankReconciliationClearedMutation: vi.fn(),
+  useCreateBankReconciliationMutation: vi.fn(),
+  useUpdateBankReconciliationMutation: vi.fn(),
   useGetChartOfAccountsQuery: vi.fn(),
+  useGetFiscalPeriodsQuery: vi.fn(),
   useGetDeletedBankReconciliationsQuery: vi.fn(),
   useRestoreBankReconciliationMutation: vi.fn(),
   usePermanentDeleteBankReconciliationMutation: vi.fn(),
@@ -109,7 +112,10 @@ describe('BankReconciliationsPage', () => {
     mockedApi.useReopenBankReconciliationMutation.mockReturnValue([vi.fn()])
     mockedApi.useMarkBankReconciliationClearedMutation.mockReturnValue([vi.fn()])
     mockedApi.useUnmarkBankReconciliationClearedMutation.mockReturnValue([vi.fn()])
+    mockedApi.useCreateBankReconciliationMutation.mockReturnValue([vi.fn(() => ({ unwrap: vi.fn().mockResolvedValue({}) }))])
+    mockedApi.useUpdateBankReconciliationMutation.mockReturnValue([vi.fn(() => ({ unwrap: vi.fn().mockResolvedValue({}) }))])
     mockedApi.useGetChartOfAccountsQuery.mockReturnValue({ data: { data: [] } })
+    mockedApi.useGetFiscalPeriodsQuery.mockReturnValue({ data: { data: [] } })
     mockedApi.useGetDeletedBankReconciliationsQuery.mockReturnValue({ data: [], isFetching: false, isLoading: false, refetch: vi.fn() })
     mockedApi.useRestoreBankReconciliationMutation.mockReturnValue([vi.fn()])
     mockedApi.usePermanentDeleteBankReconciliationMutation.mockReturnValue([vi.fn()])
@@ -244,6 +250,54 @@ describe('BankReconciliationsPage', () => {
 
     await waitFor(() => {
       expect(selectSelectedBankReconciliation(store.getState())?.id).toBe('rec-1')
+    })
+  })
+
+  describe('BankReconciliationFormDialog account/period field locking', () => {
+    const renderActualDialog = async (reconciliation: typeof MOCK_RECONCILIATION_IN_PROGRESS) => {
+      const { default: BankReconciliationFormDialog } = await vi.importActual<
+        typeof import('@/components/accounting/BankReconciliationFormDialog')
+      >('@/components/accounting/BankReconciliationFormDialog')
+
+      mockedApi.useGetChartOfAccountsQuery.mockReturnValue({
+        data: {
+          data: [
+            { id: 'acc-1', code: 'BANK001', name: 'Main Checking', type: 'asset' },
+          ],
+        },
+      })
+      mockedApi.useGetFiscalPeriodsQuery.mockReturnValue({
+        data: {
+          data: [
+            { id: 'fp-1', code: 'OCT24', name: 'October 2024', status: FiscalPeriodStatus.OPEN },
+          ],
+        },
+      })
+
+      render(
+        <BankReconciliationFormDialog
+          open
+          reconciliation={reconciliation as any}
+          onClose={vi.fn()}
+          onSuccess={vi.fn()}
+        />,
+      )
+    }
+
+    it('enables Account and Fiscal Period selects when editing an in-progress reconciliation', async () => {
+      await renderActualDialog(MOCK_RECONCILIATION_IN_PROGRESS)
+
+      const [accountSelect, periodSelect] = screen.getAllByRole('combobox')
+      expect(accountSelect).not.toHaveAttribute('aria-disabled', 'true')
+      expect(periodSelect).not.toHaveAttribute('aria-disabled', 'true')
+    })
+
+    it('disables Account and Fiscal Period selects when editing a completed reconciliation', async () => {
+      await renderActualDialog(MOCK_RECONCILIATION_COMPLETED)
+
+      const [accountSelect, periodSelect] = screen.getAllByRole('combobox')
+      expect(accountSelect).toHaveAttribute('aria-disabled', 'true')
+      expect(periodSelect).toHaveAttribute('aria-disabled', 'true')
     })
   })
 })
