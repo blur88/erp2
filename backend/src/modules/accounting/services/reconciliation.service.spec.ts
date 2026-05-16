@@ -566,6 +566,81 @@ describe('ReconciliationService', () => {
         ).rejects.toThrow(BadRequestException);
       });
     });
+
+    describe('fiscal period change', () => {
+      const newPeriod = {
+        id: 'period-002',
+        code: '2026-02',
+        name: 'February 2026',
+        startDate: new Date('2026-02-01'),
+        endDate: new Date('2026-02-28'),
+        status: FiscalPeriodStatus.OPEN,
+      };
+
+      it('updates fiscal period and leaves transactions untouched', async () => {
+        const updatedRecon = { ...mockReconciliation, fiscalPeriodId: 'period-002' };
+
+        fiscalPeriodRepo.findOne.mockResolvedValue(newPeriod as any);
+        reconciliationRepo.findOne
+          .mockResolvedValueOnce({
+            ...mockReconciliation,
+            accountId: 'acct-001',
+            fiscalPeriodId: 'period-001',
+          } as any)
+          .mockResolvedValueOnce(null)
+          .mockResolvedValueOnce(updatedRecon as any);
+        reconciliationRepo.save.mockResolvedValue(updatedRecon as any);
+
+        const result = await service.update('recon-001', { fiscalPeriodId: 'period-002' } as any);
+
+        expect(reconciledTxnRepo.find).not.toHaveBeenCalled();
+        expect(result.fiscalPeriodId).toBe('period-002');
+      });
+
+      it('throws NotFoundException when new fiscal period does not exist', async () => {
+        reconciliationRepo.findOne.mockResolvedValueOnce({
+          ...mockReconciliation,
+          fiscalPeriodId: 'period-001',
+        } as any);
+        fiscalPeriodRepo.findOne.mockResolvedValue(null);
+
+        await expect(
+          service.update('recon-001', { fiscalPeriodId: 'period-bad' } as any),
+        ).rejects.toThrow(NotFoundException);
+      });
+
+      it('throws BadRequestException when new fiscal period is closed', async () => {
+        reconciliationRepo.findOne.mockResolvedValueOnce({
+          ...mockReconciliation,
+          fiscalPeriodId: 'period-001',
+        } as any);
+        fiscalPeriodRepo.findOne.mockResolvedValue({
+          ...newPeriod,
+          status: FiscalPeriodStatus.CLOSED,
+        } as any);
+
+        await expect(
+          service.update('recon-001', { fiscalPeriodId: 'period-002' } as any),
+        ).rejects.toThrow(BadRequestException);
+      });
+
+      it('throws BadRequestException when account+new period already has an in-progress reconciliation', async () => {
+        const duplicateRecon = { ...mockReconciliation, id: 'recon-999', fiscalPeriodId: 'period-002' };
+
+        fiscalPeriodRepo.findOne.mockResolvedValue(newPeriod as any);
+        reconciliationRepo.findOne
+          .mockResolvedValueOnce({
+            ...mockReconciliation,
+            accountId: 'acct-001',
+            fiscalPeriodId: 'period-001',
+          } as any)
+          .mockResolvedValueOnce(duplicateRecon as any);
+
+        await expect(
+          service.update('recon-001', { fiscalPeriodId: 'period-002' } as any),
+        ).rejects.toThrow(BadRequestException);
+      });
+    });
   });
 
   describe('remove', () => {
