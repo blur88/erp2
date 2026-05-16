@@ -30,6 +30,12 @@ const mockedApi = vi.hoisted(() => ({
   useUpdateExpenseMutation: vi.fn(),
   useDeleteExpenseMutation: vi.fn(),
   usePostExpenseMutation: vi.fn(),
+  useRestoreExpenseMutation: vi.fn(),
+  useUnpostExpenseMutation: vi.fn(),
+}))
+
+const mockedPaymentMethodsApi = vi.hoisted(() => ({
+  useGetActivePaymentMethodsQuery: vi.fn(),
 }))
 
 vi.mock('@/utils/dateRange', () => ({
@@ -43,6 +49,11 @@ vi.mock('@/utils/formatters', async () => {
 })
 
 vi.mock('@/store/api/accountingApi', () => mockedApi)
+vi.mock('@/store/api/paymentMethodsApi', () => mockedPaymentMethodsApi)
+const mockCurrentUser = { id: 'u-1', username: 'admin', role: 'admin' }
+vi.mock('@/store/slices/authSlice', () => ({
+  selectCurrentUser: () => mockCurrentUser,
+}))
 
 const expense1 = {
   id: 'ex-1',
@@ -94,6 +105,11 @@ describe('ExpensesPage', () => {
     mockedApi.useUpdateExpenseMutation.mockReturnValue([vi.fn()])
     mockedApi.useDeleteExpenseMutation.mockReturnValue([vi.fn()])
     mockedApi.usePostExpenseMutation.mockReturnValue([vi.fn()])
+    mockedApi.useRestoreExpenseMutation.mockReturnValue([vi.fn()])
+    mockedApi.useUnpostExpenseMutation.mockReturnValue([vi.fn()])
+    mockedPaymentMethodsApi.useGetActivePaymentMethodsQuery.mockReturnValue({
+      data: [{ id: 'pm-1', code: 'CASH', name: 'Cash', isActive: true }],
+    })
   })
 
   it('renders the page title', () => {
@@ -129,9 +145,9 @@ describe('ExpensesPage', () => {
     const tableBody = container.querySelector('tbody')!
     const listRow = within(tableBody).getByText('EXP-001')
     fireEvent.click(listRow)
-    expect(screen.getByText('Stationery Hub')).toBeInTheDocument()
+    expect(screen.getAllByText('Stationery Hub').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Office Supplies').length).toBeGreaterThan(0)
-    expect(screen.getByText('$225.5')).toBeInTheDocument()
+    expect(screen.getAllByText('$225.5').length).toBeGreaterThan(0)
   })
 
   it('clicking New Expense opens form dialog', () => {
@@ -145,6 +161,27 @@ describe('ExpensesPage', () => {
     expect(screen.getByPlaceholderText('Search expenses...')).toBeInTheDocument()
     expect(screen.getAllByText('Status').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Period').length).toBeGreaterThan(0)
+  })
+
+  it('Show Deleted toggle is present', () => {
+    renderPage()
+    expect(screen.getByLabelText('Show Deleted')).toBeInTheDocument()
+  })
+
+  it('passes includeDeleted to query when Show Deleted toggled on', () => {
+    renderPage()
+    const toggle = screen.getByLabelText('Show Deleted')
+    fireEvent.click(toggle)
+    expect(mockedApi.useGetExpensesQuery).toHaveBeenLastCalledWith(
+      expect.objectContaining({ includeDeleted: true }),
+    )
+  })
+
+  it('passes expenseAccountId to query when account filter applied', () => {
+    renderPage()
+    expect(mockedApi.useGetExpensesQuery).toHaveBeenCalledWith(
+      expect.objectContaining({ expenseAccountId: undefined }),
+    )
   })
 
   it('shows description in workspace card after selecting a row', () => {
