@@ -114,11 +114,17 @@ const ExpensesPage: React.FC = () => {
           <ExpensesDialogs
             postTarget={workspace.postTarget}
             deleteTarget={workspace.deleteTarget}
+            unpostTarget={workspace.unpostTarget}
+            restoreTarget={workspace.restoreTarget}
             actionLoading={workspace.actionLoading}
             onConfirmPost={workspace.handleConfirmPost}
             onConfirmDelete={workspace.handleConfirmDelete}
+            onConfirmUnpost={workspace.handleConfirmUnpost}
+            onConfirmRestore={workspace.handleConfirmRestore}
             onCancelPost={() => workspace.setPostTarget(null)}
             onCancelDelete={() => workspace.setDeleteTarget(null)}
+            onCancelUnpost={() => workspace.setUnpostTarget(null)}
+            onCancelRestore={() => workspace.setRestoreTarget(null)}
           />
           <ExpenseFormDialog
             open={workspace.formOpen}

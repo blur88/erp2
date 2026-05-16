@@ -7,6 +7,8 @@ import type { AppDispatch } from '@/store'
 import {
   useDeleteExpenseMutation,
   usePostExpenseMutation,
+  useRestoreExpenseMutation,
+  useUnpostExpenseMutation,
 } from '@/store/api/accountingApi'
 import { setSelectedExpense } from '@/store/slices/accountingSlice'
 import type { ExpenseRecord } from '@/types'
@@ -22,12 +24,16 @@ export function useExpensesWorkspace(
   const { showSuccess, showError } = useNotification()
   const [postTarget, setPostTarget] = useState<ExpenseRecord | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<ExpenseRecord | null>(null)
+  const [unpostTarget, setUnpostTarget] = useState<ExpenseRecord | null>(null)
+  const [restoreTarget, setRestoreTarget] = useState<ExpenseRecord | null>(null)
   const [actionLoading, setActionLoading] = useState(false)
   const [formOpen, setFormOpen] = useState(false)
   const [editTarget, setEditTarget] = useState<ExpenseRecord | null>(null)
 
   const [postExpense] = usePostExpenseMutation()
   const [deleteExpense] = useDeleteExpenseMutation()
+  const [restoreExpense] = useRestoreExpenseMutation()
+  const [unpostExpense] = useUnpostExpenseMutation()
 
   const workspace = useEntityWorkspace<ExpenseRecord>({
     entities: expenses,
@@ -48,6 +54,8 @@ export function useExpensesWorkspace(
       dispatch(setSelectedExpense(null))
       setPostTarget(null)
       setDeleteTarget(null)
+      setUnpostTarget(null)
+      setRestoreTarget(null)
     },
   })
 
@@ -87,6 +95,42 @@ export function useExpensesWorkspace(
     }
   }, [deleteTarget, deleteExpense, showSuccess, showError, refetch, dispatch])
 
+  const handleConfirmUnpost = useCallback(async () => {
+    if (!unpostTarget) return
+    setActionLoading(true)
+    try {
+      await unpostExpense(unpostTarget.id).unwrap()
+      showSuccess(`Expense ${unpostTarget.referenceNumber} unposted`)
+      setUnpostTarget(null)
+      dispatch(setSelectedExpense(null))
+      refetch()
+    }
+    catch (error: unknown) {
+      showError(getErrorMessage(error, 'Failed to unpost expense'))
+    }
+    finally {
+      setActionLoading(false)
+    }
+  }, [unpostTarget, unpostExpense, showSuccess, showError, refetch, dispatch])
+
+  const handleConfirmRestore = useCallback(async () => {
+    if (!restoreTarget) return
+    setActionLoading(true)
+    try {
+      await restoreExpense(restoreTarget.id).unwrap()
+      showSuccess(`Expense ${restoreTarget.referenceNumber} restored`)
+      setRestoreTarget(null)
+      dispatch(setSelectedExpense(null))
+      refetch()
+    }
+    catch (error: unknown) {
+      showError(getErrorMessage(error, 'Failed to restore expense'))
+    }
+    finally {
+      setActionLoading(false)
+    }
+  }, [restoreTarget, restoreExpense, showSuccess, showError, refetch, dispatch])
+
   return {
     focusedIndex: workspace.focusedIndex,
     listRef: workspace.listRef,
@@ -99,9 +143,15 @@ export function useExpensesWorkspace(
     setPostTarget,
     deleteTarget,
     setDeleteTarget,
+    unpostTarget,
+    setUnpostTarget,
+    restoreTarget,
+    setRestoreTarget,
     actionLoading,
     handleSelect: workspace.handleSelect,
     handleConfirmPost,
     handleConfirmDelete,
+    handleConfirmUnpost,
+    handleConfirmRestore,
   }
 }
