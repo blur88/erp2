@@ -1,4 +1,5 @@
-import React, { useMemo } from 'react'
+import React, { useMemo, useState } from 'react'
+import { FormControlLabel, Stack, Switch } from '@mui/material'
 
 import GenericListPage from '@/components/common/GenericListPage'
 import { useFilterBar } from '@/hooks/useFilterBar'
@@ -20,6 +21,8 @@ interface ExpenseFilters {
   search: string
   status: string | null
   period: PeriodValue
+  expenseAccountId: string | null
+  paymentMethodId: string | null
 }
 
 const filterConfig: FilterBarConfig<ExpenseFilters> = {
@@ -27,17 +30,23 @@ const filterConfig: FilterBarConfig<ExpenseFilters> = {
   fields: [
     { field: 'period', label: 'Period', type: 'period' },
     { field: 'status', label: 'Status', type: 'expense-status' },
+    { field: 'expenseAccountId', label: 'Expense Account', type: 'expense-account' },
+    { field: 'paymentMethodId', label: 'Payment Method', type: 'payment-method' },
   ],
   defaults: {
     search: '',
     status: null,
     period: { key: null, from: null, to: null },
+    expenseAccountId: null,
+    paymentMethodId: null,
   },
 }
 
 const ExpensesPage: React.FC = () => {
   const { appliedFilters, draftFilters, handlers, hasActiveFilters } = useFilterBar(filterConfig)
   const weekStartsOn = getStartOfWeek()
+  const [showDeleted, setShowDeleted] = useState(false)
+
   const dateRange = useMemo(() => {
     const period = appliedFilters.period
     if (!period || period.key === null) return { fromDate: undefined, toDate: undefined }
@@ -53,8 +62,11 @@ const ExpensesPage: React.FC = () => {
       startDate: dateRange.fromDate,
       endDate: dateRange.toDate,
       search: appliedFilters.search || undefined,
+      expenseAccountId: appliedFilters.expenseAccountId || undefined,
+      paymentMethodId: appliedFilters.paymentMethodId || undefined,
+      includeDeleted: showDeleted || undefined,
     }),
-    [appliedFilters.status, appliedFilters.search, dateRange],
+    [appliedFilters, dateRange, showDeleted],
   )
 
   const { data: expensesResponse, isLoading, refetch } = useGetExpensesQuery(filters)
@@ -93,6 +105,21 @@ const ExpensesPage: React.FC = () => {
       hasActiveFilters={hasActiveFilters}
       searchInputRef={workspace.searchInputRef}
       sort={{ field: 'expenseDate', sortBy: 'expenseDate', sortOrder: 'desc', onSort: () => {} }}
+      filterExtra={(
+        <Stack direction="row" sx={{ alignItems: 'center' }}>
+          <FormControlLabel
+            control={(
+              <Switch
+                checked={showDeleted}
+                onChange={(event) => setShowDeleted(event.target.checked)}
+                size="small"
+              />
+            )}
+            label="Show Deleted"
+            sx={{ ml: 1 }}
+          />
+        </Stack>
+      )}
       listSlot={(
         <ExpensesTable
           expenses={rows}
