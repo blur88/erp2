@@ -5,6 +5,7 @@ import { useFilterBar } from '@/hooks/useFilterBar'
 import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
 import { useGetExpensesQuery } from '@/store/api/accountingApi'
 import { selectSelectedExpense } from '@/store/slices/accountingSlice'
+import { selectCurrentUser } from '@/store/slices/authSlice'
 import type { FilterBarConfig, PeriodValue } from '@/types/filterBar.types'
 import { getPeriodDateRange, getStartOfWeek } from '@/utils/dateRange'
 
@@ -60,6 +61,8 @@ const ExpensesPage: React.FC = () => {
   const rows = expensesResponse?.data ?? []
 
   const dispatch = useAppDispatch()
+  const currentUser = useAppSelector(selectCurrentUser)
+  const isAdmin = currentUser?.role === 'admin'
   const selected = useAppSelector(selectSelectedExpense)
   const workspace = useExpensesWorkspace(() => { void refetch() }, rows, dispatch, selected)
 
@@ -103,9 +106,12 @@ const ExpensesPage: React.FC = () => {
       headerSlot={(
         <ExpenseContextHeader
           selected={selected}
+          isAdmin={isAdmin}
           onEdit={openEdit}
           onPost={() => selected && workspace.setPostTarget(selected)}
           onDelete={() => selected && workspace.setDeleteTarget(selected)}
+          onUnpost={() => selected && workspace.setUnpostTarget(selected)}
+          onRestore={() => selected && workspace.setRestoreTarget(selected)}
         />
       )}
       workspaceSlot={<ExpenseWorkspaceCard selected={selected} />}
