@@ -284,8 +284,10 @@ const CreatePurchaseOrderPage: React.FC = () => {
     }
   }
 
-  const handleProductSelect = (index: number, product: any) => {
+  const handleProductSelect = async (index: number, product: any) => {
     if (product) {
+      seedProducts([product])
+      await Promise.resolve()
       setValue(`items.${index}.productId`, product.id)
       setValue(`items.${index}.unitPrice`, Number(product.baseCost || 0))
       setValue(`items.${index}.product`, product)
@@ -331,7 +333,6 @@ const CreatePurchaseOrderPage: React.FC = () => {
   // Note: We use JSON.stringify for watchedItems because it's a proxy object from watch()
   // and the reference doesn't change when item values change
   const totals = React.useMemo(() => {
-    console.log('[useMemo] Recalculating totals')
     return calculateOrderTotals()
   }, [JSON.stringify(watchedItems), watchedShipping])
 

@@ -368,8 +368,10 @@ const CreateSalesOrderPage: React.FC = () => {
     }
   }
 
-  const handleProductSelect = (index: number, product: any) => {
+  const handleProductSelect = async (index: number, product: any) => {
     if (product) {
+      seedProducts([product])
+      await Promise.resolve()
       setValue(`items.${index}.productId`, product.id)
 
       // Use price list system to determine the price

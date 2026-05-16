@@ -127,6 +127,8 @@ describe('CreateStockAdjustmentPage product search', { timeout: 60000 }, () => {
   })
 
   it('keeps the selected product visible when another search replaces the shared options list', async () => {
+    const user = userEvent.setup()
+
     render(
       <BrowserRouter>
         <CreateStockAdjustmentPage />
@@ -134,22 +136,22 @@ describe('CreateStockAdjustmentPage product search', { timeout: 60000 }, () => {
     )
 
     const [firstProductInput] = screen.getAllByPlaceholderText('Search by name or barcode...')
-    fireEvent.mouseDown(firstProductInput)
+    await user.click(firstProductInput)
 
     const initialListbox = await screen.findByRole('listbox')
-    fireEvent.click(within(initialListbox).getByText('Alpha Widget'))
+    await user.click(within(initialListbox).getByText('Alpha Widget'))
 
     await waitFor(() => {
       expect(firstProductInput).toHaveValue('Alpha Widget')
     })
 
-    fireEvent.click(screen.getByRole('button', { name: /add item/i }))
+    await user.click(screen.getByRole('button', { name: /add item/i }))
 
     const productInputs = screen.getAllByPlaceholderText('Search by name or barcode...')
     const secondProductInput = productInputs[1]
 
-    fireEvent.mouseDown(secondProductInput)
-    fireEvent.change(secondProductInput, { target: { value: replacementSearchTerm } })
+    await user.click(secondProductInput)
+    await user.type(secondProductInput, replacementSearchTerm)
 
     await waitFor(() => {
       expect(mockGet).toHaveBeenCalledWith('/inventory/products', {
@@ -358,8 +360,7 @@ describe('CreateStockAdjustmentPage submit', { timeout: 60000 }, () => {
 
     const newQtyInput = screen.getByTestId('items.0.newQuantity') as HTMLInputElement
 
-    await user.clear(newQtyInput)
-    await user.type(newQtyInput, '10')
+    fireEvent.change(newQtyInput, { target: { value: '10' } })
     await user.click(screen.getByRole('button', { name: /create adjustment/i }))
 
     await waitFor(() => {

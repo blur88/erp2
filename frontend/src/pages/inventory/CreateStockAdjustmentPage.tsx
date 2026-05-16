@@ -237,6 +237,8 @@ const CreateStockAdjustmentPage: React.FC = () => {
 
   const handleProductSelect = async (index: number, product: any) => {
     if (product) {
+      // Keep selected product in the options list so it stays visible if another row's search replaces products
+      seedProducts([product])
       // Fetch fresh product data to get current stock
       try {
         const response = await ApiService.get(`/inventory/products/${product.id}`)
@@ -244,6 +246,7 @@ const CreateStockAdjustmentPage: React.FC = () => {
 
         setValue(`items.${index}.productId`, freshProduct.id)
         setValue(`items.${index}.product`, freshProduct)
+        seedProducts([freshProduct])
         setValue(`items.${index}.oldQuantity`, Number(freshProduct.stockQuantity || 0))
         setValue(`items.${index}.newQuantity`, Number(freshProduct.stockQuantity || 0))
       } catch (err) {

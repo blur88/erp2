@@ -162,6 +162,8 @@ describe('CreatePurchaseOrderPage', { timeout: 60000 }, () => {
   })
 
   it('keeps the selected product visible when another search replaces the shared options list', async () => {
+    const user = userEvent.setup()
+
     render(
       <BrowserRouter>
         <CreatePurchaseOrderPage />
@@ -170,22 +172,21 @@ describe('CreatePurchaseOrderPage', { timeout: 60000 }, () => {
 
     const [firstProductInput] = screen.getAllByPlaceholderText('Search by name or barcode...')
 
-    fireEvent.mouseDown(firstProductInput)
-
+    await user.click(firstProductInput)
     const initialListbox = await screen.findByRole('listbox')
-    fireEvent.click(within(initialListbox).getByText('Alpha Widget'))
+    await user.click(within(initialListbox).getByText('Alpha Widget'))
 
     await waitFor(() => {
       expect(firstProductInput).toHaveValue('Alpha Widget')
     })
 
-    fireEvent.click(screen.getByRole('button', { name: /add item/i }))
+    await user.click(screen.getByRole('button', { name: /add item/i }))
 
     const productInputs = screen.getAllByPlaceholderText('Search by name or barcode...')
     const secondProductInput = productInputs[1]
 
-    fireEvent.mouseDown(secondProductInput)
-    fireEvent.change(secondProductInput, { target: { value: replacementSearchTerm } })
+    await user.click(secondProductInput)
+    await user.type(secondProductInput, replacementSearchTerm)
 
     await waitFor(() => {
       expect(mockGet).toHaveBeenCalledWith('/inventory/products', {
