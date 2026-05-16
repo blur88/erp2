@@ -246,6 +246,7 @@ export const accountingApiSlice = createApi({
     'FiscalPeriod',
     'AccountMapping',
     'BankReconciliation',
+    'DeletedBankReconciliation',
     'PaymentMethod',
     'Settlement',
     'OwnerEquity',
@@ -316,6 +317,11 @@ export const accountingApiSlice = createApi({
       query: (id) => ({ url: `/accounting/bank-reconciliations/${id}` }),
       transformResponse: normalizeSingle<BankReconciliation>,
       providesTags: (_result, _error, id) => [{ type: 'BankReconciliation', id }],
+    }),
+    getDeletedBankReconciliations: builder.query<BankReconciliation[], void>({
+      query: () => ({ url: '/accounting/bank-reconciliations/deleted' }),
+      transformResponse: (response: any) => (Array.isArray(response) ? response : response?.data ?? []),
+      providesTags: ['DeletedBankReconciliation'],
     }),
     getPaymentMethods: builder.query<PaginatedResponse<PaymentMethodConfig>, Record<string, unknown> | undefined>({
       query: (params) => ({ url: '/settings/payment-methods', params: params ?? {} }),
@@ -597,6 +603,38 @@ export const accountingApiSlice = createApi({
       transformResponse: normalizeSingle<BankReconciliation>,
       invalidatesTags: (_result, _error, id) => [{ type: 'BankReconciliation', id }, 'BankReconciliation', 'AccountingReport'],
     }),
+    restoreBankReconciliation: builder.mutation<BankReconciliation, string>({
+      query: (id) => ({ url: `/accounting/bank-reconciliations/${id}/restore`, method: 'POST' }),
+      transformResponse: normalizeSingle<BankReconciliation>,
+      invalidatesTags: (_result, _error, id) => [
+        { type: 'BankReconciliation', id },
+        'BankReconciliation',
+        'DeletedBankReconciliation',
+      ],
+    }),
+    permanentDeleteBankReconciliation: builder.mutation<void, string>({
+      query: (id) => ({ url: `/accounting/bank-reconciliations/${id}/permanent`, method: 'DELETE' }),
+      invalidatesTags: (_result, _error, id) => [
+        { type: 'BankReconciliation', id },
+        'DeletedBankReconciliation',
+      ],
+    }),
+    bulkRestoreBankReconciliations: builder.mutation<{ restoredCount: number; failedIds: string[] }, string[]>({
+      query: (ids) => ({
+        url: '/accounting/bank-reconciliations/bulk-restore',
+        method: 'POST',
+        data: { ids },
+      }),
+      invalidatesTags: ['BankReconciliation', 'DeletedBankReconciliation'],
+    }),
+    bulkPermanentDeleteBankReconciliations: builder.mutation<{ deletedCount: number; failedIds: string[] }, string[]>({
+      query: (ids) => ({
+        url: '/accounting/bank-reconciliations/bulk-permanent',
+        method: 'DELETE',
+        data: { ids },
+      }),
+      invalidatesTags: ['DeletedBankReconciliation'],
+    }),
     createPaymentMethod: builder.mutation<PaymentMethodConfig, Partial<PaymentMethodConfig>>({
       query: (body) => ({ url: '/settings/payment-methods', method: 'POST', data: body }),
       transformResponse: normalizeSingle<PaymentMethodConfig>,
@@ -757,6 +795,7 @@ export const {
   useGetBankReconciliationsQuery,
   useGetBankReconciliationQuery,
   useLazyGetBankReconciliationQuery,
+  useGetDeletedBankReconciliationsQuery,
   useGetPaymentMethodsQuery,
   useGetDeletedPaymentMethodsQuery,
   useGetSettlementsQuery,
@@ -804,6 +843,10 @@ export const {
   useUnmarkBankReconciliationClearedMutation,
   useCompleteBankReconciliationMutation,
   useReopenBankReconciliationMutation,
+  useRestoreBankReconciliationMutation,
+  usePermanentDeleteBankReconciliationMutation,
+  useBulkRestoreBankReconciliationsMutation,
+  useBulkPermanentDeleteBankReconciliationsMutation,
   useCreatePaymentMethodMutation,
   useUpdatePaymentMethodMutation,
   useDeletePaymentMethodMutation,

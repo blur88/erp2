@@ -5,7 +5,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, Not, IsNull } from 'typeorm';
 import {
   BankReconciliation,
   BankReconciliationStatus,
@@ -216,6 +216,138 @@ export class ReconciliationService {
     }
 
     return this.toResponseDto(reconciliation);
+  }
+
+  async getDeleted(): Promise<BankReconciliationResponseDto[]> {
+    const records = await this.reconciliationRepository.find({
+      withDeleted: true,
+      where: { deletedAt: Not(IsNull()) },
+      relations: ['account', 'fiscalPeriod'],
+      order: { deletedAt: 'DESC' },
+    });
+    return records.map((r) => this.toResponseDto(r));
+  }
+
+  async restore(
+    id: string,
+    userId?: string,
+    username?: string,
+  ): Promise<BankReconciliationResponseDto> {
+    const reconciliation = await this.reconciliationRepository.findOne({
+      where: { id } as any,
+      withDeleted: true,
+    });
+
+    if (!reconciliation) {
+      throw new NotFoundException(`Bank reconciliation with ID '${id}' not found`);
+    }
+
+    if (!reconciliation.deletedAt) {
+      throw new BadRequestException('Bank reconciliation is not deleted');
+    }
+
+    const duplicate = await this.reconciliationRepository.findOne({
+      where: {
+        accountId: reconciliation.accountId,
+        fiscalPeriodId: reconciliation.fiscalPeriodId,
+        status: BankReconciliationStatus.IN_PROGRESS,
+      },
+    });
+    if (duplicate) {
+      throw new BadRequestException(
+        'Cannot restore: an in-progress reconciliation already exists for this account and period.',
+      );
+    }
+
+    await this.reconciliationRepository.restore(id);
+
+    await this.reconciliationRepository.save({
+      ...reconciliation,
+      isActive: true,
+      deletedAt: null,
+    } as any);
+
+    await this.auditLogService.log(
+      'RESTORE',
+      'BankReconciliation',
+      'Restored bank reconciliation',
+      { entityId: id, userId: userId ?? 'system', username },
+    );
+
+    this.logger.log(`Bank reconciliation restored: ${id}`);
+    return this.findOne(id);
+  }
+
+  async permanentDelete(id: string, userId?: string, username?: string): Promise<void> {
+    const reconciliation = await this.reconciliationRepository.findOne({
+      where: { id } as any,
+      withDeleted: true,
+    });
+
+    if (!reconciliation) {
+      throw new NotFoundException(`Bank reconciliation with ID '${id}' not found`);
+    }
+
+    if (!reconciliation.deletedAt) {
+      throw new BadRequestException('Bank reconciliation must be soft-deleted before permanent deletion');
+    }
+
+    await this.reconciliationRepository.delete(id);
+
+    await this.auditLogService.log(
+      'DELETE',
+      'BankReconciliation',
+      'Permanently deleted bank reconciliation',
+      { entityId: id, userId: userId ?? 'system', username },
+    );
+
+    this.logger.log(`Bank reconciliation permanently deleted: ${id}`);
+  }
+
+  async bulkRestore(
+    ids: string[],
+    userId?: string,
+    username?: string,
+  ): Promise<{ restoredCount: number; failedIds: string[] }> {
+    if (ids.length === 0) return { restoredCount: 0, failedIds: [] };
+
+    let restoredCount = 0;
+    const failedIds: string[] = [];
+
+    for (const id of ids) {
+      try {
+        await this.restore(id, userId, username);
+        restoredCount += 1;
+      } catch (error: any) {
+        this.logger.warn(`Failed to restore bank reconciliation '${id}': ${error.message}`);
+        failedIds.push(id);
+      }
+    }
+
+    return { restoredCount, failedIds };
+  }
+
+  async bulkPermanentDelete(
+    ids: string[],
+    userId?: string,
+    username?: string,
+  ): Promise<{ deletedCount: number; failedIds: string[] }> {
+    if (ids.length === 0) return { deletedCount: 0, failedIds: [] };
+
+    let deletedCount = 0;
+    const failedIds: string[] = [];
+
+    for (const id of ids) {
+      try {
+        await this.permanentDelete(id, userId, username);
+        deletedCount += 1;
+      } catch (error: any) {
+        this.logger.warn(`Failed to permanently delete bank reconciliation '${id}': ${error.message}`);
+        failedIds.push(id);
+      }
+    }
+
+    return { deletedCount, failedIds };
   }
 
   /**
