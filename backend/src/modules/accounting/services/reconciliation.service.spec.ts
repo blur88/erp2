@@ -105,6 +105,7 @@ describe('ReconciliationService', () => {
             find: jest.fn(),
             create: jest.fn(),
             save: jest.fn(),
+            delete: jest.fn(),
             createQueryBuilder: jest.fn(),
           },
         },
@@ -486,6 +487,84 @@ describe('ReconciliationService', () => {
       await expect(
         service.update('nonexistent', { statementBalance: 51000 }),
       ).rejects.toThrow(NotFoundException);
+    });
+
+    describe('account change', () => {
+      const newAccount = {
+        id: 'acct-002',
+        code: '1001',
+        name: 'Bank Account',
+        type: 'ASSET',
+        isActive: true,
+      };
+
+      it('deletes all transactions, reloads for new account, resets statementBalance to 0', async () => {
+        const existingRecon = {
+          ...mockReconciliation,
+          accountId: 'acct-001',
+          statementBalance: 50000,
+        };
+        const existingTxns = [
+          { id: 'txn-1', reconciliationId: 'recon-001', journalEntryLineId: 'line-1', cleared: true },
+          { id: 'txn-2', reconciliationId: 'recon-001', journalEntryLineId: 'line-2', cleared: false },
+        ];
+        const updatedRecon = {
+          ...mockReconciliation,
+          accountId: 'acct-002',
+          statementBalance: 0,
+          bookBalance: 30000,
+          difference: -30000,
+        };
+
+        chartOfAccountRepo.findOne.mockResolvedValue(newAccount as any);
+        reconciliationRepo.findOne
+          .mockResolvedValueOnce(existingRecon as any)
+          .mockResolvedValueOnce(null)
+          .mockResolvedValueOnce(updatedRecon as any);
+        reconciledTxnRepo.find.mockResolvedValue(existingTxns as any);
+        reconciledTxnRepo.delete.mockResolvedValue({ affected: 2 } as any);
+        reconciliationRepo.save.mockResolvedValue(updatedRecon as any);
+        journalEntryLineRepo.createQueryBuilder.mockReturnValue(
+          createMockQueryBuilder([], 0) as any,
+        );
+        reconciledTxnRepo.create.mockReturnValue({} as any);
+
+        const result = await service.update('recon-001', { accountId: 'acct-002' } as any);
+
+        expect(reconciledTxnRepo.find).toHaveBeenCalledWith({
+          where: { reconciliationId: 'recon-001' },
+        });
+        expect(reconciledTxnRepo.delete).toHaveBeenCalledWith({ reconciliationId: 'recon-001' });
+        expect(result.accountId).toBe('acct-002');
+      });
+
+      it('throws NotFoundException when new account does not exist', async () => {
+        reconciliationRepo.findOne.mockResolvedValueOnce({
+          ...mockReconciliation,
+          accountId: 'acct-001',
+        } as any);
+        chartOfAccountRepo.findOne.mockResolvedValue(null);
+
+        await expect(
+          service.update('recon-001', { accountId: 'acct-bad' } as any),
+        ).rejects.toThrow(NotFoundException);
+      });
+
+      it('throws BadRequestException when new account+period already has an in-progress reconciliation', async () => {
+        const duplicateRecon = { ...mockReconciliation, id: 'recon-999', accountId: 'acct-002' };
+
+        chartOfAccountRepo.findOne.mockResolvedValue(newAccount as any);
+        reconciliationRepo.findOne
+          .mockResolvedValueOnce({
+            ...mockReconciliation,
+            accountId: 'acct-001',
+          } as any)
+          .mockResolvedValueOnce(duplicateRecon as any);
+
+        await expect(
+          service.update('recon-001', { accountId: 'acct-002' } as any),
+        ).rejects.toThrow(BadRequestException);
+      });
     });
   });
 

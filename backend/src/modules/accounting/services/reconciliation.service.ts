@@ -351,7 +351,7 @@ export class ReconciliationService {
   }
 
   /**
-   * Update reconciliation (statement balance, date)
+   * Update reconciliation
    */
   async update(
     id: string,
@@ -369,6 +369,69 @@ export class ReconciliationService {
 
     if (reconciliation.status === BankReconciliationStatus.COMPLETED) {
       throw new BadRequestException('Cannot update a completed reconciliation');
+    }
+
+    if (updateDto.accountId !== undefined && updateDto.accountId !== reconciliation.accountId) {
+      const newAccount = await this.chartOfAccountRepository.findOne({
+        where: { id: updateDto.accountId, isActive: true },
+      });
+      if (!newAccount) {
+        throw new NotFoundException(`Account with ID '${updateDto.accountId}' not found or inactive`);
+      }
+
+      const duplicate = await this.reconciliationRepository.findOne({
+        where: {
+          accountId: updateDto.accountId,
+          fiscalPeriodId: updateDto.fiscalPeriodId ?? reconciliation.fiscalPeriodId,
+          status: BankReconciliationStatus.IN_PROGRESS,
+        },
+      });
+      if (duplicate && duplicate.id !== id) {
+        throw new BadRequestException(
+          'An in-progress reconciliation already exists for this account and period. Complete or delete it first.',
+        );
+      }
+
+      await this.reconciledTransactionRepository.find({
+        where: { reconciliationId: id },
+      });
+      await this.reconciledTransactionRepository.delete({ reconciliationId: id });
+
+      const newBookBalance = await this.calculateBookBalance(updateDto.accountId);
+      reconciliation.accountId = updateDto.accountId;
+      reconciliation.bookBalance = newBookBalance;
+      reconciliation.statementBalance = 0;
+      reconciliation.calculateDifference();
+
+      await this.reconciliationRepository.save(reconciliation);
+      await this.loadUnreconciledTransactions(id, updateDto.accountId);
+    }
+
+    if (updateDto.fiscalPeriodId !== undefined && updateDto.fiscalPeriodId !== reconciliation.fiscalPeriodId) {
+      const newPeriod = await this.fiscalPeriodRepository.findOne({
+        where: { id: updateDto.fiscalPeriodId },
+      });
+      if (!newPeriod) {
+        throw new NotFoundException(`Fiscal period with ID '${updateDto.fiscalPeriodId}' not found`);
+      }
+      if (newPeriod.status === FiscalPeriodStatus.CLOSED) {
+        throw new BadRequestException(`Cannot set reconciliation to closed period '${newPeriod.name}'`);
+      }
+
+      const duplicate = await this.reconciliationRepository.findOne({
+        where: {
+          accountId: reconciliation.accountId,
+          fiscalPeriodId: updateDto.fiscalPeriodId,
+          status: BankReconciliationStatus.IN_PROGRESS,
+        },
+      });
+      if (duplicate && duplicate.id !== id) {
+        throw new BadRequestException(
+          'An in-progress reconciliation already exists for this account and period. Complete or delete it first.',
+        );
+      }
+
+      reconciliation.fiscalPeriodId = updateDto.fiscalPeriodId;
     }
 
     if (updateDto.reconciliationDate !== undefined) {

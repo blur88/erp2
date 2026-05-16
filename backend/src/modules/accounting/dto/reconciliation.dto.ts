@@ -38,6 +38,16 @@ export class CreateBankReconciliationDto {
 
 // Update DTO
 export class UpdateBankReconciliationDto {
+  @ApiPropertyOptional({ description: 'Bank/Cash account ID (Chart of Account)' })
+  @IsOptional()
+  @IsUUID()
+  accountId?: string;
+
+  @ApiPropertyOptional({ description: 'Fiscal period ID' })
+  @IsOptional()
+  @IsUUID()
+  fiscalPeriodId?: string;
+
   @ApiPropertyOptional({ description: 'Reconciliation date', type: Date })
   @IsOptional()
   @Type(() => Date)
