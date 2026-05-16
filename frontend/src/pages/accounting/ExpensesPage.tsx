@@ -46,7 +46,7 @@ const ExpensesPage: React.FC = () => {
   const { appliedFilters, draftFilters, handlers, hasActiveFilters } = useFilterBar(filterConfig)
   const weekStartsOn = getStartOfWeek()
   const [deletedOpen, setDeletedOpen] = useState(false)
-  const [sortBy, setSortBy] = useState('expenseDate')
+  const [sortBy, setSortBy] = useState('referenceNumber')
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
 
   const dateRange = useMemo(() => {
@@ -113,7 +113,7 @@ const ExpensesPage: React.FC = () => {
       handlers={handlers}
       hasActiveFilters={hasActiveFilters}
       searchInputRef={workspace.searchInputRef}
-      sort={{ field: 'expenseDate', sortBy, sortOrder, onSort: handleSort }}
+      sort={{ field: 'referenceNumber', sortBy, sortOrder, onSort: handleSort }}
       listSlot={(
         <ExpensesTable
           expenses={rows}

@@ -50,7 +50,7 @@ export class ExpenseService {
       startDate,
       endDate,
       search,
-      sortBy = 'expenseDate',
+      sortBy = 'referenceNumber',
       sortOrder = 'DESC',
       includeDeleted,
     } = query;
@@ -93,8 +93,8 @@ export class ExpenseService {
       );
     }
 
-    const allowedSortFields = ['expenseDate', 'createdAt', 'amount', 'vendor'];
-    const safeSortBy = allowedSortFields.includes(sortBy) ? sortBy : 'expenseDate';
+    const allowedSortFields = ['referenceNumber', 'expenseDate', 'createdAt', 'amount', 'vendor'];
+    const safeSortBy = allowedSortFields.includes(sortBy) ? sortBy : 'referenceNumber';
     const safeSortOrder = sortOrder === 'ASC' ? 'ASC' : 'DESC';
 
     qb.orderBy(`e.${safeSortBy}`, safeSortOrder).skip((page - 1) * limit).take(limit);
