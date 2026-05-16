@@ -52,13 +52,19 @@ export class ExpenseService {
       search,
       sortBy = 'expenseDate',
       sortOrder = 'DESC',
+      includeDeleted,
     } = query;
 
     const qb = this.expenseRepository
       .createQueryBuilder('e')
       .leftJoinAndSelect('e.paymentMethod', 'paymentMethod')
-      .leftJoinAndSelect('e.expenseAccount', 'expenseAccount')
-      .where('e.deletedAt IS NULL');
+      .leftJoinAndSelect('e.expenseAccount', 'expenseAccount');
+
+    if (!includeDeleted) {
+      qb.where('e.deletedAt IS NULL');
+    } else {
+      qb.withDeleted();
+    }
 
     if (expenseAccountId) {
       qb.andWhere('e.expenseAccountId = :expenseAccountId', { expenseAccountId });
@@ -328,6 +334,65 @@ export class ExpenseService {
     }
 
     return { deleted, failed };
+  }
+
+  async restore(
+    id: string,
+    userId?: string,
+    username?: string,
+  ): Promise<ExpenseResponseDto> {
+    const expense = await this.expenseRepository.findOne({
+      where: { id },
+      withDeleted: true,
+    });
+
+    if (!expense) {
+      throw new NotFoundException(`Expense ${id} not found`);
+    }
+
+    if (!expense.deletedAt) {
+      throw new BadRequestException('Expense is not deleted');
+    }
+
+    await this.expenseRepository.restore(id);
+    await this.auditLogService.log(
+      'RESTORE',
+      'Expense',
+      `Restored expense: ${expense.referenceNumber}`,
+      { entityId: id, userId: userId ?? 'system', username },
+    );
+    return this.findOne(id);
+  }
+
+  async unpost(
+    id: string,
+    userId?: string,
+    username?: string,
+  ): Promise<ExpenseResponseDto> {
+    const expense = await this.expenseRepository.findOne({
+      where: { id },
+    });
+
+    if (!expense || expense.deletedAt) {
+      throw new NotFoundException(`Expense ${id} not found`);
+    }
+
+    if (expense.status !== ExpenseStatus.POSTED) {
+      throw new BadRequestException('Only posted expenses can be unposted');
+    }
+
+    await this.accountingService.reverseSourceEntries('expense', id, userId ?? 'system');
+
+    expense.status = ExpenseStatus.REVERSED;
+    await this.expenseRepository.save(expense);
+
+    await this.auditLogService.log(
+      'UNPOST',
+      'Expense',
+      `Unposted expense: ${expense.referenceNumber}`,
+      { entityId: id, userId: userId ?? 'system', username },
+    );
+    return this.findOne(id);
   }
 
   private toResponseDto(expense: Expense): ExpenseResponseDto {

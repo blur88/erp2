@@ -3,13 +3,14 @@ import {
   IsOptional,
   IsEnum,
   IsNumber,
+  IsBoolean,
   IsDateString,
   IsUUID,
   IsArray,
   Min,
   MaxLength,
 } from 'class-validator';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 
 export class CreateExpenseDto {
   @IsDateString()
@@ -105,6 +106,11 @@ export class QueryExpenseDto {
   @IsOptional()
   @IsString()
   sortOrder?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  @Transform(({ value }) => value === 'true' || value === true)
+  includeDeleted?: boolean;
 }
 
 export class BulkExpenseDto {
