@@ -26,7 +26,7 @@ const columns: ColumnDef<DeletedBankReconciliation>[] = [
     width: '30%',
     render: (item) => (
       <Typography variant="body2" sx={{ fontWeight: 600 }}>
-        {item.account ? `${item.account.code} - ${item.account.name}` : '-'}
+        {item.account ? `${item.account.code} — ${item.account.name}` : '—'}
       </Typography>
     ),
   },
@@ -67,7 +67,7 @@ const DeletedBankReconciliationsDialog: React.FC<DeletedBankReconciliationsDialo
     entityLabelPlural="reconciliations"
     icon={<AccountBalanceIcon sx={{ color: 'error.main' }} />}
     columns={columns}
-    getItemLabel={(item) => (item.account ? `${item.account.code} - ${item.account.name}` : item.id)}
+    getItemLabel={(item) => (item.account ? `${item.account.code} — ${item.account.name}` : item.id)}
     searchPlaceholder="Search deleted reconciliations..."
     filterItem={(item, term) =>
       (item.account?.name?.toLowerCase().includes(term) ?? false) ||

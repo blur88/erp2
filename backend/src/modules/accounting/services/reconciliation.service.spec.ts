@@ -324,6 +324,71 @@ describe('ReconciliationService', () => {
 
       await expect(service.permanentDelete('bad-id')).rejects.toThrow(NotFoundException);
     });
+
+    it('throws BadRequestException when reconciliation is not soft-deleted', async () => {
+      reconciliationRepo.findOne.mockResolvedValue(mockReconciliation as any);
+
+      await expect(service.permanentDelete('recon-001')).rejects.toThrow(BadRequestException);
+    });
+  });
+
+  describe('bulkRestore', () => {
+    it('returns zero counts for empty input', async () => {
+      const result = await service.bulkRestore([]);
+      expect(result).toEqual({ restoredCount: 0, failedIds: [] });
+    });
+
+    it('restores all ids and returns restoredCount', async () => {
+      const deletedRecon = { ...mockReconciliation, deletedAt: new Date('2026-02-01'), isActive: false };
+      const restoredRecon = { ...deletedRecon, deletedAt: null, isActive: true, reconciledTransactions: [] };
+      reconciliationRepo.findOne
+        .mockResolvedValueOnce(deletedRecon as any)  // restore: withDeleted lookup
+        .mockResolvedValueOnce(null as any)           // restore: duplicate check
+        .mockResolvedValueOnce(restoredRecon as any); // findOne for response
+      reconciliationRepo.restore.mockResolvedValue(undefined as any);
+      reconciliationRepo.save.mockResolvedValue(restoredRecon as any);
+
+      const result = await service.bulkRestore(['recon-001'], 'user-1', 'admin');
+
+      expect(result.restoredCount).toBe(1);
+      expect(result.failedIds).toEqual([]);
+    });
+
+    it('collects failedIds when restore throws', async () => {
+      reconciliationRepo.findOne.mockResolvedValue(null);
+
+      const result = await service.bulkRestore(['bad-id'], 'user-1', 'admin');
+
+      expect(result.restoredCount).toBe(0);
+      expect(result.failedIds).toEqual(['bad-id']);
+    });
+  });
+
+  describe('bulkPermanentDelete', () => {
+    it('returns zero counts for empty input', async () => {
+      const result = await service.bulkPermanentDelete([]);
+      expect(result).toEqual({ deletedCount: 0, failedIds: [] });
+    });
+
+    it('permanently deletes all ids and returns deletedCount', async () => {
+      const deletedRecon = { ...mockReconciliation, deletedAt: new Date('2026-02-01') };
+      reconciliationRepo.findOne.mockResolvedValue(deletedRecon as any);
+      reconciliationRepo.delete.mockResolvedValue({ affected: 1 } as any);
+
+      const result = await service.bulkPermanentDelete(['recon-001'], 'user-1', 'admin');
+
+      expect(result.deletedCount).toBe(1);
+      expect(result.failedIds).toEqual([]);
+    });
+
+    it('collects failedIds when permanentDelete throws', async () => {
+      reconciliationRepo.findOne.mockResolvedValue(null);
+
+      const result = await service.bulkPermanentDelete(['bad-id'], 'user-1', 'admin');
+
+      expect(result.deletedCount).toBe(0);
+      expect(result.failedIds).toEqual(['bad-id']);
+    });
   });
 
   describe('findAll', () => {
