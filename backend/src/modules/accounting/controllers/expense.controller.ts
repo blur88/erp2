@@ -60,6 +60,21 @@ export class ExpenseController {
     return this.expenseService.bulkDelete(dto, currentUserId, currentUsername);
   }
 
+  @Get('deleted')
+  getDeleted() {
+    return this.expenseService.getDeleted();
+  }
+
+  @Delete('bulk-permanent')
+  @Auth(UserRole.ADMIN)
+  bulkPermanentDelete(
+    @Body() dto: BulkExpenseDto,
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
+  ) {
+    return this.expenseService.bulkPermanentDelete(dto, currentUserId, currentUsername);
+  }
+
   @Post('bulk-restore')
   @Auth(UserRole.ADMIN)
   bulkRestore(
@@ -124,5 +139,15 @@ export class ExpenseController {
     @CurrentUser('username') currentUsername: string,
   ) {
     return this.expenseService.unpost(id, currentUserId, currentUsername);
+  }
+
+  @Delete(':id/permanent')
+  @Auth(UserRole.ADMIN)
+  permanentDelete(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
+  ) {
+    return this.expenseService.permanentDelete(id, currentUserId, currentUsername);
   }
 }

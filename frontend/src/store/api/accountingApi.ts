@@ -782,6 +782,23 @@ export const accountingApiSlice = createApi({
         'AccountingReport',
       ],
     }),
+    getDeletedExpenses: builder.query<ExpenseRecord[], void>({
+      query: () => ({ url: '/accounting/expenses/deleted' }),
+      transformResponse: (response: any) => (Array.isArray(response) ? response : response?.data ?? []),
+      providesTags: ['Expense'],
+    }),
+    permanentDeleteExpense: builder.mutation<void, string>({
+      query: (id) => ({ url: `/accounting/expenses/${id}/permanent`, method: 'DELETE' }),
+      invalidatesTags: ['Expense'],
+    }),
+    bulkPermanentDeleteExpenses: builder.mutation<{ deleted: number; failed: number }, string[]>({
+      query: (ids) => ({ url: '/accounting/expenses/bulk-permanent', method: 'DELETE', data: { ids } }),
+      invalidatesTags: ['Expense'],
+    }),
+    bulkRestoreExpenses: builder.mutation<{ restored: number; failed: number }, string[]>({
+      query: (ids) => ({ url: '/accounting/expenses/bulk-restore', method: 'POST', data: { ids } }),
+      invalidatesTags: ['Expense'],
+    }),
     createFundTransfer: builder.mutation<FundTransfer, CreateFundTransferPayload>({
       query: (body) => ({ url: '/accounting/fund-transfers', method: 'POST', data: body }),
       transformResponse: normalizeSingle<FundTransfer>,
@@ -890,6 +907,10 @@ export const {
   useBulkDeleteExpensesMutation,
   useRestoreExpenseMutation,
   useUnpostExpenseMutation,
+  useGetDeletedExpensesQuery,
+  usePermanentDeleteExpenseMutation,
+  useBulkPermanentDeleteExpensesMutation,
+  useBulkRestoreExpensesMutation,
   useCreateFundTransferMutation,
   useCancelFundTransferMutation,
 } = accountingApiSlice

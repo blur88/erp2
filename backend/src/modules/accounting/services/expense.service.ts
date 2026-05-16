@@ -5,7 +5,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, Not, IsNull } from 'typeorm';
 import { Expense, ExpenseStatus } from '../../../database/entities/expense.entity';
 import { PaymentMethodEntity } from '../../../database/entities/payment-method.entity';
 import {
@@ -418,6 +418,60 @@ export class ExpenseService {
       { entityId: id, userId: userId ?? 'system', username },
     );
     return this.findOne(id);
+  }
+
+  async getDeleted(): Promise<ExpenseResponseDto[]> {
+    const records = await this.expenseRepository.find({
+      withDeleted: true,
+      where: { deletedAt: Not(IsNull()) },
+      relations: ['paymentMethod', 'expenseAccount'],
+      order: { deletedAt: 'DESC' },
+    });
+    return records.map((r) => this.toResponseDto(r));
+  }
+
+  async permanentDelete(id: string, userId?: string, username?: string): Promise<void> {
+    const expense = await this.expenseRepository.findOne({
+      where: { id },
+      withDeleted: true,
+    });
+
+    if (!expense) {
+      throw new NotFoundException(`Expense ${id} not found`);
+    }
+
+    if (!expense.deletedAt) {
+      throw new BadRequestException('Expense must be soft-deleted before permanent deletion');
+    }
+
+    await this.expenseRepository.delete(id);
+    await this.auditLogService.log(
+      'DELETE',
+      'Expense',
+      `Permanently deleted expense: ${expense.referenceNumber}`,
+      { entityId: id, userId: userId ?? 'system', username },
+    );
+  }
+
+  async bulkPermanentDelete(
+    dto: BulkExpenseDto,
+    userId?: string,
+    username?: string,
+  ): Promise<{ deleted: number; failed: number }> {
+    let deleted = 0;
+    let failed = 0;
+
+    for (const id of dto.ids) {
+      try {
+        await this.permanentDelete(id, userId, username);
+        deleted++;
+      } catch (error) {
+        this.logger.error(`Failed to permanently delete expense ${id}: ${error.message}`);
+        failed++;
+      }
+    }
+
+    return { deleted, failed };
   }
 
   private toResponseDto(expense: Expense): ExpenseResponseDto {

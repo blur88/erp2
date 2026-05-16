@@ -1,12 +1,12 @@
 import React, { useMemo, useState } from 'react'
-import { FormControlLabel, Stack, Switch } from '@mui/material'
 
+import DeletedExpensesDialog from '@/components/accounting/DeletedExpensesDialog'
 import GenericListPage from '@/components/common/GenericListPage'
 import { useFilterBar } from '@/hooks/useFilterBar'
 import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
 import { useGetExpensesQuery } from '@/store/api/accountingApi'
-import { selectSelectedExpense } from '@/store/slices/accountingSlice'
 import { selectCurrentUser } from '@/store/slices/authSlice'
+import { selectSelectedExpense } from '@/store/slices/accountingSlice'
 import type { FilterBarConfig, PeriodValue } from '@/types/filterBar.types'
 import { getPeriodDateRange, getStartOfWeek } from '@/utils/dateRange'
 
@@ -45,7 +45,7 @@ const filterConfig: FilterBarConfig<ExpenseFilters> = {
 const ExpensesPage: React.FC = () => {
   const { appliedFilters, draftFilters, handlers, hasActiveFilters } = useFilterBar(filterConfig)
   const weekStartsOn = getStartOfWeek()
-  const [showDeleted, setShowDeleted] = useState(false)
+  const [deletedOpen, setDeletedOpen] = useState(false)
 
   const dateRange = useMemo(() => {
     const period = appliedFilters.period
@@ -64,9 +64,8 @@ const ExpensesPage: React.FC = () => {
       search: appliedFilters.search || undefined,
       expenseAccountId: appliedFilters.expenseAccountId || undefined,
       paymentMethodId: appliedFilters.paymentMethodId || undefined,
-      includeDeleted: showDeleted || undefined,
     }),
-    [appliedFilters, dateRange, showDeleted],
+    [appliedFilters, dateRange],
   )
 
   const { data: expensesResponse, isLoading, refetch } = useGetExpensesQuery(filters)
@@ -99,27 +98,13 @@ const ExpensesPage: React.FC = () => {
       title="Expenses"
       subtitle="Record and manage business expense transactions"
       primaryAction={{ label: 'New Expense', onClick: openCreate }}
+      secondaryAction={{ label: 'View Deleted', onClick: () => setDeletedOpen(true) }}
       filterConfig={filterConfig}
       draftFilters={draftFilters}
       handlers={handlers}
       hasActiveFilters={hasActiveFilters}
       searchInputRef={workspace.searchInputRef}
       sort={{ field: 'expenseDate', sortBy: 'expenseDate', sortOrder: 'desc', onSort: () => {} }}
-      filterExtra={(
-        <Stack direction="row" sx={{ alignItems: 'center' }}>
-          <FormControlLabel
-            control={(
-              <Switch
-                checked={showDeleted}
-                onChange={(event) => setShowDeleted(event.target.checked)}
-                size="small"
-              />
-            )}
-            label="Show Deleted"
-            sx={{ ml: 1 }}
-          />
-        </Stack>
-      )}
       listSlot={(
         <ExpensesTable
           expenses={rows}
@@ -164,6 +149,11 @@ const ExpensesPage: React.FC = () => {
             editTarget={workspace.editTarget}
             onClose={closeForm}
             onSaved={() => { void refetch() }}
+          />
+          <DeletedExpensesDialog
+            open={deletedOpen}
+            onClose={() => setDeletedOpen(false)}
+            onChanged={() => { void refetch() }}
           />
         </>
       )}

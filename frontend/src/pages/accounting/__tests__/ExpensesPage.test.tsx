@@ -32,6 +32,10 @@ const mockedApi = vi.hoisted(() => ({
   usePostExpenseMutation: vi.fn(),
   useRestoreExpenseMutation: vi.fn(),
   useUnpostExpenseMutation: vi.fn(),
+  useGetDeletedExpensesQuery: vi.fn(),
+  usePermanentDeleteExpenseMutation: vi.fn(),
+  useBulkPermanentDeleteExpensesMutation: vi.fn(),
+  useBulkRestoreExpensesMutation: vi.fn(),
 }))
 
 const mockedPaymentMethodsApi = vi.hoisted(() => ({
@@ -107,6 +111,10 @@ describe('ExpensesPage', () => {
     mockedApi.usePostExpenseMutation.mockReturnValue([vi.fn()])
     mockedApi.useRestoreExpenseMutation.mockReturnValue([vi.fn()])
     mockedApi.useUnpostExpenseMutation.mockReturnValue([vi.fn()])
+    mockedApi.useGetDeletedExpensesQuery.mockReturnValue({ data: [], isLoading: false })
+    mockedApi.usePermanentDeleteExpenseMutation.mockReturnValue([vi.fn()])
+    mockedApi.useBulkPermanentDeleteExpensesMutation.mockReturnValue([vi.fn()])
+    mockedApi.useBulkRestoreExpensesMutation.mockReturnValue([vi.fn()])
     mockedPaymentMethodsApi.useGetActivePaymentMethodsQuery.mockReturnValue({
       data: [{ id: 'pm-1', code: 'CASH', name: 'Cash', isActive: true }],
     })
@@ -163,18 +171,9 @@ describe('ExpensesPage', () => {
     expect(screen.getAllByText('Period').length).toBeGreaterThan(0)
   })
 
-  it('Show Deleted toggle is present', () => {
+  it('View Deleted button is present', () => {
     renderPage()
-    expect(screen.getByLabelText('Show Deleted')).toBeInTheDocument()
-  })
-
-  it('passes includeDeleted to query when Show Deleted toggled on', () => {
-    renderPage()
-    const toggle = screen.getByLabelText('Show Deleted')
-    fireEvent.click(toggle)
-    expect(mockedApi.useGetExpensesQuery).toHaveBeenLastCalledWith(
-      expect.objectContaining({ includeDeleted: true }),
-    )
+    expect(screen.getByRole('button', { name: 'View Deleted' })).toBeInTheDocument()
   })
 
   it('expenseAccountId defaults to undefined in initial query', () => {
