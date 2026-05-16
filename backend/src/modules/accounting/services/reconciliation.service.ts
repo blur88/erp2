@@ -371,7 +371,10 @@ export class ReconciliationService {
       throw new BadRequestException('Cannot update a completed reconciliation');
     }
 
-    if (updateDto.accountId !== undefined && updateDto.accountId !== reconciliation.accountId) {
+    const accountChanged =
+      updateDto.accountId !== undefined && updateDto.accountId !== reconciliation.accountId;
+
+    if (accountChanged) {
       const newAccount = await this.chartOfAccountRepository.findOne({
         where: { id: updateDto.accountId, isActive: true },
       });
@@ -392,19 +395,13 @@ export class ReconciliationService {
         );
       }
 
-      await this.reconciledTransactionRepository.find({
-        where: { reconciliationId: id },
-      });
       await this.reconciledTransactionRepository.delete({ reconciliationId: id });
 
-      const newBookBalance = await this.calculateBookBalance(updateDto.accountId);
-      reconciliation.accountId = updateDto.accountId;
+      const newBookBalance = await this.calculateBookBalance(updateDto.accountId!);
+      reconciliation.accountId = updateDto.accountId!;
       reconciliation.bookBalance = newBookBalance;
       reconciliation.statementBalance = 0;
       reconciliation.calculateDifference();
-
-      await this.reconciliationRepository.save(reconciliation);
-      await this.loadUnreconciledTransactions(id, updateDto.accountId);
     }
 
     if (updateDto.fiscalPeriodId !== undefined && updateDto.fiscalPeriodId !== reconciliation.fiscalPeriodId) {
@@ -437,7 +434,8 @@ export class ReconciliationService {
     if (updateDto.reconciliationDate !== undefined) {
       reconciliation.reconciliationDate = updateDto.reconciliationDate;
     }
-    if (updateDto.statementBalance !== undefined) {
+    // Skip statementBalance if account is changing — account change resets it to 0
+    if (updateDto.statementBalance !== undefined && !accountChanged) {
       reconciliation.statementBalance = updateDto.statementBalance;
     }
 
@@ -445,6 +443,12 @@ export class ReconciliationService {
     reconciliation.calculateDifference();
 
     await this.reconciliationRepository.save(reconciliation);
+
+    // Reload transactions after save so FK is committed before inserts
+    if (accountChanged) {
+      await this.loadUnreconciledTransactions(id, updateDto.accountId!);
+    }
+
     await this.auditLogService.log(
       'UPDATE',
       'BankReconciliation',

@@ -531,9 +531,7 @@ describe('ReconciliationService', () => {
 
         const result = await service.update('recon-001', { accountId: 'acct-002' } as any);
 
-        expect(reconciledTxnRepo.find).toHaveBeenCalledWith({
-          where: { reconciliationId: 'recon-001' },
-        });
+        expect(reconciledTxnRepo.find).not.toHaveBeenCalled();
         expect(reconciledTxnRepo.delete).toHaveBeenCalledWith({ reconciliationId: 'recon-001' });
         expect(result.accountId).toBe('acct-002');
       });
@@ -564,6 +562,64 @@ describe('ReconciliationService', () => {
         await expect(
           service.update('recon-001', { accountId: 'acct-002' } as any),
         ).rejects.toThrow(BadRequestException);
+      });
+
+      it('does not delete or reload transactions when accountId is unchanged (no-op)', async () => {
+        const updatedRecon = { ...mockReconciliation, statementBalance: 55000 };
+
+        reconciliationRepo.findOne
+          .mockResolvedValueOnce(mockReconciliation as any)
+          .mockResolvedValueOnce(updatedRecon as any);
+        reconciliationRepo.save.mockResolvedValue(updatedRecon as any);
+
+        // same accountId as current — should be treated as no-op for account change
+        await service.update('recon-001', { accountId: 'acct-001', statementBalance: 55000 } as any);
+
+        expect(reconciledTxnRepo.delete).not.toHaveBeenCalled();
+        expect(journalEntryLineRepo.createQueryBuilder).not.toHaveBeenCalled();
+      });
+
+      it('uses new accountId for duplicate check when both accountId and fiscalPeriodId change simultaneously', async () => {
+        const newPeriod = {
+          id: 'period-002',
+          code: '2026-02',
+          name: 'February 2026',
+          startDate: new Date('2026-02-01'),
+          endDate: new Date('2026-02-28'),
+          status: FiscalPeriodStatus.OPEN,
+        };
+        const updatedRecon = {
+          ...mockReconciliation,
+          accountId: 'acct-002',
+          fiscalPeriodId: 'period-002',
+          statementBalance: 0,
+        };
+
+        chartOfAccountRepo.findOne.mockResolvedValue(newAccount as any);
+        fiscalPeriodRepo.findOne.mockResolvedValue(newPeriod as any);
+        reconciliationRepo.findOne
+          .mockResolvedValueOnce({ ...mockReconciliation, accountId: 'acct-001', fiscalPeriodId: 'period-001' } as any)
+          .mockResolvedValueOnce(null)   // account-change duplicate check
+          .mockResolvedValueOnce(null)   // period-change duplicate check
+          .mockResolvedValueOnce(updatedRecon as any);
+        reconciledTxnRepo.delete.mockResolvedValue({ affected: 0 } as any);
+        reconciliationRepo.save.mockResolvedValue(updatedRecon as any);
+        journalEntryLineRepo.createQueryBuilder.mockReturnValue(createMockQueryBuilder([], 0) as any);
+        reconciledTxnRepo.create.mockReturnValue({} as any);
+
+        const result = await service.update('recon-001', {
+          accountId: 'acct-002',
+          fiscalPeriodId: 'period-002',
+        } as any);
+
+        // Account-change duplicate check must have used the new fiscalPeriodId (period-002)
+        expect(reconciliationRepo.findOne).toHaveBeenCalledWith(
+          expect.objectContaining({
+            where: expect.objectContaining({ accountId: 'acct-002', fiscalPeriodId: 'period-002' }),
+          }),
+        );
+        expect(result.accountId).toBe('acct-002');
+        expect(result.fiscalPeriodId).toBe('period-002');
       });
     });
 

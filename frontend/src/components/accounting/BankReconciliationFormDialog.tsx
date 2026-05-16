@@ -127,6 +127,7 @@ const BankReconciliationFormDialog: React.FC<BankReconciliationFormDialogProps> 
         await updateBankReconciliation({
           id: reconciliation.id,
           data: {
+            // always sent; service ignores if unchanged (guards on !== current value)
             accountId: formData.accountId,
             fiscalPeriodId: formData.fiscalPeriodId,
             reconciliationDate: formData.reconciliationDate,
