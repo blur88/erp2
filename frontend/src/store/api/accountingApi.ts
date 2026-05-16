@@ -553,7 +553,15 @@ export const accountingApiSlice = createApi({
     }),
     updateBankReconciliation: builder.mutation<
       BankReconciliation,
-      { id: string; data: { reconciliationDate?: string; statementBalance?: number } }
+      {
+        id: string;
+        data: {
+          accountId?: string;
+          fiscalPeriodId?: string;
+          reconciliationDate?: string;
+          statementBalance?: number;
+        };
+      }
     >({
       query: ({ id, data }) => ({ url: `/accounting/bank-reconciliations/${id}`, method: 'PATCH', data }),
       transformResponse: normalizeSingle<BankReconciliation>,

@@ -127,6 +127,8 @@ const BankReconciliationFormDialog: React.FC<BankReconciliationFormDialogProps> 
         await updateBankReconciliation({
           id: reconciliation.id,
           data: {
+            accountId: formData.accountId,
+            fiscalPeriodId: formData.fiscalPeriodId,
             reconciliationDate: formData.reconciliationDate,
             statementBalance: Number(formData.statementBalance),
           },
@@ -159,7 +161,7 @@ const BankReconciliationFormDialog: React.FC<BankReconciliationFormDialogProps> 
       <DialogTitle>{reconciliation ? 'Edit Reconciliation' : 'New Reconciliation'}</DialogTitle>
       <DialogContent>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 2 }}>
-          <FormControl fullWidth required error={!!errors.accountId} disabled={submitting || !!reconciliation}>
+          <FormControl fullWidth required error={!!errors.accountId} disabled={submitting || (!!reconciliation && !reconciliation.isInProgress)}>
             <InputLabel>Account</InputLabel>
             <Select
               value={formData.accountId}
@@ -174,7 +176,7 @@ const BankReconciliationFormDialog: React.FC<BankReconciliationFormDialogProps> 
             </Select>
           </FormControl>
 
-          <FormControl fullWidth required error={!!errors.fiscalPeriodId} disabled={submitting || !!reconciliation}>
+          <FormControl fullWidth required error={!!errors.fiscalPeriodId} disabled={submitting || (!!reconciliation && !reconciliation.isInProgress)}>
             <InputLabel>Fiscal Period</InputLabel>
             <Select
               value={formData.fiscalPeriodId}
