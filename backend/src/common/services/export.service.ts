@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import * as ExcelJS from 'exceljs';
 import { SettingsService } from '../../modules/settings/settings.service';
 
@@ -17,6 +17,8 @@ export interface GroupConfig {
 
 @Injectable()
 export class ExportService {
+  private readonly logger = new Logger(ExportService.name);
+
   constructor(private readonly settingsService: SettingsService) {}
 
   async exportFlat(
@@ -32,7 +34,9 @@ export class ExportService {
     rows.forEach(row => this.addDataRow(worksheet, columns, row));
     this.setColumnWidths(worksheet, columns);
 
-    return Buffer.from(await workbook.xlsx.writeBuffer());
+    const buffer = Buffer.from(await workbook.xlsx.writeBuffer());
+    this.logger.debug(`exportFlat: "${title}" — ${rows.length} rows, ${buffer.length} bytes`);
+    return buffer;
   }
 
   async exportGrouped(
@@ -73,7 +77,9 @@ export class ExportService {
 
     this.setColumnWidths(worksheet, columns);
 
-    return Buffer.from(await workbook.xlsx.writeBuffer());
+    const buffer = Buffer.from(await workbook.xlsx.writeBuffer());
+    this.logger.debug(`exportGrouped: "${title}" — ${rows.length} rows, ${buffer.length} bytes`);
+    return buffer;
   }
 
   private async addCompanyHeader(

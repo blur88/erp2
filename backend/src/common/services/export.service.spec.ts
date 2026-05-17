@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import * as ExcelJS from 'exceljs';
 import { ExportService } from './export.service';
 import { SettingsService } from '../../modules/settings/settings.service';
 
@@ -74,14 +75,31 @@ describe('ExportService', () => {
         { group: 'A', amount: 200 },
         { group: 'B', amount: 50 },
       ];
-      const group = {
-        groupKey: 'group',
-        groupLabel: 'Group',
-        subtotalColumns: ['amount'],
-      };
-      await expect(
-        service.exportGrouped('Test', columns, rows, group),
-      ).resolves.toBeTruthy();
+      const group = { groupKey: 'group', groupLabel: 'Group', subtotalColumns: ['amount'] };
+      const buffer = await service.exportGrouped('Test', columns, rows, group);
+
+      // Parse the buffer to verify subtotals
+      const workbook = new ExcelJS.Workbook();
+      await workbook.xlsx.load(buffer.buffer as ArrayBuffer);
+      const ws = workbook.worksheets[0];
+
+      // Find cells with subtotal labels and check their amount column
+      const subtotalRows: { label: string; amount: number }[] = [];
+      ws.eachRow(row => {
+        const label = String(row.getCell(1).value ?? '');
+        const amount = row.getCell(2).value;
+        if (label.startsWith('Subtotal') || label === 'Grand Total') {
+          subtotalRows.push({ label, amount: Number(amount) });
+        }
+      });
+
+      expect(subtotalRows.length).toBe(3); // Subtotal A, Subtotal B, Grand Total
+      const subtotalA = subtotalRows.find(r => r.label.includes('A'));
+      const subtotalB = subtotalRows.find(r => r.label.includes('B'));
+      const grandTotal = subtotalRows.find(r => r.label === 'Grand Total');
+      expect(subtotalA?.amount).toBe(300);
+      expect(subtotalB?.amount).toBe(50);
+      expect(grandTotal?.amount).toBe(350);
     });
   });
 });
