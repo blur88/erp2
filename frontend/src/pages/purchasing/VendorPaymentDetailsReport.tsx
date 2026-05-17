@@ -34,6 +34,7 @@ import { PRINT_STYLES } from '@/styles/printStyles'
 import { formatCurrency, formatDate, formatDateTime } from '@/utils/formatters'
 import { escapeHtml } from '@/utils/security'
 import { printReport } from '@/utils/printReport'
+import { exportReportExcel } from '@/utils/exportReport'
 import { TABLE_STYLES } from '@/constants/tableStyles'
 import api from '@/services/api'
 
@@ -119,108 +120,13 @@ const VendorPaymentDetailsReport: React.FC = () => {
     setRowsPerPage(25)
   }
 
-  const handleExportExcel = () => {
-    if (sortedData.length === 0) return
-
-    const columnHeaders: { [key: string]: string } = {
-      supplierName: 'Vendor',
-      paymentDate: 'Payment Date',
-      orderNumber: 'Order No',
-      paymentAmount: 'Amount'
-    }
-
-    let csv = reportTitle + '\n\n'
-    const headers = selectedColumns.map(col => columnHeaders[col] || col)
-    csv += headers.join(',') + '\n'
-
-    let prevGroupKey: any = null
-
-    const getExportGroupKey = (r: any) => {
-      return r[groupBy]
-    }
-
-    const getExportGroupLabel = (r: any) => {
-      if (groupBy === 'supplierName') {
-        return `Vendor: ${escapeHtml(r.supplierName)}`
-      } else if (groupBy === 'paymentDate') {
-        return `Payment Date: ${r.paymentDate ? escapeHtml(formatDate(r.paymentDate)) : 'N/A'}`
-      } else if (groupBy === 'orderNumber') {
-        return `Order No: ${escapeHtml(r.orderNumber || 'N/A')}`
-      }
-      return escapeHtml(r[groupBy])
-    }
-
-    sortedData.forEach((row, idx) => {
-      const currentGroupKey = groupBy !== 'none' ? getExportGroupKey(row) : null
-
-      if (groupBy !== 'none' && currentGroupKey !== prevGroupKey) {
-        const groupLabel = getExportGroupLabel(row)
-        csv += `\n"${groupLabel}"\n`
-        prevGroupKey = currentGroupKey
-      }
-
-      const values = selectedColumns.map(col => {
-        const value = (row as any)[col]
-        if (col === 'paymentDate') {
-          return value ? `"${formatDate(value)}"` : '""'
-        } else if (col === 'supplierName' || col === 'orderNumber') {
-          return `"${value || ''}"`
-        } else if (typeof value === 'number') {
-          return value.toFixed(2)
-        }
-        return `"${value || ''}"`
-      })
-      csv += values.join(',') + '\n'
-
-      const nextRow = idx < sortedData.length - 1 ? sortedData[idx + 1] : null
-      const nextGroupKey = nextRow && groupBy !== 'none' ? getExportGroupKey(nextRow) : null
-
-      if (groupBy !== 'none' && (!nextRow || currentGroupKey !== nextGroupKey)) {
-        const groupData = sortedData.filter(r => getExportGroupKey(r) === currentGroupKey)
-
-        const subtotal = {
-          paymentAmount: groupData.reduce((sum, r) => sum + r.paymentAmount, 0),
-        }
-
-        const subtotalValues = selectedColumns.map((col, colIdx) => {
-          if (colIdx === 0) {
-            return '"Subtotal"'
-          }
-          const value = (subtotal as any)[col]
-          if (typeof value === 'number') {
-            return value.toFixed(2)
-          }
-          return ''
-        })
-        csv += subtotalValues.join(',') + '\n'
-        csv += '\n'
-      }
-    })
-
-    if (totals) {
-      csv += '\n'
-      const totalValues = selectedColumns.map((col, colIdx) => {
-        if (colIdx === 0) {
-          return '"GRAND TOTAL"'
-        }
-        const value = (totals as any)[col]
-        if (typeof value === 'number') {
-          return value.toFixed(2)
-        }
-        return ''
-      })
-      csv += totalValues.join(',') + '\n'
-    }
-
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
-    const link = document.createElement('a')
-    const url = URL.createObjectURL(blob)
-    link.setAttribute('href', url)
-    link.setAttribute('download', `${reportTitle.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.csv`)
-    link.style.visibility = 'hidden'
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
+  const handleExportExcel = async () => {
+    const date = new Date().toISOString().split('T')[0]
+    await exportReportExcel(
+      '/purchasing/analytics/vendor-payment-details/export',
+      { dateFrom, dateTo, supplierId: selectedSupplier },
+      `vendor-payment-details-${date}.xlsx`,
+    )
   }
 
   const handleExportPDF = () => {
