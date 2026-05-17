@@ -43,6 +43,7 @@ import PageHeader from '@/components/common/PageHeader'
 import { formatCurrency, formatDate, formatDateTime } from '@/utils/formatters'
 import { escapeHtml } from '@/utils/security'
 import { printReport } from '@/utils/printReport'
+import { exportReportExcel } from '@/utils/exportReport'
 import { TABLE_STYLES } from '@/constants/tableStyles'
 import { ApiService } from '@/services/api'
 import { useGetProductsQuery, useGetCategoriesQuery } from '@/store/api/inventoryApi'
@@ -251,64 +252,13 @@ const MovementSummaryReport: React.FC = () => {
     setSelectedRemovedIds([])
   }
 
-  const handleExportExcel = () => {
-    if (sortedData.length === 0) return
-
-    const columnHeaders: { [key: string]: string } = {
-      productName: 'Item',
-      categoryName: 'Category',
-      quantityIn: 'Qty In',
-      quantityOut: 'Qty Out',
-      quantityOnHand: 'Qty on Hand'
-    }
-
-    let csv = reportTitle + '\n\n'
-    const headers = selectedColumns.map(col => columnHeaders[col] || col)
-    csv += headers.join(',') + '\n'
-
-    let prevGroupKey: any = null
-
-    const getExportGroupKey = (r: any) => {
-      return r[groupBy]
-    }
-
-    const getExportGroupLabel = (r: any) => {
-      if (groupBy === 'categoryName') {
-        return `Category: ${r.categoryName}`
-      }
-      return r[groupBy]
-    }
-
-    sortedData.forEach((row, idx) => {
-      const currentGroupKey = groupBy !== 'none' ? getExportGroupKey(row) : null
-
-      if (groupBy !== 'none' && currentGroupKey !== prevGroupKey) {
-        const groupLabel = getExportGroupLabel(row)
-        csv += `\n"${groupLabel}"\n`
-        prevGroupKey = currentGroupKey
-      }
-
-      const values = selectedColumns.map(col => {
-        if (col === 'productName' || col === 'categoryName') {
-          const value = (row as any)[col]
-          return `"${value || ''}"`
-        } else if (col === 'quantityIn' || col === 'quantityOut' || col === 'quantityOnHand') {
-          return Math.round((row as any)[col]).toString()
-        }
-        return '""'
-      })
-      csv += values.join(',') + '\n'
-    })
-
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
-    const link = document.createElement('a')
-    const url = URL.createObjectURL(blob)
-    link.setAttribute('href', url)
-    link.setAttribute('download', `${reportTitle.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.csv`)
-    link.style.visibility = 'hidden'
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
+  const handleExportExcel = async () => {
+    const date = new Date().toISOString().split('T')[0]
+    await exportReportExcel(
+      '/inventory/analytics/movement-summary/export',
+      { productIds: selectedProducts, categoryId: selectedCategory, startDate: startDate ? new Date(startDate).toISOString() : undefined, endDate: endDate ? new Date(endDate).toISOString() : undefined },
+      `movement-summary-${date}.xlsx`,
+    )
   }
 
   const handleExportPDF = () => {

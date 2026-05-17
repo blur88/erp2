@@ -41,6 +41,7 @@ import PageHeader from '@/components/common/PageHeader'
 import { formatCurrency, formatDate, formatDateTime } from '@/utils/formatters'
 import { escapeHtml } from '@/utils/security'
 import { printReport } from '@/utils/printReport'
+import { exportReportExcel } from '@/utils/exportReport'
 import { TABLE_STYLES } from '@/constants/tableStyles'
 import { ApiService } from '@/services/api'
 import { useGetProductsQuery, useGetCategoriesQuery } from '@/store/api/inventoryApi'
@@ -251,87 +252,13 @@ const ProductCostReport: React.FC = () => {
     setSelectedRemovedIds([])
   }
 
-  const handleExportExcel = () => {
-    if (sortedData.length === 0) return
-
-    const columnHeaders: { [key: string]: string } = {
-      productName: 'Product',
-      categoryName: 'Category',
-      transactionType: 'Type',
-      orderNumber: 'Order No',
-      orderDate: 'Order Date',
-      quantityChange: 'Qty Change',
-      quantityAfter: 'Qty After',
-      costChange: 'Cost Change',
-      totalCost: 'Total Cost',
-      averageCost: 'Average Cost'
-    }
-
-    let csv = reportTitle + '\n\n'
-    const headers = selectedColumns.map(col => columnHeaders[col] || col)
-    csv += headers.join(',') + '\n'
-
-    let prevGroupKey: any = null
-
-    const getExportGroupKey = (r: any) => {
-      return r[groupBy]
-    }
-
-    const getExportGroupLabel = (r: any) => {
-      if (groupBy === 'categoryName') {
-        return `Category: ${r.categoryName}`
-      } else if (groupBy === 'productName') {
-        return `Product: ${r.productName}`
-      } else if (groupBy === 'categoryAndProduct') {
-        return `${r.categoryName} - ${r.productName}`
-      }
-      return r[groupBy]
-    }
-
-    let groupSubtotals = { quantityChange: 0, costChange: 0 }
-
-    sortedData.forEach((row, idx) => {
-      const currentGroupKey = groupBy !== 'none' ? getExportGroupKey(row) : null
-
-      if (groupBy !== 'none' && currentGroupKey !== prevGroupKey) {
-        // Reset subtotals for new group
-        groupSubtotals = { quantityChange: 0, costChange: 0 }
-        const groupLabel = getExportGroupLabel(row)
-        csv += `\n"${groupLabel}"\n`
-        prevGroupKey = currentGroupKey
-      }
-
-      // Accumulate subtotals
-      if (groupBy !== 'none') {
-        groupSubtotals.quantityChange += row.quantityChange || 0
-        groupSubtotals.costChange += row.costChange || 0
-      }
-
-      const values = selectedColumns.map(col => {
-        if (col === 'productName' || col === 'categoryName' || col === 'transactionType' || col === 'orderNumber') {
-          const value = (row as any)[col]
-          return `"${value || ''}"`
-        } else if (col === 'orderDate') {
-          return `"${formatDate((row as any)[col])}"`
-        } else if (col === 'quantityChange' || col === 'quantityAfter') {
-          return ((row as any)[col] || 0).toFixed(2)
-        } else if (col === 'costChange' || col === 'totalCost' || col === 'averageCost') {
-          return ((row as any)[col] || 0).toFixed(2)
-        }
-        return '""'
-      })
-      csv += values.join(',') + '\n'
-    })
-
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
-    const link = document.createElement('a')
-    const url = URL.createObjectURL(blob)
-    link.setAttribute('href', url)
-    link.setAttribute('download', `${reportTitle.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.csv`)
-    link.style.visibility = 'hidden'
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
+  const handleExportExcel = async () => {
+    const date = new Date().toISOString().split('T')[0]
+    await exportReportExcel(
+      '/inventory/analytics/product-cost/export',
+      { productIds: selectedProducts, startDate: startDate ? new Date(startDate).toISOString() : undefined, endDate: endDate ? new Date(endDate).toISOString() : undefined },
+      `product-cost-${date}.xlsx`,
+    )
   }
 
   const handleExportPDF = () => {
