@@ -472,7 +472,9 @@ export class ReconciliationService {
     }
 
     if (reconciliation.status === BankReconciliationStatus.COMPLETED) {
-      throw new BadRequestException('Cannot delete a completed reconciliation');
+      throw new BadRequestException(
+        'Cannot delete a completed reconciliation. Please reopen it first.',
+      );
     }
 
     await this.reconciliationRepository.softDelete(id);
