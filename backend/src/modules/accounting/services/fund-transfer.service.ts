@@ -505,6 +505,7 @@ export class FundTransferService {
         : undefined,
       createdAt: transfer.createdAt,
       updatedAt: transfer.updatedAt,
+      deletedAt: transfer.deletedAt ?? null,
     };
   }
 }

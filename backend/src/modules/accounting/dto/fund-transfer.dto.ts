@@ -132,6 +132,7 @@ export class FundTransferResponseDto {
   journalEntry?: JournalEntrySummary;
   createdAt: Date;
   updatedAt: Date;
+  deletedAt?: Date | null;
 }
 
 export class FundTransferListResponseDto {
