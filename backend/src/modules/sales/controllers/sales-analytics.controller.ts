@@ -4,7 +4,9 @@ import {
   Query,
   ParseUUIDPipe,
   Param,
+  Res,
 } from '@nestjs/common';
+import { Response } from 'express';
 import {
   ApiTags,
   ApiOperation,
@@ -13,6 +15,7 @@ import {
   ApiParam,
 } from '@nestjs/swagger';
 import { SalesAnalyticsService } from '../services/sales-analytics.service';
+import { ExportService } from '../../../common/services/export.service';
 import {
   SalesAnalyticsQueryDto,
   SalesAnalyticsResponseDto,
@@ -30,7 +33,10 @@ import { InvoiceStatus } from '../../../database/entities/invoice.entity';
 @ApiTags('Sales Analytics')
 @Controller('sales/analytics')
 export class SalesAnalyticsController {
-  constructor(private readonly salesAnalyticsService: SalesAnalyticsService) {}
+  constructor(
+    private readonly salesAnalyticsService: SalesAnalyticsService,
+    private readonly exportService: ExportService,
+  ) {}
 
   @Get('dashboard')
   @ApiOperation({ summary: 'Get comprehensive sales analytics for dashboard' })
@@ -755,5 +761,380 @@ export class SalesAnalyticsController {
       inventoryStatus,
       paymentStatus,
     });
+  }
+
+  @Get('sales-order-summary/export')
+  @ApiOperation({ summary: 'Export sales order summary to Excel' })
+  async exportSalesOrderSummary(
+    @Query('dateFrom') dateFrom: string | undefined,
+    @Query('dateTo') dateTo: string | undefined,
+    @Query('customerId') customerId: string | undefined,
+    @Query('status') status: string | undefined,
+    @Query('paymentStatus') paymentStatus: string | undefined,
+    @Res() res: Response,
+  ): Promise<void> {
+    const { data } = await this.salesAnalyticsService.getSalesOrderProfitReport({
+      dateFrom: this.toDate(dateFrom),
+      dateTo: this.toDate(dateTo),
+      customerId,
+      status,
+      paymentStatus,
+    });
+    const columns = [
+      { key: 'customerName', header: 'Customer', type: 'string' as const, width: 25 },
+      { key: 'orderNumber', header: 'Order #', type: 'string' as const, width: 15 },
+      { key: 'orderDate', header: 'Date', type: 'date' as const, width: 14 },
+      { key: 'inventoryStatus', header: 'Inventory Status', type: 'string' as const, width: 18 },
+      { key: 'paymentStatus', header: 'Payment Status', type: 'string' as const, width: 16 },
+      { key: 'totalRevenue', header: 'Total', type: 'currency' as const, width: 15 },
+    ];
+    const buffer = await this.exportService.exportGrouped(
+      'Sales Order Summary',
+      columns,
+      data as any[],
+      {
+        groupKey: 'customerName',
+        groupLabel: 'Customer',
+        subtotalColumns: ['totalRevenue'],
+      },
+    );
+    this.sendExcel(res, buffer, 'sales-order-summary');
+  }
+
+  @Get('product-summary/export')
+  @ApiOperation({ summary: 'Export sales by product summary to Excel' })
+  async exportProductSummary(
+    @Query('dateFrom') dateFrom: string | undefined,
+    @Query('dateTo') dateTo: string | undefined,
+    @Query('categoryId') categoryId: string | undefined,
+    @Query('productIds') productIds: string | string[] | undefined,
+    @Res() res: Response,
+  ): Promise<void> {
+    const { data } = await this.salesAnalyticsService.getProductSummary({
+      dateFrom: this.toDate(dateFrom),
+      dateTo: this.toDate(dateTo),
+      categoryId,
+      productIds: this.normalizeIds(productIds),
+    });
+    const columns = [
+      { key: 'category', header: 'Category', type: 'string' as const, width: 20 },
+      { key: 'productName', header: 'Product', type: 'string' as const, width: 30 },
+      { key: 'soldQty', header: 'Sold Qty', type: 'number' as const, width: 12 },
+      { key: 'totalSales', header: 'Total Sales', type: 'currency' as const, width: 15 },
+      { key: 'cost', header: 'Cost', type: 'currency' as const, width: 15 },
+      { key: 'salesProfit', header: 'Sales Profit', type: 'currency' as const, width: 15 },
+      { key: 'purchaseQty', header: 'Purchase Qty', type: 'number' as const, width: 14 },
+      { key: 'purchaseSubtotal', header: 'Purchase Subtotal', type: 'currency' as const, width: 18 },
+      { key: 'totalProfit', header: 'Total Profit', type: 'currency' as const, width: 15 },
+    ];
+    const buffer = await this.exportService.exportGrouped(
+      'Sales by Product Summary',
+      columns,
+      data as any[],
+      {
+        groupKey: 'category',
+        groupLabel: 'Category',
+        subtotalColumns: ['soldQty', 'totalSales', 'cost', 'salesProfit', 'purchaseQty', 'purchaseSubtotal', 'totalProfit'],
+      },
+    );
+    this.sendExcel(res, buffer, 'sales-by-product-summary');
+  }
+
+  @Get('product-details/export')
+  @ApiOperation({ summary: 'Export sales by product details to Excel' })
+  async exportProductDetails(
+    @Query('dateFrom') dateFrom: string | undefined,
+    @Query('dateTo') dateTo: string | undefined,
+    @Query('categoryId') categoryId: string | undefined,
+    @Query('productIds') productIds: string | string[] | undefined,
+    @Res() res: Response,
+  ): Promise<void> {
+    const { data } = await this.salesAnalyticsService.getProductDetails({
+      dateFrom: this.toDate(dateFrom),
+      dateTo: this.toDate(dateTo),
+      categoryId,
+      productIds: this.normalizeIds(productIds),
+    });
+    const columns = [
+      { key: 'productName', header: 'Product', type: 'string' as const, width: 30 },
+      { key: 'category', header: 'Category', type: 'string' as const, width: 20 },
+      { key: 'transactionDate', header: 'Date', type: 'date' as const, width: 14 },
+      { key: 'documentNumber', header: 'Document #', type: 'string' as const, width: 18 },
+      { key: 'customerSupplier', header: 'Customer', type: 'string' as const, width: 25 },
+      { key: 'quantity', header: 'Qty', type: 'number' as const, width: 10 },
+      { key: 'unitPrice', header: 'Unit Price', type: 'currency' as const, width: 15 },
+      { key: 'totalAmount', header: 'Total', type: 'currency' as const, width: 15 },
+      { key: 'cost', header: 'Cost', type: 'currency' as const, width: 15 },
+      { key: 'profit', header: 'Profit', type: 'currency' as const, width: 15 },
+    ];
+    const buffer = await this.exportService.exportGrouped(
+      'Sales by Product Details',
+      columns,
+      data as any[],
+      {
+        groupKey: 'productName',
+        groupLabel: 'Product',
+        subtotalColumns: ['quantity', 'totalAmount', 'cost', 'profit'],
+      },
+    );
+    this.sendExcel(res, buffer, 'sales-by-product-details');
+  }
+
+  @Get('customer-order-history/export')
+  @ApiOperation({ summary: 'Export customer order history to Excel' })
+  async exportCustomerOrderHistory(
+    @Query('dateFrom') dateFrom: string | undefined,
+    @Query('dateTo') dateTo: string | undefined,
+    @Query('customerId') customerId: string | undefined,
+    @Query('categoryId') categoryId: string | undefined,
+    @Query('productIds') productIds: string | string[] | undefined,
+    @Query('inventoryStatus') inventoryStatus: string | undefined,
+    @Query('paymentStatus') paymentStatus: string | undefined,
+    @Res() res: Response,
+  ): Promise<void> {
+    const { data } = await this.salesAnalyticsService.getCustomerOrderHistory({
+      dateFrom: this.toDate(dateFrom),
+      dateTo: this.toDate(dateTo),
+      customerId,
+      categoryId,
+      productIds: this.normalizeIds(productIds),
+      inventoryStatus,
+      paymentStatus,
+    });
+    const columns = [
+      { key: 'customerName', header: 'Customer', type: 'string' as const, width: 25 },
+      { key: 'orderNumber', header: 'Order #', type: 'string' as const, width: 15 },
+      { key: 'orderDate', header: 'Date', type: 'date' as const, width: 14 },
+      { key: 'productName', header: 'Product', type: 'string' as const, width: 30 },
+      { key: 'categoryName', header: 'Category', type: 'string' as const, width: 18 },
+      { key: 'quantity', header: 'Qty', type: 'number' as const, width: 10 },
+      { key: 'amount', header: 'Amount', type: 'currency' as const, width: 15 },
+      { key: 'cost', header: 'Cost', type: 'currency' as const, width: 15 },
+      { key: 'profit', header: 'Profit', type: 'currency' as const, width: 15 },
+      { key: 'paymentStatus', header: 'Payment', type: 'string' as const, width: 14 },
+      { key: 'inventoryStatus', header: 'Inventory', type: 'string' as const, width: 14 },
+    ];
+    const buffer = await this.exportService.exportGrouped(
+      'Customer Order History',
+      columns,
+      data as any[],
+      {
+        groupKey: 'customerName',
+        groupLabel: 'Customer',
+        subtotalColumns: ['quantity', 'amount', 'cost', 'profit'],
+      },
+    );
+    this.sendExcel(res, buffer, 'customer-order-history');
+  }
+
+  @Get('customer-payment-summary/export')
+  @ApiOperation({ summary: 'Export customer payment summary to Excel' })
+  async exportCustomerPaymentSummary(
+    @Query('dateFrom') dateFrom: string | undefined,
+    @Query('dateTo') dateTo: string | undefined,
+    @Query('customerId') customerId: string | undefined,
+    @Query('paymentStatus') paymentStatus: string | undefined,
+    @Res() res: Response,
+  ): Promise<void> {
+    const { data } = await this.salesAnalyticsService.getCustomerPaymentSummary({
+      dateFrom: this.toDate(dateFrom),
+      dateTo: this.toDate(dateTo),
+      customerId,
+      paymentStatus,
+    });
+    const columns = [
+      { key: 'customerName', header: 'Customer', type: 'string' as const, width: 25 },
+      { key: 'customerPhone', header: 'Phone', type: 'string' as const, width: 18 },
+      { key: 'orderCount', header: 'Orders', type: 'number' as const, width: 10 },
+      { key: 'totalInvoiced', header: 'Invoiced', type: 'currency' as const, width: 15 },
+      { key: 'totalPaid', header: 'Paid', type: 'currency' as const, width: 15 },
+      { key: 'totalPayments', header: 'Payments', type: 'currency' as const, width: 15 },
+      { key: 'paymentCount', header: 'Payment Count', type: 'number' as const, width: 15 },
+      { key: 'paymentStatus', header: 'Status', type: 'string' as const, width: 12 },
+    ];
+    const buffer = await this.exportService.exportFlat(
+      'Customer Payment Summary',
+      columns,
+      data as any[],
+    );
+    this.sendExcel(res, buffer, 'customer-payment-summary');
+  }
+
+  @Get('customer-payment-by-order/export')
+  @ApiOperation({ summary: 'Export customer payment by order to Excel' })
+  async exportCustomerPaymentByOrder(
+    @Query('dateFrom') dateFrom: string | undefined,
+    @Query('dateTo') dateTo: string | undefined,
+    @Query('customerId') customerId: string | undefined,
+    @Query('paymentStatus') paymentStatus: string | undefined,
+    @Res() res: Response,
+  ): Promise<void> {
+    const { data } = await this.salesAnalyticsService.getCustomerPaymentByOrder({
+      dateFrom: this.toDate(dateFrom),
+      dateTo: this.toDate(dateTo),
+      customerId,
+      paymentStatus,
+    });
+    const columns = [
+      { key: 'customerName', header: 'Customer', type: 'string' as const, width: 25 },
+      { key: 'orderNumber', header: 'Order #', type: 'string' as const, width: 15 },
+      { key: 'orderDate', header: 'Order Date', type: 'date' as const, width: 14 },
+      { key: 'invoiceNumber', header: 'Invoice #', type: 'string' as const, width: 15 },
+      { key: 'totalAmount', header: 'Invoice Total', type: 'currency' as const, width: 15 },
+      { key: 'paidAmount', header: 'Paid', type: 'currency' as const, width: 15 },
+      { key: 'balance', header: 'Balance', type: 'currency' as const, width: 15 },
+      { key: 'paymentStatus', header: 'Status', type: 'string' as const, width: 12 },
+    ];
+    const buffer = await this.exportService.exportGrouped(
+      'Customer Payment by Order',
+      columns,
+      data as any[],
+      {
+        groupKey: 'customerName',
+        groupLabel: 'Customer',
+        subtotalColumns: ['totalAmount', 'paidAmount', 'balance'],
+      },
+    );
+    this.sendExcel(res, buffer, 'customer-payment-by-order');
+  }
+
+  @Get('customer-payment-details/export')
+  @ApiOperation({ summary: 'Export customer payment details to Excel' })
+  async exportCustomerPaymentDetails(
+    @Query('dateFrom') dateFrom: string | undefined,
+    @Query('dateTo') dateTo: string | undefined,
+    @Query('customerId') customerId: string | undefined,
+    @Query('paymentStatus') paymentStatus: string | undefined,
+    @Res() res: Response,
+  ): Promise<void> {
+    const { data } = await this.salesAnalyticsService.getCustomerPaymentDetails({
+      dateFrom: this.toDate(dateFrom),
+      dateTo: this.toDate(dateTo),
+      customerId,
+      paymentStatus,
+    });
+    const columns = [
+      { key: 'customerName', header: 'Customer', type: 'string' as const, width: 25 },
+      { key: 'paymentNumber', header: 'Payment #', type: 'string' as const, width: 15 },
+      { key: 'paymentDate', header: 'Date', type: 'date' as const, width: 14 },
+      { key: 'paymentAmount', header: 'Amount', type: 'currency' as const, width: 15 },
+      { key: 'paymentMethod', header: 'Method', type: 'string' as const, width: 14 },
+      { key: 'orderNumber', header: 'Order #', type: 'string' as const, width: 15 },
+      { key: 'invoiceNumber', header: 'Invoice #', type: 'string' as const, width: 15 },
+      { key: 'invoiceBalance', header: 'Invoice Balance', type: 'currency' as const, width: 18 },
+    ];
+    const buffer = await this.exportService.exportGrouped(
+      'Customer Payment Details',
+      columns,
+      data as any[],
+      {
+        groupKey: 'customerName',
+        groupLabel: 'Customer',
+        subtotalColumns: ['paymentAmount', 'invoiceBalance'],
+      },
+    );
+    this.sendExcel(res, buffer, 'customer-payment-details');
+  }
+
+  @Get('product-customer-report/export')
+  @ApiOperation({ summary: 'Export product-customer report to Excel' })
+  async exportProductCustomerReport(
+    @Query('dateFrom') dateFrom: string | undefined,
+    @Query('dateTo') dateTo: string | undefined,
+    @Query('productIds') productIds: string | string[] | undefined,
+    @Query('categoryId') categoryId: string | undefined,
+    @Query('inventoryStatus') inventoryStatus: string | undefined,
+    @Query('paymentStatus') paymentStatus: string | undefined,
+    @Res() res: Response,
+  ): Promise<void> {
+    const { data } = await this.salesAnalyticsService.getProductCustomerReport({
+      dateFrom: this.toDate(dateFrom),
+      dateTo: this.toDate(dateTo),
+      productIds: this.normalizeIds(productIds),
+      categoryId,
+      inventoryStatus,
+      paymentStatus,
+    });
+    const columns = [
+      { key: 'productName', header: 'Product', type: 'string' as const, width: 30 },
+      { key: 'categoryName', header: 'Category', type: 'string' as const, width: 18 },
+      { key: 'customerName', header: 'Customer', type: 'string' as const, width: 25 },
+      { key: 'orderNumber', header: 'Order #', type: 'string' as const, width: 15 },
+      { key: 'orderDate', header: 'Date', type: 'date' as const, width: 14 },
+      { key: 'quantity', header: 'Qty', type: 'number' as const, width: 10 },
+      { key: 'amount', header: 'Amount', type: 'currency' as const, width: 15 },
+      { key: 'cost', header: 'Cost', type: 'currency' as const, width: 15 },
+      { key: 'profit', header: 'Profit', type: 'currency' as const, width: 15 },
+    ];
+    const buffer = await this.exportService.exportGrouped(
+      'Product Customer Report',
+      columns,
+      data as any[],
+      {
+        groupKey: 'productName',
+        groupLabel: 'Product',
+        subtotalColumns: ['quantity', 'amount', 'cost', 'profit'],
+      },
+    );
+    this.sendExcel(res, buffer, 'product-customer-report');
+  }
+
+  @Get('sales-order-profit/export')
+  @ApiOperation({ summary: 'Export sales order profit report to Excel' })
+  async exportSalesOrderProfitReport(
+    @Query('dateFrom') dateFrom: string | undefined,
+    @Query('dateTo') dateTo: string | undefined,
+    @Query('customerId') customerId: string | undefined,
+    @Query('status') status: string | undefined,
+    @Query('paymentStatus') paymentStatus: string | undefined,
+    @Res() res: Response,
+  ): Promise<void> {
+    const { data } = await this.salesAnalyticsService.getSalesOrderProfitReport({
+      dateFrom: this.toDate(dateFrom),
+      dateTo: this.toDate(dateTo),
+      customerId,
+      status,
+      paymentStatus,
+    });
+    const columns = [
+      { key: 'customerName', header: 'Customer', type: 'string' as const, width: 25 },
+      { key: 'orderNumber', header: 'Order #', type: 'string' as const, width: 15 },
+      { key: 'orderDate', header: 'Date', type: 'date' as const, width: 14 },
+      { key: 'inventoryStatus', header: 'Inventory Status', type: 'string' as const, width: 18 },
+      { key: 'paymentStatus', header: 'Payment Status', type: 'string' as const, width: 16 },
+      { key: 'totalRevenue', header: 'Revenue', type: 'currency' as const, width: 15 },
+      { key: 'totalCost', header: 'Cost', type: 'currency' as const, width: 15 },
+      { key: 'grossProfit', header: 'Gross Profit', type: 'currency' as const, width: 15 },
+    ];
+    const buffer = await this.exportService.exportGrouped(
+      'Sales Order Profit',
+      columns,
+      data as any[],
+      {
+        groupKey: 'customerName',
+        groupLabel: 'Customer',
+        subtotalColumns: ['totalRevenue', 'totalCost', 'grossProfit'],
+      },
+    );
+    this.sendExcel(res, buffer, 'sales-order-profit');
+  }
+
+  private normalizeIds(value: string | string[] | undefined): string[] | undefined {
+    if (Array.isArray(value)) return value;
+    return value ? [value] : undefined;
+  }
+
+  private toDate(value: string | undefined): Date | undefined {
+    return value ? new Date(value) : undefined;
+  }
+
+  private sendExcel(res: Response, buffer: Buffer, name: string): void {
+    const date = new Date().toISOString().split('T')[0];
+    res.set({
+      'Content-Type':
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'Content-Disposition': `attachment; filename="${name}-${date}.xlsx"`,
+    });
+    res.send(buffer);
   }
 }
