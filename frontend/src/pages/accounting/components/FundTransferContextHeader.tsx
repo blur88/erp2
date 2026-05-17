@@ -1,6 +1,10 @@
 import { Paper, Stack, Table, TableBody, TableCell, TableContainer, TableRow, Typography } from '@mui/material'
 import Grid from '@mui/material/Grid'
-import { default as CancelIcon } from '@mui/icons-material/Cancel'
+import { default as CheckCircleIcon } from '@mui/icons-material/CheckCircle'
+import { default as DeleteIcon } from '@mui/icons-material/Delete'
+import { default as EditIcon } from '@mui/icons-material/Edit'
+import { default as RestoreIcon } from '@mui/icons-material/Restore'
+import { default as UndoIcon } from '@mui/icons-material/Undo'
 
 import { AppButton } from '@/components/common/AppButton'
 import { EntityContextHeaderBar } from '@/components/common/EntityContextHeaderBar'
@@ -12,8 +16,12 @@ import { formatCurrency, formatDate } from '@/utils/formatters'
 
 interface Props {
   selected: FundTransfer | null
-  onCancel: () => void
-  canManageTransfers: boolean
+  isAdmin: boolean
+  onEdit: () => void
+  onPost: () => void
+  onDelete: () => void
+  onUnpost: () => void
+  onRestore: () => void
 }
 
 const detailTableSx = {
@@ -35,7 +43,15 @@ const sectionHeaderCellSx = {
   borderTop: TABLE_STYLES.cell.border,
 }
 
-export function FundTransferContextHeader({ selected, onCancel, canManageTransfers }: Props) {
+export function FundTransferContextHeader({
+  selected,
+  isAdmin,
+  onEdit,
+  onPost,
+  onDelete,
+  onUnpost,
+  onRestore,
+}: Props) {
   const { journalEntryRef, navigateToJournalEntry } = useJournalEntryRef(
     selected?.journalEntryId
       ? [{ sourceType: 'fund_transfer', sourceId: selected.id }]
@@ -52,20 +68,40 @@ export function FundTransferContextHeader({ selected, onCancel, canManageTransfe
     )
   }
 
+  const isDraft = selected.status === 'draft'
+  const isPosted = selected.status === 'posted'
+  const isDeleted = !!selected.deletedAt
+
+  const actions = isDeleted ? (
+    isAdmin ? (
+      <AppButton size="small" variant="secondary" startIcon={<RestoreIcon />} onClick={onRestore}>
+        Restore
+      </AppButton>
+    ) : null
+  ) : isDraft ? (
+    <Stack direction="row" spacing={0.5}>
+      <AppButton size="small" variant="secondary" startIcon={<EditIcon />} onClick={onEdit}>
+        Edit
+      </AppButton>
+      <AppButton size="small" variant="success" startIcon={<CheckCircleIcon />} onClick={onPost}>
+        Post
+      </AppButton>
+      <AppButton size="small" variant="danger" startIcon={<DeleteIcon />} onClick={onDelete}>
+        Delete
+      </AppButton>
+    </Stack>
+  ) : isPosted && isAdmin ? (
+    <AppButton size="small" variant="danger" startIcon={<UndoIcon />} onClick={onUnpost}>
+      Unpost
+    </AppButton>
+  ) : null
+
   return (
     <Paper sx={{ overflow: 'hidden' }}>
       <EntityContextHeaderBar
         title={selected.referenceNumber}
         statusChip={<EntityStatusChip status={selected.status} />}
-        actions={
-          canManageTransfers && selected.status === 'ACTIVE' ? (
-            <Stack direction="row" spacing={0.5}>
-              <AppButton size="small" variant="danger" startIcon={<CancelIcon />} onClick={onCancel}>
-                Cancel
-              </AppButton>
-            </Stack>
-          ) : null
-        }
+        actions={actions}
       />
       <Grid container spacing={3} sx={{ p: TABLE_STYLES.cell.padding.px }}>
         <Grid size={{ xs: 12, md: 6 }}>
