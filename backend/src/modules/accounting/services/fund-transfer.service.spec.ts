@@ -236,13 +236,29 @@ describe('FundTransferService', () => {
       expect(result.status).toBe(FundTransferStatus.POSTED);
     });
 
-    it('throws BadRequestException when transfer is not DRAFT', async () => {
+    it('throws BadRequestException when transfer is POSTED', async () => {
       transferRepository.findOne.mockResolvedValue({
         ...mockDraftTransfer,
         status: FundTransferStatus.POSTED,
       } as any);
 
       await expect(service.post('trf-1', 'user-1')).rejects.toThrow(BadRequestException);
+    });
+
+    it('posts a REVERSED transfer back to POSTED', async () => {
+      const reversedTransfer = { ...mockDraftTransfer, status: FundTransferStatus.REVERSED };
+      transferRepository.findOne.mockResolvedValueOnce(reversedTransfer as any);
+      accountingService.postFundTransferEntry.mockResolvedValue({ id: 'je-2' } as any);
+      transferRepository.save.mockResolvedValue({} as any);
+      transferRepository.findOne.mockResolvedValueOnce({
+        ...reversedTransfer,
+        status: FundTransferStatus.POSTED,
+        journalEntryId: 'je-2',
+      } as any);
+
+      const result = await service.post('trf-1', 'user-1');
+
+      expect(result.status).toBe(FundTransferStatus.POSTED);
     });
 
     it('throws NotFoundException when transfer does not exist', async () => {

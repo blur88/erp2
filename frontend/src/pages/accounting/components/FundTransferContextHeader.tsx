@@ -70,6 +70,7 @@ export function FundTransferContextHeader({
 
   const isDraft = selected.status === 'draft'
   const isPosted = selected.status === 'posted'
+  const isReversed = selected.status === 'reversed'
   const isDeleted = !!selected.deletedAt
 
   const actions = isDeleted ? (
@@ -78,7 +79,7 @@ export function FundTransferContextHeader({
         Restore
       </AppButton>
     ) : null
-  ) : isDraft ? (
+  ) : (isDraft || isReversed) ? (
     <Stack direction="row" spacing={0.5}>
       <AppButton size="small" variant="secondary" startIcon={<EditIcon />} onClick={onEdit}>
         Edit

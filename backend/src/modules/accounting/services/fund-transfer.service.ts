@@ -135,9 +135,9 @@ export class FundTransferService {
     if (!transfer || transfer.deletedAt) {
       throw new NotFoundException(`Fund transfer '${id}' not found`);
     }
-    if (transfer.status !== FundTransferStatus.DRAFT) {
+    if (transfer.status !== FundTransferStatus.DRAFT && transfer.status !== FundTransferStatus.REVERSED) {
       throw new BadRequestException(
-        `Fund transfer '${transfer.referenceNumber}' must be in DRAFT status to post`,
+        `Fund transfer '${transfer.referenceNumber}' must be in DRAFT or REVERSED status to post`,
       );
     }
 
