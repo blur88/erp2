@@ -223,20 +223,28 @@ export class ProductController {
     );
 
     const columns = [
+      { key: 'name', header: 'Product Name', type: 'string' as const, width: 30 },
       { key: 'sku', header: 'SKU', type: 'string' as const, width: 15 },
-      { key: 'name', header: 'Name', type: 'string' as const, width: 30 },
+      { key: 'barcode', header: 'Barcode', type: 'string' as const, width: 18 },
+      { key: 'type', header: 'Type', type: 'string' as const, width: 15 },
       { key: 'categoryName', header: 'Category', type: 'string' as const, width: 20 },
-      { key: 'baseCost', header: 'Cost Price', type: 'currency' as const, width: 15 },
+      { key: 'description', header: 'Description', type: 'string' as const, width: 30 },
+      { key: 'baseCost', header: 'Base Cost', type: 'currency' as const, width: 15 },
       ...sortedPriceLists.map(([id, name]) => ({
         key: `pl_${id}`,
-        header: name,
+        header: `${name} Price`,
         type: 'currency' as const,
         width: 15,
       })),
-      { key: 'stockQuantity', header: 'Stock', type: 'number' as const, width: 12 },
-      { key: 'isActive', header: 'Active', type: 'string' as const, width: 10 },
+      { key: 'stockQuantity', header: 'Current Stock', type: 'number' as const, width: 14 },
+      { key: 'stockStatus', header: 'Stock Status', type: 'string' as const, width: 14 },
+      { key: 'isActive', header: 'Status', type: 'string' as const, width: 10 },
+      { key: 'notes', header: 'Notes', type: 'string' as const, width: 25 },
+      { key: 'createdAt', header: 'Created Date', type: 'string' as const, width: 14 },
+      { key: 'updatedAt', header: 'Updated Date', type: 'string' as const, width: 14 },
     ];
 
+    const LOW_STOCK_THRESHOLD = 10;
     const mappedProducts = (products as any[]).map(p => {
       const pricesByListId: Record<string, number> = {};
       (p.priceListItems || []).forEach((item: any) => {
@@ -244,10 +252,15 @@ export class ProductController {
           pricesByListId[`pl_${item.priceList.id}`] = Number(item.price);
         }
       });
+      const stock = Number(p.stockQuantity || 0);
+      const stockStatus = stock <= 0 ? 'Out of Stock' : stock <= LOW_STOCK_THRESHOLD ? 'Low Stock' : 'In Stock';
       return {
         ...p,
         categoryName: p.category?.name ?? '',
-        isActive: p.isActive ? 'Yes' : 'No',
+        isActive: p.isActive ? 'Active' : 'Inactive',
+        stockStatus,
+        createdAt: p.createdAt ? new Date(p.createdAt).toISOString().split('T')[0] : '',
+        updatedAt: p.updatedAt ? new Date(p.updatedAt).toISOString().split('T')[0] : '',
         ...pricesByListId,
       };
     });
