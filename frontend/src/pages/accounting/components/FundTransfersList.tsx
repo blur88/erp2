@@ -14,7 +14,9 @@ interface Props {
 }
 
 function statusColor(status: string) {
-  return status === 'ACTIVE' ? 'success' as const : 'error' as const
+  if (status === 'posted') return 'success' as const
+  if (status === 'reversed') return 'error' as const
+  return 'warning' as const  // draft
 }
 
 const columns: ColumnConfig<FundTransfer>[] = [
