@@ -218,18 +218,12 @@ export class ProductController {
         width: 20,
       },
       {
-        key: 'costPrice',
+        key: 'baseCost',
         header: 'Cost Price',
         type: 'currency' as const,
         width: 15,
       },
-      {
-        key: 'sellingPrice',
-        header: 'Selling Price',
-        type: 'currency' as const,
-        width: 15,
-      },
-      { key: 'currentStock', header: 'Stock', type: 'number' as const, width: 12 },
+      { key: 'stockQuantity', header: 'Stock', type: 'number' as const, width: 12 },
       { key: 'isActive', header: 'Active', type: 'string' as const, width: 10 },
     ];
     const mappedProducts = (products as any[]).map(p => ({
