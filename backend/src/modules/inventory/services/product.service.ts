@@ -776,6 +776,10 @@ export class ProductService extends BaseCrudService<
       }
     );
 
+    // Clean up system-generated setup artifacts before hard delete
+    await this.stockMovementRepository.delete({ productId: id, movementType: StockMovementType.INITIAL_STOCK });
+    await this.purchaseCostHistoryRepository.delete({ productId: id });
+
     // Hard delete the product from database
     await this.productRepository.delete(id);
 
