@@ -514,9 +514,10 @@ export interface FundTransfer {
   transferDate: string;
   amount: number;
   description?: string;
-  status: 'ACTIVE' | 'CANCELLED';
+  status: 'draft' | 'posted' | 'reversed';
   fiscalPeriodId: string;
   journalEntryId: string | null;
+  deletedAt?: string | null;
   sourceAccount: {
     id: string;
     code: string;
