@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { AccountingExcelExportService } from './accounting-reports.excel-export.service';
+import { SettingsService } from '../../settings/settings.service';
 import {
   AccountActivityResponse,
   BalanceSheetResponse,
@@ -13,7 +14,15 @@ describe('AccountingExcelExportService', () => {
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      providers: [AccountingExcelExportService],
+      providers: [
+        AccountingExcelExportService,
+        {
+          provide: SettingsService,
+          useValue: {
+            getCompanySettings: jest.fn().mockResolvedValue({ name: 'Test Co' }),
+          },
+        },
+      ],
     }).compile();
 
     service = module.get<AccountingExcelExportService>(

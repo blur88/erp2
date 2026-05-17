@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import * as ExcelJS from 'exceljs';
+import { SettingsService } from '../../settings/settings.service';
 import type {
   AccountActivityResponse,
   BalanceSheetResponse,
@@ -12,6 +13,8 @@ import type {
 export class AccountingExcelExportService {
   private readonly logger = new Logger(AccountingExcelExportService.name);
 
+  constructor(private readonly settingsService: SettingsService) {}
+
   async exportTrialBalanceToExcel(
     data: TrialBalanceResponse,
     filename: string = 'trial-balance',
@@ -21,10 +24,7 @@ export class AccountingExcelExportService {
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet('Trial Balance');
 
-    worksheet.addRow(['Company Name']);
-    worksheet.addRow(['Trial Balance']);
-    worksheet.addRow([`As of ${new Date().toISOString().split('T')[0]}`]);
-    worksheet.addRow([]);
+    await this.addCompanyHeader(worksheet, 'Trial Balance');
 
     const headerRow = worksheet.addRow([
       'Account Code',
@@ -104,10 +104,7 @@ export class AccountingExcelExportService {
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet('Balance Sheet');
 
-    worksheet.addRow(['Company Name']);
-    worksheet.addRow(['Balance Sheet']);
-    worksheet.addRow([`As of ${new Date().toISOString().split('T')[0]}`]);
-    worksheet.addRow([]);
+    await this.addCompanyHeader(worksheet, 'Balance Sheet');
 
     const headerRow = worksheet.addRow(['Account Code', 'Account Name', 'Balance']);
     headerRow.font = { bold: true };
@@ -341,10 +338,7 @@ export class AccountingExcelExportService {
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet('Profit and Loss');
 
-    worksheet.addRow(['Company Name']);
-    worksheet.addRow(['Profit and Loss Statement']);
-    worksheet.addRow([`Period: ${new Date().toISOString().split('T')[0]}`]);
-    worksheet.addRow([]);
+    await this.addCompanyHeader(worksheet, 'Profit and Loss Statement');
 
     const headerRow = worksheet.addRow(['Account Code', 'Account Name', 'Amount']);
     headerRow.font = { bold: true };
@@ -484,8 +478,7 @@ export class AccountingExcelExportService {
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet('General Ledger');
 
-    worksheet.addRow(['Company Name']);
-    worksheet.addRow(['General Ledger']);
+    await this.addCompanyHeader(worksheet, 'General Ledger');
     worksheet.addRow([`Account: ${data.account.code} - ${data.account.name}`]);
     worksheet.addRow([`Account Type: ${data.account.type}`]);
     worksheet.addRow([]);
@@ -575,8 +568,7 @@ export class AccountingExcelExportService {
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet('Account Activity');
 
-    worksheet.addRow(['Company Name']);
-    worksheet.addRow(['Account Activity Report']);
+    await this.addCompanyHeader(worksheet, 'Account Activity Report');
     worksheet.addRow([`Account: ${data.account.code} - ${data.account.name}`]);
     worksheet.addRow([`Account Type: ${data.account.type}`]);
     worksheet.addRow([]);
@@ -678,5 +670,16 @@ export class AccountingExcelExportService {
 
     const buffer = await workbook.xlsx.writeBuffer();
     return Buffer.from(buffer);
+  }
+
+  private async addCompanyHeader(
+    worksheet: ExcelJS.Worksheet,
+    title: string,
+  ): Promise<void> {
+    const settings = await this.settingsService.getCompanySettings();
+    worksheet.addRow([settings.name]);
+    worksheet.addRow([title]);
+    worksheet.addRow([new Date().toISOString().split('T')[0]]);
+    worksheet.addRow([]);
   }
 }
