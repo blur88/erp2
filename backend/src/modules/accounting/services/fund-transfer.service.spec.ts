@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
-import { DataSource, Repository } from 'typeorm';
+import { Repository } from 'typeorm';
 import { FundTransferService } from './fund-transfer.service';
 import {
   FundTransfer,
@@ -21,7 +21,6 @@ describe('FundTransferService', () => {
   let settingsService: jest.Mocked<SettingsService>;
   let fiscalPeriodService: jest.Mocked<FiscalPeriodService>;
   let auditLogService: jest.Mocked<AuditLogService>;
-  let dataSource: jest.Mocked<DataSource>;
 
   const mockCashAccount = (id: string) =>
     ({
@@ -54,8 +53,12 @@ describe('FundTransferService', () => {
           useValue: {
             createQueryBuilder: jest.fn(() => mockQueryBuilder),
             findOne: jest.fn(),
+            find: jest.fn(),
             create: jest.fn(),
             save: jest.fn(),
+            softDelete: jest.fn(),
+            restore: jest.fn(),
+            delete: jest.fn(),
           },
         },
         {
@@ -89,19 +92,6 @@ describe('FundTransferService', () => {
             log: jest.fn(),
           },
         },
-        {
-          provide: DataSource,
-          useValue: {
-            transaction: jest.fn((cb) =>
-              cb({
-                create: jest.fn().mockReturnValue({}),
-                save: jest
-                  .fn()
-                  .mockResolvedValue({ id: 'trf-1', referenceNumber: 'TRF-26-001' }),
-              }),
-            ),
-          },
-        },
       ],
     }).compile();
 
@@ -112,7 +102,6 @@ describe('FundTransferService', () => {
     settingsService = module.get(SettingsService);
     fiscalPeriodService = module.get(FiscalPeriodService);
     auditLogService = module.get(AuditLogService);
-    dataSource = module.get(DataSource);
   });
 
   afterEach(() => jest.clearAllMocks());
@@ -181,7 +170,7 @@ describe('FundTransferService', () => {
       await expect(service.create(dto, 'user-1')).rejects.toThrow(BadRequestException);
     });
 
-    it('creates transfer and posts journal entry on success', async () => {
+    it('creates a draft transfer without posting a journal entry', async () => {
       coaRepository.findOne
         .mockResolvedValueOnce(mockCashAccount('acc-1'))
         .mockResolvedValueOnce(mockCashAccount('acc-2'));
@@ -189,108 +178,148 @@ describe('FundTransferService', () => {
         isValid: true,
         period: { id: 'period-1' },
       } as any);
-
       const savedTransfer = {
         id: 'trf-1',
         referenceNumber: 'TRF-26-001',
-        status: FundTransferStatus.ACTIVE,
-        journalEntryId: 'je-1',
+        status: FundTransferStatus.DRAFT,
+        sourceAccountId: 'acc-1',
+        destinationAccountId: 'acc-2',
+        deletedAt: null,
+      };
+      transferRepository.create.mockReturnValue(savedTransfer as any);
+      transferRepository.save.mockResolvedValue(savedTransfer as any);
+      transferRepository.findOne.mockResolvedValue({
+        ...savedTransfer,
         sourceAccount: mockCashAccount('acc-1'),
         destinationAccount: mockCashAccount('acc-2'),
-        journalEntry: {
-          id: 'je-1',
-          referenceNumber: 'JE-26-001',
-          status: 'POSTED',
-        },
-      } as any;
-
-      dataSource.transaction.mockImplementation(async (cb: any) =>
-        cb({
-          create: jest.fn().mockReturnValue(savedTransfer),
-          save: jest.fn().mockResolvedValue(savedTransfer),
-        }),
-      );
-
-      transferRepository.findOne.mockResolvedValue(savedTransfer);
-      (accountingService as any).postFundTransferEntry.mockResolvedValue({ id: 'je-1' } as any);
+      } as any);
 
       const result = await service.create(dto, 'user-1');
 
-      expect((accountingService as any).postFundTransferEntry).toHaveBeenCalled();
-      expect(auditLogService.log).toHaveBeenCalledWith(
-        'CREATE',
-        'FundTransfer',
-        expect.any(String),
-        expect.any(Object),
-      );
-      expect(result).toBeDefined();
+      expect(accountingService.postFundTransferEntry).not.toHaveBeenCalled();
+      expect(result.status).toBe(FundTransferStatus.DRAFT);
     });
   });
 
-  describe('cancel', () => {
-    it('throws NotFoundException when transfer not found', async () => {
-      transferRepository.findOne.mockResolvedValue(null);
-      await expect(service.cancel('trf-1', 'user-1')).rejects.toThrow(NotFoundException);
-    });
+  describe('post', () => {
+    const mockDraftTransfer = {
+      id: 'trf-1',
+      referenceNumber: 'TRF-26-001',
+      status: FundTransferStatus.DRAFT,
+      deletedAt: null,
+      transferDate: new Date('2026-03-12'),
+      sourceAccount: mockCashAccount('acc-1'),
+      destinationAccount: mockCashAccount('acc-2'),
+    };
 
-    it('throws BadRequestException when already cancelled', async () => {
-      transferRepository.findOne.mockResolvedValue({
-        id: 'trf-1',
-        status: FundTransferStatus.CANCELLED,
-      } as any);
-      await expect(service.cancel('trf-1', 'user-1')).rejects.toThrow(BadRequestException);
-    });
-
-    it('throws BadRequestException when journalEntryId is null', async () => {
-      transferRepository.findOne.mockResolvedValue({
-        id: 'trf-1',
-        status: FundTransferStatus.ACTIVE,
-        journalEntryId: null,
-      } as any);
-      await expect(service.cancel('trf-1', 'user-1')).rejects.toThrow(BadRequestException);
-    });
-
-    it('cancels transfer and reverses journal entry on success', async () => {
-      const transfer = {
-        id: 'trf-1',
-        referenceNumber: 'TRF-26-001',
-        status: FundTransferStatus.ACTIVE,
-        journalEntryId: 'je-1',
-      } as any;
-
-      transferRepository.findOne
-        .mockResolvedValueOnce(transfer)
-        .mockResolvedValueOnce({
-          ...transfer,
-          status: FundTransferStatus.CANCELLED,
-          journalEntry: {
-            id: 'je-1',
-            referenceNumber: 'JE-26-001',
-            status: 'REVERSED',
-          },
-        } as any);
-
+    it('posts a draft transfer and links journal entry', async () => {
+      transferRepository.findOne.mockResolvedValueOnce(mockDraftTransfer as any);
+      accountingService.postFundTransferEntry.mockResolvedValue({ id: 'je-1' } as any);
       transferRepository.save.mockResolvedValue({
-        ...transfer,
-        status: FundTransferStatus.CANCELLED,
+        ...mockDraftTransfer,
+        status: FundTransferStatus.POSTED,
+        journalEntryId: 'je-1',
       } as any);
-      accountingService.reverseSourceEntries.mockResolvedValue(undefined);
+      transferRepository.findOne.mockResolvedValueOnce({
+        ...mockDraftTransfer,
+        status: FundTransferStatus.POSTED,
+        journalEntryId: 'je-1',
+      } as any);
 
-      const result = await service.cancel('trf-1', 'user-1');
+      const result = await service.post('trf-1', 'user-1');
+
+      expect(accountingService.postFundTransferEntry).toHaveBeenCalledWith(
+        mockDraftTransfer,
+        'user-1',
+        undefined,
+      );
+      expect(result.status).toBe(FundTransferStatus.POSTED);
+    });
+
+    it('throws BadRequestException when transfer is not DRAFT', async () => {
+      transferRepository.findOne.mockResolvedValue({
+        ...mockDraftTransfer,
+        status: FundTransferStatus.POSTED,
+      } as any);
+
+      await expect(service.post('trf-1', 'user-1')).rejects.toThrow(BadRequestException);
+    });
+
+    it('throws NotFoundException when transfer does not exist', async () => {
+      transferRepository.findOne.mockResolvedValue(null);
+
+      await expect(service.post('trf-1', 'user-1')).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('unpost', () => {
+    const mockPostedTransfer = {
+      id: 'trf-1',
+      referenceNumber: 'TRF-26-001',
+      status: FundTransferStatus.POSTED,
+      deletedAt: null,
+    };
+
+    it('unposted a posted transfer and sets status to REVERSED', async () => {
+      transferRepository.findOne
+        .mockResolvedValueOnce(mockPostedTransfer as any)
+        .mockResolvedValueOnce({ ...mockPostedTransfer, status: FundTransferStatus.REVERSED } as any);
+      accountingService.reverseSourceEntries.mockResolvedValue(undefined);
+      transferRepository.save.mockResolvedValue({} as any);
+
+      const result = await service.unpost('trf-1', 'user-1');
 
       expect(accountingService.reverseSourceEntries).toHaveBeenCalledWith(
         'fund_transfer',
         'trf-1',
         'user-1',
       );
-      expect(transferRepository.save).toHaveBeenCalled();
-      expect(auditLogService.log).toHaveBeenCalledWith(
-        'CANCEL',
-        'FundTransfer',
-        expect.any(String),
-        expect.any(Object),
-      );
-      expect(result).toBeDefined();
+      expect(result.status).toBe(FundTransferStatus.REVERSED);
+    });
+
+    it('throws BadRequestException when transfer is not POSTED', async () => {
+      transferRepository.findOne.mockResolvedValue({
+        ...mockPostedTransfer,
+        status: FundTransferStatus.DRAFT,
+      } as any);
+
+      await expect(service.unpost('trf-1', 'user-1')).rejects.toThrow(BadRequestException);
+    });
+  });
+
+  describe('remove', () => {
+    it('soft-deletes a DRAFT transfer', async () => {
+      transferRepository.findOne.mockResolvedValue({
+        id: 'trf-1',
+        referenceNumber: 'TRF-26-001',
+        status: FundTransferStatus.DRAFT,
+        deletedAt: null,
+      } as any);
+      transferRepository.softDelete.mockResolvedValue({} as any);
+
+      await service.remove('trf-1', 'user-1');
+
+      expect(transferRepository.softDelete).toHaveBeenCalledWith('trf-1');
+    });
+
+    it('throws BadRequestException when trying to delete a POSTED transfer', async () => {
+      transferRepository.findOne.mockResolvedValue({
+        id: 'trf-1',
+        status: FundTransferStatus.POSTED,
+        deletedAt: null,
+      } as any);
+
+      await expect(service.remove('trf-1', 'user-1')).rejects.toThrow(BadRequestException);
+    });
+
+    it('throws BadRequestException when trying to delete a REVERSED transfer', async () => {
+      transferRepository.findOne.mockResolvedValue({
+        id: 'trf-1',
+        status: FundTransferStatus.REVERSED,
+        deletedAt: null,
+      } as any);
+
+      await expect(service.remove('trf-1', 'user-1')).rejects.toThrow(BadRequestException);
     });
   });
 
@@ -301,7 +330,7 @@ describe('FundTransferService', () => {
     });
 
     it('returns transfer when found', async () => {
-      const transfer = { id: 'trf-1', status: FundTransferStatus.ACTIVE } as any;
+      const transfer = { id: 'trf-1', status: FundTransferStatus.DRAFT } as any;
       transferRepository.findOne.mockResolvedValue(transfer);
       const result = await service.findOne('trf-1');
       expect(result).toBeDefined();
