@@ -1,4 +1,5 @@
 import React, { useCallback, useMemo, useState } from 'react'
+import { default as CloudUploadIcon } from '@mui/icons-material/CloudUpload'
 import { default as TableChartIcon } from '@mui/icons-material/TableChart'
 
 import GenericListPage from '@/components/common/GenericListPage'
@@ -111,15 +112,25 @@ const ProductsPage: React.FC = () => {
       searchInputRef={workspace.searchInputRef}
       sort={{ field: 'name', sortBy, sortOrder, onSort: handleSort }}
       filterExtra={(
-        <AppButton
-          size="filter"
-          variant="outlined"
-          startIcon={<TableChartIcon />}
-          loading={workspace.isExporting}
-          onClick={workspace.handleExportClick}
-        >
-          Export
-        </AppButton>
+        <>
+          <AppButton
+            size="filter"
+            variant="outlined"
+            startIcon={<CloudUploadIcon />}
+            onClick={() => workspace.setImportDialogOpen(true)}
+          >
+            Import
+          </AppButton>
+          <AppButton
+            size="filter"
+            variant="outlined"
+            startIcon={<TableChartIcon />}
+            loading={workspace.isExporting}
+            onClick={workspace.handleExportClick}
+          >
+            Export
+          </AppButton>
+        </>
       )}
       listSlot={(
         <ProductList
