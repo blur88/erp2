@@ -36,6 +36,7 @@ import { printColors } from '@/styles/printTokens'
 import { formatCurrency, formatDate, formatDateTime } from '@/utils/formatters'
 import { escapeHtml } from '@/utils/security'
 import { printReport } from '@/utils/printReport'
+import { exportReportExcel } from '@/utils/exportReport'
 import { TABLE_STYLES } from '@/constants/tableStyles'
 import api from '@/services/api'
 
@@ -145,74 +146,13 @@ const CustomerPaymentSummary: React.FC = () => {
     setRowsPerPage(25)
   }
 
-  const handleExportExcel = () => {
-    if (sortedData.length === 0) return
-
-    // Column headers mapping
-    const columnHeaders: { [key: string]: string } = {
-      customerName: 'Customer',
-      lastOrderDate: 'Last Order',
-      lastPaymentDate: 'Last Payment',
-      totalInvoiced: 'Sales Total',
-      totalPaid: 'Paid Total',
-      balance: 'Balance'
-    }
-
-    // Build CSV content
-    let csv = reportTitle + '\n\n'
-
-    // Add headers
-    const headers = selectedColumns.map(col => columnHeaders[col] || col)
-    csv += headers.join(',') + '\n'
-
-    // Add data rows
-    sortedData.forEach(row => {
-      const values = selectedColumns.map(col => {
-        if (col === 'balance') {
-          const balance = row.totalInvoiced - row.totalPaid
-          return balance.toFixed(2)
-        }
-        const value = (row as any)[col]
-        if (col === 'lastPaymentDate' || col === 'lastOrderDate') {
-          return value ? `"${formatDate(value)}"` : '""'
-        } else if (col === 'customerName') {
-          return `"${value || ''}"`
-        } else if (typeof value === 'number') {
-          return value.toFixed(2)
-        }
-        return `"${value || ''}"`
-      })
-      csv += values.join(',') + '\n'
-    })
-
-    // Add totals
-    if (totals) {
-      csv += '\n'
-      const totalValues = selectedColumns.map((col, colIdx) => {
-        if (colIdx === 0) {
-          return '"GRAND TOTAL"'
-        } else if (col === 'balance') {
-          return (totals.totalInvoiced - totals.totalPaid).toFixed(2)
-        }
-        const value = (totals as any)[col]
-        if (typeof value === 'number') {
-          return value.toFixed(2)
-        }
-        return ''
-      })
-      csv += totalValues.join(',') + '\n'
-    }
-
-    // Download
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
-    const link = document.createElement('a')
-    const url = URL.createObjectURL(blob)
-    link.setAttribute('href', url)
-    link.setAttribute('download', `${reportTitle.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.csv`)
-    link.style.visibility = 'hidden'
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
+  const handleExportExcel = async () => {
+    const date = new Date().toISOString().split('T')[0]
+    await exportReportExcel(
+      '/sales/analytics/customer-payment-summary/export',
+      { dateFrom, dateTo, customerId: selectedCustomer, paymentStatus },
+      `customer-payment-summary-${date}.xlsx`,
+    )
   }
 
   const handleExportPDF = () => {

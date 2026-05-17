@@ -34,6 +34,7 @@ import { printColors } from '@/styles/printTokens'
 import { formatCurrency, formatDate, formatDateTime } from '@/utils/formatters'
 import { escapeHtml } from '@/utils/security'
 import { printReport } from '@/utils/printReport'
+import { exportReportExcel } from '@/utils/exportReport'
 import { TABLE_STYLES } from '@/constants/tableStyles'
 import api from '@/services/api'
 
@@ -157,141 +158,13 @@ const SalesOrderSummary: React.FC = () => {
     setRowsPerPage(25)
   }
 
-  const handleExportExcel = () => {
-    if (sortedData.length === 0) return
-
-    // Column headers mapping
-    const columnHeaders: { [key: string]: string } = {
-      orderNumber: 'Order Number',
-      orderDate: 'Order Date',
-      customerName: 'Customer',
-      itemsCount: 'Items',
-      totalAmount: 'Total Amount',
-      paidAmount: 'Paid Amount',
-      balanceDue: 'Balance Due',
-      paymentStatus: 'Payment Status',
-      fulfillmentStatus: 'Fulfillment Status'
-    }
-
-    // Build CSV content
-    let csv = reportTitle + '\n\n'
-
-    // Add headers
-    const headers = selectedColumns.map(col => columnHeaders[col] || col)
-    csv += headers.join(',') + '\n'
-
-    // Add data rows with grouping support
-    let prevGroupValue: any = null
-
-    sortedData.forEach((row, idx) => {
-      // Determine current group value
-      let currentGroupValue: any = null
-      if (groupBy === 'customerName') {
-        currentGroupValue = row.customerName
-      } else if (groupBy === 'paymentStatus') {
-        currentGroupValue = row.isPaidInFull ? 'Paid' : row.paidAmount > 0 ? 'Partial' : 'Unpaid'
-      } else if (groupBy === 'inventoryStatus') {
-        currentGroupValue = row.isFulfilled ? 'Fulfilled' : 'Unfulfilled'
-      }
-
-      // Add group header if group changed
-      if (groupBy !== 'none' && currentGroupValue !== prevGroupValue) {
-        const groupLabel = groupBy === 'customerName' ? `Customer: ${currentGroupValue}` :
-                          groupBy === 'inventoryStatus' ? `Inventory: ${currentGroupValue}` :
-                          groupBy === 'paymentStatus' ? `Payment: ${currentGroupValue}` : currentGroupValue
-        csv += `\n"${groupLabel}"\n`
-        prevGroupValue = currentGroupValue
-      }
-
-      const values = selectedColumns.map(col => {
-        const value = (row as any)[col]
-        if (col === 'orderDate') {
-          return `"${formatDate(value)}"`
-        } else if (col === 'itemsCount') {
-          return value
-        } else if (col === 'paymentStatus') {
-          return `"${row.isPaidInFull ? 'Paid' : row.paidAmount > 0 ? 'Partial' : 'Unpaid'}"`
-        } else if (col === 'fulfillmentStatus') {
-          return `"${row.isFulfilled ? 'Fulfilled' : 'Unfulfilled'}"`
-        } else if (typeof value === 'number') {
-          return value.toFixed(2)
-        }
-        return `"${value || ''}"`
-      })
-      csv += values.join(',') + '\n'
-
-      // Check if we need to add subtotal
-      const nextRow = idx < sortedData.length - 1 ? sortedData[idx + 1] : null
-      let nextGroupValue: any = null
-      if (nextRow) {
-        if (groupBy === 'customerName') nextGroupValue = nextRow.customerName
-        else if (groupBy === 'paymentStatus') nextGroupValue = nextRow.isPaidInFull ? 'Paid' : nextRow.paidAmount > 0 ? 'Partial' : 'Unpaid'
-        else if (groupBy === 'inventoryStatus') nextGroupValue = nextRow.isFulfilled ? 'Fulfilled' : 'Unfulfilled'
-      }
-
-      if (groupBy !== 'none' && (!nextRow || currentGroupValue !== nextGroupValue)) {
-        // Calculate subtotal for this group
-        const groupData = sortedData.filter(r => {
-          let rowGroupValue: any = null
-          if (groupBy === 'customerName') rowGroupValue = r.customerName
-          else if (groupBy === 'paymentStatus') rowGroupValue = r.isPaidInFull ? 'Paid' : r.paidAmount > 0 ? 'Partial' : 'Unpaid'
-          else if (groupBy === 'inventoryStatus') rowGroupValue = r.isFulfilled ? 'Fulfilled' : 'Unfulfilled'
-          return rowGroupValue === currentGroupValue
-        })
-
-        const subtotal = {
-          itemsCount: groupData.reduce((sum, r) => sum + r.itemsCount, 0),
-          totalAmount: groupData.reduce((sum, r) => sum + r.totalAmount, 0),
-          paidAmount: groupData.reduce((sum, r) => sum + r.paidAmount, 0),
-          balanceDue: groupData.reduce((sum, r) => sum + r.balanceDue, 0),
-        }
-
-        const subtotalValues = selectedColumns.map((col, colIdx) => {
-          if (colIdx === 0) {
-            return '"Subtotal"'
-          }
-          const value = (subtotal as any)[col]
-          if (col === 'itemsCount') {
-            return value?.toLocaleString() || ''
-          } else if (typeof value === 'number') {
-            return value.toFixed(2)
-          }
-          return ''
-        })
-        csv += subtotalValues.join(',') + '\n'
-        // Blank row after subtotal
-        csv += '\n'
-      }
-    })
-
-    // Add totals
-    if (totals) {
-      csv += '\n'
-      const totalValues = selectedColumns.map((col, colIdx) => {
-        if (colIdx === 0) {
-          return '"GRAND TOTAL"'
-        }
-        const value = (totals as any)[col]
-        if (col === 'itemsCount') {
-          return value?.toLocaleString() || ''
-        } else if (typeof value === 'number') {
-          return value.toFixed(2)
-        }
-        return ''
-      })
-      csv += totalValues.join(',') + '\n'
-    }
-
-    // Download
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
-    const link = document.createElement('a')
-    const url = URL.createObjectURL(blob)
-    link.setAttribute('href', url)
-    link.setAttribute('download', `${reportTitle.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.csv`)
-    link.style.visibility = 'hidden'
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
+  const handleExportExcel = async () => {
+    const date = new Date().toISOString().split('T')[0]
+    await exportReportExcel(
+      '/sales/analytics/sales-order-summary/export',
+      { dateFrom, dateTo, customerId: selectedCustomer, status: inventoryStatus, paymentStatus },
+      `sales-order-summary-${date}.xlsx`,
+    )
   }
 
   const handleExportPDF = () => {

@@ -45,6 +45,7 @@ import { printColors } from '@/styles/printTokens'
 import { formatCurrency, formatDate, formatDateTime } from '@/utils/formatters'
 import { escapeHtml } from '@/utils/security'
 import { printReport } from '@/utils/printReport'
+import { exportReportExcel } from '@/utils/exportReport'
 import { TABLE_STYLES } from '@/constants/tableStyles'
 import { ApiService } from '@/services/api'
 
@@ -321,135 +322,13 @@ const CustomerOrderHistory: React.FC = () => {
     setRowsPerPage(25)
   }
 
-  const handleExportExcel = () => {
-    if (sortedData.length === 0) return
-
-    // Column headers mapping
-    const columnHeaders: { [key: string]: string } = {
-      productName: 'Product',
-      categoryName: 'Category',
-      orderNumber: 'Order No',
-      orderDate: 'Order Date',
-      customerName: 'Customer',
-      inventoryStatus: 'Inventory Status',
-      paymentStatus: 'Payment Status',
-      quantity: 'Quantity',
-      amount: 'Amount',
-      cost: 'Cost',
-      profit: 'Profit'
-    }
-
-    // Build CSV content
-    let csv = reportTitle + '\n\n'
-
-    // Add headers
-    const headers = selectedColumns.map(col => columnHeaders[col] || col)
-    csv += headers.join(',') + '\n'
-
-    // Add data rows with grouping support
-    let prevGroupKey: any = null
-
-    // Helper to get group key for export
-    const getExportGroupKey = (r: any) => {
-      if (groupBy === 'customerOrder') {
-        return `${r.customerName}|${r.orderNumber}`
-      } else if (groupBy === 'customerProduct') {
-        return `${r.customerName}|${r.productName}`
-      }
-      return r[groupBy]
-    }
-
-    // Helper to get group label for export
-    const getExportGroupLabel = (r: any) => {
-      if (groupBy === 'customerOrder') {
-        return `Customer: ${r.customerName} | Order: ${r.orderNumber}`
-      } else if (groupBy === 'customerProduct') {
-        return `Customer: ${r.customerName} | Product: ${r.productName}`
-      }
-      return r[groupBy]
-    }
-
-    sortedData.forEach((row, idx) => {
-      // Determine current group value
-      const currentGroupKey = groupBy !== 'none' ? getExportGroupKey(row) : null
-
-      // Add group header if group changed
-      if (groupBy !== 'none' && currentGroupKey !== prevGroupKey) {
-        const groupLabel = getExportGroupLabel(row)
-        csv += `\n"${groupLabel}"\n`
-        prevGroupKey = currentGroupKey
-      }
-
-      const values = selectedColumns.map(col => {
-        const value = (row as any)[col]
-        if (col === 'orderDate') {
-          return value ? `"${formatDate(value)}"` : '""'
-        } else if (col === 'customerName' || col === 'orderNumber' || col === 'paymentStatus' || col === 'inventoryStatus' || col === 'customerPhone' || col === 'notes' || col === 'productName' || col === 'categoryName') {
-          return `"${value || ''}"`
-        } else if (typeof value === 'number') {
-          return value.toFixed(2)
-        }
-        return `"${value || ''}"`
-      })
-      csv += values.join(',') + '\n'
-
-      // Check if we need to add subtotal
-      const nextRow = idx < sortedData.length - 1 ? sortedData[idx + 1] : null
-      const nextGroupKey = nextRow && groupBy !== 'none' ? getExportGroupKey(nextRow) : null
-
-      if (groupBy !== 'none' && (!nextRow || currentGroupKey !== nextGroupKey)) {
-        // Calculate subtotal for this group
-        const groupData = sortedData.filter(r => getExportGroupKey(r) === currentGroupKey)
-
-        const subtotal = {
-          quantity: groupData.reduce((sum, r) => sum + r.quantity, 0),
-          amount: groupData.reduce((sum, r) => sum + r.amount, 0),
-          cost: groupData.reduce((sum, r) => sum + r.cost, 0),
-          profit: groupData.reduce((sum, r) => sum + r.profit, 0),
-        }
-
-        const subtotalValues = selectedColumns.map((col, colIdx) => {
-          if (colIdx === 0) {
-            return '"Subtotal"'
-          }
-          const value = (subtotal as any)[col]
-          if (typeof value === 'number') {
-            return value.toFixed(2)
-          }
-          return ''
-        })
-        csv += subtotalValues.join(',') + '\n'
-        // Blank row after subtotal
-        csv += '\n'
-      }
-    })
-
-    // Add totals
-    if (totals) {
-      csv += '\n'
-      const totalValues = selectedColumns.map((col, colIdx) => {
-        if (colIdx === 0) {
-          return '"GRAND TOTAL"'
-        }
-        const value = (totals as any)[col]
-        if (typeof value === 'number') {
-          return value.toFixed(2)
-        }
-        return ''
-      })
-      csv += totalValues.join(',') + '\n'
-    }
-
-    // Download
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
-    const link = document.createElement('a')
-    const url = URL.createObjectURL(blob)
-    link.setAttribute('href', url)
-    link.setAttribute('download', `${reportTitle.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.csv`)
-    link.style.visibility = 'hidden'
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
+  const handleExportExcel = async () => {
+    const date = new Date().toISOString().split('T')[0]
+    await exportReportExcel(
+      '/sales/analytics/customer-order-history/export',
+      { dateFrom, dateTo, customerId: selectedCustomer, categoryId: selectedCategory, productIds: selectedProducts, inventoryStatus, paymentStatus },
+      `customer-order-history-${date}.xlsx`,
+    )
   }
 
   const handleExportPDF = () => {

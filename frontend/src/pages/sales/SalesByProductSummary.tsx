@@ -53,6 +53,7 @@ import { printColors } from '@/styles/printTokens'
 import { formatCurrency, formatDate, formatDateTime } from '@/utils/formatters'
 import { escapeHtml } from '@/utils/security'
 import { printReport } from '@/utils/printReport'
+import { exportReportExcel } from '@/utils/exportReport'
 import { TABLE_STYLES } from '@/constants/tableStyles'
 import { ApiService } from '@/services/api'
 
@@ -187,112 +188,13 @@ const SalesByProductSummary: React.FC = () => {
     setRowsPerPage(25)
   }
 
-  const handleExportExcel = () => {
-    if (sortedData.length === 0) return
-
-    // Column headers mapping
-    const columnHeaders: { [key: string]: string } = {
-      productName: 'Product',
-      category: 'Category',
-      soldQty: 'Sold Qty',
-      totalSales: 'Total Sales',
-      cost: 'Cost',
-      salesProfit: 'Sales Profit',
-      purchaseQty: 'Purchase Qty',
-      purchaseSubtotal: 'Purchase Subtotal',
-      totalProfit: 'Total Profit'
-    }
-
-    // Build CSV content
-    let csv = reportTitle + '\n\n'
-
-    // Add headers
-    const headers = selectedColumns.map(col => columnHeaders[col] || col)
-    csv += headers.join(',') + '\n'
-
-    // Add data rows
-    if (groupedData) {
-      // Export grouped data
-      Object.entries(groupedData).forEach(([categoryName, items]) => {
-        // Category header
-        csv += `\n"${categoryName}"\n`
-
-        // Items
-        items.forEach(row => {
-          const values = selectedColumns.map(col => {
-            const value = (row as any)[col]
-            if (col === 'soldQty' || col === 'purchaseQty') {
-              return value.toLocaleString()
-            } else if (typeof value === 'number') {
-              return value.toFixed(2)
-            }
-            return `"${value || ''}"`
-          })
-          csv += values.join(',') + '\n'
-        })
-
-        // Subtotal
-        const subtotal = calculateCategorySubtotal(items)
-        const subtotalValues = selectedColumns.map((col, colIdx) => {
-          if (colIdx === 0) {
-            return '"Subtotal"'
-          } else if (col === 'soldQty' || col === 'purchaseQty') {
-            const value = (subtotal as any)[col]
-            return value?.toLocaleString() || ''
-          } else if (col === 'totalSales' || col === 'cost' || col === 'salesProfit' || col === 'purchaseSubtotal' || col === 'totalProfit') {
-            const value = (subtotal as any)[col]
-            return typeof value === 'number' ? value.toFixed(2) : ''
-          }
-          return ''
-        })
-        csv += subtotalValues.join(',') + '\n'
-        // Blank row after subtotal
-        csv += '\n'
-      })
-    } else {
-      // Export ungrouped data
-      sortedData.forEach(row => {
-        const values = selectedColumns.map(col => {
-          const value = (row as any)[col]
-          if (col === 'soldQty' || col === 'purchaseQty') {
-            return value.toLocaleString()
-          } else if (typeof value === 'number') {
-            return value.toFixed(2)
-          }
-          return `"${value || ''}"`
-        })
-        csv += values.join(',') + '\n'
-      })
-    }
-
-    // Add totals
-    if (totals) {
-      csv += '\n'
-      const totalValues = selectedColumns.map((col, colIdx) => {
-        if (colIdx === 0) {
-          return '"GRAND TOTAL"'
-        } else if (col === 'soldQty' || col === 'purchaseQty') {
-          const value = (totals as any)[col]
-          return value?.toLocaleString() || ''
-        } else if (col === 'totalSales' || col === 'cost' || col === 'salesProfit' || col === 'purchaseSubtotal' || col === 'totalProfit') {
-          const value = (totals as any)[col]
-          return typeof value === 'number' ? value.toFixed(2) : ''
-        }
-        return ''
-      })
-      csv += totalValues.join(',') + '\n'
-    }
-
-    // Download
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
-    const link = document.createElement('a')
-    const url = URL.createObjectURL(blob)
-    link.setAttribute('href', url)
-    link.setAttribute('download', `${reportTitle.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.csv`)
-    link.style.visibility = 'hidden'
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
+  const handleExportExcel = async () => {
+    const date = new Date().toISOString().split('T')[0]
+    await exportReportExcel(
+      '/sales/analytics/product-summary/export',
+      { dateFrom, dateTo, categoryId: selectedCategory, productIds: selectedProducts },
+      `sales-by-product-summary-${date}.xlsx`,
+    )
   }
 
   const handleExportPDF = () => {
