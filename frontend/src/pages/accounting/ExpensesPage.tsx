@@ -86,6 +86,14 @@ const ExpensesPage: React.FC = () => {
   const selected = useAppSelector(selectSelectedExpense)
   const workspace = useExpensesWorkspace(() => { void refetch() }, rows, dispatch, selected)
 
+  const filterHandlers = useMemo(() => ({
+    ...handlers,
+    onSearchChange: (value: string) => {
+      handlers.onSearchChange(value)
+      workspace.setShouldPreserveSearchFocus(true)
+    },
+  }), [handlers, workspace])
+
   const openCreate = () => {
     workspace.setEditTarget(null)
     workspace.setFormOpen(true)
@@ -110,7 +118,7 @@ const ExpensesPage: React.FC = () => {
       secondaryAction={{ label: 'View Deleted', onClick: () => setDeletedOpen(true) }}
       filterConfig={filterConfig}
       draftFilters={draftFilters}
-      handlers={handlers}
+      handlers={filterHandlers}
       hasActiveFilters={hasActiveFilters}
       searchInputRef={workspace.searchInputRef}
       sort={{ field: 'referenceNumber', sortBy, sortOrder, onSort: handleSort }}

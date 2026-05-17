@@ -83,6 +83,7 @@ export function useFundTransfersWorkspace(
       setPostTarget(null)
       dispatch(setSelectedFundTransfer(null))
       refetch()
+      workspace.setShouldPreserveSearchFocus(true)
     }
     catch (error: unknown) {
       showError(getErrorMessage(error, 'Failed to post transfer'))
@@ -90,7 +91,7 @@ export function useFundTransfersWorkspace(
     finally {
       setActionLoading(false)
     }
-  }, [postTarget, postFundTransfer, showSuccess, showError, refetch, dispatch])
+  }, [postTarget, postFundTransfer, showSuccess, showError, refetch, dispatch, workspace])
 
   const handleConfirmDelete = useCallback(async () => {
     if (!deleteTarget) return
@@ -101,6 +102,7 @@ export function useFundTransfersWorkspace(
       setDeleteTarget(null)
       dispatch(setSelectedFundTransfer(null))
       refetch()
+      workspace.setShouldPreserveSearchFocus(true)
     }
     catch (error: unknown) {
       showError(getErrorMessage(error, 'Failed to delete transfer'))
@@ -108,7 +110,7 @@ export function useFundTransfersWorkspace(
     finally {
       setActionLoading(false)
     }
-  }, [deleteTarget, deleteFundTransfer, showSuccess, showError, refetch, dispatch])
+  }, [deleteTarget, deleteFundTransfer, showSuccess, showError, refetch, dispatch, workspace])
 
   const handleConfirmUnpost = useCallback(async () => {
     if (!unpostTarget) return
@@ -119,6 +121,7 @@ export function useFundTransfersWorkspace(
       setUnpostTarget(null)
       dispatch(setSelectedFundTransfer(null))
       refetch()
+      workspace.setShouldPreserveSearchFocus(true)
     }
     catch (error: unknown) {
       showError(getErrorMessage(error, 'Failed to unpost transfer'))
@@ -126,7 +129,7 @@ export function useFundTransfersWorkspace(
     finally {
       setActionLoading(false)
     }
-  }, [unpostTarget, unpostFundTransfer, showSuccess, showError, refetch, dispatch])
+  }, [unpostTarget, unpostFundTransfer, showSuccess, showError, refetch, dispatch, workspace])
 
   const handleConfirmRestore = useCallback(async () => {
     if (!restoreTarget) return
@@ -137,6 +140,7 @@ export function useFundTransfersWorkspace(
       setRestoreTarget(null)
       dispatch(setSelectedFundTransfer(null))
       refetch()
+      workspace.setShouldPreserveSearchFocus(true)
     }
     catch (error: unknown) {
       showError(getErrorMessage(error, 'Failed to restore transfer'))
@@ -144,7 +148,7 @@ export function useFundTransfersWorkspace(
     finally {
       setActionLoading(false)
     }
-  }, [restoreTarget, restoreFundTransfer, showSuccess, showError, refetch, dispatch])
+  }, [restoreTarget, restoreFundTransfer, showSuccess, showError, refetch, dispatch, workspace])
 
   return {
     focusedIndex: workspace.focusedIndex,
@@ -165,6 +169,7 @@ export function useFundTransfersWorkspace(
     actionLoading,
     deletedDialogOpen,
     setDeletedDialogOpen,
+    setShouldPreserveSearchFocus: workspace.setShouldPreserveSearchFocus,
     handleSelect,
     handleConfirmPost,
     handleConfirmDelete,

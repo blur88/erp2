@@ -102,6 +102,14 @@ const FundTransfersPage: React.FC = () => {
 
   const workspace = useFundTransfersWorkspace(() => { void refetch() }, transfers, dispatch, selected)
 
+  const filterHandlers = useMemo(() => ({
+    ...handlers,
+    onSearchChange: (value: string) => {
+      handlers.onSearchChange(value)
+      workspace.setShouldPreserveSearchFocus(true)
+    },
+  }), [handlers, workspace])
+
   const resetForm = () => {
     workspace.setFormOpen(false)
     workspace.setEditTarget(null)
@@ -172,7 +180,7 @@ const FundTransfersPage: React.FC = () => {
         secondaryAction={secondaryAction}
         filterConfig={filterConfig}
         draftFilters={draftFilters}
-        handlers={handlers}
+        handlers={filterHandlers}
         hasActiveFilters={hasActiveFilters}
         searchInputRef={workspace.searchInputRef}
         sort={{ field: 'transferDate', sortBy: 'transferDate', sortOrder: 'desc', onSort: () => {} }}
