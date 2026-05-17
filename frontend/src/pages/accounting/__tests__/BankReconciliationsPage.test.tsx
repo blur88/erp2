@@ -300,4 +300,58 @@ describe('BankReconciliationsPage', () => {
       expect(periodSelect).toHaveAttribute('aria-disabled', 'true')
     })
   })
+
+  it('shows BlockedBankReconciliationDialog immediately when deleting a completed reconciliation', async () => {
+    mockedApi.useGetBankReconciliationsQuery.mockReturnValue({
+      data: { data: [MOCK_RECONCILIATION_COMPLETED], meta: { total: 1 } },
+      isLoading: false,
+      refetch: vi.fn(),
+    })
+    mockedApi.useLazyGetBankReconciliationQuery.mockReturnValue([
+      vi.fn(() => ({ unwrap: vi.fn().mockResolvedValue(MOCK_RECONCILIATION_COMPLETED) })),
+    ])
+
+    renderPage()
+
+    // Select the completed reconciliation
+    fireEvent.click(screen.getAllByText('Main Checking')[0])
+    await waitFor(() => expect(screen.getByText('Delete')).toBeInTheDocument())
+
+    // Click Delete — blocked dialog should appear immediately, no confirmation dialog
+    fireEvent.click(screen.getByText('Delete'))
+    await waitFor(() =>
+      expect(screen.getByText('Reconciliation Already Completed')).toBeInTheDocument()
+    )
+    expect(screen.queryByText('Delete Reconciliation')).not.toBeInTheDocument()
+  })
+
+  it('calls reopen then delete when Reopen & Delete is clicked in blocked dialog', async () => {
+    const reopenMock = vi.fn(() => ({
+      unwrap: vi.fn().mockResolvedValue({ ...MOCK_RECONCILIATION_COMPLETED, status: 'IN_PROGRESS', isCompleted: false, isInProgress: true }),
+    }))
+    const deleteMock = vi.fn(() => ({ unwrap: vi.fn().mockResolvedValue(undefined) }))
+
+    mockedApi.useReopenBankReconciliationMutation.mockReturnValue([reopenMock])
+    mockedApi.useDeleteBankReconciliationMutation.mockReturnValue([deleteMock])
+    mockedApi.useGetBankReconciliationsQuery.mockReturnValue({
+      data: { data: [MOCK_RECONCILIATION_COMPLETED], meta: { total: 1 } },
+      isLoading: false,
+      refetch: vi.fn(),
+    })
+    mockedApi.useLazyGetBankReconciliationQuery.mockReturnValue([
+      vi.fn(() => ({ unwrap: vi.fn().mockResolvedValue(MOCK_RECONCILIATION_COMPLETED) })),
+    ])
+
+    renderPage()
+
+    fireEvent.click(screen.getAllByText('Main Checking')[0])
+    await waitFor(() => expect(screen.getByText('Delete')).toBeInTheDocument())
+    fireEvent.click(screen.getByText('Delete'))
+    await waitFor(() => expect(screen.getByText('Reconciliation Already Completed')).toBeInTheDocument())
+
+    fireEvent.click(screen.getByRole('button', { name: /reopen & delete/i }))
+
+    await waitFor(() => expect(reopenMock).toHaveBeenCalledWith('rec-2'))
+    await waitFor(() => expect(deleteMock).toHaveBeenCalledWith('rec-2'))
+  })
 })

@@ -34,6 +34,7 @@ export function useBankReconciliationsWorkspace({
   const [completeTarget, setCompleteTarget] = useState<BankReconciliation | null>(null)
   const [reopenTarget, setReopenTarget] = useState<BankReconciliation | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<BankReconciliation | null>(null)
+  const [blockedDeleteTarget, setBlockedDeleteTarget] = useState<BankReconciliation | null>(null)
   const [actionLoading, setActionLoading] = useState(false)
 
   const [fetchItem] = useLazyGetBankReconciliationQuery()
@@ -61,6 +62,7 @@ export function useBankReconciliationsWorkspace({
       setCompleteTarget(null)
       setReopenTarget(null)
       setDeleteTarget(null)
+      setBlockedDeleteTarget(null)
     },
   })
 
@@ -143,6 +145,49 @@ export function useBankReconciliationsWorkspace({
     }
   }, [deleteTarget, deleteReconciliation, showSuccess, showError, refetch, dispatch])
 
+  const handleReopenOnly = useCallback(async () => {
+    if (!blockedDeleteTarget) return
+    setActionLoading(true)
+    try {
+      const fresh = await reopenReconciliation(blockedDeleteTarget.id).unwrap()
+      showSuccess('Reconciliation reopened')
+      setBlockedDeleteTarget(null)
+      dispatch(setSelectedBankReconciliation(fresh))
+      refetch()
+    }
+    catch (error: unknown) {
+      showError(getErrorMessage(error, 'Failed to reopen reconciliation'))
+    }
+    finally {
+      setActionLoading(false)
+    }
+  }, [blockedDeleteTarget, reopenReconciliation, showSuccess, showError, refetch, dispatch])
+
+  const handleReopenAndDelete = useCallback(async () => {
+    if (!blockedDeleteTarget) return
+    setActionLoading(true)
+    try {
+      const fresh = await reopenReconciliation(blockedDeleteTarget.id).unwrap()
+      try {
+        await deleteReconciliation(blockedDeleteTarget.id).unwrap()
+        showSuccess('Reconciliation reopened and deleted')
+        setBlockedDeleteTarget(null)
+        dispatch(setSelectedBankReconciliation(null))
+      } catch (deleteError: unknown) {
+        showError('Reconciliation was reopened but could not be deleted. Please delete it manually.')
+        setBlockedDeleteTarget(null)
+        dispatch(setSelectedBankReconciliation(fresh))
+      }
+      refetch()
+    }
+    catch (error: unknown) {
+      showError(getErrorMessage(error, 'Failed to reopen reconciliation'))
+    }
+    finally {
+      setActionLoading(false)
+    }
+  }, [blockedDeleteTarget, reopenReconciliation, deleteReconciliation, showSuccess, showError, refetch, dispatch])
+
   return {
     completeTarget,
     setCompleteTarget,
@@ -150,6 +195,8 @@ export function useBankReconciliationsWorkspace({
     setReopenTarget,
     deleteTarget,
     setDeleteTarget,
+    blockedDeleteTarget,
+    setBlockedDeleteTarget,
     actionLoading,
     focusedIndex: workspace.focusedIndex,
     searchInputRef: workspace.searchInputRef,
@@ -159,5 +206,7 @@ export function useBankReconciliationsWorkspace({
     handleConfirmComplete,
     handleConfirmReopen,
     handleConfirmDelete,
+    handleReopenOnly,
+    handleReopenAndDelete,
   }
 }

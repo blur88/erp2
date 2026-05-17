@@ -7,6 +7,7 @@ import { useFilterBar } from '@/hooks/useFilterBar'
 import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
 import { useGetBankReconciliationsQuery } from '@/store/api/accountingApi'
 import { selectSelectedBankReconciliation } from '@/store/slices/accountingSlice'
+import { BankReconciliationStatus } from '@/types'
 import type { FilterBarConfig, PeriodValue } from '@/types/filterBar.types'
 import { getPeriodDateRange, getStartOfWeek } from '@/utils/dateRange'
 
@@ -128,7 +129,14 @@ const BankReconciliationsPage: React.FC = () => {
           onEdit={() => setEditOpen(true)}
           onComplete={() => selected && workspace.setCompleteTarget(selected)}
           onReopen={() => selected && workspace.setReopenTarget(selected)}
-          onDelete={() => selected && workspace.setDeleteTarget(selected)}
+          onDelete={() => {
+            if (!selected) return
+            if (selected.status === BankReconciliationStatus.COMPLETED) {
+              workspace.setBlockedDeleteTarget(selected)
+            } else {
+              workspace.setDeleteTarget(selected)
+            }
+          }}
         />
       )}
       workspaceSlot={(
@@ -143,6 +151,7 @@ const BankReconciliationsPage: React.FC = () => {
             completeTarget={workspace.completeTarget}
             reopenTarget={workspace.reopenTarget}
             deleteTarget={workspace.deleteTarget}
+            blockedDeleteTarget={workspace.blockedDeleteTarget}
             actionLoading={workspace.actionLoading}
             onConfirmComplete={workspace.handleConfirmComplete}
             onConfirmReopen={workspace.handleConfirmReopen}
@@ -150,6 +159,9 @@ const BankReconciliationsPage: React.FC = () => {
             onCancelComplete={() => workspace.setCompleteTarget(null)}
             onCancelReopen={() => workspace.setReopenTarget(null)}
             onCancelDelete={() => workspace.setDeleteTarget(null)}
+            onCancelBlockedDelete={() => workspace.setBlockedDeleteTarget(null)}
+            onReopenOnly={workspace.handleReopenOnly}
+            onReopenAndDelete={workspace.handleReopenAndDelete}
           />
           {createOpen && (
             <BankReconciliationFormDialog
