@@ -14,7 +14,9 @@ import {
   UploadedFile,
   Header,
   StreamableFile,
+  Res,
 } from '@nestjs/common';
+import { Response } from 'express';
 import { FileInterceptor } from '@nestjs/platform-express';
 import {
   ApiTags,
@@ -27,6 +29,7 @@ import {
 } from '@nestjs/swagger';
 import { ProductService } from '../services/product.service';
 import { PricingService } from '../services/pricing.service';
+import { ExportService } from '../../../common/services/export.service';
 import {
   CreateProductDto,
   UpdateProductDto,
@@ -46,6 +49,7 @@ export class ProductController {
   constructor(
     private readonly productService: ProductService,
     private readonly pricingService: PricingService,
+    private readonly exportService: ExportService,
   ) {}
 
   @Get('dashboard-stats')
@@ -195,6 +199,51 @@ export class ProductController {
   @Header('Content-Disposition', 'attachment; filename="product-import-template.csv"')
   async downloadImportTemplate(): Promise<StreamableFile> {
     return this.productService.generateImportTemplate();
+  }
+
+  @Get('export')
+  @ApiOperation({ summary: 'Export products list to Excel' })
+  async exportProducts(
+    @Query() query: QueryProductsDto,
+    @Res() res: Response,
+  ): Promise<void> {
+    const { data: products } = await this.productService.findAll(query);
+    const columns = [
+      { key: 'sku', header: 'SKU', type: 'string' as const, width: 15 },
+      { key: 'name', header: 'Name', type: 'string' as const, width: 30 },
+      {
+        key: 'category.name',
+        header: 'Category',
+        type: 'string' as const,
+        width: 20,
+      },
+      {
+        key: 'costPrice',
+        header: 'Cost Price',
+        type: 'currency' as const,
+        width: 15,
+      },
+      {
+        key: 'sellingPrice',
+        header: 'Selling Price',
+        type: 'currency' as const,
+        width: 15,
+      },
+      { key: 'currentStock', header: 'Stock', type: 'number' as const, width: 12 },
+      { key: 'isActive', header: 'Active', type: 'string' as const, width: 10 },
+    ];
+    const buffer = await this.exportService.exportFlat(
+      'Products',
+      columns,
+      products as any[],
+    );
+    const date = new Date().toISOString().split('T')[0];
+    res.set({
+      'Content-Type':
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'Content-Disposition': `attachment; filename="products-${date}.xlsx"`,
+    });
+    res.send(buffer);
   }
 
   @Get(':id')

@@ -49,6 +49,7 @@ import { CostingRecalculationService } from './services/costing-recalculation.se
 import { UsersModule } from '../users/users.module';
 import { SettingsModule } from '../settings/settings.module';
 import { AccountingModule } from '../accounting/accounting.module';
+import { ExportModule } from '../../common/export.module';
 
 @Module({
   imports: [
@@ -79,6 +80,7 @@ import { AccountingModule } from '../accounting/accounting.module';
     SettingsModule,
     // Import accounting module for auto-posting journal entries
     AccountingModule,
+    ExportModule,
   ],
   controllers: [
     ProductController,
