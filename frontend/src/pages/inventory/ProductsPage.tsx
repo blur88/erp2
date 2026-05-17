@@ -1,6 +1,8 @@
 import React, { useCallback, useMemo, useState } from 'react'
+import { default as TableChartIcon } from '@mui/icons-material/TableChart'
 
 import GenericListPage from '@/components/common/GenericListPage'
+import { AppButton } from '@/components/common/AppButton'
 import { useFilterBar } from '@/hooks/useFilterBar'
 import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
 import {
@@ -108,6 +110,17 @@ const ProductsPage: React.FC = () => {
       hasActiveFilters={hasActiveFilters}
       searchInputRef={workspace.searchInputRef}
       sort={{ field: 'name', sortBy, sortOrder, onSort: handleSort }}
+      filterExtra={(
+        <AppButton
+          size="filter"
+          variant="outlined"
+          startIcon={<TableChartIcon />}
+          loading={workspace.isExporting}
+          onClick={workspace.handleExportClick}
+        >
+          Export
+        </AppButton>
+      )}
       listSlot={(
         <ProductList
           products={products}

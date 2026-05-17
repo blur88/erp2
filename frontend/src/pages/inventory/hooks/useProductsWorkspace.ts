@@ -7,6 +7,7 @@ import { useDeleteProductMutation } from '@/store/api/inventoryApi'
 import type { AppDispatch } from '@/store'
 import { setSelectedProduct } from '@/store/slices/inventorySlice'
 import type { Product } from '@/types'
+import { exportReportExcel } from '@/utils/exportReport'
 import { exportProducts } from '@/utils/exportUtils'
 
 export interface UseProductsWorkspaceConfig {
@@ -139,14 +140,26 @@ export function useProductsWorkspace({
         setIsExporting(true)
         handleExportClose()
 
-        await exportProducts(format, {
-          products,
-          filters: {
-            search: productFilters.search || undefined,
-            category: productFilters.categoryId || undefined,
-          },
-          lowStockThreshold: 10,
-        })
+        if (format === 'excel') {
+          const date = new Date().toISOString().split('T')[0]
+          await exportReportExcel(
+            '/inventory/products/export',
+            {
+              search: productFilters.search || undefined,
+              categoryId: productFilters.categoryId || undefined,
+            },
+            `products-${date}.xlsx`,
+          )
+        } else {
+          await exportProducts(format, {
+            products,
+            filters: {
+              search: productFilters.search || undefined,
+              category: productFilters.categoryId || undefined,
+            },
+            lowStockThreshold: 10,
+          })
+        }
         showSuccess(`Products exported successfully as ${format.toUpperCase()}`)
       } catch (error: any) {
         console.error('Export error:', error)
