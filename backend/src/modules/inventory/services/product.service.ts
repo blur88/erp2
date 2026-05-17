@@ -849,6 +849,9 @@ export class ProductService extends BaseCrudService<
           `Permanently deleted product: ${product.name} (${product.barcode})`,
           { entityId: id, userId: userId || 'system', username, oldValues: { name: product.name, barcode: product.barcode } }
         );
+        // Clean up system-generated setup artifacts before hard delete
+        await this.stockMovementRepository.delete({ productId: id, movementType: StockMovementType.INITIAL_STOCK });
+        await this.purchaseCostHistoryRepository.delete({ productId: id });
         await this.productRepository.delete(id);
 
         successCount++;
