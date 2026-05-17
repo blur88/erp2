@@ -298,9 +298,6 @@ export class FundTransferService {
     if (transfer.status === FundTransferStatus.POSTED) {
       throw new BadRequestException('Cannot delete a posted fund transfer');
     }
-    if (transfer.status === FundTransferStatus.REVERSED) {
-      throw new BadRequestException('Cannot delete a reversed fund transfer');
-    }
 
     await this.transferRepository.softDelete(id);
 

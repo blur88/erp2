@@ -51,7 +51,10 @@ export function useFundTransfersWorkspace(
     },
     notifications: { showSuccess, showError },
     onEnter: () => {
-      if (selected) setFormOpen(true)
+      if (selected && (selected.status === 'draft' || selected.status === 'reversed')) {
+        setEditTarget(selected)
+        setFormOpen(true)
+      }
     },
     onEscape: () => {
       dispatch(setSelectedFundTransfer(null))

@@ -312,14 +312,18 @@ describe('FundTransferService', () => {
       await expect(service.remove('trf-1', 'user-1')).rejects.toThrow(BadRequestException);
     });
 
-    it('throws BadRequestException when trying to delete a REVERSED transfer', async () => {
+    it('soft-deletes a REVERSED transfer', async () => {
       transferRepository.findOne.mockResolvedValue({
         id: 'trf-1',
+        referenceNumber: 'TRF-26-001',
         status: FundTransferStatus.REVERSED,
         deletedAt: null,
       } as any);
+      transferRepository.softDelete.mockResolvedValue({} as any);
 
-      await expect(service.remove('trf-1', 'user-1')).rejects.toThrow(BadRequestException);
+      await service.remove('trf-1', 'user-1');
+
+      expect(transferRepository.softDelete).toHaveBeenCalledWith('trf-1');
     });
   });
 
