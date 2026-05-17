@@ -81,9 +81,9 @@ export function useFundTransfersWorkspace(
       await postFundTransfer(postTarget.id).unwrap()
       showSuccess(`Transfer ${postTarget.referenceNumber} posted`)
       setPostTarget(null)
-      dispatch(setSelectedFundTransfer(null))
       refetch()
-      workspace.setShouldPreserveSearchFocus(true)
+      const fresh = await fetchItem(postTarget.id).unwrap()
+      dispatch(setSelectedFundTransfer(fresh))
     }
     catch (error: unknown) {
       showError(getErrorMessage(error, 'Failed to post transfer'))
@@ -91,7 +91,7 @@ export function useFundTransfersWorkspace(
     finally {
       setActionLoading(false)
     }
-  }, [postTarget, postFundTransfer, showSuccess, showError, refetch, dispatch, workspace])
+  }, [postTarget, postFundTransfer, showSuccess, showError, refetch, dispatch, fetchItem])
 
   const handleConfirmDelete = useCallback(async () => {
     if (!deleteTarget) return
@@ -102,7 +102,6 @@ export function useFundTransfersWorkspace(
       setDeleteTarget(null)
       dispatch(setSelectedFundTransfer(null))
       refetch()
-      workspace.setShouldPreserveSearchFocus(true)
     }
     catch (error: unknown) {
       showError(getErrorMessage(error, 'Failed to delete transfer'))
@@ -110,7 +109,7 @@ export function useFundTransfersWorkspace(
     finally {
       setActionLoading(false)
     }
-  }, [deleteTarget, deleteFundTransfer, showSuccess, showError, refetch, dispatch, workspace])
+  }, [deleteTarget, deleteFundTransfer, showSuccess, showError, refetch, dispatch])
 
   const handleConfirmUnpost = useCallback(async () => {
     if (!unpostTarget) return
@@ -119,9 +118,9 @@ export function useFundTransfersWorkspace(
       await unpostFundTransfer(unpostTarget.id).unwrap()
       showSuccess(`Transfer ${unpostTarget.referenceNumber} unposted`)
       setUnpostTarget(null)
-      dispatch(setSelectedFundTransfer(null))
       refetch()
-      workspace.setShouldPreserveSearchFocus(true)
+      const fresh = await fetchItem(unpostTarget.id).unwrap()
+      dispatch(setSelectedFundTransfer(fresh))
     }
     catch (error: unknown) {
       showError(getErrorMessage(error, 'Failed to unpost transfer'))
@@ -129,7 +128,7 @@ export function useFundTransfersWorkspace(
     finally {
       setActionLoading(false)
     }
-  }, [unpostTarget, unpostFundTransfer, showSuccess, showError, refetch, dispatch, workspace])
+  }, [unpostTarget, unpostFundTransfer, showSuccess, showError, refetch, dispatch, fetchItem])
 
   const handleConfirmRestore = useCallback(async () => {
     if (!restoreTarget) return
@@ -138,9 +137,9 @@ export function useFundTransfersWorkspace(
       await restoreFundTransfer(restoreTarget.id).unwrap()
       showSuccess(`Transfer ${restoreTarget.referenceNumber} restored`)
       setRestoreTarget(null)
-      dispatch(setSelectedFundTransfer(null))
       refetch()
-      workspace.setShouldPreserveSearchFocus(true)
+      const fresh = await fetchItem(restoreTarget.id).unwrap()
+      dispatch(setSelectedFundTransfer(fresh))
     }
     catch (error: unknown) {
       showError(getErrorMessage(error, 'Failed to restore transfer'))

@@ -367,6 +367,11 @@ export const accountingApiSlice = createApi({
       transformResponse: normalizePaginated<ExpenseRecord>,
       providesTags: ['Expense'],
     }),
+    getExpense: builder.query<ExpenseRecord, string>({
+      query: (id) => ({ url: `/accounting/expenses/${id}` }),
+      transformResponse: normalizeSingle<ExpenseRecord>,
+      providesTags: (_result, _error, id) => [{ type: 'Expense', id }],
+    }),
     getFundTransfers: builder.query<PaginatedResponse<FundTransfer>, Record<string, unknown> | undefined>({
       query: (params) => ({ url: '/accounting/fund-transfers', params: params ?? {} }),
       transformResponse: normalizePaginated<FundTransfer>,
@@ -885,6 +890,7 @@ export const {
   useGetPendingSettlementPaymentsQuery,
   useGetOwnerEquityTransactionsQuery,
   useGetExpensesQuery,
+  useLazyGetExpenseQuery,
   useGetFundTransfersQuery,
   useGetFundTransferQuery,
   useLazyGetFundTransferQuery,
