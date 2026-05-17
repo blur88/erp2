@@ -1,13 +1,13 @@
 import { BadRequestException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, Not } from 'typeorm';
 import { ProductService } from './product.service';
 import { Product, ProductType } from '../../../database/entities/product.entity';
 import { Category } from '../../../database/entities/category.entity';
 import { SalesOrderItem } from '../../../database/entities/sales-order-item.entity';
 import { PurchaseOrderItem } from '../../../database/entities/purchase-order-item.entity';
-import { StockMovement } from '../../../database/entities/stock-movement.entity';
+import { StockMovement, StockMovementType } from '../../../database/entities/stock-movement.entity';
 import { StockAdjustmentItem } from '../../../database/entities/stock-adjustment.entity';
 import { GoodsReceivedNoteItem } from '../../../database/entities/goods-received-note-item.entity';
 import { InvoiceItem } from '../../../database/entities/invoice-item.entity';
@@ -432,7 +432,12 @@ describe('checkProductDependencies', () => {
     expect(result.hasDependencies).toBe(false);
     expect(result.dependencies).toHaveLength(0);
     expect(stockMovementRepo.count).toHaveBeenCalledWith(
-      expect.objectContaining({ where: expect.objectContaining({ productId: 'product-id' }) }),
+      expect.objectContaining({
+        where: expect.objectContaining({
+          productId: 'product-id',
+          movementType: Not(StockMovementType.INITIAL_STOCK),
+        }),
+      }),
     );
   });
 
@@ -470,5 +475,90 @@ describe('checkProductDependencies', () => {
 
     expect(result.hasDependencies).toBe(false);
     expect(purchaseCostHistoryRepo.count).not.toHaveBeenCalled();
+  });
+});
+
+describe('permanentDelete and bulkPermanentDelete cleanup', () => {
+  let service: ProductService;
+
+  const softDeletedProduct = {
+    id: 'product-id',
+    name: 'Test Product',
+    barcode: 'SKU-001',
+    baseCost: 10,
+    stockQuantity: 5,
+    deletedAt: new Date(),
+  } as any;
+
+  const makeCountRepo = (count = 0) => ({ count: jest.fn().mockResolvedValue(count) }) as any;
+
+  const buildModule = async (repoOverrides: { token: any; useValue: any }[] = []) => {
+    const stockMovementRepo = { count: jest.fn().mockResolvedValue(0), delete: jest.fn().mockResolvedValue({ affected: 1 }) };
+    const productRepo = { findOne: jest.fn().mockResolvedValue(softDeletedProduct), delete: jest.fn().mockResolvedValue({ affected: 1 }), createQueryBuilder: jest.fn() };
+
+    const defaults = [
+      { token: getRepositoryToken(Product), useValue: productRepo },
+      { token: getRepositoryToken(Category), useValue: {} },
+      { token: getRepositoryToken(SalesOrderItem), useValue: makeCountRepo(0) },
+      { token: getRepositoryToken(PurchaseOrderItem), useValue: makeCountRepo(0) },
+      { token: getRepositoryToken(StockMovement), useValue: stockMovementRepo },
+      { token: getRepositoryToken(StockAdjustmentItem), useValue: makeCountRepo(0) },
+      { token: getRepositoryToken(GoodsReceivedNoteItem), useValue: makeCountRepo(0) },
+      { token: getRepositoryToken(InvoiceItem), useValue: makeCountRepo(0) },
+      { token: getRepositoryToken(PurchaseCostHistory), useValue: makeCountRepo(0) },
+    ];
+
+    const overrideTokens = repoOverrides.map((o) => o.token);
+    const providers = [
+      ...defaults.filter((p) => !overrideTokens.includes(p.token)),
+      ...repoOverrides,
+    ].map(({ token, useValue }) => ({ provide: token, useValue }));
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        ProductService,
+        ...providers,
+        { provide: CategoryService, useValue: {} },
+        { provide: StockMovementService, useValue: {} },
+        { provide: BaseCostCalculatorService, useValue: {} },
+        { provide: SettingsService, useValue: {} },
+        { provide: AuditLogService, useValue: { log: jest.fn() } },
+      ],
+    }).compile();
+
+    return {
+      service: module.get(ProductService),
+      stockMovementRepo,
+      productRepo,
+    };
+  };
+
+  it('permanentDelete deletes initial_stock movement before hard-deleting the product', async () => {
+    const { service, stockMovementRepo, productRepo } = await buildModule();
+
+    await service.permanentDelete('product-id', 'user-1', 'admin');
+
+    expect(stockMovementRepo.delete).toHaveBeenCalledWith({
+      productId: 'product-id',
+      movementType: StockMovementType.INITIAL_STOCK,
+    });
+    // cleanup must precede the hard delete
+    const cleanupOrder = stockMovementRepo.delete.mock.invocationCallOrder[0];
+    const deleteOrder = productRepo.delete.mock.invocationCallOrder[0];
+    expect(cleanupOrder).toBeLessThan(deleteOrder);
+  });
+
+  it('bulkPermanentDelete deletes initial_stock movement before hard-deleting each product', async () => {
+    const { service, stockMovementRepo, productRepo } = await buildModule();
+
+    await service.bulkPermanentDelete(['product-id'], 'user-1', 'admin');
+
+    expect(stockMovementRepo.delete).toHaveBeenCalledWith({
+      productId: 'product-id',
+      movementType: StockMovementType.INITIAL_STOCK,
+    });
+    const cleanupOrder = stockMovementRepo.delete.mock.invocationCallOrder[0];
+    const deleteOrder = productRepo.delete.mock.invocationCallOrder[0];
+    expect(cleanupOrder).toBeLessThan(deleteOrder);
   });
 });

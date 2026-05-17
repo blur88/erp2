@@ -776,9 +776,10 @@ export class ProductService extends BaseCrudService<
       }
     );
 
-    // Clean up system-generated setup artifacts before hard delete
+    // Delete initial_stock movement before hard delete — stock_movements FK is RESTRICT so the DB
+    // will reject the product delete if this row remains. purchase_cost_history has CASCADE so
+    // the DB removes it automatically; no explicit delete needed there.
     await this.stockMovementRepository.delete({ productId: id, movementType: StockMovementType.INITIAL_STOCK });
-    await this.purchaseCostHistoryRepository.delete({ productId: id });
 
     // Hard delete the product from database
     await this.productRepository.delete(id);
@@ -849,9 +850,9 @@ export class ProductService extends BaseCrudService<
           `Permanently deleted product: ${product.name} (${product.barcode})`,
           { entityId: id, userId: userId || 'system', username, oldValues: { name: product.name, barcode: product.barcode } }
         );
-        // Clean up system-generated setup artifacts before hard delete
+        // Delete initial_stock movement before hard delete — stock_movements FK is RESTRICT.
+        // purchase_cost_history has CASCADE so the DB removes it automatically.
         await this.stockMovementRepository.delete({ productId: id, movementType: StockMovementType.INITIAL_STOCK });
-        await this.purchaseCostHistoryRepository.delete({ productId: id });
         await this.productRepository.delete(id);
 
         successCount++;
