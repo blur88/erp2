@@ -771,15 +771,13 @@ export class SalesAnalyticsController {
     @Query('dateFrom') dateFrom: string | undefined,
     @Query('dateTo') dateTo: string | undefined,
     @Query('customerId') customerId: string | undefined,
-    @Query('status') status: string | undefined,
-    @Query('paymentStatus') paymentStatus: string | undefined,
+    // status and paymentStatus are not implemented in findSummaries — omitted intentionally
     @Res() res: Response,
   ): Promise<void> {
     const { data } = await this.salesOrderService.findSummaries({
       customerId,
       fromDate: dateFrom,
       toDate: dateTo,
-      paymentStatus: paymentStatus as any,
     });
     const rows = data.map((o: any) => ({
       ...o,
