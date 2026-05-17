@@ -293,7 +293,7 @@ export class PurchasingAnalyticsController {
     const columns = [
       { key: 'supplierName', header: 'Supplier', type: 'string' as const, width: 25 },
       { key: 'orderNumber', header: 'Order #', type: 'string' as const, width: 15 },
-      { key: 'orderDate', header: 'Date', type: 'string' as const, width: 12 },
+      { key: 'orderDate', header: 'Date', type: 'date' as const, width: 12 },
       { key: 'status', header: 'Status', type: 'string' as const, width: 12 },
       { key: 'paymentStatus', header: 'Payment', type: 'string' as const, width: 12 },
       { key: 'totalAmount', header: 'Total', type: 'currency' as const, width: 15 },
@@ -385,7 +385,7 @@ export class PurchasingAnalyticsController {
     const columns = [
       { key: 'supplierName', header: 'Supplier', type: 'string' as const, width: 25 },
       { key: 'orderNumber', header: 'Order #', type: 'string' as const, width: 15 },
-      { key: 'orderDate', header: 'Date', type: 'string' as const, width: 12 },
+      { key: 'orderDate', header: 'Date', type: 'date' as const, width: 12 },
       { key: 'productName', header: 'Product', type: 'string' as const, width: 30 },
       { key: 'categoryName', header: 'Category', type: 'string' as const, width: 18 },
       { key: 'quantity', header: 'Qty', type: 'number' as const, width: 10 },
@@ -428,7 +428,7 @@ export class PurchasingAnalyticsController {
     const columns = [
       { key: 'supplierName', header: 'Supplier', type: 'string' as const, width: 25 },
       { key: 'paymentNumber', header: 'Payment #', type: 'string' as const, width: 16 },
-      { key: 'paymentDate', header: 'Date', type: 'string' as const, width: 12 },
+      { key: 'paymentDate', header: 'Date', type: 'date' as const, width: 12 },
       { key: 'orderNumber', header: 'Order #', type: 'string' as const, width: 15 },
       { key: 'grnNumber', header: 'GRN #', type: 'string' as const, width: 15 },
       { key: 'paymentAmount', header: 'Amount', type: 'currency' as const, width: 15 },
@@ -475,7 +475,7 @@ export class PurchasingAnalyticsController {
       { key: 'productName', header: 'Product', type: 'string' as const, width: 30 },
       { key: 'categoryName', header: 'Category', type: 'string' as const, width: 18 },
       { key: 'orderNumber', header: 'Order #', type: 'string' as const, width: 15 },
-      { key: 'orderDate', header: 'Date', type: 'string' as const, width: 12 },
+      { key: 'orderDate', header: 'Date', type: 'date' as const, width: 12 },
       { key: 'quantity', header: 'Qty', type: 'number' as const, width: 10 },
       { key: 'receivedQuantity', header: 'Received', type: 'number' as const, width: 12 },
       { key: 'unitPrice', header: 'Unit Price', type: 'currency' as const, width: 15 },

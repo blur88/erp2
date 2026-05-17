@@ -232,10 +232,14 @@ export class ProductController {
       { key: 'currentStock', header: 'Stock', type: 'number' as const, width: 12 },
       { key: 'isActive', header: 'Active', type: 'string' as const, width: 10 },
     ];
+    const mappedProducts = (products as any[]).map(p => ({
+      ...p,
+      isActive: p.isActive ? 'Yes' : 'No',
+    }));
     const buffer = await this.exportService.exportFlat(
       'Products',
       columns,
-      products as any[],
+      mappedProducts,
     );
     const date = new Date().toISOString().split('T')[0];
     res.set({
