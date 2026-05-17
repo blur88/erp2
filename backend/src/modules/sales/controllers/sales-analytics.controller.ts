@@ -17,6 +17,7 @@ import {
 import { SalesAnalyticsService } from '../services/sales-analytics.service';
 import { SalesOrderService } from '../services/sales-order.service';
 import { ExportService } from '../../../common/services/export.service';
+import { normalizeIds, toDate, sendExcel } from '../../../common/utils/export-controller.util';
 import {
   SalesAnalyticsQueryDto,
   SalesAnalyticsResponseDto,
@@ -803,7 +804,7 @@ export class SalesAnalyticsController {
         subtotalColumns: ['totalAmount', 'paidAmount', 'balanceDue'],
       },
     );
-    this.sendExcel(res, buffer, 'sales-order-summary');
+    sendExcel(res, buffer, 'sales-order-summary');
   }
 
   @Get('product-summary/export')
@@ -816,10 +817,10 @@ export class SalesAnalyticsController {
     @Res() res: Response,
   ): Promise<void> {
     const { data } = await this.salesAnalyticsService.getProductSummary({
-      dateFrom: this.toDate(dateFrom),
-      dateTo: this.toDate(dateTo),
+      dateFrom: toDate(dateFrom),
+      dateTo: toDate(dateTo),
       categoryId,
-      productIds: this.normalizeIds(productIds),
+      productIds: normalizeIds(productIds),
     });
     const columns = [
       { key: 'category', header: 'Category', type: 'string' as const, width: 20 },
@@ -842,7 +843,7 @@ export class SalesAnalyticsController {
         subtotalColumns: ['soldQty', 'totalSales', 'cost', 'salesProfit', 'purchaseQty', 'purchaseSubtotal', 'totalProfit'],
       },
     );
-    this.sendExcel(res, buffer, 'sales-by-product-summary');
+    sendExcel(res, buffer, 'sales-by-product-summary');
   }
 
   @Get('product-details/export')
@@ -855,10 +856,10 @@ export class SalesAnalyticsController {
     @Res() res: Response,
   ): Promise<void> {
     const { data } = await this.salesAnalyticsService.getProductDetails({
-      dateFrom: this.toDate(dateFrom),
-      dateTo: this.toDate(dateTo),
+      dateFrom: toDate(dateFrom),
+      dateTo: toDate(dateTo),
       categoryId,
-      productIds: this.normalizeIds(productIds),
+      productIds: normalizeIds(productIds),
     });
     const columns = [
       { key: 'productName', header: 'Product', type: 'string' as const, width: 30 },
@@ -882,7 +883,7 @@ export class SalesAnalyticsController {
         subtotalColumns: ['quantity', 'totalAmount', 'cost', 'profit'],
       },
     );
-    this.sendExcel(res, buffer, 'sales-by-product-details');
+    sendExcel(res, buffer, 'sales-by-product-details');
   }
 
   @Get('customer-order-history/export')
@@ -898,11 +899,11 @@ export class SalesAnalyticsController {
     @Res() res: Response,
   ): Promise<void> {
     const { data } = await this.salesAnalyticsService.getCustomerOrderHistory({
-      dateFrom: this.toDate(dateFrom),
-      dateTo: this.toDate(dateTo),
+      dateFrom: toDate(dateFrom),
+      dateTo: toDate(dateTo),
       customerId,
       categoryId,
-      productIds: this.normalizeIds(productIds),
+      productIds: normalizeIds(productIds),
       inventoryStatus,
       paymentStatus,
     });
@@ -929,7 +930,7 @@ export class SalesAnalyticsController {
         subtotalColumns: ['quantity', 'amount', 'cost', 'profit'],
       },
     );
-    this.sendExcel(res, buffer, 'customer-order-history');
+    sendExcel(res, buffer, 'customer-order-history');
   }
 
   @Get('customer-payment-summary/export')
@@ -942,8 +943,8 @@ export class SalesAnalyticsController {
     @Res() res: Response,
   ): Promise<void> {
     const { data } = await this.salesAnalyticsService.getCustomerPaymentSummary({
-      dateFrom: this.toDate(dateFrom),
-      dateTo: this.toDate(dateTo),
+      dateFrom: toDate(dateFrom),
+      dateTo: toDate(dateTo),
       customerId,
       paymentStatus,
     });
@@ -962,7 +963,7 @@ export class SalesAnalyticsController {
       columns,
       data as any[],
     );
-    this.sendExcel(res, buffer, 'customer-payment-summary');
+    sendExcel(res, buffer, 'customer-payment-summary');
   }
 
   @Get('customer-payment-by-order/export')
@@ -975,8 +976,8 @@ export class SalesAnalyticsController {
     @Res() res: Response,
   ): Promise<void> {
     const { data } = await this.salesAnalyticsService.getCustomerPaymentByOrder({
-      dateFrom: this.toDate(dateFrom),
-      dateTo: this.toDate(dateTo),
+      dateFrom: toDate(dateFrom),
+      dateTo: toDate(dateTo),
       customerId,
       paymentStatus,
     });
@@ -1000,7 +1001,7 @@ export class SalesAnalyticsController {
         subtotalColumns: ['totalAmount', 'paidAmount', 'balance'],
       },
     );
-    this.sendExcel(res, buffer, 'customer-payment-by-order');
+    sendExcel(res, buffer, 'customer-payment-by-order');
   }
 
   @Get('customer-payment-details/export')
@@ -1013,8 +1014,8 @@ export class SalesAnalyticsController {
     @Res() res: Response,
   ): Promise<void> {
     const { data } = await this.salesAnalyticsService.getCustomerPaymentDetails({
-      dateFrom: this.toDate(dateFrom),
-      dateTo: this.toDate(dateTo),
+      dateFrom: toDate(dateFrom),
+      dateTo: toDate(dateTo),
       customerId,
       paymentStatus,
     });
@@ -1038,7 +1039,7 @@ export class SalesAnalyticsController {
         subtotalColumns: ['paymentAmount', 'invoiceBalance'],
       },
     );
-    this.sendExcel(res, buffer, 'customer-payment-details');
+    sendExcel(res, buffer, 'customer-payment-details');
   }
 
   @Get('product-customer-report/export')
@@ -1053,9 +1054,9 @@ export class SalesAnalyticsController {
     @Res() res: Response,
   ): Promise<void> {
     const { data } = await this.salesAnalyticsService.getProductCustomerReport({
-      dateFrom: this.toDate(dateFrom),
-      dateTo: this.toDate(dateTo),
-      productIds: this.normalizeIds(productIds),
+      dateFrom: toDate(dateFrom),
+      dateTo: toDate(dateTo),
+      productIds: normalizeIds(productIds),
       categoryId,
       inventoryStatus,
       paymentStatus,
@@ -1081,7 +1082,7 @@ export class SalesAnalyticsController {
         subtotalColumns: ['quantity', 'amount', 'cost', 'profit'],
       },
     );
-    this.sendExcel(res, buffer, 'product-customer-report');
+    sendExcel(res, buffer, 'product-customer-report');
   }
 
   @Get('sales-order-profit/export')
@@ -1095,8 +1096,8 @@ export class SalesAnalyticsController {
     @Res() res: Response,
   ): Promise<void> {
     const { data } = await this.salesAnalyticsService.getSalesOrderProfitReport({
-      dateFrom: this.toDate(dateFrom),
-      dateTo: this.toDate(dateTo),
+      dateFrom: toDate(dateFrom),
+      dateTo: toDate(dateTo),
       customerId,
       status,
       paymentStatus,
@@ -1121,25 +1122,7 @@ export class SalesAnalyticsController {
         subtotalColumns: ['totalRevenue', 'totalCost', 'grossProfit'],
       },
     );
-    this.sendExcel(res, buffer, 'sales-order-profit');
+    sendExcel(res, buffer, 'sales-order-profit');
   }
 
-  private normalizeIds(value: string | string[] | undefined): string[] | undefined {
-    if (Array.isArray(value)) return value;
-    return value ? [value] : undefined;
-  }
-
-  private toDate(value: string | undefined): Date | undefined {
-    return value ? new Date(value) : undefined;
-  }
-
-  private sendExcel(res: Response, buffer: Buffer, name: string): void {
-    const date = new Date().toISOString().split('T')[0];
-    res.set({
-      'Content-Type':
-        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      'Content-Disposition': `attachment; filename="${name}-${date}.xlsx"`,
-    });
-    res.send(buffer);
-  }
 }

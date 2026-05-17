@@ -3,6 +3,7 @@ import { Response } from 'express';
 import { ApiTags, ApiOperation, ApiQuery, ApiResponse } from '@nestjs/swagger';
 import { InventoryAnalyticsService } from '../services/inventory-analytics.service';
 import { ExportService } from '../../../common/services/export.service';
+import { normalizeIds, sendExcel } from '../../../common/utils/export-controller.util';
 import {
   InventoryAnalyticsQueryDto,
   InventoryAnalyticsResponseDto,
@@ -268,7 +269,7 @@ export class InventoryAnalyticsController {
     @Res() res: Response,
   ): Promise<void> {
     const { data } = await this.inventoryAnalyticsService.getInventorySummary({
-      productIds: this.normalizeIds(productIds),
+      productIds: normalizeIds(productIds),
       categoryId,
       priceListId,
     });
@@ -293,7 +294,7 @@ export class InventoryAnalyticsController {
         subtotalColumns: ['stockQuantity', 'inventoryValue', 'salesValue', 'potentialProfit'],
       },
     );
-    this.sendExcel(res, buffer, 'inventory-summary');
+    sendExcel(res, buffer, 'inventory-summary');
   }
 
   @Get('historical-inventory/export')
@@ -306,7 +307,7 @@ export class InventoryAnalyticsController {
     @Res() res: Response,
   ): Promise<void> {
     const { data } = await this.inventoryAnalyticsService.getHistoricalInventory({
-      productIds: this.normalizeIds(productIds),
+      productIds: normalizeIds(productIds),
       categoryId,
       startDate: startDate ? new Date(startDate) : undefined,
       endDate: endDate ? new Date(endDate) : undefined,
@@ -328,7 +329,7 @@ export class InventoryAnalyticsController {
         subtotalColumns: ['quantity', 'totalValue'],
       },
     );
-    this.sendExcel(res, buffer, 'historical-inventory');
+    sendExcel(res, buffer, 'historical-inventory');
   }
 
   @Get('movement-summary/export')
@@ -341,7 +342,7 @@ export class InventoryAnalyticsController {
     @Res() res: Response,
   ): Promise<void> {
     const { data } = await this.inventoryAnalyticsService.getMovementSummary({
-      productIds: this.normalizeIds(productIds),
+      productIds: normalizeIds(productIds),
       categoryId,
       startDate: startDate ? new Date(startDate) : undefined,
       endDate: endDate ? new Date(endDate) : undefined,
@@ -363,7 +364,7 @@ export class InventoryAnalyticsController {
         subtotalColumns: ['quantityIn', 'quantityOut', 'quantityOnHand'],
       },
     );
-    this.sendExcel(res, buffer, 'movement-summary');
+    sendExcel(res, buffer, 'movement-summary');
   }
 
   @Get('price-list/export')
@@ -376,7 +377,7 @@ export class InventoryAnalyticsController {
     @Res() res: Response,
   ): Promise<void> {
     const { data } = await this.inventoryAnalyticsService.getPriceList({
-      productIds: this.normalizeIds(productIds),
+      productIds: normalizeIds(productIds),
       categoryId,
       priceListId,
       discountPercent: discountPercent ? parseFloat(discountPercent) : undefined,
@@ -398,7 +399,7 @@ export class InventoryAnalyticsController {
         subtotalColumns: [],
       },
     );
-    this.sendExcel(res, buffer, 'price-list');
+    sendExcel(res, buffer, 'price-list');
   }
 
   @Get('product-cost/export')
@@ -410,7 +411,7 @@ export class InventoryAnalyticsController {
     @Res() res: Response,
   ): Promise<void> {
     const { data } = await this.inventoryAnalyticsService.getProductCost({
-      productIds: this.normalizeIds(productIds),
+      productIds: normalizeIds(productIds),
       startDate: startDate ? new Date(startDate) : undefined,
       endDate: endDate ? new Date(endDate) : undefined,
     });
@@ -436,21 +437,7 @@ export class InventoryAnalyticsController {
         subtotalColumns: ['quantityChange', 'costChange', 'totalCost'],
       },
     );
-    this.sendExcel(res, buffer, 'product-cost');
+    sendExcel(res, buffer, 'product-cost');
   }
 
-  private normalizeIds(value: string | string[] | undefined): string[] | undefined {
-    if (Array.isArray(value)) return value;
-    return value ? [value] : undefined;
-  }
-
-  private sendExcel(res: Response, buffer: Buffer, name: string): void {
-    const date = new Date().toISOString().split('T')[0];
-    res.set({
-      'Content-Type':
-        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      'Content-Disposition': `attachment; filename="${name}-${date}.xlsx"`,
-    });
-    res.send(buffer);
-  }
 }

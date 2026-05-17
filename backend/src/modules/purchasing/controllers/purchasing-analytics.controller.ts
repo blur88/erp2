@@ -3,6 +3,7 @@ import { Response } from 'express';
 import { ApiTags, ApiOperation, ApiQuery, ApiResponse } from '@nestjs/swagger';
 import { PurchasingAnalyticsService } from '../services/purchasing-analytics.service';
 import { ExportService } from '../../../common/services/export.service';
+import { normalizeIds, toDate, sendExcel } from '../../../common/utils/export-controller.util';
 import {
   PurchasingAnalyticsQueryDto,
   PurchasingAnalyticsResponseDto,
@@ -281,11 +282,11 @@ export class PurchasingAnalyticsController {
     @Res() res: Response,
   ): Promise<void> {
     const { data } = await this.purchasingAnalyticsService.getPurchaseOrderSummary({
-      dateFrom: this.toDate(dateFrom),
-      dateTo: this.toDate(dateTo),
+      dateFrom: toDate(dateFrom),
+      dateTo: toDate(dateTo),
       supplierId,
       categoryId,
-      productIds: this.normalizeIds(productIds),
+      productIds: normalizeIds(productIds),
       status,
       paymentStatus,
     });
@@ -310,7 +311,7 @@ export class PurchasingAnalyticsController {
         subtotalColumns: ['totalAmount', 'paidAmount', 'balance', 'shippingAmount'],
       },
     );
-    this.sendExcel(res, buffer, 'purchase-order-summary');
+    sendExcel(res, buffer, 'purchase-order-summary');
   }
 
   @Get('purchase-order-status/export')
@@ -326,11 +327,11 @@ export class PurchasingAnalyticsController {
     @Res() res: Response,
   ): Promise<void> {
     const { data } = await this.purchasingAnalyticsService.getPurchaseOrderDetails({
-      dateFrom: this.toDate(dateFrom),
-      dateTo: this.toDate(dateTo),
+      dateFrom: toDate(dateFrom),
+      dateTo: toDate(dateTo),
       supplierId,
       categoryId,
-      productIds: this.normalizeIds(productIds),
+      productIds: normalizeIds(productIds),
       status,
       paymentStatus,
     });
@@ -357,7 +358,7 @@ export class PurchasingAnalyticsController {
         subtotalColumns: ['totalAmount'],
       },
     );
-    this.sendExcel(res, buffer, 'purchase-order-status');
+    sendExcel(res, buffer, 'purchase-order-status');
   }
 
   @Get('purchase-order-details/export')
@@ -373,11 +374,11 @@ export class PurchasingAnalyticsController {
     @Res() res: Response,
   ): Promise<void> {
     const { data } = await this.purchasingAnalyticsService.getPurchaseOrderDetails({
-      dateFrom: this.toDate(dateFrom),
-      dateTo: this.toDate(dateTo),
+      dateFrom: toDate(dateFrom),
+      dateTo: toDate(dateTo),
       supplierId,
       categoryId,
-      productIds: this.normalizeIds(productIds),
+      productIds: normalizeIds(productIds),
       status,
       paymentStatus,
     });
@@ -406,7 +407,7 @@ export class PurchasingAnalyticsController {
         subtotalColumns: ['quantity', 'receivedQuantity', 'remainingQuantity', 'discountAmount', 'totalAmount'],
       },
     );
-    this.sendExcel(res, buffer, 'purchase-order-details');
+    sendExcel(res, buffer, 'purchase-order-details');
   }
 
   @Get('vendor-payment-details/export')
@@ -419,8 +420,8 @@ export class PurchasingAnalyticsController {
     @Res() res: Response,
   ): Promise<void> {
     const { data } = await this.purchasingAnalyticsService.getVendorPaymentDetails({
-      dateFrom: this.toDate(dateFrom),
-      dateTo: this.toDate(dateTo),
+      dateFrom: toDate(dateFrom),
+      dateTo: toDate(dateTo),
       supplierId,
       status,
     });
@@ -445,7 +446,7 @@ export class PurchasingAnalyticsController {
         subtotalColumns: ['paymentAmount'],
       },
     );
-    this.sendExcel(res, buffer, 'vendor-payment-details');
+    sendExcel(res, buffer, 'vendor-payment-details');
   }
 
   @Get('vendor-product-list/export')
@@ -461,11 +462,11 @@ export class PurchasingAnalyticsController {
     @Res() res: Response,
   ): Promise<void> {
     const { data } = await this.purchasingAnalyticsService.getVendorProductList({
-      dateFrom: this.toDate(dateFrom),
-      dateTo: this.toDate(dateTo),
+      dateFrom: toDate(dateFrom),
+      dateTo: toDate(dateTo),
       supplierId,
       categoryId,
-      productIds: this.normalizeIds(productIds),
+      productIds: normalizeIds(productIds),
       status,
       paymentStatus,
     });
@@ -492,25 +493,7 @@ export class PurchasingAnalyticsController {
         subtotalColumns: ['quantity', 'receivedQuantity', 'totalAmount'],
       },
     );
-    this.sendExcel(res, buffer, 'vendor-product-list');
+    sendExcel(res, buffer, 'vendor-product-list');
   }
 
-  private normalizeIds(value: string | string[] | undefined): string[] | undefined {
-    if (Array.isArray(value)) return value;
-    return value ? [value] : undefined;
-  }
-
-  private toDate(value: string | undefined): Date | undefined {
-    return value ? new Date(value) : undefined;
-  }
-
-  private sendExcel(res: Response, buffer: Buffer, name: string): void {
-    const date = new Date().toISOString().split('T')[0];
-    res.set({
-      'Content-Type':
-        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      'Content-Disposition': `attachment; filename="${name}-${date}.xlsx"`,
-    });
-    res.send(buffer);
-  }
 }
