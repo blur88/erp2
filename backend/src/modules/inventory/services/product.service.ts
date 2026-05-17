@@ -14,13 +14,14 @@ import {
   UpdateResult,
   In,
   FindOptionsWhere,
+  Not,
 } from 'typeorm';
 import { BaseCrudService } from '../../../common/services/base-crud.service';
 import { Product, ProductType } from '../../../database/entities/product.entity';
 import { Category } from '../../../database/entities/category.entity';
 import { SalesOrderItem } from '../../../database/entities/sales-order-item.entity';
 import { PurchaseOrderItem } from '../../../database/entities/purchase-order-item.entity';
-import { StockMovement } from '../../../database/entities/stock-movement.entity';
+import { StockMovement, StockMovementType } from '../../../database/entities/stock-movement.entity';
 import { StockAdjustmentItem } from '../../../database/entities/stock-adjustment.entity';
 import { GoodsReceivedNoteItem } from '../../../database/entities/goods-received-note-item.entity';
 import { InvoiceItem } from '../../../database/entities/invoice-item.entity';
@@ -1029,9 +1030,9 @@ export class ProductService extends BaseCrudService<
       dependencies.push({ type: 'purchase order items', count: purchaseOrderItemCount });
     }
 
-    // Check stock movements
+    // Check stock movements — exclude system-generated initial_stock entries
     const stockMovementCount = await this.stockMovementRepository.count({
-      where: { productId }
+      where: { productId, movementType: Not(StockMovementType.INITIAL_STOCK) }
     });
     if (stockMovementCount > 0) {
       dependencies.push({ type: 'stock movements', count: stockMovementCount });
@@ -1059,14 +1060,6 @@ export class ProductService extends BaseCrudService<
     });
     if (invoiceItemCount > 0) {
       dependencies.push({ type: 'invoice items', count: invoiceItemCount });
-    }
-
-    // Check purchase cost history
-    const purchaseCostHistoryCount = await this.purchaseCostHistoryRepository.count({
-      where: { productId }
-    });
-    if (purchaseCostHistoryCount > 0) {
-      dependencies.push({ type: 'purchase cost history records', count: purchaseCostHistoryCount });
     }
 
     return {

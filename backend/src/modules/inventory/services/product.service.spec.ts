@@ -383,3 +383,92 @@ describe('ProductService pagination removal', () => {
     });
   });
 });
+
+describe('checkProductDependencies', () => {
+  let service: ProductService;
+
+  const makeRepo = (countVal: number) =>
+    ({ count: jest.fn().mockResolvedValue(countVal) }) as any;
+
+  const buildModule = async (repoOverrides: { token: any; useValue: any }[] = []) => {
+    const defaultProviders = [
+      { provide: getRepositoryToken(Product), useValue: { findOne: jest.fn(), delete: jest.fn(), createQueryBuilder: jest.fn() } },
+      { provide: getRepositoryToken(Category), useValue: {} },
+      { provide: getRepositoryToken(SalesOrderItem), useValue: makeRepo(0) },
+      { provide: getRepositoryToken(PurchaseOrderItem), useValue: makeRepo(0) },
+      { provide: getRepositoryToken(StockMovement), useValue: makeRepo(0) },
+      { provide: getRepositoryToken(StockAdjustmentItem), useValue: makeRepo(0) },
+      { provide: getRepositoryToken(GoodsReceivedNoteItem), useValue: makeRepo(0) },
+      { provide: getRepositoryToken(InvoiceItem), useValue: makeRepo(0) },
+      { provide: getRepositoryToken(PurchaseCostHistory), useValue: makeRepo(0) },
+    ];
+    const overrideTokens = repoOverrides.map((o) => o.token);
+    const mergedProviders = [
+      ...defaultProviders.filter((p) => !overrideTokens.includes(p.provide)),
+      ...repoOverrides.map((o) => ({ provide: o.token, useValue: o.useValue })),
+    ];
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        ProductService,
+        ...mergedProviders,
+        { provide: CategoryService, useValue: {} },
+        { provide: StockMovementService, useValue: {} },
+        { provide: BaseCostCalculatorService, useValue: {} },
+        { provide: SettingsService, useValue: {} },
+        { provide: AuditLogService, useValue: { log: jest.fn() } },
+      ],
+    }).compile();
+    return module.get(ProductService);
+  };
+
+  it('returns no dependencies when only initial_stock movement and cost history exist', async () => {
+    const stockMovementRepo = { count: jest.fn().mockResolvedValue(0) };
+    service = await buildModule([
+      { token: getRepositoryToken(StockMovement), useValue: stockMovementRepo },
+    ]);
+
+    const result = await service.checkProductDependencies('product-id');
+
+    expect(result.hasDependencies).toBe(false);
+    expect(result.dependencies).toHaveLength(0);
+    expect(stockMovementRepo.count).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ productId: 'product-id' }) }),
+    );
+  });
+
+  it('returns dependency when a non-initial_stock movement exists', async () => {
+    const stockMovementRepo = { count: jest.fn().mockResolvedValue(1) };
+    service = await buildModule([
+      { token: getRepositoryToken(StockMovement), useValue: stockMovementRepo },
+    ]);
+
+    const result = await service.checkProductDependencies('product-id');
+
+    expect(result.hasDependencies).toBe(true);
+    expect(result.dependencies).toContainEqual(expect.objectContaining({ type: 'stock movements' }));
+  });
+
+  it('returns dependency when a sales order item exists', async () => {
+    const salesOrderItemRepo = { count: jest.fn().mockResolvedValue(2) };
+    service = await buildModule([
+      { token: getRepositoryToken(SalesOrderItem), useValue: salesOrderItemRepo },
+    ]);
+
+    const result = await service.checkProductDependencies('product-id');
+
+    expect(result.hasDependencies).toBe(true);
+    expect(result.dependencies).toContainEqual(expect.objectContaining({ type: 'sales order items', count: 2 }));
+  });
+
+  it('does NOT include purchase_cost_history in dependency check', async () => {
+    const purchaseCostHistoryRepo = { count: jest.fn().mockResolvedValue(5) };
+    service = await buildModule([
+      { token: getRepositoryToken(PurchaseCostHistory), useValue: purchaseCostHistoryRepo },
+    ]);
+
+    const result = await service.checkProductDependencies('product-id');
+
+    expect(result.hasDependencies).toBe(false);
+    expect(purchaseCostHistoryRepo.count).not.toHaveBeenCalled();
+  });
+});
