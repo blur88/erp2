@@ -29,12 +29,31 @@ const getStockStatusText = (product: Product, threshold: number): string => {
   return 'In Stock'
 }
 
+// Collect all unique price lists from a product list, sorted by name
+const collectPriceLists = (products: Product[]): Array<{ id: string; name: string }> => {
+  const map = new Map<string, string>()
+  products.forEach(p => {
+    const items = (p as any).priceListItems as Array<{ price: number; priceList: { id: string; name: string } }> | undefined
+    items?.forEach(item => {
+      if (item.priceList?.id && item.priceList?.name) {
+        map.set(item.priceList.id, item.priceList.name)
+      }
+    })
+  })
+  return [...map.entries()]
+    .map(([id, name]) => ({ id, name }))
+    .sort((a, b) => a.name.localeCompare(b.name))
+}
+
 // Prepare data for export
 const prepareExportData = (products: Product[], threshold: number) => {
+  const priceLists = collectPriceLists(products)
+
   return products.map((product, index) => {
     const row: any = {
       '#': index + 1,
       'Product Name': product.name || '',
+      'SKU': (product as any).sku || '',
       'Barcode': product.barcode || '',
       'Type': product.type === 'Stocked Product' ? 'Stocked Product' : 'Service',
       'Category': product.category?.name || 'No Category',
@@ -42,12 +61,15 @@ const prepareExportData = (products: Product[], threshold: number) => {
       'Base Cost': formatCurrencyForExport(product.baseCost),
     }
 
-    // Add dynamic pricing tiers if available
-    if (product.pricingTiers) {
-      Object.entries(product.pricingTiers).forEach(([tierName, price]) => {
-        row[`${tierName} Price`] = formatCurrencyForExport(price)
-      })
-    }
+    // Add dynamic price list columns
+    const itemsByListId: Record<string, number> = {}
+    const items = (product as any).priceListItems as Array<{ price: number; priceList: { id: string; name: string } }> | undefined
+    items?.forEach(item => {
+      if (item.priceList?.id) itemsByListId[item.priceList.id] = Number(item.price)
+    })
+    priceLists.forEach(({ id, name }) => {
+      row[`${name} Price`] = id in itemsByListId ? formatCurrencyForExport(itemsByListId[id]) : ''
+    })
 
     // Add stock and status info
     row['Current Stock'] = product.stockQuantity || 0
@@ -236,26 +258,68 @@ const exportToPDF = ({ products, filters, lowStockThreshold = 10 }: ExportData):
 
     yPos += 5
 
-    // Prepare table data - simplified for PDF
-    const tableData = products.map((product, index) => [
-      index + 1,
-      product.name || '',
-      product.barcode || '',
-      product.type === 'Stocked Product' ? 'Product' : 'Service',
-      product.category?.name || 'No Category',
-      formatCurrencyForExport(product.baseCost),
-      product.stockQuantity || 0,
-      getStockStatusText(product, lowStockThreshold),
-      product.isActive ? 'Active' : 'Inactive'
-    ])
+    // Collect price lists and build table
+    const priceLists = collectPriceLists(products)
+    const priceHeaders = priceLists.map(pl => `${pl.name} Price`)
+
+    const fixedHead = ['#', 'Product Name', 'SKU', 'Barcode', 'Type', 'Category', 'Base Cost']
+    const tailHead = ['Stock', 'Stock Status', 'Status', 'Notes', 'Created Date', 'Updated Date']
+    const allHead = [...fixedHead, ...priceHeaders, ...tailHead]
+
+    const tableData = products.map((product, index) => {
+      const itemsByListId: Record<string, number> = {}
+      const items = (product as any).priceListItems as Array<{ price: number; priceList: { id: string; name: string } }> | undefined
+      items?.forEach(item => {
+        if (item.priceList?.id) itemsByListId[item.priceList.id] = Number(item.price)
+      })
+      const priceValues = priceLists.map(({ id }) =>
+        id in itemsByListId ? formatCurrencyForExport(itemsByListId[id]) : ''
+      )
+      return [
+        index + 1,
+        product.name || '',
+        (product as any).sku || '',
+        product.barcode || '',
+        product.type === 'Stocked Product' ? 'Stocked Product' : 'Service',
+        product.category?.name || 'No Category',
+        formatCurrencyForExport(product.baseCost),
+        ...priceValues,
+        product.stockQuantity || 0,
+        getStockStatusText(product, lowStockThreshold),
+        product.isActive ? 'Active' : 'Inactive',
+        product.notes || '',
+        formatDate(product.createdAt),
+        formatDate(product.updatedAt),
+      ]
+    })
+
+    // Build column styles dynamically
+    const columnStyles: Record<number, any> = {
+      0: { halign: 'center', cellWidth: 8 },   // #
+      1: { cellWidth: 35 },                     // Product Name
+      2: { cellWidth: 18 },                     // SKU
+      3: { cellWidth: 22 },                     // Barcode
+      4: { halign: 'center', cellWidth: 18 },   // Type
+      5: { cellWidth: 25 },                     // Category
+      6: { halign: 'right', cellWidth: 18 },    // Base Cost
+    }
+    // Price list columns
+    priceLists.forEach((_, i) => {
+      columnStyles[7 + i] = { halign: 'right', cellWidth: 18 }
+    })
+    const tailStart = 7 + priceLists.length
+    columnStyles[tailStart]     = { halign: 'right', cellWidth: 14 }  // Stock
+    columnStyles[tailStart + 1] = { halign: 'center', cellWidth: 18 } // Stock Status
+    columnStyles[tailStart + 2] = { halign: 'center', cellWidth: 14 } // Status
+    // Notes and dates use auto width
 
     // Table
     autoTable(doc, {
-      head: [['#', 'Name', 'Barcode', 'Type', 'Category', 'Cost', 'Stock', 'Status', 'Active']],
+      head: [allHead],
       body: tableData,
       startY: yPos,
       styles: {
-        fontSize: 8,
+        fontSize: 7,
         cellPadding: 2
       },
       headStyles: {
@@ -266,19 +330,8 @@ const exportToPDF = ({ products, filters, lowStockThreshold = 10 }: ExportData):
       alternateRowStyles: {
         fillColor: [245, 245, 245]
       },
-      columnStyles: {
-        0: { halign: 'center', cellWidth: 10 },  // #
-        1: { cellWidth: 40 },                    // Name
-        2: { cellWidth: 25 },                    // Barcode
-        3: { halign: 'center', cellWidth: 20 },  // Type
-        4: { cellWidth: 30 },                    // Category
-        5: { halign: 'right', cellWidth: 20 },   // Cost
-        6: { halign: 'right', cellWidth: 20 },   // Price
-        7: { halign: 'center', cellWidth: 15 },  // Stock
-        8: { halign: 'center', cellWidth: 20 },  // Status
-        9: { halign: 'center', cellWidth: 15 }   // Active
-      },
-      margin: { left: 20, right: 20 },
+      columnStyles,
+      margin: { left: 10, right: 10 },
       didDrawPage: (data) => {
         // Footer
         const pageNumber = doc.getNumberOfPages()
