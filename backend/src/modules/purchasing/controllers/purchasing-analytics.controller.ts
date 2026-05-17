@@ -325,7 +325,7 @@ export class PurchasingAnalyticsController {
     @Query('paymentStatus') paymentStatus: string | undefined,
     @Res() res: Response,
   ): Promise<void> {
-    const { data } = await this.purchasingAnalyticsService.getPurchaseOrderSummary({
+    const { data } = await this.purchasingAnalyticsService.getPurchaseOrderDetails({
       dateFrom: this.toDate(dateFrom),
       dateTo: this.toDate(dateTo),
       supplierId,
@@ -337,9 +337,14 @@ export class PurchasingAnalyticsController {
     const columns = [
       { key: 'supplierName', header: 'Supplier', type: 'string' as const, width: 25 },
       { key: 'orderNumber', header: 'Order #', type: 'string' as const, width: 15 },
-      { key: 'orderDate', header: 'Date', type: 'string' as const, width: 12 },
+      { key: 'orderDate', header: 'Date', type: 'date' as const, width: 12 },
+      { key: 'productName', header: 'Product', type: 'string' as const, width: 30 },
       { key: 'status', header: 'Status', type: 'string' as const, width: 12 },
       { key: 'paymentStatus', header: 'Payment', type: 'string' as const, width: 12 },
+      { key: 'quantity', header: 'Qty', type: 'number' as const, width: 10 },
+      { key: 'receivedQuantity', header: 'Received', type: 'number' as const, width: 10 },
+      { key: 'remainingQuantity', header: 'Remaining', type: 'number' as const, width: 10 },
+      { key: 'unitPrice', header: 'Unit Price', type: 'currency' as const, width: 15 },
       { key: 'totalAmount', header: 'Total', type: 'currency' as const, width: 15 },
     ];
     const buffer = await this.exportService.exportGrouped(

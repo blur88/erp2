@@ -15,6 +15,7 @@ import {
   ApiParam,
 } from '@nestjs/swagger';
 import { SalesAnalyticsService } from '../services/sales-analytics.service';
+import { SalesOrderService } from '../services/sales-order.service';
 import { ExportService } from '../../../common/services/export.service';
 import {
   SalesAnalyticsQueryDto,
@@ -35,6 +36,7 @@ import { InvoiceStatus } from '../../../database/entities/invoice.entity';
 export class SalesAnalyticsController {
   constructor(
     private readonly salesAnalyticsService: SalesAnalyticsService,
+    private readonly salesOrderService: SalesOrderService,
     private readonly exportService: ExportService,
   ) {}
 
@@ -773,20 +775,21 @@ export class SalesAnalyticsController {
     @Query('paymentStatus') paymentStatus: string | undefined,
     @Res() res: Response,
   ): Promise<void> {
-    const { data } = await this.salesAnalyticsService.getSalesOrderProfitReport({
-      dateFrom: this.toDate(dateFrom),
-      dateTo: this.toDate(dateTo),
+    const { data } = await this.salesOrderService.findSummaries({
       customerId,
-      status,
-      paymentStatus,
+      fromDate: dateFrom,
+      toDate: dateTo,
+      paymentStatus: paymentStatus as any,
     });
     const columns = [
       { key: 'customerName', header: 'Customer', type: 'string' as const, width: 25 },
       { key: 'orderNumber', header: 'Order #', type: 'string' as const, width: 15 },
-      { key: 'orderDate', header: 'Date', type: 'date' as const, width: 14 },
-      { key: 'inventoryStatus', header: 'Inventory Status', type: 'string' as const, width: 18 },
-      { key: 'paymentStatus', header: 'Payment Status', type: 'string' as const, width: 16 },
-      { key: 'totalRevenue', header: 'Total', type: 'currency' as const, width: 15 },
+      { key: 'orderDate', header: 'Date', type: 'date' as const, width: 12 },
+      { key: 'status', header: 'Status', type: 'string' as const, width: 12 },
+      { key: 'itemsCount', header: 'Items', type: 'number' as const, width: 10 },
+      { key: 'totalAmount', header: 'Total', type: 'currency' as const, width: 15 },
+      { key: 'paidAmount', header: 'Paid', type: 'currency' as const, width: 15 },
+      { key: 'balanceDue', header: 'Balance', type: 'currency' as const, width: 15 },
     ];
     const buffer = await this.exportService.exportGrouped(
       'Sales Order Summary',
@@ -795,7 +798,7 @@ export class SalesAnalyticsController {
       {
         groupKey: 'customerName',
         groupLabel: 'Customer',
-        subtotalColumns: ['totalRevenue'],
+        subtotalColumns: ['totalAmount', 'paidAmount', 'balanceDue'],
       },
     );
     this.sendExcel(res, buffer, 'sales-order-summary');
