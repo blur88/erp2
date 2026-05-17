@@ -21,8 +21,9 @@ import { JournalEntry } from './journal-entry.entity';
 import { FiscalPeriod } from './fiscal-period.entity';
 
 export enum FundTransferStatus {
-  ACTIVE = 'ACTIVE',
-  CANCELLED = 'CANCELLED',
+  DRAFT = 'draft',
+  POSTED = 'posted',
+  REVERSED = 'reversed',
 }
 
 @Entity('fund_transfers')
@@ -86,7 +87,7 @@ export class FundTransfer extends BaseEntity {
   @Column({
     type: 'enum',
     enum: FundTransferStatus,
-    default: FundTransferStatus.ACTIVE,
+    default: FundTransferStatus.DRAFT,
     comment: 'Transfer status',
   })
   @IsEnum(FundTransferStatus)
