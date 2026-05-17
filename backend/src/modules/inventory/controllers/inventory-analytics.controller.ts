@@ -1,6 +1,8 @@
-import { Controller, Get, Query } from '@nestjs/common';
+import { Controller, Get, Query, Res } from '@nestjs/common';
+import { Response } from 'express';
 import { ApiTags, ApiOperation, ApiQuery, ApiResponse } from '@nestjs/swagger';
 import { InventoryAnalyticsService } from '../services/inventory-analytics.service';
+import { ExportService } from '../../../common/services/export.service';
 import {
   InventoryAnalyticsQueryDto,
   InventoryAnalyticsResponseDto,
@@ -11,6 +13,7 @@ import {
 export class InventoryAnalyticsController {
   constructor(
     private readonly inventoryAnalyticsService: InventoryAnalyticsService,
+    private readonly exportService: ExportService,
   ) {}
 
   @Get('dashboard')
@@ -254,5 +257,200 @@ export class InventoryAnalyticsController {
       startDate: startDate ? new Date(startDate) : undefined,
       endDate: endDate ? new Date(endDate) : undefined,
     });
+  }
+
+  @Get('inventory-summary/export')
+  @ApiOperation({ summary: 'Export inventory summary to Excel' })
+  async exportInventorySummary(
+    @Query('productIds') productIds: string | string[] | undefined,
+    @Query('categoryId') categoryId: string | undefined,
+    @Query('priceListId') priceListId: string | undefined,
+    @Res() res: Response,
+  ): Promise<void> {
+    const { data } = await this.inventoryAnalyticsService.getInventorySummary({
+      productIds: this.normalizeIds(productIds),
+      categoryId,
+      priceListId,
+    });
+    const columns = [
+      { key: 'categoryName', header: 'Category', type: 'string' as const, width: 20 },
+      { key: 'productName', header: 'Product', type: 'string' as const, width: 30 },
+      { key: 'type', header: 'Type', type: 'string' as const, width: 12 },
+      { key: 'stockQuantity', header: 'Stock', type: 'number' as const, width: 12 },
+      { key: 'baseCost', header: 'Base Cost', type: 'currency' as const, width: 15 },
+      { key: 'unitPrice', header: 'Unit Price', type: 'currency' as const, width: 15 },
+      { key: 'inventoryValue', header: 'Inventory Value', type: 'currency' as const, width: 18 },
+      { key: 'salesValue', header: 'Sales Value', type: 'currency' as const, width: 15 },
+      { key: 'potentialProfit', header: 'Potential Profit', type: 'currency' as const, width: 18 },
+    ];
+    const buffer = await this.exportService.exportGrouped(
+      'Inventory Summary',
+      columns,
+      data as any[],
+      {
+        groupKey: 'categoryName',
+        groupLabel: 'Category',
+        subtotalColumns: ['stockQuantity', 'inventoryValue', 'salesValue', 'potentialProfit'],
+      },
+    );
+    this.sendExcel(res, buffer, 'inventory-summary');
+  }
+
+  @Get('historical-inventory/export')
+  @ApiOperation({ summary: 'Export historical inventory to Excel' })
+  async exportHistoricalInventory(
+    @Query('productIds') productIds: string | string[] | undefined,
+    @Query('categoryId') categoryId: string | undefined,
+    @Query('startDate') startDate: string | undefined,
+    @Query('endDate') endDate: string | undefined,
+    @Res() res: Response,
+  ): Promise<void> {
+    const { data } = await this.inventoryAnalyticsService.getHistoricalInventory({
+      productIds: this.normalizeIds(productIds),
+      categoryId,
+      startDate: startDate ? new Date(startDate) : undefined,
+      endDate: endDate ? new Date(endDate) : undefined,
+    });
+    const columns = [
+      { key: 'categoryName', header: 'Category', type: 'string' as const, width: 20 },
+      { key: 'productName', header: 'Product', type: 'string' as const, width: 30 },
+      { key: 'quantity', header: 'Quantity', type: 'number' as const, width: 12 },
+      { key: 'unitValue', header: 'Unit Value', type: 'currency' as const, width: 15 },
+      { key: 'totalValue', header: 'Total Value', type: 'currency' as const, width: 15 },
+    ];
+    const buffer = await this.exportService.exportGrouped(
+      'Historical Inventory',
+      columns,
+      data as any[],
+      {
+        groupKey: 'categoryName',
+        groupLabel: 'Category',
+        subtotalColumns: ['quantity', 'totalValue'],
+      },
+    );
+    this.sendExcel(res, buffer, 'historical-inventory');
+  }
+
+  @Get('movement-summary/export')
+  @ApiOperation({ summary: 'Export movement summary to Excel' })
+  async exportMovementSummary(
+    @Query('productIds') productIds: string | string[] | undefined,
+    @Query('categoryId') categoryId: string | undefined,
+    @Query('startDate') startDate: string | undefined,
+    @Query('endDate') endDate: string | undefined,
+    @Res() res: Response,
+  ): Promise<void> {
+    const { data } = await this.inventoryAnalyticsService.getMovementSummary({
+      productIds: this.normalizeIds(productIds),
+      categoryId,
+      startDate: startDate ? new Date(startDate) : undefined,
+      endDate: endDate ? new Date(endDate) : undefined,
+    });
+    const columns = [
+      { key: 'categoryName', header: 'Category', type: 'string' as const, width: 20 },
+      { key: 'productName', header: 'Product', type: 'string' as const, width: 30 },
+      { key: 'quantityIn', header: 'Quantity In', type: 'number' as const, width: 14 },
+      { key: 'quantityOut', header: 'Quantity Out', type: 'number' as const, width: 14 },
+      { key: 'quantityOnHand', header: 'Quantity On Hand', type: 'number' as const, width: 18 },
+    ];
+    const buffer = await this.exportService.exportGrouped(
+      'Movement Summary',
+      columns,
+      data as any[],
+      {
+        groupKey: 'categoryName',
+        groupLabel: 'Category',
+        subtotalColumns: ['quantityIn', 'quantityOut', 'quantityOnHand'],
+      },
+    );
+    this.sendExcel(res, buffer, 'movement-summary');
+  }
+
+  @Get('price-list/export')
+  @ApiOperation({ summary: 'Export price list to Excel' })
+  async exportPriceList(
+    @Query('productIds') productIds: string | string[] | undefined,
+    @Query('categoryId') categoryId: string | undefined,
+    @Query('priceListId') priceListId: string | undefined,
+    @Query('discountPercent') discountPercent: string | undefined,
+    @Res() res: Response,
+  ): Promise<void> {
+    const { data } = await this.inventoryAnalyticsService.getPriceList({
+      productIds: this.normalizeIds(productIds),
+      categoryId,
+      priceListId,
+      discountPercent: discountPercent ? parseFloat(discountPercent) : undefined,
+    });
+    const columns = [
+      { key: 'categoryName', header: 'Category', type: 'string' as const, width: 20 },
+      { key: 'productName', header: 'Product', type: 'string' as const, width: 30 },
+      { key: 'price', header: 'Price', type: 'currency' as const, width: 15 },
+      { key: 'discountedPrice', header: 'Discounted Price', type: 'currency' as const, width: 18 },
+      { key: 'salesCost', header: 'Sales Cost', type: 'currency' as const, width: 15 },
+    ];
+    const buffer = await this.exportService.exportGrouped(
+      'Price List',
+      columns,
+      data as any[],
+      {
+        groupKey: 'categoryName',
+        groupLabel: 'Category',
+        subtotalColumns: [],
+      },
+    );
+    this.sendExcel(res, buffer, 'price-list');
+  }
+
+  @Get('product-cost/export')
+  @ApiOperation({ summary: 'Export product cost report to Excel' })
+  async exportProductCost(
+    @Query('productIds') productIds: string | string[] | undefined,
+    @Query('startDate') startDate: string | undefined,
+    @Query('endDate') endDate: string | undefined,
+    @Res() res: Response,
+  ): Promise<void> {
+    const { data } = await this.inventoryAnalyticsService.getProductCost({
+      productIds: this.normalizeIds(productIds),
+      startDate: startDate ? new Date(startDate) : undefined,
+      endDate: endDate ? new Date(endDate) : undefined,
+    });
+    const columns = [
+      { key: 'categoryName', header: 'Category', type: 'string' as const, width: 20 },
+      { key: 'productName', header: 'Product', type: 'string' as const, width: 30 },
+      { key: 'transactionType', header: 'Transaction Type', type: 'string' as const, width: 24 },
+      { key: 'orderNumber', header: 'Order #', type: 'string' as const, width: 15 },
+      { key: 'orderDate', header: 'Date', type: 'date' as const, width: 14 },
+      { key: 'quantityChange', header: 'Quantity Change', type: 'number' as const, width: 18 },
+      { key: 'quantityAfter', header: 'Quantity After', type: 'number' as const, width: 16 },
+      { key: 'costChange', header: 'Cost Change', type: 'currency' as const, width: 15 },
+      { key: 'totalCost', header: 'Total Cost', type: 'currency' as const, width: 15 },
+      { key: 'averageCost', header: 'Average Cost', type: 'currency' as const, width: 15 },
+    ];
+    const buffer = await this.exportService.exportGrouped(
+      'Product Cost',
+      columns,
+      data as any[],
+      {
+        groupKey: 'categoryName',
+        groupLabel: 'Category',
+        subtotalColumns: ['quantityChange', 'costChange', 'totalCost'],
+      },
+    );
+    this.sendExcel(res, buffer, 'product-cost');
+  }
+
+  private normalizeIds(value: string | string[] | undefined): string[] | undefined {
+    if (Array.isArray(value)) return value;
+    return value ? [value] : undefined;
+  }
+
+  private sendExcel(res: Response, buffer: Buffer, name: string): void {
+    const date = new Date().toISOString().split('T')[0];
+    res.set({
+      'Content-Type':
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'Content-Disposition': `attachment; filename="${name}-${date}.xlsx"`,
+    });
+    res.send(buffer);
   }
 }
