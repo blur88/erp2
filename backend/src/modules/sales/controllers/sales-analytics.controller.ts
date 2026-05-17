@@ -781,11 +781,15 @@ export class SalesAnalyticsController {
       toDate: dateTo,
       paymentStatus: paymentStatus as any,
     });
+    const rows = data.map((o: any) => ({
+      ...o,
+      fulfillmentStatus: o.isFulfilled ? 'Fulfilled' : 'Pending',
+    }));
     const columns = [
       { key: 'customerName', header: 'Customer', type: 'string' as const, width: 25 },
       { key: 'orderNumber', header: 'Order #', type: 'string' as const, width: 15 },
       { key: 'orderDate', header: 'Date', type: 'date' as const, width: 12 },
-      { key: 'status', header: 'Status', type: 'string' as const, width: 12 },
+      { key: 'fulfillmentStatus', header: 'Fulfillment', type: 'string' as const, width: 14 },
       { key: 'itemsCount', header: 'Items', type: 'number' as const, width: 10 },
       { key: 'totalAmount', header: 'Total', type: 'currency' as const, width: 15 },
       { key: 'paidAmount', header: 'Paid', type: 'currency' as const, width: 15 },
@@ -794,7 +798,7 @@ export class SalesAnalyticsController {
     const buffer = await this.exportService.exportGrouped(
       'Sales Order Summary',
       columns,
-      data as any[],
+      rows as any[],
       {
         groupKey: 'customerName',
         groupLabel: 'Customer',
