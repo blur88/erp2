@@ -115,7 +115,7 @@ export class ExportService {
     const row = worksheet.addRow(values);
     columns.forEach((col, i) => {
       if (col.type === 'currency') row.getCell(i + 1).numFmt = '#,##0.00';
-      else if (col.type === 'number') row.getCell(i + 1).numFmt = '#,##0.##';
+      else if (col.type === 'number') row.getCell(i + 1).numFmt = '#,##0';
       else if (col.type === 'date' && values[i] instanceof Date)
         row.getCell(i + 1).numFmt = 'yyyy-mm-dd';
     });
@@ -150,7 +150,7 @@ export class ExportService {
     };
     columns.forEach((col, i) => {
       if (col.type === 'currency') row.getCell(i + 1).numFmt = '#,##0.00';
-      else if (col.type === 'number') row.getCell(i + 1).numFmt = '#,##0.##';
+      else if (col.type === 'number') row.getCell(i + 1).numFmt = '#,##0';
     });
   }
 
@@ -169,7 +169,7 @@ export class ExportService {
     };
     columns.forEach((col, i) => {
       if (col.type === 'currency') row.getCell(i + 1).numFmt = '#,##0.00';
-      else if (col.type === 'number') row.getCell(i + 1).numFmt = '#,##0.##';
+      else if (col.type === 'number') row.getCell(i + 1).numFmt = '#,##0';
     });
   }
 
