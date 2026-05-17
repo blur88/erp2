@@ -25,6 +25,19 @@ jobs:
       new_release_version: ${{ steps.semantic_release.outputs.new_release_version }}
 
     steps:
+      - name: Check for redundant trigger
+        id: guard
+        env:
+          MSG: ${{ github.event.head_commit.message }}
+        run: |
+          # Matches local "git pull" merge commits (merge.ff=false) that re-push the semantic-release auto-commit
+          if echo "$MSG" | grep -qE "^Merge branch"; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "Detected merge commit — skipping semantic-release."
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Checkout
         uses: actions/checkout@v5
         with:
@@ -48,6 +61,7 @@ jobs:
             conventional-changelog-angular@8.1.0
 
       - name: Run semantic-release
+        if: steps.guard.outputs.skip != 'true'
         id: semantic_release
         run: |
           npx semantic-release | tee /tmp/sr-output.txt
