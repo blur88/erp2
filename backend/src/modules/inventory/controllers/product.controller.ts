@@ -208,28 +208,49 @@ export class ProductController {
     @Res() res: Response,
   ): Promise<void> {
     const { data: products } = await this.productService.findAll(query);
+
+    // Collect all price lists seen across products, sorted by name
+    const priceListMap = new Map<string, string>(); // id -> name
+    (products as any[]).forEach(p => {
+      (p.priceListItems || []).forEach((item: any) => {
+        if (item.priceList?.id && item.priceList?.name) {
+          priceListMap.set(item.priceList.id, item.priceList.name);
+        }
+      });
+    });
+    const sortedPriceLists = [...priceListMap.entries()].sort((a, b) =>
+      a[1].localeCompare(b[1]),
+    );
+
     const columns = [
       { key: 'sku', header: 'SKU', type: 'string' as const, width: 15 },
       { key: 'name', header: 'Name', type: 'string' as const, width: 30 },
-      {
-        key: 'category.name',
-        header: 'Category',
-        type: 'string' as const,
-        width: 20,
-      },
-      {
-        key: 'baseCost',
-        header: 'Cost Price',
+      { key: 'categoryName', header: 'Category', type: 'string' as const, width: 20 },
+      { key: 'baseCost', header: 'Cost Price', type: 'currency' as const, width: 15 },
+      ...sortedPriceLists.map(([id, name]) => ({
+        key: `pl_${id}`,
+        header: name,
         type: 'currency' as const,
         width: 15,
-      },
+      })),
       { key: 'stockQuantity', header: 'Stock', type: 'number' as const, width: 12 },
       { key: 'isActive', header: 'Active', type: 'string' as const, width: 10 },
     ];
-    const mappedProducts = (products as any[]).map(p => ({
-      ...p,
-      isActive: p.isActive ? 'Yes' : 'No',
-    }));
+
+    const mappedProducts = (products as any[]).map(p => {
+      const pricesByListId: Record<string, number> = {};
+      (p.priceListItems || []).forEach((item: any) => {
+        if (item.priceList?.id) {
+          pricesByListId[`pl_${item.priceList.id}`] = Number(item.price);
+        }
+      });
+      return {
+        ...p,
+        categoryName: p.category?.name ?? '',
+        isActive: p.isActive ? 'Yes' : 'No',
+        ...pricesByListId,
+      };
+    });
     const buffer = await this.exportService.exportFlat(
       'Products',
       columns,
