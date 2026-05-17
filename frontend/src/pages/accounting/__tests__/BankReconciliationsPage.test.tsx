@@ -301,14 +301,7 @@ describe('BankReconciliationsPage', () => {
     })
   })
 
-  it('shows BlockedBankReconciliationDialog when deleting a completed reconciliation', async () => {
-    const deleteMock = vi.fn(() => ({
-      unwrap: vi.fn().mockRejectedValue({
-        status: 400,
-        data: 'Cannot delete a completed reconciliation. Please reopen it first.',
-      }),
-    }))
-    mockedApi.useDeleteBankReconciliationMutation.mockReturnValue([deleteMock])
+  it('shows BlockedBankReconciliationDialog immediately when deleting a completed reconciliation', async () => {
     mockedApi.useGetBankReconciliationsQuery.mockReturnValue({
       data: { data: [MOCK_RECONCILIATION_COMPLETED], meta: { total: 1 } },
       isLoading: false,
@@ -324,26 +317,19 @@ describe('BankReconciliationsPage', () => {
     fireEvent.click(screen.getAllByText('Main Checking')[0])
     await waitFor(() => expect(screen.getByText('Delete')).toBeInTheDocument())
 
-    // Click Delete in the context header
+    // Click Delete — blocked dialog should appear immediately, no confirmation dialog
     fireEvent.click(screen.getByText('Delete'))
-    await waitFor(() => expect(screen.getByText('Delete Reconciliation')).toBeInTheDocument())
-
-    // Confirm deletion in the confirmation dialog
-    fireEvent.click(screen.getByRole('button', { name: /^delete$/i }))
-
-    // Blocked dialog should appear
     await waitFor(() =>
       expect(screen.getByText('Reconciliation Already Completed')).toBeInTheDocument()
     )
+    expect(screen.queryByText('Delete Reconciliation')).not.toBeInTheDocument()
   })
 
   it('calls reopen then delete when Reopen & Delete is clicked in blocked dialog', async () => {
     const reopenMock = vi.fn(() => ({
       unwrap: vi.fn().mockResolvedValue({ ...MOCK_RECONCILIATION_COMPLETED, status: 'IN_PROGRESS', isCompleted: false, isInProgress: true }),
     }))
-    const deleteMock = vi.fn()
-      .mockReturnValueOnce({ unwrap: vi.fn().mockRejectedValue({ status: 400, data: 'Cannot delete a completed reconciliation. Please reopen it first.' }) })
-      .mockReturnValueOnce({ unwrap: vi.fn().mockResolvedValue(undefined) })
+    const deleteMock = vi.fn(() => ({ unwrap: vi.fn().mockResolvedValue(undefined) }))
 
     mockedApi.useReopenBankReconciliationMutation.mockReturnValue([reopenMock])
     mockedApi.useDeleteBankReconciliationMutation.mockReturnValue([deleteMock])
@@ -361,13 +347,11 @@ describe('BankReconciliationsPage', () => {
     fireEvent.click(screen.getAllByText('Main Checking')[0])
     await waitFor(() => expect(screen.getByText('Delete')).toBeInTheDocument())
     fireEvent.click(screen.getByText('Delete'))
-    await waitFor(() => expect(screen.getByText('Delete Reconciliation')).toBeInTheDocument())
-    fireEvent.click(screen.getByRole('button', { name: /^delete$/i }))
     await waitFor(() => expect(screen.getByText('Reconciliation Already Completed')).toBeInTheDocument())
 
     fireEvent.click(screen.getByRole('button', { name: /reopen & delete/i }))
 
     await waitFor(() => expect(reopenMock).toHaveBeenCalledWith('rec-2'))
-    await waitFor(() => expect(deleteMock).toHaveBeenCalledTimes(2))
+    await waitFor(() => expect(deleteMock).toHaveBeenCalledWith('rec-2'))
   })
 })

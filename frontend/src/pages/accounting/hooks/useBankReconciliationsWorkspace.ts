@@ -138,14 +138,7 @@ export function useBankReconciliationsWorkspace({
       refetch()
     }
     catch (error: unknown) {
-      const rtkMessage = (error as any)?.data
-      const isCompleted = typeof rtkMessage === 'string' && rtkMessage.includes('completed reconciliation')
-      if (isCompleted) {
-        setDeleteTarget(null)
-        setBlockedDeleteTarget(deleteTarget)
-      } else {
-        showError(getErrorMessage(error, 'Failed to delete reconciliation'))
-      }
+      showError(getErrorMessage(error, 'Failed to delete reconciliation'))
     }
     finally {
       setActionLoading(false)

@@ -7,6 +7,7 @@ import { useFilterBar } from '@/hooks/useFilterBar'
 import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
 import { useGetBankReconciliationsQuery } from '@/store/api/accountingApi'
 import { selectSelectedBankReconciliation } from '@/store/slices/accountingSlice'
+import { BankReconciliationStatus } from '@/types'
 import type { FilterBarConfig, PeriodValue } from '@/types/filterBar.types'
 import { getPeriodDateRange, getStartOfWeek } from '@/utils/dateRange'
 
@@ -128,7 +129,14 @@ const BankReconciliationsPage: React.FC = () => {
           onEdit={() => setEditOpen(true)}
           onComplete={() => selected && workspace.setCompleteTarget(selected)}
           onReopen={() => selected && workspace.setReopenTarget(selected)}
-          onDelete={() => selected && workspace.setDeleteTarget(selected)}
+          onDelete={() => {
+            if (!selected) return
+            if (selected.status === BankReconciliationStatus.COMPLETED) {
+              workspace.setBlockedDeleteTarget(selected)
+            } else {
+              workspace.setDeleteTarget(selected)
+            }
+          }}
         />
       )}
       workspaceSlot={(
