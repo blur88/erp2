@@ -257,12 +257,16 @@ const HistoricalInventoryReport: React.FC = () => {
   }
 
   const handleExportExcel = async () => {
-    const date = new Date().toISOString().split('T')[0]
-    await exportReportExcel(
-      '/inventory/analytics/historical-inventory/export',
-      { productIds: selectedProducts, categoryId: selectedCategory, endDate: targetDate ? new Date(targetDate).toISOString() : undefined },
-      `historical-inventory-${date}.xlsx`,
-    )
+    try {
+      const date = new Date().toISOString().split('T')[0]
+      await exportReportExcel(
+        '/inventory/analytics/historical-inventory/export',
+        { productIds: selectedProducts, categoryId: selectedCategory, endDate: targetDate ? new Date(targetDate).toISOString() : undefined },
+        `historical-inventory-${date}.xlsx`,
+      )
+    } catch (err) {
+      console.error('Export failed:', err)
+    }
   }
 
   const handleExportPDF = () => {

@@ -159,12 +159,16 @@ const SalesOrderSummary: React.FC = () => {
   }
 
   const handleExportExcel = async () => {
-    const date = new Date().toISOString().split('T')[0]
-    await exportReportExcel(
-      '/sales/analytics/sales-order-summary/export',
-      { dateFrom, dateTo, customerId: selectedCustomer, status: inventoryStatus, paymentStatus },
-      `sales-order-summary-${date}.xlsx`,
-    )
+    try {
+      const date = new Date().toISOString().split('T')[0]
+      await exportReportExcel(
+        '/sales/analytics/sales-order-summary/export',
+        { dateFrom, dateTo, customerId: selectedCustomer, status: inventoryStatus, paymentStatus },
+        `sales-order-summary-${date}.xlsx`,
+      )
+    } catch (err) {
+      console.error('Export failed:', err)
+    }
   }
 
   const handleExportPDF = () => {

@@ -295,12 +295,16 @@ const PurchaseOrderStatusReport: React.FC = () => {
   }
 
   const handleExportExcel = async () => {
-    const date = new Date().toISOString().split('T')[0]
-    await exportReportExcel(
-      '/purchasing/analytics/purchase-order-status/export',
-      { supplierId: selectedSupplier, productIds: selectedProducts, status, paymentStatus },
-      `purchase-order-status-${date}.xlsx`,
-    )
+    try {
+      const date = new Date().toISOString().split('T')[0]
+      await exportReportExcel(
+        '/purchasing/analytics/purchase-order-status/export',
+        { supplierId: selectedSupplier, productIds: selectedProducts, status, paymentStatus },
+        `purchase-order-status-${date}.xlsx`,
+      )
+    } catch (err) {
+      console.error('Export failed:', err)
+    }
   }
 
   const handleExportPDF = () => {

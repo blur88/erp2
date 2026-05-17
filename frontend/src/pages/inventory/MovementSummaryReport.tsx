@@ -253,12 +253,16 @@ const MovementSummaryReport: React.FC = () => {
   }
 
   const handleExportExcel = async () => {
-    const date = new Date().toISOString().split('T')[0]
-    await exportReportExcel(
-      '/inventory/analytics/movement-summary/export',
-      { productIds: selectedProducts, categoryId: selectedCategory, startDate: startDate ? new Date(startDate).toISOString() : undefined, endDate: endDate ? new Date(endDate).toISOString() : undefined },
-      `movement-summary-${date}.xlsx`,
-    )
+    try {
+      const date = new Date().toISOString().split('T')[0]
+      await exportReportExcel(
+        '/inventory/analytics/movement-summary/export',
+        { productIds: selectedProducts, categoryId: selectedCategory, startDate: startDate ? new Date(startDate).toISOString() : undefined, endDate: endDate ? new Date(endDate).toISOString() : undefined },
+        `movement-summary-${date}.xlsx`,
+      )
+    } catch (err) {
+      console.error('Export failed:', err)
+    }
   }
 
   const handleExportPDF = () => {

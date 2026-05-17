@@ -310,12 +310,16 @@ const ProductCustomerReport: React.FC = () => {
   }
 
   const handleExportExcel = async () => {
-    const date = new Date().toISOString().split('T')[0]
-    await exportReportExcel(
-      '/sales/analytics/product-customer-report/export',
-      { dateFrom, dateTo, categoryId: selectedCategory, productIds: selectedProducts, inventoryStatus, paymentStatus },
-      `product-customer-report-${date}.xlsx`,
-    )
+    try {
+      const date = new Date().toISOString().split('T')[0]
+      await exportReportExcel(
+        '/sales/analytics/product-customer-report/export',
+        { dateFrom, dateTo, categoryId: selectedCategory, productIds: selectedProducts, inventoryStatus, paymentStatus },
+        `product-customer-report-${date}.xlsx`,
+      )
+    } catch (err) {
+      console.error('Export failed:', err)
+    }
   }
 
   const handleExportPDF = () => {

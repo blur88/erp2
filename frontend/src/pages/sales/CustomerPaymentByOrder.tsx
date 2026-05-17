@@ -148,12 +148,16 @@ const CustomerPaymentByOrder: React.FC = () => {
   }
 
   const handleExportExcel = async () => {
-    const date = new Date().toISOString().split('T')[0]
-    await exportReportExcel(
-      '/sales/analytics/customer-payment-by-order/export',
-      { dateFrom, dateTo, customerId: selectedCustomer, paymentStatus },
-      `customer-payment-by-order-${date}.xlsx`,
-    )
+    try {
+      const date = new Date().toISOString().split('T')[0]
+      await exportReportExcel(
+        '/sales/analytics/customer-payment-by-order/export',
+        { dateFrom, dateTo, customerId: selectedCustomer, paymentStatus },
+        `customer-payment-by-order-${date}.xlsx`,
+      )
+    } catch (err) {
+      console.error('Export failed:', err)
+    }
   }
 
   const handleExportPDF = () => {

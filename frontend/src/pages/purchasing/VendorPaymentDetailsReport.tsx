@@ -121,12 +121,16 @@ const VendorPaymentDetailsReport: React.FC = () => {
   }
 
   const handleExportExcel = async () => {
-    const date = new Date().toISOString().split('T')[0]
-    await exportReportExcel(
-      '/purchasing/analytics/vendor-payment-details/export',
-      { dateFrom, dateTo, supplierId: selectedSupplier },
-      `vendor-payment-details-${date}.xlsx`,
-    )
+    try {
+      const date = new Date().toISOString().split('T')[0]
+      await exportReportExcel(
+        '/purchasing/analytics/vendor-payment-details/export',
+        { dateFrom, dateTo, supplierId: selectedSupplier },
+        `vendor-payment-details-${date}.xlsx`,
+      )
+    } catch (err) {
+      console.error('Export failed:', err)
+    }
   }
 
   const handleExportPDF = () => {

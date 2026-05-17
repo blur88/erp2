@@ -299,12 +299,16 @@ const VendorProductListReport: React.FC = () => {
   }
 
   const handleExportExcel = async () => {
-    const date = new Date().toISOString().split('T')[0]
-    await exportReportExcel(
-      '/purchasing/analytics/vendor-product-list/export',
-      { supplierId: selectedSupplier, categoryId: selectedCategory, productIds: selectedProducts },
-      `vendor-product-list-${date}.xlsx`,
-    )
+    try {
+      const date = new Date().toISOString().split('T')[0]
+      await exportReportExcel(
+        '/purchasing/analytics/vendor-product-list/export',
+        { supplierId: selectedSupplier, categoryId: selectedCategory, productIds: selectedProducts },
+        `vendor-product-list-${date}.xlsx`,
+      )
+    } catch (err) {
+      console.error('Export failed:', err)
+    }
   }
 
   const handleExportPDF = () => {

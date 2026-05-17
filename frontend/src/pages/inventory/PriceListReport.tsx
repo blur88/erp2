@@ -284,12 +284,16 @@ const PriceListReport: React.FC = () => {
   }
 
   const handleExportExcel = async () => {
-    const date = new Date().toISOString().split('T')[0]
-    await exportReportExcel(
-      '/inventory/analytics/price-list/export',
-      { productIds: selectedProducts, categoryId: selectedCategory, priceListId, discountPercent },
-      `price-list-${date}.xlsx`,
-    )
+    try {
+      const date = new Date().toISOString().split('T')[0]
+      await exportReportExcel(
+        '/inventory/analytics/price-list/export',
+        { productIds: selectedProducts, categoryId: selectedCategory, priceListId, discountPercent },
+        `price-list-${date}.xlsx`,
+      )
+    } catch (err) {
+      console.error('Export failed:', err)
+    }
   }
 
   const handleExportPDF = () => {
