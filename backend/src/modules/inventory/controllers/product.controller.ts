@@ -224,7 +224,6 @@ export class ProductController {
 
     const columns = [
       { key: 'name', header: 'Product Name', type: 'string' as const, width: 30 },
-      { key: 'sku', header: 'SKU', type: 'string' as const, width: 15 },
       { key: 'barcode', header: 'Barcode', type: 'string' as const, width: 18 },
       { key: 'type', header: 'Type', type: 'string' as const, width: 15 },
       { key: 'categoryName', header: 'Category', type: 'string' as const, width: 20 },

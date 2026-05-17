@@ -53,7 +53,6 @@ const prepareExportData = (products: Product[], threshold: number) => {
     const row: any = {
       '#': index + 1,
       'Product Name': product.name || '',
-      'SKU': (product as any).sku || '',
       'Barcode': product.barcode || '',
       'Type': product.type === 'Stocked Product' ? 'Stocked Product' : 'Service',
       'Category': product.category?.name || 'No Category',
@@ -262,7 +261,7 @@ const exportToPDF = ({ products, filters, lowStockThreshold = 10 }: ExportData):
     const priceLists = collectPriceLists(products)
     const priceHeaders = priceLists.map(pl => `${pl.name} Price`)
 
-    const fixedHead = ['#', 'Product Name', 'SKU', 'Barcode', 'Type', 'Category', 'Base Cost']
+    const fixedHead = ['#', 'Product Name', 'Barcode', 'Type', 'Category', 'Base Cost']
     const tailHead = ['Stock', 'Stock Status', 'Status', 'Notes', 'Created Date', 'Updated Date']
     const allHead = [...fixedHead, ...priceHeaders, ...tailHead]
 
@@ -278,7 +277,6 @@ const exportToPDF = ({ products, filters, lowStockThreshold = 10 }: ExportData):
       return [
         index + 1,
         product.name || '',
-        (product as any).sku || '',
         product.barcode || '',
         product.type === 'Stocked Product' ? 'Stocked Product' : 'Service',
         product.category?.name || 'No Category',
@@ -297,17 +295,16 @@ const exportToPDF = ({ products, filters, lowStockThreshold = 10 }: ExportData):
     const columnStyles: Record<number, any> = {
       0: { halign: 'center', cellWidth: 8 },   // #
       1: { cellWidth: 35 },                     // Product Name
-      2: { cellWidth: 18 },                     // SKU
-      3: { cellWidth: 22 },                     // Barcode
-      4: { halign: 'center', cellWidth: 18 },   // Type
-      5: { cellWidth: 25 },                     // Category
-      6: { halign: 'right', cellWidth: 18 },    // Base Cost
+      2: { cellWidth: 22 },                     // Barcode
+      3: { halign: 'center', cellWidth: 18 },   // Type
+      4: { cellWidth: 25 },                     // Category
+      5: { halign: 'right', cellWidth: 18 },    // Base Cost
     }
     // Price list columns
     priceLists.forEach((_, i) => {
-      columnStyles[7 + i] = { halign: 'right', cellWidth: 18 }
+      columnStyles[6 + i] = { halign: 'right', cellWidth: 18 }
     })
-    const tailStart = 7 + priceLists.length
+    const tailStart = 6 + priceLists.length
     columnStyles[tailStart]     = { halign: 'right', cellWidth: 14 }  // Stock
     columnStyles[tailStart + 1] = { halign: 'center', cellWidth: 18 } // Stock Status
     columnStyles[tailStart + 2] = { halign: 'center', cellWidth: 14 } // Status
