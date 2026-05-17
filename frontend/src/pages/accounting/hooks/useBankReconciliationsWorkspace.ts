@@ -138,8 +138,9 @@ export function useBankReconciliationsWorkspace({
       refetch()
     }
     catch (error: unknown) {
-      const message = getErrorMessage(error, '')
-      if (message.includes('completed reconciliation')) {
+      const rtkMessage = (error as any)?.data
+      const isCompleted = typeof rtkMessage === 'string' && rtkMessage.includes('completed reconciliation')
+      if (isCompleted) {
         setDeleteTarget(null)
         setBlockedDeleteTarget(deleteTarget)
       } else {
@@ -173,15 +174,21 @@ export function useBankReconciliationsWorkspace({
     if (!blockedDeleteTarget) return
     setActionLoading(true)
     try {
-      await reopenReconciliation(blockedDeleteTarget.id).unwrap()
-      await deleteReconciliation(blockedDeleteTarget.id).unwrap()
-      showSuccess('Reconciliation reopened and deleted')
-      setBlockedDeleteTarget(null)
-      dispatch(setSelectedBankReconciliation(null))
+      const fresh = await reopenReconciliation(blockedDeleteTarget.id).unwrap()
+      try {
+        await deleteReconciliation(blockedDeleteTarget.id).unwrap()
+        showSuccess('Reconciliation reopened and deleted')
+        setBlockedDeleteTarget(null)
+        dispatch(setSelectedBankReconciliation(null))
+      } catch (deleteError: unknown) {
+        showError('Reconciliation was reopened but could not be deleted. Please delete it manually.')
+        setBlockedDeleteTarget(null)
+        dispatch(setSelectedBankReconciliation(fresh))
+      }
       refetch()
     }
     catch (error: unknown) {
-      showError(getErrorMessage(error, 'Failed to reopen and delete reconciliation'))
+      showError(getErrorMessage(error, 'Failed to reopen reconciliation'))
     }
     finally {
       setActionLoading(false)

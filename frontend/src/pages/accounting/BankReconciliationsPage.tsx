@@ -143,6 +143,7 @@ const BankReconciliationsPage: React.FC = () => {
             completeTarget={workspace.completeTarget}
             reopenTarget={workspace.reopenTarget}
             deleteTarget={workspace.deleteTarget}
+            blockedDeleteTarget={workspace.blockedDeleteTarget}
             actionLoading={workspace.actionLoading}
             onConfirmComplete={workspace.handleConfirmComplete}
             onConfirmReopen={workspace.handleConfirmReopen}
@@ -150,6 +151,9 @@ const BankReconciliationsPage: React.FC = () => {
             onCancelComplete={() => workspace.setCompleteTarget(null)}
             onCancelReopen={() => workspace.setReopenTarget(null)}
             onCancelDelete={() => workspace.setDeleteTarget(null)}
+            onCancelBlockedDelete={() => workspace.setBlockedDeleteTarget(null)}
+            onReopenOnly={workspace.handleReopenOnly}
+            onReopenAndDelete={workspace.handleReopenAndDelete}
           />
           {createOpen && (
             <BankReconciliationFormDialog

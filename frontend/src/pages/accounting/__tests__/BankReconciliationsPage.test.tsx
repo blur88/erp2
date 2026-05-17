@@ -304,7 +304,8 @@ describe('BankReconciliationsPage', () => {
   it('shows BlockedBankReconciliationDialog when deleting a completed reconciliation', async () => {
     const deleteMock = vi.fn(() => ({
       unwrap: vi.fn().mockRejectedValue({
-        data: { message: 'Cannot delete a completed reconciliation. Please reopen it first.' },
+        status: 400,
+        data: 'Cannot delete a completed reconciliation. Please reopen it first.',
       }),
     }))
     mockedApi.useDeleteBankReconciliationMutation.mockReturnValue([deleteMock])
@@ -320,7 +321,7 @@ describe('BankReconciliationsPage', () => {
     renderPage()
 
     // Select the completed reconciliation
-    fireEvent.click(screen.getByText('Main Checking'))
+    fireEvent.click(screen.getAllByText('Main Checking')[0])
     await waitFor(() => expect(screen.getByText('Delete')).toBeInTheDocument())
 
     // Click Delete in the context header
@@ -341,7 +342,7 @@ describe('BankReconciliationsPage', () => {
       unwrap: vi.fn().mockResolvedValue({ ...MOCK_RECONCILIATION_COMPLETED, status: 'IN_PROGRESS', isCompleted: false, isInProgress: true }),
     }))
     const deleteMock = vi.fn()
-      .mockReturnValueOnce({ unwrap: vi.fn().mockRejectedValue({ data: { message: 'Cannot delete a completed reconciliation. Please reopen it first.' } }) })
+      .mockReturnValueOnce({ unwrap: vi.fn().mockRejectedValue({ status: 400, data: 'Cannot delete a completed reconciliation. Please reopen it first.' }) })
       .mockReturnValueOnce({ unwrap: vi.fn().mockResolvedValue(undefined) })
 
     mockedApi.useReopenBankReconciliationMutation.mockReturnValue([reopenMock])
@@ -357,7 +358,7 @@ describe('BankReconciliationsPage', () => {
 
     renderPage()
 
-    fireEvent.click(screen.getByText('Main Checking'))
+    fireEvent.click(screen.getAllByText('Main Checking')[0])
     await waitFor(() => expect(screen.getByText('Delete')).toBeInTheDocument())
     fireEvent.click(screen.getByText('Delete'))
     await waitFor(() => expect(screen.getByText('Delete Reconciliation')).toBeInTheDocument())
