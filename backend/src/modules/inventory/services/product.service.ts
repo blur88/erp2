@@ -14,13 +14,14 @@ import {
   UpdateResult,
   In,
   FindOptionsWhere,
+  Not,
 } from 'typeorm';
 import { BaseCrudService } from '../../../common/services/base-crud.service';
 import { Product, ProductType } from '../../../database/entities/product.entity';
 import { Category } from '../../../database/entities/category.entity';
 import { SalesOrderItem } from '../../../database/entities/sales-order-item.entity';
 import { PurchaseOrderItem } from '../../../database/entities/purchase-order-item.entity';
-import { StockMovement } from '../../../database/entities/stock-movement.entity';
+import { StockMovement, StockMovementType } from '../../../database/entities/stock-movement.entity';
 import { StockAdjustmentItem } from '../../../database/entities/stock-adjustment.entity';
 import { GoodsReceivedNoteItem } from '../../../database/entities/goods-received-note-item.entity';
 import { InvoiceItem } from '../../../database/entities/invoice-item.entity';
@@ -271,10 +272,11 @@ export class ProductService extends BaseCrudService<
     // Validate pricing logic
     this.validatePricing(createProductDto);
 
-    // Create product
+    // Create product with stockQuantity=0 — the initial stock movement below sets the real balance.
+    // Saving the requested quantity here would cause a double-count (saved qty + movement qty).
     const product = this.productRepository.create({
       ...createProductDto,
-      stockQuantity: createProductDto.stockQuantity || 0,
+      stockQuantity: 0,
       isActive: createProductDto.isActive ?? true,
       type: createProductDto.type || ProductType.GOODS,
     });
@@ -285,17 +287,24 @@ export class ProductService extends BaseCrudService<
     // Set the category relationship for the response DTO
     savedProduct.category = category;
 
-    // Create initial stock movement if current stock provided (temporarily disabled for system users)
-    if (createProductDto.stockQuantity && createProductDto.stockQuantity > 0 && userId) {
-      try {
-        await this.stockMovementService.recordInitialStock(
-          savedProduct.id,
-          createProductDto.stockQuantity,
-          createProductDto.baseCost,
-          userId,
-        );
-      } catch (error) {
-        this.logger.warn(`Failed to create initial stock movement: ${error.message}`);
+    // Create initial stock movement if current stock provided.
+    // The movement updates stockQuantity via updateStockQuantity, so the product is saved with 0 above.
+    // For system users (no userId), skip the movement but set stockQuantity directly so the value isn't lost.
+    if (createProductDto.stockQuantity && createProductDto.stockQuantity > 0) {
+      if (userId) {
+        try {
+          await this.stockMovementService.recordInitialStock(
+            savedProduct.id,
+            createProductDto.stockQuantity,
+            createProductDto.baseCost,
+            userId,
+          );
+        } catch (error) {
+          this.logger.warn(`Failed to create initial stock movement: ${error.message}`);
+        }
+      } else {
+        await this.productRepository.update(savedProduct.id, { stockQuantity: createProductDto.stockQuantity });
+        savedProduct.stockQuantity = createProductDto.stockQuantity;
       }
     }
 
@@ -775,6 +784,11 @@ export class ProductService extends BaseCrudService<
       }
     );
 
+    // Delete initial_stock movement before hard delete — stock_movements FK is RESTRICT so the DB
+    // will reject the product delete if this row remains. purchase_cost_history has CASCADE so
+    // the DB removes it automatically; no explicit delete needed there.
+    await this.stockMovementRepository.delete({ productId: id, movementType: StockMovementType.INITIAL_STOCK });
+
     // Hard delete the product from database
     await this.productRepository.delete(id);
 
@@ -844,6 +858,9 @@ export class ProductService extends BaseCrudService<
           `Permanently deleted product: ${product.name} (${product.barcode})`,
           { entityId: id, userId: userId || 'system', username, oldValues: { name: product.name, barcode: product.barcode } }
         );
+        // Delete initial_stock movement before hard delete — stock_movements FK is RESTRICT.
+        // purchase_cost_history has CASCADE so the DB removes it automatically.
+        await this.stockMovementRepository.delete({ productId: id, movementType: StockMovementType.INITIAL_STOCK });
         await this.productRepository.delete(id);
 
         successCount++;
@@ -1029,9 +1046,9 @@ export class ProductService extends BaseCrudService<
       dependencies.push({ type: 'purchase order items', count: purchaseOrderItemCount });
     }
 
-    // Check stock movements
+    // Check stock movements — exclude system-generated initial_stock entries
     const stockMovementCount = await this.stockMovementRepository.count({
-      where: { productId }
+      where: { productId, movementType: Not(StockMovementType.INITIAL_STOCK) }
     });
     if (stockMovementCount > 0) {
       dependencies.push({ type: 'stock movements', count: stockMovementCount });
@@ -1059,14 +1076,6 @@ export class ProductService extends BaseCrudService<
     });
     if (invoiceItemCount > 0) {
       dependencies.push({ type: 'invoice items', count: invoiceItemCount });
-    }
-
-    // Check purchase cost history
-    const purchaseCostHistoryCount = await this.purchaseCostHistoryRepository.count({
-      where: { productId }
-    });
-    if (purchaseCostHistoryCount > 0) {
-      dependencies.push({ type: 'purchase cost history records', count: purchaseCostHistoryCount });
     }
 
     return {
