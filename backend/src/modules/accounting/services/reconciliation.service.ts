@@ -176,6 +176,7 @@ export class ReconciliationService {
     const sortField = validSortFields.includes(sortBy) ? sortBy : 'reconciliationDate';
     const safeSortOrder = sortOrder?.toUpperCase() === 'DESC' ? 'DESC' : 'ASC';
     queryBuilder.orderBy(`recon.${sortField}`, safeSortOrder);
+    queryBuilder.addOrderBy('account.name', 'ASC');
 
     const offset = (page - 1) * limit;
     queryBuilder.skip(offset).take(limit);
