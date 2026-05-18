@@ -6,7 +6,6 @@ import { NestExpressApplication } from '@nestjs/platform-express';
 import { join } from 'path';
 import { AppModule } from './app.module';
 import { SecurityApplicationService, SecurityMonitoringMiddleware } from './common/security';
-import { DetailedErrorFilter } from './common/filters/detailed-error.filter';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
@@ -27,9 +26,6 @@ async function bootstrap() {
 
   // Global prefix for all routes
   app.setGlobalPrefix('api');
-
-  // Apply custom exception filter for detailed error responses
-  app.useGlobalFilters(new DetailedErrorFilter());
 
   // Enhanced Global Validation Pipe with Security Features
   app.useGlobalPipes(
