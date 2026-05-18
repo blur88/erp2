@@ -10,14 +10,13 @@ const COLUMNS: ColumnConfig<BankReconciliation>[] = [
     key: 'account',
     raw: true,
     render: (item) => (
-      <Box>
-        <Typography variant="body2" sx={{ fontWeight: 500, fontSize: '0.8rem', lineHeight: 1.3 }}>
-          {item.account?.name ?? '-'}
-        </Typography>
-        <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.75rem' }}>
+      <Typography variant="body2" noWrap sx={{ fontWeight: 500, fontSize: '0.8rem' }}>
+        {item.account?.name ?? '-'}
+        <Box component="span" sx={{ color: 'text.secondary', fontWeight: 400 }}>
+          {' • '}
           {format(new Date(item.reconciliationDate), 'MMMM yyyy')}
-        </Typography>
-      </Box>
+        </Box>
+      </Typography>
     ),
   },
 ]
