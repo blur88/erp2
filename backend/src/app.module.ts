@@ -3,32 +3,14 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { BullModule } from '@nestjs/bull';
 import { ScheduleModule } from '@nestjs/schedule';
-import { APP_FILTER, APP_INTERCEPTOR, APP_GUARD } from '@nestjs/core';
+import { APP_INTERCEPTOR, APP_GUARD } from '@nestjs/core';
 
 // Configuration
 import { DatabaseConfig } from './config/database.config';
 
 // Filters & Interceptors
-import { HttpExceptionFilter } from './common/filters/http-exception.filter';
+import { ErrorManagementModule } from './common/error-management';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
-import { 
-  DatabaseErrorHandler,
-  ErrorClassifierService,
-  DatabaseErrorLoggerService,
-  ErrorSanitizerService,
-  IdGeneratorService 
-} from './common/services';
-
-// Import missing filter dependencies
-import { 
-  SecurityDetectorService,
-  ErrorLoggerService,
-  HttpExceptionHandler,
-  DatabaseExceptionHandler,
-  UnexpectedExceptionHandler,
-  LogFormatterService,
-  DataSanitizerService,
-} from './common/filters';
 
 // Modules
 import { AuthModule } from './modules/auth/auth.module';
@@ -81,6 +63,8 @@ import { AppService } from './app.service';
     // Schedule Module for cron jobs
     ScheduleModule.forRoot(),
 
+    ErrorManagementModule,
+
     // Core Modules
     AuthModule, // Authentication and authorization
     AuditLogsModule, // Audit logging (global)
@@ -99,28 +83,6 @@ import { AppService } from './app.service';
   controllers: [AppController],
   providers: [
     AppService,
-    
-    // Database Error Handler Services
-    DatabaseErrorHandler,
-    ErrorClassifierService,
-    DatabaseErrorLoggerService,
-    ErrorSanitizerService,
-    IdGeneratorService,
-    
-    // Exception filter dependencies
-    SecurityDetectorService,
-    ErrorLoggerService,
-    LogFormatterService,
-    DataSanitizerService,
-    HttpExceptionHandler,
-    DatabaseExceptionHandler,
-    UnexpectedExceptionHandler,
-    
-    // Global Exception Filter
-    {
-      provide: APP_FILTER,
-      useClass: HttpExceptionFilter,
-    },
 
     // Global Logging Interceptor
     {
