@@ -29,6 +29,29 @@ export class CreateFundTransferDto {
   description?: string;
 }
 
+export class UpdateFundTransferDto {
+  @IsOptional()
+  @IsUUID()
+  sourceAccountId?: string;
+
+  @IsOptional()
+  @IsUUID()
+  destinationAccountId?: string;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0.01)
+  amount?: number;
+
+  @IsOptional()
+  @IsDateString()
+  transferDate?: string;
+
+  @IsOptional()
+  @IsString()
+  description?: string;
+}
+
 export class QueryFundTransfersDto {
   @IsOptional()
   @Type(() => Number)
@@ -109,6 +132,7 @@ export class FundTransferResponseDto {
   journalEntry?: JournalEntrySummary;
   createdAt: Date;
   updatedAt: Date;
+  deletedAt?: Date | null;
 }
 
 export class FundTransferListResponseDto {

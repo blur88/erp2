@@ -90,6 +90,15 @@ type CreateFundTransferPayload = {
   description?: string
 }
 
+type UpdateFundTransferPayload = {
+  id: string
+  sourceAccountId?: string
+  destinationAccountId?: string
+  amount?: number
+  transferDate?: string
+  description?: string
+}
+
 export interface BankReconciliationsParams {
   search?: string
   status?: string
@@ -357,6 +366,11 @@ export const accountingApiSlice = createApi({
       query: (params) => ({ url: '/accounting/expenses', params: params ?? {} }),
       transformResponse: normalizePaginated<ExpenseRecord>,
       providesTags: ['Expense'],
+    }),
+    getExpense: builder.query<ExpenseRecord, string>({
+      query: (id) => ({ url: `/accounting/expenses/${id}` }),
+      transformResponse: normalizeSingle<ExpenseRecord>,
+      providesTags: (_result, _error, id) => [{ type: 'Expense', id }],
     }),
     getFundTransfers: builder.query<PaginatedResponse<FundTransfer>, Record<string, unknown> | undefined>({
       query: (params) => ({ url: '/accounting/fund-transfers', params: params ?? {} }),
@@ -804,8 +818,17 @@ export const accountingApiSlice = createApi({
       transformResponse: normalizeSingle<FundTransfer>,
       invalidatesTags: ['FundTransfer', 'JournalEntry', 'AccountingReport'],
     }),
-    cancelFundTransfer: builder.mutation<FundTransfer, string>({
-      query: (id) => ({ url: `/accounting/fund-transfers/${id}/cancel`, method: 'POST' }),
+    updateFundTransfer: builder.mutation<FundTransfer, UpdateFundTransferPayload>({
+      query: ({ id, ...body }) => ({ url: `/accounting/fund-transfers/${id}`, method: 'PATCH', data: body }),
+      transformResponse: normalizeSingle<FundTransfer>,
+      invalidatesTags: (_result, _error, { id }) => [{ type: 'FundTransfer', id }, 'FundTransfer'],
+    }),
+    deleteFundTransfer: builder.mutation<void, string>({
+      query: (id) => ({ url: `/accounting/fund-transfers/${id}`, method: 'DELETE' }),
+      invalidatesTags: (_result, _error, id) => [{ type: 'FundTransfer', id }, 'FundTransfer'],
+    }),
+    postFundTransfer: builder.mutation<FundTransfer, string>({
+      query: (id) => ({ url: `/accounting/fund-transfers/${id}/post`, method: 'POST' }),
       transformResponse: normalizeSingle<FundTransfer>,
       invalidatesTags: (_result, _error, id) => [
         { type: 'FundTransfer', id },
@@ -813,6 +836,30 @@ export const accountingApiSlice = createApi({
         'JournalEntry',
         'AccountingReport',
       ],
+    }),
+    unpostFundTransfer: builder.mutation<FundTransfer, string>({
+      query: (id) => ({ url: `/accounting/fund-transfers/${id}/unpost`, method: 'POST' }),
+      transformResponse: normalizeSingle<FundTransfer>,
+      invalidatesTags: (_result, _error, id) => [
+        { type: 'FundTransfer', id },
+        'FundTransfer',
+        'JournalEntry',
+        'AccountingReport',
+      ],
+    }),
+    getDeletedFundTransfers: builder.query<FundTransfer[], void>({
+      query: () => ({ url: '/accounting/fund-transfers/deleted', method: 'GET' }),
+      transformResponse: (response: any) => (Array.isArray(response) ? response : response?.data ?? []),
+      providesTags: ['FundTransfer'],
+    }),
+    restoreFundTransfer: builder.mutation<FundTransfer, string>({
+      query: (id) => ({ url: `/accounting/fund-transfers/${id}/restore`, method: 'POST' }),
+      transformResponse: normalizeSingle<FundTransfer>,
+      invalidatesTags: (_result, _error, id) => [{ type: 'FundTransfer', id }, 'FundTransfer'],
+    }),
+    permanentDeleteFundTransfer: builder.mutation<void, string>({
+      query: (id) => ({ url: `/accounting/fund-transfers/${id}/permanent`, method: 'DELETE' }),
+      invalidatesTags: ['FundTransfer'],
     }),
   }),
 })
@@ -843,6 +890,7 @@ export const {
   useGetPendingSettlementPaymentsQuery,
   useGetOwnerEquityTransactionsQuery,
   useGetExpensesQuery,
+  useLazyGetExpenseQuery,
   useGetFundTransfersQuery,
   useGetFundTransferQuery,
   useLazyGetFundTransferQuery,
@@ -912,5 +960,11 @@ export const {
   useBulkPermanentDeleteExpensesMutation,
   useBulkRestoreExpensesMutation,
   useCreateFundTransferMutation,
-  useCancelFundTransferMutation,
+  useUpdateFundTransferMutation,
+  useDeleteFundTransferMutation,
+  usePostFundTransferMutation,
+  useUnpostFundTransferMutation,
+  useGetDeletedFundTransfersQuery,
+  useRestoreFundTransferMutation,
+  usePermanentDeleteFundTransferMutation,
 } = accountingApiSlice

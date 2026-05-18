@@ -246,10 +246,6 @@ export class ExpenseService {
       throw new BadRequestException('Cannot delete a posted expense');
     }
 
-    if (expense.status === ExpenseStatus.REVERSED) {
-      throw new BadRequestException('Cannot delete a reversed expense');
-    }
-
     await this.expenseRepository.softDelete(id);
     await this.auditLogService.log(
       'DELETE',

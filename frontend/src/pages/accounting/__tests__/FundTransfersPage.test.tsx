@@ -24,8 +24,14 @@ const mockedApi = vi.hoisted(() => ({
   useGetFundTransfersQuery: vi.fn(),
   useGetChartOfAccountsQuery: vi.fn(),
   useCreateFundTransferMutation: vi.fn(),
-  useCancelFundTransferMutation: vi.fn(),
+  useUpdateFundTransferMutation: vi.fn(),
   useLazyGetFundTransferQuery: vi.fn(),
+  usePostFundTransferMutation: vi.fn(),
+  useDeleteFundTransferMutation: vi.fn(),
+  useUnpostFundTransferMutation: vi.fn(),
+  useRestoreFundTransferMutation: vi.fn(),
+  useGetDeletedFundTransfersQuery: vi.fn(),
+  usePermanentDeleteFundTransferMutation: vi.fn(),
 }))
 
 vi.mock('@/store/api/accountingApi', () => mockedApi)
@@ -36,7 +42,7 @@ const mockTransfer = {
   transferDate: '2026-03-12',
   amount: 1000,
   description: 'Test transfer',
-  status: 'ACTIVE',
+  status: 'draft',
   fiscalPeriodId: 'fp-1',
   journalEntryId: 'je-1',
   sourceAccount: { id: 'acc-1', code: '1001', name: 'Cash on Hand', type: 'ASSET' },
@@ -78,8 +84,14 @@ describe('FundTransfersPage', () => {
       isLoading: false,
     })
     mockedApi.useCreateFundTransferMutation.mockReturnValue([vi.fn(), { isLoading: false }])
-    mockedApi.useCancelFundTransferMutation.mockReturnValue([vi.fn(), { isLoading: false }])
+    mockedApi.useUpdateFundTransferMutation.mockReturnValue([vi.fn(), { isLoading: false }])
     mockedApi.useLazyGetFundTransferQuery.mockReturnValue([vi.fn().mockResolvedValue({})])
+    mockedApi.usePostFundTransferMutation.mockReturnValue([vi.fn(), { isLoading: false }])
+    mockedApi.useDeleteFundTransferMutation.mockReturnValue([vi.fn(), { isLoading: false }])
+    mockedApi.useUnpostFundTransferMutation.mockReturnValue([vi.fn(), { isLoading: false }])
+    mockedApi.useRestoreFundTransferMutation.mockReturnValue([vi.fn(), { isLoading: false }])
+    mockedApi.useGetDeletedFundTransfersQuery.mockReturnValue({ data: [], isLoading: false, refetch: vi.fn() })
+    mockedApi.usePermanentDeleteFundTransferMutation.mockReturnValue([vi.fn(), { isLoading: false }])
   })
 
   it('renders page title', () => {
@@ -107,11 +119,11 @@ describe('FundTransfersPage', () => {
     expect(screen.getByRole('button', { name: /new transfer/i })).toBeInTheDocument()
   })
 
-  it('shows ACTIVE status chip in list', () => {
+  it('shows draft status chip in list', () => {
     const { container } = renderPage()
     const listRow = container.querySelector('[data-index="0"]')
     expect(listRow).not.toBeNull()
-    expect(within(listRow as HTMLElement).getByText('ACTIVE')).toBeInTheDocument()
+    expect(within(listRow as HTMLElement).getByText('draft')).toBeInTheDocument()
   })
 
   it('auto-selects the transfer matching the ?highlight= URL param', async () => {
