@@ -85,11 +85,11 @@ describe('ExpenseContextHeader', () => {
     expect(screen.queryByText('Unpost')).not.toBeInTheDocument()
   })
 
-  it('shows no action buttons for reversed expenses', () => {
+  it('shows Edit, Post, Delete buttons for reversed expenses', () => {
     renderHeader({ selected: { ...draftExpense, status: 'reversed' as const }, isAdmin: true })
-    expect(screen.queryByText('Edit')).not.toBeInTheDocument()
-    expect(screen.queryByText('Post')).not.toBeInTheDocument()
-    expect(screen.queryByText('Delete')).not.toBeInTheDocument()
+    expect(screen.getByText('Edit')).toBeInTheDocument()
+    expect(screen.getByText('Post')).toBeInTheDocument()
+    expect(screen.getByText('Delete')).toBeInTheDocument()
     expect(screen.queryByText('Unpost')).not.toBeInTheDocument()
     expect(screen.queryByText('Restore')).not.toBeInTheDocument()
   })

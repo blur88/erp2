@@ -29,6 +29,7 @@ const mockedApi = vi.hoisted(() => ({
   useCreateExpenseMutation: vi.fn(),
   useUpdateExpenseMutation: vi.fn(),
   useDeleteExpenseMutation: vi.fn(),
+  useLazyGetExpenseQuery: vi.fn(),
   usePostExpenseMutation: vi.fn(),
   useRestoreExpenseMutation: vi.fn(),
   useUnpostExpenseMutation: vi.fn(),
@@ -108,6 +109,7 @@ describe('ExpensesPage', () => {
     mockedApi.useCreateExpenseMutation.mockReturnValue([vi.fn()])
     mockedApi.useUpdateExpenseMutation.mockReturnValue([vi.fn()])
     mockedApi.useDeleteExpenseMutation.mockReturnValue([vi.fn()])
+    mockedApi.useLazyGetExpenseQuery.mockReturnValue([vi.fn()])
     mockedApi.usePostExpenseMutation.mockReturnValue([vi.fn()])
     mockedApi.useRestoreExpenseMutation.mockReturnValue([vi.fn()])
     mockedApi.useUnpostExpenseMutation.mockReturnValue([vi.fn()])
