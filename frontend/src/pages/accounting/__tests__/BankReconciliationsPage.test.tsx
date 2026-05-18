@@ -146,7 +146,7 @@ describe('BankReconciliationsPage', () => {
     expect(screen.queryByText('Account')).not.toBeInTheDocument()
   })
 
-  it('renders reconciliation account name in sidebar', () => {
+  it('renders reconciliation account name and date inline in sidebar', () => {
     mockedApi.useGetBankReconciliationsQuery.mockReturnValue({
       data: { data: [MOCK_RECONCILIATION_IN_PROGRESS], meta: { total: 1 } },
       isLoading: false,
@@ -155,19 +155,7 @@ describe('BankReconciliationsPage', () => {
 
     renderPage()
 
-    expect(screen.getAllByText('Main Checking').length).toBeGreaterThan(0)
     expect(screen.getByText('Reconciliations (1)')).toBeInTheDocument()
-  })
-
-  it('renders account name and date inline with bullet separator', () => {
-    mockedApi.useGetBankReconciliationsQuery.mockReturnValue({
-      data: { data: [MOCK_RECONCILIATION_IN_PROGRESS], meta: { total: 1 } },
-      isLoading: false,
-      refetch: vi.fn(),
-    })
-
-    renderPage()
-
     expect(
       screen.getByText((_, element) =>
         element?.tagName.toLowerCase() === 'p' &&

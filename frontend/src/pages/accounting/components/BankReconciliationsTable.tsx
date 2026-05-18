@@ -14,7 +14,7 @@ const COLUMNS: ColumnConfig<BankReconciliation>[] = [
         {item.account?.name ?? '-'}
         <Box component="span" sx={{ color: 'text.secondary', fontWeight: 400 }}>
           {' • '}
-          {format(new Date(item.reconciliationDate), 'MMMM yyyy')}
+          {item.reconciliationDate ? format(new Date(item.reconciliationDate), 'MMMM yyyy') : ''}
         </Box>
       </Typography>
     ),
