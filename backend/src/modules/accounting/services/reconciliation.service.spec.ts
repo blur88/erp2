@@ -70,6 +70,7 @@ describe('ReconciliationService', () => {
     select: jest.fn().mockReturnThis(),
     addSelect: jest.fn().mockReturnThis(),
     orderBy: jest.fn().mockReturnThis(),
+    addOrderBy: jest.fn().mockReturnThis(),
     skip: jest.fn().mockReturnThis(),
     take: jest.fn().mockReturnThis(),
     getOne: jest.fn().mockResolvedValue(result),
@@ -401,6 +402,15 @@ describe('ReconciliationService', () => {
       const result = await service.findAll({ page: 1, limit: 20 });
       expect(result.data).toHaveLength(1);
       expect(result.meta.total).toBe(1);
+    });
+
+    it('should apply secondary sort by account name ASC', async () => {
+      const queryBuilder = createMockQueryBuilder([mockReconciliation], 1);
+      reconciliationRepo.createQueryBuilder.mockReturnValue(queryBuilder as any);
+
+      await service.findAll({ page: 1, limit: 20 });
+
+      expect(queryBuilder.addOrderBy).toHaveBeenCalledWith('account.name', 'ASC');
     });
 
     it('should search by account and fiscal period fields', async () => {
