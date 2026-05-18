@@ -18,7 +18,6 @@ import { SecurityDetectorService } from './services/security-detector.service';
     LogFormatterService,
     ErrorLoggerService,
     SecurityDetectorService,
-    HttpExceptionFilter,
     {
       provide: APP_FILTER,
       useClass: DetailedErrorFilter,

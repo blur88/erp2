@@ -21,6 +21,22 @@ describe('ErrorSanitizerService', () => {
       expect(service.sanitizeUserAgent('a'.repeat(1001))).toBe('[USER_AGENT_TOO_LONG]');
     });
 
+    it('returns [UNKNOWN] for null input', () => {
+      expect(service.sanitizeUserAgent(null as any)).toBe('[UNKNOWN]');
+    });
+
+    it('returns [UNKNOWN] for undefined input', () => {
+      expect(service.sanitizeUserAgent(undefined as any)).toBe('[UNKNOWN]');
+    });
+
+    it('applies regex to a string of exactly 1000 chars', () => {
+      const ua = `${'a'.repeat(995)}1.2.3`;
+      expect(ua).toHaveLength(1000);
+      const result = service.sanitizeUserAgent(ua);
+      expect(result).not.toBe('[USER_AGENT_TOO_LONG]');
+      expect(result).toContain('x.x.x');
+    });
+
     it('handles ReDoS input without hanging', () => {
       const malicious = `1.${'1'.repeat(1000)}`;
       const start = Date.now();

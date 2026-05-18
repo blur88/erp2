@@ -96,6 +96,62 @@ describe('HttpExceptionFilter', () => {
     expect(errorLogger.logUnexpectedError).toHaveBeenCalled();
   });
 
+  it('handles unrecognised QueryFailedError and returns generic message, not raw DB text', () => {
+    const exception = Object.create(QueryFailedError.prototype);
+    exception.message = 'some obscure storage engine error with internal details';
+    exception.query = 'INSERT INTO orders';
+    exception.parameters = [];
+
+    const res = mockResponse();
+    const req = mockRequest();
+
+    filter.catch(exception, mockHost(req, res) as any);
+
+    expect(res.status).toHaveBeenCalledWith(400);
+    const body = res.json.mock.calls[0][0];
+    expect(body.code).toBe('DB_999');
+    expect(body.message).not.toContain('storage engine');
+    expect(body.message).not.toContain('internal details');
+    expect(body.message).toMatch(/error occurred|try again/i);
+  });
+
+  it('returns production-specific message for unexpected errors when NODE_ENV is production', () => {
+    const configService = { get: jest.fn().mockReturnValue('production') } as any;
+    const securityDetector = { isSecurityRelated: jest.fn().mockReturnValue(false) } as any;
+    const productionFilter = new HttpExceptionFilter(
+      configService,
+      securityDetector,
+      errorLogger,
+      errorClassifier,
+      errorSanitizer,
+      idGenerator,
+    );
+
+    const exception = new Error('something broke');
+    const res = mockResponse();
+    const req = mockRequest();
+
+    productionFilter.catch(exception, mockHost(req, res) as any);
+
+    const body = res.json.mock.calls[0][0];
+    expect(body.message).toContain('contact support');
+  });
+
+  it('does not call logApplicationError for QueryFailedError (already logged via logDatabaseError)', () => {
+    const exception = Object.create(QueryFailedError.prototype);
+    exception.message = 'duplicate key value violates unique constraint';
+    exception.query = 'INSERT INTO users';
+    exception.parameters = [];
+
+    const res = mockResponse();
+    const req = mockRequest();
+
+    filter.catch(exception, mockHost(req, res) as any);
+
+    expect(errorLogger.logDatabaseError).toHaveBeenCalled();
+    expect(errorLogger.logApplicationError).not.toHaveBeenCalled();
+  });
+
   it('calls logSecurityError when error is security-related', () => {
     const configService = { get: jest.fn().mockReturnValue('test') } as any;
     const securityDetector = { isSecurityRelated: jest.fn().mockReturnValue(true) } as any;

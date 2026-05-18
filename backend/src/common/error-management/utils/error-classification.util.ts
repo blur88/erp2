@@ -1,5 +1,4 @@
 import { HttpException, HttpStatus } from '@nestjs/common';
-import { randomUUID } from 'crypto';
 import { QueryFailedError } from 'typeorm';
 
 const SECURITY_STATUSES = new Set([
@@ -37,10 +36,3 @@ export function shouldLogBadRequest(exception: unknown): boolean {
   return false;
 }
 
-export function generateSecureRequestId(): string {
-  try {
-    return randomUUID();
-  } catch {
-    return `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-  }
-}

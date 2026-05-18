@@ -3,7 +3,6 @@ import { ConfigService } from '@nestjs/config';
 import { Request, Response } from 'express';
 import { QueryFailedError } from 'typeorm';
 import {
-  DatabaseErrorCode,
   HttpExceptionResponse,
   StandardizedErrorResponse,
 } from './types/error-response.interface';
@@ -62,7 +61,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
       this.errorLogger.logSecurityError(status, error, request, requestId);
     }
 
-    if (status !== HttpStatus.BAD_REQUEST || shouldLogBadRequest(exception)) {
+    if (!(exception instanceof QueryFailedError) && (status !== HttpStatus.BAD_REQUEST || shouldLogBadRequest(exception))) {
       this.errorLogger.logApplicationError(status, message, request, requestId, isProduction);
     }
 
@@ -108,13 +107,12 @@ export class HttpExceptionFilter implements ExceptionFilter {
     const requestId = this.idGenerator.generateRequestId();
     this.errorLogger.logDatabaseError(rawMessage, request, requestId);
 
-    const sanitizedMessage = this.errorSanitizer.sanitizeErrorMessage(rawMessage);
     const constraintType = this.errorClassifier.getConstraintType(rawMessage.toLowerCase());
     const dbError = this.errorClassifier.getErrorResponse(constraintType, isProduction);
 
     return {
       status: HttpStatus.BAD_REQUEST,
-      message: dbError.code === DatabaseErrorCode.UNKNOWN_ERROR ? sanitizedMessage : dbError.message,
+      message: dbError.message,
       error: 'Database Error',
       errorCode: dbError.code,
       requestId,
