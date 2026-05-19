@@ -34,7 +34,7 @@ export class SalesOrderFulfillmentService {
   async fulfillOrder(id: string, userId?: string, username?: string): Promise<SalesOrder> {
     const order = await this.salesOrderRepository.findOne({
       where: { id },
-      relations: ['customer', 'items', 'items.product'],
+      relations: { customer: true, items: { product: true } },
     });
 
     if (!order) {
@@ -78,7 +78,7 @@ export class SalesOrderFulfillmentService {
     try {
       const fullOrder = await this.salesOrderRepository.findOne({
         where: { id },
-        relations: ['customer', 'items', 'items.product'],
+        relations: { customer: true, items: { product: true } },
       });
       if (fullOrder) {
         await this.accountingService.postSalesOrderEntry(fullOrder, userId || 'system', username);
@@ -97,7 +97,7 @@ export class SalesOrderFulfillmentService {
   async unfulfillOrder(id: string): Promise<SalesOrder> {
     const order = await this.salesOrderRepository.findOne({
       where: { id },
-      relations: ['customer', 'items', 'items.product'],
+      relations: { customer: true, items: { product: true } },
     });
 
     if (!order) {

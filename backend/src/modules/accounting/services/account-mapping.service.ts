@@ -164,7 +164,7 @@ export class AccountMappingService {
   async findOne(id: string): Promise<AccountMappingResponseDto> {
     const mapping = await this.mappingRepository.findOne({
       where: { id },
-      relations: ['account'],
+      relations: { account: true },
     });
 
     if (!mapping) {
@@ -218,7 +218,7 @@ export class AccountMappingService {
           await this.mappingRepository.save(restoredMapping);
         const mappingWithRelations = await this.mappingRepository.findOne({
           where: { id: savedRestoredMapping.id },
-          relations: ['account'],
+          relations: { account: true },
         });
 
         this.logger.log(
@@ -250,7 +250,7 @@ export class AccountMappingService {
           await this.mappingRepository.save(reactivatedMapping);
         const mappingWithRelations = await this.mappingRepository.findOne({
           where: { id: savedReactivatedMapping.id },
-          relations: ['account'],
+          relations: { account: true },
         });
 
         this.logger.log(
@@ -285,7 +285,7 @@ export class AccountMappingService {
     // Reload with relations
     const mappingWithRelations = await this.mappingRepository.findOne({
       where: { id: savedMapping.id },
-      relations: ['account'],
+      relations: { account: true },
     });
 
     this.logger.log(
@@ -313,7 +313,7 @@ export class AccountMappingService {
 
     const mapping = await this.mappingRepository.findOne({
       where: { id },
-      relations: ['account'],
+      relations: { account: true },
     });
 
     if (!mapping) {
@@ -339,7 +339,7 @@ export class AccountMappingService {
     // Reload with relations
     const mappingWithRelations = await this.mappingRepository.findOne({
       where: { id },
-      relations: ['account'],
+      relations: { account: true },
     });
 
     await this.auditLogService.log(

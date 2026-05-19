@@ -62,7 +62,6 @@ describe('PriceListsController (e2e)', () => {
 
   const mockProductRepository = {
     findOneBy: jest.fn(),
-    findByIds: jest.fn().mockResolvedValue([]),
   };
 
   beforeAll(async () => {

@@ -42,7 +42,7 @@ export class SalesAnalyticsReportService {
     // Get all products matching the filter
     const products = await this.productRepository.find({
       where: productWhere,
-      relations: ['category'],
+      relations: { category: true },
     });
 
     // Build date range for sales and purchase orders
@@ -147,7 +147,7 @@ export class SalesAnalyticsReportService {
     // Get all products matching the filter
     const products = await this.productRepository.find({
       where: productWhere,
-      relations: ['category'],
+      relations: { category: true },
     });
 
     // Get all transaction details for each product
@@ -254,7 +254,7 @@ export class SalesAnalyticsReportService {
     // Get all sales orders with items and invoices for payment status
     const orders = await this.salesOrderRepository.find({
       where: orderWhere,
-      relations: ['customer', 'items', 'items.product', 'invoices', 'invoices.payments'],
+      relations: { customer: true, items: { product: true }, invoices: { payments: true } },
       order: { orderNumber: 'ASC' },
     });
 
@@ -344,7 +344,7 @@ export class SalesAnalyticsReportService {
     // Get all sales orders with invoices and payments
     const orders = await this.salesOrderRepository.find({
       where: orderWhere,
-      relations: ['customer', 'invoices', 'invoices.payments'],
+      relations: { customer: true, invoices: { payments: true } },
       order: { orderDate: 'DESC' },
     });
 
@@ -491,7 +491,7 @@ export class SalesAnalyticsReportService {
     // Get all sales orders with invoices and payments
     const orders = await this.salesOrderRepository.find({
       where: orderWhere,
-      relations: ['customer', 'invoices', 'invoices.payments'],
+      relations: { customer: true, invoices: { payments: true } },
       order: { orderNumber: 'ASC' },
     });
 

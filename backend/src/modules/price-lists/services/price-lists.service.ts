@@ -75,7 +75,7 @@ export class PriceListsService {
    * Find one price list by ID with items
    */
   async findOne(id: string, includeItems = true): Promise<PriceList> {
-    const relations = includeItems ? ['items', 'items.product'] : [];
+    const relations = includeItems ? { items: { product: true } } : {};
 
     const priceList = await this.priceListRepository.findOne({
       where: { id, deletedAt: IsNull() },
@@ -95,7 +95,7 @@ export class PriceListsService {
   async findByCode(code: string): Promise<PriceList> {
     const priceList = await this.priceListRepository.findOne({
       where: { code, deletedAt: IsNull() },
-      relations: ['items', 'items.product'],
+      relations: { items: { product: true } },
     });
 
     if (!priceList) {
@@ -223,7 +223,7 @@ export class PriceListsService {
   async getDefaultPriceList(): Promise<PriceList> {
     const priceList = await this.priceListRepository.findOne({
       where: { isDefault: true, deletedAt: IsNull() },
-      relations: ['items', 'items.product'],
+      relations: { items: { product: true } },
     });
 
     if (!priceList) {
@@ -379,7 +379,7 @@ export class PriceListsService {
   async getItems(priceListId: string): Promise<PriceListItem[]> {
     return this.priceListItemRepository.find({
       where: { priceListId },
-      relations: ['product'],
+      relations: { product: true },
       order: { product: { name: 'ASC' } },
     });
   }
@@ -390,7 +390,7 @@ export class PriceListsService {
   async getItemsForProduct(productId: string): Promise<PriceListItem[]> {
     return this.priceListItemRepository.find({
       where: { productId },
-      relations: ['priceList'],
+      relations: { priceList: true },
       order: { priceList: { code: 'ASC' } },
     });
   }

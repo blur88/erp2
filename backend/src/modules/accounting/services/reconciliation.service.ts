@@ -201,16 +201,14 @@ export class ReconciliationService {
    * Find one reconciliation by ID with all transactions
    */
   async findOne(id: string): Promise<BankReconciliationResponseDto> {
+    const withTransactions = {
+      account: true,
+      fiscalPeriod: true,
+      reconciledTransactions: { journalEntryLine: { account: true, journalEntry: true } },
+    };
     const reconciliation = await this.reconciliationRepository.findOne({
       where: { id },
-      relations: [
-        'account',
-        'fiscalPeriod',
-        'reconciledTransactions',
-        'reconciledTransactions.journalEntryLine',
-        'reconciledTransactions.journalEntryLine.account',
-        'reconciledTransactions.journalEntryLine.journalEntry',
-      ],
+      relations: withTransactions,
     });
 
     if (!reconciliation) {
@@ -224,7 +222,7 @@ export class ReconciliationService {
     const records = await this.reconciliationRepository.find({
       withDeleted: true,
       where: { deletedAt: Not(IsNull()) },
-      relations: ['account', 'fiscalPeriod'],
+      relations: { account: true, fiscalPeriod: true },
       order: { deletedAt: 'DESC' },
     });
     return records.map((r) => this.toResponseDto(r));
@@ -575,7 +573,7 @@ export class ReconciliationService {
   ): Promise<BankReconciliationResponseDto> {
     const reconciliation = await this.reconciliationRepository.findOne({
       where: { id },
-      relations: ['reconciledTransactions'],
+      relations: { reconciledTransactions: true },
     });
 
     if (!reconciliation) {

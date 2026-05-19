@@ -160,7 +160,7 @@ export class InventoryIntegrationService {
   async fulfillOrder(salesOrderId: string, userId?: string): Promise<void> {
     const order = await this.salesOrderRepository.findOne({
       where: { id: salesOrderId },
-      relations: ['items'],
+      relations: { items: true },
     });
 
     if (!order) {
@@ -229,7 +229,7 @@ export class InventoryIntegrationService {
   async getOrderFulfillmentStatus(salesOrderId: string): Promise<OrderFulfillmentStatus> {
     const order = await this.salesOrderRepository.findOne({
       where: { id: salesOrderId },
-      relations: ['items', 'items.product'],
+      relations: { items: { product: true } },
     });
 
     if (!order) {
@@ -309,7 +309,7 @@ export class InventoryIntegrationService {
         // Get order details
         const order = await this.salesOrderRepository.findOne({
           where: { id: salesOrderId },
-          select: ['orderNumber', 'createdAt'],
+          select: { orderNumber: true, createdAt: true },
         });
 
         reservations.push({

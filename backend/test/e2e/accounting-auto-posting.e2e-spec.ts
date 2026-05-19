@@ -345,7 +345,7 @@ describe('Accounting Auto-Posting Integration (E2E)', () => {
       // Verify journal entry was created
       const journalEntries = await journalEntryRepo.find({
         where: { sourceType: 'sales_order', sourceId: savedOrder.id },
-        relations: ['lines'],
+        relations: { lines: true },
       });
 
       expect(journalEntries).toHaveLength(1);
@@ -400,7 +400,7 @@ describe('Accounting Auto-Posting Integration (E2E)', () => {
 
       const journalEntries = await journalEntryRepo.find({
         where: { sourceType: 'sales_order', sourceId: savedOrder.id },
-        relations: ['lines'],
+        relations: { lines: true },
       });
 
       const entry = journalEntries[0];
@@ -490,7 +490,7 @@ describe('Accounting Auto-Posting Integration (E2E)', () => {
       // Verify journal entry was created
       const journalEntries = await journalEntryRepo.find({
         where: { sourceType: 'payment', sourceId: payment.id },
-        relations: ['lines'],
+        relations: { lines: true },
       });
 
       expect(journalEntries).toHaveLength(1);
@@ -590,7 +590,7 @@ describe('Accounting Auto-Posting Integration (E2E)', () => {
       // Verify journal entry was created
       const journalEntries = await journalEntryRepo.find({
         where: { sourceType: 'goods_received_note', sourceId: grn.id },
-        relations: ['lines'],
+        relations: { lines: true },
       });
 
       expect(journalEntries).toHaveLength(1);
@@ -639,7 +639,7 @@ describe('Accounting Auto-Posting Integration (E2E)', () => {
 
       const journalEntries = await journalEntryRepo.find({
         where: { sourceType: 'goods_received_note', sourceId: grn.id },
-        relations: ['lines'],
+        relations: { lines: true },
       });
 
       const entry = journalEntries[0];
@@ -687,7 +687,7 @@ describe('Accounting Auto-Posting Integration (E2E)', () => {
       // Journal entry should use the purchase costs
       const journalEntries = await journalEntryRepo.find({
         where: { sourceType: 'goods_received_note' },
-        relations: ['lines'],
+        relations: { lines: true },
       });
 
       const entry = journalEntries[0];
@@ -779,7 +779,7 @@ describe('Accounting Auto-Posting Integration (E2E)', () => {
       // Verify journal entry was created
       const journalEntries = await journalEntryRepo.find({
         where: { sourceType: 'vendor_payment', sourceId: payment.id },
-        relations: ['lines'],
+        relations: { lines: true },
       });
 
       expect(journalEntries).toHaveLength(1);
@@ -829,7 +829,7 @@ describe('Accounting Auto-Posting Integration (E2E)', () => {
       // GRN creates AP credit of 1000
       const grnEntries = await journalEntryRepo.find({
         where: { sourceType: 'goods_received_note', sourceId: grn.id },
-        relations: ['lines'],
+        relations: { lines: true },
       });
       const grnApLine = grnEntries[0].lines.find(l => l.accountId === accounts['2100'].id);
       expect(Number(grnApLine.creditAmount)).toBe(1000.00);
@@ -846,7 +846,7 @@ describe('Accounting Auto-Posting Integration (E2E)', () => {
 
       const paymentEntries = await journalEntryRepo.find({
         where: { sourceType: 'vendor_payment', sourceId: payment.id },
-        relations: ['lines'],
+        relations: { lines: true },
       });
       const paymentApLine = paymentEntries[0].lines.find(l => l.accountId === accounts['2100'].id);
       expect(Number(paymentApLine.debitAmount)).toBe(1000.00);
@@ -912,7 +912,7 @@ describe('Accounting Auto-Posting Integration (E2E)', () => {
       // Manually trigger accounting for second payment
       const fullPayment2 = await vendorPaymentRepo.findOne({
         where: { id: payment2.id },
-        relations: ['supplier', 'purchaseOrder', 'paymentMethodEntity'],
+        relations: { supplier: true, purchaseOrder: true, paymentMethodEntity: true },
       });
       const accountingService = app.get(AccountingService);
       await accountingService.postVendorPaymentEntry(fullPayment2, 'system');
@@ -956,7 +956,7 @@ describe('Accounting Auto-Posting Integration (E2E)', () => {
       // Verify journal entry was created
       const journalEntries = await journalEntryRepo.find({
         where: { sourceType: 'stock_adjustment', sourceId: adjustment.id },
-        relations: ['lines'],
+        relations: { lines: true },
       });
 
       expect(journalEntries).toHaveLength(1);
@@ -995,7 +995,7 @@ describe('Accounting Auto-Posting Integration (E2E)', () => {
 
       const journalEntries = await journalEntryRepo.find({
         where: { sourceType: 'stock_adjustment', sourceId: adjustment.id },
-        relations: ['lines'],
+        relations: { lines: true },
       });
 
       expect(journalEntries).toHaveLength(1);
@@ -1052,7 +1052,7 @@ describe('Accounting Auto-Posting Integration (E2E)', () => {
 
       const journalEntries = await journalEntryRepo.find({
         where: { sourceType: 'stock_adjustment', sourceId: adjustment.id },
-        relations: ['lines'],
+        relations: { lines: true },
       });
 
       const entry = journalEntries[0];
@@ -1100,7 +1100,7 @@ describe('Accounting Auto-Posting Integration (E2E)', () => {
 
       const journalEntries = await journalEntryRepo.find({
         where: { sourceType: 'stock_adjustment', sourceId: adjustment.id },
-        relations: ['lines'],
+        relations: { lines: true },
       });
 
       const entry = journalEntries[0];

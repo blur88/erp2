@@ -86,7 +86,6 @@ describe('PriceListsService', () => {
 
   const mockProductRepository = {
     findOneBy: jest.fn(),
-    findByIds: jest.fn(),
   };
 
   beforeEach(async () => {

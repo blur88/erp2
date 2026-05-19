@@ -7,7 +7,7 @@ import {
   forwardRef,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource } from 'typeorm';
+import { DataSource, In, Repository } from 'typeorm';
 import { BaseCrudService } from '../../../common/services/base-crud.service';
 import {
   StockAdjustment,
@@ -125,7 +125,7 @@ export class StockAdjustmentService extends BaseCrudService<
 
     // Verify all products exist
     const productIds = createDto.items.map(item => item.productId);
-    const products = await this.productRepository.findByIds(productIds);
+    const products = await this.productRepository.findBy({ id: In(productIds) });
     if (products.length !== productIds.length) {
       throw new BadRequestException('One or more products not found');
     }
@@ -258,7 +258,7 @@ export class StockAdjustmentService extends BaseCrudService<
   async findOne(id: string): Promise<StockAdjustmentResponseDto> {
     const adjustment = await this.stockAdjustmentRepository.findOne({
       where: { id },
-      relations: ['items', 'items.product'],
+      relations: { items: { product: true } },
       withDeleted: true, // Include soft-deleted records
     });
 
@@ -277,7 +277,7 @@ export class StockAdjustmentService extends BaseCrudService<
   async findByAdjustmentNumber(adjustmentNumber: string): Promise<StockAdjustmentResponseDto> {
     const adjustment = await this.stockAdjustmentRepository.findOne({
       where: { adjustmentNumber },
-      relations: ['items', 'items.product'],
+      relations: { items: { product: true } },
     });
 
     if (!adjustment) {
@@ -298,7 +298,7 @@ export class StockAdjustmentService extends BaseCrudService<
   ): Promise<StockAdjustmentResponseDto> {
     const adjustment = await this.stockAdjustmentRepository.findOne({
       where: { id },
-      relations: ['items'],
+      relations: { items: true },
     });
 
     if (!adjustment) {
@@ -326,7 +326,7 @@ export class StockAdjustmentService extends BaseCrudService<
 
       // Verify all products exist
       const productIds = updateDto.items.map(item => item.productId);
-      const products = await this.productRepository.findByIds(productIds);
+      const products = await this.productRepository.findBy({ id: In(productIds) });
       if (products.length !== productIds.length) {
         throw new BadRequestException('One or more products not found');
       }
@@ -391,7 +391,7 @@ export class StockAdjustmentService extends BaseCrudService<
   async complete(id: string, userId?: string, username?: string): Promise<StockAdjustmentResponseDto> {
     const adjustment = await this.stockAdjustmentRepository.findOne({
       where: { id },
-      relations: ['items', 'items.product'],
+      relations: { items: { product: true } },
     });
 
     if (!adjustment) {
@@ -490,7 +490,7 @@ export class StockAdjustmentService extends BaseCrudService<
   async uncomplete(id: string): Promise<StockAdjustmentResponseDto> {
     const adjustment = await this.stockAdjustmentRepository.findOne({
       where: { id },
-      relations: ['items', 'items.product'],
+      relations: { items: { product: true } },
     });
 
     if (!adjustment) {
@@ -604,7 +604,7 @@ export class StockAdjustmentService extends BaseCrudService<
     const adjustment = await this.stockAdjustmentRepository.findOne({
       where: { id },
       withDeleted: true, // Include soft-deleted records
-      relations: ['items', 'items.product'],
+      relations: { items: { product: true } },
     });
 
     if (!adjustment) {
@@ -637,7 +637,7 @@ export class StockAdjustmentService extends BaseCrudService<
     // Find the adjustment (including soft-deleted ones)
     const adjustment = await this.stockAdjustmentRepository.findOne({
       where: { id },
-      relations: ['items'],
+      relations: { items: true },
       withDeleted: true,
     });
 

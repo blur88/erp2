@@ -269,7 +269,7 @@ describe('GoodsReceivedNoteService', () => {
       // Verify findOne was called with correct relations for accounting
       expect(grnRepository.findOne).toHaveBeenCalledWith({
         where: { id: mockGrn.id },
-        relations: ['supplier', 'purchaseOrder', 'items', 'items.product', 'items.purchaseOrderItem'],
+        relations: { supplier: true, purchaseOrder: true, items: { product: true, purchaseOrderItem: true } },
       });
 
       // Verify the full GRN with relations was passed to accounting service

@@ -57,7 +57,7 @@ export class StockMovementService {
 
     const product = await this.productRepository.findOne({
       where: { id: createMovementDto.productId },
-      relations: ['category'],
+      relations: { category: true },
     });
 
     if (!product) {
@@ -116,7 +116,7 @@ export class StockMovementService {
     // Reload with relations for response DTO
     const movementWithRelations = await this.stockMovementRepository.findOne({
       where: { id: savedMovement.id },
-      relations: ['product'],
+      relations: { product: true },
     });
 
     return this.toResponseDto(movementWithRelations);
@@ -223,7 +223,7 @@ export class StockMovementService {
   async findOne(id: string): Promise<StockMovementResponseDto> {
     const movement = await this.stockMovementRepository.findOne({
       where: { id },
-      relations: ['product', 'product.category', 'movedByUser'],
+      relations: { product: { category: true } }, // movedByUser omitted — column removed in migration 1732550000000
     });
 
     if (!movement) {
@@ -245,7 +245,7 @@ export class StockMovementService {
 
     const movement = await this.stockMovementRepository.findOne({
       where: { id },
-      relations: ['product'],
+      relations: { product: true },
     });
 
     if (!movement) {
@@ -340,7 +340,7 @@ export class StockMovementService {
   ): Promise<StockSummaryDto> {
     const product = await this.productRepository.findOne({
       where: { id: productId },
-      relations: ['category'],
+      relations: { category: true },
     });
 
     if (!product) {
@@ -543,7 +543,7 @@ export class StockMovementService {
       // Fetch product to get current stock
       const product = await this.productRepository.findOne({
         where: { id: item.productId },
-        relations: ['category'],
+        relations: { category: true },
       });
 
       if (!product) {
@@ -691,7 +691,7 @@ export class StockMovementService {
         referenceType,
         referenceId,
       },
-      relations: ['product'],
+      relations: { product: true },
     });
 
     if (movements.length === 0) {

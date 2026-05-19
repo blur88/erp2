@@ -109,7 +109,7 @@ describe('CategoryService', () => {
       });
       expect(productRepository.find).toHaveBeenCalledWith({
         where: { categoryId: 'cat-1' },
-        select: ['id', 'name', 'stockQuantity'],
+        select: { id: true, name: true, stockQuantity: true },
       });
     });
 

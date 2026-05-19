@@ -193,7 +193,7 @@ export class PurchaseOrderService extends BaseCrudService<
       this.logger.error(`Error generating order number: ${error.message}`);
       // Fallback to legacy method
       const orders = await this.purchaseOrderRepository.find({
-        select: ['orderNumber'],
+        select: { orderNumber: true },
         withDeleted: true,
       });
 
@@ -753,7 +753,7 @@ export class PurchaseOrderService extends BaseCrudService<
     const purchaseOrder = await this.purchaseOrderRepository.findOne({
       where: { id },
       withDeleted: true,
-      relations: ['supplier', 'items', 'items.product'],
+      relations: { supplier: true, items: { product: true } },
     });
 
     if (!purchaseOrder) {
@@ -809,7 +809,7 @@ export class PurchaseOrderService extends BaseCrudService<
     // Fetch the restored order
     const restoredOrder = await this.purchaseOrderRepository.findOne({
       where: { id },
-      relations: ['supplier', 'items', 'items.product'],
+      relations: { supplier: true, items: { product: true } },
     });
 
     // Log audit trail for PO restoration
@@ -1015,7 +1015,7 @@ export class PurchaseOrderService extends BaseCrudService<
       // Find GRN associated with this PO
       const grn = await this.grnRepository.findOne({
         where: { purchaseOrderId },
-        relations: ['items'],
+        relations: { items: true },
       });
 
       if (!grn) {
@@ -1032,7 +1032,7 @@ export class PurchaseOrderService extends BaseCrudService<
       // Fetch full PO with relations
       const fullPO = await this.purchaseOrderRepository.findOne({
         where: { id: purchaseOrderId },
-        relations: ['supplier', 'items', 'items.product'],
+        relations: { supplier: true, items: { product: true } },
       });
 
       if (!fullPO) {
@@ -1074,7 +1074,7 @@ export class PurchaseOrderService extends BaseCrudService<
       this.logger.debug(`Reloading GRN ${grn.id} with items`);
       const updatedGrn = await this.grnRepository.findOne({
         where: { id: grn.id },
-        relations: ['items'],
+        relations: { items: true },
       });
 
       if (updatedGrn) {
@@ -1160,7 +1160,7 @@ export class PurchaseOrderService extends BaseCrudService<
       // Fetch full PO with relations for GRN creation
       const fullPO = await this.purchaseOrderRepository.findOne({
         where: { id: purchaseOrder.id },
-        relations: ['supplier', 'items', 'items.product'],
+        relations: { supplier: true, items: { product: true } },
       });
 
       if (!fullPO) {
@@ -1241,7 +1241,7 @@ export class PurchaseOrderService extends BaseCrudService<
 
     const purchaseOrder = await this.purchaseOrderRepository.findOne({
       where: { id },
-      relations: ['items', 'items.product', 'supplier'],
+      relations: { items: { product: true }, supplier: true },
     });
 
     if (!purchaseOrder) {
@@ -1251,7 +1251,7 @@ export class PurchaseOrderService extends BaseCrudService<
     // Find the GRN linked to this PO with relational items
     const grn = await this.grnRepository.findOne({
       where: { purchaseOrderId: id },
-      relations: ['items'],
+      relations: { items: true },
     });
 
     if (!grn) {
@@ -1279,7 +1279,7 @@ export class PurchaseOrderService extends BaseCrudService<
       // Reload GRN with fresh items from database
       const updatedGrn = await this.grnRepository.findOne({
         where: { id: grn.id },
-        relations: ['items'],
+        relations: { items: true },
       });
 
       if (!updatedGrn) {
@@ -1327,7 +1327,7 @@ export class PurchaseOrderService extends BaseCrudService<
       try {
         const fullGrn = await this.grnRepository.findOne({
           where: { id: updatedGrn.id },
-          relations: ['supplier', 'purchaseOrder', 'items', 'items.product', 'items.purchaseOrderItem'],
+          relations: { supplier: true, purchaseOrder: true, items: { product: true, purchaseOrderItem: true } },
         });
 
         if (fullGrn) {
@@ -1382,7 +1382,7 @@ export class PurchaseOrderService extends BaseCrudService<
 
     const purchaseOrder = await this.purchaseOrderRepository.findOne({
       where: { id },
-      relations: ['items', 'items.product', 'supplier'],
+      relations: { items: { product: true }, supplier: true },
     });
 
     if (!purchaseOrder) {
@@ -1392,7 +1392,7 @@ export class PurchaseOrderService extends BaseCrudService<
     // Find the GRN linked to this PO with relational items
     const grn = await this.grnRepository.findOne({
       where: { purchaseOrderId: id },
-      relations: ['items'],
+      relations: { items: true },
     });
 
     if (!grn) {
@@ -1424,7 +1424,7 @@ export class PurchaseOrderService extends BaseCrudService<
       // Reload GRN with fresh items from database
       const updatedGrn = await this.grnRepository.findOne({
         where: { id: grn.id },
-        relations: ['items'],
+        relations: { items: true },
       });
 
       if (!updatedGrn) {
@@ -1504,7 +1504,7 @@ export class PurchaseOrderService extends BaseCrudService<
 
     const purchaseOrder = await this.purchaseOrderRepository.findOne({
       where: { id },
-      relations: ['supplier'], // Removed 'vendorPayments' to prevent TypeORM from trying to manage the relation
+      relations: { supplier: true }, // Removed 'vendorPayments' to prevent TypeORM from trying to manage the relation
     });
 
     if (!purchaseOrder) {
@@ -1554,7 +1554,7 @@ export class PurchaseOrderService extends BaseCrudService<
 
     const purchaseOrder = await this.purchaseOrderRepository.findOne({
       where: { id },
-      relations: ['supplier'],
+      relations: { supplier: true },
     });
 
     if (!purchaseOrder) {
@@ -1647,7 +1647,7 @@ export class PurchaseOrderService extends BaseCrudService<
 
     const purchaseOrder = await this.purchaseOrderRepository.findOne({
       where: { id },
-      relations: ['supplier'],
+      relations: { supplier: true },
     });
 
     if (!purchaseOrder) {

@@ -85,7 +85,7 @@ export class SettlementService {
   async findOne(id: string): Promise<SettlementResponseDto> {
     const settlement = await this.settlementRepository.findOne({
       where: { id },
-      relations: ['paymentMethod'],
+      relations: { paymentMethod: true },
     });
 
     if (!settlement || settlement.deletedAt) {
@@ -118,7 +118,7 @@ export class SettlementService {
 
     const payments = await this.paymentRepository.find({
       where: { id: In(dto.paymentIds) },
-      relations: ['customer', 'paymentMethodEntity'],
+      relations: { customer: true, paymentMethodEntity: true },
     });
 
     if (payments.length !== dto.paymentIds.length) {
@@ -189,7 +189,7 @@ export class SettlementService {
   async cancel(id: string, userId?: string, username?: string): Promise<SettlementResponseDto> {
     const settlement = await this.settlementRepository.findOne({
       where: { id },
-      relations: ['paymentMethod'],
+      relations: { paymentMethod: true },
     });
 
     if (!settlement || settlement.deletedAt) {
@@ -234,7 +234,7 @@ export class SettlementService {
         paymentMethodId,
         settlementStatus: SettlementStatusEnum.PENDING,
       },
-      relations: ['customer', 'paymentMethodEntity'],
+      relations: { customer: true, paymentMethodEntity: true },
       order: { paymentDate: 'ASC' },
     });
   }

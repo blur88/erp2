@@ -46,7 +46,13 @@ export class AuthService {
     ipAddress?: string,
     userAgent?: string,
   ): Promise<AuthResponseDto> {
-    const { usernameOrEmail, password, rememberMe } = loginDto;
+    const { password, rememberMe } = loginDto;
+    const usernameOrEmail = loginDto.usernameOrEmail ?? loginDto.username;
+
+    // Empty-check done here (not via @IsNotEmpty on the DTO) to return 401 rather than 400
+    if (!usernameOrEmail) {
+      throw new UnauthorizedException('Invalid credentials');
+    }
 
     // Find user by username or email
     const user = await this.userRepository.findOne({
@@ -185,7 +191,7 @@ export class AuthService {
     // Find refresh token in database
     const refreshTokenRecord = await this.refreshTokenRepository.findOne({
       where: { tokenHash, isActive: true },
-      relations: ['user'],
+      relations: { user: true },
     });
 
     if (!refreshTokenRecord) {

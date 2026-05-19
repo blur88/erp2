@@ -260,7 +260,7 @@ describe('PaymentService', () => {
       // Verify findOne was called to get payment with relations before accounting post
       expect(paymentRepository.findOne).toHaveBeenCalledWith({
         where: { id: mockPayment.id },
-        relations: ['customer', 'invoice', 'invoice.salesOrder', 'invoice.items', 'invoice.items.product', 'paymentMethodEntity'],
+        relations: { customer: true, invoice: { salesOrder: true, items: { product: true } }, paymentMethodEntity: true },
       });
 
       // Verify the accounting service received the payment with customer relation

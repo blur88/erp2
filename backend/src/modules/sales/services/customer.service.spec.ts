@@ -420,7 +420,7 @@ describe('CustomerService', () => {
 
       expect(customerRepository.findOne).toHaveBeenCalledWith({
         where: { slug: 'acme-corp' },
-        relations: ['priceList'],
+        relations: { priceList: true },
       });
       expect(result.id).toBe('c1');
     });
