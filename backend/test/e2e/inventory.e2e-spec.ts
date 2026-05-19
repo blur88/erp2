@@ -193,4 +193,81 @@ describe('Inventory (e2e)', () => {
       expect(res.body.id).toBe(productId);
     });
   });
+
+  // ─── Stock Adjustments ────────────────────────────────────────────────────
+
+  describe('Stock adjustments', () => {
+    let adjustmentId: string;
+
+    it('POST /inventory/stock-adjustments — creates a draft adjustment', async () => {
+      const res = await request(app.getHttpServer())
+        .post('/inventory/stock-adjustments')
+        .set('Authorization', `Bearer ${accessToken}`)
+        .send({
+          adjustmentDate: new Date().toISOString(),
+          notes: 'Initial stock count',
+          items: [
+            { productId, oldQuantity: 50, newQuantity: 60, difference: 10 },
+          ],
+        })
+        .expect(201);
+
+      expect(res.body).toHaveProperty('id');
+      adjustmentId = res.body.id;
+    });
+
+    it('POST /inventory/stock-adjustments/:id/complete — completes the adjustment', async () => {
+      await request(app.getHttpServer())
+        .post(`/inventory/stock-adjustments/${adjustmentId}/complete`)
+        .set('Authorization', `Bearer ${accessToken}`)
+        .expect(201);
+    });
+
+    it('GET /inventory/products/:id — stock increased after completion', async () => {
+      const res = await request(app.getHttpServer())
+        .get(`/inventory/products/${productId}`)
+        .set('Authorization', `Bearer ${accessToken}`)
+        .expect(200);
+
+      expect(Number(res.body.stockQuantity)).toBe(60);
+    });
+
+    it('POST /inventory/stock-adjustments/:id/uncomplete — reverses the adjustment', async () => {
+      await request(app.getHttpServer())
+        .post(`/inventory/stock-adjustments/${adjustmentId}/uncomplete`)
+        .set('Authorization', `Bearer ${accessToken}`)
+        .expect(201);
+    });
+
+    it('GET /inventory/products/:id — stock reverted after uncomplete', async () => {
+      const res = await request(app.getHttpServer())
+        .get(`/inventory/products/${productId}`)
+        .set('Authorization', `Bearer ${accessToken}`)
+        .expect(200);
+
+      expect(Number(res.body.stockQuantity)).toBe(50);
+    });
+  });
+
+  // ─── Edge cases ───────────────────────────────────────────────────────────
+
+  describe('Edge cases', () => {
+    it('POST /inventory/products — duplicate barcode returns 409', async () => {
+      // Create first product with a barcode
+      await request(app.getHttpServer())
+        .post('/inventory/products')
+        .set('Authorization', `Bearer ${accessToken}`)
+        .send({ name: 'Product A', categoryId, baseCost: 10, barcode: 'BARCODE-001' })
+        .expect(201);
+
+      // Attempt duplicate barcode
+      const res = await request(app.getHttpServer())
+        .post('/inventory/products')
+        .set('Authorization', `Bearer ${accessToken}`)
+        .send({ name: 'Product B', categoryId, baseCost: 10, barcode: 'BARCODE-001' })
+        .expect(409);
+
+      expect(res.body.message).toBeDefined();
+    });
+  });
 });
