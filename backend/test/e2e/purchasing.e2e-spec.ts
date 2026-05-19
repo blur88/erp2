@@ -1,14 +1,16 @@
-// backend/test/e2e/purchasing.e2e-spec.ts
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
 import { DataSource } from 'typeorm';
 import { AppModule } from '../../src/app.module';
-import { User, UserRole, UserStatus } from '../../src/database/entities/user.entity';
-import { Category } from '../../src/database/entities/category.entity';
-import { Product } from '../../src/database/entities/product.entity';
-import { PaymentMethodEntity } from '../../src/database/entities/payment-method.entity';
-import * as bcrypt from 'bcrypt';
+import {
+  truncateAll,
+  seedAdmin,
+  seedCategory,
+  seedProduct,
+  seedPaymentMethod,
+  seedDocumentNumberSettings,
+} from './helpers/seed';
 
 describe('Purchasing (e2e)', () => {
   let app: INestApplication;
@@ -30,88 +32,17 @@ describe('Purchasing (e2e)', () => {
     await app.init();
 
     dataSource = app.get(DataSource);
+    await truncateAll(dataSource);
 
-    // Truncate all tables this spec touches
-    await dataSource.query(`
-      TRUNCATE TABLE
-        vendor_payments,
-        goods_received_note_items,
-        goods_received_notes,
-        purchase_order_items,
-        purchase_orders,
-        suppliers,
-        stock_movements,
-        stock_adjustments,
-        price_list_items,
-        products,
-        categories,
-        refresh_tokens,
-        users
-      RESTART IDENTITY CASCADE
-    `);
-
-    // Seed: admin user
-    const userRepo = dataSource.getRepository(User);
-    const hashed = await bcrypt.hash('Admin@123!', 12);
-    await userRepo.save(
-      userRepo.create({
-        username: 'admin',
-        email: 'admin@test.com',
-        password: hashed,
-        firstName: 'Admin',
-        lastName: 'User',
-        role: UserRole.ADMIN,
-        status: UserStatus.ACTIVE,
-        isActive: true,
-        failedLoginAttempts: 0,
-      }),
-    );
-
-    // Seed: category + product (zero stock)
-    const categoryRepo = dataSource.getRepository(Category);
-    const category = await categoryRepo.save(
-      categoryRepo.create({ name: 'Test Category', level: 0 }),
-    );
-
-    const productRepo = dataSource.getRepository(Product);
-    const product = await productRepo.save(
-      productRepo.create({
-        name: 'Test Product',
-        categoryId: category.id,
-        baseCost: 50,
-        stockQuantity: 0,
-        isActive: true,
-      }),
-    );
+    await seedAdmin(dataSource);
+    const category = await seedCategory(dataSource);
+    // Product starts at 0 stock — purchasing receives goods will add stock
+    const product = await seedProduct(dataSource, category.id, { stockQuantity: 0, baseCost: 50 });
     productId = product.id;
-
-    // Seed: payment method
-    const pmRepo = dataSource.getRepository(PaymentMethodEntity);
-    let pm = await pmRepo.findOne({ where: { code: 'CASH' } });
-    if (!pm) {
-      pm = await pmRepo.save(
-        pmRepo.create({ code: 'CASH', name: 'Cash', requiresSettlement: false }),
-      );
-    }
+    const pm = await seedPaymentMethod(dataSource);
     paymentMethodId = pm.id;
+    await seedDocumentNumberSettings(dataSource);
 
-    // Seed: document number settings (required for PO, GRN, and vendor payment numbering)
-    const currentYY = new Date().getFullYear() % 100;
-    const docConfigs = [
-      { documentName: 'Purchase Orders', prefix: 'PO' },
-      { documentName: 'Goods Received', prefix: 'GRN' },
-      { documentName: 'Vendor Payments', prefix: 'VP' },
-    ];
-    for (const cfg of docConfigs) {
-      await dataSource.query(
-        `INSERT INTO document_number_settings ("documentName", prefix, "paddingDigits", "nextNumber", "lastResetYear")
-         VALUES ($1, $2, 3, 1, $3)
-         ON CONFLICT ("documentName") DO NOTHING`,
-        [cfg.documentName, cfg.prefix, currentYY],
-      );
-    }
-
-    // Login
     const loginRes = await request(app.getHttpServer())
       .post('/auth/login')
       .send({ usernameOrEmail: 'admin', password: 'Admin@123!' });
@@ -133,8 +64,8 @@ describe('Purchasing (e2e)', () => {
         .send({ type: 'local', companyName: 'Tech Supplies Ltd' })
         .expect(201);
 
-      expect(res.body).toHaveProperty('id');
       const supplier = res.body.data ?? res.body;
+      expect(supplier).toHaveProperty('id');
       expect(supplier.companyName).toBe('Tech Supplies Ltd');
       supplierId = supplier.id;
       expect(supplierId).toBeTruthy();
@@ -146,10 +77,9 @@ describe('Purchasing (e2e)', () => {
         .set('Authorization', `Bearer ${accessToken}`)
         .expect(200);
 
-      // SupplierListResponseDto returns { suppliers: [...], total: N }
+      // SupplierListResponseDto: { suppliers: [...], total: N }
       const items: any[] = res.body.suppliers ?? res.body.data ?? res.body;
-      const ids = items.map((s: any) => s.id);
-      expect(ids).toContain(supplierId);
+      expect(items.map((s: any) => s.id)).toContain(supplierId);
     });
 
     it('GET /purchasing/suppliers/:id — returns the supplier', async () => {
@@ -158,8 +88,7 @@ describe('Purchasing (e2e)', () => {
         .set('Authorization', `Bearer ${accessToken}`)
         .expect(200);
 
-      const supplier = res.body.data ?? res.body;
-      expect(supplier.id).toBe(supplierId);
+      expect((res.body.data ?? res.body).id).toBe(supplierId);
     });
 
     it('PATCH /purchasing/suppliers/:id — updates the supplier', async () => {
@@ -169,8 +98,7 @@ describe('Purchasing (e2e)', () => {
         .send({ companyName: 'Tech Supplies International', type: 'local' })
         .expect(200);
 
-      const supplier = res.body.data ?? res.body;
-      expect(supplier.companyName).toBe('Tech Supplies International');
+      expect((res.body.data ?? res.body).companyName).toBe('Tech Supplies International');
     });
 
     it('DELETE /purchasing/suppliers/:id — soft-deletes the supplier', async () => {
@@ -186,8 +114,7 @@ describe('Purchasing (e2e)', () => {
         .set('Authorization', `Bearer ${accessToken}`)
         .expect(201);
 
-      const supplier = res.body.data ?? res.body;
-      expect(supplier.id).toBe(supplierId);
+      expect((res.body.data ?? res.body).id).toBe(supplierId);
     });
   });
 
@@ -229,17 +156,18 @@ describe('Purchasing (e2e)', () => {
         .set('Authorization', `Bearer ${accessToken}`)
         .expect(200);
 
-      const po = res.body.data ?? res.body;
-      expect(po.id).toBe(purchaseOrderId);
+      expect((res.body.data ?? res.body).id).toBe(purchaseOrderId);
     });
 
-    it('GET /purchasing/orders/summary — returns summary', async () => {
+    it('GET /purchasing/orders/summary — returns summary with expected fields', async () => {
       const res = await request(app.getHttpServer())
         .get('/purchasing/orders/summary')
         .set('Authorization', `Bearer ${accessToken}`)
         .expect(200);
 
-      expect(res.body).toBeDefined();
+      expect(res.body).toHaveProperty('totalOrders');
+      expect(res.body).toHaveProperty('totalAmount');
+      expect(Number(res.body.totalOrders)).toBeGreaterThan(0);
     });
 
     it('PUT /purchasing/orders/:id — updates the purchase order notes', async () => {
@@ -254,8 +182,7 @@ describe('Purchasing (e2e)', () => {
         })
         .expect(200);
 
-      const po = res.body.data ?? res.body;
-      expect(po.notes).toBe('Updated notes');
+      expect((res.body.data ?? res.body).notes).toBe('Updated notes');
     });
   });
 
@@ -268,7 +195,7 @@ describe('Purchasing (e2e)', () => {
         .set('Authorization', `Bearer ${accessToken}`)
         .expect(200);
 
-      expect(res.body.data ?? res.body).toBeDefined();
+      expect((res.body.data ?? res.body)).toHaveProperty('id');
     });
 
     it('GET /inventory/products/:id — stock increased after receiving goods', async () => {
@@ -292,8 +219,7 @@ describe('Purchasing (e2e)', () => {
         .send({ amount: 550 })
         .expect(200);
 
-      const po = res.body.data ?? res.body;
-      expect(Number(po.paidAmount)).toBeGreaterThan(0);
+      expect(Number((res.body.data ?? res.body).paidAmount)).toBe(550);
     });
 
     it('GET /purchasing/orders/:id — paidAmount reflects the payment', async () => {
@@ -302,8 +228,7 @@ describe('Purchasing (e2e)', () => {
         .set('Authorization', `Bearer ${accessToken}`)
         .expect(200);
 
-      const po = res.body.data ?? res.body;
-      expect(Number(po.paidAmount)).toBeGreaterThanOrEqual(550);
+      expect(Number((res.body.data ?? res.body).paidAmount)).toBe(550);
     });
   });
 

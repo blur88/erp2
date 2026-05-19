@@ -1,14 +1,9 @@
-// backend/test/e2e/sales.e2e-spec.ts
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
 import { DataSource } from 'typeorm';
 import { AppModule } from '../../src/app.module';
-import { User, UserRole, UserStatus } from '../../src/database/entities/user.entity';
-import { Category } from '../../src/database/entities/category.entity';
-import { Product } from '../../src/database/entities/product.entity';
-import { PaymentMethodEntity } from '../../src/database/entities/payment-method.entity';
-import * as bcrypt from 'bcrypt';
+import { truncateAll, seedAdmin, seedCategory, seedProduct, seedPaymentMethod } from './helpers/seed';
 
 describe('Sales (e2e)', () => {
   let app: INestApplication;
@@ -30,64 +25,15 @@ describe('Sales (e2e)', () => {
     await app.init();
 
     dataSource = app.get(DataSource);
+    await truncateAll(dataSource);
 
-    // Truncate all tables this spec touches (order matters for FK constraints)
-    await dataSource.query(`
-      TRUNCATE TABLE
-        invoices,
-        payments,
-        sales_order_items,
-        sales_orders,
-        customers,
-        stock_movements,
-        stock_adjustments,
-        price_list_items,
-        products,
-        categories,
-        refresh_tokens,
-        users
-      RESTART IDENTITY CASCADE
-    `);
-
-    // Seed: admin user
-    const userRepo = dataSource.getRepository(User);
-    const hashed = await bcrypt.hash('Admin@123!', 12);
-    await userRepo.save(userRepo.create({
-      username: 'admin',
-      email: 'admin@test.com',
-      password: hashed,
-      firstName: 'Admin',
-      lastName: 'User',
-      role: UserRole.ADMIN,
-      status: UserStatus.ACTIVE,
-      isActive: true,
-      failedLoginAttempts: 0,
-    }));
-
-    // Seed: category
-    const categoryRepo = dataSource.getRepository(Category);
-    const category = await categoryRepo.save(categoryRepo.create({ name: 'Test Category', level: 0 }));
-
-    // Seed: product with stock
-    const productRepo = dataSource.getRepository(Product);
-    const product = await productRepo.save(productRepo.create({
-      name: 'Test Product',
-      categoryId: category.id,
-      baseCost: 100,
-      stockQuantity: 100,
-      isActive: true,
-    }));
+    await seedAdmin(dataSource);
+    const category = await seedCategory(dataSource);
+    const product = await seedProduct(dataSource, category.id, { stockQuantity: 100, baseCost: 100 });
     productId = product.id;
-
-    // Seed: payment method (needed for recording payments)
-    const pmRepo = dataSource.getRepository(PaymentMethodEntity);
-    let pm = await pmRepo.findOne({ where: { code: 'CASH' } });
-    if (!pm) {
-      pm = await pmRepo.save(pmRepo.create({ code: 'CASH', name: 'Cash', requiresSettlement: false }));
-    }
+    const pm = await seedPaymentMethod(dataSource);
     paymentMethodId = pm.id;
 
-    // Login
     const loginRes = await request(app.getHttpServer())
       .post('/auth/login')
       .send({ usernameOrEmail: 'admin', password: 'Admin@123!' });
@@ -120,9 +66,8 @@ describe('Sales (e2e)', () => {
         .set('Authorization', `Bearer ${accessToken}`)
         .expect(200);
 
-      const items = res.body.data ?? res.body;
-      const ids = items.map((c: any) => c.id);
-      expect(ids).toContain(customerId);
+      const items: any[] = res.body.data ?? res.body;
+      expect(items.map((c: any) => c.id)).toContain(customerId);
     });
 
     it('GET /customers/:id — returns the customer', async () => {
@@ -206,7 +151,8 @@ describe('Sales (e2e)', () => {
         .set('Authorization', `Bearer ${accessToken}`)
         .expect(200);
 
-      expect(res.body).toBeDefined();
+      expect(res.body).toHaveProperty('orderId', salesOrderId);
+      expect(res.body).toHaveProperty('totalItems');
     });
 
     it('PUT /sales-orders/:id — updates the sales order notes', async () => {
@@ -246,7 +192,7 @@ describe('Sales (e2e)', () => {
         .expect(201);
 
       const order = res.body.data ?? res.body;
-      expect(Number(order.paidAmount)).toBeGreaterThan(0);
+      expect(Number(order.paidAmount)).toBe(300);
     });
 
     it('GET /sales-orders/:id — paidAmount reflects the payment', async () => {
@@ -255,14 +201,13 @@ describe('Sales (e2e)', () => {
         .set('Authorization', `Bearer ${accessToken}`)
         .expect(200);
 
-      expect(Number(res.body.paidAmount)).toBeGreaterThanOrEqual(300);
+      expect(Number(res.body.paidAmount)).toBe(300);
     });
   });
 
   // ─── Invoice ──────────────────────────────────────────────────────────────
-  // NOTE: create-invoice endpoint has a backend bug — Invoice.fromSalesOrder()
-  // does not populate invoiceNumber, causing a null-constraint DB error (500).
-  // Tests are skipped until the backend is fixed.
+  // TODO(#625): unskip once Invoice.fromSalesOrder() populates invoiceNumber.
+  // Currently fails with 500: null constraint violation on invoiceNumber column.
 
   describe.skip('Invoice', () => {
     it('POST /sales-orders/:id/create-invoice — creates an invoice', async () => {
@@ -271,7 +216,7 @@ describe('Sales (e2e)', () => {
         .set('Authorization', `Bearer ${accessToken}`)
         .expect(201);
 
-      expect(res.body).toBeDefined();
+      expect(res.body).toHaveProperty('id');
     });
 
     it('GET /sales-orders/:id/invoices — lists invoices for the order', async () => {
@@ -280,8 +225,7 @@ describe('Sales (e2e)', () => {
         .set('Authorization', `Bearer ${accessToken}`)
         .expect(200);
 
-      const items = res.body.data ?? res.body;
-      expect(Array.isArray(items)).toBe(true);
+      const items: any[] = Array.isArray(res.body) ? res.body : res.body.data;
       expect(items.length).toBeGreaterThan(0);
     });
   });

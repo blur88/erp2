@@ -1,11 +1,9 @@
-// backend/test/e2e/inventory.e2e-spec.ts
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
 import { DataSource } from 'typeorm';
 import { AppModule } from '../../src/app.module';
-import { User, UserRole, UserStatus } from '../../src/database/entities/user.entity';
-import * as bcrypt from 'bcrypt';
+import { truncateAll, seedAdmin, seedCategory, seedProduct } from './helpers/seed';
 
 describe('Inventory (e2e)', () => {
   let app: INestApplication;
@@ -24,34 +22,9 @@ describe('Inventory (e2e)', () => {
     await app.init();
 
     dataSource = app.get(DataSource);
+    await truncateAll(dataSource);
 
-    // Truncate all tables this spec touches
-    await dataSource.query(`
-      TRUNCATE TABLE
-        stock_movements,
-        stock_adjustments,
-        price_list_items,
-        products,
-        categories,
-        refresh_tokens,
-        users
-      RESTART IDENTITY CASCADE
-    `);
-
-    // Seed admin user and get token
-    const userRepo = dataSource.getRepository(User);
-    const hashed = await bcrypt.hash('Admin@123!', 12);
-    await userRepo.save(userRepo.create({
-      username: 'admin',
-      email: 'admin@test.com',
-      password: hashed,
-      firstName: 'Admin',
-      lastName: 'User',
-      role: UserRole.ADMIN,
-      status: UserStatus.ACTIVE,
-      isActive: true,
-      failedLoginAttempts: 0,
-    }));
+    await seedAdmin(dataSource);
 
     const loginRes = await request(app.getHttpServer())
       .post('/auth/login')
@@ -85,8 +58,8 @@ describe('Inventory (e2e)', () => {
         .set('Authorization', `Bearer ${accessToken}`)
         .expect(200);
 
-      const ids = (res.body.data ?? res.body).map((c: any) => c.id);
-      expect(ids).toContain(categoryId);
+      const items: any[] = Array.isArray(res.body) ? res.body : res.body.data;
+      expect(items.map((c: any) => c.id)).toContain(categoryId);
     });
 
     it('GET /inventory/categories/:id — returns the category', async () => {
@@ -152,9 +125,8 @@ describe('Inventory (e2e)', () => {
         .set('Authorization', `Bearer ${accessToken}`)
         .expect(200);
 
-      const items = res.body.data ?? res.body;
-      const ids = items.map((p: any) => p.id);
-      expect(ids).toContain(productId);
+      const items: any[] = res.body.data ?? res.body;
+      expect(items.map((p: any) => p.id)).toContain(productId);
     });
 
     it('GET /inventory/products/:id — returns the product', async () => {
@@ -253,18 +225,18 @@ describe('Inventory (e2e)', () => {
 
   describe('Edge cases', () => {
     it('POST /inventory/products — duplicate barcode returns 409', async () => {
-      // Create first product with a barcode
+      const category = await seedCategory(dataSource, 'Edge Case Category');
+
       await request(app.getHttpServer())
         .post('/inventory/products')
         .set('Authorization', `Bearer ${accessToken}`)
-        .send({ name: 'Product A', categoryId, baseCost: 10, barcode: 'BARCODE-001' })
+        .send({ name: 'Product A', categoryId: category.id, baseCost: 10, barcode: 'BARCODE-001' })
         .expect(201);
 
-      // Attempt duplicate barcode
       const res = await request(app.getHttpServer())
         .post('/inventory/products')
         .set('Authorization', `Bearer ${accessToken}`)
-        .send({ name: 'Product B', categoryId, baseCost: 10, barcode: 'BARCODE-001' })
+        .send({ name: 'Product B', categoryId: category.id, baseCost: 10, barcode: 'BARCODE-001' })
         .expect(409);
 
       expect(res.body.message).toBeDefined();
