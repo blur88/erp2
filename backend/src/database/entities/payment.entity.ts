@@ -4,7 +4,6 @@ import {
   Index,
   ManyToOne,
   JoinColumn,
-  BeforeInsert,
 } from 'typeorm';
 import {
   IsString,
@@ -174,14 +173,5 @@ export class Payment extends BaseEntity {
   // Computed properties
   get isCompleted(): boolean {
     return this.status === PaymentStatus.COMPLETED;
-  }
-
-  // Hooks
-  @BeforeInsert()
-  generatePaymentNumber() {
-    if (!this.paymentNumber) {
-      const timestamp = Date.now().toString(36).toUpperCase();
-      this.paymentNumber = `PAY-${timestamp}`;
-    }
   }
 }
