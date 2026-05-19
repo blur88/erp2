@@ -95,6 +95,22 @@ describe('Purchasing (e2e)', () => {
     }
     paymentMethodId = pm.id;
 
+    // Seed: document number settings (required for PO, GRN, and vendor payment numbering)
+    const currentYY = new Date().getFullYear() % 100;
+    const docConfigs = [
+      { documentName: 'Purchase Orders', prefix: 'PO' },
+      { documentName: 'Goods Received', prefix: 'GRN' },
+      { documentName: 'Vendor Payments', prefix: 'VP' },
+    ];
+    for (const cfg of docConfigs) {
+      await dataSource.query(
+        `INSERT INTO document_number_settings ("documentName", prefix, "paddingDigits", "nextNumber", "lastResetYear")
+         VALUES ($1, $2, 3, 1, $3)
+         ON CONFLICT ("documentName") DO NOTHING`,
+        [cfg.documentName, cfg.prefix, currentYY],
+      );
+    }
+
     // Login
     const loginRes = await request(app.getHttpServer())
       .post('/auth/login')
@@ -172,6 +188,147 @@ describe('Purchasing (e2e)', () => {
 
       const supplier = res.body.data ?? res.body;
       expect(supplier.id).toBe(supplierId);
+    });
+  });
+
+  // ─── Purchase Order Lifecycle ─────────────────────────────────────────────
+
+  describe('Purchase order lifecycle', () => {
+    it('POST /purchasing/orders — creates a purchase order', async () => {
+      const res = await request(app.getHttpServer())
+        .post('/purchasing/orders')
+        .set('Authorization', `Bearer ${accessToken}`)
+        .send({
+          supplierId,
+          orderDate: new Date().toISOString().split('T')[0],
+          items: [{ productId, quantity: 10, unitPrice: 55 }],
+        })
+        .expect(201);
+
+      expect(res.body.data).toHaveProperty('id');
+      expect(res.body.data).toHaveProperty('orderNumber');
+      purchaseOrderId = res.body.data.id;
+      purchaseOrderNumber = res.body.data.orderNumber;
+      expect(purchaseOrderId).toBeTruthy();
+    });
+
+    it('GET /purchasing/orders/:id — returns the purchase order', async () => {
+      const res = await request(app.getHttpServer())
+        .get(`/purchasing/orders/${purchaseOrderId}`)
+        .set('Authorization', `Bearer ${accessToken}`)
+        .expect(200);
+
+      const po = res.body.data ?? res.body;
+      expect(po.id).toBe(purchaseOrderId);
+      expect(po.supplier?.id ?? po.supplierId).toBe(supplierId);
+    });
+
+    it('GET /purchasing/orders/by-number/:orderNumber — returns by order number', async () => {
+      const res = await request(app.getHttpServer())
+        .get(`/purchasing/orders/by-number/${purchaseOrderNumber}`)
+        .set('Authorization', `Bearer ${accessToken}`)
+        .expect(200);
+
+      const po = res.body.data ?? res.body;
+      expect(po.id).toBe(purchaseOrderId);
+    });
+
+    it('GET /purchasing/orders/summary — returns summary', async () => {
+      const res = await request(app.getHttpServer())
+        .get('/purchasing/orders/summary')
+        .set('Authorization', `Bearer ${accessToken}`)
+        .expect(200);
+
+      expect(res.body).toBeDefined();
+    });
+
+    it('PUT /purchasing/orders/:id — updates the purchase order notes', async () => {
+      const res = await request(app.getHttpServer())
+        .put(`/purchasing/orders/${purchaseOrderId}`)
+        .set('Authorization', `Bearer ${accessToken}`)
+        .send({
+          supplierId,
+          orderDate: new Date().toISOString().split('T')[0],
+          notes: 'Updated notes',
+          items: [{ productId, quantity: 10, unitPrice: 55 }],
+        })
+        .expect(200);
+
+      const po = res.body.data ?? res.body;
+      expect(po.notes).toBe('Updated notes');
+    });
+  });
+
+  // ─── Goods received (stock impact) ────────────────────────────────────────
+
+  describe('Goods received', () => {
+    it('POST /purchasing/orders/:id/receive — receives goods', async () => {
+      const res = await request(app.getHttpServer())
+        .post(`/purchasing/orders/${purchaseOrderId}/receive`)
+        .set('Authorization', `Bearer ${accessToken}`)
+        .expect(200);
+
+      expect(res.body.data ?? res.body).toBeDefined();
+    });
+
+    it('GET /inventory/products/:id — stock increased after receiving goods', async () => {
+      const res = await request(app.getHttpServer())
+        .get(`/inventory/products/${productId}`)
+        .set('Authorization', `Bearer ${accessToken}`)
+        .expect(200);
+
+      // Product started at 0 stock; received 10 units
+      expect(Number(res.body.stockQuantity)).toBe(10);
+    });
+  });
+
+  // ─── Vendor payment ───────────────────────────────────────────────────────
+
+  describe('Vendor payment', () => {
+    it('POST /purchasing/orders/:id/record-payment — records a payment', async () => {
+      const res = await request(app.getHttpServer())
+        .post(`/purchasing/orders/${purchaseOrderId}/record-payment`)
+        .set('Authorization', `Bearer ${accessToken}`)
+        .send({ amount: 550 })
+        .expect(200);
+
+      const po = res.body.data ?? res.body;
+      expect(Number(po.paidAmount)).toBeGreaterThan(0);
+    });
+
+    it('GET /purchasing/orders/:id — paidAmount reflects the payment', async () => {
+      const res = await request(app.getHttpServer())
+        .get(`/purchasing/orders/${purchaseOrderId}`)
+        .set('Authorization', `Bearer ${accessToken}`)
+        .expect(200);
+
+      const po = res.body.data ?? res.body;
+      expect(Number(po.paidAmount)).toBeGreaterThanOrEqual(550);
+    });
+  });
+
+  // ─── Edge cases ───────────────────────────────────────────────────────────
+
+  describe('Edge cases', () => {
+    it('POST /purchasing/orders/:id/receive — non-existent PO returns 404', async () => {
+      await request(app.getHttpServer())
+        .post('/purchasing/orders/00000000-0000-0000-0000-000000000000/receive')
+        .set('Authorization', `Bearer ${accessToken}`)
+        .expect(404);
+    });
+
+    it('POST /purchasing/orders — unknown supplierId returns 404', async () => {
+      const res = await request(app.getHttpServer())
+        .post('/purchasing/orders')
+        .set('Authorization', `Bearer ${accessToken}`)
+        .send({
+          supplierId: '00000000-0000-0000-0000-000000000000',
+          orderDate: new Date().toISOString().split('T')[0],
+          items: [{ productId, quantity: 1, unitPrice: 10 }],
+        })
+        .expect(404);
+
+      expect(res.body.message).toBeDefined();
     });
   });
 });
