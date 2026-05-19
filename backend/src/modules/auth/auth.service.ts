@@ -49,6 +49,7 @@ export class AuthService {
     const { password, rememberMe } = loginDto;
     const usernameOrEmail = loginDto.usernameOrEmail ?? loginDto.username;
 
+    // Empty-check done here (not via @IsNotEmpty on the DTO) to return 401 rather than 400
     if (!usernameOrEmail) {
       throw new UnauthorizedException('Invalid credentials');
     }

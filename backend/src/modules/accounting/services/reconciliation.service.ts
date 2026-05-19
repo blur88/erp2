@@ -201,9 +201,14 @@ export class ReconciliationService {
    * Find one reconciliation by ID with all transactions
    */
   async findOne(id: string): Promise<BankReconciliationResponseDto> {
+    const withTransactions = {
+      account: true,
+      fiscalPeriod: true,
+      reconciledTransactions: { journalEntryLine: { account: true, journalEntry: true } },
+    };
     const reconciliation = await this.reconciliationRepository.findOne({
       where: { id },
-      relations: { account: true, fiscalPeriod: true, reconciledTransactions: { journalEntryLine: { account: true, journalEntry: true } } },
+      relations: withTransactions,
     });
 
     if (!reconciliation) {
