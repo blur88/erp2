@@ -30,10 +30,10 @@ jobs:
         env:
           MSG: ${{ github.event.head_commit.message }}
         run: |
-          # Matches local "git pull" merge commits (merge.ff=false) that re-push the semantic-release auto-commit
-          if echo "$MSG" | grep -qE "^Merge branch"; then
+          # Skip only "git pull --no-ff" re-triggers: merge of 'main' into 'main' locally after semantic-release auto-commit
+          if echo "$MSG" | grep -qE "^Merge branch '(main|master)' of "; then
             echo "skip=true" >> "$GITHUB_OUTPUT"
-            echo "Detected merge commit — skipping semantic-release."
+            echo "Detected redundant git-pull merge commit — skipping semantic-release."
           else
             echo "skip=false" >> "$GITHUB_OUTPUT"
           fi
