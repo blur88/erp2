@@ -51,12 +51,12 @@ export enum SettlementStatusEnum {
 export class Payment extends BaseEntity {
   @Column({
     type: 'varchar',
-    length: 30,
+    length: 50,
     unique: true,
     comment: 'Unique payment reference number',
   })
   @IsString()
-  @MaxLength(30)
+  @MaxLength(50)
   paymentNumber: string;
 
   

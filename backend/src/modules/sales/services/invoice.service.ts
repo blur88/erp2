@@ -181,10 +181,6 @@ export class InvoiceService extends BaseCrudService<
     }
   }
 
-  private async generateSequentialInvoiceNumber(): Promise<string> {
-    return this.settingsService.generateDocumentNumber('Invoices');
-  }
-
   async create(
     createInvoiceDto: CreateInvoiceDto,
     userId?: string,
@@ -213,8 +209,7 @@ export class InvoiceService extends BaseCrudService<
     // Calculate total amount from sales order or use provided amount
     const totalAmount = createInvoiceDto.totalAmount || (salesOrder?.totalAmount || 0);
 
-    // Generate sequential invoice number
-    const invoiceNumber = await this.generateSequentialInvoiceNumber();
+    const invoiceNumber = await this.settingsService.generateDocumentNumber('Invoices');
 
     // Create invoice
     const invoice = this.invoiceRepository.create({

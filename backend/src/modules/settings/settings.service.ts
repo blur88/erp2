@@ -5,7 +5,7 @@ import {
   InternalServerErrorException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import { CompanySettings } from '../../database/entities/company-settings.entity';
 import { RegionalSettings } from '../../database/entities/regional-settings.entity';
 import { DocumentNumberSetting } from '../../database/entities/document-number-settings.entity';
@@ -70,6 +70,7 @@ export class SettingsService {
     private settlementRepository: Repository<Settlement>,
     @InjectRepository(OwnerEquityTransaction)
     private ownerEquityRepository: Repository<OwnerEquityTransaction>,
+    private readonly dataSource: DataSource,
   ) {}
 
   /**
@@ -425,29 +426,35 @@ export class SettingsService {
    * Generate next document number for a specific document type
    */
   async generateDocumentNumber(documentName: string): Promise<string> {
-    const row = await this.documentNumberSettingRepository.findOne({
-      where: { documentName },
+    return this.dataSource.transaction(async (manager) => {
+      const rows = await manager.query(
+        `SELECT * FROM document_number_settings WHERE "documentName" = $1 FOR UPDATE`,
+        [documentName],
+      );
+
+      if (!rows.length) {
+        throw new NotFoundException(`Document number config for '${documentName}' not found`);
+      }
+
+      const row = rows[0];
+      const currentYY = new Date().getFullYear() % 100;
+
+      if (row.lastResetYear !== currentYY) {
+        row.nextNumber = 1;
+        row.lastResetYear = currentYY;
+      }
+
+      const yy = String(currentYY).padStart(2, '0');
+      const seq = String(row.nextNumber).padStart(row.paddingDigits, '0');
+      const documentNumber = `${row.prefix}-${yy}-${seq}`;
+
+      await manager.query(
+        `UPDATE document_number_settings SET "nextNumber" = $1, "lastResetYear" = $2 WHERE "documentName" = $3`,
+        [row.nextNumber + 1, row.lastResetYear, documentName],
+      );
+
+      return documentNumber;
     });
-
-    if (!row) {
-      throw new NotFoundException(`Document number config for '${documentName}' not found`);
-    }
-
-    const currentYY = new Date().getFullYear() % 100;
-
-    if (row.lastResetYear !== currentYY) {
-      row.nextNumber = 1;
-      row.lastResetYear = currentYY;
-    }
-
-    const yy = String(currentYY).padStart(2, '0');
-    const seq = String(row.nextNumber).padStart(row.paddingDigits, '0');
-    const documentNumber = `${row.prefix}-${yy}-${seq}`;
-
-    row.nextNumber += 1;
-    await this.documentNumberSettingRepository.save(row);
-
-    return documentNumber;
   }
 
   /**

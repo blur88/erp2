@@ -166,6 +166,9 @@ describe('PaymentService', () => {
 
       // Assert
       expect(settingsService.generateDocumentNumber).toHaveBeenCalledWith('Payments');
+      expect(paymentRepository.create).toHaveBeenCalledWith(
+        expect.objectContaining({ paymentNumber: 'PAY-26-001' }),
+      );
       expect(accountingService.postCustomerPaymentEntry).toHaveBeenCalledWith(
         expect.objectContaining({
           id: mockPayment.id,

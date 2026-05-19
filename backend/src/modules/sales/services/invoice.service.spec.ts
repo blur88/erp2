@@ -368,5 +368,8 @@ describe('InvoiceService.create', () => {
     await service.create(dto as any);
 
     expect(settingsService.generateDocumentNumber).toHaveBeenCalledWith('Invoices');
+    expect(invoiceRepository.create).toHaveBeenCalledWith(
+      expect.objectContaining({ invoiceNumber: 'INV-26-001' }),
+    );
   });
 });
