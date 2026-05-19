@@ -490,12 +490,15 @@ export class PaymentService extends BaseCrudService<
 
     const refundMethodCode = originalPayment.paymentMethodEntity?.code || 'CASH';
 
+    const refundNumber = await this.settingsService.generateDocumentNumber('Payments');
+
     // Create a refund payment record (negative amount)
     const refundPayment = this.paymentRepository.create({
       customerId: originalPayment.customerId,
       invoiceId: originalPayment.invoiceId,
       paymentDate: new Date(),
       amount: -refundDto.amount,
+      paymentNumber: refundNumber,
       status: PaymentStatus.REFUNDED,
       paymentMethodId: originalPayment.paymentMethodId,
       settlementStatus: originalPayment.settlementStatus,
