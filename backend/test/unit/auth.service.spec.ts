@@ -211,6 +211,24 @@ describe('AuthService', () => {
       expect(mockJwtService.sign).toHaveBeenCalled();
     });
 
+    it('should accept username as a legacy alias for usernameOrEmail', async () => {
+      mockedBcrypt.compare.mockResolvedValue(true as never);
+      mockUserRepository.findOne.mockResolvedValue(mockUser);
+      mockUserRepository.save.mockResolvedValue({ ...mockUser, lastLoginAt: new Date() });
+      mockRefreshTokenRepository.create.mockReturnValue({});
+      mockRefreshTokenRepository.save.mockResolvedValue({});
+
+      const result = await service.login(
+        { username: 'testuser', password: 'Password@123', rememberMe: false } as any,
+        mockRequest as any,
+      );
+
+      expect(result.user.username).toBe('testuser');
+      expect(mockUserRepository.findOne).toHaveBeenCalledWith({
+        where: [{ username: 'testuser' }, { email: 'testuser' }],
+      });
+    });
+
     it('should increment failed login attempts on wrong password', async () => {
       mockedBcrypt.compare.mockResolvedValue(false as never);
       const userWithFailedAttempts = { ...mockUser, failedLoginAttempts: 2 };

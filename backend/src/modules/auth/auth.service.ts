@@ -46,7 +46,12 @@ export class AuthService {
     ipAddress?: string,
     userAgent?: string,
   ): Promise<AuthResponseDto> {
-    const { usernameOrEmail, password, rememberMe } = loginDto;
+    const { password, rememberMe } = loginDto;
+    const usernameOrEmail = loginDto.usernameOrEmail ?? loginDto.username;
+
+    if (!usernameOrEmail) {
+      throw new UnauthorizedException('Invalid credentials');
+    }
 
     // Find user by username or email
     const user = await this.userRepository.findOne({
