@@ -680,7 +680,7 @@ describe('JournalEntryService', () => {
       expect(result.sourceRefNumber).toBe('INV-0042');
       expect(mockInvoiceRepo.findOne).toHaveBeenCalledWith({
         where: { id: 'invoice-1' },
-        select: ['id', 'invoiceNumber'],
+        select: { id: true, invoiceNumber: true },
       });
     });
 
@@ -993,7 +993,7 @@ describe('JournalEntryService', () => {
       expect(mockSalesOrderRepo.find).toHaveBeenCalledTimes(1);
       expect(mockSalesOrderRepo.find).toHaveBeenCalledWith({
         where: { id: expect.anything() },
-        select: ['id', 'orderNumber'],
+        select: { id: true, orderNumber: true },
       });
       expect(mockPaymentRepo.find).toHaveBeenCalledTimes(1);
       expect(map.get('sales_order:so-1')).toBe('SO-001');

@@ -43,7 +43,7 @@ export class SalesOrderQueryService {
 
     const previousOrder = await this.salesOrderRepository.findOne({
       where: { orderNumber: previousOrderNumber },
-      relations: ['customer', 'items', 'items.product'],
+      relations: { customer: true, items: { product: true } },
       withDeleted: true,
     });
 
@@ -247,7 +247,7 @@ export class SalesOrderQueryService {
   async testInvoiceRelations(orderNumber: string): Promise<any> {
     const order = await this.salesOrderRepository.findOne({
       where: { orderNumber },
-      relations: ['invoices', 'customer', 'items'],
+      relations: { invoices: true, customer: true, items: true },
     });
 
     return {
@@ -267,7 +267,7 @@ export class SalesOrderQueryService {
     } = query;
 
     const findOptions: any = {
-      relations: ['customer', 'items', 'items.product', 'invoices'],
+      relations: { customer: true, items: { product: true }, invoices: true },
       where: { deletedAt: null },
       order: { [sortBy]: sortOrder },
     };
@@ -455,7 +455,7 @@ export class SalesOrderQueryService {
   async findByOrderNumber(orderNumber: string): Promise<SalesOrderResponseDto> {
     const order = await this.salesOrderRepository.findOne({
       where: { orderNumber },
-      relations: ['customer', 'items', 'items.product', 'invoices'],
+      relations: { customer: true, items: { product: true }, invoices: true },
     });
 
     if (!order) {
@@ -468,7 +468,7 @@ export class SalesOrderQueryService {
   async findOrdersByCustomer(customerId: string, limit: number = 10) {
     const orders = await this.salesOrderRepository.find({
       where: { customerId },
-      relations: ['items'],
+      relations: { items: true },
       order: { orderDate: 'DESC' },
       take: limit,
     });

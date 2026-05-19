@@ -307,7 +307,7 @@ describe('ChartOfAccountsService', () => {
       });
       expect(accountRepository.findOne).toHaveBeenCalledWith({
         where: { id: mockAccount.id },
-        relations: ['parent', 'children'],
+        relations: { parent: true, children: true },
       });
     });
 

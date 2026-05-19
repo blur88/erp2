@@ -444,7 +444,7 @@ export class ProductService extends BaseCrudService<
   async findOne(id: string): Promise<ProductResponseDto> {
     const product = await this.productRepository.findOne({
       where: { id },
-      relations: ['category', 'priceListItems', 'priceListItems.priceList'],
+      relations: { category: true, priceListItems: { priceList: true } },
     });
 
     if (!product) {
@@ -467,7 +467,7 @@ export class ProductService extends BaseCrudService<
   async findByBarcode(barcode: string): Promise<ProductResponseDto> {
     const product = await this.productRepository.findOne({
       where: { barcode },
-      relations: ['category'],
+      relations: { category: true },
     });
 
     if (!product) {
@@ -480,7 +480,7 @@ export class ProductService extends BaseCrudService<
   async findBySlug(slug: string): Promise<ProductResponseDto> {
     const product = await this.productRepository.findOne({
       where: { slug },
-      relations: ['category'],
+      relations: { category: true },
     });
 
     if (!product) {
@@ -599,7 +599,7 @@ export class ProductService extends BaseCrudService<
 
     const product = await this.productRepository.findOne({
       where: { id },
-      relations: ['category'],
+      relations: { category: true },
       withDeleted: true,
     });
 
@@ -628,7 +628,7 @@ export class ProductService extends BaseCrudService<
     // Fetch the restored product
     const restoredProduct = await this.productRepository.findOne({
       where: { id },
-      relations: ['category'],
+      relations: { category: true },
     });
 
     // Log audit trail for restore
@@ -675,7 +675,7 @@ export class ProductService extends BaseCrudService<
         // Find the product (including soft-deleted ones)
         const product = await this.productRepository.findOne({
           where: { id },
-          relations: ['category'],
+          relations: { category: true },
           withDeleted: true,
         });
 
@@ -892,7 +892,7 @@ export class ProductService extends BaseCrudService<
 
     const product = await this.productRepository.findOne({
       where: { id },
-      relations: ['category'],
+      relations: { category: true },
     });
 
     if (!product) {
@@ -994,7 +994,7 @@ export class ProductService extends BaseCrudService<
     // Reload the product with category relation to ensure fresh data
     const productWithCategory = await this.productRepository.findOne({
       where: { id },
-      relations: ['category'],
+      relations: { category: true },
     });
 
     // Log audit trail for update
@@ -1303,7 +1303,7 @@ export class ProductService extends BaseCrudService<
 
     // Get all active products with category info for calculations
     const products = await this.productRepository.find({
-      relations: ['category'],
+      relations: { category: true },
       where: { deletedAt: null }
     });
 
@@ -1396,7 +1396,7 @@ export class ProductService extends BaseCrudService<
   }>> {
     const product = await this.productRepository.findOne({
       where: { id: productId },
-      relations: ['priceListItems', 'priceListItems.priceList'],
+      relations: { priceListItems: { priceList: true } },
     });
 
     if (!product) {

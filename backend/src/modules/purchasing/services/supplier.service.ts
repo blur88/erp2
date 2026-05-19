@@ -249,7 +249,7 @@ export class SupplierService extends BaseCrudService<
 
     const supplier = await this.supplierRepository.findOne({
       where: { id },
-      relations: ['purchaseOrders', 'goodsReceivedNotes'],
+      relations: { purchaseOrders: true, goodsReceivedNotes: true },
     });
 
     if (!supplier) {
@@ -730,7 +730,7 @@ export class SupplierService extends BaseCrudService<
   async getSupplierGRNs(supplierId: string): Promise<{ data: GoodsReceivedNote[]; total: number }> {
     const [data, total] = await this.grnRepository.findAndCount({
       where: { supplierId },
-      relations: ['purchaseOrder'],
+      relations: { purchaseOrder: true },
       order: { receivedDate: 'DESC' },
       take: 50,
     });
@@ -741,7 +741,7 @@ export class SupplierService extends BaseCrudService<
   async getSupplierPayments(supplierId: string): Promise<{ data: VendorPayment[]; total: number }> {
     const [data, total] = await this.vendorPaymentRepository.findAndCount({
       where: { supplierId },
-      relations: ['paymentMethodEntity'],
+      relations: { paymentMethodEntity: true },
       order: { paymentDate: 'DESC' },
       take: 50,
     });

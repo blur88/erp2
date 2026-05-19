@@ -199,7 +199,7 @@ export class InvoiceService extends BaseCrudService<
     if (salesOrderId) {
       salesOrder = await this.salesOrderRepository.findOne({
         where: { id: salesOrderId },
-        relations: ['items']
+        relations: { items: true }
       });
       if (!salesOrder) {
         throw new NotFoundException('Sales order not found');
@@ -266,7 +266,7 @@ export class InvoiceService extends BaseCrudService<
 
   async findSummaries(): Promise<InvoiceSummaryDto[]> {
     const invoices = await this.invoiceRepository.find({
-      relations: ['customer'],
+      relations: { customer: true },
       order: { invoiceDate: 'DESC' },
     });
 
@@ -421,7 +421,7 @@ export class InvoiceService extends BaseCrudService<
   async findById(id: string): Promise<InvoiceResponseDto> {
     const invoice = await this.invoiceRepository.findOne({
       where: { id },
-      relations: ['customer', 'salesOrder', 'items', 'items.product'],
+      relations: { customer: true, salesOrder: true, items: { product: true } },
     });
 
     if (!invoice) {
@@ -434,7 +434,7 @@ export class InvoiceService extends BaseCrudService<
   async findByInvoiceNumber(invoiceNumber: string): Promise<InvoiceResponseDto> {
     const invoice = await this.invoiceRepository.findOne({
       where: { invoiceNumber },
-      relations: ['customer', 'salesOrder', 'items', 'items.product'],
+      relations: { customer: true, salesOrder: true, items: { product: true } },
     });
 
     if (!invoice) {
@@ -502,7 +502,7 @@ export class InvoiceService extends BaseCrudService<
     // Load the sales order with items
     const salesOrder = await this.salesOrderRepository.findOne({
       where: { id: invoice.salesOrderId },
-      relations: ['items']
+      relations: { items: true }
     });
 
     if (!salesOrder) {
@@ -571,7 +571,7 @@ export class InvoiceService extends BaseCrudService<
   async sendInvoice(id: string, sendInvoiceDto: SendInvoiceDto): Promise<InvoiceResponseDto> {
     const invoice = await this.invoiceRepository.findOne({
       where: { id },
-      relations: ['customer'],
+      relations: { customer: true },
     });
 
     if (!invoice) {
@@ -659,7 +659,7 @@ export class InvoiceService extends BaseCrudService<
   async voidInvoice(id: string, _reason: string): Promise<InvoiceResponseDto> {
     const invoice = await this.invoiceRepository.findOne({
       where: { id },
-      relations: ['customer'],
+      relations: { customer: true },
     });
 
     if (!invoice) {
@@ -744,7 +744,7 @@ export class InvoiceService extends BaseCrudService<
   async getInvoiceHistory(id: string) {
     const invoice = await this.invoiceRepository.findOne({
       where: { id },
-      relations: ['payments'],
+      relations: { payments: true },
     });
 
     if (!invoice) {

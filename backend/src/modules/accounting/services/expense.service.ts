@@ -115,7 +115,7 @@ export class ExpenseService {
   async findOne(id: string): Promise<ExpenseResponseDto> {
     const expense = await this.expenseRepository.findOne({
       where: { id },
-      relations: ['paymentMethod', 'expenseAccount'],
+      relations: { paymentMethod: true, expenseAccount: true },
     });
 
     if (!expense || expense.deletedAt) {
@@ -258,7 +258,7 @@ export class ExpenseService {
   async post(id: string, userId?: string, username?: string): Promise<ExpenseResponseDto> {
     const expense = await this.expenseRepository.findOne({
       where: { id },
-      relations: ['paymentMethod', 'expenseAccount'],
+      relations: { paymentMethod: true, expenseAccount: true },
     });
 
     if (!expense || expense.deletedAt) {
@@ -420,7 +420,7 @@ export class ExpenseService {
     const records = await this.expenseRepository.find({
       withDeleted: true,
       where: { deletedAt: Not(IsNull()) },
-      relations: ['paymentMethod', 'expenseAccount'],
+      relations: { paymentMethod: true, expenseAccount: true },
       order: { deletedAt: 'DESC' },
     });
     return records.map((r) => this.toResponseDto(r));

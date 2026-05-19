@@ -182,7 +182,7 @@ export class SalesOrderLifecycleService {
     const order = await this.salesOrderRepository.findOne({
       where: { id },
       withDeleted: true,
-      relations: ['customer', 'items', 'items.product'],
+      relations: { customer: true, items: { product: true } },
     });
 
     ValidationUtil.validateForRestore(order, 'Sales order', id);
@@ -255,7 +255,7 @@ export class SalesOrderLifecycleService {
 
     const restoredOrder = await this.salesOrderRepository.findOne({
       where: { id },
-      relations: ['customer', 'items', 'items.product'],
+      relations: { customer: true, items: { product: true } },
     });
 
     await this.auditLogService.log('RESTORE', 'SalesOrder', `Restored sales order: ${order.orderNumber}`, {
@@ -295,7 +295,7 @@ export class SalesOrderLifecycleService {
   async permanentDelete(id: string, userId?: string, username?: string): Promise<void> {
     const order = await this.salesOrderRepository.findOne({
       where: { id },
-      relations: ['customer', 'items'],
+      relations: { customer: true, items: true },
       withDeleted: true,
     });
 
@@ -411,7 +411,7 @@ export class SalesOrderLifecycleService {
       try {
         const order = await this.salesOrderRepository.findOne({
           where: { id },
-          relations: ['customer', 'items'],
+          relations: { customer: true, items: true },
           withDeleted: true,
         });
 

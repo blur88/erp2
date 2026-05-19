@@ -185,7 +185,7 @@ export class AuthService {
     // Find refresh token in database
     const refreshTokenRecord = await this.refreshTokenRepository.findOne({
       where: { tokenHash, isActive: true },
-      relations: ['user'],
+      relations: { user: true },
     });
 
     if (!refreshTokenRecord) {

@@ -193,7 +193,7 @@ export class ChartOfAccountsService {
   async findOne(id: string): Promise<ChartOfAccountResponseDto> {
     const account = await this.accountRepository.findOne({
       where: { id },
-      relations: ['parent', 'children'],
+      relations: { parent: true, children: true },
     });
 
     if (!account) {
@@ -216,7 +216,7 @@ export class ChartOfAccountsService {
 
     const account = await this.accountRepository.findOne({
       where: { id },
-      relations: ['parent', 'children'],
+      relations: { parent: true, children: true },
     });
 
     if (!account) {
@@ -285,7 +285,7 @@ export class ChartOfAccountsService {
     // Reload with relations
     const accountWithRelations = await this.accountRepository.findOne({
       where: { id },
-      relations: ['parent', 'children'],
+      relations: { parent: true, children: true },
     });
 
     await this.auditLogService.log(
@@ -307,7 +307,7 @@ export class ChartOfAccountsService {
 
     const account = await this.accountRepository.findOne({
       where: { id },
-      relations: ['children'],
+      relations: { children: true },
     });
 
     if (!account) {
@@ -355,7 +355,7 @@ export class ChartOfAccountsService {
 
     const deletedAccounts = await this.accountRepository.find({
       where: {},
-      relations: ['parent'],
+      relations: { parent: true },
       withDeleted: true,
       order: { code: 'ASC' },
     });
@@ -375,7 +375,7 @@ export class ChartOfAccountsService {
 
     const account = await this.accountRepository.findOne({
       where: { id },
-      relations: ['parent'],
+      relations: { parent: true },
       withDeleted: true,
     });
 
@@ -404,7 +404,7 @@ export class ChartOfAccountsService {
     // Fetch the restored account
     const restoredAccount = await this.accountRepository.findOne({
       where: { id },
-      relations: ['parent', 'children'],
+      relations: { parent: true, children: true },
     });
 
     await this.auditLogService.log(
@@ -457,7 +457,7 @@ export class ChartOfAccountsService {
     // Get all accounts
     const accounts = await this.accountRepository.find({
       where: { isActive: true },
-      relations: ['parent', 'children'],
+      relations: { parent: true, children: true },
       order: { type: 'ASC', code: 'ASC' },
     });
 
@@ -504,7 +504,7 @@ export class ChartOfAccountsService {
     // Get children
     const children = await this.accountRepository.find({
       where: { parentId, isActive: true },
-      relations: ['parent'],
+      relations: { parent: true },
       order: { code: 'ASC' },
     });
 
@@ -552,7 +552,7 @@ export class ChartOfAccountsService {
 
     const account = await this.accountRepository.findOne({
       where: { id },
-      relations: ['children'],
+      relations: { children: true },
       withDeleted: true,
     });
 
@@ -806,7 +806,7 @@ export class ChartOfAccountsService {
   ): Promise<boolean> {
     const target = await this.accountRepository.findOne({
       where: { id: targetId },
-      relations: ['parent'],
+      relations: { parent: true },
     });
 
     if (!target || !target.parentId) {

@@ -322,7 +322,7 @@ export class CustomerService extends BaseCrudService<
     const customers = await this.customerRepository.find({
       where: { isActive: true },
       order: { name: 'ASC' },
-      select: ['id', 'name', 'phone'],
+      select: { id: true, name: true, phone: true },
     });
 
     return customers.map(customer => ({
@@ -335,7 +335,7 @@ export class CustomerService extends BaseCrudService<
   async findById(id: string): Promise<CustomerResponseDto> {
     const customer = await this.customerRepository.findOne({
       where: { id },
-      relations: ['priceList']
+      relations: { priceList: true }
     });
     if (!customer) {
       throw new NotFoundException('Customer not found');
@@ -346,7 +346,7 @@ export class CustomerService extends BaseCrudService<
   async findBySlug(slug: string): Promise<CustomerResponseDto> {
     const customer = await this.customerRepository.findOne({
       where: { slug },
-      relations: ['priceList'],
+      relations: { priceList: true },
     });
     if (!customer) throw new NotFoundException(`Customer with slug '${slug}' not found`);
     return this.mapToResponseDto(customer);
@@ -449,7 +449,7 @@ export class CustomerService extends BaseCrudService<
     const orders = await this.salesOrderRepository.find({
       where: { customerId },
       order: { orderDate: 'DESC' },
-      relations: ['items'],
+      relations: { items: true },
     });
 
     return {
@@ -1047,7 +1047,7 @@ export class CustomerService extends BaseCrudService<
   private async findCustomerEntity(id: string): Promise<Customer> {
     const customer = await this.customerRepository.findOne({
       where: { id },
-      relations: ['priceList']
+      relations: { priceList: true }
     });
     if (!customer) {
       throw new NotFoundException('Customer not found');

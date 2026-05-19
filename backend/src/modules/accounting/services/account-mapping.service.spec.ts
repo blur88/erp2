@@ -365,7 +365,7 @@ describe('AccountMappingService', () => {
       expect(result.accountId).toBe(mockMapping.accountId);
       expect(mappingRepository.findOne).toHaveBeenCalledWith({
         where: { id: mockMappingId },
-        relations: ['account'],
+        relations: { account: true },
       });
     });
 

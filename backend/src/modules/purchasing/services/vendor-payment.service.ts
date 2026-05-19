@@ -315,14 +315,7 @@ export class VendorPaymentService extends BaseCrudService<
   async findOne(id: string): Promise<VendorPayment> {
     const vendorPayment = await this.vendorPaymentRepository.findOne({
       where: { id, isActive: true },
-      relations: [
-        'supplier',
-        'purchaseOrder',
-        'purchaseOrder.items',
-        'purchaseOrder.items.product',
-        'grn',
-        'paymentMethodEntity',
-      ],
+      relations: { supplier: true, purchaseOrder: { items: { product: true } }, grn: true, paymentMethodEntity: true },
     });
 
     if (!vendorPayment) {
@@ -530,7 +523,7 @@ export class VendorPaymentService extends BaseCrudService<
     // Find the purchase order
     const purchaseOrder = await this.purchaseOrderRepository.findOne({
       where: { id: poId },
-      relations: ['supplier'],
+      relations: { supplier: true },
     });
 
     if (!purchaseOrder) {
@@ -608,7 +601,7 @@ export class VendorPaymentService extends BaseCrudService<
         purchaseOrderId: poId,
         isActive: true,
       },
-      relations: ['supplier', 'purchaseOrder', 'grn', 'paymentMethodEntity'],
+      relations: { supplier: true, purchaseOrder: true, grn: true, paymentMethodEntity: true },
     });
   }
 

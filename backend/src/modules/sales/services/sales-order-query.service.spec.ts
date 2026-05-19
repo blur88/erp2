@@ -85,7 +85,7 @@ describe('SalesOrderQueryService', () => {
 
     expect(salesOrderRepository.findOne).toHaveBeenCalledWith({
       where: { orderNumber: 'SO-000001' },
-      relations: ['customer', 'items', 'items.product'],
+      relations: { customer: true, items: { product: true } },
       withDeleted: true,
     });
     expect(result).toMatchObject({

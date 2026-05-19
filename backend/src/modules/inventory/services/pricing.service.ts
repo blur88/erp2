@@ -97,7 +97,7 @@ export class PricingService {
 
     const product = await this.productRepository.findOne({
       where: { id: productId },
-      relations: ['category'],
+      relations: { category: true },
     });
 
     if (!product) {
@@ -113,7 +113,7 @@ export class PricingService {
     if (options.customerId) {
       const customer = await this.customerRepository.findOne({
         where: { id: options.customerId },
-        relations: ['priceList'],
+        relations: { priceList: true },
       });
       if (customer) {
         // Use price list system
@@ -252,7 +252,7 @@ export class PricingService {
   async analyzeMargins(productId: string): Promise<MarginAnalysis> {
     const product = await this.productRepository.findOne({
       where: { id: productId },
-      relations: ['priceListItems', 'priceListItems.priceList'],
+      relations: { priceListItems: { priceList: true } },
     });
 
     if (!product) {
@@ -361,7 +361,7 @@ export class PricingService {
   }>> {
     const products = await this.productRepository.find({
       where: { categoryId, isActive: true },
-      relations: ['priceListItems', 'priceListItems.priceList'],
+      relations: { priceListItems: { priceList: true } },
     });
 
     const recommendations = [];
@@ -428,7 +428,7 @@ export class PricingService {
   }> {
     const product = await this.productRepository.findOne({
       where: { id: productId },
-      relations: ['stockMovements', 'priceListItems', 'priceListItems.priceList'],
+      relations: { stockMovements: true, priceListItems: { priceList: true } },
     });
 
     if (!product) {
@@ -526,7 +526,7 @@ export class PricingService {
   ): Promise<{ amount: number; percentage: number }> {
     const customer = await this.customerRepository.findOne({
       where: { id: customerId },
-      relations: ['priceList'],
+      relations: { priceList: true },
     });
 
     if (!customer || !customer.priceList) {

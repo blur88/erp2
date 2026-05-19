@@ -179,7 +179,7 @@ export class SalesOrderService extends BaseCrudService<
     // Verify customer exists and can purchase
     const customer = await this.customerRepository.findOne({
       where: { id: customerId },
-      relations: ['priceList']
+      relations: { priceList: true }
     });
     if (!customer) {
       throw new NotFoundException('Customer not found');
@@ -277,7 +277,7 @@ export class SalesOrderService extends BaseCrudService<
       // Reload order with customer relation to populate customerName for invoice
       const orderWithCustomer = await this.salesOrderRepository.findOne({
         where: { id: savedOrder.id },
-        relations: ['customer', 'items']
+        relations: { customer: true, items: true }
       });
 
       if (!orderWithCustomer) {
@@ -485,7 +485,7 @@ export class SalesOrderService extends BaseCrudService<
     if (customerId) {
       customerForPricing = await this.customerRepository.findOne({
         where: { id: customerId },
-        relations: ['priceList']
+        relations: { priceList: true }
       });
       if (!customerForPricing) {
         throw new NotFoundException('Customer not found');
@@ -495,7 +495,7 @@ export class SalesOrderService extends BaseCrudService<
       // Load existing customer for pricing
       customerForPricing = await this.customerRepository.findOne({
         where: { id: order.customerId },
-        relations: ['priceList']
+        relations: { priceList: true }
       });
     }
 
@@ -611,7 +611,7 @@ export class SalesOrderService extends BaseCrudService<
   async duplicateOrder(id: string, userId: string): Promise<SalesOrderResponseDto> {
     const originalOrder = await this.salesOrderRepository.findOne({
       where: { id },
-      relations: ['items'],
+      relations: { items: true },
     });
 
     if (!originalOrder) {
@@ -637,7 +637,7 @@ export class SalesOrderService extends BaseCrudService<
   async getFulfillmentStatus(id: string) {
     const order = await this.salesOrderRepository.findOne({
       where: { id },
-      relations: ['items'],
+      relations: { items: true },
     });
 
     if (!order) {
@@ -665,7 +665,7 @@ export class SalesOrderService extends BaseCrudService<
   async createInvoiceFromOrder(id: string) {
     const order = await this.salesOrderRepository.findOne({
       where: { id },
-      relations: ['customer', 'items', 'items.product'],
+      relations: { customer: true, items: { product: true } },
     });
 
     if (!order) {
@@ -835,7 +835,7 @@ export class SalesOrderService extends BaseCrudService<
       // Find the updated sales order with all relations
       const updatedOrder = await this.salesOrderRepository.findOne({
         where: { id: salesOrderId },
-        relations: ['customer', 'items', 'items.product']
+        relations: { customer: true, items: { product: true } }
       });
 
       if (!updatedOrder) {

@@ -552,7 +552,7 @@ export class PaymentService extends BaseCrudService<
   private async findPaymentWithRelations(id: string): Promise<Payment> {
     const payment = await this.paymentRepository.findOne({
       where: { id },
-      relations: ['customer', 'invoice', 'invoice.salesOrder', 'invoice.items', 'invoice.items.product', 'paymentMethodEntity'],
+      relations: { customer: true, invoice: { salesOrder: true, items: { product: true } }, paymentMethodEntity: true },
     });
 
     if (!payment) {
@@ -689,7 +689,7 @@ export class PaymentService extends BaseCrudService<
     const payment = await this.paymentRepository.findOne({
       where: { id },
       withDeleted: true, // Include soft-deleted records
-      relations: ['customer', 'invoice'],
+      relations: { customer: true, invoice: true },
     });
 
     if (!payment) {
@@ -722,7 +722,7 @@ export class PaymentService extends BaseCrudService<
     // Return the restored payment
     const restoredPayment = await this.paymentRepository.findOne({
       where: { id },
-      relations: ['customer', 'invoice'],
+      relations: { customer: true, invoice: true },
     });
 
     return this.mapToResponseDto(restoredPayment);

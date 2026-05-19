@@ -301,7 +301,7 @@ export class JournalEntryService {
   async findOne(id: string): Promise<JournalEntryResponseDto> {
     const entry = await this.journalEntryRepository.findOne({
       where: { id },
-      relations: ['fiscalPeriod', 'lines', 'lines.account', 'reversalOf', 'reversedBy'],
+      relations: { fiscalPeriod: true, lines: { account: true }, reversalOf: true, reversedBy: true },
     });
 
     if (!entry) {
@@ -324,7 +324,7 @@ export class JournalEntryService {
 
     const entry = await this.journalEntryRepository.findOne({
       where: { id },
-      relations: ['lines'],
+      relations: { lines: true },
     });
 
     if (!entry) {
@@ -414,7 +414,7 @@ export class JournalEntryService {
 
     const entry = await this.journalEntryRepository.findOne({
       where: { id },
-      relations: ['reversedBy'],
+      relations: { reversedBy: true },
     });
 
     if (!entry) {
@@ -485,7 +485,7 @@ export class JournalEntryService {
 
     const entry = await this.journalEntryRepository.findOne({
       where: { id },
-      relations: ['fiscalPeriod', 'lines', 'lines.account'],
+      relations: { fiscalPeriod: true, lines: { account: true } },
     });
 
     if (!entry) {
@@ -551,7 +551,7 @@ export class JournalEntryService {
 
     const originalEntry = await this.journalEntryRepository.findOne({
       where: { id },
-      relations: ['fiscalPeriod', 'lines', 'lines.account'],
+      relations: { fiscalPeriod: true, lines: { account: true } },
     });
 
     if (!originalEntry) {
@@ -639,7 +639,7 @@ export class JournalEntryService {
 
     const originalEntry = await this.journalEntryRepository.findOne({
       where: { id },
-      relations: ['fiscalPeriod', 'lines', 'lines.account'],
+      relations: { fiscalPeriod: true, lines: { account: true } },
     });
 
     if (!originalEntry) {
@@ -716,7 +716,7 @@ export class JournalEntryService {
     // Only return original entries (not reversal entries) to avoid reversing reversals
     return this.journalEntryRepository.find({
       where: { sourceType, sourceId, reversalOfId: IsNull() },
-      relations: ['lines'],
+      relations: { lines: true },
     });
   }
 
@@ -871,7 +871,7 @@ export class JournalEntryService {
           case 'sales_order': {
             const records = await this.salesOrderRepository.find({
               where: { id: In(ids) },
-              select: ['id', 'orderNumber'],
+              select: { id: true, orderNumber: true },
             });
             for (const record of records) {
               refMap.set(`sales_order:${record.id}`, record.orderNumber);
@@ -881,7 +881,7 @@ export class JournalEntryService {
           case 'purchase_order': {
             const records = await this.purchaseOrderRepository.find({
               where: { id: In(ids) },
-              select: ['id', 'orderNumber'],
+              select: { id: true, orderNumber: true },
             });
             for (const record of records) {
               refMap.set(`purchase_order:${record.id}`, record.orderNumber);
@@ -891,7 +891,7 @@ export class JournalEntryService {
           case 'payment': {
             const records = await this.paymentRepository.find({
               where: { id: In(ids) },
-              select: ['id', 'paymentNumber'],
+              select: { id: true, paymentNumber: true },
             });
             for (const record of records) {
               refMap.set(`payment:${record.id}`, record.paymentNumber);
@@ -901,7 +901,7 @@ export class JournalEntryService {
           case 'goods_received_note': {
             const records = await this.grnRepository.find({
               where: { id: In(ids) },
-              select: ['id', 'grnNumber'],
+              select: { id: true, grnNumber: true },
             });
             for (const record of records) {
               refMap.set(`goods_received_note:${record.id}`, record.grnNumber);
@@ -911,7 +911,7 @@ export class JournalEntryService {
           case 'vendor_payment': {
             const records = await this.vendorPaymentRepository.find({
               where: { id: In(ids) },
-              select: ['id', 'paymentNumber'],
+              select: { id: true, paymentNumber: true },
             });
             for (const record of records) {
               refMap.set(`vendor_payment:${record.id}`, record.paymentNumber);
@@ -921,7 +921,7 @@ export class JournalEntryService {
           case 'expense': {
             const records = await this.expenseRepository.find({
               where: { id: In(ids) },
-              select: ['id', 'referenceNumber'],
+              select: { id: true, referenceNumber: true },
             });
             for (const record of records) {
               refMap.set(`expense:${record.id}`, record.referenceNumber);
@@ -931,7 +931,7 @@ export class JournalEntryService {
           case 'owner_equity_transaction': {
             const records = await this.ownerEquityTransactionRepository.find({
               where: { id: In(ids) },
-              select: ['id', 'referenceNumber'],
+              select: { id: true, referenceNumber: true },
             });
             for (const record of records) {
               refMap.set(`owner_equity_transaction:${record.id}`, record.referenceNumber);
@@ -941,7 +941,7 @@ export class JournalEntryService {
           case 'fund_transfer': {
             const records = await this.fundTransferRepository.find({
               where: { id: In(ids) },
-              select: ['id', 'referenceNumber'],
+              select: { id: true, referenceNumber: true },
             });
             for (const record of records) {
               refMap.set(`fund_transfer:${record.id}`, record.referenceNumber);
@@ -951,7 +951,7 @@ export class JournalEntryService {
           case 'stock_adjustment': {
             const records = await this.stockAdjustmentRepository.find({
               where: { id: In(ids) },
-              select: ['id', 'adjustmentNumber'],
+              select: { id: true, adjustmentNumber: true },
             });
             for (const record of records) {
               refMap.set(`stock_adjustment:${record.id}`, record.adjustmentNumber);
@@ -961,7 +961,7 @@ export class JournalEntryService {
           case 'invoice': {
             const records = await this.invoiceRepository.find({
               where: { id: In(ids) },
-              select: ['id', 'invoiceNumber'],
+              select: { id: true, invoiceNumber: true },
             });
             for (const record of records) {
               refMap.set(`invoice:${record.id}`, record.invoiceNumber);
@@ -990,70 +990,70 @@ export class JournalEntryService {
         case 'sales_order': {
           const record = await this.salesOrderRepository.findOne({
             where: { id: sourceId },
-            select: ['id', 'orderNumber'],
+            select: { id: true, orderNumber: true },
           });
           return record?.orderNumber;
         }
         case 'purchase_order': {
           const record = await this.purchaseOrderRepository.findOne({
             where: { id: sourceId },
-            select: ['id', 'orderNumber'],
+            select: { id: true, orderNumber: true },
           });
           return record?.orderNumber;
         }
         case 'payment': {
           const record = await this.paymentRepository.findOne({
             where: { id: sourceId },
-            select: ['id', 'paymentNumber'],
+            select: { id: true, paymentNumber: true },
           });
           return record?.paymentNumber;
         }
         case 'goods_received_note': {
           const record = await this.grnRepository.findOne({
             where: { id: sourceId },
-            select: ['id', 'grnNumber'],
+            select: { id: true, grnNumber: true },
           });
           return record?.grnNumber;
         }
         case 'vendor_payment': {
           const record = await this.vendorPaymentRepository.findOne({
             where: { id: sourceId },
-            select: ['id', 'paymentNumber'],
+            select: { id: true, paymentNumber: true },
           });
           return record?.paymentNumber;
         }
         case 'expense': {
           const record = await this.expenseRepository.findOne({
             where: { id: sourceId },
-            select: ['id', 'referenceNumber'],
+            select: { id: true, referenceNumber: true },
           });
           return record?.referenceNumber;
         }
         case 'owner_equity_transaction': {
           const record = await this.ownerEquityTransactionRepository.findOne({
             where: { id: sourceId },
-            select: ['id', 'referenceNumber'],
+            select: { id: true, referenceNumber: true },
           });
           return record?.referenceNumber;
         }
         case 'fund_transfer': {
           const record = await this.fundTransferRepository.findOne({
             where: { id: sourceId },
-            select: ['id', 'referenceNumber'],
+            select: { id: true, referenceNumber: true },
           });
           return record?.referenceNumber;
         }
         case 'stock_adjustment': {
           const record = await this.stockAdjustmentRepository.findOne({
             where: { id: sourceId },
-            select: ['id', 'adjustmentNumber'],
+            select: { id: true, adjustmentNumber: true },
           });
           return record?.adjustmentNumber;
         }
         case 'invoice': {
           const record = await this.invoiceRepository.findOne({
             where: { id: sourceId },
-            select: ['id', 'invoiceNumber'],
+            select: { id: true, invoiceNumber: true },
           });
           return record?.invoiceNumber;
         }

@@ -150,7 +150,7 @@ describe('OwnerEquityService', () => {
     expect(result.id).toBe('tx-1');
     expect(ownerEquityRepository.findOne).toHaveBeenCalledWith({
       where: { id: 'tx-1' },
-      relations: ['paymentMethod'],
+      relations: { paymentMethod: true },
       withDeleted: true,
     });
   });
@@ -327,7 +327,7 @@ describe('OwnerEquityService', () => {
     expect(result.journalEntryId).toBe('je-1');
     expect(ownerEquityRepository.findOne).toHaveBeenCalledWith({
       where: { id: 'tx-1' },
-      relations: ['paymentMethod'],
+      relations: { paymentMethod: true },
       withDeleted: true,
     });
   });

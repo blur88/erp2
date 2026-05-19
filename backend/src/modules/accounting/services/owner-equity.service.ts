@@ -106,7 +106,7 @@ export class OwnerEquityService {
   async findOne(id: string): Promise<OwnerEquityResponseDto> {
     const transaction = await this.ownerEquityRepository.findOne({
       where: { id },
-      relations: ['paymentMethod'],
+      relations: { paymentMethod: true },
       withDeleted: true,
     });
 
@@ -224,7 +224,7 @@ export class OwnerEquityService {
   ): Promise<OwnerEquityResponseDto> {
     const transaction = await this.ownerEquityRepository.findOne({
       where: { id },
-      relations: ['paymentMethod'],
+      relations: { paymentMethod: true },
       withDeleted: true,
     });
 
@@ -268,7 +268,7 @@ export class OwnerEquityService {
   ): Promise<OwnerEquityResponseDto> {
     const transaction = await this.ownerEquityRepository.findOne({
       where: { id },
-      relations: ['paymentMethod'],
+      relations: { paymentMethod: true },
       withDeleted: true,
     });
 

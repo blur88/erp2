@@ -375,7 +375,7 @@ describe('SalesOrderService', () => {
       // Verify findOne was called for the initial load with relations
       expect(salesOrderRepository.findOne).toHaveBeenCalledWith({
         where: { id: orderId },
-        relations: ['customer', 'items', 'items.product'],
+        relations: { customer: true, items: { product: true } },
       });
 
       // Verify the accounting service received the order with customer and items

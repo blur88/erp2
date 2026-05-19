@@ -78,7 +78,7 @@ export class GoodsReceivedNoteService extends BaseCrudService<
     // Validate purchase order exists
     const purchaseOrder = await this.purchaseOrderRepository.findOne({
       where: { id: createDto.purchaseOrderId },
-      relations: ['supplier', 'items', 'items.product'],
+      relations: { supplier: true, items: { product: true } },
     });
 
     if (!purchaseOrder) {
@@ -185,7 +185,7 @@ export class GoodsReceivedNoteService extends BaseCrudService<
       try {
         const fullGrn = await this.grnRepository.findOne({
           where: { id: savedGrn.id },
-          relations: ['supplier', 'purchaseOrder', 'items', 'items.product', 'items.purchaseOrderItem'],
+          relations: { supplier: true, purchaseOrder: true, items: { product: true, purchaseOrderItem: true } },
         });
 
         if (fullGrn) {
@@ -298,7 +298,7 @@ export class GoodsReceivedNoteService extends BaseCrudService<
 
     const grn = await this.grnRepository.findOne({
       where: { id },
-      relations: ['supplier', 'purchaseOrder', 'purchaseOrder.vendorPayments', 'items', 'items.product'],
+      relations: { supplier: true, purchaseOrder: { vendorPayments: true }, items: { product: true } },
     });
 
     if (!grn) {
@@ -367,7 +367,7 @@ export class GoodsReceivedNoteService extends BaseCrudService<
 
     const grn = await this.grnRepository.findOne({
       where: { id },
-      relations: ['purchaseOrder']
+      relations: { purchaseOrder: true }
     });
 
     if (!grn) {
@@ -478,7 +478,7 @@ export class GoodsReceivedNoteService extends BaseCrudService<
     const grn = await this.grnRepository.findOne({
       where: { id },
       withDeleted: true,
-      relations: ['purchaseOrder']
+      relations: { purchaseOrder: true }
     });
 
     if (!grn) {
@@ -511,7 +511,7 @@ export class GoodsReceivedNoteService extends BaseCrudService<
 
       const restoredGrn = await this.grnRepository.findOne({
         where: { id },
-        relations: ['supplier', 'purchaseOrder'],
+        relations: { supplier: true, purchaseOrder: true },
       });
 
       if (!restoredGrn) {

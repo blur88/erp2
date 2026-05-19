@@ -42,7 +42,7 @@ export class SalesOrderPaymentService {
 
     const order = await this.salesOrderRepository.findOne({
       where: { id },
-      relations: ['customer', 'items', 'items.product'],
+      relations: { customer: true, items: { product: true } },
     });
 
     if (!order) {
@@ -191,7 +191,7 @@ export class SalesOrderPaymentService {
 
     const order = await this.salesOrderRepository.findOne({
       where: { id },
-      relations: ['customer', 'items', 'items.product'],
+      relations: { customer: true, items: { product: true } },
     });
 
     if (!order) {
@@ -296,7 +296,7 @@ export class SalesOrderPaymentService {
         try {
           const fullPayment = await paymentRepo.findOne({
             where: { id: savedPayment.id },
-            relations: ['customer', 'paymentMethodEntity'],
+            relations: { customer: true, paymentMethodEntity: true },
           });
           if (fullPayment) {
             await this.accountingService.postCustomerPaymentEntry(fullPayment, 'system');
@@ -325,7 +325,7 @@ export class SalesOrderPaymentService {
   ): Promise<SalesOrderResponseDto> {
     const order = await this.salesOrderRepository.findOne({
       where: { id },
-      relations: ['customer', 'items', 'items.product'],
+      relations: { customer: true, items: { product: true } },
     });
 
     if (!order) {
@@ -392,7 +392,7 @@ export class SalesOrderPaymentService {
       return await this.settingsService.generateDocumentNumber('Payments');
     } catch {
       const allPayments = await paymentRepository.find({
-        select: ['paymentNumber'],
+        select: { paymentNumber: true },
         withDeleted: true,
       });
       let maxNumber = 0;

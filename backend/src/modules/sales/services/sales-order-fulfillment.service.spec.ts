@@ -174,11 +174,11 @@ describe('SalesOrderFulfillmentService', () => {
 
       expect(salesOrderRepository.findOne).toHaveBeenNthCalledWith(1, {
         where: { id: orderId },
-        relations: ['customer', 'items', 'items.product'],
+        relations: { customer: true, items: { product: true } },
       });
       expect(salesOrderRepository.findOne).toHaveBeenNthCalledWith(2, {
         where: { id: orderId },
-        relations: ['customer', 'items', 'items.product'],
+        relations: { customer: true, items: { product: true } },
       });
     });
 

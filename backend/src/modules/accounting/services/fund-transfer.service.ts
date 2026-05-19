@@ -130,7 +130,7 @@ export class FundTransferService {
   ): Promise<FundTransferResponseDto> {
     const transfer = await this.transferRepository.findOne({
       where: { id },
-      relations: ['sourceAccount', 'destinationAccount'],
+      relations: { sourceAccount: true, destinationAccount: true },
     });
     if (!transfer || transfer.deletedAt) {
       throw new NotFoundException(`Fund transfer '${id}' not found`);
@@ -313,7 +313,7 @@ export class FundTransferService {
     const records = await this.transferRepository.find({
       withDeleted: true,
       where: { deletedAt: Not(IsNull()) },
-      relations: ['sourceAccount', 'destinationAccount', 'journalEntry'],
+      relations: { sourceAccount: true, destinationAccount: true, journalEntry: true },
       order: { deletedAt: 'DESC' },
     });
     return records.map((r) => this.toResponseDto(r));
@@ -437,13 +437,7 @@ export class FundTransferService {
   async findOne(id: string): Promise<FundTransferResponseDto> {
     const transfer = await this.transferRepository.findOne({
       where: { id },
-      relations: [
-        'sourceAccount',
-        'destinationAccount',
-        'journalEntry',
-        'journalEntry.lines',
-        'journalEntry.lines.account',
-      ],
+      relations: { sourceAccount: true, destinationAccount: true, journalEntry: { lines: { account: true } } },
     });
 
     if (!transfer || transfer.deletedAt) {

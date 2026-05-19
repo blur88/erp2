@@ -239,7 +239,7 @@ export class CategoryService extends BaseCrudService<
 
     const products = await this.productRepository.find({
       where: { categoryId: id },
-      select: ['id', 'name', 'stockQuantity'],
+      select: { id: true, name: true, stockQuantity: true },
     });
 
     return { data: products as CategoryProductDto[] };
@@ -543,7 +543,7 @@ export class CategoryService extends BaseCrudService<
 
     const category = await this.categoryRepository.findOne({
       where: { id },
-      relations: ['children'],
+      relations: { children: true },
     });
 
     if (!category) {
@@ -679,7 +679,7 @@ export class CategoryService extends BaseCrudService<
     // Find the category (including soft-deleted ones)
     const category = await this.categoryRepository.findOne({
       where: { id },
-      relations: ['children', 'products'],
+      relations: { children: true, products: true },
       withDeleted: true,
     });
 
@@ -811,7 +811,7 @@ export class CategoryService extends BaseCrudService<
       try {
         const category = await this.categoryRepository.findOne({
           where: { id: categoryId },
-          relations: ['children', 'products'],
+          relations: { children: true, products: true },
           withDeleted: true,
         });
 

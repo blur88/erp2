@@ -7,7 +7,7 @@ import {
   forwardRef,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { Product } from '../../../database/entities/product.entity';
 import { SalesOrder } from '../../../database/entities/sales-order.entity';
 import { SalesOrderItem } from '../../../database/entities/sales-order-item.entity';
@@ -191,7 +191,7 @@ export class IntegrationService {
     items: Array<{ productId: string; quantity: number }>,
   ): Promise<StockAvailabilityCheck[]> {
     const productIds = items.map(item => item.productId);
-    const products = await this.productRepository.findByIds(productIds);
+    const products = await this.productRepository.findBy({ id: In(productIds) });
 
     const availabilityChecks: StockAvailabilityCheck[] = [];
 
@@ -396,7 +396,7 @@ export class IntegrationService {
   }> {
     const product = await this.productRepository.findOne({
       where: { id: productId },
-      relations: ['priceListItems', 'priceListItems.priceList'],
+      relations: { priceListItems: { priceList: true } },
     });
 
     if (!product) {
