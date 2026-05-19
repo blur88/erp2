@@ -18,7 +18,7 @@ export class LoginDto {
   })
   @IsOptional()
   @IsString()
-  usernameOrEmail: string;
+  usernameOrEmail?: string;
 
   @ApiProperty({
     description: 'User password',

@@ -223,7 +223,7 @@ export class StockMovementService {
   async findOne(id: string): Promise<StockMovementResponseDto> {
     const movement = await this.stockMovementRepository.findOne({
       where: { id },
-      relations: { product: { category: true } },
+      relations: { product: { category: true } }, // movedByUser omitted — column removed in migration 1732550000000
     });
 
     if (!movement) {
