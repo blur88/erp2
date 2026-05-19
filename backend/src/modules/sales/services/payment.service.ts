@@ -36,6 +36,7 @@ import {
 } from '../../search/search.constants';
 import { JwtPayload } from '../../auth/strategies/jwt.strategy';
 import { UserRole } from '../../../database/entities/user.entity';
+import { SettingsService } from '../../settings/settings.service';
 
 @Injectable()
 export class PaymentService extends BaseCrudService<
@@ -57,6 +58,7 @@ export class PaymentService extends BaseCrudService<
     private readonly paymentMethodRepository: Repository<PaymentMethodEntity>,
     auditLogService: AuditLogService,
     private readonly accountingService: AccountingService,
+    private readonly settingsService: SettingsService,
   ) {
     super(paymentRepository, auditLogService);
   }
@@ -115,9 +117,12 @@ export class PaymentService extends BaseCrudService<
       throw new NotFoundException('Payment method not found');
     }
 
+    const paymentNumber = await this.settingsService.generateDocumentNumber('Payments');
+
     // Create payment
     const payment = this.paymentRepository.create({
       ...createPaymentDto,
+      paymentNumber,
       status: PaymentStatus.COMPLETED,
       paymentMethodId: paymentMethod.id,
       settlementStatus: paymentMethod.requiresSettlement
