@@ -4,7 +4,6 @@ import {
   Index,
   ManyToOne,
   JoinColumn,
-  BeforeInsert,
 } from 'typeorm';
 import {
   IsString,
@@ -52,12 +51,12 @@ export enum SettlementStatusEnum {
 export class Payment extends BaseEntity {
   @Column({
     type: 'varchar',
-    length: 30,
+    length: 50,
     unique: true,
     comment: 'Unique payment reference number',
   })
   @IsString()
-  @MaxLength(30)
+  @MaxLength(50)
   paymentNumber: string;
 
   
@@ -174,14 +173,5 @@ export class Payment extends BaseEntity {
   // Computed properties
   get isCompleted(): boolean {
     return this.status === PaymentStatus.COMPLETED;
-  }
-
-  // Hooks
-  @BeforeInsert()
-  generatePaymentNumber() {
-    if (!this.paymentNumber) {
-      const timestamp = Date.now().toString(36).toUpperCase();
-      this.paymentNumber = `PAY-${timestamp}`;
-    }
   }
 }

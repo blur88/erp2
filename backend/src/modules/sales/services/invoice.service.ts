@@ -39,6 +39,7 @@ import {
 } from '../../search/search.constants';
 import { JwtPayload } from '../../auth/strategies/jwt.strategy';
 import { UserRole } from '../../../database/entities/user.entity';
+import { SettingsService } from '../../settings/settings.service';
 // import { EmailService } from '../../auth/services/email.service'; // Temporarily disabled
 
 @Injectable()
@@ -62,6 +63,7 @@ export class InvoiceService extends BaseCrudService<
     @InjectRepository(InvoiceItem)
     private readonly invoiceItemRepository: Repository<InvoiceItem>,
     auditLogService: AuditLogService,
+    private readonly settingsService: SettingsService,
     // private readonly emailService: EmailService, // Temporarily disabled
   ) {
     super(invoiceRepository, auditLogService);
@@ -179,31 +181,6 @@ export class InvoiceService extends BaseCrudService<
     }
   }
 
-  private async generateSequentialInvoiceNumber(): Promise<string> {
-    // Get all existing invoice numbers that match the sequential format
-    const invoices = await this.invoiceRepository.find({
-      select: ['invoiceNumber']
-    });
-
-    let maxNumber = 0;
-    for (const invoice of invoices) {
-      // Extract number from format INV-000001 (only sequential format)
-      const match = invoice.invoiceNumber.match(/^INV-(\d+)$/);
-      if (match) {
-        const num = parseInt(match[1]);
-        if (num > maxNumber) {
-          maxNumber = num;
-        }
-      }
-    }
-
-    // Next sequential number
-    const nextNumber = maxNumber + 1;
-
-    // Format with leading zeros (6 digits)
-    return `INV-${nextNumber.toString().padStart(6, '0')}`;
-  }
-
   async create(
     createInvoiceDto: CreateInvoiceDto,
     userId?: string,
@@ -232,8 +209,7 @@ export class InvoiceService extends BaseCrudService<
     // Calculate total amount from sales order or use provided amount
     const totalAmount = createInvoiceDto.totalAmount || (salesOrder?.totalAmount || 0);
 
-    // Generate sequential invoice number
-    const invoiceNumber = await this.generateSequentialInvoiceNumber();
+    const invoiceNumber = await this.settingsService.generateDocumentNumber('Invoices');
 
     // Create invoice
     const invoice = this.invoiceRepository.create({
