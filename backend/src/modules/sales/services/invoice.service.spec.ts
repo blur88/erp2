@@ -10,6 +10,7 @@ import { Product } from '../../../database/entities/product.entity';
 import { InvoiceItem } from '../../../database/entities/invoice-item.entity';
 import { AuditLogService } from '../../audit-logs/services';
 import { UserRole } from '../../../database/entities/user.entity';
+import { SettingsService } from '../../settings/settings.service';
 
 describe('InvoiceService.searchGlobal', () => {
   let service: InvoiceService;
@@ -39,6 +40,7 @@ describe('InvoiceService.searchGlobal', () => {
         { provide: getRepositoryToken(Product), useValue: {} },
         { provide: getRepositoryToken(InvoiceItem), useValue: {} },
         { provide: AuditLogService, useValue: { log: jest.fn(), createLog: jest.fn() } },
+        { provide: SettingsService, useValue: { generateDocumentNumber: jest.fn() } },
       ],
     }).compile();
 
@@ -153,6 +155,7 @@ describe('InvoiceService.findAll - new filter params', () => {
         { provide: getRepositoryToken(Product), useValue: {} },
         { provide: getRepositoryToken(InvoiceItem), useValue: {} },
         { provide: AuditLogService, useValue: { log: jest.fn(), createLog: jest.fn() } },
+        { provide: SettingsService, useValue: { generateDocumentNumber: jest.fn() } },
       ],
     }).compile();
 
@@ -277,6 +280,7 @@ describe('InvoiceService.softDelete', () => {
         { provide: getRepositoryToken(Product), useValue: {} },
         { provide: getRepositoryToken(InvoiceItem), useValue: {} },
         { provide: AuditLogService, useValue: { log: jest.fn(), createLog: jest.fn() } },
+        { provide: SettingsService, useValue: { generateDocumentNumber: jest.fn() } },
       ],
     }).compile();
 
@@ -309,5 +313,60 @@ describe('InvoiceService.softDelete', () => {
     await expect(service.softDelete('inv-1', 'user-1', 'tester')).rejects.toThrow(
       'Can only delete invoices that are in DRAFT status',
     );
+  });
+});
+
+describe('InvoiceService.create', () => {
+  let service: InvoiceService;
+  let invoiceRepository: jest.Mocked<any>;
+  let customerRepository: jest.Mocked<any>;
+  let settingsService: jest.Mocked<Pick<SettingsService, 'generateDocumentNumber'>>;
+
+  beforeEach(async () => {
+    invoiceRepository = {
+      createQueryBuilder: jest.fn(),
+      findOne: jest.fn(),
+      create: jest.fn(),
+      save: jest.fn(),
+    };
+    customerRepository = { findOne: jest.fn() };
+    settingsService = { generateDocumentNumber: jest.fn() };
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        InvoiceService,
+        { provide: getRepositoryToken(Invoice), useValue: invoiceRepository },
+        { provide: getRepositoryToken(Customer), useValue: customerRepository },
+        { provide: getRepositoryToken(SalesOrder), useValue: { findOne: jest.fn() } },
+        { provide: getRepositoryToken(Payment), useValue: {} },
+        { provide: getRepositoryToken(Product), useValue: {} },
+        { provide: getRepositoryToken(InvoiceItem), useValue: { create: jest.fn(), save: jest.fn() } },
+        { provide: AuditLogService, useValue: { log: jest.fn(), createLog: jest.fn() } },
+        { provide: SettingsService, useValue: settingsService },
+      ],
+    }).compile();
+
+    service = module.get(InvoiceService);
+  });
+
+  it('calls generateDocumentNumber("Invoices") when creating an invoice', async () => {
+    const dto = {
+      customerId: 'cust-1',
+      totalAmount: 500,
+    };
+    customerRepository.findOne.mockResolvedValue({ id: 'cust-1', name: 'Test' });
+    settingsService.generateDocumentNumber.mockResolvedValue('INV-26-001');
+    const mockInvoice = { id: 'inv-1', invoiceNumber: 'INV-26-001' };
+    invoiceRepository.create.mockReturnValue(mockInvoice);
+    invoiceRepository.save.mockResolvedValue(mockInvoice);
+    invoiceRepository.findOne.mockResolvedValue({
+      ...mockInvoice,
+      customer: { id: 'cust-1', name: 'Test' },
+      items: [],
+    });
+
+    await service.create(dto as any);
+
+    expect(settingsService.generateDocumentNumber).toHaveBeenCalledWith('Invoices');
   });
 });
