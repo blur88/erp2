@@ -17,6 +17,8 @@ describe('Purchasing (e2e)', () => {
   let supplierId: string;
   let productId: string;
   let paymentMethodId: string;
+  let purchaseOrderId: string;
+  let purchaseOrderNumber: string;
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -119,6 +121,7 @@ describe('Purchasing (e2e)', () => {
       const supplier = res.body.data ?? res.body;
       expect(supplier.companyName).toBe('Tech Supplies Ltd');
       supplierId = supplier.id;
+      expect(supplierId).toBeTruthy();
     });
 
     it('GET /purchasing/suppliers — lists suppliers', async () => {
