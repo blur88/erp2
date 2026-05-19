@@ -10,6 +10,7 @@ import { AuditLogService } from '../../audit-logs/services';
 import { AccountingService } from '../../accounting/services/accounting.service';
 import { NotFoundException } from '@nestjs/common';
 import { UserRole } from '../../../database/entities/user.entity';
+import { SettingsService } from '../../settings/settings.service';
 
 describe('PaymentService', () => {
   let service: PaymentService;
@@ -19,10 +20,11 @@ describe('PaymentService', () => {
   let paymentMethodRepository: jest.Mocked<Repository<PaymentMethodEntity>>;
   let accountingService: jest.Mocked<AccountingService>;
   let auditLogService: jest.Mocked<AuditLogService>;
+  let settingsService: jest.Mocked<Pick<SettingsService, 'generateDocumentNumber'>>;
 
   const createMockPayment = (): Partial<Payment> => ({
     id: '123e4567-e89b-12d3-a456-426614174000',
-    paymentNumber: 'PAY-000001',
+    paymentNumber: 'PAY-26-001',
     amount: 1000,
     paymentDate: new Date('2024-01-15'),
     status: PaymentStatus.COMPLETED,
@@ -85,6 +87,12 @@ describe('PaymentService', () => {
             reverseSourceEntries: jest.fn(),
           },
         },
+        {
+          provide: SettingsService,
+          useValue: {
+            generateDocumentNumber: jest.fn(),
+          },
+        },
       ],
     }).compile();
 
@@ -95,6 +103,8 @@ describe('PaymentService', () => {
     paymentMethodRepository = module.get(getRepositoryToken(PaymentMethodEntity));
     accountingService = module.get(AccountingService);
     auditLogService = module.get(AuditLogService);
+    settingsService = module.get(SettingsService);
+    (settingsService.generateDocumentNumber as jest.Mock).mockResolvedValue('PAY-26-001');
   });
 
   it('should be defined', () => {
@@ -155,6 +165,7 @@ describe('PaymentService', () => {
       const result = await service.create(createDto);
 
       // Assert
+      expect(settingsService.generateDocumentNumber).toHaveBeenCalledWith('Payments');
       expect(accountingService.postCustomerPaymentEntry).toHaveBeenCalledWith(
         expect.objectContaining({
           id: mockPayment.id,
