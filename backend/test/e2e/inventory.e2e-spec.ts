@@ -125,4 +125,72 @@ describe('Inventory (e2e)', () => {
       expect(res.body.id).toBe(categoryId);
     });
   });
+
+  // ─── Product CRUD ─────────────────────────────────────────────────────────
+
+  describe('Product CRUD', () => {
+    it('POST /inventory/products — creates a product', async () => {
+      const res = await request(app.getHttpServer())
+        .post('/inventory/products')
+        .set('Authorization', `Bearer ${accessToken}`)
+        .send({
+          name: 'Laptop Pro 15',
+          categoryId,
+          baseCost: 800,
+          stockQuantity: 50,
+        })
+        .expect(201);
+
+      expect(res.body).toHaveProperty('id');
+      expect(res.body.name).toBe('Laptop Pro 15');
+      productId = res.body.id;
+    });
+
+    it('GET /inventory/products — lists products', async () => {
+      const res = await request(app.getHttpServer())
+        .get('/inventory/products')
+        .set('Authorization', `Bearer ${accessToken}`)
+        .expect(200);
+
+      const items = res.body.data ?? res.body;
+      const ids = items.map((p: any) => p.id);
+      expect(ids).toContain(productId);
+    });
+
+    it('GET /inventory/products/:id — returns the product', async () => {
+      const res = await request(app.getHttpServer())
+        .get(`/inventory/products/${productId}`)
+        .set('Authorization', `Bearer ${accessToken}`)
+        .expect(200);
+
+      expect(res.body.id).toBe(productId);
+      expect(res.body.name).toBe('Laptop Pro 15');
+    });
+
+    it('PATCH /inventory/products/:id — updates the product', async () => {
+      const res = await request(app.getHttpServer())
+        .patch(`/inventory/products/${productId}`)
+        .set('Authorization', `Bearer ${accessToken}`)
+        .send({ name: 'Laptop Pro 15 Updated', categoryId, baseCost: 850 })
+        .expect(200);
+
+      expect(res.body.name).toBe('Laptop Pro 15 Updated');
+    });
+
+    it('DELETE /inventory/products/:id — soft-deletes the product', async () => {
+      await request(app.getHttpServer())
+        .delete(`/inventory/products/${productId}`)
+        .set('Authorization', `Bearer ${accessToken}`)
+        .expect(204);
+    });
+
+    it('POST /inventory/products/:id/restore — restores the product', async () => {
+      const res = await request(app.getHttpServer())
+        .post(`/inventory/products/${productId}/restore`)
+        .set('Authorization', `Bearer ${accessToken}`)
+        .expect(200);
+
+      expect(res.body.id).toBe(productId);
+    });
+  });
 });
