@@ -102,13 +102,14 @@ const DashboardPage: React.FC = () => {
     outOfStockLoading ||
     paymentsLoading
 
-  const error =
-    salesError ||
-    purchaseError ||
-    suppliersError ||
-    inventoryError ||
-    outOfStockError ||
-    paymentsError
+  const failedSections = [
+    salesError && 'Sales',
+    purchaseError && 'Purchases',
+    paymentsError && 'Payments',
+    inventoryError && 'Inventory Stats',
+    outOfStockError && 'Out of Stock',
+    suppliersError && 'Suppliers',
+  ].filter(Boolean) as string[]
 
   const dashboardData = useMemo<DashboardData>(() => {
     const today = new Date()
@@ -380,7 +381,11 @@ const DashboardPage: React.FC = () => {
         subtitle="Monitor your business performance across sales, purchasing, and inventory"
       />
 
-      {error && <Alert severity="error" sx={{ mb: 4 }}>Failed to load dashboard data</Alert>}
+      {failedSections.length > 0 && (
+        <Alert severity="warning" sx={{ mb: 4 }}>
+          Could not load: {failedSections.join(', ')}. Other data may be incomplete.
+        </Alert>
+      )}
 
       <QuickActions />
 
