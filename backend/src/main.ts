@@ -1,5 +1,5 @@
 import { NestFactory } from '@nestjs/core';
-import { ValidationPipe, Logger } from '@nestjs/common';
+import { ValidationPipe, Logger, BadRequestException } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
 import { NestExpressApplication } from '@nestjs/platform-express';
@@ -42,14 +42,12 @@ async function bootstrap() {
         value: false, // Don't expose the invalid value in error messages
       },
       exceptionFactory: (errors) => {
-        // Custom exception factory for debugging
-        console.log('Validation errors:', JSON.stringify(errors, null, 2));
         const messages = errors.map(error => {
           const constraints = Object.values(error.constraints || {});
           return constraints.length > 0 ? constraints[0] : `Validation failed for ${error.property}`;
         });
 
-        return new Error(`Validation failed: ${messages.join(', ')}`);
+        return new BadRequestException(`Validation failed: ${messages.join(', ')}`);
       },
     }),
   );
