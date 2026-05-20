@@ -206,17 +206,15 @@ describe('Sales (e2e)', () => {
   });
 
   // ─── Invoice ──────────────────────────────────────────────────────────────
-  // TODO(#625): unskip once Invoice.fromSalesOrder() populates invoiceNumber.
-  // Currently fails with 500: null constraint violation on invoiceNumber column.
-
-  describe.skip('Invoice', () => {
+  describe('Invoice', () => {
     it('POST /sales-orders/:id/create-invoice — creates an invoice', async () => {
       const res = await request(app.getHttpServer())
         .post(`/sales-orders/${salesOrderId}/create-invoice`)
         .set('Authorization', `Bearer ${accessToken}`)
         .expect(201);
 
-      expect(res.body).toHaveProperty('id');
+      expect(res.body).toHaveProperty('invoiceId');
+      expect(res.body).toHaveProperty('invoiceNumber');
     });
 
     it('GET /sales-orders/:id/invoices — lists invoices for the order', async () => {
@@ -225,8 +223,8 @@ describe('Sales (e2e)', () => {
         .set('Authorization', `Bearer ${accessToken}`)
         .expect(200);
 
-      const items: any[] = Array.isArray(res.body) ? res.body : res.body.data;
-      expect(items.length).toBeGreaterThan(0);
+      expect(res.body).toHaveProperty('invoices');
+      expect(res.body.invoices.length).toBeGreaterThan(0);
     });
   });
 

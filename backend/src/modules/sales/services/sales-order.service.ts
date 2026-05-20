@@ -672,9 +672,9 @@ export class SalesOrderService extends BaseCrudService<
       throw new NotFoundException('Sales order not found');
     }
 
-    // Create invoice using the Invoice service (would need to inject)
+    const invoiceNumber = await this.generateInvoiceNumber();
     const invoiceData = Invoice.fromSalesOrder(order);
-    const invoice = this.invoiceRepository.create(invoiceData);
+    const invoice = this.invoiceRepository.create({ ...invoiceData, invoiceNumber });
 
     // lineItems removed from invoice model
 
