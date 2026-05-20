@@ -6,6 +6,7 @@ import { NestExpressApplication } from '@nestjs/platform-express';
 import { join } from 'path';
 import { AppModule } from './app.module';
 import { SecurityApplicationService, SecurityMonitoringMiddleware } from './common/security';
+import { extractValidationMessages } from './common/utils/validation-errors.util';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
@@ -42,11 +43,7 @@ async function bootstrap() {
         value: false, // Don't expose the invalid value in error messages
       },
       exceptionFactory: (errors) => {
-        const messages = errors.map(error => {
-          const constraints = Object.values(error.constraints || {});
-          return constraints.length > 0 ? constraints[0] : `Validation failed for ${error.property}`;
-        });
-
+        const messages = extractValidationMessages(errors);
         return new BadRequestException(`Validation failed: ${messages.join(', ')}`);
       },
     }),
