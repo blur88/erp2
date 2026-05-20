@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import {
   Between,
   ILike,
+  IsNull,
   LessThanOrEqual,
   MoreThanOrEqual,
   Repository,
@@ -268,7 +269,7 @@ export class SalesOrderQueryService {
 
     const findOptions: any = {
       relations: { customer: true, items: { product: true }, invoices: true },
-      where: { deletedAt: null },
+      where: { deletedAt: IsNull() },
       order: { [sortBy]: sortOrder },
     };
 
