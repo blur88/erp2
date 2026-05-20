@@ -13,6 +13,7 @@ import {
   Repository,
   UpdateResult,
   In,
+  IsNull,
   FindOptionsWhere,
   Not,
 } from 'typeorm';
@@ -1293,7 +1294,7 @@ export class ProductService extends BaseCrudService<
 
     // Get total products count
     const totalProducts = await this.productRepository.count({
-      where: { deletedAt: null }
+      where: { deletedAt: IsNull() }
     });
 
     // Get total categories count
@@ -1304,7 +1305,7 @@ export class ProductService extends BaseCrudService<
     // Get all active products with category info for calculations
     const products = await this.productRepository.find({
       relations: { category: true },
-      where: { deletedAt: null }
+      where: { deletedAt: IsNull() }
     });
 
     // Calculate comprehensive statistics

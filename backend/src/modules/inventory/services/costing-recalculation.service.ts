@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { IsNull, Repository } from 'typeorm';
 import { Product } from '../../../database/entities/product.entity';
 import { BaseCostCalculatorService } from './base-cost-calculator.service';
 import { CostingStrategyFactory } from './costing/costing-strategy-factory.service';
@@ -44,7 +44,7 @@ export class CostingRecalculationService {
 
     // Get all active products
     const products = await this.productRepository.find({
-      where: { isActive: true, deletedAt: null } as any,
+      where: { isActive: true, deletedAt: IsNull() },
     });
 
     const results: Array<{
