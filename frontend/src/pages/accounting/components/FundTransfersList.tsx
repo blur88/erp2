@@ -1,5 +1,4 @@
 import type { RefObject } from 'react'
-import { Chip } from '@mui/material'
 
 import EntityTable, { type ColumnConfig } from '@/components/common/EntityTable'
 import type { FundTransfer } from '@/types'
@@ -13,25 +12,10 @@ interface Props {
   listRef: RefObject<HTMLDivElement | null>
 }
 
-function statusColor(status: string) {
-  if (status === 'posted') return 'success' as const
-  if (status === 'reversed') return 'error' as const
-  return 'warning' as const  // draft
-}
-
 const columns: ColumnConfig<FundTransfer>[] = [
   {
     key: 'reference',
     render: (row) => row.referenceNumber,
-    width: '60%',
-  },
-  {
-    key: 'status',
-    raw: true,
-    render: (row) => (
-      <Chip label={row.status} color={statusColor(row.status)} size="small" />
-    ),
-    width: '40%',
   },
 ]
 

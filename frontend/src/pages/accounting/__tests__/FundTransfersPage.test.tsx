@@ -119,12 +119,6 @@ describe('FundTransfersPage', () => {
     expect(screen.getByRole('button', { name: /new transfer/i })).toBeInTheDocument()
   })
 
-  it('shows draft status chip in list', () => {
-    const { container } = renderPage()
-    const listRow = container.querySelector('[data-index="0"]')
-    expect(listRow).not.toBeNull()
-    expect(within(listRow as HTMLElement).getByText('draft')).toBeInTheDocument()
-  })
 
   it('auto-selects the transfer matching the ?highlight= URL param', async () => {
     const { store } = renderPage('/accounting/fund-transfers?highlight=trf-1')
