@@ -16,9 +16,9 @@ const VendorProductListReport = React.lazy(() => import('./VendorProductListRepo
 
 export const purchasingRoutes: RouteObject[] = [
   { path: '/purchasing', element: <PurchasingPage />, handle: { title: 'Purchasing' } },
+  { path: '/purchasing/suppliers', element: <SuppliersPage />, handle: { title: 'Suppliers' } },
   { path: '/purchasing/suppliers/create', element: <SupplierFormPage />, handle: { title: 'New Supplier' } },
   { path: '/purchasing/suppliers/:slug/edit', element: <SupplierFormPage />, handle: { title: 'Edit Supplier' } },
-  { path: '/purchasing/suppliers', element: <SuppliersPage />, handle: { title: 'Suppliers' } },
   { path: '/purchasing/orders', element: <PurchaseOrdersPage />, handle: { title: 'Purchase Orders' } },
   { path: '/purchasing/orders/create', element: <CreatePurchaseOrderPage />, handle: { title: 'Create Purchase Order' } },
   { path: '/purchasing/orders/:orderNumber/edit', element: <CreatePurchaseOrderPage />, handle: { title: 'Edit Purchase Order' } },

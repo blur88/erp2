@@ -5,8 +5,45 @@ import { describe, expect, it } from 'vitest'
 
 const pagesDir = resolve(__dirname, '../pages')
 
-const settingsRoutes = readFileSync(resolve(pagesDir, 'settings/settings.routes.tsx'), 'utf8')
+const authRoutes = readFileSync(resolve(pagesDir, 'auth/auth.routes.tsx'), 'utf8')
+const dashboardRoutes = readFileSync(resolve(pagesDir, 'dashboard/dashboard.routes.tsx'), 'utf8')
+const inventoryRoutes = readFileSync(resolve(pagesDir, 'inventory/inventory.routes.tsx'), 'utf8')
 const salesRoutes = readFileSync(resolve(pagesDir, 'sales/sales.routes.tsx'), 'utf8')
+const purchasingRoutes = readFileSync(resolve(pagesDir, 'purchasing/purchasing.routes.tsx'), 'utf8')
+const settingsRoutes = readFileSync(resolve(pagesDir, 'settings/settings.routes.tsx'), 'utf8')
+const auditLogsRoutes = readFileSync(resolve(pagesDir, 'audit-logs/audit-logs.routes.tsx'), 'utf8')
+const accountingRoutes = readFileSync(resolve(pagesDir, 'accounting/accounting.routes.tsx'), 'utf8')
+
+describe('domain route file smoke tests', () => {
+  it('auth routes define login and password change paths', () => {
+    expect(authRoutes).toContain("path: '/login'")
+    expect(authRoutes).toContain("path: '/change-password-required'")
+  })
+
+  it('dashboard routes define the dashboard path', () => {
+    expect(dashboardRoutes).toContain("path: '/dashboard'")
+  })
+
+  it('inventory routes define products and stock adjustment paths', () => {
+    expect(inventoryRoutes).toContain("path: '/inventory/products'")
+    expect(inventoryRoutes).toContain("path: '/inventory/stock-adjustments'")
+  })
+
+  it('purchasing routes define suppliers list before create/edit', () => {
+    const suppliersListIndex = purchasingRoutes.indexOf("path: '/purchasing/suppliers'")
+    const suppliersCreateIndex = purchasingRoutes.indexOf("path: '/purchasing/suppliers/create'")
+    expect(suppliersListIndex).toBeLessThan(suppliersCreateIndex)
+  })
+
+  it('audit-logs routes define the audit-logs path', () => {
+    expect(auditLogsRoutes).toContain("path: '/audit-logs'")
+  })
+
+  it('accounting routes define dashboard and journal entries paths', () => {
+    expect(accountingRoutes).toContain("path: '/accounting/dashboard'")
+    expect(accountingRoutes).toContain("path: '/accounting/journal-entries'")
+  })
+})
 
 describe('router settings paths', () => {
   it('redirects legacy inventory costing path to /settings/inventory-costing', () => {
