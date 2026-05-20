@@ -223,8 +223,8 @@ describe('Sales (e2e)', () => {
         .set('Authorization', `Bearer ${accessToken}`)
         .expect(200);
 
-      const items: any[] = Array.isArray(res.body) ? res.body : res.body.data;
-      expect(items.length).toBeGreaterThan(0);
+      expect(res.body).toHaveProperty('invoices');
+      expect(res.body.invoices.length).toBeGreaterThan(0);
     });
   });
 
