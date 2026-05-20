@@ -245,7 +245,7 @@ export function parseFilters<TFilters extends object>(
         const VALID_BANK_RECONCILIATION_STATUS = ['in_progress', 'completed']
         result[fieldKey] = VALID_BANK_RECONCILIATION_STATUS.includes(raw) ? raw : (defaultValue ?? null)
       } else if (field.type === 'settlement-status') {
-        const VALID_SETTLEMENT_STATUS = ['pending', 'completed', 'cancelled']
+        const VALID_SETTLEMENT_STATUS = ['draft', 'posted', 'reversed']
         result[fieldKey] = VALID_SETTLEMENT_STATUS.includes(raw) ? raw : (defaultValue ?? null)
       } else if (field.type === 'fund-transfer-status') {
         const VALID_FUND_TRANSFER_STATUS = ['ACTIVE', 'CANCELLED']

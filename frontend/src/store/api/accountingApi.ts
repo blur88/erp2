@@ -347,6 +347,11 @@ export const accountingApiSlice = createApi({
       transformResponse: normalizePaginated<Settlement>,
       providesTags: ['Settlement'],
     }),
+    getSettlement: builder.query<Settlement, string>({
+      query: (id) => ({ url: `/accounting/settlements/${id}` }),
+      transformResponse: normalizeSingle<Settlement>,
+      providesTags: (_result, _error, id) => [{ type: 'Settlement', id }],
+    }),
     getPendingSettlementSummary: builder.query<PendingSettlementSummary[], void>({
       query: () => ({ url: '/accounting/settlements/pending-summary' }),
       transformResponse: (response: any) => (Array.isArray(response) ? response : response?.data ?? []),
@@ -685,12 +690,43 @@ export const accountingApiSlice = createApi({
     >({
       query: (body) => ({ url: '/accounting/settlements', method: 'POST', data: body }),
       transformResponse: normalizeSingle<Settlement>,
-      invalidatesTags: ['Settlement', 'JournalEntry', 'AccountingReport'],
+      invalidatesTags: ['Settlement'],
     }),
-    cancelSettlement: builder.mutation<Settlement, string>({
-      query: (id) => ({ url: `/accounting/settlements/${id}/cancel`, method: 'POST' }),
+    updateSettlement: builder.mutation<
+      Settlement,
+      { id: string; settlementDate?: string; reference?: string; notes?: string }
+    >({
+      query: ({ id, ...body }) => ({ url: `/accounting/settlements/${id}`, method: 'PATCH', data: body }),
       transformResponse: normalizeSingle<Settlement>,
-      invalidatesTags: (_result, _error, id) => [{ type: 'Settlement', id }, 'Settlement', 'AccountingReport'],
+      invalidatesTags: (_result, _error, { id }) => [{ type: 'Settlement', id }, 'Settlement'],
+    }),
+    postSettlement: builder.mutation<Settlement, string>({
+      query: (id) => ({ url: `/accounting/settlements/${id}/post`, method: 'POST' }),
+      transformResponse: normalizeSingle<Settlement>,
+      invalidatesTags: (_result, _error, id) => [{ type: 'Settlement', id }, 'Settlement', 'JournalEntry', 'AccountingReport'],
+    }),
+    reverseSettlement: builder.mutation<Settlement, string>({
+      query: (id) => ({ url: `/accounting/settlements/${id}/reverse`, method: 'POST' }),
+      transformResponse: normalizeSingle<Settlement>,
+      invalidatesTags: (_result, _error, id) => [{ type: 'Settlement', id }, 'Settlement', 'JournalEntry', 'AccountingReport'],
+    }),
+    deleteSettlement: builder.mutation<void, string>({
+      query: (id) => ({ url: `/accounting/settlements/${id}`, method: 'DELETE' }),
+      invalidatesTags: ['Settlement'],
+    }),
+    restoreSettlement: builder.mutation<Settlement, string>({
+      query: (id) => ({ url: `/accounting/settlements/${id}/restore`, method: 'POST' }),
+      transformResponse: normalizeSingle<Settlement>,
+      invalidatesTags: ['Settlement'],
+    }),
+    permanentDeleteSettlement: builder.mutation<void, string>({
+      query: (id) => ({ url: `/accounting/settlements/${id}/permanent`, method: 'DELETE' }),
+      invalidatesTags: ['Settlement'],
+    }),
+    getDeletedSettlements: builder.query<Settlement[], void>({
+      query: () => ({ url: '/accounting/settlements/deleted' }),
+      transformResponse: (response: any) => (Array.isArray(response) ? response : response?.data ?? []),
+      providesTags: ['Settlement'],
     }),
     createOwnerEquityTransaction: builder.mutation<
       OwnerEquityTransaction,
@@ -886,6 +922,8 @@ export const {
   useGetPaymentMethodsQuery,
   useGetDeletedPaymentMethodsQuery,
   useGetSettlementsQuery,
+  useGetSettlementQuery,
+  useLazyGetSettlementQuery,
   useGetPendingSettlementSummaryQuery,
   useGetPendingSettlementPaymentsQuery,
   useGetOwnerEquityTransactionsQuery,
@@ -941,7 +979,13 @@ export const {
   useRestorePaymentMethodMutation,
   usePermanentDeletePaymentMethodMutation,
   useCreateSettlementMutation,
-  useCancelSettlementMutation,
+  useUpdateSettlementMutation,
+  usePostSettlementMutation,
+  useReverseSettlementMutation,
+  useDeleteSettlementMutation,
+  useRestoreSettlementMutation,
+  usePermanentDeleteSettlementMutation,
+  useGetDeletedSettlementsQuery,
   useCreateOwnerEquityTransactionMutation,
   useUpdateOwnerEquityTransactionMutation,
   useDeleteOwnerEquityTransactionMutation,

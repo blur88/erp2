@@ -1,6 +1,10 @@
 import { Paper, Table, TableBody, TableCell, TableContainer, TableRow, Typography } from '@mui/material'
 import Grid from '@mui/material/Grid'
 import { default as CancelIcon } from '@mui/icons-material/Cancel'
+import { default as CheckCircleIcon } from '@mui/icons-material/CheckCircle'
+import { default as DeleteIcon } from '@mui/icons-material/Delete'
+import { default as EditIcon } from '@mui/icons-material/Edit'
+import { default as RestoreIcon } from '@mui/icons-material/Restore'
 
 import { AppButton } from '@/components/common/AppButton'
 import { EntityContextHeaderBar } from '@/components/common/EntityContextHeaderBar'
@@ -11,7 +15,13 @@ import { formatCurrency, formatDate } from '@/utils/formatters'
 
 interface Props {
   selected: Settlement | null
-  onCancel: () => void
+  isAdmin: boolean
+  canManage: boolean
+  onEdit: () => void
+  onPost: () => void
+  onReverse: () => void
+  onDelete: () => void
+  onRestore: () => void
 }
 
 const detailTableSx = {
@@ -33,7 +43,16 @@ const sectionHeaderCellSx = {
   borderTop: TABLE_STYLES.cell.border,
 }
 
-export function SettlementContextHeader({ selected, onCancel }: Props) {
+export function SettlementContextHeader({
+  selected,
+  isAdmin,
+  canManage,
+  onEdit,
+  onPost,
+  onReverse,
+  onDelete,
+  onRestore,
+}: Props) {
   if (!selected) {
     return (
       <Paper sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', p: 4 }}>
@@ -44,18 +63,56 @@ export function SettlementContextHeader({ selected, onCancel }: Props) {
     )
   }
 
+  const isDeleted = Boolean(selected.deletedAt)
+  const isDraft = selected.status === 'draft'
+  const isPosted = selected.status === 'posted'
+  const isReversed = selected.status === 'reversed'
+
+  const actions = (() => {
+    if (isDeleted && isAdmin) {
+      return (
+        <AppButton size="small" variant="outlined" startIcon={<RestoreIcon />} onClick={onRestore}>
+          Restore
+        </AppButton>
+      )
+    }
+    if (isDraft || isReversed) {
+      return (
+        <>
+          {canManage && (
+            <AppButton size="small" variant="outlined" startIcon={<EditIcon />} onClick={onEdit}>
+              Edit
+            </AppButton>
+          )}
+          {canManage && (
+            <AppButton size="small" variant="primary" startIcon={<CheckCircleIcon />} onClick={onPost}>
+              Post
+            </AppButton>
+          )}
+          {isAdmin && (
+            <AppButton size="small" variant="danger" startIcon={<DeleteIcon />} onClick={onDelete}>
+              Delete
+            </AppButton>
+          )}
+        </>
+      )
+    }
+    if (isPosted && isAdmin) {
+      return (
+        <AppButton size="small" variant="danger" startIcon={<CancelIcon />} onClick={onReverse}>
+          Reverse
+        </AppButton>
+      )
+    }
+    return null
+  })()
+
   return (
     <Paper sx={{ overflow: 'hidden' }}>
       <EntityContextHeaderBar
         title={selected.settlementNumber}
         statusChip={<EntityStatusChip status={selected.status} />}
-        actions={
-          selected.status === 'completed' ? (
-            <AppButton size="small" variant="danger" startIcon={<CancelIcon />} onClick={onCancel}>
-              Cancel
-            </AppButton>
-          ) : null
-        }
+        actions={actions}
       />
       <Grid container spacing={3} sx={{ p: TABLE_STYLES.cell.padding.px }}>
         <Grid size={{ xs: 12, md: 6 }}>
@@ -75,7 +132,7 @@ export function SettlementContextHeader({ selected, onCancel }: Props) {
                 </TableRow>
                 <TableRow>
                   <TableCell sx={labelCellSx}>Payment Method</TableCell>
-                  <TableCell sx={valueCellSx}>{selected.paymentMethod?.name || '—'}</TableCell>
+                  <TableCell sx={valueCellSx}>{selected.paymentMethod?.name || '-'}</TableCell>
                 </TableRow>
                 <TableRow sx={{ backgroundColor: 'grey.50' }}>
                   <TableCell sx={labelCellSx}>Status</TableCell>
@@ -107,11 +164,11 @@ export function SettlementContextHeader({ selected, onCancel }: Props) {
                 </TableRow>
                 <TableRow sx={{ backgroundColor: 'grey.50' }}>
                   <TableCell sx={labelCellSx}>Reference</TableCell>
-                  <TableCell sx={valueCellSx}>{selected.reference || '—'}</TableCell>
+                  <TableCell sx={valueCellSx}>{selected.reference || '-'}</TableCell>
                 </TableRow>
                 <TableRow>
                   <TableCell sx={labelCellSx}>Notes</TableCell>
-                  <TableCell sx={valueCellSx}>{selected.notes || '—'}</TableCell>
+                  <TableCell sx={valueCellSx}>{selected.notes || '-'}</TableCell>
                 </TableRow>
               </TableBody>
             </Table>

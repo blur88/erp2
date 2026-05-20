@@ -457,10 +457,11 @@ export interface Settlement {
   totalAmount: number;
   reference?: string;
   notes?: string;
-  status: 'pending' | 'completed' | 'cancelled';
+  status: 'draft' | 'posted' | 'reversed';
   paymentCount: number;
   createdAt: string;
   updatedAt: string;
+  deletedAt?: string | null;
 }
 
 export interface OwnerEquityTransaction {

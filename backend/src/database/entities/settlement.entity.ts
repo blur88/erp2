@@ -17,9 +17,9 @@ import { BaseEntity } from './base.entity';
 import { PaymentMethodEntity } from './payment-method.entity';
 
 export enum SettlementStatus {
-  PENDING = 'pending',
-  COMPLETED = 'completed',
-  CANCELLED = 'cancelled',
+  DRAFT = 'draft',
+  POSTED = 'posted',
+  REVERSED = 'reversed',
 }
 
 @Entity('settlements')
@@ -83,7 +83,7 @@ export class Settlement extends BaseEntity {
   @Column({
     type: 'enum',
     enum: SettlementStatus,
-    default: SettlementStatus.COMPLETED,
+    default: SettlementStatus.DRAFT,
     comment: 'Settlement status',
   })
   @IsEnum(SettlementStatus)
