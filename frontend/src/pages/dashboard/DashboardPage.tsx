@@ -107,7 +107,7 @@ const DashboardPage: React.FC = () => {
     purchaseError && 'Purchases',
     paymentsError && 'Payments',
     inventoryError && 'Inventory Stats',
-    outOfStockError && 'Out-of-Stock Data',
+    outOfStockError && 'Out of Stock',
     suppliersError && 'Suppliers',
   ].filter(Boolean) as string[]
 

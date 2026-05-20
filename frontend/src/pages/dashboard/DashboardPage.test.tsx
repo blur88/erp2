@@ -70,7 +70,7 @@ describe('DashboardPage error banner', () => {
   it('shows no banner when all queries succeed', () => {
     setAllSuccess()
     renderDashboard()
-    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    expect(screen.queryByText(/Could not load/i)).not.toBeInTheDocument()
   })
 
   it('shows warning banner listing the failed section when sales errors', () => {
@@ -93,11 +93,28 @@ describe('DashboardPage error banner', () => {
     expect(alert).not.toHaveTextContent('Purchases')
   })
 
-  it('does not show error severity banner', () => {
+  it('shows warning severity (not error) banner', () => {
     setAllSuccess()
     ;(useGetSalesOrdersQuery as any).mockReturnValue(errorResult('sales'))
     renderDashboard()
     const alert = screen.getByRole('alert')
-    expect(alert).not.toHaveClass('MuiAlert-colorError')
+    expect(alert).toHaveClass('MuiAlert-colorWarning')
+  })
+
+  it('auto-dismisses banner when previously-failed query recovers', () => {
+    setAllSuccess()
+    ;(useGetSalesOrdersQuery as any).mockReturnValue(errorResult('sales'))
+    const { rerender } = renderDashboard()
+    expect(screen.getByText(/Could not load/i)).toBeInTheDocument()
+
+    ;(useGetSalesOrdersQuery as any).mockReturnValue(successResult)
+    rerender(
+      <Provider store={configureStore({ reducer: { test: (state = {}) => state } })}>
+        <MemoryRouter>
+          <DashboardPage />
+        </MemoryRouter>
+      </Provider>
+    )
+    expect(screen.queryByText(/Could not load/i)).not.toBeInTheDocument()
   })
 })
