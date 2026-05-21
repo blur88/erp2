@@ -2,6 +2,7 @@ import React from 'react'
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { fireEvent, render, screen } from '@testing-library/react'
 import NotificationPanel from './NotificationPanel'
+import * as clipboardUtils from '@/utils/clipboard'
 
 const dispatchMock = vi.fn()
 let writeTextMock: ReturnType<typeof vi.fn>
@@ -81,5 +82,30 @@ describe('NotificationPanel copy button', () => {
     expect(await screen.findByTestId('CheckIcon')).toBeInTheDocument()
 
     document.body.removeChild(anchorEl)
+  })
+
+  it('passes the Popover Paper element as container to copyToClipboard', async () => {
+    const copyToClipboardSpy = vi.spyOn(clipboardUtils, 'copyToClipboard').mockResolvedValue(true)
+
+    const anchorEl = document.createElement('button')
+    anchorEl.getBoundingClientRect = vi.fn(() => ({
+      x: 12, y: 12, top: 12, left: 12, right: 52, bottom: 32, width: 40, height: 20,
+      toJSON: () => ({}),
+    } as DOMRect))
+    document.body.appendChild(anchorEl)
+
+    render(<NotificationPanel anchorEl={anchorEl} open={true} onClose={vi.fn()} />)
+
+    const copyButton = screen.getByTestId('ContentCopyIcon').closest('button')
+    fireEvent.click(copyButton as HTMLButtonElement)
+
+    expect(copyToClipboardSpy).toHaveBeenCalledOnce()
+    const container = copyToClipboardSpy.mock.calls[0][1]
+    const popoverPaper = document.querySelector('.MuiPopover-paper')
+    expect(popoverPaper).not.toBeNull()
+    expect(container).toBe(popoverPaper)
+
+    document.body.removeChild(anchorEl)
+    copyToClipboardSpy.mockRestore()
   })
 })

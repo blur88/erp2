@@ -10,6 +10,7 @@ interface TopBarUtilityPanelProps {
   maxHeight?: number
   headerAction?: React.ReactNode
   children: React.ReactNode
+  paperRef?: React.Ref<HTMLDivElement>
 }
 
 const TopBarUtilityPanel: React.FC<TopBarUtilityPanelProps> = ({
@@ -20,6 +21,7 @@ const TopBarUtilityPanel: React.FC<TopBarUtilityPanelProps> = ({
   maxHeight = 600,
   headerAction,
   children,
+  paperRef,
 }) => {
   return (
     <Popover
@@ -30,6 +32,7 @@ const TopBarUtilityPanel: React.FC<TopBarUtilityPanelProps> = ({
       transformOrigin={{ vertical: 'top', horizontal: 'right' }}
       slotProps={{
         paper: {
+          ref: paperRef,
           sx: { width, maxHeight, mt: 1, borderRadius: '12px', overflow: 'hidden' },
         },
       }}
