@@ -22,6 +22,7 @@ const mocked = vi.hoisted(() => ({
   usePermanentDeleteSettlementMutation: vi.fn(),
   useGetDeletedSettlementsQuery: vi.fn(),
   useLazyGetSettlementQuery: vi.fn(),
+  useLazyGetJournalEntriesQuery: vi.fn(),
 }))
 
 const mockNavigate = vi.fn()
@@ -122,6 +123,7 @@ describe('SettlementsPage', () => {
     mocked.usePermanentDeleteSettlementMutation.mockReturnValue([vi.fn()])
     mocked.useGetDeletedSettlementsQuery.mockReturnValue({ data: [] })
     mocked.useLazyGetSettlementQuery.mockReturnValue([vi.fn().mockReturnValue({ unwrap: vi.fn().mockResolvedValue(mockSettlement) })])
+    mocked.useLazyGetJournalEntriesQuery.mockReturnValue([vi.fn().mockReturnValue({ unwrap: vi.fn().mockResolvedValue({ data: [] }) })])
   })
 
   it('renders title and settlement row', () => {

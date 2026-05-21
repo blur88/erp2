@@ -10,6 +10,7 @@ import { AppButton } from '@/components/common/AppButton'
 import { EntityContextHeaderBar } from '@/components/common/EntityContextHeaderBar'
 import { EntityStatusChip } from '@/components/common/EntityStatusChip'
 import { TABLE_STYLES } from '@/constants/tableStyles'
+import { useJournalEntryRef } from '@/hooks/useJournalEntryRef'
 import type { Settlement } from '@/types'
 import { formatCurrency, formatDate } from '@/utils/formatters'
 
@@ -53,6 +54,10 @@ export function SettlementContextHeader({
   onDelete,
   onRestore,
 }: Props) {
+  const { journalEntryRef, navigateToJournalEntry } = useJournalEntryRef(
+    selected?.status === 'posted' ? [{ sourceType: 'settlement', sourceId: selected.id }] : [],
+  )
+
   if (!selected) {
     return (
       <Paper sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', p: 4 }}>
@@ -170,6 +175,27 @@ export function SettlementContextHeader({
                   <TableCell sx={labelCellSx}>Notes</TableCell>
                   <TableCell sx={valueCellSx}>{selected.notes || '-'}</TableCell>
                 </TableRow>
+                {journalEntryRef && (
+                  <TableRow sx={{ backgroundColor: 'grey.50' }}>
+                    <TableCell sx={labelCellSx}>Journal Entry</TableCell>
+                    <TableCell sx={valueCellSx}>
+                      <Typography
+                        component="button"
+                        onClick={navigateToJournalEntry}
+                        sx={{
+                          fontSize: '0.8rem',
+                          color: 'primary.main',
+                          cursor: 'pointer',
+                          border: 'none',
+                          background: 'none',
+                          padding: 0,
+                        }}
+                      >
+                        {journalEntryRef.referenceNumber}
+                      </Typography>
+                    </TableCell>
+                  </TableRow>
+                )}
               </TableBody>
             </Table>
           </TableContainer>
