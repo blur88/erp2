@@ -265,7 +265,7 @@ export class SettlementService {
 
     await this.paymentRepository.update(
       { settlementId: id },
-      { settlementId: null, settlementStatus: SettlementStatusEnum.PENDING },
+      { settlementStatus: SettlementStatusEnum.PENDING },
     );
 
     settlement.status = SettlementStatus.REVERSED;

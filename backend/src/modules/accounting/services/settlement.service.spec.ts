@@ -205,7 +205,7 @@ describe('SettlementService', () => {
   });
 
   describe('reverse', () => {
-    it('reverses a posted settlement, clears settlementId, returns payments to pending and reverses journal entries', async () => {
+    it('reverses a posted settlement, keeps settlementId, returns payments to pending and reverses journal entries', async () => {
       settlementRepository.findOne.mockResolvedValue(mockPostedSettlement);
       settlementRepository.save.mockResolvedValue({
         ...mockPostedSettlement,
@@ -218,7 +218,7 @@ describe('SettlementService', () => {
       expect(accountingService.reverseSourceEntries).toHaveBeenCalledWith('settlement', 's-1', 'user-1');
       expect(paymentRepository.update).toHaveBeenCalledWith(
         { settlementId: 's-1' },
-        { settlementId: null, settlementStatus: SettlementStatusEnum.PENDING },
+        { settlementStatus: SettlementStatusEnum.PENDING },
       );
       expect(result.status).toBe(SettlementStatus.REVERSED);
     });
