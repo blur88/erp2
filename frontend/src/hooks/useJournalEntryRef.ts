@@ -44,6 +44,7 @@ export function useJournalEntryRef(
             sourceType: source.sourceType,
             sourceId: source.sourceId,
             limit: 1,
+            sortOrder: 'DESC',
           }).unwrap()
 
           if (cancelled) return
