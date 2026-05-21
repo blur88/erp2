@@ -8,7 +8,7 @@ export interface JournalEntryRef {
   sourceType: string
   sourceId: string
   // IDs of all related JEs (original + reversal) for navigation
-  relatedIds: string[]
+  relatedIds?: string[]
 }
 
 export function useJournalEntryRef(
@@ -108,7 +108,7 @@ export function useJournalEntryRef(
 
   const navigateToJournalEntry = useCallback(() => {
     if (!journalEntryRef) return
-    if (journalEntryRef.relatedIds.length > 1) {
+    if (journalEntryRef.relatedIds && journalEntryRef.relatedIds.length > 1) {
       navigate(`/accounting/journal-entries?ids=${journalEntryRef.relatedIds.join(',')}`)
     } else {
       navigate(
