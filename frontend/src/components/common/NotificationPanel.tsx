@@ -70,6 +70,7 @@ const NotificationPanel: React.FC<NotificationPanelProps> = ({
   const dispatch = useAppDispatch()
   const [copiedId, setCopiedId] = React.useState<string | null>(null)
   const copyTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
+  const popoverPaperRef = React.useRef<HTMLDivElement | null>(null)
 
   const unreadNotifications = notifications.filter(n => !n.read)
   const recentNotifications = notifications.slice(0, 10)
@@ -90,7 +91,7 @@ const NotificationPanel: React.FC<NotificationPanelProps> = ({
 
   const handleCopy = async (notificationId: string, message: string, event: React.MouseEvent) => {
     event.stopPropagation()
-    const success = await copyToClipboard(message, document.body)
+    const success = await copyToClipboard(message, popoverPaperRef.current!)
     if (success) {
       if (copyTimeoutRef.current) clearTimeout(copyTimeoutRef.current)
       setCopiedId(notificationId)
@@ -118,6 +119,7 @@ const NotificationPanel: React.FC<NotificationPanelProps> = ({
       title="Notifications"
       width={400}
       maxHeight={600}
+      paperRef={popoverPaperRef}
       headerAction={
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           {unreadNotifications.length > 0 && (
