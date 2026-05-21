@@ -84,10 +84,19 @@ export function JournalEntryContextHeader({ selectedEntry }: Props) {
     selectedEntry.sourceType !== 'manual' &&
     !!selectedEntry.sourceId
 
+  const isReversalEntry = !!selectedEntry.reversalOfId && !!selectedEntry.reversalOf
+  const originalEntry = selectedEntry.reversalOf
+
   const handleNavigateToSource = () => {
     if (!hasSource) return
     const route = SOURCE_ROUTES[selectedEntry.sourceType!]
     if (route) navigate(route(selectedEntry.sourceId!))
+  }
+
+  const handleNavigateToOriginalSource = () => {
+    if (!originalEntry?.sourceType || !originalEntry?.sourceId) return
+    const route = SOURCE_ROUTES[originalEntry.sourceType]
+    if (route) navigate(route(originalEntry.sourceId))
   }
 
   return (
@@ -149,8 +158,29 @@ export function JournalEntryContextHeader({ selectedEntry }: Props) {
                     </Typography>
                   </TableCell>
                 </TableRow>
-                {hasSource && (
+                {isReversalEntry && (
                   <TableRow sx={{ backgroundColor: 'grey.50' }}>
+                    <TableCell sx={labelCellSx}>Reversal of</TableCell>
+                    <TableCell sx={valueCellSx}>
+                      <Typography
+                        component="button"
+                        onClick={handleNavigateToOriginalSource}
+                        sx={{
+                          fontSize: '0.8rem',
+                          color: originalEntry?.sourceType && originalEntry?.sourceId ? 'primary.main' : 'text.primary',
+                          cursor: originalEntry?.sourceType && originalEntry?.sourceId ? 'pointer' : 'default',
+                          border: 'none',
+                          background: 'none',
+                          padding: 0,
+                        }}
+                      >
+                        {originalEntry?.referenceNumber}
+                      </Typography>
+                    </TableCell>
+                  </TableRow>
+                )}
+                {hasSource && (
+                  <TableRow sx={isReversalEntry ? {} : { backgroundColor: 'grey.50' }}>
                     <TableCell sx={labelCellSx}>Source</TableCell>
                     <TableCell sx={valueCellSx}>
                       {selectedEntry.sourceRefNumber ? (
