@@ -31,6 +31,7 @@ const SOURCE_ROUTES: Record<string, (id: string) => string> = {
   expense: () => `/accounting/expenses`,
   owner_equity_transaction: () => `/accounting/owner-equity`,
   fund_transfer: () => `/accounting/fund-transfers`,
+  settlement: (id) => `/accounting/settlements?highlight=${id}`,
   stock_adjustment: (id) => `/inventory/stock-adjustments/${id}/edit`,
 }
 
