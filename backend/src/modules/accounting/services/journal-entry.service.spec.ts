@@ -32,6 +32,7 @@ import { VendorPayment } from '../../../database/entities/vendor-payment.entity'
 import { Expense } from '../../../database/entities/expense.entity';
 import { OwnerEquityTransaction } from '../../../database/entities/owner-equity-transaction.entity';
 import { FundTransfer } from '../../../database/entities/fund-transfer.entity';
+import { Settlement } from '../../../database/entities/settlement.entity';
 import { StockAdjustment } from '../../../database/entities/stock-adjustment.entity';
 import { Invoice } from '../../../database/entities/invoice.entity';
 import {
@@ -58,6 +59,7 @@ describe('JournalEntryService', () => {
   let mockExpenseRepo: { findOne: jest.Mock; find: jest.Mock };
   let mockOwnerEquityTransactionRepo: { findOne: jest.Mock; find: jest.Mock };
   let mockFundTransferRepo: { findOne: jest.Mock; find: jest.Mock };
+  let mockSettlementRepo: { findOne: jest.Mock; find: jest.Mock };
   let mockStockAdjustmentRepo: { findOne: jest.Mock; find: jest.Mock };
   let mockInvoiceRepo: { findOne: jest.Mock; find: jest.Mock };
 
@@ -139,6 +141,7 @@ describe('JournalEntryService', () => {
     mockExpenseRepo = { findOne: jest.fn(), find: jest.fn() };
     mockOwnerEquityTransactionRepo = { findOne: jest.fn(), find: jest.fn() };
     mockFundTransferRepo = { findOne: jest.fn(), find: jest.fn() };
+    mockSettlementRepo = { findOne: jest.fn(), find: jest.fn() };
     mockStockAdjustmentRepo = { findOne: jest.fn(), find: jest.fn() };
     mockInvoiceRepo = { findOne: jest.fn(), find: jest.fn() };
 
@@ -191,6 +194,7 @@ describe('JournalEntryService', () => {
           useValue: mockOwnerEquityTransactionRepo,
         },
         { provide: getRepositoryToken(FundTransfer), useValue: mockFundTransferRepo },
+        { provide: getRepositoryToken(Settlement), useValue: mockSettlementRepo },
         { provide: getRepositoryToken(StockAdjustment), useValue: mockStockAdjustmentRepo },
         { provide: getRepositoryToken(Invoice), useValue: mockInvoiceRepo },
         {

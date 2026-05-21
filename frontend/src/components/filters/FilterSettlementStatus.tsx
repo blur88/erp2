@@ -1,9 +1,9 @@
 import { FilterSelect } from './FilterSelect'
 
 const OPTIONS = [
-  { value: 'pending', label: 'Pending' },
-  { value: 'completed', label: 'Completed' },
-  { value: 'cancelled', label: 'Cancelled' },
+  { value: 'draft', label: 'Draft' },
+  { value: 'posted', label: 'Posted' },
+  { value: 'reversed', label: 'Reversed' },
 ]
 
 interface Props {

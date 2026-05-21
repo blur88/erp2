@@ -22,6 +22,7 @@ import { VendorPayment } from '../../../database/entities/vendor-payment.entity'
 import { Expense } from '../../../database/entities/expense.entity';
 import { OwnerEquityTransaction } from '../../../database/entities/owner-equity-transaction.entity';
 import { FundTransfer } from '../../../database/entities/fund-transfer.entity';
+import { Settlement } from '../../../database/entities/settlement.entity';
 import { StockAdjustment } from '../../../database/entities/stock-adjustment.entity';
 import { Invoice } from '../../../database/entities/invoice.entity';
 import {
@@ -79,6 +80,8 @@ export class JournalEntryService {
     private readonly ownerEquityTransactionRepository: Repository<OwnerEquityTransaction>,
     @InjectRepository(FundTransfer)
     private readonly fundTransferRepository: Repository<FundTransfer>,
+    @InjectRepository(Settlement)
+    private readonly settlementRepository: Repository<Settlement>,
     @InjectRepository(StockAdjustment)
     private readonly stockAdjustmentRepository: Repository<StockAdjustment>,
     @InjectRepository(Invoice)
@@ -239,7 +242,7 @@ export class JournalEntryService {
 
     queryBuilder.orderBy(`entry.${sortField}`, safeSortOrder);
     if (sortField !== 'referenceNumber') {
-      queryBuilder.addOrderBy('entry.referenceNumber', 'ASC');
+      queryBuilder.addOrderBy('entry.referenceNumber', safeSortOrder);
     }
 
     // Apply pagination
@@ -948,6 +951,17 @@ export class JournalEntryService {
             }
             break;
           }
+          case 'settlement': {
+            const records = await this.settlementRepository.find({
+              where: { id: In(ids) },
+              withDeleted: true,
+              select: { id: true, settlementNumber: true },
+            });
+            for (const record of records) {
+              refMap.set(`settlement:${record.id}`, record.settlementNumber);
+            }
+            break;
+          }
           case 'stock_adjustment': {
             const records = await this.stockAdjustmentRepository.find({
               where: { id: In(ids) },
@@ -1042,6 +1056,14 @@ export class JournalEntryService {
             select: { id: true, referenceNumber: true },
           });
           return record?.referenceNumber;
+        }
+        case 'settlement': {
+          const record = await this.settlementRepository.findOne({
+            where: { id: sourceId },
+            withDeleted: true,
+            select: { id: true, settlementNumber: true },
+          });
+          return record?.settlementNumber;
         }
         case 'stock_adjustment': {
           const record = await this.stockAdjustmentRepository.findOne({

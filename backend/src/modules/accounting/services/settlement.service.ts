@@ -5,12 +5,13 @@ import {
   Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, Repository } from 'typeorm';
+import { In, IsNull, Not, Repository } from 'typeorm';
 import { Settlement, SettlementStatus } from '../../../database/entities/settlement.entity';
 import { PaymentMethodEntity } from '../../../database/entities/payment-method.entity';
 import { Payment, SettlementStatusEnum } from '../../../database/entities/payment.entity';
 import {
   CreateSettlementDto,
+  UpdateSettlementDto,
   QuerySettlementsDto,
   SettlementListResponseDto,
   SettlementResponseDto,
@@ -68,7 +69,6 @@ export class SettlementService {
       .take(limit);
 
     const [rows, total] = await qb.getManyAndCount();
-
     const data = await Promise.all(rows.map((row) => this.toResponseDto(row)));
 
     return {
@@ -132,6 +132,12 @@ export class SettlementService {
         );
       }
 
+      if (payment.settlementId) {
+        throw new BadRequestException(
+          `Payment ${payment.paymentNumber} is already linked to a settlement`,
+        );
+      }
+
       if (payment.paymentMethodId !== dto.paymentMethodId) {
         throw new BadRequestException(
           `Payment ${payment.paymentNumber} does not match selected payment method`,
@@ -149,44 +155,27 @@ export class SettlementService {
       totalAmount,
       reference: dto.reference,
       notes: dto.notes,
-      status: SettlementStatus.COMPLETED,
+      status: SettlementStatus.DRAFT,
     });
 
     const savedSettlement = await this.settlementRepository.save(settlement);
 
     await this.paymentRepository.update(
       { id: In(dto.paymentIds) },
-      {
-        settlementId: savedSettlement.id,
-        settlementStatus: SettlementStatusEnum.SETTLED,
-      },
+      { settlementId: savedSettlement.id },
     );
-
-    try {
-      await this.accountingService.postSettlementEntry(
-        savedSettlement,
-        paymentMethod,
-        totalAmount,
-        userId || 'system',
-        username,
-      );
-    } catch (error) {
-      this.logger.error(
-        `Failed to post settlement accounting entry for ${savedSettlement.settlementNumber}: ${error.message}`,
-      );
-    }
 
     await this.auditLogService.log(
       'CREATE',
       'Settlement',
-      `Created settlement: ${savedSettlement.settlementNumber}`,
+      `Created settlement draft: ${savedSettlement.settlementNumber}`,
       { entityId: savedSettlement.id, userId: userId ?? 'system', username },
     );
 
     return this.findOne(savedSettlement.id);
   }
 
-  async cancel(id: string, userId?: string, username?: string): Promise<SettlementResponseDto> {
+  async post(id: string, userId?: string, username?: string): Promise<SettlementResponseDto> {
     const settlement = await this.settlementRepository.findOne({
       where: { id },
       relations: { paymentMethod: true },
@@ -196,26 +185,49 @@ export class SettlementService {
       throw new NotFoundException(`Settlement ${id} not found`);
     }
 
-    if (settlement.status === SettlementStatus.CANCELLED) {
-      return this.toResponseDto(settlement);
+    if (settlement.status !== SettlementStatus.DRAFT && settlement.status !== SettlementStatus.REVERSED) {
+      throw new BadRequestException('Settlement must be draft or reversed to post');
+    }
+
+    const payments = await this.paymentRepository.find({
+      where: {
+        settlementId: id,
+        settlementStatus: SettlementStatusEnum.PENDING,
+      },
+    });
+
+    if (payments.length === 0) {
+      throw new BadRequestException('No reserved pending payments linked to this settlement');
     }
 
     await this.paymentRepository.update(
-      { settlementId: settlement.id },
-      {
-        settlementId: null,
-        settlementStatus: SettlementStatusEnum.PENDING,
-      },
+      { id: In(payments.map((payment) => payment.id)) },
+      { settlementStatus: SettlementStatusEnum.SETTLED },
     );
 
     const previousStatus = settlement.status;
-    settlement.status = SettlementStatus.CANCELLED;
+    settlement.status = SettlementStatus.POSTED;
     const saved = await this.settlementRepository.save(settlement);
+
+    try {
+      await this.accountingService.postSettlementEntry(
+        saved,
+        settlement.paymentMethod,
+        Number(saved.totalAmount),
+        userId || 'system',
+        username,
+      );
+    } catch (error) {
+      this.logger.error(
+        `Failed to post settlement accounting entry for ${saved.settlementNumber}: ${error.message}`,
+      );
+      throw error;
+    }
 
     await this.auditLogService.log(
       'UPDATE',
       'Settlement',
-      `Cancelled settlement: ${saved.settlementNumber}`,
+      `Posted settlement: ${saved.settlementNumber}`,
       {
         entityId: id,
         userId: userId ?? 'system',
@@ -225,7 +237,181 @@ export class SettlementService {
       },
     );
 
+    return this.findOne(id);
+  }
+
+  async reverse(id: string, userId?: string, username?: string): Promise<SettlementResponseDto> {
+    const settlement = await this.settlementRepository.findOne({
+      where: { id },
+      relations: { paymentMethod: true },
+    });
+
+    if (!settlement || settlement.deletedAt) {
+      throw new NotFoundException(`Settlement ${id} not found`);
+    }
+
+    if (settlement.status !== SettlementStatus.POSTED) {
+      throw new BadRequestException('Only posted settlements can be reversed');
+    }
+
+    try {
+      await this.accountingService.reverseSourceEntries('settlement', id, userId || 'system');
+    } catch (error) {
+      this.logger.error(
+        `Failed to reverse settlement accounting entries for ${settlement.settlementNumber}: ${error.message}`,
+      );
+      throw error;
+    }
+
+    await this.paymentRepository.update(
+      { settlementId: id },
+      { settlementStatus: SettlementStatusEnum.PENDING },
+    );
+
+    settlement.status = SettlementStatus.REVERSED;
+    const saved = await this.settlementRepository.save(settlement);
+
+    await this.auditLogService.log(
+      'UPDATE',
+      'Settlement',
+      `Reversed settlement: ${saved.settlementNumber}`,
+      {
+        entityId: id,
+        userId: userId ?? 'system',
+        username,
+        oldValues: { status: SettlementStatus.POSTED },
+        newValues: { status: SettlementStatus.REVERSED },
+      },
+    );
+
     return this.toResponseDto(saved);
+  }
+
+  async update(
+    id: string,
+    dto: UpdateSettlementDto,
+    userId?: string,
+    username?: string,
+  ): Promise<SettlementResponseDto> {
+    const settlement = await this.settlementRepository.findOne({ where: { id } });
+
+    if (!settlement || settlement.deletedAt) {
+      throw new NotFoundException(`Settlement ${id} not found`);
+    }
+
+    if (settlement.status !== SettlementStatus.DRAFT && settlement.status !== SettlementStatus.REVERSED) {
+      throw new BadRequestException('Only draft or reversed settlements can be edited');
+    }
+
+    if (dto.settlementDate !== undefined) {
+      settlement.settlementDate = new Date(dto.settlementDate);
+    }
+    if (dto.reference !== undefined) {
+      settlement.reference = dto.reference;
+    }
+    if (dto.notes !== undefined) {
+      settlement.notes = dto.notes;
+    }
+
+    await this.settlementRepository.save(settlement);
+
+    await this.auditLogService.log(
+      'UPDATE',
+      'Settlement',
+      `Updated settlement: ${settlement.settlementNumber}`,
+      { entityId: id, userId: userId ?? 'system', username },
+    );
+
+    return this.findOne(id);
+  }
+
+  async remove(id: string, userId?: string, username?: string): Promise<void> {
+    const settlement = await this.settlementRepository.findOne({ where: { id } });
+
+    if (!settlement || settlement.deletedAt) {
+      throw new NotFoundException(`Settlement ${id} not found`);
+    }
+
+    if (settlement.status === SettlementStatus.POSTED) {
+      throw new BadRequestException('Cannot delete a posted settlement. Reverse it first.');
+    }
+
+    await this.paymentRepository.update(
+      { settlementId: id },
+      { settlementId: null },
+    );
+    await this.settlementRepository.softDelete(id);
+
+    await this.auditLogService.log(
+      'DELETE',
+      'Settlement',
+      `Deleted settlement: ${settlement.settlementNumber}`,
+      { entityId: id, userId: userId ?? 'system', username },
+    );
+  }
+
+  async getDeleted(): Promise<SettlementResponseDto[]> {
+    const records = await this.settlementRepository.find({
+      withDeleted: true,
+      where: { deletedAt: Not(IsNull()) },
+      relations: { paymentMethod: true },
+      order: { deletedAt: 'DESC' },
+    });
+    return Promise.all(records.map((record) => this.toResponseDto(record)));
+  }
+
+  async restore(id: string, userId?: string, username?: string): Promise<SettlementResponseDto> {
+    const settlement = await this.settlementRepository.findOne({
+      where: { id },
+      withDeleted: true,
+    });
+
+    if (!settlement) {
+      throw new NotFoundException(`Settlement ${id} not found`);
+    }
+
+    if (!settlement.deletedAt) {
+      throw new BadRequestException('Settlement is not deleted');
+    }
+
+    await this.settlementRepository.restore(id);
+
+    await this.auditLogService.log(
+      'RESTORE',
+      'Settlement',
+      `Restored settlement: ${settlement.settlementNumber}`,
+      { entityId: id, userId: userId ?? 'system', username },
+    );
+
+    return this.findOne(id);
+  }
+
+  async permanentDelete(id: string, userId?: string, username?: string): Promise<void> {
+    const settlement = await this.settlementRepository.findOne({
+      where: { id },
+      withDeleted: true,
+    });
+
+    if (!settlement) {
+      throw new NotFoundException(`Settlement ${id} not found`);
+    }
+
+    if (!settlement.deletedAt) {
+      throw new BadRequestException('Settlement must be soft-deleted before permanent deletion');
+    }
+
+    await this.paymentRepository.update(
+      { settlementId: id },
+      { settlementId: null, settlementStatus: SettlementStatusEnum.PENDING },
+    );
+    await this.settlementRepository.delete(id);
+
+    await this.auditLogService.log(
+      'DELETE',
+      'Settlement',
+      `Permanently deleted settlement: ${settlement.settlementNumber}`,
+      { entityId: id, userId: userId ?? 'system', username },
+    );
   }
 
   async getPendingPayments(paymentMethodId: string): Promise<Payment[]> {
@@ -233,6 +419,7 @@ export class SettlementService {
       where: {
         paymentMethodId,
         settlementStatus: SettlementStatusEnum.PENDING,
+        settlementId: IsNull(),
       },
       relations: { customer: true, paymentMethodEntity: true },
       order: { paymentDate: 'ASC' },
@@ -249,6 +436,7 @@ export class SettlementService {
       .addSelect('COUNT(p.id)', 'pendingCount')
       .addSelect('COALESCE(SUM(p.amount), 0)', 'pendingAmount')
       .where('p.settlementStatus = :status', { status: SettlementStatusEnum.PENDING })
+      .andWhere('p.settlementId IS NULL')
       .groupBy('p.paymentMethodId')
       .addGroupBy('pm.code')
       .addGroupBy('pm.name')
@@ -288,6 +476,7 @@ export class SettlementService {
       paymentCount,
       createdAt: settlement.createdAt,
       updatedAt: settlement.updatedAt,
+      deletedAt: settlement.deletedAt ?? null,
     };
   }
 }

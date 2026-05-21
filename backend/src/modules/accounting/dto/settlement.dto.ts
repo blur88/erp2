@@ -38,6 +38,23 @@ export class CreateSettlementDto {
   notes?: string;
 }
 
+export class UpdateSettlementDto {
+  @ApiPropertyOptional({ description: 'Settlement date (YYYY-MM-DD)' })
+  @IsOptional()
+  @IsDateString()
+  settlementDate?: string;
+
+  @ApiPropertyOptional({ description: 'Bank reference number' })
+  @IsOptional()
+  @IsString()
+  reference?: string;
+
+  @ApiPropertyOptional({ description: 'Notes' })
+  @IsOptional()
+  @IsString()
+  notes?: string;
+}
+
 export class QuerySettlementsDto {
   @ApiPropertyOptional({ minimum: 1, default: 1 })
   @IsOptional()
@@ -92,6 +109,7 @@ export class SettlementResponseDto {
   @ApiProperty() paymentCount: number;
   @ApiProperty() createdAt: Date;
   @ApiProperty() updatedAt: Date;
+  @ApiPropertyOptional() deletedAt?: Date | null;
 }
 
 export class SettlementListResponseDto {
