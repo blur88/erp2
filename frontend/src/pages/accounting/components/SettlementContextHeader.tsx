@@ -55,7 +55,7 @@ export function SettlementContextHeader({
   onRestore,
 }: Props) {
   const { journalEntryRef, navigateToJournalEntry } = useJournalEntryRef(
-    selected?.status === 'posted' ? [{ sourceType: 'settlement', sourceId: selected.id }] : [],
+    (selected?.status === 'posted' || selected?.status === 'reversed') ? [{ sourceType: 'settlement', sourceId: selected.id }] : [],
   )
 
   if (!selected) {
