@@ -44,6 +44,7 @@ export function useJournalEntryRef(
             sourceType: source.sourceType,
             sourceId: source.sourceId,
             limit: 1,
+            sortBy: 'createdAt',
             sortOrder: 'DESC',
           }).unwrap()
 

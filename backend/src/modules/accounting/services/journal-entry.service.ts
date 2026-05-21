@@ -242,7 +242,7 @@ export class JournalEntryService {
 
     queryBuilder.orderBy(`entry.${sortField}`, safeSortOrder);
     if (sortField !== 'referenceNumber') {
-      queryBuilder.addOrderBy('entry.referenceNumber', 'ASC');
+      queryBuilder.addOrderBy('entry.referenceNumber', safeSortOrder);
     }
 
     // Apply pagination
