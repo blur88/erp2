@@ -155,6 +155,7 @@ export function useSettlementsWorkspace(
     listRef: workspace.listRef,
     searchInputRef: workspace.searchInputRef,
     setShouldPreserveSearchFocus: workspace.setShouldPreserveSearchFocus,
+    fetchItem,
     handleSelect,
     dialogOpen,
     setDialogOpen,

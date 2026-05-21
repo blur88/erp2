@@ -11,7 +11,7 @@ import {
   useGetSettlementsQuery,
   useUpdateSettlementMutation,
 } from '@/store/api/accountingApi'
-import { selectSelectedSettlement } from '@/store/slices/accountingSlice'
+import { selectSelectedSettlement, setSelectedSettlement } from '@/store/slices/accountingSlice'
 import { selectCurrentUser } from '@/store/slices/authSlice'
 import type { FilterBarConfig, PeriodValue } from '@/types/filterBar.types'
 import { getPeriodDateRange, getStartOfWeek } from '@/utils/dateRange'
@@ -131,15 +131,18 @@ const SettlementsPage: React.FC = () => {
 
   const handleSaveEdit = async () => {
     if (!workspace.editTarget || !editForm.settlementDate) return
+    const targetId = workspace.editTarget.id
     try {
       await updateSettlement({
-        id: workspace.editTarget.id,
+        id: targetId,
         settlementDate: editForm.settlementDate,
         reference: editForm.reference || undefined,
         notes: editForm.notes || undefined,
       }).unwrap()
       resetEditForm()
       void refetch()
+      const fresh = await workspace.fetchItem(targetId).unwrap()
+      dispatch(setSelectedSettlement(fresh))
     } catch (error: unknown) {
       showError(getErrorMessage(error, 'Failed to update settlement'))
     }
