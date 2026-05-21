@@ -205,7 +205,7 @@ describe('SettlementService', () => {
   });
 
   describe('reverse', () => {
-    it('reverses a posted settlement, returns reserved payments to pending and reverses journal entries', async () => {
+    it('reverses a posted settlement, clears settlementId, returns payments to pending and reverses journal entries', async () => {
       settlementRepository.findOne.mockResolvedValue(mockPostedSettlement);
       settlementRepository.save.mockResolvedValue({
         ...mockPostedSettlement,
@@ -215,11 +215,11 @@ describe('SettlementService', () => {
 
       const result = await service.reverse('s-1', 'user-1');
 
+      expect(accountingService.reverseSourceEntries).toHaveBeenCalledWith('settlement', 's-1', 'user-1');
       expect(paymentRepository.update).toHaveBeenCalledWith(
         { settlementId: 's-1' },
-        { settlementStatus: SettlementStatusEnum.PENDING },
+        { settlementId: null, settlementStatus: SettlementStatusEnum.PENDING },
       );
-      expect(accountingService.reverseSourceEntries).toHaveBeenCalledWith('settlement', 's-1', 'user-1');
       expect(result.status).toBe(SettlementStatus.REVERSED);
     });
 
@@ -252,12 +252,16 @@ describe('SettlementService', () => {
   });
 
   describe('remove', () => {
-    it('soft deletes a draft settlement', async () => {
+    it('soft deletes a draft settlement and unreserves its payments', async () => {
       settlementRepository.findOne.mockResolvedValue(mockDraftSettlement);
       settlementRepository.softDelete.mockResolvedValue({} as any);
 
       await service.remove('s-1', 'user-1');
 
+      expect(paymentRepository.update).toHaveBeenCalledWith(
+        { settlementId: 's-1' },
+        { settlementId: null },
+      );
       expect(settlementRepository.softDelete).toHaveBeenCalledWith('s-1');
     });
 

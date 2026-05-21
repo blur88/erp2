@@ -185,10 +185,6 @@ export class SettlementService {
       throw new NotFoundException(`Settlement ${id} not found`);
     }
 
-    if (settlement.status === SettlementStatus.POSTED) {
-      throw new BadRequestException('Settlement is already posted');
-    }
-
     if (settlement.status !== SettlementStatus.DRAFT && settlement.status !== SettlementStatus.REVERSED) {
       throw new BadRequestException('Settlement must be draft or reversed to post');
     }
@@ -225,6 +221,7 @@ export class SettlementService {
       this.logger.error(
         `Failed to post settlement accounting entry for ${saved.settlementNumber}: ${error.message}`,
       );
+      throw error;
     }
 
     await this.auditLogService.log(
@@ -257,18 +254,19 @@ export class SettlementService {
       throw new BadRequestException('Only posted settlements can be reversed');
     }
 
-    await this.paymentRepository.update(
-      { settlementId: id },
-      { settlementStatus: SettlementStatusEnum.PENDING },
-    );
-
     try {
       await this.accountingService.reverseSourceEntries('settlement', id, userId || 'system');
     } catch (error) {
       this.logger.error(
         `Failed to reverse settlement accounting entries for ${settlement.settlementNumber}: ${error.message}`,
       );
+      throw error;
     }
+
+    await this.paymentRepository.update(
+      { settlementId: id },
+      { settlementId: null, settlementStatus: SettlementStatusEnum.PENDING },
+    );
 
     settlement.status = SettlementStatus.REVERSED;
     const saved = await this.settlementRepository.save(settlement);
@@ -338,6 +336,10 @@ export class SettlementService {
       throw new BadRequestException('Cannot delete a posted settlement. Reverse it first.');
     }
 
+    await this.paymentRepository.update(
+      { settlementId: id },
+      { settlementId: null },
+    );
     await this.settlementRepository.softDelete(id);
 
     await this.auditLogService.log(

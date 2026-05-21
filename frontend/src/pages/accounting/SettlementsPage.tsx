@@ -3,6 +3,7 @@ import React, { useCallback, useMemo, useState } from 'react'
 import DeletedSettlementsDialog from '@/components/accounting/DeletedSettlementsDialog'
 import GenericListPage from '@/components/common/GenericListPage'
 import { useFilterBar } from '@/hooks/useFilterBar'
+import { useNotification } from '@/hooks/useNotification'
 import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
 import {
   useCreateSettlementMutation,
@@ -15,6 +16,7 @@ import { selectCurrentUser } from '@/store/slices/authSlice'
 import type { FilterBarConfig, PeriodValue } from '@/types/filterBar.types'
 import { getPeriodDateRange, getStartOfWeek } from '@/utils/dateRange'
 import { getCurrentDate } from '@/utils/formatters'
+import { getErrorMessage } from '@/utils/errorMessage'
 
 import { SettlementContextHeader } from './components/SettlementContextHeader'
 import { SettlementsDialogs, type SettlementEditFormState } from './components/SettlementsDialogs'
@@ -47,6 +49,7 @@ const SettlementsPage: React.FC = () => {
   const currentUser = useAppSelector(selectCurrentUser)
   const isAdmin = currentUser?.role === 'admin'
   const canManage = isAdmin || currentUser?.role === 'manager'
+  const { showError } = useNotification()
 
   const [sortBy, setSortBy] = useState('settlementDate')
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
@@ -128,14 +131,18 @@ const SettlementsPage: React.FC = () => {
 
   const handleSaveEdit = async () => {
     if (!workspace.editTarget || !editForm.settlementDate) return
-    await updateSettlement({
-      id: workspace.editTarget.id,
-      settlementDate: editForm.settlementDate,
-      reference: editForm.reference || undefined,
-      notes: editForm.notes || undefined,
-    }).unwrap()
-    resetEditForm()
-    void refetch()
+    try {
+      await updateSettlement({
+        id: workspace.editTarget.id,
+        settlementDate: editForm.settlementDate,
+        reference: editForm.reference || undefined,
+        notes: editForm.notes || undefined,
+      }).unwrap()
+      resetEditForm()
+      void refetch()
+    } catch (error: unknown) {
+      showError(getErrorMessage(error, 'Failed to update settlement'))
+    }
   }
 
   const secondaryAction = isAdmin
