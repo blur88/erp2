@@ -1,0 +1,32 @@
+import { render, screen } from '@testing-library/react'
+import { describe, expect, it } from 'vitest'
+
+import PageSection from './PageSection'
+
+describe('PageSection', () => {
+  it('renders the label', () => {
+    render(<PageSection label="Customer list"><div>content</div></PageSection>)
+    expect(screen.getByText('Customer list')).toBeInTheDocument()
+  })
+
+  it('renders children', () => {
+    render(<PageSection label="Test"><div data-testid="child">content</div></PageSection>)
+    expect(screen.getByTestId('child')).toBeInTheDocument()
+  })
+
+  it('renders optional meta on the right side', () => {
+    render(
+      <PageSection label="Customer list" meta={<span>25 per page</span>}>
+        <div>content</div>
+      </PageSection>,
+    )
+    expect(screen.getByText('25 per page')).toBeInTheDocument()
+  })
+
+  it('does not render meta area when meta is not provided', () => {
+    const { container } = render(
+      <PageSection label="Customer list"><div>content</div></PageSection>,
+    )
+    expect(container.querySelector('[data-testid="page-section-meta"]')).not.toBeInTheDocument()
+  })
+})
