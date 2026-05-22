@@ -83,7 +83,7 @@ describe('CustomerService', () => {
         orderBy: jest.fn().mockReturnThis(),
         skip: jest.fn().mockReturnThis(),
         take: jest.fn().mockReturnThis(),
-        getMany: jest.fn().mockResolvedValue([createCustomer('1'), createCustomer('2')]),
+        getManyAndCount: jest.fn().mockResolvedValue([[createCustomer('1'), createCustomer('2')], 2]),
       };
       customerRepository.createQueryBuilder.mockReturnValue(qb as any);
 
@@ -96,8 +96,26 @@ describe('CustomerService', () => {
           expect.objectContaining({ id: '1', name: 'Customer 1' }),
           expect.objectContaining({ id: '2', name: 'Customer 2' }),
         ]),
-        total: 2,
+        meta: { total: 2 },
       });
+    });
+
+    it('findAll applies skip and take when page and limit are provided', async () => {
+      const qb = {
+        leftJoinAndSelect: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        skip: jest.fn().mockReturnThis(),
+        take: jest.fn().mockReturnThis(),
+        getManyAndCount: jest.fn().mockResolvedValue([[createCustomer('2')], 5]),
+      };
+      customerRepository.createQueryBuilder.mockReturnValue(qb as any);
+
+      const result = await service.findAll({ page: 2, limit: 1 });
+
+      expect(qb.skip).toHaveBeenCalledWith(1);
+      expect(qb.take).toHaveBeenCalledWith(1);
+      expect(result.meta).toEqual({ total: 5, page: 2, limit: 1 });
     });
 
     it('findDeleted returns all deleted customers without offset/limit pagination', async () => {
@@ -131,7 +149,7 @@ describe('CustomerService', () => {
         leftJoinAndSelect: jest.fn().mockReturnThis(),
         andWhere: jest.fn().mockReturnThis(),
         orderBy: jest.fn().mockReturnThis(),
-        getMany: jest.fn().mockResolvedValue([]),
+        getManyAndCount: jest.fn().mockResolvedValue([[], 0]),
       };
       customerRepository.createQueryBuilder.mockReturnValue(qb as any);
 
@@ -148,7 +166,7 @@ describe('CustomerService', () => {
         leftJoinAndSelect: jest.fn().mockReturnThis(),
         andWhere: jest.fn().mockReturnThis(),
         orderBy: jest.fn().mockReturnThis(),
-        getMany: jest.fn().mockResolvedValue([]),
+        getManyAndCount: jest.fn().mockResolvedValue([[], 0]),
       };
       customerRepository.createQueryBuilder.mockReturnValue(qb as any);
 
