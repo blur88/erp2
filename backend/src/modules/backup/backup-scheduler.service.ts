@@ -1,8 +1,8 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, LessThan } from 'typeorm';
-import { InjectQueue } from '@nestjs/bull';
-import { Queue } from 'bull';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Queue } from 'bullmq';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { BackupSchedule } from '@database/entities/backup-schedule.entity';
 import {
@@ -160,7 +160,7 @@ export class BackupSchedulerService {
       },
       {
         repeat: {
-          cron: cronExpression,
+          pattern: cronExpression,
         },
         jobId: `schedule-${schedule.id}`,
       },
