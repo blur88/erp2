@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { BullModule } from '@nestjs/bull';
+import { BullModule } from '@nestjs/bullmq';
 import { BackupController } from './backup.controller';
 import { BackupService } from './backup.service';
 import { BackupSchedulerService } from './backup-scheduler.service';
