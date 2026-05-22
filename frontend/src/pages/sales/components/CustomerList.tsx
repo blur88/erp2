@@ -1,43 +1,65 @@
 import React from 'react'
+import { useNavigate } from 'react-router-dom'
 
 import EntityTable, { type ColumnConfig } from '@/components/common/EntityTable'
+import RowActionMenu from '@/components/common/RowActionMenu'
 import type { Customer } from '@/types'
-
-const COLUMNS: ColumnConfig<Customer>[] = [
-  { key: 'name', render: (customer) => customer.name },
-]
 
 interface CustomerListProps {
   customers: Customer[]
   loading: boolean
   total: number
-  selectedCustomerId: string | undefined
-  focusedIndex: number
-  onSelect: (customer: Customer) => void
-  customerListRef: React.RefObject<HTMLDivElement | null>
+  onStatusToggle: (customer: Customer) => void
 }
 
-const CustomerList: React.FC<CustomerListProps> = ({
+export default function CustomerList({
   customers,
   loading,
   total,
-  selectedCustomerId,
-  focusedIndex,
-  onSelect,
-  customerListRef,
-}) => (
-  <EntityTable
-    rows={customers}
-    columns={COLUMNS}
-    loading={loading}
-    total={total}
-    label="Customers"
-    selectedId={selectedCustomerId}
-    focusedIndex={focusedIndex}
-    onSelect={onSelect}
-    listRef={customerListRef}
-    dataAttr="customer"
-  />
-)
+  onStatusToggle,
+}: CustomerListProps) {
+  const navigate = useNavigate()
 
-export default CustomerList
+  const columns: ColumnConfig<Customer>[] = [
+    { key: 'name', render: (customer) => customer.name },
+    {
+      key: 'actions',
+      width: 48,
+      raw: true,
+      render: (customer) => (
+        <RowActionMenu
+          actions={[
+            {
+              label: 'Edit Customer',
+              onClick: () => navigate(`/sales/customers/${customer.slug}/edit`),
+            },
+            customer.isActive
+              ? {
+                  label: 'Set as Inactive',
+                  onClick: () => onStatusToggle(customer),
+                }
+              : {
+                  label: 'Reactivate',
+                  onClick: () => onStatusToggle(customer),
+                },
+          ]}
+        />
+      ),
+    },
+  ]
+
+  return (
+    <EntityTable
+      rows={customers}
+      columns={columns}
+      loading={loading}
+      total={total}
+      label="Customers"
+      selectedId={undefined}
+      focusedIndex={-1}
+      onSelect={() => {}}
+      listRef={{ current: null }}
+      dataAttr="customer"
+    />
+  )
+}
