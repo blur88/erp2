@@ -1,10 +1,12 @@
-import { describe, it, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
-import { Provider } from 'react-redux'
 import { configureStore } from '@reduxjs/toolkit'
+import { Provider } from 'react-redux'
 import { MemoryRouter } from 'react-router-dom'
-import salesReducer from '@/store/slices/salesSlice'
+import { describe, expect, it, vi } from 'vitest'
+
 import { salesApiSlice } from '@/store/api/salesApi'
+import salesReducer from '@/store/slices/salesSlice'
+
 import CustomersPage from '../CustomersPage'
 
 vi.mock('@/hooks/useNotification', () => ({
@@ -13,10 +15,7 @@ vi.mock('@/hooks/useNotification', () => ({
 
 vi.mock('react-router-dom', async (importOriginal) => {
   const actual = await importOriginal<typeof import('react-router-dom')>()
-  return {
-    ...actual,
-    useNavigate: () => vi.fn(),
-  }
+  return { ...actual, useNavigate: () => vi.fn() }
 })
 
 vi.mock('@/store/api/salesApi', async (importOriginal) => {
@@ -24,53 +23,29 @@ vi.mock('@/store/api/salesApi', async (importOriginal) => {
   return {
     ...actual,
     useGetCustomersQuery: vi.fn(() => ({
-      data: { data: [], meta: { total: 0, page: 1, limit: 25, totalPages: 0 } },
+      data: { data: [], meta: { total: 0, page: 1, limit: 25 } },
       isLoading: false,
+      isFetching: false,
       error: null,
-      refetch: vi.fn(),
     })),
-    useCreateCustomerMutation: vi.fn(() => [vi.fn()]),
-    useUpdateCustomerMutation: vi.fn(() => [vi.fn()]),
-    useDeleteCustomerMutation: vi.fn(() => [vi.fn()]),
+    useUpdateCustomerMutation: vi.fn(() => [vi.fn(), {}]),
   }
 })
 
 vi.mock('@/store/api/priceListApi', () => ({
-  useGetPriceListsQuery: vi.fn(() => ({
-    data: { data: [] },
-  })),
-}))
-
-vi.mock('@/components/common/MasterDetailWorkspace', () => ({
-  default: ({ listSlot, headerSlot, workspaceSlot }: any) => (
-    <div>
-      <div>{listSlot}</div>
-      <div>{headerSlot}</div>
-      <div>{workspaceSlot}</div>
-    </div>
-  ),
-}))
-
-vi.mock('../components/CustomerWorkspaceCard', () => ({
-  default: () => <div data-testid="customer-workspace-card" />,
-}))
-
-vi.mock('../components/CustomerContextHeader', () => ({
-  default: () => <div data-testid="customer-context-header" />,
+  useGetPriceListsQuery: vi.fn(() => ({ data: { data: [] } })),
 }))
 
 vi.mock('../components/CustomerList', () => ({
-  default: ({ customers, onSelect, total: _total }: any) => (
+  default: ({ customers, total }: any) => (
     <div data-testid="customer-list">
-      {customers.map((customer: any) => (
-        <div key={customer.id} data-testid={`customer-item-${customer.id}`} onClick={() => onSelect(customer)}>
-          {customer.name}
-        </div>
+      <span data-testid="customer-count">{total}</span>
+      {customers.map((c: any) => (
+        <div key={c.id}>{c.name}</div>
       ))}
     </div>
   ),
 }))
-
 
 function makeStore() {
   return configureStore({
@@ -93,6 +68,11 @@ function renderPage() {
 }
 
 describe('CustomersPage filters', () => {
+  it('renders the page title', () => {
+    renderPage()
+    expect(screen.getByText('Customers')).toBeInTheDocument()
+  })
+
   it('renders the search input', () => {
     renderPage()
     expect(screen.getByPlaceholderText(/search by name or phone/i)).toBeInTheDocument()
@@ -116,5 +96,15 @@ describe('CustomersPage filters', () => {
   it('renders the CustomerList slot', () => {
     renderPage()
     expect(screen.getByTestId('customer-list')).toBeInTheDocument()
+  })
+
+  it('renders pagination controls', () => {
+    renderPage()
+    expect(screen.getByText(/showing/i)).toBeInTheDocument()
+  })
+
+  it('renders the New Customer button', () => {
+    renderPage()
+    expect(screen.getByRole('button', { name: /new customer/i })).toBeInTheDocument()
   })
 })
