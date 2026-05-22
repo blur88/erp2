@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { BullModule } from '@nestjs/bull';
+import { BullModule } from '@nestjs/bullmq';
 import { ScheduleModule } from '@nestjs/schedule';
 import { APP_INTERCEPTOR, APP_GUARD } from '@nestjs/core';
 
@@ -50,8 +50,8 @@ import { AppService } from './app.service';
     // Bull Queue for background jobs
     BullModule.forRootAsync({
       imports: [ConfigModule],
-      useFactory: async (configService: ConfigService) => ({
-        redis: {
+      useFactory: (configService: ConfigService) => ({
+        connection: {
           host: configService.get<string>('REDIS_HOST', 'redis'),
           port: parseInt(configService.get<string>('REDIS_PORT', '6379')),
           password: configService.get<string>('REDIS_PASSWORD'),
