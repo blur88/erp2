@@ -27,6 +27,8 @@ export interface OutstandingInvoice {
 
 const defaultMeta = {
   total: 0,
+  page: undefined as number | undefined,
+  limit: undefined as number | undefined,
 }
 
 function normalizeNamedCollection<T>(
@@ -45,7 +47,11 @@ function normalizeNamedCollection<T>(
   }
 
   const data = response[key] ?? response.data ?? []
-  const meta = { total: response.meta?.total ?? response.total ?? (Array.isArray(data) ? data.length : 0) }
+  const meta = {
+    total: response.meta?.total ?? response.total ?? (Array.isArray(data) ? data.length : 0),
+    page: response.meta?.page as number | undefined,
+    limit: response.meta?.limit as number | undefined,
+  }
 
   return {
     data: Array.isArray(data) ? data : [],
