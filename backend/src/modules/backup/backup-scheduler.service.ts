@@ -1,8 +1,8 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, LessThan } from 'typeorm';
-import { InjectQueue } from '@nestjs/bull';
-import { Queue } from 'bull';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Queue } from 'bullmq';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { BackupSchedule } from '@database/entities/backup-schedule.entity';
 import {
@@ -160,7 +160,7 @@ export class BackupSchedulerService {
       },
       {
         repeat: {
-          cron: cronExpression,
+          pattern: cronExpression,
         },
         jobId: `schedule-${schedule.id}`,
       },
@@ -174,14 +174,15 @@ export class BackupSchedulerService {
   private async removeScheduleFromQueue(
     schedule: BackupSchedule,
   ): Promise<void> {
-    const jobId = `schedule-${schedule.id}`;
-    const repeatableJobs = await this.backupQueue.getRepeatableJobs();
-    const job = repeatableJobs.find((j) => j.id === jobId);
+    const cronExpression =
+      schedule.cronExpression || this.buildCronExpression(schedule);
 
-    if (job) {
-      await this.backupQueue.removeRepeatableByKey(job.key);
-      this.logger.log(`Removed schedule from queue: ${schedule.name}`);
-    }
+    await this.backupQueue.removeRepeatable('create-backup', {
+      pattern: cronExpression,
+      jobId: `schedule-${schedule.id}`,
+    });
+
+    this.logger.log(`Removed schedule from queue: ${schedule.name}`);
   }
 
   private buildCronExpression(schedule: BackupSchedule): string {

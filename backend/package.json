@@ -29,7 +29,7 @@
     "seed:run": "ts-node ./src/database/seeds/seed.ts"
   },
   "dependencies": {
-    "@nestjs/bull": "^11.0.3",
+    "@nestjs/bullmq": "^11.0.4",
     "@nestjs/common": "^11.0.0",
     "@nestjs/config": "^4.0.2",
     "@nestjs/core": "^11.0.0",
@@ -46,7 +46,7 @@
     "@types/bcrypt": "^6.0.0",
     "archiver": "8.0.0",
     "bcrypt": "^6.0.0",
-    "bull": "^4.11.4",
+    "bullmq": "^5.77.0",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.15.1",
     "compression": "^1.7.4",
@@ -112,9 +112,6 @@
     "@nestjs/mapped-types": "2.1.1",
     "glob": ">=10",
     "ws": ">=8.20.1",
-    "bull": {
-      "uuid": ">=11.1.1"
-    },
     "exceljs": {
       "uuid": ">=11.1.1"
     }
