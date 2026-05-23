@@ -12,8 +12,8 @@ import {
   useRestoreCustomerMutation,
 } from '@/store/api/salesApi'
 import type { Customer } from '@/types'
-import { CustomerType } from '@/types'
 import { formatDate } from '@/utils/formatters'
+import { formatCustomerType } from '@/utils/customerUtils'
 
 type DeletedCustomer = Customer & { deletedAt?: string | Date }
 
@@ -37,7 +37,7 @@ const columns: ColumnDef<DeletedCustomer>[] = [
     width: '15%',
     render: (customer) => (
       <Chip
-        label={customer.type === CustomerType.BUSINESS ? 'Business' : 'Individual'}
+        label={formatCustomerType(customer.type)}
         size="small"
         variant="outlined"
         sx={{ fontSize: '0.7rem', fontWeight: 500, height: 20 }}

@@ -4,17 +4,14 @@ import { useNavigate } from 'react-router-dom'
 import EntityTable, { type ColumnConfig } from '@/components/common/EntityTable'
 import { EntityStatusChip } from '@/components/common/EntityStatusChip'
 import RowActionMenu from '@/components/common/RowActionMenu'
-import type { Customer, CustomerType } from '@/types'
+import type { Customer } from '@/types'
+import { formatCustomerType } from '@/utils/customerUtils'
 
 interface CustomerListProps {
   customers: Customer[]
   loading: boolean
   total: number
   onStatusToggle: (customer: Customer) => void
-}
-
-function formatType(type: CustomerType): string {
-  return type === 'individual' ? 'Individual' : 'Business'
 }
 
 export default function CustomerList({
@@ -28,7 +25,7 @@ export default function CustomerList({
   const columns: ColumnConfig<Customer>[] = [
     { key: 'name', render: (customer) => customer.name },
     { key: 'phone', width: 150, render: (customer) => customer.phone ?? '—' },
-    { key: 'type', width: 110, render: (customer) => formatType(customer.type) },
+    { key: 'type', width: 110, render: (customer) => formatCustomerType(customer.type) },
     { key: 'priceList', width: 130, render: (customer) => customer.priceList?.name ?? '—' },
     {
       key: 'status',

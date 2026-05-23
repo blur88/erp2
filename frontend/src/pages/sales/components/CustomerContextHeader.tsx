@@ -17,8 +17,8 @@ import { AppButton } from '@/components/common/AppButton'
 import { EntityContextHeaderBar } from '@/components/common/EntityContextHeaderBar'
 import { TABLE_STYLES } from '@/constants/tableStyles'
 import type { Customer } from '@/types'
-import { CustomerType } from '@/types'
 import { formatCurrency, formatDate } from '@/utils/formatters'
+import { formatCustomerType } from '@/utils/customerUtils'
 
 interface CustomerContextHeaderProps {
   selectedCustomer: Customer | null
@@ -116,7 +116,7 @@ const CustomerContextHeader: React.FC<CustomerContextHeaderProps> = ({
                   <TableRow sx={{ backgroundColor: 'grey.50' }}>
                     <TableCell sx={labelCellSx}>Type</TableCell>
                     <TableCell sx={valueCellSx}>
-                      {selectedCustomer.type === CustomerType.BUSINESS ? 'Business' : 'Individual'}
+                      {formatCustomerType(selectedCustomer.type)}
                     </TableCell>
                   </TableRow>
                   <TableRow>
