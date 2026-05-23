@@ -372,7 +372,7 @@ const CustomerFormPage: React.FC = () => {
         backAction={handleCancel}
       />
 
-      <form onSubmit={handleSubmit(handleFormSubmit)}>
+      <form noValidate onSubmit={handleSubmit(handleFormSubmit)}>
         <Grid container spacing={3}>
           <Grid size={{ xs: 12, md: 8 }}>
             <Card>
