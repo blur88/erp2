@@ -103,6 +103,7 @@ const CreateSalesOrderPage: React.FC = () => {
   const [editingOrderId, setEditingOrderId] = useState<string | null>(null)
   const [selectedCustomer, setSelectedCustomer] = useState<any>(null)
   const customerChangedByUserRef = useRef(false)
+  const preselectAppliedRef = useRef(false)
 
   const { control, handleSubmit, watch, setValue, reset, formState: { errors } } = useForm<CreateOrderFormData>({
     resolver: yupResolver(schema) as any,
@@ -144,12 +145,13 @@ const CreateSalesOrderPage: React.FC = () => {
 
   useEffect(() => {
     const preselectCustomerId = (location.state as any)?.preselectCustomerId as string | undefined
-    if (!preselectCustomerId || !customers.length) {
+    if (!preselectCustomerId || !customers.length || preselectAppliedRef.current) {
       return
     }
 
     const foundCustomer = customers.find((customer) => customer.id === preselectCustomerId)
     if (foundCustomer) {
+      preselectAppliedRef.current = true
       setValue('customerId', foundCustomer.id)
       setSelectedCustomer(foundCustomer)
       customerChangedByUserRef.current = true
