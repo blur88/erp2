@@ -41,6 +41,36 @@ function renderList(customers = [baseCustomer]) {
 }
 
 describe('CustomerList columns', () => {
+  it('renders column headers', () => {
+    renderList()
+    expect(screen.getByText('Name')).toBeInTheDocument()
+    expect(screen.getByText('Phone')).toBeInTheDocument()
+    expect(screen.getByText('Type')).toBeInTheDocument()
+    expect(screen.getByText('Price List')).toBeInTheDocument()
+    expect(screen.getByText('Status')).toBeInTheDocument()
+    expect(screen.getByText('Actions')).toBeInTheDocument()
+  })
+
+  it('does not render the Customers count header', () => {
+    renderList()
+    expect(screen.queryByText(/Customers \(/)).not.toBeInTheDocument()
+  })
+
+  it('renders paginationSlot inside the table card', () => {
+    render(
+      <MemoryRouter>
+        <CustomerList
+          customers={[baseCustomer] as any}
+          loading={false}
+          total={1}
+          onStatusToggle={vi.fn()}
+          paginationSlot={<div data-testid="pagination-slot">Pagination</div>}
+        />
+      </MemoryRouter>,
+    )
+    expect(screen.getByTestId('pagination-slot')).toBeInTheDocument()
+  })
+
   it('renders customer name', () => {
     renderList()
     expect(screen.getByText('Acme Corp')).toBeInTheDocument()

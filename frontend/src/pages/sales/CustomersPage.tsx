@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 import PagePagination from '@/components/common/PagePagination'
-import PageSection from '@/components/common/PageSection'
 import SimpleListPage from '@/components/common/SimpleListPage'
 import { useFilterBar } from '@/hooks/useFilterBar'
 import { useNotification } from '@/hooks/useNotification'
@@ -111,29 +110,25 @@ const CustomersPage: React.FC = () => {
       hasActiveFilters={hasActiveFilters}
       searchInputRef={searchInputRef}
       sort={{ field: 'name', sortBy, sortOrder, onSort: handleSort }}
+      isFetching={isFetching}
       error={pageError || (error ? 'Failed to load customers.' : null)}
       onErrorClose={() => setPageError(null)}
       tableSlot={(
-        <PageSection
-          label="Customer list"
-          meta={<span style={{ fontSize: '0.8rem', color: 'inherit' }}>{limit} per page</span>}
-        >
-          <CustomerList
-            customers={customers}
-            loading={isLoading || isFetching}
-            total={total}
-            onStatusToggle={handleStatusToggle}
-          />
-        </PageSection>
-      )}
-      paginationSlot={(
-        <PagePagination
+        <CustomerList
+          customers={customers}
+          loading={isLoading || isFetching}
           total={total}
-          page={page}
-          limit={limit}
-          onPageChange={setPage}
-          onLimitChange={handleLimitChange}
-          pageSizeOptions={PAGE_SIZE_OPTIONS}
+          onStatusToggle={handleStatusToggle}
+          paginationSlot={(
+            <PagePagination
+              total={total}
+              page={page}
+              limit={limit}
+              onPageChange={setPage}
+              onLimitChange={handleLimitChange}
+              pageSizeOptions={PAGE_SIZE_OPTIONS}
+            />
+          )}
         />
       )}
     />

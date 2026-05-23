@@ -1,4 +1,5 @@
 import React from 'react'
+import type { ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 import EntityTable, { type ColumnConfig } from '@/components/common/EntityTable'
@@ -12,6 +13,7 @@ interface CustomerListProps {
   loading: boolean
   total: number
   onStatusToggle: (customer: Customer) => void
+  paginationSlot?: ReactNode
 }
 
 export default function CustomerList({
@@ -19,17 +21,18 @@ export default function CustomerList({
   loading,
   total,
   onStatusToggle,
+  paginationSlot,
 }: CustomerListProps) {
   const navigate = useNavigate()
 
   const columns: ColumnConfig<Customer>[] = [
-    { key: 'name', render: (customer) => customer.name },
-    { key: 'phone', width: 150, render: (customer) => customer.phone ?? '—' },
-    { key: 'type', width: 110, render: (customer) => formatCustomerType(customer.type) },
-    { key: 'priceList', width: 130, render: (customer) => customer.priceList?.name ?? '—' },
+    { key: 'name', width: '30%', render: (customer) => customer.name },
+    { key: 'phone', width: '18%', render: (customer) => customer.phone ?? '—' },
+    { key: 'type', width: '13%', render: (customer) => formatCustomerType(customer.type) },
+    { key: 'priceList', width: '16%', render: (customer) => customer.priceList?.name ?? '—' },
     {
       key: 'status',
-      width: 100,
+      width: '12%',
       raw: true,
       render: (customer) => (
         <EntityStatusChip status={customer.isActive ? 'active' : 'inactive'} />
@@ -37,7 +40,7 @@ export default function CustomerList({
     },
     {
       key: 'actions',
-      width: 48,
+      width: '6%',
       raw: true,
       render: (customer) => (
         <RowActionMenu
@@ -62,11 +65,14 @@ export default function CustomerList({
       loading={loading}
       total={total}
       label="Customers"
+      showHeader={false}
+      headers={['Name', 'Phone', 'Type', 'Price List', 'Status', 'Actions']}
       selectedId={undefined}
       focusedIndex={-1}
       onSelect={() => {}}
       listRef={{ current: null }}
       dataAttr="customer"
+      paginationSlot={paginationSlot}
     />
   )
 }

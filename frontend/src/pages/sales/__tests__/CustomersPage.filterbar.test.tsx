@@ -41,7 +41,9 @@ vi.mock('react-router-dom', async (importOriginal) => {
 })
 
 vi.mock('../components/CustomerList', () => ({
-  default: () => <div data-testid="customer-list" />,
+  default: ({ paginationSlot }: any) => (
+    <div data-testid="customer-list">{paginationSlot}</div>
+  ),
 }))
 
 function makeStore() {
