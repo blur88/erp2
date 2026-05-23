@@ -889,13 +889,13 @@ export class InvoiceService extends BaseCrudService<
       customer: invoice.customer ? {
         id: invoice.customer.id,
         name: invoice.customer.name,
-        email: undefined, // Customer email field removed from entity
+        email: invoice.customer.email,
         phone: invoice.customer.phone,
-        streetAddress: invoice.customer.streetAddress,
-        city: invoice.customer.city,
-        state: invoice.customer.state,
-        postalCode: invoice.customer.postalCode,
-        country: invoice.customer.country,
+        streetAddress: invoice.customer.billingStreetAddress,
+        city: invoice.customer.billingCity,
+        state: invoice.customer.billingState,
+        postalCode: invoice.customer.billingPostalCode,
+        country: invoice.customer.billingCountry,
       } : undefined,
       salesOrder: invoice.salesOrder ? {
         id: invoice.salesOrder.id,

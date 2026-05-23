@@ -48,11 +48,11 @@ export function mapSalesOrderToResponseDto(
           id: order.customer.id,
           name: order.customer.name,
           phone: order.customer.phone,
-          streetAddress: order.customer.streetAddress,
-          city: order.customer.city,
-          state: order.customer.state,
-          postalCode: order.customer.postalCode,
-          country: order.customer.country,
+          streetAddress: order.customer.billingStreetAddress,
+          city: order.customer.billingCity,
+          state: order.customer.billingState,
+          postalCode: order.customer.billingPostalCode,
+          country: order.customer.billingCountry,
         }
       : undefined,
     items:
