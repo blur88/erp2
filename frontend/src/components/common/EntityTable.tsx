@@ -184,7 +184,7 @@ function EntityTable<T extends { id: string }>({
                         variant="tableHeader"
                         sx={{
                           fontWeight: 600,
-                          fontSize: '0.75rem',
+                          fontSize: '0.8rem',
                           textTransform: 'uppercase',
                           letterSpacing: '0.5px',
                         }}
