@@ -320,3 +320,20 @@ export class CustomerSummaryDto {
   phone?: string;
 
 }
+
+/**
+ * Embedded customer sub-object used in invoice, payment, and sales-order responses.
+ * Uses legacy flat address field names (streetAddress, city…) for backward compatibility
+ * with print templates. Populated by mapping billingX entity fields at the service layer.
+ */
+export class CustomerPrintDto {
+  id: string;
+  name: string;
+  email?: string;
+  phone?: string;
+  streetAddress?: string;
+  city?: string;
+  state?: string;
+  postalCode?: string;
+  country?: string;
+}

@@ -26,6 +26,7 @@ import {
   SendInvoiceDto,
   InvoicePaymentAllocationDto,
 } from '../dto/invoice.dto';
+import { CustomerPrintDto } from '../dto/customer.dto';
 import { GlobalSearchResultDto } from '../../search/dto/global-search-result.dto';
 import { canSearchInvoices } from '../../search/search.permissions';
 import {
@@ -886,7 +887,7 @@ export class InvoiceService extends BaseCrudService<
       customerName: invoice.customer?.name,
       customerId: invoice.customerId,
       salesOrderId: invoice.salesOrderId,
-      customer: invoice.customer ? {
+      customer: invoice.customer ? ({
         id: invoice.customer.id,
         name: invoice.customer.name,
         email: invoice.customer.email,
@@ -896,7 +897,7 @@ export class InvoiceService extends BaseCrudService<
         state: invoice.customer.billingState,
         postalCode: invoice.customer.billingPostalCode,
         country: invoice.customer.billingCountry,
-      } : undefined,
+      } satisfies CustomerPrintDto) : undefined,
       salesOrder: invoice.salesOrder ? {
         id: invoice.salesOrder.id,
         orderNumber: invoice.salesOrder.orderNumber,

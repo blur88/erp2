@@ -22,6 +22,7 @@ import {
   AllocatePaymentDto,
   PaymentSummaryDto,
 } from '../dto/payment.dto';
+import { CustomerPrintDto } from '../dto/customer.dto';
 import { AccountingService } from '@modules/accounting/services/accounting.service';
 import { GlobalSearchResultDto } from '../../search/dto/global-search-result.dto';
 import { canSearchCustomerPayments } from '../../search/search.permissions';
@@ -802,7 +803,7 @@ export class PaymentService extends BaseCrudService<
             name: item.product.name,
           } : undefined,
         })),
-        customer: payment.invoice.customer || payment.customer ? {
+        customer: payment.invoice.customer || payment.customer ? ({
           id: (payment.invoice.customer || payment.customer).id,
           name: (payment.invoice.customer || payment.customer).name,
           phone: (payment.invoice.customer || payment.customer).phone,
@@ -811,7 +812,7 @@ export class PaymentService extends BaseCrudService<
           state: (payment.invoice.customer || payment.customer).billingState,
           postalCode: (payment.invoice.customer || payment.customer).billingPostalCode,
           country: (payment.invoice.customer || payment.customer).billingCountry,
-        } : undefined,
+        } satisfies CustomerPrintDto) : undefined,
       } : undefined,
       relatedInvoiceId: payment.invoice?.id,
       relatedInvoiceNumber: payment.invoice?.invoiceNumber,

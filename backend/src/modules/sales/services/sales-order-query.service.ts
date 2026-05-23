@@ -12,6 +12,7 @@ import { SalesOrder } from '../../../database/entities/sales-order.entity';
 import { Product } from '../../../database/entities/product.entity';
 import { Invoice } from '../../../database/entities/invoice.entity';
 import { Payment } from '../../../database/entities/payment.entity';
+import { CustomerPrintDto } from '../dto/customer.dto';
 import { QuerySalesOrdersDto, SalesOrderResponseDto } from '../dto/sales-order.dto';
 import { mapSalesOrderToResponseDto } from './sales-order.mapper';
 
@@ -312,7 +313,7 @@ export class SalesOrderQueryService {
         canUnfulfill: order.isFulfilled || false,
         customerId: order.customerId,
         customer: order.customer
-          ? {
+          ? ({
               id: order.customer.id,
               name: order.customer.name,
               phone: order.customer.phone,
@@ -321,7 +322,7 @@ export class SalesOrderQueryService {
               state: order.customer.billingState,
               postalCode: order.customer.billingPostalCode,
               country: order.customer.billingCountry,
-            }
+            } satisfies CustomerPrintDto)
           : null,
         customerName: order.customer?.name || 'Unknown Customer',
         items:
