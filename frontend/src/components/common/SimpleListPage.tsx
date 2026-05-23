@@ -21,6 +21,7 @@ interface SimpleListPageProps<F extends object> {
   hasActiveFilters: boolean
   searchInputRef: RefObject<HTMLInputElement | null>
   sort: FilterBarSortConfig
+  isFetching?: boolean
   error?: string | null
   onErrorClose?: () => void
   tableSlot: ReactNode
@@ -39,6 +40,7 @@ export default function SimpleListPage<F extends object>({
   hasActiveFilters,
   searchInputRef,
   sort,
+  isFetching,
   error,
   onErrorClose,
   tableSlot,
@@ -61,6 +63,7 @@ export default function SimpleListPage<F extends object>({
             hasActiveFilters={hasActiveFilters}
             searchInputRef={searchInputRef}
             sort={sort}
+            isFetching={isFetching}
           />
         }
       />

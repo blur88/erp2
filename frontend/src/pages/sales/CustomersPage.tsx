@@ -110,6 +110,7 @@ const CustomersPage: React.FC = () => {
       hasActiveFilters={hasActiveFilters}
       searchInputRef={searchInputRef}
       sort={{ field: 'name', sortBy, sortOrder, onSort: handleSort }}
+      isFetching={isFetching}
       error={pageError || (error ? 'Failed to load customers.' : null)}
       onErrorClose={() => setPageError(null)}
       tableSlot={(

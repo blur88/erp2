@@ -76,4 +76,14 @@ describe('SimpleListPage', () => {
     )
     expect(screen.getByTestId('dialogs')).toBeInTheDocument()
   })
+
+  it('shows a loading spinner in the filter bar when isFetching is true', () => {
+    render(<SimpleListPage {...baseProps} isFetching={true} />)
+    expect(screen.getByRole('progressbar')).toBeInTheDocument()
+  })
+
+  it('does not show a loading spinner when isFetching is false', () => {
+    render(<SimpleListPage {...baseProps} isFetching={false} />)
+    expect(screen.queryByRole('progressbar')).not.toBeInTheDocument()
+  })
 })
