@@ -52,7 +52,6 @@ export const {
 export const selectSelectedOrder = (state: RootState) => state.sales.selectedOrder
 export const selectSelectedInvoice = (state: RootState) => state.sales.selectedInvoice
 export const selectSelectedPayment = (state: RootState) => state.sales.selectedPayment
-export const selectSelectedCustomer = (state: RootState) => state.sales.selectedCustomer
 export const selectSalesError = (state: RootState) => state.sales.error
 
 export default salesSlice.reducer
