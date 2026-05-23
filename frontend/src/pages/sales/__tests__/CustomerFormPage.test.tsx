@@ -369,6 +369,50 @@ it('shows discard confirmation dialog when cancelling with unsaved changes', asy
   expect(mockNavigate).not.toHaveBeenCalled()
 })
 
+describe('CustomerFormPage - stale name duplicate banner', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.useFakeTimers()
+    mockCreateCustomer.mockReturnValue({ unwrap: vi.fn().mockResolvedValue({ id: 'new-cust' }) })
+    mockRestoreCustomer.mockReturnValue({ unwrap: vi.fn().mockResolvedValue({}) })
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it('clears the duplicate banner immediately when the user continues typing, before the debounce resolves', async () => {
+    // First check: 'Test Corp' is a duplicate
+    mockApiGet.mockImplementation((url: string) => {
+      if (url === '/customers') {
+        return Promise.resolve({
+          data: { data: [{ id: 'other', name: 'Test Corp', isActive: true }] },
+        })
+      }
+      return Promise.resolve({ data: { data: [] } })
+    })
+
+    renderCreatePage()
+
+    // Type 'Test Corp' and wait for duplicate check
+    fireEvent.change(screen.getByLabelText(/customer name/i), { target: { value: 'Test Corp' } })
+    await act(async () => {
+      vi.advanceTimersByTime(500)
+      await Promise.resolve()
+    })
+    expect(screen.getByText(/a customer with this name already exists/i)).toBeInTheDocument()
+
+    // Now switch to returning no duplicates for the next check
+    mockApiGet.mockResolvedValue({ data: { data: [] } })
+
+    // User types one more character — debounce not yet resolved
+    fireEvent.change(screen.getByLabelText(/customer name/i), { target: { value: 'Test Corps' } })
+
+    // Banner should clear immediately (before debounce fires)
+    expect(screen.queryByText(/a customer with this name already exists/i)).not.toBeInTheDocument()
+  })
+})
+
 describe('CustomerFormPage - returnTo navigation', () => {
   beforeEach(() => {
     vi.clearAllMocks()

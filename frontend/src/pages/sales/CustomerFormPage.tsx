@@ -273,6 +273,10 @@ const CustomerFormPage: React.FC = () => {
   })
 
   useEffect(() => {
+    setDuplicateNameResult(null)
+  }, [watchedName])
+
+  useEffect(() => {
     if (!hasNameDuplicate) {
       setDuplicateNameResult(null)
     }
