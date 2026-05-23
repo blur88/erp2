@@ -1,41 +1,62 @@
-import { Grid, Typography } from '@mui/material'
+import { Grid, TextField, Typography } from '@mui/material'
 import { Controller, type Control, type FieldErrors, type FieldValues, type Path } from 'react-hook-form'
-import { TextField } from '@mui/material'
 
-/**
- * Shared address section for react-hook-form forms.
- * T must have streetAddress, city, state, postalCode, country fields.
- */
 interface AddressSectionProps<T extends FieldValues> {
   control: Control<T>
   errors: FieldErrors<T>
+  prefix?: 'billing' | 'shipping'
+  title?: string
+  disabled?: boolean
 }
 
-export default function AddressSection<T extends FieldValues & {
-  streetAddress?: string | null
-  city?: string | null
-  state?: string | null
-  postalCode?: string | null
-  country?: string | null
-}>({ control, errors }: AddressSectionProps<T>) {
+export default function AddressSection<T extends FieldValues>({
+  control,
+  errors,
+  prefix,
+  title = 'Address Information',
+  disabled = false,
+}: AddressSectionProps<T>) {
+  const fieldName = (suffix: string, unprefixed: string) => (
+    prefix ? `${prefix}${suffix}` : unprefixed
+  )
+  const streetKey = fieldName('StreetAddress', 'streetAddress')
+  const cityKey = fieldName('City', 'city')
+  const stateKey = fieldName('State', 'state')
+  const postalCodeKey = fieldName('PostalCode', 'postalCode')
+  const countryKey = fieldName('Country', 'country')
+
+  const streetField = streetKey as Path<T>
+  const cityField = cityKey as Path<T>
+  const stateField = stateKey as Path<T>
+  const postalCodeField = postalCodeKey as Path<T>
+  const countryField = countryKey as Path<T>
+
+  const fieldSx = {
+    '& .MuiInputBase-input': { fontSize: '0.875rem' },
+    '& .MuiInputLabel-root': { fontSize: '0.875rem' },
+  }
+
   return (
     <>
       <Grid size={12}>
-        <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>Address Information</Typography>
+        {title && <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>{title}</Typography>}
       </Grid>
 
       <Grid size={12}>
         <Controller
-          name={'streetAddress' as Path<T>}
+          name={streetField}
           control={control}
           render={({ field }) => (
             <TextField
               {...field}
               value={field.value || ''}
               fullWidth
+              size="small"
               label="Street Address"
-              error={!!errors.streetAddress}
-              helperText={errors.streetAddress?.message as string | undefined}
+              disabled={disabled}
+              error={!!(errors as any)[streetKey]}
+              helperText={(errors as any)[streetKey]?.message}
+              sx={fieldSx}
             />
           )}
         />
@@ -43,40 +64,80 @@ export default function AddressSection<T extends FieldValues & {
 
       <Grid size={{ xs: 12, md: 6 }}>
         <Controller
-          name={'city' as Path<T>}
+          name={cityField}
           control={control}
           render={({ field }) => (
-            <TextField {...field} value={field.value || ''} fullWidth label="City" error={!!errors.city} helperText={errors.city?.message as string | undefined} />
+            <TextField
+              {...field}
+              value={field.value || ''}
+              fullWidth
+              size="small"
+              label="City"
+              disabled={disabled}
+              error={!!(errors as any)[cityKey]}
+              helperText={(errors as any)[cityKey]?.message}
+              sx={fieldSx}
+            />
           )}
         />
       </Grid>
 
       <Grid size={{ xs: 12, md: 6 }}>
         <Controller
-          name={'state' as Path<T>}
+          name={stateField}
           control={control}
           render={({ field }) => (
-            <TextField {...field} value={field.value || ''} fullWidth label="State" error={!!errors.state} helperText={errors.state?.message as string | undefined} />
+            <TextField
+              {...field}
+              value={field.value || ''}
+              fullWidth
+              size="small"
+              label="State"
+              disabled={disabled}
+              error={!!(errors as any)[stateKey]}
+              helperText={(errors as any)[stateKey]?.message}
+              sx={fieldSx}
+            />
           )}
         />
       </Grid>
 
       <Grid size={{ xs: 12, md: 6 }}>
         <Controller
-          name={'postalCode' as Path<T>}
+          name={postalCodeField}
           control={control}
           render={({ field }) => (
-            <TextField {...field} value={field.value || ''} fullWidth label="Postal Code" error={!!errors.postalCode} helperText={errors.postalCode?.message as string | undefined} />
+            <TextField
+              {...field}
+              value={field.value || ''}
+              fullWidth
+              size="small"
+              label="Postal Code"
+              disabled={disabled}
+              error={!!(errors as any)[postalCodeKey]}
+              helperText={(errors as any)[postalCodeKey]?.message}
+              sx={fieldSx}
+            />
           )}
         />
       </Grid>
 
       <Grid size={{ xs: 12, md: 6 }}>
         <Controller
-          name={'country' as Path<T>}
+          name={countryField}
           control={control}
           render={({ field }) => (
-            <TextField {...field} value={field.value || ''} fullWidth label="Country" error={!!errors.country} helperText={errors.country?.message as string | undefined} />
+            <TextField
+              {...field}
+              value={field.value || ''}
+              fullWidth
+              size="small"
+              label="Country"
+              disabled={disabled}
+              error={!!(errors as any)[countryKey]}
+              helperText={(errors as any)[countryKey]?.message}
+              sx={fieldSx}
+            />
           )}
         />
       </Grid>
