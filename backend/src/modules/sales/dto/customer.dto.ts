@@ -82,13 +82,22 @@ export class UpdateCustomerDto {
   email?: string;
 
   @ApiPropertyOptional({
-    description: 'Billing street address',
+    description: 'Billing street address line 1',
     example: '123 Main Street',
   })
   @IsOptional()
   @IsString()
   @MaxLength(255)
   billingStreetAddress?: string;
+
+  @ApiPropertyOptional({
+    description: 'Billing street address line 2',
+    example: 'Suite 100',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(255)
+  billingStreetAddress2?: string;
 
   @ApiPropertyOptional({
     description: 'Billing city',
@@ -127,13 +136,22 @@ export class UpdateCustomerDto {
   billingCountry?: string;
 
   @ApiPropertyOptional({
-    description: 'Shipping street address',
+    description: 'Shipping street address line 1',
     example: '456 Warehouse Ave',
   })
   @IsOptional()
   @IsString()
   @MaxLength(255)
   shippingStreetAddress?: string;
+
+  @ApiPropertyOptional({
+    description: 'Shipping street address line 2',
+    example: 'Dock B',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(255)
+  shippingStreetAddress2?: string;
 
   @ApiPropertyOptional({
     description: 'Shipping city',
@@ -238,6 +256,9 @@ export class CustomerResponseDto {
   @ApiProperty({ example: '123 Main Street', nullable: true })
   billingStreetAddress?: string;
 
+  @ApiProperty({ example: 'Suite 100', nullable: true })
+  billingStreetAddress2?: string;
+
   @ApiProperty({ example: 'New York', nullable: true })
   billingCity?: string;
 
@@ -252,6 +273,9 @@ export class CustomerResponseDto {
 
   @ApiProperty({ example: '456 Warehouse Ave', nullable: true })
   shippingStreetAddress?: string;
+
+  @ApiProperty({ example: 'Dock B', nullable: true })
+  shippingStreetAddress2?: string;
 
   @ApiProperty({ example: 'Brooklyn', nullable: true })
   shippingCity?: string;

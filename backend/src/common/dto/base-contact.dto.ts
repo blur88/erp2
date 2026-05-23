@@ -18,6 +18,11 @@ export class BaseContactDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(255)
+  billingStreetAddress2?: string;
+
+  @IsOptional()
+  @IsString()
   @MaxLength(100)
   billingCity?: string;
 
@@ -40,6 +45,11 @@ export class BaseContactDto {
   @IsString()
   @MaxLength(255)
   shippingStreetAddress?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(255)
+  shippingStreetAddress2?: string;
 
   @IsOptional()
   @IsString()

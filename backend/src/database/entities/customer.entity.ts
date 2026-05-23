@@ -99,12 +99,23 @@ export class Customer extends BaseEntity {
     type: 'varchar',
     length: 255,
     nullable: true,
-    comment: 'Billing street address',
+    comment: 'Billing street address line 1',
   })
   @IsOptional()
   @IsString()
   @MaxLength(255)
   billingStreetAddress?: string;
+
+  @Column({
+    type: 'varchar',
+    length: 255,
+    nullable: true,
+    comment: 'Billing street address line 2',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(255)
+  billingStreetAddress2?: string;
 
   @Column({
     type: 'varchar',
@@ -155,12 +166,23 @@ export class Customer extends BaseEntity {
     type: 'varchar',
     length: 255,
     nullable: true,
-    comment: 'Shipping street address',
+    comment: 'Shipping street address line 1',
   })
   @IsOptional()
   @IsString()
   @MaxLength(255)
   shippingStreetAddress?: string;
+
+  @Column({
+    type: 'varchar',
+    length: 255,
+    nullable: true,
+    comment: 'Shipping street address line 2',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(255)
+  shippingStreetAddress2?: string;
 
   @Column({
     type: 'varchar',

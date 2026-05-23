@@ -166,12 +166,14 @@ export interface Customer {
   email?: string;
   // Billing Address
   billingStreetAddress?: string;
+  billingStreetAddress2?: string;
   billingCity?: string;
   billingState?: string;
   billingPostalCode?: string;
   billingCountry?: string;
   // Shipping Address
   shippingStreetAddress?: string;
+  shippingStreetAddress2?: string;
   shippingCity?: string;
   shippingState?: string;
   shippingPostalCode?: string;

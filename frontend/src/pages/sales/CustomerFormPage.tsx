@@ -45,11 +45,13 @@ const customerSchema = yup.object({
   phone: yup.string().optional().nullable().transform((value) => value?.trim() || null).max(20, 'Phone must be less than 20 characters'),
   email: yup.string().optional().nullable().email('Invalid email address').transform((value) => value?.trim() || null).max(255, 'Email must be less than 255 characters'),
   billingStreetAddress: yup.string().optional().nullable().transform((value) => value?.trim() || null).max(255),
+  billingStreetAddress2: yup.string().optional().nullable().transform((value) => value?.trim() || null).max(255),
   billingCity: yup.string().optional().nullable().transform((value) => value?.trim() || null).max(100),
   billingState: yup.string().optional().nullable().transform((value) => value?.trim() || null).max(100),
   billingPostalCode: yup.string().optional().nullable().transform((value) => value?.trim() || null).max(20),
   billingCountry: yup.string().optional().nullable().transform((value) => value?.trim() || null).max(100),
   shippingStreetAddress: yup.string().optional().nullable().transform((value) => value?.trim() || null).max(255),
+  shippingStreetAddress2: yup.string().optional().nullable().transform((value) => value?.trim() || null).max(255),
   shippingCity: yup.string().optional().nullable().transform((value) => value?.trim() || null).max(100),
   shippingState: yup.string().optional().nullable().transform((value) => value?.trim() || null).max(100),
   shippingPostalCode: yup.string().optional().nullable().transform((value) => value?.trim() || null).max(20),
@@ -64,11 +66,13 @@ interface CustomerFormData {
   phone?: string | null
   email?: string | null
   billingStreetAddress?: string | null
+  billingStreetAddress2?: string | null
   billingCity?: string | null
   billingState?: string | null
   billingPostalCode?: string | null
   billingCountry?: string | null
   shippingStreetAddress?: string | null
+  shippingStreetAddress2?: string | null
   shippingCity?: string | null
   shippingState?: string | null
   shippingPostalCode?: string | null
@@ -117,6 +121,7 @@ const CustomerFormPage: React.FC = () => {
     reset,
     watch,
     setValue,
+    setError,
     formState: { errors, isDirty },
   } = useForm<CustomerFormData>({
     resolver: yupResolver(customerSchema) as any,
@@ -126,11 +131,13 @@ const CustomerFormPage: React.FC = () => {
       phone: null,
       email: null,
       billingStreetAddress: null,
+      billingStreetAddress2: null,
       billingCity: null,
       billingState: null,
       billingPostalCode: null,
       billingCountry: null,
       shippingStreetAddress: null,
+      shippingStreetAddress2: null,
       shippingCity: null,
       shippingState: null,
       shippingPostalCode: null,
@@ -144,6 +151,7 @@ const CustomerFormPage: React.FC = () => {
   const watchedName = watch('name')
   const watchedBilling = watch([
     'billingStreetAddress',
+    'billingStreetAddress2',
     'billingCity',
     'billingState',
     'billingPostalCode',
@@ -156,10 +164,11 @@ const CustomerFormPage: React.FC = () => {
     }
 
     setValue('shippingStreetAddress', watchedBilling[0])
-    setValue('shippingCity', watchedBilling[1])
-    setValue('shippingState', watchedBilling[2])
-    setValue('shippingPostalCode', watchedBilling[3])
-    setValue('shippingCountry', watchedBilling[4])
+    setValue('shippingStreetAddress2', watchedBilling[1])
+    setValue('shippingCity', watchedBilling[2])
+    setValue('shippingState', watchedBilling[3])
+    setValue('shippingPostalCode', watchedBilling[4])
+    setValue('shippingCountry', watchedBilling[5])
   }, [sameAsBilling, setValue, watchedBilling])
 
   useEffect(() => {
@@ -178,11 +187,13 @@ const CustomerFormPage: React.FC = () => {
           phone: currentCustomer.phone || null,
           email: currentCustomer.email || null,
           billingStreetAddress: currentCustomer.billingStreetAddress || null,
+          billingStreetAddress2: currentCustomer.billingStreetAddress2 || null,
           billingCity: currentCustomer.billingCity || null,
           billingState: currentCustomer.billingState || null,
           billingPostalCode: currentCustomer.billingPostalCode || null,
           billingCountry: currentCustomer.billingCountry || null,
           shippingStreetAddress: currentCustomer.shippingStreetAddress || null,
+          shippingStreetAddress2: currentCustomer.shippingStreetAddress2 || null,
           shippingCity: currentCustomer.shippingCity || null,
           shippingState: currentCustomer.shippingState || null,
           shippingPostalCode: currentCustomer.shippingPostalCode || null,
@@ -323,11 +334,13 @@ const CustomerFormPage: React.FC = () => {
       phone: data.phone?.trim() || null,
       email: data.email?.trim() || null,
       billingStreetAddress: data.billingStreetAddress?.trim() || null,
+      billingStreetAddress2: data.billingStreetAddress2?.trim() || null,
       billingCity: data.billingCity?.trim() || null,
       billingState: data.billingState?.trim() || null,
       billingPostalCode: data.billingPostalCode?.trim() || null,
       billingCountry: data.billingCountry?.trim() || null,
       shippingStreetAddress: data.shippingStreetAddress?.trim() || null,
+      shippingStreetAddress2: data.shippingStreetAddress2?.trim() || null,
       shippingCity: data.shippingCity?.trim() || null,
       shippingState: data.shippingState?.trim() || null,
       shippingPostalCode: data.shippingPostalCode?.trim() || null,
@@ -352,8 +365,24 @@ const CustomerFormPage: React.FC = () => {
       } else {
         navigate(`/sales/customers?highlight=${savedCustomer.id}`)
       }
-    } catch (error) {
-      showError(`Failed to ${isEdit ? 'update' : 'create'} customer: ${error}`)
+    } catch (error: any) {
+      const message = error?.data?.message
+      if (Array.isArray(message)) {
+        // NestJS validation error array — map each message to its field
+        message.forEach((msg: string) => {
+          const lowerMsg = msg.toLowerCase()
+          if (lowerMsg.includes('name')) {
+            setError('name', { message: msg })
+          } else if (lowerMsg.includes('phone')) {
+            setError('phone', { message: msg })
+          } else if (lowerMsg.includes('email')) {
+            setError('email', { message: msg })
+          }
+        })
+        showError('Please fix the highlighted errors')
+      } else {
+        showError(`Failed to ${isEdit ? 'update' : 'create'} customer`)
+      }
     }
   }
 
@@ -380,18 +409,19 @@ const CustomerFormPage: React.FC = () => {
 
       <form noValidate onSubmit={handleSubmit(handleFormSubmit)}>
         <Grid container spacing={3}>
-          <Grid size={{ xs: 12, md: 8 }}>
+
+          {/* Group 1: Basic Info */}
+          <Grid size={12}>
             <Card>
               <CardContent>
                 <Typography variant="h6" gutterBottom>Basic Information</Typography>
-
                 <Grid container spacing={2}>
                   <Grid size={{ xs: 12, md: 6 }}>
                     <Controller
                       name="type"
                       control={control}
                       render={({ field }) => (
-                        <FormControl fullWidth size="small" error={!!errors.type} sx={fieldSx}>
+                        <FormControl fullWidth size="small" error={!!errors.type} disabled={isSaving} sx={fieldSx}>
                           <InputLabel>Customer Type</InputLabel>
                           <Select {...field} label="Customer Type">
                             <MenuItem value={CustomerType.INDIVIDUAL}>Individual</MenuItem>
@@ -413,6 +443,7 @@ const CustomerFormPage: React.FC = () => {
                           size="small"
                           label="Customer Name"
                           required
+                          disabled={isSaving}
                           error={!!errors.name || hasNameDuplicate}
                           helperText={errors.name?.message}
                           slotProps={{
@@ -466,6 +497,7 @@ const CustomerFormPage: React.FC = () => {
                           fullWidth
                           size="small"
                           label="Phone"
+                          disabled={isSaving}
                           error={!!errors.phone || hasPhoneDuplicate}
                           helperText={
                             errors.phone?.message
@@ -508,6 +540,7 @@ const CustomerFormPage: React.FC = () => {
                           size="small"
                           label="Email Address"
                           type="email"
+                          disabled={isSaving}
                           error={!!errors.email}
                           helperText={errors.email?.message}
                           sx={fieldSx}
@@ -515,12 +548,23 @@ const CustomerFormPage: React.FC = () => {
                       )}
                     />
                   </Grid>
+                </Grid>
+              </CardContent>
+            </Card>
+          </Grid>
 
+          {/* Group 2: Addresses */}
+          <Grid size={12}>
+            <Card>
+              <CardContent>
+                <Typography variant="h6" gutterBottom>Addresses</Typography>
+                <Grid container spacing={2}>
                   <AddressSection
                     control={control}
                     errors={errors}
                     prefix="billing"
                     title="Billing Address"
+                    disabled={isSaving}
                   />
 
                   <Grid size={12}>
@@ -532,6 +576,7 @@ const CustomerFormPage: React.FC = () => {
                             size="small"
                             checked={sameAsBilling}
                             onChange={(event) => setSameAsBilling(event.target.checked)}
+                            disabled={isSaving}
                           />
                         }
                         label="Same as Billing"
@@ -545,78 +590,90 @@ const CustomerFormPage: React.FC = () => {
                     errors={errors}
                     prefix="shipping"
                     title=""
-                    disabled={sameAsBilling}
+                    disabled={sameAsBilling || isSaving}
                   />
                 </Grid>
               </CardContent>
             </Card>
           </Grid>
 
-          <Grid size={{ xs: 12, md: 4 }}>
-            <Card sx={{ height: '100%' }}>
-              <CardContent sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-                <Controller
-                  name="priceListId"
-                  control={control}
-                  render={({ field }) => (
-                    <PriceListSelector
-                      value={field.value}
-                      onChange={(value) => field.onChange(value)}
-                      error={errors.priceListId?.message}
-                      label="Price List"
+          {/* Group 3: Additional */}
+          <Grid size={12}>
+            <Card>
+              <CardContent>
+                <Typography variant="h6" gutterBottom>Additional</Typography>
+                <Grid container spacing={2}>
+                  <Grid size={{ xs: 12, md: 6 }}>
+                    <Controller
+                      name="priceListId"
+                      control={control}
+                      render={({ field }) => (
+                        <PriceListSelector
+                          value={field.value}
+                          onChange={(value) => field.onChange(value)}
+                          error={errors.priceListId?.message}
+                          label="Price List"
+                          disabled={isSaving}
+                        />
+                      )}
                     />
-                  )}
-                />
+                  </Grid>
 
-                <Controller
-                  name="notes"
-                  control={control}
-                  render={({ field }) => (
-                    <TextField
-                      {...field}
-                      value={field.value || ''}
-                      fullWidth
-                      multiline
-                      rows={6}
-                      size="small"
-                      label="Notes"
-                      error={!!errors.notes}
-                      helperText={errors.notes?.message}
-                      sx={{ mt: 2, mb: 2, ...fieldSx }}
+                  <Grid size={12}>
+                    <Controller
+                      name="notes"
+                      control={control}
+                      render={({ field }) => (
+                        <TextField
+                          {...field}
+                          value={field.value || ''}
+                          fullWidth
+                          multiline
+                          rows={4}
+                          size="small"
+                          label="Notes / Remarks"
+                          disabled={isSaving}
+                          error={!!errors.notes}
+                          helperText={errors.notes?.message}
+                          sx={fieldSx}
+                        />
+                      )}
                     />
-                  )}
-                />
-
-                <Box sx={{ mt: 'auto', display: 'flex', flexDirection: 'column', gap: 1 }}>
-                  <AppButton
-                    variant="secondary"
-                    fullWidth
-                    onClick={handleCancel}
-                    disabled={isSaving}
-                  >
-                    Cancel
-                  </AppButton>
-
-                  <AppButton
-                    variant="primary"
-                    type="submit"
-                    fullWidth
-                    disabled={
-                      isSaving
-                      || hasNameDuplicate
-                      || isCheckingName
-                      || hasPhoneDuplicate
-                      || isCheckingPhone
-                    }
-                  >
-                    {isSaving
-                      ? (isEdit ? 'Updating...' : 'Creating...')
-                      : (isEdit ? 'Update Customer' : 'Create Customer')}
-                  </AppButton>
-                </Box>
+                  </Grid>
+                </Grid>
               </CardContent>
             </Card>
           </Grid>
+
+          {/* Action buttons */}
+          <Grid size={12}>
+            <Box sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end' }}>
+              <AppButton
+                variant="secondary"
+                onClick={handleCancel}
+                disabled={isSaving}
+              >
+                Cancel
+              </AppButton>
+
+              <AppButton
+                variant="primary"
+                type="submit"
+                disabled={
+                  isSaving
+                  || hasNameDuplicate
+                  || isCheckingName
+                  || hasPhoneDuplicate
+                  || isCheckingPhone
+                }
+              >
+                {isSaving
+                  ? (isEdit ? 'Updating...' : 'Creating...')
+                  : (isEdit ? 'Update Customer' : 'Create Customer')}
+              </AppButton>
+            </Box>
+          </Grid>
+
         </Grid>
       </form>
 
