@@ -163,6 +163,9 @@ function EntityTable<T extends { id: string }>({
                 py: TABLE_STYLES.cell.padding.py * 0.75,
                 px: TABLE_STYLES.cell.padding.px * 0.75,
               },
+              '& .MuiTableHead-root .MuiTableCell-root': {
+                py: 1,
+              },
               '& tr:last-child .MuiTableCell-root': {
                 borderBottom: 'none',
               },
