@@ -172,7 +172,14 @@ function EntityTable<T extends { id: string }>({
               <TableHead>
                 <TableRow sx={{ backgroundColor: TABLE_STYLES.header.backgroundColor }}>
                   {headers.map((header, i) => (
-                    <TableCell key={i} width={columns[i]?.width}>
+                    <TableCell
+                      key={i}
+                      width={columns[i]?.width}
+                      sx={{
+                        ...(i === 0 && { borderRadius: '12px 0 0 0' }),
+                        ...(i === headers.length - 1 && { borderRadius: '0 12px 0 0' }),
+                      }}
+                    >
                       <Typography
                         variant="tableHeader"
                         sx={{
