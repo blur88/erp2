@@ -41,6 +41,20 @@ function renderList(customers = [baseCustomer]) {
 }
 
 describe('CustomerList columns', () => {
+  it('renders column headers', () => {
+    renderList()
+    expect(screen.getByText('Name')).toBeInTheDocument()
+    expect(screen.getByText('Phone')).toBeInTheDocument()
+    expect(screen.getByText('Type')).toBeInTheDocument()
+    expect(screen.getByText('Price List')).toBeInTheDocument()
+    expect(screen.getByText('Status')).toBeInTheDocument()
+  })
+
+  it('does not render the Customers count header', () => {
+    renderList()
+    expect(screen.queryByText(/Customers \(/)).not.toBeInTheDocument()
+  })
+
   it('renders customer name', () => {
     renderList()
     expect(screen.getByText('Acme Corp')).toBeInTheDocument()

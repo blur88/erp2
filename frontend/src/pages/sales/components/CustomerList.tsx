@@ -62,6 +62,8 @@ export default function CustomerList({
       loading={loading}
       total={total}
       label="Customers"
+      showHeader={false}
+      headers={['Name', 'Phone', 'Type', 'Price List', 'Status', '']}
       selectedId={undefined}
       focusedIndex={-1}
       onSelect={() => {}}
