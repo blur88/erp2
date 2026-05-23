@@ -2,8 +2,10 @@ import React from 'react'
 import { useNavigate } from 'react-router-dom'
 
 import EntityTable, { type ColumnConfig } from '@/components/common/EntityTable'
+import { EntityStatusChip } from '@/components/common/EntityStatusChip'
 import RowActionMenu from '@/components/common/RowActionMenu'
 import type { Customer } from '@/types'
+import { formatCustomerType } from '@/utils/customerUtils'
 
 interface CustomerListProps {
   customers: Customer[]
@@ -22,6 +24,17 @@ export default function CustomerList({
 
   const columns: ColumnConfig<Customer>[] = [
     { key: 'name', render: (customer) => customer.name },
+    { key: 'phone', width: 150, render: (customer) => customer.phone ?? '—' },
+    { key: 'type', width: 110, render: (customer) => formatCustomerType(customer.type) },
+    { key: 'priceList', width: 130, render: (customer) => customer.priceList?.name ?? '—' },
+    {
+      key: 'status',
+      width: 100,
+      raw: true,
+      render: (customer) => (
+        <EntityStatusChip status={customer.isActive ? 'active' : 'inactive'} />
+      ),
+    },
     {
       key: 'actions',
       width: 48,
@@ -34,14 +47,8 @@ export default function CustomerList({
               onClick: () => navigate(`/sales/customers/${customer.slug}/edit`),
             },
             customer.isActive
-              ? {
-                  label: 'Set as Inactive',
-                  onClick: () => onStatusToggle(customer),
-                }
-              : {
-                  label: 'Reactivate',
-                  onClick: () => onStatusToggle(customer),
-                },
+              ? { label: 'Set as Inactive', onClick: () => onStatusToggle(customer) }
+              : { label: 'Reactivate', onClick: () => onStatusToggle(customer) },
           ]}
         />
       ),
