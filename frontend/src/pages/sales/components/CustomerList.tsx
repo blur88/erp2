@@ -26,7 +26,7 @@ export default function CustomerList({
   const navigate = useNavigate()
 
   const columns: ColumnConfig<Customer>[] = [
-    { key: 'name', render: (customer) => customer.name },
+    { key: 'name', width: '100%', render: (customer) => customer.name },
     { key: 'phone', width: 150, render: (customer) => customer.phone ?? '—' },
     { key: 'type', width: 110, render: (customer) => formatCustomerType(customer.type) },
     { key: 'priceList', width: 130, render: (customer) => customer.priceList?.name ?? '—' },
