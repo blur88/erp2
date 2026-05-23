@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 import PagePagination from '@/components/common/PagePagination'
@@ -44,8 +44,13 @@ const CustomersPage: React.FC = () => {
   const [page, setPage] = useState(1)
   const [limit, setLimit] = useState(DEFAULT_LIMIT)
 
+  const searchInputRef = useRef<HTMLInputElement | null>(null)
   const { appliedFilters, draftFilters, handlers, hasActiveFilters } = useFilterBar(filterConfig)
   const [updateCustomer] = useUpdateCustomerMutation()
+
+  useEffect(() => {
+    setPage(1)
+  }, [appliedFilters])
 
   const handleSort = useCallback((field: string) => {
     setSortOrder((prev) => (sortBy === field && prev === 'desc' ? 'asc' : 'desc'))
@@ -104,7 +109,7 @@ const CustomersPage: React.FC = () => {
       draftFilters={draftFilters}
       handlers={handlers}
       hasActiveFilters={hasActiveFilters}
-      searchInputRef={{ current: null }}
+      searchInputRef={searchInputRef}
       sort={{ field: 'name', sortBy, sortOrder, onSort: handleSort }}
       error={pageError || (error ? 'Failed to load customers.' : null)}
       onErrorClose={() => setPageError(null)}

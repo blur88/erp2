@@ -20,6 +20,7 @@ export default function PagePagination({
   const totalPages = Math.ceil(total / limit)
   const from = total === 0 ? 0 : (page - 1) * limit + 1
   const to = Math.min(page * limit, total)
+  const isStale = from > to
 
   return (
     <Box
@@ -36,7 +37,7 @@ export default function PagePagination({
       }}
     >
       <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-        Showing {from}-{to} of {total} records
+        {isStale ? `Showing 0 of ${total} records` : `Showing ${from}–${to} of ${total} records`}
       </Typography>
 
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
