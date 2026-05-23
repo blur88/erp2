@@ -26,13 +26,13 @@ export default function CustomerList({
   const navigate = useNavigate()
 
   const columns: ColumnConfig<Customer>[] = [
-    { key: 'name', width: '100%', render: (customer) => customer.name },
-    { key: 'phone', width: 150, render: (customer) => customer.phone ?? '—' },
-    { key: 'type', width: 110, render: (customer) => formatCustomerType(customer.type) },
-    { key: 'priceList', width: 130, render: (customer) => customer.priceList?.name ?? '—' },
+    { key: 'name', width: '30%', render: (customer) => customer.name },
+    { key: 'phone', width: '18%', render: (customer) => customer.phone ?? '—' },
+    { key: 'type', width: '13%', render: (customer) => formatCustomerType(customer.type) },
+    { key: 'priceList', width: '16%', render: (customer) => customer.priceList?.name ?? '—' },
     {
       key: 'status',
-      width: 100,
+      width: '12%',
       raw: true,
       render: (customer) => (
         <EntityStatusChip status={customer.isActive ? 'active' : 'inactive'} />
@@ -40,7 +40,7 @@ export default function CustomerList({
     },
     {
       key: 'actions',
-      width: 48,
+      width: '6%',
       raw: true,
       render: (customer) => (
         <RowActionMenu
