@@ -165,6 +165,7 @@ function EntityTable<T extends { id: string }>({
               },
               '& .MuiTableHead-root .MuiTableCell-root': {
                 py: 1,
+                borderBottom: TABLE_STYLES.cell.border,
               },
               '& tr:last-child .MuiTableCell-root': {
                 borderBottom: 'none',
