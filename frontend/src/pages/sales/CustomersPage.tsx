@@ -1,25 +1,19 @@
-import React, { useCallback, useMemo, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
-import GenericListPage from '@/components/common/GenericListPage'
+import PagePagination from '@/components/common/PagePagination'
+import PageSection from '@/components/common/PageSection'
+import SimpleListPage from '@/components/common/SimpleListPage'
 import { useFilterBar } from '@/hooks/useFilterBar'
 import { useNotification } from '@/hooks/useNotification'
-import { useEntityWorkspace } from '@/hooks/useEntityWorkspace'
-import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
 import {
-  useDeleteCustomerMutation,
   useGetCustomersQuery,
+  useUpdateCustomerMutation,
 } from '@/store/api/salesApi'
-import {
-  selectSelectedCustomer,
-  setSelectedCustomer,
-} from '@/store/slices/salesSlice'
+import type { Customer } from '@/types'
 import type { FilterBarConfig } from '@/types/filterBar.types'
 
-import CustomerContextHeader from './components/CustomerContextHeader'
-import CustomersDialogs from './components/CustomersDialogs'
 import CustomerList from './components/CustomerList'
-import CustomerWorkspaceCard from './components/CustomerWorkspaceCard'
 
 interface CustomerFilters {
   search: string
@@ -38,21 +32,36 @@ const filterConfig: FilterBarConfig<CustomerFilters> = {
   defaults: { search: '', status: null, type: null, priceListId: null },
 }
 
+const PAGE_SIZE_OPTIONS = [10, 25, 50]
+const DEFAULT_LIMIT = 25
+
 const CustomersPage: React.FC = () => {
   const navigate = useNavigate()
-  const dispatch = useAppDispatch()
   const { showSuccess, showError } = useNotification()
-  const selectedCustomer = useAppSelector(selectSelectedCustomer)
   const [pageError, setPageError] = useState<string | null>(null)
   const [sortBy, setSortBy] = useState('name')
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc')
+  const [page, setPage] = useState(1)
+  const [limit, setLimit] = useState(DEFAULT_LIMIT)
 
+  const searchInputRef = useRef<HTMLInputElement | null>(null)
   const { appliedFilters, draftFilters, handlers, hasActiveFilters } = useFilterBar(filterConfig)
+  const [updateCustomer] = useUpdateCustomerMutation()
+
+  useEffect(() => {
+    setPage(1)
+  }, [appliedFilters])
 
   const handleSort = useCallback((field: string) => {
     setSortOrder((prev) => (sortBy === field && prev === 'desc' ? 'asc' : 'desc'))
     setSortBy(field)
+    setPage(1)
   }, [sortBy])
+
+  const handleLimitChange = useCallback((newLimit: number) => {
+    setLimit(newLimit)
+    setPage(1)
+  }, [])
 
   const queryParams = useMemo(() => ({
     search: appliedFilters.search || undefined,
@@ -66,90 +75,65 @@ const CustomersPage: React.FC = () => {
     priceListId: appliedFilters.priceListId ?? undefined,
     sortBy,
     sortOrder: sortOrder.toUpperCase() as 'ASC' | 'DESC',
-  }), [appliedFilters, sortBy, sortOrder])
+    page,
+    limit,
+  }), [appliedFilters, sortBy, sortOrder, page, limit])
 
-  const { data: customersResponse, isLoading, isFetching, error, refetch } = useGetCustomersQuery(queryParams)
-  const [deleteCustomer] = useDeleteCustomerMutation()
+  const { data: customersResponse, isLoading, isFetching, error } = useGetCustomersQuery(queryParams)
   const customers = customersResponse?.data ?? []
+  const total = customersResponse?.meta.total ?? 0
 
-  const workspace = useEntityWorkspace({
-    entities: customers,
-    selectedEntity: selectedCustomer,
-    selectEntity: (customer) => {
-      dispatch(setSelectedCustomer(customer))
-    },
-    refetch: () => {
-      void refetch()
-    },
-    navigate,
-    routes: {
-      create: '/sales/customers/create',
-      edit: (id) => {
-        const customer = customers.find((item) => item.id === id)
-        if (!customer?.slug) throw new Error(`Customer ${id} not found in list`)
-        return `/sales/customers/${customer.slug}/edit`
-      },
-    },
-    highlightParam: 'highlight',
-    notifications: {
-      showSuccess,
-      showError: (message) => {
-        setPageError(message)
-        showError(message)
-      },
-    },
-    deleteMutation: (id) => deleteCustomer(id).unwrap(),
-  })
-
-  const filterHandlers = useMemo(() => ({
-    ...handlers,
-    onSearchChange: (value: string) => {
-      workspace.setShouldPreserveSearchFocus(true)
-      handlers.onSearchChange(value)
-    },
-  }), [handlers, workspace])
+  const handleStatusToggle = useCallback(async (customer: Customer) => {
+    try {
+      await updateCustomer({ id: customer.id, data: { isActive: !customer.isActive } }).unwrap()
+      showSuccess(
+        customer.isActive
+          ? `${customer.name} set as inactive`
+          : `${customer.name} reactivated`,
+      )
+    } catch {
+      const msg = customer.isActive
+        ? `Failed to deactivate ${customer.name}`
+        : `Failed to reactivate ${customer.name}`
+      setPageError(msg)
+      showError(msg)
+    }
+  }, [updateCustomer, showSuccess, showError])
 
   return (
-    <GenericListPage
+    <SimpleListPage
       title="Customers"
-      subtitle="View customer profiles and client account details"
+      subtitle="Manage customer records and active/inactive status."
       primaryAction={{ label: 'New Customer', onClick: () => navigate('/sales/customers/create') }}
-      secondaryAction={{ label: 'View Deleted', onClick: () => workspace.setDeletedEntitiesDialogOpen(true) }}
       filterConfig={filterConfig}
       draftFilters={draftFilters}
-      handlers={filterHandlers}
+      handlers={handlers}
       hasActiveFilters={hasActiveFilters}
-      searchInputRef={workspace.searchInputRef}
+      searchInputRef={searchInputRef}
       sort={{ field: 'name', sortBy, sortOrder, onSort: handleSort }}
       error={pageError || (error ? 'Failed to load customers.' : null)}
       onErrorClose={() => setPageError(null)}
-      listSlot={(
-        <CustomerList
-          customers={customers}
-          loading={isLoading || isFetching}
-          total={customers.length}
-          selectedCustomerId={selectedCustomer?.id}
-          focusedIndex={workspace.focusedIndex}
-          onSelect={workspace.handleSelect}
-          customerListRef={workspace.listRef}
-        />
+      tableSlot={(
+        <PageSection
+          label="Customer list"
+          meta={<span style={{ fontSize: '0.8rem', color: 'inherit' }}>{limit} per page</span>}
+        >
+          <CustomerList
+            customers={customers}
+            loading={isLoading || isFetching}
+            total={total}
+            onStatusToggle={handleStatusToggle}
+          />
+        </PageSection>
       )}
-      headerSlot={(
-        <CustomerContextHeader
-          selectedCustomer={selectedCustomer}
-          onEdit={() => navigate(`/sales/customers/${selectedCustomer!.slug}/edit`)}
-          onDelete={() => workspace.setDeleteConfirmOpen(true)}
-        />
-      )}
-      workspaceSlot={<CustomerWorkspaceCard selectedCustomer={selectedCustomer} />}
-      dialogs={(
-        <CustomersDialogs
-          selectedCustomer={selectedCustomer}
-          deleteConfirmOpen={workspace.deleteConfirmOpen}
-          onConfirmDelete={workspace.handleDelete}
-          onCancelDelete={workspace.handleCancelDelete}
-          deletedCustomersDialogOpen={workspace.deletedEntitiesDialogOpen}
-          onCloseDeletedCustomersDialog={() => workspace.setDeletedEntitiesDialogOpen(false)}
+      paginationSlot={(
+        <PagePagination
+          total={total}
+          page={page}
+          limit={limit}
+          onPageChange={setPage}
+          onLimitChange={handleLimitChange}
+          pageSizeOptions={PAGE_SIZE_OPTIONS}
         />
       )}
     />

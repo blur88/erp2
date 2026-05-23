@@ -166,6 +166,8 @@ export class CustomerService extends BaseCrudService<
       isActive,
       sortBy = 'name',
       sortOrder = 'ASC',
+      page,
+      limit,
     } = query;
 
     const where: FindOptionsWhere<Customer> = {};
@@ -203,11 +205,20 @@ export class CustomerService extends BaseCrudService<
       queryBuilder.orderBy(`customer.${sortBy}`, sortOrder);
     }
 
-    const customers = await queryBuilder.getMany();
+    const shouldPaginate = page !== undefined && limit !== undefined;
+
+    if (shouldPaginate) {
+      queryBuilder.skip((page - 1) * limit).take(limit);
+    }
+
+    const [customers, total] = await queryBuilder.getManyAndCount();
 
     return {
       data: customers.map(customer => this.mapToResponseDto(customer)),
-      total: customers.length,
+      meta: {
+        total,
+        ...(shouldPaginate && { page, limit }),
+      },
     };
   }
 

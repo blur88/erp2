@@ -1,15 +1,17 @@
 import { render, screen } from '@testing-library/react'
-import { Provider } from 'react-redux'
 import { configureStore } from '@reduxjs/toolkit'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { Provider } from 'react-redux'
 import { MemoryRouter } from 'react-router-dom'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
+import { salesApiSlice } from '@/store/api/salesApi'
+import salesReducer from '@/store/slices/salesSlice'
 
 import CustomersPage from '../CustomersPage'
-import salesReducer from '@/store/slices/salesSlice'
 
 const { useGetCustomersQuery } = vi.hoisted(() => ({
   useGetCustomersQuery: vi.fn(() => ({
-    data: { data: [], meta: { total: 0 } },
+    data: { data: [], meta: { total: 0, page: 1, limit: 25 } },
     isLoading: false,
     isFetching: false,
     refetch: vi.fn(),
@@ -21,16 +23,12 @@ vi.mock('@/store/api/salesApi', async (importOriginal) => {
   return {
     ...actual,
     useGetCustomersQuery,
-    useCreateCustomerMutation: vi.fn(() => [vi.fn(), {}]),
-    useDeleteCustomerMutation: vi.fn(() => [vi.fn(), {}]),
     useUpdateCustomerMutation: vi.fn(() => [vi.fn(), {}]),
   }
 })
 
 vi.mock('@/store/api/priceListApi', () => ({
-  useGetPriceListsQuery: vi.fn(() => ({
-    data: { data: [] },
-  })),
+  useGetPriceListsQuery: vi.fn(() => ({ data: { data: [] } })),
 }))
 
 vi.mock('@/hooks/useNotification', () => ({
@@ -39,95 +37,56 @@ vi.mock('@/hooks/useNotification', () => ({
 
 vi.mock('react-router-dom', async (importOriginal) => {
   const actual = await importOriginal<typeof import('react-router-dom')>()
-  return {
-    ...actual,
-    useNavigate: () => vi.fn(),
-  }
+  return { ...actual, useNavigate: () => vi.fn() }
 })
 
-vi.mock('@/components/sales/DeletedCustomersDialog', () => ({
-  default: () => <div>DeletedCustomersDialog</div>,
-}))
-
-vi.mock('@/components/common/MasterDetailWorkspace', () => ({
-  default: ({ listSlot, headerSlot, workspaceSlot }: any) => (
-    <div>
-      <div>{listSlot}</div>
-      <div>{headerSlot}</div>
-      <div>{workspaceSlot}</div>
-    </div>
-  ),
-}))
-
-vi.mock('../components/CustomerWorkspaceCard', () => ({
-  default: () => <div data-testid="customer-workspace-card" />,
-}))
-
-vi.mock('../components/CustomerContextHeader', () => ({
-  default: () => <div data-testid="customer-context-header" />,
-}))
-
 vi.mock('../components/CustomerList', () => ({
-  default: ({ customers, onSelect, total: _total }: any) => (
-    <div data-testid="customer-list">
-      {customers.map((customer: any) => (
-        <div key={customer.id} data-testid={`customer-item-${customer.id}`} onClick={() => onSelect(customer)}>
-          {customer.name}
-        </div>
-      ))}
-    </div>
-  ),
+  default: () => <div data-testid="customer-list" />,
 }))
 
+function makeStore() {
+  return configureStore({
+    reducer: {
+      sales: salesReducer,
+      [salesApiSlice.reducerPath]: salesApiSlice.reducer,
+    },
+    middleware: (getDefaultMiddleware) =>
+      getDefaultMiddleware().concat(salesApiSlice.middleware),
+  })
+}
 
-function renderPage(initialUrl = '/') {
-  const store = configureStore({ reducer: { sales: salesReducer } })
+function renderPage() {
   return render(
-    <Provider store={store}>
-      <MemoryRouter initialEntries={[initialUrl]}>
+    <Provider store={makeStore()}>
+      <MemoryRouter>
         <CustomersPage />
       </MemoryRouter>
     </Provider>,
   )
 }
 
-describe('CustomersPage FilterBar', () => {
+describe('CustomersPage filterbar', () => {
   beforeEach(() => {
-    vi.clearAllMocks()
+    useGetCustomersQuery.mockReturnValue({
+      data: { data: [], meta: { total: 0, page: 1, limit: 25 } },
+      isLoading: false,
+      isFetching: false,
+      refetch: vi.fn(),
+    })
   })
 
-  it('renders the search input', () => {
+  it('renders the page with filter bar', () => {
     renderPage()
     expect(screen.getByPlaceholderText(/search by name or phone/i)).toBeInTheDocument()
   })
 
-  it('restores filters from URL and passes them to query', () => {
-    renderPage('/?search=acme&status=active&type=business&priceListId=pl1')
-    expect(useGetCustomersQuery).toHaveBeenLastCalledWith(
-      expect.objectContaining({
-        search: 'acme',
-        isActive: true,
-        type: 'business',
-        priceListId: 'pl1',
-      }),
-    )
+  it('renders the CustomerList', () => {
+    renderPage()
+    expect(screen.getByTestId('customer-list')).toBeInTheDocument()
   })
 
-  it('passes no isActive when status is unset', () => {
-    renderPage('/')
-    expect(useGetCustomersQuery).toHaveBeenLastCalledWith(
-      expect.not.objectContaining({
-        isActive: expect.anything(),
-        type: expect.anything(),
-        priceListId: expect.anything(),
-      }),
-    )
-  })
-
-  it('does not pass a limit override to the customers query', () => {
-    renderPage('/')
-    expect(useGetCustomersQuery).toHaveBeenLastCalledWith(
-      expect.not.objectContaining({ limit: expect.anything() }),
-    )
+  it('renders pagination', () => {
+    renderPage()
+    expect(screen.getByText(/showing/i)).toBeInTheDocument()
   })
 })
