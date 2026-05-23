@@ -67,11 +67,14 @@ vi.mock('@/services/api', () => ({
   },
 }))
 
-function renderCreatePage() {
+function renderCreatePage(locationState?: Record<string, unknown>) {
   const store = configureStore({ reducer: { sales: salesReducer } })
+  const initialEntry = locationState
+    ? { pathname: '/sales/customers/create', state: locationState }
+    : '/sales/customers/create'
   return render(
     <Provider store={store}>
-      <MemoryRouter initialEntries={['/sales/customers/create']}>
+      <MemoryRouter initialEntries={[initialEntry]}>
         <Routes>
           <Route path="/sales/customers/create" element={<CustomerFormPage />} />
         </Routes>
@@ -364,4 +367,56 @@ it('shows discard confirmation dialog when cancelling with unsaved changes', asy
 
   expect(screen.getByText(/discard changes/i)).toBeInTheDocument()
   expect(mockNavigate).not.toHaveBeenCalled()
+})
+
+describe('CustomerFormPage - returnTo navigation', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockCreateCustomer.mockReturnValue({ unwrap: vi.fn().mockResolvedValue({ id: 'new-cust' }) })
+    mockRestoreCustomer.mockReturnValue({ unwrap: vi.fn().mockResolvedValue({}) })
+    mockApiGet.mockResolvedValue({ data: { data: [] } })
+  })
+
+  it('navigates to sales order on clean cancel when returnTo=sales-order', async () => {
+    const user = userEvent.setup()
+    renderCreatePage({ returnTo: 'sales-order' })
+
+    await user.click(screen.getByRole('button', { name: /cancel/i }))
+
+    expect(mockNavigate).toHaveBeenCalledWith('/sales/sales-orders/create')
+  })
+
+  it('navigates to customer list on clean cancel when no returnTo', async () => {
+    const user = userEvent.setup()
+    renderCreatePage()
+
+    await user.click(screen.getByRole('button', { name: /cancel/i }))
+
+    expect(mockNavigate).toHaveBeenCalledWith('/sales/customers')
+  })
+
+  it('navigates to sales order on discard confirm when returnTo=sales-order', async () => {
+    const user = userEvent.setup()
+    renderCreatePage({ returnTo: 'sales-order' })
+
+    await user.type(screen.getByLabelText(/customer name/i), 'Partial')
+    await user.click(screen.getByRole('button', { name: /cancel/i }))
+    expect(screen.getByText(/discard changes/i)).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: /discard/i }))
+
+    expect(mockNavigate).toHaveBeenCalledWith('/sales/sales-orders/create')
+  })
+
+  it('navigates to customer list on discard confirm when no returnTo', async () => {
+    const user = userEvent.setup()
+    renderCreatePage()
+
+    await user.type(screen.getByLabelText(/customer name/i), 'Partial')
+    await user.click(screen.getByRole('button', { name: /cancel/i }))
+
+    await user.click(screen.getByRole('button', { name: /discard/i }))
+
+    expect(mockNavigate).toHaveBeenCalledWith('/sales/customers')
+  })
 })

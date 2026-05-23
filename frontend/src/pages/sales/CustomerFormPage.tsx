@@ -278,9 +278,11 @@ const CustomerFormPage: React.FC = () => {
     }
   }, [hasNameDuplicate])
 
+  const cancelDestination = returnTo === 'sales-order' ? '/sales/sales-orders/create' : '/sales/customers'
+
   const handleCancel = () => {
     if (!isDirty) {
-      navigate('/sales/customers')
+      navigate(cancelDestination)
       return
     }
 
@@ -621,7 +623,7 @@ const CustomerFormPage: React.FC = () => {
         confirmText="Discard"
         cancelText="Keep editing"
         severity="warning"
-        onConfirm={() => navigate('/sales/customers')}
+        onConfirm={() => navigate(cancelDestination)}
         onCancel={() => setShowDiscardDialog(false)}
       />
     </>
