@@ -37,12 +37,13 @@ vi.mock('@/store/api/priceListApi', () => ({
 }))
 
 vi.mock('../components/CustomerList', () => ({
-  default: ({ customers, total }: any) => (
+  default: ({ customers, total, paginationSlot }: any) => (
     <div data-testid="customer-list">
       <span data-testid="customer-count">{total}</span>
       {customers.map((c: any) => (
         <div key={c.id}>{c.name}</div>
       ))}
+      {paginationSlot}
     </div>
   ),
 }))

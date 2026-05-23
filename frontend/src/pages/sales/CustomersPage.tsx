@@ -119,16 +119,16 @@ const CustomersPage: React.FC = () => {
           loading={isLoading || isFetching}
           total={total}
           onStatusToggle={handleStatusToggle}
-        />
-      )}
-      paginationSlot={(
-        <PagePagination
-          total={total}
-          page={page}
-          limit={limit}
-          onPageChange={setPage}
-          onLimitChange={handleLimitChange}
-          pageSizeOptions={PAGE_SIZE_OPTIONS}
+          paginationSlot={(
+            <PagePagination
+              total={total}
+              page={page}
+              limit={limit}
+              onPageChange={setPage}
+              onLimitChange={handleLimitChange}
+              pageSizeOptions={PAGE_SIZE_OPTIONS}
+            />
+          )}
         />
       )}
     />

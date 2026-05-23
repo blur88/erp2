@@ -1,4 +1,5 @@
 import React from 'react'
+import type { ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 import EntityTable, { type ColumnConfig } from '@/components/common/EntityTable'
@@ -12,6 +13,7 @@ interface CustomerListProps {
   loading: boolean
   total: number
   onStatusToggle: (customer: Customer) => void
+  paginationSlot?: ReactNode
 }
 
 export default function CustomerList({
@@ -19,6 +21,7 @@ export default function CustomerList({
   loading,
   total,
   onStatusToggle,
+  paginationSlot,
 }: CustomerListProps) {
   const navigate = useNavigate()
 
@@ -69,6 +72,7 @@ export default function CustomerList({
       onSelect={() => {}}
       listRef={{ current: null }}
       dataAttr="customer"
+      paginationSlot={paginationSlot}
     />
   )
 }

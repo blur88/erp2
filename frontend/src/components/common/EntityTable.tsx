@@ -1,4 +1,5 @@
 import React, { memo } from 'react'
+import type { ReactNode } from 'react'
 import {
   alpha,
   Box,
@@ -36,6 +37,7 @@ export interface EntityTableProps<T extends { id: string }> {
   dataAttr?: string
   showHeader?: boolean
   headers?: string[]
+  paginationSlot?: ReactNode
 }
 
 interface RowProps<T extends { id: string }> {
@@ -117,6 +119,7 @@ function EntityTable<T extends { id: string }>({
   dataAttr = 'row',
   showHeader = true,
   headers,
+  paginationSlot,
 }: EntityTableProps<T>) {
   return (
     <Paper sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
@@ -226,6 +229,11 @@ function EntityTable<T extends { id: string }>({
           </Table>
         </TableContainer>
       </Box>
+      {paginationSlot && (
+        <Box sx={{ borderTop: TABLE_STYLES.cell.border }}>
+          {paginationSlot}
+        </Box>
+      )}
     </Paper>
   )
 }
