@@ -152,7 +152,7 @@ function EntityTable<T extends { id: string }>({
       )}
       <Box
         ref={listRef}
-        sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}
+        sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', borderRadius: 'inherit' }}
       >
         <TableContainer sx={{ flex: 1, overflow: 'auto' }}>
           <Table
@@ -175,10 +175,6 @@ function EntityTable<T extends { id: string }>({
                     <TableCell
                       key={i}
                       width={columns[i]?.width}
-                      sx={{
-                        ...(i === 0 && { borderRadius: '8px 0 0 0' }),
-                        ...(i === headers.length - 1 && { borderRadius: '0 8px 0 0' }),
-                      }}
                     >
                       <Typography
                         variant="tableHeader"
