@@ -167,7 +167,7 @@ function EntityTable<T extends { id: string }>({
           >
             {headers && (
               <TableHead>
-                <TableRow>
+                <TableRow sx={{ backgroundColor: 'action.hover' }}>
                   {headers.map((header, i) => (
                     <TableCell key={i} width={columns[i]?.width}>
                       <Typography
