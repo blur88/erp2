@@ -176,8 +176,8 @@ function EntityTable<T extends { id: string }>({
                       key={i}
                       width={columns[i]?.width}
                       sx={{
-                        ...(i === 0 && { borderRadius: '12px 0 0 0' }),
-                        ...(i === headers.length - 1 && { borderRadius: '0 12px 0 0' }),
+                        ...(i === 0 && { borderRadius: '8px 0 0 0' }),
+                        ...(i === headers.length - 1 && { borderRadius: '0 8px 0 0' }),
                       }}
                     >
                       <Typography
