@@ -48,6 +48,7 @@ describe('CustomerList columns', () => {
     expect(screen.getByText('Type')).toBeInTheDocument()
     expect(screen.getByText('Price List')).toBeInTheDocument()
     expect(screen.getByText('Status')).toBeInTheDocument()
+    expect(screen.getByText('Actions')).toBeInTheDocument()
   })
 
   it('does not render the Customers count header', () => {

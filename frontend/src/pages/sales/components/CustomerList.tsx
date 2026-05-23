@@ -66,7 +66,7 @@ export default function CustomerList({
       total={total}
       label="Customers"
       showHeader={false}
-      headers={['Name', 'Phone', 'Type', 'Price List', 'Status', '']}
+      headers={['Name', 'Phone', 'Type', 'Price List', 'Status', 'Actions']}
       selectedId={undefined}
       focusedIndex={-1}
       onSelect={() => {}}
