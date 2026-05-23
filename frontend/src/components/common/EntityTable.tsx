@@ -8,6 +8,7 @@ import {
   TableBody,
   TableCell,
   TableContainer,
+  TableHead,
   TableRow,
   Typography,
 } from '@mui/material'
@@ -33,6 +34,8 @@ export interface EntityTableProps<T extends { id: string }> {
   onSelect: (row: T) => void
   listRef: React.RefObject<HTMLDivElement | null>
   dataAttr?: string
+  showHeader?: boolean
+  headers?: string[]
 }
 
 interface RowProps<T extends { id: string }> {
@@ -112,34 +115,38 @@ function EntityTable<T extends { id: string }>({
   onSelect,
   listRef,
   dataAttr = 'row',
+  showHeader = true,
+  headers,
 }: EntityTableProps<T>) {
   return (
     <Paper sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-      <Box sx={{ p: TABLE_STYLES.cell.padding.px, borderBottom: TABLE_STYLES.cell.border }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Typography
-            variant="tableHeader"
-            sx={{
-              fontWeight: 600,
-              fontSize: '0.8rem',
-              textTransform: 'uppercase',
-              letterSpacing: '0.5px',
-            }}
-          >
-            {label} ({total})
-          </Typography>
-          {loading && rows.length > 0 && (
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                Searching...
-              </Typography>
-              <Box sx={{ width: 16, height: 16 }}>
-                <Skeleton variant="circular" width={16} height={16} />
+      {showHeader && (
+        <Box sx={{ p: TABLE_STYLES.cell.padding.px, borderBottom: TABLE_STYLES.cell.border }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Typography
+              variant="tableHeader"
+              sx={{
+                fontWeight: 600,
+                fontSize: '0.8rem',
+                textTransform: 'uppercase',
+                letterSpacing: '0.5px',
+              }}
+            >
+              {label} ({total})
+            </Typography>
+            {loading && rows.length > 0 && (
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                  Searching...
+                </Typography>
+                <Box sx={{ width: 16, height: 16 }}>
+                  <Skeleton variant="circular" width={16} height={16} />
+                </Box>
               </Box>
-            </Box>
-          )}
+            )}
+          </Box>
         </Box>
-      </Box>
+      )}
       <Box
         ref={listRef}
         sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}
@@ -158,6 +165,27 @@ function EntityTable<T extends { id: string }>({
               },
             }}
           >
+            {headers && (
+              <TableHead>
+                <TableRow>
+                  {headers.map((header, i) => (
+                    <TableCell key={i} width={columns[i]?.width}>
+                      <Typography
+                        variant="tableHeader"
+                        sx={{
+                          fontWeight: 600,
+                          fontSize: '0.75rem',
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.5px',
+                        }}
+                      >
+                        {header}
+                      </Typography>
+                    </TableCell>
+                  ))}
+                </TableRow>
+              </TableHead>
+            )}
             <TableBody>
               {loading && rows.length === 0
                 ? [...Array(10)].map((_, index) => (
