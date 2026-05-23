@@ -167,9 +167,11 @@ function EntityTable<T extends { id: string }>({
                 py: 1,
                 borderBottom: TABLE_STYLES.cell.border,
               },
-              '& tr:last-child .MuiTableCell-root': {
-                borderBottom: 'none',
-              },
+              ...(!paginationSlot && {
+                '& tr:last-child .MuiTableCell-root': {
+                  borderBottom: 'none',
+                },
+              }),
             }}
           >
             {headers && (
@@ -237,7 +239,7 @@ function EntityTable<T extends { id: string }>({
         </TableContainer>
       </Box>
       {paginationSlot && (
-        <Box sx={{ borderTop: TABLE_STYLES.cell.border }}>
+        <Box>
           {paginationSlot}
         </Box>
       )}
