@@ -101,6 +101,7 @@ const CustomerFormPage: React.FC = () => {
   const isEdit = !!slug
 
   const returnTo = (location.state as any)?.returnTo as string | undefined
+  const profilePath = (location.state as any)?.profilePath as string | undefined
 
   const [customer, setCustomer] = useState<Customer | null>(null)
   const [loadingCustomer, setLoadingCustomer] = useState(isEdit)
@@ -163,12 +164,12 @@ const CustomerFormPage: React.FC = () => {
       return
     }
 
-    setValue('shippingStreetAddress', watchedBilling[0])
-    setValue('shippingStreetAddress2', watchedBilling[1])
-    setValue('shippingCity', watchedBilling[2])
-    setValue('shippingState', watchedBilling[3])
-    setValue('shippingPostalCode', watchedBilling[4])
-    setValue('shippingCountry', watchedBilling[5])
+    setValue('shippingStreetAddress', watchedBilling[0], { shouldDirty: true })
+    setValue('shippingStreetAddress2', watchedBilling[1], { shouldDirty: true })
+    setValue('shippingCity', watchedBilling[2], { shouldDirty: true })
+    setValue('shippingState', watchedBilling[3], { shouldDirty: true })
+    setValue('shippingPostalCode', watchedBilling[4], { shouldDirty: true })
+    setValue('shippingCountry', watchedBilling[5], { shouldDirty: true })
   }, [sameAsBilling, setValue, watchedBilling])
 
   useEffect(() => {
@@ -181,6 +182,14 @@ const CustomerFormPage: React.FC = () => {
       .unwrap()
       .then((currentCustomer) => {
         setCustomer(currentCustomer)
+        const shippingMatchesBilling =
+          !!currentCustomer.billingStreetAddress &&
+          (currentCustomer.shippingStreetAddress || null) === (currentCustomer.billingStreetAddress || null) &&
+          (currentCustomer.shippingStreetAddress2 || null) === (currentCustomer.billingStreetAddress2 || null) &&
+          (currentCustomer.shippingCity || null) === (currentCustomer.billingCity || null) &&
+          (currentCustomer.shippingState || null) === (currentCustomer.billingState || null) &&
+          (currentCustomer.shippingPostalCode || null) === (currentCustomer.billingPostalCode || null) &&
+          (currentCustomer.shippingCountry || null) === (currentCustomer.billingCountry || null)
         reset({
           name: currentCustomer.name,
           type: currentCustomer.type,
@@ -201,6 +210,7 @@ const CustomerFormPage: React.FC = () => {
           priceListId: currentCustomer.priceListId || null,
           notes: currentCustomer.notes || null,
         })
+        setSameAsBilling(shippingMatchesBilling)
       })
       .catch(() => setLoadError('Customer not found.'))
       .finally(() => setLoadingCustomer(false))
@@ -293,7 +303,11 @@ const CustomerFormPage: React.FC = () => {
     }
   }, [hasNameDuplicate])
 
-  const cancelDestination = returnTo === 'sales-order' ? '/sales/sales-orders/create' : '/sales/customers'
+  const cancelDestination = returnTo === 'sales-order'
+    ? '/sales/sales-orders/create'
+    : returnTo === 'profile' && profilePath
+      ? profilePath
+      : '/sales/customers'
 
   const handleCancel = () => {
     if (!isDirty) {
@@ -312,7 +326,7 @@ const CustomerFormPage: React.FC = () => {
     try {
       await restoreCustomer(duplicateNameResult.customer.id).unwrap()
       showSuccess('Customer reactivated successfully')
-      navigate('/sales/customers')
+      navigate(cancelDestination)
     } catch {
       showError('Failed to reactivate customer')
     }
@@ -362,6 +376,8 @@ const CustomerFormPage: React.FC = () => {
         navigate('/sales/sales-orders/create', {
           state: { preselectCustomerId: savedCustomer.id },
         })
+      } else if (returnTo === 'profile' && profilePath) {
+        navigate(profilePath)
       } else {
         navigate(`/sales/customers?highlight=${savedCustomer.id}`)
       }

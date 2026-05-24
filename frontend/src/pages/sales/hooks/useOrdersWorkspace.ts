@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 
 import { useJournalEntryRefs } from '@/hooks/useJournalEntryRefs'
 import { useEntityWorkspace } from '@/hooks/useEntityWorkspace'
@@ -45,6 +45,7 @@ export function useOrdersWorkspace({
   isLoading: ordersLoading,
 }: UseOrdersWorkspaceConfig) {
   const navigate = useNavigate()
+  const location = useLocation()
   const [searchParams] = useSearchParams()
   const { showSuccess, showError } = useNotification()
 
@@ -85,6 +86,7 @@ export function useOrdersWorkspace({
     refetch: refetchOrders,
     navigate,
     highlightParam: 'highlight',
+    locationStateHighlightKey: 'highlightOrderId',
     routes: {
       create: '/sales/orders/create',
       edit: (id) => {
@@ -135,7 +137,9 @@ export function useOrdersWorkspace({
   }, [refetchOrders])
 
   useEffect(() => {
-    if (!hasRefreshedPersistedOrder.current && selectedOrder?.id) {
+    loadOrders()
+
+    if (selectedOrder?.id) {
       isRefreshingPersistedOrder.current = true
       hasRefreshedPersistedOrder.current = true
 
@@ -143,44 +147,14 @@ export function useOrdersWorkspace({
         .unwrap()
         .then((order) => {
           dispatch(setSelectedOrder(order))
-
-          setTimeout(() => {
-            const orderIndex = orders.findIndex((item) => item.id === order.id)
-            if (orderIndex >= 0) {
-              workspace.setFocusedIndex(orderIndex)
-            }
-            isRefreshingPersistedOrder.current = false
-          }, 500)
+          isRefreshingPersistedOrder.current = false
         })
         .catch(() => {
           isRefreshingPersistedOrder.current = false
         })
-
-      loadOrders()
-    } else if (!hasRefreshedPersistedOrder.current) {
-      hasRefreshedPersistedOrder.current = true
-      loadOrders()
     }
-  }, [dispatch, loadOrders, orders, selectedOrder?.id, triggerGetSalesOrder, workspace])
-
-  useEffect(() => {
-    if (hasRefreshedPersistedOrder.current) {
-      loadOrders()
-    }
-  }, [loadOrders])
-
-  useEffect(() => {
-    if (window.location.pathname === '/sales/orders') {
-      loadOrders()
-      if (selectedOrder) {
-        triggerGetSalesOrder(selectedOrder.id)
-          .unwrap()
-          .then((order) => {
-            dispatch(setSelectedOrder(order))
-          })
-      }
-    }
-  }, [dispatch, loadOrders, selectedOrder, triggerGetSalesOrder])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   useEffect(() => {
     if (orders.length > 0 && selectedOrder && !isRefreshingPersistedOrder.current) {
@@ -228,9 +202,10 @@ export function useOrdersWorkspace({
       } else if (workspace.searchInputRef.current !== document.activeElement) {
         // Don't auto-select when useEntityWorkspace is about to highlight a specific order
         const pendingHighlightId = searchParams.get('highlight')
-        const hasPendingHighlight = pendingHighlightId
-          ? orders.some((o) => o.id === pendingHighlightId)
-          : false
+        const pendingStateHighlightId = (location.state as { highlightOrderId?: string } | null)?.highlightOrderId
+        const hasPendingHighlight =
+          (pendingHighlightId ? orders.some((o) => o.id === pendingHighlightId) : false) ||
+          (pendingStateHighlightId ? orders.some((o) => o.id === pendingStateHighlightId) : false)
         if (!hasPendingHighlight) {
           workspace.setFocusedIndex(0)
           dispatch(setSelectedOrder(orders[0]))
@@ -245,7 +220,7 @@ export function useOrdersWorkspace({
       dispatch(clearError())
       workspace.setFocusedIndex(-1)
     }
-  }, [dispatch, orders, ordersLoading, searchParams, selectedOrder, triggerGetSalesOrder, workspace])
+  }, [dispatch, location.state, orders, ordersLoading, searchParams, selectedOrder, triggerGetSalesOrder, workspace])
 
   useEffect(() => {
     if (!selectedOrder || orders.length === 0) {

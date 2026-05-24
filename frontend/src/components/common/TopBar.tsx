@@ -154,7 +154,7 @@ interface BreadcrumbSegment {
   isNavigable: boolean
 }
 
-function buildBreadcrumbs(pathname: string, matches: MatchShape[]): BreadcrumbSegment[] {
+function buildBreadcrumbs(pathname: string, matches: MatchShape[], leafOverride?: string): BreadcrumbSegment[] {
   const leafMatch = [...matches].reverse().find(match => (match.handle as RouteHandle | undefined)?.title)
   const leafHandleTitle = (leafMatch?.handle as RouteHandle | undefined)?.title
   const parts = pathname.split('/').filter(Boolean)
@@ -162,7 +162,7 @@ function buildBreadcrumbs(pathname: string, matches: MatchShape[]): BreadcrumbSe
 
   return prefixes.reduce<BreadcrumbSegment[]>((segments, prefix, index) => {
     const isLast = index === prefixes.length - 1
-    const label = isLast && leafHandleTitle ? leafHandleTitle : BREADCRUMB_MAP[prefix]
+    const label = isLast ? (leafOverride ?? leafHandleTitle ?? BREADCRUMB_MAP[prefix]) : BREADCRUMB_MAP[prefix]
     if (!label) return segments
     segments.push({ label, path: prefix, isNavigable: NAVIGABLE_PATHS.has(prefix) && !isLast })
     return segments
@@ -187,7 +187,7 @@ const TopBar: React.FC<TopBarProps> = ({ collapsed, onMobileMenuOpen }) => {
   const [shortcutsAnchorEl, setShortcutsAnchorEl] = useState<HTMLElement | null>(null)
 
   const sidebarWidth = collapsed ? DRAWER_WIDTH_COLLAPSED : DRAWER_WIDTH_EXPANDED
-  const breadcrumbs = buildBreadcrumbs(location.pathname, matches)
+  const breadcrumbs = buildBreadcrumbs(location.pathname, matches, (location.state as any)?.breadcrumbTitle)
   const leafLabel = breadcrumbs[breadcrumbs.length - 1]?.label ?? ''
 
   useEffect(() => {
