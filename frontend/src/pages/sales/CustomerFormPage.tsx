@@ -557,7 +557,7 @@ const CustomerFormPage: React.FC = () => {
             <Card sx={{ display: 'flex', flexDirection: 'column', flexGrow: 1 }}>
               <CardContent sx={{ display: 'flex', flexDirection: 'column', height: '100%', boxSizing: 'border-box' }}>
                 <Typography variant="h6" gutterBottom>Additional</Typography>
-                <Grid container spacing={2} sx={{ flexGrow: 1 }}>
+                <Grid container spacing={2}>
                   <Grid size={{ xs: 12, md: 6 }}>
                     <Controller
                       name="priceListId"
@@ -575,37 +575,37 @@ const CustomerFormPage: React.FC = () => {
                       )}
                     />
                   </Grid>
-
-                  <Grid size={12} sx={{ display: 'flex', flexDirection: 'column', flexGrow: 1 }}>
-                    <Controller
-                      name="notes"
-                      control={control}
-                      render={({ field }) => (
-                        <TextField
-                          {...field}
-                          value={field.value || ''}
-                          fullWidth
-                          multiline
-                          size="small"
-                          label="Notes / Remarks"
-                          disabled={isSaving}
-                          error={!!errors.notes}
-                          helperText={errors.notes?.message}
-                          sx={{
-                            ...fieldSx,
-                            flexGrow: 1,
-                            '& .MuiInputBase-root': { height: '100%', alignItems: 'flex-start' },
-                            '& .MuiInputBase-input': {
-                              ...fieldSx['& .MuiInputBase-input'],
-                              height: '100% !important',
-                              overflow: 'auto !important',
-                            },
-                          }}
-                        />
-                      )}
-                    />
-                  </Grid>
                 </Grid>
+
+                <Box sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', mt: 2 }}>
+                  <Controller
+                    name="notes"
+                    control={control}
+                    render={({ field }) => (
+                      <TextField
+                        {...field}
+                        value={field.value || ''}
+                        fullWidth
+                        multiline
+                        size="small"
+                        label="Notes / Remarks"
+                        disabled={isSaving}
+                        error={!!errors.notes}
+                        helperText={errors.notes?.message}
+                        sx={{
+                          ...fieldSx,
+                          flexGrow: 1,
+                          '& .MuiInputBase-root': { height: '100%', alignItems: 'flex-start' },
+                          '& .MuiInputBase-input': {
+                            ...fieldSx['& .MuiInputBase-input'],
+                            height: '100% !important',
+                            overflow: 'auto !important',
+                          },
+                        }}
+                      />
+                    )}
+                  />
+                </Box>
               </CardContent>
             </Card>
           </Grid>
