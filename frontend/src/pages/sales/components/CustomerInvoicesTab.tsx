@@ -37,13 +37,13 @@ export default function CustomerInvoicesTab({ customerId }: CustomerInvoicesTabP
       <Table size={TABLE_STYLES.size}>
         <TableHead>
           <TableRow sx={{ '& .MuiTableCell-head': { fontWeight: 600, backgroundColor: 'grey.50' } }}>
-            <TableCell sx={{ width: '14%' }}>Invoice #</TableCell>
-            <TableCell sx={{ width: '14%' }}>Order #</TableCell>
-            <TableCell sx={{ width: '12%' }}>Date</TableCell>
-            <TableCell align="right" sx={{ width: '13%' }}>Amount</TableCell>
-            <TableCell align="right" sx={{ width: '13%' }}>Balance Due</TableCell>
+            <TableCell sx={{ width: '16%' }}>Invoice #</TableCell>
+            <TableCell sx={{ width: '16%' }}>Order #</TableCell>
+            <TableCell sx={{ width: '14%' }}>Date</TableCell>
+            <TableCell align="right" sx={{ width: '14%' }}>Amount</TableCell>
+            <TableCell align="right" sx={{ width: '14%' }}>Balance Due</TableCell>
             <TableCell sx={{ width: '14%' }}>Status</TableCell>
-            <TableCell align="right" sx={{ width: '20%' }}>Action</TableCell>
+            <TableCell align="right" sx={{ width: '12%' }}>Action</TableCell>
           </TableRow>
         </TableHead>
         <TableBody>
