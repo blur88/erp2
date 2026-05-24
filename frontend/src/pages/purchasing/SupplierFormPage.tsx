@@ -221,6 +221,8 @@ const SupplierFormPage: React.FC = () => {
   const {
     isChecking: isCheckingName,
     hasDuplicate: hasNameDuplicate,
+    error: nameDuplicateError,
+    successMessage: nameSuccessMessage,
   } = useFieldDuplicateCheck(watchedCompanyName ?? '', async (name, excludeId) => {
     const result = await companyNameCheckFn(name, excludeId)
     if (result.exists) {
@@ -364,7 +366,7 @@ const SupplierFormPage: React.FC = () => {
                           required
                           disabled={isSaving}
                           error={!!errors.companyName || (hasNameDuplicate && !duplicateNameResult?.isInactive)}
-                          helperText={errors.companyName?.message}
+                          helperText={errors.companyName?.message || nameDuplicateError || nameSuccessMessage}
                           slotProps={{
                             input: {
                               endAdornment: isCheckingName ? (
