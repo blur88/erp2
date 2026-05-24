@@ -190,7 +190,6 @@ const CustomerFormPage: React.FC = () => {
           (currentCustomer.shippingState || null) === (currentCustomer.billingState || null) &&
           (currentCustomer.shippingPostalCode || null) === (currentCustomer.billingPostalCode || null) &&
           (currentCustomer.shippingCountry || null) === (currentCustomer.billingCountry || null)
-        setSameAsBilling(shippingMatchesBilling)
         reset({
           name: currentCustomer.name,
           type: currentCustomer.type,
@@ -211,6 +210,7 @@ const CustomerFormPage: React.FC = () => {
           priceListId: currentCustomer.priceListId || null,
           notes: currentCustomer.notes || null,
         })
+        setSameAsBilling(shippingMatchesBilling)
       })
       .catch(() => setLoadError('Customer not found.'))
       .finally(() => setLoadingCustomer(false))
