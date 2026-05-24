@@ -25,9 +25,7 @@ interface SupplierPaymentsTabProps {
 export default function SupplierPaymentsTab({ supplierId }: SupplierPaymentsTabProps) {
   const navigate = useNavigate()
   const { data, isLoading } = useGetSupplierPaymentsQuery(supplierId)
-  const payments = [...(data?.data ?? [])].sort((a, b) =>
-    (a.paymentNumber ?? '').localeCompare(b.paymentNumber ?? '', undefined, { numeric: true }),
-  )
+  const payments = data?.data ?? []
 
   if (isLoading) {
     return (

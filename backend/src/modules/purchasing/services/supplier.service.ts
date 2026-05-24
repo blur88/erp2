@@ -753,7 +753,7 @@ export class SupplierService extends BaseCrudService<
   async getSupplierPurchaseOrders(supplierId: string): Promise<{ data: PurchaseOrder[]; total: number }> {
     const [data, total] = await this.purchaseOrderRepository.findAndCount({
       where: { supplierId },
-      order: { orderDate: 'DESC' },
+      order: { orderNumber: 'ASC' },
       take: 50,
     });
 
@@ -764,7 +764,7 @@ export class SupplierService extends BaseCrudService<
     const [data, total] = await this.grnRepository.findAndCount({
       where: { supplierId },
       relations: { purchaseOrder: true },
-      order: { receivedDate: 'DESC' },
+      order: { grnNumber: 'ASC' },
       take: 50,
     });
 
@@ -775,7 +775,7 @@ export class SupplierService extends BaseCrudService<
     const [data, total] = await this.vendorPaymentRepository.findAndCount({
       where: { supplierId },
       relations: { paymentMethodEntity: true },
-      order: { paymentDate: 'DESC' },
+      order: { paymentNumber: 'ASC' },
       take: 50,
     });
 
