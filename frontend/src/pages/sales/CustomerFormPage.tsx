@@ -410,9 +410,9 @@ const CustomerFormPage: React.FC = () => {
       <form noValidate onSubmit={handleSubmit(handleFormSubmit)}>
         <Grid container spacing={3}>
 
-          {/* Group 1: Basic Info */}
-          <Grid size={12}>
-            <Card>
+          {/* Row 1: Basic Info + Additional side by side */}
+          <Grid size={{ xs: 12, md: 6 }} sx={{ display: 'flex', flexDirection: 'column' }}>
+            <Card sx={{ display: 'flex', flexDirection: 'column', flexGrow: 1 }}>
               <CardContent>
                 <Typography variant="h6" gutterBottom>Basic Information</Typography>
                 <Grid container spacing={2}>
@@ -553,54 +553,9 @@ const CustomerFormPage: React.FC = () => {
             </Card>
           </Grid>
 
-          {/* Group 2: Addresses */}
-          <Grid size={12}>
-            <Card>
-              <CardContent>
-                <Typography variant="h6" gutterBottom>Addresses</Typography>
-                <Grid container spacing={2}>
-                  <AddressSection
-                    control={control}
-                    errors={errors}
-                    prefix="billing"
-                    title="Billing Address"
-                    disabled={isSaving}
-                  />
-
-                  <Grid size={12}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', mt: 2, mb: 0 }}>
-                      <Typography variant="h6" sx={{ flexGrow: 1 }}>Shipping Address</Typography>
-                      <FormControlLabel
-                        control={
-                          <Switch
-                            size="small"
-                            checked={sameAsBilling}
-                            onChange={(event) => setSameAsBilling(event.target.checked)}
-                            disabled={isSaving}
-                          />
-                        }
-                        label="Same as Billing"
-                        labelPlacement="start"
-                      />
-                    </Box>
-                  </Grid>
-
-                  <AddressSection
-                    control={control}
-                    errors={errors}
-                    prefix="shipping"
-                    title=""
-                    disabled={sameAsBilling || isSaving}
-                  />
-                </Grid>
-              </CardContent>
-            </Card>
-          </Grid>
-
-          {/* Group 3: Additional */}
-          <Grid size={12}>
-            <Card>
-              <CardContent>
+          <Grid size={{ xs: 12, md: 6 }} sx={{ display: 'flex', flexDirection: 'column' }}>
+            <Card sx={{ display: 'flex', flexDirection: 'column', flexGrow: 1 }}>
+              <CardContent sx={{ display: 'flex', flexDirection: 'column', height: '100%', boxSizing: 'border-box' }}>
                 <Typography variant="h6" gutterBottom>Additional</Typography>
                 <Grid container spacing={2}>
                   <Grid size={{ xs: 12, md: 6 }}>
@@ -614,31 +569,97 @@ const CustomerFormPage: React.FC = () => {
                           error={errors.priceListId?.message}
                           label="Price List"
                           disabled={isSaving}
-                        />
-                      )}
-                    />
-                  </Grid>
-
-                  <Grid size={12}>
-                    <Controller
-                      name="notes"
-                      control={control}
-                      render={({ field }) => (
-                        <TextField
-                          {...field}
-                          value={field.value || ''}
-                          fullWidth
-                          multiline
-                          rows={4}
                           size="small"
-                          label="Notes / Remarks"
-                          disabled={isSaving}
-                          error={!!errors.notes}
-                          helperText={errors.notes?.message}
                           sx={fieldSx}
                         />
                       )}
                     />
+                  </Grid>
+                </Grid>
+
+                <Box sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', mt: 2 }}>
+                  <Controller
+                    name="notes"
+                    control={control}
+                    render={({ field }) => (
+                      <TextField
+                        {...field}
+                        value={field.value || ''}
+                        fullWidth
+                        multiline
+                        size="small"
+                        label="Notes / Remarks"
+                        disabled={isSaving}
+                        error={!!errors.notes}
+                        helperText={errors.notes?.message}
+                        sx={{
+                          ...fieldSx,
+                          flexGrow: 1,
+                          '& .MuiInputBase-root': { height: '100%', alignItems: 'flex-start' },
+                          '& .MuiInputBase-input': {
+                            ...fieldSx['& .MuiInputBase-input'],
+                            height: '100% !important',
+                            overflow: 'auto !important',
+                          },
+                        }}
+                      />
+                    )}
+                  />
+                </Box>
+              </CardContent>
+            </Card>
+          </Grid>
+
+          {/* Row 2: Addresses */}
+          <Grid size={12}>
+            <Card>
+              <CardContent>
+                <Typography variant="h6" gutterBottom>Addresses</Typography>
+                <Grid container spacing={2}>
+                  <Grid size={{ xs: 12, md: 6 }} data-testid="billing-address-column">
+                    <Grid container spacing={2}>
+                      <Grid size={12}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', mt: 2, minHeight: 38 }}>
+                          <Typography variant="h6" sx={{ flexGrow: 1 }}>Billing Address</Typography>
+                        </Box>
+                      </Grid>
+                      <AddressSection
+                        control={control}
+                        errors={errors}
+                        prefix="billing"
+                        title=""
+                        disabled={isSaving}
+                      />
+                    </Grid>
+                  </Grid>
+
+                  <Grid size={{ xs: 12, md: 6 }} data-testid="shipping-address-column">
+                    <Grid container spacing={2}>
+                      <Grid size={12}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', mt: 2, minHeight: 38 }}>
+                          <Typography variant="h6" sx={{ flexGrow: 1 }}>Shipping Address</Typography>
+                          <FormControlLabel
+                            control={
+                              <Switch
+                                size="small"
+                                checked={sameAsBilling}
+                                onChange={(event) => setSameAsBilling(event.target.checked)}
+                                disabled={isSaving}
+                              />
+                            }
+                            label="Same as Billing"
+                            labelPlacement="start"
+                          />
+                        </Box>
+                      </Grid>
+                      <AddressSection
+                        control={control}
+                        errors={errors}
+                        prefix="shipping"
+                        title=""
+                        disabled={sameAsBilling || isSaving}
+                      />
+                    </Grid>
                   </Grid>
                 </Grid>
               </CardContent>

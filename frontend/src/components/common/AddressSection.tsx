@@ -58,9 +58,11 @@ export default function AddressSection<T extends FieldValues>({
 
   return (
     <>
-      <Grid size={12}>
-        {title && <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>{title}</Typography>}
-      </Grid>
+      {title && (
+        <Grid size={12}>
+          <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>{title}</Typography>
+        </Grid>
+      )}
 
       <Grid size={12}>
         <Controller
