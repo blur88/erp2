@@ -56,8 +56,8 @@ export default function CustomerOverviewTab({ customer }: CustomerOverviewTabPro
   return (
     <Box sx={{ p: 3 }}>
       <Grid container spacing={3}>
-        <Grid size={{ xs: 12, md: 6 }}>
-          <Card>
+        <Grid size={{ xs: 12, md: 6 }} sx={{ display: 'flex', flexDirection: 'column' }}>
+          <Card sx={{ flex: 1 }}>
             <CardContent>
               <Typography variant="h6" gutterBottom>
                 Basic Info
@@ -69,8 +69,8 @@ export default function CustomerOverviewTab({ customer }: CustomerOverviewTabPro
           </Card>
         </Grid>
 
-        <Grid size={{ xs: 12, md: 6 }}>
-          <Card>
+        <Grid size={{ xs: 12, md: 6 }} sx={{ display: 'flex', flexDirection: 'column' }}>
+          <Card sx={{ flex: 1 }}>
             <CardContent>
               <Typography variant="h6" gutterBottom>
                 Additional
@@ -81,8 +81,8 @@ export default function CustomerOverviewTab({ customer }: CustomerOverviewTabPro
           </Card>
         </Grid>
 
-        <Grid size={{ xs: 12, md: 6 }}>
-          <Card>
+        <Grid size={{ xs: 12, md: 6 }} sx={{ display: 'flex', flexDirection: 'column' }}>
+          <Card sx={{ flex: 1 }}>
             <CardContent>
               <Typography variant="h6" gutterBottom>
                 Billing Address
@@ -102,8 +102,8 @@ export default function CustomerOverviewTab({ customer }: CustomerOverviewTabPro
           </Card>
         </Grid>
 
-        <Grid size={{ xs: 12, md: 6 }}>
-          <Card>
+        <Grid size={{ xs: 12, md: 6 }} sx={{ display: 'flex', flexDirection: 'column' }}>
+          <Card sx={{ flex: 1 }}>
             <CardContent>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
                 <Typography variant="h6">Shipping Address</Typography>
