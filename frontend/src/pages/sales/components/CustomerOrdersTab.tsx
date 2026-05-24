@@ -61,7 +61,7 @@ export default function CustomerOrdersTab({ customerId }: CustomerOrdersTabProps
                 <Button
                   size="small"
                   variant="text"
-                  onClick={() => navigate(`/sales/orders?highlight=${order.id}`)}
+                  onClick={() => navigate('/sales/orders', { state: { highlightOrderId: order.id } })}
                 >
                   View
                 </Button>

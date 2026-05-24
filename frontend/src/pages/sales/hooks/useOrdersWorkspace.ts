@@ -85,6 +85,7 @@ export function useOrdersWorkspace({
     refetch: refetchOrders,
     navigate,
     highlightParam: 'highlight',
+    locationStateHighlightKey: 'highlightOrderId',
     routes: {
       create: '/sales/orders/create',
       edit: (id) => {
