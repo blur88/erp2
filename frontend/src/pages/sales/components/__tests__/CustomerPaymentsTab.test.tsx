@@ -65,7 +65,6 @@ describe('CustomerPaymentsTab', () => {
     expect(screen.getByText('PAY-001')).toBeInTheDocument()
     expect(screen.getByText('INV-001')).toBeInTheDocument()
     expect(screen.getByText('Cash')).toBeInTheDocument()
-    expect(screen.getByText('View')).toBeInTheDocument()
   })
 
   it('shows em dash when paymentMethodEntity is absent', () => {

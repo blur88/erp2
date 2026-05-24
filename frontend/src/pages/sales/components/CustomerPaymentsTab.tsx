@@ -1,21 +1,13 @@
-import { Box, CircularProgress, Link, Table, TableBody, TableCell, TableHead, TableRow, Typography } from '@mui/material'
+import { Box, CircularProgress, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from '@mui/material'
 import { useNavigate } from 'react-router-dom'
 
+import { TABLE_STYLES } from '@/constants/tableStyles'
 import { useGetPaymentsQuery } from '@/store/api/salesApi'
 import { formatCurrency } from '@/utils/currency'
 import { formatDate } from '@/utils/formatters'
 
 interface CustomerPaymentsTabProps {
   customerId: string
-}
-
-const headerSx = {
-  fontSize: '11px',
-  fontWeight: 600,
-  textTransform: 'uppercase' as const,
-  color: 'text.secondary',
-  borderBottom: 2,
-  borderColor: 'divider',
 }
 
 export default function CustomerPaymentsTab({ customerId }: CustomerPaymentsTabProps) {
@@ -25,7 +17,7 @@ export default function CustomerPaymentsTab({ customerId }: CustomerPaymentsTabP
 
   if (isLoading) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
         <CircularProgress />
       </Box>
     )
@@ -33,49 +25,45 @@ export default function CustomerPaymentsTab({ customerId }: CustomerPaymentsTabP
 
   if (payments.length === 0) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
-        <Typography variant="body2" color="text.secondary">
-          No payments yet for this customer.
-        </Typography>
-      </Box>
+      <Typography sx={{ color: 'text.secondary', py: 4, textAlign: 'center' }}>
+        No payments yet for this customer.
+      </Typography>
     )
   }
 
   return (
-    <Box sx={{ p: 3 }}>
-      <Table size="small">
+    <TableContainer component={Paper} variant="outlined">
+      <Table size={TABLE_STYLES.size}>
         <TableHead>
-          <TableRow>
-            <TableCell sx={headerSx}>Payment #</TableCell>
-            <TableCell sx={headerSx}>Invoice #</TableCell>
-            <TableCell sx={headerSx}>Date</TableCell>
-            <TableCell sx={headerSx}>Amount</TableCell>
-            <TableCell sx={headerSx}>Method</TableCell>
-            <TableCell sx={headerSx} />
+          <TableRow sx={{ '& .MuiTableCell-head': { fontWeight: 600, backgroundColor: 'grey.50' } }}>
+            <TableCell>Payment #</TableCell>
+            <TableCell>Invoice #</TableCell>
+            <TableCell>Date</TableCell>
+            <TableCell>Method</TableCell>
+            <TableCell align="right">Amount</TableCell>
           </TableRow>
         </TableHead>
         <TableBody>
           {payments.map((payment) => (
-            <TableRow key={payment.id} hover>
-              <TableCell>{payment.paymentNumber}</TableCell>
+            <TableRow
+              key={payment.id}
+              hover
+              sx={{ cursor: 'pointer' }}
+              onClick={() => navigate('/sales/payments')}
+            >
+              <TableCell>
+                <Typography variant="body2" color="primary" sx={{ fontWeight: 600 }}>
+                  {payment.paymentNumber}
+                </Typography>
+              </TableCell>
               <TableCell>{payment.invoice?.invoiceNumber ?? '—'}</TableCell>
               <TableCell>{formatDate(payment.paymentDate)}</TableCell>
-              <TableCell>{formatCurrency(payment.amount)}</TableCell>
               <TableCell>{payment.paymentMethodEntity?.name ?? '—'}</TableCell>
-              <TableCell>
-                <Link
-                  component="button"
-                  variant="body2"
-                  onClick={() => navigate('/sales/payments')}
-                  sx={{ color: 'primary.main', cursor: 'pointer' }}
-                >
-                  View
-                </Link>
-              </TableCell>
+              <TableCell align="right">{formatCurrency(payment.amount)}</TableCell>
             </TableRow>
           ))}
         </TableBody>
       </Table>
-    </Box>
+    </TableContainer>
   )
 }

@@ -1,22 +1,14 @@
-import { Box, CircularProgress, Link, Table, TableBody, TableCell, TableHead, TableRow, Typography } from '@mui/material'
+import { Box, CircularProgress, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from '@mui/material'
 import { useNavigate } from 'react-router-dom'
 
 import { EntityStatusChip } from '@/components/common/EntityStatusChip'
+import { TABLE_STYLES } from '@/constants/tableStyles'
 import { useGetInvoicesQuery } from '@/store/api/salesApi'
 import { formatCurrency } from '@/utils/currency'
 import { formatDate } from '@/utils/formatters'
 
 interface CustomerInvoicesTabProps {
   customerId: string
-}
-
-const headerSx = {
-  fontSize: '11px',
-  fontWeight: 600,
-  textTransform: 'uppercase' as const,
-  color: 'text.secondary',
-  borderBottom: 2,
-  borderColor: 'divider',
 }
 
 export default function CustomerInvoicesTab({ customerId }: CustomerInvoicesTabProps) {
@@ -26,7 +18,7 @@ export default function CustomerInvoicesTab({ customerId }: CustomerInvoicesTabP
 
   if (isLoading) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
         <CircularProgress />
       </Box>
     )
@@ -34,53 +26,53 @@ export default function CustomerInvoicesTab({ customerId }: CustomerInvoicesTabP
 
   if (invoices.length === 0) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
-        <Typography variant="body2" color="text.secondary">
-          No invoices yet for this customer.
-        </Typography>
-      </Box>
+      <Typography sx={{ color: 'text.secondary', py: 4, textAlign: 'center' }}>
+        No invoices yet for this customer.
+      </Typography>
     )
   }
 
   return (
-    <Box sx={{ p: 3 }}>
-      <Table size="small">
+    <TableContainer component={Paper} variant="outlined">
+      <Table size={TABLE_STYLES.size}>
         <TableHead>
-          <TableRow>
-            <TableCell sx={headerSx}>Invoice #</TableCell>
-            <TableCell sx={headerSx}>Order #</TableCell>
-            <TableCell sx={headerSx}>Date</TableCell>
-            <TableCell sx={headerSx}>Amount</TableCell>
-            <TableCell sx={headerSx}>Outstanding</TableCell>
-            <TableCell sx={headerSx}>Status</TableCell>
-            <TableCell sx={headerSx} />
+          <TableRow sx={{ '& .MuiTableCell-head': { fontWeight: 600, backgroundColor: 'grey.50' } }}>
+            <TableCell>Invoice #</TableCell>
+            <TableCell>Order #</TableCell>
+            <TableCell>Date</TableCell>
+            <TableCell align="right">Amount</TableCell>
+            <TableCell align="right">Outstanding</TableCell>
+            <TableCell>Status</TableCell>
           </TableRow>
         </TableHead>
         <TableBody>
           {invoices.map((invoice) => (
-            <TableRow key={invoice.id} hover>
-              <TableCell>{invoice.invoiceNumber}</TableCell>
+            <TableRow
+              key={invoice.id}
+              hover
+              sx={{ cursor: 'pointer' }}
+              onClick={() => navigate('/sales/invoices')}
+            >
+              <TableCell>
+                <Typography variant="body2" color="primary" sx={{ fontWeight: 600 }}>
+                  {invoice.invoiceNumber}
+                </Typography>
+              </TableCell>
               <TableCell>{invoice.salesOrder?.orderNumber ?? '—'}</TableCell>
               <TableCell>{formatDate(invoice.issueDate)}</TableCell>
-              <TableCell>{formatCurrency(invoice.total)}</TableCell>
-              <TableCell>{formatCurrency(invoice.dueAmount)}</TableCell>
-              <TableCell>
-                <EntityStatusChip status={invoice.status} />
+              <TableCell align="right">{formatCurrency(invoice.total)}</TableCell>
+              <TableCell align="right">
+                <Typography sx={{ fontWeight: 600, color: invoice.dueAmount > 0 ? 'error.main' : 'text.primary' }}>
+                  {formatCurrency(invoice.dueAmount)}
+                </Typography>
               </TableCell>
               <TableCell>
-                <Link
-                  component="button"
-                  variant="body2"
-                  onClick={() => navigate('/sales/invoices')}
-                  sx={{ color: 'primary.main', cursor: 'pointer' }}
-                >
-                  View
-                </Link>
+                <EntityStatusChip status={invoice.status} />
               </TableCell>
             </TableRow>
           ))}
         </TableBody>
       </Table>
-    </Box>
+    </TableContainer>
   )
 }

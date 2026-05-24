@@ -62,7 +62,7 @@ describe('CustomerOrdersTab', () => {
     })
     renderTab('c1')
     expect(screen.getByText('SO-001')).toBeInTheDocument()
-    expect(screen.getByText('View')).toBeInTheDocument()
+    expect(screen.getByText(/Completed/i)).toBeInTheDocument()
   })
 
   it('passes customerId to query', () => {

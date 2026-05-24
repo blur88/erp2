@@ -1,22 +1,14 @@
-import { Box, CircularProgress, Link, Table, TableBody, TableCell, TableHead, TableRow, Typography } from '@mui/material'
+import { Box, CircularProgress, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from '@mui/material'
 import { useNavigate } from 'react-router-dom'
 
 import { EntityStatusChip } from '@/components/common/EntityStatusChip'
+import { TABLE_STYLES } from '@/constants/tableStyles'
 import { useGetSalesOrdersQuery } from '@/store/api/salesApi'
 import { formatCurrency } from '@/utils/currency'
 import { formatDate } from '@/utils/formatters'
 
 interface CustomerOrdersTabProps {
   customerId: string
-}
-
-const headerSx = {
-  fontSize: '11px',
-  fontWeight: 600,
-  textTransform: 'uppercase' as const,
-  color: 'text.secondary',
-  borderBottom: 2,
-  borderColor: 'divider',
 }
 
 export default function CustomerOrdersTab({ customerId }: CustomerOrdersTabProps) {
@@ -26,7 +18,7 @@ export default function CustomerOrdersTab({ customerId }: CustomerOrdersTabProps
 
   if (isLoading) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
         <CircularProgress />
       </Box>
     )
@@ -34,49 +26,45 @@ export default function CustomerOrdersTab({ customerId }: CustomerOrdersTabProps
 
   if (orders.length === 0) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
-        <Typography variant="body2" color="text.secondary">
-          No orders yet for this customer.
-        </Typography>
-      </Box>
+      <Typography sx={{ color: 'text.secondary', py: 4, textAlign: 'center' }}>
+        No orders yet for this customer.
+      </Typography>
     )
   }
 
   return (
-    <Box sx={{ p: 3 }}>
-      <Table size="small">
+    <TableContainer component={Paper} variant="outlined">
+      <Table size={TABLE_STYLES.size}>
         <TableHead>
-          <TableRow>
-            <TableCell sx={headerSx}>Order #</TableCell>
-            <TableCell sx={headerSx}>Date</TableCell>
-            <TableCell sx={headerSx}>Status</TableCell>
-            <TableCell sx={headerSx}>Total</TableCell>
-            <TableCell sx={headerSx} />
+          <TableRow sx={{ '& .MuiTableCell-head': { fontWeight: 600, backgroundColor: 'grey.50' } }}>
+            <TableCell>Order #</TableCell>
+            <TableCell>Date</TableCell>
+            <TableCell>Status</TableCell>
+            <TableCell align="right">Total</TableCell>
           </TableRow>
         </TableHead>
         <TableBody>
           {orders.map((order) => (
-            <TableRow key={order.id} hover>
-              <TableCell>{order.orderNumber}</TableCell>
+            <TableRow
+              key={order.id}
+              hover
+              sx={{ cursor: 'pointer' }}
+              onClick={() => navigate('/sales/orders')}
+            >
+              <TableCell>
+                <Typography variant="body2" color="primary" sx={{ fontWeight: 600 }}>
+                  {order.orderNumber}
+                </Typography>
+              </TableCell>
               <TableCell>{formatDate(order.orderDate)}</TableCell>
               <TableCell>
                 <EntityStatusChip status={order.isCompleted || order.isFulfilled ? 'completed' : 'pending'} />
               </TableCell>
-              <TableCell>{formatCurrency(order.totalAmount)}</TableCell>
-              <TableCell>
-                <Link
-                  component="button"
-                  variant="body2"
-                  onClick={() => navigate('/sales/orders')}
-                  sx={{ color: 'primary.main', cursor: 'pointer' }}
-                >
-                  View
-                </Link>
-              </TableCell>
+              <TableCell align="right">{formatCurrency(order.totalAmount)}</TableCell>
             </TableRow>
           ))}
         </TableBody>
       </Table>
-    </Box>
+    </TableContainer>
   )
 }

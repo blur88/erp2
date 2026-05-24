@@ -54,7 +54,7 @@ export default function CustomerOverviewTab({ customer }: CustomerOverviewTabPro
   const sameAsBilling = isSameAsBilling(customer)
 
   return (
-    <Box sx={{ p: 3 }}>
+    <Box>
       <Grid container spacing={3}>
         <Grid size={{ xs: 12, md: 6 }} sx={{ display: 'flex', flexDirection: 'column' }}>
           <Card sx={{ flex: 1 }}>
