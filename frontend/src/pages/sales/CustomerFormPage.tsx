@@ -164,12 +164,12 @@ const CustomerFormPage: React.FC = () => {
       return
     }
 
-    setValue('shippingStreetAddress', watchedBilling[0])
-    setValue('shippingStreetAddress2', watchedBilling[1])
-    setValue('shippingCity', watchedBilling[2])
-    setValue('shippingState', watchedBilling[3])
-    setValue('shippingPostalCode', watchedBilling[4])
-    setValue('shippingCountry', watchedBilling[5])
+    setValue('shippingStreetAddress', watchedBilling[0], { shouldDirty: true })
+    setValue('shippingStreetAddress2', watchedBilling[1], { shouldDirty: true })
+    setValue('shippingCity', watchedBilling[2], { shouldDirty: true })
+    setValue('shippingState', watchedBilling[3], { shouldDirty: true })
+    setValue('shippingPostalCode', watchedBilling[4], { shouldDirty: true })
+    setValue('shippingCountry', watchedBilling[5], { shouldDirty: true })
   }, [sameAsBilling, setValue, watchedBilling])
 
   useEffect(() => {
@@ -182,6 +182,15 @@ const CustomerFormPage: React.FC = () => {
       .unwrap()
       .then((currentCustomer) => {
         setCustomer(currentCustomer)
+        const shippingMatchesBilling =
+          !!currentCustomer.billingStreetAddress &&
+          (currentCustomer.shippingStreetAddress || null) === (currentCustomer.billingStreetAddress || null) &&
+          (currentCustomer.shippingStreetAddress2 || null) === (currentCustomer.billingStreetAddress2 || null) &&
+          (currentCustomer.shippingCity || null) === (currentCustomer.billingCity || null) &&
+          (currentCustomer.shippingState || null) === (currentCustomer.billingState || null) &&
+          (currentCustomer.shippingPostalCode || null) === (currentCustomer.billingPostalCode || null) &&
+          (currentCustomer.shippingCountry || null) === (currentCustomer.billingCountry || null)
+        setSameAsBilling(shippingMatchesBilling)
         reset({
           name: currentCustomer.name,
           type: currentCustomer.type,
