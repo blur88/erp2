@@ -89,6 +89,11 @@ export class SupplierBillingShippingAddress1779500000000 implements MigrationInt
         "state" = COALESCE("state", "billingState"),
         "postalCode" = COALESCE("postalCode", "billingPostalCode"),
         "country" = COALESCE("country", "billingCountry")
+      WHERE "billingStreetAddress" IS NOT NULL
+         OR "billingCity" IS NOT NULL
+         OR "billingState" IS NOT NULL
+         OR "billingPostalCode" IS NOT NULL
+         OR "billingCountry" IS NOT NULL
     `);
 
     await queryRunner.query(`ALTER TABLE "suppliers" DROP COLUMN IF EXISTS "shippingCountry"`);
