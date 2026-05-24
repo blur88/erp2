@@ -367,6 +367,8 @@ export class SupplierService extends BaseCrudService<
       activeQueryBuilder.andWhere('supplier.id != :excludeId', { excludeId });
     }
 
+    activeQueryBuilder.andWhere('supplier.deletedAt IS NULL');
+
     const activeSupplier = await activeQueryBuilder.getOne();
 
     if (activeSupplier) {
@@ -382,7 +384,7 @@ export class SupplierService extends BaseCrudService<
       .createQueryBuilder('supplier')
       .withDeleted()
       .where('LOWER(supplier.companyName) = LOWER(:companyName)', { companyName })
-      .andWhere('supplier.deletedAt IS NOT NULL');
+      .andWhere('(supplier.deletedAt IS NOT NULL OR supplier.isActive = false)');
 
     if (excludeId) {
       inactiveQueryBuilder.andWhere('supplier.id != :excludeId', { excludeId });
