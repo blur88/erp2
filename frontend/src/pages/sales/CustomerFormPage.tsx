@@ -410,9 +410,9 @@ const CustomerFormPage: React.FC = () => {
       <form noValidate onSubmit={handleSubmit(handleFormSubmit)}>
         <Grid container spacing={3}>
 
-          {/* Group 1: Basic Info */}
-          <Grid size={12}>
-            <Card>
+          {/* Row 1: Basic Info + Additional side by side */}
+          <Grid size={{ xs: 12, md: 6 }} sx={{ display: 'flex', flexDirection: 'column' }}>
+            <Card sx={{ display: 'flex', flexDirection: 'column', flexGrow: 1 }}>
               <CardContent>
                 <Typography variant="h6" gutterBottom>Basic Information</Typography>
                 <Grid container spacing={2}>
@@ -553,53 +553,8 @@ const CustomerFormPage: React.FC = () => {
             </Card>
           </Grid>
 
-          {/* Group 2: Addresses */}
-          <Grid size={12}>
-            <Card>
-              <CardContent>
-                <Typography variant="h6" gutterBottom>Addresses</Typography>
-                <Grid container spacing={2}>
-                  <AddressSection
-                    control={control}
-                    errors={errors}
-                    prefix="billing"
-                    title="Billing Address"
-                    disabled={isSaving}
-                  />
-
-                  <Grid size={12}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', mt: 2, mb: 0 }}>
-                      <Typography variant="h6" sx={{ flexGrow: 1 }}>Shipping Address</Typography>
-                      <FormControlLabel
-                        control={
-                          <Switch
-                            size="small"
-                            checked={sameAsBilling}
-                            onChange={(event) => setSameAsBilling(event.target.checked)}
-                            disabled={isSaving}
-                          />
-                        }
-                        label="Same as Billing"
-                        labelPlacement="start"
-                      />
-                    </Box>
-                  </Grid>
-
-                  <AddressSection
-                    control={control}
-                    errors={errors}
-                    prefix="shipping"
-                    title=""
-                    disabled={sameAsBilling || isSaving}
-                  />
-                </Grid>
-              </CardContent>
-            </Card>
-          </Grid>
-
-          {/* Group 3: Additional */}
-          <Grid size={12}>
-            <Card>
+          <Grid size={{ xs: 12, md: 6 }} sx={{ display: 'flex', flexDirection: 'column' }}>
+            <Card sx={{ display: 'flex', flexDirection: 'column', flexGrow: 1 }}>
               <CardContent sx={{ display: 'flex', flexDirection: 'column', height: '100%', boxSizing: 'border-box' }}>
                 <Typography variant="h6" gutterBottom>Additional</Typography>
                 <Grid container spacing={2} sx={{ flexGrow: 1 }}>
@@ -650,6 +605,50 @@ const CustomerFormPage: React.FC = () => {
                       )}
                     />
                   </Grid>
+                </Grid>
+              </CardContent>
+            </Card>
+          </Grid>
+
+          {/* Row 2: Addresses */}
+          <Grid size={12}>
+            <Card>
+              <CardContent>
+                <Typography variant="h6" gutterBottom>Addresses</Typography>
+                <Grid container spacing={2}>
+                  <AddressSection
+                    control={control}
+                    errors={errors}
+                    prefix="billing"
+                    title="Billing Address"
+                    disabled={isSaving}
+                  />
+
+                  <Grid size={12}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', mt: 2, mb: 0 }}>
+                      <Typography variant="h6" sx={{ flexGrow: 1 }}>Shipping Address</Typography>
+                      <FormControlLabel
+                        control={
+                          <Switch
+                            size="small"
+                            checked={sameAsBilling}
+                            onChange={(event) => setSameAsBilling(event.target.checked)}
+                            disabled={isSaving}
+                          />
+                        }
+                        label="Same as Billing"
+                        labelPlacement="start"
+                      />
+                    </Box>
+                  </Grid>
+
+                  <AddressSection
+                    control={control}
+                    errors={errors}
+                    prefix="shipping"
+                    title=""
+                    disabled={sameAsBilling || isSaving}
+                  />
                 </Grid>
               </CardContent>
             </Card>

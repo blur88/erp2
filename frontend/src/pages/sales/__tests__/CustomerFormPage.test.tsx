@@ -177,6 +177,15 @@ describe('CustomerFormPage - Create mode', () => {
 
     expect(screen.getByLabelText(/notes/i)).not.toHaveAttribute('rows')
   })
+
+  it('places the Additional card before the Addresses card', () => {
+    renderCreatePage()
+
+    const additional = screen.getByText('Additional')
+    const addresses = screen.getByText('Addresses')
+
+    expect(additional.compareDocumentPosition(addresses)).toBe(Node.DOCUMENT_POSITION_FOLLOWING)
+  })
 })
 
 describe('CustomerFormPage - Edit mode', () => {
