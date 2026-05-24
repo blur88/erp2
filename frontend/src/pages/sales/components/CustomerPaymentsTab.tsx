@@ -1,4 +1,4 @@
-import { Box, CircularProgress, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from '@mui/material'
+import { Box, Button, CircularProgress, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from '@mui/material'
 import { useNavigate } from 'react-router-dom'
 
 import { TABLE_STYLES } from '@/constants/tableStyles'
@@ -36,23 +36,19 @@ export default function CustomerPaymentsTab({ customerId }: CustomerPaymentsTabP
       <Table size={TABLE_STYLES.size}>
         <TableHead>
           <TableRow sx={{ '& .MuiTableCell-head': { fontWeight: 600, backgroundColor: 'grey.50' } }}>
-            <TableCell>Payment #</TableCell>
-            <TableCell>Invoice #</TableCell>
-            <TableCell>Date</TableCell>
-            <TableCell>Method</TableCell>
-            <TableCell align="right">Amount</TableCell>
+            <TableCell sx={{ width: '18%' }}>Payment #</TableCell>
+            <TableCell sx={{ width: '18%' }}>Invoice #</TableCell>
+            <TableCell sx={{ width: '16%' }}>Date</TableCell>
+            <TableCell sx={{ width: '18%' }}>Method</TableCell>
+            <TableCell align="right" sx={{ width: '15%' }}>Amount</TableCell>
+            <TableCell sx={{ width: '15%' }} />
           </TableRow>
         </TableHead>
         <TableBody>
           {payments.map((payment) => (
-            <TableRow
-              key={payment.id}
-              hover
-              sx={{ cursor: 'pointer' }}
-              onClick={() => navigate('/sales/payments')}
-            >
+            <TableRow key={payment.id} hover>
               <TableCell>
-                <Typography variant="body2" color="primary" sx={{ fontWeight: 600 }}>
+                <Typography variant="body2" sx={{ fontWeight: 600 }}>
                   {payment.paymentNumber}
                 </Typography>
               </TableCell>
@@ -60,6 +56,15 @@ export default function CustomerPaymentsTab({ customerId }: CustomerPaymentsTabP
               <TableCell>{formatDate(payment.paymentDate)}</TableCell>
               <TableCell>{payment.paymentMethodEntity?.name ?? '—'}</TableCell>
               <TableCell align="right">{formatCurrency(payment.amount)}</TableCell>
+              <TableCell align="right">
+                <Button
+                  size="small"
+                  variant="text"
+                  onClick={() => navigate('/sales/payments')}
+                >
+                  View
+                </Button>
+              </TableCell>
             </TableRow>
           ))}
         </TableBody>

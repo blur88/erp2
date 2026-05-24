@@ -1,4 +1,4 @@
-import { Box, CircularProgress, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from '@mui/material'
+import { Box, Button, CircularProgress, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from '@mui/material'
 import { useNavigate } from 'react-router-dom'
 
 import { EntityStatusChip } from '@/components/common/EntityStatusChip'
@@ -37,22 +37,18 @@ export default function CustomerOrdersTab({ customerId }: CustomerOrdersTabProps
       <Table size={TABLE_STYLES.size}>
         <TableHead>
           <TableRow sx={{ '& .MuiTableCell-head': { fontWeight: 600, backgroundColor: 'grey.50' } }}>
-            <TableCell>Order #</TableCell>
-            <TableCell>Date</TableCell>
-            <TableCell>Status</TableCell>
-            <TableCell align="right">Total</TableCell>
+            <TableCell sx={{ width: '18%' }}>Order #</TableCell>
+            <TableCell sx={{ width: '18%' }}>Date</TableCell>
+            <TableCell sx={{ width: '20%' }}>Status</TableCell>
+            <TableCell align="right" sx={{ width: '18%' }}>Total</TableCell>
+            <TableCell sx={{ width: '26%' }} />
           </TableRow>
         </TableHead>
         <TableBody>
           {orders.map((order) => (
-            <TableRow
-              key={order.id}
-              hover
-              sx={{ cursor: 'pointer' }}
-              onClick={() => navigate('/sales/orders')}
-            >
+            <TableRow key={order.id} hover>
               <TableCell>
-                <Typography variant="body2" color="primary" sx={{ fontWeight: 600 }}>
+                <Typography variant="body2" sx={{ fontWeight: 600 }}>
                   {order.orderNumber}
                 </Typography>
               </TableCell>
@@ -61,6 +57,15 @@ export default function CustomerOrdersTab({ customerId }: CustomerOrdersTabProps
                 <EntityStatusChip status={order.isCompleted || order.isFulfilled ? 'completed' : 'pending'} />
               </TableCell>
               <TableCell align="right">{formatCurrency(order.totalAmount)}</TableCell>
+              <TableCell align="right">
+                <Button
+                  size="small"
+                  variant="text"
+                  onClick={() => navigate(`/sales/orders/${order.orderNumber}/edit`)}
+                >
+                  View
+                </Button>
+              </TableCell>
             </TableRow>
           ))}
         </TableBody>

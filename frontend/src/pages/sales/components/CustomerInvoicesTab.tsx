@@ -1,4 +1,4 @@
-import { Box, CircularProgress, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from '@mui/material'
+import { Box, Button, CircularProgress, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from '@mui/material'
 import { useNavigate } from 'react-router-dom'
 
 import { EntityStatusChip } from '@/components/common/EntityStatusChip'
@@ -37,24 +37,20 @@ export default function CustomerInvoicesTab({ customerId }: CustomerInvoicesTabP
       <Table size={TABLE_STYLES.size}>
         <TableHead>
           <TableRow sx={{ '& .MuiTableCell-head': { fontWeight: 600, backgroundColor: 'grey.50' } }}>
-            <TableCell>Invoice #</TableCell>
-            <TableCell>Order #</TableCell>
-            <TableCell>Date</TableCell>
-            <TableCell align="right">Amount</TableCell>
-            <TableCell align="right">Balance Due</TableCell>
-            <TableCell>Status</TableCell>
+            <TableCell sx={{ width: '14%' }}>Invoice #</TableCell>
+            <TableCell sx={{ width: '14%' }}>Order #</TableCell>
+            <TableCell sx={{ width: '12%' }}>Date</TableCell>
+            <TableCell align="right" sx={{ width: '13%' }}>Amount</TableCell>
+            <TableCell align="right" sx={{ width: '13%' }}>Balance Due</TableCell>
+            <TableCell sx={{ width: '14%' }}>Status</TableCell>
+            <TableCell sx={{ width: '20%' }} />
           </TableRow>
         </TableHead>
         <TableBody>
           {invoices.map((invoice) => (
-            <TableRow
-              key={invoice.id}
-              hover
-              sx={{ cursor: 'pointer' }}
-              onClick={() => navigate('/sales/invoices')}
-            >
+            <TableRow key={invoice.id} hover>
               <TableCell>
-                <Typography variant="body2" color="primary" sx={{ fontWeight: 600 }}>
+                <Typography variant="body2" sx={{ fontWeight: 600 }}>
                   {invoice.invoiceNumber}
                 </Typography>
               </TableCell>
@@ -68,6 +64,15 @@ export default function CustomerInvoicesTab({ customerId }: CustomerInvoicesTabP
               </TableCell>
               <TableCell>
                 <EntityStatusChip status={invoice.status} />
+              </TableCell>
+              <TableCell align="right">
+                <Button
+                  size="small"
+                  variant="text"
+                  onClick={() => navigate('/sales/invoices')}
+                >
+                  View
+                </Button>
               </TableCell>
             </TableRow>
           ))}
