@@ -76,7 +76,7 @@ export default function SupplierPurchaseOrdersTab({ supplierId }: SupplierPurcha
                   <Button
                     size="small"
                     variant="text"
-                    onClick={() => navigate('/purchasing/orders', { state: { highlightOrderId: order.id } })}
+                    onClick={() => navigate(`/purchasing/orders?highlight=${order.id}`)}
                   >
                     View
                   </Button>

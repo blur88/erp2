@@ -67,7 +67,7 @@ export default function SupplierGRNTab({ supplierId }: SupplierGRNTabProps) {
                 <Button
                   size="small"
                   variant="text"
-                  onClick={() => navigate('/purchasing/goods-received', { state: { highlightGRNId: grn.id } })}
+                  onClick={() => navigate(`/purchasing/goods-received?grnId=${grn.id}`)}
                 >
                   View
                 </Button>

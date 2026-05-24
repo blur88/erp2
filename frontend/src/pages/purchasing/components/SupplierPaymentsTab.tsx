@@ -74,7 +74,7 @@ export default function SupplierPaymentsTab({ supplierId }: SupplierPaymentsTabP
                 <Button
                   size="small"
                   variant="text"
-                  onClick={() => navigate('/purchasing/vendor-payments', { state: { highlightPaymentId: payment.id } })}
+                  onClick={() => navigate(`/purchasing/vendor-payments?vpId=${payment.id}`)}
                 >
                   View
                 </Button>
