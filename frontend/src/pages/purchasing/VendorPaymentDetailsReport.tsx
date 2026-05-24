@@ -78,8 +78,8 @@ const VendorPaymentDetailsReport: React.FC = () => {
     // Load suppliers
     api.get('/purchasing/suppliers')
       .then(res => {
-        if (res.data?.suppliers) {
-          setSuppliers(res.data.suppliers)
+        if (res.data?.data) {
+          setSuppliers(res.data.data)
         }
       })
       .catch(() => {})
