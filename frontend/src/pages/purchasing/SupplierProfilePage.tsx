@@ -1,0 +1,137 @@
+import React from 'react'
+import { Box, CircularProgress, Tab, Tabs, Typography } from '@mui/material'
+import AccountBalanceIcon from '@mui/icons-material/AccountBalance'
+import LocalShippingIcon from '@mui/icons-material/LocalShipping'
+import PaymentIcon from '@mui/icons-material/Payment'
+import StoreIcon from '@mui/icons-material/Store'
+import { skipToken } from '@reduxjs/toolkit/query'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
+
+import { EntityStatusChip } from '@/components/common/EntityStatusChip'
+import PageHeader from '@/components/common/PageHeader'
+import { TABLE_STYLES } from '@/constants/tableStyles'
+import { useNotification } from '@/hooks/useNotification'
+import {
+  useGetSupplierBySlugQuery,
+  useUpdateSupplierMutation,
+} from '@/store/api/purchasingApi'
+
+import SupplierGRNTab from './components/SupplierGRNTab'
+import SupplierOverviewTab from './components/SupplierOverviewTab'
+import SupplierPaymentsTab from './components/SupplierPaymentsTab'
+import SupplierPurchaseOrdersTab from './components/SupplierPurchaseOrdersTab'
+
+interface TabPanelProps {
+  children?: React.ReactNode
+  index: number
+  value: number
+}
+
+function TabPanel({ children, value, index }: TabPanelProps) {
+  return (
+    <Box
+      role="tabpanel"
+      sx={{
+        flex: 1,
+        overflow: 'auto',
+        display: value === index ? 'flex' : 'none',
+        flexDirection: 'column',
+      }}
+    >
+      {value === index && (
+        <Box sx={{ p: TABLE_STYLES.cell.padding.px, flex: 1 }}>
+          {children}
+        </Box>
+      )}
+    </Box>
+  )
+}
+
+export default function SupplierProfilePage() {
+  const { slug } = useParams<{ slug: string }>()
+  const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const { showSuccess, showError } = useNotification()
+  const tabValue = Math.min(Math.max(Number(searchParams.get('tab') ?? 0), 0), 3)
+
+  const { data: supplier, isLoading, isError } = useGetSupplierBySlugQuery(slug ?? skipToken)
+  const [updateSupplier] = useUpdateSupplierMutation()
+
+  const handleStatusToggle = async () => {
+    if (!supplier) return
+    try {
+      await updateSupplier({ id: supplier.id, data: { isActive: !supplier.isActive } }).unwrap()
+      showSuccess(
+        supplier.isActive
+          ? `${supplier.companyName} set as inactive`
+          : `${supplier.companyName} reactivated`,
+      )
+    } catch {
+      showError(`Failed to update ${supplier.companyName}`)
+    }
+  }
+
+  if (isLoading) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', p: 6 }}>
+        <CircularProgress />
+      </Box>
+    )
+  }
+
+  if (isError || !supplier) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', p: 6 }}>
+        <Typography color="text.secondary">Supplier not found.</Typography>
+      </Box>
+    )
+  }
+
+  const profilePath = `/purchasing/suppliers/${supplier.slug}/view`
+
+  return (
+    <Box sx={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
+      <PageHeader
+        title={supplier.companyName}
+        titleBadge={<EntityStatusChip status={supplier.isActive ? 'active' : 'inactive'} />}
+        backAction={() => navigate('/purchasing/suppliers')}
+        primaryAction={{
+          label: 'Edit Supplier',
+          onClick: () => navigate(`/purchasing/suppliers/${supplier.slug}/edit`, {
+            state: { returnTo: 'profile', profilePath, breadcrumbTitle: supplier.companyName },
+          }),
+        }}
+        secondaryAction={{
+          label: supplier.isActive ? 'Set as Inactive' : 'Reactivate',
+          onClick: handleStatusToggle,
+        }}
+      />
+
+      <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
+        <Tabs
+          value={tabValue}
+          onChange={(_, value: number) => setSearchParams({ tab: String(value) }, { replace: true })}
+          sx={{ minHeight: 36 }}
+        >
+          <Tab icon={<StoreIcon sx={{ fontSize: 16 }} />} iconPosition="start" label="Overview" sx={{ minHeight: 36 }} />
+          <Tab icon={<LocalShippingIcon sx={{ fontSize: 16 }} />} iconPosition="start" label="Purchase Orders" sx={{ minHeight: 36 }} />
+          <Tab icon={<AccountBalanceIcon sx={{ fontSize: 16 }} />} iconPosition="start" label="GRN" sx={{ minHeight: 36 }} />
+          <Tab icon={<PaymentIcon sx={{ fontSize: 16 }} />} iconPosition="start" label="Vendor Payments" sx={{ minHeight: 36 }} />
+        </Tabs>
+      </Box>
+
+      <TabPanel value={tabValue} index={0}>
+        <SupplierOverviewTab supplier={supplier} />
+      </TabPanel>
+      <TabPanel value={tabValue} index={1}>
+        <SupplierPurchaseOrdersTab supplierId={supplier.id} />
+      </TabPanel>
+      <TabPanel value={tabValue} index={2}>
+        <SupplierGRNTab supplierId={supplier.id} />
+      </TabPanel>
+      <TabPanel value={tabValue} index={3}>
+        <SupplierPaymentsTab supplierId={supplier.id} />
+      </TabPanel>
+    </Box>
+  )
+}
