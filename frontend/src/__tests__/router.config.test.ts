@@ -54,11 +54,12 @@ describe('router settings paths', () => {
     expect(settingsRoutes).toContain("{ path: '/settings/inventory-costing', element: <InventoryCostingPage />, handle: { title: 'Inventory Costing' } }")
   })
 
-  it('defines customer create and edit routes and removes the old customer profile route', () => {
+  it('defines customer create, edit, and slug-based profile routes', () => {
     expect(salesRoutes).toContain("const CustomerFormPage = React.lazy(() => import('./CustomerFormPage'))")
+    expect(salesRoutes).toContain("const CustomerProfilePage = React.lazy(() => import('./CustomerProfilePage'))")
     expect(salesRoutes).toContain("{ path: '/sales/customers/create', element: <CustomerFormPage />, handle: { title: 'New Customer' } }")
     expect(salesRoutes).toContain("{ path: '/sales/customers/:slug/edit', element: <CustomerFormPage />, handle: { title: 'Edit Customer' } }")
-    expect(salesRoutes).not.toContain('CustomerProfilePage')
+    expect(salesRoutes).toContain("{ path: '/sales/customers/:slug/view', element: <CustomerProfilePage />, handle: { title: 'Customer Profile' } }")
     expect(salesRoutes).not.toContain("{ path: '/sales/customers/:id', element: <CustomerProfilePage />, handle: { title: 'Customer Profile' } }")
   })
 })
