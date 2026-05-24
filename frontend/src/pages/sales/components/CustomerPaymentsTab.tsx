@@ -13,7 +13,9 @@ interface CustomerPaymentsTabProps {
 export default function CustomerPaymentsTab({ customerId }: CustomerPaymentsTabProps) {
   const navigate = useNavigate()
   const { data, isLoading } = useGetPaymentsQuery({ customerId })
-  const payments = data?.data ?? []
+  const payments = [...(data?.data ?? [])].sort((a, b) =>
+    (a.paymentNumber ?? '').localeCompare(b.paymentNumber ?? '', undefined, { numeric: true }),
+  )
 
   if (isLoading) {
     return (
