@@ -186,6 +186,15 @@ describe('CustomerFormPage - Create mode', () => {
 
     expect(additional.compareDocumentPosition(addresses)).toBe(Node.DOCUMENT_POSITION_FOLLOWING)
   })
+
+  it('renders billing and shipping address columns with the toggle in shipping', () => {
+    renderCreatePage()
+
+    expect(screen.getByTestId('billing-address-column')).toBeInTheDocument()
+    expect(screen.getByTestId('shipping-address-column')).toContainElement(
+      screen.getByLabelText(/same as billing/i),
+    )
+  })
 })
 
 describe('CustomerFormPage - Edit mode', () => {
