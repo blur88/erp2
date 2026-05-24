@@ -600,9 +600,9 @@ const CustomerFormPage: React.FC = () => {
           {/* Group 3: Additional */}
           <Grid size={12}>
             <Card>
-              <CardContent>
+              <CardContent sx={{ display: 'flex', flexDirection: 'column', height: '100%', boxSizing: 'border-box' }}>
                 <Typography variant="h6" gutterBottom>Additional</Typography>
-                <Grid container spacing={2}>
+                <Grid container spacing={2} sx={{ flexGrow: 1 }}>
                   <Grid size={{ xs: 12, md: 6 }}>
                     <Controller
                       name="priceListId"
@@ -621,7 +621,7 @@ const CustomerFormPage: React.FC = () => {
                     />
                   </Grid>
 
-                  <Grid size={12}>
+                  <Grid size={12} sx={{ display: 'flex', flexDirection: 'column', flexGrow: 1 }}>
                     <Controller
                       name="notes"
                       control={control}
@@ -631,13 +631,21 @@ const CustomerFormPage: React.FC = () => {
                           value={field.value || ''}
                           fullWidth
                           multiline
-                          rows={4}
                           size="small"
                           label="Notes / Remarks"
                           disabled={isSaving}
                           error={!!errors.notes}
                           helperText={errors.notes?.message}
-                          sx={fieldSx}
+                          sx={{
+                            ...fieldSx,
+                            flexGrow: 1,
+                            '& .MuiInputBase-root': { height: '100%', alignItems: 'flex-start' },
+                            '& .MuiInputBase-input': {
+                              ...fieldSx['& .MuiInputBase-input'],
+                              height: '100% !important',
+                              overflow: 'auto !important',
+                            },
+                          }}
                         />
                       )}
                     />

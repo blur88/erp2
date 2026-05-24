@@ -171,6 +171,12 @@ describe('CustomerFormPage - Create mode', () => {
       }),
     )
   })
+
+  it('renders Notes textarea without a fixed row count', () => {
+    renderCreatePage()
+
+    expect(screen.getByLabelText(/notes/i)).not.toHaveAttribute('rows')
+  })
 })
 
 describe('CustomerFormPage - Edit mode', () => {
