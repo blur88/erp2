@@ -1,11 +1,10 @@
-import { useState } from 'react'
 import { Box, CircularProgress, Tab, Tabs, Typography } from '@mui/material'
 import AccountBalanceIcon from '@mui/icons-material/AccountBalance'
 import PaymentIcon from '@mui/icons-material/Payment'
 import PersonIcon from '@mui/icons-material/Person'
 import ShoppingCartIcon from '@mui/icons-material/ShoppingCart'
 import { skipToken } from '@reduxjs/toolkit/query'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 
 import { EntityStatusChip } from '@/components/common/EntityStatusChip'
 import PageHeader from '@/components/common/PageHeader'
@@ -46,7 +45,8 @@ function TabPanel({ children, value, index }: TabPanelProps) {
 export default function CustomerProfilePage() {
   const { slug } = useParams<{ slug: string }>()
   const navigate = useNavigate()
-  const [tabValue, setTabValue] = useState(0)
+  const [searchParams, setSearchParams] = useSearchParams()
+  const tabValue = Math.min(Math.max(Number(searchParams.get('tab') ?? 0), 0), 3)
 
   const { data: customer, isLoading, isError } = useGetCustomerBySlugQuery(slug ?? skipToken)
 
@@ -85,7 +85,7 @@ export default function CustomerProfilePage() {
       <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
         <Tabs
           value={tabValue}
-          onChange={(_, value) => setTabValue(value)}
+          onChange={(_, value: number) => setSearchParams({ tab: String(value) }, { replace: true })}
           sx={{ minHeight: 36 }}
         >
           <Tab icon={<PersonIcon sx={{ fontSize: 16 }} />} iconPosition="start" label="Overview" sx={{ minHeight: 36 }} />
