@@ -355,23 +355,47 @@ export class SupplierService extends BaseCrudService<
   async checkDuplicateCompanyName(
     companyName: string,
     excludeId?: string,
-  ): Promise<{ exists: boolean; message?: string }> {
+  ): Promise<{ exists: boolean; isInactive?: boolean; supplier?: SupplierResponseDto; message?: string }> {
     this.logger.log(`Checking duplicate company name: ${companyName}`);
 
-    const queryBuilder = this.supplierRepository
+    // First check active suppliers
+    const activeQueryBuilder = this.supplierRepository
       .createQueryBuilder('supplier')
       .where('LOWER(supplier.companyName) = LOWER(:companyName)', { companyName });
 
     if (excludeId) {
-      queryBuilder.andWhere('supplier.id != :excludeId', { excludeId });
+      activeQueryBuilder.andWhere('supplier.id != :excludeId', { excludeId });
     }
 
-    const existingSupplier = await queryBuilder.getOne();
+    const activeSupplier = await activeQueryBuilder.getOne();
 
-    if (existingSupplier) {
+    if (activeSupplier) {
       return {
         exists: true,
+        isInactive: false,
         message: `Supplier with company name "${companyName}" already exists`,
+      };
+    }
+
+    // Then check soft-deleted (inactive) suppliers
+    const inactiveQueryBuilder = this.supplierRepository
+      .createQueryBuilder('supplier')
+      .withDeleted()
+      .where('LOWER(supplier.companyName) = LOWER(:companyName)', { companyName })
+      .andWhere('supplier.deletedAt IS NOT NULL');
+
+    if (excludeId) {
+      inactiveQueryBuilder.andWhere('supplier.id != :excludeId', { excludeId });
+    }
+
+    const inactiveSupplier = await inactiveQueryBuilder.getOne();
+
+    if (inactiveSupplier) {
+      return {
+        exists: true,
+        isInactive: true,
+        supplier: this.mapToResponseDto(inactiveSupplier),
+        message: `Supplier with company name "${companyName}" exists but is inactive`,
       };
     }
 
