@@ -1,4 +1,4 @@
-import { Box, CircularProgress, Link, Typography } from '@mui/material'
+import { Box, CircularProgress, Link, Table, TableBody, TableCell, TableHead, TableRow, Typography } from '@mui/material'
 import { useNavigate } from 'react-router-dom'
 
 import { EntityStatusChip } from '@/components/common/EntityStatusChip'
@@ -8,6 +8,15 @@ import { formatDate } from '@/utils/formatters'
 
 interface CustomerInvoicesTabProps {
   customerId: string
+}
+
+const headerSx = {
+  fontSize: '11px',
+  fontWeight: 600,
+  textTransform: 'uppercase' as const,
+  color: 'text.secondary',
+  borderBottom: 2,
+  borderColor: 'divider',
 }
 
 export default function CustomerInvoicesTab({ customerId }: CustomerInvoicesTabProps) {
@@ -35,63 +44,43 @@ export default function CustomerInvoicesTab({ customerId }: CustomerInvoicesTabP
 
   return (
     <Box sx={{ p: 3 }}>
-      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-        <thead>
-          <tr>
-            {['Invoice #', 'Order #', 'Date', 'Amount', 'Outstanding', 'Status', ''].map((header) => (
-              <th
-                key={header}
-                style={{
-                  textAlign: 'left',
-                  padding: '8px 12px',
-                  fontSize: '11px',
-                  fontWeight: 600,
-                  textTransform: 'uppercase',
-                  color: '#8B95A6',
-                  borderBottom: '2px solid #2D3748',
-                }}
-              >
-                {header}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
+      <Table size="small">
+        <TableHead>
+          <TableRow>
+            <TableCell sx={headerSx}>Invoice #</TableCell>
+            <TableCell sx={headerSx}>Order #</TableCell>
+            <TableCell sx={headerSx}>Date</TableCell>
+            <TableCell sx={headerSx}>Amount</TableCell>
+            <TableCell sx={headerSx}>Outstanding</TableCell>
+            <TableCell sx={headerSx}>Status</TableCell>
+            <TableCell sx={headerSx} />
+          </TableRow>
+        </TableHead>
+        <TableBody>
           {invoices.map((invoice) => (
-            <tr
-              key={invoice.id}
-              style={{ borderBottom: '1px solid #2D3748' }}
-              onMouseEnter={(event) => {
-                event.currentTarget.style.background = 'rgba(255,255,255,0.04)'
-              }}
-              onMouseLeave={(event) => {
-                event.currentTarget.style.background = ''
-              }}
-            >
-              <td style={{ padding: '10px 12px', fontSize: '0.875rem' }}>{invoice.invoiceNumber}</td>
-              <td style={{ padding: '10px 12px', fontSize: '0.875rem' }}>
-                {invoice.salesOrder?.orderNumber ?? '—'}
-              </td>
-              <td style={{ padding: '10px 12px', fontSize: '0.875rem' }}>{formatDate(invoice.issueDate)}</td>
-              <td style={{ padding: '10px 12px', fontSize: '0.875rem' }}>{formatCurrency(invoice.total)}</td>
-              <td style={{ padding: '10px 12px', fontSize: '0.875rem' }}>{formatCurrency(invoice.dueAmount)}</td>
-              <td style={{ padding: '10px 12px' }}>
+            <TableRow key={invoice.id} hover>
+              <TableCell>{invoice.invoiceNumber}</TableCell>
+              <TableCell>{invoice.salesOrder?.orderNumber ?? '—'}</TableCell>
+              <TableCell>{formatDate(invoice.issueDate)}</TableCell>
+              <TableCell>{formatCurrency(invoice.total)}</TableCell>
+              <TableCell>{formatCurrency(invoice.dueAmount)}</TableCell>
+              <TableCell>
                 <EntityStatusChip status={invoice.status} />
-              </td>
-              <td style={{ padding: '10px 12px' }}>
+              </TableCell>
+              <TableCell>
                 <Link
                   component="button"
                   variant="body2"
                   onClick={() => navigate('/sales/invoices')}
-                  sx={{ color: '#3B82F6', cursor: 'pointer' }}
+                  sx={{ color: 'primary.main', cursor: 'pointer' }}
                 >
                   View
                 </Link>
-              </td>
-            </tr>
+              </TableCell>
+            </TableRow>
           ))}
-        </tbody>
-      </table>
+        </TableBody>
+      </Table>
     </Box>
   )
 }

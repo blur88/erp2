@@ -120,4 +120,33 @@ describe('CustomerProfilePage', () => {
     renderPage()
     expect(screen.getByRole('button', { name: 'Reactivate' })).toBeInTheDocument()
   })
+
+  it('shows not found message on error', () => {
+    mockGetCustomerBySlug.mockReturnValue({ data: undefined, isLoading: false, isError: true })
+    renderPage()
+    expect(screen.getByText('Customer not found.')).toBeInTheDocument()
+  })
+
+  it('shows not found message when data is missing and not loading', () => {
+    mockGetCustomerBySlug.mockReturnValue({ data: undefined, isLoading: false, isError: false })
+    renderPage()
+    expect(screen.getByText('Customer not found.')).toBeInTheDocument()
+  })
+
+  it('calls updateCustomer with isActive false when Set as Inactive is clicked', async () => {
+    mockGetCustomerBySlug.mockReturnValue({ data: customer, isLoading: false })
+    mockUpdateCustomer.mockResolvedValue({ data: customer })
+    renderPage()
+    await userEvent.click(screen.getByRole('button', { name: 'Set as Inactive' }))
+    expect(mockUpdateCustomer).toHaveBeenCalledWith({ id: 'c1', data: { isActive: false } })
+  })
+
+  it('calls updateCustomer with isActive true when Reactivate is clicked', async () => {
+    const inactiveCustomer = { ...customer, isActive: false }
+    mockGetCustomerBySlug.mockReturnValue({ data: inactiveCustomer, isLoading: false })
+    mockUpdateCustomer.mockResolvedValue({ data: inactiveCustomer })
+    renderPage()
+    await userEvent.click(screen.getByRole('button', { name: 'Reactivate' }))
+    expect(mockUpdateCustomer).toHaveBeenCalledWith({ id: 'c1', data: { isActive: true } })
+  })
 })

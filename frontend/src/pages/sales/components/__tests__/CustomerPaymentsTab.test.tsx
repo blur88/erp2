@@ -51,8 +51,7 @@ describe('CustomerPaymentsTab', () => {
           invoice: { id: 'inv1', invoiceNumber: 'INV-001' },
           paymentDate: '2026-01-25',
           amount: 1000,
-          paymentMethod: 'cash',
-          referenceNumber: 'REF-123',
+          paymentMethodEntity: { id: 'pm1', name: 'Cash', isActive: true },
           status: 'completed',
           customerId: 'c1',
           createdAt: '2026-01-25',
@@ -65,8 +64,29 @@ describe('CustomerPaymentsTab', () => {
     renderTab('c1')
     expect(screen.getByText('PAY-001')).toBeInTheDocument()
     expect(screen.getByText('INV-001')).toBeInTheDocument()
-    expect(screen.getByText('REF-123')).toBeInTheDocument()
+    expect(screen.getByText('Cash')).toBeInTheDocument()
     expect(screen.getByText('View')).toBeInTheDocument()
+  })
+
+  it('shows em dash when paymentMethodEntity is absent', () => {
+    mockGetPayments.mockReturnValue({
+      data: {
+        data: [{
+          id: 'p2',
+          paymentNumber: 'PAY-002',
+          paymentDate: '2026-02-01',
+          amount: 500,
+          status: 'completed',
+          customerId: 'c1',
+          createdAt: '2026-02-01',
+          updatedAt: '2026-02-01',
+        }],
+        meta: { total: 1 },
+      },
+      isLoading: false,
+    })
+    renderTab('c1')
+    expect(screen.getAllByText('—').length).toBeGreaterThanOrEqual(1)
   })
 
   it('passes customerId to query', () => {

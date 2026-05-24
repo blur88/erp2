@@ -1,4 +1,4 @@
-import { Box, CircularProgress, Link, Typography } from '@mui/material'
+import { Box, CircularProgress, Link, Table, TableBody, TableCell, TableHead, TableRow, Typography } from '@mui/material'
 import { useNavigate } from 'react-router-dom'
 
 import { useGetPaymentsQuery } from '@/store/api/salesApi'
@@ -9,9 +9,13 @@ interface CustomerPaymentsTabProps {
   customerId: string
 }
 
-function formatPaymentMethod(method?: string | null): string {
-  if (!method) return '—'
-  return method.replace(/_/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase())
+const headerSx = {
+  fontSize: '11px',
+  fontWeight: 600,
+  textTransform: 'uppercase' as const,
+  color: 'text.secondary',
+  borderBottom: 2,
+  borderColor: 'divider',
 }
 
 export default function CustomerPaymentsTab({ customerId }: CustomerPaymentsTabProps) {
@@ -39,65 +43,39 @@ export default function CustomerPaymentsTab({ customerId }: CustomerPaymentsTabP
 
   return (
     <Box sx={{ p: 3 }}>
-      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-        <thead>
-          <tr>
-            {['Payment #', 'Invoice #', 'Date', 'Amount', 'Method', 'Reference #', ''].map((header) => (
-              <th
-                key={header}
-                style={{
-                  textAlign: 'left',
-                  padding: '8px 12px',
-                  fontSize: '11px',
-                  fontWeight: 600,
-                  textTransform: 'uppercase',
-                  color: '#8B95A6',
-                  borderBottom: '2px solid #2D3748',
-                }}
-              >
-                {header}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
+      <Table size="small">
+        <TableHead>
+          <TableRow>
+            <TableCell sx={headerSx}>Payment #</TableCell>
+            <TableCell sx={headerSx}>Invoice #</TableCell>
+            <TableCell sx={headerSx}>Date</TableCell>
+            <TableCell sx={headerSx}>Amount</TableCell>
+            <TableCell sx={headerSx}>Method</TableCell>
+            <TableCell sx={headerSx} />
+          </TableRow>
+        </TableHead>
+        <TableBody>
           {payments.map((payment) => (
-            <tr
-              key={payment.id}
-              style={{ borderBottom: '1px solid #2D3748' }}
-              onMouseEnter={(event) => {
-                event.currentTarget.style.background = 'rgba(255,255,255,0.04)'
-              }}
-              onMouseLeave={(event) => {
-                event.currentTarget.style.background = ''
-              }}
-            >
-              <td style={{ padding: '10px 12px', fontSize: '0.875rem' }}>{payment.paymentNumber}</td>
-              <td style={{ padding: '10px 12px', fontSize: '0.875rem' }}>
-                {payment.invoice?.invoiceNumber ?? '—'}
-              </td>
-              <td style={{ padding: '10px 12px', fontSize: '0.875rem' }}>{formatDate(payment.paymentDate)}</td>
-              <td style={{ padding: '10px 12px', fontSize: '0.875rem' }}>{formatCurrency(payment.amount)}</td>
-              <td style={{ padding: '10px 12px', fontSize: '0.875rem' }}>
-                {formatPaymentMethod(payment.paymentMethod ?? payment.method)}
-              </td>
-              <td style={{ padding: '10px 12px', fontSize: '0.875rem' }}>
-                {payment.referenceNumber ?? payment.reference ?? '—'}
-              </td>
-              <td style={{ padding: '10px 12px' }}>
+            <TableRow key={payment.id} hover>
+              <TableCell>{payment.paymentNumber}</TableCell>
+              <TableCell>{payment.invoice?.invoiceNumber ?? '—'}</TableCell>
+              <TableCell>{formatDate(payment.paymentDate)}</TableCell>
+              <TableCell>{formatCurrency(payment.amount)}</TableCell>
+              <TableCell>{payment.paymentMethodEntity?.name ?? '—'}</TableCell>
+              <TableCell>
                 <Link
                   component="button"
                   variant="body2"
                   onClick={() => navigate('/sales/payments')}
-                  sx={{ color: '#3B82F6', cursor: 'pointer' }}
+                  sx={{ color: 'primary.main', cursor: 'pointer' }}
                 >
                   View
                 </Link>
-              </td>
-            </tr>
+              </TableCell>
+            </TableRow>
           ))}
-        </tbody>
-      </table>
+        </TableBody>
+      </Table>
     </Box>
   )
 }

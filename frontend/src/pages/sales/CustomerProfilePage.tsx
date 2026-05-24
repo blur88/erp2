@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react'
-import { Box, CircularProgress, Tab, Tabs } from '@mui/material'
+import { Box, CircularProgress, Tab, Tabs, Typography } from '@mui/material'
+import { skipToken } from '@reduxjs/toolkit/query'
 import { useNavigate, useParams } from 'react-router-dom'
 
 import { EntityStatusChip } from '@/components/common/EntityStatusChip'
@@ -21,7 +22,7 @@ export default function CustomerProfilePage() {
   const { showSuccess, showError } = useNotification()
   const [tabValue, setTabValue] = useState(0)
 
-  const { data: customer, isLoading } = useGetCustomerBySlugQuery(slug ?? '')
+  const { data: customer, isLoading, isError } = useGetCustomerBySlugQuery(slug ?? skipToken)
   const [updateCustomer] = useUpdateCustomerMutation()
 
   const handleStatusToggle = useCallback(async () => {
@@ -35,10 +36,18 @@ export default function CustomerProfilePage() {
     }
   }, [customer, updateCustomer, showSuccess, showError])
 
-  if (isLoading || !customer) {
+  if (isLoading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', p: 6 }}>
         <CircularProgress />
+      </Box>
+    )
+  }
+
+  if (isError || !customer) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', p: 6 }}>
+        <Typography color="text.secondary">Customer not found.</Typography>
       </Box>
     )
   }

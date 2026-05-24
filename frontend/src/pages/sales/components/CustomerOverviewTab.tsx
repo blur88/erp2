@@ -13,7 +13,7 @@ function Field({ label, value }: { label: string; value?: string | null }) {
         {label}
       </Typography>
       <Typography variant="body2" sx={{ color: 'text.primary' }}>
-        {value || '—'}
+        {value != null && value !== '' ? value : '—'}
       </Typography>
     </Box>
   )

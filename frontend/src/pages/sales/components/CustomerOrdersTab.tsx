@@ -1,4 +1,4 @@
-import { Box, CircularProgress, Link, Typography } from '@mui/material'
+import { Box, CircularProgress, Link, Table, TableBody, TableCell, TableHead, TableRow, Typography } from '@mui/material'
 import { useNavigate } from 'react-router-dom'
 
 import { EntityStatusChip } from '@/components/common/EntityStatusChip'
@@ -8,6 +8,15 @@ import { formatDate } from '@/utils/formatters'
 
 interface CustomerOrdersTabProps {
   customerId: string
+}
+
+const headerSx = {
+  fontSize: '11px',
+  fontWeight: 600,
+  textTransform: 'uppercase' as const,
+  color: 'text.secondary',
+  borderBottom: 2,
+  borderColor: 'divider',
 }
 
 export default function CustomerOrdersTab({ customerId }: CustomerOrdersTabProps) {
@@ -35,59 +44,39 @@ export default function CustomerOrdersTab({ customerId }: CustomerOrdersTabProps
 
   return (
     <Box sx={{ p: 3 }}>
-      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-        <thead>
-          <tr>
-            {['Order #', 'Date', 'Status', 'Total', ''].map((header) => (
-              <th
-                key={header}
-                style={{
-                  textAlign: 'left',
-                  padding: '8px 12px',
-                  fontSize: '11px',
-                  fontWeight: 600,
-                  textTransform: 'uppercase',
-                  color: '#8B95A6',
-                  borderBottom: '2px solid #2D3748',
-                }}
-              >
-                {header}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
+      <Table size="small">
+        <TableHead>
+          <TableRow>
+            <TableCell sx={headerSx}>Order #</TableCell>
+            <TableCell sx={headerSx}>Date</TableCell>
+            <TableCell sx={headerSx}>Status</TableCell>
+            <TableCell sx={headerSx}>Total</TableCell>
+            <TableCell sx={headerSx} />
+          </TableRow>
+        </TableHead>
+        <TableBody>
           {orders.map((order) => (
-            <tr
-              key={order.id}
-              style={{ borderBottom: '1px solid #2D3748' }}
-              onMouseEnter={(event) => {
-                event.currentTarget.style.background = 'rgba(255,255,255,0.04)'
-              }}
-              onMouseLeave={(event) => {
-                event.currentTarget.style.background = ''
-              }}
-            >
-              <td style={{ padding: '10px 12px', fontSize: '0.875rem' }}>{order.orderNumber}</td>
-              <td style={{ padding: '10px 12px', fontSize: '0.875rem' }}>{formatDate(order.orderDate)}</td>
-              <td style={{ padding: '10px 12px' }}>
+            <TableRow key={order.id} hover>
+              <TableCell>{order.orderNumber}</TableCell>
+              <TableCell>{formatDate(order.orderDate)}</TableCell>
+              <TableCell>
                 <EntityStatusChip status={order.isCompleted || order.isFulfilled ? 'completed' : 'pending'} />
-              </td>
-              <td style={{ padding: '10px 12px', fontSize: '0.875rem' }}>{formatCurrency(order.totalAmount)}</td>
-              <td style={{ padding: '10px 12px' }}>
+              </TableCell>
+              <TableCell>{formatCurrency(order.totalAmount)}</TableCell>
+              <TableCell>
                 <Link
                   component="button"
                   variant="body2"
                   onClick={() => navigate('/sales/orders')}
-                  sx={{ color: '#3B82F6', cursor: 'pointer' }}
+                  sx={{ color: 'primary.main', cursor: 'pointer' }}
                 >
                   View
                 </Link>
-              </td>
-            </tr>
+              </TableCell>
+            </TableRow>
           ))}
-        </tbody>
-      </table>
+        </TableBody>
+      </Table>
     </Box>
   )
 }
