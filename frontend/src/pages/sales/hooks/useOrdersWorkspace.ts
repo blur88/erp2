@@ -136,7 +136,9 @@ export function useOrdersWorkspace({
   }, [refetchOrders])
 
   useEffect(() => {
-    if (!hasRefreshedPersistedOrder.current && selectedOrder?.id) {
+    loadOrders()
+
+    if (selectedOrder?.id) {
       isRefreshingPersistedOrder.current = true
       hasRefreshedPersistedOrder.current = true
 
@@ -144,44 +146,14 @@ export function useOrdersWorkspace({
         .unwrap()
         .then((order) => {
           dispatch(setSelectedOrder(order))
-
-          setTimeout(() => {
-            const orderIndex = orders.findIndex((item) => item.id === order.id)
-            if (orderIndex >= 0) {
-              workspace.setFocusedIndex(orderIndex)
-            }
-            isRefreshingPersistedOrder.current = false
-          }, 500)
+          isRefreshingPersistedOrder.current = false
         })
         .catch(() => {
           isRefreshingPersistedOrder.current = false
         })
-
-      loadOrders()
-    } else if (!hasRefreshedPersistedOrder.current) {
-      hasRefreshedPersistedOrder.current = true
-      loadOrders()
     }
-  }, [dispatch, loadOrders, orders, selectedOrder?.id, triggerGetSalesOrder, workspace])
-
-  useEffect(() => {
-    if (hasRefreshedPersistedOrder.current) {
-      loadOrders()
-    }
-  }, [loadOrders])
-
-  useEffect(() => {
-    if (window.location.pathname === '/sales/orders') {
-      loadOrders()
-      if (selectedOrder) {
-        triggerGetSalesOrder(selectedOrder.id)
-          .unwrap()
-          .then((order) => {
-            dispatch(setSelectedOrder(order))
-          })
-      }
-    }
-  }, [dispatch, loadOrders, selectedOrder, triggerGetSalesOrder])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   useEffect(() => {
     if (orders.length > 0 && selectedOrder && !isRefreshingPersistedOrder.current) {
