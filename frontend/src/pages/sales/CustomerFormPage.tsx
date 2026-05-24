@@ -101,6 +101,7 @@ const CustomerFormPage: React.FC = () => {
   const isEdit = !!slug
 
   const returnTo = (location.state as any)?.returnTo as string | undefined
+  const profilePath = (location.state as any)?.profilePath as string | undefined
 
   const [customer, setCustomer] = useState<Customer | null>(null)
   const [loadingCustomer, setLoadingCustomer] = useState(isEdit)
@@ -293,7 +294,11 @@ const CustomerFormPage: React.FC = () => {
     }
   }, [hasNameDuplicate])
 
-  const cancelDestination = returnTo === 'sales-order' ? '/sales/sales-orders/create' : '/sales/customers'
+  const cancelDestination = returnTo === 'sales-order'
+    ? '/sales/sales-orders/create'
+    : returnTo === 'profile' && profilePath
+      ? profilePath
+      : '/sales/customers'
 
   const handleCancel = () => {
     if (!isDirty) {
@@ -312,7 +317,7 @@ const CustomerFormPage: React.FC = () => {
     try {
       await restoreCustomer(duplicateNameResult.customer.id).unwrap()
       showSuccess('Customer reactivated successfully')
-      navigate('/sales/customers')
+      navigate(cancelDestination)
     } catch {
       showError('Failed to reactivate customer')
     }
@@ -362,6 +367,8 @@ const CustomerFormPage: React.FC = () => {
         navigate('/sales/sales-orders/create', {
           state: { preselectCustomerId: savedCustomer.id },
         })
+      } else if (returnTo === 'profile' && profilePath) {
+        navigate(profilePath)
       } else {
         navigate(`/sales/customers?highlight=${savedCustomer.id}`)
       }

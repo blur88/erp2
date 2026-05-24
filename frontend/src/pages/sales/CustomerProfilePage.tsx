@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react'
+import { useState } from 'react'
 import { Box, CircularProgress, Tab, Tabs, Typography } from '@mui/material'
 import AccountBalanceIcon from '@mui/icons-material/AccountBalance'
 import PaymentIcon from '@mui/icons-material/Payment'
@@ -10,11 +10,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { EntityStatusChip } from '@/components/common/EntityStatusChip'
 import PageHeader from '@/components/common/PageHeader'
 import { TABLE_STYLES } from '@/constants/tableStyles'
-import { useNotification } from '@/hooks/useNotification'
-import {
-  useGetCustomerBySlugQuery,
-  useUpdateCustomerMutation,
-} from '@/store/api/salesApi'
+import { useGetCustomerBySlugQuery } from '@/store/api/salesApi'
 
 import CustomerInvoicesTab from './components/CustomerInvoicesTab'
 import CustomerOrdersTab from './components/CustomerOrdersTab'
@@ -50,22 +46,9 @@ function TabPanel({ children, value, index }: TabPanelProps) {
 export default function CustomerProfilePage() {
   const { slug } = useParams<{ slug: string }>()
   const navigate = useNavigate()
-  const { showSuccess, showError } = useNotification()
   const [tabValue, setTabValue] = useState(0)
 
   const { data: customer, isLoading, isError } = useGetCustomerBySlugQuery(slug ?? skipToken)
-  const [updateCustomer] = useUpdateCustomerMutation()
-
-  const handleStatusToggle = useCallback(async () => {
-    if (!customer) return
-
-    try {
-      await updateCustomer({ id: customer.id, data: { isActive: !customer.isActive } }).unwrap()
-      showSuccess(customer.isActive ? `${customer.name} set as inactive` : `${customer.name} reactivated`)
-    } catch {
-      showError(customer.isActive ? `Failed to deactivate ${customer.name}` : `Failed to reactivate ${customer.name}`)
-    }
-  }, [customer, updateCustomer, showSuccess, showError])
 
   if (isLoading) {
     return (
@@ -83,6 +66,8 @@ export default function CustomerProfilePage() {
     )
   }
 
+  const profilePath = `/sales/customers/${customer.slug}/view`
+
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
       <PageHeader
@@ -91,11 +76,9 @@ export default function CustomerProfilePage() {
         backAction={() => navigate('/sales/customers')}
         primaryAction={{
           label: 'Edit Customer',
-          onClick: () => navigate(`/sales/customers/${customer.slug}/edit`),
-        }}
-        secondaryAction={{
-          label: customer.isActive ? 'Set as Inactive' : 'Reactivate',
-          onClick: handleStatusToggle,
+          onClick: () => navigate(`/sales/customers/${customer.slug}/edit`, {
+            state: { returnTo: 'profile', profilePath, breadcrumbTitle: customer.name },
+          }),
         }}
       />
 

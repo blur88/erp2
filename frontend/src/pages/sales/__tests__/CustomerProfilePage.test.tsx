@@ -10,10 +10,9 @@ import { CustomerType } from '@/types'
 
 import CustomerProfilePage from '../CustomerProfilePage'
 
-const { mockNavigate, mockGetCustomerBySlug, mockUpdateCustomer } = vi.hoisted(() => ({
+const { mockNavigate, mockGetCustomerBySlug } = vi.hoisted(() => ({
   mockNavigate: vi.fn(),
   mockGetCustomerBySlug: vi.fn(),
-  mockUpdateCustomer: vi.fn(),
 }))
 
 vi.mock('react-router-dom', async (importOriginal) => {
@@ -21,19 +20,11 @@ vi.mock('react-router-dom', async (importOriginal) => {
   return { ...actual, useNavigate: () => mockNavigate }
 })
 
-vi.mock('@/hooks/useNotification', () => ({
-  useNotification: () => ({
-    showSuccess: vi.fn(),
-    showError: vi.fn(),
-  }),
-}))
-
 vi.mock('@/store/api/salesApi', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/store/api/salesApi')>()
   return {
     ...actual,
     useGetCustomerBySlugQuery: mockGetCustomerBySlug,
-    useUpdateCustomerMutation: vi.fn(() => [mockUpdateCustomer, { isLoading: false }]),
   }
 })
 
@@ -91,7 +82,7 @@ describe('CustomerProfilePage', () => {
   it('switches to Orders tab on click', async () => {
     mockGetCustomerBySlug.mockReturnValue({ data: customer, isLoading: false })
     renderPage()
-    await userEvent.click(screen.getByRole('tab', { name: 'Orders' }))
+    await userEvent.click(screen.getByRole('tab', { name: /Orders/i }))
     expect(screen.getByText('OrdersTab')).toBeInTheDocument()
   })
 
@@ -102,23 +93,23 @@ describe('CustomerProfilePage', () => {
     expect(mockNavigate).toHaveBeenCalledWith('/sales/customers')
   })
 
-  it('navigates to edit on Edit Customer click', async () => {
+  it('navigates to edit with profile return state on Edit Customer click', async () => {
     mockGetCustomerBySlug.mockReturnValue({ data: customer, isLoading: false })
     renderPage()
     await userEvent.click(screen.getByRole('button', { name: 'Edit Customer' }))
-    expect(mockNavigate).toHaveBeenCalledWith('/sales/customers/acme-corp/edit')
+    expect(mockNavigate).toHaveBeenCalledWith(
+      '/sales/customers/acme-corp/edit',
+      expect.objectContaining({
+        state: expect.objectContaining({ returnTo: 'profile', breadcrumbTitle: 'Acme Corp' }),
+      }),
+    )
   })
 
-  it('shows Set as Inactive button for active customer', () => {
+  it('does not show Set as Inactive or Reactivate buttons', () => {
     mockGetCustomerBySlug.mockReturnValue({ data: customer, isLoading: false })
     renderPage()
-    expect(screen.getByRole('button', { name: 'Set as Inactive' })).toBeInTheDocument()
-  })
-
-  it('shows Reactivate button for inactive customer', () => {
-    mockGetCustomerBySlug.mockReturnValue({ data: { ...customer, isActive: false }, isLoading: false })
-    renderPage()
-    expect(screen.getByRole('button', { name: 'Reactivate' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Set as Inactive' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Reactivate' })).not.toBeInTheDocument()
   })
 
   it('shows not found message on error', () => {
@@ -131,22 +122,5 @@ describe('CustomerProfilePage', () => {
     mockGetCustomerBySlug.mockReturnValue({ data: undefined, isLoading: false, isError: false })
     renderPage()
     expect(screen.getByText('Customer not found.')).toBeInTheDocument()
-  })
-
-  it('calls updateCustomer with isActive false when Set as Inactive is clicked', async () => {
-    mockGetCustomerBySlug.mockReturnValue({ data: customer, isLoading: false })
-    mockUpdateCustomer.mockResolvedValue({ data: customer })
-    renderPage()
-    await userEvent.click(screen.getByRole('button', { name: 'Set as Inactive' }))
-    expect(mockUpdateCustomer).toHaveBeenCalledWith({ id: 'c1', data: { isActive: false } })
-  })
-
-  it('calls updateCustomer with isActive true when Reactivate is clicked', async () => {
-    const inactiveCustomer = { ...customer, isActive: false }
-    mockGetCustomerBySlug.mockReturnValue({ data: inactiveCustomer, isLoading: false })
-    mockUpdateCustomer.mockResolvedValue({ data: inactiveCustomer })
-    renderPage()
-    await userEvent.click(screen.getByRole('button', { name: 'Reactivate' }))
-    expect(mockUpdateCustomer).toHaveBeenCalledWith({ id: 'c1', data: { isActive: true } })
   })
 })
