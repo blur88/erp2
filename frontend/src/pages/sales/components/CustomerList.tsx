@@ -46,6 +46,10 @@ export default function CustomerList({
         <RowActionMenu
           actions={[
             {
+              label: 'View Customer',
+              onClick: () => navigate(`/sales/customers/${customer.slug}/view`),
+            },
+            {
               label: 'Edit Customer',
               onClick: () => navigate(`/sales/customers/${customer.slug}/edit`),
             },
