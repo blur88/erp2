@@ -78,20 +78,44 @@ export class SupplierResponseDto {
   @ApiProperty({ description: 'Primary phone number' })
   phone?: string;
 
-  @ApiProperty({ description: 'Street address' })
-  streetAddress?: string;
+  @ApiPropertyOptional({ description: 'Email address' })
+  email?: string;
 
-  @ApiProperty({ description: 'City' })
-  city?: string;
+  @ApiPropertyOptional({ description: 'Billing street address line 1' })
+  billingStreetAddress?: string;
 
-  @ApiProperty({ description: 'State/Province' })
-  state?: string;
+  @ApiPropertyOptional({ description: 'Billing street address line 2' })
+  billingStreetAddress2?: string;
 
-  @ApiProperty({ description: 'Postal/ZIP code' })
-  postalCode?: string;
+  @ApiPropertyOptional({ description: 'Billing city' })
+  billingCity?: string;
 
-  @ApiProperty({ description: 'Country' })
-  country?: string;
+  @ApiPropertyOptional({ description: 'Billing state/province' })
+  billingState?: string;
+
+  @ApiPropertyOptional({ description: 'Billing postal/ZIP code' })
+  billingPostalCode?: string;
+
+  @ApiPropertyOptional({ description: 'Billing country' })
+  billingCountry?: string;
+
+  @ApiPropertyOptional({ description: 'Shipping street address line 1' })
+  shippingStreetAddress?: string;
+
+  @ApiPropertyOptional({ description: 'Shipping street address line 2' })
+  shippingStreetAddress2?: string;
+
+  @ApiPropertyOptional({ description: 'Shipping city' })
+  shippingCity?: string;
+
+  @ApiPropertyOptional({ description: 'Shipping state/province' })
+  shippingState?: string;
+
+  @ApiPropertyOptional({ description: 'Shipping postal/ZIP code' })
+  shippingPostalCode?: string;
+
+  @ApiPropertyOptional({ description: 'Shipping country' })
+  shippingCountry?: string;
 
   @ApiProperty({ description: 'Total purchases amount' })
   totalPurchases!: number;
@@ -141,10 +165,10 @@ class UpdateSupplierBalanceDto {
 
 export class SupplierListResponseDto {
   @ApiProperty({ description: 'List of suppliers', type: [SupplierResponseDto] })
-  suppliers!: SupplierResponseDto[];
+  data!: SupplierResponseDto[];
 
-  @ApiProperty({ description: 'Total count' })
-  total!: number;
+  @ApiProperty({ description: 'Pagination metadata' })
+  meta!: { total: number; page?: number; limit?: number };
 }
 
 class SupplierAnalyticsDto {

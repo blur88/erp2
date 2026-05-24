@@ -149,7 +149,7 @@ export class SupplierService extends BaseCrudService<
   }
 
   /**
-   * Get all suppliers with filtering (no pagination)
+   * Get suppliers with filtering and optional pagination.
    */
   async findAll(query: SupplierQueryDto): Promise<SupplierListResponseDto> {
     this.logger.log(`Finding suppliers with query: ${JSON.stringify(query)}`);
@@ -160,6 +160,8 @@ export class SupplierService extends BaseCrudService<
       isActive,
       sortBy = 'companyName',
       sortOrder = 'ASC',
+      page,
+      limit,
     } = query;
 
     const queryBuilder = this.supplierRepository.createQueryBuilder('supplier');
@@ -199,15 +201,20 @@ export class SupplierService extends BaseCrudService<
       queryBuilder.addOrderBy('supplier.companyName', 'ASC');
     }
 
-    // Get all suppliers without pagination
-    const suppliers = await queryBuilder.getMany();
-    const total = suppliers.length;
+    const shouldPaginate = page !== undefined && limit !== undefined;
+    if (shouldPaginate) {
+      queryBuilder.skip((page - 1) * limit).take(limit);
+    }
 
+    const [suppliers, total] = await queryBuilder.getManyAndCount();
     const supplierDtos = suppliers.map(supplier => this.mapToResponseDto(supplier));
 
     return {
-      suppliers: supplierDtos,
-      total,
+      data: supplierDtos,
+      meta: {
+        total,
+        ...(shouldPaginate && { page, limit }),
+      },
     };
   }
 
@@ -603,8 +610,8 @@ export class SupplierService extends BaseCrudService<
     const supplierDtos = suppliers.map(supplier => this.mapToResponseDto(supplier));
 
     return {
-      suppliers: supplierDtos,
-      total: suppliers.length,
+      data: supplierDtos,
+      meta: { total: suppliers.length },
     };
   }
 
@@ -761,11 +768,19 @@ export class SupplierService extends BaseCrudService<
       isActive: supplier.isActive,
       contactPerson: supplier.contactPerson,
       phone: supplier.phone,
-      streetAddress: supplier.streetAddress,
-      city: supplier.city,
-      state: supplier.state,
-      postalCode: supplier.postalCode,
-      country: supplier.country,
+      email: supplier.email,
+      billingStreetAddress: supplier.billingStreetAddress,
+      billingStreetAddress2: supplier.billingStreetAddress2,
+      billingCity: supplier.billingCity,
+      billingState: supplier.billingState,
+      billingPostalCode: supplier.billingPostalCode,
+      billingCountry: supplier.billingCountry,
+      shippingStreetAddress: supplier.shippingStreetAddress,
+      shippingStreetAddress2: supplier.shippingStreetAddress2,
+      shippingCity: supplier.shippingCity,
+      shippingState: supplier.shippingState,
+      shippingPostalCode: supplier.shippingPostalCode,
+      shippingCountry: supplier.shippingCountry,
       totalPurchases: Number(supplier.totalPurchases),
       totalOrders: supplier.totalOrders,
       averageOrderValue: supplier.averageOrderValue,
