@@ -17,6 +17,7 @@ const {
   mockShowError,
   mockApiGet,
   mockFetchCustomerBySlug,
+  mockPriceListSelectorProps,
 } = vi.hoisted(() => ({
   mockNavigate: vi.fn(),
   mockCreateCustomer: vi.fn(),
@@ -26,6 +27,7 @@ const {
   mockShowError: vi.fn(),
   mockApiGet: vi.fn(),
   mockFetchCustomerBySlug: vi.fn(),
+  mockPriceListSelectorProps: [] as any[],
 }))
 
 vi.mock('react-router-dom', async (importOriginal) => {
@@ -52,13 +54,16 @@ vi.mock('@/hooks/useNotification', () => ({
 }))
 
 vi.mock('@/components/price-lists/PriceListSelector', () => ({
-  default: ({ value, onChange }: any) => (
-    <input
-      data-testid="price-list-selector"
-      value={value || ''}
-      onChange={(event) => onChange(event.target.value)}
-    />
-  ),
+  default: (props: any) => {
+    mockPriceListSelectorProps.push(props)
+    return (
+      <input
+        data-testid="price-list-selector"
+        value={props.value || ''}
+        onChange={(event) => props.onChange(event.target.value)}
+      />
+    )
+  },
 }))
 
 vi.mock('@/services/api', () => ({
@@ -108,6 +113,7 @@ describe('CustomerFormPage - Create mode', () => {
     mockRestoreCustomer.mockReturnValue({ unwrap: vi.fn().mockResolvedValue({}) })
     mockApiGet.mockResolvedValue({ data: { data: [] } })
     mockFetchCustomerBySlug.mockReturnValue({ unwrap: vi.fn().mockResolvedValue(null) })
+    mockPriceListSelectorProps.length = 0
   })
 
   it('renders empty form with New Customer heading', () => {
@@ -150,6 +156,20 @@ describe('CustomerFormPage - Create mode', () => {
     await user.click(screen.getByRole('button', { name: /cancel/i }))
 
     expect(mockNavigate).toHaveBeenCalledWith('/sales/customers')
+  })
+
+  it('renders Price List selector with compact field styling', () => {
+    renderCreatePage()
+
+    expect(mockPriceListSelectorProps.at(-1)).toEqual(
+      expect.objectContaining({
+        size: 'small',
+        sx: expect.objectContaining({
+          '& .MuiInputBase-input': expect.objectContaining({ fontSize: '0.875rem' }),
+          '& .MuiInputLabel-root': expect.objectContaining({ fontSize: '0.875rem' }),
+        }),
+      }),
+    )
   })
 })
 

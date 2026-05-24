@@ -614,6 +614,8 @@ const CustomerFormPage: React.FC = () => {
                           error={errors.priceListId?.message}
                           label="Price List"
                           disabled={isSaving}
+                          size="small"
+                          sx={fieldSx}
                         />
                       )}
                     />
