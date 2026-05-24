@@ -41,7 +41,7 @@ export default function CustomerOrdersTab({ customerId }: CustomerOrdersTabProps
             <TableCell sx={{ width: '18%' }}>Date</TableCell>
             <TableCell sx={{ width: '20%' }}>Status</TableCell>
             <TableCell align="right" sx={{ width: '18%' }}>Total</TableCell>
-            <TableCell sx={{ width: '26%' }}>Action</TableCell>
+            <TableCell align="right" sx={{ width: '26%' }}>Action</TableCell>
           </TableRow>
         </TableHead>
         <TableBody>

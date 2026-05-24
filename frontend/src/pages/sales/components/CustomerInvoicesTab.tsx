@@ -43,7 +43,7 @@ export default function CustomerInvoicesTab({ customerId }: CustomerInvoicesTabP
             <TableCell align="right" sx={{ width: '13%' }}>Amount</TableCell>
             <TableCell align="right" sx={{ width: '13%' }}>Balance Due</TableCell>
             <TableCell sx={{ width: '14%' }}>Status</TableCell>
-            <TableCell sx={{ width: '20%' }}>Action</TableCell>
+            <TableCell align="right" sx={{ width: '20%' }}>Action</TableCell>
           </TableRow>
         </TableHead>
         <TableBody>
