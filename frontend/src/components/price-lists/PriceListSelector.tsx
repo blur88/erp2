@@ -12,6 +12,7 @@ import {
 import { default as StarIcon } from '@mui/icons-material/Star'
 import { useGetEffectivePriceListsQuery, useGetPriceListsQuery } from '@/store/api/priceListApi'
 import type { PriceList } from '@/types'
+import type { SxProps, Theme } from '@mui/material/styles'
 
 interface PriceListSelectorProps {
   value?: string | null
@@ -22,6 +23,8 @@ interface PriceListSelectorProps {
   disabled?: boolean
   fullWidth?: boolean
   showInactive?: boolean
+  size?: 'small' | 'medium'
+  sx?: SxProps<Theme>
 }
 
 const PriceListSelector: React.FC<PriceListSelectorProps> = ({
@@ -33,6 +36,8 @@ const PriceListSelector: React.FC<PriceListSelectorProps> = ({
   disabled = false,
   fullWidth = true,
   showInactive = false,
+  size,
+  sx,
 }) => {
   const { data: effectivePriceLists = [], isLoading: effectiveLoading } = useGetEffectivePriceListsQuery()
   const { data: allPriceLists } = useGetPriceListsQuery({ page: 1, limit: 200, isActive: undefined })
@@ -75,7 +80,7 @@ const PriceListSelector: React.FC<PriceListSelectorProps> = ({
   )
 
   return (
-    <FormControl fullWidth={fullWidth} error={!!error} disabled={disabled || effectiveLoading}>
+    <FormControl fullWidth={fullWidth} error={!!error} disabled={disabled || effectiveLoading} size={size} sx={sx}>
       <InputLabel id="price-list-selector-label" required={required}>
         {label}
       </InputLabel>
