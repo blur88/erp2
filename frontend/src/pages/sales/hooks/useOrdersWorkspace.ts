@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 
 import { useJournalEntryRefs } from '@/hooks/useJournalEntryRefs'
 import { useEntityWorkspace } from '@/hooks/useEntityWorkspace'
@@ -45,6 +45,7 @@ export function useOrdersWorkspace({
   isLoading: ordersLoading,
 }: UseOrdersWorkspaceConfig) {
   const navigate = useNavigate()
+  const location = useLocation()
   const [searchParams] = useSearchParams()
   const { showSuccess, showError } = useNotification()
 
@@ -201,9 +202,10 @@ export function useOrdersWorkspace({
       } else if (workspace.searchInputRef.current !== document.activeElement) {
         // Don't auto-select when useEntityWorkspace is about to highlight a specific order
         const pendingHighlightId = searchParams.get('highlight')
-        const hasPendingHighlight = pendingHighlightId
-          ? orders.some((o) => o.id === pendingHighlightId)
-          : false
+        const pendingStateHighlightId = (location.state as { highlightOrderId?: string } | null)?.highlightOrderId
+        const hasPendingHighlight =
+          (pendingHighlightId ? orders.some((o) => o.id === pendingHighlightId) : false) ||
+          (pendingStateHighlightId ? orders.some((o) => o.id === pendingStateHighlightId) : false)
         if (!hasPendingHighlight) {
           workspace.setFocusedIndex(0)
           dispatch(setSelectedOrder(orders[0]))
@@ -218,7 +220,7 @@ export function useOrdersWorkspace({
       dispatch(clearError())
       workspace.setFocusedIndex(-1)
     }
-  }, [dispatch, orders, ordersLoading, searchParams, selectedOrder, triggerGetSalesOrder, workspace])
+  }, [dispatch, location.state, orders, ordersLoading, searchParams, selectedOrder, triggerGetSalesOrder, workspace])
 
   useEffect(() => {
     if (!selectedOrder || orders.length === 0) {
