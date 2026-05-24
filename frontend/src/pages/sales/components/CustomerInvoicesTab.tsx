@@ -41,7 +41,7 @@ export default function CustomerInvoicesTab({ customerId }: CustomerInvoicesTabP
             <TableCell>Order #</TableCell>
             <TableCell>Date</TableCell>
             <TableCell align="right">Amount</TableCell>
-            <TableCell align="right">Outstanding</TableCell>
+            <TableCell align="right">Balance Due</TableCell>
             <TableCell>Status</TableCell>
           </TableRow>
         </TableHead>
@@ -59,11 +59,11 @@ export default function CustomerInvoicesTab({ customerId }: CustomerInvoicesTabP
                 </Typography>
               </TableCell>
               <TableCell>{invoice.salesOrder?.orderNumber ?? '—'}</TableCell>
-              <TableCell>{formatDate(invoice.issueDate)}</TableCell>
-              <TableCell align="right">{formatCurrency(invoice.total)}</TableCell>
+              <TableCell>{formatDate(invoice.invoiceDate)}</TableCell>
+              <TableCell align="right">{formatCurrency(invoice.totalAmount)}</TableCell>
               <TableCell align="right">
-                <Typography sx={{ fontWeight: 600, color: invoice.dueAmount > 0 ? 'error.main' : 'text.primary' }}>
-                  {formatCurrency(invoice.dueAmount)}
+                <Typography sx={{ fontWeight: 600, color: invoice.balanceDue > 0 ? 'error.main' : 'text.primary' }}>
+                  {formatCurrency(invoice.balanceDue)}
                 </Typography>
               </TableCell>
               <TableCell>

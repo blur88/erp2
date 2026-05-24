@@ -267,11 +267,16 @@ export interface Invoice {
   invoiceNumber: string;
   customer: Customer;
   salesOrder?: SalesOrder;
+  // Backend fields (actual API shape)
+  invoiceDate: Date | string;
+  totalAmount: number;
+  balanceDue: number;
+  // Legacy aliases kept for backward compatibility
   total: number;
   paidAmount: number;
   dueAmount: number;
-  status: 'draft' | 'sent' | 'paid' | 'overdue' | 'cancelled';
   issueDate: Date;
+  status: 'draft' | 'sent' | 'paid' | 'overdue' | 'cancelled';
   paidDate?: Date;
   createdAt: Date;
   updatedAt: Date;
