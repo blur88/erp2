@@ -631,7 +631,7 @@ const CustomerFormPage: React.FC = () => {
                   <Grid size={{ xs: 12, md: 6 }} data-testid="shipping-address-column">
                     <Grid container spacing={2}>
                       <Grid size={12}>
-                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', mt: 2 }}>
                           <Typography variant="h6" sx={{ flexGrow: 1 }}>Shipping Address</Typography>
                           <FormControlLabel
                             control={
