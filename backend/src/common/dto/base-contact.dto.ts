@@ -1,4 +1,4 @@
-import { IsOptional, IsString, MaxLength } from 'class-validator';
+import { IsEmail, IsOptional, IsString, MaxLength } from 'class-validator';
 
 export class BaseContactDto {
   @IsOptional()
@@ -7,27 +7,67 @@ export class BaseContactDto {
   phone?: string;
 
   @IsOptional()
+  @IsEmail()
+  @MaxLength(255)
+  email?: string;
+
+  @IsOptional()
   @IsString()
   @MaxLength(255)
-  streetAddress?: string;
+  billingStreetAddress?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(255)
+  billingStreetAddress2?: string;
 
   @IsOptional()
   @IsString()
   @MaxLength(100)
-  city?: string;
+  billingCity?: string;
 
   @IsOptional()
   @IsString()
   @MaxLength(100)
-  state?: string;
+  billingState?: string;
 
   @IsOptional()
   @IsString()
   @MaxLength(20)
-  postalCode?: string;
+  billingPostalCode?: string;
 
   @IsOptional()
   @IsString()
   @MaxLength(100)
-  country?: string;
+  billingCountry?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(255)
+  shippingStreetAddress?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(255)
+  shippingStreetAddress2?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  shippingCity?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  shippingState?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(20)
+  shippingPostalCode?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  shippingCountry?: string;
 }

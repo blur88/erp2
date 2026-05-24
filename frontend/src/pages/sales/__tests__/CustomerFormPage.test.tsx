@@ -8,10 +8,20 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import CustomerFormPage from '../CustomerFormPage'
 import salesReducer from '@/store/slices/salesSlice'
 
-const { mockNavigate, mockCreateCustomer, mockUpdateCustomer, mockShowSuccess, mockShowError, mockApiGet, mockFetchCustomerBySlug } = vi.hoisted(() => ({
+const {
+  mockNavigate,
+  mockCreateCustomer,
+  mockUpdateCustomer,
+  mockRestoreCustomer,
+  mockShowSuccess,
+  mockShowError,
+  mockApiGet,
+  mockFetchCustomerBySlug,
+} = vi.hoisted(() => ({
   mockNavigate: vi.fn(),
   mockCreateCustomer: vi.fn(),
   mockUpdateCustomer: vi.fn(),
+  mockRestoreCustomer: vi.fn(),
   mockShowSuccess: vi.fn(),
   mockShowError: vi.fn(),
   mockApiGet: vi.fn(),
@@ -32,6 +42,7 @@ vi.mock('@/store/api/salesApi', async (importOriginal) => {
     ...actual,
     useCreateCustomerMutation: vi.fn(() => [mockCreateCustomer, { isLoading: false }]),
     useUpdateCustomerMutation: vi.fn(() => [mockUpdateCustomer, { isLoading: false }]),
+    useRestoreCustomerMutation: vi.fn(() => [mockRestoreCustomer, { isLoading: false }]),
     useLazyGetCustomerBySlugQuery: vi.fn(() => [mockFetchCustomerBySlug]),
   }
 })
@@ -56,11 +67,14 @@ vi.mock('@/services/api', () => ({
   },
 }))
 
-function renderCreatePage() {
+function renderCreatePage(locationState?: Record<string, unknown>) {
   const store = configureStore({ reducer: { sales: salesReducer } })
+  const initialEntry = locationState
+    ? { pathname: '/sales/customers/create', state: locationState }
+    : '/sales/customers/create'
   return render(
     <Provider store={store}>
-      <MemoryRouter initialEntries={['/sales/customers/create']}>
+      <MemoryRouter initialEntries={[initialEntry]}>
         <Routes>
           <Route path="/sales/customers/create" element={<CustomerFormPage />} />
         </Routes>
@@ -91,6 +105,7 @@ describe('CustomerFormPage - Create mode', () => {
     mockUpdateCustomer.mockReturnValue({
       unwrap: vi.fn().mockResolvedValue({ id: 'cust-1' }),
     })
+    mockRestoreCustomer.mockReturnValue({ unwrap: vi.fn().mockResolvedValue({}) })
     mockApiGet.mockResolvedValue({ data: { data: [] } })
     mockFetchCustomerBySlug.mockReturnValue({ unwrap: vi.fn().mockResolvedValue(null) })
   })
@@ -144,11 +159,19 @@ describe('CustomerFormPage - Edit mode', () => {
     name: 'Acme Corp',
     type: 'business',
     phone: '555-1234',
-    streetAddress: null,
-    city: null,
-    state: null,
-    postalCode: null,
-    country: null,
+    email: null,
+    billingStreetAddress: null,
+    billingStreetAddress2: null,
+    billingCity: null,
+    billingState: null,
+    billingPostalCode: null,
+    billingCountry: null,
+    shippingStreetAddress: null,
+    shippingStreetAddress2: null,
+    shippingCity: null,
+    shippingState: null,
+    shippingPostalCode: null,
+    shippingCountry: null,
     priceListId: null,
     notes: null,
     isActive: true,
@@ -163,6 +186,7 @@ describe('CustomerFormPage - Edit mode', () => {
     mockUpdateCustomer.mockReturnValue({
       unwrap: vi.fn().mockResolvedValue({ id: 'cust-1' }),
     })
+    mockRestoreCustomer.mockReturnValue({ unwrap: vi.fn().mockResolvedValue({}) })
     mockApiGet.mockImplementation((url: string) => {
       if (url === '/customers/slug/acme-corp') {
         return Promise.resolve({ data: { data: mockCustomer } })
@@ -209,6 +233,7 @@ describe('CustomerFormPage - phone duplicate check', () => {
     mockCreateCustomer.mockReturnValue({
       unwrap: vi.fn().mockResolvedValue({ id: 'new-cust' }),
     })
+    mockRestoreCustomer.mockReturnValue({ unwrap: vi.fn().mockResolvedValue({}) })
   })
 
   it('shows phone duplicate error when a matching customer exists', async () => {
@@ -249,5 +274,195 @@ describe('CustomerFormPage - phone duplicate check', () => {
 
     expect(screen.getByText('✓ Available')).toBeInTheDocument()
     vi.useRealTimers()
+  })
+})
+
+describe('CustomerFormPage - name duplicate check', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockCreateCustomer.mockReturnValue({ unwrap: vi.fn().mockResolvedValue({ id: 'new-cust' }) })
+    mockRestoreCustomer.mockReturnValue({ unwrap: vi.fn().mockResolvedValue({}) })
+  })
+
+  it('shows warning banner when an active customer has the same name', async () => {
+    mockApiGet.mockImplementation((url: string) => {
+      if (url === '/customers') {
+        return Promise.resolve({
+          data: { data: [{ id: 'other', name: 'Test Corp', isActive: true }] },
+        })
+      }
+
+      return Promise.resolve({ data: { data: [] } })
+    })
+
+    vi.useFakeTimers()
+    renderCreatePage()
+    fireEvent.change(screen.getByLabelText(/customer name/i), { target: { value: 'Test Corp' } })
+
+    await act(async () => {
+      vi.advanceTimersByTime(500)
+      await Promise.resolve()
+    })
+
+    expect(screen.getByText(/a customer with this name already exists/i)).toBeInTheDocument()
+    vi.useRealTimers()
+  })
+
+  it('shows reactivate banner when an inactive customer has the same name', async () => {
+    mockApiGet.mockImplementation((url: string) => {
+      if (url === '/customers/deleted') {
+        return Promise.resolve({
+          data: { data: [{ id: 'inactive-cust', name: 'Test Corp', isActive: false }] },
+        })
+      }
+
+      return Promise.resolve({ data: { data: [] } })
+    })
+
+    vi.useFakeTimers()
+    renderCreatePage()
+    fireEvent.change(screen.getByLabelText(/customer name/i), { target: { value: 'Test Corp' } })
+
+    await act(async () => {
+      vi.advanceTimersByTime(500)
+      await Promise.resolve()
+    })
+
+    expect(screen.getByText(/this customer is inactive/i)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /reactivate/i })).toBeInTheDocument()
+    vi.useRealTimers()
+  })
+})
+
+describe('CustomerFormPage - Same as Billing toggle', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockCreateCustomer.mockReturnValue({ unwrap: vi.fn().mockResolvedValue({ id: 'new-cust' }) })
+    mockRestoreCustomer.mockReturnValue({ unwrap: vi.fn().mockResolvedValue({}) })
+    mockApiGet.mockResolvedValue({ data: { data: [] } })
+  })
+
+  it('copies billing address into shipping fields when toggle is enabled', async () => {
+    const user = userEvent.setup()
+    renderCreatePage()
+
+    const cityInputs = screen.getAllByRole('textbox', { name: /city/i })
+    await user.type(cityInputs[0], 'New York')
+
+    await user.click(screen.getByRole('switch', { name: /same as billing/i }))
+
+    expect(cityInputs).toHaveLength(2)
+    expect(cityInputs[1]).toHaveValue('New York')
+    expect(cityInputs[1]).toBeDisabled()
+  })
+})
+
+it('shows discard confirmation dialog when cancelling with unsaved changes', async () => {
+  const user = userEvent.setup()
+  mockCreateCustomer.mockReturnValue({ unwrap: vi.fn().mockResolvedValue({ id: 'new-cust' }) })
+  mockRestoreCustomer.mockReturnValue({ unwrap: vi.fn().mockResolvedValue({}) })
+  mockApiGet.mockResolvedValue({ data: { data: [] } })
+  renderCreatePage()
+
+  await user.type(screen.getByLabelText(/customer name/i), 'Partial')
+  await user.click(screen.getByRole('button', { name: /cancel/i }))
+
+  expect(screen.getByText(/discard changes/i)).toBeInTheDocument()
+  expect(mockNavigate).not.toHaveBeenCalled()
+})
+
+describe('CustomerFormPage - stale name duplicate banner', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.useFakeTimers()
+    mockCreateCustomer.mockReturnValue({ unwrap: vi.fn().mockResolvedValue({ id: 'new-cust' }) })
+    mockRestoreCustomer.mockReturnValue({ unwrap: vi.fn().mockResolvedValue({}) })
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it('clears the duplicate banner immediately when the user continues typing, before the debounce resolves', async () => {
+    // First check: 'Test Corp' is a duplicate
+    mockApiGet.mockImplementation((url: string) => {
+      if (url === '/customers') {
+        return Promise.resolve({
+          data: { data: [{ id: 'other', name: 'Test Corp', isActive: true }] },
+        })
+      }
+      return Promise.resolve({ data: { data: [] } })
+    })
+
+    renderCreatePage()
+
+    // Type 'Test Corp' and wait for duplicate check
+    fireEvent.change(screen.getByLabelText(/customer name/i), { target: { value: 'Test Corp' } })
+    await act(async () => {
+      vi.advanceTimersByTime(500)
+      await Promise.resolve()
+    })
+    expect(screen.getByText(/a customer with this name already exists/i)).toBeInTheDocument()
+
+    // Now switch to returning no duplicates for the next check
+    mockApiGet.mockResolvedValue({ data: { data: [] } })
+
+    // User types one more character — debounce not yet resolved
+    fireEvent.change(screen.getByLabelText(/customer name/i), { target: { value: 'Test Corps' } })
+
+    // Banner should clear immediately (before debounce fires)
+    expect(screen.queryByText(/a customer with this name already exists/i)).not.toBeInTheDocument()
+  })
+})
+
+describe('CustomerFormPage - returnTo navigation', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockCreateCustomer.mockReturnValue({ unwrap: vi.fn().mockResolvedValue({ id: 'new-cust' }) })
+    mockRestoreCustomer.mockReturnValue({ unwrap: vi.fn().mockResolvedValue({}) })
+    mockApiGet.mockResolvedValue({ data: { data: [] } })
+  })
+
+  it('navigates to sales order on clean cancel when returnTo=sales-order', async () => {
+    const user = userEvent.setup()
+    renderCreatePage({ returnTo: 'sales-order' })
+
+    await user.click(screen.getByRole('button', { name: /cancel/i }))
+
+    expect(mockNavigate).toHaveBeenCalledWith('/sales/sales-orders/create')
+  })
+
+  it('navigates to customer list on clean cancel when no returnTo', async () => {
+    const user = userEvent.setup()
+    renderCreatePage()
+
+    await user.click(screen.getByRole('button', { name: /cancel/i }))
+
+    expect(mockNavigate).toHaveBeenCalledWith('/sales/customers')
+  })
+
+  it('navigates to sales order on discard confirm when returnTo=sales-order', async () => {
+    const user = userEvent.setup()
+    renderCreatePage({ returnTo: 'sales-order' })
+
+    await user.type(screen.getByLabelText(/customer name/i), 'Partial')
+    await user.click(screen.getByRole('button', { name: /cancel/i }))
+    expect(screen.getByText(/discard changes/i)).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: /discard/i }))
+
+    expect(mockNavigate).toHaveBeenCalledWith('/sales/sales-orders/create')
+  })
+
+  it('navigates to customer list on discard confirm when no returnTo', async () => {
+    const user = userEvent.setup()
+    renderCreatePage()
+
+    await user.type(screen.getByLabelText(/customer name/i), 'Partial')
+    await user.click(screen.getByRole('button', { name: /cancel/i }))
+
+    await user.click(screen.getByRole('button', { name: /discard/i }))
+
+    expect(mockNavigate).toHaveBeenCalledWith('/sales/customers')
   })
 })

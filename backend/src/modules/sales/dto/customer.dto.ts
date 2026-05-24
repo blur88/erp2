@@ -1,6 +1,7 @@
 import {
   IsString,
   IsBoolean,
+  IsEmail,
   IsOptional,
   IsEnum,
   MaxLength,
@@ -72,49 +73,121 @@ export class UpdateCustomerDto {
   phone?: string;
 
   @ApiPropertyOptional({
-    description: 'Street address',
+    description: 'Email address',
+    example: 'contact@acme.com',
+  })
+  @IsOptional()
+  @IsEmail()
+  @MaxLength(255)
+  email?: string;
+
+  @ApiPropertyOptional({
+    description: 'Billing street address line 1',
     example: '123 Main Street',
   })
   @IsOptional()
   @IsString()
   @MaxLength(255)
-  streetAddress?: string;
+  billingStreetAddress?: string;
 
   @ApiPropertyOptional({
-    description: 'City',
+    description: 'Billing street address line 2',
+    example: 'Suite 100',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(255)
+  billingStreetAddress2?: string;
+
+  @ApiPropertyOptional({
+    description: 'Billing city',
     example: 'New York',
   })
   @IsOptional()
   @IsString()
   @MaxLength(100)
-  city?: string;
+  billingCity?: string;
 
   @ApiPropertyOptional({
-    description: 'State or province',
+    description: 'Billing state or province',
     example: 'NY',
   })
   @IsOptional()
   @IsString()
   @MaxLength(100)
-  state?: string;
+  billingState?: string;
 
   @ApiPropertyOptional({
-    description: 'Postal or ZIP code',
+    description: 'Billing postal or ZIP code',
     example: '10001',
   })
   @IsOptional()
   @IsString()
   @MaxLength(20)
-  postalCode?: string;
+  billingPostalCode?: string;
 
   @ApiPropertyOptional({
-    description: 'Country',
+    description: 'Billing country',
     example: 'United States',
   })
   @IsOptional()
   @IsString()
   @MaxLength(100)
-  country?: string;
+  billingCountry?: string;
+
+  @ApiPropertyOptional({
+    description: 'Shipping street address line 1',
+    example: '456 Warehouse Ave',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(255)
+  shippingStreetAddress?: string;
+
+  @ApiPropertyOptional({
+    description: 'Shipping street address line 2',
+    example: 'Dock B',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(255)
+  shippingStreetAddress2?: string;
+
+  @ApiPropertyOptional({
+    description: 'Shipping city',
+    example: 'Brooklyn',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  shippingCity?: string;
+
+  @ApiPropertyOptional({
+    description: 'Shipping state or province',
+    example: 'NY',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  shippingState?: string;
+
+  @ApiPropertyOptional({
+    description: 'Shipping postal or ZIP code',
+    example: '11201',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(20)
+  shippingPostalCode?: string;
+
+  @ApiPropertyOptional({
+    description: 'Shipping country',
+    example: 'United States',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  shippingCountry?: string;
 
   @ApiPropertyOptional({
     description: 'Whether the customer is active',
@@ -177,20 +250,44 @@ export class CustomerResponseDto {
   @ApiProperty({ example: '+1234567890', nullable: true })
   phone?: string;
 
+  @ApiProperty({ example: 'contact@acme.com', nullable: true })
+  email?: string;
+
   @ApiProperty({ example: '123 Main Street', nullable: true })
-  streetAddress?: string;
+  billingStreetAddress?: string;
+
+  @ApiProperty({ example: 'Suite 100', nullable: true })
+  billingStreetAddress2?: string;
 
   @ApiProperty({ example: 'New York', nullable: true })
-  city?: string;
+  billingCity?: string;
 
   @ApiProperty({ example: 'NY', nullable: true })
-  state?: string;
+  billingState?: string;
 
   @ApiProperty({ example: '10001', nullable: true })
-  postalCode?: string;
+  billingPostalCode?: string;
 
   @ApiProperty({ example: 'United States', nullable: true })
-  country?: string;
+  billingCountry?: string;
+
+  @ApiProperty({ example: '456 Warehouse Ave', nullable: true })
+  shippingStreetAddress?: string;
+
+  @ApiProperty({ example: 'Dock B', nullable: true })
+  shippingStreetAddress2?: string;
+
+  @ApiProperty({ example: 'Brooklyn', nullable: true })
+  shippingCity?: string;
+
+  @ApiProperty({ example: 'NY', nullable: true })
+  shippingState?: string;
+
+  @ApiProperty({ example: '11201', nullable: true })
+  shippingPostalCode?: string;
+
+  @ApiProperty({ example: 'United States', nullable: true })
+  shippingCountry?: string;
 
   @ApiProperty({ example: true })
   isActive: boolean;
@@ -246,4 +343,21 @@ export class CustomerSummaryDto {
   @ApiProperty({ example: '+1234567890', nullable: true })
   phone?: string;
 
+}
+
+/**
+ * Embedded customer sub-object used in invoice, payment, and sales-order responses.
+ * Uses legacy flat address field names (streetAddress, city…) for backward compatibility
+ * with print templates. Populated by mapping billingX entity fields at the service layer.
+ */
+export class CustomerPrintDto {
+  id: string;
+  name: string;
+  email?: string;
+  phone?: string;
+  streetAddress?: string;
+  city?: string;
+  state?: string;
+  postalCode?: string;
+  country?: string;
 }

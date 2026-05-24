@@ -90,7 +90,7 @@ const MainLayout: React.FC = () => {
           pb: 3,
           bgcolor: 'background.default',
           height: '100%',
-          overflow: 'hidden',
+          overflow: 'auto',
           maxWidth: '100%',
         }}
       >

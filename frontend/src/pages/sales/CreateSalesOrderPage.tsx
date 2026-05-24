@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { useStore } from 'react-redux'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import {
   Box,
   Grid,
@@ -83,6 +83,7 @@ const schema = yup.object({
 const CreateSalesOrderPage: React.FC = () => {
   const theme = useTheme()
   const navigate = useNavigate()
+  const location = useLocation()
   const dispatch = useAppDispatch()
   const store = useStore()
   const { orderNumber } = useParams<{ orderNumber: string }>()
@@ -102,6 +103,7 @@ const CreateSalesOrderPage: React.FC = () => {
   const [editingOrderId, setEditingOrderId] = useState<string | null>(null)
   const [selectedCustomer, setSelectedCustomer] = useState<any>(null)
   const customerChangedByUserRef = useRef(false)
+  const preselectAppliedRef = useRef(false)
 
   const { control, handleSubmit, watch, setValue, reset, formState: { errors } } = useForm<CreateOrderFormData>({
     resolver: yupResolver(schema) as any,
@@ -140,6 +142,21 @@ const CreateSalesOrderPage: React.FC = () => {
       setCustomers(customersData.data)
     }
   }, [customersData])
+
+  useEffect(() => {
+    const preselectCustomerId = (location.state as any)?.preselectCustomerId as string | undefined
+    if (!preselectCustomerId || !customers.length || preselectAppliedRef.current) {
+      return
+    }
+
+    const foundCustomer = customers.find((customer) => customer.id === preselectCustomerId)
+    if (foundCustomer) {
+      preselectAppliedRef.current = true
+      setValue('customerId', foundCustomer.id)
+      setSelectedCustomer(foundCustomer)
+      customerChangedByUserRef.current = true
+    }
+  }, [customers, location.state, setValue])
 
   useEffect(() => {
     loadProducts()
@@ -464,55 +481,63 @@ const CreateSalesOrderPage: React.FC = () => {
                 <CardContent>
                   <Typography variant="h6" gutterBottom>SO Information</Typography>
                   <Grid container spacing={2}>
-                    <Grid
-                      size={{
-                        xs: 12,
-                        md: 6
-                      }}>
-                      <Controller
-                        name="customerId"
-                        control={control}
-                        render={({ field }) => (
-                          <Autocomplete
-                            options={customers}
-                            getOptionLabel={(option) => option.name}
-                            value={customers.find(c => c.id === field.value) || null}
-                            onChange={(_, value) => {
-                              field.onChange(value?.id || '')
-                              customerChangedByUserRef.current = true
-                              setSelectedCustomer(value)
-                            }}
-                            size="small"
-                            renderInput={(params) => (
-                              <TextField
-                                {...params}
-                                label="Customer"
-                                error={!!errors.customerId}
-                                helperText={errors.customerId?.message}
-                                required
+                    <Grid size={{ xs: 12, md: 6 }}>
+                      <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
+                        <Box sx={{ flexGrow: 1 }}>
+                          <Controller
+                            name="customerId"
+                            control={control}
+                            render={({ field }) => (
+                              <Autocomplete
+                                options={customers}
+                                getOptionLabel={(option) => option.name}
+                                value={customers.find(c => c.id === field.value) || null}
+                                onChange={(_, value) => {
+                                  field.onChange(value?.id || '')
+                                  customerChangedByUserRef.current = true
+                                  setSelectedCustomer(value)
+                                }}
                                 size="small"
-                                sx={{
-                                  '& .MuiInputBase-input': {
-                                    fontSize: '0.875rem',
-                                  },
-                                  '& .MuiInputLabel-root': {
-                                    fontSize: '0.875rem',
+                                renderInput={(params) => (
+                                  <TextField
+                                    {...params}
+                                    label="Customer"
+                                    error={!!errors.customerId}
+                                    helperText={errors.customerId?.message}
+                                    required
+                                    size="small"
+                                    sx={{
+                                      '& .MuiInputBase-input': {
+                                        fontSize: '0.875rem',
+                                      },
+                                      '& .MuiInputLabel-root': {
+                                        fontSize: '0.875rem',
+                                      }
+                                    }}
+                                  />
+                                )}
+                                slotProps={{
+                                  paper: {
+                                    sx: {
+                                      '& .MuiAutocomplete-option': {
+                                        fontSize: '0.875rem',
+                                      }
+                                    }
                                   }
                                 }}
                               />
                             )}
-                            slotProps={{
-                              paper: {
-                                sx: {
-                                  '& .MuiAutocomplete-option': {
-                                    fontSize: '0.875rem',
-                                  }
-                                }
-                              }
-                            }}
                           />
-                        )}
-                      />
+                        </Box>
+                        <IconButton
+                          size="small"
+                          title="Add new customer"
+                          onClick={() => navigate('/sales/customers/create', { state: { returnTo: 'sales-order' } })}
+                          sx={{ mt: 0.5 }}
+                        >
+                          <AddIcon fontSize="small" />
+                        </IconButton>
+                      </Box>
                     </Grid>
 
                     <Grid

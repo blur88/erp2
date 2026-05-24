@@ -12,6 +12,7 @@ import { SalesOrder } from '../../../database/entities/sales-order.entity';
 import { Product } from '../../../database/entities/product.entity';
 import { Invoice } from '../../../database/entities/invoice.entity';
 import { Payment } from '../../../database/entities/payment.entity';
+import { CustomerPrintDto } from '../dto/customer.dto';
 import { QuerySalesOrdersDto, SalesOrderResponseDto } from '../dto/sales-order.dto';
 import { mapSalesOrderToResponseDto } from './sales-order.mapper';
 
@@ -83,11 +84,11 @@ export class SalesOrderQueryService {
         'customer.id',
         'customer.name',
         'customer.phone',
-        'customer.streetAddress',
-        'customer.city',
-        'customer.state',
-        'customer.postalCode',
-        'customer.country',
+        'customer.billingStreetAddress',
+        'customer.billingCity',
+        'customer.billingState',
+        'customer.billingPostalCode',
+        'customer.billingCountry',
         'items.id',
         'items.quantity',
         'items.unitPrice',
@@ -312,16 +313,16 @@ export class SalesOrderQueryService {
         canUnfulfill: order.isFulfilled || false,
         customerId: order.customerId,
         customer: order.customer
-          ? {
+          ? ({
               id: order.customer.id,
               name: order.customer.name,
               phone: order.customer.phone,
-              streetAddress: order.customer.streetAddress,
-              city: order.customer.city,
-              state: order.customer.state,
-              postalCode: order.customer.postalCode,
-              country: order.customer.country,
-            }
+              streetAddress: order.customer.billingStreetAddress,
+              city: order.customer.billingCity,
+              state: order.customer.billingState,
+              postalCode: order.customer.billingPostalCode,
+              country: order.customer.billingCountry,
+            } satisfies CustomerPrintDto)
           : null,
         customerName: order.customer?.name || 'Unknown Customer',
         items:

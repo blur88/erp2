@@ -1,8 +1,8 @@
 import '@testing-library/jest-dom/vitest'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within, act } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { BrowserRouter } from 'react-router-dom'
+import { BrowserRouter, MemoryRouter, Route, Routes } from 'react-router-dom'
 
 import CreateSalesOrderPage from '../CreateSalesOrderPage'
 
@@ -306,5 +306,69 @@ describe('CreateSalesOrderPage product search', { timeout: 60000 }, () => {
     expect(mockDispatch.mock.invocationCallOrder[dispatchCallIndex]).toBeLessThan(
       mockNavigate.mock.invocationCallOrder[0],
     )
+  })
+})
+
+describe('CreateSalesOrderPage - preselectCustomerId', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockParams.mockReturnValue({})
+    customersResponse.data.data = [
+      { id: 'customer-1', name: 'Test Customer' },
+      { id: 'customer-2', name: 'Other Customer' },
+    ]
+    mockGet.mockResolvedValue({ data: [] })
+  })
+
+  it('pre-selects the customer from location state on mount', async () => {
+    render(
+      <MemoryRouter initialEntries={[{ pathname: '/sales/sales-orders/create', state: { preselectCustomerId: 'customer-1' } }]}>
+        <Routes>
+          <Route path="/sales/sales-orders/create" element={<CreateSalesOrderPage />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    await waitFor(() => {
+      expect(screen.getByRole('combobox', { name: /customer/i })).toHaveValue('Test Customer')
+    })
+  })
+
+  it('does not re-apply preselect after the user manually changes the customer', async () => {
+    const user = userEvent.setup()
+
+    render(
+      <MemoryRouter initialEntries={[{ pathname: '/sales/sales-orders/create', state: { preselectCustomerId: 'customer-1' } }]}>
+        <Routes>
+          <Route path="/sales/sales-orders/create" element={<CreateSalesOrderPage />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    // Wait for initial preselect
+    await waitFor(() => {
+      expect(screen.getByRole('combobox', { name: /customer/i })).toHaveValue('Test Customer')
+    })
+
+    // User manually selects a different customer
+    const customerInput = screen.getByRole('combobox', { name: /customer/i })
+    await user.clear(customerInput)
+    await user.type(customerInput, 'Other')
+    const listbox = await screen.findByRole('listbox')
+    await user.click(within(listbox).getByText('Other Customer'))
+
+    await waitFor(() => {
+      expect(screen.getByRole('combobox', { name: /customer/i })).toHaveValue('Other Customer')
+    })
+
+    // Simulate customers list re-fetching (new array reference) by triggering a re-render
+    act(() => {
+      customersResponse.data.data = [...customersResponse.data.data]
+    })
+
+    // Manual selection should be preserved — preselect must not re-fire
+    await waitFor(() => {
+      expect(screen.getByRole('combobox', { name: /customer/i })).toHaveValue('Other Customer')
+    })
   })
 })

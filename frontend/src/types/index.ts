@@ -164,12 +164,20 @@ export interface Customer {
   name: string;
   phone?: string;
   email?: string;
-  // Address Information
-  streetAddress?: string;
-  city?: string;
-  state?: string;
-  postalCode?: string;
-  country?: string;
+  // Billing Address
+  billingStreetAddress?: string;
+  billingStreetAddress2?: string;
+  billingCity?: string;
+  billingState?: string;
+  billingPostalCode?: string;
+  billingCountry?: string;
+  // Shipping Address
+  shippingStreetAddress?: string;
+  shippingStreetAddress2?: string;
+  shippingCity?: string;
+  shippingState?: string;
+  shippingPostalCode?: string;
+  shippingCountry?: string;
   // Business Information
   isActive: boolean;
   // Price List (normalized pricing system - January 2026)
