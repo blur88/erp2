@@ -618,11 +618,16 @@ const CustomerFormPage: React.FC = () => {
                 <Grid container spacing={2}>
                   <Grid size={{ xs: 12, md: 6 }} data-testid="billing-address-column">
                     <Grid container spacing={2}>
+                      <Grid size={12}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', mt: 2, minHeight: 38 }}>
+                          <Typography variant="h6" sx={{ flexGrow: 1 }}>Billing Address</Typography>
+                        </Box>
+                      </Grid>
                       <AddressSection
                         control={control}
                         errors={errors}
                         prefix="billing"
-                        title="Billing Address"
+                        title=""
                         disabled={isSaving}
                       />
                     </Grid>
@@ -631,7 +636,7 @@ const CustomerFormPage: React.FC = () => {
                   <Grid size={{ xs: 12, md: 6 }} data-testid="shipping-address-column">
                     <Grid container spacing={2}>
                       <Grid size={12}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', mt: 2 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', mt: 2, minHeight: 38 }}>
                           <Typography variant="h6" sx={{ flexGrow: 1 }}>Shipping Address</Typography>
                           <FormControlLabel
                             control={
