@@ -79,7 +79,7 @@ describe('CustomerOverviewTab', () => {
     expect(screen.getByText('Same as Billing')).toBeInTheDocument()
   })
 
-  it('shows Same as Billing chip when all shipping fields are blank', () => {
+  it('does not show Same as Billing chip when all shipping fields are blank', () => {
     const customer: Customer = {
       ...baseCustomer,
       shippingStreetAddress: undefined,
@@ -90,7 +90,27 @@ describe('CustomerOverviewTab', () => {
       shippingCountry: undefined,
     }
     render(<CustomerOverviewTab customer={customer} />)
-    expect(screen.getByText('Same as Billing')).toBeInTheDocument()
+    expect(screen.queryByText('Same as Billing')).not.toBeInTheDocument()
+  })
+
+  it('does not show Same as Billing chip when billing is also blank', () => {
+    const customer: Customer = {
+      ...baseCustomer,
+      billingStreetAddress: undefined,
+      billingStreetAddress2: undefined,
+      billingCity: undefined,
+      billingState: undefined,
+      billingPostalCode: undefined,
+      billingCountry: undefined,
+      shippingStreetAddress: undefined,
+      shippingStreetAddress2: undefined,
+      shippingCity: undefined,
+      shippingState: undefined,
+      shippingPostalCode: undefined,
+      shippingCountry: undefined,
+    }
+    render(<CustomerOverviewTab customer={customer} />)
+    expect(screen.queryByText('Same as Billing')).not.toBeInTheDocument()
   })
 
   it('renders price list and notes in Additional card', () => {

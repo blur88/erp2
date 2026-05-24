@@ -20,16 +20,16 @@ function Field({ label, value }: { label: string; value?: string | null }) {
 }
 
 function isSameAsBilling(customer: Customer): boolean {
-  const shippingFields = [
-    customer.shippingStreetAddress,
-    customer.shippingStreetAddress2,
-    customer.shippingCity,
-    customer.shippingState,
-    customer.shippingPostalCode,
-    customer.shippingCountry,
+  const billingFields = [
+    customer.billingStreetAddress,
+    customer.billingStreetAddress2,
+    customer.billingCity,
+    customer.billingState,
+    customer.billingPostalCode,
+    customer.billingCountry,
   ]
-  const allBlank = shippingFields.every((field) => !field)
-  if (allBlank) return true
+  const billingBlank = billingFields.every((field) => !field)
+  if (billingBlank) return false
 
   return (
     (customer.shippingStreetAddress ?? '') === (customer.billingStreetAddress ?? '') &&
