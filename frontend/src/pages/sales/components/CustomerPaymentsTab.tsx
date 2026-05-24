@@ -41,7 +41,7 @@ export default function CustomerPaymentsTab({ customerId }: CustomerPaymentsTabP
             <TableCell sx={{ width: '16%' }}>Date</TableCell>
             <TableCell sx={{ width: '18%' }}>Method</TableCell>
             <TableCell align="right" sx={{ width: '15%' }}>Amount</TableCell>
-            <TableCell sx={{ width: '15%' }} />
+            <TableCell sx={{ width: '15%' }}>Action</TableCell>
           </TableRow>
         </TableHead>
         <TableBody>
@@ -60,7 +60,7 @@ export default function CustomerPaymentsTab({ customerId }: CustomerPaymentsTabP
                 <Button
                   size="small"
                   variant="text"
-                  onClick={() => navigate('/sales/payments')}
+                  onClick={() => navigate('/sales/payments', { state: { highlightPaymentId: payment.id } })}
                 >
                   View
                 </Button>

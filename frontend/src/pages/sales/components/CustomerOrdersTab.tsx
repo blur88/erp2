@@ -41,7 +41,7 @@ export default function CustomerOrdersTab({ customerId }: CustomerOrdersTabProps
             <TableCell sx={{ width: '18%' }}>Date</TableCell>
             <TableCell sx={{ width: '20%' }}>Status</TableCell>
             <TableCell align="right" sx={{ width: '18%' }}>Total</TableCell>
-            <TableCell sx={{ width: '26%' }} />
+            <TableCell sx={{ width: '26%' }}>Action</TableCell>
           </TableRow>
         </TableHead>
         <TableBody>
@@ -61,7 +61,7 @@ export default function CustomerOrdersTab({ customerId }: CustomerOrdersTabProps
                 <Button
                   size="small"
                   variant="text"
-                  onClick={() => navigate(`/sales/orders/${order.orderNumber}/edit`)}
+                  onClick={() => navigate(`/sales/orders?highlight=${order.id}`)}
                 >
                   View
                 </Button>
