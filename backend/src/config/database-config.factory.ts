@@ -38,6 +38,7 @@ import { ReconciledTransaction } from '../database/entities/reconciled-transacti
 import { RefreshToken } from '../database/entities/refresh-token.entity';
 import { SalesOrder } from '../database/entities/sales-order.entity';
 import { SalesOrderItem } from '../database/entities/sales-order-item.entity';
+import { SalesOrderPayment } from '../database/entities/sales-order-payment.entity';
 import { SearchClick } from '../database/entities/search-click.entity';
 import { SearchQuery } from '../database/entities/search-query.entity';
 import { Settlement } from '../database/entities/settlement.entity';
@@ -91,7 +92,7 @@ export function createDatabaseConfig(configService: ConfigService, allowDefaults
       Invoice, InvoiceItem, JournalEntry, JournalEntryLine, OwnerEquityTransaction,
       Payment, PaymentMethodEntity, RegionalSettings, PriceList, PriceListItem,
       PrintSettings, Product, PurchaseCostHistory, PurchaseOrder, PurchaseOrderItem,
-      ReconciledTransaction, RefreshToken, SalesOrder, SalesOrderItem, SearchClick, SearchQuery, Settlement,
+      ReconciledTransaction, RefreshToken, SalesOrder, SalesOrderItem, SalesOrderPayment, SearchClick, SearchQuery, Settlement,
       StockAdjustment, StockAdjustmentItem, StockMovement, Supplier, User, VendorPayment,
     ],
     migrations: [__dirname + '/../database/migrations/*{.ts,.js}'],
