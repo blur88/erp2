@@ -149,7 +149,7 @@ export class SupplierService extends BaseCrudService<
   }
 
   /**
-   * Get all suppliers with filtering (no pagination)
+   * Get suppliers with filtering and optional pagination.
    */
   async findAll(query: SupplierQueryDto): Promise<SupplierListResponseDto> {
     this.logger.log(`Finding suppliers with query: ${JSON.stringify(query)}`);
@@ -160,6 +160,8 @@ export class SupplierService extends BaseCrudService<
       isActive,
       sortBy = 'companyName',
       sortOrder = 'ASC',
+      page,
+      limit,
     } = query;
 
     const queryBuilder = this.supplierRepository.createQueryBuilder('supplier');
@@ -199,15 +201,20 @@ export class SupplierService extends BaseCrudService<
       queryBuilder.addOrderBy('supplier.companyName', 'ASC');
     }
 
-    // Get all suppliers without pagination
-    const suppliers = await queryBuilder.getMany();
-    const total = suppliers.length;
+    const shouldPaginate = page !== undefined && limit !== undefined;
+    if (shouldPaginate) {
+      queryBuilder.skip((page - 1) * limit).take(limit);
+    }
 
+    const [suppliers, total] = await queryBuilder.getManyAndCount();
     const supplierDtos = suppliers.map(supplier => this.mapToResponseDto(supplier));
 
     return {
-      suppliers: supplierDtos,
-      total,
+      data: supplierDtos,
+      meta: {
+        total,
+        ...(shouldPaginate && { page, limit }),
+      },
     };
   }
 
@@ -348,23 +355,49 @@ export class SupplierService extends BaseCrudService<
   async checkDuplicateCompanyName(
     companyName: string,
     excludeId?: string,
-  ): Promise<{ exists: boolean; message?: string }> {
+  ): Promise<{ exists: boolean; isInactive?: boolean; supplier?: SupplierResponseDto; message?: string }> {
     this.logger.log(`Checking duplicate company name: ${companyName}`);
 
-    const queryBuilder = this.supplierRepository
+    // First check active suppliers
+    const activeQueryBuilder = this.supplierRepository
       .createQueryBuilder('supplier')
       .where('LOWER(supplier.companyName) = LOWER(:companyName)', { companyName });
 
     if (excludeId) {
-      queryBuilder.andWhere('supplier.id != :excludeId', { excludeId });
+      activeQueryBuilder.andWhere('supplier.id != :excludeId', { excludeId });
     }
 
-    const existingSupplier = await queryBuilder.getOne();
+    activeQueryBuilder.andWhere('supplier.deletedAt IS NULL');
 
-    if (existingSupplier) {
+    const activeSupplier = await activeQueryBuilder.getOne();
+
+    if (activeSupplier) {
       return {
         exists: true,
+        isInactive: false,
         message: `Supplier with company name "${companyName}" already exists`,
+      };
+    }
+
+    // Then check soft-deleted (inactive) suppliers
+    const inactiveQueryBuilder = this.supplierRepository
+      .createQueryBuilder('supplier')
+      .withDeleted()
+      .where('LOWER(supplier.companyName) = LOWER(:companyName)', { companyName })
+      .andWhere('(supplier.deletedAt IS NOT NULL OR supplier.isActive = false)');
+
+    if (excludeId) {
+      inactiveQueryBuilder.andWhere('supplier.id != :excludeId', { excludeId });
+    }
+
+    const inactiveSupplier = await inactiveQueryBuilder.getOne();
+
+    if (inactiveSupplier) {
+      return {
+        exists: true,
+        isInactive: true,
+        supplier: this.mapToResponseDto(inactiveSupplier),
+        message: `Supplier with company name "${companyName}" exists but is inactive`,
       };
     }
 
@@ -603,8 +636,8 @@ export class SupplierService extends BaseCrudService<
     const supplierDtos = suppliers.map(supplier => this.mapToResponseDto(supplier));
 
     return {
-      suppliers: supplierDtos,
-      total: suppliers.length,
+      data: supplierDtos,
+      meta: { total: suppliers.length },
     };
   }
 
@@ -720,7 +753,7 @@ export class SupplierService extends BaseCrudService<
   async getSupplierPurchaseOrders(supplierId: string): Promise<{ data: PurchaseOrder[]; total: number }> {
     const [data, total] = await this.purchaseOrderRepository.findAndCount({
       where: { supplierId },
-      order: { orderDate: 'DESC' },
+      order: { orderNumber: 'ASC' },
       take: 50,
     });
 
@@ -731,7 +764,7 @@ export class SupplierService extends BaseCrudService<
     const [data, total] = await this.grnRepository.findAndCount({
       where: { supplierId },
       relations: { purchaseOrder: true },
-      order: { receivedDate: 'DESC' },
+      order: { grnNumber: 'ASC' },
       take: 50,
     });
 
@@ -742,7 +775,7 @@ export class SupplierService extends BaseCrudService<
     const [data, total] = await this.vendorPaymentRepository.findAndCount({
       where: { supplierId },
       relations: { paymentMethodEntity: true },
-      order: { paymentDate: 'DESC' },
+      order: { paymentNumber: 'ASC' },
       take: 50,
     });
 
@@ -761,11 +794,19 @@ export class SupplierService extends BaseCrudService<
       isActive: supplier.isActive,
       contactPerson: supplier.contactPerson,
       phone: supplier.phone,
-      streetAddress: supplier.streetAddress,
-      city: supplier.city,
-      state: supplier.state,
-      postalCode: supplier.postalCode,
-      country: supplier.country,
+      email: supplier.email,
+      billingStreetAddress: supplier.billingStreetAddress,
+      billingStreetAddress2: supplier.billingStreetAddress2,
+      billingCity: supplier.billingCity,
+      billingState: supplier.billingState,
+      billingPostalCode: supplier.billingPostalCode,
+      billingCountry: supplier.billingCountry,
+      shippingStreetAddress: supplier.shippingStreetAddress,
+      shippingStreetAddress2: supplier.shippingStreetAddress2,
+      shippingCity: supplier.shippingCity,
+      shippingState: supplier.shippingState,
+      shippingPostalCode: supplier.shippingPostalCode,
+      shippingCountry: supplier.shippingCountry,
       totalPurchases: Number(supplier.totalPurchases),
       totalOrders: supplier.totalOrders,
       averageOrderValue: supplier.averageOrderValue,

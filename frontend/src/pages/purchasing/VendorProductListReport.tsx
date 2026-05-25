@@ -107,8 +107,8 @@ const VendorProductListReport: React.FC = () => {
     // Load suppliers
     api.get('/purchasing/suppliers')
       .then(response => {
-        if (response.data?.suppliers) {
-          setSuppliers(response.data.suppliers)
+        if (response.data?.data) {
+          setSuppliers(response.data.data)
         }
       })
       .catch(() => {})

@@ -20,11 +20,19 @@ describe('SupplierService', () => {
       companyName: `Supplier ${id}`,
       contactPerson: `Contact ${id}`,
       phone: '0123456789',
-      streetAddress: null,
-      city: null,
-      state: null,
-      postalCode: null,
-      country: null,
+      email: null,
+      billingStreetAddress: null,
+      billingStreetAddress2: null,
+      billingCity: null,
+      billingState: null,
+      billingPostalCode: null,
+      billingCountry: null,
+      shippingStreetAddress: null,
+      shippingStreetAddress2: null,
+      shippingCity: null,
+      shippingState: null,
+      shippingPostalCode: null,
+      shippingCountry: null,
       totalPurchases: 125.5,
       totalOrders: 4,
       averageOrderValue: 31.375,
@@ -77,25 +85,49 @@ describe('SupplierService', () => {
     supplierRepository = module.get(getRepositoryToken(Supplier));
   });
 
-  describe('pagination removal', () => {
-    it('findAll returns all matching suppliers with total-only metadata', async () => {
+  describe('findAll', () => {
+    it('returns paginated suppliers with customer-style metadata and billing/shipping fields', async () => {
       const qb = {
         andWhere: jest.fn().mockReturnThis(),
         orderBy: jest.fn().mockReturnThis(),
         addOrderBy: jest.fn().mockReturnThis(),
-        getMany: jest.fn().mockResolvedValue([createSupplier('1'), createSupplier('2')]),
+        skip: jest.fn().mockReturnThis(),
+        take: jest.fn().mockReturnThis(),
+        getManyAndCount: jest.fn().mockResolvedValue([
+          [
+            createSupplier('1', {
+              email: 'supplier@example.com',
+              billingStreetAddress: '12 Billing Road',
+              billingCity: 'Billing City',
+              shippingStreetAddress: '34 Shipping Road',
+              shippingCity: 'Shipping City',
+            }),
+            createSupplier('2'),
+          ],
+          17,
+        ]),
       };
       supplierRepository.createQueryBuilder.mockReturnValue(qb as any);
 
-      const result = await service.findAll({ search: 'Supplier' });
+      const result = await service.findAll({ search: 'Supplier', page: 2, limit: 10 });
 
-      expect(qb.getMany).toHaveBeenCalled();
+      expect(qb.skip).toHaveBeenCalledWith(10);
+      expect(qb.take).toHaveBeenCalledWith(10);
+      expect(qb.getManyAndCount).toHaveBeenCalled();
       expect(result).toEqual({
-        suppliers: expect.arrayContaining([
-          expect.objectContaining({ id: '1', companyName: 'Supplier 1' }),
+        data: expect.arrayContaining([
+          expect.objectContaining({
+            id: '1',
+            companyName: 'Supplier 1',
+            email: 'supplier@example.com',
+            billingStreetAddress: '12 Billing Road',
+            billingCity: 'Billing City',
+            shippingStreetAddress: '34 Shipping Road',
+            shippingCity: 'Shipping City',
+          }),
           expect.objectContaining({ id: '2', companyName: 'Supplier 2' }),
         ]),
-        total: 2,
+        meta: { total: 17, page: 2, limit: 10 },
       });
     });
 
@@ -118,10 +150,10 @@ describe('SupplierService', () => {
       expect(qb.skip).not.toHaveBeenCalled();
       expect(qb.take).not.toHaveBeenCalled();
       expect(result).toEqual({
-        suppliers: [
+        data: [
           expect.objectContaining({ id: 'deleted-1', companyName: 'Supplier deleted-1' }),
         ],
-        total: 1,
+        meta: { total: 1 },
       });
     });
   });

@@ -21,10 +21,7 @@ vi.mock('@/store/api/purchasingApi', async (importOriginal) => {
   return {
     ...actual,
     useGetSuppliersQuery,
-    useCreateSupplierMutation: vi.fn(() => [vi.fn(), {}]),
-    useDeleteSupplierMutation: vi.fn(() => [vi.fn(), {}]),
     useUpdateSupplierMutation: vi.fn(() => [vi.fn(), {}]),
-    useLazyCheckDuplicateCompanyNameQuery: vi.fn(() => [vi.fn(), {}]),
   }
 })
 
@@ -40,43 +37,17 @@ vi.mock('react-router-dom', async (importOriginal) => {
   }
 })
 
-vi.mock('@/components/common/MasterDetailWorkspace', () => ({
-  default: ({ listSlot, headerSlot, workspaceSlot }: any) => (
-    <div>
-      <div>{listSlot}</div>
-      <div>{headerSlot}</div>
-      <div>{workspaceSlot}</div>
-    </div>
-  ),
-}))
-
-vi.mock('../components/SupplierWorkspaceCard', () => ({
-  default: () => <div data-testid="supplier-workspace-card" />,
-}))
-
-vi.mock('../components/SupplierContextHeader', () => ({
-  default: () => <div data-testid="supplier-context-header" />,
-}))
-
 vi.mock('../components/SupplierList', () => ({
-  default: ({ suppliers, onSelect }: any) => (
+  default: ({ suppliers, paginationSlot }: any) => (
     <div data-testid="supplier-list">
       {suppliers.map((supplier: any) => (
-        <div key={supplier.id} data-testid={`supplier-item-${supplier.id}`} onClick={() => onSelect(supplier)}>
+        <div key={supplier.id} data-testid={`supplier-item-${supplier.id}`}>
           {supplier.companyName}
         </div>
       ))}
+      {paginationSlot}
     </div>
   ),
-}))
-
-vi.mock('../components/SuppliersDialogs', () => ({
-  default: () => <div data-testid="suppliers-dialogs" />,
-}))
-
-
-vi.mock('@/components/purchasing/DeletedSuppliersDialog', () => ({
-  default: () => <div>DeletedSuppliersDialog</div>,
 }))
 
 function renderPage(initialUrl = '/') {

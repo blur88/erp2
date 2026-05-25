@@ -55,7 +55,7 @@ export const purchasingApiSlice = createApi({
   endpoints: (builder) => ({
     getSuppliers: builder.query<PaginatedResponse<Supplier>, Record<string, unknown> | undefined>({
       query: (params) => ({ url: '/purchasing/suppliers', params: params ?? {} }),
-      transformResponse: (response: any) => normalizeNamedCollection<Supplier>(response, 'suppliers'),
+      transformResponse: (response: any) => normalizeNamedCollection<Supplier>(response, 'data'),
       providesTags: ['Supplier'],
     }),
     getSupplier: builder.query<Supplier, string>({
@@ -84,7 +84,7 @@ export const purchasingApiSlice = createApi({
     }),
     getDeletedSuppliers: builder.query<PaginatedResponse<Supplier>, Record<string, unknown> | undefined>({
       query: (params) => ({ url: '/purchasing/suppliers/deleted', params: params ?? {} }),
-      transformResponse: (response: any) => normalizeNamedCollection<Supplier>(response, 'suppliers'),
+      transformResponse: (response: any) => normalizeNamedCollection<Supplier>(response, 'data'),
       providesTags: ['DeletedSupplier'],
     }),
     getSupplierPurchaseOrders: builder.query<{ data: PurchaseOrder[]; total: number }, string>({

@@ -104,7 +104,7 @@ export class SupplierController {
   async checkDuplicate(
     @Query('companyName') companyName: string,
     @Query('excludeId') excludeId?: string,
-  ): Promise<{ exists: boolean; message?: string }> {
+  ): Promise<{ exists: boolean; isInactive?: boolean; supplier?: SupplierResponseDto; message?: string }> {
     this.logger.log(`Checking duplicate company name: ${companyName}`);
     return await this.supplierService.checkDuplicateCompanyName(companyName, excludeId);
   }

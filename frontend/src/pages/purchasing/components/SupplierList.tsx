@@ -1,43 +1,84 @@
 import React from 'react'
+import type { ReactNode } from 'react'
+import { useNavigate } from 'react-router-dom'
 
 import EntityTable, { type ColumnConfig } from '@/components/common/EntityTable'
+import { EntityStatusChip } from '@/components/common/EntityStatusChip'
+import RowActionMenu from '@/components/common/RowActionMenu'
 import type { Supplier } from '@/types'
 
-const COLUMNS: ColumnConfig<Supplier>[] = [
-  { key: 'companyName', render: (supplier) => supplier.companyName },
-]
+function formatSupplierType(type: string): string {
+  return type === 'local' ? 'Local' : 'International'
+}
 
 interface SupplierListProps {
   suppliers: Supplier[]
   loading: boolean
   total: number
-  selectedSupplierId: string | undefined
-  focusedIndex: number
-  onSelect: (supplier: Supplier) => void
-  supplierListRef: React.RefObject<HTMLDivElement | null>
+  onStatusToggle: (supplier: Supplier) => void
+  paginationSlot?: ReactNode
 }
 
-const SupplierList: React.FC<SupplierListProps> = ({
+export default function SupplierList({
   suppliers,
   loading,
   total,
-  selectedSupplierId,
-  focusedIndex,
-  onSelect,
-  supplierListRef,
-}) => (
-  <EntityTable
-    rows={suppliers}
-    columns={COLUMNS}
-    loading={loading}
-    total={total}
-    label="Suppliers"
-    selectedId={selectedSupplierId}
-    focusedIndex={focusedIndex}
-    onSelect={onSelect}
-    listRef={supplierListRef}
-    dataAttr="supplier"
-  />
-)
+  onStatusToggle,
+  paginationSlot,
+}: SupplierListProps) {
+  const navigate = useNavigate()
 
-export default SupplierList
+  const columns: ColumnConfig<Supplier>[] = [
+    { key: 'companyName', width: '30%', render: (supplier) => supplier.companyName },
+    { key: 'contactPerson', width: '20%', render: (supplier) => supplier.contactPerson ?? '-' },
+    { key: 'type', width: '13%', render: (supplier) => formatSupplierType(supplier.type) },
+    {
+      key: 'status',
+      width: '12%',
+      raw: true,
+      render: (supplier) => (
+        <EntityStatusChip status={supplier.isActive ? 'active' : 'inactive'} />
+      ),
+    },
+    {
+      key: 'actions',
+      width: '6%',
+      raw: true,
+      render: (supplier) => (
+        <RowActionMenu
+          actions={[
+            {
+              label: 'View Supplier',
+              onClick: () => navigate(`/purchasing/suppliers/${supplier.slug}/view`),
+            },
+            {
+              label: 'Edit Supplier',
+              onClick: () => navigate(`/purchasing/suppliers/${supplier.slug}/edit`),
+            },
+            supplier.isActive
+              ? { label: 'Set as Inactive', onClick: () => onStatusToggle(supplier) }
+              : { label: 'Reactivate', onClick: () => onStatusToggle(supplier) },
+          ]}
+        />
+      ),
+    },
+  ]
+
+  return (
+    <EntityTable
+      rows={suppliers}
+      columns={columns}
+      loading={loading}
+      total={total}
+      label="Suppliers"
+      showHeader={false}
+      headers={['Company Name', 'Contact Person', 'Type', 'Status', 'Actions']}
+      selectedId={undefined}
+      focusedIndex={-1}
+      onSelect={() => {}}
+      listRef={{ current: null }}
+      dataAttr="supplier"
+      paginationSlot={paginationSlot}
+    />
+  )
+}

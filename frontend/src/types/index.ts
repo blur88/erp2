@@ -332,29 +332,33 @@ export enum SupplierType {
 export interface Supplier {
   id: string;
   slug: string;
-  type: SupplierType;
+  type: 'local' | 'international';
   companyName: string;
-  contactPerson?: string;
-  phone?: string;
   isActive: boolean;
-  streetAddress?: string | null;
-  city?: string | null;
-  state?: string | null;
-  postalCode?: string | null;
-  country?: string | null;
-  // Metrics
+  contactPerson?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  billingStreetAddress?: string | null;
+  billingStreetAddress2?: string | null;
+  billingCity?: string | null;
+  billingState?: string | null;
+  billingPostalCode?: string | null;
+  billingCountry?: string | null;
+  shippingStreetAddress?: string | null;
+  shippingStreetAddress2?: string | null;
+  shippingCity?: string | null;
+  shippingState?: string | null;
+  shippingPostalCode?: string | null;
+  shippingCountry?: string | null;
   totalPurchases: number;
   totalOrders: number;
-  lastPurchaseDate?: Date;
-  firstPurchaseDate?: Date;
-  // Additional
-  notes?: string;
-  // Computed
-  averageOrderValue?: number;
-  // Timestamps
-  createdAt: Date;
-  updatedAt: Date;
-  deletedAt?: Date;
+  averageOrderValue: number;
+  lastPurchaseDate?: Date | string | null;
+  firstPurchaseDate?: Date | string | null;
+  notes?: string | null;
+  createdAt: Date | string;
+  updatedAt: Date | string;
+  deletedAt?: Date | string | null;
 }
 
 export interface PurchaseOrder {

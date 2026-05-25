@@ -12,6 +12,7 @@ import {
   IsDecimal,
   Min,
   IsInt,
+  IsEmail,
 } from 'class-validator';
 import { BaseEntity } from './base.entity';
 import { PurchaseOrder } from './purchase-order.entity';
@@ -84,56 +85,144 @@ export class Supplier extends BaseEntity {
     type: 'varchar',
     length: 255,
     nullable: true,
-    comment: 'Street address',
+    comment: 'Email address',
+  })
+  @IsOptional()
+  @IsEmail()
+  @MaxLength(255)
+  email?: string;
+
+  @Column({
+    type: 'varchar',
+    length: 255,
+    nullable: true,
+    comment: 'Billing street address line 1',
   })
   @IsOptional()
   @IsString()
   @MaxLength(255)
-  streetAddress?: string;
+  billingStreetAddress?: string;
+
+  @Column({
+    type: 'varchar',
+    length: 255,
+    nullable: true,
+    comment: 'Billing street address line 2',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(255)
+  billingStreetAddress2?: string;
 
   @Column({
     type: 'varchar',
     length: 100,
     nullable: true,
-    comment: 'City',
+    comment: 'Billing city',
   })
   @IsOptional()
   @IsString()
   @MaxLength(100)
-  city?: string;
+  billingCity?: string;
 
   @Column({
     type: 'varchar',
     length: 100,
     nullable: true,
-    comment: 'State/Province',
+    comment: 'Billing state or province',
   })
   @IsOptional()
   @IsString()
   @MaxLength(100)
-  state?: string;
+  billingState?: string;
 
   @Column({
     type: 'varchar',
     length: 20,
     nullable: true,
-    comment: 'Postal/ZIP code',
+    comment: 'Billing postal or ZIP code',
   })
   @IsOptional()
   @IsString()
   @MaxLength(20)
-  postalCode?: string;
+  billingPostalCode?: string;
 
   @Column({
     type: 'varchar',
     length: 100,
     nullable: true,
-    comment: 'Country',
+    comment: 'Billing country',
   })
   @IsOptional()
   @IsString()
   @MaxLength(100)
-  country?: string;
+  billingCountry?: string;
+
+  @Column({
+    type: 'varchar',
+    length: 255,
+    nullable: true,
+    comment: 'Shipping street address line 1',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(255)
+  shippingStreetAddress?: string;
+
+  @Column({
+    type: 'varchar',
+    length: 255,
+    nullable: true,
+    comment: 'Shipping street address line 2',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(255)
+  shippingStreetAddress2?: string;
+
+  @Column({
+    type: 'varchar',
+    length: 100,
+    nullable: true,
+    comment: 'Shipping city',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  shippingCity?: string;
+
+  @Column({
+    type: 'varchar',
+    length: 100,
+    nullable: true,
+    comment: 'Shipping state or province',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  shippingState?: string;
+
+  @Column({
+    type: 'varchar',
+    length: 20,
+    nullable: true,
+    comment: 'Shipping postal or ZIP code',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(20)
+  shippingPostalCode?: string;
+
+  @Column({
+    type: 'varchar',
+    length: 100,
+    nullable: true,
+    comment: 'Shipping country',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  shippingCountry?: string;
 
   // Supplier Metrics
   @Column({
