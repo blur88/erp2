@@ -3,25 +3,19 @@ import {
   Get,
   Post,
   Put,
-  Delete,
   Body,
   Param,
   Query,
   ParseUUIDPipe,
   HttpCode,
   HttpStatus,
-  Request,
-  Res,
-  BadRequestException,
 } from '@nestjs/common';
-import { Response } from 'express';
 import {
   ApiTags,
   ApiOperation,
   ApiResponse,
   ApiParam,
   ApiQuery,
-  ApiBody,
 } from '@nestjs/swagger';
 import { SalesOrderService } from '../services/sales-order.service';
 import {
@@ -30,7 +24,8 @@ import {
   QuerySalesOrdersDto,
   SalesOrderResponseDto,
   SalesOrderSummaryDto,
-  RecordPaymentsDto,
+  RecordPaymentDto,
+  RecordRefundDto,
 } from '../dto/sales-order.dto';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 
@@ -41,231 +36,48 @@ export class SalesOrderController {
 
   @Post()
   @ApiOperation({ summary: 'Create a new sales order' })
-  @ApiResponse({
-    status: 201,
-    description: 'Sales order created successfully',
-    type: SalesOrderResponseDto,
-  })
-  @ApiResponse({ status: 400, description: 'Invalid input data' })
-  @ApiResponse({ status: 409, description: 'Insufficient inventory or credit limit exceeded' })
+  @ApiResponse({ status: 201, type: SalesOrderResponseDto })
   async createSalesOrder(
-    @Body() createSalesOrderDto: CreateSalesOrderDto,
-    @CurrentUser('userId') currentUserId: string,
-    @CurrentUser('username') currentUsername: string,
+    @Body() dto: CreateSalesOrderDto,
+    @CurrentUser('userId') userId: string,
+    @CurrentUser('username') username: string,
   ) {
-    const data = await this.salesOrderService.create(createSalesOrderDto, currentUserId, currentUsername);
+    const data = await this.salesOrderService.create(dto, userId, username);
     return { data };
-  }
-
-  @Get('deleted')
-  @ApiOperation({ summary: 'Get deleted sales orders with filtering and pagination' })
-  @ApiResponse({
-    status: 200,
-    description: 'List of deleted sales orders retrieved successfully',
-    type: [SalesOrderResponseDto],
-  })
-  @ApiQuery({ name: 'search', required: false, description: 'Search by order number or customer name' })
-  @ApiQuery({ name: 'customerId', required: false, description: 'Filter by customer ID' })
-  @ApiQuery({ name: 'sortBy', required: false, description: 'Sort field' })
-  @ApiQuery({ name: 'sortOrder', required: false, enum: ['ASC', 'DESC'], description: 'Sort order' })
-  @ApiQuery({ name: 'page', required: false, type: Number, description: 'Page number' })
-  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Items per page' })
-  async getDeletedSalesOrders(@Query() query: QuerySalesOrdersDto) {
-    const data = await this.salesOrderService.findDeleted(query);
-    return data;
-  }
-
-  @Get()
-  @ApiOperation({ summary: 'Get all sales orders with filtering and pagination' })
-  @ApiResponse({
-    status: 200,
-    description: 'List of sales orders retrieved successfully',
-    type: [SalesOrderResponseDto],
-  })
-  @ApiQuery({ name: 'search', required: false, description: 'Search by order number or customer name' })
-  @ApiQuery({ name: 'customerId', required: false, description: 'Filter by customer ID' })
-  @ApiQuery({ name: 'fromDate', required: false, description: 'Filter orders from date' })
-  @ApiQuery({ name: 'toDate', required: false, description: 'Filter orders to date' })
-  @ApiQuery({ name: 'paymentStatus', required: false, enum: ['all', 'unpaid', 'partial', 'paid', 'overpaid'], description: 'Filter by payment status' })
-  @ApiQuery({ name: 'fulfillmentStatus', required: false, enum: ['all', 'fulfilled', 'unfulfilled'], description: 'Filter by fulfillment status' })
-  @ApiQuery({ name: 'sortBy', required: false, description: 'Sort field' })
-  @ApiQuery({ name: 'sortOrder', required: false, enum: ['ASC', 'DESC'], description: 'Sort order' })
-  @ApiQuery({ name: 'page', required: false, type: Number, description: 'Page number' })
-  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Items per page' })
-  async getAllSalesOrders(@Query() query: QuerySalesOrdersDto) {
-    const data = await this.salesOrderService.findAll(query);
-    return data; // findAll returns paginated response structure optimized for listing
   }
 
   @Get('summary')
   @ApiOperation({ summary: 'Get sales orders summary list' })
-  @ApiResponse({
-    status: 200,
-    description: 'Sales order summaries retrieved successfully',
-    type: [SalesOrderSummaryDto],
-  })
+  @ApiResponse({ status: 200, type: [SalesOrderSummaryDto] })
   async getSalesOrderSummaries() {
     return this.salesOrderService.findSummaries();
   }
 
   @Get('dashboard-stats')
   @ApiOperation({ summary: 'Get sales order dashboard statistics' })
-  @ApiResponse({
-    status: 200,
-    description: 'Dashboard statistics retrieved successfully',
-  })
   async getDashboardStats() {
     return this.salesOrderService.getDashboardStats();
   }
 
-  @Get('test-invoices/:orderNumber')
-  @ApiOperation({ summary: 'Test endpoint to check invoice relations' })
-  async testInvoiceRelations(@Param('orderNumber') orderNumber: string) {
-    return this.salesOrderService.testInvoiceRelations(orderNumber);
-  }
-
-  @Get(':id')
-  @ApiOperation({ summary: 'Get sales order by ID' })
-  @ApiParam({ name: 'id', description: 'Sales order ID', type: 'string' })
-  @ApiResponse({
-    status: 200,
-    description: 'Sales order retrieved successfully',
-    type: SalesOrderResponseDto,
-  })
-  @ApiResponse({ status: 404, description: 'Sales order not found' })
-  async getSalesOrderById(@Param('id', ParseUUIDPipe) id: string): Promise<SalesOrderResponseDto> {
-    return this.salesOrderService.findById(id);
-  }
-
-  @Get('number/:orderNumber')
-  @ApiOperation({ summary: 'Get sales order by order number' })
-  @ApiParam({ name: 'orderNumber', description: 'Order number', type: 'string' })
-  @ApiResponse({
-    status: 200,
-    description: 'Sales order retrieved successfully',
-    type: SalesOrderResponseDto,
-  })
-  @ApiResponse({ status: 404, description: 'Sales order not found' })
-  async getSalesOrderByNumber(@Param('orderNumber') orderNumber: string): Promise<SalesOrderResponseDto> {
-    return this.salesOrderService.findByOrderNumber(orderNumber);
-  }
-
-  @Put(':id')
-  @ApiOperation({ summary: 'Update sales order' })
-  @ApiParam({ name: 'id', description: 'Sales order ID', type: 'string' })
-  @ApiResponse({
-    status: 200,
-    description: 'Sales order updated successfully',
-    type: SalesOrderResponseDto,
-  })
-  @ApiResponse({ status: 404, description: 'Sales order not found' })
-  @ApiResponse({ status: 400, description: 'Invalid input data, order is fulfilled (unfulfill first), or order is paid (unpay first)' })
-  async updateSalesOrder(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Body() updateSalesOrderDto: UpdateSalesOrderDto,
-    @CurrentUser('userId') currentUserId: string,
-    @CurrentUser('username') currentUsername: string,
-  ): Promise<SalesOrderResponseDto> {
-    return this.salesOrderService.update(id, updateSalesOrderDto, currentUserId, currentUsername);
-  }
-
-  @Delete(':id')
-  @ApiOperation({ summary: 'Delete sales order and automatically show previous order details' })
-  @ApiParam({ name: 'id', description: 'Sales order ID', type: 'string' })
-  @ApiResponse({
-    status: 200,
-    description: 'Sales order deleted successfully, returns previous order details to display',
-    schema: {
-      oneOf: [
-        {
-          type: 'object',
-          properties: {
-            data: { $ref: '#/components/schemas/SalesOrderResponseDto' },
-            message: { type: 'string' },
-            deletedOrderNumber: { type: 'string' }
-          }
-        },
-        {
-          type: 'object',
-          properties: {
-            data: { type: 'null' },
-            message: { type: 'string' },
-            deletedOrderNumber: { type: 'string' },
-            redirect: { type: 'string' }
-          }
-        }
-      ]
-    }
-  })
-  @ApiResponse({ status: 404, description: 'Sales order not found' })
-  @ApiResponse({ status: 400, description: 'Order is fulfilled (unfulfill first) or order is paid (unpay first)' })
-  @ApiResponse({ status: 409, description: 'Cannot delete order in current status' })
-  async deleteSalesOrder(
-    @Param('id', ParseUUIDPipe) id: string,
-    @CurrentUser('userId') currentUserId: string,
-    @CurrentUser('username') currentUsername: string,
-  ): Promise<{
-    data: SalesOrderResponseDto | null;
-    message: string;
-    deletedOrderNumber: string;
-    redirect?: string;
-  }> {
-    const result = await this.salesOrderService.delete(id, currentUserId, currentUsername);
-
-    if (result.previousOrder) {
-      // Return the previous order as the main data to display
-      return {
-        data: result.previousOrder,
-        message: `Sales order ${result.deletedOrderNumber} deleted successfully. Now showing previous order: ${result.previousOrder.orderNumber}`,
-        deletedOrderNumber: result.deletedOrderNumber
-      };
-    } else {
-      // No previous order exists, suggest redirecting to order list
-      return {
-        data: null,
-        message: `Sales order ${result.deletedOrderNumber} deleted successfully. No previous orders available.`,
-        deletedOrderNumber: result.deletedOrderNumber,
-        redirect: '/sales-orders'
-      };
-    }
-  }
-
-  @Post(':id/duplicate')
-  @ApiOperation({ summary: 'Duplicate sales order' })
-  @ApiParam({ name: 'id', description: 'Sales order ID to duplicate', type: 'string' })
-  @ApiResponse({
-    status: 201,
-    description: 'Sales order duplicated successfully',
-    type: SalesOrderResponseDto,
-  })
-  @ApiResponse({ status: 404, description: 'Sales order not found' })
-  async duplicateOrder(
-    @Param('id', ParseUUIDPipe) id: string,
-  ): Promise<SalesOrderResponseDto> {
-    return this.salesOrderService.duplicateOrder(id, null); // Auth removed - no user tracking
-  }
-
-  @Get(':id/fulfillment-status')
-  @ApiOperation({ summary: 'Get order fulfillment status' })
-  @ApiParam({ name: 'id', description: 'Sales order ID', type: 'string' })
-  @ApiResponse({
-    status: 200,
-    description: 'Fulfillment status retrieved successfully',
-  })
-  @ApiResponse({ status: 404, description: 'Sales order not found' })
-  async getFulfillmentStatus(@Param('id', ParseUUIDPipe) id: string) {
-    return this.salesOrderService.getFulfillmentStatus(id);
+  @Get()
+  @ApiOperation({ summary: 'List sales orders' })
+  @ApiQuery({ name: 'status', required: false, enum: ['DRAFT', 'FULFILLED', 'CANCELLED'] })
+  @ApiQuery({ name: 'paymentStatus', required: false, enum: ['UNPAID', 'PARTIAL', 'PAID', 'OVERPAID'] })
+  @ApiQuery({ name: 'customerId', required: false })
+  @ApiQuery({ name: 'fromDate', required: false })
+  @ApiQuery({ name: 'toDate', required: false })
+  @ApiQuery({ name: 'search', required: false })
+  @ApiQuery({ name: 'sortBy', required: false })
+  @ApiQuery({ name: 'sortOrder', required: false, enum: ['ASC', 'DESC'] })
+  @ApiQuery({ name: 'page', required: false, type: Number })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  async getAllSalesOrders(@Query() query: QuerySalesOrdersDto) {
+    return this.salesOrderService.findAll(query);
   }
 
   @Get('customer/:customerId')
-  @ApiOperation({ summary: 'Get sales orders for a specific customer' })
-  @ApiParam({ name: 'customerId', description: 'Customer ID', type: 'string' })
-  @ApiResponse({
-    status: 200,
-    description: 'Customer sales orders retrieved successfully',
-    type: [SalesOrderSummaryDto],
-  })
-  @ApiResponse({ status: 404, description: 'Customer not found' })
+  @ApiOperation({ summary: 'Get sales orders for a customer' })
+  @ApiParam({ name: 'customerId', type: 'string' })
   async getOrdersByCustomer(
     @Param('customerId', ParseUUIDPipe) customerId: string,
     @Query('limit') limit?: number,
@@ -273,250 +85,118 @@ export class SalesOrderController {
     return this.salesOrderService.findOrdersByCustomer(customerId, limit);
   }
 
-  @Get(':id/invoices')
-  @ApiOperation({ summary: 'Get invoices related to sales order' })
-  @ApiParam({ name: 'id', description: 'Sales order ID', type: 'string' })
-  @ApiResponse({
-    status: 200,
-    description: 'Related invoices retrieved successfully',
-  })
-  @ApiResponse({ status: 404, description: 'Sales order not found' })
-  async getOrderInvoices(@Param('id', ParseUUIDPipe) id: string) {
-    return this.salesOrderService.getOrderInvoices(id);
+  @Get('number/:orderNumber')
+  @ApiOperation({ summary: 'Get sales order by order number' })
+  async getSalesOrderByNumber(@Param('orderNumber') orderNumber: string): Promise<SalesOrderResponseDto> {
+    return this.salesOrderService.findByOrderNumber(orderNumber);
   }
 
-  @Post(':id/create-invoice')
-  @ApiOperation({ summary: 'Create invoice from sales order' })
-  @ApiParam({ name: 'id', description: 'Sales order ID', type: 'string' })
-  @ApiResponse({
-    status: 201,
-    description: 'Invoice created successfully from sales order',
-  })
-  @ApiResponse({ status: 404, description: 'Sales order not found' })
-  @ApiResponse({ status: 409, description: 'Cannot create invoice for order in current status' })
-  async createInvoiceFromOrder(@Param('id', ParseUUIDPipe) id: string) {
-    return this.salesOrderService.createInvoiceFromOrder(id);
+  @Get(':id')
+  @ApiOperation({ summary: 'Get sales order by ID' })
+  @ApiParam({ name: 'id', type: 'string' })
+  @ApiResponse({ status: 200, type: SalesOrderResponseDto })
+  async getSalesOrderById(@Param('id', ParseUUIDPipe) id: string): Promise<SalesOrderResponseDto> {
+    return this.salesOrderService.findById(id);
   }
 
-  @Post(':id/record-payments')
-  @ApiOperation({ summary: 'Record multiple split payments for a sales order (atomic)' })
-  @ApiParam({ name: 'id', description: 'Sales order ID', type: 'string' })
-  @ApiResponse({
-    status: 200,
-    description: 'Payments recorded successfully',
-    type: SalesOrderResponseDto,
-  })
-  @ApiResponse({ status: 404, description: 'Sales order not found' })
-  @ApiResponse({ status: 400, description: 'Invalid payment data' })
-  async recordPayments(
+  @Put(':id')
+  @ApiOperation({ summary: 'Update sales order (DRAFT + UNPAID only)' })
+  @ApiParam({ name: 'id', type: 'string' })
+  async updateSalesOrder(
     @Param('id', ParseUUIDPipe) id: string,
-    @Body() body: RecordPaymentsDto,
-  ) {
-    const data = await this.salesOrderService.recordPayments(id, body.payments);
-    return { data };
+    @Body() dto: UpdateSalesOrderDto,
+    @CurrentUser('userId') userId: string,
+    @CurrentUser('username') username: string,
+  ): Promise<SalesOrderResponseDto> {
+    return this.salesOrderService.update(id, dto, userId, username);
   }
 
-  @Post(':id/record-payment')
-  @ApiOperation({ summary: 'Record payment amount for sales order' })
-  @ApiParam({ name: 'id', description: 'Sales order ID', type: 'string' })
-  @ApiBody({
-    schema: {
-      type: 'object',
-      properties: {
-        amount: {
-          type: 'number',
-          minimum: 0,
-          description: 'Payment amount received'
-        },
-        paymentMethodId: {
-          type: 'string',
-          format: 'uuid',
-          description: 'Optional payment method ID. Defaults to CASH if not provided.'
-        }
-      },
-      required: ['amount']
-    }
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'Payment recorded successfully',
-    type: SalesOrderResponseDto,
-  })
-  @ApiResponse({ status: 404, description: 'Sales order not found' })
-  @ApiResponse({ status: 400, description: 'Invalid payment amount' })
-  async recordPayment(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Body() body: { amount: number; paymentMethodId?: string }
-  ) {
-    if (body.paymentMethodId && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(body.paymentMethodId)) {
-      throw new BadRequestException('Invalid paymentMethodId format');
-    }
-    const data = await this.salesOrderService.recordPayment(id, body.amount, body.paymentMethodId);
-    return { data };
-  }
-
-  @Post(':id/unpay')
-  @ApiOperation({ summary: 'Remove payment from sales order (reset to unpaid)' })
-  @ApiParam({ name: 'id', description: 'Sales order ID', type: 'string' })
-  @ApiResponse({
-    status: 200,
-    description: 'Payment removed successfully',
-    type: SalesOrderResponseDto,
-  })
-  @ApiResponse({ status: 404, description: 'Sales order not found' })
-  @ApiResponse({ status: 409, description: 'Cannot unpay fulfilled order' })
-  async unpayOrder(@Param('id', ParseUUIDPipe) id: string) {
-    const data = await this.salesOrderService.unpayOrder(id);
-    return { data };
-  }
-
-  @Post(':id/fulfill-order')
-  @ApiOperation({ summary: 'Fulfill order (confirm payment and deduct inventory)' })
-  @ApiParam({ name: 'id', description: 'Sales order ID', type: 'string' })
-  @ApiResponse({
-    status: 200,
-    description: 'Order fulfilled successfully, inventory deducted',
-    type: SalesOrderResponseDto,
-  })
-  @ApiResponse({ status: 404, description: 'Sales order not found' })
-  @ApiResponse({ status: 409, description: 'Cannot fulfill order - payment insufficient or already fulfilled' })
+  @Post(':id/fulfill')
+  @ApiOperation({ summary: 'Fulfill order (requires paymentStatus = PAID)' })
+  @ApiParam({ name: 'id', type: 'string' })
   async fulfillOrder(
     @Param('id', ParseUUIDPipe) id: string,
-    @CurrentUser('userId') currentUserId: string,
-    @CurrentUser('username') currentUsername: string,
+    @CurrentUser('userId') userId: string,
+    @CurrentUser('username') username: string,
   ) {
-    const data = await this.salesOrderService.fulfillOrder(id, currentUserId, currentUsername);
+    const data = await this.salesOrderService.fulfillOrder(id, userId, username);
     return { data };
   }
 
-  @Post(':id/unfulfill-order')
-  @ApiOperation({ summary: 'Unfulfill order (reverse fulfillment and restore inventory)' })
-  @ApiParam({ name: 'id', description: 'Sales order ID', type: 'string' })
-  @ApiResponse({
-    status: 200,
-    description: 'Order unfulfilled successfully, inventory restored',
-    type: SalesOrderResponseDto,
-  })
-  @ApiResponse({ status: 404, description: 'Sales order not found' })
-  @ApiResponse({ status: 409, description: 'Cannot unfulfill order - order is not fulfilled' })
-  async unfulfillOrder(@Param('id', ParseUUIDPipe) id: string) {
-    const data = await this.salesOrderService.unfulfillOrder(id);
+  @Post(':id/unfulfill')
+  @ApiOperation({ summary: 'Unfulfill order (always allowed from FULFILLED)' })
+  @ApiParam({ name: 'id', type: 'string' })
+  async unfulfillOrder(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser('userId') userId: string,
+    @CurrentUser('username') username: string,
+  ) {
+    const data = await this.salesOrderService.unfulfillOrder(id, userId, username);
     return { data };
   }
 
-  @Post(':id/restore')
-  @ApiOperation({ summary: 'Restore deleted sales order' })
-  @ApiParam({ name: 'id', description: 'Sales order ID', type: 'string' })
-  @ApiResponse({
-    status: 200,
-    description: 'Sales order restored successfully',
-    type: SalesOrderResponseDto,
-  })
-  @ApiResponse({ status: 404, description: 'Sales order not found' })
-  @ApiResponse({ status: 409, description: 'Sales order is not deleted' })
-  async restoreSalesOrder(
-    @Param('id', ParseUUIDPipe) id: string,
-    @CurrentUser('userId') currentUserId: string,
-    @CurrentUser('username') currentUsername: string,
-  ): Promise<SalesOrderResponseDto> {
-    return this.salesOrderService.restore(id, currentUserId, currentUsername);
-  }
-
-  @Post('bulk-restore')
-  @ApiOperation({ summary: 'Bulk restore soft-deleted sales orders' })
-  @ApiResponse({
-    status: 200,
-    description: 'Sales orders restored successfully',
-  })
-  @ApiResponse({ status: 400, description: 'Invalid sales order IDs or sales orders are not deleted' })
-  @ApiBody({
-    schema: {
-      type: 'object',
-      properties: {
-        salesOrderIds: {
-          type: 'array',
-          items: { type: 'string', format: 'uuid' },
-          description: 'Array of sales order IDs to restore'
-        }
-      },
-      required: ['salesOrderIds']
-    }
-  })
+  @Post(':id/cancel')
+  @ApiOperation({ summary: 'Cancel order (DRAFT + UNPAID only)' })
+  @ApiParam({ name: 'id', type: 'string' })
   @HttpCode(HttpStatus.OK)
-  async bulkRestore(
-    @Body() body: { salesOrderIds: string[] },
-    @CurrentUser('userId') currentUserId: string,
-    @CurrentUser('username') currentUsername: string,
-  ): Promise<{ message: string; restoredCount: number; failedIds: string[] }> {
-    const result = await this.salesOrderService.bulkRestore(
-      body.salesOrderIds,
-      currentUserId,
-      currentUsername,
-    );
-    return {
-      message: `Successfully restored ${result.successCount} of ${body.salesOrderIds.length} sales orders`,
-      restoredCount: result.successCount,
-      failedIds: result.failedItems.map(item => item.id),
-    };
-  }
-
-  @Post('bulk-permanent-delete')
-  @ApiOperation({ summary: 'Bulk permanently delete sales orders from database' })
-  @ApiResponse({
-    status: 200,
-    description: 'Sales orders permanently deleted successfully',
-  })
-  @ApiResponse({ status: 400, description: 'Invalid sales order IDs or sales orders have active references' })
-  @ApiBody({
-    schema: {
-      type: 'object',
-      properties: {
-        salesOrderIds: {
-          type: 'array',
-          items: { type: 'string', format: 'uuid' },
-          description: 'Array of sales order IDs to permanently delete'
-        }
-      },
-      required: ['salesOrderIds']
-    }
-  })
-  @HttpCode(HttpStatus.OK)
-  async bulkPermanentDelete(
-    @Body() body: { salesOrderIds: string[] },
-    @CurrentUser('userId') currentUserId: string,
-    @CurrentUser('username') currentUsername: string,
-  ): Promise<{ message: string; deletedCount: number; failedIds: string[] }> {
-    const result = await this.salesOrderService.bulkPermanentDelete(
-      body.salesOrderIds,
-      currentUserId,
-      currentUsername,
-    );
-    return {
-      message: `Successfully permanently deleted ${result.successCount} of ${body.salesOrderIds.length} sales orders`,
-      deletedCount: result.successCount,
-      failedIds: result.failedItems.map(item => item.id),
-    };
-  }
-
-  @Delete(':id/permanent')
-  @ApiOperation({ summary: 'Permanently delete a sales order from database' })
-  @ApiResponse({
-    status: 204,
-    description: 'Sales order permanently deleted successfully',
-  })
-  @ApiResponse({ status: 404, description: 'Sales order not found' })
-  @ApiResponse({
-    status: 400,
-    description: 'Sales order must be soft-deleted first or has active references'
-  })
-  @ApiParam({ name: 'id', description: 'Sales order ID' })
-  @HttpCode(HttpStatus.NO_CONTENT)
-  async permanentDelete(
+  async cancelOrder(
     @Param('id', ParseUUIDPipe) id: string,
-    @CurrentUser('userId') currentUserId: string,
-    @CurrentUser('username') currentUsername: string,
-  ): Promise<void> {
-    await this.salesOrderService.permanentDelete(id, currentUserId, currentUsername);
+    @CurrentUser('userId') userId: string,
+    @CurrentUser('username') username: string,
+  ) {
+    const data = await this.salesOrderService.cancel(id, userId, username);
+    return { data };
   }
 
+  @Post(':id/uncancel')
+  @ApiOperation({ summary: 'Uncancel order (CANCELLED -> DRAFT)' })
+  @ApiParam({ name: 'id', type: 'string' })
+  @HttpCode(HttpStatus.OK)
+  async uncancelOrder(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser('userId') userId: string,
+    @CurrentUser('username') username: string,
+  ) {
+    const data = await this.salesOrderService.uncancel(id, userId, username);
+    return { data };
+  }
+
+  @Get(':id/payments')
+  @ApiOperation({ summary: 'List payment records for a sales order' })
+  @ApiParam({ name: 'id', type: 'string' })
+  async listPayments(@Param('id', ParseUUIDPipe) id: string) {
+    const data = await this.salesOrderService.listPayments(id);
+    return { data };
+  }
+
+  @Post(':id/payments')
+  @ApiOperation({ summary: 'Record a payment (DRAFT orders only)' })
+  @ApiParam({ name: 'id', type: 'string' })
+  @HttpCode(HttpStatus.OK)
+  async recordPayment(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: RecordPaymentDto,
+  ) {
+    const data = await this.salesOrderService.recordPayment(id, dto);
+    return { data };
+  }
+
+  @Post(':id/refunds')
+  @ApiOperation({ summary: 'Record a refund (creates negative payment record)' })
+  @ApiParam({ name: 'id', type: 'string' })
+  @HttpCode(HttpStatus.OK)
+  async recordRefund(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: RecordRefundDto,
+  ) {
+    const data = await this.salesOrderService.recordRefund(id, dto);
+    return { data };
+  }
+
+  @Post(':id/duplicate')
+  @ApiOperation({ summary: 'Duplicate sales order' })
+  @ApiParam({ name: 'id', type: 'string' })
+  async duplicateOrder(@Param('id', ParseUUIDPipe) id: string): Promise<SalesOrderResponseDto> {
+    return this.salesOrderService.duplicateOrder(id, null);
+  }
 }

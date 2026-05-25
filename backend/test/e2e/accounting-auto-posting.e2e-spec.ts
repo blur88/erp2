@@ -339,8 +339,8 @@ describe('Accounting Auto-Posting Integration (E2E)', () => {
       const fulfilledOrder = await salesOrderService.fulfillOrder(savedOrder.id);
 
       // Verify order is fulfilled
-      expect(fulfilledOrder.isFulfilled).toBe(true);
-      expect(fulfilledOrder.fulfilledDate).toBeTruthy();
+      expect(fulfilledOrder.status).toBe('FULFILLED');
+      expect(fulfilledOrder.updatedAt).toBeTruthy();
 
       // Verify journal entry was created
       const journalEntries = await journalEntryRepo.find({
@@ -435,7 +435,7 @@ describe('Accounting Auto-Posting Integration (E2E)', () => {
 
       // Fulfillment should succeed
       const fulfilledOrder = await salesOrderService.fulfillOrder(savedOrder.id);
-      expect(fulfilledOrder.isFulfilled).toBe(true);
+      expect(fulfilledOrder.status).toBe('FULFILLED');
 
       // But no journal entry should be created
       const journalEntries = await journalEntryRepo.find({
@@ -467,7 +467,7 @@ describe('Accounting Auto-Posting Integration (E2E)', () => {
 
       // Fulfillment should succeed (business transaction)
       const fulfilledOrder = await salesOrderService.fulfillOrder(savedOrder.id);
-      expect(fulfilledOrder.isFulfilled).toBe(true);
+      expect(fulfilledOrder.status).toBe('FULFILLED');
 
       // Current behavior posts using active posting period.
       const journalEntries = await journalEntryRepo.find({
@@ -1136,7 +1136,7 @@ describe('Accounting Auto-Posting Integration (E2E)', () => {
 
       // Business transaction should succeed
       const fulfilledOrder = await salesOrderService.fulfillOrder(savedOrder.id);
-      expect(fulfilledOrder.isFulfilled).toBe(true);
+      expect(fulfilledOrder.status).toBe('FULFILLED');
 
       // Current behavior posts using active posting period.
       const journalEntries = await journalEntryRepo.find({
@@ -1207,7 +1207,7 @@ describe('Accounting Auto-Posting Integration (E2E)', () => {
 
       // Fulfillment succeeds but accounting fails silently
       const fulfilledOrder = await salesOrderService.fulfillOrder(savedOrder.id);
-      expect(fulfilledOrder.isFulfilled).toBe(true);
+      expect(fulfilledOrder.status).toBe('FULFILLED');
 
       // No journal entry created
       const journalEntries = await journalEntryRepo.find({

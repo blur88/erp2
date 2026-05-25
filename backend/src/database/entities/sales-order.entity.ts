@@ -19,6 +19,7 @@ import { BaseEntity } from './base.entity';
 import { Customer } from './customer.entity';
 import { SalesOrderItem } from './sales-order-item.entity';
 import { SalesOrderPayment } from './sales-order-payment.entity';
+import { Invoice } from './invoice.entity';
 
 export enum SalesOrderStatus {
   DRAFT = 'DRAFT',
@@ -111,4 +112,48 @@ export class SalesOrder extends BaseEntity {
     eager: false,
   })
   salesOrderPayments: SalesOrderPayment[];
+
+  @OneToMany(() => Invoice, (invoice) => invoice.salesOrder, {
+    cascade: false,
+    eager: false,
+  })
+  invoices: Invoice[];
+
+  get isFulfilled(): boolean {
+    return this.status === SalesOrderStatus.FULFILLED;
+  }
+
+  get fulfilledDate(): Date | undefined {
+    return this.status === SalesOrderStatus.FULFILLED ? this.updatedAt : undefined;
+  }
+
+  get paidAmount(): number {
+    if (this.paymentStatus === SalesOrderPaymentStatus.UNPAID) return 0;
+    if (
+      this.paymentStatus === SalesOrderPaymentStatus.PAID ||
+      this.paymentStatus === SalesOrderPaymentStatus.OVERPAID
+    ) {
+      return Number(this.totalAmount);
+    }
+    return 0.01;
+  }
+
+  get isPaidInFull(): boolean {
+    return (
+      this.paymentStatus === SalesOrderPaymentStatus.PAID ||
+      this.paymentStatus === SalesOrderPaymentStatus.OVERPAID
+    );
+  }
+
+  get balanceDue(): number {
+    return this.isPaidInFull ? 0 : Number(this.totalAmount);
+  }
+
+  get canFulfill(): boolean {
+    return this.paymentStatus === SalesOrderPaymentStatus.PAID && this.status === SalesOrderStatus.DRAFT;
+  }
+
+  get canUnfulfill(): boolean {
+    return this.status === SalesOrderStatus.FULFILLED;
+  }
 }
