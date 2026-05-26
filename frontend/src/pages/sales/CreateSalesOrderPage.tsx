@@ -578,7 +578,7 @@ const CreateSalesOrderPage: React.FC = () => {
                           currency={currency}
                           theme={theme}
                           isSaving={isSaving}
-                          isLastRow={fields.length === 1}
+                          isOnlyRow={fields.length === 1}
                           getKeyHandler={getKeyHandler}
                           onProductSelect={handleProductSelect}
                           onRemove={() => remove(index)}
@@ -724,7 +724,7 @@ interface LineItemRowProps {
   currency: string
   theme: any
   isSaving: boolean
-  isLastRow: boolean
+  isOnlyRow: boolean
   getKeyHandler: (row: number, col: number) => React.KeyboardEventHandler<HTMLElement>
   onProductSelect: (index: number, product: any) => void
   onRemove: () => void
@@ -740,7 +740,7 @@ function LineItemRow({
   currency,
   theme,
   isSaving,
-  isLastRow,
+  isOnlyRow,
   getKeyHandler,
   onProductSelect,
   onRemove,
@@ -860,7 +860,10 @@ function LineItemRow({
                 setPriceFocused(true)
                 setPriceDisplay(String(field.value ?? ''))
               }}
-              onBlur={() => setPriceFocused(false)}
+              onBlur={() => {
+                setPriceFocused(false)
+                if (!priceDisplay || priceDisplay === '.') field.onChange(0)
+              }}
               onKeyDown={getKeyHandler(index, 2)}
               variant="outlined"
               disabled={isSaving}
@@ -903,7 +906,10 @@ function LineItemRow({
                   setDiscountFocused(true)
                   setDiscountDisplay(String(field.value ?? ''))
                 }}
-                onBlur={() => setDiscountFocused(false)}
+                onBlur={() => {
+                  setDiscountFocused(false)
+                  if (!discountDisplay || discountDisplay === '.') field.onChange(0)
+                }}
                 onKeyDown={getKeyHandler(index, 3)}
                 variant="outlined"
                 disabled={isSaving}
@@ -956,7 +962,7 @@ function LineItemRow({
         <IconButton
           size="small"
           onClick={onRemove}
-          disabled={isLastRow || isSaving}
+          disabled={isOnlyRow || isSaving}
           sx={{
             color: theme.palette.error.main,
             '&.Mui-disabled': { color: theme.palette.action.disabled },

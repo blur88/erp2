@@ -1,4 +1,4 @@
-import { useCallback } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 
 function focusCell(row: number, col: number) {
   const cell = document.querySelector(`[data-cell="r${row}-c${col}"]`)
@@ -12,9 +12,17 @@ export function useLineItemKeyNav(
   rowCount: number,
   onAddRow: () => void,
 ): (rowIndex: number, colIndex: number) => React.KeyboardEventHandler<HTMLElement> {
+  // Refs ensure the Enter handler always reads the current rowCount and onAddRow
+  // even when the keydown fires before React re-renders with updated props.
+  const rowCountRef = useRef(rowCount)
+  const onAddRowRef = useRef(onAddRow)
+  useEffect(() => { rowCountRef.current = rowCount }, [rowCount])
+  useEffect(() => { onAddRowRef.current = onAddRow }, [onAddRow])
+
   return useCallback(
     (rowIndex: number, colIndex: number) => (e: React.KeyboardEvent<HTMLElement>) => {
       const isAutocomplete = !!e.currentTarget.closest('.MuiAutocomplete-root')
+      const currentRowCount = rowCountRef.current
 
       if (e.shiftKey && e.key === 'Tab') {
         e.preventDefault()
@@ -32,7 +40,7 @@ export function useLineItemKeyNav(
         const nextCol = colIndex + 1
         if (nextCol < colCount) {
           focusCell(rowIndex, nextCol)
-        } else if (rowIndex + 1 < rowCount) {
+        } else if (rowIndex + 1 < currentRowCount) {
           focusCell(rowIndex + 1, 0)
         }
         return
@@ -51,7 +59,7 @@ export function useLineItemKeyNav(
 
       if (e.key === 'ArrowDown') {
         e.preventDefault()
-        if (rowIndex + 1 < rowCount) {
+        if (rowIndex + 1 < currentRowCount) {
           focusCell(rowIndex + 1, colIndex)
         }
         return
@@ -68,9 +76,9 @@ export function useLineItemKeyNav(
       if (!isAutocomplete && e.key === 'Enter') {
         e.preventDefault()
         const isLastCol = colIndex === colCount - 1
-        const isLastRow = rowIndex === rowCount - 1
+        const isLastRow = rowIndex === currentRowCount - 1
         if (isLastCol && isLastRow) {
-          onAddRow()
+          onAddRowRef.current()
           setTimeout(() => focusCell(rowIndex + 1, 0), 0)
         } else {
           const nextCol = colIndex + 1
@@ -82,6 +90,6 @@ export function useLineItemKeyNav(
         }
       }
     },
-    [colCount, rowCount, onAddRow],
+    [colCount],
   )
 }
