@@ -1,6 +1,6 @@
 import { createApi } from '@reduxjs/toolkit/query/react'
 
-import type { Customer, Invoice, PaginatedResponse, Payment, SalesOrder } from '@/types'
+import type { Customer, Invoice, PaginatedResponse, Payment, SalesOrder, SalesOrderPayment } from '@/types'
 
 import { axiosBaseQuery } from './baseQuery'
 import { normalizeSingle } from './normalizers'
@@ -158,6 +158,11 @@ export const salesApiSlice = createApi({
       query: (orderNumber) => ({ url: `/sales-orders/number/${orderNumber}` }),
       transformResponse: normalizeSingle<SalesOrder>,
       providesTags: (result) => result ? [{ type: 'SalesOrder', id: result.id }] : [],
+    }),
+    getSalesOrderPayments: builder.query<SalesOrderPayment[], string>({
+      query: (id) => ({ url: `/sales-orders/${id}/payments` }),
+      transformResponse: (response: any) => response.data ?? [],
+      providesTags: (_result, _error, id) => [{ type: 'SalesOrder', id }],
     }),
     createSalesOrder: builder.mutation<SalesOrder, Partial<SalesOrder>>({
       query: (body) => ({ url: '/sales-orders', method: 'POST', data: body }),
@@ -403,6 +408,7 @@ export const {
   useGetSalesOrdersQuery,
   useGetSalesOrderQuery,
   useGetSalesOrderByNumberQuery,
+  useGetSalesOrderPaymentsQuery,
   useLazyGetSalesOrderByNumberQuery,
   useLazyGetSalesOrderQuery,
   useCreateSalesOrderMutation,

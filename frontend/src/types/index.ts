@@ -264,6 +264,22 @@ export interface SalesOrderItem {
   total: number;
 }
 
+export interface SalesOrderPayment {
+  id: string;
+  salesOrderId: string;
+  paymentMethodId: string;
+  paymentMethod?: {
+    id: string;
+    name: string;
+  };
+  referenceNumber?: string;
+  amount: number;
+  paymentDate: string;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface Invoice {
   id: string;
   invoiceNumber: string;
