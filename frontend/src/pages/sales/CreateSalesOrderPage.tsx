@@ -5,6 +5,7 @@ import {
   Box,
   Card,
   CardContent,
+  CircularProgress,
   Grid,
   IconButton,
   MenuItem,
@@ -163,6 +164,7 @@ const CreateSalesOrderPage: React.FC = () => {
   const { currency } = useCurrency()
 
   const [loadingOrder, setLoadingOrder] = useState(false)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [orderToLoad, setOrderToLoad] = useState<any>(null)
   const [editingOrderId, setEditingOrderId] = useState<string | null>(null)
   const [selectedCustomer, setSelectedCustomer] = useState<any>(null)
@@ -287,7 +289,7 @@ const CreateSalesOrderPage: React.FC = () => {
           setOrderToLoad(order)
         })
         .catch((err: any) => {
-          showError(err?.data?.message || err?.response?.data?.message || 'Failed to load sales order')
+          setLoadError(err?.data?.message || err?.response?.data?.message || 'Failed to load sales order')
           setLoadingOrder(false)
         })
     }
@@ -391,9 +393,13 @@ const CreateSalesOrderPage: React.FC = () => {
   if (loadingOrder) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', pt: 10 }}>
-        <Typography>Loading sales order...</Typography>
+        <CircularProgress />
       </Box>
     )
+  }
+
+  if (loadError) {
+    return <Alert severity="error">{loadError}</Alert>
   }
 
   return (
@@ -701,8 +707,8 @@ const CreateSalesOrderPage: React.FC = () => {
 
       <ConfirmationDialog
         open={showDiscardDialog}
-        title="Discard this order?"
-        message="You will lose all entered data."
+        title="Discard changes?"
+        message="You have unsaved changes. Are you sure you want to leave without saving?"
         confirmText="Discard"
         cancelText="Keep editing"
         severity="warning"
