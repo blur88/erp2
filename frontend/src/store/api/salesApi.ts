@@ -235,6 +235,18 @@ export const salesApiSlice = createApi({
       transformResponse: (response: any) => normalizeSingle<SalesOrder>(response?.data ?? response),
       invalidatesTags: ['SalesOrder', 'Invoice', 'Payment'],
     }),
+    recordOrderRefunds: builder.mutation<
+      SalesOrder,
+      { id: string; refunds: { paymentMethodId: string; amount: number; reference?: string }[] }
+    >({
+      query: ({ id, refunds }) => ({
+        url: `/sales-orders/${id}/refunds`,
+        method: 'POST',
+        data: { refunds },
+      }),
+      transformResponse: (response: any) => normalizeSingle<SalesOrder>(response?.data ?? response),
+      invalidatesTags: ['SalesOrder', 'Invoice', 'Payment'],
+    }),
     unpaySalesOrder: builder.mutation<SalesOrder, string>({
       query: (id) => ({ url: `/sales-orders/${id}/unpay`, method: 'POST' }),
       transformResponse: (response: any) => normalizeSingle<SalesOrder>(response?.data ?? response),
@@ -422,6 +434,7 @@ export const {
   useDuplicateSalesOrderMutation,
   useRecordOrderPaymentMutation,
   useRecordOrderPaymentsMutation,
+  useRecordOrderRefundsMutation,
   useUnpaySalesOrderMutation,
   useFulfillSalesOrderMutation,
   useUnfulfillSalesOrderMutation,
