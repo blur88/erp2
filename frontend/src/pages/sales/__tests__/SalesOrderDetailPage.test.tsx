@@ -16,6 +16,7 @@ const {
   mockUnfulfill,
   mockCancel,
   mockRecordPayments,
+  mockRecordRefunds,
 } = vi.hoisted(() => ({
   mockNavigate: vi.fn(),
   mockGetSalesOrderByNumber: vi.fn(),
@@ -23,6 +24,7 @@ const {
   mockUnfulfill: vi.fn(),
   mockCancel: vi.fn(),
   mockRecordPayments: vi.fn(),
+  mockRecordRefunds: vi.fn(),
 }))
 
 vi.mock('react-router-dom', async (importOriginal) => {
@@ -46,6 +48,7 @@ vi.mock('@/store/api/salesApi', async (importOriginal) => {
     useUnfulfillSalesOrderMutation: () => [mockUnfulfill, { isLoading: false }],
     useCancelSalesOrderMutation: () => [mockCancel, { isLoading: false }],
     useRecordOrderPaymentsMutation: () => [mockRecordPayments, { isLoading: false }],
+    useRecordOrderRefundsMutation: () => [mockRecordRefunds, { isLoading: false }],
   }
 })
 
@@ -54,6 +57,7 @@ vi.mock('../components/OrderPaymentsTab', () => ({ default: () => <div>PaymentsT
 vi.mock('../components/OrderJournalEntriesTab', () => ({ default: () => <div>JournalTab</div> }))
 vi.mock('@/components/print/SalesOrderPrint', () => ({ default: () => <div>PrintDialog</div> }))
 vi.mock('@/components/sales/PaymentDialog', () => ({ default: () => <div>PaymentDialog</div> }))
+vi.mock('@/components/sales/RefundDialog', () => ({ default: () => <div>RefundDialog</div> }))
 
 function makeOrder(overrides: Partial<SalesOrder> = {}): SalesOrder {
   return {
@@ -165,10 +169,10 @@ describe('SalesOrderDetailPage', () => {
     expect(screen.getByText('PaymentDialog')).toBeInTheDocument()
   })
 
-  it('opens PaymentDialog when Refund is clicked', async () => {
+  it('opens RefundDialog when Refund is clicked', async () => {
     mockGetSalesOrderByNumber.mockReturnValue({ data: makeOrder({ status: 'DRAFT', paymentStatus: 'PAID' }), isLoading: false })
     renderPage()
     await userEvent.click(screen.getByRole('button', { name: 'Refund' }))
-    expect(screen.getByText('PaymentDialog')).toBeInTheDocument()
+    expect(screen.getByText('RefundDialog')).toBeInTheDocument()
   })
 })
