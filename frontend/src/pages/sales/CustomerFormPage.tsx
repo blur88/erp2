@@ -304,7 +304,7 @@ const CustomerFormPage: React.FC = () => {
   }, [hasNameDuplicate])
 
   const cancelDestination = returnTo === 'sales-order'
-    ? '/sales/sales-orders/create'
+    ? '/sales/orders/create'
     : returnTo === 'profile' && profilePath
       ? profilePath
       : '/sales/customers'
@@ -373,7 +373,7 @@ const CustomerFormPage: React.FC = () => {
       }
 
       if (returnTo === 'sales-order') {
-        navigate('/sales/sales-orders/create', {
+        navigate('/sales/orders/create', {
           state: { preselectCustomerId: savedCustomer.id },
         })
       } else if (returnTo === 'profile' && profilePath) {
