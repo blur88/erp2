@@ -1,8 +1,9 @@
 import { FilterSelect } from './FilterSelect'
 
 const ORDER_STATUS_OPTIONS = [
-  { value: 'unfulfilled', label: 'Unfulfilled' },
-  { value: 'fulfilled', label: 'Fulfilled' },
+  { value: 'DRAFT', label: 'Draft' },
+  { value: 'FULFILLED', label: 'Fulfill' },
+  { value: 'CANCELLED', label: 'Cancelled' },
 ]
 
 interface Props {
