@@ -77,14 +77,14 @@ export default function RefundDialog({
   }, [open])
 
   useEffect(() => {
-    if (!open || lines.length > 0 || paymentMethods.length === 0) return
+    if (!open || lines.length > 0 || paymentMethods.length === 0 || loadingPayments) return
     const cashMethod = paymentMethods.find((m) => m.code === 'CASH')
     setLines([{
       paymentMethodId: cashMethod?.id || paymentMethods[0]?.id || '',
       amount: availableForRefund > 0 ? availableForRefund : '',
       reference: '',
     }])
-  }, [open, paymentMethods, lines.length, availableForRefund])
+  }, [open, paymentMethods, lines.length, availableForRefund, loadingPayments])
 
   const totalEntered = lines.reduce(
     (sum, l) => sum + (typeof l.amount === 'number' ? l.amount : parseFloat(l.amount as string) || 0),
