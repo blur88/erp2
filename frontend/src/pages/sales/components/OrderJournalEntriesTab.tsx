@@ -15,6 +15,7 @@ import { Link as RouterLink } from 'react-router-dom'
 
 import { TABLE_STYLES } from '@/constants/tableStyles'
 import { useGetJournalEntriesQuery } from '@/store/api/accountingApi'
+import type { JournalEntryLine } from '@/types'
 import { formatCurrency, formatDate } from '@/utils/formatters'
 
 interface OrderJournalEntriesTabProps {
@@ -22,7 +23,7 @@ interface OrderJournalEntriesTabProps {
 }
 
 export default function OrderJournalEntriesTab({ orderId }: OrderJournalEntriesTabProps) {
-  const { data, isLoading } = useGetJournalEntriesQuery({ sourceType: 'sales_order', sourceId: orderId })
+  const { data, isLoading, isError } = useGetJournalEntriesQuery({ sourceType: 'sales_order', sourceId: orderId })
   const entries = data?.data ?? []
 
   if (isLoading) {
@@ -30,6 +31,14 @@ export default function OrderJournalEntriesTab({ orderId }: OrderJournalEntriesT
       <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
         <CircularProgress />
       </Box>
+    )
+  }
+
+  if (isError) {
+    return (
+      <Typography sx={{ color: 'text.secondary', py: 4, textAlign: 'center' }}>
+        Failed to load journal entries.
+      </Typography>
     )
   }
 
@@ -55,8 +64,8 @@ export default function OrderJournalEntriesTab({ orderId }: OrderJournalEntriesT
         </TableHead>
         <TableBody>
           {entries.map((entry) => {
-            const totalDebit = (entry.lines ?? []).reduce((sum: number, line: any) => sum + Number(line.debitAmount), 0)
-            const totalCredit = (entry.lines ?? []).reduce((sum: number, line: any) => sum + Number(line.creditAmount), 0)
+            const totalDebit = (entry.lines ?? []).reduce((sum: number, line: JournalEntryLine) => sum + Number(line.debitAmount), 0)
+            const totalCredit = (entry.lines ?? []).reduce((sum: number, line: JournalEntryLine) => sum + Number(line.creditAmount), 0)
 
             return (
               <TableRow key={entry.id} hover>

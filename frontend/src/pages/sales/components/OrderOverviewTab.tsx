@@ -20,6 +20,9 @@ import { TABLE_STYLES } from '@/constants/tableStyles'
 import type { SalesOrder, SalesOrderItem } from '@/types'
 import { formatCurrency, formatDate } from '@/utils/formatters'
 
+import { SalesOrderPaymentStatusChip } from './SalesOrderPaymentStatusChip'
+import { SalesOrderStatusChip } from './SalesOrderStatusChip'
+
 interface OrderOverviewTabProps {
   order: SalesOrder
 }
@@ -55,8 +58,8 @@ function formatDiscount(item: SalesOrderItem & Record<string, unknown>): string 
 
 export default function OrderOverviewTab({ order }: OrderOverviewTabProps) {
   const items = (order.items ?? []) as (SalesOrderItem & Record<string, unknown>)[]
-  const subtotal = (order as SalesOrder & { subtotal?: number }).subtotal ?? order.totalAmount
-  const shippingAmount = (order as SalesOrder & { shippingAmount?: number }).shippingAmount ?? 0
+  const subtotal = order.subtotal ?? order.totalAmount
+  const shippingAmount = order.shippingAmount ?? 0
   const paidAmount = order.paidAmount ?? 0
   const balance = order.balanceDue ?? order.totalAmount - paidAmount
 
@@ -92,6 +95,15 @@ export default function OrderOverviewTab({ order }: OrderOverviewTabProps) {
               <Typography variant="h6" gutterBottom>
                 Summary
               </Typography>
+              <Field
+                label="Status"
+                value={
+                  <Box sx={{ display: 'flex', gap: 1 }}>
+                    <SalesOrderStatusChip status={order.status} />
+                    <SalesOrderPaymentStatusChip status={order.paymentStatus} />
+                  </Box>
+                }
+              />
               <Field label="Total Amount" value={formatCurrency(order.totalAmount)} />
               <Field label="Shipping Fee" value={formatCurrency(shippingAmount)} />
               <Field label="Paid Amount" value={formatCurrency(paidAmount)} />

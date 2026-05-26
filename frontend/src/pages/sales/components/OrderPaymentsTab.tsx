@@ -21,13 +21,21 @@ interface OrderPaymentsTabProps {
 }
 
 export default function OrderPaymentsTab({ orderId, totalAmount }: OrderPaymentsTabProps) {
-  const { data: payments = [], isLoading } = useGetSalesOrderPaymentsQuery(orderId)
+  const { data: payments = [], isLoading, isError } = useGetSalesOrderPaymentsQuery(orderId)
 
   if (isLoading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
         <CircularProgress />
       </Box>
+    )
+  }
+
+  if (isError) {
+    return (
+      <Typography sx={{ color: 'text.secondary', py: 4, textAlign: 'center' }}>
+        Failed to load payments.
+      </Typography>
     )
   }
 

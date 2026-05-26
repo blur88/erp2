@@ -33,6 +33,7 @@ interface PaymentDialogProps {
   orderNumber: string
   totalAmount: number
   paidAmount: number
+  title?: string
 }
 
 const formatCurrency = (amount: number) => {
@@ -46,6 +47,7 @@ export default function PaymentDialog({
   orderNumber,
   totalAmount,
   paidAmount,
+  title,
 }: PaymentDialogProps) {
   const outstandingBalance = Math.max(0, totalAmount - paidAmount)
   const { data: paymentMethods = [] } = useGetActivePaymentMethodsQuery(undefined, { skip: !open })
@@ -121,7 +123,7 @@ export default function PaymentDialog({
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>Record Payment &mdash; {orderNumber}</DialogTitle>
+      <DialogTitle>{title ?? `Record Payment — ${orderNumber}`}</DialogTitle>
       <DialogContent>
         {/* Order Summary */}
         <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1, mt: 1 }}>

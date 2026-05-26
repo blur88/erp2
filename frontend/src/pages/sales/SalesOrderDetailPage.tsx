@@ -227,6 +227,7 @@ export default function SalesOrderDetailPage() {
           orderNumber={order.orderNumber}
           totalAmount={order.totalAmount}
           paidAmount={order.paidAmount ?? 0}
+          title={activeDialog === 'refund' ? `Refund — ${order.orderNumber}` : undefined}
         />
       )}
 

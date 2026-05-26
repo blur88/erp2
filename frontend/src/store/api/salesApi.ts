@@ -162,7 +162,7 @@ export const salesApiSlice = createApi({
     getSalesOrderPayments: builder.query<SalesOrderPayment[], string>({
       query: (id) => ({ url: `/sales-orders/${id}/payments` }),
       transformResponse: (response: any) => response.data ?? [],
-      providesTags: (_result, _error, id) => [{ type: 'SalesOrder', id }],
+      providesTags: (_result, _error, id) => ['SalesOrder', { type: 'SalesOrder', id }],
     }),
     createSalesOrder: builder.mutation<SalesOrder, Partial<SalesOrder>>({
       query: (body) => ({ url: '/sales-orders', method: 'POST', data: body }),

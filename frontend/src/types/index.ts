@@ -234,6 +234,8 @@ export interface SalesOrder {
   isShippable?: boolean;
   isCompleted?: boolean;
   fullShippingAddress?: string;
+  subtotal?: number;
+  shippingAmount?: number;
   // Legacy compatibility
   total?: number;
   discount?: number;
