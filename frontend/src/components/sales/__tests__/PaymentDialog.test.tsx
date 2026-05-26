@@ -97,6 +97,9 @@ describe('PaymentDialog', () => {
 
   it('Cancel with data shows discard confirmation', async () => {
     renderDialog({ totalAmount: 1000, paidAmount: 0 })
+    const amountInput = screen.getByPlaceholderText('Amount')
+    await userEvent.clear(amountInput)
+    await userEvent.type(amountInput, '300')
     await userEvent.click(screen.getByRole('button', { name: /cancel/i }))
     expect(screen.getByText('Discard this payment?')).toBeInTheDocument()
   })
@@ -104,6 +107,8 @@ describe('PaymentDialog', () => {
   it('clicking Discard in confirmation calls onClose', async () => {
     const onClose = vi.fn()
     renderDialog({ totalAmount: 1000, paidAmount: 0, onClose })
+    await userEvent.clear(screen.getByPlaceholderText('Amount'))
+    await userEvent.type(screen.getByPlaceholderText('Amount'), '100')
     await userEvent.click(screen.getByRole('button', { name: /cancel/i }))
     await userEvent.click(screen.getByRole('button', { name: /^discard$/i }))
     expect(onClose).toHaveBeenCalledOnce()
@@ -112,9 +117,53 @@ describe('PaymentDialog', () => {
   it('clicking Keep Editing dismisses confirmation and keeps dialog open', async () => {
     const onClose = vi.fn()
     renderDialog({ totalAmount: 1000, paidAmount: 0, onClose })
+    await userEvent.clear(screen.getByPlaceholderText('Amount'))
+    await userEvent.type(screen.getByPlaceholderText('Amount'), '100')
     await userEvent.click(screen.getByRole('button', { name: /cancel/i }))
     await userEvent.click(screen.getByRole('button', { name: /keep editing/i }))
     expect(onClose).not.toHaveBeenCalled()
+    expect(screen.queryByText('Discard this payment?')).not.toBeInTheDocument()
+  })
+
+  it('Cancel on untouched dialog (pre-filled amount) closes without confirmation', async () => {
+    // F2: pre-filled outstandingBalance must not count as user input
+    const onClose = vi.fn()
+    renderDialog({ totalAmount: 1000, paidAmount: 0, onClose })
+    // Do NOT interact with any field — just cancel immediately
+    await userEvent.click(screen.getByRole('button', { name: /cancel/i }))
+    expect(onClose).toHaveBeenCalledOnce()
+    expect(screen.queryByText('Discard this payment?')).not.toBeInTheDocument()
+  })
+
+  it('Cancel after editing an amount shows discard confirmation', async () => {
+    // F2: confirmation only shown after actual user interaction
+    renderDialog({ totalAmount: 1000, paidAmount: 0 })
+    const amountInput = screen.getByPlaceholderText('Amount')
+    await userEvent.clear(amountInput)
+    await userEvent.type(amountInput, '200')
+    await userEvent.click(screen.getByRole('button', { name: /cancel/i }))
+    expect(screen.getByText('Discard this payment?')).toBeInTheDocument()
+  })
+
+  it('Escape / backdrop on outer dialog shows discard confirmation when user has edited', async () => {
+    // F1: backdrop/Escape must go through same dirty guard as Cancel button
+    const onClose = vi.fn()
+    renderDialog({ totalAmount: 1000, paidAmount: 0, onClose })
+    const amountInput = screen.getByPlaceholderText('Amount')
+    await userEvent.clear(amountInput)
+    await userEvent.type(amountInput, '200')
+    // Pressing Escape triggers the outer Dialog's onClose
+    await userEvent.keyboard('{Escape}')
+    expect(onClose).not.toHaveBeenCalled()
+    expect(screen.getByText('Discard this payment?')).toBeInTheDocument()
+  })
+
+  it('Escape on untouched dialog closes immediately without confirmation', async () => {
+    // F1: backdrop/Escape on clean dialog should close directly
+    const onClose = vi.fn()
+    renderDialog({ totalAmount: 1000, paidAmount: 0, onClose })
+    await userEvent.keyboard('{Escape}')
+    expect(onClose).toHaveBeenCalledOnce()
     expect(screen.queryByText('Discard this payment?')).not.toBeInTheDocument()
   })
 

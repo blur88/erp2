@@ -55,29 +55,34 @@ export default function PaymentDialog({
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [confirmDiscard, setConfirmDiscard] = useState(false)
+  const [userHasEdited, setUserHasEdited] = useState(false)
 
-  const isDirty = lines.some(
-    (l) => (l.amount !== '' && l.amount !== 0) || l.reference !== '',
-  )
-
-  // Reset state and initialize first line when dialog opens or payment methods load
+  // Reset all state when the dialog opens
   useEffect(() => {
     if (!open) return
     setError(null)
     setSubmitting(false)
     setConfirmDiscard(false)
+    setUserHasEdited(false)
+    setLines([])
+  }, [open])
+
+  // Seed the first line once payment methods are available (only when lines are empty)
+  useEffect(() => {
+    if (!open || lines.length > 0) return
     const cashMethod = paymentMethods.find((m) => m.code === 'CASH')
     setLines([{
       paymentMethodId: cashMethod?.id || paymentMethods[0]?.id || '',
       amount: outstandingBalance > 0 ? outstandingBalance : '',
       reference: '',
     }])
-  }, [open, paymentMethods])
+  }, [open, paymentMethods, lines.length])
 
   const totalEntered = lines.reduce((sum, l) => sum + (typeof l.amount === 'number' ? l.amount : parseFloat(l.amount as string) || 0), 0)
   const remaining = outstandingBalance - totalEntered
 
   const updateLine = useCallback((index: number, field: keyof PaymentLine, value: any) => {
+    setUserHasEdited(true)
     setLines(prev => {
       const updated = [...prev]
       updated[index] = { ...updated[index], [field]: value }
@@ -86,6 +91,7 @@ export default function PaymentDialog({
   }, [])
 
   const addLine = useCallback(() => {
+    setUserHasEdited(true)
     const cashMethod = paymentMethods.find((m) => m.code === 'CASH')
     setLines(prev => [...prev, {
       paymentMethodId: cashMethod?.id || paymentMethods[0]?.id || '',
@@ -95,6 +101,7 @@ export default function PaymentDialog({
   }, [paymentMethods, remaining])
 
   const removeLine = useCallback((index: number) => {
+    setUserHasEdited(true)
     setLines(prev => prev.length > 1 ? prev.filter((_, i) => i !== index) : prev)
   }, [])
 
@@ -127,8 +134,16 @@ export default function PaymentDialog({
 
   const isOverpaying = totalEntered > outstandingBalance && outstandingBalance > 0
 
+  const handleRequestClose = () => {
+    if (userHasEdited) {
+      setConfirmDiscard(true)
+    } else {
+      onClose()
+    }
+  }
+
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+    <Dialog open={open} onClose={handleRequestClose} maxWidth="sm" fullWidth>
       <DialogTitle>{title ?? `Record Payment — ${orderNumber}`}</DialogTitle>
       <DialogContent>
         {/* Order Summary */}
@@ -247,16 +262,7 @@ export default function PaymentDialog({
         )}
       </DialogContent>
       <DialogActions>
-        <Button
-          onClick={() => {
-            if (isDirty) {
-              setConfirmDiscard(true)
-            } else {
-              onClose()
-            }
-          }}
-          disabled={submitting}
-        >
+        <Button onClick={handleRequestClose} disabled={submitting}>
           Cancel
         </Button>
         <Button
