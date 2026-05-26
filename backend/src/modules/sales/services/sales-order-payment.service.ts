@@ -125,6 +125,15 @@ export class SalesOrderPaymentService {
     return saved;
   }
 
+  async recordRefunds(orderId: string, dtos: RecordPaymentDto[], userId?: string, username?: string): Promise<SalesOrderPayment[]> {
+    const results: SalesOrderPayment[] = []
+    for (const dto of dtos) {
+      const saved = await this.recordRefund(orderId, dto, userId, username)
+      results.push(saved)
+    }
+    return results
+  }
+
   async listPayments(orderId: string): Promise<SalesOrderPayment[]> {
     const order = await this.salesOrderRepository.findOne({ where: { id: orderId } });
     if (!order) throw new NotFoundException('Sales order not found');

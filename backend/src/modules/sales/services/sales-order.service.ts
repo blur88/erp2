@@ -723,6 +723,10 @@ export class SalesOrderService extends BaseCrudService<
     return this.salesOrderQueryService.findById(orderId);
   }
 
+  async recordRefunds(orderId: string, dtos: RecordPaymentDto[], userId?: string, username?: string) {
+    return this.salesOrderPaymentService.recordRefunds(orderId, dtos, userId, username)
+  }
+
   async listPayments(orderId: string) {
     return this.salesOrderPaymentService.listPayments(orderId);
   }
