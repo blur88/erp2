@@ -279,6 +279,7 @@ const CreateSalesOrderPage: React.FC = () => {
   useEffect(() => {
     if (isEditMode && orderNumber) {
       setLoadingOrder(true)
+      setLoadError(null)
       triggerGetSalesOrderByNumber(orderNumber)
         .unwrap()
         .then((order: any) => {
@@ -296,7 +297,9 @@ const CreateSalesOrderPage: React.FC = () => {
   }, [isEditMode, orderNumber])
 
   useEffect(() => {
-    if (!orderToLoad || !products.length) return
+    if (!orderToLoad) return
+    const needsProducts = orderToLoad.items?.some((i: any) => i.product)
+    if (needsProducts && !products.length) return
     reset({
       customerId: orderToLoad.customerId || orderToLoad.customer?.id || '',
       orderDate: orderToLoad.orderDate
@@ -399,7 +402,16 @@ const CreateSalesOrderPage: React.FC = () => {
   }
 
   if (loadError) {
-    return <Alert severity="error">{loadError}</Alert>
+    return (
+      <>
+        <PageHeader
+          variant="workflow"
+          title="Edit Sales Order"
+          backAction={() => navigate('/sales/orders')}
+        />
+        <Alert severity="error">{loadError}</Alert>
+      </>
+    )
   }
 
   return (

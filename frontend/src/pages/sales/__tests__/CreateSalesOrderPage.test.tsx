@@ -586,7 +586,7 @@ describe('CreateSalesOrderPage — edit mode', { timeout: 60000 }, () => {
     )
 
     await waitFor(() => {
-      expect(document.querySelector('.MuiCircularProgress-root')).toBeInTheDocument()
+      expect(screen.getByRole('progressbar')).toBeInTheDocument()
     })
   })
 
