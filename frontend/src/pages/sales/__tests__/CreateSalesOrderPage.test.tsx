@@ -445,7 +445,7 @@ describe('CreateSalesOrderPage — new features', () => {
     await user.click(screen.getByRole('button', { name: /^cancel$/i }))
 
     await waitFor(() => {
-      expect(screen.getByText(/discard this order/i)).toBeInTheDocument()
+      expect(screen.getByText(/discard changes/i)).toBeInTheDocument()
     })
   })
 
@@ -462,7 +462,7 @@ describe('CreateSalesOrderPage — new features', () => {
     await waitFor(() => {
       expect(mockNavigate).toHaveBeenCalledWith('/sales/orders')
     })
-    expect(screen.queryByText(/discard this order/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/discard changes/i)).not.toBeInTheDocument()
   })
 
   it('shows customer validation error when submitting without a customer', async () => {
