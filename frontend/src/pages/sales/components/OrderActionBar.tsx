@@ -13,23 +13,25 @@ interface OrderActionBarProps {
   onPrint: () => void
 }
 
-export function getOrderActions(order: SalesOrder) {
+type OrderAction = 'pay' | 'fulfill' | 'unfulfill' | 'refund' | 'edit' | 'cancel' | 'print'
+
+export function getOrderActions(order: SalesOrder): OrderAction[] {
   const { status, paymentStatus } = order
   const isPaid = paymentStatus === 'PAID' || paymentStatus === 'OVERPAID'
 
   if (status === 'CANCELLED') {
-    return ['print'] as const
+    return ['print']
   }
 
   if (status === 'FULFILLED') {
-    return ['unfulfill', 'refund', 'print'] as const
+    return ['unfulfill', 'refund', 'print']
   }
 
   if (status === 'DRAFT' && isPaid) {
-    return ['fulfill', 'refund', 'edit', 'cancel', 'print'] as const
+    return ['fulfill', 'refund', 'edit', 'cancel', 'print']
   }
 
-  return ['pay', 'edit', 'cancel', 'print'] as const
+  return ['pay', 'edit', 'cancel', 'print']
 }
 
 export default function OrderActionBar({
