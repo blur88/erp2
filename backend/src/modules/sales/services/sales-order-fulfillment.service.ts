@@ -10,6 +10,7 @@ import { SalesOrder, SalesOrderPaymentStatus, SalesOrderStatus } from '../../../
 import { StockMovementService } from '../../../modules/inventory/services/stock-movement.service';
 import { AuditLogService } from '../../audit-logs/services';
 import { BaseCostCalculatorService } from '../../inventory/services/base-cost-calculator.service';
+import { AccountingService } from '../../accounting/services/accounting.service';
 import { InventoryIntegrationService } from './inventory-integration.service';
 
 @Injectable()
@@ -23,6 +24,7 @@ export class SalesOrderFulfillmentService {
     private readonly stockMovementService: StockMovementService,
     private readonly baseCostCalculator: BaseCostCalculatorService,
     private readonly auditLogService: AuditLogService,
+    private readonly accountingService: AccountingService,
   ) {}
 
   async fulfillOrder(id: string, userId?: string, username?: string): Promise<SalesOrder> {
@@ -60,6 +62,19 @@ export class SalesOrderFulfillmentService {
       oldValues: { status: SalesOrderStatus.DRAFT },
       newValues: { status: SalesOrderStatus.FULFILLED },
     });
+
+    try {
+      const fullOrder = await this.salesOrderRepository.findOne({
+        where: { id },
+        relations: { customer: true, items: { product: true } },
+      });
+      if (fullOrder) {
+        await this.accountingService.postSalesOrderEntry(fullOrder, userId || 'system', username);
+        this.logger.log(`Posted accounting entry for sales order ${fullOrder.orderNumber}`);
+      }
+    } catch (error) {
+      this.logger.error(`Failed to post accounting entry for sales order ${id}: ${error.message}`, error.stack);
+    }
 
     return saved;
   }

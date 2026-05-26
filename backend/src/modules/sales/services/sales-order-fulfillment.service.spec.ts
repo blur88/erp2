@@ -9,6 +9,7 @@ import { InventoryIntegrationService } from './inventory-integration.service';
 import { StockMovementService } from '../../inventory/services/stock-movement.service';
 import { BaseCostCalculatorService } from '../../inventory/services/base-cost-calculator.service';
 import { AuditLogService } from '../../audit-logs/services';
+import { AccountingService } from '../../accounting/services/accounting.service';
 
 const mockOrder = (overrides: Partial<SalesOrder> = {}): SalesOrder => ({
   id: 'order-1',
@@ -38,6 +39,7 @@ describe('SalesOrderFulfillmentService', () => {
         { provide: StockMovementService, useValue: { deleteByReference: jest.fn().mockResolvedValue({ deletedCount: 1 }) } },
         { provide: BaseCostCalculatorService, useValue: { restoreStock: jest.fn() } },
         { provide: AuditLogService, useValue: { log: jest.fn() } },
+        { provide: AccountingService, useValue: { postSalesOrderEntry: jest.fn().mockResolvedValue(undefined) } },
       ],
     }).compile();
 
@@ -67,7 +69,7 @@ describe('SalesOrderFulfillmentService', () => {
 
     it('deducts inventory and sets status FULFILLED', async () => {
       const order = mockOrder();
-      orderRepo.findOne.mockResolvedValue(order);
+      orderRepo.findOne.mockResolvedValue(order); // handles both the guard load and the accounting reload
       orderRepo.save.mockResolvedValue({ ...order, status: SalesOrderStatus.FULFILLED } as SalesOrder);
 
       await service.fulfillOrder('order-1');
