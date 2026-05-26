@@ -54,12 +54,18 @@ export default function PaymentDialog({
   const [lines, setLines] = useState<PaymentLine[]>([])
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [confirmDiscard, setConfirmDiscard] = useState(false)
+
+  const isDirty = lines.some(
+    (l) => (l.amount !== '' && l.amount !== 0) || l.reference !== '',
+  )
 
   // Reset state and initialize first line when dialog opens or payment methods load
   useEffect(() => {
     if (!open) return
     setError(null)
     setSubmitting(false)
+    setConfirmDiscard(false)
     const cashMethod = paymentMethods.find((m) => m.code === 'CASH')
     setLines([{
       paymentMethodId: cashMethod?.id || paymentMethods[0]?.id || '',
@@ -241,7 +247,18 @@ export default function PaymentDialog({
         )}
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose} disabled={submitting}>Cancel</Button>
+        <Button
+          onClick={() => {
+            if (isDirty) {
+              setConfirmDiscard(true)
+            } else {
+              onClose()
+            }
+          }}
+          disabled={submitting}
+        >
+          Cancel
+        </Button>
         <Button
           variant="contained"
           onClick={handleSubmit}
@@ -251,6 +268,17 @@ export default function PaymentDialog({
           {submitting ? 'Recording...' : 'Record Payment'}
         </Button>
       </DialogActions>
+      <Dialog
+        open={confirmDiscard}
+        onClose={() => setConfirmDiscard(false)}
+        transitionDuration={0}
+      >
+        <DialogTitle>Discard this payment?</DialogTitle>
+        <DialogActions>
+          <Button onClick={() => setConfirmDiscard(false)}>Keep Editing</Button>
+          <Button color="error" onClick={onClose}>Discard</Button>
+        </DialogActions>
+      </Dialog>
     </Dialog>
   );
 }
