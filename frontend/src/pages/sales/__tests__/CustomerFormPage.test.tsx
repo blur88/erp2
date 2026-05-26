@@ -473,7 +473,7 @@ describe('CustomerFormPage - returnTo navigation', () => {
 
     await user.click(screen.getByRole('button', { name: /cancel/i }))
 
-    expect(mockNavigate).toHaveBeenCalledWith('/sales/sales-orders/create')
+    expect(mockNavigate).toHaveBeenCalledWith('/sales/orders/create')
   })
 
   it('navigates to customer list on clean cancel when no returnTo', async () => {
@@ -495,7 +495,7 @@ describe('CustomerFormPage - returnTo navigation', () => {
 
     await user.click(screen.getByRole('button', { name: /discard/i }))
 
-    expect(mockNavigate).toHaveBeenCalledWith('/sales/sales-orders/create')
+    expect(mockNavigate).toHaveBeenCalledWith('/sales/orders/create')
   })
 
   it('navigates to customer list on discard confirm when no returnTo', async () => {
