@@ -19,6 +19,7 @@ const {
   mockUpdateSalesOrder,
   mockFetchSalesOrder,
   mockParams,
+  mockGetDocumentNumberSettings,
 } = vi.hoisted(() => ({
   mockDispatch: vi.fn(),
   mockNavigate: vi.fn(),
@@ -27,6 +28,7 @@ const {
   mockUpdateSalesOrder: vi.fn(),
   mockFetchSalesOrder: vi.fn(),
   mockParams: vi.fn(() => ({})),
+  mockGetDocumentNumberSettings: vi.fn(),
 }))
 
 vi.mock('react-router-dom', async () => {
@@ -76,6 +78,10 @@ vi.mock('@/store/api/salesApi', () => ({
   useLazyGetSalesOrderByNumberQuery: () => [mockFetchSalesOrder],
 }))
 
+vi.mock('@/store/api/settingsApi', () => ({
+  useGetDocumentNumberSettingsQuery: () => mockGetDocumentNumberSettings(),
+}))
+
 vi.mock('@/store/api/salesOrderCache', () => ({
   patchSalesOrderCaches: vi.fn(),
 }))
@@ -83,6 +89,23 @@ vi.mock('@/store/api/salesOrderCache', () => ({
 vi.mock('@/store/slices/salesSlice', () => ({
   setSelectedOrder: vi.fn((value) => ({ type: 'sales/setSelectedOrder', payload: value })),
 }))
+
+beforeEach(() => {
+  mockGetDocumentNumberSettings.mockReturnValue({
+    data: {
+      configurations: [
+        {
+          documentName: 'Sales Orders',
+          prefix: 'SO',
+          paddingDigits: 3,
+          nextNumber: 42,
+          lastResetYear: 26,
+        },
+      ],
+    },
+    isLoading: false,
+  })
+})
 
 describe('CreateSalesOrderPage product search', { timeout: 60000 }, () => {
   beforeEach(() => {
@@ -369,6 +392,152 @@ describe('CreateSalesOrderPage - preselectCustomerId', () => {
     // Manual selection should be preserved — preselect must not re-fire
     await waitFor(() => {
       expect(screen.getByRole('combobox', { name: /customer/i })).toHaveValue('Other Customer')
+    })
+  })
+})
+
+describe('CreateSalesOrderPage — new features', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockParams.mockReturnValue({})
+    customersResponse.data.data = [{ id: 'customer-1', name: 'Test Customer' }]
+    mockGet.mockResolvedValue({ data: [] })
+    mockGetDocumentNumberSettings.mockReturnValue({
+      data: {
+        configurations: [
+          {
+            documentName: 'Sales Orders',
+            prefix: 'SO',
+            paddingDigits: 3,
+            nextNumber: 42,
+            lastResetYear: 26,
+          },
+        ],
+      },
+      isLoading: false,
+    })
+  })
+
+  it('shows order number preview from DocumentNumberSettings', async () => {
+    render(
+      <BrowserRouter>
+        <CreateSalesOrderPage />
+      </BrowserRouter>,
+    )
+
+    const yy = String(new Date().getFullYear() % 100).padStart(2, '0')
+    await waitFor(() => {
+      expect(screen.getByDisplayValue(`SO-${yy}-042`)).toBeInTheDocument()
+    })
+  })
+
+  it('shows confirmation dialog when cancelling with unsaved changes', async () => {
+    const user = userEvent.setup()
+    render(
+      <BrowserRouter>
+        <CreateSalesOrderPage />
+      </BrowserRouter>,
+    )
+
+    const dateInput = screen.getByLabelText(/order date/i)
+    await user.clear(dateInput)
+    await user.type(dateInput, '2025-01-01')
+    await user.click(screen.getByRole('button', { name: /^cancel$/i }))
+
+    await waitFor(() => {
+      expect(screen.getByText(/discard this order/i)).toBeInTheDocument()
+    })
+  })
+
+  it('navigates immediately on cancel when form is untouched', async () => {
+    const user = userEvent.setup()
+    render(
+      <BrowserRouter>
+        <CreateSalesOrderPage />
+      </BrowserRouter>,
+    )
+
+    await user.click(screen.getByRole('button', { name: /^cancel$/i }))
+
+    await waitFor(() => {
+      expect(mockNavigate).toHaveBeenCalledWith('/sales/orders')
+    })
+    expect(screen.queryByText(/discard this order/i)).not.toBeInTheDocument()
+  })
+
+  it('shows customer validation error when submitting without a customer', async () => {
+    const user = userEvent.setup()
+    render(
+      <BrowserRouter>
+        <CreateSalesOrderPage />
+      </BrowserRouter>,
+    )
+
+    await user.click(screen.getByRole('button', { name: /create order/i }))
+
+    await waitFor(() => {
+      expect(screen.getByText(/customer is required/i)).toBeInTheDocument()
+    })
+    expect(mockCreateSalesOrder).not.toHaveBeenCalled()
+  })
+
+  it('shows item validation error when product is not selected', async () => {
+    const user = userEvent.setup()
+    render(
+      <BrowserRouter>
+        <CreateSalesOrderPage />
+      </BrowserRouter>,
+    )
+
+    const customerInput = screen.getByLabelText(/customer/i)
+    fireEvent.mouseDown(customerInput)
+    const listbox = await screen.findByRole('listbox')
+    fireEvent.click(within(listbox).getByText('Test Customer'))
+
+    await user.click(screen.getByRole('button', { name: /create order/i }))
+
+    await waitFor(() => {
+      expect(screen.getByText(/product is required/i)).toBeInTheDocument()
+    })
+    expect(mockCreateSalesOrder).not.toHaveBeenCalled()
+  })
+
+  it('Tab on last column moves focus to first column of the next row', async () => {
+    render(
+      <BrowserRouter>
+        <CreateSalesOrderPage />
+      </BrowserRouter>,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: /add row/i }))
+
+    const lastColFirstRow = document.querySelector('[data-cell="r0-c3"]')
+    expect(lastColFirstRow).not.toBeNull()
+
+    const input = lastColFirstRow!.querySelector('input')!
+    fireEvent.keyDown(input, { key: 'Tab', bubbles: true })
+
+    await waitFor(() => {
+      const firstColSecondRow = document.querySelector('[data-cell="r1-c0"] input')
+      expect(firstColSecondRow).toHaveFocus()
+    })
+  })
+
+  it('Enter on last col of last row appends a new row', async () => {
+    render(
+      <BrowserRouter>
+        <CreateSalesOrderPage />
+      </BrowserRouter>,
+    )
+
+    const rows = () => document.querySelectorAll('[data-cell^="r"][data-cell$="-c0"]')
+    expect(rows()).toHaveLength(1)
+
+    const discountInput = document.querySelector('[data-cell="r0-c3"] input')!
+    fireEvent.keyDown(discountInput, { key: 'Enter', bubbles: true })
+
+    await waitFor(() => {
+      expect(rows()).toHaveLength(2)
     })
   })
 })
