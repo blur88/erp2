@@ -106,6 +106,7 @@ export interface PaymentStatusFilterFieldConfig<TFilters, K extends keyof TFilte
   extends BaseFilterFieldConfig<TFilters, K> {
   type: 'payment-status'
   includeOverpaid?: boolean
+  valueCase?: 'lower' | 'upper'
 }
 
 export interface SupplierFilterFieldConfig<TFilters, K extends keyof TFilters>

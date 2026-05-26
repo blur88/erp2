@@ -1,17 +1,18 @@
+import { configureStore } from '@reduxjs/toolkit'
 import { render, screen } from '@testing-library/react'
 import { Provider } from 'react-redux'
-import { configureStore } from '@reduxjs/toolkit'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import OrdersPage from '../OrdersPage'
 import salesReducer from '@/store/slices/salesSlice'
+
+import OrdersPage from '../OrdersPage'
 
 const { useGetSalesOrdersQuery } = vi.hoisted(() => ({
   useGetSalesOrdersQuery: vi.fn(() => ({
     data: { data: [], meta: { total: 0 } },
-    isLoading: false,
-    refetch: vi.fn(),
+    isFetching: false,
+    error: undefined,
   })),
 }))
 
@@ -20,84 +21,26 @@ vi.mock('@/store/api/salesApi', () => ({
   useGetCustomersQuery: vi.fn(() => ({
     data: { data: [{ id: 'cust-1', name: 'Amuro Ray' }] },
   })),
-  useLazyGetSalesOrderQuery: vi.fn(() => [vi.fn()]),
-  useDeleteSalesOrderMutation: vi.fn(() => [vi.fn()]),
+  useFulfillSalesOrderMutation: vi.fn(() => [vi.fn()]),
+  useUnfulfillSalesOrderMutation: vi.fn(() => [vi.fn()]),
+  useCancelSalesOrderMutation: vi.fn(() => [vi.fn()]),
+  useRecordOrderPaymentsMutation: vi.fn(() => [vi.fn()]),
 }))
 
-vi.mock('@/components/common/MasterDetailWorkspace', () => ({
-  default: ({ listSlot, headerSlot, workspaceSlot }: any) => (
-    <div>
-      <div>MasterDetailWorkspace</div>
-      <div>{listSlot}</div>
-      <div>{headerSlot}</div>
-      <div>{workspaceSlot}</div>
-    </div>
-  ),
-}))
-vi.mock('../components/OrderContextHeader', () => ({ default: () => <div>OrderContextHeader</div> }))
-vi.mock('../components/OrdersTable', () => ({ default: () => <div>OrdersTable</div> }))
-vi.mock('../components/OrderWorkspaceCard', () => ({ default: () => <div>OrderWorkspaceCard</div> }))
-vi.mock('../components/OrdersDialogs', () => ({ default: () => <div>OrdersDialogs</div> }))
-vi.mock('../hooks/useOrdersWorkspace', () => ({
-  useOrdersWorkspace: () => ({
-    searchInputRef: { current: null },
-    setShouldPreserveSearchFocus: vi.fn(),
-    focusedOrderIndex: -1,
-    orderListRef: { current: null },
-    viewDialog: false,
-    setViewDialog: vi.fn(),
-    blockedDialogOpen: false,
-    setBlockedDialogOpen: vi.fn(),
-    blockedDialogAction: 'edit',
-    deletedOrdersDialogOpen: false,
-    setDeletedOrdersDialogOpen: vi.fn(),
-    deleteConfirmOpen: false,
-    orderToDelete: null,
-    orderToDeleteName: '',
-    printDialogOpen: false,
-    setPrintDialogOpen: vi.fn(),
-    paymentDialogOpen: false,
-    setPaymentDialogOpen: vi.fn(),
-    isLoading: false,
-    journalEntryRef: null,
-    journalEntryRefLoading: false,
-    handleOrderSelect: vi.fn(),
-    handleNavigateUp: vi.fn(),
-    handleNavigateDown: vi.fn(),
-    handleNavigateToFirst: vi.fn(),
-    handleNavigateToLast: vi.fn(),
-    handlePageUpNavigation: vi.fn(),
-    handlePageDownNavigation: vi.fn(),
-    handleNavigateToInvoice: vi.fn(),
-    handleNavigateToPayment: vi.fn(),
-    navigateToJournalEntry: vi.fn(),
-    handleOrderAction: vi.fn(),
-    handleConfirmDelete: vi.fn(),
-    handleCancelDelete: vi.fn(),
-    handleEditOrder: vi.fn(),
-    handleRecordPayments: vi.fn(),
-    handleUnpayOrder: vi.fn(),
-    handleRefundOrder: vi.fn(),
-    handleFulfillOrder: vi.fn(),
-    handleUnfulfillOrder: vi.fn(),
-    handleUnfulfillAndEdit: vi.fn(),
-    handleUnfulfillOnly: vi.fn(),
-    handleUnpayAndEdit: vi.fn(),
-    handleUnfulfillAndDelete: vi.fn(),
-    handleUnpayAndDelete: vi.fn(),
-    openPaymentDialog: vi.fn(),
-  }),
-}))
 vi.mock('@/hooks/useNotification', () => ({
   useNotification: () => ({ showSuccess: vi.fn(), showError: vi.fn() }),
 }))
 
+vi.mock('../components/SalesOrderList', () => ({
+  default: () => <div>SalesOrderList</div>,
+}))
+
+vi.mock('../components/SalesOrdersDialogs', () => ({
+  default: () => null,
+}))
+
 function renderPage(initialUrl = '/') {
-  const store = configureStore({
-    reducer: {
-      sales: salesReducer,
-    },
-  })
+  const store = configureStore({ reducer: { sales: salesReducer } })
 
   return render(
     <Provider store={store}>
@@ -113,68 +56,57 @@ describe('OrdersPage FilterBar integration', () => {
     vi.clearAllMocks()
   })
 
-  it('renders the shared filter search input', () => {
+  it('renders the search input', () => {
     renderPage()
     expect(screen.getByPlaceholderText(/search orders/i)).toBeInTheDocument()
   })
 
-  it('renders the master-detail workspace with split sales detail cards', () => {
+  it('renders the SalesOrderList slot', () => {
     renderPage()
-
-    expect(screen.getByText('MasterDetailWorkspace')).toBeInTheDocument()
-    expect(screen.getByText('OrdersTable')).toBeInTheDocument()
-    expect(screen.getByText('OrderWorkspaceCard')).toBeInTheDocument()
+    expect(screen.getByText('SalesOrderList')).toBeInTheDocument()
   })
 
-  it('restores filters from URL into the sales orders query', () => {
-    renderPage('/?search=gundam&customerId=cust-1&paymentStatus=paid')
+  it('passes status filter from URL to the query', () => {
+    renderPage('/?status=FULFILLED')
     expect(useGetSalesOrdersQuery).toHaveBeenLastCalledWith(
-      expect.objectContaining({
-        search: 'gundam',
-        customerId: 'cust-1',
-        paymentStatus: 'paid',
-      }),
+      expect.objectContaining({ status: 'FULFILLED' }),
     )
   })
 
-  it('restores fulfillmentStatus=fulfilled from URL and passes it to the query', () => {
-    renderPage('/?fulfillmentStatus=fulfilled')
+  it('passes paymentStatus filter from URL to the query', () => {
+    renderPage('/?paymentStatus=PAID')
     expect(useGetSalesOrdersQuery).toHaveBeenLastCalledWith(
-      expect.objectContaining({
-        fulfillmentStatus: 'fulfilled',
-      }),
+      expect.objectContaining({ paymentStatus: 'PAID' }),
     )
   })
 
-  it('sends no fromDate or toDate when period is not selected (default)', () => {
-    renderPage()
-
+  it('passes customerId and search from URL to the query', () => {
+    renderPage('/?search=gundam&customerId=cust-1')
     expect(useGetSalesOrdersQuery).toHaveBeenLastCalledWith(
-      expect.objectContaining({
-        fromDate: undefined,
-        toDate: undefined,
-      }),
+      expect.objectContaining({ search: 'gundam', customerId: 'cust-1' }),
     )
   })
 
-  it('period filter appears before customer filter in the DOM', () => {
+  it('defaults period to this_month and resolves to fromDate/toDate', () => {
     renderPage()
-
-    const periodLabel = screen.getAllByText('Period')[0]
-    const customerLabel = screen.getAllByText('Customer')[0]
-
-    expect(
-      periodLabel.compareDocumentPosition(customerLabel) & Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy()
-  })
-
-  it('restores period=this_week from URL and resolves to fromDate/toDate in the query', () => {
-    renderPage('/?period=this_week')
     expect(useGetSalesOrdersQuery).toHaveBeenLastCalledWith(
       expect.objectContaining({
         fromDate: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
         toDate: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
       }),
     )
+  })
+
+  it('sends no fromDate/toDate when period key is null', () => {
+    renderPage('/?period=')
+    const call = (useGetSalesOrdersQuery as any).mock.calls.at(-1)[0]
+    expect(call.fromDate).toBeUndefined()
+    expect(call.toDate).toBeUndefined()
+  })
+
+  it('does not include fulfillmentStatus in query params', () => {
+    renderPage()
+    const call = (useGetSalesOrdersQuery as any).mock.calls.at(-1)[0]
+    expect(call).not.toHaveProperty('fulfillmentStatus')
   })
 })

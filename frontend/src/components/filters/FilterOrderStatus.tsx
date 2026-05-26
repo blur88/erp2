@@ -6,6 +6,11 @@ const ORDER_STATUS_OPTIONS = [
   { value: 'CANCELLED', label: 'Cancelled' },
 ]
 
+const LEGACY_FULFILLMENT_STATUS_OPTIONS = [
+  { value: 'unfulfilled', label: 'Unfulfilled' },
+  { value: 'fulfilled', label: 'Fulfilled' },
+]
+
 interface Props {
   field: string
   value: string | null
@@ -13,12 +18,14 @@ interface Props {
 }
 
 export function FilterOrderStatus({ field, value, onChange }: Props) {
+  const options = field === 'status' ? ORDER_STATUS_OPTIONS : LEGACY_FULFILLMENT_STATUS_OPTIONS
+
   return (
     <FilterSelect
       field={field}
       label="Order Status"
       value={value}
-      options={ORDER_STATUS_OPTIONS}
+      options={options}
       onChange={onChange}
     />
   )

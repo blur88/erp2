@@ -189,6 +189,7 @@ function renderQuickField<TFilters extends object>(
         value={(value as string | null) ?? null}
         onChange={onChange}
         includeOverpaid={field.includeOverpaid}
+        valueCase={field.valueCase}
       />
     )
   }

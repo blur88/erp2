@@ -36,7 +36,7 @@ const filterConfig: FilterBarConfig<SalesOrderFilters> = {
     { field: 'period', label: 'Period', type: 'period' },
     { field: 'customerId', label: 'Customer', type: 'customer' },
     { field: 'status', label: 'Order Status', type: 'order-status' },
-    { field: 'paymentStatus', label: 'Payment Status', type: 'payment-status' },
+    { field: 'paymentStatus', label: 'Payment Status', type: 'payment-status', valueCase: 'upper' },
   ],
   defaults: {
     search: '',
