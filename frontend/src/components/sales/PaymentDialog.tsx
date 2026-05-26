@@ -54,24 +54,35 @@ export default function PaymentDialog({
   const [lines, setLines] = useState<PaymentLine[]>([])
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [confirmDiscard, setConfirmDiscard] = useState(false)
+  const [userHasEdited, setUserHasEdited] = useState(false)
 
-  // Reset state and initialize first line when dialog opens or payment methods load
+  // Reset all state when the dialog opens
   useEffect(() => {
     if (!open) return
     setError(null)
     setSubmitting(false)
+    setConfirmDiscard(false)
+    setUserHasEdited(false)
+    setLines([])
+  }, [open])
+
+  // Seed the first line once payment methods are available (only when lines are empty)
+  useEffect(() => {
+    if (!open || lines.length > 0) return
     const cashMethod = paymentMethods.find((m) => m.code === 'CASH')
     setLines([{
       paymentMethodId: cashMethod?.id || paymentMethods[0]?.id || '',
       amount: outstandingBalance > 0 ? outstandingBalance : '',
       reference: '',
     }])
-  }, [open, paymentMethods])
+  }, [open, paymentMethods, lines.length])
 
   const totalEntered = lines.reduce((sum, l) => sum + (typeof l.amount === 'number' ? l.amount : parseFloat(l.amount as string) || 0), 0)
   const remaining = outstandingBalance - totalEntered
 
   const updateLine = useCallback((index: number, field: keyof PaymentLine, value: any) => {
+    setUserHasEdited(true)
     setLines(prev => {
       const updated = [...prev]
       updated[index] = { ...updated[index], [field]: value }
@@ -80,6 +91,7 @@ export default function PaymentDialog({
   }, [])
 
   const addLine = useCallback(() => {
+    setUserHasEdited(true)
     const cashMethod = paymentMethods.find((m) => m.code === 'CASH')
     setLines(prev => [...prev, {
       paymentMethodId: cashMethod?.id || paymentMethods[0]?.id || '',
@@ -89,6 +101,7 @@ export default function PaymentDialog({
   }, [paymentMethods, remaining])
 
   const removeLine = useCallback((index: number) => {
+    setUserHasEdited(true)
     setLines(prev => prev.length > 1 ? prev.filter((_, i) => i !== index) : prev)
   }, [])
 
@@ -121,8 +134,16 @@ export default function PaymentDialog({
 
   const isOverpaying = totalEntered > outstandingBalance && outstandingBalance > 0
 
+  const handleRequestClose = () => {
+    if (userHasEdited) {
+      setConfirmDiscard(true)
+    } else {
+      onClose()
+    }
+  }
+
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+    <Dialog open={open} onClose={handleRequestClose} maxWidth="sm" fullWidth>
       <DialogTitle>{title ?? `Record Payment — ${orderNumber}`}</DialogTitle>
       <DialogContent>
         {/* Order Summary */}
@@ -241,7 +262,9 @@ export default function PaymentDialog({
         )}
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose} disabled={submitting}>Cancel</Button>
+        <Button onClick={handleRequestClose} disabled={submitting}>
+          Cancel
+        </Button>
         <Button
           variant="contained"
           onClick={handleSubmit}
@@ -251,6 +274,17 @@ export default function PaymentDialog({
           {submitting ? 'Recording...' : 'Record Payment'}
         </Button>
       </DialogActions>
+      <Dialog
+        open={confirmDiscard}
+        onClose={() => setConfirmDiscard(false)}
+        transitionDuration={0}
+      >
+        <DialogTitle>Discard this payment?</DialogTitle>
+        <DialogActions>
+          <Button onClick={() => setConfirmDiscard(false)}>Keep Editing</Button>
+          <Button color="error" onClick={onClose}>Discard</Button>
+        </DialogActions>
+      </Dialog>
     </Dialog>
   );
 }
