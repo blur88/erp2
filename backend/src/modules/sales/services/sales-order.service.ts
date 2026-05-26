@@ -551,11 +551,6 @@ export class SalesOrderService extends BaseCrudService<
       await this.salesOrderRepository.update(id, updateData);
     }
 
-    // Keep child documents aligned with order item changes without blocking header-only edits.
-    if (items && items.length > 0) {
-      await this.updateAssociatedInvoices(id);
-    }
-
     // Log audit trail for update
     if (Object.keys(updateData).length > 0) {
       await this.auditLogService.log(
@@ -708,93 +703,6 @@ export class SalesOrderService extends BaseCrudService<
     return processedItems;
   }
 
-  async updateAssociatedInvoices(salesOrderId: string): Promise<void> {
-    try {
-      // Find the updated sales order with all relations
-      const updatedOrder = await this.salesOrderRepository.findOne({
-        where: { id: salesOrderId },
-        relations: { customer: true, items: { product: true } }
-      });
-
-      if (!updatedOrder) {
-        console.warn(`Sales order ${salesOrderId} not found for invoice update`);
-        return;
-      }
-
-      // Find all invoices associated with this sales order
-      const invoices = await this.invoiceRepository.find({
-        where: { salesOrderId }
-      });
-
-      if (invoices.length === 0) {
-        console.log(`No invoices found for sales order ${updatedOrder.orderNumber}`);
-        return;
-      }
-
-      // Update each invoice with the latest order data
-      for (const invoice of invoices) {
-        // Skip fully paid invoices - they shouldn't be modified
-        if (invoice.status === 'paid' && Number(invoice.balanceDue) <= 0) {
-          console.log(`⏭️  Skipping paid invoice ${invoice.invoiceNumber}`);
-          continue;
-        }
-
-        // Update customer information if changed
-        if (updatedOrder.customer) {
-          invoice.customerId = updatedOrder.customerId;
-        }
-
-        // Sync invoice items from sales order items
-        if (updatedOrder.items && updatedOrder.items.length > 0) {
-          // Delete existing invoice items
-          await this.invoiceItemRepository.delete({ invoiceId: invoice.id });
-
-          // Create new invoice items from sales order
-          const invoiceItemsData = updatedOrder.items.map(soItem => ({
-            invoiceId: invoice.id,
-            lineNumber: soItem.lineNumber,
-            productId: soItem.productId,
-            quantity: Number(soItem.quantity),
-            unitPrice: Number(soItem.unitPrice),
-            discountType: soItem.discountType,
-            discountPercent: Number(soItem.discountPercent || 0),
-            discount: Number(soItem.discountAmount),
-            totalAmount: Number(soItem.totalAmount),
-          }));
-
-          // Insert all items
-          await this.invoiceItemRepository.insert(invoiceItemsData);
-
-          // Update total amount from order (items + shipping)
-          const newSubtotal = updatedOrder.items.reduce((sum, item) =>
-            sum + Number(item.totalAmount), 0);
-          const shippingAmount = Number(updatedOrder.shippingAmount || 0);
-          invoice.totalAmount = newSubtotal + shippingAmount;
-        }
-
-        // Sync notes from sales order
-        invoice.notes = updatedOrder.notes;
-
-        // Preserve existing paidAmount and recalculate balance due
-        const currentPaidAmount = Number(invoice.paidAmount);
-        invoice.balanceDue = Number(invoice.totalAmount) - currentPaidAmount;
-
-        // Update invoice status based on payment status
-        invoice.updateStatus();
-
-        // Save the updated invoice
-        await this.invoiceRepository.save(invoice);
-
-        console.log(`✅ Updated invoice ${invoice.invoiceNumber} (including items) for sales order ${updatedOrder.orderNumber}`);
-      }
-
-      console.log(`✅ Updated ${invoices.length} invoice(s) for sales order ${updatedOrder.orderNumber}`);
-    } catch (error) {
-      console.error(`⚠️ Failed to update associated invoices for sales order ${salesOrderId}:`, error.message);
-      // Don't throw error - sales order update should still succeed even if invoice update fails
-    }
-  }
-
   async cancel(id: string, userId?: string, username?: string): Promise<SalesOrderResponseDto> {
     await this.salesOrderLifecycleService.cancel(id, userId, username);
     return this.salesOrderQueryService.findById(id);
@@ -805,13 +713,13 @@ export class SalesOrderService extends BaseCrudService<
     return this.salesOrderQueryService.findById(id);
   }
 
-  async recordPayment(orderId: string, dto: RecordPaymentDto): Promise<SalesOrderResponseDto> {
-    await this.salesOrderPaymentService.recordPayment(orderId, dto);
+  async recordPayment(orderId: string, dto: RecordPaymentDto, userId?: string, username?: string): Promise<SalesOrderResponseDto> {
+    await this.salesOrderPaymentService.recordPayment(orderId, dto, userId, username);
     return this.salesOrderQueryService.findById(orderId);
   }
 
-  async recordRefund(orderId: string, dto: RecordRefundDto): Promise<SalesOrderResponseDto> {
-    await this.salesOrderPaymentService.recordRefund(orderId, dto);
+  async recordRefund(orderId: string, dto: RecordRefundDto, userId?: string, username?: string): Promise<SalesOrderResponseDto> {
+    await this.salesOrderPaymentService.recordRefund(orderId, dto, userId, username);
     return this.salesOrderQueryService.findById(orderId);
   }
 

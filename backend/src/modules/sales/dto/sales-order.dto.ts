@@ -8,6 +8,7 @@ import {
   IsArray,
   ValidateNested,
   IsInt,
+  Matches,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform, Type } from 'class-transformer';
@@ -312,7 +313,7 @@ export class RecordPaymentDto {
   amount: number;
 
   @ApiProperty({ example: '2026-05-26' })
-  @IsString()
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, { message: 'paymentDate must be a valid date in YYYY-MM-DD format' })
   paymentDate: string;
 
   @ApiPropertyOptional()

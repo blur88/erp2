@@ -176,8 +176,10 @@ export class SalesOrderController {
   async recordPayment(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: RecordPaymentDto,
+    @CurrentUser('userId') userId: string,
+    @CurrentUser('username') username: string,
   ) {
-    const data = await this.salesOrderService.recordPayment(id, dto);
+    const data = await this.salesOrderService.recordPayment(id, dto, userId, username);
     return { data };
   }
 
@@ -188,8 +190,10 @@ export class SalesOrderController {
   async recordRefund(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: RecordRefundDto,
+    @CurrentUser('userId') userId: string,
+    @CurrentUser('username') username: string,
   ) {
-    const data = await this.salesOrderService.recordRefund(id, dto);
+    const data = await this.salesOrderService.recordRefund(id, dto, userId, username);
     return { data };
   }
 

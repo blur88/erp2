@@ -119,14 +119,17 @@ export class SalesOrder extends BaseEntity {
   })
   invoices: Invoice[];
 
+  /** @deprecated Use `status === SalesOrderStatus.FULFILLED` instead. Kept for analytics/invoice query compatibility. */
   get isFulfilled(): boolean {
     return this.status === SalesOrderStatus.FULFILLED;
   }
 
+  /** @deprecated Approximation only — returns updatedAt when fulfilled. Kept for accounting.service compatibility. */
   get fulfilledDate(): Date | undefined {
     return this.status === SalesOrderStatus.FULFILLED ? this.updatedAt : undefined;
   }
 
+  /** @deprecated Approximation only — does not reflect actual SalesOrderPayment records. Use paymentStatus enum instead. */
   get paidAmount(): number {
     if (this.paymentStatus === SalesOrderPaymentStatus.UNPAID) return 0;
     if (
@@ -138,6 +141,7 @@ export class SalesOrder extends BaseEntity {
     return 0.01;
   }
 
+  /** @deprecated Use `paymentStatus === PAID || paymentStatus === OVERPAID` instead. */
   get isPaidInFull(): boolean {
     return (
       this.paymentStatus === SalesOrderPaymentStatus.PAID ||
@@ -145,14 +149,17 @@ export class SalesOrder extends BaseEntity {
     );
   }
 
+  /** @deprecated Approximation only — returns 0 or totalAmount, not the real partial balance. */
   get balanceDue(): number {
     return this.isPaidInFull ? 0 : Number(this.totalAmount);
   }
 
+  /** @deprecated Use status and paymentStatus enums directly. */
   get canFulfill(): boolean {
     return this.paymentStatus === SalesOrderPaymentStatus.PAID && this.status === SalesOrderStatus.DRAFT;
   }
 
+  /** @deprecated Use `status === SalesOrderStatus.FULFILLED` instead. */
   get canUnfulfill(): boolean {
     return this.status === SalesOrderStatus.FULFILLED;
   }

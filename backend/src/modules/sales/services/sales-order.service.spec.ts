@@ -80,18 +80,18 @@ describe('SalesOrderService', () => {
   it('delegates recordPayment then reloads the response', async () => {
     const dto = { paymentMethodId: 'method-1', amount: 100, paymentDate: '2026-05-26' };
 
-    await service.recordPayment('order-1', dto);
+    await service.recordPayment('order-1', dto, 'user-1', 'admin');
 
-    expect(salesOrderPaymentService.recordPayment).toHaveBeenCalledWith('order-1', dto);
+    expect(salesOrderPaymentService.recordPayment).toHaveBeenCalledWith('order-1', dto, 'user-1', 'admin');
     expect(salesOrderQueryService.findById).toHaveBeenCalledWith('order-1');
   });
 
   it('delegates recordRefund then reloads the response', async () => {
     const dto = { paymentMethodId: 'method-1', amount: 100, paymentDate: '2026-05-26' };
 
-    await service.recordRefund('order-1', dto);
+    await service.recordRefund('order-1', dto, 'user-1', 'admin');
 
-    expect(salesOrderPaymentService.recordRefund).toHaveBeenCalledWith('order-1', dto);
+    expect(salesOrderPaymentService.recordRefund).toHaveBeenCalledWith('order-1', dto, 'user-1', 'admin');
     expect(salesOrderQueryService.findById).toHaveBeenCalledWith('order-1');
   });
 
