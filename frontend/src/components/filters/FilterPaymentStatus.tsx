@@ -7,17 +7,30 @@ const PAYMENT_STATUS_OPTIONS = [
   { value: 'overpaid', label: 'Overpaid' },
 ]
 
+const UPPER_PAYMENT_STATUS_OPTIONS = PAYMENT_STATUS_OPTIONS.map((option) => ({
+  ...option,
+  value: option.value.toUpperCase(),
+}))
+
 interface Props {
   field: string
   value: string | null
   onChange: (value: string | null) => void
   includeOverpaid?: boolean
+  valueCase?: 'lower' | 'upper'
 }
 
-export function FilterPaymentStatus({ field, value, onChange, includeOverpaid = true }: Props) {
+export function FilterPaymentStatus({
+  field,
+  value,
+  onChange,
+  includeOverpaid = true,
+  valueCase = 'lower',
+}: Props) {
+  const sourceOptions = valueCase === 'upper' ? UPPER_PAYMENT_STATUS_OPTIONS : PAYMENT_STATUS_OPTIONS
   const options = includeOverpaid
-    ? PAYMENT_STATUS_OPTIONS
-    : PAYMENT_STATUS_OPTIONS.filter((option) => option.value !== 'overpaid')
+    ? sourceOptions
+    : sourceOptions.filter((option) => option.value.toLowerCase() !== 'overpaid')
 
   return (
     <FilterSelect

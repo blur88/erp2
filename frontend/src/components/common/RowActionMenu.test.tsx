@@ -1,7 +1,8 @@
 import { fireEvent, render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 
-import RowActionMenu from './RowActionMenu'
+import RowActionMenu, { type RowAction } from './RowActionMenu'
 
 const actions = [
   { label: 'Edit', onClick: vi.fn() },
@@ -39,5 +40,21 @@ describe('RowActionMenu', () => {
     fireEvent.click(screen.getByRole('button', { name: /row actions/i }))
     const item = screen.getByText('Disabled Action').closest('li')
     expect(item).toHaveAttribute('aria-disabled', 'true')
+  })
+
+  it('shows tooltip on a disabled action', async () => {
+    const actions: RowAction[] = [
+      {
+        label: 'Fulfill',
+        onClick: vi.fn(),
+        disabled: true,
+        tooltip: 'Full payment required',
+      },
+    ]
+    render(<RowActionMenu actions={actions} />)
+    await userEvent.click(screen.getByRole('button', { name: /row actions/i }))
+    const item = screen.getByRole('menuitem', { name: /fulfill/i })
+    expect(item).toHaveAttribute('aria-disabled', 'true')
+    expect(item.closest('[data-tooltip]')).toHaveAttribute('data-tooltip', 'Full payment required')
   })
 })

@@ -1,11 +1,12 @@
 import { useState } from 'react'
 import MoreVertIcon from '@mui/icons-material/MoreVert'
-import { IconButton, Menu, MenuItem } from '@mui/material'
+import { IconButton, Menu, MenuItem, Tooltip } from '@mui/material'
 
 export interface RowAction {
   label: string
   onClick: () => void
   disabled?: boolean
+  tooltip?: string
 }
 
 interface RowActionMenuProps {
@@ -39,16 +40,23 @@ export default function RowActionMenu({ actions }: RowActionMenuProps) {
           onClose={handleClose}
           onClick={(e) => e.stopPropagation()}
         >
-          {actions.map((action) => (
-            <MenuItem
-              key={action.label}
-              disabled={action.disabled}
-              onClick={() => handleAction(action.onClick)}
-              dense
-            >
-              {action.label}
-            </MenuItem>
-          ))}
+          {actions.map((action) => {
+            const item = (
+              <MenuItem
+                key={action.label}
+                disabled={action.disabled}
+                onClick={() => handleAction(action.onClick)}
+                dense
+              >
+                {action.label}
+              </MenuItem>
+            )
+            return action.disabled && action.tooltip ? (
+              <Tooltip key={action.label} title={action.tooltip} placement="left">
+                <span data-tooltip={action.tooltip}>{item}</span>
+              </Tooltip>
+            ) : item
+          })}
         </Menu>
       )}
     </>

@@ -1,219 +1,216 @@
-import React, { useCallback, useMemo, useState } from 'react'
-import { useStore } from 'react-redux'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
-import GenericListPage from '@/components/common/GenericListPage'
-import OrderContextHeader from './components/OrderContextHeader'
-import OrdersDialogs from './components/OrdersDialogs'
-import OrderWorkspaceCard from './components/OrderWorkspaceCard'
-import OrdersTable from './components/OrdersTable'
-import { useOrdersWorkspace } from './hooks/useOrdersWorkspace'
-
+import PagePagination from '@/components/common/PagePagination'
+import SimpleListPage from '@/components/common/SimpleListPage'
 import { useFilterBar } from '@/hooks/useFilterBar'
-import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
-import type { RootState } from '@/store'
+import { useNotification } from '@/hooks/useNotification'
 import {
+  useCancelSalesOrderMutation,
+  useFulfillSalesOrderMutation,
   useGetSalesOrdersQuery,
+  useRecordOrderPaymentMutation,
+  useRecordOrderPaymentsMutation,
+  useUnfulfillSalesOrderMutation,
 } from '@/store/api/salesApi'
-import {
-  selectSalesError,
-  selectSelectedOrder,
-} from '@/store/slices/salesSlice'
+import type { SalesOrder } from '@/types'
 import type { FilterBarConfig, PeriodValue } from '@/types/filterBar.types'
 import { getPeriodDateRange, getStartOfWeek } from '@/utils/dateRange'
+
+import SalesOrderList from './components/SalesOrderList'
+import SalesOrdersDialogs from './components/SalesOrdersDialogs'
 
 interface SalesOrderFilters {
   search: string
   customerId: string | null
-  paymentStatus: 'unpaid' | 'partial' | 'paid' | 'overpaid' | null
+  paymentStatus: 'UNPAID' | 'PARTIAL' | 'PAID' | 'OVERPAID' | null
   period: PeriodValue
-  fulfillmentStatus: 'fulfilled' | 'unfulfilled' | null
+  status: 'DRAFT' | 'FULFILLED' | 'CANCELLED' | null
+}
+
+const PAGE_SIZE_OPTIONS = [10, 25, 50]
+const DEFAULT_LIMIT = 25
+
+const filterConfig: FilterBarConfig<SalesOrderFilters> = {
+  search: { placeholder: 'Search orders...' },
+  fields: [
+    { field: 'period', label: 'Period', type: 'period' },
+    { field: 'customerId', label: 'Customer', type: 'customer' },
+    { field: 'status', label: 'Order Status', type: 'order-status' },
+    { field: 'paymentStatus', label: 'Payment Status', type: 'payment-status', valueCase: 'upper' },
+  ],
+  defaults: {
+    search: '',
+    customerId: null,
+    paymentStatus: null,
+    period: { key: 'this_month', from: null, to: null },
+    status: null,
+  },
 }
 
 const OrdersPage: React.FC = () => {
   const navigate = useNavigate()
-  const dispatch = useAppDispatch()
-  const store = useStore()
-  const error = useAppSelector(selectSalesError)
-  const selectedOrder = useAppSelector(selectSelectedOrder)
-  const [sortBy, setSortBy] = useState('orderNumber')
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc')
+  const { showSuccess, showError } = useNotification()
+  const searchInputRef = useRef<HTMLInputElement | null>(null)
 
-  const filterConfig = useMemo<FilterBarConfig<SalesOrderFilters>>(
-    () => ({
-      search: { placeholder: 'Search orders...' },
-      fields: [
-        {
-          field: 'period',
-          label: 'Period',
-          type: 'period',
-        },
-        {
-          field: 'customerId',
-          label: 'Customer',
-          type: 'customer',
-        },
-        {
-          field: 'paymentStatus',
-          label: 'Payment',
-          type: 'payment-status',
-        },
-        {
-          field: 'fulfillmentStatus',
-          label: 'Order Status',
-          type: 'order-status',
-        },
-      ],
-      defaults: {
-        search: '',
-        customerId: null,
-        paymentStatus: null,
-        period: { key: null, from: null, to: null },
-        fulfillmentStatus: null,
-      },
-    }),
-    [],
-  )
+  const [sortBy, setSortBy] = useState('orderDate')
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
+  const [page, setPage] = useState(1)
+  const [limit, setLimit] = useState(DEFAULT_LIMIT)
+
+  const [printOrder, setPrintOrder] = useState<SalesOrder | null>(null)
+  const [paymentOrder, setPaymentOrder] = useState<SalesOrder | null>(null)
 
   const { appliedFilters, draftFilters, handlers, hasActiveFilters } = useFilterBar(filterConfig)
+
   const weekStartsOn = getStartOfWeek()
   const dateRange = useMemo(() => {
     const period = appliedFilters.period
-    if (!period || period.key === null) {
-      return { fromDate: undefined, toDate: undefined }
-    }
+    if (!period || period.key === null) return { fromDate: undefined, toDate: undefined }
     if (period.key === 'custom') {
       return { fromDate: period.from ?? undefined, toDate: period.to ?? undefined }
     }
-
     const range = getPeriodDateRange(period.key, weekStartsOn)
     return { fromDate: range.from, toDate: range.to }
   }, [appliedFilters.period, weekStartsOn])
 
-  const orderQueryArgs = useMemo(() => ({
+  const queryParams = useMemo(() => ({
     sortBy,
-    sortOrder,
+    sortOrder: sortOrder.toUpperCase() as 'ASC' | 'DESC',
     search: appliedFilters.search || undefined,
     customerId: appliedFilters.customerId || undefined,
+    status: appliedFilters.status || undefined,
     paymentStatus: appliedFilters.paymentStatus || undefined,
-    fulfillmentStatus: appliedFilters.fulfillmentStatus || undefined,
     fromDate: dateRange.fromDate,
     toDate: dateRange.toDate,
-  }), [appliedFilters, dateRange, sortBy, sortOrder])
+    page,
+    limit,
+  }), [appliedFilters, dateRange, sortBy, sortOrder, page, limit])
 
-  const { data: ordersData, isFetching: loading, refetch: refetchOrders } = useGetSalesOrdersQuery(orderQueryArgs)
+  const { data: ordersData, isFetching, error } = useGetSalesOrdersQuery(queryParams)
   const orders = ordersData?.data ?? []
-  const pagination = ordersData?.meta
+  const total = ordersData?.meta.total ?? 0
 
-  const loadOrders = useCallback(() => {
-    void refetchOrders()
-  }, [refetchOrders])
+  const [fulfillOrder] = useFulfillSalesOrderMutation()
+  const [unfulfillOrder] = useUnfulfillSalesOrderMutation()
+  const [cancelOrder] = useCancelSalesOrderMutation()
+  const [recordPayment] = useRecordOrderPaymentMutation()
+  const [recordPayments] = useRecordOrderPaymentsMutation()
 
-  const workspace = useOrdersWorkspace({
-    dispatch,
-    getState: () => store.getState() as RootState,
-    orders,
-    selectedOrder,
-    refetchOrders: loadOrders,
-    isLoading: loading,
-  })
+  useEffect(() => {
+    setPage(1)
+  }, [appliedFilters])
 
   const handleSort = useCallback((field: string) => {
     setSortOrder((prev) => (sortBy === field && prev === 'desc' ? 'asc' : 'desc'))
     setSortBy(field)
+    setPage(1)
   }, [sortBy])
 
-  const filterHandlers = useMemo(() => ({
-    ...handlers,
-    onSearchChange: (value: string) => {
-      workspace.setShouldPreserveSearchFocus(true)
-      handlers.onSearchChange(value)
-    },
-  }), [handlers, workspace])
+  const handleLimitChange = useCallback((newLimit: number) => {
+    setLimit(newLimit)
+    setPage(1)
+  }, [])
+
+  const handleFulfill = useCallback(async (order: SalesOrder) => {
+    try {
+      await fulfillOrder(order.id).unwrap()
+      showSuccess(`Order ${order.orderNumber} fulfilled`)
+    } catch (e: any) {
+      showError(e?.data?.message || `Failed to fulfill ${order.orderNumber}`)
+    }
+  }, [fulfillOrder, showError, showSuccess])
+
+  const handleUnfulfill = useCallback(async (order: SalesOrder) => {
+    try {
+      await unfulfillOrder(order.id).unwrap()
+      showSuccess(`Order ${order.orderNumber} unfulfilled`)
+    } catch (e: any) {
+      showError(e?.data?.message || `Failed to unfulfill ${order.orderNumber}`)
+    }
+  }, [showError, showSuccess, unfulfillOrder])
+
+  const handleCancel = useCallback(async (order: SalesOrder) => {
+    try {
+      await cancelOrder({ id: order.id }).unwrap()
+      showSuccess(`Order ${order.orderNumber} cancelled`)
+    } catch (e: any) {
+      showError(e?.data?.message || `Failed to cancel ${order.orderNumber}`)
+    }
+  }, [cancelOrder, showError, showSuccess])
+
+  const handleRefund = useCallback(async (order: SalesOrder) => {
+    const overpayment = (order.paidAmount ?? 0) - order.totalAmount
+    if (overpayment <= 0) return
+    try {
+      await recordPayment({ id: order.id, amount: overpayment }).unwrap()
+      showSuccess(`Refund of ${overpayment.toFixed(2)} processed for ${order.orderNumber}`)
+    } catch (e: any) {
+      showError(e?.data?.message || `Failed to refund ${order.orderNumber}`)
+    }
+  }, [recordPayment, showError, showSuccess])
+
+  const handleSubmitPayment = useCallback(async (
+    payments: { paymentMethodId: string; amount: number; reference?: string }[],
+  ) => {
+    if (!paymentOrder) return
+    try {
+      await recordPayments({ id: paymentOrder.id, payments }).unwrap()
+      setPaymentOrder(null)
+      showSuccess(`Payment recorded for ${paymentOrder.orderNumber}`)
+    } catch (e: any) {
+      showError(e?.data?.message || `Failed to record payment for ${paymentOrder.orderNumber}`)
+    }
+  }, [paymentOrder, recordPayments, showError, showSuccess])
 
   return (
-    <GenericListPage
-      title="Sales Orders"
-      subtitle="Track sales orders and delivery status"
-      secondaryAction={{ label: 'View Deleted', onClick: () => workspace.setDeletedOrdersDialogOpen(true) }}
-      primaryAction={{ label: 'Create Order', onClick: () => navigate('/sales/orders/create') }}
-      filterConfig={filterConfig}
-      draftFilters={draftFilters}
-      handlers={filterHandlers}
-      hasActiveFilters={hasActiveFilters}
-      searchInputRef={workspace.searchInputRef}
-      sort={{ field: 'orderNumber', sortBy, sortOrder, onSort: handleSort }}
-      error={error || null}
-      listSlot={(
-        <OrdersTable
-          orders={orders}
-          loading={loading}
-          total={pagination?.total || 0}
-          selectedOrderId={selectedOrder?.id}
-          focusedOrderIndex={workspace.focusedOrderIndex}
-          onOrderSelect={workspace.handleOrderSelect}
-          orderListRef={workspace.orderListRef}
-        />
-      )}
-      headerSlot={(
-        <OrderContextHeader
-          selectedOrder={selectedOrder}
-          isLoading={workspace.isLoading}
-          journalEntryRefs={workspace.journalEntryRefs}
-          journalEntryRefsLoading={workspace.journalEntryRefsLoading}
-          onEditOrder={workspace.handleEditOrder}
-          onDeleteOrder={() => selectedOrder && void workspace.handleOrderAction('delete', selectedOrder.id)}
-          onPrintOrder={() => workspace.setPrintDialogOpen(true)}
-          onNavigateToInvoice={workspace.handleNavigateToInvoice}
-          onNavigateToPayment={workspace.handleNavigateToPayment}
-          onNavigateToJournalEntries={workspace.navigateToJournalEntries}
-          onRefundOrder={workspace.handleRefundOrder}
-          onUnpayOrder={workspace.handleUnpayOrder}
-          onOpenPaymentDialog={workspace.openPaymentDialog}
-          onFulfillOrder={workspace.handleFulfillOrder}
-          onUnfulfillOrder={workspace.handleUnfulfillOrder}
-          isLocked={
-            Number(selectedOrder?.paidAmount || 0) > 0 || Boolean(selectedOrder?.isFulfilled)
-          }
-          lockTooltip={(() => {
-            const hasPayments = Number(selectedOrder?.paidAmount || 0) > 0
-            const isFulfilled = Boolean(selectedOrder?.isFulfilled)
-            if (hasPayments && isFulfilled) return 'unpay and unfulfill before editing'
-            if (hasPayments) return 'unpay before editing'
-            if (isFulfilled) return 'unfulfill before editing'
-            return 'unlocked — editable'
-          })()}
-        />
-      )}
-      workspaceSlot={<OrderWorkspaceCard selectedOrder={selectedOrder} />}
-      dialogs={(
-        <OrdersDialogs
-          selectedOrder={selectedOrder}
-          viewDialogOpen={workspace.viewDialog}
-          onCloseViewDialog={() => workspace.setViewDialog(false)}
-          blockedDialogOpen={workspace.blockedDialogOpen}
-          blockedDialogAction={workspace.blockedDialogAction}
-          onCloseBlockedDialog={() => workspace.setBlockedDialogOpen(false)}
-          onUnfulfillAndEdit={workspace.handleUnfulfillAndEdit}
-          onUnfulfillOnly={workspace.handleUnfulfillOnly}
-          onUnpayAndEdit={workspace.handleUnpayAndEdit}
-          onUnfulfillAndDelete={workspace.handleUnfulfillAndDelete}
-          onUnpayAndDelete={workspace.handleUnpayAndDelete}
-          deletedOrdersDialogOpen={workspace.deletedOrdersDialogOpen}
-          onCloseDeletedOrdersDialog={() => workspace.setDeletedOrdersDialogOpen(false)}
-          deleteConfirmOpen={workspace.deleteConfirmOpen}
-          orderToDeleteName={workspace.orderToDeleteName}
-          onConfirmDelete={() => workspace.handleConfirmDelete(workspace.orderToDelete, workspace.orderToDeleteName)}
-          onCancelDelete={workspace.handleCancelDelete}
-          printDialogOpen={workspace.printDialogOpen}
-          onClosePrintDialog={() => workspace.setPrintDialogOpen(false)}
-          paymentDialogOpen={workspace.paymentDialogOpen}
-          onClosePaymentDialog={() => workspace.setPaymentDialogOpen(false)}
-          onSubmitPayments={workspace.handleRecordPayments}
-          isLoading={workspace.isLoading}
-        />
-      )}
-    />
+    <>
+      <SimpleListPage
+        title="Sales Orders"
+        subtitle="Track sales orders and delivery status"
+        primaryAction={{ label: '+ New Sales Order', onClick: () => navigate('/sales/orders/create') }}
+        filterConfig={filterConfig}
+        draftFilters={draftFilters}
+        handlers={handlers}
+        hasActiveFilters={hasActiveFilters}
+        searchInputRef={searchInputRef}
+        sort={{ field: 'orderDate', sortBy, sortOrder, onSort: handleSort }}
+        isFetching={isFetching}
+        error={error ? 'Failed to load sales orders.' : null}
+        tableSlot={(
+          <SalesOrderList
+            orders={orders}
+            loading={isFetching}
+            total={total}
+            onView={(order) => navigate(`/sales/orders/${order.orderNumber}/view`)}
+            onEdit={(order) => navigate(`/sales/orders/${order.orderNumber}/edit`)}
+            onPay={(order) => setPaymentOrder(order)}
+            onFulfill={handleFulfill}
+            onUnfulfill={handleUnfulfill}
+            onRefund={handleRefund}
+            onCancel={handleCancel}
+            onPrint={(order) => setPrintOrder(order)}
+            paginationSlot={(
+              <PagePagination
+                total={total}
+                page={page}
+                limit={limit}
+                onPageChange={setPage}
+                onLimitChange={handleLimitChange}
+                pageSizeOptions={PAGE_SIZE_OPTIONS}
+              />
+            )}
+          />
+        )}
+      />
+      <SalesOrdersDialogs
+        printOrder={printOrder}
+        onClosePrint={() => setPrintOrder(null)}
+        paymentOrder={paymentOrder}
+        onClosePayment={() => setPaymentOrder(null)}
+        onSubmitPayment={handleSubmitPayment}
+      />
+    </>
   )
 }
 

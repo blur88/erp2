@@ -206,7 +206,9 @@ export function parseFilters<TFilters extends object>(
         const VALID_STOCK_ADJUSTMENT_STATUS = ['draft', 'completed', 'cancelled']
         result[fieldKey] = VALID_STOCK_ADJUSTMENT_STATUS.includes(raw) ? raw : (defaultValue ?? null)
       } else if (field.type === 'order-status') {
-        const VALID_ORDER_STATUS = ['fulfilled', 'unfulfilled']
+        const VALID_ORDER_STATUS = fieldKey === 'status'
+          ? ['DRAFT', 'FULFILLED', 'CANCELLED']
+          : ['fulfilled', 'unfulfilled']
         result[fieldKey] = VALID_ORDER_STATUS.includes(raw) ? raw : (defaultValue ?? null)
       } else if (field.type === 'purchasing-status') {
         const VALID_PURCHASING_STATUS = ['draft', 'received']
@@ -215,7 +217,7 @@ export function parseFilters<TFilters extends object>(
         const VALID_VENDOR_PAYMENT_STATUS = ['pending', 'completed', 'cancelled']
         result[fieldKey] = VALID_VENDOR_PAYMENT_STATUS.includes(raw) ? raw : (defaultValue ?? null)
       } else if (field.type === 'payment-status') {
-        const VALID_PAYMENT_STATUS = ['unpaid', 'partial', 'paid', 'overpaid']
+        const VALID_PAYMENT_STATUS = ['unpaid', 'partial', 'paid', 'overpaid', 'UNPAID', 'PARTIAL', 'PAID', 'OVERPAID']
         result[fieldKey] = VALID_PAYMENT_STATUS.includes(raw) ? raw : (defaultValue ?? null)
       } else if (field.type === 'product-type') {
         const VALID_PRODUCT_TYPE = ['goods', 'service']
@@ -269,6 +271,10 @@ export function parseFilters<TFilters extends object>(
         to: null,
       } satisfies PeriodValue
       const raw = searchParams.get(key)
+      if (raw === '') {
+        result[fieldKey] = { key: null, from: null, to: null } satisfies PeriodValue
+        continue
+      }
       if (raw === null || !(PERIOD_KEYS as readonly string[]).includes(raw)) {
         result[fieldKey] = defaultPeriod
         continue
