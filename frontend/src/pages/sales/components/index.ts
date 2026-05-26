@@ -1,3 +1,7 @@
 export { default as SalesStatsCards } from './SalesStatsCards'
 export type { StatItem } from './SalesStatsCards'
 export { SalesTrendChart, TopProductsList, TopCustomersList } from './SalesCharts'
+export { default as OrderActionBar } from './OrderActionBar'
+export { default as OrderOverviewTab } from './OrderOverviewTab'
+export { default as OrderPaymentsTab } from './OrderPaymentsTab'
+export { default as OrderJournalEntriesTab } from './OrderJournalEntriesTab'

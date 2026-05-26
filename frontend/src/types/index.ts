@@ -234,6 +234,8 @@ export interface SalesOrder {
   isShippable?: boolean;
   isCompleted?: boolean;
   fullShippingAddress?: string;
+  subtotal?: number;
+  shippingAmount?: number;
   // Legacy compatibility
   total?: number;
   discount?: number;
@@ -262,6 +264,22 @@ export interface SalesOrderItem {
   unitPrice: number;
   discount: number;
   total: number;
+}
+
+export interface SalesOrderPayment {
+  id: string;
+  salesOrderId: string;
+  paymentMethodId: string;
+  paymentMethod?: {
+    id: string;
+    name: string;
+  };
+  referenceNumber?: string;
+  amount: number;
+  paymentDate: string;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface Invoice {
