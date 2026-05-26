@@ -1,4 +1,5 @@
 import PaymentDialog from '@/components/sales/PaymentDialog'
+import RefundDialog from '@/components/sales/RefundDialog'
 import { SalesOrderPrint } from '@/components/print'
 import type { SalesOrder } from '@/types'
 
@@ -10,6 +11,11 @@ interface SalesOrdersDialogsProps {
   onSubmitPayment: (
     payments: { paymentMethodId: string; amount: number; reference?: string }[],
   ) => Promise<void>
+  refundOrder: SalesOrder | null
+  onCloseRefund: () => void
+  onSubmitRefund: (
+    refunds: { paymentMethodId: string; amount: number; reference?: string }[],
+  ) => Promise<void>
 }
 
 export default function SalesOrdersDialogs({
@@ -18,6 +24,9 @@ export default function SalesOrdersDialogs({
   paymentOrder,
   onClosePayment,
   onSubmitPayment,
+  refundOrder,
+  onCloseRefund,
+  onSubmitRefund,
 }: SalesOrdersDialogsProps) {
   return (
     <>
@@ -32,6 +41,15 @@ export default function SalesOrdersDialogs({
           orderNumber={paymentOrder.orderNumber}
           totalAmount={paymentOrder.totalAmount}
           paidAmount={paymentOrder.paidAmount ?? 0}
+        />
+      )}
+      {refundOrder && (
+        <RefundDialog
+          open
+          onClose={onCloseRefund}
+          onSubmit={onSubmitRefund}
+          orderId={refundOrder.id}
+          orderNumber={refundOrder.orderNumber}
         />
       )}
     </>
