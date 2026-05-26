@@ -445,7 +445,7 @@ describe('CreateSalesOrderPage — new features', () => {
     await user.click(screen.getByRole('button', { name: /^cancel$/i }))
 
     await waitFor(() => {
-      expect(screen.getByText(/discard this order/i)).toBeInTheDocument()
+      expect(screen.getByText(/discard changes/i)).toBeInTheDocument()
     })
   })
 
@@ -462,7 +462,7 @@ describe('CreateSalesOrderPage — new features', () => {
     await waitFor(() => {
       expect(mockNavigate).toHaveBeenCalledWith('/sales/orders')
     })
-    expect(screen.queryByText(/discard this order/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/discard changes/i)).not.toBeInTheDocument()
   })
 
   it('shows customer validation error when submitting without a customer', async () => {
@@ -538,6 +538,212 @@ describe('CreateSalesOrderPage — new features', () => {
 
     await waitFor(() => {
       expect(rows()).toHaveLength(2)
+    })
+  })
+})
+
+describe('CreateSalesOrderPage — edit mode', { timeout: 60000 }, () => {
+  const existingOrder = {
+    id: 'order-id-1',
+    orderNumber: 'SO-26-001',
+    customerId: 'customer-1',
+    orderDate: '2026-03-15T00:00:00.000Z',
+    shippingAmount: 25,
+    notes: 'Handle with care',
+    items: [
+      {
+        productId: 'product-1',
+        quantity: 3,
+        unitPrice: 11,
+        discountType: 'percentage',
+        discountValue: 0,
+        discountPercent: 0,
+        discountAmount: 0,
+        totalPrice: 33,
+        totalAmount: 33,
+        product: { id: 'product-1', name: 'Alpha Widget', basePrice: 11 },
+      },
+    ],
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockParams.mockReturnValue({ orderNumber: 'SO-26-001' })
+    customersResponse.data.data = [{ id: 'customer-1', name: 'Test Customer' }]
+    mockGet.mockResolvedValue({ data: [] })
+    mockGetDocumentNumberSettings.mockReturnValue({ data: { configurations: [] }, isLoading: false })
+  })
+
+  it('shows CircularProgress while loading the order', async () => {
+    mockFetchSalesOrder.mockReturnValue({
+      unwrap: vi.fn(() => new Promise(() => {})), // never resolves
+    })
+
+    render(
+      <BrowserRouter>
+        <CreateSalesOrderPage />
+      </BrowserRouter>,
+    )
+
+    await waitFor(() => {
+      expect(screen.getByRole('progressbar')).toBeInTheDocument()
+    })
+  })
+
+  it('shows error Alert when order load fails', async () => {
+    mockFetchSalesOrder.mockReturnValue({
+      unwrap: vi.fn().mockRejectedValue({ data: { message: 'Order not found' } }),
+    })
+
+    render(
+      <BrowserRouter>
+        <CreateSalesOrderPage />
+      </BrowserRouter>,
+    )
+
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toBeInTheDocument()
+      expect(screen.getByText('Order not found')).toBeInTheDocument()
+    })
+  })
+
+  it('pre-fills all 4 sections with existing order data', async () => {
+    mockFetchSalesOrder.mockReturnValue({
+      unwrap: vi.fn().mockResolvedValue(existingOrder),
+    })
+
+    render(
+      <BrowserRouter>
+        <CreateSalesOrderPage />
+      </BrowserRouter>,
+    )
+
+    // Section 1 — Order Info
+    await waitFor(() => {
+      expect(screen.getByDisplayValue('SO-26-001')).toBeInTheDocument()
+      expect(screen.getByDisplayValue('2026-03-15')).toBeInTheDocument()
+      expect(screen.getByRole('combobox', { name: /customer/i })).toHaveValue('Test Customer')
+    })
+
+    // Section 2 — Line Items
+    await waitFor(() => {
+      const productInput = screen.getByPlaceholderText('Search by name or barcode...')
+      expect(productInput).toHaveValue('Alpha Widget')
+    })
+
+    // Section 3 — Shipping
+    await waitFor(() => {
+      expect(screen.getByDisplayValue('25.00')).toBeInTheDocument()
+    })
+
+    // Section 4 — Notes
+    await waitFor(() => {
+      expect(screen.getByDisplayValue('Handle with care')).toBeInTheDocument()
+    })
+  })
+
+  it('save calls updateSalesOrder and redirects to list', async () => {
+    mockFetchSalesOrder.mockReturnValue({
+      unwrap: vi.fn().mockResolvedValue(existingOrder),
+    })
+    mockUpdateSalesOrder.mockReturnValue({
+      unwrap: vi.fn().mockResolvedValue({ id: 'order-id-1', orderNumber: 'SO-26-001' }),
+    })
+
+    render(
+      <BrowserRouter>
+        <CreateSalesOrderPage />
+      </BrowserRouter>,
+    )
+
+    // Wait for form to pre-fill
+    await waitFor(() => {
+      expect(screen.getByRole('combobox', { name: /customer/i })).toHaveValue('Test Customer')
+    })
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /update order/i })).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: /update order/i }))
+
+    await waitFor(() => {
+      expect(mockUpdateSalesOrder).toHaveBeenCalled()
+      expect(mockNavigate).toHaveBeenCalledWith('/sales/orders?highlight=order-id-1')
+    })
+  })
+
+  it('cancel with unsaved changes shows Discard changes dialog', async () => {
+    const user = userEvent.setup()
+    mockFetchSalesOrder.mockReturnValue({
+      unwrap: vi.fn().mockResolvedValue(existingOrder),
+    })
+
+    render(
+      <BrowserRouter>
+        <CreateSalesOrderPage />
+      </BrowserRouter>,
+    )
+
+    // Wait for pre-fill
+    await waitFor(() => {
+      expect(screen.getByDisplayValue('2026-03-15')).toBeInTheDocument()
+    })
+
+    // Dirty the form
+    const dateInput = screen.getByLabelText(/order date/i)
+    await user.clear(dateInput)
+    await user.type(dateInput, '2026-04-01')
+
+    await user.click(screen.getByRole('button', { name: /^cancel$/i }))
+
+    await waitFor(() => {
+      expect(screen.getByText(/discard changes/i)).toBeInTheDocument()
+    })
+  })
+
+  it('cancel without changes navigates immediately without dialog', async () => {
+    const user = userEvent.setup()
+    mockFetchSalesOrder.mockReturnValue({
+      unwrap: vi.fn().mockResolvedValue(existingOrder),
+    })
+
+    render(
+      <BrowserRouter>
+        <CreateSalesOrderPage />
+      </BrowserRouter>,
+    )
+
+    // Wait for pre-fill to complete
+    await waitFor(() => {
+      expect(screen.getByRole('combobox', { name: /customer/i })).toHaveValue('Test Customer')
+    })
+
+    await user.click(screen.getByRole('button', { name: /^cancel$/i }))
+
+    await waitFor(() => {
+      expect(mockNavigate).toHaveBeenCalledWith('/sales/orders')
+    })
+    expect(screen.queryByText(/discard changes/i)).not.toBeInTheDocument()
+  })
+
+  it('create mode cancel also shows unified Discard changes dialog', async () => {
+    const user = userEvent.setup()
+    mockParams.mockReturnValue({}) // create mode — no orderNumber
+
+    render(
+      <BrowserRouter>
+        <CreateSalesOrderPage />
+      </BrowserRouter>,
+    )
+
+    const dateInput = screen.getByLabelText(/order date/i)
+    await user.clear(dateInput)
+    await user.type(dateInput, '2025-01-01')
+    await user.click(screen.getByRole('button', { name: /^cancel$/i }))
+
+    await waitFor(() => {
+      expect(screen.getByText(/discard changes/i)).toBeInTheDocument()
     })
   })
 })
