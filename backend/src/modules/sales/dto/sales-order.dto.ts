@@ -8,12 +8,13 @@ import {
   IsArray,
   ValidateNested,
   IsInt,
-  ArrayMinSize,
+  Matches,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform, Type } from 'class-transformer';
 import { DiscountType } from '../../../database/entities/sales-order-item.entity';
 import { BaseQueryDto } from '../../../common/dto/base-query.dto';
+import { SalesOrderStatus, SalesOrderPaymentStatus } from '../../../database/entities/sales-order.entity';
 
 export class SalesOrderItemDto {
   @ApiProperty({
@@ -168,24 +169,13 @@ export class QuerySalesOrdersDto extends BaseQueryDto {
   @IsString()
   toDate?: string;
 
-  @ApiPropertyOptional({
-    description: 'Filter by payment status',
-    enum: ['all', 'unpaid', 'partial', 'paid', 'overpaid'],
-    example: 'paid',
-  })
+  @ApiPropertyOptional({ enum: SalesOrderPaymentStatus })
   @IsOptional()
-  @IsString()
-  paymentStatus?: 'all' | 'unpaid' | 'partial' | 'paid' | 'overpaid';
+  paymentStatus?: SalesOrderPaymentStatus | 'all';
 
-  @ApiPropertyOptional({
-    description: 'Filter by fulfillment status',
-    enum: ['all', 'fulfilled', 'unfulfilled'],
-    example: 'fulfilled',
-  })
+  @ApiPropertyOptional({ enum: SalesOrderStatus })
   @IsOptional()
-  @IsString()
-  fulfillmentStatus?: 'all' | 'fulfilled' | 'unfulfilled';
-
+  status?: SalesOrderStatus | 'all';
 }
 
 export class SalesOrderItemResponseDto {
@@ -233,32 +223,20 @@ export class SalesOrderResponseDto {
   @ApiProperty({ example: '2024-01-01' })
   orderDate: Date;
 
-  @ApiProperty({ example: '2024-01-10', nullable: true })
-  fulfilledDate?: Date;
+  @ApiProperty({ enum: SalesOrderStatus })
+  status: SalesOrderStatus;
+
+  @ApiProperty({ enum: SalesOrderPaymentStatus })
+  paymentStatus: SalesOrderPaymentStatus;
+
+  @ApiProperty({ example: 941.50 })
+  subtotal: number;
 
   @ApiProperty({ example: 50.00 })
   shippingAmount: number;
 
   @ApiProperty({ example: 991.50 })
   totalAmount: number;
-
-  @ApiProperty({ example: 500.00 })
-  paidAmount: number;
-
-  @ApiProperty({ example: false })
-  isFulfilled: boolean;
-
-  @ApiProperty({ example: false })
-  isPaidInFull: boolean;
-
-  @ApiProperty({ example: 491.50 })
-  balanceDue: number;
-
-  @ApiProperty({ example: false })
-  canFulfill: boolean;
-
-  @ApiProperty({ example: false })
-  canUnfulfill: boolean;
 
   @ApiProperty({ example: 'Fragile items, handle with care', nullable: true })
   notes?: string;
@@ -288,25 +266,15 @@ export class SalesOrderResponseDto {
   @ApiProperty({ example: '2024-01-01T00:00:00Z' })
   updatedAt: Date;
 
-  @ApiProperty({ example: '2024-01-01T00:00:00Z', nullable: true })
-  deletedAt?: Date;
-
-  @ApiProperty({ type: 'array', items: { type: 'object' } })
-  invoices: {
-    id: string;
-    invoiceNumber: string;
-    status: string;
-    invoiceDate: Date;
-    totalAmount: number;
-    paidAmount: number;
-  }[];
-
   @ApiProperty({ type: 'array', items: { type: 'object' } })
   payments: {
     id: string;
-    paymentNumber: string;
     amount: number;
-    paymentDate: Date | string;
+    paymentDate: string;
+    referenceNumber?: string;
+    notes?: string;
+    paymentMethodId: string;
+    paymentMethodName?: string;
   }[];
 }
 
@@ -333,27 +301,30 @@ export class SalesOrderSummaryDto {
   itemsCount: number;
 }
 
-export class PaymentLineDto {
+export class RecordPaymentDto {
   @ApiProperty({ description: 'Payment method ID' })
   @IsUUID()
   paymentMethodId: string;
 
-  @ApiProperty({ description: 'Payment amount', example: 500.00 })
+  @ApiProperty({ example: 500.00 })
   @IsNumber({ maxDecimalPlaces: 4 })
   @Min(0.01)
   @Transform(({ value }) => parseFloat(value))
   amount: number;
 
-  @ApiPropertyOptional({ description: 'Payment reference (check number, transaction ID, etc.)' })
+  @ApiProperty({ example: '2026-05-26' })
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, { message: 'paymentDate must be a valid date in YYYY-MM-DD format' })
+  paymentDate: string;
+
+  @ApiPropertyOptional()
   @IsOptional()
   @IsString()
-  reference?: string;
+  referenceNumber?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  notes?: string;
 }
 
-export class RecordPaymentsDto {
-  @ApiProperty({ description: 'Array of payment lines', type: [PaymentLineDto] })
-  @ValidateNested({ each: true })
-  @Type(() => PaymentLineDto)
-  @ArrayMinSize(1)
-  payments: PaymentLineDto[];
-}
+export class RecordRefundDto extends RecordPaymentDto {}

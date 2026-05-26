@@ -21,6 +21,8 @@ import {
   UpdateSalesOrderDto,
   QuerySalesOrdersDto,
   SalesOrderResponseDto,
+  RecordPaymentDto,
+  RecordRefundDto,
 } from '../dto/sales-order.dto';
 import { GlobalSearchResultDto } from '../../search/dto/global-search-result.dto';
 import { canSearchSalesOrders } from '../../search/search.permissions';
@@ -165,10 +167,6 @@ export class SalesOrderService extends BaseCrudService<
     }
   }
 
-  private async findPreviousOrder(currentOrderNumber: string): Promise<SalesOrderResponseDto | null> {
-    return this.salesOrderQueryService.findPreviousOrder(currentOrderNumber);
-  }
-
   async create(
     createSalesOrderDto: CreateSalesOrderDto,
     userId?: string,
@@ -223,6 +221,7 @@ export class SalesOrderService extends BaseCrudService<
           orderNumber,
           customerId,
           orderDate: new Date(),
+          subtotal,
           shippingAmount,
           totalAmount,
         });
@@ -436,10 +435,6 @@ export class SalesOrderService extends BaseCrudService<
     };
   }
 
-  async testInvoiceRelations(orderNumber: string): Promise<any> {
-    return this.salesOrderQueryService.testInvoiceRelations(orderNumber);
-  }
-
   async findSummaries(query: QuerySalesOrdersDto = {}): Promise<any> {
     return this.salesOrderQueryService.findSummaries(query);
   }
@@ -462,6 +457,8 @@ export class SalesOrderService extends BaseCrudService<
     userId?: string,
     username?: string,
   ): Promise<SalesOrderResponseDto> {
+    await this.salesOrderLifecycleService.assertEditAllowed(id);
+
     const order = await this.salesOrderRepository.findOne({
       where: { id }
     });
@@ -470,10 +467,6 @@ export class SalesOrderService extends BaseCrudService<
     }
 
     const { items, customerId, notes } = updateSalesOrderDto;
-
-    if (items) {
-      await this.salesOrderLifecycleService.assertItemsNotLocked(id);
-    }
 
     // Prepare update data for the sales order
     const updateData: any = {};
@@ -543,6 +536,7 @@ export class SalesOrderService extends BaseCrudService<
 
       // Add shipping and total amount to update data
       updateData.shippingAmount = shippingAmount;
+      updateData.subtotal = subtotal;
       updateData.totalAmount = totalAmount;
     } else if (updateSalesOrderDto.shippingAmount !== undefined) {
       // If only shipping is being updated (no items), recalculate total
@@ -555,16 +549,6 @@ export class SalesOrderService extends BaseCrudService<
     // Perform all updates in a single database call
     if (Object.keys(updateData).length > 0) {
       await this.salesOrderRepository.update(id, updateData);
-    }
-
-    // Keep child documents aligned with order changes without blocking header-only edits.
-    if (items && items.length > 0) {
-      await this.updateAssociatedInvoices(id);
-    } else if (customerId !== undefined || notes !== undefined) {
-      const refreshedOrder = await this.salesOrderRepository.findOne({ where: { id } });
-      if (refreshedOrder) {
-        await this.salesOrderLifecycleService.syncChildHeaderFromSalesOrder(refreshedOrder);
-      }
     }
 
     // Log audit trail for update
@@ -584,28 +568,6 @@ export class SalesOrderService extends BaseCrudService<
     }
 
     return this.findById(id);
-  }
-
-  async delete(
-    id: string,
-    userId?: string,
-    username?: string,
-  ): Promise<{ deletedOrderNumber: string; previousOrder: SalesOrderResponseDto | null }> {
-    const order = await this.salesOrderRepository.findOne({ where: { id } });
-    const customerId = order?.customerId;
-
-    const result = await this.salesOrderLifecycleService.delete(
-      id,
-      userId,
-      username,
-      this.findPreviousOrder.bind(this),
-    );
-
-    if (customerId) {
-      await this.triggerMetricUpdate(customerId, `delete ${id}`);
-    }
-
-    return result;
   }
 
   async duplicateOrder(id: string, userId: string): Promise<SalesOrderResponseDto> {
@@ -656,36 +618,6 @@ export class SalesOrderService extends BaseCrudService<
 
   async findOrdersByCustomer(customerId: string, limit: number = 10) {
     return this.salesOrderQueryService.findOrdersByCustomer(customerId, limit);
-  }
-
-  async getOrderInvoices(id: string) {
-    return this.salesOrderQueryService.getOrderInvoices(id);
-  }
-
-  async createInvoiceFromOrder(id: string) {
-    const order = await this.salesOrderRepository.findOne({
-      where: { id },
-      relations: { customer: true, items: { product: true } },
-    });
-
-    if (!order) {
-      throw new NotFoundException('Sales order not found');
-    }
-
-    const invoiceNumber = await this.generateInvoiceNumber();
-    const invoiceData = Invoice.fromSalesOrder(order);
-    const invoice = this.invoiceRepository.create({ ...invoiceData, invoiceNumber });
-
-    // lineItems removed from invoice model
-
-    const savedInvoice = await this.invoiceRepository.save(invoice);
-
-    return {
-      invoiceId: savedInvoice.id,
-      invoiceNumber: savedInvoice.invoiceNumber,
-      orderId: id,
-      orderNumber: order.orderNumber,
-    };
   }
 
   // Helper methods
@@ -771,187 +703,38 @@ export class SalesOrderService extends BaseCrudService<
     return processedItems;
   }
 
-
-  async findDeleted(query: QuerySalesOrdersDto = {}): Promise<any> {
-    return this.salesOrderQueryService.findDeleted(query);
+  async cancel(id: string, userId?: string, username?: string): Promise<SalesOrderResponseDto> {
+    await this.salesOrderLifecycleService.cancel(id, userId, username);
+    return this.salesOrderQueryService.findById(id);
   }
 
-  async restore(id: string, userId?: string, username?: string): Promise<SalesOrderResponseDto> {
-    const restoredOrder = await this.salesOrderLifecycleService.restore(id, userId, username);
-    await this.triggerMetricUpdate(restoredOrder.customerId, `restore ${id}`);
-    return restoredOrder;
+  async uncancel(id: string, userId?: string, username?: string): Promise<SalesOrderResponseDto> {
+    await this.salesOrderLifecycleService.uncancel(id, userId, username);
+    return this.salesOrderQueryService.findById(id);
   }
 
-  async bulkRestore(ids: string[], userId?: string, username?: string): Promise<BulkOperationResponse> {
-    const orders = ids.length > 0
-      ? await this.salesOrderRepository.find({ where: ids.map(id => ({ id })), withDeleted: true })
-      : [];
-    const customerIds = [...new Set(orders.map(o => o.customerId).filter(Boolean))];
-
-    const result = await this.salesOrderLifecycleService.bulkRestore(ids, userId, username);
-
-    for (const customerId of customerIds) {
-      await this.triggerMetricUpdate(customerId, `bulkRestore`);
-    }
-
-    return result;
+  async recordPayment(orderId: string, dto: RecordPaymentDto, userId?: string, username?: string): Promise<SalesOrderResponseDto> {
+    await this.salesOrderPaymentService.recordPayment(orderId, dto, userId, username);
+    return this.salesOrderQueryService.findById(orderId);
   }
 
-  async permanentDelete(id: string, userId?: string, username?: string): Promise<void> {
-    const order = await this.salesOrderRepository.findOne({
-      where: { id },
-      withDeleted: true,
-    });
-    const customerId = order?.customerId;
-
-    await this.salesOrderLifecycleService.permanentDelete(id, userId, username);
-
-    if (customerId) {
-      await this.triggerMetricUpdate(customerId, `permanentDelete ${id}`);
-    }
+  async recordRefund(orderId: string, dto: RecordRefundDto, userId?: string, username?: string): Promise<SalesOrderResponseDto> {
+    await this.salesOrderPaymentService.recordRefund(orderId, dto, userId, username);
+    return this.salesOrderQueryService.findById(orderId);
   }
 
-  async bulkPermanentDelete(
-    orderIds: string[],
-    userId?: string,
-    username?: string,
-  ): Promise<BulkOperationResponse> {
-    const orders = orderIds.length > 0
-      ? await this.salesOrderRepository.find({ where: orderIds.map(id => ({ id })), withDeleted: true })
-      : [];
-    const customerIds = [...new Set(orders.map(o => o.customerId).filter(Boolean))];
-
-    const result = await this.salesOrderLifecycleService.bulkPermanentDelete(orderIds, userId, username);
-
-    for (const customerId of customerIds) {
-      await this.triggerMetricUpdate(customerId, `bulkPermanentDelete`);
-    }
-
-    return result;
-  }
-
-  async updateAssociatedInvoices(salesOrderId: string): Promise<void> {
-    try {
-      // Find the updated sales order with all relations
-      const updatedOrder = await this.salesOrderRepository.findOne({
-        where: { id: salesOrderId },
-        relations: { customer: true, items: { product: true } }
-      });
-
-      if (!updatedOrder) {
-        console.warn(`Sales order ${salesOrderId} not found for invoice update`);
-        return;
-      }
-
-      // Find all invoices associated with this sales order
-      const invoices = await this.invoiceRepository.find({
-        where: { salesOrderId }
-      });
-
-      if (invoices.length === 0) {
-        console.log(`No invoices found for sales order ${updatedOrder.orderNumber}`);
-        return;
-      }
-
-      // Update each invoice with the latest order data
-      for (const invoice of invoices) {
-        // Skip fully paid invoices - they shouldn't be modified
-        if (invoice.status === 'paid' && Number(invoice.balanceDue) <= 0) {
-          console.log(`⏭️  Skipping paid invoice ${invoice.invoiceNumber}`);
-          continue;
-        }
-
-        // Update customer information if changed
-        if (updatedOrder.customer) {
-          invoice.customerId = updatedOrder.customerId;
-        }
-
-        // Sync invoice items from sales order items
-        if (updatedOrder.items && updatedOrder.items.length > 0) {
-          // Delete existing invoice items
-          await this.invoiceItemRepository.delete({ invoiceId: invoice.id });
-
-          // Create new invoice items from sales order
-          const invoiceItemsData = updatedOrder.items.map(soItem => ({
-            invoiceId: invoice.id,
-            lineNumber: soItem.lineNumber,
-            productId: soItem.productId,
-            quantity: Number(soItem.quantity),
-            unitPrice: Number(soItem.unitPrice),
-            discountType: soItem.discountType,
-            discountPercent: Number(soItem.discountPercent || 0),
-            discount: Number(soItem.discountAmount),
-            totalAmount: Number(soItem.totalAmount),
-          }));
-
-          // Insert all items
-          await this.invoiceItemRepository.insert(invoiceItemsData);
-
-          // Update total amount from order (items + shipping)
-          const newSubtotal = updatedOrder.items.reduce((sum, item) =>
-            sum + Number(item.totalAmount), 0);
-          const shippingAmount = Number(updatedOrder.shippingAmount || 0);
-          invoice.totalAmount = newSubtotal + shippingAmount;
-        }
-
-        // Sync notes from sales order
-        invoice.notes = updatedOrder.notes;
-
-        // Preserve existing paidAmount and recalculate balance due
-        const currentPaidAmount = Number(invoice.paidAmount);
-        invoice.balanceDue = Number(invoice.totalAmount) - currentPaidAmount;
-
-        // Update invoice status based on payment status
-        invoice.updateStatus();
-
-        // Save the updated invoice
-        await this.invoiceRepository.save(invoice);
-
-        console.log(`✅ Updated invoice ${invoice.invoiceNumber} (including items) for sales order ${updatedOrder.orderNumber}`);
-      }
-
-      console.log(`✅ Updated ${invoices.length} invoice(s) for sales order ${updatedOrder.orderNumber}`);
-    } catch (error) {
-      console.error(`⚠️ Failed to update associated invoices for sales order ${salesOrderId}:`, error.message);
-      // Don't throw error - sales order update should still succeed even if invoice update fails
-    }
-  }
-
-  async recordPayment(id: string, amount: number, paymentMethodId?: string): Promise<SalesOrderResponseDto> {
-    return this.salesOrderPaymentService.recordPayment(
-      id,
-      amount,
-      paymentMethodId,
-      this.findById.bind(this),
-    );
-  }
-
-  async recordPayments(id: string, payments: { paymentMethodId: string; amount: number; reference?: string }[]): Promise<SalesOrderResponseDto> {
-    return this.salesOrderPaymentService.recordPayments(
-      id,
-      payments,
-      this.findById.bind(this),
-    );
-  }
-
-  async unpayOrder(id: string): Promise<SalesOrderResponseDto> {
-    return this.salesOrderPaymentService.unpayOrder(id, this.findById.bind(this));
+  async listPayments(orderId: string) {
+    return this.salesOrderPaymentService.listPayments(orderId);
   }
 
   async fulfillOrder(id: string, userId?: string, username?: string): Promise<SalesOrderResponseDto> {
-    const savedOrder = await this.salesOrderFulfillmentService.fulfillOrder(
-      id,
-      userId,
-      username,
-    );
-    await this.triggerMetricUpdate(savedOrder.customerId, `fulfillOrder ${id}`);
-    return this.findById(savedOrder.id);
+    await this.salesOrderFulfillmentService.fulfillOrder(id, userId, username);
+    return this.salesOrderQueryService.findById(id);
   }
 
-  async unfulfillOrder(id: string): Promise<SalesOrderResponseDto> {
-    const savedOrder = await this.salesOrderFulfillmentService.unfulfillOrder(id);
-    await this.triggerMetricUpdate(savedOrder.customerId, `unfulfillOrder ${id}`);
-    return this.findById(savedOrder.id);
+  async unfulfillOrder(id: string, userId?: string, username?: string): Promise<SalesOrderResponseDto> {
+    await this.salesOrderFulfillmentService.unfulfillOrder(id, userId, username);
+    return this.salesOrderQueryService.findById(id);
   }
 
 

@@ -8,8 +8,8 @@ import {
 } from 'typeorm';
 import {
   IsString,
-  IsBoolean,
   IsOptional,
+  IsEnum,
   MaxLength,
   IsDecimal,
   Min,
@@ -18,114 +18,82 @@ import {
 import { BaseEntity } from './base.entity';
 import { Customer } from './customer.entity';
 import { SalesOrderItem } from './sales-order-item.entity';
+import { SalesOrderPayment } from './sales-order-payment.entity';
 import { Invoice } from './invoice.entity';
 
+export enum SalesOrderStatus {
+  DRAFT = 'DRAFT',
+  FULFILLED = 'FULFILLED',
+  CANCELLED = 'CANCELLED',
+}
 
-/**
- * Sales Order entity for managing customer orders
- * Supports comprehensive order tracking and fulfillment
- */
+export enum SalesOrderPaymentStatus {
+  UNPAID = 'UNPAID',
+  PARTIAL = 'PARTIAL',
+  PAID = 'PAID',
+  OVERPAID = 'OVERPAID',
+}
+
 @Entity('sales_orders')
 @Index(['orderNumber'], { unique: true })
 @Index(['customerId'])
 @Index(['orderDate'])
+@Index(['status'])
+@Index(['paymentStatus'])
 export class SalesOrder extends BaseEntity {
-  @Column({
-    type: 'varchar',
-    length: 30,
-    unique: true,
-    comment: 'Unique sales order number',
-  })
+  @Column({ type: 'varchar', length: 30, unique: true })
   @IsString()
   @MaxLength(30)
   orderNumber: string;
 
-  @Column({
-    type: 'date',
-    comment: 'Order date',
-  })
+  @Column({ type: 'date' })
   @IsDate()
   orderDate: Date;
 
-  @Column({
-    type: 'varchar',
-    length: 10,
-    default: 'USD',
-    comment: 'Transaction currency',
-  })
+  @Column({ type: 'varchar', length: 10, default: 'USD' })
   @IsString()
   @MaxLength(10)
   currency: string;
 
-  // Financial Information
+  @Column({
+    type: 'enum',
+    enum: SalesOrderStatus,
+    default: SalesOrderStatus.DRAFT,
+  })
+  @IsEnum(SalesOrderStatus)
+  status: SalesOrderStatus;
 
   @Column({
-    type: 'decimal',
-    precision: 15,
-    scale: 4,
-    default: 0,
-    comment: 'Shipping/freight charges',
+    type: 'enum',
+    enum: SalesOrderPaymentStatus,
+    default: SalesOrderPaymentStatus.UNPAID,
   })
+  @IsEnum(SalesOrderPaymentStatus)
+  paymentStatus: SalesOrderPaymentStatus;
+
+  @Column({ type: 'decimal', precision: 15, scale: 4, default: 0 })
+  @IsDecimal({ decimal_digits: '0,4' })
+  @Min(0)
+  subtotal: number;
+
+  @Column({ type: 'decimal', precision: 15, scale: 4, default: 0 })
   @IsDecimal({ decimal_digits: '0,4' })
   @Min(0)
   shippingAmount: number;
 
-  @Column({
-    type: 'decimal',
-    precision: 15,
-    scale: 4,
-    default: 0,
-    comment: 'Total order amount',
-  })
+  @Column({ type: 'decimal', precision: 15, scale: 4, default: 0 })
   @IsDecimal({ decimal_digits: '0,4' })
   @Min(0)
   totalAmount: number;
 
-  @Column({
-    type: 'decimal',
-    precision: 15,
-    scale: 4,
-    default: 0,
-    comment: 'Amount received from customer',
-  })
-  @IsDecimal({ decimal_digits: '0,4' })
-  @Min(0)
-  paidAmount: number;
-
-  @Column({
-    type: 'boolean',
-    default: false,
-    comment: 'Whether order is fulfilled (inventory deducted)',
-  })
-  @IsBoolean()
-  isFulfilled: boolean;
-
-  @Column({
-    type: 'timestamp',
-    nullable: true,
-    comment: 'Date when order was fulfilled',
-  })
-  @IsOptional()
-  @IsDate()
-  fulfilledDate?: Date;
-
-  @Column({
-    type: 'text',
-    nullable: true,
-    comment: 'Special instructions or notes',
-  })
+  @Column({ type: 'text', nullable: true })
   @IsOptional()
   @IsString()
   notes?: string;
 
-  // Foreign Keys
-  @Column({
-    type: 'uuid',
-    comment: 'Customer ID',
-  })
+  @Column({ type: 'uuid' })
   customerId: string;
 
-  // Relationships
   @ManyToOne(() => Customer, (customer) => customer.salesOrders, {
     onDelete: 'RESTRICT',
     eager: false,
@@ -139,36 +107,60 @@ export class SalesOrder extends BaseEntity {
   })
   items: SalesOrderItem[];
 
+  @OneToMany(() => SalesOrderPayment, (p) => p.salesOrder, {
+    cascade: false,
+    eager: false,
+  })
+  salesOrderPayments: SalesOrderPayment[];
+
   @OneToMany(() => Invoice, (invoice) => invoice.salesOrder, {
     cascade: false,
+    eager: false,
   })
   invoices: Invoice[];
 
-  // Computed properties
-  get isPaidInFull(): boolean {
-    return Number(this.paidAmount) >= Number(this.totalAmount);
+  /** @deprecated Use `status === SalesOrderStatus.FULFILLED` instead. Kept for analytics/invoice query compatibility. */
+  get isFulfilled(): boolean {
+    return this.status === SalesOrderStatus.FULFILLED;
   }
 
-  get balanceDue(): number {
-    return Math.max(0, Number(this.totalAmount) - Number(this.paidAmount));
+  /** @deprecated Approximation only — returns updatedAt when fulfilled. Kept for accounting.service compatibility. */
+  get fulfilledDate(): Date | undefined {
+    return this.status === SalesOrderStatus.FULFILLED ? this.updatedAt : undefined;
   }
 
-  get canFulfill(): boolean {
-    return this.isPaidInFull && !this.isFulfilled;
-  }
-
-  get canUnfulfill(): boolean {
-    return this.isFulfilled;
-  }
-
-  // Note: Order number generation moved to service layer for better async handling
-
-  // Helper methods
-  calculateTotals(): void {
-    // This should be called after items are loaded
-    if (this.items && this.items.length > 0) {
-      this.totalAmount = this.items.reduce((sum, item) =>
-        sum + Number(item.totalAmount), 0);
+  /** @deprecated Approximation only — does not reflect actual SalesOrderPayment records. Use paymentStatus enum instead. */
+  get paidAmount(): number {
+    if (this.paymentStatus === SalesOrderPaymentStatus.UNPAID) return 0;
+    if (
+      this.paymentStatus === SalesOrderPaymentStatus.PAID ||
+      this.paymentStatus === SalesOrderPaymentStatus.OVERPAID
+    ) {
+      return Number(this.totalAmount);
     }
+    return 0.01;
+  }
+
+  /** @deprecated Use `paymentStatus === PAID || paymentStatus === OVERPAID` instead. */
+  get isPaidInFull(): boolean {
+    return (
+      this.paymentStatus === SalesOrderPaymentStatus.PAID ||
+      this.paymentStatus === SalesOrderPaymentStatus.OVERPAID
+    );
+  }
+
+  /** @deprecated Approximation only — returns 0 or totalAmount, not the real partial balance. */
+  get balanceDue(): number {
+    return this.isPaidInFull ? 0 : Number(this.totalAmount);
+  }
+
+  /** @deprecated Use status and paymentStatus enums directly. */
+  get canFulfill(): boolean {
+    return this.paymentStatus === SalesOrderPaymentStatus.PAID && this.status === SalesOrderStatus.DRAFT;
+  }
+
+  /** @deprecated Use `status === SalesOrderStatus.FULFILLED` instead. */
+  get canUnfulfill(): boolean {
+    return this.status === SalesOrderStatus.FULFILLED;
   }
 }

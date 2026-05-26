@@ -145,14 +145,14 @@ describe('Sales (e2e)', () => {
       expect(res.body.id).toBe(salesOrderId);
     });
 
-    it('GET /sales-orders/:id/fulfillment-status — returns fulfillment status', async () => {
+    it('GET /sales-orders/:id — order starts as DRAFT/UNPAID', async () => {
       const res = await request(app.getHttpServer())
-        .get(`/sales-orders/${salesOrderId}/fulfillment-status`)
+        .get(`/sales-orders/${salesOrderId}`)
         .set('Authorization', `Bearer ${accessToken}`)
         .expect(200);
 
-      expect(res.body).toHaveProperty('orderId', salesOrderId);
-      expect(res.body).toHaveProperty('totalItems');
+      expect(res.body.status).toBe('DRAFT');
+      expect(res.body.paymentStatus).toBe('UNPAID');
     });
 
     it('PUT /sales-orders/:id — updates the sales order notes', async () => {
@@ -184,47 +184,32 @@ describe('Sales (e2e)', () => {
   // ─── Payment flow ─────────────────────────────────────────────────────────
 
   describe('Payment flow', () => {
-    it('POST /sales-orders/:id/record-payment — records a payment', async () => {
-      const res = await request(app.getHttpServer())
-        .post(`/sales-orders/${salesOrderId}/record-payment`)
+    it('POST /sales-orders/:id/payments — records a partial payment', async () => {
+      await request(app.getHttpServer())
+        .post(`/sales-orders/${salesOrderId}/payments`)
         .set('Authorization', `Bearer ${accessToken}`)
-        .send({ amount: 300, paymentMethodId })
-        .expect(201);
-
-      const order = res.body.data ?? res.body;
-      expect(Number(order.paidAmount)).toBe(300);
+        .send({ amount: 100, paymentMethodId, paymentDate: '2026-05-26' })
+        .expect(200);
     });
 
-    it('GET /sales-orders/:id — paidAmount reflects the payment', async () => {
+    it('GET /sales-orders/:id/payments — lists payments', async () => {
+      const res = await request(app.getHttpServer())
+        .get(`/sales-orders/${salesOrderId}/payments`)
+        .set('Authorization', `Bearer ${accessToken}`)
+        .expect(200);
+
+      const payments: any[] = res.body.data ?? res.body;
+      expect(payments.length).toBeGreaterThan(0);
+      expect(Number(payments[0].amount)).toBe(100);
+    });
+
+    it('GET /sales-orders/:id — paymentStatus is PARTIAL after partial payment', async () => {
       const res = await request(app.getHttpServer())
         .get(`/sales-orders/${salesOrderId}`)
         .set('Authorization', `Bearer ${accessToken}`)
         .expect(200);
 
-      expect(Number(res.body.paidAmount)).toBe(300);
-    });
-  });
-
-  // ─── Invoice ──────────────────────────────────────────────────────────────
-  describe('Invoice', () => {
-    it('POST /sales-orders/:id/create-invoice — creates an invoice', async () => {
-      const res = await request(app.getHttpServer())
-        .post(`/sales-orders/${salesOrderId}/create-invoice`)
-        .set('Authorization', `Bearer ${accessToken}`)
-        .expect(201);
-
-      expect(res.body).toHaveProperty('invoiceId');
-      expect(res.body).toHaveProperty('invoiceNumber');
-    });
-
-    it('GET /sales-orders/:id/invoices — lists invoices for the order', async () => {
-      const res = await request(app.getHttpServer())
-        .get(`/sales-orders/${salesOrderId}/invoices`)
-        .set('Authorization', `Bearer ${accessToken}`)
-        .expect(200);
-
-      expect(res.body).toHaveProperty('invoices');
-      expect(res.body.invoices.length).toBeGreaterThan(0);
+      expect(res.body.paymentStatus).toBe('PARTIAL');
     });
   });
 

@@ -202,7 +202,7 @@ export class ProductService extends BaseCrudService<
       .createQueryBuilder('item')
       .leftJoin('item.salesOrder', 'order')
       .where('item.productId = :productId', { productId: entity.id })
-      .andWhere('order.isFulfilled = :isFulfilled', { isFulfilled: false })
+      .andWhere('order.status = :status', { status: 'DRAFT' })
       .getCount();
 
     if (activeSalesOrderItemCount > 0) {
@@ -1939,10 +1939,6 @@ export class ProductService extends BaseCrudService<
     const salesOrders = salesOrderItems
       .filter(item => item.salesOrder) // Only process items with loaded order
       .map(item => {
-        const paidAmount = Number(item.salesOrder.paidAmount || 0);
-        const totalAmount = Number(item.salesOrder.totalAmount || 0);
-        const isPaid = paidAmount >= totalAmount;
-
         return {
           id: item.id,
           type: 'sales_order',
@@ -1950,8 +1946,8 @@ export class ProductService extends BaseCrudService<
           customerOrVendor: item.salesOrder.customer?.name || 'Unknown',
           date: item.salesOrder.orderDate,
           updatedAt: item.salesOrder.updatedAt, // Add updatedAt for sorting
-          paymentStatus: isPaid ? 'paid' : (paidAmount > 0 ? 'partial' : 'pending'),
-          fulfillmentStatus: item.salesOrder.isFulfilled ? 'fulfilled' : 'pending',
+          paymentStatus: item.salesOrder.paymentStatus?.toLowerCase() || 'pending',
+          fulfillmentStatus: item.salesOrder.status === 'FULFILLED' ? 'fulfilled' : 'pending',
           quantity: Number(item.quantity),
           subTotal: Number(item.totalAmount),
         };

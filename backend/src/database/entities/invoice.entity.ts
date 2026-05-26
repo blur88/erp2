@@ -155,7 +155,7 @@ export class Invoice extends BaseEntity {
   @JoinColumn({ name: 'customerId' })
   customer: Customer;
 
-  @ManyToOne(() => SalesOrder, (salesOrder) => salesOrder.invoices, {
+  @ManyToOne(() => SalesOrder, {
     onDelete: 'SET NULL',
     nullable: true,
   })
@@ -239,7 +239,7 @@ export class Invoice extends BaseEntity {
 
   // Static factory method
   static fromSalesOrder(salesOrder: SalesOrder): Partial<Invoice> {
-    const paidAmount = Number(salesOrder.paidAmount || 0);
+    const paidAmount = 0;
     const totalAmount = Number(salesOrder.totalAmount);
     const shippingAmount = Number(salesOrder.shippingAmount || 0);
     const balanceDue = Math.max(0, totalAmount - paidAmount);

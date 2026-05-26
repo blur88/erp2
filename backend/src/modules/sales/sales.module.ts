@@ -5,6 +5,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { Customer } from '../../database/entities/customer.entity';
 import { SalesOrder } from '../../database/entities/sales-order.entity';
 import { SalesOrderItem } from '../../database/entities/sales-order-item.entity';
+import { SalesOrderPayment } from '../../database/entities/sales-order-payment.entity';
 import { Product } from '../../database/entities/product.entity';
 import { Invoice } from '../../database/entities/invoice.entity';
 import { InvoiceItem } from '../../database/entities/invoice-item.entity';
@@ -46,6 +47,7 @@ import { TransactionManager } from '../../common/utils/transaction.util';
       Customer,
       SalesOrder,
       SalesOrderItem,
+      SalesOrderPayment,
       Product,
       Invoice,
       InvoiceItem,
