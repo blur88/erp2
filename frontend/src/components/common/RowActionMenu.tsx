@@ -45,7 +45,7 @@ export default function RowActionMenu({ actions }: RowActionMenuProps) {
               <MenuItem
                 key={action.label}
                 disabled={action.disabled}
-                onClick={() => !action.disabled && handleAction(action.onClick)}
+                onClick={() => handleAction(action.onClick)}
                 dense
               >
                 {action.label}
@@ -53,7 +53,7 @@ export default function RowActionMenu({ actions }: RowActionMenuProps) {
             )
             return action.disabled && action.tooltip ? (
               <Tooltip key={action.label} title={action.tooltip} placement="left">
-                <span title={action.tooltip}>{item}</span>
+                <span data-tooltip={action.tooltip}>{item}</span>
               </Tooltip>
             ) : item
           })}

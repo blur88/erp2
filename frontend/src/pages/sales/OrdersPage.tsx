@@ -9,6 +9,7 @@ import {
   useCancelSalesOrderMutation,
   useFulfillSalesOrderMutation,
   useGetSalesOrdersQuery,
+  useRecordOrderPaymentMutation,
   useRecordOrderPaymentsMutation,
   useUnfulfillSalesOrderMutation,
 } from '@/store/api/salesApi'
@@ -93,6 +94,7 @@ const OrdersPage: React.FC = () => {
   const [fulfillOrder] = useFulfillSalesOrderMutation()
   const [unfulfillOrder] = useUnfulfillSalesOrderMutation()
   const [cancelOrder] = useCancelSalesOrderMutation()
+  const [recordPayment] = useRecordOrderPaymentMutation()
   const [recordPayments] = useRecordOrderPaymentsMutation()
 
   useEffect(() => {
@@ -139,30 +141,27 @@ const OrdersPage: React.FC = () => {
 
   const handleRefund = useCallback(async (order: SalesOrder) => {
     const overpayment = (order.paidAmount ?? 0) - order.totalAmount
-    if (overpayment <= 0) {
-      showError(`No overpayment to refund on ${order.orderNumber}`)
-      return
-    }
-
+    if (overpayment <= 0) return
     try {
-      await recordPayments({
-        id: order.id,
-        payments: [{ paymentMethodId: '', amount: -overpayment }],
-      }).unwrap()
+      await recordPayment({ id: order.id, amount: overpayment }).unwrap()
       showSuccess(`Refund of ${overpayment.toFixed(2)} processed for ${order.orderNumber}`)
     } catch (e: any) {
       showError(e?.data?.message || `Failed to refund ${order.orderNumber}`)
     }
-  }, [recordPayments, showError, showSuccess])
+  }, [recordPayment, showError, showSuccess])
 
   const handleSubmitPayment = useCallback(async (
     payments: { paymentMethodId: string; amount: number; reference?: string }[],
   ) => {
     if (!paymentOrder) return
-    await recordPayments({ id: paymentOrder.id, payments }).unwrap()
-    setPaymentOrder(null)
-    showSuccess(`Payment recorded for ${paymentOrder.orderNumber}`)
-  }, [paymentOrder, recordPayments, showSuccess])
+    try {
+      await recordPayments({ id: paymentOrder.id, payments }).unwrap()
+      setPaymentOrder(null)
+      showSuccess(`Payment recorded for ${paymentOrder.orderNumber}`)
+    } catch (e: any) {
+      showError(e?.data?.message || `Failed to record payment for ${paymentOrder.orderNumber}`)
+    }
+  }, [paymentOrder, recordPayments, showError, showSuccess])
 
   return (
     <>

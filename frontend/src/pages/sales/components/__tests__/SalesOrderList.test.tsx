@@ -69,6 +69,7 @@ describe('SalesOrderList columns', () => {
 
   it('renders Draft status chip', () => {
     renderList()
+    // Status chip for DRAFT
     expect(screen.getByText('Draft')).toBeInTheDocument()
   })
 
@@ -104,19 +105,19 @@ describe('SalesOrderList row actions — Draft Unpaid', () => {
     await openMenu()
     const fulfill = screen.getByRole('menuitem', { name: /fulfill/i })
     expect(fulfill).toHaveAttribute('aria-disabled', 'true')
-    expect(screen.getByTitle('Full payment required')).toBeInTheDocument()
+    expect(fulfill.closest('[data-tooltip]')).toHaveAttribute('data-tooltip', 'Full payment required')
   })
 })
 
 describe('SalesOrderList row actions — Draft Paid', () => {
-  it('shows View, Edit (disabled), Fulfill, Refund, Cancel (disabled), Print — no Pay', async () => {
+  it('shows View, Edit (disabled), Fulfill, Cancel (disabled), Print — no Pay, no Refund', async () => {
     renderList({ ...defaultProps, orders: [makeOrder({ paymentStatus: 'PAID' })] })
     await openMenu()
     expect(screen.getByRole('menuitem', { name: /view/i })).toBeInTheDocument()
     expect(screen.getByRole('menuitem', { name: /^edit$/i })).toBeInTheDocument()
     expect(screen.queryByRole('menuitem', { name: /^pay$/i })).not.toBeInTheDocument()
     expect(screen.getByRole('menuitem', { name: /^fulfill$/i })).toBeInTheDocument()
-    expect(screen.getByRole('menuitem', { name: /refund/i })).toBeInTheDocument()
+    expect(screen.queryByRole('menuitem', { name: /refund/i })).not.toBeInTheDocument()
     expect(screen.getByRole('menuitem', { name: /cancel/i })).toBeInTheDocument()
     expect(screen.queryByRole('menuitem', { name: /unfulfill/i })).not.toBeInTheDocument()
     const edit = screen.getByRole('menuitem', { name: /^edit$/i })
@@ -124,16 +125,40 @@ describe('SalesOrderList row actions — Draft Paid', () => {
   })
 })
 
+describe('SalesOrderList row actions — Draft Overpaid', () => {
+  it('shows Refund', async () => {
+    renderList({ ...defaultProps, orders: [makeOrder({ paymentStatus: 'OVERPAID' })] })
+    await openMenu()
+    expect(screen.getByRole('menuitem', { name: /refund/i })).toBeInTheDocument()
+  })
+})
+
 describe('SalesOrderList row actions — Fulfilled', () => {
-  it('shows View, Edit (disabled), Unfulfill, Refund, Cancel (disabled), Print', async () => {
+  it('shows View, Edit (disabled), Unfulfill, Cancel (disabled), Print — no Refund, no Pay', async () => {
     renderList({ ...defaultProps, orders: [makeOrder({ status: 'FULFILLED', paymentStatus: 'PAID' })] })
     await openMenu()
     expect(screen.getByRole('menuitem', { name: /view/i })).toBeInTheDocument()
     expect(screen.getByRole('menuitem', { name: /^edit$/i })).toBeInTheDocument()
     expect(screen.getByRole('menuitem', { name: /unfulfill/i })).toBeInTheDocument()
-    expect(screen.getByRole('menuitem', { name: /refund/i })).toBeInTheDocument()
+    expect(screen.queryByRole('menuitem', { name: /refund/i })).not.toBeInTheDocument()
     expect(screen.queryByRole('menuitem', { name: /^fulfill$/i })).not.toBeInTheDocument()
     expect(screen.queryByRole('menuitem', { name: /^pay$/i })).not.toBeInTheDocument()
+  })
+})
+
+describe('SalesOrderList row actions — Draft Partial', () => {
+  it('shows View, Edit (disabled), Fulfill, Cancel (disabled), Print — no Pay, no Refund', async () => {
+    renderList({ ...defaultProps, orders: [makeOrder({ paymentStatus: 'PARTIAL' })] })
+    await openMenu()
+    expect(screen.getByRole('menuitem', { name: /view/i })).toBeInTheDocument()
+    const edit = screen.getByRole('menuitem', { name: /^edit$/i })
+    expect(edit).toHaveAttribute('aria-disabled', 'true')
+    expect(screen.queryByRole('menuitem', { name: /^pay$/i })).not.toBeInTheDocument()
+    expect(screen.getByRole('menuitem', { name: /^fulfill$/i })).toBeInTheDocument()
+    expect(screen.queryByRole('menuitem', { name: /refund/i })).not.toBeInTheDocument()
+    const cancel = screen.getByRole('menuitem', { name: /cancel/i })
+    expect(cancel).toHaveAttribute('aria-disabled', 'true')
+    expect(screen.getByRole('menuitem', { name: /print/i })).toBeInTheDocument()
   })
 })
 

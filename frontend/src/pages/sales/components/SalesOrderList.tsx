@@ -30,13 +30,17 @@ function buildActions(order: SalesOrder, props: SalesOrderListProps): RowAction[
   const isPaid = paymentStatus !== 'UNPAID'
   const isFulfilled = status === 'FULFILLED'
 
-  const editTooltip = isFulfilled
+  const editTooltip = isPaid && isFulfilled
     ? 'Unfulfill and cancel payment first to edit'
-    : 'Cancel payment first to edit'
+    : isFulfilled
+      ? 'Unfulfill first to edit'
+      : 'Cancel payment first to edit'
 
-  const cancelTooltip = isFulfilled
+  const cancelTooltip = isPaid && isFulfilled
     ? 'Unfulfill and cancel payment first'
-    : 'Cancel payment first'
+    : isFulfilled
+      ? 'Unfulfill first'
+      : 'Cancel payment first'
 
   const actions: RowAction[] = []
 
@@ -68,10 +72,7 @@ function buildActions(order: SalesOrder, props: SalesOrderListProps): RowAction[
     actions.push({ label: 'Unfulfill', onClick: () => props.onUnfulfill(order) })
   }
 
-  if (
-    (status === 'DRAFT' && (paymentStatus === 'PAID' || paymentStatus === 'OVERPAID')) ||
-    isFulfilled
-  ) {
+  if (paymentStatus === 'OVERPAID') {
     actions.push({ label: 'Refund', onClick: () => props.onRefund(order) })
   }
 

@@ -54,8 +54,7 @@ describe('RowActionMenu', () => {
     render(<RowActionMenu actions={actions} />)
     await userEvent.click(screen.getByRole('button', { name: /row actions/i }))
     const item = screen.getByRole('menuitem', { name: /fulfill/i })
-    expect(item).toBeInTheDocument()
-    // Tooltip wraps the item — its title is on the wrapper span
-    expect(item.closest('[title]') ?? screen.getByTitle('Full payment required')).toBeInTheDocument()
+    expect(item).toHaveAttribute('aria-disabled', 'true')
+    expect(item.closest('[data-tooltip]')).toHaveAttribute('data-tooltip', 'Full payment required')
   })
 })

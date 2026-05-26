@@ -7,7 +7,7 @@ const STATUS_CONFIG: Record<
   { label: string; color: 'warning' | 'success' | 'default' }
 > = {
   DRAFT: { label: 'Draft', color: 'warning' },
-  FULFILLED: { label: 'Fulfill', color: 'success' },
+  FULFILLED: { label: 'Fulfilled', color: 'success' },
   CANCELLED: { label: 'Cancelled', color: 'default' },
 }
 

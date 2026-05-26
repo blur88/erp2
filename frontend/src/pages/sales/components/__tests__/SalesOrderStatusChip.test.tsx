@@ -10,9 +10,9 @@ describe('SalesOrderStatusChip', () => {
     expect(screen.getByText('Draft')).toBeInTheDocument()
   })
 
-  it('renders Fulfill for FULFILLED', () => {
+  it('renders Fulfilled for FULFILLED', () => {
     render(<SalesOrderStatusChip status="FULFILLED" />)
-    expect(screen.getByText('Fulfill')).toBeInTheDocument()
+    expect(screen.getByText('Fulfilled')).toBeInTheDocument()
   })
 
   it('renders Cancelled for CANCELLED', () => {
