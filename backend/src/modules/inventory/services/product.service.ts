@@ -202,7 +202,7 @@ export class ProductService extends BaseCrudService<
       .createQueryBuilder('item')
       .leftJoin('item.salesOrder', 'order')
       .where('item.productId = :productId', { productId: entity.id })
-      .andWhere('order.isFulfilled = :isFulfilled', { isFulfilled: false })
+      .andWhere('order.status = :status', { status: 'DRAFT' })
       .getCount();
 
     if (activeSalesOrderItemCount > 0) {
