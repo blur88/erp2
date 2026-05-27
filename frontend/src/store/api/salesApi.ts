@@ -204,8 +204,13 @@ export const salesApiSlice = createApi({
       transformResponse: normalizeSingle<SalesOrder>,
       invalidatesTags: ['SalesOrder'],
     }),
-    cancelSalesOrder: builder.mutation<SalesOrder, { id: string; reason?: string }>({
-      query: ({ id, reason }) => ({ url: `/sales-orders/${id}/cancel`, method: 'PUT', data: { reason } }),
+    cancelSalesOrder: builder.mutation<SalesOrder, { id: string }>({
+      query: ({ id }) => ({ url: `/sales-orders/${id}/cancel`, method: 'POST' }),
+      transformResponse: normalizeSingle<SalesOrder>,
+      invalidatesTags: ['SalesOrder'],
+    }),
+    uncancelSalesOrder: builder.mutation<SalesOrder, string>({
+      query: (id) => ({ url: `/sales-orders/${id}/uncancel`, method: 'POST' }),
       transformResponse: normalizeSingle<SalesOrder>,
       invalidatesTags: ['SalesOrder'],
     }),
@@ -214,21 +219,12 @@ export const salesApiSlice = createApi({
       transformResponse: normalizeSingle<SalesOrder>,
       invalidatesTags: ['SalesOrder'],
     }),
-    recordOrderPayment: builder.mutation<SalesOrder, { id: string; amount: number; paymentMethodId?: string }>({
-      query: ({ id, amount, paymentMethodId }) => ({
-        url: `/sales-orders/${id}/record-payment`,
-        method: 'POST',
-        data: { amount, paymentMethodId },
-      }),
-      transformResponse: (response: any) => normalizeSingle<SalesOrder>(response?.data ?? response),
-      invalidatesTags: ['SalesOrder', 'Invoice', 'Payment'],
-    }),
     recordOrderPayments: builder.mutation<
       SalesOrder,
-      { id: string; payments: { paymentMethodId: string; amount: number; reference?: string }[] }
+      { id: string; payments: { paymentMethodId: string; amount: number; paymentDate: string; reference?: string }[] }
     >({
       query: ({ id, payments }) => ({
-        url: `/sales-orders/${id}/record-payments`,
+        url: `/sales-orders/${id}/payments/batch`,
         method: 'POST',
         data: { payments },
       }),
@@ -237,7 +233,7 @@ export const salesApiSlice = createApi({
     }),
     recordOrderRefunds: builder.mutation<
       SalesOrder,
-      { id: string; refunds: { paymentMethodId: string; amount: number; reference?: string }[] }
+      { id: string; refunds: { paymentMethodId: string; amount: number; paymentDate: string; reference?: string }[] }
     >({
       query: ({ id, refunds }) => ({
         url: `/sales-orders/${id}/refunds`,
@@ -431,8 +427,8 @@ export const {
   useDeliverSalesOrderMutation,
   useCompleteSalesOrderMutation,
   useCancelSalesOrderMutation,
+  useUncancelSalesOrderMutation,
   useDuplicateSalesOrderMutation,
-  useRecordOrderPaymentMutation,
   useRecordOrderPaymentsMutation,
   useRecordOrderRefundsMutation,
   useUnpaySalesOrderMutation,

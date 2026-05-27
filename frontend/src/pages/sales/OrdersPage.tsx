@@ -9,7 +9,6 @@ import {
   useCancelSalesOrderMutation,
   useFulfillSalesOrderMutation,
   useGetSalesOrdersQuery,
-  useRecordOrderPaymentMutation,
   useRecordOrderPaymentsMutation,
   useRecordOrderRefundsMutation,
   useUnfulfillSalesOrderMutation,
@@ -96,7 +95,6 @@ const OrdersPage: React.FC = () => {
   const [fulfillOrder] = useFulfillSalesOrderMutation()
   const [unfulfillOrder] = useUnfulfillSalesOrderMutation()
   const [cancelOrder] = useCancelSalesOrderMutation()
-  const [recordPayment] = useRecordOrderPaymentMutation()
   const [recordPayments] = useRecordOrderPaymentsMutation()
   const [recordRefunds] = useRecordOrderRefundsMutation()
 
