@@ -39,6 +39,11 @@ interface PaymentDialogProps {
   title?: string
 }
 
+const newId = () =>
+  typeof crypto !== 'undefined' && crypto.randomUUID
+    ? crypto.randomUUID()
+    : Math.random().toString(36).slice(2)
+
 const formatCurrency = (amount: number) => {
   return new Intl.NumberFormat('en-MY', { style: 'currency', currency: 'MYR' }).format(amount)
 }
@@ -75,7 +80,7 @@ export default function PaymentDialog({
     if (!open || lines.length > 0) return
     const cashMethod = paymentMethods.find((m) => m.code === 'CASH')
     setLines([{
-      id: crypto.randomUUID(),
+      id: newId(),
       paymentMethodId: cashMethod?.id || paymentMethods[0]?.id || '',
       amount: outstandingBalance > 0 ? outstandingBalance : '',
       paymentDate: getCurrentDate(),
@@ -99,7 +104,7 @@ export default function PaymentDialog({
     setUserHasEdited(true)
     const cashMethod = paymentMethods.find((m) => m.code === 'CASH')
     setLines(prev => [...prev, {
-      id: crypto.randomUUID(),
+      id: newId(),
       paymentMethodId: cashMethod?.id || paymentMethods[0]?.id || '',
       amount: remaining > 0 ? remaining : '',
       paymentDate: getCurrentDate(),
