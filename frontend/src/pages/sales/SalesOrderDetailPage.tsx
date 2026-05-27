@@ -15,10 +15,12 @@ import { TABLE_STYLES } from '@/constants/tableStyles'
 import { useNotification } from '@/hooks/useNotification'
 import {
   useCancelSalesOrderMutation,
+  useDuplicateSalesOrderMutation,
   useFulfillSalesOrderMutation,
   useGetSalesOrderByNumberQuery,
   useRecordOrderPaymentsMutation,
   useRecordOrderRefundsMutation,
+  useUncancelSalesOrderMutation,
   useUnfulfillSalesOrderMutation,
 } from '@/store/api/salesApi'
 
@@ -29,7 +31,7 @@ import OrderPaymentsTab from './components/OrderPaymentsTab'
 import { SalesOrderPaymentStatusChip } from './components/SalesOrderPaymentStatusChip'
 import { SalesOrderStatusChip } from './components/SalesOrderStatusChip'
 
-type Dialog = 'pay' | 'refund' | 'print' | 'fulfill' | 'unfulfill' | 'cancel' | null
+type Dialog = 'pay' | 'refund' | 'print' | 'fulfill' | 'unfulfill' | 'cancel' | 'uncancel' | null
 
 interface TabPanelProps {
   children?: ReactNode
@@ -78,6 +80,8 @@ export default function SalesOrderDetailPage() {
   const [fulfillOrder, { isLoading: isFulfilling }] = useFulfillSalesOrderMutation()
   const [unfulfillOrder, { isLoading: isUnfulfilling }] = useUnfulfillSalesOrderMutation()
   const [cancelOrder, { isLoading: isCancelling }] = useCancelSalesOrderMutation()
+  const [uncancelOrder, { isLoading: isUncancelling }] = useUncancelSalesOrderMutation()
+  const [duplicateOrder] = useDuplicateSalesOrderMutation()
   const [recordPayments] = useRecordOrderPaymentsMutation()
   const [recordRefunds] = useRecordOrderRefundsMutation()
 
@@ -124,6 +128,26 @@ export default function SalesOrderDetailPage() {
       setActiveDialog(null)
     } catch (error) {
       showError(getErrorMessage(error, 'Failed to cancel order'))
+    }
+  }
+
+  const handleUncancelConfirm = async () => {
+    try {
+      await uncancelOrder(order.id).unwrap()
+      showSuccess(`Order ${order.orderNumber} restored to draft`)
+      setActiveDialog(null)
+    } catch (error) {
+      showError(getErrorMessage(error, 'Failed to uncancel order'))
+    }
+  }
+
+  const handleDuplicate = async () => {
+    try {
+      const newOrder = await duplicateOrder(order.id).unwrap()
+      showSuccess(`Order duplicated as ${newOrder.orderNumber}`)
+      navigate(`/sales/orders/${newOrder.orderNumber}/edit`)
+    } catch (error) {
+      showError(getErrorMessage(error, 'Failed to duplicate order'))
     }
   }
 
@@ -174,6 +198,8 @@ export default function SalesOrderDetailPage() {
         onRefund={() => setActiveDialog('refund')}
         onEdit={() => navigate(`/sales/orders/${order.orderNumber}/edit`)}
         onCancel={() => setActiveDialog('cancel')}
+        onUncancel={() => setActiveDialog('uncancel')}
+        onDuplicate={handleDuplicate}
         onPrint={() => setActiveDialog('print')}
       />
 
@@ -233,6 +259,16 @@ export default function SalesOrderDetailPage() {
         onConfirm={handleCancelConfirm}
         onCancel={() => setActiveDialog(null)}
         loading={isCancelling}
+      />
+
+      <ConfirmationDialog
+        open={activeDialog === 'uncancel'}
+        title="Restore Order"
+        message={`Restore this cancelled order to draft? (${order.orderNumber})`}
+        confirmText="Restore"
+        onConfirm={handleUncancelConfirm}
+        onCancel={() => setActiveDialog(null)}
+        loading={isUncancelling}
       />
 
       {activeDialog === 'pay' && (
