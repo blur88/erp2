@@ -157,4 +157,18 @@ describe('OrderActionBar', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Print' }))
     expect(onPrint).toHaveBeenCalledTimes(1)
   })
+
+  it('calls onUncancel when Uncancel is clicked', async () => {
+    const onUncancel = vi.fn()
+    renderBar(makeOrder({ status: 'CANCELLED', paymentStatus: 'UNPAID' }), { onUncancel })
+    await userEvent.click(screen.getByRole('button', { name: 'Uncancel' }))
+    expect(onUncancel).toHaveBeenCalledTimes(1)
+  })
+
+  it('calls onDuplicate when Duplicate is clicked', async () => {
+    const onDuplicate = vi.fn()
+    renderBar(makeOrder({ status: 'DRAFT', paymentStatus: 'UNPAID' }), { onDuplicate })
+    await userEvent.click(screen.getByRole('button', { name: 'Duplicate' }))
+    expect(onDuplicate).toHaveBeenCalledTimes(1)
+  })
 })

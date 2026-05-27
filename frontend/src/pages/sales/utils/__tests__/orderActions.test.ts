@@ -63,6 +63,8 @@ describe('getOrderActions', () => {
     expect(actions).not.toContain('cancel')
     expect(actions).not.toContain('refund')
     expect(actions).not.toContain('duplicate')
+    expect(actions).not.toContain('fulfill')
+    expect(actions).not.toContain('unfulfill')
   })
 })
 
@@ -77,7 +79,7 @@ describe('getOrderActionMetas — disabled flags', () => {
   it('fulfill is enabled when DRAFT + PARTIAL', () => {
     const metas = getOrderActionMetas(makeOrder('DRAFT', 'PARTIAL'))
     const fulfill = metas.find((m) => m.action === 'fulfill')
-    expect(fulfill?.disabled).toBeFalsy()
+    expect(fulfill?.disabled).toBe(false)
   })
 
   it('edit is disabled when DRAFT + PAID', () => {

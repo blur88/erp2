@@ -3,7 +3,7 @@ import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { Provider } from 'react-redux'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { SalesOrder } from '@/types'
 
@@ -95,6 +95,10 @@ function renderPage(orderNumber = 'SO-26-001') {
 }
 
 describe('SalesOrderDetailPage', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
   it('shows loading state', () => {
     mockGetSalesOrderByNumber.mockReturnValue({ data: undefined, isLoading: true })
     renderPage()

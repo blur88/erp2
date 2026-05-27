@@ -224,7 +224,6 @@ describe('RefundDialog', () => {
     mockUseGetSalesOrderPaymentsQuery.mockReturnValue({ data: makePayments(500, 0), isLoading: false })
     const onSubmit = vi.fn().mockResolvedValue(undefined)
     renderDialog({ onSubmit })
-    await waitFor(() => screen.getByRole('button', { name: /^refund$/i }))
     await userEvent.click(screen.getByRole('button', { name: /^refund$/i }))
     await waitFor(() => expect(onSubmit).toHaveBeenCalled())
     const [lines] = onSubmit.mock.calls[0]
