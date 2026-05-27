@@ -24,7 +24,6 @@ vi.mock('@/store/api/salesApi', () => ({
   useFulfillSalesOrderMutation: vi.fn(() => [vi.fn()]),
   useUnfulfillSalesOrderMutation: vi.fn(() => [vi.fn()]),
   useCancelSalesOrderMutation: vi.fn(() => [vi.fn()]),
-  useRecordOrderPaymentMutation: vi.fn(() => [vi.fn()]),
   useRecordOrderPaymentsMutation: vi.fn(() => [vi.fn()]),
   useRecordOrderRefundsMutation: vi.fn(() => [vi.fn()]),
   useUncancelSalesOrderMutation: vi.fn(() => [vi.fn()]),

@@ -22,6 +22,7 @@ import { useGetActivePaymentMethodsQuery } from '@/store/api/paymentMethodsApi'
 import { getCurrentDate } from '@/utils/formatters'
 
 interface PaymentLine {
+  id: string
   paymentMethodId: string
   amount: number | string
   paymentDate: string
@@ -74,6 +75,7 @@ export default function PaymentDialog({
     if (!open || lines.length > 0) return
     const cashMethod = paymentMethods.find((m) => m.code === 'CASH')
     setLines([{
+      id: crypto.randomUUID(),
       paymentMethodId: cashMethod?.id || paymentMethods[0]?.id || '',
       amount: outstandingBalance > 0 ? outstandingBalance : '',
       paymentDate: getCurrentDate(),
@@ -97,6 +99,7 @@ export default function PaymentDialog({
     setUserHasEdited(true)
     const cashMethod = paymentMethods.find((m) => m.code === 'CASH')
     setLines(prev => [...prev, {
+      id: crypto.randomUUID(),
       paymentMethodId: cashMethod?.id || paymentMethods[0]?.id || '',
       amount: remaining > 0 ? remaining : '',
       paymentDate: getCurrentDate(),
@@ -177,7 +180,7 @@ export default function PaymentDialog({
 
         {/* Payment Lines */}
         {lines.map((line, index) => (
-          <Box key={index} sx={{ display: 'flex', gap: 1, mb: 1.5, alignItems: 'center' }}>
+          <Box key={line.id} sx={{ display: 'flex', gap: 1, mb: 1.5, alignItems: 'center' }}>
             <FormControl size="small" sx={{ minWidth: 130 }}>
               <Select
                 value={line.paymentMethodId}

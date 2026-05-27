@@ -222,7 +222,7 @@ describe('SalesOrderPaymentService', () => {
       expect(result).toEqual([]);
     });
 
-    it('calls recordPayment for each dto and returns results', async () => {
+    it('inserts all payment rows in a single transaction and returns results', async () => {
       dataSource.transaction.mockClear();
       orderRepo.findOne.mockResolvedValue(mockOrder());
       methodRepo.findOne.mockResolvedValue(mockMethod());
@@ -242,7 +242,7 @@ describe('SalesOrderPaymentService', () => {
 
       const results = await service.recordPayments('order-1', dtos);
       expect(results).toHaveLength(2);
-      expect(dataSource.transaction).toHaveBeenCalledTimes(2);
+      expect(dataSource.transaction).toHaveBeenCalledTimes(1);
     });
 
     it('throws if any dto has invalid paymentMethodId', async () => {
