@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import AccountBalanceIcon from '@mui/icons-material/AccountBalance'
 import PaymentIcon from '@mui/icons-material/Payment'
 import ReceiptIcon from '@mui/icons-material/Receipt'
@@ -77,6 +77,16 @@ export default function SalesOrderDetailPage() {
   const { showSuccess, showError } = useNotification()
 
   const { data: order, isLoading, isError } = useGetSalesOrderByNumberQuery(orderNumber ?? skipToken)
+
+  useEffect(() => {
+    if (order?.orderNumber) {
+      navigate(`/sales/orders/${order.orderNumber}/view`, {
+        replace: true,
+        state: { breadcrumbTitle: order.orderNumber },
+      })
+    }
+  }, [order?.orderNumber, navigate])
+
   const [fulfillOrder, { isLoading: isFulfilling }] = useFulfillSalesOrderMutation()
   const [unfulfillOrder, { isLoading: isUnfulfilling }] = useUnfulfillSalesOrderMutation()
   const [cancelOrder, { isLoading: isCancelling }] = useCancelSalesOrderMutation()

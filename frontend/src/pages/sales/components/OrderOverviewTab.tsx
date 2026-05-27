@@ -17,7 +17,7 @@ import type { ReactNode } from 'react'
 import { Link as RouterLink } from 'react-router-dom'
 
 import { TABLE_STYLES } from '@/constants/tableStyles'
-import type { SalesOrder, SalesOrderItem } from '@/types'
+import type { SalesOrder } from '@/types'
 import { formatCurrency, formatDate } from '@/utils/formatters'
 
 import { SalesOrderPaymentStatusChip } from './SalesOrderPaymentStatusChip'
@@ -40,24 +40,24 @@ function Field({ label, value }: { label: string; value?: ReactNode }) {
   )
 }
 
-function formatDiscount(item: SalesOrderItem & Record<string, unknown>): string {
-  const discountType = item.discountType as string | undefined
-  const discountPercent = item.discountPercent as number | undefined
-  const discountAmount = item.discountAmount as number | undefined
-
-  if (discountType === 'percentage' && discountPercent && discountPercent > 0) {
-    return `${Number(discountPercent).toFixed(2)}%`
+function formatDiscount(item: ReturnType<typeof getItems>[number]): string {
+  if (item.discountType === 'percentage' && item.discountPercent && item.discountPercent > 0) {
+    return `${Number(item.discountPercent).toFixed(2)}%`
   }
 
-  if (discountType === 'amount' && discountAmount && discountAmount > 0) {
-    return formatCurrency(discountAmount)
+  if (item.discountType === 'amount' && item.discountAmount && item.discountAmount > 0) {
+    return formatCurrency(item.discountAmount)
   }
 
   return '—'
 }
 
+function getItems(order: SalesOrder) {
+  return order.items ?? []
+}
+
 export default function OrderOverviewTab({ order }: OrderOverviewTabProps) {
-  const items = (order.items ?? []) as (SalesOrderItem & Record<string, unknown>)[]
+  const items = getItems(order)
   const subtotal = order.subtotal ?? order.totalAmount
   const shippingAmount = order.shippingAmount ?? 0
   const paidAmount = order.paidAmount ?? 0
@@ -65,9 +65,9 @@ export default function OrderOverviewTab({ order }: OrderOverviewTabProps) {
 
   return (
     <Box>
-      <Grid container spacing={3} sx={{ mb: 3 }}>
-        <Grid size={{ xs: 12, md: 6 }}>
-          <Card>
+      <Grid container spacing={3} sx={{ mb: 3, alignItems: 'stretch' }}>
+        <Grid size={{ xs: 12, md: 6 }} sx={{ display: 'flex' }}>
+          <Card sx={{ flex: 1 }}>
             <CardContent>
               <Typography variant="h6" gutterBottom>
                 Order Info
@@ -89,8 +89,8 @@ export default function OrderOverviewTab({ order }: OrderOverviewTabProps) {
           </Card>
         </Grid>
 
-        <Grid size={{ xs: 12, md: 6 }}>
-          <Card>
+        <Grid size={{ xs: 12, md: 6 }} sx={{ display: 'flex' }}>
+          <Card sx={{ flex: 1 }}>
             <CardContent>
               <Typography variant="h6" gutterBottom>
                 Summary
@@ -131,7 +131,7 @@ export default function OrderOverviewTab({ order }: OrderOverviewTabProps) {
                 <TableCell align="right">{item.quantity}</TableCell>
                 <TableCell align="right">{formatCurrency(item.unitPrice)}</TableCell>
                 <TableCell align="right">{formatDiscount(item)}</TableCell>
-                <TableCell align="right">{formatCurrency(item.total)}</TableCell>
+                <TableCell align="right">{formatCurrency(item.totalAmount)}</TableCell>
               </TableRow>
             ))}
           </TableBody>

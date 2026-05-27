@@ -264,6 +264,11 @@ export interface SalesOrderItem {
   unitPrice: number;
   discount: number;
   total: number;
+  totalAmount: number;
+  discountType?: string;
+  discountPercent?: number;
+  discountAmount?: number;
+  notes?: string;
 }
 
 export interface SalesOrderPayment {
