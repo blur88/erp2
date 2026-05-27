@@ -540,6 +540,31 @@ describe('CreateSalesOrderPage — new features', () => {
       expect(rows()).toHaveLength(2)
     })
   })
+
+  it('updates subtotal and total immediately when a product is selected', async () => {
+    mockGet.mockResolvedValue({ data: [{ id: 'product-1', name: 'Alpha Widget', basePrice: 11 }] })
+
+    render(
+      <BrowserRouter>
+        <CreateSalesOrderPage />
+      </BrowserRouter>,
+    )
+
+    const productInput = screen.getByPlaceholderText('Search by name or barcode...')
+    fireEvent.mouseDown(productInput)
+    const listbox = await screen.findByRole('listbox')
+    fireEvent.click(within(listbox).getByText('Alpha Widget'))
+
+    // Subtotal cell shows qty(1) × price(11) = RM 11.00 immediately after selection
+    await waitFor(() => {
+      expect(screen.getByText('RM 11.00')).toBeInTheDocument()
+    })
+
+    // Total Amount field also reflects the subtotal (no shipping)
+    await waitFor(() => {
+      expect(screen.getByDisplayValue('11.00')).toBeInTheDocument()
+    })
+  })
 })
 
 describe('CreateSalesOrderPage — edit mode', { timeout: 60000 }, () => {

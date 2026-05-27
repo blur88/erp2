@@ -336,11 +336,14 @@ const CreateSalesOrderPage: React.FC = () => {
     (index: number, product: any) => {
       if (!product) return
       seedProducts([product])
+      const price = getProductPrice(product, selectedCustomer)
+      const qty = Number(watchedItems[index]?.quantity) || 1
       setValue(`items.${index}.productId`, product.id)
-      setValue(`items.${index}.unitPrice`, getProductPrice(product, selectedCustomer))
+      setValue(`items.${index}.unitPrice`, price)
+      setValue(`items.${index}.totalPrice`, Number((price * qty).toFixed(2)))
       setValue(`items.${index}.product`, product)
     },
-    [seedProducts, setValue, selectedCustomer],
+    [seedProducts, setValue, selectedCustomer, watchedItems],
   )
 
   const handleCancel = () => {
