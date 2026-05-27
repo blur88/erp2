@@ -249,12 +249,12 @@ export const salesApiSlice = createApi({
       invalidatesTags: ['SalesOrder', 'Invoice', 'Payment'],
     }),
     fulfillSalesOrder: builder.mutation<SalesOrder, string>({
-      query: (id) => ({ url: `/sales-orders/${id}/fulfill-order`, method: 'POST' }),
+      query: (id) => ({ url: `/sales-orders/${id}/fulfill`, method: 'POST' }),
       transformResponse: (response: any) => normalizeSingle<SalesOrder>(response?.data ?? response),
       invalidatesTags: ['SalesOrder', 'Invoice'],
     }),
     unfulfillSalesOrder: builder.mutation<SalesOrder, string>({
-      query: (id) => ({ url: `/sales-orders/${id}/unfulfill-order`, method: 'POST' }),
+      query: (id) => ({ url: `/sales-orders/${id}/unfulfill`, method: 'POST' }),
       transformResponse: (response: any) => normalizeSingle<SalesOrder>(response?.data ?? response),
       invalidatesTags: ['SalesOrder', 'Invoice'],
     }),
