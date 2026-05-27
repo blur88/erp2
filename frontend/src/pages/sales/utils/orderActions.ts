@@ -1,0 +1,77 @@
+import type { SalesOrder } from '@/types'
+
+export type OrderAction =
+  | 'pay'
+  | 'fulfill'
+  | 'unfulfill'
+  | 'refund'
+  | 'edit'
+  | 'cancel'
+  | 'uncancel'
+  | 'duplicate'
+  | 'print'
+
+export interface OrderActionMeta {
+  action: OrderAction
+  disabled?: boolean
+  tooltip?: string
+}
+
+export function getOrderActionMetas(order: SalesOrder): OrderActionMeta[] {
+  const { status, paymentStatus } = order
+  const isDraft = status === 'DRAFT'
+  const isFulfilled = status === 'FULFILLED'
+  const isCancelled = status === 'CANCELLED'
+  const isUnpaid = paymentStatus === 'UNPAID'
+
+  if (isCancelled) {
+    return [
+      { action: 'uncancel' },
+      { action: 'print' },
+    ]
+  }
+
+  const metas: OrderActionMeta[] = []
+
+  if (isDraft && isUnpaid) {
+    metas.push({ action: 'pay' })
+  }
+
+  if (isDraft) {
+    metas.push({
+      action: 'fulfill',
+      disabled: isUnpaid,
+      tooltip: isUnpaid ? 'Full payment required' : undefined,
+    })
+  }
+
+  if (isFulfilled) {
+    metas.push({ action: 'unfulfill' })
+  }
+
+  if (!isUnpaid) {
+    metas.push({ action: 'refund' })
+  }
+
+  if (isDraft) {
+    metas.push({
+      action: 'edit',
+      disabled: !isUnpaid,
+      tooltip: !isUnpaid ? 'Cancel payment first to edit' : undefined,
+    })
+    metas.push({
+      action: 'cancel',
+      disabled: !isUnpaid,
+      tooltip: !isUnpaid ? 'Cancel payment first' : undefined,
+    })
+  }
+
+  metas.push({ action: 'duplicate' })
+  metas.push({ action: 'print' })
+
+  return metas
+}
+
+export function getOrderActions(order: SalesOrder): OrderAction[] {
+  return getOrderActionMetas(order).map((m) => m.action)
+}
