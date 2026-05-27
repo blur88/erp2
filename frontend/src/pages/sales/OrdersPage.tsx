@@ -11,6 +11,7 @@ import {
   useGetSalesOrdersQuery,
   useRecordOrderPaymentMutation,
   useRecordOrderPaymentsMutation,
+  useRecordOrderRefundsMutation,
   useUnfulfillSalesOrderMutation,
 } from '@/store/api/salesApi'
 import type { SalesOrder } from '@/types'
@@ -60,6 +61,7 @@ const OrdersPage: React.FC = () => {
 
   const [printOrder, setPrintOrder] = useState<SalesOrder | null>(null)
   const [paymentOrder, setPaymentOrder] = useState<SalesOrder | null>(null)
+  const [refundOrder, setRefundOrder] = useState<SalesOrder | null>(null)
 
   const { appliedFilters, draftFilters, handlers, hasActiveFilters } = useFilterBar(filterConfig)
 
@@ -96,6 +98,7 @@ const OrdersPage: React.FC = () => {
   const [cancelOrder] = useCancelSalesOrderMutation()
   const [recordPayment] = useRecordOrderPaymentMutation()
   const [recordPayments] = useRecordOrderPaymentsMutation()
+  const [recordRefunds] = useRecordOrderRefundsMutation()
 
   useEffect(() => {
     setPage(1)
@@ -139,16 +142,23 @@ const OrdersPage: React.FC = () => {
     }
   }, [cancelOrder, showError, showSuccess])
 
-  const handleRefund = useCallback(async (order: SalesOrder) => {
-    const overpayment = (order.paidAmount ?? 0) - order.totalAmount
-    if (overpayment <= 0) return
+  const handleRefund = useCallback((order: SalesOrder) => {
+    setRefundOrder(order)
+  }, [])
+
+  const handleSubmitRefund = useCallback(async (
+    refunds: { paymentMethodId: string; amount: number; reference?: string }[],
+  ) => {
+    if (!refundOrder) return
     try {
-      await recordPayment({ id: order.id, amount: overpayment }).unwrap()
-      showSuccess(`Refund of ${overpayment.toFixed(2)} processed for ${order.orderNumber}`)
+      await recordRefunds({ id: refundOrder.id, refunds }).unwrap()
+      setRefundOrder(null)
+      showSuccess(`Refund recorded for ${refundOrder.orderNumber}`)
     } catch (e: any) {
-      showError(e?.data?.message || `Failed to refund ${order.orderNumber}`)
+      showError(e?.data?.message || `Failed to record refund for ${refundOrder.orderNumber}`)
+      throw e
     }
-  }, [recordPayment, showError, showSuccess])
+  }, [refundOrder, recordRefunds, showError, showSuccess])
 
   const handleSubmitPayment = useCallback(async (
     payments: { paymentMethodId: string; amount: number; reference?: string }[],
@@ -209,6 +219,9 @@ const OrdersPage: React.FC = () => {
         paymentOrder={paymentOrder}
         onClosePayment={() => setPaymentOrder(null)}
         onSubmitPayment={handleSubmitPayment}
+        refundOrder={refundOrder}
+        onCloseRefund={() => setRefundOrder(null)}
+        onSubmitRefund={handleSubmitRefund}
       />
     </>
   )

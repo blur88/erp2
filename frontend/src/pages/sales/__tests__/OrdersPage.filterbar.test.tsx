@@ -26,6 +26,7 @@ vi.mock('@/store/api/salesApi', () => ({
   useCancelSalesOrderMutation: vi.fn(() => [vi.fn()]),
   useRecordOrderPaymentMutation: vi.fn(() => [vi.fn()]),
   useRecordOrderPaymentsMutation: vi.fn(() => [vi.fn()]),
+  useRecordOrderRefundsMutation: vi.fn(() => [vi.fn()]),
 }))
 
 vi.mock('@/hooks/useNotification', () => ({

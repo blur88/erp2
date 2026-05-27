@@ -125,6 +125,62 @@ export class SalesOrderPaymentService {
     return saved;
   }
 
+  async recordRefunds(orderId: string, dtos: RecordPaymentDto[], userId?: string, username?: string): Promise<SalesOrderPayment[]> {
+    if (dtos.length === 0) return [];
+
+    for (const dto of dtos) {
+      if (dto.amount <= 0) throw new BadRequestException('Refund amount must be positive');
+    }
+
+    const order = await this.salesOrderRepository.findOne({ where: { id: orderId } });
+    if (!order) throw new NotFoundException('Sales order not found');
+    if (order.status === SalesOrderStatus.CANCELLED) {
+      throw new ConflictException('Cannot record a refund on a cancelled order');
+    }
+
+    for (const dto of dtos) {
+      const method = await this.paymentMethodRepository.findOne({
+        where: { id: dto.paymentMethodId, isActive: true },
+      });
+      if (!method) throw new BadRequestException(`Payment method ${dto.paymentMethodId} not found or inactive`);
+    }
+
+    const existing = await this.salesOrderPaymentRepository.find({ where: { salesOrderId: orderId } });
+    const netPaid = existing.reduce((sum, r) => sum + Number(r.amount), 0);
+    const totalRefundAmount = dtos.reduce((sum, dto) => sum + dto.amount, 0);
+    if (totalRefundAmount > netPaid + AMOUNT_TOLERANCE) {
+      throw new BadRequestException(`Total refund amount (${totalRefundAmount}) exceeds net paid (${netPaid.toFixed(4)})`);
+    }
+
+    const results = await this.dataSource.transaction(async (manager: EntityManager) => {
+      const saved: SalesOrderPayment[] = [];
+      for (const dto of dtos) {
+        const record = manager.getRepository(SalesOrderPayment).create({
+          salesOrderId: orderId,
+          paymentMethodId: dto.paymentMethodId,
+          amount: -dto.amount,
+          paymentDate: dto.paymentDate,
+          referenceNumber: dto.referenceNumber,
+          notes: dto.notes,
+        });
+        saved.push(await manager.getRepository(SalesOrderPayment).save(record));
+      }
+      await this.updatePaymentStatusInTx(order, manager);
+      return saved;
+    });
+
+    for (const saved of results) {
+      await this.auditLogService.log('CREATE', 'SalesOrderPayment', `Recorded refund for ${order.orderNumber}`, {
+        entityId: saved.id,
+        userId: userId || 'system',
+        username,
+        newValues: { amount: saved.amount, paymentMethodId: saved.paymentMethodId },
+      });
+    }
+
+    return results;
+  }
+
   async listPayments(orderId: string): Promise<SalesOrderPayment[]> {
     const order = await this.salesOrderRepository.findOne({ where: { id: orderId } });
     if (!order) throw new NotFoundException('Sales order not found');

@@ -26,6 +26,7 @@ import {
   SalesOrderSummaryDto,
   RecordPaymentDto,
   RecordRefundDto,
+  RecordRefundsDto,
 } from '../dto/sales-order.dto';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 
@@ -184,17 +185,15 @@ export class SalesOrderController {
   }
 
   @Post(':id/refunds')
-  @ApiOperation({ summary: 'Record a refund (creates negative payment record)' })
-  @ApiParam({ name: 'id', type: 'string' })
-  @HttpCode(HttpStatus.OK)
-  async recordRefund(
+  @ApiOperation({ summary: 'Record one or more refunds (creates negative payment records)' })
+  async recordRefunds(
     @Param('id', ParseUUIDPipe) id: string,
-    @Body() dto: RecordRefundDto,
+    @Body() dto: RecordRefundsDto,
     @CurrentUser('userId') userId: string,
     @CurrentUser('username') username: string,
   ) {
-    const data = await this.salesOrderService.recordRefund(id, dto, userId, username);
-    return { data };
+    const data = await this.salesOrderService.recordRefunds(id, dto.refunds, userId, username)
+    return { data }
   }
 
   @Post(':id/duplicate')

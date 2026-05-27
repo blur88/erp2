@@ -162,7 +162,7 @@ export const salesApiSlice = createApi({
     getSalesOrderPayments: builder.query<SalesOrderPayment[], string>({
       query: (id) => ({ url: `/sales-orders/${id}/payments` }),
       transformResponse: (response: any) => response.data ?? [],
-      providesTags: (_result, _error, id) => ['SalesOrder', { type: 'SalesOrder', id }],
+      providesTags: (_result, _error, id) => ['SalesOrder', 'Payment', { type: 'SalesOrder', id }],
     }),
     createSalesOrder: builder.mutation<SalesOrder, Partial<SalesOrder>>({
       query: (body) => ({ url: '/sales-orders', method: 'POST', data: body }),
@@ -231,6 +231,18 @@ export const salesApiSlice = createApi({
         url: `/sales-orders/${id}/record-payments`,
         method: 'POST',
         data: { payments },
+      }),
+      transformResponse: (response: any) => normalizeSingle<SalesOrder>(response?.data ?? response),
+      invalidatesTags: ['SalesOrder', 'Invoice', 'Payment'],
+    }),
+    recordOrderRefunds: builder.mutation<
+      SalesOrder,
+      { id: string; refunds: { paymentMethodId: string; amount: number; reference?: string }[] }
+    >({
+      query: ({ id, refunds }) => ({
+        url: `/sales-orders/${id}/refunds`,
+        method: 'POST',
+        data: { refunds },
       }),
       transformResponse: (response: any) => normalizeSingle<SalesOrder>(response?.data ?? response),
       invalidatesTags: ['SalesOrder', 'Invoice', 'Payment'],
@@ -422,6 +434,7 @@ export const {
   useDuplicateSalesOrderMutation,
   useRecordOrderPaymentMutation,
   useRecordOrderPaymentsMutation,
+  useRecordOrderRefundsMutation,
   useUnpaySalesOrderMutation,
   useFulfillSalesOrderMutation,
   useUnfulfillSalesOrderMutation,

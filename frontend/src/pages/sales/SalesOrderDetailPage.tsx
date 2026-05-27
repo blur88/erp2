@@ -10,6 +10,7 @@ import ConfirmationDialog from '@/components/common/ConfirmationDialog'
 import PageHeader from '@/components/common/PageHeader'
 import SalesOrderPrint from '@/components/print/SalesOrderPrint'
 import PaymentDialog from '@/components/sales/PaymentDialog'
+import RefundDialog from '@/components/sales/RefundDialog'
 import { TABLE_STYLES } from '@/constants/tableStyles'
 import { useNotification } from '@/hooks/useNotification'
 import {
@@ -17,6 +18,7 @@ import {
   useFulfillSalesOrderMutation,
   useGetSalesOrderByNumberQuery,
   useRecordOrderPaymentsMutation,
+  useRecordOrderRefundsMutation,
   useUnfulfillSalesOrderMutation,
 } from '@/store/api/salesApi'
 
@@ -77,6 +79,7 @@ export default function SalesOrderDetailPage() {
   const [unfulfillOrder, { isLoading: isUnfulfilling }] = useUnfulfillSalesOrderMutation()
   const [cancelOrder, { isLoading: isCancelling }] = useCancelSalesOrderMutation()
   const [recordPayments] = useRecordOrderPaymentsMutation()
+  const [recordRefunds] = useRecordOrderRefundsMutation()
 
   if (isLoading) {
     return (
@@ -133,6 +136,19 @@ export default function SalesOrderDetailPage() {
       setActiveDialog(null)
     } catch (error) {
       showError(getErrorMessage(error, 'Failed to record payment'))
+      throw error
+    }
+  }
+
+  const handleSubmitRefund = async (
+    refunds: { paymentMethodId: string; amount: number; reference?: string }[],
+  ) => {
+    try {
+      await recordRefunds({ id: order.id, refunds }).unwrap()
+      showSuccess(`Refund recorded for ${order.orderNumber}`)
+      setActiveDialog(null)
+    } catch (error) {
+      showError(getErrorMessage(error, 'Failed to record refund'))
       throw error
     }
   }
@@ -219,7 +235,7 @@ export default function SalesOrderDetailPage() {
         loading={isCancelling}
       />
 
-      {(activeDialog === 'pay' || activeDialog === 'refund') && (
+      {activeDialog === 'pay' && (
         <PaymentDialog
           open
           onClose={() => setActiveDialog(null)}
@@ -227,7 +243,16 @@ export default function SalesOrderDetailPage() {
           orderNumber={order.orderNumber}
           totalAmount={order.totalAmount}
           paidAmount={order.paidAmount ?? 0}
-          title={activeDialog === 'refund' ? `Refund — ${order.orderNumber}` : undefined}
+        />
+      )}
+
+      {activeDialog === 'refund' && (
+        <RefundDialog
+          open
+          onClose={() => setActiveDialog(null)}
+          onSubmit={handleSubmitRefund}
+          orderId={order.id}
+          orderNumber={order.orderNumber}
         />
       )}
 

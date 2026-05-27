@@ -328,3 +328,10 @@ export class RecordPaymentDto {
 }
 
 export class RecordRefundDto extends RecordPaymentDto {}
+
+export class RecordRefundsDto {
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => RecordRefundDto)
+  refunds: RecordRefundDto[]
+}
