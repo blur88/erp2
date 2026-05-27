@@ -7,10 +7,12 @@ import { useFilterBar } from '@/hooks/useFilterBar'
 import { useNotification } from '@/hooks/useNotification'
 import {
   useCancelSalesOrderMutation,
+  useDuplicateSalesOrderMutation,
   useFulfillSalesOrderMutation,
   useGetSalesOrdersQuery,
   useRecordOrderPaymentsMutation,
   useRecordOrderRefundsMutation,
+  useUncancelSalesOrderMutation,
   useUnfulfillSalesOrderMutation,
 } from '@/store/api/salesApi'
 import type { SalesOrder } from '@/types'
@@ -95,6 +97,8 @@ const OrdersPage: React.FC = () => {
   const [fulfillOrder] = useFulfillSalesOrderMutation()
   const [unfulfillOrder] = useUnfulfillSalesOrderMutation()
   const [cancelOrder] = useCancelSalesOrderMutation()
+  const [uncancelOrder] = useUncancelSalesOrderMutation()
+  const [duplicateOrder] = useDuplicateSalesOrderMutation()
   const [recordPayments] = useRecordOrderPaymentsMutation()
   const [recordRefunds] = useRecordOrderRefundsMutation()
 
@@ -139,6 +143,25 @@ const OrdersPage: React.FC = () => {
       showError(e?.data?.message || `Failed to cancel ${order.orderNumber}`)
     }
   }, [cancelOrder, showError, showSuccess])
+
+  const handleUncancel = useCallback(async (order: SalesOrder) => {
+    try {
+      await uncancelOrder(order.id).unwrap()
+      showSuccess(`Order ${order.orderNumber} restored to draft`)
+    } catch (e: any) {
+      showError(e?.data?.message || `Failed to uncancel ${order.orderNumber}`)
+    }
+  }, [uncancelOrder, showError, showSuccess])
+
+  const handleDuplicate = useCallback(async (order: SalesOrder) => {
+    try {
+      const newOrder = await duplicateOrder(order.id).unwrap()
+      showSuccess(`Order duplicated as ${newOrder.orderNumber}`)
+      navigate(`/sales/orders/${newOrder.orderNumber}/edit`)
+    } catch (e: any) {
+      showError(e?.data?.message || `Failed to duplicate ${order.orderNumber}`)
+    }
+  }, [duplicateOrder, navigate, showError, showSuccess])
 
   const handleRefund = useCallback((order: SalesOrder) => {
     setRefundOrder(order)
@@ -197,6 +220,8 @@ const OrdersPage: React.FC = () => {
             onUnfulfill={handleUnfulfill}
             onRefund={handleRefund}
             onCancel={handleCancel}
+            onUncancel={handleUncancel}
+            onDuplicate={handleDuplicate}
             onPrint={(order) => setPrintOrder(order)}
             paginationSlot={(
               <PagePagination
