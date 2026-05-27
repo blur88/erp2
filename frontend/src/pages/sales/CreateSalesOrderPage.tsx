@@ -222,11 +222,9 @@ const CreateSalesOrderPage: React.FC = () => {
 
   const getKeyHandler = useLineItemKeyNav(COL_COUNT, fields.length, () => append(emptyItem()))
 
-  const totals = useMemo(() => {
-    const subtotal = watchedItems.reduce((sum, item) => sum + (Number(item.totalPrice) || 0), 0)
-    const shipping = Number(watchedShipping) || 0
-    return { subtotal, shipping, total: subtotal + shipping }
-  }, [watchedItems, watchedShipping])
+  const subtotal = watchedItems.reduce((sum, item) => sum + (Number(item.totalPrice) || 0), 0)
+  const shippingAmt = Number(watchedShipping) || 0
+  const totals = { subtotal, shipping: shippingAmt, total: subtotal + shippingAmt }
 
   useEffect(() => {
     watchedItems.forEach((item, index) => {

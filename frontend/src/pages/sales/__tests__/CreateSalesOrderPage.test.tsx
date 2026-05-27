@@ -562,7 +562,8 @@ describe('CreateSalesOrderPage — new features', () => {
 
     // Total Amount field also reflects the subtotal (no shipping)
     await waitFor(() => {
-      expect(screen.getByDisplayValue('11.00')).toBeInTheDocument()
+      const totalField = screen.getByRole('textbox', { name: /total amount/i })
+      expect(totalField).toHaveDisplayValue('11.00')
     })
   })
 })
