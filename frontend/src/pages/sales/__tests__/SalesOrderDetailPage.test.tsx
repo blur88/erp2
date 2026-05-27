@@ -1,5 +1,5 @@
 import { configureStore } from '@reduxjs/toolkit'
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { Provider } from 'react-redux'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
@@ -17,6 +17,8 @@ const {
   mockCancel,
   mockRecordPayments,
   mockRecordRefunds,
+  mockUncancel,
+  mockDuplicate,
 } = vi.hoisted(() => ({
   mockNavigate: vi.fn(),
   mockGetSalesOrderByNumber: vi.fn(),
@@ -25,6 +27,8 @@ const {
   mockCancel: vi.fn(),
   mockRecordPayments: vi.fn(),
   mockRecordRefunds: vi.fn(),
+  mockUncancel: vi.fn(),
+  mockDuplicate: vi.fn(),
 }))
 
 vi.mock('react-router-dom', async (importOriginal) => {
@@ -49,6 +53,8 @@ vi.mock('@/store/api/salesApi', async (importOriginal) => {
     useCancelSalesOrderMutation: () => [mockCancel, { isLoading: false }],
     useRecordOrderPaymentsMutation: () => [mockRecordPayments, { isLoading: false }],
     useRecordOrderRefundsMutation: () => [mockRecordRefunds, { isLoading: false }],
+    useUncancelSalesOrderMutation: () => [mockUncancel, { isLoading: false }],
+    useDuplicateSalesOrderMutation: () => [mockDuplicate, { isLoading: false }],
   }
 })
 
@@ -174,5 +180,46 @@ describe('SalesOrderDetailPage', () => {
     renderPage()
     await userEvent.click(screen.getByRole('button', { name: 'Refund' }))
     expect(screen.getByText('RefundDialog')).toBeInTheDocument()
+  })
+
+  it('shows Uncancel button for CANCELLED order', () => {
+    mockGetSalesOrderByNumber.mockReturnValue({
+      data: makeOrder({ status: 'CANCELLED', paymentStatus: 'UNPAID' }),
+      isLoading: false,
+    })
+    renderPage()
+    expect(screen.getByRole('button', { name: /uncancel/i })).toBeInTheDocument()
+  })
+
+  it('Uncancel button triggers confirmation dialog and calls uncancelSalesOrder on confirm', async () => {
+    mockUncancel.mockReturnValue({ unwrap: () => Promise.resolve({}) })
+    mockGetSalesOrderByNumber.mockReturnValue({
+      data: makeOrder({ status: 'CANCELLED', paymentStatus: 'UNPAID' }),
+      isLoading: false,
+    })
+    renderPage()
+    await userEvent.click(screen.getByRole('button', { name: /uncancel/i }))
+    await userEvent.click(screen.getByRole('button', { name: /^restore$/i }))
+    await waitFor(() => expect(mockUncancel).toHaveBeenCalled())
+  })
+
+  it('shows Duplicate button for DRAFT order', () => {
+    mockGetSalesOrderByNumber.mockReturnValue({
+      data: makeOrder({ status: 'DRAFT', paymentStatus: 'UNPAID' }),
+      isLoading: false,
+    })
+    renderPage()
+    expect(screen.getByRole('button', { name: /duplicate/i })).toBeInTheDocument()
+  })
+
+  it('Duplicate button calls mutation and navigates to new order edit page', async () => {
+    mockDuplicate.mockReturnValue({ unwrap: () => Promise.resolve({ orderNumber: 'SO-26-002' }) })
+    mockGetSalesOrderByNumber.mockReturnValue({
+      data: makeOrder({ status: 'DRAFT', paymentStatus: 'UNPAID' }),
+      isLoading: false,
+    })
+    renderPage()
+    await userEvent.click(screen.getByRole('button', { name: /duplicate/i }))
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/sales/orders/SO-26-002/edit'))
   })
 })

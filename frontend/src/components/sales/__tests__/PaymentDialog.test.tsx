@@ -177,7 +177,7 @@ describe('PaymentDialog', () => {
     await userEvent.click(screen.getByRole('button', { name: /record payment/i }))
     await waitFor(() => expect(onClose).toHaveBeenCalledOnce())
     expect(onSubmit).toHaveBeenCalledWith([
-      expect.objectContaining({ paymentMethodId: 'pm-1', amount: 500 }),
+      expect.objectContaining({ paymentMethodId: 'pm-1', amount: 500, paymentDate: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/) }),
     ])
   })
 
@@ -199,5 +199,24 @@ describe('PaymentDialog', () => {
     await userEvent.clear(amountInput)
     await userEvent.type(amountInput, '600')
     expect(screen.getByText(/exceeds outstanding balance/i)).toBeInTheDocument()
+  })
+
+  it('renders a date field defaulting to today for each payment line', () => {
+    renderDialog({ totalAmount: 500, paidAmount: 0 })
+    const dateInputs = screen.getAllByDisplayValue(/^\d{4}-\d{2}-\d{2}$/)
+    expect(dateInputs.length).toBeGreaterThanOrEqual(1)
+  })
+
+  it('submit payload includes paymentDate for each line', async () => {
+    const onSubmit = vi.fn().mockResolvedValue(undefined)
+    renderDialog({ totalAmount: 500, paidAmount: 0, onSubmit })
+    const amountInput = screen.getByPlaceholderText('Amount')
+    await userEvent.clear(amountInput)
+    await userEvent.type(amountInput, '500')
+    await userEvent.click(screen.getByRole('button', { name: /record payment/i }))
+    await waitFor(() => expect(onSubmit).toHaveBeenCalled())
+    const [lines] = onSubmit.mock.calls[0]
+    expect(lines[0]).toHaveProperty('paymentDate')
+    expect(lines[0].paymentDate).toMatch(/^\d{4}-\d{2}-\d{2}$/)
   })
 })
