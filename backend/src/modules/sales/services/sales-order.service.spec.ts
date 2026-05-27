@@ -28,13 +28,15 @@ describe('SalesOrderService', () => {
   let salesOrderPaymentService: jest.Mocked<SalesOrderPaymentService>;
   let salesOrderFulfillmentService: jest.Mocked<SalesOrderFulfillmentService>;
   let salesOrderQueryService: jest.Mocked<SalesOrderQueryService>;
+  let salesOrderRepository: any;
+  let salesOrderItemRepository: any;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         SalesOrderService,
         { provide: getRepositoryToken(SalesOrder), useValue: { findOne: jest.fn(), create: jest.fn(), save: jest.fn(), update: jest.fn(), createQueryBuilder: jest.fn() } },
-        { provide: getRepositoryToken(SalesOrderItem), useValue: { save: jest.fn(), delete: jest.fn(), insert: jest.fn() } },
+        { provide: getRepositoryToken(SalesOrderItem), useValue: { save: jest.fn(), delete: jest.fn(), insert: jest.fn(), find: jest.fn() } },
         { provide: getRepositoryToken(Customer), useValue: { findOne: jest.fn() } },
         { provide: getRepositoryToken(Product), useValue: { findOne: jest.fn() } },
         { provide: getRepositoryToken(Invoice), useValue: { createQueryBuilder: jest.fn(), create: jest.fn(), save: jest.fn(), find: jest.fn() } },
@@ -60,6 +62,8 @@ describe('SalesOrderService', () => {
     salesOrderPaymentService = module.get(SalesOrderPaymentService);
     salesOrderFulfillmentService = module.get(SalesOrderFulfillmentService);
     salesOrderQueryService = module.get(SalesOrderQueryService);
+    salesOrderRepository = module.get(getRepositoryToken(SalesOrder));
+    salesOrderItemRepository = module.get(getRepositoryToken(SalesOrderItem));
     salesOrderQueryService.findById.mockResolvedValue({ id: 'order-1' } as any);
   });
 
@@ -119,5 +123,41 @@ describe('SalesOrderService', () => {
 
     expect(order.status).toBe(SalesOrderStatus.DRAFT);
     expect(order.paymentStatus).toBe(SalesOrderPaymentStatus.PAID);
+  });
+
+  describe('update - shipping only', () => {
+    it('should recalculate totalAmount from DB items when only shippingAmount changes', async () => {
+      const mockOrder = {
+        id: 'order-1',
+        customerId: 'customer-1',
+        shippingAmount: 0,
+        subtotal: 100,
+        totalAmount: 100,
+        items: undefined,
+      };
+
+      const mockItems = [
+        { totalAmount: 60 },
+        { totalAmount: 40 },
+      ];
+
+      salesOrderRepository.findOne = jest.fn().mockResolvedValue(mockOrder);
+      salesOrderItemRepository.find = jest.fn().mockResolvedValue(mockItems);
+      salesOrderRepository.update = jest.fn().mockResolvedValue({ affected: 1 });
+      salesOrderQueryService.findById.mockResolvedValue({ ...mockOrder, shippingAmount: 15, totalAmount: 115 } as any);
+      salesOrderLifecycleService.assertEditAllowed.mockResolvedValue(undefined);
+
+      await service.update('order-1', { shippingAmount: 15 } as any, 'user-1', 'admin');
+
+      expect(salesOrderItemRepository.find).toHaveBeenCalledWith({ where: { salesOrderId: 'order-1' } });
+      expect(salesOrderRepository.update).toHaveBeenCalledWith(
+        'order-1',
+        expect.objectContaining({
+          shippingAmount: 15,
+          subtotal: 100,
+          totalAmount: 115,
+        }),
+      );
+    });
   });
 });

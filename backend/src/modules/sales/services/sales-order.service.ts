@@ -540,10 +540,12 @@ export class SalesOrderService extends BaseCrudService<
       updateData.subtotal = subtotal;
       updateData.totalAmount = totalAmount;
     } else if (updateSalesOrderDto.shippingAmount !== undefined) {
-      // If only shipping is being updated (no items), recalculate total
-      const currentSubtotal = order.items?.reduce((sum, item) => sum + Number(item.totalAmount), 0) || 0;
+      // If only shipping is being updated (no items), load items from DB to recalculate total
+      const existingItems = await this.salesOrderItemRepository.find({ where: { salesOrderId: id } });
+      const currentSubtotal = existingItems.reduce((sum, item) => sum + Number(item.totalAmount), 0);
       const newShipping = Number(updateSalesOrderDto.shippingAmount);
       updateData.shippingAmount = newShipping;
+      updateData.subtotal = currentSubtotal;
       updateData.totalAmount = currentSubtotal + newShipping;
     }
 
