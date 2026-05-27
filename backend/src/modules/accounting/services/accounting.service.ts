@@ -90,6 +90,19 @@ export class AccountingService {
     // Calculate COGS
     const cogsAmount = this.calculateCOGS(salesOrder.items);
 
+    // Derive revenue from items (defensive: avoids stale totalAmount column)
+    const itemsSubtotal = (salesOrder.items ?? []).reduce(
+      (sum, item) => sum + Number(item.totalAmount ?? 0),
+      0,
+    );
+    const revenueAmount = itemsSubtotal + Number(salesOrder.shippingAmount ?? 0);
+
+    if (revenueAmount === 0 && Number(salesOrder.totalAmount) !== 0) {
+      this.logger.warn(
+        `Revenue derived from items is 0 but totalAmount is ${salesOrder.totalAmount} for order ${salesOrder.orderNumber}. Items may not be loaded.`,
+      );
+    }
+
     // Build journal entry lines
     const lines: CreateJournalEntryLineDto[] = [
       // DR Cost of Goods Sold
@@ -109,7 +122,7 @@ export class AccountingService {
       // DR Accounts Receivable
       {
         accountId: mappings[MappingType.SALES_AR],
-        debitAmount: Number(salesOrder.totalAmount),
+        debitAmount: revenueAmount,
         creditAmount: 0,
         memo: 'Amount receivable from customer',
       },
@@ -117,7 +130,7 @@ export class AccountingService {
       {
         accountId: mappings[MappingType.SALES_REVENUE],
         debitAmount: 0,
-        creditAmount: Number(salesOrder.totalAmount),
+        creditAmount: revenueAmount,
         memo: 'Sales revenue recognition',
       },
     ];

@@ -98,6 +98,7 @@ describe('AccountingService', () => {
       id: 'so-123',
       orderNumber: 'SO-001',
       totalAmount: 1500,
+      shippingAmount: 0,
       fulfilledDate: new Date('2026-01-15'),
       customer: {
         id: 'customer-123',
@@ -108,6 +109,7 @@ describe('AccountingService', () => {
           id: 'item-1',
           quantity: 10,
           unitPrice: 100,
+          totalAmount: 1000,
           product: {
             id: 'product-1',
             name: 'Product A',
@@ -118,6 +120,7 @@ describe('AccountingService', () => {
           id: 'item-2',
           quantity: 5,
           unitPrice: 100,
+          totalAmount: 500,
           product: {
             id: 'product-2',
             name: 'Product B',
@@ -190,6 +193,35 @@ describe('AccountingService', () => {
       const cogsLine = createCall.lines.find((l: any) => l.accountId === 'cogs-account-id');
 
       expect(cogsLine.debitAmount).toBe(1000); // (10 * 60) + (5 * 80) = 600 + 400
+    });
+
+    it('should use items sum for AR/Revenue, not stale totalAmount column', async () => {
+      const staleOrder = {
+        id: 'so-stale',
+        orderNumber: 'SO-STALE',
+        totalAmount: 40,
+        shippingAmount: 0,
+        fulfilledDate: new Date('2026-01-15'),
+        customer: { id: 'customer-123', name: 'Test Customer' },
+        items: [
+          {
+            id: 'item-1',
+            quantity: 1,
+            unitPrice: 30,
+            totalAmount: 30,
+            product: { id: 'product-1', name: 'Product A', baseCost: 20 },
+          },
+        ],
+      } as any;
+
+      await service.postSalesOrderEntry(staleOrder, 'user-123');
+
+      const createCall = journalEntryService.create.mock.calls[0][0];
+      const arLine = createCall.lines.find((l: any) => l.accountId === 'ar-account-id');
+      const revenueLine = createCall.lines.find((l: any) => l.accountId === 'revenue-account-id');
+
+      expect(arLine.debitAmount).toBe(30);
+      expect(revenueLine.creditAmount).toBe(30);
     });
 
     it('should use correct account mappings', async () => {
