@@ -125,6 +125,11 @@ export class SalesOrderPaymentService {
     return saved;
   }
 
+  async recordPayments(orderId: string, dtos: RecordPaymentDto[], userId?: string, username?: string): Promise<SalesOrderPayment[]> {
+    if (dtos.length === 0) return [];
+    return Promise.all(dtos.map((dto) => this.recordPayment(orderId, dto, userId, username)));
+  }
+
   async recordRefunds(orderId: string, dtos: RecordPaymentDto[], userId?: string, username?: string): Promise<SalesOrderPayment[]> {
     if (dtos.length === 0) return [];
 

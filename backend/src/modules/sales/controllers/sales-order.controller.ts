@@ -27,6 +27,7 @@ import {
   RecordPaymentDto,
   RecordRefundDto,
   RecordRefundsDto,
+  RecordPaymentsDto,
 } from '../dto/sales-order.dto';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 
@@ -181,6 +182,19 @@ export class SalesOrderController {
     @CurrentUser('username') username: string,
   ) {
     const data = await this.salesOrderService.recordPayment(id, dto, userId, username);
+    return { data };
+  }
+
+  @Post(':id/payments/batch')
+  @ApiOperation({ summary: 'Record one or more payments (batch)' })
+  @HttpCode(HttpStatus.OK)
+  async recordPaymentsBatch(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: RecordPaymentsDto,
+    @CurrentUser('userId') userId: string,
+    @CurrentUser('username') username: string,
+  ) {
+    const data = await this.salesOrderService.recordPayments(id, dto.payments, userId, username);
     return { data };
   }
 
