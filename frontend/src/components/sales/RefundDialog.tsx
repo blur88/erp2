@@ -22,6 +22,7 @@ import { useGetActivePaymentMethodsQuery } from '@/store/api/paymentMethodsApi'
 import { useGetSalesOrderPaymentsQuery } from '@/store/api/salesApi'
 
 interface RefundLine {
+  id: string
   paymentMethodId: string
   amount: number | string
   reference: string
@@ -80,6 +81,7 @@ export default function RefundDialog({
     if (!open || lines.length > 0 || paymentMethods.length === 0 || loadingPayments) return
     const cashMethod = paymentMethods.find((m) => m.code === 'CASH')
     setLines([{
+      id: crypto.randomUUID(),
       paymentMethodId: cashMethod?.id || paymentMethods[0]?.id || '',
       amount: availableForRefund > 0 ? availableForRefund : '',
       reference: '',
@@ -93,7 +95,7 @@ export default function RefundDialog({
   const remainingAfterRefund = availableForRefund - totalEntered
   const exceedsAvailable = totalEntered > availableForRefund
 
-  const updateLine = useCallback((index: number, field: keyof RefundLine, value: any) => {
+  const updateLine = useCallback((index: number, field: keyof RefundLine, value: string | number) => {
     setUserHasEdited(true)
     setLines((prev) => {
       const updated = [...prev]
@@ -108,6 +110,7 @@ export default function RefundDialog({
     setLines((prev) => [
       ...prev,
       {
+        id: crypto.randomUUID(),
         paymentMethodId: cashMethod?.id || paymentMethods[0]?.id || '',
         amount: remainingAfterRefund > 0 ? remainingAfterRefund : '',
         reference: '',
@@ -187,7 +190,7 @@ export default function RefundDialog({
 
             {/* Refund Lines */}
             {lines.map((line, index) => (
-              <Box key={index} sx={{ display: 'flex', gap: 1, mb: 1.5, alignItems: 'center' }}>
+              <Box key={line.id} sx={{ display: 'flex', gap: 1, mb: 1.5, alignItems: 'center' }}>
                 <FormControl size="small" sx={{ minWidth: 130 }}>
                   <Select
                     value={line.paymentMethodId}
