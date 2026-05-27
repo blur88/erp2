@@ -2,6 +2,8 @@ import { Box, Button } from '@mui/material'
 
 import type { SalesOrder } from '@/types'
 
+import { getOrderActionMetas } from '../utils/orderActions'
+
 interface OrderActionBarProps {
   order: SalesOrder
   onPay: () => void
@@ -10,28 +12,9 @@ interface OrderActionBarProps {
   onRefund: () => void
   onEdit: () => void
   onCancel: () => void
+  onUncancel: () => void
+  onDuplicate: () => void
   onPrint: () => void
-}
-
-type OrderAction = 'pay' | 'fulfill' | 'unfulfill' | 'refund' | 'edit' | 'cancel' | 'print'
-
-export function getOrderActions(order: SalesOrder): OrderAction[] {
-  const { status, paymentStatus } = order
-  const isPaid = paymentStatus === 'PAID' || paymentStatus === 'OVERPAID'
-
-  if (status === 'CANCELLED') {
-    return ['print']
-  }
-
-  if (status === 'FULFILLED') {
-    return ['unfulfill', 'refund', 'print']
-  }
-
-  if (status === 'DRAFT' && isPaid) {
-    return ['fulfill', 'refund', 'edit', 'cancel', 'print']
-  }
-
-  return ['pay', 'edit', 'cancel', 'print']
 }
 
 export default function OrderActionBar({
@@ -42,47 +25,62 @@ export default function OrderActionBar({
   onRefund,
   onEdit,
   onCancel,
+  onUncancel,
+  onDuplicate,
   onPrint,
 }: OrderActionBarProps) {
-  const actions = getOrderActions(order)
+  const metas = getOrderActionMetas(order)
+
+  const handlers: Record<string, () => void> = {
+    pay: onPay,
+    fulfill: onFulfill,
+    unfulfill: onUnfulfill,
+    refund: onRefund,
+    edit: onEdit,
+    cancel: onCancel,
+    uncancel: onUncancel,
+    duplicate: onDuplicate,
+    print: onPrint,
+  }
+
+  const labels: Record<string, string> = {
+    pay: 'Pay',
+    fulfill: 'Fulfill',
+    unfulfill: 'Unfulfill',
+    refund: 'Refund',
+    edit: 'Edit',
+    cancel: 'Cancel',
+    uncancel: 'Uncancel',
+    duplicate: 'Duplicate',
+    print: 'Print',
+  }
+
+  const variants: Record<string, 'contained' | 'outlined'> = {
+    pay: 'contained',
+    fulfill: 'contained',
+    unfulfill: 'outlined',
+    refund: 'outlined',
+    edit: 'outlined',
+    cancel: 'outlined',
+    uncancel: 'outlined',
+    duplicate: 'outlined',
+    print: 'outlined',
+  }
 
   return (
     <Box sx={{ display: 'flex', gap: 1, px: 3, pb: 1.5, flexWrap: 'wrap' }}>
-      {actions.includes('pay') && (
-        <Button variant="contained" size="small" onClick={onPay}>
-          Pay
+      {metas.map(({ action, disabled, tooltip }) => (
+        <Button
+          key={action}
+          variant={variants[action]}
+          size="small"
+          onClick={handlers[action]}
+          disabled={disabled}
+          title={tooltip}
+        >
+          {labels[action]}
         </Button>
-      )}
-      {actions.includes('fulfill') && (
-        <Button variant="contained" size="small" onClick={onFulfill}>
-          Fulfill
-        </Button>
-      )}
-      {actions.includes('unfulfill') && (
-        <Button variant="outlined" size="small" onClick={onUnfulfill}>
-          Unfulfill
-        </Button>
-      )}
-      {actions.includes('refund') && (
-        <Button variant="outlined" size="small" onClick={onRefund}>
-          Refund
-        </Button>
-      )}
-      {actions.includes('edit') && (
-        <Button variant="outlined" size="small" onClick={onEdit}>
-          Edit
-        </Button>
-      )}
-      {actions.includes('cancel') && (
-        <Button variant="outlined" size="small" onClick={onCancel}>
-          Cancel
-        </Button>
-      )}
-      {actions.includes('print') && (
-        <Button variant="outlined" size="small" onClick={onPrint}>
-          Print
-        </Button>
-      )}
+      ))}
     </Box>
   )
 }

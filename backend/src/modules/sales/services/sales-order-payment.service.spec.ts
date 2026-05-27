@@ -216,6 +216,44 @@ describe('SalesOrderPaymentService', () => {
     });
   });
 
+  describe('recordPayments', () => {
+    it('returns empty array when dtos is empty', async () => {
+      const result = await service.recordPayments('order-1', []);
+      expect(result).toEqual([]);
+    });
+
+    it('inserts all payment rows in a single transaction and returns results', async () => {
+      dataSource.transaction.mockClear();
+      orderRepo.findOne.mockResolvedValue(mockOrder());
+      methodRepo.findOne.mockResolvedValue(mockMethod());
+
+      const paymentRecordsAfterSave = [
+        { id: 'payment-new-1', amount: 100, salesOrderId: 'order-1' },
+        { id: 'payment-new-2', amount: 200, salesOrderId: 'order-1' },
+      ] as SalesOrderPayment[];
+
+      const manager = buildMockManager(paymentRecordsAfterSave);
+      (dataSource.transaction as jest.Mock).mockImplementation(async (cb: (m: EntityManager) => Promise<any>) => cb(manager));
+
+      const dtos = [
+        { paymentMethodId: 'method-1', amount: 100, paymentDate: '2026-01-01' },
+        { paymentMethodId: 'method-1', amount: 200, paymentDate: '2026-01-02' },
+      ];
+
+      const results = await service.recordPayments('order-1', dtos);
+      expect(results).toHaveLength(2);
+      expect(dataSource.transaction).toHaveBeenCalledTimes(1);
+    });
+
+    it('throws if any dto has invalid paymentMethodId', async () => {
+      orderRepo.findOne.mockResolvedValue(mockOrder());
+      methodRepo.findOne.mockResolvedValue(null);
+
+      const dtos = [{ paymentMethodId: 'bad-method', amount: 100, paymentDate: '2026-01-01' }];
+      await expect(service.recordPayments('order-1', dtos)).rejects.toThrow(BadRequestException);
+    });
+  });
+
   describe('listPayments', () => {
     it('throws NotFoundException when order not found', async () => {
       orderRepo.findOne.mockResolvedValue(null);

@@ -19,17 +19,20 @@ import {
 import { default as DeleteIcon } from '@mui/icons-material/Delete'
 import { default as AddIcon } from '@mui/icons-material/Add'
 import { useGetActivePaymentMethodsQuery } from '@/store/api/paymentMethodsApi'
+import { getCurrentDate } from '@/utils/formatters'
 
 interface PaymentLine {
+  id: string
   paymentMethodId: string
   amount: number | string
+  paymentDate: string
   reference: string
 }
 
 interface PaymentDialogProps {
   open: boolean
   onClose: () => void
-  onSubmit: (payments: { paymentMethodId: string; amount: number; reference?: string }[]) => Promise<void>
+  onSubmit: (payments: { paymentMethodId: string; amount: number; paymentDate: string; reference?: string }[]) => Promise<void>
   orderNumber: string
   totalAmount: number
   paidAmount: number
@@ -72,8 +75,10 @@ export default function PaymentDialog({
     if (!open || lines.length > 0) return
     const cashMethod = paymentMethods.find((m) => m.code === 'CASH')
     setLines([{
+      id: crypto.randomUUID(),
       paymentMethodId: cashMethod?.id || paymentMethods[0]?.id || '',
       amount: outstandingBalance > 0 ? outstandingBalance : '',
+      paymentDate: getCurrentDate(),
       reference: '',
     }])
   }, [open, paymentMethods, lines.length])
@@ -94,8 +99,10 @@ export default function PaymentDialog({
     setUserHasEdited(true)
     const cashMethod = paymentMethods.find((m) => m.code === 'CASH')
     setLines(prev => [...prev, {
+      id: crypto.randomUUID(),
       paymentMethodId: cashMethod?.id || paymentMethods[0]?.id || '',
       amount: remaining > 0 ? remaining : '',
+      paymentDate: getCurrentDate(),
       reference: '',
     }])
   }, [paymentMethods, remaining])
@@ -122,6 +129,7 @@ export default function PaymentDialog({
       await onSubmit(validLines.map(l => ({
         paymentMethodId: l.paymentMethodId,
         amount: typeof l.amount === 'number' ? l.amount : parseFloat(l.amount as string),
+        paymentDate: l.paymentDate,
         reference: l.reference || undefined,
       })))
       onClose()
@@ -172,7 +180,7 @@ export default function PaymentDialog({
 
         {/* Payment Lines */}
         {lines.map((line, index) => (
-          <Box key={index} sx={{ display: 'flex', gap: 1, mb: 1.5, alignItems: 'center' }}>
+          <Box key={line.id} sx={{ display: 'flex', gap: 1, mb: 1.5, alignItems: 'center' }}>
             <FormControl size="small" sx={{ minWidth: 130 }}>
               <Select
                 value={line.paymentMethodId}
@@ -201,6 +209,15 @@ export default function PaymentDialog({
                 '& input[type=number]': { MozAppearance: 'textfield' },
                 '& input[type=number]::-webkit-outer-spin-button, & input[type=number]::-webkit-inner-spin-button': { WebkitAppearance: 'none', margin: 0 },
               }}
+            />
+
+            <TextField
+              size="small"
+              type="date"
+              value={line.paymentDate}
+              onChange={(e) => updateLine(index, 'paymentDate', e.target.value)}
+              sx={{ width: 140 }}
+              slotProps={{ htmlInput: { max: '2099-12-31' } }}
             />
 
             <TextField

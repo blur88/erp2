@@ -10,6 +10,7 @@ import { Repository, FindOptionsWhere } from 'typeorm';
 import { BaseCrudService } from '../../../common/services/base-crud.service';
 import { SalesOrder } from '../../../database/entities/sales-order.entity';
 import { SalesOrderItem, DiscountType } from '../../../database/entities/sales-order-item.entity';
+import { SalesOrderPayment } from '../../../database/entities/sales-order-payment.entity';
 import { Customer } from '../../../database/entities/customer.entity';
 import { Product } from '../../../database/entities/product.entity';
 import { Invoice } from '../../../database/entities/invoice.entity';
@@ -721,6 +722,10 @@ export class SalesOrderService extends BaseCrudService<
   async recordRefund(orderId: string, dto: RecordRefundDto, userId?: string, username?: string): Promise<SalesOrderResponseDto> {
     await this.salesOrderPaymentService.recordRefund(orderId, dto, userId, username);
     return this.salesOrderQueryService.findById(orderId);
+  }
+
+  async recordPayments(orderId: string, dtos: RecordPaymentDto[], userId?: string, username?: string): Promise<SalesOrderPayment[]> {
+    return this.salesOrderPaymentService.recordPayments(orderId, dtos, userId, username);
   }
 
   async recordRefunds(orderId: string, dtos: RecordPaymentDto[], userId?: string, username?: string) {

@@ -210,4 +210,24 @@ describe('RefundDialog', () => {
     expect(onClose).not.toHaveBeenCalled()
     expect(screen.getByText('Discard this refund?')).toBeInTheDocument()
   })
+
+  it('renders a date field defaulting to today for each refund line', async () => {
+    mockUseGetSalesOrderPaymentsQuery.mockReturnValue({ data: makePayments(500, 0), isLoading: false })
+    renderDialog()
+    await waitFor(() => {
+      const dateInputs = screen.getAllByDisplayValue(/^\d{4}-\d{2}-\d{2}$/)
+      expect(dateInputs.length).toBeGreaterThanOrEqual(1)
+    })
+  })
+
+  it('submit payload includes paymentDate', async () => {
+    mockUseGetSalesOrderPaymentsQuery.mockReturnValue({ data: makePayments(500, 0), isLoading: false })
+    const onSubmit = vi.fn().mockResolvedValue(undefined)
+    renderDialog({ onSubmit })
+    await userEvent.click(screen.getByRole('button', { name: /^refund$/i }))
+    await waitFor(() => expect(onSubmit).toHaveBeenCalled())
+    const [lines] = onSubmit.mock.calls[0]
+    expect(lines[0]).toHaveProperty('paymentDate')
+    expect(lines[0].paymentDate).toMatch(/^\d{4}-\d{2}-\d{2}$/)
+  })
 })

@@ -35,6 +35,8 @@ const defaultProps = {
   onUnfulfill: noop,
   onRefund: noop,
   onCancel: noop,
+  onUncancel: noop,
+  onDuplicate: noop,
   onPrint: noop,
   paginationSlot: undefined,
 }
@@ -110,14 +112,14 @@ describe('SalesOrderList row actions — Draft Unpaid', () => {
 })
 
 describe('SalesOrderList row actions — Draft Paid', () => {
-  it('shows View, Edit (disabled), Fulfill, Cancel (disabled), Print — no Pay, no Refund', async () => {
+  it('shows View, Edit (disabled), Fulfill, Refund, Cancel (disabled), Print — no Pay', async () => {
     renderList({ ...defaultProps, orders: [makeOrder({ paymentStatus: 'PAID' })] })
     await openMenu()
     expect(screen.getByRole('menuitem', { name: /view/i })).toBeInTheDocument()
     expect(screen.getByRole('menuitem', { name: /^edit$/i })).toBeInTheDocument()
     expect(screen.queryByRole('menuitem', { name: /^pay$/i })).not.toBeInTheDocument()
     expect(screen.getByRole('menuitem', { name: /^fulfill$/i })).toBeInTheDocument()
-    expect(screen.queryByRole('menuitem', { name: /refund/i })).not.toBeInTheDocument()
+    expect(screen.getByRole('menuitem', { name: /refund/i })).toBeInTheDocument()
     expect(screen.getByRole('menuitem', { name: /cancel/i })).toBeInTheDocument()
     expect(screen.queryByRole('menuitem', { name: /unfulfill/i })).not.toBeInTheDocument()
     const edit = screen.getByRole('menuitem', { name: /^edit$/i })
@@ -134,28 +136,29 @@ describe('SalesOrderList row actions — Draft Overpaid', () => {
 })
 
 describe('SalesOrderList row actions — Fulfilled', () => {
-  it('shows View, Edit (disabled), Unfulfill, Cancel (disabled), Print — no Refund, no Pay', async () => {
+  it('shows View, Unfulfill, Refund, Print — no Edit, no Pay, no Fulfill', async () => {
     renderList({ ...defaultProps, orders: [makeOrder({ status: 'FULFILLED', paymentStatus: 'PAID' })] })
     await openMenu()
     expect(screen.getByRole('menuitem', { name: /view/i })).toBeInTheDocument()
-    expect(screen.getByRole('menuitem', { name: /^edit$/i })).toBeInTheDocument()
     expect(screen.getByRole('menuitem', { name: /unfulfill/i })).toBeInTheDocument()
-    expect(screen.queryByRole('menuitem', { name: /refund/i })).not.toBeInTheDocument()
+    expect(screen.getByRole('menuitem', { name: /refund/i })).toBeInTheDocument()
+    expect(screen.getByRole('menuitem', { name: /print/i })).toBeInTheDocument()
+    expect(screen.queryByRole('menuitem', { name: /^edit$/i })).not.toBeInTheDocument()
     expect(screen.queryByRole('menuitem', { name: /^fulfill$/i })).not.toBeInTheDocument()
     expect(screen.queryByRole('menuitem', { name: /^pay$/i })).not.toBeInTheDocument()
   })
 })
 
 describe('SalesOrderList row actions — Draft Partial', () => {
-  it('shows View, Edit (disabled), Fulfill, Cancel (disabled), Print — no Pay, no Refund', async () => {
+  it('shows View, Fulfill, Refund, Edit (disabled), Cancel (disabled), Print — no Pay', async () => {
     renderList({ ...defaultProps, orders: [makeOrder({ paymentStatus: 'PARTIAL' })] })
     await openMenu()
     expect(screen.getByRole('menuitem', { name: /view/i })).toBeInTheDocument()
-    const edit = screen.getByRole('menuitem', { name: /^edit$/i })
-    expect(edit).toHaveAttribute('aria-disabled', 'true')
     expect(screen.queryByRole('menuitem', { name: /^pay$/i })).not.toBeInTheDocument()
     expect(screen.getByRole('menuitem', { name: /^fulfill$/i })).toBeInTheDocument()
-    expect(screen.queryByRole('menuitem', { name: /refund/i })).not.toBeInTheDocument()
+    expect(screen.getByRole('menuitem', { name: /refund/i })).toBeInTheDocument()
+    const edit = screen.getByRole('menuitem', { name: /^edit$/i })
+    expect(edit).toHaveAttribute('aria-disabled', 'true')
     const cancel = screen.getByRole('menuitem', { name: /cancel/i })
     expect(cancel).toHaveAttribute('aria-disabled', 'true')
     expect(screen.getByRole('menuitem', { name: /print/i })).toBeInTheDocument()
@@ -163,12 +166,14 @@ describe('SalesOrderList row actions — Draft Partial', () => {
 })
 
 describe('SalesOrderList row actions — Cancelled', () => {
-  it('shows only View and Print', async () => {
+  it('shows View, Uncancel, Print — no Edit, no Cancel, no Pay', async () => {
     renderList({ ...defaultProps, orders: [makeOrder({ status: 'CANCELLED', paymentStatus: 'UNPAID' })] })
     await openMenu()
     expect(screen.getByRole('menuitem', { name: /view/i })).toBeInTheDocument()
+    expect(screen.getByRole('menuitem', { name: /uncancel/i })).toBeInTheDocument()
     expect(screen.getByRole('menuitem', { name: /print/i })).toBeInTheDocument()
     expect(screen.queryByRole('menuitem', { name: /^edit$/i })).not.toBeInTheDocument()
-    expect(screen.queryByRole('menuitem', { name: /cancel/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('menuitem', { name: /^cancel$/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('menuitem', { name: /^pay$/i })).not.toBeInTheDocument()
   })
 })

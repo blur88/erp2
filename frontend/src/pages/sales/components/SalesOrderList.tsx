@@ -7,6 +7,7 @@ import RowActionMenu, { type RowAction } from '@/components/common/RowActionMenu
 import type { SalesOrder } from '@/types'
 import { formatCurrency, formatDate } from '@/utils/formatters'
 
+import { getOrderActionMetas } from '../utils/orderActions'
 import { SalesOrderPaymentStatusChip } from './SalesOrderPaymentStatusChip'
 import { SalesOrderStatusChip } from './SalesOrderStatusChip'
 
@@ -21,71 +22,49 @@ interface SalesOrderListProps {
   onUnfulfill: (order: SalesOrder) => void
   onRefund: (order: SalesOrder) => void
   onCancel: (order: SalesOrder) => void
+  onUncancel: (order: SalesOrder) => void
+  onDuplicate: (order: SalesOrder) => void
   onPrint: (order: SalesOrder) => void
   paginationSlot?: ReactNode
 }
 
 function buildActions(order: SalesOrder, props: SalesOrderListProps): RowAction[] {
-  const { status, paymentStatus } = order
-  const isPaid = paymentStatus !== 'UNPAID'
-  const isFulfilled = status === 'FULFILLED'
+  const metas = getOrderActionMetas(order)
 
-  const editTooltip = isPaid && isFulfilled
-    ? 'Unfulfill and cancel payment first to edit'
-    : isFulfilled
-      ? 'Unfulfill first to edit'
-      : 'Cancel payment first to edit'
+  const handlers: Record<string, () => void> = {
+    pay: () => props.onPay(order),
+    fulfill: () => props.onFulfill(order),
+    unfulfill: () => props.onUnfulfill(order),
+    refund: () => props.onRefund(order),
+    edit: () => props.onEdit(order),
+    cancel: () => props.onCancel(order),
+    uncancel: () => props.onUncancel(order),
+    duplicate: () => props.onDuplicate(order),
+    print: () => props.onPrint(order),
+  }
 
-  const cancelTooltip = isPaid && isFulfilled
-    ? 'Unfulfill and cancel payment first'
-    : isFulfilled
-      ? 'Unfulfill first'
-      : 'Cancel payment first'
+  const labels: Record<string, string> = {
+    pay: 'Pay',
+    fulfill: 'Fulfill',
+    unfulfill: 'Unfulfill',
+    refund: 'Refund',
+    edit: 'Edit',
+    cancel: 'Cancel',
+    uncancel: 'Uncancel',
+    duplicate: 'Duplicate',
+    print: 'Print',
+  }
 
-  const actions: RowAction[] = []
+  const actions: RowAction[] = [{ label: 'View', onClick: () => props.onView(order) }]
 
-  actions.push({ label: 'View', onClick: () => props.onView(order) })
-
-  if (status !== 'CANCELLED') {
+  for (const { action, disabled, tooltip } of metas) {
     actions.push({
-      label: 'Edit',
-      onClick: () => props.onEdit(order),
-      disabled: isPaid || isFulfilled,
-      tooltip: isPaid || isFulfilled ? editTooltip : undefined,
+      label: labels[action],
+      onClick: handlers[action],
+      disabled,
+      tooltip,
     })
   }
-
-  if (status === 'DRAFT' && paymentStatus === 'UNPAID') {
-    actions.push({ label: 'Pay', onClick: () => props.onPay(order) })
-  }
-
-  if (status === 'DRAFT') {
-    actions.push({
-      label: 'Fulfill',
-      onClick: () => props.onFulfill(order),
-      disabled: paymentStatus === 'UNPAID',
-      tooltip: paymentStatus === 'UNPAID' ? 'Full payment required' : undefined,
-    })
-  }
-
-  if (isFulfilled) {
-    actions.push({ label: 'Unfulfill', onClick: () => props.onUnfulfill(order) })
-  }
-
-  if (paymentStatus === 'OVERPAID') {
-    actions.push({ label: 'Refund', onClick: () => props.onRefund(order) })
-  }
-
-  if (status !== 'CANCELLED') {
-    actions.push({
-      label: 'Cancel',
-      onClick: () => props.onCancel(order),
-      disabled: isPaid || isFulfilled,
-      tooltip: isPaid || isFulfilled ? cancelTooltip : undefined,
-    })
-  }
-
-  actions.push({ label: 'Print', onClick: () => props.onPrint(order) })
 
   return actions
 }

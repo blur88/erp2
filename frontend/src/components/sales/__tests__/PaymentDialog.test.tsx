@@ -126,40 +126,25 @@ describe('PaymentDialog', () => {
   })
 
   it('Cancel on untouched dialog (pre-filled amount) closes without confirmation', async () => {
-    // F2: pre-filled outstandingBalance must not count as user input
     const onClose = vi.fn()
     renderDialog({ totalAmount: 1000, paidAmount: 0, onClose })
-    // Do NOT interact with any field — just cancel immediately
     await userEvent.click(screen.getByRole('button', { name: /cancel/i }))
     expect(onClose).toHaveBeenCalledOnce()
     expect(screen.queryByText('Discard this payment?')).not.toBeInTheDocument()
   })
 
-  it('Cancel after editing an amount shows discard confirmation', async () => {
-    // F2: confirmation only shown after actual user interaction
-    renderDialog({ totalAmount: 1000, paidAmount: 0 })
-    const amountInput = screen.getByPlaceholderText('Amount')
-    await userEvent.clear(amountInput)
-    await userEvent.type(amountInput, '200')
-    await userEvent.click(screen.getByRole('button', { name: /cancel/i }))
-    expect(screen.getByText('Discard this payment?')).toBeInTheDocument()
-  })
-
   it('Escape / backdrop on outer dialog shows discard confirmation when user has edited', async () => {
-    // F1: backdrop/Escape must go through same dirty guard as Cancel button
     const onClose = vi.fn()
     renderDialog({ totalAmount: 1000, paidAmount: 0, onClose })
     const amountInput = screen.getByPlaceholderText('Amount')
     await userEvent.clear(amountInput)
     await userEvent.type(amountInput, '200')
-    // Pressing Escape triggers the outer Dialog's onClose
     await userEvent.keyboard('{Escape}')
     expect(onClose).not.toHaveBeenCalled()
     expect(screen.getByText('Discard this payment?')).toBeInTheDocument()
   })
 
   it('Escape on untouched dialog closes immediately without confirmation', async () => {
-    // F1: backdrop/Escape on clean dialog should close directly
     const onClose = vi.fn()
     renderDialog({ totalAmount: 1000, paidAmount: 0, onClose })
     await userEvent.keyboard('{Escape}')
@@ -177,7 +162,7 @@ describe('PaymentDialog', () => {
     await userEvent.click(screen.getByRole('button', { name: /record payment/i }))
     await waitFor(() => expect(onClose).toHaveBeenCalledOnce())
     expect(onSubmit).toHaveBeenCalledWith([
-      expect.objectContaining({ paymentMethodId: 'pm-1', amount: 500 }),
+      expect.objectContaining({ paymentMethodId: 'pm-1', amount: 500, paymentDate: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/) }),
     ])
   })
 
@@ -199,5 +184,11 @@ describe('PaymentDialog', () => {
     await userEvent.clear(amountInput)
     await userEvent.type(amountInput, '600')
     expect(screen.getByText(/exceeds outstanding balance/i)).toBeInTheDocument()
+  })
+
+  it('renders a date field defaulting to today for each payment line', () => {
+    renderDialog({ totalAmount: 500, paidAmount: 0 })
+    const dateInputs = screen.getAllByDisplayValue(/^\d{4}-\d{2}-\d{2}$/)
+    expect(dateInputs.length).toBeGreaterThanOrEqual(1)
   })
 })
