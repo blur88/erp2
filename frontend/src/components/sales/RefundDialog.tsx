@@ -20,18 +20,20 @@ import { default as DeleteIcon } from '@mui/icons-material/Delete'
 import { default as AddIcon } from '@mui/icons-material/Add'
 import { useGetActivePaymentMethodsQuery } from '@/store/api/paymentMethodsApi'
 import { useGetSalesOrderPaymentsQuery } from '@/store/api/salesApi'
+import { getCurrentDate } from '@/utils/formatters'
 
 interface RefundLine {
   id: string
   paymentMethodId: string
   amount: number | string
+  paymentDate: string
   reference: string
 }
 
 interface RefundDialogProps {
   open: boolean
   onClose: () => void
-  onSubmit: (refunds: { paymentMethodId: string; amount: number; reference?: string }[]) => Promise<void>
+  onSubmit: (refunds: { paymentMethodId: string; amount: number; paymentDate: string; reference?: string }[]) => Promise<void>
   orderId: string
   orderNumber: string
 }
@@ -84,6 +86,7 @@ export default function RefundDialog({
       id: crypto.randomUUID(),
       paymentMethodId: cashMethod?.id || paymentMethods[0]?.id || '',
       amount: availableForRefund > 0 ? availableForRefund : '',
+      paymentDate: getCurrentDate(),
       reference: '',
     }])
   }, [open, paymentMethods, lines.length, availableForRefund, loadingPayments])
@@ -113,6 +116,7 @@ export default function RefundDialog({
         id: crypto.randomUUID(),
         paymentMethodId: cashMethod?.id || paymentMethods[0]?.id || '',
         amount: remainingAfterRefund > 0 ? remainingAfterRefund : '',
+        paymentDate: getCurrentDate(),
         reference: '',
       },
     ])
@@ -143,6 +147,7 @@ export default function RefundDialog({
         validLines.map((l) => ({
           paymentMethodId: l.paymentMethodId,
           amount: typeof l.amount === 'number' ? l.amount : parseFloat(l.amount as string),
+          paymentDate: l.paymentDate,
           reference: l.reference || undefined,
         })),
       )
@@ -222,6 +227,15 @@ export default function RefundDialog({
                       margin: 0,
                     },
                   }}
+                />
+
+                <TextField
+                  size="small"
+                  type="date"
+                  value={line.paymentDate}
+                  onChange={(e) => updateLine(index, 'paymentDate', e.target.value)}
+                  sx={{ width: 140 }}
+                  slotProps={{ htmlInput: { max: '2099-12-31' } }}
                 />
 
                 <TextField

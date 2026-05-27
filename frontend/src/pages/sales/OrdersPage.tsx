@@ -145,7 +145,7 @@ const OrdersPage: React.FC = () => {
   }, [])
 
   const handleSubmitRefund = useCallback(async (
-    refunds: { paymentMethodId: string; amount: number; reference?: string }[],
+    refunds: { paymentMethodId: string; amount: number; paymentDate: string; reference?: string }[],
   ) => {
     if (!refundOrder) return
     try {

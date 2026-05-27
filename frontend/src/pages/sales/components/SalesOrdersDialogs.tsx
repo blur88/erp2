@@ -14,7 +14,7 @@ interface SalesOrdersDialogsProps {
   refundOrder: SalesOrder | null
   onCloseRefund: () => void
   onSubmitRefund: (
-    refunds: { paymentMethodId: string; amount: number; reference?: string }[],
+    refunds: { paymentMethodId: string; amount: number; paymentDate: string; reference?: string }[],
   ) => Promise<void>
 }
 

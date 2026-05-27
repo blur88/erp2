@@ -141,7 +141,7 @@ export default function SalesOrderDetailPage() {
   }
 
   const handleSubmitRefund = async (
-    refunds: { paymentMethodId: string; amount: number; reference?: string }[],
+    refunds: { paymentMethodId: string; amount: number; paymentDate: string; reference?: string }[],
   ) => {
     try {
       await recordRefunds({ id: order.id, refunds }).unwrap()
