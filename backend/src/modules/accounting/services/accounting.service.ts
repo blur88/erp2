@@ -87,8 +87,22 @@ export class AccountingService {
       );
     }
 
+    // Guard: items relation must be loaded — without it revenue and COGS are both wrong
+    if (salesOrder.items == null) {
+      throw new BadRequestException(
+        `Cannot post sales order entry for ${salesOrder.orderNumber}: items relation not loaded`,
+      );
+    }
+
     // Calculate COGS
     const cogsAmount = this.calculateCOGS(salesOrder.items);
+
+    // Derive revenue from items (defensive: avoids stale totalAmount column)
+    const itemsSubtotal = salesOrder.items.reduce(
+      (sum, item) => sum + Number(item.totalAmount ?? 0),
+      0,
+    );
+    const revenueAmount = itemsSubtotal + Number(salesOrder.shippingAmount ?? 0);
 
     // Build journal entry lines
     const lines: CreateJournalEntryLineDto[] = [
@@ -109,7 +123,7 @@ export class AccountingService {
       // DR Accounts Receivable
       {
         accountId: mappings[MappingType.SALES_AR],
-        debitAmount: Number(salesOrder.totalAmount),
+        debitAmount: revenueAmount,
         creditAmount: 0,
         memo: 'Amount receivable from customer',
       },
@@ -117,7 +131,7 @@ export class AccountingService {
       {
         accountId: mappings[MappingType.SALES_REVENUE],
         debitAmount: 0,
-        creditAmount: Number(salesOrder.totalAmount),
+        creditAmount: revenueAmount,
         memo: 'Sales revenue recognition',
       },
     ];

@@ -118,6 +118,16 @@ export class SalesOrderFulfillmentService {
       newValues: { status: SalesOrderStatus.DRAFT },
     });
 
+    try {
+      await this.accountingService.reverseSourceEntries('sales_order', id, userId || 'system');
+      this.logger.log(`Reversed accounting entry for sales order ${order.orderNumber}`);
+    } catch (error) {
+      this.logger.error(
+        `Failed to reverse accounting entry for sales order ${id}: ${error.message}`,
+        error.stack,
+      );
+    }
+
     return saved;
   }
 }
