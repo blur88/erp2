@@ -291,7 +291,7 @@ const CreateSalesOrderPage: React.FC = () => {
           if (!editMeta || editMeta.disabled) {
             setLoadingOrder(false)
             showError(editMeta?.tooltip ?? 'Cannot edit this sales order')
-            navigate(`/sales/orders/${orderNumber}`, { replace: true })
+            navigate(`/sales/orders/${orderNumber}/view`, { replace: true })
             return
           }
 
