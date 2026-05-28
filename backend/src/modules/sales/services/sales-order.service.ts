@@ -191,7 +191,7 @@ export class SalesOrderService extends BaseCrudService<
 
     // Validate and calculate order totals with customer pricing scheme
     const orderItems = await this.validateAndProcessItems(items, customer);
-    const subtotal = orderItems.reduce((sum, item) => sum + Number(item.totalAmount), 0);
+    const subtotal = SalesOrderService.sumItemTotals(orderItems);
     const shippingAmount = Number(createSalesOrderDto.shippingAmount || 0);
     const totalAmount = subtotal + shippingAmount;
 
@@ -506,7 +506,7 @@ export class SalesOrderService extends BaseCrudService<
       // Validate and process new items with customer pricing
       const orderItems = await this.validateAndProcessItems(items, customerForPricing);
 
-      const subtotal = orderItems.reduce((sum, item) => sum + Number(item.totalAmount), 0);
+      const subtotal = SalesOrderService.sumItemTotals(orderItems);
       const shippingAmount = updateSalesOrderDto.shippingAmount !== undefined
         ? Number(updateSalesOrderDto.shippingAmount)
         : Number(order.shippingAmount || 0);
@@ -542,7 +542,7 @@ export class SalesOrderService extends BaseCrudService<
     } else if (updateSalesOrderDto.shippingAmount !== undefined) {
       // If only shipping is being updated (no items), load items from DB to recalculate total
       const existingItems = await this.salesOrderItemRepository.find({ where: { salesOrderId: id } });
-      const currentSubtotal = existingItems.reduce((sum, item) => sum + Number(item.totalAmount), 0);
+      const currentSubtotal = SalesOrderService.sumItemTotals(existingItems);
       const newShipping = Number(updateSalesOrderDto.shippingAmount);
       updateData.shippingAmount = newShipping;
       updateData.subtotal = currentSubtotal;
@@ -635,6 +635,15 @@ export class SalesOrderService extends BaseCrudService<
         this.logger.error(`Failed to update customer metrics after ${context} (customerId: ${customerId}): ${error.message}`);
       }
     }
+  }
+
+  /**
+   * Sum the post-discount totalAmount across a list of order items.
+   * Used in create, update (items branch), and update (shipping-only branch)
+   * to ensure the same calculation logic is applied everywhere.
+   */
+  private static sumItemTotals(items: Array<{ totalAmount: number }>): number {
+    return items.reduce((sum, item) => sum + Number(item.totalAmount), 0);
   }
 
   private async validateAndProcessItems(items: any[], customer?: Customer) {
