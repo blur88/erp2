@@ -286,9 +286,9 @@ export default function SalesOrderDetailPage() {
           open
           onClose={() => setActiveDialog(null)}
           onSubmit={handleSubmitPayment}
+          orderId={order.id}
           orderNumber={order.orderNumber}
           totalAmount={order.totalAmount}
-          paidAmount={order.paidAmount ?? 0}
         />
       )}
 
