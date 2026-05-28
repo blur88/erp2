@@ -38,9 +38,9 @@ export default function SalesOrdersDialogs({
           open
           onClose={onClosePayment}
           onSubmit={onSubmitPayment}
+          orderId={paymentOrder.id}
           orderNumber={paymentOrder.orderNumber}
           totalAmount={paymentOrder.totalAmount}
-          paidAmount={paymentOrder.paidAmount ?? 0}
         />
       )}
       {refundOrder && (

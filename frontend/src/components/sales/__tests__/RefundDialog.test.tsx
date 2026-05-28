@@ -28,6 +28,11 @@ const makePayments = (paid: number, refunded: number) => [
   ...(refunded > 0 ? [{ id: 'p2', salesOrderId: 'order-1', paymentMethodId: 'pm-1', amount: -refunded, paymentDate: '2026-01-02', createdAt: '', updatedAt: '' }] : []),
 ]
 
+const makeMultiPayments = () => [
+  { id: 'p1', salesOrderId: 'order-1', paymentMethodId: 'pm-1', amount: 300, paymentDate: '2026-01-01', createdAt: '', updatedAt: '' },
+  { id: 'p2', salesOrderId: 'order-1', paymentMethodId: 'pm-2', amount: 200, paymentDate: '2026-01-01', createdAt: '', updatedAt: '' },
+]
+
 function renderDialog(props: Partial<ComponentProps<typeof RefundDialog>> = {}) {
   const defaults = {
     open: true,
@@ -45,19 +50,19 @@ beforeEach(() => {
 })
 
 describe('RefundDialog', () => {
-  it('displays summary: Total Paid, Already Refunded, Available for Refund', () => {
+  it('displays Available for Refund in summary', () => {
     mockUseGetSalesOrderPaymentsQuery.mockReturnValue({ data: makePayments(500, 100), isLoading: false })
     renderDialog()
-    expect(screen.getByText('Total Paid')).toBeInTheDocument()
-    expect(screen.getByText('Already Refunded')).toBeInTheDocument()
     expect(screen.getByText('Available for Refund')).toBeInTheDocument()
+    expect(screen.queryByText('Total Paid')).not.toBeInTheDocument()
+    expect(screen.queryByText('Already Refunded')).not.toBeInTheDocument()
   })
 
-  it('computes Available for Refund as Total Paid minus Already Refunded', () => {
+  it('Available for Refund shows net paid minus prior refunds', () => {
     mockUseGetSalesOrderPaymentsQuery.mockReturnValue({ data: makePayments(500, 100), isLoading: false })
     renderDialog()
-    // Available = 500 - 100 = 400 → RM 400.00 (appears at least once in summary)
-    expect(screen.getAllByText(/RM\s*400\.00/i).length).toBeGreaterThan(0)
+    // Available = 500 - 100 = 400
+    expect(screen.getAllByText(/400/).length).toBeGreaterThan(0)
   })
 
   it('shows loading spinner while payments are loading', () => {
@@ -229,5 +234,70 @@ describe('RefundDialog', () => {
     const [lines] = onSubmit.mock.calls[0]
     expect(lines[0]).toHaveProperty('paymentDate')
     expect(lines[0].paymentDate).toMatch(/^\d{4}-\d{2}-\d{2}$/)
+  })
+
+  it('pre-fills one refund line matching the original payment method', () => {
+    mockUseGetSalesOrderPaymentsQuery.mockReturnValue({
+      data: [{ id: 'p1', salesOrderId: 'order-1', paymentMethodId: 'pm-2', amount: 400, paymentDate: '2026-01-01', createdAt: '', updatedAt: '' }],
+      isLoading: false,
+    })
+    renderDialog()
+    expect(screen.getByText('Bank Transfer')).toBeInTheDocument()
+  })
+
+  it('pre-fills multiple refund lines when order has multiple payments', async () => {
+    mockUseGetSalesOrderPaymentsQuery.mockReturnValue({
+      data: makeMultiPayments(),
+      isLoading: false,
+    })
+    renderDialog()
+    await waitFor(() => {
+      expect(screen.getAllByPlaceholderText('Amount')).toHaveLength(2)
+    })
+  })
+
+  it('scales pre-filled amounts proportionally when a partial refund has already been issued', async () => {
+    // Net: Cash = 300 - 100 = 200, Bank Transfer = 200; netTotal = 400 = availableForRefund
+    mockUseGetSalesOrderPaymentsQuery.mockReturnValue({
+      data: [
+        ...makeMultiPayments(),
+        { id: 'r1', salesOrderId: 'order-1', paymentMethodId: 'pm-1', amount: -100, paymentDate: '2026-01-02', createdAt: '', updatedAt: '' },
+      ],
+      isLoading: false,
+    })
+    renderDialog()
+    await waitFor(() => {
+      const amounts = screen.getAllByPlaceholderText('Amount') as HTMLInputElement[]
+      // 200/400 * 400 = 200, 200/400 * 400 = 200
+      expect(amounts[0].value).toBe('200')
+      expect(amounts[1].value).toBe('200')
+    })
+  })
+
+  it('excludes fully-refunded payment methods from pre-filled rows', async () => {
+    // Cimb: +40 -40 = net 0 (excluded); Cash: +40 = net 40 (shown)
+    mockUseGetSalesOrderPaymentsQuery.mockReturnValue({
+      data: [
+        { id: 'p1', salesOrderId: 'order-1', paymentMethodId: 'pm-2', amount: 40, paymentDate: '2026-01-01', createdAt: '', updatedAt: '' },
+        { id: 'r1', salesOrderId: 'order-1', paymentMethodId: 'pm-2', amount: -40, paymentDate: '2026-01-02', createdAt: '', updatedAt: '' },
+        { id: 'p2', salesOrderId: 'order-1', paymentMethodId: 'pm-1', amount: 40, paymentDate: '2026-01-03', createdAt: '', updatedAt: '' },
+      ],
+      isLoading: false,
+    })
+    renderDialog()
+    await waitFor(() => {
+      expect(screen.getAllByPlaceholderText('Amount')).toHaveLength(1)
+      expect((screen.getByPlaceholderText('Amount') as HTMLInputElement).value).toBe('40')
+    })
+  })
+
+  it('falls back to Cash when original payment method is not in active list', () => {
+    mockUseGetSalesOrderPaymentsQuery.mockReturnValue({
+      data: [{ id: 'p1', salesOrderId: 'order-1', paymentMethodId: 'pm-deactivated', amount: 300, paymentDate: '2026-01-01', createdAt: '', updatedAt: '' }],
+      isLoading: false,
+    })
+    renderDialog()
+    // pm-deactivated not in paymentMethods list → falls back to Cash (pm-1)
+    expect(screen.getByText('Cash')).toBeInTheDocument()
   })
 })

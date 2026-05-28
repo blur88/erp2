@@ -58,14 +58,13 @@ describe('OrderActionBar', () => {
     expect(screen.queryByRole('button', { name: 'Unfulfill' })).not.toBeInTheDocument()
   })
 
-  it('Draft+Partial shows Fulfill (enabled), Refund, Edit, Cancel, Print — no Pay', () => {
+  it('Draft+Partial shows Pay, Fulfill (disabled), Refund, Edit, Cancel, Print', () => {
     renderBar(makeOrder({ status: 'DRAFT', paymentStatus: 'PARTIAL' }))
-    expect(screen.queryByRole('button', { name: 'Pay' })).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Fulfill' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Fulfill' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: 'Pay' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Fulfill' })).toBeDisabled()
     expect(screen.getByRole('button', { name: 'Refund' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Edit' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Cancel' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Edit' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: 'Cancel' })).toBeEnabled()
     expect(screen.getByRole('button', { name: 'Print' })).toBeInTheDocument()
   })
 

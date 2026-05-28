@@ -19,6 +19,7 @@ import {
 import { default as DeleteIcon } from '@mui/icons-material/Delete'
 import { default as AddIcon } from '@mui/icons-material/Add'
 import { useGetActivePaymentMethodsQuery } from '@/store/api/paymentMethodsApi'
+import { useGetSalesOrderPaymentsQuery } from '@/store/api/salesApi'
 import { getCurrentDate } from '@/utils/formatters'
 
 interface PaymentLine {
@@ -33,9 +34,9 @@ interface PaymentDialogProps {
   open: boolean
   onClose: () => void
   onSubmit: (payments: { paymentMethodId: string; amount: number; paymentDate: string; reference?: string }[]) => Promise<void>
+  orderId: string
   orderNumber: string
   totalAmount: number
-  paidAmount: number
   title?: string
 }
 
@@ -52,13 +53,22 @@ export default function PaymentDialog({
   open,
   onClose,
   onSubmit,
+  orderId,
   orderNumber,
   totalAmount,
-  paidAmount,
   title,
 }: PaymentDialogProps) {
-  const outstandingBalance = Math.max(0, totalAmount - paidAmount)
   const { data: paymentMethods = [] } = useGetActivePaymentMethodsQuery(undefined, { skip: !open })
+  const { data: paymentRecords = [], isLoading: loadingPayments } = useGetSalesOrderPaymentsQuery(orderId, { skip: !open })
+
+  const paidAmount = paymentRecords
+    .filter((r) => Number(r.amount) > 0)
+    .reduce((sum, r) => sum + Number(r.amount), 0)
+  const alreadyRefunded = paymentRecords
+    .filter((r) => Number(r.amount) < 0)
+    .reduce((sum, r) => sum + Math.abs(Number(r.amount)), 0)
+  const netPaid = paidAmount - alreadyRefunded
+  const outstandingBalance = Math.max(0, totalAmount - netPaid)
   const [lines, setLines] = useState<PaymentLine[]>([])
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -75,9 +85,9 @@ export default function PaymentDialog({
     setLines([])
   }, [open])
 
-  // Seed the first line once payment methods are available (only when lines are empty)
+  // Seed the first line once payment methods and payment records are available
   useEffect(() => {
-    if (!open || lines.length > 0) return
+    if (!open || lines.length > 0 || paymentMethods.length === 0 || loadingPayments) return
     const cashMethod = paymentMethods.find((m) => m.code === 'CASH')
     setLines([{
       id: newId(),
@@ -86,7 +96,7 @@ export default function PaymentDialog({
       paymentDate: getCurrentDate(),
       reference: '',
     }])
-  }, [open, paymentMethods, lines.length])
+  }, [open, paymentMethods, lines.length, loadingPayments, outstandingBalance])
 
   const totalEntered = lines.reduce((sum, l) => sum + (typeof l.amount === 'number' ? l.amount : parseFloat(l.amount as string) || 0), 0)
   const remaining = outstandingBalance - totalEntered
@@ -159,6 +169,12 @@ export default function PaymentDialog({
     <Dialog open={open} onClose={handleRequestClose} maxWidth="sm" fullWidth>
       <DialogTitle>{title ?? `Record Payment — ${orderNumber}`}</DialogTitle>
       <DialogContent>
+        {loadingPayments ? (
+          <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}>
+            <CircularProgress size={24} />
+          </Box>
+        ) : (
+        <>
         {/* Order Summary */}
         <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1, mt: 1 }}>
           <Typography variant="body2" sx={{
@@ -170,7 +186,7 @@ export default function PaymentDialog({
           <Typography variant="body2" sx={{
             color: "text.secondary"
           }}>Previously Paid</Typography>
-          <Typography variant="body2">{formatCurrency(paidAmount)}</Typography>
+          <Typography variant="body2">{formatCurrency(netPaid)}</Typography>
         </Box>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
           <Typography variant="body2" sx={{
@@ -281,6 +297,8 @@ export default function PaymentDialog({
 
         {error && (
           <Alert severity="error" sx={{ mt: 2 }}>{error}</Alert>
+        )}
+        </>
         )}
       </DialogContent>
       <DialogActions>

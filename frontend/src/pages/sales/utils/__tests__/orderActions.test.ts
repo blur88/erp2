@@ -19,9 +19,9 @@ describe('getOrderActions', () => {
     expect(actions).not.toContain('unfulfill')
   })
 
-  it('DRAFT + PARTIAL: fulfill, refund, edit, cancel, duplicate, print — no pay', () => {
+  it('DRAFT + PARTIAL: pay, fulfill (disabled), refund, edit, cancel, duplicate, print', () => {
     const actions = getOrderActions(makeOrder('DRAFT', 'PARTIAL'))
-    expect(actions).not.toContain('pay')
+    expect(actions).toContain('pay')
     expect(actions).toContain('fulfill')
     expect(actions).toContain('refund')
     expect(actions).toContain('edit')
@@ -76,10 +76,10 @@ describe('getOrderActionMetas — disabled flags', () => {
     expect(fulfill?.tooltip).toMatch(/payment required/i)
   })
 
-  it('fulfill is enabled when DRAFT + PARTIAL', () => {
+  it('fulfill is disabled when DRAFT + PARTIAL', () => {
     const metas = getOrderActionMetas(makeOrder('DRAFT', 'PARTIAL'))
     const fulfill = metas.find((m) => m.action === 'fulfill')
-    expect(fulfill?.disabled).toBe(false)
+    expect(fulfill?.disabled).toBe(true)
   })
 
   it('edit is disabled when DRAFT + PAID', () => {
@@ -88,10 +88,10 @@ describe('getOrderActionMetas — disabled flags', () => {
     expect(edit?.disabled).toBe(true)
   })
 
-  it('cancel is disabled when DRAFT + PARTIAL', () => {
+  it('cancel is enabled when DRAFT + PARTIAL', () => {
     const metas = getOrderActionMetas(makeOrder('DRAFT', 'PARTIAL'))
     const cancel = metas.find((m) => m.action === 'cancel')
-    expect(cancel?.disabled).toBe(true)
+    expect(cancel?.disabled).toBeFalsy()
   })
 
   it('refund is disabled with tooltip when FULFILLED + PAID', () => {

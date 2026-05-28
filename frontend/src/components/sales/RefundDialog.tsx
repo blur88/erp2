@@ -85,16 +85,43 @@ export default function RefundDialog({
   }, [open])
 
   useEffect(() => {
-    if (!open || lines.length > 0 || paymentMethods.length === 0 || loadingPayments) return
-    const cashMethod = paymentMethods.find((m) => m.code === 'CASH')
-    setLines([{
-      id: newId(),
-      paymentMethodId: cashMethod?.id || paymentMethods[0]?.id || '',
-      amount: availableForRefund > 0 ? availableForRefund : '',
-      paymentDate: getCurrentDate(),
-      reference: '',
-    }])
-  }, [open, paymentMethods, lines.length, availableForRefund, loadingPayments])
+    if (!open || lines.length > 0 || loadingPayments) return
+    // Net amount per payment method (positive = still owed, zero/negative = fully refunded)
+    const netByMethod = paymentRecords.reduce<Record<string, number>>((acc, r) => {
+      acc[r.paymentMethodId] = (acc[r.paymentMethodId] ?? 0) + Number(r.amount)
+      return acc
+    }, {})
+    const netPositiveMethods = Object.entries(netByMethod).filter(([, net]) => net > 0)
+    if (netPositiveMethods.length > 0) {
+      const netTotal = netPositiveMethods.reduce((sum, [, net]) => sum + net, 0)
+      setLines(netPositiveMethods.map(([methodId, net]) => {
+        const resolvedMethodId = paymentMethods.find((m) => m.id === methodId)?.id
+          ?? paymentMethods.find((m) => m.code === 'CASH')?.id
+          ?? paymentMethods[0]?.id
+          ?? ''
+        const scaledAmount = netTotal > 0
+          ? Math.round((net / netTotal) * availableForRefund * 100) / 100
+          : 0
+        return {
+          id: newId(),
+          paymentMethodId: resolvedMethodId,
+          amount: scaledAmount > 0 ? scaledAmount : '',
+          paymentDate: getCurrentDate(),
+          reference: '',
+        }
+      }))
+    } else {
+      if (paymentMethods.length === 0) return
+      const cashMethod = paymentMethods.find((m) => m.code === 'CASH')
+      setLines([{
+        id: newId(),
+        paymentMethodId: cashMethod?.id || paymentMethods[0]?.id || '',
+        amount: availableForRefund > 0 ? availableForRefund : '',
+        paymentDate: getCurrentDate(),
+        reference: '',
+      }])
+    }
+  }, [open, paymentMethods, lines.length, availableForRefund, loadingPayments, paymentRecords])
 
   const totalEntered = lines.reduce(
     (sum, l) => sum + (typeof l.amount === 'number' ? l.amount : parseFloat(l.amount as string) || 0),
@@ -183,15 +210,7 @@ export default function RefundDialog({
         ) : (
           <>
             {/* Refund Summary */}
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1, mt: 1 }}>
-              <Typography variant="body2" sx={{ color: 'text.secondary' }}>Total Paid</Typography>
-              <Typography variant="body2">{formatCurrency(totalPaid)}</Typography>
-            </Box>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-              <Typography variant="body2" sx={{ color: 'text.secondary' }}>Already Refunded</Typography>
-              <Typography variant="body2">{formatCurrency(alreadyRefunded)}</Typography>
-            </Box>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2, mt: 1 }}>
               <Typography variant="body2" sx={{ fontWeight: 'bold' }}>Available for Refund</Typography>
               <Typography variant="body2" sx={{ fontWeight: 'bold' }}>{formatCurrency(availableForRefund)}</Typography>
             </Box>
