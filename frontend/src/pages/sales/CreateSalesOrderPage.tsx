@@ -289,8 +289,9 @@ const CreateSalesOrderPage: React.FC = () => {
 
           const editMeta = getOrderActionMetas(order).find((meta) => meta.action === 'edit')
           if (!editMeta || editMeta.disabled) {
+            setLoadingOrder(false)
             showError(editMeta?.tooltip ?? 'Cannot edit this sales order')
-            navigate(`/sales/orders/${orderNumber}`)
+            navigate(`/sales/orders/${orderNumber}`, { replace: true })
             return
           }
 

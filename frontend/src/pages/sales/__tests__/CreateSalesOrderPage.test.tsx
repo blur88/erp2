@@ -814,7 +814,7 @@ describe('CreateSalesOrderPage edit guard', { timeout: 60000 }, () => {
     )
 
     await waitFor(() => {
-      expect(mockNavigate).toHaveBeenCalledWith('/sales/orders/SO-1')
+      expect(mockNavigate).toHaveBeenCalledWith('/sales/orders/SO-1', { replace: true })
     })
 
     expect(mockShowError).toHaveBeenCalledWith('Cancel payment first to edit')
@@ -840,7 +840,7 @@ describe('CreateSalesOrderPage edit guard', { timeout: 60000 }, () => {
     )
 
     await waitFor(() => {
-      expect(mockNavigate).toHaveBeenCalledWith('/sales/orders/SO-1')
+      expect(mockNavigate).toHaveBeenCalledWith('/sales/orders/SO-1', { replace: true })
     })
 
     expect(mockShowError).toHaveBeenCalledWith('Cannot edit this sales order')
