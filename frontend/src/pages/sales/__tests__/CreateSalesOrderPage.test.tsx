@@ -20,6 +20,7 @@ const {
   mockFetchSalesOrder,
   mockParams,
   mockGetDocumentNumberSettings,
+  mockShowError,
 } = vi.hoisted(() => ({
   mockDispatch: vi.fn(),
   mockNavigate: vi.fn(),
@@ -29,6 +30,7 @@ const {
   mockFetchSalesOrder: vi.fn(),
   mockParams: vi.fn(() => ({})),
   mockGetDocumentNumberSettings: vi.fn(),
+  mockShowError: vi.fn(),
 }))
 
 vi.mock('react-router-dom', async () => {
@@ -59,7 +61,7 @@ vi.mock('@/hooks/useRedux', () => ({
 vi.mock('@/hooks/useNotification', () => ({
   useNotification: () => ({
     showSuccess: vi.fn(),
-    showError: vi.fn(),
+    showError: mockShowError,
   }),
 }))
 
@@ -111,6 +113,7 @@ describe('CreateSalesOrderPage product search', { timeout: 60000 }, () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockParams.mockReturnValue({})
+    mockShowError.mockReset()
     customersResponse.data.data = [{ id: 'customer-1', name: 'Test Customer' }]
 
     mockGet.mockImplementation(async (_url: string, config?: { params?: { search?: string } }) => {
