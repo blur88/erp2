@@ -93,4 +93,17 @@ describe('getOrderActionMetas — disabled flags', () => {
     const cancel = metas.find((m) => m.action === 'cancel')
     expect(cancel?.disabled).toBe(true)
   })
+
+  it('refund is disabled with tooltip when FULFILLED + PAID', () => {
+    const metas = getOrderActionMetas(makeOrder('FULFILLED', 'PAID'))
+    const refund = metas.find((m) => m.action === 'refund')
+    expect(refund?.disabled).toBe(true)
+    expect(refund?.tooltip).toMatch(/unfulfill first/i)
+  })
+
+  it('refund is enabled (not disabled) when DRAFT + PAID', () => {
+    const metas = getOrderActionMetas(makeOrder('DRAFT', 'PAID'))
+    const refund = metas.find((m) => m.action === 'refund')
+    expect(refund?.disabled).toBeFalsy()
+  })
 })

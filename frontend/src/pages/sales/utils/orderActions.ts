@@ -50,7 +50,11 @@ export function getOrderActionMetas(order: SalesOrder): OrderActionMeta[] {
   }
 
   if (!isUnpaid) {
-    metas.push({ action: 'refund' })
+    metas.push({
+      action: 'refund',
+      disabled: isFulfilled,
+      tooltip: isFulfilled ? 'Cannot refund a fulfilled order. Please unfulfill first.' : undefined,
+    })
   }
 
   if (isDraft) {
