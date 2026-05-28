@@ -47,6 +47,7 @@ import { useGetDocumentNumberSettingsQuery } from '@/store/api/settingsApi'
 import { setSelectedOrder } from '@/store/slices/salesSlice'
 import type { RootState } from '@/store'
 import { formatCurrency, getCurrentDate } from '@/utils/formatters'
+import { getOrderActionMetas } from './utils/orderActions'
 
 interface OrderItem {
   productId: string
@@ -285,6 +286,14 @@ const CreateSalesOrderPage: React.FC = () => {
           if (order.items?.length) {
             seedProducts(order.items.filter((i: any) => i.product).map((i: any) => i.product))
           }
+
+          const editMeta = getOrderActionMetas(order).find((meta) => meta.action === 'edit')
+          if (!editMeta || editMeta.disabled) {
+            showError(editMeta?.tooltip ?? 'Cannot edit this sales order')
+            navigate(`/sales/orders/${orderNumber}`)
+            return
+          }
+
           setOrderToLoad(order)
         })
         .catch((err: any) => {

@@ -194,6 +194,8 @@ describe('CreateSalesOrderPage product search', { timeout: 60000 }, () => {
 
     mockFetchSalesOrder.mockReturnValue({
       unwrap: vi.fn().mockResolvedValue({
+        status: 'DRAFT',
+        paymentStatus: 'UNPAID',
         items: [
           {
             productId: 'product-9',
@@ -249,6 +251,8 @@ describe('CreateSalesOrderPage product search', { timeout: 60000 }, () => {
 
     mockFetchSalesOrder.mockReturnValue({
       unwrap: vi.fn().mockResolvedValue({
+        status: 'DRAFT',
+        paymentStatus: 'UNPAID',
         items: [
           {
             productId: 'product-9',
@@ -575,6 +579,8 @@ describe('CreateSalesOrderPage — edit mode', { timeout: 60000 }, () => {
   const existingOrder = {
     id: 'order-id-1',
     orderNumber: 'SO-26-001',
+    status: 'DRAFT',
+    paymentStatus: 'UNPAID',
     customerId: 'customer-1',
     orderDate: '2026-03-15T00:00:00.000Z',
     shippingAmount: 25,
@@ -774,5 +780,69 @@ describe('CreateSalesOrderPage — edit mode', { timeout: 60000 }, () => {
     await waitFor(() => {
       expect(screen.getByText(/discard changes/i)).toBeInTheDocument()
     })
+  })
+})
+
+describe('CreateSalesOrderPage edit guard', { timeout: 60000 }, () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockShowError.mockReset()
+    mockParams.mockReturnValue({ orderNumber: 'SO-1' })
+    mockGetDocumentNumberSettings.mockReturnValue({
+      data: { configurations: [] },
+      isLoading: false,
+    })
+  })
+
+  it('redirects to order detail and shows error when order is paid', async () => {
+    mockFetchSalesOrder.mockReturnValue({
+      unwrap: vi.fn().mockResolvedValue({
+        id: 'order-123',
+        status: 'DRAFT',
+        paymentStatus: 'PAID',
+        items: [],
+        customerId: 'customer-1',
+        orderDate: '2026-01-01T00:00:00.000Z',
+        shippingAmount: 0,
+      }),
+    })
+
+    render(
+      <BrowserRouter>
+        <CreateSalesOrderPage />
+      </BrowserRouter>,
+    )
+
+    await waitFor(() => {
+      expect(mockNavigate).toHaveBeenCalledWith('/sales/orders/SO-1')
+    })
+
+    expect(mockShowError).toHaveBeenCalledWith('Cancel payment first to edit')
+  })
+
+  it('redirects to order detail and shows error when order is fulfilled', async () => {
+    mockFetchSalesOrder.mockReturnValue({
+      unwrap: vi.fn().mockResolvedValue({
+        id: 'order-456',
+        status: 'FULFILLED',
+        paymentStatus: 'PAID',
+        items: [],
+        customerId: 'customer-1',
+        orderDate: '2026-01-01T00:00:00.000Z',
+        shippingAmount: 0,
+      }),
+    })
+
+    render(
+      <BrowserRouter>
+        <CreateSalesOrderPage />
+      </BrowserRouter>,
+    )
+
+    await waitFor(() => {
+      expect(mockNavigate).toHaveBeenCalledWith('/sales/orders/SO-1')
+    })
+
+    expect(mockShowError).toHaveBeenCalledWith('Cannot edit this sales order')
   })
 })
