@@ -224,6 +224,40 @@ describe('AccountingService', () => {
       expect(revenueLine.creditAmount).toBe(30);
     });
 
+    it('should throw BadRequestException when items relation is not loaded', async () => {
+      const orderWithoutItems = {
+        id: 'so-no-items',
+        orderNumber: 'SO-NO-ITEMS',
+        totalAmount: 100,
+        shippingAmount: 0,
+        fulfilledDate: new Date('2026-01-15'),
+        customer: { id: 'customer-123', name: 'Test Customer' },
+        items: undefined, // relation not loaded
+      } as any;
+
+      await expect(service.postSalesOrderEntry(orderWithoutItems, 'user-123')).rejects.toThrow(
+        'Cannot post sales order entry for SO-NO-ITEMS: items relation not loaded',
+      );
+    });
+
+    it('should throw when items not loaded even when shippingAmount is non-zero', async () => {
+      // Regression: old warn condition (revenueAmount === 0) was bypassed when shipping > 0,
+      // silently posting only shipping as revenue and missing all item revenue.
+      const orderWithShippingNoItems = {
+        id: 'so-shipping-only',
+        orderNumber: 'SO-SHIP',
+        totalAmount: 110,
+        shippingAmount: 10,
+        fulfilledDate: new Date('2026-01-15'),
+        customer: { id: 'customer-123', name: 'Test Customer' },
+        items: undefined,
+      } as any;
+
+      await expect(service.postSalesOrderEntry(orderWithShippingNoItems, 'user-123')).rejects.toThrow(
+        'Cannot post sales order entry for SO-SHIP: items relation not loaded',
+      );
+    });
+
     it('should use correct account mappings', async () => {
       await service.postSalesOrderEntry(mockSalesOrder, 'user-123');
 

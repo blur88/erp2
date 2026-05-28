@@ -87,21 +87,22 @@ export class AccountingService {
       );
     }
 
+    // Guard: items relation must be loaded — without it revenue and COGS are both wrong
+    if (salesOrder.items == null) {
+      throw new BadRequestException(
+        `Cannot post sales order entry for ${salesOrder.orderNumber}: items relation not loaded`,
+      );
+    }
+
     // Calculate COGS
     const cogsAmount = this.calculateCOGS(salesOrder.items);
 
     // Derive revenue from items (defensive: avoids stale totalAmount column)
-    const itemsSubtotal = (salesOrder.items ?? []).reduce(
+    const itemsSubtotal = salesOrder.items.reduce(
       (sum, item) => sum + Number(item.totalAmount ?? 0),
       0,
     );
     const revenueAmount = itemsSubtotal + Number(salesOrder.shippingAmount ?? 0);
-
-    if (revenueAmount === 0 && Number(salesOrder.totalAmount) !== 0) {
-      this.logger.warn(
-        `Revenue derived from items is 0 but totalAmount is ${salesOrder.totalAmount} for order ${salesOrder.orderNumber}. Items may not be loaded.`,
-      );
-    }
 
     // Build journal entry lines
     const lines: CreateJournalEntryLineDto[] = [
