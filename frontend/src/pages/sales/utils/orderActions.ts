@@ -23,6 +23,8 @@ export function getOrderActionMetas(order: SalesOrder): OrderActionMeta[] {
   const isFulfilled = status === 'FULFILLED'
   const isCancelled = status === 'CANCELLED'
   const isUnpaid = paymentStatus === 'UNPAID'
+  const isPartiallyPaid = paymentStatus === 'PARTIAL'
+  const needsPayment = isUnpaid || isPartiallyPaid
 
   if (isCancelled) {
     return [
@@ -33,15 +35,15 @@ export function getOrderActionMetas(order: SalesOrder): OrderActionMeta[] {
 
   const metas: OrderActionMeta[] = []
 
-  if (isDraft && isUnpaid) {
+  if (isDraft && needsPayment) {
     metas.push({ action: 'pay' })
   }
 
   if (isDraft) {
     metas.push({
       action: 'fulfill',
-      disabled: isUnpaid,
-      tooltip: isUnpaid ? 'Full payment required' : undefined,
+      disabled: needsPayment,
+      tooltip: needsPayment ? 'Full payment required' : undefined,
     })
   }
 
@@ -49,7 +51,7 @@ export function getOrderActionMetas(order: SalesOrder): OrderActionMeta[] {
     metas.push({ action: 'unfulfill' })
   }
 
-  if (!isUnpaid) {
+  if (!needsPayment) {
     metas.push({
       action: 'refund',
       disabled: isFulfilled,
@@ -60,13 +62,13 @@ export function getOrderActionMetas(order: SalesOrder): OrderActionMeta[] {
   if (isDraft) {
     metas.push({
       action: 'edit',
-      disabled: !isUnpaid,
-      tooltip: !isUnpaid ? 'Cancel payment first to edit' : undefined,
+      disabled: !needsPayment,
+      tooltip: !needsPayment ? 'Cancel payment first to edit' : undefined,
     })
     metas.push({
       action: 'cancel',
-      disabled: !isUnpaid,
-      tooltip: !isUnpaid ? 'Cancel payment first' : undefined,
+      disabled: !needsPayment,
+      tooltip: !needsPayment ? 'Cancel payment first' : undefined,
     })
   }
 
