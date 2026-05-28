@@ -29,6 +29,7 @@ describe('SalesOrderFulfillmentService', () => {
   let stockMovementService: jest.Mocked<StockMovementService>;
   let baseCostCalculator: jest.Mocked<BaseCostCalculatorService>;
   let auditLogService: jest.Mocked<AuditLogService>;
+  let accountingService: jest.Mocked<AccountingService>;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -39,7 +40,7 @@ describe('SalesOrderFulfillmentService', () => {
         { provide: StockMovementService, useValue: { deleteByReference: jest.fn().mockResolvedValue({ deletedCount: 1 }) } },
         { provide: BaseCostCalculatorService, useValue: { restoreStock: jest.fn() } },
         { provide: AuditLogService, useValue: { log: jest.fn() } },
-        { provide: AccountingService, useValue: { postSalesOrderEntry: jest.fn().mockResolvedValue(undefined) } },
+        { provide: AccountingService, useValue: { postSalesOrderEntry: jest.fn().mockResolvedValue(undefined), reverseSourceEntries: jest.fn().mockResolvedValue(undefined) } },
       ],
     }).compile();
 
@@ -49,6 +50,7 @@ describe('SalesOrderFulfillmentService', () => {
     stockMovementService = module.get(StockMovementService);
     baseCostCalculator = module.get(BaseCostCalculatorService);
     auditLogService = module.get(AuditLogService);
+    accountingService = module.get(AccountingService);
   });
 
   describe('fulfillOrder', () => {
@@ -95,6 +97,30 @@ describe('SalesOrderFulfillmentService', () => {
       expect(baseCostCalculator.restoreStock).toHaveBeenCalledWith('product-1', 5);
       expect(stockMovementService.deleteByReference).toHaveBeenCalledWith('sales_order', 'order-1');
       expect(orderRepo.save).toHaveBeenCalledWith(expect.objectContaining({ status: SalesOrderStatus.DRAFT }));
+    });
+
+    it('reverses the sales_order journal entry on unfulfill', async () => {
+      const order = mockOrder({ status: SalesOrderStatus.FULFILLED });
+      orderRepo.findOne.mockResolvedValue(order);
+      orderRepo.save.mockResolvedValue({ ...order, status: SalesOrderStatus.DRAFT } as SalesOrder);
+
+      await service.unfulfillOrder('order-1', 'user-99', 'admin');
+
+      expect(accountingService.reverseSourceEntries).toHaveBeenCalledWith(
+        'sales_order',
+        'order-1',
+        'user-99',
+      );
+    });
+
+    it('does not throw if journal entry reversal fails (non-critical path)', async () => {
+      const order = mockOrder({ status: SalesOrderStatus.FULFILLED });
+      orderRepo.findOne.mockResolvedValue(order);
+      orderRepo.save.mockResolvedValue({ ...order, status: SalesOrderStatus.DRAFT } as SalesOrder);
+      accountingService.reverseSourceEntries.mockRejectedValue(new Error('No open fiscal period'));
+
+      // Should not throw — accounting failure must not block unfulfill
+      await expect(service.unfulfillOrder('order-1')).resolves.toBeDefined();
     });
   });
 });
