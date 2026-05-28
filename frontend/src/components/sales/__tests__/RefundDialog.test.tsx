@@ -255,4 +255,32 @@ describe('RefundDialog', () => {
       expect(screen.getAllByPlaceholderText('Amount')).toHaveLength(2)
     })
   })
+
+  it('scales pre-filled amounts proportionally when a partial refund has already been issued', async () => {
+    // Paid: 300 (Cash) + 200 (Bank Transfer) = 500 total; 100 already refunded → available = 400
+    mockUseGetSalesOrderPaymentsQuery.mockReturnValue({
+      data: [
+        ...makeMultiPayments(),
+        { id: 'r1', salesOrderId: 'order-1', paymentMethodId: 'pm-1', amount: -100, paymentDate: '2026-01-02', createdAt: '', updatedAt: '' },
+      ],
+      isLoading: false,
+    })
+    renderDialog()
+    await waitFor(() => {
+      const amounts = screen.getAllByPlaceholderText('Amount') as HTMLInputElement[]
+      // 300/500 * 400 = 240, 200/500 * 400 = 160
+      expect(amounts[0].value).toBe('240')
+      expect(amounts[1].value).toBe('160')
+    })
+  })
+
+  it('falls back to Cash when original payment method is not in active list', () => {
+    mockUseGetSalesOrderPaymentsQuery.mockReturnValue({
+      data: [{ id: 'p1', salesOrderId: 'order-1', paymentMethodId: 'pm-deactivated', amount: 300, paymentDate: '2026-01-01', createdAt: '', updatedAt: '' }],
+      isLoading: false,
+    })
+    renderDialog()
+    // pm-deactivated not in paymentMethods list → falls back to Cash (pm-1)
+    expect(screen.getByText('Cash')).toBeInTheDocument()
+  })
 })

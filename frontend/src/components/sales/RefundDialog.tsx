@@ -85,17 +85,27 @@ export default function RefundDialog({
   }, [open])
 
   useEffect(() => {
-    if (!open || lines.length > 0 || paymentMethods.length === 0 || loadingPayments) return
+    if (!open || lines.length > 0 || loadingPayments) return
     const positivePayments = paymentRecords.filter((r) => Number(r.amount) > 0)
     if (positivePayments.length > 0) {
-      setLines(positivePayments.map((payment) => ({
-        id: newId(),
-        paymentMethodId: payment.paymentMethodId,
-        amount: payment.amount,
-        paymentDate: getCurrentDate(),
-        reference: '',
-      })))
+      setLines(positivePayments.map((payment) => {
+        const resolvedMethodId = paymentMethods.find((m) => m.id === payment.paymentMethodId)?.id
+          ?? paymentMethods.find((m) => m.code === 'CASH')?.id
+          ?? paymentMethods[0]?.id
+          ?? ''
+        const scaledAmount = totalPaid > 0
+          ? Math.round((Number(payment.amount) / totalPaid) * availableForRefund * 100) / 100
+          : 0
+        return {
+          id: newId(),
+          paymentMethodId: resolvedMethodId,
+          amount: scaledAmount > 0 ? scaledAmount : '',
+          paymentDate: getCurrentDate(),
+          reference: '',
+        }
+      }))
     } else {
+      if (paymentMethods.length === 0) return
       const cashMethod = paymentMethods.find((m) => m.code === 'CASH')
       setLines([{
         id: newId(),
@@ -105,7 +115,7 @@ export default function RefundDialog({
         reference: '',
       }])
     }
-  }, [open, paymentMethods, lines.length, availableForRefund, loadingPayments, paymentRecords])
+  }, [open, paymentMethods, lines.length, availableForRefund, loadingPayments, paymentRecords, totalPaid])
 
   const totalEntered = lines.reduce(
     (sum, l) => sum + (typeof l.amount === 'number' ? l.amount : parseFloat(l.amount as string) || 0),
