@@ -150,17 +150,16 @@ describe('SalesOrderList row actions — Fulfilled', () => {
 })
 
 describe('SalesOrderList row actions — Draft Partial', () => {
-  it('shows View, Fulfill, Refund, Edit (disabled), Cancel (disabled), Print — no Pay', async () => {
+  it('shows View, Pay, Fulfill (disabled), Refund, Edit, Cancel, Print', async () => {
     renderList({ ...defaultProps, orders: [makeOrder({ paymentStatus: 'PARTIAL' })] })
     await openMenu()
     expect(screen.getByRole('menuitem', { name: /view/i })).toBeInTheDocument()
-    expect(screen.queryByRole('menuitem', { name: /^pay$/i })).not.toBeInTheDocument()
-    expect(screen.getByRole('menuitem', { name: /^fulfill$/i })).toBeInTheDocument()
+    expect(screen.getByRole('menuitem', { name: /^pay$/i })).toBeInTheDocument()
+    const fulfill = screen.getByRole('menuitem', { name: /^fulfill$/i })
+    expect(fulfill).toHaveAttribute('aria-disabled', 'true')
     expect(screen.getByRole('menuitem', { name: /refund/i })).toBeInTheDocument()
-    const edit = screen.getByRole('menuitem', { name: /^edit$/i })
-    expect(edit).toHaveAttribute('aria-disabled', 'true')
-    const cancel = screen.getByRole('menuitem', { name: /cancel/i })
-    expect(cancel).toHaveAttribute('aria-disabled', 'true')
+    expect(screen.getByRole('menuitem', { name: /^edit$/i })).not.toHaveAttribute('aria-disabled', 'true')
+    expect(screen.getByRole('menuitem', { name: /cancel/i })).not.toHaveAttribute('aria-disabled', 'true')
     expect(screen.getByRole('menuitem', { name: /print/i })).toBeInTheDocument()
   })
 })
