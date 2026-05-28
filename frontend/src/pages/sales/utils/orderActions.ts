@@ -51,7 +51,7 @@ export function getOrderActionMetas(order: SalesOrder): OrderActionMeta[] {
     metas.push({ action: 'unfulfill' })
   }
 
-  if (!needsPayment) {
+  if (!isUnpaid) {
     metas.push({
       action: 'refund',
       disabled: isFulfilled,
