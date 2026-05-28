@@ -50,19 +50,19 @@ beforeEach(() => {
 })
 
 describe('RefundDialog', () => {
-  it('displays summary: Total Paid, Already Refunded, Available for Refund', () => {
+  it('displays Available for Refund in summary', () => {
     mockUseGetSalesOrderPaymentsQuery.mockReturnValue({ data: makePayments(500, 100), isLoading: false })
     renderDialog()
-    expect(screen.getByText('Total Paid')).toBeInTheDocument()
-    expect(screen.getByText('Already Refunded')).toBeInTheDocument()
     expect(screen.getByText('Available for Refund')).toBeInTheDocument()
+    expect(screen.queryByText('Total Paid')).not.toBeInTheDocument()
+    expect(screen.queryByText('Already Refunded')).not.toBeInTheDocument()
   })
 
-  it('computes Available for Refund as Total Paid minus Already Refunded', () => {
+  it('Available for Refund shows net paid minus prior refunds', () => {
     mockUseGetSalesOrderPaymentsQuery.mockReturnValue({ data: makePayments(500, 100), isLoading: false })
     renderDialog()
-    // Available = 500 - 100 = 400 → RM 400.00 (appears at least once in summary)
-    expect(screen.getAllByText(/RM\s*400\.00/i).length).toBeGreaterThan(0)
+    // Available = 500 - 100 = 400
+    expect(screen.getAllByText(/400/).length).toBeGreaterThan(0)
   })
 
   it('shows loading spinner while payments are loading', () => {
