@@ -28,6 +28,11 @@ const makePayments = (paid: number, refunded: number) => [
   ...(refunded > 0 ? [{ id: 'p2', salesOrderId: 'order-1', paymentMethodId: 'pm-1', amount: -refunded, paymentDate: '2026-01-02', createdAt: '', updatedAt: '' }] : []),
 ]
 
+const makeMultiPayments = () => [
+  { id: 'p1', salesOrderId: 'order-1', paymentMethodId: 'pm-1', amount: 300, paymentDate: '2026-01-01', createdAt: '', updatedAt: '' },
+  { id: 'p2', salesOrderId: 'order-1', paymentMethodId: 'pm-2', amount: 200, paymentDate: '2026-01-01', createdAt: '', updatedAt: '' },
+]
+
 function renderDialog(props: Partial<ComponentProps<typeof RefundDialog>> = {}) {
   const defaults = {
     open: true,
@@ -229,5 +234,25 @@ describe('RefundDialog', () => {
     const [lines] = onSubmit.mock.calls[0]
     expect(lines[0]).toHaveProperty('paymentDate')
     expect(lines[0].paymentDate).toMatch(/^\d{4}-\d{2}-\d{2}$/)
+  })
+
+  it('pre-fills one refund line matching the original payment method', () => {
+    mockUseGetSalesOrderPaymentsQuery.mockReturnValue({
+      data: [{ id: 'p1', salesOrderId: 'order-1', paymentMethodId: 'pm-2', amount: 400, paymentDate: '2026-01-01', createdAt: '', updatedAt: '' }],
+      isLoading: false,
+    })
+    renderDialog()
+    expect(screen.getByText('Bank Transfer')).toBeInTheDocument()
+  })
+
+  it('pre-fills multiple refund lines when order has multiple payments', async () => {
+    mockUseGetSalesOrderPaymentsQuery.mockReturnValue({
+      data: makeMultiPayments(),
+      isLoading: false,
+    })
+    renderDialog()
+    await waitFor(() => {
+      expect(screen.getAllByPlaceholderText('Amount')).toHaveLength(2)
+    })
   })
 })

@@ -86,15 +86,26 @@ export default function RefundDialog({
 
   useEffect(() => {
     if (!open || lines.length > 0 || paymentMethods.length === 0 || loadingPayments) return
-    const cashMethod = paymentMethods.find((m) => m.code === 'CASH')
-    setLines([{
-      id: newId(),
-      paymentMethodId: cashMethod?.id || paymentMethods[0]?.id || '',
-      amount: availableForRefund > 0 ? availableForRefund : '',
-      paymentDate: getCurrentDate(),
-      reference: '',
-    }])
-  }, [open, paymentMethods, lines.length, availableForRefund, loadingPayments])
+    const positivePayments = paymentRecords.filter((r) => Number(r.amount) > 0)
+    if (positivePayments.length > 0) {
+      setLines(positivePayments.map((payment) => ({
+        id: newId(),
+        paymentMethodId: payment.paymentMethodId,
+        amount: payment.amount,
+        paymentDate: getCurrentDate(),
+        reference: '',
+      })))
+    } else {
+      const cashMethod = paymentMethods.find((m) => m.code === 'CASH')
+      setLines([{
+        id: newId(),
+        paymentMethodId: cashMethod?.id || paymentMethods[0]?.id || '',
+        amount: availableForRefund > 0 ? availableForRefund : '',
+        paymentDate: getCurrentDate(),
+        reference: '',
+      }])
+    }
+  }, [open, paymentMethods, lines.length, availableForRefund, loadingPayments, paymentRecords])
 
   const totalEntered = lines.reduce(
     (sum, l) => sum + (typeof l.amount === 'number' ? l.amount : parseFloat(l.amount as string) || 0),
