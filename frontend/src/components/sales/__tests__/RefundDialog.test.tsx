@@ -257,7 +257,7 @@ describe('RefundDialog', () => {
   })
 
   it('scales pre-filled amounts proportionally when a partial refund has already been issued', async () => {
-    // Paid: 300 (Cash) + 200 (Bank Transfer) = 500 total; 100 already refunded → available = 400
+    // Net: Cash = 300 - 100 = 200, Bank Transfer = 200; netTotal = 400 = availableForRefund
     mockUseGetSalesOrderPaymentsQuery.mockReturnValue({
       data: [
         ...makeMultiPayments(),
@@ -268,9 +268,26 @@ describe('RefundDialog', () => {
     renderDialog()
     await waitFor(() => {
       const amounts = screen.getAllByPlaceholderText('Amount') as HTMLInputElement[]
-      // 300/500 * 400 = 240, 200/500 * 400 = 160
-      expect(amounts[0].value).toBe('240')
-      expect(amounts[1].value).toBe('160')
+      // 200/400 * 400 = 200, 200/400 * 400 = 200
+      expect(amounts[0].value).toBe('200')
+      expect(amounts[1].value).toBe('200')
+    })
+  })
+
+  it('excludes fully-refunded payment methods from pre-filled rows', async () => {
+    // Cimb: +40 -40 = net 0 (excluded); Cash: +40 = net 40 (shown)
+    mockUseGetSalesOrderPaymentsQuery.mockReturnValue({
+      data: [
+        { id: 'p1', salesOrderId: 'order-1', paymentMethodId: 'pm-2', amount: 40, paymentDate: '2026-01-01', createdAt: '', updatedAt: '' },
+        { id: 'r1', salesOrderId: 'order-1', paymentMethodId: 'pm-2', amount: -40, paymentDate: '2026-01-02', createdAt: '', updatedAt: '' },
+        { id: 'p2', salesOrderId: 'order-1', paymentMethodId: 'pm-1', amount: 40, paymentDate: '2026-01-03', createdAt: '', updatedAt: '' },
+      ],
+      isLoading: false,
+    })
+    renderDialog()
+    await waitFor(() => {
+      expect(screen.getAllByPlaceholderText('Amount')).toHaveLength(1)
+      expect((screen.getByPlaceholderText('Amount') as HTMLInputElement).value).toBe('40')
     })
   })
 
