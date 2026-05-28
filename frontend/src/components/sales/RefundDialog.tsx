@@ -22,6 +22,11 @@ import { useGetActivePaymentMethodsQuery } from '@/store/api/paymentMethodsApi'
 import { useGetSalesOrderPaymentsQuery } from '@/store/api/salesApi'
 import { getCurrentDate } from '@/utils/formatters'
 
+const newId = () =>
+  typeof crypto !== 'undefined' && crypto.randomUUID
+    ? crypto.randomUUID()
+    : Math.random().toString(36).slice(2)
+
 interface RefundLine {
   id: string
   paymentMethodId: string
@@ -83,7 +88,7 @@ export default function RefundDialog({
     if (!open || lines.length > 0 || paymentMethods.length === 0 || loadingPayments) return
     const cashMethod = paymentMethods.find((m) => m.code === 'CASH')
     setLines([{
-      id: crypto.randomUUID(),
+      id: newId(),
       paymentMethodId: cashMethod?.id || paymentMethods[0]?.id || '',
       amount: availableForRefund > 0 ? availableForRefund : '',
       paymentDate: getCurrentDate(),
@@ -113,7 +118,7 @@ export default function RefundDialog({
     setLines((prev) => [
       ...prev,
       {
-        id: crypto.randomUUID(),
+        id: newId(),
         paymentMethodId: cashMethod?.id || paymentMethods[0]?.id || '',
         amount: remainingAfterRefund > 0 ? remainingAfterRefund : '',
         paymentDate: getCurrentDate(),
