@@ -202,6 +202,28 @@ describe('SalesOrderPaymentService', () => {
       expect(auditLogService.log).toHaveBeenCalledWith('CREATE', 'SalesOrderPayment', expect.any(String), expect.objectContaining({ newValues: expect.objectContaining({ amount: -400 }) }));
     });
 
+    it('records the resulting payment status in the refund audit log', async () => {
+      const order = mockOrder({ paymentStatus: SalesOrderPaymentStatus.OVERPAID, totalAmount: 1000 });
+      orderRepo.findOne.mockResolvedValue(order);
+      methodRepo.findOne.mockResolvedValue(mockMethod());
+      paymentRepo.find.mockResolvedValue([{ amount: 1200 }] as SalesOrderPayment[]);
+
+      // After refunding 200, the manager-side find returns net 1000 -> status PAID
+      const mockManager = buildMockManager([{ amount: 1200 }, { amount: -200 }] as SalesOrderPayment[]);
+      (dataSource.transaction as jest.Mock).mockImplementation(async (cb: (m: EntityManager) => Promise<any>) => cb(mockManager));
+
+      await service.recordRefund('order-1', { paymentMethodId: 'method-1', amount: 200, paymentDate: '2026-01-01' });
+
+      expect(auditLogService.log).toHaveBeenCalledWith(
+        'CREATE',
+        'SalesOrderPayment',
+        expect.any(String),
+        expect.objectContaining({
+          newValues: expect.objectContaining({ amount: -200, resultingPaymentStatus: SalesOrderPaymentStatus.PAID }),
+        }),
+      );
+    });
+
     it('allows refund on FULFILLED orders', async () => {
       const order = mockOrder({ status: SalesOrderStatus.FULFILLED, paymentStatus: SalesOrderPaymentStatus.PAID });
       orderRepo.findOne.mockResolvedValue(order);
