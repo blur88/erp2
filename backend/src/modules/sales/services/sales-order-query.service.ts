@@ -109,9 +109,15 @@ export class SalesOrderQueryService {
       }
 
       if (status && status !== 'all') {
+        const normalizedStatus = status.toUpperCase();
         queryBuilder = queryBuilder.andWhere('order.status = :status', {
-          status: status.toUpperCase(),
+          status: normalizedStatus,
         });
+        if (normalizedStatus === SalesOrderStatus.DRAFT) {
+          queryBuilder = queryBuilder.andWhere('order.paymentStatus != :excludePs', {
+            excludePs: SalesOrderPaymentStatus.PAID,
+          });
+        }
       }
     }
 

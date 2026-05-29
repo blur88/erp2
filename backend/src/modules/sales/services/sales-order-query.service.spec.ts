@@ -135,7 +135,7 @@ describe('SalesOrderQueryService', () => {
       expect(paymentClauses[0].params.ps).toBe('PAID');
     });
 
-    it('still applies a plain DRAFT status filter unchanged', async () => {
+    it('excludes PAID orders when filtering by DRAFT', async () => {
       const { qb, andWhereCalls } = buildQbMock();
       salesOrderRepository.createQueryBuilder.mockReturnValue(qb);
 
@@ -143,8 +143,26 @@ describe('SalesOrderQueryService', () => {
 
       const statusClause = andWhereCalls.find((c) => c.clause === 'order.status = :status');
       expect(statusClause?.params.status).toBe('DRAFT');
-      const readyPaymentClause = andWhereCalls.find((c) => c.clause === 'order.paymentStatus = :ps');
-      expect(readyPaymentClause).toBeUndefined();
+
+      const excludeClause = andWhereCalls.find(
+        (c) => c.clause === 'order.paymentStatus != :excludePs',
+      );
+      expect(excludeClause?.params.excludePs).toBe(SalesOrderPaymentStatus.PAID);
+    });
+
+    it('does not add the PAID exclusion for a non-DRAFT status', async () => {
+      const { qb, andWhereCalls } = buildQbMock();
+      salesOrderRepository.createQueryBuilder.mockReturnValue(qb);
+
+      await service.findAll({ status: SalesOrderStatus.FULFILLED } as any);
+
+      const statusClause = andWhereCalls.find((c) => c.clause === 'order.status = :status');
+      expect(statusClause?.params.status).toBe('FULFILLED');
+
+      const excludeClause = andWhereCalls.find(
+        (c) => c.clause === 'order.paymentStatus != :excludePs',
+      );
+      expect(excludeClause).toBeUndefined();
     });
   });
 });
