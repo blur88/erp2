@@ -61,6 +61,24 @@ describe('UsersService', () => {
       expect(partial).toEqual({ lockedUntil: null, failedLoginAttempts: 0 });
     });
 
+    it('skips the cleanup update when explicitly filtering isLocked === true', async () => {
+      const qb = createQueryBuilderMock();
+      jest.spyOn(service as any, 'createQueryBuilder').mockReturnValue(qb);
+      const updateSpy = jest
+        .spyOn(userRepository, 'update')
+        .mockResolvedValue({ affected: 0 } as any);
+
+      await service.findAll({
+        page: 1,
+        limit: 10,
+        sortBy: 'username',
+        sortOrder: 'ASC',
+        isLocked: true,
+      } as any);
+
+      expect(updateSpy).not.toHaveBeenCalled();
+    });
+
     it('does not fail findAll when the cleanup update throws', async () => {
       const qb = createQueryBuilderMock();
       jest.spyOn(service as any, 'createQueryBuilder').mockReturnValue(qb);

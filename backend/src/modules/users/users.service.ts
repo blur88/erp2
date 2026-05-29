@@ -96,13 +96,20 @@ export class UsersService {
       // lockedUntil timestamps don't linger or show as "locked" in the list.
       // One bulk UPDATE, not per-row saves, and failures must not break the
       // read. See issue #710.
-      try {
-        await this.userRepository.update(
-          { lockedUntil: LessThanOrEqual(new Date()) },
-          { lockedUntil: null, failedLoginAttempts: 0 },
-        );
-      } catch (err) {
-        this.logger.warn(`Failed to self-heal expired locks during findAll: ${err}`);
+      //
+      // Skip when explicitly filtering isLocked === true: that branch already
+      // excludes expired rows via `lockedUntil > :now`, so clearing them here
+      // would be a pure write with no effect on the result. Only run when the
+      // result set could otherwise surface a stale "locked" row.
+      if (isLocked !== true) {
+        try {
+          await this.userRepository.update(
+            { lockedUntil: LessThanOrEqual(new Date()) },
+            { lockedUntil: null, failedLoginAttempts: 0 },
+          );
+        } catch (err) {
+          this.logger.warn(`Failed to self-heal expired locks during findAll: ${err}`);
+        }
       }
 
       // Build query
@@ -342,6 +349,10 @@ export class UsersService {
         this.userRepository.count(),
         this.userRepository.count({ where: { isActive: true, status: UserStatus.ACTIVE } }),
         this.userRepository.count({ where: { isActive: false } }),
+        // Clock-correct via the Node app clock (:now = new Date()), consistent
+        // with findAll and the login path (see issue #710). No self-heal write
+        // here: this is a read-only stats endpoint and the count already
+        // excludes expired locks.
         this.userRepository
           .createQueryBuilder('user')
           .where('user.lockedUntil > :now', { now: new Date() })

@@ -280,14 +280,14 @@ describe('AuthService', () => {
       rememberMe: false,
     };
 
-    it('clears an expired lockedUntil before later login validation stops', async () => {
+    it('clears an expired lockedUntil and bypasses the lock check, reaching password validation', async () => {
       const pastLock = new Date(Date.now() - 60 * 1000);
       const user = {
         id: 'u1',
         username: 'admin',
         email: 'admin@example.com',
         password: 'hashed',
-        isActive: false,
+        isActive: true,
         status: UserStatus.ACTIVE,
         failedLoginAttempts: 5,
         lockedUntil: pastLock,
@@ -298,14 +298,18 @@ describe('AuthService', () => {
 
       mockUserRepository.findOne.mockResolvedValue(user);
       mockUserRepository.save.mockImplementation((u) => Promise.resolve(u));
+      // Wrong password: proves execution passed the lock check and reached
+      // password validation (handleFailedLogin), not stopped by ForbiddenException.
+      mockedBcrypt.compare.mockResolvedValue(false as never);
 
       await expect(service.login(loginDto as any)).rejects.toThrow(UnauthorizedException);
 
-      expect(user.failedLoginAttempts).toBe(0);
+      // bcrypt.compare being reached proves the lock check was bypassed — the
+      // self-heal cleared the stale lock instead of throwing ForbiddenException.
+      expect(mockedBcrypt.compare).toHaveBeenCalled();
+      // The stale lock was cleared (failedLoginAttempts is then re-incremented
+      // by handleFailedLogin on the wrong password, so we assert on lockedUntil).
       expect(user.lockedUntil).toBeNull();
-      expect(mockUserRepository.save).toHaveBeenCalledWith(
-        expect.objectContaining({ failedLoginAttempts: 0, lockedUntil: null }),
-      );
     });
 
     it('still rejects a user whose lockedUntil is in the future', async () => {
