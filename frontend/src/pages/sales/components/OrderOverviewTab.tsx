@@ -62,6 +62,9 @@ export default function OrderOverviewTab({ order }: OrderOverviewTabProps) {
   const shippingAmount = order.shippingAmount ?? 0
   const paidAmount = order.paidAmount ?? 0
   const balance = order.balanceDue ?? order.totalAmount - paidAmount
+  const isSurplus = balance < 0
+  const balanceLabel = isSurplus ? 'Surplus' : 'Balance Due'
+  const balanceValue = formatCurrency(isSurplus ? -balance : balance)
 
   return (
     <Box>
@@ -107,7 +110,7 @@ export default function OrderOverviewTab({ order }: OrderOverviewTabProps) {
               <Field label="Total Amount" value={formatCurrency(order.totalAmount)} />
               <Field label="Shipping Fee" value={formatCurrency(shippingAmount)} />
               <Field label="Paid Amount" value={formatCurrency(paidAmount)} />
-              <Field label="Balance Due" value={formatCurrency(balance)} />
+              <Field label={balanceLabel} value={balanceValue} />
             </CardContent>
           </Card>
         </Grid>
@@ -145,7 +148,7 @@ export default function OrderOverviewTab({ order }: OrderOverviewTabProps) {
             { label: 'Shipping', value: formatCurrency(shippingAmount) },
             { label: 'Total', value: formatCurrency(order.totalAmount), bold: true },
             { label: 'Paid', value: formatCurrency(paidAmount) },
-            { label: 'Balance', value: formatCurrency(balance), bold: true },
+            { label: isSurplus ? 'Surplus' : 'Balance', value: balanceValue, bold: true },
           ].map(({ label, value, bold }) => (
             <Box key={label} sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
               <Typography variant="body2" sx={{ fontWeight: bold ? 600 : 400 }}>

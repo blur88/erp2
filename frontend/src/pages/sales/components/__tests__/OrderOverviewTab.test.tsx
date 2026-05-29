@@ -127,4 +127,29 @@ describe('OrderOverviewTab', () => {
     expect(screen.getByText('Paid')).toBeInTheDocument()
     expect(screen.getByText('Balance')).toBeInTheDocument()
   })
+
+  it('shows the real partial balance due', () => {
+    renderTab(makeOrder({
+      paymentStatus: 'PARTIAL',
+      totalAmount: 1000,
+      paidAmount: 400,
+      balanceDue: 600,
+    }))
+
+    expect(screen.getAllByText('Balance Due').length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/600/).length).toBeGreaterThan(0)
+  })
+
+  it('shows Surplus for an overpaid order', () => {
+    renderTab(makeOrder({
+      paymentStatus: 'OVERPAID',
+      totalAmount: 1000,
+      paidAmount: 1200,
+      balanceDue: -200,
+    }))
+
+    expect(screen.getAllByText('Surplus').length).toBeGreaterThan(0)
+    expect(screen.queryByText(/-.*200/)).toBeNull()
+    expect(screen.getAllByText(/200/).length).toBeGreaterThan(0)
+  })
 })
