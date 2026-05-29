@@ -2,6 +2,7 @@ import { FilterSelect } from './FilterSelect'
 
 const ORDER_STATUS_OPTIONS = [
   { value: 'DRAFT', label: 'Draft' },
+  { value: 'READY', label: 'Ready' },
   { value: 'FULFILLED', label: 'Fulfilled' },
   { value: 'CANCELLED', label: 'Cancelled' },
 ]

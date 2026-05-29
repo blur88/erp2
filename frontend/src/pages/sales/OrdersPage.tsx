@@ -27,7 +27,7 @@ interface SalesOrderFilters {
   customerId: string | null
   paymentStatus: 'UNPAID' | 'PARTIAL' | 'PAID' | 'OVERPAID' | null
   period: PeriodValue
-  status: 'DRAFT' | 'FULFILLED' | 'CANCELLED' | null
+  status: 'DRAFT' | 'READY' | 'FULFILLED' | 'CANCELLED' | null
 }
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50]

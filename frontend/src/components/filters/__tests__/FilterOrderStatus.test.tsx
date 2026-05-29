@@ -17,6 +17,12 @@ describe('FilterOrderStatus', () => {
     expect(await screen.findByText('Fulfilled')).toBeInTheDocument()
   })
 
+  it('shows a Ready option for the status field', async () => {
+    render(<FilterOrderStatus field="status" value={null} onChange={vi.fn()} />)
+    await userEvent.click(screen.getByRole('combobox'))
+    expect(await screen.findByRole('option', { name: 'Ready' })).toBeInTheDocument()
+  })
+
   it('displays the selected value', () => {
     render(<FilterOrderStatus field="orderStatus" value="fulfilled" onChange={vi.fn()} />)
     expect(screen.getByRole('combobox')).toBeInTheDocument()

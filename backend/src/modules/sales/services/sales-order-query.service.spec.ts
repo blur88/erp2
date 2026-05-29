@@ -92,4 +92,59 @@ describe('SalesOrderQueryService', () => {
       await expect(service.findById('missing')).rejects.toThrow('Sales order not found');
     });
   });
+
+  describe('findAll', () => {
+    function buildQbMock() {
+      const andWhereCalls: Array<{ clause: string; params: Record<string, unknown> }> = [];
+      const qb: any = {
+        leftJoinAndSelect: jest.fn().mockReturnThis(),
+        select: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn((clause: string, params: Record<string, unknown> = {}) => {
+          andWhereCalls.push({ clause, params });
+          return qb;
+        }),
+        orderBy: jest.fn().mockReturnThis(),
+        skip: jest.fn().mockReturnThis(),
+        take: jest.fn().mockReturnThis(),
+        getManyAndCount: jest.fn().mockResolvedValue([[], 0]),
+      };
+      return { qb, andWhereCalls };
+    }
+
+    it('translates status=READY into DRAFT + PAID conditions', async () => {
+      const { qb, andWhereCalls } = buildQbMock();
+      salesOrderRepository.createQueryBuilder.mockReturnValue(qb);
+
+      await service.findAll({ status: 'READY' } as any);
+
+      const statusClause = andWhereCalls.find((c) => c.clause === 'order.status = :status');
+      const paymentClause = andWhereCalls.find((c) => c.clause === 'order.paymentStatus = :ps');
+      expect(statusClause?.params.status).toBe('DRAFT');
+      expect(paymentClause?.params.ps).toBe('PAID');
+    });
+
+    it('lets READY win over a conflicting paymentStatus param', async () => {
+      const { qb, andWhereCalls } = buildQbMock();
+      salesOrderRepository.createQueryBuilder.mockReturnValue(qb);
+
+      await service.findAll({ status: 'READY', paymentStatus: SalesOrderPaymentStatus.UNPAID } as any);
+
+      const paymentClauses = andWhereCalls.filter((c) => c.clause.startsWith('order.paymentStatus'));
+      expect(paymentClauses).toHaveLength(1);
+      expect(paymentClauses[0].params.ps).toBe('PAID');
+    });
+
+    it('still applies a plain DRAFT status filter unchanged', async () => {
+      const { qb, andWhereCalls } = buildQbMock();
+      salesOrderRepository.createQueryBuilder.mockReturnValue(qb);
+
+      await service.findAll({ status: SalesOrderStatus.DRAFT } as any);
+
+      const statusClause = andWhereCalls.find((c) => c.clause === 'order.status = :status');
+      expect(statusClause?.params.status).toBe('DRAFT');
+      const readyPaymentClause = andWhereCalls.find((c) => c.clause === 'order.paymentStatus = :ps');
+      expect(readyPaymentClause).toBeUndefined();
+    });
+  });
 });
