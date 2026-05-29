@@ -136,6 +136,7 @@ export default function RefundDialog({
   )
   const remainingAfterRefund = availableForRefund - totalEntered
   const exceedsAvailable = totalEntered > availableForRefund
+  const exceedsSurplus = hasSurplus && totalEntered > surplus && !exceedsAvailable
 
   const updateLine = useCallback((index: number, field: keyof RefundLine, value: string | number) => {
     setUserHasEdited(true)
@@ -325,6 +326,12 @@ export default function RefundDialog({
             {exceedsAvailable && (
               <Alert severity="error" sx={{ mt: 2 }}>
                 Total refund exceeds available for refund by {formatCurrency(Math.abs(remainingAfterRefund))}.
+              </Alert>
+            )}
+
+            {exceedsSurplus && (
+              <Alert severity="warning" sx={{ mt: 2 }}>
+                Refunding more than the surplus ({formatCurrency(surplus)}) will drop this order below Paid.
               </Alert>
             )}
 
