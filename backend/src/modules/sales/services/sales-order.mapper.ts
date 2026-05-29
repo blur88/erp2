@@ -17,6 +17,8 @@ export function mapSalesOrderToResponseDto(
     subtotal: Number(order.subtotal || 0),
     shippingAmount: Number(order.shippingAmount || 0),
     totalAmount: Number(order.totalAmount),
+    paidAmount: Number(order.paidAmount || 0),
+    balanceDue: Number(order.balanceDue ?? (Number(order.totalAmount) - Number(order.paidAmount || 0))),
     notes: order.notes,
     customerId: order.customerId,
     customer: order.customer

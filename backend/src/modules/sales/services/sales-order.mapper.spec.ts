@@ -46,4 +46,52 @@ describe('mapSalesOrderToResponseDto', () => {
       ],
     });
   });
+
+  it('emits paidAmount and balanceDue from the entity', () => {
+    const order = {
+      id: 'o1',
+      orderNumber: 'SO-1',
+      orderDate: new Date('2026-01-01'),
+      status: SalesOrderStatus.DRAFT,
+      paymentStatus: SalesOrderPaymentStatus.PARTIAL,
+      subtotal: 1000,
+      shippingAmount: 0,
+      totalAmount: 1000,
+      paidAmount: 400,
+      balanceDue: 600,
+      customerId: 'c1',
+      items: [],
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    const dto = mapSalesOrderToResponseDto(order as any);
+
+    expect(dto.paidAmount).toBe(400);
+    expect(dto.balanceDue).toBe(600);
+  });
+
+  it('emits negative balanceDue for an overpaid order', () => {
+    const order = {
+      id: 'o1',
+      orderNumber: 'SO-1',
+      orderDate: new Date('2026-01-01'),
+      status: SalesOrderStatus.DRAFT,
+      paymentStatus: SalesOrderPaymentStatus.OVERPAID,
+      subtotal: 1000,
+      shippingAmount: 0,
+      totalAmount: 1000,
+      paidAmount: 1200,
+      balanceDue: -200,
+      customerId: 'c1',
+      items: [],
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    const dto = mapSalesOrderToResponseDto(order as any);
+
+    expect(dto.paidAmount).toBe(1200);
+    expect(dto.balanceDue).toBe(-200);
+  });
 });
