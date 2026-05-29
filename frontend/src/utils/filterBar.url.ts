@@ -207,7 +207,7 @@ export function parseFilters<TFilters extends object>(
         result[fieldKey] = VALID_STOCK_ADJUSTMENT_STATUS.includes(raw) ? raw : (defaultValue ?? null)
       } else if (field.type === 'order-status') {
         const VALID_ORDER_STATUS = fieldKey === 'status'
-          ? ['DRAFT', 'FULFILLED', 'CANCELLED']
+          ? ['DRAFT', 'READY', 'FULFILLED', 'CANCELLED']
           : ['fulfilled', 'unfulfilled']
         result[fieldKey] = VALID_ORDER_STATUS.includes(raw) ? raw : (defaultValue ?? null)
       } else if (field.type === 'purchasing-status') {
