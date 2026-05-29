@@ -159,5 +159,30 @@ describe('SalesOrderService', () => {
         }),
       );
     });
+
+    it('recomputes balanceDue when an edit changes the total (existing payment preserved)', async () => {
+      const existing = {
+        id: 'order-1',
+        orderNumber: 'SO-1',
+        customerId: 'customer-1',
+        status: SalesOrderStatus.DRAFT,
+        paidAmount: 400,
+        totalAmount: 1000,
+        shippingAmount: 0,
+      } as any;
+
+      salesOrderRepository.findOne = jest.fn().mockResolvedValue(existing);
+      salesOrderItemRepository.find = jest.fn().mockResolvedValue([{ totalAmount: 1100 }] as any);
+      salesOrderRepository.update = jest.fn().mockResolvedValue({ affected: 1 });
+      salesOrderQueryService.findById.mockResolvedValue({ ...existing, totalAmount: 1100, balanceDue: 700 } as any);
+      salesOrderLifecycleService.assertEditAllowed.mockResolvedValue(undefined);
+
+      await service.update('order-1', { shippingAmount: 0 } as any);
+
+      expect(salesOrderRepository.update).toHaveBeenCalledWith('order-1', expect.objectContaining({
+        totalAmount: 1100,
+        balanceDue: 700,
+      }));
+    });
   });
 });

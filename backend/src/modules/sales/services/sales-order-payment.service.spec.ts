@@ -158,6 +158,66 @@ describe('SalesOrderPaymentService', () => {
 
       expect(auditLogService.log).toHaveBeenCalledWith('CREATE', 'SalesOrderPayment', expect.any(String), expect.objectContaining({ userId: 'user-abc', username: 'alice' }));
     });
+
+    it('persists paidAmount and balanceDue (partial payment)', async () => {
+      const order = mockOrder({ totalAmount: 1000 });
+      orderRepo.findOne.mockResolvedValue(order);
+      methodRepo.findOne.mockResolvedValue(mockMethod());
+
+      const updateSpy = jest.fn().mockResolvedValue(undefined);
+      const manager = {
+        getRepository: jest.fn().mockImplementation((entity) => {
+          if (entity === SalesOrderPayment) {
+            return {
+              create: jest.fn().mockImplementation((d) => d),
+              save: jest.fn().mockImplementation((d) => Promise.resolve({ id: 'p1', ...d })),
+              find: jest.fn().mockResolvedValue([{ amount: 400 }] as SalesOrderPayment[]),
+            };
+          }
+          if (entity === SalesOrder) return { update: updateSpy };
+          return {};
+        }),
+      } as any;
+      (dataSource.transaction as jest.Mock).mockImplementation(async (cb: any) => cb(manager));
+
+      await service.recordPayment('order-1', { paymentMethodId: 'method-1', amount: 400, paymentDate: '2026-01-01' });
+
+      expect(updateSpy).toHaveBeenCalledWith('order-1', expect.objectContaining({
+        paymentStatus: SalesOrderPaymentStatus.PARTIAL,
+        paidAmount: 400,
+        balanceDue: 600,
+      }));
+    });
+
+    it('persists negative balanceDue when overpaid', async () => {
+      const order = mockOrder({ totalAmount: 1000 });
+      orderRepo.findOne.mockResolvedValue(order);
+      methodRepo.findOne.mockResolvedValue(mockMethod());
+
+      const updateSpy = jest.fn().mockResolvedValue(undefined);
+      const manager = {
+        getRepository: jest.fn().mockImplementation((entity) => {
+          if (entity === SalesOrderPayment) {
+            return {
+              create: jest.fn().mockImplementation((d) => d),
+              save: jest.fn().mockImplementation((d) => Promise.resolve({ id: 'p1', ...d })),
+              find: jest.fn().mockResolvedValue([{ amount: 1200 }] as SalesOrderPayment[]),
+            };
+          }
+          if (entity === SalesOrder) return { update: updateSpy };
+          return {};
+        }),
+      } as any;
+      (dataSource.transaction as jest.Mock).mockImplementation(async (cb: any) => cb(manager));
+
+      await service.recordPayment('order-1', { paymentMethodId: 'method-1', amount: 1200, paymentDate: '2026-01-01' });
+
+      expect(updateSpy).toHaveBeenCalledWith('order-1', expect.objectContaining({
+        paymentStatus: SalesOrderPaymentStatus.OVERPAID,
+        paidAmount: 1200,
+        balanceDue: -200,
+      }));
+    });
   });
 
   describe('recordRefund', () => {
