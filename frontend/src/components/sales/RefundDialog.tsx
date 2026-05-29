@@ -217,7 +217,13 @@ export default function RefundDialog({
         ) : (
           <>
             {/* Refund Summary */}
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2, mt: 1 }}>
+            {hasSurplus && (
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1, mt: 1 }}>
+                <Typography variant="body2" sx={{ fontWeight: 'bold' }}>Surplus over total</Typography>
+                <Typography variant="body2" sx={{ fontWeight: 'bold' }}>{formatCurrency(surplus)}</Typography>
+              </Box>
+            )}
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2, mt: hasSurplus ? 0 : 1 }}>
               <Typography variant="body2" sx={{ fontWeight: 'bold' }}>Available for Refund</Typography>
               <Typography variant="body2" sx={{ fontWeight: 'bold' }}>{formatCurrency(availableForRefund)}</Typography>
             </Box>

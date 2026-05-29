@@ -87,6 +87,20 @@ describe('RefundDialog', () => {
     expect(amountInput.value).toBe('200')
   })
 
+  it('shows a Surplus over total row when the order is overpaid', () => {
+    // Net paid 500, total 300 -> surplus 200
+    mockUseGetSalesOrderPaymentsQuery.mockReturnValue({ data: makePayments(500, 0), isLoading: false })
+    renderDialog({ totalAmount: 300 })
+    expect(screen.getByText('Surplus over total')).toBeInTheDocument()
+  })
+
+  it('hides the Surplus over total row when the order is exactly paid', () => {
+    // Net paid 500, total 500 -> surplus 0
+    mockUseGetSalesOrderPaymentsQuery.mockReturnValue({ data: makePayments(500, 0), isLoading: false })
+    renderDialog({ totalAmount: 500 })
+    expect(screen.queryByText('Surplus over total')).not.toBeInTheDocument()
+  })
+
   it('populates payment method dropdown from API', () => {
     renderDialog()
     expect(screen.getByText('Cash')).toBeInTheDocument()
