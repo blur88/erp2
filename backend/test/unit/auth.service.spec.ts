@@ -273,6 +273,63 @@ describe('AuthService', () => {
     });
   });
 
+  describe('login() proactive self-heal (issue #710)', () => {
+    const loginDto = {
+      usernameOrEmail: 'admin',
+      password: 'pw',
+      rememberMe: false,
+    };
+
+    it('clears an expired lockedUntil and bypasses the lock check, reaching password validation', async () => {
+      const pastLock = new Date(Date.now() - 60 * 1000);
+      const user = {
+        id: 'u1',
+        username: 'admin',
+        email: 'admin@example.com',
+        password: 'hashed',
+        isActive: true,
+        status: UserStatus.ACTIVE,
+        failedLoginAttempts: 5,
+        lockedUntil: pastLock,
+        get isLocked() {
+          return this.lockedUntil != null && this.lockedUntil > new Date();
+        },
+      } as any;
+
+      mockUserRepository.findOne.mockResolvedValue(user);
+      mockUserRepository.save.mockImplementation((u) => Promise.resolve(u));
+      // Wrong password: proves execution passed the lock check and reached
+      // password validation (handleFailedLogin), not stopped by ForbiddenException.
+      mockedBcrypt.compare.mockResolvedValue(false as never);
+
+      await expect(service.login(loginDto as any)).rejects.toThrow(UnauthorizedException);
+
+      // bcrypt.compare being reached proves the lock check was bypassed — the
+      // self-heal cleared the stale lock instead of throwing ForbiddenException.
+      expect(mockedBcrypt.compare).toHaveBeenCalled();
+      // The stale lock was cleared (failedLoginAttempts is then re-incremented
+      // by handleFailedLogin on the wrong password, so we assert on lockedUntil).
+      expect(user.lockedUntil).toBeNull();
+    });
+
+    it('still rejects a user whose lockedUntil is in the future', async () => {
+      const futureLock = new Date(Date.now() + 60 * 1000);
+      const user = {
+        id: 'u2',
+        username: 'admin',
+        lockedUntil: futureLock,
+        failedLoginAttempts: 5,
+        get isLocked() {
+          return this.lockedUntil != null && this.lockedUntil > new Date();
+        },
+      } as any;
+
+      mockUserRepository.findOne.mockResolvedValue(user);
+
+      await expect(service.login(loginDto as any)).rejects.toThrow(ForbiddenException);
+    });
+  });
+
   describe('token generation', () => {
     const loginDto = {
       usernameOrEmail: 'testuser',
