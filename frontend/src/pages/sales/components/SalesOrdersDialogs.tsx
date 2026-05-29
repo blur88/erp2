@@ -50,6 +50,7 @@ export default function SalesOrdersDialogs({
           onSubmit={onSubmitRefund}
           orderId={refundOrder.id}
           orderNumber={refundOrder.orderNumber}
+          totalAmount={refundOrder.totalAmount}
         />
       )}
     </>
