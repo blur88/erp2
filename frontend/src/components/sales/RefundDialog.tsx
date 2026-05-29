@@ -41,6 +41,7 @@ interface RefundDialogProps {
   onSubmit: (refunds: { paymentMethodId: string; amount: number; paymentDate: string; reference?: string }[]) => Promise<void>
   orderId: string
   orderNumber: string
+  totalAmount: number
 }
 
 const formatCurrency = (amount: number) =>
@@ -52,6 +53,7 @@ export default function RefundDialog({
   onSubmit,
   orderId,
   orderNumber,
+  totalAmount,
 }: RefundDialogProps) {
   const { data: paymentMethods = [] } = useGetActivePaymentMethodsQuery(undefined, { skip: !open })
   const { data: paymentRecords = [], isLoading: loadingPayments } = useGetSalesOrderPaymentsQuery(
@@ -68,6 +70,9 @@ export default function RefundDialog({
     .reduce((sum, r) => sum + Math.abs(Number(r.amount)), 0)
 
   const availableForRefund = Math.max(0, totalPaid - alreadyRefunded)
+  const netPaid = totalPaid - alreadyRefunded
+  const surplus = Math.max(0, netPaid - Number(totalAmount))
+  const hasSurplus = surplus > 0
 
   const [lines, setLines] = useState<RefundLine[]>([])
   const [submitting, setSubmitting] = useState(false)
@@ -93,6 +98,7 @@ export default function RefundDialog({
     }, {})
     const netPositiveMethods = Object.entries(netByMethod).filter(([, net]) => net > 0)
     if (netPositiveMethods.length > 0) {
+      const refundTarget = hasSurplus ? surplus : availableForRefund
       const netTotal = netPositiveMethods.reduce((sum, [, net]) => sum + net, 0)
       setLines(netPositiveMethods.map(([methodId, net]) => {
         const resolvedMethodId = paymentMethods.find((m) => m.id === methodId)?.id
@@ -100,7 +106,7 @@ export default function RefundDialog({
           ?? paymentMethods[0]?.id
           ?? ''
         const scaledAmount = netTotal > 0
-          ? Math.round((net / netTotal) * availableForRefund * 100) / 100
+          ? Math.round((net / netTotal) * refundTarget * 100) / 100
           : 0
         return {
           id: newId(),
@@ -113,15 +119,16 @@ export default function RefundDialog({
     } else {
       if (paymentMethods.length === 0) return
       const cashMethod = paymentMethods.find((m) => m.code === 'CASH')
+      const refundTarget = hasSurplus ? surplus : availableForRefund
       setLines([{
         id: newId(),
         paymentMethodId: cashMethod?.id || paymentMethods[0]?.id || '',
-        amount: availableForRefund > 0 ? availableForRefund : '',
+        amount: refundTarget > 0 ? refundTarget : '',
         paymentDate: getCurrentDate(),
         reference: '',
       }])
     }
-  }, [open, paymentMethods, lines.length, availableForRefund, loadingPayments, paymentRecords])
+  }, [open, paymentMethods, lines.length, availableForRefund, surplus, hasSurplus, loadingPayments, paymentRecords])
 
   const totalEntered = lines.reduce(
     (sum, l) => sum + (typeof l.amount === 'number' ? l.amount : parseFloat(l.amount as string) || 0),

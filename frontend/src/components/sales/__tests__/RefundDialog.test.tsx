@@ -40,6 +40,7 @@ function renderDialog(props: Partial<ComponentProps<typeof RefundDialog>> = {}) 
     onSubmit: vi.fn().mockResolvedValue(undefined),
     orderId: 'order-1',
     orderNumber: 'SO-26-001',
+    totalAmount: 500,
   }
   return render(<RefundDialog {...defaults} {...props} />)
 }
@@ -76,6 +77,14 @@ describe('RefundDialog', () => {
     renderDialog()
     const amountInput = screen.getByPlaceholderText('Amount') as HTMLInputElement
     expect(amountInput.value).toBe('500')
+  })
+
+  it('defaults refund amount to the surplus on an overpaid order', () => {
+    // Net paid 500, order total 300 -> surplus 200
+    mockUseGetSalesOrderPaymentsQuery.mockReturnValue({ data: makePayments(500, 0), isLoading: false })
+    renderDialog({ totalAmount: 300 })
+    const amountInput = screen.getByPlaceholderText('Amount') as HTMLInputElement
+    expect(amountInput.value).toBe('200')
   })
 
   it('populates payment method dropdown from API', () => {
