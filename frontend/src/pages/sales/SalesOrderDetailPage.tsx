@@ -193,7 +193,7 @@ export default function SalesOrderDetailPage() {
         title={order.orderNumber}
         titleBadge={
           <Box sx={{ display: 'flex', gap: 1 }}>
-            <SalesOrderStatusChip status={order.status} />
+            <SalesOrderStatusChip status={order.status} paymentStatus={order.paymentStatus} />
             <SalesOrderPaymentStatusChip status={order.paymentStatus} />
           </Box>
         }

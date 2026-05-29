@@ -102,7 +102,7 @@ export default function OrderOverviewTab({ order }: OrderOverviewTabProps) {
                 label="Status"
                 value={
                   <Box sx={{ display: 'flex', gap: 1 }}>
-                    <SalesOrderStatusChip status={order.status} />
+                    <SalesOrderStatusChip status={order.status} paymentStatus={order.paymentStatus} />
                     <SalesOrderPaymentStatusChip status={order.paymentStatus} />
                   </Box>
                 }

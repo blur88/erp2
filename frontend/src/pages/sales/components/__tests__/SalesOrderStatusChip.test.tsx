@@ -19,6 +19,37 @@ describe('SalesOrderStatusChip', () => {
     render(<SalesOrderStatusChip status="CANCELLED" />)
     expect(screen.getByText('Cancelled')).toBeInTheDocument()
   })
+
+  it('renders Ready for DRAFT + PAID', () => {
+    render(<SalesOrderStatusChip status="DRAFT" paymentStatus="PAID" />)
+    expect(screen.getByText('Ready')).toBeInTheDocument()
+    expect(screen.queryByText('Draft')).not.toBeInTheDocument()
+  })
+
+  it('renders Draft for DRAFT + UNPAID', () => {
+    render(<SalesOrderStatusChip status="DRAFT" paymentStatus="UNPAID" />)
+    expect(screen.getByText('Draft')).toBeInTheDocument()
+  })
+
+  it('renders Draft for DRAFT + PARTIAL', () => {
+    render(<SalesOrderStatusChip status="DRAFT" paymentStatus="PARTIAL" />)
+    expect(screen.getByText('Draft')).toBeInTheDocument()
+  })
+
+  it('renders Draft for DRAFT + OVERPAID', () => {
+    render(<SalesOrderStatusChip status="DRAFT" paymentStatus="OVERPAID" />)
+    expect(screen.getByText('Draft')).toBeInTheDocument()
+  })
+
+  it('renders Draft for DRAFT with no paymentStatus', () => {
+    render(<SalesOrderStatusChip status="DRAFT" />)
+    expect(screen.getByText('Draft')).toBeInTheDocument()
+  })
+
+  it('renders Fulfilled for FULFILLED + PAID', () => {
+    render(<SalesOrderStatusChip status="FULFILLED" paymentStatus="PAID" />)
+    expect(screen.getByText('Fulfilled')).toBeInTheDocument()
+  })
 })
 
 describe('SalesOrderPaymentStatusChip', () => {

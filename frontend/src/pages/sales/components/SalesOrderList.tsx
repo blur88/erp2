@@ -81,7 +81,9 @@ export default function SalesOrderList(props: SalesOrderListProps) {
       key: 'status',
       width: '13%',
       raw: true,
-      render: (order) => <SalesOrderStatusChip status={order.status} />,
+      render: (order) => (
+        <SalesOrderStatusChip status={order.status} paymentStatus={order.paymentStatus} />
+      ),
     },
     {
       key: 'paymentStatus',
