@@ -101,7 +101,7 @@ export class SalesOrderPaymentService {
       throw new BadRequestException(`Refund amount (${dto.amount}) exceeds net paid (${netPaid.toFixed(4)})`);
     }
 
-    const saved = await this.dataSource.transaction(async (manager: EntityManager) => {
+    const { saved, resultingStatus } = await this.dataSource.transaction(async (manager: EntityManager) => {
       const record = manager.getRepository(SalesOrderPayment).create({
         salesOrderId: orderId,
         paymentMethodId: dto.paymentMethodId,
@@ -111,15 +111,15 @@ export class SalesOrderPaymentService {
         notes: dto.notes,
       });
       const savedRecord = await manager.getRepository(SalesOrderPayment).save(record);
-      await this.updatePaymentStatusInTx(order, manager);
-      return savedRecord;
+      const resultingStatus = await this.updatePaymentStatusInTx(order, manager);
+      return { saved: savedRecord, resultingStatus };
     });
 
-    await this.auditLogService.log('CREATE', 'SalesOrderPayment', `Recorded refund for ${order.orderNumber}`, {
+    await this.auditLogService.log('CREATE', 'SalesOrderPayment', `Recorded refund for ${order.orderNumber} (status: ${resultingStatus})`, {
       entityId: saved.id,
       userId: userId || 'system',
       username,
-      newValues: { amount: -dto.amount, paymentMethodId: dto.paymentMethodId },
+      newValues: { amount: -dto.amount, paymentMethodId: dto.paymentMethodId, resultingPaymentStatus: resultingStatus },
     });
 
     return saved;
@@ -201,7 +201,7 @@ export class SalesOrderPaymentService {
       throw new BadRequestException(`Total refund amount (${totalRefundAmount}) exceeds net paid (${netPaid.toFixed(4)})`);
     }
 
-    const results = await this.dataSource.transaction(async (manager: EntityManager) => {
+    const { results, resultingStatus } = await this.dataSource.transaction(async (manager: EntityManager) => {
       const saved: SalesOrderPayment[] = [];
       for (const dto of dtos) {
         const record = manager.getRepository(SalesOrderPayment).create({
@@ -214,16 +214,16 @@ export class SalesOrderPaymentService {
         });
         saved.push(await manager.getRepository(SalesOrderPayment).save(record));
       }
-      await this.updatePaymentStatusInTx(order, manager);
-      return saved;
+      const resultingStatus = await this.updatePaymentStatusInTx(order, manager);
+      return { results: saved, resultingStatus };
     });
 
     for (const saved of results) {
-      await this.auditLogService.log('CREATE', 'SalesOrderPayment', `Recorded refund for ${order.orderNumber}`, {
+      await this.auditLogService.log('CREATE', 'SalesOrderPayment', `Recorded refund for ${order.orderNumber} (status: ${resultingStatus})`, {
         entityId: saved.id,
         userId: userId || 'system',
         username,
-        newValues: { amount: saved.amount, paymentMethodId: saved.paymentMethodId },
+        newValues: { amount: saved.amount, paymentMethodId: saved.paymentMethodId, resultingPaymentStatus: resultingStatus },
       });
     }
 
@@ -241,9 +241,10 @@ export class SalesOrderPaymentService {
     });
   }
 
-  private async updatePaymentStatusInTx(order: SalesOrder, manager: EntityManager): Promise<void> {
+  private async updatePaymentStatusInTx(order: SalesOrder, manager: EntityManager): Promise<SalesOrderPaymentStatus> {
     const all = await manager.getRepository(SalesOrderPayment).find({ where: { salesOrderId: order.id } });
     const newStatus = this.computePaymentStatus(all, order.totalAmount);
     await manager.getRepository(SalesOrder).update(order.id, { paymentStatus: newStatus });
+    return newStatus;
   }
 }

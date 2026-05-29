@@ -299,6 +299,7 @@ export default function SalesOrderDetailPage() {
           onSubmit={handleSubmitRefund}
           orderId={order.id}
           orderNumber={order.orderNumber}
+          totalAmount={order.totalAmount}
         />
       )}
 

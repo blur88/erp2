@@ -40,6 +40,7 @@ function renderDialog(props: Partial<ComponentProps<typeof RefundDialog>> = {}) 
     onSubmit: vi.fn().mockResolvedValue(undefined),
     orderId: 'order-1',
     orderNumber: 'SO-26-001',
+    totalAmount: 500,
   }
   return render(<RefundDialog {...defaults} {...props} />)
 }
@@ -76,6 +77,48 @@ describe('RefundDialog', () => {
     renderDialog()
     const amountInput = screen.getByPlaceholderText('Amount') as HTMLInputElement
     expect(amountInput.value).toBe('500')
+  })
+
+  it('defaults refund amount to the surplus on an overpaid order', () => {
+    // Net paid 500, order total 300 -> surplus 200
+    mockUseGetSalesOrderPaymentsQuery.mockReturnValue({ data: makePayments(500, 0), isLoading: false })
+    renderDialog({ totalAmount: 300 })
+    const amountInput = screen.getByPlaceholderText('Amount') as HTMLInputElement
+    expect(amountInput.value).toBe('200')
+  })
+
+  it('shows a Surplus over total row when the order is overpaid', () => {
+    // Net paid 500, total 300 -> surplus 200
+    mockUseGetSalesOrderPaymentsQuery.mockReturnValue({ data: makePayments(500, 0), isLoading: false })
+    renderDialog({ totalAmount: 300 })
+    expect(screen.getByText('Surplus over total')).toBeInTheDocument()
+  })
+
+  it('hides the Surplus over total row when the order is exactly paid', () => {
+    // Net paid 500, total 500 -> surplus 0
+    mockUseGetSalesOrderPaymentsQuery.mockReturnValue({ data: makePayments(500, 0), isLoading: false })
+    renderDialog({ totalAmount: 500 })
+    expect(screen.queryByText('Surplus over total')).not.toBeInTheDocument()
+  })
+
+  it('warns but keeps submit enabled when refund exceeds surplus but is within available', async () => {
+    // Net paid 500, total 300 -> surplus 200, available 500
+    mockUseGetSalesOrderPaymentsQuery.mockReturnValue({ data: makePayments(500, 0), isLoading: false })
+    renderDialog({ totalAmount: 300 })
+    const amountInput = screen.getByPlaceholderText('Amount')
+    await userEvent.clear(amountInput)
+    await userEvent.type(amountInput, '350')
+    expect(screen.getByText(/below Paid/i)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^refund$/i })).not.toBeDisabled()
+  })
+
+  it('does not show the surplus warning when refund is within the surplus', async () => {
+    mockUseGetSalesOrderPaymentsQuery.mockReturnValue({ data: makePayments(500, 0), isLoading: false })
+    renderDialog({ totalAmount: 300 })
+    const amountInput = screen.getByPlaceholderText('Amount')
+    await userEvent.clear(amountInput)
+    await userEvent.type(amountInput, '150')
+    expect(screen.queryByText(/below Paid/i)).not.toBeInTheDocument()
   })
 
   it('populates payment method dropdown from API', () => {
