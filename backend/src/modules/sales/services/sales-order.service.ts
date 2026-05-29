@@ -549,6 +549,11 @@ export class SalesOrderService extends BaseCrudService<
       updateData.totalAmount = currentSubtotal + newShipping;
     }
 
+    // Whenever the total changes, keep balanceDue consistent with the unchanged paidAmount.
+    if (updateData.totalAmount !== undefined) {
+      updateData.balanceDue = Number(updateData.totalAmount) - Number(order.paidAmount || 0);
+    }
+
     // Perform all updates in a single database call
     if (Object.keys(updateData).length > 0) {
       await this.salesOrderRepository.update(id, updateData);
