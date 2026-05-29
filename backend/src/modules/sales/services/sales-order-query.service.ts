@@ -99,8 +99,8 @@ export class SalesOrderQueryService {
 
     if (status === 'READY') {
       queryBuilder = queryBuilder
-        .andWhere('order.status = :status', { status: 'DRAFT' })
-        .andWhere('order.paymentStatus = :ps', { ps: 'PAID' });
+        .andWhere('order.status = :status', { status: SalesOrderStatus.DRAFT })
+        .andWhere('order.paymentStatus = :ps', { ps: SalesOrderPaymentStatus.PAID });
     } else {
       if (paymentStatus && paymentStatus !== 'all') {
         queryBuilder = queryBuilder.andWhere('order.paymentStatus = :paymentStatus', {
