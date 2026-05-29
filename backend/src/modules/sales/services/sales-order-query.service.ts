@@ -97,16 +97,22 @@ export class SalesOrderQueryService {
       );
     }
 
-    if (paymentStatus && paymentStatus !== 'all') {
-      queryBuilder = queryBuilder.andWhere('order.paymentStatus = :paymentStatus', {
-        paymentStatus: paymentStatus.toUpperCase(),
-      });
-    }
+    if (status === 'READY') {
+      queryBuilder = queryBuilder
+        .andWhere('order.status = :status', { status: 'DRAFT' })
+        .andWhere('order.paymentStatus = :ps', { ps: 'PAID' });
+    } else {
+      if (paymentStatus && paymentStatus !== 'all') {
+        queryBuilder = queryBuilder.andWhere('order.paymentStatus = :paymentStatus', {
+          paymentStatus: paymentStatus.toUpperCase(),
+        });
+      }
 
-    if (status && status !== 'all') {
-      queryBuilder = queryBuilder.andWhere('order.status = :status', {
-        status: status.toUpperCase(),
-      });
+      if (status && status !== 'all') {
+        queryBuilder = queryBuilder.andWhere('order.status = :status', {
+          status: status.toUpperCase(),
+        });
+      }
     }
 
     queryBuilder = queryBuilder
