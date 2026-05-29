@@ -86,6 +86,14 @@ export class SalesOrder extends BaseEntity {
   @Min(0)
   totalAmount: number;
 
+  @Column({ type: 'decimal', precision: 15, scale: 4, default: 0 })
+  @Min(0)
+  paidAmount: number;
+
+  // = totalAmount - paidAmount; negative value means the order is overpaid (surplus). No @Min(0).
+  @Column({ type: 'decimal', precision: 15, scale: 4, default: 0 })
+  balanceDue: number;
+
   @Column({ type: 'text', nullable: true })
   @IsOptional()
   @IsString()
@@ -129,29 +137,12 @@ export class SalesOrder extends BaseEntity {
     return this.status === SalesOrderStatus.FULFILLED ? this.updatedAt : undefined;
   }
 
-  /** @deprecated Approximation only — does not reflect actual SalesOrderPayment records. Use paymentStatus enum instead. */
-  get paidAmount(): number {
-    if (this.paymentStatus === SalesOrderPaymentStatus.UNPAID) return 0;
-    if (
-      this.paymentStatus === SalesOrderPaymentStatus.PAID ||
-      this.paymentStatus === SalesOrderPaymentStatus.OVERPAID
-    ) {
-      return Number(this.totalAmount);
-    }
-    return 0.01;
-  }
-
   /** @deprecated Use `paymentStatus === PAID || paymentStatus === OVERPAID` instead. */
   get isPaidInFull(): boolean {
     return (
       this.paymentStatus === SalesOrderPaymentStatus.PAID ||
       this.paymentStatus === SalesOrderPaymentStatus.OVERPAID
     );
-  }
-
-  /** @deprecated Approximation only — returns 0 or totalAmount, not the real partial balance. */
-  get balanceDue(): number {
-    return this.isPaidInFull ? 0 : Number(this.totalAmount);
   }
 
   /** @deprecated Use status and paymentStatus enums directly. */
