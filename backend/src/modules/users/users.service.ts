@@ -7,7 +7,7 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, SelectQueryBuilder, Like, ILike } from 'typeorm';
+import { Repository, SelectQueryBuilder, Like, ILike, LessThanOrEqual } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { User, UserRole, UserStatus } from '../../database/entities/user.entity';
 import {
@@ -92,6 +92,19 @@ export class UsersService {
     try {
       const { page, limit, search, role, status, isActive, isLocked, sortBy, sortOrder } = queryDto;
 
+      // Lazy self-heal: clear locks that have expired by the app clock so stale
+      // lockedUntil timestamps don't linger or show as "locked" in the list.
+      // One bulk UPDATE, not per-row saves, and failures must not break the
+      // read. See issue #710.
+      try {
+        await this.userRepository.update(
+          { lockedUntil: LessThanOrEqual(new Date()) },
+          { lockedUntil: null, failedLoginAttempts: 0 },
+        );
+      } catch (err) {
+        this.logger.warn(`Failed to self-heal expired locks during findAll: ${err}`);
+      }
+
       // Build query
       const queryBuilder = this.createQueryBuilder('user');
 
@@ -119,6 +132,9 @@ export class UsersService {
       }
 
       if (typeof isLocked === 'boolean') {
+        // :now is intentionally the Node app clock (new Date()), NOT SQL NOW().
+        // Lockout decisions must use one clock so a skewed Postgres container
+        // clock can't disagree with the login path. See issue #710.
         if (isLocked) {
           queryBuilder.andWhere('user.lockedUntil > :now', { now: new Date() });
         } else {
