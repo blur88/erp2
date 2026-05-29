@@ -243,8 +243,13 @@ export class SalesOrderPaymentService {
 
   private async updatePaymentStatusInTx(order: SalesOrder, manager: EntityManager): Promise<SalesOrderPaymentStatus> {
     const all = await manager.getRepository(SalesOrderPayment).find({ where: { salesOrderId: order.id } });
+    const netPaid = all.reduce((sum, r) => sum + Number(r.amount), 0);
     const newStatus = this.computePaymentStatus(all, order.totalAmount);
-    await manager.getRepository(SalesOrder).update(order.id, { paymentStatus: newStatus });
+    await manager.getRepository(SalesOrder).update(order.id, {
+      paymentStatus: newStatus,
+      paidAmount: netPaid,
+      balanceDue: Number(order.totalAmount) - netPaid,
+    });
     return newStatus;
   }
 }
