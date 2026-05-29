@@ -273,6 +273,59 @@ describe('AuthService', () => {
     });
   });
 
+  describe('login() proactive self-heal (issue #710)', () => {
+    const loginDto = {
+      usernameOrEmail: 'admin',
+      password: 'pw',
+      rememberMe: false,
+    };
+
+    it('clears an expired lockedUntil before later login validation stops', async () => {
+      const pastLock = new Date(Date.now() - 60 * 1000);
+      const user = {
+        id: 'u1',
+        username: 'admin',
+        email: 'admin@example.com',
+        password: 'hashed',
+        isActive: false,
+        status: UserStatus.ACTIVE,
+        failedLoginAttempts: 5,
+        lockedUntil: pastLock,
+        get isLocked() {
+          return this.lockedUntil != null && this.lockedUntil > new Date();
+        },
+      } as any;
+
+      mockUserRepository.findOne.mockResolvedValue(user);
+      mockUserRepository.save.mockImplementation((u) => Promise.resolve(u));
+
+      await expect(service.login(loginDto as any)).rejects.toThrow(UnauthorizedException);
+
+      expect(user.failedLoginAttempts).toBe(0);
+      expect(user.lockedUntil).toBeNull();
+      expect(mockUserRepository.save).toHaveBeenCalledWith(
+        expect.objectContaining({ failedLoginAttempts: 0, lockedUntil: null }),
+      );
+    });
+
+    it('still rejects a user whose lockedUntil is in the future', async () => {
+      const futureLock = new Date(Date.now() + 60 * 1000);
+      const user = {
+        id: 'u2',
+        username: 'admin',
+        lockedUntil: futureLock,
+        failedLoginAttempts: 5,
+        get isLocked() {
+          return this.lockedUntil != null && this.lockedUntil > new Date();
+        },
+      } as any;
+
+      mockUserRepository.findOne.mockResolvedValue(user);
+
+      await expect(service.login(loginDto as any)).rejects.toThrow(ForbiddenException);
+    });
+  });
+
   describe('token generation', () => {
     const loginDto = {
       usernameOrEmail: 'testuser',

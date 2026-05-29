@@ -63,6 +63,23 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
+    // Self-heal: if the lock has expired by the app clock, clear it before the
+    // lock check. Guards against a stale lockedUntil lingering when a user can
+    // never reach the success path that normally resets it. See issue #710.
+    if (user.lockedUntil && user.lockedUntil <= new Date()) {
+      user.failedLoginAttempts = 0;
+      user.lockedUntil = null;
+      try {
+        await this.userRepository.save(user);
+      } catch (err) {
+        // A failed cleanup must not block login; the in-memory isLocked check
+        // below still governs the decision. Retry happens on the next attempt.
+        this.logger.warn(
+          `Failed to persist lock self-heal for ${user.username}: ${err}`,
+        );
+      }
+    }
+
     // Check if account is locked
     if (user.isLocked) {
       throw new ForbiddenException(
