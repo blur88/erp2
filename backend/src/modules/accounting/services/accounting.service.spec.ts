@@ -146,6 +146,9 @@ describe('AccountingService', () => {
       journalEntryService.create
         .mockResolvedValueOnce({ ...mockJournalEntry, id: 'cogs-entry' } as any)
         .mockResolvedValueOnce({ ...mockJournalEntry, id: 'revenue-entry' } as any);
+      journalEntryService.postEntry
+        .mockResolvedValueOnce({ ...mockJournalEntry, id: 'cogs-entry' } as any)
+        .mockResolvedValueOnce({ ...mockJournalEntry, id: 'revenue-entry' } as any);
 
       const result = await service.postSalesOrderEntry(mockSalesOrder, 'user-123');
 
@@ -208,8 +211,9 @@ describe('AccountingService', () => {
     it('should calculate COGS correctly', async () => {
       await service.postSalesOrderEntry(mockSalesOrder, 'user-123');
 
-      const createCall = journalEntryService.create.mock.calls[0][0];
-      const cogsLine = createCall.lines.find((l: any) => l.accountId === 'cogs-account-id');
+      // COGS entry is the first create call
+      const cogsCreateCall = journalEntryService.create.mock.calls[0][0];
+      const cogsLine = cogsCreateCall.lines.find((l: any) => l.accountId === 'cogs-account-id');
 
       expect(cogsLine.debitAmount).toBe(1000); // (10 * 60) + (5 * 80) = 600 + 400
     });
@@ -235,9 +239,12 @@ describe('AccountingService', () => {
 
       await service.postSalesOrderEntry(staleOrder, 'user-123');
 
-      const createCall = journalEntryService.create.mock.calls[0][0];
-      const arLine = createCall.lines.find((l: any) => l.accountId === 'ar-account-id');
-      const revenueLine = createCall.lines.find((l: any) => l.accountId === 'revenue-account-id');
+      // Revenue entry is the second create call (cogs = 20 > 0, so COGS entry is first)
+      const revenueCreateCall = journalEntryService.create.mock.calls[1][0];
+      const arLine = revenueCreateCall.lines.find((l: any) => l.accountId === 'ar-account-id');
+      const revenueLine = revenueCreateCall.lines.find(
+        (l: any) => l.accountId === 'revenue-account-id',
+      );
 
       expect(arLine.debitAmount).toBe(30);
       expect(revenueLine.creditAmount).toBe(30);
@@ -282,8 +289,10 @@ describe('AccountingService', () => {
 
       expect(accountMappingService.getMappings).toHaveBeenCalled();
 
-      const createCall = journalEntryService.create.mock.calls[0][0];
-      const accountIds = createCall.lines.map((l: any) => l.accountId);
+      const allLines = journalEntryService.create.mock.calls.flatMap(
+        (call: any) => call[0].lines,
+      );
+      const accountIds = allLines.map((l: any) => l.accountId);
 
       expect(accountIds).toContain('cogs-account-id');
       expect(accountIds).toContain('inventory-account-id');
