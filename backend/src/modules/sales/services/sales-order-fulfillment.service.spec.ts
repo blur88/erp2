@@ -70,7 +70,7 @@ describe('SalesOrderFulfillmentService', () => {
     });
 
     it('deducts inventory and sets status FULFILLED', async () => {
-      const order = mockOrder();
+      const order = mockOrder({ status: SalesOrderStatus.READY });
       orderRepo.findOne.mockResolvedValue(order); // handles both the guard load and the accounting reload
       orderRepo.save.mockResolvedValue({ ...order, status: SalesOrderStatus.FULFILLED } as SalesOrder);
 
@@ -87,16 +87,16 @@ describe('SalesOrderFulfillmentService', () => {
       await expect(service.unfulfillOrder('order-1')).rejects.toThrow(ConflictException);
     });
 
-    it('reverses inventory and sets status DRAFT', async () => {
+    it('reverses inventory and sets status READY', async () => {
       const order = mockOrder({ status: SalesOrderStatus.FULFILLED });
       orderRepo.findOne.mockResolvedValue(order);
-      orderRepo.save.mockResolvedValue({ ...order, status: SalesOrderStatus.DRAFT } as SalesOrder);
+      orderRepo.save.mockResolvedValue({ ...order, status: SalesOrderStatus.READY } as SalesOrder);
 
       await service.unfulfillOrder('order-1');
 
       expect(baseCostCalculator.restoreStock).toHaveBeenCalledWith('product-1', 5);
       expect(stockMovementService.deleteByReference).toHaveBeenCalledWith('sales_order', 'order-1');
-      expect(orderRepo.save).toHaveBeenCalledWith(expect.objectContaining({ status: SalesOrderStatus.DRAFT }));
+      expect(orderRepo.save).toHaveBeenCalledWith(expect.objectContaining({ status: SalesOrderStatus.READY }));
     });
 
     it('reverses the sales_order journal entry on unfulfill', async () => {
@@ -121,6 +121,36 @@ describe('SalesOrderFulfillmentService', () => {
 
       // Should not throw — accounting failure must not block unfulfill
       await expect(service.unfulfillOrder('order-1')).resolves.toBeDefined();
+    });
+  });
+
+  describe('fulfill/unfulfill with READY status', () => {
+    it('rejects fulfilling a DRAFT order', async () => {
+      orderRepo.findOne.mockResolvedValue(
+        mockOrder({ status: SalesOrderStatus.DRAFT, paymentStatus: SalesOrderPaymentStatus.PAID, items: [] }),
+      );
+
+      await expect(service.fulfillOrder('order-1')).rejects.toThrow('must be Ready');
+    });
+
+    it('fulfills a READY order -> FULFILLED', async () => {
+      const order = mockOrder({ status: SalesOrderStatus.READY, paymentStatus: SalesOrderPaymentStatus.PAID, items: [] });
+      orderRepo.findOne.mockResolvedValue(order);
+      orderRepo.save.mockImplementation(async (saved: any) => saved as SalesOrder);
+
+      const result = await service.fulfillOrder('order-1');
+
+      expect(result.status).toBe(SalesOrderStatus.FULFILLED);
+    });
+
+    it('unfulfills a FULFILLED order back to READY', async () => {
+      const order = mockOrder({ status: SalesOrderStatus.FULFILLED, paymentStatus: SalesOrderPaymentStatus.PAID, items: [] });
+      orderRepo.findOne.mockResolvedValue(order);
+      orderRepo.save.mockImplementation(async (saved: any) => saved as SalesOrder);
+
+      const result = await service.unfulfillOrder('order-1');
+
+      expect(result.status).toBe(SalesOrderStatus.READY);
     });
   });
 });
