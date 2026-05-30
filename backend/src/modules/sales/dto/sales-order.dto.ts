@@ -175,7 +175,7 @@ export class QuerySalesOrdersDto extends BaseQueryDto {
 
   @ApiPropertyOptional({ enum: SalesOrderStatus })
   @IsOptional()
-  status?: SalesOrderStatus | 'READY' | 'all';
+  status?: SalesOrderStatus | 'all';
 }
 
 export class SalesOrderItemResponseDto {
