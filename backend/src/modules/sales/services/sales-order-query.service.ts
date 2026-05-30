@@ -8,7 +8,7 @@ import {
   Repository,
 } from 'typeorm';
 import { Product } from '../../../database/entities/product.entity';
-import { SalesOrder, SalesOrderPaymentStatus, SalesOrderStatus } from '../../../database/entities/sales-order.entity';
+import { SalesOrder, SalesOrderStatus } from '../../../database/entities/sales-order.entity';
 import { SalesOrderPayment } from '../../../database/entities/sales-order-payment.entity';
 import { QuerySalesOrdersDto, SalesOrderResponseDto } from '../dto/sales-order.dto';
 import { mapSalesOrderToResponseDto } from './sales-order.mapper';
@@ -97,28 +97,16 @@ export class SalesOrderQueryService {
       );
     }
 
-    if (status === 'READY') {
-      queryBuilder = queryBuilder
-        .andWhere('order.status = :status', { status: SalesOrderStatus.DRAFT })
-        .andWhere('order.paymentStatus = :ps', { ps: SalesOrderPaymentStatus.PAID });
-    } else {
-      if (paymentStatus && paymentStatus !== 'all') {
-        queryBuilder = queryBuilder.andWhere('order.paymentStatus = :paymentStatus', {
-          paymentStatus: paymentStatus.toUpperCase(),
-        });
-      }
+    if (paymentStatus && paymentStatus !== 'all') {
+      queryBuilder = queryBuilder.andWhere('order.paymentStatus = :paymentStatus', {
+        paymentStatus: paymentStatus.toUpperCase(),
+      });
+    }
 
-      if (status && status !== 'all') {
-        const normalizedStatus = status.toUpperCase();
-        queryBuilder = queryBuilder.andWhere('order.status = :status', {
-          status: normalizedStatus,
-        });
-        if (normalizedStatus === SalesOrderStatus.DRAFT) {
-          queryBuilder = queryBuilder.andWhere('order.paymentStatus != :excludePs', {
-            excludePs: SalesOrderPaymentStatus.PAID,
-          });
-        }
-      }
+    if (status && status !== 'all') {
+      queryBuilder = queryBuilder.andWhere('order.status = :status', {
+        status: status.toUpperCase(),
+      });
     }
 
     queryBuilder = queryBuilder
