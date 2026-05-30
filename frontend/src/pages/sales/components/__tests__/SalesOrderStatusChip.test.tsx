@@ -20,10 +20,14 @@ describe('SalesOrderStatusChip', () => {
     expect(screen.getByText('Cancelled')).toBeInTheDocument()
   })
 
-  it('renders Ready for DRAFT + PAID', () => {
-    render(<SalesOrderStatusChip status="DRAFT" paymentStatus="PAID" />)
+  it('renders Ready for READY', () => {
+    render(<SalesOrderStatusChip status={'READY' as any} paymentStatus="PAID" />)
     expect(screen.getByText('Ready')).toBeInTheDocument()
-    expect(screen.queryByText('Draft')).not.toBeInTheDocument()
+  })
+
+  it('renders Draft for DRAFT + PAID', () => {
+    render(<SalesOrderStatusChip status="DRAFT" paymentStatus="PAID" />)
+    expect(screen.getByText('Draft')).toBeInTheDocument()
   })
 
   it('renders Draft for DRAFT + UNPAID', () => {

@@ -1,28 +1,24 @@
 import { Chip } from '@mui/material'
 
-type OrderStatus = 'DRAFT' | 'FULFILLED' | 'CANCELLED'
+type OrderStatus = 'DRAFT' | 'READY' | 'FULFILLED' | 'CANCELLED'
 type PaymentStatus = 'UNPAID' | 'PARTIAL' | 'PAID' | 'OVERPAID'
 
 type ChipConfig = { label: string; color: 'warning' | 'success' | 'default' | 'info' }
 
 const STATUS_CONFIG: Record<OrderStatus, ChipConfig> = {
   DRAFT: { label: 'Draft', color: 'warning' },
+  READY: { label: 'Ready', color: 'info' },
   FULFILLED: { label: 'Fulfilled', color: 'success' },
   CANCELLED: { label: 'Cancelled', color: 'default' },
 }
-
-const READY_CONFIG: ChipConfig = { label: 'Ready', color: 'info' }
 
 interface Props {
   status: OrderStatus
   paymentStatus?: PaymentStatus
 }
 
-export function SalesOrderStatusChip({ status, paymentStatus }: Props) {
-  const config: ChipConfig =
-    status === 'DRAFT' && paymentStatus === 'PAID'
-      ? READY_CONFIG
-      : (STATUS_CONFIG[status] ?? { label: status, color: 'default' })
+export function SalesOrderStatusChip({ status }: Props) {
+  const config: ChipConfig = STATUS_CONFIG[status] ?? { label: status, color: 'default' }
 
   return (
     <Chip
