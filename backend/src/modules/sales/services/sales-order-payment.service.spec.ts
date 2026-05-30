@@ -380,6 +380,30 @@ describe('SalesOrderPaymentService', () => {
     });
   });
 
+  describe('payment guards under READY', () => {
+    it('rejects a new payment on a READY order', async () => {
+      orderRepo.findOne.mockResolvedValue(mockOrder({ status: SalesOrderStatus.READY }));
+
+      await expect(
+        service.recordPayment('order-1', { amount: 10, paymentMethodId: 'method-1', paymentDate: '2026-05-30' }),
+      ).rejects.toThrow('Payments can only be recorded on DRAFT orders');
+    });
+
+    it('allows a refund on a READY order', async () => {
+      orderRepo.findOne.mockResolvedValue(
+        mockOrder({ status: SalesOrderStatus.READY, paymentStatus: SalesOrderPaymentStatus.PAID, totalAmount: 100 }),
+      );
+      methodRepo.findOne.mockResolvedValue(mockMethod());
+      paymentRepo.find.mockResolvedValue([{ amount: 100 }] as SalesOrderPayment[]);
+      const manager = buildMockManager([{ amount: 100 }, { amount: -40 }] as SalesOrderPayment[]);
+      (dataSource.transaction as jest.Mock).mockImplementation(async (cb: (m: EntityManager) => Promise<any>) => cb(manager));
+
+      await expect(
+        service.recordRefund('order-1', { amount: 40, paymentMethodId: 'method-1', paymentDate: '2026-05-30' }),
+      ).resolves.toBeDefined();
+    });
+  });
+
   describe('recordPayments', () => {
     it('returns empty array when dtos is empty', async () => {
       const result = await service.recordPayments('order-1', []);
