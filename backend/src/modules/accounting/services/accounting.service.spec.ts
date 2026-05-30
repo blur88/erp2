@@ -300,6 +300,37 @@ describe('AccountingService', () => {
       expect(accountIds).toContain('revenue-account-id');
     });
 
+    it('creates only the Revenue entry when COGS is zero (service order)', async () => {
+      const serviceOrder = {
+        id: 'so-service',
+        orderNumber: 'SO-SVC',
+        totalAmount: 200,
+        shippingAmount: 0,
+        fulfilledDate: new Date('2026-01-15'),
+        customer: { id: 'customer-123', name: 'Test Customer' },
+        items: [
+          {
+            id: 'svc-1',
+            quantity: 1,
+            unitPrice: 200,
+            totalAmount: 200,
+            product: { id: 'svc-product', name: 'Consulting', baseCost: 0 },
+          },
+        ],
+      } as any;
+
+      await service.postSalesOrderEntry(serviceOrder, 'user-123');
+
+      // Exactly one entry created: the Revenue entry; no COGS entry
+      expect(journalEntryService.create).toHaveBeenCalledTimes(1);
+      const createCall = journalEntryService.create.mock.calls[0][0];
+      expect(createCall.description).toBe('Sales Order SO-SVC - Test Customer (Revenue)');
+      const accountIds = createCall.lines.map((l: any) => l.accountId);
+      expect(accountIds).toContain('ar-account-id');
+      expect(accountIds).toContain('revenue-account-id');
+      expect(accountIds).not.toContain('cogs-account-id');
+    });
+
     it('should validate period is open', async () => {
       await service.postSalesOrderEntry(mockSalesOrder, 'user-123');
 
