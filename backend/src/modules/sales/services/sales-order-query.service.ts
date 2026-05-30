@@ -115,6 +115,13 @@ export class SalesOrderQueryService {
       .skip((page - 1) * limit)
       .take(limit);
 
+    // Deterministic tiebreaker: orders sharing the same primary sort value
+    // (e.g. same orderDate) fall back to newest order number first, so a
+    // freshly created/duplicated order reliably appears at the top.
+    if (sortBy !== 'orderNumber') {
+      queryBuilder = queryBuilder.addOrderBy('order.orderNumber', 'DESC');
+    }
+
     const [orders, total] = await queryBuilder.getManyAndCount();
 
     return {

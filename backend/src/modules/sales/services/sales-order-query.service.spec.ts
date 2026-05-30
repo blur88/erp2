@@ -105,6 +105,7 @@ describe('SalesOrderQueryService', () => {
           return qb;
         }),
         orderBy: jest.fn().mockReturnThis(),
+        addOrderBy: jest.fn().mockReturnThis(),
         skip: jest.fn().mockReturnThis(),
         take: jest.fn().mockReturnThis(),
         getManyAndCount: jest.fn().mockResolvedValue([[], 0]),
@@ -122,6 +123,26 @@ describe('SalesOrderQueryService', () => {
       const paymentClause = andWhereCalls.find((c) => c.clause === 'order.paymentStatus = :ps');
       expect(statusClause?.params.status).toBe('READY');
       expect(paymentClause).toBeUndefined();
+    });
+
+    it('adds an orderNumber DESC tiebreaker when sorting by a non-orderNumber field', async () => {
+      const { qb } = buildQbMock();
+      salesOrderRepository.createQueryBuilder.mockReturnValue(qb);
+
+      await service.findAll({ sortBy: 'orderDate', sortOrder: 'DESC' } as any);
+
+      expect(qb.orderBy).toHaveBeenCalledWith('order.orderDate', 'DESC');
+      expect(qb.addOrderBy).toHaveBeenCalledWith('order.orderNumber', 'DESC');
+    });
+
+    it('does not add a redundant tiebreaker when already sorting by orderNumber', async () => {
+      const { qb } = buildQbMock();
+      salesOrderRepository.createQueryBuilder.mockReturnValue(qb);
+
+      await service.findAll({ sortBy: 'orderNumber', sortOrder: 'ASC' } as any);
+
+      expect(qb.orderBy).toHaveBeenCalledWith('order.orderNumber', 'ASC');
+      expect(qb.addOrderBy).not.toHaveBeenCalled();
     });
 
     it('applies a paymentStatus param independently of READY', async () => {
