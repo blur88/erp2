@@ -23,6 +23,7 @@ import { Invoice } from './invoice.entity';
 
 export enum SalesOrderStatus {
   DRAFT = 'DRAFT',
+  READY = 'READY',
   FULFILLED = 'FULFILLED',
   CANCELLED = 'CANCELLED',
 }
@@ -145,9 +146,9 @@ export class SalesOrder extends BaseEntity {
     );
   }
 
-  /** @deprecated Use status and paymentStatus enums directly. */
+  /** @deprecated Use `status === SalesOrderStatus.READY` instead. */
   get canFulfill(): boolean {
-    return this.paymentStatus === SalesOrderPaymentStatus.PAID && this.status === SalesOrderStatus.DRAFT;
+    return this.status === SalesOrderStatus.READY;
   }
 
   /** @deprecated Use `status === SalesOrderStatus.FULFILLED` instead. */
