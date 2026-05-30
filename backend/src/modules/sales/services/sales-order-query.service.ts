@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import {
   Between,
+  In,
   IsNull,
   LessThanOrEqual,
   MoreThanOrEqual,
@@ -179,7 +180,11 @@ export class SalesOrderQueryService {
       await Promise.all([
         this.salesOrderRepository.count(),
         this.salesOrderRepository.count({ where: { status: SalesOrderStatus.FULFILLED } }),
-        this.salesOrderRepository.count({ where: { status: SalesOrderStatus.DRAFT } }),
+        // Unfulfilled = everything not yet shipped and not cancelled. A paid order
+        // awaiting fulfillment is READY (not DRAFT), so both must be counted here.
+        this.salesOrderRepository.count({
+          where: { status: In([SalesOrderStatus.DRAFT, SalesOrderStatus.READY]) },
+        }),
         this.salesOrderRepository.count({ where: { orderDate: MoreThanOrEqual(thisMonth) } }),
         this.salesOrderRepository.count({ where: { orderDate: MoreThanOrEqual(thisWeek) } }),
       ]);

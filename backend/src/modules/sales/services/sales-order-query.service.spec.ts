@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { SalesOrder, SalesOrderPaymentStatus, SalesOrderStatus } from '../../../database/entities/sales-order.entity';
 import { Product } from '../../../database/entities/product.entity';
 import { Customer } from '../../../database/entities/customer.entity';
@@ -208,6 +208,29 @@ describe('SalesOrderQueryService', () => {
           clause: 'order.paymentStatus != :excludePs',
           params: { excludePs: SalesOrderPaymentStatus.PAID },
         });
+      });
+    });
+  });
+
+  describe('getDashboardStats', () => {
+    it('counts unfulfilled orders as DRAFT + READY (not DRAFT only)', async () => {
+      // Sum queries use a chainable query builder ending in getRawOne().
+      const sumQb = {
+        select: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        getRawOne: jest.fn().mockResolvedValue({ total: '0' }),
+      };
+      salesOrderRepository.createQueryBuilder.mockReturnValue(sumQb as any);
+      salesOrderRepository.count.mockResolvedValue(0);
+
+      await service.getDashboardStats();
+
+      expect(salesOrderRepository.count).toHaveBeenCalledWith({
+        where: { status: In([SalesOrderStatus.DRAFT, SalesOrderStatus.READY]) },
+      });
+      // Guard against regression to DRAFT-only.
+      expect(salesOrderRepository.count).not.toHaveBeenCalledWith({
+        where: { status: SalesOrderStatus.DRAFT },
       });
     });
   });

@@ -114,7 +114,7 @@ export class SalesOrderController {
   }
 
   @Post(':id/fulfill')
-  @ApiOperation({ summary: 'Fulfill order (requires paymentStatus = PAID)' })
+  @ApiOperation({ summary: 'Fulfill order (requires status = READY)' })
   @ApiParam({ name: 'id', type: 'string' })
   async fulfillOrder(
     @Param('id', ParseUUIDPipe) id: string,
