@@ -48,6 +48,17 @@ describe('getOrderActions', () => {
     expect(actions).not.toContain('cancel')
   })
 
+  it('READY + PAID: fulfill, refund, duplicate, print — no pay, edit, cancel', () => {
+    const actions = getOrderActions(makeOrder('READY', 'PAID'))
+    expect(actions).toContain('fulfill')
+    expect(actions).toContain('refund')
+    expect(actions).toContain('duplicate')
+    expect(actions).toContain('print')
+    expect(actions).not.toContain('pay')
+    expect(actions).not.toContain('edit')
+    expect(actions).not.toContain('cancel')
+  })
+
   it('FULFILLED + OVERPAID: unfulfill, refund, duplicate, print', () => {
     const actions = getOrderActions(makeOrder('FULFILLED', 'OVERPAID'))
     expect(actions).toContain('refund')
@@ -105,5 +116,11 @@ describe('getOrderActionMetas — disabled flags', () => {
     const metas = getOrderActionMetas(makeOrder('DRAFT', 'PAID'))
     const refund = metas.find((m) => m.action === 'refund')
     expect(refund?.disabled).toBeFalsy()
+  })
+
+  it('fulfill is enabled when READY + PAID', () => {
+    const metas = getOrderActionMetas(makeOrder('READY', 'PAID'))
+    const fulfill = metas.find((m) => m.action === 'fulfill')
+    expect(fulfill).toEqual({ action: 'fulfill' })
   })
 })

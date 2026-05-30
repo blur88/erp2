@@ -20,6 +20,7 @@ export interface OrderActionMeta {
 export function getOrderActionMetas(order: SalesOrder): OrderActionMeta[] {
   const { status, paymentStatus } = order
   const isDraft = status === 'DRAFT'
+  const isReady = status === 'READY'
   const isFulfilled = status === 'FULFILLED'
   const isCancelled = status === 'CANCELLED'
   const isUnpaid = paymentStatus === 'UNPAID'
@@ -45,6 +46,10 @@ export function getOrderActionMetas(order: SalesOrder): OrderActionMeta[] {
       disabled: needsPayment,
       tooltip: needsPayment ? 'Full payment required' : undefined,
     })
+  }
+
+  if (isReady) {
+    metas.push({ action: 'fulfill' })
   }
 
   if (isFulfilled) {
