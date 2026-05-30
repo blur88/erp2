@@ -199,7 +199,7 @@ export interface Customer {
 
 export interface SalesOrder {
   id: string;
-  status: 'DRAFT' | 'FULFILLED' | 'CANCELLED';
+  status: 'DRAFT' | 'READY' | 'FULFILLED' | 'CANCELLED';
   paymentStatus: 'UNPAID' | 'PARTIAL' | 'PAID' | 'OVERPAID';
   orderNumber: string;
   customer?: Customer;

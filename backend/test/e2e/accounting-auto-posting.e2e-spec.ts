@@ -12,7 +12,7 @@ import { Customer } from '../../src/database/entities/customer.entity';
 import { Supplier } from '../../src/database/entities/supplier.entity';
 import { Category } from '../../src/database/entities/category.entity';
 import { Product } from '../../src/database/entities/product.entity';
-import { SalesOrder, SalesOrderPaymentStatus } from '../../src/database/entities/sales-order.entity';
+import { SalesOrder, SalesOrderPaymentStatus, SalesOrderStatus } from '../../src/database/entities/sales-order.entity';
 import { SalesOrderItem } from '../../src/database/entities/sales-order-item.entity';
 import { Payment } from '../../src/database/entities/payment.entity';
 import { PurchaseOrder } from '../../src/database/entities/purchase-order.entity';
@@ -319,6 +319,7 @@ describe('Accounting Auto-Posting Integration (E2E)', () => {
         customerId: testCustomer.id,
         orderDate: new Date('2026-02-15'),
         totalAmount: 1000.00,
+        status: SalesOrderStatus.READY,
         paymentStatus: SalesOrderPaymentStatus.PAID,
       } as any);
       const savedOrder = await salesOrderRepo.save(salesOrder) as unknown as SalesOrder;
@@ -381,6 +382,7 @@ describe('Accounting Auto-Posting Integration (E2E)', () => {
         customerId: testCustomer.id,
         orderDate: new Date('2026-02-15'),
         totalAmount: 1000.00,
+        status: SalesOrderStatus.READY,
         paymentStatus: SalesOrderPaymentStatus.PAID,
       } as any);
       const savedOrder = await salesOrderRepo.save(salesOrder) as unknown as SalesOrder;
@@ -418,6 +420,7 @@ describe('Accounting Auto-Posting Integration (E2E)', () => {
         customerId: testCustomer.id,
         orderDate: new Date('2026-02-15'),
         totalAmount: 1000.00,
+        status: SalesOrderStatus.READY,
         paymentStatus: SalesOrderPaymentStatus.PAID,
       } as any);
       const savedOrder = await salesOrderRepo.save(salesOrder) as unknown as SalesOrder;
@@ -450,6 +453,7 @@ describe('Accounting Auto-Posting Integration (E2E)', () => {
         customerId: testCustomer.id,
         orderDate: new Date('2026-01-15'), // Closed period
         totalAmount: 1000.00,
+        status: SalesOrderStatus.READY,
         paymentStatus: SalesOrderPaymentStatus.PAID,
       } as any);
       const savedOrder = await salesOrderRepo.save(salesOrder) as unknown as SalesOrder;
@@ -1119,6 +1123,7 @@ describe('Accounting Auto-Posting Integration (E2E)', () => {
         customerId: testCustomer.id,
         orderDate: new Date('2026-01-15'),
         totalAmount: 1000.00,
+        status: SalesOrderStatus.READY,
         paymentStatus: SalesOrderPaymentStatus.PAID,
       } as any);
       const savedOrder = await salesOrderRepo.save(salesOrder) as unknown as SalesOrder;
@@ -1151,6 +1156,7 @@ describe('Accounting Auto-Posting Integration (E2E)', () => {
         customerId: testCustomer.id,
         orderDate: new Date('2026-02-15'), // Open period
         totalAmount: 1000.00,
+        status: SalesOrderStatus.READY,
         paymentStatus: SalesOrderPaymentStatus.PAID,
       } as any);
       const savedOrder = await salesOrderRepo.save(salesOrder) as unknown as SalesOrder;
@@ -1190,6 +1196,7 @@ describe('Accounting Auto-Posting Integration (E2E)', () => {
         customerId: testCustomer.id,
         orderDate: new Date('2026-02-15'),
         totalAmount: 1000.00,
+        status: SalesOrderStatus.READY,
         paymentStatus: SalesOrderPaymentStatus.PAID,
       } as any);
       const savedOrder = await salesOrderRepo.save(salesOrder) as unknown as SalesOrder;

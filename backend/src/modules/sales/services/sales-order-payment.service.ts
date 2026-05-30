@@ -245,11 +245,24 @@ export class SalesOrderPaymentService {
     const all = await manager.getRepository(SalesOrderPayment).find({ where: { salesOrderId: order.id } });
     const netPaid = all.reduce((sum, r) => sum + Number(r.amount), 0);
     const newStatus = this.computePaymentStatus(all, order.totalAmount);
-    await manager.getRepository(SalesOrder).update(order.id, {
+    const paidInFull =
+      newStatus === SalesOrderPaymentStatus.PAID || newStatus === SalesOrderPaymentStatus.OVERPAID;
+
+    const update: Partial<SalesOrder> = {
       paymentStatus: newStatus,
       paidAmount: netPaid,
       balanceDue: Number(order.totalAmount) - netPaid,
-    });
+    };
+
+    // Reconcile order status with payment, only within the DRAFT <-> READY band.
+    // FULFILLED / CANCELLED orders are never touched here.
+    if (paidInFull && order.status === SalesOrderStatus.DRAFT) {
+      update.status = SalesOrderStatus.READY;
+    } else if (!paidInFull && order.status === SalesOrderStatus.READY) {
+      update.status = SalesOrderStatus.DRAFT;
+    }
+
+    await manager.getRepository(SalesOrder).update(order.id, update);
     return newStatus;
   }
 }

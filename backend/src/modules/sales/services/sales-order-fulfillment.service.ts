@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { SalesOrder, SalesOrderPaymentStatus, SalesOrderStatus } from '../../../database/entities/sales-order.entity';
+import { SalesOrder, SalesOrderStatus } from '../../../database/entities/sales-order.entity';
 import { StockMovementService } from '../../../modules/inventory/services/stock-movement.service';
 import { AuditLogService } from '../../audit-logs/services';
 import { BaseCostCalculatorService } from '../../inventory/services/base-cost-calculator.service';
@@ -37,8 +37,8 @@ export class SalesOrderFulfillmentService {
     if (order.status === SalesOrderStatus.FULFILLED) {
       throw new ConflictException('Order is already fulfilled');
     }
-    if (order.paymentStatus !== SalesOrderPaymentStatus.PAID) {
-      throw new ConflictException('Cannot fulfill order - payment status must be PAID');
+    if (order.status !== SalesOrderStatus.READY) {
+      throw new ConflictException('Cannot fulfill order - order must be Ready (paid in full)');
     }
 
     for (const item of order.items) {
@@ -59,7 +59,7 @@ export class SalesOrderFulfillmentService {
       entityId: id,
       userId: userId || 'system',
       username,
-      oldValues: { status: SalesOrderStatus.DRAFT },
+      oldValues: { status: SalesOrderStatus.READY },
       newValues: { status: SalesOrderStatus.FULFILLED },
     });
 
@@ -107,7 +107,7 @@ export class SalesOrderFulfillmentService {
       this.logger.error(`Failed to delete stock movements for ${order.orderNumber}: ${error.message}`);
     }
 
-    order.status = SalesOrderStatus.DRAFT;
+    order.status = SalesOrderStatus.READY;
     const saved = await this.salesOrderRepository.save(order);
 
     await this.auditLogService.log('UPDATE', 'SalesOrder', `Unfulfilled sales order: ${order.orderNumber}`, {
@@ -115,7 +115,7 @@ export class SalesOrderFulfillmentService {
       userId: userId || 'system',
       username,
       oldValues: { status: SalesOrderStatus.FULFILLED },
-      newValues: { status: SalesOrderStatus.DRAFT },
+      newValues: { status: SalesOrderStatus.READY },
     });
 
     try {

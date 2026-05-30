@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { SalesOrder, SalesOrderPaymentStatus, SalesOrderStatus } from '../../../database/entities/sales-order.entity';
 import { Product } from '../../../database/entities/product.entity';
 import { Customer } from '../../../database/entities/customer.entity';
@@ -112,7 +112,7 @@ describe('SalesOrderQueryService', () => {
       return { qb, andWhereCalls };
     }
 
-    it('translates status=READY into DRAFT + PAID conditions', async () => {
+    it('applies persisted status=READY directly', async () => {
       const { qb, andWhereCalls } = buildQbMock();
       salesOrderRepository.createQueryBuilder.mockReturnValue(qb);
 
@@ -120,11 +120,11 @@ describe('SalesOrderQueryService', () => {
 
       const statusClause = andWhereCalls.find((c) => c.clause === 'order.status = :status');
       const paymentClause = andWhereCalls.find((c) => c.clause === 'order.paymentStatus = :ps');
-      expect(statusClause?.params.status).toBe('DRAFT');
-      expect(paymentClause?.params.ps).toBe('PAID');
+      expect(statusClause?.params.status).toBe('READY');
+      expect(paymentClause).toBeUndefined();
     });
 
-    it('lets READY win over a conflicting paymentStatus param', async () => {
+    it('applies a paymentStatus param independently of READY', async () => {
       const { qb, andWhereCalls } = buildQbMock();
       salesOrderRepository.createQueryBuilder.mockReturnValue(qb);
 
@@ -132,10 +132,10 @@ describe('SalesOrderQueryService', () => {
 
       const paymentClauses = andWhereCalls.filter((c) => c.clause.startsWith('order.paymentStatus'));
       expect(paymentClauses).toHaveLength(1);
-      expect(paymentClauses[0].params.ps).toBe('PAID');
+      expect(paymentClauses[0].params.paymentStatus).toBe('UNPAID');
     });
 
-    it('excludes PAID orders when filtering by DRAFT', async () => {
+    it('does not exclude PAID orders when filtering by DRAFT', async () => {
       const { qb, andWhereCalls } = buildQbMock();
       salesOrderRepository.createQueryBuilder.mockReturnValue(qb);
 
@@ -147,7 +147,7 @@ describe('SalesOrderQueryService', () => {
       const excludeClause = andWhereCalls.find(
         (c) => c.clause === 'order.paymentStatus != :excludePs',
       );
-      expect(excludeClause?.params.excludePs).toBe(SalesOrderPaymentStatus.PAID);
+      expect(excludeClause).toBeUndefined();
     });
 
     it('does not add the PAID exclusion for a non-DRAFT status', async () => {
@@ -163,6 +163,75 @@ describe('SalesOrderQueryService', () => {
         (c) => c.clause === 'order.paymentStatus != :excludePs',
       );
       expect(excludeClause).toBeUndefined();
+    });
+
+    describe('independent status + payment filtering', () => {
+      it('status=READY applies status=READY only', async () => {
+        const { qb, andWhereCalls } = buildQbMock();
+        salesOrderRepository.createQueryBuilder.mockReturnValue(qb);
+
+        await service.findAll({ status: 'READY' } as any);
+
+        expect(andWhereCalls).toContainEqual({
+          clause: 'order.status = :status',
+          params: { status: 'READY' },
+        });
+        expect(andWhereCalls).not.toContainEqual({
+          clause: 'order.paymentStatus = :ps',
+          params: { ps: SalesOrderPaymentStatus.PAID },
+        });
+      });
+
+      it('status=READY and paymentStatus=UNPAID applies both filters', async () => {
+        const { qb, andWhereCalls } = buildQbMock();
+        salesOrderRepository.createQueryBuilder.mockReturnValue(qb);
+
+        await service.findAll({ status: 'READY', paymentStatus: SalesOrderPaymentStatus.UNPAID } as any);
+
+        expect(andWhereCalls).toContainEqual({
+          clause: 'order.status = :status',
+          params: { status: 'READY' },
+        });
+        expect(andWhereCalls).toContainEqual({
+          clause: 'order.paymentStatus = :paymentStatus',
+          params: { paymentStatus: 'UNPAID' },
+        });
+      });
+
+      it('status=DRAFT no longer excludes PAID orders', async () => {
+        const { qb, andWhereCalls } = buildQbMock();
+        salesOrderRepository.createQueryBuilder.mockReturnValue(qb);
+
+        await service.findAll({ status: SalesOrderStatus.DRAFT } as any);
+
+        expect(andWhereCalls).not.toContainEqual({
+          clause: 'order.paymentStatus != :excludePs',
+          params: { excludePs: SalesOrderPaymentStatus.PAID },
+        });
+      });
+    });
+  });
+
+  describe('getDashboardStats', () => {
+    it('counts unfulfilled orders as DRAFT + READY (not DRAFT only)', async () => {
+      // Sum queries use a chainable query builder ending in getRawOne().
+      const sumQb = {
+        select: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        getRawOne: jest.fn().mockResolvedValue({ total: '0' }),
+      };
+      salesOrderRepository.createQueryBuilder.mockReturnValue(sumQb as any);
+      salesOrderRepository.count.mockResolvedValue(0);
+
+      await service.getDashboardStats();
+
+      expect(salesOrderRepository.count).toHaveBeenCalledWith({
+        where: { status: In([SalesOrderStatus.DRAFT, SalesOrderStatus.READY]) },
+      });
+      // Guard against regression to DRAFT-only.
+      expect(salesOrderRepository.count).not.toHaveBeenCalledWith({
+        where: { status: SalesOrderStatus.DRAFT },
+      });
     });
   });
 });
