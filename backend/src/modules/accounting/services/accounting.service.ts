@@ -104,57 +104,85 @@ export class AccountingService {
     );
     const revenueAmount = itemsSubtotal + Number(salesOrder.shippingAmount ?? 0);
 
-    // Build journal entry lines
-    const lines: CreateJournalEntryLineDto[] = [
-      // DR Cost of Goods Sold
-      {
-        accountId: mappings[MappingType.SALES_COGS],
-        debitAmount: cogsAmount,
-        creditAmount: 0,
-        memo: 'Cost of goods sold',
-      },
-      // CR Inventory Asset
-      {
-        accountId: mappings[MappingType.SALES_INVENTORY],
-        debitAmount: 0,
-        creditAmount: cogsAmount,
-        memo: 'Inventory reduction',
-      },
-      // DR Accounts Receivable
-      {
-        accountId: mappings[MappingType.SALES_AR],
-        debitAmount: revenueAmount,
-        creditAmount: 0,
-        memo: 'Amount receivable from customer',
-      },
-      // CR Sales Revenue
-      {
-        accountId: mappings[MappingType.SALES_REVENUE],
-        debitAmount: 0,
-        creditAmount: revenueAmount,
-        memo: 'Sales revenue recognition',
-      },
-    ];
+    // Build BOTH entry DTOs up front so all business-rule validation (mappings,
+    // period, amounts) happens before anything is persisted. Post COGS first so
+    // that if the revenue post fails after COGS posted, a re-run hits the
+    // duplicate guard (which sees the COGS entry) and never double-posts.
+    const baseDescription = `Sales Order ${salesOrder.orderNumber} - ${salesOrder.customer.name}`;
 
-    // Create journal entry DTO
-    const entryDto: CreateJournalEntryDto = {
+    const cogsEntryDto: CreateJournalEntryDto | null =
+      cogsAmount > 0
+        ? {
+            entryDate: new Date(salesOrder.fulfilledDate),
+            description: `${baseDescription} (Cost of Goods Sold)`,
+            fiscalPeriodId: periodValidation.period.id,
+            sourceType: 'sales_order',
+            sourceId: salesOrder.id,
+            lines: [
+              {
+                accountId: mappings[MappingType.SALES_COGS],
+                debitAmount: cogsAmount,
+                creditAmount: 0,
+                memo: 'Cost of goods sold',
+              },
+              {
+                accountId: mappings[MappingType.SALES_INVENTORY],
+                debitAmount: 0,
+                creditAmount: cogsAmount,
+                memo: 'Inventory reduction',
+              },
+            ],
+          }
+        : null;
+
+    const revenueEntryDto: CreateJournalEntryDto = {
       entryDate: new Date(salesOrder.fulfilledDate),
-      description: `Sales Order ${salesOrder.orderNumber} - ${salesOrder.customer.name}`,
+      description: `${baseDescription} (Revenue)`,
       fiscalPeriodId: periodValidation.period.id,
       sourceType: 'sales_order',
       sourceId: salesOrder.id,
-      lines,
+      lines: [
+        {
+          accountId: mappings[MappingType.SALES_AR],
+          debitAmount: revenueAmount,
+          creditAmount: 0,
+          memo: 'Amount receivable from customer',
+        },
+        {
+          accountId: mappings[MappingType.SALES_REVENUE],
+          debitAmount: 0,
+          creditAmount: revenueAmount,
+          memo: 'Sales revenue recognition',
+        },
+      ],
     };
 
-    // Create and post the entry
-    const entry = await this.journalEntryService.create(entryDto, userId);
-    const postedEntry = await this.journalEntryService.postEntry(entry.id, userId);
+    // Post COGS entry first (when there is a cost to record)
+    if (cogsEntryDto) {
+      const cogsEntry = await this.journalEntryService.create(cogsEntryDto, userId);
+      await this.journalEntryService.postEntry(cogsEntry.id, userId);
+      await this.auditLogService.log(
+        'AUTO_POST',
+        'JournalEntry',
+        `Auto-posted sales order COGS journal entry for order: ${salesOrder.orderNumber}`,
+        {
+          entityId: cogsEntry.id,
+          userId: userId ?? 'system',
+          username,
+          metadata: { sourceType: 'sales_order', sourceId: salesOrder.id },
+        },
+      );
+    }
+
+    // Post revenue entry
+    const revenueEntry = await this.journalEntryService.create(revenueEntryDto, userId);
+    const postedRevenueEntry = await this.journalEntryService.postEntry(revenueEntry.id, userId);
     await this.auditLogService.log(
       'AUTO_POST',
       'JournalEntry',
-      `Auto-posted sales order journal entry for order: ${salesOrder.orderNumber}`,
+      `Auto-posted sales order revenue journal entry for order: ${salesOrder.orderNumber}`,
       {
-        entityId: entry.id,
+        entityId: revenueEntry.id,
         userId: userId ?? 'system',
         username,
         metadata: { sourceType: 'sales_order', sourceId: salesOrder.id },
@@ -162,9 +190,10 @@ export class AccountingService {
     );
 
     this.logger.log(
-      `Sales order entry posted successfully: ${postedEntry.referenceNumber}`,
+      `Sales order entries posted successfully for order: ${salesOrder.orderNumber}`,
     );
-    return postedEntry as any;
+
+    return postedRevenueEntry as any;
   }
 
   /**

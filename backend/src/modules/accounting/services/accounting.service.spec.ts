@@ -142,55 +142,78 @@ describe('AccountingService', () => {
       journalEntryService.postEntry.mockResolvedValue(mockJournalEntry as any);
     });
 
-    it('should create journal entry with correct lines', async () => {
+    it('should create two separate entries: COGS first, then Revenue', async () => {
+      journalEntryService.create
+        .mockResolvedValueOnce({ ...mockJournalEntry, id: 'cogs-entry' } as any)
+        .mockResolvedValueOnce({ ...mockJournalEntry, id: 'revenue-entry' } as any);
+      journalEntryService.postEntry
+        .mockResolvedValueOnce({ ...mockJournalEntry, id: 'cogs-entry' } as any)
+        .mockResolvedValueOnce({ ...mockJournalEntry, id: 'revenue-entry' } as any);
+
       const result = await service.postSalesOrderEntry(mockSalesOrder, 'user-123');
 
-      expect(journalEntryService.create).toHaveBeenCalledWith(
+      // First create call = COGS entry
+      expect(journalEntryService.create).toHaveBeenNthCalledWith(
+        1,
         expect.objectContaining({
-          entryDate: mockSalesOrder.fulfilledDate,
-          description: `Sales Order SO-001 - Test Customer`,
+          description: 'Sales Order SO-001 - Test Customer (Cost of Goods Sold)',
           sourceType: 'sales_order',
           sourceId: 'so-123',
           fiscalPeriodId: 'period-123',
-          lines: expect.arrayContaining([
-            // COGS line
+          lines: [
             expect.objectContaining({
               accountId: 'cogs-account-id',
-              debitAmount: 1000, // (10 * 60) + (5 * 80)
+              debitAmount: 1000,
               creditAmount: 0,
             }),
-            // Inventory line
             expect.objectContaining({
               accountId: 'inventory-account-id',
               debitAmount: 0,
               creditAmount: 1000,
             }),
-            // AR line
+          ],
+        }),
+        'user-123',
+      );
+
+      // Second create call = Revenue entry
+      expect(journalEntryService.create).toHaveBeenNthCalledWith(
+        2,
+        expect.objectContaining({
+          description: 'Sales Order SO-001 - Test Customer (Revenue)',
+          sourceType: 'sales_order',
+          sourceId: 'so-123',
+          fiscalPeriodId: 'period-123',
+          lines: [
             expect.objectContaining({
               accountId: 'ar-account-id',
               debitAmount: 1500,
               creditAmount: 0,
             }),
-            // Revenue line
             expect.objectContaining({
               accountId: 'revenue-account-id',
               debitAmount: 0,
               creditAmount: 1500,
             }),
-          ]),
+          ],
         }),
         'user-123',
       );
 
-      expect(journalEntryService.postEntry).toHaveBeenCalledWith('entry-123', 'user-123');
-      expect(result).toEqual(mockJournalEntry);
+      // Both entries posted
+      expect(journalEntryService.postEntry).toHaveBeenCalledWith('cogs-entry', 'user-123');
+      expect(journalEntryService.postEntry).toHaveBeenCalledWith('revenue-entry', 'user-123');
+
+      // Returns the revenue entry
+      expect(result).toEqual(expect.objectContaining({ id: 'revenue-entry' }));
     });
 
     it('should calculate COGS correctly', async () => {
       await service.postSalesOrderEntry(mockSalesOrder, 'user-123');
 
-      const createCall = journalEntryService.create.mock.calls[0][0];
-      const cogsLine = createCall.lines.find((l: any) => l.accountId === 'cogs-account-id');
+      // COGS entry is the first create call
+      const cogsCreateCall = journalEntryService.create.mock.calls[0][0];
+      const cogsLine = cogsCreateCall.lines.find((l: any) => l.accountId === 'cogs-account-id');
 
       expect(cogsLine.debitAmount).toBe(1000); // (10 * 60) + (5 * 80) = 600 + 400
     });
@@ -216,9 +239,12 @@ describe('AccountingService', () => {
 
       await service.postSalesOrderEntry(staleOrder, 'user-123');
 
-      const createCall = journalEntryService.create.mock.calls[0][0];
-      const arLine = createCall.lines.find((l: any) => l.accountId === 'ar-account-id');
-      const revenueLine = createCall.lines.find((l: any) => l.accountId === 'revenue-account-id');
+      // Revenue entry is the second create call (cogs = 20 > 0, so COGS entry is first)
+      const revenueCreateCall = journalEntryService.create.mock.calls[1][0];
+      const arLine = revenueCreateCall.lines.find((l: any) => l.accountId === 'ar-account-id');
+      const revenueLine = revenueCreateCall.lines.find(
+        (l: any) => l.accountId === 'revenue-account-id',
+      );
 
       expect(arLine.debitAmount).toBe(30);
       expect(revenueLine.creditAmount).toBe(30);
@@ -263,13 +289,65 @@ describe('AccountingService', () => {
 
       expect(accountMappingService.getMappings).toHaveBeenCalled();
 
-      const createCall = journalEntryService.create.mock.calls[0][0];
-      const accountIds = createCall.lines.map((l: any) => l.accountId);
+      const allLines = journalEntryService.create.mock.calls.flatMap(
+        (call: any) => call[0].lines,
+      );
+      const accountIds = allLines.map((l: any) => l.accountId);
 
       expect(accountIds).toContain('cogs-account-id');
       expect(accountIds).toContain('inventory-account-id');
       expect(accountIds).toContain('ar-account-id');
       expect(accountIds).toContain('revenue-account-id');
+    });
+
+    it('creates only the Revenue entry when COGS is zero (service order)', async () => {
+      const serviceOrder = {
+        id: 'so-service',
+        orderNumber: 'SO-SVC',
+        totalAmount: 200,
+        shippingAmount: 0,
+        fulfilledDate: new Date('2026-01-15'),
+        customer: { id: 'customer-123', name: 'Test Customer' },
+        items: [
+          {
+            id: 'svc-1',
+            quantity: 1,
+            unitPrice: 200,
+            totalAmount: 200,
+            product: { id: 'svc-product', name: 'Consulting', baseCost: 0 },
+          },
+        ],
+      } as any;
+
+      await service.postSalesOrderEntry(serviceOrder, 'user-123');
+
+      // Exactly one entry created: the Revenue entry; no COGS entry
+      expect(journalEntryService.create).toHaveBeenCalledTimes(1);
+      const createCall = journalEntryService.create.mock.calls[0][0];
+      expect(createCall.description).toBe('Sales Order SO-SVC - Test Customer (Revenue)');
+      const accountIds = createCall.lines.map((l: any) => l.accountId);
+      expect(accountIds).toContain('ar-account-id');
+      expect(accountIds).toContain('revenue-account-id');
+      expect(accountIds).not.toContain('cogs-account-id');
+    });
+
+    it('posts COGS before Revenue and does not create Revenue if COGS post fails', async () => {
+      journalEntryService.create.mockResolvedValue({
+        ...mockJournalEntry,
+        id: 'cogs-entry',
+      } as any);
+      journalEntryService.postEntry.mockRejectedValueOnce(new Error('infra failure'));
+
+      await expect(service.postSalesOrderEntry(mockSalesOrder, 'user-123')).rejects.toThrow(
+        'infra failure',
+      );
+
+      // COGS entry was created; Revenue entry was never created
+      expect(journalEntryService.create).toHaveBeenCalledTimes(1);
+      const onlyCreateCall = journalEntryService.create.mock.calls[0][0];
+      expect(onlyCreateCall.description).toBe(
+        'Sales Order SO-001 - Test Customer (Cost of Goods Sold)',
+      );
     });
 
     it('should validate period is open', async () => {

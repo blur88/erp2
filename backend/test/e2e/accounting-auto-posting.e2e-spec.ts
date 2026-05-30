@@ -343,35 +343,46 @@ describe('Accounting Auto-Posting Integration (E2E)', () => {
       expect(fulfilledOrder.status).toBe('FULFILLED');
       expect(fulfilledOrder.updatedAt).toBeTruthy();
 
-      // Verify journal entry was created
+      // Verify two separate journal entries were created: COGS and Revenue
       const journalEntries = await journalEntryRepo.find({
         where: { sourceType: 'sales_order', sourceId: savedOrder.id },
         relations: { lines: true },
       });
 
-      expect(journalEntries).toHaveLength(1);
-      const entry = journalEntries[0];
+      expect(journalEntries).toHaveLength(2);
+      expect(journalEntries.every(e => e.status === JournalEntryStatus.POSTED)).toBe(true);
 
-      expect(entry.status).toBe(JournalEntryStatus.POSTED);
-      expect(entry.lines).toHaveLength(4);
+      // Each entry has exactly 2 lines
+      const allLines = journalEntries.flatMap(e => e.lines);
+      expect(allLines).toHaveLength(4);
 
-      // Verify COGS debit line
-      const cogsLine = entry.lines.find(l => l.accountId === accounts['5000'].id && Number(l.debitAmount) > 0);
+      // COGS entry: DR Cost of Goods Sold / CR Inventory
+      const cogsEntry = journalEntries.find(e =>
+        e.description.includes('(Cost of Goods Sold)'),
+      );
+      expect(cogsEntry).toBeDefined();
+      expect(cogsEntry.lines).toHaveLength(2);
+
+      const cogsLine = cogsEntry.lines.find(l => l.accountId === accounts['5000'].id && Number(l.debitAmount) > 0);
       expect(cogsLine).toBeDefined();
       expect(Number(cogsLine.debitAmount)).toBe(500.00); // 10 * 50 baseCost
 
-      // Verify Inventory credit line
-      const inventoryLine = entry.lines.find(l => l.accountId === accounts['1300'].id && Number(l.creditAmount) > 0);
+      const inventoryLine = cogsEntry.lines.find(l => l.accountId === accounts['1300'].id && Number(l.creditAmount) > 0);
       expect(inventoryLine).toBeDefined();
       expect(Number(inventoryLine.creditAmount)).toBe(500.00);
 
-      // Verify AR debit line
-      const arLine = entry.lines.find(l => l.accountId === accounts['1200'].id && Number(l.debitAmount) > 0);
+      // Revenue entry: DR Accounts Receivable / CR Sales Revenue
+      const revenueEntry = journalEntries.find(e =>
+        e.description.includes('(Revenue)'),
+      );
+      expect(revenueEntry).toBeDefined();
+      expect(revenueEntry.lines).toHaveLength(2);
+
+      const arLine = revenueEntry.lines.find(l => l.accountId === accounts['1200'].id && Number(l.debitAmount) > 0);
       expect(arLine).toBeDefined();
       expect(Number(arLine.debitAmount)).toBe(1000.00);
 
-      // Verify Revenue credit line
-      const revenueLine = entry.lines.find(l => l.accountId === accounts['4000'].id && Number(l.creditAmount) > 0);
+      const revenueLine = revenueEntry.lines.find(l => l.accountId === accounts['4000'].id && Number(l.creditAmount) > 0);
       expect(revenueLine).toBeDefined();
       expect(Number(revenueLine.creditAmount)).toBe(1000.00);
     });
@@ -405,8 +416,9 @@ describe('Accounting Auto-Posting Integration (E2E)', () => {
         relations: { lines: true },
       });
 
-      const entry = journalEntries[0];
-      const cogsLine = entry.lines.find(l => l.accountId === accounts['5000'].id && Number(l.debitAmount) > 0);
+      const cogsEntry = journalEntries.find(e => e.description.includes('(Cost of Goods Sold)'));
+      expect(cogsEntry).toBeDefined();
+      const cogsLine = cogsEntry.lines.find(l => l.accountId === accounts['5000'].id && Number(l.debitAmount) > 0);
 
       expect(Number(cogsLine.debitAmount)).toBe(500.00); // 10 qty * 50 baseCost
     });
@@ -477,7 +489,8 @@ describe('Accounting Auto-Posting Integration (E2E)', () => {
       const journalEntries = await journalEntryRepo.find({
         where: { sourceType: 'sales_order', sourceId: savedOrder.id },
       });
-      expect(journalEntries).toHaveLength(1);
+      // Two entries: COGS + Revenue
+      expect(journalEntries).toHaveLength(2);
     });
   });
 
@@ -1147,7 +1160,8 @@ describe('Accounting Auto-Posting Integration (E2E)', () => {
       const journalEntries = await journalEntryRepo.find({
         where: { sourceType: 'sales_order', sourceId: savedOrder.id },
       });
-      expect(journalEntries).toHaveLength(1);
+      // Two entries: COGS + Revenue
+      expect(journalEntries).toHaveLength(2);
     });
 
     it('should allow auto-posting to open period', async () => {
@@ -1174,12 +1188,12 @@ describe('Accounting Auto-Posting Integration (E2E)', () => {
 
       await salesOrderService.fulfillOrder(savedOrder.id);
 
-      // Journal entry should be created successfully
+      // Journal entries should be created successfully (COGS + Revenue)
       const journalEntries = await journalEntryRepo.find({
         where: { sourceType: 'sales_order', sourceId: savedOrder.id },
       });
-      expect(journalEntries).toHaveLength(1);
-      expect(journalEntries[0].status).toBe(JournalEntryStatus.POSTED);
+      expect(journalEntries).toHaveLength(2);
+      expect(journalEntries.every(e => e.status === JournalEntryStatus.POSTED)).toBe(true);
     });
   });
 
