@@ -3,7 +3,7 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { SalesOrderService } from './sales-order.service';
 import { SalesOrder, SalesOrderPaymentStatus, SalesOrderStatus } from '../../../database/entities/sales-order.entity';
-import { SalesOrderItem } from '../../../database/entities/sales-order-item.entity';
+import { SalesOrderItem, DiscountType } from '../../../database/entities/sales-order-item.entity';
 import { Customer } from '../../../database/entities/customer.entity';
 import { Product } from '../../../database/entities/product.entity';
 import { Invoice } from '../../../database/entities/invoice.entity';
@@ -183,6 +183,71 @@ describe('SalesOrderService', () => {
         totalAmount: 1100,
         balanceDue: 700,
       }));
+    });
+  });
+
+  describe('duplicateOrder', () => {
+    it('preserves a fixed-amount (AMOUNT) line discount on the duplicate', async () => {
+      const original = {
+        id: 'order-1',
+        customerId: 'customer-1',
+        notes: 'orig notes',
+        shippingAmount: 10,
+        items: [
+          {
+            productId: 'product-1',
+            quantity: 2,
+            unitPrice: 100,
+            discountType: DiscountType.AMOUNT,
+            discountPercent: 0,
+            discountAmount: 25,
+            notes: 'line notes',
+          },
+        ],
+      } as any;
+      salesOrderRepository.findOne = jest.fn().mockResolvedValue(original);
+      const createSpy = jest
+        .spyOn(service, 'create')
+        .mockResolvedValue({ id: 'order-2' } as any);
+
+      await service.duplicateOrder('order-1', 'user-1');
+
+      const passedDto = createSpy.mock.calls[0][0];
+      expect(passedDto.items[0]).toMatchObject({
+        productId: 'product-1',
+        discountType: DiscountType.AMOUNT,
+        discountPercent: 0,
+        discountAmount: 25,
+      });
+    });
+
+    it('preserves a percentage line discount on the duplicate', async () => {
+      const original = {
+        id: 'order-1',
+        customerId: 'customer-1',
+        shippingAmount: 0,
+        items: [
+          {
+            productId: 'product-1',
+            quantity: 1,
+            unitPrice: 100,
+            discountType: DiscountType.PERCENTAGE,
+            discountPercent: 15,
+            discountAmount: 15,
+          },
+        ],
+      } as any;
+      salesOrderRepository.findOne = jest.fn().mockResolvedValue(original);
+      const createSpy = jest
+        .spyOn(service, 'create')
+        .mockResolvedValue({ id: 'order-2' } as any);
+
+      await service.duplicateOrder('order-1', 'user-1');
+
+      expect(createSpy.mock.calls[0][0].items[0]).toMatchObject({
+        discountType: DiscountType.PERCENTAGE,
+        discountPercent: 15,
+      });
     });
   });
 });
