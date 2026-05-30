@@ -331,6 +331,25 @@ describe('AccountingService', () => {
       expect(accountIds).not.toContain('cogs-account-id');
     });
 
+    it('posts COGS before Revenue and does not create Revenue if COGS post fails', async () => {
+      journalEntryService.create.mockResolvedValue({
+        ...mockJournalEntry,
+        id: 'cogs-entry',
+      } as any);
+      journalEntryService.postEntry.mockRejectedValueOnce(new Error('infra failure'));
+
+      await expect(service.postSalesOrderEntry(mockSalesOrder, 'user-123')).rejects.toThrow(
+        'infra failure',
+      );
+
+      // COGS entry was created; Revenue entry was never created
+      expect(journalEntryService.create).toHaveBeenCalledTimes(1);
+      const onlyCreateCall = journalEntryService.create.mock.calls[0][0];
+      expect(onlyCreateCall.description).toBe(
+        'Sales Order SO-001 - Test Customer (Cost of Goods Sold)',
+      );
+    });
+
     it('should validate period is open', async () => {
       await service.postSalesOrderEntry(mockSalesOrder, 'user-123');
 
