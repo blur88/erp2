@@ -157,11 +157,10 @@ const OrdersPage: React.FC = () => {
     try {
       const newOrder = await duplicateOrder(order.id).unwrap()
       showSuccess(`Order duplicated as ${newOrder.orderNumber}`)
-      navigate(`/sales/orders/${newOrder.orderNumber}/edit`)
     } catch (e: any) {
       showError(e?.data?.message || `Failed to duplicate ${order.orderNumber}`)
     }
-  }, [duplicateOrder, navigate, showError, showSuccess])
+  }, [duplicateOrder, showError, showSuccess])
 
   const handleRefund = useCallback((order: SalesOrder) => {
     setRefundOrder(order)

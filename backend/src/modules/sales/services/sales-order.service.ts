@@ -596,7 +596,12 @@ export class SalesOrderService extends BaseCrudService<
         productId: item.productId,
         quantity: item.quantity,
         unitPrice: Number(item.unitPrice),
+        // Copy the full discount shape: a fixed-amount (AMOUNT) discount has
+        // discountPercent = 0, so without discountType + discountAmount the
+        // duplicate would silently drop the discount.
+        discountType: item.discountType,
         discountPercent: Number(item.discountPercent),
+        discountAmount: Number(item.discountAmount),
         notes: item.notes,
       })),
     };

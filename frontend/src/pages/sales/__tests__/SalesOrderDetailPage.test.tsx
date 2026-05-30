@@ -216,7 +216,7 @@ describe('SalesOrderDetailPage', () => {
     expect(screen.getByRole('button', { name: /duplicate/i })).toBeInTheDocument()
   })
 
-  it('Duplicate button calls mutation and navigates to new order edit page', async () => {
+  it('Duplicate button calls mutation and stays on the current order (no edit-page navigation)', async () => {
     mockDuplicate.mockReturnValue({ unwrap: () => Promise.resolve({ orderNumber: 'SO-26-002' }) })
     mockGetSalesOrderByNumber.mockReturnValue({
       data: makeOrder({ status: 'DRAFT', paymentStatus: 'UNPAID' }),
@@ -224,6 +224,7 @@ describe('SalesOrderDetailPage', () => {
     })
     renderPage()
     await userEvent.click(screen.getByRole('button', { name: /duplicate/i }))
-    await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/sales/orders/SO-26-002/edit'))
+    await waitFor(() => expect(mockDuplicate).toHaveBeenCalled())
+    expect(mockNavigate).not.toHaveBeenCalledWith('/sales/orders/SO-26-002/edit')
   })
 })

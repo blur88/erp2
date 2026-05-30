@@ -155,7 +155,6 @@ export default function SalesOrderDetailPage() {
     try {
       const newOrder = await duplicateOrder(order.id).unwrap()
       showSuccess(`Order duplicated as ${newOrder.orderNumber}`)
-      navigate(`/sales/orders/${newOrder.orderNumber}/edit`)
     } catch (error) {
       showError(getErrorMessage(error, 'Failed to duplicate order'))
     }
