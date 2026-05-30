@@ -142,48 +142,67 @@ describe('AccountingService', () => {
       journalEntryService.postEntry.mockResolvedValue(mockJournalEntry as any);
     });
 
-    it('should create journal entry with correct lines', async () => {
+    it('should create two separate entries: COGS first, then Revenue', async () => {
+      journalEntryService.create
+        .mockResolvedValueOnce({ ...mockJournalEntry, id: 'cogs-entry' } as any)
+        .mockResolvedValueOnce({ ...mockJournalEntry, id: 'revenue-entry' } as any);
+
       const result = await service.postSalesOrderEntry(mockSalesOrder, 'user-123');
 
-      expect(journalEntryService.create).toHaveBeenCalledWith(
+      // First create call = COGS entry
+      expect(journalEntryService.create).toHaveBeenNthCalledWith(
+        1,
         expect.objectContaining({
-          entryDate: mockSalesOrder.fulfilledDate,
-          description: `Sales Order SO-001 - Test Customer`,
+          description: 'Sales Order SO-001 - Test Customer (Cost of Goods Sold)',
           sourceType: 'sales_order',
           sourceId: 'so-123',
           fiscalPeriodId: 'period-123',
-          lines: expect.arrayContaining([
-            // COGS line
+          lines: [
             expect.objectContaining({
               accountId: 'cogs-account-id',
-              debitAmount: 1000, // (10 * 60) + (5 * 80)
+              debitAmount: 1000,
               creditAmount: 0,
             }),
-            // Inventory line
             expect.objectContaining({
               accountId: 'inventory-account-id',
               debitAmount: 0,
               creditAmount: 1000,
             }),
-            // AR line
+          ],
+        }),
+        'user-123',
+      );
+
+      // Second create call = Revenue entry
+      expect(journalEntryService.create).toHaveBeenNthCalledWith(
+        2,
+        expect.objectContaining({
+          description: 'Sales Order SO-001 - Test Customer (Revenue)',
+          sourceType: 'sales_order',
+          sourceId: 'so-123',
+          fiscalPeriodId: 'period-123',
+          lines: [
             expect.objectContaining({
               accountId: 'ar-account-id',
               debitAmount: 1500,
               creditAmount: 0,
             }),
-            // Revenue line
             expect.objectContaining({
               accountId: 'revenue-account-id',
               debitAmount: 0,
               creditAmount: 1500,
             }),
-          ]),
+          ],
         }),
         'user-123',
       );
 
-      expect(journalEntryService.postEntry).toHaveBeenCalledWith('entry-123', 'user-123');
-      expect(result).toEqual(mockJournalEntry);
+      // Both entries posted
+      expect(journalEntryService.postEntry).toHaveBeenCalledWith('cogs-entry', 'user-123');
+      expect(journalEntryService.postEntry).toHaveBeenCalledWith('revenue-entry', 'user-123');
+
+      // Returns the revenue entry
+      expect(result).toEqual(expect.objectContaining({ id: 'revenue-entry' }));
     });
 
     it('should calculate COGS correctly', async () => {
