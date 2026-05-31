@@ -37,19 +37,36 @@ describe('SalesOrderLifecycleService', () => {
   });
 
   describe('assertEditAllowed', () => {
+    it('passes when DRAFT and UNPAID', async () => {
+      orderRepo.findOne.mockResolvedValue(mockOrder());
+      await expect(service.assertEditAllowed('order-1')).resolves.not.toThrow();
+    });
+
+    it('passes when DRAFT and PARTIAL', async () => {
+      orderRepo.findOne.mockResolvedValue(mockOrder({ paymentStatus: SalesOrderPaymentStatus.PARTIAL }));
+      await expect(service.assertEditAllowed('order-1')).resolves.not.toThrow();
+    });
+
+    it('passes when DRAFT and PAID', async () => {
+      orderRepo.findOne.mockResolvedValue(mockOrder({ paymentStatus: SalesOrderPaymentStatus.PAID }));
+      await expect(service.assertEditAllowed('order-1')).resolves.not.toThrow();
+    });
+
+    it('passes when READY (persisted fully-paid order)', async () => {
+      orderRepo.findOne.mockResolvedValue(
+        mockOrder({ status: SalesOrderStatus.READY, paymentStatus: SalesOrderPaymentStatus.PAID }),
+      );
+      await expect(service.assertEditAllowed('order-1')).resolves.not.toThrow();
+    });
+
     it('throws when status is FULFILLED', async () => {
       orderRepo.findOne.mockResolvedValue(mockOrder({ status: SalesOrderStatus.FULFILLED }));
       await expect(service.assertEditAllowed('order-1')).rejects.toThrow(BadRequestException);
     });
 
-    it('throws when DRAFT but paymentStatus is PARTIAL', async () => {
-      orderRepo.findOne.mockResolvedValue(mockOrder({ paymentStatus: SalesOrderPaymentStatus.PARTIAL }));
+    it('throws when status is CANCELLED', async () => {
+      orderRepo.findOne.mockResolvedValue(mockOrder({ status: SalesOrderStatus.CANCELLED }));
       await expect(service.assertEditAllowed('order-1')).rejects.toThrow(BadRequestException);
-    });
-
-    it('passes when DRAFT and UNPAID', async () => {
-      orderRepo.findOne.mockResolvedValue(mockOrder());
-      await expect(service.assertEditAllowed('order-1')).resolves.not.toThrow();
     });
   });
 

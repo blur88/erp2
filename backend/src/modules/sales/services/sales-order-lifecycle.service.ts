@@ -21,16 +21,15 @@ export class SalesOrderLifecycleService {
     const order = await this.salesOrderRepository.findOne({ where: { id } });
     if (!order) throw new NotFoundException('Sales order not found');
 
-    if (order.status !== SalesOrderStatus.DRAFT) {
+    // Editable while the order is still in the active band (DRAFT or fully-paid READY),
+    // regardless of payment. FULFILLED / CANCELLED are locked.
+    const editable =
+      order.status === SalesOrderStatus.DRAFT || order.status === SalesOrderStatus.READY;
+    if (!editable) {
       throw new BadRequestException(
         `Cannot edit sales order in ${order.status} status. ${
           order.status === SalesOrderStatus.FULFILLED ? 'Unfulfill the order first.' : 'Uncancel the order first.'
         }`,
-      );
-    }
-    if (order.paymentStatus !== SalesOrderPaymentStatus.UNPAID) {
-      throw new BadRequestException(
-        'Cannot edit sales order with recorded payments. Refund all payments first.',
       );
     }
   }
