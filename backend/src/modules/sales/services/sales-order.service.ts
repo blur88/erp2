@@ -474,31 +474,15 @@ export class SalesOrderService extends BaseCrudService<
     const updateData: any = {};
     let orderItems: any[] = [];
     let auditOldValues: any = {};
+    let auditNewValues: any = null;
 
-    // When the DTO supplies a customer, it is authoritative and independent of the
-    // order's mutable state, so resolve its pricing before the lock. When omitted, the
-    // pricing customer is the order's CURRENT customer - a mutable field - so it must be
-    // read from the locked row inside the transaction (see below).
-    let customerForPricing: Customer | null = null;
+    // customerId (if supplied) is recorded now; the customer is resolved and items are
+    // priced INSIDE the locked transaction so all pricing reads are lock-consistent.
     if (customerId) {
-      customerForPricing = await this.customerRepository.findOne({
-        where: { id: customerId },
-        relations: { priceList: true },
-      });
-      if (!customerForPricing) {
-        throw new NotFoundException('Customer not found');
-      }
       updateData.customerId = customerId;
     }
-
     if (notes !== undefined) {
       updateData.notes = notes;
-    }
-
-    // Price incoming items up front only when the customer was provided. The
-    // fallback-customer case is priced inside the locked transaction.
-    if (items && items.length > 0 && customerForPricing) {
-      orderItems = await this.validateAndProcessItems(items, customerForPricing);
     }
 
     await this.dataSource.transaction(async (manager: EntityManager) => {
@@ -512,6 +496,7 @@ export class SalesOrderService extends BaseCrudService<
       // Snapshot pre-edit values for the audit trail before any writes in this tx.
       auditOldValues = {
         customerId: locked.customerId,
+        notes: locked.notes ?? null,
         subtotal: Number(locked.subtotal),
         shippingAmount: Number(locked.shippingAmount),
         totalAmount: Number(locked.totalAmount),
@@ -521,17 +506,18 @@ export class SalesOrderService extends BaseCrudService<
         balanceDue: Number(locked.balanceDue),
       };
 
-      // When the DTO omitted customerId, price against the locked order's current
-      // customer so a concurrent customer change cannot apply stale pricing.
-      if (items && items.length > 0 && !customerForPricing) {
-        const fallbackCustomer = await manager.getRepository(Customer).findOne({
-          where: { id: locked.customerId },
+      // Resolve the pricing customer inside the lock: the DTO customer if supplied,
+      // otherwise the locked order's current customer.
+      if (items && items.length > 0) {
+        const pricingCustomerId = customerId ?? locked.customerId;
+        const pricingCustomer = await manager.getRepository(Customer).findOne({
+          where: { id: pricingCustomerId },
           relations: { priceList: true },
         });
-        if (!fallbackCustomer) {
+        if (!pricingCustomer) {
           throw new NotFoundException('Customer not found');
         }
-        orderItems = await this.validateAndProcessItems(items, fallbackCustomer, manager);
+        orderItems = await this.validateAndProcessItems(items, pricingCustomer, manager);
       }
 
       if (items && items.length > 0) {
@@ -581,11 +567,29 @@ export class SalesOrderService extends BaseCrudService<
       if (updateData.totalAmount !== undefined) {
         await this.salesOrderPaymentService.reconcileOrderState(id, manager);
       }
+
+      // Capture the reconciled row through the manager BEFORE the lock releases so the
+      // audit "after" reflects exactly this edit (not a concurrent later mutation).
+      if (Object.keys(updateData).length > 0) {
+        const after = await manager.getRepository(SalesOrder).findOne({ where: { id } });
+        if (after) {
+          auditNewValues = {
+            customerId: after.customerId,
+            notes: after.notes ?? null,
+            subtotal: Number(after.subtotal),
+            shippingAmount: Number(after.shippingAmount),
+            totalAmount: Number(after.totalAmount),
+            status: after.status,
+            paymentStatus: after.paymentStatus,
+            paidAmount: Number(after.paidAmount),
+            balanceDue: Number(after.balanceDue),
+          };
+        }
+      }
     });
 
     // Log audit trail for update
     if (Object.keys(updateData).length > 0) {
-      const after = await this.salesOrderRepository.findOne({ where: { id } });
       await this.auditLogService.log(
         'UPDATE',
         'SalesOrder',
@@ -595,18 +599,7 @@ export class SalesOrderService extends BaseCrudService<
           userId: userId || 'system',
           username,
           oldValues: auditOldValues,
-          newValues: after
-            ? {
-                customerId: after.customerId,
-                subtotal: Number(after.subtotal),
-                shippingAmount: Number(after.shippingAmount),
-                totalAmount: Number(after.totalAmount),
-                status: after.status,
-                paymentStatus: after.paymentStatus,
-                paidAmount: Number(after.paidAmount),
-                balanceDue: Number(after.balanceDue),
-              }
-            : updateData,
+          newValues: auditNewValues ?? updateData,
         }
       );
     }
