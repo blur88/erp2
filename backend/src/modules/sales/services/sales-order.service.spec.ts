@@ -35,6 +35,7 @@ describe('SalesOrderService', () => {
   let priceListItemRepository: any;
   let dataSource: jest.Mocked<DataSource>;
   let reconcileSpy: jest.SpyInstance;
+  let auditLogService: jest.Mocked<AuditLogService>;
 
   beforeEach(async () => {
     dataSource = { transaction: jest.fn() } as any;
@@ -75,6 +76,7 @@ describe('SalesOrderService', () => {
     customerRepository = module.get(getRepositoryToken(Customer));
     productRepository = module.get(getRepositoryToken(Product));
     priceListItemRepository = module.get(getRepositoryToken(PriceListItem));
+    auditLogService = module.get(AuditLogService);
     reconcileSpy = jest.spyOn(salesOrderPaymentService, 'reconcileOrderState');
     dataSource.transaction.mockImplementation(async (cb: any) => cb({
       getRepository: (entity: any) => entity === SalesOrderItem ? salesOrderItemRepository : salesOrderRepository,
@@ -221,8 +223,20 @@ describe('SalesOrderService', () => {
           Promise.resolve({ id: where.id, priceListId: where.id === 'cust-FRESH' ? 'PL-FRESH' : 'PL-STALE' }),
         ),
       };
+      const mgrProductRepo = { findOne: jest.fn().mockResolvedValue({ id: 'p1', baseCost: 1 }) };
+      const mgrPriceListItemRepo = {
+        findOne: jest.fn().mockImplementation(({ where }: any) =>
+          Promise.resolve(where.priceListId === 'PL-FRESH' ? { price: 70 } : { price: 999 }),
+        ),
+      };
       const manager = {
-        getRepository: (e: any) => e === SalesOrderItem ? mgrItemRepo : e === Customer ? mgrCustomerRepo : mgrOrderRepo,
+        getRepository: (e: any) => {
+          if (e === SalesOrderItem) return mgrItemRepo;
+          if (e === Customer) return mgrCustomerRepo;
+          if (e === Product) return mgrProductRepo;
+          if (e === PriceListItem) return mgrPriceListItemRepo;
+          return mgrOrderRepo;
+        },
       } as unknown as EntityManager;
       dataSource.transaction = jest.fn().mockImplementation(async (cb: any) => cb(manager));
       reconcileSpy.mockResolvedValue('UNPAID');
@@ -237,15 +251,98 @@ describe('SalesOrderService', () => {
 
       await service.update('order-1', { items: [{ productId: 'p1', quantity: 1 }] } as any);
 
-      expect(priceListItemRepository.findOne).toHaveBeenCalledWith(
+      expect(mgrPriceListItemRepo.findOne).toHaveBeenCalledWith(
         expect.objectContaining({ where: expect.objectContaining({ priceListId: 'PL-FRESH' }) }),
       );
+      expect(priceListItemRepository.findOne).not.toHaveBeenCalled();
       expect(mgrItemRepo.insert).toHaveBeenCalledWith(
         expect.objectContaining({ unitPrice: 70, totalAmount: 70 }),
       );
       expect(mgrOrderRepo.update).toHaveBeenCalledWith(
         'order-1', expect.objectContaining({ subtotal: 70, totalAmount: 70 }),
       );
+    });
+
+    it('fallback pricing reads product + price-list through the manager (under the lock)', async () => {
+      salesOrderRepository.findOne = jest.fn().mockResolvedValue({
+        id: 'order-1', orderNumber: 'SO-1', status: 'DRAFT', paymentStatus: 'UNPAID',
+        paidAmount: 0, shippingAmount: 0, customerId: 'cust-FRESH',
+      });
+      const mgrCustomerRepo = { findOne: jest.fn().mockResolvedValue({ id: 'cust-FRESH', priceListId: 'PL-FRESH' }) };
+      const mgrProductRepo = { findOne: jest.fn().mockResolvedValue({ id: 'p1', baseCost: 1 }) };
+      const mgrPriceListItemRepo = { findOne: jest.fn().mockResolvedValue({ price: 70 }) };
+      const mgrOrderRepo = {
+        findOne: jest.fn().mockResolvedValue({ id: 'order-1', orderNumber: 'SO-1', status: 'DRAFT', paymentStatus: 'UNPAID', paidAmount: 0, shippingAmount: 0, customerId: 'cust-FRESH' }),
+        update: jest.fn().mockResolvedValue({ affected: 1 }),
+      };
+      const mgrItemRepo = { delete: jest.fn().mockResolvedValue(undefined), insert: jest.fn().mockResolvedValue(undefined), find: jest.fn().mockResolvedValue([]) };
+      const manager = {
+        getRepository: (e: any) => {
+          if (e === SalesOrderItem) return mgrItemRepo;
+          if (e === Customer) return mgrCustomerRepo;
+          if (e === Product) return mgrProductRepo;
+          if (e === PriceListItem) return mgrPriceListItemRepo;
+          return mgrOrderRepo;
+        },
+      } as unknown as EntityManager;
+      dataSource.transaction = jest.fn().mockImplementation(async (cb: any) => cb(manager));
+      reconcileSpy.mockResolvedValue('UNPAID');
+
+      await service.update('order-1', { items: [{ productId: 'p1', quantity: 1 }] } as any);
+
+      expect(mgrProductRepo.findOne).toHaveBeenCalled();
+      expect(mgrPriceListItemRepo.findOne).toHaveBeenCalledWith(
+        expect.objectContaining({ where: expect.objectContaining({ priceListId: 'PL-FRESH', productId: 'p1' }) }),
+      );
+      expect(productRepository.findOne).not.toHaveBeenCalled();
+      expect(priceListItemRepository.findOne).not.toHaveBeenCalled();
+      expect(mgrItemRepo.insert).toHaveBeenCalledWith(expect.objectContaining({ unitPrice: 70 }));
+    });
+
+    it('throws Customer not found when the locked fallback customer is missing', async () => {
+      salesOrderRepository.findOne = jest.fn().mockResolvedValue({
+        id: 'order-1', orderNumber: 'SO-1', status: 'DRAFT', paymentStatus: 'UNPAID',
+        paidAmount: 0, shippingAmount: 0, customerId: 'gone',
+      });
+      const mgrCustomerRepo = { findOne: jest.fn().mockResolvedValue(null) };
+      const mgrOrderRepo = { findOne: jest.fn().mockResolvedValue({ id: 'order-1', orderNumber: 'SO-1', status: 'DRAFT', paymentStatus: 'UNPAID', paidAmount: 0, shippingAmount: 0, customerId: 'gone' }), update: jest.fn() };
+      const mgrItemRepo = { delete: jest.fn(), insert: jest.fn(), find: jest.fn() };
+      const manager = {
+        getRepository: (e: any) => {
+          if (e === SalesOrderItem) return mgrItemRepo;
+          if (e === Customer) return mgrCustomerRepo;
+          return mgrOrderRepo;
+        },
+      } as unknown as EntityManager;
+      dataSource.transaction = jest.fn().mockImplementation(async (cb: any) => cb(manager));
+
+      await expect(service.update('order-1', { items: [{ productId: 'p1', quantity: 1 }] } as any))
+        .rejects.toThrow('Customer not found');
+      expect(mgrItemRepo.insert).not.toHaveBeenCalled();
+    });
+
+    it('records distinct before/after audit values including reconciled fields', async () => {
+      salesOrderRepository.findOne = jest.fn()
+        .mockResolvedValueOnce({ id: 'order-1', orderNumber: 'SO-1', status: 'DRAFT', paymentStatus: 'UNPAID', paidAmount: 0, shippingAmount: 20, subtotal: 80, totalAmount: 100, balanceDue: 100, customerId: 'c1' })
+        .mockResolvedValueOnce({ id: 'order-1', orderNumber: 'SO-1', status: 'READY', paymentStatus: 'PAID', paidAmount: 120, shippingAmount: 20, subtotal: 100, totalAmount: 120, balanceDue: 0, customerId: 'c1' });
+      const mgrOrderRepo = {
+        findOne: jest.fn().mockResolvedValue({ id: 'order-1', orderNumber: 'SO-1', status: 'DRAFT', paymentStatus: 'UNPAID', paidAmount: 0, shippingAmount: 20, subtotal: 80, totalAmount: 100, balanceDue: 100, customerId: 'c1' }),
+        update: jest.fn().mockResolvedValue({ affected: 1 }),
+      };
+      const mgrItemRepo = { delete: jest.fn().mockResolvedValue(undefined), insert: jest.fn().mockResolvedValue(undefined), find: jest.fn() };
+      const manager = { getRepository: (e: any) => (e === SalesOrderItem ? mgrItemRepo : mgrOrderRepo) } as unknown as EntityManager;
+      dataSource.transaction = jest.fn().mockImplementation(async (cb: any) => cb(manager));
+      reconcileSpy.mockResolvedValue('PAID');
+      customerRepository.findOne = jest.fn().mockResolvedValue({ id: 'c1' });
+      productRepository.findOne = jest.fn().mockResolvedValue({ id: 'p1', baseCost: 1 });
+
+      await service.update('order-1', { customerId: 'c1', items: [{ productId: 'p1', quantity: 1, unitPrice: 100 }] } as any);
+
+      const auditCall = (auditLogService.log as jest.Mock).mock.calls.at(-1);
+      const payload = auditCall[3];
+      expect(payload.oldValues.totalAmount).not.toBe(payload.newValues.totalAmount);
+      expect(payload.newValues.paymentStatus).toBe('PAID');
+      expect(payload.newValues.status).toBe('READY');
     });
 
     it('derives shipping fallback from the LOCKED order and writes via the manager', async () => {

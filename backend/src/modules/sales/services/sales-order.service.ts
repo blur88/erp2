@@ -473,6 +473,7 @@ export class SalesOrderService extends BaseCrudService<
     // Prepare update data for the sales order
     const updateData: any = {};
     let orderItems: any[] = [];
+    let auditOldValues: any = {};
 
     // When the DTO supplies a customer, it is authoritative and independent of the
     // order's mutable state, so resolve its pricing before the lock. When omitted, the
@@ -508,6 +509,18 @@ export class SalesOrderService extends BaseCrudService<
       });
       if (!locked) throw new NotFoundException('Sales order not found');
 
+      // Snapshot pre-edit values for the audit trail before any writes in this tx.
+      auditOldValues = {
+        customerId: locked.customerId,
+        subtotal: Number(locked.subtotal),
+        shippingAmount: Number(locked.shippingAmount),
+        totalAmount: Number(locked.totalAmount),
+        status: locked.status,
+        paymentStatus: locked.paymentStatus,
+        paidAmount: Number(locked.paidAmount),
+        balanceDue: Number(locked.balanceDue),
+      };
+
       // When the DTO omitted customerId, price against the locked order's current
       // customer so a concurrent customer change cannot apply stale pricing.
       if (items && items.length > 0 && !customerForPricing) {
@@ -515,7 +528,10 @@ export class SalesOrderService extends BaseCrudService<
           where: { id: locked.customerId },
           relations: { priceList: true },
         });
-        orderItems = await this.validateAndProcessItems(items, fallbackCustomer ?? undefined);
+        if (!fallbackCustomer) {
+          throw new NotFoundException('Customer not found');
+        }
+        orderItems = await this.validateAndProcessItems(items, fallbackCustomer, manager);
       }
 
       if (items && items.length > 0) {
@@ -569,6 +585,7 @@ export class SalesOrderService extends BaseCrudService<
 
     // Log audit trail for update
     if (Object.keys(updateData).length > 0) {
+      const after = await this.salesOrderRepository.findOne({ where: { id } });
       await this.auditLogService.log(
         'UPDATE',
         'SalesOrder',
@@ -577,8 +594,19 @@ export class SalesOrderService extends BaseCrudService<
           entityId: id,
           userId: userId || 'system',
           username,
-          oldValues: updateData,
-          newValues: updateData,
+          oldValues: auditOldValues,
+          newValues: after
+            ? {
+                customerId: after.customerId,
+                subtotal: Number(after.subtotal),
+                shippingAmount: Number(after.shippingAmount),
+                totalAmount: Number(after.totalAmount),
+                status: after.status,
+                paymentStatus: after.paymentStatus,
+                paidAmount: Number(after.paidAmount),
+                balanceDue: Number(after.balanceDue),
+              }
+            : updateData,
         }
       );
     }
@@ -664,12 +692,14 @@ export class SalesOrderService extends BaseCrudService<
     return items.reduce((sum, item) => sum + Number(item.totalAmount), 0);
   }
 
-  private async validateAndProcessItems(items: any[], customer?: Customer) {
+  private async validateAndProcessItems(items: any[], customer?: Customer, manager?: EntityManager) {
+    const productRepo = manager ? manager.getRepository(Product) : this.productRepository;
+    const priceListItemRepo = manager ? manager.getRepository(PriceListItem) : this.priceListItemRepository;
     const processedItems = [];
     let lineNumber = 1;
 
     for (const item of items) {
-      const product = await this.productRepository.findOne({ where: { id: item.productId } });
+      const product = await productRepo.findOne({ where: { id: item.productId } });
       if (!product) {
         throw new NotFoundException(`Product with ID ${item.productId} not found`);
       }
@@ -679,7 +709,7 @@ export class SalesOrderService extends BaseCrudService<
 
       // NEW: Try to get price from customer's price list first
       if (customer && customer.priceListId) {
-        const priceListItem = await this.priceListItemRepository.findOne({
+        const priceListItem = await priceListItemRepo.findOne({
           where: {
             priceListId: customer.priceListId,
             productId: item.productId

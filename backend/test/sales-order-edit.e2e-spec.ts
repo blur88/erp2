@@ -141,12 +141,15 @@ describe('Sales order edit transaction (e2e)', () => {
       .spyOn(paymentService, 'reconcileOrderState')
       .mockRejectedValueOnce(new Error('reconcile boom'));
 
-    await expect(
-      salesOrderService.update(order.id, {
-        items: [{ productId: product.id, quantity: 3, unitPrice: 40 }],
-      }),
-    ).rejects.toThrow('reconcile boom');
-    spy.mockRestore();
+    try {
+      await expect(
+        salesOrderService.update(order.id, {
+          items: [{ productId: product.id, quantity: 3, unitPrice: 40 }],
+        }),
+      ).rejects.toThrow('reconcile boom');
+    } finally {
+      spy.mockRestore();
+    }
 
     const persistedOrder = await orderRepo.findOneOrFail({ where: { id: order.id } });
     const persistedItems = await itemRepo.find({ where: { salesOrderId: order.id } });
