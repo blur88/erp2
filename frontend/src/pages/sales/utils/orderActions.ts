@@ -24,38 +24,33 @@ export function getOrderActionMetas(order: SalesOrder): OrderActionMeta[] {
   const isFulfilled = status === 'FULFILLED'
   const isCancelled = status === 'CANCELLED'
   const isUnpaid = paymentStatus === 'UNPAID'
-  const isPartiallyPaid = paymentStatus === 'PARTIAL'
-  const needsPayment = isUnpaid || isPartiallyPaid
+  const isFullyPaid = paymentStatus === 'PAID' || paymentStatus === 'OVERPAID'
+  const needsPayment = isUnpaid || paymentStatus === 'PARTIAL'
+  // A paid DRAFT is "Ready" even if its status column still reads DRAFT.
+  const isReadyState = isReady || (isDraft && isFullyPaid)
 
   if (isCancelled) {
-    return [
-      { action: 'uncancel' },
-      { action: 'print' },
-    ]
+    return [{ action: 'uncancel' }, { action: 'print' }]
   }
 
   const metas: OrderActionMeta[] = []
 
+  // Pay — DRAFT with an outstanding balance.
   if (isDraft && needsPayment) {
     metas.push({ action: 'pay' })
   }
 
-  if (isDraft) {
-    metas.push({
-      action: 'fulfill',
-      disabled: needsPayment,
-      tooltip: needsPayment ? 'Full payment required' : undefined,
-    })
-  }
-
-  if (isReady) {
+  // Fulfill — Ready only (fully-paid). Hidden on unpaid/partial drafts.
+  if (isReadyState) {
     metas.push({ action: 'fulfill' })
   }
 
+  // Unfulfill — Fulfilled only.
   if (isFulfilled) {
     metas.push({ action: 'unfulfill' })
   }
 
+  // Refund — whenever a payment exists; disabled on Fulfilled.
   if (!isUnpaid) {
     metas.push({
       action: 'refund',
@@ -64,17 +59,14 @@ export function getOrderActionMetas(order: SalesOrder): OrderActionMeta[] {
     })
   }
 
-  if (isDraft) {
-    metas.push({
-      action: 'edit',
-      disabled: !needsPayment,
-      tooltip: !needsPayment ? 'Cancel payment first to edit' : undefined,
-    })
-    metas.push({
-      action: 'cancel',
-      disabled: !needsPayment,
-      tooltip: !needsPayment ? 'Cancel payment first' : undefined,
-    })
+  // Edit — any unfulfilled order (all DRAFT/Ready states), enabled regardless of payment.
+  if (isDraft || isReady) {
+    metas.push({ action: 'edit' })
+  }
+
+  // Cancel — DRAFT with no payment at all.
+  if (isDraft && isUnpaid) {
+    metas.push({ action: 'cancel' })
   }
 
   metas.push({ action: 'duplicate' })
