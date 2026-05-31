@@ -20,17 +20,22 @@ export class SalesOrderLifecycleService {
   async assertEditAllowed(id: string): Promise<void> {
     const order = await this.salesOrderRepository.findOne({ where: { id } });
     if (!order) throw new NotFoundException('Sales order not found');
+    SalesOrderLifecycleService.assertStatusEditable(order.status);
+  }
 
-    if (order.status !== SalesOrderStatus.DRAFT) {
+  /**
+   * Pure editable-band guard, reusable on an already-loaded (e.g. lock-held) row.
+   * Editable while still in the active band (DRAFT or fully-paid READY), regardless of
+   * payment. FULFILLED / CANCELLED are locked. Throwing here keeps a single source of
+   * truth for the rule and its messages so callers can re-assert inside a transaction.
+   */
+  static assertStatusEditable(status: SalesOrderStatus): void {
+    const editable = status === SalesOrderStatus.DRAFT || status === SalesOrderStatus.READY;
+    if (!editable) {
       throw new BadRequestException(
-        `Cannot edit sales order in ${order.status} status. ${
-          order.status === SalesOrderStatus.FULFILLED ? 'Unfulfill the order first.' : 'Uncancel the order first.'
+        `Cannot edit sales order in ${status} status. ${
+          status === SalesOrderStatus.FULFILLED ? 'Unfulfill the order first.' : 'Uncancel the order first.'
         }`,
-      );
-    }
-    if (order.paymentStatus !== SalesOrderPaymentStatus.UNPAID) {
-      throw new BadRequestException(
-        'Cannot edit sales order with recorded payments. Refund all payments first.',
       );
     }
   }

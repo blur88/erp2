@@ -6,9 +6,9 @@ import {
   Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, FindOptionsWhere } from 'typeorm';
+import { DataSource, EntityManager, Repository, FindOptionsWhere, In } from 'typeorm';
 import { BaseCrudService } from '../../../common/services/base-crud.service';
-import { SalesOrder } from '../../../database/entities/sales-order.entity';
+import { SalesOrder, SalesOrderStatus } from '../../../database/entities/sales-order.entity';
 import { SalesOrderItem, DiscountType } from '../../../database/entities/sales-order-item.entity';
 import { SalesOrderPayment } from '../../../database/entities/sales-order-payment.entity';
 import { Customer } from '../../../database/entities/customer.entity';
@@ -86,6 +86,7 @@ export class SalesOrderService extends BaseCrudService<
     private readonly salesOrderLifecycleService: SalesOrderLifecycleService,
     private readonly salesOrderPaymentService: SalesOrderPaymentService,
     private readonly salesOrderQueryService: SalesOrderQueryService,
+    private readonly dataSource: DataSource,
   ) {
     super(salesOrderRepository, auditLogService);
   }
@@ -471,93 +472,149 @@ export class SalesOrderService extends BaseCrudService<
 
     // Prepare update data for the sales order
     const updateData: any = {};
+    let orderItems: any[] = [];
+    let auditOldValues: any = {};
+    let auditNewValues: any = null;
 
-    // Get customer for pricing (either new customer or existing)
-    let customerForPricing: Customer | null = null;
-
-    // Update customer if provided
+    // customerId (if supplied) is recorded now; the customer is resolved and items are
+    // priced INSIDE the locked transaction so all pricing reads are lock-consistent.
     if (customerId) {
-      customerForPricing = await this.customerRepository.findOne({
-        where: { id: customerId },
-        relations: { priceList: true }
-      });
-      if (!customerForPricing) {
-        throw new NotFoundException('Customer not found');
-      }
       updateData.customerId = customerId;
-    } else {
-      // Load existing customer for pricing
-      customerForPricing = await this.customerRepository.findOne({
-        where: { id: order.customerId },
-        relations: { priceList: true }
-      });
     }
-
-    // Update notes if provided (including empty string to clear notes)
     if (notes !== undefined) {
       updateData.notes = notes;
     }
 
-    // Update items if provided
-    if (items && items.length > 0) {
-      // Delete existing items from database
-      await this.salesOrderItemRepository.delete({ salesOrderId: id });
+    await this.dataSource.transaction(async (manager: EntityManager) => {
+      // Lock the parent order before deriving any totals from mutable state.
+      const locked = await manager.getRepository(SalesOrder).findOne({
+        where: { id },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!locked) throw new NotFoundException('Sales order not found');
 
-      // Validate and process new items with customer pricing
-      const orderItems = await this.validateAndProcessItems(items, customerForPricing);
+      // Re-assert editability against the LOCKED row: assertEditAllowed ran on an
+      // unlocked pre-read, so a concurrent fulfill/cancel could have moved the order out
+      // of the editable band in between. This is the authoritative, race-free check.
+      SalesOrderLifecycleService.assertStatusEditable(locked.status);
 
-      const subtotal = SalesOrderService.sumItemTotals(orderItems);
-      const shippingAmount = updateSalesOrderDto.shippingAmount !== undefined
-        ? Number(updateSalesOrderDto.shippingAmount)
-        : Number(order.shippingAmount || 0);
-      const totalAmount = subtotal + shippingAmount;
+      // Snapshot pre-edit values for the audit trail before any writes in this tx.
+      auditOldValues = SalesOrderService.snapshotOrderForAudit(locked);
 
-      // Create new order items using direct object creation to avoid entity relations issues
-      for (const itemData of orderItems) {
-        // Validate that order.id exists
-        if (!order.id) {
-          throw new Error(`Cannot create order items: order.id is ${order.id}`);
-        }
+      // A supplied customerId changes pricing, so re-pricing is required whenever the
+      // customer changes — even with no items in the DTO. Detect that here so the
+      // customer-only path re-prices existing items rather than keeping stale totals.
+      const customerChanged = customerId !== undefined && customerId !== locked.customerId;
 
-        // Use direct repository insert instead of create/save to bypass entity hooks
-        await this.salesOrderItemRepository.insert({
-          lineNumber: itemData.lineNumber || 1,
-          productId: itemData.productId,
-          quantity: itemData.quantity || 1,
-          unitPrice: itemData.unitPrice || 0,
-          unitCost: itemData.unitCost || 0,
-          discountType: itemData.discountType || DiscountType.PERCENTAGE,
-          discountPercent: itemData.discountPercent || 0,
-          discountAmount: itemData.discountAmount || 0,
-          totalAmount: itemData.totalAmount || 0,
-          notes: itemData.notes || null,
-          salesOrderId: order.id, // Direct database insert ensures this is set
+      // Resolve the pricing/validation customer inside the lock. A supplied customerId is
+      // validated whenever present (even for customer-only edits); otherwise fall back to
+      // the locked order's current customer (needed when (re)pricing items).
+      let pricingCustomer: Customer | null = null;
+      if (customerId) {
+        pricingCustomer = await manager.getRepository(Customer).findOne({
+          where: { id: customerId },
+          relations: { priceList: true },
         });
+        if (!pricingCustomer) {
+          throw new NotFoundException('Customer not found');
+        }
+      } else if ((items && items.length > 0)) {
+        pricingCustomer = await manager.getRepository(Customer).findOne({
+          where: { id: locked.customerId },
+          relations: { priceList: true },
+        });
+        if (!pricingCustomer) {
+          throw new NotFoundException('Customer not found');
+        }
       }
 
-      // Add shipping and total amount to update data
-      updateData.shippingAmount = shippingAmount;
-      updateData.subtotal = subtotal;
-      updateData.totalAmount = totalAmount;
-    } else if (updateSalesOrderDto.shippingAmount !== undefined) {
-      // If only shipping is being updated (no items), load items from DB to recalculate total
-      const existingItems = await this.salesOrderItemRepository.find({ where: { salesOrderId: id } });
-      const currentSubtotal = SalesOrderService.sumItemTotals(existingItems);
-      const newShipping = Number(updateSalesOrderDto.shippingAmount);
-      updateData.shippingAmount = newShipping;
-      updateData.subtotal = currentSubtotal;
-      updateData.totalAmount = currentSubtotal + newShipping;
-    }
+      // Determine the line items to (re)price: DTO items if supplied, otherwise the
+      // existing rows when only the customer changed (so their prices follow the new
+      // customer's price list).
+      let itemsToPrice: any[] | null = null;
+      if (items && items.length > 0) {
+        itemsToPrice = items;
+      } else if (customerChanged) {
+        const existingItems = await manager.getRepository(SalesOrderItem).find({
+          where: { salesOrderId: id },
+        });
+        // Re-price by product at the new customer's prices; preserve per-line overrides
+        // (explicit unitPrice is respected by validateAndProcessItems).
+        itemsToPrice = existingItems.map((it) => ({
+          productId: it.productId,
+          quantity: it.quantity,
+          discountType: it.discountType,
+          discountPercent: it.discountPercent,
+          discountAmount: it.discountAmount,
+          notes: it.notes,
+        }));
+      }
 
-    // Whenever the total changes, keep balanceDue consistent with the unchanged paidAmount.
-    if (updateData.totalAmount !== undefined) {
-      updateData.balanceDue = Number(updateData.totalAmount) - Number(order.paidAmount || 0);
-    }
+      if (itemsToPrice && itemsToPrice.length > 0) {
+        orderItems = await this.validateAndProcessItems(itemsToPrice, pricingCustomer!, manager);
 
-    // Perform all updates in a single database call
-    if (Object.keys(updateData).length > 0) {
-      await this.salesOrderRepository.update(id, updateData);
-    }
+        await manager.getRepository(SalesOrderItem).delete({ salesOrderId: id });
+        for (const itemData of orderItems) {
+          // Use direct repository insert instead of create/save to bypass entity hooks.
+          await manager.getRepository(SalesOrderItem).insert({
+            lineNumber: itemData.lineNumber || 1,
+            productId: itemData.productId,
+            quantity: itemData.quantity || 1,
+            unitPrice: itemData.unitPrice || 0,
+            unitCost: itemData.unitCost || 0,
+            discountType: itemData.discountType || DiscountType.PERCENTAGE,
+            discountPercent: itemData.discountPercent || 0,
+            discountAmount: itemData.discountAmount || 0,
+            totalAmount: itemData.totalAmount || 0,
+            notes: itemData.notes || null,
+            salesOrderId: id,
+          });
+        }
+
+        const subtotal = SalesOrderService.sumItemTotals(orderItems);
+        const shippingAmount = updateSalesOrderDto.shippingAmount !== undefined
+          ? Number(updateSalesOrderDto.shippingAmount)
+          : Number(locked.shippingAmount || 0);
+        updateData.shippingAmount = shippingAmount;
+        updateData.subtotal = subtotal;
+        updateData.totalAmount = subtotal + shippingAmount;
+      } else if (updateSalesOrderDto.shippingAmount !== undefined) {
+        // Shipping-only edits read existing items through the transaction manager.
+        const existingItems = await manager.getRepository(SalesOrderItem).find({
+          where: { salesOrderId: id },
+        });
+        const currentSubtotal = SalesOrderService.sumItemTotals(existingItems);
+        const newShipping = Number(updateSalesOrderDto.shippingAmount);
+        updateData.shippingAmount = newShipping;
+        updateData.subtotal = currentSubtotal;
+        updateData.totalAmount = currentSubtotal + newShipping;
+      }
+
+      const hasChanges = Object.keys(updateData).length > 0;
+      if (hasChanges) {
+        await manager.getRepository(SalesOrder).update(id, updateData);
+      }
+
+      // Reconcile inside the same transaction so totals, payment state, and the
+      // DRAFT<->READY band commit atomically. reconcileOrderState returns the locked,
+      // reconciled order so we can snapshot it for the audit without re-reading.
+      let reconciled: SalesOrder | null = null;
+      if (updateData.totalAmount !== undefined) {
+        reconciled = await this.salesOrderPaymentService.reconcileOrderState(id, manager);
+      }
+
+      // Capture the post-edit row BEFORE the lock releases so the audit "after" reflects
+      // exactly this edit (not a concurrent later mutation). Prefer the reconciled entity
+      // (already in hand); otherwise re-read for the non-total edits (notes/customer-only
+      // with no priced items) that still mutated the row.
+      if (hasChanges) {
+        const after =
+          reconciled ?? (await manager.getRepository(SalesOrder).findOne({ where: { id } }));
+        if (after) {
+          auditNewValues = SalesOrderService.snapshotOrderForAudit(after);
+        }
+      }
+    });
 
     // Log audit trail for update
     if (Object.keys(updateData).length > 0) {
@@ -569,8 +626,8 @@ export class SalesOrderService extends BaseCrudService<
           entityId: id,
           userId: userId || 'system',
           username,
-          oldValues: updateData,
-          newValues: updateData,
+          oldValues: auditOldValues,
+          newValues: auditNewValues ?? updateData,
         }
       );
     }
@@ -656,38 +713,59 @@ export class SalesOrderService extends BaseCrudService<
     return items.reduce((sum, item) => sum + Number(item.totalAmount), 0);
   }
 
-  private async validateAndProcessItems(items: any[], customer?: Customer) {
+  /**
+   * Build the normalized before/after value snapshot logged on an order edit. Kept in
+   * one place so the audit "old" and "new" records always share the exact same shape.
+   */
+  private static snapshotOrderForAudit(order: SalesOrder): Record<string, unknown> {
+    return {
+      customerId: order.customerId,
+      notes: order.notes ?? null,
+      subtotal: Number(order.subtotal),
+      shippingAmount: Number(order.shippingAmount),
+      totalAmount: Number(order.totalAmount),
+      status: order.status,
+      paymentStatus: order.paymentStatus,
+      paidAmount: Number(order.paidAmount),
+      balanceDue: Number(order.balanceDue),
+    };
+  }
+
+  private async validateAndProcessItems(items: any[], customer?: Customer, manager?: EntityManager) {
+    const productRepo = manager ? manager.getRepository(Product) : this.productRepository;
+    const priceListItemRepo = manager ? manager.getRepository(PriceListItem) : this.priceListItemRepository;
+
+    // Batch-load products and price-list rows up front to avoid an N+1 of findOne calls
+    // inside the (locked) edit transaction.
+    const productIds = [...new Set(items.map((item) => item.productId))];
+    const products = productIds.length
+      ? await productRepo.find({ where: { id: In(productIds) } })
+      : [];
+    const productById = new Map(products.map((p) => [p.id, p]));
+
+    const priceByProduct = new Map<string, number>();
+    if (customer && customer.priceListId && productIds.length) {
+      const priceListItems = await priceListItemRepo.find({
+        where: { priceListId: customer.priceListId, productId: In(productIds) },
+      });
+      for (const pli of priceListItems) {
+        priceByProduct.set(pli.productId, Number(pli.price));
+      }
+    }
+
     const processedItems = [];
     let lineNumber = 1;
 
     for (const item of items) {
-      const product = await this.productRepository.findOne({ where: { id: item.productId } });
+      const product = productById.get(item.productId);
       if (!product) {
         throw new NotFoundException(`Product with ID ${item.productId} not found`);
       }
 
-      // Determine unit price - try price list first, then fallback to legacy
-      let defaultPrice = 0;
-
-      // NEW: Try to get price from customer's price list first
-      if (customer && customer.priceListId) {
-        const priceListItem = await this.priceListItemRepository.findOne({
-          where: {
-            priceListId: customer.priceListId,
-            productId: item.productId
-          }
-        });
-
-        if (priceListItem) {
-          defaultPrice = Number(priceListItem.price);
-          console.log(`Using price list price: ${defaultPrice} for product ${item.productId}`);
-        }
-      }
-
-      // Fallback to baseCost if no price list price found
+      // Determine unit price - price list first, then fall back to baseCost.
+      let defaultPrice = priceByProduct.get(item.productId) ?? 0;
       if (defaultPrice === 0) {
         defaultPrice = Number(product.baseCost) || 0;
-        console.log(`Using baseCost fallback: ${defaultPrice} for product ${item.productId}`);
       }
 
       const unitPrice = Number(item.unitPrice) || defaultPrice;
@@ -721,7 +799,6 @@ export class SalesOrderService extends BaseCrudService<
       });
     }
 
-    console.log('Processed items from validateAndProcessItems:', JSON.stringify(processedItems, null, 2));
     return processedItems;
   }
 

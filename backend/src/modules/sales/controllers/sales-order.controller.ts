@@ -102,7 +102,7 @@ export class SalesOrderController {
   }
 
   @Put(':id')
-  @ApiOperation({ summary: 'Update sales order (DRAFT + UNPAID only)' })
+  @ApiOperation({ summary: 'Update sales order (DRAFT or READY; FULFILLED/CANCELLED locked)' })
   @ApiParam({ name: 'id', type: 'string' })
   async updateSalesOrder(
     @Param('id', ParseUUIDPipe) id: string,

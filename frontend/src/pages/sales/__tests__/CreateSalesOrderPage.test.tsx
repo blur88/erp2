@@ -794,7 +794,7 @@ describe('CreateSalesOrderPage edit guard', { timeout: 60000 }, () => {
     })
   })
 
-  it('redirects to order detail and shows error when order is paid', async () => {
+  it('loads the editor (no redirect/error) when order is paid', async () => {
     mockFetchSalesOrder.mockReturnValue({
       unwrap: vi.fn().mockResolvedValue({
         id: 'order-123',
@@ -814,10 +814,11 @@ describe('CreateSalesOrderPage edit guard', { timeout: 60000 }, () => {
     )
 
     await waitFor(() => {
-      expect(mockNavigate).toHaveBeenCalledWith('/sales/orders/SO-1/view', { replace: true })
+      expect(screen.getByRole('combobox', { name: /customer/i })).toHaveValue('Test Customer')
     })
 
-    expect(mockShowError).toHaveBeenCalledWith('Cancel payment first to edit')
+    expect(mockNavigate).not.toHaveBeenCalledWith('/sales/orders/SO-1/view', { replace: true })
+    expect(mockShowError).not.toHaveBeenCalled()
   })
 
   it('redirects to order detail and shows error when order is fulfilled', async () => {

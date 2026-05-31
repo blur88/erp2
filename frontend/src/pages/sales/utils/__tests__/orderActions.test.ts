@@ -6,38 +6,59 @@ const makeOrder = (status: SalesOrder['status'], paymentStatus: SalesOrder['paym
   ({ id: 'o1', orderNumber: 'SO-26-001', status, paymentStatus } as SalesOrder)
 
 describe('getOrderActions', () => {
-  it('DRAFT + UNPAID: pay, fulfill, edit, cancel, duplicate, print — no refund, no uncancel', () => {
+  it('DRAFT + UNPAID: pay, edit, cancel, duplicate, print — no fulfill, refund, uncancel', () => {
     const actions = getOrderActions(makeOrder('DRAFT', 'UNPAID'))
     expect(actions).toContain('pay')
-    expect(actions).toContain('fulfill')
     expect(actions).toContain('edit')
     expect(actions).toContain('cancel')
     expect(actions).toContain('duplicate')
     expect(actions).toContain('print')
+    expect(actions).not.toContain('fulfill')
     expect(actions).not.toContain('refund')
     expect(actions).not.toContain('uncancel')
     expect(actions).not.toContain('unfulfill')
   })
 
-  it('DRAFT + PARTIAL: pay, fulfill (disabled), refund, edit, cancel, duplicate, print', () => {
+  it('DRAFT + PARTIAL: pay, refund, edit, duplicate, print — no fulfill, no cancel', () => {
     const actions = getOrderActions(makeOrder('DRAFT', 'PARTIAL'))
     expect(actions).toContain('pay')
+    expect(actions).toContain('refund')
+    expect(actions).toContain('edit')
+    expect(actions).toContain('duplicate')
+    expect(actions).toContain('print')
+    expect(actions).not.toContain('fulfill')
+    expect(actions).not.toContain('cancel')
+  })
+
+  it('DRAFT + PAID (Ready): fulfill, refund, edit, duplicate, print — no pay, no cancel', () => {
+    const actions = getOrderActions(makeOrder('DRAFT', 'PAID'))
     expect(actions).toContain('fulfill')
     expect(actions).toContain('refund')
     expect(actions).toContain('edit')
-    expect(actions).toContain('cancel')
     expect(actions).toContain('duplicate')
+    expect(actions).not.toContain('pay')
+    expect(actions).not.toContain('cancel')
   })
 
-  it('DRAFT + PAID: fulfill, refund, edit, cancel, duplicate, print — no pay', () => {
-    const actions = getOrderActions(makeOrder('DRAFT', 'PAID'))
-    expect(actions).not.toContain('pay')
+  it('READY + PAID: fulfill, refund, edit, duplicate, print — no pay, no cancel', () => {
+    const actions = getOrderActions(makeOrder('READY', 'PAID'))
     expect(actions).toContain('fulfill')
     expect(actions).toContain('refund')
+    expect(actions).toContain('edit')
     expect(actions).toContain('duplicate')
+    expect(actions).toContain('print')
+    expect(actions).not.toContain('pay')
+    expect(actions).not.toContain('cancel')
   })
 
-  it('FULFILLED + PAID: unfulfill, refund, duplicate, print — no pay, edit, cancel', () => {
+  it('READY + OVERPAID: still fulfill + refund + edit', () => {
+    const actions = getOrderActions(makeOrder('READY', 'OVERPAID'))
+    expect(actions).toContain('fulfill')
+    expect(actions).toContain('refund')
+    expect(actions).toContain('edit')
+  })
+
+  it('FULFILLED + PAID: unfulfill, refund, duplicate, print — no pay, edit, cancel, fulfill', () => {
     const actions = getOrderActions(makeOrder('FULFILLED', 'PAID'))
     expect(actions).toContain('unfulfill')
     expect(actions).toContain('refund')
@@ -46,17 +67,7 @@ describe('getOrderActions', () => {
     expect(actions).not.toContain('pay')
     expect(actions).not.toContain('edit')
     expect(actions).not.toContain('cancel')
-  })
-
-  it('READY + PAID: fulfill, refund, duplicate, print — no pay, edit, cancel', () => {
-    const actions = getOrderActions(makeOrder('READY', 'PAID'))
-    expect(actions).toContain('fulfill')
-    expect(actions).toContain('refund')
-    expect(actions).toContain('duplicate')
-    expect(actions).toContain('print')
-    expect(actions).not.toContain('pay')
-    expect(actions).not.toContain('edit')
-    expect(actions).not.toContain('cancel')
+    expect(actions).not.toContain('fulfill')
   })
 
   it('FULFILLED + OVERPAID: unfulfill, refund, duplicate, print', () => {
@@ -79,29 +90,33 @@ describe('getOrderActions', () => {
   })
 })
 
-describe('getOrderActionMetas — disabled flags', () => {
-  it('fulfill is disabled when DRAFT + UNPAID', () => {
+describe('getOrderActionMetas — disabled flags & tooltips', () => {
+  it('fulfill is hidden (absent) when DRAFT + UNPAID', () => {
     const metas = getOrderActionMetas(makeOrder('DRAFT', 'UNPAID'))
-    const fulfill = metas.find((m) => m.action === 'fulfill')
-    expect(fulfill?.disabled).toBe(true)
-    expect(fulfill?.tooltip).toMatch(/payment required/i)
+    expect(metas.find((m) => m.action === 'fulfill')).toBeUndefined()
   })
 
-  it('fulfill is disabled when DRAFT + PARTIAL', () => {
+  it('fulfill is hidden (absent) when DRAFT + PARTIAL', () => {
     const metas = getOrderActionMetas(makeOrder('DRAFT', 'PARTIAL'))
-    const fulfill = metas.find((m) => m.action === 'fulfill')
-    expect(fulfill?.disabled).toBe(true)
+    expect(metas.find((m) => m.action === 'fulfill')).toBeUndefined()
   })
 
-  it('edit is disabled when DRAFT + PAID', () => {
+  it('edit is enabled (no disabled flag) when DRAFT + PAID', () => {
     const metas = getOrderActionMetas(makeOrder('DRAFT', 'PAID'))
     const edit = metas.find((m) => m.action === 'edit')
-    expect(edit?.disabled).toBe(true)
+    expect(edit).toBeDefined()
+    expect(edit?.disabled).toBeFalsy()
   })
 
-  it('cancel is enabled when DRAFT + PARTIAL', () => {
+  it('cancel is hidden (absent) when DRAFT + PARTIAL', () => {
     const metas = getOrderActionMetas(makeOrder('DRAFT', 'PARTIAL'))
+    expect(metas.find((m) => m.action === 'cancel')).toBeUndefined()
+  })
+
+  it('cancel is enabled when DRAFT + UNPAID', () => {
+    const metas = getOrderActionMetas(makeOrder('DRAFT', 'UNPAID'))
     const cancel = metas.find((m) => m.action === 'cancel')
+    expect(cancel).toBeDefined()
     expect(cancel?.disabled).toBeFalsy()
   })
 
