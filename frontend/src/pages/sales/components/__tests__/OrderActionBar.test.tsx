@@ -46,36 +46,35 @@ function renderBar(order: SalesOrder, handlers = {}) {
 }
 
 describe('OrderActionBar', () => {
-  it('Draft+Unpaid shows Pay, Fulfill (disabled), Edit, Cancel, Print', () => {
+  it('Draft+Unpaid shows Pay, Edit, Cancel, Print — no Fulfill, no Refund', () => {
     renderBar(makeOrder({ status: 'DRAFT', paymentStatus: 'UNPAID' }))
     expect(screen.getByRole('button', { name: 'Pay' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Fulfill' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Fulfill' })).toBeDisabled()
     expect(screen.getByRole('button', { name: 'Edit' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Cancel' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Print' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Fulfill' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Refund' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Unfulfill' })).not.toBeInTheDocument()
   })
 
-  it('Draft+Partial shows Pay, Fulfill (disabled), Refund, Edit, Cancel, Print', () => {
+  it('Draft+Partial shows Pay, Refund, Edit, Print — no Fulfill, no Cancel', () => {
     renderBar(makeOrder({ status: 'DRAFT', paymentStatus: 'PARTIAL' }))
     expect(screen.getByRole('button', { name: 'Pay' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Fulfill' })).toBeDisabled()
     expect(screen.getByRole('button', { name: 'Refund' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Edit' })).toBeEnabled()
-    expect(screen.getByRole('button', { name: 'Cancel' })).toBeEnabled()
     expect(screen.getByRole('button', { name: 'Print' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Fulfill' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Cancel' })).not.toBeInTheDocument()
   })
 
-  it('Draft+Paid shows Fulfill, Refund, Edit, Cancel, Print', () => {
+  it('Draft+Paid (Ready) shows Fulfill, Refund, Edit, Print — no Pay, no Cancel', () => {
     renderBar(makeOrder({ status: 'DRAFT', paymentStatus: 'PAID' }))
     expect(screen.getByRole('button', { name: 'Fulfill' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Refund' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Edit' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Cancel' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Edit' })).toBeEnabled()
     expect(screen.getByRole('button', { name: 'Print' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Pay' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Cancel' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Unfulfill' })).not.toBeInTheDocument()
   })
 

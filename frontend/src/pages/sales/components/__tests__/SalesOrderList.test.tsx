@@ -89,41 +89,33 @@ describe('SalesOrderList empty state', () => {
 })
 
 describe('SalesOrderList row actions — Draft Unpaid', () => {
-  it('shows View, Edit, Pay, Fulfill (disabled), Cancel, Print', async () => {
+  it('shows View, Edit, Pay, Cancel, Print — no Fulfill, no Refund', async () => {
     renderList()
     await openMenu()
     expect(screen.getByRole('menuitem', { name: /view/i })).toBeInTheDocument()
     expect(screen.getByRole('menuitem', { name: /^edit$/i })).toBeInTheDocument()
     expect(screen.getByRole('menuitem', { name: /^pay$/i })).toBeInTheDocument()
-    expect(screen.getByRole('menuitem', { name: /fulfill/i })).toBeInTheDocument()
     expect(screen.getByRole('menuitem', { name: /cancel/i })).toBeInTheDocument()
     expect(screen.getByRole('menuitem', { name: /print/i })).toBeInTheDocument()
+    expect(screen.queryByRole('menuitem', { name: /fulfill/i })).not.toBeInTheDocument()
     expect(screen.queryByRole('menuitem', { name: /unfulfill/i })).not.toBeInTheDocument()
     expect(screen.queryByRole('menuitem', { name: /refund/i })).not.toBeInTheDocument()
-  })
-
-  it('Fulfill is disabled with tooltip', async () => {
-    renderList()
-    await openMenu()
-    const fulfill = screen.getByRole('menuitem', { name: /fulfill/i })
-    expect(fulfill).toHaveAttribute('aria-disabled', 'true')
-    expect(fulfill.closest('[data-tooltip]')).toHaveAttribute('data-tooltip', 'Full payment required')
   })
 })
 
 describe('SalesOrderList row actions — Draft Paid', () => {
-  it('shows View, Edit (disabled), Fulfill, Refund, Cancel (disabled), Print — no Pay', async () => {
+  it('shows View, Edit (enabled), Fulfill, Refund, Print — no Pay, no Cancel', async () => {
     renderList({ ...defaultProps, orders: [makeOrder({ paymentStatus: 'PAID' })] })
     await openMenu()
     expect(screen.getByRole('menuitem', { name: /view/i })).toBeInTheDocument()
-    expect(screen.getByRole('menuitem', { name: /^edit$/i })).toBeInTheDocument()
-    expect(screen.queryByRole('menuitem', { name: /^pay$/i })).not.toBeInTheDocument()
+    const edit = screen.getByRole('menuitem', { name: /^edit$/i })
+    expect(edit).toBeInTheDocument()
+    expect(edit).not.toHaveAttribute('aria-disabled', 'true')
     expect(screen.getByRole('menuitem', { name: /^fulfill$/i })).toBeInTheDocument()
     expect(screen.getByRole('menuitem', { name: /refund/i })).toBeInTheDocument()
-    expect(screen.getByRole('menuitem', { name: /cancel/i })).toBeInTheDocument()
+    expect(screen.queryByRole('menuitem', { name: /^pay$/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('menuitem', { name: /^cancel$/i })).not.toBeInTheDocument()
     expect(screen.queryByRole('menuitem', { name: /unfulfill/i })).not.toBeInTheDocument()
-    const edit = screen.getByRole('menuitem', { name: /^edit$/i })
-    expect(edit).toHaveAttribute('aria-disabled', 'true')
   })
 })
 
@@ -150,17 +142,16 @@ describe('SalesOrderList row actions — Fulfilled', () => {
 })
 
 describe('SalesOrderList row actions — Draft Partial', () => {
-  it('shows View, Pay, Fulfill (disabled), Refund, Edit, Cancel, Print', async () => {
+  it('shows View, Pay, Refund, Edit (enabled), Print — no Fulfill, no Cancel', async () => {
     renderList({ ...defaultProps, orders: [makeOrder({ paymentStatus: 'PARTIAL' })] })
     await openMenu()
     expect(screen.getByRole('menuitem', { name: /view/i })).toBeInTheDocument()
     expect(screen.getByRole('menuitem', { name: /^pay$/i })).toBeInTheDocument()
-    const fulfill = screen.getByRole('menuitem', { name: /^fulfill$/i })
-    expect(fulfill).toHaveAttribute('aria-disabled', 'true')
     expect(screen.getByRole('menuitem', { name: /refund/i })).toBeInTheDocument()
     expect(screen.getByRole('menuitem', { name: /^edit$/i })).not.toHaveAttribute('aria-disabled', 'true')
-    expect(screen.getByRole('menuitem', { name: /cancel/i })).not.toHaveAttribute('aria-disabled', 'true')
     expect(screen.getByRole('menuitem', { name: /print/i })).toBeInTheDocument()
+    expect(screen.queryByRole('menuitem', { name: /^fulfill$/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('menuitem', { name: /^cancel$/i })).not.toBeInTheDocument()
   })
 })
 
