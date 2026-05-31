@@ -105,7 +105,7 @@ const PurchasingPage: React.FC = () => {
       },
     ],
     defaults: {
-      period: { key: 'this_month', from: null, to: null },
+      period: { key: null, from: null, to: null },
       compareWith: null,
       supplierId: null,
       status: null,

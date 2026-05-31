@@ -90,14 +90,11 @@ describe('OrdersPage FilterBar integration', () => {
     )
   })
 
-  it('defaults period to this_month and resolves to fromDate/toDate', () => {
+  it('defaults period to All and sends no fromDate/toDate', () => {
     renderPage()
-    expect(useGetSalesOrdersQuery).toHaveBeenLastCalledWith(
-      expect.objectContaining({
-        fromDate: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
-        toDate: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
-      }),
-    )
+    const call = (useGetSalesOrdersQuery as any).mock.calls.at(-1)[0]
+    expect(call.fromDate).toBeUndefined()
+    expect(call.toDate).toBeUndefined()
   })
 
   it('sends no fromDate/toDate when period key is null', () => {

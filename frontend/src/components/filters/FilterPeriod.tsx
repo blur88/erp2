@@ -41,7 +41,7 @@ function buildTriggerLabel(
     return PERIOD_LABELS[value]
   }
 
-  return ''
+  return 'All'
 }
 
 function toDisplayFormat(storedFormat: string): string {
@@ -86,6 +86,13 @@ export function FilterPeriod({ value, customFrom, customTo, onChange }: FilterPe
     setInternalTo(customTo)
   }
 
+  const handleAllClick = () => {
+    setInternalFrom(null)
+    setInternalTo(null)
+    onChange(null)
+    setAnchorEl(null)
+  }
+
   const handlePresetClick = (key: PeriodKey) => {
     setInternalFrom(null)
     setInternalTo(null)
@@ -125,6 +132,11 @@ export function FilterPeriod({ value, customFrom, customTo, onChange }: FilterPe
         transformOrigin={{ vertical: 'top', horizontal: 'left' }}
       >
         <MenuList id="period-listbox" disablePadding sx={{ minWidth: 260 }}>
+          <MenuItem selected={value === null} onClick={handleAllClick}>
+            All
+          </MenuItem>
+          <Divider />
+
           {/* 'custom' is always the last item in the last PERIOD_GROUPS group — rendered below as a subheader + pickers */}
           {PERIOD_GROUPS.flatMap((group, groupIndex) => [
             ...group.filter((key) => key !== 'custom').map((key) => (

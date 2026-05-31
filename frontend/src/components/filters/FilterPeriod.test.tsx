@@ -45,9 +45,29 @@ describe('FilterPeriod', () => {
     expect(getTrigger()).toHaveTextContent('15/01/2024 - 31/01/2024')
   })
 
-  it('renders the trigger with empty text when value is null', () => {
+  it('renders the trigger with "All" when value is null', () => {
     renderFilterPeriod(null)
-    expect(getTrigger().textContent?.replace(/\u200b/g, '').trim()).toBe('')
+    expect(getTrigger()).toHaveTextContent('All')
+  })
+
+  it('renders the "All" option in the popover', async () => {
+    const user = userEvent.setup()
+    renderFilterPeriod('today')
+
+    await user.click(getTrigger())
+
+    expect(screen.getByRole('menuitem', { name: 'All' })).toBeInTheDocument()
+  })
+
+  it('calls onChange with null and closes popover when "All" is clicked', async () => {
+    const user = userEvent.setup()
+    const { onChange } = renderFilterPeriod('today')
+
+    await user.click(getTrigger())
+    await user.click(screen.getByRole('menuitem', { name: 'All' }))
+
+    expect(onChange).toHaveBeenCalledWith(null)
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument()
   })
 
   it('renders the Period floating label', () => {
