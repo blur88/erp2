@@ -66,18 +66,21 @@ export class SalesOrderPaymentService {
       throw new BadRequestException('Payment amount must be positive');
     }
 
-    const order = await this.salesOrderRepository.findOne({ where: { id: orderId } });
-    if (!order) throw new NotFoundException('Sales order not found');
-    if (order.status !== SalesOrderStatus.DRAFT) {
-      throw new ConflictException('Payments can only be recorded on DRAFT orders');
-    }
-
     const method = await this.paymentMethodRepository.findOne({
       where: { id: dto.paymentMethodId, isActive: true },
     });
     if (!method) throw new BadRequestException(`Payment method ${dto.paymentMethodId} not found or inactive`);
 
-    const saved = await this.dataSource.transaction(async (manager: EntityManager) => {
+    const { saved, orderNumber } = await this.dataSource.transaction(async (manager: EntityManager) => {
+      const order = await manager.getRepository(SalesOrder).findOne({
+        where: { id: orderId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!order) throw new NotFoundException('Sales order not found');
+      if (order.status !== SalesOrderStatus.DRAFT) {
+        throw new ConflictException('Payments can only be recorded on DRAFT orders');
+      }
+
       const record = manager.getRepository(SalesOrderPayment).create({
         salesOrderId: orderId,
         paymentMethodId: dto.paymentMethodId,
@@ -88,10 +91,10 @@ export class SalesOrderPaymentService {
       });
       const savedRecord = await manager.getRepository(SalesOrderPayment).save(record);
       await this.updatePaymentStatusInTx(order, manager);
-      return savedRecord;
+      return { saved: savedRecord, orderNumber: order.orderNumber };
     });
 
-    await this.auditLogService.log('CREATE', 'SalesOrderPayment', `Recorded payment for ${order.orderNumber}`, {
+    await this.auditLogService.log('CREATE', 'SalesOrderPayment', `Recorded payment for ${orderNumber}`, {
       entityId: saved.id,
       userId: userId || 'system',
       username,
@@ -153,13 +156,6 @@ export class SalesOrderPaymentService {
     for (const dto of dtos) {
       if (dto.amount <= 0) throw new BadRequestException('Payment amount must be positive');
     }
-
-    const order = await this.salesOrderRepository.findOne({ where: { id: orderId } });
-    if (!order) throw new NotFoundException('Sales order not found');
-    if (order.status !== SalesOrderStatus.DRAFT) {
-      throw new ConflictException('Payments can only be recorded on DRAFT orders');
-    }
-
     for (const dto of dtos) {
       const method = await this.paymentMethodRepository.findOne({
         where: { id: dto.paymentMethodId, isActive: true },
@@ -167,7 +163,16 @@ export class SalesOrderPaymentService {
       if (!method) throw new BadRequestException(`Payment method ${dto.paymentMethodId} not found or inactive`);
     }
 
-    const results = await this.dataSource.transaction(async (manager: EntityManager) => {
+    const { results, orderNumber } = await this.dataSource.transaction(async (manager: EntityManager) => {
+      const order = await manager.getRepository(SalesOrder).findOne({
+        where: { id: orderId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!order) throw new NotFoundException('Sales order not found');
+      if (order.status !== SalesOrderStatus.DRAFT) {
+        throw new ConflictException('Payments can only be recorded on DRAFT orders');
+      }
+
       const saved: SalesOrderPayment[] = [];
       for (const dto of dtos) {
         const record = manager.getRepository(SalesOrderPayment).create({
@@ -181,11 +186,11 @@ export class SalesOrderPaymentService {
         saved.push(await manager.getRepository(SalesOrderPayment).save(record));
       }
       await this.updatePaymentStatusInTx(order, manager);
-      return saved;
+      return { results: saved, orderNumber: order.orderNumber };
     });
 
     for (const saved of results) {
-      await this.auditLogService.log('CREATE', 'SalesOrderPayment', `Recorded payment for ${order.orderNumber}`, {
+      await this.auditLogService.log('CREATE', 'SalesOrderPayment', `Recorded payment for ${orderNumber}`, {
         entityId: saved.id,
         userId: userId || 'system',
         username,
