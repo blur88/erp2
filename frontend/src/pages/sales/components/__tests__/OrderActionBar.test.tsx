@@ -78,10 +78,11 @@ describe('OrderActionBar', () => {
     expect(screen.queryByRole('button', { name: 'Unfulfill' })).not.toBeInTheDocument()
   })
 
-  it('Draft+Overpaid shows Fulfill, Refund, Edit, Cancel, Print', () => {
+  it('Draft+Overpaid shows Fulfill and Refund — no Cancel', () => {
     renderBar(makeOrder({ status: 'DRAFT', paymentStatus: 'OVERPAID' }))
     expect(screen.getByRole('button', { name: 'Fulfill' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Refund' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Cancel' })).not.toBeInTheDocument()
   })
 
   it('Fulfilled shows Unfulfill, Refund, Print', () => {

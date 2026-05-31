@@ -814,7 +814,7 @@ describe('CreateSalesOrderPage edit guard', { timeout: 60000 }, () => {
     )
 
     await waitFor(() => {
-      expect(mockFetchSalesOrder).toHaveBeenCalled()
+      expect(screen.getByRole('combobox', { name: /customer/i })).toHaveValue('Test Customer')
     })
 
     expect(mockNavigate).not.toHaveBeenCalledWith('/sales/orders/SO-1/view', { replace: true })
