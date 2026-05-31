@@ -506,18 +506,30 @@ export class SalesOrderService extends BaseCrudService<
         balanceDue: Number(locked.balanceDue),
       };
 
-      // Resolve the pricing customer inside the lock: the DTO customer if supplied,
-      // otherwise the locked order's current customer.
-      if (items && items.length > 0) {
-        const pricingCustomerId = customerId ?? locked.customerId;
-        const pricingCustomer = await manager.getRepository(Customer).findOne({
-          where: { id: pricingCustomerId },
+      // Resolve the pricing/validation customer inside the lock. A supplied customerId is
+      // validated whenever present (even for customer-only edits); otherwise fall back to
+      // the locked order's current customer (only needed when pricing items).
+      let pricingCustomer: Customer | null = null;
+      if (customerId) {
+        pricingCustomer = await manager.getRepository(Customer).findOne({
+          where: { id: customerId },
           relations: { priceList: true },
         });
         if (!pricingCustomer) {
           throw new NotFoundException('Customer not found');
         }
-        orderItems = await this.validateAndProcessItems(items, pricingCustomer, manager);
+      } else if (items && items.length > 0) {
+        pricingCustomer = await manager.getRepository(Customer).findOne({
+          where: { id: locked.customerId },
+          relations: { priceList: true },
+        });
+        if (!pricingCustomer) {
+          throw new NotFoundException('Customer not found');
+        }
+      }
+
+      if (items && items.length > 0) {
+        orderItems = await this.validateAndProcessItems(items, pricingCustomer!, manager);
       }
 
       if (items && items.length > 0) {

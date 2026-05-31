@@ -204,6 +204,67 @@ describe('SalesOrderService', () => {
   });
 
   describe('update — atomicity', () => {
+    it('throws Customer not found for a customer-only edit with an invalid customerId (no items)', async () => {
+      salesOrderRepository.findOne = jest.fn().mockResolvedValue({
+        id: 'order-1', orderNumber: 'SO-1', status: 'DRAFT', paymentStatus: 'UNPAID',
+        paidAmount: 0, shippingAmount: 0, subtotal: 100, totalAmount: 100, balanceDue: 100, notes: null, customerId: 'c1',
+      });
+      const mgrCustomerRepo = { findOne: jest.fn().mockResolvedValue(null) }; // supplied customer does not exist
+      const mgrOrderRepo = {
+        findOne: jest.fn().mockResolvedValue({ id: 'order-1', orderNumber: 'SO-1', status: 'DRAFT', paymentStatus: 'UNPAID', paidAmount: 0, shippingAmount: 0, subtotal: 100, totalAmount: 100, balanceDue: 100, notes: null, customerId: 'c1' }),
+        update: jest.fn(),
+      };
+      const mgrItemRepo = { delete: jest.fn(), insert: jest.fn(), find: jest.fn() };
+      const manager = {
+        getRepository: (e: any) => {
+          if (e === SalesOrderItem) return mgrItemRepo;
+          if (e === Customer) return mgrCustomerRepo;
+          return mgrOrderRepo;
+        },
+      } as unknown as EntityManager;
+      dataSource.transaction = jest.fn().mockImplementation(async (cb: any) => cb(manager));
+
+      // No items — only a customer change to a non-existent id.
+      await expect(service.update('order-1', { customerId: 'nope' } as any))
+        .rejects.toThrow('Customer not found');
+      // The bad customerId must NOT be written.
+      expect(mgrOrderRepo.update).not.toHaveBeenCalled();
+    });
+
+    it('reuses the validated supplied customer for pricing (single customer lookup) when items exist', async () => {
+      salesOrderRepository.findOne = jest.fn().mockResolvedValue({
+        id: 'order-1', orderNumber: 'SO-1', status: 'DRAFT', paymentStatus: 'UNPAID',
+        paidAmount: 0, shippingAmount: 0, subtotal: 0, totalAmount: 0, balanceDue: 0, notes: null, customerId: 'old',
+      });
+      const mgrCustomerRepo = { findOne: jest.fn().mockResolvedValue({ id: 'cust-DTO', priceListId: 'PL-DTO' }) };
+      const mgrProductRepo = { findOne: jest.fn().mockResolvedValue({ id: 'p1', baseCost: 1 }) };
+      const mgrPriceListItemRepo = { findOne: jest.fn().mockResolvedValue({ price: 55 }) };
+      const mgrOrderRepo = {
+        findOne: jest.fn()
+          .mockResolvedValueOnce({ id: 'order-1', orderNumber: 'SO-1', status: 'DRAFT', paymentStatus: 'UNPAID', paidAmount: 0, shippingAmount: 0, subtotal: 0, totalAmount: 0, balanceDue: 0, notes: null, customerId: 'cust-DTO' })
+          .mockResolvedValueOnce({ id: 'order-1', orderNumber: 'SO-1', status: 'DRAFT', paymentStatus: 'UNPAID', paidAmount: 0, shippingAmount: 0, subtotal: 55, totalAmount: 55, balanceDue: 55, notes: null, customerId: 'cust-DTO' }),
+        update: jest.fn().mockResolvedValue({ affected: 1 }),
+      };
+      const mgrItemRepo = { delete: jest.fn().mockResolvedValue(undefined), insert: jest.fn().mockResolvedValue(undefined), find: jest.fn().mockResolvedValue([]) };
+      const manager = {
+        getRepository: (e: any) => {
+          if (e === SalesOrderItem) return mgrItemRepo;
+          if (e === Customer) return mgrCustomerRepo;
+          if (e === Product) return mgrProductRepo;
+          if (e === PriceListItem) return mgrPriceListItemRepo;
+          return mgrOrderRepo;
+        },
+      } as unknown as EntityManager;
+      dataSource.transaction = jest.fn().mockImplementation(async (cb: any) => cb(manager));
+      reconcileSpy.mockResolvedValue('UNPAID');
+
+      await service.update('order-1', { customerId: 'cust-DTO', items: [{ productId: 'p1', quantity: 1 }] } as any);
+
+      // Customer resolved exactly once, then reused for pricing (not looked up again).
+      expect(mgrCustomerRepo.findOne).toHaveBeenCalledTimes(1);
+      expect(mgrItemRepo.insert).toHaveBeenCalledWith(expect.objectContaining({ unitPrice: 55 }));
+    });
+
     it('prices a DTO-supplied customer through the manager repos (under the lock)', async () => {
       salesOrderRepository.findOne = jest.fn().mockResolvedValue({
         id: 'order-1', orderNumber: 'SO-1', status: 'DRAFT', paymentStatus: 'UNPAID',
