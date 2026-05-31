@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { DataSource, EntityManager, Repository } from 'typeorm';
 import { BadRequestException, ConflictException } from '@nestjs/common';
 import { SalesOrderLifecycleService } from './sales-order-lifecycle.service';
 import { SalesOrder, SalesOrderStatus, SalesOrderPaymentStatus } from '../../../database/entities/sales-order.entity';
@@ -21,6 +21,8 @@ describe('SalesOrderLifecycleService', () => {
   let service: SalesOrderLifecycleService;
   let orderRepo: jest.Mocked<Repository<SalesOrder>>;
   let auditLogService: jest.Mocked<AuditLogService>;
+  let dataSource: jest.Mocked<DataSource>;
+  let dataSource: jest.Mocked<DataSource>;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -34,6 +36,7 @@ describe('SalesOrderLifecycleService', () => {
     service = module.get(SalesOrderLifecycleService);
     orderRepo = module.get(getRepositoryToken(SalesOrder));
     auditLogService = module.get(AuditLogService);
+    dataSource = module.get(DataSource) as jest.Mocked<DataSource>;
   });
 
   describe('assertEditAllowed', () => {
