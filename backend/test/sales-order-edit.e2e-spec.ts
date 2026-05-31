@@ -154,6 +154,10 @@ describe('Sales order edit transaction (e2e)', () => {
     const persistedOrder = await orderRepo.findOneOrFail({ where: { id: order.id } });
     const persistedItems = await itemRepo.find({ where: { salesOrderId: order.id } });
 
+    // The items branch writes subtotal, shippingAmount and totalAmount together, so prove
+    // all three rolled back — not just totalAmount — or a partial-commit regression slips through.
+    expect(Number(persistedOrder.subtotal)).toBe(100);
+    expect(Number(persistedOrder.shippingAmount)).toBe(0);
     expect(Number(persistedOrder.totalAmount)).toBe(100);
     expect(persistedItems).toHaveLength(1);
     expect(persistedItems[0].id).toBe(originalItem.id);

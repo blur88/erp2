@@ -43,16 +43,19 @@ export class SalesOrderPaymentService {
    * Re-derive paymentStatus / paidAmount / balanceDue and the DRAFT<->READY band
    * for an order whose totalAmount may have changed. Reuses the same recompute as
    * payment recording (single source of truth). When `manager` is supplied the work
-   * joins the caller's transaction; otherwise it runs in its own.
+   * joins the caller's transaction; otherwise it runs in its own. Returns the locked
+   * order with the reconciled fields applied, so callers can snapshot it without an
+   * extra read inside the same transaction.
    */
-  async reconcileOrderState(orderId: string, manager?: EntityManager): Promise<SalesOrderPaymentStatus> {
-    const run = async (m: EntityManager): Promise<SalesOrderPaymentStatus> => {
+  async reconcileOrderState(orderId: string, manager?: EntityManager): Promise<SalesOrder> {
+    const run = async (m: EntityManager): Promise<SalesOrder> => {
       const order = await m.getRepository(SalesOrder).findOne({
         where: { id: orderId },
         lock: { mode: 'pessimistic_write' },
       });
       if (!order) throw new NotFoundException('Sales order not found');
-      return this.updatePaymentStatusInTx(order, m);
+      await this.updatePaymentStatusInTx(order, m);
+      return order;
     };
 
     return manager ? run(manager) : this.dataSource.transaction(run);
@@ -282,6 +285,9 @@ export class SalesOrderPaymentService {
     }
 
     await manager.getRepository(SalesOrder).update(order.id, update);
+    // Reflect the persisted patch onto the in-memory entity so callers holding this
+    // reference (e.g. reconcileOrderState) see the reconciled state without re-reading.
+    Object.assign(order, update);
     return newStatus;
   }
 }
