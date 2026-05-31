@@ -502,32 +502,13 @@ export class SalesOrderService extends BaseCrudService<
 
     // Update items if provided
     if (items && items.length > 0) {
-      // Validate and process new items with customer pricing
+      // Price the incoming items from the customer/price-list. This does not
+      // depend on mutable order totals, so it can run before the lock.
       orderItems = await this.validateAndProcessItems(items, customerForPricing);
-
-      const subtotal = SalesOrderService.sumItemTotals(orderItems);
-      const shippingAmount = updateSalesOrderDto.shippingAmount !== undefined
-        ? Number(updateSalesOrderDto.shippingAmount)
-        : Number(order.shippingAmount || 0);
-      const totalAmount = subtotal + shippingAmount;
-
-      // Add shipping and total amount to update data
-      updateData.shippingAmount = shippingAmount;
-      updateData.subtotal = subtotal;
-      updateData.totalAmount = totalAmount;
-    } else if (updateSalesOrderDto.shippingAmount !== undefined) {
-      // If only shipping is being updated (no items), load items from DB to recalculate total
-      const existingItems = await this.salesOrderItemRepository.find({ where: { salesOrderId: id } });
-      const currentSubtotal = SalesOrderService.sumItemTotals(existingItems);
-      const newShipping = Number(updateSalesOrderDto.shippingAmount);
-      updateData.shippingAmount = newShipping;
-      updateData.subtotal = currentSubtotal;
-      updateData.totalAmount = currentSubtotal + newShipping;
     }
 
     await this.dataSource.transaction(async (manager: EntityManager) => {
-      // Lock the parent order for the duration of the edit so concurrent
-      // payment / status transitions serialize behind it.
+      // Lock the parent order before deriving any totals from mutable state.
       const locked = await manager.getRepository(SalesOrder).findOne({
         where: { id },
         lock: { mode: 'pessimistic_write' },
@@ -552,6 +533,24 @@ export class SalesOrderService extends BaseCrudService<
             salesOrderId: id,
           });
         }
+
+        const subtotal = SalesOrderService.sumItemTotals(orderItems);
+        const shippingAmount = updateSalesOrderDto.shippingAmount !== undefined
+          ? Number(updateSalesOrderDto.shippingAmount)
+          : Number(locked.shippingAmount || 0);
+        updateData.shippingAmount = shippingAmount;
+        updateData.subtotal = subtotal;
+        updateData.totalAmount = subtotal + shippingAmount;
+      } else if (updateSalesOrderDto.shippingAmount !== undefined) {
+        // Shipping-only edits read existing items through the transaction manager.
+        const existingItems = await manager.getRepository(SalesOrderItem).find({
+          where: { salesOrderId: id },
+        });
+        const currentSubtotal = SalesOrderService.sumItemTotals(existingItems);
+        const newShipping = Number(updateSalesOrderDto.shippingAmount);
+        updateData.shippingAmount = newShipping;
+        updateData.subtotal = currentSubtotal;
+        updateData.totalAmount = currentSubtotal + newShipping;
       }
 
       if (Object.keys(updateData).length > 0) {
