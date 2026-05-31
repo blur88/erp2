@@ -30,7 +30,9 @@ describe('SalesOrderService', () => {
   let salesOrderQueryService: jest.Mocked<SalesOrderQueryService>;
   let salesOrderRepository: any;
   let salesOrderItemRepository: any;
+  let customerRepository: any;
   let productRepository: any;
+  let priceListItemRepository: any;
   let dataSource: jest.Mocked<DataSource>;
   let reconcileSpy: jest.SpyInstance;
 
@@ -70,7 +72,9 @@ describe('SalesOrderService', () => {
     salesOrderQueryService = module.get(SalesOrderQueryService);
     salesOrderRepository = module.get(getRepositoryToken(SalesOrder));
     salesOrderItemRepository = module.get(getRepositoryToken(SalesOrderItem));
+    customerRepository = module.get(getRepositoryToken(Customer));
     productRepository = module.get(getRepositoryToken(Product));
+    priceListItemRepository = module.get(getRepositoryToken(PriceListItem));
     reconcileSpy = jest.spyOn(salesOrderPaymentService, 'reconcileOrderState');
     dataSource.transaction.mockImplementation(async (cb: any) => cb({
       getRepository: (entity: any) => entity === SalesOrderItem ? salesOrderItemRepository : salesOrderRepository,
@@ -198,6 +202,52 @@ describe('SalesOrderService', () => {
   });
 
   describe('update — atomicity', () => {
+    it('prices fallback-customer items from the LOCKED order customer, not the pre-lock read', async () => {
+      // Pre-lock read returns the STALE customer; the locked read returns the FRESH one.
+      salesOrderRepository.findOne = jest.fn().mockResolvedValue({
+        id: 'order-1', orderNumber: 'SO-1', status: 'DRAFT', paymentStatus: 'UNPAID',
+        paidAmount: 0, shippingAmount: 0, customerId: 'cust-STALE',
+      });
+      const mgrOrderRepo = {
+        findOne: jest.fn().mockResolvedValue({
+          id: 'order-1', orderNumber: 'SO-1', status: 'DRAFT', paymentStatus: 'UNPAID',
+          paidAmount: 0, shippingAmount: 0, customerId: 'cust-FRESH',
+        }),
+        update: jest.fn().mockResolvedValue({ affected: 1 }),
+      };
+      const mgrItemRepo = { delete: jest.fn().mockResolvedValue(undefined), insert: jest.fn().mockResolvedValue(undefined), find: jest.fn().mockResolvedValue([]) };
+      const mgrCustomerRepo = {
+        findOne: jest.fn().mockImplementation(({ where }: any) =>
+          Promise.resolve({ id: where.id, priceListId: where.id === 'cust-FRESH' ? 'PL-FRESH' : 'PL-STALE' }),
+        ),
+      };
+      const manager = {
+        getRepository: (e: any) => e === SalesOrderItem ? mgrItemRepo : e === Customer ? mgrCustomerRepo : mgrOrderRepo,
+      } as unknown as EntityManager;
+      dataSource.transaction = jest.fn().mockImplementation(async (cb: any) => cb(manager));
+      reconcileSpy.mockResolvedValue('UNPAID');
+
+      customerRepository.findOne = jest.fn().mockImplementation(({ where }: any) =>
+        Promise.resolve({ id: where.id, priceListId: where.id === 'cust-FRESH' ? 'PL-FRESH' : 'PL-STALE' }),
+      );
+      productRepository.findOne = jest.fn().mockResolvedValue({ id: 'p1', baseCost: 1 });
+      priceListItemRepository.findOne = jest.fn().mockImplementation(({ where }: any) =>
+        Promise.resolve(where.priceListId === 'PL-FRESH' ? { price: 70 } : { price: 999 }),
+      );
+
+      await service.update('order-1', { items: [{ productId: 'p1', quantity: 1 }] } as any);
+
+      expect(priceListItemRepository.findOne).toHaveBeenCalledWith(
+        expect.objectContaining({ where: expect.objectContaining({ priceListId: 'PL-FRESH' }) }),
+      );
+      expect(mgrItemRepo.insert).toHaveBeenCalledWith(
+        expect.objectContaining({ unitPrice: 70, totalAmount: 70 }),
+      );
+      expect(mgrOrderRepo.update).toHaveBeenCalledWith(
+        'order-1', expect.objectContaining({ subtotal: 70, totalAmount: 70 }),
+      );
+    });
+
     it('derives shipping fallback from the LOCKED order and writes via the manager', async () => {
       // Root repos return a STALE order (old shipping=5); the locked read returns fresh shipping=20.
       salesOrderRepository.findOne = jest.fn().mockResolvedValue({

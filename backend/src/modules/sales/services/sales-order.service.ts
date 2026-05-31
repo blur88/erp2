@@ -474,36 +474,29 @@ export class SalesOrderService extends BaseCrudService<
     const updateData: any = {};
     let orderItems: any[] = [];
 
-    // Get customer for pricing (either new customer or existing)
+    // When the DTO supplies a customer, it is authoritative and independent of the
+    // order's mutable state, so resolve its pricing before the lock. When omitted, the
+    // pricing customer is the order's CURRENT customer - a mutable field - so it must be
+    // read from the locked row inside the transaction (see below).
     let customerForPricing: Customer | null = null;
-
-    // Update customer if provided
     if (customerId) {
       customerForPricing = await this.customerRepository.findOne({
         where: { id: customerId },
-        relations: { priceList: true }
+        relations: { priceList: true },
       });
       if (!customerForPricing) {
         throw new NotFoundException('Customer not found');
       }
       updateData.customerId = customerId;
-    } else {
-      // Load existing customer for pricing
-      customerForPricing = await this.customerRepository.findOne({
-        where: { id: order.customerId },
-        relations: { priceList: true }
-      });
     }
 
-    // Update notes if provided (including empty string to clear notes)
     if (notes !== undefined) {
       updateData.notes = notes;
     }
 
-    // Update items if provided
-    if (items && items.length > 0) {
-      // Price the incoming items from the customer/price-list. This does not
-      // depend on mutable order totals, so it can run before the lock.
+    // Price incoming items up front only when the customer was provided. The
+    // fallback-customer case is priced inside the locked transaction.
+    if (items && items.length > 0 && customerForPricing) {
       orderItems = await this.validateAndProcessItems(items, customerForPricing);
     }
 
@@ -514,6 +507,16 @@ export class SalesOrderService extends BaseCrudService<
         lock: { mode: 'pessimistic_write' },
       });
       if (!locked) throw new NotFoundException('Sales order not found');
+
+      // When the DTO omitted customerId, price against the locked order's current
+      // customer so a concurrent customer change cannot apply stale pricing.
+      if (items && items.length > 0 && !customerForPricing) {
+        const fallbackCustomer = await manager.getRepository(Customer).findOne({
+          where: { id: locked.customerId },
+          relations: { priceList: true },
+        });
+        orderItems = await this.validateAndProcessItems(items, fallbackCustomer ?? undefined);
+      }
 
       if (items && items.length > 0) {
         await manager.getRepository(SalesOrderItem).delete({ salesOrderId: id });
