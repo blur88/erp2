@@ -45,7 +45,7 @@ const filterConfig: FilterBarConfig<SalesOrderFilters> = {
     search: '',
     customerId: null,
     paymentStatus: null,
-    period: { key: 'this_month', from: null, to: null },
+    period: { key: null, from: null, to: null },
     status: null,
   },
 }
