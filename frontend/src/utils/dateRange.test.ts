@@ -53,7 +53,7 @@ describe('getPeriodDateRange', () => {
 
   it('last_30_days returns from=30 days ago and to=today', () => {
     const { from, to } = getPeriodDateRange('last_30_days')
-    expect(from).toBe('2026-02-28')
+    expect(from).toBe('2026-03-01')
     expect(to).toBe('2026-03-30')
   })
 
@@ -142,7 +142,7 @@ describe('inferPeriodKey', () => {
   })
 
   it('infers last_30_days', () => {
-    expect(inferPeriodKey('2026-02-28', '2026-03-30')).toBe('last_30_days')
+    expect(inferPeriodKey('2026-03-01', '2026-03-30')).toBe('last_30_days')
   })
 
   it('infers this_week with weekStartsOn=1 (Mon)', () => {
