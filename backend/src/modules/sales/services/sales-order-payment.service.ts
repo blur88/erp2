@@ -41,15 +41,21 @@ export class SalesOrderPaymentService {
 
   /**
    * Re-derive paymentStatus / paidAmount / balanceDue and the DRAFT<->READY band
-   * for an order whose totalAmount may have changed (e.g. after an edit). Reuses the
-   * same recompute as payment recording so there is one source of truth.
+   * for an order whose totalAmount may have changed. Reuses the same recompute as
+   * payment recording (single source of truth). When `manager` is supplied the work
+   * joins the caller's transaction; otherwise it runs in its own.
    */
-  async reconcileOrderState(orderId: string): Promise<SalesOrderPaymentStatus> {
-    return this.dataSource.transaction(async (manager: EntityManager) => {
-      const order = await this.salesOrderRepository.findOne({ where: { id: orderId } });
+  async reconcileOrderState(orderId: string, manager?: EntityManager): Promise<SalesOrderPaymentStatus> {
+    const run = async (m: EntityManager): Promise<SalesOrderPaymentStatus> => {
+      const order = await m.getRepository(SalesOrder).findOne({
+        where: { id: orderId },
+        lock: { mode: 'pessimistic_write' },
+      });
       if (!order) throw new NotFoundException('Sales order not found');
-      return this.updatePaymentStatusInTx(order, manager);
-    });
+      return this.updatePaymentStatusInTx(order, m);
+    };
+
+    return manager ? run(manager) : this.dataSource.transaction(run);
   }
 
   async recordPayment(orderId: string, dto: RecordPaymentDto, userId?: string, username?: string): Promise<SalesOrderPayment> {

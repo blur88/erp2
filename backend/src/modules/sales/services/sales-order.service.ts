@@ -6,7 +6,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, FindOptionsWhere } from 'typeorm';
+import { DataSource, EntityManager, Repository, FindOptionsWhere } from 'typeorm';
 import { BaseCrudService } from '../../../common/services/base-crud.service';
 import { SalesOrder } from '../../../database/entities/sales-order.entity';
 import { SalesOrderItem, DiscountType } from '../../../database/entities/sales-order-item.entity';
@@ -86,6 +86,7 @@ export class SalesOrderService extends BaseCrudService<
     private readonly salesOrderLifecycleService: SalesOrderLifecycleService,
     private readonly salesOrderPaymentService: SalesOrderPaymentService,
     private readonly salesOrderQueryService: SalesOrderQueryService,
+    private readonly dataSource: DataSource,
   ) {
     super(salesOrderRepository, auditLogService);
   }
@@ -471,6 +472,7 @@ export class SalesOrderService extends BaseCrudService<
 
     // Prepare update data for the sales order
     const updateData: any = {};
+    let orderItems: any[] = [];
 
     // Get customer for pricing (either new customer or existing)
     let customerForPricing: Customer | null = null;
@@ -500,40 +502,14 @@ export class SalesOrderService extends BaseCrudService<
 
     // Update items if provided
     if (items && items.length > 0) {
-      // Delete existing items from database
-      await this.salesOrderItemRepository.delete({ salesOrderId: id });
-
       // Validate and process new items with customer pricing
-      const orderItems = await this.validateAndProcessItems(items, customerForPricing);
+      orderItems = await this.validateAndProcessItems(items, customerForPricing);
 
       const subtotal = SalesOrderService.sumItemTotals(orderItems);
       const shippingAmount = updateSalesOrderDto.shippingAmount !== undefined
         ? Number(updateSalesOrderDto.shippingAmount)
         : Number(order.shippingAmount || 0);
       const totalAmount = subtotal + shippingAmount;
-
-      // Create new order items using direct object creation to avoid entity relations issues
-      for (const itemData of orderItems) {
-        // Validate that order.id exists
-        if (!order.id) {
-          throw new Error(`Cannot create order items: order.id is ${order.id}`);
-        }
-
-        // Use direct repository insert instead of create/save to bypass entity hooks
-        await this.salesOrderItemRepository.insert({
-          lineNumber: itemData.lineNumber || 1,
-          productId: itemData.productId,
-          quantity: itemData.quantity || 1,
-          unitPrice: itemData.unitPrice || 0,
-          unitCost: itemData.unitCost || 0,
-          discountType: itemData.discountType || DiscountType.PERCENTAGE,
-          discountPercent: itemData.discountPercent || 0,
-          discountAmount: itemData.discountAmount || 0,
-          totalAmount: itemData.totalAmount || 0,
-          notes: itemData.notes || null,
-          salesOrderId: order.id, // Direct database insert ensures this is set
-        });
-      }
 
       // Add shipping and total amount to update data
       updateData.shippingAmount = shippingAmount;
@@ -549,16 +525,45 @@ export class SalesOrderService extends BaseCrudService<
       updateData.totalAmount = currentSubtotal + newShipping;
     }
 
-    // Perform all updates in a single database call
-    if (Object.keys(updateData).length > 0) {
-      await this.salesOrderRepository.update(id, updateData);
-    }
+    await this.dataSource.transaction(async (manager: EntityManager) => {
+      // Lock the parent order for the duration of the edit so concurrent
+      // payment / status transitions serialize behind it.
+      const locked = await manager.getRepository(SalesOrder).findOne({
+        where: { id },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!locked) throw new NotFoundException('Sales order not found');
 
-    // When the total changed, re-derive paymentStatus / balanceDue / DRAFT<->READY band
-    // using the payment service's single source of truth.
-    if (updateData.totalAmount !== undefined) {
-      await this.salesOrderPaymentService.reconcileOrderState(id);
-    }
+      if (items && items.length > 0) {
+        await manager.getRepository(SalesOrderItem).delete({ salesOrderId: id });
+        for (const itemData of orderItems) {
+          // Use direct repository insert instead of create/save to bypass entity hooks.
+          await manager.getRepository(SalesOrderItem).insert({
+            lineNumber: itemData.lineNumber || 1,
+            productId: itemData.productId,
+            quantity: itemData.quantity || 1,
+            unitPrice: itemData.unitPrice || 0,
+            unitCost: itemData.unitCost || 0,
+            discountType: itemData.discountType || DiscountType.PERCENTAGE,
+            discountPercent: itemData.discountPercent || 0,
+            discountAmount: itemData.discountAmount || 0,
+            totalAmount: itemData.totalAmount || 0,
+            notes: itemData.notes || null,
+            salesOrderId: id,
+          });
+        }
+      }
+
+      if (Object.keys(updateData).length > 0) {
+        await manager.getRepository(SalesOrder).update(id, updateData);
+      }
+
+      // Reconcile inside the same transaction so totals, payment state, and the
+      // DRAFT<->READY band commit atomically.
+      if (updateData.totalAmount !== undefined) {
+        await this.salesOrderPaymentService.reconcileOrderState(id, manager);
+      }
+    });
 
     // Log audit trail for update
     if (Object.keys(updateData).length > 0) {

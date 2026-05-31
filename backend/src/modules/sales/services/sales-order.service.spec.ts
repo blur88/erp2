@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { DataSource, EntityManager, Repository } from 'typeorm';
 import { SalesOrderService } from './sales-order.service';
 import { SalesOrder, SalesOrderPaymentStatus, SalesOrderStatus } from '../../../database/entities/sales-order.entity';
 import { SalesOrderItem, DiscountType } from '../../../database/entities/sales-order-item.entity';
@@ -30,8 +30,13 @@ describe('SalesOrderService', () => {
   let salesOrderQueryService: jest.Mocked<SalesOrderQueryService>;
   let salesOrderRepository: any;
   let salesOrderItemRepository: any;
+  let productRepository: any;
+  let dataSource: jest.Mocked<DataSource>;
+  let reconcileSpy: jest.SpyInstance;
 
   beforeEach(async () => {
+    dataSource = { transaction: jest.fn() } as any;
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         SalesOrderService,
@@ -54,6 +59,7 @@ describe('SalesOrderService', () => {
         { provide: SalesOrderLifecycleService, useValue: { assertEditAllowed: jest.fn(), cancel: jest.fn(), uncancel: jest.fn() } },
         { provide: SalesOrderPaymentService, useValue: { recordPayment: jest.fn(), recordRefund: jest.fn(), listPayments: jest.fn(), reconcileOrderState: jest.fn() } },
         { provide: SalesOrderQueryService, useValue: { findById: jest.fn(), findAll: jest.fn(), findSummaries: jest.fn(), getDashboardStats: jest.fn(), findByOrderNumber: jest.fn(), findOrdersByCustomer: jest.fn() } },
+        { provide: DataSource, useValue: dataSource },
       ],
     }).compile();
 
@@ -64,6 +70,11 @@ describe('SalesOrderService', () => {
     salesOrderQueryService = module.get(SalesOrderQueryService);
     salesOrderRepository = module.get(getRepositoryToken(SalesOrder));
     salesOrderItemRepository = module.get(getRepositoryToken(SalesOrderItem));
+    productRepository = module.get(getRepositoryToken(Product));
+    reconcileSpy = jest.spyOn(salesOrderPaymentService, 'reconcileOrderState');
+    dataSource.transaction.mockImplementation(async (cb: any) => cb({
+      getRepository: (entity: any) => entity === SalesOrderItem ? salesOrderItemRepository : salesOrderRepository,
+    }));
     salesOrderQueryService.findById.mockResolvedValue({ id: 'order-1' } as any);
   });
 
@@ -182,7 +193,54 @@ describe('SalesOrderService', () => {
       expect(salesOrderRepository.update).toHaveBeenCalledWith('order-1', expect.objectContaining({
         totalAmount: 1100,
       }));
-      expect(salesOrderPaymentService.reconcileOrderState).toHaveBeenCalledWith('order-1');
+      expect(salesOrderPaymentService.reconcileOrderState).toHaveBeenCalledWith('order-1', expect.any(Object));
+    });
+  });
+
+  describe('update — atomicity', () => {
+    it('locks the order and runs item writes + reconcile in one transaction', async () => {
+      const order = {
+        id: 'o1', orderNumber: 'SO-1', status: 'DRAFT', paymentStatus: 'PAID',
+        paidAmount: 100, totalAmount: 100, customerId: 'c1', shippingAmount: 0,
+      };
+      const orderFindOne = jest.fn().mockResolvedValue(order);
+      const itemRepo = { delete: jest.fn().mockResolvedValue(undefined), insert: jest.fn().mockResolvedValue(undefined), find: jest.fn().mockResolvedValue([]) };
+      const orderRepoTx = { findOne: orderFindOne, update: jest.fn().mockResolvedValue(undefined) };
+      const manager = {
+        getRepository: (e: any) => (e === SalesOrderItem ? itemRepo : orderRepoTx),
+      } as unknown as EntityManager;
+      salesOrderRepository.findOne.mockResolvedValue(order);
+      productRepository.findOne.mockResolvedValue({ id: 'p1', baseCost: 10 });
+      (dataSource.transaction as jest.Mock).mockImplementation(async (cb: any) => cb(manager));
+      reconcileSpy.mockResolvedValue('PAID');
+
+      await service.update('o1', { items: [{ productId: 'p1', quantity: 1, unitPrice: 10 }] } as any);
+
+      // Order read inside the tx with a write lock.
+      expect(orderFindOne).toHaveBeenCalledWith(
+        expect.objectContaining({ lock: { mode: 'pessimistic_write' } }),
+      );
+      // Reconcile joined the SAME transaction (manager passed through).
+      expect(reconcileSpy).toHaveBeenCalledWith('o1', manager);
+    });
+
+    it('rolls back: when an item insert fails, the transaction rejects and reconcile is not called', async () => {
+      const order = { id: 'o1', orderNumber: 'SO-1', status: 'DRAFT', paymentStatus: 'UNPAID', paidAmount: 0, totalAmount: 0, customerId: 'c1', shippingAmount: 0 };
+      const orderRepoTx = {
+        findOne: jest.fn().mockResolvedValue(order),
+        update: jest.fn(),
+      };
+      const itemRepo = { delete: jest.fn().mockResolvedValue(undefined), insert: jest.fn().mockRejectedValue(new Error('insert failed')), find: jest.fn() };
+      const manager = { getRepository: (e: any) => (e === SalesOrderItem ? itemRepo : orderRepoTx) } as unknown as EntityManager;
+      salesOrderRepository.findOne.mockResolvedValue(order);
+      productRepository.findOne.mockResolvedValue({ id: 'p1', baseCost: 10 });
+      // Real transaction semantics: a throwing callback rejects the whole transaction.
+      (dataSource.transaction as jest.Mock).mockImplementation(async (cb: any) => cb(manager));
+
+      await expect(
+        service.update('o1', { items: [{ productId: 'p1', quantity: 1, unitPrice: 10 }] } as any),
+      ).rejects.toThrow('insert failed');
+      expect(reconcileSpy).not.toHaveBeenCalled();
     });
   });
 

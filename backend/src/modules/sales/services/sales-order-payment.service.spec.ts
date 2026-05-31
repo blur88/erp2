@@ -113,7 +113,7 @@ describe('SalesOrderPaymentService', () => {
   describe('reconcileOrderState', () => {
     // Helper: build a transaction manager whose SalesOrderPayment repo returns `payments`
     // and whose SalesOrder repo captures the update() call.
-    function mockTxManager(payments: { amount: number }[]) {
+    function mockTxManager(payments: { amount: number }[], order: SalesOrder) {
       const captured: { update?: any } = {};
       const manager = {
         getRepository: (entity: any) => {
@@ -121,7 +121,10 @@ describe('SalesOrderPaymentService', () => {
             return { find: jest.fn().mockResolvedValue(payments) };
           }
           // SalesOrder repo
-          return { update: jest.fn().mockImplementation((_id, patch) => { captured.update = patch; return Promise.resolve(); }) };
+          return {
+            findOne: jest.fn().mockResolvedValue(order),
+            update: jest.fn().mockImplementation((_id, patch) => { captured.update = patch; return Promise.resolve(); }),
+          };
         },
       } as unknown as EntityManager;
       return { manager, captured };
@@ -129,9 +132,8 @@ describe('SalesOrderPaymentService', () => {
 
     it('demotes READY -> DRAFT + PARTIAL when total rises above amount paid', async () => {
       const order = { id: 'o1', status: SalesOrderStatus.READY, totalAmount: 200, paidAmount: 100 } as SalesOrder;
-      const { manager, captured } = mockTxManager([{ amount: 100 }]);
+      const { manager, captured } = mockTxManager([{ amount: 100 }], order);
       (dataSource.transaction as jest.Mock).mockImplementation(async (cb: any) => cb(manager));
-      orderRepo.findOne.mockResolvedValue(order);
 
       await service.reconcileOrderState('o1');
 
@@ -142,14 +144,35 @@ describe('SalesOrderPaymentService', () => {
 
     it('promotes DRAFT -> READY and yields OVERPAID when total drops below amount paid', async () => {
       const order = { id: 'o2', status: SalesOrderStatus.DRAFT, totalAmount: 50, paidAmount: 100 } as SalesOrder;
-      const { manager, captured } = mockTxManager([{ amount: 100 }]);
+      const { manager, captured } = mockTxManager([{ amount: 100 }], order);
       (dataSource.transaction as jest.Mock).mockImplementation(async (cb: any) => cb(manager));
-      orderRepo.findOne.mockResolvedValue(order);
 
       await service.reconcileOrderState('o2');
 
       expect(captured.update.paymentStatus).toBe(SalesOrderPaymentStatus.OVERPAID);
       expect(captured.update.status).toBe(SalesOrderStatus.READY);
+    });
+
+    it('reuses a provided transaction manager (no new transaction) and locks the order', async () => {
+      const order = { id: 'o3', status: SalesOrderStatus.DRAFT, totalAmount: 80, paidAmount: 80 } as SalesOrder;
+      const findOne = jest.fn().mockResolvedValue(order);
+      const update = jest.fn().mockResolvedValue(undefined);
+      const manager = {
+        getRepository: (entity: any) => {
+          if (entity === SalesOrderPayment) return { find: jest.fn().mockResolvedValue([{ amount: 80 }]) };
+          return { findOne, update };
+        },
+      } as unknown as EntityManager;
+
+      await service.reconcileOrderState('o3', manager);
+
+      // Must NOT start its own transaction when a manager is supplied.
+      expect(dataSource.transaction as jest.Mock).not.toHaveBeenCalled();
+      // Reads the order through the manager with a write lock.
+      expect(findOne).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: 'o3' }, lock: { mode: 'pessimistic_write' } }),
+      );
+      expect(update).toHaveBeenCalled();
     });
   });
 
