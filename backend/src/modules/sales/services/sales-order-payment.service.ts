@@ -39,6 +39,19 @@ export class SalesOrderPaymentService {
     return SalesOrderPaymentStatus.OVERPAID;
   }
 
+  /**
+   * Re-derive paymentStatus / paidAmount / balanceDue and the DRAFT<->READY band
+   * for an order whose totalAmount may have changed (e.g. after an edit). Reuses the
+   * same recompute as payment recording so there is one source of truth.
+   */
+  async reconcileOrderState(orderId: string): Promise<SalesOrderPaymentStatus> {
+    return this.dataSource.transaction(async (manager: EntityManager) => {
+      const order = await this.salesOrderRepository.findOne({ where: { id: orderId } });
+      if (!order) throw new NotFoundException('Sales order not found');
+      return this.updatePaymentStatusInTx(order, manager);
+    });
+  }
+
   async recordPayment(orderId: string, dto: RecordPaymentDto, userId?: string, username?: string): Promise<SalesOrderPayment> {
     if (dto.amount <= 0) {
       throw new BadRequestException('Payment amount must be positive');

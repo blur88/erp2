@@ -52,7 +52,7 @@ describe('SalesOrderService', () => {
         { provide: AccountingService, useValue: {} },
         { provide: SalesOrderFulfillmentService, useValue: { fulfillOrder: jest.fn(), unfulfillOrder: jest.fn() } },
         { provide: SalesOrderLifecycleService, useValue: { assertEditAllowed: jest.fn(), cancel: jest.fn(), uncancel: jest.fn() } },
-        { provide: SalesOrderPaymentService, useValue: { recordPayment: jest.fn(), recordRefund: jest.fn(), listPayments: jest.fn() } },
+        { provide: SalesOrderPaymentService, useValue: { recordPayment: jest.fn(), recordRefund: jest.fn(), listPayments: jest.fn(), reconcileOrderState: jest.fn() } },
         { provide: SalesOrderQueryService, useValue: { findById: jest.fn(), findAll: jest.fn(), findSummaries: jest.fn(), getDashboardStats: jest.fn(), findByOrderNumber: jest.fn(), findOrdersByCustomer: jest.fn() } },
       ],
     }).compile();
@@ -160,7 +160,7 @@ describe('SalesOrderService', () => {
       );
     });
 
-    it('recomputes balanceDue when an edit changes the total (existing payment preserved)', async () => {
+    it('reconciles payment state when an edit changes the total', async () => {
       const existing = {
         id: 'order-1',
         orderNumber: 'SO-1',
@@ -181,8 +181,8 @@ describe('SalesOrderService', () => {
 
       expect(salesOrderRepository.update).toHaveBeenCalledWith('order-1', expect.objectContaining({
         totalAmount: 1100,
-        balanceDue: 700,
       }));
+      expect(salesOrderPaymentService.reconcileOrderState).toHaveBeenCalledWith('order-1');
     });
   });
 
