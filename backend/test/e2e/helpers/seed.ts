@@ -84,16 +84,17 @@ export async function seedPaymentMethod(dataSource: DataSource): Promise<Payment
 export async function seedDocumentNumberSettings(dataSource: DataSource): Promise<void> {
   const currentYY = new Date().getFullYear() % 100;
   const configs = [
-    { documentName: 'Purchase Orders', prefix: 'PO' },
-    { documentName: 'Goods Received', prefix: 'GRN' },
-    { documentName: 'Vendor Payments', prefix: 'VP' },
+    { documentName: 'Purchase Orders', prefix: 'PO', paddingDigits: 3 },
+    { documentName: 'Goods Received', prefix: 'GRN', paddingDigits: 3 },
+    { documentName: 'Vendor Payments', prefix: 'VP', paddingDigits: 3 },
+    { documentName: 'Journal Entries', prefix: 'JE', paddingDigits: 4 },
   ];
   for (const cfg of configs) {
     await dataSource.query(
       `INSERT INTO document_number_settings ("documentName", prefix, "paddingDigits", "nextNumber", "lastResetYear")
-       VALUES ($1, $2, 3, 1, $3)
+       VALUES ($1, $2, $3, 1, $4)
        ON CONFLICT ("documentName") DO NOTHING`,
-      [cfg.documentName, cfg.prefix, currentYY],
+      [cfg.documentName, cfg.prefix, cfg.paddingDigits, currentYY],
     );
   }
 }
