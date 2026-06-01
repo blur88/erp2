@@ -5,7 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { DataSource, EntityManager, Repository } from 'typeorm';
 import { SalesOrder, SalesOrderStatus } from '../../../database/entities/sales-order.entity';
 import { StockMovementService } from '../../../modules/inventory/services/stock-movement.service';
 import { AuditLogService } from '../../audit-logs/services';
@@ -25,56 +25,55 @@ export class SalesOrderFulfillmentService {
     private readonly baseCostCalculator: BaseCostCalculatorService,
     private readonly auditLogService: AuditLogService,
     private readonly accountingService: AccountingService,
+    private readonly dataSource: DataSource,
   ) {}
 
   async fulfillOrder(id: string, userId?: string, username?: string): Promise<SalesOrder> {
-    const order = await this.salesOrderRepository.findOne({
-      where: { id },
-      relations: { items: { product: true } },
+    const saved = await this.dataSource.transaction(async (manager: EntityManager) => {
+      const order = await manager.getRepository(SalesOrder).findOne({
+        where: { id },
+        relations: { items: { product: true }, customer: true },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!order) throw new NotFoundException('Sales order not found');
+      if (order.status === SalesOrderStatus.FULFILLED) {
+        throw new ConflictException('Order is already fulfilled');
+      }
+      if (order.status !== SalesOrderStatus.READY) {
+        throw new ConflictException('Cannot fulfill order - order must be Ready (paid in full)');
+      }
+
+      for (const item of order.items) {
+        if (item.product) {
+          await this.inventoryIntegrationService.adjustStock(
+            item.productId,
+            -item.quantity,
+            `Sales order fulfillment: ${order.orderNumber}`,
+            order.id,
+            userId,
+            undefined,
+            manager,
+          );
+        }
+      }
+
+      await manager.getRepository(SalesOrder).update(id, { status: SalesOrderStatus.FULFILLED });
+      order.status = SalesOrderStatus.FULFILLED;
+
+      // Accounting now participates in the transaction; a failure rolls back stock + status.
+      await this.accountingService.postSalesOrderEntry(order, userId || 'system', username, manager);
+      this.logger.log(`Posted accounting entry for sales order ${order.orderNumber}`);
+
+      return order;
     });
 
-    if (!order) throw new NotFoundException('Sales order not found');
-    if (order.status === SalesOrderStatus.FULFILLED) {
-      throw new ConflictException('Order is already fulfilled');
-    }
-    if (order.status !== SalesOrderStatus.READY) {
-      throw new ConflictException('Cannot fulfill order - order must be Ready (paid in full)');
-    }
-
-    for (const item of order.items) {
-      if (item.product) {
-        await this.inventoryIntegrationService.adjustStock(
-          item.productId,
-          -item.quantity,
-          `Sales order fulfillment: ${order.orderNumber}`,
-          order.id,
-        );
-      }
-    }
-
-    order.status = SalesOrderStatus.FULFILLED;
-    const saved = await this.salesOrderRepository.save(order);
-
-    await this.auditLogService.log('FULFILL', 'SalesOrder', `Fulfilled sales order: ${order.orderNumber}`, {
+    await this.auditLogService.log('FULFILL', 'SalesOrder', `Fulfilled sales order: ${saved.orderNumber}`, {
       entityId: id,
       userId: userId || 'system',
       username,
       oldValues: { status: SalesOrderStatus.READY },
       newValues: { status: SalesOrderStatus.FULFILLED },
     });
-
-    try {
-      const fullOrder = await this.salesOrderRepository.findOne({
-        where: { id },
-        relations: { customer: true, items: { product: true } },
-      });
-      if (fullOrder) {
-        await this.accountingService.postSalesOrderEntry(fullOrder, userId || 'system', username);
-        this.logger.log(`Posted accounting entry for sales order ${fullOrder.orderNumber}`);
-      }
-    } catch (error) {
-      this.logger.error(`Failed to post accounting entry for sales order ${id}: ${error.message}`, error.stack);
-    }
 
     return saved;
   }

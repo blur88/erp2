@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { DataSource, EntityManager, Repository } from 'typeorm';
 import { ConflictException, NotFoundException } from '@nestjs/common';
 import { SalesOrderFulfillmentService } from './sales-order-fulfillment.service';
 import { SalesOrder, SalesOrderStatus, SalesOrderPaymentStatus } from '../../../database/entities/sales-order.entity';
@@ -30,6 +30,15 @@ describe('SalesOrderFulfillmentService', () => {
   let baseCostCalculator: jest.Mocked<BaseCostCalculatorService>;
   let auditLogService: jest.Mocked<AuditLogService>;
   let accountingService: jest.Mocked<AccountingService>;
+  let dataSource: jest.Mocked<DataSource>;
+
+  function wireTransaction(order: SalesOrder | null) {
+    const findOne = jest.fn().mockResolvedValue(order);
+    const update = jest.fn().mockResolvedValue(undefined);
+    const manager = { getRepository: jest.fn().mockReturnValue({ findOne, update }) } as unknown as EntityManager;
+    (dataSource.transaction as jest.Mock).mockImplementation(async (cb: any) => cb(manager));
+    return { findOne, update, manager };
+  }
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -41,6 +50,7 @@ describe('SalesOrderFulfillmentService', () => {
         { provide: BaseCostCalculatorService, useValue: { restoreStock: jest.fn() } },
         { provide: AuditLogService, useValue: { log: jest.fn() } },
         { provide: AccountingService, useValue: { postSalesOrderEntry: jest.fn().mockResolvedValue(undefined), reverseSourceEntries: jest.fn().mockResolvedValue(undefined) } },
+        { provide: DataSource, useValue: { transaction: jest.fn() } },
       ],
     }).compile();
 
@@ -51,33 +61,42 @@ describe('SalesOrderFulfillmentService', () => {
     baseCostCalculator = module.get(BaseCostCalculatorService);
     auditLogService = module.get(AuditLogService);
     accountingService = module.get(AccountingService);
+    dataSource = module.get(DataSource) as jest.Mocked<DataSource>;
   });
 
   describe('fulfillOrder', () => {
     it('throws NotFoundException when order not found', async () => {
-      orderRepo.findOne.mockResolvedValue(null);
+      wireTransaction(null);
       await expect(service.fulfillOrder('order-1')).rejects.toThrow(NotFoundException);
     });
 
     it('throws ConflictException when already FULFILLED', async () => {
-      orderRepo.findOne.mockResolvedValue(mockOrder({ status: SalesOrderStatus.FULFILLED }));
+      wireTransaction(mockOrder({ status: SalesOrderStatus.FULFILLED }));
       await expect(service.fulfillOrder('order-1')).rejects.toThrow(ConflictException);
     });
 
-    it('throws ConflictException when paymentStatus is not PAID', async () => {
-      orderRepo.findOne.mockResolvedValue(mockOrder({ paymentStatus: SalesOrderPaymentStatus.PARTIAL }));
+    it('throws ConflictException when not READY', async () => {
+      wireTransaction(mockOrder({ status: SalesOrderStatus.DRAFT }));
       await expect(service.fulfillOrder('order-1')).rejects.toThrow(ConflictException);
     });
 
-    it('deducts inventory and sets status FULFILLED', async () => {
+    it('lock-reads the order and persists status via the manager', async () => {
       const order = mockOrder({ status: SalesOrderStatus.READY });
-      orderRepo.findOne.mockResolvedValue(order); // handles both the guard load and the accounting reload
-      orderRepo.save.mockResolvedValue({ ...order, status: SalesOrderStatus.FULFILLED } as SalesOrder);
+      const { findOne, update } = wireTransaction(order);
 
       await service.fulfillOrder('order-1');
 
-      expect(inventoryService.adjustStock).toHaveBeenCalledWith('product-1', -5, expect.any(String), 'order-1');
-      expect(orderRepo.save).toHaveBeenCalledWith(expect.objectContaining({ status: SalesOrderStatus.FULFILLED }));
+      expect(findOne).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: 'order-1' }, lock: { mode: 'pessimistic_write' } }),
+      );
+      expect(update).toHaveBeenCalledWith('order-1', expect.objectContaining({ status: SalesOrderStatus.FULFILLED }));
+      expect(inventoryService.adjustStock).toHaveBeenCalledWith('product-1', -5, expect.any(String), 'order-1', undefined, undefined, expect.anything());
+    });
+
+    it('rolls back (propagates) when accounting posting fails — no swallow', async () => {
+      wireTransaction(mockOrder({ status: SalesOrderStatus.READY }));
+      accountingService.postSalesOrderEntry.mockRejectedValue(new Error('period closed'));
+      await expect(service.fulfillOrder('order-1')).rejects.toThrow('period closed');
     });
   });
 
@@ -126,7 +145,7 @@ describe('SalesOrderFulfillmentService', () => {
 
   describe('fulfill/unfulfill with READY status', () => {
     it('rejects fulfilling a DRAFT order', async () => {
-      orderRepo.findOne.mockResolvedValue(
+      wireTransaction(
         mockOrder({ status: SalesOrderStatus.DRAFT, paymentStatus: SalesOrderPaymentStatus.PAID, items: [] }),
       );
 
@@ -135,8 +154,7 @@ describe('SalesOrderFulfillmentService', () => {
 
     it('fulfills a READY order -> FULFILLED', async () => {
       const order = mockOrder({ status: SalesOrderStatus.READY, paymentStatus: SalesOrderPaymentStatus.PAID, items: [] });
-      orderRepo.findOne.mockResolvedValue(order);
-      orderRepo.save.mockImplementation(async (saved: any) => saved as SalesOrder);
+      wireTransaction(order);
 
       const result = await service.fulfillOrder('order-1');
 
