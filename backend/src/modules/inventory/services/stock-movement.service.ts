@@ -12,6 +12,7 @@ import {
   FindManyOptions,
   SelectQueryBuilder,
   Between,
+  EntityManager,
 } from 'typeorm';
 import {
   StockMovement,
@@ -609,11 +610,21 @@ export class StockMovementService {
    * Recalculate previousBalance and newBalance for all movements of a product
    * This ensures data integrity after movements are deleted
    */
-  async recalculateBalances(productId: string): Promise<void> {
+  async recalculateBalances(
+    productId: string,
+    manager?: EntityManager,
+  ): Promise<void> {
+    const stockMovementRepo = manager
+      ? manager.getRepository(StockMovement)
+      : this.stockMovementRepository;
+    const productRepo = manager
+      ? manager.getRepository(Product)
+      : this.productRepository;
+
     this.logger.log(`Recalculating balances for product ${productId}`);
 
     // Fetch all movements for this product in chronological order
-    const movements = await this.stockMovementRepository.find({
+    const movements = await stockMovementRepo.find({
       where: { productId },
       order: {
         movementDate: 'ASC',
@@ -627,7 +638,7 @@ export class StockMovementService {
     }
 
     // Get current product stock
-    const product = await this.productRepository.findOne({
+    const product = await productRepo.findOne({
       where: { id: productId },
     });
 
@@ -661,7 +672,7 @@ export class StockMovementService {
       ) {
         movement.previousBalance = previousBalance;
         movement.newBalance = newBalance;
-        await this.stockMovementRepository.save(movement);
+        await stockMovementRepo.save(movement);
 
         this.logger.log(
           `Updated movement ${movement.id}: ${previousBalance} + (${quantity}) = ${newBalance}`
@@ -682,11 +693,19 @@ export class StockMovementService {
   async deleteByReference(
     referenceType: string,
     referenceId: string,
+    manager?: EntityManager,
   ): Promise<{ deletedCount: number }> {
+    const stockMovementRepo = manager
+      ? manager.getRepository(StockMovement)
+      : this.stockMovementRepository;
+    const productRepo = manager
+      ? manager.getRepository(Product)
+      : this.productRepository;
+
     this.logger.log(`Deleting stock movements for ${referenceType}: ${referenceId}`);
 
     // First, fetch all movements to revert their quantities
-    const movements = await this.stockMovementRepository.find({
+    const movements = await stockMovementRepo.find({
       where: {
         referenceType,
         referenceId,
@@ -719,7 +738,7 @@ export class StockMovementService {
 
     // Update product stock quantities
     for (const [productId, adjustment] of productUpdates.entries()) {
-      const product = await this.productRepository.findOne({
+      const product = await productRepo.findOne({
         where: { id: productId },
       });
 
@@ -740,14 +759,14 @@ export class StockMovementService {
           product.stockQuantity = newStock;
         }
 
-        await this.productRepository.save(product);
+        await productRepo.save(product);
       } else {
         this.logger.warn(`Product ${productId} not found, skipping stock reversion`);
       }
     }
 
     // Now delete the stock movements
-    const result = await this.stockMovementRepository
+    const result = await stockMovementRepo
       .createQueryBuilder()
       .delete()
       .from('stock_movements')
@@ -762,7 +781,7 @@ export class StockMovementService {
 
     // Recalculate balances for all affected products
     for (const productId of affectedProductIds) {
-      await this.recalculateBalances(productId);
+      await this.recalculateBalances(productId, manager);
     }
 
     return { deletedCount };
