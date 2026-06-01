@@ -6,13 +6,14 @@ import {
   forwardRef,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, EntityManager } from 'typeorm';
 import { Product, ProductType } from '../../../database/entities/product.entity';
 import { StockMovement, StockMovementType } from '../../../database/entities/stock-movement.entity';
 import { SalesOrder } from '../../../database/entities/sales-order.entity';
 import { SalesOrderItem } from '../../../database/entities/sales-order-item.entity';
 import { BaseCostCalculatorService } from '../../inventory/services/base-cost-calculator.service';
 import { SettingsService } from '../../settings/settings.service';
+import { repoFor } from '../../../common/db/tx-helpers';
 
 export interface StockItem {
   productId: string;
@@ -416,11 +417,11 @@ export class InventoryIntegrationService {
     referenceId?: string,
     userId?: string,
     movementTypeOverride?: StockMovementType,
+    manager?: EntityManager,
   ): Promise<void> {
-    const product = await this.productRepository.findOne({
-      where: { id: productId },
-    });
+    const productRepo = repoFor(manager, Product, this.productRepository);
 
+    const product = await productRepo.findOne({ where: { id: productId } });
     if (!product) {
       throw new NotFoundException(`Product ${productId} not found`);
     }
@@ -429,12 +430,6 @@ export class InventoryIntegrationService {
     const currentStock = Number(product.stockQuantity);
     const changeAmount = Number(quantityChange);
     const newStockQuantity = currentStock + changeAmount;
-
-    // DEBUG: Log stock values to trace the bug
-    console.log(`🔍 [adjustStock] Product ${productId}:`);
-    console.log(`  Current stock in DB: ${currentStock}`);
-    console.log(`  Change amount: ${changeAmount}`);
-    console.log(`  New stock will be: ${newStockQuantity}`);
 
     // Create stock movement record BEFORE updating product
     // This ensures previousBalance and newBalance are calculated correctly
@@ -451,24 +446,19 @@ export class InventoryIntegrationService {
       reason,
       referenceId,
       userId,
+      manager,
     );
 
-    // Update FIFO cost history for sales (negative quantity changes)
+    // Update FIFO cost history for sales (negative quantity changes).
+    // Errors propagate so a wrapping transaction rolls back.
     if (quantityChange < 0) {
       const quantitySold = Math.abs(quantityChange);
-      try {
-        await this.baseCostCalculator.reduceStock(productId, quantitySold);
-      } catch (error) {
-        // Log warning but don't fail the stock adjustment
-        // This allows sales to proceed even if cost history is missing
-        console.warn(`Failed to update cost history for product ${productId}: ${error.message}`);
-      }
+      await this.baseCostCalculator.reduceStock(productId, quantitySold, manager);
     }
 
     // Update product stock quantity (allow negative for GOODS products)
-    // Explicitly set as number to ensure TypeORM handles it correctly
     product.stockQuantity = Number(newStockQuantity);
-    await this.productRepository.save(product);
+    await productRepo.save(product);
   }
 
   // Private helper methods
@@ -536,8 +526,10 @@ export class InventoryIntegrationService {
     reason: string,
     referenceId?: string,
     userId?: string,
+    manager?: EntityManager,
   ): Promise<StockMovement> {
-    const movement = this.stockMovementRepository.create({
+    const stockMovementRepo = repoFor(manager, StockMovement, this.stockMovementRepository);
+    const movement = stockMovementRepo.create({
       productId,
       quantity,
       previousBalance,
@@ -549,6 +541,6 @@ export class InventoryIntegrationService {
       movementDate: new Date(),
     });
 
-    return await this.stockMovementRepository.save(movement);
+    return await stockMovementRepo.save(movement);
   }
 }

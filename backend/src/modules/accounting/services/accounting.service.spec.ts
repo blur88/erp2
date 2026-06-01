@@ -142,6 +142,13 @@ describe('AccountingService', () => {
       journalEntryService.postEntry.mockResolvedValue(mockJournalEntry as any);
     });
 
+    it('accepts an optional EntityManager argument (4th param)', async () => {
+      const manager = { getRepository: jest.fn() } as any;
+      await expect(
+        service.postSalesOrderEntry(mockSalesOrder, 'user-123', undefined, manager),
+      ).resolves.toBeDefined();
+    });
+
     it('should create two separate entries: COGS first, then Revenue', async () => {
       journalEntryService.create
         .mockResolvedValueOnce({ ...mockJournalEntry, id: 'cogs-entry' } as any)

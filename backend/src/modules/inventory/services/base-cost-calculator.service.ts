@@ -1,9 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, MoreThan } from 'typeorm';
+import { Repository, MoreThan, EntityManager } from 'typeorm';
 import { Product } from '../../../database/entities/product.entity';
 import { PurchaseCostHistory } from '../../../database/entities/purchase-cost-history.entity';
 import { CostingStrategyFactory } from './costing/costing-strategy-factory.service';
+import { repoFor } from '../../../common/db/tx-helpers';
 
 @Injectable()
 export class BaseCostCalculatorService {
@@ -21,8 +22,11 @@ export class BaseCostCalculatorService {
    * Calculate base cost using configured costing strategy
    * Strategy is determined by settings (AVERAGE, FIFO, LIFO, STANDARD)
    */
-  async calculateBaseCostFromCurrentStock(productId: string): Promise<number> {
-    const product = await this.productRepository.findOne({
+  async calculateBaseCostFromCurrentStock(productId: string, manager?: EntityManager): Promise<number> {
+    const productRepo = repoFor(manager, Product, this.productRepository);
+    const costHistoryRepo = repoFor(manager, PurchaseCostHistory, this.costHistoryRepository);
+
+    const product = await productRepo.findOne({
       where: { id: productId },
     });
 
@@ -31,7 +35,7 @@ export class BaseCostCalculatorService {
     }
 
     // Get all batches with remaining stock
-    const batches = await this.costHistoryRepository.find({
+    const batches = await costHistoryRepo.find({
       where: {
         productId,
         remainingQuantity: MoreThan(0), // Only batches with stock
@@ -58,10 +62,11 @@ export class BaseCostCalculatorService {
   /**
    * Update product base cost
    */
-  async updateProductBaseCost(productId: string): Promise<number> {
-    const newBaseCost = await this.calculateBaseCostFromCurrentStock(productId);
+  async updateProductBaseCost(productId: string, manager?: EntityManager): Promise<number> {
+    const productRepo = repoFor(manager, Product, this.productRepository);
+    const newBaseCost = await this.calculateBaseCostFromCurrentStock(productId, manager);
 
-    await this.productRepository.update(productId, {
+    await productRepo.update(productId, {
       baseCost: newBaseCost,
       updatedAt: new Date(),
     });
@@ -76,10 +81,12 @@ export class BaseCostCalculatorService {
    * Uses costing strategy to determine which batches to reduce from
    * Updates remainingQuantity in cost history and recalculates base cost
    */
-  async reduceStock(productId: string, quantitySold: number): Promise<void> {
+  async reduceStock(productId: string, quantitySold: number, manager?: EntityManager): Promise<void> {
+    const costHistoryRepo = repoFor(manager, PurchaseCostHistory, this.costHistoryRepository);
+
     this.logger.log(`Reducing stock for product ${productId}: ${quantitySold} units`);
 
-    const batches = await this.costHistoryRepository.find({
+    const batches = await costHistoryRepo.find({
       where: {
         productId,
         remainingQuantity: MoreThan(0),
@@ -104,7 +111,7 @@ export class BaseCostCalculatorService {
       const batchRemaining = Number(batch.remainingQuantity);
       const newRemaining = batchRemaining - reduction.quantity;
 
-      await this.costHistoryRepository.update(batch.id, {
+      await costHistoryRepo.update(batch.id, {
         remainingQuantity: newRemaining,
         updatedAt: new Date(),
       });
@@ -122,7 +129,7 @@ export class BaseCostCalculatorService {
     }
 
     // Recalculate base cost after reduction
-    await this.updateProductBaseCost(productId);
+    await this.updateProductBaseCost(productId, manager);
   }
 
   /**
@@ -272,11 +279,13 @@ export class BaseCostCalculatorService {
    * Adds quantities back to the cost history batches in FIFO order
    * This reverses the reduceStock operation during fulfillment
    */
-  async restoreStock(productId: string, quantityToRestore: number): Promise<void> {
+  async restoreStock(productId: string, quantityToRestore: number, manager?: EntityManager): Promise<void> {
+    const costHistoryRepo = repoFor(manager, PurchaseCostHistory, this.costHistoryRepository);
+
     this.logger.log(`Restoring stock for product ${productId}: ${quantityToRestore} units`);
 
     // Get all batches for this product, including sold-out ones
-    const batches = await this.costHistoryRepository.find({
+    const batches = await costHistoryRepo.find({
       where: {
         productId,
       },
@@ -302,7 +311,7 @@ export class BaseCostCalculatorService {
 
       const toRestore = Math.min(maxCanRestore, remainingToRestore);
 
-      await this.costHistoryRepository.update(batch.id, {
+      await costHistoryRepo.update(batch.id, {
         remainingQuantity: currentRemaining + toRestore,
         updatedAt: new Date(),
       });
@@ -321,6 +330,6 @@ export class BaseCostCalculatorService {
     }
 
     // Recalculate base cost after restoration
-    await this.updateProductBaseCost(productId);
+    await this.updateProductBaseCost(productId, manager);
   }
 }
