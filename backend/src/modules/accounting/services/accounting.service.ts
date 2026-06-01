@@ -4,6 +4,7 @@ import {
   NotFoundException,
   Logger,
 } from '@nestjs/common';
+import { EntityManager } from 'typeorm';
 import { JournalEntryService } from './journal-entry.service';
 import { AccountMappingService } from './account-mapping.service';
 import { FiscalPeriodService } from './fiscal-period.service';
@@ -49,6 +50,7 @@ export class AccountingService {
     salesOrder: SalesOrder,
     userId: string,
     username?: string,
+    manager?: EntityManager,
   ): Promise<JournalEntry> {
     this.logger.log(`Posting sales order entry for ${salesOrder.orderNumber}`);
 
@@ -156,6 +158,8 @@ export class AccountingService {
         },
       ],
     };
+
+    // TODO(#719): manager accepted for transactional call-site uniformity; JournalEntryService persistence is not yet manager-bound.
 
     // Post COGS entry first (when there is a cost to record)
     if (cogsEntryDto) {
@@ -943,8 +947,11 @@ export class AccountingService {
     sourceType: string,
     sourceId: string,
     userId: string,
+    manager?: EntityManager,
   ): Promise<void> {
     this.logger.log(`Reversing source entries: ${sourceType}/${sourceId}`);
+
+    // TODO(#719): manager accepted for transactional call-site uniformity; JournalEntryService persistence is not yet manager-bound.
 
     const entries = await this.journalEntryService.findBySource(sourceType, sourceId);
 
