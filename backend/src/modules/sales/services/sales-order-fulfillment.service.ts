@@ -2,11 +2,11 @@ import {
   ConflictException,
   Injectable,
   Logger,
-  NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, EntityManager, Repository } from 'typeorm';
 import { SalesOrder, SalesOrderStatus } from '../../../database/entities/sales-order.entity';
+import { lockRowForUpdate } from '../../../common/db/tx-helpers';
 import { StockMovementService } from '../../../modules/inventory/services/stock-movement.service';
 import { AuditLogService } from '../../audit-logs/services';
 import { BaseCostCalculatorService } from '../../inventory/services/base-cost-calculator.service';
@@ -30,12 +30,10 @@ export class SalesOrderFulfillmentService {
 
   async fulfillOrder(id: string, userId?: string, username?: string): Promise<SalesOrder> {
     const saved = await this.dataSource.transaction(async (manager: EntityManager) => {
-      const order = await manager.getRepository(SalesOrder).findOne({
-        where: { id },
+      const order = await lockRowForUpdate(manager, SalesOrder, id, {
         relations: { items: { product: true }, customer: true },
-        lock: { mode: 'pessimistic_write' },
+        notFoundMessage: 'Sales order not found',
       });
-      if (!order) throw new NotFoundException('Sales order not found');
       if (order.status === SalesOrderStatus.FULFILLED) {
         throw new ConflictException('Order is already fulfilled');
       }
@@ -57,11 +55,34 @@ export class SalesOrderFulfillmentService {
         }
       }
 
-      await manager.getRepository(SalesOrder).update(id, { status: SalesOrderStatus.FULFILLED });
+      const now = new Date();
+      await manager.getRepository(SalesOrder).update(id, {
+        status: SalesOrderStatus.FULFILLED,
+        updatedAt: now,
+      });
       order.status = SalesOrderStatus.FULFILLED;
 
-      // Accounting now participates in the transaction; a failure rolls back stock + status.
-      await this.accountingService.postSalesOrderEntry(order, userId || 'system', username, manager);
+      // Re-read the order after the status update + stock reduction, then post
+      // accounting against that fresh row. This fixes two things the in-memory
+      // lock-read snapshot got wrong:
+      //  1. fulfilledDate (a getter over updatedAt) — the re-read carries the just-
+      //     persisted updatedAt = now, so the journal entry lands in the correct
+      //     fiscal period instead of the order's stale pre-fulfillment date.
+      //  2. COGS — adjustStock -> reduceStock may have recalculated each product's
+      //     baseCost as FIFO batches were depleted; the re-read items.product carry
+      //     the post-reduction cost (matching the previous post-save reload).
+      const pricedOrder = await manager.getRepository(SalesOrder).findOne({
+        where: { id },
+        relations: { items: { product: true }, customer: true },
+      });
+      const orderForPosting = pricedOrder ?? order;
+
+      // NOTE: postSalesOrderEntry receives `manager` for call-site uniformity, but
+      // JournalEntryService persistence is not yet manager-bound (see #719), so the
+      // journal entries commit on a separate connection. A failure *here* still rolls
+      // back stock + status (the post is the last in-tx step); the residual gap is a
+      // failure of the outer COMMIT after the GL committed, which #719 will close.
+      await this.accountingService.postSalesOrderEntry(orderForPosting, userId || 'system', username, manager);
       this.logger.log(`Posted accounting entry for sales order ${order.orderNumber}`);
 
       return order;
@@ -80,12 +101,10 @@ export class SalesOrderFulfillmentService {
 
   async unfulfillOrder(id: string, userId?: string, username?: string): Promise<SalesOrder> {
     const saved = await this.dataSource.transaction(async (manager: EntityManager) => {
-      const order = await manager.getRepository(SalesOrder).findOne({
-        where: { id },
+      const order = await lockRowForUpdate(manager, SalesOrder, id, {
         relations: { items: { product: true } },
-        lock: { mode: 'pessimistic_write' },
+        notFoundMessage: 'Sales order not found',
       });
-      if (!order) throw new NotFoundException('Sales order not found');
       if (order.status !== SalesOrderStatus.FULFILLED) {
         throw new ConflictException('Order is not fulfilled');
       }

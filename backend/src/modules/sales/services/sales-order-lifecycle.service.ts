@@ -8,6 +8,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, EntityManager, Repository } from 'typeorm';
 import { SalesOrder, SalesOrderPaymentStatus, SalesOrderStatus } from '../../../database/entities/sales-order.entity';
 import { AuditLogService } from '../../audit-logs/services';
+import { lockRowForUpdate } from '../../../common/db/tx-helpers';
 
 @Injectable()
 export class SalesOrderLifecycleService {
@@ -43,11 +44,9 @@ export class SalesOrderLifecycleService {
 
   async cancel(id: string, userId?: string, username?: string): Promise<SalesOrder> {
     const saved = await this.dataSource.transaction(async (manager: EntityManager) => {
-      const order = await manager.getRepository(SalesOrder).findOne({
-        where: { id },
-        lock: { mode: 'pessimistic_write' },
+      const order = await lockRowForUpdate(manager, SalesOrder, id, {
+        notFoundMessage: 'Sales order not found',
       });
-      if (!order) throw new NotFoundException('Sales order not found');
 
       if (order.status === SalesOrderStatus.FULFILLED) {
         throw new ConflictException('Cannot cancel a fulfilled order. Unfulfill it first.');
@@ -77,11 +76,9 @@ export class SalesOrderLifecycleService {
 
   async uncancel(id: string, userId?: string, username?: string): Promise<SalesOrder> {
     const saved = await this.dataSource.transaction(async (manager: EntityManager) => {
-      const order = await manager.getRepository(SalesOrder).findOne({
-        where: { id },
-        lock: { mode: 'pessimistic_write' },
+      const order = await lockRowForUpdate(manager, SalesOrder, id, {
+        notFoundMessage: 'Sales order not found',
       });
-      if (!order) throw new NotFoundException('Sales order not found');
 
       if (order.status !== SalesOrderStatus.CANCELLED) {
         throw new ConflictException('Order is not cancelled.');

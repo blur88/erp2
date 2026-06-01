@@ -19,6 +19,7 @@ import {
   StockMovementType,
 } from '../../../database/entities/stock-movement.entity';
 import { Product } from '../../../database/entities/product.entity';
+import { repoFor } from '../../../common/db/tx-helpers';
 import {
   CreateStockMovementDto,
   QueryStockMovementsDto,
@@ -614,12 +615,8 @@ export class StockMovementService {
     productId: string,
     manager?: EntityManager,
   ): Promise<void> {
-    const stockMovementRepo = manager
-      ? manager.getRepository(StockMovement)
-      : this.stockMovementRepository;
-    const productRepo = manager
-      ? manager.getRepository(Product)
-      : this.productRepository;
+    const stockMovementRepo = repoFor(manager, StockMovement, this.stockMovementRepository);
+    const productRepo = repoFor(manager, Product, this.productRepository);
 
     this.logger.log(`Recalculating balances for product ${productId}`);
 
@@ -695,12 +692,8 @@ export class StockMovementService {
     referenceId: string,
     manager?: EntityManager,
   ): Promise<{ deletedCount: number }> {
-    const stockMovementRepo = manager
-      ? manager.getRepository(StockMovement)
-      : this.stockMovementRepository;
-    const productRepo = manager
-      ? manager.getRepository(Product)
-      : this.productRepository;
+    const stockMovementRepo = repoFor(manager, StockMovement, this.stockMovementRepository);
+    const productRepo = repoFor(manager, Product, this.productRepository);
 
     this.logger.log(`Deleting stock movements for ${referenceType}: ${referenceId}`);
 

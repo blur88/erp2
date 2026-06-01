@@ -4,6 +4,7 @@ import { Repository, MoreThan, EntityManager } from 'typeorm';
 import { Product } from '../../../database/entities/product.entity';
 import { PurchaseCostHistory } from '../../../database/entities/purchase-cost-history.entity';
 import { CostingStrategyFactory } from './costing/costing-strategy-factory.service';
+import { repoFor } from '../../../common/db/tx-helpers';
 
 @Injectable()
 export class BaseCostCalculatorService {
@@ -22,8 +23,8 @@ export class BaseCostCalculatorService {
    * Strategy is determined by settings (AVERAGE, FIFO, LIFO, STANDARD)
    */
   async calculateBaseCostFromCurrentStock(productId: string, manager?: EntityManager): Promise<number> {
-    const productRepo = manager ? manager.getRepository(Product) : this.productRepository;
-    const costHistoryRepo = manager ? manager.getRepository(PurchaseCostHistory) : this.costHistoryRepository;
+    const productRepo = repoFor(manager, Product, this.productRepository);
+    const costHistoryRepo = repoFor(manager, PurchaseCostHistory, this.costHistoryRepository);
 
     const product = await productRepo.findOne({
       where: { id: productId },
@@ -62,7 +63,7 @@ export class BaseCostCalculatorService {
    * Update product base cost
    */
   async updateProductBaseCost(productId: string, manager?: EntityManager): Promise<number> {
-    const productRepo = manager ? manager.getRepository(Product) : this.productRepository;
+    const productRepo = repoFor(manager, Product, this.productRepository);
     const newBaseCost = await this.calculateBaseCostFromCurrentStock(productId, manager);
 
     await productRepo.update(productId, {
@@ -81,7 +82,7 @@ export class BaseCostCalculatorService {
    * Updates remainingQuantity in cost history and recalculates base cost
    */
   async reduceStock(productId: string, quantitySold: number, manager?: EntityManager): Promise<void> {
-    const costHistoryRepo = manager ? manager.getRepository(PurchaseCostHistory) : this.costHistoryRepository;
+    const costHistoryRepo = repoFor(manager, PurchaseCostHistory, this.costHistoryRepository);
 
     this.logger.log(`Reducing stock for product ${productId}: ${quantitySold} units`);
 
@@ -279,7 +280,7 @@ export class BaseCostCalculatorService {
    * This reverses the reduceStock operation during fulfillment
    */
   async restoreStock(productId: string, quantityToRestore: number, manager?: EntityManager): Promise<void> {
-    const costHistoryRepo = manager ? manager.getRepository(PurchaseCostHistory) : this.costHistoryRepository;
+    const costHistoryRepo = repoFor(manager, PurchaseCostHistory, this.costHistoryRepository);
 
     this.logger.log(`Restoring stock for product ${productId}: ${quantityToRestore} units`);
 

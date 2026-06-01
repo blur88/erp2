@@ -98,6 +98,40 @@ describe('SalesOrderFulfillmentService', () => {
       accountingService.postSalesOrderEntry.mockRejectedValue(new Error('period closed'));
       await expect(service.fulfillOrder('order-1')).rejects.toThrow('period closed');
     });
+
+    it('posts accounting against the re-read order (fresh updatedAt + post-reduction costs), not the lock-read snapshot', async () => {
+      // Lock-read returns the stale snapshot; the post-update re-read returns a row
+      // carrying the just-persisted updatedAt and recalculated product baseCost.
+      const lockReadOrder = mockOrder({ status: SalesOrderStatus.READY });
+      const repricedOrder = mockOrder({
+        status: SalesOrderStatus.FULFILLED,
+        // sentinel distinguishing the re-read from the lock-read snapshot
+        updatedAt: new Date('2099-01-01T00:00:00Z'),
+      } as Partial<SalesOrder>);
+
+      const findOne = jest
+        .fn()
+        .mockResolvedValueOnce(lockReadOrder) // lockRowForUpdate (with pessimistic_write)
+        .mockResolvedValueOnce(repricedOrder); // priced re-read before posting
+      const update = jest.fn().mockResolvedValue(undefined);
+      const manager = { getRepository: jest.fn().mockReturnValue({ findOne, update }) } as unknown as EntityManager;
+      (dataSource.transaction as jest.Mock).mockImplementation(async (cb: any) => cb(manager));
+
+      await service.fulfillOrder('order-1', 'user-1', 'admin');
+
+      // The status update must persist a fresh updatedAt so fulfilledDate is correct.
+      expect(update).toHaveBeenCalledWith(
+        'order-1',
+        expect.objectContaining({ status: SalesOrderStatus.FULFILLED, updatedAt: expect.any(Date) }),
+      );
+      // Accounting must be posted with the re-read row, not the stale lock-read snapshot.
+      expect(accountingService.postSalesOrderEntry).toHaveBeenCalledWith(
+        repricedOrder,
+        'user-1',
+        'admin',
+        expect.anything(),
+      );
+    });
   });
 
   describe('unfulfillOrder', () => {

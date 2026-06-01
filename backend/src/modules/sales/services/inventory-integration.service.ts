@@ -13,6 +13,7 @@ import { SalesOrder } from '../../../database/entities/sales-order.entity';
 import { SalesOrderItem } from '../../../database/entities/sales-order-item.entity';
 import { BaseCostCalculatorService } from '../../inventory/services/base-cost-calculator.service';
 import { SettingsService } from '../../settings/settings.service';
+import { repoFor } from '../../../common/db/tx-helpers';
 
 export interface StockItem {
   productId: string;
@@ -418,7 +419,7 @@ export class InventoryIntegrationService {
     movementTypeOverride?: StockMovementType,
     manager?: EntityManager,
   ): Promise<void> {
-    const productRepo = manager ? manager.getRepository(Product) : this.productRepository;
+    const productRepo = repoFor(manager, Product, this.productRepository);
 
     const product = await productRepo.findOne({ where: { id: productId } });
     if (!product) {
@@ -527,7 +528,7 @@ export class InventoryIntegrationService {
     userId?: string,
     manager?: EntityManager,
   ): Promise<StockMovement> {
-    const stockMovementRepo = manager ? manager.getRepository(StockMovement) : this.stockMovementRepository;
+    const stockMovementRepo = repoFor(manager, StockMovement, this.stockMovementRepository);
     const movement = stockMovementRepo.create({
       productId,
       quantity,

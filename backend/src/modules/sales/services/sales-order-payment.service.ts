@@ -11,6 +11,7 @@ import { SalesOrderPayment } from '../../../database/entities/sales-order-paymen
 import { PaymentMethodEntity } from '../../../database/entities/payment-method.entity';
 import { AuditLogService } from '../../audit-logs/services';
 import { RecordPaymentDto } from '../dto/sales-order.dto';
+import { lockRowForUpdate } from '../../../common/db/tx-helpers';
 
 const AMOUNT_TOLERANCE = 0.001;
 
@@ -49,11 +50,9 @@ export class SalesOrderPaymentService {
    */
   async reconcileOrderState(orderId: string, manager?: EntityManager): Promise<SalesOrder> {
     const run = async (m: EntityManager): Promise<SalesOrder> => {
-      const order = await m.getRepository(SalesOrder).findOne({
-        where: { id: orderId },
-        lock: { mode: 'pessimistic_write' },
+      const order = await lockRowForUpdate(m, SalesOrder, orderId, {
+        notFoundMessage: 'Sales order not found',
       });
-      if (!order) throw new NotFoundException('Sales order not found');
       await this.updatePaymentStatusInTx(order, m);
       return order;
     };
@@ -72,11 +71,9 @@ export class SalesOrderPaymentService {
     if (!method) throw new BadRequestException(`Payment method ${dto.paymentMethodId} not found or inactive`);
 
     const { saved, orderNumber } = await this.dataSource.transaction(async (manager: EntityManager) => {
-      const order = await manager.getRepository(SalesOrder).findOne({
-        where: { id: orderId },
-        lock: { mode: 'pessimistic_write' },
+      const order = await lockRowForUpdate(manager, SalesOrder, orderId, {
+        notFoundMessage: 'Sales order not found',
       });
-      if (!order) throw new NotFoundException('Sales order not found');
       if (order.status !== SalesOrderStatus.DRAFT) {
         throw new ConflictException('Payments can only be recorded on DRAFT orders');
       }
@@ -115,11 +112,9 @@ export class SalesOrderPaymentService {
     if (!method) throw new BadRequestException(`Payment method ${dto.paymentMethodId} not found or inactive`);
 
     const { saved, resultingStatus, orderNumber } = await this.dataSource.transaction(async (manager: EntityManager) => {
-      const order = await manager.getRepository(SalesOrder).findOne({
-        where: { id: orderId },
-        lock: { mode: 'pessimistic_write' },
+      const order = await lockRowForUpdate(manager, SalesOrder, orderId, {
+        notFoundMessage: 'Sales order not found',
       });
-      if (!order) throw new NotFoundException('Sales order not found');
       if (order.status === SalesOrderStatus.CANCELLED) {
         throw new ConflictException('Cannot record a refund on a cancelled order');
       }
@@ -167,11 +162,9 @@ export class SalesOrderPaymentService {
     }
 
     const { results, orderNumber } = await this.dataSource.transaction(async (manager: EntityManager) => {
-      const order = await manager.getRepository(SalesOrder).findOne({
-        where: { id: orderId },
-        lock: { mode: 'pessimistic_write' },
+      const order = await lockRowForUpdate(manager, SalesOrder, orderId, {
+        notFoundMessage: 'Sales order not found',
       });
-      if (!order) throw new NotFoundException('Sales order not found');
       if (order.status !== SalesOrderStatus.DRAFT) {
         throw new ConflictException('Payments can only be recorded on DRAFT orders');
       }
@@ -218,11 +211,9 @@ export class SalesOrderPaymentService {
     }
 
     const { results, resultingStatus, orderNumber } = await this.dataSource.transaction(async (manager: EntityManager) => {
-      const order = await manager.getRepository(SalesOrder).findOne({
-        where: { id: orderId },
-        lock: { mode: 'pessimistic_write' },
+      const order = await lockRowForUpdate(manager, SalesOrder, orderId, {
+        notFoundMessage: 'Sales order not found',
       });
-      if (!order) throw new NotFoundException('Sales order not found');
       if (order.status === SalesOrderStatus.CANCELLED) {
         throw new ConflictException('Cannot record a refund on a cancelled order');
       }
