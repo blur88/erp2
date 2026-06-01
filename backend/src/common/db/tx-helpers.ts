@@ -29,6 +29,14 @@ export function repoFor<T extends ObjectLiteral>(
  * pessimistic-lock + single-transaction protocol used by the sales-order
  * transitions: open `dataSource.transaction`, then call this to take the row
  * lock before re-asserting any status guards on fresh, lock-held state.
+ *
+ * The lock is always taken on the BARE row (no relations). Postgres rejects
+ * `SELECT … FOR UPDATE` when the query contains a LEFT JOIN to a nullable side
+ * ("FOR UPDATE cannot be applied to the nullable side of an outer join"), which
+ * is exactly what TypeORM emits when `relations` are loaded via join. When
+ * `relations` are requested we therefore lock the bare row first, then re-load it
+ * with its relations in a second query on the same manager — still inside the
+ * transaction, so the row lock acquired in step one is held throughout.
  */
 export async function lockRowForUpdate<T extends ObjectLiteral>(
   manager: EntityManager,
@@ -36,13 +44,27 @@ export async function lockRowForUpdate<T extends ObjectLiteral>(
   id: string,
   options?: { relations?: FindOptionsRelations<T>; notFoundMessage?: string },
 ): Promise<T> {
-  const row = await manager.getRepository(entity).findOne({
+  const repo = manager.getRepository(entity);
+
+  // Step 1: lock the bare row FOR UPDATE (no join, so the lock is valid).
+  const locked = await repo.findOne({
     where: { id } as any,
-    relations: options?.relations,
     lock: { mode: 'pessimistic_write' },
   });
-  if (!row) {
+  if (!locked) {
     throw new NotFoundException(options?.notFoundMessage ?? 'Resource not found');
   }
-  return row;
+
+  // Step 2: hydrate relations in a separate (unlocked) read within the same
+  // transaction. The row is already lock-held, so this view is consistent.
+  if (options?.relations) {
+    const withRelations = await repo.findOne({
+      where: { id } as any,
+      relations: options.relations,
+    });
+    // The row exists and is locked; the re-read cannot legitimately miss it.
+    if (withRelations) return withRelations;
+  }
+
+  return locked;
 }

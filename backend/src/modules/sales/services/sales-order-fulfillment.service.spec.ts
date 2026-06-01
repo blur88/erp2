@@ -100,8 +100,9 @@ describe('SalesOrderFulfillmentService', () => {
     });
 
     it('posts accounting against the re-read order (fresh updatedAt + post-reduction costs), not the lock-read snapshot', async () => {
-      // Lock-read returns the stale snapshot; the post-update re-read returns a row
-      // carrying the just-persisted updatedAt and recalculated product baseCost.
+      // lockRowForUpdate issues two reads (bare lock, then relations hydrate); the
+      // post-update re-read is a third read returning a row carrying the just-
+      // persisted updatedAt and recalculated product baseCost.
       const lockReadOrder = mockOrder({ status: SalesOrderStatus.READY });
       const repricedOrder = mockOrder({
         status: SalesOrderStatus.FULFILLED,
@@ -111,7 +112,8 @@ describe('SalesOrderFulfillmentService', () => {
 
       const findOne = jest
         .fn()
-        .mockResolvedValueOnce(lockReadOrder) // lockRowForUpdate (with pessimistic_write)
+        .mockResolvedValueOnce(lockReadOrder) // lockRowForUpdate: bare row lock
+        .mockResolvedValueOnce(lockReadOrder) // lockRowForUpdate: relations hydrate
         .mockResolvedValueOnce(repricedOrder); // priced re-read before posting
       const update = jest.fn().mockResolvedValue(undefined);
       const manager = { getRepository: jest.fn().mockReturnValue({ findOne, update }) } as unknown as EntityManager;

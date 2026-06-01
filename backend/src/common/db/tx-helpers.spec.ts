@@ -23,9 +23,28 @@ describe('tx-helpers', () => {
   });
 
   describe('lockRowForUpdate', () => {
-    it('reads the row through the manager with a pessimistic_write lock', async () => {
-      const row = { id: 'x1' };
-      const findOne = jest.fn().mockResolvedValue(row);
+    it('locks the BARE row FOR UPDATE (no relations join — Postgres rejects FOR UPDATE over an outer join)', async () => {
+      const locked = { id: 'x1' };
+      const findOne = jest.fn().mockResolvedValue(locked);
+      const manager = { getRepository: jest.fn().mockReturnValue({ findOne }) } as any;
+
+      const result = await lockRowForUpdate(manager, Dummy, 'x1', { notFoundMessage: 'Dummy not found' });
+
+      expect(result).toBe(locked);
+      expect(findOne).toHaveBeenCalledTimes(1);
+      expect(findOne).toHaveBeenCalledWith({
+        where: { id: 'x1' },
+        lock: { mode: 'pessimistic_write' },
+      });
+    });
+
+    it('locks bare then hydrates relations in a SEPARATE unlocked read on the same manager', async () => {
+      const locked = { id: 'x1' };
+      const withRelations = { id: 'x1', foo: { id: 'f1' } };
+      const findOne = jest
+        .fn()
+        .mockResolvedValueOnce(locked) // step 1: bare lock
+        .mockResolvedValueOnce(withRelations); // step 2: relations
       const manager = { getRepository: jest.fn().mockReturnValue({ findOne }) } as any;
 
       const result = await lockRowForUpdate(manager, Dummy, 'x1', {
@@ -33,15 +52,20 @@ describe('tx-helpers', () => {
         notFoundMessage: 'Dummy not found',
       });
 
-      expect(result).toBe(row);
-      expect(findOne).toHaveBeenCalledWith({
+      expect(result).toBe(withRelations);
+      // Step 1 takes the lock on the bare row (no relations in the query).
+      expect(findOne).toHaveBeenNthCalledWith(1, {
+        where: { id: 'x1' },
+        lock: { mode: 'pessimistic_write' },
+      });
+      // Step 2 loads relations without a lock (no FOR UPDATE over the join).
+      expect(findOne).toHaveBeenNthCalledWith(2, {
         where: { id: 'x1' },
         relations: { foo: true },
-        lock: { mode: 'pessimistic_write' },
       });
     });
 
-    it('throws NotFoundException with the supplied message when absent', async () => {
+    it('throws NotFoundException with the supplied message when the bare row is absent', async () => {
       const findOne = jest.fn().mockResolvedValue(null);
       const manager = { getRepository: jest.fn().mockReturnValue({ findOne }) } as any;
 

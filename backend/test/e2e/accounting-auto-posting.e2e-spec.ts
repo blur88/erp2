@@ -423,9 +423,13 @@ describe('Accounting Auto-Posting Integration (E2E)', () => {
       expect(Number(cogsLine.debitAmount)).toBe(500.00); // 10 qty * 50 baseCost
     });
 
-    it('should continue fulfillment when accounting mapping missing', async () => {
-      // Delete COGS mapping
+    it('rolls back fulfillment when an accounting mapping is missing (atomic, #718/#719)', async () => {
+      // Delete COGS mapping so accounting posting fails inside the fulfillment tx.
       await dataSource.query(`DELETE FROM account_mappings WHERE "mappingKey" = $1`, [MappingType.SALES_COGS]);
+
+      const stockBefore = Number(
+        (await productRepo.findOne({ where: { id: testProduct.id } }))!.stockQuantity,
+      );
 
       const salesOrder = salesOrderRepo.create({
         orderNumber: 'SO-TEST-001',
@@ -448,11 +452,21 @@ describe('Accounting Auto-Posting Integration (E2E)', () => {
       } as any);
       await dataSource.getRepository(SalesOrderItem).save(item);
 
-      // Fulfillment should succeed
-      const fulfilledOrder = await salesOrderService.fulfillOrder(savedOrder.id);
-      expect(fulfilledOrder.status).toBe('FULFILLED');
+      // Accounting now participates in the transaction: a missing mapping fails the
+      // whole fulfillment instead of silently leaving the books unposted.
+      await expect(salesOrderService.fulfillOrder(savedOrder.id)).rejects.toThrow(
+        /Account mapping not configured/,
+      );
 
-      // But no journal entry should be created
+      // Order stays READY (status change rolled back).
+      const reloaded = await salesOrderRepo.findOne({ where: { id: savedOrder.id } });
+      expect(reloaded!.status).toBe(SalesOrderStatus.READY);
+
+      // Stock was not deducted (stock movement rolled back with the transaction).
+      const productAfter = await productRepo.findOne({ where: { id: testProduct.id } });
+      expect(Number(productAfter!.stockQuantity)).toBe(stockBefore);
+
+      // No journal entry created.
       const journalEntries = await journalEntryRepo.find({
         where: { sourceType: 'sales_order', sourceId: savedOrder.id },
       });
@@ -1226,9 +1240,15 @@ describe('Accounting Auto-Posting Integration (E2E)', () => {
       } as any);
       await dataSource.getRepository(SalesOrderItem).save(item);
 
-      // Fulfillment succeeds but accounting fails silently
-      const fulfilledOrder = await salesOrderService.fulfillOrder(savedOrder.id);
-      expect(fulfilledOrder.status).toBe('FULFILLED');
+      // Fulfillment fails and rolls back when required sales mappings are missing
+      // (accounting posting participates in the fulfillment transaction).
+      await expect(salesOrderService.fulfillOrder(savedOrder.id)).rejects.toThrow(
+        /Account mapping not configured/,
+      );
+
+      // Order stays READY (status change rolled back).
+      const reloaded = await salesOrderRepo.findOne({ where: { id: savedOrder.id } });
+      expect(reloaded!.status).toBe(SalesOrderStatus.READY);
 
       // No journal entry created
       const journalEntries = await journalEntryRepo.find({
