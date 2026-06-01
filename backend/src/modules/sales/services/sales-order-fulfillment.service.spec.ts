@@ -102,44 +102,42 @@ describe('SalesOrderFulfillmentService', () => {
 
   describe('unfulfillOrder', () => {
     it('throws ConflictException when order is not FULFILLED', async () => {
-      orderRepo.findOne.mockResolvedValue(mockOrder({ status: SalesOrderStatus.DRAFT }));
+      wireTransaction(mockOrder({ status: SalesOrderStatus.DRAFT }));
       await expect(service.unfulfillOrder('order-1')).rejects.toThrow(ConflictException);
     });
 
-    it('reverses inventory and sets status READY', async () => {
+    it('lock-reads the order, reverses inventory, and persists status READY via manager', async () => {
       const order = mockOrder({ status: SalesOrderStatus.FULFILLED });
-      orderRepo.findOne.mockResolvedValue(order);
-      orderRepo.save.mockResolvedValue({ ...order, status: SalesOrderStatus.READY } as SalesOrder);
+      const { findOne, update } = wireTransaction(order);
 
       await service.unfulfillOrder('order-1');
 
-      expect(baseCostCalculator.restoreStock).toHaveBeenCalledWith('product-1', 5);
-      expect(stockMovementService.deleteByReference).toHaveBeenCalledWith('sales_order', 'order-1');
-      expect(orderRepo.save).toHaveBeenCalledWith(expect.objectContaining({ status: SalesOrderStatus.READY }));
+      expect(findOne).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: 'order-1' }, lock: { mode: 'pessimistic_write' } }),
+      );
+      expect(baseCostCalculator.restoreStock).toHaveBeenCalledWith('product-1', 5, expect.anything());
+      expect(stockMovementService.deleteByReference).toHaveBeenCalledWith('sales_order', 'order-1', expect.anything());
+      expect(update).toHaveBeenCalledWith('order-1', expect.objectContaining({ status: SalesOrderStatus.READY }));
     });
 
     it('reverses the sales_order journal entry on unfulfill', async () => {
-      const order = mockOrder({ status: SalesOrderStatus.FULFILLED });
-      orderRepo.findOne.mockResolvedValue(order);
-      orderRepo.save.mockResolvedValue({ ...order, status: SalesOrderStatus.DRAFT } as SalesOrder);
-
+      wireTransaction(mockOrder({ status: SalesOrderStatus.FULFILLED }));
       await service.unfulfillOrder('order-1', 'user-99', 'admin');
-
       expect(accountingService.reverseSourceEntries).toHaveBeenCalledWith(
-        'sales_order',
-        'order-1',
-        'user-99',
+        'sales_order', 'order-1', 'user-99', expect.anything(),
       );
     });
 
-    it('does not throw if journal entry reversal fails (non-critical path)', async () => {
-      const order = mockOrder({ status: SalesOrderStatus.FULFILLED });
-      orderRepo.findOne.mockResolvedValue(order);
-      orderRepo.save.mockResolvedValue({ ...order, status: SalesOrderStatus.DRAFT } as SalesOrder);
-      accountingService.reverseSourceEntries.mockRejectedValue(new Error('No open fiscal period'));
+    it('rolls back (propagates) when stock-movement deletion fails — no swallow', async () => {
+      wireTransaction(mockOrder({ status: SalesOrderStatus.FULFILLED }));
+      stockMovementService.deleteByReference.mockRejectedValue(new Error('delete failed'));
+      await expect(service.unfulfillOrder('order-1')).rejects.toThrow('delete failed');
+    });
 
-      // Should not throw — accounting failure must not block unfulfill
-      await expect(service.unfulfillOrder('order-1')).resolves.toBeDefined();
+    it('rolls back (propagates) when accounting reversal fails — no swallow', async () => {
+      wireTransaction(mockOrder({ status: SalesOrderStatus.FULFILLED }));
+      accountingService.reverseSourceEntries.mockRejectedValue(new Error('No open fiscal period'));
+      await expect(service.unfulfillOrder('order-1')).rejects.toThrow('No open fiscal period');
     });
   });
 
@@ -163,8 +161,7 @@ describe('SalesOrderFulfillmentService', () => {
 
     it('unfulfills a FULFILLED order back to READY', async () => {
       const order = mockOrder({ status: SalesOrderStatus.FULFILLED, paymentStatus: SalesOrderPaymentStatus.PAID, items: [] });
-      orderRepo.findOne.mockResolvedValue(order);
-      orderRepo.save.mockImplementation(async (saved: any) => saved as SalesOrder);
+      wireTransaction(order);
 
       const result = await service.unfulfillOrder('order-1');
 

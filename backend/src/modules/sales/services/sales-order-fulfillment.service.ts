@@ -79,53 +79,42 @@ export class SalesOrderFulfillmentService {
   }
 
   async unfulfillOrder(id: string, userId?: string, username?: string): Promise<SalesOrder> {
-    const order = await this.salesOrderRepository.findOne({
-      where: { id },
-      relations: { items: { product: true } },
-    });
+    const saved = await this.dataSource.transaction(async (manager: EntityManager) => {
+      const order = await manager.getRepository(SalesOrder).findOne({
+        where: { id },
+        relations: { items: { product: true } },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!order) throw new NotFoundException('Sales order not found');
+      if (order.status !== SalesOrderStatus.FULFILLED) {
+        throw new ConflictException('Order is not fulfilled');
+      }
 
-    if (!order) throw new NotFoundException('Sales order not found');
-    if (order.status !== SalesOrderStatus.FULFILLED) {
-      throw new ConflictException('Order is not fulfilled');
-    }
-
-    for (const item of order.items) {
-      if (item.product) {
-        try {
-          await this.baseCostCalculator.restoreStock(item.productId, item.quantity);
-        } catch (error) {
-          this.logger.warn(`Failed to restore cost history for product ${item.productId}: ${error.message}`);
+      for (const item of order.items) {
+        if (item.product) {
+          await this.baseCostCalculator.restoreStock(item.productId, item.quantity, manager);
         }
       }
-    }
 
-    try {
-      const result = await this.stockMovementService.deleteByReference('sales_order', order.id);
+      const result = await this.stockMovementService.deleteByReference('sales_order', order.id, manager);
       this.logger.log(`Deleted ${result.deletedCount} stock movements for ${order.orderNumber}`);
-    } catch (error) {
-      this.logger.error(`Failed to delete stock movements for ${order.orderNumber}: ${error.message}`);
-    }
 
-    order.status = SalesOrderStatus.READY;
-    const saved = await this.salesOrderRepository.save(order);
+      await manager.getRepository(SalesOrder).update(id, { status: SalesOrderStatus.READY });
+      order.status = SalesOrderStatus.READY;
 
-    await this.auditLogService.log('UPDATE', 'SalesOrder', `Unfulfilled sales order: ${order.orderNumber}`, {
+      await this.accountingService.reverseSourceEntries('sales_order', id, userId || 'system', manager);
+      this.logger.log(`Reversed accounting entry for sales order ${order.orderNumber}`);
+
+      return order;
+    });
+
+    await this.auditLogService.log('UPDATE', 'SalesOrder', `Unfulfilled sales order: ${saved.orderNumber}`, {
       entityId: id,
       userId: userId || 'system',
       username,
       oldValues: { status: SalesOrderStatus.FULFILLED },
       newValues: { status: SalesOrderStatus.READY },
     });
-
-    try {
-      await this.accountingService.reverseSourceEntries('sales_order', id, userId || 'system');
-      this.logger.log(`Reversed accounting entry for sales order ${order.orderNumber}`);
-    } catch (error) {
-      this.logger.error(
-        `Failed to reverse accounting entry for sales order ${id}: ${error.message}`,
-        error.stack,
-      );
-    }
 
     return saved;
   }
