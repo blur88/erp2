@@ -42,23 +42,29 @@ export class SalesOrderLifecycleService {
   }
 
   async cancel(id: string, userId?: string, username?: string): Promise<SalesOrder> {
-    const order = await this.salesOrderRepository.findOne({ where: { id } });
-    if (!order) throw new NotFoundException('Sales order not found');
+    const saved = await this.dataSource.transaction(async (manager: EntityManager) => {
+      const order = await manager.getRepository(SalesOrder).findOne({
+        where: { id },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!order) throw new NotFoundException('Sales order not found');
 
-    if (order.status === SalesOrderStatus.FULFILLED) {
-      throw new ConflictException('Cannot cancel a fulfilled order. Unfulfill it first.');
-    }
-    if (order.status === SalesOrderStatus.CANCELLED) {
-      throw new ConflictException('Order is already cancelled.');
-    }
-    if (order.paymentStatus !== SalesOrderPaymentStatus.UNPAID) {
-      throw new ConflictException('Cannot cancel an order with recorded payments. Refund all payments first.');
-    }
+      if (order.status === SalesOrderStatus.FULFILLED) {
+        throw new ConflictException('Cannot cancel a fulfilled order. Unfulfill it first.');
+      }
+      if (order.status === SalesOrderStatus.CANCELLED) {
+        throw new ConflictException('Order is already cancelled.');
+      }
+      if (order.paymentStatus !== SalesOrderPaymentStatus.UNPAID) {
+        throw new ConflictException('Cannot cancel an order with recorded payments. Refund all payments first.');
+      }
 
-    order.status = SalesOrderStatus.CANCELLED;
-    const saved = await this.salesOrderRepository.save(order);
+      await manager.getRepository(SalesOrder).update(id, { status: SalesOrderStatus.CANCELLED });
+      order.status = SalesOrderStatus.CANCELLED;
+      return order;
+    });
 
-    await this.auditLogService.log('UPDATE', 'SalesOrder', `Cancelled sales order: ${order.orderNumber}`, {
+    await this.auditLogService.log('UPDATE', 'SalesOrder', `Cancelled sales order: ${saved.orderNumber}`, {
       entityId: id,
       userId: userId || 'system',
       username,
@@ -70,17 +76,23 @@ export class SalesOrderLifecycleService {
   }
 
   async uncancel(id: string, userId?: string, username?: string): Promise<SalesOrder> {
-    const order = await this.salesOrderRepository.findOne({ where: { id } });
-    if (!order) throw new NotFoundException('Sales order not found');
+    const saved = await this.dataSource.transaction(async (manager: EntityManager) => {
+      const order = await manager.getRepository(SalesOrder).findOne({
+        where: { id },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!order) throw new NotFoundException('Sales order not found');
 
-    if (order.status !== SalesOrderStatus.CANCELLED) {
-      throw new ConflictException('Order is not cancelled.');
-    }
+      if (order.status !== SalesOrderStatus.CANCELLED) {
+        throw new ConflictException('Order is not cancelled.');
+      }
 
-    order.status = SalesOrderStatus.DRAFT;
-    const saved = await this.salesOrderRepository.save(order);
+      await manager.getRepository(SalesOrder).update(id, { status: SalesOrderStatus.DRAFT });
+      order.status = SalesOrderStatus.DRAFT;
+      return order;
+    });
 
-    await this.auditLogService.log('UPDATE', 'SalesOrder', `Uncancelled sales order: ${order.orderNumber}`, {
+    await this.auditLogService.log('UPDATE', 'SalesOrder', `Uncancelled sales order: ${saved.orderNumber}`, {
       entityId: id,
       userId: userId || 'system',
       username,
