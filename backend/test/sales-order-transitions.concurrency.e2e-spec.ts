@@ -78,12 +78,6 @@ describe('Sales order transition concurrency (e2e)', () => {
     await seedAccountingMappings();
     await seedOpenFiscalPeriod();
     await seedDocumentNumberSettings(dataSource);
-    await dataSource.query(
-      `INSERT INTO document_number_settings ("documentName", prefix, "paddingDigits", "nextNumber", "lastResetYear")
-       VALUES ('Journal Entries', 'JE', 4, 1, $1)
-       ON CONFLICT ("documentName") DO NOTHING`,
-      [new Date().getFullYear() % 100],
-    );
 
     const customerRepo = dataSource.getRepository(Customer);
     customer = await customerRepo.save(
