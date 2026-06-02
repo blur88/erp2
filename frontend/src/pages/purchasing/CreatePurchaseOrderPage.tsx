@@ -230,6 +230,8 @@ const CreatePurchaseOrderPage: React.FC = () => {
         const total = discountedUnitPrice * quantity
 
         if (Math.abs(item.totalPrice - total) > 0.01) {
+          // Derived recompute — must NOT mark the form dirty, or loading an
+          // existing order would flip isDirty true with no user action.
           setValue(`items.${index}.totalPrice`, Number(total.toFixed(2)))
         }
       }
@@ -290,9 +292,9 @@ const CreatePurchaseOrderPage: React.FC = () => {
     if (product) {
       seedProducts([product])
       await Promise.resolve()
-      setValue(`items.${index}.productId`, product.id)
-      setValue(`items.${index}.unitPrice`, Number(product.baseCost || 0))
-      setValue(`items.${index}.product`, product)
+      setValue(`items.${index}.productId`, product.id, { shouldDirty: true })
+      setValue(`items.${index}.unitPrice`, Number(product.baseCost || 0), { shouldDirty: true })
+      setValue(`items.${index}.product`, product, { shouldDirty: true })
     }
   }
 
