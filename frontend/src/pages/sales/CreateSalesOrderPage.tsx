@@ -29,13 +29,13 @@ import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import * as yup from 'yup'
 
 import { AppButton } from '@/components/common/AppButton'
-import ConfirmationDialog from '@/components/common/ConfirmationDialog'
 import PageHeader from '@/components/common/PageHeader'
 import { useCurrency } from '@/hooks/useCurrency'
 import { useLineItemKeyNav } from '@/hooks/useLineItemKeyNav'
 import { useNotification } from '@/hooks/useNotification'
 import { useProductSearch } from '@/hooks/useProductSearch'
 import { useAppDispatch } from '@/hooks/useRedux'
+import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard'
 import {
   useCreateSalesOrderMutation,
   useGetCustomersQuery,
@@ -169,7 +169,6 @@ const CreateSalesOrderPage: React.FC = () => {
   const [orderToLoad, setOrderToLoad] = useState<any>(null)
   const [editingOrderId, setEditingOrderId] = useState<string | null>(null)
   const [selectedCustomer, setSelectedCustomer] = useState<any>(null)
-  const [showDiscardDialog, setShowDiscardDialog] = useState(false)
   const customerChangedByUserRef = useRef(false)
   const preselectAppliedRef = useRef(false)
 
@@ -216,6 +215,7 @@ const CreateSalesOrderPage: React.FC = () => {
       items: [emptyItem()],
     },
   })
+  const { UnsavedChangesDialog } = useUnsavedChangesGuard(isDirty)
 
   const { fields, append, remove } = useFieldArray({ control, name: 'items' })
   const watchedItems = watch('items')
@@ -355,11 +355,7 @@ const CreateSalesOrderPage: React.FC = () => {
   )
 
   const handleCancel = () => {
-    if (!isDirty) {
-      navigate('/sales/orders')
-      return
-    }
-    setShowDiscardDialog(true)
+    navigate('/sales/orders')
   }
 
   const onSubmit = async (data: CreateOrderFormData) => {
@@ -728,16 +724,7 @@ const CreateSalesOrderPage: React.FC = () => {
         </Grid>
       </form>
 
-      <ConfirmationDialog
-        open={showDiscardDialog}
-        title="Discard changes?"
-        message="You have unsaved changes. Are you sure you want to leave without saving?"
-        confirmText="Discard"
-        cancelText="Keep editing"
-        severity="warning"
-        onConfirm={() => navigate('/sales/orders')}
-        onCancel={() => setShowDiscardDialog(false)}
-      />
+      {UnsavedChangesDialog}
     </>
   )
 }

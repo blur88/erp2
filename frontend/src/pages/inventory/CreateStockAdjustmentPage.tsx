@@ -36,6 +36,7 @@ import {
 import { useProductSearch } from '@/hooks/useProductSearch'
 import { getCurrentDate } from '@/utils/formatters'
 import { useNotification } from '@/hooks/useNotification'
+import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard'
 
 interface AdjustmentItem {
   productId: string
@@ -80,7 +81,7 @@ const CreateStockAdjustmentPage: React.FC = () => {
   const [adjustmentToLoad, setAdjustmentToLoad] = useState<any>(null)
   const [editingAdjustmentId, setEditingAdjustmentId] = useState<string | null>(null)
 
-  const { control, handleSubmit, watch, setValue, reset, formState: { errors } } = useForm<CreateAdjustmentFormData>({
+  const { control, handleSubmit, watch, setValue, reset, formState: { errors, isDirty } } = useForm<CreateAdjustmentFormData>({
     resolver: yupResolver(schema) as any,
     defaultValues: {
       adjustmentDate: getCurrentDate(),
@@ -95,6 +96,7 @@ const CreateStockAdjustmentPage: React.FC = () => {
       ],
     },
   })
+  const { UnsavedChangesDialog } = useUnsavedChangesGuard(isDirty)
 
   const { fields, append, remove } = useFieldArray({
     control,
@@ -633,6 +635,7 @@ const CreateStockAdjustmentPage: React.FC = () => {
           </Grid>
         </TransactionForm>
       )}
+      {UnsavedChangesDialog}
     </>
   );
 }

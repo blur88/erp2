@@ -24,10 +24,10 @@ import * as yup from 'yup'
 
 import AddressSection from '@/components/common/AddressSection'
 import { AppButton } from '@/components/common/AppButton'
-import ConfirmationDialog from '@/components/common/ConfirmationDialog'
 import PageHeader from '@/components/common/PageHeader'
 import { useFieldDuplicateCheck } from '@/hooks/useFieldDuplicateCheck'
 import { useNotification } from '@/hooks/useNotification'
+import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard'
 import {
   useCreateSupplierMutation,
   useLazyCheckDuplicateCompanyNameQuery,
@@ -106,7 +106,6 @@ const SupplierFormPage: React.FC = () => {
   const [loadingSupplier, setLoadingSupplier] = useState(isEdit)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [sameAsBilling, setSameAsBilling] = useState(false)
-  const [showDiscardDialog, setShowDiscardDialog] = useState(false)
   const [duplicateNameResult, setDuplicateNameResult] = useState<DuplicateNameResult | null>(null)
 
   const [fetchSupplierBySlug] = useLazyGetSupplierBySlugQuery()
@@ -146,6 +145,7 @@ const SupplierFormPage: React.FC = () => {
       notes: null,
     },
   })
+  const { UnsavedChangesDialog } = useUnsavedChangesGuard(isDirty)
 
   const watchedCompanyName = watch('companyName')
   const watchedBilling = watch([
@@ -245,11 +245,7 @@ const SupplierFormPage: React.FC = () => {
     : '/purchasing/suppliers'
 
   const handleCancel = () => {
-    if (!isDirty) {
-      navigate(cancelDestination)
-      return
-    }
-    setShowDiscardDialog(true)
+    navigate(cancelDestination)
   }
 
   const handleReactivate = async () => {
@@ -587,16 +583,7 @@ const SupplierFormPage: React.FC = () => {
         </Grid>
       </form>
 
-      <ConfirmationDialog
-        open={showDiscardDialog}
-        title="Discard changes?"
-        message="You have unsaved changes. Are you sure you want to leave without saving?"
-        confirmText="Discard"
-        cancelText="Keep editing"
-        severity="warning"
-        onConfirm={() => navigate(cancelDestination)}
-        onCancel={() => setShowDiscardDialog(false)}
-      />
+      {UnsavedChangesDialog}
     </>
   )
 }

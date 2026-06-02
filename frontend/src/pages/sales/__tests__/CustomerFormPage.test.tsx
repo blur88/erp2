@@ -30,11 +30,22 @@ const {
   mockPriceListSelectorProps: [] as any[],
 }))
 
+const { mockBlockerState, mockBlockerProceed, mockBlockerReset } = vi.hoisted(() => ({
+  mockBlockerState: { current: 'idle' as 'idle' | 'blocked' },
+  mockBlockerProceed: vi.fn(),
+  mockBlockerReset: vi.fn(),
+}))
+
 vi.mock('react-router-dom', async (importOriginal) => {
   const actual = await importOriginal<typeof import('react-router-dom')>()
   return {
     ...actual,
     useNavigate: () => mockNavigate,
+    useBlocker: () => ({
+      state: mockBlockerState.current,
+      proceed: mockBlockerProceed,
+      reset: mockBlockerReset,
+    }),
   }
 })
 
@@ -104,6 +115,7 @@ function renderEditPage(customerSlug = 'acme-corp') {
 describe('CustomerFormPage - Create mode', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mockBlockerState.current = 'idle'
     mockCreateCustomer.mockReturnValue({
       unwrap: vi.fn().mockResolvedValue({ id: 'new-cust' }),
     })
@@ -401,18 +413,18 @@ describe('CustomerFormPage - Same as Billing toggle', () => {
   })
 })
 
-it('shows discard confirmation dialog when cancelling with unsaved changes', async () => {
-  const user = userEvent.setup()
+it('shows discard dialog when blocker intercepts navigation on dirty form', () => {
   mockCreateCustomer.mockReturnValue({ unwrap: vi.fn().mockResolvedValue({ id: 'new-cust' }) })
   mockRestoreCustomer.mockReturnValue({ unwrap: vi.fn().mockResolvedValue({}) })
   mockApiGet.mockResolvedValue({ data: { data: [] } })
+
+  mockBlockerState.current = 'blocked'
   renderCreatePage()
 
-  await user.type(screen.getByLabelText(/customer name/i), 'Partial')
-  await user.click(screen.getByRole('button', { name: /cancel/i }))
-
   expect(screen.getByText(/discard changes/i)).toBeInTheDocument()
-  expect(mockNavigate).not.toHaveBeenCalled()
+  expect(screen.getByRole('button', { name: /discard/i })).toBeInTheDocument()
+  expect(screen.getByRole('button', { name: /keep editing/i })).toBeInTheDocument()
+  mockBlockerState.current = 'idle'
 })
 
 describe('CustomerFormPage - stale name duplicate banner', () => {
@@ -462,6 +474,7 @@ describe('CustomerFormPage - stale name duplicate banner', () => {
 describe('CustomerFormPage - returnTo navigation', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mockBlockerState.current = 'idle'
     mockCreateCustomer.mockReturnValue({ unwrap: vi.fn().mockResolvedValue({ id: 'new-cust' }) })
     mockRestoreCustomer.mockReturnValue({ unwrap: vi.fn().mockResolvedValue({}) })
     mockApiGet.mockResolvedValue({ data: { data: [] } })
@@ -485,28 +498,19 @@ describe('CustomerFormPage - returnTo navigation', () => {
     expect(mockNavigate).toHaveBeenCalledWith('/sales/customers')
   })
 
-  it('navigates to sales order on discard confirm when returnTo=sales-order', async () => {
-    const user = userEvent.setup()
+  it('shows discard dialog when blocker fires on dirty form with returnTo=sales-order', () => {
+    mockBlockerState.current = 'blocked'
     renderCreatePage({ returnTo: 'sales-order' })
 
-    await user.type(screen.getByLabelText(/customer name/i), 'Partial')
-    await user.click(screen.getByRole('button', { name: /cancel/i }))
     expect(screen.getByText(/discard changes/i)).toBeInTheDocument()
-
-    await user.click(screen.getByRole('button', { name: /discard/i }))
-
-    expect(mockNavigate).toHaveBeenCalledWith('/sales/orders/create')
+    mockBlockerState.current = 'idle'
   })
 
-  it('navigates to customer list on discard confirm when no returnTo', async () => {
-    const user = userEvent.setup()
+  it('shows discard dialog when blocker fires on dirty form with no returnTo', () => {
+    mockBlockerState.current = 'blocked'
     renderCreatePage()
 
-    await user.type(screen.getByLabelText(/customer name/i), 'Partial')
-    await user.click(screen.getByRole('button', { name: /cancel/i }))
-
-    await user.click(screen.getByRole('button', { name: /discard/i }))
-
-    expect(mockNavigate).toHaveBeenCalledWith('/sales/customers')
+    expect(screen.getByText(/discard changes/i)).toBeInTheDocument()
+    mockBlockerState.current = 'idle'
   })
 })

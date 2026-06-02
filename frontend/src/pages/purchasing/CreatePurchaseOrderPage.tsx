@@ -32,6 +32,7 @@ import TransactionForm from '@/components/common/TransactionForm'
 import { useNotification } from '@/hooks/useNotification'
 import { useProductSearch } from '@/hooks/useProductSearch'
 import { useAppDispatch } from '@/hooks/useRedux'
+import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard'
 import { setSelectedPurchaseOrder, updatePurchaseOrderInPlace } from '@/store/slices/purchasingSlice'
 import {
   useCreatePurchaseOrderMutation,
@@ -102,7 +103,7 @@ const CreatePurchaseOrderPage: React.FC = () => {
   const [editingOrderId, setEditingOrderId] = useState<string | null>(null)
   const suppliers = suppliersResponse?.data || []
 
-  const { control, handleSubmit, watch, setValue, reset, formState: { errors } } = useForm<CreatePurchaseOrderFormData>({
+  const { control, handleSubmit, watch, setValue, reset, formState: { errors, isDirty } } = useForm<CreatePurchaseOrderFormData>({
     resolver: yupResolver(schema) as any,
     defaultValues: {
       supplierId: '',
@@ -122,6 +123,7 @@ const CreatePurchaseOrderPage: React.FC = () => {
       ],
     },
   })
+  const { UnsavedChangesDialog } = useUnsavedChangesGuard(isDirty)
 
   const { fields, append, remove } = useFieldArray({
     control,
@@ -932,6 +934,7 @@ const CreatePurchaseOrderPage: React.FC = () => {
         </Grid>
       </TransactionForm>
       )}
+      {UnsavedChangesDialog}
     </>
   );
 }

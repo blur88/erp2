@@ -17,6 +17,9 @@ const {
   mockApiGet,
   mockCheckDuplicate,
   mockFetchSupplierBySlug,
+  mockBlockerState,
+  mockBlockerProceed,
+  mockBlockerReset,
 } = vi.hoisted(() => ({
   mockNavigate: vi.fn(),
   mockCreateSupplier: vi.fn(),
@@ -26,6 +29,9 @@ const {
   mockApiGet: vi.fn(),
   mockCheckDuplicate: vi.fn(),
   mockFetchSupplierBySlug: vi.fn(),
+  mockBlockerState: { current: 'idle' as 'idle' | 'blocked' },
+  mockBlockerProceed: vi.fn(),
+  mockBlockerReset: vi.fn(),
 }))
 
 vi.mock('react-router-dom', async (importOriginal) => {
@@ -33,6 +39,11 @@ vi.mock('react-router-dom', async (importOriginal) => {
   return {
     ...actual,
     useNavigate: () => mockNavigate,
+    useBlocker: () => ({
+      state: mockBlockerState.current,
+      proceed: mockBlockerProceed,
+      reset: mockBlockerReset,
+    }),
   }
 })
 
@@ -86,6 +97,7 @@ function renderEditPage(supplierSlug = 'global-parts-ltd') {
 describe('SupplierFormPage - Create mode', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mockBlockerState.current = 'idle'
     mockCreateSupplier.mockReturnValue({ unwrap: vi.fn().mockResolvedValue({ id: 'new-sup' }) })
     mockUpdateSupplier.mockReturnValue({ unwrap: vi.fn().mockResolvedValue({ id: 'sup-1' }) })
     mockCheckDuplicate.mockReturnValue({ unwrap: vi.fn().mockResolvedValue({ exists: false }) })
@@ -133,6 +145,16 @@ describe('SupplierFormPage - Create mode', () => {
     await user.click(screen.getByRole('button', { name: /cancel/i }))
 
     expect(mockNavigate).toHaveBeenCalledWith('/purchasing/suppliers')
+  })
+
+  it('shows discard dialog when blocker intercepts navigation on dirty form', () => {
+    mockBlockerState.current = 'blocked'
+    renderCreatePage()
+
+    expect(screen.getByText(/discard changes/i)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /discard/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /keep editing/i })).toBeInTheDocument()
+    mockBlockerState.current = 'idle'
   })
 })
 
