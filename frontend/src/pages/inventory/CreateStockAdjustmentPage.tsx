@@ -81,7 +81,7 @@ const CreateStockAdjustmentPage: React.FC = () => {
   const [adjustmentToLoad, setAdjustmentToLoad] = useState<any>(null)
   const [editingAdjustmentId, setEditingAdjustmentId] = useState<string | null>(null)
 
-  const { control, handleSubmit, watch, setValue, reset, formState: { errors, isDirty } } = useForm<CreateAdjustmentFormData>({
+  const { control, handleSubmit, watch, setValue, reset, formState: { errors, isDirty, isSubmitting } } = useForm<CreateAdjustmentFormData>({
     resolver: yupResolver(schema) as any,
     defaultValues: {
       adjustmentDate: getCurrentDate(),
@@ -96,7 +96,7 @@ const CreateStockAdjustmentPage: React.FC = () => {
       ],
     },
   })
-  const { UnsavedChangesDialog } = useUnsavedChangesGuard(isDirty)
+  const { UnsavedChangesDialog } = useUnsavedChangesGuard(isDirty, isSubmitting)
 
   const { fields, append, remove } = useFieldArray({
     control,

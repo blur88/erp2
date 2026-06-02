@@ -122,7 +122,7 @@ const CustomerFormPage: React.FC = () => {
     watch,
     setValue,
     setError,
-    formState: { errors, isDirty },
+    formState: { errors, isDirty, isSubmitting },
   } = useForm<CustomerFormData>({
     resolver: yupResolver(customerSchema) as any,
     defaultValues: {
@@ -146,7 +146,7 @@ const CustomerFormPage: React.FC = () => {
       notes: null,
     },
   })
-  const { UnsavedChangesDialog } = useUnsavedChangesGuard(isDirty)
+  const { UnsavedChangesDialog } = useUnsavedChangesGuard(isDirty, isSubmitting)
 
   const watchedPhone = watch('phone')
   const watchedName = watch('name')

@@ -103,7 +103,7 @@ const CreatePurchaseOrderPage: React.FC = () => {
   const [editingOrderId, setEditingOrderId] = useState<string | null>(null)
   const suppliers = suppliersResponse?.data || []
 
-  const { control, handleSubmit, watch, setValue, reset, formState: { errors, isDirty } } = useForm<CreatePurchaseOrderFormData>({
+  const { control, handleSubmit, watch, setValue, reset, formState: { errors, isDirty, isSubmitting } } = useForm<CreatePurchaseOrderFormData>({
     resolver: yupResolver(schema) as any,
     defaultValues: {
       supplierId: '',
@@ -123,7 +123,7 @@ const CreatePurchaseOrderPage: React.FC = () => {
       ],
     },
   })
-  const { UnsavedChangesDialog } = useUnsavedChangesGuard(isDirty)
+  const { UnsavedChangesDialog } = useUnsavedChangesGuard(isDirty, isSubmitting)
 
   const { fields, append, remove } = useFieldArray({
     control,

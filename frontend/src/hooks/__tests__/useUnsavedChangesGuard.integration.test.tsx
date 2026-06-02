@@ -12,11 +12,11 @@ function ProgrammaticForm() {
   const navigate = useNavigate()
   const {
     setValue,
-    formState: { isDirty },
+    formState: { isDirty, isSubmitting },
   } = useForm<{ name: string }>({
     defaultValues: { name: '' },
   })
-  const { UnsavedChangesDialog } = useUnsavedChangesGuard(isDirty)
+  const { UnsavedChangesDialog } = useUnsavedChangesGuard(isDirty, isSubmitting)
 
   return (
     <div>

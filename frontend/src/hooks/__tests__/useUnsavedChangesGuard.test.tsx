@@ -1,7 +1,7 @@
 import React from 'react'
 import '@testing-library/jest-dom/vitest'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { act, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 
 const mockProceed = vi.fn()
@@ -25,8 +25,14 @@ vi.mock('react-router-dom', async () => {
 
 import { useUnsavedChangesGuard } from '../useUnsavedChangesGuard'
 
-const TestConsumer = ({ isDirty }: { isDirty: boolean }) => {
-  const { UnsavedChangesDialog } = useUnsavedChangesGuard(isDirty)
+const TestConsumer = ({
+  isDirty,
+  isSubmitting = false,
+}: {
+  isDirty: boolean
+  isSubmitting?: boolean
+}) => {
+  const { UnsavedChangesDialog } = useUnsavedChangesGuard(isDirty, isSubmitting)
 
   return <>{UnsavedChangesDialog}</>
 }
@@ -58,6 +64,14 @@ describe('useUnsavedChangesGuard', () => {
     expect(spy).toHaveBeenCalledWith('beforeunload', expect.any(Function))
   })
 
+  it('does not register beforeunload listener when dirty but submitting', () => {
+    const spy = vi.spyOn(window, 'addEventListener')
+
+    render(<TestConsumer isDirty={true} isSubmitting={true} />)
+
+    expect(spy).not.toHaveBeenCalledWith('beforeunload', expect.any(Function))
+  })
+
   it('removes beforeunload listener on unmount', () => {
     const spy = vi.spyOn(window, 'removeEventListener')
     const { unmount } = render(<TestConsumer isDirty={true} />)
@@ -83,6 +97,44 @@ describe('useUnsavedChangesGuard', () => {
     expect(screen.getByText(/discard changes/i)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /discard/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /keep editing/i })).toBeInTheDocument()
+  })
+
+  it('does not show dialog when dirty but submitting', () => {
+    mockBlockerState = 'blocked'
+
+    render(<TestConsumer isDirty={true} isSubmitting={true} />)
+
+    expect(screen.queryByText(/discard changes/i)).not.toBeInTheDocument()
+  })
+
+  it('still shows dialog when dirty and not submitting', () => {
+    mockBlockerState = 'blocked'
+
+    render(<TestConsumer isDirty={true} isSubmitting={false} />)
+
+    expect(screen.getByText(/discard changes/i)).toBeInTheDocument()
+  })
+
+  it('re-arms the guard after a failed save leaves the form dirty', () => {
+    vi.useFakeTimers()
+    mockBlockerState = 'blocked'
+
+    // Submit in flight: dialog suppressed.
+    const { rerender } = render(<TestConsumer isDirty={true} isSubmitting={true} />)
+    expect(screen.queryByText(/discard changes/i)).not.toBeInTheDocument()
+
+    // Submit fails: still dirty, no longer submitting.
+    rerender(<TestConsumer isDirty={true} isSubmitting={false} />)
+    // Latch clears on next tick.
+    act(() => {
+      vi.runAllTimers()
+    })
+
+    // Re-render to pick up the cleared latch in shouldBlock.
+    rerender(<TestConsumer isDirty={true} isSubmitting={false} />)
+    expect(screen.getByText(/discard changes/i)).toBeInTheDocument()
+
+    vi.useRealTimers()
   })
 
   it('calls blocker.proceed() when Discard is clicked', async () => {

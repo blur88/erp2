@@ -1,15 +1,35 @@
-import React, { useCallback, useEffect } from 'react'
+import React, { useCallback, useEffect, useRef } from 'react'
 import { useBlocker } from 'react-router-dom'
 
 import ConfirmationDialog from '@/components/common/ConfirmationDialog'
 
-export function useUnsavedChangesGuard(isDirty: boolean): {
+export function useUnsavedChangesGuard(isDirty: boolean, isSubmitting = false): {
   UnsavedChangesDialog: React.ReactElement
 } {
-  const blocker = useBlocker(useCallback(() => isDirty, [isDirty]))
+  const savedRef = useRef(false)
 
   useEffect(() => {
-    if (!isDirty) {
+    if (isSubmitting) {
+      savedRef.current = true
+      return
+    }
+
+    // Submit ended. Clear the latch on the next tick so a navigate fired during
+    // the same commit still sees it, but a failed save that leaves the form
+    // dirty re-arms the guard instead of staying silently disabled.
+    const id = setTimeout(() => {
+      savedRef.current = false
+    }, 0)
+
+    return () => clearTimeout(id)
+  }, [isSubmitting])
+
+  const blocker = useBlocker(
+    useCallback(() => isDirty && !isSubmitting && !savedRef.current, [isDirty, isSubmitting]),
+  )
+
+  useEffect(() => {
+    if (!isDirty || isSubmitting) {
       return
     }
 
@@ -22,7 +42,7 @@ export function useUnsavedChangesGuard(isDirty: boolean): {
     return () => {
       window.removeEventListener('beforeunload', handleBeforeUnload)
     }
-  }, [isDirty])
+  }, [isDirty, isSubmitting])
 
   const UnsavedChangesDialog = (
     <ConfirmationDialog
