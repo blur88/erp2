@@ -11,14 +11,18 @@ export function useUnsavedChangesGuard(isDirty: boolean, isSubmitting = false): 
   useEffect(() => {
     if (isSubmitting) {
       savedRef.current = true
+      return
     }
-  }, [isSubmitting])
 
-  useEffect(() => {
-    if (!isDirty) {
+    // Submit ended. Clear the latch on the next tick so a navigate fired during
+    // the same commit still sees it, but a failed save that leaves the form
+    // dirty re-arms the guard instead of staying silently disabled.
+    const id = setTimeout(() => {
       savedRef.current = false
-    }
-  }, [isDirty])
+    }, 0)
+
+    return () => clearTimeout(id)
+  }, [isSubmitting])
 
   const blocker = useBlocker(
     useCallback(() => isDirty && !isSubmitting && !savedRef.current, [isDirty, isSubmitting]),
