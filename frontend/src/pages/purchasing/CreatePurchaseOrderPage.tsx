@@ -213,8 +213,10 @@ const CreatePurchaseOrderPage: React.FC = () => {
   // Recalculate totals when items change
   useEffect(() => {
     watchedItems.forEach((item, index) => {
-      if (item.quantity && item.unitPrice !== undefined) {
-        const quantity = Number(item.quantity)
+      const quantityValue = item.quantity as number | string | null | undefined
+
+      if (quantityValue != null && quantityValue !== '' && item.unitPrice !== undefined) {
+        const quantity = Number(quantityValue)
         const unitPrice = Number(item.unitPrice)
         let unitDiscount = 0
 

@@ -581,6 +581,40 @@ describe('CreateSalesOrderPage — new features', () => {
       expect(totalField).toHaveDisplayValue('11.00')
     })
   })
+
+  it('recalculates row total to 0.00 when quantity is set to 0', async () => {
+    mockGet.mockResolvedValue({ data: [{ id: 'product-1', name: 'Alpha Widget', basePrice: 11 }] })
+
+    render(
+      <BrowserRouter>
+        <CreateSalesOrderPage />
+      </BrowserRouter>,
+    )
+
+    const productInput = screen.getByPlaceholderText('Search by name or barcode...')
+    fireEvent.mouseDown(productInput)
+    const listbox = await screen.findByRole('listbox')
+    fireEvent.click(within(listbox).getByText('Alpha Widget'))
+
+    const row = document.querySelector('[data-cell="r0-c1"]')?.closest('tr')
+    expect(row).not.toBeNull()
+
+    await waitFor(() => {
+      expect(within(row as HTMLTableRowElement).getByText('RM 11.00')).toBeInTheDocument()
+    })
+
+    const qtyInput = document.querySelector('[data-cell="r0-c1"] input') as HTMLInputElement
+    expect(qtyInput).not.toBeNull()
+    fireEvent.change(qtyInput, { target: { value: '0' } })
+
+    await waitFor(() => {
+      expect(within(row as HTMLTableRowElement).getByText('RM 0.00')).toBeInTheDocument()
+    })
+    expect(within(row as HTMLTableRowElement).queryByText('RM 11.00')).not.toBeInTheDocument()
+
+    const totalField = screen.getByRole('textbox', { name: /total amount/i })
+    expect(totalField).toHaveDisplayValue('0.00')
+  })
 })
 
 describe('CreateSalesOrderPage — edit mode', { timeout: 60000 }, () => {
