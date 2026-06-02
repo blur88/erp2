@@ -27,6 +27,7 @@ import CategorySelector from '@/components/inventory/CategorySelector'
 import { Category, PriceList } from '@/types'
 import { useDuplicateCheck } from '@/hooks/useDuplicateCheck'
 import { useCurrency } from '@/hooks/useCurrency'
+import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard'
 
 // Price field component for price list items
 const PriceListPriceField: React.FC<{
@@ -251,7 +252,7 @@ const CreateProductPage: React.FC = () => {
   // Currency hook
   const { currency } = useCurrency()
 
-  const { control, handleSubmit, watch, reset, formState: { errors } } = useForm<ProductFormData>({
+  const { control, handleSubmit, watch, reset, formState: { errors, isDirty } } = useForm<ProductFormData>({
     resolver: yupResolver(productSchema) as any,
     defaultValues: {
       name: '',
@@ -265,6 +266,7 @@ const CreateProductPage: React.FC = () => {
       isActive: true,
     },
   })
+  const { UnsavedChangesDialog } = useUnsavedChangesGuard(isDirty)
 
   const watchedType = watch('type')
   const watchedName = watch('name')
@@ -450,6 +452,7 @@ const CreateProductPage: React.FC = () => {
           <Typography>Loading product...</Typography>
         </Box>
       ) : (
+        <>
         <form onSubmit={handleSubmit(onSubmit)}>
           {error && (
             <Alert severity="error" sx={{ mb: 3 }}>
@@ -821,6 +824,8 @@ const CreateProductPage: React.FC = () => {
             </Grid>
           </Grid>
         </form>
+        {UnsavedChangesDialog}
+        </>
       )}
     </>
   );

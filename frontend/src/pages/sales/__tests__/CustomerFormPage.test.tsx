@@ -35,6 +35,7 @@ vi.mock('react-router-dom', async (importOriginal) => {
   return {
     ...actual,
     useNavigate: () => mockNavigate,
+    useBlocker: () => ({ state: 'idle', proceed: vi.fn(), reset: vi.fn() }),
   }
 })
 
@@ -401,7 +402,7 @@ describe('CustomerFormPage - Same as Billing toggle', () => {
   })
 })
 
-it('shows discard confirmation dialog when cancelling with unsaved changes', async () => {
+it('attempts navigation when cancelling with unsaved changes', async () => {
   const user = userEvent.setup()
   mockCreateCustomer.mockReturnValue({ unwrap: vi.fn().mockResolvedValue({ id: 'new-cust' }) })
   mockRestoreCustomer.mockReturnValue({ unwrap: vi.fn().mockResolvedValue({}) })
@@ -411,8 +412,7 @@ it('shows discard confirmation dialog when cancelling with unsaved changes', asy
   await user.type(screen.getByLabelText(/customer name/i), 'Partial')
   await user.click(screen.getByRole('button', { name: /cancel/i }))
 
-  expect(screen.getByText(/discard changes/i)).toBeInTheDocument()
-  expect(mockNavigate).not.toHaveBeenCalled()
+  expect(mockNavigate).toHaveBeenCalledWith('/sales/customers')
 })
 
 describe('CustomerFormPage - stale name duplicate banner', () => {
@@ -485,27 +485,22 @@ describe('CustomerFormPage - returnTo navigation', () => {
     expect(mockNavigate).toHaveBeenCalledWith('/sales/customers')
   })
 
-  it('navigates to sales order on discard confirm when returnTo=sales-order', async () => {
+  it('attempts navigation to sales order on dirty cancel when returnTo=sales-order', async () => {
     const user = userEvent.setup()
     renderCreatePage({ returnTo: 'sales-order' })
 
     await user.type(screen.getByLabelText(/customer name/i), 'Partial')
     await user.click(screen.getByRole('button', { name: /cancel/i }))
-    expect(screen.getByText(/discard changes/i)).toBeInTheDocument()
-
-    await user.click(screen.getByRole('button', { name: /discard/i }))
 
     expect(mockNavigate).toHaveBeenCalledWith('/sales/orders/create')
   })
 
-  it('navigates to customer list on discard confirm when no returnTo', async () => {
+  it('attempts navigation to customer list on dirty cancel when no returnTo', async () => {
     const user = userEvent.setup()
     renderCreatePage()
 
     await user.type(screen.getByLabelText(/customer name/i), 'Partial')
     await user.click(screen.getByRole('button', { name: /cancel/i }))
-
-    await user.click(screen.getByRole('button', { name: /discard/i }))
 
     expect(mockNavigate).toHaveBeenCalledWith('/sales/customers')
   })

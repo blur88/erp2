@@ -24,11 +24,11 @@ import * as yup from 'yup'
 
 import AddressSection from '@/components/common/AddressSection'
 import { AppButton } from '@/components/common/AppButton'
-import ConfirmationDialog from '@/components/common/ConfirmationDialog'
 import PageHeader from '@/components/common/PageHeader'
 import PriceListSelector from '@/components/price-lists/PriceListSelector'
 import { useFieldDuplicateCheck } from '@/hooks/useFieldDuplicateCheck'
 import { useNotification } from '@/hooks/useNotification'
+import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard'
 import api from '@/services/api'
 import {
   useCreateCustomerMutation,
@@ -107,7 +107,6 @@ const CustomerFormPage: React.FC = () => {
   const [loadingCustomer, setLoadingCustomer] = useState(isEdit)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [sameAsBilling, setSameAsBilling] = useState(false)
-  const [showDiscardDialog, setShowDiscardDialog] = useState(false)
   const [duplicateNameResult, setDuplicateNameResult] = useState<DuplicateNameResult | null>(null)
 
   const [fetchCustomerBySlug] = useLazyGetCustomerBySlugQuery()
@@ -147,6 +146,7 @@ const CustomerFormPage: React.FC = () => {
       notes: null,
     },
   })
+  const { UnsavedChangesDialog } = useUnsavedChangesGuard(isDirty)
 
   const watchedPhone = watch('phone')
   const watchedName = watch('name')
@@ -310,12 +310,7 @@ const CustomerFormPage: React.FC = () => {
       : '/sales/customers'
 
   const handleCancel = () => {
-    if (!isDirty) {
-      navigate(cancelDestination)
-      return
-    }
-
-    setShowDiscardDialog(true)
+    navigate(cancelDestination)
   }
 
   const handleReactivate = async () => {
@@ -714,16 +709,7 @@ const CustomerFormPage: React.FC = () => {
         </Grid>
       </form>
 
-      <ConfirmationDialog
-        open={showDiscardDialog}
-        title="Discard changes?"
-        message="You have unsaved changes. Are you sure you want to leave without saving?"
-        confirmText="Discard"
-        cancelText="Keep editing"
-        severity="warning"
-        onConfirm={() => navigate(cancelDestination)}
-        onCancel={() => setShowDiscardDialog(false)}
-      />
+      {UnsavedChangesDialog}
     </>
   )
 }

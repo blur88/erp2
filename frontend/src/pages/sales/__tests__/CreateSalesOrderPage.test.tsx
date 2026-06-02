@@ -40,6 +40,7 @@ vi.mock('react-router-dom', async () => {
     ...actual,
     useNavigate: () => mockNavigate,
     useParams: () => mockParams(),
+    useBlocker: () => ({ state: 'idle', proceed: vi.fn(), reset: vi.fn() }),
   }
 })
 
@@ -438,7 +439,7 @@ describe('CreateSalesOrderPage — new features', () => {
     })
   })
 
-  it('shows confirmation dialog when cancelling with unsaved changes', async () => {
+  it('attempts navigation when cancelling with unsaved changes', async () => {
     const user = userEvent.setup()
     render(
       <BrowserRouter>
@@ -452,7 +453,7 @@ describe('CreateSalesOrderPage — new features', () => {
     await user.click(screen.getByRole('button', { name: /^cancel$/i }))
 
     await waitFor(() => {
-      expect(screen.getByText(/discard changes/i)).toBeInTheDocument()
+      expect(mockNavigate).toHaveBeenCalledWith('/sales/orders')
     })
   })
 
@@ -708,7 +709,7 @@ describe('CreateSalesOrderPage — edit mode', { timeout: 60000 }, () => {
     })
   })
 
-  it('cancel with unsaved changes shows Discard changes dialog', async () => {
+  it('cancel with unsaved changes attempts navigation to the orders list', async () => {
     const user = userEvent.setup()
     mockFetchSalesOrder.mockReturnValue({
       unwrap: vi.fn().mockResolvedValue(existingOrder),
@@ -733,7 +734,7 @@ describe('CreateSalesOrderPage — edit mode', { timeout: 60000 }, () => {
     await user.click(screen.getByRole('button', { name: /^cancel$/i }))
 
     await waitFor(() => {
-      expect(screen.getByText(/discard changes/i)).toBeInTheDocument()
+      expect(mockNavigate).toHaveBeenCalledWith('/sales/orders')
     })
   })
 
@@ -762,7 +763,7 @@ describe('CreateSalesOrderPage — edit mode', { timeout: 60000 }, () => {
     expect(screen.queryByText(/discard changes/i)).not.toBeInTheDocument()
   })
 
-  it('create mode cancel also shows unified Discard changes dialog', async () => {
+  it('create mode dirty cancel attempts navigation to the orders list', async () => {
     const user = userEvent.setup()
     mockParams.mockReturnValue({}) // create mode — no orderNumber
 
@@ -778,7 +779,7 @@ describe('CreateSalesOrderPage — edit mode', { timeout: 60000 }, () => {
     await user.click(screen.getByRole('button', { name: /^cancel$/i }))
 
     await waitFor(() => {
-      expect(screen.getByText(/discard changes/i)).toBeInTheDocument()
+      expect(mockNavigate).toHaveBeenCalledWith('/sales/orders')
     })
   })
 })

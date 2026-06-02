@@ -33,6 +33,7 @@ vi.mock('react-router-dom', async (importOriginal) => {
   return {
     ...actual,
     useNavigate: () => mockNavigate,
+    useBlocker: () => ({ state: 'idle', proceed: vi.fn(), reset: vi.fn() }),
   }
 })
 
