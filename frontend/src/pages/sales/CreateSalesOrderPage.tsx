@@ -229,8 +229,10 @@ const CreateSalesOrderPage: React.FC = () => {
 
   useEffect(() => {
     watchedItems.forEach((item, index) => {
-      if (item.quantity && item.unitPrice !== undefined) {
-        const qty = Number(item.quantity)
+      const quantityValue = item.quantity as number | string | null | undefined
+
+      if (quantityValue != null && quantityValue !== '' && item.unitPrice !== undefined) {
+        const qty = Number(quantityValue)
         const price = Number(item.unitPrice)
         const unitDiscount =
           item.discountType === 'percentage'

@@ -355,4 +355,37 @@ describe('CreatePurchaseOrderPage', { timeout: 60000 }, () => {
       mockNavigate.mock.invocationCallOrder[0],
     )
   })
+
+  it('recalculates row total to 0.00 when quantity is set to 0', async () => {
+    render(
+      <BrowserRouter>
+        <CreatePurchaseOrderPage />
+      </BrowserRouter>,
+    )
+
+    const supplierInput = screen.getByLabelText(/supplier/i)
+    fireEvent.mouseDown(supplierInput)
+    const supplierListbox = await screen.findByRole('listbox')
+    fireEvent.click(within(supplierListbox).getByText('Acme Supplies'))
+
+    const productInput = screen.getByPlaceholderText('Search by name or barcode...')
+    fireEvent.mouseDown(productInput)
+    const productListbox = await screen.findByRole('listbox')
+    fireEvent.click(within(productListbox).getByText('Alpha Widget'))
+
+    const qtyInput = screen.getByDisplayValue('1') as HTMLInputElement
+    const row = qtyInput.closest('tr')
+    expect(row).not.toBeNull()
+
+    await waitFor(() => {
+      expect(within(row as HTMLTableRowElement).getByText('RM 11.00')).toBeInTheDocument()
+    })
+
+    fireEvent.change(qtyInput, { target: { value: '0' } })
+
+    await waitFor(() => {
+      expect(within(row as HTMLTableRowElement).getByText('RM 0.00')).toBeInTheDocument()
+    })
+    expect(within(row as HTMLTableRowElement).queryByText('RM 11.00')).not.toBeInTheDocument()
+  })
 })
