@@ -1,10 +1,10 @@
-import { useCallback, useEffect } from 'react'
+import React, { useCallback, useEffect } from 'react'
 import { useBlocker } from 'react-router-dom'
 
 import ConfirmationDialog from '@/components/common/ConfirmationDialog'
 
 export function useUnsavedChangesGuard(isDirty: boolean): {
-  UnsavedChangesDialog: JSX.Element
+  UnsavedChangesDialog: React.ReactElement
 } {
   const blocker = useBlocker(useCallback(() => isDirty, [isDirty]))
 
