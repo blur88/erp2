@@ -573,6 +573,14 @@ const CreateSalesOrderPage: React.FC = () => {
                         fontSize: '0.875rem',
                       },
                       '& .MuiTextField-root .MuiInputBase-input': { padding: '6px 8px' },
+                      // Autocomplete (Product) reserves vertical padding on its
+                      // OutlinedInput root for the popup/clear adornment, making it
+                      // taller than the plain TextField cells. Collapse that padding
+                      // so all line-item inputs share the same height.
+                      '& .MuiAutocomplete-root .MuiOutlinedInput-root': {
+                        paddingTop: 0,
+                        paddingBottom: 0,
+                      },
                     }}
                   >
                     <TableHead>
