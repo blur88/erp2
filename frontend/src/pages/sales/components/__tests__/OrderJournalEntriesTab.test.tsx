@@ -68,7 +68,7 @@ describe('OrderJournalEntriesTab', () => {
     mockGetJournalEntries.mockReturnValue({ data: { data: [makeEntry()], meta: { total: 1 } }, isLoading: false })
     renderTab('o1')
     const link = screen.getByRole('link', { name: 'JE-001' })
-    expect(link).toHaveAttribute('href', '/accounting/journal-entries/je1')
+    expect(link).toHaveAttribute('href', '/accounting/journal-entries?sourceType=sales_order&sourceId=o1')
   })
 
   it('renders description', () => {

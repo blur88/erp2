@@ -70,7 +70,7 @@ export default function OrderJournalEntriesTab({ orderId }: OrderJournalEntriesT
             return (
               <TableRow key={entry.id} hover>
                 <TableCell>
-                  <Link component={RouterLink} to={`/accounting/journal-entries/${entry.id}`}>
+                  <Link component={RouterLink} to={`/accounting/journal-entries?sourceType=sales_order&sourceId=${orderId}`}>
                     {entry.referenceNumber}
                   </Link>
                 </TableCell>
