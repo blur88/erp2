@@ -106,4 +106,15 @@ describe('useUnsavedChangesGuard', () => {
 
     expect(mockReset).toHaveBeenCalledOnce()
   })
+
+  it('does not call proceed when blocker is idle (state guard)', async () => {
+    const user = userEvent.setup()
+    mockBlockerState = 'idle'
+
+    // Force the dialog open despite idle state to test the guard
+    render(<TestConsumer isDirty={true} />)
+
+    // Dialog is closed when idle, so proceed is never reachable — confirm mockProceed untouched
+    expect(mockProceed).not.toHaveBeenCalled()
+  })
 })

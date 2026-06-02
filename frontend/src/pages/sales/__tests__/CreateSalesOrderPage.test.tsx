@@ -33,6 +33,12 @@ const {
   mockShowError: vi.fn(),
 }))
 
+const { mockBlockerState, mockBlockerProceed, mockBlockerReset } = vi.hoisted(() => ({
+  mockBlockerState: { current: 'idle' as 'idle' | 'blocked' },
+  mockBlockerProceed: vi.fn(),
+  mockBlockerReset: vi.fn(),
+}))
+
 vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual('react-router-dom')
 
@@ -40,7 +46,11 @@ vi.mock('react-router-dom', async () => {
     ...actual,
     useNavigate: () => mockNavigate,
     useParams: () => mockParams(),
-    useBlocker: () => ({ state: 'idle', proceed: vi.fn(), reset: vi.fn() }),
+    useBlocker: () => ({
+      state: mockBlockerState.current,
+      proceed: mockBlockerProceed,
+      reset: mockBlockerReset,
+    }),
   }
 })
 
@@ -94,6 +104,7 @@ vi.mock('@/store/slices/salesSlice', () => ({
 }))
 
 beforeEach(() => {
+  mockBlockerState.current = 'idle'
   mockGetDocumentNumberSettings.mockReturnValue({
     data: {
       configurations: [
@@ -439,22 +450,18 @@ describe('CreateSalesOrderPage — new features', () => {
     })
   })
 
-  it('attempts navigation when cancelling with unsaved changes', async () => {
-    const user = userEvent.setup()
+  it('shows discard dialog when blocker intercepts navigation on dirty form', () => {
+    mockBlockerState.current = 'blocked'
     render(
       <BrowserRouter>
         <CreateSalesOrderPage />
       </BrowserRouter>,
     )
 
-    const dateInput = screen.getByLabelText(/order date/i)
-    await user.clear(dateInput)
-    await user.type(dateInput, '2025-01-01')
-    await user.click(screen.getByRole('button', { name: /^cancel$/i }))
-
-    await waitFor(() => {
-      expect(mockNavigate).toHaveBeenCalledWith('/sales/orders')
-    })
+    expect(screen.getByText(/discard changes/i)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /discard/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /keep editing/i })).toBeInTheDocument()
+    mockBlockerState.current = 'idle'
   })
 
   it('navigates immediately on cancel when form is untouched', async () => {
@@ -709,8 +716,8 @@ describe('CreateSalesOrderPage — edit mode', { timeout: 60000 }, () => {
     })
   })
 
-  it('cancel with unsaved changes attempts navigation to the orders list', async () => {
-    const user = userEvent.setup()
+  it('shows discard dialog when blocker intercepts navigation in edit mode', async () => {
+    mockBlockerState.current = 'blocked'
     mockFetchSalesOrder.mockReturnValue({
       unwrap: vi.fn().mockResolvedValue(existingOrder),
     })
@@ -721,21 +728,10 @@ describe('CreateSalesOrderPage — edit mode', { timeout: 60000 }, () => {
       </BrowserRouter>,
     )
 
-    // Wait for pre-fill
     await waitFor(() => {
-      expect(screen.getByDisplayValue('2026-03-15')).toBeInTheDocument()
+      expect(screen.getByText(/discard changes/i)).toBeInTheDocument()
     })
-
-    // Dirty the form
-    const dateInput = screen.getByLabelText(/order date/i)
-    await user.clear(dateInput)
-    await user.type(dateInput, '2026-04-01')
-
-    await user.click(screen.getByRole('button', { name: /^cancel$/i }))
-
-    await waitFor(() => {
-      expect(mockNavigate).toHaveBeenCalledWith('/sales/orders')
-    })
+    expect(screen.getByRole('button', { name: /discard/i })).toBeInTheDocument()
   })
 
   it('cancel without changes navigates immediately without dialog', async () => {
@@ -763,8 +759,8 @@ describe('CreateSalesOrderPage — edit mode', { timeout: 60000 }, () => {
     expect(screen.queryByText(/discard changes/i)).not.toBeInTheDocument()
   })
 
-  it('create mode dirty cancel attempts navigation to the orders list', async () => {
-    const user = userEvent.setup()
+  it('shows discard dialog when blocker intercepts navigation in create mode', () => {
+    mockBlockerState.current = 'blocked'
     mockParams.mockReturnValue({}) // create mode — no orderNumber
 
     render(
@@ -773,14 +769,8 @@ describe('CreateSalesOrderPage — edit mode', { timeout: 60000 }, () => {
       </BrowserRouter>,
     )
 
-    const dateInput = screen.getByLabelText(/order date/i)
-    await user.clear(dateInput)
-    await user.type(dateInput, '2025-01-01')
-    await user.click(screen.getByRole('button', { name: /^cancel$/i }))
-
-    await waitFor(() => {
-      expect(mockNavigate).toHaveBeenCalledWith('/sales/orders')
-    })
+    expect(screen.getByText(/discard changes/i)).toBeInTheDocument()
+    mockBlockerState.current = 'idle'
   })
 })
 
