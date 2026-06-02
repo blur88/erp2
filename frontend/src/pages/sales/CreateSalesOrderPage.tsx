@@ -238,6 +238,9 @@ const CreateSalesOrderPage: React.FC = () => {
             : Number(item.discountValue || 0)
         const total = (price - unitDiscount) * qty
         if (Math.abs((item.totalPrice || 0) - total) > 0.001) {
+          // Derived recompute — must NOT mark the form dirty, or loading an
+          // existing order (backend stores unrounded totals; this rounds to 2dp)
+          // would flip isDirty true with no user action and falsely block nav.
           setValue(`items.${index}.totalPrice`, Number(total.toFixed(2)))
         }
       }
@@ -254,7 +257,7 @@ const CreateSalesOrderPage: React.FC = () => {
       if (!fullProduct) return
       const price = getProductPrice(fullProduct, selectedCustomer)
       if (Number(item.unitPrice) !== price) {
-        setValue(`items.${index}.unitPrice`, price)
+        setValue(`items.${index}.unitPrice`, price, { shouldDirty: true })
       }
     })
   }, [selectedCustomer, setValue, loadingOrder, orderToLoad, products, watchedItems])
@@ -265,7 +268,7 @@ const CreateSalesOrderPage: React.FC = () => {
     const found = customers.find((c: any) => c.id === preselectId)
     if (found) {
       preselectAppliedRef.current = true
-      setValue('customerId', found.id)
+      setValue('customerId', found.id, { shouldDirty: true })
       setSelectedCustomer(found)
       customerChangedByUserRef.current = true
     }
@@ -346,10 +349,10 @@ const CreateSalesOrderPage: React.FC = () => {
       seedProducts([product])
       const price = getProductPrice(product, selectedCustomer)
       const qty = Number(watchedItems[index]?.quantity) || 1
-      setValue(`items.${index}.productId`, product.id)
-      setValue(`items.${index}.unitPrice`, price)
-      setValue(`items.${index}.totalPrice`, Number((price * qty).toFixed(2)))
-      setValue(`items.${index}.product`, product)
+      setValue(`items.${index}.productId`, product.id, { shouldDirty: true })
+      setValue(`items.${index}.unitPrice`, price, { shouldDirty: true })
+      setValue(`items.${index}.totalPrice`, Number((price * qty).toFixed(2)), { shouldDirty: true })
+      setValue(`items.${index}.product`, product, { shouldDirty: true })
     },
     [seedProducts, setValue, selectedCustomer, watchedItems],
   )

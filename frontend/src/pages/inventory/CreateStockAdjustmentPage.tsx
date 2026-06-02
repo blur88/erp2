@@ -184,6 +184,8 @@ const CreateStockAdjustmentPage: React.FC = () => {
       const diff = newQty - oldQty
 
       if (item.difference !== diff) {
+        // Derived recompute — must NOT mark the form dirty, or loading an
+        // existing adjustment would flip isDirty true with no user action.
         setValue(`items.${index}.difference`, diff)
       }
     })
@@ -246,17 +248,17 @@ const CreateStockAdjustmentPage: React.FC = () => {
         const response = await ApiService.get(`/inventory/products/${product.id}`)
         const freshProduct = (response as any).data || product
 
-        setValue(`items.${index}.productId`, freshProduct.id)
-        setValue(`items.${index}.product`, freshProduct)
+        setValue(`items.${index}.productId`, freshProduct.id, { shouldDirty: true })
+        setValue(`items.${index}.product`, freshProduct, { shouldDirty: true })
         seedProducts([freshProduct])
-        setValue(`items.${index}.oldQuantity`, Number(freshProduct.stockQuantity || 0))
-        setValue(`items.${index}.newQuantity`, Number(freshProduct.stockQuantity || 0))
+        setValue(`items.${index}.oldQuantity`, Number(freshProduct.stockQuantity || 0), { shouldDirty: true })
+        setValue(`items.${index}.newQuantity`, Number(freshProduct.stockQuantity || 0), { shouldDirty: true })
       } catch (err) {
         console.error('Error fetching product:', err)
-        setValue(`items.${index}.productId`, product.id)
-        setValue(`items.${index}.product`, product)
-        setValue(`items.${index}.oldQuantity`, Number(product.stockQuantity || 0))
-        setValue(`items.${index}.newQuantity`, Number(product.stockQuantity || 0))
+        setValue(`items.${index}.productId`, product.id, { shouldDirty: true })
+        setValue(`items.${index}.product`, product, { shouldDirty: true })
+        setValue(`items.${index}.oldQuantity`, Number(product.stockQuantity || 0), { shouldDirty: true })
+        setValue(`items.${index}.newQuantity`, Number(product.stockQuantity || 0), { shouldDirty: true })
       }
     }
   }
