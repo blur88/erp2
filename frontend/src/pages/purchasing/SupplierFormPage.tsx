@@ -121,7 +121,7 @@ const SupplierFormPage: React.FC = () => {
     reset,
     watch,
     setValue,
-    formState: { errors, isDirty },
+    formState: { errors, isDirty, isSubmitting },
   } = useForm<SupplierFormData>({
     resolver: yupResolver(supplierSchema) as any,
     defaultValues: {
@@ -145,7 +145,7 @@ const SupplierFormPage: React.FC = () => {
       notes: null,
     },
   })
-  const { UnsavedChangesDialog } = useUnsavedChangesGuard(isDirty)
+  const { UnsavedChangesDialog } = useUnsavedChangesGuard(isDirty, isSubmitting)
 
   const watchedCompanyName = watch('companyName')
   const watchedBilling = watch([

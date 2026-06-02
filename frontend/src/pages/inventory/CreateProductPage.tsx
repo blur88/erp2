@@ -252,7 +252,7 @@ const CreateProductPage: React.FC = () => {
   // Currency hook
   const { currency } = useCurrency()
 
-  const { control, handleSubmit, watch, reset, formState: { errors, isDirty } } = useForm<ProductFormData>({
+  const { control, handleSubmit, watch, reset, formState: { errors, isDirty, isSubmitting } } = useForm<ProductFormData>({
     resolver: yupResolver(productSchema) as any,
     defaultValues: {
       name: '',
@@ -266,7 +266,7 @@ const CreateProductPage: React.FC = () => {
       isActive: true,
     },
   })
-  const { UnsavedChangesDialog } = useUnsavedChangesGuard(isDirty)
+  const { UnsavedChangesDialog } = useUnsavedChangesGuard(isDirty, isSubmitting)
 
   const watchedType = watch('type')
   const watchedName = watch('name')

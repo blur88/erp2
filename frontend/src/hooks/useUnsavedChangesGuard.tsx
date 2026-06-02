@@ -1,15 +1,31 @@
-import React, { useCallback, useEffect } from 'react'
+import React, { useCallback, useEffect, useRef } from 'react'
 import { useBlocker } from 'react-router-dom'
 
 import ConfirmationDialog from '@/components/common/ConfirmationDialog'
 
-export function useUnsavedChangesGuard(isDirty: boolean): {
+export function useUnsavedChangesGuard(isDirty: boolean, isSubmitting = false): {
   UnsavedChangesDialog: React.ReactElement
 } {
-  const blocker = useBlocker(useCallback(() => isDirty, [isDirty]))
+  const savedRef = useRef(false)
+
+  useEffect(() => {
+    if (isSubmitting) {
+      savedRef.current = true
+    }
+  }, [isSubmitting])
 
   useEffect(() => {
     if (!isDirty) {
+      savedRef.current = false
+    }
+  }, [isDirty])
+
+  const blocker = useBlocker(
+    useCallback(() => isDirty && !isSubmitting && !savedRef.current, [isDirty, isSubmitting]),
+  )
+
+  useEffect(() => {
+    if (!isDirty || isSubmitting) {
       return
     }
 
@@ -22,7 +38,7 @@ export function useUnsavedChangesGuard(isDirty: boolean): {
     return () => {
       window.removeEventListener('beforeunload', handleBeforeUnload)
     }
-  }, [isDirty])
+  }, [isDirty, isSubmitting])
 
   const UnsavedChangesDialog = (
     <ConfirmationDialog

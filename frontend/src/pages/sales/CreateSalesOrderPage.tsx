@@ -204,7 +204,7 @@ const CreateSalesOrderPage: React.FC = () => {
     watch,
     setValue,
     reset,
-    formState: { errors, isDirty },
+    formState: { errors, isDirty, isSubmitting },
   } = useForm<CreateOrderFormData>({
     resolver: yupResolver(schema) as any,
     defaultValues: {
@@ -215,7 +215,7 @@ const CreateSalesOrderPage: React.FC = () => {
       items: [emptyItem()],
     },
   })
-  const { UnsavedChangesDialog } = useUnsavedChangesGuard(isDirty)
+  const { UnsavedChangesDialog } = useUnsavedChangesGuard(isDirty, isSubmitting)
 
   const { fields, append, remove } = useFieldArray({ control, name: 'items' })
   const watchedItems = watch('items')
