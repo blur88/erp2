@@ -185,6 +185,15 @@ export class SalesOrderItemResponseDto {
   @ApiProperty({ example: 'uuid-string' })
   productId: string;
 
+  @ApiProperty({ nullable: true })
+  product?: {
+    id: string;
+    name: string;
+    description?: string;
+    barcode?: string;
+    stockQuantity: number;
+  } | null;
+
   @ApiProperty({ example: 10 })
   quantity: number;
 

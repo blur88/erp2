@@ -43,6 +43,7 @@ export function mapSalesOrderToResponseDto(
               name: item.product.name,
               description: item.product.description,
               barcode: item.product.barcode,
+              stockQuantity: Number(item.product.stockQuantity ?? 0),
             }
           : null,
         quantity: item.quantity,

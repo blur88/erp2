@@ -165,6 +165,22 @@ describe('SalesOrderDetailPage', () => {
     expect(screen.getByText(/Fulfill this order/i)).toBeInTheDocument()
   })
 
+  it('shows stock alert and disables Fulfill when a READY order has out-of-stock items', () => {
+    mockGetSalesOrderByNumber.mockReturnValue({
+      data: makeOrder({
+        status: 'READY',
+        paymentStatus: 'PAID',
+        items: [{ product: { name: 'Widget', stockQuantity: 0 }, quantity: 1 }],
+      }),
+      isLoading: false,
+    })
+
+    renderPage()
+
+    expect(screen.getByRole('alert')).toHaveTextContent(/out of stock/i)
+    expect(screen.getByRole('button', { name: 'Fulfill' })).toBeDisabled()
+  })
+
   it('shows confirm dialog when Unfulfill is clicked', async () => {
     mockGetSalesOrderByNumber.mockReturnValue({ data: makeOrder({ status: 'FULFILLED', paymentStatus: 'PAID' }), isLoading: false })
     renderPage()

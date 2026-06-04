@@ -615,6 +615,28 @@ describe('CreateSalesOrderPage — new features', () => {
     const totalField = screen.getByRole('textbox', { name: /total amount/i })
     expect(totalField).toHaveDisplayValue('0.00')
   })
+
+  it('shows out-of-stock warning banner and chip when a selected product has no stock', async () => {
+    mockGet.mockResolvedValue({
+      data: [{ id: 'product-1', name: 'Zero Widget', baseCost: 10, stockQuantity: 0 }],
+    })
+
+    render(
+      <BrowserRouter>
+        <CreateSalesOrderPage />
+      </BrowserRouter>,
+    )
+
+    const productInput = screen.getByPlaceholderText('Search by name or barcode...')
+    fireEvent.mouseDown(productInput)
+    const listbox = await screen.findByRole('listbox')
+    fireEvent.click(within(listbox).getByText('Zero Widget'))
+
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toHaveTextContent(/out of stock/i)
+      expect(screen.getByText('Out of stock (0)')).toBeInTheDocument()
+    })
+  })
 })
 
 describe('CreateSalesOrderPage — edit mode', { timeout: 60000 }, () => {

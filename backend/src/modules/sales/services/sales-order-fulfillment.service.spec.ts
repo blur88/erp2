@@ -18,7 +18,14 @@ const mockOrder = (overrides: Partial<SalesOrder> = {}): SalesOrder => ({
   paymentStatus: SalesOrderPaymentStatus.PAID,
   totalAmount: 1000,
   customerId: 'customer-1',
-  items: [{ id: 'item-1', productId: 'product-1', quantity: 5, product: { id: 'product-1' } } as SalesOrderItem],
+  items: [
+    {
+      id: 'item-1',
+      productId: 'product-1',
+      quantity: 5,
+      product: { id: 'product-1', name: 'Widget', stockQuantity: 100 },
+    } as SalesOrderItem,
+  ],
   ...overrides,
 } as SalesOrder);
 
@@ -133,6 +140,84 @@ describe('SalesOrderFulfillmentService', () => {
         'admin',
         expect.anything(),
       );
+    });
+
+    it('throws ConflictException when an item has insufficient stock', async () => {
+      const order = mockOrder({
+        status: SalesOrderStatus.READY,
+        items: [
+          {
+            id: 'item-1',
+            productId: 'product-1',
+            quantity: 5,
+            product: { id: 'product-1', name: 'Widget', stockQuantity: 2 },
+          } as SalesOrderItem,
+        ],
+      });
+      wireTransaction(order);
+
+      await expect(service.fulfillOrder('order-1')).rejects.toThrow(ConflictException);
+      await expect(service.fulfillOrder('order-1')).rejects.toThrow(/out of stock/i);
+      expect(inventoryService.adjustStock).not.toHaveBeenCalled();
+    });
+
+    it('throws ConflictException when an item is fully out of stock', async () => {
+      const order = mockOrder({
+        status: SalesOrderStatus.READY,
+        items: [
+          {
+            id: 'item-1',
+            productId: 'product-1',
+            quantity: 1,
+            product: { id: 'product-1', name: 'Widget', stockQuantity: 0 },
+          } as SalesOrderItem,
+        ],
+      });
+      wireTransaction(order);
+
+      await expect(service.fulfillOrder('order-1')).rejects.toThrow(ConflictException);
+    });
+
+    it('lists each offending item in the error message', async () => {
+      const order = mockOrder({
+        status: SalesOrderStatus.READY,
+        items: [
+          {
+            id: 'item-1',
+            productId: 'product-1',
+            quantity: 5,
+            product: { id: 'product-1', name: 'Widget', stockQuantity: 2 },
+          } as SalesOrderItem,
+          {
+            id: 'item-2',
+            productId: 'product-2',
+            quantity: 3,
+            product: { id: 'product-2', name: 'Gadget', stockQuantity: 0 },
+          } as SalesOrderItem,
+        ],
+      });
+      wireTransaction(order);
+
+      await expect(service.fulfillOrder('order-1')).rejects.toThrow(/Widget.*Gadget|Gadget.*Widget/);
+    });
+
+    it('fulfills normally when all items have sufficient stock', async () => {
+      const order = mockOrder({
+        status: SalesOrderStatus.READY,
+        items: [
+          {
+            id: 'item-1',
+            productId: 'product-1',
+            quantity: 5,
+            product: { id: 'product-1', name: 'Widget', stockQuantity: 5 },
+          } as SalesOrderItem,
+        ],
+      });
+      wireTransaction(order);
+
+      await service.fulfillOrder('order-1');
+
+      expect(inventoryService.adjustStock).toHaveBeenCalled();
     });
   });
 

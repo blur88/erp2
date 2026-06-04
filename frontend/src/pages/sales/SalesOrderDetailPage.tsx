@@ -2,7 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react'
 import AccountBalanceIcon from '@mui/icons-material/AccountBalance'
 import PaymentIcon from '@mui/icons-material/Payment'
 import ReceiptIcon from '@mui/icons-material/Receipt'
-import { Box, CircularProgress, Tab, Tabs, Typography } from '@mui/material'
+import { Alert, Box, CircularProgress, Tab, Tabs, Typography } from '@mui/material'
 import { skipToken } from '@reduxjs/toolkit/query'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 
@@ -30,6 +30,7 @@ import OrderOverviewTab from './components/OrderOverviewTab'
 import OrderPaymentsTab from './components/OrderPaymentsTab'
 import { SalesOrderPaymentStatusChip } from './components/SalesOrderPaymentStatusChip'
 import { SalesOrderStatusChip } from './components/SalesOrderStatusChip'
+import { getStockOffenders } from '@/utils/stockStatus'
 
 type Dialog = 'pay' | 'refund' | 'print' | 'fulfill' | 'unfulfill' | 'cancel' | 'uncancel' | null
 
@@ -110,6 +111,16 @@ export default function SalesOrderDetailPage() {
       </Box>
     )
   }
+
+  const isReadyState =
+    order.status === 'READY' ||
+    (order.status === 'DRAFT' && (order.paymentStatus === 'PAID' || order.paymentStatus === 'OVERPAID'))
+  const stockOffenders = getStockOffenders(
+    (order.items ?? []).map((item) => ({
+      product: item.product,
+      quantity: Number(item.quantity ?? 0),
+    })),
+  )
 
   const handleFulfillConfirm = async () => {
     try {
@@ -211,6 +222,13 @@ export default function SalesOrderDetailPage() {
         onDuplicate={handleDuplicate}
         onPrint={() => setActiveDialog('print')}
       />
+
+      {isReadyState && stockOffenders.length > 0 && (
+        <Alert severity="error" sx={{ mx: 3, mb: 1.5 }}>
+          {`Cannot fulfill — ${stockOffenders.length} item(s) out of stock: `}
+          {stockOffenders.map((o) => o.name).join(', ')}
+        </Alert>
+      )}
 
       <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
         <Tabs

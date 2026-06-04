@@ -47,6 +47,47 @@ describe('mapSalesOrderToResponseDto', () => {
     });
   });
 
+  it('preserves product stockQuantity on item products', () => {
+    const order = {
+      id: 'order-1',
+      orderNumber: 'SO-001',
+      orderDate: new Date('2026-03-31T00:00:00.000Z'),
+      status: SalesOrderStatus.DRAFT,
+      paymentStatus: SalesOrderPaymentStatus.PARTIAL,
+      subtotal: 100,
+      shippingAmount: 10,
+      totalAmount: 110,
+      customerId: 'customer-1',
+      customer: null,
+      items: [
+        {
+          id: 'item-1',
+          productId: 'product-1',
+          quantity: 2,
+          unitPrice: 50,
+          totalAmount: 100,
+          product: {
+            id: 'product-1',
+            name: 'Widget',
+            description: 'Demo widget',
+            barcode: 'W-001',
+            stockQuantity: 7,
+          },
+        },
+      ],
+      createdAt: new Date('2026-03-31T00:00:00.000Z'),
+      updatedAt: new Date('2026-04-01T00:00:00.000Z'),
+    };
+
+    const dto = mapSalesOrderToResponseDto(order as any);
+
+    expect(dto.items[0].product).toMatchObject({
+      id: 'product-1',
+      name: 'Widget',
+      stockQuantity: 7,
+    });
+  });
+
   it('emits paidAmount and balanceDue from the entity', () => {
     const order = {
       id: 'o1',
