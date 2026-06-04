@@ -55,7 +55,7 @@ export class SalesOrderFulfillmentService {
 
       if (offenders.length > 0) {
         throw new ConflictException(
-          `Cannot fulfill order - out of stock: ${offenders.join(', ')}`,
+          `Cannot fulfill — ${offenders.length} item(s) out of stock: ${offenders.join(', ')}`,
         );
       }
 
