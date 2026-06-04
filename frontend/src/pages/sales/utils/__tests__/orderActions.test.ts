@@ -138,4 +138,25 @@ describe('getOrderActionMetas — disabled flags & tooltips', () => {
     const fulfill = metas.find((m) => m.action === 'fulfill')
     expect(fulfill).toEqual({ action: 'fulfill' })
   })
+
+  it('fulfill is disabled with a tooltip when READY + PAID and an item is out of stock', () => {
+    const order = {
+      ...makeOrder('READY', 'PAID'),
+      items: [{ product: { name: 'Widget', stockQuantity: 0 }, quantity: 1 }],
+    } as SalesOrder
+
+    const fulfill = getOrderActionMetas(order).find((m) => m.action === 'fulfill')
+    expect(fulfill?.disabled).toBe(true)
+    expect(fulfill?.tooltip).toMatch(/out of stock/i)
+  })
+
+  it('fulfill stays enabled when READY + PAID and all items are in stock', () => {
+    const order = {
+      ...makeOrder('READY', 'PAID'),
+      items: [{ product: { name: 'Widget', stockQuantity: 10 }, quantity: 1 }],
+    } as SalesOrder
+
+    const fulfill = getOrderActionMetas(order).find((m) => m.action === 'fulfill')
+    expect(fulfill).toEqual({ action: 'fulfill' })
+  })
 })

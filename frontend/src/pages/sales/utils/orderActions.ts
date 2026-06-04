@@ -1,4 +1,5 @@
 import type { SalesOrder } from '@/types'
+import { getStockOffenders } from '@/utils/stockStatus'
 
 export type OrderAction =
   | 'pay'
@@ -42,7 +43,18 @@ export function getOrderActionMetas(order: SalesOrder): OrderActionMeta[] {
 
   // Fulfill — Ready only (fully-paid). Hidden on unpaid/partial drafts.
   if (isReadyState) {
-    metas.push({ action: 'fulfill' })
+    const offenders = getStockOffenders(
+      (order.items ?? []).map((item) => ({
+        product: item.product,
+        quantity: Number(item.quantity ?? 0),
+      })),
+    )
+    const fulfillMeta: OrderActionMeta = { action: 'fulfill' }
+    if (offenders.length > 0) {
+      fulfillMeta.disabled = true
+      fulfillMeta.tooltip = `Cannot fulfill — ${offenders.length} item(s) out of stock: ${offenders.map((o) => o.name).join(', ')}`
+    }
+    metas.push(fulfillMeta)
   }
 
   // Unfulfill — Fulfilled only.

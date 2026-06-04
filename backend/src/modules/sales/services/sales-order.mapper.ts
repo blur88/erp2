@@ -38,13 +38,14 @@ export function mapSalesOrderToResponseDto(
         id: item.id,
         productId: item.productId,
         product: item.product
-          ? {
-              id: item.product.id,
-              name: item.product.name,
-              description: item.product.description,
-              barcode: item.product.barcode,
-            }
-          : null,
+      ? {
+          id: item.product.id,
+          name: item.product.name,
+          description: item.product.description,
+          barcode: item.product.barcode,
+          stockQuantity: Number(item.product.stockQuantity ?? 0),
+        }
+      : null,
         quantity: item.quantity,
         unitPrice: Number(item.unitPrice),
         discountType: item.discountType || DiscountType.PERCENTAGE,

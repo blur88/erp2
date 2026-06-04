@@ -41,6 +41,24 @@ export class SalesOrderFulfillmentService {
         throw new ConflictException('Cannot fulfill order - order must be Ready (paid in full)');
       }
 
+      const offenders = order.items
+        .filter(
+          (item) =>
+            item.product &&
+            item.product.stockQuantity != null &&
+            Number(item.product.stockQuantity) < Number(item.quantity),
+        )
+        .map(
+          (item) =>
+            `${item.product!.name ?? item.productId} (need ${Number(item.quantity)}, have ${Number(item.product!.stockQuantity)})`,
+        );
+
+      if (offenders.length > 0) {
+        throw new ConflictException(
+          `Cannot fulfill order - out of stock: ${offenders.join(', ')}`,
+        );
+      }
+
       for (const item of order.items) {
         if (item.product) {
           await this.inventoryIntegrationService.adjustStock(
