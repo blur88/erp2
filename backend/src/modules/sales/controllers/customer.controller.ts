@@ -193,18 +193,6 @@ export class CustomerController {
     return this.customerService.getSalesHistory(id);
   }
 
-  @Get(':id/outstanding-invoices')
-  @ApiOperation({ summary: 'Get customer outstanding invoices' })
-  @ApiParam({ name: 'id', description: 'Customer ID', type: 'string' })
-  @ApiResponse({
-    status: 200,
-    description: 'Outstanding invoices retrieved successfully',
-  })
-  @ApiResponse({ status: 404, description: 'Customer not found' })
-  async getOutstandingInvoices(@Param('id', ParseUUIDPipe) id: string) {
-    return this.customerService.getOutstandingInvoices(id);
-  }
-
   @Get(':id/statistics')
   @ApiOperation({ summary: 'Get customer statistics' })
   @ApiParam({ name: 'id', description: 'Customer ID', type: 'string' })

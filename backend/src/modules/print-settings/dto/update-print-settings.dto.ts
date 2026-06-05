@@ -108,11 +108,6 @@ export class UpdatePrintSettingsDto {
   @IsObject()
   salesOrderTemplate?: object;
 
-  @ApiProperty({ description: 'Invoice template configuration', required: false })
-  @IsOptional()
-  @IsObject()
-  invoiceTemplate?: object;
-
   @ApiProperty({ description: 'Payment receipt template configuration', required: false })
   @IsOptional()
   @IsObject()

@@ -66,9 +66,6 @@ export class PrintSettingsResponseDto {
   salesOrderTemplate: object;
 
   @ApiProperty()
-  invoiceTemplate: object;
-
-  @ApiProperty()
   paymentReceiptTemplate: object;
 
   @ApiProperty()
@@ -109,7 +106,6 @@ export class PrintSettingsResponseDto {
     dto.reportPerPageFooter = entity.reportPerPageFooter;
     dto.reportEndOfDocFooter = entity.reportEndOfDocFooter;
     dto.salesOrderTemplate = entity.salesOrderTemplate;
-    dto.invoiceTemplate = entity.invoiceTemplate;
     dto.paymentReceiptTemplate = entity.paymentReceiptTemplate;
     dto.purchaseOrderTemplate = entity.purchaseOrderTemplate;
     dto.grnTemplate = entity.grnTemplate;

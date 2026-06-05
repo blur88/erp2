@@ -20,7 +20,6 @@ import {
 } from 'class-validator';
 import { BaseEntity } from './base.entity';
 import { SalesOrder } from './sales-order.entity';
-import { Invoice } from './invoice.entity';
 import { Payment } from './payment.entity';
 import { PriceList } from './price-list.entity';
 
@@ -305,11 +304,6 @@ export class Customer extends BaseEntity {
     cascade: false,
   })
   salesOrders: SalesOrder[];
-
-  @OneToMany(() => Invoice, (invoice) => invoice.customer, {
-    cascade: false,
-  })
-  invoices: Invoice[];
 
   @OneToMany(() => Payment, (payment) => payment.customer, {
     cascade: false,

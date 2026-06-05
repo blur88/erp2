@@ -9,7 +9,6 @@ import { Repository, FindOptionsWhere } from 'typeorm';
 import { BaseCrudService } from '../../../common/services/base-crud.service';
 import { Customer } from '../../../database/entities/customer.entity';
 import { SalesOrder } from '../../../database/entities/sales-order.entity';
-import { Invoice } from '../../../database/entities/invoice.entity';
 import {
   CreateCustomerDto,
   UpdateCustomerDto,
@@ -47,8 +46,6 @@ export class CustomerService extends BaseCrudService<
     private readonly customerRepository: Repository<Customer>,
     @InjectRepository(SalesOrder)
     private readonly salesOrderRepository: Repository<SalesOrder>,
-    @InjectRepository(Invoice)
-    private readonly invoiceRepository: Repository<Invoice>,
     private readonly transactionManager: TransactionManager,
     auditLogService: AuditLogService,
   ) {
@@ -79,41 +76,18 @@ export class CustomerService extends BaseCrudService<
   }
 
   protected async afterDelete(entity: Customer): Promise<void> {
-    const [activeOrderCount, activeInvoiceCount] = await Promise.all([
-      this.salesOrderRepository.count({ where: { customerId: entity.id } }),
-      this.invoiceRepository.count({ where: { customerId: entity.id } }),
-    ]);
+    const activeOrderCount = await this.salesOrderRepository.count({ where: { customerId: entity.id } });
 
-    if (activeOrderCount > 0 || activeInvoiceCount > 0) {
-      const relatedRecords = [];
-      if (activeOrderCount > 0) {
-        relatedRecords.push(`${activeOrderCount} order${activeOrderCount === 1 ? '' : 's'}`);
-      }
-      if (activeInvoiceCount > 0) {
-        relatedRecords.push(`${activeInvoiceCount} invoice${activeInvoiceCount === 1 ? '' : 's'}`);
-      }
-
-      const suggestions = [];
-      if (activeOrderCount > 0) {
-        suggestions.push(`Complete or cancel the ${activeOrderCount} pending order${activeOrderCount === 1 ? '' : 's'} first`);
-      }
-      if (activeInvoiceCount > 0) {
-        suggestions.push(`Resolve the ${activeInvoiceCount} invoice${activeInvoiceCount === 1 ? '' : 's'} first`);
-      }
-      if (suggestions.length === 0) {
-        suggestions.push('Complete all pending business transactions first');
-      }
-
+    if (activeOrderCount > 0) {
       throw new BadRequestException({
-        message: `Cannot delete customer '${entity.name}' because they have ${relatedRecords.join(' and ')}.`,
+        message: `Cannot delete customer '${entity.name}' because they have ${activeOrderCount} order${activeOrderCount === 1 ? '' : 's'}.`,
         error: 'DELETION_PREVENTED_BY_DEPENDENCIES',
         customerName: entity.name,
         customerId: entity.id,
         dependencies: {
           orders: activeOrderCount,
-          invoices: activeInvoiceCount,
         },
-        suggestions,
+        suggestions: [`Complete or cancel the ${activeOrderCount} pending order${activeOrderCount === 1 ? '' : 's'} first`],
         details: `Customer '${entity.name}' (${entity.id}) cannot be deleted due to existing business relationships. This is a safety measure to preserve data integrity.`,
       });
     }
@@ -477,41 +451,6 @@ export class CustomerService extends BaseCrudService<
     };
   }
 
-  async getOutstandingInvoices(customerId: string) {
-    await this.findCustomerEntity(customerId); // Verify customer exists
-
-    const invoices = await this.invoiceRepository.find({
-      where: {
-        customerId,
-        // Note: filtering for balanceDue > 0 will be done in code below
-      },
-      order: { invoiceDate: 'ASC' },
-    });
-
-    const outstandingInvoices = invoices.filter(invoice => Number(invoice.balanceDue) > 0);
-
-    const totalOutstanding = outstandingInvoices.reduce(
-      (sum, invoice) => sum + Number(invoice.balanceDue),
-      0,
-    );
-
-    return {
-      customerId,
-      totalOutstanding,
-      invoicesCount: outstandingInvoices.length,
-      invoices: outstandingInvoices.map(invoice => ({
-        id: invoice.id,
-        invoiceNumber: invoice.invoiceNumber,
-        invoiceDate: invoice.invoiceDate,
-        totalAmount: Number(invoice.totalAmount),
-        paidAmount: Number(invoice.paidAmount),
-        balanceDue: Number(invoice.balanceDue),
-        salesOrderId: invoice.salesOrderId ?? null,
-        // daysPastDue and isOverdue removed as they depend on dueDate
-      })),
-    };
-  }
-
   async getCustomerStatistics(customerId: string) {
     const customer = await this.findCustomerEntity(customerId);
 
@@ -538,13 +477,6 @@ export class CustomerService extends BaseCrudService<
       lastPaymentDate: null,
     };
 
-    // Get overdue invoice count
-    const overdueInvoices = await this.invoiceRepository.count({
-      where: { 
-        customerId,
-      },
-    });
-
     return {
       customerId,
       customer: {
@@ -562,9 +494,6 @@ export class CustomerService extends BaseCrudService<
         totalPaid: paymentStats.totalPaid || 0,
         averagePaymentAmount: paymentStats.averagePaymentAmount || 0,
         lastPaymentDate: paymentStats.lastPaymentDate,
-      },
-      invoices: {
-        overdueCount: overdueInvoices,
       },
     };
   }
@@ -666,46 +595,22 @@ export class CustomerService extends BaseCrudService<
 
         // Check for active references with comprehensive dependency checking
         // Only check for non-soft-deleted records since soft-deleted records can coexist
-        const [orderCount, invoiceCount] = await Promise.all([
-          this.salesOrderRepository.count({
-            where: { customerId },
-            // Don't count soft-deleted orders
-            withDeleted: false
-          }),
-          this.invoiceRepository.count({
-            where: { customerId },
-            // Don't count soft-deleted invoices
-            withDeleted: false
-          }),
-        ]);
+        const orderCount = await this.salesOrderRepository.count({
+          where: { customerId },
+          withDeleted: false,
+        });
 
-        // Payment count check temporarily disabled (Payment entity not available)
-        const paymentCount = 0;
-
-        const dependencies = [
-          { name: 'order', count: orderCount },
-          { name: 'invoice', count: invoiceCount },
-          { name: 'payment', count: paymentCount },
-        ];
-
-        const activeDependencies = dependencies.filter(dep => dep.count > 0);
-        if (activeDependencies.length > 0) {
-          const dependencyDetails = activeDependencies.map(dep =>
-            `${dep.count} ${dep.name}${dep.count > 1 ? 's' : ''}`
-          ).join(', ');
-
+        if (orderCount > 0) {
           BulkOperationUtil.addFailure(
             failedItems,
             customerId,
-            `Cannot permanently delete customer '${customer.name}' (${customer.id}) due to active dependencies: ${dependencyDetails}. Complete all business transactions first.`,
+            `Cannot permanently delete customer '${customer.name}' (${customer.id}) due to ${orderCount} active order${orderCount > 1 ? 's' : ''}. Complete all business transactions first.`,
             'DEPENDENCY_ERROR',
             {
               customerName: customer.name,
               dependencies: {
                 orders: orderCount,
-                invoices: invoiceCount,
-                payments: paymentCount
-              }
+              },
             }
           );
           continue;
@@ -721,16 +626,6 @@ export class CustomerService extends BaseCrudService<
             .where('customerId = :customerId', { customerId })
             .andWhere('deletedAt IS NOT NULL')
             .execute(),
-
-          // Delete soft-deleted invoices
-          this.invoiceRepository
-            .createQueryBuilder()
-            .delete()
-            .where('customerId = :customerId', { customerId })
-            .andWhere('deletedAt IS NOT NULL')
-            .execute(),
-
-          // TODO: Add payment deletion when Payment entity is available
         ]);
 
         // Log audit trail for permanent delete
@@ -782,34 +677,12 @@ export class CustomerService extends BaseCrudService<
 
     // Check for active references with comprehensive dependency checking
     // Only check for non-soft-deleted records since soft-deleted records can coexist
-    const [orderCount, invoiceCount] = await Promise.all([
-      this.salesOrderRepository.count({
-        where: { customerId: id },
-        // Don't count soft-deleted orders
-        withDeleted: false
-      }),
-      this.invoiceRepository.count({
-        where: { customerId: id },
-        // Don't count soft-deleted invoices
-        withDeleted: false
-      }),
-    ]);
+    const orderCount = await this.salesOrderRepository.count({
+      where: { customerId: id },
+      withDeleted: false,
+    });
 
-    // Payment count check temporarily disabled (Payment entity not available)
-    const paymentCount = 0;
-
-    const dependencies = [
-      { name: 'order', count: orderCount },
-      { name: 'invoice', count: invoiceCount },
-      { name: 'payment', count: paymentCount },
-    ];
-
-    const activeDependencies = dependencies.filter(dep => dep.count > 0);
-    if (activeDependencies.length > 0) {
-      const dependencyDetails = activeDependencies.map(dep =>
-        `${dep.count} active ${dep.name}${dep.count > 1 ? 's' : ''}`
-      ).join(', ');
-
+    if (orderCount > 0) {
       const errorResponse = {
         message: `Cannot permanently delete customer '${customer.name}' due to active business relationships`,
         error: 'PERMANENT_DELETE_PREVENTED_BY_DEPENDENCIES',
@@ -817,16 +690,12 @@ export class CustomerService extends BaseCrudService<
         customerId: customer.id,
         dependencies: {
           orders: orderCount,
-          invoices: invoiceCount,
-          payments: paymentCount
         },
-        details: `Customer '${customer.name}' (${customer.id}) has ${dependencyDetails}. Permanent deletion is blocked to preserve financial audit trails and data integrity.`,
+        details: `Customer '${customer.name}' (${customer.id}) has ${orderCount} active order${orderCount > 1 ? 's' : ''}. Permanent deletion is blocked to preserve financial audit trails and data integrity.`,
         suggestions: [
           'Complete and archive all pending orders first',
-          'Ensure all invoices are fully paid and closed',
-          'Remove any payment references or reassign to other customers',
-          'Consider using soft delete instead if you need to hide the customer'
-        ]
+          'Consider using soft delete instead if you need to hide the customer',
+        ],
       };
 
       // Use BadRequestException with the full error object
@@ -862,16 +731,6 @@ export class CustomerService extends BaseCrudService<
         .where('customerId = :customerId', { customerId: id })
         .andWhere('deletedAt IS NOT NULL')
         .execute(),
-
-      // Delete soft-deleted invoices
-      this.invoiceRepository
-        .createQueryBuilder()
-        .delete()
-        .where('customerId = :customerId', { customerId: id })
-        .andWhere('deletedAt IS NOT NULL')
-        .execute(),
-
-      // TODO: Add payment deletion when Payment entity is available
     ]);
 
     // Log audit trail for permanent delete

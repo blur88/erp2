@@ -43,7 +43,6 @@ export class PrintSettingsService {
         reportPerPageFooter: '',
         reportEndOfDocFooter: '',
         salesOrderTemplate: this.getDefaultTemplate('Sales Order'),
-        invoiceTemplate: this.getDefaultTemplate('Invoice'),
         paymentReceiptTemplate: this.getDefaultTemplate('Payment Receipt'),
         purchaseOrderTemplate: this.getDefaultTemplate('Purchase Order'),
         grnTemplate: this.getDefaultTemplate('Goods Received Note'),

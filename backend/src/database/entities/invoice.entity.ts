@@ -147,7 +147,7 @@ export class Invoice extends BaseEntity {
   salesOrderId?: string;
 
   // Relationships
-  @ManyToOne(() => Customer, (customer) => customer.invoices, {
+  @ManyToOne(() => Customer, {
     onDelete: 'RESTRICT',
     eager: true,
   })

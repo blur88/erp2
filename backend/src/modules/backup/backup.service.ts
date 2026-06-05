@@ -498,7 +498,6 @@ export class BackupService implements OnModuleDestroy {
       reportPerPageFooter: settings.reportPerPageFooter,
       reportEndOfDocFooter: settings.reportEndOfDocFooter,
       salesOrderTemplate: settings.salesOrderTemplate,
-      invoiceTemplate: settings.invoiceTemplate,
       paymentReceiptTemplate: settings.paymentReceiptTemplate,
       purchaseOrderTemplate: settings.purchaseOrderTemplate,
       grnTemplate: settings.grnTemplate,

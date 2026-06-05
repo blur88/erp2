@@ -24,7 +24,6 @@ import { OwnerEquityTransaction } from '../../../database/entities/owner-equity-
 import { FundTransfer } from '../../../database/entities/fund-transfer.entity';
 import { Settlement } from '../../../database/entities/settlement.entity';
 import { StockAdjustment } from '../../../database/entities/stock-adjustment.entity';
-import { Invoice } from '../../../database/entities/invoice.entity';
 import {
   CreateJournalEntryDto,
   UpdateJournalEntryDto,
@@ -84,8 +83,6 @@ export class JournalEntryService {
     private readonly settlementRepository: Repository<Settlement>,
     @InjectRepository(StockAdjustment)
     private readonly stockAdjustmentRepository: Repository<StockAdjustment>,
-    @InjectRepository(Invoice)
-    private readonly invoiceRepository: Repository<Invoice>,
     private readonly chartOfAccountsService: ChartOfAccountsService,
     private readonly fiscalPeriodService: FiscalPeriodService,
     private readonly settingsService: SettingsService,
@@ -972,16 +969,6 @@ export class JournalEntryService {
             }
             break;
           }
-          case 'invoice': {
-            const records = await this.invoiceRepository.find({
-              where: { id: In(ids) },
-              select: { id: true, invoiceNumber: true },
-            });
-            for (const record of records) {
-              refMap.set(`invoice:${record.id}`, record.invoiceNumber);
-            }
-            break;
-          }
           default:
             break;
         }
@@ -1071,13 +1058,6 @@ export class JournalEntryService {
             select: { id: true, adjustmentNumber: true },
           });
           return record?.adjustmentNumber;
-        }
-        case 'invoice': {
-          const record = await this.invoiceRepository.findOne({
-            where: { id: sourceId },
-            select: { id: true, invoiceNumber: true },
-          });
-          return record?.invoiceNumber;
         }
         // settlement: no dedicated list page, source navigation not supported
         // opening_balance: synthetic entry with no source entity UUID

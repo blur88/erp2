@@ -10,7 +10,6 @@ import { CompanySettings } from '../../database/entities/company-settings.entity
 import { RegionalSettings } from '../../database/entities/regional-settings.entity';
 import { DocumentNumberSetting } from '../../database/entities/document-number-settings.entity';
 import { SalesOrder } from '../../database/entities/sales-order.entity';
-import { Invoice } from '../../database/entities/invoice.entity';
 import { Payment } from '../../database/entities/payment.entity';
 import { PurchaseOrder } from '../../database/entities/purchase-order.entity';
 import { GoodsReceivedNote } from '../../database/entities/goods-received-note.entity';
@@ -50,8 +49,6 @@ export class SettingsService {
     private documentNumberSettingRepository: Repository<DocumentNumberSetting>,
     @InjectRepository(SalesOrder)
     private salesOrderRepository: Repository<SalesOrder>,
-    @InjectRepository(Invoice)
-    private invoiceRepository: Repository<Invoice>,
     @InjectRepository(Payment)
     private paymentRepository: Repository<Payment>,
     @InjectRepository(PurchaseOrder)
@@ -485,7 +482,6 @@ export class SettingsService {
     const currentYY = new Date().getFullYear() % 100;
     const defaults = [
       { documentName: 'Sales Orders', prefix: 'SO' },
-      { documentName: 'Invoices', prefix: 'INV' },
       { documentName: 'Payments', prefix: 'PAY' },
       { documentName: 'Purchase Orders', prefix: 'PO' },
       { documentName: 'Goods Received', prefix: 'GRN' },
@@ -543,17 +539,6 @@ export class SettingsService {
                 .limit(1)
                 .getOne();
               if (r?.orderNumber) maxNumber = parseInt(r.orderNumber.split('-')[2], 10) || 0;
-              break;
-            }
-            case 'Invoices': {
-              const r = await this.invoiceRepository
-                .createQueryBuilder('inv')
-                .select('inv.invoiceNumber')
-                .where('inv.invoiceNumber LIKE :p', { p: pattern(row.prefix) })
-                .orderBy('inv.invoiceNumber', 'DESC')
-                .limit(1)
-                .getOne();
-              if (r?.invoiceNumber) maxNumber = parseInt(r.invoiceNumber.split('-')[2], 10) || 0;
               break;
             }
             case 'Payments': {
