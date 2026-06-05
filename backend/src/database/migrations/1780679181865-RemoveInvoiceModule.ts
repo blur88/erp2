@@ -4,6 +4,14 @@ export class RemoveInvoiceModule1780679181865 implements MigrationInterface {
   name = "RemoveInvoiceModule1780679181865";
 
   public async up(queryRunner: QueryRunner): Promise<void> {
+    // 0. Add new columns (added by entity changes, but must exist before backfill).
+    await queryRunner.query(
+      `ALTER TABLE "payments" ADD COLUMN IF NOT EXISTS "salesOrderId" uuid`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "sales_orders" ADD COLUMN IF NOT EXISTS "fulfilledAt" timestamp`,
+    );
+
     // 1. Backfill payment.salesOrderId from invoice link.
     await queryRunner.query(`
       UPDATE "payments" p
