@@ -6,7 +6,6 @@ import { ProductService } from '../inventory/services/product.service';
 import { SupplierService } from '../purchasing/services/supplier.service';
 import { VendorPaymentService } from '../purchasing/services/vendor-payment.service';
 import { SalesOrderService } from '../sales/services/sales-order.service';
-import { InvoiceService } from '../sales/services/invoice.service';
 import { PaymentService } from '../sales/services/payment.service';
 import { PurchaseOrderService } from '../purchasing/services/purchase-order.service';
 import { SearchAnalyticsService } from './search-analytics.service';
@@ -21,7 +20,6 @@ describe('SearchService', () => {
   let salesOrderService: jest.Mocked<Pick<SalesOrderService, 'searchGlobal'>>;
   let purchaseOrderService: jest.Mocked<Pick<PurchaseOrderService, 'searchGlobal'>>;
   let supplierService: jest.Mocked<Pick<SupplierService, 'searchGlobal'>>;
-  let invoiceService: jest.Mocked<Pick<InvoiceService, 'searchGlobal'>>;
   let paymentService: jest.Mocked<Pick<PaymentService, 'searchGlobal'>>;
   let vendorPaymentService: jest.Mocked<
     Pick<VendorPaymentService, 'searchGlobal'>
@@ -66,10 +64,6 @@ describe('SearchService', () => {
           useValue: { searchGlobal: jest.fn().mockResolvedValue([]) },
         },
         {
-          provide: InvoiceService,
-          useValue: { searchGlobal: jest.fn().mockResolvedValue([]) },
-        },
-        {
           provide: PaymentService,
           useValue: { searchGlobal: jest.fn().mockResolvedValue([]) },
         },
@@ -94,7 +88,6 @@ describe('SearchService', () => {
     salesOrderService = module.get(SalesOrderService);
     purchaseOrderService = module.get(PurchaseOrderService);
     supplierService = module.get(SupplierService);
-    invoiceService = module.get(InvoiceService);
     paymentService = module.get(PaymentService);
     vendorPaymentService = module.get(VendorPaymentService);
     journalEntryService = module.get(JournalEntryService);
@@ -109,7 +102,6 @@ describe('SearchService', () => {
     expect(salesOrderService.searchGlobal).toHaveBeenCalledWith('abc', mockUser);
     expect(purchaseOrderService.searchGlobal).toHaveBeenCalledWith('abc', mockUser);
     expect(supplierService.searchGlobal).toHaveBeenCalledWith('abc', mockUser);
-    expect(invoiceService.searchGlobal).toHaveBeenCalledWith('abc', mockUser);
     expect(paymentService.searchGlobal).toHaveBeenCalledWith('abc', mockUser);
     expect(vendorPaymentService.searchGlobal).toHaveBeenCalledWith(
       'abc',

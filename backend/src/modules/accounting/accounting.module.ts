@@ -20,7 +20,6 @@ import { PurchaseOrder } from '../../database/entities/purchase-order.entity';
 import { GoodsReceivedNote } from '../../database/entities/goods-received-note.entity';
 import { VendorPayment } from '../../database/entities/vendor-payment.entity';
 import { StockAdjustment } from '../../database/entities/stock-adjustment.entity';
-import { Invoice } from '../../database/entities/invoice.entity';
 
 // Services
 import { AccountingService } from './services/accounting.service';
@@ -72,7 +71,6 @@ import { AuditLogsModule } from '../audit-logs/audit-logs.module';
       GoodsReceivedNote,
       VendorPayment,
       StockAdjustment,
-      Invoice,
     ]),
     SettingsModule,
     AuditLogsModule,

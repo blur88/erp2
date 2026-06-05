@@ -19,7 +19,6 @@ import { BaseEntity } from './base.entity';
 import { Customer } from './customer.entity';
 import { SalesOrderItem } from './sales-order-item.entity';
 import { SalesOrderPayment } from './sales-order-payment.entity';
-import { Invoice } from './invoice.entity';
 import { Payment } from './payment.entity';
 
 export enum SalesOrderStatus {
@@ -129,12 +128,6 @@ export class SalesOrder extends BaseEntity {
     eager: false,
   })
   salesOrderPayments: SalesOrderPayment[];
-
-  @OneToMany(() => Invoice, (invoice) => invoice.salesOrder, {
-    cascade: false,
-    eager: false,
-  })
-  invoices: Invoice[];
 
   @OneToMany(() => Payment, (payment) => payment.salesOrder, {
     cascade: false,

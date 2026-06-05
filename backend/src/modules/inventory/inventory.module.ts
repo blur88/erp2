@@ -13,7 +13,6 @@ import { PriceListItem } from '../../database/entities/price-list-item.entity';
 import { Customer } from '../../database/entities/customer.entity';
 import { SalesOrder } from '../../database/entities/sales-order.entity';
 import { SalesOrderItem } from '../../database/entities/sales-order-item.entity';
-import { InvoiceItem } from '../../database/entities/invoice-item.entity';
 import { Supplier } from '../../database/entities/supplier.entity';
 import { PurchaseOrder } from '../../database/entities/purchase-order.entity';
 import { PurchaseOrderItem } from '../../database/entities/purchase-order-item.entity';
@@ -68,7 +67,6 @@ import { ExportModule } from '../../common/export.module';
       Customer,
       SalesOrder,
       SalesOrderItem,
-      InvoiceItem,
       Supplier,
       PurchaseOrder,
       PurchaseOrderItem,

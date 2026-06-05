@@ -4,7 +4,6 @@ import { Repository } from 'typeorm';
 import { CustomerService } from './customer.service';
 import { Customer, CustomerType } from '../../../database/entities/customer.entity';
 import { SalesOrder } from '../../../database/entities/sales-order.entity';
-import { Invoice } from '../../../database/entities/invoice.entity';
 import { AuditLogService } from '../../audit-logs/services';
 import { TransactionManager } from '../../../common/utils/transaction.util';
 import { UserRole } from '../../../database/entities/user.entity';
@@ -54,10 +53,6 @@ describe('CustomerService', () => {
         },
         {
           provide: getRepositoryToken(SalesOrder),
-          useValue: { createQueryBuilder: jest.fn() },
-        },
-        {
-          provide: getRepositoryToken(Invoice),
           useValue: { createQueryBuilder: jest.fn() },
         },
         {
@@ -402,9 +397,6 @@ describe('CustomerService', () => {
       const salesOrderRepository: jest.Mocked<Repository<SalesOrder>> = module.get(
         getRepositoryToken(SalesOrder),
       );
-      const invoiceRepository: jest.Mocked<Repository<Invoice>> = module.get(
-        getRepositoryToken(Invoice),
-      );
 
       const qb = {
         where: jest.fn().mockReturnThis(),
@@ -419,7 +411,6 @@ describe('CustomerService', () => {
         }),
       };
       salesOrderRepository.createQueryBuilder = jest.fn().mockReturnValue(qb);
-      invoiceRepository.count = jest.fn().mockResolvedValue(0);
 
       await service.getCustomerStatistics('c1');
 

@@ -6,7 +6,6 @@ import { PurchaseOrderService } from '../purchasing/services/purchase-order.serv
 import { SupplierService } from '../purchasing/services/supplier.service';
 import { VendorPaymentService } from '../purchasing/services/vendor-payment.service';
 import { CustomerService } from '../sales/services/customer.service';
-import { InvoiceService } from '../sales/services/invoice.service';
 import { PaymentService } from '../sales/services/payment.service';
 import { SalesOrderService } from '../sales/services/sales-order.service';
 import { UserRole } from '../../database/entities/user.entity';
@@ -52,7 +51,6 @@ const STATIC_PAGES: Array<{
   { label: 'Sales', keywords: ['sales', 'overview'], route: '/sales', roles: SALES_ROLES },
   { label: 'Customers', keywords: ['clients', 'buyers'], route: '/sales/customers', roles: SALES_ROLES },
   { label: 'Sales Orders', keywords: ['orders', 'so'], route: '/sales/orders', roles: SALES_ROLES },
-  { label: 'Invoices', keywords: ['billing', 'invoice'], route: '/sales/invoices', roles: SALES_ROLES },
   { label: 'Payments', keywords: ['receipts', 'payment'], route: '/sales/payments', roles: SALES_ROLES },
   {
     label: 'Purchasing',
@@ -396,7 +394,6 @@ export class SearchService {
     private readonly salesOrderService: SalesOrderService,
     private readonly purchaseOrderService: PurchaseOrderService,
     private readonly supplierService: SupplierService,
-    private readonly invoiceService: InvoiceService,
     private readonly paymentService: PaymentService,
     private readonly vendorPaymentService: VendorPaymentService,
     private readonly journalEntryService: JournalEntryService,
@@ -419,7 +416,6 @@ export class SearchService {
       salesOrders,
       purchaseOrders,
       suppliers,
-      invoices,
       customerPayments,
       vendorPayments,
       journalEntries,
@@ -442,9 +438,6 @@ export class SearchService {
       this.safeSearch('suppliers', () =>
         this.supplierService.searchGlobal(trimmed, user),
       ),
-      this.safeSearch('invoices', () =>
-        this.invoiceService.searchGlobal(trimmed, user),
-      ),
       this.safeSearch('customerPayments', () =>
         this.paymentService.searchGlobal(trimmed, user),
       ),
@@ -465,7 +458,6 @@ export class SearchService {
       ...salesOrders,
       ...purchaseOrders,
       ...suppliers,
-      ...invoices,
       ...customerPayments,
       ...vendorPayments,
       ...journalEntries,

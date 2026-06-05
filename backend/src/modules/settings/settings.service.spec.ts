@@ -39,7 +39,6 @@ describe('SettingsService', () => {
       {} as any,
       {} as any,
       {} as any,
-      {} as any, // dataSource
     );
 
     await service.syncDocumentNumbersWithDatabase();

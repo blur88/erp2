@@ -19,8 +19,6 @@ import { FiscalPeriod } from '../database/entities/fiscal-period.entity';
 import { FundTransfer } from '../database/entities/fund-transfer.entity';
 import { GoodsReceivedNote } from '../database/entities/goods-received-note.entity';
 import { GoodsReceivedNoteItem } from '../database/entities/goods-received-note-item.entity';
-import { Invoice } from '../database/entities/invoice.entity';
-import { InvoiceItem } from '../database/entities/invoice-item.entity';
 import { JournalEntry } from '../database/entities/journal-entry.entity';
 import { JournalEntryLine } from '../database/entities/journal-entry-line.entity';
 import { OwnerEquityTransaction } from '../database/entities/owner-equity-transaction.entity';
@@ -89,7 +87,7 @@ export function createDatabaseConfig(configService: ConfigService, allowDefaults
       AccountMapping, AuditLog, BackupLog, BackupSchedule, BackupRetentionSettings,
       BankReconciliation, Category, ChartOfAccount, CompanySettings, Customer,
       DocumentNumberSetting, Expense, FiscalPeriod, FundTransfer, GoodsReceivedNote, GoodsReceivedNoteItem,
-      Invoice, InvoiceItem, JournalEntry, JournalEntryLine, OwnerEquityTransaction,
+      JournalEntry, JournalEntryLine, OwnerEquityTransaction,
       Payment, PaymentMethodEntity, RegionalSettings, PriceList, PriceListItem,
       PrintSettings, Product, PurchaseCostHistory, PurchaseOrder, PurchaseOrderItem,
       ReconciledTransaction, RefreshToken, SalesOrder, SalesOrderItem, SalesOrderPayment, SearchClick, SearchQuery, Settlement,

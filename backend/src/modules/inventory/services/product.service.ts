@@ -25,7 +25,6 @@ import { PurchaseOrderItem } from '../../../database/entities/purchase-order-ite
 import { StockMovement, StockMovementType } from '../../../database/entities/stock-movement.entity';
 import { StockAdjustmentItem } from '../../../database/entities/stock-adjustment.entity';
 import { GoodsReceivedNoteItem } from '../../../database/entities/goods-received-note-item.entity';
-import { InvoiceItem } from '../../../database/entities/invoice-item.entity';
 import { PurchaseCostHistory } from '../../../database/entities/purchase-cost-history.entity';
 import {
   CreateProductDto,
@@ -85,8 +84,6 @@ export class ProductService extends BaseCrudService<
     private readonly stockAdjustmentItemRepository: Repository<StockAdjustmentItem>,
     @InjectRepository(GoodsReceivedNoteItem)
     private readonly goodsReceivedNoteItemRepository: Repository<GoodsReceivedNoteItem>,
-    @InjectRepository(InvoiceItem)
-    private readonly invoiceItemRepository: Repository<InvoiceItem>,
     @InjectRepository(PurchaseCostHistory)
     private readonly purchaseCostHistoryRepository: Repository<PurchaseCostHistory>,
     @Inject(forwardRef(() => CategoryService))
@@ -1069,14 +1066,6 @@ export class ProductService extends BaseCrudService<
     });
     if (goodsReceivedNoteItemCount > 0) {
       dependencies.push({ type: 'goods received note items', count: goodsReceivedNoteItemCount });
-    }
-
-    // Check invoice items
-    const invoiceItemCount = await this.invoiceItemRepository.count({
-      where: { productId }
-    });
-    if (invoiceItemCount > 0) {
-      dependencies.push({ type: 'invoice items', count: invoiceItemCount });
     }
 
     return {
