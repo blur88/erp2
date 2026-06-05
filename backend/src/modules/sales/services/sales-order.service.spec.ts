@@ -6,8 +6,6 @@ import { SalesOrder, SalesOrderPaymentStatus, SalesOrderStatus } from '../../../
 import { SalesOrderItem, DiscountType } from '../../../database/entities/sales-order-item.entity';
 import { Customer } from '../../../database/entities/customer.entity';
 import { Product } from '../../../database/entities/product.entity';
-import { Invoice } from '../../../database/entities/invoice.entity';
-import { InvoiceItem } from '../../../database/entities/invoice-item.entity';
 import { User } from '../../../database/entities/user.entity';
 import { PriceListItem } from '../../../database/entities/price-list-item.entity';
 import { InventoryIntegrationService } from './inventory-integration.service';
@@ -47,8 +45,6 @@ describe('SalesOrderService', () => {
         { provide: getRepositoryToken(SalesOrderItem), useValue: { save: jest.fn(), delete: jest.fn(), insert: jest.fn(), find: jest.fn() } },
         { provide: getRepositoryToken(Customer), useValue: { findOne: jest.fn() } },
         { provide: getRepositoryToken(Product), useValue: { findOne: jest.fn(), find: jest.fn() } },
-        { provide: getRepositoryToken(Invoice), useValue: { createQueryBuilder: jest.fn(), create: jest.fn(), save: jest.fn(), find: jest.fn() } },
-        { provide: getRepositoryToken(InvoiceItem), useValue: { insert: jest.fn(), delete: jest.fn() } },
         { provide: getRepositoryToken(User), useValue: {} },
         { provide: getRepositoryToken(PriceListItem), useValue: { findOne: jest.fn(), find: jest.fn() } },
         { provide: CustomerService, useValue: { updateCustomerMetrics: jest.fn() } },

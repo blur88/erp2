@@ -159,14 +159,13 @@ export class SalesAnalyticsReportService {
         .createQueryBuilder('item')
         .leftJoinAndSelect('item.salesOrder', 'order')
         .leftJoinAndSelect('order.customer', 'customer')
-        .leftJoin('order.invoices', 'invoice')
         .where('item.productId = :productId', { productId: product.id });
 
       if (query.dateFrom) {
-        salesItemsQuery.andWhere('invoice.invoiceDate >= :dateFrom', { dateFrom: query.dateFrom });
+        salesItemsQuery.andWhere('order.orderDate >= :dateFrom', { dateFrom: query.dateFrom });
       }
       if (query.dateTo) {
-        salesItemsQuery.andWhere('invoice.invoiceDate <= :dateTo', { dateTo: query.dateTo });
+        salesItemsQuery.andWhere('order.orderDate <= :dateTo', { dateTo: query.dateTo });
       }
 
       const salesItems = await salesItemsQuery
@@ -254,7 +253,7 @@ export class SalesAnalyticsReportService {
     // Get all sales orders with items and invoices for payment status
     const orders = await this.salesOrderRepository.find({
       where: orderWhere,
-      relations: { customer: true, items: { product: true }, invoices: { payments: true } },
+      relations: { customer: true, items: { product: true }, payments: true },
       order: { orderNumber: 'ASC' },
     });
 
@@ -275,13 +274,10 @@ export class SalesAnalyticsReportService {
 
       const grossProfit = totalRevenue - totalCost;
 
-      // Calculate payment status from invoices
-      const invoices = order.invoices || [];
-      const totalInvoiced = invoices.reduce((sum, inv) => sum + Number(inv.totalAmount || 0), 0);
-      const totalPaid = invoices.reduce((sum, inv) => {
-        const payments = inv.payments || [];
-        return sum + payments.reduce((pSum, p) => pSum + Number(p.amount || 0), 0);
-      }, 0);
+      // Calculate payment status from order payments
+      const totalInvoiced = Number(order.totalAmount || 0);
+      const payments = order.payments || [];
+      const totalPaid = payments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
 
       let paymentStatus = 'unpaid';
       if (totalPaid >= totalInvoiced && totalInvoiced > 0) {
@@ -344,7 +340,7 @@ export class SalesAnalyticsReportService {
     // Get all sales orders with invoices and payments
     const orders = await this.salesOrderRepository.find({
       where: orderWhere,
-      relations: { customer: true, invoices: { payments: true } },
+      relations: { customer: true, payments: true },
       order: { orderDate: 'DESC' },
     });
 
@@ -401,34 +397,30 @@ export class SalesAnalyticsReportService {
         customerData.lastOrderDate = orderDate;
       }
 
-      // Process invoices and payments
-      const invoices = order.invoices || [];
-      invoices.forEach((invoice) => {
-        customerData.totalInvoiced += Number(invoice.totalAmount || 0);
+      // Process payments
+      const orderPayments = order.payments || [];
+      customerData.totalInvoiced += Number(order.totalAmount || 0);
+      orderPayments.forEach((payment) => {
+        const paymentAmount = Number(payment.amount || 0);
+        customerData.totalPaid += paymentAmount;
+        customerData.totalPayments += paymentAmount;
+        customerData.paymentCount += 1;
 
-        const payments = invoice.payments || [];
-        payments.forEach((payment) => {
-          const paymentAmount = Number(payment.amount || 0);
-          customerData.totalPaid += paymentAmount;
-          customerData.totalPayments += paymentAmount;
-          customerData.paymentCount += 1;
+        const paymentDate = new Date(payment.paymentDate);
 
-          const paymentDate = new Date(payment.paymentDate);
-
-          // Track date ranges
-          if (!customerData.lastPaymentDate || paymentDate > customerData.lastPaymentDate) {
-            customerData.lastPaymentDate = paymentDate;
-          }
-          if (!customerData.firstPaymentDate || paymentDate < customerData.firstPaymentDate) {
-            customerData.firstPaymentDate = paymentDate;
-          }
-        });
-
-        // Count invoices that have payments
-        if (payments.length > 0) {
-          customerData.invoicesPaid += 1;
+        // Track date ranges
+        if (!customerData.lastPaymentDate || paymentDate > customerData.lastPaymentDate) {
+          customerData.lastPaymentDate = paymentDate;
+        }
+        if (!customerData.firstPaymentDate || paymentDate < customerData.firstPaymentDate) {
+          customerData.firstPaymentDate = paymentDate;
         }
       });
+
+      // Count orders that have payments
+      if (orderPayments.length > 0) {
+        customerData.invoicesPaid += 1;
+      }
     });
 
     // Calculate payment status and averages for each customer
@@ -491,7 +483,7 @@ export class SalesAnalyticsReportService {
     // Get all sales orders with invoices and payments
     const orders = await this.salesOrderRepository.find({
       where: orderWhere,
-      relations: { customer: true, invoices: { payments: true } },
+      relations: { customer: true, payments: true },
       order: { orderNumber: 'ASC' },
     });
 
@@ -499,47 +491,43 @@ export class SalesAnalyticsReportService {
     const paymentByOrderData: any[] = [];
 
     orders.forEach((order) => {
-      const invoices = order.invoices || [];
+      const orderPayments = order.payments || [];
 
-      invoices.forEach((invoice) => {
-        const payments = invoice.payments || [];
+      // Calculate payment totals for this order
+      const totalPaid = orderPayments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
+      const totalAmount = Number(order.totalAmount || 0);
+      const balance = totalAmount - totalPaid;
 
-        // Calculate payment totals for this invoice
-        const totalPaid = payments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
-        const totalAmount = Number(invoice.totalAmount || 0);
-        const balance = totalAmount - totalPaid;
+      // Determine payment status
+      let paymentStatus = 'unpaid';
+      if (totalPaid >= totalAmount && totalAmount > 0) {
+        paymentStatus = totalPaid > totalAmount ? 'overpaid' : 'paid';
+      } else if (totalPaid > 0) {
+        paymentStatus = 'partial';
+      }
 
-        // Determine payment status
-        let paymentStatus = 'unpaid';
-        if (totalPaid >= totalAmount && totalAmount > 0) {
-          paymentStatus = totalPaid > totalAmount ? 'overpaid' : 'paid';
-        } else if (totalPaid > 0) {
-          paymentStatus = 'partial';
-        }
+      // Find last payment date for this order
+      let lastPaymentDate: Date | null = null;
+      if (orderPayments.length > 0) {
+        lastPaymentDate = orderPayments.reduce((latest, p) => {
+          const pDate = new Date(p.paymentDate);
+          return !latest || pDate > latest ? pDate : latest;
+        }, null as Date | null);
+      }
 
-        // Find last payment date for this invoice
-        let lastPaymentDate: Date | null = null;
-        if (payments.length > 0) {
-          lastPaymentDate = payments.reduce((latest, p) => {
-            const pDate = new Date(p.paymentDate);
-            return !latest || pDate > latest ? pDate : latest;
-          }, null as Date | null);
-        }
-
-        paymentByOrderData.push({
-          customerId: order.customer?.id || '',
-          customerName: order.customer?.name || 'Unknown',
-          orderNumber: order.orderNumber,
-          orderDate: order.orderDate,
-          invoiceNumber: invoice.invoiceNumber,
-          invoiceDate: invoice.invoiceDate,
-          inventoryStatus: order.isFulfilled ? 'fulfilled' : 'unfulfilled',
-          totalAmount,
-          paidAmount: totalPaid,
-          balance,
-          paymentStatus,
-          lastPaymentDate,
-        });
+      paymentByOrderData.push({
+        customerId: order.customer?.id || '',
+        customerName: order.customer?.name || 'Unknown',
+        orderNumber: order.orderNumber,
+        orderDate: order.orderDate,
+        invoiceNumber: '',
+        invoiceDate: null,
+        inventoryStatus: order.isFulfilled ? 'fulfilled' : 'unfulfilled',
+        totalAmount,
+        paidAmount: totalPaid,
+        balance,
+        paymentStatus,
+        lastPaymentDate,
       });
     });
 
@@ -572,8 +560,7 @@ export class SalesAnalyticsReportService {
     // Build WHERE conditions for payments
     let paymentQuery = this.paymentRepository
       .createQueryBuilder('payment')
-      .leftJoinAndSelect('payment.invoice', 'invoice')
-      .leftJoinAndSelect('invoice.salesOrder', 'salesOrder')
+      .leftJoinAndSelect('payment.salesOrder', 'salesOrder')
       .leftJoinAndSelect('salesOrder.customer', 'customer');
 
     // Apply date range filter on payment date
@@ -607,21 +594,8 @@ export class SalesAnalyticsReportService {
 
     // Transform to payment details format
     const paymentDetailsData = payments.map((payment) => {
-      const invoice = payment.invoice;
-      const salesOrder = invoice?.salesOrder;
+      const salesOrder = payment.salesOrder;
       const customer = salesOrder?.customer;
-
-      // Calculate payment status for the invoice
-      const totalAmount = Number(invoice?.totalAmount || 0);
-      const paidAmount = Number(invoice?.paidAmount || 0);
-      const balance = totalAmount - paidAmount;
-
-      let paymentStatus = 'unpaid';
-      if (paidAmount >= totalAmount && totalAmount > 0) {
-        paymentStatus = paidAmount > totalAmount ? 'overpaid' : 'paid';
-      } else if (paidAmount > 0) {
-        paymentStatus = 'partial';
-      }
 
       return {
         paymentId: payment.id,
@@ -633,12 +607,12 @@ export class SalesAnalyticsReportService {
         customerName: customer?.name || 'Unknown',
         orderNumber: salesOrder?.orderNumber || '',
         orderDate: salesOrder?.orderDate || null,
-        invoiceNumber: invoice?.invoiceNumber || '',
-        invoiceDate: invoice?.invoiceDate || null,
-        invoiceTotal: totalAmount,
-        invoicePaid: paidAmount,
-        invoiceBalance: balance,
-        paymentStatus,
+        invoiceNumber: '',
+        invoiceDate: null,
+        invoiceTotal: 0,
+        invoicePaid: 0,
+        invoiceBalance: 0,
+        paymentStatus: 'paid',
         inventoryStatus: salesOrder?.isFulfilled ? 'fulfilled' : 'unfulfilled',
         notes: payment.notes || '',
       };
@@ -674,8 +648,7 @@ export class SalesAnalyticsReportService {
       .leftJoinAndSelect('salesOrder.items', 'items')
       .leftJoinAndSelect('items.product', 'product')
       .leftJoinAndSelect('product.category', 'category')
-      .leftJoinAndSelect('salesOrder.invoices', 'invoices')
-      .leftJoinAndSelect('invoices.payments', 'payments');
+      .leftJoinAndSelect('salesOrder.payments', 'payments');
 
     // Apply date range filter on order date
     if (query.dateFrom && query.dateTo) {
@@ -744,16 +717,13 @@ export class SalesAnalyticsReportService {
     uniqueOrders.forEach((order) => {
       const customer = order.customer;
       const items = order.items || [];
-      const invoices = order.invoices || [];
+      const paymentsData = order.payments || [];
 
       // Calculate total amount from items
       const totalAmount = items.reduce((sum, item) => sum + Number(item.totalAmount || 0), 0);
 
       // Calculate paid amount from all payments
-      const paidAmount = invoices.reduce((sum, invoice) => {
-        const payments = invoice.payments || [];
-        return sum + payments.reduce((pSum, payment) => pSum + Number(payment.amount || 0), 0);
-      }, 0);
+      const paidAmount = paymentsData.reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
 
       // Determine payment status
       let paymentStatus = 'unpaid';
@@ -821,8 +791,7 @@ export class SalesAnalyticsReportService {
       .leftJoinAndSelect('salesOrder.items', 'items')
       .leftJoinAndSelect('items.product', 'product')
       .leftJoinAndSelect('product.category', 'category')
-      .leftJoinAndSelect('salesOrder.invoices', 'invoices')
-      .leftJoinAndSelect('invoices.payments', 'payments');
+      .leftJoinAndSelect('salesOrder.payments', 'payments');
 
     // Apply date range filter on order date
     if (query.dateFrom && query.dateTo) {
@@ -884,16 +853,13 @@ export class SalesAnalyticsReportService {
     uniqueOrders.forEach((order) => {
       const customer = order.customer;
       const items = order.items || [];
-      const invoices = order.invoices || [];
+      const paymentsData = order.payments || [];
 
       // Calculate total amount from items
       const totalAmount = items.reduce((sum, item) => sum + Number(item.totalAmount || 0), 0);
 
       // Calculate paid amount from all payments
-      const paidAmount = invoices.reduce((sum, invoice) => {
-        const payments = invoice.payments || [];
-        return sum + payments.reduce((pSum, payment) => pSum + Number(payment.amount || 0), 0);
-      }, 0);
+      const paidAmount = paymentsData.reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
 
       // Determine payment status
       let paymentStatus = 'unpaid';

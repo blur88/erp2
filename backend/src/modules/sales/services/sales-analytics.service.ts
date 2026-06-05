@@ -2,8 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { addDays, addMonths, addWeeks, addYears, differenceInCalendarDays, format, getISOWeek, getISOWeekYear, subDays, subMonths, subYears } from 'date-fns';
 import { Repository, Between } from 'typeorm';
-import { SalesOrder } from '../../../database/entities/sales-order.entity';
-import { Invoice, InvoiceStatus } from '../../../database/entities/invoice.entity';
+import { SalesOrder, SalesOrderStatus } from '../../../database/entities/sales-order.entity';
 import { Payment, PaymentStatus } from '../../../database/entities/payment.entity';
 import { Customer } from '../../../database/entities/customer.entity';
 import { SalesOrderItem } from '../../../database/entities/sales-order-item.entity';
@@ -29,32 +28,11 @@ import { SalesAnalyticsReportService } from './sales-analytics-report.service';
 import { SettingsService } from '../../settings/settings.service';
 import { resolveDateRange } from '@/common/utils/date-range.util';
 
-function translatePaymentStatus(
-  status: 'unpaid' | 'partial' | 'paid' | 'overpaid',
-): InvoiceStatus {
-  switch (status) {
-    case 'unpaid':
-      return InvoiceStatus.DRAFT;
-    case 'partial':
-      return InvoiceStatus.PARTIAL_PAID;
-    case 'paid':
-    case 'overpaid':
-      return InvoiceStatus.PAID;
-  }
-}
-
-/** Returns true when the query requires the extra overpaid predicate (paidAmount > totalAmount). */
-function isOverpaidFilter(status: string | undefined): boolean {
-  return status === 'overpaid';
-}
-
 @Injectable()
 export class SalesAnalyticsService {
   constructor(
     @InjectRepository(SalesOrder)
     private readonly salesOrderRepository: Repository<SalesOrder>,
-    @InjectRepository(Invoice)
-    private readonly invoiceRepository: Repository<Invoice>,
     @InjectRepository(Payment)
     private readonly paymentRepository: Repository<Payment>,
     @InjectRepository(Customer)
@@ -189,33 +167,22 @@ export class SalesAnalyticsService {
       .where('order.customerId = :customerId', { customerId: query.customerId })
       .andWhere('order.orderDate BETWEEN :startDate AND :endDate', { startDate, endDate });
 
-    const [orderStats, paymentStats] = await Promise.all([
-      ordersQuery
-        .select([
-          'COUNT(*) as "totalOrders"',
-          'COALESCE(SUM(order.totalAmount), 0) as "totalRevenue"',
-          'COALESCE(AVG(order.totalAmount), 0) as "averageOrderValue"',
-          'MIN(order.orderDate) as "firstOrderDate"',
-          'MAX(order.orderDate) as "lastOrderDate"',
-        ])
-        .getRawOne(),
-      
-      this.paymentRepository
-        .createQueryBuilder('payment')
-        .where('payment.customerId = :customerId', { customerId: query.customerId })
-        .andWhere('payment.paymentDate BETWEEN :startDate AND :endDate', { startDate, endDate })
-        .andWhere('payment.status = :status', { status: PaymentStatus.COMPLETED })
-        .select('COALESCE(AVG(EXTRACT(DAY FROM (payment.paymentDate - invoice.invoiceDate))), 0)', 'avgPaymentDays')
-        .leftJoin('payment.invoice', 'invoice')
-        .getRawOne(),
-    ]);
+    const orderStats = await ordersQuery
+      .select([
+        'COUNT(*) as "totalOrders"',
+        'COALESCE(SUM(order.totalAmount), 0) as "totalRevenue"',
+        'COALESCE(AVG(order.totalAmount), 0) as "averageOrderValue"',
+        'MIN(order.orderDate) as "firstOrderDate"',
+        'MAX(order.orderDate) as "lastOrderDate"',
+      ])
+      .getRawOne();
 
-    const daysSinceLastOrder = customer.lastPurchaseDate 
+    const daysSinceLastOrder = customer.lastPurchaseDate
       ? Math.floor((Date.now() - customer.lastPurchaseDate.getTime()) / (1000 * 60 * 60 * 24))
       : 0;
 
-    // Calculate payment score based on payment history
-    const avgPaymentDays = parseFloat(paymentStats.avgPaymentDays) || 30;
+    // Calculate payment score based on payment history (default 30 days, removed invoice-based computation)
+    const avgPaymentDays = 30;
     const standardPaymentTerms = 30; // Default payment terms
     let paymentScore = 100;
     if (avgPaymentDays > standardPaymentTerms) {
@@ -252,23 +219,18 @@ export class SalesAnalyticsService {
       const previousEndDate = new Date(startDate.getTime() - 1);
 
       previousPeriodData = await this.getRevenueDataByPeriod(previousStartDate, previousEndDate, groupBy);
-      
-      const previousStats = await this.invoiceRepository
-        .createQueryBuilder('invoice')
-        .where('invoice.invoiceDate BETWEEN :startDate AND :endDate', {
-          startDate: previousStartDate,
-          endDate: previousEndDate,
-        })
-        // All invoice statuses are valid (no cancelled status anymore)
-        .select([
-          'COALESCE(SUM(invoice.paidAmount), 0) as "totalRevenue"',
-          'COUNT(*) as "totalOrders"',
-        ])
-        .getRawOne();
+
+      const previousStats = previousPeriodData.reduce(
+        (acc, item) => ({
+          totalRevenue: acc.totalRevenue + item.revenue,
+          totalOrders: acc.totalOrders + item.orders,
+        }),
+        { totalRevenue: 0, totalOrders: 0 },
+      );
 
       previousPeriodTotals = {
-        totalRevenue: parseFloat(previousStats.totalRevenue) || 0,
-        totalOrders: parseInt(previousStats.totalOrders) || 0,
+        totalRevenue: previousStats.totalRevenue,
+        totalOrders: previousStats.totalOrders,
       };
     }
 
@@ -350,13 +312,8 @@ export class SalesAnalyticsService {
       .createQueryBuilder('order')
       .where('order.orderDate BETWEEN :startDate AND :endDate', { startDate, endDate });
 
-    let invoiceQuery = this.invoiceRepository
-      .createQueryBuilder('invoice')
-      .where('invoice.invoiceDate BETWEEN :startDate AND :endDate', { startDate, endDate });
-
     if (query?.customerId) {
       orderQuery = orderQuery.andWhere('order.customerId = :customerId', { customerId: query.customerId });
-      invoiceQuery = invoiceQuery.andWhere('invoice.customerId = :customerId', { customerId: query.customerId });
     }
 
     if (query?.salesRepId) {
@@ -369,17 +326,7 @@ export class SalesAnalyticsService {
       });
     }
 
-    if (query?.paymentStatus) {
-      const invoiceStatus = translatePaymentStatus(query.paymentStatus);
-      invoiceQuery = invoiceQuery.andWhere('invoice.status = :paymentStatus', {
-        paymentStatus: invoiceStatus,
-      });
-      if (isOverpaidFilter(query.paymentStatus)) {
-        invoiceQuery = invoiceQuery.andWhere('invoice.paidAmount > invoice.totalAmount');
-      }
-    }
-
-    const [orderStats, invoiceStats, customerStats, paymentStats] = await Promise.all([
+    const [orderStats, fulfilledStats, customerStats, paymentStats] = await Promise.all([
       // Order statistics (status column removed, using fulfillment status)
       orderQuery
         .select([
@@ -392,18 +339,17 @@ export class SalesAnalyticsService {
         ])
         .getRawOne(),
 
-      // Invoice statistics
-      invoiceQuery
+      // Fulfilled order statistics (replaces old invoice-based revenue)
+      this.salesOrderRepository
+        .createQueryBuilder('order')
+        .where('order.orderDate BETWEEN :startDate AND :endDate', { startDate, endDate })
+        .andWhere('order.status = :status', { status: SalesOrderStatus.FULFILLED })
         .select([
-          'COALESCE(SUM(CASE WHEN invoice.status = :paid THEN invoice.totalAmount ELSE 0 END), 0) as "paidInvoicesAmount"',
-          'COALESCE(SUM(CASE WHEN invoice.status IN (:...pending) THEN invoice.balanceDue ELSE 0 END), 0) as "pendingInvoicesAmount"',
-          // Overdue calculation removed as it depends on dueDate
+          'COALESCE(SUM(order.totalAmount + order.shippingAmount), 0) as "paidInvoicesAmount"',
+          'COALESCE(SUM(CASE WHEN order.status = :status2 THEN order.balanceDue ELSE 0 END), 0) as "pendingInvoicesAmount"',
           '0 as "overdueInvoicesAmount"',
         ])
-        .setParameters({
-          paid: InvoiceStatus.PAID,
-          pending: [InvoiceStatus.DRAFT, InvoiceStatus.PARTIAL_PAID],
-        })
+        .setParameter('status2', SalesOrderStatus.FULFILLED)
         .getRawOne(),
 
       // New customers in period
@@ -421,8 +367,8 @@ export class SalesAnalyticsService {
     ]);
 
     // Calculate conversion rate based on completed orders vs total orders
-    const conversionRate = parseInt(orderStats.totalOrders) > 0 
-      ? (parseInt(orderStats.completedOrders) / parseInt(orderStats.totalOrders)) * 100 
+    const conversionRate = parseInt(orderStats.totalOrders) > 0
+      ? (parseInt(orderStats.completedOrders) / parseInt(orderStats.totalOrders)) * 100
       : 0;
 
     return {
@@ -431,9 +377,9 @@ export class SalesAnalyticsService {
       newCustomers: customerStats || 0,
       averageOrderValue: parseFloat(orderStats.averageOrderValue) || 0,
       conversionRate,
-      paidInvoicesAmount: parseFloat(invoiceStats.paidInvoicesAmount) || 0,
-      pendingInvoicesAmount: parseFloat(invoiceStats.pendingInvoicesAmount) || 0,
-      overdueInvoicesAmount: parseFloat(invoiceStats.overdueInvoicesAmount) || 0,
+      paidInvoicesAmount: parseFloat(fulfilledStats.paidInvoicesAmount) || 0,
+      pendingInvoicesAmount: parseFloat(fulfilledStats.pendingInvoicesAmount) || 0,
+      overdueInvoicesAmount: parseFloat(fulfilledStats.overdueInvoicesAmount) || 0,
       completedOrders: parseInt(orderStats.completedOrders) || 0,
       confirmedOrders: parseInt(orderStats.confirmedOrders) || 0,
       draftOrders: parseInt(orderStats.draftOrders) || 0,
@@ -490,16 +436,6 @@ export class SalesAnalyticsService {
       periodQuery = periodQuery.andWhere('order.createdByUserId = :salesRepId', { salesRepId: query.salesRepId });
     }
 
-    if (query?.paymentStatus) {
-      const invoiceStatus = translatePaymentStatus(query.paymentStatus);
-      periodQuery = periodQuery
-        .leftJoin('order.invoices', 'invoice')
-        .andWhere('invoice.status = :paymentStatus', { paymentStatus: invoiceStatus });
-      if (isOverpaidFilter(query.paymentStatus)) {
-        periodQuery = periodQuery.andWhere('invoice.paidAmount > invoice.totalAmount');
-      }
-    }
-
     const data = await periodQuery
       .select([
         `TO_CHAR(order.orderDate, '${dateFormat}') as period`,
@@ -553,16 +489,6 @@ export class SalesAnalyticsService {
       });
     }
 
-    if (query?.paymentStatus) {
-      const invoiceStatus = translatePaymentStatus(query.paymentStatus);
-      topCustomersQuery = topCustomersQuery
-        .leftJoin('order.invoices', 'invoice')
-        .andWhere('invoice.status = :paymentStatus', { paymentStatus: invoiceStatus });
-      if (isOverpaidFilter(query.paymentStatus)) {
-        topCustomersQuery = topCustomersQuery.andWhere('invoice.paidAmount > invoice.totalAmount');
-      }
-    }
-
     if (query?.salesRepId) {
       topCustomersQuery = topCustomersQuery.andWhere('order.createdByUserId = :salesRepId', { salesRepId: query.salesRepId });
     }
@@ -611,16 +537,6 @@ export class SalesAnalyticsService {
       topProductsQuery = topProductsQuery.andWhere('order.isFulfilled = :isFulfilled', {
         isFulfilled: query.fulfillmentStatus === 'fulfilled',
       });
-    }
-
-    if (query?.paymentStatus) {
-      const invoiceStatus = translatePaymentStatus(query.paymentStatus);
-      topProductsQuery = topProductsQuery
-        .leftJoin('order.invoices', 'invoice')
-        .andWhere('invoice.status = :paymentStatus', { paymentStatus: invoiceStatus });
-      if (isOverpaidFilter(query.paymentStatus)) {
-        topProductsQuery = topProductsQuery.andWhere('invoice.paidAmount > invoice.totalAmount');
-      }
     }
 
     if (query?.customerId) {
@@ -678,17 +594,18 @@ export class SalesAnalyticsService {
         break;
     }
 
-    const data = await this.invoiceRepository
-      .createQueryBuilder('invoice')
-      .where('invoice.invoiceDate BETWEEN :startDate AND :endDate', { startDate, endDate })
+    const data = await this.salesOrderRepository
+      .createQueryBuilder('order')
+      .where('order.orderDate BETWEEN :startDate AND :endDate', { startDate, endDate })
+      .andWhere('order.status = :status', { status: SalesOrderStatus.FULFILLED })
       .select([
-        `TO_CHAR(invoice.invoiceDate, '${dateFormat}') as period`,
-        'COALESCE(SUM(invoice.paidAmount), 0) as revenue',
+        `TO_CHAR(order.orderDate, '${dateFormat}') as period`,
+        'COALESCE(SUM(order.totalAmount + order.shippingAmount), 0) as revenue',
         'COUNT(*) as orders',
-        'COALESCE(AVG(invoice.totalAmount), 0) as "averageOrderValue"',
+        'COALESCE(AVG(order.totalAmount + order.shippingAmount), 0) as "averageOrderValue"',
       ])
-      .groupBy(`TO_CHAR(invoice.invoiceDate, '${dateFormat}')`)
-      .orderBy(`TO_CHAR(invoice.invoiceDate, '${dateFormat}')`, 'ASC')
+      .groupBy(`TO_CHAR(order.orderDate, '${dateFormat}')`)
+      .orderBy(`TO_CHAR(order.orderDate, '${dateFormat}')`, 'ASC')
       .getRawMany();
 
     return data.map(item => ({

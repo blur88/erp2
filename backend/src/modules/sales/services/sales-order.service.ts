@@ -13,8 +13,6 @@ import { SalesOrderItem, DiscountType } from '../../../database/entities/sales-o
 import { SalesOrderPayment } from '../../../database/entities/sales-order-payment.entity';
 import { Customer } from '../../../database/entities/customer.entity';
 import { Product } from '../../../database/entities/product.entity';
-import { Invoice } from '../../../database/entities/invoice.entity';
-import { InvoiceItem } from '../../../database/entities/invoice-item.entity';
 import { User } from '../../../database/entities/user.entity';
 import { PriceListItem } from '../../../database/entities/price-list-item.entity';
 import {
@@ -67,10 +65,6 @@ export class SalesOrderService extends BaseCrudService<
     private readonly customerRepository: Repository<Customer>,
     @InjectRepository(Product)
     private readonly productRepository: Repository<Product>,
-    @InjectRepository(Invoice)
-    private readonly invoiceRepository: Repository<Invoice>,
-    @InjectRepository(InvoiceItem)
-    private readonly invoiceItemRepository: Repository<InvoiceItem>,
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
     @InjectRepository(PriceListItem)
@@ -134,38 +128,6 @@ export class SalesOrderService extends BaseCrudService<
       const newOrderNumber = `SO-${nextNumber.toString().padStart(6, '0')}`;
       console.log('[generateSequentialOrderNumber] Fallback order number:', newOrderNumber);
       return newOrderNumber;
-    }
-  }
-
-  private async generateInvoiceNumber(): Promise<string> {
-    // Use document number settings to generate invoice number
-    try {
-      const invoiceNumber = await this.settingsService.generateDocumentNumber('Invoices');
-      console.log('[generateInvoiceNumber] Generated invoice number:', invoiceNumber);
-      return invoiceNumber;
-    } catch (error) {
-      console.error('[generateInvoiceNumber] Error generating invoice number:', error.message);
-      // Fallback to legacy method
-      const lastInvoice = await this.invoiceRepository
-        .createQueryBuilder('invoice')
-        .withDeleted()
-        .select('invoice.invoiceNumber')
-        .where('invoice.invoiceNumber LIKE :prefix', { prefix: 'INV-%' })
-        .orderBy('invoice.invoiceNumber', 'DESC')
-        .limit(1)
-        .getOne();
-
-      let nextNumber = 1;
-      if (lastInvoice) {
-        const match = lastInvoice.invoiceNumber.match(/^INV-(\d+)$/);
-        if (match) {
-          nextNumber = parseInt(match[1]) + 1;
-        }
-      }
-
-      const newInvoiceNumber = `INV-${nextNumber.toString().padStart(6, '0')}`;
-      console.log('[generateInvoiceNumber] Fallback invoice number:', newInvoiceNumber);
-      return newInvoiceNumber;
     }
   }
 
@@ -272,84 +234,6 @@ export class SalesOrderService extends BaseCrudService<
         salesOrderId: savedOrder.id,
       }))
     );
-
-    // Automatically generate invoice when order is created
-    try {
-      // Reload order with customer relation to populate customerName for invoice
-      const orderWithCustomer = await this.salesOrderRepository.findOne({
-        where: { id: savedOrder.id },
-        relations: { customer: true, items: true }
-      });
-
-      if (!orderWithCustomer) {
-        throw new Error('Order not found after save');
-      }
-
-      if (!orderWithCustomer.customer) {
-        throw new Error('Customer information not found for invoice generation');
-      }
-
-      // Generate invoice number
-      const invoiceNumber = await this.generateInvoiceNumber();
-
-      // Create invoice using the fromSalesOrder factory method
-      const invoiceData = Invoice.fromSalesOrder(orderWithCustomer);
-      const invoice = this.invoiceRepository.create({
-        ...invoiceData,
-        invoiceNumber,
-      });
-
-      // lineItems removed from invoice model
-
-      // Calculate totals and set correct status
-      invoice.calculateTotals();
-      invoice.updateStatus();
-
-      await this.invoiceRepository.save(invoice);
-
-      // Log audit trail for invoice creation
-      await this.auditLogService.log(
-        'CREATE',
-        'Invoice',
-        `Created invoice: ${invoice.invoiceNumber} for sales order ${orderWithCustomer.orderNumber}`,
-          {
-            entityId: invoice.id,
-            userId: userId || 'system',
-            username,
-            newValues: {
-            invoiceNumber: invoice.invoiceNumber,
-            salesOrderId: orderWithCustomer.id,
-            customerId: orderWithCustomer.customerId,
-            totalAmount: invoice.totalAmount,
-            status: invoice.status,
-          },
-        }
-      );
-
-      // Copy sales order items to invoice items
-      if (orderWithCustomer.items && orderWithCustomer.items.length > 0) {
-        const invoiceItemsData = orderWithCustomer.items.map(soItem => ({
-          invoiceId: invoice.id,
-          lineNumber: soItem.lineNumber,
-          productId: soItem.productId,
-          quantity: Number(soItem.quantity),
-          unitPrice: Number(soItem.unitPrice),
-          discountType: soItem.discountType,
-          discountPercent: Number(soItem.discountPercent || 0),
-          discount: Number(soItem.discountAmount || 0),
-          totalAmount: Number(soItem.totalAmount),
-        }));
-
-        await this.invoiceItemRepository.insert(invoiceItemsData);
-        console.log(`✅ Copied ${invoiceItemsData.length} items to invoice ${invoice.invoiceNumber}`);
-      }
-
-      console.log(`✅ Auto-generated invoice ${invoice.invoiceNumber} for new order ${savedOrder.orderNumber}`);
-    } catch (error) {
-      console.error(`⚠️ Failed to auto-generate invoice for order ${savedOrder.orderNumber}:`, error.message);
-      console.error('Full error:', error); // Add full error logging for debugging
-      // Don't throw error - order creation should still succeed even if invoice creation fails
-    }
 
     // Log audit trail for create
     await this.auditLogService.log(
