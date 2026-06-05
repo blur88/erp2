@@ -15,8 +15,6 @@ describe('salesApiSlice', () => {
     expect(salesApiSlice.endpoints.confirmSalesOrder).toBeDefined()
     expect(salesApiSlice.endpoints.recordOrderPayments).toBeDefined()
     expect(salesApiSlice.endpoints.getDeletedSalesOrders).toBeDefined()
-    expect(salesApiSlice.endpoints.getInvoices).toBeDefined()
-    expect(salesApiSlice.endpoints.getDeletedInvoices).toBeDefined()
     expect(salesApiSlice.endpoints.getPayments).toBeDefined()
     expect(salesApiSlice.endpoints.getDeletedPayments).toBeDefined()
   })

@@ -189,13 +189,6 @@ describe('SearchModal', () => {
             score: 77,
           },
           {
-            type: 'invoice',
-            id: 'i1',
-            label: 'INV-001',
-            route: '/sales/invoices/i1',
-            score: 69,
-          },
-          {
             type: 'journal_entry',
             id: 'j1',
             label: 'JE-2026-001',
@@ -213,7 +206,6 @@ describe('SearchModal', () => {
     typeAndFlush('ac')
 
     expect(screen.getByText('Suppliers')).toBeInTheDocument()
-    expect(screen.getByText('Invoices')).toBeInTheDocument()
     expect(screen.getByText('Journal Entries')).toBeInTheDocument()
   })
 

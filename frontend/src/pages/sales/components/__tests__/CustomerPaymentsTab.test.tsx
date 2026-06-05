@@ -48,7 +48,6 @@ describe('CustomerPaymentsTab', () => {
         data: [{
           id: 'p1',
           paymentNumber: 'PAY-001',
-          invoice: { id: 'inv1', invoiceNumber: 'INV-001' },
           paymentDate: '2026-01-25',
           amount: 1000,
           paymentMethodEntity: { id: 'pm1', name: 'Cash', isActive: true },
@@ -63,7 +62,6 @@ describe('CustomerPaymentsTab', () => {
     })
     renderTab('c1')
     expect(screen.getByText('PAY-001')).toBeInTheDocument()
-    expect(screen.getByText('INV-001')).toBeInTheDocument()
     expect(screen.getByText('Cash')).toBeInTheDocument()
   })
 
